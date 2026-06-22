@@ -14,7 +14,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - This **CHANGELOG**.
 - **Stats page** (`stats.html`): fixed rendering (Heebo + emoji fonts, RTL charts, mobile
   table scroll, back-link → index.html) + interactive **time-period** & **region** filters.
+- **Employee-management page** (`js/src/17-staff.js`, gated to עידן + עמיחי): per-employee task
+  load + status breakdown, system-usage by actions (visits/edits/attendance), upcoming vacations,
+  progress bar, and leave-a-message (Supabase `messages` table) + unread popup on next login.
+- **`calendar` Edge Function** (`supabase/functions/calendar`): office-calendar read+add via a
+  Google service account — EMS-login-gated, least-privilege (single shared calendar, fixed id).
 ### Changed
+- **Calendar backend:** Apps Script → **Supabase service account** (Workspace blocks public
+  Apps Script web apps, so the org-owned script couldn't be reached from the public app).
 - **`ems-auth` Edge Function** hardened: reads `JWT_SECRET` **per-request** (not at module
   load, so a freshly-set secret is always picked up) and returns an **env diagnostic**
   (variable names + lengths, no values) instead of a cryptic 500 when the secret is missing.
