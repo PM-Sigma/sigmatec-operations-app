@@ -1,0 +1,5 @@
+# internal notes / reference — NOT for the public repo (contain test creds + internal ids)
+docs/claude-memory/
+*.env
+.env
+node_modules/
