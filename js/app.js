@@ -4211,15 +4211,13 @@
     setSection('grid-done',       c.done);
     setSection('grid-pending',    c.pending);
 
-    // Compact stat cards
-    const setVal = (selector, val) => {
-      const el = document.querySelector(selector + ' .stat-value');
-      if (el) el.textContent = val;
-    };
-    setVal('.stats-compact .stat.done',    c.done);
-    setVal('.stats-compact .stat.track',   c.priority);
-    setVal('.stats-compact .stat.dev',     c.newClient);
-    setVal('.stats-compact .stat.pending', c.pending);
+    // Filter-chip counts (replaced the old compact stat squares)
+    const setCnt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setCnt('cnt-all',        total);
+    setCnt('cnt-priority',   c.priority);
+    setCnt('cnt-done',       c.done);
+    setCnt('cnt-new_client', c.newClient);
+    setCnt('cnt-pending',    c.pending);
 
     // Overall progress = live / total
     const pct = Math.round((c.done / total) * 100);

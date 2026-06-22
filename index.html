@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqppbr6y">
+<link rel="stylesheet" href="css/app.css?v=mqppp6o4">
 </head>
 <body>
 <div class="container">
@@ -125,25 +125,6 @@
       </div>
     </div>
 
-    <div class="my-tasks-bar">
-      <label>📋 המשימות שלי:</label>
-      <select id="myTasksPerson">
-        <option value="">-- בחר אחראי --</option>
-        <option value="עידן">עידן</option>
-        <option value="עמיחי">עמיחי</option>
-        <option value="אביאם">אביאם</option>
-        <option value="ניתאי">ניתאי</option>
-        <option value="אבצן">אבצן</option>
-        <option value="מתניה">מתניה</option>
-        <option value="אליה">אליה</option>
-      </select>
-      <button class="my-tasks-btn" onclick="generateMyTasksReport('preview')">👁 הצג</button>
-      <button class="my-tasks-btn copy" onclick="generateMyTasksReport('copy')">📋 העתק</button>
-      <button class="my-tasks-btn email" onclick="generateMyTasksReport('email')">📧 מייל</button>
-      <button class="my-tasks-btn wa" onclick="generateMyTasksReport('whatsapp')">📱 וואטסאפ</button>
-      <button class="my-tasks-btn" style="background:#10b981;color:white;" onclick="openVisitsReportModal()">📍 דוח ביקורים</button>
-      <button class="my-tasks-btn" style="background:#8b5cf6;color:white;" onclick="openActivityModal()">📊 פעילות היום</button>
-    </div>
   </div>
 
   <div class="urgent-alert" id="urgentAlert" style="display:none;">
@@ -156,11 +137,11 @@
 
   <div class="filter-bar" style="position:relative;">
     <input type="text" class="search-input" id="searchInput" autocomplete="off" placeholder="🔍 חיפוש: קיבוץ · דרישה · הזמנה · ביקור · פריט" oninput="applyFilters(); doGlobalSearch(this.value)" onfocus="doGlobalSearch(this.value)" onkeydown="if(event.key==='Escape')closeGlobalSearch()">
-    <button class="filter-chip active" data-filter="all" onclick="setFilter('all', this)">הכל</button>
-    <button class="filter-chip" data-filter="priority" onclick="setFilter('priority', this)">🔴 עדיפות</button>
-    <button class="filter-chip" data-filter="done" onclick="setFilter('done', this)">✅ עלה לאוויר</button>
-    <button class="filter-chip" data-filter="new_client" onclick="setFilter('new_client', this)">🆕 חדשים</button>
-    <button class="filter-chip" data-filter="pending" onclick="setFilter('pending', this)">⬜ ממתינים</button>
+    <button class="filter-chip active" data-filter="all" onclick="setFilter('all', this)">הכל <span class="chip-count" id="cnt-all" style="opacity:.6;font-weight:700;">0</span></button>
+    <button class="filter-chip" data-filter="priority" onclick="setFilter('priority', this)">🔴 עדיפות <span class="chip-count" id="cnt-priority" style="opacity:.6;font-weight:700;">0</span></button>
+    <button class="filter-chip" data-filter="done" onclick="setFilter('done', this)">✅ עלה לאוויר <span class="chip-count" id="cnt-done" style="opacity:.6;font-weight:700;">0</span></button>
+    <button class="filter-chip" data-filter="new_client" onclick="setFilter('new_client', this)">🆕 חדשים <span class="chip-count" id="cnt-new_client" style="opacity:.6;font-weight:700;">0</span></button>
+    <button class="filter-chip" data-filter="pending" onclick="setFilter('pending', this)">⬜ ממתינים <span class="chip-count" id="cnt-pending" style="opacity:.6;font-weight:700;">0</span></button>
     <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
   </div>
 
@@ -191,20 +172,6 @@
     </div>
   </div>
 
-  <div class="stats stats-compact">
-    <div class="stat done" onclick="setFilter('done', document.querySelector('[data-filter=done]'))">
-      <span class="stat-icon">✅</span><span class="stat-value">22</span><span class="stat-label">עלה לאוויר</span>
-    </div>
-    <div class="stat track" onclick="setFilter('priority', document.querySelector('[data-filter=priority]'))">
-      <span class="stat-icon">🔴</span><span class="stat-value">14</span><span class="stat-label">בעדיפות</span>
-    </div>
-    <div class="stat dev" onclick="setFilter('new_client', document.querySelector('[data-filter=new_client]'))">
-      <span class="stat-icon">🆕</span><span class="stat-value">2</span><span class="stat-label">חדשים</span>
-    </div>
-    <div class="stat pending" onclick="setFilter('pending', document.querySelector('[data-filter=pending]'))">
-      <span class="stat-icon">⬜</span><span class="stat-value">13</span><span class="stat-label">ממתינים</span>
-    </div>
-  </div>
 
   <div class="section priority-section">
     <div class="section-header" onclick="toggleSection(this)">
@@ -602,6 +569,25 @@
 <div id="my-tasks-view" style="display:none;padding:16px 0;">
   <h2 style="margin:0 0 4px;color:var(--primary);">✅ המשימות שלי</h2>
   <div style="font-size:12px;color:var(--text-light);margin-bottom:14px;">משימות EMS שמוקצות לי או בקיבוצים שאני אחראי עליהם, ושורות מהסטטוס שמסתיימות ב־"- &lt;שמי&gt;".</div>
+  <div class="my-tasks-bar">
+    <label>📋 דוח משימות לפי אחראי:</label>
+    <select id="myTasksPerson">
+      <option value="">-- בחר אחראי --</option>
+      <option value="עידן">עידן</option>
+      <option value="עמיחי">עמיחי</option>
+      <option value="אביאם">אביאם</option>
+      <option value="ניתאי">ניתאי</option>
+      <option value="אבצן">אבצן</option>
+      <option value="מתניה">מתניה</option>
+      <option value="אליה">אליה</option>
+    </select>
+    <button class="my-tasks-btn" onclick="generateMyTasksReport('preview')">👁 הצג</button>
+    <button class="my-tasks-btn copy" onclick="generateMyTasksReport('copy')">📋 העתק</button>
+    <button class="my-tasks-btn email" onclick="generateMyTasksReport('email')">📧 מייל</button>
+    <button class="my-tasks-btn wa" onclick="generateMyTasksReport('whatsapp')">📱 וואטסאפ</button>
+    <button class="my-tasks-btn" style="background:#10b981;color:white;" onclick="openVisitsReportModal()">📍 דוח ביקורים</button>
+    <button class="my-tasks-btn" style="background:#8b5cf6;color:white;" onclick="openActivityModal()">📊 פעילות היום</button>
+  </div>
   <div id="myTasksList">טוען...</div>
 </div>
 
@@ -1267,7 +1253,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqppbr6y"></script>
+<script src="js/app.js?v=mqppp6o4"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

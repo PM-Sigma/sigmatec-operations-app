@@ -25,6 +25,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **`ems-auth` Edge Function** hardened: reads `JWT_SECRET` **per-request** (not at module
   load, so a freshly-set secret is always picked up) and returns an **env diagnostic**
   (variable names + lengths, no values) instead of a cryptic 500 when the secret is missing.
+- **Main page decluttered:** "My Tasks" bar moved into the **משימות** page; category **counts merged
+  onto the filter chips** (search bar) and the separate stat squares under "company tasks" removed.
+- **Stats:** removed the "סוג לקוח" (client-type) chart + wavering list (not tracked).
 ### Fixed
 - **Low-stock alert** meter label `מונה PM` → full name **`מונה PM135`** (+ precise `PM135` match
   so it can't accidentally bucket other meters).

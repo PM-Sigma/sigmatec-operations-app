@@ -182,10 +182,6 @@
     <!-- Engagement types -->
     <div class="row">
       <div class="card">
-        <h3>🤝 חלוקה לפי סוג לקוח</h3>
-        <div class="chart-wrap"><canvas id="engagementChart"></canvas></div>
-      </div>
-      <div class="card">
         <h3>📂 חלוקה לפי קטגוריית סטטוס</h3>
         <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
       </div>
@@ -206,10 +202,6 @@
       <div class="card">
         <h3>🏗️ חלוקה לפי שלב הקמה</h3>
         <div class="chart-wrap"><canvas id="stepChart"></canvas></div>
-      </div>
-      <div class="card">
-        <h3>🟡 לקוחות מתנדנדים</h3>
-        <div id="waveringList" style="font-size:13px;line-height:2;"></div>
       </div>
     </div>
 
@@ -492,17 +484,7 @@ function render(data) {
   document.getElementById('kpiProc').textContent = countProc;
   document.getElementById('kpiProcPct').textContent = `${countProc}/${countDone} מבאוויר`;
 
-  // ===== Engagement chart =====
-  const engagementCounts = { ongoing: 0, wavering: 0, new: 0, prospect: 0 };
-  tasks.forEach(t => {
-    const e = getEngagementType(t);
-    engagementCounts[e] = (engagementCounts[e] || 0) + 1;
-  });
-  drawChart('engagementChart', 'doughnut',
-    ['🟢 שוטף', '🟡 מתנדנד', '🔵 חדש', '⚪ פוטנציאלי'],
-    [engagementCounts.ongoing, engagementCounts.wavering, engagementCounts.new, engagementCounts.prospect],
-    ['#10b981', '#f59e0b', '#3b82f6', '#94a3b8']
-  );
+  // (engagement / "סוג לקוח" chart removed per request — not tracked)
 
   // ===== Category chart =====
   drawChart('categoryChart', 'doughnut',
@@ -554,16 +536,7 @@ function render(data) {
     '#10b981'
   );
 
-  // ===== Wavering list =====
-  const waveringList = document.getElementById('waveringList');
-  const wavering = tasks.filter(t => getEngagementType(t) === 'wavering');
-  if (wavering.length === 0) {
-    waveringList.innerHTML = '<em style="color:#64748b;">אין לקוחות שסומנו כמתנדנדים. סמן בעריכת כרטיס → "🤝 סוג לקוח" → "🟡 מתנדנד"</em>';
-  } else {
-    waveringList.innerHTML = wavering.map(t =>
-      `<div>• <strong>${t.name}</strong> (${t.region || '?'}) — ${t.status || '-'}</div>`
-    ).join('');
-  }
+  // (wavering-clients list removed per request — "סוג לקוח" not tracked)
 
   // ===== Owner table =====
   const ownerTable = document.getElementById('ownerTable');
