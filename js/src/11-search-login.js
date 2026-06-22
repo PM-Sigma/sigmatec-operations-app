@@ -167,6 +167,8 @@
     if (att) att.style.display = canSeeAttendance() ? '' : 'none';
     const ems = document.getElementById('navEms');   // EMS tasks — עידן/ניתאי/אביאם
     if (ems) ems.style.display = canUseEms() ? '' : 'none';
+    const staff = document.getElementById('navStaff');   // עידן + עמיחי only
+    if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
   }
   // עידן is always shown in the picker; clicking it is PIN-gated (see setLoggedInUser).
   function applyLoginRoleOptions() {

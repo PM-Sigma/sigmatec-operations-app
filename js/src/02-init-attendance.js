@@ -27,18 +27,21 @@
   function showPage(page) {
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
     if (page === 'ems' && !canUseEms()) page = 'kibbutz';               // EMS tasks — עידן/ניתאי/אביאם
+    if (page === 'staff' && typeof canManageStaff === 'function' && !canManageStaff()) page = 'kibbutz'; // עידן + עמיחי only
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
     document.getElementById('ems-view').style.display        = page === 'ems'        ? '' : 'none';
     document.getElementById('my-tasks-view').style.display   = page === 'mytasks'    ? '' : 'none';
     document.getElementById('calendar-view').style.display   = page === 'calendar'   ? '' : 'none';
+    var _sv = document.getElementById('staff-view'); if (_sv) _sv.style.display = page === 'staff' ? '' : 'none';
     document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
     if (page === 'ems')        renderEmsPage();
     if (page === 'mytasks')    renderMyTasks();
     if (page === 'calendar')   renderCompanyCalendar();
+    if (page === 'staff' && typeof renderStaff === 'function') renderStaff();
     const fab = document.getElementById('visitFab');
     if (fab) {
       fab.style.display = (page === 'kibbutz') ? '' : 'none';

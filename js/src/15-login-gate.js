@@ -62,6 +62,7 @@
       try { await sbBridge(); } catch (e) {}   // get the Supabase pass before loading data
       try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
       try { if (typeof refreshData === 'function') refreshData(); } catch (e) {}
+      try { if (typeof staffCheckMessages === 'function') { window._msgsChecked = false; staffCheckMessages(); } } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');
     }
     function storeToken(url, token) {

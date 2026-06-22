@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqph35k6">
+<link rel="stylesheet" href="css/app.css?v=mqpkhpwp">
 </head>
 <body>
 <div class="container">
@@ -32,6 +32,7 @@
     <button id="navEms" data-page="ems" onclick="showPage('ems')"><span class="nav-icon">📋</span><span class="nav-label">EMS</span></button>
     <button id="navMyTasks" data-page="mytasks" onclick="showPage('mytasks')"><span class="nav-icon">✅</span><span class="nav-label">משימות</span></button>
     <button id="navCalendar" data-page="calendar" onclick="showPage('calendar')"><span class="nav-icon">🗓️</span><span class="nav-label">יומן</span></button>
+    <button id="navStaff" data-page="staff" onclick="showPage('staff')" style="display:none;"><span class="nav-icon">👥</span><span class="nav-label">עובדים</span></button>
   </div>
 
   <!-- Floating action button: quick visit logging (kibbutz page only) -->
@@ -617,6 +618,12 @@
   <div id="calGrid" class="cal-grid"></div>
   <div id="calDayPanel"></div>
   <div id="calAgenda" style="margin-top:8px;"></div>
+</div>
+
+<div id="staff-view" style="display:none;padding:16px 0;">
+  <h2 style="margin:0 0 4px;color:var(--primary);">👥 ניהול עובדים</h2>
+  <div style="font-size:12px;color:var(--text-light);margin-bottom:14px;">תמונת מצב לכל עובד — עומס משימות, פעילות במערכת, חופשות קרובות, והשארת הודעה (תוצג לעובד בכניסה הבאה).</div>
+  <div id="staffContent">טוען...</div>
 </div>
 
 <!-- EMS Task Detail Modal (status change, comments, calendar) -->
@@ -1260,7 +1267,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqph35k6"></script>
+<script src="js/app.js?v=mqpkhpwp"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
