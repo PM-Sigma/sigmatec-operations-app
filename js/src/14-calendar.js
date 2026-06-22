@@ -642,6 +642,32 @@
   // Linked entities on an EMS task (e.g. meters). API may use camelCase or snake_case; ids may be a JSON string.
   function emsLinkIds(t){ var x = t && (t.linkedEntityIds || t.linked_entity_ids); if(!x) return []; if(typeof x==='string'){ try{ x=JSON.parse(x); }catch(e){ x=x.replace(/[\[\]"]/g,'').split(',').map(function(s){return s.trim();}).filter(Boolean); } } return Array.isArray(x)?x:[]; }
   function emsLinkLabel(type){ var m={meter:'מונים', site:'אתרים', consumer:'צרכנים', device:'מכשירים'}; return m[type] || type || 'ישויות'; }
+  // Resolve linked meters → number + a link to the EMS admin meter page. Cached. Needs a live EMS token (we have it after login).
+  var _emsMeterCache = {};
+  async function emsFetchMeter(id){
+    if (_emsMeterCache[id] !== undefined) return _emsMeterCache[id];
+    try { _emsMeterCache[id] = (await emsApi('/meters/' + id)) || null; }
+    catch(e){ _emsMeterCache[id] = null; }
+    return _emsMeterCache[id];
+  }
+  // Best-effort meter label across possible field names (confirm against a real /v1/meters/:id payload).
+  function emsMeterNumber(m, id){
+    if (!m) return id.slice(0,8) + '…';
+    return m.number || m.meterNumber || m.serialNumber || m.serial || m.code || m.barcode || m.name || (id.slice(0,8) + '…');
+  }
+  // After the detail renders: replace the "🔗 N מונים" box with real meter numbers + links.
+  async function emsEnrichMeters(t){
+    var box = document.getElementById('emsLinkedBox'); if (!box) return;
+    var type = t.linkType || t.link_type;
+    var ids = emsLinkIds(t);
+    if (!ids.length || type !== 'meter' || typeof isEmsConnected !== 'function' || !isEmsConnected()) return;
+    var base = 'https://sigmatec-ems.com/admin/meters/';
+    var chips = await Promise.all(ids.map(async function(id){
+      var num = emsMeterNumber(await emsFetchMeter(id), id);
+      return '<a href="' + base + id + '" target="_blank" rel="noopener" style="display:inline-block;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;padding:3px 9px;margin:2px;font-size:12px;text-decoration:none;color:#1e40af;">🔢 ' + emsEsc(String(num)) + ' ↗</a>';
+    }));
+    box.innerHTML = '<div style="font-size:12px;color:#1e40af;margin-bottom:4px;">🔗 מונים מקושרים (' + ids.length + '):</div>' + chips.join('');
+  }
 
   function renderEmsDetail(t) {
     window._emsCurrentTask = t;
@@ -661,7 +687,7 @@
       </div>
       ${t.description ? `<div style="font-size:13px;color:#334155;background:#f8fafc;padding:8px 10px;border-radius:6px;margin:8px 0;white-space:pre-wrap;">${emsEsc(t.description)}</div>` : ''}
       <div style="font-size:13px;color:#475569;line-height:1.9;">🏢 אתר: ${emsEsc(site)}<br>👤 אחראי: ${emsEsc(emsUserName(t.assignee))}<br>📅 יעד: ${due}</div>
-      ${(function(){var ids=emsLinkIds(t);return ids.length?'<div style="font-size:13px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 10px;margin:8px 0;">🔗 '+ids.length+' '+emsLinkLabel(t.linkType||t.link_type)+' משויכים למשימה</div>':'';})()}
+      ${(function(){var ids=emsLinkIds(t);return ids.length?'<div id="emsLinkedBox" style="font-size:13px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 10px;margin:8px 0;">🔗 '+ids.length+' '+emsLinkLabel(t.linkType||t.link_type)+' משויכים למשימה…</div>':'';})()}
       <div style="display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap;">
         <label style="margin:0;font-size:13px;font-weight:600;">סטטוס:</label>
         <select id="emsDetailStatus" onchange="changeEmsStatus('${t.id}', this.value)" style="flex:1;min-width:120px;">${statusOpts}</select>
@@ -675,6 +701,7 @@
         <input type="text" id="emsCommentInput" placeholder="כתוב תגובה..." style="flex:1;" onkeydown="if(event.key==='Enter')addEmsComment('${t.id}')">
         <button class="btn btn-primary" style="padding:8px 14px;" onclick="addEmsComment('${t.id}')">שלח</button>
       </div>`;
+    try { emsEnrichMeters(t); } catch (e) {}
   }
 
   async function changeEmsStatus(id, status) {
