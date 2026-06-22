@@ -4479,7 +4479,7 @@
   }
   // Aviam's attendance report is private — only Aviam (and Idan, who sees all) may open it.
   const ATT_PEOPLE = ['אביאם', 'ניתאי'];   // each has their OWN private monthly attendance report
-  function canSeeAttendance() { return isIdan() || ATT_PEOPLE.indexOf(getCurrentUser()) !== -1; }
+  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1; }   // עידן removed — logs in as them if ever needed
   // Whose attendance the report shows / a save writes: the field user themself; for עידן a toggle.
   function attPerson() { const u = getCurrentUser(); return ATT_PEOPLE.indexOf(u) !== -1 ? u : (window._attPerson || 'אביאם'); }
   function setAttPerson(p) { window._attPerson = p; renderAttendanceReport(); }
@@ -5933,7 +5933,12 @@
             try {
               var t = await fetch(SB_URL + '/rest/v1/tasks?select=name&limit=1', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + window._sbToken } });
               if (!t.ok) { console.warn('[bridge] pass rejected (' + t.status + ') — staying on anon'); window._sbToken = null; window._sbTokenExp = 0; }
-              else console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
+              else {
+                console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
+                // proactive re-mint before expiry → writes never silently fail post-lockdown (while the EMS session lives)
+                try { clearTimeout(window._sbRefreshTimer); } catch (e) {}
+                window._sbRefreshTimer = setTimeout(function () { if (window._sbBridge) window._sbBridge(); }, 50 * 60 * 1000);
+              }
             } catch (e) { window._sbToken = null; window._sbTokenExp = 0; }
             return !!window._sbToken;
           }
@@ -6190,13 +6195,16 @@
 
   // Login-time popup: show the current user their unread messages, once per session.
   async function staffCheckMessages() {
-    if (window._msgsChecked) return;
+    if (window._msgsChecked || window._msgsChecking) return;
+    window._msgsChecking = true;
+    try {
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     if (!me) return;
     let msgs;
     try { msgs = await staffFetchMessages(me, true); } catch (e) { return; }
     if (!msgs || !msgs.length) return;
     window._msgsChecked = true;
+    var _ex = document.getElementById('msgPopup'); if (_ex) _ex.remove();
     const ids = msgs.map(m => m.id);
     const ov = document.createElement('div');
     ov.id = 'msgPopup';
@@ -6210,6 +6218,7 @@
       <button class="inv-btn" style="margin-top:8px;width:100%;" onclick="document.getElementById('msgPopup').remove();staffMarkRead([${ids.join(',')}]);">קראתי, סגור</button>
     </div>`;
     document.body.appendChild(ov);
+    } finally { window._msgsChecking = false; }
   }
 
   window.staffSendMessageUI = staffSendMessageUI;

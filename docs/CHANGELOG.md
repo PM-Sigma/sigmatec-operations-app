@@ -28,12 +28,19 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 ### Fixed
 - **Low-stock alert** meter label `מונה PM` → full name **`מונה PM135`** (+ precise `PM135` match
   so it can't accidentally bucket other meters).
+- **Stats** period filter labeled "(ביקורים/חלוקה)" — it scopes the activity sections, not the
+  current-state task KPIs (was misleading; review finding).
+- **Staff messages** popup: in-flight guard + removes any existing popup → no double-popup race.
+- **Bridge token auto-refresh** (~50 min) so writes don't silently fail after the write-lockdown.
+- **Attendance** hidden from עידן (only אביאם/ניתאי see their own; עידן logs in as them if needed).
 ### Security (in progress — #4)
 - STEP 1 RLS applied; auth bridge ON (self-verifying, anon fallback).
 - `ems-auth` mints an `authenticated` token; `JWT_SECRET` set = the project **Legacy JWT Secret**.
 - **VERIFIED ✅:** mint→RLS returns 200 and the on-load bridge logs `🔒 Supabase pass active`.
-  NEXT: **STEP 2 write-lockdown** (anon read-only, auth-only writes) → full read-lockdown later
-  (after bridging `stats.html`) → rotate `service_role`.
+- **STEP 2 write-lockdown applied + verified** (anon write → 401; reads still work).
+- **Review/QA (2 agents)** done. **Pending your SQL:** drop anon-read on `messages` (private notes
+  are otherwise readable via the public key). Follow-ups: stronger EMS-token validation, per-user
+  message RLS, query-based lockdown, `ems-auth` CORS lock. Full read-lockdown + rotate `service_role` later.
 
 ## [2026-06-22] — Supabase migration · PWA · EMS login
 ### Added

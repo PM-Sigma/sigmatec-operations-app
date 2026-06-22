@@ -126,13 +126,16 @@
 
   // Login-time popup: show the current user their unread messages, once per session.
   async function staffCheckMessages() {
-    if (window._msgsChecked) return;
+    if (window._msgsChecked || window._msgsChecking) return;
+    window._msgsChecking = true;
+    try {
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     if (!me) return;
     let msgs;
     try { msgs = await staffFetchMessages(me, true); } catch (e) { return; }
     if (!msgs || !msgs.length) return;
     window._msgsChecked = true;
+    var _ex = document.getElementById('msgPopup'); if (_ex) _ex.remove();
     const ids = msgs.map(m => m.id);
     const ov = document.createElement('div');
     ov.id = 'msgPopup';
@@ -146,6 +149,7 @@
       <button class="inv-btn" style="margin-top:8px;width:100%;" onclick="document.getElementById('msgPopup').remove();staffMarkRead([${ids.join(',')}]);">קראתי, סגור</button>
     </div>`;
     document.body.appendChild(ov);
+    } finally { window._msgsChecking = false; }
   }
 
   window.staffSendMessageUI = staffSendMessageUI;

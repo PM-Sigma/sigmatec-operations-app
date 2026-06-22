@@ -33,7 +33,12 @@
             try {
               var t = await fetch(SB_URL + '/rest/v1/tasks?select=name&limit=1', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + window._sbToken } });
               if (!t.ok) { console.warn('[bridge] pass rejected (' + t.status + ') — staying on anon'); window._sbToken = null; window._sbTokenExp = 0; }
-              else console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
+              else {
+                console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
+                // proactive re-mint before expiry → writes never silently fail post-lockdown (while the EMS session lives)
+                try { clearTimeout(window._sbRefreshTimer); } catch (e) {}
+                window._sbRefreshTimer = setTimeout(function () { if (window._sbBridge) window._sbBridge(); }, 50 * 60 * 1000);
+              }
             } catch (e) { window._sbToken = null; window._sbTokenExp = 0; }
             return !!window._sbToken;
           }

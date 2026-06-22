@@ -13,9 +13,10 @@ _Update this file as things move. Session-by-session history lives in claude-mem
 
 ## 🟡 Pending
 
-1. **#4 — bridge VERIFIED ✅** (JWT_SECRET = Legacy JWT Secret; mint→RLS 200; `🔒 pass active`).
-   NEXT: **STEP 2 write-lockdown** (anon read-only, auth-only writes). Then full read-lockdown
-   (after bridging `stats.html` + bridge-token auto-refresh), then rotate `service_role`.
+1. **#4 Security:** bridge ✅, STEP 2 write-lockdown ✅ (anon write blocked + verified). **NEXT — run SQL:**
+   `drop policy if exists anon_read on public.messages;` (private notes leak via public key). Then hardening
+   from the review (stronger EMS-token validation, per-user message RLS, query-based lockdown, `ems-auth`
+   CORS lock), full read-lockdown (after bridging `stats.html`), rotate `service_role` (E).
 2. **Calendar (service account):** finish GCP service-account setup → deploy `calendar` Edge
    Function → wire read+add UI (needs EMS up to test the token gate). *Apps Script path dropped —
    Workspace blocks public web apps.*
