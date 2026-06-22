@@ -4,11 +4,9 @@
 // The app sends its EMS token here right after login; the returned token is then used as the
 // Authorization bearer for all DB calls, so the public anon key alone can no longer pass RLS.
 //
-// Secrets to set on this function:  JWT_SECRET (Settings → API → JWT Secret),  EMS_API_BASE
+// Secret to set (Edge Functions → Secrets):  JWT_SECRET (Settings → JWT Keys → legacy secret).
+// Optional:  EMS_API_BASE (defaults to https://api.sigmatec-ems.com).
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
-
-const JWT_SECRET = Deno.env.get("JWT_SECRET")!;
-const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -18,9 +16,9 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-async function signingKey() {
+async function signingKey(secret: string) {
   return await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(JWT_SECRET),
+    "raw", new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"],
   );
 }
@@ -28,6 +26,22 @@ async function signingKey() {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
+
+  // Read secrets per-request (not at module load) so a fresh deploy/secret is always picked up.
+  const JWT_SECRET = Deno.env.get("JWT_SECRET") || Deno.env.get("EMS_BRIDGE_SECRET") || "";
+  const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
+
+  // Self-diagnostic: if the signing secret is missing/empty, report which env vars the function
+  // can actually see — NAMES + LENGTHS only, never the values. This tells us if the secret is
+  // simply not reaching the function vs. set to an empty value.
+  if (!JWT_SECRET) {
+    const names = ["JWT_SECRET", "EMS_BRIDGE_SECRET", "EMS_API_BASE",
+                   "SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"];
+    const env_lengths: Record<string, number> = {};
+    for (const n of names) { const v = Deno.env.get(n); env_lengths[n] = v ? v.length : 0; }
+    return json({ error: "JWT_SECRET not visible to function", env_lengths }, 500);
+  }
+
   try {
     const { emsToken } = await req.json().catch(() => ({}));
     if (!emsToken) return json({ error: "missing emsToken" }, 400);
@@ -49,7 +63,7 @@ Deno.serve(async (req) => {
     const token = await create(
       { alg: "HS256", typ: "JWT" },
       { role: "authenticated", aud: "authenticated", iss: "ems-bridge", sub, exp: getNumericDate(60 * 60) },
-      await signingKey(),
+      await signingKey(JWT_SECRET),
     );
     return json({ token });
   } catch (e) {
