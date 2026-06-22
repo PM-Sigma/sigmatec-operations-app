@@ -1,39 +1,63 @@
 /**
- * Sigmatec Operations — org backend (Apps Script · Option B)
- * ONE org-owned script that does: (1) EMS proxy (CORS bridge to the EMS API),
- * (2) the office calendar (read + add events on information@sigmatec-energy.com).
- * Replaces the legacy personal-Gmail script. App DATA lives in Supabase — not here.
+ * Sigmatec Operations — org backend (Apps Script · Option B, hardened)
+ * ONE org-owned script: (1) EMS proxy (CORS bridge), (2) office calendar (read + add).
+ * App DATA lives in Supabase — not here.
  *
- * DEPLOY (sign in as an @sigmatec-energy.com account that can access the calendar):
+ * SECURITY MODEL (why the public /exec URL is OK):
+ *   • Calendar read + add REQUIRE a valid EMS token, verified live against the EMS API.
+ *     Only a logged-in EMS user can read or add office-calendar events — same bar as the app.
+ *   • The EMS proxy uses the CALLER'S OWN EMS token and is domain-locked to *.sigmatec-ems.com
+ *     (no SSRF elsewhere). No token → EMS rejects.
+ *   • Runs as the deploying account → holds only Calendar + external-fetch scopes (not Gmail/Drive).
+ *
+ * DEPLOY (sign in as information@sigmatec-energy.com, which owns/has the calendar):
  *   1. script.google.com → New project → paste this.
- *   2. Set CALENDAR_ID below (the office Calendar ID, e.g. information@sigmatec-energy.com).
- *   3. Deploy → New deployment → type "Web app" → Execute as: Me · Who has access: Anyone.
- *   4. Run `authorizeOnce` once from the editor to grant Calendar + external-fetch permission.
- *   5. Send the agent the /exec URL → it repoints the app + wires the calendar UI.
+ *   2. Confirm CALENDAR_ID below.
+ *   3. Deploy → New deployment → Web app → Execute as: Me · Who has access: Anyone.
+ *   4. Run `authorizeOnce` once from the editor (grants Calendar + external-fetch).
+ *   5. Send the agent the /exec URL.
  */
 
-var CALENDAR_ID = 'information@sigmatec-energy.com';   // ← set to the office Calendar ID
+var CALENDAR_ID = 'information@sigmatec-energy.com';   // office calendar
+var EMS_BASE    = 'https://api.sigmatec-ems.com';      // for token validation
 
-// ── entry points ───────────────────────────────────────────────────────────
+// ── entry points ─────────────────────────────────────────────────────────────
 function doGet(e) {
-  // The app pulls office-calendar events from here (everything else is in Supabase).
-  try { return _json({ calendar: listCalendarEvents_(90) }); }
-  catch (err) { return _json({ calendar: [], error: String(err) }); }
+  // The URL is public, so doGet returns NO calendar data — health check only.
+  // The app reads the calendar via doPost {type:'calendarList', token} (token-gated).
+  return _json({ ok: true, service: 'sigmatec-ops-backend' });
 }
 
 function doPost(e) {
   var body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return _json({ error: 'invalid JSON' }); }
-  if (body.type === 'ems')          return emsProxy(body);
-  if (body.type === 'calendarAdd')  return calendarAdd(body);
-  if (body.type === 'calendarList') return _json({ calendar: listCalendarEvents_(body.days || 90) });
+  if (body.type === 'ems')          return emsProxy(body);                                   // caller's token + domain-locked
+  if (body.type === 'calendarList') return guarded_(body, function () { return _json({ calendar: listCalendarEvents_(body.days || 90) }); });
+  if (body.type === 'calendarAdd')  return guarded_(body, function () { return calendarAdd(body); });
   if (body.type === 'transcribe' || body.type === 'parseRequest') return _json({ error: body.type + ' is disabled' });
   return _json({ error: 'unknown type: ' + (body.type || '(none)') });
 }
 
-// ── EMS proxy (CORS bridge) — same logic as the legacy script ────────────────
+// ── auth: calendar ops require a live-valid EMS token ────────────────────────
+function guarded_(body, fn) {
+  if (!validateEmsToken_(body.token)) return _json({ error: 'unauthorized: valid EMS login required' });
+  return fn();
+}
+function validateEmsToken_(token) {
+  // ponytail: one extra EMS call per calendar op — fine for low-frequency calendar use; add a
+  // short-lived token cache here only if calendar reads ever get hot.
+  if (!token) return false;
+  try {
+    var resp = UrlFetchApp.fetch(EMS_BASE + '/v1/employee-tasks?take=1', {
+      method: 'get', muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + token }
+    });
+    return resp.getResponseCode() === 200;
+  } catch (err) { return false; }
+}
+
+// ── EMS proxy (CORS bridge) ──────────────────────────────────────────────────
 function emsProxy(body) {
-  var base = String(body.base || 'https://api.sigmatec-ems.com').replace(/\/+$/, '');
+  var base = String(body.base || EMS_BASE).replace(/\/+$/, '');
   var allowed = /^https?:\/\/([a-z0-9-]+\.)*sigmatec-ems\.com(:\d+)?(\/[^\s]*)?$/i.test(base) ||
                 /^https?:\/\/localhost(:\d+)?(\/[^\s]*)?$/i.test(base);
   if (!allowed) return _json({ error: 'EMS base URL not allowed: ' + base });
@@ -78,6 +102,6 @@ function calendarAdd(body) {
 }
 
 // Run once from the editor to grant Calendar + external-request permissions.
-function authorizeOnce() { listCalendarEvents_(1); UrlFetchApp.fetch('https://api.sigmatec-ems.com', { muteHttpExceptions: true }); }
+function authorizeOnce() { listCalendarEvents_(1); UrlFetchApp.fetch(EMS_BASE, { muteHttpExceptions: true }); }
 
 function _json(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
