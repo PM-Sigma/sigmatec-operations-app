@@ -67,6 +67,20 @@
 
   function _staffEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+  const STAFF_ROLES = {
+    'עידן':  { kind: 'ops',   title: 'מנהל מוצר ותפעול' },
+    'אביאם': { kind: 'field', title: 'ראש צוות שטח' },
+    'ניתאי': { kind: 'field', title: 'טכנאי שטח' },
+    'מתניה': { kind: 'dev',   title: 'מפתח (משרד)' }
+  };
+  // company-wide go-live pipeline — counts from the rendered card grids (the real categorization)
+  function staffPipeline() {
+    const g = id => { const el = document.getElementById(id); return el ? el.querySelectorAll('.kibbutz').length : 0; };
+    const live = g('grid-done'), priority = g('grid-priority'), pending = g('grid-pending'), nw = g('grid-new_client');
+    const total = live + priority + pending + nw;
+    return { live, priority, pending, new_client: nw, total, pctLive: total ? Math.round(live / total * 100) : 0 };
+  }
+
   async function renderStaff() {
     const el = document.getElementById('staffContent');
     if (!el) return;
@@ -80,27 +94,53 @@
       if (r.ok) (await r.json()).forEach(m => { if (!m.read_at) unreadByPerson[m.to_person] = (unreadByPerson[m.to_person] || 0) + 1; });
     } catch (e) { /* table may not exist yet */ }
 
+    const pipe = staffPipeline();
+
     el.innerHTML = STAFF_PEOPLE.map(p => {
+      const role = STAFF_ROLES[p] || { kind: 'field', title: '' };
       const s = staffStats(p);
+      const e = _staffEsc(p);
+      const ub = unreadByPerson[p] || 0;
       const vac = s.upcomingVac.length
         ? s.upcomingVac.slice(0, 3).map(v => (v.dayType === 'reserve' ? '🪖' : '🌴') + ' ' + new Date(v.date).toLocaleDateString('he-IL')).join(' · ')
         : '<span style="color:#94a3b8;">אין</span>';
-      const ub = unreadByPerson[p] || 0;
-      const e = _staffEsc(p);
-      return `<div class="card" style="margin-bottom:14px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <h3 style="margin:0;">👤 ${e} ${ub ? `<span class="badge priority">${ub} שלא נקראו</span>` : ''}</h3>
-          <div style="font-size:12px;color:#64748b;">התקדמות (באוויר): <strong>${s.progress}%</strong></div>
-        </div>
-        <div style="background:#e2e8f0;border-radius:6px;height:8px;overflow:hidden;margin-top:8px;"><div style="background:#10b981;height:100%;width:${s.progress}%;"></div></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px;font-size:13px;">
-          <div>📋 משימות: <strong>${s.total}</strong></div>
+
+      let body = '';
+      if (role.kind === 'ops') {
+        body = `
+        <div style="font-size:12px;color:#64748b;margin:4px 0 6px;">צנרת העלאה לאוויר — כל החברה</div>
+        <div style="background:#e2e8f0;border-radius:6px;height:10px;overflow:hidden;"><div style="background:#10b981;height:100%;width:${pipe.pctLive}%;"></div></div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">${pipe.live}/${pipe.total} עלו לאוויר (${pipe.pctLive}%)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px;font-size:13px;">
+          <div>✅ באוויר: <strong>${pipe.live}</strong></div>
+          <div>🔴 בעדיפות: <strong>${pipe.priority}</strong></div>
+          <div>⬜ ממתינים: <strong>${pipe.pending}</strong></div>
+          <div>🆕 חדשים: <strong>${pipe.new_client}</strong></div>
+          <div>📝 עדכוני סטטוס שלי: <strong>${s.edits}</strong></div>
+        </div>`;
+      } else if (role.kind === 'field') {
+        body = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:8px;font-size:13px;">
           <div>🚗 ביקורים: <strong>${s.visits}</strong> <span style="color:#94a3b8;">(${s.recentVisits} ב-30 יום)</span></div>
-          <div>📝 עדכוני סטטוס: <strong>${s.edits}</strong></div>
+          <div>📋 קיבוצים באחריותי: <strong>${s.total}</strong></div>
           <div>📅 רישומי נוכחות: <strong>${s.attendance}</strong></div>
         </div>
         <div style="margin-top:10px;font-size:13px;">פירוט עומס: ${Object.keys(CATL).map(c => `${CATL[c]} <strong>${s.cats[c] || 0}</strong>`).join(' · ')}</div>
-        <div style="margin-top:8px;font-size:13px;">חופשות/מילואים קרובים: ${vac}</div>
+        <div style="margin-top:8px;font-size:13px;">חופשות/מילואים קרובים: ${vac}</div>${p === 'אביאם' ? '\n        <div style="margin-top:6px;font-size:12px;color:#64748b;">👥 מנהל את ניתאי</div>' : ''}`;
+      } else {
+        body = `
+        <div style="font-size:13px;color:#475569;margin-top:8px;line-height:1.8;">
+          🧑‍💻 עומס משימות פיתוח — <span style="color:#94a3b8;">תצוגה בהמשך (ממתין למקור משימות הפיתוח)</span><br>
+          🧾 תמיכה בעידן בסגירת חשבונות לקוחות בסוף חודש.
+        </div>`;
+      }
+
+      return `<div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <h3 style="margin:0;">👤 ${e} ${ub ? `<span class="badge priority">${ub} שלא נקראו</span>` : ''}</h3>
+          <div style="font-size:12px;color:#64748b;">${_staffEsc(role.title)}</div>
+        </div>
+        ${body}
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">
           <input id="msgTo_${e}" placeholder="השאר הודעה ל${e} (תוצג בכניסה הבאה שלו)" style="flex:1;min-width:200px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;">
           <button class="inv-btn small" onclick="staffSendMessageUI('${e}')">✉️ שלח</button>
