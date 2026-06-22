@@ -48,9 +48,10 @@
     if (page === 'dev' && typeof renderDevTasks === 'function') renderDevTasks();
     const fab = document.getElementById('visitFab');
     if (fab) {
-      fab.style.display = (page === 'kibbutz') ? '' : 'none';
       const meF = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-      fab.textContent = (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE.indexOf(meF) !== -1) ? '📋 תיעוד נוכחות' : '📍 תיעוד ביקור';
+      const isField = (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE.indexOf(meF) !== -1);
+      fab.style.display = (page === 'kibbutz' && isField) ? '' : 'none';   // field staff (אביאם/ניתאי) only — office users don't log visits
+      fab.textContent = '📋 תיעוד נוכחות';
     }
   }
 

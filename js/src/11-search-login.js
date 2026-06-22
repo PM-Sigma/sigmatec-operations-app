@@ -175,7 +175,22 @@
     if (mb) mb.style.display = isIdan() ? '' : 'none';
     const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי only
     if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
+    if (typeof updateEmsBubble === 'function') updateEmsBubble();
   }
+  // EMS connection bubble — live status (🟢/🟠) + link to the EMS web system.
+  function updateEmsBubble() {
+    const b = document.getElementById('emsBubble');
+    if (!b) return;
+    const on = (typeof isEmsConnected === 'function') && isEmsConnected();
+    b.textContent = on ? '🟢 EMS מחובר' : '🟠 EMS — התחבר';
+    b.style.background = on ? '#dcfce7' : '#fef3c7';
+    b.style.borderColor = on ? '#16a34a' : '#d97706';
+    b.style.color = on ? '#15803d' : '#92400e';
+    b.title = on ? 'מחובר ל-EMS · לחץ לפתיחת המערכת' : 'החיבור ל-EMS פג — לחץ לפתיחת/התחברות המערכת';
+  }
+  window.updateEmsBubble = updateEmsBubble;
+  setInterval(function () { try { updateEmsBubble(); } catch (e) {} }, 60000);
+  setTimeout(function () { try { updateEmsBubble(); } catch (e) {} }, 800);
   // עידן is always shown in the picker; clicking it is PIN-gated (see setLoggedInUser).
   function applyLoginRoleOptions() {
     const idanBtn = document.getElementById('loginBtnIdan');

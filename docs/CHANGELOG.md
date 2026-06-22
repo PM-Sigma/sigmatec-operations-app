@@ -36,6 +36,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   עמיחי dropped from the employee cards (CEO, not a managed employee).
 - **Employee page → role-based cards:** עידן = company **go-live pipeline** (not a personal bar);
   אביאם/ניתאי = field metrics; מתניה = office/dev (dev-load placeholder pending the task source).
+- **EMS connection bubble** in the header — live 🟢/🟠 status + a link to the EMS web system.
+- **Visit-doc FAB** now shows only for field staff (אביאם/ניתאי) with the attendance-type picker;
+  hidden for office (עידן/מתניה/עמיחי).
 - **Overall-progress bar:** per-color hover tooltips + tap-to-show legend (mobile).
 ### Fixed
 - **Low-stock alert** meter label `מונה PM` → full name **`מונה PM135`** (+ precise `PM135` match
