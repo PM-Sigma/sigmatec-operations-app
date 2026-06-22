@@ -28,6 +28,10 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Main page decluttered:** "My Tasks" bar moved into the **משימות** page; category **counts merged
   onto the filter chips** (search bar) and the separate stat squares under "company tasks" removed.
 - **Stats:** removed the "סוג לקוח" (client-type) chart + wavering list (not tracked).
+- **Header:** removed the "העתק קישור" button; **meeting-mode** badge shown only to עידן.
+- **Access/roles:** עמיחי (CEO) sees everything (incl. attendance); מתניה no longer sees מלאי;
+  עמיחי dropped from the employee cards (CEO, not a managed employee).
+- **Overall-progress bar:** per-color hover tooltips + tap-to-show legend (mobile).
 ### Fixed
 - **Low-stock alert** meter label `מונה PM` → full name **`מונה PM135`** (+ precise `PM135` match
   so it can't accidentally bucket other meters).

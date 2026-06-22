@@ -28,6 +28,7 @@
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
     if (page === 'ems' && !canUseEms()) page = 'kibbutz';               // EMS tasks — עידן/ניתאי/אביאם
     if (page === 'staff' && typeof canManageStaff === 'function' && !canManageStaff()) page = 'kibbutz'; // עידן + עמיחי only
+    if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';

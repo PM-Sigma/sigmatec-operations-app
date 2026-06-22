@@ -5,7 +5,7 @@
   // Analytics come from the loaded snapshot (window.SHEET_DATA); messages use a small
   // Supabase `messages` table via REST. No EMS dependency.
   // ===========================================================
-  const STAFF_PEOPLE = ['עידן', 'אביאם', 'ניתאי', 'עמיחי', 'מתניה'];
+  const STAFF_PEOPLE = ['עידן', 'אביאם', 'ניתאי', 'מתניה'];   // עמיחי (CEO) excluded — not a managed employee
 
   function canManageStaff() {
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';

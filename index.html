@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqppp6o4">
+<link rel="stylesheet" href="css/app.css?v=mqpq50mu">
 </head>
 <body>
 <div class="container">
@@ -107,7 +107,6 @@
         <button class="copy-btn" id="installBtn" onclick="appInstall()" style="display:none;background:#15803d;color:#fff;border-color:#15803d;">📲 התקן אפליקציה</button>
         <button class="copy-btn" id="userBadge" onclick="changeUser()">👤 ...</button>
         <button class="copy-btn" id="meetingBadge" onclick="toggleMeetingMode()">🔓 ישיבה</button>
-        <button class="copy-btn" id="copyBtn" onclick="copyLink()">📋 העתק קישור</button>
         <button class="copy-btn" id="potentialsBtn" onclick="document.getElementById('sidePanel').classList.toggle('open')">🏘️ לקוחות פוטנציאליים</button>
         <button class="compact-toggle" id="compactToggle" onclick="toggleCompactMode()">📱 תצוגה מצומצמת</button>
         <a class="compact-toggle" href="kibbutz-stats.html" style="text-decoration:none;">📊 סטטיסטיקה</a>
@@ -118,10 +117,13 @@
         <span>התקדמות כוללת</span>
         <span class="progress-percent">47%</span>
       </div>
-      <div class="progress-bar">
-        <div class="seg-done" style="width: 46.6%"></div>
-        <div class="seg-track" style="width: 17.7%"></div>
-        <div style="width: 4.4%; background: #f97316;"></div>
+      <div class="progress-bar" style="cursor:pointer;" title="עלה לאוויר · בעדיפות/בעבודה · חדשים בהקמה · ממתינים — לחץ למקרא" onclick="var l=document.getElementById('progressLegend');if(l)l.style.display=(l.style.display==='block')?'none':'block';">
+        <div class="seg-done" style="width: 46.6%" title="🟢 עלה לאוויר (פעיל)"></div>
+        <div class="seg-track" style="width: 17.7%" title="בעדיפות / בעבודה"></div>
+        <div style="width: 4.4%; background: #f97316;" title="🟠 לקוחות חדשים בהקמה"></div>
+      </div>
+      <div id="progressLegend" style="display:none;font-size:11px;color:#64748b;margin-top:6px;line-height:1.9;">
+        🟢 <b>עלה לאוויר</b> · <span style="color:#2563eb;">▮</span> <b>בעדיפות / בעבודה</b> · 🟠 <b>חדשים בהקמה</b> · ⬜ <b>ממתינים</b> (יתרת הסרגל)
       </div>
     </div>
 
@@ -1253,7 +1255,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqppp6o4"></script>
+<script src="js/app.js?v=mqpq50mu"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

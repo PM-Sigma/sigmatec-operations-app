@@ -158,7 +158,7 @@
   }
   // Aviam's attendance report is private — only Aviam (and Idan, who sees all) may open it.
   const ATT_PEOPLE = ['אביאם', 'ניתאי'];   // each has their OWN private monthly attendance report
-  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1; }   // עידן removed — logs in as them if ever needed
+  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1 || getCurrentUser() === 'עמיחי'; }   // עידן removed; עמיחי (CEO) sees all
   // Whose attendance the report shows / a save writes: the field user themself; for עידן a toggle.
   function attPerson() { const u = getCurrentUser(); return ATT_PEOPLE.indexOf(u) !== -1 ? u : (window._attPerson || 'אביאם'); }
   function setAttPerson(p) { window._attPerson = p; renderAttendanceReport(); }
@@ -169,6 +169,10 @@
     if (ems) ems.style.display = canUseEms() ? '' : 'none';
     const staff = document.getElementById('navStaff');   // עידן + עמיחי only
     if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
+    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory
+    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
+    const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
+    if (mb) mb.style.display = isIdan() ? '' : 'none';
   }
   // עידן is always shown in the picker; clicking it is PIN-gated (see setLoggedInUser).
   function applyLoginRoleOptions() {
