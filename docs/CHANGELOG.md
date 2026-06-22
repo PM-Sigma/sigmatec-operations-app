@@ -19,6 +19,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   progress bar, and leave-a-message (Supabase `messages` table) + unread popup on next login.
 - **`calendar` Edge Function** (`supabase/functions/calendar`): office-calendar read+add via a
   Google service account — EMS-login-gated, least-privilege (single shared calendar, fixed id).
+- **Dev-tasks page** (`js/src/18-dev-tasks.js` + `github` Edge Function, gated to עידן + עמיחי):
+  read-only live view of the GitHub tickets (`Sigmatec-Energy/tasks`) grouped by label, with parsed
+  priority + status, auto-updating from GitHub. Editing (priority/sprint) = phase 2.
 ### Changed
 - **Calendar backend:** Apps Script → **Supabase service account** (Workspace blocks public
   Apps Script web apps, so the org-owned script couldn't be reached from the public app).

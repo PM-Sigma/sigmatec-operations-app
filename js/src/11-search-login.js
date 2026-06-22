@@ -173,6 +173,8 @@
     if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
     const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
     if (mb) mb.style.display = isIdan() ? '' : 'none';
+    const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי only
+    if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
   }
   // עידן is always shown in the picker; clicking it is PIN-gated (see setLoggedInUser).
   function applyLoginRoleOptions() {
