@@ -21,11 +21,15 @@ db/                     Supabase schema + one-time importer + parity checker
 Static files — host anywhere with correct MIME types. Currently GitHub Pages; portable to the company server by copying the files. Supabase is the DB regardless of where the static app is served.
 
 ## Develop
-Edit `index.html` directly (single file). Syntax-check before deploy:
-```
-node -e 'const fs=require("fs");const h=fs.readFileSync("index.html","utf8");const re=/<script\b[^>]*>([\s\S]*?)<\/script>/gi;let m,i=0,b=0;while((m=re.exec(h))){i++;try{new Function(m[1]);}catch(e){b++;console.log(e.message);}}console.log("scripts:"+i+" errors:"+b);'
-```
-Then commit + push (GitHub Pages auto-deploys).
+The app is split for editing; the deployed `js/app.js` is **generated** by concatenating the modules.
+- **Markup** → `index.html` · **styles** → `css/app.css` · **logic** → `js/src/NN-*.js` (one file per domain: `01-data` (mock+Supabase routing+bridge), `02-init-attendance`, `03-requirements`, `04-attendance-daily`, `05-meeting-returns`, `06-products`, `07-orders`, `08-inventory`, `09-visits`, `10-activity`, `11-search-login`, `12-reports`, `13-ems`, `14-calendar`).
+- After editing any `js/src/*` file, rebuild the bundle:
+  ```
+  node build.mjs
+  ```
+  (concatenates `js/src/*` in order → `js/app.js`). The modules share one global scope (loaded as one bundle), so cross-module calls and inline `onclick` handlers just work — no imports needed.
+- Syntax-check: `node -e 'new Function(require("fs").readFileSync("js/app.js","utf8"))'`
+- Commit + push → GitHub Pages auto-deploys. Local test: open on localhost (drops into the MOCK sandbox) or add `?sb=0` to use Sheets.
 
 ## DB scripts (`db/`)
 - `supabase_schema.sql` — run once in the Supabase SQL editor on a fresh project.
