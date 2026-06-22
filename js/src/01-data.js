@@ -457,7 +457,7 @@
     // Auth header. The bridge mints a role=authenticated token, but the DB only USES it once
     // USE_SB_BRIDGE is on (i.e. AFTER the 'authenticated' RLS policies exist). Until then → anon,
     // so the app always works. Staged: deploy authenticated policies → flip USE_SB_BRIDGE → lockdown.
-    const USE_SB_BRIDGE = false;
+    const USE_SB_BRIDGE = true;
     const baseH = () => ({ apikey: SB_ANON, Authorization: 'Bearer ' + ((USE_SB_BRIDGE && window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : SB_ANON), 'Content-Type': 'application/json' });
     const nowISO = () => new Date().toISOString();
     const numish = v => (v != null && /^-?\d+$/.test(String(v))) ? Number(v) : v;

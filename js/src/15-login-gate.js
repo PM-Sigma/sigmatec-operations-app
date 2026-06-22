@@ -25,8 +25,19 @@
           headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
           body: JSON.stringify({ emsToken: tok })
         });
-        if (r.ok) { var d = await r.json(); if (d && d.token) { window._sbToken = d.token; window._sbTokenExp = Date.now() + 55 * 60 * 1000; return true; } }
-        else console.warn('[bridge] ems-auth ' + r.status);
+        if (r.ok) {
+          var d = await r.json();
+          if (d && d.token) {
+            window._sbToken = d.token; window._sbTokenExp = Date.now() + 55 * 60 * 1000;
+            // self-verify: the pass must actually pass RLS, else drop it → stay on anon (safe during staging)
+            try {
+              var t = await fetch(SB_URL + '/rest/v1/tasks?select=name&limit=1', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + window._sbToken } });
+              if (!t.ok) { console.warn('[bridge] pass rejected (' + t.status + ') — staying on anon'); window._sbToken = null; window._sbTokenExp = 0; }
+              else console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
+            } catch (e) { window._sbToken = null; window._sbTokenExp = 0; }
+            return !!window._sbToken;
+          }
+        } else console.warn('[bridge] ems-auth ' + r.status);
       } catch (e) { console.warn('[bridge] failed', e); }
       return false;
     }
@@ -66,7 +77,7 @@
       const pass = document.getElementById('gatePass').value;
       const err = document.getElementById('gateError');
       if (!email || !pass) { err.textContent = 'נא למלא אימייל וסיסמה'; return; }
-      err.textContent = '⏳ מתחבר...';
+      err.innerHTML = '<span class="gate-spin"></span> מתחבר...';
       try {
         const wrapped = await emsProxyCall(url, '/v1/auth/login/password', 'POST', null, { login: email, password: pass });
         if (wrapped.error) { err.textContent = 'שגיאת חיבור: ' + wrapped.error; return; }
@@ -92,7 +103,7 @@
       const temp = window._gateTemp;
       if (!temp) { err.textContent = 'פג תוקף שלב האימות — התחבר מחדש'; document.getElementById('gateOtpBox').style.display = 'none'; return; }
       if (!code) { err.textContent = 'נא להזין את הקוד מהאימייל'; return; }
-      err.textContent = '⏳ מאמת קוד...';
+      err.innerHTML = '<span class="gate-spin"></span> מאמת קוד...';
       try {
         const wrapped = await emsProxyCall(url, '/v1/auth/verify-otp', 'POST', temp, { code: code });
         if (wrapped.error) { err.textContent = 'שגיאת חיבור: ' + wrapped.error; return; }
