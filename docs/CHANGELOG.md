@@ -33,6 +33,8 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Staff messages** popup: in-flight guard + removes any existing popup → no double-popup race.
 - **Bridge token auto-refresh** (~50 min) so writes don't silently fail after the write-lockdown.
 - **Attendance** hidden from עידן (only אביאם/ניתאי see their own; עידן logs in as them if needed).
+- **Card "מי מעדכן" field removed** from the edit modal — the updater is auto-recorded as the
+  logged-in user (no picker for עידן, no label for others).
 ### Security (in progress — #4)
 - STEP 1 RLS applied; auth bridge ON (self-verifying, anon fallback).
 - `ems-auth` mints an `authenticated` token; `JWT_SECRET` set = the project **Legacy JWT Secret**.

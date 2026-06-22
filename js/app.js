@@ -1676,20 +1676,17 @@
     if (idan) {
       // Idan keeps free choice, but the fields DEFAULT to him (editable) so he
       // isn't forced to pick himself every time.
-      if (editorWrap)   editorWrap.style.display   = '';
+      if (editorWrap)   editorWrap.style.display   = 'none';   // [F] editor is always the logged-in user — never shown/picked
       if (editorDisplay) editorDisplay.style.display = 'none';
       if (visitorWrap)  visitorWrap.style.display   = '';
       if (visitorDisplay) visitorDisplay.style.display = 'none';
       const ed = document.getElementById('editorName');
-      if (ed && !ed.value) ed.value = user;
+      if (ed) ed.value = user;
       const vi = document.getElementById('visitor');
       if (vi && !vi.value) { vi.value = user; onVisitorChange(user); }
     } else {
       if (editorWrap)   editorWrap.style.display   = 'none';
-      if (editorDisplay) {
-        editorDisplay.style.display = '';
-        editorDisplay.textContent   = '👤 מי מעדכן: ' + (user || '—');
-      }
+      if (editorDisplay) editorDisplay.style.display = 'none';   // [F] no need to show who updates — always the logged-in user
       document.getElementById('editorName').value = user;
 
       if (visitorWrap)  visitorWrap.style.display   = 'none';
