@@ -14,6 +14,17 @@
     renderCompanyCalendar();
   }
   function calEsc(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+  // One-click "add to MY calendar": a Google-Calendar create-event URL from any event.
+  function calAddLink(d, title, details) {
+    const start = new Date(d);
+    if (isNaN(start.getTime())) return '#';
+    const end = new Date(start.getTime() + 60 * 60000);
+    const fmt = x => x.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&text=' + encodeURIComponent(title || 'אירוע')
+      + '&dates=' + fmt(start) + '/' + fmt(end)
+      + '&details=' + encodeURIComponent(details || 'מתוך מערכת ניהול סיגמטק');
+  }
   // Build { 'Y-M-D': [{icon,text,cls}] } from all data sources.
   function collectCalendarEvents() {
     const ev = {};
@@ -80,7 +91,8 @@
     items.forEach(it => {
       const k = it.d.getFullYear() + '-' + it.d.getMonth() + '-' + it.d.getDate();
       if (k !== lastK) { lastK = k; html += '<div class="cal-agenda-day">' + it.d.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }) + '</div>'; }
-      html += '<div class="cal-agenda-row"><span class="cal-chip ' + it.cls + '" style="display:inline-block;">' + it.icon + ' ' + calEsc(it.text) + '</span></div>';
+      html += '<div class="cal-agenda-row"><span class="cal-chip ' + it.cls + '" style="display:inline-block;">' + it.icon + ' ' + calEsc(it.text) + '</span>'
+        + '<a href="' + calAddLink(it.d, it.icon + ' ' + it.text, '') + '" target="_blank" rel="noopener" title="הוסף ליומן האישי שלי" style="margin-right:8px;font-size:12px;text-decoration:none;color:var(--primary);white-space:nowrap;">📅 ליומן שלי</a></div>';
     });
     box.innerHTML = html;
   }
@@ -90,7 +102,7 @@
     const panel = document.getElementById('calDayPanel'); if (!panel) return;
     const dateStr = new Date(y, m, d).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
     panel.innerHTML = '<div class="cal-panel"><strong>' + dateStr + '</strong>' +
-      (items.length ? items.map(it => `<div class="cal-chip ${it.cls}" style="margin-top:6px;display:inline-block;">${it.icon} ${calEsc(it.text)}</div>`).join('')
+      (items.length ? items.map(it => `<div style="margin-top:6px;"><span class="cal-chip ${it.cls}" style="display:inline-block;">${it.icon} ${calEsc(it.text)}</span> <a href="${calAddLink(new Date(y,m,d,9,0), it.icon+' '+it.text, '')}" target="_blank" rel="noopener" style="font-size:12px;text-decoration:none;color:var(--primary);white-space:nowrap;">📅 ליומן שלי</a></div>`).join('')
                     : '<br><span style="color:#94a3b8;">אין אירועים ביום זה</span>') + '</div>';
   }
 
