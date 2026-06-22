@@ -22,6 +22,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Dev-tasks page** (`js/src/18-dev-tasks.js` + `github` Edge Function, gated to עידן + עמיחי):
   read-only live view of the GitHub tickets (`Sigmatec-Energy/tasks`) grouped by label, with parsed
   priority + status, auto-updating from GitHub. Editing (priority/sprint) = phase 2.
+- **`github` Edge Function** added to the repo (`supabase/functions/github`) — read-only GitHub-issues
+  proxy, EMS-gated, default repo `Sigmatec-Energy/tasks`. (Live function returns 404 until `GH_REPO`+`GH_TOKEN` are set right + redeployed.)
+- **EMS connection bubble** + visit-doc **FAB gated to field staff**.
+- **Recommendations doc** (`docs/RECOMMENDATIONS-he.md`) — next-stage plan by domain (Hebrew), informed
+  by the EMS-validation + BGU-BI projects.
 ### Changed
 - **Calendar backend:** Apps Script → **Supabase service account** (Workspace blocks public
   Apps Script web apps, so the org-owned script couldn't be reached from the public app).

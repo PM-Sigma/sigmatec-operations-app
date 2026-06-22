@@ -1,0 +1,62 @@
+// Supabase Edge Function: github
+// Read-only proxy for the dev-tasks (פיתוח) view — fetches GitHub Issues from the company
+// tickets repo with a read-only token, gated by a valid EMS login. View-only (phase 1).
+//
+// Secrets to set (Edge Functions → Secrets):
+//   GH_TOKEN  — read-only GitHub token (fine-grained: Issues:Read on the repo, or classic `repo`).
+//   GH_REPO   — owner/repo (default: Sigmatec-Energy/tasks).
+//   EMS_API_BASE — (already set) https://api.sigmatec-ems.com
+//   APP_ORIGIN   — allowed origin (default https://pm-sigma.github.io)
+const cors = (o: string) => ({
+  "Access-Control-Allow-Origin": o,
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+});
+const json = (b: unknown, s = 200, o = "*") =>
+  new Response(JSON.stringify(b), { status: s, headers: { ...cors(o), "Content-Type": "application/json" } });
+
+async function emsValid(base: string, token: string): Promise<boolean> {
+  if (!token) return false;
+  try { const r = await fetch(base + "/v1/employee-tasks?take=1", { headers: { Authorization: "Bearer " + token } }); return r.ok; }
+  catch { return false; }
+}
+
+Deno.serve(async (req) => {
+  const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
+  const GH_TOKEN = Deno.env.get("GH_TOKEN") || "";
+  const GH_REPO = Deno.env.get("GH_REPO") || "Sigmatec-Energy/tasks";
+  const ORIGIN = Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors(ORIGIN) });
+  if (req.method !== "POST") return json({ error: "POST only" }, 405, ORIGIN);
+  if (!GH_TOKEN) return json({ error: "GH_TOKEN not set" }, 500, ORIGIN);
+
+  let body: any = {};
+  try { body = await req.json(); } catch { /* */ }
+  if (!(await emsValid(EMS_API_BASE, body.token))) return json({ error: "unauthorized: valid EMS login required" }, 401, ORIGIN);
+
+  try {
+    const state = body.state === "all" ? "all" : (body.state === "closed" ? "closed" : "open");
+    const r = await fetch(
+      `https://api.github.com/repos/${GH_REPO}/issues?state=${state}&per_page=100&sort=created&direction=desc`,
+      { headers: { Authorization: "Bearer " + GH_TOKEN, Accept: "application/vnd.github+json", "User-Agent": "sigmatec-ops" } },
+    );
+    if (!r.ok) return json({ error: "github " + r.status, detail: (await r.text()).slice(0, 200) }, 502, ORIGIN);
+    const items = await r.json();
+    const prRe = /##\s*עדיפות[^\n]*\r?\n+\s*([^\n]+)/;
+    const tasks = (items || []).filter((it: any) => !it.pull_request).map((it: any) => {
+      const b = it.body || "";
+      const pm = b.match(prRe);
+      return {
+        number: it.number, title: it.title || "", state: it.state,
+        labels: (it.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
+        priority: pm ? pm[1].trim() : "",
+        assignee: it.assignee ? it.assignee.login : "",
+        url: it.html_url, createdAt: it.created_at,
+      };
+    });
+    return json({ tasks }, 200, ORIGIN);
+  } catch (e) {
+    return json({ error: String((e as Error)?.message || e) }, 500, ORIGIN);
+  }
+});

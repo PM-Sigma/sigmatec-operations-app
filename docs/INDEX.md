@@ -2,7 +2,7 @@
 
 **Entry point for project memory.** Read this first, then load *only* the file you need.
 No secrets live in these files (the repo is public). Session history & decisions live in
-**claude-mem** (`mem-search` skill / `get_observations`) — these files are the *stable* reference.
+**claude-mem** (`mem-search` skill) — these files are the *stable* reference.
 
 ---
 
@@ -10,12 +10,12 @@ No secrets live in these files (the repo is public). Session history & decisions
 
 New session? Read **in this order**, then pick up from **🚦 Current state** (bottom of this file):
 1. `docs/INDEX.md` (this file) — map + current state.
-2. `docs/backlog.md` — current blocker + pending/done.
+2. `docs/backlog.md` — blocker + pending/done.
 3. `docs/CHANGELOG.md` — what changed recently.
-4. The specific `docs/*` file for the task (see the table below).
+4. The specific `docs/*` file for the task.
 
 > Tell a fresh session: **"קרא את docs/INDEX.md בפרויקט Sigmatec Operations App והמשך מאיפה שעצרנו"**
-> — or just the trigger phrase **"סשן חדש של הדשבורד"** (wired into the global memory rule).
+> — or the trigger phrase **"סשן חדש של הדשבורד"** (wired into the global memory rule).
 
 ---
 
@@ -23,54 +23,45 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 
 | File | When to read it |
 |------|-----------------|
-| [architecture.md](architecture.md) | How the whole system fits together: PWA ↔ Supabase ↔ Apps Script ↔ EMS. Start here. |
-| [modules.md](modules.md) | What every `js/src/*.js` module does + its functions. The big reference. |
-| [data-and-security.md](data-and-security.md) | Supabase tables, the data layer, RLS staging, the auth bridge, key rotation, Apps Script security model. |
-| [operations.md](operations.md) | Build/deploy/test, edge-function deploy, env values (URLs/IDs/accounts), test flags. |
-| [backlog.md](backlog.md) | Current blocker + pending features + what's done. |
-| [CHANGELOG.md](CHANGELOG.md) | Dated log of every update — what changed and why. |
-| [team.md](team.md) | Employee roles, field/office, and what to measure per person. |
+| [architecture.md](architecture.md) | How it fits together: PWA ↔ Supabase ↔ Apps Script ↔ EMS. Start here. |
+| [modules.md](modules.md) | What every `js/src/*.js` module does + its functions. |
+| [data-and-security.md](data-and-security.md) | Supabase tables, data layer, RLS, the auth bridge, key rotation, Apps Script security. |
+| [operations.md](operations.md) | Build/deploy/test, edge-function deploy, env values, test flags. |
+| [team.md](team.md) | Employee roles, field/office, what to measure per person. |
+| [backlog.md](backlog.md) | Current blocker + pending/done. |
 | [vision-budget.md](vision-budget.md) | Drawer plan — what a budgeted version unlocks. |
+| [RECOMMENDATIONS-he.md](RECOMMENDATIONS-he.md) | **Next-stage recommendations (Hebrew), by domain** — read this for direction. |
+| [CHANGELOG.md](CHANGELOG.md) | Dated log of every update. |
 
-**Read order for a cold start:** INDEX → architecture → backlog (current state) → then the specific file for the task.
-
----
-
-## 🔄 Update protocol (every change)
-
-1. Make the change.
-2. Add an entry to [CHANGELOG.md](CHANGELOG.md) (what + why).
-3. Update the relevant doc file + the current-state line in [backlog.md](backlog.md).
-4. claude-mem records the session automatically — search past work with the `mem-search` skill.
+**🔄 Update protocol (every checkpoint):** CHANGELOG entry + backlog state + the **Current state** block below.
 
 ---
 
 ## ⚡ Quick facts
+- **Live:** https://pm-sigma.github.io/sigmatec-operations-app/ (installable PWA). **Repo:** `PM-Sigma/sigmatec-operations-app` (public).
+- **Backend:** Supabase (data + REST + RLS + Edge Functions `ems-auth`/`calendar`/`github`) + Apps Script (EMS proxy). EMS API for tasks/meters.
+- **Build:** edit `js/src/*.js` → `node build.mjs` → commit → push (main = live). `dev` = WIP; preview via raw.githack.com/.../dev/…
+- **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
+- **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-- **Live app:** https://pm-sigma.github.io/sigmatec-operations-app/  (installable PWA)
-- **Repo:** `PM-Sigma/sigmatec-operations-app` (public — client code only, no secrets)
-- **Backend:** Supabase (data + REST + RLS + Edge Function) + Apps Script (EMS proxy / calendar). EMS API for tasks/meters/users.
-- **Source of truth for data:** Supabase (migrated off Google Sheets).
-- **Build:** edit `js/src/*.js` → `node build.mjs` → commit → push (GitHub Pages auto-deploys).
-- **Owners (Hebrew, used in data):** עידן(IDAN), ניתאי(NITAY), אביאם(AVIEM), עמיחי(AMIHAHI), מתניה(MATANIA), אבצן(IVZAN), אליה.
-- **Attendance people:** אביאם, ניתאי. **Admin role:** עידן.
+## 🚦 Current state — last: 2026-06-23 (overnight)
 
-## 🚦 Current state (updated at every checkpoint) — last: 2026-06-22, EMS back online
+**Everything below is LIVE on `main` + verified:** Supabase migration · PWA · EMS login gate · meters ·
+"add to calendar" links · **security bridge + STEP 2 write-lockdown + messages-privacy** (anon = read-only,
+auth = write; messages auth-only) · **Stats** (fixed + interactive) · **Employee page** (role-based: עידן=go-live
+pipeline, אביאם/ניתאי=field, מתניה=dev/office; gated עידן+עמיחי) · **Dev-tasks page** (`18-dev-tasks.js`, gated) ·
+**EMS connection bubble** (status + link) · visit-doc **FAB gated to field staff** · main-page declutter ·
+access/roles (עמיחי=all, מתניה no inventory, meeting-mode+attendance עידן-scoped) · 502 login message · meter PM135 fix · Aviam controllers corrected.
+Bridge re-verified active after fresh login (`_sbToken` present).
 
-**Branches:** `main` = live (Stats shipped). `dev` = ahead by the **employee page + changelog**,
-verified on preview, **not yet merged**.
+**⛔ Blocked on the user (documented in [RECOMMENDATIONS-he.md](RECOMMENDATIONS-he.md) + below):**
+- **Dev-tasks DATA** — the `github` function returns GitHub **404**. Repo `Sigmatec-Energy/tasks` + its issues
+  are real (verified via `gh`: #123/#122/#121). FIX: set secret **`GH_REPO=Sigmatec-Energy/tasks`** + ensure
+  **`GH_TOKEN`** is authorized for that repo (fine-grained may be pending **org approval**; or use a classic
+  `repo` token) → **redeploy** the `github` function. (Function now in repo: `supabase/functions/github/`, default repo fixed.)
+- **Calendar** — needs Workspace **Domain-Wide Delegation** (admin authorizes the SA `client_id` for
+  `calendar` scope), then I add a `sub` impersonation claim + wire the יומן UI. (Org blocks public Apps Script + SA calendar-sharing.)
+- **Dev-tasks editing (phase 2)** — needs a write-capable GitHub token (toggle priority/sprint labels).
+- **Rotate `service_role`** (exposed in chat) — last security follow-up.
 
-**In flight:**
-- **#4 Security — bridge VERIFIED ✅:** `JWT_SECRET` = the **Legacy JWT Secret**; `ems-auth` mints an
-  `authenticated` token, Supabase accepts it (mint→RLS = 200), and the on-load bridge auto-activates
-  (`🔒 Supabase pass active`). NEXT: run **STEP 2 write-lockdown** (anon read-only, auth-only writes).
-  Full *read*-lockdown later (after bridging `stats.html` + adding bridge-token auto-refresh). Then rotate `service_role` (E).
-- **Employee page** (`js/src/17-staff.js`, gated עידן+עמיחי): built + verified on `dev`. Awaiting
-  the `messages` table SQL + a real EMS-login test, then merge to `main`.
-- **Calendar:** `supabase/functions/calendar` (service account, EMS-gated) written. Awaiting GCP
-  setup (service account + share `information@` calendar + secrets `GCAL_*` + deploy), then test + wire UI.
-
-**Waiting on the user:** (A) set Legacy JWT Secret · (B) run `messages` SQL · (C) GCP calendar setup ·
-(D) visit-doc bubble specifics · (E) rotate `service_role` after #4.
-
-See [backlog.md](backlog.md) for the full list.
+See [backlog.md](backlog.md) + [RECOMMENDATIONS-he.md](RECOMMENDATIONS-he.md).
