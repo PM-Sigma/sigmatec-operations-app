@@ -27,11 +27,10 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   (variable names + lengths, no values) instead of a cryptic 500 when the secret is missing.
 ### Security (in progress — #4)
 - STEP 1 RLS applied; auth bridge ON (self-verifying, anon fallback).
-- `ems-auth` now mints an `authenticated` token successfully (`JWT_SECRET` loads after the
-  per-request fix + redeploy).
-- **Blocked:** Supabase rejects the minted token (`None of the keys was able to decode the JWT`)
-  → `JWT_SECRET` ≠ the project's legacy signing secret. Next: set the correct **Legacy JWT
-  Secret** → re-test → `🔒 pass active` → STEP 2 lockdown → rotate `service_role` + JWT secret.
+- `ems-auth` mints an `authenticated` token; `JWT_SECRET` set = the project **Legacy JWT Secret**.
+- **VERIFIED ✅:** mint→RLS returns 200 and the on-load bridge logs `🔒 Supabase pass active`.
+  NEXT: **STEP 2 write-lockdown** (anon read-only, auth-only writes) → full read-lockdown later
+  (after bridging `stats.html`) → rotate `service_role`.
 
 ## [2026-06-22] — Supabase migration · PWA · EMS login
 ### Added

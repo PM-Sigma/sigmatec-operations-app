@@ -13,8 +13,9 @@ _Update this file as things move. Session-by-session history lives in claude-mem
 
 ## 🟡 Pending
 
-1. **#4 finish:** verify pass active → **STEP 2 RLS lockdown** (`db/rls_staged.sql`) → **rotate
-   `service_role` + JWT secret** → update anon key in `01-data.js` if it changes.
+1. **#4 — bridge VERIFIED ✅** (JWT_SECRET = Legacy JWT Secret; mint→RLS 200; `🔒 pass active`).
+   NEXT: **STEP 2 write-lockdown** (anon read-only, auth-only writes). Then full read-lockdown
+   (after bridging `stats.html` + bridge-token auto-refresh), then rotate `service_role`.
 2. **Calendar (service account):** finish GCP service-account setup → deploy `calendar` Edge
    Function → wire read+add UI (needs EMS up to test the token gate). *Apps Script path dropped —
    Workspace blocks public web apps.*

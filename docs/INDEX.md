@@ -59,9 +59,10 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 verified on preview, **not yet merged**.
 
 **In flight:**
-- **#4 Security:** `ems-auth` mints an `authenticated` token, but Supabase rejects the signature
-  (`None of the keys was able to decode the JWT`) → `JWT_SECRET` ≠ the project's **Legacy JWT
-  Secret**. NEXT: set the correct value → verify mint→RLS = 200 → **STEP 2 lockdown** → rotate `service_role`.
+- **#4 Security — bridge VERIFIED ✅:** `JWT_SECRET` = the **Legacy JWT Secret**; `ems-auth` mints an
+  `authenticated` token, Supabase accepts it (mint→RLS = 200), and the on-load bridge auto-activates
+  (`🔒 Supabase pass active`). NEXT: run **STEP 2 write-lockdown** (anon read-only, auth-only writes).
+  Full *read*-lockdown later (after bridging `stats.html` + adding bridge-token auto-refresh). Then rotate `service_role` (E).
 - **Employee page** (`js/src/17-staff.js`, gated עידן+עמיחי): built + verified on `dev`. Awaiting
   the `messages` table SQL + a real EMS-login test, then merge to `main`.
 - **Calendar:** `supabase/functions/calendar` (service account, EMS-gated) written. Awaiting GCP
