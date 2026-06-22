@@ -5993,6 +5993,7 @@
           return;
         }
         if (data.accessToken) { storeToken(url, data.accessToken); err.textContent = ''; await onAuthed(email); }
+        else if (wrapped.status >= 500) { err.textContent = '⏳ המערכת בעליית גרסה — נא לנסות שוב בעוד מספר דקות'; }
         else {
           const msg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
           err.textContent = '(' + (wrapped.status || '?') + ') ' + (msg || 'אימייל או סיסמה שגויים');
@@ -6015,7 +6016,8 @@
           storeToken(url, data.accessToken); window._gateTemp = null; err.textContent = '';
           document.getElementById('gateOtpBox').style.display = 'none';
           await onAuthed(window._gateEmail || (document.getElementById('gateEmail').value || '').trim());
-        } else {
+        } else if (wrapped.status >= 500) { err.textContent = '⏳ המערכת בעליית גרסה — נא לנסות שוב בעוד מספר דקות'; }
+        else {
           const msg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
           err.textContent = '(' + (wrapped.status || '?') + ') ' + (msg || 'קוד שגוי או שפג תוקפו');
         }

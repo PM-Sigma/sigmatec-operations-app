@@ -35,6 +35,8 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Attendance** hidden from עידן (only אביאם/ניתאי see their own; עידן logs in as them if needed).
 - **Card "מי מעדכן" field removed** from the edit modal — the updater is auto-recorded as the
   logged-in user (no picker for עידן, no label for others).
+- **Login 5xx** (e.g. 502 during an EMS deploy) now shows "⏳ המערכת בעליית גרסה — נא לנסות שוב
+  בעוד מספר דקות" instead of the misleading "wrong email/password".
 ### Security (in progress — #4)
 - STEP 1 RLS applied; auth bridge ON (self-verifying, anon fallback).
 - `ems-auth` mints an `authenticated` token; `JWT_SECRET` set = the project **Legacy JWT Secret**.
