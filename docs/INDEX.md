@@ -30,6 +30,7 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 | [backlog.md](backlog.md) | Current blocker + pending features + what's done. |
 | [CHANGELOG.md](CHANGELOG.md) | Dated log of every update — what changed and why. |
 | [team.md](team.md) | Employee roles, field/office, and what to measure per person. |
+| [vision-budget.md](vision-budget.md) | Drawer plan — what a budgeted version unlocks. |
 
 **Read order for a cold start:** INDEX → architecture → backlog (current state) → then the specific file for the task.
 
