@@ -6,6 +6,19 @@ No secrets live in these files (the repo is public). Session history & decisions
 
 ---
 
+## ▶️ RESUME A SESSION (read this to continue)
+
+New session? Read **in this order**, then pick up from **🚦 Current state** (bottom of this file):
+1. `docs/INDEX.md` (this file) — map + current state.
+2. `docs/backlog.md` — current blocker + pending/done.
+3. `docs/CHANGELOG.md` — what changed recently.
+4. The specific `docs/*` file for the task (see the table below).
+
+> Tell a fresh session: **"קרא את docs/INDEX.md בפרויקט Sigmatec Operations App והמשך מאיפה שעצרנו"**
+> — or just the trigger phrase **"סשן חדש של הדשבורד"** (wired into the global memory rule).
+
+---
+
 ## 📁 Files (load on demand)
 
 | File | When to read it |
@@ -40,10 +53,21 @@ No secrets live in these files (the repo is public). Session history & decisions
 - **Owners (Hebrew, used in data):** עידן(IDAN), ניתאי(NITAY), אביאם(AVIEM), עמיחי(AMIHAHI), מתניה(MATANIA), אבצן(IVZAN), אליה.
 - **Attendance people:** אביאם, ניתאי. **Admin role:** עידן.
 
-## 🚦 Current state (update on change)
+## 🚦 Current state (updated at every checkpoint) — last: 2026-06-22, EMS back online
 
-- **#4 Security — in progress.** STEP 1 RLS done. Bridge ON (self-verifying, anon fallback).
-  `ems-auth` now mints a token, but Supabase rejects it (`None of the keys was able to decode the
-  JWT`) → `JWT_SECRET` holds the wrong value. **Next:** set the correct **Legacy JWT Secret** →
-  verify `🔒 pass active` → STEP 2 lockdown → rotate `service_role` + JWT secret.
-- See [backlog.md](backlog.md) for the full list.
+**Branches:** `main` = live (Stats shipped). `dev` = ahead by the **employee page + changelog**,
+verified on preview, **not yet merged**.
+
+**In flight:**
+- **#4 Security:** `ems-auth` mints an `authenticated` token, but Supabase rejects the signature
+  (`None of the keys was able to decode the JWT`) → `JWT_SECRET` ≠ the project's **Legacy JWT
+  Secret**. NEXT: set the correct value → verify mint→RLS = 200 → **STEP 2 lockdown** → rotate `service_role`.
+- **Employee page** (`js/src/17-staff.js`, gated עידן+עמיחי): built + verified on `dev`. Awaiting
+  the `messages` table SQL + a real EMS-login test, then merge to `main`.
+- **Calendar:** `supabase/functions/calendar` (service account, EMS-gated) written. Awaiting GCP
+  setup (service account + share `information@` calendar + secrets `GCAL_*` + deploy), then test + wire UI.
+
+**Waiting on the user:** (A) set Legacy JWT Secret · (B) run `messages` SQL · (C) GCP calendar setup ·
+(D) visit-doc bubble specifics · (E) rotate `service_role` after #4.
+
+See [backlog.md](backlog.md) for the full list.
