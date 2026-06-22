@@ -208,8 +208,10 @@
       input.focus();
     }
   }
-  // Entry point: must pick a name AND enter the PIN — neither screen is dismissible.
-  if (!isAuthed()) {
+  // Entry point. ?login=1 → real EMS login gate (js/src/15-login-gate.js). Otherwise the
+  // legacy name-picker + PIN (kept as default so the live app can never lock anyone out).
+  const LOGIN_FLAG = location.search.indexOf('login=1') !== -1;
+  if (!LOGIN_FLAG && !isAuthed()) {
     applyLoginRoleOptions();
     document.getElementById('loginModal').classList.add('open');
   }
