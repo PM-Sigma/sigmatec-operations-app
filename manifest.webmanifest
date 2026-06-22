@@ -1,0 +1,16 @@
+{
+  "name": "Sigmatec Operations App",
+  "short_name": "Sigmatec",
+  "description": "מערכת ניהול תפעול וקיבוצים — Sigmatec Operations",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#15BFC2",
+  "icons": [
+    { "src": "icons/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" }
+  ]
+}

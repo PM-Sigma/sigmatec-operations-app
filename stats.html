@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sigmatec EMS — סטטיסטיקה</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #1e40af;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #dc2626;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+  }
+  body {
+    font-family: 'Heebo', 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 24px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  .header {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: white; padding: 24px 32px;
+    border-radius: 16px; margin-bottom: 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 4px 20px rgba(30,64,175,0.15);
+  }
+  .header h1 { font-size: 24px; }
+  .header .meta { font-size: 13px; opacity: 0.9; margin-top: 4px; }
+  .back-btn {
+    background: white; color: var(--primary);
+    padding: 8px 16px; border-radius: 8px;
+    text-decoration: none; font-weight: 700; font-size: 13px;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px; margin-bottom: 24px;
+  }
+  .kpi {
+    background: var(--card);
+    border-radius: 12px; padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-right: 4px solid var(--primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .kpi-label { font-size: 12px; color: var(--text-light); font-weight: 600; margin-bottom: 6px; }
+  .kpi-value { font-size: 32px; font-weight: 800; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+  .kpi.green { border-right-color: var(--success); }
+  .kpi.green .kpi-value { color: var(--success); }
+  .kpi.orange { border-right-color: var(--warning); }
+  .kpi.orange .kpi-value { color: var(--warning); }
+  .kpi.red { border-right-color: var(--danger); }
+  .kpi.red .kpi-value { color: var(--danger); }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card); border-radius: 12px;
+    padding: 20px; border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card h3 {
+    font-size: 16px; margin-bottom: 16px;
+    padding-bottom: 10px; border-bottom: 2px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .chart-wrap { position: relative; height: 280px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: right; padding: 8px 10px; background: var(--bg); font-weight: 700; color: var(--text-light); border-bottom: 2px solid var(--border); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  tr:hover { background: var(--bg); }
+
+  .badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 6px; font-size: 11px; font-weight: 700;
+  }
+  .badge.priority { background: #fee2e2; color: #991b1b; }
+  .badge.done { background: #d1fae5; color: #065f46; }
+  .badge.pending { background: #e5e7eb; color: #374151; }
+  .badge.new_client { background: #fed7aa; color: #9a3412; }
+  .badge.ongoing { background: #d1fae5; color: #065f46; }
+  .badge.wavering { background: #fef3c7; color: #92400e; }
+  .badge.new { background: #dbeafe; color: #1e40af; }
+  .badge.prospect { background: #f3f4f6; color: #6b7280; }
+
+  .loading { text-align: center; padding: 60px; color: var(--text-light); }
+  .error { background: #fee2e2; color: #991b1b; padding: 16px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div>
+      <h1>📊 סטטיסטיקה — Sigmatec EMS</h1>
+      <div class="meta" id="metaInfo">טוען נתונים...</div>
+    </div>
+    <a class="back-btn" href="kibbutz-dashboard.html">← חזרה לדשבורד</a>
+  </div>
+
+  <div id="loadingState" class="loading">⏳ טוען נתונים מהגיליון...</div>
+  <div id="errorState" class="error" style="display:none;"></div>
+
+  <div id="content" style="display:none;">
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi green">
+        <div class="kpi-label">✅ עלו לאוויר</div>
+        <div class="kpi-value" id="kpiDone">0</div>
+        <div class="kpi-sub" id="kpiDonePct">0%</div>
+      </div>
+      <div class="kpi red">
+        <div class="kpi-label">🔴 בעדיפות עליונה</div>
+        <div class="kpi-value" id="kpiPriority">0</div>
+        <div class="kpi-sub" id="kpiPriorityPct">0%</div>
+      </div>
+      <div class="kpi orange">
+        <div class="kpi-label">🆕 לקוחות חדשים</div>
+        <div class="kpi-value" id="kpiNewClient">0</div>
+        <div class="kpi-sub" id="kpiNewClientPct">0%</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">⬜ ממתינים</div>
+        <div class="kpi-value" id="kpiPending">0</div>
+        <div class="kpi-sub" id="kpiPendingPct">0%</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label">🔵 פרוצדורת זרימה</div>
+        <div class="kpi-value" id="kpiProc">0</div>
+        <div class="kpi-sub" id="kpiProcPct">בוצעה</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">📋 סך קיבוצים</div>
+        <div class="kpi-value" id="kpiTotal">0</div>
+        <div class="kpi-sub">ברשימה</div>
+      </div>
+    </div>
+
+    <!-- Engagement types -->
+    <div class="row">
+      <div class="card">
+        <h3>🤝 חלוקה לפי סוג לקוח</h3>
+        <div class="chart-wrap"><canvas id="engagementChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>📂 חלוקה לפי קטגוריית סטטוס</h3>
+        <div class="chart-wrap"><canvas id="categoryChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h3>📍 חלוקה לפי אזור</h3>
+        <div class="chart-wrap"><canvas id="regionChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>👥 עומס לפי אחראי</h3>
+        <div class="chart-wrap"><canvas id="ownerChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h3>🏗️ חלוקה לפי שלב הקמה</h3>
+        <div class="chart-wrap"><canvas id="stepChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>🟡 לקוחות מתנדנדים</h3>
+        <div id="waveringList" style="font-size:13px;line-height:2;"></div>
+      </div>
+    </div>
+
+    <!-- Table: Per-owner breakdown -->
+    <div class="card" style="margin-bottom: 18px;">
+      <h3>👥 פירוט עומס לפי אחראי</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>אחראי</th>
+            <th>סה"כ קיבוצים</th>
+            <th>בעדיפות</th>
+            <th>באוויר</th>
+            <th>ממתינים</th>
+            <th>לקוחות חדשים</th>
+          </tr>
+        </thead>
+        <tbody id="ownerTable"></tbody>
+      </table>
+    </div>
+
+    <!-- Table: Per-region breakdown -->
+    <div class="card" style="margin-bottom: 18px;">
+      <h3>📍 פירוט לפי אזור</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>אזור</th>
+            <th>סה"כ קיבוצים</th>
+            <th>בעדיפות</th>
+            <th>באוויר</th>
+            <th>ממתינים</th>
+            <th>שוטף</th>
+            <th>מתנדנד</th>
+            <th>חדש</th>
+          </tr>
+        </thead>
+        <tbody id="regionTable"></tbody>
+      </table>
+    </div>
+
+    <!-- Table: stuck kibbutzim -->
+    <div class="card" style="margin-bottom: 18px;">
+      <h3>⏸️ קיבוצים שלא עודכנו ב-14 הימים האחרונים</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>קיבוץ</th>
+            <th>אזור</th>
+            <th>קטגוריה</th>
+            <th>סטטוס</th>
+            <th>אחראים</th>
+            <th>עודכן לאחרונה</th>
+          </tr>
+        </thead>
+        <tbody id="stuckTable"></tbody>
+      </table>
+    </div>
+
+    <!-- ===== Visits & distribution ===== -->
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">🚗 ביקורים</div><div class="kpi-value" id="kpiVisits">0</div><div class="kpi-sub" id="kpiVisitsMonth">0 החודש</div></div>
+      <div class="kpi green"><div class="kpi-label">⏱️ שעות בשטח</div><div class="kpi-value" id="kpiHours">0</div><div class="kpi-sub">סה"כ</div></div>
+      <div class="kpi orange"><div class="kpi-label">📦 פריטים שחולקו</div><div class="kpi-value" id="kpiItems">0</div><div class="kpi-sub">לקיבוצים</div></div>
+      <div class="kpi"><div class="kpi-label">🏘️ קיבוצים שבוקרו</div><div class="kpi-value" id="kpiVisitedKibs">0</div><div class="kpi-sub">שונים</div></div>
+    </div>
+
+    <div class="row">
+      <div class="card"><h3>🚗 ביקורים לפי מבקר</h3><div class="chart-wrap"><canvas id="visitorChart"></canvas></div></div>
+      <div class="card"><h3>📅 ביקורים לפי חודש</h3><div class="chart-wrap"><canvas id="visitMonthChart"></canvas></div></div>
+    </div>
+
+    <div class="row">
+      <div class="card"><h3>📦 פריטים מובילים שחולקו</h3><div class="chart-wrap"><canvas id="productChart"></canvas></div></div>
+      <div class="card"><h3>🏆 הקיבוצים המבוקרים ביותר</h3><div id="topVisitedList" style="font-size:13px;line-height:2.1;"></div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <h3>📦 מי קיבל מה — ציוד שחולק לקיבוצים</h3>
+      <table>
+        <thead><tr><th>קיבוץ</th><th>פריטים שקיבל</th><th>סה"כ יחידות</th></tr></thead>
+        <tbody id="whoGotWhatTable"></tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <h3>🗓️ ביקורים אחרונים</h3>
+      <table>
+        <thead><tr><th>תאריך</th><th>קיבוץ</th><th>מבקר</th><th>משך</th><th>פריטים שסופקו</th><th>סיכום</th></tr></thead>
+        <tbody id="recentVisitsTable"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SHEET_API = 'https://script.google.com/macros/s/AKfycbwUZTz-T9zoK3GnPNqwaJIKpJFTv3MGmYy_rfEYV8nz95kJJRx8s4VUN_-bMco2qTci/exec'; // v5.8
+
+// ═══ SUPABASE ROUTING (read-only) — mirrors the dashboard cutover (build ·29). ═══
+// Default ON; append ?sb=0 to the URL to fall back to Apps Script/Sheets.
+const USE_SUPABASE = location.search.indexOf('sb=0') === -1;
+const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
+if (USE_SUPABASE) (function setupSupabaseRead() {
+  const H = { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON };
+  const numish = v => (v != null && /^-?\d+$/.test(String(v))) ? Number(v) : v;
+  const realFetch = window.fetch.bind(window);
+  const sbGet = async (p) => { const r = await realFetch(SB_URL + '/rest/v1/' + p, { headers: H }); if (!r.ok) throw new Error('supabase ' + p + ' ' + r.status); return r.json(); };
+  async function readSnapshot() {
+    const q = ['tasks?select=*&order=seq', 'visits?select=*', 'products?select=*', 'orders?select=*', 'movements?select=*', 'requirements?select=*', 'returns?select=*', 'attendance?select=*', 'settings?select=*', 'potentials?select=*', 'regions?select=*'];
+    const [tasks, visits, products, orders, movements, requirements, returns_, attendance, settings, potentials, regions] = await Promise.all(q.map(sbGet));
+    const settingsObj = {}; settings.forEach(s => { settingsObj[s.key] = s.value; });
+    const regionsObj = {}; regions.forEach(r => { if (r.code) regionsObj[r.code] = r.name || ''; });
+    return {
+      updatedAt: new Date().toISOString(), settings: settingsObj,
+      tasks: tasks.map(t => ({ row: t.seq, code: t.code == null ? null : numish(t.code), region: t.region || '', migrated: t.migrated || '', name: t.name || '', status: t.status || '', expectedTask: t.expected_task || '', owners: String(t.owners || '').split(/[,\n\/]/).map(s => s.trim()).filter(Boolean), task: t.task || '', lastCheckup: t.last_checkup || '', editor: t.editor || '', lastModified: t.last_modified ? String(t.last_modified) : '' })),
+      potentials: potentials.map(p => ({ serial: (p.serial === '' || p.serial == null) ? '' : numish(p.serial), region: p.region || '', name: p.name || '' })),
+      regions: regionsObj,
+      visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday })),
+      products: products.map(p => ({ id: String(p.id), name: p.name || '', category: p.category || '', active: !!p.active, createdAt: p.created_at ? String(p.created_at) : '', createdBy: p.created_by || '' })),
+      orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
+      movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
+      requirements: requirements.map(r => ({ id: String(r.id), createdAt: r.created_at || '', createdBy: r.created_by || '', kibbutz: r.kibbutz || '', contactName: r.contact_name || '', items: r.items || [], notes: r.notes || '', status: r.status || 'open', linkedOrderId: r.linked_order_id || '', fulfilledAt: r.fulfilled_at || '', lastUpdated: r.last_updated ? String(r.last_updated) : '' })),
+      returns: returns_.map(r => ({ id: String(r.id), visitId: r.visit_id || '', date: r.date || '', kibbutz: r.kibbutz || '', visitor: r.visitor || '', product: r.product || '', qty: parseInt(r.qty) || 0, reason: r.reason || '', status: r.status || 'open' })),
+      attendance: attendance.map(a => ({ id: String(a.id), date: a.date || '', person: a.person || '', dayType: a.day_type || '', note: a.note || '' })),
+      emsCache: { tasks: [], syncedAt: '', syncedBy: '' }, emsQueue: []
+    };
+  }
+  const respond = (payload) => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, clone: function () { return this; }, json: async () => payload, text: async () => JSON.stringify(payload) });
+  window.fetch = function (url, opts) {
+    if (typeof url === 'string' && url.indexOf(SHEET_API) === 0 && (!opts || !opts.method || String(opts.method).toUpperCase() === 'GET'))
+      return readSnapshot().then(respond).catch(e => { console.error('[supabase] read failed → Apps Script', e); return realFetch(url, opts); });
+    return realFetch(url, opts);
+  };
+  console.log('%c🟢 Supabase routing active (stats)', 'color:#16a34a;font-weight:700');
+})();
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Same parsers as the main dashboard
+function parseTaskField(taskStr) {
+  taskStr = String(taskStr || '');
+  const proc = taskStr.includes('[PROC_DONE]');
+  const stepMatch = taskStr.match(/step=(\d+)/);
+  const noteMatch = taskStr.match(/note=([^|]*?)(?:\||$)/);
+  const catMatch = taskStr.match(/cat=([a-z_]+)/);
+  const typeMatch = taskStr.match(/type=([a-z_]+)/);
+  return {
+    proc,
+    step: stepMatch ? parseInt(stepMatch[1]) : null,
+    note: noteMatch ? noteMatch[1].trim() : '',
+    cat: catMatch ? catMatch[1] : null,
+    type: typeMatch ? typeMatch[1] : null
+  };
+}
+
+// Hardcoded category mapping for kibbutzim in dashboard
+// (because Sheet doesn't have a category column — read from main dashboard's static HTML or task field)
+const STATIC_CATEGORIES = {
+  // Priority kibbutzim (matches the main dashboard's static HTML)
+  'גבת': 'priority', 'יגור': 'priority', 'חוקוק': 'priority', 'דגניה': 'priority',
+  'עין חרוד מאוחד': 'priority', 'אלומות': 'priority', 'בית זרע': 'priority',
+  'כנרת': 'priority', 'כפר עזה': 'priority', 'יסעור': 'priority',
+  'מגידו': 'priority', 'ניר עציון': 'priority', 'כפר מנחם': 'priority',
+  'משואות יצחק': 'priority',
+  // New clients
+  'עין דור': 'new_client', 'דגניה ב': 'new_client',
+  // Done
+  'משמר השרון': 'done', 'תל קציר': 'done', 'כפר גלעדי': 'done', 'גניגר': 'done',
+  'גבים': 'done', 'מעוז חיים': 'done', 'אפיקים': 'done', 'גברעם': 'done',
+  'עין המפרץ': 'done', 'אלונים': 'done', 'אור הנר חשמל': 'done', 'אור הנר גז': 'done',
+  'מתחם חינוך שער הנגב': 'done', 'שדה אליהו': 'done', 'קיבוץ גת': 'done',
+  'מעלה גלבוע': 'done', 'חולדה': 'done', 'שריד': 'done', 'גבעת חיים מאוחד': 'done',
+  'עין השופט': 'done', 'קבוצת יבנה': 'done', 'להב': 'done'
+};
+
+function getCategory(task) {
+  const parsed = parseTaskField(task.task);
+  if (parsed.cat) return parsed.cat;
+  if (STATIC_CATEGORIES[task.name]) return STATIC_CATEGORIES[task.name];
+  return 'pending'; // default for everything else from the Excel
+}
+
+function getEngagementType(task) {
+  const parsed = parseTaskField(task.task);
+  if (parsed.type) return parsed.type;
+  // Default: if marketing-only (no code), it's prospect; otherwise ongoing
+  if (!task.code) return 'prospect';
+  return 'ongoing';
+}
+
+let CHARTS = {};
+
+async function loadData() {
+  try {
+    const r = await fetch(SHEET_API + '?v=' + Date.now());
+    const data = await r.json();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    render(data);
+  } catch (e) {
+    document.getElementById('loadingState').style.display = 'none';
+    const err = document.getElementById('errorState');
+    err.style.display = 'block';
+    err.textContent = '❌ שגיאה בטעינת נתונים: ' + e.message;
+  }
+}
+
+function render(data) {
+  const tasks = data.tasks || [];
+  document.getElementById('metaInfo').textContent =
+    `📅 עודכן: ${new Date(data.updatedAt).toLocaleString('he-IL')} · ${tasks.length} קיבוצים בגיליון`;
+
+  // ===== KPIs =====
+  const total = tasks.length;
+  let countDone = 0, countPriority = 0, countNew = 0, countPending = 0, countProc = 0;
+  tasks.forEach(t => {
+    const cat = getCategory(t);
+    if (cat === 'done') countDone++;
+    else if (cat === 'priority') countPriority++;
+    else if (cat === 'new_client') countNew++;
+    else countPending++;
+    if (parseTaskField(t.task).proc) countProc++;
+  });
+
+  const pct = n => total ? ((n / total) * 100).toFixed(1) + '%' : '0%';
+  document.getElementById('kpiTotal').textContent = total;
+  document.getElementById('kpiDone').textContent = countDone;
+  document.getElementById('kpiDonePct').textContent = pct(countDone);
+  document.getElementById('kpiPriority').textContent = countPriority;
+  document.getElementById('kpiPriorityPct').textContent = pct(countPriority);
+  document.getElementById('kpiNewClient').textContent = countNew;
+  document.getElementById('kpiNewClientPct').textContent = pct(countNew);
+  document.getElementById('kpiPending').textContent = countPending;
+  document.getElementById('kpiPendingPct').textContent = pct(countPending);
+  document.getElementById('kpiProc').textContent = countProc;
+  document.getElementById('kpiProcPct').textContent = `${countProc}/${countDone} מבאוויר`;
+
+  // ===== Engagement chart =====
+  const engagementCounts = { ongoing: 0, wavering: 0, new: 0, prospect: 0 };
+  tasks.forEach(t => {
+    const e = getEngagementType(t);
+    engagementCounts[e] = (engagementCounts[e] || 0) + 1;
+  });
+  drawChart('engagementChart', 'doughnut',
+    ['🟢 שוטף', '🟡 מתנדנד', '🔵 חדש', '⚪ פוטנציאלי'],
+    [engagementCounts.ongoing, engagementCounts.wavering, engagementCounts.new, engagementCounts.prospect],
+    ['#10b981', '#f59e0b', '#3b82f6', '#94a3b8']
+  );
+
+  // ===== Category chart =====
+  drawChart('categoryChart', 'doughnut',
+    ['✅ עלה לאוויר', '🔴 עדיפות', '🆕 חדש', '⬜ ממתין'],
+    [countDone, countPriority, countNew, countPending],
+    ['#10b981', '#dc2626', '#f97316', '#94a3b8']
+  );
+
+  // ===== Region chart =====
+  const regionCounts = {};
+  tasks.forEach(t => {
+    if (!t.region) return;
+    regionCounts[t.region] = (regionCounts[t.region] || 0) + 1;
+  });
+  const regions = Object.keys(regionCounts);
+  drawChart('regionChart', 'bar',
+    regions,
+    regions.map(r => regionCounts[r]),
+    ['#10b981', '#06b6d4', '#3b82f6', '#8b5cf6', '#f97316', '#dc2626']
+  );
+
+  // ===== Owner chart =====
+  const ownerCounts = {};
+  tasks.forEach(t => {
+    (t.owners || []).forEach(o => {
+      ownerCounts[o] = (ownerCounts[o] || 0) + 1;
+    });
+  });
+  const owners = Object.keys(ownerCounts).sort((a, b) => ownerCounts[b] - ownerCounts[a]);
+  drawChart('ownerChart', 'bar',
+    owners,
+    owners.map(o => ownerCounts[o]),
+    '#3b82f6'
+  );
+
+  // ===== Step chart =====
+  const stepCounts = {};
+  tasks.forEach(t => {
+    const cat = getCategory(t);
+    if (cat !== 'done') return;
+    const s = parseTaskField(t.task).step;
+    const label = s ? 'שלב ' + s : 'הושלם (15)';
+    stepCounts[label] = (stepCounts[label] || 0) + 1;
+  });
+  const stepLabels = Object.keys(stepCounts).sort();
+  drawChart('stepChart', 'bar',
+    stepLabels,
+    stepLabels.map(s => stepCounts[s]),
+    '#10b981'
+  );
+
+  // ===== Wavering list =====
+  const waveringList = document.getElementById('waveringList');
+  const wavering = tasks.filter(t => getEngagementType(t) === 'wavering');
+  if (wavering.length === 0) {
+    waveringList.innerHTML = '<em style="color:#64748b;">אין לקוחות שסומנו כמתנדנדים. סמן בעריכת כרטיס → "🤝 סוג לקוח" → "🟡 מתנדנד"</em>';
+  } else {
+    waveringList.innerHTML = wavering.map(t =>
+      `<div>• <strong>${t.name}</strong> (${t.region || '?'}) — ${t.status || '-'}</div>`
+    ).join('');
+  }
+
+  // ===== Owner table =====
+  const ownerTable = document.getElementById('ownerTable');
+  const ownerBreakdown = {};
+  tasks.forEach(t => {
+    const cat = getCategory(t);
+    (t.owners || []).forEach(o => {
+      if (!ownerBreakdown[o]) ownerBreakdown[o] = { total: 0, priority: 0, done: 0, pending: 0, new_client: 0 };
+      ownerBreakdown[o].total++;
+      ownerBreakdown[o][cat] = (ownerBreakdown[o][cat] || 0) + 1;
+    });
+  });
+  ownerTable.innerHTML = Object.entries(ownerBreakdown)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([name, b]) =>
+      `<tr><td><strong>${name}</strong></td><td>${b.total}</td><td>${b.priority || 0}</td><td>${b.done || 0}</td><td>${b.pending || 0}</td><td>${b.new_client || 0}</td></tr>`
+    ).join('');
+
+  // ===== Region table =====
+  const regionTable = document.getElementById('regionTable');
+  const regionBreakdown = {};
+  tasks.forEach(t => {
+    if (!t.region) return;
+    const cat = getCategory(t);
+    const type = getEngagementType(t);
+    if (!regionBreakdown[t.region]) regionBreakdown[t.region] = { total: 0, priority: 0, done: 0, pending: 0, ongoing: 0, wavering: 0, new: 0 };
+    const b = regionBreakdown[t.region];
+    b.total++;
+    b[cat] = (b[cat] || 0) + 1;
+    b[type] = (b[type] || 0) + 1;
+  });
+  regionTable.innerHTML = Object.entries(regionBreakdown)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([region, b]) =>
+      `<tr><td><strong>${region}</strong></td><td>${b.total}</td><td>${b.priority || 0}</td><td>${b.done || 0}</td><td>${b.pending || 0}</td><td>${b.ongoing || 0}</td><td>${b.wavering || 0}</td><td>${b.new || 0}</td></tr>`
+    ).join('');
+
+  // ===== Stuck table =====
+  const stuckTable = document.getElementById('stuckTable');
+  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const stuck = tasks.filter(t => {
+    if (!t.lastModified) return true;
+    return new Date(t.lastModified) < cutoff;
+  }).slice(0, 20);
+  const catLabels = { priority: '🔴 עדיפות', done: '✅ באוויר', pending: '⬜ ממתין', new_client: '🆕 חדש' };
+  stuckTable.innerHTML = stuck.map(t => {
+    const cat = getCategory(t);
+    const lm = t.lastModified ? new Date(t.lastModified).toLocaleDateString('he-IL') : '<em style="color:#94a3b8;">מעולם</em>';
+    return `<tr>
+      <td><strong>${t.name}</strong></td>
+      <td>${t.region || '-'}</td>
+      <td><span class="badge ${cat}">${catLabels[cat] || cat}</span></td>
+      <td style="max-width:300px;">${(t.status || '-').slice(0, 80)}</td>
+      <td>${(t.owners || []).join(', ') || '-'}</td>
+      <td>${lm}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">אין קיבוצים תקועים</td></tr>';
+
+  // ===== Visits & distribution =====
+  const visits = data.visits || [];
+  const movements = data.movements || [];
+  const HOLDERS = ['משרד', 'עמיחי', 'אביאם', 'ניתאי', '']; // stock locations, not kibbutzim
+  // KPIs
+  document.getElementById('kpiVisits').textContent = visits.length;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  document.getElementById('kpiVisitsMonth').textContent = visits.filter(v => v.date && new Date(v.date) >= monthStart).length + ' החודש';
+  document.getElementById('kpiHours').textContent = Math.round(visits.reduce((s, v) => s + (parseFloat(v.duration) || 0), 0));
+  const dist = movements.filter(m => m.toLocation && HOLDERS.indexOf(m.toLocation) === -1); // delivered to a kibbutz
+  document.getElementById('kpiItems').textContent = Math.round(dist.reduce((s, m) => s + (parseFloat(m.quantity) || 0), 0));
+  document.getElementById('kpiVisitedKibs').textContent = new Set(visits.map(v => v.kibbutz).filter(Boolean)).size;
+
+  // visits by visitor
+  const byVisitor = {}; visits.forEach(v => { if (v.visitor) byVisitor[v.visitor] = (byVisitor[v.visitor] || 0) + 1; });
+  const vk = Object.keys(byVisitor).sort((a, b) => byVisitor[b] - byVisitor[a]);
+  drawChart('visitorChart', 'bar', vk, vk.map(k => byVisitor[k]), '#8b5cf6');
+  // visits by month
+  const byMonth = {}; visits.forEach(v => { if (!v.date) return; const d = new Date(v.date); byMonth[d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')] = (byMonth[d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')] || 0) + 1; });
+  const mk = Object.keys(byMonth).sort();
+  drawChart('visitMonthChart', 'bar', mk, mk.map(k => byMonth[k]), '#06b6d4');
+  // top distributed products
+  const byProduct = {}; dist.forEach(m => { if (m.product) byProduct[m.product] = (byProduct[m.product] || 0) + (parseFloat(m.quantity) || 0); });
+  const pk = Object.keys(byProduct).sort((a, b) => byProduct[b] - byProduct[a]).slice(0, 8);
+  drawChart('productChart', 'bar', pk, pk.map(k => byProduct[k]), '#f59e0b');
+  // top visited kibbutzim
+  const visCount = {}; visits.forEach(v => { if (v.kibbutz) visCount[v.kibbutz] = (visCount[v.kibbutz] || 0) + 1; });
+  const topVis = Object.entries(visCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  document.getElementById('topVisitedList').innerHTML = topVis.map(([k, n]) => `<div>• <strong>${esc(k)}</strong> — ${n} ביקורים</div>`).join('') || '<em style="color:#64748b;">אין ביקורים רשומים</em>';
+
+  // who got what (per kibbutz: products + qty)
+  const got = {}; dist.forEach(m => { const k = m.toLocation; (got[k] = got[k] || {})[m.product] = (got[k][m.product] || 0) + (parseFloat(m.quantity) || 0); });
+  const gotRows = Object.keys(got).sort((a, b) => Object.values(got[b]).reduce((x, y) => x + y, 0) - Object.values(got[a]).reduce((x, y) => x + y, 0));
+  document.getElementById('whoGotWhatTable').innerHTML = gotRows.map(k => {
+    const items = Object.entries(got[k]).sort((a, b) => b[1] - a[1]);
+    const tot = items.reduce((s, [, q]) => s + q, 0);
+    return `<tr><td><strong>${esc(k)}</strong></td><td>${esc(items.map(([p, q]) => p + ' ×' + q).join(', '))}</td><td>${tot}</td></tr>`;
+  }).join('') || '<tr><td colspan="3" style="text-align:center;color:#94a3b8;">אין חלוקות רשומות</td></tr>';
+
+  // recent visits
+  const recent = visits.filter(v => v.date).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 25);
+  document.getElementById('recentVisitsTable').innerHTML = recent.map(v => {
+    const prods = (v.products || []).map(p => p.name + (p.qty > 1 ? ' ×' + p.qty : '')).join(', ') || (v.productsOther || '-');
+    return `<tr><td>${new Date(v.date).toLocaleDateString('he-IL')}</td><td><strong>${esc(v.kibbutz || '-')}</strong></td><td>${esc(v.visitor || '-')}</td><td>${v.duration || '-'} ש'</td><td style="max-width:200px;">${esc(prods)}</td><td style="max-width:280px;">${esc((v.summary || '-').slice(0, 80))}</td></tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">אין ביקורים</td></tr>';
+}
+
+function drawChart(canvasId, type, labels, data, colors) {
+  if (CHARTS[canvasId]) CHARTS[canvasId].destroy();
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  CHARTS[canvasId] = new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: Array.isArray(colors) ? colors : labels.map(() => colors),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: type === 'bar' ? 'top' : 'bottom',
+          labels: { font: { family: 'Heebo, sans-serif', size: 12 } },
+          display: type !== 'bar'
+        },
+        tooltip: {
+          bodyFont: { family: 'Heebo, sans-serif' },
+          titleFont: { family: 'Heebo, sans-serif' }
+        }
+      },
+      scales: type === 'bar' ? {
+        x: { ticks: { font: { family: 'Heebo, sans-serif', size: 11 } } },
+        y: { ticks: { font: { family: 'Heebo, sans-serif' } }, beginAtZero: true }
+      } : undefined
+    }
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>
