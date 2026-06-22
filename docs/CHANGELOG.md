@@ -25,6 +25,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **`ems-auth` Edge Function** hardened: reads `JWT_SECRET` **per-request** (not at module
   load, so a freshly-set secret is always picked up) and returns an **env diagnostic**
   (variable names + lengths, no values) instead of a cryptic 500 when the secret is missing.
+### Fixed
+- **Low-stock alert** meter label `מונה PM` → full name **`מונה PM135`** (+ precise `PM135` match
+  so it can't accidentally bucket other meters).
 ### Security (in progress — #4)
 - STEP 1 RLS applied; auth bridge ON (self-verifying, anon fallback).
 - `ems-auth` mints an `authenticated` token; `JWT_SECRET` set = the project **Legacy JWT Secret**.

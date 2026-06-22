@@ -28,7 +28,7 @@
     { label: 'מונה E360SP', match: '360SP', min: 15 },
     { label: 'מונה E360CT', match: '360CT', min: 15 },
     { label: 'מונה E570',   match: 'E570',  min: 10 },
-    { label: 'מונה PM',     match: 'PM',     min: 5  },
+    { label: 'מונה PM135',  match: 'PM135',  min: 5  },
   ];
   const SIM_HOLDERS = [ { person: 'אביאם', min: 15 }, { person: 'ניתאי', min: 10 } ];
 
