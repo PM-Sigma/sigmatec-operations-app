@@ -12,6 +12,8 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Project memory/docs system** under `docs/`: [INDEX](INDEX.md) → architecture, modules,
   data-and-security, operations, backlog. Index-to-small-files layout (load only what's needed).
 - This **CHANGELOG**.
+- **Stats page** (`stats.html`): fixed rendering (Heebo + emoji fonts, RTL charts, mobile
+  table scroll, back-link → index.html) + interactive **time-period** & **region** filters.
 ### Changed
 - **`ems-auth` Edge Function** hardened: reads `JWT_SECRET` **per-request** (not at module
   load, so a freshly-set secret is always picked up) and returns an **env diagnostic**

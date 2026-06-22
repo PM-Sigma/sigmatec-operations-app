@@ -15,11 +15,10 @@ _Update this file as things move. Session-by-session history lives in claude-mem
 
 1. **#4 finish:** verify pass active → **STEP 2 RLS lockdown** (`db/rls_staged.sql`) → **rotate
    `service_role` + JWT secret** → update anon key in `01-data.js` if it changes.
-2. **Option B calendar:** add a **shared-secret** check to `appsscript/ems-calendar-backend.gs`,
-   deploy under `information@sigmatec-energy.com`, run `authorizeOnce`, send `/exec` URL → repoint
-   `SHEET_API`, wire calendar read+add UI, retire the legacy personal-Gmail script + old gist.
-3. **Stats page** (`stats.html`): fix clipping / RTL / question-marks; rebuild interactive
-   (by domain + by time period).
+2. **Calendar (service account):** finish GCP service-account setup → deploy `calendar` Edge
+   Function → wire read+add UI (needs EMS up to test the token gate). *Apps Script path dropped —
+   Workspace blocks public web apps.*
+3. **Visit-documentation bubble** — fixes (awaiting specifics from user).
 4. **Employee-management page** (עידן + עמיחי only): per-person progress, system-usage by actions,
    upcoming vacations, task load + breakdown, leave-a-message-on-login (needs a `messages` table).
 5. **EMS connection bubble** on the main page.
@@ -35,3 +34,4 @@ _Update this file as things move. Session-by-session history lives in claude-mem
 - One-click **"add to my calendar"** links on calendar events.
 - **Auth bridge** (`ems-auth` + `USE_SB_BRIDGE`, self-verifying, anon fallback) + STEP 1 RLS.
 - This **`docs/` memory system**.
+- **Stats page** rendering fix (fonts/RTL/clipping) + interactive time-period & region filters.
