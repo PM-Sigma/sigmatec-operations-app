@@ -8,4 +8,11 @@ const files = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort();
 let bundle = '';
 for (const f of files) bundle += fs.readFileSync(new URL(f, dir), 'utf8');
 fs.writeFileSync(out, bundle);
-console.log('built js/app.js from ' + files.length + ' modules (' + bundle.split('\n').length + ' lines): ' + files.join(', '));
+// cache-bust: stamp a fresh version onto the asset URLs in index.html every build,
+// so a new deploy can never be masked by a cached bundle (SW or CDN).
+const idxUrl = new URL('./index.html', import.meta.url);
+let idx = fs.readFileSync(idxUrl, 'utf8');
+const ver = Date.now().toString(36);
+idx = idx.replace(/(js\/app\.js\?v=)[^"]*/, '$1' + ver).replace(/(css\/app\.css\?v=)[^"]*/, '$1' + ver);
+fs.writeFileSync(idxUrl, idx);
+console.log('built js/app.js from ' + files.length + ' modules; stamped assets v=' + ver);
