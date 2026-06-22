@@ -13,6 +13,24 @@
     const show = () => { if (gate) gate.style.display = 'flex'; };
     const hide = () => { if (gate) gate.style.display = 'none'; };
     if (typeof isAuthed === 'function' ? !isAuthed() : true) show();
+    else if (typeof getEmsToken === 'function' && getEmsToken()) sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
+
+    // EMS→Supabase bridge: trade the EMS token for a short-lived Supabase pass (role=authenticated).
+    async function sbBridge() {
+      try {
+        var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+        if (!tok) return false;
+        var r = await fetch(SB_URL + '/functions/v1/ems-auth', {
+          method: 'POST',
+          headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emsToken: tok })
+        });
+        if (r.ok) { var d = await r.json(); if (d && d.token) { window._sbToken = d.token; window._sbTokenExp = Date.now() + 55 * 60 * 1000; return true; } }
+        else console.warn('[bridge] ems-auth ' + r.status);
+      } catch (e) { console.warn('[bridge] failed', e); }
+      return false;
+    }
+    window._sbBridge = sbBridge;
 
     async function resolveIdentity(email) {
       try {
@@ -30,6 +48,7 @@
       localStorage.setItem(AUTH_KEY, 'ok');
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
+      try { await sbBridge(); } catch (e) {}   // get the Supabase pass before loading data
       try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
       try { if (typeof refreshData === 'function') refreshData(); } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');

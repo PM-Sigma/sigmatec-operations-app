@@ -454,14 +454,16 @@
   const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
   const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
   if (USE_SUPABASE) (function setupSupabaseRouter() {
-    const H = { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' };
+    // Auth header is dynamic: use the EMS→Supabase bridge token (role=authenticated) when we have a
+    // fresh one, else fall back to the public anon key. Staged: works either way until RLS is locked.
+    const baseH = () => ({ apikey: SB_ANON, Authorization: 'Bearer ' + ((window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : SB_ANON), 'Content-Type': 'application/json' });
     const nowISO = () => new Date().toISOString();
     const numish = v => (v != null && /^-?\d+$/.test(String(v))) ? Number(v) : v;
     const genId = p => p + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const realFetch = window.fetch.bind(window);
-    const sbGet = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { headers: H }); if (!r.ok) throw new Error('supabase GET ' + path + ' ' + r.status); return r.json(); };
-    const sbUpsert = async (table, key, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?on_conflict=' + key, { method: 'POST', headers: Object.assign({}, H, { Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase upsert ' + table + ' ' + r.status + ' ' + await r.text()); };
-    const sbInsert = async (table, rows) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, H, { Prefer: 'return=minimal' }), body: JSON.stringify(rows) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); };
+    const sbGet = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { headers: baseH() }); if (!r.ok) throw new Error('supabase GET ' + path + ' ' + r.status); return r.json(); };
+    const sbUpsert = async (table, key, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?on_conflict=' + key, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase upsert ' + table + ' ' + r.status + ' ' + await r.text()); };
+    const sbInsert = async (table, rows) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(rows) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: H }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
 
     // ---- READ: assemble the exact snapshot shape the app already consumes ----
@@ -5897,6 +5899,24 @@
     const show = () => { if (gate) gate.style.display = 'flex'; };
     const hide = () => { if (gate) gate.style.display = 'none'; };
     if (typeof isAuthed === 'function' ? !isAuthed() : true) show();
+    else if (typeof getEmsToken === 'function' && getEmsToken()) sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
+
+    // EMS→Supabase bridge: trade the EMS token for a short-lived Supabase pass (role=authenticated).
+    async function sbBridge() {
+      try {
+        var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+        if (!tok) return false;
+        var r = await fetch(SB_URL + '/functions/v1/ems-auth', {
+          method: 'POST',
+          headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emsToken: tok })
+        });
+        if (r.ok) { var d = await r.json(); if (d && d.token) { window._sbToken = d.token; window._sbTokenExp = Date.now() + 55 * 60 * 1000; return true; } }
+        else console.warn('[bridge] ems-auth ' + r.status);
+      } catch (e) { console.warn('[bridge] failed', e); }
+      return false;
+    }
+    window._sbBridge = sbBridge;
 
     async function resolveIdentity(email) {
       try {
@@ -5914,6 +5934,7 @@
       localStorage.setItem(AUTH_KEY, 'ok');
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
+      try { await sbBridge(); } catch (e) {}   // get the Supabase pass before loading data
       try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
       try { if (typeof refreshData === 'function') refreshData(); } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');
