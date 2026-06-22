@@ -25,9 +25,9 @@
     async function onAuthed(email) {
       const person = await resolveIdentity(email);
       const name = person || email;            // fall back to email if no profile match
-      localStorage.setItem('dashboard_user_v1', name);
-      localStorage.setItem('dashboard_role_v1', name === 'עידן' ? 'idan' : 'team');
-      localStorage.setItem('dashboard_auth_v3', 'ok');
+      localStorage.setItem(USER_KEY, name);
+      localStorage.setItem(ROLE_KEY, name === 'עידן' ? 'idan' : 'team');
+      localStorage.setItem(AUTH_KEY, 'ok');
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
       try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
@@ -97,7 +97,7 @@
     };
     window.gateLogout = function () {
       try { localStorage.removeItem(EMS_TOKEN_KEY); localStorage.removeItem(EMS_TOKEN_AT_KEY); } catch (e) {}
-      localStorage.removeItem('dashboard_user_v1'); localStorage.removeItem('dashboard_auth_v3'); localStorage.removeItem('dashboard_role_v1');
+      localStorage.removeItem(USER_KEY); localStorage.removeItem(AUTH_KEY); localStorage.removeItem(ROLE_KEY);
       location.reload();
     };
   })();

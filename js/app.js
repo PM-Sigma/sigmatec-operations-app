@@ -4488,6 +4488,10 @@
     if (idanBtn) idanBtn.style.display = '';
   }
   function changeUser() {
+    if (LOGIN_FLAG) {   // EMS-login mode → real logout (clears the EMS session + identity, back to the gate)
+      if (confirm('להתנתק מהמערכת?') && typeof window.gateLogout === 'function') window.gateLogout();
+      return;
+    }
     if (confirm('להחליף משתמש? (השם הנוכחי יוסר מהמכשיר)')) {
       localStorage.removeItem(USER_KEY);
       updateUserBadge();
@@ -4496,7 +4500,7 @@
     }
   }
   // ====== Password gate (per-PIN: 4556=עידן elevated, 0540=team) ======
-  const AUTH_KEY = 'dashboard_auth_v3';   // bumped from v2 → forces re-auth under the new PIN scheme
+  const AUTH_KEY = 'dashboard_auth_v4';   // v4: forces one-time re-auth at the EMS-login cutover
   const IDAN_PIN = '4556';
   const TEAM_PIN = '0540';
   function isAuthed() { return localStorage.getItem(AUTH_KEY) === 'ok' && !!getCurrentUser(); }
@@ -4524,7 +4528,7 @@
   }
   // Entry point. ?login=1 → real EMS login gate (js/src/15-login-gate.js). Otherwise the
   // legacy name-picker + PIN (kept as default so the live app can never lock anyone out).
-  const LOGIN_FLAG = location.search.indexOf('login=1') !== -1;
+  const LOGIN_FLAG = location.search.indexOf('login=0') === -1;   // default ON (EMS login); ?login=0 = break-glass to the legacy PIN entry
   if (!LOGIN_FLAG && !isAuthed()) {
     applyLoginRoleOptions();
     document.getElementById('loginModal').classList.add('open');
@@ -5866,9 +5870,9 @@
     async function onAuthed(email) {
       const person = await resolveIdentity(email);
       const name = person || email;            // fall back to email if no profile match
-      localStorage.setItem('dashboard_user_v1', name);
-      localStorage.setItem('dashboard_role_v1', name === 'עידן' ? 'idan' : 'team');
-      localStorage.setItem('dashboard_auth_v3', 'ok');
+      localStorage.setItem(USER_KEY, name);
+      localStorage.setItem(ROLE_KEY, name === 'עידן' ? 'idan' : 'team');
+      localStorage.setItem(AUTH_KEY, 'ok');
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
       try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
@@ -5938,7 +5942,7 @@
     };
     window.gateLogout = function () {
       try { localStorage.removeItem(EMS_TOKEN_KEY); localStorage.removeItem(EMS_TOKEN_AT_KEY); } catch (e) {}
-      localStorage.removeItem('dashboard_user_v1'); localStorage.removeItem('dashboard_auth_v3'); localStorage.removeItem('dashboard_role_v1');
+      localStorage.removeItem(USER_KEY); localStorage.removeItem(AUTH_KEY); localStorage.removeItem(ROLE_KEY);
       location.reload();
     };
   })();
