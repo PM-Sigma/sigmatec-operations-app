@@ -646,15 +646,20 @@
   var _emsMeterCache = {};
   async function emsFetchMeter(id){
     if (_emsMeterCache[id] !== undefined) return _emsMeterCache[id];
-    try { _emsMeterCache[id] = (await emsApi('/meters/' + id)) || null; }
-    catch(e){ _emsMeterCache[id] = null; }
+    try {
+      var res = await emsApi('/meters/' + id);
+      // endpoint may return a single object OR a {data:[...]} list — handle both
+      var m = (res && Array.isArray(res.data)) ? (res.data.find(function(x){return x.id===id;}) || res.data[0]) : res;
+      _emsMeterCache[id] = m || null;
+    } catch(e){ _emsMeterCache[id] = null; }
     return _emsMeterCache[id];
   }
   // Best-effort meter label across possible field names (confirm against a real /v1/meters/:id payload).
   function emsMeterNumber(m, id){
     if (!m) return id.slice(0,8) + '…';
-    return m.number || m.meterNumber || m.serialNumber || m.serial || m.code || m.barcode || m.name || (id.slice(0,8) + '…');
+    return m.serialNumber || m.number || m.meterNumber || m.serial || m.code || (id.slice(0,8) + '…');
   }
+  function emsMeterIcon(m){ var t = m && m.energyType && m.energyType.type; return t==='water' ? '💧' : (t==='gas' ? '🔥' : '⚡'); }
   // After the detail renders: replace the "🔗 N מונים" box with real meter numbers + links.
   async function emsEnrichMeters(t){
     var box = document.getElementById('emsLinkedBox'); if (!box) return;
@@ -663,8 +668,10 @@
     if (!ids.length || type !== 'meter' || typeof isEmsConnected !== 'function' || !isEmsConnected()) return;
     var base = 'https://sigmatec-ems.com/admin/meters/';
     var chips = await Promise.all(ids.map(async function(id){
-      var num = emsMeterNumber(await emsFetchMeter(id), id);
-      return '<a href="' + base + id + '" target="_blank" rel="noopener" style="display:inline-block;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;padding:3px 9px;margin:2px;font-size:12px;text-decoration:none;color:#1e40af;">🔢 ' + emsEsc(String(num)) + ' ↗</a>';
+      var m = await emsFetchMeter(id);
+      var num = emsMeterNumber(m, id);
+      var addr = (m && m.address) ? ' · ' + m.address : '';
+      return '<a href="' + base + id + '" target="_blank" rel="noopener" style="display:inline-block;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;padding:3px 9px;margin:2px;font-size:12px;text-decoration:none;color:#1e40af;">' + emsMeterIcon(m) + ' ' + emsEsc(String(num)) + emsEsc(addr) + ' ↗</a>';
     }));
     box.innerHTML = '<div style="font-size:12px;color:#1e40af;margin-bottom:4px;">🔗 מונים מקושרים (' + ids.length + '):</div>' + chips.join('');
   }
