@@ -454,9 +454,11 @@
   const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
   const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
   if (USE_SUPABASE) (function setupSupabaseRouter() {
-    // Auth header is dynamic: use the EMS→Supabase bridge token (role=authenticated) when we have a
-    // fresh one, else fall back to the public anon key. Staged: works either way until RLS is locked.
-    const baseH = () => ({ apikey: SB_ANON, Authorization: 'Bearer ' + ((window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : SB_ANON), 'Content-Type': 'application/json' });
+    // Auth header. The bridge mints a role=authenticated token, but the DB only USES it once
+    // USE_SB_BRIDGE is on (i.e. AFTER the 'authenticated' RLS policies exist). Until then → anon,
+    // so the app always works. Staged: deploy authenticated policies → flip USE_SB_BRIDGE → lockdown.
+    const USE_SB_BRIDGE = false;
+    const baseH = () => ({ apikey: SB_ANON, Authorization: 'Bearer ' + ((USE_SB_BRIDGE && window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : SB_ANON), 'Content-Type': 'application/json' });
     const nowISO = () => new Date().toISOString();
     const numish = v => (v != null && /^-?\d+$/.test(String(v))) ? Number(v) : v;
     const genId = p => p + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
