@@ -44,7 +44,14 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-23 (build ·33)
+## 🚦 Current state — last: 2026-06-23 (build ·34)
+
+> **Dev-page (·34):** now a 3-level **collapsible tree** — 📂 topic → **אב** (click=toggle children) →
+> **בן** (click=toggle detail: state/assignee/priority/dates/**body**). **GitHub = explicit icon button**
+> (no longer the default row click). 2-part `T|S` + 3-part `T|S|D` with the same sub **merge**; parents
+> sorted A→Z so near-identical names sit adjacent. **`github` fn now returns `body`** — needs a **redeploy**
+> to populate the detail panel (same redeploy also activates pagination >100 + `updatedAt`). Verified on a 375px rig.
+
 
 > **Recent (·30→·33):** auto-incrementing **version stamp** in the footer · home page renamed
 > **"דף הבית"** (🏠) · footer RTL bidi fix · EMS bubble → **🟢 מחובר ל-EMS / 🔴 אין חיבור ל-EMS** ·
