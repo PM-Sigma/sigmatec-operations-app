@@ -44,7 +44,7 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-23 (build ·47 live; **`github` fn redeploy pending** to light up the sub-issue tree)
+## 🚦 Current state — last: 2026-06-24 (build ·48 live — dev sub-issue tree **verified live** (40 nested cards); EMS-bubble routing fixed)
 
 **Live & verified on `main`:** Supabase migration · PWA · EMS login gate · meters · "add to calendar" links ·
 security bridge + write-lockdown + messages-privacy (anon=read-only, auth=write) · Stats · Employee page
@@ -68,7 +68,9 @@ color) + violet "בפיתוח עכשיו" card + filled-red critical chip. **"ע
 (קריטי/גבוהה/בינונית/נמוכה counts) under the KPIs, fed by the live Projects-v2 Priority field.
 **Full sub-issue tree (·46):** the tree now nests **GitHub native sub-issues** (real hierarchy, any depth:
 📂 topic → card → sub-task → leaf), replacing the old title-pipe `אב` grouping that scattered an epic's children.
-Function returns each issue's `parent` (one GraphQL query; graceful → flat if absent). **Needs `github` fn redeploy.**
+Function returns each issue's `parent` (one GraphQL query; graceful → flat if absent). **Live & verified (·48):**
+40 parent cards nest their sub-tasks (e.g. #104 → its 11). **EMS bubble (·48):** disconnected → in-app login page
+(`showPage('ems')`); connected → external EMS system.
 
 **Morning "היום" view — REMOVED (·44).** Was added ·42; removed per request (not wanted in the app now). The
 whole feature is reverted incl. remember-last-page landing; app opens on the home page.
@@ -76,8 +78,8 @@ whole feature is reverted incl. remember-last-page landing; app opens on the hom
 ### 🅿️ Parked this session (out-of-office, needs עידן) — see backlog #6
 **Inventory-flow rework** is fully **designed** (two order types; supplier ≤10→אביאם / >10→עמיחי + floating alert;
 customer order → אביאם/ניתאי approval deducts approver stock → kibbutz + creates a real EMS `אספקת ציוד` task +
-keeps the row; EMS-bubble routing). **Not built** — awaiting go-ahead + per-kibbutz EMS site mapping.
-*(The low-stock-twice bug from that batch is already fixed & live in ·43.)*
+keeps the row). **Not built** — awaiting go-ahead + per-kibbutz EMS site mapping. This is the **only** non-autonomous
+piece left; all the small autonomous fixes from that batch are shipped: low-stock-twice (·43), EMS-bubble routing (·48).
 
 ### ✅ RESOLVED — live priorities/status (2026-06-23)
 The `GH_TOKEN` was reissued with **`repo` + `read:org` + `project`** and the `github` fn redeployed.

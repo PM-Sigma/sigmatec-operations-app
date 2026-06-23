@@ -1,7 +1,7 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·47** (2026-06-23)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·48** (2026-06-24)._
 
 ## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 
@@ -29,18 +29,15 @@ _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·
    **deducts from the approver's stock → the kibbutz**, **creates a real EMS task** `אספקת ציוד` (queue a new
    `createTask` kind when offline), and keeps the inventory row. Plus: **EMS bubble** routes to in-app reconnect
    when disconnected / external site when connected. Confirmed decisions captured; needs go-ahead + EMS site
-   mapping per kibbutz. *(✅ The **low-stock-twice** bug from this batch is already fixed & shipped in ·43; the
-   EMS-bubble routing is still pending here.)*
-
-## 🟡 To light up — dev-page sub-issue tree (·46)
-
-- The dev tree now renders **GitHub native sub-issues** (full hierarchy, any depth). Needs the **`github`
-  function redeployed with the new code** (added `fetchParentLinks` → returns `t.parent`). Until then it
-  degrades gracefully to a flat topic grouping. **Action:** Supabase → Edge Functions → `github` → Code →
-  paste the full `supabase/functions/github/index.ts` → **Deploy**. Then reload פיתוח.
+   mapping per kibbutz. *(✅ The small autonomous bits from this batch are both shipped: **low-stock-twice** (·43)
+   and **EMS-bubble routing** (·48). Only the order-types/approval/notification rework remains — needs עידן.)*
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
 
+- **EMS bubble routing (·48)**: disconnected → in-app EMS login page (`showPage('ems')`); connected → external EMS
+  system. Verified both states.
+- **Dev sub-issue tree LIVE & verified (·48)**: עידן redeployed the `github` fn → 40 parent cards now nest their
+  sub-tasks live (#104 → its 11). The "to light up" step is done.
 - **Dev-page full sub-issue tree (·46)**: nests GitHub sub-issues to any depth (📂 topic → card → sub-task → leaf),
   cross-topic children preserved, sub-count badges, nested search. Function returns `t.parent` (graceful). Verified.
 - **Dev-page "עומס לפי עדיפות" (·44)**: priority-load tiles in the פיתוח hero (קריטי/גבוהה/בינונית/נמוכה counts),

@@ -111,6 +111,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **EMS bubble routing (·48)** — when **disconnected**, the header bubble (🔴 אין חיבור ל-EMS) now opens the
+  **in-app EMS connection page** (`showPage('ems')` → `emsLoginPanel`) instead of the external site you can't
+  use yet; when **connected** (🟢) it opens the EMS system as before. Verified both states.
 - **Dev-tasks priority/status now live (2026-06-23, config-only)** — the `GH_TOKEN` blocker is resolved: the
   token was reissued with `repo + read:org + project` and the `github` fn redeployed. Verified live (127 status
   badges + priority chips over 130 tickets; "בפיתוח עכשיו" from real In-Progress). No code change. *(Confirmed

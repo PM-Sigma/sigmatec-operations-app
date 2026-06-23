@@ -193,6 +193,9 @@
     b.style.borderColor = on ? '#16a34a' : '#dc2626';
     b.style.color = on ? '#15803d' : '#991b1b';
     b.title = on ? 'מחובר ל-EMS · לחץ לפתיחת המערכת' : 'אין חיבור ל-EMS — לחץ להתחברות למערכת';
+    // Connected → open the external EMS system (the <a href>). Disconnected → go to the in-app EMS
+    // connection page (showPage('ems') reveals emsLoginPanel) instead of opening the site you can't use.
+    b.onclick = on ? null : function (e) { e.preventDefault(); if (typeof showPage === 'function') showPage('ems'); };
   }
   window.updateEmsBubble = updateEmsBubble;
   setInterval(function () { try { updateEmsBubble(); } catch (e) {} }, 60000);
