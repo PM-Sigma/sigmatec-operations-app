@@ -52,6 +52,48 @@
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 
+  // One color per topic, reused across the hero load-bar, the legend, and each topic's spine —
+  // so a slice of the bar, its legend chip, and its section in the tree all read as the same color.
+  var DEV_TOPIC_COLORS = ['#2f6fed', '#0e9aa7', '#7c5cdb', '#c87f0a', '#d6456f', '#0e9f6e', '#0891b2', '#ea7317'];
+
+  // Hero band — the page's focal element: live KPIs + a "load by topic" bar that doubles as the jump nav.
+  function devHero(tasks, topics, topicNames, colors) {
+    var openCount = tasks.filter(function (t) { return t.state !== 'closed'; }).length;
+    var inProg = tasks.filter(devInProgress).length;
+    var wk = new Date().getTime() - 7 * 864e5;
+    var weekCount = tasks.filter(function (t) { var u = t.updatedAt ? new Date(t.updatedAt).getTime() : 0; return u >= wk; }).length;
+    var total = tasks.length || 1;
+
+    var tiles = [
+      { n: openCount, l: 'משימות פתוחות', k: '#0e9aa7' },
+      { n: inProg, l: 'בפיתוח עכשיו', k: '#7c5cdb' },
+      { n: weekCount, l: 'עודכנו השבוע', k: '#2f6fed' },
+      { n: topicNames.length, l: 'נושאים פעילים', k: '#c87f0a' }
+    ];
+    var kpis = tiles.map(function (t) {
+      return '<div class="dev-kpi" style="--k:' + t.k + '"><div class="dev-kpi-num">' + t.n + '</div><div class="dev-kpi-lbl">' + t.l + '</div></div>';
+    }).join('');
+
+    var bar = topicNames.map(function (tp, i) {
+      return '<span style="width:' + (topics[tp].n / total * 100).toFixed(2) + '%;background:' + colors[i] + '" title="' + devEsc(tp) + ' · ' + topics[tp].n + '"></span>';
+    }).join('');
+    var legend = topicNames.map(function (tp, i) {
+      return '<button class="dev-leg" onclick="devJump(' + i + ')"><span class="dev-leg-dot" style="background:' + colors[i] + '"></span><bdi>' + devEsc(tp) + '</bdi><span class="dev-leg-n">' + topics[tp].n + '</span></button>';
+    }).join('');
+
+    return '<div class="dev-hero">' +
+      '<div class="dev-hero-top">' +
+        '<div><div class="dev-hero-title">💻 לוח פיתוח</div>' +
+        '<div class="dev-hero-sub">טיקטים חיים מ-GitHub · מתעדכן אוטומטית מהפרויקט</div></div>' +
+        '<button class="dev-hero-refresh" onclick="renderDevTasks()" title="רענן" aria-label="רענן">🔄</button>' +
+      '</div>' +
+      '<div class="dev-kpis">' + kpis + '</div>' +
+      (topicNames.length ? '<div class="dev-loadbar-cap">עומס לפי נושא</div>' +
+        '<div class="dev-loadbar">' + bar + '</div>' +
+        '<div class="dev-legend">' + legend + '</div>' : '') +
+    '</div>';
+  }
+
   async function devFetchTasks(state) {
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
     if (!tok) throw new Error('יש להתחבר ל-EMS כדי לראות משימות פיתוח');
@@ -145,19 +187,15 @@
     });
     var topicNames = Object.keys(topics).sort(function (a, b) { return topics[b].n - topics[a].n; });
 
+    var colors = topicNames.map(function (_, i) { return DEV_TOPIC_COLORS[i % DEV_TOPIC_COLORS.length]; });
+
     var active = function (s) { return window._devState === s ? ' active' : ''; };
     var head = '<div class="dev-toolbar">' +
-      '<div class="dev-counts"><strong>' + tasks.length + '</strong> משימות<span class="dev-counts-sub">· ' + topicNames.length + ' נושאים</span></div>' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
-        '<button class="inv-btn small" onclick="renderDevTasks()">🔄 רענן</button>' +
       '</div></div>';
-
-    var chips = '<div class="dev-chips">' + topicNames.map(function (topic, i) {
-      return '<button class="dev-chip" onclick="devJump(' + i + ')">📂 <bdi>' + devEsc(topic) + '</bdi><span class="dev-chip-n">' + topics[topic].n + '</span></button>';
-    }).join('') + '</div>';
 
     // "בפיתוח עכשיו" — prefer real Status=In-Progress (Projects field); fall back to recent activity
     var inProg = tasks.filter(devInProgress);
@@ -175,14 +213,14 @@
         var hasChild = group.some(function (t) { return !!t._p.sub; });
         return hasChild ? devParentNode(k, group) : group.map(devTaskNode).join('');
       }).join('');
-      return '<details id="dtopic-' + i + '" class="dev-topic"' + (i === 0 ? ' open' : '') + '>' +
+      return '<details id="dtopic-' + i + '" class="dev-topic" style="--tc:' + colors[i] + '"' + (i === 0 ? ' open' : '') + '>' +
         '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
         '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
         '<span class="dev-topic-n">' + tp.n + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
         '<div class="dev-topic-body">' + inner + '</div></details>';
     }).join('');
 
-    el.innerHTML = '<div class="dev-wrap">' + head + chips + ipBox + (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
+    el.innerHTML = '<div class="dev-wrap">' + devHero(tasks, topics, topicNames, colors) + head + ipBox + (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
   }
 
   window.devJump = function (i) { var d = document.getElementById('dtopic-' + i); if (!d) return; d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); };

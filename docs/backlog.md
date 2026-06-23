@@ -1,7 +1,7 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·40** (2026-06-23)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·43** (2026-06-23)._
 
 ## 🔴 Current blocker — live dev-tasks priorities/status
 
@@ -25,9 +25,25 @@ _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·
 4. **Dev-tasks editing (phase 2)** — a write-capable token to set Priority/Status/sprint from the app.
 5. **EMS changelog → calendar** — show EMS version-release days in the יומן (needs the calendar unblocked + the
    changelog source מתניה maintains).
+6. **Inventory-flow rework (DESIGNED, not built — awaiting עידן)** — two order types (`supplier`/`customer`):
+   supplier raises stock, approval routed by size (**≤10 → אביאם, >10 → עמיחי** + a floating approval alert for
+   עמיחי modeled on the attendance reminder); customer order consumes stock — on **אביאם/ניתאי** approval it
+   **deducts from the approver's stock → the kibbutz**, **creates a real EMS task** `אספקת ציוד` (queue a new
+   `createTask` kind when offline), and keeps the inventory row. Plus: **EMS bubble** routes to in-app reconnect
+   when disconnected / external site when connected. Confirmed decisions captured; needs go-ahead + EMS site
+   mapping per kibbutz. *(✅ The **low-stock-twice** bug from this batch is already fixed & shipped in ·43; the
+   EMS-bubble routing is still pending here.)*
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
 
+- **Low-stock "appears twice" fix (·43)**: meter shortage no longer doubles for אביאם/עמיחי (banner + company-task
+  line) — they keep the banner, the line is skipped; other users keep the line. Verified per-role.
+- **Morning "היום" view + remember-last-page (·42)**: new first nav page aggregating דורש-טיפול / המשימות-שלי /
+  סטטוס-הקמה (role-aware, client-only); landing reopens last page same-day, lands on היום on a new day.
+  (Recommendations "bottom-nav" + "dev-page 404" were stale → already done.)
+- **Dev-tasks color redesign (·41)**: dark navy KPI hero (4 live tiles + "עומס לפי נושא" bar/legend),
+  per-topic color system (spine/pill/rail/bar all share one color), violet "בפיתוח עכשיו" card, filled-red
+  critical chip. Pure visual — no data/logic change. Verified desktop 1040 + mobile 375 (2-col, no overflow).
 - **Dev-tasks page**: 3-level collapsible tree (topic→אב→בן→detail+body), explicit GitHub button,
   **Projects-v2 Priority+Status via GraphQL**, "בפיתוח עכשיו" by real Status, search/jump chips, mobile-first.
 - **Saves fix**: write shim re-mints the auth pass before every upsert → no more "נשמר מקומית" (·36).

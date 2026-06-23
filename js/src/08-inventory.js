@@ -60,12 +60,15 @@
   // (visible to all), plus a main-page banner whose content depends on who's logged in.
   function renderLowStockAlert() {
     const { meters, sims } = lowStockReport();
+    const me = getCurrentUser();
 
-    // (1) company-task lines — meters are company-wide → visible to everyone
+    // (1) company-task lines — meters are company-wide. SKIP for אביאם/עמיחי: they already get
+    //     meters in the prominent red banner (2) below, so listing them here too made the alert
+    //     "appear twice". Everyone else (עידן/מתניה/ניתאי) has no banner → the line is their signal.
     const ordersOl = document.querySelector('.company-task-group.orders ol');
     if (ordersOl) {
       ordersOl.querySelectorAll('li.low-stock-task').forEach(e => e.remove());
-      meters.forEach(m => {
+      if (me !== 'אביאם' && me !== 'עמיחי') meters.forEach(m => {
         const li = document.createElement('li');
         li.className = 'low-stock-task';
         li.style.cssText = 'color:#dc2626;font-weight:700;';
@@ -76,7 +79,6 @@
 
     // (2) main-page banner — אביאם/עמיחי see meters; SIMs are per-person (אביאם, as manager,
     //     also sees ניתאי's — named, since the stock may be in אביאם's bag).
-    const me = getCurrentUser();
     const lines = [];
     if (me === 'אביאם' || me === 'עמיחי') {
       meters.forEach(m => lines.push(`${m.label}: נותרו ${m.total} (קו אדום ${m.min})`));

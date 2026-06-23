@@ -44,7 +44,7 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-23 (build ·40)
+## 🚦 Current state — last: 2026-06-23 (build ·43, deployed to main)
 
 **Live & verified on `main`:** Supabase migration · PWA · EMS login gate · meters · "add to calendar" links ·
 security bridge + write-lockdown + messages-privacy (anon=read-only, auth=write) · Stats · Employee page
@@ -62,6 +62,19 @@ requirements, tasks, visits, orders. Buttons/toasts "שמור לגיליון"→
 GitHub = explicit icon button (not the default click). Priority + Status come from the **GitHub Projects-v2**
 board **"Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)** via **GraphQL** (·39); priority chip
 (קריטי/גבוה/בינוני/נמוך) + Status badge; **"בפיתוח עכשיו" driven by real Status=In-Progress**. Client timeouts + 🔄 retry.
+**Color redesign (·41):** dark navy **KPI hero** (4 live tiles + "עומס לפי נושא" bar/clickable legend, replaces
+the jump-chips) + a **per-topic color system** (spine/count-pill/body-rail/bar-segment/legend-dot all share one
+color) + violet "בפיתוח עכשיו" card + filled-red critical chip. Pure CSS/markup — no data/logic change.
+
+**Morning "היום" view (·42, `19-today.js`):** new **first** nav page (🌅) — role-aware briefing: דורש-טיפול
+(approvals you can act on + low-stock), המשימות-שלי (your open EMS tasks), סטטוס-הקמה (pipeline counts).
+Client-only. **Landing:** reopen last page same-day, land on היום on a new day (`landOnStartPage` from `refreshData`).
+
+### 🅿️ Parked this session (out-of-office, needs עידן) — see backlog #6
+**Inventory-flow rework** is fully **designed** (two order types; supplier ≤10→אביאם / >10→עמיחי + floating alert;
+customer order → אביאם/ניתאי approval deducts approver stock → kibbutz + creates a real EMS `אספקת ציוד` task +
+keeps the row; EMS-bubble routing). **Not built** — awaiting go-ahead + per-kibbutz EMS site mapping.
+*(The low-stock-twice bug from that batch is already fixed & live in ·43.)*
 
 ### ⛔ THE next action — live priorities/status (one step left)
 The function's **`GH_TOKEN` must have the `project` scope**. Steps: GitHub → **classic** token with

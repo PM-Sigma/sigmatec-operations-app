@@ -9,6 +9,26 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 
 ## [Unreleased]
 ### Added
+- **Morning "היום" view + smart landing (·42, `19-today.js`):** a new **first** nav page (🌅 היום) that
+  aggregates what needs attention *now* — role-aware, pure client-side (no backend/secrets): **דורש טיפול**
+  (orders awaiting *your* approval + low-stock relevant to you), **המשימות שלי** (open EMS tasks assigned to
+  you → link to the full משימות page), **סטטוס הקמה** (kibbutz pipeline counts). Dark hero greeting + subtle
+  load-in animation (`prefers-reduced-motion` respected). **Remember-last-page:** `showPage` persists the page
+  + date; `landOnStartPage()` (fired once from `refreshData`) **reopens the last page within the same day**, but
+  **lands on היום on a new day** (morning briefing). Verified: render, role-aware user, both landing branches,
+  mobile 375 (no overflow). *Note: the recommendations doc's "bottom-nav" and "dev-page 404" items were stale —
+  bottom-nav already exists (fixed bar ≤768px), dev page is live (·41).*
+- **Dev-tasks color redesign + KPI hero (·41):** the פיתוח page led with a pale, near-styleless tree.
+  Added a **dark navy "mission-control" hero band** carrying the page title + **4 live KPI tiles**
+  (משימות פתוחות / בפיתוח עכשיו / עודכנו השבוע / נושאים פעילים — all computed from the already-fetched
+  ticket list, no new data) and a **"עומס לפי נושא" distribution bar** with a clickable legend that
+  **replaces the old jump-chips**. Introduced a **per-topic color system** (`DEV_TOPIC_COLORS`): each
+  topic owns one color reused across the bar segment, its legend dot, and its tree section (colored
+  **spine** + count pill + body rail) — so a bar slice, its legend chip, and its section read as one color.
+  The **"בפיתוח עכשיו"** box became a real **violet card** (violet = "in development" across the app, was
+  a near-invisible right-rail only — `.card` was never even defined in CSS). **קריטי/דחוף** priority chip
+  is now a **filled red** (was washed-out tint). Static `index.html` heading removed (the hero carries it).
+  Verified via computed styles + a static harness at desktop (1040) and mobile (375: 2-col KPIs, no overflow).
 - **Visible version stamp** (`גרסה {date}·{N}`) in the footer, **auto-incremented** by `build.mjs`
   from a `VERSION` counter on every build — so each deploy is visibly newer (continues the old ·NN scheme).
 - **Dev-tasks interactive navigation:** topic **chips** (click = jump + open the group), **collapsible**
@@ -71,6 +91,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **Low-stock alert "appears twice" (·43)** — for אביאם/עמיחי a meter shortage surfaced **both** in the red
+  banner *and* as a red line in the company-orders task list. Root cause: `renderLowStockAlert` added the
+  company-task line for everyone, but אביאם/עמיחי also get meters in the banner. Fix: skip the company-task
+  meter line for the two banner-users; everyone else (עידן/מתניה/ניתאי, who have no banner) still gets the
+  line. Verified in a rig: עמיחי → 1 (banner only); עידן → 1 (line only). *(The benign double-call from
+  `refreshData`+`renderInventory` was a red herring — it's idempotent, guarded.)*
 - **Priority "קריטי" (·40)** now maps to the top red chip (was falling through unmapped). Tier order: קריטי/דחוף → גבוה → בינוני → נמוך.
 - **Dev-tasks now reads GitHub Projects-v2 fields** (·39) — the real source of priority. The function added a
   **GraphQL** query against project **"Sigmatec EMS — Roadmap"** (Sigmatec-Energy #1) and merges **Priority +

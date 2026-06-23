@@ -739,6 +739,11 @@
       if (invView && invView.style.display !== 'none' && typeof renderInventory === 'function') {
         renderInventory();
       }
+      // Keep the morning view fresh (re-render after login / on each poll while it's open)
+      const todayV = document.getElementById('today-view');
+      if (todayV && todayV.style.display !== 'none' && typeof renderToday === 'function') renderToday();
+      // One-time landing: on first data load decide where to open (last page, or "היום" on a new day)
+      if (!window._landingApplied && typeof landOnStartPage === 'function') { window._landingApplied = true; landOnStartPage(); }
     }
   }
 

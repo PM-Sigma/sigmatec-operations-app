@@ -1031,6 +1031,7 @@
     if (page === 'staff' && typeof canManageStaff === 'function' && !canManageStaff()) page = 'kibbutz'; // עידן + עמיחי only
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי only
+    var _tv = document.getElementById('today-view'); if (_tv) _tv.style.display = page === 'today' ? '' : 'none';
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
@@ -1040,6 +1041,10 @@
     var _sv = document.getElementById('staff-view'); if (_sv) _sv.style.display = page === 'staff' ? '' : 'none';
     var _dv = document.getElementById('dev-view'); if (_dv) _dv.style.display = page === 'dev' ? '' : 'none';
     document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+    // Remember where the user is (+ the date) so the app reopens here — except on a new day,
+    // when landOnStartPage() lands on "היום" instead. Store the normalized page (post-redirect).
+    try { localStorage.setItem('last_page_v1', page); localStorage.setItem('last_open_date_v1', new Date().toISOString().slice(0, 10)); } catch (e) {}
+    if (page === 'today' && typeof renderToday === 'function') renderToday();
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
     if (page === 'ems')        renderEmsPage();
@@ -2772,12 +2777,15 @@
   // (visible to all), plus a main-page banner whose content depends on who's logged in.
   function renderLowStockAlert() {
     const { meters, sims } = lowStockReport();
+    const me = getCurrentUser();
 
-    // (1) company-task lines — meters are company-wide → visible to everyone
+    // (1) company-task lines — meters are company-wide. SKIP for אביאם/עמיחי: they already get
+    //     meters in the prominent red banner (2) below, so listing them here too made the alert
+    //     "appear twice". Everyone else (עידן/מתניה/ניתאי) has no banner → the line is their signal.
     const ordersOl = document.querySelector('.company-task-group.orders ol');
     if (ordersOl) {
       ordersOl.querySelectorAll('li.low-stock-task').forEach(e => e.remove());
-      meters.forEach(m => {
+      if (me !== 'אביאם' && me !== 'עמיחי') meters.forEach(m => {
         const li = document.createElement('li');
         li.className = 'low-stock-task';
         li.style.cssText = 'color:#dc2626;font-weight:700;';
@@ -2788,7 +2796,6 @@
 
     // (2) main-page banner — אביאם/עמיחי see meters; SIMs are per-person (אביאם, as manager,
     //     also sees ניתאי's — named, since the stock may be in אביאם's bag).
-    const me = getCurrentUser();
     const lines = [];
     if (me === 'אביאם' || me === 'עמיחי') {
       meters.forEach(m => lines.push(`${m.label}: נותרו ${m.total} (קו אדום ${m.min})`));
@@ -4315,6 +4322,11 @@
       if (invView && invView.style.display !== 'none' && typeof renderInventory === 'function') {
         renderInventory();
       }
+      // Keep the morning view fresh (re-render after login / on each poll while it's open)
+      const todayV = document.getElementById('today-view');
+      if (todayV && todayV.style.display !== 'none' && typeof renderToday === 'function') renderToday();
+      // One-time landing: on first data load decide where to open (last page, or "היום" on a new day)
+      if (!window._landingApplied && typeof landOnStartPage === 'function') { window._landingApplied = true; landOnStartPage(); }
     }
   }
 
@@ -6354,6 +6366,48 @@
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 
+  // One color per topic, reused across the hero load-bar, the legend, and each topic's spine —
+  // so a slice of the bar, its legend chip, and its section in the tree all read as the same color.
+  var DEV_TOPIC_COLORS = ['#2f6fed', '#0e9aa7', '#7c5cdb', '#c87f0a', '#d6456f', '#0e9f6e', '#0891b2', '#ea7317'];
+
+  // Hero band — the page's focal element: live KPIs + a "load by topic" bar that doubles as the jump nav.
+  function devHero(tasks, topics, topicNames, colors) {
+    var openCount = tasks.filter(function (t) { return t.state !== 'closed'; }).length;
+    var inProg = tasks.filter(devInProgress).length;
+    var wk = new Date().getTime() - 7 * 864e5;
+    var weekCount = tasks.filter(function (t) { var u = t.updatedAt ? new Date(t.updatedAt).getTime() : 0; return u >= wk; }).length;
+    var total = tasks.length || 1;
+
+    var tiles = [
+      { n: openCount, l: 'משימות פתוחות', k: '#0e9aa7' },
+      { n: inProg, l: 'בפיתוח עכשיו', k: '#7c5cdb' },
+      { n: weekCount, l: 'עודכנו השבוע', k: '#2f6fed' },
+      { n: topicNames.length, l: 'נושאים פעילים', k: '#c87f0a' }
+    ];
+    var kpis = tiles.map(function (t) {
+      return '<div class="dev-kpi" style="--k:' + t.k + '"><div class="dev-kpi-num">' + t.n + '</div><div class="dev-kpi-lbl">' + t.l + '</div></div>';
+    }).join('');
+
+    var bar = topicNames.map(function (tp, i) {
+      return '<span style="width:' + (topics[tp].n / total * 100).toFixed(2) + '%;background:' + colors[i] + '" title="' + devEsc(tp) + ' · ' + topics[tp].n + '"></span>';
+    }).join('');
+    var legend = topicNames.map(function (tp, i) {
+      return '<button class="dev-leg" onclick="devJump(' + i + ')"><span class="dev-leg-dot" style="background:' + colors[i] + '"></span><bdi>' + devEsc(tp) + '</bdi><span class="dev-leg-n">' + topics[tp].n + '</span></button>';
+    }).join('');
+
+    return '<div class="dev-hero">' +
+      '<div class="dev-hero-top">' +
+        '<div><div class="dev-hero-title">💻 לוח פיתוח</div>' +
+        '<div class="dev-hero-sub">טיקטים חיים מ-GitHub · מתעדכן אוטומטית מהפרויקט</div></div>' +
+        '<button class="dev-hero-refresh" onclick="renderDevTasks()" title="רענן" aria-label="רענן">🔄</button>' +
+      '</div>' +
+      '<div class="dev-kpis">' + kpis + '</div>' +
+      (topicNames.length ? '<div class="dev-loadbar-cap">עומס לפי נושא</div>' +
+        '<div class="dev-loadbar">' + bar + '</div>' +
+        '<div class="dev-legend">' + legend + '</div>' : '') +
+    '</div>';
+  }
+
   async function devFetchTasks(state) {
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
     if (!tok) throw new Error('יש להתחבר ל-EMS כדי לראות משימות פיתוח');
@@ -6447,19 +6501,15 @@
     });
     var topicNames = Object.keys(topics).sort(function (a, b) { return topics[b].n - topics[a].n; });
 
+    var colors = topicNames.map(function (_, i) { return DEV_TOPIC_COLORS[i % DEV_TOPIC_COLORS.length]; });
+
     var active = function (s) { return window._devState === s ? ' active' : ''; };
     var head = '<div class="dev-toolbar">' +
-      '<div class="dev-counts"><strong>' + tasks.length + '</strong> משימות<span class="dev-counts-sub">· ' + topicNames.length + ' נושאים</span></div>' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
-        '<button class="inv-btn small" onclick="renderDevTasks()">🔄 רענן</button>' +
       '</div></div>';
-
-    var chips = '<div class="dev-chips">' + topicNames.map(function (topic, i) {
-      return '<button class="dev-chip" onclick="devJump(' + i + ')">📂 <bdi>' + devEsc(topic) + '</bdi><span class="dev-chip-n">' + topics[topic].n + '</span></button>';
-    }).join('') + '</div>';
 
     // "בפיתוח עכשיו" — prefer real Status=In-Progress (Projects field); fall back to recent activity
     var inProg = tasks.filter(devInProgress);
@@ -6477,14 +6527,14 @@
         var hasChild = group.some(function (t) { return !!t._p.sub; });
         return hasChild ? devParentNode(k, group) : group.map(devTaskNode).join('');
       }).join('');
-      return '<details id="dtopic-' + i + '" class="dev-topic"' + (i === 0 ? ' open' : '') + '>' +
+      return '<details id="dtopic-' + i + '" class="dev-topic" style="--tc:' + colors[i] + '"' + (i === 0 ? ' open' : '') + '>' +
         '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
         '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
         '<span class="dev-topic-n">' + tp.n + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
         '<div class="dev-topic-body">' + inner + '</div></details>';
     }).join('');
 
-    el.innerHTML = '<div class="dev-wrap">' + head + chips + ipBox + (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
+    el.innerHTML = '<div class="dev-wrap">' + devHero(tasks, topics, topicNames, colors) + head + ipBox + (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
   }
 
   window.devJump = function (i) { var d = document.getElementById('dtopic-' + i); if (!d) return; d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
@@ -6508,3 +6558,100 @@
   window.devSetState = function (s) { window._devState = s; renderDevTasks(); };
   window.renderDevTasks = renderDevTasks;
   window.canSeeDevTasks = canSeeDevTasks;
+  // ===========================================================
+  // TODAY (היום) — morning briefing landing page. Pure client-side: aggregates data
+  // already loaded (orders / low-stock / EMS tasks / kibbutz pipeline) into one
+  // "what needs me now" screen. Role-aware. No backend, no secrets.
+  //
+  // Landing logic (landOnStartPage, called once from refreshData): reopen the last
+  // page within the same day; on a NEW day, open "היום" as the morning briefing.
+  // ===========================================================
+  function todayEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function todayGreeting() { var h = new Date().getHours(); return h < 12 ? 'בוקר טוב' : (h < 18 ? 'צהריים טובים' : 'ערב טוב'); }
+
+  // navigate from a today-card row (optionally into an inventory sub-tab)
+  window.todayGo = function (page, tab) {
+    if (typeof showPage !== 'function') return;
+    showPage(page);
+    if (tab && typeof invShowTab === 'function') setTimeout(function () { invShowTab(tab); }, 150);
+  };
+
+  function renderToday() {
+    var el = document.getElementById('todayContent');
+    if (!el) return;
+    var me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    var dateStr = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+
+    // ---- "דורש טיפול" — approvals I can act on + low stock relevant to me ----
+    var actions = [];
+    var orders = (window.SHEET_DATA && window.SHEET_DATA.orders) || [];
+    var canApprove = (typeof canApproveOrders === 'function') && canApproveOrders();
+    var pendingApproval = orders.filter(function (o) { return o.status === 'pending_approval'; });
+    if (canApprove && pendingApproval.length) {
+      actions.push({ icon: '🟣', text: pendingApproval.length + ' הזמנות ממתינות לאישורך', onclick: "todayGo('inventory')" });
+    }
+    var ls = (typeof lowStockReport === 'function') ? lowStockReport() : { meters: [], sims: [] };
+    if (me === 'אביאם' || me === 'עמיחי') ls.meters.forEach(function (m) {
+      actions.push({ icon: '🔴', text: m.label + ': נותרו ' + m.total + ' (קו אדום ' + m.min + ')', onclick: "todayGo('inventory','stock')" });
+    });
+    ls.sims.forEach(function (s) {
+      if (s.person === me || me === 'אביאם') actions.push({ icon: '🔴', text: s.type + ' אצל ' + s.person + ': נותרו ' + s.qty + ' (קו אדום ' + s.min + ')', onclick: "todayGo('inventory','stock')" });
+    });
+
+    // ---- "המשימות שלי" — EMS open tasks assigned to me (full list lives on the משימות page) ----
+    var emsTasks = (typeof emsCacheData === 'function' ? emsCacheData().tasks : []) || [];
+    var closed = (typeof EMS_CLOSED !== 'undefined') ? EMS_CLOSED : [];
+    var myEms = emsTasks.filter(function (t) {
+      return closed.indexOf(t.status) === -1 && t.assignee && typeof emsUserName === 'function' && emsUserName(t.assignee).indexOf(me) !== -1;
+    });
+
+    // ---- "סטטוס הקמה" — kibbutz pipeline counts (from the home grids) ----
+    var grid = function (id) { var g = document.getElementById(id); return g ? g.querySelectorAll('.kibbutz').length : 0; };
+    var pipe = [
+      { n: grid('grid-done'),       l: 'עלו לאוויר',  k: '#0e9f6e' },
+      { n: grid('grid-priority'),   l: 'בעדיפות',     k: '#d64545' },
+      { n: grid('grid-new_client'), l: 'בהקמה',       k: '#7c5cdb' },
+      { n: grid('grid-pending'),    l: 'ממתינים',     k: '#c87f0a' }
+    ];
+
+    // ---- build ----
+    var hero = '<div class="today-hero"><div class="today-hero-greet">🌅 ' + todayEsc(todayGreeting()) +
+      (me ? ', <bdi>' + todayEsc(me) + '</bdi>' : '') + '</div><div class="today-hero-date">' + todayEsc(dateStr) + '</div></div>';
+
+    var actionCard = '<div class="today-card today-card-alert"><div class="today-card-head">🔴 דורש טיפול</div>' +
+      (actions.length
+        ? '<div class="today-rows">' + actions.map(function (a) {
+            return '<button class="today-row" onclick="' + a.onclick + '"><span class="today-row-ico">' + a.icon + '</span><span class="today-row-text">' + todayEsc(a.text) + '</span><span class="today-row-go">‹</span></button>';
+          }).join('') + '</div>'
+        : '<div class="today-clear">הכול נקי ✨</div>') +
+      '</div>';
+
+    var tasksCard = '<div class="today-card"><div class="today-card-head">✅ המשימות שלי</div>' +
+      '<button class="today-bignum-row" onclick="todayGo(\'mytasks\')"><span class="today-bignum">' + myEms.length + '</span>' +
+      '<span class="today-bignum-lbl">' + (myEms.length ? 'משימות EMS פתוחות עליך · פתח את כל המשימות ‹' : 'אין משימות EMS פתוחות 🎉 · פתח את המשימות ‹') + '</span></button>' +
+      (myEms.length ? '<div class="today-rows">' + myEms.slice(0, 4).map(function (t) {
+          return '<button class="today-row" onclick="if(typeof openKibbutzEmsTask===\'function\')openKibbutzEmsTask(\'' + todayEsc(String(t.id)) + '\')"><span class="today-row-ico">📋</span><span class="today-row-text">' + todayEsc(t.title) + '</span><span class="today-row-go">‹</span></button>';
+        }).join('') + '</div>' : '') +
+      '</div>';
+
+    var pipeCard = '<div class="today-card"><div class="today-card-head">🚦 סטטוס הקמה</div>' +
+      '<div class="today-pipe">' + pipe.map(function (p) {
+        return '<button class="today-stat" style="--k:' + p.k + '" onclick="todayGo(\'kibbutz\')"><span class="today-stat-n">' + p.n + '</span><span class="today-stat-l">' + p.l + '</span></button>';
+      }).join('') + '</div></div>';
+
+    el.innerHTML = '<div class="today-wrap">' + hero + actionCard + tasksCard + pipeCard + '</div>';
+  }
+
+  // One-time startup landing: same day → reopen last page; new day → "היום" briefing.
+  function landOnStartPage() {
+    try {
+      var today = new Date().toISOString().slice(0, 10);
+      var lastDate = localStorage.getItem('last_open_date_v1') || '';
+      var lastPage = localStorage.getItem('last_page_v1') || '';
+      var target = (lastDate === today && lastPage) ? lastPage : 'today';
+      if (typeof showPage === 'function') showPage(target);
+    } catch (e) { if (typeof showPage === 'function') showPage('today'); }
+  }
+
+  window.renderToday = renderToday;
+  window.landOnStartPage = landOnStartPage;

@@ -20,12 +20,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqqjs3xj">
+<link rel="stylesheet" href="css/app.css?v=mqqp03oo">
 </head>
 <body>
 <div class="container">
 
   <div class="page-nav">
+    <button id="navToday" data-page="today" onclick="showPage('today')"><span class="nav-icon">🌅</span><span class="nav-label">היום</span></button>
     <button id="navKibbutz" data-page="kibbutz" class="active" onclick="showPage('kibbutz')"><span class="nav-icon">🏠</span><span class="nav-label">דף הבית</span></button>
     <button id="navInventory" data-page="inventory" onclick="showPage('inventory')"><span class="nav-icon">📦</span><span class="nav-label">מלאי</span></button>
     <button id="navAttendance" data-page="attendance" onclick="showPage('attendance')"><span class="nav-icon">📅</span><span class="nav-label">נוכחות</span></button>
@@ -94,6 +95,8 @@
       </div>
     </div>
   </div>
+
+  <div id="today-view" style="display:none;padding:8px 0;"><div id="todayContent"></div></div>
 
   <div id="kibbutz-view">
 
@@ -307,7 +310,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-23·40</bdi><br>לחזרה לגיליון הוסף <bdi>?sb=0</bdi> לכתובת</span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-23·43</bdi><br>לחזרה לגיליון הוסף <bdi>?sb=0</bdi> לכתובת</span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -617,8 +620,6 @@
 </div>
 
 <div id="dev-view" style="display:none;padding:16px 0;">
-  <h2 style="margin:0 0 4px;color:var(--primary);">💻 משימות פיתוח</h2>
-  <div style="font-size:12px;color:var(--text-light);margin-bottom:14px;">הטיקטים של צוות הפיתוח (GitHub · Sigmatec-Energy/tasks) — מתעדכן אוטומטית מהפרויקט.</div>
   <div id="devTasksContent">טוען...</div>
 </div>
 
@@ -1258,7 +1259,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqqjs3xj"></script>
+<script src="js/app.js?v=mqqp03oo"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
