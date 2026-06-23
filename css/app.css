@@ -703,6 +703,11 @@
   .dev-task-sum:hover { background: var(--accent-soft); }
   .dev-task-desc { flex: 1 1 auto; min-width: 0; line-height: 1.45; overflow-wrap: anywhere; }
   .dev-task[open] > .dev-task-sum { font-weight: 600; }
+  /* nested GitHub sub-issues: indent rail + parent-card emphasis + sub-task count badge */
+  .dev-children { margin-right: 8px; padding-right: 8px; border-right: 2px solid #dbe3ef; }
+  .dev-task.dev-haskids > .dev-task-sum { font-weight: 700; }
+  .dev-subn { flex-shrink: 0; font-size: 11px; font-weight: 700; color: #fff; background: var(--tc, var(--accent));
+    border-radius: 10px; padding: 1px 8px; min-width: 20px; text-align: center; }
   .dev-done { flex-shrink: 0; font-size: 12px; }
   /* GitHub icon button — explicit; sits at the row end, does NOT toggle the row */
   .dev-git { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
@@ -748,46 +753,12 @@
     .dev-chip { min-height: 40px; padding: 8px 12px; }
     .dev-topic-sum { min-height: 54px; padding: 13px 14px; font-size: 15px; }
     .dev-topic-body { padding: 6px 6px 8px; margin: 6px 4px 0; }
-    .dev-parent-body { margin-right: 5px; padding-right: 5px; }
+    .dev-parent-body, .dev-children { margin-right: 5px; padding-right: 5px; }
     .dev-parent-sum { min-height: 46px; font-size: 14px; }
     .dev-task-sum { min-height: 48px; font-size: 15px; }
     .dev-git { width: 34px; height: 34px; }
     .dev-detail { margin-right: 4px; font-size: 14px; }
   }
-
-  /* ===== TODAY (היום) — morning briefing landing ===== */
-  .today-wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-  .today-hero { background: linear-gradient(150deg, #16223c 0%, #1b2a4a 55%, #233a66 100%); color: #fff;
-    border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow-md); animation: todayIn .35s ease both; }
-  .today-hero-greet { font-size: 21px; font-weight: 800; }
-  .today-hero-date { font-size: 13px; color: rgba(255,255,255,.7); margin-top: 4px; }
-  .today-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-    padding: 14px 16px; box-shadow: var(--shadow-sm); animation: todayIn .35s ease both; }
-  .today-card-alert { border-inline-start: 4px solid var(--priority); }
-  .today-card-head { font-size: 15px; font-weight: 800; color: var(--primary); margin-bottom: 10px; }
-  .today-rows { display: flex; flex-direction: column; gap: 6px; }
-  .today-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: right;
-    background: var(--gray-light); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
-    font-family: inherit; font-size: 14px; color: var(--text); cursor: pointer; transition: background .15s, transform .1s; }
-  .today-row:hover { background: var(--accent-soft); }
-  .today-row:active { transform: scale(.99); }
-  .today-row-ico { flex-shrink: 0; font-size: 15px; }
-  .today-row-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .today-row-go { flex-shrink: 0; color: var(--text-light); font-size: 18px; font-weight: 700; }
-  .today-clear { color: var(--success); font-weight: 700; padding: 6px 2px; }
-  .today-bignum-row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: right;
-    background: none; border: 0; padding: 2px; cursor: pointer; font-family: inherit; }
-  .today-bignum { font-size: 36px; font-weight: 800; color: var(--accent); line-height: 1; font-feature-settings: "tnum"; }
-  .today-bignum-lbl { flex: 1; font-size: 13px; color: var(--text-light); }
-  .today-pipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .today-stat { position: relative; background: var(--gray-light); border: 1px solid var(--border);
-    border-radius: 12px; padding: 12px 8px; cursor: pointer; font-family: inherit; overflow: hidden; transition: transform .1s; }
-  .today-stat:hover { transform: translateY(-1px); }
-  .today-stat::before { content: ''; position: absolute; inset-block: 0; inset-inline-start: 0; width: 3px; background: var(--k); }
-  .today-stat-n { display: block; font-size: 24px; font-weight: 800; color: var(--text); font-feature-settings: "tnum"; }
-  .today-stat-l { display: block; font-size: 11px; color: var(--text-light); margin-top: 3px; }
-  @keyframes todayIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { .today-hero, .today-card { animation: none; } }
 
   .kibbutz.needs-dev {
     background: #ede9fe !important;

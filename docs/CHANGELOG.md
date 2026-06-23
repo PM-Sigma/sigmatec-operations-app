@@ -9,6 +9,24 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 
 ## [Unreleased]
 ### Added
+- **Dev-page full sub-issue tree (·46)** — the פיתוח tree now reflects GitHub **native sub-issues** (the team's
+  real hierarchy), not just the `topic|sub|desc` title text. Cards like #104 (11 sub-issues) whose children point
+  at *different* topics were being scattered across the page; now they nest under their card, to **any depth**
+  (📂 topic → card → sub-task → … → leaf), each row expandable with its full detail. Cross-topic children keep
+  their full path; same-topic prefixes are stripped for readability; a count badge shows each card's sub-tasks;
+  search reveals the path to deep matches. **`github` function** change: returns each issue's `parent` via one
+  added GraphQL query (graceful → flat grouping if unavailable). **Needs a `github` function redeploy** to light up.
+  Verified with a stubbed hierarchy (3 levels deep, cross-topic child preserved, counts correct).
+- **Dev-page "עומס לפי עדיפות" (·44)** — a priority-load breakdown in the פיתוח hero: 4 color-coded tiles
+  (קריטי / גבוהה / בינונית / נמוכה) with live counts of open tickets per tier, fed by the now-live Projects-v2
+  Priority field. Sits below the overview KPIs, above "עומס לפי נושא". Reuses the `.dev-kpi` tile styling.
+  Verified: counts bucket correctly (test set 3/2/1/1 → קריטי=3, גבוהה=2, בינונית=1, נמוכה=1).
+
+### Removed
+- **Morning "היום" view (·44)** — removed per request ("לא רוצה את זה באפליקציה כרגע"). Reverted the whole
+  ·42 feature: the 🌅 nav page, `js/src/19-today.js`, the today-view dispatch, and the remember-last-page /
+  new-day landing (`landOnStartPage`). The app opens on the home page again (·41 behavior). Streamlining /
+  automation ideas are being collected separately to brainstorm.
 - **Morning "היום" view + smart landing (·42, `19-today.js`):** a new **first** nav page (🌅 היום) that
   aggregates what needs attention *now* — role-aware, pure client-side (no backend/secrets): **דורש טיפול**
   (orders awaiting *your* approval + low-stock relevant to you), **המשימות שלי** (open EMS tasks assigned to
@@ -91,6 +109,10 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **Dev-tasks priority/status now live (2026-06-23, config-only)** — the `GH_TOKEN` blocker is resolved: the
+  token was reissued with `repo + read:org + project` and the `github` fn redeployed. Verified live (127 status
+  badges + priority chips over 130 tickets; "בפיתוח עכשיו" from real In-Progress). No code change. *(Confirmed
+  Sigmatec-Energy has no SAML SSO, so the previously-assumed SSO-authorize step wasn't needed.)*
 - **Low-stock alert "appears twice" (·43)** — for אביאם/עמיחי a meter shortage surfaced **both** in the red
   banner *and* as a red line in the company-orders task list. Root cause: `renderLowStockAlert` added the
   company-task line for everyone, but אביאם/עמיחי also get meters in the banner. Fix: skip the company-task

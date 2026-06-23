@@ -1,17 +1,15 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·43** (2026-06-23)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·46** (2026-06-23)._
 
-## 🔴 Current blocker — live dev-tasks priorities/status
+## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 
-- **`GH_TOKEN` needs the `project` scope.** The `github` Edge Function now fetches GitHub **Projects-v2**
-  fields (Priority + Status) via GraphQL (·39), but the function's token can only read issues → the project
-  fetch returns nothing (GRACEFUL: tickets still load, just no priority/status).
-  **Action:** GitHub → **classic** token with **`repo` + `read:org` + `project`** (SSO-authorize for
-  `Sigmatec-Energy`) → set as the **`GH_TOKEN`** secret in Supabase → **redeploy the `github` function** →
-  reload פיתוח. *Proven working otherwise:* 125 tickets returned fast; the GraphQL query is correct via `gh`
-  (returns גבוה / In Progress). Only the scope is missing.
+- **The `GH_TOKEN` blocker is fixed.** עידן updated the token with **`repo` + `read:org` + `project`** scopes
+  and **redeployed** the `github` function. *(Sigmatec-Energy doesn't enforce SAML SSO, so no SSO authorization
+  step was needed.)* **Verified live in עידן's session:** the פיתוח page renders **127 status badges + priority
+  chips** (קריטי/גבוהה, In Progress/Backlog) across 130 tickets, and **"בפיתוח עכשיו"** is driven by real
+  Status=In-Progress (5 items). No code change — token scope only.
 
 ## 🟡 Pending (user / admin)
 
@@ -34,13 +32,24 @@ _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·
    mapping per kibbutz. *(✅ The **low-stock-twice** bug from this batch is already fixed & shipped in ·43; the
    EMS-bubble routing is still pending here.)*
 
+## 🟡 To light up — dev-page sub-issue tree (·46)
+
+- The dev tree now renders **GitHub native sub-issues** (full hierarchy, any depth). Needs the **`github`
+  function redeployed with the new code** (added `fetchParentLinks` → returns `t.parent`). Until then it
+  degrades gracefully to a flat topic grouping. **Action:** Supabase → Edge Functions → `github` → Code →
+  paste the full `supabase/functions/github/index.ts` → **Deploy**. Then reload פיתוח.
+
 ## 🟢 Done (recent — see CHANGELOG for detail)
 
+- **Dev-page full sub-issue tree (·46)**: nests GitHub sub-issues to any depth (📂 topic → card → sub-task → leaf),
+  cross-topic children preserved, sub-count badges, nested search. Function returns `t.parent` (graceful). Verified.
+- **Dev-page "עומס לפי עדיפות" (·44)**: priority-load tiles in the פיתוח hero (קריטי/גבוהה/בינונית/נמוכה counts),
+  fed by the now-live Projects-v2 Priority field.
+- **Morning "היום" view REMOVED (·44)**: reverted per request — not wanted in the app right now. (Was added ·42;
+  the whole feature incl. remember-last-page landing is gone; app opens on the home page.)
+- **Dev-tasks priority/status went live (·43, config)**: `GH_TOKEN` reissued with `repo+read:org+project` + redeploy.
 - **Low-stock "appears twice" fix (·43)**: meter shortage no longer doubles for אביאם/עמיחי (banner + company-task
   line) — they keep the banner, the line is skipped; other users keep the line. Verified per-role.
-- **Morning "היום" view + remember-last-page (·42)**: new first nav page aggregating דורש-טיפול / המשימות-שלי /
-  סטטוס-הקמה (role-aware, client-only); landing reopens last page same-day, lands on היום on a new day.
-  (Recommendations "bottom-nav" + "dev-page 404" were stale → already done.)
 - **Dev-tasks color redesign (·41)**: dark navy KPI hero (4 live tiles + "עומס לפי נושא" bar/legend),
   per-topic color system (spine/pill/rail/bar all share one color), violet "בפיתוח עכשיו" card, filled-red
   critical chip. Pure visual — no data/logic change. Verified desktop 1040 + mobile 375 (2-col, no overflow).

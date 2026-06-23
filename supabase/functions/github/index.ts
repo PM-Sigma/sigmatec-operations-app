@@ -72,6 +72,34 @@ async function fetchProjectFields(token: string, owner: string, num: number): Pr
   return out;
 }
 
+// Sub-issue hierarchy (GitHub native sub-issues): each issue's parent. Only GraphQL exposes `parent`
+// reliably (the REST issue payload often omits it). Returns { childNumber: parentNumber }. GRACEFUL:
+// any failure → {} so the tree just falls back to a flat/topic grouping.
+async function fetchParentLinks(token: string, owner: string, name: string): Promise<Record<number, number>> {
+  const out: Record<number, number> = {};
+  const q = `query($owner:String!,$name:String!,$after:String){ repository(owner:$owner,name:$name){ issues(first:100, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ number parent { number } } } } }`;
+  let after: string | null = null;
+  try {
+    for (let p = 0; p < 10; p++) {
+      const r = await fetchT("https://api.github.com/graphql", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", "User-Agent": "sigmatec-ops" },
+        body: JSON.stringify({ query: q, variables: { owner, name, after } }),
+      }, 12000);
+      if (!r.ok) break;
+      const d = await r.json();
+      const issues = d?.data?.repository?.issues;
+      if (!issues) break;
+      for (const node of (issues.nodes || [])) {
+        if (node?.number && node?.parent?.number) out[node.number] = node.parent.number;
+      }
+      if (!issues.pageInfo?.hasNextPage) break;
+      after = issues.pageInfo.endCursor;
+    }
+  } catch { /* graceful: no hierarchy */ }
+  return out;
+}
+
 Deno.serve(async (req) => {
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   const GH_TOKEN = Deno.env.get("GH_TOKEN") || "";
@@ -108,7 +136,7 @@ Deno.serve(async (req) => {
       const b = it.body || "";
       const pm = b.match(prRe);
       return {
-        number: it.number, title: it.title || "", state: it.state,
+        number: it.number, title: it.title || "", state: it.state, parent: null as number | null,
         labels: (it.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
         priority: pm ? pm[1].trim() : "",
         status: "", ptype: "", sprint: "",
@@ -128,6 +156,11 @@ Deno.serve(async (req) => {
       if (f.type) t.ptype = f.type;
       if (f.sprint) t.sprint = f.sprint;
     }
+
+    // merge sub-issue parent linkage (GitHub native sub-issues) → t.parent (graceful if unavailable)
+    const [ghOwner, ghName] = GH_REPO.split("/");
+    const links = await fetchParentLinks(GH_TOKEN, ghOwner, ghName);
+    for (const t of tasks) { const p = links[t.number]; if (p) t.parent = p; }
 
     return json({ tasks }, 200, ORIGIN);
   } catch (e) {

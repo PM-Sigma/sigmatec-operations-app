@@ -44,7 +44,7 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-23 (build ·43, deployed to main)
+## 🚦 Current state — last: 2026-06-23 (build ·46 — deploying; **`github` fn redeploy pending** to light up the sub-issue tree)
 
 **Live & verified on `main`:** Supabase migration · PWA · EMS login gate · meters · "add to calendar" links ·
 security bridge + write-lockdown + messages-privacy (anon=read-only, auth=write) · Stats · Employee page
@@ -64,11 +64,14 @@ board **"Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)** via **GraphQL** (·39)
 (קריטי/גבוה/בינוני/נמוך) + Status badge; **"בפיתוח עכשיו" driven by real Status=In-Progress**. Client timeouts + 🔄 retry.
 **Color redesign (·41):** dark navy **KPI hero** (4 live tiles + "עומס לפי נושא" bar/clickable legend, replaces
 the jump-chips) + a **per-topic color system** (spine/count-pill/body-rail/bar-segment/legend-dot all share one
-color) + violet "בפיתוח עכשיו" card + filled-red critical chip. Pure CSS/markup — no data/logic change.
+color) + violet "בפיתוח עכשיו" card + filled-red critical chip. **"עומס לפי עדיפות" (·44):** priority-load tiles
+(קריטי/גבוהה/בינונית/נמוכה counts) under the KPIs, fed by the live Projects-v2 Priority field.
+**Full sub-issue tree (·46):** the tree now nests **GitHub native sub-issues** (real hierarchy, any depth:
+📂 topic → card → sub-task → leaf), replacing the old title-pipe `אב` grouping that scattered an epic's children.
+Function returns each issue's `parent` (one GraphQL query; graceful → flat if absent). **Needs `github` fn redeploy.**
 
-**Morning "היום" view (·42, `19-today.js`):** new **first** nav page (🌅) — role-aware briefing: דורש-טיפול
-(approvals you can act on + low-stock), המשימות-שלי (your open EMS tasks), סטטוס-הקמה (pipeline counts).
-Client-only. **Landing:** reopen last page same-day, land on היום on a new day (`landOnStartPage` from `refreshData`).
+**Morning "היום" view — REMOVED (·44).** Was added ·42; removed per request (not wanted in the app now). The
+whole feature is reverted incl. remember-last-page landing; app opens on the home page.
 
 ### 🅿️ Parked this session (out-of-office, needs עידן) — see backlog #6
 **Inventory-flow rework** is fully **designed** (two order types; supplier ≤10→אביאם / >10→עמיחי + floating alert;
@@ -76,12 +79,11 @@ customer order → אביאם/ניתאי approval deducts approver stock → kib
 keeps the row; EMS-bubble routing). **Not built** — awaiting go-ahead + per-kibbutz EMS site mapping.
 *(The low-stock-twice bug from that batch is already fixed & live in ·43.)*
 
-### ⛔ THE next action — live priorities/status (one step left)
-The function's **`GH_TOKEN` must have the `project` scope**. Steps: GitHub → **classic** token with
-**`repo` + `read:org` + `project`** (SSO-authorize for Sigmatec-Energy) → set as the **`GH_TOKEN`** secret in
-Supabase → **redeploy the `github` function**. Until then priority/status are empty (GRACEFUL — tickets still load).
-*Proven:* the function returns 125 tickets fast (pagination OK) and the GraphQL query is correct via `gh`
-(returns גבוה / In Progress) — **only the token scope is missing.**
+### ✅ RESOLVED — live priorities/status (2026-06-23)
+The `GH_TOKEN` was reissued with **`repo` + `read:org` + `project`** and the `github` fn redeployed.
+*(Sigmatec-Energy has no SAML SSO → no SSO-authorize step needed.)* **Verified live:** פיתוח renders 127 status
+badges + priority chips across 130 tickets, "בפיתוח עכשיו" driven by real In-Progress. The dev-tasks page is now
+fully functional. Remaining dev-page work = **phase 2 (editing)**: a write-capable token to set priority/sprint from the app.
 
 ### Other pending (user/admin)
 - **Supabase MCP** — already added to `~/.claude.json` → `mcp.mcpServers.supabase` (http, project_ref=wwqfcajnxinaxmobrgol).

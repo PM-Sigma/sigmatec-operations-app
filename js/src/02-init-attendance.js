@@ -30,7 +30,6 @@
     if (page === 'staff' && typeof canManageStaff === 'function' && !canManageStaff()) page = 'kibbutz'; // עידן + עמיחי only
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי only
-    var _tv = document.getElementById('today-view'); if (_tv) _tv.style.display = page === 'today' ? '' : 'none';
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
@@ -40,10 +39,6 @@
     var _sv = document.getElementById('staff-view'); if (_sv) _sv.style.display = page === 'staff' ? '' : 'none';
     var _dv = document.getElementById('dev-view'); if (_dv) _dv.style.display = page === 'dev' ? '' : 'none';
     document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
-    // Remember where the user is (+ the date) so the app reopens here — except on a new day,
-    // when landOnStartPage() lands on "היום" instead. Store the normalized page (post-redirect).
-    try { localStorage.setItem('last_page_v1', page); localStorage.setItem('last_open_date_v1', new Date().toISOString().slice(0, 10)); } catch (e) {}
-    if (page === 'today' && typeof renderToday === 'function') renderToday();
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
     if (page === 'ems')        renderEmsPage();
