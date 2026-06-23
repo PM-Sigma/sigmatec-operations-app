@@ -63,6 +63,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **Mobile QA pass (≤768px)** — audited every view/modal/nav at ~375px via a 6-area agent sweep + a real
+  375px test rig, then one desktop-safe patch (build ·33): **my-tasks bar** was white-on-white **invisible** →
+  solid surface + dark labels; **attendance table** scrolled the whole page sideways → wrapped in a scroller;
+  **inventory matrix** first column (פריט/קיבוץ name) pinned sticky so it stays while scrolling; **tap targets**
+  raised to ≥40px (filter chips, header-meta pills, day-type buttons); **comment-hint** ("לחץ לשליחת הערה")
+  was hover-only → now visible on touch; EMS filter-bar controls stack full-width; progress-legend enlarged.
+  Verified: no horizontal overflow on any view at 375px; desktop untouched (media-scoped).
 - **Low-stock alert** meter label `מונה PM` → full name **`מונה PM135`** (+ precise `PM135` match
   so it can't accidentally bucket other meters).
 - **Stats** period filter labeled "(ביקורים/חלוקה)" — it scopes the activity sections, not the

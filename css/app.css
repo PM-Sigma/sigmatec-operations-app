@@ -1312,3 +1312,102 @@
   }
   .compact-toggle:hover { background: rgba(255,255,255,0.25); }
   .compact-toggle.active { background: rgba(255,255,255,0.9); color: #1b2a4a; border-color: white; }
+
+
+/* ============================================================
+   MOBILE QA FIXES (≤768px / ≤480px) — appended 2026-06-23
+   Scoped entirely inside media queries; desktop (>768px) untouched.
+   Only adds what the ~14 existing mobile blocks DON'T already cover.
+   ============================================================ */
+@media (max-width: 768px) {
+
+  /* --- HOME: comment hint is hover-only (opacity:0) → invisible on touch.
+         Make it always visible on phones. (overrides app.css:257) --- */
+  .comment-hint { opacity: 0.7 !important; }
+
+  /* --- TOP CHROME: tap targets. Filter chips have no mobile rule (app.css:82);
+         header-meta pills were shrunk to ~26px (app.css:1262). Raise to ~40px. --- */
+  .filter-chip {
+    min-height: 40px; padding: 9px 14px; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .filter-bar { gap: 8px; }
+  .search-input { min-width: 0; flex: 1 1 100%; }   /* search on its own clean row */
+
+  .header-meta .copy-btn,
+  .header-meta .compact-toggle {
+    min-height: 40px; padding: 9px 12px; font-size: 12px;
+    display: inline-flex; align-items: center;
+  }
+  /* non-tappable date pill: de-emphasise so it stops reading as a button */
+  .header-meta .header-date {
+    background: transparent; padding: 4px 0; opacity: .85; flex-basis: 100%;
+  }
+
+  /* --- HOME: priority section-note can't shrink → pushes the toggle (app.css:222/116).
+         Let the title row wrap and drop the note onto its own line. --- */
+  .section-title { flex-wrap: wrap; min-width: 0; }
+  .section-note { margin-right: 0; margin-top: 4px; flex-basis: 100%; }
+
+  /* --- ATTENDANCE: .att-table (app.css:1002) has no mobile rule and #attendanceTable
+         is not a scroll wrapper → page scrolls sideways. Wrap + tighten. --- */
+  #attendanceTable { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .att-table { min-width: 480px; font-size: 12px; }
+  .att-table th, .att-table td { padding: 6px 8px; }
+  .att-table .att-badge { font-size: 10px; padding: 2px 7px; }
+  #attendance-view .inv-btn { min-height: 44px; min-width: 44px; }   /* month-nav arrows */
+
+  /* --- INVENTORY: matrix row-label scrolls out of view. Pin first column to the
+         right edge (RTL) and tighten data cells to shorten the scroll. --- */
+  #invStockMatrix table.matrix-table th:first-child,
+  #invKibbutzMatrix table.matrix-table th:first-child,
+  #invStockMatrix table.matrix-table td:first-child,
+  #invKibbutzMatrix table.matrix-table td:first-child {
+    position: sticky; right: 0; z-index: 2; min-width: 110px;
+    background: #fff; box-shadow: -2px 0 4px rgba(0,0,0,0.06);
+  }
+  #invStockMatrix table.matrix-table th:first-child,
+  #invKibbutzMatrix table.matrix-table th:first-child { background: var(--gray-light); }
+  .matrix-table th, .matrix-table td { min-width: 56px; padding: 6px 6px; font-size: 12px; }
+  .matrix-table th:first-child, .matrix-table td:first-child { min-width: 110px; }
+  /* long location names mustn't shove the count pill off-edge (app.css:1015) */
+  .inv-loc-head { gap: 8px; }
+  .inv-loc-head .loc-name { min-width: 0; overflow-wrap: anywhere; }
+  .inv-loc-head .loc-count { flex-shrink: 0; }
+
+  /* --- ATTENDANCE / EMS: day-type pills are buttons (not covered by the 16px
+         input rule) and ~28px tall (app.css:979). Enlarge the hit area. --- */
+  .day-type-btn { padding: 9px 14px; font-size: 13px; min-height: 40px; }
+
+  /* --- EMS: filter bar controls don't go full-width → cramped wrap (app.css:976). --- */
+  .ems-filter-bar { gap: 8px; }
+  .ems-filter-bar select,
+  .ems-filter-bar input[type=text] { flex: 1 1 100%; min-width: 0; width: 100%; min-height: 42px; }
+  .ems-filter-bar label { flex: 1 1 calc(50% - 4px); }
+  /* EMS detail status row: give the select its own row, bump the action buttons */
+  #emsDetailModal #emsDetailStatus { flex: 1 1 100%; min-width: 0; }
+  #emsDetailModal .btn-secondary { min-height: 42px; padding: 10px 14px; }
+
+  /* --- MY-TASKS: stack the bar full-width on phones (color fix below is global). --- */
+  #my-tasks-view .my-tasks-bar { flex-direction: column; align-items: stretch; }
+  #my-tasks-view .my-tasks-bar select { min-width: 0; width: 100%; }
+  #my-tasks-view .my-tasks-btn { flex: 1 1 calc(50% - 6px); text-align: center; min-height: 42px; }
+
+  /* --- PROGRESS LEGEND: 11px inline is below the readability floor; beat the
+         inline size with specificity + !important (app.css can't otherwise win). --- */
+  #progressLegend[style] { font-size: 13px !important; line-height: 2 !important; }
+}
+
+/* --- MY-TASKS bar lives in the LIGHT #my-tasks-view page, but was styled for the
+       dark header → white labels on glass-white = invisible (app.css:1180-1196).
+       Give it a solid light surface + dark labels at ALL widths (the bar only
+       appears in #my-tasks-view, so this is desktop-safe). --- */
+#my-tasks-view .my-tasks-bar { background: #fff; border: 1px solid var(--border); }
+#my-tasks-view .my-tasks-bar label { color: var(--text); }
+#my-tasks-view .my-tasks-bar select { border: 1px solid var(--border); }
+#my-tasks-view .my-tasks-btn { background: var(--gray-light); color: var(--primary); }
+
+@media (max-width: 480px) {
+  /* edge-to-edge side panel on the smallest phones (95vw → 100vw) */
+  .side-panel { width: 100vw; max-width: 100vw; }
+}
