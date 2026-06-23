@@ -44,7 +44,13 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-23 (build ·34)
+## 🚦 Current state — last: 2026-06-23 (build ·36)
+
+> **Saves fix (·36):** writes now **re-mint the authenticated Supabase pass before every upsert** (shim in
+> `01-data.js`) — kills the recurring "נשמר מקומית/לוקאלית" failure (was: write went out anon → RLS reject).
+> Covers company-tasks, requirements/priority-lists, tasks, visits, orders. Save buttons/toasts: "לגיליון" dropped → "שמור".
+> ⚠️ The company-tasks modal still shows the obsolete "📱 שלח לעידן לעדכון כולם" note (predates the shared DB) — candidate to remove.
+
 
 > **Dev-page (·34):** now a 3-level **collapsible tree** — 📂 topic → **אב** (click=toggle children) →
 > **בן** (click=toggle detail: state/assignee/priority/dates/**body**). **GitHub = explicit icon button**
