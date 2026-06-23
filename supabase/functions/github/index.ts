@@ -37,12 +37,18 @@ Deno.serve(async (req) => {
 
   try {
     const state = body.state === "all" ? "all" : (body.state === "closed" ? "closed" : "open");
-    const r = await fetch(
-      `https://api.github.com/repos/${GH_REPO}/issues?state=${state}&per_page=100&sort=created&direction=desc`,
-      { headers: { Authorization: "Bearer " + GH_TOKEN, Accept: "application/vnd.github+json", "User-Agent": "sigmatec-ops" } },
-    );
-    if (!r.ok) return json({ error: "github " + r.status, detail: (await r.text()).slice(0, 200) }, 502, ORIGIN);
-    const items = await r.json();
+    let items: any[] = [];
+    for (let page = 1; page <= 10; page++) {   // paginate (GitHub caps per_page at 100)
+      const r = await fetch(
+        `https://api.github.com/repos/${GH_REPO}/issues?state=${state}&per_page=100&page=${page}&sort=created&direction=desc`,
+        { headers: { Authorization: "Bearer " + GH_TOKEN, Accept: "application/vnd.github+json", "User-Agent": "sigmatec-ops" } },
+      );
+      if (!r.ok) return json({ error: "github " + r.status, detail: (await r.text()).slice(0, 200) }, 502, ORIGIN);
+      const batch = await r.json();
+      if (!Array.isArray(batch)) break;
+      items = items.concat(batch);
+      if (batch.length < 100) break;
+    }
     const prRe = /##\s*עדיפות[^\n]*\r?\n+\s*([^\n]+)/;
     const tasks = (items || []).filter((it: any) => !it.pull_request).map((it: any) => {
       const b = it.body || "";

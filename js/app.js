@@ -6336,45 +6336,54 @@
       return;
     }
 
-    var byPri = { 0: 0, 1: 0, 2: 0, 3: 0 };
-    tasks.forEach(function (t) { byPri[devPriorityRank(t.priority).r]++; });
-
-    // group by label (topic); no label → "ללא תווית"
+    // tickets carry no labels — the title encodes "נושא | תת-נושא | תיאור"
+    function parseT(title) {
+      var parts = String(title || '').split(/\s*\|\s*/).map(function (s) { return s.trim(); }).filter(Boolean);
+      if (parts.length >= 3) return { topic: parts[0], sub: parts[1], desc: parts.slice(2).join(' · ') };
+      if (parts.length === 2) return { topic: parts[0], sub: '', desc: parts[1] };
+      return { topic: 'אחר', sub: '', desc: parts[0] || String(title || '') };
+    }
     var groups = {};
     tasks.forEach(function (t) {
-      var topics = (t.labels && t.labels.length) ? t.labels : ['ללא תווית'];
-      topics.forEach(function (lab) { (groups[lab] = groups[lab] || []).push(t); });
+      var p = parseT(t.title); t._p = p;
+      var g = (groups[p.topic] = groups[p.topic] || { n: 0, subs: {} });
+      g.n++;
+      var key = p.sub || '·';
+      (g.subs[key] = g.subs[key] || []).push(t);
     });
-    var groupNames = Object.keys(groups).sort(function (a, b) { return groups[b].length - groups[a].length; });
+    var topicNames = Object.keys(groups).sort(function (a, b) { return groups[b].n - groups[a].n; });
 
     var active = function (s) { return window._devState === s ? 'style="background:#1e40af;color:#fff;border-color:#1e40af;"' : ''; };
     var head = '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;font-size:13px;">' +
       '<strong>' + tasks.length + ' משימות</strong>' +
-      '<span style="color:#dc2626;">🔴 גבוהה ' + byPri[0] + '</span>' +
-      '<span style="color:#b45309;">🟠 בינונית ' + byPri[1] + '</span>' +
-      '<span style="color:#475569;">⚪ נמוכה ' + byPri[2] + '</span>' +
+      '<span style="color:#64748b;">· ' + topicNames.length + ' נושאים</span>' +
       '<span style="flex:1;"></span>' +
       '<button class="inv-btn small" onclick="devSetState(\'open\')" ' + active('open') + '>פתוחות</button>' +
       '<button class="inv-btn small" onclick="devSetState(\'all\')" ' + active('all') + '>הכל</button>' +
       '<button class="inv-btn small" onclick="renderDevTasks()">🔄 רענן</button>' +
       '</div>';
 
-    var body = groupNames.map(function (g) {
-      var items = groups[g].slice().sort(function (a, b) { return devPriorityRank(a.priority).r - devPriorityRank(b.priority).r; });
-      return '<div class="card" style="margin-bottom:12px;">' +
-        '<h3 style="margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;">🏷️ ' + devEsc(g) +
-        ' <span style="font-size:12px;color:#64748b;font-weight:400;">' + items.length + '</span></h3>' +
-        items.map(function (t) {
-          var pr = devPriorityRank(t.priority);
-          var closed = t.state === 'closed' ? '<span style="font-size:11px;color:#065f46;background:#d1fae5;border-radius:6px;padding:1px 6px;white-space:nowrap;">✅ סגור</span>' : '';
-          return '<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-top:1px solid #f1f5f9;font-size:13px;">' +
-            '<span style="font-size:11px;font-weight:700;color:' + pr.color + ';background:' + pr.bg + ';border-radius:6px;padding:1px 7px;white-space:nowrap;">' + pr.label + '</span>' +
-            '<a href="' + devEsc(t.url) + '" target="_blank" rel="noopener" style="flex:1;color:#1e293b;text-decoration:none;">#' + t.number + ' ' + devEsc(t.title) + '</a>' +
-            (t.assignee ? '<span style="font-size:11px;color:#64748b;white-space:nowrap;">👤 ' + devEsc(t.assignee) + '</span>' : '') +
-            closed +
-            '</div>';
-        }).join('') +
+    function taskLine(t) {
+      var pr = t.priority ? devPriorityRank(t.priority) : null;
+      var closed = t.state === 'closed' ? '<span style="font-size:11px;color:#065f46;background:#d1fae5;border-radius:6px;padding:1px 6px;white-space:nowrap;">✅</span>' : '';
+      return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid #f1f5f9;font-size:13px;">' +
+        (pr ? '<span style="font-size:11px;font-weight:700;color:' + pr.color + ';background:' + pr.bg + ';border-radius:6px;padding:1px 7px;white-space:nowrap;">' + pr.label + '</span>' : '') +
+        '<a href="' + devEsc(t.url) + '" target="_blank" rel="noopener" style="flex:1;color:#1e293b;text-decoration:none;">' + devEsc(t._p.desc) + ' <span style="color:#94a3b8;">#' + t.number + '</span></a>' +
+        (t.assignee ? '<span style="font-size:11px;color:#64748b;white-space:nowrap;">👤 ' + devEsc(t.assignee) + '</span>' : '') +
+        closed +
         '</div>';
+    }
+
+    var body = topicNames.map(function (topic) {
+      var g = groups[topic];
+      var subNames = Object.keys(g.subs).sort(function (a, b) { return g.subs[b].length - g.subs[a].length; });
+      var inner = subNames.map(function (sub) {
+        var label = sub === '·' ? '' : '<div style="font-size:12px;font-weight:700;color:#475569;margin:8px 0 2px;">↳ ' + devEsc(sub) + '</div>';
+        return label + g.subs[sub].map(taskLine).join('');
+      }).join('');
+      return '<div class="card" style="margin-bottom:12px;">' +
+        '<h3 style="margin:0 0 6px;display:flex;justify-content:space-between;align-items:center;">📂 ' + devEsc(topic) +
+        ' <span style="font-size:12px;color:#64748b;font-weight:400;">' + g.n + '</span></h3>' + inner + '</div>';
     }).join('');
 
     el.innerHTML = head + (tasks.length ? body : '<div style="padding:24px;text-align:center;color:#64748b;">אין משימות להצגה.</div>');
