@@ -22,6 +22,20 @@
     if (/נמוך|low/i.test(p))                        return { label: 'נמוכה', cls: 'low' };
     return { label: p, cls: 'low' };
   }
+  // Priority is shown if the ticket sets one — from the body "## עדיפות" (t.priority) OR a GitHub
+  // LABEL whose name contains a priority keyword. No labels exist yet (0/100); the moment one is
+  // added (e.g. "דחוף" / "בינוני" / "נמוך"), the chip appears — no function redeploy needed.
+  function devPriority(t) {
+    if (t.priority) return devPriorityRank(t.priority);
+    var labs = t.labels || [];
+    for (var i = 0; i < labs.length; i++) {
+      var L = String(labs[i]);
+      if (/גבוה|דחוף|critical|high|urgent|🔴/i.test(L)) return { label: 'גבוהה', cls: 'high' };
+      if (/בינוני|medium|normal|🟡/i.test(L)) return { label: 'בינונית', cls: 'med' };
+      if (/נמוך|low|🟢/i.test(L)) return { label: 'נמוכה', cls: 'low' };
+    }
+    return null;
+  }
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 
@@ -59,7 +73,7 @@
 
   // בן — a task as a collapsible <details>: summary (desc + git button) → detail panel.
   function devTaskNode(t) {
-    var pr = t.priority ? devPriorityRank(t.priority) : null;
+    var pr = devPriority(t);
     var closed = t.state === 'closed';
     var s = devEsc((t._p.topic + ' ' + t._p.sub + ' ' + t._p.desc + ' #' + t.number + ' ' + (t.assignee || '')).toLowerCase());
     var created = devFmtDate(t.createdAt), updated = devFmtDate(t.updatedAt);

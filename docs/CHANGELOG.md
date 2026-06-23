@@ -71,6 +71,10 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **Dev-tasks priority now reads a GitHub label** (·38) — not just the body `## עדיפות`. A label containing
+  `דחוף`/`גבוה`/`high` → גבוהה, `בינוני`/`medium` → בינונית, `נמוך`/`low` → נמוכה (also 🔴/🟡/🟢). Client-side
+  (the function already returns labels) so **no redeploy needed** — the chip appears the moment a ticket is labeled.
+  *(Confirmed via `gh`: 0/100 tickets currently have any priority — no labels, no body field — which is why none showed.)*
 - **`github` function can no longer hang for minutes** (the dev-tree "cold/stuck" stall). Root cause: the
   EMS-validation `fetch` had **no timeout**, so a slow EMS API stalled the whole function. Added an
   **AbortController timeout** (`fetchT`) on the EMS-validation (8s) + GitHub (12s) calls → worst case fails
