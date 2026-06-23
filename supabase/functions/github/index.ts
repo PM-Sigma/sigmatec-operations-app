@@ -15,9 +15,18 @@ const cors = (o: string) => ({
 const json = (b: unknown, s = 200, o = "*") =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors(o), "Content-Type": "application/json" } });
 
+// fetch with a hard timeout — a slow upstream (EMS API / GitHub) must NOT make this function hang
+// (that's what caused the multi-minute "cold/hanging" stall). Worst case now: it aborts and fails fast.
+async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Response> {
+  const ac = new AbortController();
+  const id = setTimeout(() => ac.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ac.signal }); }
+  finally { clearTimeout(id); }
+}
+
 async function emsValid(base: string, token: string): Promise<boolean> {
   if (!token) return false;
-  try { const r = await fetch(base + "/v1/employee-tasks?take=1", { headers: { Authorization: "Bearer " + token } }); return r.ok; }
+  try { const r = await fetchT(base + "/v1/employee-tasks?take=1", { headers: { Authorization: "Bearer " + token } }, 8000); return r.ok; }
   catch { return false; }
 }
 
@@ -39,9 +48,10 @@ Deno.serve(async (req) => {
     const state = body.state === "all" ? "all" : (body.state === "closed" ? "closed" : "open");
     let items: any[] = [];
     for (let page = 1; page <= 10; page++) {   // paginate (GitHub caps per_page at 100)
-      const r = await fetch(
+      const r = await fetchT(
         `https://api.github.com/repos/${GH_REPO}/issues?state=${state}&per_page=100&page=${page}&sort=created&direction=desc`,
         { headers: { Authorization: "Bearer " + GH_TOKEN, Accept: "application/vnd.github+json", "User-Agent": "sigmatec-ops" } },
+        12000,
       );
       if (!r.ok) return json({ error: "github " + r.status, detail: (await r.text()).slice(0, 200) }, 502, ORIGIN);
       const batch = await r.json();

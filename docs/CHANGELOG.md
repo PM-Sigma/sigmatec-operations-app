@@ -71,6 +71,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **`github` function can no longer hang for minutes** (the dev-tree "cold/stuck" stall). Root cause: the
+  EMS-validation `fetch` had **no timeout**, so a slow EMS API stalled the whole function. Added an
+  **AbortController timeout** (`fetchT`) on the EMS-validation (8s) + GitHub (12s) calls → worst case fails
+  fast. Client: `devFetchTasks` now has a **20s timeout** + a **🔄 נסה שוב** retry button (no more endless
+  spinner; shows "השרת מתעורר (cold start)" on timeout). *(Cold starts are inherent to serverless; these make them a brief retry, not a hang.)*
+- **Removed the obsolete "📱 שלח לעידן" note + button** from the company-tasks modal — it predated the shared
+  database; saving now updates the whole team directly (like the kibbutz cards). Dead `sendCompanyTasksToTeam` removed.
 - **Saves no longer fail to "נשמר מקומית/לוקאלית"** (the recurring company-tasks / priority-lists bug). Root
   cause: writes need the **authenticated** Supabase bridge pass, but when it lapsed the write went out as
   **anon** (read-only post-lockdown) and was rejected → localStorage fallback. The write shim now **re-mints

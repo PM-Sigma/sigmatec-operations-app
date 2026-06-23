@@ -28,11 +28,19 @@
   async function devFetchTasks(state) {
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
     if (!tok) throw new Error('יש להתחבר ל-EMS כדי לראות משימות פיתוח');
-    var r = await fetch(SB_URL + '/functions/v1/github', {
-      method: 'POST',
-      headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: tok, state: state || 'open' })
-    });
+    // client-side timeout so a cold/slow function never hangs the page on an endless spinner
+    var ac = new AbortController();
+    var to = setTimeout(function () { ac.abort(); }, 20000);
+    var r;
+    try {
+      r = await fetch(SB_URL + '/functions/v1/github', {
+        method: 'POST', signal: ac.signal,
+        headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tok, state: state || 'open' })
+      });
+    } catch (e) {
+      throw new Error(ac.signal.aborted ? 'השרת מתעורר (cold start) — נסה שוב בעוד רגע' : ('תקלת רשת: ' + (e && e.message || e)));
+    } finally { clearTimeout(to); }
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) throw new Error(d.error || ('github ' + r.status));
     return d.tasks || [];
@@ -96,7 +104,7 @@
     el.innerHTML = '<div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>';
     var tasks;
     try { tasks = await devFetchTasks(window._devState); }
-    catch (e) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + '</div></div>'; return; }
+    catch (e) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks()">🔄 נסה שוב</button></div></div>'; return; }
 
     tasks.forEach(function (t) { t._p = devParseT(t.title); });
     var topics = {};

@@ -125,17 +125,6 @@
     setTimeout(() => t.classList.remove('show'), ok ? 2500 : 5500);
   }
 
-  function sendCompanyTasksToTeam() {
-    const data = gatherCompanyTasksFromForm();
-    let msg = '*עידן — עדכון משימות חברה כלליות:*\n\n';
-    msg += '*🛒 הזמנות:*\n' + (data.orders.length ? data.orders.map(o => '- ' + o).join('\n') : '(ריק)') + '\n\n';
-    msg += '*ℹ️ מידע:*\n' + (data.info.length ? data.info.map(o => '- ' + o).join('\n') : '(ריק)') + '\n\n';
-    msg += '*📋 הנחיות:*\n' + (data.guidelines.length ? data.guidelines.map(o => '- ' + o).join('\n') : '(ריק)') + '\n';
-    const url = 'https://wa.me/972544649833?text=' + encodeURIComponent(msg);
-    window.open(url, '_blank');
-    saveCompanyTasks();
-  }
-
   // Apply any saved company tasks on load
   renderCompanyTasks();
 
