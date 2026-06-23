@@ -602,6 +602,100 @@
     border-radius: 6px;
     margin-top: 6px;
   }
+
+  /* ===== DEV TASKS (פיתוח) — centered column + nested hierarchy rails ===== */
+  /* Centered, constrained column — fixes the "smeared edge-to-edge" look. */
+  .dev-wrap { max-width: 880px; margin: 0 auto; }
+  .dev-loading { padding: 30px; text-align: center; color: var(--text-light); }
+  .dev-error { background: var(--priority-light); border: 1px solid #e8b4b4; color: #991b1b; border-radius: var(--radius); padding: 14px; font-size: 14px; }
+  .dev-empty { padding: 28px; text-align: center; color: var(--text-light); font-size: 14px; }
+
+  /* Toolbar: counts + search + state buttons; wraps cleanly on a phone. */
+  .dev-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .dev-counts { font-size: 14px; color: var(--text-light); }
+  .dev-counts strong { color: var(--text); font-size: 15px; }
+  .dev-counts-sub { margin-right: 4px; }
+  .dev-search { flex: 1 1 180px; min-width: 0; padding: 10px 14px; border: 1px solid var(--border);
+    border-radius: 10px; font-size: 14px; font-family: inherit; background: var(--card); color: var(--text); }
+  .dev-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .dev-state-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dev-state-btns .inv-btn.small.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  /* Topic jump chips */
+  .dev-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .dev-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; min-height: 38px;
+    border: 1px solid var(--border); background: var(--card); border-radius: 20px; font-family: inherit;
+    font-size: 13px; color: var(--text); cursor: pointer; transition: border-color .15s, background .15s; }
+  .dev-chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .dev-chip-n { background: var(--gray-light); color: var(--text-light); font-size: 11px; font-weight: 700;
+    padding: 1px 8px; border-radius: 10px; }
+
+  /* "בפיתוח עכשיו" recent box — accent rail on the right (RTL inner edge) */
+  .dev-now { margin-bottom: 16px; padding: 14px 16px; border-right: 4px solid var(--accent); }
+  .dev-now-head { margin: 0 0 6px; font-size: 15px; }
+  .dev-now-sub { font-size: 12px; color: var(--text-light); font-weight: 400; }
+
+  /* ---- LEVEL 1: TOPIC (📂) — native <details>, strong header ---- */
+  .dev-topic { margin-bottom: 10px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+  .dev-topic[open] { box-shadow: var(--shadow-sm); }
+  .dev-topic-sum { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 9px;
+    min-height: 48px; padding: 12px 14px; background: var(--gray-light); font-size: 16px; font-weight: 700; color: var(--primary); }
+  .dev-topic-sum::-webkit-details-marker { display: none; }
+  .dev-topic-ico { font-size: 15px; flex-shrink: 0; }
+  .dev-topic-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .dev-topic-n { flex-shrink: 0; background: var(--card); border: 1px solid var(--border); color: var(--text-light);
+    font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 12px; }
+  .dev-topic-caret { flex-shrink: 0; font-size: 16px; color: var(--text-light); transition: transform .2s; line-height: 1; }
+  .dev-topic[open] .dev-topic-caret { transform: rotate(180deg); }
+  /* topic body carries the LEVEL-1 rail on the right (RTL inner edge) */
+  .dev-topic-body { padding: 6px 8px 8px; border-right: 3px solid var(--accent); margin: 6px 6px 0; }
+
+  /* ---- LEVEL 2: SUB-TOPIC (↳) — bold header that OWNS its tasks via its own lighter rail ---- */
+  .dev-sub { margin: 2px 0 6px; }
+  .dev-sub-head { display: flex; align-items: baseline; gap: 6px; padding: 7px 8px 3px; font-size: 13px; font-weight: 800; color: #334155; }
+  .dev-sub-mark { color: var(--accent); font-weight: 700; }
+  .dev-sub-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .dev-sub-n { font-size: 11px; font-weight: 700; color: var(--text-light); }
+  /* tasks under a sub-topic are indented + get a LIGHTER rail on the right → clear containment */
+  .dev-sub-tasks { margin-right: 8px; padding-right: 8px; border-right: 2px solid #dbe3ef; }
+  .dev-sub-bare { padding-right: 8px; } /* tasks with no sub-topic: no extra rail */
+
+  /* ---- LEVEL 3: TASK ROW — compact link, flex-START (never space-between) ---- */
+  /* RTL: description starts at the right; meta sits inline immediately after it. */
+  .dev-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 44px;
+    padding: 7px 8px; border-top: 1px solid #f1f5f9; font-size: 14px; text-decoration: none; color: var(--text);
+    border-radius: 6px; transition: background .12s; }
+  .dev-row:first-child { border-top: none; }
+  .dev-row:hover { background: var(--accent-soft); }
+  .dev-desc { flex: 1 1 auto; min-width: 0; line-height: 1.45; overflow-wrap: anywhere; color: var(--text); }
+  .dev-row:hover .dev-desc { color: var(--accent); }
+  .dev-meta { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dev-assignee { font-size: 12px; color: var(--text-light); white-space: nowrap; }
+  .dev-done { font-size: 12px; flex-shrink: 0; }
+  /* ticket REFERENCE — small, grey, isolated LTR "#123 ↗"; clearly an id+link, not a priority */
+  .dev-ref { unicode-bidi: isolate; font-size: 11px; color: #94a3b8; white-space: nowrap; flex-shrink: 0;
+    background: var(--gray-light); border-radius: 6px; padding: 2px 7px; font-feature-settings: "tnum"; letter-spacing: .2px; }
+  .dev-row:hover .dev-ref { color: var(--accent); background: var(--accent-soft); }
+  /* OPTIONAL priority chip — only present in the DOM when a ticket actually sets one */
+  .dev-prio { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; flex-shrink: 0; }
+  .dev-prio-high { color: #b03a3a; background: var(--priority-light); }
+  .dev-prio-med  { color: var(--warning); background: var(--warning-light); }
+  .dev-prio-low  { color: var(--text-light); background: var(--gray-light); }
+
+  /* ---- Mobile (~380px): comfort first ---- */
+  @media (max-width: 768px) {
+    .dev-wrap { max-width: 100%; }
+    .dev-counts { order: 1; flex: 1 1 100%; }
+    .dev-state-btns { order: 2; }
+    .dev-search { order: 3; flex-basis: 100%; font-size: 16px; padding: 12px 14px; min-height: 44px; } /* full width; 16px stops iOS zoom */
+    .dev-chip { min-height: 40px; padding: 8px 12px; }
+    .dev-topic-sum { min-height: 54px; padding: 13px 14px; font-size: 15px; }
+    .dev-topic-body { padding: 6px 6px 8px; margin: 6px 4px 0; }
+    .dev-sub-tasks { margin-right: 6px; padding-right: 6px; }
+    .dev-row { min-height: 46px; padding: 10px 6px; }
+    .dev-desc { flex: 1 1 100%; font-size: 15px; }   /* description on its own line */
+    .dev-meta { flex: 1 1 100%; }                     /* meta wraps under it, still inline-grouped */
+  }
   .kibbutz.needs-dev {
     background: #ede9fe !important;
     border: 2px solid #8b5cf6 !important;

@@ -1,18 +1,28 @@
   // ===========================================================
   // DEV TASKS (פיתוח) — read-only view of the GitHub tickets (Sigmatec-Energy/tasks),
   // for עידן + עמיחי only. Live via the `github` Edge Function (EMS-gated).
-  // Navigation: topic chips (jump+open) · collapsible topic groups (<details>) · search ·
-  // "בפיתוח עכשיו" (open tickets by most-recent activity). View first; editing later.
+  //
+  // DESIGN: centered column (.dev-wrap, max-width ~880px) — fixes the "smeared
+  // edge-to-edge" look. 3-level hierarchy that reads at a glance via nested RAILS:
+  //   📂 Topic  = native <details>; its body carries the strong accent rail (right, RTL).
+  //   ↳ Sub-topic = bold header that OWNS its tasks via its OWN lighter rail, indented in.
+  //   Task rows = flex-START (NOT space-between): RTL description starts hard at the right,
+  //               muted meta (👤assignee, ✅, #ref ↗) flows inline immediately after it —
+  //               the ticket number NEVER floats to the far edge.
+  // #num = small grey GitHub REFERENCE (#123 ↗), obviously an id, not a priority.
+  // Priority = OPTIONAL slot: rendered ONLY if a ticket actually sets one (0/100 today).
+  // Keeps: topic jump chips · live search · open/all · "בפיתוח עכשיו" recent box.
   // ===========================================================
   function canSeeDevTasks() { return (typeof canManageStaff === 'function') && canManageStaff(); }
   window._devState = 'open';
 
+  // priority is OPTIONAL — only called when t.priority is actually set, so no empty "—" chip.
   function devPriorityRank(p) {
     p = (p || '').trim();
-    if (/גבוה|דחוף|critical|high|urgent/i.test(p)) return { r: 0, label: 'גבוהה', color: '#dc2626', bg: '#fee2e2' };
-    if (/בינוני|medium|normal/i.test(p))           return { r: 1, label: 'בינונית', color: '#b45309', bg: '#fef3c7' };
-    if (/נמוך|low/i.test(p))                        return { r: 2, label: 'נמוכה', color: '#475569', bg: '#f1f5f9' };
-    return { r: 3, label: p || '—', color: '#64748b', bg: '#f8fafc' };
+    if (/גבוה|דחוף|critical|high|urgent/i.test(p)) return { label: 'גבוהה', cls: 'high' };
+    if (/בינוני|medium|normal/i.test(p))           return { label: 'בינונית', cls: 'med' };
+    if (/נמוך|low/i.test(p))                        return { label: 'נמוכה', cls: 'low' };
+    return { label: p, cls: 'low' };
   }
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
@@ -37,27 +47,48 @@
     return { topic: 'אחר', sub: '', desc: parts[0] || String(title || '') };
   }
 
+  // One compact task row, rendered as a link to the GitHub issue.
+  // flex-START layout: description first (RTL → starts at the right), then muted meta
+  // inline immediately after it. #ref is wrapped in <bdi dir="ltr"> so "#123 ↗" never
+  // reorders against the surrounding Hebrew. Priority slot only present if t.priority set.
   function devTaskLine(t) {
     var pr = t.priority ? devPriorityRank(t.priority) : null;
-    var closed = t.state === 'closed' ? '<span style="font-size:11px;color:#065f46;background:#d1fae5;border-radius:6px;padding:1px 6px;white-space:nowrap;">✅</span>' : '';
+    var closed = t.state === 'closed';
     var s = devEsc((t._p.topic + ' ' + t._p.sub + ' ' + t._p.desc + ' #' + t.number + ' ' + (t.assignee || '')).toLowerCase());
-    return '<div class="dev-row" data-s="' + s + '" style="display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid #f1f5f9;font-size:13px;">' +
-      (pr ? '<span style="font-size:11px;font-weight:700;color:' + pr.color + ';background:' + pr.bg + ';border-radius:6px;padding:1px 7px;white-space:nowrap;">' + pr.label + '</span>' : '') +
-      '<a href="' + devEsc(t.url) + '" target="_blank" rel="noopener" style="flex:1;color:#1e293b;text-decoration:none;">' + devEsc(t._p.desc) + ' <span style="color:#94a3b8;">#' + t.number + '</span></a>' +
-      (t.assignee ? '<span style="font-size:11px;color:#64748b;white-space:nowrap;">👤 ' + devEsc(t.assignee) + '</span>' : '') +
-      closed +
+    return '<a class="dev-row" data-s="' + s + '" href="' + devEsc(t.url) + '" target="_blank" rel="noopener">' +
+        (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+        '<span class="dev-desc"><bdi>' + devEsc(t._p.desc) + '</bdi></span>' +
+        '<span class="dev-meta">' +
+          (t.assignee ? '<span class="dev-assignee" title="אחראי">👤&nbsp;<bdi>' + devEsc(t.assignee) + '</bdi></span>' : '') +
+          (closed ? '<span class="dev-done" title="נסגר">✅</span>' : '') +
+          '<span class="dev-ref" title="מספר טיקט ב-GitHub"><bdi dir="ltr">#' + devEsc(String(t.number)) + '</bdi> ↗</span>' +
+        '</span>' +
+      '</a>';
+  }
+
+  // A sub-topic block: bold ↳ header that OWNS its task rows via its own lighter rail.
+  function devSubBlock(g, sub) {
+    var rows = g.subs[sub].map(devTaskLine).join('');
+    if (sub === '·') return '<div class="dev-sub dev-sub-bare">' + rows + '</div>';
+    return '<div class="dev-sub">' +
+      '<div class="dev-sub-head">' +
+        '<span class="dev-sub-mark" aria-hidden="true">↳</span>' +
+        '<span class="dev-sub-name"><bdi>' + devEsc(sub) + '</bdi></span>' +
+        '<span class="dev-sub-n">' + g.subs[sub].length + '</span>' +
+      '</div>' +
+      '<div class="dev-sub-tasks">' + rows + '</div>' +
       '</div>';
   }
 
   async function renderDevTasks() {
     var el = document.getElementById('devTasksContent');
     if (!el) return;
-    if (!canSeeDevTasks()) { el.innerHTML = '<div style="color:#991b1b;">אין הרשאה לעמוד זה.</div>'; return; }
-    el.innerHTML = '<div style="padding:30px;text-align:center;color:#64748b;">⏳ טוען משימות מ-GitHub…</div>';
+    if (!canSeeDevTasks()) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">אין הרשאה לעמוד זה.</div></div>'; return; }
+    el.innerHTML = '<div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>';
     var tasks;
     try { tasks = await devFetchTasks(window._devState); }
     catch (e) {
-      el.innerHTML = '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;color:#991b1b;">⚠️ ' + devEsc(e.message) + '</div>';
+      el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + '</div></div>';
       return;
     }
 
@@ -72,48 +103,51 @@
     var topicNames = Object.keys(groups).sort(function (a, b) { return groups[b].n - groups[a].n; });
 
     // toolbar: counts + search + open/all + refresh
-    var active = function (s) { return window._devState === s ? 'style="background:#1e40af;color:#fff;border-color:#1e40af;"' : ''; };
-    var head = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:13px;">' +
-      '<strong>' + tasks.length + ' משימות</strong>' +
-      '<span style="color:#64748b;">· ' + topicNames.length + ' נושאים</span>' +
-      '<span style="flex:1;"></span>' +
-      '<input id="devSearch" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" style="padding:5px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;min-width:150px;">' +
-      '<button class="inv-btn small" onclick="devSetState(\'open\')" ' + active('open') + '>פתוחות</button>' +
-      '<button class="inv-btn small" onclick="devSetState(\'all\')" ' + active('all') + '>הכל</button>' +
-      '<button class="inv-btn small" onclick="renderDevTasks()">🔄 רענן</button>' +
-      '</div>';
+    var active = function (s) { return window._devState === s ? ' active' : ''; };
+    var head = '<div class="dev-toolbar">' +
+      '<div class="dev-counts"><strong>' + tasks.length + '</strong> משימות' +
+        '<span class="dev-counts-sub">· ' + topicNames.length + ' נושאים</span></div>' +
+      '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
+      '<div class="dev-state-btns">' +
+        '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
+        '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
+        '<button class="inv-btn small" onclick="renderDevTasks()">🔄 רענן</button>' +
+      '</div>' +
+    '</div>';
 
-    // topic chips — click to jump + open that topic
-    var chips = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">' +
+    // topic "jump" chips — click to open that topic + scroll to it
+    var chips = '<div class="dev-chips">' +
       topicNames.map(function (topic, i) {
-        return '<button class="inv-btn small" onclick="devJump(' + i + ')" style="font-size:12px;">📂 ' +
-          devEsc(topic) + ' <span style="color:#94a3b8;">' + groups[topic].n + '</span></button>';
+        return '<button class="dev-chip" onclick="devJump(' + i + ')">📂 <bdi>' +
+          devEsc(topic) + '</bdi><span class="dev-chip-n">' + groups[topic].n + '</span></button>';
       }).join('') + '</div>';
 
-    // "בפיתוח עכשיו" — open tickets, freshest activity first (updatedAt; falls back to feed order)
+    // "בפיתוח עכשיו" — open tickets, freshest activity first
     var recent = tasks.filter(function (t) { return t.state !== 'closed'; })
       .slice().sort(function (a, b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); })
       .slice(0, 6);
-    var ipBox = recent.length ? '<div class="card" style="margin-bottom:14px;border-right:3px solid #1e40af;">' +
-      '<h3 style="margin:0 0 4px;">🔨 בפיתוח עכשיו <span style="font-size:12px;color:#64748b;font-weight:400;">· פעילות אחרונה</span></h3>' +
-      recent.map(devTaskLine).join('') + '</div>' : '';
+    var ipBox = recent.length ? '<div class="card dev-now">' +
+      '<h3 class="dev-now-head">🔨 בפיתוח עכשיו <span class="dev-now-sub">· פעילות אחרונה</span></h3>' +
+      '<div class="dev-now-list">' + recent.map(devTaskLine).join('') + '</div></div>' : '';
 
-    // collapsible topic groups (native <details>); first one open for immediate content
+    // collapsible topic groups (native <details>); first one open for immediate content.
     var body = topicNames.map(function (topic, i) {
       var g = groups[topic];
       var subNames = Object.keys(g.subs).sort(function (a, b) { return g.subs[b].length - g.subs[a].length; });
-      var inner = subNames.map(function (sub) {
-        var label = sub === '·' ? '' : '<div style="font-size:12px;font-weight:700;color:#475569;margin:8px 0 2px;">↳ ' + devEsc(sub) + '</div>';
-        return label + g.subs[sub].map(devTaskLine).join('');
-      }).join('');
-      return '<details id="dtopic-' + i + '" class="dev-topic" style="margin-bottom:10px;"' + (i === 0 ? ' open' : '') + '>' +
-        '<summary style="cursor:pointer;font-weight:700;font-size:15px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">📂 ' +
-        devEsc(topic) + ' <span style="font-size:12px;color:#64748b;font-weight:400;">(' + g.n + ')</span></summary>' +
-        '<div style="padding:4px 12px 2px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;">' + inner + '</div>' +
-        '</details>';
+      var inner = subNames.map(function (sub) { return devSubBlock(g, sub); }).join('');
+      return '<details id="dtopic-' + i + '" class="dev-topic"' + (i === 0 ? ' open' : '') + '>' +
+        '<summary class="dev-topic-sum">' +
+          '<span class="dev-topic-ico" aria-hidden="true">📂</span>' +
+          '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
+          '<span class="dev-topic-n">' + g.n + '</span>' +
+          '<span class="dev-topic-caret" aria-hidden="true">⌄</span>' +
+        '</summary>' +
+        '<div class="dev-topic-body">' + inner + '</div>' +
+      '</details>';
     }).join('');
 
-    el.innerHTML = head + chips + ipBox + (tasks.length ? body : '<div style="padding:24px;text-align:center;color:#64748b;">אין משימות להצגה.</div>');
+    el.innerHTML = '<div class="dev-wrap">' + head + chips + ipBox +
+      (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
   }
 
   // jump to a topic from a chip: open it + scroll into view
@@ -124,13 +158,19 @@
     d.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // live filter: hide non-matching rows, hide/expand topics accordingly
+  // live filter: hide non-matching rows, then collapse empty sub-blocks + topics
   window.devFilter = function (q) {
     q = (q || '').trim().toLowerCase();
     document.querySelectorAll('#devTasksContent .dev-row').forEach(function (r) {
       var hit = !q || (r.getAttribute('data-s') || '').indexOf(q) !== -1;
       r.style.display = hit ? '' : 'none';
     });
+    // collapse sub-topic blocks that have no visible rows (no dangling header)
+    document.querySelectorAll('#devTasksContent .dev-sub').forEach(function (sb) {
+      var any = Array.prototype.some.call(sb.querySelectorAll('.dev-row'), function (r) { return r.style.display !== 'none'; });
+      sb.style.display = any ? '' : 'none';
+    });
+    // collapse topics with no visible rows; auto-open matching ones while searching
     document.querySelectorAll('#devTasksContent .dev-topic').forEach(function (d) {
       var any = Array.prototype.some.call(d.querySelectorAll('.dev-row'), function (r) { return r.style.display !== 'none'; });
       d.style.display = any ? '' : 'none';

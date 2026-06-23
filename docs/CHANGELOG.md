@@ -14,6 +14,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Dev-tasks interactive navigation:** topic **chips** (click = jump + open the group), **collapsible**
   topic groups (native `<details>`), live **search** box, and a **"🔨 בפיתוח עכשיו"** section
   (open tickets by most-recent activity; `github` fn now returns `updatedAt`). Verified live (build ·30).
+- **Dev-tasks visual redesign (·31):** centered max-width column + **3-level hierarchy via nested rails**
+  (📂 topic → ↳ sub-topic that *owns* its tasks → task row), rows as full-row links with the **#issue-number
+  de-emphasized** to a muted reference (it is *not* a priority), an **optional** priority chip that appears only
+  when a ticket actually sets one, and a **mobile-first** layout (≥44px touch targets, no edge-to-edge smear).
+  Chosen via a 3-approach design panel (nested-rails won on hierarchy, merged with mobile-comfort spacing).
+- **Planning/reference docs:** `docs/vision-budget.md` (what a funded version unlocks) and `docs/team.md`
+  (employee roles, field/office split, per-role metrics — basis for the role-based employee cards).
 - **Project memory/docs system** under `docs/`: [INDEX](INDEX.md) → architecture, modules,
   data-and-security, operations, backlog. Index-to-small-files layout (load only what's needed).
 - This **CHANGELOG**.
@@ -51,6 +58,10 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Visit-doc FAB** now shows only for field staff (אביאם/ניתאי) with the attendance-type picker;
   hidden for office (עידן/מתניה/עמיחי).
 - **Overall-progress bar:** per-color hover tooltips + tap-to-show legend (mobile).
+- **Home page renamed** "קיבוצים" → **"דף הבית"** (nav icon → 🏠).
+- **Footer version line** RTL fix — version + `?sb=0` isolated with `<bdi>` and split to two lines so the
+  mixed Hebrew/latin text stops flipping.
+- **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
 - **Low-stock alert** meter label `מונה PM` → full name **`מונה PM135`** (+ precise `PM135` match
   so it can't accidentally bucket other meters).
