@@ -55,10 +55,9 @@ access/roles (עמיחי=all, מתניה no inventory, meeting-mode+attendance �
 Bridge re-verified active after fresh login (`_sbToken` present).
 
 **⛔ Blocked on the user (documented in [RECOMMENDATIONS-he.md](RECOMMENDATIONS-he.md) + below):**
-- **Dev-tasks DATA** — the `github` function returns GitHub **404**. Repo `Sigmatec-Energy/tasks` + its issues
-  are real (verified via `gh`: #123/#122/#121). FIX: set secret **`GH_REPO=Sigmatec-Energy/tasks`** + ensure
-  **`GH_TOKEN`** is authorized for that repo (fine-grained may be pending **org approval**; or use a classic
-  `repo` token) → **redeploy** the `github` function. (Function now in repo: `supabase/functions/github/`, default repo fixed.)
+- **Dev-tasks — WORKING ✅** (token authorized). The `github` function pulls 100+ live tickets; the פיתוח page
+  groups them by **topic → sub-topic** (parsed from the title `נושא | תת-נושא | תיאור`). Minor: redeploy the
+  `github` function to pick up **pagination** (currently capped at 100 issues).
 - **Calendar** — needs Workspace **Domain-Wide Delegation** (admin authorizes the SA `client_id` for
   `calendar` scope), then I add a `sub` impersonation claim + wire the יומן UI. (Org blocks public Apps Script + SA calendar-sharing.)
 - **Dev-tasks editing (phase 2)** — needs a write-capable GitHub token (toggle priority/sprint labels).
