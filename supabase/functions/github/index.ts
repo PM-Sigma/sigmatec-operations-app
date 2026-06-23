@@ -59,6 +59,7 @@ Deno.serve(async (req) => {
         priority: pm ? pm[1].trim() : "",
         assignee: it.assignee ? it.assignee.login : "",
         url: it.html_url, createdAt: it.created_at, updatedAt: it.updated_at,
+        body: b.slice(0, 1200),
       };
     });
     return json({ tasks }, 200, ORIGIN);

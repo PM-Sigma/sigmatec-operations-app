@@ -650,37 +650,54 @@
   /* topic body carries the LEVEL-1 rail on the right (RTL inner edge) */
   .dev-topic-body { padding: 6px 8px 8px; border-right: 3px solid var(--accent); margin: 6px 6px 0; }
 
-  /* ---- LEVEL 2: SUB-TOPIC (↳) — bold header that OWNS its tasks via its own lighter rail ---- */
-  .dev-sub { margin: 2px 0 6px; }
-  .dev-sub-head { display: flex; align-items: baseline; gap: 6px; padding: 7px 8px 3px; font-size: 13px; font-weight: 800; color: #334155; }
-  .dev-sub-mark { color: var(--accent); font-weight: 700; }
-  .dev-sub-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  .dev-sub-n { font-size: 11px; font-weight: 700; color: var(--text-light); }
-  /* tasks under a sub-topic are indented + get a LIGHTER rail on the right → clear containment */
-  .dev-sub-tasks { margin-right: 8px; padding-right: 8px; border-right: 2px solid #dbe3ef; }
-  .dev-sub-bare { padding-right: 8px; } /* tasks with no sub-topic: no extra rail */
+  /* ---- LEVEL 2: PARENT (אב) — collapsible sub-topic that owns its tasks ---- */
+  .dev-parent { margin: 2px 0 4px; }
+  .dev-parent-sum { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 7px;
+    min-height: 40px; padding: 8px; font-size: 13px; font-weight: 800; color: #334155; border-radius: 6px; }
+  .dev-parent-sum::-webkit-details-marker { display: none; }
+  .dev-parent-sum:hover { background: var(--accent-soft); }
+  .dev-parent-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .dev-parent-n { flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-light); background: var(--gray-light); border-radius: 10px; padding: 1px 8px; }
+  /* children indented + LIGHTER rail on the right (clear containment) */
+  .dev-parent-body { margin-right: 7px; padding-right: 7px; border-right: 2px solid #dbe3ef; }
 
-  /* ---- LEVEL 3: TASK ROW — compact link, flex-START (never space-between) ---- */
-  /* RTL: description starts at the right; meta sits inline immediately after it. */
-  .dev-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 44px;
-    padding: 7px 8px; border-top: 1px solid #f1f5f9; font-size: 14px; text-decoration: none; color: var(--text);
-    border-radius: 6px; transition: background .12s; }
-  .dev-row:first-child { border-top: none; }
-  .dev-row:hover { background: var(--accent-soft); }
-  /* flex-grow 0: description keeps its natural width so the meta (#ref) hugs it instead of being
-     pushed to the far edge — kills the "justified to both sides" look. Free space sits at the row
-     END (left, in RTL). A long title shrinks (min-width:0) and wraps. */
-  .dev-desc { flex: 0 1 auto; min-width: 0; line-height: 1.45; overflow-wrap: anywhere; color: var(--text); }
-  .dev-row:hover .dev-desc { color: var(--accent); }
-  .dev-meta { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  /* caret rotates 90deg when its own <details> is open */
+  .dev-caret { flex-shrink: 0; font-size: 11px; color: var(--text-light); transition: transform .15s; display: inline-block; }
+  .dev-parent[open] > .dev-parent-sum > .dev-caret,
+  .dev-task[open] > .dev-task-sum > .dev-caret { transform: rotate(90deg); }
+
+  /* ---- LEVEL 3: TASK (בן) — collapsible; summary = desc + git button; body = detail ---- */
+  .dev-task { border-top: 1px solid #f1f5f9; }
+  .dev-task:first-child { border-top: none; }
+  .dev-task-sum { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 8px;
+    min-height: 44px; padding: 7px 8px; font-size: 14px; color: var(--text); border-radius: 6px; }
+  .dev-task-sum::-webkit-details-marker { display: none; }
+  .dev-task-sum:hover { background: var(--accent-soft); }
+  .dev-task-desc { flex: 1 1 auto; min-width: 0; line-height: 1.45; overflow-wrap: anywhere; }
+  .dev-task[open] > .dev-task-sum { font-weight: 600; }
+  .dev-done { flex-shrink: 0; font-size: 12px; }
+  /* GitHub icon button — explicit; sits at the row end, does NOT toggle the row */
+  .dev-git { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+    border-radius: 7px; color: #64748b; background: var(--gray-light); text-decoration: none; transition: background .12s, color .12s; }
+  .dev-git:hover { background: #1e293b; color: #fff; }
+
+  /* detail panel (revealed when a task is open) */
+  .dev-detail { padding: 4px 10px 12px 8px; margin-right: 6px; border-right: 2px solid var(--accent-soft); font-size: 13px; }
+  .dev-detail-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
+  .dev-st { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; }
+  .dev-st-open { color: #15803d; background: #dcfce7; }
+  .dev-st-closed { color: #475569; background: var(--gray-light); }
+  .dev-detail-num { font-feature-settings: "tnum"; color: #94a3b8; font-size: 12px; }
   .dev-assignee { font-size: 12px; color: var(--text-light); white-space: nowrap; }
-  .dev-done { font-size: 12px; flex-shrink: 0; }
-  /* ticket REFERENCE — small, grey, isolated LTR "#123 ↗"; clearly an id+link, not a priority */
-  .dev-ref { unicode-bidi: isolate; font-size: 11px; color: #94a3b8; white-space: nowrap; flex-shrink: 0;
-    background: var(--gray-light); border-radius: 6px; padding: 2px 7px; font-feature-settings: "tnum"; letter-spacing: .2px; }
-  .dev-row:hover .dev-ref { color: var(--accent); background: var(--accent-soft); }
-  /* OPTIONAL priority chip — only present in the DOM when a ticket actually sets one */
-  .dev-prio { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; flex-shrink: 0; }
+  .dev-detail-date { font-size: 12px; color: var(--text-light); }
+  .dev-detail-body { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--gray-light); border-radius: 8px;
+    padding: 10px 12px; max-height: 320px; overflow: auto; line-height: 1.6; color: var(--text); }
+  .dev-detail-empty { color: #94a3b8; font-style: italic; padding: 2px 0; }
+  .dev-detail-link { display: inline-block; margin-top: 8px; color: var(--accent); text-decoration: none; font-weight: 600; }
+  .dev-detail-link:hover { text-decoration: underline; }
+
+  /* OPTIONAL priority chip — only present when a ticket sets one */
+  .dev-prio { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; }
   .dev-prio-high { color: #b03a3a; background: var(--priority-light); }
   .dev-prio-med  { color: var(--warning); background: var(--warning-light); }
   .dev-prio-low  { color: var(--text-light); background: var(--gray-light); }
@@ -690,15 +707,17 @@
     .dev-wrap { max-width: 100%; }
     .dev-counts { order: 1; flex: 1 1 100%; }
     .dev-state-btns { order: 2; }
-    .dev-search { order: 3; flex-basis: 100%; font-size: 16px; padding: 12px 14px; min-height: 44px; } /* full width; 16px stops iOS zoom */
+    .dev-search { order: 3; flex-basis: 100%; font-size: 16px; padding: 12px 14px; min-height: 44px; }
     .dev-chip { min-height: 40px; padding: 8px 12px; }
     .dev-topic-sum { min-height: 54px; padding: 13px 14px; font-size: 15px; }
     .dev-topic-body { padding: 6px 6px 8px; margin: 6px 4px 0; }
-    .dev-sub-tasks { margin-right: 6px; padding-right: 6px; }
-    .dev-row { min-height: 46px; padding: 10px 6px; }
-    .dev-desc { flex: 1 1 100%; font-size: 15px; }   /* description on its own line */
-    .dev-meta { flex: 1 1 100%; }                     /* meta wraps under it, still inline-grouped */
+    .dev-parent-body { margin-right: 5px; padding-right: 5px; }
+    .dev-parent-sum { min-height: 46px; font-size: 14px; }
+    .dev-task-sum { min-height: 48px; font-size: 15px; }
+    .dev-git { width: 34px; height: 34px; }
+    .dev-detail { margin-right: 4px; font-size: 14px; }
   }
+
   .kibbutz.needs-dev {
     background: #ede9fe !important;
     border: 2px solid #8b5cf6 !important;

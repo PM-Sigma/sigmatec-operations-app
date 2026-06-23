@@ -19,6 +19,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   de-emphasized** to a muted reference (it is *not* a priority), an **optional** priority chip that appears only
   when a ticket actually sets one, and a **mobile-first** layout (≥44px touch targets, no edge-to-edge smear).
   Chosen via a 3-approach design panel (nested-rails won on hierarchy, merged with mobile-comfort spacing).
+- **Dev-tasks interactive tree (·34):** reworked to a real 3-level collapsible tree — 📂 topic → **אב parent**
+  (click = show/hide its children) → **בן task** (click = expand its **detail**: state, assignee, priority, dates,
+  and the ticket **body**). **GitHub is now an explicit icon button** (does NOT toggle the row / is no longer the
+  default click). Grouping unified so a 2-part ticket `T|S` and 3-part `T|S|D` with the **same** sub-name **merge**
+  into one parent; parents sorted A→Z (Hebrew) so near-identical names sit adjacent (e.g. `ייצוא אקסל` next to
+  `ייצוא לאקסל` — they only fully merge if the ticket titles are spelled identically). `github` fn now returns the
+  issue **body** (needs a redeploy to populate the detail panel). Verified on a 375px rig (grouping, collapse,
+  detail, git-button-doesn't-toggle, search, no overflow).
 - **Planning/reference docs:** `docs/vision-budget.md` (what a funded version unlocks) and `docs/team.md`
   (employee roles, field/office split, per-role metrics — basis for the role-based employee cards).
 - **Project memory/docs system** under `docs/`: [INDEX](INDEX.md) → architecture, modules,

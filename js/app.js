@@ -6299,21 +6299,19 @@
   // DEV TASKS (פיתוח) — read-only view of the GitHub tickets (Sigmatec-Energy/tasks),
   // for עידן + עמיחי only. Live via the `github` Edge Function (EMS-gated).
   //
-  // DESIGN: centered column (.dev-wrap, max-width ~880px) — fixes the "smeared
-  // edge-to-edge" look. 3-level hierarchy that reads at a glance via nested RAILS:
-  //   📂 Topic  = native <details>; its body carries the strong accent rail (right, RTL).
-  //   ↳ Sub-topic = bold header that OWNS its tasks via its OWN lighter rail, indented in.
-  //   Task rows = flex-START (NOT space-between): RTL description starts hard at the right,
-  //               muted meta (👤assignee, ✅, #ref ↗) flows inline immediately after it —
-  //               the ticket number NEVER floats to the far edge.
-  // #num = small grey GitHub REFERENCE (#123 ↗), obviously an id, not a priority.
-  // Priority = OPTIONAL slot: rendered ONLY if a ticket actually sets one (0/100 today).
-  // Keeps: topic jump chips · live search · open/all · "בפיתוח עכשיו" recent box.
+  // TREE (native <details>, 3 levels):
+  //   📂 Topic  →  אב Parent (sub-topic; click = show/hide children)  →  בן Task (click = show detail)
+  // Parent grouping: key = sub (3-part "T|S|D") OR desc (2-part "T|S"). A group containing any 3-part
+  // ticket renders as a collapsible אב; a 2-part-only group renders as a leaf task. Parents/leaves are
+  // sorted A→Z (Hebrew) so near-identical names cluster (e.g. "ייצוא אקסל" next to "ייצוא לאקסל").
+  // GitHub = explicit icon button (does NOT toggle the row / is not the default action).
+  // Detail = state/assignee/priority/dates + body (body needs the github fn redeploy to appear).
   // ===========================================================
   function canSeeDevTasks() { return (typeof canManageStaff === 'function') && canManageStaff(); }
   window._devState = 'open';
 
-  // priority is OPTIONAL — only called when t.priority is actually set, so no empty "—" chip.
+  var DEV_GH = '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
+
   function devPriorityRank(p) {
     p = (p || '').trim();
     if (/גבוה|דחוף|critical|high|urgent/i.test(p)) return { label: 'גבוהה', cls: 'high' };
@@ -6322,6 +6320,7 @@
     return { label: p, cls: 'low' };
   }
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 
   async function devFetchTasks(state) {
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
@@ -6336,7 +6335,7 @@
     return d.tasks || [];
   }
 
-  // tickets carry no labels — the title encodes "נושא | תת-נושא | תיאור"
+  // title encodes "נושא | תת-נושא | תיאור"
   function devParseT(title) {
     var parts = String(title || '').split(/\s*\|\s*/).map(function (s) { return s.trim(); }).filter(Boolean);
     if (parts.length >= 3) return { topic: parts[0], sub: parts[1], desc: parts.slice(2).join(' · ') };
@@ -6344,37 +6343,47 @@
     return { topic: 'אחר', sub: '', desc: parts[0] || String(title || '') };
   }
 
-  // One compact task row, rendered as a link to the GitHub issue.
-  // flex-START layout: description first (RTL → starts at the right), then muted meta
-  // inline immediately after it. #ref is wrapped in <bdi dir="ltr"> so "#123 ↗" never
-  // reorders against the surrounding Hebrew. Priority slot only present if t.priority set.
-  function devTaskLine(t) {
+  // open the GitHub issue WITHOUT toggling the <details> (explicit button, not the default row action)
+  window.devGitOpen = function (e, el) { e.preventDefault(); e.stopPropagation(); window.open(el.href, '_blank', 'noopener'); };
+
+  // בן — a task as a collapsible <details>: summary (desc + git button) → detail panel.
+  function devTaskNode(t) {
     var pr = t.priority ? devPriorityRank(t.priority) : null;
     var closed = t.state === 'closed';
     var s = devEsc((t._p.topic + ' ' + t._p.sub + ' ' + t._p.desc + ' #' + t.number + ' ' + (t.assignee || '')).toLowerCase());
-    return '<a class="dev-row" data-s="' + s + '" href="' + devEsc(t.url) + '" target="_blank" rel="noopener">' +
+    var created = devFmtDate(t.createdAt), updated = devFmtDate(t.updatedAt);
+    var detail = '<div class="dev-detail">' +
+      '<div class="dev-detail-row">' +
+        '<span class="dev-st ' + (closed ? 'dev-st-closed' : 'dev-st-open') + '">' + (closed ? '✅ סגור' : '🟢 פתוח') + '</span>' +
+        '<span class="dev-detail-num"><bdi dir="ltr">#' + devEsc(String(t.number)) + '</bdi></span>' +
         (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
-        '<span class="dev-desc"><bdi>' + devEsc(t._p.desc) + '</bdi></span>' +
-        '<span class="dev-meta">' +
-          (t.assignee ? '<span class="dev-assignee" title="אחראי">👤&nbsp;<bdi>' + devEsc(t.assignee) + '</bdi></span>' : '') +
-          (closed ? '<span class="dev-done" title="נסגר">✅</span>' : '') +
-          '<span class="dev-ref" title="מספר טיקט ב-GitHub"><bdi dir="ltr">#' + devEsc(String(t.number)) + '</bdi> ↗</span>' +
-        '</span>' +
-      '</a>';
+        (t.assignee ? '<span class="dev-assignee">👤 <bdi>' + devEsc(t.assignee) + '</bdi></span>' : '') +
+        (created ? '<span class="dev-detail-date">📅 ' + created + (updated && updated !== created ? ' · עודכן ' + updated : '') + '</span>' : '') +
+      '</div>' +
+      (t.body ? '<div class="dev-detail-body">' + devEsc(t.body) + '</div>' : '<div class="dev-detail-empty">— אין תיאור זמין (יופיע אחרי עדכון פונקציית github) —</div>') +
+      '<a class="dev-detail-link" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">פתח ב-GitHub ↗</a>' +
+    '</div>';
+    return '<details class="dev-task" data-s="' + s + '">' +
+      '<summary class="dev-task-sum">' +
+        '<span class="dev-caret" aria-hidden="true">▸</span>' +
+        '<span class="dev-task-desc">' + devEsc(t._p.desc) + '</span>' +
+        (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+        (closed ? '<span class="dev-done" title="סגור">✅</span>' : '') +
+        '<a class="dev-git" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="devGitOpen(event,this)" title="פתח את הכרטיס ב-GitHub">' + DEV_GH + '</a>' +
+      '</summary>' + detail +
+    '</details>';
   }
 
-  // A sub-topic block: bold ↳ header that OWNS its task rows via its own lighter rail.
-  function devSubBlock(g, sub) {
-    var rows = g.subs[sub].map(devTaskLine).join('');
-    if (sub === '·') return '<div class="dev-sub dev-sub-bare">' + rows + '</div>';
-    return '<div class="dev-sub">' +
-      '<div class="dev-sub-head">' +
-        '<span class="dev-sub-mark" aria-hidden="true">↳</span>' +
-        '<span class="dev-sub-name"><bdi>' + devEsc(sub) + '</bdi></span>' +
-        '<span class="dev-sub-n">' + g.subs[sub].length + '</span>' +
-      '</div>' +
-      '<div class="dev-sub-tasks">' + rows + '</div>' +
-      '</div>';
+  // אב — a parent (sub-topic) as a collapsible <details>: summary (name + count) → children.
+  function devParentNode(name, group) {
+    return '<details class="dev-parent" data-s="' + devEsc(String(name).toLowerCase()) + '">' +
+      '<summary class="dev-parent-sum">' +
+        '<span class="dev-caret" aria-hidden="true">▸</span>' +
+        '<span class="dev-parent-name"><bdi>' + devEsc(name) + '</bdi></span>' +
+        '<span class="dev-parent-n">' + group.length + '</span>' +
+      '</summary>' +
+      '<div class="dev-parent-body">' + group.map(devTaskNode).join('') + '</div>' +
+    '</details>';
   }
 
   async function renderDevTasks() {
@@ -6384,94 +6393,70 @@
     el.innerHTML = '<div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>';
     var tasks;
     try { tasks = await devFetchTasks(window._devState); }
-    catch (e) {
-      el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + '</div></div>';
-      return;
-    }
+    catch (e) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + '</div></div>'; return; }
 
     tasks.forEach(function (t) { t._p = devParseT(t.title); });
-    var groups = {};
+    var topics = {};
     tasks.forEach(function (t) {
-      var g = (groups[t._p.topic] = groups[t._p.topic] || { n: 0, subs: {} });
-      g.n++;
-      var key = t._p.sub || '·';
-      (g.subs[key] = g.subs[key] || []).push(t);
+      var topic = t._p.topic, P = t._p.sub || t._p.desc;
+      var tp = (topics[topic] = topics[topic] || { n: 0, parents: {} });
+      tp.n++;
+      (tp.parents[P] = tp.parents[P] || []).push(t);
     });
-    var topicNames = Object.keys(groups).sort(function (a, b) { return groups[b].n - groups[a].n; });
+    var topicNames = Object.keys(topics).sort(function (a, b) { return topics[b].n - topics[a].n; });
 
-    // toolbar: counts + search + open/all + refresh
     var active = function (s) { return window._devState === s ? ' active' : ''; };
     var head = '<div class="dev-toolbar">' +
-      '<div class="dev-counts"><strong>' + tasks.length + '</strong> משימות' +
-        '<span class="dev-counts-sub">· ' + topicNames.length + ' נושאים</span></div>' +
+      '<div class="dev-counts"><strong>' + tasks.length + '</strong> משימות<span class="dev-counts-sub">· ' + topicNames.length + ' נושאים</span></div>' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
         '<button class="inv-btn small" onclick="renderDevTasks()">🔄 רענן</button>' +
-      '</div>' +
-    '</div>';
+      '</div></div>';
 
-    // topic "jump" chips — click to open that topic + scroll to it
-    var chips = '<div class="dev-chips">' +
-      topicNames.map(function (topic, i) {
-        return '<button class="dev-chip" onclick="devJump(' + i + ')">📂 <bdi>' +
-          devEsc(topic) + '</bdi><span class="dev-chip-n">' + groups[topic].n + '</span></button>';
-      }).join('') + '</div>';
+    var chips = '<div class="dev-chips">' + topicNames.map(function (topic, i) {
+      return '<button class="dev-chip" onclick="devJump(' + i + ')">📂 <bdi>' + devEsc(topic) + '</bdi><span class="dev-chip-n">' + topics[topic].n + '</span></button>';
+    }).join('') + '</div>';
 
-    // "בפיתוח עכשיו" — open tickets, freshest activity first
     var recent = tasks.filter(function (t) { return t.state !== 'closed'; })
-      .slice().sort(function (a, b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); })
-      .slice(0, 6);
-    var ipBox = recent.length ? '<div class="card dev-now">' +
-      '<h3 class="dev-now-head">🔨 בפיתוח עכשיו <span class="dev-now-sub">· פעילות אחרונה</span></h3>' +
-      '<div class="dev-now-list">' + recent.map(devTaskLine).join('') + '</div></div>' : '';
+      .slice().sort(function (a, b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); }).slice(0, 6);
+    var ipBox = recent.length ? '<div class="card dev-now"><h3 class="dev-now-head">🔨 בפיתוח עכשיו <span class="dev-now-sub">· פעילות אחרונה</span></h3>' +
+      '<div class="dev-now-list">' + recent.map(devTaskNode).join('') + '</div></div>' : '';
 
-    // collapsible topic groups (native <details>); first one open for immediate content.
     var body = topicNames.map(function (topic, i) {
-      var g = groups[topic];
-      var subNames = Object.keys(g.subs).sort(function (a, b) { return g.subs[b].length - g.subs[a].length; });
-      var inner = subNames.map(function (sub) { return devSubBlock(g, sub); }).join('');
+      var tp = topics[topic];
+      var keys = Object.keys(tp.parents).sort(function (a, b) { return a.localeCompare(b, 'he'); });
+      var inner = keys.map(function (k) {
+        var group = tp.parents[k];
+        var hasChild = group.some(function (t) { return !!t._p.sub; });
+        return hasChild ? devParentNode(k, group) : group.map(devTaskNode).join('');
+      }).join('');
       return '<details id="dtopic-' + i + '" class="dev-topic"' + (i === 0 ? ' open' : '') + '>' +
-        '<summary class="dev-topic-sum">' +
-          '<span class="dev-topic-ico" aria-hidden="true">📂</span>' +
-          '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
-          '<span class="dev-topic-n">' + g.n + '</span>' +
-          '<span class="dev-topic-caret" aria-hidden="true">⌄</span>' +
-        '</summary>' +
-        '<div class="dev-topic-body">' + inner + '</div>' +
-      '</details>';
+        '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
+        '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
+        '<span class="dev-topic-n">' + tp.n + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
+        '<div class="dev-topic-body">' + inner + '</div></details>';
     }).join('');
 
-    el.innerHTML = '<div class="dev-wrap">' + head + chips + ipBox +
-      (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
+    el.innerHTML = '<div class="dev-wrap">' + head + chips + ipBox + (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
   }
 
-  // jump to a topic from a chip: open it + scroll into view
-  window.devJump = function (i) {
-    var d = document.getElementById('dtopic-' + i);
-    if (!d) return;
-    d.open = true;
-    d.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  window.devJump = function (i) { var d = document.getElementById('dtopic-' + i); if (!d) return; d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
-  // live filter: hide non-matching rows, then collapse empty sub-blocks + topics
+  // live filter: show/hide tasks; reveal (but don't expand the detail of) matching tasks' ancestors.
   window.devFilter = function (q) {
     q = (q || '').trim().toLowerCase();
-    document.querySelectorAll('#devTasksContent .dev-row').forEach(function (r) {
-      var hit = !q || (r.getAttribute('data-s') || '').indexOf(q) !== -1;
-      r.style.display = hit ? '' : 'none';
+    document.querySelectorAll('#devTasksContent .dev-task').forEach(function (t) {
+      t.style.display = (!q || (t.getAttribute('data-s') || '').indexOf(q) !== -1) ? '' : 'none';
     });
-    // collapse sub-topic blocks that have no visible rows (no dangling header)
-    document.querySelectorAll('#devTasksContent .dev-sub').forEach(function (sb) {
-      var any = Array.prototype.some.call(sb.querySelectorAll('.dev-row'), function (r) { return r.style.display !== 'none'; });
-      sb.style.display = any ? '' : 'none';
+    document.querySelectorAll('#devTasksContent .dev-parent').forEach(function (p) {
+      var any = Array.prototype.some.call(p.querySelectorAll('.dev-task'), function (t) { return t.style.display !== 'none'; });
+      p.style.display = any ? '' : 'none'; if (q) p.open = any;
     });
-    // collapse topics with no visible rows; auto-open matching ones while searching
     document.querySelectorAll('#devTasksContent .dev-topic').forEach(function (d) {
-      var any = Array.prototype.some.call(d.querySelectorAll('.dev-row'), function (r) { return r.style.display !== 'none'; });
-      d.style.display = any ? '' : 'none';
-      if (q) d.open = any;
+      var any = Array.prototype.some.call(d.querySelectorAll('.dev-task'), function (t) { return t.style.display !== 'none'; });
+      d.style.display = any ? '' : 'none'; if (q) d.open = any;
     });
   };
 
