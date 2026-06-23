@@ -609,7 +609,7 @@
       }
       closeModal({target: {id: 'modalBackdrop'}});
       const t = document.getElementById('toast');
-      t.textContent = res.created ? '✅ נוסף לגיליון בהצלחה' : '✅ נשמר לגיליון בהצלחה';
+      t.textContent = res.created ? '✅ נוסף בהצלחה' : '✅ נשמר בהצלחה';
       t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 2500);
       setTimeout(refreshData, 1500);

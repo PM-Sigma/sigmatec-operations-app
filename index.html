@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqqbrh9p">
+<link rel="stylesheet" href="css/app.css?v=mqqcwkvg">
 </head>
 <body>
 <div class="container">
@@ -307,7 +307,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-23·34</bdi><br>לחזרה לגיליון הוסף <bdi>?sb=0</bdi> לכתובת</span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-23·36</bdi><br>לחזרה לגיליון הוסף <bdi>?sb=0</bdi> לכתובת</span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -718,7 +718,7 @@
       <div id="editorNameDisplay" style="display:none;padding:8px 10px;background:#f0f9ff;border-right:3px solid #2563eb;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;margin-bottom:12px;"></div>
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal()">ביטול</button>
-        <button class="btn btn-primary" onclick="saveTask()">💾 שמור לגיליון</button>
+        <button class="btn btn-primary" onclick="saveTask()">💾 שמור</button>
       </div>
     </div>
 
@@ -1164,7 +1164,7 @@
 <div class="modal-backdrop" id="companyTasksModal" onclick="if(event.target.id==='companyTasksModal') this.classList.remove('open')">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:600px;">
     <h3>📌 עריכת משימות חברה כלליות</h3>
-    <div class="modal-sub">כל שורה = פריט אחד. השינויים נשמרים לגיליון — גלויים לכל הצוות.</div>
+    <div class="modal-sub">כל שורה = פריט אחד. השינויים נשמרים — גלויים לכל הצוות.</div>
 
     <label for="compOrders">🛒 הזמנות:</label>
     <textarea id="compOrders" placeholder="פריט אחד בכל שורה" style="min-height:80px;"></textarea>
@@ -1182,7 +1182,7 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="document.getElementById('companyTasksModal').classList.remove('open')">ביטול</button>
       <button class="btn btn-whatsapp" onclick="sendCompanyTasksToTeam()">📱 שלח לעידן</button>
-      <button class="btn btn-primary" onclick="saveCompanyTasks()">💾 שמור לגיליון</button>
+      <button class="btn btn-primary" onclick="saveCompanyTasks()">💾 שמור</button>
     </div>
   </div>
 </div>
@@ -1263,7 +1263,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqqbrh9p"></script>
+<script src="js/app.js?v=mqqcwkvg"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

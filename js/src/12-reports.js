@@ -88,21 +88,10 @@
     };
   }
 
-  function saveCompanyTasks() {
+  async function saveCompanyTasks() {
     const data = gatherCompanyTasksFromForm();
-    localStorage.setItem(COMPANY_TASKS_KEY, JSON.stringify(data));
-    // Sync to sheet so all devices see the same data.
-    // NOTE: text/plain (not application/json) — avoids a CORS preflight that
-    // Apps Script rejects, which previously made this save never reach the sheet.
-    // Surface failures (was silently swallowed → a save during the 404-URL window was
-    // lost to localStorage only). A warning lets the user retry instead of losing data.
-    fetch(SHEET_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'setting', key: 'companyTasks', value: data })
-    }).then(r => r.json()).then(res => { if (!res || !res.ok) emsToast('⚠️ שמירת משימות החברה לשרת נכשלה — נשמר מקומית בלבד, נסה שוב'); })
-      .catch(() => emsToast('⚠️ שמירת משימות החברה לשרת נכשלה — נשמר מקומית בלבד, נסה שוב'));
-    // Optimistically update SHEET_DATA so the next loadCompanyTasks() reads fresh data
+    localStorage.setItem(COMPANY_TASKS_KEY, JSON.stringify(data)); // local safety net so nothing is lost
+    // optimistic UI: reflect immediately + close the modal, then persist in the background
     if (window.SHEET_DATA) {
       window.SHEET_DATA.settings = window.SHEET_DATA.settings || {};
       window.SHEET_DATA.settings.companyTasks = data;
@@ -110,9 +99,30 @@
     renderCompanyTasks();
     document.getElementById('companyTasksModal').classList.remove('open');
     const t = document.getElementById('toast');
-    t.textContent = '✅ משימות חברה נשמרו לגיליון';
+    t.textContent = '⏳ שומר…';
     t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
+    // Persist to Supabase (settings.companyTasks via the write shim). Writes need the AUTHENTICATED
+    // bridge pass — anon is read-only (RLS). If the pass is missing/expired, re-mint it first, else the
+    // write goes out as anon and is rejected → the old "saved locally only" failure. Timeout so a slow
+    // backend can't hang the UI; the local copy above is the fallback either way.
+    let ok = false;
+    try {
+      if ((!window._sbToken || (window._sbTokenExp || 0) <= Date.now()) && typeof window._sbBridge === 'function') {
+        try { await window._sbBridge(); } catch (e) {}
+      }
+      const resp = await Promise.race([
+        fetch(SHEET_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ type: 'setting', key: 'companyTasks', value: data })
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000))
+      ]);
+      const res = await resp.json().catch(() => null);
+      ok = !!(res && res.ok);
+    } catch (e) { ok = false; }
+    t.textContent = ok ? '✅ משימות החברה נשמרו' : '⚠️ נשמר במכשיר — השמירה לשרת נכשלה. ודא חיבור/התחברות ל-EMS ונסה שוב.';
+    setTimeout(() => t.classList.remove('show'), ok ? 2500 : 5500);
   }
 
   function sendCompanyTasksToTeam() {

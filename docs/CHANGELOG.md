@@ -71,6 +71,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **Saves no longer fail to "נשמר מקומית/לוקאלית"** (the recurring company-tasks / priority-lists bug). Root
+  cause: writes need the **authenticated** Supabase bridge pass, but when it lapsed the write went out as
+  **anon** (read-only post-lockdown) and was rejected → localStorage fallback. The write shim now **re-mints
+  the pass before every upsert** (`01-data.js`), so all save paths (company-tasks, requirements, tasks, visits,
+  orders, attendance…) write authenticated. **`saveCompanyTasks`** also awaits properly with a 12s timeout,
+  shows an accurate result, and keeps a local safety copy. Verified on a 375px rig (success + failure paths).
+- **Wording (post-Sheets migration):** save buttons "💾 שמור לגיליון" → **"💾 שמור"**; save toasts
+  "✅ נשמר/נוסף לגיליון" → **"✅ נשמר/נוסף"** (data now goes to Supabase, not a sheet).
 - **Mobile QA pass (≤768px)** — audited every view/modal/nav at ~375px via a 6-area agent sweep + a real
   375px test rig, then one desktop-safe patch (build ·33): **my-tasks bar** was white-on-white **invisible** →
   solid surface + dark labels; **attendance table** scrolled the whole page sideways → wrapped in a scroller;

@@ -542,6 +542,12 @@
         if (!b) return realFetch(url, opts);
         if (b.type === 'ems' || b.type === 'transcribe' || b.type === 'parseRequest') return realFetch(url, opts);  // live proxy + AI stay on Apps Script
         const run = async () => {
+          // Writes need the AUTHENTICATED bridge pass (anon is read-only post-lockdown). If it lapsed,
+          // re-mint BEFORE any upsert — otherwise the write goes out as anon and is rejected, which is the
+          // root of the recurring "נשמר מקומית/לוקאלית" failures (company-tasks, requirements, etc.).
+          if ((!window._sbToken || (window._sbTokenExp || 0) <= Date.now()) && typeof window._sbBridge === 'function') {
+            try { await window._sbBridge(); } catch (e) {}
+          }
           if (!b.type) return respond(await writeTask(b));
           if (b.type === 'visit') return respond(await writeVisit(b));
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
