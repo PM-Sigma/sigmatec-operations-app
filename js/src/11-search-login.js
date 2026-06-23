@@ -188,11 +188,11 @@
       var _at = parseInt(localStorage.getItem('ems_token_at_v1') || '0', 10);
       on = !!_t && _at > 0 && (Date.now() - _at) < 60 * 60 * 1000;
     } catch (e) {}
-    b.textContent = on ? '🟢 EMS מחובר' : '🟠 EMS — התחבר';
-    b.style.background = on ? '#dcfce7' : '#fef3c7';
-    b.style.borderColor = on ? '#16a34a' : '#d97706';
-    b.style.color = on ? '#15803d' : '#92400e';
-    b.title = on ? 'מחובר ל-EMS · לחץ לפתיחת המערכת' : 'החיבור ל-EMS פג — לחץ לפתיחת/התחברות המערכת';
+    b.textContent = on ? '🟢 מחובר ל-EMS' : '🔴 אין חיבור ל-EMS';
+    b.style.background = on ? '#dcfce7' : '#fee2e2';
+    b.style.borderColor = on ? '#16a34a' : '#dc2626';
+    b.style.color = on ? '#15803d' : '#991b1b';
+    b.title = on ? 'מחובר ל-EMS · לחץ לפתיחת המערכת' : 'אין חיבור ל-EMS — לחץ להתחברות למערכת';
   }
   window.updateEmsBubble = updateEmsBubble;
   setInterval(function () { try { updateEmsBubble(); } catch (e) {} }, 60000);

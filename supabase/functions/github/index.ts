@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
         labels: (it.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
         priority: pm ? pm[1].trim() : "",
         assignee: it.assignee ? it.assignee.login : "",
-        url: it.html_url, createdAt: it.created_at,
+        url: it.html_url, createdAt: it.created_at, updatedAt: it.updated_at,
       };
     });
     return json({ tasks }, 200, ORIGIN);

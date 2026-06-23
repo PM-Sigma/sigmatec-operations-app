@@ -14,5 +14,11 @@ const idxUrl = new URL('./index.html', import.meta.url);
 let idx = fs.readFileSync(idxUrl, 'utf8');
 const ver = Date.now().toString(36);
 idx = idx.replace(/(js\/app\.js\?v=)[^"]*/, '$1' + ver).replace(/(css\/app\.css\?v=)[^"]*/, '$1' + ver);
+// visible version: auto-increment a build counter so every deploy is visibly newer.
+const verFile = new URL('./VERSION', import.meta.url);
+const buildNo = (parseInt(fs.readFileSync(verFile, 'utf8').trim(), 10) || 29) + 1;
+fs.writeFileSync(verFile, buildNo + '\n');
+const today = new Date().toISOString().slice(0, 10);
+idx = idx.replace(/גרסה \d{4}-\d{2}-\d{2}·\d+/, 'גרסה ' + today + '·' + buildNo);
 fs.writeFileSync(idxUrl, idx);
-console.log('built js/app.js from ' + files.length + ' modules; stamped assets v=' + ver);
+console.log('built js/app.js from ' + files.length + ' modules; stamped assets v=' + ver + ' · גרסה ' + today + '·' + buildNo);
