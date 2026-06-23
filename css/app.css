@@ -702,6 +702,13 @@
   .dev-prio-med  { color: var(--warning); background: var(--warning-light); }
   .dev-prio-low  { color: var(--text-light); background: var(--gray-light); }
 
+  /* Projects-v2 Status badge (Backlog / In Progress / Done / בעבודה…) */
+  .dev-status { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; border: 1px solid transparent; }
+  .dev-status-prog   { color: #1e40af; background: #dbeafe; border-color: #bfdbfe; }
+  .dev-status-done   { color: #15803d; background: #dcfce7; }
+  .dev-status-review { color: var(--warning); background: var(--warning-light); }
+  .dev-status-todo   { color: var(--text-light); background: var(--gray-light); }
+
   /* ---- Mobile (~380px): comfort first ---- */
   @media (max-width: 768px) {
     .dev-wrap { max-width: 100%; }

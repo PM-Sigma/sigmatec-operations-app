@@ -6338,6 +6338,17 @@
     }
     return null;
   }
+  // status badge from the Projects-v2 Status field (Backlog / In Progress / Done / בעבודה …)
+  function devStatus(t) {
+    var s = String(t.status || '').trim();
+    if (!s) return null;
+    var cls = 'todo';
+    if (/progress|בעבודה|doing|פיתוח|active|wip|בתהליך/i.test(s)) cls = 'prog';
+    else if (/done|בוצע|הושלם|complete|closed|נסגר/i.test(s)) cls = 'done';
+    else if (/review|בדיקה|qa/i.test(s)) cls = 'review';
+    return { label: s, cls: cls };
+  }
+  function devInProgress(t) { return t.state !== 'closed' && /progress|בעבודה|doing|פיתוח|active|wip|בתהליך/i.test(String(t.status || '')); }
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 
@@ -6376,8 +6387,9 @@
   // בן — a task as a collapsible <details>: summary (desc + git button) → detail panel.
   function devTaskNode(t) {
     var pr = devPriority(t);
+    var st = devStatus(t);
     var closed = t.state === 'closed';
-    var s = devEsc((t._p.topic + ' ' + t._p.sub + ' ' + t._p.desc + ' #' + t.number + ' ' + (t.assignee || '')).toLowerCase());
+    var s = devEsc((t._p.topic + ' ' + t._p.sub + ' ' + t._p.desc + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase());
     var created = devFmtDate(t.createdAt), updated = devFmtDate(t.updatedAt);
     var detail = '<div class="dev-detail">' +
       '<div class="dev-detail-row">' +
@@ -6395,6 +6407,7 @@
         '<span class="dev-caret" aria-hidden="true">▸</span>' +
         '<span class="dev-task-desc">' + devEsc(t._p.desc) + '</span>' +
         (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+        (st ? '<span class="dev-status dev-status-' + st.cls + '">' + devEsc(st.label) + '</span>' : '') +
         (closed ? '<span class="dev-done" title="סגור">✅</span>' : '') +
         '<a class="dev-git" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="devGitOpen(event,this)" title="פתח את הכרטיס ב-GitHub">' + DEV_GH + '</a>' +
       '</summary>' + detail +
@@ -6446,9 +6459,12 @@
       return '<button class="dev-chip" onclick="devJump(' + i + ')">📂 <bdi>' + devEsc(topic) + '</bdi><span class="dev-chip-n">' + topics[topic].n + '</span></button>';
     }).join('') + '</div>';
 
-    var recent = tasks.filter(function (t) { return t.state !== 'closed'; })
-      .slice().sort(function (a, b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); }).slice(0, 6);
-    var ipBox = recent.length ? '<div class="card dev-now"><h3 class="dev-now-head">🔨 בפיתוח עכשיו <span class="dev-now-sub">· פעילות אחרונה</span></h3>' +
+    // "בפיתוח עכשיו" — prefer real Status=In-Progress (Projects field); fall back to recent activity
+    var inProg = tasks.filter(devInProgress);
+    var recent, ipSub;
+    if (inProg.length) { recent = inProg.slice(0, 12); ipSub = '· לפי סטטוס'; }
+    else { recent = tasks.filter(function (t) { return t.state !== 'closed'; }).slice().sort(function (a, b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); }).slice(0, 6); ipSub = '· פעילות אחרונה'; }
+    var ipBox = recent.length ? '<div class="card dev-now"><h3 class="dev-now-head">🔨 בפיתוח עכשיו <span class="dev-now-sub">' + ipSub + '</span></h3>' +
       '<div class="dev-now-list">' + recent.map(devTaskNode).join('') + '</div></div>' : '';
 
     var body = topicNames.map(function (topic, i) {

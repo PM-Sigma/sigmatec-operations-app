@@ -71,6 +71,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **Dev-tasks now reads GitHub Projects-v2 fields** (·39) — the real source of priority. The function added a
+  **GraphQL** query against project **"Sigmatec EMS — Roadmap"** (Sigmatec-Energy #1) and merges **Priority +
+  Status** (also type/sprint) by issue number. These live on the **project board**, not the issues — which is why
+  labels/body showed nothing (118/122 items have Priority, 122/122 have Status). UI: priority chip + colored
+  **Status badge**, and **"בפיתוח עכשיו" is now driven by real Status=In-Progress** (activity-sort fallback).
+  Requires `GH_TOKEN` to have the **`project`** scope + a redeploy; **graceful** if absent (tickets still load).
 - **Dev-tasks priority now reads a GitHub label** (·38) — not just the body `## עדיפות`. A label containing
   `דחוף`/`גבוה`/`high` → גבוהה, `בינוני`/`medium` → בינונית, `נמוך`/`low` → נמוכה (also 🔴/🟡/🟢). Client-side
   (the function already returns labels) so **no redeploy needed** — the chip appears the moment a ticket is labeled.
