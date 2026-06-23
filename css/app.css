@@ -667,7 +667,10 @@
     border-radius: 6px; transition: background .12s; }
   .dev-row:first-child { border-top: none; }
   .dev-row:hover { background: var(--accent-soft); }
-  .dev-desc { flex: 1 1 auto; min-width: 0; line-height: 1.45; overflow-wrap: anywhere; color: var(--text); }
+  /* flex-grow 0: description keeps its natural width so the meta (#ref) hugs it instead of being
+     pushed to the far edge — kills the "justified to both sides" look. Free space sits at the row
+     END (left, in RTL). A long title shrinks (min-width:0) and wraps. */
+  .dev-desc { flex: 0 1 auto; min-width: 0; line-height: 1.45; overflow-wrap: anywhere; color: var(--text); }
   .dev-row:hover .dev-desc { color: var(--accent); }
   .dev-meta { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .dev-assignee { font-size: 12px; color: var(--text-light); white-space: nowrap; }
