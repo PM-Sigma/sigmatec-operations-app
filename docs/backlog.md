@@ -1,7 +1,7 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·46** (2026-06-23)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·47** (2026-06-23)._
 
 ## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 

@@ -23,6 +23,8 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   Verified: counts bucket correctly (test set 3/2/1/1 → קריטי=3, גבוהה=2, בינונית=1, נמוכה=1).
 
 ### Removed
+- **Footer dev-hint (·47)** — removed "לחזרה לגיליון הוסף ?sb=0 לכתובת" from the footer (the `?sb=0` flag
+  still works; it's just no longer advertised to users). Kept the version stamp.
 - **Morning "היום" view (·44)** — removed per request ("לא רוצה את זה באפליקציה כרגע"). Reverted the whole
   ·42 feature: the 🌅 nav page, `js/src/19-today.js`, the today-view dispatch, and the remember-last-page /
   new-day landing (`landOnStartPage`). The app opens on the home page again (·41 behavior). Streamlining /
