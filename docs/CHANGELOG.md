@@ -9,6 +9,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 
 ## [Unreleased]
 ### Added
+- **Visible version stamp** (`גרסה {date}·{N}`) in the footer, **auto-incremented** by `build.mjs`
+  from a `VERSION` counter on every build — so each deploy is visibly newer (continues the old ·NN scheme).
+- **Dev-tasks interactive navigation:** topic **chips** (click = jump + open the group), **collapsible**
+  topic groups (native `<details>`), live **search** box, and a **"🔨 בפיתוח עכשיו"** section
+  (open tickets by most-recent activity; `github` fn now returns `updatedAt`). Verified live (build ·30).
 - **Project memory/docs system** under `docs/`: [INDEX](INDEX.md) → architecture, modules,
   data-and-security, operations, backlog. Index-to-small-files layout (load only what's needed).
 - This **CHANGELOG**.
@@ -41,7 +46,8 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   עמיחי dropped from the employee cards (CEO, not a managed employee).
 - **Employee page → role-based cards:** עידן = company **go-live pipeline** (not a personal bar);
   אביאם/ניתאי = field metrics; מתניה = office/dev (dev-load placeholder pending the task source).
-- **EMS connection bubble** in the header — live 🟢/🟠 status + a link to the EMS web system.
+- **EMS connection bubble** in the header — live status + a link to the EMS web system.
+  Wording: **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 - **Visit-doc FAB** now shows only for field staff (אביאם/ניתאי) with the attendance-type picker;
   hidden for office (עידן/מתניה/עמיחי).
 - **Overall-progress bar:** per-color hover tooltips + tap-to-show legend (mobile).
