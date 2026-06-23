@@ -6319,7 +6319,8 @@
 
   function devPriorityRank(p) {
     p = (p || '').trim();
-    if (/גבוה|דחוף|critical|high|urgent/i.test(p)) return { label: 'גבוהה', cls: 'high' };
+    if (/קריטי|דחוף|critical|urgent/i.test(p))      return { label: 'קריטי', cls: 'high' };
+    if (/גבוה|high/i.test(p))                       return { label: 'גבוהה', cls: 'high' };
     if (/בינוני|medium|normal/i.test(p))           return { label: 'בינונית', cls: 'med' };
     if (/נמוך|low/i.test(p))                        return { label: 'נמוכה', cls: 'low' };
     return { label: p, cls: 'low' };
@@ -6332,7 +6333,8 @@
     var labs = t.labels || [];
     for (var i = 0; i < labs.length; i++) {
       var L = String(labs[i]);
-      if (/גבוה|דחוף|critical|high|urgent|🔴/i.test(L)) return { label: 'גבוהה', cls: 'high' };
+      if (/קריטי|דחוף|critical|urgent/i.test(L)) return { label: 'קריטי', cls: 'high' };
+      if (/גבוה|high|🔴/i.test(L)) return { label: 'גבוהה', cls: 'high' };
       if (/בינוני|medium|normal|🟡/i.test(L)) return { label: 'בינונית', cls: 'med' };
       if (/נמוך|low|🟢/i.test(L)) return { label: 'נמוכה', cls: 'low' };
     }
