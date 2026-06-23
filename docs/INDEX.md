@@ -44,45 +44,38 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-23 (build ·36)
+## 🚦 Current state — last: 2026-06-23 (build ·40)
 
-> **Saves fix (·36):** writes now **re-mint the authenticated Supabase pass before every upsert** (shim in
-> `01-data.js`) — kills the recurring "נשמר מקומית/לוקאלית" failure (was: write went out anon → RLS reject).
-> Covers company-tasks, requirements/priority-lists, tasks, visits, orders. Save buttons/toasts: "לגיליון" dropped → "שמור".
-> ⚠️ The company-tasks modal still shows the obsolete "📱 שלח לעידן לעדכון כולם" note (predates the shared DB) — candidate to remove.
+**Live & verified on `main`:** Supabase migration · PWA · EMS login gate · meters · "add to calendar" links ·
+security bridge + write-lockdown + messages-privacy (anon=read-only, auth=write) · Stats · Employee page
+(role-based, gated עידן+עמיחי) · EMS bubble (**🟢 מחובר ל-EMS / 🔴 אין חיבור ל-EMS**) · visit FAB gated to field ·
+access/roles (עמיחי=all, מתניה no inventory) · **auto-incrementing version stamp** (footer "גרסה {date}·{N}") ·
+home renamed **"דף הבית"** (🏠) · footer RTL fix · **mobile QA pass** (no overflow ≤768px, ≥40px targets;
+my-tasks/attendance/matrix fixes).
 
+**🔧 Saves (·36):** the write shim (`01-data.js`) **re-mints the authenticated pass before every upsert** —
+fixed the recurring "נשמר מקומית" failure (writes were going out anon → RLS reject). Covers company-tasks,
+requirements, tasks, visits, orders. Buttons/toasts "שמור לגיליון"→"שמור". Company-tasks "שלח לעידן" workaround removed.
 
-> **Dev-page (·34):** now a 3-level **collapsible tree** — 📂 topic → **אב** (click=toggle children) →
-> **בן** (click=toggle detail: state/assignee/priority/dates/**body**). **GitHub = explicit icon button**
-> (no longer the default row click). 2-part `T|S` + 3-part `T|S|D` with the same sub **merge**; parents
-> sorted A→Z so near-identical names sit adjacent. **`github` fn now returns `body`** — needs a **redeploy**
-> to populate the detail panel (same redeploy also activates pagination >100 + `updatedAt`). Verified on a 375px rig.
+**💻 Dev-tasks page (פיתוח, `18-dev-tasks.js` + `github` fn):** 3-level **collapsible tree** —
+📂 topic → אב sub-topic (toggle children) → בן task (toggle detail: state/assignee/dates/**body**).
+GitHub = explicit icon button (not the default click). Priority + Status come from the **GitHub Projects-v2**
+board **"Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)** via **GraphQL** (·39); priority chip
+(קריטי/גבוה/בינוני/נמוך) + Status badge; **"בפיתוח עכשיו" driven by real Status=In-Progress**. Client timeouts + 🔄 retry.
 
+### ⛔ THE next action — live priorities/status (one step left)
+The function's **`GH_TOKEN` must have the `project` scope**. Steps: GitHub → **classic** token with
+**`repo` + `read:org` + `project`** (SSO-authorize for Sigmatec-Energy) → set as the **`GH_TOKEN`** secret in
+Supabase → **redeploy the `github` function**. Until then priority/status are empty (GRACEFUL — tickets still load).
+*Proven:* the function returns 125 tickets fast (pagination OK) and the GraphQL query is correct via `gh`
+(returns גבוה / In Progress) — **only the token scope is missing.**
 
-> **Recent (·30→·33):** auto-incrementing **version stamp** in the footer · home page renamed
-> **"דף הבית"** (🏠) · footer RTL bidi fix · EMS bubble → **🟢 מחובר ל-EMS / 🔴 אין חיבור ל-EMS** ·
-> **dev-page redesign** (centered column + 3-level nested-rail hierarchy + mobile-first) ·
-> **mobile QA pass** (·33): my-tasks bar visibility, attendance-table scroller, sticky matrix column,
-> ≥40px tap targets, comment-hint on touch — verified at 375px (no overflow) + desktop unregressed.
-> **Mobile test rig:** `python -m http.server` on the project + Preview's mobile preset (Chrome-tab viewport
-> can't shrink) — see `.claude/launch.json` (name "sigmatec").
+### Other pending (user/admin)
+- **Supabase MCP** — already added to `~/.claude.json` → `mcp.mcpServers.supabase` (http, project_ref=wwqfcajnxinaxmobrgol).
+  This machine runs Claude in the **desktop app** (no `claude` CLI), so don't use `claude mcp add`. Activate:
+  **fully quit + reopen the desktop app → `/mcp` → authenticate** (Supabase OAuth). Then a session can deploy functions / read logs / run SQL directly. Backup of config at `~/.claude.json.bak`.
+- **Calendar** — Workspace **Domain-Wide Delegation** (admin authorizes the SA `client_id` for `calendar`).
+- **Rotate `service_role`** (exposed in chat) — coordinated JWT-secret roll (roll secret → update `ems-auth` `JWT_SECRET` + redeploy → I swap the new anon key).
+- **Dev-tasks editing (phase 2)** — write-capable token to set priority/sprint from the app.
 
-
-**Everything below is LIVE on `main` + verified:** Supabase migration · PWA · EMS login gate · meters ·
-"add to calendar" links · **security bridge + STEP 2 write-lockdown + messages-privacy** (anon = read-only,
-auth = write; messages auth-only) · **Stats** (fixed + interactive) · **Employee page** (role-based: עידן=go-live
-pipeline, אביאם/ניתאי=field, מתניה=dev/office; gated עידן+עמיחי) · **Dev-tasks page** (`18-dev-tasks.js`, gated) ·
-**EMS connection bubble** (status + link) · visit-doc **FAB gated to field staff** · main-page declutter ·
-access/roles (עמיחי=all, מתניה no inventory, meeting-mode+attendance עידן-scoped) · 502 login message · meter PM135 fix · Aviam controllers corrected.
-Bridge re-verified active after fresh login (`_sbToken` present).
-
-**⛔ Blocked on the user (documented in [RECOMMENDATIONS-he.md](RECOMMENDATIONS-he.md) + below):**
-- **Dev-tasks — WORKING ✅** (token authorized). The `github` function pulls 100+ live tickets; the פיתוח page
-  groups them by **topic → sub-topic** (parsed from the title `נושא | תת-נושא | תיאור`). Minor: redeploy the
-  `github` function to pick up **pagination** (currently capped at 100 issues).
-- **Calendar** — needs Workspace **Domain-Wide Delegation** (admin authorizes the SA `client_id` for
-  `calendar` scope), then I add a `sub` impersonation claim + wire the יומן UI. (Org blocks public Apps Script + SA calendar-sharing.)
-- **Dev-tasks editing (phase 2)** — needs a write-capable GitHub token (toggle priority/sprint labels).
-- **Rotate `service_role`** (exposed in chat) — last security follow-up.
-
-See [backlog.md](backlog.md) + [RECOMMENDATIONS-he.md](RECOMMENDATIONS-he.md).
+See [backlog.md](backlog.md) · [CHANGELOG.md](CHANGELOG.md) · [RECOMMENDATIONS-he.md](RECOMMENDATIONS-he.md).

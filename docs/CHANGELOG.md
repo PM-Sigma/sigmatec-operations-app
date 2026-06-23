@@ -71,6 +71,7 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   mixed Hebrew/latin text stops flipping.
 - **EMS bubble** wording → **🟢 מחובר ל-EMS** / **🔴 אין חיבור ל-EMS** (red when disconnected).
 ### Fixed
+- **Priority "קריטי" (·40)** now maps to the top red chip (was falling through unmapped). Tier order: קריטי/דחוף → גבוה → בינוני → נמוך.
 - **Dev-tasks now reads GitHub Projects-v2 fields** (·39) — the real source of priority. The function added a
   **GraphQL** query against project **"Sigmatec EMS — Roadmap"** (Sigmatec-Energy #1) and merges **Priority +
   Status** (also type/sprint) by issue number. These live on the **project board**, not the issues — which is why

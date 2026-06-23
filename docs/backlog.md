@@ -1,39 +1,39 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·40** (2026-06-23)._
 
-## 🔴 Current blocker
+## 🔴 Current blocker — live dev-tasks priorities/status
 
-- **#4 Security — wrong `JWT_SECRET` value.** Function now mints a token (✅), but Supabase
-  rejects it: `None of the keys was able to decode the JWT` → the value in `JWT_SECRET` is **not**
-  the project's legacy JWT signing secret (non-empty but wrong). **Action:** set `JWT_SECRET`
-  = the **Legacy JWT Secret** (Settings → JWT Keys → Legacy JWT Secret → Reveal; a plain string,
-  *not* an `eyJ…` token) → redeploy → re-test (expect `mint=OK | rest=[200]`). Then `🔒 pass
-  active` → STEP 2 lockdown → rotate keys.
+- **`GH_TOKEN` needs the `project` scope.** The `github` Edge Function now fetches GitHub **Projects-v2**
+  fields (Priority + Status) via GraphQL (·39), but the function's token can only read issues → the project
+  fetch returns nothing (GRACEFUL: tickets still load, just no priority/status).
+  **Action:** GitHub → **classic** token with **`repo` + `read:org` + `project`** (SSO-authorize for
+  `Sigmatec-Energy`) → set as the **`GH_TOKEN`** secret in Supabase → **redeploy the `github` function** →
+  reload פיתוח. *Proven working otherwise:* 125 tickets returned fast; the GraphQL query is correct via `gh`
+  (returns גבוה / In Progress). Only the scope is missing.
 
-## 🟡 Pending
+## 🟡 Pending (user / admin)
 
-1. **#4 Security:** bridge ✅, STEP 2 write-lockdown ✅ (anon write blocked + verified). **NEXT — run SQL:**
-   `drop policy if exists anon_read on public.messages;` (private notes leak via public key). Then hardening
-   from the review (stronger EMS-token validation, per-user message RLS, query-based lockdown, `ems-auth`
-   CORS lock), full read-lockdown (after bridging `stats.html`), rotate `service_role` (E).
-2. **Calendar (service account):** finish GCP service-account setup → deploy `calendar` Edge
-   Function → wire read+add UI (needs EMS up to test the token gate). *Apps Script path dropped —
-   Workspace blocks public web apps.*
-3. **Visit-documentation bubble** — fixes (awaiting specifics from user).
-4. **Employee-management page** (עידן + עמיחי only): per-person progress, system-usage by actions,
-   upcoming vacations, task load + breakdown, leave-a-message-on-login (needs a `messages` table).
-5. **EMS connection bubble** on the main page.
-6. **QA pass** + delete old gist + clean duplicate Sheet rows.
+1. **Supabase MCP** — added to `~/.claude.json` (`mcp.mcpServers.supabase`). This machine runs Claude in the
+   **desktop app** (no `claude` CLI). Activate: **fully quit + reopen the desktop app → `/mcp` → authenticate**
+   (Supabase OAuth). Then a session can deploy functions / read logs / run SQL directly (closes the redeploy loop).
+2. **Calendar** — Workspace **Domain-Wide Delegation**: admin authorizes the SA `client_id` for the `calendar`
+   scope → then add a `sub` impersonation claim + wire the יומן UI. (`calendar` fn already in repo.)
+3. **Rotate `service_role`** (exposed in chat) — coordinated: roll the JWT secret → update `ems-auth`'s
+   `JWT_SECRET` env + redeploy → swap the new `anon` key into the bundle + rebuild.
+4. **Dev-tasks editing (phase 2)** — a write-capable token to set Priority/Status/sprint from the app.
+5. **EMS changelog → calendar** — show EMS version-release days in the יומן (needs the calendar unblocked + the
+   changelog source מתניה maintains).
 
-## 🟢 Done (recent)
+## 🟢 Done (recent — see CHANGELOG for detail)
 
-- Full migration Google Sheets → **Supabase** (verified read parity).
-- **Module split** of the monolith into `js/src/*.js` + `build.mjs`.
-- **PWA**: manifest, network-first SW, install button, cache-busting.
-- **EMS login gate** (email/password + 2FA) as the app gate; badge = logout.
-- **Meters** on EMS tasks (⚡/💧 + serial + admin link).
-- One-click **"add to my calendar"** links on calendar events.
-- **Auth bridge** (`ems-auth` + `USE_SB_BRIDGE`, self-verifying, anon fallback) + STEP 1 RLS.
-- This **`docs/` memory system**.
-- **Stats page** rendering fix (fonts/RTL/clipping) + interactive time-period & region filters.
+- **Dev-tasks page**: 3-level collapsible tree (topic→אב→בן→detail+body), explicit GitHub button,
+  **Projects-v2 Priority+Status via GraphQL**, "בפיתוח עכשיו" by real Status, search/jump chips, mobile-first.
+- **Saves fix**: write shim re-mints the auth pass before every upsert → no more "נשמר מקומית" (·36).
+- **Mobile QA pass** (≤768px): no overflow, ≥40px targets, my-tasks/attendance/matrix fixes (·33).
+- **Version stamp** auto-increments in the footer; home renamed **"דף הבית"**; EMS bubble wording; footer RTL fix.
+- **"שמור לגיליון" → "שמור"** (buttons + toasts); removed obsolete company-tasks "שלח לעידן" workaround.
+- **Hang prevention**: function fetch timeouts + client 20s timeout + 🔄 retry.
+- Earlier: Supabase migration · PWA · EMS login gate · security bridge + write-lockdown + messages-privacy ·
+  Stats page · role-based Employee page · meters · "add to calendar" links · module split + build.
