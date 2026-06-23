@@ -44,12 +44,15 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-23 (build ·32)
+## 🚦 Current state — last: 2026-06-23 (build ·33)
 
-> **Recent (·30→·32):** auto-incrementing **version stamp** in the footer · home page renamed
+> **Recent (·30→·33):** auto-incrementing **version stamp** in the footer · home page renamed
 > **"דף הבית"** (🏠) · footer RTL bidi fix · EMS bubble → **🟢 מחובר ל-EMS / 🔴 אין חיבור ל-EMS** ·
-> **dev-page redesign** (centered column + 3-level nested-rail hierarchy + mobile-first; #issue-number
-> de-emphasized, no fake priorities). All verified live + screenshotted.
+> **dev-page redesign** (centered column + 3-level nested-rail hierarchy + mobile-first) ·
+> **mobile QA pass** (·33): my-tasks bar visibility, attendance-table scroller, sticky matrix column,
+> ≥40px tap targets, comment-hint on touch — verified at 375px (no overflow) + desktop unregressed.
+> **Mobile test rig:** `python -m http.server` on the project + Preview's mobile preset (Chrome-tab viewport
+> can't shrink) — see `.claude/launch.json` (name "sigmatec").
 
 
 **Everything below is LIVE on `main` + verified:** Supabase migration · PWA · EMS login gate · meters ·
