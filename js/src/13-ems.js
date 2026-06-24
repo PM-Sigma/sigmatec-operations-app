@@ -74,6 +74,17 @@
   async function emsSendItem(item) {
     if (item.kind === 'comment') return emsApi('/employee-tasks/' + item.taskId + '/comments', { method: 'POST', body: JSON.stringify({ message: item.message }) });
     if (item.kind === 'status')  return emsApi('/employee-tasks/' + item.taskId, { method: 'PATCH', body: JSON.stringify({ status: item.status }) });
+    // createTask — used by customer-order approval ("אספקת ציוד"). The site + assignee are resolved
+    // at SEND time (works whether sent live or flushed later by another connected user).
+    if (item.kind === 'createTask') {
+      var body = { title: item.title, type: item.taskType || 'supplying_meters', priority: 'normal' };
+      try { var sid = await emsSiteIdForKibbutz(item.kibbutz); if (sid) body.siteId = sid; } catch (e) {}
+      if (item.description) body.description = item.description;
+      if (item.assigneeName) {
+        try { var us = await getEmsUsers(); var u = (us || []).find(function (x) { return emsUserName(x).indexOf(item.assigneeName) !== -1; }); if (u) body.assigneeUserId = u.id; } catch (e) {}
+      }
+      return emsApi('/employee-tasks', { method: 'POST', body: JSON.stringify(body) });
+    }
   }
   // Try a write live; queue it for next connect ONLY on connectivity/expiry errors.
   // A real API rejection (4xx/5xx — emsApi throws "(NNN) …") is NOT retryable: queuing

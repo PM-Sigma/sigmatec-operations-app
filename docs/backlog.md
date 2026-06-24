@@ -1,7 +1,7 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·48** (2026-06-24)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·49** (2026-06-24)._
 
 ## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 
@@ -23,17 +23,16 @@ _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·
 4. **Dev-tasks editing (phase 2)** — a write-capable token to set Priority/Status/sprint from the app.
 5. **EMS changelog → calendar** — show EMS version-release days in the יומן (needs the calendar unblocked + the
    changelog source מתניה maintains).
-6. **Inventory-flow rework (DESIGNED, not built — awaiting עידן)** — two order types (`supplier`/`customer`):
-   supplier raises stock, approval routed by size (**≤10 → אביאם, >10 → עמיחי** + a floating approval alert for
-   עמיחי modeled on the attendance reminder); customer order consumes stock — on **אביאם/ניתאי** approval it
-   **deducts from the approver's stock → the kibbutz**, **creates a real EMS task** `אספקת ציוד` (queue a new
-   `createTask` kind when offline), and keeps the inventory row. Plus: **EMS bubble** routes to in-app reconnect
-   when disconnected / external site when connected. Confirmed decisions captured; needs go-ahead + EMS site
-   mapping per kibbutz. *(✅ The small autonomous bits from this batch are both shipped: **low-stock-twice** (·43)
-   and **EMS-bubble routing** (·48). Only the order-types/approval/notification rework remains — needs עידן.)*
+_(No open blockers. Inventory-flow rework is built — see Done. Remaining items are the standing admin ones:
+Supabase MCP, calendar DWD, `service_role` rotation, dev-page phase-2 write token.)_
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
 
+- **Inventory two-type order flow (·49)** — BUILT. `orderType` toggle (ספק/לקוח); supplier approval ≤10→אביאם /
+  >10→עמיחי + floating עמיחי nudge; customer approval (אביאם/ניתאי) deducts approver stock → kibbutz + opens an EMS
+  "אספקת ציוד" task (queued `createTask` kind) + marks order `supplied` & requirement `fulfilled`. Verified e2e
+  (approval matrix, toggle, nudge, customer-approval call sequence). *Note: customer EMS task is created on the next
+  EMS connect (field approvers are usually offline) — by design, via the outbound queue.*
 - **EMS bubble routing (·48)**: disconnected → in-app EMS login page (`showPage('ems')`); connected → external EMS
   system. Verified both states.
 - **Dev sub-issue tree LIVE & verified (·48)**: עידן redeployed the `github` fn → 40 parent cards now nest their

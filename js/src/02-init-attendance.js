@@ -21,7 +21,8 @@
     stuck:      { label: '🟠 תקוע',                   color: '#f97316' },
     at_port:    { label: '🟡 בנמל',                   color: '#eab308' },
     arrived:    { label: '🌸 הגיעה (טרם חולקה)',     color: '#f9a8d4' },
-    delivered:  { label: '🟢 סופקה וחולקה',           color: '#10b981' }
+    delivered:  { label: '🟢 סופקה וחולקה',           color: '#10b981' },
+    supplied:   { label: '🟢 סופק ללקוח',             color: '#059669' }
   };
 
   function showPage(page) {

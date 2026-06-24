@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqr5qpoq">
+<link rel="stylesheet" href="css/app.css?v=mqrlkp3h">
 </head>
 <body>
 <div class="container">
@@ -52,6 +52,20 @@
       <div class="modal-actions" style="flex-direction:column;gap:8px;">
         <button class="btn btn-primary" onclick="document.getElementById('aviamReminderModal').classList.remove('open'); openVisitQuick();">📍 תעד עכשיו</button>
         <button class="btn btn-secondary" onclick="document.getElementById('aviamReminderModal').classList.remove('open')">אטפל בזה אחר כך</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- עמיחי: supplier orders >10 items awaiting approval (animated nudge, mirrors the attendance one) -->
+  <div class="modal-backdrop" id="amichaiApprovalModal" style="z-index:1300;">
+    <div class="modal nudge-card" onclick="event.stopPropagation()" style="max-width:380px;text-align:center;">
+      <div class="nudge-bell">🔔</div>
+      <h3 style="margin:10px 0 4px;color:#5b21b6;">עמיחי, הזמנות לאישורך</h3>
+      <div class="modal-sub" style="margin-bottom:10px;">הזמנות ספק מעל 10 פריטים ממתינות לאישור שלך:</div>
+      <div id="amichaiApprovalList" style="background:#f3e8ff;border:1px solid #c4b5fd;border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;color:#5b21b6;line-height:1.9;text-align:right;"></div>
+      <div class="modal-actions" style="flex-direction:column;gap:8px;">
+        <button class="btn btn-primary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open'); showPage('inventory');">✅ לאישור עכשיו</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open')">אחר כך</button>
       </div>
     </div>
   </div>
@@ -307,7 +321,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-23·48</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-24·49</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -989,8 +1003,20 @@
   <div class="modal" onclick="event.stopPropagation()" style="max-width:700px;">
     <h3 id="invOrderTitle">🧾 הזמנה חדשה</h3>
 
-    <label for="invOrderSupplier">🏪 ספק:</label>
-    <input type="text" id="invOrderSupplier" placeholder="שם הספק (אופציונלי)">
+    <div class="inv-ordtype-row" style="display:none;">
+      <button type="button" class="inv-ordtype-btn" data-t="supplier" onclick="invSetOrderType('supplier')">🏭 הזמנת ספק<span style="display:block;font-size:10px;font-weight:400;">מעלה מלאי</span></button>
+      <button type="button" class="inv-ordtype-btn" data-t="customer" onclick="invSetOrderType('customer')">🧑‍🌾 הזמנת לקוח<span style="display:block;font-size:10px;font-weight:400;">יורד מהמלאי + משימת EMS</span></button>
+    </div>
+
+    <div id="invOrderSupplierWrap">
+      <label for="invOrderSupplier">🏪 ספק:</label>
+      <input type="text" id="invOrderSupplier" placeholder="שם הספק (אופציונלי)">
+    </div>
+
+    <div id="invOrderKibbutzWrap" style="display:none;">
+      <label for="invOrderKibbutz">🏘️ קיבוץ (לקוח):</label>
+      <select id="invOrderKibbutz"><option value="">-- בחר קיבוץ --</option></select>
+    </div>
 
     <label for="invOrderExpected">📅 תאריך אספקה צפוי:</label>
     <input type="date" id="invOrderExpected">
@@ -1256,7 +1282,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqr5qpoq"></script>
+<script src="js/app.js?v=mqrlkp3h"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

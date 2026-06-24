@@ -160,7 +160,7 @@
       // 1) customer requirement (open) — keeps per-kibbutz attribution + the raw request
       const reqRes = await post({ type: 'requirement', kibbutz, contactName: contact, items, status: 'open', createdBy, notes: '📥 נקלט מבקשת לקוח:\n' + raw });
       // 2) purchase order awaiting Idan's approval (creates NO stock movement)
-      const ordRes = await post({ type: 'order', status: 'pending_approval', items, createdBy, supplier: '', notes: 'בקשת לקוח — ' + kibbutz + (contact ? ' (' + contact + ')' : '') });
+      const ordRes = await post({ type: 'order', status: 'pending_approval', orderType: 'customer', kibbutz: kibbutz, items, createdBy, supplier: '', notes: 'בקשת לקוח — ' + kibbutz + (contact ? ' (' + contact + ')' : '') });
       // 3) link them
       if (reqRes?.id && ordRes?.id) {
         await post({ type: 'requirement', id: reqRes.id, status: 'in_progress', linkedOrderId: ordRes.id });
@@ -337,29 +337,101 @@
       default:           return null; // delivered → no quick action
     }
   }
-  // Only אביאם / עמיחי may approve orders.
-  function canApproveOrders() { return ['אביאם','עמיחי'].indexOf(getCurrentUser()) !== -1; }
-  // Approve a pending_approval order → moves it to 'pending' (ready to order)
+  // ===== Two order types: ספק (raises stock) · לקוח (consumes stock → EMS "אספקת ציוד" task) =====
+  function orderTotalQty(o) { return (o.items || []).reduce(function (s, i) { return s + (parseInt(i.qty) || 0); }, 0); }
+  function orderType(o) { return o.orderType || (/בקשת לקוח/.test(o.notes || '') ? 'customer' : 'supplier'); }
+  // customer order's kibbutz: explicit field → parsed from notes → linked requirement
+  function orderKibbutz(o) {
+    if (o.kibbutz) return o.kibbutz;
+    var m = (o.notes || '').match(/בקשת לקוח\s*[—-]\s*([^\n(]+)/);
+    if (m) return m[1].trim();
+    var req = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).find(function (r) { return r.linkedOrderId === o.id && r.kibbutz; });
+    return req ? req.kibbutz : '';
+  }
+  // supplier >10 items → עמיחי; supplier ≤10 → אביאם; customer → אביאם/ניתאי. עמיחי may approve anything.
+  function orderNeedsAmichai(o) { return orderType(o) === 'supplier' && orderTotalQty(o) > 10; }
+  function canApproveThisOrder(o) {
+    var me = getCurrentUser();
+    if (me === 'עמיחי') return true;
+    if (orderType(o) === 'customer') return ['אביאם', 'ניתאי'].indexOf(me) !== -1;
+    return orderTotalQty(o) <= 10 && me === 'אביאם';
+  }
+  function approvalWaitingMsg(o) {
+    if (orderType(o) === 'customer') return '🔔 ממתין לאישור אביאם/ניתאי';
+    return orderNeedsAmichai(o) ? '🔔 מעל 10 פריטים — ממתין לאישור עמיחי' : '🔔 ממתין לאישור אביאם';
+  }
+  function canApproveOrders() { return ['אביאם', 'עמיחי', 'ניתאי'].indexOf(getCurrentUser()) !== -1; }   // any approver (legacy callers)
+
+  // Route approval by type.
   async function approveOrder(orderId, btn) {
-    if (!canApproveOrders()) { alert('רק אביאם או עמיחי יכולים לאשר הזמנות.'); return; }
-    if (!confirm('לאשר את ההזמנה? תעבור לסטטוס "ממתין להזמנה".')) return;
+    var o = (window.SHEET_DATA && window.SHEET_DATA.orders || []).find(function (x) { return x.id === orderId; });
+    if (!o) { alert('הזמנה לא נמצאה'); return; }
+    if (!canApproveThisOrder(o)) { alert('אין לך הרשאה לאשר הזמנה זו.\n' + approvalWaitingMsg(o)); return; }
+    if (orderType(o) === 'customer') return approveCustomerOrder(o, btn);
+    return approveSupplierOrder(o, btn);
+  }
+
+  // Supplier approval → "ממתין להזמנה" (continues the existing purchase flow that later raises stock).
+  async function approveSupplierOrder(o, btn) {
+    if (!confirm('לאשר הזמנת ספק? תעבור ל"ממתין להזמנה".')) return;
     setBtnLoading(btn, true);
     try {
-      const res = await fetch(SHEET_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'order', id: orderId, status: 'pending' })
-      });
+      const res = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'pending' }) });
       const data = await res.json();
-      if (data.ok) {
-        const t = document.getElementById('toast');
-        t.textContent = '✅ ההזמנה אושרה';
-        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000);
-        setTimeout(refreshData, 800);
-      } else { alert('שגיאה: ' + JSON.stringify(data)); }
-    } catch(e) { alert('שגיאה: ' + e.message); }
-    finally { setBtnLoading(btn, false); }
+      if (data.ok) { const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
+      else alert('שגיאה: ' + JSON.stringify(data));
+    } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
   }
+
+  // Customer approval (אביאם/ניתאי) → deduct from the approver's stock → the kibbutz, open an EMS
+  // "אספקת ציוד" task (queued if offline), keep the order row as "סופק ללקוח".
+  async function approveCustomerOrder(o, btn) {
+    var me = getCurrentUser();
+    var kibbutz = orderKibbutz(o);
+    var items = (o.items || []).filter(function (i) { return i.name && (parseInt(i.qty) || 0) > 0; });
+    if (!items.length) { alert('אין פריטים בהזמנה.'); return; }
+    if (!kibbutz) { alert('לא זוהה קיבוץ להזמנה — לא ניתן לאשר אספקת לקוח.'); return; }
+    if (!confirm('לאשר אספקת לקוח?\nירד מהמלאי של ' + me + ' → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS.')) return;
+    setBtnLoading(btn, true);
+    try {
+      // 1) stock: approver → kibbutz (deduct from his bag, credit the kibbutz)
+      await Promise.all(items.map(function (it) {
+        return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: me, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
+      }));
+      // 2) EMS "אספקת ציוד" task — live if connected, else queued for the next connect (field staff rarely connect)
+      var desc = 'אספקת ציוד ל' + kibbutz + ' — אושר ע"י ' + me + '\n' + items.map(function (i) { return '• ' + i.name + ' ×' + i.qty; }).join('\n');
+      var emsRes = {};
+      if (typeof emsWriteOrQueue === 'function') {
+        emsRes = await emsWriteOrQueue({ kind: 'createTask', kibbutz: kibbutz, title: 'אספקת ציוד — ' + kibbutz, description: desc, assigneeName: me });
+      }
+      // 3) close the order row + the linked requirement
+      await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
+      var linked = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
+      await Promise.all(linked.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
+      const t = document.getElementById('toast');
+      t.textContent = (emsRes && emsRes.queued) ? '✅ סופק · משימת EMS תיפתח בהתחברות הבאה' : '✅ סופק ללקוח · נפתחה משימת EMS';
+      t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 3500);
+      setTimeout(refreshData, 1000);
+    } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
+  }
+
+  // עמיחי floating reminder — supplier orders >10 awaiting his approval (mirrors the attendance nudge).
+  function maybeShowAmichaiApprovalReminder() {
+    if (getCurrentUser() !== 'עמיחי') return;
+    if (window._amichaiApprovalShown) return;
+    var pend = (window.SHEET_DATA && window.SHEET_DATA.orders || []).filter(function (o) { return o.status === 'pending_approval' && orderNeedsAmichai(o); });
+    if (!pend.length) return;
+    var listEl = document.getElementById('amichaiApprovalList');
+    var modal = document.getElementById('amichaiApprovalModal');
+    if (!listEl || !modal) return;
+    listEl.innerHTML = pend.map(function (o) {
+      return '<div>📦 ' + orderTotalQty(o) + ' פריטים' + (o.supplier ? ' · ' + String(o.supplier).replace(/</g, '&lt;') : '') + (o.createdBy ? ' · ' + o.createdBy : '') + '</div>';
+    }).join('');
+    modal.classList.add('open');
+    window._amichaiApprovalShown = true;
+  }
+  window.maybeShowAmichaiApprovalReminder = maybeShowAmichaiApprovalReminder;
 
   async function quickOrderStatus(orderId, newStatus, btn) {
     if (!checkEditPermission()) return;
@@ -408,29 +480,35 @@
       root.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">אין הזמנות. לחץ "+ הזמנה חדשה"</div>';
       return;
     }
-    let html = '<table class="inv-table"><thead><tr><th>תאריך</th><th>סטטוס</th><th>ספק</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th>פעולות</th></tr></thead><tbody>';
+    let html = '<table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th>פעולות</th></tr></thead><tbody>';
     filtered.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || '')).forEach(o => {
       const date = o.createdAt ? new Date(o.createdAt).toLocaleDateString('he-IL') : '—';
       const status = ORDER_STATUSES[o.status] || { label: o.status, color: '#94a3b8' };
       const itemsStr = (o.items || []).map(i => `${i.name} ×${i.qty}`).join('<br>');
+      const isCust = orderType(o) === 'customer';
+      const typeChip = isCust
+        ? '<span style="font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:2px 7px;white-space:nowrap;">🧑‍🌾 לקוח</span>'
+        : `<span style="font-size:10px;font-weight:700;color:#9a3412;background:#ffedd5;border-radius:8px;padding:2px 7px;white-space:nowrap;">🏭 ספק${orderNeedsAmichai(o) ? ' 10+' : ''}</span>`;
+      const who = isCust ? ('🧑‍🌾 ' + ((orderKibbutz(o) || 'לקוח').replace(/</g, '&lt;'))) : (o.supplier ? o.supplier.replace(/</g, '&lt;') : '—');
       const quick = getOrderQuickAction(o.status);
       const quickBtn = quick
         ? `<button class="inv-btn small" style="background:${quick.bg};color:${quick.fg};border:1px solid ${quick.fg};" onclick="quickOrderStatus('${o.id}','${quick.next}',this)">${quick.label}</button>`
         : '';
-      const stuckBtn = (o.status !== 'delivered' && o.status !== 'stuck' && o.status !== 'pending_approval')
+      const stuckBtn = (o.status !== 'delivered' && o.status !== 'supplied' && o.status !== 'stuck' && o.status !== 'pending_approval')
         ? `<button class="inv-btn small" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-size:10px;" onclick="quickOrderStatus('${o.id}','stuck',this)" title="סמן כתקוע">🟠</button>`
         : '';
-      // Orders awaiting approval: only אביאם / עמיחי can approve; others see a waiting chip.
+      // Awaiting approval: only the right approver (per type/size) sees the button; others see who it waits for.
       let approvalCell = '';
       if (o.status === 'pending_approval') {
-        approvalCell = canApproveOrders()
-          ? `<button class="inv-btn small" style="background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;" onclick="approveOrder('${o.id}',this)">✅ אשר</button>`
-          : `<span style="font-size:10px;color:#7c3aed;">🔔 ממתין לאישור אביאם/עמיחי</span>`;
+        approvalCell = canApproveThisOrder(o)
+          ? `<button class="inv-btn small" style="background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;" onclick="approveOrder('${o.id}',this)">✅ ${isCust ? 'אשר ואספק' : 'אשר'}</button>`
+          : `<span style="font-size:10px;color:#7c3aed;">${approvalWaitingMsg(o)}</span>`;
       }
       html += `<tr>
         <td data-label="תאריך" style="white-space:nowrap;">${date}</td>
+        <td data-label="סוג">${typeChip}</td>
         <td data-label="סטטוס"><span class="status-pill-inv status-${o.status}">${status.label}</span></td>
-        <td data-label="ספק">${o.supplier || '—'}</td>
+        <td data-label="ספק / קיבוץ">${who}</td>
         <td data-label="פריטים">${itemsStr || '—'}</td>
         <td data-label="נוצר ע&quot;י">${o.createdBy || '—'}</td>
         <td data-label="הערות" style="max-width:200px;font-size:11px;">${(o.notes || '').replace(/</g,'&lt;')}</td>
@@ -442,6 +520,22 @@
   }
 
   let invOrderItems = [];
+  // fill the customer-order kibbutz picker from the live cards (same source as the intake flow)
+  function invPopulateOrderKibbutz(selected) {
+    var ksel = document.getElementById('invOrderKibbutz');
+    if (!ksel) return;
+    var names = Array.from(document.querySelectorAll('.kibbutz')).map(function (c) { return c.dataset.name; }).filter(Boolean).sort(function (a, b) { return a.localeCompare(b, 'he'); });
+    ksel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + names.map(function (n) { return '<option value="' + n + '"' + (n === selected ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+  }
+  // ספק vs לקוח toggle → show the right fields (supplier name vs kibbutz; raw-request box only for a new לקוח)
+  window.invSetOrderType = function (t) {
+    window._invOrderType = t;
+    document.querySelectorAll('.inv-ordtype-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.t === t); });
+    var isCust = t === 'customer';
+    var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
+    var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
+    var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (isCust && !window.invEditingOrderId) ? '' : 'none';
+  };
   function invNewOrder() {
     if (!checkEditPermission()) return;
     window.invEditingOrderId = null;
@@ -462,7 +556,9 @@
     // New orders ALWAYS open as "ממתינה לאישור" — hide the status picker, show the note + raw box.
     document.getElementById('invOrderStatusWrap').style.display = 'none';
     document.getElementById('invOrderNewStatusNote').style.display = '';
-    document.getElementById('invOrderRawWrap').style.display = '';
+    var _ttr = document.querySelector('.inv-ordtype-row'); if (_ttr) _ttr.style.display = '';   // type toggle — new orders only
+    invPopulateOrderKibbutz('');
+    invSetOrderType('supplier');   // default; controls supplier/kibbutz/raw-box visibility
     renderOrderItems();
     invToggleDistribution();
     document.getElementById('invOrderModal').classList.add('open');
@@ -492,7 +588,9 @@
     // Editing: the status picker is available; the raw-requirement box + new-order note are hidden.
     document.getElementById('invOrderStatusWrap').style.display = '';
     document.getElementById('invOrderNewStatusNote').style.display = 'none';
-    document.getElementById('invOrderRawWrap').style.display = 'none';
+    var _ttr2 = document.querySelector('.inv-ordtype-row'); if (_ttr2) _ttr2.style.display = 'none';   // type is fixed on edit
+    invPopulateOrderKibbutz(orderKibbutz(o));
+    invSetOrderType(orderType(o));
     renderOrderItems();
     invToggleDistribution();
     document.getElementById('invOrderModal').classList.add('open');
@@ -679,6 +777,9 @@
     if (invOrderItems.length === 0) { alert('הוסף לפחות פריט אחד'); return; }
     const createdBy = document.getElementById('invOrderCreatedBy').value;
     if (!createdBy && !window.invEditingOrderId) { alert('נא לבחור מי יוצר את ההזמנה'); return; }
+    const otype = window._invOrderType || 'supplier';
+    const okib = ((document.getElementById('invOrderKibbutz') || {}).value || '').trim();
+    if (otype === 'customer' && !window.invEditingOrderId && !okib) { alert('נא לבחור קיבוץ להזמנת לקוח'); return; }
     setBtnLoading(btn, true);
     let status = document.getElementById('invOrderStatus').value;
     if (!window.invEditingOrderId) {
@@ -694,6 +795,7 @@
     }
     const body = {
       type: 'order',
+      orderType: otype,
       supplier: document.getElementById('invOrderSupplier').value.trim(),
       expectedDate: document.getElementById('invOrderExpected').value,
       notes: notes,
@@ -702,6 +804,7 @@
       createdBy: createdBy
     };
     if (window.invEditingOrderId) body.id = window.invEditingOrderId;
+    if (otype === 'customer' && okib) body.kibbutz = okib;
     if (status === 'delivered' && window.invDistribution) body.distribution = window.invDistribution;
 
     try {

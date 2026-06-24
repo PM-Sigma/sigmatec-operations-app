@@ -9,6 +9,20 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 
 ## [Unreleased]
 ### Added
+- **Inventory two-type order flow (·49)** — orders now carry an explicit **`orderType`** with a toggle in the
+  new-order modal:
+  - 🏭 **הזמנת ספק** (raises stock): approval routed by size — **≤10 items → אביאם**, **>10 → עמיחי**
+    (`orderTotalQty` = sum of quantities). >10 orders also trigger a **floating approval nudge for עמיחי**
+    (`maybeShowAmichaiApprovalReminder`, mirrors the attendance reminder; once/session, re-fires per login).
+    Approve → `pending` → existing purchase flow (delivery+distribution still raises stock).
+  - 🧑‍🌾 **הזמנת לקוח** (consumes stock): kibbutz picker; approval by **אביאם/ניתאי**. On approve →
+    **deduct each item from the approver's stock → the kibbutz** (movement `customer_supply`), **open a real EMS
+    "אספקת ציוד" task** assigned to the approver (queued via the new `createTask` queue kind → created on the next
+    connect by anyone), mark the order **`supplied`** (row kept) + the linked requirement **`fulfilled`**.
+  - Orders list shows a **type chip** (ספק/לקוח, "ספק 10+" flag) + **ספק/קיבוץ** column; the approve button only
+    shows for the correct approver, others see who it's waiting on. New `supplied` status.
+  - Verified end-to-end against the bundle: approval matrix (5/12/customer × roles), the toggle, the עמיחי nudge,
+    and the customer-approval call sequence (movement → EMS queue → supplied → requirement fulfilled).
 - **Dev-page full sub-issue tree (·46)** — the פיתוח tree now reflects GitHub **native sub-issues** (the team's
   real hierarchy), not just the `topic|sub|desc` title text. Cards like #104 (11 sub-issues) whose children point
   at *different* topics were being scattered across the page; now they nest under their card, to **any depth**

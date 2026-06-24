@@ -760,6 +760,13 @@
     .dev-detail { margin-right: 4px; font-size: 14px; }
   }
 
+  /* order-type toggle (ספק / לקוח) in the new-order modal */
+  .inv-ordtype-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .inv-ordtype-btn { flex: 1; padding: 9px 8px; border: 1.5px solid var(--border); background: var(--card);
+    border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text-light);
+    cursor: pointer; transition: border-color .15s, background .15s, color .15s; line-height: 1.3; }
+  .inv-ordtype-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
   .kibbutz.needs-dev {
     background: #ede9fe !important;
     border: 2px solid #8b5cf6 !important;
