@@ -34,17 +34,18 @@ async function emsValid(base: string, token: string): Promise<boolean> {
 }
 
 // Curated business aliases — authoritative term→product rules, ALWAYS applied. Add new ones here.
+// product = EXACT catalog string (so the AI copies it verbatim and it links to stock).
 const ALIASES: { when: string; product: string }[] = [
-  { when: '"133" / מונה 133 / EM133 / סאטק תלת-פאזי רגיל', product: "מונה EM133" },
-  { when: "מונה לנדיס ללא וריאנט (ברירת מחדל)", product: "מונה E360PP" },
-  { when: "מונה לנדיס ישיר לקו", product: "מונה E360PP" },
-  { when: "מונה לנדיס חד פאזי", product: "מונה E360SP" },
-  { when: 'מונה לנדיס משנה-זרם / מונה משנ"ז', product: "מונה E360CT" },
-  { when: "קרלו / Carlo / E341 / קרלו גאווקי / ישיר לקו קרלו", product: "מונה Carlo Gavachi E341" },
-  { when: "PM135 / סאטק שנאי / מונה שנאי / מונה מקביל לחשמל / סאטק משני זרם / 135 (שנאי)", product: "מונה PM135" },
-  { when: "בקר PUSR / PURS / בקר אסיק / בקר למונה ASIC", product: "בקר PUSR" },
-  { when: "בקר Robustel / ROBUSTEL / רובסטל / בקר סאטק", product: "בקר Robustel" },
-  { when: "סים פרטנר / SIM פרטנר / סים / כרטיס סים / SIM", product: "סים Partner" },
+  { when: '"133" / מונה 133 / EM133 / סאטק תלת-פאזי רגיל', product: "Satec EM133" },
+  { when: "מונה לנדיס ללא וריאנט (ברירת מחדל)", product: "Landis+Gyr E360PP" },
+  { when: "מונה לנדיס ישיר לקו", product: "Landis+Gyr E360PP" },
+  { when: "מונה לנדיס חד פאזי", product: "Landis+Gyr E360SP" },
+  { when: 'מונה לנדיס משנה-זרם / מונה משנ"ז', product: "Landis+Gyr E360CT" },
+  { when: "קרלו / Carlo / קרלו גוואצי / E341 / ישיר לקו קרלו", product: "Carlo Gavazzi E341" },
+  { when: "PM135 / סאטק שנאי / מונה שנאי / מונה מקביל לחשמל / סאטק משני זרם / 135 (שנאי)", product: "Satec PM135" },
+  { when: "בקר PUSR / PURS / בקר אסיק / בקר למונה ASIC", product: "PUSR Controller" },
+  { when: "בקר Robustel / ROBUSTEL / רובסטל / בקר סאטק", product: "Robustel Controller" },
+  { when: "סים פרטנר / SIM פרטנר / סים / כרטיס סים / SIM", product: "Partner Sim" },
 ];
 
 function buildPrompt(catalog: string[], examples: any[], text: string, orderType = "supplier"): string {

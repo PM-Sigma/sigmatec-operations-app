@@ -7,6 +7,18 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·61] 2026-06-24
+### Added
+- **Non-catalog items are flagged ⚠️** in the order grid (amber row + "לא בקטלוג" option). Orders never
+  auto-add products to the catalog — an unknown name stays an orphan (no stock link). The flag makes that visible.
+### Changed
+- **Glossary aligned to the REAL catalog names** (confirmed live): `Satec EM133/PM135`, `Landis+Gyr E360PP/SP/CT`,
+  `PUSR Controller`, `Robustel Controller`, `Partner Sim`, `Carlo Gavazzi E341`. The AI now copies exact strings
+  that link to stock. Self-check (`test-autoadd.mjs`) updated to the real catalog + a Carlo (non-catalog) case.
+### Note
+- **Carlo is not yet a catalog product.** Add it in מלאי → מוצרים as **`Carlo Gavazzi E341`** so Carlo orders
+  link to stock (the AI is already aligned to that exact name).
+
 ## [·60] 2026-06-24
 ### Fixed
 - **Customer accessories are now deterministic (code, not AI).** Live test showed the AI returned only the

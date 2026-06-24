@@ -690,11 +690,13 @@
         <button onclick="invOrderItems.splice(${idx}, 1); renderOrderItems(); invToggleDistribution();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
       </div>`;
       }
+      const inCatalog = options.includes(it.name);
       return `
-      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:white;padding:5px 8px;border-radius:6px;">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:${inCatalog ? 'white' : '#fffbeb'};border:1px solid ${inCatalog ? 'transparent' : '#fcd34d'};padding:5px 8px;border-radius:6px;">
+        ${inCatalog ? '' : '<span title="פריט שאינו בקטלוג — לא יקושר למלאי. בחר מהרשימה או הוסף אותו במסך המוצרים." style="cursor:help;font-size:14px;">⚠️</span>'}
         <select onchange="invOrderItems[${idx}].name = this.value" style="flex:1;padding:4px 6px;border-radius:4px;border:1px solid #e2e8f0;">
           ${options.map(n => `<option value="${n}" ${it.name === n ? 'selected' : ''}>${n}</option>`).join('')}
-          ${options.includes(it.name) ? '' : `<option selected value="${it.name}">${it.name}</option>`}
+          ${inCatalog ? '' : `<option selected value="${it.name}">${it.name} — לא בקטלוג</option>`}
         </select>
         <input type="number" min="1" value="${it.qty}" onchange="invOrderItems[${idx}].qty = parseInt(this.value) || 1" style="width:70px;padding:3px 6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
         <button onclick="invOrderItems.splice(${idx}, 1); renderOrderItems(); invToggleDistribution();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
