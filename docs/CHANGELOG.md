@@ -7,6 +7,17 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·78] 2026-06-24
+### Changed — dev page: simpler mobile tree (פיתוח, ≤768px)
+- **Mobile gets a flattened, card-based tree** (desktop tree unchanged). A topic opens straight to its tasks
+  as clean, color-coded **cards** — priority-colored edge + soft fill, title on its own line, a compact meta line
+  (status · `#num` · assignee), GitHub icon at the row end; one tap opens the detail.
+- **Generic parent (אב) cards are gone.** An epic collapses to a thin **label + "N תת-משימות"** (with a GitHub
+  link) — you read past it instead of tapping a generic container card; its sub-tasks list directly beneath.
+- **Topic header shows the critical count** ("N קריטי") so urgency is visible before opening.
+- `devMobileNodes`/`devMobileCard` render the mobile path (picked at paint via `matchMedia`); `devFilter` now
+  matches both desktop (`.dev-task`) and mobile (`.dev-mtask`) via `[data-s]`, so search works on both.
+
 ## [·77] 2026-06-24
 ### Added — dev page: offline ticket cache (פיתוח)
 - **Tickets now persist in `localStorage`** (`dev_tasks_cache_v1`, keyed by open/all) so the פיתוח page

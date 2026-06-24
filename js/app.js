@@ -7016,6 +7016,48 @@
     '</details>';
   }
 
+  // ---- MOBILE tree: flattened + card-based (≤768px). An epic (parent card) collapses to a thin
+  // label + sub-count — its generic title isn't something to tap; leaf tasks become clean,
+  // color-coded cards. One tap on a card opens its detail; the GitHub icon opens the issue. ----
+  function devMobileCard(t) {
+    var pr = devPriority(t), st = devStatus(t), closed = t.state === 'closed';
+    var s = devEsc((t.title + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase());
+    return '<details class="dev-mtask' + (pr ? ' dev-pr-' + pr.cls : '') + '" data-s="' + s + '">' +
+      '<summary class="dev-mtask-sum">' +
+        '<div class="dev-mtask-row">' +
+          '<span class="dev-mtask-title">' + devEsc(t._p.desc || t.title) + '</span>' +
+          '<a class="dev-git" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="devGitOpen(event,this)" title="פתח ב-GitHub">' + DEV_GH + '</a>' +
+        '</div>' +
+        '<div class="dev-mtask-meta">' +
+          (st ? '<span class="dev-status dev-status-' + st.cls + '">' + devEsc(st.label) + '</span>' : '') +
+          (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+          '<span class="dev-mtask-num"><bdi dir="ltr">#' + devEsc(String(t.number)) + '</bdi></span>' +
+          (t.assignee ? '<span class="dev-mtask-asg">👤 <bdi>' + devEsc(t.assignee) + '</bdi></span>' : '') +
+          (closed ? '<span class="dev-done" title="סגור">✅</span>' : '') +
+        '</div>' +
+      '</summary>' +
+      (t.body ? '<div class="dev-detail-body">' + devEsc(t.body) + '</div>' : '<div class="dev-detail-empty">— אין תיאור זמין —</div>') +
+      '<a class="dev-detail-link" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">פתח ב-GitHub ↗</a>' +
+    '</details>';
+  }
+  function devMobileNodes(nodes, f, depth) {
+    return nodes.map(function (t) {
+      if (f && !devSubtreeMatch(t, f, depth)) return '';
+      var kids = depth < 6 ? (DEV_CHILDREN[t.number] || []) : [];
+      if (!kids.length) return devMobileCard(t);   // leaf → card
+      var pr = devPriority(t);                       // epic → thin label + flattened children
+      return '<div class="dev-mepic-wrap' + (depth ? ' dev-mepic-sub' : '') + '">' +
+        '<div class="dev-mepic">' +
+          '<span class="dev-mepic-name">' + devEsc(devNodeLabel(t, depth === 0, t._p.topic)) + '</span>' +
+          (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+          '<span class="dev-mepic-n">' + kids.length + ' תת-משימות</span>' +
+          '<a class="dev-git" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="devGitOpen(event,this)" title="פתח ב-GitHub">' + DEV_GH + '</a>' +
+        '</div>' +
+        '<div class="dev-mgroup">' + devMobileNodes(kids, f, depth + 1) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
   // ---- Offline cache: tickets persist in localStorage so the page paints instantly (even before
   // EMS login) and only re-fetches in the background once connected. Keyed by state (open/all). ----
   var DEV_CACHE_KEY = 'dev_tasks_cache_v1';
@@ -7140,16 +7182,22 @@
         '<div class="dev-now-list">' + recent.map(devTaskNode).join('') + '</div></div>' : '';
     }
 
+    // ponytail: mobile detected once at paint time; the phone PWA is always mobile, desktop always desktop.
+    var mobile = !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
     var visTopics = f ? d.topicNames.filter(function (tp) { return matchCounts[tp] > 0; }) : d.topicNames;
     var body = visTopics.map(function (topic) {
       var fi = d.topicNames.indexOf(topic);   // stable id/color index even when the list is filtered
       var tp = d.topics[topic];
-      var inner = tp.roots.map(function (r) { return devNode(r, true, topic, 0, f); }).join('');
+      var inner = mobile
+        ? devMobileNodes(tp.roots, f, 0)
+        : tp.roots.map(function (r) { return devNode(r, true, topic, 0, f); }).join('');
       var shown = matchCounts[topic], other = tp.n - shown;
       var note = (f && other > 0) ? '<div class="dev-topic-note">+' + other + ' כרטיסים ' + devEsc(devOtherLabel(f)) + '</div>' : '';
+      var crit = (mobile && !f) ? tp.roots.reduce(function (s, r) { return s + devCountMatches(r, { type: 'prio', val: 'קריטי' }, 0); }, 0) : 0;
       return '<details id="dtopic-' + fi + '" class="dev-topic" style="--tc:' + colorOf[topic] + '"' + ((fi === 0 || f) ? ' open' : '') + '>' +
         '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
         '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
+        (crit ? '<span class="dev-topic-crit">' + crit + ' קריטי</span>' : '') +
         '<span class="dev-topic-n">' + (f ? shown : tp.n) + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
         '<div class="dev-topic-body">' + note + inner + '</div></details>';
     }).join('');
@@ -7177,15 +7225,21 @@
   window.devFilter = function (q) {
     q = (q || '').trim().toLowerCase();
     window._devQ = q;
-    var nodes = document.querySelectorAll('#devTasksContent .dev-task');
+    // [data-s] covers both the desktop tree nodes (.dev-task) and the mobile cards (.dev-mtask)
+    var nodes = document.querySelectorAll('#devTasksContent [data-s]');
     nodes.forEach(function (n) { n._m = (!q || (n.getAttribute('data-s') || '').indexOf(q) !== -1); });
     nodes.forEach(function (n) {
-      var show = n._m || (q && Array.prototype.some.call(n.querySelectorAll('.dev-task'), function (dd) { return dd._m; }));
+      var show = n._m || (q && Array.prototype.some.call(n.querySelectorAll('[data-s]'), function (dd) { return dd._m; }));
       n.style.display = show ? '' : 'none';
-      if (q && show) n.open = true;
+      if (q && show && 'open' in n) n.open = true;
+    });
+    // mobile epic groups: visible only if some task inside is visible
+    document.querySelectorAll('#devTasksContent .dev-mepic-wrap').forEach(function (w) {
+      var any = Array.prototype.some.call(w.querySelectorAll('[data-s]'), function (t) { return t.style.display !== 'none'; });
+      w.style.display = any ? '' : 'none';
     });
     document.querySelectorAll('#devTasksContent .dev-topic').forEach(function (dd) {
-      var any = Array.prototype.some.call(dd.querySelectorAll('.dev-task'), function (t) { return t.style.display !== 'none'; });
+      var any = Array.prototype.some.call(dd.querySelectorAll('[data-s]'), function (t) { return t.style.display !== 'none'; });
       dd.style.display = any ? '' : 'none'; if (q) dd.open = any;
     });
   };
