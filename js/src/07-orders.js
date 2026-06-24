@@ -9,7 +9,7 @@
     '360sp':'360sp', '360pp':'360pp', '360ct':'360ct', 'e570':'570', '570':'570',
     'em133':'em133', '133':'em133', 'satec':'em133', 'סאטק':'em133',
     // לנדיס phrasings → the E360 family (mirrors the AI glossary in supabase/functions/parse-order)
-    'לנדיס ישיר':'e360pp', 'ישיר לקו':'e360pp', 'חד פאזי':'e360sp',
+    'לנדיס ישיר':'e360pp', 'ישיר לקו':'e360pp', 'חד פאזי':'e360sp', 'לנדיס חד':'e360sp', 'לנדיס תלת':'e360pp',
     // "מונה משנ\"ז" (with the word מונה) → the E360CT meter; a bare "משנ\"ז 250" stays the physical CT product
     'מונה משנה זרם':'e360ct', 'מונה משנז':'e360ct',
     // Carlo Gavachi E341
@@ -34,11 +34,13 @@
       .toLowerCase().trim();
   }
   function intakeQtyNear(norm, idx) {
-    const win = norm.slice(Math.max(0, idx - 18), idx + 18);
-    const d = win.match(/(\d{1,3})/);
-    if (d) return { value: parseInt(d[1]), uncertain: false };
+    // Hebrew orders put the quantity right BEFORE the term ("5 סאטק", "3 משנז 400") — read the nearest
+    // LEADING number (not a ±window, which used to grab a neighbouring item's number).
+    const before = norm.slice(Math.max(0, idx - 14), idx);
+    const mb = before.match(/(\d{1,3})\D*$/);
+    if (mb) return { value: parseInt(mb[1]), uncertain: false };
     for (const [w, n] of Object.entries(HE_NUMWORDS)) {
-      if (win.indexOf(intakeNormalize(w)) !== -1) return { value: n, uncertain: false };
+      if (before.indexOf(intakeNormalize(w)) !== -1) return { value: n, uncertain: false };
     }
     return { value: 1, uncertain: true };   // unknown qty → default 1 but FLAG for manual check
   }
@@ -129,8 +131,13 @@
     const items = [];
     catalog.forEach(prodName => {
       const normProd = intakeNormalize(prodName);
+      const tokens = normProd.split(' ').filter(t => t.length >= 2 && INTAKE_STOP.indexOf(t) === -1);
+      // Products distinguished ONLY by a number (משנ"ז 250 vs 400) must have THAT number in the text —
+      // otherwise both matched on the shared word "משנז".
+      const numToks = tokens.filter(t => /^\d{2,4}$/.test(t));
+      if (numToks.length && !numToks.some(n => norm.indexOf(n) !== -1)) return;
       let idx = -1;
-      for (const t of normProd.split(' ').filter(t => t.length >= 2 && INTAKE_STOP.indexOf(t) === -1)) {
+      for (const t of tokens) {
         const at = norm.indexOf(t);
         if (at !== -1) { idx = at; break; }
       }
@@ -553,7 +560,7 @@
     }
     let html = '<table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th>פעולות</th></tr></thead><tbody>';
     filtered.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || '')).forEach(o => {
-      const date = o.createdAt ? new Date(o.createdAt).toLocaleDateString('he-IL') : '—';
+      const date = (o.orderDate || o.createdAt) ? new Date(o.orderDate || o.createdAt).toLocaleDateString('he-IL') : '—';
       const status = ORDER_STATUSES[o.status] || { label: o.status, color: '#94a3b8' };
       const itemsStr = (o.items || []).map(i => `${i.name} ×${i.qty}`).join('<br>');
       const isCust = orderType(o) === 'customer';
@@ -618,7 +625,7 @@
     window.invOrigDistribution = {};
     document.getElementById('invOrderTitle').textContent = '🧾 הזמנה חדשה';
     document.getElementById('invOrderSupplier').value = '';
-    document.getElementById('invOrderExpected').value = todayYmd();
+    document.getElementById('invOrderDate').value = todayYmd();
     document.getElementById('invOrderNotes').value = '';
     document.getElementById('invOrderStatus').value = 'pending';
     document.getElementById('invOrderCreatedBy').value = (typeof getCurrentUser === 'function' ? getCurrentUser() : '') || '';
@@ -644,7 +651,7 @@
     invOrderItems = [...(o.items || [])];
     document.getElementById('invOrderTitle').textContent = '🧾 ערוך הזמנה';
     document.getElementById('invOrderSupplier').value = o.supplier || '';
-    document.getElementById('invOrderExpected').value = o.expectedDate ? o.expectedDate.slice(0,10) : '';
+    document.getElementById('invOrderDate').value = (o.orderDate || o.expectedDate || o.createdAt || '').slice(0,10);
     document.getElementById('invOrderNotes').value = o.notes || '';
     // 'arrived' is shown as 'delivered' in the dropdown (it's a derived sub-state)
     document.getElementById('invOrderStatus').value = (o.status === 'arrived') ? 'delivered' : (o.status || 'pending');
@@ -823,7 +830,23 @@
     invToggleDistribution();
   }
 
-  // Quick-fill example texts for the AI parse textarea, shown as chips above the input.
+  // "סאטק" with no model → ambiguous → ask which Satec (EM133 / PM135). "רגיל"/"133"/"שנאי" etc. = not ambiguous.
+  async function resolveAmbiguousSatec(raw) {
+    const norm = intakeNormalize(raw);
+    if (!/סאטק|satec/.test(norm)) return;
+    if (/133|135|em133|pm135|שנאי|מקביל|רגיל|תלת|חד/.test(norm)) return;   // a qualifier was given → no need to ask
+    const satecItem = invOrderItems.find(it => /satec|em133|pm135/i.test(it.name) && !it.auto);
+    if (!satecItem) return;
+    const opts = getActiveProducts().map(p => p.name).filter(n => /satec|em133|pm135/i.test(n));
+    if (opts.length < 2) return;
+    const chosen = await askChoice({
+      title: '🔌 איזה סאטק?', progress: 'הבהרה',
+      question: 'ביקשת "סאטק" בלי לציין דגם. איזה מונה התכוונת?',
+      options: opts.map(o => ({ label: o, value: o, hint: /pm135/i.test(o) ? 'מונה שנאי / משני-זרם' : 'תלת-פאזי רגיל' })),
+    });
+    if (chosen) invOrderItems.forEach(it => { if (/satec|em133|pm135/i.test(it.name) && !it.auto) it.name = chosen; });
+  }
+
   // Parse the raw customer-requirement text into order items (AI when available, local fallback).
   async function orderParseRaw(btn) {
     const raw = (document.getElementById('invOrderRaw').value || '').trim();
@@ -839,6 +862,7 @@
         if (exists) exists.qty += it.qty;
         else invOrderItems.push({ name: it.name, qty: it.qty });
       });
+      await resolveAmbiguousSatec(raw);   // ask "איזה סאטק?" if the text was generic (both order types)
       // Customer orders: derive accessories conversationally (controller + power-supply are user choices).
       if (otype === 'customer') await finalizeCustomerAccessories();
       renderOrderItems();
@@ -995,7 +1019,7 @@
       type: 'order',
       orderType: otype,
       supplier: document.getElementById('invOrderSupplier').value.trim(),
-      expectedDate: document.getElementById('invOrderExpected').value,
+      orderDate: document.getElementById('invOrderDate').value,
       notes: notes,
       status: status,
       items: invOrderItems.map(it => ({ name: it.name, qty: it.qty })),

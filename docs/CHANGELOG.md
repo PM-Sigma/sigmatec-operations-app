@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·64] 2026-06-24
+### Fixed — offline parser (ran because EMS was disconnected → AI 401 → local fallback)
+- **משנ"ז 250 vs 400 double-match** — products distinguished only by a number now require THAT number in the text
+  (no more matching both on the shared word "משנז").
+- **"לנדיס חד" → Landis+Gyr E360SP** (was defaulting to E360PP). Added the alias; `לנדיס תלת` → E360PP.
+- **Quantities** now read the number *immediately before* the term ("5 סאטק", "3 משנז 400"), not a ±18 window
+  that grabbed a neighbour's number.
+- **Fallback catalog names → real Sheet names** (`Satec EM133`, `Landis+Gyr E360*`, `Robustel/PUSR Controller`,
+  `Partner/Cellcom Sim`) in `09-visits.js`, so offline/mock mode matches production.
+### Added
+- **Ambiguous "סאטק" → asks which model** (Satec EM133 / PM135) via the conversational modal — unless a qualifier
+  (רגיל/133/135/שנאי/מקביל/תלת/חד) is present. Runs for both order types.
+### Changed
+- **"תאריך אספקה צפוי" → "תאריך הזמנה"** (editable, defaults to today). `createdAt` stays as the immutable
+  system-entry date; the order list shows `orderDate` (falls back to `createdAt`).
+
 ## [·63] 2026-06-24
 ### Removed
 - **"💡 מילוי מהיר" quick-fill example chips** removed from the new-order modal (per request). Dropped

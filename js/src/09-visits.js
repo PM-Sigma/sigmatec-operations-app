@@ -1,11 +1,12 @@
   // ===== Visit Summary (Google Sheet, fallback to localStorage) =====
   const VISITS_KEY = 'kibbutzVisits_v1';
 
+  // Mirrors the live Sheet catalog names (confirmed 2026-06-24) so offline/mock mode matches production.
   const PRODUCT_LIST = [
-    'מונה EM133','מונה PM135','מונה E360PP','מונה E360SP','מונה E360CT','מונה E570',
-    'בקר Robustel','בקר PUSR',
-    'סים Partner','סים Cellcom',
-    'כרטיס תקשורת צרוב',
+    'Satec EM133','Satec PM135','Landis+Gyr E360PP','Landis+Gyr E360SP','Landis+Gyr E360CT','Landis+Gyr E570',
+    'Robustel Controller','PUSR Controller',
+    'Partner Sim','Cellcom Sim',
+    'כרטיס תקשורת צרוב(E350)',
     'אנטנה',
     'ספק כוח פס-דין','ספק כוח שקע',
     'משנ"ז 250','משנ"ז 400'
