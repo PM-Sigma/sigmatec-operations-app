@@ -7,6 +7,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·70] 2026-06-24
+### Added
+- **Parse-source toast** — after "נתח לפריטים", a toast shows who answered: **"🤖 נותח ע"י AI — &lt;provider&gt;"**
+  (e.g. `gemini:gemini-2.5-flash-lite`) or **"📴 נותח מקומית (ללא AI)"** when it fell back to the offline matcher.
+  Mobile-friendly way to confirm the AI is live (no console needed). `parseRawToItems` exposes `window._lastParseSource`.
+
 ## [·69] 2026-06-24
 ### Added — dev page: clickable filter tiles (פיתוח)
 - **Every hero tile is now a toggle filter.** Clicking a **priority** tile (קריטי/גבוהה/בינונית/נמוכה) filters

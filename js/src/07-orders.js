@@ -186,6 +186,7 @@
   // deterministic local fallback. Until the function is deployed + GEMINI_API_KEY is set, the call
   // returns no items (404/503) → we fall back to the catalog matcher, so intake never breaks.
   async function parseRawToItems(raw, orderType) {
+    window._lastParseSource = '';   // who answered: AI provider string (e.g. "gemini:…") or 'local'
     try {
       var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
       var r = await fetch(SB_URL + '/functions/v1/parse-order', {
@@ -195,10 +196,12 @@
       });
       var res = await r.json().catch(function () { return {}; });
       if (r.ok && res && Array.isArray(res.items) && res.items.length) {
+        window._lastParseSource = res.provider || 'ai';
         return res.items.filter(function (it) { return it.name && (parseInt(it.qty) || 0) > 0; })
           .map(function (it) { return { name: it.name, qty: parseInt(it.qty) || 1, uncertain: false }; });
       }
     } catch (e) { /* function not deployed / no key / offline → deterministic fallback below */ }
+    window._lastParseSource = 'local';
     return parseLocalToItems(raw, orderType);
   }
   function renderIntakeGrid() {
@@ -875,6 +878,13 @@
     try {
       const otype = window._invOrderType || 'supplier';
       const items = await parseRawToItems(raw, otype);
+      // Show which engine answered (so it's clear on mobile: AI vs offline fallback).
+      var _src = window._lastParseSource || '';
+      var _t = document.getElementById('toast');
+      if (_t) {
+        _t.textContent = (_src && _src !== 'local') ? ('🤖 נותח ע"י AI — ' + _src) : '📴 נותח מקומית (ללא AI — לא מחובר/שגיאה)';
+        _t.classList.add('show'); setTimeout(function () { _t.classList.remove('show'); }, 3500);
+      }
       if (!items.length) { alert('לא זוהו פריטים מהטקסט — הוסף ידנית.'); return; }
       items.forEach(it => {
         const exists = invOrderItems.find(i => i.name === it.name && !i.auto);
