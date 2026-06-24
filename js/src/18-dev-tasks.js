@@ -24,7 +24,7 @@
 
   function devPriorityRank(p) {
     p = (p || '').trim();
-    if (/קריטי|דחוף|critical|urgent/i.test(p))      return { label: 'קריטי', cls: 'high' };
+    if (/קריטי|דחוף|critical|urgent/i.test(p))      return { label: 'קריטי', cls: 'crit' };
     if (/גבוה|high/i.test(p))                       return { label: 'גבוהה', cls: 'high' };
     if (/בינוני|medium|normal/i.test(p))           return { label: 'בינונית', cls: 'med' };
     if (/נמוך|low/i.test(p))                        return { label: 'נמוכה', cls: 'low' };
@@ -38,7 +38,7 @@
     var labs = t.labels || [];
     for (var i = 0; i < labs.length; i++) {
       var L = String(labs[i]);
-      if (/קריטי|דחוף|critical|urgent/i.test(L)) return { label: 'קריטי', cls: 'high' };
+      if (/קריטי|דחוף|critical|urgent/i.test(L)) return { label: 'קריטי', cls: 'crit' };
       if (/גבוה|high|🔴/i.test(L)) return { label: 'גבוהה', cls: 'high' };
       if (/בינוני|medium|normal|🟡/i.test(L)) return { label: 'בינונית', cls: 'med' };
       if (/נמוך|low|🟢/i.test(L)) return { label: 'נמוכה', cls: 'low' };
@@ -115,10 +115,10 @@
 
     // "עומס לפי עדיפות" — open tickets per priority tier (matches what the tier filter yields).
     var PRIO_TIERS = [
-      { label: 'קריטי',   k: '#d64545' },
-      { label: 'גבוהה',   k: '#ea7317' },
-      { label: 'בינונית', k: '#c87f0a' },
-      { label: 'נמוכה',   k: '#94a3b8' }
+      { label: 'קריטי',   k: '#dc2626' },
+      { label: 'גבוהה',   k: '#e8590c' },
+      { label: 'בינונית', k: '#a16207' },
+      { label: 'נמוכה',   k: '#2563eb' }
     ];
     var prioCounts = { 'קריטי': 0, 'גבוהה': 0, 'בינונית': 0, 'נמוכה': 0 };
     tasks.forEach(function (t) { if (t.state === 'closed') return; var pr = devPriority(t); if (pr && prioCounts.hasOwnProperty(pr.label)) prioCounts[pr.label]++; });
@@ -219,7 +219,8 @@
   // flat node (used by the "בפיתוח עכשיו" highlight list) — summary + detail, no children
   function devTaskNode(t) {
     var s = devEsc((t.title + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase());
-    return '<details class="dev-task" data-s="' + s + '">' + devNodeSummary(t._p.desc, t, null) + devDetailPanel(t) + '</details>';
+    var pr = devPriority(t);
+    return '<details class="dev-task' + (pr ? ' dev-pr-' + pr.cls : '') + '" data-s="' + s + '">' + devNodeSummary(t._p.desc, t, null) + devDetailPanel(t) + '</details>';
   }
 
   // label: drop the (redundant) section topic when the title starts with it — so same-topic nodes
@@ -239,7 +240,8 @@
     var kids = depth < 6 ? (DEV_CHILDREN[t.number] || []) : [];
     var s = devEsc((t.title + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase());
     var childrenHtml = kids.length ? '<div class="dev-children">' + kids.map(function (k) { return devNode(k, false, groupTopic, depth + 1, f); }).join('') + '</div>' : '';
-    var cls = 'dev-task' + (kids.length ? ' dev-haskids' : '') + (f ? (isMatch ? ' dev-match' : ' dev-ctx') : '');
+    var pr = devPriority(t);
+    var cls = 'dev-task' + (kids.length ? ' dev-haskids' : '') + (pr ? ' dev-pr-' + pr.cls : '') + (f ? (isMatch ? ' dev-match' : ' dev-ctx') : '');
     var openAttr = (f && childrenHtml) ? ' open' : '';
     return '<details class="' + cls + '"' + openAttr + ' data-s="' + s + '">' +
       devNodeSummary(devNodeLabel(t, isRoot, groupTopic), t, kids) + devDetailPanel(t) + childrenHtml +

@@ -742,11 +742,44 @@
   .dev-detail-link { display: inline-block; margin-top: 8px; color: var(--accent); text-decoration: none; font-weight: 600; }
   .dev-detail-link:hover { text-decoration: underline; }
 
-  /* OPTIONAL priority chip — only present when a ticket sets one */
-  .dev-prio { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; }
-  .dev-prio-high { color: #fff; background: var(--priority); }
-  .dev-prio-med  { color: var(--warning); background: var(--warning-light); }
-  .dev-prio-low  { color: var(--text-light); background: var(--gray-light); }
+  /* OPTIONAL priority chip — 4 distinct tiers: crit=red · high=dark-orange · med=dark-yellow · low=blue */
+  .dev-prio { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; color: #fff; }
+  .dev-prio-crit { background: #dc2626; }
+  .dev-prio-high { background: #e8590c; }
+  .dev-prio-med  { background: #a16207; }
+  .dev-prio-low  { background: #2563eb; }
+
+  /* ===== PRIORITY-COLORED BRANCHES =====
+     A prioritized task reads as a colored card: tinted row + a frame that wraps the task AND its
+     sub-issues; children sit on a lighter shade of the same color, indented, with a ↳ branch arrow.
+     --pc strong · --pc-soft row fill · --pc-lite children fill · --pc-text high-contrast text (never blue). */
+  .dev-task.dev-pr-crit { --pc:#dc2626; --pc-soft:#fcdcdc; --pc-lite:#fdf0f0; --pc-text:#8f1414; }
+  .dev-task.dev-pr-high { --pc:#e8590c; --pc-soft:#fce3cf; --pc-lite:#fdf3ea; --pc-text:#8a3806; }
+  .dev-task.dev-pr-med  { --pc:#a16207; --pc-soft:#f8ecc0; --pc-lite:#fdf6da; --pc-text:#6b3f0c; }
+  .dev-task.dev-pr-low  { --pc:#2563eb; --pc-soft:#dde9fd; --pc-lite:#eef4fe; --pc-text:#1c3aa8; }
+
+  /* the bounding frame (top-level prioritized card) */
+  .dev-task.dev-pr-crit, .dev-task.dev-pr-high, .dev-task.dev-pr-med, .dev-task.dev-pr-low {
+    border: 1px solid var(--pc); border-inline-start: 4px solid var(--pc);
+    border-radius: 9px; margin: 5px 0; background: var(--pc-lite); overflow: hidden; }
+  /* nested prioritized task → colored spine only, so we don't get boxes-inside-boxes */
+  .dev-children .dev-task.dev-pr-crit, .dev-children .dev-task.dev-pr-high,
+  .dev-children .dev-task.dev-pr-med, .dev-children .dev-task.dev-pr-low {
+    border-block: 0; border-inline-end: 0; border-radius: 0; border-inline-start-width: 3px; margin: 0; }
+  /* the task's own row: color fill + readable text (overrides the default dark/blue text) */
+  .dev-task.dev-pr-crit > .dev-task-sum, .dev-task.dev-pr-high > .dev-task-sum,
+  .dev-task.dev-pr-med > .dev-task-sum, .dev-task.dev-pr-low > .dev-task-sum {
+    background: var(--pc-soft); color: var(--pc-text); font-weight: 700; }
+  /* hover darkens the tint (never flashes the blue accent) */
+  .dev-task[class*="dev-pr-"] > .dev-task-sum:hover { background: var(--pc-soft); filter: brightness(0.96); }
+  /* children area: lighter shade of the branch + branch-colored rail + a touch more indent */
+  .dev-task.dev-pr-crit > .dev-children, .dev-task.dev-pr-high > .dev-children,
+  .dev-task.dev-pr-med > .dev-children, .dev-task.dev-pr-low > .dev-children {
+    background: var(--pc-lite); border-right-color: var(--pc); margin-right: 12px; padding-right: 10px; }
+  /* ↲ branch arrow on each child row — left-hooking glyph reads correctly in RTL (points at the indented child) */
+  .dev-task[class*="dev-pr-"] > .dev-children > .dev-task > .dev-task-sum::before {
+    content: "\21B2"; color: var(--pc); opacity: .85; font-weight: 700; flex-shrink: 0;
+    display: inline-block; margin-inline-end: 2px; }
 
   /* Projects-v2 Status badge (Backlog / In Progress / Done / בעבודה…) */
   .dev-status { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; border: 1px solid transparent; }

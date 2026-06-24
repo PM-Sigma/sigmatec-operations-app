@@ -7,6 +7,17 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·75] 2026-06-24
+### Changed — dev page: priority-colored branches (פיתוח)
+- **Four distinct priority colors** (was: קריטי and גבוהה shared one color, confusing). קריטי=**red** `#dc2626` ·
+  גבוהה=**dark-orange** `#e8590c` · בינונית=**dark-yellow** `#a16207` · נמוכה=**blue** `#2563eb` — applied to the
+  priority chips, the "עומס לפי עדיפות" hero tiles, AND each task row. `devPriority` now returns a `crit` tier of
+  its own (new `.dev-pr-crit`).
+- **Prioritized task = colored card.** A task with a priority gets a tinted row (soft fill + high-contrast dark
+  text, never the blue accent) inside a same-color **frame that wraps the task and all its sub-issues**. Children
+  sit on a lighter shade of the branch color, indented a touch more, with a `↲` branch arrow. Nested prioritized
+  tasks get a colored spine only (no boxes-inside-boxes). Hover darkens the tint instead of flashing blue.
+
 ## [·74] 2026-06-24
 ### Changed — EMS session & navigation
 - **EMS tab hidden for everyone** — the EMS system is reached only via the header bubble link / the re-login flow
