@@ -1036,6 +1036,7 @@
     if (page === 'staff' && typeof canManageStaff === 'function' && !canManageStaff()) page = 'kibbutz'; // עידן + עמיחי only
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי only
+    window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
@@ -4900,8 +4901,8 @@
   function applyNavVisibility() {
     const att = document.getElementById('navAttendance');
     if (att) att.style.display = canSeeAttendance() ? '' : 'none';
-    const ems = document.getElementById('navEms');   // EMS tasks — עידן/ניתאי/אביאם
-    if (ems) ems.style.display = canUseEms() ? '' : 'none';
+    const ems = document.getElementById('navEms');   // hidden for everyone — EMS is reached via the bubble link / re-login only
+    if (ems) ems.style.display = 'none';
     const staff = document.getElementById('navStaff');   // עידן + עמיחי only
     if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
     const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory
@@ -4921,7 +4922,7 @@
     try {
       var _t = localStorage.getItem('ems_token_v1');
       var _at = parseInt(localStorage.getItem('ems_token_at_v1') || '0', 10);
-      on = !!_t && _at > 0 && (Date.now() - _at) < 60 * 60 * 1000;
+      on = !!_t && _at > 0 && (Date.now() - _at) < 12 * 60 * 60 * 1000;   // matches the relaxed EMS_MAX_SESSION_MS (keep alive on-page)
     } catch (e) {}
     b.textContent = on ? '🟢 מחובר ל-EMS' : '🔴 אין חיבור ל-EMS';
     b.style.background = on ? '#dcfce7' : '#fee2e2';
@@ -5278,7 +5279,7 @@
   const EMS_URL_KEY      = 'ems_url_v1';
   const EMS_TOKEN_KEY    = 'ems_token_v1';
   const EMS_TOKEN_AT_KEY = 'ems_token_at_v1';
-  const EMS_MAX_SESSION_MS = 60 * 60 * 1000;   // hard cap: 60 minutes per connection
+  const EMS_MAX_SESSION_MS = 12 * 60 * 60 * 1000;   // keep the connection alive through a workday (was 60m). A real EMS-token expiry is caught on the next call (401) → re-login modal.
 
   function getEmsUrl()      { return (localStorage.getItem(EMS_URL_KEY) || 'https://api.sigmatec-ems.com').replace(/\/$/, ''); }
   // Session expires after 60 min (or sooner if the JWT 401s — handled in emsApi).
@@ -5305,11 +5306,35 @@
     const left = EMS_MAX_SESSION_MS - (Date.now() - at);
     _emsExpiryTimer = setTimeout(() => {
       clearEmsSession();
-      if (document.getElementById('ems-view').style.display !== 'none') renderEmsPage();
-      const t = document.getElementById('toast');
-      if (t) { t.textContent = '🔒 החיבור ל-EMS פג (60 דק׳) — התחבר מחדש'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 4000); }
+      if (typeof emsRequireLogin === 'function') emsRequireLogin();
     }, Math.max(0, left));
   }
+
+  // Connection dropped (a 401 on an EMS call, or the session cap) → tell the user + route to re-login.
+  // Remembers the current page so a successful sign-in returns there (else home).
+  function emsRequireLogin() {
+    if (window._emsReloginActive || document.getElementById('emsReloginModal')) return;
+    window._emsReloginActive = true;
+    window._emsReturnPage = (window._currentPage && window._currentPage !== 'ems') ? window._currentPage : '';
+    try { if (typeof updateEmsBubble === 'function') updateEmsBubble(); } catch (e) {}
+    const wrap = document.createElement('div');
+    wrap.id = 'emsReloginModal';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
+    wrap.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:360px;width:100%;padding:22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);font-family:Heebo,sans-serif;">' +
+      '<div style="font-size:34px;">🔌</div>' +
+      '<h3 style="margin:8px 0 6px;color:#b91c1c;">החיבור ל-EMS נותק</h3>' +
+      '<div style="font-size:14px;color:#475569;margin-bottom:16px;line-height:1.6;">יש להתחבר מחדש כדי להמשיך. לאחר ההתחברות תוחזר לדף שבו היית.</div>' +
+      '<button id="emsReloginBtn" type="button" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:11px 22px;font-weight:800;font-size:14px;cursor:pointer;width:100%;">🔑 התחבר מחדש</button>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    document.getElementById('emsReloginBtn').onclick = function () {
+      wrap.remove();
+      const gate = document.getElementById('emsLoginGate');
+      if (gate) gate.style.display = 'flex';                      // universal EMS sign-in (returns to last page via onAuthed)
+      else if (typeof showPage === 'function') showPage('ems');   // fallback: in-app EMS login
+    };
+  }
+  window.emsRequireLogin = emsRequireLogin;
 
   function emsDisconnect() {
     if (!confirm('לנתק מה-EMS?')) return;
@@ -5341,7 +5366,7 @@
     if (wrapped.error) throw new Error(wrapped.error);
     if (wrapped.status === 401) {
       clearEmsSession();
-      renderEmsPage();
+      if (typeof emsRequireLogin === 'function') emsRequireLogin(); else renderEmsPage();
       throw new Error('פג תוקף החיבור — התחבר מחדש');
     }
     // Surface real API errors (422/403/500…) instead of silently returning an
@@ -6422,6 +6447,11 @@
       try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
       try { if (typeof refreshData === 'function') refreshData(); } catch (e) {}
       try { if (typeof staffCheckMessages === 'function') { window._msgsChecked = false; staffCheckMessages(); } } catch (e) {}
+      // return to the page they were on before a forced re-login (else home)
+      try {
+        var _rp = window._emsReturnPage || ''; window._emsReturnPage = ''; window._emsReloginActive = false;
+        if (typeof showPage === 'function') showPage(_rp && _rp !== 'ems' ? _rp : 'kibbutz');
+      } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');
     }
     function storeToken(url, token) {

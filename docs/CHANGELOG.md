@@ -7,6 +7,18 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·74] 2026-06-24
+### Changed — EMS session & navigation
+- **EMS tab hidden for everyone** — the EMS system is reached only via the header bubble link / the re-login flow
+  (`navEms` always `display:none`). `showPage('ems')` still works for the login form.
+- **Connection stays alive on-page** — the client session cap was a self-imposed 60 min; raised to **12h**
+  (bubble threshold matched). A *real* EMS-token expiry is now caught lazily on the next call (401), not by a
+  proactive 60-min logout.
+- **Disconnect → re-login modal → return to last page.** On a 401 (or the 12h cap), a modal **"🔌 החיבור ל-EMS
+  נותק — התחבר מחדש"** pops; its button opens the EMS sign-in (the universal login gate). After a successful
+  sign-in the app returns you to the **page you were on** (`window._currentPage`), or the home page if none.
+  (`emsRequireLogin()` in `12-reports.js`; redirect wired into the gate's `onAuthed`.)
+
 ## [·73] 2026-06-24
 ### Added — new-version watcher (`19-version-check.js`)
 - The app now **detects a new deploy** (polls the live `index.html` `app.js?v=` stamp every 2 min + on tab focus):

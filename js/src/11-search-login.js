@@ -165,8 +165,8 @@
   function applyNavVisibility() {
     const att = document.getElementById('navAttendance');
     if (att) att.style.display = canSeeAttendance() ? '' : 'none';
-    const ems = document.getElementById('navEms');   // EMS tasks — עידן/ניתאי/אביאם
-    if (ems) ems.style.display = canUseEms() ? '' : 'none';
+    const ems = document.getElementById('navEms');   // hidden for everyone — EMS is reached via the bubble link / re-login only
+    if (ems) ems.style.display = 'none';
     const staff = document.getElementById('navStaff');   // עידן + עמיחי only
     if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
     const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory
@@ -186,7 +186,7 @@
     try {
       var _t = localStorage.getItem('ems_token_v1');
       var _at = parseInt(localStorage.getItem('ems_token_at_v1') || '0', 10);
-      on = !!_t && _at > 0 && (Date.now() - _at) < 60 * 60 * 1000;
+      on = !!_t && _at > 0 && (Date.now() - _at) < 12 * 60 * 60 * 1000;   // matches the relaxed EMS_MAX_SESSION_MS (keep alive on-page)
     } catch (e) {}
     b.textContent = on ? '🟢 מחובר ל-EMS' : '🔴 אין חיבור ל-EMS';
     b.style.background = on ? '#dcfce7' : '#fee2e2';

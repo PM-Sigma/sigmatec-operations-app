@@ -68,6 +68,11 @@
       try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
       try { if (typeof refreshData === 'function') refreshData(); } catch (e) {}
       try { if (typeof staffCheckMessages === 'function') { window._msgsChecked = false; staffCheckMessages(); } } catch (e) {}
+      // return to the page they were on before a forced re-login (else home)
+      try {
+        var _rp = window._emsReturnPage || ''; window._emsReturnPage = ''; window._emsReloginActive = false;
+        if (typeof showPage === 'function') showPage(_rp && _rp !== 'ems' ? _rp : 'kibbutz');
+      } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');
     }
     function storeToken(url, token) {
