@@ -7,6 +7,20 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·65] 2026-06-24
+### Fixed
+- **Order date now persists.** ·64 renamed the field to `orderDate`, but orders save to a fixed column set
+  (`01-data.js`) that reads `expectedDate`→`expected_date` — so it silently dropped. Now mapped to the existing
+  `expected_date` column (repurposed as "תאריך הזמנה"); `created_at` stays the immutable system-entry date.
+### Added
+- **Updater's current stock shown for existing items** (`📦 N` badge per catalog row, red if 0) and as a hint
+  on the conversational questions ("איזה סאטק?"/"איזה בקר?" → "· במלאי שלך: N"). Uses `computeStock()[updater]`.
+- **Delivery date shown** in the orders list ("📦 סופק: <date>") from the `delivered_at` column. Supplier orders
+  already stamp it on delivery; customer-order auto-stamp (on EMS task closure) needs the EMS-sync below.
+### Note
+- **Customer delivery auto-sync (EMS task closure) needs a schema add.** Orders persist to fixed columns with no
+  `ems_task_id`, so an order can't yet be linked to its EMS task to detect closure. SQL + wiring tracked next.
+
 ## [·64] 2026-06-24
 ### Fixed — offline parser (ran because EMS was disconnected → AI 401 → local fallback)
 - **משנ"ז 250 vs 400 double-match** — products distinguished only by a number now require THAT number in the text

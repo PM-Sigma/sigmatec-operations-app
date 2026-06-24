@@ -560,7 +560,8 @@
     }
     let html = '<table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th>פעולות</th></tr></thead><tbody>';
     filtered.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || '')).forEach(o => {
-      const date = (o.orderDate || o.createdAt) ? new Date(o.orderDate || o.createdAt).toLocaleDateString('he-IL') : '—';
+      const date = (o.expectedDate || o.createdAt) ? new Date(o.expectedDate || o.createdAt).toLocaleDateString('he-IL') : '—';
+      const delivered = o.deliveredAt ? '<div style="font-size:10px;color:#059669;white-space:nowrap;">📦 סופק: ' + new Date(o.deliveredAt).toLocaleDateString('he-IL') + '</div>' : '';
       const status = ORDER_STATUSES[o.status] || { label: o.status, color: '#94a3b8' };
       const itemsStr = (o.items || []).map(i => `${i.name} ×${i.qty}`).join('<br>');
       const isCust = orderType(o) === 'customer';
@@ -583,7 +584,7 @@
           : `<span style="font-size:10px;color:#7c3aed;">${approvalWaitingMsg(o)}</span>`;
       }
       html += `<tr>
-        <td data-label="תאריך" style="white-space:nowrap;">${date}</td>
+        <td data-label="תאריך" style="white-space:nowrap;">${date}${delivered}</td>
         <td data-label="סוג">${typeChip}</td>
         <td data-label="סטטוס"><span class="status-pill-inv status-${o.status}">${status.label}</span></td>
         <td data-label="ספק / קיבוץ">${who}</td>
@@ -682,6 +683,7 @@
     }
     const products = getActiveProducts();
     const options = products.map(p => p.name).filter((n,i,a) => a.indexOf(n) === i);
+    const myStock = updaterStockMap();   // current stock of whoever is filling the order — shown per existing item
     wrap.innerHTML = invOrderItems.map((it, idx) => {
       // Unresolved "choose by click" row (e.g. power supply: פס-דין / שקע) — pick by button, no dropdown.
       if (Array.isArray(it.choose) && !it.name) {
@@ -694,6 +696,10 @@
       </div>`;
       }
       const inCatalog = options.includes(it.name);
+      const have = inCatalog ? (myStock[it.name] || 0) : null;   // updater's current stock for this item
+      const stockBadge = have !== null
+        ? `<span title="במלאי של ${(orderUpdater() || 'הממלא').replace(/"/g,'')}" style="font-size:11px;font-weight:700;white-space:nowrap;color:${have > 0 ? '#0369a1' : '#b91c1c'};background:${have > 0 ? '#e0f2fe' : '#fee2e2'};border-radius:8px;padding:2px 7px;">📦 ${have}</span>`
+        : '';
       return `
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:${inCatalog ? 'white' : '#fffbeb'};border:1px solid ${inCatalog ? 'transparent' : '#fcd34d'};padding:5px 8px;border-radius:6px;">
         ${inCatalog ? '' : '<span title="פריט שאינו בקטלוג — לא יקושר למלאי. בחר מהרשימה או הוסף אותו במסך המוצרים." style="cursor:help;font-size:14px;">⚠️</span>'}
@@ -701,6 +707,7 @@
           ${options.map(n => `<option value="${n}" ${it.name === n ? 'selected' : ''}>${n}</option>`).join('')}
           ${inCatalog ? '' : `<option selected value="${it.name}">${it.name} — לא בקטלוג</option>`}
         </select>
+        ${stockBadge}
         <input type="number" min="1" value="${it.qty}" onchange="invOrderItems[${idx}].qty = parseInt(this.value) || 1" style="width:70px;padding:3px 6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
         <button onclick="invOrderItems.splice(${idx}, 1); renderOrderItems(); invToggleDistribution();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
       </div>`;
@@ -711,6 +718,16 @@
     if (/פס.?דין/.test(name)) return '📥 פס-דין';
     if (/שקע/.test(name)) return '🔌 שקע';
     return name.replace(/^ספק כוח\s*/, '') || name;
+  }
+  // Who is filling/updating this order (the "createdBy" select, else the logged-in user).
+  function orderUpdater() {
+    return ((document.getElementById('invOrderCreatedBy') || {}).value || '').trim()
+      || (typeof getCurrentUser === 'function' ? (getCurrentUser() || '') : '');
+  }
+  // The updater's current stock as { productName: qty } (their own bag/location from movements).
+  function updaterStockMap() {
+    try { return (typeof computeStock === 'function' ? (computeStock()[orderUpdater()] || {}) : {}); }
+    catch (e) { return {}; }
   }
   // Resolve a "choose by click" row to the picked product.
   window.invChooseProduct = function (itemIdx, choiceIdx) {
@@ -760,6 +777,7 @@
   async function finalizeCustomerAccessories() {
     invOrderItems = invOrderItems.filter(function (it) { return !it.auto; });
     const catalog = getActiveProducts().map(function (p) { return p.name; });
+    const _st = updaterStockMap();   // updater's current stock — shown as a hint on each controller option
     const plan = accessoryPlan(invOrderItems);
     const pushAuto = function (name, qty) { if (name && qty > 0) invOrderItems.push({ name: name, qty: qty, auto: true }); };
 
@@ -771,7 +789,7 @@
         chosen = await askChoice({
           title: '🎛️ בחירת בקר', progress: 'שאלה 1 מ-2',
           question: 'יש ' + plan.nonLandisMeterQty + ' מונים שאינם לנדיס — לכל אחד נדרש בקר. איזה בקר להוסיף?',
-          options: ctrlOpts.map(function (c) { return { label: ctrlLabel(c), value: c, hint: c }; }),
+          options: ctrlOpts.map(function (c) { return { label: ctrlLabel(c), value: c, hint: c + ' · במלאי שלך: ' + (_st[c] || 0) }; }),
         });
       }
       pushAuto(chosen, plan.controllersToAdd);
@@ -839,10 +857,11 @@
     if (!satecItem) return;
     const opts = getActiveProducts().map(p => p.name).filter(n => /satec|em133|pm135/i.test(n));
     if (opts.length < 2) return;
+    const _st = updaterStockMap();
     const chosen = await askChoice({
       title: '🔌 איזה סאטק?', progress: 'הבהרה',
       question: 'ביקשת "סאטק" בלי לציין דגם. איזה מונה התכוונת?',
-      options: opts.map(o => ({ label: o, value: o, hint: /pm135/i.test(o) ? 'מונה שנאי / משני-זרם' : 'תלת-פאזי רגיל' })),
+      options: opts.map(o => ({ label: o, value: o, hint: (/pm135/i.test(o) ? 'מונה שנאי / משני-זרם' : 'תלת-פאזי רגיל') + ' · במלאי שלך: ' + (_st[o] || 0) })),
     });
     if (chosen) invOrderItems.forEach(it => { if (/satec|em133|pm135/i.test(it.name) && !it.auto) it.name = chosen; });
   }
@@ -1019,7 +1038,7 @@
       type: 'order',
       orderType: otype,
       supplier: document.getElementById('invOrderSupplier').value.trim(),
-      orderDate: document.getElementById('invOrderDate').value,
+      expectedDate: document.getElementById('invOrderDate').value,   // persisted to the existing expected_date column = "תאריך הזמנה"
       notes: notes,
       status: status,
       items: invOrderItems.map(it => ({ name: it.name, qty: it.qty })),
