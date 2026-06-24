@@ -3,12 +3,12 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·55** (2026-06-24)._
 
-## ⏳ AI parsing — provider chain (Gemini→Groq), re-deploy + Groq key
-`parse-order` now tries Gemini then Groq, first valid answer wins (default Gemini model → `gemini-1.5-flash`).
-**Why:** עידן's Gemini key returns `429 quota exceeded` even on one call (account/region free-tier — not our code;
-fn/key/EMS all verified green). **Action:** re-deploy `parse-order` (paste updated `supabase/functions/parse-order/
-index.ts`) + add secret **`GROQ_API_KEY`** (console.groq.com) → re-deploy. Then the chain uses Groq when Gemini
-429s. Offline matcher remains the final fallback (·55, verified). Response field `provider` shows who answered.
+## ⏳ AI parsing — re-deploy `parse-order` to go live (model resolved)
+`parse-order` is a Gemini→Groq chain, first valid answer wins. **Model resolved:** on עידן's key
+`gemini-2.0-flash`→429, `gemini-1.5-flash`→404 (1.5 retired); **`gemini-2.5-flash-lite` works** → it's the default.
+**Action:** re-deploy `parse-order` (paste updated `supabase/functions/parse-order/index.ts` — model baked in,
+no secret needed). Optional resilience: add `GROQ_API_KEY` (console.groq.com) so the chain has a fallback if
+Gemini ever 429s. Offline matcher = final fallback (·55, verified). Response field `provider` shows who answered.
 
 ## ⏳ One re-deploy pending — activate the AI glossary (·52)
 AI order parsing is **set up**: עידן deployed `parse-order` + set `GEMINI_API_KEY` + ran `db/parse_corrections.sql`

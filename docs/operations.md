@@ -39,8 +39,9 @@ configured AI provider **in order and uses the first valid (non-error) answer** 
 can't block you. The frontend calls it with a graceful fallback to the local matcher (never breaks).
 
 **Set at least one AI key as a secret** (Edge Functions → Secrets), then re-deploy the function:
-- **`GEMINI_API_KEY`** — https://aistudio.google.com → Get API key. *(Note: `gemini-2.0-flash` was returning
-  429 "quota exceeded" on this key → the default model is now **`gemini-1.5-flash`**. Override with `GEMINI_MODEL`.)*
+- **`GEMINI_API_KEY`** — https://aistudio.google.com → Get API key. *(On עידן's key: `gemini-2.0-flash` → 429
+  quota, `gemini-1.5-flash` → 404 (1.5 retired). Working model = **`gemini-2.5-flash-lite`** (the default now).
+  Override with `GEMINI_MODEL`.)*
 - **`GROQ_API_KEY`** — https://console.groq.com → API Keys (plain email signup, no Google/Workspace). Default model
   `llama-3.3-70b-versatile`; override with `GROQ_MODEL`.
 - Optional: `GEMINI_MODEL`, `GROQ_MODEL`, `EMS_API_BASE` (defaults correctly).

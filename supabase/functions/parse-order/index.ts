@@ -6,7 +6,7 @@
 // Secrets (Edge Functions → Secrets) — set at least ONE AI key:
 //   GEMINI_API_KEY — free key from https://aistudio.google.com (any Google account).
 //   GROQ_API_KEY   — free key from https://console.groq.com.
-//   GEMINI_MODEL   — optional (default gemini-1.5-flash). GROQ_MODEL — optional (default llama-3.3-70b-versatile).
+//   GEMINI_MODEL   — optional (default gemini-2.5-flash-lite — 1.5 is retired/404). GROQ_MODEL — default llama-3.3-70b-versatile.
 //   EMS_API_BASE   — optional (defaults to https://api.sigmatec-ems.com) — gate by EMS login.
 //   APP_ORIGIN     — optional (defaults to https://pm-sigma.github.io).
 // GRACEFUL: no key → 503; all providers fail → 502 {error} — the client then falls back to its local matcher.
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
   const ORIGIN = Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-  const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-1.5-flash";
+  const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash-lite";   // confirmed working for our key
   const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") || "";
   const GROQ_MODEL = Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile";
 
