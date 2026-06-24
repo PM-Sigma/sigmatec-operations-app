@@ -2023,34 +2023,31 @@
   // (otherwise any text with "מונה" matched every meter). The discriminating token (e360pp, em133…) matches.
   const INTAKE_STOP = ['מונה', 'מונים'];
 
-  // Customer-order accessories rule (single source of truth, also unit-tested in test-autoadd.mjs):
-  //   • Robustel controller — 1 per SATEC meter (EM133/PM135); they communicate through it.
-  //   • SIM (Partner) — 1 per COMM POINT: direct-comm meters (Landis E360 / Carlo) + every controller (PUSR + Robustel).
-  //     SATEC meters take NO direct SIM — theirs lives in the Robustel.
-  //   • אנטנה — 1 per controller (PUSR + Robustel).
-  // Mutates `items` in place. Names matched loosely to survive catalog spelling (PUSR/PURS, Partner/פרטנר).
-  function applyCustomerAutoAdd(items, catalog) {
+  // Customer-order accessory MODEL (pure counts; unit-tested in test-autoadd.mjs):
+  //   • Landis meter (E360*/E570) — built-in comm → 1 SIM directly. No controller / antenna / power-supply.
+  //   • Any OTHER meter (Satec, Carlo, …) — needs 1 controller each (type is a user choice).
+  //   • Every controller (added + explicitly-ordered) → 1 SIM + 1 antenna + 1 power-supply (type is a user choice).
+  //   • SIM total = Landis meters + all controllers. Antenna = controllers. Power-supply = controllers.
+  // Returns counts only; the conversational flow (finalizeCustomerAccessories) asks the choices and adds rows.
+  function accessoryPlan(items) {
     var sumQty = function (pred) { return items.filter(function (it) { return pred(it.name); }).reduce(function (s, it) { return s + (parseInt(it.qty) || 0); }, 0); };
-    var isCtrl = function (n) { return /robustel|pusr|purs/i.test(n); };
-    var addOrBump = function (matchFn, need, finder) {
-      if (need <= 0) return;
-      var ex = items.find(function (it) { return matchFn(it.name); });
-      if (ex) { if (ex.qty < need) ex.qty = need; }
-      else { var p = catalog.find(finder); if (p) items.push({ name: p, qty: need, uncertain: false }); }
+    var isLandis = function (n) { return /landis|e360|e570/i.test(n); };
+    var isMeter  = function (n) { return isLandis(n) || /satec|em133|pm135|carlo|e341/i.test(n); };
+    var isCtrl   = function (n) { return /robustel|pusr|purs/i.test(n); };
+    var landisQty = sumQty(isLandis);
+    var nonLandisMeterQty = sumQty(function (n) { return isMeter(n) && !isLandis(n); });
+    var explicitControllers = sumQty(isCtrl);
+    var controllersToAdd = nonLandisMeterQty;                 // one controller per non-Landis meter in the order
+    var totalControllers = explicitControllers + controllersToAdd;
+    return {
+      landisQty: landisQty,
+      nonLandisMeterQty: nonLandisMeterQty,
+      controllersToAdd: controllersToAdd,
+      totalControllers: totalControllers,
+      simQty: landisQty + totalControllers,
+      antennaQty: totalControllers,
+      psQty: totalControllers,
     };
-    // 1) Robustel: 1 per SATEC meter — add before counting comm points.
-    var satecQty = sumQty(function (n) { return /em133|pm135/i.test(n); });
-    addOrBump(function (n) { return /robustel/i.test(n); }, satecQty, function (n) { return /robustel/i.test(n); });
-    // 2) recount with Robustel in: comm points = direct meters (Landis E360 / Carlo) + controllers.
-    var directQty = sumQty(function (n) { return /e360|carlo|e341/i.test(n); });
-    var ctrlQty = sumQty(isCtrl);
-    // 3) SIM Partner: 1 per comm point. (prefer a Partner/פרטנר SIM, skip Cellcom)
-    addOrBump(function (n) { return /סים|\bsim\b/i.test(n); }, directQty + ctrlQty,
-      function (n) { return /סים|sim/i.test(n) && !/cellcom/i.test(n); });
-    // 4) אנטנה: 1 per controller.
-    addOrBump(function (n) { return /אנטנה|antenna/i.test(n); }, ctrlQty,
-      function (n) { return /אנטנה|antenna/i.test(n); });
-    return items;
   }
 
   // Deterministic keyword/alias matcher against the catalog → [{name,qty,uncertain}].
@@ -2646,19 +2643,78 @@
     renderOrderItems();
     invToggleDistribution();
   };
-  // Customer orders: every controller (PUSR + Robustel) needs a power supply, but the TYPE is a human choice.
-  // Append one unresolved "choose" row (qty = controller count). Returns true if a choice is pending.
-  function injectPowerSupplyChoice(orderType) {
-    if (orderType !== 'customer') return false;
-    var ctrlQty = invOrderItems.filter(function (it) { return /robustel|pusr|purs/i.test(it.name); })
-      .reduce(function (s, it) { return s + (parseInt(it.qty) || 0); }, 0);
-    if (ctrlQty <= 0) return false;
-    if (invOrderItems.some(function (it) { return /ספק כוח/.test(it.name) || (it.choose && it.choose.length); })) return false;  // already there
-    var cands = getActiveProducts().map(function (p) { return p.name; }).filter(function (n) { return /ספק כוח/.test(n); });
-    if (!cands.length) return false;
-    if (cands.length === 1) { invOrderItems.push({ name: cands[0], qty: ctrlQty }); return false; }   // only one type → no choice needed
-    invOrderItems.push({ name: '', qty: ctrlQty, choose: cands, label: 'ספק כוח לכל בקר — בחר סוג' });
-    return true;
+  function ctrlLabel(name) {
+    if (/robustel/i.test(name)) return '🛰️ Robustel';
+    if (/pusr|purs/i.test(name)) return '📟 PUSR';
+    return name;
+  }
+
+  // ===== Conversational question modal — "the app asks, you tap" (replaces dropdowns for choices) =====
+  let _orderQResolve = null;
+  // opts: { title, question, options:[{label,value,hint}], progress }. Resolves to the chosen value (or null).
+  function askChoice(opts) {
+    return new Promise(function (resolve) {
+      _orderQResolve = resolve;
+      window._orderQOptions = opts.options || [];
+      document.getElementById('orderQProgress').textContent = opts.progress || '';
+      document.getElementById('orderQTitle').textContent = opts.title || '';
+      document.getElementById('orderQText').textContent = opts.question || '';
+      document.getElementById('orderQOptions').innerHTML = (opts.options || []).map(function (o, i) {
+        return '<button type="button" onclick="_orderQPick(' + i + ')" ' +
+          'style="text-align:right;width:100%;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;padding:12px 14px;cursor:pointer;transition:.15s;" ' +
+          'onmouseover="this.style.borderColor=\'#6366f1\';this.style.background=\'#eef2ff\';" onmouseout="this.style.borderColor=\'#e2e8f0\';this.style.background=\'#f8fafc\';">' +
+          '<div style="font-weight:800;font-size:15px;color:#1e293b;">' + o.label + '</div>' +
+          (o.hint ? '<div style="font-size:12px;color:#64748b;margin-top:2px;">' + o.hint + '</div>' : '') +
+          '</button>';
+      }).join('');
+      document.getElementById('orderQModal').classList.add('open');
+    });
+  }
+  window._orderQPick = function (i) {
+    var o = (window._orderQOptions || [])[i];
+    document.getElementById('orderQModal').classList.remove('open');
+    var r = _orderQResolve; _orderQResolve = null;
+    if (r) r(o ? o.value : null);
+  };
+
+  // Customer orders: derive accessories from the meters, asking the user for the controller + power-supply TYPE.
+  // Idempotent: strips its own previously-added rows (tagged auto) and recomputes, so re-parsing is safe.
+  async function finalizeCustomerAccessories() {
+    invOrderItems = invOrderItems.filter(function (it) { return !it.auto; });
+    const catalog = getActiveProducts().map(function (p) { return p.name; });
+    const plan = accessoryPlan(invOrderItems);
+    const pushAuto = function (name, qty) { if (name && qty > 0) invOrderItems.push({ name: name, qty: qty, auto: true }); };
+
+    // 1) controller (type chosen) — one per non-Landis meter
+    if (plan.controllersToAdd > 0) {
+      const ctrlOpts = catalog.filter(function (n) { return /robustel|pusr|purs/i.test(n); });
+      let chosen = ctrlOpts[0];
+      if (ctrlOpts.length >= 2) {
+        chosen = await askChoice({
+          title: '🎛️ בחירת בקר', progress: 'שאלה 1 מ-2',
+          question: 'יש ' + plan.nonLandisMeterQty + ' מונים שאינם לנדיס — לכל אחד נדרש בקר. איזה בקר להוסיף?',
+          options: ctrlOpts.map(function (c) { return { label: ctrlLabel(c), value: c, hint: c }; }),
+        });
+      }
+      pushAuto(chosen, plan.controllersToAdd);
+    }
+    // 2) SIM (Partner default) — Landis meters + all controllers
+    pushAuto(catalog.find(function (n) { return /סים|\bsim\b/i.test(n) && !/cellcom/i.test(n); }), plan.simQty);
+    // 3) antenna — per controller
+    pushAuto(catalog.find(function (n) { return /אנטנה|antenna/i.test(n); }), plan.antennaQty);
+    // 4) power supply (type chosen) — per controller
+    if (plan.psQty > 0) {
+      const psOpts = catalog.filter(function (n) { return /ספק כוח/.test(n); });
+      let chosen = psOpts[0];
+      if (psOpts.length >= 2) {
+        chosen = await askChoice({
+          title: '⚡ בחירת ספק כוח', progress: 'שאלה 2 מ-2',
+          question: 'נדרש ספק כוח ל-' + plan.totalControllers + ' בקרים. איזה סוג?',
+          options: psOpts.map(function (p) { return { label: psLabel(p), value: p, hint: p }; }),
+        });
+      }
+      pushAuto(chosen, plan.psQty);
+    }
   }
 
   // Import open requirements: sum quantities per product across all open requirements
@@ -2733,19 +2789,14 @@
       const items = await parseRawToItems(raw, otype);
       if (!items.length) { alert('לא זוהו פריטים מהטקסט — הוסף ידנית.'); return; }
       items.forEach(it => {
-        const exists = invOrderItems.find(i => i.name === it.name);
+        const exists = invOrderItems.find(i => i.name === it.name && !i.auto);
         if (exists) exists.qty += it.qty;
         else invOrderItems.push({ name: it.name, qty: it.qty });
       });
-      // Deterministic accessories for customer orders — done in code, NOT by the AI (controllers + SIM + antenna).
-      if (otype === 'customer') applyCustomerAutoAdd(invOrderItems, getActiveProducts().map(p => p.name));
-      const needPs = injectPowerSupplyChoice(otype);
+      // Customer orders: derive accessories conversationally (controller + power-supply are user choices).
+      if (otype === 'customer') await finalizeCustomerAccessories();
       renderOrderItems();
       invToggleDistribution();
-      if (needPs) {
-        const t = document.getElementById('toast');
-        if (t) { t.textContent = '⚡ בחר סוג ספק כוח לכל בקר (פס-דין / שקע)'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 4500); }
-      }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = orig; }
     }
@@ -2860,6 +2911,27 @@
     const otype = window._invOrderType || 'supplier';
     const okib = ((document.getElementById('invOrderKibbutz') || {}).value || '').trim();
     if (otype === 'customer' && !window.invEditingOrderId && !okib) { alert('נא לבחור קיבוץ להזמנת לקוח'); return; }
+    // Reconcile non-catalog items conversationally: add each to the catalog, or drop the line.
+    const _catNames = getActiveProducts().map(p => p.name);
+    const _unknown = [...new Set(invOrderItems.filter(it => it.name && _catNames.indexOf(it.name) === -1).map(it => it.name))];
+    const _toCatalog = [];
+    for (const nm of _unknown) {
+      const ans = await askChoice({
+        title: '🆕 פריט שאינו בקטלוג', progress: 'אישור פריטים',
+        question: 'הפריט "' + nm + '" לא קיים בקטלוג המוצרים. מה לעשות?',
+        options: [
+          { label: '➕ הוסף לקטלוג', value: 'add', hint: 'יישמר ויינוהל במלאי מעכשיו' },
+          { label: '🗑️ הסר מההזמנה', value: 'remove', hint: 'השורה תימחק וההזמנה תימשך כרגיל' },
+        ],
+      });
+      if (ans === 'add') _toCatalog.push(nm);
+      else { for (let i = invOrderItems.length - 1; i >= 0; i--) { if (invOrderItems[i].name === nm) invOrderItems.splice(i, 1); } }
+    }
+    if (!invOrderItems.length) { alert('לא נותרו פריטים בהזמנה.'); renderOrderItems(); invToggleDistribution(); return; }
+    // Create the approved new products so they enter inventory management.
+    for (const nm of _toCatalog) {
+      try { await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'product', name: nm, category: '', active: true }) }); } catch (e) { /* non-blocking */ }
+    }
     setBtnLoading(btn, true);
     let status = document.getElementById('invOrderStatus').value;
     if (!window.invEditingOrderId) {
@@ -2880,7 +2952,7 @@
       expectedDate: document.getElementById('invOrderExpected').value,
       notes: notes,
       status: status,
-      items: invOrderItems,
+      items: invOrderItems.map(it => ({ name: it.name, qty: it.qty })),
       createdBy: createdBy
     };
     if (window.invEditingOrderId) body.id = window.invEditingOrderId;
@@ -2892,12 +2964,14 @@
       const res = await r.json();
       if (!res.ok) { alert('שגיאה: ' + JSON.stringify(res)); return; }
 
-      // LEARN: a new order that started from free text → save {raw → accepted items} as a training
-      // example for the parse-order few-shot. Fire-and-forget; failure here must not block the save.
-      if (!window.invEditingOrderId && rawReq) {
+      // LEARN: every text-based order → save {raw → accepted BASE items} as a parse-order few-shot example.
+      // Exclude auto-added accessories (the AI should output base products only; the app derives accessories).
+      // A newly catalog-added product is a base item → it's in the example, so the AI learns to recognise it.
+      if (rawReq) {
         try {
-          fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ type: 'parseCorrection', rawText: rawReq, items: invOrderItems.map(function (i) { return { name: i.name, qty: i.qty }; }), createdBy: createdBy }) });
+          const learnItems = invOrderItems.filter(it => !it.auto && it.name).map(i => ({ name: i.name, qty: i.qty }));
+          if (learnItems.length) fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ type: 'parseCorrection', rawText: rawReq, items: learnItems, createdBy: createdBy }) });
         } catch (e) { /* non-blocking */ }
       }
 

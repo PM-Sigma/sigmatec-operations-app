@@ -1,75 +1,50 @@
-// Self-check for the customer-order accessories rule (mirrors applyCustomerAutoAdd in js/src/07-orders.js).
-// Run: node test-autoadd.mjs   — asserts the comm-point SIM + per-controller antenna arithmetic.
-// Uses the REAL catalog names (confirmed live 2026-06-24) so it guards the actual name matching.
+// Self-check for the customer-order accessory MODEL (mirrors accessoryPlan in js/src/07-orders.js).
+// Run: node test-autoadd.mjs
+// Model: Landis meters → 1 SIM each (direct). Every non-Landis meter → 1 controller. Every controller
+// (added + explicit) → 1 SIM + 1 antenna + 1 power-supply. SIM total = Landis meters + all controllers.
 import assert from 'node:assert';
 
-const CATALOG = [
-  'אנטנה', 'כרטיס תקשורת צרוב(E350)', 'משנ"ז 250', 'משנ"ז 400',
-  'ספק כוח פס-דין', 'ספק כוח שקע', 'Cellcom Sim',
-  'Landis+Gyr E360CT', 'Landis+Gyr E360PP', 'Landis+Gyr E360SP', 'Landis+Gyr E570',
-  'Partner Sim', 'PUSR Controller', 'Robustel Controller', 'Satec EM133', 'Satec PM135',
-];
-
-function applyCustomerAutoAdd(items, catalog) {
+function accessoryPlan(items) {
   const sumQty = (pred) => items.filter(it => pred(it.name)).reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
-  const isCtrl = (n) => /robustel|pusr|purs/i.test(n);
-  const addOrBump = (matchFn, need, finder) => {
-    if (need <= 0) return;
-    const ex = items.find(it => matchFn(it.name));
-    if (ex) { if (ex.qty < need) ex.qty = need; }
-    else { const p = catalog.find(finder); if (p) items.push({ name: p, qty: need }); }
+  const isLandis = n => /landis|e360|e570/i.test(n);
+  const isMeter = n => isLandis(n) || /satec|em133|pm135|carlo|e341/i.test(n);
+  const isCtrl = n => /robustel|pusr|purs/i.test(n);
+  const landisQty = sumQty(isLandis);
+  const nonLandisMeterQty = sumQty(n => isMeter(n) && !isLandis(n));
+  const explicitControllers = sumQty(isCtrl);
+  const controllersToAdd = nonLandisMeterQty;
+  const totalControllers = explicitControllers + controllersToAdd;
+  return {
+    landisQty, nonLandisMeterQty, controllersToAdd, totalControllers,
+    simQty: landisQty + totalControllers, antennaQty: totalControllers, psQty: totalControllers,
   };
-  const satecQty = sumQty(n => /em133|pm135/i.test(n));
-  addOrBump(n => /robustel/i.test(n), satecQty, n => /robustel/i.test(n));
-  const directQty = sumQty(n => /e360|carlo|e341/i.test(n));
-  const ctrlQty = sumQty(isCtrl);
-  addOrBump(n => /סים|\bsim\b/i.test(n), directQty + ctrlQty, n => /סים|sim/i.test(n) && !/cellcom/i.test(n));
-  addOrBump(n => /אנטנה|antenna/i.test(n), ctrlQty, n => /אנטנה|antenna/i.test(n));
-  return items;
 }
 
-const q = (items, re) => items.filter(it => re.test(it.name)).reduce((s, it) => s + it.qty, 0);
-
-// A — Landis only: 3 E360PP + 5 E360CT → 8 SIM (Partner, not Cellcom), 0 controllers → 0 antenna.
-{
-  const r = applyCustomerAutoAdd([{ name: 'Landis+Gyr E360PP', qty: 3 }, { name: 'Landis+Gyr E360CT', qty: 5 }], CATALOG);
-  assert.equal(q(r, /Partner Sim/), 8, 'A: 8 Partner SIMs');
-  assert.equal(q(r, /Cellcom/), 0, 'A: no Cellcom');
-  assert.equal(q(r, /אנטנה/), 0, 'A: no antenna');
-  assert.equal(q(r, /Robustel/), 0, 'A: no robustel');
-}
-// B — 10 PUSR + 4 Satec EM133: +4 Robustel → 14 controllers → 14 SIM, 14 antenna.
-{
-  const r = applyCustomerAutoAdd([{ name: 'PUSR Controller', qty: 10 }, { name: 'Satec EM133', qty: 4 }], CATALOG);
-  assert.equal(q(r, /Robustel/), 4, 'B: 4 robustel for 4 SATEC');
-  assert.equal(q(r, /Sim/i), 14, 'B: 14 SIMs (10 PUSR + 4 robustel)');
-  assert.equal(q(r, /אנטנה/), 14, 'B: 14 antennas');
-}
-// C — user pre-listed accessories: 2 PM135 + 2 Robustel + 2 Partner Sim → no double-count.
-{
-  const r = applyCustomerAutoAdd([{ name: 'Satec PM135', qty: 2 }, { name: 'Robustel Controller', qty: 2 }, { name: 'Partner Sim', qty: 2 }], CATALOG);
-  assert.equal(q(r, /Robustel/), 2, 'C: stays 2 robustel');
-  assert.equal(q(r, /Sim/i), 2, 'C: stays 2 SIM');
-  assert.equal(q(r, /אנטנה/), 2, 'C: 2 antennas added');
-}
-// D — standalone Robustel still each gets SIM + antenna.
-{
-  const r = applyCustomerAutoAdd([{ name: 'Robustel Controller', qty: 5 }], CATALOG);
-  assert.equal(q(r, /Sim/i), 5, 'D: 5 SIMs');
-  assert.equal(q(r, /אנטנה/), 5, 'D: 5 antennas');
-}
-// E — physical משנ"ז (no "מונה"): electrical gear, no accessories.
-{
-  const r = applyCustomerAutoAdd([{ name: 'משנ"ז 400', qty: 5 }], CATALOG);
-  assert.equal(q(r, /Sim/i), 0, 'E: no SIM');
-  assert.equal(q(r, /אנטנה/), 0, 'E: no antenna');
-}
-// F — Carlo (NOT in catalog) still counts as a direct-comm meter → gets a SIM each; +2 robustel for EM133.
-{
-  const r = applyCustomerAutoAdd([{ name: 'Carlo Gavazzi E341', qty: 5 }, { name: 'Satec EM133', qty: 2 }], CATALOG);
-  assert.equal(q(r, /Robustel/), 2, 'F: 2 robustel for 2 EM133');
-  assert.equal(q(r, /Sim/i), 7, 'F: 7 SIMs (5 Carlo + 2 robustel)');
-  assert.equal(q(r, /אנטנה/), 2, 'F: 2 antennas (per controller)');
+function check(label, items, exp) {
+  const p = accessoryPlan(items);
+  for (const k of Object.keys(exp)) assert.equal(p[k], exp[k], `${label}: ${k} expected ${exp[k]}, got ${p[k]}`);
 }
 
-console.log('✅ all auto-add cases pass (real catalog names)');
+// A — all Landis: SIM per meter, nothing else.
+check('A', [{ name: 'Landis+Gyr E360PP', qty: 3 }, { name: 'Landis+Gyr E360CT', qty: 5 }],
+  { simQty: 8, totalControllers: 0, antennaQty: 0, psQty: 0 });
+// B — 10 explicit PUSR (for ASIC, off-order) + 4 Satec → +4 controllers → 14 ctrl → 14 SIM/antenna/PS.
+check('B', [{ name: 'PUSR Controller', qty: 10 }, { name: 'Satec EM133', qty: 4 }],
+  { controllersToAdd: 4, totalControllers: 14, simQty: 14, antennaQty: 14, psQty: 14 });
+// C — 2 Satec, no explicit controller (new flow) → 2 controllers → 2 of each.
+check('C', [{ name: 'Satec PM135', qty: 2 }],
+  { controllersToAdd: 2, totalControllers: 2, simQty: 2, antennaQty: 2, psQty: 2 });
+// D — Landis E570 gets a SIM directly (the answer to "does E570 need a SIM").
+check('D', [{ name: 'Landis+Gyr E570', qty: 5 }],
+  { landisQty: 5, simQty: 5, totalControllers: 0, antennaQty: 0 });
+// E — physical משנ"ז is not a meter → no accessories.
+check('E', [{ name: 'משנ"ז 400', qty: 5 }],
+  { simQty: 0, totalControllers: 0, antennaQty: 0 });
+// F — Carlo (non-Landis) needs a controller each + 2 EM133 → 7 controllers → 7 SIM/antenna/PS.
+check('F', [{ name: 'Carlo Gavazzi E341', qty: 5 }, { name: 'Satec EM133', qty: 2 }],
+  { controllersToAdd: 7, totalControllers: 7, simQty: 7, antennaQty: 7, psQty: 7 });
+// G — full mixed order: 5 Landis + 2 EM133 + 1 physical CT + 5 Carlo.
+check('G', [{ name: 'Landis+Gyr E360PP', qty: 5 }, { name: 'Satec EM133', qty: 2 }, { name: 'משנ"ז 400', qty: 1 }, { name: 'Carlo Gavazzi E341', qty: 5 }],
+  { landisQty: 5, nonLandisMeterQty: 7, totalControllers: 7, simQty: 12, antennaQty: 7, psQty: 7 });
+
+console.log('✅ all accessoryPlan cases pass (new model: Landis→SIM, non-Landis→controller)');

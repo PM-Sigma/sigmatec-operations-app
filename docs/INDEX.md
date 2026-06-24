@@ -44,7 +44,7 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-24 (app **·61** live · `parse-order` needs **re-deploy** for ·56-61. Customer accessories are now deterministic client-side; glossary aligned to real catalog names. **TODO: add `Carlo Gavazzi E341` to the מוצרים catalog**.)
+## 🚦 Current state — last: 2026-06-24 (app **·62** live. Customer order accessories: Landis→SIM, non-Landis→controller; controller/power-supply TYPE chosen via a **conversational modal**; non-catalog items prompt add-to-catalog-or-drop at save; every text order feeds the learning loop. `parse-order` re-deploy still pending for ·56-61 glossary (function unchanged in ·62). **TODO: add `Carlo Gavazzi E341` to the מוצרים catalog** — or just let the new "add to catalog?" prompt do it on the next Carlo order.)
 
 **Live & verified on `main`:** Supabase migration · PWA · EMS login gate · meters · "add to calendar" links ·
 security bridge + write-lockdown + messages-privacy (anon=read-only, auth=write) · Stats · Employee page

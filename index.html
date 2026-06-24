@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqrvz553">
+<link rel="stylesheet" href="css/app.css?v=mqrzb91o">
 </head>
 <body>
 <div class="container">
@@ -67,6 +67,16 @@
         <button class="btn btn-primary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open'); showPage('inventory');">✅ לאישור עכשיו</button>
         <button class="btn btn-secondary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open')">אחר כך</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Conversational order questions (controller / power-supply / non-catalog) — "the app asks, you tap" -->
+  <div class="modal-backdrop" id="orderQModal" style="z-index:1400;">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:400px;">
+      <div id="orderQProgress" style="font-size:11px;font-weight:700;color:#6366f1;letter-spacing:.03em;"></div>
+      <h3 id="orderQTitle" style="margin:6px 0 6px;"></h3>
+      <div id="orderQText" style="font-size:14px;color:#334155;line-height:1.6;margin-bottom:14px;"></div>
+      <div id="orderQOptions" style="display:flex;flex-direction:column;gap:10px;"></div>
     </div>
   </div>
 
@@ -321,7 +331,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-24·56</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-24·62</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1283,7 +1293,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqrvz553"></script>
+<script src="js/app.js?v=mqrzb91o"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

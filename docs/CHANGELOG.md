@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·62] 2026-06-24
+### Changed — accessory model reworked + conversational Q&A
+- **New accessory rule:** *every* Landis meter (incl. **E570**) → **1 SIM directly**. *Every non-Landis meter*
+  (Satec, Carlo, …) → **1 controller** each. Every controller (added + explicitly-ordered) → **1 SIM + 1 antenna
+  + 1 power-supply**. SIM total = Landis meters + all controllers. (Replaces the old Satec→Robustel/comm-point model.)
+- **Controller & power-supply TYPE are now user choices via a conversational modal** (`#orderQModal` + `askChoice`):
+  the app *asks* ("איזה בקר?" Robustel/PUSR · "איזה ספק כוח?" פס-דין/שקע) with big tap buttons instead of dropdowns.
+  Accessories are tagged `auto` so re-parsing recomputes cleanly. `accessoryPlan()` is pure + unit-tested (7 cases).
+### Added — FLOW fixes
+- **Non-catalog items at save → ask, don't silently accept.** For each item not in the catalog the app asks
+  (same modal): **➕ הוסף לקטלוג** (creates the product → enters inventory management) or **🗑️ הסר מההזמנה**
+  (drops the line, order continues). Empty order after removals is blocked.
+- **Every text-based order → learning example.** On save, `{raw → base items}` is sent to `parse_corrections`
+  (accessories excluded, so the AI learns base products only). A newly catalog-added product is a base item, so
+  it's captured as a new recognition example automatically. Stored order items cleaned to `{name,qty}`.
+
 ## [·61] 2026-06-24
 ### Added
 - **Non-catalog items are flagged ⚠️** in the order grid (amber row + "לא בקטלוג" option). Orders never
