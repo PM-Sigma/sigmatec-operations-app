@@ -33,8 +33,17 @@ async function emsValid(base: string, token: string): Promise<boolean> {
   catch { return false; }
 }
 
+// Curated business aliases — authoritative term→product rules, ALWAYS applied. Add new ones here.
+const ALIASES: { when: string; product: string }[] = [
+  { when: '"133" / מונה 133 / סאטק 133', product: "מונה EM133" },
+  { when: "לנדיס ישיר לקו / מונה לנדיס ישיר", product: "מונה E360PP" },
+  { when: "לנדיס חד פאזי", product: "מונה E360SP" },
+  { when: 'לנדיס משנה-זרם / לנדיס משנ"ז (בהקשר לנדיס)', product: "מונה E360CT" },
+];
+
 function buildPrompt(catalog: string[], examples: any[], text: string): string {
   const cat = catalog.map((c) => "- " + c).join("\n");
+  const glossary = ALIASES.map((a) => "- " + a.when + " ⟵ " + a.product).join("\n");
   let ex = "";
   for (const e of examples) {
     const items = Array.isArray(e?.items) ? e.items : [];
@@ -45,6 +54,8 @@ function buildPrompt(catalog: string[], examples: any[], text: string): string {
   return [
     "אתה מנתח בקשות הזמנה לחברת מוני אנרגיה ישראלית. המר את טקסט הבקשה (עברית) לרשימת פריטים מהקטלוג בלבד.",
     "כללים: לכל פריט מבוקש בחר את השם המדויק הקרוב ביותר מהקטלוג (העתק את המחרוזת בדיוק). חלץ כמויות (כולל מילים בעברית כמו \"שלושה\"). אם אין כמות — 1. התעלם מטקסט שאינו מוצר. אל תמציא מוצרים שלא בקטלוג.",
+    "מילון מונחים מחייב — כשמופיע הביטוי, מַפֶּה למוצר המדויק (גובר על ניחוש):\n" + glossary +
+      "\nשים לב: \"משנ\\\"ז 250\" / \"משנ\\\"ז 400\" לבד = משני-זרם פיזיים (מוצרים נפרדים) — לא E360CT.",
     "קטלוג:\n" + cat,
     examples.length ? "דוגמאות (תיקונים קודמים שאושרו — למד מהם את המיפוי):" + ex : "",
     "כעת נתח את הטקסט הבא והחזר JSON בלבד בפורמט {\"items\":[{\"name\":\"<שם מהקטלוג>\",\"qty\":<מספר>}]}:",

@@ -1,14 +1,15 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·51** (2026-06-24)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·52** (2026-06-24)._
 
-## ⏳ Awaiting key — AI order parsing (frontend + function BUILT, ·51)
-Everything is shipped and graceful; the AI lights up after **3 steps** (see `operations.md` → "Edge Function
-(parse-order)"): **(1)** free Gemini key from aistudio.google.com (any account — personal Gmail if the org one
-is blocked); **(2)** create the `parse-order` function (paste `supabase/functions/parse-order/index.ts`) + set
-secret **`GEMINI_API_KEY`** + deploy; **(3)** run `db/parse_corrections.sql`. No other function changes. Until
-then the new-order box falls back to the (weak) local matcher — no breakage.
+## ⏳ One re-deploy pending — activate the AI glossary (·52)
+AI order parsing is **set up**: עידן deployed `parse-order` + set `GEMINI_API_KEY` + ran `db/parse_corrections.sql`
+(verified: the fn returns the 401 EMS-gate, i.e. key present; the live AI parse couldn't be tested yet only
+because the browser EMS token had expired). **Action:** re-deploy `parse-order` once more to pick up the new
+**alias glossary** (·52) baked into its prompt (133→EM133, Landis ישיר/חד-פאזי/משנ"ז → E360PP/SP/CT). The offline
+matcher already has them (live). To add aliases later: edit `ALIASES` in `supabase/functions/parse-order/index.ts`
+(+ `INTAKE_ALIASES` in `07-orders.js`), or let it learn from accepted orders (parse_corrections few-shot).
 
 ## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 

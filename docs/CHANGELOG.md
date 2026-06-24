@@ -9,6 +9,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 
 ## [Unreleased]
 ### Added
+- **Parser alias glossary — taught 4 business mappings (·52)** — explicit term→product rules, applied by both
+  the AI (`parse-order` prompt glossary) and the offline matcher (`INTAKE_ALIASES`): **"133"/סאטק → מונה EM133**
+  *(confirmed by עידן — catalog has no PM133; EM133 is the "133")*, **לנדיס ישיר לקו → מונה E360PP**, **לנדיס חד
+  פאזי → מונה E360SP**, **לנדיס משנה-זרם/משנ"ז (Landis context) → מונה E360CT**. Scoped so a bare `משנ"ז 250/400`
+  still maps to the physical CT hardware, not E360CT. Verified in the offline matcher. **Activate the AI side by
+  re-deploying `parse-order`** (the glossary lives in its prompt); to add more aliases later, edit the `ALIASES`
+  array in `supabase/functions/parse-order/index.ts` (+ `INTAKE_ALIASES`) — or just let it learn from accepted orders.
 - **AI order-parsing — frontend + function ready, awaiting key (·51)** — new-order modal now leads with a single
   free-text box (📥 paste email/WhatsApp) → **🪄 נתח לפריטים** → editable rows; the AI box shows for **both**
   order types; a big full-width **➕ הוסף שורה** for manual rows. Parsing now calls a new `parse-order` Edge

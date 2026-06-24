@@ -44,7 +44,7 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-24 (build ·51 live — AI order-parsing frontend+function BUILT, **awaiting Gemini key** to activate; see operations.md)
+## 🚦 Current state — last: 2026-06-24 (build ·52 live — AI order parsing deployed (key set); taught 4 aliases; **re-deploy `parse-order` once** to load the glossary)
 
 **Live & verified on `main`:** Supabase migration · PWA · EMS login gate · meters · "add to calendar" links ·
 security bridge + write-lockdown + messages-privacy (anon=read-only, auth=write) · Stats · Employee page

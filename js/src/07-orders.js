@@ -7,7 +7,11 @@
   // string expected to appear in the catalog product name. Deterministic, offline.
   const INTAKE_ALIASES = {
     '360sp':'360sp', '360pp':'360pp', '360ct':'360ct', 'e570':'570', '570':'570',
-    'em133':'em133', '133':'133', 'בקר':'בקר', 'בקרים':'בקר', 'robustel':'robustel',
+    'em133':'em133', '133':'em133', 'satec':'em133', 'סאטק':'em133',
+    // לנדיס phrasings → the E360 family (mirrors the AI glossary in supabase/functions/parse-order)
+    'לנדיס ישיר':'e360pp', 'ישיר לקו':'e360pp', 'חד פאזי':'e360sp',
+    'לנדיס משנה זרם':'e360ct', 'לנדיס משנז':'e360ct',
+    'בקר':'בקר', 'בקרים':'בקר', 'robustel':'robustel',
     'רובסטל':'robustel', 'סים':'סים', 'סימים':'סים', 'sim':'סים', 'מונה':'מונה', 'מונים':'מונה'
   };
   const HE_NUMWORDS = { 'אחד':1,'אחת':1,'שני':2,'שתי':2,'שניים':2,'שתיים':2,'שלוש':3,'שלושה':3,
