@@ -17,6 +17,15 @@
 | `?login=0` | Skip the EMS login gate → legacy name-picker + PIN (break-glass). |
 | `?cb=<x>` / `?v=<x>` | Cache-buster for verifying a fresh deploy. |
 
+## Function deploy handoff (convention — עידן)
+
+When an edge-function file is new or updated and needs a manual redeploy, hand it off with **two links** (only):
+1. **Local open link** to the file (opens it here), e.g. `supabase/functions/<fn>/index.ts`.
+2. **GitHub address** on the branch, e.g.
+   `https://github.com/PM-Sigma/sigmatec-operations-app/blob/<branch>/supabase/functions/<fn>/index.ts`.
+
+No raw-content link. **Reply to עידן in full English.**
+
 ## Edge Function (`ems-auth`)
 
 - Deploy/redeploy: Supabase → **Edge Functions → `ems-auth` → Code → Deploy**.
