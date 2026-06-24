@@ -7,6 +7,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·72] 2026-06-24
+### Changed
+- **Parse-source badge moved inline** to the end of the "📦 פריטים בהזמנה:" label (was on its own line under the
+  parse button — easy to miss on desktop). Same Gemini/Groq/Offline icon + model.
+- **AI parsing verified live end-to-end** (עידן, connected to EMS on dev): free-text → correct base items,
+  conversational accessory questions, and the source badge showing the real provider.
+
 ## [·71] 2026-06-24
 ### Added
 - **Persistent parse-source badge** below the "נתח לפריטים" button (`#invParseSource`): a **Gemini** spark icon,
