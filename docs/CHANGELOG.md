@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·59] 2026-06-24
+### Added
+- **ספק כוח per controller — with a click-to-choose row.** Every controller (PUSR + Robustel) on a customer
+  order needs a power supply, but the *type* (פס-דין / שקע) is a human decision. After parsing, an unresolved
+  **"בחר סוג" row** is appended (qty = controller count) rendered as **click buttons** (📥 פס-דין / 🔌 שקע) instead
+  of a dropdown, with a prompt toast. Save is blocked until the type is picked. The AI is told NOT to add a power
+  supply (the client owns that choice). `invChooseProduct()` resolves the row; reusable for any future click-choice.
+
 ## [·58] 2026-06-24
 ### Added
 - **אנטנה auto-add — 1 per controller (PUSR + Robustel)** on customer orders (AI prompt + offline matcher).

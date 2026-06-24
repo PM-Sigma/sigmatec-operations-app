@@ -2610,7 +2610,18 @@
     }
     const products = getActiveProducts();
     const options = products.map(p => p.name).filter((n,i,a) => a.indexOf(n) === i);
-    wrap.innerHTML = invOrderItems.map((it, idx) => `
+    wrap.innerHTML = invOrderItems.map((it, idx) => {
+      // Unresolved "choose by click" row (e.g. power supply: פס-דין / שקע) — pick by button, no dropdown.
+      if (Array.isArray(it.choose) && !it.name) {
+        return `
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:#fff7ed;border:1px solid #fdba74;padding:6px 8px;border-radius:6px;flex-wrap:wrap;">
+        <span style="font-weight:700;font-size:12px;color:#9a3412;flex:1;min-width:120px;">⚡ ${it.label || 'בחר סוג'}:</span>
+        ${it.choose.map((c, ci) => `<button type="button" onclick="invChooseProduct(${idx}, ${ci})" style="font-size:12px;font-weight:700;background:#fff;color:#9a3412;border:1px solid #fb923c;border-radius:6px;padding:4px 12px;cursor:pointer;">${psLabel(c)}</button>`).join('')}
+        <input type="number" min="1" value="${it.qty}" onchange="invOrderItems[${idx}].qty = parseInt(this.value) || 1" style="width:64px;padding:3px 6px;border-radius:4px;border:1px solid #fb923c;text-align:center;" title="כמות">
+        <button onclick="invOrderItems.splice(${idx}, 1); renderOrderItems(); invToggleDistribution();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
+      </div>`;
+      }
+      return `
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:white;padding:5px 8px;border-radius:6px;">
         <select onchange="invOrderItems[${idx}].name = this.value" style="flex:1;padding:4px 6px;border-radius:4px;border:1px solid #e2e8f0;">
           ${options.map(n => `<option value="${n}" ${it.name === n ? 'selected' : ''}>${n}</option>`).join('')}
@@ -2618,8 +2629,37 @@
         </select>
         <input type="number" min="1" value="${it.qty}" onchange="invOrderItems[${idx}].qty = parseInt(this.value) || 1" style="width:70px;padding:3px 6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
         <button onclick="invOrderItems.splice(${idx}, 1); renderOrderItems(); invToggleDistribution();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
+  }
+  // Short button label for a power-supply (or other choose) candidate.
+  function psLabel(name) {
+    if (/פס.?דין/.test(name)) return '📥 פס-דין';
+    if (/שקע/.test(name)) return '🔌 שקע';
+    return name.replace(/^ספק כוח\s*/, '') || name;
+  }
+  // Resolve a "choose by click" row to the picked product.
+  window.invChooseProduct = function (itemIdx, choiceIdx) {
+    var it = invOrderItems[itemIdx];
+    if (!it || !Array.isArray(it.choose)) return;
+    it.name = it.choose[choiceIdx];
+    delete it.choose; delete it.label;
+    renderOrderItems();
+    invToggleDistribution();
+  };
+  // Customer orders: every controller (PUSR + Robustel) needs a power supply, but the TYPE is a human choice.
+  // Append one unresolved "choose" row (qty = controller count). Returns true if a choice is pending.
+  function injectPowerSupplyChoice(orderType) {
+    if (orderType !== 'customer') return false;
+    var ctrlQty = invOrderItems.filter(function (it) { return /robustel|pusr|purs/i.test(it.name); })
+      .reduce(function (s, it) { return s + (parseInt(it.qty) || 0); }, 0);
+    if (ctrlQty <= 0) return false;
+    if (invOrderItems.some(function (it) { return /ספק כוח/.test(it.name) || (it.choose && it.choose.length); })) return false;  // already there
+    var cands = getActiveProducts().map(function (p) { return p.name; }).filter(function (n) { return /ספק כוח/.test(n); });
+    if (!cands.length) return false;
+    if (cands.length === 1) { invOrderItems.push({ name: cands[0], qty: ctrlQty }); return false; }   // only one type → no choice needed
+    invOrderItems.push({ name: '', qty: ctrlQty, choose: cands, label: 'ספק כוח לכל בקר — בחר סוג' });
+    return true;
   }
 
   // Import open requirements: sum quantities per product across all open requirements
@@ -2697,8 +2737,13 @@
         if (exists) exists.qty += it.qty;
         else invOrderItems.push({ name: it.name, qty: it.qty });
       });
+      const needPs = injectPowerSupplyChoice(window._invOrderType || 'supplier');
       renderOrderItems();
       invToggleDistribution();
+      if (needPs) {
+        const t = document.getElementById('toast');
+        if (t) { t.textContent = '⚡ בחר סוג ספק כוח לכל בקר (פס-דין / שקע)'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 4500); }
+      }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = orig; }
     }
@@ -2807,6 +2852,7 @@
 
   async function invSaveOrder(btn) {
     if (invOrderItems.length === 0) { alert('הוסף לפחות פריט אחד'); return; }
+    if (invOrderItems.some(it => !it.name || (it.choose && it.choose.length))) { alert('יש שורת ספק כוח שטרם נבחר סוגה — בחר פס-דין או שקע'); return; }
     const createdBy = document.getElementById('invOrderCreatedBy').value;
     if (!createdBy && !window.invEditingOrderId) { alert('נא לבחור מי יוצר את ההזמנה'); return; }
     const otype = window._invOrderType || 'supplier';
