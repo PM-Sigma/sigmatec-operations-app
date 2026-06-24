@@ -42,9 +42,9 @@ const ALIASES: { when: string; product: string }[] = [
   { when: 'מונה לנדיס משנה-זרם / מונה משנ"ז', product: "מונה E360CT" },
   { when: "קרלו / Carlo / E341 / קרלו גאווקי / ישיר לקו קרלו", product: "מונה Carlo Gavachi E341" },
   { when: "PM135 / סאטק שנאי / מונה שנאי / מונה מקביל לחשמל / סאטק משני זרם / 135 (שנאי)", product: "מונה PM135" },
-  { when: "בקר PURS / PURS / בקר אסיק / בקר למונה ASIC", product: "בקר PURS" },
-  { when: "בקר ROBUSTEL / ROBUSTEL / רובסטל / בקר סאטק", product: "בקר ROBUSTEL" },
-  { when: "סים פרטנר / SIM פרטנר / סים / כרטיס סים / SIM", product: "סים פרטנר" },
+  { when: "בקר PUSR / PURS / בקר אסיק / בקר למונה ASIC", product: "בקר PUSR" },
+  { when: "בקר Robustel / ROBUSTEL / רובסטל / בקר סאטק", product: "בקר Robustel" },
+  { when: "סים פרטנר / SIM פרטנר / סים / כרטיס סים / SIM", product: "סים Partner" },
 ];
 
 function buildPrompt(catalog: string[], examples: any[], text: string, orderType = "supplier"): string {
@@ -59,9 +59,9 @@ function buildPrompt(catalog: string[], examples: any[], text: string, orderType
   }
   const autoAddNote = orderType === "customer"
     ? "הזמנת לקוח — הוסף אוטומטית לפריטים (אלא אם הוזכרו כבר). הכלל: סים אחד לכל נקודת תקשורת; אנטנה אחת לכל בקר.\n" +
-      '• מוני לנדיס (E360PP/SP/CT) ומוני קרלו (E341) — תקשורת מובנית → "סים פרטנר" ×1 לכל מונה\n' +
+      '• מוני לנדיס (E360PP/SP/CT) ומוני קרלו (E341) — תקשורת מובנית → "סים Partner" ×1 לכל מונה\n' +
       '• מוני SATEC (EM133 / PM135) — מתקשרים דרך בקר → "בקר Robustel" ×1 לכל מונה\n' +
-      '• כל בקר (PUSR למוני ASIC, וגם Robustel) — הוסף "סים פרטנר" ×1 וגם "אנטנה" ×1 לכל בקר\n' +
+      '• כל בקר (PUSR למוני ASIC, וגם Robustel) — הוסף "סים Partner" ×1 וגם "אנטנה" ×1 לכל בקר\n' +
       '• אל תוסיף סים נפרד למוני SATEC עצמם — הסים שלהם נמצא בבקר ה-Robustel\n' +
       '• אל תוסיף "ספק כוח" — סוג הספק (פס-דין/שקע) נבחר ידנית באפליקציה, לא על ידך\n' +
       '• משנ"ז פיזי (ללא המילה "מונה", כגון "משנ"ז 250") — ציוד חשמלי, לא מונה → אין סים/אנטנה\n' +
