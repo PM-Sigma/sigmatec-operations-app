@@ -7,6 +7,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·57] 2026-06-24
+### Changed
+- **SIM auto-add now counts comm points, not meters (·57).** A SIM goes with every *communication point*:
+  direct-comm meters (Landis E360 / Carlo) + **every controller (PURS + ROBUSTEL)**. SATEC meters (EM133/PM135)
+  no longer take a direct SIM — their SIM lives in the ROBUSTEL. Same total in the symmetric case, but correct
+  when ROBUSTELs are ordered standalone. Applied in both the AI prompt and the offline matcher.
+
 ## [·56] 2026-06-24
 ### Added
 - **Extended product catalog + auto-add rules in `parse-order` (AI + local fallback)**

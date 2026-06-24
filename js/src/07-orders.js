@@ -139,14 +139,9 @@
         if (/em133/i.test(intakeNormalize(items[_ii].name))) items.splice(_ii, 1);
       }
     }
-    // Auto-add SIMs and controllers for customer orders.
+    // Auto-add controllers + SIMs for customer orders. ROBUSTEL is added FIRST so it counts toward SIMs.
     if (orderType === 'customer') {
-      var meterPts = 0;
-      items.forEach(function(it) {
-        if (/e360|em133|pm135|carlo/i.test(it.name)) meterPts += it.qty;
-        if (/purs/i.test(it.name)) meterPts += it.qty;
-      });
-      // ROBUSTEL: 1 per SATEC meter (EM133/PM135)
+      // ROBUSTEL: 1 per SATEC meter (EM133/PM135) — SATEC meters communicate through it.
       var satecQty = items.filter(function(it) { return /em133|pm135/i.test(it.name); })
         .reduce(function(s, it) { return s + it.qty; }, 0);
       if (satecQty > 0) {
@@ -157,13 +152,19 @@
           else { var robProd = catalog.find(function(n) { return /robustel/i.test(n); }); if (robProd) items.push({ name: robProd, qty: needRob, uncertain: false }); }
         }
       }
-      // SIM פרטנר: 1 per metering point
-      if (meterPts > 0) {
+      // SIM פרטנר: 1 per COMM POINT — direct-comm meters (Landis E360 / Carlo) + every controller (PURS + ROBUSTEL).
+      // SATEC meters (EM133/PM135) take NO direct SIM — their SIM lives in the ROBUSTEL counted above.
+      var simPts = 0;
+      items.forEach(function(it) {
+        if (/e360|carlo/i.test(it.name)) simPts += it.qty;
+        if (/purs|robustel/i.test(it.name)) simPts += it.qty;
+      });
+      if (simPts > 0) {
         var existSim = items.find(function(it) { return /סים/i.test(it.name); });
-        var needSim = meterPts - (existSim ? existSim.qty : 0);
+        var needSim = simPts - (existSim ? existSim.qty : 0);
         if (needSim > 0) {
           if (existSim) { existSim.qty += needSim; }
-          else { var simProd = catalog.find(function(n) { return /סים פרטנר/i.test(n); }); if (simProd) items.push({ name: simProd, qty: meterPts, uncertain: false }); }
+          else { var simProd = catalog.find(function(n) { return /סים פרטנר/i.test(n); }); if (simProd) items.push({ name: simProd, qty: simPts, uncertain: false }); }
         }
       }
     }
