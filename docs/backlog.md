@@ -3,20 +3,11 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·55** (2026-06-24)._
 
-## ⏳ AI parsing — re-deploy `parse-order` to go live (model resolved)
-`parse-order` is a Gemini→Groq chain, first valid answer wins. **Model resolved:** on עידן's key
-`gemini-2.0-flash`→429, `gemini-1.5-flash`→404 (1.5 retired); **`gemini-2.5-flash-lite` works** → it's the default.
-**Action:** re-deploy `parse-order` (paste updated `supabase/functions/parse-order/index.ts` — model baked in,
-no secret needed). Optional resilience: add `GROQ_API_KEY` (console.groq.com) so the chain has a fallback if
-Gemini ever 429s. Offline matcher = final fallback (·55, verified). Response field `provider` shows who answered.
-
-## ⏳ One re-deploy pending — activate the AI glossary (·52)
-AI order parsing is **set up**: עידן deployed `parse-order` + set `GEMINI_API_KEY` + ran `db/parse_corrections.sql`
-(verified: the fn returns the 401 EMS-gate, i.e. key present; the live AI parse couldn't be tested yet only
-because the browser EMS token had expired). **Action:** re-deploy `parse-order` once more to pick up the new
-**alias glossary** (·52) baked into its prompt (133→EM133, Landis ישיר/חד-פאזי/משנ"ז → E360PP/SP/CT). The offline
-matcher already has them (live). To add aliases later: edit `ALIASES` in `supabase/functions/parse-order/index.ts`
-(+ `INTAKE_ALIASES` in `07-orders.js`), or let it learn from accepted orders (parse_corrections few-shot).
+## ⏳ Re-deploy `parse-order` — pick up ·56 changes
+**Action:** Supabase → Edge Functions → `parse-order` → paste updated `supabase/functions/parse-order/index.ts` → Deploy.
+Changes in this version: Carlo/PM135/PURS/ROBUSTEL/SIM aliases + auto-add rules + `orderType` param + Groq default
+model `llama-3.1-8b-instant`. **Optional:** add `GROQ_API_KEY` secret (console.groq.com) for the Groq fallback path.
+The app (·56) already has the matching offline matcher — parsing works in degraded mode until redeploy.
 
 ## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 

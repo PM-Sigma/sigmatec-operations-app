@@ -7,15 +7,24 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
-## [Unreleased]
+## [·56] 2026-06-24
+### Added
+- **Extended product catalog + auto-add rules in `parse-order` (AI + local fallback)**
+  - New aliases: **Carlo Gavachi E341** (קרלו/Carlo/E341), **מונה PM135** (סאטק שנאי/מונה מקביל/סאטק משני זרם),
+    **בקר PURS** (בקר אסיק), **בקר ROBUSTEL** (extended), **סים פרטנר** (default SIM).
+  - Auto-add rules for **הזמנת לקוח** (customer orders): 1 SIM per metering point (meter or PURS controller),
+    1 ROBUSTEL per SATEC meter (EM133/PM135). Supplier orders: no auto-add.
+  - Local fallback (offline matcher) applies the same rules when AI is unavailable.
+  - PM135 / EM133 conflict: "סאטק משני זרם" now routes to PM135 instead of EM133.
+  - Quick-example chips above the raw-text parse box (per order type: customer/supplier).
+- **Groq backup wired** — default model updated to `llama-3.1-8b-instant`; Gemini (`gemini-2.5-flash-lite`)
+  still goes first; Groq activates when `GROQ_API_KEY` secret is set. `orderType` now passed to the function.
+
+## [Unreleased — fn-only]
 ### Changed
-- **`parse-order` is now a provider chain — Gemini → Groq, first valid answer wins (fn-only, no app version
-  bump).** עידן's Gemini key returned `429 quota exceeded` even on a single call (account/region free-tier issue,
-  not our code — verified: fn deployed, key set, EMS gate + connection all green). So the function now tries each
-  configured AI key in order and uses the first non-error result; default Gemini model switched to
-  **`gemini-1.5-flash`** (more reliably free); added **Groq** (`GROQ_API_KEY`, default `llama-3.3-70b-versatile`).
-  Response includes `provider` so you can see which answered. **Action:** re-deploy `parse-order` + add `GROQ_API_KEY`
-  (console.groq.com) so there's a guaranteed-free path. See operations.md.
+- **`parse-order` is now a provider chain — Gemini → Groq, first valid answer wins.** עידן's Gemini key
+  returned `429 quota exceeded` even on a single call. Default Gemini model `gemini-2.5-flash-lite` (confirmed
+  200 OK). Groq (`GROQ_API_KEY`, default `llama-3.1-8b-instant`) as fallback.
 
 ### Fixed
 - **Order parsing: catastrophic all-meters match + Landis/CT rules (·53-55)** — a generic "מונה"/"מונים"

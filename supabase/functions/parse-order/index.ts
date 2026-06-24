@@ -35,14 +35,19 @@ async function emsValid(base: string, token: string): Promise<boolean> {
 
 // Curated business aliases — authoritative term→product rules, ALWAYS applied. Add new ones here.
 const ALIASES: { when: string; product: string }[] = [
-  { when: '"133" / מונה 133 / סאטק', product: "מונה EM133" },
+  { when: '"133" / מונה 133 / EM133 / סאטק תלת-פאזי רגיל', product: "מונה EM133" },
   { when: "מונה לנדיס ללא וריאנט (ברירת מחדל)", product: "מונה E360PP" },
   { when: "מונה לנדיס ישיר לקו", product: "מונה E360PP" },
   { when: "מונה לנדיס חד פאזי", product: "מונה E360SP" },
   { when: 'מונה לנדיס משנה-זרם / מונה משנ"ז', product: "מונה E360CT" },
+  { when: "קרלו / Carlo / E341 / קרלו גאווקי / ישיר לקו קרלו", product: "מונה Carlo Gavachi E341" },
+  { when: "PM135 / סאטק שנאי / מונה שנאי / מונה מקביל לחשמל / סאטק משני זרם / 135 (שנאי)", product: "מונה PM135" },
+  { when: "בקר PURS / PURS / בקר אסיק / בקר למונה ASIC", product: "בקר PURS" },
+  { when: "בקר ROBUSTEL / ROBUSTEL / רובסטל / בקר סאטק", product: "בקר ROBUSTEL" },
+  { when: "סים פרטנר / SIM פרטנר / סים / כרטיס סים / SIM", product: "סים פרטנר" },
 ];
 
-function buildPrompt(catalog: string[], examples: any[], text: string): string {
+function buildPrompt(catalog: string[], examples: any[], text: string, orderType = "supplier"): string {
   const cat = catalog.map((c) => "- " + c).join("\n");
   const glossary = ALIASES.map((a) => "- " + a.when + " ⟵ " + a.product).join("\n");
   let ex = "";
@@ -52,12 +57,21 @@ function buildPrompt(catalog: string[], examples: any[], text: string): string {
     ex += "\nטקסט: " + String(e.raw_text).replace(/\s+/g, " ").slice(0, 300) +
           "\nפריטים: " + JSON.stringify({ items: items.map((i: any) => ({ name: i.name, qty: i.qty })) }) + "\n";
   }
+  const autoAddNote = orderType === "customer"
+    ? "הזמנת לקוח — הוסף אוטומטית לפריטים (אלא אם הוזכרו כבר):\n" +
+      '• לכל מונה (E360PP, E360SP, E360CT, EM133, PM135, Carlo Gavachi E341) — הוסף "סים פרטנר" ×1\n' +
+      '• לבקר PURS (= חיבור נקודת מדידה ASIC) — הוסף גם "סים פרטנר" ×1\n' +
+      '• לכל מונה SATEC (EM133 / PM135) — הוסף גם "בקר ROBUSTEL" ×1\n' +
+      '• משנ"ז פיזי (ללא המילה "מונה", כגון "משנ"ז 250") — ציוד חשמלי, לא מונה → אין סים\n' +
+      "• אם המשתמש ציין סים/בקר במפורש — אל תכפיל, עדכן כמות"
+    : "הזמנת ספק — אל תוסיף פריטים שלא הוזכרו מפורשות בטקסט.";
   return [
     "אתה מנתח בקשות הזמנה לחברת מוני אנרגיה ישראלית. המר את טקסט הבקשה (עברית) לרשימת פריטים מהקטלוג בלבד.",
     "כללים: לכל פריט מבוקש בחר את השם המדויק הקרוב ביותר מהקטלוג (העתק את המחרוזת בדיוק). חלץ כמויות (כולל מילים בעברית כמו \"שלושה\"). אם אין כמות — 1. התעלם מטקסט שאינו מוצר. אל תמציא מוצרים שלא בקטלוג.",
     "מילון מונחים מחייב — כשמופיע הביטוי, מַפֶּה למוצר המדויק (גובר על ניחוש):\n" + glossary +
       "\nלנדיס: 'מונה לנדיס' ללא פירוט וריאנט → ברירת מחדל מונה E360PP. לבקשה גנרית אחת אל תחזיר כמה סוגי מונים — בחר אחד בלבד." +
       "\nמשנ\\\"ז: עם המילה 'מונה' ('מונה משנ\\\"ז' / 'מונה משנה-זרם') → מונה E360CT. בלי המילה 'מונה' ('משנ\\\"ז 250' וכו') → משנ\\\"ז פיזי (מוצר נפרד), לא E360CT.",
+    autoAddNote,
     "קטלוג:\n" + cat,
     examples.length ? "דוגמאות (תיקונים קודמים שאושרו — למד מהם את המיפוי):" + ex : "",
     "כעת נתח את הטקסט הבא והחזר JSON בלבד בפורמט {\"items\":[{\"name\":\"<שם מהקטלוג>\",\"qty\":<מספר>}]}:",
@@ -106,7 +120,7 @@ Deno.serve(async (req) => {
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
   const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash-lite";   // confirmed working for our key
   const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") || "";
-  const GROQ_MODEL = Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile";
+  const GROQ_MODEL = Deno.env.get("GROQ_MODEL") || "llama-3.1-8b-instant";
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(ORIGIN) });
   if (req.method !== "POST") return json({ error: "POST only" }, 405, ORIGIN);
@@ -118,6 +132,7 @@ Deno.serve(async (req) => {
 
   const text = String(body.text || "").slice(0, 4000).trim();
   const catalog = Array.isArray(body.catalog) ? body.catalog.map(String).slice(0, 300) : [];
+  const orderType = String(body.orderType || "supplier");
   if (!text) return json({ items: [] }, 200, ORIGIN);
 
   // few-shot: recent accepted text→items pairs (graceful if the table/policy isn't there yet)
@@ -128,7 +143,7 @@ Deno.serve(async (req) => {
     if (r.ok) examples = await r.json();
   } catch { /* no examples yet */ }
 
-  const prompt = buildPrompt(catalog, examples, text);
+  const prompt = buildPrompt(catalog, examples, text, orderType);
   const providers: { name: string; run: () => Promise<any[]> }[] = [];
   if (GEMINI_API_KEY) providers.push({ name: "gemini:" + GEMINI_MODEL, run: () => callGemini(GEMINI_API_KEY, GEMINI_MODEL, prompt) });
   if (GROQ_API_KEY) providers.push({ name: "groq:" + GROQ_MODEL, run: () => callGroq(GROQ_API_KEY, GROQ_MODEL, prompt) });

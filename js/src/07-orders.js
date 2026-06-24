@@ -12,6 +12,12 @@
     'לנדיס ישיר':'e360pp', 'ישיר לקו':'e360pp', 'חד פאזי':'e360sp',
     // "מונה משנ\"ז" (with the word מונה) → the E360CT meter; a bare "משנ\"ז 250" stays the physical CT product
     'מונה משנה זרם':'e360ct', 'מונה משנז':'e360ct',
+    // Carlo Gavachi E341
+    'carlo':'carlo', 'קרלו':'carlo', 'e341':'carlo', 'gavazzi':'carlo',
+    // PM135 — SATEC CT/transformer meter (more specific than generic 'סאטק')
+    'pm135':'pm135', 'מונה שנאי':'pm135', 'מונה מקביל':'pm135',
+    // PURS controller (ASIC meters) / ROBUSTEL (SATEC meters)
+    'purs':'purs',
     'בקר':'בקר', 'בקרים':'בקר', 'robustel':'robustel',
     'רובסטל':'robustel', 'סים':'סים', 'סימים':'סים', 'sim':'סים'
     // NOTE: removed generic 'מונה'/'מונים' — they matched EVERY meter (all names contain "מונה").
@@ -89,7 +95,7 @@
   // (otherwise any text with "מונה" matched every meter). The discriminating token (e360pp, em133…) matches.
   const INTAKE_STOP = ['מונה', 'מונים'];
   // Deterministic keyword/alias matcher against the catalog → [{name,qty,uncertain}].
-  function parseLocalToItems(raw) {
+  function parseLocalToItems(raw, orderType) {
     const norm = intakeNormalize(raw);
     const catalog = getActiveProducts().map(p => p.name);
     const items = [];
@@ -127,6 +133,40 @@
     if (/מונה\s*משנ/.test(norm)) {
       for (let i = items.length - 1; i >= 0; i--) { if (/^משנ/.test(intakeNormalize(items[i].name))) items.splice(i, 1); }
     }
+    // "סאטק משני זרם" / PM135 → prefer PM135 over generic EM133 match (local fallback only).
+    if (/pm135|סאטק.*(משני.?זרם|שנאי)|מונה שנאי/.test(norm) && items.some(it => /pm135/i.test(it.name))) {
+      for (var _ii = items.length - 1; _ii >= 0; _ii--) {
+        if (/em133/i.test(intakeNormalize(items[_ii].name))) items.splice(_ii, 1);
+      }
+    }
+    // Auto-add SIMs and controllers for customer orders.
+    if (orderType === 'customer') {
+      var meterPts = 0;
+      items.forEach(function(it) {
+        if (/e360|em133|pm135|carlo/i.test(it.name)) meterPts += it.qty;
+        if (/purs/i.test(it.name)) meterPts += it.qty;
+      });
+      // ROBUSTEL: 1 per SATEC meter (EM133/PM135)
+      var satecQty = items.filter(function(it) { return /em133|pm135/i.test(it.name); })
+        .reduce(function(s, it) { return s + it.qty; }, 0);
+      if (satecQty > 0) {
+        var existRob = items.find(function(it) { return /robustel/i.test(it.name); });
+        var needRob = satecQty - (existRob ? existRob.qty : 0);
+        if (needRob > 0) {
+          if (existRob) { existRob.qty += needRob; }
+          else { var robProd = catalog.find(function(n) { return /robustel/i.test(n); }); if (robProd) items.push({ name: robProd, qty: needRob, uncertain: false }); }
+        }
+      }
+      // SIM פרטנר: 1 per metering point
+      if (meterPts > 0) {
+        var existSim = items.find(function(it) { return /סים/i.test(it.name); });
+        var needSim = meterPts - (existSim ? existSim.qty : 0);
+        if (needSim > 0) {
+          if (existSim) { existSim.qty += needSim; }
+          else { var simProd = catalog.find(function(n) { return /סים פרטנר/i.test(n); }); if (simProd) items.push({ name: simProd, qty: meterPts, uncertain: false }); }
+        }
+      }
+    }
     const seen = new Set();
     return items.filter(it => { if (seen.has(it.name)) return false; seen.add(it.name); return true; });
   }
@@ -136,13 +176,13 @@
   // AI-first via the `parse-order` Edge Function (Gemini + few-shot from past corrections), with a
   // deterministic local fallback. Until the function is deployed + GEMINI_API_KEY is set, the call
   // returns no items (404/503) → we fall back to the catalog matcher, so intake never breaks.
-  async function parseRawToItems(raw) {
+  async function parseRawToItems(raw, orderType) {
     try {
       var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
       var r = await fetch(SB_URL + '/functions/v1/parse-order', {
         method: 'POST',
         headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: tok, text: raw, catalog: getActiveProducts().map(p => p.name) })
+        body: JSON.stringify({ token: tok, text: raw, catalog: getActiveProducts().map(p => p.name), orderType: orderType || 'supplier' })
       });
       var res = await r.json().catch(function () { return {}; });
       if (r.ok && res && Array.isArray(res.items) && res.items.length) {
@@ -150,7 +190,7 @@
           .map(function (it) { return { name: it.name, qty: parseInt(it.qty) || 1, uncertain: false }; });
       }
     } catch (e) { /* function not deployed / no key / offline → deterministic fallback below */ }
-    return parseLocalToItems(raw);
+    return parseLocalToItems(raw, orderType);
   }
   function renderIntakeGrid() {
     const catalog = getActiveProducts().map(p => p.name);
@@ -564,6 +604,7 @@
     var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
     var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
     var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
+    renderQuickExamples(t);
   };
   function invNewOrder() {
     if (!checkEditPermission()) return;
@@ -680,6 +721,32 @@
     invToggleDistribution();
   }
 
+  // Quick-fill example texts for the AI parse textarea, shown as chips above the input.
+  var ORDER_QUICK_EXAMPLES = {
+    customer: [
+      { label: 'לנדיס + משנ"ז', text: '3 מונים לנדיס ישיר לקו ו5 מוני משנז לנדיס' },
+      { label: 'סאטק תלת-פאזי', text: '4 מונים סאטק רגילים תלת פאזי' },
+      { label: 'לנדיס מעורב', text: '35 מונים שמתוכם 20 לנדיס חד פאזי' },
+      { label: 'PM135 + בקרים', text: '2 מונים שנאי סאטק PM135 וגם 2 בקרים ROBUSTEL' },
+    ],
+    supplier: [
+      { label: 'קרלו + לנדיס', text: '150 מונים ישיר לקו קרלו, 20 מוני לנדיס רגילים, 5 משנזים לנדיס, 10 סאטק משני זרם' },
+      { label: 'ASIC + סאטק', text: '10 בקרים למוני אסיק ו4 מונים סאטק רגילים תלת פאזי' },
+      { label: 'E360PP', text: '20 מונים לנדיס ישיר לקו' },
+    ],
+  };
+  function renderQuickExamples(orderType) {
+    var el = document.getElementById('invOrderExamples');
+    if (!el) return;
+    window._qex = ORDER_QUICK_EXAMPLES[orderType] || ORDER_QUICK_EXAMPLES.supplier;
+    el.innerHTML = '<div style="font-size:11px;color:#64748b;margin-bottom:3px;">💡 מילוי מהיר:</div>' +
+      window._qex.map(function(ex, i) {
+        return '<button type="button" onclick="document.getElementById(\'invOrderRaw\').value=window._qex[' + i + '].text" ' +
+          'style="font-size:11px;background:#f3e8ff;color:#7c3aed;border:1px solid #d8b4fe;border-radius:12px;' +
+          'padding:2px 9px;margin:2px 3px 2px 0;cursor:pointer;">' + ex.label + '</button>';
+      }).join('');
+  }
+
   // Parse the raw customer-requirement text into order items (AI when available, local fallback).
   async function orderParseRaw(btn) {
     const raw = (document.getElementById('invOrderRaw').value || '').trim();
@@ -687,7 +754,7 @@
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '🧠 מנתח...'; }
     try {
-      const items = await parseRawToItems(raw);
+      const items = await parseRawToItems(raw, window._invOrderType || 'supplier');
       if (!items.length) { alert('לא זוהו פריטים מהטקסט — הוסף ידנית.'); return; }
       items.forEach(it => {
         const exists = invOrderItems.find(i => i.name === it.name);
