@@ -6,7 +6,7 @@
 // Secrets (Edge Functions → Secrets) — set at least ONE AI key:
 //   GEMINI_API_KEY — free key from https://aistudio.google.com (any Google account).
 //   GROQ_API_KEY   — free key from https://console.groq.com.
-//   GEMINI_MODEL   — optional (default gemini-2.5-flash-lite — 1.5 is retired/404). GROQ_MODEL — default llama-3.3-70b-versatile.
+//   GEMINI_MODEL   — optional (default gemini-2.5-flash-lite — 1.5 is retired/404). GROQ_MODEL — default llama-3.1-8b-instant.
 //   EMS_API_BASE   — optional (defaults to https://api.sigmatec-ems.com) — gate by EMS login.
 //   APP_ORIGIN     — optional (defaults to https://pm-sigma.github.io).
 // GRACEFUL: no key → 503; all providers fail → 502 {error} — the client then falls back to its local matcher.
