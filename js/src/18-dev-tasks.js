@@ -248,19 +248,33 @@
     '</details>';
   }
 
-  async function renderDevTasks() {
-    var el = document.getElementById('devTasksContent');
-    if (!el) return;
-    if (!canSeeDevTasks()) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">אין הרשאה לעמוד זה.</div></div>'; return; }
-    el.innerHTML = '<div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>';
-    var tasks;
-    try { tasks = await devFetchTasks(window._devState); }
-    catch (e) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks()">🔄 נסה שוב</button></div></div>'; return; }
+  // ---- Offline cache: tickets persist in localStorage so the page paints instantly (even before
+  // EMS login) and only re-fetches in the background once connected. Keyed by state (open/all). ----
+  var DEV_CACHE_KEY = 'dev_tasks_cache_v1';
+  function devLoadCache(state) {
+    try { return (JSON.parse(localStorage.getItem(DEV_CACHE_KEY) || '{}')[state]) || null; } catch (e) { return null; }
+  }
+  function devSaveCache(state, tasks) {
+    try {
+      var c = {}; try { c = JSON.parse(localStorage.getItem(DEV_CACHE_KEY) || '{}'); } catch (e) {}
+      c[state] = { tasks: tasks, at: Date.now() };
+      localStorage.setItem(DEV_CACHE_KEY, JSON.stringify(c));
+    } catch (e) { /* quota — caching is best-effort, never blocks the page */ }
+  }
+  function devAgo(ts) {
+    if (!ts) return '';
+    var m = Math.floor((Date.now() - ts) / 60000);
+    if (m < 1) return 'הרגע';
+    if (m < 60) return 'לפני ' + m + ' ד׳';
+    var h = Math.floor(m / 60);
+    if (h < 24) return 'לפני ' + h + ' ש׳';
+    return 'לפני ' + Math.floor(h / 24) + ' ימים';
+  }
 
+  // tasks[] → window._devData (+ DEV_CHILDREN). Shared by the cache paint and the live fetch.
+  // A task is a ROOT when it has no parent, or its parent isn't in the set (orphans still surface).
+  function devBuild(tasks) {
     tasks.forEach(function (t) { t._p = devParseT(t.title); });
-
-    // Build the GitHub sub-issue hierarchy. A task is a ROOT when it has no parent, or its parent
-    // isn't in the fetched set (e.g. a closed parent while viewing "open") → orphans still surface.
     var byNum = {}; tasks.forEach(function (t) { byNum[t.number] = t; });
     DEV_CHILDREN = {};
     var roots = [];
@@ -273,7 +287,6 @@
       (DEV_CHILDREN[t.number] || []).forEach(function (c) { n += subtreeSize(c, depth + 1); });
       return n;
     };
-    // group ROOTS by topic; topic count = total tasks across its subtrees (matches what nests inside it)
     var topics = {};
     roots.forEach(function (t) {
       var tp = (topics[t._p.topic] = topics[t._p.topic] || { n: 0, roots: [] });
@@ -281,10 +294,45 @@
     });
     var topicNames = Object.keys(topics).sort(function (a, b) { return topics[b].n - topics[a].n; });
     var colors = topicNames.map(function (_, i) { return DEV_TOPIC_COLORS[i % DEV_TOPIC_COLORS.length]; });
-
     window._devData = { tasks: tasks, topics: topics, topicNames: topicNames, colors: colors };
-    window._devFilter = null;   // a fresh fetch (refresh / state change) starts unfiltered
-    devPaint();
+  }
+
+  // Cache-first: paint cached tickets immediately (instant, works offline / pre-login), then refresh
+  // from GitHub in the background when an EMS token is available, and repaint when it returns.
+  async function renderDevTasks() {
+    var el = document.getElementById('devTasksContent');
+    if (!el) return;
+    if (!canSeeDevTasks()) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">אין הרשאה לעמוד זה.</div></div>'; return; }
+
+    var state = window._devState;
+    var cached = devLoadCache(state);
+    var hasCache = !!(cached && cached.tasks && cached.tasks.length);
+    var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+
+    if (hasCache) {
+      devBuild(cached.tasks);
+      window._devCache = { at: cached.at, refreshing: !!tok };
+      devPaint();
+    } else {
+      window._devCache = null;
+      el.innerHTML = '<div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>';
+    }
+
+    if (!tok) {   // no connection → show the cache (if any), otherwise ask to connect
+      if (!hasCache) el.innerHTML = '<div class="dev-wrap"><div class="dev-error">יש להתחבר ל-EMS כדי לטעון משימות פיתוח. <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks()">🔄 נסה שוב</button></div></div>';
+      return;
+    }
+
+    try {                                   // background refresh
+      var tasks = await devFetchTasks(state);
+      devSaveCache(state, tasks);
+      devBuild(tasks);
+      window._devCache = { at: Date.now(), refreshing: false };
+      devPaint();
+    } catch (e) {
+      if (hasCache) { window._devCache = { at: cached.at, refreshing: false, error: e.message }; devPaint(); }  // keep the cache, flag the failure
+      else el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks()">🔄 נסה שוב</button></div></div>';
+    }
   }
 
   // Paint the page from the cached data + current filter — no re-fetch. Called by renderDevTasks
@@ -301,12 +349,17 @@
 
     var active = function (s) { return window._devState === s ? ' active' : ''; };
     var fchip = f ? '<div class="dev-fchip">מציג: ' + devEsc(devFilterLabel(f)) + ' <button type="button" onclick="devSetFilter(null)" aria-label="נקה סינון">✕</button></div>' : '';
+    // cache line: shows it's served from the local store + freshness + (refreshing… / refresh-failed)
+    var c = window._devCache, cacheLine = '';
+    if (c) cacheLine = '<div class="dev-cacheline">📦 נשמר מקומית · עודכן ' + devEsc(devAgo(c.at)) +
+      (c.refreshing ? ' · <span class="dev-refreshing">מרענן…</span>' : '') +
+      (c.error ? ' · <span class="dev-refresherr">רענון נכשל</span>' : '') + '</div>';
     var head = '<div class="dev-toolbar">' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
-      '</div></div>' + fchip;
+      '</div></div>' + cacheLine + fchip;
 
     // "בפיתוח עכשיו" spotlight — hidden while a filter is active (focused view).
     var ipBox = '';
@@ -369,6 +422,6 @@
     });
   };
 
-  window.devSetState = function (s) { window._devState = s; renderDevTasks(); };
+  window.devSetState = function (s) { window._devState = s; window._devFilter = null; renderDevTasks(); };
   window.renderDevTasks = renderDevTasks;
   window.canSeeDevTasks = canSeeDevTasks;

@@ -7,6 +7,17 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·77] 2026-06-24
+### Added — dev page: offline ticket cache (פיתוח)
+- **Tickets now persist in `localStorage`** (`dev_tasks_cache_v1`, keyed by open/all) so the פיתוח page
+  **paints instantly from cache** — even before EMS login (a returning עידן keeps access via the persisted
+  `dashboard_user_v1`/role, independent of the EMS token). No more waiting for a full GitHub fetch every time.
+- **Refresh-on-connect:** when an EMS token is present the page still fetches in the background and repaints
+  when it returns; the cache is updated. A status line shows **"📦 נשמר מקומית · עודכן <מתי> · מרענן…"**, and a
+  failed refresh keeps the cached view (flagged "רענון נכשל") instead of erroring out.
+- Refactor: `devBuild(tasks)` (tasks → `_devData`+hierarchy) is shared by the cache paint and the live fetch;
+  the active filter now survives a background refresh (only `devSetState` resets it).
+
 ## [·75] 2026-06-24
 ### Changed — dev page: priority-colored branches (פיתוח)
 - **Four distinct priority colors** (was: קריטי and גבוהה shared one color, confusing). קריטי=**red** `#dc2626` ·
