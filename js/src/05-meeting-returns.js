@@ -92,6 +92,9 @@
         </select>
         <input type="number" min="1" value="${r.qty}" onchange="visitReturnedItems[${idx}].qty = parseInt(this.value)||1" style="width:50px;padding:3px;border-radius:4px;border:1px solid #fecaca;text-align:center;font-size:11px;">
         <input type="text" value="${(r.reason||'').replace(/"/g,'&quot;')}" placeholder="סיבה (קצר)" onchange="visitReturnedItems[${idx}].reason = this.value" style="flex:1.5;padding:3px 6px;border-radius:4px;border:1px solid #fecaca;font-size:11px;">
+        <label title="תקין — להחזיר למלאי העובד המבקר. לא מסומן = תקול (יוצא מהמלאי)." style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#15803d;white-space:nowrap;cursor:pointer;">
+          <input type="checkbox" ${r.toStock ? 'checked' : ''} onchange="visitReturnedItems[${idx}].toStock = this.checked" style="cursor:pointer;">↩️ למלאי
+        </label>
         <button type="button" onclick="visitReturnedItems.splice(${idx},1); renderReturnedItems();" style="background:#dc2626;color:white;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
       </div>
     `).join('');

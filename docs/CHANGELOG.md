@@ -9,6 +9,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 
 ## [Unreleased]
 ### Added
+- **Visit return → "↩️ למלאי" checkbox (·50)** — in the visit summary's "ציוד שהוחזר" rows, a per-item checkbox.
+  Checked = the item is intact → goes back to the **visiting employee's** available stock (movement
+  kibbutz→visitor, `return_restock`) and is logged as already-`restocked` (won't sit pending in the returns
+  tracker). Unchecked = defective → the `תקול` bucket as before. (`05-meeting-returns.js` row UI,
+  `09-visits.js` save routing, `01-data.js` returns-row status.)
 - **Inventory two-type order flow (·49)** — orders now carry an explicit **`orderType`** with a toggle in the
   new-order modal:
   - 🏭 **הזמנת ספק** (raises stock): approval routed by size — **≤10 items → אביאם**, **>10 → עמיחי**

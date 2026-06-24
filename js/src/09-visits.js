@@ -327,10 +327,15 @@
           else if (delta < 0) postMovement(name, currentKibbutz, source, -delta, 'visit_supply_edit'); // reverse over-supply
         });
 
-        // Defective returns leave the kibbutz → 'תקול' bucket (NOT back into available stock).
+        // Returns leave the kibbutz. "↩️ למלאי" (toStock) = intact → back to the VISITING employee's
+        // available stock; otherwise defective → the 'תקול' bucket (stays out of available stock).
         // Only on a new visit: edits can't reliably diff returns (not loaded with the visit).
         if (!isEditing) {
-          (visit.returnedItems || []).forEach(r => postMovement(r.name, currentKibbutz, DEFECTIVE_LOCATION, parseInt(r.qty) || 0, 'return_defective'));
+          const visitorLoc = (typeof STOCK_HOLDERS !== 'undefined' && STOCK_HOLDERS.indexOf(visitor) !== -1) ? visitor : 'משרד';
+          (visit.returnedItems || []).forEach(r => {
+            if (r.toStock) postMovement(r.name, currentKibbutz, visitorLoc, parseInt(r.qty) || 0, 'return_restock');
+            else postMovement(r.name, currentKibbutz, DEFECTIVE_LOCATION, parseInt(r.qty) || 0, 'return_defective');
+          });
         }
 
         if (movementPromises.length) Promise.all(movementPromises).then(() => setTimeout(refreshData, 1500));

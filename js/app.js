@@ -508,7 +508,7 @@
       const id = b.id || genId('v');
       await sbUpsert('visits', 'id', { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', created_at: b.createdAt || nowISO(), workday: !!b.workday });
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
-        const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: 'open' }));
+        const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: it.toStock ? 'restocked' : 'open' }));
         if (rows.length) await sbInsert('returns', rows);
       }
       return { ok: true, id };
@@ -1739,6 +1739,9 @@
         </select>
         <input type="number" min="1" value="${r.qty}" onchange="visitReturnedItems[${idx}].qty = parseInt(this.value)||1" style="width:50px;padding:3px;border-radius:4px;border:1px solid #fecaca;text-align:center;font-size:11px;">
         <input type="text" value="${(r.reason||'').replace(/"/g,'&quot;')}" placeholder="סיבה (קצר)" onchange="visitReturnedItems[${idx}].reason = this.value" style="flex:1.5;padding:3px 6px;border-radius:4px;border:1px solid #fecaca;font-size:11px;">
+        <label title="תקין — להחזיר למלאי העובד המבקר. לא מסומן = תקול (יוצא מהמלאי)." style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#15803d;white-space:nowrap;cursor:pointer;">
+          <input type="checkbox" ${r.toStock ? 'checked' : ''} onchange="visitReturnedItems[${idx}].toStock = this.checked" style="cursor:pointer;">↩️ למלאי
+        </label>
         <button type="button" onclick="visitReturnedItems.splice(${idx},1); renderReturnedItems();" style="background:#dc2626;color:white;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
       </div>
     `).join('');
@@ -3543,10 +3546,15 @@
           else if (delta < 0) postMovement(name, currentKibbutz, source, -delta, 'visit_supply_edit'); // reverse over-supply
         });
 
-        // Defective returns leave the kibbutz → 'תקול' bucket (NOT back into available stock).
+        // Returns leave the kibbutz. "↩️ למלאי" (toStock) = intact → back to the VISITING employee's
+        // available stock; otherwise defective → the 'תקול' bucket (stays out of available stock).
         // Only on a new visit: edits can't reliably diff returns (not loaded with the visit).
         if (!isEditing) {
-          (visit.returnedItems || []).forEach(r => postMovement(r.name, currentKibbutz, DEFECTIVE_LOCATION, parseInt(r.qty) || 0, 'return_defective'));
+          const visitorLoc = (typeof STOCK_HOLDERS !== 'undefined' && STOCK_HOLDERS.indexOf(visitor) !== -1) ? visitor : 'משרד';
+          (visit.returnedItems || []).forEach(r => {
+            if (r.toStock) postMovement(r.name, currentKibbutz, visitorLoc, parseInt(r.qty) || 0, 'return_restock');
+            else postMovement(r.name, currentKibbutz, DEFECTIVE_LOCATION, parseInt(r.qty) || 0, 'return_defective');
+          });
         }
 
         if (movementPromises.length) Promise.all(movementPromises).then(() => setTimeout(refreshData, 1500));

@@ -1,7 +1,14 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·49** (2026-06-24)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·50** (2026-06-24)._
+
+## 🟡 In discussion — AI order parsing + learning loop
+- **New-order text→items**: parseRequest is **disabled** on the Apps Script backend → currently only the local
+  keyword matcher runs (weak). Plan: a Supabase `parse-order` fn → **Gemini Flash (free key)** with the catalog +
+  recent **corrections as few-shot** (learns from edits), graceful fallback to the local matcher. Plus a
+  `parse_corrections` table + derived alias dict (upgrades the offline matcher too). Single free-text box + very
+  accessible "+ הוסף שורה". **Needs:** a free Gemini API key from עידן + a new fn deploy + a small SQL table.
 
 ## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 
