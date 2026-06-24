@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·73] 2026-06-24
+### Added — new-version watcher (`19-version-check.js`)
+- The app now **detects a new deploy** (polls the live `index.html` `app.js?v=` stamp every 2 min + on tab focus):
+  - **Active user** → non-blocking top banner **"🔄 עלתה גרסה חדשה — רענן עכשיו"** (reload keeps them logged in).
+  - **Idle ≥5 min or hidden tab** → **auto-reload** onto the new version.
+- Reload only — login persists (EMS token in localStorage is never cleared). Per עידן's choice (reload, not full logout).
+- Note: only protects users already on ·73+. Current ·72 users get it from their next load onward.
+
 ## [·72] 2026-06-24
 ### Changed
 - **Parse-source badge moved inline** to the end of the "📦 פריטים בהזמנה:" label (was on its own line under the
