@@ -19,6 +19,29 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 
 ---
 
+## ⚠️ TWO SESSIONS ACTIVE IN PARALLEL — stay in your lane (2026-06-24, app **·63**)
+
+Two Claude sessions are working this repo at the same time. **Edit only your lane's files**, and
+**`git pull --rebase` the other's commits *before* you `node build.mjs`** — the build regenerates the
+ENTIRE `js/app.js` from every `js/src/*.js`, so building on a stale tree silently **reverts** the other
+lane's bundle. Both branches commit on `dev`.
+
+| Lane | OWNS (edit only these) | Do NOT touch |
+|------|------------------------|--------------|
+| 🧑‍💻 **DEV-PAGE** (the new session) | `js/src/18-dev-tasks.js` · `supabase/functions/github/` · the `.dev-*` rules in `css/app.css` · the `#dev-view` markup in `index.html` | everything in the inventory lane → |
+| 📦 **INVENTORY** (other session) | `js/src/06-products.js` · `07-orders.js` · `08-inventory.js` · `13-ems.js` (`createTask`) · `supabase/functions/parse-order/` · inventory CSS/markup · `02` order-status | the dev-page files ← |
+
+**Shared build artifacts** (`js/app.js`, `VERSION`, the `?v=` stamp in `index.html`): both `build.mjs` runs
+rewrite them. Rule: **pull → build → stage ONLY your `js/src/*.js` + the regenerated `js/app.js`/`index.html`/`VERSION`
+→ commit → push promptly.** Never `git add -A` (it sweeps the other lane's WIP). If the VERSION numbers race, the
+higher one wins on merge — don't fight it. When in doubt, pull and rebuild before pushing.
+
+**This (dev-page) session's scope:** the פיתוח page is fully functional (sub-issue tree + live Projects-v2
+priority/status). Open dev-page work = **phase-2 editing** (write-capable token to set Priority/Status/sprint from
+the app) + any UI tweaks עידן requests. Do **not** edit orders/inventory/parse-order — the other session owns those.
+
+---
+
 ## 📁 Files (load on demand)
 
 | File | When to read it |
