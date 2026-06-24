@@ -1,14 +1,14 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·50** (2026-06-24)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·51** (2026-06-24)._
 
-## 🟡 In discussion — AI order parsing + learning loop
-- **New-order text→items**: parseRequest is **disabled** on the Apps Script backend → currently only the local
-  keyword matcher runs (weak). Plan: a Supabase `parse-order` fn → **Gemini Flash (free key)** with the catalog +
-  recent **corrections as few-shot** (learns from edits), graceful fallback to the local matcher. Plus a
-  `parse_corrections` table + derived alias dict (upgrades the offline matcher too). Single free-text box + very
-  accessible "+ הוסף שורה". **Needs:** a free Gemini API key from עידן + a new fn deploy + a small SQL table.
+## ⏳ Awaiting key — AI order parsing (frontend + function BUILT, ·51)
+Everything is shipped and graceful; the AI lights up after **3 steps** (see `operations.md` → "Edge Function
+(parse-order)"): **(1)** free Gemini key from aistudio.google.com (any account — personal Gmail if the org one
+is blocked); **(2)** create the `parse-order` function (paste `supabase/functions/parse-order/index.ts`) + set
+secret **`GEMINI_API_KEY`** + deploy; **(3)** run `db/parse_corrections.sql`. No other function changes. Until
+then the new-order box falls back to the (weak) local matcher — no breakage.
 
 ## ✅ RESOLVED — live dev-tasks priorities/status (2026-06-23)
 

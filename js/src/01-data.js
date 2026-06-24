@@ -554,6 +554,7 @@
           if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '' }); return respond({ ok: true, cached: (b.tasks || []).length }); }
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
           if (b.type === 'emsQueueClear') { const ids = (b.ids || []).map(x => '"' + String(x).replace(/"/g, '') + '"'); if (ids.length) await sbDelete('ems_queue?payload->>id=in.(' + ids.join(',') + ')'); return respond({ ok: true }); }
+          if (b.type === 'parseCorrection') { await sbInsert('parse_corrections', [{ raw_text: b.rawText || '', items: b.items || [], created_by: b.createdBy || '' }]); return respond({ ok: true }); }
           const w = W[b.type]; if (!w) return realFetch(url, opts);
           const parts = w(b); await sbUpsert(parts[0], parts[1], parts[2]); return respond({ ok: true, id: parts[3] });
         };

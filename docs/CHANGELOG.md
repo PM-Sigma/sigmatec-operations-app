@@ -9,6 +9,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 
 ## [Unreleased]
 ### Added
+- **AI order-parsing — frontend + function ready, awaiting key (·51)** — new-order modal now leads with a single
+  free-text box (📥 paste email/WhatsApp) → **🪄 נתח לפריטים** → editable rows; the AI box shows for **both**
+  order types; a big full-width **➕ הוסף שורה** for manual rows. Parsing now calls a new `parse-order` Edge
+  Function (**Gemini** free tier + the live catalog + recent **`parse_corrections` as few-shot** → learns from
+  every accepted order); **graceful fallback** to the local matcher until it's deployed, so nothing breaks now.
+  Wrote `supabase/functions/parse-order/index.ts`, `db/parse_corrections.sql`, and the `parseCorrection` write
+  path (`01-data.js`) that captures `{raw text → accepted items}` on save. **To activate:** see
+  `operations.md` → "Edge Function (parse-order)" — 3 steps (free Gemini key → deploy fn + set `GEMINI_API_KEY`
+  → run the SQL). Verified: box shows for both types, calls `parse-order`, falls back cleanly when absent.
 - **Visit return → "↩️ למלאי" checkbox (·50)** — in the visit summary's "ציוד שהוחזר" rows, a per-item checkbox.
   Checked = the item is intact → goes back to the **visiting employee's** available stock (movement
   kibbutz→visitor, `return_restock`) and is logged as already-`restocked` (won't sit pending in the returns

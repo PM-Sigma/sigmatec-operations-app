@@ -109,18 +109,23 @@
   // Offline fallback: keep the old name for the intake modal.
   function intakeParseLocal(raw) { window.intakeItems = parseLocalToItems(raw); }
 
-  // AI-first (Gemini via Apps Script) with local fallback. Returns [{name,qty,uncertain}].
-  // ponytail: AI quota-blocked → falls back to the deterministic matcher; wire-through stays.
+  // AI-first via the `parse-order` Edge Function (Gemini + few-shot from past corrections), with a
+  // deterministic local fallback. Until the function is deployed + GEMINI_API_KEY is set, the call
+  // returns no items (404/503) → we fall back to the catalog matcher, so intake never breaks.
   async function parseRawToItems(raw) {
     try {
-      const res = await fetch(SHEET_API, {
-        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'parseRequest', text: raw, catalog: getActiveProducts().map(p => p.name) })
-      }).then(r => r.json());
-      if (res && res.ok && Array.isArray(res.items)) {
-        return res.items.filter(it => it.name && it.qty > 0).map(it => ({ name: it.name, qty: parseInt(it.qty) || 1, uncertain: false }));
+      var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+      var r = await fetch(SB_URL + '/functions/v1/parse-order', {
+        method: 'POST',
+        headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tok, text: raw, catalog: getActiveProducts().map(p => p.name) })
+      });
+      var res = await r.json().catch(function () { return {}; });
+      if (r.ok && res && Array.isArray(res.items) && res.items.length) {
+        return res.items.filter(function (it) { return it.name && (parseInt(it.qty) || 0) > 0; })
+          .map(function (it) { return { name: it.name, qty: parseInt(it.qty) || 1, uncertain: false }; });
       }
-    } catch (e) { /* offline/no-key → fallback */ }
+    } catch (e) { /* function not deployed / no key / offline → deterministic fallback below */ }
     return parseLocalToItems(raw);
   }
   function renderIntakeGrid() {
@@ -534,7 +539,7 @@
     var isCust = t === 'customer';
     var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
     var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
-    var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (isCust && !window.invEditingOrderId) ? '' : 'none';
+    var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
   };
   function invNewOrder() {
     if (!checkEditPermission()) return;
@@ -811,6 +816,15 @@
       const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
       const res = await r.json();
       if (!res.ok) { alert('שגיאה: ' + JSON.stringify(res)); return; }
+
+      // LEARN: a new order that started from free text → save {raw → accepted items} as a training
+      // example for the parse-order few-shot. Fire-and-forget; failure here must not block the save.
+      if (!window.invEditingOrderId && rawReq) {
+        try {
+          fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ type: 'parseCorrection', rawText: rawReq, items: invOrderItems.map(function (i) { return { name: i.name, qty: i.qty }; }), createdBy: createdBy }) });
+        } catch (e) { /* non-blocking */ }
+      }
 
       // If delivered (green), create movement events. 'arrived' (pink) does NOT create movements.
       // Skip if the order was ALREADY delivered before this edit — movements exist, don't duplicate.
