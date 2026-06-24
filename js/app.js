@@ -2022,6 +2022,37 @@
   // Generic category words that appear in MANY product names — must NOT be match tokens on their own
   // (otherwise any text with "מונה" matched every meter). The discriminating token (e360pp, em133…) matches.
   const INTAKE_STOP = ['מונה', 'מונים'];
+
+  // Customer-order accessories rule (single source of truth, also unit-tested in test-autoadd.mjs):
+  //   • Robustel controller — 1 per SATEC meter (EM133/PM135); they communicate through it.
+  //   • SIM (Partner) — 1 per COMM POINT: direct-comm meters (Landis E360 / Carlo) + every controller (PUSR + Robustel).
+  //     SATEC meters take NO direct SIM — theirs lives in the Robustel.
+  //   • אנטנה — 1 per controller (PUSR + Robustel).
+  // Mutates `items` in place. Names matched loosely to survive catalog spelling (PUSR/PURS, Partner/פרטנר).
+  function applyCustomerAutoAdd(items, catalog) {
+    var sumQty = function (pred) { return items.filter(function (it) { return pred(it.name); }).reduce(function (s, it) { return s + (parseInt(it.qty) || 0); }, 0); };
+    var isCtrl = function (n) { return /robustel|pusr|purs/i.test(n); };
+    var addOrBump = function (matchFn, need, finder) {
+      if (need <= 0) return;
+      var ex = items.find(function (it) { return matchFn(it.name); });
+      if (ex) { if (ex.qty < need) ex.qty = need; }
+      else { var p = catalog.find(finder); if (p) items.push({ name: p, qty: need, uncertain: false }); }
+    };
+    // 1) Robustel: 1 per SATEC meter — add before counting comm points.
+    var satecQty = sumQty(function (n) { return /em133|pm135/i.test(n); });
+    addOrBump(function (n) { return /robustel/i.test(n); }, satecQty, function (n) { return /robustel/i.test(n); });
+    // 2) recount with Robustel in: comm points = direct meters (Landis E360 / Carlo) + controllers.
+    var directQty = sumQty(function (n) { return /e360|carlo|e341/i.test(n); });
+    var ctrlQty = sumQty(isCtrl);
+    // 3) SIM Partner: 1 per comm point. (prefer a Partner/פרטנר SIM, skip Cellcom)
+    addOrBump(function (n) { return /סים|\bsim\b/i.test(n); }, directQty + ctrlQty,
+      function (n) { return /סים|sim/i.test(n) && !/cellcom/i.test(n); });
+    // 4) אנטנה: 1 per controller.
+    addOrBump(function (n) { return /אנטנה|antenna/i.test(n); }, ctrlQty,
+      function (n) { return /אנטנה|antenna/i.test(n); });
+    return items;
+  }
+
   // Deterministic keyword/alias matcher against the catalog → [{name,qty,uncertain}].
   function parseLocalToItems(raw, orderType) {
     const norm = intakeNormalize(raw);
@@ -2067,34 +2098,10 @@
         if (/em133/i.test(intakeNormalize(items[_ii].name))) items.splice(_ii, 1);
       }
     }
-    // Auto-add controllers + SIMs for customer orders. ROBUSTEL is added FIRST so it counts toward SIMs.
+    // Auto-add controllers, SIMs and antennas for customer orders. Controllers are added FIRST so they
+    // count toward SIM + antenna. Regexes match the REAL catalog names (בקר PUSR / בקר Robustel / סים Partner / אנטנה).
     if (orderType === 'customer') {
-      // ROBUSTEL: 1 per SATEC meter (EM133/PM135) — SATEC meters communicate through it.
-      var satecQty = items.filter(function(it) { return /em133|pm135/i.test(it.name); })
-        .reduce(function(s, it) { return s + it.qty; }, 0);
-      if (satecQty > 0) {
-        var existRob = items.find(function(it) { return /robustel/i.test(it.name); });
-        var needRob = satecQty - (existRob ? existRob.qty : 0);
-        if (needRob > 0) {
-          if (existRob) { existRob.qty += needRob; }
-          else { var robProd = catalog.find(function(n) { return /robustel/i.test(n); }); if (robProd) items.push({ name: robProd, qty: needRob, uncertain: false }); }
-        }
-      }
-      // SIM פרטנר: 1 per COMM POINT — direct-comm meters (Landis E360 / Carlo) + every controller (PURS + ROBUSTEL).
-      // SATEC meters (EM133/PM135) take NO direct SIM — their SIM lives in the ROBUSTEL counted above.
-      var simPts = 0;
-      items.forEach(function(it) {
-        if (/e360|carlo/i.test(it.name)) simPts += it.qty;
-        if (/purs|robustel/i.test(it.name)) simPts += it.qty;
-      });
-      if (simPts > 0) {
-        var existSim = items.find(function(it) { return /סים/i.test(it.name); });
-        var needSim = simPts - (existSim ? existSim.qty : 0);
-        if (needSim > 0) {
-          if (existSim) { existSim.qty += needSim; }
-          else { var simProd = catalog.find(function(n) { return /סים פרטנר/i.test(n); }); if (simProd) items.push({ name: simProd, qty: simPts, uncertain: false }); }
-        }
-      }
+      applyCustomerAutoAdd(items, catalog);
     }
     const seen = new Set();
     return items.filter(it => { if (seen.has(it.name)) return false; seen.add(it.name); return true; });

@@ -7,12 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·58] 2026-06-24
+### Added
+- **אנטנה auto-add — 1 per controller (PUSR + Robustel)** on customer orders (AI prompt + offline matcher).
+### Fixed
+- **Catalog-name matching corrected (was silently broken).** The live catalog uses **`בקר PUSR`** (not PURS),
+  **`סים Partner`** (not פרטנר), `בקר Robustel`. The ·56/·57 regexes (`/purs/`, `/סים פרטנר/`) didn't match those,
+  so SIM auto-add never fired against the real Sheet catalog. Matching is now spelling-tolerant
+  (PUSR/PURS, Partner/פרטנר). Extracted the rule into `applyCustomerAutoAdd()` + a `test-autoadd.mjs` self-check
+  (5 cases: Landis-only, ASIC+SATEC, pre-listed accessories, standalone Robustel, physical משנ"ז).
+
 ## [·57] 2026-06-24
 ### Changed
 - **SIM auto-add now counts comm points, not meters (·57).** A SIM goes with every *communication point*:
-  direct-comm meters (Landis E360 / Carlo) + **every controller (PURS + ROBUSTEL)**. SATEC meters (EM133/PM135)
-  no longer take a direct SIM — their SIM lives in the ROBUSTEL. Same total in the symmetric case, but correct
-  when ROBUSTELs are ordered standalone. Applied in both the AI prompt and the offline matcher.
+  direct-comm meters (Landis E360 / Carlo) + **every controller (PUSR + Robustel)**. SATEC meters (EM133/PM135)
+  no longer take a direct SIM — their SIM lives in the Robustel. Same total in the symmetric case, but correct
+  when Robustels are ordered standalone. Applied in both the AI prompt and the offline matcher.
 
 ## [·56] 2026-06-24
 ### Added
