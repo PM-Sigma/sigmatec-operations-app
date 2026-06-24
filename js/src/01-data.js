@@ -427,12 +427,15 @@
       return realFetch(url, opts);
     };
 
-    // visible sandbox banner so it's obvious nothing is live
+    // small left-edge "notch" so it's obvious it's a sandbox, without covering the bottom nav.
     window.addEventListener('DOMContentLoaded', function () {
       const b = document.createElement('div');
-      b.textContent = '🧪 MOCK MODE — סביבת בדיקה לוקאלית · אין חיבור לגיליון/EMS אמיתי';
-      b.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#7c2d12;color:#fff;' +
-        'font:600 12px Heebo,sans-serif;text-align:center;padding:4px 8px;letter-spacing:.3px;';
+      b.textContent = '🧪 DEV';
+      b.title = 'סביבת בדיקה (MOCK) — אין חיבור לגיליון/EMS אמיתי';
+      b.style.cssText = 'position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99999;' +
+        'background:#7c2d12;color:#fff;font:700 11px Heebo,sans-serif;padding:10px 4px;' +
+        'border-radius:0 7px 7px 0;writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:1px;' +
+        'box-shadow:1px 0 5px rgba(0,0,0,.3);pointer-events:none;opacity:.9;';
       document.body.appendChild(b);
     });
     console.log('%c🧪 MOCK MODE active', 'color:#f97316;font-weight:700', '— fixtures in window.__MOCK');

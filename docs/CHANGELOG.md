@@ -7,6 +7,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·67] 2026-06-24
+### Changed
+- **MOCK banner → left-edge "🧪 DEV" notch.** Was a full-width bottom bar that overlapped the bottom nav;
+  now a small vertical tab on the left edge (mock mode only / localhost). Doesn't cover any UI.
+
 ## [·65] 2026-06-24
 ### Fixed
 - **Order date now persists.** ·64 renamed the field to `orderDate`, but orders save to a fixed column set
