@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqs43diw">
+<link rel="stylesheet" href="css/app.css?v=mqs4ixpg">
 </head>
 <body>
 <div class="container">
@@ -331,7 +331,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-24·71</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-24·72</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1036,11 +1036,10 @@
       <label for="invOrderRaw" style="margin-top:0;">📥 הדבק מייל / וואטסאפ — וה-AI יהפוך לרשימת פריטים:</label>
       <textarea id="invOrderRaw" placeholder="הדבק כאן את הטקסט כפי שהתקבל (מייל / וואטסאפ)... ואז לחץ 'נתח לפריטים'" style="min-height:64px;"></textarea>
       <button class="inv-btn" style="width:100%;background:#7c3aed;color:#fff;border:1px solid #7c3aed;margin-top:6px;font-weight:700;" onclick="orderParseRaw(this)">🪄 נתח לפריטים (AI)</button>
-      <div id="invParseSource" style="margin-top:6px;min-height:20px;"></div>
       <div style="font-size:11px;color:#7c3aed;margin-top:4px;">המערכת לומדת מכל הזמנה — ככל שמשתמשים, הזיהוי משתפר. אפשר תמיד לערוך/להוסיף שורות ידנית למטה.</div>
     </div>
 
-    <label>📦 פריטים בהזמנה:</label>
+    <label style="display:flex;align-items:center;">📦 פריטים בהזמנה:&nbsp;&nbsp;&nbsp;<span id="invParseSource"></span></label>
     <div id="invOrderItems" style="background:#f9fafb;padding:10px;border-radius:8px;margin-bottom:10px;">
       <div style="text-align:center;color:#94a3b8;padding:8px;font-style:italic;">אין פריטים — לחץ "➕ הוסף שורה" או הדבק טקסט למעלה</div>
     </div>
@@ -1293,7 +1292,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqs43diw"></script>
+<script src="js/app.js?v=mqs4ixpg"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
