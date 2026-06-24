@@ -106,7 +106,13 @@ Deno.serve(async (req) => {
   const GH_REPO = Deno.env.get("GH_REPO") || "Sigmatec-Energy/tasks";
   const GH_PROJECT_OWNER = Deno.env.get("GH_PROJECT_OWNER") || "Sigmatec-Energy";
   const GH_PROJECT_NUMBER = parseInt(Deno.env.get("GH_PROJECT_NUMBER") || "1", 10);
-  const ORIGIN = Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
+  // Allow the production app, the dev-preview hosts (raw/gist.githack.com), and localhost.
+  // Function is already EMS-login-gated + read-only, so reflecting an allowlisted origin is safe.
+  const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
+  const reqOrigin = req.headers.get("origin") || "";
+  const ORIGIN = (reqOrigin === APP_ORIGIN
+    || /^https:\/\/([a-z0-9-]+\.)?githack\.com$/.test(reqOrigin)
+    || /^http:\/\/localhost(:\d+)?$/.test(reqOrigin)) ? reqOrigin : APP_ORIGIN;
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(ORIGIN) });
   if (req.method !== "POST") return json({ error: "POST only" }, 405, ORIGIN);
