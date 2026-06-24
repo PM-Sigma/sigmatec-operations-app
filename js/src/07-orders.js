@@ -606,7 +606,6 @@
     var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
     var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
     var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
-    renderQuickExamples(t);
   };
   function invNewOrder() {
     if (!checkEditPermission()) return;
@@ -825,31 +824,6 @@
   }
 
   // Quick-fill example texts for the AI parse textarea, shown as chips above the input.
-  var ORDER_QUICK_EXAMPLES = {
-    customer: [
-      { label: 'לנדיס + משנ"ז', text: '3 מונים לנדיס ישיר לקו ו5 מוני משנז לנדיס' },
-      { label: 'סאטק תלת-פאזי', text: '4 מונים סאטק רגילים תלת פאזי' },
-      { label: 'לנדיס מעורב', text: '35 מונים שמתוכם 20 לנדיס חד פאזי' },
-      { label: 'PM135 + בקרים', text: '2 מונים שנאי סאטק PM135 וגם 2 בקרים ROBUSTEL' },
-    ],
-    supplier: [
-      { label: 'קרלו + לנדיס', text: '150 מונים ישיר לקו קרלו, 20 מוני לנדיס רגילים, 5 משנזים לנדיס, 10 סאטק משני זרם' },
-      { label: 'ASIC + סאטק', text: '10 בקרים למוני אסיק ו4 מונים סאטק רגילים תלת פאזי' },
-      { label: 'E360PP', text: '20 מונים לנדיס ישיר לקו' },
-    ],
-  };
-  function renderQuickExamples(orderType) {
-    var el = document.getElementById('invOrderExamples');
-    if (!el) return;
-    window._qex = ORDER_QUICK_EXAMPLES[orderType] || ORDER_QUICK_EXAMPLES.supplier;
-    el.innerHTML = '<div style="font-size:11px;color:#64748b;margin-bottom:3px;">💡 מילוי מהיר:</div>' +
-      window._qex.map(function(ex, i) {
-        return '<button type="button" onclick="document.getElementById(\'invOrderRaw\').value=window._qex[' + i + '].text" ' +
-          'style="font-size:11px;background:#f3e8ff;color:#7c3aed;border:1px solid #d8b4fe;border-radius:12px;' +
-          'padding:2px 9px;margin:2px 3px 2px 0;cursor:pointer;">' + ex.label + '</button>';
-      }).join('');
-  }
-
   // Parse the raw customer-requirement text into order items (AI when available, local fallback).
   async function orderParseRaw(btn) {
     const raw = (document.getElementById('invOrderRaw').value || '').trim();

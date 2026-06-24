@@ -7,6 +7,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·63] 2026-06-24
+### Removed
+- **"💡 מילוי מהיר" quick-fill example chips** removed from the new-order modal (per request). Dropped
+  `ORDER_QUICK_EXAMPLES` + `renderQuickExamples()` + the `#invOrderExamples` container. Paste box + type toggle unchanged.
+
 ## [·62] 2026-06-24
 ### Changed — accessory model reworked + conversational Q&A
 - **New accessory rule:** *every* Landis meter (incl. **E570**) → **1 SIM directly**. *Every non-Landis meter*
