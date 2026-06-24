@@ -12,8 +12,23 @@
     const gate = document.getElementById('emsLoginGate');
     const show = () => { if (gate) gate.style.display = 'flex'; };
     const hide = () => { if (gate) gate.style.display = 'none'; };
-    if (typeof isAuthed === 'function' ? !isAuthed() : true) show();
-    else if (typeof getEmsToken === 'function' && getEmsToken()) sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
+    if (typeof isAuthed === 'function' ? !isAuthed() : true) {
+      show();
+    } else if (typeof getEmsToken === 'function' && getEmsToken()) {
+      sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
+      restoreReturnPage();                                                                      // land back where we were before a re-login
+    } else {
+      // signed in before but the EMS connection is gone → lead them straight to re-login on open
+      setTimeout(function () { if (typeof emsRequireLogin === 'function') emsRequireLogin(); }, 1000);
+    }
+    function restoreReturnPage() {
+      setTimeout(function () {
+        try {
+          var rp = sessionStorage.getItem('ems_return_page_v1');
+          if (rp) { sessionStorage.removeItem('ems_return_page_v1'); if (typeof showPage === 'function' && rp !== 'ems') showPage(rp); }
+        } catch (e) {}
+      }, 600);
+    }
 
     // EMS→Supabase bridge: trade the EMS token for a short-lived Supabase pass (role=authenticated).
     async function sbBridge() {
@@ -65,15 +80,14 @@
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
       try { await sbBridge(); } catch (e) {}   // get the Supabase pass before loading data
-      try { if (typeof emsOnConnected === 'function') emsOnConnected(true); } catch (e) {}
-      try { if (typeof refreshData === 'function') refreshData(); } catch (e) {}
-      try { if (typeof staffCheckMessages === 'function') { window._msgsChecked = false; staffCheckMessages(); } } catch (e) {}
-      // return to the page they were on before a forced re-login (else home)
+      try { if (typeof emsOnConnected === 'function') await emsOnConnected(true); } catch (e) {}   // flush queued writes + sync BEFORE the refresh
+      // persist the page to return to, then hard-refresh so the connected state (bubble/data/pass) fully updates
       try {
         var _rp = window._emsReturnPage || ''; window._emsReturnPage = ''; window._emsReloginActive = false;
-        if (typeof showPage === 'function') showPage(_rp && _rp !== 'ems' ? _rp : 'kibbutz');
+        if (_rp && _rp !== 'ems') sessionStorage.setItem('ems_return_page_v1', _rp);
       } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');
+      try { location.reload(); } catch (e) {}
     }
     function storeToken(url, token) {
       localStorage.setItem(EMS_URL_KEY, url);

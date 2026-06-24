@@ -261,8 +261,8 @@
         _emsSites = null;
         _emsSyncedThisSession = false;
         document.getElementById('emsOtpBox').style.display = 'none';
-        renderEmsPage();
-        emsOnConnected(true);   // flush queued writes + refresh shared cache snapshot
+        try { await emsOnConnected(true); } catch (e) {}   // flush queued writes + sync, then hard-refresh so the UI shows connected
+        location.reload();
       } else {
         // Diagnostic: show the real HTTP status + server message so we can tell
         // a wrong API URL (404 / HTML) from a genuine auth error (401/422).
@@ -300,8 +300,8 @@
         _emsSites = null; _emsSyncedThisSession = false;
         errEl.textContent = '';
         document.getElementById('emsOtpBox').style.display = 'none';
-        renderEmsPage();
-        emsOnConnected(true);
+        try { await emsOnConnected(true); } catch (e) {}   // flush + sync, then hard-refresh so the UI shows connected
+        location.reload();
       } else {
         const msg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
         errEl.textContent = '(' + (wrapped.status || '?') + ') ' + (msg || 'קוד שגוי או שפג תוקפו');

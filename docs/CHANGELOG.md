@@ -18,6 +18,16 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   sit on a lighter shade of the branch color, indented a touch more, with a `↲` branch arrow. Nested prioritized
   tasks get a colored spine only (no boxes-inside-boxes). Hover darkens the tint instead of flashing blue.
 
+## [·76] 2026-06-24
+### Changed — EMS re-login UX
+- **Open the app disconnected → prompt re-login.** If you're signed in but the EMS connection is gone, on open
+  the "🔌 החיבור ל-EMS נותק — התחבר מחדש" modal now pops automatically and leads you to the EMS sign-in.
+- **After a successful sign-in → hard refresh.** Previously you landed back on the page but the UI still showed
+  disconnected until a manual reload. Now login (gate **and** the EMS-page/bubble flow) does
+  `await emsOnConnected()` (flush queued writes + sync) then `location.reload()`, so the connected state (🟢 bubble,
+  data, Supabase pass) updates immediately. The page you were on is preserved across the reload via
+  `sessionStorage` and restored on load (else home).
+
 ## [·74] 2026-06-24
 ### Changed — EMS session & navigation
 - **EMS tab hidden for everyone** — the EMS system is reached only via the header bubble link / the re-login flow
