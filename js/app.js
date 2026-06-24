@@ -2566,6 +2566,7 @@
     document.getElementById('invOrderCreatedBy').value = (typeof getCurrentUser === 'function' ? getCurrentUser() : '') || '';
     const rawEl = document.getElementById('invOrderRaw');
     if (rawEl) rawEl.value = '';
+    const srcEl = document.getElementById('invParseSource'); if (srcEl) srcEl.innerHTML = '';   // clear stale parse-source badge
     // New orders ALWAYS open as "ממתינה לאישור" — hide the status picker, show the note + raw box.
     document.getElementById('invOrderStatusWrap').style.display = 'none';
     document.getElementById('invOrderNewStatusNote').style.display = '';
@@ -2662,6 +2663,29 @@
   function updaterStockMap() {
     try { return (typeof computeStock === 'function' ? (computeStock()[orderUpdater()] || {}) : {}); }
     catch (e) { return {}; }
+  }
+  // Badge showing which engine parsed the text: Gemini (spark) / Groq / Offline. src = window._lastParseSource.
+  function parseSourceBadge(src) {
+    src = src || '';
+    var model = src.indexOf(':') !== -1 ? src.split(':')[1] : '';
+    var pill = function (bg, fg, icon, label) {
+      return '<span style="display:inline-flex;align-items:center;gap:5px;background:' + bg + ';color:' + fg +
+        ';border-radius:10px;padding:3px 10px;font-weight:700;font-size:11px;line-height:1.4;">' + icon +
+        '<span>' + label + (model ? ' · ' + model : '') + '</span></span>';
+    };
+    if (/^gemini/i.test(src)) {
+      var spark = '<svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true" style="flex:none;">' +
+        '<defs><linearGradient id="gemSpark" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0" stop-color="#4285F4"/><stop offset=".5" stop-color="#9b72cb"/><stop offset="1" stop-color="#d96570"/>' +
+        '</linearGradient></defs><path d="M12 2c.4 4.9 3.1 7.6 8 8-4.9.4-7.6 3.1-8 8-.4-4.9-3.1-7.6-8-8 4.9-.4 7.6-3.1 8-8z" fill="url(#gemSpark)"/></svg>';
+      return pill('#eef2ff', '#3730a3', spark, 'Gemini');
+    }
+    if (/^groq/i.test(src)) {
+      var q = '<span style="font-weight:800;color:#fff;background:#f55036;border-radius:4px;padding:0 4px;font-size:10px;flex:none;">q</span>';
+      return pill('#fff1ed', '#b3340f', q, 'Groq');
+    }
+    if (!src) return '';   // nothing parsed yet
+    return pill('#f1f5f9', '#475569', '📴', 'Offline — מנתח מקומי');
   }
   // Resolve a "choose by click" row to the picked product.
   window.invChooseProduct = function (itemIdx, choiceIdx) {
@@ -2809,8 +2833,10 @@
     try {
       const otype = window._invOrderType || 'supplier';
       const items = await parseRawToItems(raw, otype);
-      // Show which engine answered (so it's clear on mobile: AI vs offline fallback).
+      // Show which engine answered — a persistent badge (Gemini / Groq / Offline) + a brief toast.
       var _src = window._lastParseSource || '';
+      var _badge = document.getElementById('invParseSource');
+      if (_badge) _badge.innerHTML = parseSourceBadge(_src);
       var _t = document.getElementById('toast');
       if (_t) {
         _t.textContent = (_src && _src !== 'local') ? ('🤖 נותח ע"י AI — ' + _src) : '📴 נותח מקומית (ללא AI — לא מחובר/שגיאה)';

@@ -7,6 +7,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·71] 2026-06-24
+### Added
+- **Persistent parse-source badge** below the "נתח לפריטים" button (`#invParseSource`): a **Gemini** spark icon,
+  a **Groq** mark, or an **Offline 📴** pill — each with the model name (e.g. `Gemini · gemini-2.5-flash-lite`).
+  Replaces relying on the transient toast (which was easy to miss on desktop). Cleared when a new order opens.
+
 ## [·70] 2026-06-24
 ### Added
 - **Parse-source toast** — after "נתח לפריטים", a toast shows who answered: **"🤖 נותח ע"י AI — &lt;provider&gt;"**
