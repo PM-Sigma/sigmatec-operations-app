@@ -6697,9 +6697,16 @@
   // sorted A→Z (Hebrew) so near-identical names cluster (e.g. "ייצוא אקסל" next to "ייצוא לאקסל").
   // GitHub = explicit icon button (does NOT toggle the row / is not the default action).
   // Detail = state/assignee/priority/dates + body (body needs the github fn redeploy to appear).
+  //
+  // FILTERS (toggle): the hero tiles are clickable. A priority/KPI tile filters the WHOLE view to its
+  // open tasks; clicking the active tile (or a "reset" tile) clears it. Under a filter the topic tree
+  // shows only matching tasks + their ancestor chain (ancestors dimmed as context), each topic's count
+  // = matching tasks only, with a "+N בעדיפות אחרת" note for the rest. Links are always kept.
   // ===========================================================
   function canSeeDevTasks() { return (typeof canManageStaff === 'function') && canManageStaff(); }
   window._devState = 'open';
+  window._devFilter = null;   // null | {type:'prio',val} | {type:'status'} | {type:'week'}
+  window._devQ = '';          // live search query, preserved across re-paints
 
   var DEV_GH = '<svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
 
@@ -6740,31 +6747,61 @@
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 
+  // ----- FILTER predicates (open tasks only; closed never match a filter) -----
+  function devMatchFilter(t, f) {
+    if (!f) return true;
+    if (t.state === 'closed') return false;
+    if (f.type === 'prio')   { var pr = devPriority(t); return !!pr && pr.label === f.val; }
+    if (f.type === 'status') return devInProgress(t);
+    if (f.type === 'week')   { var u = t.updatedAt ? new Date(t.updatedAt).getTime() : 0; return u >= (new Date().getTime() - 7 * 864e5); }
+    return true;
+  }
+  // a node belongs in a filtered tree if it matches OR any descendant matches (path is preserved)
+  function devSubtreeMatch(t, f, depth) {
+    if (devMatchFilter(t, f)) return true;
+    if (depth >= 6) return false;
+    return (DEV_CHILDREN[t.number] || []).some(function (k) { return devSubtreeMatch(k, f, depth + 1); });
+  }
+  function devCountMatches(t, f, depth) {
+    var n = devMatchFilter(t, f) ? 1 : 0;
+    if (depth >= 6) return n;
+    (DEV_CHILDREN[t.number] || []).forEach(function (k) { n += devCountMatches(k, f, depth + 1); });
+    return n;
+  }
+  function devFilterLabel(f) {
+    if (!f) return '';
+    if (f.type === 'prio')   return 'עדיפות ' + f.val;
+    if (f.type === 'status') return 'בפיתוח עכשיו';
+    if (f.type === 'week')   return 'עודכנו השבוע';
+    return '';
+  }
+  function devOtherLabel(f) { return (f && f.type === 'prio') ? 'בעדיפות אחרת' : 'שלא תואמים לסינון'; }
+
   // One color per topic, reused across the hero load-bar, the legend, and each topic's spine —
   // so a slice of the bar, its legend chip, and its section in the tree all read as the same color.
   var DEV_TOPIC_COLORS = ['#2f6fed', '#0e9aa7', '#7c5cdb', '#c87f0a', '#d6456f', '#0e9f6e', '#0891b2', '#ea7317'];
   var DEV_CHILDREN = {};  // issueNumber → [child tasks], rebuilt each render from t.parent (GitHub sub-issues)
 
   // Hero band — the page's focal element: live KPIs + a "load by topic" bar that doubles as the jump nav.
-  function devHero(tasks, topics, topicNames, colors) {
+  // All tiles are toggle filters; the load bar/legend reflect the active filter (breakdown of THIS tier by topic).
+  function devHero(d, f, matchCounts, colorOf) {
+    var tasks = d.tasks, topicNames = d.topicNames;
     var openCount = tasks.filter(function (t) { return t.state !== 'closed'; }).length;
     var inProg = tasks.filter(devInProgress).length;
     var wk = new Date().getTime() - 7 * 864e5;
     var weekCount = tasks.filter(function (t) { var u = t.updatedAt ? new Date(t.updatedAt).getTime() : 0; return u >= wk; }).length;
-    var total = tasks.length || 1;
 
-    var tiles = [
-      { n: openCount, l: 'משימות פתוחות', k: '#0e9aa7' },
-      { n: inProg, l: 'בפיתוח עכשיו', k: '#7c5cdb' },
-      { n: weekCount, l: 'עודכנו השבוע', k: '#2f6fed' },
-      { n: topicNames.length, l: 'נושאים פעילים', k: '#c87f0a' }
-    ];
-    var kpis = tiles.map(function (t) {
-      return '<div class="dev-kpi" style="--k:' + t.k + '"><div class="dev-kpi-num">' + t.n + '</div><div class="dev-kpi-lbl">' + t.l + '</div></div>';
-    }).join('');
+    function kpiBtn(n, l, k, onclick, active) {
+      return '<button type="button" class="dev-kpi' + (active ? ' active' : '') + '" style="--k:' + k + '" onclick="' + onclick + '">' +
+        '<div class="dev-kpi-num">' + n + '</div><div class="dev-kpi-lbl">' + l + '</div></button>';
+    }
+    var kpis =
+      kpiBtn(openCount, 'משימות פתוחות', '#0e9aa7', 'devSetFilter(null)', false) +
+      kpiBtn(inProg, 'בפיתוח עכשיו', '#7c5cdb', "devSetFilter({type:'status'})", !!f && f.type === 'status') +
+      kpiBtn(weekCount, 'עודכנו השבוע', '#2f6fed', "devSetFilter({type:'week'})", !!f && f.type === 'week') +
+      kpiBtn(topicNames.length, 'נושאים פעילים', '#c87f0a', 'devSetFilter(null)', false);
 
-    // "עומס לפי עדיפות" — count open tickets per priority tier (critical/high/medium/low).
-    // devPriority() resolves the tier from the Projects-v2 Priority field (or a label fallback).
+    // "עומס לפי עדיפות" — open tickets per priority tier (matches what the tier filter yields).
     var PRIO_TIERS = [
       { label: 'קריטי',   k: '#d64545' },
       { label: 'גבוהה',   k: '#ea7317' },
@@ -6772,17 +6809,21 @@
       { label: 'נמוכה',   k: '#94a3b8' }
     ];
     var prioCounts = { 'קריטי': 0, 'גבוהה': 0, 'בינונית': 0, 'נמוכה': 0 };
-    tasks.forEach(function (t) { var pr = devPriority(t); if (pr && prioCounts.hasOwnProperty(pr.label)) prioCounts[pr.label]++; });
+    tasks.forEach(function (t) { if (t.state === 'closed') return; var pr = devPriority(t); if (pr && prioCounts.hasOwnProperty(pr.label)) prioCounts[pr.label]++; });
     var prioRow = '<div class="dev-loadbar-cap" style="margin-top:14px;">עומס לפי עדיפות</div>' +
       '<div class="dev-kpis">' + PRIO_TIERS.map(function (p) {
-        return '<div class="dev-kpi" style="--k:' + p.k + '"><div class="dev-kpi-num">' + prioCounts[p.label] + '</div><div class="dev-kpi-lbl">' + p.label + '</div></div>';
+        var act = !!f && f.type === 'prio' && f.val === p.label;
+        return kpiBtn(prioCounts[p.label], p.label, p.k, "devSetFilter({type:'prio',val:'" + p.label + "'})", act);
       }).join('') + '</div>';
 
-    var bar = topicNames.map(function (tp, i) {
-      return '<span style="width:' + (topics[tp].n / total * 100).toFixed(2) + '%;background:' + colors[i] + '" title="' + devEsc(tp) + ' · ' + topics[tp].n + '"></span>';
+    var total = 0; topicNames.forEach(function (tp) { total += matchCounts[tp]; }); total = total || 1;
+    var visTopics = topicNames.filter(function (tp) { return matchCounts[tp] > 0; });
+    var bar = visTopics.map(function (tp) {
+      return '<span style="width:' + (matchCounts[tp] / total * 100).toFixed(2) + '%;background:' + colorOf[tp] + '" title="' + devEsc(tp) + ' · ' + matchCounts[tp] + '"></span>';
     }).join('');
-    var legend = topicNames.map(function (tp, i) {
-      return '<button class="dev-leg" onclick="devJump(' + i + ')"><span class="dev-leg-dot" style="background:' + colors[i] + '"></span><bdi>' + devEsc(tp) + '</bdi><span class="dev-leg-n">' + topics[tp].n + '</span></button>';
+    var legend = visTopics.map(function (tp) {
+      var fi = topicNames.indexOf(tp);
+      return '<button class="dev-leg" onclick="devJump(' + fi + ')"><span class="dev-leg-dot" style="background:' + colorOf[tp] + '"></span><bdi>' + devEsc(tp) + '</bdi><span class="dev-leg-n">' + matchCounts[tp] + '</span></button>';
     }).join('');
 
     return '<div class="dev-hero">' +
@@ -6793,7 +6834,7 @@
       '</div>' +
       '<div class="dev-kpis">' + kpis + '</div>' +
       prioRow +
-      (topicNames.length ? '<div class="dev-loadbar-cap">עומס לפי נושא</div>' +
+      (visTopics.length ? '<div class="dev-loadbar-cap">עומס לפי נושא' + (f ? ' · מסונן' : '') + '</div>' +
         '<div class="dev-loadbar">' + bar + '</div>' +
         '<div class="dev-legend">' + legend + '</div>' : '') +
     '</div>';
@@ -6878,11 +6919,17 @@
   }
 
   // recursive tree node — renders the issue + its GitHub sub-issues nested, to any depth.
-  function devNode(t, isRoot, groupTopic, depth) {
+  // Under a filter (f): subtrees with no match are dropped; matching rows get .dev-match (highlight),
+  // ancestor-only rows get .dev-ctx (dimmed context), and the path auto-expands so matches are visible.
+  function devNode(t, isRoot, groupTopic, depth, f) {
+    if (f && !devSubtreeMatch(t, f, depth)) return '';
+    var isMatch = !f || devMatchFilter(t, f);
     var kids = depth < 6 ? (DEV_CHILDREN[t.number] || []) : [];
     var s = devEsc((t.title + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase());
-    var childrenHtml = kids.length ? '<div class="dev-children">' + kids.map(function (k) { return devNode(k, false, groupTopic, depth + 1); }).join('') + '</div>' : '';
-    return '<details class="dev-task' + (kids.length ? ' dev-haskids' : '') + '" data-s="' + s + '">' +
+    var childrenHtml = kids.length ? '<div class="dev-children">' + kids.map(function (k) { return devNode(k, false, groupTopic, depth + 1, f); }).join('') + '</div>' : '';
+    var cls = 'dev-task' + (kids.length ? ' dev-haskids' : '') + (f ? (isMatch ? ' dev-match' : ' dev-ctx') : '');
+    var openAttr = (f && childrenHtml) ? ' open' : '';
+    return '<details class="' + cls + '"' + openAttr + ' data-s="' + s + '">' +
       devNodeSummary(devNodeLabel(t, isRoot, groupTopic), t, kids) + devDetailPanel(t) + childrenHtml +
     '</details>';
   }
@@ -6919,54 +6966,92 @@
       tp.roots.push(t); tp.n += subtreeSize(t, 0);
     });
     var topicNames = Object.keys(topics).sort(function (a, b) { return topics[b].n - topics[a].n; });
-
     var colors = topicNames.map(function (_, i) { return DEV_TOPIC_COLORS[i % DEV_TOPIC_COLORS.length]; });
 
+    window._devData = { tasks: tasks, topics: topics, topicNames: topicNames, colors: colors };
+    window._devFilter = null;   // a fresh fetch (refresh / state change) starts unfiltered
+    devPaint();
+  }
+
+  // Paint the page from the cached data + current filter — no re-fetch. Called by renderDevTasks
+  // and by every filter toggle (devSetFilter), so filtering is instant and offline.
+  function devPaint() {
+    var el = document.getElementById('devTasksContent');
+    if (!el || !window._devData) return;
+    var d = window._devData, f = window._devFilter;
+    var colorOf = {}; d.topicNames.forEach(function (tp, i) { colorOf[tp] = d.colors[i]; });
+    var matchCounts = {};
+    d.topicNames.forEach(function (tp) {
+      matchCounts[tp] = d.topics[tp].roots.reduce(function (s, r) { return s + devCountMatches(r, f, 0); }, 0);
+    });
+
     var active = function (s) { return window._devState === s ? ' active' : ''; };
+    var fchip = f ? '<div class="dev-fchip">מציג: ' + devEsc(devFilterLabel(f)) + ' <button type="button" onclick="devSetFilter(null)" aria-label="נקה סינון">✕</button></div>' : '';
     var head = '<div class="dev-toolbar">' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
-      '</div></div>';
+      '</div></div>' + fchip;
 
-    // "בפיתוח עכשיו" — prefer real Status=In-Progress (Projects field); fall back to recent activity
-    var inProg = tasks.filter(devInProgress);
-    var recent, ipSub;
-    if (inProg.length) { recent = inProg.slice(0, 12); ipSub = '· לפי סטטוס'; }
-    else { recent = tasks.filter(function (t) { return t.state !== 'closed'; }).slice().sort(function (a, b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); }).slice(0, 6); ipSub = '· פעילות אחרונה'; }
-    var ipBox = recent.length ? '<div class="card dev-now"><h3 class="dev-now-head">🔨 בפיתוח עכשיו <span class="dev-now-sub">' + ipSub + '</span></h3>' +
-      '<div class="dev-now-list">' + recent.map(devTaskNode).join('') + '</div></div>' : '';
+    // "בפיתוח עכשיו" spotlight — hidden while a filter is active (focused view).
+    var ipBox = '';
+    if (!f) {
+      var inProg = d.tasks.filter(devInProgress);
+      var recent, ipSub;
+      if (inProg.length) { recent = inProg.slice(0, 12); ipSub = '· לפי סטטוס'; }
+      else { recent = d.tasks.filter(function (t) { return t.state !== 'closed'; }).slice().sort(function (a, b) { return String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')); }).slice(0, 6); ipSub = '· פעילות אחרונה'; }
+      ipBox = recent.length ? '<div class="card dev-now"><h3 class="dev-now-head">🔨 בפיתוח עכשיו <span class="dev-now-sub">' + ipSub + '</span></h3>' +
+        '<div class="dev-now-list">' + recent.map(devTaskNode).join('') + '</div></div>' : '';
+    }
 
-    var body = topicNames.map(function (topic, i) {
-      var tp = topics[topic];
-      var inner = tp.roots.map(function (r) { return devNode(r, true, topic, 0); }).join('');
-      return '<details id="dtopic-' + i + '" class="dev-topic" style="--tc:' + colors[i] + '"' + (i === 0 ? ' open' : '') + '>' +
+    var visTopics = f ? d.topicNames.filter(function (tp) { return matchCounts[tp] > 0; }) : d.topicNames;
+    var body = visTopics.map(function (topic) {
+      var fi = d.topicNames.indexOf(topic);   // stable id/color index even when the list is filtered
+      var tp = d.topics[topic];
+      var inner = tp.roots.map(function (r) { return devNode(r, true, topic, 0, f); }).join('');
+      var shown = matchCounts[topic], other = tp.n - shown;
+      var note = (f && other > 0) ? '<div class="dev-topic-note">+' + other + ' כרטיסים ' + devEsc(devOtherLabel(f)) + '</div>' : '';
+      return '<details id="dtopic-' + fi + '" class="dev-topic" style="--tc:' + colorOf[topic] + '"' + ((fi === 0 || f) ? ' open' : '') + '>' +
         '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
         '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
-        '<span class="dev-topic-n">' + tp.n + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
-        '<div class="dev-topic-body">' + inner + '</div></details>';
+        '<span class="dev-topic-n">' + (f ? shown : tp.n) + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
+        '<div class="dev-topic-body">' + note + inner + '</div></details>';
     }).join('');
 
-    el.innerHTML = '<div class="dev-wrap">' + devHero(tasks, topics, topicNames, colors) + head + ipBox + (tasks.length ? body : '<div class="dev-empty">אין משימות להצגה.</div>') + '</div>';
+    var bodyHtml = d.tasks.length ? (visTopics.length ? body : '<div class="dev-empty">אין משימות בסינון הזה.</div>') : '<div class="dev-empty">אין משימות להצגה.</div>';
+    el.innerHTML = '<div class="dev-wrap">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + '</div>';
+
+    // restore the live text search across the re-paint
+    var sb = document.getElementById('devSearch');
+    if (sb && window._devQ) { sb.value = window._devQ; window.devFilter(window._devQ); }
   }
 
-  window.devJump = function (i) { var d = document.getElementById('dtopic-' + i); if (!d) return; d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  // toggle a tile filter: same tile (or null) clears, otherwise apply. Repaints from cache (no fetch).
+  window.devSetFilter = function (f) {
+    var c = window._devFilter;
+    var same = !!c && !!f && c.type === f.type && (c.val || '') === (f.val || '');
+    window._devFilter = (!f || same) ? null : f;
+    devPaint();
+  };
+
+  window.devJump = function (i) { var dd = document.getElementById('dtopic-' + i); if (!dd) return; dd.open = true; dd.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
   // live filter over the nested tree: a node shows if IT matches or any descendant matches; the
   // path to a match auto-expands so deep sub-tasks are reachable from the search.
   window.devFilter = function (q) {
     q = (q || '').trim().toLowerCase();
+    window._devQ = q;
     var nodes = document.querySelectorAll('#devTasksContent .dev-task');
     nodes.forEach(function (n) { n._m = (!q || (n.getAttribute('data-s') || '').indexOf(q) !== -1); });
     nodes.forEach(function (n) {
-      var show = n._m || (q && Array.prototype.some.call(n.querySelectorAll('.dev-task'), function (d) { return d._m; }));
+      var show = n._m || (q && Array.prototype.some.call(n.querySelectorAll('.dev-task'), function (dd) { return dd._m; }));
       n.style.display = show ? '' : 'none';
       if (q && show) n.open = true;
     });
-    document.querySelectorAll('#devTasksContent .dev-topic').forEach(function (d) {
-      var any = Array.prototype.some.call(d.querySelectorAll('.dev-task'), function (t) { return t.style.display !== 'none'; });
-      d.style.display = any ? '' : 'none'; if (q) d.open = any;
+    document.querySelectorAll('#devTasksContent .dev-topic').forEach(function (dd) {
+      var any = Array.prototype.some.call(dd.querySelectorAll('.dev-task'), function (t) { return t.style.display !== 'none'; });
+      dd.style.display = any ? '' : 'none'; if (q) dd.open = any;
     });
   };
 

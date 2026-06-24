@@ -622,7 +622,11 @@
   .dev-hero-refresh:hover { background: rgba(255,255,255,0.22); }
   .dev-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
   .dev-kpi { position: relative; background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 12px; padding: 13px 14px 12px; overflow: hidden; }
+    border-radius: 12px; padding: 13px 14px 12px; overflow: hidden;
+    width: 100%; text-align: start; color: #fff; font-family: inherit; cursor: pointer;
+    transition: background .15s, border-color .15s, box-shadow .15s; }
+  .dev-kpi:hover { background: rgba(255,255,255,0.11); }
+  .dev-kpi.active { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); box-shadow: inset 0 0 0 2px var(--k); }
   .dev-kpi::before { content: ''; position: absolute; inset-block: 0; inset-inline-start: 0; width: 4px; background: var(--k); }
   .dev-kpi-num { font-size: 30px; font-weight: 800; line-height: 1; font-feature-settings: "tnum"; }
   .dev-kpi-lbl { font-size: 12px; color: rgba(255,255,255,0.72); margin-top: 6px; }
@@ -635,6 +639,15 @@
   .dev-leg:hover { color: #fff; }
   .dev-leg-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
   .dev-leg-n { color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 700; }
+
+  /* Active-filter chip (under the toolbar) + per-topic "other priorities" note */
+  .dev-fchip { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 6px 12px;
+    border-radius: 20px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; }
+  .dev-fchip button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+  .dev-topic-note { font-size: 12px; color: var(--text-light); padding: 4px 8px 7px; font-style: italic; }
+  /* filtered tree: matching rows highlighted, ancestor-context rows dimmed */
+  .dev-task.dev-match > .dev-task-sum { background: var(--accent-soft); }
+  .dev-task.dev-ctx > .dev-task-sum { opacity: .5; }
 
   /* Toolbar: counts + search + state buttons; wraps cleanly on a phone. */
   .dev-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }

@@ -7,6 +7,20 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·69] 2026-06-24
+### Added — dev page: clickable filter tiles (פיתוח)
+- **Every hero tile is now a toggle filter.** Clicking a **priority** tile (קריטי/גבוהה/בינונית/נמוכה) filters
+  the whole topic tree to that tier's *open* tasks; clicking a **KPI** tile filters by its dimension
+  (בפיתוח עכשיו → In-Progress · עודכנו השבוע → last 7d) while "משימות פתוחות"/"נושאים פעילים" reset. Clicking the
+  active tile again clears (toggle). An "מציג: … ✕" chip gives an explicit clear.
+- **Filtered tree keeps the hierarchy + the numbers honest.** A topic shows only matching tasks **plus the ancestor
+  chain** to reach them (ancestors dimmed `.dev-ctx`, matches highlighted `.dev-match`). Each topic's count badge =
+  matching tasks only, with a **"+N כרטיסים בעדיפות אחרת"** note for the rest. The "עומס לפי נושא" bar/legend
+  re-breaks-down by the active filter. GitHub links preserved throughout; spotlight hidden while filtering.
+- **Mechanics:** filtering is client-side over the already-fetched tasks — `renderDevTasks` caches the built data in
+  `window._devData`, and `devSetFilter`→`devPaint` re-renders instantly (no re-fetch). Search query survives re-paints.
+  Verified in-browser with mock data (5 קריטי + 3 בינוני → badge 5, note "+3", toggle back to 8).
+
 ## [·67] 2026-06-24
 ### Changed
 - **MOCK banner → left-edge "🧪 DEV" notch.** Was a full-width bottom bar that overlapped the bottom nav;

@@ -89,6 +89,11 @@ board **"Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)** via **GraphQL** (·39)
 the jump-chips) + a **per-topic color system** (spine/count-pill/body-rail/bar-segment/legend-dot all share one
 color) + violet "בפיתוח עכשיו" card + filled-red critical chip. **"עומס לפי עדיפות" (·44):** priority-load tiles
 (קריטי/גבוהה/בינונית/נמוכה counts) under the KPIs, fed by the live Projects-v2 Priority field.
+**Clickable filter tiles (·69):** every hero tile is a **toggle filter** — a priority tile filters the tree to that
+tier's open tasks (KPI tiles filter by In-Progress / last-7d; "open"/"topics" reset; click-again clears, "מציג: … ✕"
+chip). Filtered tree shows only matches **+ ancestor chain** (matches highlighted, ancestors dimmed); each topic's
+count = matches only with a **"+N בעדיפות אחרת"** note; bar/legend re-break-down by the filter; links preserved.
+Client-side over cached `_devData` (`devSetFilter`→`devPaint`, no re-fetch).
 **Full sub-issue tree (·46):** the tree now nests **GitHub native sub-issues** (real hierarchy, any depth:
 📂 topic → card → sub-task → leaf), replacing the old title-pipe `אב` grouping that scattered an epic's children.
 Function returns each issue's `parent` (one GraphQL query; graceful → flat if absent). **Live & verified (·48):**
