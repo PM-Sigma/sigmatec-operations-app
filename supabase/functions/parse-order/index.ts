@@ -1,15 +1,15 @@
 // Supabase Edge Function: parse-order
-// Free-text (email / WhatsApp) → catalog item list, via Gemini (free tier). EMS-login-gated.
-// LEARNS: feeds the most recent rows from `parse_corrections` (real text→items the team accepted)
-// as few-shot examples, so accuracy improves with use — no model training.
+// Free-text (email / WhatsApp) → catalog item list, via a PROVIDER CHAIN (Gemini → Groq). EMS-login-gated.
+// The first provider that returns a valid (non-error) answer wins, so no single provider's quota can block us.
+// LEARNS: feeds recent rows from `parse_corrections` (real text→items the team accepted) as few-shot examples.
 //
-// Secrets to set (Edge Functions → Secrets):
-//   GEMINI_API_KEY — required. Free key from https://aistudio.google.com (any Google account).
-//   EMS_API_BASE   — optional (defaults to https://api.sigmatec-ems.com) — used to gate by EMS login.
-//   GEMINI_MODEL   — optional (defaults to gemini-2.0-flash).
+// Secrets (Edge Functions → Secrets) — set at least ONE AI key:
+//   GEMINI_API_KEY — free key from https://aistudio.google.com (any Google account).
+//   GROQ_API_KEY   — free key from https://console.groq.com.
+//   GEMINI_MODEL   — optional (default gemini-1.5-flash). GROQ_MODEL — optional (default llama-3.3-70b-versatile).
+//   EMS_API_BASE   — optional (defaults to https://api.sigmatec-ems.com) — gate by EMS login.
 //   APP_ORIGIN     — optional (defaults to https://pm-sigma.github.io).
-// GRACEFUL: no key → 503 {error}; any failure → {error} — the client then falls back to its
-// deterministic local matcher, so order intake never breaks.
+// GRACEFUL: no key → 503; all providers fail → 502 {error} — the client then falls back to its local matcher.
 const SB_URL = "https://wwqfcajnxinaxmobrgol.supabase.co";
 const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4";
 
@@ -71,15 +71,46 @@ const SCHEMA = {
   required: ["items"],
 };
 
+function extractItems(text: string): any[] {
+  const parsed = JSON.parse(text || "{}");
+  return (parsed.items || []).filter((it: any) => it && it.name).map((it: any) => ({ name: String(it.name), qty: parseInt(it.qty) || 1 }));
+}
+
+// --- providers: each returns an items[] or throws on error ---
+async function callGemini(key: string, model: string, prompt: string): Promise<any[]> {
+  const r = await fetchT(
+    "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key,
+    { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json", responseSchema: SCHEMA } }) },
+    15000);
+  const d = await r.json();
+  if (!r.ok) throw new Error("gemini " + r.status + " " + String(d?.error?.message || JSON.stringify(d)).slice(0, 140));
+  return extractItems(d?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+}
+async function callGroq(key: string, model: string, prompt: string): Promise<any[]> {
+  const r = await fetchT(
+    "https://api.groq.com/openai/v1/chat/completions",
+    { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
+      body: JSON.stringify({ model, temperature: 0.1, response_format: { type: "json_object" },
+        messages: [{ role: "user", content: prompt }] }) },
+    15000);
+  const d = await r.json();
+  if (!r.ok) throw new Error("groq " + r.status + " " + String(d?.error?.message || JSON.stringify(d)).slice(0, 140));
+  return extractItems(d?.choices?.[0]?.message?.content || "{}");
+}
+
 Deno.serve(async (req) => {
   const ORIGIN = Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
-  const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
+  const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-1.5-flash";
+  const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") || "";
+  const GROQ_MODEL = Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile";
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(ORIGIN) });
   if (req.method !== "POST") return json({ error: "POST only" }, 405, ORIGIN);
-  if (!GEMINI_API_KEY) return json({ error: "GEMINI_API_KEY not set" }, 503, ORIGIN);
+  if (!GEMINI_API_KEY && !GROQ_API_KEY) return json({ error: "no AI key set (GEMINI_API_KEY or GROQ_API_KEY)" }, 503, ORIGIN);
 
   let body: any = {};
   try { body = await req.json(); } catch { /* */ }
@@ -97,21 +128,20 @@ Deno.serve(async (req) => {
     if (r.ok) examples = await r.json();
   } catch { /* no examples yet */ }
 
-  try {
-    const gr = await fetchT(
-      "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent?key=" + GEMINI_API_KEY,
-      { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: buildPrompt(catalog, examples, text) }] }],
-          generationConfig: { temperature: 0.1, responseMimeType: "application/json", responseSchema: SCHEMA } }) },
-      15000,
-    );
-    const gd = await gr.json();
-    if (!gr.ok) return json({ error: "gemini " + gr.status, detail: JSON.stringify(gd).slice(0, 200) }, 502, ORIGIN);
-    const out = gd?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const parsed = JSON.parse(out);
-    const items = (parsed.items || []).filter((it: any) => it && it.name).map((it: any) => ({ name: String(it.name), qty: parseInt(it.qty) || 1 }));
-    return json({ items, learned: examples.length }, 200, ORIGIN);
-  } catch (e) {
-    return json({ error: String((e as Error)?.message || e) }, 500, ORIGIN);
+  const prompt = buildPrompt(catalog, examples, text);
+  const providers: { name: string; run: () => Promise<any[]> }[] = [];
+  if (GEMINI_API_KEY) providers.push({ name: "gemini:" + GEMINI_MODEL, run: () => callGemini(GEMINI_API_KEY, GEMINI_MODEL, prompt) });
+  if (GROQ_API_KEY) providers.push({ name: "groq:" + GROQ_MODEL, run: () => callGroq(GROQ_API_KEY, GROQ_MODEL, prompt) });
+
+  const errors: string[] = [];
+  let emptyOk: { items: any[]; provider: string } | null = null;
+  for (const p of providers) {
+    try {
+      const items = await p.run();
+      if (items.length > 0) return json({ items, provider: p.name, learned: examples.length }, 200, ORIGIN);
+      if (!emptyOk) emptyOk = { items, provider: p.name };   // valid but empty — keep, try the next for something better
+    } catch (e) { errors.push((e as Error).message); }
   }
+  if (emptyOk) return json({ items: emptyOk.items, provider: emptyOk.provider, learned: examples.length }, 200, ORIGIN);
+  return json({ error: "all AI providers failed", detail: errors.join(" | ") }, 502, ORIGIN);
 });

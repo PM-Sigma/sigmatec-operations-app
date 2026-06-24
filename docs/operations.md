@@ -32,26 +32,25 @@
   // then read window.__r
   ```
 
-## Edge Function (`parse-order`) — AI order parsing  ⏳ awaiting key
+## Edge Function (`parse-order`) — AI order parsing (PROVIDER CHAIN: Gemini → Groq)
 
-Free-text (email/WhatsApp) → catalog item list, via Gemini free tier; learns from `parse_corrections`.
-The frontend is **already live** and calls this function, with a graceful fallback to the local matcher —
-so nothing breaks until it's deployed. To turn the AI on, do these **3 steps once**:
+Free-text (email/WhatsApp) → catalog item list; learns from `parse_corrections`. The function tries each
+configured AI provider **in order and uses the first valid (non-error) answer** — so one provider's quota
+can't block you. The frontend calls it with a graceful fallback to the local matcher (never breaks).
 
-1. **Get a free Gemini API key** — https://aistudio.google.com → **Get API key → Create API key**.
-   - The account **does not matter** (the key is only used server-side). If your **Workspace/org** account
-     can't create one (admin-disabled), just use a **personal Gmail** — the key works identically.
-   - (Alternative: a **Groq** free key — then change the URL/format in the function. Gemini is recommended.)
-2. **Deploy the function:** Supabase → **Edge Functions → Create function → name it exactly `parse-order`**
-   → paste the full contents of `supabase/functions/parse-order/index.ts` → **Deploy**.
-   - Then **Edge Functions → Secrets → add `GEMINI_API_KEY`** = the key from step 1. (Re-deploy after setting it.)
-   - Optional secrets: `GEMINI_MODEL` (default `gemini-2.0-flash`), `EMS_API_BASE` (defaults correctly).
-   - **No other function needs changing.** The `github`/`ems-auth` functions are untouched.
-3. **Create the learning table:** Supabase → SQL editor → run `db/parse_corrections.sql` (table + RLS).
+**Set at least one AI key as a secret** (Edge Functions → Secrets), then re-deploy the function:
+- **`GEMINI_API_KEY`** — https://aistudio.google.com → Get API key. *(Note: `gemini-2.0-flash` was returning
+  429 "quota exceeded" on this key → the default model is now **`gemini-1.5-flash`**. Override with `GEMINI_MODEL`.)*
+- **`GROQ_API_KEY`** — https://console.groq.com → API Keys (plain email signup, no Google/Workspace). Default model
+  `llama-3.3-70b-versatile`; override with `GROQ_MODEL`.
+- Optional: `GEMINI_MODEL`, `GROQ_MODEL`, `EMS_API_BASE` (defaults correctly).
 
-That's it — reload the app, open a new order, paste text, **🪄 נתח לפריטים**. Every accepted order is saved as a
-training example, so accuracy improves with use. If the key is missing/quota-hit, it silently falls back to the
-local matcher (no breakage).
+**Deploy steps:** Supabase → Edge Functions → `parse-order` → paste the full `supabase/functions/parse-order/index.ts`
+→ Deploy → add the secret(s) → re-deploy. Learning table: SQL editor → `db/parse_corrections.sql` (done).
+The account behind a key doesn't matter (server-side only). **No other function changes** (`github`/`ems-auth` untouched).
+
+Account/region note: if Google's free tier is 0-quota for your key (429 even on one call), set `GROQ_API_KEY` —
+the chain will use Groq automatically. The response includes `provider` so you can see which one answered.
 
 ## Database
 

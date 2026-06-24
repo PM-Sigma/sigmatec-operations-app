@@ -44,7 +44,7 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-24 (build ·55 live — order parsing fixed (all-meters bug) + Landis/CT rules; **re-deploy `parse-order`** to load the AI glossary; reconnect EMS to use the AI)
+## 🚦 Current state — last: 2026-06-24 (app ·55 live · `parse-order` = Gemini→Groq provider chain; **re-deploy fn + add `GROQ_API_KEY`** — עידן's Gemini key 429s [account/region free-tier])
 
 **Live & verified on `main`:** Supabase migration · PWA · EMS login gate · meters · "add to calendar" links ·
 security bridge + write-lockdown + messages-privacy (anon=read-only, auth=write) · Stats · Employee page

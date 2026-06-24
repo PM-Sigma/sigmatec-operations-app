@@ -8,6 +8,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > claude-mem (search with the `mem-search` skill).
 
 ## [Unreleased]
+### Changed
+- **`parse-order` is now a provider chain — Gemini → Groq, first valid answer wins (fn-only, no app version
+  bump).** עידן's Gemini key returned `429 quota exceeded` even on a single call (account/region free-tier issue,
+  not our code — verified: fn deployed, key set, EMS gate + connection all green). So the function now tries each
+  configured AI key in order and uses the first non-error result; default Gemini model switched to
+  **`gemini-1.5-flash`** (more reliably free); added **Groq** (`GROQ_API_KEY`, default `llama-3.3-70b-versatile`).
+  Response includes `provider` so you can see which answered. **Action:** re-deploy `parse-order` + add `GROQ_API_KEY`
+  (console.groq.com) so there's a guaranteed-free path. See operations.md.
+
 ### Fixed
 - **Order parsing: catastrophic all-meters match + Landis/CT rules (·53-55)** — a generic "מונה"/"מונים"
   matched *every* meter (an email "3 מונים לנדיס" returned all 6 meters ×3). Root cause: "מונה" is a token in
