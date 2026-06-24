@@ -2098,11 +2098,8 @@
         if (/em133/i.test(intakeNormalize(items[_ii].name))) items.splice(_ii, 1);
       }
     }
-    // Auto-add controllers, SIMs and antennas for customer orders. Controllers are added FIRST so they
-    // count toward SIM + antenna. Regexes match the REAL catalog names (בקר PUSR / בקר Robustel / סים Partner / אנטנה).
-    if (orderType === 'customer') {
-      applyCustomerAutoAdd(items, catalog);
-    }
+    // NOTE: accessory auto-add (controllers/SIM/antenna) is applied centrally in orderParseRaw AFTER parsing,
+    // so it runs identically for the AI path and this offline path. Keep this matcher to pure parsing.
     const seen = new Set();
     return items.filter(it => { if (seen.has(it.name)) return false; seen.add(it.name); return true; });
   }
@@ -2730,14 +2727,17 @@
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '🧠 מנתח...'; }
     try {
-      const items = await parseRawToItems(raw, window._invOrderType || 'supplier');
+      const otype = window._invOrderType || 'supplier';
+      const items = await parseRawToItems(raw, otype);
       if (!items.length) { alert('לא זוהו פריטים מהטקסט — הוסף ידנית.'); return; }
       items.forEach(it => {
         const exists = invOrderItems.find(i => i.name === it.name);
         if (exists) exists.qty += it.qty;
         else invOrderItems.push({ name: it.name, qty: it.qty });
       });
-      const needPs = injectPowerSupplyChoice(window._invOrderType || 'supplier');
+      // Deterministic accessories for customer orders — done in code, NOT by the AI (controllers + SIM + antenna).
+      if (otype === 'customer') applyCustomerAutoAdd(invOrderItems, getActiveProducts().map(p => p.name));
+      const needPs = injectPowerSupplyChoice(otype);
       renderOrderItems();
       invToggleDistribution();
       if (needPs) {

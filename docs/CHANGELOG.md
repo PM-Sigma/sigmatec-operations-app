@@ -7,6 +7,18 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·60] 2026-06-24
+### Fixed
+- **Customer accessories are now deterministic (code, not AI).** Live test showed the AI returned only the
+  literal meters and skipped the controllers/SIMs/antenna entirely. Moved `applyCustomerAutoAdd` to run **after
+  parsing in `orderParseRaw`** for both the AI and offline paths, so accessories are always computed in code.
+  The AI prompt now says: customer orders → parse only what's written, the app adds accessories.
+- **`משנז 250/400` no longer misparsed as a meter.** Hardened the rule: only "מונה משנ"ז" (with the word מונה)
+  → E360CT; a bare "משנז" with a number → the physical `משנ"ז 250/400`, never E360CT.
+- ⚠️ **KNOWN: accessory regexes need the real catalog names.** Live catalog uses `Landis+Gyr E360PP`,
+  `Satec EM133`, `Carlo Gavachi E341` (not `מונה …`). Meters match by substring; SIM/controller/antenna/
+  power-supply names still need confirming so their auto-add regexes match. (Tracked in backlog.)
+
 ## [·59] 2026-06-24
 ### Added
 - **ספק כוח per controller — with a click-to-choose row.** Every controller (PUSR + Robustel) on a customer
