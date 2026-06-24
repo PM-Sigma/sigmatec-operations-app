@@ -1,7 +1,7 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·52** (2026-06-24)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·55** (2026-06-24)._
 
 ## ⏳ One re-deploy pending — activate the AI glossary (·52)
 AI order parsing is **set up**: עידן deployed `parse-order` + set `GEMINI_API_KEY` + ran `db/parse_corrections.sql`

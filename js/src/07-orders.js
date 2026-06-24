@@ -10,9 +10,12 @@
     'em133':'em133', '133':'em133', 'satec':'em133', 'סאטק':'em133',
     // לנדיס phrasings → the E360 family (mirrors the AI glossary in supabase/functions/parse-order)
     'לנדיס ישיר':'e360pp', 'ישיר לקו':'e360pp', 'חד פאזי':'e360sp',
-    'לנדיס משנה זרם':'e360ct', 'לנדיס משנז':'e360ct',
+    // "מונה משנ\"ז" (with the word מונה) → the E360CT meter; a bare "משנ\"ז 250" stays the physical CT product
+    'מונה משנה זרם':'e360ct', 'מונה משנז':'e360ct',
     'בקר':'בקר', 'בקרים':'בקר', 'robustel':'robustel',
-    'רובסטל':'robustel', 'סים':'סים', 'סימים':'סים', 'sim':'סים', 'מונה':'מונה', 'מונים':'מונה'
+    'רובסטל':'robustel', 'סים':'סים', 'סימים':'סים', 'sim':'סים'
+    // NOTE: removed generic 'מונה'/'מונים' — they matched EVERY meter (all names contain "מונה").
+    // A generic "מונה לנדיס" with no variant becomes an E360PP default in parseLocalToItems().
   };
   const HE_NUMWORDS = { 'אחד':1,'אחת':1,'שני':2,'שתי':2,'שניים':2,'שתיים':2,'שלוש':3,'שלושה':3,
     'ארבע':4,'ארבעה':4,'חמש':5,'חמישה':5,'שש':6,'שישה':6,'שבע':7,'שבעה':7,'שמונה':8,'תשע':9,'תשעה':9,'עשר':10,'עשרה':10 };
@@ -82,6 +85,9 @@
     document.getElementById('intakeStep2').style.display = '';
   }
 
+  // Generic category words that appear in MANY product names — must NOT be match tokens on their own
+  // (otherwise any text with "מונה" matched every meter). The discriminating token (e360pp, em133…) matches.
+  const INTAKE_STOP = ['מונה', 'מונים'];
   // Deterministic keyword/alias matcher against the catalog → [{name,qty,uncertain}].
   function parseLocalToItems(raw) {
     const norm = intakeNormalize(raw);
@@ -90,7 +96,7 @@
     catalog.forEach(prodName => {
       const normProd = intakeNormalize(prodName);
       let idx = -1;
-      for (const t of normProd.split(' ').filter(t => t.length >= 2)) {
+      for (const t of normProd.split(' ').filter(t => t.length >= 2 && INTAKE_STOP.indexOf(t) === -1)) {
         const at = norm.indexOf(t);
         if (at !== -1) { idx = at; break; }
       }
@@ -107,6 +113,20 @@
         items.push({ name: prodName, qty: q.value, uncertain: q.uncertain });
       }
     });
+    // Generic "מונה לנדיס" with no specific variant → default product מונה E360PP (business rule).
+    // Quantity taken from the number near the word "מונה/מונים" (e.g. "3 מונים ... לנדיס"), else near "לנדיס".
+    if (/לנדיס/.test(norm) && !items.some(it => /E360/i.test(it.name))) {
+      const def = catalog.find(n => /E360PP/i.test(n));
+      if (def) {
+        let anchor = norm.search(/מונ/); if (anchor === -1) anchor = norm.indexOf('לנדיס');
+        const q = intakeQtyNear(norm, anchor);
+        items.push({ name: def, qty: q.value, uncertain: q.uncertain });
+      }
+    }
+    // "מונה משנ\"ז" (the word מונה adjacent to משנ"ז) = the E360CT METER → drop the bare physical CT products.
+    if (/מונה\s*משנ/.test(norm)) {
+      for (let i = items.length - 1; i >= 0; i--) { if (/^משנ/.test(intakeNormalize(items[i].name))) items.splice(i, 1); }
+    }
     const seen = new Set();
     return items.filter(it => { if (seen.has(it.name)) return false; seen.add(it.name); return true; });
   }

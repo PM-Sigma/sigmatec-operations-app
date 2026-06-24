@@ -8,6 +8,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > claude-mem (search with the `mem-search` skill).
 
 ## [Unreleased]
+### Fixed
+- **Order parsing: catastrophic all-meters match + Landis/CT rules (·53-55)** — a generic "מונה"/"מונים"
+  matched *every* meter (an email "3 מונים לנדיס" returned all 6 meters ×3). Root cause: "מונה" is a token in
+  every meter name. Fix: `INTAKE_STOP = ['מונה','מונים']` excludes it as a match token + removed the generic
+  aliases. Added the business rules (both AI glossary + offline matcher): **generic "מונה לנדיס" → מונה E360PP
+  default**; **"מונה משנ"ז" (with the word מונה) → מונה E360CT**, while a **bare "משנ"ז 250/400" → the physical
+  CT** (not E360CT). Verified: the reported email now → `מונה E360PP ×3`. *(Offline fallback still imperfect on a
+  bare "משנ"ז 250" qty — the AI handles it.)* **Re-deploy `parse-order`** to load the updated AI glossary.
+
 ### Added
 - **Parser alias glossary — taught 4 business mappings (·52)** — explicit term→product rules, applied by both
   the AI (`parse-order` prompt glossary) and the offline matcher (`INTAKE_ALIASES`): **"133"/סאטק → מונה EM133**
