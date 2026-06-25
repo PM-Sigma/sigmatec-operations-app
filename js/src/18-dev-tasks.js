@@ -15,10 +15,12 @@
   // shows only matching tasks + their ancestor chain (ancestors dimmed as context), each topic's count
   // = matching tasks only, with a "+N בעדיפות אחרת" note for the rest. Links are always kept.
   // ===========================================================
-  // פיתוח is for עידן + עמיחי (via canManageStaff) AND מתניה (the developer).
+  // פיתוח is for עידן + עמיחי (via canManageStaff) AND the developers (מתניה, אליה).
+  // Names inlined (no module-level var) — canSeeDevTasks runs during nav init, before this section's
+  // var-assignments would execute, so a hoisted `var` would be undefined at call time.
   function canSeeDevTasks() {
     var me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-    return me === 'מתניה' || ((typeof canManageStaff === 'function') && canManageStaff());
+    return me === 'מתניה' || me === 'אליה' || ((typeof canManageStaff === 'function') && canManageStaff());
   }
   window._devState = 'open';
   window._devFilter = null;   // null | {type:'prio',val} | {type:'status'} | {type:'week'}

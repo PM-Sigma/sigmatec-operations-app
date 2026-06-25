@@ -7,6 +7,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·83] 2026-06-25
+### Changed — dev page access (פיתוח)
+- **אליה (developer) can now see the פיתוח page too**, alongside מתניה + עידן + עמיחי. Names are inlined in
+  `canSeeDevTasks()` (no module-level `var` — the gate runs during nav init, before a hoisted var would be
+  assigned). Field staff (אביאם/ניתאי) + anon still excluded (verified: אליה/מתניה/עמיחי/עידן true, others false).
+
 ## [·81] 2026-06-25
 ### Changed — dev page access (פיתוח)
 - **מתניה (the developer) can now see the פיתוח page.** `canSeeDevTasks()` now allows מתניה in addition to
