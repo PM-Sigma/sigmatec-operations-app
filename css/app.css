@@ -825,6 +825,14 @@
   .dev-stage-done      { border-inline-start: 4px solid #0e9aa7; }
   .dev-stage-committed { border-inline-start: 4px solid #475569; }
 
+  /* sprint actions + multi-select */
+  .dev-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }
+  .dev-selbox { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; accent-color: #16a34a; cursor: pointer; }
+  .dev-selbar { position: sticky; bottom: 10px; z-index: 5; display: flex; align-items: center; gap: 10px; margin-top: 14px;
+    background: var(--card); border: 1px solid var(--accent, #2563eb); border-radius: 12px; padding: 10px 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.16); }
+  .dev-selbar-n { font-weight: 700; flex: 1; }
+
   /* ---- Mobile (~380px): comfort first ---- */
   @media (max-width: 768px) {
     .dev-wrap { max-width: 100%; }

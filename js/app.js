@@ -7051,6 +7051,7 @@
     return '<details class="dev-mtask' + (pr ? ' dev-pr-' + pr.cls : '') + '" data-s="' + s + '">' +
       '<summary class="dev-mtask-sum">' +
         '<div class="dev-mtask-row">' +
+          (window._devSelMode ? '<input type="checkbox" class="dev-selbox" ' + (window._devSel[t.number] ? 'checked ' : '') + 'onclick="devToggleSel(event,' + t.number + ')" aria-label="בחר משימה">' : '') +
           '<span class="dev-mtask-title">' + devEsc(t._p.desc || t.title) + '</span>' +
           '<a class="dev-git" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="devGitOpen(event,this)" title="פתח ב-GitHub">' + DEV_GH + '</a>' +
         '</div>' +
@@ -7258,6 +7259,11 @@
     if (c) cacheLine = '<div class="dev-cacheline">📦 נשמר מקומית · עודכן ' + devEsc(devAgo(c.at)) +
       (c.refreshing ? ' · <span class="dev-refreshing">מרענן…</span>' : '') +
       (c.error ? ' · <span class="dev-refresherr">רענון נכשל</span>' : '') + '</div>';
+    // sprint actions (status view only): multi-select → push to Ready, and "version released" → Committed
+    var actions = (view === 'status') ? '<div class="dev-actions">' +
+      '<button class="inv-btn small' + (window._devSelMode ? ' active' : '') + '" onclick="devToggleSelMode()">' + (window._devSelMode ? '✕ בטל בחירה' : '☑️ בחר משימות') + '</button>' +
+      '<button class="inv-btn small" onclick="devReleaseVersion(this)">🚀 עלתה גרסה</button>' +
+      '</div>' : '';
     var head = '<div class="dev-toolbar">' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
       '<div class="dev-view-btns">' +
@@ -7267,7 +7273,7 @@
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
-      '</div></div>' + cacheLine + fchip;
+      '</div></div>' + actions + cacheLine + fchip;
 
     // "בפיתוח עכשיו" spotlight — only in topic view (the status board has its own In-Progress column),
     // and hidden while a filter is active (focused view).
@@ -7308,7 +7314,13 @@
       }).join('');
       bodyHtml = visTopics.length ? body : '<div class="dev-empty">אין משימות בסינון הזה.</div>';
     }
-    el.innerHTML = '<div class="dev-wrap">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + '</div>';
+    // sticky action bar for multi-select (shown only in select mode)
+    var selBar = window._devSelMode ? '<div id="devSelBar" class="dev-selbar" style="display:flex">' +
+      '<span class="dev-selbar-n">' + devSelCount() + ' נבחרו</span>' +
+      '<button class="inv-btn small dev-selbar-push" onclick="devPushToReady(this)"' + (devSelCount() ? '' : ' disabled') + '>🟢 דחוף ל-Ready</button>' +
+      '<button class="inv-btn small" onclick="devToggleSelMode()">בטל</button>' +
+      '</div>' : '';
+    el.innerHTML = '<div class="dev-wrap">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + selBar + '</div>';
 
     // restore the live text search across the re-paint
     var sb = document.getElementById('devSearch');
@@ -7351,6 +7363,67 @@
 
   window.devSetState = function (s) { window._devState = s; window._devFilter = null; renderDevTasks(); };
   window.devSetView = function (v) { window._devView = v; devPaint(); };   // 'status' board | 'topic' tree — instant, no fetch
+
+  // ----- WRITE: move issues to a target Status via the github fn (needs project write token + redeploy) -----
+  async function devWriteStatus(numbers, targetName) {
+    var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+    if (!tok) throw new Error('יש להתחבר ל-EMS');
+    var r = await fetch(SB_URL + '/functions/v1/github', {
+      method: 'POST',
+      headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: tok, mode: 'setStatus', numbers: numbers, status: targetName })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw new Error(d.error || ('github ' + r.status));
+    if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
+    return d;   // { updated:[], failed:[], statusOptions:[], target }
+  }
+  // selection mode (multi-select tickets → push to Ready)
+  window._devSel = {};
+  window.devToggleSelMode = function () { window._devSelMode = !window._devSelMode; window._devSel = {}; devPaint(); };
+  window.devToggleSel = function (e, n) {
+    if (e) e.stopPropagation();
+    if (window._devSel[n]) delete window._devSel[n]; else window._devSel[n] = true;
+    var bar = document.getElementById('devSelBar'); if (bar) devPaintSelBar(bar);
+  };
+  function devSelCount() { return Object.keys(window._devSel || {}).length; }
+  function devPaintSelBar(bar) {
+    var n = devSelCount();
+    bar.querySelector('.dev-selbar-n').textContent = n + ' נבחרו';
+    bar.querySelector('.dev-selbar-push').disabled = !n;
+  }
+  window.devPushToReady = async function (btn) {
+    var numbers = Object.keys(window._devSel || {}).map(Number);
+    if (!numbers.length) return;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ דוחף…'; }
+    try {
+      var d = await devWriteStatus(numbers, 'Ready');
+      var msg = '✅ הועברו ל"ספרינט קרוב": ' + d.updated.length + (d.failed.length ? ' · נכשלו: ' + d.failed.length : '');
+      if (typeof toast === 'function') toast(msg); else alert(msg);
+      window._devSelMode = false; window._devSel = {};
+      renderDevTasks(true);   // refresh from GitHub so the board reflects the move
+    } catch (e) {
+      alert('שגיאה: ' + (e && e.message || e));
+      if (btn) { btn.disabled = false; btn.textContent = '🟢 דחוף ל-Ready'; }
+    }
+  };
+  // "עלתה גרסה" → move everything currently in Done (גמר פיתוח) to Committed (עלה לאוויר)
+  window.devReleaseVersion = async function (btn) {
+    var d = window._devData; if (!d) return;
+    var nums = d.tasks.filter(function (t) { return devStage(t) === 'done'; }).map(function (t) { return t.number; });
+    if (!nums.length) { alert('אין משימות ב"גמר פיתוח ממתין לגרסה".'); return; }
+    if (!confirm('להעביר ' + nums.length + ' משימות מ"גמר פיתוח" ל"עלה לאוויר"?')) return;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+    try {
+      var res = await devWriteStatus(nums, 'Committed');
+      var msg = '🚀 עלו לאוויר: ' + res.updated.length + (res.failed.length ? ' · נכשלו: ' + res.failed.length : '');
+      if (typeof toast === 'function') toast(msg); else alert(msg);
+      renderDevTasks(true);
+    } catch (e) {
+      alert('שגיאה: ' + (e && e.message || e));
+      if (btn) { btn.disabled = false; btn.textContent = '🚀 עלתה גרסה'; }
+    }
+  };
   window.renderDevTasks = renderDevTasks;
   window.canSeeDevTasks = canSeeDevTasks;
   // ===== New-version watcher =====

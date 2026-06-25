@@ -100,6 +100,64 @@ async function fetchParentLinks(token: string, owner: string, name: string): Pro
   return out;
 }
 
+// WRITE: set the Projects-v2 Status field for a set of issues to a target option (e.g. "Ready" / "Committed").
+// Needs a token with project WRITE scope (classic PAT `project`, or fine-grained Projects: read+write).
+// Returns { updated:[numbers], failed:[{number,error}], statusOptions:[names], target }.
+async function setProjectStatus(token: string, owner: string, num: number, numbers: number[], targetName: string) {
+  const gql = async (query: string, variables: any) => {
+    const r = await fetchT("https://api.github.com/graphql", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", "User-Agent": "sigmatec-ops" },
+      body: JSON.stringify({ query, variables }),
+    }, 12000);
+    const d = await r.json();
+    if (d.errors) throw new Error(d.errors.map((e: any) => e.message).join("; "));
+    return d.data;
+  };
+  // 1) project node id + the Status single-select field (id + its options)
+  const meta = await gql(
+    `query($owner:String!,$num:Int!){ organization(login:$owner){ projectV2(number:$num){ id fields(first:30){ nodes{ ... on ProjectV2SingleSelectField { id name options{ id name } } } } } } }`,
+    { owner, num },
+  );
+  const proj = meta?.organization?.projectV2;
+  if (!proj) throw new Error("project not found");
+  const statusField = (proj.fields?.nodes || []).find((f: any) => f && f.options && /status|סטטוס/i.test(f.name || ""));
+  if (!statusField) throw new Error("Status field not found on the project");
+  const optionNames = statusField.options.map((o: any) => o.name);
+  const tn = String(targetName).toLowerCase();
+  const opt = statusField.options.find((o: any) => o.name.toLowerCase() === tn)
+    || statusField.options.find((o: any) => o.name.toLowerCase().includes(tn));
+  if (!opt) return { updated: [], failed: numbers.map((n) => ({ number: n, error: "no matching '" + targetName + "' status option" })), statusOptions: optionNames };
+  // 2) map issue number → project item id (paginate the board)
+  const itemByNumber: Record<number, string> = {};
+  let after: string | null = null;
+  for (let p = 0; p < 10; p++) {
+    const d = await gql(
+      `query($owner:String!,$num:Int!,$after:String){ organization(login:$owner){ projectV2(number:$num){ items(first:100, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ id content{ ... on Issue { number } } } } } } }`,
+      { owner, num, after },
+    );
+    const items = d?.organization?.projectV2?.items;
+    if (!items) break;
+    for (const node of (items.nodes || [])) { const n = node?.content?.number; if (n) itemByNumber[n] = node.id; }
+    if (!items.pageInfo?.hasNextPage) break;
+    after = items.pageInfo.endCursor;
+  }
+  // 3) mutate each requested issue
+  const updated: number[] = [], failed: any[] = [];
+  for (const n of numbers) {
+    const itemId = itemByNumber[n];
+    if (!itemId) { failed.push({ number: n, error: "not on the project board" }); continue; }
+    try {
+      await gql(
+        `mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){ projectV2Item{ id } } }`,
+        { p: proj.id, i: itemId, f: statusField.id, o: opt.id },
+      );
+      updated.push(n);
+    } catch (e) { failed.push({ number: n, error: String((e as Error)?.message || e) }); }
+  }
+  return { updated, failed, statusOptions: optionNames, target: opt.name };
+}
+
 Deno.serve(async (req) => {
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   const GH_TOKEN = Deno.env.get("GH_TOKEN") || "";
@@ -121,6 +179,19 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { /* */ }
   if (!(await emsValid(EMS_API_BASE, body.token))) return json({ error: "unauthorized: valid EMS login required" }, 401, ORIGIN);
+
+  // WRITE: move selected issues to a target Status (e.g. "Ready" / "Committed"). EMS-gated; needs project write scope.
+  if (body.mode === "setStatus") {
+    const numbers = Array.isArray(body.numbers) ? body.numbers.map(Number).filter(Boolean) : [];
+    const target = String(body.status || "").trim();
+    if (!numbers.length || !target) return json({ error: "numbers[] and status are required" }, 400, ORIGIN);
+    try {
+      const res = await setProjectStatus(GH_TOKEN, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, numbers, target);
+      return json(res, 200, ORIGIN);
+    } catch (e) {
+      return json({ error: String((e as Error)?.message || e) }, 502, ORIGIN);
+    }
+  }
 
   try {
     const state = body.state === "all" ? "all" : (body.state === "closed" ? "closed" : "open");

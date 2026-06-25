@@ -7,6 +7,17 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·84] 2026-06-25 — feat/dev-sprint-board
+### Added — dev page: sprint writes (פיתוח) [needs github fn redeploy + write token]
+- **Multi-select → דחוף ל-Ready.** A "☑️ בחר משימות" toggle puts a checkbox on every board card; a sticky bar
+  ("N נבחרו · 🟢 דחוף ל-Ready") moves the selected tickets to **Ready** in the GitHub Project, then refreshes.
+- **"🚀 עלתה גרסה"** button — moves everything currently in **גמר פיתוח** (Done) to **עלה לאוויר** (Committed)
+  in one go (with a confirm).
+- **`github` fn gains a write path** (`mode:"setStatus"`): `setProjectStatus()` resolves the project + Status
+  field + target option ids, maps issue→item ids, and runs `updateProjectV2ItemFieldValue` per ticket. EMS-gated.
+  Returns `{updated, failed, statusOptions, target}`. **Needs the `github` function REDEPLOYED + a `GH_TOKEN`
+  with Projects-v2 write** (classic PAT `project` scope already writes). Client shows a clear error until then.
+
 ## [·82] 2026-06-25 — feat/dev-sprint-board
 ### Added — dev page: status board + day-stamps (פיתוח) [read-side]
 - **Status board** — a new default "לפי סטטוס" view: the 6 named pipeline columns, each listing its tickets
