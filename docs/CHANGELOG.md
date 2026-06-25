@@ -7,6 +7,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·80] 2026-06-25
+### Removed — dev page (פיתוח)
+- **Dropped the bottom "פתח ב-GitHub ↗" link** from the task detail (desktop tree + mobile card). The task
+  row already has the GitHub icon button, so the footer link was redundant.
+
 ## [·79] 2026-06-25
 ### Changed — dev page: fetch once per connection (פיתוח)
 - **The GitHub fetch now runs once per session, not on every page open.** Tickets download once and are
