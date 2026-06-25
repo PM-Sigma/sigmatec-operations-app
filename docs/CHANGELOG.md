@@ -7,32 +7,26 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
-## [·84] 2026-06-25 — feat/dev-sprint-board
-### Added — dev page: sprint writes (פיתוח) [needs github fn redeploy + write token]
-- **Multi-select → דחוף ל-Ready.** A "☑️ בחר משימות" toggle puts a checkbox on every board card; a sticky bar
-  ("N נבחרו · 🟢 דחוף ל-Ready") moves the selected tickets to **Ready** in the GitHub Project, then refreshes.
-- **"🚀 עלתה גרסה"** button — moves everything currently in **גמר פיתוח** (Done) to **עלה לאוויר** (Committed)
-  in one go (with a confirm).
-- **`github` fn gains a write path** (`mode:"setStatus"`): `setProjectStatus()` resolves the project + Status
-  field + target option ids, maps issue→item ids, and runs `updateProjectV2ItemFieldValue` per ticket. EMS-gated.
-  Returns `{updated, failed, statusOptions, target}`. **Needs the `github` function REDEPLOYED + a `GH_TOKEN`
-  with Projects-v2 write** (classic PAT `project` scope already writes). Client shows a clear error until then.
+## [·86] 2026-06-25 — sprint board LIVE (merged from feat/dev-sprint-board)
+### Added — dev page: sprint board (פיתוח)
+- **Status board** — new default "לפי סטטוס" view: 6 named columns — **ממתין לפיתוח** (Backlog) · **ספרינט קרוב**
+  (Ready) · **בפיתוח עכשיו** (In Progress) · **בשלבי בדיקות** (In Review) · **גמר פיתוח ממתין לגרסה** (Done) ·
+  **עלה לאוויר** (Committed) — each listing its tickets with assignee, sorted by priority. `devStage()` maps the
+  Projects-v2 Status → column; Backlog/Done/Committed start collapsed. View toggle "לפי סטטוס / לפי נושא"
+  (topic tree still available); priority filters + search work over the board.
+- **Sprint writes** — "☑️ בחר משימות" multi-select (checkbox per card) + a sticky bar → **🟢 דחוף ל-Ready**;
+  and **🚀 עלתה גרסה** moves everything in גמר פיתוח (Done) → עלה לאוויר (Committed). Via the `github` fn
+  `mode:"setStatus"` (`setProjectStatus()` resolves project/Status-field/option ids → `updateProjectV2ItemFieldValue`).
+  EMS-gated; needs the `GH_TOKEN` Projects-v2 write scope + a **Committed** Status option (added in the Roadmap project).
+- **Status-entry day-stamps** — tiny gray `Backlog 1.6 · Ready 5.6 · …` chain per card, fed by the Supabase
+  `dev_status_log` table (forward-tracking, day granularity; `db/dev_status_log.sql`). The shared task card
+  (`.dev-mtask`) now serves the board + the mobile tree.
 
-## [·82] 2026-06-25 — feat/dev-sprint-board
-### Added — dev page: status board + day-stamps (פיתוח) [read-side]
-- **Status board** — a new default "לפי סטטוס" view: the 6 named pipeline columns, each listing its tickets
-  with the assignee, sorted by priority: **ממתין לפיתוח** (Backlog) · **ספרינט קרוב** (Ready) · **בפיתוח עכשיו**
-  (In Progress) · **בשלבי בדיקות** (In Review) · **גמר פיתוח ממתין לגרסה** (Done) · **עלה לאוויר** (Committed).
-  `devStage()` maps each ticket's Projects-v2 Status to a column; Backlog/Done/Committed start collapsed.
-- **View toggle** "לפי סטטוס / לפי נושא" (`devSetView`) — the topic tree is still available; status is default.
-  Priority filters + search work over the board. The task card (`.dev-mtask`) is now shared by board + mobile tree.
-- **Status-entry day-stamps** — tiny gray `Backlog 1.6 · Ready 5.6 · בפיתוח 8.6 · …` chain in each card's detail,
-  fed by a new Supabase `dev_status_log` table (forward-tracking, day granularity). The client loads the log once
-  per session (anon read) and records each ticket's current stage on sync (auth insert, `on_conflict do nothing`).
-  Graceful: no table / no stamps yet → nothing shown. **Needs `db/dev_status_log.sql` run in Supabase.**
-### Pending (next on this branch)
-- Multi-select → **דחוף ל-Ready** (Projects-v2 write mutation in the `github` fn — needs write token + redeploy).
-- "**עלתה גרסה**" action → bulk-move Done → Committed (same write path).
+## [·82] 2026-06-25
+### Changed — dev page access (פיתוח)
+- **אליה (developer) can now see the פיתוח page too**, alongside מתניה + עידן + עמיחי. Names are inlined in
+  `canSeeDevTasks()` (no module-level `var` — the gate runs during nav init, before a hoisted var would be
+  assigned). Field staff (אביאם/ניתאי) + anon still excluded (verified: אליה/מתניה/עמיחי/עידן true, others false).
 
 ## [·81] 2026-06-25
 ### Changed — dev page access (פיתוח)
