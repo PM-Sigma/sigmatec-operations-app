@@ -561,7 +561,7 @@
       root.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">אין הזמנות. לחץ "+ הזמנה חדשה"</div>';
       return;
     }
-    let html = '<table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th>פעולות <span style="font-weight:400;font-size:10px;color:#94a3b8;">(מעדכן לסטטוס שרשום מטה)</span></th></tr></thead><tbody>';
+    let html = '<table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th style="text-align:left;">פעולות על ההזמנה — שנה סטטוס ל:</th></tr></thead><tbody>';
     filtered.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || '')).forEach(o => {
       const date = (o.expectedDate || o.createdAt) ? new Date(o.expectedDate || o.createdAt).toLocaleDateString('he-IL') : '—';
       const delivered = o.deliveredAt ? '<div style="font-size:10px;color:#059669;white-space:nowrap;">📦 סופק: ' + new Date(o.deliveredAt).toLocaleDateString('he-IL') + '</div>' : '';
@@ -594,7 +594,7 @@
         <td data-label="פריטים">${itemsStr || '—'}</td>
         <td data-label="נוצר ע&quot;י">${o.createdBy || '—'}</td>
         <td data-label="הערות" style="max-width:200px;font-size:11px;">${(o.notes || '').replace(/</g,'&lt;')}</td>
-        <td class="actions-cell" style="white-space:nowrap;">${approvalCell} ${quickBtn} ${stuckBtn} <button class="inv-btn small" onclick="invEditOrder('${o.id}')">✏️ ערוך</button></td>
+        <td class="actions-cell" style="white-space:nowrap;text-align:left;">${approvalCell} ${quickBtn} ${stuckBtn} <button class="inv-btn small" onclick="invEditOrder('${o.id}')">✏️ ערוך</button></td>
       </tr>`;
     });
     html += '</tbody></table>';

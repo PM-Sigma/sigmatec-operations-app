@@ -7,10 +7,10 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
-## [·90] 2026-06-25
+## [·91] 2026-06-25
 ### Changed — inventory
-- **Orders "פעולות" column header** clarified to **"פעולות (מעדכן לסטטוס שרשום מטה)"** — the quick-action button
-  shows the status it moves the order *to*.
+- **Orders actions column** header → **"פעולות על ההזמנה — שנה סטטוס ל:"**, and the column's cells (and header)
+  are now **left-aligned** so the status buttons line up to the left edge.
 
 ## [·89] 2026-06-25
 ### Changed — dev page (פיתוח)
