@@ -7,6 +7,18 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·92] 2026-06-25
+### Fixed — dev page: restored tree hierarchy in the status board + tree-aware selection (פיתוח)
+- **Hierarchy back in the board.** The status board flattened everything into a per-status list (lost אב→בנים).
+  Now it groups each top-level **task-tree by its root's stage** and renders the **full subtree nested**
+  (`devBoard` → `devMobileNodes`): epic = thin label + count, children nested beneath. (`.dev-mepic*` CSS moved
+  global so nesting renders on desktop too, not just mobile.)
+- **Selection is tree-aware.** In "בחר משימות", checkboxes appear **only on child/leaf tasks** — a parent (אב) with
+  children is not directly selectable (only via its children). A parent with no children is itself a leaf → selectable.
+- **Move-all-children → moves the parent.** `devCascadeParents`: when every child of a parent is in the selection,
+  the parent is added to the move too (cascades up the whole tree), so pushing all of a sub-topic's tasks advances
+  the entire epic. Self-tested.
+
 ## [·91] 2026-06-25
 ### Changed — inventory
 - **Orders actions column** header → **"פעולות על ההזמנה — שנה סטטוס ל:"**, and the column's cells (and header)

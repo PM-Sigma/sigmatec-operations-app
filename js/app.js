@@ -7137,20 +7137,23 @@
   }
 
   // ----- Status board (the 6 named stage columns) -----
+  // Groups each top-level task-TREE by its root's stage, then renders the full subtree NESTED
+  // (devMobileNodes: epic → thin label, leaves → cards) so the אב→בנים hierarchy is preserved.
   function devBoard(d, f) {
-    var tasks = d.tasks.filter(function (t) { return devMatchFilter(t, f); });
+    var byNum = {}; d.tasks.forEach(function (t) { byNum[t.number] = t; });
+    var roots = d.tasks.filter(function (t) { return !(t.parent && byNum[t.parent]); });   // no parent in the set
     var byStage = {}; DEV_STAGES.forEach(function (s) { byStage[s.key] = []; });
-    tasks.forEach(function (t) { byStage[devStage(t)].push(t); });
+    roots.forEach(function (t) { if (!f || devSubtreeMatch(t, f, 0)) byStage[devStage(t)].push(t); });
     var rank = function (t) { var pr = devPriority(t); return (pr && DEV_PRANK[pr.label]) || 0; };
     return DEV_STAGES.map(function (s) {
       var list = byStage[s.key].sort(function (a, b) { return rank(b) - rank(a); });
       var openAttr = ((s.open || f) && list.length) ? ' open' : '';
-      var cards = list.length ? list.map(devMobileCard).join('') : '<div class="dev-stage-empty">—</div>';
+      var inner = list.length ? devMobileNodes(list, f, 0) : '<div class="dev-stage-empty">—</div>';
       return '<details class="dev-stage dev-stage-' + s.key + '"' + openAttr + '>' +
         '<summary class="dev-stage-sum"><span class="dev-stage-ico" aria-hidden="true">' + s.ico + '</span>' +
         '<span class="dev-stage-name">' + devEsc(s.label) + '</span>' +
         '<span class="dev-stage-n">' + list.length + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
-        '<div class="dev-stage-body">' + cards + '</div></details>';
+        '<div class="dev-stage-body">' + inner + '</div></details>';
     }).join('');
   }
 
@@ -7404,8 +7407,23 @@
     }
     return { msg: msg, ok: ok, fail: fail.length };
   }
+  // expand a selection so a parent moves when ALL its children move — cascades up the whole tree
+  function devCascadeParents(selected) {
+    var moving = {}; selected.forEach(function (n) { moving[n] = true; });
+    var changed = true;
+    while (changed) {
+      changed = false;
+      Object.keys(DEV_CHILDREN).forEach(function (pk) {
+        var p = +pk;
+        if (moving[p]) return;
+        var kids = DEV_CHILDREN[p] || [];
+        if (kids.length && kids.every(function (k) { return moving[k.number]; })) { moving[p] = true; changed = true; }
+      });
+    }
+    return Object.keys(moving).map(Number);
+  }
   window.devPushToReady = async function (btn) {
-    var numbers = Object.keys(window._devSel || {}).map(Number);
+    var numbers = devCascadeParents(Object.keys(window._devSel || {}).map(Number));   // + parents whose children all move
     if (!numbers.length) return;
     if (btn) { btn.disabled = true; btn.textContent = '⏳ מעביר…'; }
     try {

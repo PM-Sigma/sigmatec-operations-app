@@ -833,6 +833,14 @@
     box-shadow: 0 4px 18px rgba(0,0,0,.16); }
   .dev-selbar-n { font-weight: 700; flex: 1; }
 
+  /* epic → thin label + nested children — used by the status board (all widths) AND the mobile topic tree */
+  .dev-mepic-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .dev-mepic-wrap.dev-mepic-sub { margin-inline-start: 8px; }
+  .dev-mepic { display: flex; align-items: center; gap: 8px; padding: 4px 2px 0; font-size: 12px; color: var(--text-light); }
+  .dev-mepic-name { flex: 1; min-width: 0; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+  .dev-mepic-n { flex-shrink: 0; white-space: nowrap; }
+  .dev-mgroup { display: flex; flex-direction: column; gap: 8px; }
+
   /* ---- Mobile (~380px): comfort first ---- */
   @media (max-width: 768px) {
     .dev-wrap { max-width: 100%; }
@@ -850,15 +858,9 @@
     .dev-git { width: 34px; height: 34px; }
     .dev-detail { margin-right: 4px; font-size: 14px; }
 
-    /* ---- mobile dev tree (·78): epic → thin label, leaf → clean color-coded card ---- */
+    /* ---- mobile topic-tree (·78): topic header crit badge + flex body ---- */
     .dev-topic-crit { flex-shrink: 0; font-size: 11px; font-weight: 700; color: #fff; background: #dc2626; border-radius: 12px; padding: 2px 9px; }
     .dev-topic-body { display: flex; flex-direction: column; gap: 8px; }
-    .dev-mepic-wrap { display: flex; flex-direction: column; gap: 8px; }
-    .dev-mepic-wrap.dev-mepic-sub { margin-inline-start: 8px; }
-    .dev-mepic { display: flex; align-items: center; gap: 8px; padding: 4px 2px 0; font-size: 12px; color: var(--text-light); }
-    .dev-mepic-name { flex: 1; min-width: 0; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
-    .dev-mepic-n { flex-shrink: 0; white-space: nowrap; }
-    .dev-mgroup { display: flex; flex-direction: column; gap: 8px; }
   }
 
   /* order-type toggle (ספק / לקוח) in the new-order modal */
