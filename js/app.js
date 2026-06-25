@@ -7319,7 +7319,7 @@
     // sticky action bar for multi-select (shown only in select mode)
     var selBar = window._devSelMode ? '<div id="devSelBar" class="dev-selbar" style="display:flex">' +
       '<span class="dev-selbar-n">' + devSelCount() + ' נבחרו</span>' +
-      '<button class="inv-btn small dev-selbar-push" onclick="devPushToReady(this)"' + (devSelCount() ? '' : ' disabled') + '>🟢 דחוף ל-Ready</button>' +
+      '<button class="inv-btn small dev-selbar-push" onclick="devPushToReady(this)"' + (devSelCount() ? '' : ' disabled') + '>🟢 העבר משימות לספרינט הקרוב</button>' +
       '<button class="inv-btn small" onclick="devToggleSelMode()">בטל</button>' +
       '</div>' : '';
     el.innerHTML = '<div class="dev-wrap">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + selBar + '</div>';
@@ -7407,15 +7407,15 @@
   window.devPushToReady = async function (btn) {
     var numbers = Object.keys(window._devSel || {}).map(Number);
     if (!numbers.length) return;
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ דוחף…'; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ מעביר…'; }
     try {
       var res = devWriteResult(await devWriteStatus(numbers, 'Ready'), 'הועברו ל"ספרינט קרוב"');
       if (res.fail) alert(res.msg); else if (typeof toast === 'function') toast(res.msg); else alert(res.msg);
       if (res.ok) { window._devSelMode = false; window._devSel = {}; renderDevTasks(true); }   // refresh so the board reflects the move
-      else if (btn) { btn.disabled = false; btn.textContent = '🟢 דחוף ל-Ready'; }
+      else if (btn) { btn.disabled = false; btn.textContent = '🟢 העבר משימות לספרינט הקרוב'; }
     } catch (e) {
       alert('שגיאה: ' + (e && e.message || e));
-      if (btn) { btn.disabled = false; btn.textContent = '🟢 דחוף ל-Ready'; }
+      if (btn) { btn.disabled = false; btn.textContent = '🟢 העבר משימות לספרינט הקרוב'; }
     }
   };
   // "עלתה גרסה" → move everything currently in Done (גמר פיתוח) to Committed (עלה לאוויר)

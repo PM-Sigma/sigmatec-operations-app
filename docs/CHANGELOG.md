@@ -7,6 +7,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·89] 2026-06-25
+### Changed — dev page (פיתוח)
+- **Button renamed** "🟢 דחוף ל-Ready" → **"🟢 העבר משימות לספרינט הקרוב"** (loading "⏳ מעביר…").
+- **Detailed write errors now live** — when a push fails, the toast/alert lists `#num — <reason>` + the project's
+  actual Status option names (was just a count). Shipped to surface why דחוף-ל-Ready returns `0 · נכשלו:1`.
+
 ## [·87] 2026-06-25
 ### Fixed — dev page: sprint writes robustness (פיתוח) [needs `github` fn redeploy]
 - **דחוף ל-Ready returned `0 · נכשלו:1`.** Two hardenings in `github` fn `setProjectStatus`:
