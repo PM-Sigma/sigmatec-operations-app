@@ -142,7 +142,7 @@
       '<div class="dev-hero-top">' +
         '<div><div class="dev-hero-title">💻 לוח פיתוח</div>' +
         '<div class="dev-hero-sub">טיקטים חיים מ-GitHub · מתעדכן אוטומטית מהפרויקט</div></div>' +
-        '<button class="dev-hero-refresh" onclick="renderDevTasks()" title="רענן" aria-label="רענן">🔄</button>' +
+        '<button class="dev-hero-refresh" onclick="renderDevTasks(true)" title="רענן עכשיו" aria-label="רענן">🔄</button>' +
       '</div>' +
       '<div class="dev-kpis">' + kpis + '</div>' +
       prioRow +
@@ -339,9 +339,11 @@
     window._devData = { tasks: tasks, topics: topics, topicNames: topicNames, colors: colors };
   }
 
-  // Cache-first: paint cached tickets immediately (instant, works offline / pre-login), then refresh
-  // from GitHub in the background when an EMS token is available, and repaint when it returns.
-  async function renderDevTasks() {
+  // Cache-first, fetch-once-per-connection. The cached tickets paint instantly (works offline / pre-login).
+  // The heavy GitHub fetch runs only ONCE per session per state — i.e. on the first dev-page open after a
+  // connect (a connect always triggers location.reload(), so a new session == a new connection). Repeated
+  // opens within the session just reuse the cache (no fetch = fast). `force` (🔄 button / retry) always fetches.
+  async function renderDevTasks(force) {
     var el = document.getElementById('devTasksContent');
     if (!el) return;
     if (!canSeeDevTasks()) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">אין הרשאה לעמוד זה.</div></div>'; return; }
@@ -350,10 +352,12 @@
     var cached = devLoadCache(state);
     var hasCache = !!(cached && cached.tasks && cached.tasks.length);
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+    window._devFetched = window._devFetched || {};   // {open:true, all:true} — fetched this session per state
+    var willFetch = !!tok && (force || !window._devFetched[state] || !hasCache);
 
     if (hasCache) {
       devBuild(cached.tasks);
-      window._devCache = { at: cached.at, refreshing: !!tok };
+      window._devCache = { at: cached.at, refreshing: willFetch };
       devPaint();
     } else {
       window._devCache = null;
@@ -361,19 +365,21 @@
     }
 
     if (!tok) {   // no connection → show the cache (if any), otherwise ask to connect
-      if (!hasCache) el.innerHTML = '<div class="dev-wrap"><div class="dev-error">יש להתחבר ל-EMS כדי לטעון משימות פיתוח. <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks()">🔄 נסה שוב</button></div></div>';
+      if (!hasCache) el.innerHTML = '<div class="dev-wrap"><div class="dev-error">יש להתחבר ל-EMS כדי לטעון משימות פיתוח. <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks(true)">🔄 נסה שוב</button></div></div>';
       return;
     }
+    if (!willFetch) return;   // already synced this session → reuse cache, no fetch
 
-    try {                                   // background refresh
+    try {
       var tasks = await devFetchTasks(state);
       devSaveCache(state, tasks);
+      window._devFetched[state] = true;
       devBuild(tasks);
       window._devCache = { at: Date.now(), refreshing: false };
       devPaint();
     } catch (e) {
       if (hasCache) { window._devCache = { at: cached.at, refreshing: false, error: e.message }; devPaint(); }  // keep the cache, flag the failure
-      else el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks()">🔄 נסה שוב</button></div></div>';
+      else el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks(true)">🔄 נסה שוב</button></div></div>';
     }
   }
 

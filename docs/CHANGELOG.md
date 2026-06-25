@@ -7,6 +7,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·79] 2026-06-25
+### Changed — dev page: fetch once per connection (פיתוח)
+- **The GitHub fetch now runs once per session, not on every page open.** Tickets download once and are
+  cached; opening פיתוח again in the same session reuses the cache (instant, no fetch). Since a successful
+  EMS connect always triggers `location.reload()`, "once per session" == "refreshed on each connection".
+  The 🔄 button (and the retry buttons) still force an immediate fresh fetch. (`window._devFetched` per state.)
+
 ## [·78] 2026-06-24
 ### Changed — dev page: simpler mobile tree (פיתוח, ≤768px)
 - **Mobile gets a flattened, card-based tree** (desktop tree unchanged). A topic opens straight to its tasks
