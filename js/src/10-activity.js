@@ -732,6 +732,7 @@
       renderCompanyTasks();
       maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();
+      if (typeof maybeShowOrderNotifications === 'function') maybeShowOrderNotifications();
       if (typeof renderLowStockAlert === 'function') renderLowStockAlert();
       const lastMod = maxLastModified(data);
       if (lastMod) renderLastUpdated(lastMod);

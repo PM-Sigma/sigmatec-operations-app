@@ -7,6 +7,16 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·95] 2026-06-25
+### Added — inventory: approved-order notifications (אביאם · ניתאי · עמיחי)
+- **When one of the group approves an order, the others get notified.** On their next app-open they see a
+  **"🔔 N הזמנות חדשות אושרו"** modal listing each order (ספק/לקוח · מספק/לקיבוץ · qty) with a **📦 הצג הזמנות**
+  button → the inventory orders list. e.g. עמיחי approves → אביאם + ניתאי notified; אביאם approves → ניתאי + עמיחי.
+- **Lazy / no schema change.** A per-user "seen" set in `localStorage` (`orders_notif_seen_<user>`); the approver
+  marks the order seen on approval (no self-notify); the creator is excluded; first run seeds the set so it never
+  floods on rollout. Fires from the post-data-load hook (`maybeShowOrderNotifications` in `07-orders.js`,
+  alongside the attendance/עמיחי nudges). Verified: plural/singular title, creator-excluded, no-repeat-once-seen.
+
 ## [·92] 2026-06-25
 ### Fixed — dev page: restored tree hierarchy in the status board + tree-aware selection (פיתוח)
 - **Hierarchy back in the board.** The status board flattened everything into a per-status list (lost אב→בנים).

@@ -2391,7 +2391,7 @@
     try {
       const res = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'pending' }) });
       const data = await res.json();
-      if (data.ok) { const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
+      if (data.ok) { orderNotifMarkSeen([o.id]); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
       else alert('שגיאה: ' + JSON.stringify(data));
     } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
   }
@@ -2422,6 +2422,7 @@
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
       var linked = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
       await Promise.all(linked.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
+      orderNotifMarkSeen([o.id]);   // the approver shouldn't be notified about the order they just approved
       const t = document.getElementById('toast');
       t.textContent = (emsRes && emsRes.queued) ? '✅ סופק · משימת EMS תיפתח בהתחברות הבאה' : '✅ סופק ללקוח · נפתחה משימת EMS';
       t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 3500);
@@ -2445,6 +2446,64 @@
     window._amichaiApprovalShown = true;
   }
   window.maybeShowAmichaiApprovalReminder = maybeShowAmichaiApprovalReminder;
+
+  // ===== Approved-order notifications for the field/CEO group (אביאם · ניתאי · עמיחי) =====
+  // Informational: when one of them approves an order, the OTHERS see it on their next open with a
+  // "show orders" button. Lazy & device-local (no schema change): a per-user "seen" set in localStorage;
+  // the approver marks the order seen on approval (no self-notify); everyone else in the group who hasn't
+  // seen it (and didn't create it) gets the modal once. First run seeds the set so it never floods.
+  const ORDER_NOTIF_GROUP = ['אביאם', 'ניתאי', 'עמיחי'];
+  function orderNotifKey() { return 'orders_notif_seen_' + (getCurrentUser() || ''); }
+  function orderNotifSeen() { try { return JSON.parse(localStorage.getItem(orderNotifKey()) || 'null'); } catch (e) { return null; } }
+  function orderNotifMarkSeen(ids) {
+    var cur = orderNotifSeen() || [];
+    (ids || []).forEach(function (id) { if (id && cur.indexOf(id) === -1) cur.push(id); });
+    try { localStorage.setItem(orderNotifKey(), JSON.stringify(cur.slice(-800))); } catch (e) {}
+  }
+  function isApprovedOrder(o) { return o && o.status && ['pending_approval', 'deleted'].indexOf(o.status) === -1; }
+  window.orderNotifMarkSeen = orderNotifMarkSeen;
+
+  function maybeShowOrderNotifications() {
+    var me = getCurrentUser();
+    if (ORDER_NOTIF_GROUP.indexOf(me) === -1) return;
+    if (window._orderNotifShown) return;
+    var orders = (window.SHEET_DATA && window.SHEET_DATA.orders || []).filter(isApprovedOrder);
+    var seen = orderNotifSeen();
+    if (seen === null) { orderNotifMarkSeen(orders.map(function (o) { return o.id; })); return; }   // first run → seed, never flood
+    var fresh = orders.filter(function (o) { return seen.indexOf(o.id) === -1 && o.createdBy !== me; });
+    if (!fresh.length) return;
+    window._orderNotifShown = true;
+    showOrderNotifModal(fresh);
+    orderNotifMarkSeen(fresh.map(function (o) { return o.id; }));
+  }
+  window.maybeShowOrderNotifications = maybeShowOrderNotifications;
+
+  function showOrderNotifModal(orders) {
+    if (document.getElementById('orderNotifModal')) return;
+    var rows = orders.slice(0, 10).map(function (o) {
+      var cust = orderType(o) === 'customer';
+      var where = cust ? ('לקיבוץ ' + (orderKibbutz(o) || '—')) : ('מספק' + (o.supplier ? ' ' + String(o.supplier).replace(/</g, '&lt;') : ''));
+      return '<div style="padding:6px 9px;background:#f8fafc;border-radius:8px;">' +
+        (cust ? '🧑‍🌾 לקוח' : '🏭 ספק') + ' · ' + where + ' · ' + orderTotalQty(o) + ' פריטים</div>';
+    }).join('');
+    var more = orders.length > 10 ? '<div style="font-size:12px;color:#64748b;">+ עוד ' + (orders.length - 10) + '</div>' : '';
+    var title = orders.length === 1 ? 'הזמנה חדשה אושרה' : (orders.length + ' הזמנות חדשות אושרו');
+    var wrap = document.createElement('div');
+    wrap.id = 'orderNotifModal';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px;';
+    wrap.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:390px;width:100%;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.3);font-family:Heebo,sans-serif;text-align:center;">' +
+      '<div style="font-size:32px;">🔔</div>' +
+      '<h3 style="margin:6px 0 4px;color:#1d4ed8;">' + title + '</h3>' +
+      '<div style="font-size:13px;color:#475569;margin-bottom:12px;">יש הזמנות חדשות לטיפול:</div>' +
+      '<div style="text-align:right;display:flex;flex-direction:column;gap:5px;max-height:230px;overflow:auto;font-size:13px;font-weight:600;color:#334155;">' + rows + more + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:16px;">' +
+      '<button id="orderNotifShow" style="flex:1;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:11px;font-weight:800;cursor:pointer;font-size:14px;">📦 הצג הזמנות</button>' +
+      '<button id="orderNotifClose" style="background:#f1f5f9;color:#475569;border:none;border-radius:8px;padding:11px 14px;font-weight:700;cursor:pointer;">סגור</button>' +
+      '</div></div>';
+    document.body.appendChild(wrap);
+    document.getElementById('orderNotifShow').onclick = function () { wrap.remove(); if (typeof showPage === 'function') showPage('inventory'); };
+    document.getElementById('orderNotifClose').onclick = function () { wrap.remove(); };
+  }
 
   async function quickOrderStatus(orderId, newStatus, btn) {
     if (!checkEditPermission()) return;
@@ -4716,6 +4775,7 @@
       renderCompanyTasks();
       maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();
+      if (typeof maybeShowOrderNotifications === 'function') maybeShowOrderNotifications();
       if (typeof renderLowStockAlert === 'function') renderLowStockAlert();
       const lastMod = maxLastModified(data);
       if (lastMod) renderLastUpdated(lastMod);
