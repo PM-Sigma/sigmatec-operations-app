@@ -7,6 +7,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·90] 2026-06-25
+### Changed — inventory
+- **Orders "פעולות" column header** clarified to **"פעולות (מעדכן לסטטוס שרשום מטה)"** — the quick-action button
+  shows the status it moves the order *to*.
+
 ## [·89] 2026-06-25
 ### Changed — dev page (פיתוח)
 - **Button renamed** "🟢 דחוף ל-Ready" → **"🟢 העבר משימות לספרינט הקרוב"** (loading "⏳ מעביר…").
