@@ -26,13 +26,17 @@ The app (·56) already has the matching offline matcher — parsing works in deg
    scope → then add a `sub` impersonation claim + wire the יומן UI. (`calendar` fn already in repo.)
 3. **Rotate `service_role`** (exposed in chat) — coordinated: roll the JWT secret → update `ems-auth`'s
    `JWT_SECRET` env + redeploy → swap the new `anon` key into the bundle + rebuild.
-4. **Dev-tasks editing (phase 2)** — a write-capable token to set Priority/Status/sprint from the app.
-5. **EMS changelog → calendar** — show EMS version-release days in the יומן (needs the calendar unblocked + the
+4. **EMS changelog → calendar** — show EMS version-release days in the יומן (needs the calendar unblocked + the
    changelog source מתניה maintains).
-_(No open blockers. Inventory-flow rework is built — see Done. Remaining items are the standing admin ones:
-Supabase MCP, calendar DWD, `service_role` rotation, dev-page phase-2 write token.)_
+_(No open blockers. Dev-tasks editing **phase 2 is DONE** (sprint board writes, ·86 — see Done). Remaining items
+are the standing admin ones: Supabase MCP, calendar DWD, `service_role` rotation.)_
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
+
+- **Dev sprint board — phase 2 LIVE (·86)**: status board (6 named columns + view toggle + day-stamps via Supabase
+  `dev_status_log`), **multi-select → דחוף ל-Ready** + **🚀 עלתה גרסה** (Done→Committed) via the `github` fn
+  `mode:"setStatus"` (EMS-gated; `GH_TOKEN` Projects-v2 write + a "Committed" status option — both done). Offline
+  ticket cache (fetch once/connection). Page now visible to **מתניה + אליה** too. Closes the phase-2 write token item.
 
 - **Inventory two-type order flow (·49)** — BUILT. `orderType` toggle (ספק/לקוח); supplier approval ≤10→אביאם /
   >10→עמיחי + floating עמיחי nudge; customer approval (אביאם/ניתאי) deducts approver stock → kibbutz + opens an EMS
