@@ -61,6 +61,28 @@
   }
   function devInProgress(t) { return t.state !== 'closed' && /progress|בעבודה|doing|פיתוח|active|wip|בתהליך/i.test(String(t.status || '')); }
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  // ----- Pipeline stages: the 6 named board columns (Backlog→Ready→In Progress→In Review→Done→Committed) -----
+  var DEV_STAGES = [
+    { key: 'backlog',   label: 'ממתין לפיתוח',           ico: '📋', open: false },
+    { key: 'ready',     label: 'ספרינט קרוב',             ico: '🟢', open: true  },
+    { key: 'prog',      label: 'בפיתוח עכשיו',            ico: '🔨', open: true  },
+    { key: 'review',    label: 'בשלבי בדיקות',            ico: '🔍', open: true  },
+    { key: 'done',      label: 'גמר פיתוח ממתין לגרסה',   ico: '✅', open: false },
+    { key: 'committed', label: 'עלה לאוויר',              ico: '🚀', open: false }
+  ];
+  // map a ticket's Projects-v2 Status string → one stage key (most-specific match first)
+  function devStage(t) {
+    var s = String(t.status || '').toLowerCase();
+    if (/commit|deployed|\blive\b|released|production|פרוד|עלה לאוויר|אונליין/.test(s)) return 'committed';
+    if (/done|בוצע|הושלם|complete|merged|נסגר/.test(s)) return 'done';
+    if (/review|בדיק|qa/.test(s)) return 'review';
+    if (/progress|בעבודה|doing|פיתוח|wip|בתהליך|active/.test(s)) return 'prog';
+    if (/ready|מוכן|ספרינט|next|planned/.test(s)) return 'ready';
+    if (t.state === 'closed') return 'done';   // closed without a status → treat as done
+    return 'backlog';                          // backlog / todo / new / empty
+  }
+  var DEV_PRANK = { 'קריטי': 4, 'גבוהה': 3, 'גבוה': 3, 'בינונית': 2, 'נמוכה': 1, 'נמוך': 1 };
   function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
 
   // ----- FILTER predicates (open tasks only; closed never match a filter) -----
@@ -201,6 +223,7 @@
         (t.assignee ? '<span class="dev-assignee">👤 <bdi>' + devEsc(t.assignee) + '</bdi></span>' : '') +
         (created ? '<span class="dev-detail-date">📅 ' + created + (updated && updated !== created ? ' · עודכן ' + updated : '') + '</span>' : '') +
       '</div>' +
+      devStamps(t) +
       (t.body ? '<div class="dev-detail-body">' + devEsc(t.body) + '</div>' : '<div class="dev-detail-empty">— אין תיאור זמין —</div>') +
     '</div>';
   }
@@ -271,6 +294,7 @@
           (closed ? '<span class="dev-done" title="סגור">✅</span>' : '') +
         '</div>' +
       '</summary>' +
+      devStamps(t) +
       (t.body ? '<div class="dev-detail-body">' + devEsc(t.body) + '</div>' : '<div class="dev-detail-empty">— אין תיאור זמין —</div>') +
     '</details>';
   }
@@ -341,6 +365,62 @@
     window._devData = { tasks: tasks, topics: topics, topicNames: topicNames, colors: colors };
   }
 
+  // ----- Status board (the 6 named stage columns) -----
+  function devBoard(d, f) {
+    var tasks = d.tasks.filter(function (t) { return devMatchFilter(t, f); });
+    var byStage = {}; DEV_STAGES.forEach(function (s) { byStage[s.key] = []; });
+    tasks.forEach(function (t) { byStage[devStage(t)].push(t); });
+    var rank = function (t) { var pr = devPriority(t); return (pr && DEV_PRANK[pr.label]) || 0; };
+    return DEV_STAGES.map(function (s) {
+      var list = byStage[s.key].sort(function (a, b) { return rank(b) - rank(a); });
+      var openAttr = ((s.open || f) && list.length) ? ' open' : '';
+      var cards = list.length ? list.map(devMobileCard).join('') : '<div class="dev-stage-empty">—</div>';
+      return '<details class="dev-stage dev-stage-' + s.key + '"' + openAttr + '>' +
+        '<summary class="dev-stage-sum"><span class="dev-stage-ico" aria-hidden="true">' + s.ico + '</span>' +
+        '<span class="dev-stage-name">' + devEsc(s.label) + '</span>' +
+        '<span class="dev-stage-n">' + list.length + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
+        '<div class="dev-stage-body">' + cards + '</div></details>';
+    }).join('');
+  }
+
+  // ----- Status-entry day-stamps (Supabase `dev_status_log`, forward-tracking; see db/dev_status_log.sql) -----
+  function devFmtDay(iso) { if (!iso) return ''; var p = String(iso).slice(0, 10).split('-'); return p.length === 3 ? (+p[2]) + '.' + (+p[1]) : ''; }
+  function devStamps(t) {
+    var log = (window._devStatusLog && window._devStatusLog[t.number]) || null;
+    if (!log) return '';
+    var names = { backlog: 'Backlog', ready: 'Ready', prog: 'בפיתוח', review: 'בדיקות', done: 'גמר', committed: 'עלה' };
+    var parts = DEV_STAGES.map(function (s) { return log[s.key] ? names[s.key] + ' ' + devFmtDay(log[s.key]) : null; }).filter(Boolean);
+    return parts.length ? '<div class="dev-stamps">' + parts.join(' · ') + '</div>' : '';
+  }
+  // load the whole log once (anon read) → { issue: { stageKey: 'YYYY-MM-DD' } }
+  async function devLoadStatusLog() {
+    try {
+      var r = await fetch(SB_URL + '/rest/v1/dev_status_log?select=issue,status,day', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON } });
+      if (!r.ok) return;
+      var rows = await r.json();
+      var m = {}; rows.forEach(function (x) { (m[x.issue] = m[x.issue] || {})[x.status] = x.day; });
+      window._devStatusLog = m;
+    } catch (e) { /* graceful: no stamps (table may not exist yet) */ }
+  }
+  // record today's date for each ticket's CURRENT stage, once per (issue,stage). Needs the auth pass (RLS).
+  async function devLogStatuses(tasks) {
+    var tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
+    if (!tok) return;
+    var n = new Date(), day = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+    var log = window._devStatusLog || {};
+    var rows = tasks.map(function (t) { return { issue: t.number, status: devStage(t), day: day }; })
+      .filter(function (x) { return !(log[x.issue] && log[x.issue][x.status]); });
+    if (!rows.length) return;
+    try {
+      var r = await fetch(SB_URL + '/rest/v1/dev_status_log?on_conflict=issue,status', {
+        method: 'POST',
+        headers: { apikey: SB_ANON, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates,return=minimal' },
+        body: JSON.stringify(rows)
+      });
+      if (r.ok) rows.forEach(function (x) { (window._devStatusLog = window._devStatusLog || {}, window._devStatusLog[x.issue] = window._devStatusLog[x.issue] || {})[x.status] = x.day; });
+    } catch (e) { /* graceful */ }
+  }
+
   // Cache-first, fetch-once-per-connection. The cached tickets paint instantly (works offline / pre-login).
   // The heavy GitHub fetch runs only ONCE per session per state — i.e. on the first dev-page open after a
   // connect (a connect always triggers location.reload(), so a new session == a new connection). Repeated
@@ -366,6 +446,9 @@
       el.innerHTML = '<div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>';
     }
 
+    // status-log day-stamps: load the log once per session (anon read), then repaint so stamps appear
+    if (!window._devLogLoaded) { window._devLogLoaded = true; devLoadStatusLog().then(function () { devPaint(); }); }
+
     if (!tok) {   // no connection → show the cache (if any), otherwise ask to connect
       if (!hasCache) el.innerHTML = '<div class="dev-wrap"><div class="dev-error">יש להתחבר ל-EMS כדי לטעון משימות פיתוח. <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks(true)">🔄 נסה שוב</button></div></div>';
       return;
@@ -379,6 +462,7 @@
       devBuild(tasks);
       window._devCache = { at: Date.now(), refreshing: false };
       devPaint();
+      devLogStatuses(tasks).then(function () { devPaint(); });   // stamp current stages → day-stamps
     } catch (e) {
       if (hasCache) { window._devCache = { at: cached.at, refreshing: false, error: e.message }; devPaint(); }  // keep the cache, flag the failure
       else el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + devEsc(e.message) + ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks(true)">🔄 נסה שוב</button></div></div>';
@@ -397,7 +481,9 @@
       matchCounts[tp] = d.topics[tp].roots.reduce(function (s, r) { return s + devCountMatches(r, f, 0); }, 0);
     });
 
+    var view = window._devView || 'status';
     var active = function (s) { return window._devState === s ? ' active' : ''; };
+    var vactive = function (v) { return view === v ? ' active' : ''; };
     var fchip = f ? '<div class="dev-fchip">מציג: ' + devEsc(devFilterLabel(f)) + ' <button type="button" onclick="devSetFilter(null)" aria-label="נקה סינון">✕</button></div>' : '';
     // cache line: shows it's served from the local store + freshness + (refreshing… / refresh-failed)
     var c = window._devCache, cacheLine = '';
@@ -406,14 +492,19 @@
       (c.error ? ' · <span class="dev-refresherr">רענון נכשל</span>' : '') + '</div>';
     var head = '<div class="dev-toolbar">' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
+      '<div class="dev-view-btns">' +
+        '<button class="inv-btn small' + vactive('status') + '" onclick="devSetView(\'status\')">לפי סטטוס</button>' +
+        '<button class="inv-btn small' + vactive('topic') + '" onclick="devSetView(\'topic\')">לפי נושא</button>' +
+      '</div>' +
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
       '</div></div>' + cacheLine + fchip;
 
-    // "בפיתוח עכשיו" spotlight — hidden while a filter is active (focused view).
+    // "בפיתוח עכשיו" spotlight — only in topic view (the status board has its own In-Progress column),
+    // and hidden while a filter is active (focused view).
     var ipBox = '';
-    if (!f) {
+    if (!f && view !== 'status') {
       var inProg = d.tasks.filter(devInProgress);
       var recent, ipSub;
       if (inProg.length) { recent = inProg.slice(0, 12); ipSub = '· לפי סטטוס'; }
@@ -424,25 +515,31 @@
 
     // ponytail: mobile detected once at paint time; the phone PWA is always mobile, desktop always desktop.
     var mobile = !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    var visTopics = f ? d.topicNames.filter(function (tp) { return matchCounts[tp] > 0; }) : d.topicNames;
-    var body = visTopics.map(function (topic) {
-      var fi = d.topicNames.indexOf(topic);   // stable id/color index even when the list is filtered
-      var tp = d.topics[topic];
-      var inner = mobile
-        ? devMobileNodes(tp.roots, f, 0)
-        : tp.roots.map(function (r) { return devNode(r, true, topic, 0, f); }).join('');
-      var shown = matchCounts[topic], other = tp.n - shown;
-      var note = (f && other > 0) ? '<div class="dev-topic-note">+' + other + ' כרטיסים ' + devEsc(devOtherLabel(f)) + '</div>' : '';
-      var crit = (mobile && !f) ? tp.roots.reduce(function (s, r) { return s + devCountMatches(r, { type: 'prio', val: 'קריטי' }, 0); }, 0) : 0;
-      return '<details id="dtopic-' + fi + '" class="dev-topic" style="--tc:' + colorOf[topic] + '"' + ((fi === 0 || f) ? ' open' : '') + '>' +
-        '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
-        '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
-        (crit ? '<span class="dev-topic-crit">' + crit + ' קריטי</span>' : '') +
-        '<span class="dev-topic-n">' + (f ? shown : tp.n) + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
-        '<div class="dev-topic-body">' + note + inner + '</div></details>';
-    }).join('');
-
-    var bodyHtml = d.tasks.length ? (visTopics.length ? body : '<div class="dev-empty">אין משימות בסינון הזה.</div>') : '<div class="dev-empty">אין משימות להצגה.</div>';
+    var bodyHtml;
+    if (!d.tasks.length) {
+      bodyHtml = '<div class="dev-empty">אין משימות להצגה.</div>';
+    } else if (view === 'status') {
+      bodyHtml = devBoard(d, f);   // the 6 named stage columns
+    } else {
+      var visTopics = f ? d.topicNames.filter(function (tp) { return matchCounts[tp] > 0; }) : d.topicNames;
+      var body = visTopics.map(function (topic) {
+        var fi = d.topicNames.indexOf(topic);   // stable id/color index even when the list is filtered
+        var tp = d.topics[topic];
+        var inner = mobile
+          ? devMobileNodes(tp.roots, f, 0)
+          : tp.roots.map(function (r) { return devNode(r, true, topic, 0, f); }).join('');
+        var shown = matchCounts[topic], other = tp.n - shown;
+        var note = (f && other > 0) ? '<div class="dev-topic-note">+' + other + ' כרטיסים ' + devEsc(devOtherLabel(f)) + '</div>' : '';
+        var crit = (mobile && !f) ? tp.roots.reduce(function (s, r) { return s + devCountMatches(r, { type: 'prio', val: 'קריטי' }, 0); }, 0) : 0;
+        return '<details id="dtopic-' + fi + '" class="dev-topic" style="--tc:' + colorOf[topic] + '"' + ((fi === 0 || f) ? ' open' : '') + '>' +
+          '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
+          '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
+          (crit ? '<span class="dev-topic-crit">' + crit + ' קריטי</span>' : '') +
+          '<span class="dev-topic-n">' + (f ? shown : tp.n) + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
+          '<div class="dev-topic-body">' + note + inner + '</div></details>';
+      }).join('');
+      bodyHtml = visTopics.length ? body : '<div class="dev-empty">אין משימות בסינון הזה.</div>';
+    }
     el.innerHTML = '<div class="dev-wrap">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + '</div>';
 
     // restore the live text search across the re-paint
@@ -485,5 +582,6 @@
   };
 
   window.devSetState = function (s) { window._devState = s; window._devFilter = null; renderDevTasks(); };
+  window.devSetView = function (v) { window._devView = v; devPaint(); };   // 'status' board | 'topic' tree — instant, no fetch
   window.renderDevTasks = renderDevTasks;
   window.canSeeDevTasks = canSeeDevTasks;

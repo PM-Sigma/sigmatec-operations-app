@@ -792,6 +792,39 @@
   .dev-status-review { color: var(--warning); background: var(--warning-light); }
   .dev-status-todo   { color: var(--text-light); background: var(--gray-light); }
 
+  /* ===== Task card (.dev-mtask) — used by the status board (all widths) AND the mobile topic tree ===== */
+  .dev-mtask { border: 0.5px solid var(--border); border-inline-start: 4px solid var(--border); border-radius: 10px; background: var(--card); overflow: hidden; }
+  .dev-mtask.dev-pr-crit, .dev-mtask.dev-pr-high, .dev-mtask.dev-pr-med, .dev-mtask.dev-pr-low {
+    border-color: var(--pc); border-inline-start-color: var(--pc); background: var(--pc-lite); }
+  .dev-mtask-sum { list-style: none; cursor: pointer; padding: 11px 12px; }
+  .dev-mtask-sum::-webkit-details-marker { display: none; }
+  .dev-mtask-row { display: flex; align-items: flex-start; gap: 8px; }
+  .dev-mtask-title { flex: 1; min-width: 0; font-weight: 600; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; color: var(--pc-text, var(--text)); }
+  .dev-mtask-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; font-size: 12px; color: var(--text-light); }
+  .dev-mtask-num { font-feature-settings: "tnum"; color: #94a3b8; }
+  .dev-mtask-asg { white-space: nowrap; }
+  .dev-mtask[open] > .dev-mtask-sum { background: rgba(0,0,0,.025); }
+  .dev-mtask .dev-detail-body, .dev-mtask .dev-detail-empty { margin: 0 12px 10px; }
+  /* tiny gray day-stamps (status history) — day.month only */
+  .dev-stamps { font-size: 11px; color: #94a3b8; padding: 2px 12px 0; line-height: 1.6; }
+
+  /* ===== Status board: the 6 named stage columns ===== */
+  .dev-view-btns { display: flex; gap: 6px; }
+  .dev-stage { border: 0.5px solid var(--border); border-radius: 12px; background: var(--card); margin-bottom: 10px; overflow: hidden; }
+  .dev-stage-sum { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 9px; padding: 12px 14px; font-weight: 700; font-size: 15px; }
+  .dev-stage-sum::-webkit-details-marker { display: none; }
+  .dev-stage-ico { flex-shrink: 0; }
+  .dev-stage-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .dev-stage-n { flex-shrink: 0; background: var(--gray-light); color: var(--text-light); border-radius: 20px; padding: 1px 10px; font-size: 13px; font-weight: 700; }
+  .dev-stage[open] > .dev-stage-sum .dev-topic-caret { transform: rotate(180deg); }
+  .dev-stage-body { display: flex; flex-direction: column; gap: 8px; padding: 0 10px 12px; }
+  .dev-stage-empty { color: var(--text-light); font-size: 13px; padding: 0 4px 8px; }
+  .dev-stage-ready     { border-inline-start: 4px solid #16a34a; }
+  .dev-stage-prog      { border-inline-start: 4px solid #7c5cdb; }
+  .dev-stage-review    { border-inline-start: 4px solid #c87f0a; }
+  .dev-stage-done      { border-inline-start: 4px solid #0e9aa7; }
+  .dev-stage-committed { border-inline-start: 4px solid #475569; }
+
   /* ---- Mobile (~380px): comfort first ---- */
   @media (max-width: 768px) {
     .dev-wrap { max-width: 100%; }
@@ -818,19 +851,6 @@
     .dev-mepic-name { flex: 1; min-width: 0; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
     .dev-mepic-n { flex-shrink: 0; white-space: nowrap; }
     .dev-mgroup { display: flex; flex-direction: column; gap: 8px; }
-    .dev-mtask { border: 0.5px solid var(--border); border-inline-start: 4px solid var(--border); border-radius: 10px; background: var(--card); overflow: hidden; }
-    .dev-mtask.dev-pr-crit, .dev-mtask.dev-pr-high, .dev-mtask.dev-pr-med, .dev-mtask.dev-pr-low {
-      border-color: var(--pc); border-inline-start-color: var(--pc); background: var(--pc-lite); }
-    .dev-mtask-sum { list-style: none; cursor: pointer; padding: 11px 12px; }
-    .dev-mtask-sum::-webkit-details-marker { display: none; }
-    .dev-mtask-row { display: flex; align-items: flex-start; gap: 8px; }
-    .dev-mtask-title { flex: 1; min-width: 0; font-weight: 600; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; color: var(--pc-text, var(--text)); }
-    .dev-mtask-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; font-size: 12px; color: var(--text-light); }
-    .dev-mtask-num { font-feature-settings: "tnum"; color: #94a3b8; }
-    .dev-mtask-asg { white-space: nowrap; }
-    .dev-mtask[open] > .dev-mtask-sum { background: rgba(0,0,0,.025); }
-    .dev-mtask .dev-detail-body, .dev-mtask .dev-detail-empty { margin: 0 12px 10px; }
-    .dev-mtask .dev-detail-link { display: inline-block; margin: 0 12px 12px; }
   }
 
   /* order-type toggle (ספק / לקוח) in the new-order modal */
