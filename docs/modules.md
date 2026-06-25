@@ -163,6 +163,28 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 - `setupInstall()` — IIFE; captures `beforeinstallprompt`, hides when standalone
 - `window.appInstall()` — trigger native install (iOS → manual Share-sheet)
 
+### `17-staff.js` — Staff management (עידן + עמיחי only): per-employee load/usage analytics + leave-a-message
+- `canManageStaff()` — gate: `isIdan()` or `getCurrentUser()==='עמיחי'`
+- staff analytics from `SHEET_DATA`; `staffSendMessage()` etc. via the Supabase `messages` table (REST)
+
+### `18-dev-tasks.js` — 🧑‍💻 Dev page (פיתוח): GitHub Projects-v2 sprint board + writes + offline cache + day-stamps
+- `canSeeDevTasks()` — gate: מתניה / אליה / `canManageStaff()` (inlined names — runs during nav init)
+- `renderDevTasks(force)` — cache-first paint; heavy GitHub fetch **once per connection** (`force`=🔄); loads `dev_status_log`
+- `devBuild(tasks)` — tasks → `window._devData` + sub-issue hierarchy (`DEV_CHILDREN`)
+- `devPaint()` — render hero + toolbar + (board | topic tree) + select bar from `_devData`+filter (no re-fetch)
+- `devBoard(d,f)` — the 6 status columns; `devStage(t)` maps Projects-v2 Status → column (`DEV_STAGES`)
+- `devMobileCard(t)` / `devMobileNodes()` / `devNode()` — task card + mobile-flat / desktop-tree nodes
+- `devStatus(t)` / `devPriority(t)` — status badge / priority chip; `devStamps(t)` — gray day-stamp chain
+- `devSetView(v)` (סטטוס|נושא) · `devSetFilter(f)` / `devFilter(q)` / `devSetState(s)` — toggle filters + search + open/all
+- `devToggleSelMode()` / `devToggleSel()` / `devPushToReady()` — multi-select → **דחוף ל-Ready**
+- `devReleaseVersion()` — **🚀 עלתה גרסה**: move all Done → Committed
+- `devWriteStatus(numbers,target)` — POST `github` fn `mode:"setStatus"` (the write path)
+- `devLoadStatusLog()` / `devLogStatuses(tasks)` — Supabase `dev_status_log` read/write (forward day-stamps)
+- `devSaveCache()` / `devLoadCache()` — `localStorage` ticket cache (`dev_tasks_cache_v1`, keyed open/all)
+- **Consts:** `DEV_STAGES`, `DEV_PRANK`, `DEV_TOPIC_COLORS`, `DEV_CACHE_KEY`, `DEV_GH` (icon). Exposes `window._devData/_devView/_devSel/_devStatusLog/_devFetched`.
+
+### `19-version-check.js` — 📦 new-deploy watcher (other lane): polls the live `app.js?v=` stamp → refresh banner / auto-reload
+
 ---
 
 ## Non-module files
@@ -176,6 +198,10 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 - **`build.mjs`** — concat `js/src/*.js` → `js/app.js`; stamp `?v=<base36 time>` on
   `app.js`/`app.css` in `index.html`. Run `node build.mjs` before committing.
 - **`supabase/functions/ems-auth/index.ts`** — see [data-and-security.md](data-and-security.md).
+- **`supabase/functions/github/index.ts`** — dev-page proxy to GitHub Projects-v2 (read tickets/fields + write
+  `mode:"setStatus"` via `setProjectStatus`). EMS-gated; CORS allowlist (prod + `*.githack.com` + localhost). See [operations.md](operations.md).
+- **`supabase/functions/parse-order/index.ts`** — 📦 AI order parser (Gemini→Groq→offline). See [operations.md](operations.md).
+- **`db/dev_status_log.sql`** — dev day-stamps table · **`db/parse_corrections.sql`** — 📦 order-parser learning table.
 - **`appsscript/ems-calendar-backend.gs`** — Option B org backend: `doGet`(calendar),
   `doPost`(`ems`/`calendarAdd`/`calendarList`), `emsProxy`, `listCalendarEvents_`,
   `calendarAdd`, `authorizeOnce`. `CALENDAR_ID='information@sigmatec-energy.com'`.

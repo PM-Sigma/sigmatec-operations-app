@@ -1,7 +1,7 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·55** (2026-06-24)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·86** (2026-06-25)._
 
 ## ⏳ Re-deploy `parse-order` — pick up ·56 changes
 **Action:** Supabase → Edge Functions → `parse-order` → paste updated `supabase/functions/parse-order/index.ts` → Deploy.

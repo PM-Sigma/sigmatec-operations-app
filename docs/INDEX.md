@@ -19,26 +19,22 @@ New session? Read **in this order**, then pick up from **🚦 Current state** (b
 
 ---
 
-## ⚠️ TWO SESSIONS ACTIVE IN PARALLEL — stay in your lane (2026-06-24, app **·63**)
+## 🧭 Work tracks / lanes — both shipped to `main` (·86, 2026-06-25)
 
-Two Claude sessions are working this repo at the same time. **Edit only your lane's files**, and
-**`git pull --rebase` the other's commits *before* you `node build.mjs`** — the build regenerates the
-ENTIRE `js/app.js` from every `js/src/*.js`, so building on a stale tree silently **reverts** the other
-lane's bundle. Both branches commit on `dev`.
+The app was built in **two parallel tracks**. Both major bodies of work are now **LIVE on `main` (·86)**. A fresh
+session can pick up *either* track. If two sessions run at once again, keep the lane file-ownership below and
+**`git pull --rebase` before `node build.mjs`** — the build regenerates ALL of `js/app.js` from `js/src/*.js`, so
+building on a stale tree silently **reverts** the other lane. Both lanes commit on `dev`; release = ff `dev → main`.
 
-| Lane | OWNS (edit only these) | Do NOT touch |
-|------|------------------------|--------------|
-| 🧑‍💻 **DEV-PAGE** (the new session) | `js/src/18-dev-tasks.js` · `supabase/functions/github/` · the `.dev-*` rules in `css/app.css` · the `#dev-view` markup in `index.html` | everything in the inventory lane → |
-| 📦 **INVENTORY** (other session) | `js/src/06-products.js` · `07-orders.js` · `08-inventory.js` · `13-ems.js` (`createTask`) · `supabase/functions/parse-order/` · inventory CSS/markup · `02` order-status | the dev-page files ← |
+| Lane | Owns (edit only these) | Delivered & live |
+|------|------------------------|------------------|
+| 🧑‍💻 **DEV-PAGE** (פיתוח) | `js/src/18-dev-tasks.js` · `supabase/functions/github/` · `.dev-*` in `css/app.css` · `#dev-view` markup · `db/dev_status_log.sql` | **Sprint board** (6 status columns + view toggle + filters + search) · **multi-select → דחוף ל-Ready** + **🚀 עלתה גרסה** (Done→Committed) via `github` fn `mode:"setStatus"` · **day-stamps** (`dev_status_log`) · **offline cache** (fetch once/connection) · access for **מתניה + אליה** |
+| 📦 **INVENTORY** (מלאי) | `js/src/06/07/08-*.js` · `13-ems.js` (`createTask`) · `supabase/functions/parse-order/` · inventory CSS/markup · `02` order-status | **Two-type order flow** (ספק raises / לקוח consumes stock) · **AI order parsing** (Gemini→Groq→offline + learning loop) · conversational accessory modal · **parse-source badge** · order/delivery dates |
 
-**Shared build artifacts** (`js/app.js`, `VERSION`, the `?v=` stamp in `index.html`): both `build.mjs` runs
-rewrite them. Rule: **pull → build → stage ONLY your `js/src/*.js` + the regenerated `js/app.js`/`index.html`/`VERSION`
-→ commit → push promptly.** Never `git add -A` (it sweeps the other lane's WIP). If the VERSION numbers race, the
-higher one wins on merge — don't fight it. When in doubt, pull and rebuild before pushing.
-
-**This (dev-page) session's scope:** the פיתוח page is fully functional (sub-issue tree + live Projects-v2
-priority/status). Open dev-page work = **phase-2 editing** (write-capable token to set Priority/Status/sprint from
-the app) + any UI tweaks עידן requests. Do **not** edit orders/inventory/parse-order — the other session owns those.
+**Build hygiene (if resuming parallel):** pull → build → stage ONLY your `js/src/*` + the regenerated
+`js/app.js`/`index.html`/`VERSION` → commit → push. **Never `git add -A`** (sweeps the other lane's WIP). Higher
+VERSION wins on merge. **Function deploys** (handoff convention, עידן): give a **local file link + a GitHub link**
+(no raw link), and **reply to עידן in full English**.
 
 ---
 
@@ -80,25 +76,23 @@ my-tasks/attendance/matrix fixes).
 fixed the recurring "נשמר מקומית" failure (writes were going out anon → RLS reject). Covers company-tasks,
 requirements, tasks, visits, orders. Buttons/toasts "שמור לגיליון"→"שמור". Company-tasks "שלח לעידן" workaround removed.
 
-**💻 Dev-tasks page (פיתוח, `18-dev-tasks.js` + `github` fn):** 3-level **collapsible tree** —
-📂 topic → אב sub-topic (toggle children) → בן task (toggle detail: state/assignee/dates/**body**).
-GitHub = explicit icon button (not the default click). Priority + Status come from the **GitHub Projects-v2**
-board **"Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)** via **GraphQL** (·39); priority chip
-(קריטי/גבוה/בינוני/נמוך) + Status badge; **"בפיתוח עכשיו" driven by real Status=In-Progress**. Client timeouts + 🔄 retry.
-**Color redesign (·41):** dark navy **KPI hero** (4 live tiles + "עומס לפי נושא" bar/clickable legend, replaces
-the jump-chips) + a **per-topic color system** (spine/count-pill/body-rail/bar-segment/legend-dot all share one
-color) + violet "בפיתוח עכשיו" card + filled-red critical chip. **"עומס לפי עדיפות" (·44):** priority-load tiles
-(קריטי/גבוהה/בינונית/נמוכה counts) under the KPIs, fed by the live Projects-v2 Priority field.
-**Clickable filter tiles (·69):** every hero tile is a **toggle filter** — a priority tile filters the tree to that
-tier's open tasks (KPI tiles filter by In-Progress / last-7d; "open"/"topics" reset; click-again clears, "מציג: … ✕"
-chip). Filtered tree shows only matches **+ ancestor chain** (matches highlighted, ancestors dimmed); each topic's
-count = matches only with a **"+N בעדיפות אחרת"** note; bar/legend re-break-down by the filter; links preserved.
-Client-side over cached `_devData` (`devSetFilter`→`devPaint`, no re-fetch).
-**Full sub-issue tree (·46):** the tree now nests **GitHub native sub-issues** (real hierarchy, any depth:
-📂 topic → card → sub-task → leaf), replacing the old title-pipe `אב` grouping that scattered an epic's children.
-Function returns each issue's `parent` (one GraphQL query; graceful → flat if absent). **Live & verified (·48):**
-40 parent cards nest their sub-tasks (e.g. #104 → its 11). **EMS bubble (·48):** disconnected → in-app login page
-(`showPage('ems')`); connected → external EMS system.
+**💻 Dev page (פיתוח) — `18-dev-tasks.js` + `github` Edge Fn + Supabase `dev_status_log`:**
+Live tickets from the **GitHub Projects-v2 "Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)** via the EMS-gated
+`github` fn (GraphQL: issues + Priority/Status fields + native sub-issue `parent`). Visible to **עידן+עמיחי+מתניה+אליה** (`canSeeDevTasks`).
+- **Two views (`devSetView`):** **לפי סטטוס** (default) = the **sprint board** — 6 named columns via `devStage()`:
+  ממתין לפיתוח(Backlog) · ספרינט קרוב(Ready) · בפיתוח עכשיו(In Progress) · בשלבי בדיקות(In Review) · גמר פיתוח ממתין לגרסה(Done) ·
+  עלה לאוויר(Committed); each card = title/#num/priority/assignee, sorted by priority. **לפי נושא** = the older topic
+  tree (📂 topic → nested GitHub sub-issues, any depth). Mobile = flattened card-based tree.
+- **Hero + filters:** KPI tiles + "עומס לפי עדיפות"/"עומס לפי נושא" bar+legend; every tile is a **toggle filter**
+  (priority / In-Progress / last-7d) re-rendering from cached `_devData` (`devSetFilter`→`devPaint`, no re-fetch). Live search.
+- **Writes (·84/·86 — `github` fn `mode:"setStatus"` → `setProjectStatus`):** **☑️ בחר משימות** multi-select +
+  sticky bar **🟢 דחוף ל-Ready**; **🚀 עלתה גרסה** = move all Done → Committed. EMS-gated; needs `GH_TOKEN` Projects-v2
+  **write** scope + the target Status options ("Ready"/"Committed") to exist in the project (both done).
+- **Day-stamps:** tiny gray `Backlog 1.6 · Ready 5.6 · …` per card, from Supabase **`dev_status_log`** (forward-tracking:
+  client records first day seen per stage on each sync — anon read, auth insert; `on_conflict do nothing`). `db/dev_status_log.sql`.
+- **Offline cache (·77/·79):** tickets persist in `localStorage` (`dev_tasks_cache_v1`) → instant paint even pre-login;
+  the heavy GitHub fetch runs **once per connection** (🔄 forces). **`github` fn CORS** reflects an allowlist
+  (prod + `*.githack.com` previews + localhost) so dev-branch previews work.
 
 **Morning "היום" view — REMOVED (·44).** Was added ·42; removed per request (not wanted in the app now). The
 whole feature is reverted incl. remember-last-page landing; app opens on the home page.

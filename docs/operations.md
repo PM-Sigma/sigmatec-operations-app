@@ -62,6 +62,20 @@ The account behind a key doesn't matter (server-side only). **No other function 
 Account/region note: if Google's free tier is 0-quota for your key (429 even on one call), set `GROQ_API_KEY` —
 the chain will use Groq automatically. The response includes `provider` so you can see which one answered.
 
+## Edge Function (`github`) — dev page (פיתוח), read + write
+
+EMS-gated proxy to the GitHub **Projects-v2 "Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)**.
+- **Deploy/redeploy:** Supabase → Edge Functions → `github` → paste `supabase/functions/github/index.ts` → Deploy.
+- **Secrets:** `GH_TOKEN` (GitHub PAT), `GH_REPO` (default `Sigmatec-Energy/tasks`), `GH_PROJECT_OWNER`/`GH_PROJECT_NUMBER`
+  (default `Sigmatec-Energy`/`1`), `EMS_API_BASE`, `APP_ORIGIN` (default prod; CORS also reflects `*.githack.com` + localhost).
+- **`GH_TOKEN` scope:** read needs `repo` + `read:org` + `project`. **Writes** (`mode:"setStatus"`) need Projects-v2
+  **write** — a **classic PAT with `project`** already has it (read+write); a fine-grained token needs Projects: read+write.
+- **Read** (default POST `{token,state}`): returns tickets + Priority/Status/sub-issue `parent`.
+- **Write** (POST `{token,mode:"setStatus",numbers:[…],status:"Ready"|"Committed"}`): `setProjectStatus()` sets the
+  Status field for those issues → `{updated,failed,statusOptions,target}`. The target option (e.g. **Committed**) must
+  exist in the project's Status field. Used by **דחוף ל-Ready** + **🚀 עלתה גרסה**.
+- **Day-stamps table:** `db/dev_status_log.sql` (run once in SQL editor). The client logs each ticket's current stage.
+
 ## Database
 
 - Schema: run `db/supabase_schema.sql` in the SQL editor.

@@ -11,7 +11,7 @@
   camelCase, numeric coercion via `numish()`, `tasks.seq` exposed as `row`). Dates stored as
   **text ISO strings** for byte-parity with the old Sheets snapshot.
 
-### Tables (13)
+### Tables (15)
 
 | Table | Purpose |
 |-------|---------|
@@ -28,9 +28,12 @@
 | `regions` | code → name. |
 | `ems_cache` | Singleton (`id=1`) shared EMS task cache. |
 | `ems_queue` | Outbound EMS write queue (identity PK, jsonb payload). |
+| `parse_corrections` | 📦 Inventory: order-parser learning store (`{raw_text → items}` few-shot for `parse-order`). Anon read, auth insert. |
+| `dev_status_log` | 🧑‍💻 Dev page: PK `(issue,status)` + `day`. First day each ticket was seen in each pipeline stage → the gray day-stamps. Anon read, auth insert (`on_conflict do nothing`). |
 
 DB helper scripts in `db/`: `supabase_schema.sql` (schema + RLS), `import_from_appsscript.mjs`
-(one-time migration), `verify_read_parity.mjs` (parity check), `rls_staged.sql` (lockdown steps).
+(one-time migration), `verify_read_parity.mjs` (parity check), `rls_staged.sql` (lockdown steps),
+`parse_corrections.sql` (📦 inventory learning table), `dev_status_log.sql` (🧑‍💻 dev day-stamps table).
 
 ---
 
