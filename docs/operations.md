@@ -68,8 +68,10 @@ EMS-gated proxy to the GitHub **Projects-v2 "Sigmatec EMS — Roadmap" (Sigmatec
 - **Deploy/redeploy:** Supabase → Edge Functions → `github` → paste `supabase/functions/github/index.ts` → Deploy.
 - **Secrets:** `GH_TOKEN` (GitHub PAT), `GH_REPO` (default `Sigmatec-Energy/tasks`), `GH_PROJECT_OWNER`/`GH_PROJECT_NUMBER`
   (default `Sigmatec-Energy`/`1`), `EMS_API_BASE`, `APP_ORIGIN` (default prod; CORS also reflects `*.githack.com` + localhost).
-- **`GH_TOKEN` scope:** read needs `repo` + `read:org` + `project`. **Writes** (`mode:"setStatus"`) need Projects-v2
-  **write** — a **classic PAT with `project`** already has it (read+write); a fine-grained token needs Projects: read+write.
+- **`GH_TOKEN` scope (GOTCHA):** reads work with **`read:project`** (read-only). **Writes** (`mode:"setStatus"`)
+  need the full **`project`** scope — `read:project` is NOT enough (GitHub: *"requires ['project'], token has only
+  ['read:project']"*). This bit us at ·87–·89: board read fine, every push failed `0·נכשלו:1`. Fix = add **`project`**
+  to the classic PAT (editing the existing token's scopes works in place — no new value, no redeploy). Verified live ·89.
 - **Read** (default POST `{token,state}`): returns tickets + Priority/Status/sub-issue `parent`.
 - **Write** (POST `{token,mode:"setStatus",numbers:[…],status:"Ready"|"Committed"}`): `setProjectStatus()` sets the
   Status field for those issues → `{updated,failed,statusOptions,target}`. The target option (e.g. **Committed**) must
