@@ -6783,7 +6783,11 @@
   // shows only matching tasks + their ancestor chain (ancestors dimmed as context), each topic's count
   // = matching tasks only, with a "+N בעדיפות אחרת" note for the rest. Links are always kept.
   // ===========================================================
-  function canSeeDevTasks() { return (typeof canManageStaff === 'function') && canManageStaff(); }
+  // פיתוח is for עידן + עמיחי (via canManageStaff) AND מתניה (the developer).
+  function canSeeDevTasks() {
+    var me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    return me === 'מתניה' || ((typeof canManageStaff === 'function') && canManageStaff());
+  }
   window._devState = 'open';
   window._devFilter = null;   // null | {type:'prio',val} | {type:'status'} | {type:'week'}
   window._devQ = '';          // live search query, preserved across re-paints
