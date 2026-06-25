@@ -100,10 +100,21 @@ async function fetchParentLinks(token: string, owner: string, name: string): Pro
   return out;
 }
 
-// WRITE: set the Projects-v2 Status field for a set of issues to a target option (e.g. "Ready" / "Committed").
-// Needs a token with project WRITE scope (classic PAT `project`, or fine-grained Projects: read+write).
-// Returns { updated:[numbers], failed:[{number,error}], statusOptions:[names], target }.
-async function setProjectStatus(token: string, owner: string, num: number, numbers: number[], targetName: string) {
+// WRITE: set the Projects-v2 Status field for a set of issues to a target stage (e.g. "Ready" / "Committed").
+// Robust: matches the target against the project's actual option names by KEYWORD (so English targets hit
+// Hebrew-named columns), and AUTO-ADDS an issue to the board if it isn't a project item yet (push from backlog).
+// Needs a token with project WRITE scope (classic PAT `project`). Returns { updated, failed[{number,error}], statusOptions, target }.
+function optionRegexFor(target: string): RegExp {
+  const t = String(target).toLowerCase();
+  if (/ready|מוכן|ספרינט/.test(t))                                   return /ready|מוכן|ספרינט|next|planned/i;
+  if (/commit|עלה|deployed|\blive\b|released|production|פרוד/.test(t)) return /commit|deployed|\blive\b|released|production|עלה ?לאוויר|פרוד|אונליין/i;
+  if (/progress|בעבודה|פיתוח|doing|wip/.test(t))                     return /progress|בעבודה|פיתוח|doing|wip|בתהליך|active/i;
+  if (/review|בדיק|qa/.test(t))                                      return /review|בדיק|qa/i;
+  if (/done|הושלם|בוצע|גמר|complete/.test(t))                        return /done|בוצע|הושלם|complete|merged|גמר/i;
+  if (/backlog|ממתין|todo/.test(t))                                  return /backlog|ממתין|todo|new/i;
+  return new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+}
+async function setProjectStatus(token: string, owner: string, num: number, repo: string, numbers: number[], targetName: string) {
   const gql = async (query: string, variables: any) => {
     const r = await fetchT("https://api.github.com/graphql", {
       method: "POST",
@@ -124,10 +135,12 @@ async function setProjectStatus(token: string, owner: string, num: number, numbe
   const statusField = (proj.fields?.nodes || []).find((f: any) => f && f.options && /status|סטטוס/i.test(f.name || ""));
   if (!statusField) throw new Error("Status field not found on the project");
   const optionNames = statusField.options.map((o: any) => o.name);
+  const re = optionRegexFor(targetName);
   const tn = String(targetName).toLowerCase();
-  const opt = statusField.options.find((o: any) => o.name.toLowerCase() === tn)
+  const opt = statusField.options.find((o: any) => re.test(o.name))
+    || statusField.options.find((o: any) => o.name.toLowerCase() === tn)
     || statusField.options.find((o: any) => o.name.toLowerCase().includes(tn));
-  if (!opt) return { updated: [], failed: numbers.map((n) => ({ number: n, error: "no matching '" + targetName + "' status option" })), statusOptions: optionNames };
+  if (!opt) return { updated: [], failed: numbers.map((n) => ({ number: n, error: "no Status option matches '" + targetName + "' (have: " + optionNames.join(", ") + ")" })), statusOptions: optionNames };
   // 2) map issue number → project item id (paginate the board)
   const itemByNumber: Record<number, string> = {};
   let after: string | null = null;
@@ -142,12 +155,24 @@ async function setProjectStatus(token: string, owner: string, num: number, numbe
     if (!items.pageInfo?.hasNextPage) break;
     after = items.pageInfo.endCursor;
   }
-  // 3) mutate each requested issue
+  const [repoOwner, repoName] = String(repo).split("/");
+  // ensure the issue is a project item — add it if it's a backlog repo-issue not on the board yet
+  const ensureItem = async (n: number): Promise<string | null> => {
+    if (itemByNumber[n]) return itemByNumber[n];
+    const iq = await gql(`query($o:String!,$r:String!,$n:Int!){ repository(owner:$o,name:$r){ issue(number:$n){ id } } }`, { o: repoOwner, r: repoName, n });
+    const contentId = iq?.repository?.issue?.id;
+    if (!contentId) return null;
+    const add = await gql(`mutation($p:ID!,$c:ID!){ addProjectV2ItemById(input:{projectId:$p,contentId:$c}){ item{ id } } }`, { p: proj.id, c: contentId });
+    const id = add?.addProjectV2ItemById?.item?.id;
+    if (id) itemByNumber[n] = id;
+    return id || null;
+  };
+  // 3) set the Status for each requested issue (adding it to the board first if needed)
   const updated: number[] = [], failed: any[] = [];
   for (const n of numbers) {
-    const itemId = itemByNumber[n];
-    if (!itemId) { failed.push({ number: n, error: "not on the project board" }); continue; }
     try {
+      const itemId = await ensureItem(n);
+      if (!itemId) { failed.push({ number: n, error: "issue not found / couldn't add to the project board" }); continue; }
       await gql(
         `mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){ projectV2Item{ id } } }`,
         { p: proj.id, i: itemId, f: statusField.id, o: opt.id },
@@ -186,7 +211,7 @@ Deno.serve(async (req) => {
     const target = String(body.status || "").trim();
     if (!numbers.length || !target) return json({ error: "numbers[] and status are required" }, 400, ORIGIN);
     try {
-      const res = await setProjectStatus(GH_TOKEN, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, numbers, target);
+      const res = await setProjectStatus(GH_TOKEN, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, GH_REPO, numbers, target);
       return json(res, 200, ORIGIN);
     } catch (e) {
       return json({ error: String((e as Error)?.message || e) }, 502, ORIGIN);

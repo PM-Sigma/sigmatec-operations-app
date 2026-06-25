@@ -7,6 +7,17 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·87] 2026-06-25
+### Fixed — dev page: sprint writes robustness (פיתוח) [needs `github` fn redeploy]
+- **דחוף ל-Ready returned `0 · נכשלו:1`.** Two hardenings in `github` fn `setProjectStatus`:
+  - **Synonym option-matching** — the target ("Ready"/"Committed") now matches the project's actual Status option
+    by keyword (English **or** Hebrew), so e.g. `Ready` hits a column named `ספרינט קרוב`/`מוכן` and `Committed`
+    hits `עלה לאוויר`. (The board already read Hebrew statuses; only the write was literal-matching.)
+  - **Auto-add to the board** — if a selected ticket is a backlog repo-issue **not yet a Project item**, the fn now
+    fetches its node id and `addProjectV2ItemById` before setting Status (so pushing from backlog just works).
+- **Client surfaces the real reason** — on any failure the toast/alert now lists `#num — <error>` + the project's
+  actual Status option names (was just a count). **Needs the `github` function redeployed.**
+
 ## [·86] 2026-06-25 — sprint board LIVE (merged from feat/dev-sprint-board)
 ### Added — dev page: sprint board (פיתוח)
 - **Status board** — new default "לפי סטטוס" view: 6 named columns — **ממתין לפיתוח** (Backlog) · **ספרינט קרוב**

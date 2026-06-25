@@ -7394,16 +7394,25 @@
     bar.querySelector('.dev-selbar-n').textContent = n + ' נבחרו';
     bar.querySelector('.dev-selbar-push').disabled = !n;
   }
+  // build a result message; surfaces per-ticket failure reasons + the project's actual Status options
+  function devWriteResult(d, okLabel) {
+    var ok = (d.updated || []).length, fail = (d.failed || []);
+    var msg = '✅ ' + okLabel + ': ' + ok;
+    if (fail.length) {
+      msg += ' · נכשלו: ' + fail.length + '\n' + fail.slice(0, 6).map(function (x) { return '#' + x.number + ' — ' + x.error; }).join('\n');
+      if (d.statusOptions && d.statusOptions.length) msg += '\n\nאופציות Status בפרויקט: ' + d.statusOptions.join(' · ');
+    }
+    return { msg: msg, ok: ok, fail: fail.length };
+  }
   window.devPushToReady = async function (btn) {
     var numbers = Object.keys(window._devSel || {}).map(Number);
     if (!numbers.length) return;
     if (btn) { btn.disabled = true; btn.textContent = '⏳ דוחף…'; }
     try {
-      var d = await devWriteStatus(numbers, 'Ready');
-      var msg = '✅ הועברו ל"ספרינט קרוב": ' + d.updated.length + (d.failed.length ? ' · נכשלו: ' + d.failed.length : '');
-      if (typeof toast === 'function') toast(msg); else alert(msg);
-      window._devSelMode = false; window._devSel = {};
-      renderDevTasks(true);   // refresh from GitHub so the board reflects the move
+      var res = devWriteResult(await devWriteStatus(numbers, 'Ready'), 'הועברו ל"ספרינט קרוב"');
+      if (res.fail) alert(res.msg); else if (typeof toast === 'function') toast(res.msg); else alert(res.msg);
+      if (res.ok) { window._devSelMode = false; window._devSel = {}; renderDevTasks(true); }   // refresh so the board reflects the move
+      else if (btn) { btn.disabled = false; btn.textContent = '🟢 דחוף ל-Ready'; }
     } catch (e) {
       alert('שגיאה: ' + (e && e.message || e));
       if (btn) { btn.disabled = false; btn.textContent = '🟢 דחוף ל-Ready'; }
@@ -7417,10 +7426,10 @@
     if (!confirm('להעביר ' + nums.length + ' משימות מ"גמר פיתוח" ל"עלה לאוויר"?')) return;
     if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
     try {
-      var res = await devWriteStatus(nums, 'Committed');
-      var msg = '🚀 עלו לאוויר: ' + res.updated.length + (res.failed.length ? ' · נכשלו: ' + res.failed.length : '');
-      if (typeof toast === 'function') toast(msg); else alert(msg);
-      renderDevTasks(true);
+      var res = devWriteResult(await devWriteStatus(nums, 'Committed'), 'עלו לאוויר');
+      if (res.fail) alert(res.msg); else if (typeof toast === 'function') toast(res.msg); else alert(res.msg);
+      if (res.ok) renderDevTasks(true);
+      if (btn) { btn.disabled = false; btn.textContent = '🚀 עלתה גרסה'; }
     } catch (e) {
       alert('שגיאה: ' + (e && e.message || e));
       if (btn) { btn.disabled = false; btn.textContent = '🚀 עלתה גרסה'; }
