@@ -61,7 +61,7 @@ calendar DWD, `service_role` rotation.)_
   pushing a **child** to a sprint changed its GitHub status but the card didn't visibly move, and column counts
   (=roots) didn't match the cards shown (=subtrees). Now every ticket sits in **its own** status column (flat
   cards, accurate counts); the full tree stays in "לפי נושא". Parent-cascade removed (each card selectable
-  directly) — also kills the epic-demotion bug. On `dev` (·97), pending release. `test-devboard.mjs`.
+  directly) — also kills the epic-demotion bug. **LIVE on `main` (·97).** `test-devboard.mjs`.
 
 - **DATA-LOSS fix — order/requirement details wiped on status change (·96):** status-only writes (`{id,status}`
   from approve / quick-status) rebuilt the whole row from empty defaults → wiped `items`/`supplier`/`notes`/
