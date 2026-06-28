@@ -1,7 +1,7 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·86** (2026-06-25)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·94** (2026-06-25)._
 
 ## ⏳ Re-deploy `parse-order` — pick up ·56 changes
 **Action:** Supabase → Edge Functions → `parse-order` → paste updated `supabase/functions/parse-order/index.ts` → Deploy.
@@ -28,8 +28,19 @@ The app (·56) already has the matching offline matcher — parsing works in deg
    `JWT_SECRET` env + redeploy → swap the new `anon` key into the bundle + rebuild.
 4. **EMS changelog → calendar** — show EMS version-release days in the יומן (needs the calendar unblocked + the
    changelog source מתניה maintains).
-_(No open blockers. Dev-tasks editing **phase 2 is DONE** (sprint board writes, ·86 — see Done). Remaining items
-are the standing admin ones: Supabase MCP, calendar DWD, `service_role` rotation.)_
+_(No open blockers. Dev sprint board incl. writes is LIVE & verified (·94). Standing admin items: Supabase MCP,
+calendar DWD, `service_role` rotation.)_
+
+## 🔜 Open feature work (next sessions)
+
+- 🧑‍💻 **Dev-page: statistics page** — עידן's next ask. The new `dev_status_log` table (first-day-per-stage per ticket)
+  is the data source: time-in-stage, cycle time, throughput per sprint, aging in Backlog/Review. Build on the Stats page.
+- 🧑‍💻 **Dev-page board grouping (optional revisit)** — the status board groups each whole tree by its **root's** stage,
+  so a sub-task's own status doesn't place it in its own column (it nests under its parent's column with a status badge).
+  Per "keep the hierarchy" this is intended; revisit only if עידן wants sub-tasks to also surface by their own status.
+- 📦 **EMS/inventory: `ems_cache` RLS 401 on login** — `emsOnConnected → emsSyncCache` upserts `ems_cache` as anon →
+  RLS reject (seen repeatedly in console). Likely needs the authenticated Supabase pass before the write (cf. the
+  ·36 saves fix in `01-data.js`). **Inventory/EMS lane** — not the dev-page lane.
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
 
