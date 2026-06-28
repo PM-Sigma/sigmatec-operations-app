@@ -60,8 +60,8 @@ calendar DWD, `service_role` rotation.)_
 - **DATA-LOSS fix — order/requirement details wiped on status change (·96):** status-only writes (`{id,status}`
   from approve / quick-status) rebuilt the whole row from empty defaults → wiped `items`/`supplier`/`notes`/
   `distribution`. Now order+requirement updates are **partial-safe** (PATCH only the sent fields, via
-  `writeOrder`/`writeRequirement` + `sbPatch`; `test-order-patch.mjs`). On `dev`, not yet released.
-  ⚠️ orders wiped before this build aren't auto-recovered.
+  `writeOrder`/`writeRequirement` + `sbPatch`; `test-order-patch.mjs`). **LIVE on `main` (·96).**
+  ⚠️ orders wiped before this build aren't auto-recovered (e.g. עמיחי's לנדיס order — re-enter via create→edit→בדרך).
 
 - **Approved-order notifications (·95):** אביאם/ניתאי/עמיחי — when one approves, the others see a modal on next
   open ("🔔 N הזמנות חדשות אושרו") listing each order with a "📦 הצג הזמנות" button. Zero schema changes —
