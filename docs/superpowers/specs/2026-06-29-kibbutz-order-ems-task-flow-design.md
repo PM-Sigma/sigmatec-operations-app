@@ -23,6 +23,26 @@ visit fulfilled. Minimize clicks; chain modules so one action flows to the next.
 - New statuses to add to `ORDER_STATUSES` (02): `awaiting_schedule` (ממתין לשיבוץ), `scheduled` (נשלח ל-EMS),
   `cancelled` (מבוטלת). `supplied` (סופקה) already exists.
 
+## 0. Connection requirement (no offline EMS actions)
+
+Every EMS-requiring action — **new order, approve, שיבוץ, EMS task status/cancel** — is gated on a live EMS
+connection. A tiny guard runs first:
+
+```js
+function requireEms() {
+  if (typeof isEmsConnected === 'function' && isEmsConnected()) return true;
+  if (typeof emsRequireLogin === 'function') emsRequireLogin();   // pop the re-login modal
+  return false;
+}
+```
+
+If offline → pop the re-login prompt **before** the user does any work; the action does not proceed and is
+**not** queued. (The ·1.02 401-retry fix still covers the after-the-fact case for any Supabase write.) The
+**visit summary itself still saves** (it's core field work and writes to Supabase via the auth pass). This
+removes the offline-task edge cases entirely: createTask always runs **live**, so site/assignee resolve live
+with no dead-letter and no flush dedup. **The existing `emsWriteOrQueue`/flush/dedup code is kept but bypassed**
+(entry points gate on `requireEms()` so the offline branch is unreachable) — remove later if confirmed unused.
+
 ## 1. Approval routing — size rule (reuse `orderNeedsAmichai`)
 
 Customer orders adopt the **same size rule already used for supplier orders**: `orderTotalQty(o) > 10 → עמיחי`,
@@ -46,9 +66,9 @@ A small step (reuse the conversational `askChoice` modal built for accessories) 
 - **Due date (תאריך יעד):** native `<input type="date">`.
 
 On confirm:
-- `createTask({ assigneeName, expectedCompletionDate: dueDate, … })` — **reuse** the existing createTask queue
-  (13-ems.js); just pass `expectedCompletionDate` (new field on the body) + the chosen assignee. Queues if
-  offline (existing), retries on connect (·99 fix).
+- `createTask({ assigneeName, expectedCompletionDate: dueDate, … })` — **reuse** createTask (13-ems.js); pass
+  `expectedCompletionDate` (new field on the body) + the chosen assignee. Runs **live** (connection required per
+  §0), so site/assignee resolve immediately — no offline queue, no dead-letter.
 - Order → `scheduled` (נשלח ל-EMS).
 - **No stock movement here** (see §4).
 - Guard: disable the confirm button while in-flight → no duplicate task.
@@ -112,11 +132,13 @@ the report, not modeled as a separate state (decision: full close, report is the
 - No separate reassign subsystem (re-edit covers it).
 - No partial-delivery state (the visit report documents actuals; full close).
 - No new notification system (reuse ·95) and no new alert UI (reuse `renderLowStockAlert`).
+- No offline path for EMS actions — connection is required (§0); the queue code stays but is bypassed.
 
 ## Reuse map (so implementation stays lazy)
 
 | Need | Reuse |
 |------|-------|
+| Require-connection guard | `isEmsConnected` (13) + `emsRequireLogin` (12) → `requireEms()` |
 | Approval size routing | `orderNeedsAmichai`, `orderTotalQty` (07) |
 | Notify אביאם on עמיחי-approval | `maybeShowOrderNotifications` (·95, 07) |
 | שיבוץ assignee picker | `askChoice` modal (07) + `<input type=date>` |
