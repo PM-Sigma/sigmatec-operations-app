@@ -7,6 +7,23 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·96] 2026-06-28
+### Fixed — inventory: order/requirement details wiped on status change (DATA LOSS bug)
+- **Symptom (reported):** עמיחי created a supplier order (700 לנדיס תלת + 100 חד) — it saved fine, but after
+  approval + pushing it through statuses, **all its items vanished**.
+- **Root cause:** the `order` (and `requirement`) Supabase write builder in `01-data.js` always emitted a
+  **full row with empty defaults** (`items: b.items || []`, `supplier: ''`, `notes: ''`, `distribution: {}`),
+  and `sbUpsert` is a full-row merge-upsert. So a **status-only** POST (`{type:'order', id, status}`) — exactly
+  what `approveSupplierOrder` / `quickOrderStatus` / `approveCustomerOrder` send — rebuilt the whole row and
+  overwrote `items` with `[]`. The customer flow hit the same bug on `requirements` (`in_progress`/`fulfilled`
+  by-id updates wiped items/kibbutz).
+- **Fix:** order + requirement writes are now **partial-safe** (`writeOrder`/`writeRequirement`): a NEW record
+  (no id) inserts the full row as before; an UPDATE (id present) **PATCHes only the fields actually sent** via a
+  new `sbPatch` helper, leaving untouched columns intact. Pure mappers `orderUpdateRow`/`reqUpdateRow` +
+  `test-order-patch.mjs` (status-only body must not carry `items`). The old full-row `W.order`/`W.requirement`
+  builders were removed.
+- **⚠️ Pre-existing data:** orders already wiped before this build are not recovered — items must be re-entered.
+
 ## [·95] 2026-06-25
 ### Added — inventory: approved-order notifications (אביאם · ניתאי · עמיחי)
 - **When one of the group approves an order, the others get notified.** On their next app-open they see a

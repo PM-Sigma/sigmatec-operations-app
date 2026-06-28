@@ -1,7 +1,20 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·94** (2026-06-25)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
+
+## 🔴 Release `dev`→`main` — bundle ·91–·95
+**What's waiting on `dev` (not yet live):**
+- ·95 — Approved-order notifications for אביאם/ניתאי/עמיחי (localStorage seen-set, no schema change)
+- ·92 — Dev-page tree hierarchy restored in status board + tree-aware multi-select
+- ·91 — Orders actions column header "פעולות על ההזמנה — שנה סטטוס ל:" + left-align
+- ·89/·87/·86/·82/·81 — Sprint-board feature set (all already on dev since ·94 but bundled here)
+
+**Command (fast-forward, safe):**
+```bash
+git fetch origin -q && git push origin origin/dev:main
+```
+GitHub Pages deploys in ~1–2 min. No migration needed.
 
 ## ⏳ Re-deploy `parse-order` — pick up ·56 changes
 **Action:** Supabase → Edge Functions → `parse-order` → paste updated `supabase/functions/parse-order/index.ts` → Deploy.
@@ -43,6 +56,17 @@ calendar DWD, `service_role` rotation.)_
   ·36 saves fix in `01-data.js`). **Inventory/EMS lane** — not the dev-page lane.
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
+
+- **DATA-LOSS fix — order/requirement details wiped on status change (·96):** status-only writes (`{id,status}`
+  from approve / quick-status) rebuilt the whole row from empty defaults → wiped `items`/`supplier`/`notes`/
+  `distribution`. Now order+requirement updates are **partial-safe** (PATCH only the sent fields, via
+  `writeOrder`/`writeRequirement` + `sbPatch`; `test-order-patch.mjs`). On `dev`, not yet released.
+  ⚠️ orders wiped before this build aren't auto-recovered.
+
+- **Approved-order notifications (·95):** אביאם/ניתאי/עמיחי — when one approves, the others see a modal on next
+  open ("🔔 N הזמנות חדשות אושרו") listing each order with a "📦 הצג הזמנות" button. Zero schema changes —
+  `localStorage` seen-set per user. Creator excluded, no repeat-notify. Fires from `maybeShowOrderNotifications`
+  post-data hook. **On dev; not yet released to main.**
 
 - **Dev sprint board — phase 2 LIVE (·86)**: status board (6 named columns + view toggle + day-stamps via Supabase
   `dev_status_log`), **multi-select → דחוף ל-Ready** + **🚀 עלתה גרסה** (Done→Committed) via the `github` fn

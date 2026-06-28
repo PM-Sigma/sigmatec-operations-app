@@ -468,6 +468,8 @@
     const realFetch = window.fetch.bind(window);
     const sbGet = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { headers: baseH() }); if (!r.ok) throw new Error('supabase GET ' + path + ' ' + r.status); return r.json(); };
     const sbUpsert = async (table, key, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?on_conflict=' + key, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase upsert ' + table + ' ' + r.status + ' ' + await r.text()); };
+    // PATCH = partial update: writes ONLY the columns in `row`, leaving the rest of the existing record untouched.
+    const sbPatch = async (table, filter, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?' + filter, { method: 'PATCH', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase patch ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbInsert = async (table, rows) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(rows) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: H }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
 
@@ -499,9 +501,8 @@
     // ---- WRITE: per-type → Supabase upsert (same field mapping as the importer) ----
     const W = {
       product: b => { const id = b.id || genId('prod'); return ['products', 'id', { id, name: b.name || '', category: b.category || '', active: b.active !== false, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '' }, id]; },
-      order: b => { const id = b.id || genId('ord'); return ['orders', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, last_updated: nowISO() }, id]; },
+      // order + requirement are handled by writeOrder/writeRequirement (partial-safe) — not via this full-row table.
       movement: b => { const id = b.id || genId('mov'); return ['movements', 'id', { id, date: b.date || nowISO(), product: b.product || '', from_location: b.fromLocation || '', to_location: b.toLocation || '', quantity: b.quantity || 0, reason: b.reason || 'manual', ref_id: b.refId || '', created_by: b.createdBy || '' }, id]; },
-      requirement: b => { const id = b.id || genId('req'); return ['requirements', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', kibbutz: b.kibbutz || '', contact_name: b.contactName || '', items: b.items || [], notes: b.notes || '', status: b.status || 'open', linked_order_id: b.linkedOrderId || '', fulfilled_at: b.status === 'fulfilled' ? (b.fulfilledAt || nowISO()) : (b.fulfilledAt || ''), last_updated: nowISO() }, id]; },
       attendance: b => { const id = b.id || genId('att'); return ['attendance', 'id', { id, date: b.date || nowISO(), person: b.person || '', day_type: b.dayType || '', note: b.note || '' }, id]; },
       setting: b => ['settings', 'key', { key: String(b.key || ''), value: b.value !== undefined ? b.value : null, updated_at: nowISO() }, b.key]
     };
@@ -535,6 +536,60 @@
       return created ? { ok: true, created: true } : { ok: true, savedAt: row.last_modified };
     }
 
+    // order / requirement writes are PARTIAL-SAFE: a new record (no id) inserts the full row, but an UPDATE
+    // (id present — e.g. a status-only {id,status} from approval / quick-status) PATCHes ONLY the fields sent,
+    // so it never wipes items/supplier/notes/distribution. (The old full-row upsert defaulted absent fields to
+    // empty, which deleted an order's details on the first status change after creation.)
+    // orderUpdateRow/reqUpdateRow are pure (body → columns, present-keys only); see test-order-patch.mjs.
+    function orderUpdateRow(b) {
+      const row = {};
+      if (b.status       !== undefined) row.status        = b.status;
+      if (b.items        !== undefined) row.items         = b.items;
+      if (b.supplier     !== undefined) row.supplier      = b.supplier;
+      if (b.expectedDate !== undefined) row.expected_date = b.expectedDate;
+      if (b.notes        !== undefined) row.notes         = b.notes;
+      if (b.distribution !== undefined) row.distribution  = b.distribution;
+      if (b.createdBy    !== undefined) row.created_by    = b.createdBy;
+      if (b.deliveredAt  !== undefined) row.delivered_at  = b.deliveredAt;
+      return row;
+    }
+    function reqUpdateRow(b) {
+      const row = {};
+      if (b.status        !== undefined) row.status          = b.status;
+      if (b.items         !== undefined) row.items           = b.items;
+      if (b.kibbutz       !== undefined) row.kibbutz         = b.kibbutz;
+      if (b.contactName   !== undefined) row.contact_name    = b.contactName;
+      if (b.notes         !== undefined) row.notes           = b.notes;
+      if (b.linkedOrderId !== undefined) row.linked_order_id = b.linkedOrderId;
+      if (b.createdBy     !== undefined) row.created_by      = b.createdBy;
+      if (b.fulfilledAt   !== undefined) row.fulfilled_at    = b.fulfilledAt;
+      return row;
+    }
+    async function writeOrder(b) {
+      if (!b.id) {
+        const id = genId('ord');
+        await sbUpsert('orders', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, last_updated: nowISO() });
+        return { ok: true, id };
+      }
+      const row = orderUpdateRow(b);
+      if (row.delivered_at === undefined && b.status === 'delivered') row.delivered_at = nowISO();   // stamp on first delivery
+      row.last_updated = nowISO();
+      await sbPatch('orders', 'id=eq.' + encodeURIComponent(b.id), row);
+      return { ok: true, id: b.id };
+    }
+    async function writeRequirement(b) {
+      if (!b.id) {
+        const id = genId('req');
+        await sbUpsert('requirements', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', kibbutz: b.kibbutz || '', contact_name: b.contactName || '', items: b.items || [], notes: b.notes || '', status: b.status || 'open', linked_order_id: b.linkedOrderId || '', fulfilled_at: b.status === 'fulfilled' ? (b.fulfilledAt || nowISO()) : (b.fulfilledAt || ''), last_updated: nowISO() });
+        return { ok: true, id };
+      }
+      const row = reqUpdateRow(b);
+      if (row.fulfilled_at === undefined && b.status === 'fulfilled') row.fulfilled_at = nowISO();
+      row.last_updated = nowISO();
+      await sbPatch('requirements', 'id=eq.' + encodeURIComponent(b.id), row);
+      return { ok: true, id: b.id };
+    }
+
     const respond = (payload) => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, clone: function () { return this; }, json: async () => payload, text: async () => JSON.stringify(payload) });
 
     window.fetch = function (url, opts) {
@@ -552,6 +607,8 @@
             try { await window._sbBridge(); } catch (e) {}
           }
           if (!b.type) return respond(await writeTask(b));
+          if (b.type === 'order') return respond(await writeOrder(b));
+          if (b.type === 'requirement') return respond(await writeRequirement(b));
           if (b.type === 'visit') return respond(await writeVisit(b));
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
           if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '' }); return respond({ ok: true, cached: (b.tasks || []).length }); }
