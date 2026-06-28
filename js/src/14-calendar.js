@@ -33,7 +33,13 @@
       if (!v.date) return;
       push(new Date(v.date), { icon: '📍', text: (v.visitor || '') + ' · ' + (v.kibbutz || '') + (v.workday ? ' (יום עבודה)' : ''), cls: 'cal-visit' });
     });
-    // ponytail: per request — the calendar shows ONLY visits (attendance/EMS/events removed).
+    // Open EMS tasks on their due date — same source + filter as the agenda (renderCalendarAgenda),
+    // so the month grid shows upcoming field work alongside visits, not just visits.
+    (typeof emsCacheData === 'function' ? (emsCacheData().tasks || []) : []).forEach(t => {
+      if (!t.expectedCompletionDate) return;                                            // no due date → can't place it
+      if (typeof EMS_CLOSED !== 'undefined' && EMS_CLOSED.indexOf(t.status) !== -1) return;   // skip closed tasks
+      push(new Date(t.expectedCompletionDate), { icon: '📋', text: (t.title || '') + (t.site && t.site.name ? ' · ' + t.site.name : ''), cls: 'cal-ems' });
+    });
     return ev;
   }
   function renderCompanyCalendar() {
@@ -713,8 +719,11 @@
 
   async function changeEmsStatus(id, status) {
     try {
-      await emsApi('/employee-tasks/' + id, { method: 'PATCH', body: JSON.stringify({ status }) });
-      emsToast('✅ הסטטוס עודכן');
+      // queue-aware: offline the change is queued and applied on the next connect (was a live-only
+      // direct PATCH that just errored offline — same model as closing a task from the visit form).
+      var res = await emsWriteOrQueue({ kind: 'status', taskId: id, status: status });
+      if (res && res.error) { alert('שגיאה: ' + res.error); return; }
+      emsToast(res && res.queued ? '✅ הסטטוס יעודכן בהתחברות הבאה' : '✅ הסטטוס עודכן');
       if (window._emsCurrentTask && window._emsCurrentTask.id === id) window._emsCurrentTask.status = status;
       if (document.getElementById('ems-view').style.display !== 'none') loadEmsTasks();
       emsAfterWrite();   // reflect the new status on the kibbutz card (was the "can't update" bug)

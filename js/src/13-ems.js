@@ -78,7 +78,12 @@
     // at SEND time (works whether sent live or flushed later by another connected user).
     if (item.kind === 'createTask') {
       var body = { title: item.title, type: item.taskType || 'supplying_meters', priority: 'normal' };
-      try { var sid = await emsSiteIdForKibbutz(item.kibbutz); if (sid) body.siteId = sid; } catch (e) {}
+      // Resolve the site at SEND time. A lookup ERROR (network) must NOT be swallowed — otherwise we'd
+      // create a site-less task and dead-letter it forever. Let it throw so the item stays queued and
+      // retries on the next connect. (A successful lookup that finds NO match returns '' → we proceed;
+      // the task is still created and can be fixed in EMS.) Assignee stays best-effort — a flaky users
+      // endpoint shouldn't block creating the task; it just gets created unassigned.
+      if (item.kibbutz) { var sid = await emsSiteIdForKibbutz(item.kibbutz); if (sid) body.siteId = sid; }
       if (item.description) body.description = item.description;
       if (item.assigneeName) {
         try { var us = await getEmsUsers(); var u = (us || []).find(function (x) { return emsUserName(x).indexOf(item.assigneeName) !== -1; }); if (u) body.assigneeUserId = u.id; } catch (e) {}

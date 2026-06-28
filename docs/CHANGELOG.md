@@ -7,6 +7,30 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·99] 2026-06-28 — EMS-task flow: end-to-end audit + fixes; tasks now on the calendar
+Parallel read-only audit of the whole EMS-task flow (open/close triggers, visits, calendar, orders↔stock).
+**Headline: no second order-class data-loss bug exists** — every write builder was checked; visits re-send
+full content (only `created_at` was resetting), movements are insert-only, EMS status PATCH hits the external
+EMS API (normal partial update). Fixes shipped:
+- **Calendar shows EMS tasks (requested).** The month grid + day panel now render open EMS tasks on their
+  `expectedCompletionDate`, reusing the agenda's exact filter + the `.cal-ems` chip (`collectCalendarEvents`,
+  14-calendar.js). Closed tasks and tasks without a due date are skipped.
+- **#1 createTask completeness (13-ems.js).** A transient site-lookup error during queue flush was swallowed,
+  creating a **site-less task** that was then dead-lettered (never retried). Now a lookup error throws → the
+  item stays queued and retries next connect; assignee stays best-effort.
+- **#2 task-detail status is queue-aware (14-calendar.js `changeEmsStatus`).** Was a live-only PATCH that just
+  errored offline; now uses `emsWriteOrQueue` so an offline status/close is queued and applied on next connect
+  (same model as closing from the visit form).
+- **#4 `writeVisit` preserves `created_at` on edit (01-data.js).** Editing a visit no longer resets its creation
+  date (the full-row upsert now omits `created_at` on edit so the merge keeps the original).
+- **#5 delivered-without-distribution (07-orders.js).** Marking an order "סופקה" without setting a distribution
+  silently downgraded to "התקבל" with no stock update — now it **confirms** first (cancel → set distribution).
+- **Hardening (07-orders.js):** requirement-fulfillment no longer re-POSTs when re-saving an already-delivered
+  order; delivery movements skip blank product names (no orphan movement rows).
+- **Deferred (design, needs schema):** `ems_task_id` link between an order/visit and its EMS task (so closing a
+  task reconciles the visit/order) — tracked, needs a DB column + SQL run. The acknowledged `ponytail:`
+  shortcuts (last-writer-wins cache sync, per-browser flush dedup) are intentional, rare + reversible — left as-is.
+
 ## [tooling] 2026-06-28 — version-stamp scheme
 - **New versioning in `build.mjs` (`nextVersion`).** The `·N` counter runs to **·100**; the build after that
   **rolls to `1.01`** and the minor auto-increments each build (`1.01 → 1.02 …`). A **big, sweeping update**

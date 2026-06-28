@@ -1121,8 +1121,11 @@
     if (!window.invEditingOrderId) {
       status = 'pending_approval';   // ponytail: new orders are ALWAYS hardcoded to await approval
     } else if (status === 'delivered' && !window.invDistributionTouched) {
-      // If "סופקה" was chosen but the distribution was never touched → save as 'arrived' (pink) — no movements yet
-      status = 'arrived';
+      // "סופקה" chosen but distribution never set → no stock movements would post. Confirm instead of
+      // SILENTLY downgrading to 'arrived', so the user knows the stock won't update (and can cancel to
+      // set the distribution first).
+      if (!confirm('סימנת "סופקה" אך לא הגדרת חלוקה — המלאי לא יתעדכן.\nלשמור כ"התקבל" (ללא עדכון מלאי)?\nבטל כדי להגדיר חלוקה ואז לשמור.')) { setBtnLoading(btn, false); return; }
+      status = 'arrived';   // saved as 'arrived' (pink) — no movements yet
     }
     let notes = document.getElementById('invOrderNotes').value.trim();
     const rawReq = (document.getElementById('invOrderRaw')?.value || '').trim();
@@ -1165,7 +1168,7 @@
         const movementPromises = [];
         Object.entries(body.distribution).forEach(([productName, locs]) => {
           Object.entries(locs).forEach(([loc, qty]) => {
-            if (qty > 0) {
+            if (productName && qty > 0) {   // skip empty/blank product names → no orphan movement rows
               movementPromises.push(fetch(SHEET_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1220,8 +1223,10 @@
         await Promise.all(window.invImportedReqIds.map(rid =>
           reqPost(rid, { status: reqStatus, linkedOrderId: orderId })));
       }
-      // On delivery, mark every requirement already linked to this order as fulfilled
-      if (status === 'delivered' && orderId) {
+      // On a FRESH delivery, mark every requirement already linked to this order as fulfilled.
+      // Skip when the order was already delivered before this edit — they're already fulfilled,
+      // so re-saving shouldn't re-POST them.
+      if (status === 'delivered' && orderId && window.invOrigOrderStatus !== 'delivered') {
         const linked = (window.SHEET_DATA?.requirements || [])
           .filter(r => r.linkedOrderId === orderId && r.status !== 'fulfilled');
         await Promise.all(linked.map(r => reqPost(r.id, { status: 'fulfilled' })));

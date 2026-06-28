@@ -510,7 +510,9 @@
     // visit: upsert the visit AND append any returned-equipment rows (mirrors appendVisit)
     async function writeVisit(b) {
       const id = b.id || genId('v');
-      await sbUpsert('visits', 'id', { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', created_at: b.createdAt || nowISO(), workday: !!b.workday });
+      const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', workday: !!b.workday };
+      if (!b.id) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now)
+      await sbUpsert('visits', 'id', row);
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
         const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: it.toStock ? 'restocked' : 'open' }));
         if (rows.length) await sbInsert('returns', rows);
@@ -3110,8 +3112,11 @@
     if (!window.invEditingOrderId) {
       status = 'pending_approval';   // ponytail: new orders are ALWAYS hardcoded to await approval
     } else if (status === 'delivered' && !window.invDistributionTouched) {
-      // If "סופקה" was chosen but the distribution was never touched → save as 'arrived' (pink) — no movements yet
-      status = 'arrived';
+      // "סופקה" chosen but distribution never set → no stock movements would post. Confirm instead of
+      // SILENTLY downgrading to 'arrived', so the user knows the stock won't update (and can cancel to
+      // set the distribution first).
+      if (!confirm('סימנת "סופקה" אך לא הגדרת חלוקה — המלאי לא יתעדכן.\nלשמור כ"התקבל" (ללא עדכון מלאי)?\nבטל כדי להגדיר חלוקה ואז לשמור.')) { setBtnLoading(btn, false); return; }
+      status = 'arrived';   // saved as 'arrived' (pink) — no movements yet
     }
     let notes = document.getElementById('invOrderNotes').value.trim();
     const rawReq = (document.getElementById('invOrderRaw')?.value || '').trim();
@@ -3154,7 +3159,7 @@
         const movementPromises = [];
         Object.entries(body.distribution).forEach(([productName, locs]) => {
           Object.entries(locs).forEach(([loc, qty]) => {
-            if (qty > 0) {
+            if (productName && qty > 0) {   // skip empty/blank product names → no orphan movement rows
               movementPromises.push(fetch(SHEET_API, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -3209,8 +3214,10 @@
         await Promise.all(window.invImportedReqIds.map(rid =>
           reqPost(rid, { status: reqStatus, linkedOrderId: orderId })));
       }
-      // On delivery, mark every requirement already linked to this order as fulfilled
-      if (status === 'delivered' && orderId) {
+      // On a FRESH delivery, mark every requirement already linked to this order as fulfilled.
+      // Skip when the order was already delivered before this edit — they're already fulfilled,
+      // so re-saving shouldn't re-POST them.
+      if (status === 'delivered' && orderId && window.invOrigOrderStatus !== 'delivered') {
         const linked = (window.SHEET_DATA?.requirements || [])
           .filter(r => r.linkedOrderId === orderId && r.status !== 'fulfilled');
         await Promise.all(linked.map(r => reqPost(r.id, { status: 'fulfilled' })));
@@ -5576,7 +5583,12 @@
     // at SEND time (works whether sent live or flushed later by another connected user).
     if (item.kind === 'createTask') {
       var body = { title: item.title, type: item.taskType || 'supplying_meters', priority: 'normal' };
-      try { var sid = await emsSiteIdForKibbutz(item.kibbutz); if (sid) body.siteId = sid; } catch (e) {}
+      // Resolve the site at SEND time. A lookup ERROR (network) must NOT be swallowed — otherwise we'd
+      // create a site-less task and dead-letter it forever. Let it throw so the item stays queued and
+      // retries on the next connect. (A successful lookup that finds NO match returns '' → we proceed;
+      // the task is still created and can be fixed in EMS.) Assignee stays best-effort — a flaky users
+      // endpoint shouldn't block creating the task; it just gets created unassigned.
+      if (item.kibbutz) { var sid = await emsSiteIdForKibbutz(item.kibbutz); if (sid) body.siteId = sid; }
       if (item.description) body.description = item.description;
       if (item.assigneeName) {
         try { var us = await getEmsUsers(); var u = (us || []).find(function (x) { return emsUserName(x).indexOf(item.assigneeName) !== -1; }); if (u) body.assigneeUserId = u.id; } catch (e) {}
@@ -5764,7 +5776,13 @@
       if (!v.date) return;
       push(new Date(v.date), { icon: '📍', text: (v.visitor || '') + ' · ' + (v.kibbutz || '') + (v.workday ? ' (יום עבודה)' : ''), cls: 'cal-visit' });
     });
-    // ponytail: per request — the calendar shows ONLY visits (attendance/EMS/events removed).
+    // Open EMS tasks on their due date — same source + filter as the agenda (renderCalendarAgenda),
+    // so the month grid shows upcoming field work alongside visits, not just visits.
+    (typeof emsCacheData === 'function' ? (emsCacheData().tasks || []) : []).forEach(t => {
+      if (!t.expectedCompletionDate) return;                                            // no due date → can't place it
+      if (typeof EMS_CLOSED !== 'undefined' && EMS_CLOSED.indexOf(t.status) !== -1) return;   // skip closed tasks
+      push(new Date(t.expectedCompletionDate), { icon: '📋', text: (t.title || '') + (t.site && t.site.name ? ' · ' + t.site.name : ''), cls: 'cal-ems' });
+    });
     return ev;
   }
   function renderCompanyCalendar() {
@@ -6444,8 +6462,11 @@
 
   async function changeEmsStatus(id, status) {
     try {
-      await emsApi('/employee-tasks/' + id, { method: 'PATCH', body: JSON.stringify({ status }) });
-      emsToast('✅ הסטטוס עודכן');
+      // queue-aware: offline the change is queued and applied on the next connect (was a live-only
+      // direct PATCH that just errored offline — same model as closing a task from the visit form).
+      var res = await emsWriteOrQueue({ kind: 'status', taskId: id, status: status });
+      if (res && res.error) { alert('שגיאה: ' + res.error); return; }
+      emsToast(res && res.queued ? '✅ הסטטוס יעודכן בהתחברות הבאה' : '✅ הסטטוס עודכן');
       if (window._emsCurrentTask && window._emsCurrentTask.id === id) window._emsCurrentTask.status = status;
       if (document.getElementById('ems-view').style.display !== 'none') loadEmsTasks();
       emsAfterWrite();   // reflect the new status on the kibbutz card (was the "can't update" bug)

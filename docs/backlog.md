@@ -46,6 +46,10 @@ calendar DWD, `service_role` rotation.)_
 
 ## 🔜 Open feature work (next sessions)
 
+- 🔗 **`ems_task_id` link (order/visit ↔ EMS task)** — store the EMS task id on the order (and visit) so closing
+  the task reconciles the order/visit, and a visit's summary attaches to a known task instead of just a comment.
+  Needs a DB column + SQL (`db/orders_ems_task_id.sql` already drafted) + wiring in approveCustomerOrder /
+  pushVisitToEms. Surfaced in the ·99 EMS-flow audit (deferred — schema change).
 - 🧑‍💻 **Dev-page: statistics page** — עידן's next ask. The new `dev_status_log` table (first-day-per-stage per ticket)
   is the data source: time-in-stage, cycle time, throughput per sprint, aging in Backlog/Review. Build on the Stats page.
 - 🧑‍💻 **Dev-page board grouping (optional revisit)** — the status board groups each whole tree by its **root's** stage,
@@ -56,6 +60,13 @@ calendar DWD, `service_role` rotation.)_
   ·36 saves fix in `01-data.js`). **Inventory/EMS lane** — not the dev-page lane.
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
+
+- **EMS-task flow audit + fixes (·99):** parallel read-only audit (open/close triggers, visits, calendar,
+  orders↔stock). No second order-class data-loss bug. Shipped: **EMS tasks on the calendar** (grid+day panel by
+  due date); **createTask** no longer dead-letters a site-less task on a transient lookup error (#1); **task-detail
+  status is queue-aware offline** (#2); **writeVisit** preserves `created_at` on edit (#4); **delivered-without-
+  distribution** now confirms instead of silently downgrading (#5); requirement re-fulfill + blank-product movement
+  guards. On `dev` (·99).
 
 - **Dev sprint board: per-ticket placement (·97):** the board bucketed whole trees by the **root's** stage, so
   pushing a **child** to a sprint changed its GitHub status but the card didn't visibly move, and column counts
