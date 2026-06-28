@@ -7,6 +7,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [tooling] 2026-06-28 — version-stamp scheme
+- **New versioning in `build.mjs` (`nextVersion`).** The `·N` counter runs to **·100**; the build after that
+  **rolls to `1.01`** and the minor auto-increments each build (`1.01 → 1.02 …`). A **big, sweeping update**
+  bumps the major via **`node build.mjs major`** (→ `2.00`); the whole `·NN` + `1.xx` history is "major 1".
+  `test-version.mjs` guards it. (Per request — recorded in `docs/operations.md` → Versioning.)
+
 ## [·97] 2026-06-28
 ### Fixed — dev page (פיתוח): sprint board now places cards by their OWN status (push actually moves them)
 - **Symptom (reported):** pushing tickets to a sprint "felt broken" and the cards looked wrong.

@@ -9,6 +9,13 @@
 4. Verify with a cache-buster: open `…/?cb=<something>` and check the loaded
    `app.js?v=<stamp>` matches the new build (SW is network-first, so a normal reload also works).
 
+### Versioning (the footer "גרסה {date}·{ver}" stamp)
+`build.mjs` advances the version every build (the `VERSION` file holds the current token; `nextVersion()` computes the next):
+- **Counter era:** plain integer `·N` up to **·100** (·98 → ·99 → ·100). This is the legacy scheme.
+- **Decimal era:** the build **after ·100 rolls to `1.01`**, and each subsequent build **auto-increments the minor** (`1.01 → 1.02 → …`, zero-padded).
+- **Major bump (big, sweeping update):** run **`node build.mjs major`** → next whole major `.00` (e.g. `2.00`, then `2.01 …`). The entire `·NN` + `1.xx` history counts as **major 1**, so the first big release jumps to **`2`**.
+- Self-check: `node test-version.mjs` (mirrors `nextVersion`). Set the era/number by editing the `VERSION` file if ever needed manually.
+
 ## Test flags (URL query)
 
 | Flag | Effect |
