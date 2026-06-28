@@ -724,7 +724,8 @@
       var res = await emsWriteOrQueue({ kind: 'status', taskId: id, status: status });
       if (res && res.error) { alert('שגיאה: ' + res.error); return; }
       emsToast(res && res.queued ? '✅ הסטטוס יעודכן בהתחברות הבאה' : '✅ הסטטוס עודכן');
-      if (window._emsCurrentTask && window._emsCurrentTask.id === id) window._emsCurrentTask.status = status;
+      // reflect locally only on a LIVE send — if merely queued (offline), don't show a status that isn't applied yet
+      if (!(res && res.queued) && window._emsCurrentTask && window._emsCurrentTask.id === id) window._emsCurrentTask.status = status;
       if (document.getElementById('ems-view').style.display !== 'none') loadEmsTasks();
       emsAfterWrite();   // reflect the new status on the kibbutz card (was the "can't update" bug)
     } catch (e) { alert('שגיאה: ' + e.message); }

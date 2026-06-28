@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.03] 2026-06-29 — pre-merge review pass (ponytail + superpowers) → released to main
+- **Independent code review (superpowers) + ponytail pass** over the whole unreleased batch (·95→1.02) before
+  merging to `main`. Verdict: ready to merge — no critical/important issues; the delta is mostly deletions +
+  reuse. One minor nit applied: `changeEmsStatus` (14-calendar.js) no longer sets the task-detail status
+  **optimistically when the change was only queued offline** (avoids showing a status that isn't applied yet).
+- Added `db/orders_schedule_fields.sql` (additive `assignee` + `due_date` on `orders`) for the upcoming
+  order→task scheduling flow (Spec A) — harmless until that flow ships.
+
 ## [1.02] 2026-06-28 — fix: "401 RLS" on save when the EMS session lapsed
 - **Saving (e.g. a kibbutz status from the משימות page) could fail with a raw `401 … row violates RLS for
   table tasks`.** Cause: writes need the **authenticated** Supabase pass minted by `sbBridge()` from a valid

@@ -46,6 +46,12 @@ calendar DWD, `service_role` rotation.)_
 
 ## 🔜 Open feature work (next sessions)
 
+- 🧩 **Spec A — kibbutz order → EMS task scheduling flow** — DESIGNED + approved, **not built**. Spec:
+  `docs/superpowers/specs/2026-06-29-kibbutz-order-ems-task-flow-design.md`. Needs `db/orders_schedule_fields.sql`
+  run first (עידן). Next step: writing-plans → build. Then **Spec B — דף היום inside משימות** (once-daily 00:01
+  notification + click-to-set-target). Note the flow **requires a live EMS connection** (no offline EMS actions;
+  the offline queue is bypassed, kept for now).
+
 - 🔗 **`ems_task_id` link (order/visit ↔ EMS task)** — store the EMS task id on the order (and visit) so closing
   the task reconciles the order/visit, and a visit's summary attaches to a known task instead of just a comment.
   Needs a DB column + SQL (`db/orders_ems_task_id.sql` already drafted) + wiring in approveCustomerOrder /
@@ -60,6 +66,12 @@ calendar DWD, `service_role` rotation.)_
   ·36 saves fix in `01-data.js`). **Inventory/EMS lane** — not the dev-page lane.
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
+
+- **Released ·95→1.03 to `main` (2026-06-29):** the whole session batch (notifications, data-loss fix, per-ticket
+  board, EMS-flow audit fixes + calendar tasks, visit→status, mobile, 401 fix) — reviewed pre-merge with
+  superpowers + ponytail (green). **1.03** = review nit (no optimistic offline EMS status). Added
+  `db/orders_schedule_fields.sql` (assignee+due_date) for the upcoming Spec A flow.
+- **401/RLS save fix (1.02):** re-mint + retry, then prompt EMS re-login instead of a raw Postgres 401.
 
 - **Visit→status + mobile QA + calendar guide (1.01):** visit report no longer appended to the kibbutz status;
   card "ביקור אחרון" shows date + who only. Mobile QA of notifications/tasks/reports at 375px (no overflow);
