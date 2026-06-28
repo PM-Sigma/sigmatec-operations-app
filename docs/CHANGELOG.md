@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.02] 2026-06-28 — fix: "401 RLS" on save when the EMS session lapsed
+- **Saving (e.g. a kibbutz status from the משימות page) could fail with a raw `401 … row violates RLS for
+  table tasks`.** Cause: writes need the **authenticated** Supabase pass minted by `sbBridge()` from a valid
+  EMS token; when the EMS session had lapsed, the silent re-mint produced no pass → the write went out **anon**
+  → RLS rejected it. Fix (01-data.js write shim): on a `401/42501` the shim now **forces one fresh mint +
+  retries**; if it still fails it triggers **EMS re-login** (`emsRequireLogin`) and shows
+  "יש להתחבר מחדש ל-EMS כדי לשמור" instead of the cryptic Postgres error. Applies to every save path.
+
 ## [1.01] 2026-06-28 — visit→status change, mobile QA, calendar guide  *(version rolled ·100 → 1.01)*
 - **Visit report no longer written into the kibbutz status (per request).** `autoAppendVisitToStatus` is no
   longer called on visit save (09-visits.js); the card's **"📍 ביקור אחרון"** line now shows **date + who only**

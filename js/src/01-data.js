@@ -620,7 +620,20 @@
           const w = W[b.type]; if (!w) return realFetch(url, opts);
           const parts = w(b); await sbUpsert(parts[0], parts[1], parts[2]); return respond({ ok: true, id: parts[3] });
         };
-        return run().catch(e => { console.error('[supabase] write failed: ' + ((b && b.type) || 'task'), e); throw e; });
+        return run().catch(async (e) => {
+          // Auth/RLS failure (401 / 42501) = the EMS-minted Supabase pass isn't active (the EMS session
+          // lapsed → the silent re-mint above produced no pass → the write went out anon → RLS rejected it).
+          // Force ONE fresh mint + retry; if it STILL fails, prompt EMS re-login instead of surfacing the
+          // raw Postgres 401 ("...row violates row-level security policy for table tasks").
+          var msg = String((e && e.message) || e);
+          if (/\b401\b|42501|row-level security/i.test(msg) && typeof window._sbBridge === 'function' && b && !b.__authRetried) {
+            b.__authRetried = true;
+            try { window._sbToken = null; window._sbTokenExp = 0; if (await window._sbBridge()) return await run(); } catch (_) {}
+            if (typeof emsRequireLogin === 'function') { try { emsRequireLogin(); } catch (_) {} }
+            throw new Error('יש להתחבר מחדש ל-EMS כדי לשמור (פג תוקף החיבור).');
+          }
+          console.error('[supabase] write failed: ' + ((b && b.type) || 'task'), e); throw e;
+        });
       }
       return realFetch(url, opts);
     };
