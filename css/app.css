@@ -1242,6 +1242,7 @@
   @media (max-width: 768px) {
     .order-flow { flex-direction: column; }
     .order-flow-arrow { transform: rotate(-90deg); align-self: center; }
+    .btn-quick-date { min-height: 40px; padding: 8px 12px; }   /* ≥40px tap target on touch (was 28px) */
   }
   .qty-input { width: 60px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; text-align: center; }
   .matrix-table { width: 100%; border-collapse: collapse; font-size: 13px; }

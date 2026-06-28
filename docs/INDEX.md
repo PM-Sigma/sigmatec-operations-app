@@ -46,6 +46,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 | [modules.md](modules.md) | What every `js/src/*.js` module does + its functions. |
 | [data-and-security.md](data-and-security.md) | Supabase tables, data layer, RLS, the auth bridge, key rotation, Apps Script security. |
 | [operations.md](operations.md) | Build/deploy/test, edge-function deploy, env values, test flags. |
+| [calendar-setup.md](calendar-setup.md) | **Connecting the office calendar (יומן)** — Google service-account sharing, Supabase secrets, client-wiring step, troubleshooting. |
 | [team.md](team.md) | Employee roles, field/office, what to measure per person. |
 | [backlog.md](backlog.md) | Current blocker + pending/done. |
 | [vision-budget.md](vision-budget.md) | Drawer plan — what a budgeted version unlocks. |
@@ -64,7 +65,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-28 (**·97 LIVE on `main`** · **·99 on `dev`, pending release**). No migration. (Next build rolls the version to **1.01** — see operations.md → Versioning.)
+## 🚦 Current state — last: 2026-06-28 (**·97 LIVE on `main`** · **1.01 on `dev`, pending release**). No migration. (Version rolled ·100 → **1.01** — the decimal era; see operations.md → Versioning.)
+
+**🧭 1.01 (dev):** (a) **visit report no longer written to status** — the card's "ביקור אחרון" shows **date + who only** (`autoAppendVisitToStatus` call removed from visit save; `applyCardLastVisit` trimmed). (b) **Mobile QA** of notifications/tasks/reports at 375px — no overflow; fixed `.btn-quick-date` report buttons to ≥40px tap targets. (c) **Calendar setup guide** `docs/calendar-setup.md` — service-account **calendar-sharing, NOT DWD**; ⚠️ the client still **doesn't fetch** the `calendar` fn yet (`SHEET_DATA.calendar` unpopulated) — wiring snippet is in the guide, do it when עידן configures Google + secrets.
 
 **🩺 ·99 (dev) — EMS-task flow audit + fixes:** parallel read-only audit of the whole flow (open/close triggers, visits, calendar, orders↔stock). **No second order-class data-loss bug** (visits re-send full content; movements insert-only; EMS status PATCH hits the external EMS API). Shipped: **EMS tasks now on the calendar** (grid+day panel by `expectedCompletionDate`, `collectCalendarEvents`); **createTask** no longer dead-letters a site-less task on a transient lookup error (#1); **task-detail status is queue-aware offline** (#2, `changeEmsStatus`→`emsWriteOrQueue`); **writeVisit preserves `created_at` on edit** (#4); **delivered-without-distribution confirms** instead of silent downgrade (#5); requirement re-fulfill + blank-product movement guards. **Deferred:** `ems_task_id` link (order/visit ↔ task) — schema change. Open/close map: tasks OPEN only via customer-order approval (`createTask`); CLOSE/advance via the visit form (queued) or the task-detail dropdown (now queued).
 

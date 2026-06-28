@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.01] 2026-06-28 — visit→status change, mobile QA, calendar guide  *(version rolled ·100 → 1.01)*
+- **Visit report no longer written into the kibbutz status (per request).** `autoAppendVisitToStatus` is no
+  longer called on visit save (09-visits.js); the card's **"📍 ביקור אחרון"** line now shows **date + who only**
+  (dropped the summary snippet — the full summary still lives on the visit record). (`applyCardLastVisit`,
+  10-activity.js.)
+- **Mobile QA (notifications · tasks · reports).** Verified at 375px: the approved-order notification modal
+  (fits, 41px buttons), the משימות page (no overflow), and the visits-report modal. **Fix:** the report
+  date-range buttons (`.btn-quick-date`) were 28px tall — raised to **≥40px** tap targets on ≤768px (css/app.css).
+  No console errors; no horizontal overflow on any of the three.
+- **Calendar connection guide — `docs/calendar-setup.md`.** Comprehensive English guide for wiring the office
+  calendar: it uses **service-account calendar-sharing (NOT Domain-Wide Delegation)** — share the calendar with
+  the SA email + set the Supabase secrets + redeploy. Includes Google Cloud steps, secrets table, curl tests,
+  troubleshooting, security notes, and the **remaining client-fetch wiring** snippet (the UI doesn't call the
+  `calendar` function yet — `SHEET_DATA.calendar` is unpopulated).
+- **Version scheme rolled over:** this is the first **decimal** build (`1.01`) — `·100` was the last `·N` counter.
+
 ## [·99] 2026-06-28 — EMS-task flow: end-to-end audit + fixes; tasks now on the calendar
 Parallel read-only audit of the whole EMS-task flow (open/close triggers, visits, calendar, orders↔stock).
 **Headline: no second order-class data-loss bug exists** — every write builder was checked; visits re-send

@@ -61,6 +61,11 @@ calendar DWD, `service_role` rotation.)_
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
 
+- **Visit→status + mobile QA + calendar guide (1.01):** visit report no longer appended to the kibbutz status;
+  card "ביקור אחרון" shows date + who only. Mobile QA of notifications/tasks/reports at 375px (no overflow);
+  fixed report range buttons to ≥40px tap targets. Calendar setup guide added (`docs/calendar-setup.md` —
+  service-account *calendar-sharing*, no DWD). Version rolled ·100 → **1.01**. On `dev`.
+
 - **EMS-task flow audit + fixes (·99):** parallel read-only audit (open/close triggers, visits, calendar,
   orders↔stock). No second order-class data-loss bug. Shipped: **EMS tasks on the calendar** (grid+day panel by
   due date); **createTask** no longer dead-letters a site-less task on a transient lookup error (#1); **task-detail

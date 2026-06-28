@@ -682,7 +682,7 @@
       const d = new Date(v.date).toLocaleDateString('he-IL');
       const el = document.createElement('div');
       el.className = 'card-last-visit excel-injected';
-      el.textContent = '📍 ביקור אחרון: ' + d + (v.visitor ? ' · ' + v.visitor : '') + (v.summary ? ' — ' + String(v.summary).slice(0, 70) : '');
+      el.textContent = '📍 ביקור אחרון: ' + d + (v.visitor ? ' · ' + v.visitor : '');   // date + who only (the full summary lives on the visit record, not on the card/status)
       card.appendChild(el);
     });
   }

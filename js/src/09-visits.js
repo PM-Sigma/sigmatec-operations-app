@@ -353,11 +353,9 @@
     visitReturnedItems = [];
     renderReturnedItems();
 
-    // Auto-append visit info to the kibbutz status (clean, no WhatsApp)
-    if (summary) {
-      const dateShort = new Date(visitDate).toLocaleDateString('he-IL');
-      autoAppendVisitToStatus(currentKibbutz, dateShort, visitor, summary);
-    }
+    // NOTE: a visit report is NO LONGER appended to the kibbutz status (per request). The card already
+    // shows the last visit (date + who) via applyCardLastVisit(); the full summary lives on the visit record
+    // (viewable in the visit/last-visit panel), not smeared into the status text.
 
     closeModal({target: {id: 'modalBackdrop'}});
     const t = document.getElementById('toast');
