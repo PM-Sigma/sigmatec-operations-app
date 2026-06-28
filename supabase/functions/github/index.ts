@@ -3,8 +3,9 @@
 // tickets repo with a read-only token, gated by a valid EMS login. View-only (phase 1).
 //
 // Secrets to set (Edge Functions → Secrets):
-//   GH_TOKEN  — GitHub token. Needs repo Issues:Read AND **project** (read:project) scope so the
-//               Projects-v2 fields (Priority/Status/type/sprint) come through. Classic token: tick `repo` + `read:project`.
+//   GH_TOKEN  — GitHub token. Needs repo Issues:Read AND the **project** scope. Reading the Projects-v2
+//               fields (Priority/Status/…) works with read:project, but WRITING Status (the sprint-board
+//               push, mode:"setStatus") requires the full **project** (write) scope. Classic token: tick `repo` + `project`.
 //   GH_REPO   — owner/repo (default: Sigmatec-Energy/tasks).
 //   GH_PROJECT_OWNER / GH_PROJECT_NUMBER — the Projects-v2 board (default: Sigmatec-Energy / 1).
 //   EMS_API_BASE — (already set) https://api.sigmatec-ems.com

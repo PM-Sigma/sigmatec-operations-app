@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [·97] 2026-06-28
+### Fixed — dev page (פיתוח): sprint board now places cards by their OWN status (push actually moves them)
+- **Symptom (reported):** pushing tickets to a sprint "felt broken" and the cards looked wrong.
+- **Root cause:** the status board (`devBoard`) bucketed **only roots** by stage and rendered each root's
+  **whole subtree nested** under that one column (·92 tree-nesting). So a **child** pushed to "ספרינט קרוב"
+  changed its GitHub Status but stayed drawn under its parent's column → looked like the push did nothing.
+  And the column count showed **root count** while rendering all descendants (count ≠ cards shown).
+- **Fix:** the board is now **per-ticket** — every ticket (parent or child) sits in the column matching its
+  **own** `devStage`, rendered as a flat card. Pushes always relocate the card; column counts equal the cards
+  shown; "בפיתוח עכשיו" reflects real per-ticket In-Progress. The full אב→בנים tree still lives in the
+  **"לפי נושא"** view. Because cards are flat, each is **directly selectable** in בחר-משימות — the parent-cascade
+  (`devCascadeParents`) is gone, which also removes its bug (moving all children could **demote** an
+  In-Progress/Done epic back to Ready). `test-devboard.mjs` guards per-ticket placement + counts.
+- **Docs:** corrected the `github` fn header — Status **writes** need the full `project` scope, not `read:project`
+  (comment only; no function redeploy needed).
+
 ## [·96] 2026-06-28
 ### Fixed — inventory: order/requirement details wiped on status change (DATA LOSS bug)
 - **Symptom (reported):** עמיחי created a supplier order (700 לנדיס תלת + 100 חד) — it saved fine, but after

@@ -63,7 +63,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-28 (**·96 LIVE on `main`**). **✅ RELEASED `dev`→`main` (·91–·96):** ·96 data-loss fix + approved-order notifications + sprint-board fixes + header fix. No migration.
+## 🚦 Current state — last: 2026-06-28 (**·96 LIVE on `main`** · **·97 on `dev`, pending release**). ·96 (live) = data-loss fix + approved-order notifications + sprint-board fixes. No migration.
+
+**🛠️ ·97 (dev) — dev sprint board now per-ticket:** the board bucketed whole trees by the **root's** stage (·92 nesting), so a **child** pushed to a sprint changed its GitHub status but the card didn't move, and column counts (=roots) ≠ cards shown (=subtrees) — this is the "push feels broken" report. Fixed — every ticket sits in **its own** status column (flat cards, accurate counts; `devBoard` in `18-dev-tasks.js`); full אב→בנים tree stays in "לפי נושא". Parent-cascade removed (cards selectable directly) → also kills the epic-demotion bug. `test-devboard.mjs`. No `github` fn redeploy needed.
 
 **🐞 ·96 — DATA-LOSS fix (LIVE):** order/requirement **status-only** writes (`{id,status}` from approve / quick-status) used to rebuild the row from empty defaults → **wiped items/supplier/notes/distribution** (reported: עמיחי's 700+100 לנדיס order lost its items after approval+status-push). Fixed — order+requirement writes are now **partial-safe** (PATCH only the fields sent; `writeOrder`/`writeRequirement`+`sbPatch` in `01-data.js`; `test-order-patch.mjs`). ⚠️ orders already wiped before ·96 are **not** auto-recovered.
 
