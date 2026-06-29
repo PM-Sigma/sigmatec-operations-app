@@ -51,9 +51,11 @@
     const fab = document.getElementById('visitFab');
     if (fab) {
       const meF = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-      const isField = (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE.indexOf(meF) !== -1);
-      fab.style.display = (page === 'kibbutz' && isField) ? '' : 'none';   // field staff (אביאם/ניתאי) only — office users don't log visits
-      var _lbl = fab.querySelector('.vfab-label'); if (_lbl) _lbl.textContent = '📋 תיעוד נוכחות'; else fab.textContent = '📋 תיעוד נוכחות';   // set the label span, not textContent (would wipe the drag-hint arrows)
+      const canFab = ['עמיחי', 'אביאם', 'ניתאי'].indexOf(meF) !== -1;   // quick-visit FAB: only these three (hidden from עידן/others)
+      const isAttF = (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE.indexOf(meF) !== -1);
+      fab.style.display = (page === 'kibbutz' && canFab) ? '' : 'none';
+      var _fabTxt = isAttF ? '📋 תיעוד נוכחות' : '📍 תיעוד ביקור';   // אביאם/ניתאי = attendance flow; עמיחי = plain visit
+      var _lbl = fab.querySelector('.vfab-label'); if (_lbl) _lbl.textContent = _fabTxt; else fab.textContent = _fabTxt;   // set the label span, not textContent (would wipe the drag-hint arrows)
     }
   }
 

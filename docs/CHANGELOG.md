@@ -7,6 +7,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.06 · branch `feat/draggable-visit-fab`] 2026-06-29 — FAB visible only for עמיחי/אביאם/ניתאי
+- The quick-visit FAB now shows for **עמיחי, אביאם, ניתאי only** (explicit allow-list) — hidden from עידן and
+  everyone else. Label is **"תיעוד נוכחות"** for the attendance pair (אביאם/ניתאי) and **"תיעוד ביקור"** for
+  עמיחי (he gets the plain quick-visit flow, not the attendance day-types). `02-init-attendance.js` showPage gate.
+
 ## [1.05 · branch `feat/draggable-visit-fab`] 2026-06-29 — draggable quick-visit FAB + drag hint (preview)
 - The **"📍 תיעוד ביקור" FAB is now free-draggable** anywhere on screen; position is **persisted per device**
   (`localStorage visit_fab_pos_v1`) and restored on load, clamped into the viewport. A ~6px move threshold keeps
