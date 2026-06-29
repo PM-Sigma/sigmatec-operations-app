@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mqyvoquc">
+<link rel="stylesheet" href="css/app.css?v=mqyw4k37">
 </head>
 <body>
 <div class="container">
@@ -37,9 +37,13 @@
   </div>
 
   <!-- Floating action button: quick visit logging (kibbutz page only) -->
-  <button id="visitFab" onclick="openVisitQuick()" title="תיעוד ביקור עכשיו"
-    style="position:fixed;bottom:22px;left:22px;z-index:900;background:#2563eb;color:white;border:none;border-radius:30px;padding:14px 20px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px rgba(37,111,237,0.45);">
-    📍 תיעוד ביקור
+  <button id="visitFab" title="תיעוד ביקור עכשיו · אפשר לגרור למיקום נוח"
+    style="position:fixed;bottom:22px;left:22px;z-index:900;background:#2563eb;color:white;border:none;border-radius:30px;padding:14px 20px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px rgba(37,111,237,0.45);overflow:visible;">
+    <span class="vfab-arrow vfab-up" aria-hidden="true">▲</span>
+    <span class="vfab-arrow vfab-down" aria-hidden="true">▼</span>
+    <span class="vfab-arrow vfab-left" aria-hidden="true">◀</span>
+    <span class="vfab-arrow vfab-right" aria-hidden="true">▶</span>
+    <span class="vfab-label">📍 תיעוד ביקור</span>
   </button>
 
   <!-- Aviam missing-days reminder (animated) -->
@@ -331,7 +335,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-29·1.04</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-06-29·1.05</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1292,7 +1296,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mqyvoquc"></script>
+<script src="js/app.js?v=mqyw4k37"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

@@ -1130,7 +1130,7 @@
       const meF = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
       const isField = (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE.indexOf(meF) !== -1);
       fab.style.display = (page === 'kibbutz' && isField) ? '' : 'none';   // field staff (אביאם/ניתאי) only — office users don't log visits
-      fab.textContent = '📋 תיעוד נוכחות';
+      var _lbl = fab.querySelector('.vfab-label'); if (_lbl) _lbl.textContent = '📋 תיעוד נוכחות'; else fab.textContent = '📋 תיעוד נוכחות';   // set the label span, not textContent (would wipe the drag-hint arrows)
     }
   }
 
@@ -1211,7 +1211,7 @@
       fab.style.setProperty('top', y + 'px', 'important');
       fab.style.setProperty('bottom', 'auto', 'important');
     }
-    try { var p = JSON.parse(localStorage.getItem(KEY) || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) place(p.x, p.y); } catch (e) {}
+    try { var p = JSON.parse(localStorage.getItem(KEY) || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) { place(p.x, p.y); fab.classList.add('vfab-placed'); } } catch (e) {}   // already moved before → hide the hint arrows
     var down = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
     fab.addEventListener('pointerdown', function (e) {
       down = true; moved = false; sx = e.clientX; sy = e.clientY;
@@ -1226,7 +1226,7 @@
     });
     function end(e) {
       if (!down) return; down = false;
-      if (moved) { var r = fab.getBoundingClientRect(); try { localStorage.setItem(KEY, JSON.stringify({ x: r.left, y: r.top })); } catch (e2) {} }
+      if (moved) { var r = fab.getBoundingClientRect(); try { localStorage.setItem(KEY, JSON.stringify({ x: r.left, y: r.top })); } catch (e2) {} fab.classList.add('vfab-placed'); }   // moved once → fade the hint arrows
       try { fab.releasePointerCapture(e.pointerId); } catch (e2) {}
     }
     fab.addEventListener('pointerup', end);

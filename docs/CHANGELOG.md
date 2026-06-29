@@ -7,12 +7,16 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
-## [1.04 · branch `feat/draggable-visit-fab`] 2026-06-29 — draggable quick-visit FAB (preview, not merged)
+## [1.05 · branch `feat/draggable-visit-fab`] 2026-06-29 — draggable quick-visit FAB + drag hint (preview)
 - The **"📍 תיעוד ביקור" FAB is now free-draggable** anywhere on screen; position is **persisted per device**
   (`localStorage visit_fab_pos_v1`) and restored on load, clamped into the viewport. A ~6px move threshold keeps
   **tap = open the form, drag = reposition**. ponytail: native pointer events, no library; `setProperty(...,
-  'important')` beats the mobile `#visitFab{left:16px!important}` rule. Verified on a 375px viewport (drag,
-  persist, restore-on-reload, tap-opens, no overflow). On the `feat/draggable-visit-fab` branch for review.
+  'important')` beats the mobile `#visitFab{left:16px!important}` rule.
+- **Drag hint:** four small arrows (▲▼◀▶) around the FAB, glowing in the bubble's blue (`#2563eb`) with a gentle
+  opacity pulse, so it reads as movable. They **fade out after the first drag** (`.vfab-placed`) and respect
+  `prefers-reduced-motion`. The label moved into a `.vfab-label` span so the per-page text update doesn't wipe
+  the arrows. Verified at 375px (4 arrows positioned + colored + glowing, fade-after-drag, label intact, drag/
+  persist/restore/tap all still work). On the `feat/draggable-visit-fab` branch.
 
 ## [1.03] 2026-06-29 — pre-merge review pass (ponytail + superpowers) → released to main
 - **Independent code review (superpowers) + ponytail pass** over the whole unreleased batch (·95→1.02) before

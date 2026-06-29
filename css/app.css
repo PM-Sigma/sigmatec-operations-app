@@ -411,6 +411,19 @@
     font-size: 14px; font-weight: 600;
   }
   .side-panel-toggle:hover { background: var(--primary-hover); }
+  /* draggable hint: small arrows around the visit FAB, glowing in the bubble's blue; fade once it's moved */
+  .vfab-arrow {
+    position: absolute; color: #2563eb; font-size: 10px; line-height: 1; pointer-events: none;
+    text-shadow: 0 0 5px #2563eb, 0 0 9px rgba(37,99,235,0.75);
+    animation: vfabHint 1.7s ease-in-out infinite;
+  }
+  .vfab-up    { top: -13px;    left: 50%; transform: translateX(-50%); }
+  .vfab-down  { bottom: -13px; left: 50%; transform: translateX(-50%); }
+  .vfab-left  { left: -12px;   top: 50%;  transform: translateY(-50%); }
+  .vfab-right { right: -12px;  top: 50%;  transform: translateY(-50%); }
+  @keyframes vfabHint { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+  #visitFab.vfab-placed .vfab-arrow { opacity: 0; animation: none; transition: opacity .4s; }
+  @media (prefers-reduced-motion: reduce) { .vfab-arrow { animation: none; } }
   .side-panel {
     position: fixed; top: 0; right: -440px;
     width: 420px; max-width: 95vw; height: 100vh;
