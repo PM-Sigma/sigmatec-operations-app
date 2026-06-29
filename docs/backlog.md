@@ -67,6 +67,9 @@ calendar DWD, `service_role` rotation.)_
 
 ## 🟢 Done (recent — see CHANGELOG for detail)
 
+- **Draggable quick-visit FAB (1.04→1.06, LIVE):** free-drag + persisted per device + tap-vs-drag; glowing
+  drag-hint arrows that fade after first drag; gated to **עמיחי/אביאם/ניתאי only** (hidden from עידן).
+  Merged `feat/draggable-visit-fab` → dev → main.
 - **Released ·95→1.03 to `main` (2026-06-29):** the whole session batch (notifications, data-loss fix, per-ticket
   board, EMS-flow audit fixes + calendar tasks, visit→status, mobile, 401 fix) — reviewed pre-merge with
   superpowers + ponytail (green). **1.03** = review nit (no optimistic offline EMS status). Added

@@ -65,10 +65,10 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-29 (**1.03 LIVE on `main`**). Version era: decimal (`·N`→`1.01` rolled at 100; `node build.mjs major`→2.00). No DB migration required for what's live.
+## 🚦 Current state — last: 2026-06-29 (**1.06 LIVE on `main`**). Version era: decimal (`·N`→`1.01` rolled at 100; `node build.mjs major`→2.00). No DB migration required for what's live.
 
-**✅ Released to `main` (·95 → 1.03) — the full session batch:**
-- **·95** approved-order notifications (אביאם/ניתאי/עמיחי). **·96** DATA-LOSS fix — order/requirement status-only writes no longer wipe items (partial PATCH; `writeOrder`/`writeRequirement`/`sbPatch`). **·97** dev sprint board = **per-ticket** placement (push moves the card; accurate counts). **·99** EMS-flow audit fixes (createTask no site-less dead-letter; `changeEmsStatus` queue-aware; **EMS tasks on the calendar**; delivered-without-distribution confirm; req re-fulfill + blank-product guards). **1.01** visit report off the kibbutz status (card shows "ביקור אחרון" = date+who); mobile QA + `.btn-quick-date` ≥40px; **calendar setup guide**. **1.02** 401/RLS save → re-mint+retry then prompt EMS re-login. **1.03** pre-merge review nit (no optimistic offline status).
+**✅ Released to `main` (·95 → 1.06) — the full session batch:**
+- **·95** approved-order notifications (אביאם/ניתאי/עמיחי). **·96** DATA-LOSS fix — order/requirement status-only writes no longer wipe items (partial PATCH; `writeOrder`/`writeRequirement`/`sbPatch`). **·97** dev sprint board = **per-ticket** placement (push moves the card; accurate counts). **·99** EMS-flow audit fixes (createTask no site-less dead-letter; `changeEmsStatus` queue-aware; **EMS tasks on the calendar**; delivered-without-distribution confirm; req re-fulfill + blank-product guards). **1.01** visit report off the kibbutz status (card shows "ביקור אחרון" = date+who); mobile QA + `.btn-quick-date` ≥40px; **calendar setup guide**. **1.02** 401/RLS save → re-mint+retry then prompt EMS re-login. **1.03** pre-merge review nit. **1.04–1.06** **draggable quick-visit FAB** (free-drag, persisted per device, tap-vs-drag) + glowing drag-hint arrows (fade after first drag) + **gated to עמיחי/אביאם/ניתאי only** (hidden from עידן; עמיחי="תיעוד ביקור", field pair="תיעוד נוכחות").
 - Reviewed pre-merge with **superpowers code review + ponytail** → green.
 
 **🔭 Designed, NOT built yet (next):**
