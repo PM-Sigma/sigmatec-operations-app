@@ -1196,6 +1196,49 @@
     vqSetType('field');
     document.getElementById('visitQuickModal').classList.add('open');
   }
+  // Make the "תיעוד ביקור" FAB free-draggable; position persisted per device. A small move threshold keeps
+  // a tap = open the form, a drag = reposition. ponytail: native pointer events, no library.
+  function initVisitFabDrag() {
+    var fab = document.getElementById('visitFab');
+    if (!fab || fab._dragInit) return; fab._dragInit = true;
+    fab.style.touchAction = 'none';                          // don't scroll the page while dragging on touch
+    var KEY = 'visit_fab_pos_v1';
+    function place(x, y) {
+      var r = fab.getBoundingClientRect(), w = r.width || 150, h = r.height || 50, m = 6;
+      x = Math.max(m, Math.min(x, window.innerWidth - w - m));
+      y = Math.max(m, Math.min(y, window.innerHeight - h - m));
+      fab.style.setProperty('left', x + 'px', 'important');  // beat the mobile `#visitFab{left:16px!important}`
+      fab.style.setProperty('top', y + 'px', 'important');
+      fab.style.setProperty('bottom', 'auto', 'important');
+    }
+    try { var p = JSON.parse(localStorage.getItem(KEY) || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) place(p.x, p.y); } catch (e) {}
+    var down = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    fab.addEventListener('pointerdown', function (e) {
+      down = true; moved = false; sx = e.clientX; sy = e.clientY;
+      var r = fab.getBoundingClientRect(); ox = r.left; oy = r.top;
+      try { fab.setPointerCapture(e.pointerId); } catch (e2) {}
+    });
+    fab.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return; // below threshold → still a tap
+      moved = true; place(ox + dx, oy + dy);
+    });
+    function end(e) {
+      if (!down) return; down = false;
+      if (moved) { var r = fab.getBoundingClientRect(); try { localStorage.setItem(KEY, JSON.stringify({ x: r.left, y: r.top })); } catch (e2) {} }
+      try { fab.releasePointerCapture(e.pointerId); } catch (e2) {}
+    }
+    fab.addEventListener('pointerup', end);
+    fab.addEventListener('pointercancel', end);
+    // open on a real tap only; a drag sets moved=true → suppress (covers mouse click + keyboard Enter)
+    fab.removeAttribute('onclick');
+    fab.addEventListener('click', function () { if (!moved) openVisitQuick(); moved = false; });
+    window.addEventListener('resize', function () { var r = fab.getBoundingClientRect(); place(r.left, r.top); });   // keep on-screen after rotate/resize
+  }
+  if (document.readyState !== 'loading') initVisitFabDrag();
+  else document.addEventListener('DOMContentLoaded', initVisitFabDrag);
+
   function vqSetType(type) {
     window._vqType = type;
     document.querySelectorAll('.vq-dt').forEach(b => b.classList.toggle('active', b.dataset.type === type));

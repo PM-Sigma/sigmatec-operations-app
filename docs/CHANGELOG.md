@@ -7,6 +7,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.04 · branch `feat/draggable-visit-fab`] 2026-06-29 — draggable quick-visit FAB (preview, not merged)
+- The **"📍 תיעוד ביקור" FAB is now free-draggable** anywhere on screen; position is **persisted per device**
+  (`localStorage visit_fab_pos_v1`) and restored on load, clamped into the viewport. A ~6px move threshold keeps
+  **tap = open the form, drag = reposition**. ponytail: native pointer events, no library; `setProperty(...,
+  'important')` beats the mobile `#visitFab{left:16px!important}` rule. Verified on a 375px viewport (drag,
+  persist, restore-on-reload, tap-opens, no overflow). On the `feat/draggable-visit-fab` branch for review.
+
 ## [1.03] 2026-06-29 — pre-merge review pass (ponytail + superpowers) → released to main
 - **Independent code review (superpowers) + ponytail pass** over the whole unreleased batch (·95→1.02) before
   merging to `main`. Verdict: ready to merge — no critical/important issues; the delta is mostly deletions +
