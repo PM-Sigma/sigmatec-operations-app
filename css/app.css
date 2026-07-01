@@ -1203,6 +1203,9 @@
   .inv-loc-items .item-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
   .inv-loc-items .item-row .qty { font-weight: 700; color: #0f172a; }
   .inv-loc-items .item-row.zero { opacity: 0.4; }
+  /* minimal category separator between item types (מונה/בקר/סים/...) */
+  .item-cat-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--text-light); margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+  .item-cat-label:first-child { margin-top: 0; padding-top: 0; border-top: none; }
   .inv-loc-items .item-row.neg .qty { color: #dc2626; }
 
   @media (max-width: 768px) {
@@ -1264,6 +1267,8 @@
   .matrix-table th { background: var(--gray-light); color: var(--text-light); }
   .matrix-zero { color: #cbd5e1; }
   .matrix-neg { color: #dc2626; font-weight: 700; background: #fee2e2; }
+  /* minimal category separator between item types (מונה/בקר/סים/...) */
+  .matrix-cat-row td { text-align: right; font-size: 11px; font-weight: 700; color: var(--text-light); background: var(--gray-light); border-bottom: 1px solid var(--border); padding: 4px 10px; }
 
   @media (max-width: 768px) {
     .stats { grid-template-columns: repeat(2, 1fr); }

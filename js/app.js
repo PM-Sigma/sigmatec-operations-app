@@ -3499,6 +3499,25 @@
     finally { setBtnLoading(btn, false); }
   }
 
+  // Category grouping for the stock views — minimal visual separation between item types
+  // (מונה/בקר/סים/...). Order is fixed so groups don't jump around between renders.
+  const STOCK_CATEGORY_ORDER = ['מונה', 'בקר', 'סים', 'משנ"ז', 'אנטנה', 'ספק כוח', 'כרטיס תקשורת'];
+  function productCategoryMap() {
+    const m = {};
+    ((window.SHEET_DATA && window.SHEET_DATA.products) || []).forEach(p => { m[p.name] = p.category || 'אחר'; });
+    return m;
+  }
+  function sortByCategoryThenName(names, catMap) {
+    return names.slice().sort((a, b) => {
+      const ca = catMap[a] || 'אחר', cb = catMap[b] || 'אחר';
+      if (ca !== cb) {
+        const ia = STOCK_CATEGORY_ORDER.indexOf(ca), ib = STOCK_CATEGORY_ORDER.indexOf(cb);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || ca.localeCompare(cb, 'he');
+      }
+      return a.localeCompare(b, 'he');
+    });
+  }
+
   function invRenderStock() {
     const root = document.getElementById('invStockMatrix');
     if (!root) return;
@@ -3512,32 +3531,38 @@
     const isLowMeter = name => name.indexOf('מונה') === 0 && _lowMeterMatches.some(mm => name.indexOf(mm) !== -1);
     const lowSimCells = new Set(_lsr.sims.map(s => s.type + '|' + s.person));
 
+    const catMap = productCategoryMap();
+
     if (window.innerWidth < 768) {
-      // Mobile: accordion per location (NO scrolling table)
+      // Mobile: accordion per location (NO scrolling table). Items grouped by category
+      // (מונה/בקר/סים/...) with a small muted label between groups.
       let html = '';
       INV_LOCATIONS.forEach(loc => {
         const locStock = stock[loc] || {};
-        const items = Object.entries(locStock).filter(([_, q]) => q !== 0)
-          .sort((a, b) => a[0].localeCompare(b[0], 'he'));
-        const totalUnits = items.reduce((s, [_, q]) => s + q, 0);
-        if (items.length === 0) {
+        const names = sortByCategoryThenName(Object.keys(locStock).filter(p => locStock[p] !== 0), catMap);
+        const totalUnits = names.reduce((s, p) => s + locStock[p], 0);
+        if (names.length === 0) {
           html += `<details class="inv-loc-card" style="opacity:0.55;">
             <summary class="inv-loc-head"><span class="loc-name">${loc}</span><span class="loc-count" style="background:#f1f5f9;color:#64748b;">ריק</span></summary>
           </details>`;
           return;
         }
+        let lastCat = null, rowsHtml = '';
+        names.forEach(p => {
+          const q = locStock[p];
+          const cat = catMap[p] || 'אחר';
+          if (cat !== lastCat) { rowsHtml += `<div class="item-cat-label">${cat}</div>`; lastCat = cat; }
+          rowsHtml += `
+            <div class="item-row ${q < 0 ? 'neg' : ''}" ${(isLowMeter(p) || lowSimCells.has(p + '|' + loc)) ? 'style="color:#dc2626;font-weight:700;"' : ''}>
+              <span>${(isLowMeter(p) || lowSimCells.has(p + '|' + loc)) ? '🔴 ' : ''}${p}</span><span class="qty">${q}</span>
+            </div>`;
+        });
         html += `<details class="inv-loc-card" ${totalUnits > 0 ? 'open' : ''}>
           <summary class="inv-loc-head">
             <span class="loc-name">${loc}</span>
-            <span class="loc-count">${totalUnits} יח׳ · ${items.length} פריטים</span>
+            <span class="loc-count">${totalUnits} יח׳ · ${names.length} פריטים</span>
           </summary>
-          <div class="inv-loc-items">
-            ${items.map(([p, q]) => `
-              <div class="item-row ${q < 0 ? 'neg' : ''}" ${(isLowMeter(p) || lowSimCells.has(p + '|' + loc)) ? 'style="color:#dc2626;font-weight:700;"' : ''}>
-                <span>${(isLowMeter(p) || lowSimCells.has(p + '|' + loc)) ? '🔴 ' : ''}${p}</span><span class="qty">${q}</span>
-              </div>
-            `).join('')}
-          </div>
+          <div class="inv-loc-items">${rowsHtml}</div>
         </details>`;
       });
       root.innerHTML = html || '<div style="padding:20px;text-align:center;color:#64748b;">עוד אין מלאי במיקומים</div>';
@@ -3550,18 +3575,23 @@
       Object.keys(stock[loc]).forEach(p => acc.add(p));
       return acc;
     }, new Set());
-    const productList = Array.from(products)
-      .filter(p => INV_LOCATIONS.some(loc => ((stock[loc] && stock[loc][p]) || 0) !== 0))
-      .sort((a,b) => a.localeCompare(b, 'he'));
+    const productList = sortByCategoryThenName(
+      Array.from(products).filter(p => INV_LOCATIONS.some(loc => ((stock[loc] && stock[loc][p]) || 0) !== 0)),
+      catMap
+    );
 
     if (productList.length === 0) {
       root.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">עוד אין מלאי במיקומים. הוסף הזמנה עם סטטוס "סופקה" וחלוקה.</div>';
       return;
     }
+    const colCount = INV_LOCATIONS.length + 2;
     let html = '<div style="overflow-x:auto;"><table class="matrix-table"><thead><tr><th>פריט</th>';
     INV_LOCATIONS.forEach(loc => { html += `<th>${loc}</th>`; });
     html += '<th>סה"כ</th></tr></thead><tbody>';
+    let lastCat = null;
     productList.forEach(p => {
+      const cat = catMap[p] || 'אחר';
+      if (cat !== lastCat) { html += `<tr class="matrix-cat-row"><td colspan="${colCount}">${cat}</td></tr>`; lastCat = cat; }
       let total = 0;
       const low = isLowMeter(p);   // company-wide meter type below its red line
       html += `<tr${low ? ' style="background:#fef2f2;"' : ''}><td>${low ? '🔴 ' : ''}${p}</td>`;

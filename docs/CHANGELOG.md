@@ -7,6 +7,20 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.10] 2026-07-01 — minimal category separators in stock-by-location (both views)
+- **Rows/items in "מלאי לפי מיקום" now grouped by category** (מונה/בקר/סים/משנ"ז/אנטנה/ספק כוח/כרטיס
+  תקשורת), fixed order, with a small muted label row between groups — desktop matrix (`.matrix-cat-row`)
+  and mobile accordion (`.item-cat-label`). Pure CSS/sort change, no data touched. Category comes from
+  the live `products.category` field (`productCategoryMap()` in `08-inventory.js`).
+- **Known gap (pre-existing, not introduced here):** items whose *movement* ledger name doesn't match the
+  *catalog* name (e.g. movements say "בקר PUSR"/"סים Cellcom"/"מונה EM133"/"מונה PM135" while the catalog
+  row is "PUSR Controller"/"Cellcom Sim"/"Satec EM133"/"Satec PM135") fall into a catch-all "אחר" group —
+  same class of drift the 1.08 E360PP/SP fix addressed for just those two meters. Say the word to extend
+  that unification to the rest of the catalog (controllers/SIMs/EM133/PM135/E360CT/E570) and this grouping
+  will sort cleanly everywhere.
+- **Tab/header rename ("מלאי לפי מיקום" → something more formal) — not yet applied,** naming options
+  given to עידן for a pick.
+
 ## [1.09] 2026-07-01 — new catalog items (EM133 משנ"ז fix + בקר 485) + AI glossary (on dev; ⚠️ needs SQL run + redeploy)
 - **`db/add-em133-mashneze-and-485.sql`** (not yet run): fixes the "EM133 משנ"ז" product name to
   **`מונה EM133 משנ"ז`** (missing the מונה prefix — no auto-prefix behavior exists on the product form,

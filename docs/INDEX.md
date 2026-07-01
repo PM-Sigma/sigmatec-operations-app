@@ -65,7 +65,13 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.09 on `dev`**).
+## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.10 on `dev`**).
+
+**🆕 1.10 (dev) — minimal category separators in "מלאי לפי מיקום"** (both matrix + mobile accordion),
+grouped by `products.category` (מונה/בקר/סים/...), fixed order. Exposes a pre-existing gap: movement-ledger
+names that don't match the catalog name (PUSR/Robustel/Cellcom/Partner/EM133/PM135) fall into "אחר" — same
+drift class as the 1.08 E360PP/SP fix, not yet extended to the rest of the catalog. Tab rename ("מלאי לפי
+מיקום" → more formal) — naming options given to עידן, pending his pick.
 
 **🆕 1.09 (dev) — new catalog items pending SQL: EM133 משנ"ז fix + בקר 485.** `db/add-em133-mashneze-and-485.sql`
 (not yet run) fixes the EM133-משנ"ז product name (missing מונה prefix) + adds בקר 485 + seeds ניתאי's stock

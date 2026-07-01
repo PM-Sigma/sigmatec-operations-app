@@ -30,6 +30,10 @@ The app (·56) already has the matching offline matcher — parsing works in deg
   chips** (קריטי/גבוהה, In Progress/Backlog) across 130 tickets, and **"בפיתוח עכשיו"** is driven by real
   Status=In-Progress (5 items). No code change — token scope only.
 
+## 🟡 Pending — pick a new name for "מלאי לפי מיקום" (naming options given, not yet applied)
+Category separators shipped (1.10). The tab/header rename is waiting on עידן's pick from the options
+Claude proposed in-session — one-line text change once decided (`index.html` tab button + card `<h3>`).
+
 ## 🔴 Run SQL — add EM133 משנ"ז fix + בקר 485 + PUSR top-up for ניתאי (1.09, on dev)
 **Action:** run `db/add-em133-mashneze-and-485.sql` in the Supabase SQL editor (transactional, has a
 verify SELECT). Fixes the name of the EM133 משנ"ז product you already added (missing the מונה prefix —
