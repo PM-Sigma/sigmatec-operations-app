@@ -7,7 +7,7 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
-## [1.08] 2026-07-01 — unify Landis E360PP/E360SP meter names (on dev; ⚠️ needs SQL run)
+## [1.08] 2026-07-01 — unify Landis E360PP/E360SP meter names (on dev; SQL run + parse-order redeployed ✅)
 - **Problem:** the by-location inventory + reports showed the SAME meter under several name
   strings (movements/visits drifted): `Landis+Gyr E360PP` · `מונה E360PP` · `מונה 360PP` · a
   byte-**corrupted** `<garbled> E360PP`; ditto E360SP. Canonical is now **`מונה Landis+Gyr E360PP`** /
@@ -17,12 +17,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   canonical name; renames the two catalog rows; and **DELETES two corrupted duplicate movement rows**
   (`mov_1781426327919_ezaa` SP-135, `mov_1781426329912_yj7r` PP-10) that are garbled re-entries of
   clean rows עידן entered 3 min later — keeping them would double the stock. Includes BEFORE/AFTER/
-  LEFTOVER verification SELECTs. **Not yet run — hand off to עידן.**
+  LEFTOVER verification SELECTs. **Run by עידן — verified clean:** 11 rows/732 qty
+  `מונה Landis+Gyr E360PP`, 4 rows/337 qty `מונה Landis+Gyr E360SP`, zero non-canonical variants left.
 - **Code aligned so new writes never re-introduce the short form:** `09-visits.js` PRODUCT_LIST,
   `08-inventory.js` METER_RULES labels, `05-meeting-returns.js` default, `parse-order/index.ts`
   ALIASES + prompt. Zero short-form `מונה E360PP/SP` left in the bundle (incl. comments). Bonus: the
   low-stock rule only counts names starting with `מונה`, so the לנדיס-order stock (was `Landis+Gyr…`,
-  no prefix) is now counted too. **`parse-order` needs a redeploy** to pick up the alias change.
+  no prefix) is now counted too. **`parse-order` redeployed** with the new aliases — verified.
+- **Still open: deploy `dev`→`main`** so the live bundle carries the aligned code (the SQL/redeploy are
+  DB/function-side and already live; only the client bundle is pending).
 - **Out of scope (flagged, not touched):** the same drift exists for E360CT / E570 / EM133 / PM135 /
   controllers / SIMs (+ a corrupted `<garbled> E360CT` movement, + one empty-name catalog row). Say the
   word to extend the same normalization to all meters/accessories.

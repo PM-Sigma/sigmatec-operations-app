@@ -67,14 +67,12 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 
 ## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.08 on `dev`**).
 
-**🆕 1.08 (dev) — unify Landis E360PP/E360SP meter names.** Canonical = **`מונה Landis+Gyr E360PP`** /
-**`מונה Landis+Gyr E360SP`** (English + מונה prefix). Movements/visits/returns/catalog were showing the
-same meter under many strings (incl. byte-corrupted ones). **Two things to do:** (1) run
-`db/unify_e360_meter_names.sql` in the Supabase SQL editor — folds all variants + **deletes 2 corrupted
-duplicate movement rows** (would double stock); (2) deploy dev→main + **redeploy `parse-order`**. Code
-already aligned (PRODUCT_LIST / METER_RULES / returns default / parse-order aliases) so new writes stay
-canonical. Broader drift (CT/E570/EM133/PM135/controllers/SIMs + a corrupted CT movement + empty-name
-catalog row) flagged, not touched. See [CHANGELOG](CHANGELOG.md) → 1.08 + [backlog](backlog.md) top.
+**✅ 1.08 (dev) — unified Landis E360PP/E360SP meter names, DONE.** Canonical = **`מונה Landis+Gyr E360PP`** /
+**`מונה Landis+Gyr E360SP`**. SQL migration ran clean (verified: 11 rows/732 qty PP, 4 rows/337 qty SP,
+zero leftover variants; the 2 corrupted duplicate movement rows are gone) and `parse-order` was
+redeployed. Code already aligned (PRODUCT_LIST / METER_RULES / returns default / parse-order aliases).
+**Only remaining:** deploy the 1.08 bundle dev→main. Broader drift (CT/E570/EM133/PM135/controllers/SIMs
++ a corrupted CT movement + empty-name catalog row) flagged, not touched. See [CHANGELOG](CHANGELOG.md) → 1.08.
 
 ### Version era: decimal (`·N`→`1.01` rolled at 100; `node build.mjs major`→2.00).
 
