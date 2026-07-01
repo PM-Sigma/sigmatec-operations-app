@@ -174,6 +174,13 @@
         if (/em133/i.test(intakeNormalize(items[_ii].name))) items.splice(_ii, 1);
       }
     }
+    // "EM133" + bare "משנ\"ז" (one word, not "משני זרם" — that's PM135 above) → keep only the
+    // EM133-משנ"ז variant, drop the plain Satec EM133 match (same collision as PM135/EM133).
+    if (/משנז/.test(norm) && !/משני\s*זרם/.test(norm) && /em133|133/.test(norm)) {
+      for (var _jj = items.length - 1; _jj >= 0; _jj--) {
+        if (intakeNormalize(items[_jj].name) === intakeNormalize('Satec EM133')) items.splice(_jj, 1);
+      }
+    }
     // NOTE: accessory auto-add (controllers/SIM/antenna) is applied centrally in orderParseRaw AFTER parsing,
     // so it runs identically for the AI path and this offline path. Keep this matcher to pure parsing.
     const seen = new Set();

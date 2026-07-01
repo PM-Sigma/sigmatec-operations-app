@@ -30,6 +30,14 @@ The app (·56) already has the matching offline matcher — parsing works in deg
   chips** (קריטי/גבוהה, In Progress/Backlog) across 130 tickets, and **"בפיתוח עכשיו"** is driven by real
   Status=In-Progress (5 items). No code change — token scope only.
 
+## 🔴 Run SQL — add EM133 משנ"ז fix + בקר 485 + PUSR top-up for ניתאי (1.09, on dev)
+**Action:** run `db/add-em133-mashneze-and-485.sql` in the Supabase SQL editor (transactional, has a
+verify SELECT). Fixes the name of the EM133 משנ"ז product you already added (missing the מונה prefix —
+that's also why it wasn't showing in by-location/kibbutz stock: zero movements yet), adds "בקר 485" to
+the catalog, and enters ניתאי's stock (2× EM133 משנ"ז, 3× בקר 485, +1× בקר PUSR). **Also deploy `parse-order`**
+(code updated: new AI glossary entries for both items + an offline-matcher disambiguation rule so "EM133"
+mentions don't double-match the new EM133-משנ"ז variant).
+
 ## ✅ DONE — unify E360PP/SP meter names (1.08, still needs dev→main)
 SQL ran clean (`db/unify_e360_meter_names.sql`): 11 rows/732 qty `מונה Landis+Gyr E360PP`, 4 rows/337 qty
 `מונה Landis+Gyr E360SP`, zero leftover variants, corrupted duplicates deleted. `parse-order` redeployed

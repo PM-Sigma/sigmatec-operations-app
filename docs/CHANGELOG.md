@@ -7,6 +7,24 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.09] 2026-07-01 — new catalog items (EM133 משנ"ז fix + בקר 485) + AI glossary (on dev; ⚠️ needs SQL run + redeploy)
+- **`db/add-em133-mashneze-and-485.sql`** (not yet run): fixes the "EM133 משנ"ז" product name to
+  **`מונה EM133 משנ"ז`** (missing the מונה prefix — no auto-prefix behavior exists on the product form,
+  same gap the 1.08 fix flagged); adds a new catalog product **`בקר 485`**; enters ניתאי's stock (2× EM133
+  משנ"ז, 3× בקר 485, +1× בקר PUSR — he was at 0). A brand-new catalog item with zero movements can't show
+  in by-location/kibbutz stock (those views sum `movements`) — there's no "opening stock" UI, only
+  transfer-between-existing-locations, so this goes through SQL like the earlier אביאם/ניתאי seeding did.
+- **AI glossary updated** (`parse-order/index.ts` ALIASES + prompt): the live product catalog sent to the
+  AI is already dynamic (`getActiveProducts()`), so the two new items appear automatically once the SQL
+  runs — no catalog-list change needed. What needed updating: business-rule phrasing —
+  EM133 mentioned with משנ"ז/CT context (not "משני זרם"/"שנאי", that's PM135) → the new variant; plain
+  EM133 → unchanged Satec EM133. `בקר 485` needs no special rule (RS485 numeric token).
+- **Offline fallback (`07-orders.js`)**: same EM133/משנ"ז disambiguation added to the local matcher
+  (mirrors the existing PM135/EM133 collision guard) so a bare "EM133" mention doesn't double-match both
+  variants when the AI is unavailable. `בקר 485`'s digit token already gets the same protection the
+  משנ"ז 250/400 numeric-token guard provides — no extra code needed.
+- **Needs:** run the SQL + redeploy `parse-order`.
+
 ## [1.08] 2026-07-01 — unify Landis E360PP/E360SP meter names (on dev; SQL run + parse-order redeployed ✅)
 - **Problem:** the by-location inventory + reports showed the SAME meter under several name
   strings (movements/visits drifted): `Landis+Gyr E360PP` · `מונה E360PP` · `מונה 360PP` · a

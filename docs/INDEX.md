@@ -65,14 +65,19 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.08 on `dev`**).
+## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.09 on `dev`**).
+
+**🆕 1.09 (dev) — new catalog items pending SQL: EM133 משנ"ז fix + בקר 485.** `db/add-em133-mashneze-and-485.sql`
+(not yet run) fixes the EM133-משנ"ז product name (missing מונה prefix) + adds בקר 485 + seeds ניתאי's stock
+(2/3/+1). AI glossary + offline-matcher disambiguation already updated in code — **needs the SQL run +
+`parse-order` redeploy**.
 
 **✅ 1.08 (dev) — unified Landis E360PP/E360SP meter names, DONE.** Canonical = **`מונה Landis+Gyr E360PP`** /
 **`מונה Landis+Gyr E360SP`**. SQL migration ran clean (verified: 11 rows/732 qty PP, 4 rows/337 qty SP,
 zero leftover variants; the 2 corrupted duplicate movement rows are gone) and `parse-order` was
 redeployed. Code already aligned (PRODUCT_LIST / METER_RULES / returns default / parse-order aliases).
-**Only remaining:** deploy the 1.08 bundle dev→main. Broader drift (CT/E570/EM133/PM135/controllers/SIMs
-+ a corrupted CT movement + empty-name catalog row) flagged, not touched. See [CHANGELOG](CHANGELOG.md) → 1.08.
+**Remaining:** deploy dev→main (covers both 1.08 and 1.09). Broader drift (CT/E570/PM135/controllers/SIMs
++ a corrupted CT movement + empty-name catalog row) flagged, not touched. See [CHANGELOG](CHANGELOG.md).
 
 ### Version era: decimal (`·N`→`1.01` rolled at 100; `node build.mjs major`→2.00).
 
