@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mr2a0m01">
+<link rel="stylesheet" href="css/app.css?v=mr2gyuwy">
 </head>
 <body>
 <div class="container">
@@ -335,7 +335,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-01·1.10</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-01·1.11</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -399,6 +399,21 @@
           <div><label>&nbsp;</label><button class="inv-btn success" onclick="doStockTransfer(this)">✅ בצע</button></div>
         </div>
         <div id="transferHint" style="font-size:11px;color:#64748b;margin-top:6px;"></div>
+      </div>
+
+      <div class="inv-card" id="invAdjustCard" style="display:none;background:#fef9c3;border:1px solid #fde047;">
+        <h3 style="font-size:14px;">🛠️ הוספה/הפחתה עצמאית של מלאי <span style="font-weight:400;font-size:11px;color:#78716c;">(עידן בלבד)</span></h3>
+        <div class="transfer-row">
+          <div><label>מיקום:</label><select id="adjustLocation" onchange="renderAdjustHint()"></select></div>
+          <div><label>פריט:</label><select id="adjustProduct" onchange="renderAdjustHint()"></select></div>
+          <div><label>פעולה:</label><select id="adjustDirection" onchange="renderAdjustHint()">
+            <option value="add">➕ הוספה</option>
+            <option value="remove">➖ הפחתה</option>
+          </select></div>
+          <div><label>כמות:</label><input type="number" id="adjustQty" min="1" placeholder="כמות"></div>
+          <div><label>&nbsp;</label><button class="inv-btn success" onclick="doStockAdjust(this)">✅ בצע</button></div>
+        </div>
+        <div id="adjustHint" style="font-size:11px;color:#64748b;margin-top:6px;"></div>
       </div>
 
       <div class="inv-card">
@@ -1296,7 +1311,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mr2a0m01"></script>
+<script src="js/app.js?v=mr2gyuwy"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

@@ -65,7 +65,14 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.10 on `dev`**).
+## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.11 on `dev`**).
+
+**🆕 1.11 (dev) — עידן can now add/remove stock independently, no DB access needed.** New card in
+"מלאי לפי מיקום" (`isIdan()`-gated both on visibility and inside the write call): pick location + catalog
+item + add/remove + qty → writes a plain movement, same shape the earlier manual SQL seedings used.
+הפחתה is capped at the real current balance. Verified in-browser (hidden for non-עידן, correct balance
+hint, over-limit blocked, write function no-ops for other users). Closes the gap the EM133-משנ"ז/בקר-485
+SQL session exposed (no "opening stock" UI existed before this).
 
 **🆕 1.10 (dev) — minimal category separators in "מלאי לפי מיקום"** (both matrix + mobile accordion),
 grouped by `products.category` (מונה/בקר/סים/...), fixed order. Exposes a pre-existing gap: movement-ledger

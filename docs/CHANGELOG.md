@@ -7,6 +7,21 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.11] 2026-07-01 — independent stock add/remove for עידן (no more DB access needed)
+- **New "🛠️ הוספה/הפחתה עצמאית של מלאי" card** in "מלאי לפי מיקום", visible **only to עידן**
+  (`isIdan()` gate, both on visibility and inside the write function itself as defense-in-depth).
+  Picks any of the 4 locations (עמיחי/אביאם/ניתאי/משרד) + any active catalog product + ➕הוספה/➖הפחתה
+  + quantity → writes a plain `movement` (one side of from/to left empty, same shape the earlier
+  SQL-seeded "מלאי התחלתי" rows used) via the existing `type:'movement'` write path — no schema/backend
+  change. A live hint shows the current balance at the chosen location; **הפחתה is capped at that balance**
+  (can't go negative), mirroring the existing stock-transfer tool's max-quantity guard.
+- **Closes the loop from the EM133-משנ"ז/בקר-485 session:** those needed a direct SQL insert because there
+  was no "opening stock" UI (only transfer between existing balances). This is exactly that missing piece —
+  future onboarding of a new item's initial stock, or ad-hoc corrections, no longer need DB access.
+- Verified in-browser: card hidden for ניתאי, visible for עידן with both dropdowns populated; hint shows
+  the real balance (3× בקר 485 for ניתאי); over-limit הפחתה blocked with the current balance in the message;
+  the write function itself no-ops (no alert, no request) when called for a non-עידן session.
+
 ## [1.10] 2026-07-01 — minimal category separators in stock-by-location (both views)
 - **Rows/items in "מלאי לפי מיקום" now grouped by category** (מונה/בקר/סים/משנ"ז/אנטנה/ספק כוח/כרטיס
   תקשורת), fixed order, with a small muted label row between groups — desktop matrix (`.matrix-cat-row`)

@@ -3499,6 +3499,75 @@
     finally { setBtnLoading(btn, false); }
   }
 
+  // ===== Independent add/remove stock (עידן only) — replaces the need for direct DB writes
+  // for "opening stock" / manual corrections. Writes a plain movement with only one side set
+  // (toLocation for a add, fromLocation for a remove) — same shape the earlier SQL seedings used. =====
+  function populateAdjustDropdowns() {
+    const loc = document.getElementById('adjustLocation');
+    const prod = document.getElementById('adjustProduct');
+    if (!loc || !prod) return;
+    const prevLoc = loc.value, prevProd = prod.value;
+    loc.innerHTML = '<option value="">-- בחר --</option>' +
+      INV_LOCATIONS.slice().sort((a,b) => a.localeCompare(b,'he')).map(l => `<option value="${l}">${l}</option>`).join('');
+    const names = getActiveProducts().map(p => p.name).sort((a,b) => a.localeCompare(b,'he'));
+    prod.innerHTML = '<option value="">-- בחר פריט --</option>' +
+      names.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (prevLoc && Array.from(loc.options).some(o => o.value === prevLoc)) loc.value = prevLoc;
+    if (prevProd && Array.from(prod.options).some(o => o.value === prevProd)) prod.value = prevProd;
+    renderAdjustHint();
+  }
+  function renderAdjustHint() {
+    const loc = document.getElementById('adjustLocation')?.value;
+    const product = document.getElementById('adjustProduct')?.value;
+    const dir = document.getElementById('adjustDirection')?.value;
+    const qtyEl = document.getElementById('adjustQty');
+    const hint = document.getElementById('adjustHint');
+    if (!hint) return;
+    if (!loc || !product) { hint.textContent = ''; if (qtyEl) qtyEl.max = ''; return; }
+    const current = ((computeStock()[loc] || {})[product]) || 0;
+    hint.textContent = `📦 יתרה נוכחית ב${loc}: ${current}`;
+    if (qtyEl) qtyEl.max = dir === 'remove' ? (current > 0 ? current : 0) : '';
+  }
+  async function doStockAdjust(btn) {
+    if (!isIdan()) return;
+    const loc     = document.getElementById('adjustLocation').value;
+    const product = document.getElementById('adjustProduct').value;
+    const dir     = document.getElementById('adjustDirection').value;
+    const qty     = parseInt(document.getElementById('adjustQty').value) || 0;
+    if (!loc)     { alert('בחר מיקום'); return; }
+    if (!product) { alert('בחר פריט'); return; }
+    if (qty <= 0) { alert('הזן כמות חיובית'); return; }
+    if (dir === 'remove') {
+      const current = ((computeStock()[loc] || {})[product]) || 0;
+      if (qty > current) { alert(`לא ניתן להפחית ${qty}. יתרה נוכחית: ${current}.`); return; }
+    }
+    setBtnLoading(btn, true);
+    try {
+      const res = await fetch(SHEET_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          type: 'movement',
+          product: product,
+          fromLocation: dir === 'remove' ? loc : '',
+          toLocation: dir === 'remove' ? '' : loc,
+          quantity: qty,
+          reason: 'manual_adjustment',
+          createdBy: getCurrentUser()
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        const t = document.getElementById('toast');
+        t.textContent = `✅ ${dir === 'remove' ? 'הופחתו' : 'נוספו'} ${qty}× ${product} ${dir === 'remove' ? 'מ' : 'ל'}${loc}`;
+        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+        document.getElementById('adjustQty').value = '';
+        setTimeout(refreshData, 1000);
+      } else { alert('שגיאה: ' + JSON.stringify(data)); }
+    } catch(e) { alert('שגיאה: ' + e.message); }
+    finally { setBtnLoading(btn, false); }
+  }
+
   // Category grouping for the stock views — minimal visual separation between item types
   // (מונה/בקר/סים/...). Order is fixed so groups don't jump around between renders.
   const STOCK_CATEGORY_ORDER = ['מונה', 'בקר', 'סים', 'משנ"ז', 'אנטנה', 'ספק כוח', 'כרטיס תקשורת'];
@@ -3524,6 +3593,12 @@
     const loading = invLoadingPlaceholder();
     if (loading) { root.innerHTML = loading; return; }
     populateTransferDropdowns();
+    const adjustCard = document.getElementById('invAdjustCard');
+    if (adjustCard) {
+      const showAdjust = typeof isIdan === 'function' && isIdan();
+      adjustCard.style.display = showAdjust ? '' : 'none';
+      if (showAdjust) populateAdjustDropdowns();
+    }
     const stock = computeStock();
     // red-line helpers: meter types (company-wide) red everywhere; SIM cells red per-holder
     const _lsr = lowStockReport();

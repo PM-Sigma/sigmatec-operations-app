@@ -30,6 +30,10 @@ The app (·56) already has the matching offline matcher — parsing works in deg
   chips** (קריטי/גבוהה, In Progress/Backlog) across 130 tickets, and **"בפיתוח עכשיו"** is driven by real
   Status=In-Progress (5 items). No code change — token scope only.
 
+## ✅ DONE — עידן's independent add/remove stock tool (1.11, on dev)
+Shipped + verified in-browser. Only affects `dev` — deploy dev→main to make it live. No further action
+needed unless עידן wants it opened to other roles too (currently עידן-only per the ask).
+
 ## 🟡 Pending — pick a new name for "מלאי לפי מיקום" (naming options given, not yet applied)
 Category separators shipped (1.10). The tab/header rename is waiting on עידן's pick from the options
 Claude proposed in-session — one-line text change once decided (`index.html` tab button + card `<h3>`).
