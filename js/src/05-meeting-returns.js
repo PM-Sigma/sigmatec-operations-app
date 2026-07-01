@@ -75,7 +75,7 @@
   // 'תקול' bucket (so the kibbutz matrix stops overstating; defective units don't re-enter available stock).
   let visitReturnedItems = [];
   function addReturnedItemRow() {
-    visitReturnedItems.push({ name: getActiveProducts()[0]?.name || 'מונה E360PP', qty: 1, reason: '' });
+    visitReturnedItems.push({ name: getActiveProducts()[0]?.name || 'מונה Landis+Gyr E360PP', qty: 1, reason: '' });
     renderReturnedItems();
   }
   function renderReturnedItems() {

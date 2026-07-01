@@ -65,7 +65,18 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-06-29 (**1.06 LIVE on `main`**). Version era: decimal (`·N`→`1.01` rolled at 100; `node build.mjs major`→2.00). No DB migration required for what's live.
+## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.08 on `dev`**).
+
+**🆕 1.08 (dev) — unify Landis E360PP/E360SP meter names.** Canonical = **`מונה Landis+Gyr E360PP`** /
+**`מונה Landis+Gyr E360SP`** (English + מונה prefix). Movements/visits/returns/catalog were showing the
+same meter under many strings (incl. byte-corrupted ones). **Two things to do:** (1) run
+`db/unify_e360_meter_names.sql` in the Supabase SQL editor — folds all variants + **deletes 2 corrupted
+duplicate movement rows** (would double stock); (2) deploy dev→main + **redeploy `parse-order`**. Code
+already aligned (PRODUCT_LIST / METER_RULES / returns default / parse-order aliases) so new writes stay
+canonical. Broader drift (CT/E570/EM133/PM135/controllers/SIMs + a corrupted CT movement + empty-name
+catalog row) flagged, not touched. See [CHANGELOG](CHANGELOG.md) → 1.08 + [backlog](backlog.md) top.
+
+### Version era: decimal (`·N`→`1.01` rolled at 100; `node build.mjs major`→2.00).
 
 **✅ Released to `main` (·95 → 1.06) — the full session batch:**
 - **·95** approved-order notifications (אביאם/ניתאי/עמיחי). **·96** DATA-LOSS fix — order/requirement status-only writes no longer wipe items (partial PATCH; `writeOrder`/`writeRequirement`/`sbPatch`). **·97** dev sprint board = **per-ticket** placement (push moves the card; accurate counts). **·99** EMS-flow audit fixes (createTask no site-less dead-letter; `changeEmsStatus` queue-aware; **EMS tasks on the calendar**; delivered-without-distribution confirm; req re-fulfill + blank-product guards). **1.01** visit report off the kibbutz status (card shows "ביקור אחרון" = date+who); mobile QA + `.btn-quick-date` ≥40px; **calendar setup guide**. **1.02** 401/RLS save → re-mint+retry then prompt EMS re-login. **1.03** pre-merge review nit. **1.04–1.06** **draggable quick-visit FAB** (free-drag, persisted per device, tap-vs-drag) + glowing drag-hint arrows (fade after first drag) + **gated to עמיחי/אביאם/ניתאי only** (hidden from עידן; עמיחי="תיעוד ביקור", field pair="תיעוד נוכחות").

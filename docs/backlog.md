@@ -30,6 +30,15 @@ The app (·56) already has the matching offline matcher — parsing works in deg
   chips** (קריטי/גבוהה, In Progress/Backlog) across 130 tickets, and **"בפיתוח עכשיו"** is driven by real
   Status=In-Progress (5 items). No code change — token scope only.
 
+## 🔴 Run SQL — unify E360PP/SP meter names (1.08, on dev)
+**Action:** Supabase → SQL editor → run `db/unify_e360_meter_names.sql` (transactional; review the
+BEFORE/AFTER/LEFTOVER output, then it commits). Folds all name variants → `מונה Landis+Gyr E360PP` /
+`מונה Landis+Gyr E360SP` across movements/visits/returns/catalog, and **deletes 2 corrupted duplicate
+movement rows** (would otherwise double SP/PP stock). Deploy the 1.08 bundle (dev→main) + **redeploy the
+`parse-order` Edge Function** so the AI emits the new canonical names. Broader meter/accessory drift
+(CT/E570/EM133/PM135/controllers/SIMs + a corrupted CT row + empty-name catalog row) is left untouched
+until asked.
+
 ## 🟡 Pending (user / admin)
 
 1. **Supabase MCP** — added to `~/.claude.json` (`mcp.mcpServers.supabase`). This machine runs Claude in the

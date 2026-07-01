@@ -154,7 +154,7 @@
         items.push({ name: prodName, qty: q.value, uncertain: q.uncertain });
       }
     });
-    // Generic "מונה לנדיס" with no specific variant → default product מונה E360PP (business rule).
+    // Generic "מונה לנדיס" with no specific variant → default product מונה Landis+Gyr E360PP (business rule).
     // Quantity taken from the number near the word "מונה/מונים" (e.g. "3 מונים ... לנדיס"), else near "לנדיס".
     if (/לנדיס/.test(norm) && !items.some(it => /E360/i.test(it.name))) {
       const def = catalog.find(n => /E360PP/i.test(n));

@@ -20,12 +20,12 @@
 
   // ===== Low-stock "red line" =====
   // Meters: company-wide total PER TYPE (matched by substring so two name spellings of the
-  // same meter — e.g. "מונה E360PP" / "מונה 360PP" — collapse into ONE bucket, no duplicate).
+  // same meter — e.g. "מונה Landis+Gyr E360PP" / legacy "מונה 360PP" — collapse into ONE bucket).
   // SIMs: per holder, against that holder's OWN location stock (his bag), since a field user
   // can be low even if his manager אביאם holds plenty.
   const METER_RULES = [
-    { label: 'מונה E360PP', match: '360PP', min: 15 },
-    { label: 'מונה E360SP', match: '360SP', min: 15 },
+    { label: 'מונה Landis+Gyr E360PP', match: '360PP', min: 15 },
+    { label: 'מונה Landis+Gyr E360SP', match: '360SP', min: 15 },
     { label: 'מונה E360CT', match: '360CT', min: 15 },
     { label: 'מונה E570',   match: 'E570',  min: 10 },
     { label: 'מונה PM135',  match: 'PM135',  min: 5  },

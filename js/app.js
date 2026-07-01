@@ -1844,7 +1844,7 @@
   // 'תקול' bucket (so the kibbutz matrix stops overstating; defective units don't re-enter available stock).
   let visitReturnedItems = [];
   function addReturnedItemRow() {
-    visitReturnedItems.push({ name: getActiveProducts()[0]?.name || 'מונה E360PP', qty: 1, reason: '' });
+    visitReturnedItems.push({ name: getActiveProducts()[0]?.name || 'מונה Landis+Gyr E360PP', qty: 1, reason: '' });
     renderReturnedItems();
   }
   function renderReturnedItems() {
@@ -2203,7 +2203,7 @@
         items.push({ name: prodName, qty: q.value, uncertain: q.uncertain });
       }
     });
-    // Generic "מונה לנדיס" with no specific variant → default product מונה E360PP (business rule).
+    // Generic "מונה לנדיס" with no specific variant → default product מונה Landis+Gyr E360PP (business rule).
     // Quantity taken from the number near the word "מונה/מונים" (e.g. "3 מונים ... לנדיס"), else near "לנדיס".
     if (/לנדיס/.test(norm) && !items.some(it => /E360/i.test(it.name))) {
       const def = catalog.find(n => /E360PP/i.test(n));
@@ -3313,12 +3313,12 @@
 
   // ===== Low-stock "red line" =====
   // Meters: company-wide total PER TYPE (matched by substring so two name spellings of the
-  // same meter — e.g. "מונה E360PP" / "מונה 360PP" — collapse into ONE bucket, no duplicate).
+  // same meter — e.g. "מונה Landis+Gyr E360PP" / legacy "מונה 360PP" — collapse into ONE bucket).
   // SIMs: per holder, against that holder's OWN location stock (his bag), since a field user
   // can be low even if his manager אביאם holds plenty.
   const METER_RULES = [
-    { label: 'מונה E360PP', match: '360PP', min: 15 },
-    { label: 'מונה E360SP', match: '360SP', min: 15 },
+    { label: 'מונה Landis+Gyr E360PP', match: '360PP', min: 15 },
+    { label: 'מונה Landis+Gyr E360SP', match: '360SP', min: 15 },
     { label: 'מונה E360CT', match: '360CT', min: 15 },
     { label: 'מונה E570',   match: 'E570',  min: 10 },
     { label: 'מונה PM135',  match: 'PM135',  min: 5  },
@@ -3696,7 +3696,7 @@
 
   // Mirrors the live Sheet catalog names (confirmed 2026-06-24) so offline/mock mode matches production.
   const PRODUCT_LIST = [
-    'Satec EM133','Satec PM135','Landis+Gyr E360PP','Landis+Gyr E360SP','Landis+Gyr E360CT','Landis+Gyr E570',
+    'Satec EM133','Satec PM135','מונה Landis+Gyr E360PP','מונה Landis+Gyr E360SP','Landis+Gyr E360CT','Landis+Gyr E570',
     'Robustel Controller','PUSR Controller',
     'Partner Sim','Cellcom Sim',
     'כרטיס תקשורת צרוב(E350)',

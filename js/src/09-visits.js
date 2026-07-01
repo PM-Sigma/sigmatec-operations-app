@@ -3,7 +3,7 @@
 
   // Mirrors the live Sheet catalog names (confirmed 2026-06-24) so offline/mock mode matches production.
   const PRODUCT_LIST = [
-    'Satec EM133','Satec PM135','Landis+Gyr E360PP','Landis+Gyr E360SP','Landis+Gyr E360CT','Landis+Gyr E570',
+    'Satec EM133','Satec PM135','מונה Landis+Gyr E360PP','מונה Landis+Gyr E360SP','Landis+Gyr E360CT','Landis+Gyr E570',
     'Robustel Controller','PUSR Controller',
     'Partner Sim','Cellcom Sim',
     'כרטיס תקשורת צרוב(E350)',
