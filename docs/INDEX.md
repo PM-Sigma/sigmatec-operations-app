@@ -65,7 +65,29 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-01 (**1.06 LIVE on `main`; 1.11 on `dev`**).
+## 🚦 Current state — last: 2026-07-02 (**1.06 LIVE on `main`; 1.15 on `dev`** — release pending).
+
+**🔴 PENDING RELEASE `dev`→`main` — 1.07–1.15. ORDER MATTERS:** (1) run `db/orders_type_kibbutz.sql`,
+(2) redeploy `parse-order` + `ems-auth` functions, (3) `git push origin origin/dev:main`. Checklist in backlog.md.
+
+**🔎 1.12–1.15 (dev, 2026-07-02) — full audit + 4-phase fix sweep.** Three parallel audits (UI/mobile,
+data flow, connections) → ~30 findings → fixed + preview-verified:
+- **P0:** `sbDelete` `H`→`baseH()` (EMS queue was never cleared → cross-device duplicate sends);
+  customer-order **`order_type`/`kibbutz` now persisted** (were dropped → orders flipped to ספק after
+  refresh, no stock deduction/EMS task; needs the SQL above); blank requirements search-tab → orders;
+  **ems_cache 401 SOLVED** — `sbBridge` moved outside the login gate (PIN mode could never mint) +
+  single-flight + 15s timeout.
+- **Dev page:** status board = real **kanban grid** (3 cols ≥1100px, 6 ≥1600px; wrap 880→1400px) +
+  debounced resize repaint; selbar cleared of the mobile nav.
+- **Hardening:** emsProxyCall 20s abort + JSON guard; parse-order/github-fn 401 → re-login modal;
+  approveCustomerOrder idempotent (no double stock deduction) + `emsAfterWrite()` (task on cards now);
+  refreshData in-flight guard + re-renders open calendar/my-tasks; truly-offline EMS writes park in
+  `ems_local_queue_v1`; version-watcher auto-reload cap; **sw.js v3** (query-stripped cache keys,
+  2xx-only, app.js/app.css in shell).
+- **Polish:** modal+page animations (~180ms) with a global reduced-motion guard; `:disabled` style;
+  Esc-close (login/orderQ modals excluded); JS overlays unified onto `.modal-backdrop`/`.modal`;
+  toast above overlays; orders-table overflow wrap; **activity report now shows orders + stock
+  movements**; customer orders locked out of the supplier pipeline; PWA theme-color → navy `#1b2a4a`.
 
 **🆕 1.11 (dev) — עידן can now add/remove stock independently, no DB access needed.** New card in
 "מלאי לפי מיקום" (`isIdan()`-gated both on visibility and inside the write call): pick location + catalog

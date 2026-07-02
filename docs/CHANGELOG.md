@@ -7,6 +7,74 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.12–1.15] 2026-07-02 — full-project audit + 4-phase fix sweep (P0 bugs → dev-page width → connection hardening → design polish)
+Three parallel audit agents scanned the whole project (UI/UX+mobile, inter-module data flow,
+connection resilience) → ~30 findings → all four fix phases applied on dev, one commit per phase.
+
+### [1.12] P0 — critical bugs
+- **`sbDelete` used an undefined var `H`** (`01-data.js:474`) → every `emsQueueClear` threw →
+  the EMS queue was never cleared server-side → **other devices re-sent the whole queue**
+  (duplicate EMS comments/status/tasks). Fixed to `baseH()`.
+- **Customer orders flipped to supplier after refresh**: `orderType`/`kibbutz` were posted but the
+  `orders` table had no columns — dropped on save, classification fell back to a notes-regex that
+  misses modal-created customer orders → wrong approval routing, no stock deduction, no EMS task.
+  Fixed: `db/orders_type_kibbutz.sql` (**run BEFORE releasing to main**) + `writeOrder`/
+  `orderUpdateRow`/`readSnapshot` mappings.
+- **Global search → requirements landed on a blank inventory page** (tab was removed but search
+  still routed there). Search now routes to orders; `invShowTab` falls back to orders for any
+  missing section.
+- **`ems_cache` RLS 401 root fix**: `sbBridge` lived inside the login gate, which early-returns in
+  PIN mode (`?login=0`) → `_sbBridge` never existed → every write went anon. Moved OUTSIDE the
+  gate + **single-flight** (concurrent callers share one mint) + 15s timeout.
+
+### [1.13] Dev page (פיתוח) — uses the whole screen
+- `.dev-wrap` stays 880px for the topic tree, but the **status board** gets `dev-wrap-board` →
+  **1400px**, and the 6 stages render as a real kanban grid: **3 columns ≥1100px, 6 ≥1600px**
+  (was: stacked full-width rows inside an 880px column — "צר במסך גדול").
+- Debounced **resize listener repaints** the dev page (layout was decided once per paint).
+- `.dev-selbar` on mobile lifted above the fixed bottom nav.
+
+### [1.14] Connection hardening
+- `emsProxyCall`: **20s abort + JSON guard** → `{error}` per contract (was: infinite hang on a
+  stalled Apps Script; `Unexpected token '<'` on HTML error pages). Every EMS action covered.
+- `parse-order` client: 15s abort; **401 → emsRequireLogin** (was silent offline downgrade).
+  `devFetchTasks` 401 → emsRequireLogin too.
+- `approveCustomerOrder`: **idempotency guard** — a failed step-3 + re-click no longer
+  double-deducts stock; live `createTask` now calls `emsAfterWrite()` so the task shows on
+  kibbutz cards immediately (was: next session).
+- `refreshData`: in-flight guard (slow stale responses no longer overwrite fresh data) +
+  re-renders open calendar/my-tasks views each poll.
+- **EMS queue truly-offline fallback**: enqueue failure parks the item in
+  `ems_local_queue_v1` (localStorage) and drains on the next flush (was: write lost + alert).
+- Version watcher: auto-reload capped at 2/version (CDN-propagation reload-loop guard).
+- **sw.js v3**: cache key strips the query string + only 2xx cached (was: a new cache entry per
+  2-min version probe forever; mid-deploy 404s could be cached as the offline shell);
+  `app.js`+`app.css` added to the pre-cached shell.
+- **Edge fns [need redeploy]**: `parse-order` CORS now reflects githack/localhost dev-preview
+  origins (was pinned to prod → AI silently off in previews); `ems-auth` 8s EMS-validation timeout.
+
+### [1.15] Design polish — "הנפשות צנועות ומחייבות"
+- **Animations**: modal open (backdrop fade + card pop, ~180ms), page-switch entrance
+  (`.page-enter`), button `:active` press on all button systems, **global
+  `prefers-reduced-motion` guard**.
+- `:disabled` finally looks disabled; toast z-index above the JS overlays (was hidden).
+- JS-built overlays (`orderNotifModal`, `emsReloginModal`) rebuilt on the shared
+  `.modal-backdrop`/`.modal` classes → inherit animation + mobile sizing. **Esc closes the
+  topmost modal** (login/auth gates + `orderQModal` excluded).
+- Orders table wrapped in `overflow-x:auto` (no overflow at 769–1100px).
+- **Activity report now covers inventory**: order created (ספק/לקוח) + stock movements
+  (קליטת הזמנה / אספקה ללקוח / תנועת מלאי) with actor + details.
+- **Customer orders locked out of the supplier pipeline** (no quick-status/stuck buttons,
+  supplier statuses hidden in the edit picker, distribution hidden) — editing one could post
+  *inbound* stock for goods that left.
+- PWA `theme-color` `#15BFC2` (teal, matched nothing) → `#1b2a4a` (navy primary).
+
+**Verified in preview** (localhost, mock): requirements-search lands on orders (no blank page);
+`_sbBridge` defined in PIN mode; orders table wrapped; dev board = 6 grid columns at 1600px with
+auto repaint on resize; modal `modalPop`/`fadeIn` animations; Esc closes invOrderModal but NOT
+orderQModal. **Not yet released to main. Before release: run `db/orders_type_kibbutz.sql` +
+redeploy `parse-order` & `ems-auth`.**
+
 ## [1.11] 2026-07-01 — independent stock add/remove for עידן (no more DB access needed)
 - **New "🛠️ הוספה/הפחתה עצמאית של מלאי" card** in "מלאי לפי מיקום", visible **only to עידן**
   (`isIdan()` gate, both on visibility and inside the write function itself as defense-in-depth).

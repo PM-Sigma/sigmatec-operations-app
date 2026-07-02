@@ -3,18 +3,18 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
-## 🔴 Release `dev`→`main` — bundle ·91–·95
-**What's waiting on `dev` (not yet live):**
-- ·95 — Approved-order notifications for אביאם/ניתאי/עמיחי (localStorage seen-set, no schema change)
-- ·92 — Dev-page tree hierarchy restored in status board + tree-aware multi-select
-- ·91 — Orders actions column header "פעולות על ההזמנה — שנה סטטוס ל:" + left-align
-- ·89/·87/·86/·82/·81 — Sprint-board feature set (all already on dev since ·94 but bundled here)
+## 🔴 Release `dev`→`main` — bundle 1.12–1.15 (audit fix sweep)
+**Pre-release checklist (ORDER MATTERS):**
+1. **Run `db/orders_type_kibbutz.sql`** in Supabase SQL editor (adds `orders.order_type` + `orders.kibbutz`
+   — without it, saving an order from the new client fails with "column not found").
+2. **Redeploy `parse-order`** (CORS for dev previews + all the ·56+ alias/learning changes — long pending).
+3. **Redeploy `ems-auth`** (8s EMS-validation timeout).
+4. Release: `git fetch origin -q && git push origin origin/dev:main` → GitHub Pages live in ~1–2 min.
 
-**Command (fast-forward, safe):**
-```bash
-git fetch origin -q && git push origin origin/dev:main
-```
-GitHub Pages deploys in ~1–2 min. No migration needed.
+**What's in the bundle:** P0 critical bugs (sbDelete `H`→`baseH`, customer-order orderType/kibbutz
+persistence, blank requirements tab, ems_cache-401 root fix) · dev-page kanban grid on wide screens ·
+connection hardening (timeouts/JSON guards/no-double-deduct/SW-cache fix/offline queue) · design polish
+(animations, Esc-close, unified modals, inventory in activity report). Details: CHANGELOG 1.12–1.15.
 
 ## ⏳ Re-deploy `parse-order` — pick up ·56 changes
 **Action:** Supabase → Edge Functions → `parse-order` → paste updated `supabase/functions/parse-order/index.ts` → Deploy.
