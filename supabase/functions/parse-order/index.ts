@@ -115,7 +115,13 @@ async function callGroq(key: string, model: string, prompt: string): Promise<any
 }
 
 Deno.serve(async (req) => {
-  const ORIGIN = Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
+  const APP_ORIGIN = Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
+  // reflect the caller's origin when allowlisted (prod + githack dev previews + localhost) —
+  // same policy as the github fn; previously pinned to prod only, so AI parsing silently
+  // degraded to the offline matcher on every dev-branch preview.
+  const reqO = req.headers.get("origin") || "";
+  const okO = reqO === APP_ORIGIN || /^https:\/\/[a-z]+\.githack\.com$/.test(reqO) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(reqO);
+  const ORIGIN = okO ? reqO : APP_ORIGIN;
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
   const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") || "gemini-2.5-flash-lite";   // confirmed working for our key

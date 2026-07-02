@@ -47,9 +47,18 @@ Deno.serve(async (req) => {
     if (!emsToken) return json({ error: "missing emsToken" }, 400);
 
     // 1) Validate the EMS token: any authenticated EMS endpoint returning 200 proves it's genuine.
-    const check = await fetch(`${EMS_API_BASE}/v1/employee-tasks?take=1`, {
-      headers: { Authorization: `Bearer ${emsToken}` },
-    });
+    // 8s abort — a hung EMS API must not stall the whole login sequence to the platform limit.
+    const ac = new AbortController();
+    const tid = setTimeout(() => ac.abort(), 8000);
+    let check: Response;
+    try {
+      check = await fetch(`${EMS_API_BASE}/v1/employee-tasks?take=1`, {
+        headers: { Authorization: `Bearer ${emsToken}` },
+        signal: ac.signal,
+      });
+    } catch {
+      return json({ error: "EMS API timeout — try again" }, 504);
+    } finally { clearTimeout(tid); }
     if (!check.ok) return json({ error: "invalid EMS token", emsStatus: check.status }, 401);
 
     // 2) Best-effort user id from the EMS JWT (for per-user RLS later).
