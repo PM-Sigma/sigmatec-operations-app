@@ -7470,7 +7470,9 @@
   function devMobileCard(t) {
     var pr = devPriority(t), st = devStatus(t), closed = t.state === 'closed';
     var s = devEsc((t.title + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase());
-    return '<details class="dev-mtask' + (pr ? ' dev-pr-' + pr.cls : '') + '" data-s="' + s + '">' +
+    // drag-to-move between columns — עידן only, desktop board only (flag set per paint in devPaint)
+    var drag = window._devDragOn ? ' draggable="true" ondragstart="devDragStart(event,' + t.number + ')"' : '';
+    return '<details class="dev-mtask' + (pr ? ' dev-pr-' + pr.cls : '') + '"' + drag + ' data-s="' + s + '">' +
       '<summary class="dev-mtask-sum">' +
         '<div class="dev-mtask-row">' +
           (window._devSelMode ? '<input type="checkbox" class="dev-selbox" ' + (window._devSel[t.number] ? 'checked ' : '') + 'onclick="devToggleSel(event,' + t.number + ')" aria-label="בחר משימה">' : '') +
@@ -7569,7 +7571,7 @@
       var list = byStage[s.key].sort(function (a, b) { return rank(b) - rank(a); });
       var openAttr = ((s.open || f) && list.length) ? ' open' : '';
       var inner = list.length ? list.map(devMobileCard).join('') : '<div class="dev-stage-empty">—</div>';
-      return '<details class="dev-stage dev-stage-' + s.key + '"' + openAttr + '>' +
+      return '<details class="dev-stage dev-stage-' + s.key + '" data-stage="' + s.key + '"' + openAttr + '>' +
         '<summary class="dev-stage-sum"><span class="dev-stage-ico" aria-hidden="true">' + s.ico + '</span>' +
         '<span class="dev-stage-name">' + devEsc(s.label) + '</span>' +
         '<span class="dev-stage-n">' + list.length + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
@@ -7685,9 +7687,13 @@
       (c.refreshing ? ' · <span class="dev-refreshing">מרענן…</span>' : '') +
       (c.error ? ' · <span class="dev-refresherr">רענון נכשל</span>' : '') + '</div>';
     // sprint actions (status view only): multi-select → push to Ready, and "version released" → Committed
+    var mobilePre = !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    // drag-to-move: עידן only, desktop status board only (cards get draggable + columns accept drops)
+    window._devDragOn = (view === 'status') && !mobilePre && (typeof isIdan === 'function' && isIdan());
     var actions = (view === 'status') ? '<div class="dev-actions">' +
       '<button class="inv-btn small' + (window._devSelMode ? ' active' : '') + '" onclick="devToggleSelMode()">' + (window._devSelMode ? '✕ בטל בחירה' : '☑️ בחר משימות') + '</button>' +
-      '<button class="inv-btn small" onclick="devReleaseVersion(this)">🚀 עלתה גרסה</button>' +
+      (window._devDragOn ? '<span class="dev-drag-hint" style="font-size:11px;color:#94a3b8;align-self:center;">✋ אפשר לגרור משימה בין עמודות</span>' : '') +
+      '<button class="inv-btn small dev-release-btn" onclick="devReleaseVersion(this)" title="לשימוש רק בעת העלאת גרסה אמיתית — מעביר את כל \'גמר פיתוח\' ל\'עלה לאוויר\'">🚀 עלתה גרסה</button>' +
       '</div>' : '';
     var head = '<div class="dev-toolbar">' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
@@ -7869,6 +7875,53 @@
       if (btn) { btn.disabled = false; btn.textContent = '🚀 עלתה גרסה'; }
     }
   };
+  // ----- drag a card to another column (עידן only, desktop board) -----
+  // Writes through the same `github` fn setStatus path as דחוף-ל-Ready; the fn's synonym matcher
+  // already covers all six stages (Backlog/Ready/In Progress/In Review/Done/Committed) — no redeploy.
+  var DEV_STAGE_TARGET = { backlog: 'Backlog', ready: 'Ready', prog: 'In Progress', review: 'In Review', done: 'Done', committed: 'Committed' };
+  window.devDragStart = function (e, n) {
+    try { e.dataTransfer.setData('text/plain', String(n)); e.dataTransfer.effectAllowed = 'move'; } catch (er) {}
+  };
+  (function devDragWire() {
+    var root = document.getElementById('devTasksContent');
+    if (!root) return;
+    root.addEventListener('dragover', function (e) {
+      if (!window._devDragOn) return;
+      var st = e.target.closest && e.target.closest('.dev-stage');
+      if (st) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; st.classList.add('dev-drop-hover'); }
+    });
+    root.addEventListener('dragleave', function (e) {
+      var st = e.target.closest && e.target.closest('.dev-stage');
+      if (st) st.classList.remove('dev-drop-hover');
+    });
+    root.addEventListener('drop', async function (e) {
+      if (!window._devDragOn) return;
+      var st = e.target.closest && e.target.closest('.dev-stage');
+      if (!st) return;
+      e.preventDefault();
+      st.classList.remove('dev-drop-hover');
+      var n = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      var key = st.getAttribute('data-stage');
+      if (!n || !key || !DEV_STAGE_TARGET[key]) return;
+      var t = (window._devData && window._devData.tasks || []).find(function (x) { return x.number === n; });
+      if (!t || devStage(t) === key) return;   // dropped back on its own column
+      var stage = DEV_STAGES.find(function (s) { return s.key === key; });
+      var old = t.status;
+      t.status = DEV_STAGE_TARGET[key];   // optimistic — repaint now, revert on failure
+      devPaint();
+      try {
+        var d = await devWriteStatus([n], DEV_STAGE_TARGET[key]);
+        if ((d.updated || []).indexOf(n) === -1) throw new Error((d.failed && d.failed[0] && d.failed[0].error) || 'לא עודכן');
+        devSaveCache(window._devState, window._devData.tasks);   // keep the offline cache consistent with the move
+        if (typeof toast === 'function') toast('✅ #' + n + ' הועבר ל"' + stage.label + '"');
+      } catch (er) {
+        t.status = old;
+        devPaint();
+        alert('העברת #' + n + ' נכשלה: ' + (er && er.message || er));
+      }
+    });
+  })();
+
   window.renderDevTasks = renderDevTasks;
   window.canSeeDevTasks = canSeeDevTasks;
   // ===== New-version watcher =====

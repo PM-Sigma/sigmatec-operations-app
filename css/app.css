@@ -633,14 +633,33 @@
   /* Topic-tree view keeps the readable 880px column; the STATUS BOARD gets the full
      container width and lays its 6 stages out as real kanban columns on wide screens. */
   .dev-wrap { max-width: 880px; margin: 0 auto; }
+  /* Weighted board: the ACTIVE columns (ספרינט קרוב / בפיתוח / בדיקות) get the width and sit first
+     (RTL: rightmost); the backlog pool is a narrower side column; done/committed live in a bottom
+     row (collapsed by default). This is the "expand the open ones" layout, not a uniform 6-way split. */
   @media (min-width: 1100px) {
     .dev-wrap.dev-wrap-board { max-width: 1400px; }
-    .dev-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .dev-board { display: grid; gap: 12px; align-items: start;
+      grid-template-columns: 1.35fr 1.35fr 1.35fr 1fr;
+      grid-template-areas: "ready prog review backlog" "done done committed committed"; }
     .dev-board .dev-stage { margin-bottom: 0; }
+    .dev-board .dev-stage-ready     { grid-area: ready; }
+    .dev-board .dev-stage-prog      { grid-area: prog; }
+    .dev-board .dev-stage-review    { grid-area: review; }
+    .dev-board .dev-stage-backlog   { grid-area: backlog; }
+    .dev-board .dev-stage-done      { grid-area: done; }
+    .dev-board .dev-stage-committed { grid-area: committed; }
+    .dev-board .dev-mtask[draggable="true"] { cursor: grab; }
+    .dev-board .dev-mtask[draggable="true"]:active { cursor: grabbing; }
   }
-  @media (min-width: 1600px) {
-    .dev-board { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  /* 2K+ screens: break the board out of the 1400px container — no dead side margins */
+  @media (min-width: 1700px) {
+    .dev-wrap.dev-wrap-board { max-width: none; margin-inline: calc(50% - 50vw + 32px); }
   }
+  /* drop-target highlight while dragging a card (עידן only) */
+  .dev-stage.dev-drop-hover { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--accent-soft); }
+  /* "עלתה גרסה" — rare, deliberate action: ghost look, pushed to the far (left) edge so it can't be hit by habit */
+  .dev-release-btn { margin-inline-start: auto; background: #fff; color: #94a3b8; border: 1px dashed #cbd5e1; }
+  .dev-release-btn:hover { color: #475569; border-color: #94a3b8; }
   .dev-loading { padding: 30px; text-align: center; color: var(--text-light); }
   .dev-error { background: var(--priority-light); border: 1px solid #e8b4b4; color: #991b1b; border-radius: var(--radius); padding: 14px; font-size: 14px; }
   .dev-empty { padding: 28px; text-align: center; color: var(--text-light); font-size: 14px; }
