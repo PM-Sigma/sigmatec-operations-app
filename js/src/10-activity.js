@@ -73,6 +73,37 @@
       });
     });
 
+    // Orders — the inventory domain was invisible in the activity report before
+    ((window.SHEET_DATA && window.SHEET_DATA.orders) || []).forEach(o => {
+      if (o.status === 'deleted') return;
+      const ts = new Date(o.createdAt).getTime();
+      if (isNaN(ts) || ts < from || ts > to) return;
+      const cust = typeof orderType === 'function' && orderType(o) === 'customer';
+      activities.push({
+        time: ts,
+        actor: o.createdBy || 'לא ידוע',
+        type: cust ? '🧾 הזמנת לקוח' : '🧾 הזמנת ספק',
+        kibbutz: cust ? ((typeof orderKibbutz === 'function' && orderKibbutz(o)) || 'לקוח') : (o.supplier || 'ספק'),
+        details: (o.items || []).map(i => i.name + ' ×' + i.qty).join(', ').slice(0, 80),
+        source: 'order'
+      });
+    });
+
+    // Stock movements (delivery distribution / customer supply / manual)
+    const MOVE_TYPE = { order_delivered: '📦 קליטת הזמנה', customer_supply: '🚚 אספקה ללקוח' };
+    ((window.SHEET_DATA && window.SHEET_DATA.movements) || []).forEach(m => {
+      const ts = new Date(m.date).getTime();
+      if (isNaN(ts) || ts < from || ts > to) return;
+      activities.push({
+        time: ts,
+        actor: m.createdBy || 'לא ידוע',
+        type: MOVE_TYPE[m.reason] || '📦 תנועת מלאי',
+        kibbutz: m.toLocation || m.fromLocation || '',
+        details: m.product + ' ×' + m.quantity + (m.fromLocation ? ' · ' + m.fromLocation + ' ← ' + m.toLocation : ''),
+        source: 'movement'
+      });
+    });
+
     return activities.sort((a, b) => b.time - a.time);
   }
 

@@ -290,8 +290,9 @@
     try { if (typeof updateEmsBubble === 'function') updateEmsBubble(); } catch (e) {}
     const wrap = document.createElement('div');
     wrap.id = 'emsReloginModal';
-    wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
-    wrap.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:360px;width:100%;padding:22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);font-family:Heebo,sans-serif;">' +
+    wrap.className = 'modal-backdrop open';   // shared modal system → inherits animation + mobile sizing
+    wrap.style.zIndex = '100001';
+    wrap.innerHTML = '<div class="modal" style="max-width:360px;text-align:center;">' +
       '<div style="font-size:34px;">🔌</div>' +
       '<h3 style="margin:8px 0 6px;color:#b91c1c;">החיבור ל-EMS נותק</h3>' +
       '<div style="font-size:14px;color:#475569;margin-bottom:16px;line-height:1.6;">יש להתחבר מחדש כדי להמשיך. לאחר ההתחברות תוחזר לדף שבו היית.</div>' +

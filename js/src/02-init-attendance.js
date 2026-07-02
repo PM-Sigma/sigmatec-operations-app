@@ -48,6 +48,10 @@
     if (page === 'calendar')   renderCompanyCalendar();
     if (page === 'staff' && typeof renderStaff === 'function') renderStaff();
     if (page === 'dev' && typeof renderDevTasks === 'function') renderDevTasks();
+    // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
+    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', ems: 'ems-view', mytasks: 'my-tasks-view', calendar: 'calendar-view', staff: 'staff-view', dev: 'dev-view' }[page];
+    var _pe = _pv && document.getElementById(_pv);
+    if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
     const fab = document.getElementById('visitFab');
     if (fab) {
       const meF = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
@@ -58,6 +62,17 @@
       var _lbl = fab.querySelector('.vfab-label'); if (_lbl) _lbl.textContent = _fabTxt; else fab.textContent = _fabTxt;   // set the label span, not textContent (would wipe the drag-hint arrows)
     }
   }
+
+  // Esc closes the topmost open modal. Blocking flows are excluded: login/auth gates and the
+  // conversational order-question modal (its askChoice() promise must resolve via a button).
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var skip = { loginModal: 1, authGate: 1, emsLoginGate: 1, orderQModal: 1, emsReloginModal: 1 };
+    var open = document.querySelectorAll('.modal-backdrop.open');
+    for (var i = open.length - 1; i >= 0; i--) {
+      if (!skip[open[i].id]) { open[i].classList.remove('open'); break; }
+    }
+  });
 
   // ===== Attendance missing-days reminder (אביאם / ניתאי) =====
   // Workdays (Sun–Thu) in the last 31 calendar days, floored at 2026-05-31 (tracking start),

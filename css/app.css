@@ -269,7 +269,13 @@
     align-items: flex-start; justify-content: center; z-index: 1000; backdrop-filter: blur(4px);
     padding: 24px 0; overflow-y: auto;
   }
-  .modal-backdrop.open { display: flex; }
+  .modal-backdrop.open { display: flex; animation: fadeIn .15s ease-out; }
+  .modal-backdrop.open .modal { animation: modalPop .18s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modalPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+  /* modest page-switch entrance (showPage adds .page-enter to the incoming view) */
+  @keyframes pageEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .page-enter { animation: pageEnter .18s ease-out; }
   .modal {
     background: white; border-radius: 16px; padding: 22px 24px; width: 90%;
     max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -318,12 +324,19 @@
   .btn-whatsapp:hover { background: #1ebe57; }
   .btn-secondary { background: var(--gray-light); color: var(--text); }
   .btn-secondary:hover { background: #e5e7eb; }
+  /* tactile press + a real disabled look, app-wide */
+  .btn:active, .inv-btn:active, .page-nav button:active, .my-tasks-btn:active { transform: scale(.97); }
+  .btn:disabled, .inv-btn:disabled, .my-tasks-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  /* accessibility: one global guard instead of per-animation opt-outs */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
   .toast {
     position: fixed; bottom: 24px; left: 50%;
     transform: translateX(-50%) translateY(100px);
     background: var(--success); color: white; padding: 12px 24px;
     border-radius: 10px; box-shadow: 0 4px 20px rgba(16,185,129,0.3);
-    transition: transform 0.3s; z-index: 200;
+    transition: transform 0.3s; z-index: 100002;   /* above the JS-built overlays (100001) — a toast must never hide behind a modal */
   }
   .toast.show { transform: translateX(-50%) translateY(0); }
   .footer { text-align: center; color: var(--text-light); font-size: 12px; margin-top: 32px; padding: 16px; }

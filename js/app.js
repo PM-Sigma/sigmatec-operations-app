@@ -1127,6 +1127,10 @@
     if (page === 'calendar')   renderCompanyCalendar();
     if (page === 'staff' && typeof renderStaff === 'function') renderStaff();
     if (page === 'dev' && typeof renderDevTasks === 'function') renderDevTasks();
+    // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
+    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', ems: 'ems-view', mytasks: 'my-tasks-view', calendar: 'calendar-view', staff: 'staff-view', dev: 'dev-view' }[page];
+    var _pe = _pv && document.getElementById(_pv);
+    if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
     const fab = document.getElementById('visitFab');
     if (fab) {
       const meF = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
@@ -1137,6 +1141,17 @@
       var _lbl = fab.querySelector('.vfab-label'); if (_lbl) _lbl.textContent = _fabTxt; else fab.textContent = _fabTxt;   // set the label span, not textContent (would wipe the drag-hint arrows)
     }
   }
+
+  // Esc closes the topmost open modal. Blocking flows are excluded: login/auth gates and the
+  // conversational order-question modal (its askChoice() promise must resolve via a button).
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var skip = { loginModal: 1, authGate: 1, emsLoginGate: 1, orderQModal: 1, emsReloginModal: 1 };
+    var open = document.querySelectorAll('.modal-backdrop.open');
+    for (var i = open.length - 1; i >= 0; i--) {
+      if (!skip[open[i].id]) { open[i].classList.remove('open'); break; }
+    }
+  });
 
   // ===== Attendance missing-days reminder (אביאם / ניתאי) =====
   // Workdays (Sun–Thu) in the last 31 calendar days, floored at 2026-05-31 (tracking start),
@@ -2628,8 +2643,9 @@
     var title = orders.length === 1 ? 'הזמנה חדשה אושרה' : (orders.length + ' הזמנות חדשות אושרו');
     var wrap = document.createElement('div');
     wrap.id = 'orderNotifModal';
-    wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:18px;';
-    wrap.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:390px;width:100%;padding:20px;box-shadow:0 12px 40px rgba(0,0,0,.3);font-family:Heebo,sans-serif;text-align:center;">' +
+    wrap.className = 'modal-backdrop open';   // shared modal system → inherits animation + mobile sizing
+    wrap.style.zIndex = '100001';
+    wrap.innerHTML = '<div class="modal" style="max-width:390px;text-align:center;">' +
       '<div style="font-size:32px;">🔔</div>' +
       '<h3 style="margin:6px 0 4px;color:#1d4ed8;">' + title + '</h3>' +
       '<div style="font-size:13px;color:#475569;margin-bottom:12px;">יש הזמנות חדשות לטיפול:</div>' +
@@ -2690,7 +2706,7 @@
       root.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">אין הזמנות. לחץ "+ הזמנה חדשה"</div>';
       return;
     }
-    let html = '<table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th style="text-align:left;">פעולות על ההזמנה — שנה סטטוס ל:</th></tr></thead><tbody>';
+    let html = '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th style="text-align:left;">פעולות על ההזמנה — שנה סטטוס ל:</th></tr></thead><tbody>';
     filtered.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || '')).forEach(o => {
       const date = (o.expectedDate || o.createdAt) ? new Date(o.expectedDate || o.createdAt).toLocaleDateString('he-IL') : '—';
       const delivered = o.deliveredAt ? '<div style="font-size:10px;color:#059669;white-space:nowrap;">📦 סופק: ' + new Date(o.deliveredAt).toLocaleDateString('he-IL') + '</div>' : '';
@@ -2701,11 +2717,12 @@
         ? '<span style="font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:2px 7px;white-space:nowrap;">🧑‍🌾 לקוח</span>'
         : `<span style="font-size:10px;font-weight:700;color:#9a3412;background:#ffedd5;border-radius:8px;padding:2px 7px;white-space:nowrap;">🏭 ספק${orderNeedsAmichai(o) ? ' 10+' : ''}</span>`;
       const who = isCust ? ('🧑‍🌾 ' + ((orderKibbutz(o) || 'לקוח').replace(/</g, '&lt;'))) : (o.supplier ? o.supplier.replace(/</g, '&lt;') : '—');
-      const quick = getOrderQuickAction(o.status);
+      // customer orders never enter the supplier pipeline (their terminal state is 'supplied' via approval)
+      const quick = isCust ? null : getOrderQuickAction(o.status);
       const quickBtn = quick
         ? `<button class="inv-btn small" style="background:${quick.bg};color:${quick.fg};border:1px solid ${quick.fg};" onclick="quickOrderStatus('${o.id}','${quick.next}',this)">${quick.label}</button>`
         : '';
-      const stuckBtn = (o.status !== 'delivered' && o.status !== 'supplied' && o.status !== 'stuck' && o.status !== 'pending_approval')
+      const stuckBtn = (!isCust && o.status !== 'delivered' && o.status !== 'supplied' && o.status !== 'stuck' && o.status !== 'pending_approval')
         ? `<button class="inv-btn small" style="background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;font-size:10px;" onclick="quickOrderStatus('${o.id}','stuck',this)" title="סמן כתקוע">🟠</button>`
         : '';
       // Awaiting approval: only the right approver (per type/size) sees the button; others see who it waits for.
@@ -2746,6 +2763,13 @@
     var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
     var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
     var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
+    // customer orders never enter the supplier pipeline — hide those statuses in the edit picker
+    // (otherwise setting 'delivered'+distribution would post INBOUND stock for goods that left)
+    var st = document.getElementById('invOrderStatus');
+    if (st) {
+      var suppOnly = { pending: 1, in_transit: 1, stuck: 1, at_port: 1, arrived: 1, delivered: 1 };
+      Array.prototype.forEach.call(st.options, function (op) { var h = isCust && !!suppOnly[op.value]; op.hidden = h; op.disabled = h; });
+    }
   };
   function invNewOrder() {
     if (!checkEditPermission()) return;
@@ -3117,7 +3141,7 @@
   function invToggleDistribution() {
     const status = document.getElementById('invOrderStatus').value;
     const wrap = document.getElementById('invDistributionWrap');
-    if (status !== 'delivered' || invOrderItems.length === 0) {
+    if (status !== 'delivered' || invOrderItems.length === 0 || window._invOrderType === 'customer') {
       wrap.style.display = 'none';
       return;
     }
@@ -4359,6 +4383,37 @@
         kibbutz: t.name,
         details: t.status ? t.status.split('\n').slice(-1)[0].slice(0, 80) : '',
         source: 'task'
+      });
+    });
+
+    // Orders — the inventory domain was invisible in the activity report before
+    ((window.SHEET_DATA && window.SHEET_DATA.orders) || []).forEach(o => {
+      if (o.status === 'deleted') return;
+      const ts = new Date(o.createdAt).getTime();
+      if (isNaN(ts) || ts < from || ts > to) return;
+      const cust = typeof orderType === 'function' && orderType(o) === 'customer';
+      activities.push({
+        time: ts,
+        actor: o.createdBy || 'לא ידוע',
+        type: cust ? '🧾 הזמנת לקוח' : '🧾 הזמנת ספק',
+        kibbutz: cust ? ((typeof orderKibbutz === 'function' && orderKibbutz(o)) || 'לקוח') : (o.supplier || 'ספק'),
+        details: (o.items || []).map(i => i.name + ' ×' + i.qty).join(', ').slice(0, 80),
+        source: 'order'
+      });
+    });
+
+    // Stock movements (delivery distribution / customer supply / manual)
+    const MOVE_TYPE = { order_delivered: '📦 קליטת הזמנה', customer_supply: '🚚 אספקה ללקוח' };
+    ((window.SHEET_DATA && window.SHEET_DATA.movements) || []).forEach(m => {
+      const ts = new Date(m.date).getTime();
+      if (isNaN(ts) || ts < from || ts > to) return;
+      activities.push({
+        time: ts,
+        actor: m.createdBy || 'לא ידוע',
+        type: MOVE_TYPE[m.reason] || '📦 תנועת מלאי',
+        kibbutz: m.toLocation || m.fromLocation || '',
+        details: m.product + ' ×' + m.quantity + (m.fromLocation ? ' · ' + m.fromLocation + ' ← ' + m.toLocation : ''),
+        source: 'movement'
       });
     });
 
@@ -5630,8 +5685,9 @@
     try { if (typeof updateEmsBubble === 'function') updateEmsBubble(); } catch (e) {}
     const wrap = document.createElement('div');
     wrap.id = 'emsReloginModal';
-    wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px;';
-    wrap.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:360px;width:100%;padding:22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.3);font-family:Heebo,sans-serif;">' +
+    wrap.className = 'modal-backdrop open';   // shared modal system → inherits animation + mobile sizing
+    wrap.style.zIndex = '100001';
+    wrap.innerHTML = '<div class="modal" style="max-width:360px;text-align:center;">' +
       '<div style="font-size:34px;">🔌</div>' +
       '<h3 style="margin:8px 0 6px;color:#b91c1c;">החיבור ל-EMS נותק</h3>' +
       '<div style="font-size:14px;color:#475569;margin-bottom:16px;line-height:1.6;">יש להתחבר מחדש כדי להמשיך. לאחר ההתחברות תוחזר לדף שבו היית.</div>' +
