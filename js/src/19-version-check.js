@@ -24,6 +24,17 @@
     function isIdle() { return document.hidden || (Date.now() - lastActivity) >= IDLE_MS; }
 
     function reloadNow() { try { location.reload(); } catch (e) { location.href = location.href; } }
+    // auto path only: during a deploy the CDN can serve new index.html to the probe but the old
+    // bundle on reload → cap auto-reloads per version so an idle tab never reload-loops. The
+    // banner button (user click) always reloads.
+    function autoReload(ver) {
+      try {
+        var k = 'ver_reload_' + ver, n = parseInt(sessionStorage.getItem(k) || '0', 10);
+        if (n >= 2) { showBanner(ver); return; }
+        sessionStorage.setItem(k, String(n + 1));
+      } catch (e) {}
+      reloadNow();
+    }
 
     function showBanner(ver) {
       if (document.getElementById('newVerBanner') || !document.body) return;
@@ -45,10 +56,10 @@
     function onNewVersion(ver) {
       if (handled) return;
       handled = true;
-      if (isIdle()) { reloadNow(); return; }            // not looking / idle → just bring them to the new version
+      if (isIdle()) { autoReload(ver); return; }        // not looking / idle → just bring them to the new version
       showBanner(ver);                                  // active → let them finish, nudge to refresh
       idleWatch = setInterval(function () {              // …and if they go idle later, auto-refresh
-        if (isIdle()) { clearInterval(idleWatch); reloadNow(); }
+        if (isIdle()) { clearInterval(idleWatch); autoReload(ver); }
       }, 20000);
     }
 

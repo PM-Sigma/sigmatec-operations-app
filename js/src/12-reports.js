@@ -318,12 +318,21 @@
   // bypass browser CORS — the dashboard never talks to the EMS host directly.
   // Proxy returns { status, body } (or { error }).
   async function emsProxyCall(base, path, method, token, payload) {
-    const res = await fetch(SHEET_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'ems', base, path, method, token, payload })
-    });
-    return res.json();
+    // 20s abort: a stalled Apps Script must not hang login/actions forever. A non-JSON reply
+    // (quota/HTML error page) returns {error} per the documented contract instead of throwing
+    // "Unexpected token '<'" at the user.
+    const ac = new AbortController(); const tt = setTimeout(() => ac.abort(), 20000);
+    try {
+      const res = await fetch(SHEET_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'ems', base, path, method, token, payload }),
+        signal: ac.signal
+      });
+      return await res.json().catch(() => ({ error: 'תשובת שרת לא תקינה — נסה שוב' }));
+    } catch (e) {
+      return { error: e.name === 'AbortError' ? 'תם הזמן — השרת לא הגיב (20 שניות)' : e.message };
+    } finally { clearTimeout(tt); }
   }
 
   async function emsApi(path, options = {}) {

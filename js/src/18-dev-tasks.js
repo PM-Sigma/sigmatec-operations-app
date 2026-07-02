@@ -197,7 +197,11 @@
       throw new Error(ac.signal.aborted ? 'השרת מתעורר (cold start) — נסה שוב בעוד רגע' : ('תקלת רשת: ' + (e && e.message || e)));
     } finally { clearTimeout(to); }
     var d = await r.json().catch(function () { return {}; });
-    if (!r.ok) throw new Error(d.error || ('github ' + r.status));
+    if (!r.ok) {
+      // EMS token expired → route to re-login instead of a raw error toast
+      if (r.status === 401 && typeof emsRequireLogin === 'function') { try { emsRequireLogin(); } catch (e2) {} }
+      throw new Error(d.error || ('github ' + r.status));
+    }
     return d.tasks || [];
   }
 

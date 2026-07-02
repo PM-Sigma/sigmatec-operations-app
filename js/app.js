@@ -2248,12 +2248,17 @@
     window._lastParseSource = '';   // who answered: AI provider string (e.g. "gemini:…") or 'local'
     try {
       var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+      // 15s abort: cold function + AI chain can take a while, but never leave the user staring silently
+      var ac = new AbortController(); var tt = setTimeout(function () { ac.abort(); }, 15000);
       var r = await fetch(SB_URL + '/functions/v1/parse-order', {
-        method: 'POST',
+        method: 'POST', signal: ac.signal,
         headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: tok, text: raw, catalog: getActiveProducts().map(p => p.name), orderType: orderType || 'supplier' })
       });
+      clearTimeout(tt);
       var res = await r.json().catch(function () { return {}; });
+      // EMS token expired mid-session → the fn 401s. Prompt re-login instead of silently degrading forever
+      if (r.status === 401 && typeof emsRequireLogin === 'function') { try { emsRequireLogin(); } catch (e2) {} }
       if (r.ok && res && Array.isArray(res.items) && res.items.length) {
         window._lastParseSource = res.provider || 'ai';
         return res.items.filter(function (it) { return it.name && (parseInt(it.qty) || 0) > 0; })
@@ -2534,8 +2539,12 @@
     if (!confirm('לאשר אספקת לקוח?\nירד מהמלאי של ' + me + ' → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS.')) return;
     setBtnLoading(btn, true);
     try {
-      // 1) stock: approver → kibbutz (deduct from his bag, credit the kibbutz)
-      await Promise.all(items.map(function (it) {
+      // 1) stock: approver → kibbutz (deduct from his bag, credit the kibbutz).
+      // Idempotency: if a previous attempt posted the movements but failed before step 3, a re-click
+      // must NOT deduct twice. ponytail: checked against SHEET_DATA (refreshes ≤15s) — a same-second
+      // double-click is still covered by the disabled button; server-side unique refId if it ever bites.
+      var alreadyMoved = (window.SHEET_DATA && window.SHEET_DATA.movements || []).some(function (m) { return m.refId === o.id && m.reason === 'customer_supply'; });
+      if (!alreadyMoved) await Promise.all(items.map(function (it) {
         return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: me, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
       }));
@@ -2544,6 +2553,8 @@
       var emsRes = {};
       if (typeof emsWriteOrQueue === 'function') {
         emsRes = await emsWriteOrQueue({ kind: 'createTask', kibbutz: kibbutz, title: 'אספקת ציוד — ' + kibbutz, description: desc, assigneeName: me });
+        // sent live → refresh the shared cache so the new task shows on kibbutz cards NOW (not next session)
+        if (emsRes && emsRes.sent && typeof emsAfterWrite === 'function') { try { await emsAfterWrite(); } catch (e2) {} }
       }
       // 3) close the order row + the linked requirement
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
@@ -4997,6 +5008,11 @@
   }
 
   async function refreshData() {
+    if (window._refreshing) return;   // slow connection: don't stack concurrent refreshes (an older, slower response could overwrite fresher data)
+    window._refreshing = true;
+    try { await _refreshDataInner(); } finally { window._refreshing = false; }
+  }
+  async function _refreshDataInner() {
     const data = await fetchSheetData();
     if (data) {
       window.dataLoaded = true;
@@ -5014,11 +5030,11 @@
       if (typeof renderLowStockAlert === 'function') renderLowStockAlert();
       const lastMod = maxLastModified(data);
       if (lastMod) renderLastUpdated(lastMod);
-      // Re-render inventory views if user has them open
-      const invView = document.getElementById('inventory-view');
-      if (invView && invView.style.display !== 'none' && typeof renderInventory === 'function') {
-        renderInventory();
-      }
+      // Re-render whichever secondary view is open — the 15s poll otherwise leaves it stale
+      const viewOpen = id => { const v = document.getElementById(id); return v && v.style.display !== 'none'; };
+      if (viewOpen('inventory-view') && typeof renderInventory === 'function') renderInventory();
+      if (viewOpen('calendar-view') && typeof renderCompanyCalendar === 'function') renderCompanyCalendar();
+      if (viewOpen('my-tasks-view') && typeof renderMyTasks === 'function') renderMyTasks();
     }
   }
 
@@ -5642,12 +5658,21 @@
   // bypass browser CORS — the dashboard never talks to the EMS host directly.
   // Proxy returns { status, body } (or { error }).
   async function emsProxyCall(base, path, method, token, payload) {
-    const res = await fetch(SHEET_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'ems', base, path, method, token, payload })
-    });
-    return res.json();
+    // 20s abort: a stalled Apps Script must not hang login/actions forever. A non-JSON reply
+    // (quota/HTML error page) returns {error} per the documented contract instead of throwing
+    // "Unexpected token '<'" at the user.
+    const ac = new AbortController(); const tt = setTimeout(() => ac.abort(), 20000);
+    try {
+      const res = await fetch(SHEET_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'ems', base, path, method, token, payload }),
+        signal: ac.signal
+      });
+      return await res.json().catch(() => ({ error: 'תשובת שרת לא תקינה — נסה שוב' }));
+    } catch (e) {
+      return { error: e.name === 'AbortError' ? 'תם הזמן — השרת לא הגיב (20 שניות)' : e.message };
+    } finally { clearTimeout(tt); }
   }
 
   async function emsApi(path, options = {}) {
@@ -5738,14 +5763,23 @@
 
   // Outbound queue ---------------------------------------------------------
   function emsQueuePending() { return (window.SHEET_DATA && window.SHEET_DATA.emsQueue) || []; }
+  // Truly-offline fallback: the queue itself lives in Supabase, so with NO internet the enqueue
+  // POST fails — park the item in localStorage instead of losing it, and drain on the next flush.
+  function _emsLocalQ() { try { return JSON.parse(localStorage.getItem('ems_local_queue_v1') || '[]'); } catch (e) { return []; } }
+  function _emsLocalQSave(q) { try { localStorage.setItem('ems_local_queue_v1', JSON.stringify(q.slice(-100))); } catch (e) {} }
   // Enqueue a write to perform on the next connect. item = {kind:'comment'|'status', taskId, message?, status?, meta?}
   async function emsQueueAdd(item) {
-    const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'emsQueueAdd', item: item }) });
-    let id = null; try { const b = await r.json(); id = b && b.id; } catch (e) {}
-    // reflect in memory immediately so a same-session flush sees the item with its server id
-    if (id && window.SHEET_DATA) { (window.SHEET_DATA.emsQueue = window.SHEET_DATA.emsQueue || []).push(Object.assign({ id: id }, item)); }
-    return id;
+    try {
+      const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'emsQueueAdd', item: item }) });
+      let id = null; try { const b = await r.json(); id = b && b.id; } catch (e) {}
+      // reflect in memory immediately so a same-session flush sees the item with its server id
+      if (id && window.SHEET_DATA) { (window.SHEET_DATA.emsQueue = window.SHEET_DATA.emsQueue || []).push(Object.assign({ id: id }, item)); }
+      return id;
+    } catch (e) {
+      const q = _emsLocalQ(); q.push(item); _emsLocalQSave(q);   // offline → park locally, never lose the write
+      return null;
+    }
   }
   async function emsSendItem(item) {
     if (item.kind === 'comment') return emsApi('/employee-tasks/' + item.taskId + '/comments', { method: 'POST', body: JSON.stringify({ message: item.message }) });
@@ -5795,6 +5829,10 @@
   // Upgrade path if it bites: claim rows server-side under the script lock before sending.
   async function emsQueueFlush() {
     if (!isEmsConnected()) return { done: 0, failed: 0, skipped: 0, dead: 0 };
+    // items parked offline (localStorage) → push them into the real queue now that we're online;
+    // emsQueueAdd re-parks on failure, so nothing is lost either way
+    const lq = _emsLocalQ();
+    if (lq.length) { _emsLocalQSave([]); for (const it of lq) await emsQueueAdd(it); }
     const q = emsQueuePending();
     const alreadySent = _emsFlushedIds();
     const doneIds = []; let failed = 0, skipped = 0, dead = 0;
@@ -7287,7 +7325,11 @@
       throw new Error(ac.signal.aborted ? 'השרת מתעורר (cold start) — נסה שוב בעוד רגע' : ('תקלת רשת: ' + (e && e.message || e)));
     } finally { clearTimeout(to); }
     var d = await r.json().catch(function () { return {}; });
-    if (!r.ok) throw new Error(d.error || ('github ' + r.status));
+    if (!r.ok) {
+      // EMS token expired → route to re-login instead of a raw error toast
+      if (r.status === 401 && typeof emsRequireLogin === 'function') { try { emsRequireLogin(); } catch (e2) {} }
+      throw new Error(d.error || ('github ' + r.status));
+    }
     return d.tasks || [];
   }
 
@@ -7799,6 +7841,17 @@
     function isIdle() { return document.hidden || (Date.now() - lastActivity) >= IDLE_MS; }
 
     function reloadNow() { try { location.reload(); } catch (e) { location.href = location.href; } }
+    // auto path only: during a deploy the CDN can serve new index.html to the probe but the old
+    // bundle on reload → cap auto-reloads per version so an idle tab never reload-loops. The
+    // banner button (user click) always reloads.
+    function autoReload(ver) {
+      try {
+        var k = 'ver_reload_' + ver, n = parseInt(sessionStorage.getItem(k) || '0', 10);
+        if (n >= 2) { showBanner(ver); return; }
+        sessionStorage.setItem(k, String(n + 1));
+      } catch (e) {}
+      reloadNow();
+    }
 
     function showBanner(ver) {
       if (document.getElementById('newVerBanner') || !document.body) return;
@@ -7820,10 +7873,10 @@
     function onNewVersion(ver) {
       if (handled) return;
       handled = true;
-      if (isIdle()) { reloadNow(); return; }            // not looking / idle → just bring them to the new version
+      if (isIdle()) { autoReload(ver); return; }        // not looking / idle → just bring them to the new version
       showBanner(ver);                                  // active → let them finish, nudge to refresh
       idleWatch = setInterval(function () {              // …and if they go idle later, auto-refresh
-        if (isIdle()) { clearInterval(idleWatch); reloadNow(); }
+        if (isIdle()) { clearInterval(idleWatch); autoReload(ver); }
       }, 20000);
     }
 

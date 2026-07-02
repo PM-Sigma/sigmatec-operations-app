@@ -2,8 +2,8 @@
 // NETWORK-FIRST for same-origin (always serves the latest deploy when online; falls back
 // to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
 // (Supabase / Apps Script) is never touched → data is always live. Bump CACHE to invalidate.
-const CACHE = 'sigmatec-ops-v2';
-const SHELL = ['./', './index.html', './stats.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE = 'sigmatec-ops-v3';
+const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -22,9 +22,13 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;   // APIs → live network, untouched
   // network-first: fresh when online, cached fallback offline.
+  // Cache key = path WITHOUT the query string, and only 2xx responses — otherwise every
+  // version-probe (index.html?vc=<ts>) and every ?v= stamp minted a new cache entry forever, and a
+  // mid-deploy 404 could be cached and served as the offline shell.
+  const key = url.origin + url.pathname;
   e.respondWith(
     fetch(req)
-      .then(r => { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(req, c)); return r; })
-      .catch(() => caches.match(req).then(m => m || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+      .then(r => { if (r.ok) { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(key, c)); } return r; })
+      .catch(() => caches.match(req, { ignoreSearch: true }).then(m => m || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
   );
 });

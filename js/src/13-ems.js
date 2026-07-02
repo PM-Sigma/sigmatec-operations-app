@@ -62,14 +62,23 @@
 
   // Outbound queue ---------------------------------------------------------
   function emsQueuePending() { return (window.SHEET_DATA && window.SHEET_DATA.emsQueue) || []; }
+  // Truly-offline fallback: the queue itself lives in Supabase, so with NO internet the enqueue
+  // POST fails — park the item in localStorage instead of losing it, and drain on the next flush.
+  function _emsLocalQ() { try { return JSON.parse(localStorage.getItem('ems_local_queue_v1') || '[]'); } catch (e) { return []; } }
+  function _emsLocalQSave(q) { try { localStorage.setItem('ems_local_queue_v1', JSON.stringify(q.slice(-100))); } catch (e) {} }
   // Enqueue a write to perform on the next connect. item = {kind:'comment'|'status', taskId, message?, status?, meta?}
   async function emsQueueAdd(item) {
-    const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'emsQueueAdd', item: item }) });
-    let id = null; try { const b = await r.json(); id = b && b.id; } catch (e) {}
-    // reflect in memory immediately so a same-session flush sees the item with its server id
-    if (id && window.SHEET_DATA) { (window.SHEET_DATA.emsQueue = window.SHEET_DATA.emsQueue || []).push(Object.assign({ id: id }, item)); }
-    return id;
+    try {
+      const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'emsQueueAdd', item: item }) });
+      let id = null; try { const b = await r.json(); id = b && b.id; } catch (e) {}
+      // reflect in memory immediately so a same-session flush sees the item with its server id
+      if (id && window.SHEET_DATA) { (window.SHEET_DATA.emsQueue = window.SHEET_DATA.emsQueue || []).push(Object.assign({ id: id }, item)); }
+      return id;
+    } catch (e) {
+      const q = _emsLocalQ(); q.push(item); _emsLocalQSave(q);   // offline → park locally, never lose the write
+      return null;
+    }
   }
   async function emsSendItem(item) {
     if (item.kind === 'comment') return emsApi('/employee-tasks/' + item.taskId + '/comments', { method: 'POST', body: JSON.stringify({ message: item.message }) });
@@ -119,6 +128,10 @@
   // Upgrade path if it bites: claim rows server-side under the script lock before sending.
   async function emsQueueFlush() {
     if (!isEmsConnected()) return { done: 0, failed: 0, skipped: 0, dead: 0 };
+    // items parked offline (localStorage) → push them into the real queue now that we're online;
+    // emsQueueAdd re-parks on failure, so nothing is lost either way
+    const lq = _emsLocalQ();
+    if (lq.length) { _emsLocalQSave([]); for (const it of lq) await emsQueueAdd(it); }
     const q = emsQueuePending();
     const alreadySent = _emsFlushedIds();
     const doneIds = []; let failed = 0, skipped = 0, dead = 0;

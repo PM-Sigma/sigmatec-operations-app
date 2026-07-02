@@ -719,6 +719,11 @@
   }
 
   async function refreshData() {
+    if (window._refreshing) return;   // slow connection: don't stack concurrent refreshes (an older, slower response could overwrite fresher data)
+    window._refreshing = true;
+    try { await _refreshDataInner(); } finally { window._refreshing = false; }
+  }
+  async function _refreshDataInner() {
     const data = await fetchSheetData();
     if (data) {
       window.dataLoaded = true;
@@ -736,11 +741,11 @@
       if (typeof renderLowStockAlert === 'function') renderLowStockAlert();
       const lastMod = maxLastModified(data);
       if (lastMod) renderLastUpdated(lastMod);
-      // Re-render inventory views if user has them open
-      const invView = document.getElementById('inventory-view');
-      if (invView && invView.style.display !== 'none' && typeof renderInventory === 'function') {
-        renderInventory();
-      }
+      // Re-render whichever secondary view is open — the 15s poll otherwise leaves it stale
+      const viewOpen = id => { const v = document.getElementById(id); return v && v.style.display !== 'none'; };
+      if (viewOpen('inventory-view') && typeof renderInventory === 'function') renderInventory();
+      if (viewOpen('calendar-view') && typeof renderCompanyCalendar === 'function') renderCompanyCalendar();
+      if (viewOpen('my-tasks-view') && typeof renderMyTasks === 'function') renderMyTasks();
     }
   }
 

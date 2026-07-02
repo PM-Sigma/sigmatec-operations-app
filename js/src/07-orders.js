@@ -196,12 +196,17 @@
     window._lastParseSource = '';   // who answered: AI provider string (e.g. "gemini:…") or 'local'
     try {
       var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+      // 15s abort: cold function + AI chain can take a while, but never leave the user staring silently
+      var ac = new AbortController(); var tt = setTimeout(function () { ac.abort(); }, 15000);
       var r = await fetch(SB_URL + '/functions/v1/parse-order', {
-        method: 'POST',
+        method: 'POST', signal: ac.signal,
         headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: tok, text: raw, catalog: getActiveProducts().map(p => p.name), orderType: orderType || 'supplier' })
       });
+      clearTimeout(tt);
       var res = await r.json().catch(function () { return {}; });
+      // EMS token expired mid-session → the fn 401s. Prompt re-login instead of silently degrading forever
+      if (r.status === 401 && typeof emsRequireLogin === 'function') { try { emsRequireLogin(); } catch (e2) {} }
       if (r.ok && res && Array.isArray(res.items) && res.items.length) {
         window._lastParseSource = res.provider || 'ai';
         return res.items.filter(function (it) { return it.name && (parseInt(it.qty) || 0) > 0; })
@@ -482,8 +487,12 @@
     if (!confirm('לאשר אספקת לקוח?\nירד מהמלאי של ' + me + ' → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS.')) return;
     setBtnLoading(btn, true);
     try {
-      // 1) stock: approver → kibbutz (deduct from his bag, credit the kibbutz)
-      await Promise.all(items.map(function (it) {
+      // 1) stock: approver → kibbutz (deduct from his bag, credit the kibbutz).
+      // Idempotency: if a previous attempt posted the movements but failed before step 3, a re-click
+      // must NOT deduct twice. ponytail: checked against SHEET_DATA (refreshes ≤15s) — a same-second
+      // double-click is still covered by the disabled button; server-side unique refId if it ever bites.
+      var alreadyMoved = (window.SHEET_DATA && window.SHEET_DATA.movements || []).some(function (m) { return m.refId === o.id && m.reason === 'customer_supply'; });
+      if (!alreadyMoved) await Promise.all(items.map(function (it) {
         return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: me, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
       }));
@@ -492,6 +501,8 @@
       var emsRes = {};
       if (typeof emsWriteOrQueue === 'function') {
         emsRes = await emsWriteOrQueue({ kind: 'createTask', kibbutz: kibbutz, title: 'אספקת ציוד — ' + kibbutz, description: desc, assigneeName: me });
+        // sent live → refresh the shared cache so the new task shows on kibbutz cards NOW (not next session)
+        if (emsRes && emsRes.sent && typeof emsAfterWrite === 'function') { try { await emsAfterWrite(); } catch (e2) {} }
       }
       // 3) close the order row + the linked requirement
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
