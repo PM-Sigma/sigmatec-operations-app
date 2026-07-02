@@ -7620,7 +7620,7 @@
     if (!d.tasks.length) {
       bodyHtml = '<div class="dev-empty">אין משימות להצגה.</div>';
     } else if (view === 'status') {
-      bodyHtml = devBoard(d, f);   // the 6 named stage columns
+      bodyHtml = '<div class="dev-board">' + devBoard(d, f) + '</div>';   // the 6 named stage columns (grid on wide screens)
     } else {
       var visTopics = f ? d.topicNames.filter(function (tp) { return matchCounts[tp] > 0; }) : d.topicNames;
       var body = visTopics.map(function (topic) {
@@ -7647,12 +7647,23 @@
       '<button class="inv-btn small dev-selbar-push" onclick="devPushToReady(this)"' + (devSelCount() ? '' : ' disabled') + '>🟢 העבר משימות לספרינט הקרוב</button>' +
       '<button class="inv-btn small" onclick="devToggleSelMode()">בטל</button>' +
       '</div>' : '';
-    el.innerHTML = '<div class="dev-wrap">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + selBar + '</div>';
+    el.innerHTML = '<div class="dev-wrap' + (view === 'status' ? ' dev-wrap-board' : '') + '">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + selBar + '</div>';
 
     // restore the live text search across the re-paint
     var sb = document.getElementById('devSearch');
     if (sb && window._devQ) { sb.value = window._devQ; window.devFilter(window._devQ); }
   }
+
+  // repaint on resize — mobile/desktop layout + board grid are decided per paint, so a
+  // rotation or window resize must re-render (only when the dev page is actually visible)
+  var _devResizeT = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(_devResizeT);
+    _devResizeT = setTimeout(function () {
+      var v = document.getElementById('dev-view');
+      if (v && v.style.display !== 'none' && window._devData) devPaint();
+    }, 250);
+  });
 
   // toggle a tile filter: same tile (or null) clears, otherwise apply. Repaints from cache (no fetch).
   window.devSetFilter = function (f) {

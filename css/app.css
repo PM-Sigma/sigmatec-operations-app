@@ -617,8 +617,17 @@
   }
 
   /* ===== DEV TASKS (פיתוח) — centered column + nested hierarchy rails ===== */
-  /* Centered, constrained column — fixes the "smeared edge-to-edge" look. */
+  /* Topic-tree view keeps the readable 880px column; the STATUS BOARD gets the full
+     container width and lays its 6 stages out as real kanban columns on wide screens. */
   .dev-wrap { max-width: 880px; margin: 0 auto; }
+  @media (min-width: 1100px) {
+    .dev-wrap.dev-wrap-board { max-width: 1400px; }
+    .dev-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .dev-board .dev-stage { margin-bottom: 0; }
+  }
+  @media (min-width: 1600px) {
+    .dev-board { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  }
   .dev-loading { padding: 30px; text-align: center; color: var(--text-light); }
   .dev-error { background: var(--priority-light); border: 1px solid #e8b4b4; color: #991b1b; border-radius: var(--radius); padding: 14px; font-size: 14px; }
   .dev-empty { padding: 28px; text-align: center; color: var(--text-light); font-size: 14px; }
@@ -857,6 +866,7 @@
   /* ---- Mobile (~380px): comfort first ---- */
   @media (max-width: 768px) {
     .dev-wrap { max-width: 100%; }
+    .dev-selbar { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }   /* clear the fixed bottom nav */
     .dev-kpis { grid-template-columns: repeat(2, 1fr); }
     .dev-kpi-num { font-size: 26px; }
     .dev-counts { order: 1; flex: 1 1 100%; }
