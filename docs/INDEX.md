@@ -65,10 +65,10 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-02 (**1.06 LIVE on `main`; 1.15 on `dev`** — release pending).
+## 🚦 Current state — last: 2026-07-02 (**1.15 LIVE on `main`** — released after the audit fix sweep).
 
-**🔴 PENDING RELEASE `dev`→`main` — 1.07–1.15. ORDER MATTERS:** (1) run `db/orders_type_kibbutz.sql`,
-(2) redeploy `parse-order` + `ems-auth` functions, (3) `git push origin origin/dev:main`. Checklist in backlog.md.
+**✅ RELEASED 2026-07-02:** `db/orders_type_kibbutz.sql` ran clean in Supabase, `parse-order` +
+`ems-auth` redeployed by עידן, then `dev`→`main` fast-forward (`83d4924`→`87cc656`, builds 1.07–1.15).
 
 **🔎 1.12–1.15 (dev, 2026-07-02) — full audit + 4-phase fix sweep.** Three parallel audits (UI/mobile,
 data flow, connections) → ~30 findings → fixed + preview-verified:
