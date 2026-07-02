@@ -471,7 +471,7 @@
     // PATCH = partial update: writes ONLY the columns in `row`, leaving the rest of the existing record untouched.
     const sbPatch = async (table, filter, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?' + filter, { method: 'PATCH', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase patch ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbInsert = async (table, rows) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(rows) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); };
-    const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: H }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
+    const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: baseH() }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
 
     // ---- READ: assemble the exact snapshot shape the app already consumes ----
     async function readSnapshot() {
@@ -488,7 +488,7 @@
         regions: regionsObj,
         visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday })),
         products: products.map(p => ({ id: String(p.id), name: p.name || '', category: p.category || '', active: !!p.active, createdAt: p.created_at ? String(p.created_at) : '', createdBy: p.created_by || '' })),
-        orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
+        orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, orderType: o.order_type || '', kibbutz: o.kibbutz || '', lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
         movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
         requirements: requirements.map(r => ({ id: String(r.id), createdAt: r.created_at || '', createdBy: r.created_by || '', kibbutz: r.kibbutz || '', contactName: r.contact_name || '', items: r.items || [], notes: r.notes || '', status: r.status || 'open', linkedOrderId: r.linked_order_id || '', fulfilledAt: r.fulfilled_at || '', lastUpdated: r.last_updated ? String(r.last_updated) : '' })),
         returns: returns_.map(r => ({ id: String(r.id), visitId: r.visit_id || '', date: r.date || '', kibbutz: r.kibbutz || '', visitor: r.visitor || '', product: r.product || '', qty: parseInt(r.qty) || 0, reason: r.reason || '', status: r.status || 'open' })),
@@ -553,6 +553,8 @@
       if (b.distribution !== undefined) row.distribution  = b.distribution;
       if (b.createdBy    !== undefined) row.created_by    = b.createdBy;
       if (b.deliveredAt  !== undefined) row.delivered_at  = b.deliveredAt;
+      if (b.orderType    !== undefined) row.order_type    = b.orderType;
+      if (b.kibbutz      !== undefined) row.kibbutz       = b.kibbutz;
       return row;
     }
     function reqUpdateRow(b) {
@@ -570,7 +572,7 @@
     async function writeOrder(b) {
       if (!b.id) {
         const id = genId('ord');
-        await sbUpsert('orders', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, last_updated: nowISO() });
+        await sbUpsert('orders', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, order_type: b.orderType || '', kibbutz: b.kibbutz || '', last_updated: nowISO() });
         return { ok: true, id };
       }
       const row = orderUpdateRow(b);
@@ -1293,6 +1295,7 @@
   }
 
   function invShowTab(tab) {
+    if (!document.getElementById('inv-section-' + tab)) tab = 'orders';   // removed tabs (e.g. requirements) → never land on a blank page
     document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.invTab === tab));
     document.querySelectorAll('.inv-section').forEach(s => s.classList.toggle('active', s.id === 'inv-section-' + tab));
     renderInventory();
@@ -5066,7 +5069,7 @@
     if (reqMatches.length) sections.push({ title: '📋 דרישות', items: reqMatches.map(r => ({
       icon: '📋', title: r.kibbutz + (r.contactName ? ' · ' + r.contactName : ''),
       meta: (r.items || []).map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 80),
-      onClick: `goToInventoryTab('requirements')`
+      onClick: `goToInventoryTab('orders')`
     })) });
 
     // 🧾 Orders
@@ -6693,6 +6696,51 @@
   // Reuses the proven EMS auth (emsProxyCall + the 2FA/verify-otp flow) — the existing
   // EMS-tab login is left untouched.
   // ═══════════════════════════════════════════════════════════════════════════
+  // EMS→Supabase bridge: trade the EMS token for a short-lived Supabase pass (role=authenticated).
+  // Lives OUTSIDE the gate so PIN-mode (?login=0) sessions mint too — without it every Supabase
+  // write (incl. emsSyncCache on EMS connect) went out anon → RLS 401. Single-flight: concurrent
+  // callers (gate init / emsOnConnected / the write shim) share one in-flight mint.
+  let _sbMintInflight = null;
+  function sbBridge() {
+    if (_sbMintInflight) return _sbMintInflight;
+    _sbMintInflight = _sbBridgeMint().finally(function () { _sbMintInflight = null; });
+    return _sbMintInflight;
+  }
+  window._sbBridge = sbBridge;
+  async function _sbBridgeMint() {
+    try {
+      var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+      if (!tok) return false;
+      var ac = new AbortController(); var tt = setTimeout(function () { ac.abort(); }, 15000);   // a hung ems-auth fn must not stall login
+      var r = await fetch(SB_URL + '/functions/v1/ems-auth', {
+        method: 'POST',
+        headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emsToken: tok }),
+        signal: ac.signal
+      });
+      clearTimeout(tt);
+      if (r.ok) {
+        var d = await r.json().catch(function () { return null; });
+        if (d && d.token) {
+          window._sbToken = d.token; window._sbTokenExp = Date.now() + 55 * 60 * 1000;
+          // self-verify: the pass must actually pass RLS, else drop it → stay on anon (safe during staging)
+          try {
+            var t = await fetch(SB_URL + '/rest/v1/tasks?select=name&limit=1', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + window._sbToken } });
+            if (!t.ok) { console.warn('[bridge] pass rejected (' + t.status + ') — staying on anon'); window._sbToken = null; window._sbTokenExp = 0; }
+            else {
+              console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
+              // proactive re-mint before expiry → writes never silently fail post-lockdown (while the EMS session lives)
+              try { clearTimeout(window._sbRefreshTimer); } catch (e) {}
+              window._sbRefreshTimer = setTimeout(function () { if (window._sbBridge) window._sbBridge(); }, 50 * 60 * 1000);
+            }
+          } catch (e) { window._sbToken = null; window._sbTokenExp = 0; }
+          return !!window._sbToken;
+        }
+      } else console.warn('[bridge] ems-auth ' + r.status);
+    } catch (e) { console.warn('[bridge] failed', e); }
+    return false;
+  }
+
   (function setupEmsLoginGate() {
     if (typeof LOGIN_FLAG === 'undefined' || !LOGIN_FLAG) return;
     const gate = document.getElementById('emsLoginGate');
@@ -6715,39 +6763,6 @@
         } catch (e) {}
       }, 600);
     }
-
-    // EMS→Supabase bridge: trade the EMS token for a short-lived Supabase pass (role=authenticated).
-    async function sbBridge() {
-      try {
-        var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
-        if (!tok) return false;
-        var r = await fetch(SB_URL + '/functions/v1/ems-auth', {
-          method: 'POST',
-          headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emsToken: tok })
-        });
-        if (r.ok) {
-          var d = await r.json();
-          if (d && d.token) {
-            window._sbToken = d.token; window._sbTokenExp = Date.now() + 55 * 60 * 1000;
-            // self-verify: the pass must actually pass RLS, else drop it → stay on anon (safe during staging)
-            try {
-              var t = await fetch(SB_URL + '/rest/v1/tasks?select=name&limit=1', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + window._sbToken } });
-              if (!t.ok) { console.warn('[bridge] pass rejected (' + t.status + ') — staying on anon'); window._sbToken = null; window._sbTokenExp = 0; }
-              else {
-                console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
-                // proactive re-mint before expiry → writes never silently fail post-lockdown (while the EMS session lives)
-                try { clearTimeout(window._sbRefreshTimer); } catch (e) {}
-                window._sbRefreshTimer = setTimeout(function () { if (window._sbBridge) window._sbBridge(); }, 50 * 60 * 1000);
-              }
-            } catch (e) { window._sbToken = null; window._sbTokenExp = 0; }
-            return !!window._sbToken;
-          }
-        } else console.warn('[bridge] ems-auth ' + r.status);
-      } catch (e) { console.warn('[bridge] failed', e); }
-      return false;
-    }
-    window._sbBridge = sbBridge;
 
     async function resolveIdentity(email) {
       try {

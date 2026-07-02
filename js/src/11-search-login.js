@@ -38,7 +38,7 @@
     if (reqMatches.length) sections.push({ title: '📋 דרישות', items: reqMatches.map(r => ({
       icon: '📋', title: r.kibbutz + (r.contactName ? ' · ' + r.contactName : ''),
       meta: (r.items || []).map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 80),
-      onClick: `goToInventoryTab('requirements')`
+      onClick: `goToInventoryTab('orders')`
     })) });
 
     // 🧾 Orders

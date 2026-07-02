@@ -471,7 +471,7 @@
     // PATCH = partial update: writes ONLY the columns in `row`, leaving the rest of the existing record untouched.
     const sbPatch = async (table, filter, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?' + filter, { method: 'PATCH', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase patch ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbInsert = async (table, rows) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(rows) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); };
-    const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: H }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
+    const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: baseH() }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
 
     // ---- READ: assemble the exact snapshot shape the app already consumes ----
     async function readSnapshot() {
@@ -488,7 +488,7 @@
         regions: regionsObj,
         visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday })),
         products: products.map(p => ({ id: String(p.id), name: p.name || '', category: p.category || '', active: !!p.active, createdAt: p.created_at ? String(p.created_at) : '', createdBy: p.created_by || '' })),
-        orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
+        orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, orderType: o.order_type || '', kibbutz: o.kibbutz || '', lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
         movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
         requirements: requirements.map(r => ({ id: String(r.id), createdAt: r.created_at || '', createdBy: r.created_by || '', kibbutz: r.kibbutz || '', contactName: r.contact_name || '', items: r.items || [], notes: r.notes || '', status: r.status || 'open', linkedOrderId: r.linked_order_id || '', fulfilledAt: r.fulfilled_at || '', lastUpdated: r.last_updated ? String(r.last_updated) : '' })),
         returns: returns_.map(r => ({ id: String(r.id), visitId: r.visit_id || '', date: r.date || '', kibbutz: r.kibbutz || '', visitor: r.visitor || '', product: r.product || '', qty: parseInt(r.qty) || 0, reason: r.reason || '', status: r.status || 'open' })),
@@ -553,6 +553,8 @@
       if (b.distribution !== undefined) row.distribution  = b.distribution;
       if (b.createdBy    !== undefined) row.created_by    = b.createdBy;
       if (b.deliveredAt  !== undefined) row.delivered_at  = b.deliveredAt;
+      if (b.orderType    !== undefined) row.order_type    = b.orderType;
+      if (b.kibbutz      !== undefined) row.kibbutz       = b.kibbutz;
       return row;
     }
     function reqUpdateRow(b) {
@@ -570,7 +572,7 @@
     async function writeOrder(b) {
       if (!b.id) {
         const id = genId('ord');
-        await sbUpsert('orders', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, last_updated: nowISO() });
+        await sbUpsert('orders', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, order_type: b.orderType || '', kibbutz: b.kibbutz || '', last_updated: nowISO() });
         return { ok: true, id };
       }
       const row = orderUpdateRow(b);

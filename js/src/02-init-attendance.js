@@ -216,6 +216,7 @@
   }
 
   function invShowTab(tab) {
+    if (!document.getElementById('inv-section-' + tab)) tab = 'orders';   // removed tabs (e.g. requirements) → never land on a blank page
     document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.invTab === tab));
     document.querySelectorAll('.inv-section').forEach(s => s.classList.toggle('active', s.id === 'inv-section-' + tab));
     renderInventory();
