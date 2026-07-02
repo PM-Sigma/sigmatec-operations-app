@@ -65,10 +65,16 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-02 (**1.15 LIVE on `main`** — released after the audit fix sweep).
+## 🚦 Current state — last: 2026-07-02 (**1.16 LIVE on `main`**).
 
-**✅ RELEASED 2026-07-02:** `db/orders_type_kibbutz.sql` ran clean in Supabase, `parse-order` +
-`ems-auth` redeployed by עידן, then `dev`→`main` fast-forward (`83d4924`→`87cc656`, builds 1.07–1.15).
+**✅ RELEASED 2026-07-02 (two waves):** (1) audit fix sweep 1.07–1.15 — migration
+`db/orders_type_kibbutz.sql` ran clean, `parse-order`+`ems-auth` redeployed, ff `83d4924`→`87cc656`;
+(2) **1.16 dev-board rework** per עידן's 2K feedback — weighted columns (active stages wide, backlog
+narrow side pool, done/committed bottom collapsed), ≥1700px full-bleed (~2500px on 2K), **drag-to-move
+cards between columns (עידן only, desktop; via the github fn's existing setStatus — no redeploy)**,
+"עלתה גרסה" isolated as a ghost button at the far left. Mobile untouched by request.
+**OPEN — dev-page next iteration:** עידן still feels the page mirrors raw GitHub — candidate follow-up:
+content-level pass (friendlier naming/grouping, less issue-tracker jargon).
 
 **🔎 1.12–1.15 (dev, 2026-07-02) — full audit + 4-phase fix sweep.** Three parallel audits (UI/mobile,
 data flow, connections) → ~30 findings → fixed + preview-verified:

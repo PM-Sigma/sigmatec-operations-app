@@ -7,6 +7,23 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.16] 2026-07-02 — dev board: weighted layout, real 2K width, drag-move (עידן), release button isolated
+עידן's feedback on 1.15: the board still felt like a GitHub mirror, compressed and unreadable, with big
+dead margins on his 2K screen; the 🚀 button invited accidental clicks; wanted the ability to move a task.
+- **Weighted board (≥1100px):** the active columns — ספרינט קרוב / בפיתוח עכשיו / בשלבי בדיקות — get the
+  width (1.35fr each, RTL-first); **ממתין לפיתוח** is a narrower side pool; **גמר פיתוח + עלה לאוויר**
+  drop to a collapsed bottom row. "הרחבה של הפתוחות והספרינט הקרוב" — not a uniform 6-way split.
+- **≥1700px full-bleed:** the board breaks out of the 1400px container (`margin-inline: calc(50% - 50vw
+  + 32px)`) → ~2500px wide on 2K, active column ~660px, no dead margins, no h-scroll. Mobile untouched.
+- **Drag-to-move — עידן only, desktop only:** drag a card between columns → optimistic repaint →
+  `github` fn `setStatus` (its synonym matcher already covers all 6 stages — **no fn redeploy**) →
+  revert + Hebrew alert on failure; offline cache synced; hint line "✋ אפשר לגרור משימה בין עמודות".
+  Verified: drop→optimistic→revert cycle; מתניה gets zero drag affordances.
+- **"עלתה גרסה" isolated:** dashed ghost button pushed to the far LEFT edge (`margin-inline-start:auto`),
+  warning tooltip; the existing confirm stays. Everyday buttons stay right.
+- **Open (recorded):** the page still *presents* raw GitHub content — a further content-level pass
+  (friendlier naming/grouping, less issue-tracker jargon) is a candidate next iteration.
+
 ## [1.12–1.15] 2026-07-02 — full-project audit + 4-phase fix sweep (P0 bugs → dev-page width → connection hardening → design polish)
 Three parallel audit agents scanned the whole project (UI/UX+mobile, inter-module data flow,
 connection resilience) → ~30 findings → all four fix phases applied on dev, one commit per phase.
