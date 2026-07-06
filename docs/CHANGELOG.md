@@ -7,6 +7,28 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.20] 2026-07-06 — order parsing: E360 default rule + order assignee (עידן) [⚠️ needs parse-order redeploy + orders_schedule_fields.sql]
+Real misparse (עידן's kibbutz email, Groq path): "4 מונים תלת פזי + מונה תלת פאזי משנה זרם" returned
+4× Satec EM133 instead of 4× מונה Landis+Gyr E360PP + 1× E360CT. Business rule clarified: **Satec=EM133
+only when סאטק/133 is explicit; the GENERAL default for brand-less meters is Landis E360 (PP)**.
+- **Learning loop verified live:** the manually-corrected order was captured in `parse_corrections`
+  (raw email → 4×PP + 1×CT + 1×Cellcom Sim) — feeds every future parse as a few-shot example.
+- **AI glossary (`parse-order/index.ts`)**: Satec alias reworded (explicit-only), new default-meter
+  alias → מונה Landis+Gyr E360PP, "מונה תלת-פאזי משנה זרם" added to the E360CT alias, prompt now
+  states the default rule + that one email can carry both PP and CT lines. **Needs redeploy.**
+- **Offline matcher (`07-orders.js`)** aligned: 'משנה זרם' (spelled out) → E360CT; brand-less generic
+  meter ask → E360PP default (a CT match alone doesn't suppress it); qty anchor prefers the
+  number-adjacent "מונ" after "סה"כ" (explicit total beats per-line partials); the EM133-משנ"ז variant
+  now requires BOTH contexts (סאטק/133 AND משנז) so "5 סאטק 133"/"2 משנז 250" no longer pull it in;
+  a leading model-number (133/250/400/485…) that appears in the product's own name is never trusted as
+  a quantity. Verified in-browser: the real email → 4×PP(confident)+1×CT(flagged), all regression cases green.
+- **Order assignee (עידן only):** new "👤 אחראי על האספקה" picker on customer orders (אביאם/ניתאי/עמיחי,
+  default = the approver). On approval: stock deducts from the **assignee's** bag (they physically supply)
+  and the EMS task opens **assigned to them**; movement `createdBy` stays the approver; confirm text +
+  task description show the assignee; orders list shows an "👤 אחראי" chip. Persisted via the `assignee`
+  column — **run `db/orders_schedule_fields.sql` first** (additive; the client omits the field when unset,
+  so order saves keep working before the SQL — setting an assignee before it errors loudly).
+
 ## [1.16] 2026-07-02 — dev board: weighted layout, real 2K width, drag-move (עידן), release button isolated
 עידן's feedback on 1.15: the board still felt like a GitHub mirror, compressed and unreadable, with big
 dead margins on his 2K screen; the 🚀 button invited accidental clicks; wanted the ability to move a task.

@@ -488,7 +488,7 @@
         regions: regionsObj,
         visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday })),
         products: products.map(p => ({ id: String(p.id), name: p.name || '', category: p.category || '', active: !!p.active, createdAt: p.created_at ? String(p.created_at) : '', createdBy: p.created_by || '' })),
-        orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, orderType: o.order_type || '', kibbutz: o.kibbutz || '', lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
+        orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, orderType: o.order_type || '', kibbutz: o.kibbutz || '', assignee: o.assignee || '', lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
         movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
         requirements: requirements.map(r => ({ id: String(r.id), createdAt: r.created_at || '', createdBy: r.created_by || '', kibbutz: r.kibbutz || '', contactName: r.contact_name || '', items: r.items || [], notes: r.notes || '', status: r.status || 'open', linkedOrderId: r.linked_order_id || '', fulfilledAt: r.fulfilled_at || '', lastUpdated: r.last_updated ? String(r.last_updated) : '' })),
         returns: returns_.map(r => ({ id: String(r.id), visitId: r.visit_id || '', date: r.date || '', kibbutz: r.kibbutz || '', visitor: r.visitor || '', product: r.product || '', qty: parseInt(r.qty) || 0, reason: r.reason || '', status: r.status || 'open' })),
@@ -555,6 +555,7 @@
       if (b.deliveredAt  !== undefined) row.delivered_at  = b.deliveredAt;
       if (b.orderType    !== undefined) row.order_type    = b.orderType;
       if (b.kibbutz      !== undefined) row.kibbutz       = b.kibbutz;
+      if (b.assignee     !== undefined) row.assignee      = b.assignee;   // column from db/orders_schedule_fields.sql
       return row;
     }
     function reqUpdateRow(b) {
@@ -572,7 +573,9 @@
     async function writeOrder(b) {
       if (!b.id) {
         const id = genId('ord');
-        await sbUpsert('orders', 'id', { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, order_type: b.orderType || '', kibbutz: b.kibbutz || '', last_updated: nowISO() });
+        const row = { id, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '', supplier: b.supplier || '', status: b.status || 'pending', items: b.items || [], expected_date: b.expectedDate || '', notes: b.notes || '', delivered_at: b.status === 'delivered' ? (b.deliveredAt || nowISO()) : (b.deliveredAt || ''), distribution: b.distribution || {}, order_type: b.orderType || '', kibbutz: b.kibbutz || '', last_updated: nowISO() };
+        if (b.assignee) row.assignee = b.assignee;   // omit when unset so inserts keep working before orders_schedule_fields.sql adds the column
+        await sbUpsert('orders', 'id', row);
         return { ok: true, id };
       }
       const row = orderUpdateRow(b);
@@ -2077,8 +2080,9 @@
     'em133':'em133', '133':'em133', 'satec':'em133', 'סאטק':'em133',
     // לנדיס phrasings → the E360 family (mirrors the AI glossary in supabase/functions/parse-order)
     'לנדיס ישיר':'e360pp', 'ישיר לקו':'e360pp', 'חד פאזי':'e360sp', 'לנדיס חד':'e360sp', 'לנדיס תלת':'e360pp',
-    // "מונה משנ\"ז" (with the word מונה) → the E360CT meter; a bare "משנ\"ז 250" stays the physical CT product
-    'מונה משנה זרם':'e360ct', 'מונה משנז':'e360ct',
+    // "מונה משנ\"ז" (with the word מונה) → the E360CT meter; a bare "משנ\"ז 250" stays the physical CT product.
+    // 'משנה זרם' spelled out also → E360CT (e.g. "מונה תלת פאזי משנה זרם" — the words aren't adjacent).
+    'מונה משנה זרם':'e360ct', 'מונה משנז':'e360ct', 'משנה זרם':'e360ct',
     // Carlo Gavachi E341
     'carlo':'carlo', 'קרלו':'carlo', 'e341':'carlo', 'gavazzi':'carlo',
     // PM135 — SATEC CT/transformer meter (more specific than generic 'סאטק')
@@ -2218,15 +2222,35 @@
       }
       if (idx !== -1) {
         const q = intakeQtyNear(norm, idx);
+        // A "quantity" that is really a MODEL number ("מונה סאטק 133 משנז" → the 133) must not be
+        // trusted: known model numbers that also appear in the product's own name → qty 1, flagged.
+        if (!q.uncertain && /^(133|135|250|400|485|360)$/.test(String(q.value)) && normProd.replace(/[^0-9]/g, '').indexOf(String(q.value)) !== -1) {
+          q.value = 1; q.uncertain = true;
+        }
         items.push({ name: prodName, qty: q.value, uncertain: q.uncertain });
       }
     });
-    // Generic "מונה לנדיס" with no specific variant → default product מונה Landis+Gyr E360PP (business rule).
-    // Quantity taken from the number near the word "מונה/מונים" (e.g. "3 מונים ... לנדיס"), else near "לנדיס".
-    if (/לנדיס/.test(norm) && !items.some(it => /E360/i.test(it.name))) {
+    // Default-meter rule: the GENERAL default for meters is Landis E360PP — both "מונה לנדיס" with no
+    // variant AND a brand-less "מונים תלת פזי"/"מונים" request (Satec only when סאטק/133 is explicit).
+    // A CT (משנה-זרם) match alone doesn't suppress the default — one email often asks for both
+    // ("4 מונים תלת פזי" + "מונה משנה זרם" → 4×PP + 1×CT). Quantity from the number near "מונה/מונים".
+    const _genericMeterAsk = /לנדיס/.test(norm) ||
+      (/מונ/.test(norm) && !/סאטק|satec|133|קרלו|carlo|pm135|e341|חד פאזי|חד פזי/.test(norm));
+    if (_genericMeterAsk && !items.some(it => /E360PP|E360SP|E570|EM133|PM135|E341/i.test(it.name))) {
       const def = catalog.find(n => /E360PP/i.test(n));
       if (def) {
-        let anchor = norm.search(/מונ/); if (anchor === -1) anchor = norm.indexOf('לנדיס');
+        // qty anchor priority: a number-adjacent "מונ" after "סה"כ" (the explicit total beats the
+        // per-line partials) → any number-adjacent "מונ" → the first "מונ" → "לנדיס".
+        let firstAny = -1, firstNum = -1, totalNum = -1, at = -1;
+        const totalAt = norm.indexOf('סהכ');   // intakeNormalize strips the gershayim from סה"כ
+        while ((at = norm.indexOf('מונ', at + 1)) !== -1) {
+          if (firstAny === -1) firstAny = at;
+          if (!intakeQtyNear(norm, at).uncertain) {
+            if (firstNum === -1) firstNum = at;
+            if (totalAt !== -1 && at > totalAt && totalNum === -1) totalNum = at;
+          }
+        }
+        const anchor = totalNum !== -1 ? totalNum : (firstNum !== -1 ? firstNum : (firstAny !== -1 ? firstAny : norm.indexOf('לנדיס')));
         const q = intakeQtyNear(norm, anchor);
         items.push({ name: def, qty: q.value, uncertain: q.uncertain });
       }
@@ -2246,6 +2270,15 @@
     if (/משנז/.test(norm) && !/משני\s*זרם/.test(norm) && /em133|133/.test(norm)) {
       for (var _jj = items.length - 1; _jj >= 0; _jj--) {
         if (intakeNormalize(items[_jj].name) === intakeNormalize('Satec EM133')) items.splice(_jj, 1);
+      }
+    }
+    // The EM133-משנ"ז variant needs BOTH contexts in the text (סאטק/133 AND משנ"ז) — it shares the
+    // '133' alias with Satec EM133 and the 'משנז' token with the physical CTs, so either alone
+    // over-matches ("5 סאטק 133" / "2 משנז 250" must not pull it in).
+    if (!(/em133|133|סאטק|satec/.test(norm) && /משנז|משנה זרם/.test(norm))) {
+      for (var _kk = items.length - 1; _kk >= 0; _kk--) {
+        var _nk = intakeNormalize(items[_kk].name);
+        if (/em133/.test(_nk) && /משנז/.test(_nk)) items.splice(_kk, 1);
       }
     }
     // NOTE: accessory auto-add (controllers/SIM/antenna) is applied centrally in orderParseRaw AFTER parsing,
@@ -2548,26 +2581,29 @@
   async function approveCustomerOrder(o, btn) {
     var me = getCurrentUser();
     var kibbutz = orderKibbutz(o);
+    // עידן can hand the responsibility at creation → the EMS task is assigned to them and the stock
+    // leaves THEIR bag (they're the one physically supplying). Default: the approver, as before.
+    var responsible = o.assignee || me;
     var items = (o.items || []).filter(function (i) { return i.name && (parseInt(i.qty) || 0) > 0; });
     if (!items.length) { alert('אין פריטים בהזמנה.'); return; }
     if (!kibbutz) { alert('לא זוהה קיבוץ להזמנה — לא ניתן לאשר אספקת לקוח.'); return; }
-    if (!confirm('לאשר אספקת לקוח?\nירד מהמלאי של ' + me + ' → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS.')) return;
+    if (!confirm('לאשר אספקת לקוח?\nירד מהמלאי של ' + responsible + ' → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS' + (o.assignee ? ' באחריות ' + o.assignee : '') + '.')) return;
     setBtnLoading(btn, true);
     try {
-      // 1) stock: approver → kibbutz (deduct from his bag, credit the kibbutz).
+      // 1) stock: responsible → kibbutz (deduct from his bag, credit the kibbutz).
       // Idempotency: if a previous attempt posted the movements but failed before step 3, a re-click
       // must NOT deduct twice. ponytail: checked against SHEET_DATA (refreshes ≤15s) — a same-second
       // double-click is still covered by the disabled button; server-side unique refId if it ever bites.
       var alreadyMoved = (window.SHEET_DATA && window.SHEET_DATA.movements || []).some(function (m) { return m.refId === o.id && m.reason === 'customer_supply'; });
       if (!alreadyMoved) await Promise.all(items.map(function (it) {
         return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: me, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
+          body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: responsible, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
       }));
       // 2) EMS "אספקת ציוד" task — live if connected, else queued for the next connect (field staff rarely connect)
-      var desc = 'אספקת ציוד ל' + kibbutz + ' — אושר ע"י ' + me + '\n' + items.map(function (i) { return '• ' + i.name + ' ×' + i.qty; }).join('\n');
+      var desc = 'אספקת ציוד ל' + kibbutz + ' — אושר ע"י ' + me + (o.assignee ? ' · אחראי: ' + o.assignee : '') + '\n' + items.map(function (i) { return '• ' + i.name + ' ×' + i.qty; }).join('\n');
       var emsRes = {};
       if (typeof emsWriteOrQueue === 'function') {
-        emsRes = await emsWriteOrQueue({ kind: 'createTask', kibbutz: kibbutz, title: 'אספקת ציוד — ' + kibbutz, description: desc, assigneeName: me });
+        emsRes = await emsWriteOrQueue({ kind: 'createTask', kibbutz: kibbutz, title: 'אספקת ציוד — ' + kibbutz, description: desc, assigneeName: responsible });
         // sent live → refresh the shared cache so the new task shows on kibbutz cards NOW (not next session)
         if (emsRes && emsRes.sent && typeof emsAfterWrite === 'function') { try { await emsAfterWrite(); } catch (e2) {} }
       }
@@ -2716,7 +2752,8 @@
       const typeChip = isCust
         ? '<span style="font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:2px 7px;white-space:nowrap;">🧑‍🌾 לקוח</span>'
         : `<span style="font-size:10px;font-weight:700;color:#9a3412;background:#ffedd5;border-radius:8px;padding:2px 7px;white-space:nowrap;">🏭 ספק${orderNeedsAmichai(o) ? ' 10+' : ''}</span>`;
-      const who = isCust ? ('🧑‍🌾 ' + ((orderKibbutz(o) || 'לקוח').replace(/</g, '&lt;'))) : (o.supplier ? o.supplier.replace(/</g, '&lt;') : '—');
+      const who = (isCust ? ('🧑‍🌾 ' + ((orderKibbutz(o) || 'לקוח').replace(/</g, '&lt;'))) : (o.supplier ? o.supplier.replace(/</g, '&lt;') : '—'))
+        + (isCust && o.assignee ? '<div style="font-size:10px;color:#5b21b6;white-space:nowrap;">👤 אחראי: ' + String(o.assignee).replace(/</g, '&lt;') + '</div>' : '');
       // customer orders never enter the supplier pipeline (their terminal state is 'supplied' via approval)
       const quick = isCust ? null : getOrderQuickAction(o.status);
       const quickBtn = quick
@@ -2762,6 +2799,8 @@
     var isCust = t === 'customer';
     var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
     var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
+    // אחראי picker — customer orders, עידן only (he hands the supply responsibility; default = approver)
+    var aw = document.getElementById('invOrderAssigneeWrap'); if (aw) aw.style.display = (isCust && typeof getCurrentUser === 'function' && getCurrentUser() === 'עידן') ? '' : 'none';
     var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
     // customer orders never enter the supplier pipeline — hide those statuses in the edit picker
     // (otherwise setting 'delivered'+distribution would post INBOUND stock for goods that left)
@@ -2793,6 +2832,7 @@
     document.getElementById('invOrderStatusWrap').style.display = 'none';
     document.getElementById('invOrderNewStatusNote').style.display = '';
     var _ttr = document.querySelector('.inv-ordtype-row'); if (_ttr) _ttr.style.display = '';   // type toggle — new orders only
+    var _asg = document.getElementById('invOrderAssignee'); if (_asg) _asg.value = '';
     invPopulateOrderKibbutz('');
     invSetOrderType('supplier');   // default; controls supplier/kibbutz/raw-box visibility
     renderOrderItems();
@@ -2825,6 +2865,7 @@
     document.getElementById('invOrderStatusWrap').style.display = '';
     document.getElementById('invOrderNewStatusNote').style.display = 'none';
     var _ttr2 = document.querySelector('.inv-ordtype-row'); if (_ttr2) _ttr2.style.display = 'none';   // type is fixed on edit
+    var _asg2 = document.getElementById('invOrderAssignee'); if (_asg2) _asg2.value = o.assignee || '';
     invPopulateOrderKibbutz(orderKibbutz(o));
     invSetOrderType(orderType(o));
     renderOrderItems();
@@ -3238,6 +3279,10 @@
     };
     if (window.invEditingOrderId) body.id = window.invEditingOrderId;
     if (otype === 'customer' && okib) body.kibbutz = okib;
+    // אחראי (עידן's picker) — sent only when non-empty, so order saves keep working until
+    // db/orders_schedule_fields.sql adds the `assignee` column (setting one before that errors loudly).
+    var _asgVal = (document.getElementById('invOrderAssignee') || {}).value || '';
+    if (otype === 'customer' && _asgVal) body.assignee = _asgVal;
     if (status === 'delivered' && window.invDistribution) body.distribution = window.invDistribution;
 
     try {

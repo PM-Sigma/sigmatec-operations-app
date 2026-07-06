@@ -3,6 +3,17 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## 🔴 1.20 (on dev) — run SQL + redeploy parse-order + release
+1. **Run `db/orders_schedule_fields.sql`** (Supabase → SQL editor) — adds `orders.assignee` (+`due_date`),
+   additive one-liner. Confirmed NOT run yet (query → 42703). Without it, picking an אחראי on a customer
+   order fails loudly (orders without one keep working).
+2. **Redeploy `parse-order`** — new glossary: brand-less meters default to מונה Landis+Gyr E360PP; Satec
+   EM133 only on explicit סאטק/133; "מונה תלת-פאזי משנה זרם" → E360CT; one email may carry PP+CT lines.
+3. **Release `dev`→`main`** (`git fetch origin -q && git push origin origin/dev:main`).
+Context: real misparse of עידן's kibbutz email (4 מונים תלת פזי → came back Satec); learning loop verified
+(correction captured in `parse_corrections`). New עידן-only "אחראי על האספקה" picker: stock deducts from
+the assignee, EMS task assigned to them.
+
 ## ✅ RELEASED 2026-07-02 — 1.07–1.15 live on `main` (audit fix sweep)
 Migration `db/orders_type_kibbutz.sql` ran clean, `parse-order` + `ems-auth` redeployed, then
 `dev`→`main` ff (`83d4924`→`87cc656`). Bundle: P0 critical bugs (sbDelete `H`→`baseH`, customer-order

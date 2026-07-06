@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mr3cubfw">
+<link rel="stylesheet" href="css/app.css?v=mr8xatjw">
 </head>
 <body>
 <div class="container">
@@ -335,7 +335,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-02·1.16</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-06·1.20</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1047,6 +1047,18 @@
       <select id="invOrderKibbutz"><option value="">-- בחר קיבוץ --</option></select>
     </div>
 
+    <!-- עידן only: hand the supply responsibility to someone else — the EMS task opens assigned to them
+         and the stock deducts from THEIR bag on approval (default: the approver). -->
+    <div id="invOrderAssigneeWrap" style="display:none;">
+      <label for="invOrderAssignee">👤 אחראי על האספקה:</label>
+      <select id="invOrderAssignee">
+        <option value="">— המאשר (ברירת מחדל) —</option>
+        <option value="אביאם">אביאם</option>
+        <option value="ניתאי">ניתאי</option>
+        <option value="עמיחי">עמיחי</option>
+      </select>
+    </div>
+
     <label for="invOrderDate">📅 תאריך הזמנה:</label>
     <input type="date" id="invOrderDate">
 
@@ -1311,7 +1323,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mr3cubfw"></script>
+<script src="js/app.js?v=mr8xatjw"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
