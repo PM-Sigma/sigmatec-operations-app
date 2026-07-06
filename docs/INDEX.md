@@ -65,15 +65,14 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-06 (**1.16 LIVE on `main`; 1.20 on `dev`**).
+## 🚦 Current state — last: 2026-07-06 (**1.21 LIVE on `main`**).
 
-**🆕 1.20 (dev) — E360 default parsing rule + order assignee.** Business rule: brand-less meter asks
-default to **מונה Landis+Gyr E360PP** (Satec EM133 only when סאטק/133 explicit) — AI glossary + offline
-matcher both aligned after a real misparse; learning loop verified (the corrected email is in
-`parse_corrections`). New: **עידן + עמיחי can hand supply responsibility** on a customer order ("👤 אחראי
-על האספקה") — stock deducts from the assignee's bag, EMS task opens assigned to them (1.21 added עמיחי). **⚠️ עידן must:
-(1) run `db/orders_schedule_fields.sql` (adds `orders.assignee` — confirmed NOT run yet, 42703);
-(2) redeploy `parse-order`.** Then release dev→main.
+**✅ RELEASED 2026-07-06 (1.20+1.21) — E360 default parsing rule + order assignee.** `orders_schedule_fields.sql`
+ran (`orders.assignee` live, verified 200), `parse-order` redeployed, ff `c584261`→`3056380`. Business rule
+now live: brand-less meter asks default to **מונה Landis+Gyr E360PP** (Satec EM133 only when סאטק/133
+explicit) — AI glossary + offline matcher aligned after a real misparse; learning loop verified (corrected
+email captured in `parse_corrections`). **עידן + עמיחי** can hand supply responsibility on a customer order
+("👤 אחראי על האספקה") — stock deducts from the assignee's bag, EMS task opens assigned to them.
 
 **✅ RELEASED 2026-07-02 (two waves):** (1) audit fix sweep 1.07–1.15 — migration
 `db/orders_type_kibbutz.sql` ran clean, `parse-order`+`ems-auth` redeployed, ff `83d4924`→`87cc656`;
