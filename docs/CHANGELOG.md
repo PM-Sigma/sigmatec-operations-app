@@ -22,7 +22,7 @@ only when סאטק/133 is explicit; the GENERAL default for brand-less meters is
   now requires BOTH contexts (סאטק/133 AND משנז) so "5 סאטק 133"/"2 משנז 250" no longer pull it in;
   a leading model-number (133/250/400/485…) that appears in the product's own name is never trusted as
   a quantity. Verified in-browser: the real email → 4×PP(confident)+1×CT(flagged), all regression cases green.
-- **Order assignee (עידן only):** new "👤 אחראי על האספקה" picker on customer orders (אביאם/ניתאי/עמיחי,
+- **Order assignee (עידן + עמיחי — 1.21 widened the gate):** new "👤 אחראי על האספקה" picker on customer orders (אביאם/ניתאי/עמיחי,
   default = the approver). On approval: stock deducts from the **assignee's** bag (they physically supply)
   and the EMS task opens **assigned to them**; movement `createdBy` stays the approver; confirm text +
   task description show the assignee; orders list shows an "👤 אחראי" chip. Persisted via the `assignee`

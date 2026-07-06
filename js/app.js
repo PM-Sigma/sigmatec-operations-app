@@ -2799,8 +2799,8 @@
     var isCust = t === 'customer';
     var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
     var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
-    // אחראי picker — customer orders, עידן only (he hands the supply responsibility; default = approver)
-    var aw = document.getElementById('invOrderAssigneeWrap'); if (aw) aw.style.display = (isCust && typeof getCurrentUser === 'function' && getCurrentUser() === 'עידן') ? '' : 'none';
+    // אחראי picker — customer orders, עידן/עמיחי only (they hand the supply responsibility; default = approver)
+    var aw = document.getElementById('invOrderAssigneeWrap'); if (aw) aw.style.display = (isCust && typeof getCurrentUser === 'function' && ['עידן', 'עמיחי'].indexOf(getCurrentUser()) !== -1) ? '' : 'none';
     var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
     // customer orders never enter the supplier pipeline — hide those statuses in the edit picker
     // (otherwise setting 'delivered'+distribution would post INBOUND stock for goods that left)

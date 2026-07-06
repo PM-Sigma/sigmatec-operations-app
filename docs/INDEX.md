@@ -70,8 +70,8 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 **🆕 1.20 (dev) — E360 default parsing rule + order assignee.** Business rule: brand-less meter asks
 default to **מונה Landis+Gyr E360PP** (Satec EM133 only when סאטק/133 explicit) — AI glossary + offline
 matcher both aligned after a real misparse; learning loop verified (the corrected email is in
-`parse_corrections`). New: **עידן can hand supply responsibility** on a customer order ("👤 אחראי על
-האספקה") — stock deducts from the assignee's bag, EMS task opens assigned to them. **⚠️ עידן must:
+`parse_corrections`). New: **עידן + עמיחי can hand supply responsibility** on a customer order ("👤 אחראי
+על האספקה") — stock deducts from the assignee's bag, EMS task opens assigned to them (1.21 added עמיחי). **⚠️ עידן must:
 (1) run `db/orders_schedule_fields.sql` (adds `orders.assignee` — confirmed NOT run yet, 42703);
 (2) redeploy `parse-order`.** Then release dev→main.
 
