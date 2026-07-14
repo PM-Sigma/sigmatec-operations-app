@@ -65,7 +65,18 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-06 (**1.21 LIVE on `main`**).
+## 🚦 Current state — last: 2026-07-14 (**1.22 on `dev`** · 1.21 live on `main`).
+
+**🆕 1.22 (dev) — 🚚 delivery certificates (תעודות משלוח).** Branded, price-less PDF cert (like the
+iCount sample) issued from: visit form · saved visits (last-visit box/history) · visits-report picker ·
+EMS task detail (items parsed from "• name ×qty" description) · customer orders row. Editable preview
+modal → Supabase `delivery_certs` (own numbering from **1001**, immutable, NOT continuing iCount) →
+print window → native Save-as-PDF (RTL-safe, no libs; draft "טיוטה" when insert fails). Plus
+"📄 דוח תעודות משלוח" — range report grouped by kibbutz with per-item totals (for accounting's monthly
+copy). New `20-delivery-cert{,-logo}.js`, `deliveryCert` router type in `01-data.js`.
+**⚠️ Before release: run `db/delivery_certs.sql`**; seed `kibbutz_details` from the EMS `sites` table
+when DB access is available (see backlog — schema check needed first). Doc verified via headless-Edge
+print-to-PDF (single clean A4).
 
 **✅ RELEASED 2026-07-06 (1.20+1.21) — E360 default parsing rule + order assignee.** `orders_schedule_fields.sql`
 ran (`orders.assignee` live, verified 200), `parse-order` redeployed, ff `c584261`→`3056380`. Business rule

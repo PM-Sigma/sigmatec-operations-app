@@ -472,6 +472,9 @@
     const sbPatch = async (table, filter, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?' + filter, { method: 'PATCH', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase patch ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbInsert = async (table, rows) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(rows) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: baseH() }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
+    // insert that RETURNS the row (delivery_certs needs the server-assigned cert_number back)
+    const sbInsertRet = async (table, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(), { Prefer: 'return=representation' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); return (await r.json())[0]; };
+    window._sbCertGet = sbGet;   // read-only handle for the delivery-cert module (kibbutz_details + cert reports)
 
     // ---- READ: assemble the exact snapshot shape the app already consumes ----
     async function readSnapshot() {
@@ -622,6 +625,7 @@
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
           if (b.type === 'emsQueueClear') { const ids = (b.ids || []).map(x => '"' + String(x).replace(/"/g, '') + '"'); if (ids.length) await sbDelete('ems_queue?payload->>id=in.(' + ids.join(',') + ')'); return respond({ ok: true }); }
           if (b.type === 'parseCorrection') { await sbInsert('parse_corrections', [{ raw_text: b.rawText || '', items: b.items || [], created_by: b.createdBy || '' }]); return respond({ ok: true }); }
+          if (b.type === 'deliveryCert') { const c = b.cert || {}; const row = await sbInsertRet('delivery_certs', { cert_date: c.date || nowISO().slice(0, 10), kibbutz: c.kibbutz || '', customer: c.customer || {}, items: c.items || [], notes: c.notes || '', source: c.source || 'manual', ref_id: c.refId || '', created_by: b.createdBy || '' }); return respond({ ok: true, certNumber: row && row.cert_number, id: row && row.id }); }
           const w = W[b.type]; if (!w) return realFetch(url, opts);
           const parts = w(b); await sbUpsert(parts[0], parts[1], parts[2]); return respond({ ok: true, id: parts[3] });
         };

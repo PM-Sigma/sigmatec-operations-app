@@ -7,6 +7,32 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.22] 2026-07-14 — 🚚 delivery certificates (תעודות משלוח) [⚠️ needs db/delivery_certs.sql + kibbutz_details seeding]
+עידן's ask: issue a branded PDF delivery certificate (like the iCount sample, cert 6210) from anywhere
+equipment leaves — items + quantities, **no prices**, signature line, Sigmatec logo colors, editable
+before issuing. Own numbering series (explicitly NOT continuing iCount); accounting copies the data
+monthly, grouped by kibbutz.
+- **New module `js/src/20-delivery-cert.js`** (+`20-delivery-cert-logo.js` — the logo extracted from the
+  official PDF as a data URI). Flow: trigger → `openDeliveryCert(prefill)` editable modal (customer block,
+  date, item rows with catalog datalist, notes) → `issueDeliveryCert()` persists to Supabase
+  `delivery_certs` (running number from **1001**) → print window → browser-native **Save as PDF**
+  (RTL-safe, zero PDF libs; window opened synchronously so popup blockers don't bite). If the insert
+  fails (offline/sb=0/table missing) the cert is issued visibly as **טיוטה** without consuming a number.
+- **The document**: A4, brand circles (lime/teal/dark-teal) mirroring the sample, logo, company block
+  (ח.פ. 515923084 etc.), customer block, פירוט/כמות table, green "סה"כ פריטים" band, notes,
+  שם המקבל + חתימה lines, footer. Verified via headless-Edge print-to-PDF — single clean page.
+- **Trigger points (all prefilled):** visit form (checked products) · last-visit box + history rows (🚚,
+  shown only when the visit has items) · visits-report modal ("🚚 תעודת משלוח מביקור" picker of in-range
+  visits with items) · EMS task detail (items parsed from the "• name ×qty" description lines of
+  אספקת-ציוד tasks) · customer orders in the orders table (🚚 per row).
+- **Accounting report:** "📄 דוח תעודות משלוח" in the visits-report modal — issued certs in the chosen
+  range **grouped by kibbutz** with per-item totals per kibbutz, print/PDF via the same pathway.
+- **Data:** `db/delivery_certs.sql` (NOT yet run) — `delivery_certs` (immutable: insert-only RLS, anon
+  read) + `kibbutz_details` (kibbutz → legal name/ח.פ./address/contact; **to be seeded from the EMS
+  `sites` table** — needs a DB session with `SIGMATEC_DB_READONLY_PASSWORD`; until seeded the customer
+  block simply starts blank and is editable). Router: new `deliveryCert` write type in `01-data.js`
+  (gets the auth re-mint + 401-retry for free) + `window._sbCertGet` read handle.
+
 ## [1.20] 2026-07-06 — order parsing: E360 default rule + order assignee (עידן) [⚠️ needs parse-order redeploy + orders_schedule_fields.sql]
 Real misparse (עידן's kibbutz email, Groq path): "4 מונים תלת פזי + מונה תלת פאזי משנה זרם" returned
 4× Satec EM133 instead of 4× מונה Landis+Gyr E360PP + 1× E360CT. Business rule clarified: **Satec=EM133

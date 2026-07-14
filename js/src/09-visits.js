@@ -169,6 +169,8 @@
     content.textContent = lastVisitText(last);
     editBtn.style.display = last.id ? 'inline-block' : 'none';
     editBtn.dataset.visitId = last.id || '';
+    const certBtn = document.getElementById('certLastVisitBtn');
+    if (certBtn) certBtn.style.display = (last.id && (last.products || []).length) ? 'inline-block' : 'none';
 
     // Build history of older visits (up to 3 more)
     historyWrap.innerHTML = '';
@@ -182,7 +184,9 @@
         row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:4px 0;border-bottom:1px solid #a7f3d0;';
         const dt = new Date(v.date).toLocaleDateString('he-IL');
         row.innerHTML = `<span>📅 ${dt} · ⏱️ ${v.duration}ש · 👤 ${v.visitor || '—'}</span>` +
-          (v.id ? `<button onclick="editVisit('${v.id}')" style="background:#10b981;color:white;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">✏️ ערוך</button>` : '<span style="color:#94a3b8;font-size:10px;">— לא ניתן לערוך</span>');
+          (v.id ? `<span style="display:flex;gap:4px;">` +
+            ((v.products || []).length ? `<button onclick="certFromVisit('${v.id}')" style="background:#1b2a4a;color:white;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">🚚</button>` : '') +
+            `<button onclick="editVisit('${v.id}')" style="background:#10b981;color:white;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit;">✏️ ערוך</button></span>` : '<span style="color:#94a3b8;font-size:10px;">— לא ניתן לערוך</span>');
         historyWrap.appendChild(row);
       });
     }

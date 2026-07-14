@@ -707,7 +707,7 @@
         <td data-label="פריטים">${itemsStr || '—'}</td>
         <td data-label="נוצר ע&quot;י">${o.createdBy || '—'}</td>
         <td data-label="הערות" style="max-width:200px;font-size:11px;">${(o.notes || '').replace(/</g,'&lt;')}</td>
-        <td class="actions-cell" style="white-space:nowrap;text-align:left;">${approvalCell} ${quickBtn} ${stuckBtn} <button class="inv-btn small" onclick="invEditOrder('${o.id}')">✏️ ערוך</button></td>
+        <td class="actions-cell" style="white-space:nowrap;text-align:left;">${approvalCell} ${quickBtn} ${stuckBtn} ${isCust ? `<button class="inv-btn small" style="background:#1b2a4a;" onclick="certFromOrder('${o.id}')" title="תעודת משלוח">🚚</button>` : ''} <button class="inv-btn small" onclick="invEditOrder('${o.id}')">✏️ ערוך</button></td>
       </tr>`;
     });
     html += '</tbody></table>';
