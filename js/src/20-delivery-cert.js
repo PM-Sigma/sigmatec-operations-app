@@ -129,6 +129,8 @@
   }
 
   async function issueDeliveryCert(btn) {
+    // viewer = reports only; issuing consumes a cert number (a write) — blocked (the range report stays open to them)
+    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה — הפקת תעודות חדשות חסומה. דוח תעודות המשלוח זמין ממסך דוח הביקורים.'); return; }
     const cert = certCollect();
     if (!cert.items.length) { alert('אין פריטים בתעודה — הוסף לפחות פריט אחד.'); return; }
     if (!cert.customer.name) { alert('חסר שם לקוח.'); return; }
@@ -177,6 +179,9 @@
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1b2a4a; width: 210mm; height: 296mm; padding: 14mm 14mm 30mm; position: relative; overflow: hidden; }
   .bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
   .circ { position: absolute; border-radius: 50%; }
+  .ring { position: absolute; border-radius: 50%; background: none !important; }
+  .strip { position: absolute; left: 0; right: 0; background: linear-gradient(90deg, #175860 0%, #3fb4c4 45%, #a9c938 100%); }
+  .grad { background: linear-gradient(135deg, #2fb0c9 0%, #7fc93e 100%); }
   .content { position: relative; z-index: 1; }
   .logo { display: block; margin: 0 auto 4mm; width: 62mm; }
   h1 { font-size: 24px; margin: 8mm 0 1mm; }
@@ -195,12 +200,14 @@
   .foot { position: absolute; bottom: 8mm; right: 14mm; left: 14mm; font-size: 9.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 2mm; display: flex; justify-content: space-between; }
 </style></head><body>
   <div class="bg">
-    <div class="circ" style="width:65mm;height:65mm;background:#a9c938;top:-28mm;left:-20mm;opacity:.9;"></div>
-    <div class="circ" style="width:20mm;height:20mm;background:#3fb4c4;top:14mm;left:40mm;opacity:.85;"></div>
-    <div class="circ" style="width:10mm;height:10mm;background:#175860;top:30mm;left:30mm;"></div>
-    <div class="circ" style="width:22mm;height:22mm;background:#175860;top:-8mm;right:-8mm;"></div>
-    <div class="circ" style="width:12mm;height:12mm;background:#a9c938;bottom:-5mm;left:34mm;"></div>
-    <div class="circ" style="width:8mm;height:8mm;background:#3fb4c4;bottom:3mm;right:42mm;opacity:.8;"></div>
+    <div class="strip" style="top:0;height:3.5mm;"></div>
+    <div class="strip" style="bottom:0;height:2mm;"></div>
+    <div class="ring" style="width:34mm;height:34mm;border:1.4mm solid #a9c938;top:9mm;left:7mm;opacity:.55;"></div>
+    <div class="circ grad" style="width:19mm;height:19mm;top:17mm;left:22mm;opacity:.92;"></div>
+    <div class="circ" style="width:6.5mm;height:6.5mm;background:#175860;top:37mm;left:15mm;"></div>
+    <div class="ring" style="width:11mm;height:11mm;border:1mm solid #3fb4c4;top:11mm;right:10mm;opacity:.5;"></div>
+    <div class="circ grad" style="width:8mm;height:8mm;bottom:16mm;left:10mm;opacity:.8;"></div>
+    <div class="ring" style="width:5.5mm;height:5.5mm;border:.8mm solid #a9c938;bottom:23mm;left:21mm;opacity:.7;"></div>
   </div>
   <div class="content">
     <img class="logo" src="${CERT_LOGO}" alt="Sigmatec">

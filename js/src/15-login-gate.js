@@ -62,8 +62,9 @@
     } else if (typeof getEmsToken === 'function' && getEmsToken()) {
       sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
       restoreReturnPage();                                                                      // land back where we were before a re-login
-    } else {
+    } else if (typeof getRole !== 'function' || getRole() !== 'viewer') {
       // signed in before but the EMS connection is gone → lead them straight to re-login on open
+      // (viewer sessions have no EMS account by design — don't nag them with the EMS login)
       setTimeout(function () { if (typeof emsRequireLogin === 'function') emsRequireLogin(); }, 1000);
     }
     function restoreReturnPage() {
@@ -163,6 +164,27 @@
       if (!temp) { err.textContent = 'פג תוקף שלב האימות — התחבר מחדש'; return; }
       try { await emsProxyCall(url, '/v1/auth/resend-otp', 'POST', temp, {}); if (typeof emsToast === 'function') emsToast('📧 קוד חדש נשלח לאימייל'); }
       catch (e) { err.textContent = 'שגיאה בשליחת קוד: ' + e.message; }
+    };
+    // ---- view-only entry (no EMS account): reports + reading only, every write blocked (isViewer) ----
+    const VIEWER_PIN = '6210';   // change here to rotate the viewer access code
+    window.gateViewerToggle = function () {
+      const box = document.getElementById('gateViewerBox');
+      if (!box) return;
+      box.style.display = box.style.display === 'none' ? '' : 'none';
+      if (box.style.display !== 'none') setTimeout(function () { document.getElementById('gateViewerPin').focus(); }, 50);
+    };
+    window.gateViewerLogin = function () {
+      const err = document.getElementById('gateError');
+      const pin = (document.getElementById('gateViewerPin').value || '').trim();
+      if (pin !== VIEWER_PIN) { err.textContent = 'קוד צפייה שגוי'; return; }
+      localStorage.setItem(USER_KEY, 'צפייה');
+      localStorage.setItem(ROLE_KEY, 'viewer');
+      localStorage.setItem(AUTH_KEY, 'ok');
+      err.textContent = '';
+      if (typeof updateUserBadge === 'function') updateUserBadge();
+      hide();
+      // reload (like the EMS path) so every role-dependent element re-inits: FAB, nav, reminders
+      try { location.reload(); } catch (e) {}
     };
     window.gateLogout = function () {
       try { localStorage.removeItem(EMS_TOKEN_KEY); localStorage.removeItem(EMS_TOKEN_AT_KEY); } catch (e) {}

@@ -141,6 +141,10 @@
   function initVisitFabDrag() {
     var fab = document.getElementById('visitFab');
     if (!fab || fab._dragInit) return; fab._dragInit = true;
+    // initial-load visibility: same rule as showPage() — without this the FAB shows for every
+    // role (incl. viewer) until the first page switch re-runs the gate
+    var meF0 = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    if (['עמיחי', 'אביאם', 'ניתאי'].indexOf(meF0) === -1) fab.style.display = 'none';
     fab.style.touchAction = 'none';                          // don't scroll the page while dragging on touch
     var KEY = 'visit_fab_pos_v1';
     function place(x, y) {

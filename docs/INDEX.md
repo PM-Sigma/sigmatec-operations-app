@@ -65,7 +65,16 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-14 (**1.22 on `dev`** · 1.21 live on `main`).
+## 🚦 Current state — last: 2026-07-14 (**1.26 on `dev`** · 1.21 live on `main`).
+
+**🆕 1.26 (dev) — cert shapes redesign + 👁 viewer role.** `db/delivery_certs.sql` **RAN + verified**
+(numbering live on first issued cert; `kibbutz_details` seeding from EMS `sites` still pending — see
+backlog). Cert doc redesigned: gradient frame strips + ring/blob cluster (single-page verified).
+New **view-only user**: "👁 כניסה לצפייה בלבד" on the login gate (PIN `6210`, const in
+`15-login-gate.js`) → role `viewer` ("צפייה") — reads + attendance/visits/cert-range reports only
+(attendance person toggle opened to viewer); **all writes hard-blocked in the Supabase router**,
+cert issuing blocked, inventory/staff/dev/FAB hidden, no EMS-login nag. FAB init-gating fixed for
+all roles.
 
 **🆕 1.22 (dev) — 🚚 delivery certificates (תעודות משלוח).** Branded, price-less PDF cert (like the
 iCount sample) issued from: visit form · saved visits (last-visit box/history) · visits-report picker ·

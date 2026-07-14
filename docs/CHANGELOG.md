@@ -7,6 +7,26 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.26] 2026-07-14 — cert shapes redesign + 👁 view-only reports user (viewer role)
+עידן's follow-ups on 1.22: fresher shapes (text layout approved), DB setup finished, and a view-only
+user for internal reports (הנהלת חשבונות וכד') — no editing, only attendance/visits/cert reports.
+- **DB verified live:** עידן ran `db/delivery_certs.sql` — anon read 200 on both tables, anon insert
+  correctly rejected (42501) → numbering engages on the first cert issued from a logged-in session.
+  `kibbutz_details` seeding from the EMS `sites` table still pending (needs DB access — see backlog).
+- **Cert shapes redesign:** solid circles → brand **gradient frame strips** (top 3.5mm, bottom 2mm,
+  dark-teal→teal→lime), a **ring + gradient-blob cluster** top-left, small teal ring top-right, subtle
+  echo dots bottom-left (clear of the footer). Verified single-page via headless-Edge print-to-PDF.
+- **👁 Viewer role (`role='viewer'`, user "צפייה"):** new "כניסה לצפייה בלבד (הפקת דוחות)" entry on the
+  EMS login gate — PIN-based (const `VIEWER_PIN` in `15-login-gate.js`, currently **6210**), no EMS
+  account needed. Gets: kibbutz cards (read), visits report, **attendance reports incl. the
+  אביאם/ניתאי person toggle** (was isIdan-only), cert **range report**. Blocked: **every write** —
+  hard guard in the Supabase router (one chokepoint, toast "משתמש צפייה — אין הרשאת עריכה") +
+  `checkEditPermission()` false + **cert issuing blocked** (consumes a number; range report stays open).
+  Hidden: inventory/staff/dev navs, quick-visit FAB. Returning viewer is NOT nagged by the EMS
+  re-login modal. Badge shows 👁 + `user-viewer` body class.
+- **Fix (all roles):** the quick-visit FAB showed for everyone on initial load until the first page
+  switch re-ran the gate — now gated at init too (`initVisitFabDrag`).
+
 ## [1.22] 2026-07-14 — 🚚 delivery certificates (תעודות משלוח) [⚠️ needs db/delivery_certs.sql + kibbutz_details seeding]
 עידן's ask: issue a branded PDF delivery certificate (like the iCount sample, cert 6210) from anywhere
 equipment leaves — items + quantities, **no prices**, signature line, Sigmatec logo colors, editable

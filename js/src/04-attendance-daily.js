@@ -70,7 +70,7 @@
     // עידן may switch between people; field users see only themselves
     const toggle = document.getElementById('attPersonToggle');
     if (toggle) {
-      if (isIdan()) { toggle.style.display = 'flex';
+      if (isIdan() || (typeof isViewer === 'function' && isViewer())) { toggle.style.display = 'flex';
         toggle.innerHTML = ATT_PEOPLE.map(p => '<button class="day-type-btn ' + (p === who ? 'active' : '') + '" onclick="setAttPerson(\'' + p + '\')">' + p + '</button>').join('');
       } else { toggle.style.display = 'none'; }
     }

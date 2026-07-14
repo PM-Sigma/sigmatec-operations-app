@@ -608,6 +608,12 @@
         if (method === 'GET') return readSnapshot().then(respond).catch(e => { console.error('[supabase] read failed → falling back to Apps Script', e); return realFetch(url, opts); });
         let b = null; if (opts && opts.body) { try { b = JSON.parse(opts.body); } catch (e) {} }
         if (!b) return realFetch(url, opts);
+        // View-only role: HARD block on every write, in the one place all writes pass through.
+        // (UI buttons may still exist — this is the actual guard.)
+        if (typeof isViewer === 'function' && isViewer()) {
+          try { const t = document.getElementById('toast'); if (t) { t.textContent = '👁 משתמש צפייה — אין הרשאת עריכה'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); } } catch (e) {}
+          return respond({ ok: false, error: 'משתמש צפייה — אין הרשאת עריכה' });
+        }
         if (b.type === 'ems' || b.type === 'transcribe' || b.type === 'parseRequest') return realFetch(url, opts);  // live proxy + AI stay on Apps Script
         const run = async () => {
           // Writes need the AUTHENTICATED bridge pass (anon is read-only post-lockdown). If it lapsed,

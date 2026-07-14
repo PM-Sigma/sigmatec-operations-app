@@ -608,6 +608,12 @@
         if (method === 'GET') return readSnapshot().then(respond).catch(e => { console.error('[supabase] read failed → falling back to Apps Script', e); return realFetch(url, opts); });
         let b = null; if (opts && opts.body) { try { b = JSON.parse(opts.body); } catch (e) {} }
         if (!b) return realFetch(url, opts);
+        // View-only role: HARD block on every write, in the one place all writes pass through.
+        // (UI buttons may still exist — this is the actual guard.)
+        if (typeof isViewer === 'function' && isViewer()) {
+          try { const t = document.getElementById('toast'); if (t) { t.textContent = '👁 משתמש צפייה — אין הרשאת עריכה'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); } } catch (e) {}
+          return respond({ ok: false, error: 'משתמש צפייה — אין הרשאת עריכה' });
+        }
         if (b.type === 'ems' || b.type === 'transcribe' || b.type === 'parseRequest') return realFetch(url, opts);  // live proxy + AI stay on Apps Script
         const run = async () => {
           // Writes need the AUTHENTICATED bridge pass (anon is read-only post-lockdown). If it lapsed,
@@ -1227,6 +1233,10 @@
   function initVisitFabDrag() {
     var fab = document.getElementById('visitFab');
     if (!fab || fab._dragInit) return; fab._dragInit = true;
+    // initial-load visibility: same rule as showPage() — without this the FAB shows for every
+    // role (incl. viewer) until the first page switch re-runs the gate
+    var meF0 = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    if (['עמיחי', 'אביאם', 'ניתאי'].indexOf(meF0) === -1) fab.style.display = 'none';
     fab.style.touchAction = 'none';                          // don't scroll the page while dragging on touch
     var KEY = 'visit_fab_pos_v1';
     function place(x, y) {
@@ -1597,7 +1607,7 @@
     // עידן may switch between people; field users see only themselves
     const toggle = document.getElementById('attPersonToggle');
     if (toggle) {
-      if (isIdan()) { toggle.style.display = 'flex';
+      if (isIdan() || (typeof isViewer === 'function' && isViewer())) { toggle.style.display = 'flex';
         toggle.innerHTML = ATT_PEOPLE.map(p => '<button class="day-type-btn ' + (p === who ? 'active' : '') + '" onclick="setAttPerson(\'' + p + '\')">' + p + '</button>').join('');
       } else { toggle.style.display = 'none'; }
     }
@@ -1819,7 +1829,10 @@
     btn.style.color = isMeetingMode() ? 'white' : '';
   }
   // Always permits edit — meeting mode is now a personal boost, not a lock.
-  function checkEditPermission() { return true; }
+  function checkEditPermission() {
+    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה — אין הרשאת עריכה (דוחות בלבד)'); return false; }
+    return true;
+  }
 
   // Lock editorName + visitor to the current user for everyone except Idan.
   // Idan can pick any name from the dropdowns.
@@ -5276,6 +5289,9 @@
   function getRole()        { return localStorage.getItem(ROLE_KEY) || ''; }
   // Trustworthy elevated check — only a device that entered Idan's PIN is 'idan'.
   function isIdan()         { return getRole() === 'idan' && getCurrentUser() === 'עידן'; }
+  // View-only reports user (הנהלת חשבונות וכד') — reads + report generation only, every write blocked.
+  function isViewer()       { return getRole() === 'viewer'; }
+  window.isViewer = isViewer;
   // Who may use the EMS tab (view tasks + act: status/comment/edit/create, visit→EMS).
   // Each connects with their OWN EMS account; tab is gated by name. עידן also has the
   // Idan-only powers (approvals/attendance) — those stay on isIdan(), not this list.
@@ -5308,12 +5324,13 @@
     const badge = document.getElementById('userBadge');
     if (!badge) return;
     const user = getCurrentUser();
-    badge.textContent = user ? `👤 ${user}` : '👤 לא מחובר';
+    badge.textContent = user ? (isViewer() ? `👁 ${user}` : `👤 ${user}`) : '👤 לא מחובר';
     document.body.classList.toggle('user-idan', isIdan());
+    document.body.classList.toggle('user-viewer', isViewer());
   }
   // Aviam's attendance report is private — only Aviam (and Idan, who sees all) may open it.
   const ATT_PEOPLE = ['אביאם', 'ניתאי'];   // each has their OWN private monthly attendance report
-  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1 || getCurrentUser() === 'עמיחי'; }   // עידן removed; עמיחי (CEO) sees all
+  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1 || getCurrentUser() === 'עמיחי' || isViewer(); }   // עידן removed; עמיחי (CEO) sees all; viewer = reports-only access
   // Whose attendance the report shows / a save writes: the field user themself; for עידן a toggle.
   function attPerson() { const u = getCurrentUser(); return ATT_PEOPLE.indexOf(u) !== -1 ? u : (window._attPerson || 'אביאם'); }
   function setAttPerson(p) { window._attPerson = p; renderAttendanceReport(); }
@@ -5324,8 +5341,8 @@
     if (ems) ems.style.display = 'none';
     const staff = document.getElementById('navStaff');   // עידן + עמיחי only
     if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
-    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory
-    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
+    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory; viewer = reports only
+    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה' && !isViewer()) ? '' : 'none';
     const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
     if (mb) mb.style.display = isIdan() ? '' : 'none';
     const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי only
@@ -6899,8 +6916,9 @@
     } else if (typeof getEmsToken === 'function' && getEmsToken()) {
       sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
       restoreReturnPage();                                                                      // land back where we were before a re-login
-    } else {
+    } else if (typeof getRole !== 'function' || getRole() !== 'viewer') {
       // signed in before but the EMS connection is gone → lead them straight to re-login on open
+      // (viewer sessions have no EMS account by design — don't nag them with the EMS login)
       setTimeout(function () { if (typeof emsRequireLogin === 'function') emsRequireLogin(); }, 1000);
     }
     function restoreReturnPage() {
@@ -7000,6 +7018,27 @@
       if (!temp) { err.textContent = 'פג תוקף שלב האימות — התחבר מחדש'; return; }
       try { await emsProxyCall(url, '/v1/auth/resend-otp', 'POST', temp, {}); if (typeof emsToast === 'function') emsToast('📧 קוד חדש נשלח לאימייל'); }
       catch (e) { err.textContent = 'שגיאה בשליחת קוד: ' + e.message; }
+    };
+    // ---- view-only entry (no EMS account): reports + reading only, every write blocked (isViewer) ----
+    const VIEWER_PIN = '6210';   // change here to rotate the viewer access code
+    window.gateViewerToggle = function () {
+      const box = document.getElementById('gateViewerBox');
+      if (!box) return;
+      box.style.display = box.style.display === 'none' ? '' : 'none';
+      if (box.style.display !== 'none') setTimeout(function () { document.getElementById('gateViewerPin').focus(); }, 50);
+    };
+    window.gateViewerLogin = function () {
+      const err = document.getElementById('gateError');
+      const pin = (document.getElementById('gateViewerPin').value || '').trim();
+      if (pin !== VIEWER_PIN) { err.textContent = 'קוד צפייה שגוי'; return; }
+      localStorage.setItem(USER_KEY, 'צפייה');
+      localStorage.setItem(ROLE_KEY, 'viewer');
+      localStorage.setItem(AUTH_KEY, 'ok');
+      err.textContent = '';
+      if (typeof updateUserBadge === 'function') updateUserBadge();
+      hide();
+      // reload (like the EMS path) so every role-dependent element re-inits: FAB, nav, reminders
+      try { location.reload(); } catch (e) {}
     };
     window.gateLogout = function () {
       try { localStorage.removeItem(EMS_TOKEN_KEY); localStorage.removeItem(EMS_TOKEN_AT_KEY); } catch (e) {}
@@ -8194,6 +8233,8 @@
   }
 
   async function issueDeliveryCert(btn) {
+    // viewer = reports only; issuing consumes a cert number (a write) — blocked (the range report stays open to them)
+    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה — הפקת תעודות חדשות חסומה. דוח תעודות המשלוח זמין ממסך דוח הביקורים.'); return; }
     const cert = certCollect();
     if (!cert.items.length) { alert('אין פריטים בתעודה — הוסף לפחות פריט אחד.'); return; }
     if (!cert.customer.name) { alert('חסר שם לקוח.'); return; }
@@ -8242,6 +8283,9 @@
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1b2a4a; width: 210mm; height: 296mm; padding: 14mm 14mm 30mm; position: relative; overflow: hidden; }
   .bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
   .circ { position: absolute; border-radius: 50%; }
+  .ring { position: absolute; border-radius: 50%; background: none !important; }
+  .strip { position: absolute; left: 0; right: 0; background: linear-gradient(90deg, #175860 0%, #3fb4c4 45%, #a9c938 100%); }
+  .grad { background: linear-gradient(135deg, #2fb0c9 0%, #7fc93e 100%); }
   .content { position: relative; z-index: 1; }
   .logo { display: block; margin: 0 auto 4mm; width: 62mm; }
   h1 { font-size: 24px; margin: 8mm 0 1mm; }
@@ -8260,12 +8304,14 @@
   .foot { position: absolute; bottom: 8mm; right: 14mm; left: 14mm; font-size: 9.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 2mm; display: flex; justify-content: space-between; }
 </style></head><body>
   <div class="bg">
-    <div class="circ" style="width:65mm;height:65mm;background:#a9c938;top:-28mm;left:-20mm;opacity:.9;"></div>
-    <div class="circ" style="width:20mm;height:20mm;background:#3fb4c4;top:14mm;left:40mm;opacity:.85;"></div>
-    <div class="circ" style="width:10mm;height:10mm;background:#175860;top:30mm;left:30mm;"></div>
-    <div class="circ" style="width:22mm;height:22mm;background:#175860;top:-8mm;right:-8mm;"></div>
-    <div class="circ" style="width:12mm;height:12mm;background:#a9c938;bottom:-5mm;left:34mm;"></div>
-    <div class="circ" style="width:8mm;height:8mm;background:#3fb4c4;bottom:3mm;right:42mm;opacity:.8;"></div>
+    <div class="strip" style="top:0;height:3.5mm;"></div>
+    <div class="strip" style="bottom:0;height:2mm;"></div>
+    <div class="ring" style="width:34mm;height:34mm;border:1.4mm solid #a9c938;top:9mm;left:7mm;opacity:.55;"></div>
+    <div class="circ grad" style="width:19mm;height:19mm;top:17mm;left:22mm;opacity:.92;"></div>
+    <div class="circ" style="width:6.5mm;height:6.5mm;background:#175860;top:37mm;left:15mm;"></div>
+    <div class="ring" style="width:11mm;height:11mm;border:1mm solid #3fb4c4;top:11mm;right:10mm;opacity:.5;"></div>
+    <div class="circ grad" style="width:8mm;height:8mm;bottom:16mm;left:10mm;opacity:.8;"></div>
+    <div class="ring" style="width:5.5mm;height:5.5mm;border:.8mm solid #a9c938;bottom:23mm;left:21mm;opacity:.7;"></div>
   </div>
   <div class="content">
     <img class="logo" src="${CERT_LOGO}" alt="Sigmatec">

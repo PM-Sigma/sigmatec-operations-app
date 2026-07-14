@@ -25,7 +25,10 @@
     btn.style.color = isMeetingMode() ? 'white' : '';
   }
   // Always permits edit — meeting mode is now a personal boost, not a lock.
-  function checkEditPermission() { return true; }
+  function checkEditPermission() {
+    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה — אין הרשאת עריכה (דוחות בלבד)'); return false; }
+    return true;
+  }
 
   // Lock editorName + visitor to the current user for everyone except Idan.
   // Idan can pick any name from the dropdowns.

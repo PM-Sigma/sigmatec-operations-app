@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrkizejv">
+<link rel="stylesheet" href="css/app.css?v=mrkpyig3">
 </head>
 <body>
 <div class="container">
@@ -335,7 +335,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-14·1.23</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-14·1.26</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1328,10 +1328,18 @@
       <button onclick="gateVerifyOtp()" class="btn btn-primary" style="width:100%;padding:10px;margin-top:10px;">✅ אמת קוד והתחבר</button>
       <button onclick="gateResendOtp()" class="btn btn-secondary" style="width:100%;padding:8px;margin-top:6px;font-size:12px;">🔁 שלח קוד שוב</button>
     </div>
+    <button onclick="gateViewerToggle()" style="background:none;border:none;color:#64748b;font-size:12px;font-family:inherit;cursor:pointer;margin-top:14px;text-decoration:underline;">👁 כניסה לצפייה בלבד (הפקת דוחות)</button>
+    <div id="gateViewerBox" style="display:none;margin-top:10px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+      <div style="font-size:12px;color:#475569;margin-bottom:8px;">גישה לצפייה והפקת דוחות בלבד — ללא יכולת עריכה. הזן קוד צפייה:</div>
+      <input type="password" id="gateViewerPin" inputmode="numeric" placeholder="קוד צפייה"
+        style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;font-family:inherit;letter-spacing:3px;text-align:center;box-sizing:border-box;"
+        onkeydown="if(event.key==='Enter')gateViewerLogin()">
+      <button onclick="gateViewerLogin()" class="btn btn-secondary" style="width:100%;padding:10px;margin-top:8px;">👁 כניסה לצפייה</button>
+    </div>
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrkizejv"></script>
+<script src="js/app.js?v=mrkpyig3"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

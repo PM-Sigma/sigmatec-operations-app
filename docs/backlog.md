@@ -3,13 +3,12 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
-## 🔴 Run SQL — `db/delivery_certs.sql` (1.22, on dev) + seed `kibbutz_details`
-**Action 1:** run `db/delivery_certs.sql` in the Supabase SQL editor — creates `delivery_certs`
-(running cert number from 1001, insert-only) + `kibbutz_details`. Until it runs, certs issue as
-**טיוטה** (no number) — everything else works.
-**Action 2 (when EMS DB access is available — hotspot/VPN + `SIGMATEC_DB_READONLY_PASSWORD`):** pull
-customer details from the EMS `sites` table and upsert into `kibbutz_details`. ⚠️ the documented `sites`
-schema only shows `id, name` — first check what detail columns actually exist
+## 🟡 Seed `kibbutz_details` from the EMS `sites` table (delivery-cert customer block)
+✅ `db/delivery_certs.sql` RAN (2026-07-14, verified: anon read 200, anon insert RLS-rejected) —
+numbering live from the first issued cert.
+**Remaining (when EMS DB access is available — hotspot/VPN + `SIGMATEC_DB_READONLY_PASSWORD` set):**
+pull customer details from the EMS `sites` table and upsert into `kibbutz_details`. ⚠️ the documented
+`sites` schema only shows `id, name` — first check what detail columns actually exist
 (`SELECT column_name FROM information_schema.columns WHERE table_name='sites'`); if the ח.פ./address
 live elsewhere, עידן to point at the right source. Until seeded, the cert's customer block starts blank
 (editable per cert).

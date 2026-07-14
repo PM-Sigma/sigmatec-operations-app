@@ -121,6 +121,9 @@
   function getRole()        { return localStorage.getItem(ROLE_KEY) || ''; }
   // Trustworthy elevated check — only a device that entered Idan's PIN is 'idan'.
   function isIdan()         { return getRole() === 'idan' && getCurrentUser() === 'עידן'; }
+  // View-only reports user (הנהלת חשבונות וכד') — reads + report generation only, every write blocked.
+  function isViewer()       { return getRole() === 'viewer'; }
+  window.isViewer = isViewer;
   // Who may use the EMS tab (view tasks + act: status/comment/edit/create, visit→EMS).
   // Each connects with their OWN EMS account; tab is gated by name. עידן also has the
   // Idan-only powers (approvals/attendance) — those stay on isIdan(), not this list.
@@ -153,12 +156,13 @@
     const badge = document.getElementById('userBadge');
     if (!badge) return;
     const user = getCurrentUser();
-    badge.textContent = user ? `👤 ${user}` : '👤 לא מחובר';
+    badge.textContent = user ? (isViewer() ? `👁 ${user}` : `👤 ${user}`) : '👤 לא מחובר';
     document.body.classList.toggle('user-idan', isIdan());
+    document.body.classList.toggle('user-viewer', isViewer());
   }
   // Aviam's attendance report is private — only Aviam (and Idan, who sees all) may open it.
   const ATT_PEOPLE = ['אביאם', 'ניתאי'];   // each has their OWN private monthly attendance report
-  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1 || getCurrentUser() === 'עמיחי'; }   // עידן removed; עמיחי (CEO) sees all
+  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1 || getCurrentUser() === 'עמיחי' || isViewer(); }   // עידן removed; עמיחי (CEO) sees all; viewer = reports-only access
   // Whose attendance the report shows / a save writes: the field user themself; for עידן a toggle.
   function attPerson() { const u = getCurrentUser(); return ATT_PEOPLE.indexOf(u) !== -1 ? u : (window._attPerson || 'אביאם'); }
   function setAttPerson(p) { window._attPerson = p; renderAttendanceReport(); }
@@ -169,8 +173,8 @@
     if (ems) ems.style.display = 'none';
     const staff = document.getElementById('navStaff');   // עידן + עמיחי only
     if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
-    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory
-    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
+    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory; viewer = reports only
+    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה' && !isViewer()) ? '' : 'none';
     const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
     if (mb) mb.style.display = isIdan() ? '' : 'none';
     const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי only
