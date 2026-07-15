@@ -65,7 +65,13 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-15 (**1.37 on `dev`** · 1.21 live on `main`).
+## 🚦 Current state — last: 2026-07-15 (**1.38 RELEASED — main = dev**).
+
+**✅ RELEASED 2026-07-15 — the entire delivery-certs epic (1.22–1.38) is LIVE on `main`.** Viewer v2
+(attendance-all toggle, read-only inventory+certs, 📄 סיכום חודשי in the certs tab), full cert flow
+(issue/edit/sign/cancel-reissue/share/preview/view-link), Drive ETL live (monthly trigger installed,
+proven end-to-end), all DB migrations + seeds applied via Supabase MCP, numbering clean at 1001.
+131 automated checks green. Model split in force: planning Fable · implementation Sonnet · testing Opus.
 
 **🆕 1.37 (dev) — DB setup DONE via Supabase MCP + monthly Drive ETL — ✅ ETL LIVE (2026-07-15 19:00).**
 All 4 cert migrations applied + site_contacts seeded (64/37, PII sealed) + sequence reset to **1001**

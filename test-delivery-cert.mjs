@@ -35,7 +35,9 @@ const elements = {};
   'certSendModal',
   // certOverlayShow's DOM — pre-registering certViewOverlay makes it take the "reuse existing
   // overlay" path (skip createElement/appendChild) so the other four stubs are the ones it drives.
-  'certViewOverlay', 'certOvFrame', 'certOvPrint', 'certOvSend', 'certOvDrive'].forEach(id => { elements[id] = makeEl(); });
+  'certViewOverlay', 'certOvFrame', 'certOvPrint', 'certOvSend', 'certOvDrive',
+  // certRangeReport() (visits-report picker date filters) reads these two.
+  'visitsReportFrom', 'visitsReportTo'].forEach(id => { elements[id] = makeEl(); });
 // the certs tab is "open" for invRenderCerts's active-tab guard (force=true bypasses it anyway, but keep it realistic)
 elements['inv-section-certs'].classList.contains = (c) => c === 'active';
 // certSendOpen()'s "modal already exists" branch — pre-registering it means the module skips
@@ -107,6 +109,12 @@ const DELIVERY_CERT_ROWS = [{
 let confirmReturn = true;
 const confirm_ = () => confirmReturn;
 
+// The module references a bare `isViewer` global (issueDeliveryCert gate + invRenderCerts action
+// cell). It's supplied as a Function param so tests can flip roles: isViewer_ reads viewerReturn
+// live, so the SHARED `mod` instance switches role just by toggling viewerReturn.
+let viewerReturn = false;
+const isViewer_ = () => viewerReturn;
+
 // overrides — {window, document, fetch, location, SB_URL, SB_ANON, emsWriteOrQueue}: used by the
 // ?cert route-guard test to eval a SEPARATE module instance against its own stubs (the route's
 // top-level IIFE runs once at eval time against whatever `location` it's given). Every other test
@@ -115,14 +123,14 @@ function runModule(overrides) {
   overrides = overrides || {};
   const fn = new Function(
     'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
-    'location', 'SB_URL', 'SB_ANON', 'emsWriteOrQueue',
+    'location', 'SB_URL', 'SB_ANON', 'emsWriteOrQueue', 'isViewer',
     certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, certView, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
   );
   return fn(
     overrides.window || window_, overrides.document || document_, overrides.fetch || fetch_, 'http://sheet.test',
     () => 'עידן', () => {}, (msg) => alerts.push(msg), confirm_, console,
     overrides.location || location_, overrides.SB_URL || 'https://sb.test', overrides.SB_ANON || 'anonkey',
-    overrides.emsWriteOrQueue || emsWriteOrQueue_
+    overrides.emsWriteOrQueue || emsWriteOrQueue_, overrides.isViewer || isViewer_
   );
 }
 
@@ -569,6 +577,99 @@ if (mod) {
       assert.ok(activeRowHtml.includes('הפק מתוקנת'), 'active row should show the reissue button');
       assert.ok(activeRowHtml.includes('>🚫 בטל<'), 'active row should show the cancel button');
     });
+  });
+
+  // ---- 12b. VIEWER-mode invRenderCerts action cell: 👁 הצג (+📁 when drive_url) ONLY —
+  // no 📤 send, no 📝 הפק מתוקנת, no 🚫 בטל. Non-viewer keeps the full action set (regression). ----
+  await0(async () => {
+    const VW_ROWS = [
+      { id: 'vw1', cert_number: 5001, cert_date: '2026-07-05', kibbutz: 'שדה אליהו', customer: { name: 'לקוח צופה' },
+        items: [{ name: 'אנטנה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'active',
+        drive_url: 'https://drive.google.com/file/d/xyz/view' },
+      { id: 'vw2', cert_number: 5002, cert_date: '2026-07-06', kibbutz: 'שדה אליהו', customer: { name: 'לקוח מבוטל' },
+        items: [{ name: 'מונה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'cancelled', replaced_by: 5003 }
+    ];
+    const originalSbCertGet = window_._sbCertGet;
+    window_._sbCertGet = async (query) => query.indexOf('delivery_certs') !== -1 ? VW_ROWS : [];
+    elements.invCertsSearch.value = '';
+
+    viewerReturn = true;
+    await window_.invRenderCerts(true);
+    const vwHtml = elements['invCertsList'].innerHTML;
+    const vwChunks = vwHtml.split('</tr>');
+    const vwActiveRow = vwChunks.find(r => r.includes('5001')) || '';
+
+    check('invRenderCerts (viewer): active row shows 👁 הצג', () => {
+      assert.ok(vwActiveRow.includes('👁 הצג'), 'viewer active row must keep the view button');
+    });
+    check('invRenderCerts (viewer): active row hides 📤 / 📝 הפק מתוקנת / 🚫 בטל', () => {
+      assert.ok(!vwActiveRow.includes('📤'), 'viewer must not see the send button');
+      assert.ok(!vwActiveRow.includes('הפק מתוקנת'), 'viewer must not see the reissue button');
+      assert.ok(!vwActiveRow.includes('>🚫 בטל<'), 'viewer must not see the cancel button');
+    });
+    check('invRenderCerts (viewer): a drive_url row still renders the 📁 button', () => {
+      assert.ok(vwActiveRow.includes('📁'), 'viewer should still get the Drive-copy link when drive_url is present');
+    });
+
+    // now the SAME rows as a non-viewer — the full action set must reappear (regression)
+    viewerReturn = false;
+    await window_.invRenderCerts(true);
+    const nvHtml = elements['invCertsList'].innerHTML;
+    const nvActiveRow = (nvHtml.split('</tr>').find(r => r.includes('5001'))) || '';
+    check('invRenderCerts (non-viewer): active row DOES show 📤 / הפק מתוקנת / 🚫 בטל', () => {
+      assert.ok(nvActiveRow.includes('📤'), 'non-viewer active row should show the send button');
+      assert.ok(nvActiveRow.includes('הפק מתוקנת'), 'non-viewer active row should show the reissue button');
+      assert.ok(nvActiveRow.includes('>🚫 בטל<'), 'non-viewer active row should show the cancel button');
+    });
+
+    window_._sbCertGet = originalSbCertGet;
+    viewerReturn = false;
+  });
+
+  // ---- 12c. certMonthlyFromTab / certRangeReport range plumbing (refactor to certRangeReportRange) ----
+  await0(async () => {
+    // capture the delivery_certs query the report issues (window.open + _sbCertGet are already stubbed)
+    let lastCertQuery = null;
+    const originalSbCertGet = window_._sbCertGet;
+    window_._sbCertGet = async (q) => { lastCertQuery = q; return []; };   // resolve [] → success path, never touches w.document.body
+
+    // (i) explicit invCertsFrom/To → the report carries exactly those dates
+    elements.invCertsFrom.value = '2026-03-01';
+    elements.invCertsTo.value = '2026-03-31';
+    openedWindows.length = 0;
+    await window_.certMonthlyFromTab();
+    check('certMonthlyFromTab: uses invCertsFrom/To in the delivery_certs query', () => {
+      assert.ok(lastCertQuery, 'expected a _sbCertGet call');
+      assert.ok(lastCertQuery.includes('cert_date=gte.2026-03-01'), 'expected gte.<from> in query: ' + lastCertQuery);
+      assert.ok(lastCertQuery.includes('cert_date=lte.2026-03-31'), 'expected lte.<to> in query: ' + lastCertQuery);
+    });
+    check('certMonthlyFromTab: opens a print window for the report', () => {
+      assert.ok(openedWindows.length >= 1, 'expected a report window to open');
+    });
+
+    // (ii) EMPTY invCertsFrom → default from = first-of-current-month (harness date is 2026-07-15)
+    const now = new Date();
+    const expectFrom = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+    elements.invCertsFrom.value = '';
+    elements.invCertsTo.value = '';
+    lastCertQuery = null;
+    await window_.certMonthlyFromTab();
+    check('certMonthlyFromTab: empty invCertsFrom defaults to the first of the current month', () => {
+      assert.ok(lastCertQuery.includes('cert_date=gte.' + expectFrom),
+        'expected gte.' + expectFrom + ' (first-of-month default) in query: ' + lastCertQuery);
+    });
+
+    // (iii) certRangeReport wrapper still reads visitsReportFrom/To (regression after the refactor)
+    elements.visitsReportFrom.value = '2026-01-10';
+    elements.visitsReportTo.value = '2026-01-20';
+    lastCertQuery = null;
+    await window_.certRangeReport();
+    check('certRangeReport wrapper: query carries visitsReportFrom/To dates', () => {
+      assert.ok(lastCertQuery.includes('cert_date=gte.2026-01-10'), 'expected gte from visitsReportFrom: ' + lastCertQuery);
+      assert.ok(lastCertQuery.includes('cert_date=lte.2026-01-20'), 'expected lte from visitsReportTo: ' + lastCertQuery);
+    });
+
+    window_._sbCertGet = originalSbCertGet;
   });
 
   // ---- 13. certShareText — the message body used for both email and WhatsApp shares ----

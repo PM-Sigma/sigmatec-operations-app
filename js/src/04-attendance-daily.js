@@ -71,7 +71,8 @@
     const toggle = document.getElementById('attPersonToggle');
     if (toggle) {
       if (isIdan() || (typeof isViewer === 'function' && isViewer())) { toggle.style.display = 'flex';
-        toggle.innerHTML = ATT_PEOPLE.map(p => '<button class="day-type-btn ' + (p === who ? 'active' : '') + '" onclick="setAttPerson(\'' + p + '\')">' + p + '</button>').join('');
+        const people = Array.from(new Set(ATT_PEOPLE.concat(((window.SHEET_DATA && window.SHEET_DATA.attendance) || []).map(a => a.person).filter(Boolean)))).sort((a, b) => a.localeCompare(b, 'he'));
+        toggle.innerHTML = people.map(p => '<button class="day-type-btn ' + (p === who ? 'active' : '') + '" onclick="setAttPerson(\'' + p + '\')">' + p + '</button>').join('');
       } else { toggle.style.display = 'none'; }
     }
 

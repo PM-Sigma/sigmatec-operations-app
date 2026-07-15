@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrm8r6e7">
+<link rel="stylesheet" href="css/app.css?v=mrm9w4dn">
 </head>
 <body>
 <div class="container">
@@ -335,7 +335,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-15·1.37</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-15·1.38</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -358,6 +358,7 @@
           <label style="margin:0;font-size:12px;">עד: <input type="date" id="invCertsTo" onchange="invRenderCerts(true)"></label>
           <input type="text" id="invCertsSearch" placeholder="🔍 קיבוץ / לקוח / מס' תעודה" style="flex:1;min-width:160px;" oninput="invRenderCerts(true)">
           <button class="inv-btn small" onclick="invRenderCerts(true)">🔄 רענן</button>
+          <button class="inv-btn small" style="background:#0e7490;" onclick="certMonthlyFromTab()" title="טבלת סיכום לפי קיבוץ — מה נופק, כמויות לפי פריט">📄 סיכום חודשי</button>
         </div>
         <div id="invCertsList"></div>
       </div>
@@ -1353,7 +1354,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrm8r6e7"></script>
+<script src="js/app.js?v=mrm9w4dn"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

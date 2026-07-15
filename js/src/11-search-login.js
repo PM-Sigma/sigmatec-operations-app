@@ -173,8 +173,8 @@
     if (ems) ems.style.display = 'none';
     const staff = document.getElementById('navStaff');   // עידן + עמיחי only
     if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
-    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory; viewer = reports only
-    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה' && !isViewer()) ? '' : 'none';
+    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory; viewer gets read-only inventory (certs registry + stock views; writes stay blocked at the router)
+    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
     const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
     if (mb) mb.style.display = isIdan() ? '' : 'none';
     const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי only

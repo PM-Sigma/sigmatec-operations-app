@@ -544,6 +544,7 @@
     const q = (document.getElementById('invCertsSearch').value || '').trim();
     const rows = q ? _certRows.filter(c => (c.kibbutz || '').includes(q) || ((c.customer || {}).name || '').includes(q) || String(c.cert_number).includes(q)) : _certRows;
     const srcLabel = { visit: '📍 ביקור', order: '🧾 הזמנה', ems: '🔧 משימת EMS', manual: '✍️ ידני' };
+    const vw = typeof isViewer === 'function' && isViewer();
     if (!rows.length) { root.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;">אין תעודות בטווח/בחיפוש</div>'; return; }
     root.innerHTML = '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>מס\'</th><th>תאריך</th><th>לקוח</th><th>פריטים</th><th>מקור</th><th>הופק ע"י</th><th>חתימה</th><th style="text-align:left;">פעולות</th></tr></thead><tbody>' +
       rows.map(c => {
@@ -560,8 +561,8 @@
         <td class="actions-cell" style="white-space:nowrap;text-align:left;">
           <button class="inv-btn small" onclick="certView('${idArg}')" title="תצוגה מקדימה — בלי להוריד; הדפסה מתוך התצוגה">👁 הצג</button>
           ${c.drive_url ? `<a class="inv-btn small" style="background:#f59e0b;text-decoration:none;display:inline-block;" href="${certEsc(c.drive_url)}" target="_blank" rel="noopener" title="עותק ה-PDF בדרייב">📁</a>` : ''}
-          <button class="inv-btn small" style="background:#16a34a;" onclick="certSendOpen('${idArg}')" title="שליחה במייל / וואטסאפ לאנשי הקשר של האתר">📤</button>
-          ${cancelled ? '' : `<button class="inv-btn small" style="background:#0e7490;" onclick="certReissue('${idArg}')" title="פתח לעריכה, הפק תעודה חדשה ובטל את זו אוטומטית">📝 הפק מתוקנת</button>
+          ${vw ? '' : `<button class="inv-btn small" style="background:#16a34a;" onclick="certSendOpen('${idArg}')" title="שליחה במייל / וואטסאפ לאנשי הקשר של האתר">📤</button>`}
+          ${(cancelled || vw) ? '' : `<button class="inv-btn small" style="background:#0e7490;" onclick="certReissue('${idArg}')" title="פתח לעריכה, הפק תעודה חדשה ובטל את זו אוטומטית">📝 הפק מתוקנת</button>
           <button class="inv-btn small" style="background:#dc2626;" onclick="certCancel('${idArg}')">🚫 בטל</button>`}
         </td>
       </tr>`; }).join('') + '</tbody></table></div>' +
@@ -720,6 +721,11 @@
   async function certRangeReport() {
     const from = document.getElementById('visitsReportFrom').value || '2000-01-01';
     const to = document.getElementById('visitsReportTo').value || certToday();
+    return certRangeReportRange(from, to);
+  }
+  window.certRangeReport = certRangeReport;
+
+  async function certRangeReportRange(from, to) {
     const w = window.open('', '_blank');
     if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
     w.document.write('<!doctype html><html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding-top:40vh;">⏳ טוען תעודות…</body></html>');
@@ -768,4 +774,14 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
 </body></html>`);
     w.document.close();
   }
-  window.certRangeReport = certRangeReport;
+  window.certRangeReportRange = certRangeReportRange;
+
+  // Same report as certRangeReport, but sourced from the certs-tab (מלאי → תעודות משלוח) date filters.
+  function certMonthlyFromTab() {
+    const fromEl = document.getElementById('invCertsFrom');
+    if (!fromEl.value) { const d = new Date(); fromEl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }   // default: current month
+    const from = fromEl.value || '2000-01-01';
+    const to = document.getElementById('invCertsTo').value || certToday();
+    return certRangeReportRange(from, to);
+  }
+  window.certMonthlyFromTab = certMonthlyFromTab;

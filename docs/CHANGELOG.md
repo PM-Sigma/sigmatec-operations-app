@@ -7,6 +7,21 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.38] 2026-07-15 — 👁 viewer v2 (attendance-all/inventory/certs read-only + monthly summary) → RELEASED to main
+עידן's viewer redefinition, built on the new model split (planning Fable · implementation Sonnet ·
+testing Opus): the view-only user now sees **attendance of every employee that has attendance data**
+(person toggle = ATT_PEOPLE ∪ distinct attendance persons, auto-grows), **inventory** (stock views +
+the certs registry; every write still hard-blocked at the router), **delivery certs read-only**
+(👁 view/print + 📁 Drive only — no issue/reissue/cancel/send buttons), statistics + potential
+customers (were never gated). Can download attendance PDFs and pull existing certs.
+- **📄 סיכום חודשי** button in the certs tab — the by-kibbutz what-was-supplied table with per-item
+  totals over the tab's date range (defaults to the current month); `certRangeReport` refactored to
+  `certRangeReportRange(from,to)` + wrappers (visits-modal button unchanged).
+- **Tests (Opus): 131 green** — delivery-cert 88 (+10 viewer-actions/monthly-report; also fixed a
+  latent harness gap: `isViewer` wasn't injected, so viewer paths were untestable before),
+  attendance-toggle 6 (new), viewer-gate 4, PDF 33. Live viewer sweep passed (nav, read-only certs
+  tab, monthly button, attendance toggle+PDF, write block).
+
 ## [1.37] 2026-07-15 — ☁️ Supabase-MCP setup complete + monthly Drive ETL redesign
 The Supabase MCP is connected — Claude now runs SQL directly. **All pending DB setup executed and
 verified live:** 4 migrations applied (signature, status, drive, site_contacts — tracked in the
