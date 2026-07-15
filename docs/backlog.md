@@ -3,15 +3,15 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
-## 🟡 Seed `kibbutz_details` from the EMS `sites` table (delivery-cert customer block)
-✅ `db/delivery_certs.sql` RAN (2026-07-14, verified: anon read 200, anon insert RLS-rejected) —
-numbering live from the first issued cert.
-**Remaining (when EMS DB access is available — hotspot/VPN + `SIGMATEC_DB_READONLY_PASSWORD` set):**
-pull customer details from the EMS `sites` table and upsert into `kibbutz_details`. ⚠️ the documented
-`sites` schema only shows `id, name` — first check what detail columns actually exist
-(`SELECT column_name FROM information_schema.columns WHERE table_name='sites'`); if the ח.פ./address
-live elsewhere, עידן to point at the right source. Until seeded, the cert's customer block starts blank
-(editable per cert).
+## 🔴 Run SQL — `db/seed_kibbutz_details.sql` (delivery-cert customer block, ready)
+✅ `db/delivery_certs.sql` RAN (2026-07-14, verified). ✅ EMS `sites` data pulled (2026-07-15 — the
+table DOES have company_name/company_id + accountant contact; no address column) and
+**`db/seed_kibbutz_details.sql` is generated and ready**: 47 cards, swapped-column rows fixed,
+placeholders blanked. **Action (עידן): run it in the Supabase SQL editor** (writes are
+authenticated-only, so Claude can't apply it via anon REST). 6 kibbutzim have genuinely blank details
+in EMS (אגודת המים עמק הירדן, אפיק, חולדה, כפר דניאל, מגידו, מעלה גלבוע) — fill in EMS or leave as
+editable blanks on the cert. Cert test automation: `test-delivery-cert.mjs` (26 ✓) +
+`test-cert-pdf.mjs` (33 ✓, markitdown) — both green 2026-07-15.
 
 ## ✅ RELEASED 2026-07-06 — 1.20+1.21 live on `main` (E360 default rule + order assignee)
 `db/orders_schedule_fields.sql` ran (`orders.assignee` live), `parse-order` redeployed, ff

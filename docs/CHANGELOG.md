@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.26.x] 2026-07-15 — cert test automation (green) + kibbutz_details seed generated from EMS
+עידן's /loop ask: verify every cert trigger point + the edit flow with test automation until bug-free.
+- **`test-delivery-cert.mjs`** — 26 checks (DOM-stubbed): escaping, doc generation (numbered/draft,
+  totals, no-price, XSS-escape, logo), prefill from kibbutz_details (hit+fallback), **edit roundtrip**
+  (date/customer/items; empty/zero rows excluded), EMS description parsing, visit/order mapping. GREEN.
+- **`test-cert-pdf.mjs`** — end-to-end print pipeline: certDocHtml → headless Edge → PDF → **markitdown**
+  extraction; 33 assertions (number vs טיוטה, quantities+total, item names, both ח.פ., email, date,
+  no ₪/$, exactly 1 page). Handles the Hebrew reversed-glyph extraction artifact. GREEN.
+- **Live browser sweep** (production data, all 5 triggers): visit form · saved visit (real כנרת visit) ·
+  EMS task (parsed 2 items from description) · customer order (real אלומות order, 3 items) · report
+  picker (29 in-range visits) + full in-modal edit roundtrip. ALL PASS; no app bugs found.
+- **`db/seed_kibbutz_details.sql`** — generated from the prod EMS `sites` table (read-only user):
+  47 kibbutz cards keyed by KIBBUTZ_SITE_MAP; swapped company_name/company_id rows (דפנה/ניצנים/שלוחות)
+  auto-corrected; להשלים/test placeholders blanked (6 kibbutzim blank → editable on the cert).
+  ⚠️ needs עידן to run in the Supabase SQL editor (kibbutz_details writes are authenticated-only).
+
 ## [1.26] 2026-07-14 — cert shapes redesign + 👁 view-only reports user (viewer role)
 עידן's follow-ups on 1.22: fresher shapes (text layout approved), DB setup finished, and a view-only
 user for internal reports (הנהלת חשבונות וכד') — no editing, only attendance/visits/cert reports.
