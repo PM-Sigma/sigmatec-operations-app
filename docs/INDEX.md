@@ -65,10 +65,12 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-15 (**1.39 on `dev`** · 1.38 live on `main`).
+## 🚦 Current state — last: 2026-07-15 (**1.41 RELEASED — main = dev**).
 
-**🆕 1.39 (dev) — quick date filters in the certs registry** (thisMonth default / lastMonth / 7d /
-30d / all), `certSetRange` in `20-delivery-cert.js`. 144 checks green. Ready for main.
+**✅ 1.41 — visit-cert enforcement LIVE.** Supplied equipment in a visit requires a linked נופקה cert
+to save the summary (pre-minted visit id links cert↔visit; legacy-edit exception; cancel invalidates
+the cache). Standalone issue only from the certs registry ("+ תעודה חדשה"); order/EMS-task 🚚 removed.
+1.39 quick filters included. ~163 checks across 10 suites green.
 
 **✅ RELEASED 2026-07-15 — the entire delivery-certs epic (1.22–1.38) is LIVE on `main`.** Viewer v2
 (attendance-all toggle, read-only inventory+certs, 📄 סיכום חודשי in the certs tab), full cert flow

@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrmayjc5">
+<link rel="stylesheet" href="css/app.css?v=mrmd5woe">
 </head>
 <body>
 <div class="container">
@@ -335,7 +335,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-15·1.39</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-15·1.41</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -361,6 +361,7 @@
           <button type="button" class="btn-quick-date" data-range="all" onclick="certSetRange('all')">∞ הכל</button>
         </div>
         <div class="inv-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button id="invCertsNew" class="inv-btn success" onclick="openDeliveryCert({source:'manual'})">+ תעודה חדשה</button>
           <label style="margin:0;font-size:12px;">מתאריך: <input type="date" id="invCertsFrom" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
           <label style="margin:0;font-size:12px;">עד: <input type="date" id="invCertsTo" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
           <input type="text" id="invCertsSearch" placeholder="🔍 קיבוץ / לקוח / מס' תעודה" style="flex:1;min-width:160px;" oninput="invRenderCerts(true)">
@@ -898,6 +899,7 @@
 
         <div class="modal-actions">
           <button class="btn btn-secondary" onclick="closeModal()">ביטול</button>
+          <span id="visitCertStatus" style="font-size:11px;align-self:center;"></span>
           <button class="btn btn-secondary" onclick="certFromVisitForm()" title="תעודת משלוח מהפריטים שסומנו">🚚 תעודת משלוח</button>
           <button class="btn btn-primary" onclick="saveVisit(this)">💾 שמור ביקור</button>
         </div>
@@ -1361,7 +1363,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrmayjc5"></script>
+<script src="js/app.js?v=mrmd5woe"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

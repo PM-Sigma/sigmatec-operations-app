@@ -9,6 +9,9 @@
   // until seeded, the fields are editable blanks — nothing blocks.
   // ===========================================================
 
+  // session cache: visit refId → issued cert number (fast path before certIssuedForVisit's DB round-trip)
+  window._certIssuedFor = window._certIssuedFor || {};
+
   const CERT_COMPANY = {
     name: 'סיגמאטק התייעלות אנרגטית בע"מ',
     sub: 'מיקרוגריד - מערכות מניית חשמל',
@@ -231,6 +234,10 @@
         const res = await r.json();
         if (res && res.ok) { cert.number = res.certNumber; cert.id = res.id || null; }
       } catch (e) { console.warn('cert persist failed — issuing as draft', e); }
+      if (cert.number && cert.source === 'visit' && cert.refId) {
+        window._certIssuedFor[cert.refId] = cert.number;
+        try { if (typeof paintVisitCertStatus === 'function') paintVisitCertStatus(); } catch (e) {}
+      }
       // Drive-archive ETL: store the frozen printable snapshot (needs the assigned number, so it's a
       // follow-up PATCH). Best-effort — before db/delivery_certs_drive.sql runs this 400s silently
       // and the cert simply isn't archived; everything else works.
@@ -247,10 +254,14 @@
       // if the cancel fails the old cert stays active and can be cancelled from the certs tab)
       let cancelledOld = 0;
       if (cert.number && _certReissueOf) {
+        const prevRow = _certRows.find(x => x.id === _certReissueOf.id);
         try {
           await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ type: 'deliveryCertCancel', id: _certReissueOf.id, replacedBy: cert.number }) });
           cancelledOld = _certReissueOf.certNumber;
+          // the new cert may target the same visit and already re-populated the map above —
+          // only drop the cache entry if it still holds the OLD cert number.
+          if (prevRow && prevRow.ref_id && window._certIssuedFor[prevRow.ref_id] === prevRow.cert_number) delete window._certIssuedFor[prevRow.ref_id];
         } catch (e) { console.warn('cancel of replaced cert failed', e); }
       }
       _certReissueOf = null;
@@ -283,6 +294,20 @@
     }
   }
   window.issueDeliveryCert = issueDeliveryCert;
+
+  // Gate helper: has an ACTIVE cert been issued & linked to this visit? Returns a cert number or 0.
+  async function certIssuedForVisit(visitId) {
+    if (!visitId) return 0;
+    if (window._certIssuedFor[visitId]) return window._certIssuedFor[visitId];
+    if (typeof window._sbCertGet !== 'function') return 0;
+    try {
+      const rows = await window._sbCertGet('delivery_certs?select=cert_number&ref_id=eq.' + encodeURIComponent(visitId) + '&status=eq.active&order=cert_number.desc&limit=1');
+      const n = (rows && rows[0] && rows[0].cert_number) || 0;
+      if (n) window._certIssuedFor[visitId] = n;
+      return n;
+    } catch (e) { return 0; }
+  }
+  window.certIssuedForVisit = certIssuedForVisit;
 
   // Canonical public base for share links — recipients must always land on the LIVE app,
   // never on a localhost/preview origin.
@@ -574,13 +599,14 @@
     const rows = q ? _certRows.filter(c => (c.kibbutz || '').includes(q) || ((c.customer || {}).name || '').includes(q) || String(c.cert_number).includes(q)) : _certRows;
     const srcLabel = { visit: '📍 ביקור', order: '🧾 הזמנה', ems: '🔧 משימת EMS', manual: '✍️ ידני' };
     const vw = typeof isViewer === 'function' && isViewer();
+    const nb = document.getElementById('invCertsNew'); if (nb) nb.style.display = vw ? 'none' : '';
     if (!rows.length) { root.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;">אין תעודות בטווח/בחיפוש</div>'; return; }
     root.innerHTML = '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>מס\'</th><th>תאריך</th><th>לקוח</th><th>פריטים</th><th>מקור</th><th>הופק ע"י</th><th>חתימה</th><th style="text-align:left;">פעולות</th></tr></thead><tbody>' +
       rows.map(c => {
         const cancelled = c.status === 'cancelled';
         const idArg = certEsc(String(c.id)).replace(/'/g, '');
         return `<tr${cancelled ? ' style="opacity:.55;"' : ''}>
-        <td data-label="מס'" style="font-weight:700;">${cancelled ? '<s>' + c.cert_number + '</s><div style="font-size:10px;color:#dc2626;white-space:nowrap;">🚫 מבוטלת' + (c.replaced_by ? ' → ' + c.replaced_by : '') + '</div>' : c.cert_number}</td>
+        <td data-label="מס'" style="font-weight:700;">${cancelled ? '<s>' + c.cert_number + '</s><div style="font-size:10px;color:#dc2626;white-space:nowrap;">🚫 מבוטלת' + (c.replaced_by ? ' → ' + c.replaced_by : '') + '</div>' : c.cert_number + '<div style="font-size:10px;color:#059669;white-space:nowrap;">✅ נופקה</div>'}</td>
         <td data-label="תאריך" style="white-space:nowrap;">${certFmtDate(c.cert_date)}</td>
         <td data-label="לקוח">${certEsc(((c.customer || {}).name) || c.kibbutz)}</td>
         <td data-label="פריטים" style="font-size:11px;">${(c.items || []).map(i => certEsc(i.name) + ' ×' + i.qty).join('<br>')}</td>
@@ -637,6 +663,7 @@
     try {
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'deliveryCertCancel', id: c.id }) });
+      if (c.ref_id && window._certIssuedFor && window._certIssuedFor[c.ref_id]) delete window._certIssuedFor[c.ref_id];
       invRenderCerts(true);
     } catch (e) { alert('שגיאה בביטול: ' + e.message); }
   }
@@ -657,7 +684,7 @@
       contact: (document.getElementById('visitContact') || {}).value || '',
       items: items,
       source: 'visit',
-      refId: window.editingVisitId || ''
+      refId: window.editingVisitId || (typeof visitDraftId === 'function' ? visitDraftId() : '')
     });
   }
   window.certFromVisitForm = certFromVisitForm;

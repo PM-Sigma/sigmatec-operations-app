@@ -514,7 +514,7 @@
     async function writeVisit(b) {
       const id = b.id || genId('v');
       const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', workday: !!b.workday };
-      if (!b.id) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now)
+      if (!b.id || b.isNew) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now). New visits now carry a pre-minted id, so isNew distinguishes create from edit.
       await sbUpsert('visits', 'id', row);
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
         const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: it.toStock ? 'restocked' : 'open' }));
@@ -2798,7 +2798,7 @@
         <td data-label="פריטים">${itemsStr || '—'}</td>
         <td data-label="נוצר ע&quot;י">${o.createdBy || '—'}</td>
         <td data-label="הערות" style="max-width:200px;font-size:11px;">${(o.notes || '').replace(/</g,'&lt;')}</td>
-        <td class="actions-cell" style="white-space:nowrap;text-align:left;">${approvalCell} ${quickBtn} ${stuckBtn} ${isCust ? `<button class="inv-btn small" style="background:#1b2a4a;" onclick="certFromOrder('${o.id}')" title="תעודת משלוח">🚚</button>` : ''} <button class="inv-btn small" onclick="invEditOrder('${o.id}')">✏️ ערוך</button></td>
+        <td class="actions-cell" style="white-space:nowrap;text-align:left;">${approvalCell} ${quickBtn} ${stuckBtn} <button class="inv-btn small" onclick="invEditOrder('${o.id}')">✏️ ערוך</button></td>
       </tr>`;
     });
     html += '</tbody></table>';
@@ -3923,6 +3923,14 @@
 
   // 1 full work day ≈ this many hours (for the hours statistic). ponytail: single tunable knob.
   const WORKDAY_HOURS = 8;
+
+  // Pre-minted id for a NEW (not-yet-saved) visit — lets the delivery-cert gate link a cert
+  // to this visit before saveVisit ever hits the network. Same id shape as the data layer's genId('v').
+  function visitDraftId() {
+    if (!window._visitDraftId) window._visitDraftId = 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    return window._visitDraftId;
+  }
+  window.visitDraftId = visitDraftId;
   function toggleVisitWorkday() {
     const on = document.getElementById('visitWorkday').checked;
     const dur = document.getElementById('visitDuration');
@@ -4002,6 +4010,7 @@
         </div>
       `;
     }).join('');
+    paintVisitCertStatus();
   }
 
   function toggleProductQty(chk) {
@@ -4016,7 +4025,23 @@
       qtyInput.disabled = true;
       qtyInput.value = '';
     }
+    paintVisitCertStatus();
   }
+
+  // Status chip next to "🚚 תעודת משלוח" in the visit form: has an issued cert been linked yet?
+  // No-op (clears) when no products are checked — the gate only applies when equipment is supplied.
+  async function paintVisitCertStatus() {
+    const el = document.getElementById('visitCertStatus');
+    if (!el) return;
+    const vid = window.editingVisitId || window._visitDraftId || '';
+    const hasProducts = document.querySelectorAll('.prod-chk:checked').length > 0;
+    if (!hasProducts) { el.innerHTML = ''; return; }
+    const n = vid && typeof certIssuedForVisit === 'function' ? await certIssuedForVisit(vid) : 0;
+    el.innerHTML = n
+      ? '<span style="color:#059669;font-weight:700;">✅ תעודה ' + n + ' נופקה</span>'
+      : '<span style="color:#dc2626;font-weight:700;">❌ טרם הופקה תעודה</span>';
+  }
+  window.paintVisitCertStatus = paintVisitCertStatus;
 
   function loadAllVisits() {
     try {
@@ -4132,9 +4157,10 @@
     // Set source (auto by visitor) and re-render product list dynamically
     onVisitorChange(visit.visitor || '');
     switchTab('visit');
+    paintVisitCertStatus();
   }
 
-  function saveVisit(btn) {
+  async function saveVisit(btn) {
     const workday = !!(document.getElementById('visitWorkday') && document.getElementById('visitWorkday').checked);
     // Work day = either/or with hours: stored as the ~8h equivalent so hour-stats stay correct.
     const duration = workday ? WORKDAY_HOURS : parseFloat(document.getElementById('visitDuration').value);
@@ -4159,6 +4185,23 @@
       if (!isNaN(maxAllowed) && qty > maxAllowed) qty = maxAllowed;
       products.push({ name: product, qty: qty });
     });
+
+    // הקשחה (עידן 2026-07-15): ציוד שסופק בביקור חייב תעודת משלוח נופקה, מקושרת לביקור.
+    // חדש או הוספת ציוד להיקף שלא היה — נדרש; עריכת ביקור שכבר תועד בו ציוד — לא נחסמת רטרואקטיבית.
+    if (products.length) {
+      const isEditingV = !!window.editingVisitId;
+      const prevV = isEditingV ? (window.currentKibbutzVisits || []).find(v => v.id === window.editingVisitId) : null;
+      const prevHadProducts = !!(prevV && (prevV.products || []).length);
+      if (!isEditingV || !prevHadProducts) {
+        const vid = window.editingVisitId || visitDraftId();
+        const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(vid) : 0;
+        if (!certNum) {
+          setBtnLoading(saveBtn, false);
+          alert('סופק ציוד בביקור — חובה להפיק תעודת משלוח לפני שמירת הסיכום.\nלחץ על "🚚 תעודת משלוח", הפק (נדרש חיבור), וחזור לשמור.');
+          return;
+        }
+      }
+    }
 
     const dateInput = document.getElementById('visitDate').value;
     const visitDate = dateInput ? new Date(dateInput + 'T12:00:00').toISOString() : new Date().toISOString();
@@ -4195,11 +4238,11 @@
       productsOther: visit.productsOther,
       returnedItems: visit.returnedItems,
       summary: visit.summary,
-      workday: visit.workday
+      workday: visit.workday,
+      id: window.editingVisitId || window._visitDraftId || undefined,
+      isNew: !window.editingVisitId
     };
-    if (isEditing) {
-      reqBody.id = window.editingVisitId;
-    }
+    if (!reqBody.id) delete reqBody.id;
     fetch(SHEET_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -4263,6 +4306,7 @@
 
     // Clear editing flag + reset returns list
     window.editingVisitId = null;
+    window._visitDraftId = null;
     visitReturnedItems = [];
     renderReturnedItems();
 
@@ -6788,7 +6832,6 @@
         <label style="margin:0;font-size:13px;font-weight:600;">סטטוס:</label>
         <select id="emsDetailStatus" onchange="changeEmsStatus('${t.id}', this.value)" style="flex:1;min-width:120px;">${statusOpts}</select>
         <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="emsEditTask('${t.id}')">✏️ ערוך</button>
-        <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="certFromEmsTask()" title="תעודת משלוח — הפריטים נמשכים מתיאור המשימה">🚚 תעודת משלוח</button>
         ${cal}
       </div>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0;">
@@ -8118,6 +8161,9 @@
   // until seeded, the fields are editable blanks — nothing blocks.
   // ===========================================================
 
+  // session cache: visit refId → issued cert number (fast path before certIssuedForVisit's DB round-trip)
+  window._certIssuedFor = window._certIssuedFor || {};
+
   const CERT_COMPANY = {
     name: 'סיגמאטק התייעלות אנרגטית בע"מ',
     sub: 'מיקרוגריד - מערכות מניית חשמל',
@@ -8340,6 +8386,10 @@
         const res = await r.json();
         if (res && res.ok) { cert.number = res.certNumber; cert.id = res.id || null; }
       } catch (e) { console.warn('cert persist failed — issuing as draft', e); }
+      if (cert.number && cert.source === 'visit' && cert.refId) {
+        window._certIssuedFor[cert.refId] = cert.number;
+        try { if (typeof paintVisitCertStatus === 'function') paintVisitCertStatus(); } catch (e) {}
+      }
       // Drive-archive ETL: store the frozen printable snapshot (needs the assigned number, so it's a
       // follow-up PATCH). Best-effort — before db/delivery_certs_drive.sql runs this 400s silently
       // and the cert simply isn't archived; everything else works.
@@ -8356,10 +8406,14 @@
       // if the cancel fails the old cert stays active and can be cancelled from the certs tab)
       let cancelledOld = 0;
       if (cert.number && _certReissueOf) {
+        const prevRow = _certRows.find(x => x.id === _certReissueOf.id);
         try {
           await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ type: 'deliveryCertCancel', id: _certReissueOf.id, replacedBy: cert.number }) });
           cancelledOld = _certReissueOf.certNumber;
+          // the new cert may target the same visit and already re-populated the map above —
+          // only drop the cache entry if it still holds the OLD cert number.
+          if (prevRow && prevRow.ref_id && window._certIssuedFor[prevRow.ref_id] === prevRow.cert_number) delete window._certIssuedFor[prevRow.ref_id];
         } catch (e) { console.warn('cancel of replaced cert failed', e); }
       }
       _certReissueOf = null;
@@ -8392,6 +8446,20 @@
     }
   }
   window.issueDeliveryCert = issueDeliveryCert;
+
+  // Gate helper: has an ACTIVE cert been issued & linked to this visit? Returns a cert number or 0.
+  async function certIssuedForVisit(visitId) {
+    if (!visitId) return 0;
+    if (window._certIssuedFor[visitId]) return window._certIssuedFor[visitId];
+    if (typeof window._sbCertGet !== 'function') return 0;
+    try {
+      const rows = await window._sbCertGet('delivery_certs?select=cert_number&ref_id=eq.' + encodeURIComponent(visitId) + '&status=eq.active&order=cert_number.desc&limit=1');
+      const n = (rows && rows[0] && rows[0].cert_number) || 0;
+      if (n) window._certIssuedFor[visitId] = n;
+      return n;
+    } catch (e) { return 0; }
+  }
+  window.certIssuedForVisit = certIssuedForVisit;
 
   // Canonical public base for share links — recipients must always land on the LIVE app,
   // never on a localhost/preview origin.
@@ -8683,13 +8751,14 @@
     const rows = q ? _certRows.filter(c => (c.kibbutz || '').includes(q) || ((c.customer || {}).name || '').includes(q) || String(c.cert_number).includes(q)) : _certRows;
     const srcLabel = { visit: '📍 ביקור', order: '🧾 הזמנה', ems: '🔧 משימת EMS', manual: '✍️ ידני' };
     const vw = typeof isViewer === 'function' && isViewer();
+    const nb = document.getElementById('invCertsNew'); if (nb) nb.style.display = vw ? 'none' : '';
     if (!rows.length) { root.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;">אין תעודות בטווח/בחיפוש</div>'; return; }
     root.innerHTML = '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>מס\'</th><th>תאריך</th><th>לקוח</th><th>פריטים</th><th>מקור</th><th>הופק ע"י</th><th>חתימה</th><th style="text-align:left;">פעולות</th></tr></thead><tbody>' +
       rows.map(c => {
         const cancelled = c.status === 'cancelled';
         const idArg = certEsc(String(c.id)).replace(/'/g, '');
         return `<tr${cancelled ? ' style="opacity:.55;"' : ''}>
-        <td data-label="מס'" style="font-weight:700;">${cancelled ? '<s>' + c.cert_number + '</s><div style="font-size:10px;color:#dc2626;white-space:nowrap;">🚫 מבוטלת' + (c.replaced_by ? ' → ' + c.replaced_by : '') + '</div>' : c.cert_number}</td>
+        <td data-label="מס'" style="font-weight:700;">${cancelled ? '<s>' + c.cert_number + '</s><div style="font-size:10px;color:#dc2626;white-space:nowrap;">🚫 מבוטלת' + (c.replaced_by ? ' → ' + c.replaced_by : '') + '</div>' : c.cert_number + '<div style="font-size:10px;color:#059669;white-space:nowrap;">✅ נופקה</div>'}</td>
         <td data-label="תאריך" style="white-space:nowrap;">${certFmtDate(c.cert_date)}</td>
         <td data-label="לקוח">${certEsc(((c.customer || {}).name) || c.kibbutz)}</td>
         <td data-label="פריטים" style="font-size:11px;">${(c.items || []).map(i => certEsc(i.name) + ' ×' + i.qty).join('<br>')}</td>
@@ -8746,6 +8815,7 @@
     try {
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'deliveryCertCancel', id: c.id }) });
+      if (c.ref_id && window._certIssuedFor && window._certIssuedFor[c.ref_id]) delete window._certIssuedFor[c.ref_id];
       invRenderCerts(true);
     } catch (e) { alert('שגיאה בביטול: ' + e.message); }
   }
@@ -8766,7 +8836,7 @@
       contact: (document.getElementById('visitContact') || {}).value || '',
       items: items,
       source: 'visit',
-      refId: window.editingVisitId || ''
+      refId: window.editingVisitId || (typeof visitDraftId === 'function' ? visitDraftId() : '')
     });
   }
   window.certFromVisitForm = certFromVisitForm;

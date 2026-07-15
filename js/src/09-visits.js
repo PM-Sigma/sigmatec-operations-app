@@ -14,6 +14,14 @@
 
   // 1 full work day ≈ this many hours (for the hours statistic). ponytail: single tunable knob.
   const WORKDAY_HOURS = 8;
+
+  // Pre-minted id for a NEW (not-yet-saved) visit — lets the delivery-cert gate link a cert
+  // to this visit before saveVisit ever hits the network. Same id shape as the data layer's genId('v').
+  function visitDraftId() {
+    if (!window._visitDraftId) window._visitDraftId = 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    return window._visitDraftId;
+  }
+  window.visitDraftId = visitDraftId;
   function toggleVisitWorkday() {
     const on = document.getElementById('visitWorkday').checked;
     const dur = document.getElementById('visitDuration');
@@ -93,6 +101,7 @@
         </div>
       `;
     }).join('');
+    paintVisitCertStatus();
   }
 
   function toggleProductQty(chk) {
@@ -107,7 +116,23 @@
       qtyInput.disabled = true;
       qtyInput.value = '';
     }
+    paintVisitCertStatus();
   }
+
+  // Status chip next to "🚚 תעודת משלוח" in the visit form: has an issued cert been linked yet?
+  // No-op (clears) when no products are checked — the gate only applies when equipment is supplied.
+  async function paintVisitCertStatus() {
+    const el = document.getElementById('visitCertStatus');
+    if (!el) return;
+    const vid = window.editingVisitId || window._visitDraftId || '';
+    const hasProducts = document.querySelectorAll('.prod-chk:checked').length > 0;
+    if (!hasProducts) { el.innerHTML = ''; return; }
+    const n = vid && typeof certIssuedForVisit === 'function' ? await certIssuedForVisit(vid) : 0;
+    el.innerHTML = n
+      ? '<span style="color:#059669;font-weight:700;">✅ תעודה ' + n + ' נופקה</span>'
+      : '<span style="color:#dc2626;font-weight:700;">❌ טרם הופקה תעודה</span>';
+  }
+  window.paintVisitCertStatus = paintVisitCertStatus;
 
   function loadAllVisits() {
     try {
@@ -223,9 +248,10 @@
     // Set source (auto by visitor) and re-render product list dynamically
     onVisitorChange(visit.visitor || '');
     switchTab('visit');
+    paintVisitCertStatus();
   }
 
-  function saveVisit(btn) {
+  async function saveVisit(btn) {
     const workday = !!(document.getElementById('visitWorkday') && document.getElementById('visitWorkday').checked);
     // Work day = either/or with hours: stored as the ~8h equivalent so hour-stats stay correct.
     const duration = workday ? WORKDAY_HOURS : parseFloat(document.getElementById('visitDuration').value);
@@ -250,6 +276,23 @@
       if (!isNaN(maxAllowed) && qty > maxAllowed) qty = maxAllowed;
       products.push({ name: product, qty: qty });
     });
+
+    // הקשחה (עידן 2026-07-15): ציוד שסופק בביקור חייב תעודת משלוח נופקה, מקושרת לביקור.
+    // חדש או הוספת ציוד להיקף שלא היה — נדרש; עריכת ביקור שכבר תועד בו ציוד — לא נחסמת רטרואקטיבית.
+    if (products.length) {
+      const isEditingV = !!window.editingVisitId;
+      const prevV = isEditingV ? (window.currentKibbutzVisits || []).find(v => v.id === window.editingVisitId) : null;
+      const prevHadProducts = !!(prevV && (prevV.products || []).length);
+      if (!isEditingV || !prevHadProducts) {
+        const vid = window.editingVisitId || visitDraftId();
+        const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(vid) : 0;
+        if (!certNum) {
+          setBtnLoading(saveBtn, false);
+          alert('סופק ציוד בביקור — חובה להפיק תעודת משלוח לפני שמירת הסיכום.\nלחץ על "🚚 תעודת משלוח", הפק (נדרש חיבור), וחזור לשמור.');
+          return;
+        }
+      }
+    }
 
     const dateInput = document.getElementById('visitDate').value;
     const visitDate = dateInput ? new Date(dateInput + 'T12:00:00').toISOString() : new Date().toISOString();
@@ -286,11 +329,11 @@
       productsOther: visit.productsOther,
       returnedItems: visit.returnedItems,
       summary: visit.summary,
-      workday: visit.workday
+      workday: visit.workday,
+      id: window.editingVisitId || window._visitDraftId || undefined,
+      isNew: !window.editingVisitId
     };
-    if (isEditing) {
-      reqBody.id = window.editingVisitId;
-    }
+    if (!reqBody.id) delete reqBody.id;
     fetch(SHEET_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -354,6 +397,7 @@
 
     // Clear editing flag + reset returns list
     window.editingVisitId = null;
+    window._visitDraftId = null;
     visitReturnedItems = [];
     renderReturnedItems();
 

@@ -7,6 +7,28 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.41] 2026-07-15 — 🔒 visit-summary cert enforcement (יישור קו תעודות↔ביקורים)
+עידן's rule: equipment supplied in a visit MUST have an issued delivery cert. The chain is
+order→EMS task→visit summary, so the gate lives at the visit summary; standalone certs only from
+the certs registry.
+- **The gate:** saving a visit with supplied products requires a cert in status **נופקה** (active)
+  linked to the visit. New visits get a pre-minted id (`visitDraftId`) so the cert issued from the
+  form links BEFORE the visit exists; the save carries the same id (+`isNew` for created_at).
+  Status chip in the form: "✅ תעודה N נופקה" / "❌ טרם הופקה". Statuses: טיוטה = unnumbered
+  print (not persisted) · נופקה = issued (active) · מבוטלת = cancelled — only נופקה unlocks the save.
+- **Planner-caught fix (Opus):** the gate does NOT retroactively block edits of visits that already
+  had documented products (legacy records editable); it applies to new visits and to edits that ADD
+  products where none existed. Also: cancelling/reissuing a cert invalidates the session issued-cache
+  so the gate can't pass on a cancelled cert.
+- **Issue-path consolidation:** 🚚 removed from order rows + EMS task detail (flow passes through the
+  visit anyway); "+ תעודה חדשה" added to the certs registry — the only standalone path (hidden from
+  viewer). Registry shows "✅ נופקה" on active rows.
+- **Tests:** 3 new suites — `test-visit-cert-gate.mjs` (8: block/mint/unlock/link/legacy-edit/add-gate/
+  no-products/cleanup), `test-visit-writevisit.mjs` (6), `test-cert-removals.mjs` (5, incl. exactly-one
+  standalone entry point). All 10 suites green (~163 checks). Live-verified (block→issue→save, id linkage).
+  Note: the executor agent hit the org monthly spend cap mid-run — Fable completed the execution per
+  Opus's plan directly.
+
 ## [1.39] 2026-07-15 — ⚡ quick date filters in the certs registry
 עידן: same quick-range buttons as the visits report, in מלאי → תעודות משלוח — 📅 חודש נוכחי (default)
 · ⏪ חודש שעבר · 📍 7/30 ימים · ∞ הכל. `certSetRange()` mirrors `setReportRange` math (data-range

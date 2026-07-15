@@ -705,7 +705,6 @@
         <label style="margin:0;font-size:13px;font-weight:600;">סטטוס:</label>
         <select id="emsDetailStatus" onchange="changeEmsStatus('${t.id}', this.value)" style="flex:1;min-width:120px;">${statusOpts}</select>
         <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="emsEditTask('${t.id}')">✏️ ערוך</button>
-        <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="certFromEmsTask()" title="תעודת משלוח — הפריטים נמשכים מתיאור המשימה">🚚 תעודת משלוח</button>
         ${cal}
       </div>
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0;">
