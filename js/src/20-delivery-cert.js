@@ -46,7 +46,7 @@
       <div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">
         <h3>🚚 תעודת משלוח</h3>
         <div class="modal-sub">בדוק וערוך את הפרטים לפני ההפקה — התעודה מקבלת מספר רץ ונשמרת.</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;">
+        <div class="cert-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;">
           <div><label for="certCustName">🧑‍🌾 לקוח:</label><input type="text" id="certCustName"></div>
           <div><label for="certCustCompanyId">🆔 ח.פ./ע.מ.:</label><input type="text" id="certCustCompanyId" placeholder="—"></div>
           <div><label for="certCustAddress">📍 כתובת:</label><input type="text" id="certCustAddress" placeholder="—"></div>
@@ -54,12 +54,12 @@
         </div>
         <label for="certDate">📅 תאריך:</label><input type="date" id="certDate">
         <div style="display:flex;align-items:center;gap:8px;margin:8px 0 2px;">
-          <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="certSignOpen()">✍️ חתימת מקבל במקום</button>
+          <button type="button" class="btn btn-secondary" style="padding:9px 14px;font-size:13px;min-height:40px;" onclick="certSignOpen()">✍️ חתימת מקבל במקום</button>
           <span id="certSigStatus" style="font-size:11px;color:#64748b;"></span>
         </div>
         <label>📦 פריטים (ללא מחירים):</label>
         <div id="certItems"></div>
-        <button type="button" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;margin-top:4px;" onclick="certAddItemRow('',1)">+ הוסף פריט</button>
+        <button type="button" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;margin-top:4px;min-height:40px;" onclick="certAddItemRow('',1)">+ הוסף פריט</button>
         <datalist id="certProductList"></datalist>
         <label for="certNotes">📝 הערות:</label>
         <textarea id="certNotes" rows="2" placeholder="למשל: לא לחיוב"></textarea>
@@ -77,9 +77,9 @@
     row.className = 'cert-item-row';
     row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:4px;';
     row.innerHTML = `
-      <input type="text" class="cert-item-name" list="certProductList" placeholder="פריט" value="${certEsc(name)}" style="flex:1;">
-      <input type="number" class="cert-item-qty" min="1" step="1" value="${parseInt(qty) || 1}" style="width:70px;">
-      <button type="button" onclick="this.parentNode.remove()" style="background:none;border:none;color:#dc2626;font-size:16px;cursor:pointer;">✕</button>`;
+      <input type="text" class="cert-item-name" list="certProductList" placeholder="פריט" value="${certEsc(name)}" style="flex:1;min-height:40px;">
+      <input type="number" class="cert-item-qty" min="1" step="1" value="${parseInt(qty) || 1}" style="width:70px;min-height:40px;">
+      <button type="button" onclick="this.parentNode.remove()" title="הסר פריט" style="background:none;border:none;color:#dc2626;font-size:18px;cursor:pointer;min-width:40px;min-height:40px;">✕</button>`;
     wrap.appendChild(row);
   }
   window.certAddItemRow = certAddItemRow;
@@ -91,7 +91,7 @@
     const el = document.getElementById('certSigStatus');
     if (!el) return;
     el.innerHTML = _certSig.data
-      ? '✅ נחתם' + (_certSig.name ? ' ע"י ' + certEsc(_certSig.name) : '') + ' <button type="button" onclick="certSignReset()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:11px;text-decoration:underline;">הסר</button>'
+      ? '✅ נחתם' + (_certSig.name ? ' ע"י ' + certEsc(_certSig.name) : '') + ' <button type="button" onclick="certSignReset()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;text-decoration:underline;min-height:36px;padding:6px 8px;">הסר</button>'
       : 'לא נחתם — יודפס קו ריק לחתימה ידנית';
   }
   window.certSignReset = function () { _certSig = { name: '', data: '' }; certSigStatusPaint(); };
@@ -153,13 +153,19 @@
     certSigStatusPaint();
   };
 
-  // pre = {kibbutz, date, items:[{name,qty}], contact, notes, source, refId}
+  // pre = {kibbutz, date, items:[{name,qty}], contact, notes, source, refId, customer?, reissueOf?}
+  // customer  — full stored block (reissue path: overrides the kibbutz_details lookup)
+  // reissueOf — {id, certNumber} of the cert being corrected; on successful issue the old one is auto-cancelled
+  let _certReissueOf = null;
   async function openDeliveryCert(pre) {
     pre = pre || {};
     certEnsureModal();
     _certSig = { name: '', data: '' };   // a new cert starts unsigned
+    _certReissueOf = pre.reissueOf || null;
     certSigStatusPaint();
-    const det = (await certKibbutzDetails())[pre.kibbutz] || {};
+    const det = pre.customer
+      ? { legal_name: pre.customer.name, company_id: pre.customer.company_id, address: pre.customer.address, contact: pre.customer.contact }
+      : ((await certKibbutzDetails())[pre.kibbutz] || {});
     document.getElementById('certCustName').value = det.legal_name || pre.kibbutz || '';
     document.getElementById('certCustCompanyId').value = det.company_id || '';
     document.getElementById('certCustAddress').value = det.address || pre.kibbutz || '';   // no address in EMS → the site name is the delivery address
@@ -227,12 +233,26 @@
       w.document.open();
       w.document.write(certDocHtml(cert));
       w.document.close();
+      // correction flow: the new cert is issued → auto-cancel the one it replaces (best-effort;
+      // if the cancel fails the old cert stays active and can be cancelled from the certs tab)
+      let cancelledOld = 0;
+      if (cert.number && _certReissueOf) {
+        try {
+          await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ type: 'deliveryCertCancel', id: _certReissueOf.id, replacedBy: cert.number }) });
+          cancelledOld = _certReissueOf.certNumber;
+        } catch (e) { console.warn('cancel of replaced cert failed', e); }
+      }
+      _certReissueOf = null;
       document.getElementById('certModal').classList.remove('open');
       const t = document.getElementById('toast');
       if (t) {
-        t.textContent = cert.number ? ('✅ הופקה תעודת משלוח ' + cert.number) : '⚠️ הופקה טיוטה ללא מספר (אין חיבור) — הפק שוב כשיש חיבור';
+        t.textContent = cert.number
+          ? (cancelledOld ? ('✅ הופקה תעודה מתוקנת ' + cert.number + ' · תעודה ' + cancelledOld + ' בוטלה') : ('✅ הופקה תעודת משלוח ' + cert.number))
+          : '⚠️ הופקה טיוטה ללא מספר (אין חיבור) — הפק שוב כשיש חיבור';
         t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 4000);
       }
+      if (typeof invRenderCerts === 'function') invRenderCerts();   // refresh the registry if its tab is open
     } finally {
       if (typeof setBtnLoading === 'function') setBtnLoading(btn, false);
     }
@@ -286,10 +306,11 @@
     <div class="circ grad" style="width:8mm;height:8mm;bottom:16mm;left:10mm;opacity:.8;"></div>
     <div class="ring" style="width:5.5mm;height:5.5mm;border:.8mm solid #a9c938;bottom:23mm;left:21mm;opacity:.7;"></div>
   </div>
+  ${cert.cancelled ? '<div style="position:absolute;top:38%;left:0;right:0;text-align:center;transform:rotate(-16deg);font-size:58px;font-weight:900;color:rgba(220,38,38,.30);z-index:3;letter-spacing:10px;">מבוטלת</div>' : ''}
   <div class="content">
     <img class="logo" src="${CERT_LOGO}" alt="Sigmatec">
     <h1>תעודת משלוח ${certEsc(num)}</h1>
-    <div class="computed">מסמך ממוחשב${cert.number ? '' : ' — טיוטה (ללא מספר)'}</div>
+    <div class="computed">מסמך ממוחשב${cert.number ? '' : ' — טיוטה (ללא מספר)'}${cert.cancelled ? ' · <b style="color:#dc2626;">תעודה מבוטלת' + (cert.replacedBy ? ' — הוחלפה בתעודה מס\' ' + certEsc(cert.replacedBy) : '') + '</b>' : ''}</div>
     <div class="blocks">
       <div>
         שם הלקוח: <b>${certEsc(c.name)}</b><br>
@@ -347,21 +368,29 @@
     const srcLabel = { visit: '📍 ביקור', order: '🧾 הזמנה', ems: '🔧 משימת EMS', manual: '✍️ ידני' };
     if (!rows.length) { root.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;">אין תעודות בטווח/בחיפוש</div>'; return; }
     root.innerHTML = '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>מס\'</th><th>תאריך</th><th>לקוח</th><th>פריטים</th><th>מקור</th><th>הופק ע"י</th><th>חתימה</th><th style="text-align:left;">פעולות</th></tr></thead><tbody>' +
-      rows.map(c => `<tr>
-        <td data-label="מס'" style="font-weight:700;">${c.cert_number}</td>
+      rows.map(c => {
+        const cancelled = c.status === 'cancelled';
+        const idArg = certEsc(String(c.id)).replace(/'/g, '');
+        return `<tr${cancelled ? ' style="opacity:.55;"' : ''}>
+        <td data-label="מס'" style="font-weight:700;">${cancelled ? '<s>' + c.cert_number + '</s><div style="font-size:10px;color:#dc2626;white-space:nowrap;">🚫 מבוטלת' + (c.replaced_by ? ' → ' + c.replaced_by : '') + '</div>' : c.cert_number}</td>
         <td data-label="תאריך" style="white-space:nowrap;">${certFmtDate(c.cert_date)}</td>
         <td data-label="לקוח">${certEsc(((c.customer || {}).name) || c.kibbutz)}</td>
         <td data-label="פריטים" style="font-size:11px;">${(c.items || []).map(i => certEsc(i.name) + ' ×' + i.qty).join('<br>')}</td>
         <td data-label="מקור" style="white-space:nowrap;">${srcLabel[c.source] || certEsc(c.source)}</td>
         <td data-label="הופק ע&quot;י">${certEsc(c.created_by)}</td>
         <td data-label="חתימה">${c.signature ? '✅ ' + certEsc(c.recipient || '') : '—'}</td>
-        <td class="actions-cell" style="white-space:nowrap;text-align:left;"><button class="inv-btn small" onclick="certReprint('${certEsc(String(c.id)).replace(/'/g, '')}')">🖨️ הצג / הדפס</button></td>
-      </tr>`).join('') + '</tbody></table></div>' +
-      `<div style="font-size:11px;color:#64748b;margin-top:6px;">${rows.length} תעודות</div>`;
+        <td class="actions-cell" style="white-space:nowrap;text-align:left;">
+          <button class="inv-btn small" onclick="certReprint('${idArg}')">🖨️ הצג</button>
+          ${cancelled ? '' : `<button class="inv-btn small" style="background:#0e7490;" onclick="certReissue('${idArg}')" title="פתח לעריכה, הפק תעודה חדשה ובטל את זו אוטומטית">📝 הפק מתוקנת</button>
+          <button class="inv-btn small" style="background:#dc2626;" onclick="certCancel('${idArg}')">🚫 בטל</button>`}
+        </td>
+      </tr>`; }).join('') + '</tbody></table></div>' +
+      `<div style="font-size:11px;color:#64748b;margin-top:6px;">${rows.length} תעודות · ${rows.filter(c => c.status !== 'cancelled').length} פעילות</div>`;
   }
   window.invRenderCerts = invRenderCerts;
 
   // Reprint an ISSUED cert — renders the stored snapshot exactly (incl. signature); no new number.
+  // A cancelled cert prints with a מבוטלת watermark + the replacing cert's number.
   function certReprint(id) {
     const c = _certRows.find(x => x.id === id);
     if (!c) return;
@@ -370,11 +399,38 @@
     w.document.write(certDocHtml({
       number: c.cert_number, date: c.cert_date, kibbutz: c.kibbutz,
       customer: c.customer || {}, items: c.items || [], notes: c.notes || '',
-      source: c.source, refId: c.ref_id, recipient: c.recipient || '', signature: c.signature || ''
+      source: c.source, refId: c.ref_id, recipient: c.recipient || '', signature: c.signature || '',
+      cancelled: c.status === 'cancelled', replacedBy: c.replaced_by || 0
     }));
     w.document.close();
   }
   window.certReprint = certReprint;
+
+  // Correction flow: open the stored cert for editing → issuing the new one auto-cancels this one.
+  function certReissue(id) {
+    const c = _certRows.find(x => x.id === id);
+    if (!c) return;
+    openDeliveryCert({
+      kibbutz: c.kibbutz, date: certToday(), customer: c.customer || {},
+      items: (c.items || []).map(i => ({ name: i.name, qty: i.qty })),
+      notes: c.notes || '', source: c.source, refId: c.ref_id,
+      reissueOf: { id: c.id, certNumber: c.cert_number }
+    });
+  }
+  window.certReissue = certReissue;
+
+  // Manual cancel (no replacement) — e.g. a delivery that never happened.
+  async function certCancel(id) {
+    const c = _certRows.find(x => x.id === id);
+    if (!c) return;
+    if (!confirm('לבטל את תעודת משלוח ' + c.cert_number + '?\nהתעודה תישאר ברישום כמבוטלת (לא נמחקת) ולא תיספר בדוחות.')) return;
+    try {
+      await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'deliveryCertCancel', id: c.id }) });
+      invRenderCerts(true);
+    } catch (e) { alert('שגיאה בביטול: ' + e.message); }
+  }
+  window.certCancel = certCancel;
 
   // ---- prefill helpers (the trigger points) ----
 
@@ -497,11 +553,14 @@
     const groups = Object.keys(byK).sort((a, b) => a.localeCompare(b, 'he')).map(k => {
       const list = byK[k];
       const totals = {};
-      list.forEach(cr => (cr.items || []).forEach(i => { totals[i.name] = (totals[i.name] || 0) + (parseInt(i.qty) || 0); }));
-      const rows = list.map(cr => `<tr>
-        <td>${cr.cert_number}</td><td>${certFmtDate(cr.cert_date)}</td>
+      list.filter(cr => cr.status !== 'cancelled')   // cancelled certs stay listed but never counted
+        .forEach(cr => (cr.items || []).forEach(i => { totals[i.name] = (totals[i.name] || 0) + (parseInt(i.qty) || 0); }));
+      const rows = list.map(cr => {
+        const cancelled = cr.status === 'cancelled';
+        return `<tr${cancelled ? ' style="opacity:.55;text-decoration:line-through;"' : ''}>
+        <td>${cr.cert_number}${cancelled ? ' 🚫' + (cr.replaced_by ? '→' + cr.replaced_by : '') : ''}</td><td>${certFmtDate(cr.cert_date)}</td>
         <td>${(cr.items || []).map(i => certEsc(i.name) + ' ×' + i.qty).join('<br>')}</td>
-        <td>${certEsc(cr.created_by)}</td><td>${certEsc(cr.notes)}</td></tr>`).join('');
+        <td>${certEsc(cr.created_by)}</td><td>${certEsc(cr.notes)}</td></tr>`; }).join('');
       const totalRows = Object.keys(totals).sort((a, b) => a.localeCompare(b, 'he')).map(n => `<tr><td>${certEsc(n)}</td><td class="c">${totals[n]}</td></tr>`).join('');
       return `<h2>${certEsc(k)} <small>(${list.length} תעודות)</small></h2>
         <table><thead><tr><th>מס' תעודה</th><th>תאריך</th><th>פריטים</th><th>הופק ע"י</th><th>הערות</th></tr></thead><tbody>${rows}</tbody></table>

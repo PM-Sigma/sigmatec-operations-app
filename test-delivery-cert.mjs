@@ -32,6 +32,8 @@ const elements = {};
 ['certModal', 'certCustName', 'certCustCompanyId', 'certCustAddress', 'certCustContact',
   'certDate', 'certItems', 'certNotes', 'certProductList',
   'invCertsList', 'inv-section-certs', 'invCertsFrom', 'invCertsTo', 'invCertsSearch'].forEach(id => { elements[id] = makeEl(); });
+// the certs tab is "open" for invRenderCerts's active-tab guard (force=true bypasses it anyway, but keep it realistic)
+elements['inv-section-certs'].classList.contains = (c) => c === 'active';
 
 // certItems collects appended rows (used by certAddItemRow -> certCollect roundtrip)
 const certItemRows = [];
@@ -50,8 +52,10 @@ const document_ = {
 };
 
 let lastFetchBody = null;
+const fetchBodies = [];   // every POST body, in call order (issue + auto-cancel, etc.)
 const fetch_ = async (url, opts) => {
   lastFetchBody = opts && opts.body ? JSON.parse(opts.body) : null;
+  if (lastFetchBody) fetchBodies.push(lastFetchBody);
   return { json: async () => ({ ok: true, certNumber: 1234 }) };
 };
 
@@ -75,14 +79,18 @@ const DELIVERY_CERT_ROWS = [{
   created_by: 'עידן', recipient: 'דנה מקבלת', signature: 'data:image/png;base64,ZZZ'
 }];
 
+// certCancel() calls a bare confirm(...) — controllable per-test via confirmReturn.
+let confirmReturn = true;
+const confirm_ = () => confirmReturn;
+
 function runModule() {
   const fn = new Function(
-    'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'console',
-    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, setCertSig: (v) => { _certSig = v; } };'
+    'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
+    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
   );
   return fn(
     window_, document_, fetch_, 'http://sheet.test',
-    () => 'עידן', () => {}, (msg) => alerts.push(msg), console
+    () => 'עידן', () => {}, (msg) => alerts.push(msg), confirm_, console
   );
 }
 
@@ -173,6 +181,16 @@ if (mod) {
     const bad = mod.certDocHtml(Object.assign({}, baseCert, { recipient: 'x', signature: 'https://evil.example/x.png' }));
     assert.ok(!bad.includes('evil.example'), 'non-data-URI signature must not be rendered');
     assert.ok(bad.includes('חתימה: <span>&nbsp;</span>'), 'should fall back to blank signature line');
+  });
+  check('certDocHtml cancelled:true renders מבוטלת watermark + הוחלפה בתעודה מס note with the new cert number', () => {
+    const cancelledHtml = mod.certDocHtml(Object.assign({}, baseCert, { cancelled: true, replacedBy: 3002 }));
+    assert.ok(cancelledHtml.includes('מבוטלת'), 'expected מבוטלת watermark text');
+    assert.ok(cancelledHtml.includes('הוחלפה בתעודה מס'), 'expected "הוחלפה בתעודה מס" replacement note');
+    assert.ok(cancelledHtml.includes('3002'), 'expected the replacing cert number 3002 in the note');
+  });
+  check('certDocHtml cancelled falsy renders neither the watermark nor the replacement note', () => {
+    assert.ok(!html.includes('מבוטלת'), 'unexpected מבוטלת watermark on an active (non-cancelled) cert doc');
+    assert.ok(!html.includes('הוחלפה בתעודה מס'), 'unexpected replacement note on an active (non-cancelled) cert doc');
   });
 
   // ---- 3. openDeliveryCert prefill ----
@@ -364,6 +382,121 @@ if (mod) {
       const html = openedWindows[openedWindows.length - 1].document._html;
       assert.ok(html.includes('שם המקבל: <b>דנה מקבלת</b>'), 'expected stored recipient name');
       assert.ok(html.includes('<img src="data:image/png;base64,ZZZ"'), 'expected stored signature image');
+    });
+  });
+
+  // ---- 9. certReissue: opens the stored row for editing using its OWN customer block, not the kibbutz_details lookup ----
+  const REISSUE_ROW = {
+    id: 'x1', cert_number: 3001, cert_date: '2026-07-01', kibbutz: 'שדה אליהו',   // 'שדה אליהו' IS in KIBBUTZ_DETAILS —
+    customer: { name: 'לקוח מקורי בע"מ', company_id: '111222333', address: 'כתובת מקורית 5', contact: 'איש קשר מקורי' },  // but these values must win
+    items: [{ name: 'מונה מים', qty: 7 }], notes: 'הערה מקורית', source: 'order', ref_id: 'o55', status: 'active'
+  };
+  await0(async () => {
+    mod.setCertRows([REISSUE_ROW]);
+    certItemRows.length = 0;
+    mod.certReissue('x1');   // sync dispatcher; internally calls the async openDeliveryCert
+    await new Promise(r => setTimeout(r, 10));   // flush openDeliveryCert's internal awaits
+
+    check('certReissue: modal customer name comes from the STORED row (not the kibbutz_details lookup)', () => {
+      assert.equal(elements.certCustName.value, 'לקוח מקורי בע"מ');
+    });
+    check('certReissue: modal company_id comes from the STORED row (not kibbutz_details)', () => {
+      assert.equal(elements.certCustCompanyId.value, '111222333');
+    });
+    check('certReissue: modal address comes from the STORED row', () => {
+      assert.equal(elements.certCustAddress.value, 'כתובת מקורית 5');
+    });
+    check('certReissue: modal contact comes from the STORED row', () => {
+      assert.equal(elements.certCustContact.value, 'איש קשר מקורי');
+    });
+    check('certReissue: modal items reflect the stored row\'s items', () => {
+      const rows = certItemRows.filter(r => typeof r.innerHTML === 'string' && r.innerHTML.includes('cert-item-qty'));
+      assert.equal(rows.length, 1, 'expected exactly 1 item row from the stored cert');
+      assert.ok(rows[0].innerHTML.includes('value="מונה מים"'), 'expected stored item name in the row html');
+      assert.ok(rows[0].innerHTML.includes('value="7"'), 'expected stored item qty in the row html');
+    });
+  });
+
+  // ---- 10. reissue → issue auto-cancels the replaced cert ----
+  await0(async () => {
+    // register an item row so certCollect() has ≥1 item (mirrors the real UI: the modal was
+    // just populated by certReissue() above, we just give it a querySelector-capable stub row).
+    certItemRows.length = 0;
+    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'מונה מים' } : { value: '7' } });
+    // modal.dataset.{kibbutz,source,refId} were already set by certReissue's internal openDeliveryCert call above
+    fetchBodies.length = 0;
+    openedWindows.length = 0;
+    await mod.issueDeliveryCert(null);
+
+    check('issueDeliveryCert (reissue path): first POST body is the new cert (type=deliveryCert)', () => {
+      assert.ok(fetchBodies.length >= 2, 'expected 2 POSTs (issue + auto-cancel), got ' + fetchBodies.length);
+      assert.equal(fetchBodies[0].type, 'deliveryCert');
+    });
+    check('issueDeliveryCert (reissue path): a following POST auto-cancels the replaced cert', () => {
+      const cancelBody = fetchBodies.find(b => b.type === 'deliveryCertCancel');
+      assert.ok(cancelBody, 'expected a deliveryCertCancel POST');
+      assert.equal(cancelBody.id, 'x1', 'expected the cancel to target the replaced cert id (x1)');
+      assert.equal(cancelBody.replacedBy, 1234, 'expected replacedBy to equal the new cert number returned by the fetch stub (1234)');
+    });
+  });
+
+  // ---- 11. certCancel: manual cancel gated by confirm(), no replacedBy ----
+  await0(async () => {
+    mod.setCertRows([{ id: 'x1', cert_number: 3001, status: 'active' }]);
+    fetchBodies.length = 0;
+    confirmReturn = true;
+    await mod.certCancel('x1');
+    await new Promise(r => setTimeout(r, 5));   // let certCancel's fire-and-forget invRenderCerts(true) settle
+    check('certCancel (confirmed): posts type=deliveryCertCancel for the right id, with no replacedBy', () => {
+      assert.equal(fetchBodies.length, 1, 'expected exactly one POST when confirmed');
+      assert.equal(fetchBodies[0].type, 'deliveryCertCancel');
+      assert.equal(fetchBodies[0].id, 'x1');
+      assert.ok(!('replacedBy' in fetchBodies[0]), 'a manual cancel must not carry a replacedBy');
+    });
+  });
+
+  await0(async () => {
+    mod.setCertRows([{ id: 'x1', cert_number: 3001, status: 'active' }]);
+    fetchBodies.length = 0;
+    confirmReturn = false;
+    await mod.certCancel('x1');
+    check('certCancel (declined): no POST is sent when confirm() returns false', () => {
+      assert.equal(fetchBodies.length, 0);
+    });
+  });
+
+  // ---- 12. invRenderCerts: cancelled rows render the 🚫 מבוטלת marker + strikethrough, and hide their action buttons ----
+  await0(async () => {
+    const MIXED_ROWS = [
+      { id: 'act1', cert_number: 4001, cert_date: '2026-07-01', kibbutz: 'שדה אליהו', customer: { name: 'לקוח פעיל' },
+        items: [{ name: 'אנטנה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'active' },
+      { id: 'canc1', cert_number: 4002, cert_date: '2026-07-02', kibbutz: 'שדה אליהו', customer: { name: 'לקוח מבוטל' },
+        items: [{ name: 'אנטנה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'cancelled', replaced_by: 4003 }
+    ];
+    const originalSbCertGet = window_._sbCertGet;
+    window_._sbCertGet = async (query) => query.indexOf('delivery_certs') !== -1 ? MIXED_ROWS : [];
+    elements.invCertsSearch.value = '';
+    await window_.invRenderCerts(true);
+    window_._sbCertGet = originalSbCertGet;
+
+    const listHtml = elements['invCertsList'].innerHTML;
+    const rowChunks = listHtml.split('</tr>');
+    const cancelledRowHtml = rowChunks.find(r => r.includes('4002')) || '';
+    const activeRowHtml = rowChunks.find(r => r.includes('4001')) || '';
+
+    check('invRenderCerts: cancelled row shows the 🚫 מבוטלת marker + strikethrough cert number', () => {
+      assert.ok(cancelledRowHtml.includes('🚫 מבוטלת'), 'expected the cancelled marker in the cancelled row');
+      assert.ok(/<s>4002<\/s>/.test(cancelledRowHtml), 'expected the cert number wrapped in <s> (strikethrough)');
+    });
+    check('invRenderCerts: cancelled row does NOT render the הפק מתוקנת / בטל action buttons', () => {
+      assert.ok(cancelledRowHtml, 'could not locate the cancelled row in the rendered html');
+      assert.ok(!cancelledRowHtml.includes('הפק מתוקנת'), 'cancelled row must not show the reissue button');
+      assert.ok(!cancelledRowHtml.includes('>🚫 בטל<'), 'cancelled row must not show the cancel button');
+    });
+    check('invRenderCerts: active row DOES render the הפק מתוקנת / בטל action buttons', () => {
+      assert.ok(activeRowHtml, 'could not locate the active row in the rendered html');
+      assert.ok(activeRowHtml.includes('הפק מתוקנת'), 'active row should show the reissue button');
+      assert.ok(activeRowHtml.includes('>🚫 בטל<'), 'active row should show the cancel button');
     });
   });
 }

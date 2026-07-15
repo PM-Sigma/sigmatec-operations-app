@@ -25,6 +25,12 @@
     --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
     --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
   }
+  /* delivery-cert modal: stack the customer grid on phones (default 2-col is too cramped) */
+  @media (max-width: 520px) {
+    .cert-grid { grid-template-columns: 1fr !important; }
+  }
+  /* delivery-cert modal: comfortable touch targets (mobile-first — the technician works from a phone) */
+  #certModal input, #certModal textarea, #certSignModal input { min-height: 40px; }
   body {
     font-family: 'Heebo', 'Segoe UI', system-ui, sans-serif;
     background: var(--bg);

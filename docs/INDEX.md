@@ -65,7 +65,14 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-15 (**1.29 on `dev`** · 1.21 live on `main`).
+## 🚦 Current state — last: 2026-07-15 (**1.32 on `dev`** · 1.21 live on `main`).
+
+**🆕 1.32 (dev) — cert mobile pass + cancel/reissue flow.** Correction story: **הפק מתוקנת** duplicates
+a stored cert for editing → new number → original auto-cancelled (`replaced_by` link, מבוטלת watermark
+on reprint, excluded from report totals; manual 🚫 בטל too). Mobile: cert modal/signature/registry all
+verified at 375px (1-col grid, ≥40px targets, no overflow/overlap). Tests now **92 green** (55 unit +
+4 viewer-gate + 33 PDF-markitdown). **Pre-release SQL (2): `db/delivery_certs_signature.sql` +
+`db/delivery_certs_status.sql`.** Cert feature complete; awaiting עידן's approval for dev→main.
 
 **🆕 1.29 (dev) — viewer PIN = 0540 + verification pass.** 78 automated checks green
 (`test-delivery-cert.mjs` 41 · `test-cert-pdf.mjs` 33 · `test-viewer-gate.mjs` 4), no app bugs.

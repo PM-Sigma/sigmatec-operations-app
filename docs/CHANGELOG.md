@@ -7,6 +7,25 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.32] 2026-07-15 — 📱 cert mobile pass + 🚫 cancel/reissue-correction flow [⚠️ needs db/delivery_certs_status.sql]
+עידן's asks: full phone-comfort for the cert flow (issue/view/edit/sign, nothing crashing or overlapping)
++ how to handle a cert that was issued and then needs a correction.
+- **Correction flow (the answer to "הפיק ואז נדרש שינוי"):** certs are never deleted — **📝 הפק מתוקנת**
+  on any active cert (מלאי → תעודות משלוח) opens it for editing with the STORED customer/items (not the
+  lookup), issues a NEW numbered cert, and **auto-cancels the original** with a `replaced_by` pointer
+  (best-effort; failure leaves it active + cancellable manually). **🚫 בטל** = manual cancel (confirm-gated).
+  Cancelled certs: dimmed + strikethrough in the registry, big **מבוטלת watermark** + "הוחלפה בתעודה
+  מס' N" on reprint, listed-but-not-counted in the accounting range report. New `status`/`replaced_by`
+  columns + update policy — **run `db/delivery_certs_status.sql`**. Router: `deliveryCertCancel` type.
+- **📱 Mobile pass (375px, live-verified):** customer grid stacks to 1 column (`.cert-grid` media rule);
+  all cert-modal touch targets ≥40px (item ✕ buttons were 21px, date input 25px — fixed via inline
+  min-heights + `#certModal input/textarea` CSS rule); signature canvas 342×177 with reachable buttons;
+  modal fits viewport, zero horizontal scroll, zero overlapping controls (the sticky action bar is the
+  app-wide by-design pinned footer). Signature flow verified end-to-end at phone size.
+- **Tests (Sonnet-high):** unit suite → **55 checks** (+14: cancelled watermark/note, reissue prefills
+  from stored snapshot, reissue→issue auto-cancel POST order incl. replacedBy, confirm-gated manual
+  cancel, registry rendering of cancelled vs active rows). Total **92 green** (55+4 viewer+33 PDF), no app bugs.
+
 ## [1.29] 2026-07-15 — viewer PIN → 0540 + full Sonnet-high verification pass (78 checks green)
 - **Viewer PIN changed to `0540`** (per עידן — same as the legacy team PIN; const in `15-login-gate.js`).
   Live-verified: old code rejected, 0540 enters as צפייה/viewer.
