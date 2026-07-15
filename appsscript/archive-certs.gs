@@ -1,34 +1,53 @@
 /**
  * Delivery-cert Drive archive ETL — runs under the company Google Workspace account.
  *
- * Extract:   delivery_certs rows with doc_html present and archived_at null (Supabase REST).
- * Transform: the frozen HTML snapshot (exactly what was printed, incl. signature) → PDF
- *            via Google's HTML→PDF converter.
- * Load:      Drive folder  תעודות משלוח / <YYYY> / <MM> , then PATCH the row:
- *            drive_url = file link, archived_at = now, doc_html = '' (frees DB storage).
+ * DESIGN (עידן, 2026-07-15): the PDF snapshots (doc_html) LIVE IN SUPABASE for the current month.
+ * Archiving to Drive is MONTHLY: on the 15th, every cert of months that have fully ended
+ * (e.g. on Aug 15 → all of July and older) is converted to PDF, filed in Drive under
+ * תעודות משלוח/<YYYY>/<MM>, and its doc_html is CLEARED from the DB (frees the free tier).
+ * After archiving, the app keeps full preview (re-rendered from the data row) + a 📁 Drive link.
  *
- * ── Setup (once) ─────────────────────────────────────────────────────────────
- * 1. In the Apps Script project (script.google.com, company account):
- *    Project Settings → Script Properties →
+ * Manual quick upload: run archiveMonth('2026-07') anytime to push a stored month immediately.
+ *
+ * ── Setup (once, when Drive is connected — deferred for now) ────────────────
+ * 1. script.google.com (company account) → paste this file.
+ * 2. Project Settings → Script Properties:
  *      SUPABASE_URL         = https://wwqfcajnxinaxmobrgol.supabase.co
  *      SUPABASE_SERVICE_KEY = <service_role key — SERVER-SIDE ONLY, never in the repo/client>
- * 2. Paste this file, run setupArchiveTrigger() once (authorize Drive + UrlFetch).
- *    It installs an hourly trigger for archiveDeliveryCerts().
- * 3. Optional: run archiveDeliveryCerts() manually to backfill immediately.
+ * 3. Run setupArchiveTrigger() once (authorizes Drive + UrlFetch; installs the monthly trigger,
+ *    day 15 at ~03:00).
+ * 4. Optional backfill: archiveDueCerts() manually.
  *
- * Note: the Drive PDF is the ARCHIVE copy (Google's converter; near-identical rendering).
+ * Note: the Drive PDF is the ARCHIVE copy (Google's HTML→PDF converter; near-identical rendering).
  * The canonical print path in the app stays browser-native.
  */
 
 var ROOT_FOLDER_NAME = 'תעודות משלוח';
-var BATCH_LIMIT = 20;   // per run — hourly trigger drains any backlog quickly
+var BATCH_LIMIT = 100;   // per run; a monthly batch is typically well under this
 
 function setupArchiveTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'archiveDeliveryCerts') ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === 'archiveDueCerts') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('archiveDeliveryCerts').timeBased().everyHours(1).create();
-  Logger.log('Hourly archive trigger installed.');
+  ScriptApp.newTrigger('archiveDueCerts').timeBased().onMonthDay(15).atHour(3).create();
+  Logger.log('Monthly archive trigger installed (day 15, ~03:00).');
+}
+
+// Scheduled entry: archive everything from BEFORE the current month (on the 15th, the previous
+// month ended ≥15 days ago — exactly the requested cadence).
+function archiveDueCerts() {
+  var now = new Date();
+  var firstOfCurrent = Utilities.formatDate(new Date(now.getFullYear(), now.getMonth(), 1), 'GMT+3', 'yyyy-MM-dd');
+  archiveWhere_('&cert_date=lt.' + firstOfCurrent);
+}
+
+// Manual quick upload of one stored month, e.g. archiveMonth('2026-07').
+function archiveMonth(ym) {
+  if (!/^\d{4}-\d{2}$/.test(ym || '')) throw new Error("archiveMonth('YYYY-MM') — e.g. archiveMonth('2026-07')");
+  var y = +ym.slice(0, 4), m = +ym.slice(5, 7);
+  var from = ym + '-01';
+  var to = Utilities.formatDate(new Date(y, m, 1), 'GMT+3', 'yyyy-MM-dd');   // first of next month
+  archiveWhere_('&cert_date=gte.' + from + '&cert_date=lt.' + to);
 }
 
 function sbConf_() {
@@ -38,13 +57,14 @@ function sbConf_() {
   return { url: url, headers: { apikey: key, Authorization: 'Bearer ' + key } };
 }
 
-function archiveDeliveryCerts() {
+function archiveWhere_(dateFilter) {
   var sb = sbConf_();
   var q = '/rest/v1/delivery_certs?select=id,cert_number,cert_date,kibbutz,status,doc_html'
-        + '&archived_at=is.null&doc_html=neq.&order=cert_number&limit=' + BATCH_LIMIT;
+        + '&archived_at=is.null&doc_html=neq.' + dateFilter
+        + '&order=cert_number&limit=' + BATCH_LIMIT;
   var rows = JSON.parse(UrlFetchApp.fetch(sb.url + q, { headers: sb.headers }).getContentText() || '[]');
-  if (!rows.length) return;
-
+  Logger.log('%s certs to archive', rows.length);
+  var done = 0;
   rows.forEach(function (c) {
     try {
       var d = new Date(c.cert_date + 'T12:00:00');
@@ -64,11 +84,12 @@ function archiveDeliveryCerts() {
         file.setTrashed(true);
         throw new Error('PATCH failed ' + patch.getResponseCode() + ': ' + patch.getContentText());
       }
-      Logger.log('archived cert %s → %s', c.cert_number, file.getUrl());
+      done++;
     } catch (e) {
       Logger.log('cert %s failed: %s', c.cert_number, e && e.message);   // stays unarchived → retried next run
     }
   });
+  Logger.log('archived %s/%s', done, rows.length);
 }
 
 function rootFolder_() {

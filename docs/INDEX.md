@@ -65,7 +65,14 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-15 (**1.36 on `dev`** · 1.21 live on `main`).
+## 🚦 Current state — last: 2026-07-15 (**1.37 on `dev`** · 1.21 live on `main`).
+
+**🆕 1.37 (dev) — DB setup DONE via Supabase MCP + monthly Drive ETL.** All 4 cert migrations applied
++ site_contacts seeded (64/37, PII sealed to authenticated) + E2E round-trip verified + **sequence
+reset to 1001**. ETL is now MONTHLY (15th of month archives fully-ended months; `archiveMonth('YYYY-MM')`
+= quick manual upload; snapshots live in Supabase meanwhile). **Drive setup deferred — plan saved in
+CHANGELOG 1.37 + archive-certs.gs header.** Nothing left to run manually except the Apps Script step
+when עידן connects Drive. Awaiting final Sonnet verification → then dev→main on approval.
 
 **🆕 1.36 (dev) — cert sharing + preview + Drive ETL.** One `certDocHtml` generator = print/preview/
 view-link parity by construction. Public `?cert=<uuid>` route (guarded from app UI leaks) · 👁 preview

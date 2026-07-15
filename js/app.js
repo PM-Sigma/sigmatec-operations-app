@@ -8518,7 +8518,7 @@
   })();
 
   // ---- 👁 in-app preview overlay (no download, no popup — mobile-friendly iframe) ----
-  function certOverlayShow(html, certId) {
+  function certOverlayShow(html, certId, driveUrl) {
     let ov = document.getElementById('certViewOverlay');
     if (!ov) {
       ov = document.createElement('div');
@@ -8528,6 +8528,7 @@
         <div style="display:flex;gap:8px;align-items:center;padding:8px 12px;background:#1b2a4a;">
           <button id="certOvPrint" class="btn btn-primary" style="padding:8px 14px;font-size:13px;min-height:40px;">🖨️ הדפס / PDF</button>
           <button id="certOvSend" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;min-height:40px;">📤 שלח</button>
+          <a id="certOvDrive" class="btn btn-secondary" target="_blank" rel="noopener" style="padding:8px 14px;font-size:13px;min-height:40px;text-decoration:none;display:none;align-items:center;background:#f59e0b;border-color:#f59e0b;color:#1b2a4a;">📁 הקובץ בדרייב</a>
           <span style="flex:1;"></span>
           <button onclick="document.getElementById('certViewOverlay').style.display='none'" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;min-width:40px;min-height:40px;">✕</button>
         </div>
@@ -8540,6 +8541,13 @@
     const sendBtn = document.getElementById('certOvSend');
     sendBtn.style.display = certId ? '' : 'none';
     if (certId) sendBtn.onclick = () => certSendOpen(certId);
+    // archived cert → the official PDF copy lives in Drive; the overlay stays the exact preview
+    const driveBtn = document.getElementById('certOvDrive');
+    if (driveBtn) {
+      const ok = driveUrl && /^https:\/\/(drive|docs)\.google\.com\//.test(driveUrl);
+      driveBtn.style.display = ok ? 'flex' : 'none';
+      if (ok) driveBtn.href = driveUrl;
+    }
   }
 
   // stored cert → overlay (registry 👁 button)
@@ -8551,7 +8559,7 @@
       customer: c.customer || {}, items: c.items || [], notes: c.notes || '',
       source: c.source, refId: c.ref_id, recipient: c.recipient || '', signature: c.signature || '',
       cancelled: c.status === 'cancelled', replacedBy: c.replaced_by || 0
-    }, { screen: true }), id);
+    }, { screen: true }), id, c.drive_url || '');
   }
   window.certView = certView;
 

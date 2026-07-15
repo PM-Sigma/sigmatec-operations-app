@@ -32,7 +32,10 @@ const elements = {};
 ['certModal', 'certCustName', 'certCustCompanyId', 'certCustAddress', 'certCustContact',
   'certDate', 'certItems', 'certNotes', 'certProductList',
   'invCertsList', 'inv-section-certs', 'invCertsFrom', 'invCertsTo', 'invCertsSearch',
-  'certSendModal'].forEach(id => { elements[id] = makeEl(); });
+  'certSendModal',
+  // certOverlayShow's DOM — pre-registering certViewOverlay makes it take the "reuse existing
+  // overlay" path (skip createElement/appendChild) so the other four stubs are the ones it drives.
+  'certViewOverlay', 'certOvFrame', 'certOvPrint', 'certOvSend', 'certOvDrive'].forEach(id => { elements[id] = makeEl(); });
 // the certs tab is "open" for invRenderCerts's active-tab guard (force=true bypasses it anyway, but keep it realistic)
 elements['inv-section-certs'].classList.contains = (c) => c === 'active';
 // certSendOpen()'s "modal already exists" branch — pre-registering it means the module skips
@@ -113,7 +116,7 @@ function runModule(overrides) {
   const fn = new Function(
     'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
     'location', 'SB_URL', 'SB_ANON', 'emsWriteOrQueue',
-    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
+    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, certView, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
   );
   return fn(
     overrides.window || window_, overrides.document || document_, overrides.fetch || fetch_, 'http://sheet.test',
@@ -721,6 +724,25 @@ if (mod) {
     check('?cert route: renders the not-found message when the lookup returns no rows', () => {
       assert.ok(routeDoc._html.includes('התעודה לא נמצאה'), 'expected the not-found message to be written to document');
     });
+  });
+
+  // ---- 17. certOverlayShow's drive-button URL guard (via certView -> stored row's drive_url) ----
+  check('certOverlayShow drive button: a real Drive URL shows the button and sets its href', () => {
+    mod.setCertRows([{ id: 'd1', cert_number: 4001, cert_date: '2026-07-15', kibbutz: 'שדה אליהו',
+      customer: { name: 'לקוח בדיקה' }, items: [{ name: 'פריט', qty: 1 }],
+      drive_url: 'https://drive.google.com/file/d/abc/view' }]);
+    mod.certView('d1');
+    assert.equal(elements.certOvDrive.style.display, 'flex');
+    assert.equal(elements.certOvDrive.href, 'https://drive.google.com/file/d/abc/view');
+  });
+  check('certOverlayShow drive button: a non-Drive (javascript:) URL hides the button', () => {
+    elements.certOvDrive.href = '';   // reset from the previous check
+    mod.setCertRows([{ id: 'd2', cert_number: 4002, cert_date: '2026-07-15', kibbutz: 'שדה אליהו',
+      customer: { name: 'לקוח בדיקה' }, items: [{ name: 'פריט', qty: 1 }],
+      drive_url: 'javascript:alert(1)' }]);
+    mod.certView('d2');
+    assert.equal(elements.certOvDrive.style.display, 'none');
+    assert.equal(elements.certOvDrive.href, '', 'href must not be set for a non-Drive URL');
   });
 }
 

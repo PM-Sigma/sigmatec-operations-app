@@ -7,6 +7,26 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.37] 2026-07-15 — ☁️ Supabase-MCP setup complete + monthly Drive ETL redesign
+The Supabase MCP is connected — Claude now runs SQL directly. **All pending DB setup executed and
+verified live:** 4 migrations applied (signature, status, drive, site_contacts — tracked in the
+migrations table), **site_contacts seeded (64 contacts / 37 cards, deduped)**, E2E plumbing round-trip
+(insert → number assigned → signature/status/drive patches → cleanup), **sequence reset to 1001** (two
+numbers had been burned by earlier RLS-rejection tests). Security advisors: only the app's known
+intentional `authenticated=true` WARNs — no new findings.
+- **ETL redesign (עידן):** PDF snapshots now LIVE IN SUPABASE for the running month; Drive upload is
+  **monthly on the 15th** (July's certs → Drive on Aug 15). `archive-certs.gs` rewritten:
+  `archiveDueCerts()` (monthly trigger, archives all fully-ended months) + **`archiveMonth('YYYY-MM')`**
+  for quick manual upload of a stored month. After archiving: the app keeps the exact preview
+  (re-rendered from the row) and the overlay/registry show **📁 הקובץ בדרייב** (URL-guarded to
+  drive/docs.google.com only).
+- **📋 Drive plan SAVED, setup deferred** (per עידן): when ready — paste `appsscript/archive-certs.gs`
+  in the company Apps Script, set SUPABASE_URL + SUPABASE_SERVICE_KEY Script Properties (rotate the
+  service key then), run `setupArchiveTrigger()`. Until then certs simply accumulate in Supabase
+  (small rows; doc_html ~35KB each) — nothing blocks, nothing breaks.
+- Live-verified against prod: kibbutz_details prefill (גניגר → אורות גניגר), site_contacts anon read
+  returns 0 rows (PII sealed), drive-button URL guard rejects non-Google URLs.
+
 ## [1.36] 2026-07-15 — 📤 cert sharing (contacts/email/WhatsApp) + 👁 preview + 🔗 view link + 📁 Drive ETL
 עידן's asks: EMS comment on cert issue (file attach impossible → link), a contact bank per site
 (EMS users: מנהל אתר/מנהל תפעול), send by email/WhatsApp, preview without downloading, preview ≡ output
