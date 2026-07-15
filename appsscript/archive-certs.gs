@@ -22,7 +22,10 @@
  * The canonical print path in the app stays browser-native.
  */
 
-var ROOT_FOLDER_NAME = 'תעודות משלוח';
+// The shared delivery-certs folder (עידן, 2026-07-15) — the INFORMATION account has access.
+// Year/month subfolders are created inside it automatically.
+var ROOT_FOLDER_ID = '10Y_LRqhm_H9wTzofHJ_4HLhdDjbV03Eq';
+var ROOT_FOLDER_NAME = 'תעודות משלוח';   // fallback only, if the ID ever becomes inaccessible
 var BATCH_LIMIT = 100;   // per run; a monthly batch is typically well under this
 
 function setupArchiveTrigger() {
@@ -93,8 +96,12 @@ function archiveWhere_(dateFilter) {
 }
 
 function rootFolder_() {
-  var it = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+  try { return DriveApp.getFolderById(ROOT_FOLDER_ID); }
+  catch (e) {
+    Logger.log('shared folder %s inaccessible (%s) — falling back to by-name', ROOT_FOLDER_ID, e && e.message);
+    var it = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+    return it.hasNext() ? it.next() : DriveApp.createFolder(ROOT_FOLDER_NAME);
+  }
 }
 function subFolder_(parent, name) {
   var it = parent.getFoldersByName(name);
