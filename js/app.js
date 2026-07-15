@@ -7021,7 +7021,7 @@
       catch (e) { err.textContent = 'שגיאה בשליחת קוד: ' + e.message; }
     };
     // ---- view-only entry (no EMS account): reports + reading only, every write blocked (isViewer) ----
-    const VIEWER_PIN = '6210';   // change here to rotate the viewer access code
+    const VIEWER_PIN = '0540';   // change here to rotate the viewer access code (same as the legacy team PIN, per עידן)
     window.gateViewerToggle = function () {
       const box = document.getElementById('gateViewerBox');
       if (!box) return;
@@ -8460,7 +8460,7 @@
         <td data-label="מקור" style="white-space:nowrap;">${srcLabel[c.source] || certEsc(c.source)}</td>
         <td data-label="הופק ע&quot;י">${certEsc(c.created_by)}</td>
         <td data-label="חתימה">${c.signature ? '✅ ' + certEsc(c.recipient || '') : '—'}</td>
-        <td class="actions-cell" style="white-space:nowrap;text-align:left;"><button class="inv-btn small" onclick="certReprint('${c.id}')">🖨️ הצג / הדפס</button></td>
+        <td class="actions-cell" style="white-space:nowrap;text-align:left;"><button class="inv-btn small" onclick="certReprint('${certEsc(String(c.id)).replace(/'/g, '')}')">🖨️ הצג / הדפס</button></td>
       </tr>`).join('') + '</tbody></table></div>' +
       `<div style="font-size:11px;color:#64748b;margin-top:6px;">${rows.length} תעודות</div>`;
   }

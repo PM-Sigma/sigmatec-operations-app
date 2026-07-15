@@ -30,7 +30,8 @@ function makeEl(overrides) {
 
 const elements = {};
 ['certModal', 'certCustName', 'certCustCompanyId', 'certCustAddress', 'certCustContact',
-  'certDate', 'certItems', 'certNotes', 'certProductList'].forEach(id => { elements[id] = makeEl(); });
+  'certDate', 'certItems', 'certNotes', 'certProductList',
+  'invCertsList', 'inv-section-certs', 'invCertsFrom', 'invCertsTo', 'invCertsSearch'].forEach(id => { elements[id] = makeEl(); });
 
 // certItems collects appended rows (used by certAddItemRow -> certCollect roundtrip)
 const certItemRows = [];
@@ -54,14 +55,30 @@ const fetch_ = async (url, opts) => {
   return { json: async () => ({ ok: true, certNumber: 1234 }) };
 };
 
+// window.open stub — issueDeliveryCert/certReprint open a blank print window then write the doc into it.
+const openedWindows = [];
+window_.open = () => {
+  const w = { document: { _html: '', write(html) { this._html += html; }, open() { this._html = ''; }, close() {} } };
+  openedWindows.push(w);
+  return w;
+};
+
 const KIBBUTZ_DETAILS = [
   { kibbutz: 'שדה אליהו', legal_name: 'שדה - אל חשמל בע"מ', company_id: '516702735', address: '', contact: 'a@b.c' }
 ];
 
+// stored issued-cert row (snake_case, as returned by Supabase) — used for invRenderCerts/certReprint checks
+const DELIVERY_CERT_ROWS = [{
+  id: 'c1', cert_number: 2001, cert_date: '2026-07-10', kibbutz: 'שדה אליהו',
+  customer: { name: 'שדה - אל חשמל בע"מ', company_id: '516702735', address: 'כתובת בדיקה', contact: 'איש קשר' },
+  items: [{ name: 'אנטנה', qty: 2 }], notes: 'הערה לבדיקה', source: 'visit', ref_id: 'v99',
+  created_by: 'עידן', recipient: 'דנה מקבלת', signature: 'data:image/png;base64,ZZZ'
+}];
+
 function runModule() {
   const fn = new Function(
     'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'console',
-    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert };'
+    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, setCertSig: (v) => { _certSig = v; } };'
   );
   return fn(
     window_, document_, fetch_, 'http://sheet.test',
@@ -161,6 +178,7 @@ if (mod) {
   // ---- 3. openDeliveryCert prefill ----
   window_._sbCertGet = async (query) => {
     if (query.indexOf('kibbutz_details') !== -1) return KIBBUTZ_DETAILS;
+    if (query.indexOf('delivery_certs') !== -1) return DELIVERY_CERT_ROWS;
     return [];
   };
   await0(async () => {
@@ -174,6 +192,11 @@ if (mod) {
     check('openDeliveryCert prefill: date set from pre.date', () => {
       assert.equal(elements.certDate.value, '2026-06-01');
     });
+    check('openDeliveryCert prefill: no address in kibbutz_details → defaults to the site name', () => {
+      // KIBBUTZ_DETAILS['שדה אליהו'].address is '' — EMS has no delivery address for sites,
+      // so the kibbutz/site name itself is used as the address (avoids a blank required field).
+      assert.equal(elements.certCustAddress.value, 'שדה אליהו');
+    });
   });
 
   await0(async () => {
@@ -186,6 +209,9 @@ if (mod) {
     });
     check('openDeliveryCert prefill: unknown kibbutz leaves company id blank', () => {
       assert.equal(elements.certCustCompanyId.value, '');
+    });
+    check('openDeliveryCert prefill: unknown kibbutz also defaults address to the site name', () => {
+      assert.equal(elements.certCustAddress.value, 'קיבוץ לא ידוע');
     });
   });
 
@@ -262,6 +288,82 @@ if (mod) {
       const rows = certItemRows.filter(r => typeof r.innerHTML === 'string' && r.innerHTML.includes('cert-item-qty'));
       assert.ok(rows.length >= 1, 'expected at least 1 item row');
       assert.ok(rows[0].innerHTML.includes('value="4"'), 'expected qty coerced to 4, row html: ' + rows[0].innerHTML);
+    });
+  });
+
+  // ---- 7. issueDeliveryCert: persists recipient+signature, prints the numbered doc ----
+  await0(async () => {
+    // rebuild a clean modal state: one item row + a signed recipient (via the test-only setCertSig hook)
+    elements.certModal.dataset.kibbutz = 'שדה אליהו';
+    elements.certModal.dataset.source = 'manual';
+    elements.certModal.dataset.refId = '';
+    elements.certCustName.value = 'לקוח לחתימה';
+    elements.certCustCompanyId.value = '';
+    elements.certCustAddress.value = '';
+    elements.certCustContact.value = '';
+    elements.certDate.value = '2026-07-15';
+    elements.certNotes.value = '';
+    certItemRows.length = 0;
+    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'אנטנה' } : { value: '2' } });
+    mod.setCertSig({ name: 'יוסי החותם', data: 'data:image/png;base64,SIGDATA' });
+
+    lastFetchBody = null;
+    openedWindows.length = 0;
+    await mod.issueDeliveryCert(null);
+
+    check('issueDeliveryCert: posts type=deliveryCert', () => {
+      assert.ok(lastFetchBody, 'expected a fetch call');
+      assert.equal(lastFetchBody.type, 'deliveryCert');
+    });
+    check('issueDeliveryCert: cert body carries recipient + signature (data-URL) from the signed state', () => {
+      assert.equal(lastFetchBody.cert.recipient, 'יוסי החותם');
+      assert.equal(lastFetchBody.cert.signature, 'data:image/png;base64,SIGDATA');
+    });
+    check('issueDeliveryCert: cert body carries createdBy from getCurrentUser()', () => {
+      assert.equal(lastFetchBody.createdBy, 'עידן');
+    });
+    check('issueDeliveryCert: printed doc reflects the server-assigned cert number + signature img', () => {
+      assert.ok(openedWindows.length >= 1, 'expected a print window to open');
+      const html = openedWindows[openedWindows.length - 1].document._html;
+      assert.ok(html.includes('תעודת משלוח 1234'), 'expected numbered heading in printed doc');
+      assert.ok(html.includes('שם המקבל: <b>יוסי החותם</b>'), 'expected recipient name in printed doc');
+      assert.ok(html.includes('<img src="data:image/png;base64,SIGDATA"'), 'expected signature image in printed doc');
+    });
+  });
+
+  // ---- 8. issued-certs tab: invRenderCerts renders stored rows; certReprint replays the exact snapshot ----
+  await0(async () => {
+    // invRenderCerts/certReprint are attached to `window` by the module itself (window.invRenderCerts = ...,
+    // window.certReprint = ...), which already ran when runModule() evaluated the source above.
+    await window_.invRenderCerts(true);
+    check('invRenderCerts: lists the stored cert number + customer name', () => {
+      const html = elements['invCertsList'].innerHTML;
+      assert.ok(html.includes('2001'), 'expected cert_number 2001 in the rendered list');
+      assert.ok(html.includes('שדה - אל חשמל בע&quot;מ'), 'expected (HTML-escaped) customer name in the rendered list');
+    });
+    check('invRenderCerts: shows the source label and a signed marker with recipient name', () => {
+      const html = elements['invCertsList'].innerHTML;
+      assert.ok(html.includes('📍 ביקור'), 'expected visit source label');
+      assert.ok(html.includes('✅ דנה מקבלת'), 'expected signed marker with recipient name');
+    });
+
+    const fetchCallsBefore = lastFetchBody;
+    openedWindows.length = 0;
+    window_.certReprint('c1');
+    check('certReprint: opens a print window without issuing any fetch (reprints from the cached row)', () => {
+      assert.equal(lastFetchBody, fetchCallsBefore, 'certReprint must not trigger a network call');
+      assert.ok(openedWindows.length >= 1, 'expected a print window to open');
+    });
+    check('certReprint: maps snake_case row fields (cert_number/cert_date/ref_id) into the printed doc', () => {
+      const html = openedWindows[openedWindows.length - 1].document._html;
+      assert.ok(html.includes('תעודת משלוח 2001'), 'expected cert_number 2001 in heading');
+      assert.ok(/2026/.test(html) && html.includes('כתובת בדיקה'), 'expected stored address/date rendered');
+      assert.ok(html.includes('· visit:v99'), 'expected source+ref_id footer built from ref_id');
+    });
+    check('certReprint: carries over the stored recipient + signature unchanged', () => {
+      const html = openedWindows[openedWindows.length - 1].document._html;
+      assert.ok(html.includes('שם המקבל: <b>דנה מקבלת</b>'), 'expected stored recipient name');
+      assert.ok(html.includes('<img src="data:image/png;base64,ZZZ"'), 'expected stored signature image');
     });
   });
 }

@@ -166,7 +166,7 @@
       catch (e) { err.textContent = 'שגיאה בשליחת קוד: ' + e.message; }
     };
     // ---- view-only entry (no EMS account): reports + reading only, every write blocked (isViewer) ----
-    const VIEWER_PIN = '6210';   // change here to rotate the viewer access code
+    const VIEWER_PIN = '0540';   // change here to rotate the viewer access code (same as the legacy team PIN, per עידן)
     window.gateViewerToggle = function () {
       const box = document.getElementById('gateViewerBox');
       if (!box) return;

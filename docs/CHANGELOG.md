@@ -7,6 +7,17 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.29] 2026-07-15 — viewer PIN → 0540 + full Sonnet-high verification pass (78 checks green)
+- **Viewer PIN changed to `0540`** (per עידן — same as the legacy team PIN; const in `15-login-gate.js`).
+  Live-verified: old code rejected, 0540 enters as צפייה/viewer.
+- **Verification pass (Sonnet high):** `test-delivery-cert.mjs` extended to **41 checks** (+12: address
+  defaults to site name, full issueDeliveryCert persist+print flow incl. signature payload, invRenderCerts
+  table render, certReprint snake_case mapping + no-network replay); new **`test-viewer-gate.mjs`**
+  (4 checks: wrong-PIN reject, 0540 accept incl. trimming, storage keys, reload). Plus the 33 PDF-markitdown
+  assertions. **78/78 green, no app bugs.**
+- Hardening nit from the pass: the one unescaped interpolation in `invRenderCerts` (DB-generated `c.id`
+  in the reprint onclick) now escaped like every other field.
+
 ## [1.27] 2026-07-15 — ✍️ on-the-spot signature + certs management tab + address default [⚠️ needs db/delivery_certs_signature.sql]
 עידן's follow-ups: (1) cert address should default to the site name from the DB; (2) the technician
 hands the phone to the recipient who types their name + signs on-screen → embedded in the PDF and

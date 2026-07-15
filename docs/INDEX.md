@@ -65,7 +65,12 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-15 (**1.27 on `dev`** · 1.21 live on `main`).
+## 🚦 Current state — last: 2026-07-15 (**1.29 on `dev`** · 1.21 live on `main`).
+
+**🆕 1.29 (dev) — viewer PIN = 0540 + verification pass.** 78 automated checks green
+(`test-delivery-cert.mjs` 41 · `test-cert-pdf.mjs` 33 · `test-viewer-gate.mjs` 4), no app bugs.
+Cert feature complete & verified; awaiting עידן's approval for dev→main. Pre-release SQL:
+`db/delivery_certs_signature.sql` (signature columns).
 
 **🆕 1.27 (dev) — ✍️ recipient signature + certs management.** Cert modal: "חתימת מקבל במקום" →
 on-screen name+canvas signature embedded in the PDF and persisted (**run `db/delivery_certs_signature.sql`**
