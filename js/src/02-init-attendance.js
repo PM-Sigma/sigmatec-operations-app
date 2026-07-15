@@ -247,6 +247,7 @@
     invRenderKibbutzInventory();
     invRenderReturns();
     invRenderProducts();
+    if (typeof invRenderCerts === 'function') invRenderCerts();   // fetches only when its tab is active
     if (typeof renderLowStockAlert === 'function') renderLowStockAlert();
   }
 

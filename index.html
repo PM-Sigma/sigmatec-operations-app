@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrkpyig3">
+<link rel="stylesheet" href="css/app.css?v=mrlxsy2s">
 </head>
 <body>
 <div class="container">
@@ -335,7 +335,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-14·1.26</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-15·1.27</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -347,6 +347,20 @@
       <button class="inv-tab-btn" data-inv-tab="kibbutz" onclick="invShowTab('kibbutz')">🏘 מלאי בקיבוצים</button>
       <button class="inv-tab-btn" data-inv-tab="returns" onclick="invShowTab('returns')">🔧 החזרות</button>
       <button class="inv-tab-btn" data-inv-tab="products" onclick="invShowTab('products')">📋 פריטים</button>
+      <button class="inv-tab-btn" data-inv-tab="certs" onclick="invShowTab('certs')">🚚 תעודות משלוח</button>
+    </div>
+
+    <div class="inv-section" id="inv-section-certs">
+      <div class="inv-card">
+        <h3>🚚 תעודות משלוח שהופקו</h3>
+        <div class="inv-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <label style="margin:0;font-size:12px;">מתאריך: <input type="date" id="invCertsFrom" onchange="invRenderCerts(true)"></label>
+          <label style="margin:0;font-size:12px;">עד: <input type="date" id="invCertsTo" onchange="invRenderCerts(true)"></label>
+          <input type="text" id="invCertsSearch" placeholder="🔍 קיבוץ / לקוח / מס' תעודה" style="flex:1;min-width:160px;" oninput="invRenderCerts(true)">
+          <button class="inv-btn small" onclick="invRenderCerts(true)">🔄 רענן</button>
+        </div>
+        <div id="invCertsList"></div>
+      </div>
     </div>
 
     <div class="inv-section active" id="inv-section-orders">
@@ -1339,7 +1353,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrkpyig3"></script>
+<script src="js/app.js?v=mrlxsy2s"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

@@ -631,7 +631,7 @@
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
           if (b.type === 'emsQueueClear') { const ids = (b.ids || []).map(x => '"' + String(x).replace(/"/g, '') + '"'); if (ids.length) await sbDelete('ems_queue?payload->>id=in.(' + ids.join(',') + ')'); return respond({ ok: true }); }
           if (b.type === 'parseCorrection') { await sbInsert('parse_corrections', [{ raw_text: b.rawText || '', items: b.items || [], created_by: b.createdBy || '' }]); return respond({ ok: true }); }
-          if (b.type === 'deliveryCert') { const c = b.cert || {}; const row = await sbInsertRet('delivery_certs', { cert_date: c.date || nowISO().slice(0, 10), kibbutz: c.kibbutz || '', customer: c.customer || {}, items: c.items || [], notes: c.notes || '', source: c.source || 'manual', ref_id: c.refId || '', created_by: b.createdBy || '' }); return respond({ ok: true, certNumber: row && row.cert_number, id: row && row.id }); }
+          if (b.type === 'deliveryCert') { const c = b.cert || {}; const certRow = { cert_date: c.date || nowISO().slice(0, 10), kibbutz: c.kibbutz || '', customer: c.customer || {}, items: c.items || [], notes: c.notes || '', source: c.source || 'manual', ref_id: c.refId || '', created_by: b.createdBy || '' }; if (c.recipient) certRow.recipient = c.recipient; if (c.signature) certRow.signature = c.signature; /* omit when unset so unsigned certs keep working before delivery_certs_signature.sql adds the columns */ const row = await sbInsertRet('delivery_certs', certRow); return respond({ ok: true, certNumber: row && row.cert_number, id: row && row.id }); }
           const w = W[b.type]; if (!w) return realFetch(url, opts);
           const parts = w(b); await sbUpsert(parts[0], parts[1], parts[2]); return respond({ ok: true, id: parts[3] });
         };
@@ -1339,6 +1339,7 @@
     invRenderKibbutzInventory();
     invRenderReturns();
     invRenderProducts();
+    if (typeof invRenderCerts === 'function') invRenderCerts();   // fetches only when its tab is active
     if (typeof renderLowStockAlert === 'function') renderLowStockAlert();
   }
 
@@ -8157,6 +8158,10 @@
           <div><label for="certCustContact">🤝 איש קשר:</label><input type="text" id="certCustContact" placeholder="—"></div>
         </div>
         <label for="certDate">📅 תאריך:</label><input type="date" id="certDate">
+        <div style="display:flex;align-items:center;gap:8px;margin:8px 0 2px;">
+          <button type="button" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="certSignOpen()">✍️ חתימת מקבל במקום</button>
+          <span id="certSigStatus" style="font-size:11px;color:#64748b;"></span>
+        </div>
         <label>📦 פריטים (ללא מחירים):</label>
         <div id="certItems"></div>
         <button type="button" class="btn btn-secondary" style="padding:4px 12px;font-size:12px;margin-top:4px;" onclick="certAddItemRow('',1)">+ הוסף פריט</button>
@@ -8184,14 +8189,85 @@
   }
   window.certAddItemRow = certAddItemRow;
 
+  // On-the-spot recipient signature: the technician hands over the phone, the recipient types
+  // their name + signs on the canvas → embedded in the PDF and persisted with the cert.
+  let _certSig = { name: '', data: '' };
+  function certSigStatusPaint() {
+    const el = document.getElementById('certSigStatus');
+    if (!el) return;
+    el.innerHTML = _certSig.data
+      ? '✅ נחתם' + (_certSig.name ? ' ע"י ' + certEsc(_certSig.name) : '') + ' <button type="button" onclick="certSignReset()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:11px;text-decoration:underline;">הסר</button>'
+      : 'לא נחתם — יודפס קו ריק לחתימה ידנית';
+  }
+  window.certSignReset = function () { _certSig = { name: '', data: '' }; certSigStatusPaint(); };
+
+  function certSignOpen() {
+    let bd = document.getElementById('certSignModal');
+    if (!bd) {
+      bd = document.createElement('div');
+      bd.className = 'modal-backdrop';
+      bd.id = 'certSignModal';
+      bd.innerHTML = `
+        <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;">
+          <h3>✍️ אישור קבלה וחתימה</h3>
+          <div class="modal-sub">מסור את המכשיר למקבל: שם מלא + חתימה באצבע בתוך המסגרת.</div>
+          <label for="certSignName">👤 שם המקבל:</label>
+          <input type="text" id="certSignName" placeholder="שם מלא">
+          <label>✍️ חתימה:</label>
+          <canvas id="certSignCanvas" style="width:100%;height:180px;border:2px dashed #94a3b8;border-radius:10px;background:#fff;touch-action:none;display:block;"></canvas>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="document.getElementById('certSignModal').classList.remove('open')">ביטול</button>
+            <button class="btn btn-secondary" onclick="certSignClear()">🧹 נקה</button>
+            <button class="btn btn-primary" onclick="certSignConfirm()">✅ אשר חתימה</button>
+          </div>
+        </div>`;
+      document.body.appendChild(bd);
+    }
+    document.getElementById('certSignName').value = _certSig.name || document.getElementById('certCustContact').value || '';
+    bd.classList.add('open');
+    // (re)bind the canvas at the size it's actually displayed at (DPR-scaled for crisp strokes)
+    const cv = document.getElementById('certSignCanvas');
+    setTimeout(() => {
+      const dpr = window.devicePixelRatio || 1;
+      const r = cv.getBoundingClientRect();
+      cv.width = r.width * dpr; cv.height = r.height * dpr;
+      const ctx = cv.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1b2a4a';
+      cv._hasInk = false;
+      if (cv._bound) return; cv._bound = true;
+      let drawing = false;
+      const pos = e => { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+      cv.addEventListener('pointerdown', e => { drawing = true; cv._hasInk = true; const [x, y] = pos(e); const c = cv.getContext('2d'); c.beginPath(); c.moveTo(x, y); try { cv.setPointerCapture(e.pointerId); } catch (e2) {} });
+      cv.addEventListener('pointermove', e => { if (!drawing) return; const [x, y] = pos(e); const c = cv.getContext('2d'); c.lineTo(x, y); c.stroke(); });
+      const up = () => { drawing = false; };
+      cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    }, 60);
+  }
+  window.certSignOpen = certSignOpen;
+  window.certSignClear = function () {
+    const cv = document.getElementById('certSignCanvas');
+    cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    cv._hasInk = false;
+  };
+  window.certSignConfirm = function () {
+    const cv = document.getElementById('certSignCanvas');
+    if (!cv._hasInk) { alert('חסרה חתימה — יש לחתום בתוך המסגרת.'); return; }
+    _certSig = { name: document.getElementById('certSignName').value.trim(), data: cv.toDataURL('image/png') };
+    document.getElementById('certSignModal').classList.remove('open');
+    certSigStatusPaint();
+  };
+
   // pre = {kibbutz, date, items:[{name,qty}], contact, notes, source, refId}
   async function openDeliveryCert(pre) {
     pre = pre || {};
     certEnsureModal();
+    _certSig = { name: '', data: '' };   // a new cert starts unsigned
+    certSigStatusPaint();
     const det = (await certKibbutzDetails())[pre.kibbutz] || {};
     document.getElementById('certCustName').value = det.legal_name || pre.kibbutz || '';
     document.getElementById('certCustCompanyId').value = det.company_id || '';
-    document.getElementById('certCustAddress').value = det.address || '';
+    document.getElementById('certCustAddress').value = det.address || pre.kibbutz || '';   // no address in EMS → the site name is the delivery address
     document.getElementById('certCustContact').value = pre.contact || det.contact || '';
     document.getElementById('certDate').value = pre.date || certToday();
     document.getElementById('certNotes').value = pre.notes || '';
@@ -8228,7 +8304,9 @@
       items: items,
       notes: document.getElementById('certNotes').value.trim(),
       source: modal.dataset.source || 'manual',
-      refId: modal.dataset.refId || ''
+      refId: modal.dataset.refId || '',
+      recipient: _certSig.name || '',
+      signature: _certSig.data || ''
     };
   }
 
@@ -8342,8 +8420,8 @@
     ${cert.notes ? '<div class="notes"><b>הערות</b>' + certEsc(cert.notes).replace(/\n/g, '<br>') + '</div>' : ''}
   </div>
   <div class="sig">
-    <div>שם המקבל: <span>&nbsp;</span></div>
-    <div>חתימה: <span>&nbsp;</span></div>
+    <div>שם המקבל: ${cert.recipient ? '<b>' + certEsc(cert.recipient) + '</b>' : '<span>&nbsp;</span>'}</div>
+    <div>חתימה: ${(cert.signature && /^data:image\//.test(cert.signature)) ? '<span style="border-bottom:1px solid #1b2a4a;"><img src="' + cert.signature + '" style="height:15mm;vertical-align:bottom;"></span>' : '<span>&nbsp;</span>'}</div>
   </div>
   <div class="foot">
     <span>תעודת משלוח ${certEsc(num)} · הופקה באפליקציית התפעול של סיגמאטק${cert.refId ? ' · ' + certEsc(cert.source) + ':' + certEsc(cert.refId) : ''}</span>
@@ -8352,6 +8430,56 @@
   <scr` + `ipt>window.onload = function () { setTimeout(function () { window.print(); }, 250); };</scr` + `ipt>
 </body></html>`;
   }
+
+  // ---- 🧾 issued-certs management (מלאי → תעודות משלוח) ----
+  let _certRows = [];   // last fetched list (reprint works off this cache)
+  async function invRenderCerts(force) {
+    const root = document.getElementById('invCertsList');
+    const section = document.getElementById('inv-section-certs');
+    if (!root || !section) return;
+    if (!section.classList.contains('active') && !force) return;   // don't hit Supabase for a hidden tab
+    if (typeof window._sbCertGet !== 'function') { root.innerHTML = '<div style="padding:16px;color:#94a3b8;">זמין רק במצב Supabase (ללא ?sb=0)</div>'; return; }
+    const fromEl = document.getElementById('invCertsFrom');
+    if (!fromEl.value) { const d = new Date(); fromEl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }   // default: current month
+    const from = fromEl.value || '2000-01-01';
+    const to = document.getElementById('invCertsTo').value || '2099-12-31';
+    root.innerHTML = '<div style="padding:16px;color:#94a3b8;">⏳ טוען תעודות…</div>';
+    try {
+      _certRows = await window._sbCertGet('delivery_certs?select=*&cert_date=gte.' + from + '&cert_date=lte.' + to + '&order=cert_number.desc');
+    } catch (e) { root.innerHTML = '<div style="padding:16px;color:#dc2626;">שגיאה בטעינה: ' + certEsc(e.message) + '</div>'; return; }
+    const q = (document.getElementById('invCertsSearch').value || '').trim();
+    const rows = q ? _certRows.filter(c => (c.kibbutz || '').includes(q) || ((c.customer || {}).name || '').includes(q) || String(c.cert_number).includes(q)) : _certRows;
+    const srcLabel = { visit: '📍 ביקור', order: '🧾 הזמנה', ems: '🔧 משימת EMS', manual: '✍️ ידני' };
+    if (!rows.length) { root.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;">אין תעודות בטווח/בחיפוש</div>'; return; }
+    root.innerHTML = '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>מס\'</th><th>תאריך</th><th>לקוח</th><th>פריטים</th><th>מקור</th><th>הופק ע"י</th><th>חתימה</th><th style="text-align:left;">פעולות</th></tr></thead><tbody>' +
+      rows.map(c => `<tr>
+        <td data-label="מס'" style="font-weight:700;">${c.cert_number}</td>
+        <td data-label="תאריך" style="white-space:nowrap;">${certFmtDate(c.cert_date)}</td>
+        <td data-label="לקוח">${certEsc(((c.customer || {}).name) || c.kibbutz)}</td>
+        <td data-label="פריטים" style="font-size:11px;">${(c.items || []).map(i => certEsc(i.name) + ' ×' + i.qty).join('<br>')}</td>
+        <td data-label="מקור" style="white-space:nowrap;">${srcLabel[c.source] || certEsc(c.source)}</td>
+        <td data-label="הופק ע&quot;י">${certEsc(c.created_by)}</td>
+        <td data-label="חתימה">${c.signature ? '✅ ' + certEsc(c.recipient || '') : '—'}</td>
+        <td class="actions-cell" style="white-space:nowrap;text-align:left;"><button class="inv-btn small" onclick="certReprint('${c.id}')">🖨️ הצג / הדפס</button></td>
+      </tr>`).join('') + '</tbody></table></div>' +
+      `<div style="font-size:11px;color:#64748b;margin-top:6px;">${rows.length} תעודות</div>`;
+  }
+  window.invRenderCerts = invRenderCerts;
+
+  // Reprint an ISSUED cert — renders the stored snapshot exactly (incl. signature); no new number.
+  function certReprint(id) {
+    const c = _certRows.find(x => x.id === id);
+    if (!c) return;
+    const w = window.open('', '_blank');
+    if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
+    w.document.write(certDocHtml({
+      number: c.cert_number, date: c.cert_date, kibbutz: c.kibbutz,
+      customer: c.customer || {}, items: c.items || [], notes: c.notes || '',
+      source: c.source, refId: c.ref_id, recipient: c.recipient || '', signature: c.signature || ''
+    }));
+    w.document.close();
+  }
+  window.certReprint = certReprint;
 
   // ---- prefill helpers (the trigger points) ----
 

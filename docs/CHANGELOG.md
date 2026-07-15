@@ -7,6 +7,25 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.27] 2026-07-15 — ✍️ on-the-spot signature + certs management tab + address default [⚠️ needs db/delivery_certs_signature.sql]
+עידן's follow-ups: (1) cert address should default to the site name from the DB; (2) the technician
+hands the phone to the recipient who types their name + signs on-screen → embedded in the PDF and
+saved; (3) a management page of all issued certs inside מלאי.
+- **Address default:** customer block address = `kibbutz_details.address || site name` (EMS has no
+  address column, so the site name doubles as the delivery address).
+- **✍️ Signature pad:** "חתימת מקבל במקום" in the cert modal → full-screen pad (name + finger-drawn
+  canvas, DPR-scaled, pointer events, clear/confirm; confirm requires actual ink). Stored as a PNG
+  data-URL; the doc shows the recipient name bold + the signature image ON the signature line; unsigned
+  certs keep the blank lines. Persisted via new `recipient`/`signature` columns — **run
+  `db/delivery_certs_signature.sql`**; the client omits the fields when unsigned, so unsigned certs
+  keep working before the SQL runs (signed inserts fail politely → issue as draft until it runs).
+  Reprint sanitizes stored signatures (data-URIs only).
+- **מלאי → 🚚 תעודות משלוח tab:** all issued certs (number, date, customer, items, source, issuer,
+  signed-by) with date-range (defaults to current month) + text search, and **🖨️ הצג/הדפס** that
+  re-renders the stored snapshot exactly, signature included, without consuming a number. Fetches
+  only while the tab is open.
+- Unit suite extended to 29 checks (signed/unsigned rendering + stored-signature sanitization). GREEN.
+
 ## [1.26.x] 2026-07-15 — cert test automation (green) + kibbutz_details seed generated from EMS
 עידן's /loop ask: verify every cert trigger point + the edit flow with test automation until bug-free.
 - **`test-delivery-cert.mjs`** — 26 checks (DOM-stubbed): escaping, doc generation (numbered/draft,

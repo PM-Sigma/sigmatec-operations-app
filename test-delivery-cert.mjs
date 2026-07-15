@@ -141,6 +141,22 @@ if (mod) {
     const matches = html.match(/<img[^>]*src="data:image\/jpeg;base64,[^"]*"/g) || [];
     assert.equal(matches.length, 1, 'expected exactly one logo <img>, found ' + matches.length);
   });
+  check('certDocHtml unsigned: blank recipient + signature lines, no PNG img', () => {
+    assert.ok(!/data:image\/png/.test(html), 'unsigned cert must not embed a signature image');
+    assert.ok(html.includes('שם המקבל: <span>&nbsp;</span>'), 'expected blank recipient line');
+    assert.ok(html.includes('חתימה: <span>&nbsp;</span>'), 'expected blank signature line');
+  });
+  check('certDocHtml signed: recipient name + PNG signature embedded', () => {
+    const sig = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+    const signed = mod.certDocHtml(Object.assign({}, baseCert, { recipient: 'יוסי המקבל', signature: sig }));
+    assert.ok(signed.includes('שם המקבל: <b>יוסי המקבל</b>'), 'recipient name missing');
+    assert.ok(signed.includes('<img src="' + sig + '"'), 'signature img missing');
+  });
+  check('certDocHtml rejects non-data-URI signature (stored-data sanitization)', () => {
+    const bad = mod.certDocHtml(Object.assign({}, baseCert, { recipient: 'x', signature: 'https://evil.example/x.png' }));
+    assert.ok(!bad.includes('evil.example'), 'non-data-URI signature must not be rendered');
+    assert.ok(bad.includes('חתימה: <span>&nbsp;</span>'), 'should fall back to blank signature line');
+  });
 
   // ---- 3. openDeliveryCert prefill ----
   window_._sbCertGet = async (query) => {

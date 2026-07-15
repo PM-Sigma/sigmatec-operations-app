@@ -65,7 +65,14 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-14 (**1.26 on `dev`** · 1.21 live on `main`).
+## 🚦 Current state — last: 2026-07-15 (**1.27 on `dev`** · 1.21 live on `main`).
+
+**🆕 1.27 (dev) — ✍️ recipient signature + certs management.** Cert modal: "חתימת מקבל במקום" →
+on-screen name+canvas signature embedded in the PDF and persisted (**run `db/delivery_certs_signature.sql`**
+— additive; unsigned certs work before it). מלאי got a **🚚 תעודות משלוח** tab: issued-cert registry
+(month default, search) + reprint of the stored snapshot incl. signature. Cert address defaults to the
+site name. `kibbutz_details` **seeded (47 rows) + prefill verified live**. Tests: 29 unit + 33 PDF
+(markitdown) — green. Cert feature is functionally complete; release dev→main when עידן approves.
 
 **🆕 1.26 (dev) — cert shapes redesign + 👁 viewer role.** `db/delivery_certs.sql` **RAN + verified**
 (numbering live on first issued cert; `kibbutz_details` seeding from EMS `sites` still pending — see
