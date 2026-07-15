@@ -67,12 +67,16 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 
 ## 🚦 Current state — last: 2026-07-15 (**1.37 on `dev`** · 1.21 live on `main`).
 
-**🆕 1.37 (dev) — DB setup DONE via Supabase MCP + monthly Drive ETL.** All 4 cert migrations applied
-+ site_contacts seeded (64/37, PII sealed to authenticated) + E2E round-trip verified + **sequence
-reset to 1001**. ETL is now MONTHLY (15th of month archives fully-ended months; `archiveMonth('YYYY-MM')`
-= quick manual upload; snapshots live in Supabase meanwhile). **Drive setup deferred — plan saved in
-CHANGELOG 1.37 + archive-certs.gs header.** Nothing left to run manually except the Apps Script step
-when עידן connects Drive. Awaiting final Sonnet verification → then dev→main on approval.
+**🆕 1.37 (dev) — DB setup DONE via Supabase MCP + monthly Drive ETL — ✅ ETL LIVE (2026-07-15 19:00).**
+All 4 cert migrations applied + site_contacts seeded (64/37, PII sealed) + sequence reset to **1001**
+(verified clean after all tests). **Drive archive is INSTALLED AND PROVEN end-to-end:** עידן pasted
+`archive-certs.gs` in the company Apps Script (INFORMATION account), set the 2 Script Properties, ran
+`setupArchiveTrigger()` (monthly trigger live, day 15 ~03:00) — and a real test cert (999001, dated
+June) was archived: PDF created in the shared folder (`10Y_LRqhm…/2026/06/`), row got `drive_url` +
+`archived_at`, `doc_html` cleared, 📁 button verified in the app registry. Test row cleaned up.
+**The delivery-cert feature is 100% operational on `dev` — nothing pending. dev→main on עידן's approval.**
+_Model split for future rounds (עידן, 2026-07-15): planning = Fable(medium) · implementation =
+Sonnet(max) · testing = Opus(medium)._
 
 **🆕 1.36 (dev) — cert sharing + preview + Drive ETL.** One `certDocHtml` generator = print/preview/
 view-link parity by construction. Public `?cert=<uuid>` route (guarded from app UI leaks) · 👁 preview
