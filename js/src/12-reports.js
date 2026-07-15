@@ -284,6 +284,7 @@
   // Connection dropped (a 401 on an EMS call, or the session cap) → tell the user + route to re-login.
   // Remembers the current page so a successful sign-in returns there (else home).
   function emsRequireLogin() {
+    if (window._certViewMode) return;   // public cert-view link (?cert=) — a recipient must never see the EMS login
     if (window._emsReloginActive || document.getElementById('emsReloginModal')) return;
     window._emsReloginActive = true;
     window._emsReturnPage = (window._currentPage && window._currentPage !== 'ems') ? window._currentPage : '';

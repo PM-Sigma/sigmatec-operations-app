@@ -65,6 +65,7 @@
         <textarea id="certNotes" rows="2" placeholder="למשל: לא לחיוב"></textarea>
         <div class="modal-actions">
           <button class="btn btn-secondary" onclick="document.getElementById('certModal').classList.remove('open')">ביטול</button>
+          <button class="btn btn-secondary" onclick="certPreviewDraft()" title="בדיוק מה שיופק — לפני הקצאת מספר">👁 תצוגה מקדימה</button>
           <button class="btn btn-primary" onclick="issueDeliveryCert(this)">🖨️ הפק תעודה (PDF)</button>
         </div>
       </div>`;
@@ -223,13 +224,22 @@
     w.document.write('<!doctype html><html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding-top:40vh;">⏳ מפיק תעודה…</body></html>');
     if (typeof setBtnLoading === 'function') setBtnLoading(btn, true);
     try {
-      cert.number = null;
+      cert.number = null; cert.id = null;
       try {
         const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'deliveryCert', cert: cert, createdBy: (typeof getCurrentUser === 'function' && getCurrentUser()) || '' }) });
         const res = await r.json();
-        if (res && res.ok) cert.number = res.certNumber;
+        if (res && res.ok) { cert.number = res.certNumber; cert.id = res.id || null; }
       } catch (e) { console.warn('cert persist failed — issuing as draft', e); }
+      // Drive-archive ETL: store the frozen printable snapshot (needs the assigned number, so it's a
+      // follow-up PATCH). Best-effort — before db/delivery_certs_drive.sql runs this 400s silently
+      // and the cert simply isn't archived; everything else works.
+      if (cert.id && cert.number) {
+        try {
+          await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ type: 'deliveryCertDoc', id: cert.id, docHtml: certDocHtml(cert) }) });
+        } catch (e) { console.warn('cert snapshot for Drive archive failed (non-blocking)', e); }
+      }
       w.document.open();
       w.document.write(certDocHtml(cert));
       w.document.close();
@@ -244,7 +254,22 @@
         } catch (e) { console.warn('cancel of replaced cert failed', e); }
       }
       _certReissueOf = null;
+      // cert born from an EMS task → drop a comment on the task (live or queued; file attach isn't
+      // supported by the EMS API, so the comment carries the public view link instead)
+      if (cert.number && cert.source === 'ems' && cert.refId && typeof emsWriteOrQueue === 'function') {
+        try {
+          emsWriteOrQueue({ kind: 'comment', taskId: cert.refId,
+            message: '🚚 הופקה תעודת משלוח מס\' ' + cert.number + (cert.recipient ? ' · נחתמה ע"י ' + cert.recipient : '') + (cert.id ? '\nלצפייה: ' + certViewUrl(cert.id) : '') });
+        } catch (e) { console.warn('EMS cert comment failed', e); }
+      }
+      // make the fresh cert immediately viewable/sendable (before the registry re-fetches)
+      if (cert.id) {
+        _certRows.unshift({ id: cert.id, cert_number: cert.number, cert_date: cert.date, kibbutz: cert.kibbutz,
+          customer: cert.customer, items: cert.items, notes: cert.notes, source: cert.source, ref_id: cert.refId,
+          created_by: (typeof getCurrentUser === 'function' && getCurrentUser()) || '', recipient: cert.recipient || '', signature: cert.signature || '', status: 'active', replaced_by: 0 });
+      }
       document.getElementById('certModal').classList.remove('open');
+      if (cert.id) { try { certSendOpen(cert.id); } catch (e) {} }   // natural next step in the field: send it
       const t = document.getElementById('toast');
       if (t) {
         t.textContent = cert.number
@@ -259,8 +284,15 @@
   }
   window.issueDeliveryCert = issueDeliveryCert;
 
+  // Canonical public base for share links — recipients must always land on the LIVE app,
+  // never on a localhost/preview origin.
+  const CERT_VIEW_BASE = 'https://pm-sigma.github.io/sigmatec-operations-app/';
+  function certViewUrl(id) { return CERT_VIEW_BASE + '?cert=' + encodeURIComponent(id); }
+
   // ---- the printed document (brand colors from the Sigmatec logo: lime/teal/dark-teal on navy text) ----
-  function certDocHtml(cert) {
+  // ONE generator for print window, in-app preview and the public view link — preview ≡ output by construction.
+  // opts.screen: no auto-print; instead a floating 🖨️ button (hidden in the actual printout via @media print).
+  function certDocHtml(cert, opts) {
     const num = cert.number ? String(cert.number) : 'טיוטה';
     const rows = cert.items.map(i =>
       `<tr><td>${certEsc(i.name)}</td><td class="qty">${i.qty}</td></tr>`).join('');
@@ -343,9 +375,147 @@
     <span>תעודת משלוח ${certEsc(num)} · הופקה באפליקציית התפעול של סיגמאטק${cert.refId ? ' · ' + certEsc(cert.source) + ':' + certEsc(cert.refId) : ''}</span>
     <span>© ${new Date().getFullYear()} ${certEsc(CERT_COMPANY.name)}</span>
   </div>
-  <scr` + `ipt>window.onload = function () { setTimeout(function () { window.print(); }, 250); };</scr` + `ipt>
+  ${(opts && opts.screen)
+    ? '<button class="print-fab" onclick="window.print()" style="position:fixed;bottom:18px;left:18px;z-index:9;background:#1b2a4a;color:#fff;border:none;border-radius:12px;padding:14px 20px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);">🖨️ הדפס / שמור PDF</button><style>@media print { .print-fab { display:none; } }</style>'
+    : '<scr' + 'ipt>window.onload = function () { setTimeout(function () { window.print(); }, 250); };</scr' + 'ipt>'}
 </body></html>`;
   }
+
+  // ---- 🔗 public view route: ?cert=<uuid> renders the stored cert full-page (share-link target) ----
+  // Replaces the whole app document — recipients see ONLY the certificate, exactly as issued,
+  // with a print/save button. Anonymous read (cert ids are unguessable uuids, like a Drive link).
+  (function certViewRoute() {
+    if (typeof location === 'undefined') return;   // headless test harness — no route to serve
+    const m = location.search.match(/[?&]cert=([0-9a-f-]{36})/i);
+    if (!m) return;
+    window._certViewMode = true;   // set SYNCHRONOUSLY — app timers (EMS nag etc.) survive document.write and must stand down
+    (async () => {
+      let html;
+      try {
+        const r = await fetch(SB_URL + '/rest/v1/delivery_certs?id=eq.' + m[1] + '&select=*',
+          { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON } });
+        const c = (await r.json())[0];
+        if (!c) throw new Error('not found');
+        html = certDocHtml({
+          number: c.cert_number, date: c.cert_date, kibbutz: c.kibbutz,
+          customer: c.customer || {}, items: c.items || [], notes: c.notes || '',
+          source: c.source, refId: c.ref_id, recipient: c.recipient || '', signature: c.signature || '',
+          cancelled: c.status === 'cancelled', replacedBy: c.replaced_by || 0
+        }, { screen: true });
+      } catch (e) {
+        html = '<!doctype html><html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding-top:40vh;color:#dc2626;">התעודה לא נמצאה</body></html>';
+      }
+      document.open(); document.write(html); document.close();
+    })();
+  })();
+
+  // ---- 👁 in-app preview overlay (no download, no popup — mobile-friendly iframe) ----
+  function certOverlayShow(html, certId) {
+    let ov = document.getElementById('certViewOverlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'certViewOverlay';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:4000;background:#334155;display:flex;flex-direction:column;';
+      ov.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;padding:8px 12px;background:#1b2a4a;">
+          <button id="certOvPrint" class="btn btn-primary" style="padding:8px 14px;font-size:13px;min-height:40px;">🖨️ הדפס / PDF</button>
+          <button id="certOvSend" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;min-height:40px;">📤 שלח</button>
+          <span style="flex:1;"></span>
+          <button onclick="document.getElementById('certViewOverlay').style.display='none'" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;min-width:40px;min-height:40px;">✕</button>
+        </div>
+        <iframe id="certOvFrame" style="flex:1;border:none;background:#fff;width:100%;"></iframe>`;
+      document.body.appendChild(ov);
+    }
+    ov.style.display = 'flex';
+    document.getElementById('certOvFrame').srcdoc = html;
+    document.getElementById('certOvPrint').onclick = () => { try { const f = document.getElementById('certOvFrame'); f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { alert('הדפסה נכשלה: ' + e.message); } };
+    const sendBtn = document.getElementById('certOvSend');
+    sendBtn.style.display = certId ? '' : 'none';
+    if (certId) sendBtn.onclick = () => certSendOpen(certId);
+  }
+
+  // stored cert → overlay (registry 👁 button)
+  function certView(id) {
+    const c = _certRows.find(x => x.id === id);
+    if (!c) return;
+    certOverlayShow(certDocHtml({
+      number: c.cert_number, date: c.cert_date, kibbutz: c.kibbutz,
+      customer: c.customer || {}, items: c.items || [], notes: c.notes || '',
+      source: c.source, refId: c.ref_id, recipient: c.recipient || '', signature: c.signature || '',
+      cancelled: c.status === 'cancelled', replacedBy: c.replaced_by || 0
+    }, { screen: true }), id);
+  }
+  window.certView = certView;
+
+  // pre-issue preview from the edit modal — exactly what issuing would produce (as a draft, no number yet)
+  function certPreviewDraft() {
+    const cert = certCollect();
+    if (!cert.items.length) { alert('אין פריטים בתעודה — הוסף לפחות פריט אחד.'); return; }
+    cert.number = null;   // the running number is assigned only on issue
+    certOverlayShow(certDocHtml(cert, { screen: true }), null);
+  }
+  window.certPreviewDraft = certPreviewDraft;
+
+  // ---- 📤 send panel: site contacts (EMS managers) → email / WhatsApp with the view link ----
+  const CERT_ROLE_HE = { site_manager: 'מנהל אתר', operations_manager: 'מנהל תפעול' };
+  function certShareText(c) {
+    return 'שלום, מצורפת תעודת משלוח מס\' ' + c.cert_number + ' מסיגמאטק עבור ' + ((c.customer || {}).name || c.kibbutz) +
+      ' מתאריך ' + certFmtDate(c.cert_date) + '.\nלצפייה והדפסה: ' + certViewUrl(c.id);
+  }
+  async function certSendOpen(certId) {
+    const c = _certRows.find(x => x.id === certId);
+    if (!c) return;
+    let bd = document.getElementById('certSendModal');
+    if (!bd) {
+      bd = document.createElement('div');
+      bd.className = 'modal-backdrop';
+      bd.id = 'certSendModal';
+      bd.onclick = e => { if (e.target.id === 'certSendModal') bd.classList.remove('open'); };
+      document.body.appendChild(bd);
+    }
+    bd.innerHTML = '<div class="modal" onclick="event.stopPropagation()" style="max-width:520px;"><h3>📤 שליחת תעודה ' + c.cert_number + '</h3><div style="padding:14px;color:#94a3b8;">⏳ טוען אנשי קשר…</div></div>';
+    bd.classList.add('open');
+    let contacts = [];
+    try {
+      if (typeof window._sbCertGet !== 'function') throw new Error('אין חיבור Supabase');
+      contacts = await window._sbCertGet('site_contacts?select=*&active=eq.true&kibbutz=eq.' + encodeURIComponent(c.kibbutz) + '&order=role,name');
+    } catch (e) { /* table missing / anon (viewer) / offline → manual row only */ }
+    const text = certShareText(c);
+    const rows = contacts.map((p, i) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid #f1f5f9;">
+        <input type="checkbox" class="cert-send-chk" data-i="${i}" ${p.email ? 'checked' : 'disabled'} style="min-width:22px;min-height:22px;">
+        <div style="flex:1;font-size:13px;">${certEsc(p.name)} <span style="color:#64748b;font-size:11px;">· ${CERT_ROLE_HE[p.role] || certEsc(p.role)}</span>
+          <div style="font-size:11px;color:#94a3b8;direction:ltr;text-align:right;">${certEsc(p.email || '—')}</div></div>
+        ${p.phone ? `<a href="https://wa.me/${certEsc(String(p.phone).replace(/\D/g, ''))}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener" class="inv-btn small" style="background:#16a34a;text-decoration:none;min-height:40px;display:inline-flex;align-items:center;">💬</a>` : ''}
+      </div>`).join('');
+    window._certSendCtx = { contacts: contacts, cert: c, text: text };
+    bd.innerHTML = `
+      <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;">
+        <h3>📤 שליחת תעודה ${c.cert_number} — ${certEsc(c.kibbutz)}</h3>
+        <div class="modal-sub">הנמען מקבל קישור צפייה — התעודה נפתחת אצלו בדיוק כפי שהופקה, עם כפתור הדפסה/PDF.</div>
+        <div style="max-height:38vh;overflow-y:auto;">${rows || '<div style="padding:12px;color:#92400e;background:#fef3c7;border-radius:6px;font-size:12px;">אין אנשי קשר שמורים לאתר הזה (או שאין חיבור מאומת) — אפשר להעתיק את הקישור ולשלוח ידנית.</div>'}</div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="document.getElementById('certSendModal').classList.remove('open')">סגור</button>
+          <button class="btn btn-secondary" onclick="certCopyLink()">🔗 העתק קישור</button>
+          ${contacts.some(p => p.email) ? '<button class="btn btn-primary" onclick="certEmailSelected()">📧 מייל לנבחרים</button>' : ''}
+        </div>
+      </div>`;
+    bd.classList.add('open');
+  }
+  window.certSendOpen = certSendOpen;
+  window.certCopyLink = function () {
+    const ctx = window._certSendCtx; if (!ctx) return;
+    const doToast = ok => { const t = document.getElementById('toast'); if (t) { t.textContent = ok ? '🔗 הקישור הועתק' : 'העתקה נכשלה — העתק ידנית: ' + certViewUrl(ctx.cert.id); t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); } };
+    try { navigator.clipboard.writeText(certViewUrl(ctx.cert.id)).then(() => doToast(true), () => doToast(false)); } catch (e) { doToast(false); }
+  };
+  window.certEmailSelected = function () {
+    const ctx = window._certSendCtx; if (!ctx) return;
+    const to = [...document.querySelectorAll('#certSendModal .cert-send-chk:checked')]
+      .map(chk => (ctx.contacts[parseInt(chk.dataset.i)] || {}).email).filter(Boolean);
+    if (!to.length) { alert('בחר לפחות איש קשר אחד עם מייל.'); return; }
+    const subject = 'תעודת משלוח ' + ctx.cert.cert_number + ' — סיגמאטק התייעלות אנרגטית';
+    location.href = 'mailto:' + to.join(',') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(ctx.text);
+  };
 
   // ---- 🧾 issued-certs management (מלאי → תעודות משלוח) ----
   let _certRows = [];   // last fetched list (reprint works off this cache)
@@ -380,7 +550,9 @@
         <td data-label="הופק ע&quot;י">${certEsc(c.created_by)}</td>
         <td data-label="חתימה">${c.signature ? '✅ ' + certEsc(c.recipient || '') : '—'}</td>
         <td class="actions-cell" style="white-space:nowrap;text-align:left;">
-          <button class="inv-btn small" onclick="certReprint('${idArg}')">🖨️ הצג</button>
+          <button class="inv-btn small" onclick="certView('${idArg}')" title="תצוגה מקדימה — בלי להוריד; הדפסה מתוך התצוגה">👁 הצג</button>
+          ${c.drive_url ? `<a class="inv-btn small" style="background:#f59e0b;text-decoration:none;display:inline-block;" href="${certEsc(c.drive_url)}" target="_blank" rel="noopener" title="עותק ה-PDF בדרייב">📁</a>` : ''}
+          <button class="inv-btn small" style="background:#16a34a;" onclick="certSendOpen('${idArg}')" title="שליחה במייל / וואטסאפ לאנשי הקשר של האתר">📤</button>
           ${cancelled ? '' : `<button class="inv-btn small" style="background:#0e7490;" onclick="certReissue('${idArg}')" title="פתח לעריכה, הפק תעודה חדשה ובטל את זו אוטומטית">📝 הפק מתוקנת</button>
           <button class="inv-btn small" style="background:#dc2626;" onclick="certCancel('${idArg}')">🚫 בטל</button>`}
         </td>

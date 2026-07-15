@@ -31,9 +31,18 @@ function makeEl(overrides) {
 const elements = {};
 ['certModal', 'certCustName', 'certCustCompanyId', 'certCustAddress', 'certCustContact',
   'certDate', 'certItems', 'certNotes', 'certProductList',
-  'invCertsList', 'inv-section-certs', 'invCertsFrom', 'invCertsTo', 'invCertsSearch'].forEach(id => { elements[id] = makeEl(); });
+  'invCertsList', 'inv-section-certs', 'invCertsFrom', 'invCertsTo', 'invCertsSearch',
+  'certSendModal'].forEach(id => { elements[id] = makeEl(); });
 // the certs tab is "open" for invRenderCerts's active-tab guard (force=true bypasses it anyway, but keep it realistic)
 elements['inv-section-certs'].classList.contains = (c) => c === 'active';
+// certSendOpen()'s "modal already exists" branch — pre-registering it means the module skips
+// document.createElement/appendChild and calls classList.add('open') on OUR stub directly, so we
+// can observe it. Track every class passed to add() for the "auto-opened after issue" assertion.
+const certSendModalOpens = [];
+elements['certSendModal'].classList.add = (c) => certSendModalOpens.push(c);
+// certEmailSelected() reads document.querySelectorAll('#certSendModal .cert-send-chk:checked') —
+// test sections populate this array to simulate which checkboxes are checked.
+let sendModalCheckedBoxes = [];
 
 // certItems collects appended rows (used by certAddItemRow -> certCollect roundtrip)
 const certItemRows = [];
@@ -48,16 +57,28 @@ const document_ = {
   createElement: () => makeEl(),
   body: { appendChild() {} },
   querySelector: () => null,
-  querySelectorAll: () => []
+  querySelectorAll: (sel) => (typeof sel === 'string' && sel.indexOf('cert-send-chk') !== -1) ? sendModalCheckedBoxes : []
 };
+
+// mailto: link target for certEmailSelected — a plain mutable object standing in for the
+// browser's `location`, passed into the module as a Function param (the module references bare
+// `location`, so it must be supplied — it is NOT a real global in the Node harness).
+const location_ = { href: '', search: '' };
 
 let lastFetchBody = null;
 const fetchBodies = [];   // every POST body, in call order (issue + auto-cancel, etc.)
+// per-call override for the persisted-cert response (default matches the original stub: no id).
+let fetchJsonOverride = null;
 const fetch_ = async (url, opts) => {
   lastFetchBody = opts && opts.body ? JSON.parse(opts.body) : null;
   if (lastFetchBody) fetchBodies.push(lastFetchBody);
-  return { json: async () => ({ ok: true, certNumber: 1234 }) };
+  return { json: async () => (fetchJsonOverride || { ok: true, certNumber: 1234 }) };
 };
+
+// emsWriteOrQueue capture — issueDeliveryCert drops an EMS-task comment through this global when
+// a cert born from an EMS task is issued; captured here instead of touching the real EMS API.
+const emsCalls = [];
+const emsWriteOrQueue_ = (arg) => emsCalls.push(arg);
 
 // window.open stub — issueDeliveryCert/certReprint open a blank print window then write the doc into it.
 const openedWindows = [];
@@ -83,14 +104,22 @@ const DELIVERY_CERT_ROWS = [{
 let confirmReturn = true;
 const confirm_ = () => confirmReturn;
 
-function runModule() {
+// overrides — {window, document, fetch, location, SB_URL, SB_ANON, emsWriteOrQueue}: used by the
+// ?cert route-guard test to eval a SEPARATE module instance against its own stubs (the route's
+// top-level IIFE runs once at eval time against whatever `location` it's given). Every other test
+// shares the single default-args `mod` instance built by the bare runModule() call below.
+function runModule(overrides) {
+  overrides = overrides || {};
   const fn = new Function(
     'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
-    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
+    'location', 'SB_URL', 'SB_ANON', 'emsWriteOrQueue',
+    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
   );
   return fn(
-    window_, document_, fetch_, 'http://sheet.test',
-    () => 'עידן', () => {}, (msg) => alerts.push(msg), confirm_, console
+    overrides.window || window_, overrides.document || document_, overrides.fetch || fetch_, 'http://sheet.test',
+    () => 'עידן', () => {}, (msg) => alerts.push(msg), confirm_, console,
+    overrides.location || location_, overrides.SB_URL || 'https://sb.test', overrides.SB_ANON || 'anonkey',
+    overrides.emsWriteOrQueue || emsWriteOrQueue_
   );
 }
 
@@ -191,6 +220,45 @@ if (mod) {
   check('certDocHtml cancelled falsy renders neither the watermark nor the replacement note', () => {
     assert.ok(!html.includes('מבוטלת'), 'unexpected מבוטלת watermark on an active (non-cancelled) cert doc');
     assert.ok(!html.includes('הוחלפה בתעודה מס'), 'unexpected replacement note on an active (non-cancelled) cert doc');
+  });
+
+  // ---- 2b. certDocHtml opts.screen — in-app preview / public view link mode vs. the printed doc ----
+  const htmlScreen = mod.certDocHtml(baseCert, { screen: true });
+  check('certDocHtml({screen:true}) contains the floating print-fab button', () => {
+    assert.ok(htmlScreen.includes('print-fab'), 'expected a .print-fab button in screen mode');
+    assert.ok(htmlScreen.includes('🖨️ הדפס / שמור PDF'), 'expected the print-fab label');
+  });
+  check('certDocHtml({screen:true}) hides the print-fab via @media print', () => {
+    const collapsed = htmlScreen.replace(/\s+/g, ' ');
+    assert.ok(/@media print\s*\{\s*\.print-fab\s*\{\s*display:\s*none;?\s*\}/.test(collapsed),
+      'expected an @media print rule hiding .print-fab');
+  });
+  check('certDocHtml({screen:true}) does NOT auto-print (no window.onload script)', () => {
+    assert.ok(!htmlScreen.includes('window.onload'), 'screen mode must not carry the auto-print onload script');
+  });
+  check('certDocHtml() without opts auto-prints and has no print-fab', () => {
+    assert.ok(html.includes('window.onload'), 'expected the auto-print onload script by default');
+    assert.ok(!html.includes('print-fab'), 'default (print-window) mode must not include the print-fab button');
+  });
+
+  // ---- 2c. certViewUrl — canonical public share link, always pinned to the live app origin ----
+  check('certViewUrl builds the public view link for a plain id', () => {
+    assert.equal(mod.certViewUrl('abc-123'), 'https://pm-sigma.github.io/sigmatec-operations-app/?cert=abc-123');
+  });
+  check('certViewUrl encodes special characters in the id', () => {
+    assert.equal(mod.certViewUrl('a b/c'), 'https://pm-sigma.github.io/sigmatec-operations-app/?cert=' + encodeURIComponent('a b/c'));
+  });
+
+  // ---- 2d. preview ≡ output parity — certDocHtml is the ONE generator for print window, in-app
+  // preview and the public view link; {screen:true} and the plain call must render byte-identical
+  // content up to the point they intentionally diverge (the print-fab vs. auto-print tail after
+  // the closing </div> of .foot).
+  check('certDocHtml preview/output parity: identical content up to the print-fab/auto-print tail', () => {
+    const footPrefix = (s) => { const start = s.indexOf('<div class="foot">'); const end = s.indexOf('</div>', start) + '</div>'.length; return s.slice(0, end); };
+    const outputHtml = mod.certDocHtml(baseCert);
+    assert.ok(footPrefix(htmlScreen).length > 500, 'sanity: prefix should cover the whole document body');
+    assert.equal(footPrefix(htmlScreen), footPrefix(outputHtml), 'content before the tail must be byte-identical between screen and print modes');
+    assert.notEqual(htmlScreen, outputHtml, 'sanity: the two variants must actually differ somewhere (the tail)');
   });
 
   // ---- 3. openDeliveryCert prefill ----
@@ -497,6 +565,161 @@ if (mod) {
       assert.ok(activeRowHtml, 'could not locate the active row in the rendered html');
       assert.ok(activeRowHtml.includes('הפק מתוקנת'), 'active row should show the reissue button');
       assert.ok(activeRowHtml.includes('>🚫 בטל<'), 'active row should show the cancel button');
+    });
+  });
+
+  // ---- 13. certShareText — the message body used for both email and WhatsApp shares ----
+  check('certShareText includes the cert number, customer name and the view URL', () => {
+    const row = { id: 'u1', cert_number: 4001, cert_date: '2026-07-15', kibbutz: 'לביא', customer: { name: 'חשמלביא' } };
+    const text = mod.certShareText(row);
+    assert.ok(text.includes('4001'), 'expected the cert number in the share text');
+    assert.ok(text.includes('חשמלביא'), 'expected the customer name in the share text');
+    assert.ok(text.includes(mod.certViewUrl('u1')), 'expected the view URL for id u1 in the share text');
+  });
+  check('certShareText falls back to kibbutz name when customer is missing', () => {
+    const row = { id: 'u2', cert_number: 4002, cert_date: '2026-07-15', kibbutz: 'שדה אליהו' };
+    assert.ok(mod.certShareText(row).includes('שדה אליהו'));
+  });
+
+  // ---- 14. certEmailSelected / certCopyLink — link building off window._certSendCtx + checked contacts ----
+  await0(async () => {
+    window_._certSendCtx = {
+      contacts: [{ name: 'א', email: 'a@x.com' }, { name: 'ב', email: '' }],
+      cert: { id: 'u1', cert_number: 4001 },
+      text: 'שלום, מצורפת תעודת משלוח... לצפייה: ' + mod.certViewUrl('u1')
+    };
+    // real DOM: the contact-without-email checkbox is rendered `disabled` and never `:checked` —
+    // only the emailed contact's box is "checked" here, mirroring that.
+    sendModalCheckedBoxes = [{ dataset: { i: '0' } }];
+    location_.href = '';
+    window_.certEmailSelected();
+    check('certEmailSelected: mailto: targets only the checked contact that has an email', () => {
+      assert.ok(location_.href.startsWith('mailto:a@x.com'), 'expected mailto:a@x.com, got: ' + location_.href);
+      assert.ok(!location_.href.includes('undefined'), 'must not leak "undefined" for the no-email contact');
+    });
+    check('certEmailSelected: subject is URL-encoded and carries the cert number', () => {
+      const subject = 'תעודת משלוח 4001 — סיגמאטק התייעלות אנרגטית';
+      assert.ok(location_.href.includes('subject=' + encodeURIComponent(subject)), 'expected encoded subject in mailto href');
+    });
+    check('certEmailSelected: body contains the view URL', () => {
+      assert.ok(location_.href.includes(encodeURIComponent(mod.certViewUrl('u1'))), 'expected the encoded view URL in the mailto body');
+    });
+
+    check('certEmailSelected: alerts and does not touch location.href when nothing is checked', () => {
+      location_.href = 'untouched';
+      sendModalCheckedBoxes = [];
+      alerts.length = 0;
+      window_.certEmailSelected();
+      assert.equal(location_.href, 'untouched', 'location.href must be left alone when no contact is selected');
+      assert.ok(alerts.some(a => a.includes('בחר לפחות')), 'expected a "pick at least one contact" alert');
+    });
+
+    check('certCopyLink: callable without throwing regardless of clipboard API availability', () => {
+      assert.doesNotThrow(() => window_.certCopyLink());
+    });
+  });
+
+  // ---- 15. issueDeliveryCert EMS auto-comment + fresh-cert registry row + auto-opened send panel ----
+  await0(async () => {
+    // query-aware fallback: certSendOpen's site_contacts lookup resolves to [] (no contacts → the
+    // "copy link manually" branch); invRenderCerts's delivery_certs lookup REJECTS instead of
+    // resolving, so its (unawaited, background) refresh can't clobber the _certRows we're about
+    // to assert on — a rejected await inside invRenderCerts is caught internally and leaves
+    // _certRows untouched, matching how a real "load failed" refresh behaves.
+    const originalSbCertGet = window_._sbCertGet;
+    window_._sbCertGet = async (q) => { if (q.indexOf('site_contacts') !== -1) return []; throw new Error('not stubbed for this test'); };
+
+    elements.certModal.dataset.kibbutz = 'שדה אליהו';
+    elements.certModal.dataset.source = 'ems';
+    elements.certModal.dataset.refId = 'task77';
+    elements.certCustName.value = 'לקוח EMS';
+    elements.certCustCompanyId.value = '';
+    elements.certCustAddress.value = '';
+    elements.certCustContact.value = '';
+    elements.certDate.value = '2026-07-15';
+    elements.certNotes.value = '';
+    certItemRows.length = 0;
+    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'אנטנה' } : { value: '1' } });
+    mod.setCertSig({ name: '', data: '' });
+
+    emsCalls.length = 0;
+    certSendModalOpens.length = 0;
+    fetchJsonOverride = { ok: true, certNumber: 1234, id: 'newid1' };
+
+    await mod.issueDeliveryCert(null);
+    await new Promise(r => setTimeout(r, 15));   // flush certSendOpen's + invRenderCerts's un-awaited background work
+
+    check('issueDeliveryCert (source=ems): drops exactly one EMS-task comment', () => {
+      assert.equal(emsCalls.length, 1, 'expected exactly one EMS comment capture, got ' + emsCalls.length);
+      assert.equal(emsCalls[0].kind, 'comment');
+      assert.equal(emsCalls[0].taskId, 'task77');
+    });
+    check('issueDeliveryCert (source=ems): comment message carries the cert number and the view URL', () => {
+      const msg = emsCalls[0].message;
+      assert.ok(msg.includes('1234'), 'expected cert number 1234 in the EMS comment: ' + msg);
+      assert.ok(msg.includes(mod.certViewUrl('newid1')), 'expected the view URL for the new cert id in the EMS comment: ' + msg);
+    });
+    check('issueDeliveryCert: unshifts the fresh cert into the registry with the server-assigned id/number', () => {
+      const rows = mod.getCertRows();
+      assert.ok(rows.length >= 1, 'expected at least one row in the registry');
+      assert.equal(rows[0].id, 'newid1');
+      assert.equal(rows[0].cert_number, 1234);
+      assert.equal(rows[0].status, 'active');
+    });
+    check('issueDeliveryCert: auto-opens the send panel for the freshly issued cert', () => {
+      assert.ok(certSendModalOpens.includes('open'), 'expected certSendOpen to call classList.add("open") on the certSendModal stub');
+    });
+
+    // source=visit → issuing must NOT drop an EMS-task comment (there is no EMS task to comment on)
+    elements.certModal.dataset.source = 'visit';
+    elements.certModal.dataset.refId = 'v42';
+    certItemRows.length = 0;
+    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'אנטנה' } : { value: '1' } });
+    emsCalls.length = 0;
+    fetchJsonOverride = { ok: true, certNumber: 1235, id: 'newid2' };
+    await mod.issueDeliveryCert(null);
+    await new Promise(r => setTimeout(r, 15));
+    check('issueDeliveryCert (source=visit): does NOT drop an EMS-task comment', () => {
+      assert.equal(emsCalls.length, 0, 'a visit-sourced cert must not trigger an EMS comment');
+    });
+
+    window_._sbCertGet = originalSbCertGet;
+    fetchJsonOverride = null;
+  });
+
+  // ---- 16. ?cert=<uuid> public view route guard — a SEPARATE module instance (the route's IIFE
+  // runs once at eval time against whatever `location` it is given) ----
+  await0(async () => {
+    const routeWindow = {};
+    const routeDoc = { _html: '', open() { this._html = ''; }, write(s) { this._html += s; }, close() {} };
+    let routeFetchCall = null;
+    const routeFetch = async (url, opts) => { routeFetchCall = { url, opts }; return { json: async () => [] }; };
+    const testUuid = '99999999-9999-9999-9999-999999999999';
+
+    runModule({
+      window: routeWindow, document: routeDoc, fetch: routeFetch,
+      location: { search: '?cert=' + testUuid },
+      SB_URL: 'https://sb.test', SB_ANON: 'anonkey'
+    });
+
+    check('?cert route: sets window._certViewMode synchronously (survives the coming document.write)', () => {
+      assert.equal(routeWindow._certViewMode, true);
+    });
+
+    await new Promise(r => setTimeout(r, 20));   // flush the route's internal fetch + document.write
+
+    check('?cert route: fetches the delivery_certs REST endpoint with the uuid from the query string', () => {
+      assert.ok(routeFetchCall, 'expected the route to call fetch');
+      assert.ok(routeFetchCall.url.includes('https://sb.test/rest/v1/delivery_certs'), 'expected the SB_URL REST endpoint in the fetch URL');
+      assert.ok(routeFetchCall.url.includes(testUuid), 'expected the uuid from the query string in the fetch URL');
+    });
+    check('?cert route: fetch carries the SB_ANON apikey + bearer auth headers', () => {
+      const h = routeFetchCall.opts.headers;
+      assert.equal(h.apikey, 'anonkey');
+      assert.equal(h.Authorization, 'Bearer anonkey');
+    });
+    check('?cert route: renders the not-found message when the lookup returns no rows', () => {
+      assert.ok(routeDoc._html.includes('התעודה לא נמצאה'), 'expected the not-found message to be written to document');
     });
   });
 }

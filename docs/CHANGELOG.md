@@ -7,6 +7,36 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.36] 2026-07-15 — 📤 cert sharing (contacts/email/WhatsApp) + 👁 preview + 🔗 view link + 📁 Drive ETL
+עידן's asks: EMS comment on cert issue (file attach impossible → link), a contact bank per site
+(EMS users: מנהל אתר/מנהל תפעול), send by email/WhatsApp, preview without downloading, preview ≡ output
+everywhere, and a Drive ETL so PDFs never load the free Supabase tier.
+- **One generator = guaranteed parity:** `certDocHtml(cert, {screen})` serves print, in-app preview,
+  and the public view link — identical content, only the tail differs (auto-print vs floating 🖨️ FAB).
+  Byte-identical-prefix asserted in tests.
+- **🔗 Public view route** `?cert=<uuid>` (share-link target, canonical prod base): renders the stored
+  cert exactly (watermark included), print/save button, unguessable uuid. Bug found+fixed in live
+  testing: the EMS re-login modal leaked over a recipient's view (app timer survives document.write) —
+  `_certViewMode` guard in `emsRequireLogin`.
+- **👁 Preview overlay** (iframe, no popup/download — mobile-friendly): from the edit modal (as draft,
+  pre-number) and from the registry (👁 הצג replaces the print-window; printing happens from the overlay).
+- **📤 Send panel:** `site_contacts` table (**seeded from EMS `users`+`user_sites`, roles
+  site_manager/operations_manager — 66 contacts / 37 cards**; PII → authenticated-only RLS read, seed
+  kept out of the repo at `Documents\seed_site_contacts.sql`). Multi-select → ready mailto; 💬 wa.me per
+  contact; 🔗 copy link. Auto-opens after issuing (the field-flow next step). Message carries the view link.
+- **EMS auto-comment:** cert issued from an EMS task → comment on the task (number, signer, view link);
+  live or queued.
+- **📁 Drive ETL** (free-tier protection): issue stores the frozen printable snapshot (`doc_html`) →
+  hourly `appsscript/archive-certs.gs` under the company Workspace converts to PDF, files in
+  Drive `תעודות משלוח/YYYY/MM`, **clears doc_html** + stamps `drive_url` (📁 button in the registry).
+  service_role key lives ONLY in Apps Script Script Properties. Failed rows retry next run (no orphans).
+- **Tests (Sonnet-high): 113 green** — unit 76 (+parity, share text, mailto building, EMS-comment,
+  route guard incl. not-found, fresh-cert registry) + viewer-gate 4 + PDF-markitdown 33. Mobile sweep
+  clean (modal/overlay/signature/send at 375px, zero small targets, no overflow).
+- **⚠️ Pre-release setup:** run `db/site_contacts.sql` + `db/delivery_certs_drive.sql` (+ the two
+  earlier pending: signature, status) + seed `Documents\seed_site_contacts.sql` + Apps Script setup
+  (paste `archive-certs.gs`, 2 Script Properties, run `setupArchiveTrigger()`).
+
 ## [1.32] 2026-07-15 — 📱 cert mobile pass + 🚫 cancel/reissue-correction flow [⚠️ needs db/delivery_certs_status.sql]
 עידן's asks: full phone-comfort for the cert flow (issue/view/edit/sign, nothing crashing or overlapping)
 + how to handle a cert that was issued and then needs a correction.

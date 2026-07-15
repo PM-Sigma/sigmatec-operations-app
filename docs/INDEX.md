@@ -65,7 +65,15 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-15 (**1.32 on `dev`** · 1.21 live on `main`).
+## 🚦 Current state — last: 2026-07-15 (**1.36 on `dev`** · 1.21 live on `main`).
+
+**🆕 1.36 (dev) — cert sharing + preview + Drive ETL.** One `certDocHtml` generator = print/preview/
+view-link parity by construction. Public `?cert=<uuid>` route (guarded from app UI leaks) · 👁 preview
+overlay (draft + stored) · 📤 send panel over new `site_contacts` (66 EMS manager contacts, auth-only
+read; seed in Documents) with mailto/wa.me/copy-link · EMS auto-comment on task-born certs · 📁 Drive
+ETL (`appsscript/archive-certs.gs` hourly: doc_html snapshot → PDF → תעודות משלוח/YYYY/MM → clears DB).
+**113 tests green** (76 unit + 4 viewer + 33 PDF). **Pre-release setup (עידן or Supabase-MCP):** 4 SQLs
+(signature/status/site_contacts/drive) + contacts seed + Apps Script trigger. Then dev→main.
 
 **🆕 1.32 (dev) — cert mobile pass + cancel/reissue flow.** Correction story: **הפק מתוקנת** duplicates
 a stored cert for editing → new number → original auto-cancelled (`replaced_by` link, מבוטלת watermark
