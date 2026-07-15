@@ -18,10 +18,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 - **Live browser sweep** (production data, all 5 triggers): visit form · saved visit (real כנרת visit) ·
   EMS task (parsed 2 items from description) · customer order (real אלומות order, 3 items) · report
   picker (29 in-range visits) + full in-modal edit roundtrip. ALL PASS; no app bugs found.
-- **`db/seed_kibbutz_details.sql`** — generated from the prod EMS `sites` table (read-only user):
-  47 kibbutz cards keyed by KIBBUTZ_SITE_MAP; swapped company_name/company_id rows (דפנה/ניצנים/שלוחות)
-  auto-corrected; להשלים/test placeholders blanked (6 kibbutzim blank → editable on the cert).
-  ⚠️ needs עידן to run in the Supabase SQL editor (kibbutz_details writes are authenticated-only).
+- **kibbutz_details seed** — generated from the prod EMS `sites` table (read-only user): 47 kibbutz
+  cards keyed by KIBBUTZ_SITE_MAP; swapped company_name/company_id rows auto-corrected; להשלים/test
+  placeholders blanked (6 kibbutzim blank → editable on the cert). Kept OUT of the public repo (real
+  customer ח.פ./contact data) — delivered at `C:\Users\idann\Documents\seed_kibbutz_details.sql`;
+  ⚠️ needs עידן to run it in the Supabase SQL editor (kibbutz_details writes are authenticated-only).
 
 ## [1.26] 2026-07-14 — cert shapes redesign + 👁 view-only reports user (viewer role)
 עידן's follow-ups on 1.22: fresher shapes (text layout approved), DB setup finished, and a view-only

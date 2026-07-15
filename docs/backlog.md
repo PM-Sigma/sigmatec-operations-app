@@ -3,12 +3,13 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
-## 🔴 Run SQL — `db/seed_kibbutz_details.sql` (delivery-cert customer block, ready)
+## 🔴 Run SQL — seed kibbutz_details (delivery-cert customer block, ready)
 ✅ `db/delivery_certs.sql` RAN (2026-07-14, verified). ✅ EMS `sites` data pulled (2026-07-15 — the
-table DOES have company_name/company_id + accountant contact; no address column) and
-**`db/seed_kibbutz_details.sql` is generated and ready**: 47 cards, swapped-column rows fixed,
-placeholders blanked. **Action (עידן): run it in the Supabase SQL editor** (writes are
-authenticated-only, so Claude can't apply it via anon REST). 6 kibbutzim have genuinely blank details
+table DOES have company_name/company_id + accountant contact; no address column) and the seed is
+generated at **`C:\Users\idann\Documents\seed_kibbutz_details.sql`** (kept OUT of the public repo —
+it contains real customer ח.פ./contact data): 47 cards, swapped-column rows fixed, placeholders
+blanked. **Action (עידן): run it in the Supabase SQL editor** (writes are authenticated-only, so
+Claude can't apply it via anon REST). 6 kibbutzim have genuinely blank details
 in EMS (אגודת המים עמק הירדן, אפיק, חולדה, כפר דניאל, מגידו, מעלה גלבוע) — fill in EMS or leave as
 editable blanks on the cert. Cert test automation: `test-delivery-cert.mjs` (26 ✓) +
 `test-cert-pdf.mjs` (33 ✓, markitdown) — both green 2026-07-15.
