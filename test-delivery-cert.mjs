@@ -55,14 +55,33 @@ elements.certItems.appendChild = (row) => { certItemRows.push(row); };
 // certModal.querySelectorAll('.cert-item-row') returns whatever rows we registered
 elements.certModal.querySelectorAll = (sel) => sel === '.cert-item-row' ? certItemRows.slice() : [];
 
+// certSetRange()'s quick-date buttons — '#inv-section-certs .btn-quick-date' / '...[data-range="x"]'.
+const certQuickBtns = ['thisMonth', 'lastMonth', 'last7', 'last30', 'all'].map(r => {
+  const set = new Set();
+  return { dataset: { range: r }, _classes: set,
+    classList: { add: c => set.add(c), remove: c => set.delete(c), contains: c => set.has(c) } };
+});
+certQuickBtns[0]._classes.add('active');
+const fmtD = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
 const alerts = [];
 const window_ = {};
 const document_ = {
   getElementById: (id) => elements[id] || null,
   createElement: () => makeEl(),
   body: { appendChild() {} },
-  querySelector: () => null,
-  querySelectorAll: (sel) => (typeof sel === 'string' && sel.indexOf('cert-send-chk') !== -1) ? sendModalCheckedBoxes : []
+  querySelector: (sel) => {
+    if (typeof sel === 'string' && sel.indexOf('.btn-quick-date[data-range=') !== -1) {
+      const m = /data-range="([^"]+)"/.exec(sel);
+      return m ? (certQuickBtns.find(b => b.dataset.range === m[1]) || null) : null;
+    }
+    return null;
+  },
+  querySelectorAll: (sel) => {
+    if (typeof sel === 'string' && sel.indexOf('cert-send-chk') !== -1) return sendModalCheckedBoxes;
+    if (typeof sel === 'string' && sel.indexOf('btn-quick-date') !== -1) return certQuickBtns.slice();
+    return [];
+  }
 };
 
 // mailto: link target for certEmailSelected — a plain mutable object standing in for the
@@ -124,7 +143,7 @@ function runModule(overrides) {
   const fn = new Function(
     'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
     'location', 'SB_URL', 'SB_ANON', 'emsWriteOrQueue', 'isViewer',
-    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, certView, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
+    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, certView, certSetRange, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
   );
   return fn(
     overrides.window || window_, overrides.document || document_, overrides.fetch || fetch_, 'http://sheet.test',
@@ -844,6 +863,103 @@ if (mod) {
     mod.certView('d2');
     assert.equal(elements.certOvDrive.style.display, 'none');
     assert.equal(elements.certOvDrive.href, '', 'href must not be set for a non-Drive URL');
+  });
+
+  // ---- 18. certSetRange — quick-date buttons (#inv-section-certs .btn-quick-date) ----
+  await0(async () => {
+    const today = new Date();
+    const y = today.getFullYear(), m = today.getMonth();
+    const originalSbCertGet = window_._sbCertGet;
+    let capturedQuery = null;
+    window_._sbCertGet = async (query) => { capturedQuery = query; return []; };
+
+    // B1. thisMonth
+    mod.certSetRange('thisMonth');
+    await new Promise(r => setTimeout(r, 10));
+    check('certSetRange(thisMonth): sets invCertsFrom to the 1st of this month', () => {
+      assert.equal(elements.invCertsFrom.value, fmtD(new Date(y, m, 1)));
+    });
+    check('certSetRange(thisMonth): sets invCertsTo to the last day of this month', () => {
+      assert.equal(elements.invCertsTo.value, fmtD(new Date(y, m + 1, 0)));
+    });
+    check('certSetRange(thisMonth): _sbCertGet query includes cert_date=gte.<first-of-month>', () => {
+      assert.ok(capturedQuery && capturedQuery.indexOf('delivery_certs') !== -1, 'expected a delivery_certs query');
+      assert.ok(capturedQuery.indexOf('cert_date=gte.' + fmtD(new Date(y, m, 1))) !== -1, 'expected gte. first-of-month in "' + capturedQuery + '"');
+    });
+
+    // B2. lastMonth
+    capturedQuery = null;
+    mod.certSetRange('lastMonth');
+    await new Promise(r => setTimeout(r, 10));
+    check('certSetRange(lastMonth): sets invCertsFrom to the 1st of last month', () => {
+      assert.equal(elements.invCertsFrom.value, fmtD(new Date(y, m - 1, 1)));
+    });
+    check('certSetRange(lastMonth): sets invCertsTo to the last day of last month', () => {
+      assert.equal(elements.invCertsTo.value, fmtD(new Date(y, m, 0)));
+    });
+
+    // B3. last7
+    capturedQuery = null;
+    mod.certSetRange('last7');
+    await new Promise(r => setTimeout(r, 10));
+    check('certSetRange(last7): from = today-6, to = today', () => {
+      const start = new Date(today); start.setDate(start.getDate() - 6);
+      assert.equal(elements.invCertsFrom.value, fmtD(start));
+      assert.equal(elements.invCertsTo.value, fmtD(today));
+    });
+
+    // B4. last30
+    capturedQuery = null;
+    mod.certSetRange('last30');
+    await new Promise(r => setTimeout(r, 10));
+    check('certSetRange(last30): from = today-29, to = today', () => {
+      const start = new Date(today); start.setDate(start.getDate() - 29);
+      assert.equal(elements.invCertsFrom.value, fmtD(start));
+      assert.equal(elements.invCertsTo.value, fmtD(today));
+    });
+
+    // B5 / B6. all
+    capturedQuery = null;
+    mod.certSetRange('all');
+    await new Promise(r => setTimeout(r, 10));
+    check('certSetRange(all): sets the exact 2000-01-01..2099-01-01 bounds', () => {
+      assert.equal(elements.invCertsFrom.value, '2000-01-01');
+      assert.equal(elements.invCertsTo.value, '2099-01-01');
+      assert.notEqual(elements.invCertsFrom.value, '', 'from must not be empty for "all"');
+    });
+    check('certSetRange(all): _sbCertGet query includes both gte./lte. 2000/2099 bounds', () => {
+      assert.ok(capturedQuery.indexOf('cert_date=gte.2000-01-01') !== -1, 'expected gte.2000-01-01 in "' + capturedQuery + '"');
+      assert.ok(capturedQuery.indexOf('cert_date=lte.2099-01-01') !== -1, 'expected lte.2099-01-01 in "' + capturedQuery + '"');
+    });
+
+    // B7. active-class bookkeeping — pre-dirty ALL buttons with 'active', then only last7 should end up active
+    certQuickBtns.forEach(b => b._classes.add('active'));
+    mod.certSetRange('last7');
+    await new Promise(r => setTimeout(r, 10));
+    check('certSetRange(last7): only the last7 button carries the active class', () => {
+      certQuickBtns.forEach(b => {
+        if (b.dataset.range === 'last7') assert.ok(b.classList.contains('active'), 'expected last7 button to be active');
+        else assert.ok(!b.classList.contains('active'), 'expected ' + b.dataset.range + ' button to NOT be active');
+      });
+    });
+
+    // B8. unknown range clears all buttons and sets blank bounds (invCertsTo is never defaulted
+    // back by invRenderCerts — only invCertsFrom is, when left empty, to the 1st of the current month).
+    elements.invCertsFrom.value = '';
+    elements.invCertsTo.value = '';
+    mod.certSetRange('nope');
+    await new Promise(r => setTimeout(r, 10));
+    check('certSetRange(nope): clears the active class from every quick-date button', () => {
+      certQuickBtns.forEach(b => assert.ok(!b.classList.contains('active'), 'expected ' + b.dataset.range + ' button to NOT be active'));
+    });
+    check('certSetRange(nope): invCertsFrom defaults to the 1st of the current month (invRenderCerts fills an empty from)', () => {
+      assert.equal(elements.invCertsFrom.value, fmtD(new Date(y, m, 1)));
+    });
+    check('certSetRange(nope): invCertsTo stays blank (invRenderCerts does not write a default back to the element)', () => {
+      assert.equal(elements.invCertsTo.value, '');
+    });
+
+    window_._sbCertGet = originalSbCertGet;
   });
 }
 

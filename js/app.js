@@ -8636,6 +8636,35 @@
 
   // ---- 🧾 issued-certs management (מלאי → תעודות משלוח) ----
   let _certRows = [];   // last fetched list (reprint works off this cache)
+
+  function certSetRange(range) {
+    const today = new Date();
+    const fmt = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    let from = '', to = '';
+    if (range === 'thisMonth') {
+      from = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+      to   = fmt(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+    } else if (range === 'lastMonth') {
+      from = fmt(new Date(today.getFullYear(), today.getMonth() - 1, 1));
+      to   = fmt(new Date(today.getFullYear(), today.getMonth(), 0));
+    } else if (range === 'last7') {
+      const start = new Date(today); start.setDate(start.getDate() - 6);
+      from = fmt(start); to = fmt(today);
+    } else if (range === 'last30') {
+      const start = new Date(today); start.setDate(start.getDate() - 29);
+      from = fmt(start); to = fmt(today);
+    } else if (range === 'all') {
+      from = '2000-01-01'; to = '2099-01-01';   // explicit — invRenderCerts defaults an EMPTY from to current month
+    }
+    document.getElementById('invCertsFrom').value = from;
+    document.getElementById('invCertsTo').value = to;
+    document.querySelectorAll('#inv-section-certs .btn-quick-date').forEach(b => b.classList.remove('active'));
+    const active = document.querySelector('#inv-section-certs .btn-quick-date[data-range="' + range + '"]');
+    if (active) active.classList.add('active');
+    invRenderCerts(true);
+  }
+  window.certSetRange = certSetRange;
+
   async function invRenderCerts(force) {
     const root = document.getElementById('invCertsList');
     const section = document.getElementById('inv-section-certs');

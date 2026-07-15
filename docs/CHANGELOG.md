@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.39] 2026-07-15 — ⚡ quick date filters in the certs registry
+עידן: same quick-range buttons as the visits report, in מלאי → תעודות משלוח — 📅 חודש נוכחי (default)
+· ⏪ חודש שעבר · 📍 7/30 ימים · ∞ הכל. `certSetRange()` mirrors `setReportRange` math (data-range
+matching scoped to the section; 'הכל' pins 2000-01-01 explicitly because an empty from re-defaults to
+the current month); manual date edits clear the active chip. Built under the full model pipeline —
+Fable plan → Sonnet implementation → **Opus test PLAN → Sonnet executor loop** (new step per עידן):
+12 new checks, green in one iteration; suites now total **144** (101+4+6+33). Live-verified.
+
 ## [1.38] 2026-07-15 — 👁 viewer v2 (attendance-all/inventory/certs read-only + monthly summary) → RELEASED to main
 עידן's viewer redefinition, built on the new model split (planning Fable · implementation Sonnet ·
 testing Opus): the view-only user now sees **attendance of every employee that has attendance data**
