@@ -65,8 +65,16 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-<<<<<<< HEAD
-## 🚦 Current state — last: 2026-07-16 (**1.50 RELEASED — main = dev**).
+## 🚦 Current state — last: 2026-07-16 (**1.54 RELEASED — main = dev**).
+
+**✅ 1.54 — attendance missing days = RED ROWS + accumulating 🔔 (per עידן's screenshots feedback).**
+Missing weekdays render as red rows INSIDE the attendance table, each with a 🔔 (viewer+עידן); every
+click ADDS the day to ONE accumulating notification per person+month (same tag replaces — the worker
+sees a single list of all clicked days; ✅ marks sent). Full 15-suite green.
+**Prod TODO (עידן): approve redeploy of the dual-mode `push-send`** — the DEPLOYED v2 is orders-only,
+so the 🔔 currently returns "unknown mode"; repo source is ready, deploy was classifier-blocked twice.
+
+## Previous: 1.50
 
 **✅ 1.50 — 📅 attendance-reminder push (viewer-triggered) + push unification.** Viewer sees a worker's
 missing weekdays (red chips) in the attendance report + **🔔 בקש עדכון נוכחות** → sticky push to that
@@ -79,7 +87,7 @@ Spec: superpowers/specs/2026-07-16-attendance-push-reminder-design.md.
 
 **✅ 1.48 — 🔔 Web Push for order approvals (Android) + iPhone in-app fallback.** `push_subscriptions` +
 `push-send` Edge Function, client-fired after create/approve; routing mirrors approval rules. Live on main.
-=======
+
 ## 🚦 Current state — last: 2026-07-16 (**1.50 RELEASED to main**).
 
 **✅ 1.50 — 🔔 push-notification sent-log.** Admin-only (עידן) 🔔 התראות tab shows every Web-Push sent;
@@ -89,7 +97,6 @@ worktree off main (parallel session was live on push notifications). **✅ 1.49 
 `build.mjs` bumps the SW cache name each build → PWAs auto-reload once via `controllerchange`.
 ⚠️ Note: two parallel sessions were bumping VERSION independently, so CHANGELOG numbering is not strictly
 sequential (1.47 drop-ship coexists with my 1.49/1.50).
->>>>>>> 8aebc98
 
 **✅ 1.47 — 🏭 drop-ship customer orders (ספק ישיר) + supplier datalist.** Customer order's אחראי
 picker gets "🏭 ספק ישיר" (`assignee='ספק ישיר'`, no schema change) → supplier field shows/saves;
