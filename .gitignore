@@ -9,3 +9,6 @@ INFORMATION ACCOUNT JSON KEY.txt
 *service-account*.json
 *-sa-key*.json
 *.key.json
+desktop.ini
+.claude/
+.mcp.json

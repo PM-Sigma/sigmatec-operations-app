@@ -7,6 +7,11 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.42] 2026-07-16 — 👁️ orders rows: clamp long notes/items (click to expand)
+Long הערות/פריטים made order rows enormous and hard to scan. The הערות and פריטים cells now clamp to
+2 lines (`.clamp-cell`, CSS `-webkit-line-clamp`); clicking a cell toggles `.expanded` to reveal the
+full text. Pure CSS + inline toggle, no JS state.
+
 ## [1.41] 2026-07-15 — 🔒 visit-summary cert enforcement (יישור קו תעודות↔ביקורים)
 עידן's rule: equipment supplied in a visit MUST have an issued delivery cert. The chain is
 order→EMS task→visit summary, so the gate lives at the visit summary; standalone certs only from

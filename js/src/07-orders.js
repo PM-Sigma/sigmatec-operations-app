@@ -704,9 +704,9 @@
         <td data-label="סוג">${typeChip}</td>
         <td data-label="סטטוס"><span class="status-pill-inv status-${o.status}">${status.label}</span></td>
         <td data-label="ספק / קיבוץ">${who}</td>
-        <td data-label="פריטים">${itemsStr || '—'}</td>
+        <td data-label="פריטים"><div class="clamp-cell" onclick="this.classList.toggle('expanded')">${itemsStr || '—'}</div></td>
         <td data-label="נוצר ע&quot;י">${o.createdBy || '—'}</td>
-        <td data-label="הערות" style="max-width:200px;font-size:11px;">${(o.notes || '').replace(/</g,'&lt;')}</td>
+        <td data-label="הערות" style="max-width:200px;font-size:11px;"><div class="clamp-cell" onclick="this.classList.toggle('expanded')">${(o.notes || '').replace(/</g,'&lt;')}</div></td>
         <td class="actions-cell" style="white-space:nowrap;text-align:left;">${approvalCell} ${quickBtn} ${stuckBtn} <button class="inv-btn small" onclick="invEditOrder('${o.id}')">✏️ ערוך</button></td>
       </tr>`;
     });
