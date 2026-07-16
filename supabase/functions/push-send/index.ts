@@ -33,15 +33,22 @@ const sb = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
-webpush.setVapidDetails(
-  Deno.env.get("VAPID_SUBJECT") || "mailto:pm@sigmatec-energy.com",
-  Deno.env.get("VAPID_PUBLIC")!,
-  Deno.env.get("VAPID_PRIVATE")!,
-);
+// Lazy VAPID init — a missing secret must yield a readable JSON error, not a boot crash (WORKER_ERROR).
+let _vapidReady = false;
+function ensureVapid(): string | null {
+  if (_vapidReady) return null;
+  const pub = Deno.env.get("VAPID_PUBLIC"), priv = Deno.env.get("VAPID_PRIVATE");
+  if (!pub || !priv) return "VAPID secrets not configured (set VAPID_PUBLIC/VAPID_PRIVATE/VAPID_SUBJECT in Edge Function secrets)";
+  webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") || "mailto:pm@sigmatec-energy.com", pub, priv);
+  _vapidReady = true;
+  return null;
+}
 
 // Send `payload` to every subscription of `owners`; prune dead endpoints (404/410) and write one
 // push_log row per device. `meta` carries the denormalized audit fields (event/order/actor/title/body).
 async function sendTo(owners: string[], payload: string, meta: Record<string, unknown>) {
+  const vapidErr = ensureVapid();
+  if (vapidErr) throw new Error(vapidErr);
   const { data: subs } = await sb.from("push_subscriptions").select("owner,endpoint,keys").in("owner", owners);
   let delivered = 0, pruned = 0;
   const logRows: any[] = [];
@@ -91,7 +98,8 @@ Deno.serve(async (req: Request) => {
       url: "/sigmatec-operations-app/#attendance",
     });
     const meta = { event: "attendanceReminder", order_id: null, where_txt: person, qty: fmt.length, actor: null, title, body: bodyTxt };
-    return json(await sendTo([person], payload, meta));
+    try { return json(await sendTo([person], payload, meta)); }
+    catch (e: any) { return json({ error: String(e?.message || e) }, 500); }
   }
 
   // ---- order events ----
@@ -108,6 +116,8 @@ Deno.serve(async (req: Request) => {
     : `${where} · ${qty(order)} פריטים${actor ? " · אושר ע״י " + actor : ""}`;
   const payload = JSON.stringify({ title, body: bodyTxt, tag: event + ":" + orderId, url: "/sigmatec-operations-app/#inventory" });
   const meta = { event, order_id: String(orderId), where_txt: where, qty: qty(order), actor: actor || null, title, body: bodyTxt };
-  const r = await sendTo(recipients, payload, meta);
-  return json({ ok: true, sent: r.delivered, pruned: r.pruned });
+  try {
+    const r = await sendTo(recipients, payload, meta);
+    return json({ ok: true, sent: r.delivered, pruned: r.pruned });
+  } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
 });
