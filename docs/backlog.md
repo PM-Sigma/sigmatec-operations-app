@@ -3,21 +3,18 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
-## 🟡 IN PROGRESS — attendance-reminder push, viewer-triggered (spec done, NOT built)
-Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md).
-Viewer sees missing weekdays flagged in the attendance report + 🔔 בקש עדכון נוכחות button → sticky
-push (requireInteraction + עדכן עכשיו action) to the worker. **DEPENDS on the Web Push foundation
-below (phases 1–3)** — build `feat/attendance-push` after it lands. Phase 1 (missingDays chip UI)
-buildable now. Locked: manual trigger · missing = weekday ≤ yesterday with no record · sticky+action.
+## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
+Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
+Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.
+Merged `feat/attendance-push`→dev→main; unified with the 1.48 order push into one `push-send`
+(dual-mode) + one client file + one VAPID keypair. **Prod TODO (עידן):** redeploy `push-send` with the
+dual-mode code (table + secrets already live from 1.48).
 
-## 🟡 IN PROGRESS — Web Push notifications for order approvals (CODE DONE on feat/web-push, NOT shipped)
+## ✅ DONE — Web Push notifications for order approvals (shipped 1.48)
 Spec: [docs/superpowers/specs/2026-07-16-web-push-notifications-design.md](superpowers/specs/2026-07-16-web-push-notifications-design.md).
-Native Web Push (no self-hosted repo): `push_subscriptions` + Edge Function `push-send`, triggered by
-the **client** after create/approve (not a DB webhook — needs the actor identity). Routing mirrors the
-app's real approval rules (customer→אביאם/ניתאי, supplier≤10→אביאם, >10→עמיחי; approved→group minus
-approver/creator). Android gets OS push; iPhone/unsupported keep the existing in-app modal.
-**Remaining = production only (need עידן):** run `db/push_subscriptions.sql`, set VAPID secrets, deploy
-`push-send`, Android smoke, then feat→dev→main. test-push.mjs green (11 assertions).
+Native Web Push: `push_subscriptions` + Edge Function `push-send`, client-triggered after create/approve.
+Routing mirrors approval rules (customer→אביאם/ניתאי, supplier≤10→אביאם, >10→עמיחי; approved→group minus
+approver/creator). Android OS push; iPhone/unsupported keep the in-app modal. Live on main.
 
 ## ✅ SHIPPED 2026-07-16 — 1.47 drop-ship orders (ספק ישיר) + supplier datalist (main)
 Customer order can be supplied directly by the supplier: אחראי picker option "🏭 ספק ישיר" →

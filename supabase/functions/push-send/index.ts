@@ -1,9 +1,15 @@
-// push-send — sends Web Push for order events. Called by the client after a successful
-// create/approve with { event: 'pending'|'approved', orderId, actor }.
-// Recipients computed here (single source of truth mirrors js/src/07-orders.js approval rules).
-// Secrets (set via Supabase dashboard, NEVER in repo): VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT.
+// push-send — Web Push sender. Two modes over one endpoint:
+//   (default) order events  : { event: 'pending'|'approved', orderId, actor } → notifies approvers
+//   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
+// Recipients + text are computed/fixed SERVER-SIDE (client can't inject content or pick arbitrary targets).
+// Secrets (Supabase dashboard → Edge Functions → Secrets, NEVER in repo): VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT.
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const APPROVE_GROUP = ["אביאם", "ניתאי", "עמיחי"];
 const qty = (o: any) => (o.items || []).reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0);
@@ -32,43 +38,62 @@ webpush.setVapidDetails(
   Deno.env.get("VAPID_PRIVATE")!,
 );
 
-Deno.serve(async (req) => {
-  try {
-    const { event, orderId, actor } = await req.json();
-    if (!event || !orderId) return new Response("bad request", { status: 400 });
-
-    const { data: order } = await sb.from("orders").select("*").eq("id", orderId).single();
-    if (!order) return new Response(JSON.stringify({ ok: true, sent: 0, reason: "order not found" }), { status: 200 });
-
-    const recipients = computeRecipients(event, order, actor || "");
-    if (!recipients.length) return new Response(JSON.stringify({ ok: true, sent: 0 }), { status: 200 });
-
-    const { data: subs } = await sb.from("push_subscriptions").select("*").in("owner", recipients);
-    if (!subs?.length) return new Response(JSON.stringify({ ok: true, sent: 0 }), { status: 200 });
-
-    const where = otype(order) === "customer"
-      ? "לקיבוץ " + (order.kibbutz || "—")
-      : "מספק " + (order.supplier || "");
-    const title = event === "pending" ? "🔔 הזמנה ממתינה לאישור" : "✅ הזמנה אושרה";
-    const body = (event === "pending"
-      ? `${where} · ${qty(order)} פריטים${order.created_by ? " · מאת " + order.created_by : ""}`
-      : `${where} · ${qty(order)} פריטים${actor ? " · אושר ע״י " + actor : ""}`);
-    const payload = JSON.stringify({ title, body, tag: event + ":" + orderId, url: "/sigmatec-operations-app/#inventory" });
-
-    let sent = 0;
-    await Promise.all(subs.map(async (s: any) => {
-      try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload);
-        sent++;
-      } catch (e: any) {
-        // 404/410 = subscription dead → prune it
-        if (e?.statusCode === 404 || e?.statusCode === 410) {
-          await sb.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
-        }
+// send a payload to every subscription of the given owners; prunes dead endpoints (404/410).
+async function sendTo(owners: string[], payload: string) {
+  const { data: subs } = await sb.from("push_subscriptions").select("endpoint,keys").in("owner", owners);
+  let delivered = 0, pruned = 0;
+  for (const s of subs ?? []) {
+    try {
+      await webpush.sendNotification({ endpoint: (s as any).endpoint, keys: (s as any).keys }, payload);
+      delivered++;
+    } catch (e: any) {
+      if (e?.statusCode === 404 || e?.statusCode === 410) {
+        await sb.from("push_subscriptions").delete().eq("endpoint", (s as any).endpoint);
+        pruned++;
       }
-    }));
-    return new Response(JSON.stringify({ ok: true, sent }), { headers: { "Content-Type": "application/json" } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500 });
+    }
   }
+  return { delivered, pruned, subscriptions: (subs ?? []).length };
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const json = (o: unknown, s = 200) =>
+    new Response(JSON.stringify(o), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
+
+  let body: any;
+  try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
+
+  // ---- attendance reminder ----
+  if (body.mode === "attendanceReminder") {
+    const person = String(body.person || "");
+    if (!APPROVE_GROUP.includes(person)) return json({ error: "recipient not allowed" }, 403);
+    const dates: string[] = Array.isArray(body.dates) ? body.dates.slice(0, 31).map(String) : [];
+    const fmt = dates.map((d) => { const m = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? `${+m[2]}.${+m[1]}` : null; }).filter(Boolean);
+    if (!fmt.length) return json({ error: "bad dates" }, 400);
+    const payload = JSON.stringify({
+      title: "📅 חסרה נוכחות — " + person,
+      body: "נא לעדכן נוכחות לימים: " + fmt.join(", "),
+      tag: "att-reminder-" + person + "-" + dates[0].slice(0, 7),   // resend replaces, no stacking
+      requireInteraction: true,
+      url: "/sigmatec-operations-app/#attendance",
+    });
+    return json(await sendTo([person], payload));
+  }
+
+  // ---- order events ----
+  const { event, orderId, actor } = body;
+  if (!event || !orderId) return json({ error: "bad request" }, 400);
+  const { data: order } = await sb.from("orders").select("*").eq("id", orderId).single();
+  if (!order) return json({ ok: true, sent: 0, reason: "order not found" });
+  const recipients = computeRecipients(event, order, actor || "");
+  if (!recipients.length) return json({ ok: true, sent: 0 });
+  const where = otype(order) === "customer" ? "לקיבוץ " + (order.kibbutz || "—") : "מספק " + (order.supplier || "");
+  const title = event === "pending" ? "🔔 הזמנה ממתינה לאישור" : "✅ הזמנה אושרה";
+  const bodyTxt = event === "pending"
+    ? `${where} · ${qty(order)} פריטים${order.created_by ? " · מאת " + order.created_by : ""}`
+    : `${where} · ${qty(order)} פריטים${actor ? " · אושר ע״י " + actor : ""}`;
+  const payload = JSON.stringify({ title, body: bodyTxt, tag: event + ":" + orderId, url: "/sigmatec-operations-app/#inventory" });
+  const r = await sendTo(recipients, payload);
+  return json({ ok: true, sent: r.delivered, pruned: r.pruned });
 });

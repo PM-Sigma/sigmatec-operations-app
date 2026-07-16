@@ -7,6 +7,25 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.50] 2026-07-16 — 📅 attendance-reminder push (viewer-triggered), unified with order push
+`feat/attendance-push` merged to dev then shipped. The viewer (הנהלת חשבונות) sees a field worker's
+**missing weekdays** flagged in the attendance report (red chips) + a **🔔 בקש עדכון נוכחות** button →
+a sticky push (`requireInteraction`) to that worker asking them to update. Merge reconciled the two
+push flows that had grown in parallel: the shipped **1.48 order-approval push** and this reminder now
+share **one client file** (`22-push.js`) and **one Edge Function** (`push-send`, dual-mode:
+`{event,orderId,actor}` for orders, `{mode:'attendanceReminder',person,dates}` for attendance). Dropped
+the attendance branch's duplicate subscribe/opt-in code and its **second VAPID keypair** — everything now
+uses the single live keypair (`BFIsMdmb…`), so both flows deliver from the same server secret. Recipient
+allowlist + notification text are fixed server-side. `test-attendance-push.mjs` (8, golden fixtures) +
+full 15-suite regression green. **Production still needs (עידן):** attendance reminders reuse the
+already-deployed `push-send` + `push_subscriptions`; redeploy `push-send` with the dual-mode code.
+
+## [1.48] 2026-07-16 — 🔔 Web Push for order approvals (Android) + iPhone in-app fallback
+(Shipped by a parallel session; logged here for continuity.) Native Web Push: `push_subscriptions` table +
+`push-send` Edge Function, fired by the client after create/approve. Routing mirrors the app's approval
+rules (customer→אביאם/ניתאי, supplier ≤10→אביאם / >10→עמיחי; approved→group minus approver/creator).
+Android/desktop get OS push; iPhone/unsupported keep the in-app order modal. `test-push.mjs` green.
+
 ## [1.47] 2026-07-16 — 🏭 drop-ship customer orders (ספק ישיר) + supplier datalist
 Per עידן: a customer order can now be supplied **directly by the supplier** — in the אחראי על
 האספקה picker choose "🏭 ספק ישיר" (stored as `assignee`, no schema change); the supplier field

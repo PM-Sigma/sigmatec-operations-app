@@ -65,7 +65,19 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-16 (**1.47 RELEASED — main = dev**).
+## 🚦 Current state — last: 2026-07-16 (**1.50 RELEASED — main = dev**).
+
+**✅ 1.50 — 📅 attendance-reminder push (viewer-triggered) + push unification.** Viewer sees a worker's
+missing weekdays (red chips) in the attendance report + **🔔 בקש עדכון נוכחות** → sticky push to that
+worker. Merge of `feat/attendance-push` reconciled it with the **1.48 order-approval push**: one client
+file `js/src/22-push.js`, one Edge Function `push-send` (dual-mode: orders `{event,orderId,actor}` +
+attendance `{mode:'attendanceReminder',person,dates}`), **one VAPID keypair** (dropped the branch's
+duplicate subscribe + second keypair). test-attendance-push.mjs (8) + full 15-suite green.
+**Prod TODO (עידן): redeploy `push-send`** (table + VAPID secrets already live from 1.48).
+Spec: superpowers/specs/2026-07-16-attendance-push-reminder-design.md.
+
+**✅ 1.48 — 🔔 Web Push for order approvals (Android) + iPhone in-app fallback.** `push_subscriptions` +
+`push-send` Edge Function, client-fired after create/approve; routing mirrors approval rules. Live on main.
 
 **✅ 1.47 — 🏭 drop-ship customer orders (ספק ישיר) + supplier datalist.** Customer order's אחראי
 picker gets "🏭 ספק ישיר" (`assignee='ספק ישיר'`, no schema change) → supplier field shows/saves;

@@ -1663,6 +1663,7 @@
     }
 
     // Table
+    if (typeof attRenderMissing === 'function') { try { attRenderMissing(); } catch (e) {} }
     const tableEl = document.getElementById('attendanceTable');
     if (!tableEl) return;
     if (!all.length) {
@@ -9535,4 +9536,97 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
+})();
+
+// ===== Attendance reminders (viewer-triggered) =====
+// Reuses the subscription created above (same push_subscriptions table, same VAPID key) — this block
+// only computes missing days, renders the red chips + viewer's 🔔 button, and asks push-send to nudge.
+// Design: docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md
+(function () {
+  'use strict';
+  var SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
+  var SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
+
+  // ---- missing attendance (pure — tested in test-attendance-push.mjs) ----
+  // A weekday (Sun–Thu) from the 1st of (year,month) up to `today`-1 with no visit AND no
+  // attendance entry for `person`. Dates returned as 'YYYY-MM-DD' ascending.
+  function attMissingDays(attendance, visits, person, year, month, today) {
+    const have = {};
+    (attendance || []).forEach(a => { if (a.person === person && a.date) have[String(a.date).slice(0, 10)] = 1; });
+    (visits || []).forEach(v => {
+      if (v.visitor !== person || !v.date) return;
+      const d = new Date(v.date);
+      if (!isNaN(d)) have[d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')] = 1;
+    });
+    const out = [];
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());   // strip time
+    for (let day = 1; day <= 31; day++) {
+      const d = new Date(year, month, day);
+      if (d.getMonth() !== month) break;
+      if (d >= end) break;                                   // only up to yesterday
+      if (d.getDay() > 4) continue;                          // Fri/Sat out
+      const key = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+      if (!have[key]) out.push(key);
+    }
+    return out;
+  }
+  window.attMissingDays = attMissingDays;
+  // notification payload preview (kept in sync with the fn's fixed text — used for the confirm UI)
+  function attReminderText(person, dates) {
+    const fmt = dates.map(d => { const m = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? (+m[2]) + '.' + (+m[1]) : ''; }).filter(Boolean);
+    return 'נא לעדכן נוכחות לימים: ' + fmt.join(', ');
+  }
+  window.attReminderText = attReminderText;   // exposed for test-attendance-push.mjs
+
+  // ---- attendance-report hook: red chips + viewer's 🔔 button ----
+  function attRenderMissing() {
+    const row = document.getElementById('attMissingRow');
+    if (!row) return;
+    row.style.display = 'none'; row.innerHTML = '';
+    const person = (typeof attPerson === 'function') ? attPerson() : '';
+    if (!person) return;
+    const missing = attMissingDays(
+      (window.SHEET_DATA && window.SHEET_DATA.attendance) || [],
+      (window.SHEET_DATA && window.SHEET_DATA.visits) || [],
+      person, window.attendanceViewYear, window.attendanceViewMonth, new Date());
+    if (!missing.length) return;
+    const chips = missing.map(d => { const m = d.match(/-(\d{2})-(\d{2})$/); return (+m[2]) + '.' + (+m[1]); }).join(' · ');
+    const canNag = (typeof isViewer === 'function' && isViewer()) || (typeof isIdan === 'function' && isIdan());
+    row.innerHTML = '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+      '<span style="color:#b91c1c;font-weight:700;font-size:13px;">⚠️ ימים ללא נוכחות: ' + chips + '</span>' +
+      (canNag ? '<button class="inv-btn small" style="background:#dc2626;color:#fff;" onclick="attSendReminder()">🔔 בקש עדכון נוכחות</button>' : '') +
+      '<span id="attNagStatus" style="font-size:12px;color:#64748b;"></span></div>';
+    row.style.display = '';
+    window._attMissing = { person: person, dates: missing };
+  }
+  window.attRenderMissing = attRenderMissing;
+
+  async function attSendReminder() {
+    const ctx = window._attMissing;
+    if (!ctx || !ctx.dates.length) return;
+    if (!confirm('לשלוח תזכורת ל' + ctx.person + '?\n' + attReminderText(ctx.person, ctx.dates))) return;
+    const st = document.getElementById('attNagStatus');
+    if (st) st.textContent = '⏳ שולח…';
+    try {
+      const r = await fetch(SB_URL + '/functions/v1/push-send', {
+        method: 'POST',
+        headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'attendanceReminder', person: ctx.person, dates: ctx.dates })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || r.status);
+      if (st) st.textContent = j.delivered > 0 ? ('✅ נשלח (' + j.delivered + ' מכשירים)') :
+        '⚠️ ל' + ctx.person + ' אין עדיין מכשיר רשום להתראות — יקבל תזכורת באפליקציה';
+      // fallback: no push device → leave an in-app nag the worker sees on next open (same pattern as order notifications)
+      if (!(j.delivered > 0)) {
+        try {
+          const k = 'att_nag_' + ctx.person + '_v1';
+          localStorage.setItem(k, JSON.stringify({ dates: ctx.dates, at: Date.now() }));
+        } catch (e) {}
+      }
+    } catch (e) {
+      if (st) st.textContent = '❌ שליחה נכשלה: ' + e.message;
+    }
+  }
+  window.attSendReminder = attSendReminder;
 })();
