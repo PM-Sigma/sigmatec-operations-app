@@ -179,6 +179,12 @@
     if (mb) mb.style.display = isIdan() ? '' : 'none';
     const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי only
     if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
+    const myt = document.getElementById('navMyTasks');     // viewer: משימות not needed (reports hub covers their use)
+    if (myt) myt.style.display = isViewer() ? 'none' : '';
+    // 📗 Excel export buttons — עידן + viewer only (canExportExcel in 21-excel-export.js)
+    const xlOn = typeof canExportExcel === 'function' && canExportExcel();
+    document.querySelectorAll('.xl-export-btn').forEach(b => { b.style.display = xlOn ? '' : 'none'; });
+    if (typeof xlHubInit === 'function') xlHubInit();      // populate the viewer hub defaults
     if (typeof updateEmsBubble === 'function') updateEmsBubble();
   }
   // EMS connection bubble — live status (🟢/🟠) + link to the EMS web system.
