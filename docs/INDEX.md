@@ -65,7 +65,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-16 (**1.46 on `dev`, pending עידן's Excel smoke → main**).
+## 🚦 Current state — last: 2026-07-16 (**1.46 RELEASED — main = dev, dcf56a9**).
 
 **✅ 1.46 (dev, 75de826) — Excel rows color-banded per record** (xlsx-js-style vendor swap, navy
 header, 6-pastel cycle via builder groupKeys) **+ viewer's bottom מקרא hidden.** 24 export checks green.
