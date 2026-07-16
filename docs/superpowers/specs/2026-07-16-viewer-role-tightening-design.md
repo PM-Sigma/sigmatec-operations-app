@@ -1,0 +1,57 @@
+# Viewer role tightening — design
+
+**Date:** 2026-07-16 · **Branch:** `dev` · **Type:** small UI-gating change
+
+## Goal
+
+The view-only user (`role = viewer`, PIN `0540`, `isViewer()` in `js/src/11-search-login.js`)
+currently lands on the full home page. עידן wants the viewer's home stripped down to the navy
+header only, and one nav item removed. Everything the viewer keeps is already reachable.
+
+## Scope
+
+Reuse the existing `body.user-viewer` class (already toggled in `updateUserBadge()` →
+`js/src/11-search-login.js:161`). No new role logic, no new state.
+
+### Nav bar — viewer keeps 4 buttons
+Keep: 🏠 דף הבית · 📦 מלאי · 📅 נוכחות · 🗓️ יומן.
+Hide: ✅ משימות (`#navMyTasks`) — *"משימות לא נדרש"*.
+(EMS / עובדים / פיתוח are already hidden for viewers.)
+
+### Home page (`#kibbutz-view`) — viewer keeps only the navy header
+
+| Block | Selector | Viewer |
+|-------|----------|--------|
+| Navy header + progress bar (**הבלון הראשי**) | `.header` | keep |
+| Compact toggle 📱 (blue-balloon toggle) | `#compactToggle` | hide |
+| Urgent alert 🚨 | `#urgentAlert` | hide |
+| Search + filter chips | `.filter-bar` | hide |
+| 📌 משימות חברה כלליות (**משימות**) | `.company-tasks` | hide |
+| Kibbutz status cards (**כרטיסי קיבוצים**) | `#kibbutz-view .section` | hide |
+
+**"בלון סיכום ביקור":** the only visit-summary UI is the visit FAB + its form, already hidden
+for viewers. Nothing to do.
+
+## Implementation
+
+1. **`css/app.css`** — one rule block:
+   ```css
+   body.user-viewer #compactToggle,
+   body.user-viewer #urgentAlert,
+   body.user-viewer .filter-bar,
+   body.user-viewer .company-tasks,
+   body.user-viewer #kibbutz-view .section { display: none !important; }
+   ```
+2. **`js/src/11-search-login.js`** — in `applyNavVisibility()`, hide `#navMyTasks` when `isViewer()`.
+3. `node build.mjs` → commit on `dev`.
+
+## Verification
+
+Load with the viewer PIN (`0540`) and confirm: home shows only the navy header; nav shows
+🏠/📦/📅/🗓️ only; מלאי, נוכחות, יומן all open read-only as before. Confirm a non-viewer role still
+sees the full home (CSS is class-scoped, nav line is `isViewer()`-guarded).
+
+## Out of scope (separate spec)
+
+**PUSH notifications** — feasible via Web Push (SW `push` handler + `pushManager.subscribe` +
+Supabase subscriptions table + VAPID Edge Function; iOS needs the installed PWA). Its own spec.
