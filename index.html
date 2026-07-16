@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrncnlp9">
+<link rel="stylesheet" href="css/app.css?v=mrnd5zq3">
 </head>
 <body>
 <div class="container">
@@ -375,7 +375,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.48</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.49</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1411,9 +1411,15 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrncnlp9"></script>
+<script src="js/app.js?v=mrnd5zq3"></script>
 <script>
 if ('serviceWorker' in navigator) {
+  // Force-refresh on a new deploy: build.mjs bumps the SW cache name each build, so a new sw.js installs,
+  // takes control (skipWaiting + clients.claim), and this listener reloads the page once with fresh assets.
+  var _swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (_swReloaded) return; _swReloaded = true; window.location.reload();
+  });
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('sw.js').catch(function (e) { console.warn('SW registration failed', e); });
   });
