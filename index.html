@@ -159,6 +159,46 @@
 
   </div>
 
+  <!-- 📊 viewer reports hub — viewer-only (body.user-viewer shows it); all aggregate reports from one card -->
+  <div id="viewerReportsHub" class="company-tasks" style="display:none;">
+    <div class="company-tasks-header"><h3 style="margin:0;">📊 הפקת דוחות</h3></div>
+    <div class="xl-hub-rows">
+      <div class="xl-hub-row">
+        <span class="xl-hub-name">📍 דוח ביקורי שטח</span>
+        <label>מ־<input type="date" id="xlHubVisitsFrom"></label>
+        <label>עד <input type="date" id="xlHubVisitsTo"></label>
+        <button class="inv-btn small" onclick="xlHubVisitsPdf()">📄 PDF</button>
+        <button class="inv-btn small xl-green" onclick="xlHubVisitsXlsx()">📗 Excel</button>
+      </div>
+      <div class="xl-hub-row">
+        <span class="xl-hub-name">📅 דוח נוכחות חודשית</span>
+        <label>עובד <select id="xlHubAttPerson"></select></label>
+        <label>חודש <input type="month" id="xlHubAttMonth"></label>
+        <button class="inv-btn small" onclick="xlHubAttPdf()">📄 PDF</button>
+        <button class="inv-btn small xl-green" onclick="xlHubAttXlsx()">📗 Excel</button>
+      </div>
+      <div class="xl-hub-row">
+        <span class="xl-hub-name">🚚 דוח תעודות משלוח</span>
+        <label>מ־<input type="date" id="xlHubCertsFrom"></label>
+        <label>עד <input type="date" id="xlHubCertsTo"></label>
+        <button class="inv-btn small" onclick="xlHubCertsPdf()">📄 PDF</button>
+        <button class="inv-btn small xl-green" onclick="xlHubCertsXlsx()">📗 Excel</button>
+      </div>
+      <div class="xl-hub-row">
+        <span class="xl-hub-name">🧾 סיכום חודשי תעודות</span>
+        <label>חודש <input type="month" id="xlHubSumMonth"></label>
+        <button class="inv-btn small" onclick="xlHubSumPdf()">📄 PDF</button>
+        <button class="inv-btn small xl-green" onclick="xlHubSumXlsx()">📗 Excel</button>
+      </div>
+      <div class="xl-hub-row">
+        <span class="xl-hub-name">📦 מלאי לפי מיקום</span>
+        <button class="inv-btn small xl-green" onclick="xlExportStockXlsx()">📗 Excel</button>
+        <span class="xl-hub-name" style="margin-right:18px;">🏘 מלאי לפי קיבוץ</span>
+        <button class="inv-btn small xl-green" onclick="xlExportKibbutzXlsx()">📗 Excel</button>
+      </div>
+    </div>
+  </div>
+
   <div class="urgent-alert" id="urgentAlert" style="display:none;">
     <div class="urgent-alert-header">
       <span class="urgent-alert-icon">🚨</span>
