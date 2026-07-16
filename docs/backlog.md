@@ -10,12 +10,12 @@ Paused at spec stage 2026-07-16. Spec:
 row-per-item explosion, typed cells. Sample files approved by עידן. Test plan in the new
 [docs/testing-methodology.md](testing-methodology.md) (`test-exports.mjs`, loop until green).
 
-## 🟡 IN PROGRESS — viewer role home tightening (spec done, NOT built)
-Paused mid-feature 2026-07-16. Spec + resume point:
-[docs/superpowers/specs/2026-07-16-viewer-role-tightening-design.md](superpowers/specs/2026-07-16-viewer-role-tightening-design.md).
-Goal: viewer home = navy header only (hide kibbutz cards, company-tasks, urgent-alert, filter-bar,
-compact toggle); hide משימות nav; keep מלאי/נוכחות/יומן. 2 edits (CSS block in `css/app.css` +
-`isViewer()` line in `applyNavVisibility()`), then `node build.mjs`. **Not started in code.**
+## 🟡 IN PROGRESS — viewer role rework (spec done, NOT built) — ships WITH Excel exports
+Spec: [docs/superpowers/specs/2026-07-16-viewer-role-tightening-design.md](superpowers/specs/2026-07-16-viewer-role-tightening-design.md).
+Final scope (עידן, 2026-07-16): viewer home = navy header + **📊 reports hub card** (all PDF+Excel
+report generation in one place); hide kibbutz cards/company-tasks/urgent-alert/filter-bar/compact
+toggle/משימות nav; מלאי/נוכחות/יומן stay browsable but **strictly read-only** (all action buttons
+hidden — writes already router-blocked). Build together with the Excel-exports feature, one test loop.
 Also parked: PUSH notifications (Web Push feasibility noted in the spec's out-of-scope).
 
 ## 🔴 Run SQL — seed kibbutz_details (delivery-cert customer block, ready)
