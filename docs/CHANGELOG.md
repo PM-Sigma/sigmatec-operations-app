@@ -7,6 +7,16 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.47] 2026-07-16 — 🏭 drop-ship customer orders (ספק ישיר) + supplier datalist
+Per עידן: a customer order can now be supplied **directly by the supplier** — in the אחראי על
+האספקה picker choose "🏭 ספק ישיר" (stored as `assignee`, no schema change); the supplier field
+appears and saves on the order. Approving such an order **does not touch stock and opens no EMS
+task** — it just closes the order (`supplied`) + linked requirement. Order row shows
+"🏭 ספק ישיר · <ספק>". Also: the ספק field (supplier orders + drop-ship) is now backed by a
+`<datalist>` of every supplier name used on past orders — closed value range, typing a new name
+adds it. `test-dropship.mjs` green + full regression suite green; manual smoke on dev preview
+(new option, supplier field toggle, datalist populated).
+
 ## [1.46] 2026-07-16 — 🎨 color-banded Excel rows + viewer legend removed
 Per עידן: multi-row records in the Excel exports are now easy to track — every source record
 (visit / delivery cert) gets **one background color for all its exploded rows**, cycling 6 soft
