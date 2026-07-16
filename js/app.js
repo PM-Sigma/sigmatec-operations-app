@@ -9497,24 +9497,38 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     await storeSubscription(sub);
   }
 
-  // Small in-app opt-in (browsers penalise auto-requesting permission on load).
-  function showOptIn() {
-    if (document.getElementById('pushOptIn')) return;
-    var bar = document.createElement('div');
-    bar.id = 'pushOptIn';
-    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:100002;background:#1d4ed8;color:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);display:flex;gap:10px;align-items:center;font-size:14px;';
-    bar.innerHTML = '<span style="font-size:20px;">🔔</span>' +
-      '<span style="flex:1;">קבל התראות לטלפון על הזמנות שדורשות טיפול?</span>' +
-      '<button id="pushYes" style="background:#fff;color:#1d4ed8;border:none;border-radius:8px;padding:8px 12px;font-weight:800;cursor:pointer;">הפעל</button>' +
-      '<button id="pushNo" style="background:transparent;color:#dbeafe;border:none;cursor:pointer;font-weight:700;">לא עכשיו</button>';
-    document.body.appendChild(bar);
-    document.getElementById('pushNo').onclick = function () { try { localStorage.setItem('push_optin_dismissed', '1'); } catch (e) {} bar.remove(); };
-    document.getElementById('pushYes').onclick = async function () {
-      bar.remove();
+  // Firm enable-prompt — reappears EVERY session until notifications are actually enabled (no permanent
+  // dismissal). 'default' = never decided → request permission on click; 'denied' = blocked earlier →
+  // the browser won't re-prompt, so guide the user to re-enable it in site settings.
+  function showEnablePrompt(mode) {
+    if (window._pushPromptShown || document.getElementById('pushEnableModal')) return;
+    window._pushPromptShown = true;   // once per session; next login shows it again if still not enabled
+    var blocked = mode === 'denied';
+    var msg = blocked
+      ? 'בעקבות העדכון האחרון נדרשות התראות, אך הן חסומות במכשיר זה. יש לאפשר אותן ידנית: לחצו על 🔒/⋮ בשורת הכתובת → הגדרות אתר → התראות → אפשר, ואז רעננו.'
+      : 'בעקבות העדכון האחרון נדרש לאפשר קבלת התראות כדי לקבל עדכונים על הזמנות ונוכחות. נא לאשר.';
+    var wrap = document.createElement('div');
+    wrap.id = 'pushEnableModal';
+    wrap.className = 'modal-backdrop open';
+    wrap.style.zIndex = '100003';
+    wrap.innerHTML = '<div class="modal" style="max-width:400px;text-align:center;">' +
+      '<div style="font-size:40px;">🔔</div>' +
+      '<h3 style="margin:8px 0 6px;color:#b91c1c;">נדרש לאפשר התראות</h3>' +
+      '<div style="font-size:14px;color:#334155;line-height:1.6;margin-bottom:16px;">' + msg + '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+      '<button id="pushEnableYes" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:12px;font-weight:800;cursor:pointer;font-size:15px;">' + (blocked ? '🔄 ניסיתי — רענן' : '✅ אפשר התראות') + '</button>' +
+      '<button id="pushEnableLater" style="background:#f1f5f9;color:#64748b;border:none;border-radius:8px;padding:12px 14px;font-weight:700;cursor:pointer;">אחר כך</button>' +
+      '</div></div>';
+    document.body.appendChild(wrap);
+    document.getElementById('pushEnableLater').onclick = function () { wrap.remove(); };   // session-only; reappears next login
+    document.getElementById('pushEnableYes').onclick = async function () {
+      if (blocked) { wrap.remove(); location.reload(); return; }
+      wrap.remove();
       try {
         var perm = await Notification.requestPermission();
-        if (perm === 'granted') { await subscribe(); try { localStorage.setItem('push_optin_dismissed', '1'); } catch (e) {} }
-      } catch (e) { console.warn('[push] opt-in failed', e); }
+        if (perm === 'granted') await subscribe();
+        else if (perm === 'denied') { window._pushPromptShown = false; showEnablePrompt('denied'); }   // they blocked it → show the manual-enable guidance
+      } catch (e) { console.warn('[push] enable failed', e); }
     };
   }
 
@@ -9523,10 +9537,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     if (!supported || isIOS) return;
     try {
       if (Notification.permission === 'granted') { await subscribe(); return; }   // already granted → re-sync owner
-      if (Notification.permission === 'denied') return;
-      var dismissed = false;
-      try { dismissed = localStorage.getItem('push_optin_dismissed') === '1'; } catch (e) {}
-      if (!dismissed) showOptIn();
+      showEnablePrompt(Notification.permission === 'denied' ? 'denied' : 'default');
     } catch (e) { console.warn('[push] init failed', e); }
   };
 
