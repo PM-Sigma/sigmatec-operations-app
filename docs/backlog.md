@@ -17,6 +17,11 @@ Native Web Push (no self-hosted repo): `push_subscriptions` table + Edge Functio
 `orders` DB webhook. Android gets OS push; iPhone falls back to existing in-app modal. Two events:
 new order pending → עמיחי/ניתאי; approved by עמיחי → אביאם+ניתאי. Verify `orders.status` values before wiring.
 
+## ✅ SHIPPED 2026-07-16 — 1.47 drop-ship orders (ספק ישיר) + supplier datalist (main)
+Customer order can be supplied directly by the supplier: אחראי picker option "🏭 ספק ישיר" →
+approval touches no stock, opens no EMS task. ספק field backed by a datalist of past supplier
+names. Spec: [2026-07-16-dropship-orders-design.md](superpowers/specs/2026-07-16-dropship-orders-design.md).
+
 ## ✅ SHIPPED 2026-07-16 — 1.45 viewer rework + Excel exports (dev, b34ceb4)
 Both viewer specs delivered together on `feat/viewer-reports-excel` → `dev`. Viewer home = navy
 header + **📊 reports hub** (visits/attendance/certs/cert-summary/stock — PDF+📗Excel from one card);

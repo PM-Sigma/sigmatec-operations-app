@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrnbm7sb">
+<link rel="stylesheet" href="css/app.css?v=mrncger1">
 </head>
 <body>
 <div class="container">
@@ -375,7 +375,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.46</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.47</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1112,7 +1112,8 @@
 
     <div id="invOrderSupplierWrap">
       <label for="invOrderSupplier">🏪 ספק:</label>
-      <input type="text" id="invOrderSupplier" placeholder="שם הספק (אופציונלי)">
+      <input type="text" id="invOrderSupplier" list="supplierList" placeholder="שם הספק — בחר מהרשימה או הקלד חדש">
+      <datalist id="supplierList"></datalist>
     </div>
 
     <div id="invOrderKibbutzWrap" style="display:none;">
@@ -1124,11 +1125,12 @@
          and the stock deducts from THEIR bag on approval (default: the approver). -->
     <div id="invOrderAssigneeWrap" style="display:none;">
       <label for="invOrderAssignee">👤 אחראי על האספקה:</label>
-      <select id="invOrderAssignee">
+      <select id="invOrderAssignee" onchange="invAssigneeChanged()">
         <option value="">— המאשר (ברירת מחדל) —</option>
         <option value="אביאם">אביאם</option>
         <option value="ניתאי">ניתאי</option>
         <option value="עמיחי">עמיחי</option>
+        <option value="ספק ישיר">🏭 ספק ישיר — לא יורד מהמלאי</option>
       </select>
     </div>
 
@@ -1409,7 +1411,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrnbm7sb"></script>
+<script src="js/app.js?v=mrncger1"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

@@ -65,7 +65,13 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-16 (**1.46 RELEASED — main = dev, dcf56a9**).
+## 🚦 Current state — last: 2026-07-16 (**1.47 RELEASED — main = dev**).
+
+**✅ 1.47 — 🏭 drop-ship customer orders (ספק ישיר) + supplier datalist.** Customer order's אחראי
+picker gets "🏭 ספק ישיר" (`assignee='ספק ישיר'`, no schema change) → supplier field shows/saves;
+approval closes the order + linked req with **no stock movements and no EMS task**. ספק field now
+backed by `<datalist id=supplierList>` of past supplier names. `test-dropship.mjs` + full suite green.
+Spec: superpowers/specs/2026-07-16-dropship-orders-design.md.
 
 **✅ 1.46 (dev, 75de826) — Excel rows color-banded per record** (xlsx-js-style vendor swap, navy
 header, 6-pastel cycle via builder groupKeys) **+ viewer's bottom מקרא hidden.** 24 export checks green.
