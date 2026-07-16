@@ -17,6 +17,26 @@ self.addEventListener('activate', e => {
   ]));
 });
 
+// Web Push: show the notification. Payload = { title, body, tag, url } from the push-send Edge Function.
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: 'סיגמטק', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'סיגמטק', {
+    body: d.body || '', icon: './icons/icon-192.png', badge: './icons/icon-192.png',
+    tag: d.tag, renotify: true, data: { url: d.url || './' }
+  }));
+});
+
+// Focus an existing app tab (or open one) on the target page when the notification is clicked.
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    for (const c of cs) { if ('focus' in c) { c.focus(); if ('navigate' in c) c.navigate(url).catch(() => {}); return; } }
+    return self.clients.openWindow(url);
+  }));
+});
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);

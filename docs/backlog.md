@@ -10,12 +10,14 @@ push (requireInteraction + עדכן עכשיו action) to the worker. **DEPENDS 
 below (phases 1–3)** — build `feat/attendance-push` after it lands. Phase 1 (missingDays chip UI)
 buildable now. Locked: manual trigger · missing = weekday ≤ yesterday with no record · sticky+action.
 
-## 🟡 IN PROGRESS — Web Push notifications for order approvals (spec done, NOT built)
-Paused at spec stage 2026-07-16. Spec:
-[docs/superpowers/specs/2026-07-16-web-push-notifications-design.md](superpowers/specs/2026-07-16-web-push-notifications-design.md).
-Native Web Push (no self-hosted repo): `push_subscriptions` table + Edge Function `push-send` +
-`orders` DB webhook. Android gets OS push; iPhone falls back to existing in-app modal. Two events:
-new order pending → עמיחי/ניתאי; approved by עמיחי → אביאם+ניתאי. Verify `orders.status` values before wiring.
+## 🟡 IN PROGRESS — Web Push notifications for order approvals (CODE DONE on feat/web-push, NOT shipped)
+Spec: [docs/superpowers/specs/2026-07-16-web-push-notifications-design.md](superpowers/specs/2026-07-16-web-push-notifications-design.md).
+Native Web Push (no self-hosted repo): `push_subscriptions` + Edge Function `push-send`, triggered by
+the **client** after create/approve (not a DB webhook — needs the actor identity). Routing mirrors the
+app's real approval rules (customer→אביאם/ניתאי, supplier≤10→אביאם, >10→עמיחי; approved→group minus
+approver/creator). Android gets OS push; iPhone/unsupported keep the existing in-app modal.
+**Remaining = production only (need עידן):** run `db/push_subscriptions.sql`, set VAPID secrets, deploy
+`push-send`, Android smoke, then feat→dev→main. test-push.mjs green (11 assertions).
 
 ## ✅ SHIPPED 2026-07-16 — 1.47 drop-ship orders (ספק ישיר) + supplier datalist (main)
 Customer order can be supplied directly by the supplier: אחראי picker option "🏭 ספק ישיר" →

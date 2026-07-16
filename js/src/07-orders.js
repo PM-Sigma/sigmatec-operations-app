@@ -285,6 +285,7 @@
       // 2) purchase order awaiting Idan's approval (creates NO stock movement)
       const ordRes = await post({ type: 'order', status: 'pending_approval', orderType: 'customer', kibbutz: kibbutz, items, createdBy, supplier: '', notes: 'בקשת לקוח — ' + kibbutz + (contact ? ' (' + contact + ')' : '') });
       // 3) link them
+      if (ordRes?.id && typeof pushNotify === 'function') pushNotify('pending', ordRes.id, createdBy);   // customer request → approvers
       if (reqRes?.id && ordRes?.id) {
         await post({ type: 'requirement', id: reqRes.id, status: 'in_progress', linkedOrderId: ordRes.id });
       }
@@ -503,7 +504,7 @@
     try {
       const res = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'pending' }) });
       const data = await res.json();
-      if (data.ok) { orderNotifMarkSeen([o.id]); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
+      if (data.ok) { orderNotifMarkSeen([o.id]); if (typeof pushNotify === 'function') pushNotify('approved', o.id, getCurrentUser()); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
       else alert('שגיאה: ' + JSON.stringify(data));
     } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
   }
@@ -522,6 +523,7 @@
         var linkedD = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
         await Promise.all(linkedD.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
         orderNotifMarkSeen([o.id]);
+        if (typeof pushNotify === 'function') pushNotify('approved', o.id, me);
         var td = document.getElementById('toast'); td.textContent = '✅ אושרה אספקה ישירה מהספק'; td.classList.add('show'); setTimeout(function () { td.classList.remove('show'); }, 3000);
         setTimeout(refreshData, 1000);
       } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
@@ -558,6 +560,7 @@
       var linked = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
       await Promise.all(linked.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
       orderNotifMarkSeen([o.id]);   // the approver shouldn't be notified about the order they just approved
+      if (typeof pushNotify === 'function') pushNotify('approved', o.id, me);
       const t = document.getElementById('toast');
       t.textContent = (emsRes && emsRes.queued) ? '✅ סופק · משימת EMS תיפתח בהתחברות הבאה' : '✅ סופק ללקוח · נפתחה משימת EMS';
       t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 3500);
@@ -1254,6 +1257,9 @@
       const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
       const res = await r.json();
       if (!res.ok) { alert('שגיאה: ' + JSON.stringify(res)); return; }
+
+      // Push the approver(s) that a new order awaits approval (new orders only, not edits).
+      if (!window.invEditingOrderId && status === 'pending_approval' && res.id && typeof pushNotify === 'function') pushNotify('pending', res.id, createdBy);
 
       // LEARN: every text-based order → save {raw → accepted BASE items} as a parse-order few-shot example.
       // Exclude auto-added accessories (the AI should output base products only; the app derives accessories).
