@@ -2,6 +2,7 @@
 //   (default) order events  : { event: 'pending'|'approved', orderId, actor } → notifies approvers
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
 // Recipients + text are computed/fixed SERVER-SIDE (client can't inject content or pick arbitrary targets).
+// Every recipient device gets one push_log row (audit for the admin "התראות" screen); logging is non-fatal.
 // Secrets (Supabase dashboard → Edge Functions → Secrets, NEVER in repo): VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT.
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -38,21 +39,31 @@ webpush.setVapidDetails(
   Deno.env.get("VAPID_PRIVATE")!,
 );
 
-// send a payload to every subscription of the given owners; prunes dead endpoints (404/410).
-async function sendTo(owners: string[], payload: string) {
-  const { data: subs } = await sb.from("push_subscriptions").select("endpoint,keys").in("owner", owners);
+// Send `payload` to every subscription of `owners`; prune dead endpoints (404/410) and write one
+// push_log row per device. `meta` carries the denormalized audit fields (event/order/actor/title/body).
+async function sendTo(owners: string[], payload: string, meta: Record<string, unknown>) {
+  const { data: subs } = await sb.from("push_subscriptions").select("owner,endpoint,keys").in("owner", owners);
   let delivered = 0, pruned = 0;
+  const logRows: any[] = [];
   for (const s of subs ?? []) {
+    let status = "sent", err: string | null = null;
     try {
       await webpush.sendNotification({ endpoint: (s as any).endpoint, keys: (s as any).keys }, payload);
       delivered++;
     } catch (e: any) {
       if (e?.statusCode === 404 || e?.statusCode === 410) {
+        status = "expired";
         await sb.from("push_subscriptions").delete().eq("endpoint", (s as any).endpoint);
         pruned++;
+      } else {
+        status = "failed";
       }
+      err = String(e?.statusCode || "") + " " + String(e?.body || e?.message || e);
     }
+    logRows.push({ ...meta, recipient: (s as any).owner, endpoint: (s as any).endpoint, status, error: err });
   }
+  // record what was sent (one row per recipient). Non-fatal: logging must never break sending.
+  if (logRows.length) { try { await sb.from("push_log").insert(logRows); } catch (_) { /* ignore */ } }
   return { delivered, pruned, subscriptions: (subs ?? []).length };
 }
 
@@ -71,14 +82,16 @@ Deno.serve(async (req: Request) => {
     const dates: string[] = Array.isArray(body.dates) ? body.dates.slice(0, 31).map(String) : [];
     const fmt = dates.map((d) => { const m = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? `${+m[2]}.${+m[1]}` : null; }).filter(Boolean);
     if (!fmt.length) return json({ error: "bad dates" }, 400);
+    const title = "📅 חסרה נוכחות — " + person;
+    const bodyTxt = "נא לעדכן נוכחות לימים: " + fmt.join(", ");
     const payload = JSON.stringify({
-      title: "📅 חסרה נוכחות — " + person,
-      body: "נא לעדכן נוכחות לימים: " + fmt.join(", "),
+      title, body: bodyTxt,
       tag: "att-reminder-" + person + "-" + dates[0].slice(0, 7),   // resend replaces, no stacking
       requireInteraction: true,
       url: "/sigmatec-operations-app/#attendance",
     });
-    return json(await sendTo([person], payload));
+    const meta = { event: "attendanceReminder", order_id: null, where_txt: person, qty: fmt.length, actor: null, title, body: bodyTxt };
+    return json(await sendTo([person], payload, meta));
   }
 
   // ---- order events ----
@@ -94,6 +107,7 @@ Deno.serve(async (req: Request) => {
     ? `${where} · ${qty(order)} פריטים${order.created_by ? " · מאת " + order.created_by : ""}`
     : `${where} · ${qty(order)} פריטים${actor ? " · אושר ע״י " + actor : ""}`;
   const payload = JSON.stringify({ title, body: bodyTxt, tag: event + ":" + orderId, url: "/sigmatec-operations-app/#inventory" });
-  const r = await sendTo(recipients, payload);
+  const meta = { event, order_id: String(orderId), where_txt: where, qty: qty(order), actor: actor || null, title, body: bodyTxt };
+  const r = await sendTo(recipients, payload, meta);
   return json({ ok: true, sent: r.delivered, pruned: r.pruned });
 });
