@@ -65,7 +65,13 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-15 (**1.41 RELEASED — main = dev**).
+## 🚦 Current state — last: 2026-07-16 (**1.43 RELEASED — main = dev**).
+
+**✅ 1.43 — dev board rows follow GitHub Project order.** `github` edge fn (v14, deployed) now returns
+`t.pos` (projectV2 items order); the status-board columns sort by pos instead of priority. Off-board
+tickets fall to the end. ⚠️ pos = global project item order (closest API proxy; per-column board
+drag-order isn't queryable). **✅ 1.42 — orders rows clamp long notes/items to 2 lines, click to
+expand** (`.clamp-cell`, verified in-browser). Added `.gitignore` (desktop.ini / .claude / .mcp.json).
 
 **✅ 1.41 — visit-cert enforcement LIVE.** Supplied equipment in a visit requires a linked נופקה cert
 to save the summary (pre-minted visit id links cert↔visit; legacy-edit exception; cancel invalidates
