@@ -14,6 +14,11 @@ const idxUrl = new URL('./index.html', import.meta.url);
 let idx = fs.readFileSync(idxUrl, 'utf8');
 const ver = Date.now().toString(36);
 idx = idx.replace(/(js\/app\.js\?v=)[^"]*/, '$1' + ver).replace(/(css\/app\.css\?v=)[^"]*/, '$1' + ver);
+// force phones to refresh on every deploy: bump the SW cache name so sw.js bytes change → the browser
+// installs the new SW (skipWaiting + clients.claim), the page hears 'controllerchange' and reloads once.
+const swUrl = new URL('./sw.js', import.meta.url);
+const sw = fs.readFileSync(swUrl, 'utf8').replace(/(const CACHE = 'sigmatec-ops-)[^']*'/, '$1' + ver + "'");
+fs.writeFileSync(swUrl, sw);
 // visible version: every deploy is visibly newer. Scheme — a plain '·N' counter up to 100, then a
 // MAJOR.MINOR line: after ·100 it rolls to 1.01 and the MINOR auto-increments each build (1.01, 1.02 …).
 // The whole ·NN + 1.xx history is "major 1"; a big, sweeping update bumps the MAJOR via

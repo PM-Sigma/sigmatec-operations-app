@@ -2,7 +2,7 @@
 // NETWORK-FIRST for same-origin (always serves the latest deploy when online; falls back
 // to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
 // (Supabase / Apps Script) is never touched → data is always live. Bump CACHE to invalidate.
-const CACHE = 'sigmatec-ops-v3';
+const CACHE = 'sigmatec-ops-mrnedgcz';
 const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
