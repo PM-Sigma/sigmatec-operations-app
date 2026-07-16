@@ -10,8 +10,12 @@ changes). Load other `docs/*` only as the task needs. Full session history is in
 ## Workflow — keep this true
 - Edit `js/src/*.js` → run `node build.mjs` (concatenates → `js/app.js` + version stamp) → commit.
   **Never edit `js/app.js` directly.**
-- `main` = live (GitHub Pages auto-deploys). `dev` = work-in-progress; preview via
-  `raw.githack.com/PM-Sigma/sigmatec-operations-app/dev/…`; merge `dev`→`main` (fast-forward) when verified.
+- **One feature = one branch.** Cut `feat/<name>` from `dev`, build + test THERE, then merge
+  `feat/<name>`→`dev`. Never work a feature directly on `dev`/`main`. Don't commit another feature's
+  WIP files (e.g. an in-progress spec) — they stay only on their own branch.
+- `main` = live (GitHub Pages auto-deploys). `dev` = integration; preview via
+  `raw.githack.com/PM-Sigma/sigmatec-operations-app/dev/…`. Ship path: `feat`→`dev`→`main`
+  (fast-forward) once verified.
 - Test flags: `?login=0` (skip EMS gate), `?sb=0` (mock data).
 
 ## Testing — MANDATORY for every feature
