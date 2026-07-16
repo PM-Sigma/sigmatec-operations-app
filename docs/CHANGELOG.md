@@ -7,6 +7,7 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+<<<<<<< HEAD
 ## [1.50] 2026-07-16 — 📅 attendance-reminder push (viewer-triggered), unified with order push
 `feat/attendance-push` merged to dev then shipped. The viewer (הנהלת חשבונות) sees a field worker's
 **missing weekdays** flagged in the attendance report (red chips) + a **🔔 בקש עדכון נוכחות** button →
@@ -25,6 +26,19 @@ already-deployed `push-send` + `push_subscriptions`; redeploy `push-send` with t
 `push-send` Edge Function, fired by the client after create/approve. Routing mirrors the app's approval
 rules (customer→אביאם/ניתאי, supplier ≤10→אביאם / >10→עמיחי; approved→group minus approver/creator).
 Android/desktop get OS push; iPhone/unsupported keep the in-app order modal. `test-push.mjs` green.
+=======
+## [1.50] 2026-07-16 — 🔔 push-notification sent-log (admin "התראות" tab)
+עידן-only screen listing every Web-Push that went out. `push-send` now records one `push_log` row per
+recipient (status sent/failed/expired, denormalized order/where/actor/title — non-fatal on insert
+error). New module `23-push-log.js` renders a read-only table + summary tiles (סה״כ/נשלחו/נכשלו/מנוי
+מת), newest 200. Nav: 🔔 התראות tab gated to `isIdan()`. DB: `db/push_log.sql` (RLS: anon read,
+service_role insert). Edge fn redeployed. UI verified in-browser; live `push_log` REST read returns 200.
+
+## [1.49] 2026-07-16 — 🔄 force-refresh phones on every deploy
+`build.mjs` stamps a fresh SW cache name (`sigmatec-ops-<ver>`) into `sw.js` each build → a new SW
+installs on deploy, `skipWaiting`+`clients.claim`, and a `controllerchange` listener in `index.html`
+reloads open PWAs once with fresh assets. Verified end-to-end (rebuild → SW update → auto-reload).
+>>>>>>> 8aebc98
 
 ## [1.47] 2026-07-16 — 🏭 drop-ship customer orders (ספק ישיר) + supplier datalist
 Per עידן: a customer order can now be supplied **directly by the supplier** — in the אחראי על

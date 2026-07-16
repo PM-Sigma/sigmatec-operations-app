@@ -1,6 +1,6 @@
 # Push-notification log — sent-notifications table
 
-**STATUS: 🟢 approved — building**
+**STATUS: ✅ SHIPPED (1.50, 2026-07-16)**
 **Date:** 2026-07-16 · **Owner:** עידן · **Depends on:** the web-push feature (push-send fn, push_subscriptions, orders).
 
 ## Goal

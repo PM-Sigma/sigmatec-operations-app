@@ -65,6 +65,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+<<<<<<< HEAD
 ## 🚦 Current state — last: 2026-07-16 (**1.50 RELEASED — main = dev**).
 
 **✅ 1.50 — 📅 attendance-reminder push (viewer-triggered) + push unification.** Viewer sees a worker's
@@ -78,6 +79,17 @@ Spec: superpowers/specs/2026-07-16-attendance-push-reminder-design.md.
 
 **✅ 1.48 — 🔔 Web Push for order approvals (Android) + iPhone in-app fallback.** `push_subscriptions` +
 `push-send` Edge Function, client-fired after create/approve; routing mirrors approval rules. Live on main.
+=======
+## 🚦 Current state — last: 2026-07-16 (**1.50 RELEASED to main**).
+
+**✅ 1.50 — 🔔 push-notification sent-log.** Admin-only (עידן) 🔔 התראות tab shows every Web-Push sent;
+`push-send` records one `push_log` row per recipient (sent/failed/expired). Table `push_log` created
+(RLS anon-read / service_role-insert), edge fn redeployed, module `23-push-log.js`. Built on an isolated
+worktree off main (parallel session was live on push notifications). **✅ 1.49 — force-refresh on deploy:**
+`build.mjs` bumps the SW cache name each build → PWAs auto-reload once via `controllerchange`.
+⚠️ Note: two parallel sessions were bumping VERSION independently, so CHANGELOG numbering is not strictly
+sequential (1.47 drop-ship coexists with my 1.49/1.50).
+>>>>>>> 8aebc98
 
 **✅ 1.47 — 🏭 drop-ship customer orders (ספק ישיר) + supplier datalist.** Customer order's אחראי
 picker gets "🏭 ספק ישיר" (`assignee='ספק ישיר'`, no schema change) → supplier field shows/saves;

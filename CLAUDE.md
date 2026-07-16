@@ -18,6 +18,28 @@ changes). Load other `docs/*` only as the task needs. Full session history is in
   (fast-forward) once verified.
 - Test flags: `?login=0` (skip EMS gate), `?sb=0` (mock data).
 
+### Parallel-safe merge to `main` (MANDATORY — multiple sessions/agents work this repo at once)
+There is NO direct channel between sessions; `origin` is the single source of truth, so coordinate
+through it in real time. **Never** `git push --force` to `main`/`dev`, and never build/commit in the
+shared working tree while another session has uncommitted WIP there — use an isolated **git worktree**
+off `origin/main` (`git worktree add -b feat/<name> <path> origin/main`).
+
+Before every push to `main`, run this loop:
+1. `git fetch origin`. Inspect what else is live: `git worktree list`, `git branch -r`,
+   `git log --oneline -1 origin/main`.
+2. If `origin/main` moved past your branch's base → **rebase onto it** (`git rebase origin/main`),
+   then **re-run `node build.mjs`** so generated files (`js/app.js`, `?v=` stamps, SW cache name) are
+   regenerated on top of the other session's work instead of conflicting.
+3. Read the latest `VERSION` on `origin/main` BEFORE bumping, so version numbers don't collide
+   (two sessions bumping independently is how 1.47 and 1.49/1.50 diverged — avoid it).
+4. Push **ff-only**: proceed only if `origin/main` is an ancestor of your tip
+   (`git merge-base --is-ancestor origin/main HEAD`); `git push origin HEAD:main`. If the push is
+   rejected because `origin/main` advanced mid-flight, go back to step 1 and retry.
+5. Touch only files your feature owns; leave the other session's in-flight files alone.
+
+Production side-effects (edge-fn deploy, DB migration) follow the same rule: deploy from the
+rebased-on-`origin/main` worktree so you ship on top of the other session's code, not over it.
+
 ## Testing — MANDATORY for every feature
 Follow **`docs/testing-methodology.md`**: pure builders + golden fixtures + contract sweeps +
 file round-trip + role-gating matrix; one full-suite runner per feature, **loop until green**;
