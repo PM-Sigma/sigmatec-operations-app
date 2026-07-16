@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrn8aeci">
+<link rel="stylesheet" href="css/app.css?v=mrnanhk8">
 </head>
 <body>
 <div class="container">
@@ -375,7 +375,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.44</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.45</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -407,6 +407,8 @@
           <input type="text" id="invCertsSearch" placeholder="🔍 קיבוץ / לקוח / מס' תעודה" style="flex:1;min-width:160px;" oninput="invRenderCerts(true)">
           <button class="inv-btn small" onclick="invRenderCerts(true)">🔄 רענן</button>
           <button class="inv-btn small" style="background:#0e7490;" onclick="certMonthlyFromTab()" title="טבלת סיכום לפי קיבוץ — מה נופק, כמויות לפי פריט">📄 סיכום חודשי</button>
+          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertsFromTab()" title="כל התעודות בטווח — שורה לכל פריט">📗 Excel</button>
+          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertSummaryFromTab()" title="סיכום כמויות לפי קיבוץ ופריט">📗 סיכום Excel</button>
         </div>
         <div id="invCertsList"></div>
       </div>
@@ -452,7 +454,7 @@
     </div>
 
     <div class="inv-section" id="inv-section-stock">
-      <div class="inv-card" style="background:#eff6ff;border:1px solid #bfdbfe;">
+      <div class="inv-card" id="invTransferCard" style="background:#eff6ff;border:1px solid #bfdbfe;">
         <h3 style="font-size:14px;">🔄 העברת מלאי מהירה</h3>
         <div class="transfer-row">
           <div><label>מ:</label><select id="transferFrom" onchange="renderTransferProducts()"></select></div>
@@ -482,6 +484,7 @@
       <div class="inv-card">
         <h3>📍 מלאי לפי מיקום
           <button class="inv-btn small" onclick="invExportStock()">📊 ייצוא</button>
+          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportStockXlsx()">📗 Excel</button>
         </h3>
         <div id="invStockMatrix"></div>
       </div>
@@ -491,6 +494,7 @@
       <div class="inv-card">
         <h3>🏘 מלאי בקיבוצים (מה סופק לכל קיבוץ)
           <button class="inv-btn small" onclick="invExportKibbutzInventory()">📊 ייצוא</button>
+          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportKibbutzXlsx()">📗 Excel</button>
         </h3>
         <div id="invKibbutzMatrix"></div>
       </div>
@@ -530,6 +534,7 @@
         <span id="attendanceMonthLabel" style="font-weight:700;font-size:15px;min-width:110px;text-align:center;"></span>
         <button class="inv-btn" onclick="changeAttendanceMonth(1)">←</button>
         <button class="inv-btn" style="background:#1b2a4a;color:white;" onclick="downloadAttendancePDF()">📄 PDF</button>
+        <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportAttendanceCurrent()">📗 Excel</button>
       </div>
     </div>
     <div id="attendanceSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
@@ -1290,6 +1295,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="document.getElementById('visitsReportModal').classList.remove('open')">סגור</button>
+      <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportVisitsFromModal()">📗 Excel</button>
       <button class="btn btn-primary" onclick="generateVisitsReport('preview')">👁 הצג</button>
       <button class="btn btn-whatsapp" onclick="generateVisitsReport('copy')">📋 העתק</button>
       <button class="btn btn-whatsapp" onclick="generateVisitsReport('whatsapp')">📱 וואטסאפ</button>
@@ -1403,7 +1409,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrn8aeci"></script>
+<script src="js/app.js?v=mrnanhk8"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
