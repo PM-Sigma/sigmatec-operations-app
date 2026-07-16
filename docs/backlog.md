@@ -3,6 +3,13 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## 🟡 IN PROGRESS — attendance-reminder push, viewer-triggered (spec done, NOT built)
+Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md).
+Viewer sees missing weekdays flagged in the attendance report + 🔔 בקש עדכון נוכחות button → sticky
+push (requireInteraction + עדכן עכשיו action) to the worker. **DEPENDS on the Web Push foundation
+below (phases 1–3)** — build `feat/attendance-push` after it lands. Phase 1 (missingDays chip UI)
+buildable now. Locked: manual trigger · missing = weekday ≤ yesterday with no record · sticky+action.
+
 ## 🟡 IN PROGRESS — Web Push notifications for order approvals (spec done, NOT built)
 Paused at spec stage 2026-07-16. Spec:
 [docs/superpowers/specs/2026-07-16-web-push-notifications-design.md](superpowers/specs/2026-07-16-web-push-notifications-design.md).
