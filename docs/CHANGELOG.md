@@ -7,6 +7,16 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.46] 2026-07-16 — 🎨 color-banded Excel rows + viewer legend removed
+Per עידן: multi-row records in the Excel exports are now easy to track — every source record
+(visit / delivery cert) gets **one background color for all its exploded rows**, cycling 6 soft
+pastels when the record changes; header row styled navy. Enabled by swapping the vendored lib to
+**xlsx-js-style 1.2.0** (SheetJS 0.18.5 + cell-style write; same lazy-load path/size class).
+Builders emit `groupKeys`; writer bands rows (incl. empty cells). The ℹ️ מקרא צבעים collapsible at
+the bottom of the home page is hidden for the viewer role. `test-exports.mjs` → **24 green**
+(+groupKeys contract, band-per-record, style round-trip); regressions green; verified live in the
+worktree preview (legend hidden, banding colors asserted per row).
+
 ## [1.45] 2026-07-16 — 👁📗 viewer rework: reports hub on home + read-only modules + Excel exports
 The viewer role's home is now just the navy header + a **📊 הפקת דוחות hub card** — every aggregate
 report (ביקורי שטח / נוכחות חודשית / תעודות משלוח / סיכום תעודות / מלאי ×2) producible from one place
