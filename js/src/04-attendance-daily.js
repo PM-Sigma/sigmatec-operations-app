@@ -123,6 +123,7 @@
     }
 
     // Table
+    if (typeof attRenderMissing === 'function') { try { attRenderMissing(); } catch (e) {} }
     const tableEl = document.getElementById('attendanceTable');
     if (!tableEl) return;
     if (!all.length) {

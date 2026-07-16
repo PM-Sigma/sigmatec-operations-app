@@ -32,3 +32,28 @@ self.addEventListener('fetch', e => {
       .catch(() => caches.match(req, { ignoreSearch: true }).then(m => m || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
   );
 });
+
+// ===== Web Push (attendance reminders + future events) =====
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) {}
+  e.waitUntil(self.registration.showNotification(d.title || 'סיגמטק', {
+    body: d.body || '',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: d.tag || undefined,                       // same tag → replaces, no stacking
+    renotify: !!d.tag,                             // re-send still alerts even when replacing
+    requireInteraction: !!d.requireInteraction,    // sticky until the user interacts
+    dir: 'rtl', lang: 'he',
+    data: { url: d.url || './index.html' },
+    actions: d.action ? [{ action: 'open', title: d.action }] : []
+  }));
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './index.html';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    for (const c of list) if ('focus' in c) { c.navigate(url); return c.focus(); }
+    return clients.openWindow(url);
+  }));
+});
