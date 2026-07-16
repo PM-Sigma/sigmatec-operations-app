@@ -3,6 +3,14 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## 🟡 IN PROGRESS — viewer role home tightening (spec done, NOT built)
+Paused mid-feature 2026-07-16. Spec + resume point:
+[docs/superpowers/specs/2026-07-16-viewer-role-tightening-design.md](superpowers/specs/2026-07-16-viewer-role-tightening-design.md).
+Goal: viewer home = navy header only (hide kibbutz cards, company-tasks, urgent-alert, filter-bar,
+compact toggle); hide משימות nav; keep מלאי/נוכחות/יומן. 2 edits (CSS block in `css/app.css` +
+`isViewer()` line in `applyNavVisibility()`), then `node build.mjs`. **Not started in code.**
+Also parked: PUSH notifications (Web Push feasibility noted in the spec's out-of-scope).
+
 ## 🔴 Run SQL — seed kibbutz_details (delivery-cert customer block, ready)
 ✅ `db/delivery_certs.sql` RAN (2026-07-14, verified). ✅ EMS `sites` data pulled (2026-07-15 — the
 table DOES have company_name/company_id + accountant contact; no address column) and the seed is
