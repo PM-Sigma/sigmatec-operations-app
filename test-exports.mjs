@@ -174,5 +174,33 @@ check('write→parse: visits sheet spot-check', () => {
   assert.strictEqual(ws['E2'].t, 'n'); assert.strictEqual(ws['E2'].v, 3.5);
 });
 
+console.log('== group banding + styles ==');
+check('groupKeys parallel to rows (visits, certs)', () => {
+  const v = M.xlBuildVisits(VISITS);
+  assert.strictEqual(v.groupKeys.length, v.rows.length);
+  assert.deepStrictEqual(v.groupKeys, [0, 0, 1]);          // visit 1 = 2 rows, visit 2 = 1 row
+  const c = M.xlBuildCerts(CERTS);
+  assert.deepStrictEqual(c.groupKeys, [0, 0, 1, 2]);       // cert 1001 ×2 items, 1002, 1003
+});
+check('same record → same fill; new record → new fill; header navy', () => {
+  const spec = M.xlBuildCerts(CERTS);
+  const ws = M.xlSpecToWorkbook(XLSX, spec).Sheets['תעודות משלוח'];
+  assert.strictEqual(ws['A1'].s.fill.fgColor.rgb, '1B2A4A');
+  assert.strictEqual(ws['A1'].s.font.bold, true);
+  const f = r => ws['A' + r].s.fill.fgColor.rgb;
+  assert.strictEqual(f(2), f(3), 'rows of cert 1001 share a color');
+  assert.notStrictEqual(f(3), f(4), '1002 gets a new color');
+  assert.notStrictEqual(f(4), f(5), '1003 gets a new color');
+  const vs = M.xlSpecToWorkbook(XLSX, M.xlBuildVisits(VISITS)).Sheets['ביקורי שטח'];
+  assert.ok(vs['F4'].s && vs['F4'].s.fill, 'empty contact cell still gets the band fill');
+});
+check('styles survive write→read round-trip (data intact)', () => {
+  const wb = M.xlSpecToWorkbook(XLSX, M.xlBuildCerts(CERTS));
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellDates: true });
+  const ws = XLSX.read(buf, { cellDates: true, cellStyles: true }).Sheets['תעודות משלוח'];
+  assert.strictEqual(ws['A2'].v, 1001);
+  assert.strictEqual(ws['H4'].v, 'מבוטלת');
+});
+
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);

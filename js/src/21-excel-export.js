@@ -42,19 +42,19 @@
       { header: 'סיכום', type: 's', width: 40 }, { header: 'פריט שסופק', type: 's', width: 26 },
       { header: 'כמות', type: 'n', width: 8 }
     ];
-    const rows = [];
-    (visits || []).forEach(v => {
+    const rows = [], groupKeys = [];
+    (visits || []).forEach((v, gi) => {
       const d = xlDate(v.date);
       const base = [d, xlDayLetter(d), xlStr(v.kibbutz), xlStr(v.visitor), xlNum(v.duration),
                     xlStr(v.contact), xlStr(v.summary)];
       const products = (v.products || []).map(p => typeof p === 'string' ? { name: p, qty: 1 } : p).filter(p => p && p.name);
       if (products.length === 0) {
-        rows.push(base.concat([xlStr(v.productsOther), v.productsOther ? xlNum(1) : '']));
+        rows.push(base.concat([xlStr(v.productsOther), v.productsOther ? xlNum(1) : ''])); groupKeys.push(gi);
       } else {
-        products.forEach(p => rows.push(base.concat([xlStr(p.name), xlNum(p.qty || 1)])));
+        products.forEach(p => { rows.push(base.concat([xlStr(p.name), xlNum(p.qty || 1)])); groupKeys.push(gi); });
       }
     });
-    return { sheet: 'ביקורי שטח', columns: columns, rows: rows };
+    return { sheet: 'ביקורי שטח', columns: columns, rows: rows, groupKeys: groupKeys };
   }
 
   // 2. דוח נוכחות חודשי — one row per merged day (input: window._attendanceRows shape)
@@ -87,20 +87,20 @@
       { header: 'כמות', type: 'n', width: 8 }, { header: 'הופק ע"י', type: 's', width: 10 },
       { header: 'מקור', type: 's', width: 12 }, { header: 'סטטוס', type: 's', width: 10 }
     ];
-    const rows = [];
-    (certs || []).forEach(c => {
+    const rows = [], groupKeys = [];
+    (certs || []).forEach((c, gi) => {
       const status = c.status === 'cancelled' ? 'מבוטלת' : 'הופקה';
       const base = [xlNum(c.cert_number), xlDate(c.cert_date),
                     xlStr(((c.customer || {}).name) || c.kibbutz), null, null,
                     xlStr(c.created_by), xlStr(XL_CERT_SRC[c.source] || c.source), status];
       const items = (c.items || []).filter(i => i && i.name);
       if (items.length === 0) {
-        const r = base.slice(); r[3] = ''; r[4] = ''; rows.push(r);
+        const r = base.slice(); r[3] = ''; r[4] = ''; rows.push(r); groupKeys.push(gi);
       } else {
-        items.forEach(i => { const r = base.slice(); r[3] = xlStr(i.name); r[4] = xlNum(i.qty || 1); rows.push(r); });
+        items.forEach(i => { const r = base.slice(); r[3] = xlStr(i.name); r[4] = xlNum(i.qty || 1); rows.push(r); groupKeys.push(gi); });
       }
     });
-    return { sheet: 'תעודות משלוח', columns: columns, rows: rows };
+    return { sheet: 'תעודות משלוח', columns: columns, rows: rows, groupKeys: groupKeys };
   }
 
   // 4. סיכום חודשי תעודות — aggregate per kibbutz+item; cancelled EXCLUDED (matches the print report)
@@ -178,17 +178,32 @@
     });
     return _xlLibPromise;
   }
+  // soft banding palette — each source record (visit/cert) keeps ONE color for all its rows
+  const XL_GROUP_FILLS = ['FFFFFF', 'E8F0FE', 'FDF4E3', 'E9F7EC', 'F3E8FD', 'FDE8EC'];
   function xlSpecToWorkbook(XLSX, spec) {
     const aoa = [spec.columns.map(c => c.header)].concat(spec.rows);
     const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
-    // date format on 'd' columns
+    // header row style — navy like the app
     spec.columns.forEach((col, ci) => {
-      if (col.type !== 'd') return;
-      for (let r = 1; r <= spec.rows.length; r++) {
-        const cell = ws[XLSX.utils.encode_cell({ r: r, c: ci })];
-        if (cell && cell.t === 'd') cell.z = 'dd/mm/yyyy';
-      }
+      const h = ws[XLSX.utils.encode_cell({ r: 0, c: ci })];
+      if (h) h.s = { fill: { fgColor: { rgb: '1B2A4A' } }, font: { name: 'Arial', bold: true, color: { rgb: 'FFFFFF' } },
+                     alignment: { horizontal: 'center' } };
     });
+    // per-group fill: groupKeys[i] labels row i's source record; color switches when the group changes
+    const gk = spec.groupKeys || spec.rows.map((_, i) => i);
+    let band = -1, lastKey;
+    const bandFor = [];
+    gk.forEach(k => { if (k !== lastKey) { band++; lastKey = k; } bandFor.push(XL_GROUP_FILLS[band % XL_GROUP_FILLS.length]); });
+    // date format on 'd' columns + row fills
+    for (let r = 1; r <= spec.rows.length; r++) {
+      for (let ci = 0; ci < spec.columns.length; ci++) {
+        const addr = XLSX.utils.encode_cell({ r: r, c: ci });
+        let cell = ws[addr];
+        if (!cell) cell = ws[addr] = { t: 's', v: '' };   // empty cells still get the band color
+        if (spec.columns[ci].type === 'd' && cell.t === 'd') cell.z = 'dd/mm/yyyy';
+        cell.s = { fill: { fgColor: { rgb: bandFor[r - 1] } }, font: { name: 'Arial' } };
+      }
+    }
     ws['!cols'] = spec.columns.map(c => ({ wch: c.width || 12 }));
     ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: spec.rows.length, c: spec.columns.length - 1 } }) };
     const wb = XLSX.utils.book_new();

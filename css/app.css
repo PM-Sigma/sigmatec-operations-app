@@ -1683,3 +1683,4 @@ body.user-viewer #invProductsList button { display: none !important; }
 .xl-hub-row label { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 12px; color: #475569; }
 .xl-hub-row input, .xl-hub-row select { font-size: 13px; padding: 4px 6px; }
 .xl-hub-row .inv-btn.small.xl-green { background: #16a34a; color: #fff; }
+body.user-viewer .legend-collapsible { display: none !important; }
