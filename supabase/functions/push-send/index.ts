@@ -56,17 +56,29 @@ Deno.serve(async (req) => {
     const payload = JSON.stringify({ title, body, tag: event + ":" + orderId, url: "/sigmatec-operations-app/#inventory" });
 
     let sent = 0;
+    const logRows: any[] = [];
     await Promise.all(subs.map(async (s: any) => {
+      let status = "sent", err: string | null = null;
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: s.keys }, payload);
         sent++;
       } catch (e: any) {
         // 404/410 = subscription dead → prune it
         if (e?.statusCode === 404 || e?.statusCode === 410) {
+          status = "expired";
           await sb.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+        } else {
+          status = "failed";
         }
+        err = String(e?.statusCode || "") + " " + String(e?.body || e?.message || e);
       }
+      logRows.push({
+        event, order_id: String(orderId), where_txt: where, qty: qty(order), actor: actor || null,
+        title, body, recipient: s.owner, endpoint: s.endpoint, status, error: err,
+      });
     }));
+    // record what was sent (one row per recipient). Non-fatal: logging must never break sending.
+    if (logRows.length) { try { await sb.from("push_log").insert(logRows); } catch (_) { /* ignore */ } }
     return new Response(JSON.stringify({ ok: true, sent }), { headers: { "Content-Type": "application/json" } });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500 });

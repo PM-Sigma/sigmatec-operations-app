@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrnd5zq3">
+<link rel="stylesheet" href="css/app.css?v=mrne89aj">
 </head>
 <body>
 <div class="container">
@@ -34,6 +34,7 @@
     <button id="navCalendar" data-page="calendar" onclick="showPage('calendar')"><span class="nav-icon">🗓️</span><span class="nav-label">יומן</span></button>
     <button id="navStaff" data-page="staff" onclick="showPage('staff')" style="display:none;"><span class="nav-icon">👥</span><span class="nav-label">עובדים</span></button>
     <button id="navDev" data-page="dev" onclick="showPage('dev')" style="display:none;"><span class="nav-icon">💻</span><span class="nav-label">פיתוח</span></button>
+    <button id="navPushLog" data-page="pushlog" onclick="showPage('pushlog')" style="display:none;"><span class="nav-icon">🔔</span><span class="nav-label">התראות</span></button>
   </div>
 
   <!-- Floating action button: quick visit logging (kibbutz page only) -->
@@ -375,7 +376,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.49</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.50</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -729,6 +730,10 @@
 
 <div id="dev-view" style="display:none;padding:16px 0;">
   <div id="devTasksContent">טוען...</div>
+</div>
+
+<div id="pushlog-view" style="display:none;padding:16px 0;">
+  <div id="pushLogContent">טוען...</div>
 </div>
 
 <!-- EMS Task Detail Modal (status change, comments, calendar) -->
@@ -1411,7 +1416,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrnd5zq3"></script>
+<script src="js/app.js?v=mrne89aj"></script>
 <script>
 if ('serviceWorker' in navigator) {
   // Force-refresh on a new deploy: build.mjs bumps the SW cache name each build, so a new sw.js installs,
