@@ -2,13 +2,14 @@
 
 STATUS: 🟡 CODE DONE on `feat/web-push` — NOT shipped (awaiting production deploy + smoke).
 Date: 2026-07-16
-Resume / remaining (all PRODUCTION, need עידן's OK):
-1. Apply `db/push_subscriptions.sql` to prod (MCP apply_migration was gate-blocked).
-2. Set Edge Function secrets: `VAPID_PUBLIC`, `VAPID_PRIVATE`, `VAPID_SUBJECT=mailto:pm@sigmatec-energy.com`.
-   (VAPID keypair already generated — public is in js/src/22-push.js; private handed to עידן out-of-band.)
-3. Deploy `supabase/functions/push-send/index.ts` (verify_jwt=true; anon JWT is accepted).
-4. Manual smoke: real Android push for pending + approved; iPhone/desktop-unsupported = no crash, in-app modal still shows.
-5. Merge feat/web-push→dev→main; flip this STATUS to ✅; CHANGELOG + backlog + INDEX.
+Resume / remaining:
+1. ✅ DONE 2026-07-16 — `push_subscriptions` table + RLS applied to prod (4 policies, 0 rows).
+2. ⏳ עידן — set Edge Function secrets (dashboard → push-send → Secrets): `VAPID_SUBJECT=mailto:pm@sigmatec-energy.com`,
+   `VAPID_PUBLIC` (= the key in js/src/22-push.js), `VAPID_PRIVATE` (handed over out-of-band; NOT in repo).
+   Until set, push-send fails to boot (missing keys) — inert, no harm.
+3. ✅ DONE 2026-07-16 — `push-send` deployed (v1, ACTIVE, verify_jwt=true; npm:web-push resolved fine).
+4. ⏳ Manual smoke: real Android push for pending + approved; iPhone/desktop-unsupported = no crash, in-app modal still shows.
+5. ⏳ Merge feat/web-push→dev→main; flip this STATUS to ✅; CHANGELOG + backlog + INDEX.
 Code delivered: db/push_subscriptions.sql · supabase/functions/push-send/index.ts · js/src/22-push.js ·
 sw.js push/notificationclick handlers · pushNotify hooks in 07-orders (create + 3 approve sites) ·
 test-push.mjs (11 golden assertions, green).
