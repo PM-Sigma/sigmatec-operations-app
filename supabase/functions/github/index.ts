@@ -40,6 +40,7 @@ async function fetchProjectFields(token: string, owner: string, num: number): Pr
   const out: Record<number, any> = {};
   const q = `query($owner:String!,$num:Int!,$after:String){ organization(login:$owner){ projectV2(number:$num){ items(first:100, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ content{ ... on Issue { number } } fieldValues(first:20){ nodes{ __typename ... on ProjectV2ItemFieldSingleSelectValue { name field{ ... on ProjectV2FieldCommon { name } } } ... on ProjectV2ItemFieldIterationValue { title field{ ... on ProjectV2FieldCommon { name } } } } } } } } } }`;
   let after: string | null = null;
+  let pos = 0;   // running index across pages = the project board's item order (closest API proxy for "board order")
   try {
     for (let p = 0; p < 10; p++) {
       const r = await fetchT("https://api.github.com/graphql", {
@@ -54,7 +55,7 @@ async function fetchProjectFields(token: string, owner: string, num: number): Pr
       for (const node of (proj.items?.nodes || [])) {
         const number = node?.content?.number;
         if (!number) continue;
-        const f: any = {};
+        const f: any = { pos: pos++ };
         for (const fv of (node.fieldValues?.nodes || [])) {
           const fn = String(fv?.field?.name || "").toLowerCase();
           const val = fv?.name || fv?.title || "";
@@ -242,7 +243,7 @@ Deno.serve(async (req) => {
         number: it.number, title: it.title || "", state: it.state, parent: null as number | null,
         labels: (it.labels || []).map((l: any) => typeof l === "string" ? l : l.name),
         priority: pm ? pm[1].trim() : "",
-        status: "", ptype: "", sprint: "",
+        status: "", ptype: "", sprint: "", pos: 1e9,
         assignee: it.assignee ? it.assignee.login : "",
         url: it.html_url, createdAt: it.created_at, updatedAt: it.updated_at,
         body: b.slice(0, 1200),
@@ -258,6 +259,7 @@ Deno.serve(async (req) => {
       if (f.status) t.status = f.status;
       if (f.type) t.ptype = f.type;
       if (f.sprint) t.sprint = f.sprint;
+      if (typeof f.pos === "number") t.pos = f.pos;   // board order
     }
 
     // merge sub-issue parent linkage (GitHub native sub-issues) → t.parent (graceful if unavailable)

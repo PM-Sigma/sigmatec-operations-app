@@ -7,6 +7,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.43] 2026-07-16 — 🗂️ dev board rows follow GitHub Project order
+Status-board columns were re-sorted by priority; now cards render in the **GitHub Project board order**
+(`t.pos`, the projectV2 items order captured in the `github` edge fn). Tickets not on the board fall to
+the end (pos=1e9). ⚠️ Requires the `github` edge function redeploy to take effect (adds `pos` to the
+payload). ponytail: pos = the project's global item order — the closest the API exposes; per-column
+board drag-order isn't queryable.
+
 ## [1.42] 2026-07-16 — 👁️ orders rows: clamp long notes/items (click to expand)
 Long הערות/פריטים made order rows enormous and hard to scan. The הערות and פריטים cells now clamp to
 2 lines (`.clamp-cell`, CSS `-webkit-line-clamp`); clicking a cell toggles `.expanded` to reveal the

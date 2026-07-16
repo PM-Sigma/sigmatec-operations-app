@@ -7707,9 +7707,12 @@
   function devBoard(d, f) {
     var byStage = {}; DEV_STAGES.forEach(function (s) { byStage[s.key] = []; });
     d.tasks.forEach(function (t) { if (!f || devMatchFilter(t, f)) byStage[devStage(t)].push(t); });
-    var rank = function (t) { var pr = devPriority(t); return (pr && DEV_PRANK[pr.label]) || 0; };
+    // order = GitHub Project board order (t.pos from the projectV2 items query); tickets not on the
+    // board fall to the end (pos defaults to 1e9). ponytail: pos is the project's global item order,
+    // the closest the API exposes — per-column board drag-order isn't queryable.
+    var pos = function (t) { return (typeof t.pos === 'number') ? t.pos : 1e9; };
     return DEV_STAGES.map(function (s) {
-      var list = byStage[s.key].sort(function (a, b) { return rank(b) - rank(a); });
+      var list = byStage[s.key].sort(function (a, b) { return pos(a) - pos(b); });
       var openAttr = ((s.open || f) && list.length) ? ' open' : '';
       var inner = list.length ? list.map(devMobileCard).join('') : '<div class="dev-stage-empty">—</div>';
       return '<details class="dev-stage dev-stage-' + s.key + '" data-stage="' + s.key + '"' + openAttr + '>' +
