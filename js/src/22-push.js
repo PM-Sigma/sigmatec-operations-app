@@ -206,3 +206,33 @@
   }
   window.attNagDay = attNagDay;
 })();
+
+// ===== Push deep-links =====
+// Notification buttons open the app with ?pushact=<act>[&oid=<id>]. Wait for data + login, then act,
+// then strip the params so a refresh doesn't re-fire. Handlers reuse existing globals (top-level fns).
+(function () {
+  'use strict';
+  if (typeof location === 'undefined' || typeof URLSearchParams === 'undefined') return;   // non-browser (tests)
+  var qs = new URLSearchParams(location.search);
+  var act = qs.get('pushact');
+  if (!act) return;
+  var oid = qs.get('oid') || '';
+
+  function ready() { return !!(window.SHEET_DATA && typeof getCurrentUser === 'function' && getCurrentUser()); }
+  function run() {
+    try {
+      if (act === 'approve' && oid && typeof approveOrder === 'function') { approveOrder(oid); }
+      else if (act === 'order' && typeof showPage === 'function') { showPage('inventory'); }
+      else if (act === 'fillToday') { if (typeof showPage === 'function') showPage('attendance'); if (typeof openVisitQuick === 'function') openVisitQuick(); }
+      else if (act === 'fillMissing') { if (typeof showPage === 'function') showPage('attendance'); }
+    } catch (e) { console.warn('[push] deep-link failed', e); }
+    // strip the params (keep the hash) so a manual refresh doesn't repeat the action
+    try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}
+  }
+  var tries = 0;
+  (function wait() {
+    if (ready()) { setTimeout(run, 400); return; }   // small delay lets the target page/modal mount
+    if (++tries > 60) return;                          // ~15s ceiling, then give up
+    setTimeout(wait, 250);
+  })();
+})();
