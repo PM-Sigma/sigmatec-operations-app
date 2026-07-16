@@ -14,6 +14,11 @@ changes). Load other `docs/*` only as the task needs. Full session history is in
   `raw.githack.com/PM-Sigma/sigmatec-operations-app/dev/…`; merge `dev`→`main` (fast-forward) when verified.
 - Test flags: `?login=0` (skip EMS gate), `?sb=0` (mock data).
 
+## Testing — MANDATORY for every feature
+Follow **`docs/testing-methodology.md`**: pure builders + golden fixtures + contract sweeps +
+file round-trip + role-gating matrix; one full-suite runner per feature, **loop until green**;
+one manual smoke at release, recorded in the CHANGELOG.
+
 ## Memory contract — MANDATORY for every feature on this app
 
 **Per feature (non-trivial work): always write a spec.** Before building, brainstorm → write a spec

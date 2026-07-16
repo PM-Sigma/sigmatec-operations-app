@@ -3,6 +3,13 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## 🟡 IN PROGRESS — Excel exports for aggregate reports (spec done, NOT built)
+Paused at spec stage 2026-07-16. Spec:
+[docs/superpowers/specs/2026-07-16-viewer-excel-exports-design.md](superpowers/specs/2026-07-16-viewer-excel-exports-design.md).
+6 reports → real .xlsx (vendored SheetJS, lazy-loaded), 📗 button for **עידן + viewer only**,
+row-per-item explosion, typed cells. Sample files approved by עידן. Test plan in the new
+[docs/testing-methodology.md](testing-methodology.md) (`test-exports.mjs`, loop until green).
+
 ## 🟡 IN PROGRESS — viewer role home tightening (spec done, NOT built)
 Paused mid-feature 2026-07-16. Spec + resume point:
 [docs/superpowers/specs/2026-07-16-viewer-role-tightening-design.md](superpowers/specs/2026-07-16-viewer-role-tightening-design.md).
