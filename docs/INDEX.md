@@ -65,7 +65,12 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-16 (**1.43 RELEASED — main = dev**).
+## 🚦 Current state — last: 2026-07-16 (**1.44 RELEASED — main = dev**).
+
+**✅ 1.44 — editable priority on dev cards.** Priority chip → native `<select>`; picking a tier
+auto-saves to the GitHub Project Priority field (github fn `mode:setPriority`, generalized
+`setProjectField`; edge fn redeployed v15). Optimistic + revert-on-fail. Needs token project write
+scope. (Live board is EMS-gated → verify the write once logged in.)
 
 **✅ 1.43 — dev board rows follow GitHub Project order.** `github` edge fn (v14, deployed) now returns
 `t.pos` (projectV2 items order); the status-board columns sort by pos instead of priority. Off-board

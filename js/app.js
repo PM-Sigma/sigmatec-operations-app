@@ -7389,6 +7389,42 @@
   function devInProgress(t) { return t.state !== 'closed' && /progress|בעבודה|doing|פיתוח|active|wip|בתהליך/i.test(String(t.status || '')); }
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+  // Editable priority: a native <select> that replaces the static chip. Changing it auto-saves to the
+  // GitHub Project's Priority field (via the github fn, mode:setPriority). stopPropagation so opening the
+  // picker inside a <summary>/card doesn't also toggle the row.
+  var DEV_PRIO_OPTS = ['קריטי', 'גבוהה', 'בינונית', 'נמוכה'];
+  function devPrioControl(t) {
+    var pr = devPriority(t);
+    var cls = pr ? ('dev-prio-' + pr.cls) : 'dev-prio-none';
+    var opts = '<option value="">— עדיפות —</option>' + DEV_PRIO_OPTS.map(function (o) {
+      return '<option value="' + o + '"' + (pr && pr.label === o ? ' selected' : '') + '>' + o + '</option>';
+    }).join('');
+    return '<select class="dev-prio dev-prio-edit ' + cls + '" title="שנה עדיפות — נשמר אוטומטית ומתעדכן ב-GitHub"' +
+      ' onclick="event.stopPropagation()" onmousedown="event.stopPropagation()"' +
+      ' onchange="devSetPriority(' + t.number + ',this.value,this)">' + opts + '</select>';
+  }
+  // save a new priority to GitHub (optimistic; revert on failure)
+  window.devSetPriority = async function (number, label, sel) {
+    var d = window._devData; if (!d) return;
+    var t = d.tasks.find(function (x) { return x.number === number; });
+    if (!t) return;
+    var old = t.priority;
+    t.priority = label;   // optimistic — chip colour + counts update on repaint
+    if (sel) sel.disabled = true;
+    try {
+      var res = await devWritePriority([number], label);
+      if ((res.updated || []).indexOf(number) === -1) throw new Error((res.failed && res.failed[0] && res.failed[0].error) || 'לא עודכן');
+      devSaveCache(window._devState, d.tasks);
+      if (typeof toast === 'function') toast('✅ עדיפות #' + number + ' עודכנה');
+      devPaint();
+    } catch (e) {
+      t.priority = old;
+      if (sel) sel.disabled = false;
+      alert('עדכון עדיפות נכשל: ' + (e && e.message || e));
+      devPaint();
+    }
+  };
+
   // ----- Pipeline stages: the 6 named board columns (Backlog→Ready→In Progress→In Review→Done→Committed) -----
   var DEV_STAGES = [
     { key: 'backlog',   label: 'ממתין לפיתוח',           ico: '📋', open: false },
@@ -7565,7 +7601,7 @@
     return '<summary class="dev-task-sum">' +
       '<span class="dev-caret" aria-hidden="true">▸</span>' +
       '<span class="dev-task-desc">' + devEsc(label) + '</span>' +
-      (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+      devPrioControl(t) +
       (st ? '<span class="dev-status dev-status-' + st.cls + '">' + devEsc(st.label) + '</span>' : '') +
       (kids && kids.length ? '<span class="dev-subn" title="תת-משימות">' + kids.length + '</span>' : '') +
       (closed ? '<span class="dev-done" title="סגור">✅</span>' : '') +
@@ -7622,7 +7658,7 @@
         '</div>' +
         '<div class="dev-mtask-meta">' +
           (st ? '<span class="dev-status dev-status-' + st.cls + '">' + devEsc(st.label) + '</span>' : '') +
-          (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+          devPrioControl(t) +
           '<span class="dev-mtask-num"><bdi dir="ltr">#' + devEsc(String(t.number)) + '</bdi></span>' +
           (t.assignee ? '<span class="dev-mtask-asg">👤 <bdi>' + devEsc(t.assignee) + '</bdi></span>' : '') +
           (closed ? '<span class="dev-done" title="סגור">✅</span>' : '') +
@@ -7963,6 +7999,20 @@
     if (!r.ok) throw new Error(d.error || ('github ' + r.status));
     if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
     return d;   // { updated:[], failed:[], statusOptions:[], target }
+  }
+  // WRITE: set the Priority field (label '' clears it). Same github fn, mode:setPriority.
+  async function devWritePriority(numbers, label) {
+    var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+    if (!tok) throw new Error('יש להתחבר ל-EMS');
+    var r = await fetch(SB_URL + '/functions/v1/github', {
+      method: 'POST',
+      headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: tok, mode: 'setPriority', numbers: numbers, priority: label })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) throw new Error(d.error || ('github ' + r.status));
+    if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
+    return d;
   }
   // selection mode (multi-select tickets → push to Ready)
   window._devSel = {};

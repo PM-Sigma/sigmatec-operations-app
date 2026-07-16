@@ -116,7 +116,18 @@ function optionRegexFor(target: string): RegExp {
   if (/backlog|ממתין|todo/.test(t))                                  return /backlog|ממתין|todo|new/i;
   return new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 }
-async function setProjectStatus(token: string, owner: string, num: number, repo: string, numbers: number[], targetName: string) {
+// same idea for the Priority single-select (Hebrew tiers → whatever the project actually named its options)
+function priorityRegexFor(target: string): RegExp {
+  const t = String(target).toLowerCase();
+  if (/קריטי|דחוף|critical|urgent/.test(t)) return /קריטי|דחוף|critical|urgent|highest/i;
+  if (/גבוה|high/.test(t))                  return /גבוה|high/i;
+  if (/בינונ|medium|normal/.test(t))        return /בינונ|medium|normal/i;
+  if (/נמוכ|low/.test(t))                    return /נמוכ|low/i;
+  return new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+}
+// Generic single-select writer: finds the field by name regex, matches the target option by keyword, and
+// sets (or CLEARS, when targetName is empty) it for each issue — adding the issue to the board if needed.
+async function setProjectField(token: string, owner: string, num: number, repo: string, numbers: number[], fieldNameRe: RegExp, targetName: string, optionReFor: (s: string) => RegExp) {
   const gql = async (query: string, variables: any) => {
     const r = await fetchT("https://api.github.com/graphql", {
       method: "POST",
@@ -134,15 +145,19 @@ async function setProjectStatus(token: string, owner: string, num: number, repo:
   );
   const proj = meta?.organization?.projectV2;
   if (!proj) throw new Error("project not found");
-  const statusField = (proj.fields?.nodes || []).find((f: any) => f && f.options && /status|סטטוס/i.test(f.name || ""));
-  if (!statusField) throw new Error("Status field not found on the project");
-  const optionNames = statusField.options.map((o: any) => o.name);
-  const re = optionRegexFor(targetName);
-  const tn = String(targetName).toLowerCase();
-  const opt = statusField.options.find((o: any) => re.test(o.name))
-    || statusField.options.find((o: any) => o.name.toLowerCase() === tn)
-    || statusField.options.find((o: any) => o.name.toLowerCase().includes(tn));
-  if (!opt) return { updated: [], failed: numbers.map((n) => ({ number: n, error: "no Status option matches '" + targetName + "' (have: " + optionNames.join(", ") + ")" })), statusOptions: optionNames };
+  const field = (proj.fields?.nodes || []).find((f: any) => f && f.options && fieldNameRe.test(f.name || ""));
+  if (!field) throw new Error("target field not found on the project");
+  const optionNames = field.options.map((o: any) => o.name);
+  const clear = !String(targetName).trim();   // empty target → clear the field value
+  let opt: any = null;
+  if (!clear) {
+    const re = optionReFor(targetName);
+    const tn = String(targetName).toLowerCase();
+    opt = field.options.find((o: any) => re.test(o.name))
+      || field.options.find((o: any) => o.name.toLowerCase() === tn)
+      || field.options.find((o: any) => o.name.toLowerCase().includes(tn));
+    if (!opt) return { updated: [], failed: numbers.map((n) => ({ number: n, error: "no option matches '" + targetName + "' (have: " + optionNames.join(", ") + ")" })), statusOptions: optionNames };
+  }
   // 2) map issue number → project item id (paginate the board)
   const itemByNumber: Record<number, string> = {};
   let after: string | null = null;
@@ -169,20 +184,27 @@ async function setProjectStatus(token: string, owner: string, num: number, repo:
     if (id) itemByNumber[n] = id;
     return id || null;
   };
-  // 3) set the Status for each requested issue (adding it to the board first if needed)
+  // 3) set (or clear) the field for each requested issue (adding it to the board first if needed)
   const updated: number[] = [], failed: any[] = [];
   for (const n of numbers) {
     try {
       const itemId = await ensureItem(n);
       if (!itemId) { failed.push({ number: n, error: "issue not found / couldn't add to the project board" }); continue; }
-      await gql(
-        `mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){ projectV2Item{ id } } }`,
-        { p: proj.id, i: itemId, f: statusField.id, o: opt.id },
-      );
+      if (clear) {
+        await gql(
+          `mutation($p:ID!,$i:ID!,$f:ID!){ clearProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f}){ projectV2Item{ id } } }`,
+          { p: proj.id, i: itemId, f: field.id },
+        );
+      } else {
+        await gql(
+          `mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){ projectV2Item{ id } } }`,
+          { p: proj.id, i: itemId, f: field.id, o: opt.id },
+        );
+      }
       updated.push(n);
     } catch (e) { failed.push({ number: n, error: String((e as Error)?.message || e) }); }
   }
-  return { updated, failed, statusOptions: optionNames, target: opt.name };
+  return { updated, failed, statusOptions: optionNames, target: clear ? "" : opt.name };
 }
 
 Deno.serve(async (req) => {
@@ -213,7 +235,20 @@ Deno.serve(async (req) => {
     const target = String(body.status || "").trim();
     if (!numbers.length || !target) return json({ error: "numbers[] and status are required" }, 400, ORIGIN);
     try {
-      const res = await setProjectStatus(GH_TOKEN, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, GH_REPO, numbers, target);
+      const res = await setProjectField(GH_TOKEN, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, GH_REPO, numbers, /status|סטטוס/i, target, optionRegexFor);
+      return json(res, 200, ORIGIN);
+    } catch (e) {
+      return json({ error: String((e as Error)?.message || e) }, 502, ORIGIN);
+    }
+  }
+
+  // WRITE: set the Priority field for selected issues (empty string → clear). EMS-gated; needs project write scope.
+  if (body.mode === "setPriority") {
+    const numbers = Array.isArray(body.numbers) ? body.numbers.map(Number).filter(Boolean) : [];
+    if (!numbers.length) return json({ error: "numbers[] is required" }, 400, ORIGIN);
+    const target = String(body.priority || "").trim();   // "" clears the priority
+    try {
+      const res = await setProjectField(GH_TOKEN, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, GH_REPO, numbers, /priority|עדיפות/i, target, priorityRegexFor);
       return json(res, 200, ORIGIN);
     } catch (e) {
       return json({ error: String((e as Error)?.message || e) }, 502, ORIGIN);

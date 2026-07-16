@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.44] 2026-07-16 — ✏️ editable priority on dev cards (auto-saves to GitHub)
+The priority chip on every dev card/tree-row is now a native `<select>` (`devPrioControl`). Picking a
+tier auto-saves to the GitHub Project **Priority** field and repaints (optimistic; reverts + alerts on
+failure). Server: `setProjectStatus` generalized to `setProjectField(fieldNameRe, target, optionReFor)`
+— handles both Status and the new **`mode:"setPriority"`** (empty label → clears via
+`clearProjectV2ItemFieldValue`). `priorityRegexFor` maps the Hebrew tiers to the project's own option
+names. Edge fn redeployed. `onclick/onmousedown stopPropagation` so opening the picker doesn't toggle
+the row. Needs the token's project **write** scope (same as the status-push).
+
 ## [1.43] 2026-07-16 — 🗂️ dev board rows follow GitHub Project order
 Status-board columns were re-sorted by priority; now cards render in the **GitHub Project board order**
 (`t.pos`, the projectV2 items order captured in the `github` edge fn). Tickets not on the board fall to

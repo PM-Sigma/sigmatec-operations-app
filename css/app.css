@@ -812,6 +812,11 @@
   .dev-prio-high { background: #e8590c; }
   .dev-prio-med  { background: #a16207; }
   .dev-prio-low  { background: #2563eb; }
+  /* editable priority: a <select> styled like the chip; auto-saves to GitHub on change */
+  .dev-prio-edit { border: none; cursor: pointer; -webkit-appearance: none; appearance: none; padding: 1px 8px; line-height: 1.5; }
+  .dev-prio-edit.dev-prio-none { background: #e2e8f0; color: #475569; }
+  .dev-prio-edit:disabled { opacity: .5; cursor: progress; }
+  .dev-prio-edit:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
 
   /* ===== PRIORITY-COLORED BRANCHES =====
      A prioritized task reads as a colored card: tinted row + a frame that wraps the task AND its
