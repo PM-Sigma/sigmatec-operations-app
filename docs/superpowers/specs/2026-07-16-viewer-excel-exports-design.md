@@ -1,8 +1,6 @@
 # Excel exports for aggregate reports (viewer + עידן) — design
 
-> **STATUS: 🟡 OPEN — spec approved verbally, NOT built.** Resume point: implement per the
-> Implementation section, run `node test-exports.mjs` in a loop until green, manual Excel smoke,
-> then CHANGELOG/backlog/INDEX + flip this header to ✅ SHIPPED.
+> **STATUS: ✅ SHIPPED 2026-07-16** — built on `feat/viewer-reports-excel`, merged to `dev` (1.45, b34ceb4).
 
 **Date:** 2026-07-16 · **Branch:** `dev` · **Owner ask:** עידן
 

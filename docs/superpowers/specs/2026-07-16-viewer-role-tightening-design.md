@@ -1,8 +1,6 @@
 # Viewer role tightening — design
 
-> **STATUS: 🟡 OPEN — spec approved-in-review, NOT built.** Resume point: implement the 2 edits in
-> the Implementation section, `node build.mjs`, verify with PIN `0540`, then log to CHANGELOG/backlog/INDEX.
-> Nothing shipped yet — no CHANGELOG entry exists on purpose.
+> **STATUS: ✅ SHIPPED 2026-07-16** — built on `feat/viewer-reports-excel`, merged to `dev` (1.45, b34ceb4).
 
 **Date:** 2026-07-16 · **Branch:** `dev` · **Type:** small UI-gating change
 

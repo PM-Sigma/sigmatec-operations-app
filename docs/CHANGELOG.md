@@ -7,6 +7,20 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.45] 2026-07-16 — 👁📗 viewer rework: reports hub on home + read-only modules + Excel exports
+The viewer role's home is now just the navy header + a **📊 הפקת דוחות hub card** — every aggregate
+report (ביקורי שטח / נוכחות חודשית / תעודות משלוח / סיכום תעודות / מלאי ×2) producible from one place
+as 📄 PDF (existing flows) or **📗 Excel**. Excel = real `.xlsx` via vendored SheetJS (lazy-loaded on
+first click): typed cells (dates/numbers), one value per column, multi-item records exploded to a row
+per item, no multi-line cells, RTL sheet + auto-filter. 📗 buttons also added inside the modules,
+visible to **עידן + viewer only**. Viewer modules (מלאי/נוכחות/יומן) stay browsable but strictly
+read-only — transfer/adjust/new-order/new-product/order-row/returns/products actions hidden (writes
+were already router-blocked); משימות nav hidden. New `js/src/21-excel-export.js` (pure builders +
+writer + gate), `test-exports.mjs` (21 checks: golden fixtures, column contract, edge cases, SheetJS
+round-trip incl. mojibake canary, role matrix) — green with all regression suites. Built on
+`feat/viewer-reports-excel` per the new branch workflow, merged `b34ceb4`.
+**Manual smoke (per methodology): pending עידן opening the downloads in real Excel on dev.**
+
 ## [1.44] 2026-07-16 — ✏️ editable priority on dev cards (auto-saves to GitHub)
 The priority chip on every dev card/tree-row is now a native `<select>` (`devPrioControl`). Picking a
 tier auto-saves to the GitHub Project **Priority** field and repaints (optimistic; reverts + alerts on

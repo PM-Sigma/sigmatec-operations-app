@@ -3,20 +3,20 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
-## 🟡 IN PROGRESS — Excel exports for aggregate reports (spec done, NOT built)
+## 🟡 IN PROGRESS — Web Push notifications for order approvals (spec done, NOT built)
 Paused at spec stage 2026-07-16. Spec:
-[docs/superpowers/specs/2026-07-16-viewer-excel-exports-design.md](superpowers/specs/2026-07-16-viewer-excel-exports-design.md).
-6 reports → real .xlsx (vendored SheetJS, lazy-loaded), 📗 button for **עידן + viewer only**,
-row-per-item explosion, typed cells. Sample files approved by עידן. Test plan in the new
-[docs/testing-methodology.md](testing-methodology.md) (`test-exports.mjs`, loop until green).
+[docs/superpowers/specs/2026-07-16-web-push-notifications-design.md](superpowers/specs/2026-07-16-web-push-notifications-design.md).
+Native Web Push (no self-hosted repo): `push_subscriptions` table + Edge Function `push-send` +
+`orders` DB webhook. Android gets OS push; iPhone falls back to existing in-app modal. Two events:
+new order pending → עמיחי/ניתאי; approved by עמיחי → אביאם+ניתאי. Verify `orders.status` values before wiring.
 
-## 🟡 IN PROGRESS — viewer role rework (spec done, NOT built) — ships WITH Excel exports
-Spec: [docs/superpowers/specs/2026-07-16-viewer-role-tightening-design.md](superpowers/specs/2026-07-16-viewer-role-tightening-design.md).
-Final scope (עידן, 2026-07-16): viewer home = navy header + **📊 reports hub card** (all PDF+Excel
-report generation in one place); hide kibbutz cards/company-tasks/urgent-alert/filter-bar/compact
-toggle/משימות nav; מלאי/נוכחות/יומן stay browsable but **strictly read-only** (all action buttons
-hidden — writes already router-blocked). Build together with the Excel-exports feature, one test loop.
-Also parked: PUSH notifications (Web Push feasibility noted in the spec's out-of-scope).
+## ✅ SHIPPED 2026-07-16 — 1.45 viewer rework + Excel exports (dev, b34ceb4)
+Both viewer specs delivered together on `feat/viewer-reports-excel` → `dev`. Viewer home = navy
+header + **📊 reports hub** (visits/attendance/certs/cert-summary/stock — PDF+📗Excel from one card);
+kibbutz cards/company-tasks/urgent/filter/compact hidden; משימות nav hidden; מלאי/נוכחות/יומן stay
+browsable but read-only (all action buttons hidden). 📗 Excel = real .xlsx (vendored SheetJS 0.20.3,
+lazy-loaded), typed cells, row-per-item, gated to עידן+viewer. `test-exports.mjs` 21 green + all
+regression suites. **Pending: manual Excel smoke by עידן on dev preview, then dev→main.**
 
 ## 🔴 Run SQL — seed kibbutz_details (delivery-cert customer block, ready)
 ✅ `db/delivery_certs.sql` RAN (2026-07-14, verified). ✅ EMS `sites` data pulled (2026-07-15 — the

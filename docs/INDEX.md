@@ -65,7 +65,15 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-16 (**1.44 RELEASED — main = dev**).
+## 🚦 Current state — last: 2026-07-16 (**1.45 on `dev`, pending עידן's Excel smoke → main**).
+
+**✅ 1.45 (dev, b34ceb4) — 👁📗 viewer rework + Excel exports.** Viewer home = navy header +
+**📊 reports hub** (all 6 aggregate reports, 📄 PDF + 📗 real-xlsx Excel from one card); modules
+browsable but read-only (all action buttons hidden); משימות nav hidden. 📗 gated to עידן+viewer;
+`js/src/21-excel-export.js` pure builders + vendored SheetJS 0.20.3 lazy-loaded. `test-exports.mjs`
+21 green + regressions. Built on `feat/viewer-reports-excel` (worktree — parallel-session-safe),
+merged+pushed to dev. **Next: עידן opens the downloads in Excel on the dev preview (manual smoke),
+then dev→main.** Parallel lane: web-push spec in progress (other session, 🟡 in backlog).
 
 **✅ 1.44 — editable priority on dev cards.** Priority chip → native `<select>`; picking a tier
 auto-saves to the GitHub Project Priority field (github fn `mode:setPriority`, generalized
