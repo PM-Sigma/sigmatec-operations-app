@@ -122,15 +122,23 @@
             class="att-chip" style="background:#1b2a4a;color:white;text-decoration:none;font-weight:700;">🪖 הפקת 3010</a>`;
     }
 
-    // Table
-    if (typeof attRenderMissing === 'function') { try { attRenderMissing(); } catch (e) {} }
+    // Table — real rows + missing-weekday RED rows (🔔 per row, accumulating; see 22-push.js)
     const tableEl = document.getElementById('attendanceTable');
     if (!tableEl) return;
-    if (!all.length) {
+    const missingDays = (typeof attMissingDays === 'function')
+      ? attMissingDays(((window.SHEET_DATA || {}).attendance) || [], ((window.SHEET_DATA || {}).visits) || [],
+          who, year, month, new Date())
+      : [];
+    if (!all.length && !missingDays.length) {
       tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">אין נתונים לחודש זה</div>';
       return;
     }
-    const rows = all.map((r, i) => {
+    const display = all.map((r, i) => ({ r: r, i: i, date: r.date }))
+      .concat(missingDays.map(k => ({ missingKey: k, date: new Date(k + 'T00:00:00') })))
+      .sort((x, y) => x.date - y.date);
+    const rows = display.map(entry => {
+      if (entry.missingKey) return (typeof attMissingRowHtml === 'function') ? attMissingRowHtml(entry.missingKey) : '';
+      const r = entry.r, i = entry.i;
       const [bg,color] = ATT_COLORS[r.type] || ['#f3f4f6','#374151'];
       const dateStr = r.date.toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit', weekday:'short' });
       const kib = r.kibbutz ? `<span style="color:#475569;">${r.kibbutz}</span>` : '—';

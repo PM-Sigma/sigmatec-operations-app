@@ -1665,15 +1665,23 @@
             class="att-chip" style="background:#1b2a4a;color:white;text-decoration:none;font-weight:700;">🪖 הפקת 3010</a>`;
     }
 
-    // Table
-    if (typeof attRenderMissing === 'function') { try { attRenderMissing(); } catch (e) {} }
+    // Table — real rows + missing-weekday RED rows (🔔 per row, accumulating; see 22-push.js)
     const tableEl = document.getElementById('attendanceTable');
     if (!tableEl) return;
-    if (!all.length) {
+    const missingDays = (typeof attMissingDays === 'function')
+      ? attMissingDays(((window.SHEET_DATA || {}).attendance) || [], ((window.SHEET_DATA || {}).visits) || [],
+          who, year, month, new Date())
+      : [];
+    if (!all.length && !missingDays.length) {
       tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">אין נתונים לחודש זה</div>';
       return;
     }
-    const rows = all.map((r, i) => {
+    const display = all.map((r, i) => ({ r: r, i: i, date: r.date }))
+      .concat(missingDays.map(k => ({ missingKey: k, date: new Date(k + 'T00:00:00') })))
+      .sort((x, y) => x.date - y.date);
+    const rows = display.map(entry => {
+      if (entry.missingKey) return (typeof attMissingRowHtml === 'function') ? attMissingRowHtml(entry.missingKey) : '';
+      const r = entry.r, i = entry.i;
       const [bg,color] = ATT_COLORS[r.type] || ['#f3f4f6','#374151'];
       const dateStr = r.date.toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit', weekday:'short' });
       const kib = r.kibbutz ? `<span style="color:#475569;">${r.kibbutz}</span>` : '—';
@@ -9583,57 +9591,73 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   }
   window.attReminderText = attReminderText;   // exposed for test-attendance-push.mjs
 
-  // ---- attendance-report hook: red chips + viewer's 🔔 button ----
-  function attRenderMissing() {
-    const row = document.getElementById('attMissingRow');
-    if (!row) return;
-    row.style.display = 'none'; row.innerHTML = '';
+  // ---- attendance-report: missing weekdays render as RED ROWS in the table (04-attendance-daily).
+  // Each red row carries a 🔔 (viewer+עידן): clicking ADDS that day to one accumulating
+  // notification for that person+month — same server tag → the worker sees ONE notification
+  // listing every day clicked so far.
+  function attNagKey(person, ym) { return 'att_nag_sel_' + person + '_' + ym; }
+  function attNagSelected(person, ym) {
+    try { return JSON.parse(localStorage.getItem(attNagKey(person, ym)) || '[]'); } catch (e) { return []; }
+  }
+  window.attNagSelected = attNagSelected;
+  function attCanNag() {
+    return (typeof isViewer === 'function' && isViewer()) || (typeof isIdan === 'function' && isIdan());
+  }
+  window.attCanNag = attCanNag;
+  // red <tr> for a missing weekday — same column layout as the report table (5 cells)
+  function attMissingRowHtml(dateKey) {
+    const d = new Date(dateKey + 'T00:00:00');
+    const dateStr = d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', weekday: 'short' });
+    const person = (typeof attPerson === 'function') ? attPerson() : '';
+    const ym = dateKey.slice(0, 7);
+    const sent = attNagSelected(person, ym).indexOf(dateKey) !== -1;
+    const bell = attCanNag()
+      ? '<button data-d="' + dateKey + '" onclick="attNagDay(this.dataset.d)" title="' + (sent ? 'נשלחה תזכורת — לחיצה שולחת שוב את כל הימים' : 'שלח תזכורת על יום זה (מצטרף להתראה הקיימת)') + '"' +
+        ' style="background:' + (sent ? '#dcfce7' : '#fee2e2') + ';border:1px solid ' + (sent ? '#16a34a' : '#fecaca') + ';border-radius:6px;min-width:34px;height:26px;cursor:pointer;font-size:13px;">' + (sent ? '✅' : '🔔') + '</button>'
+      : '';
+    return '<tr style="background:#fef2f2;">' +
+      '<td style="color:#b91c1c;font-weight:700;">' + dateStr + '</td>' +
+      '<td><span class="att-badge" style="background:#fee2e2;color:#b91c1c;">❌ חסרה נוכחות</span></td>' +
+      '<td style="color:#fca5a5;">—</td><td style="text-align:center;color:#fca5a5;">—</td>' +
+      '<td style="text-align:center;">' + bell + '</td></tr>';
+  }
+  window.attMissingRowHtml = attMissingRowHtml;
+  function attToast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) { alert(msg); return; }
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+  // 🔔 click: add the day to the month's selection and (re)send ONE notification with all of it
+  async function attNagDay(dateKey) {
     const person = (typeof attPerson === 'function') ? attPerson() : '';
     if (!person) return;
-    const missing = attMissingDays(
-      (window.SHEET_DATA && window.SHEET_DATA.attendance) || [],
-      (window.SHEET_DATA && window.SHEET_DATA.visits) || [],
-      person, window.attendanceViewYear, window.attendanceViewMonth, new Date());
-    if (!missing.length) return;
-    const chips = missing.map(d => { const m = d.match(/-(\d{2})-(\d{2})$/); return (+m[2]) + '.' + (+m[1]); }).join(' · ');
-    const canNag = (typeof isViewer === 'function' && isViewer()) || (typeof isIdan === 'function' && isIdan());
-    row.innerHTML = '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
-      '<span style="color:#b91c1c;font-weight:700;font-size:13px;">⚠️ ימים ללא נוכחות: ' + chips + '</span>' +
-      (canNag ? '<button class="inv-btn small" style="background:#dc2626;color:#fff;" onclick="attSendReminder()">🔔 בקש עדכון נוכחות</button>' : '') +
-      '<span id="attNagStatus" style="font-size:12px;color:#64748b;"></span></div>';
-    row.style.display = '';
-    window._attMissing = { person: person, dates: missing };
-  }
-  window.attRenderMissing = attRenderMissing;
-
-  async function attSendReminder() {
-    const ctx = window._attMissing;
-    if (!ctx || !ctx.dates.length) return;
-    if (!confirm('לשלוח תזכורת ל' + ctx.person + '?\n' + attReminderText(ctx.person, ctx.dates))) return;
-    const st = document.getElementById('attNagStatus');
-    if (st) st.textContent = '⏳ שולח…';
+    const ym = dateKey.slice(0, 7);
+    const sel = attNagSelected(person, ym);
+    if (sel.indexOf(dateKey) === -1) sel.push(dateKey);
+    sel.sort();
+    try { localStorage.setItem(attNagKey(person, ym), JSON.stringify(sel)); } catch (e) {}
+    if (typeof renderAttendanceReport === 'function') { try { renderAttendanceReport(); } catch (e) {} }
     try {
       const r = await fetch(SB_URL + '/functions/v1/push-send', {
         method: 'POST',
         headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'attendanceReminder', person: ctx.person, dates: ctx.dates })
+        body: JSON.stringify({ mode: 'attendanceReminder', person: person, dates: sel })
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || r.status);
-      if (st) st.textContent = j.delivered > 0 ? ('✅ נשלח (' + j.delivered + ' מכשירים)') :
-        '⚠️ ל' + ctx.person + ' אין עדיין מכשיר רשום להתראות — יקבל תזכורת באפליקציה';
-      // fallback: no push device → leave an in-app nag the worker sees on next open (same pattern as order notifications)
-      if (!(j.delivered > 0)) {
-        try {
-          const k = 'att_nag_' + ctx.person + '_v1';
-          localStorage.setItem(k, JSON.stringify({ dates: ctx.dates, at: Date.now() }));
-        } catch (e) {}
+      if (j.delivered > 0) {
+        attToast('🔔 נשלחה תזכורת ל' + person + ' — ' + sel.length + ' ימים');
+      } else {
+        attToast('⚠️ ל' + person + ' אין מכשיר רשום להתראות — בקש ממנו לאשר 🔔 באפליקציה');
+        // in-app fallback the worker sees on next open (their device reads att_nag_<name>)
+        try { localStorage.setItem('att_nag_' + person + '_v1', JSON.stringify({ dates: sel, at: Date.now() })); } catch (e) {}
       }
     } catch (e) {
-      if (st) st.textContent = '❌ שליחה נכשלה: ' + e.message;
+      attToast('❌ שליחה נכשלה: ' + e.message);
     }
   }
-  window.attSendReminder = attSendReminder;
+  window.attNagDay = attNagDay;
 })();
   // ===========================================================
   // PUSH LOG (התראות) — admin-only (עידן) read-only table of every Web-Push notification the system

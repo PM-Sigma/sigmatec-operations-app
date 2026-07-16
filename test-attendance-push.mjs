@@ -78,5 +78,46 @@ check('text formats dates d.M', () => {
 // Recipient allowlist + VAPID decoding are now enforced server-side (push-send: APPROVE_GROUP 403 gate,
 // webpush VAPID). Not reachable from this pure client test — covered by the edge function instead.
 
+console.log('== accumulating bell (red rows) ==');
+function loadWithStore(role) {
+  const store = {};
+  const win = {};
+  const sent = [];
+  const fn = new Function('window', 'document', 'localStorage', 'navigator', 'fetch', 'setTimeout',
+    'getCurrentUser', 'isViewer', 'isIdan', 'attPerson', 'confirm', 'alert', 'SB_URL', 'SB_ANON',
+    'renderAttendanceReport', src);
+  fn(win, { getElementById: () => null, createElement: () => ({ style: {} }), body: { appendChild() {} } },
+    { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+    { userAgent: 'test' },
+    async (url, opts) => { sent.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({ delivered: 1 }) }; },
+    () => {}, () => 'צפייה', () => role === 'viewer', () => role === 'idan', () => 'אביאם', () => true, () => {},
+    'http://x', 'anon', () => {});
+  return { win, store, sent };
+}
+check('clicks accumulate into ONE payload (all days so far)', async () => {
+  const { win, sent } = loadWithStore('viewer');
+  await win.attNagDay('2026-07-05');
+  await win.attNagDay('2026-07-08');
+  await win.attNagDay('2026-07-08');   // repeat click → resend, no duplicate
+  assert.strictEqual(sent.length, 3);
+  assert.deepStrictEqual(sent[0].dates, ['2026-07-05']);
+  assert.deepStrictEqual(sent[1].dates, ['2026-07-05', '2026-07-08']);
+  assert.deepStrictEqual(sent[2].dates, ['2026-07-05', '2026-07-08']);
+  assert.strictEqual(sent[2].person, 'אביאם');
+  assert.strictEqual(sent[2].mode, 'attendanceReminder');
+  assert.deepStrictEqual(win.attNagSelected('אביאם', '2026-07'), ['2026-07-05', '2026-07-08']);
+});
+check('red row: bell for viewer, none for team; ✅ after send', async () => {
+  const v = loadWithStore('viewer');
+  let html = v.win.attMissingRowHtml('2026-07-05');
+  assert.ok(html.includes('🔔') && html.includes('attNagDay'), 'viewer sees bell');
+  await v.win.attNagDay('2026-07-05');
+  html = v.win.attMissingRowHtml('2026-07-05');
+  assert.ok(html.includes('✅'), 'sent day shows check');
+  const t = loadWithStore('team');
+  assert.ok(!t.win.attMissingRowHtml('2026-07-05').includes('<button'), 'team sees no bell');
+  assert.ok(t.win.attMissingRowHtml('2026-07-05').includes('חסרה נוכחות'), 'red row still informative');
+});
+
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);

@@ -3,7 +3,7 @@
 // to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
 // (Supabase / Apps Script) is never touched → data is always live. build.mjs restamps CACHE
 // on every build so phones fetch fresh bytes each deploy.
-const CACHE = 'sigmatec-ops-mrnek0z5';
+const CACHE = 'sigmatec-ops-mrnenqhz';
 const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
