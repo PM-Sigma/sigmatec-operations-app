@@ -1,6 +1,12 @@
 # Push action buttons + scheduled attendance reminders — design spec
 
-STATUS: 🟡 CODE DONE on `feat/push-actions` — NOT shipped (prod deploy + cron + smoke remain).
+STATUS: 🟡 DEPLOYED to backend + merged to dev — BLOCKED on VAPID secrets, then Android smoke → dev→main.
+- ✅ merged feat/push-actions → dev (ff, pushed origin, 1c0d8b6).
+- ✅ push-send v5 deployed (action buttons + approveOrder + attendanceCron; backward compatible).
+- ✅ pg_cron + pg_net enabled; job `push-attendance-hourly` (`0 * * * *`) active — gates on Israel hour.
+- 🔴 BLOCKER (unchanged since 1.48): VAPID_PUBLIC/PRIVATE/SUBJECT secrets are NOT set in the push-send
+  Edge Function → every send returns 503 "VAPID secrets not set". NOTHING pushes until עידן sets them.
+- ⏳ then: Android smoke (order supplier one-tap + customer approveOpen + view; attendance 19:00/09:00) → dev→main.
 Date: 2026-07-16.
 Delivered: push-send rewrite (action buttons + `approveOrder` one-tap + `attendanceCron` scheduler,
 lazy-VAPID init retained) · sw.js multi-action + one-tap approve POST · 22-push.js deep-link handler ·
