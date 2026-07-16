@@ -463,6 +463,8 @@
   // ===== Two order types: ספק (raises stock) · לקוח (consumes stock → EMS "אספקת ציוד" task) =====
   function orderTotalQty(o) { return (o.items || []).reduce(function (s, i) { return s + (parseInt(i.qty) || 0); }, 0); }
   function orderType(o) { return o.orderType || (/בקשת לקוח/.test(o.notes || '') ? 'customer' : 'supplier'); }
+  // drop-ship: supplier ships straight to the kibbutz — approval touches no stock and opens no EMS task
+  function isDirectSupply(o) { return orderType(o) === 'customer' && (o.assignee || '') === 'ספק ישיר'; }
   // customer order's kibbutz: explicit field → parsed from notes → linked requirement
   function orderKibbutz(o) {
     if (o.kibbutz) return o.kibbutz;
@@ -511,6 +513,20 @@
   async function approveCustomerOrder(o, btn) {
     var me = getCurrentUser();
     var kibbutz = orderKibbutz(o);
+    // ספק ישיר: close the order + linked requirement only — no movements, no EMS task
+    if (isDirectSupply(o)) {
+      if (!confirm('לאשר אספקה ישירה מהספק' + (o.supplier ? ' (' + o.supplier + ')' : '') + '?\nלא יירד מהמלאי ולא תיפתח משימת EMS — ההזמנה תסומן "סופק ללקוח".')) return;
+      setBtnLoading(btn, true);
+      try {
+        await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
+        var linkedD = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
+        await Promise.all(linkedD.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
+        orderNotifMarkSeen([o.id]);
+        var td = document.getElementById('toast'); td.textContent = '✅ אושרה אספקה ישירה מהספק'; td.classList.add('show'); setTimeout(function () { td.classList.remove('show'); }, 3000);
+        setTimeout(refreshData, 1000);
+      } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
+      return;
+    }
     // עידן can hand the responsibility at creation → the EMS task is assigned to them and the stock
     // leaves THEIR bag (they're the one physically supplying). Default: the approver, as before.
     var responsible = o.assignee || me;
@@ -683,7 +699,9 @@
         ? '<span style="font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe;border-radius:8px;padding:2px 7px;white-space:nowrap;">🧑‍🌾 לקוח</span>'
         : `<span style="font-size:10px;font-weight:700;color:#9a3412;background:#ffedd5;border-radius:8px;padding:2px 7px;white-space:nowrap;">🏭 ספק${orderNeedsAmichai(o) ? ' 10+' : ''}</span>`;
       const who = (isCust ? ('🧑‍🌾 ' + ((orderKibbutz(o) || 'לקוח').replace(/</g, '&lt;'))) : (o.supplier ? o.supplier.replace(/</g, '&lt;') : '—'))
-        + (isCust && o.assignee ? '<div style="font-size:10px;color:#5b21b6;white-space:nowrap;">👤 אחראי: ' + String(o.assignee).replace(/</g, '&lt;') + '</div>' : '');
+        + (isCust && o.assignee ? (isDirectSupply(o)
+          ? '<div style="font-size:10px;color:#9a3412;white-space:nowrap;">🏭 ספק ישיר' + (o.supplier ? ' · ' + String(o.supplier).replace(/</g, '&lt;') : '') + '</div>'
+          : '<div style="font-size:10px;color:#5b21b6;white-space:nowrap;">👤 אחראי: ' + String(o.assignee).replace(/</g, '&lt;') + '</div>') : '');
       // customer orders never enter the supplier pipeline (their terminal state is 'supplied' via approval)
       const quick = isCust ? null : getOrderQuickAction(o.status);
       const quickBtn = quick
@@ -727,7 +745,9 @@
     window._invOrderType = t;
     document.querySelectorAll('.inv-ordtype-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.t === t); });
     var isCust = t === 'customer';
-    var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = isCust ? 'none' : '';
+    // supplier field: supplier orders always; customer orders only when אחראי = ספק ישיר (drop-ship)
+    var _dir = isCust && ((document.getElementById('invOrderAssignee') || {}).value === 'ספק ישיר');
+    var sw = document.getElementById('invOrderSupplierWrap'); if (sw) sw.style.display = (isCust && !_dir) ? 'none' : '';
     var kw = document.getElementById('invOrderKibbutzWrap'); if (kw) kw.style.display = isCust ? '' : 'none';
     // אחראי picker — customer orders, עידן/עמיחי only (they hand the supply responsibility; default = approver)
     var aw = document.getElementById('invOrderAssigneeWrap'); if (aw) aw.style.display = (isCust && typeof getCurrentUser === 'function' && ['עידן', 'עמיחי'].indexOf(getCurrentUser()) !== -1) ? '' : 'none';
@@ -740,6 +760,19 @@
       Array.prototype.forEach.call(st.options, function (op) { var h = isCust && !!suppOnly[op.value]; op.hidden = h; op.disabled = h; });
     }
   };
+  // אחראי picker changed → re-run the field toggle (shows the supplier field for ספק ישיר)
+  window.invAssigneeChanged = function () { invSetOrderType(window._invOrderType || 'supplier'); };
+  // closed-ish supplier range: datalist of every supplier name used on past orders
+  function distinctSuppliers(orders) {
+    var seen = {};
+    (orders || []).forEach(function (o) { var s = (o.supplier || '').trim(); if (s) seen[s] = 1; });
+    return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b, 'he'); });
+  }
+  function invPopulateSupplierList() {
+    var dl = document.getElementById('supplierList');
+    if (!dl) return;
+    dl.innerHTML = distinctSuppliers(window.SHEET_DATA && window.SHEET_DATA.orders).map(function (s) { return '<option value="' + s.replace(/"/g, '&quot;') + '">'; }).join('');
+  }
   function invNewOrder() {
     if (!checkEditPermission()) return;
     window.invEditingOrderId = null;
@@ -764,6 +797,7 @@
     var _ttr = document.querySelector('.inv-ordtype-row'); if (_ttr) _ttr.style.display = '';   // type toggle — new orders only
     var _asg = document.getElementById('invOrderAssignee'); if (_asg) _asg.value = '';
     invPopulateOrderKibbutz('');
+    invPopulateSupplierList();
     invSetOrderType('supplier');   // default; controls supplier/kibbutz/raw-box visibility
     renderOrderItems();
     invToggleDistribution();
@@ -797,6 +831,7 @@
     var _ttr2 = document.querySelector('.inv-ordtype-row'); if (_ttr2) _ttr2.style.display = 'none';   // type is fixed on edit
     var _asg2 = document.getElementById('invOrderAssignee'); if (_asg2) _asg2.value = o.assignee || '';
     invPopulateOrderKibbutz(orderKibbutz(o));
+    invPopulateSupplierList();
     invSetOrderType(orderType(o));
     renderOrderItems();
     invToggleDistribution();
