@@ -3,6 +3,16 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## 🟡 IN PROGRESS — EMS Companion program (PLANNING paused 2026-07-17, NOT built)
+Big-picture: turn the app into the mobile-first, notification-driven front-door to EMS. Full plan +
+resume steps in the blueprint:
+[docs/superpowers/specs/2026-07-17-ems-companion-blueprint-design.md](superpowers/specs/2026-07-17-ems-companion-blueprint-design.md)
+(⏸️ PAUSED block has the locked decisions + open items). Phase 1 spec:
+[docs/superpowers/specs/2026-07-17-actionable-notifications-design.md](superpowers/specs/2026-07-17-actionable-notifications-design.md).
+6 phases; Phase 1 = actionable-notifications engine (next). Open: EMS-Graph-update reply (de-dup fork),
+Play Store $25?, sanitized WhatsApp sample + Ollama model (Phase 3 local-only observer). No CHANGELOG
+entry — nothing shipped. Execution happens in a NEW dev chat on a `feat/` branch per the methodologies.
+
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
 Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.
