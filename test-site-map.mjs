@@ -12,7 +12,7 @@ let failures = 0;
 const eq = (n, a, b) => { try { assert.deepStrictEqual(a, b); console.log('  ok - ' + n); } catch (e) { failures++; console.log('  FAIL - ' + n + ': ' + e.message); } };
 eq('שלוחות → correct UUID', MAP['שלוחות'], ['9a0ba3d3-b7f2-4597-b3ee-3537e4f8d75e']);
 eq('דפנה mapped', MAP['דפנה'], ['490a865d-c4f4-4a4a-96da-14a273e7f03b']);
-eq('ניצנים mapped', MAP['ניצנים'], ['ae9ac4c6-119e-496c-9aad-331e95a2551d']);
+eq('קיבוץ ניצנים mapped (card name, not the EMS site name "ניצנים")', MAP['קיבוץ ניצנים'], ['ae9ac4c6-119e-496c-9aad-331e95a2551d']);
 eq('שלוחות no longer points at the stale UUID', MAP['שלוחות'].includes('07ab3dee-7192-4f19-a004-0fae7c09d3fd'), false);
 console.log(failures ? `\n${failures} FAILED` : '\nmap checks passed');
 process.exit(failures ? 1 : 0);
