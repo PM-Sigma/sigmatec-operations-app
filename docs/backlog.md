@@ -3,6 +3,14 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## 🟡 IN PROGRESS — EMS-linking batch (4 features, specs being written 2026-07-19)
+Sequence A→D→B→C, one spec+branch each. **A = spec written, NOT built** on `feat/kibbutz-site-integrity`:
+[docs/superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md](superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md).
+Fixes the kibbutz→EMS site resolver (kills the fuzzy `indexOf` bug), corrects confirmed data bugs
+(שלוחות wrong UUID/company, דפנה+ניצנים unmapped), adds a ⚠️ indicator + hard block on all task-creation
+paths + עידן-only linkage audit. **Resume:** read the spec → writing-plans → build on that branch.
+D=delivery-note overhaul, B=quick-order-from-task, C=remove מלאי בקיבוצים window — not yet spec'd.
+
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
 Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.
