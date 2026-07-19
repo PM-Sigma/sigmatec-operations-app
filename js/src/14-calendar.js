@@ -586,6 +586,7 @@
   async function emsAfterWrite() {
     try { await emsSyncCache(); } catch (e) { console.warn('emsAfterWrite sync failed', e); }
     if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+    if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
     if (typeof reorderCards === 'function') reorderCards();
     // If the kibbutz modal is still open (task created from a card), refresh its EMS section.
     const backdrop = document.getElementById('modalBackdrop');

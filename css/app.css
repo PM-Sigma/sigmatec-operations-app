@@ -1211,6 +1211,8 @@
   /* Prominent card section header (contrasting dark bar) */
   .card-sec-head { display:inline-block;font-size:10px;font-weight:800;color:#fff;background:#1b2a4a;padding:2px 9px;border-radius:6px;margin-bottom:4px;letter-spacing:.2px; }
   /* On-card EMS tasks widget (field 2 — "משימות מה-EMS") — made prominent */
+  .card-no-site { display:inline-block; margin:4px 0; padding:2px 9px; border-radius:12px;
+    background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; font-size:11px; font-weight:700; }
   .card-ems { margin-top:10px;background:#eff6ff;border:1.5px solid #93c5fd;border-right:4px solid #2563eb;border-radius:9px;padding:8px 10px; }
   .card-ems-new { margin-top:8px;border-top:1px dashed #e2e8f0;padding-top:6px;font-size:12px;font-weight:600;color:#2563eb;cursor:pointer; }
   .card-ems-new:hover { text-decoration:underline; }

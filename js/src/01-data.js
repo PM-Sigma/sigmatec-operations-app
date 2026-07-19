@@ -1012,6 +1012,7 @@
     // Field 2 — attach the EMS-tasks widget to EVERY site-mapped card (independent of
     // whether it had a Sheet row), once the shared cache has been synced.
     if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+    if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
   }
 
   async function toggleProcedure(btn) {

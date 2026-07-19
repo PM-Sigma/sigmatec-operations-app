@@ -184,6 +184,24 @@
   // also covers cards that have NO Sheet row (e.g. a newly-added kibbutz). No-op until
   // the shared cache has actually been synced (syncedAt set) — until then cards keep
   // their legacy expectedTask via the enrichment fallback.
+  // ⚠️ indicator: mark every kibbutz card whose name has no confident EMS site. Runs regardless of
+  // cache-sync state (unlike applyCardEmsWidgets) so field users offline still see the warning.
+  function applyCardSiteWarnings() {
+    document.querySelectorAll('.kibbutz[data-name]').forEach(card => {
+      card.querySelectorAll('.card-no-site').forEach(e => e.remove());   // clear stale
+      const nm = card.dataset.name;
+      if (typeof kibbutzHasSite === 'function' && kibbutzHasSite(nm)) return;
+      const chip = document.createElement('div');
+      chip.className = 'card-no-site';
+      chip.innerHTML = '⚠️ לא מקושר ל-EMS';
+      const anchor = card.querySelector(':scope > .excel-status')
+                  || card.querySelector(':scope > .kibbutz-name-row')
+                  || card.querySelector(':scope > .kibbutz-name');
+      if (anchor) anchor.insertAdjacentElement('afterend', chip); else card.appendChild(chip);
+    });
+  }
+  window.applyCardSiteWarnings = applyCardSiteWarnings;
+
   function applyCardEmsWidgets() {
     if (!emsCacheData().syncedAt) return;
     document.querySelectorAll('.kibbutz[data-name]').forEach(card => {
