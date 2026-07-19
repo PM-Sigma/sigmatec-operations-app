@@ -403,7 +403,7 @@
 
   async function loadEmsTasks(append = false) {
     if (!isEmsConnected()) return;
-    if (!append) _emsPage = 1;
+    if (!append) { _emsPage = 1; if (typeof renderEmsSiteAudit === 'function') renderEmsSiteAudit(); }
     const status   = document.getElementById('emsFilterStatus')?.value || '';
     const priority = document.getElementById('emsFilterPriority')?.value || '';
     const search   = document.getElementById('emsSearch')?.value.trim() || '';
@@ -572,6 +572,40 @@
     await emsCreateTaskModal(siteId);
     if (!siteId) emsToast('⚠️ לא נמצא אתר EMS תואם ל"' + name + '" — בחר אתר ידנית');
   }
+
+  // Pure: build audit rows — for each kibbutz name, resolve its site id via the map, then look up the
+  // matching live site NAME to confirm the UUID is real. ok = mapped AND the UUID exists in live /sites.
+  function emsSiteAuditRows(kibbutzNames, sites, resolveIds) {
+    const byId = {}; (sites || []).forEach(s => { byId[s.id] = s.name; });
+    return (kibbutzNames || []).map(nm => {
+      const ids = (resolveIds || (() => []))(nm);
+      const siteName = ids.length ? (byId[ids[0]] || '') : '';
+      return { kibbutz: nm, siteName: siteName || '—', ok: !!siteName };
+    });
+  }
+  async function renderEmsSiteAudit() {
+    const box = document.getElementById('emsSiteAudit');
+    if (!box) return;
+    if (!(typeof isIdan === 'function' && isIdan())) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    let sites = []; try { sites = await getEmsSites(); } catch (e) {}
+    // Names come from the rendered kibbutz cards — the same source the ⚠️ indicator uses, so the two
+    // views can never disagree.
+    const names = Array.from(document.querySelectorAll('.kibbutz[data-name]'))
+      .map(c => c.dataset.name).filter((v, i, a) => v && a.indexOf(v) === i);
+    const rows = emsSiteAuditRows(names, sites, (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds : () => []);
+    const bad = rows.filter(r => !r.ok).length;
+    const bodyEl = box.querySelector('.audit-body');
+    if (!bodyEl) return;
+    bodyEl.innerHTML =
+      '<div style="font-size:12px;color:#64748b;margin-bottom:6px;">' + rows.length + ' קיבוצים · ' +
+      (bad ? ('<b style="color:#b91c1c;">' + bad + ' לא מקושרים</b>') : '✅ הכל מקושר') + '</div>' +
+      rows.sort((a, b) => a.ok - b.ok).map(r =>
+        '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">' +
+        '<span>' + (r.ok ? '✅' : '⚠️') + ' ' + emsEsc(r.kibbutz) + '</span>' +
+        '<span style="color:#64748b;">' + emsEsc(r.siteName) + '</span></div>').join('');
+  }
+  window.renderEmsSiteAudit = renderEmsSiteAudit;
 
   async function emsEditTask(id) {
     const t = window._emsCurrentTask;

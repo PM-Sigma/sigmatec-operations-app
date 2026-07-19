@@ -595,6 +595,12 @@
             <button onclick="emsDisconnect()" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;">ניתוק</button>
           </div>
         </div>
+        <div id="emsSiteAudit" style="display:none;margin:0 0 14px;border:1px solid #e2e8f0;border-radius:10px;">
+          <button type="button" onclick="const b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';"
+            style="width:100%;text-align:right;background:#f8fafc;border:none;padding:9px 12px;font-weight:800;color:#1e3a8a;cursor:pointer;border-radius:10px;">
+            🔗 בדיקת קישור אתרים (עידן)</button>
+          <div class="audit-body" style="display:none;padding:8px 12px;"></div>
+        </div>
         <div class="ems-filter-bar">
           <select id="emsFilterStatus" onchange="loadEmsTasks()">
             <option value="">כל הסטטוסים</option>
