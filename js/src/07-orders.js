@@ -535,6 +535,13 @@
     var items = (o.items || []).filter(function (i) { return i.name && (parseInt(i.qty) || 0) > 0; });
     if (!items.length) { alert('אין פריטים בהזמנה.'); return; }
     if (!kibbutz) { alert('לא זוהה קיבוץ להזמנה — לא ניתן לאשר אספקת לקוח.'); return; }
+    // Hard gate: a customer supply opens an EMS "אספקת ציוד" task. Refuse to approve if the kibbutz has
+    // no confident EMS site (would create a wrong-site / dead-lettered task). Drop-ship (isDirectSupply)
+    // returned above and opens no task, so it is exempt by construction.
+    if (!isDirectSupply(o) && typeof kibbutzHasSite === 'function' && !kibbutzHasSite(kibbutz)) {
+      alert('⚠️ לקיבוץ "' + kibbutz + '" אין אתר EMS מקושר — קשר או צור את האתר ב-EMS לפני אישור ההזמנה.');
+      return;
+    }
     if (!confirm('לאשר אספקת לקוח?\nירד מהמלאי של ' + responsible + ' → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS' + (o.assignee ? ' באחריות ' + o.assignee : '') + '.')) return;
     setBtnLoading(btn, true);
     try {
