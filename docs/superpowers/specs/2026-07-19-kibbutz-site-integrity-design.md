@@ -1,6 +1,9 @@
 # Kibbutz ↔ EMS site integrity — design
 
-STATUS: 🟡 OPEN — NOT built. Resume: read this spec, then writing-plans → build on `feat/kibbutz-site-integrity` (cut from `dev`).
+STATUS: ✅ SHIPPED (built 2026-07-19, 1.59) on `feat/kibbutz-site-integrity` — pending dev→main. Plan:
+`docs/superpowers/plans/2026-07-19-kibbutz-site-integrity.md`. Note: card names carry a "קיבוץ " prefix on
+some cards (e.g. "קיבוץ ניצנים") — map keys must equal the CARD name, not the EMS site name. Still-unlinked
+cards for עידן to resolve in EMS: כפר עזה, ניר עציון, עין דור, דגניה ב, דביר.
 
 **Date:** 2026-07-19 · **Author:** planning session (Fable) · **Feature 1 of 4** in the EMS-linking batch
 (A=this · D=delivery-note overhaul · B=quick-order-from-task · C=remove מלאי בקיבוצים window).

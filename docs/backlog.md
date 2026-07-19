@@ -3,13 +3,17 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
-## 🟡 IN PROGRESS — EMS-linking batch (4 features, specs being written 2026-07-19)
-Sequence A→D→B→C, one spec+branch each. **A = spec written, NOT built** on `feat/kibbutz-site-integrity`:
-[docs/superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md](superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md).
-Fixes the kibbutz→EMS site resolver (kills the fuzzy `indexOf` bug), corrects confirmed data bugs
-(שלוחות wrong UUID/company, דפנה+ניצנים unmapped), adds a ⚠️ indicator + hard block on all task-creation
-paths + עידן-only linkage audit. **Resume:** read the spec → writing-plans → build on that branch.
-D=delivery-note overhaul, B=quick-order-from-task, C=remove מלאי בקיבוצים window — not yet spec'd.
+## 🟡 IN PROGRESS — EMS-linking batch (4 features, A built 2026-07-19)
+Sequence A→D→B→C, one spec+branch each.
+- **A = ✅ BUILT on `feat/kibbutz-site-integrity` (1.59), pending dev→main.** Exact-match resolver (killed
+  the fuzzy `indexOf` bug), corrected data (שלוחות UUID/entity, added דפנה + קיבוץ ניצנים), ⚠️ indicator +
+  hard block on all task-creation paths + עידן-only linkage audit. 23 checks green. Spec + plan:
+  [spec](superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md) ·
+  [plan](superpowers/plans/2026-07-19-kibbutz-site-integrity.md). **Action (עידן):** in EMS, create/verify
+  sites for the still-unlinked cards — כפר עזה, ניר עציון, עין דור, דגניה ב, דביר — then ship dev→main.
+- **D = delivery-note overhaul** (save-without-PDF → produce-PDF → email; visit-summary-central auto-open
+  pulling EMS site details), **B = quick-order-from "אספקת מונים" task (AI)**, **C = remove מלאי בקיבוצים
+  window** — not yet spec'd. Next up: D.
 
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).

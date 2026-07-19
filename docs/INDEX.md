@@ -65,6 +65,20 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — last: 2026-07-19 (**1.59 on `feat/kibbutz-site-integrity`, pending dev→main**).
+
+**🔗 1.59 — kibbutz↔EMS site integrity (spec A of a 4-feature EMS-linking batch A→D→B→C).** Fixed the
+resolver that produced wrong-site/missing tasks (דפנה, שלוחות): `emsSiteIdForKibbutz` now exact-matches
+live `/sites` (curated `KIBBUTZ_SITE_MAP` fallback offline) — the **fuzzy `indexOf` match is removed**.
+New sync `kibbutzHasSite(name)` gate → **⚠️ "לא מקושר ל-EMS" card indicator** + **hard block** on every
+task-creation path (kibbutz-modal + `approveCustomerOrder`). Data fixed from live EMS: שלוחות UUID + entity,
+added דפנה + קיבוץ ניצנים (map + `kibbutz_details`). **עידן-only linkage audit** in the EMS tab. 23 checks
+green, bundle boots clean. **Action (עידן):** create/verify EMS sites for the still-unlinked cards —
+כפר עזה, ניר עציון, עין דור, דגניה ב, דביר — then ship dev→main. **Next: D (delivery-note overhaul).**
+Spec/plan: `superpowers/{specs,plans}/2026-07-19-kibbutz-site-integrity*.md`.
+
+## Previous: 1.54
+
 ## 🚦 Current state — last: 2026-07-16 (**1.54 RELEASED — main = dev**).
 
 **✅ 1.54 — attendance missing days = RED ROWS + accumulating 🔔 (per עידן's screenshots feedback).**

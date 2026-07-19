@@ -7,6 +7,27 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.59] 2026-07-19 — 🔗 kibbutz↔EMS site integrity (spec A of the EMS-linking batch)
+Fixes the kibbutz→EMS-site linking that produced wrong-site / missing tasks (reported for דפנה, שלוחות).
+- **Exact-match resolver.** `emsSiteIdForKibbutz` now does an exact normalized-name match against live
+  `/sites`, falling back to the curated `KIBBUTZ_SITE_MAP` offline. The old **fuzzy `indexOf` containment
+  match is gone** — that was silently resolving to the wrong site.
+- **`kibbutzHasSite(name)` gate** (sync) backs both a **⚠️ "לא מקושר ל-EMS" indicator** on site-less kibbutz
+  cards and a **hard block** on every task-creation path: kibbutz-modal "new EMS task" + customer-order
+  approval (`approveCustomerOrder`). No more silent site-less/dead-lettered tasks.
+- **Data corrections (confirmed from live EMS `ems_cache`):** `KIBBUTZ_SITE_MAP` — fixed שלוחות's UUID
+  (was a wrong site), added דפנה + קיבוץ ניצנים. `kibbutz_details` (Supabase) — cleared שלוחות's wrong
+  "שלטרון" entity; added דפנה + קיבוץ ניצנים rows. In-browser smoke caught a card-name/site-name mismatch
+  (card "קיבוץ ניצנים" vs site "ניצנים") → map keyed to the card name.
+- **עידן-only linkage audit** ("🔗 בדיקת קישור אתרים") in the EMS tab — every kibbutz × resolved site × ✅/⚠️.
+- **Still flagged for עידן to resolve in EMS** (no known site UUID; auto-resolve via live match when a real
+  EMS site with the same name exists): כפר עזה, ניר עציון, עין דור, דגניה ב, דביר.
+- Tests: `test-site-resolver` (8) · `test-site-map` (4) · `test-site-indicator` (2) · `test-site-block` (3) ·
+  `test-order-site-gate` (3) · `test-site-audit` (3) — all green; regressions (dropship/order-patch/visit-cert)
+  green. Bundle boots clean (no console errors), 5 ⚠️ chips render correctly. Spec:
+  `superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md` · plan: `superpowers/plans/2026-07-19-kibbutz-site-integrity.md`.
+  On `feat/kibbutz-site-integrity` — pending dev→main. **Next in batch: D (delivery-note overhaul), B, C.**
+
 ## [1.54] 2026-07-16 — 🔴 attendance missing days as red table rows + accumulating 🔔
 Per עידן (live screenshots): the top chip block was replaced — missing weekdays now render as **red
 rows inside the attendance table** (❌ חסרה נוכחות), each with a **🔔 per row** (viewer+עידן). Every
