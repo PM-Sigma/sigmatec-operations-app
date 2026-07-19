@@ -528,6 +528,12 @@
     if (!box) return;
     if (!(typeof canUseEms === 'function' && canUseEms())) { box.style.display = 'none'; box.innerHTML = ''; return; }
     box.style.display = '';
+    if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {
+      box.innerHTML = '<div class="modal-ems-nosite" style="margin-top:6px;padding:9px 12px;background:#fef2f2;' +
+        'border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:700;">' +
+        '⚠️ לא מקושר ל-EMS — צור או קשר את האתר ב-EMS לפני פתיחת משימה.</div>';
+      return;
+    }
     const ids = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
     const tasks = ids.length ? emsCacheTasksForKibbutz(name) : [];
     // Full-width button when there's NO open task; small side bubble when a task exists.
@@ -549,6 +555,10 @@
 
   async function createEmsTaskForKibbutz() {
     const name = currentKibbutz;
+    if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {
+      emsToast('⚠️ אין אתר EMS מקושר לקיבוץ — צור/קשר את האתר ב-EMS תחילה');
+      return;
+    }
     if (!isEmsConnected()) {   // not connected → send to the EMS login panel
       closeModal({ target: { id: 'modalBackdrop' } });
       showPage('ems');
