@@ -337,15 +337,29 @@
   }
   // Normalize a Hebrew site/kibbutz name for matching (collapse whitespace, trim).
   function emsNormName(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
-  // Best-effort map a kibbutz name → EMS site id. Returns '' if no confident match.
+  // Map a kibbutz name → EMS site id. EXACT normalized-name match against live /sites first
+  // (self-heals EMS renames); offline / no live match → the curated KIBBUTZ_SITE_MAP. Returns ''
+  // when there is no confident site — callers must treat '' as "not linked" (no fuzzy guessing).
   async function emsSiteIdForKibbutz(name) {
     const target = emsNormName(name);
     if (!target) return '';
-    const sites = await getEmsSites();
-    // exact (normalized) match first, then containment either way ("קיבוץ X" vs "X")
-    let hit = sites.find(s => emsNormName(s.name) === target);
-    if (!hit) hit = sites.find(s => { const n = emsNormName(s.name); return n && (n.indexOf(target) !== -1 || target.indexOf(n) !== -1); });
-    return hit ? hit.id : '';
+    try {
+      const sites = await getEmsSites();
+      const hit = sites.find(s => emsNormName(s.name) === target);
+      if (hit) return hit.id;
+    } catch (e) { /* offline / API down → fall through to the curated map */ }
+    const mapped = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
+    return mapped.length ? mapped[0] : '';
+  }
+  // The live /sites list, cached by getEmsSites (module-local _emsSites). Exposed for kibbutzHasSite/tests.
+  function emsSitesCached() { return _emsSites; }
+  // SYNC gate used by the ⚠️ indicator AND every task-creation block — they can never disagree.
+  // True iff the kibbutz is in the curated map, OR (connected) an exact live-site name match exists.
+  function kibbutzHasSite(name) {
+    if ((typeof kibbutzSiteIds === 'function') && kibbutzSiteIds(name).length) return true;
+    const sites = emsSitesCached();
+    if (sites && sites.length) { const t = emsNormName(name); return sites.some(s => emsNormName(s.name) === t); }
+    return false;
   }
   // Admin-role users — eligible task assignees. May 403 if the token role is low → empty list.
   async function getEmsUsers() {

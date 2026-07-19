@@ -167,6 +167,7 @@
     let flushed = { done: 0, failed: 0, dead: 0 };
     try { flushed = await emsQueueFlush(); } catch (e) { console.warn('EMS queue flush failed', e); }
     try { await emsSyncCache(); } catch (e) { console.warn('EMS cache sync failed', e); }
+    try { if (typeof getEmsSites === 'function') await getEmsSites(); } catch (e) { /* gate falls back to the map */ }
     if (flushed.done) emsToast('✅ נשלחו ' + flushed.done + ' פעולות שהמתינו בתור');
     if (flushed.dead) emsToast('⚠️ ' + flushed.dead + ' פעולות בתור נדחו ע"י EMS ונמחקו (בדוק בלוג)');
     setTimeout(function () { if (typeof refreshData === 'function') refreshData(); }, 1200);
