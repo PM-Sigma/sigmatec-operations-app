@@ -8,7 +8,7 @@ const src = fs.readFileSync(path.join(__dirname, 'js/src/14-calendar.js'), 'utf8
 
 const box = { style: {}, innerHTML: '' };
 const document_ = { getElementById: id => (id === 'modalEmsSection' ? box : { value: '', style: {}, classList: { add() {}, remove() {} } }) };
-const body = src.substring(src.indexOf('function prepModalEmsSection'), src.indexOf('async function emsEditTask'));
+const body = src.substring(src.indexOf('function prepModalEmsSection'), src.indexOf('function emsSiteAuditRows'));
 let hasSite = false, toasts = [];
 const fn = new Function('document', 'canUseEms', 'kibbutzSiteIds', 'kibbutzHasSite', 'emsCacheTasksForKibbutz',
   'EMS_PRIORITY_DOT', 'EMS_STATUS', 'emsEsc', 'isEmsConnected', 'closeModal', 'showPage', 'emsToast',
