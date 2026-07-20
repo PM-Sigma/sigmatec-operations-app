@@ -61,6 +61,7 @@
       show();
     } else if (typeof getEmsToken === 'function' && getEmsToken()) {
       sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
+      reconcileIdentity();                                                                      // self-heal a stale/wrong cached name (e.g. old "PM" → עידן) on plain refresh
       restoreReturnPage();                                                                      // land back where we were before a re-login
     } else if (typeof getRole !== 'function' || getRole() !== 'viewer') {
       // signed in before but the EMS connection is gone → lead them straight to re-login on open
@@ -80,6 +81,7 @@
     // name we use. עידן's real EMS account is pm@sigmatec-energy.com (cf. 12-reports.js), but its EMS
     // firstName resolves to "PM" → he'd land as team role and lose his admin powers. Map it explicitly.
     const EMS_EMAIL_ALIASES = { 'pm@sigmatec-energy.com': 'עידן' };
+    const EMS_EMAIL_KEY = 'ems_login_email_v1';   // persisted at login so a plain refresh can re-resolve identity
     async function resolveIdentity(email) {
       const alias = EMS_EMAIL_ALIASES[(email || '').toLowerCase().trim()];
       if (alias) return alias;
@@ -90,11 +92,28 @@
       } catch (e) { console.warn('[gate] EMS user lookup failed (need admin role?)', e); }
       return '';
     }
+    // On a returning session (already holding an EMS token) re-resolve the stored email and correct a
+    // stale/wrong cached name — e.g. an account that logged in before an alias existed and got stuck as
+    // "PM". No-op when the email isn't stored yet (pre-fix sessions → they self-heal after one re-login).
+    async function reconcileIdentity() {
+      try {
+        const email = localStorage.getItem(EMS_EMAIL_KEY) || '';
+        if (!email) return;
+        const person = await resolveIdentity(email);
+        if (person && person !== (typeof getCurrentUser === 'function' ? getCurrentUser() : '')) {
+          localStorage.setItem(USER_KEY, person);
+          localStorage.setItem(ROLE_KEY, person === 'עידן' ? 'idan' : 'team');
+          if (typeof updateUserBadge === 'function') updateUserBadge();
+          if (typeof refreshData === 'function') refreshData();
+        }
+      } catch (e) { /* leave the cached name as-is */ }
+    }
     async function onAuthed(email) {
       const person = await resolveIdentity(email);
       const name = person || email;            // fall back to email if no profile match
       localStorage.setItem(USER_KEY, name);
       localStorage.setItem(ROLE_KEY, name === 'עידן' ? 'idan' : 'team');
+      localStorage.setItem(EMS_EMAIL_KEY, (email || '').toLowerCase().trim());   // enables reconcileIdentity on future refreshes
       localStorage.setItem(AUTH_KEY, 'ok');
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
