@@ -162,7 +162,7 @@
   }
   // Aviam's attendance report is private — only Aviam (and Idan, who sees all) may open it.
   const ATT_PEOPLE = ['אביאם', 'ניתאי'];   // each has their OWN private monthly attendance report
-  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1 || getCurrentUser() === 'עמיחי' || isViewer(); }   // עידן removed; עמיחי (CEO) sees all; viewer = reports-only access
+  function canSeeAttendance() { return ATT_PEOPLE.indexOf(getCurrentUser()) !== -1 || getCurrentUser() === 'עמיחי' || isIdan() || isViewer(); }   // עידן/עמיחי (CEO) see all via person-toggle; viewer = reports-only access
   // Whose attendance the report shows / a save writes: the field user themself; for עידן a toggle.
   function attPerson() { const u = getCurrentUser(); return ATT_PEOPLE.indexOf(u) !== -1 ? u : (window._attPerson || 'אביאם'); }
   function setAttPerson(p) { window._attPerson = p; renderAttendanceReport(); }
