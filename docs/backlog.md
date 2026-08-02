@@ -1,7 +1,22 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.58 on main** (2026-08-02)._
+
+## ✅ DONE — "המשימות שלי" per-אחראי view filter (shipped 1.58)
+The top-row אחראי picker now filters the displayed task list too (was report-buttons-only), and
+**defaults to the logged-in user** so everyone opens on their own tasks. Heading switches to
+"המשימות של &lt;name&gt;" for others. `test-mytasks-filter.mjs` → 14 green; full suite 16/16; verified live.
+
+## ✅ DONE — עידן can open others' נוכחות (shipped 1.57)
+`canSeeAttendance()` had עידן explicitly excluded; re-added via `isIdan()` so the pre-existing
+person-toggle works for him. One-line fix.
+
+## ⚠️ NEEDS RECONCILING — `feat/kibbutz-site-integrity`
+18 commits diverged from `main`, **conflicts on rebase** (index.html + sw.js generated files). 1.57 and
+1.58 both shipped by cherry-picking source-only edits into a clean worktree off `origin/main` instead.
+Decide: rebase-and-resolve, or re-apply its source edits onto main the same way. Its 7 site-* test
+suites live only on that branch (hence 16 suites on main vs 23 there).
 
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).

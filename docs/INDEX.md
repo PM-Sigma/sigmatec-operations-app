@@ -65,7 +65,25 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-07-16 (**1.54 RELEASED — main = dev**).
+## 🚦 Current state — last: 2026-08-02 (**1.58 on main**).
+
+**✅ 1.58 — "המשימות שלי": the top אחראי picker now filters the VIEW, not just the report buttons.**
+`renderMyTasks()` resolves a `who` from `#myTasksPerson` and filters all three task sources on it (EMS
+assignee, kibbutz-owner, status/expectedTask "- name" lines). The picker **auto-selects the logged-in
+user**, so everyone still lands on their own tasks by default; heading flips to "המשימות של &lt;name&gt;" for
+others. No new data exposure (the report buttons already covered any person). test-mytasks-filter.mjs
+→ 14 green; full suite 16/16; verified live in-browser (default, switch, empty state, clean console).
+
+**✅ 1.57 — עידן can open other people's נוכחות tab.** `canSeeAttendance()` had עידן explicitly removed;
+re-added via `isIdan()`, so the existing person-toggle in the attendance report works for him.
+
+**⚠️ Note for a fresh session:** this file still carries a **duplicate `🚦 Current state` heading**
+further down (leftover from an old parallel-session merge) and the blocks below are stale relative to
+main. Also `feat/kibbutz-site-integrity` is **18 commits diverged from main and conflicts on rebase** —
+1.57/1.58 were both shipped by cherry-picking source-only edits into a clean worktree off `origin/main`
+rather than untangling it. That branch still needs reconciling.
+
+## Previous: 1.54
 
 **✅ 1.54 — attendance missing days = RED ROWS + accumulating 🔔 (per עידן's screenshots feedback).**
 Missing weekdays render as red rows INSIDE the attendance table, each with a 🔔 (viewer+עידן); every

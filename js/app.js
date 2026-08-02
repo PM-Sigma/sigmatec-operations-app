@@ -6305,6 +6305,14 @@
     if (!box) return;
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     if (!me) { box.innerHTML = '<div style="color:#94a3b8;font-style:italic;">לא מזוהה משתמש מחובר.</div>'; return; }
+    // The top-row אחראי picker doubles as the view filter; it defaults to the logged-in user, so
+    // everyone lands on their OWN tasks. If me isn't one of the options the assignment no-ops and
+    // who falls back to me — same behaviour as before.
+    const pSel = document.getElementById('myTasksPerson');
+    if (pSel && !pSel.value) pSel.value = me;
+    const who = (pSel && pSel.value) || me;
+    const title = document.getElementById('myTasksTitle');
+    if (title) title.textContent = (who === me) ? '✅ המשימות שלי' : '✅ המשימות של ' + who;
     const sheetTasks = (window.SHEET_DATA && window.SHEET_DATA.tasks) || [];
     const taskByKib = {}; sheetTasks.forEach(t => { if (t.name) taskByKib[t.name] = t; });
     const siteToKib = {};
@@ -6315,18 +6323,18 @@
     ((typeof emsCacheData === 'function' ? emsCacheData().tasks : []) || []).forEach(t => {
       if (EMS_CLOSED.indexOf(t.status) !== -1) return;
       const kib = (t.site && siteToKib[t.site.id]) || (t.site && t.site.name) || '—';
-      const assignedToMe = t.assignee && emsUserName(t.assignee).indexOf(me) !== -1;
+      const assignedToMe = t.assignee && emsUserName(t.assignee).indexOf(who) !== -1;
       const sheetT = taskByKib[kib];
-      if (assignedToMe || (sheetT && isOwnerOf(sheetT, me))) g(kib).ems.push(t);
+      if (assignedToMe || (sheetT && isOwnerOf(sheetT, who))) g(kib).ems.push(t);
     });
     // 2) status / expectedTask lines ending with "- me"
     sheetTasks.forEach(t => {
-      const lines = linesForPerson(t.status, me).concat(linesForPerson(t.expectedTask, me));
+      const lines = linesForPerson(t.status, who).concat(linesForPerson(t.expectedTask, who));
       const seen = {};
       lines.forEach(l => { if (!seen[l]) { seen[l] = 1; g(t.name).lines.push(l); } });
     });
     const kibs = Object.keys(groups).filter(k => groups[k].ems.length || groups[k].lines.length).sort((a, b) => a.localeCompare(b, 'he'));
-    if (!kibs.length) { box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">אין משימות פתוחות עבורך 🎉</div>'; return; }
+    if (!kibs.length) { box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">' + ((who === me) ? 'אין משימות פתוחות עבורך 🎉' : 'אין משימות פתוחות עבור ' + emsEsc(who) + ' 🎉') + '</div>'; return; }
     let html = '';
     kibs.forEach(k => {
       const grp = groups[k], kEsc = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");

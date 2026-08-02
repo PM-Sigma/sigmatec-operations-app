@@ -7,6 +7,21 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.58] 2026-08-02 — ✅ "המשימות שלי": the אחראי picker now filters the VIEW, defaulting to yourself
+The top-row אחראי picker in המשימות שלי used to only feed the report buttons — the task list below it
+always showed the logged-in user's own tasks, so there was no way to look at someone else's workload
+in the UI. The picker now drives the list too: `renderMyTasks()` resolves a `who` from the picker and
+filters all three sources on it (EMS assignee, kibbutz-owner, and the status/expectedTask "- name"
+lines). **Default: the picker auto-selects the logged-in user**, so everyone still lands on their own
+tasks; the heading switches to "המשימות של &lt;name&gt;" when viewing someone else. The placeholder option
+was relabelled `-- המשימות שלי --` (it resolves to self), and the label now says it filters the view.
+No new data exposure — the report buttons already produced any person's task list for every user.
+Graceful: a user who isn't one of the options (e.g. viewer) falls back to their own tasks.
+`test-mytasks-filter.mjs` → 14 green (default-per-person sweep, explicit pick wins, placeholder
+resets to self, unknown-user fallback, no-picker fallback, + regression guards that the three filters
+key off `who` and not `me`). Full suite 16/16 green. Verified live in the browser: אביאם defaults to
+אביאם/יגור, switching to ניתאי re-renders to דגניה+שדה אליהו, אליה shows the empty state, console clean.
+
 ## [1.54] 2026-07-16 — 🔴 attendance missing days as red table rows + accumulating 🔔
 Per עידן (live screenshots): the top chip block was replaced — missing weekdays now render as **red
 rows inside the attendance table** (❌ חסרה נוכחות), each with a **🔔 per row** (viewer+עידן). Every
