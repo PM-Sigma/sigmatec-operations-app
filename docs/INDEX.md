@@ -65,7 +65,16 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-08-02 (**1.58 on main**).
+## 🚦 Current state — last: 2026-08-02 (**1.59 on main**).
+
+**✏️ 1.59 — attendance reports are editable.** A worker could not fix a submitted attendance day at all
+(every save was an INSERT; the table was read-only; re-entering left the mis-dated row beside the new
+one). The write router already upserted `attendance` on `id`, so this was pure client plumbing: carry the
+row id through `renderAttendanceReport()` + `mergeAttendanceByDate()` → ✏️ per non-field row → small modal
+(date / day type / "אחר" note) → save WITH the id = UPDATE. Own entries; עידן+עמיחי fix anyone's; viewer
+none. Edit-only, no delete. 28 checks + 17/17 suite, verified live (no duplicate row created).
+Spec: superpowers/specs/2026-08-02-attendance-edit-design.md.
+**Known gap:** no month-lock — a month already sent to accounting can still be edited.
 
 **✅ 1.58 — "המשימות שלי": the top אחראי picker now filters the VIEW, not just the report buttons.**
 `renderMyTasks()` resolves a `who` from `#myTasksPerson` and filters all three task sources on it (EMS

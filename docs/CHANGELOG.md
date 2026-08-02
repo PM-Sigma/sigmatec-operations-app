@@ -7,6 +7,35 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.59] 2026-08-02 — ✏️ workers can now FIX an attendance report they already submitted
+**Asked: "can a worker update the date of an attendance entry?" Answer was no — not the date, not the
+type, not the note.** `saveAttendance()` always POSTed without an `id`, so every save was an INSERT, and
+the monthly table rendered read-only rows (only the `+` detail toggle). Worse, re-entering the day did
+**not** fix a wrong date: `mergeAttendanceByDate()` groups by calendar date, so the mis-dated row
+survived *next to* the corrected one and both showed up in the report and the PDF. The only remedy was
+editing the Supabase row by hand.
+
+**No backend work was needed** — the write router (`01-data.js`) already upserts `attendance` on `id`, so
+POSTing the usual body *with* an id PATCHes that row (same create-or-edit pattern `writeVisit()` uses).
+The gap was purely client plumbing: the row `id` was being dropped in `renderAttendanceReport()`'s
+mapping and again in `mergeAttendanceByDate()`. Both now carry it, which lights up an **✏️ on each
+non-field row** (placed inside the existing last cell, so the detail row's `colspan=5` stays valid).
+✏️ opens a small dedicated modal — date + day type + the "אחר" note — and saves with the id.
+
+**Permissions (per עידן):** each person edits **their own** entries; **עידן + עמיחי may fix anyone's**;
+viewer none (and every write is already hard-blocked for viewers at the single choke point). **Edit-only,
+no delete** — a wrong date is fixed by changing the date. `person` is always resent unchanged, so an edit
+can never reassign whose day it is; the date is noon-anchored so a timezone offset can't roll the day back.
+**יום שטח is deliberately not offered** — a field day is a VISIT, edited through the visit form.
+
+`test-attendance-edit.mjs` → 28 green (full permission matrix incl. viewer-beats-admin, local-date
+formatter vs the toISOString day-shift bug, payload carries id + preserves person, note dropped when
+leaving "אחר", id-threading regression guards, field rows carry no id, column/colspan contract). Full
+suite 17/17. Verified live: mis-dated חופש moved 07.08→09.08, **row count stayed 3 — no duplicate**;
+עידן/עמיחי see ✏️ on ניתאי's rows, מתניה and viewer see none; forcing `openAttEdit()` from the console as
+a viewer/other-person is refused; console clean.
+Spec: `docs/superpowers/specs/2026-08-02-attendance-edit-design.md`.
+
 ## [1.58] 2026-08-02 — ✅ "המשימות שלי": the אחראי picker now filters the VIEW, defaulting to yourself
 The top-row אחראי picker in המשימות שלי used to only feed the report buttons — the task list below it
 always showed the logged-in user's own tasks, so there was no way to look at someone else's workload

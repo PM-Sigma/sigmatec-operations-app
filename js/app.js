@@ -1622,7 +1622,7 @@
     // Non-field days from ATTENDANCE tab (carry the "אחר" note)
     const attRows = ((window.SHEET_DATA && window.SHEET_DATA.attendance) || [])
       .filter(a => a.person === who)
-      .map(a => ({ date: new Date(a.date), type: a.dayType, kibbutz: '', duration: 0, note: a.note || '' }))
+      .map(a => ({ id: a.id, date: new Date(a.date), type: a.dayType, kibbutz: '', duration: 0, note: a.note || '' }))   // id kept → the row can be edited (openAttEdit)
       .filter(a => a.date.getFullYear() === year && a.date.getMonth() === month);
 
     // Field days from VISITS (carry the summary so it can be expanded under the row)
@@ -1701,12 +1701,17 @@
       const expandCell = hasDetail
         ? `<button onclick="toggleAttDetail(${i})" id="attToggle-${i}" style="background:#eef2ff;color:#3730a3;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">+</button>`
         : '';
+      // ✏️ on non-field rows only (they carry the attendance id). Goes INSIDE the existing last cell,
+      // not a new column, so the detail row's colspan=5 stays correct.
+      const editCell = (r.id && canEditAttendanceOf(who))
+        ? `<button onclick="openAttEdit('${String(r.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" title="עריכת הדיווח" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`
+        : '';
       const mainRow = `<tr>
         <td>${dateStr}</td>
         <td><span class="att-badge" style="background:${bg};color:${color};">${ATT_LABELS[r.type]}</span></td>
         <td>${kib}</td>
         <td style="text-align:center;">${dur}</td>
-        <td style="text-align:center;">${expandCell}</td>
+        <td style="text-align:center;white-space:nowrap;">${expandCell}${editCell}</td>
       </tr>`;
       let detailHtml = '';
       if (r.type === 'field' && fieldDetail.length) {
@@ -1752,8 +1757,10 @@
           note: ''
         };
       }
+      // id carried so the row gets an ✏️ (field rows above deliberately have none — they're VISITS,
+      // edited through the visit form). Only others[0] is shown/editable, as before.
       const o = d.others[0];
-      return { date: d.date, type: o.type, kibbutz: '', duration: 0, visits: [], note: o.note || '' };
+      return { date: d.date, type: o.type, kibbutz: '', duration: 0, visits: [], note: o.note || '', id: o.id };
     }).sort((a, b) => a.date - b.date);
   }
 
@@ -1765,6 +1772,94 @@
     const open = row.style.display !== 'none';
     row.style.display = open ? 'none' : '';
     if (btn) btn.textContent = open ? '+' : '−';
+  }
+
+  // ===== Edit an existing attendance report (עריכת דיווח נוכחות) =====
+  // No backend work needed: the write router (01-data.js) upserts `attendance` on `id`, so POSTing the
+  // usual attendance body WITH an id PATCHes that row instead of inserting a new one. Before this, a
+  // mis-dated day could not be fixed at all — re-entering it just left the wrong row alongside the right
+  // one (mergeAttendanceByDate groups by date). Spec: docs/superpowers/specs/2026-08-02-attendance-edit-design.md
+  // 'field' is deliberately absent: a field day is a VISIT, not an attendance row (edit it in the visit form).
+  const ATT_EDIT_TYPES = ['office', 'wfh', 'reserve', 'vacation', 'off', 'other'];
+
+  // Each person edits their OWN entries; עידן/עמיחי may fix anyone's. Viewer never (also hard-blocked
+  // at the write choke point in 01-data.js — this just hides the button).
+  function canEditAttendanceOf(person) {
+    if (typeof isViewer === 'function' && isViewer()) return false;
+    const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    if (!me || !person) return false;
+    return me === person || (typeof isIdan === 'function' && isIdan()) || me === 'עמיחי';
+  }
+
+  // yyyy-mm-dd from LOCAL date parts — toISOString() would shift the day across a timezone offset.
+  function attYmd(d) {
+    const x = new Date(d); if (isNaN(x.getTime())) return '';
+    const p = n => String(n).padStart(2, '0');
+    return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
+  }
+
+  window._attEdit = null;   // { id, person, type } while the modal is open
+
+  function openAttEdit(id) {
+    const e = ((window.SHEET_DATA && window.SHEET_DATA.attendance) || []).find(a => String(a.id) === String(id));
+    if (!e) { alert('הדיווח לא נמצא — רענן את הדף ונסה שוב'); return; }
+    if (!canEditAttendanceOf(e.person)) { alert('אין לך הרשאה לערוך את הדיווח של ' + e.person); return; }
+    window._attEdit = { id: String(e.id), person: e.person, type: '' };
+    document.getElementById('attEditDate').value = attYmd(e.date);
+    document.getElementById('attEditNote').value = e.note || '';
+    const whoEl = document.getElementById('attEditWho');
+    if (whoEl) whoEl.textContent = '👤 ' + e.person;
+    attEditSetType(ATT_EDIT_TYPES.indexOf(e.dayType) !== -1 ? e.dayType : 'other');
+    document.getElementById('attEditModal').classList.add('open');
+  }
+
+  function attEditSetType(type) {
+    if (!window._attEdit) return;
+    window._attEdit.type = type;
+    document.querySelectorAll('#attEditTypes .day-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+    const w = document.getElementById('attEditOtherWrap');
+    if (w) w.style.display = (type === 'other') ? '' : 'none';
+  }
+
+  function closeAttEdit() {
+    window._attEdit = null;
+    document.getElementById('attEditModal').classList.remove('open');
+  }
+
+  function attToast(msg, ms) {
+    const t = document.getElementById('toast'); if (!t) return;
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), ms || 2500);
+  }
+
+  function saveAttEdit(btn) {
+    const st = window._attEdit; if (!st) return;
+    const dateVal = document.getElementById('attEditDate').value;
+    if (!dateVal) { alert('נא לבחור תאריך'); return; }
+    const dayType = st.type;
+    if (ATT_EDIT_TYPES.indexOf(dayType) === -1) { alert('נא לבחור סוג יום'); return; }
+    const note = (dayType === 'other') ? (document.getElementById('attEditNote').value || '').trim() : '';
+    if (dayType === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
+    setBtnLoading(btn, true);
+    const isoDate = new Date(dateVal + 'T12:00:00').toISOString();   // noon anchor: a TZ offset can't roll the day back
+    fetch(SHEET_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      // id → UPDATE (upsert-by-id). person is the ORIGINAL owner: an edit must never reassign whose day
+      // this is, and the upsert writes the full row, so omitting it would blank the column.
+      body: JSON.stringify({ type: 'attendance', id: st.id, person: st.person, dayType, note, date: isoDate })
+    }).then(r => r.json()).then(res => {
+      if (res && res.ok) {
+        const row = ((window.SHEET_DATA && window.SHEET_DATA.attendance) || []).find(a => String(a.id) === st.id);
+        if (row) { row.date = isoDate; row.dayType = dayType; row.note = note; }   // patch in place, don't push a duplicate
+        attToast('✅ הדיווח עודכן — ' + ATT_LABELS[dayType]);
+        closeAttEdit();
+        renderAttendanceReport();
+      } else {
+        attToast('⚠️ ' + ((res && res.error) || 'העדכון נכשל'), 3000);
+      }
+    }).catch(() => attToast('⚠️ שגיאה בעדכון', 3000))
+      .finally(() => setBtnLoading(btn, false));
   }
 
   // Export the current month's attendance to a printable PDF (browser "Save as PDF")

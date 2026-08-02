@@ -1,7 +1,17 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.58 on main** (2026-08-02)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.59 on main** (2026-08-02)._
+
+## ✅ DONE — editable attendance reports (shipped 1.59)
+Spec: [docs/superpowers/specs/2026-08-02-attendance-edit-design.md](superpowers/specs/2026-08-02-attendance-edit-design.md) (SHIPPED).
+Workers could not fix a submitted attendance report at all (no edit path; re-entering left the mis-dated
+row alongside the new one). ✏️ per non-field row → edit date / day type / "אחר" note; saves with the row
+`id` so the router UPDATEs instead of inserting. Own entries only; עידן+עמיחי may fix anyone's; viewer none.
+**Edit-only, no delete** (a wrong date is fixed by editing the date). 28 checks + full suite 17/17, verified live.
+**Open follow-ups:** no month-lock, so a month already reported to accounting can still be edited — worth
+a lock or an edit log once a month-close concept exists. No attendance↔field conversion (mis-logging a
+field day as משרד still needs a visit created).
 
 ## ✅ DONE — "המשימות שלי" per-אחראי view filter (shipped 1.58)
 The top-row אחראי picker now filters the displayed task list too (was report-buttons-only), and

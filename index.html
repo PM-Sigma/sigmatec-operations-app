@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=msbni25a">
+<link rel="stylesheet" href="css/app.css?v=msbpu863">
 </head>
 <body>
 <div class="container">
@@ -119,6 +119,40 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="document.getElementById('visitQuickModal').classList.remove('open')">ביטול</button>
         <button class="btn btn-primary" onclick="visitQuickGo()">המשך →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit an already-reported attendance day (✏️ on a row in the נוכחות report). Own entries;
+       עידן/עמיחי may fix anyone's. 'יום שטח' is absent on purpose — a field day is a VISIT. -->
+  <div class="modal-backdrop" id="attEditModal" style="z-index:1100;">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:430px;">
+      <h3>✏️ עריכת דיווח נוכחות</h3>
+      <div class="modal-sub">שנה תאריך או סוג יום ושמור. הדיווח המקורי יתעדכן — לא ייווצר דיווח נוסף.</div>
+      <div id="attEditWho" style="margin-top:10px;padding:6px 10px;background:#f0f9ff;border-right:3px solid #2563eb;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;"></div>
+
+      <label for="attEditDate" style="margin-top:12px;">📅 תאריך:</label>
+      <input type="date" id="attEditDate" style="font-size:16px;">
+
+      <div style="margin:12px 0 4px;">
+        <div style="font-size:12px;font-weight:700;color:#1b2a4a;margin-bottom:8px;">📅 סוג יום:</div>
+        <div id="attEditTypes" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="day-type-btn" data-type="office"   onclick="attEditSetType('office')">🏢 משרד</button>
+          <button class="day-type-btn" data-type="wfh"      onclick="attEditSetType('wfh')">🏠 מהבית</button>
+          <button class="day-type-btn" data-type="reserve"  onclick="attEditSetType('reserve')">🪖 מילואים</button>
+          <button class="day-type-btn" data-type="vacation" onclick="attEditSetType('vacation')">🌴 חופש</button>
+          <button class="day-type-btn" data-type="off"      onclick="attEditSetType('off')">🚫 לא בעבודה</button>
+          <button class="day-type-btn" data-type="other"    onclick="attEditSetType('other')">➕ אחר</button>
+        </div>
+      </div>
+      <div id="attEditOtherWrap" style="display:none;margin-top:8px;">
+        <label for="attEditNote">➕ פירוט (אחר):</label>
+        <input type="text" id="attEditNote" placeholder="למשל: יום עיון, כנס, חופשת מחלה...">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeAttEdit()">ביטול</button>
+        <button class="btn btn-primary" onclick="saveAttEdit(this)">💾 שמור שינויים</button>
       </div>
     </div>
   </div>
@@ -375,7 +409,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-08-02·1.58</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-08-02·1.59</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1412,7 +1446,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=msbni25a"></script>
+<script src="js/app.js?v=msbpu863"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
