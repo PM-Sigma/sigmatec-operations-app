@@ -136,12 +136,22 @@ check('renderAttendanceReport keeps the attendance row id', () => {
 check('mergeAttendanceByDate carries the id on the NON-field branch', () => {
   assert.ok(/note: o\.note \|\| '', id: o\.id \}/.test(src), 'merged non-field row must keep o.id');
 });
-check('the FIELD branch carries NO id (a field day is a VISIT, not an attendance row)', () => {
+check('the FIELD branch carries NO attendance id (a field day is a VISIT, not an attendance row)', () => {
   const fieldBranch = src.slice(src.indexOf('if (d.fields.length)'), src.indexOf('const o = d.others[0]'));
-  assert.ok(!/\bid:/.test(fieldBranch), 'field rows must not expose an attendance id: ' + fieldBranch.slice(0, 200));
+  // `visitId:` on the nested visits IS expected (it drives the visit editor); a bare `id:` is not,
+  // because that would send a field day to the ATTENDANCE editor.
+  assert.ok(!/(^|[^t])\bid:/m.test(fieldBranch.replace(/visitId:/g, 'VID:')),
+    'field rows must not expose an attendance id: ' + fieldBranch.slice(0, 200));
+  assert.ok(/visitId: f\.id \|\| ''/.test(fieldBranch), 'each field visit must carry its visitId for the visit editor');
 });
-check('the ✏️ renders only when the row has an id AND the user may edit that person', () => {
-  assert.ok(/r\.id && canEditAttendanceOf\(who\)/.test(src), 'edit button must be gated on both');
+check('the ✏️ renders only when the user may edit that person AND the row is actually editable', () => {
+  assert.ok(/const canEd = canEditAttendanceOf\(who\)/.test(src), 'editability must come from canEditAttendanceOf(who)');
+  assert.ok(/if \(canEd && r\.id\)/.test(src), 'attendance-row ✏️ must require canEd AND an attendance id');
+  assert.ok(/else if \(canEd && editableVisits\.length\)/.test(src), 'field-row ✏️ must require canEd AND an editable visit');
+  // no ✏️ may be emitted outside a canEd branch
+  const editAssign = src.slice(src.indexOf('let editCell'), src.indexOf('const mainRow'));
+  assert.ok(!/openAttEdit|openVisitFromAttendance/.test(editAssign.split('if (canEd')[0]),
+    'nothing may render an editor link before the permission check');
 });
 check("the ✏️ sits INSIDE the existing last cell, so the detail row's colspan=5 stays valid", () => {
   assert.ok(/\$\{expandCell\}\$\{editCell\}<\/td>/.test(src), 'edit button must share the expand cell, not add a column');

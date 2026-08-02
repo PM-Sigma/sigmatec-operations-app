@@ -85,7 +85,8 @@
     // Field days from VISITS (carry the summary so it can be expanded under the row)
     const fieldRows = ((window.SHEET_DATA && window.SHEET_DATA.visits) || [])
       .filter(v => v.visitor === who)
-      .map(v => ({ date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0, summary: v.summary || '', id: v.id || '', workday: !!v.workday }))
+      // contact/products carried so the monthly PDF can stand in for the retired visits report
+      .map(v => ({ date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0, summary: v.summary || '', id: v.id || '', workday: !!v.workday, contact: v.contact || '', products: v.products || [], productsOther: v.productsOther || '' }))
       .filter(v => v.date.getFullYear() === year && v.date.getMonth() === month);
 
     // Merge by calendar date — same day with 2 kibbutzim → ONE row (like the visits report).
@@ -152,17 +153,30 @@
       } else {
         dur = r.duration > 0 ? r.duration + "ש'" : '—';
       }
-      // expandable when a field day has visit summaries, or an "אחר" day has a note
+      const canEd = canEditAttendanceOf(who);
+      // A field day is made of VISITS — each editable one carries a visitId.
+      const editableVisits = (r.visits || []).filter(v => v.visitId);
+      // expandable when a field day has visit summaries or needs a visit PICKER (2 kibbutzim in one
+      // day → the ✏️ can't know which visit you meant), or an "אחר" day has a note
       const fieldDetail = (r.visits || []).filter(v => v.summary);
-      const hasDetail = (r.type === 'field' && fieldDetail.length) || (r.type === 'other' && r.note);
+      const hasDetail = (r.type === 'field' && (fieldDetail.length || (canEd && editableVisits.length > 1)))
+        || (r.type === 'other' && r.note);
       const expandCell = hasDetail
         ? `<button onclick="toggleAttDetail(${i})" id="attToggle-${i}" style="background:#eef2ff;color:#3730a3;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">+</button>`
         : '';
-      // ✏️ on non-field rows only (they carry the attendance id). Goes INSIDE the existing last cell,
-      // not a new column, so the detail row's colspan=5 stays correct.
-      const editCell = (r.id && canEditAttendanceOf(who))
-        ? `<button onclick="openAttEdit('${String(r.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" title="עריכת הדיווח" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`
-        : '';
+      // ✏️ goes INSIDE the existing last cell, not a new column, so the detail row's colspan=5 stays
+      // correct. Two kinds of row, two editors:
+      //   • attendance row (r.id)  → the attendance editor (date / day type / "אחר" note)
+      //   • field day (visits)     → the VISIT editor; one visit opens straight, several expand to pick
+      let editCell = '';
+      if (canEd && r.id) {
+        editCell = `<button onclick="openAttEdit('${attJsStr(r.id)}')" title="עריכת הדיווח" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`;
+      } else if (canEd && editableVisits.length) {
+        const single = editableVisits.length === 1;
+        const act = single ? `openVisitFromAttendance('${attJsStr(editableVisits[0].visitId)}')` : `toggleAttDetail(${i})`;
+        const tip = single ? 'עריכת דוח הביקור (תאריך, סיכום, מוצרים)' : 'יש כמה ביקורים ביום הזה — פתח ובחר איזה לערוך';
+        editCell = `<button onclick="${act}" title="${tip}" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`;
+      }
       const mainRow = `<tr>
         <td>${dateStr}</td>
         <td><span class="att-badge" style="background:${bg};color:${color};">${ATT_LABELS[r.type]}</span></td>
@@ -171,10 +185,14 @@
         <td style="text-align:center;white-space:nowrap;">${expandCell}${editCell}</td>
       </tr>`;
       let detailHtml = '';
-      if (r.type === 'field' && fieldDetail.length) {
-        detailHtml = (r.visits || []).map(v =>
-          `<div style="margin-bottom:6px;"><strong>🏘 ${(v.kibbutz||'—')}${v.workday ? ' (יום עבודה)' : (v.duration ? ' ('+v.duration+'ש\')' : '')}:</strong> ${(v.summary||'').replace(/</g,'&lt;') || '<span style="color:#94a3b8;">ללא סיכום</span>'}</div>`
-        ).join('');
+      if (r.type === 'field' && hasDetail) {
+        detailHtml = (r.visits || []).map(v => {
+          // per-visit ✏️ — this is how a day with 2 kibbutzim picks WHICH visit to edit
+          const vEdit = (canEd && v.visitId)
+            ? ` <button onclick="openVisitFromAttendance('${attJsStr(v.visitId)}')" title="עריכת דוח הביקור הזה" style="background:#fef3c7;color:#92400e;border:none;border-radius:5px;padding:1px 6px;cursor:pointer;font-size:11px;font-family:inherit;">✏️ ערוך</button>`
+            : '';
+          return `<div style="margin-bottom:6px;"><strong>🏘 ${(v.kibbutz||'—')}${v.workday ? ' (יום עבודה)' : (v.duration ? ' ('+v.duration+'ש\')' : '')}:</strong> ${(v.summary||'').replace(/</g,'&lt;') || '<span style="color:#94a3b8;">ללא סיכום</span>'}${vEdit}</div>`;
+        }).join('');
       } else if (r.type === 'other' && r.note) {
         detailHtml = `<strong>➕ פירוט:</strong> ${r.note.replace(/</g,'&lt;')}`;
       }
@@ -210,7 +228,11 @@
           workdays: workdays,
           hourHours: hourHours,
           duration: hourHours + workdays * WORKDAY_HOURS,   // ≈ total hours (work day ≈ 8h)
-          visits: d.fields.map(f => ({ kibbutz: f.kibbutz, summary: f.summary, duration: f.duration, workday: f.workday })),
+          // visitId carried so a field day can be opened for editing from נוכחות (openVisitFromAttendance).
+          // NOTE: the row itself still gets NO `id` — that field means "an attendance-table row" and drives
+          // the attendance editor. A field day is a VISIT and takes the visit editor instead.
+          visits: d.fields.map(f => ({ kibbutz: f.kibbutz, summary: f.summary, duration: f.duration, workday: f.workday, visitId: f.id || '',
+                                       contact: f.contact || '', products: f.products || [], productsOther: f.productsOther || '' })),
           note: ''
         };
       }
@@ -246,6 +268,27 @@
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     if (!me || !person) return false;
     return me === person || (typeof isIdan === 'function' && isIdan()) || me === 'עמיחי';
+  }
+
+  // escape an id for embedding inside a single-quoted inline onclick
+  function attJsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+  // ---- Open a field day's VISIT report for editing, straight from the נוכחות page ----
+  // נוכחות is the hub: a field row is derived from a visit, so fixing the visit (usually its date)
+  // is what corrects the attendance report. editVisit() reads window.currentKibbutzVisits, which is
+  // only populated for the OPEN kibbutz card — so we resolve the visit globally, open its kibbutz
+  // card (that fills currentKibbutzVisits via renderLastVisit), then hand over to the normal editor.
+  function openVisitFromAttendance(visitId) {
+    const all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : ((window.SHEET_DATA || {}).visits || []);
+    const v = all.find(x => String(x.id) === String(visitId));
+    if (!v) { alert('דוח הביקור לא נמצא — רענן את הדף ונסה שוב'); return; }
+    if (!canEditAttendanceOf(v.visitor)) { alert('אין לך הרשאה לערוך את הביקור של ' + (v.visitor || '—')); return; }
+    const card = document.querySelector('.kibbutz[data-name="' + String(v.kibbutz || '').replace(/"/g, '\\"') + '"]');
+    if (!card) { alert('הקיבוץ "' + (v.kibbutz || '—') + '" לא נמצא בכרטיסים — לא ניתן לפתוח את הביקור מכאן'); return; }
+    if (typeof openEditModal !== 'function' || typeof editVisit !== 'function') { alert('טופס הביקור לא זמין'); return; }
+    openEditModal(card);                 // fills currentKibbutzVisits + clears the (now default-less) date
+    if (typeof switchTab === 'function') switchTab('visit');
+    editVisit(String(visitId));           // prefills the form with THIS visit, incl. its real date
   }
 
   // yyyy-mm-dd from LOCAL date parts — toISOString() would shift the day across a timezone offset.
@@ -336,7 +379,18 @@
       // Field day: per-visit detail (kibbutz + hours + summary). "אחר" day: the note.
       let detail = '';
       if (r.type === 'field' && (r.visits || []).length) {
-        detail = r.visits.map(v => `<div><strong>${(v.kibbutz||'—')}${v.duration ? ' ('+v.duration+"ש')" : ''}:</strong> ${(v.summary||'').replace(/</g,'&lt;')}</div>`).join('');
+        // Full visit detail — this is what makes the נוכחות PDF a replacement for the old
+        // standalone דוח ביקורים: kibbutz, hours, contact, products and the summary.
+        detail = r.visits.map(v => {
+          const esc = s => String(s == null ? '' : s).replace(/</g, '&lt;');
+          const hrs = v.workday ? 'יום עבודה' : (v.duration ? v.duration + "ש'" : '');
+          const prods = (v.products || []).map(p => (typeof p === 'string' ? p : (p.qty > 1 ? p.name + ' ×' + p.qty : p.name))).join(', ');
+          const extra = [prods, v.productsOther].filter(Boolean).join(' · ');
+          let s = `<div style="margin-bottom:4px;"><strong>${esc(v.kibbutz) || '—'}${hrs ? ' (' + hrs + ')' : ''}:</strong> ${esc(v.summary)}`;
+          if (v.contact) s += `<div style="color:#475569;font-size:12px;">🤝 ${esc(v.contact)}</div>`;
+          if (extra)     s += `<div style="color:#475569;font-size:12px;">📦 ${esc(extra)}</div>`;
+          return s + '</div>';
+        }).join('');
       } else if (r.type === 'other' && r.note) {
         detail = r.note.replace(/</g,'&lt;');
       }
@@ -350,9 +404,13 @@
     const hoursSegs = [];
     if (totalWorkdays) hoursSegs.push(`${totalWorkdays} ימי עבודה`);
     if (totalLooseHours) hoursSegs.push(`${totalLooseHours}ש'`);
+    // Visit totals — carried over from the retired דוח ביקורים so the numbers it gave still exist.
+    const allVisits = rows.reduce((a, r) => a.concat(r.visits || []), []);
+    const visitKibs = [...new Set(allVisits.map(v => v.kibbutz).filter(Boolean))];
     const chips = Object.keys(ATT_LABELS).filter(k => counts[k])
       .map(k => `${ATT_LABELS[k]}: ${counts[k]}`).join(' · ') +
-      (hoursSegs.length ? ` · ⏱️ ${hoursSegs.join(' + ')} (≈${approxTotal}ש')` : '');
+      (hoursSegs.length ? ` · ⏱️ ${hoursSegs.join(' + ')} (≈${approxTotal}ש')` : '') +
+      (allVisits.length ? ` · 📍 ${allVisits.length} ביקורים ב-${visitKibs.length} קיבוצים` : '');
     const w = window.open('', '_blank');
     w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
       <title>נוכחות ${attPerson()} — ${monthLabel}</title>

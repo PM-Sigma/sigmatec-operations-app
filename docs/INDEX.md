@@ -65,7 +65,24 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-08-02 (**1.59 on main**).
+## 🚦 Current state — last: 2026-08-02 (**1.60 on main**).
+
+**🎯 1.60 — עמוד נוכחות is the operations hub.** Field days (יום שטח) are now editable there too, via
+the visit editor (`openVisitFromAttendance` — global lookup, because `editVisit` only sees the open
+kibbutz card); fixing the visit fixes the attendance report, since it's the same record. A visit now
+**remembers its EMS task** (`visits.ems_task_id`, **migration applied to prod**, partial-safe write), and
+editing a linked visit posts an EMS **comment** naming the change ("תאריך הביקור תוקן: X → Y") — comment
+only, never a status/due-date PATCH, and skipped when the form already has an EMS intent so the task is
+never double-commented. **דוח ביקורי שטח is deleted**: visits are contained in attendance, so the monthly
+נוכחות PDF is the single report (now with contact/products/visit totals). Its three neighbours — 🚚 cert
+picker, issued-certs report, visits Excel — were NOT deleted; they moved to a button on the נוכחות header.
+The visit form no longer pre-fills today and refuses an empty date (the silent `new Date()` fallback was
+the real cause of mis-dated visits). 33 checks + 18/18 suite, verified live.
+Spec: superpowers/specs/2026-08-02-attendance-hub-design.md.
+**Known gaps:** no month-lock (a month already sent to accounting is still editable); no
+attendance↔field conversion; the quick-FAB still defaults its wizard date to today (deliberate).
+
+## Previous: 1.59
 
 **✏️ 1.59 — attendance reports are editable.** A worker could not fix a submitted attendance day at all
 (every save was an INSERT; the table was read-only; re-entering left the mis-dated row beside the new

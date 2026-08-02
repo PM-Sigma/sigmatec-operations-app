@@ -1,7 +1,18 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.59 on main** (2026-08-02)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.60 on main** (2026-08-02)._
+
+## ✅ DONE — נוכחות is the operations hub (shipped 1.60)
+Spec: [docs/superpowers/specs/2026-08-02-attendance-hub-design.md](superpowers/specs/2026-08-02-attendance-hub-design.md) (SHIPPED).
+Field days editable from נוכחות via the visit editor (one visit opens directly, a 2-kibbutz day expands
+to pick) · `visits.ems_task_id` added (**migration applied to prod**) so a visit remembers its EMS task ·
+editing a linked visit posts an EMS **comment** naming the change (never a status/due-date PATCH) ·
+דוח ביקורי שטח deleted, its content folded into the monthly נוכחות PDF (contact/products/visit totals),
+while the cert picker + certs report + visits Excel moved to a button on the נוכחות header · the visit
+form no longer defaults to today and refuses an empty date. 33 checks + full suite 18/18, verified live.
+**Open:** no month-lock (a month already sent to accounting is still editable); no attendance↔field
+conversion; the quick-FAB still defaults its wizard date to today (deliberate — it's an explicit step).
 
 ## ✅ DONE — editable attendance reports (shipped 1.59)
 Spec: [docs/superpowers/specs/2026-08-02-attendance-edit-design.md](superpowers/specs/2026-08-02-attendance-edit-design.md) (SHIPPED).

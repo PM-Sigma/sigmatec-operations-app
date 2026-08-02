@@ -489,7 +489,7 @@
         tasks: tasks.map(t => ({ row: t.seq, code: t.code == null ? null : numish(t.code), region: t.region || '', migrated: t.migrated || '', name: t.name || '', status: t.status || '', expectedTask: t.expected_task || '', owners: String(t.owners || '').split(/[,\n\/]/).map(s => s.trim()).filter(Boolean), task: t.task || '', lastCheckup: t.last_checkup || '', editor: t.editor || '', lastModified: t.last_modified ? String(t.last_modified) : '' })),
         potentials: potentials.map(p => ({ serial: (p.serial === '' || p.serial == null) ? '' : numish(p.serial), region: p.region || '', name: p.name || '' })),
         regions: regionsObj,
-        visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday })),
+        visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday, emsTaskId: v.ems_task_id || '' })),
         products: products.map(p => ({ id: String(p.id), name: p.name || '', category: p.category || '', active: !!p.active, createdAt: p.created_at ? String(p.created_at) : '', createdBy: p.created_by || '' })),
         orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, orderType: o.order_type || '', kibbutz: o.kibbutz || '', assignee: o.assignee || '', lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
         movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
@@ -515,6 +515,10 @@
       const id = b.id || genId('v');
       const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', workday: !!b.workday };
       if (!b.id || b.isNew) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now). New visits now carry a pre-minted id, so isNew distinguishes create from edit.
+      // EMS link: only written when the caller actually sends one. An edit that touches no EMS task
+      // omits the key entirely, so the upsert-merge keeps whatever task the visit was already tied to
+      // instead of blanking it (same partial-safe reasoning as created_at above).
+      if (b.emsTaskId !== undefined) row.ems_task_id = b.emsTaskId || '';
       await sbUpsert('visits', 'id', row);
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
         const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: it.toStock ? 'restocked' : 'open' }));
@@ -1628,7 +1632,8 @@
     // Field days from VISITS (carry the summary so it can be expanded under the row)
     const fieldRows = ((window.SHEET_DATA && window.SHEET_DATA.visits) || [])
       .filter(v => v.visitor === who)
-      .map(v => ({ date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0, summary: v.summary || '', id: v.id || '', workday: !!v.workday }))
+      // contact/products carried so the monthly PDF can stand in for the retired visits report
+      .map(v => ({ date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0, summary: v.summary || '', id: v.id || '', workday: !!v.workday, contact: v.contact || '', products: v.products || [], productsOther: v.productsOther || '' }))
       .filter(v => v.date.getFullYear() === year && v.date.getMonth() === month);
 
     // Merge by calendar date — same day with 2 kibbutzim → ONE row (like the visits report).
@@ -1695,17 +1700,30 @@
       } else {
         dur = r.duration > 0 ? r.duration + "ש'" : '—';
       }
-      // expandable when a field day has visit summaries, or an "אחר" day has a note
+      const canEd = canEditAttendanceOf(who);
+      // A field day is made of VISITS — each editable one carries a visitId.
+      const editableVisits = (r.visits || []).filter(v => v.visitId);
+      // expandable when a field day has visit summaries or needs a visit PICKER (2 kibbutzim in one
+      // day → the ✏️ can't know which visit you meant), or an "אחר" day has a note
       const fieldDetail = (r.visits || []).filter(v => v.summary);
-      const hasDetail = (r.type === 'field' && fieldDetail.length) || (r.type === 'other' && r.note);
+      const hasDetail = (r.type === 'field' && (fieldDetail.length || (canEd && editableVisits.length > 1)))
+        || (r.type === 'other' && r.note);
       const expandCell = hasDetail
         ? `<button onclick="toggleAttDetail(${i})" id="attToggle-${i}" style="background:#eef2ff;color:#3730a3;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">+</button>`
         : '';
-      // ✏️ on non-field rows only (they carry the attendance id). Goes INSIDE the existing last cell,
-      // not a new column, so the detail row's colspan=5 stays correct.
-      const editCell = (r.id && canEditAttendanceOf(who))
-        ? `<button onclick="openAttEdit('${String(r.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" title="עריכת הדיווח" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`
-        : '';
+      // ✏️ goes INSIDE the existing last cell, not a new column, so the detail row's colspan=5 stays
+      // correct. Two kinds of row, two editors:
+      //   • attendance row (r.id)  → the attendance editor (date / day type / "אחר" note)
+      //   • field day (visits)     → the VISIT editor; one visit opens straight, several expand to pick
+      let editCell = '';
+      if (canEd && r.id) {
+        editCell = `<button onclick="openAttEdit('${attJsStr(r.id)}')" title="עריכת הדיווח" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`;
+      } else if (canEd && editableVisits.length) {
+        const single = editableVisits.length === 1;
+        const act = single ? `openVisitFromAttendance('${attJsStr(editableVisits[0].visitId)}')` : `toggleAttDetail(${i})`;
+        const tip = single ? 'עריכת דוח הביקור (תאריך, סיכום, מוצרים)' : 'יש כמה ביקורים ביום הזה — פתח ובחר איזה לערוך';
+        editCell = `<button onclick="${act}" title="${tip}" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`;
+      }
       const mainRow = `<tr>
         <td>${dateStr}</td>
         <td><span class="att-badge" style="background:${bg};color:${color};">${ATT_LABELS[r.type]}</span></td>
@@ -1714,10 +1732,14 @@
         <td style="text-align:center;white-space:nowrap;">${expandCell}${editCell}</td>
       </tr>`;
       let detailHtml = '';
-      if (r.type === 'field' && fieldDetail.length) {
-        detailHtml = (r.visits || []).map(v =>
-          `<div style="margin-bottom:6px;"><strong>🏘 ${(v.kibbutz||'—')}${v.workday ? ' (יום עבודה)' : (v.duration ? ' ('+v.duration+'ש\')' : '')}:</strong> ${(v.summary||'').replace(/</g,'&lt;') || '<span style="color:#94a3b8;">ללא סיכום</span>'}</div>`
-        ).join('');
+      if (r.type === 'field' && hasDetail) {
+        detailHtml = (r.visits || []).map(v => {
+          // per-visit ✏️ — this is how a day with 2 kibbutzim picks WHICH visit to edit
+          const vEdit = (canEd && v.visitId)
+            ? ` <button onclick="openVisitFromAttendance('${attJsStr(v.visitId)}')" title="עריכת דוח הביקור הזה" style="background:#fef3c7;color:#92400e;border:none;border-radius:5px;padding:1px 6px;cursor:pointer;font-size:11px;font-family:inherit;">✏️ ערוך</button>`
+            : '';
+          return `<div style="margin-bottom:6px;"><strong>🏘 ${(v.kibbutz||'—')}${v.workday ? ' (יום עבודה)' : (v.duration ? ' ('+v.duration+'ש\')' : '')}:</strong> ${(v.summary||'').replace(/</g,'&lt;') || '<span style="color:#94a3b8;">ללא סיכום</span>'}${vEdit}</div>`;
+        }).join('');
       } else if (r.type === 'other' && r.note) {
         detailHtml = `<strong>➕ פירוט:</strong> ${r.note.replace(/</g,'&lt;')}`;
       }
@@ -1753,7 +1775,11 @@
           workdays: workdays,
           hourHours: hourHours,
           duration: hourHours + workdays * WORKDAY_HOURS,   // ≈ total hours (work day ≈ 8h)
-          visits: d.fields.map(f => ({ kibbutz: f.kibbutz, summary: f.summary, duration: f.duration, workday: f.workday })),
+          // visitId carried so a field day can be opened for editing from נוכחות (openVisitFromAttendance).
+          // NOTE: the row itself still gets NO `id` — that field means "an attendance-table row" and drives
+          // the attendance editor. A field day is a VISIT and takes the visit editor instead.
+          visits: d.fields.map(f => ({ kibbutz: f.kibbutz, summary: f.summary, duration: f.duration, workday: f.workday, visitId: f.id || '',
+                                       contact: f.contact || '', products: f.products || [], productsOther: f.productsOther || '' })),
           note: ''
         };
       }
@@ -1789,6 +1815,27 @@
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     if (!me || !person) return false;
     return me === person || (typeof isIdan === 'function' && isIdan()) || me === 'עמיחי';
+  }
+
+  // escape an id for embedding inside a single-quoted inline onclick
+  function attJsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+  // ---- Open a field day's VISIT report for editing, straight from the נוכחות page ----
+  // נוכחות is the hub: a field row is derived from a visit, so fixing the visit (usually its date)
+  // is what corrects the attendance report. editVisit() reads window.currentKibbutzVisits, which is
+  // only populated for the OPEN kibbutz card — so we resolve the visit globally, open its kibbutz
+  // card (that fills currentKibbutzVisits via renderLastVisit), then hand over to the normal editor.
+  function openVisitFromAttendance(visitId) {
+    const all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : ((window.SHEET_DATA || {}).visits || []);
+    const v = all.find(x => String(x.id) === String(visitId));
+    if (!v) { alert('דוח הביקור לא נמצא — רענן את הדף ונסה שוב'); return; }
+    if (!canEditAttendanceOf(v.visitor)) { alert('אין לך הרשאה לערוך את הביקור של ' + (v.visitor || '—')); return; }
+    const card = document.querySelector('.kibbutz[data-name="' + String(v.kibbutz || '').replace(/"/g, '\\"') + '"]');
+    if (!card) { alert('הקיבוץ "' + (v.kibbutz || '—') + '" לא נמצא בכרטיסים — לא ניתן לפתוח את הביקור מכאן'); return; }
+    if (typeof openEditModal !== 'function' || typeof editVisit !== 'function') { alert('טופס הביקור לא זמין'); return; }
+    openEditModal(card);                 // fills currentKibbutzVisits + clears the (now default-less) date
+    if (typeof switchTab === 'function') switchTab('visit');
+    editVisit(String(visitId));           // prefills the form with THIS visit, incl. its real date
   }
 
   // yyyy-mm-dd from LOCAL date parts — toISOString() would shift the day across a timezone offset.
@@ -1879,7 +1926,18 @@
       // Field day: per-visit detail (kibbutz + hours + summary). "אחר" day: the note.
       let detail = '';
       if (r.type === 'field' && (r.visits || []).length) {
-        detail = r.visits.map(v => `<div><strong>${(v.kibbutz||'—')}${v.duration ? ' ('+v.duration+"ש')" : ''}:</strong> ${(v.summary||'').replace(/</g,'&lt;')}</div>`).join('');
+        // Full visit detail — this is what makes the נוכחות PDF a replacement for the old
+        // standalone דוח ביקורים: kibbutz, hours, contact, products and the summary.
+        detail = r.visits.map(v => {
+          const esc = s => String(s == null ? '' : s).replace(/</g, '&lt;');
+          const hrs = v.workday ? 'יום עבודה' : (v.duration ? v.duration + "ש'" : '');
+          const prods = (v.products || []).map(p => (typeof p === 'string' ? p : (p.qty > 1 ? p.name + ' ×' + p.qty : p.name))).join(', ');
+          const extra = [prods, v.productsOther].filter(Boolean).join(' · ');
+          let s = `<div style="margin-bottom:4px;"><strong>${esc(v.kibbutz) || '—'}${hrs ? ' (' + hrs + ')' : ''}:</strong> ${esc(v.summary)}`;
+          if (v.contact) s += `<div style="color:#475569;font-size:12px;">🤝 ${esc(v.contact)}</div>`;
+          if (extra)     s += `<div style="color:#475569;font-size:12px;">📦 ${esc(extra)}</div>`;
+          return s + '</div>';
+        }).join('');
       } else if (r.type === 'other' && r.note) {
         detail = r.note.replace(/</g,'&lt;');
       }
@@ -1893,9 +1951,13 @@
     const hoursSegs = [];
     if (totalWorkdays) hoursSegs.push(`${totalWorkdays} ימי עבודה`);
     if (totalLooseHours) hoursSegs.push(`${totalLooseHours}ש'`);
+    // Visit totals — carried over from the retired דוח ביקורים so the numbers it gave still exist.
+    const allVisits = rows.reduce((a, r) => a.concat(r.visits || []), []);
+    const visitKibs = [...new Set(allVisits.map(v => v.kibbutz).filter(Boolean))];
     const chips = Object.keys(ATT_LABELS).filter(k => counts[k])
       .map(k => `${ATT_LABELS[k]}: ${counts[k]}`).join(' · ') +
-      (hoursSegs.length ? ` · ⏱️ ${hoursSegs.join(' + ')} (≈${approxTotal}ש')` : '');
+      (hoursSegs.length ? ` · ⏱️ ${hoursSegs.join(' + ')} (≈${approxTotal}ש')` : '') +
+      (allVisits.length ? ` · 📍 ${allVisits.length} ביקורים ב-${visitKibs.length} קיבוצים` : '');
     const w = window.open('', '_blank');
     w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
       <title>נוכחות ${attPerson()} — ${monthLabel}</title>
@@ -4314,6 +4376,10 @@
     const duration = workday ? WORKDAY_HOURS : parseFloat(document.getElementById('visitDuration').value);
     const visitor = document.getElementById('visitor').value;
     if (!visitor) { alert('נא לבחור מי ביקר'); return; }
+    // The date must be picked explicitly. This used to fall back to "today" further down, which
+    // silently stamped the wrong day on any visit reported after the fact — the mis-dated visits we
+    // then had no way to fix. Refuse instead of guessing.
+    if (!document.getElementById('visitDate').value) { alert('נא לבחור את תאריך הביקור'); return; }
     if (!workday && (isNaN(duration) || duration <= 0)) { alert('נא להזין משך ביקור בשעות, או לסמן "יום עבודה מלא"'); return; }
     const emsIntent = readVisitEmsIntent();   // EMS status is mandatory when an open task exists
     if (emsIntent === false) return;          // validation failed → stay in the form
@@ -4351,9 +4417,15 @@
       }
     }
 
-    const dateInput = document.getElementById('visitDate').value;
-    const visitDate = dateInput ? new Date(dateInput + 'T12:00:00').toISOString() : new Date().toISOString();
+    const dateInput = document.getElementById('visitDate').value;   // guaranteed non-empty (validated above)
+    const visitDate = new Date(dateInput + 'T12:00:00').toISOString();
     const summary = document.getElementById('visitSummary').value.trim();
+
+    // Pre-edit snapshot (a DIFFERENT object from `visit` below) — used to tell a linked EMS task what
+    // changed, and to know which task this visit was already reporting against.
+    const prevVisit = window.editingVisitId
+      ? (window.currentKibbutzVisits || []).find(v => String(v.id) === String(window.editingVisitId)) : null;
+    const linkedEmsTaskId = (prevVisit && prevVisit.emsTaskId) || '';
 
     const visit = {
       kibbutz: currentKibbutz,
@@ -4391,6 +4463,10 @@
       isNew: !window.editingVisitId
     };
     if (!reqBody.id) delete reqBody.id;
+    // Persist WHICH EMS task this visit reported against, so a later edit knows where to push its
+    // update comment. Only sent when a task was actually chosen — otherwise the key is omitted and
+    // writeVisit's upsert-merge preserves the visit's existing link (see 01-data.js).
+    if (emsIntent && emsIntent.taskId) reqBody.emsTaskId = emsIntent.taskId;
     fetch(SHEET_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -4399,6 +4475,21 @@
       if (res && res.ok) {
         visit.synced = true;
         saveAllVisits(loadAllVisits());
+
+        // Patch the snapshot in place so the נוכחות report shows the corrected day IMMEDIATELY —
+        // refreshData() only lands ~1.5s later and does not re-render attendance on its own.
+        const savedId = window.editingVisitId || res.id || window._visitDraftId || '';
+        if (savedId && window.SHEET_DATA && Array.isArray(window.SHEET_DATA.visits)) {
+          const sv = window.SHEET_DATA.visits.find(x => String(x.id) === String(savedId));
+          const patch = { kibbutz: visit.kibbutz, date: visit.date, visitor: visit.visitor, duration: visit.duration,
+                          contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
+                          summary: visit.summary, workday: visit.workday };
+          if (sv) Object.assign(sv, patch);
+          else window.SHEET_DATA.visits.push(Object.assign({ id: String(savedId), emsTaskId: reqBody.emsTaskId || '' }, patch));
+          if (reqBody.emsTaskId && sv) sv.emsTaskId = reqBody.emsTaskId;
+        }
+        if (document.getElementById('attendance-view') && document.getElementById('attendance-view').style.display !== 'none'
+            && typeof renderAttendanceReport === 'function') renderAttendanceReport();
 
         // ----- Inventory movements (event-sourced) -----
         // NEW visit  → post full supply (source → kibbutz).
@@ -4471,6 +4562,15 @@
     // Phase 2: push the summary as a comment + status to the chosen open EMS task
     // (captured in-form before the modal closed; sent live or queued if not connected).
     try { if (emsIntent && summary) pushVisitToEms(visit.kibbutz, visit, emsIntent); } catch (e) { console.warn('EMS visit push failed', e); }
+    // EDIT of a visit already linked to an EMS task, with no in-form EMS intent this time (the usual
+    // "just fix the date" case): still tell that task what changed. Skipped when emsIntent exists —
+    // pushVisitToEms already sends the full updated summary (which carries the corrected date), so
+    // this would be a duplicate comment.
+    try {
+      if (isEditing && linkedEmsTaskId && !emsIntent && prevVisit && typeof pushVisitEditToEms === 'function') {
+        pushVisitEditToEms(linkedEmsTaskId, prevVisit, visit);
+      }
+    } catch (e) { console.warn('EMS visit-edit push failed', e); }
   }
 
   // Append visit info to the kibbutz's status field in Google Sheet
@@ -4502,63 +4602,12 @@
     }
   }
 
-  function buildVisitsReport(visitor, fromDate, toDate) {
-    const all = loadAllVisitsCombined();
-    // Dedupe by id (Sheet) or kibbutz+date+visitor (local)
-    const seen = new Set();
-    const uniq = all.filter(v => {
-      const key = v.id || (v.kibbutz + '|' + v.date + '|' + v.visitor);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    const from = fromDate ? new Date(fromDate).getTime() : 0;
-    const to = toDate ? new Date(toDate + 'T23:59:59').getTime() : Date.now();
+  // ponytail: buildVisitsReport removed with the standalone visits report — visits are now
+  // reported as part of the נוכחות PDF (downloadAttendancePDF).
 
-    const filtered = uniq.filter(v => {
-      const d = new Date(v.date).getTime();
-      if (d < from || d > to) return false;
-      if (visitor && v.visitor !== visitor) return false;
-      return true;
-    }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-
-    if (!filtered.length) {
-      return `📍 דוח ביקורי שטח\n${visitor ? 'שולח: ' + visitor + '\n' : ''}📅 ${new Date().toLocaleString('he-IL')}\n\n✨ אין ביקורים בטווח הזה`;
-    }
-
-    let totalHours = 0;
-    const byKibbutz = {};
-    filtered.forEach(v => {
-      totalHours += v.duration || 0;
-      if (!byKibbutz[v.kibbutz]) byKibbutz[v.kibbutz] = [];
-      byKibbutz[v.kibbutz].push(v);
-    });
-
-    let report = `*📍 דוח ביקורי שטח*\n`;
-    if (visitor) report += `*שולח: ${visitor}*\n`;
-    report += `📅 ${new Date().toLocaleString('he-IL')}\n`;
-    report += `📊 ${filtered.length} ביקורים · ${totalHours.toFixed(1)} שעות סה״כ · ${Object.keys(byKibbutz).length} קיבוצים\n\n`;
-
-    Object.entries(byKibbutz).sort((a, b) => a[0].localeCompare(b[0], 'he')).forEach(([kibbutz, visits]) => {
-      const kibbutzHours = visits.reduce((s, v) => s + (v.duration || 0), 0);
-      report += `*━━━ ${kibbutz} (${kibbutzHours.toFixed(1)} שעות) ━━━*\n`;
-      visits.forEach(v => {
-        const date = new Date(v.date).toLocaleDateString('he-IL');
-        report += `📅 ${date} | ⏱️ ${v.duration}ש | 👤 ${v.visitor}\n`;
-        if (v.contact) report += `  🤝 ${v.contact}\n`;
-        if (v.products && v.products.length) {
-          const productsStr = v.products.map(p => typeof p === 'string' ? p : (p.qty > 1 ? p.name + ' (×' + p.qty + ')' : p.name)).join(', ');
-          report += `  📦 ${productsStr}${v.productsOther ? ' · ' + v.productsOther : ''}\n`;
-        }
-        if (v.summary) report += `  📝 ${v.summary}\n`;
-      });
-      report += '\n';
-    });
-
-    return report;
-  }
-
-  function openVisitsReportModal() {
+  // Opens the delivery-cert / Excel tools from the נוכחות page. (Was openVisitsReportModal — the
+  // visits REPORT it used to front is gone; visits now live in the נוכחות PDF.)
+  function openVisitsToolsModal() {
     // Default: full previous calendar month
     const now = new Date();
     const firstOfPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -4776,31 +4825,9 @@
     if (active) active.classList.add('active');
   }
 
-  function generateVisitsReport(action) {
-    const visitor = document.getElementById('visitsReportVisitor').value;
-    const from = document.getElementById('visitsReportFrom').value;
-    const to = document.getElementById('visitsReportTo').value;
-    const report = buildVisitsReport(visitor, from, to);
-
-    // Close the modal first so user isn't stuck behind it
-    document.getElementById('visitsReportModal').classList.remove('open');
-
-    if (action === 'preview') {
-      openVisitsReportHTMLView(visitor, from, to);
-    } else if (action === 'copy') {
-      navigator.clipboard.writeText(report).then(() => {
-        const t = document.getElementById('toast');
-        t.textContent = '✅ הדוח הועתק';
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
-      }).catch(err => {
-        alert('שגיאה בהעתקה: ' + err.message);
-      });
-    } else if (action === 'whatsapp') {
-      const contact = visitor && CONTACTS[visitor] ? CONTACTS[visitor] : { phone: '972544649833' };
-      window.open('https://wa.me/' + (contact.phone || '972544649833') + '?text=' + encodeURIComponent(report), '_blank');
-    }
-  }
+  // ponytail: generateVisitsReport removed — the standalone דוח ביקורי שטח is gone. Visits are
+  // contained in the נוכחות report, produced from עמוד נוכחות (📄 PDF / 📗 Excel). setReportRange
+  // above stays: the delivery-cert tools still use the same date-range inputs.
 
   // Build a date list from 'from' to 'to' (inclusive)
   function dateRange(fromStr, toStr) {
@@ -5120,12 +5147,10 @@
     document.getElementById('visitor').value = '';
     if (typeof prepVisitEmsBlock === 'function') prepVisitEmsBlock(name);   // Phase 2: in-form EMS update
     if (typeof prepModalEmsSection === 'function') prepModalEmsSection(name);   // update tab: open task / create-new below status
-    // Default date to today
-    const today = new Date();
-    document.getElementById('visitDate').value =
-      today.getFullYear() + '-' +
-      String(today.getMonth() + 1).padStart(2, '0') + '-' +
-      String(today.getDate()).padStart(2, '0');
+    // Date starts EMPTY on purpose — a pre-filled "today" was silently accepted when the visit was
+    // actually on another day, which is the main source of mis-dated visits. saveVisit now refuses to
+    // save without an explicit pick, so the user must choose the real date.
+    document.getElementById('visitDate').value = '';
     // Reset product list (visitor cleared → placeholder will show)
     window.editingVisitId = null;
     visitReturnedItems = [];
@@ -6525,6 +6550,36 @@
     } catch (e) { console.warn('EMS visit push failed', e); errored = e.message; }
     emsToast(errored ? ('⚠️ שגיאת EMS: ' + errored) : (queued ? '🕒 הסיכום יישלח ל-EMS בהתחברות הבאה' : '✅ הסיכום נשלח ל-EMS + הסטטוס עודכן'));
     if (!errored && isEmsConnected()) { try { await emsSyncCache(); } catch (e) {} }
+  }
+
+  // ---- Editing a visit that is already tied to an EMS task → tell that task what changed ----
+  // COMMENT ONLY, by decision: a visit's date is not the task's due date, so we never PATCH the task
+  // (that would silently move everyone's EMS planning). Returns '' when nothing actually changed, so
+  // a no-op save never spams the task with an empty update.
+  function buildVisitEditNote(prev, next) {
+    const dl = s => { const d = new Date(s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('he-IL'); };
+    const dur = v => v.workday ? 'יום עבודה' : ((v.duration || 0) + "ש'");
+    const prods = v => (v.products || []).map(p => (typeof p === 'string' ? p : p.name + '×' + p.qty)).sort().join(', ');
+    const ch = [];
+    if (dl(prev.date) !== dl(next.date))               ch.push('📅 תאריך הביקור תוקן: ' + dl(prev.date) + ' → ' + dl(next.date));
+    if ((prev.visitor || '') !== (next.visitor || '')) ch.push('👤 מבצע הביקור: ' + (prev.visitor || '—') + ' → ' + (next.visitor || '—'));
+    if (dur(prev) !== dur(next))                       ch.push('⏱️ משך: ' + dur(prev) + ' → ' + dur(next));
+    if ((prev.contact || '') !== (next.contact || '')) ch.push('🤝 איש קשר: ' + (prev.contact || '—') + ' → ' + (next.contact || '—'));
+    if (prods(prev) !== prods(next))                   ch.push('📦 מוצרים: ' + (prods(prev) || '—') + ' → ' + (prods(next) || '—'));
+    if ((prev.summary || '') !== (next.summary || '')) ch.push('📝 הסיכום עודכן');
+    if (!ch.length) return '';
+    let s = '✏️ דוח הביקור עודכן במערכת הניהול\n' + ch.map(c => '• ' + c).join('\n');
+    if ((next.summary || '').trim()) s += '\n\n📝 הסיכום המעודכן:\n' + next.summary.trim();
+    return s;
+  }
+  async function pushVisitEditToEms(taskId, prev, next) {
+    const msg = buildVisitEditNote(prev, next);
+    if (!taskId || !msg) return;
+    try {
+      const r = await emsWriteOrQueue({ kind: 'comment', taskId: taskId, message: msg, meta: { kibbutz: next.kibbutz } });
+      if (r && r.error) emsToast('⚠️ שגיאת EMS: ' + r.error);
+      else emsToast(r && r.queued ? '🕒 עדכון הביקור יישלח ל-EMS בהתחברות הבאה' : '✅ עדכון הביקור נשלח למשימת ה-EMS');
+    } catch (e) { console.warn('EMS visit-edit push failed', e); }
   }
 
   // ponytail: dead post-save EMS popup removed — superseded by the in-form visit→EMS block.

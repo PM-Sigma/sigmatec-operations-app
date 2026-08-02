@@ -201,31 +201,9 @@
     if (active) active.classList.add('active');
   }
 
-  function generateVisitsReport(action) {
-    const visitor = document.getElementById('visitsReportVisitor').value;
-    const from = document.getElementById('visitsReportFrom').value;
-    const to = document.getElementById('visitsReportTo').value;
-    const report = buildVisitsReport(visitor, from, to);
-
-    // Close the modal first so user isn't stuck behind it
-    document.getElementById('visitsReportModal').classList.remove('open');
-
-    if (action === 'preview') {
-      openVisitsReportHTMLView(visitor, from, to);
-    } else if (action === 'copy') {
-      navigator.clipboard.writeText(report).then(() => {
-        const t = document.getElementById('toast');
-        t.textContent = '✅ הדוח הועתק';
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
-      }).catch(err => {
-        alert('שגיאה בהעתקה: ' + err.message);
-      });
-    } else if (action === 'whatsapp') {
-      const contact = visitor && CONTACTS[visitor] ? CONTACTS[visitor] : { phone: '972544649833' };
-      window.open('https://wa.me/' + (contact.phone || '972544649833') + '?text=' + encodeURIComponent(report), '_blank');
-    }
-  }
+  // ponytail: generateVisitsReport removed — the standalone דוח ביקורי שטח is gone. Visits are
+  // contained in the נוכחות report, produced from עמוד נוכחות (📄 PDF / 📗 Excel). setReportRange
+  // above stays: the delivery-cert tools still use the same date-range inputs.
 
   // Build a date list from 'from' to 'to' (inclusive)
   function dateRange(fromStr, toStr) {
@@ -545,12 +523,10 @@
     document.getElementById('visitor').value = '';
     if (typeof prepVisitEmsBlock === 'function') prepVisitEmsBlock(name);   // Phase 2: in-form EMS update
     if (typeof prepModalEmsSection === 'function') prepModalEmsSection(name);   // update tab: open task / create-new below status
-    // Default date to today
-    const today = new Date();
-    document.getElementById('visitDate').value =
-      today.getFullYear() + '-' +
-      String(today.getMonth() + 1).padStart(2, '0') + '-' +
-      String(today.getDate()).padStart(2, '0');
+    // Date starts EMPTY on purpose — a pre-filled "today" was silently accepted when the visit was
+    // actually on another day, which is the main source of mis-dated visits. saveVisit now refuses to
+    // save without an explicit pick, so the user must choose the real date.
+    document.getElementById('visitDate').value = '';
     // Reset product list (visitor cleared → placeholder will show)
     window.editingVisitId = null;
     visitReturnedItems = [];

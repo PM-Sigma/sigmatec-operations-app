@@ -7,6 +7,45 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.60] 2026-08-02 — 🎯 נוכחות is now the operations hub (visits editable there, one report, EMS push)
+Per עידן: **everything is managed on the attendance page.** Five changes.
+
+**1. Field days (יום שטח) are editable from נוכחות.** 1.59 only covered non-field rows; a field day is
+derived from a VISIT, so it needed the visit editor. `openVisitFromAttendance()` resolves the visit
+globally (`editVisit()` only sees the open kibbutz card), checks the same permission rule, opens the
+kibbutz card and delegates to the normal editor. **One visit → opens directly; a day with two kibbutzim
+→ expands so you pick which.** After saving, the snapshot is patched in place and the report re-rendered,
+so the corrected day shows immediately. Fixing the visit fixes the attendance report — same record.
+
+**2. A visit now remembers its EMS task.** It never did — the task was picked in-form and thrown away, so
+"is this linked to EMS?" had no stored answer. Added `visits.ems_task_id` (**migration applied to
+production**, mirrors `orders.ems_task_id`), mapped both ways, written **partial-safe** so an edit that
+touches no EMS task can't blank an existing link.
+
+**3. Editing a linked visit pushes an EMS comment.** `buildVisitEditNote()` diffs the visit and posts
+e.g. "📅 תאריך הביקור תוקן: 3.8.2026 → 6.8.2026" plus the updated summary, via the offline-safe queue.
+**Comment only — never a status or due-date PATCH** (a visit's date is not the task's due date; patching
+it would silently move EMS planning). Returns nothing when nothing changed, and is skipped when the form
+already has an EMS intent, so the task never gets a duplicate comment.
+
+**4. דוח ביקורי שטח removed; the נוכחות PDF is the one report.** Visits are contained in attendance, so
+the monthly PDF now carries full visit detail (contact, products, work-day marking) plus a
+`📍 N ביקורים ב-M קיבוצים` total. Deleted `generateVisitsReport` + `buildVisitsReport` and the my-tasks
+button. **Careful bit:** that modal also hosted the 🚚 delivery-cert picker, the issued-certs report for
+accounting, and the visits Excel export — those were NOT deleted; they moved to a "🚚 תעודות משלוח וייצוא"
+button on the נוכחות header (they work on a date range, so they keep their own dialog).
+
+**5. The visit form no longer pre-fills today's date.** It opens empty, and `saveVisit` now **refuses**
+an empty date instead of silently falling back to `new Date()` — that silent fallback was the actual
+source of mis-dated visits, so clearing the default alone would only have hidden it. The quick-FAB is
+unaffected (it injects its wizard-chosen date after the clear).
+
+`test-attendance-hub.mjs` → 33 green; full suite 18/18. Verified live: 03.08→06.08 correction saved as an
+update (`isNew:false`), EMS comment landed on the stored task, attendance row moved, visit count unchanged
+(no duplicate); empty-date save refused; zero דוח ביקורים buttons left; PDF carries contact/products/
+totals; console clean. Spec: `docs/superpowers/specs/2026-08-02-attendance-hub-design.md`.
+**Still open:** no month-lock — a month already sent to accounting can still be edited.
+
 ## [1.59] 2026-08-02 — ✏️ workers can now FIX an attendance report they already submitted
 **Asked: "can a worker update the date of an attendance entry?" Answer was no — not the date, not the
 type, not the note.** `saveAttendance()` always POSTed without an `id`, so every save was an INSERT, and
