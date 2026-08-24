@@ -16,7 +16,7 @@ UUID, so its tasks rendered twice and neither card matched `CUSTOMER_CODES['או
 "אין קוד"). Now one card, `⚡ חשמל + 🔥 גז`, code #915. Sheet rows 12/13 keep their old split names,
 so `SHEET_NAME_ALIASES` folds them onto the unified card with row 12 as the save target.
 
-**2. Five sub-sites got their own cards** — גשר השלום · שדה אליהו חקלאות · מכללת ספיר ·
+**2. Five sub-sites got their own cards** — גשר השלום · שדה אליהו - חקלאות · מכללת ספיר ·
 שלוחות ספק חיצוני · שער הגולן מחוץ למחלק. Each maps to its own EMS UUID, and that UUID was
 **removed from the parent entry** (מעוז חיים and שדה אליהו were carrying two each), so no task can
 render on two cards. Sub-sites show a `↳ parent` chip and are exempt from the customer-code badge.

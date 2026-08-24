@@ -193,7 +193,7 @@ const fakeDoc = {
 };
 
 // ---------- 0.5 golden Sheet fixture ----------
-const SUBSITE_NAMES = ['גשר השלום', 'שדה אליהו חקלאות', 'מכללת ספיר', 'שלוחות ספק חיצוני', 'שער הגולן מחוץ למחלק'];
+const SUBSITE_NAMES = ['גשר השלום', 'שדה אליהו - חקלאות', 'מכללת ספיר', 'שלוחות ספק חיצוני', 'שער הגולן מחוץ למחלק'];
 const CUSTOM_ROW_NAMES = new Set([...SUBSITE_NAMES, 'אור הנר', 'שדה אליהו', 'דגניה ב', 'דפנה']);
 function buildFixture() {
   const tasks = [];
@@ -273,7 +273,7 @@ check('A9: alias does not resurrect a second card', () => {
 // ======================================================================
 const SUBSITE_EXPECT = {
   'גשר השלום':            { parent: 'מעוז חיים',             grid: 'done',    types: 'done',    uuid: 'b7229e14-ff17-4f69-bc94-6d248cdadd7e' },
-  'שדה אליהו חקלאות':      { parent: 'שדה אליהו',              grid: 'done',    types: 'done',    uuid: '14a28537-15a6-4860-8a57-410d9cbf738c' },
+  'שדה אליהו - חקלאות':      { parent: 'שדה אליהו',              grid: 'done',    types: 'done',    uuid: '14a28537-15a6-4860-8a57-410d9cbf738c' },
   'מכללת ספיר':            { parent: 'מתחם חינוך שער הנגב',    grid: 'done',    types: 'done',    uuid: 'de0b71a3-b0c2-48d8-94b5-67c02561640e' },
   'שלוחות ספק חיצוני':     { parent: 'שלוחות',                 grid: 'pending', types: 'pending', uuid: '60520f2f-a813-41e4-8fbf-783800ca86ad' },
   'שער הגולן מחוץ למחלק':  { parent: 'שער הגולן',              grid: 'pending', types: 'pending', uuid: '9cbdadcd-0c5f-40de-a804-c429bf9bcf3e' }
@@ -421,7 +421,7 @@ check('D31: דפנה via REGION_FALLBACK', () => {
   assert.equal(CARDS.find(c => c.dataset.name === 'דפנה').dataset.region, 'גליל וגולן');
 });
 check('D32: sub-sites with no Sheet row get a synthetic, row-less row', () => {
-  ['גשר השלום', 'שדה אליהו חקלאות', 'שלוחות ספק חיצוני', 'שער הגולן מחוץ למחלק'].forEach(n => {
+  ['גשר השלום', 'שדה אליהו - חקלאות', 'שלוחות ספק חיצוני', 'שער הגולן מחוץ למחלק'].forEach(n => {
     const c = CARDS.find(c => c.dataset.name === n);
     assert.equal(c.dataset.region, 'העמקים', n);
     assert.equal(c.dataset.row, undefined, n + ' must stay row-less');
@@ -432,7 +432,7 @@ check('D32: sub-sites with no Sheet row get a synthetic, row-less row', () => {
 });
 check('D33: REGION_FALLBACK shape is exactly the spec 8 keys', () => {
   assert.deepStrictEqual(Object.keys(D.REGION_FALLBACK).sort(),
-    ['אור הנר', 'גשר השלום', 'דגניה ב', 'דפנה', 'מכללת ספיר', 'שדה אליהו חקלאות', 'שלוחות ספק חיצוני', 'שער הגולן מחוץ למחלק'].sort());
+    ['אור הנר', 'גשר השלום', 'דגניה ב', 'דפנה', 'מכללת ספיר', 'שדה אליהו - חקלאות', 'שלוחות ספק חיצוני', 'שער הגולן מחוץ למחלק'].sort());
 });
 check('D34: fallback is a fallback, not an override', () => {
   const fix2 = { tasks: [{ name: 'דפנה', row: 62, region: 'גליל וגולן — מהגיליון', owners: [], status: '', expectedTask: '', task: '', lastModified: '' }], calendar: {} };

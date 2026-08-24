@@ -70,7 +70,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 **🏗️ Site consolidation shipped to the branch (not yet merged).** Ground truth was pulled live from
 the prod EMS DB (`claude_readonly_pm`, `SELECT id, code, name FROM sites` + task counts): **59 EMS
 sites vs 54 cards**. אור הנר unified from two energy-split cards into one (its tasks were rendering
-twice) · **5 sub-site cards added** — גשר השלום, שדה אליהו חקלאות, מכללת ספיר, שלוחות ספק חיצוני,
+twice) · **5 sub-site cards added** — גשר השלום, שדה אליהו - חקלאות, מכללת ספיר, שלוחות ספק חיצוני,
 שער הגולן מחוץ למחלק — each on its own UUID, removed from the parent entry so nothing double-renders ·
 **כפר עזה + דביר mapped** (their EMS sites existed all along, just missing from `KIBBUTZ_SITE_MAP` —
 that was the "no EMS tasks for כפר עזה" bug) · **every card has a region** (the Sheet's three

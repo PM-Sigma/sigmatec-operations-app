@@ -71,7 +71,7 @@ map entry (מעוז חיים and שדה אליהו drop to a single UUID) so no 
 | New card `data-name` | grid | UUID |
 |---|---|---|
 | גשר השלום | done (parent מעוז חיים) | `b7229e14…` |
-| שדה אליהו חקלאות | done (parent שדה אליהו) | `14a28537…` |
+| שדה אליהו - חקלאות | done (parent שדה אליהו) | `14a28537…` |
 | מכללת ספיר | done (parent מתחם חינוך שער הנגב) | `de0b71a3…` |
 | שלוחות ספק חיצוני | pending (parent שלוחות) | `60520f2f…` |
 | שער הגולן מחוץ למחלק | pending (parent שער הגולן) | `9cbdadcd…` |
@@ -94,7 +94,7 @@ a sub-site bills under its parent's customer code.
   overwrite one that has it.
 - `REGION_FALLBACK` map applied when the Sheet row has no region:
   `אור הנר`→`דרום, עוטף עזה והנגב` · `דגניה ב`→`העמקים` · `דפנה`→`גליל וגולן` ·
-  `גשר השלום`/`שדה אליהו חקלאות`/`שלוחות ספק חיצוני`/`שער הגולן מחוץ למחלק`→`העמקים` ·
+  `גשר השלום`/`שדה אליהו - חקלאות`/`שלוחות ספק חיצוני`/`שער הגולן מחוץ למחלק`→`העמקים` ·
   `מכללת ספיר`→`דרום, עוטף עזה והנגב`.
 - Contract test: after enrichment every card carries a `.region-badge`.
 
