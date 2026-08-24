@@ -117,6 +117,14 @@
     if (!box) return;
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     if (!me) { box.innerHTML = '<div style="color:#94a3b8;font-style:italic;">לא מזוהה משתמש מחובר.</div>'; return; }
+    // The top-row אחראי picker doubles as the view filter; it defaults to the logged-in user, so
+    // everyone lands on their OWN tasks. If me isn't one of the options the assignment no-ops and
+    // who falls back to me — same behaviour as before.
+    const pSel = document.getElementById('myTasksPerson');
+    if (pSel && !pSel.value) pSel.value = me;
+    const who = (pSel && pSel.value) || me;
+    const title = document.getElementById('myTasksTitle');
+    if (title) title.textContent = (who === me) ? '✅ המשימות שלי' : '✅ המשימות של ' + who;
     const sheetTasks = (window.SHEET_DATA && window.SHEET_DATA.tasks) || [];
     const taskByKib = {}; sheetTasks.forEach(t => { if (t.name) taskByKib[t.name] = t; });
     const siteToKib = {};
@@ -127,18 +135,18 @@
     ((typeof emsCacheData === 'function' ? emsCacheData().tasks : []) || []).forEach(t => {
       if (EMS_CLOSED.indexOf(t.status) !== -1) return;
       const kib = (t.site && siteToKib[t.site.id]) || (t.site && t.site.name) || '—';
-      const assignedToMe = t.assignee && emsUserName(t.assignee).indexOf(me) !== -1;
+      const assignedToMe = t.assignee && emsUserName(t.assignee).indexOf(who) !== -1;
       const sheetT = taskByKib[kib];
-      if (assignedToMe || (sheetT && isOwnerOf(sheetT, me))) g(kib).ems.push(t);
+      if (assignedToMe || (sheetT && isOwnerOf(sheetT, who))) g(kib).ems.push(t);
     });
     // 2) status / expectedTask lines ending with "- me"
     sheetTasks.forEach(t => {
-      const lines = linesForPerson(t.status, me).concat(linesForPerson(t.expectedTask, me));
+      const lines = linesForPerson(t.status, who).concat(linesForPerson(t.expectedTask, who));
       const seen = {};
       lines.forEach(l => { if (!seen[l]) { seen[l] = 1; g(t.name).lines.push(l); } });
     });
     const kibs = Object.keys(groups).filter(k => groups[k].ems.length || groups[k].lines.length).sort((a, b) => a.localeCompare(b, 'he'));
-    if (!kibs.length) { box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">אין משימות פתוחות עבורך 🎉</div>'; return; }
+    if (!kibs.length) { box.innerHTML = '<div style="color:#94a3b8;font-style:italic;padding:24px 0;text-align:center;">' + ((who === me) ? 'אין משימות פתוחות עבורך 🎉' : 'אין משימות פתוחות עבור ' + emsEsc(who) + ' 🎉') + '</div>'; return; }
     let html = '';
     kibs.forEach(k => {
       const grp = groups[k], kEsc = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -234,6 +242,36 @@
     } catch (e) { console.warn('EMS visit push failed', e); errored = e.message; }
     emsToast(errored ? ('⚠️ שגיאת EMS: ' + errored) : (queued ? '🕒 הסיכום יישלח ל-EMS בהתחברות הבאה' : '✅ הסיכום נשלח ל-EMS + הסטטוס עודכן'));
     if (!errored && isEmsConnected()) { try { await emsSyncCache(); } catch (e) {} }
+  }
+
+  // ---- Editing a visit that is already tied to an EMS task → tell that task what changed ----
+  // COMMENT ONLY, by decision: a visit's date is not the task's due date, so we never PATCH the task
+  // (that would silently move everyone's EMS planning). Returns '' when nothing actually changed, so
+  // a no-op save never spams the task with an empty update.
+  function buildVisitEditNote(prev, next) {
+    const dl = s => { const d = new Date(s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('he-IL'); };
+    const dur = v => v.workday ? 'יום עבודה' : ((v.duration || 0) + "ש'");
+    const prods = v => (v.products || []).map(p => (typeof p === 'string' ? p : p.name + '×' + p.qty)).sort().join(', ');
+    const ch = [];
+    if (dl(prev.date) !== dl(next.date))               ch.push('📅 תאריך הביקור תוקן: ' + dl(prev.date) + ' → ' + dl(next.date));
+    if ((prev.visitor || '') !== (next.visitor || '')) ch.push('👤 מבצע הביקור: ' + (prev.visitor || '—') + ' → ' + (next.visitor || '—'));
+    if (dur(prev) !== dur(next))                       ch.push('⏱️ משך: ' + dur(prev) + ' → ' + dur(next));
+    if ((prev.contact || '') !== (next.contact || '')) ch.push('🤝 איש קשר: ' + (prev.contact || '—') + ' → ' + (next.contact || '—'));
+    if (prods(prev) !== prods(next))                   ch.push('📦 מוצרים: ' + (prods(prev) || '—') + ' → ' + (prods(next) || '—'));
+    if ((prev.summary || '') !== (next.summary || '')) ch.push('📝 הסיכום עודכן');
+    if (!ch.length) return '';
+    let s = '✏️ דוח הביקור עודכן במערכת הניהול\n' + ch.map(c => '• ' + c).join('\n');
+    if ((next.summary || '').trim()) s += '\n\n📝 הסיכום המעודכן:\n' + next.summary.trim();
+    return s;
+  }
+  async function pushVisitEditToEms(taskId, prev, next) {
+    const msg = buildVisitEditNote(prev, next);
+    if (!taskId || !msg) return;
+    try {
+      const r = await emsWriteOrQueue({ kind: 'comment', taskId: taskId, message: msg, meta: { kibbutz: next.kibbutz } });
+      if (r && r.error) emsToast('⚠️ שגיאת EMS: ' + r.error);
+      else emsToast(r && r.queued ? '🕒 עדכון הביקור יישלח ל-EMS בהתחברות הבאה' : '✅ עדכון הביקור נשלח למשימת ה-EMS');
+    } catch (e) { console.warn('EMS visit-edit push failed', e); }
   }
 
   // ponytail: dead post-save EMS popup removed — superseded by the in-form visit→EMS block.

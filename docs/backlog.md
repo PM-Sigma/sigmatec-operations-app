@@ -1,7 +1,43 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.60 on main** (2026-08-02)._
+
+## ✅ DONE — נוכחות is the operations hub (shipped 1.60)
+Spec: [docs/superpowers/specs/2026-08-02-attendance-hub-design.md](superpowers/specs/2026-08-02-attendance-hub-design.md) (SHIPPED).
+Field days editable from נוכחות via the visit editor (one visit opens directly, a 2-kibbutz day expands
+to pick) · `visits.ems_task_id` added (**migration applied to prod**) so a visit remembers its EMS task ·
+editing a linked visit posts an EMS **comment** naming the change (never a status/due-date PATCH) ·
+דוח ביקורי שטח deleted, its content folded into the monthly נוכחות PDF (contact/products/visit totals),
+while the cert picker + certs report + visits Excel moved to a button on the נוכחות header · the visit
+form no longer defaults to today and refuses an empty date. 33 checks + full suite 18/18, verified live.
+**Open:** no month-lock (a month already sent to accounting is still editable); no attendance↔field
+conversion; the quick-FAB still defaults its wizard date to today (deliberate — it's an explicit step).
+
+## ✅ DONE — editable attendance reports (shipped 1.59)
+Spec: [docs/superpowers/specs/2026-08-02-attendance-edit-design.md](superpowers/specs/2026-08-02-attendance-edit-design.md) (SHIPPED).
+Workers could not fix a submitted attendance report at all (no edit path; re-entering left the mis-dated
+row alongside the new one). ✏️ per non-field row → edit date / day type / "אחר" note; saves with the row
+`id` so the router UPDATEs instead of inserting. Own entries only; עידן+עמיחי may fix anyone's; viewer none.
+**Edit-only, no delete** (a wrong date is fixed by editing the date). 28 checks + full suite 17/17, verified live.
+**Open follow-ups:** no month-lock, so a month already reported to accounting can still be edited — worth
+a lock or an edit log once a month-close concept exists. No attendance↔field conversion (mis-logging a
+field day as משרד still needs a visit created).
+
+## ✅ DONE — "המשימות שלי" per-אחראי view filter (shipped 1.58)
+The top-row אחראי picker now filters the displayed task list too (was report-buttons-only), and
+**defaults to the logged-in user** so everyone opens on their own tasks. Heading switches to
+"המשימות של &lt;name&gt;" for others. `test-mytasks-filter.mjs` → 14 green; full suite 16/16; verified live.
+
+## ✅ DONE — עידן can open others' נוכחות (shipped 1.57)
+`canSeeAttendance()` had עידן explicitly excluded; re-added via `isIdan()` so the pre-existing
+person-toggle works for him. One-line fix.
+
+## ⚠️ NEEDS RECONCILING — `feat/kibbutz-site-integrity`
+18 commits diverged from `main`, **conflicts on rebase** (index.html + sw.js generated files). 1.57 and
+1.58 both shipped by cherry-picking source-only edits into a clean worktree off `origin/main` instead.
+Decide: rebase-and-resolve, or re-apply its source edits onto main the same way. Its 7 site-* test
+suites live only on that branch (hence 16 suites on main vs 23 there).
 
 ## 🟡 IN PROGRESS — EMS-linking batch (4 features, A built 2026-07-19)
 Sequence A→D→B→C, one spec+branch each.

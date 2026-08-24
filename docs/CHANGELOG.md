@@ -7,6 +7,88 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.60] 2026-08-02 — 🎯 נוכחות is now the operations hub (visits editable there, one report, EMS push)
+Per עידן: **everything is managed on the attendance page.** Five changes.
+
+**1. Field days (יום שטח) are editable from נוכחות.** 1.59 only covered non-field rows; a field day is
+derived from a VISIT, so it needed the visit editor. `openVisitFromAttendance()` resolves the visit
+globally (`editVisit()` only sees the open kibbutz card), checks the same permission rule, opens the
+kibbutz card and delegates to the normal editor. **One visit → opens directly; a day with two kibbutzim
+→ expands so you pick which.** After saving, the snapshot is patched in place and the report re-rendered,
+so the corrected day shows immediately. Fixing the visit fixes the attendance report — same record.
+
+**2. A visit now remembers its EMS task.** It never did — the task was picked in-form and thrown away, so
+"is this linked to EMS?" had no stored answer. Added `visits.ems_task_id` (**migration applied to
+production**, mirrors `orders.ems_task_id`), mapped both ways, written **partial-safe** so an edit that
+touches no EMS task can't blank an existing link.
+
+**3. Editing a linked visit pushes an EMS comment.** `buildVisitEditNote()` diffs the visit and posts
+e.g. "📅 תאריך הביקור תוקן: 3.8.2026 → 6.8.2026" plus the updated summary, via the offline-safe queue.
+**Comment only — never a status or due-date PATCH** (a visit's date is not the task's due date; patching
+it would silently move EMS planning). Returns nothing when nothing changed, and is skipped when the form
+already has an EMS intent, so the task never gets a duplicate comment.
+
+**4. דוח ביקורי שטח removed; the נוכחות PDF is the one report.** Visits are contained in attendance, so
+the monthly PDF now carries full visit detail (contact, products, work-day marking) plus a
+`📍 N ביקורים ב-M קיבוצים` total. Deleted `generateVisitsReport` + `buildVisitsReport` and the my-tasks
+button. **Careful bit:** that modal also hosted the 🚚 delivery-cert picker, the issued-certs report for
+accounting, and the visits Excel export — those were NOT deleted; they moved to a "🚚 תעודות משלוח וייצוא"
+button on the נוכחות header (they work on a date range, so they keep their own dialog).
+
+**5. The visit form no longer pre-fills today's date.** It opens empty, and `saveVisit` now **refuses**
+an empty date instead of silently falling back to `new Date()` — that silent fallback was the actual
+source of mis-dated visits, so clearing the default alone would only have hidden it. The quick-FAB is
+unaffected (it injects its wizard-chosen date after the clear).
+
+`test-attendance-hub.mjs` → 33 green; full suite 18/18. Verified live: 03.08→06.08 correction saved as an
+update (`isNew:false`), EMS comment landed on the stored task, attendance row moved, visit count unchanged
+(no duplicate); empty-date save refused; zero דוח ביקורים buttons left; PDF carries contact/products/
+totals; console clean. Spec: `docs/superpowers/specs/2026-08-02-attendance-hub-design.md`.
+**Still open:** no month-lock — a month already sent to accounting can still be edited.
+
+## [1.59] 2026-08-02 — ✏️ workers can now FIX an attendance report they already submitted
+**Asked: "can a worker update the date of an attendance entry?" Answer was no — not the date, not the
+type, not the note.** `saveAttendance()` always POSTed without an `id`, so every save was an INSERT, and
+the monthly table rendered read-only rows (only the `+` detail toggle). Worse, re-entering the day did
+**not** fix a wrong date: `mergeAttendanceByDate()` groups by calendar date, so the mis-dated row
+survived *next to* the corrected one and both showed up in the report and the PDF. The only remedy was
+editing the Supabase row by hand.
+
+**No backend work was needed** — the write router (`01-data.js`) already upserts `attendance` on `id`, so
+POSTing the usual body *with* an id PATCHes that row (same create-or-edit pattern `writeVisit()` uses).
+The gap was purely client plumbing: the row `id` was being dropped in `renderAttendanceReport()`'s
+mapping and again in `mergeAttendanceByDate()`. Both now carry it, which lights up an **✏️ on each
+non-field row** (placed inside the existing last cell, so the detail row's `colspan=5` stays valid).
+✏️ opens a small dedicated modal — date + day type + the "אחר" note — and saves with the id.
+
+**Permissions (per עידן):** each person edits **their own** entries; **עידן + עמיחי may fix anyone's**;
+viewer none (and every write is already hard-blocked for viewers at the single choke point). **Edit-only,
+no delete** — a wrong date is fixed by changing the date. `person` is always resent unchanged, so an edit
+can never reassign whose day it is; the date is noon-anchored so a timezone offset can't roll the day back.
+**יום שטח is deliberately not offered** — a field day is a VISIT, edited through the visit form.
+
+`test-attendance-edit.mjs` → 28 green (full permission matrix incl. viewer-beats-admin, local-date
+formatter vs the toISOString day-shift bug, payload carries id + preserves person, note dropped when
+leaving "אחר", id-threading regression guards, field rows carry no id, column/colspan contract). Full
+suite 17/17. Verified live: mis-dated חופש moved 07.08→09.08, **row count stayed 3 — no duplicate**;
+עידן/עמיחי see ✏️ on ניתאי's rows, מתניה and viewer see none; forcing `openAttEdit()` from the console as
+a viewer/other-person is refused; console clean.
+Spec: `docs/superpowers/specs/2026-08-02-attendance-edit-design.md`.
+
+## [1.58] 2026-08-02 — ✅ "המשימות שלי": the אחראי picker now filters the VIEW, defaulting to yourself
+The top-row אחראי picker in המשימות שלי used to only feed the report buttons — the task list below it
+always showed the logged-in user's own tasks, so there was no way to look at someone else's workload
+in the UI. The picker now drives the list too: `renderMyTasks()` resolves a `who` from the picker and
+filters all three sources on it (EMS assignee, kibbutz-owner, and the status/expectedTask "- name"
+lines). **Default: the picker auto-selects the logged-in user**, so everyone still lands on their own
+tasks; the heading switches to "המשימות של &lt;name&gt;" when viewing someone else. The placeholder option
+was relabelled `-- המשימות שלי --` (it resolves to self), and the label now says it filters the view.
+No new data exposure — the report buttons already produced any person's task list for every user.
+Graceful: a user who isn't one of the options (e.g. viewer) falls back to their own tasks.
+`test-mytasks-filter.mjs` → 14 green (default-per-person sweep, explicit pick wins, placeholder
+resets to self, unknown-user fallback, no-picker fallback, + regression guards that the three filters
+key off `who` and not `me`). Full suite 16/16 green. Verified live in the browser: אביאם defaults to
+אביאם/יגור, switching to ניתאי re-renders to דגניה+שדה אליהו, אליה shows the empty state, console clean.
 ## [1.59] 2026-07-19 — 🔗 kibbutz↔EMS site integrity (spec A of the EMS-linking batch)
 Fixes the kibbutz→EMS-site linking that produced wrong-site / missing tasks (reported for דפנה, שלוחות).
 - **Exact-match resolver.** `emsSiteIdForKibbutz` now does an exact normalized-name match against live

@@ -65,6 +65,51 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — last: 2026-08-02 (**1.60 on main**).
+
+**🎯 1.60 — עמוד נוכחות is the operations hub.** Field days (יום שטח) are now editable there too, via
+the visit editor (`openVisitFromAttendance` — global lookup, because `editVisit` only sees the open
+kibbutz card); fixing the visit fixes the attendance report, since it's the same record. A visit now
+**remembers its EMS task** (`visits.ems_task_id`, **migration applied to prod**, partial-safe write), and
+editing a linked visit posts an EMS **comment** naming the change ("תאריך הביקור תוקן: X → Y") — comment
+only, never a status/due-date PATCH, and skipped when the form already has an EMS intent so the task is
+never double-commented. **דוח ביקורי שטח is deleted**: visits are contained in attendance, so the monthly
+נוכחות PDF is the single report (now with contact/products/visit totals). Its three neighbours — 🚚 cert
+picker, issued-certs report, visits Excel — were NOT deleted; they moved to a button on the נוכחות header.
+The visit form no longer pre-fills today and refuses an empty date (the silent `new Date()` fallback was
+the real cause of mis-dated visits). 33 checks + 18/18 suite, verified live.
+Spec: superpowers/specs/2026-08-02-attendance-hub-design.md.
+**Known gaps:** no month-lock (a month already sent to accounting is still editable); no
+attendance↔field conversion; the quick-FAB still defaults its wizard date to today (deliberate).
+
+## Previous: 1.59
+
+**✏️ 1.59 — attendance reports are editable.** A worker could not fix a submitted attendance day at all
+(every save was an INSERT; the table was read-only; re-entering left the mis-dated row beside the new
+one). The write router already upserted `attendance` on `id`, so this was pure client plumbing: carry the
+row id through `renderAttendanceReport()` + `mergeAttendanceByDate()` → ✏️ per non-field row → small modal
+(date / day type / "אחר" note) → save WITH the id = UPDATE. Own entries; עידן+עמיחי fix anyone's; viewer
+none. Edit-only, no delete. 28 checks + 17/17 suite, verified live (no duplicate row created).
+Spec: superpowers/specs/2026-08-02-attendance-edit-design.md.
+**Known gap:** no month-lock — a month already sent to accounting can still be edited.
+
+**✅ 1.58 — "המשימות שלי": the top אחראי picker now filters the VIEW, not just the report buttons.**
+`renderMyTasks()` resolves a `who` from `#myTasksPerson` and filters all three task sources on it (EMS
+assignee, kibbutz-owner, status/expectedTask "- name" lines). The picker **auto-selects the logged-in
+user**, so everyone still lands on their own tasks by default; heading flips to "המשימות של &lt;name&gt;" for
+others. No new data exposure (the report buttons already covered any person). test-mytasks-filter.mjs
+→ 14 green; full suite 16/16; verified live in-browser (default, switch, empty state, clean console).
+
+**✅ 1.57 — עידן can open other people's נוכחות tab.** `canSeeAttendance()` had עידן explicitly removed;
+re-added via `isIdan()`, so the existing person-toggle in the attendance report works for him.
+
+**⚠️ Note for a fresh session:** this file still carries a **duplicate `🚦 Current state` heading**
+further down (leftover from an old parallel-session merge) and the blocks below are stale relative to
+main. Also `feat/kibbutz-site-integrity` is **18 commits diverged from main and conflicts on rebase** —
+1.57/1.58 were both shipped by cherry-picking source-only edits into a clean worktree off `origin/main`
+rather than untangling it. That branch still needs reconciling.
+
+## Previous: 1.54
 ## 🚦 Current state — last: 2026-07-19 (**1.59 on `feat/kibbutz-site-integrity`, pending dev→main**).
 
 **🔗 1.59 — kibbutz↔EMS site integrity (spec A of a 4-feature EMS-linking batch A→D→B→C).** Fixed the

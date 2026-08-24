@@ -257,6 +257,10 @@
     const duration = workday ? WORKDAY_HOURS : parseFloat(document.getElementById('visitDuration').value);
     const visitor = document.getElementById('visitor').value;
     if (!visitor) { alert('נא לבחור מי ביקר'); return; }
+    // The date must be picked explicitly. This used to fall back to "today" further down, which
+    // silently stamped the wrong day on any visit reported after the fact — the mis-dated visits we
+    // then had no way to fix. Refuse instead of guessing.
+    if (!document.getElementById('visitDate').value) { alert('נא לבחור את תאריך הביקור'); return; }
     if (!workday && (isNaN(duration) || duration <= 0)) { alert('נא להזין משך ביקור בשעות, או לסמן "יום עבודה מלא"'); return; }
     const emsIntent = readVisitEmsIntent();   // EMS status is mandatory when an open task exists
     if (emsIntent === false) return;          // validation failed → stay in the form
@@ -294,9 +298,15 @@
       }
     }
 
-    const dateInput = document.getElementById('visitDate').value;
-    const visitDate = dateInput ? new Date(dateInput + 'T12:00:00').toISOString() : new Date().toISOString();
+    const dateInput = document.getElementById('visitDate').value;   // guaranteed non-empty (validated above)
+    const visitDate = new Date(dateInput + 'T12:00:00').toISOString();
     const summary = document.getElementById('visitSummary').value.trim();
+
+    // Pre-edit snapshot (a DIFFERENT object from `visit` below) — used to tell a linked EMS task what
+    // changed, and to know which task this visit was already reporting against.
+    const prevVisit = window.editingVisitId
+      ? (window.currentKibbutzVisits || []).find(v => String(v.id) === String(window.editingVisitId)) : null;
+    const linkedEmsTaskId = (prevVisit && prevVisit.emsTaskId) || '';
 
     const visit = {
       kibbutz: currentKibbutz,
@@ -334,6 +344,10 @@
       isNew: !window.editingVisitId
     };
     if (!reqBody.id) delete reqBody.id;
+    // Persist WHICH EMS task this visit reported against, so a later edit knows where to push its
+    // update comment. Only sent when a task was actually chosen — otherwise the key is omitted and
+    // writeVisit's upsert-merge preserves the visit's existing link (see 01-data.js).
+    if (emsIntent && emsIntent.taskId) reqBody.emsTaskId = emsIntent.taskId;
     fetch(SHEET_API, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -342,6 +356,21 @@
       if (res && res.ok) {
         visit.synced = true;
         saveAllVisits(loadAllVisits());
+
+        // Patch the snapshot in place so the נוכחות report shows the corrected day IMMEDIATELY —
+        // refreshData() only lands ~1.5s later and does not re-render attendance on its own.
+        const savedId = window.editingVisitId || res.id || window._visitDraftId || '';
+        if (savedId && window.SHEET_DATA && Array.isArray(window.SHEET_DATA.visits)) {
+          const sv = window.SHEET_DATA.visits.find(x => String(x.id) === String(savedId));
+          const patch = { kibbutz: visit.kibbutz, date: visit.date, visitor: visit.visitor, duration: visit.duration,
+                          contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
+                          summary: visit.summary, workday: visit.workday };
+          if (sv) Object.assign(sv, patch);
+          else window.SHEET_DATA.visits.push(Object.assign({ id: String(savedId), emsTaskId: reqBody.emsTaskId || '' }, patch));
+          if (reqBody.emsTaskId && sv) sv.emsTaskId = reqBody.emsTaskId;
+        }
+        if (document.getElementById('attendance-view') && document.getElementById('attendance-view').style.display !== 'none'
+            && typeof renderAttendanceReport === 'function') renderAttendanceReport();
 
         // ----- Inventory movements (event-sourced) -----
         // NEW visit  → post full supply (source → kibbutz).
@@ -414,6 +443,15 @@
     // Phase 2: push the summary as a comment + status to the chosen open EMS task
     // (captured in-form before the modal closed; sent live or queued if not connected).
     try { if (emsIntent && summary) pushVisitToEms(visit.kibbutz, visit, emsIntent); } catch (e) { console.warn('EMS visit push failed', e); }
+    // EDIT of a visit already linked to an EMS task, with no in-form EMS intent this time (the usual
+    // "just fix the date" case): still tell that task what changed. Skipped when emsIntent exists —
+    // pushVisitToEms already sends the full updated summary (which carries the corrected date), so
+    // this would be a duplicate comment.
+    try {
+      if (isEditing && linkedEmsTaskId && !emsIntent && prevVisit && typeof pushVisitEditToEms === 'function') {
+        pushVisitEditToEms(linkedEmsTaskId, prevVisit, visit);
+      }
+    } catch (e) { console.warn('EMS visit-edit push failed', e); }
   }
 
   // Append visit info to the kibbutz's status field in Google Sheet
@@ -445,63 +483,12 @@
     }
   }
 
-  function buildVisitsReport(visitor, fromDate, toDate) {
-    const all = loadAllVisitsCombined();
-    // Dedupe by id (Sheet) or kibbutz+date+visitor (local)
-    const seen = new Set();
-    const uniq = all.filter(v => {
-      const key = v.id || (v.kibbutz + '|' + v.date + '|' + v.visitor);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    const from = fromDate ? new Date(fromDate).getTime() : 0;
-    const to = toDate ? new Date(toDate + 'T23:59:59').getTime() : Date.now();
+  // ponytail: buildVisitsReport removed with the standalone visits report — visits are now
+  // reported as part of the נוכחות PDF (downloadAttendancePDF).
 
-    const filtered = uniq.filter(v => {
-      const d = new Date(v.date).getTime();
-      if (d < from || d > to) return false;
-      if (visitor && v.visitor !== visitor) return false;
-      return true;
-    }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-
-    if (!filtered.length) {
-      return `📍 דוח ביקורי שטח\n${visitor ? 'שולח: ' + visitor + '\n' : ''}📅 ${new Date().toLocaleString('he-IL')}\n\n✨ אין ביקורים בטווח הזה`;
-    }
-
-    let totalHours = 0;
-    const byKibbutz = {};
-    filtered.forEach(v => {
-      totalHours += v.duration || 0;
-      if (!byKibbutz[v.kibbutz]) byKibbutz[v.kibbutz] = [];
-      byKibbutz[v.kibbutz].push(v);
-    });
-
-    let report = `*📍 דוח ביקורי שטח*\n`;
-    if (visitor) report += `*שולח: ${visitor}*\n`;
-    report += `📅 ${new Date().toLocaleString('he-IL')}\n`;
-    report += `📊 ${filtered.length} ביקורים · ${totalHours.toFixed(1)} שעות סה״כ · ${Object.keys(byKibbutz).length} קיבוצים\n\n`;
-
-    Object.entries(byKibbutz).sort((a, b) => a[0].localeCompare(b[0], 'he')).forEach(([kibbutz, visits]) => {
-      const kibbutzHours = visits.reduce((s, v) => s + (v.duration || 0), 0);
-      report += `*━━━ ${kibbutz} (${kibbutzHours.toFixed(1)} שעות) ━━━*\n`;
-      visits.forEach(v => {
-        const date = new Date(v.date).toLocaleDateString('he-IL');
-        report += `📅 ${date} | ⏱️ ${v.duration}ש | 👤 ${v.visitor}\n`;
-        if (v.contact) report += `  🤝 ${v.contact}\n`;
-        if (v.products && v.products.length) {
-          const productsStr = v.products.map(p => typeof p === 'string' ? p : (p.qty > 1 ? p.name + ' (×' + p.qty + ')' : p.name)).join(', ');
-          report += `  📦 ${productsStr}${v.productsOther ? ' · ' + v.productsOther : ''}\n`;
-        }
-        if (v.summary) report += `  📝 ${v.summary}\n`;
-      });
-      report += '\n';
-    });
-
-    return report;
-  }
-
-  function openVisitsReportModal() {
+  // Opens the delivery-cert / Excel tools from the נוכחות page. (Was openVisitsReportModal — the
+  // visits REPORT it used to front is gone; visits now live in the נוכחות PDF.)
+  function openVisitsToolsModal() {
     // Default: full previous calendar month
     const now = new Date();
     const firstOfPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1);

@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrru7azc">
+<link rel="stylesheet" href="css/app.css?v=mt7029c9">
 </head>
 <body>
 <div class="container">
@@ -119,6 +119,40 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="document.getElementById('visitQuickModal').classList.remove('open')">ביטול</button>
         <button class="btn btn-primary" onclick="visitQuickGo()">המשך →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit an already-reported attendance day (✏️ on a row in the נוכחות report). Own entries;
+       עידן/עמיחי may fix anyone's. 'יום שטח' is absent on purpose — a field day is a VISIT. -->
+  <div class="modal-backdrop" id="attEditModal" style="z-index:1100;">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:430px;">
+      <h3>✏️ עריכת דיווח נוכחות</h3>
+      <div class="modal-sub">שנה תאריך או סוג יום ושמור. הדיווח המקורי יתעדכן — לא ייווצר דיווח נוסף.</div>
+      <div id="attEditWho" style="margin-top:10px;padding:6px 10px;background:#f0f9ff;border-right:3px solid #2563eb;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;"></div>
+
+      <label for="attEditDate" style="margin-top:12px;">📅 תאריך:</label>
+      <input type="date" id="attEditDate" style="font-size:16px;">
+
+      <div style="margin:12px 0 4px;">
+        <div style="font-size:12px;font-weight:700;color:#1b2a4a;margin-bottom:8px;">📅 סוג יום:</div>
+        <div id="attEditTypes" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="day-type-btn" data-type="office"   onclick="attEditSetType('office')">🏢 משרד</button>
+          <button class="day-type-btn" data-type="wfh"      onclick="attEditSetType('wfh')">🏠 מהבית</button>
+          <button class="day-type-btn" data-type="reserve"  onclick="attEditSetType('reserve')">🪖 מילואים</button>
+          <button class="day-type-btn" data-type="vacation" onclick="attEditSetType('vacation')">🌴 חופש</button>
+          <button class="day-type-btn" data-type="off"      onclick="attEditSetType('off')">🚫 לא בעבודה</button>
+          <button class="day-type-btn" data-type="other"    onclick="attEditSetType('other')">➕ אחר</button>
+        </div>
+      </div>
+      <div id="attEditOtherWrap" style="display:none;margin-top:8px;">
+        <label for="attEditNote">➕ פירוט (אחר):</label>
+        <input type="text" id="attEditNote" placeholder="למשל: יום עיון, כנס, חופשת מחלה...">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeAttEdit()">ביטול</button>
+        <button class="btn btn-primary" onclick="saveAttEdit(this)">💾 שמור שינויים</button>
       </div>
     </div>
   </div>
@@ -375,7 +409,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-19·1.60</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-08-24·1.61</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -535,6 +569,9 @@
         <button class="inv-btn" onclick="changeAttendanceMonth(1)">←</button>
         <button class="inv-btn" style="background:#1b2a4a;color:white;" onclick="downloadAttendancePDF()">📄 PDF</button>
         <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportAttendanceCurrent()">📗 Excel</button>
+        <!-- נוכחות is the hub: the delivery-cert tools + visits Excel moved here from the (removed)
+             דוח ביקורים. They all work on a date RANGE, so they keep their own small dialog. -->
+        <button class="inv-btn" style="background:#6366f1;color:white;" onclick="openVisitsToolsModal()">🚚 תעודות / ייצוא</button>
       </div>
     </div>
     <div id="attendanceSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
@@ -689,12 +726,12 @@
 
 <!-- "המשימות שלי" — merged EMS (assignee/owner) + status "- name" lines, grouped by kibbutz (Phase 3) -->
 <div id="my-tasks-view" style="display:none;padding:16px 0;">
-  <h2 style="margin:0 0 4px;color:var(--primary);">✅ המשימות שלי</h2>
+  <h2 id="myTasksTitle" style="margin:0 0 4px;color:var(--primary);">✅ המשימות שלי</h2>
   <div style="font-size:12px;color:var(--text-light);margin-bottom:14px;">משימות EMS שמוקצות לי או בקיבוצים שאני אחראי עליהם, ושורות מהסטטוס שמסתיימות ב־"- &lt;שמי&gt;".</div>
   <div class="my-tasks-bar">
-    <label>📋 דוח משימות לפי אחראי:</label>
-    <select id="myTasksPerson">
-      <option value="">-- בחר אחראי --</option>
+    <label>📋 משימות לפי אחראי (מסנן גם את התצוגה):</label>
+    <select id="myTasksPerson" onchange="renderMyTasks()">
+      <option value="">-- המשימות שלי --</option>
       <option value="עידן">עידן</option>
       <option value="עמיחי">עמיחי</option>
       <option value="אביאם">אביאם</option>
@@ -707,7 +744,8 @@
     <button class="my-tasks-btn copy" onclick="generateMyTasksReport('copy')">📋 העתק</button>
     <button class="my-tasks-btn email" onclick="generateMyTasksReport('email')">📧 מייל</button>
     <button class="my-tasks-btn wa" onclick="generateMyTasksReport('whatsapp')">📱 וואטסאפ</button>
-    <button class="my-tasks-btn" style="background:#10b981;color:white;" onclick="openVisitsReportModal()">📍 דוח ביקורים</button>
+<!-- ponytail: "📍 דוח ביקורים" removed — visits are contained in the נוכחות report, which is now the
+     single place to produce one (עמוד נוכחות → 📄 PDF). The cert/Excel tools moved there too. -->
     <button class="my-tasks-btn" style="background:#8b5cf6;color:white;" onclick="openActivityModal()">📊 פעילות היום</button>
   </div>
   <div id="myTasksList">טוען...</div>
@@ -898,8 +936,10 @@
             <input type="number" id="visitDuration" min="0.25" step="0.25" placeholder="1.5">
           </div>
           <div style="flex:1;">
-            <label for="visitDate">📅 תאריך הביקור:</label>
-            <input type="date" id="visitDate">
+            <!-- starts empty on purpose (no "today" default) so the real date must be chosen; a date
+                 input can't carry a real placeholder, so the "בחר תאריך" hint lives in the label -->
+            <label for="visitDate">📅 תאריך הביקור — בחר תאריך:</label>
+            <input type="date" id="visitDate" required>
           </div>
         </div>
         <label style="display:flex;align-items:center;gap:8px;margin-top:6px;background:#eef2ff;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:600;color:#3730a3;">
@@ -1265,11 +1305,15 @@
   </div>
 </div>
 
-<!-- Visits Report Modal -->
+<!-- Delivery-cert + export tools, opened from the נוכחות page.
+     The דוח ביקורי שטח that used to live here is GONE — visits are contained in the נוכחות report
+     (📄 PDF), which is now the single report. These three tools stayed because they work on a date
+     RANGE rather than the report's single month, and they share these inputs. -->
 <div class="modal-backdrop" id="visitsReportModal" onclick="if(event.target.id==='visitsReportModal') this.classList.remove('open')">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;">
-    <h3>📍 דוח ביקורי שטח</h3>
-    <div class="modal-sub">הפק דוח של הביקורים שנשמרו במכשיר זה</div>
+    <h3>🚚 תעודות משלוח וייצוא</h3>
+    <div class="modal-sub">בחר טווח תאריכים (ואופציונלית עובד), ואז הפק תעודה / דוח תעודות / ייצוא Excel.<br>
+      <span style="color:#64748b;">דוח הנוכחות עצמו — כולל הביקורים — מופק בכפתור 📄 PDF שבעמוד נוכחות.</span></div>
 
     <label for="visitsReportVisitor">👤 מבקר (אופציונלי):</label>
     <select id="visitsReportVisitor">
@@ -1304,10 +1348,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="document.getElementById('visitsReportModal').classList.remove('open')">סגור</button>
-      <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportVisitsFromModal()">📗 Excel</button>
-      <button class="btn btn-primary" onclick="generateVisitsReport('preview')">👁 הצג</button>
-      <button class="btn btn-whatsapp" onclick="generateVisitsReport('copy')">📋 העתק</button>
-      <button class="btn btn-whatsapp" onclick="generateVisitsReport('whatsapp')">📱 וואטסאפ</button>
+      <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportVisitsFromModal()">📗 Excel ביקורים</button>
     </div>
   </div>
 </div>
@@ -1418,7 +1459,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrru7azc"></script>
+<script src="js/app.js?v=mt7029c9"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
