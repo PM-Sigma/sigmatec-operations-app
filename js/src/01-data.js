@@ -128,17 +128,14 @@
       const code = CUSTOMER_CODES[name];
       const isDone = (card.dataset.types || '').split(' ').includes('done');
 
+      // sub-sites bill under the parent's customer code — no "אין קוד" badge on them
       const meta = card.querySelector('.kibbutz-meta');
-      if (meta && !meta.querySelector('.code-badge')) {
+      if (meta && !meta.querySelector('.code-badge') && (code || !card.dataset.subsiteOf)) {
         const badge = document.createElement('span');
         badge.className = 'code-badge';
         badge.textContent = code ? '#' + code : '⚠️ אין קוד';
         meta.appendChild(badge);
       }
-
-      // Note: urgent-flag is now redundant with the procedure button.
-      // The proc-btn (red pending / green done) is the single source of truth
-      // for "data flow active or not" — same concept per user spec.
     });
 
     if (urgent.size > 0) {
@@ -306,11 +303,11 @@
     function mockSheetData() {
       return {
         tasks: [
-          { name: 'יגור',     row: 2, region: 'עמק יזרעאל', owners: ['אביאם'], status: 'מותקנים 12 מונים\nממתין לבקר חדש', expectedTask: 'בדיקת זרימת נתונים', task: '[PROC_DONE] step=9', code: '101', lastModified: nowISO() },
+          { name: 'יגור',     row: 2, region: 'עמק יזרעאל', owners: ['אביאם'], status: 'מותקנים 12 מונים\nממתין לבקר חדש', expectedTask: 'בדיקת זרימת נתונים', task: 'step=9', code: '101', lastModified: nowISO() },
           { name: 'דגניה',    row: 3, region: 'עמק הירדן',  owners: ['ניתאי'], status: 'ממתין למשלוח מונים', expectedTask: 'תיאום ביקור התקנה', task: 'step=3', code: '102', lastModified: nowISO() },
           { name: 'חוקוק',    row: 4, region: 'גליל תחתון', owners: ['אביאם'], status: 'באג: מונה כפול בהקמה', expectedTask: '', task: 'step=2', code: '103', lastModified: nowISO() },
           { name: 'גבת',      row: 5, region: 'עמק יזרעאל', owners: ['עידן'],  status: '', expectedTask: 'שיווק', task: '', code: '104', lastModified: nowISO() },
-          { name: 'שדה אליהו', row: 6, region: 'בקעת בית שאן', owners: ['ניתאי'], status: 'באוויר', expectedTask: '', task: '[PROC_DONE] step=9', code: '105', lastModified: nowISO() },
+          { name: 'שדה אליהו', row: 6, region: 'בקעת בית שאן', owners: ['ניתאי'], status: 'באוויר', expectedTask: '', task: 'step=9', code: '105', lastModified: nowISO() },
           { name: 'כפר עזה', row: 7, region: 'שער הנגב', owners: ['עמיחי'], status: 'בתהליך אפיון', expectedTask: '🎯 תיאום פגישת אפיון (אין אתר EMS — fallback)', task: 'step=1', code: '106', lastModified: nowISO() }
         ],
         potentials: [], regions: [], orders: [], products: [], movements: [],
@@ -669,8 +666,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   const KIBBUTZ_SITE_MAP = {
     "אגודת המים עמק הירדן": ["c40203ac-2f3a-4445-9fd8-b3f0d08c1b2f"],
-    "אור הנר גז": ["9d755469-c2f7-4abd-9a48-88d1b07c3146"],
-    "אור הנר חשמל": ["9d755469-c2f7-4abd-9a48-88d1b07c3146"],
+    "אור הנר": ["9d755469-c2f7-4abd-9a48-88d1b07c3146"],
     "אלומות": ["4094e057-97e8-4acc-ba92-e81ab119665e"],
     "אלונים": ["38493e06-b7dd-470d-a81d-c00634337f9f"],
     "אפיק": ["bf8fcda4-ebde-45ca-aada-07075989436d"],
@@ -682,6 +678,7 @@
     "גברעם": ["29b3e1c2-6ce0-4d6b-b699-847fee42d995"],
     "גבת": ["ed86a5b9-ae41-4317-942e-f42b0ba44aba"],
     "גניגר": ["7c70b14b-754a-43ed-8bf1-9c1ade6f075c"],
+    "דביר": ["52b24c7f-dfb8-4985-bd25-51f9ad082a83"],
     "חולדה": ["d697d259-95ee-4dcc-95fa-820f6ec3d32a"],
     "חוצות יגור": ["0cf0467c-f8e6-4807-96dc-1d154e2b7fda"],
     "חוקוק": ["d1bdff7a-82c2-46d1-92f1-96ab0679911e"],
@@ -692,15 +689,18 @@
     "כפר דניאל": ["5cbf4b2b-b968-4f10-8733-a055db5cfa60"],
     "כפר מנחם": ["52e1f273-ca7b-4b75-bcc1-3b4451774e87"],
     "כפר מסריק": ["e1f2535b-e977-4f34-82c3-0af89fcd4851"],
+    "כפר עזה": ["d1ed862f-a03a-4a43-8c22-1f19028a1b68"],
     "לביא": ["69a9e842-0742-4d21-b3a2-3ed46b221a73"],
     "להב": ["bcb46661-abd1-4884-a54e-45906a52f6c2"],
     "מגידו": ["d66a0a58-15c2-486d-82c0-d2add10c2b6b"],
     "מגן": ["c54ef394-9a51-46e1-8758-0a0a1b715ab7"],
-    "מעוז חיים": ["f5becfd4-5193-4b55-b7a1-4c067ba9e2b9","b7229e14-ff17-4f69-bc94-6d248cdadd7e"],
+    "מעוז חיים": ["f5becfd4-5193-4b55-b7a1-4c067ba9e2b9"],
+    "גשר השלום": ["b7229e14-ff17-4f69-bc94-6d248cdadd7e"],
     "מעלה גלבוע": ["a755f8a2-f3cd-4962-a23c-62b32b619898"],
     "משואות יצחק": ["7e1ce0e8-5ac6-401e-a525-53ebe5f0d62a"],
     "משמר השרון": ["800f1b97-c7ae-425b-bf01-f4a17c028f8b"],
     "מתחם חינוך שער הנגב": ["1eaeb274-7227-46e0-b9ff-31b674ebaaf9"],
+    "מכללת ספיר": ["de0b71a3-b0c2-48d8-94b5-67c02561640e"],
     "עין המפרץ": ["5535f354-7a39-4364-a929-e16ad8e4bd07"],
     "עין השופט": ["0ab92b61-53fc-426d-ac44-67f3406b87fb"],
     "עין חרוד מאוחד": ["be2827e9-69eb-4f51-b298-9a04076c775d"],
@@ -709,11 +709,14 @@
     "קבוצת יבנה": ["a2a36e36-58c8-48c7-8a7f-3c5defe5bc43"],
     "קיבוץ גת": ["0b0d7c89-78d6-4dc4-b0fb-4df5cf76c35b"],
     "רמות מנשה": ["b5f691ab-6941-481b-860c-adb1d4532cf5"],
-    "שדה אליהו": ["3f91ccf9-67ae-4420-bf30-b7ea57ad16b2","14a28537-15a6-4860-8a57-410d9cbf738c"],
+    "שדה אליהו": ["3f91ccf9-67ae-4420-bf30-b7ea57ad16b2"],
+    "שדה אליהו חקלאות": ["14a28537-15a6-4860-8a57-410d9cbf738c"],
     "שלוחות": ["9a0ba3d3-b7f2-4597-b3ee-3537e4f8d75e"],
+    "שלוחות ספק חיצוני": ["60520f2f-a813-41e4-8fbf-783800ca86ad"],
     "דפנה": ["490a865d-c4f4-4a4a-96da-14a273e7f03b"],
     "קיבוץ ניצנים": ["ae9ac4c6-119e-496c-9aad-331e95a2551d"],
     "שער הגולן": ["829c78e9-e497-47f4-9aa1-ee8f4bc1085c"],
+    "שער הגולן מחוץ למחלק": ["9cbdadcd-0c5f-40de-a804-c429bf9bcf3e"],
     "שריד": ["b8a2aa72-feab-400d-9d27-14d7635a7db1"],
     "תל קציר": ["6ec619fb-ee23-4a8d-b075-4c735ef61324"],
     "דגניה": ["cc079fe9-5f00-4a3d-a654-707207d831db"]
@@ -730,6 +733,26 @@
     for (const k in KIBBUTZ_SITE_MAP) { if (k.replace(/\s+/g, ' ').trim() === n) return KIBBUTZ_SITE_MAP[k]; }
     return [];
   }
+
+  // sheet rows 12/13 still carry the old split names → fold onto the unified card.
+  // declaration order matters: row 12 (חשמל) wins as the save target.
+  const SHEET_NAME_ALIASES = { 'אור הנר חשמל': 'אור הנר', 'אור הנר גז': 'אור הנר' };
+
+  // region when the Sheet row has none, or no row exists yet (new sub-sites)
+  const REGION_FALLBACK = {
+    'אור הנר': 'דרום, עוטף עזה והנגב',
+    'דגניה ב': 'העמקים',
+    'דפנה': 'גליל וגולן',
+    'גשר השלום': 'העמקים',
+    'שדה אליהו חקלאות': 'העמקים',
+    'שלוחות ספק חיצוני': 'העמקים',
+    'שער הגולן מחוץ למחלק': 'העמקים',
+    'מכללת ספיר': 'דרום, עוטף עזה והנגב'
+  };
+
+  // cards with no EMS site yet — עידן must create them in EMS. The contract test
+  // (test-site-consolidation.mjs) asserts nothing OUTSIDE this list is unlinked.
+  const KNOWN_UNLINKED = ['ניר עציון', 'עין דור', 'דגניה ב'];
 
   window.SHEET_DATA = null;
   window.currentEditTask = null;
@@ -777,16 +800,14 @@
     el.appendChild(pill);
   }
 
-  // Parse the task field which can contain [PROC_DONE] | step=N | note=... | cat=X
+  // Parse the task field which can contain step=N | note=... | cat=X | type=X
   function parseTaskField(taskStr) {
     taskStr = String(taskStr || '');
-    const proc = taskStr.includes('[PROC_DONE]');
     const stepMatch = taskStr.match(/step=(\d+)/);
     const noteMatch = taskStr.match(/note=([^|]*?)(?:\||$)/);
     const catMatch = taskStr.match(/cat=([a-z_]+)/);
     const typeMatch = taskStr.match(/type=([a-z_]+)/);
     return {
-      proc,
       step: stepMatch ? parseInt(stepMatch[1]) : null,
       note: noteMatch ? noteMatch[1].trim() : '',
       cat: catMatch ? catMatch[1] : null,
@@ -795,9 +816,8 @@
     };
   }
 
-  function serializeTaskField(proc, step, note, cat, type) {
+  function serializeTaskField(step, note, cat, type) {
     const parts = [];
-    if (proc) parts.push('[PROC_DONE]');
     if (step) parts.push('step=' + step);
     if (note) parts.push('note=' + note);
     if (cat) parts.push('cat=' + cat);
@@ -854,15 +874,31 @@
   function enrichCardsWithSheet(data) {
     if (!data || !data.tasks) return;
     const byName = {};
-    data.tasks.forEach(t => { if (t.name) byName[t.name] = t; });
+    // duplicate rows (שדה אליהו 28/63/64): a region-less row must not shadow one with a region
+    data.tasks.forEach(t => {
+      if (!t.name) return;
+      const prev = byName[t.name];
+      if (prev && prev.region && !t.region) return;
+      byName[t.name] = t;
+    });
+    // fold legacy split-name rows onto the unified card (first alias in sheet order wins)
+    for (const from in SHEET_NAME_ALIASES) {
+      const to = SHEET_NAME_ALIASES[from];
+      if (byName[from] && !byName[to]) byName[to] = byName[from];
+    }
 
     document.querySelectorAll('.kibbutz').forEach(card => {
       const name = card.dataset.name;
       if (!name) return;
-      const task = byName[name];
-      if (!task) return;
+      let task = byName[name];
+      if (task && !task.region) task.region = REGION_FALLBACK[name] || '';
+      if (!task) {
+        // no sheet row yet (new sub-site): synthetic row so the region badge still renders
+        if (!REGION_FALLBACK[name]) return;
+        task = { row: null, region: REGION_FALLBACK[name], status: '', expectedTask: '', owners: [], task: '', lastModified: '' };
+      }
 
-      card.dataset.row = task.row;
+      if (task.row) card.dataset.row = task.row;
       card.dataset.lastModified = task.lastModified || '';
 
       const parsed = parseTaskField(task.task);
@@ -870,12 +906,18 @@
       if (parsed.cat && CATEGORIES[parsed.cat]) {
         moveCardToCategory(card, parsed.cat);
       }
+      // live cards are past setup — no step, no construction note
+      const isDone = (card.dataset.types || '').split(' ').includes('done');
+      if (isDone) {
+        delete card.dataset.step;
+        card.querySelectorAll('.kibbutz-note').forEach(e => e.remove());
+      }
       // Override data-step if Sheet has a value
-      if (parsed.step) {
+      if (parsed.step && !isDone) {
         card.dataset.step = String(parsed.step);
       }
       // Override the .kibbutz-note if Sheet has one
-      if (parsed.note) {
+      if (parsed.note && !isDone) {
         let noteEl = card.querySelector('.kibbutz-note');
         if (!noteEl) {
           noteEl = document.createElement('div');
@@ -988,28 +1030,9 @@
         card.appendChild(el);
       });
 
-      // Single procedure/flow button for "באוויר" kibbutzim
-      const types = (card.dataset.types || '').split(' ');
-      if (types.includes('done')) {
-        const procDone = parsed.proc;
-        card.dataset.procDone = procDone ? 'true' : 'false';
-
-        // Remove any stale legacy flags (kept here as cleanup)
+      // live cards: remove stale legacy flags (cleanup kept from the old proc button)
+      if (isDone) {
         card.querySelectorAll('.flow-active-flag, .urgent-flag').forEach(e => e.remove());
-
-        const btn = document.createElement('button');
-        btn.className = 'proc-btn excel-injected ' + (procDone ? 'proc-done' : 'proc-pending');
-        btn.textContent = procDone
-          ? '🔵 זרימת נתונים פעילה (פרוצדורה בוצעה)'
-          : '🚨 אין זרימת נתונים — לחץ לסימון פרוצדורה';
-        btn.dataset.row = task.row;
-        btn.dataset.currentValue = task.task || '';
-        btn.dataset.kibbutzName = task.name;
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          toggleProcedure(btn);
-        };
-        card.appendChild(btn);
       }
     });
 
@@ -1017,44 +1040,6 @@
     // whether it had a Sheet row), once the shared cache has been synced.
     if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
     if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
-  }
-
-  async function toggleProcedure(btn) {
-    const row = parseInt(btn.dataset.row);
-    const currentValue = btn.dataset.currentValue || '';
-    const parsed = parseTaskField(currentValue);
-    const name = btn.dataset.kibbutzName;
-
-    const action = parsed.proc ? 'לבטל סימון פרוצדורה' : 'לסמן פרוצדורה כבוצעה';
-    if (!confirm(`האם ${action} עבור "${name}"?`)) return;
-
-    const newValue = serializeTaskField(!parsed.proc, parsed.step, parsed.note, parsed.cat, parsed.type);
-    const isDone = parsed.proc;
-
-    const body = {
-      row: row,
-      task: newValue,
-      editor: 'proc_toggle'
-    };
-    try {
-      const r = await fetch(SHEET_API, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'},
-        body: JSON.stringify(body)
-      });
-      const res = await r.json();
-      if (res.ok) {
-        const t = document.getElementById('toast');
-        t.textContent = isDone ? '↩️ סימון פרוצדורה בוטל' : '✅ הפרוצדורה סומנה כבוצעה';
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
-        setTimeout(refreshData, 800);
-      } else {
-        alert('שגיאה: ' + JSON.stringify(res));
-      }
-    } catch (e) {
-      alert('שגיאת רשת: ' + e.message);
-    }
   }
 
   function renderPotentials(data) {

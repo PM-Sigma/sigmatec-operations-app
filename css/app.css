@@ -163,31 +163,6 @@
     margin-top: 6px;
     border: 1px solid #ecc89e;
   }
-  .proc-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 6px;
-    margin-top: 6px;
-    cursor: pointer;
-    border: none;
-    font-family: inherit;
-    transition: transform 0.15s;
-  }
-  .proc-btn:hover { transform: scale(1.05); }
-  .proc-btn.proc-done {
-    background: var(--success-light);
-    color: #0b7a55;
-    border: 1px solid #b5e2d2;
-  }
-  .proc-btn.proc-pending {
-    background: #fceeee;
-    color: #b03a3a;
-    border: 1px solid #ecc7c7;
-  }
   /* Visual split: card top (operational) vs bottom (setup progress) */
   .card-divider {
     margin: 14px -14px 10px;
@@ -258,6 +233,7 @@
     font-size: 12px; color: var(--text-light); flex-wrap: wrap; gap: 4px;
   }
   .energy-badge { background: var(--gray-light); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-light); }
+  .subsite-chip { background: var(--gray-light); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-light); }
   .kibbutz-note { font-size: 11px; color: var(--text-light); font-style: italic; margin-top: 4px; }
   .kibbutz.hidden { display: none; }
   .comment-hint { font-size: 10px; color: var(--primary); margin-top: 6px; text-align: center; opacity: 0; transition: opacity 0.2s; }
@@ -1164,7 +1140,6 @@
      onboarding/progress noise (stepper, flags, proc button, calendar, owners, region). */
   body.meeting-mode .stepper,
   body.meeting-mode .current-step-label,
-  body.meeting-mode .proc-btn,
   body.meeting-mode .calendar-event,
   body.meeting-mode .ready-flow-flag,
   body.meeting-mode .flow-active-flag,
@@ -1349,8 +1324,7 @@
     .mobile-toggle-setup .card-divider,
     .mobile-toggle-setup .stepper,
     .mobile-toggle-setup .current-step-label,
-    .mobile-toggle-setup .kibbutz-note,
-    .mobile-toggle-setup .proc-btn { display: none; }
+    .mobile-toggle-setup .kibbutz-note { display: none; }
     .mobile-setup-toggle {
       display: inline-block;
       font-size: 10px;
@@ -1484,7 +1458,6 @@
   body.compact .card-divider,
   body.compact .stepper,
   body.compact .current-step-label,
-  body.compact .proc-btn,
   body.compact .calendar-event {
     display: none !important;
   }

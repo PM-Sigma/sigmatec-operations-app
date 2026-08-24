@@ -167,11 +167,6 @@
         <div class="kpi-value" id="kpiPending">0</div>
         <div class="kpi-sub" id="kpiPendingPct">0%</div>
       </div>
-      <div class="kpi green">
-        <div class="kpi-label">🔵 פרוצדורת זרימה</div>
-        <div class="kpi-value" id="kpiProc">0</div>
-        <div class="kpi-sub" id="kpiProcPct">בוצעה</div>
-      </div>
       <div class="kpi">
         <div class="kpi-label">📋 סך קיבוצים</div>
         <div class="kpi-value" id="kpiTotal">0</div>
@@ -345,13 +340,11 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 // Same parsers as the main dashboard
 function parseTaskField(taskStr) {
   taskStr = String(taskStr || '');
-  const proc = taskStr.includes('[PROC_DONE]');
   const stepMatch = taskStr.match(/step=(\d+)/);
   const noteMatch = taskStr.match(/note=([^|]*?)(?:\||$)/);
   const catMatch = taskStr.match(/cat=([a-z_]+)/);
   const typeMatch = taskStr.match(/type=([a-z_]+)/);
   return {
-    proc,
     step: stepMatch ? parseInt(stepMatch[1]) : null,
     note: noteMatch ? noteMatch[1].trim() : '',
     cat: catMatch ? catMatch[1] : null,
@@ -461,14 +454,13 @@ function render(data) {
 
   // ===== KPIs =====
   const total = tasks.length;
-  let countDone = 0, countPriority = 0, countNew = 0, countPending = 0, countProc = 0;
+  let countDone = 0, countPriority = 0, countNew = 0, countPending = 0;
   tasks.forEach(t => {
     const cat = getCategory(t);
     if (cat === 'done') countDone++;
     else if (cat === 'priority') countPriority++;
     else if (cat === 'new_client') countNew++;
     else countPending++;
-    if (parseTaskField(t.task).proc) countProc++;
   });
 
   const pct = n => total ? ((n / total) * 100).toFixed(1) + '%' : '0%';
@@ -481,8 +473,6 @@ function render(data) {
   document.getElementById('kpiNewClientPct').textContent = pct(countNew);
   document.getElementById('kpiPending').textContent = countPending;
   document.getElementById('kpiPendingPct').textContent = pct(countPending);
-  document.getElementById('kpiProc').textContent = countProc;
-  document.getElementById('kpiProcPct').textContent = `${countProc}/${countDone} מבאוויר`;
 
   // (engagement / "סוג לקוח" chart removed per request — not tracked)
 

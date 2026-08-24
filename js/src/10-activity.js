@@ -509,6 +509,14 @@
     const cardNote = card.querySelector('.kibbutz-note')?.textContent || '';
     document.getElementById('editStep').value = parsedT.step || cardStep || '';
     document.getElementById('editSetupNote').value = parsedT.note || cardNote || '';
+    // live card → construction fields (step + setup note) are past setup, hide them
+    const isDoneCard = (card.dataset.types || '').split(' ').includes('done');
+    const stepEl = document.getElementById('editStep');
+    const noteEl = document.getElementById('editSetupNote');
+    const stepLabel = document.querySelector('label[for="editStep"]');
+    const noteLabel = document.querySelector('label[for="editSetupNote"]');
+    [stepEl, noteEl, stepLabel, noteLabel].forEach(el => { if (el) el.style.display = isDoneCard ? 'none' : ''; });
+    if (isDoneCard) { stepEl.value = ''; noteEl.value = ''; }
     document.getElementById('editCategory').value = '';
     document.getElementById('editEngagement').value = parsedT.type || '';
     window.currentEditTask = task || null;
@@ -570,7 +578,7 @@
     ].filter(Boolean);
 
     // task may be null when the kibbutz exists as a card but has no sheet row yet
-    const currentParsed = task ? parseTaskField(task.task) : { proc: null, step: null, note: '', cat: null, type: null };
+    const currentParsed = task ? parseTaskField(task.task) : { step: null, note: '', cat: null, type: null };
     const stepVal = parseInt(document.getElementById('editStep').value);
     const noteVal = document.getElementById('editSetupNote').value.trim();
     const catSelected = document.getElementById('editCategory').value;
@@ -578,7 +586,6 @@
     const engagementSelected = document.getElementById('editEngagement').value;
     const finalType = engagementSelected || currentParsed.type || null;
     const newTaskField = serializeTaskField(
-      currentParsed.proc,
       isNaN(stepVal) ? null : stepVal,
       noteVal,
       finalCat,
@@ -696,7 +703,7 @@
 
   function reorderCards() {
     const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','kibbutz-meta','excel-status','card-ems','card-ems-new','card-last-visit','owners-row','marketing-badge'];
-    const BOTTOM_CLASSES = ['kibbutz-note','ready-flow-flag','flow-active-flag','urgent-flag','manual-flow-flag','new-client-flag','flow-bug-flag','bug-details','stepper','current-step-label','proc-btn','calendar-event'];
+    const BOTTOM_CLASSES = ['kibbutz-note','ready-flow-flag','flow-active-flag','urgent-flag','manual-flow-flag','new-client-flag','flow-bug-flag','bug-details','stepper','current-step-label','calendar-event'];
 
     document.querySelectorAll('.kibbutz').forEach(card => {
       // Remove existing divider
