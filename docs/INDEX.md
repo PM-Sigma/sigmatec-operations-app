@@ -58,6 +58,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 ---
 
 ## ⚡ Quick facts
+- **Source-of-truth Sheet** (what `SHEET_API` reads/writes): [Sigmatec — מעקב קיבוצים](https://docs.google.com/spreadsheets/d/1WxXzFBvBaYTPigrCIL9f96wMLWW0oV8JYI7wcWM_cL4/edit) — id `1WxXzFBvBaYTPigrCIL9f96wMLWW0oV8JYI7wcWM_cL4`, owner pm@. ⚠️ Two decoys exist with the SAME title: `1rT92Gl…` (May snapshot) and `1W92YI5…` ("עותק של"). Verify by the trailing duplicate `שדה אליהו` rows + the emsCache tab.
 - **Live:** https://pm-sigma.github.io/sigmatec-operations-app/ (installable PWA). **Repo:** `PM-Sigma/sigmatec-operations-app` (public).
 - **Backend:** Supabase (data + REST + RLS + Edge Functions `ems-auth`/`calendar`/`github`) + Apps Script (EMS proxy). EMS API for tasks/meters.
 - **Build:** edit `js/src/*.js` → `node build.mjs` → commit → push (main = live). `dev` = WIP; preview via raw.githack.com/.../dev/…
