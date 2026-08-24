@@ -1,6 +1,6 @@
 # Spec — Site consolidation, sub-sites, backend integrity & card cleanup
 
-STATUS: ✅ BUILT on `feat/site-consolidation` (1.65) — merge to main pending.
+STATUS: ✅ SHIPPED — released to main as 1.67 on 2026-08-24, verified live.
 Blocked-on-עידן remainder: EMS sites for ניר עציון / עין דור / דגניה ב.
 Branch: `feat/site-consolidation` (worktree `C:/Users/idann/Projects/SigmatecOps-wt-sites`, merged on top of `origin/main` 1.60)
 Requested by: עידן, 2026-08-24. Precursor to the larger "operations app" pivot (customers / inventory / dev / attendance / schedule).

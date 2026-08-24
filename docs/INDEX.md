@@ -66,7 +66,21 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-08-24 (**1.65 on `feat/site-consolidation`, worktree `../SigmatecOps-wt-sites`**).
+## 🚦 Current state — last: 2026-08-24 (**1.67 RELEASED to main — live**).
+
+**Released via `feat/site-consolidation` → main (ff).** This release also finally shipped the
+18 previously-unmerged commits: the 1.59 kibbutz↔EMS site-integrity work and the 1.55 push
+action-buttons/scheduled-attendance work. Verified live: 58 cards, every card has a region,
+אור הנר unified, 5 sub-site cards, 0 procedure buttons, כפר עזה renders its EMS tasks.
+
+**Sheet cleanup done by עידן** — but the two RENAMES were done as deletes, so there is now no
+`אור הנר` row and no `שדה אליהו - חקלאות` row (2 blank rows left over). Harmless: both cards
+fall back to REGION_FALLBACK and rebuild a row on first edit. אור הנר's old status text
+("מסריח, צריך החלפת סים בפילר פרדס") + owners were lost with row 12.
+
+**Weekly EMS scan** — scheduled task `ems-site-scan-weekly`, Sundays 07:51, reports EMS sites
+with no card (and cards with no EMS site) before the weekly meeting. Needs one manual
+"Run now" to pre-approve psql.
 
 **🏗️ Site consolidation shipped to the branch (not yet merged).** Ground truth was pulled live from
 the prod EMS DB (`claude_readonly_pm`, `SELECT id, code, name FROM sites` + task counts): **59 EMS

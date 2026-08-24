@@ -7,7 +7,7 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
-## [1.65] 2026-08-24 — 🏗️ site consolidation: sub-site cards, EMS-link integrity, no more setup procedure
+## [1.67] 2026-08-24 (RELEASED to main) — 🏗️ site consolidation: sub-site cards, EMS-link integrity, no more setup procedure
 Groundwork before the operations-app pivot. Ground truth pulled live from the prod EMS DB
 (`sites` + `employee_tasks`), not guessed — 59 EMS sites vs 54 cards.
 

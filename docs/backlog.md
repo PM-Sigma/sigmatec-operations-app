@@ -1,9 +1,9 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.65 on `feat/site-consolidation`** (2026-08-24), 1.60 on main._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.67 on main** (2026-08-24, live)._
 
-## ✅ DONE — site consolidation & EMS-link integrity (built 1.65, pending merge)
+## ✅ DONE — site consolidation & EMS-link integrity (RELEASED 1.67 to main, 2026-08-24)
 Spec: [docs/superpowers/specs/2026-08-24-site-consolidation-design.md](superpowers/specs/2026-08-24-site-consolidation-design.md).
 אור הנר unified from two energy-split cards into one · 5 sub-site cards added (גשר השלום, שדה אליהו
 חקלאות, מכללת ספיר, שלוחות ספק חיצוני, שער הגולן מחוץ למחלק), each on its own EMS UUID with the UUID
