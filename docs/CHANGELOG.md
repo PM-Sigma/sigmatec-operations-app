@@ -7,6 +7,43 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.65] 2026-08-24 — 🏗️ site consolidation: sub-site cards, EMS-link integrity, no more setup procedure
+Groundwork before the operations-app pivot. Ground truth pulled live from the prod EMS DB
+(`sites` + `employee_tasks`), not guessed — 59 EMS sites vs 54 cards.
+
+**1. אור הנר unified.** It is ONE EMS site but had TWO cards (חשמל / גז) both pointing at the same
+UUID, so its tasks rendered twice and neither card matched `CUSTOMER_CODES['אור הנר']` (both showed
+"אין קוד"). Now one card, `⚡ חשמל + 🔥 גז`, code #915. Sheet rows 12/13 keep their old split names,
+so `SHEET_NAME_ALIASES` folds them onto the unified card with row 12 as the save target.
+
+**2. Five sub-sites got their own cards** — גשר השלום · שדה אליהו חקלאות · מכללת ספיר ·
+שלוחות ספק חיצוני · שער הגולן מחוץ למחלק. Each maps to its own EMS UUID, and that UUID was
+**removed from the parent entry** (מעוז חיים and שדה אליהו were carrying two each), so no task can
+render on two cards. Sub-sites show a `↳ parent` chip and are exempt from the customer-code badge.
+
+**3. Backend integrity.** כפר עזה showed no EMS tasks because its site (`d1ed862f…`) existed all
+along but was **missing from `KIBBUTZ_SITE_MAP`**; same for דביר (`52b24c7f…`). Both mapped.
+`KNOWN_UNLINKED` pins the three cards that genuinely have no EMS site — **ניר עציון, עין דור,
+דגניה ב** — and a contract test asserts nothing outside that list is unlinked.
+
+**4. A region on every card.** The Sheet has **three** `שדה אליהו` rows, two region-less, and
+last-wins was shadowing the good one — fixed so a region-less duplicate never overwrites a row that
+has a region. `REGION_FALLBACK` covers the rest (דגניה ב, דפנה, the 5 sub-sites, אור הנר).
+
+**5. The data-entry procedure is gone** — `proc-btn`, `toggleProcedure`, `[PROC_DONE]`
+parse/serialize, the CSS, and the `🔵 פרוצדורת זרימה` KPI tile in `stats.html`. Legacy
+`[PROC_DONE]` text in the Sheet is ignored on read and dropped on the next save; no migration.
+
+**6. Live ("עלה לאוויר") cards lost the construction-process fields** — no `data-step`, no stepper,
+no step label, no progress note, and the edit modal hides שלב נוכחי / הערת הקמה for them. Non-done
+cards are unchanged.
+
+`test-site-consolidation.mjs` (72 checks) + 24 sibling suites green. Verified in-browser against the
+live Sheet: 58 cards, all with a region badge, 0 proc buttons, כפר עזה now renders its EMS tasks.
+**Action (עידן):** create EMS sites for ניר עציון / עין דור / דגניה ב; delete the orphan Sheet row
+13 (אור הנר גז) and the duplicate שדה אליהו rows.
+Spec: [docs/superpowers/specs/2026-08-24-site-consolidation-design.md](superpowers/specs/2026-08-24-site-consolidation-design.md).
+
 ## [1.60] 2026-08-02 — 🎯 נוכחות is now the operations hub (visits editable there, one report, EMS push)
 Per עידן: **everything is managed on the attendance page.** Five changes.
 

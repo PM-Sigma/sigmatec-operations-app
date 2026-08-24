@@ -1,7 +1,21 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.60 on main** (2026-08-02)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.65 on `feat/site-consolidation`** (2026-08-24), 1.60 on main._
+
+## ✅ DONE — site consolidation & EMS-link integrity (built 1.65, pending merge)
+Spec: [docs/superpowers/specs/2026-08-24-site-consolidation-design.md](superpowers/specs/2026-08-24-site-consolidation-design.md).
+אור הנר unified from two energy-split cards into one · 5 sub-site cards added (גשר השלום, שדה אליהו
+חקלאות, מכללת ספיר, שלוחות ספק חיצוני, שער הגולן מחוץ למחלק), each on its own EMS UUID with the UUID
+removed from the parent so no task double-renders · כפר עזה + דביר mapped (their EMS sites existed but
+were missing from the map — that was the "no EMS tasks" bug) · every card now gets a region (the
+three-duplicate-row שדה אליהו shadowing bug fixed + REGION_FALLBACK) · the data-entry procedure deleted
+everywhere including the stats.html KPI · live cards lost the construction-process fields.
+72 checks + 24 suites green, verified in-browser against the live Sheet.
+**⛔ Blocked on עידן (EMS writes, cannot be done from the app):** create EMS sites for **ניר עציון,
+עין דור, דגניה ב** — until then those three keep the ⚠️ "לא מקושר ל-EMS" indicator and the hard block
+on task creation. Also worth cleaning in the Sheet: orphan row 13 (אור הנר גז) + duplicate שדה אליהו rows.
+**Note:** this branch also carries the never-merged 1.59 kibbutz↔EMS site-integrity work (18 commits).
 
 ## ✅ DONE — נוכחות is the operations hub (shipped 1.60)
 Spec: [docs/superpowers/specs/2026-08-02-attendance-hub-design.md](superpowers/specs/2026-08-02-attendance-hub-design.md) (SHIPPED).

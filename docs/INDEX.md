@@ -65,6 +65,30 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — last: 2026-08-24 (**1.65 on `feat/site-consolidation`, worktree `../SigmatecOps-wt-sites`**).
+
+**🏗️ Site consolidation shipped to the branch (not yet merged).** Ground truth was pulled live from
+the prod EMS DB (`claude_readonly_pm`, `SELECT id, code, name FROM sites` + task counts): **59 EMS
+sites vs 54 cards**. אור הנר unified from two energy-split cards into one (its tasks were rendering
+twice) · **5 sub-site cards added** — גשר השלום, שדה אליהו חקלאות, מכללת ספיר, שלוחות ספק חיצוני,
+שער הגולן מחוץ למחלק — each on its own UUID, removed from the parent entry so nothing double-renders ·
+**כפר עזה + דביר mapped** (their EMS sites existed all along, just missing from `KIBBUTZ_SITE_MAP` —
+that was the "no EMS tasks for כפר עזה" bug) · **every card has a region** (the Sheet's three
+`שדה אליהו` rows, two region-less, were shadowing the good one; plus `REGION_FALLBACK`) ·
+**the data-entry procedure is deleted everywhere** incl. the `stats.html` KPI · **live cards lost the
+construction-process fields** (no step, no stepper, no progress note, modal hides them).
+58 cards, `test-site-consolidation.mjs` 72 checks + 24 suites green, verified in-browser.
+
+⚠️ **This branch also carries the never-merged 1.59 site-integrity work (18 commits).** `origin/main`
+is 1.60; the branch = `feat/kibbutz-site-integrity` + `origin/main` merged + this feature.
+
+**Action (עידן):** create EMS sites for **ניר עציון / עין דור / דגניה ב** (the only three cards with
+no backend — code cannot fix it); clean Sheet row 13 (אור הנר גז) + the duplicate שדה אליהו rows.
+**Next:** the requested pivot — customers / inventory / development / attendance / company schedule.
+Spec: `docs/superpowers/specs/2026-08-24-site-consolidation-design.md`.
+
+## Previous state
+
 ## 🚦 Current state — last: 2026-08-02 (**1.60 on main**).
 
 **🎯 1.60 — עמוד נוכחות is the operations hub.** Field days (יום שטח) are now editable there too, via
