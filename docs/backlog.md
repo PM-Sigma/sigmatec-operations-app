@@ -65,17 +65,15 @@ Sequence A→D→B→C, one spec+branch each.
   pulling EMS site details), **B = quick-order-from "אספקת מונים" task (AI)**, **C = remove מלאי בקיבוצים
   window** — not yet spec'd. Next up: D.
 
-## 🟡 IN PROGRESS — 🔥 צריבות 1.68 on `feat/meter-burns-rel` (gated to עידן only) — ⛔ blocked on DB SQL
-Spec: [docs/superpowers/specs/2026-09-06-meter-burn-tracker-design.md](superpowers/specs/2026-09-06-meter-burn-tracker-design.md)
+## 🟡 IN PROGRESS — 🔥 צריבות 1.69 on `feat/meter-burns-rel` (gated to עידן only) — DB ✅, EMS live refresh ✅, pending live smoke → ff dev→main
+Spec: [docs/superpowers/specs/2026-09-06-meter-burn-tracker-design.md](superpowers/specs/2026-09-06-meter-burn-tracker-design.md) (§7 = EMS refresh)
 (worktree `C:/Users/idann/Projects/SigmatecOps-wt-burns`, preview config `burns-wt` in `.claude/launch.json`).
-Code done + rebased on main 1.67, 27 suites green, gate verified in-browser (🔥 nav visible as עידן only; אביאם bounced to קיבוצים).
-**⛔ Blocker:** tables `meter_burns`/`generators` don't exist yet. Apply in Supabase (project `wwqfcajnxinaxmobrgol`):
-MCP `apply_migration` name `meter_burns_and_generators` = `db/meter_burns.sql`, then `execute_sql` = `db/meter_burns_seed.sql`
-(268 rows, re-run safe); verify `select count(*), count(solar_names), count(*) filter (where meter_type='E360CT') from meter_burns`
-→ **268 / 261 / 85**; run security advisors. Then smoke the tab as עידן on real data → ff-push `feat/meter-burns-rel` → `dev` → `main`
-(`dev` is stale at 1.57 and fast-forwards through main), `git worktree remove SigmatecOps-wt-burns`, delete the superseded
-`feat/meter-burns`. Widen the gate when עידן approves. Deferred: EMS write-back of role, JSON export for the disconnect
-software, live refresh from EMS `/meters`, `burnAttr` backslash escape.
+Done 7.9.26: tables + seed applied by עידן (268 / 261 / 85 verified), insert policy migration, tab renders real data (28 kibbutz groups),
+⟳ EMS button + auto-sync on open built (1.69), 27 suites green, gate verified (עידן only).
+**Next:** עידן signs in to the EMS in the preview → run ⟳ EMS once → verify toast/footer + DB row count → ff-push
+`feat/meter-burns-rel` → `dev` → `main` (`dev` is stale at 1.57, fast-forwards through main) → `git worktree remove SigmatecOps-wt-burns`,
+delete superseded `feat/meter-burns`. Widen the gate when עידן approves. Deferred: EMS write-back of role, JSON export for the
+disconnect software, `seen_at` for meters that vanish from the EMS, `burnAttr` backslash escape.
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
 Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.

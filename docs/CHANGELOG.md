@@ -7,6 +7,19 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.69] 2026-09-07 (on `feat/meter-burns-rel`, ships with 1.68) — 🔥 צריבות: live refresh from the EMS
+עידן: "the seed is nice, but the update from the system is what matters." The seed is now only the bootstrap.
+Opening the tab (per device, when the last pull is ≥12h old) or pressing **⟳ EMS** pulls the current generation meters
+(`GET /v1/meters?roleCodes=20-24`, paginated ×200) + all solars (`GET /v1/solars`) through the existing `emsApi` proxy
+with the signed-in user's EMS token, keeps only Landis E360 by `type.key`/`type.name` (`landis_e360pp|sp|ct`), and
+upserts the EMS-owned columns by `meter_id` (`POST /rest/v1/meter_burns?on_conflict=meter_id`, merge-duplicates).
+Tracking columns (status / burned_* / generator_id / note) are never in the payload, so field work survives; a meter
+new in the EMS arrives as `pending`. Footer shows "עודכן מה-EMS <date time>"; toast reports N meters · M new.
+Still read-only on the EMS. **DB:** `db/meter_burns.sql` + seed applied by עידן (268 / 261 solar / 85 CT verified),
+plus new policy `meter_burns_insert` (authenticated) — migration `meter_burns_insert_policy`. Security advisors: no new findings.
+PURE `B.emsMeterType / emsSolarNames / emsToBurnRows` covered in `test-meter-burns.mjs`; 27 suites green. Spec §7.
+Ceiling (documented): meters that vanish from the EMS stay listed — add `seen_at` if it bites.
+
 ## [1.68] 2026-09-07 (on `feat/meter-burns-rel`, NOT yet on main) — 🔥 צריבות (meter burn tracker), rollout gated to עידן
 New tab 🔥 צריבות: 268 Landis E360 generation meters (PP 176 / CT 85 / SP 7) grouped by kibbutz with
 "נותרו X/Y" + progress bar (most-pending sites first); search (site / partial serial / address / solar system /

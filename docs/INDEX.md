@@ -66,17 +66,14 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-07 (**1.68 on `feat/meter-burns-rel` — 🔥 צריבות ready, gated to עידן, ⛔ blocked on DB SQL; main still 1.67**).
+## 🚦 Current state — last: 2026-09-07 (**1.69 on `feat/meter-burns-rel` — 🔥 צריבות on real data + EMS live refresh, gated to עידן; pending live smoke → ff dev→main; main still 1.67**).
 
 **🔥 צריבות (meter burn tracker) — code complete, rebased on main, gated to עידן only.** Branch `feat/meter-burns-rel`
 (worktree `SigmatecOps-wt-burns`) = `origin/main` 1.67 + one squash commit; the old `feat/meter-burns` 10-commit branch
 (base dev 1.57) is superseded — delete after merge. Gate: `burnCanSee`/`burnCanWrite` = עידן only (rollout decision
 2026-09-07; intended audience kept in a code comment in `24-meter-burns.js`). Verified in-browser on the worktree
 preview (`.claude/launch.json` → `burns-wt`): 🔥 nav shows for עידן, hidden for everyone else. 27 suites green.
-**Blocker → next step:** the Supabase tables don't exist yet (`apply_migration` was blocked by the permission classifier
-this session). Apply `db/meter_burns.sql` (migration `meter_burns_and_generators`) + `db/meter_burns_seed.sql`
-(expect 268 / 261 solar / 85 CT), run advisors, smoke as עידן with real data, then ff-push
-`feat/meter-burns-rel` → `dev` → `main`. Exact steps: backlog → 🟡 IN PROGRESS 🔥 צריבות.
+**DB done (7.9.26, עידן ran the SQL):** `meter_burns` 268 rows / 261 solar / 85 CT, `generators` empty; policy `meter_burns_insert` added via migration `meter_burns_insert_policy`. **1.69 — live refresh from the EMS (spec §7):** ⟳ EMS button + auto-sync on open (≥12h per device) pulls `/v1/meters` (roles 20-24) + `/v1/solars` via `emsApi`, upserts EMS columns by `meter_id`, never touches tracking columns. **Next:** live smoke with עידן's EMS login in the preview, then ff-push `feat/meter-burns-rel` → `dev` → `main`. Exact steps: backlog → 🟡 IN PROGRESS 🔥 צריבות.
 
 ## 🚦 Current state — last: 2026-08-24 (**1.67 RELEASED to main — live**).
 

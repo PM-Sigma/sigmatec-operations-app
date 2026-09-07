@@ -30,7 +30,7 @@
 | `ems_queue` | Outbound EMS write queue (identity PK, jsonb payload). |
 | `parse_corrections` | 📦 Inventory: order-parser learning store (`{raw_text → items}` few-shot for `parse-order`). Anon read, auth insert. |
 | `dev_status_log` | 🧑‍💻 Dev page: PK `(issue,status)` + `day`. First day each ticket was seen in each pipeline stage → the gray day-stamps. Anon read, auth insert (`on_conflict do nothing`). |
-| `meter_burns` | 🔥 צריבות: one row per Landis E360 generation meter (EMS snapshot cols + status/burned_by/burned_at/generator_id/note). Anon read, auth update only — no insert policy (rows come only from the seed, run in the SQL editor). Seed: `db/meter_burns_seed.sql` (generated from `db/meter_burns_seed.csv` by `db/gen_meter_burns_seed.mjs`). ⚠️ Talks to Supabase directly (like `dev_status_log`/`push_log`); `?sb=0` mock mode does NOT apply — the tab reads/writes production `meter_burns` even in mock mode. |
+| `meter_burns` | 🔥 צריבות: one row per Landis E360 generation meter (EMS snapshot cols + status/burned_by/burned_at/generator_id/note). Anon read; authenticated insert+update (insert added 7.9.26 so the tab can upsert the EMS-owned columns live from the EMS; tracking columns are app-owned). |
 | `generators` | 🔥 צריבות: generators per site (`unique(site,name)`, `device_serial`). Anon read, auth insert/update. |
 
 DB helper scripts in `db/`: `supabase_schema.sql` (schema + RLS), `import_from_appsscript.mjs`

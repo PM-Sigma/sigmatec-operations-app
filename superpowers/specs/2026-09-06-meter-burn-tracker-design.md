@@ -1,8 +1,8 @@
 # 🔥 מעקב צריבת מונים (Landis E360 ייצור) — תכנון
 
-**STATUS: 🟡 OPEN — built (1.68 on `feat/meter-burns-rel`), NOT shipped.** Resume: `docs/backlog.md` → 🟡 IN PROGRESS 🔥 צריבות (apply the two SQL files, smoke as עידן, ff to dev→main).
+**STATUS: 🟡 OPEN — built (1.69 on `feat/meter-burns-rel`, DB applied, EMS live refresh §7), NOT shipped.** Resume: `docs/backlog.md` → 🟡 IN PROGRESS 🔥 צריבות (live smoke with EMS login, ff to dev→main).
 
-**תאריך:** 2026-09-06 · **סטטוס:** בנוי (1.68 על `feat/meter-burns-rel`), ממתין ל-SQL + מיזוג · שער השקה: עידן בלבד · **משתמשים:** אביאם, ניתאי (עדכון) · עידן, עמיחי (צפייה + ניהול)
+**תאריך:** 2026-09-06 · **סטטוס:** בנוי (1.69 על `feat/meter-burns-rel`), DB הוקם, ממתין למיזוג · שער השקה: עידן בלבד · **משתמשים:** אביאם, ניתאי (עדכון) · עידן, עמיחי (צפייה + ניהול)
 
 ## 1. מה בונים (במשפט)
 טאב חדש **"🔥 צריבות"** באפליקציה: רשימת כל מוני Landis E360 (PP/SP/CT) שתפקידם ייצור (role 20–24),
