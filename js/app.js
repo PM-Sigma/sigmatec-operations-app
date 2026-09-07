@@ -9863,6 +9863,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   function burnCanSee()  { return typeof getCurrentUser === 'function' && getCurrentUser() !== 'מתניה'; }
   function burnCanWrite(){ return ['אביאם', 'ניתאי', 'עידן', 'עמיחי'].indexOf(typeof getCurrentUser === 'function' ? getCurrentUser() : '') !== -1 && !(typeof isViewer === 'function' && isViewer()); }
   function burnEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function burnAttr(s) { return burnEsc(s).replace(/'/g, "\\'"); }
   function burnHdr(write) {
     var tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
     if (write && !tok) throw new Error('אין חיבור מאומת — התחבר ל-EMS מחדש ואז נסה שוב');
@@ -9909,7 +9910,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   };
   function burnKindTag(r) {
     return B.isCT(r) ? '<span class="burn-tag burn-tag-ct">🧲 CT' + (r.ct_ratio && Number(r.ct_ratio) !== 1 ? ' ×' + Number(r.ct_ratio) : '') + '</span>'
-                     : '<span class="burn-tag burn-tag-pp">🔌 ' + burnEsc(r.meter_type.replace('E360', '')) + '</span>';
+                     : '<span class="burn-tag burn-tag-pp">🔌 ' + burnEsc(String(r.meter_type || '').replace('E360', '')) + '</span>';
   }
   function burnWarn(r) {
     var w = [];
@@ -9920,10 +9921,10 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   function burnRowHtml(r, write) {
     var st = BURN_STATE_UI[B.rowState(r)];
     var sel = burnState.sel[r.meter_id] ? ' checked' : '';
-    var chk = write ? '<input type="checkbox" class="burn-chk" aria-label="בחר"' + sel + ' onclick="event.stopPropagation();burnSelect(\'' + r.meter_id + '\', this.checked)">' : '';
-    var btn = write ? '<button class="inv-btn small burn-btn ' + (r.status === 'burned' ? 'burn-btn-on' : '') + '" onclick="event.stopPropagation();burnToggle(\'' + r.meter_id + '\')">' + (r.status === 'burned' ? '↩ בטל' : '✅ נצרב') + '</button>' +
-                      '<button class="inv-btn small burn-btn-issue" title="דווח בעיה" onclick="event.stopPropagation();burnIssue(\'' + r.meter_id + '\')">⚠</button>' : '';
-    return '<div class="burn-row ' + st.cls + '" onclick="burnOpen(\'' + r.meter_id + '\')">' +
+    var chk = write ? '<input type="checkbox" class="burn-chk" aria-label="בחר"' + sel + ' onclick="event.stopPropagation();burnSelect(\'' + burnAttr(r.meter_id) + '\', this.checked)">' : '';
+    var btn = write ? '<button class="inv-btn small burn-btn ' + (r.status === 'burned' ? 'burn-btn-on' : '') + '" onclick="event.stopPropagation();burnToggle(\'' + burnAttr(r.meter_id) + '\')">' + (r.status === 'burned' ? '↩ בטל' : '✅ נצרב') + '</button>' +
+                      '<button class="inv-btn small burn-btn-issue" title="דווח בעיה" onclick="event.stopPropagation();burnIssue(\'' + burnAttr(r.meter_id) + '\')">⚠</button>' : '';
+    return '<div class="burn-row ' + st.cls + '" onclick="burnOpen(\'' + burnAttr(r.meter_id) + '\')">' +
       chk + burnKindTag(r) +
       '<div class="burn-main"><div class="burn-serial"><bdi>' + burnEsc(r.serial) + '</bdi> <span class="burn-addr">' + burnEsc(r.address || '') + '</span></div>' +
       '<div class="burn-sub">' + (r.solar_names ? '☀️ ' + burnEsc(r.solar_names) : '<span class="burn-muted">ללא מערכת מקושרת</span>') +
@@ -9941,64 +9942,77 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       return (groups.length > 1 || gg.gen ? '<div class="burn-gen">' + head + ' · ' + gg.rows.length + '</div>' : '') + gg.rows.map(function (r) { return burnRowHtml(r, write); }).join('');
     }).join('');
     return '<section class="burn-site' + (open ? ' open' : '') + '">' +
-      '<header class="burn-site-head" onclick="burnToggleSite(\'' + burnEsc(g.site).replace(/'/g, "\\'") + '\')">' +
+      '<header class="burn-site-head" onclick="burnToggleSite(\'' + burnAttr(g.site) + '\')">' +
         '<span class="burn-caret">' + (open ? '▼' : '▶') + '</span><h3>' + burnEsc(g.site) + '</h3>' +
         '<span class="burn-left' + (g.pending ? '' : ' done') + '">נותרו ' + g.pending + '/' + g.total + '</span>' +
         '<span class="burn-mini">CT ' + g.ct + ' · PP ' + g.pp + (g.issue ? ' · ⚠️ ' + g.issue : '') + '</span>' +
         '<div class="burn-bar"><i style="width:' + pct + '%"></i></div>' +
       '</header>' + (open ? '<div class="burn-site-body">' + body + '</div>' : '') + '</section>';
   }
+  function burnRenderTiles() {
+    var el = document.getElementById('burnTiles'); if (!el) return;
+    var t = B.totals(burnState.rows || []);
+    el.innerHTML =
+        '<div class="push-tile" style="--c:#334155"><div class="push-tile-n">' + t.total + '</div><div class="push-tile-l">סה״כ</div></div>' +
+        '<div class="push-tile" style="--c:#b45309"><div class="push-tile-n">' + t.pending + '</div><div class="push-tile-l">נותרו</div></div>' +
+        '<div class="push-tile" style="--c:#059669"><div class="push-tile-n">' + t.burned + '</div><div class="push-tile-l">נצרבו</div></div>' +
+        '<div class="push-tile" style="--c:#b91c1c"><div class="push-tile-n">' + t.issue + '</div><div class="push-tile-l">בעיות</div></div>';
+  }
+  function burnRenderResults() {
+    var el = document.getElementById('burnResults'); if (!el) return;
+    var write = burnCanWrite(), f = burnState.f;
+    var rows = B.filterRows(burnState.rows || [], f, burnState.gens);
+    var t = B.totals(burnState.rows || []), groups = B.groupBySite(rows);
+    var nSel = Object.keys(burnState.sel).filter(function (k) { return burnState.sel[k]; }).length;
+    el.innerHTML =
+      (write && nSel ? '<div class="burn-selbar">' + nSel + ' נבחרו · <button class="inv-btn small" onclick="burnBurnSelected()">✅ סמן כנצרבו</button> <button class="inv-btn small" onclick="burnAssignSelected()">⚡ שבץ לגנרטור</button> <button class="inv-btn small" style="background:#64748b" onclick="burnClearSel()">✖</button></div>' : '') +
+      (groups.length ? groups.map(function (g) { return burnSiteHtml(g, write); }).join('') : '<div class="dev-empty">אין מונים שמתאימים לחיפוש.</div>') +
+      '<div class="push-foot">מציג ' + rows.length + ' מתוך ' + t.total + ' מונים · נתוני EMS מ-7.9.26</div>';
+    burnRenderTiles();
+  }
   function burnRender() {
     var el = document.getElementById('burnsContent'); if (!el) return;
     if (!burnCanSee()) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">אין הרשאה לעמוד זה.</div></div>'; return; }
     if (burnState.loading && !burnState.rows) { el.innerHTML = '<div class="dev-wrap"><div class="dev-loading">⏳ טוען מונים…</div></div>'; return; }
     if (burnState.err && !burnState.rows) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ ' + burnEsc(burnState.err) + ' <button class="inv-btn small" onclick="renderBurns(true)">🔄 נסה שוב</button></div></div>'; return; }
-    var write = burnCanWrite(), f = burnState.f;
-    var rows = B.filterRows(burnState.rows || [], f, burnState.gens);
-    var t = B.totals(burnState.rows || []), groups = B.groupBySite(rows);
+    var f = burnState.f;
     var sites = B.groupBySite(burnState.rows || []).map(function (g) { return g.site; });
     var seg = function (key, opts) { return '<div class="burn-seg">' + opts.map(function (o) { return '<button class="' + (f[key] === o[0] ? 'on' : '') + '" onclick="burnSetFilter(\'' + key + '\',\'' + o[0] + '\')">' + o[1] + '</button>'; }).join('') + '</div>'; };
-    var nSel = Object.keys(burnState.sel).filter(function (k) { return burnState.sel[k]; }).length;
     el.innerHTML = '<div class="dev-wrap burn-wrap">' +
       '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור</h2>' +
         '<div><button class="inv-btn small xl-export-btn" onclick="burnExportXlsx()" style="' + (typeof canExportExcel === 'function' && canExportExcel() ? '' : 'display:none') + '">📗 Excel</button> ' +
         '<button class="inv-btn small" onclick="renderBurns(true)" title="רענן">🔄</button></div></div>' +
-      '<div class="push-tiles">' +
-        '<div class="push-tile" style="--c:#334155"><div class="push-tile-n">' + t.total + '</div><div class="push-tile-l">סה״כ</div></div>' +
-        '<div class="push-tile" style="--c:#b45309"><div class="push-tile-n">' + t.pending + '</div><div class="push-tile-l">נותרו</div></div>' +
-        '<div class="push-tile" style="--c:#059669"><div class="push-tile-n">' + t.burned + '</div><div class="push-tile-l">נצרבו</div></div>' +
-        '<div class="push-tile" style="--c:#b91c1c"><div class="push-tile-n">' + t.issue + '</div><div class="push-tile-l">בעיות</div></div></div>' +
+      '<div class="push-tiles" id="burnTiles"></div>' +
       '<div class="burn-filters">' +
         '<input id="burnSearch" class="burn-search" type="search" placeholder="🔍 קיבוץ / מס\' מונה / כתובת / מערכת" value="' + burnEsc(f.q) + '" oninput="burnSetFilter(\'q\', this.value)" onkeydown="if(event.key===\'Enter\')burnEnter()">' +
         '<select class="burn-site-sel" onchange="burnSetFilter(\'site\', this.value)"><option value="">כל הקיבוצים</option>' + sites.map(function (s) { return '<option' + (f.site === s ? ' selected' : '') + '>' + burnEsc(s) + '</option>'; }).join('') + '</select>' +
         seg('status', [['all', 'הכול'], ['pending', 'נותרו'], ['burned', 'נצרבו'], ['issue', 'בעיות']]) +
         seg('kind', [['all', 'PP+CT'], ['PP', '🔌 PP'], ['CT', '🧲 CT']]) + '</div>' +
-      (write && nSel ? '<div class="burn-selbar">' + nSel + ' נבחרו · <button class="inv-btn small" onclick="burnBurnSelected()">✅ סמן כנצרבו</button> <button class="inv-btn small" onclick="burnAssignSelected()">⚡ שבץ לגנרטור</button> <button class="inv-btn small" style="background:#64748b" onclick="burnClearSel()">✖</button></div>' : '') +
-      (groups.length ? groups.map(function (g) { return burnSiteHtml(g, write); }).join('') : '<div class="dev-empty">אין מונים שמתאימים לחיפוש.</div>') +
-      '<div class="push-foot">מציג ' + rows.length + ' מתוך ' + t.total + ' מונים · נתוני EMS מ-7.9.26</div></div>';
-    var s = document.getElementById('burnSearch'); if (s && document.activeElement !== s && f.q) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+      '<div id="burnResults"></div></div>';
+    burnRenderResults();
   }
   async function renderBurns(force) {
-    if (force || !burnState.rows) { burnRender(); await burnLoad(); }
+    if (force || !burnState.rows) { burnState.loading = true; burnRender(); await burnLoad(); }
     burnRender();
   }
 
   // ---------- actions ----------
   var _burnSearchT = null;
+  function burnRepaint() { if (document.getElementById('burnResults')) burnRenderResults(); else burnRender(); }
   function burnSetFilter(k, v) {
     burnState.f[k] = v;
     try { localStorage.setItem('burn_filter_v1', JSON.stringify(burnState.f)); } catch (e) {}
-    if (k === 'q') { clearTimeout(_burnSearchT); _burnSearchT = setTimeout(burnRender, 120); } else burnRender();
+    if (k === 'q') { clearTimeout(_burnSearchT); _burnSearchT = setTimeout(burnRenderResults, 120); } else burnRender();
   }
   function burnEnter() {  // single hit → open its card
     var rows = B.filterRows(burnState.rows || [], burnState.f, burnState.gens);
     if (rows.length === 1) burnOpen(rows[0].meter_id);
   }
-  function burnToggleSite(site) { burnState.open[site] = !burnState.open[site]; burnRender(); }
-  function burnSelect(id, on) { burnState.sel[id] = !!on; burnRender(); }
-  function burnClearSel() { burnState.sel = {}; burnRender(); }
+  function burnToggleSite(site) { burnState.open[site] = !burnState.open[site]; burnRepaint(); }
+  function burnSelect(id, on) { burnState.sel[id] = !!on; burnRepaint(); }
+  function burnClearSel() { burnState.sel = {}; burnRepaint(); }
   function burnNow() { return new Date().toISOString(); }
-  async function burnSafe(fn) { try { await fn(); } catch (e) { emsToast('⚠️ ' + e.message); } burnRender(); }
+  async function burnSafe(fn) { try { await fn(); } catch (e) { emsToast('⚠️ ' + e.message); } burnRepaint(); }
   function burnToggle(id) {
     var r = burnState.rows.find(function (x) { return x.meter_id === id; }); if (!r) return;
     if (r.status === 'burned' && !confirm('לבטל את סימון הצריבה של מונה ' + r.serial + '?')) return;
@@ -10007,7 +10021,13 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   function burnIssue(id) {
     var r = burnState.rows.find(function (x) { return x.meter_id === id; }); if (!r) return;
     var note = prompt('מה הבעיה במונה ' + r.serial + '?', r.note || ''); if (note === null) return;
-    burnSafe(function () { return burnPatchRow(id, B.issuePatch(note.trim(), burnNow())); });
+    note = note.trim();
+    if (!note) {
+      if (r.status === 'issue') burnSafe(function () { return burnPatchRow(id, B.unburnPatch(burnNow())); });
+      else emsToast('לא נשמרה בעיה ריקה');
+      return;
+    }
+    burnSafe(function () { return burnPatchRow(id, B.issuePatch(note, burnNow())); });
   }
   function burnBurnSelected() {
     var ids = Object.keys(burnState.sel).filter(function (k) { return burnState.sel[k]; });
@@ -10025,8 +10045,8 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     var m = document.getElementById('burnAssignModal'), c = document.getElementById('burnAssignContent');
     c.innerHTML = '<h3>⚡ שיבוץ לגנרטור — ' + burnEsc(site) + '</h3><p class="burn-muted">' + rows.length + ' מונים. בחר גנרטור קיים או הקלד שם חדש.</p>' +
       '<input id="burnGenName" list="burnGenList" class="burn-search" placeholder="שם הגנרטור" autocomplete="off"><datalist id="burnGenList">' + gens.map(function (g) { return '<option value="' + burnEsc(g.name) + '">'; }).join('') + '</datalist>' +
-      '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-start;"><button class="inv-btn" onclick="burnAssignSave(\'' + burnEsc(site).replace(/'/g, "\\'") + '\')">שמור</button>' +
-      '<button class="inv-btn" style="background:#64748b" onclick="burnAssignSave(\'' + burnEsc(site).replace(/'/g, "\\'") + '\', true)">הסר שיבוץ</button>' +
+      '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-start;"><button class="inv-btn" onclick="burnAssignSave(\'' + burnAttr(site) + '\')">שמור</button>' +
+      '<button class="inv-btn" style="background:#64748b" onclick="burnAssignSave(\'' + burnAttr(site) + '\', true)">הסר שיבוץ</button>' +
       '<button class="inv-btn" style="background:#94a3b8" onclick="document.getElementById(\'burnAssignModal\').classList.remove(\'open\')">ביטול</button></div>';
     m.dataset.ids = JSON.stringify(ids); m.classList.add('open'); setTimeout(function () { document.getElementById('burnGenName').focus(); }, 50);
   }
@@ -10060,9 +10080,9 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       '</table>' +
       '<div style="margin-top:10px;"><a href="https://sigmatec-ems.com/admin/meters/' + burnEsc(r.meter_id) + '" target="_blank" rel="noopener" class="burn-link">פתח ב-EMS ↗</a></div>' +
       (write ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">' +
-        '<button class="inv-btn" onclick="burnToggle(\'' + id + '\');document.getElementById(\'burnCardModal\').classList.remove(\'open\')">' + (r.status === 'burned' ? '↩ בטל צריבה' : '✅ נצרב') + '</button>' +
-        '<button class="inv-btn" style="background:#b45309" onclick="burnIssue(\'' + id + '\');document.getElementById(\'burnCardModal\').classList.remove(\'open\')">⚠ בעיה</button>' +
-        '<button class="inv-btn" style="background:#475569" onclick="document.getElementById(\'burnCardModal\').classList.remove(\'open\');burnAssignSelected(\'' + id + '\')">⚡ גנרטור</button></div>' : '');
+        '<button class="inv-btn" onclick="burnToggle(\'' + burnAttr(id) + '\');document.getElementById(\'burnCardModal\').classList.remove(\'open\')">' + (r.status === 'burned' ? '↩ בטל צריבה' : '✅ נצרב') + '</button>' +
+        '<button class="inv-btn" style="background:#b45309" onclick="burnIssue(\'' + burnAttr(id) + '\');document.getElementById(\'burnCardModal\').classList.remove(\'open\')">⚠ בעיה</button>' +
+        '<button class="inv-btn" style="background:#475569" onclick="document.getElementById(\'burnCardModal\').classList.remove(\'open\');burnAssignSelected(\'' + burnAttr(id) + '\')">⚡ גנרטור</button></div>' : '');
     m.classList.add('open');
   }
   window.renderBurns = renderBurns; window.burnCanSee = burnCanSee; window.burnCanWrite = burnCanWrite;
