@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.68] 2026-09-07 (on `feat/meter-burns-rel`, NOT yet on main) — 🔥 צריבות (meter burn tracker), rollout gated to עידן
+New tab 🔥 צריבות: 268 Landis E360 generation meters (PP 176 / CT 85 / SP 7) grouped by kibbutz with
+"נותרו X/Y" + progress bar (most-pending sites first); search (site / partial serial / address / solar system /
+generator); one-tap ✅ נצרב / ⚠ בעיה (note prompt; empty note clears an issue); undo with confirm; multi-select →
+bulk burn / ⚡ assign to generator (one site at a time, datalist, new name creates the row); CT tag with ratio +
+warnings (no parent / ratio 1); burned CT styled 🟣 "מוכן לעיסוק" (display only — statuses stay pending/burned/issue);
+linked solar systems per meter; meter card with EMS link + role code; generators helper table (device serial);
+📗 Excel export (sanitized cells). **No EMS writes by design.** Module `js/src/24-meter-burns.js` (PURE block
+tested by `test-meter-burns.mjs`), tables `meter_burns` + `generators` (`db/meter_burns.sql` + `db/meter_burns_seed.sql`).
+**Why 1.68 and not 1.62/1.63:** the feature branch (10 commits, `c92a915`) was cut from a stale `dev` (1.57), so it
+was squash-replayed onto `main` 1.67 (only build-stamp conflicts) to ship on top of site consolidation.
+**Rollout gate (עידן, 2026-09-07):** `burnCanSee`/`burnCanWrite` = **עידן only** for now; the intended audience
+(see = everyone but מתניה, write = אביאם/ניתאי/עידן/עמיחי) is kept in a comment in the module.
+**DB:** migration + seed NOT applied yet (Supabase MCP `apply_migration` was blocked by the permission classifier
+in this session) — see backlog for the exact steps. 27 suites green; gate verified in-browser on the worktree preview.
+
 ## [1.67] 2026-08-24 (RELEASED to main) — 🏗️ site consolidation: sub-site cards, EMS-link integrity, no more setup procedure
 Groundwork before the operations-app pivot. Ground truth pulled live from the prod EMS DB
 (`sites` + `employee_tasks`), not guessed — 59 EMS sites vs 54 cards.
