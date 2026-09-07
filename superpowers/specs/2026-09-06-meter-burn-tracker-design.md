@@ -132,7 +132,7 @@ Seed: `db/meter_burns.sql` מייצר את הטבלה + `insert` של 268 השו
 | 4 | כרטיס מונה (מערכות מקושרות, צבע 🟣 ל-CT נצרב) + Excel | `24-…`, `21-excel-export.js` | export checks |
 | 4א | גנרטורים: בחירה מרובה → שיבוץ, datalist, טבלת עזר | `24-…` | שיבוץ נשמר, מסונן לקיבוץ |
 | ~~5~~ | ~~"עדכן ב-EMS"~~ — מושהה | | |
-| 6 | (אח"כ) רענון רשימה מ-EMS חי | `24-…` | upsert לא דורס סטטוס |
+| 6 | ✅ רענון רשימה מ-EMS חי (סעיף 7, 7.9.26) | `24-…` | upsert לא דורס סטטוס |
 
 **הערכה:** פאזות 1–4 = מפגש עבודה אחד. 4א = חצי יום.
 
@@ -141,3 +141,15 @@ Seed: `db/meter_burns.sql` מייצר את הטבלה + `insert` של 268 השו
 - **NotebookLM לא היה נגיש** בסשן (פרופיל `sigmatek`: RPC Not found / account-routing mismatch; `default`: auות פג).
   ההתייעצות נעשתה מול קוד ה-backend של EMS ומסמכי ניהול (ישיבת 23.8.26). להשלים כשהחיבור יתוקן.
 - בדוח היום: **18 מונים ללא אב** ו-**1 מונה CT עם מכפיל 1** — לתקן ב-EMS לפני הצריבה (הטאב יסמן אותם ⚠️).
+
+## 7. רענון חי מה-EMS — **בנוי 7.9.26** (הוחלט: "ה-seed נחמד, אבל חשוב העדכון מהמערכת" — עידן)
+- **מקור:** `GET /v1/meters?roleCodes=20,21,22,23,24&take=200&page=N` + `GET /v1/solars?take=200&page=N` דרך ה-proxy הקיים (`emsApi`,
+  הטוקן של המשתמש המחובר). הסינון ל-Landis E360 נעשה בצד הלקוח לפי `type.key`/`type.name` (`landis_e360pp|sp|ct`) — לא לפי קודי סוג.
+- **מתי:** בפתיחת הטאב אם עברו ≥12 שעות מהרענון האחרון במכשיר (`localStorage: burn_ems_synced_v1`), וכפתור **⟳ EMS** ידני (לכותבים בלבד).
+- **מה מתעדכן:** רק העמודות ש-EMS הוא הבעלים שלהן (serial, site, site_id, meter_type, address, role_code, ct_ratio, parent_serial,
+  solar_names) ב-upsert לפי `meter_id` (`POST /rest/v1/meter_burns?on_conflict=meter_id`, `resolution=merge-duplicates`).
+  status / burned_* / generator_id / note **לא נשלחים ולא נדרסים**. מונה חדש ב-EMS נכנס כ-`pending`.
+- **RLS:** נוספה policy `meter_burns_insert` (authenticated) — מיגרציה `meter_burns_insert_policy` (7.9.26). ה-seed נשאר bootstrap בלבד.
+- **לא מטופל (בכוונה):** מונה שנעלם מה-EMS (שינוי תפקיד/ארכיון) נשאר ברשימה — אם יפריע: עמודת `seen_at` + סינון. אין כתיבה ל-EMS.
+- **קוד:** PURE `B.emsMeterType / B.emsSolarNames / B.emsToBurnRows` (נבדקים ב-`test-meter-burns.mjs`), `burnEmsAll` (דפדוף),
+  `burnRefreshFromEms`. הפוטר מציג "עודכן מה-EMS <תאריך שעה>".

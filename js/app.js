@@ -10145,11 +10145,39 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     return (gens || []).map(function (g) { return { id: g.id, site: g.site, name: g.name, device_serial: g.device_serial || '', count: cnt[g.id] || 0 }; })
       .sort(function (a, b) { return a.site.localeCompare(b.site, 'he') || a.name.localeCompare(b.name, 'he'); });
   };
+  // ---- EMS live refresh (spec §7): raw EMS /meters + /solars payloads → the EMS-owned columns of meter_burns ----
+  B.emsMeterType = function (m) {   // meter_types.key looks like 'landis_e360pp' (name 'Landis E360PP') → 'E360PP' | null
+    var k = String((m && m.type && (m.type.key || m.type.name)) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var x = /E360(PP|SP|CT)/.exec(k); return x ? 'E360' + x[1] : null;
+  };
+  B.emsSolarNames = function (solars) {   // meter id → 'שם · שם' (deduped, he-sorted), from solar.solarMeters[].meter.id
+    var by = {};
+    (solars || []).forEach(function (s) { (s && s.solarMeters || []).forEach(function (sm) {
+      var id = sm && sm.meter && sm.meter.id; if (!id || !s.name) return; (by[id] = by[id] || []).push(String(s.name).trim()); }); });
+    Object.keys(by).forEach(function (k) {
+      by[k] = by[k].filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort(function (a, b) { return a.localeCompare(b, 'he'); }).join(' · ');
+    });
+    return by;
+  };
+  B.emsToBurnRows = function (meters, solars) {
+    var names = B.emsSolarNames(solars), rows = [], skipped = 0;
+    (meters || []).forEach(function (m) {
+      var t = B.emsMeterType(m);
+      if (!t || !m.id || !m.serialNumber || !(m.site && m.site.name)) { skipped++; return; }   // not an E360 / unusable row
+      rows.push({
+        meter_id: m.id, serial: String(m.serialNumber), site: String(m.site.name).trim(), site_id: m.site.id || null, meter_type: t,
+        address: m.address || null, role_code: (m.role && m.role.code != null) ? Number(m.role.code) : null,
+        ct_ratio: m.currentMultiplier != null ? Number(m.currentMultiplier) : null,
+        parent_serial: (m.parent && m.parent.serialNumber) ? String(m.parent.serialNumber) : null, solar_names: names[m.id] || null
+      });
+    });
+    return { rows: rows, skipped: skipped };
+  };
   // PURE-END
   window._burnLogic = B;
 
   // ---------- data ----------
-  var burnState = { rows: null, gens: [], f: { q: '', status: 'all', kind: 'all', site: '' }, open: {}, sel: {}, loading: false, err: null };
+  var burnState = { rows: null, gens: [], f: { q: '', status: 'all', kind: 'all', site: '' }, open: {}, sel: {}, loading: false, err: null, syncing: false };
   try { var _sf = JSON.parse(localStorage.getItem('burn_filter_v1') || 'null'); if (_sf) burnState.f = Object.assign(burnState.f, _sf); } catch (e) {}
   // ponytail: rollout gate — עידן only (2026-09-07). Widen when approved: see = everyone but מתניה; write = אביאם/ניתאי/עידן/עמיחי (non-viewer).
   function burnCanSee()  { return typeof getCurrentUser === 'function' && getCurrentUser() === 'עידן'; }
@@ -10192,6 +10220,47 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     var g = (await r.json())[0];
     if (!burnState.gens.some(function (x) { return x.id === g.id; })) burnState.gens.push(g);
     return g;
+  }
+
+  // ---------- EMS live refresh (spec §7) ----------
+  // The seed is only the bootstrap: opening the tab (per device, ≥12h apart) and the ⟳ EMS button pull the current generation
+  // meters straight from the EMS through the existing emsApi proxy and upsert the EMS-owned columns by meter_id. Tracking columns
+  // (status/burned_*/generator_id/note) are never in the payload, so they survive; new meters arrive as 'pending'. Read-only on the EMS.
+  // ponytail: meters that vanish from the EMS (role changed / archived) stay listed — add a seen_at column + filter if that bites.
+  var BURN_SYNC_KEY = 'burn_ems_synced_v1', BURN_SYNC_MS = 12 * 60 * 60 * 1000;
+  function burnSyncedAt() { try { return parseInt(localStorage.getItem(BURN_SYNC_KEY) || '0', 10) || 0; } catch (e) { return 0; } }
+  async function burnEmsAll(path) {   // walk EMS pagination (take ≤ 200); tolerant to [..] / {data,meta.total} / {items,total}
+    var out = [], page = 1, total = Infinity;
+    while (out.length < total && page <= 25) {
+      var res = await emsApi(path + (path.indexOf('?') === -1 ? '?' : '&') + 'take=200&page=' + page);
+      var items = Array.isArray(res) ? res : ((res && (res.data || res.items)) || []);
+      var t = (res && !Array.isArray(res)) ? ((res.meta && res.meta.total != null) ? res.meta.total : res.total) : null;
+      out = out.concat(items);
+      if (!items.length) break;
+      if (t != null) total = Number(t); else if (items.length < 200) break;
+      page++;
+    }
+    return out;
+  }
+  async function burnRefreshFromEms(manual) {
+    if (!burnCanWrite() || burnState.syncing) return;
+    if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { if (manual) emsToast('⚠️ אין חיבור ל-EMS — התחבר ואז נסה שוב'); return; }
+    burnState.syncing = true; burnRepaint();
+    try {
+      var both = await Promise.all([burnEmsAll('/meters?roleCodes=20,21,22,23,24'), burnEmsAll('/solars')]);
+      var out = B.emsToBurnRows(both[0], both[1]);
+      if (!out.rows.length) throw new Error('ה-EMS החזיר 0 מוני ייצור E360 — לא עודכן דבר');
+      var known = {}; (burnState.rows || []).forEach(function (r) { known[r.meter_id] = 1; });
+      var fresh = out.rows.filter(function (r) { return !known[r.meter_id]; }).length;
+      var r = await fetch(SB_URL + '/rest/v1/meter_burns?on_conflict=meter_id', {
+        method: 'POST', headers: Object.assign(burnHdr(true), { Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(out.rows)
+      });
+      if (!r.ok) throw new Error('עדכון מה-EMS נכשל (' + r.status + ')');
+      try { localStorage.setItem(BURN_SYNC_KEY, String(Date.now())); } catch (e) {}
+      await burnLoad();
+      emsToast('✅ עודכן מה-EMS: ' + out.rows.length + ' מונים' + (fresh ? ' · ' + fresh + ' חדשים' : '') + (out.skipped ? ' · ' + out.skipped + ' לא-E360 הושמטו' : ''));
+    } catch (e) { emsToast('⚠️ ' + e.message); }
+    burnState.syncing = false; burnRender();
   }
 
   // ---------- render ----------
@@ -10260,7 +10329,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     el.innerHTML =
       (write && nSel ? '<div class="burn-selbar">' + nSel + ' נבחרו · <button class="inv-btn small" onclick="burnBurnSelected()">✅ סמן כנצרבו</button> <button class="inv-btn small" onclick="burnAssignSelected()">⚡ שבץ לגנרטור</button> <button class="inv-btn small" style="background:#64748b" onclick="burnClearSel()">✖</button></div>' : '') +
       (groups.length ? groups.map(function (g) { return burnSiteHtml(g, write); }).join('') : '<div class="dev-empty">אין מונים שמתאימים לחיפוש.</div>') +
-      '<div class="push-foot">מציג ' + rows.length + ' מתוך ' + t.total + ' מונים · נתוני EMS מ-7.9.26</div>' +
+      '<div class="push-foot">מציג ' + rows.length + ' מתוך ' + t.total + ' מונים · ' + (burnSyncedAt() ? 'עודכן מה-EMS ' + new Date(burnSyncedAt()).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'נתוני EMS מ-7.9.26 (טעינה ראשונית)') + '</div>' +
       (burnState.err && burnState.rows ? '<div class="push-foot">⚠️ הנתונים המוצגים עשויים להיות לא מעודכנים</div>' : '');
     burnRenderTiles();
   }
@@ -10276,6 +10345,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור</h2>' +
         '<div><button class="inv-btn small xl-export-btn" onclick="burnExportXlsx()" style="' + (typeof canExportExcel === 'function' && canExportExcel() ? '' : 'display:none') + '">📗 Excel</button> ' +
         (burnCanManageGens() ? '<button class="inv-btn small" onclick="burnGensOpen()">⚡ גנרטורים</button> ' : '') +
+        (burnCanWrite() ? '<button class="inv-btn small" onclick="burnRefreshFromEms(true)" title="עדכון נתוני המונים מה-EMS"' + (burnState.syncing ? ' disabled' : '') + '>' + (burnState.syncing ? '⏳ EMS…' : '⟳ EMS') + '</button> ' : '') +
         '<button class="inv-btn small" onclick="renderBurns(true)" title="רענן">🔄</button>' +
         (burnState.loading && burnState.rows ? ' <span class="burn-muted">⏳</span>' : '') + '</div></div>' +
       '<div class="push-tiles" id="burnTiles"></div>' +
@@ -10293,6 +10363,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       if (burnState.err && burnState.rows) emsToast('⚠️ רענון נכשל: ' + burnState.err);
     }
     burnRender();
+    if (burnState.rows && !burnState.err && Date.now() - burnSyncedAt() > BURN_SYNC_MS) burnRefreshFromEms(false);   // stale → pull from EMS in the background
   }
 
   // ---------- actions ----------
@@ -10423,4 +10494,4 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   window.burnSetFilter = burnSetFilter; window.burnEnter = burnEnter; window.burnToggleSite = burnToggleSite;
   window.burnSelect = burnSelect; window.burnClearSel = burnClearSel; window.burnToggle = burnToggle; window.burnIssue = burnIssue;
   window.burnBurnSelected = burnBurnSelected; window.burnAssignSelected = burnAssignSelected; window.burnAssignSave = burnAssignSave; window.burnOpen = burnOpen;
-  window.burnExportXlsx = burnExportXlsx;
+  window.burnExportXlsx = burnExportXlsx; window.burnRefreshFromEms = burnRefreshFromEms;

@@ -101,4 +101,34 @@ assert.equal(dirtyRow[11], 'שורה1 שורה2');
 const gs = B.genSummary(gens.concat([{ id: 'g2', site: 'אור הנר', name: 'גנרטור לול', device_serial: null }]), rows);
 assert.deepEqual(gs.map(x => [x.name, x.count]), [['גנרטור לול', 0], ['גנרטור רפת', 1]]);
 
-console.log('✅ test-meter-burns: state/search/filter/group/sort/patch/excel/genSummary logic verified');
+// --- EMS live refresh: raw /meters + /solars payloads → meter_burns EMS columns (spec §7) ---
+const emsMeters = [
+  { id: 'm1', serialNumber: 68369287, address: 'רפת 7 מונה ייצור', currentMultiplier: '50.0000', site: { id: 's1', name: ' אור הנר ' },
+    role: { code: 20, name: 'Solar production' }, type: { code: 8, key: 'landis_e360ct', name: 'Landis E360CT' }, parent: { id: 'p1', serialNumber: 68369290 } },
+  { id: 'm2', serialNumber: '59965612', address: 'סולארי דיר', currentMultiplier: null, site: { id: 's1', name: 'אור הנר' },
+    role: { code: 24 }, type: { code: 6, name: 'Landis E360 PP' }, parent: null },                       // key missing → name normalized
+  { id: 'm3', serialNumber: '77777777', address: 'סאטק', site: { id: 's2', name: 'מעוז חיים' }, role: { code: 20 }, type: { code: 3, key: 'satec_em133', name: 'Satec EM133' } },  // not E360 → skipped
+  { id: 'm4', serialNumber: '88888888', address: 'ללא אתר', site: null, role: { code: 21 }, type: { key: 'landis_e360sp' } },                                                         // no site → skipped
+  { id: 'm5', serialNumber: '99999999', address: 'בית 12', currentMultiplier: 1, site: { id: 's2', name: 'מעוז חיים' }, role: { code: 22 }, type: { key: 'landis_e360sp' } },
+];
+const emsSolars = [
+  { id: 'so1', name: 'סולארי רפת 7', solarMeters: [{ meter: { id: 'm1' } }, { meter: { id: 'p1' } }] },
+  { id: 'so2', name: 'סולארי גג', solarMeters: [{ meter: { id: 'm1' } }, { meter: null }] },
+  { id: 'so3', name: 'סולארי גג', solarMeters: [{ meter: { id: 'm1' } }] },   // duplicate name → deduped
+  { id: 'so4', name: '', solarMeters: [{ meter: { id: 'm5' } }] },            // empty name → ignored
+];
+assert.equal(B.emsMeterType(emsMeters[0]), 'E360CT'); assert.equal(B.emsMeterType(emsMeters[1]), 'E360PP', 'name fallback, space tolerant');
+assert.equal(B.emsMeterType(emsMeters[2]), null); assert.equal(B.emsMeterType({}), null); assert.equal(B.emsMeterType(emsMeters[3]), 'E360SP');
+assert.deepEqual(B.emsSolarNames(emsSolars), { m1: 'סולארי גג · סולארי רפת 7', p1: 'סולארי רפת 7' });
+const conv = B.emsToBurnRows(emsMeters, emsSolars);
+assert.equal(conv.skipped, 2, 'Satec + site-less rows skipped');
+assert.deepEqual(conv.rows.map(r => r.meter_id), ['m1', 'm2', 'm5']);
+assert.deepEqual(conv.rows[0], { meter_id: 'm1', serial: '68369287', site: 'אור הנר', site_id: 's1', meter_type: 'E360CT', address: 'רפת 7 מונה ייצור',
+  role_code: 20, ct_ratio: 50, parent_serial: '68369290', solar_names: 'סולארי גג · סולארי רפת 7' }, 'exact upsert payload: EMS columns only, trimmed site, numeric ct');
+assert.deepEqual(conv.rows[1], { meter_id: 'm2', serial: '59965612', site: 'אור הנר', site_id: 's1', meter_type: 'E360PP', address: 'סולארי דיר',
+  role_code: 24, ct_ratio: null, parent_serial: null, solar_names: null });
+assert.equal(conv.rows[2].solar_names, null, 'empty solar name never becomes a link');
+assert.ok(!('status' in conv.rows[0]) && !('note' in conv.rows[0]) && !('generator_id' in conv.rows[0]), 'refresh must never touch tracking columns');
+assert.deepEqual(B.emsToBurnRows(null, null), { rows: [], skipped: 0 });
+
+console.log('✅ test-meter-burns: state/search/filter/group/sort/patch/excel/genSummary/emsRefresh logic verified');
