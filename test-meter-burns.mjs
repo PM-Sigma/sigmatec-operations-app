@@ -41,6 +41,7 @@ assert.deepEqual(B.filterRows(rows, { q: '', status: 'all', kind: 'CT', site: ''
 assert.deepEqual(B.filterRows(rows, { q: '', status: 'all', kind: 'PP', site: '' }).map(r => r.meter_id), ['b', 'd', 'e'], 'PP filter includes SP');
 assert.deepEqual(B.filterRows(rows, { q: '', status: 'all', kind: 'all', site: 'מעוז חיים' }).map(r => r.meter_id), ['c', 'd', 'e']);
 assert.deepEqual(B.filterRows(rows, { q: 'סולארי', status: 'all', kind: 'all', site: '' }).map(r => r.meter_id), ['a', 'b', 'c', 'e']);
+assert.deepEqual(B.filterRows(rows, { q: 'גנרטור רפת', status: 'all', kind: 'all', site: '' }, gens).map(r => r.meter_id), ['b'], 'filterRows threads gens into matches');
 
 // --- groupBySite: most pending first; counts ---
 const g = B.groupBySite(rows);

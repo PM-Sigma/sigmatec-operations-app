@@ -19,14 +19,14 @@
     var hay = B.normalize([r.site, r.serial, r.address, r.solar_names, gen && gen.name].join(' '));
     return hay.indexOf(nq) !== -1;
   };
-  B.filterRows = function (rows, f) {
+  B.filterRows = function (rows, f, gens) {
     f = f || {};
     return rows.filter(function (r) {
       if (f.site && r.site !== f.site) return false;
       if (f.status && f.status !== 'all' && r.status !== f.status) return false;
       if (f.kind === 'CT' && !B.isCT(r)) return false;
       if (f.kind === 'PP' && B.isCT(r)) return false;
-      return B.matches(r, f.q);
+      return B.matches(r, f.q, gens);
     });
   };
   var STATE_ORDER = { pending: 0, issue: 1, burned: 2 };

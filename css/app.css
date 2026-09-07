@@ -1724,7 +1724,7 @@ body.user-viewer .legend-collapsible { display: none !important; }
 .burn-row.burn-burned { border-inline-start-color: #059669; background: #f0fdf4; }
 .burn-row.burn-burned-ct { border-inline-start-color: #7c3aed; background: #f5f3ff; }
 .burn-row.burn-issue { border-inline-start-color: #dc2626; background: #fef2f2; }
-.burn-chk { width: 26px; height: 26px; }
+.burn-chk { width: 26px; height: 26px; padding: 7px; box-sizing: content-box; margin: 0; cursor: pointer; }  /* 40px tap area */
 .burn-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
 .burn-tag-ct { background: #ede9fe; color: #5b21b6; }
 .burn-tag-pp { background: #dbeafe; color: #1e40af; }
@@ -1749,5 +1749,5 @@ body.user-viewer .legend-collapsible { display: none !important; }
   .burn-row .burn-chk { grid-area: k; } .burn-row .burn-tag { grid-area: t; } .burn-row .burn-main { grid-area: m; }
   .burn-row .burn-state { grid-area: s; } .burn-row .burn-actions { grid-area: a; justify-content: flex-end; }
   .burn-site-head { grid-template-columns: auto 1fr auto; grid-template-areas: "c t l" "m m m" "b b b"; }
-  .burn-row .inv-btn.small { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+  .burn-wrap .inv-btn.small { min-height: 40px; padding: 8px 12px; font-size: 13px; }
 }
