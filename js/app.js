@@ -384,6 +384,18 @@
         if (qs.get('overdueOnly') === 'true') list = list.filter(t => CLOSED.indexOf(t.status) === -1 && t.expectedCompletionDate && new Date(t.expectedCompletionDate) < new Date());
         return ok({ data: list, meta: { total: list.length, skip: 0, take: 50 } });
       }
+      // 🔥 meters / solars (burns tab: ⟳ EMS refresh + generator 🔍 EMS lookup) — a few E360 generation meters on יגור
+      if (p === '/meters' || p === '/solars') {
+        const yagur = M.sites[0], mk = (id, sn, addr, key, role, cm, parent) => ({ id, serialNumber: sn, address: addr, currentMultiplier: cm, site: yagur,
+          role: { code: role, name: 'Solar production' }, type: { key, name: 'Landis ' + key.split('_')[1].toUpperCase() }, parent: parent ? { id: 'mock-p', serialNumber: parent } : null });
+        const meters = [mk('mock-m1', '68369287', 'רפת 7 מונה ייצור', 'landis_e360ct', 20, 50, '68369290'), mk('mock-m2', '59965612', 'סולארי דיר', 'landis_e360pp', 24, 1, null),
+                        mk('mock-m3', '11223344', 'גנרטור חירום — בקר', 'landis_e360pp', 11, 1, null)];
+        if (p === '/solars') return ok({ data: [{ id: 'mock-so1', name: 'סולארי רפת 7', solarMeters: [{ meter: { id: 'mock-m1' } }] }], meta: { total: 1 } });
+        let list = meters.slice();
+        const rc = qs.get('roleCodes'); if (rc) list = list.filter(m => rc.split(',').map(Number).indexOf(m.role.code) !== -1);
+        const se = qs.get('search');    if (se) list = list.filter(m => m.serialNumber.indexOf(se) !== -1 || m.address.indexOf(se) !== -1);
+        return ok({ data: list, meta: { total: list.length } });
+      }
       return ok({ message: 'mock: unhandled ' + method + ' ' + p }, 404);
     }
 
@@ -10253,6 +10265,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   }
   async function burnRefreshFromEms(manual) {
     if (!burnCanWrite() || burnState.syncing) return;
+    if (window.__MOCK) { if (manual) emsToast('🧪 סביבת בדיקה — רענון מה-EMS מושבת (לא כותבים נתוני דמה ל-Supabase)'); return; }
     if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { if (manual) emsToast('⚠️ אין חיבור ל-EMS — התחבר ואז נסה שוב'); return; }
     burnState.syncing = true; burnRepaint();
     try {
