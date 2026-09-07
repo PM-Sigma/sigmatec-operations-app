@@ -9875,6 +9875,11 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     });
     return { sheet: 'צריבות', columns: columns, rows: out, groupKeys: keys };
   };
+  B.genSummary = function (gens, rows) {
+    var cnt = {}; (rows || []).forEach(function (r) { if (r.generator_id) cnt[r.generator_id] = (cnt[r.generator_id] || 0) + 1; });
+    return (gens || []).map(function (g) { return { id: g.id, site: g.site, name: g.name, device_serial: g.device_serial || '', count: cnt[g.id] || 0 }; })
+      .sort(function (a, b) { return a.site.localeCompare(b.site, 'he') || a.name.localeCompare(b.name, 'he'); });
+  };
   // PURE-END
   window._burnLogic = B;
 
@@ -10002,6 +10007,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     el.innerHTML = '<div class="dev-wrap burn-wrap">' +
       '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור</h2>' +
         '<div><button class="inv-btn small xl-export-btn" onclick="burnExportXlsx()" style="' + (typeof canExportExcel === 'function' && canExportExcel() ? '' : 'display:none') + '">📗 Excel</button> ' +
+        (burnCanManageGens() ? '<button class="inv-btn small" onclick="burnGensOpen()">⚡ גנרטורים</button> ' : '') +
         '<button class="inv-btn small" onclick="renderBurns(true)" title="רענן">🔄</button></div></div>' +
       '<div class="push-tiles" id="burnTiles"></div>' +
       '<div class="burn-filters">' +
@@ -10111,6 +10117,26 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     var rows = B.filterRows(burnState.rows || [], burnState.f, burnState.gens);
     xlDownload(B.xlsxSpec(rows, burnState.gens), 'צריבות-' + new Date().toISOString().slice(0, 10) + '.xlsx');
   }
+  function burnCanManageGens() { return ['עידן', 'עמיחי'].indexOf(getCurrentUser()) !== -1; }
+  function burnGensOpen() {
+    if (!burnCanManageGens()) return;
+    var m = document.getElementById('burnCardModal'), c = document.getElementById('burnCardContent');
+    var list = B.genSummary(burnState.gens, burnState.rows || []);
+    c.innerHTML = '<h3 style="margin:0 0 8px;">⚡ גנרטורים (' + list.length + ')</h3><p class="burn-muted" style="margin:0 0 8px;">מספר מונה/בקר של הגנרטור — נשמר ביציאה מהשדה.</p>' +
+      (list.length ? '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>קיבוץ</th><th>שם</th><th>מונה/בקר</th><th>מונים</th></tr></thead><tbody>' +
+      list.map(function (g) { return '<tr><td>' + burnEsc(g.site) + '</td><td>' + burnEsc(g.name) + '</td><td><input class="burn-search" style="min-height:34px;padding:4px 8px;width:130px;" value="' + burnEsc(g.device_serial) + '" onblur="burnGenSaveSerial(\'' + burnAttr(g.id) + '\', this.value)"></td><td>' + g.count + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' : '<div class="dev-empty">עדיין לא נוצרו גנרטורים — שבץ מונה מהרשימה כדי ליצור.</div>');
+    m.classList.add('open');
+  }
+  function burnGenSaveSerial(id, v) {
+    var g = burnState.gens.find(function (x) { return x.id === id; }); if (!g || (g.device_serial || '') === v.trim()) return;
+    burnSafe(async function () {
+      var r = await fetch(SB_URL + '/rest/v1/generators?id=eq.' + id, { method: 'PATCH', headers: Object.assign(burnHdr(true), { Prefer: 'return=minimal' }), body: JSON.stringify({ device_serial: v.trim() || null }) });
+      if (!r.ok) throw new Error('שמירת הגנרטור נכשלה (' + r.status + ')');
+      g.device_serial = v.trim() || null;
+    });
+  }
+  window.burnGensOpen = burnGensOpen; window.burnGenSaveSerial = burnGenSaveSerial; window.burnCanManageGens = burnCanManageGens;
   window.renderBurns = renderBurns; window.burnCanSee = burnCanSee; window.burnCanWrite = burnCanWrite;
   window.burnSetFilter = burnSetFilter; window.burnEnter = burnEnter; window.burnToggleSite = burnToggleSite;
   window.burnSelect = burnSelect; window.burnClearSel = burnClearSel; window.burnToggle = burnToggle; window.burnIssue = burnIssue;

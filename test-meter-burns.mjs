@@ -87,4 +87,8 @@ assert.equal(ctBurned[8], 'נצרב · מוכן לעיסוק');
 const genRow = spec.rows.find(r => r[3] === '59965612');
 assert.equal(genRow[1], 'גנרטור רפת');
 
-console.log('✅ test-meter-burns: state/search/filter/group/sort/patch/excel logic verified');
+// --- generators helper summary ---
+const gs = B.genSummary(gens.concat([{ id: 'g2', site: 'אור הנר', name: 'גנרטור לול', device_serial: null }]), rows);
+assert.deepEqual(gs.map(x => [x.name, x.count]), [['גנרטור לול', 0], ['גנרטור רפת', 1]]);
+
+console.log('✅ test-meter-burns: state/search/filter/group/sort/patch/excel/genSummary logic verified');
