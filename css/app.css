@@ -1694,3 +1694,56 @@ body.user-viewer #invProductsList button { display: none !important; }
 .xl-hub-row input, .xl-hub-row select { font-size: 13px; padding: 4px 6px; }
 .xl-hub-row .inv-btn.small.xl-green { background: #16a34a; color: #fff; }
 body.user-viewer .legend-collapsible { display: none !important; }
+
+/* ===== 🔥 צריבות ===== */
+.burn-wrap { max-width: 980px; }
+.burn-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.burn-search { flex: 1 1 260px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 15px; }
+.burn-site-sel { min-height: 40px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px; font: inherit; background: #fff; }
+.burn-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.burn-seg button { min-height: 40px; padding: 0 12px; border: 0; background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+.burn-seg button + button { border-inline-start: 1px solid var(--border); }
+.burn-seg button.on { background: var(--primary); color: #fff; }
+.burn-selbar { position: sticky; top: 0; z-index: 5; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px; padding: 8px 12px; margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.burn-site { border: 1px solid var(--border); border-radius: 12px; background: #fff; margin: 10px 0; overflow: hidden; }
+.burn-site-head { display: grid; grid-template-columns: auto 1fr auto auto; grid-template-areas: "c t l m" "b b b b"; gap: 4px 10px; align-items: center; padding: 10px 12px; cursor: pointer; min-height: 48px; }
+.burn-site-head h3 { grid-area: t; margin: 0; font-size: 16px; }
+.burn-caret { grid-area: c; color: #94a3b8; font-size: 12px; }
+.burn-left { grid-area: l; font-weight: 700; color: #b45309; white-space: nowrap; }
+.burn-left.done { color: #059669; }
+.burn-mini { grid-area: m; font-size: 12px; color: #64748b; white-space: nowrap; }
+.burn-bar { grid-area: b; height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+.burn-bar i { display: block; height: 100%; background: #059669; }
+.burn-site-body { border-top: 1px solid var(--border); }
+.burn-gen { padding: 6px 12px; background: #f8fafc; font-size: 13px; font-weight: 600; color: #334155; border-bottom: 1px solid var(--border); }
+.burn-row { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; border-inline-start: 4px solid transparent; }
+.burn-row:last-child { border-bottom: 0; }
+.burn-row.burn-pending { border-inline-start-color: #f59e0b; }
+.burn-row.burn-burned { border-inline-start-color: #059669; background: #f0fdf4; }
+.burn-row.burn-burned-ct { border-inline-start-color: #7c3aed; background: #f5f3ff; }
+.burn-row.burn-issue { border-inline-start-color: #dc2626; background: #fef2f2; }
+.burn-chk { width: 22px; height: 22px; }
+.burn-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+.burn-tag-ct { background: #ede9fe; color: #5b21b6; }
+.burn-tag-pp { background: #dbeafe; color: #1e40af; }
+.burn-main { min-width: 0; }
+.burn-serial { font-weight: 700; font-size: 15px; }
+.burn-addr { font-weight: 400; color: #334155; font-size: 13px; }
+.burn-sub { font-size: 12px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.burn-muted { color: #94a3b8; }
+.burn-warn { font-size: 12px; color: #b91c1c; margin-top: 2px; }
+.burn-state { font-size: 12px; white-space: nowrap; }
+.burn-burned-ct .burn-state { color: #6d28d9; font-weight: 700; }
+.burn-actions { display: flex; gap: 6px; }
+.burn-btn-on { background: #64748b; }
+.burn-btn-issue { background: #b45309; }
+.burn-card { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+.burn-card th { text-align: right; color: #64748b; font-weight: 600; padding: 6px 8px; width: 32%; vertical-align: top; }
+.burn-card td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.burn-link { color: #1e40af; text-decoration: none; font-weight: 600; }
+@media (max-width: 768px) {
+  .burn-row { grid-template-columns: auto auto 1fr; grid-template-areas: "k t m" "s s a"; }
+  .burn-row .burn-chk { grid-area: k; } .burn-row .burn-tag { grid-area: t; } .burn-row .burn-main { grid-area: m; }
+  .burn-row .burn-state { grid-area: s; } .burn-row .burn-actions { grid-area: a; justify-content: flex-end; }
+  .burn-site-head { grid-template-columns: auto 1fr auto; grid-template-areas: "c t l" "m m m" "b b b"; }
+}
