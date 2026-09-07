@@ -66,6 +66,18 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — last: 2026-09-07 (**1.68 on `feat/meter-burns-rel` — 🔥 צריבות ready, gated to עידן, ⛔ blocked on DB SQL; main still 1.67**).
+
+**🔥 צריבות (meter burn tracker) — code complete, rebased on main, gated to עידן only.** Branch `feat/meter-burns-rel`
+(worktree `SigmatecOps-wt-burns`) = `origin/main` 1.67 + one squash commit; the old `feat/meter-burns` 10-commit branch
+(base dev 1.57) is superseded — delete after merge. Gate: `burnCanSee`/`burnCanWrite` = עידן only (rollout decision
+2026-09-07; intended audience kept in a code comment in `24-meter-burns.js`). Verified in-browser on the worktree
+preview (`.claude/launch.json` → `burns-wt`): 🔥 nav shows for עידן, hidden for everyone else. 27 suites green.
+**Blocker → next step:** the Supabase tables don't exist yet (`apply_migration` was blocked by the permission classifier
+this session). Apply `db/meter_burns.sql` (migration `meter_burns_and_generators`) + `db/meter_burns_seed.sql`
+(expect 268 / 261 solar / 85 CT), run advisors, smoke as עידן with real data, then ff-push
+`feat/meter-burns-rel` → `dev` → `main`. Exact steps: backlog → 🟡 IN PROGRESS 🔥 צריבות.
+
 ## 🚦 Current state — last: 2026-08-24 (**1.67 RELEASED to main — live**).
 
 **Released via `feat/site-consolidation` → main (ff).** This release also finally shipped the
