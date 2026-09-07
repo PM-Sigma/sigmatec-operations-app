@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.70] 2026-09-07 (on `feat/meter-burns-rel`, ships with 1.68-1.69) — 🔥 צריבות: writes mint the pass on demand + generator meter number with EMS lookup
+עידן's smoke: saving a generator while signed in to the EMS said "not connected". Cause: burns writes required the
+Supabase bridge pass to already be in memory, but the EMS-tab login reloads the page without minting one. Now every
+burns write (`burnWriteHdr`) calls `window._sbBridge()` first, like the data router does. ⚡ assignment dialog: name +
+שמור / הסר שיבוץ were already there; added a **"מס' מונה/בקר של הגנרטור"** field (prefilled when an existing generator
+is picked) with **🔍 EMS** lookup (`GET /v1/meters?search=`, pick a hit) — saved on the generator's `device_serial`.
+PURE `B.emsHitLines` tested; 27 suites green.
+
 ## [1.69] 2026-09-07 (on `feat/meter-burns-rel`, ships with 1.68) — 🔥 צריבות: live refresh from the EMS
 עידן: "the seed is nice, but the update from the system is what matters." The seed is now only the bootstrap.
 Opening the tab (per device, when the last pull is ≥12h old) or pressing **⟳ EMS** pulls the current generation meters

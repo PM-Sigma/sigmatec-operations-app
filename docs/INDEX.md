@@ -66,7 +66,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-07 (**1.69 on `feat/meter-burns-rel` — 🔥 צריבות on real data + EMS live refresh, gated to עידן; pending live smoke → ff dev→main; main still 1.67**).
+## 🚦 Current state — last: 2026-09-07 (**1.70 on `feat/meter-burns-rel` — 🔥 צריבות on real data + EMS live refresh, gated to עידן; pending live smoke → ff dev→main; main still 1.67**).
 
 **🔥 צריבות (meter burn tracker) — code complete, rebased on main, gated to עידן only.** Branch `feat/meter-burns-rel`
 (worktree `SigmatecOps-wt-burns`) = `origin/main` 1.67 + one squash commit; the old `feat/meter-burns` 10-commit branch
