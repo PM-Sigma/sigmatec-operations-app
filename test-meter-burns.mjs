@@ -73,4 +73,18 @@ assert.deepEqual(B.issuePatch('אין גישה', t), { status: 'issue', note: '�
 assert.deepEqual(B.assignPatch('g1', t), { generator_id: 'g1', updated_at: t });
 assert.deepEqual(B.assignPatch(null, t), { generator_id: null, updated_at: t });
 
-console.log('✅ test-meter-burns: state/search/filter/group/sort/patch logic verified');
+// --- Excel spec: one row per meter, grouped by site (groupKeys = site index) ---
+const spec = B.xlsxSpec(rows, gens);
+assert.equal(spec.sheet, 'צריבות');
+assert.deepEqual(spec.columns.map(c => c.header), ['קיבוץ', 'גנרטור', 'סוג', 'מס\' מונה', 'כתובת', 'מערכות מקושרות', 'יחס CT', 'מונה אב', 'סטטוס', 'נצרב ע"י', 'תאריך צריבה', 'הערה']);
+assert.equal(spec.rows.length, 5);
+assert.equal(spec.rows[0][0], 'אור הנר', 'sorted by site group order (most pending first, then name)');
+assert.deepEqual(spec.groupKeys.slice(0, 2), [0, 0], 'both אור הנר rows share a band');
+const issueRow = spec.rows.find(r => r[3] === '22222222');
+assert.equal(issueRow[8], 'בעיה'); assert.equal(issueRow[11], 'אין גישה');
+const ctBurned = spec.rows.find(r => r[3] === '11111111');
+assert.equal(ctBurned[8], 'נצרב · מוכן לעיסוק');
+const genRow = spec.rows.find(r => r[3] === '59965612');
+assert.equal(genRow[1], 'גנרטור רפת');
+
+console.log('✅ test-meter-burns: state/search/filter/group/sort/patch/excel logic verified');

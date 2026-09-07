@@ -66,6 +66,27 @@
   B.unburnPatch = function (now)       { return { status: 'pending', burned_by: null, burned_at: null, updated_at: now }; };
   B.issuePatch  = function (note, now) { return { status: 'issue', note: note, updated_at: now }; };
   B.assignPatch = function (genId, now){ return { generator_id: genId || null, updated_at: now }; };
+  var XL_STATE = { pending: 'ממתין', burned: 'נצרב', 'burned-ct': 'נצרב · מוכן לעיסוק', issue: 'בעיה' };
+  B.xlsxSpec = function (rows, gens) {
+    var byId = {}; (gens || []).forEach(function (g) { byId[g.id] = g; });
+    var columns = [
+      { header: 'קיבוץ', type: 's', width: 16 }, { header: 'גנרטור', type: 's', width: 14 }, { header: 'סוג', type: 's', width: 9 },
+      { header: "מס' מונה", type: 's', width: 12 }, { header: 'כתובת', type: 's', width: 26 }, { header: 'מערכות מקושרות', type: 's', width: 26 },
+      { header: 'יחס CT', type: 'n', width: 8 }, { header: 'מונה אב', type: 's', width: 12 }, { header: 'סטטוס', type: 's', width: 18 },
+      { header: 'נצרב ע"י', type: 's', width: 10 }, { header: 'תאריך צריבה', type: 'd', width: 12 }, { header: 'הערה', type: 's', width: 24 }
+    ];
+    var out = [], keys = [];
+    B.groupBySite(rows).forEach(function (g, gi) {
+      g.rows.forEach(function (r) {
+        var gen = byId[r.generator_id];
+        out.push([r.site, gen ? gen.name : '', r.meter_type, String(r.serial), r.address || '', r.solar_names || '',
+                  r.ct_ratio != null ? Number(r.ct_ratio) : null, r.parent_serial || '', XL_STATE[B.rowState(r)],
+                  r.burned_by || '', r.burned_at ? new Date(r.burned_at) : null, r.note || '']);
+        keys.push(gi);
+      });
+    });
+    return { sheet: 'צריבות', columns: columns, rows: out, groupKeys: keys };
+  };
   // PURE-END
   window._burnLogic = B;
 
@@ -297,7 +318,13 @@
         '<button class="inv-btn" style="background:#475569" onclick="document.getElementById(\'burnCardModal\').classList.remove(\'open\');burnAssignSelected(\'' + burnAttr(id) + '\')">⚡ גנרטור</button></div>' : '');
     m.classList.add('open');
   }
+  function burnExportXlsx() {
+    if (typeof xlDownload !== 'function') { emsToast('ייצוא אקסל לא זמין'); return; }
+    var rows = B.filterRows(burnState.rows || [], burnState.f, burnState.gens);
+    xlDownload(B.xlsxSpec(rows, burnState.gens), 'צריבות-' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  }
   window.renderBurns = renderBurns; window.burnCanSee = burnCanSee; window.burnCanWrite = burnCanWrite;
   window.burnSetFilter = burnSetFilter; window.burnEnter = burnEnter; window.burnToggleSite = burnToggleSite;
   window.burnSelect = burnSelect; window.burnClearSel = burnClearSel; window.burnToggle = burnToggle; window.burnIssue = burnIssue;
   window.burnBurnSelected = burnBurnSelected; window.burnAssignSelected = burnAssignSelected; window.burnAssignSave = burnAssignSave; window.burnOpen = burnOpen;
+  window.burnExportXlsx = burnExportXlsx;
