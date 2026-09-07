@@ -185,6 +185,8 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 
 ### `19-version-check.js` — 📦 new-deploy watcher (other lane): polls the live `app.js?v=` stamp → refresh banner / auto-reload
 
+### `24-meter-burns.js` — 🔥 צריבות tab: `renderBurns`, pure logic `window._burnLogic` (PURE block, tested by `test-meter-burns.mjs`), one-tap burn/issue, multi-select → burn / assign to generator, meter card, generators helper table, Excel export. No EMS writes.
+
 ---
 
 ## Non-module files

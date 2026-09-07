@@ -65,6 +65,10 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — last: 2026-09-07 (**1.62 on `feat/meter-burns` worktree, pending SQL + dev→main**).
+
+**🔥 צריבות — meter burn tracker built (Tasks 0–6 of superpowers/plans/2026-09-07-meter-burn-tracker.md).** Module `24-meter-burns.js`, tables `meter_burns`/`generators`. **Action (עידן):** run `db/meter_burns.sql` then `db/meter_burns_seed.sql` (expect 268 rows, 261 with solar_names), smoke the tab as אביאם on a phone, then merge `feat/meter-burns` → `dev` → `main`. No EMS writes by design.
+
 ## 🚦 Current state — last: 2026-07-16 (**1.54 RELEASED — main = dev**).
 
 **✅ 1.54 — attendance missing days = RED ROWS + accumulating 🔔 (per עידן's screenshots feedback).**

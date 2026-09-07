@@ -3,6 +3,9 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## 🟡 Pending — 🔥 צריבות: run SQL + dev→main
+עידן runs `db/meter_burns.sql` + `db/meter_burns_seed.sql` in Supabase; then dev→main. Deferred: EMS write-back of role, JSON export for the disconnect software, live refresh from EMS `/meters`.
+
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
 Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.

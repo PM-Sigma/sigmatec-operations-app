@@ -7,6 +7,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [1.62] 2026-09-07 — 🔥 צריבות (meter burn tracker)
+New tab for אביאם/ניתאי: 268 Landis E360 generation meters (PP 176 / CT 85 / SP 7) grouped by kibbutz with "נותרו X/Y", search (site/serial/address/solar/generator), one-tap ✅ נצרב / ⚠ בעיה, CT-burned styled 🟣 "מוכן לעיסוק", linked solar systems per meter, multi-select → burn / ⚡ assign to generator (per-kibbutz datalist, new name creates), meter card with EMS link, generators helper table (עידן/עמיחי), 📗 Excel. Tables `meter_burns` + `generators` (`db/meter_burns.sql` + generated seed). Spec: superpowers/specs/2026-09-06-meter-burn-tracker-design.md. Tests: test-meter-burns.mjs.
+
 ## [1.54] 2026-07-16 — 🔴 attendance missing days as red table rows + accumulating 🔔
 Per עידן (live screenshots): the top chip block was replaced — missing weekdays now render as **red
 rows inside the attendance table** (❌ חסרה נוכחות), each with a **🔔 per row** (viewer+עידן). Every

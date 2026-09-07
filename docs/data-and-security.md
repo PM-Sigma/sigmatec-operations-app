@@ -11,7 +11,7 @@
   camelCase, numeric coercion via `numish()`, `tasks.seq` exposed as `row`). Dates stored as
   **text ISO strings** for byte-parity with the old Sheets snapshot.
 
-### Tables (15)
+### Tables (17)
 
 | Table | Purpose |
 |-------|---------|
@@ -30,6 +30,8 @@
 | `ems_queue` | Outbound EMS write queue (identity PK, jsonb payload). |
 | `parse_corrections` | 📦 Inventory: order-parser learning store (`{raw_text → items}` few-shot for `parse-order`). Anon read, auth insert. |
 | `dev_status_log` | 🧑‍💻 Dev page: PK `(issue,status)` + `day`. First day each ticket was seen in each pipeline stage → the gray day-stamps. Anon read, auth insert (`on_conflict do nothing`). |
+| `meter_burns` | 🔥 צריבות: one row per Landis E360 generation meter (EMS snapshot cols + status/burned_by/burned_at/generator_id/note). Anon read, auth insert/update. Seed: `db/meter_burns_seed.sql` (generated from `db/meter_burns_seed.csv` by `db/gen_meter_burns_seed.mjs`). |
+| `generators` | 🔥 צריבות: generators per site (`unique(site,name)`, `device_serial`). Anon read, auth insert/update. |
 
 DB helper scripts in `db/`: `supabase_schema.sql` (schema + RLS), `import_from_appsscript.mjs`
 (one-time migration), `verify_read_parity.mjs` (parity check), `rls_staged.sql` (lockdown steps),
