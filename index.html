@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mt7dj5zj">
+<link rel="stylesheet" href="css/app.css?v=mtr6gqqw">
 </head>
 <body>
 <div class="container">
@@ -34,6 +34,7 @@
     <button id="navCalendar" data-page="calendar" onclick="showPage('calendar')"><span class="nav-icon">🗓️</span><span class="nav-label">יומן</span></button>
     <button id="navStaff" data-page="staff" onclick="showPage('staff')" style="display:none;"><span class="nav-icon">👥</span><span class="nav-label">עובדים</span></button>
     <button id="navDev" data-page="dev" onclick="showPage('dev')" style="display:none;"><span class="nav-icon">💻</span><span class="nav-label">פיתוח</span></button>
+    <button id="navBurns" data-page="burns" onclick="showPage('burns')" style="display:none;"><span class="nav-icon">🔥</span><span class="nav-label">צריבות</span></button>
   </div>
 
   <!-- Floating action button: quick visit logging (kibbutz page only) -->
@@ -413,7 +414,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-08-24·1.67</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-07·1.68</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -778,6 +779,16 @@
 
 <div id="dev-view" style="display:none;padding:16px 0;">
   <div id="devTasksContent">טוען...</div>
+</div>
+
+<div id="burns-view" style="display:none;padding:16px 0;">
+  <div id="burnsContent">טוען...</div>
+</div>
+<div class="modal-backdrop" id="burnCardModal" style="z-index:1150;" onclick="if(event.target.id==='burnCardModal') this.classList.remove('open')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;"><div id="burnCardContent"></div></div>
+</div>
+<div class="modal-backdrop" id="burnAssignModal" style="z-index:1160;" onclick="if(event.target.id==='burnAssignModal') this.classList.remove('open')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px;"><div id="burnAssignContent"></div></div>
 </div>
 
 <!-- EMS Task Detail Modal (status change, comments, calendar) -->
@@ -1463,7 +1474,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mt7dj5zj"></script>
+<script src="js/app.js?v=mtr6gqqw"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

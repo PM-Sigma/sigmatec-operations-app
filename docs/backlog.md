@@ -65,6 +65,9 @@ Sequence A→D→B→C, one spec+branch each.
   pulling EMS site details), **B = quick-order-from "אספקת מונים" task (AI)**, **C = remove מלאי בקיבוצים
   window** — not yet spec'd. Next up: D.
 
+## 🟡 Pending — 🔥 צריבות: run SQL + dev→main
+עידן runs `db/meter_burns.sql` + `db/meter_burns_seed.sql` in Supabase; then dev→main. Deferred: EMS write-back of role, JSON export for the disconnect software, live refresh from EMS `/meters`.
+
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
 Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.

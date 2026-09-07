@@ -181,6 +181,8 @@
     if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
     const plog = document.getElementById('navPushLog');    // התראות (push log) — עידן only
     if (plog) plog.style.display = isIdan() ? '' : 'none';
+    const nb = document.getElementById('navBurns');        // 🔥 צריבות — עידן only (rollout gate)
+    if (nb) nb.style.display = (typeof burnCanSee === 'function' && burnCanSee()) ? '' : 'none';
     const myt = document.getElementById('navMyTasks');     // viewer: משימות not needed (reports hub covers their use)
     if (myt) myt.style.display = isViewer() ? 'none' : '';
     // 📗 Excel export buttons — עידן + viewer only (canExportExcel in 21-excel-export.js)
