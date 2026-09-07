@@ -66,6 +66,8 @@
   B.unburnPatch = function (now)       { return { status: 'pending', burned_by: null, burned_at: null, updated_at: now }; };
   B.issuePatch  = function (note, now) { return { status: 'issue', note: note, updated_at: now }; };
   B.assignPatch = function (genId, now){ return { generator_id: genId || null, updated_at: now }; };
+  B.clearIssuePatch = function (now) { return { status: 'pending', note: null, updated_at: now }; };
+  B.xs = function (v) { return String(v == null ? '' : v).replace(/[‎‏‪-‮]/g, '').replace(/\r?\n/g, ' ').trim(); };
   var XL_STATE = { pending: 'ממתין', burned: 'נצרב', 'burned-ct': 'נצרב · מוכן לעיסוק', issue: 'בעיה' };
   B.xlsxSpec = function (rows, gens) {
     var byId = {}; (gens || []).forEach(function (g) { byId[g.id] = g; });
@@ -79,9 +81,9 @@
     B.groupBySite(rows).forEach(function (g, gi) {
       g.rows.forEach(function (r) {
         var gen = byId[r.generator_id];
-        out.push([r.site, gen ? gen.name : '', r.meter_type, String(r.serial), r.address || '', r.solar_names || '',
-                  r.ct_ratio != null ? Number(r.ct_ratio) : null, r.parent_serial || '', XL_STATE[B.rowState(r)],
-                  r.burned_by || '', r.burned_at ? new Date(r.burned_at) : null, r.note || '']);
+        out.push([B.xs(r.site), B.xs(gen ? gen.name : ''), B.xs(r.meter_type), B.xs(r.serial), B.xs(r.address), B.xs(r.solar_names),
+                  r.ct_ratio != null ? Number(r.ct_ratio) : null, B.xs(r.parent_serial), XL_STATE[B.rowState(r)],
+                  B.xs(r.burned_by), r.burned_at ? (function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); })(new Date(r.burned_at)) : null, B.xs(r.note)]);
         keys.push(gi);
       });
     });
@@ -118,6 +120,7 @@
       if (!r2.ok) throw new Error('generators ' + r2.status);
       burnState.rows = await r1.json(); burnState.gens = await r2.json();
     } catch (e) { burnState.err = e.message; }
+    burnState.sel = {};
     burnState.loading = false;
   }
   async function burnPatchRow(id, patch) {
@@ -205,7 +208,8 @@
     el.innerHTML =
       (write && nSel ? '<div class="burn-selbar">' + nSel + ' נבחרו · <button class="inv-btn small" onclick="burnBurnSelected()">✅ סמן כנצרבו</button> <button class="inv-btn small" onclick="burnAssignSelected()">⚡ שבץ לגנרטור</button> <button class="inv-btn small" style="background:#64748b" onclick="burnClearSel()">✖</button></div>' : '') +
       (groups.length ? groups.map(function (g) { return burnSiteHtml(g, write); }).join('') : '<div class="dev-empty">אין מונים שמתאימים לחיפוש.</div>') +
-      '<div class="push-foot">מציג ' + rows.length + ' מתוך ' + t.total + ' מונים · נתוני EMS מ-7.9.26</div>';
+      '<div class="push-foot">מציג ' + rows.length + ' מתוך ' + t.total + ' מונים · נתוני EMS מ-7.9.26</div>' +
+      (burnState.err && burnState.rows ? '<div class="push-foot">⚠️ הנתונים המוצגים עשויים להיות לא מעודכנים</div>' : '');
     burnRenderTiles();
   }
   function burnRender() {
@@ -220,7 +224,8 @@
       '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור</h2>' +
         '<div><button class="inv-btn small xl-export-btn" onclick="burnExportXlsx()" style="' + (typeof canExportExcel === 'function' && canExportExcel() ? '' : 'display:none') + '">📗 Excel</button> ' +
         (burnCanManageGens() ? '<button class="inv-btn small" onclick="burnGensOpen()">⚡ גנרטורים</button> ' : '') +
-        '<button class="inv-btn small" onclick="renderBurns(true)" title="רענן">🔄</button></div></div>' +
+        '<button class="inv-btn small" onclick="renderBurns(true)" title="רענן">🔄</button>' +
+        (burnState.loading && burnState.rows ? ' <span class="burn-muted">⏳</span>' : '') + '</div></div>' +
       '<div class="push-tiles" id="burnTiles"></div>' +
       '<div class="burn-filters">' +
         '<input id="burnSearch" class="burn-search" type="search" placeholder="🔍 קיבוץ / מס\' מונה / כתובת / מערכת" value="' + burnEsc(f.q) + '" oninput="burnSetFilter(\'q\', this.value)" onkeydown="if(event.key===\'Enter\')burnEnter()">' +
@@ -231,7 +236,10 @@
     burnRenderResults();
   }
   async function renderBurns(force) {
-    if (force || !burnState.rows) { burnState.loading = true; burnRender(); await burnLoad(); }
+    if (force || !burnState.rows) {
+      burnState.loading = true; burnRender(); await burnLoad();
+      if (burnState.err && burnState.rows) emsToast('⚠️ רענון נכשל: ' + burnState.err);
+    }
     burnRender();
   }
 
@@ -240,6 +248,7 @@
   function burnRepaint() { if (document.getElementById('burnResults')) burnRenderResults(); else burnRender(); }
   function burnSetFilter(k, v) {
     burnState.f[k] = v;
+    burnState.sel = {};
     try { localStorage.setItem('burn_filter_v1', JSON.stringify(burnState.f)); } catch (e) {}
     if (k === 'q') { clearTimeout(_burnSearchT); _burnSearchT = setTimeout(burnRenderResults, 120); } else burnRender();
   }
@@ -262,20 +271,27 @@
     var note = prompt('מה הבעיה במונה ' + r.serial + '?', r.note || ''); if (note === null) return;
     note = note.trim();
     if (!note) {
-      if (r.status === 'issue') burnSafe(function () { return burnPatchRow(id, B.unburnPatch(burnNow())); });
+      if (r.status === 'issue') burnSafe(function () { return burnPatchRow(id, B.clearIssuePatch(burnNow())); });
       else emsToast('לא נשמרה בעיה ריקה');
       return;
     }
     burnSafe(function () { return burnPatchRow(id, B.issuePatch(note, burnNow())); });
   }
   function burnBurnSelected() {
-    var ids = Object.keys(burnState.sel).filter(function (k) { return burnState.sel[k]; });
-    if (!ids.length || !confirm('לסמן ' + ids.length + ' מונים כנצרבו?')) return;
+    var filtered = B.filterRows(burnState.rows || [], burnState.f, burnState.gens);
+    var filteredIds = {}; filtered.forEach(function (r) { filteredIds[r.meter_id] = true; });
+    var ids = Object.keys(burnState.sel).filter(function (k) { return burnState.sel[k] && filteredIds[k]; });
+    if (!ids.length) return;
+    var sites = ids.map(function (id) { var r = filtered.find(function (x) { return x.meter_id === id; }); return r && r.site; })
+      .filter(function (s, i, a) { return s && a.indexOf(s) === i; });
+    if (!confirm('לסמן ' + ids.length + ' מונים ב' + sites.join(', ') + ' כנצרבו?')) return;
     burnSafe(async function () { for (var i = 0; i < ids.length; i++) await burnPatchRow(ids[i], B.burnPatch(getCurrentUser(), burnNow())); burnState.sel = {}; emsToast('✅ ' + ids.length + ' מונים סומנו כנצרבו'); });
   }
   // assign: all selected rows must be in ONE site; datalist of that site's generators; new name → create
   function burnAssignSelected(singleId) {
-    var ids = singleId ? [singleId] : Object.keys(burnState.sel).filter(function (k) { return burnState.sel[k]; });
+    var filtered = B.filterRows(burnState.rows || [], burnState.f, burnState.gens);
+    var filteredIds = {}; filtered.forEach(function (r) { filteredIds[r.meter_id] = true; });
+    var ids = singleId ? [singleId] : Object.keys(burnState.sel).filter(function (k) { return burnState.sel[k] && filteredIds[k]; });
     var rows = ids.map(function (id) { return burnState.rows.find(function (x) { return x.meter_id === id; }); }).filter(Boolean);
     if (!rows.length) return;
     var sites = rows.map(function (r) { return r.site; }).filter(function (s, i, a) { return a.indexOf(s) === i; });
@@ -311,6 +327,7 @@
       '<span class="burn-state ' + st.cls + '">' + st.icon + ' ' + st.label + '</span></div>' + burnWarn(r) +
       '<table class="burn-card">' +
         row('קיבוץ', burnEsc(r.site)) + row('כתובת', burnEsc(r.address)) + row('סוג', burnEsc(r.meter_type)) +
+        row('תפקיד (קוד)', r.role_code != null ? r.role_code : null) +
         row('יחס CT', r.ct_ratio != null ? Number(r.ct_ratio) : null) + row('מונה אב', r.parent_serial ? '<bdi>' + burnEsc(r.parent_serial) + '</bdi>' : null) +
         row('מערכות מקושרות', r.solar_names ? burnEsc(r.solar_names).split(' · ').map(function (s) { return '☀️ ' + s; }).join('<br>') : null) +
         row('גנרטור', gen ? '⚡ ' + burnEsc(gen.name) + (gen.device_serial ? ' (' + burnEsc(gen.device_serial) + ')' : '') : null) +
@@ -346,6 +363,7 @@
       var r = await fetch(SB_URL + '/rest/v1/generators?id=eq.' + id, { method: 'PATCH', headers: Object.assign(burnHdr(true), { Prefer: 'return=minimal' }), body: JSON.stringify({ device_serial: v.trim() || null }) });
       if (!r.ok) throw new Error('שמירת הגנרטור נכשלה (' + r.status + ')');
       g.device_serial = v.trim() || null;
+      emsToast('✅ נשמר');
     });
   }
   window.burnGensOpen = burnGensOpen; window.burnGenSaveSerial = burnGenSaveSerial; window.burnCanManageGens = burnCanManageGens;

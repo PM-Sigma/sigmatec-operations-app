@@ -72,6 +72,10 @@ assert.deepEqual(B.unburnPatch(t), { status: 'pending', burned_by: null, burned_
 assert.deepEqual(B.issuePatch('אין גישה', t), { status: 'issue', note: 'אין גישה', updated_at: t });
 assert.deepEqual(B.assignPatch('g1', t), { generator_id: 'g1', updated_at: t });
 assert.deepEqual(B.assignPatch(null, t), { generator_id: null, updated_at: t });
+assert.deepEqual(B.clearIssuePatch(t), { status: 'pending', note: null, updated_at: t });
+
+// --- Excel sanitizing: strip RTL/LTR marks + newlines from free text ---
+assert.equal(B.xs('שורה1\nשורה2‏'), 'שורה1 שורה2');
 
 // --- Excel spec: one row per meter, grouped by site (groupKeys = site index) ---
 const spec = B.xlsxSpec(rows, gens);
@@ -86,6 +90,12 @@ const ctBurned = spec.rows.find(r => r[3] === '11111111');
 assert.equal(ctBurned[8], 'נצרב · מוכן לעיסוק');
 const genRow = spec.rows.find(r => r[3] === '59965612');
 assert.equal(genRow[1], 'גנרטור רפת');
+
+// Excel export sanitizes free text (RTL marks / newlines) in the note column
+const dirtyRows = rows.map(r => r.meter_id === 'd' ? Object.assign({}, r, { note: 'שורה1\nשורה2‏' }) : r);
+const dirtySpec = B.xlsxSpec(dirtyRows, gens);
+const dirtyRow = dirtySpec.rows.find(r => r[3] === '22222222');
+assert.equal(dirtyRow[11], 'שורה1 שורה2');
 
 // --- generators helper summary ---
 const gs = B.genSummary(gens.concat([{ id: 'g2', site: 'אור הנר', name: 'גנרטור לול', device_serial: null }]), rows);

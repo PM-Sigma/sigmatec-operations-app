@@ -48,7 +48,7 @@ drop policy if exists generators_insert on public.generators;
 create policy generators_insert on public.generators for insert to authenticated with check (true);
 drop policy if exists generators_update on public.generators;
 create policy generators_update on public.generators for update to authenticated using (true) with check (true);
+-- no insert policy: rows come only from the seed (SQL editor); the app only updates.
 drop policy if exists meter_burns_write on public.meter_burns;
-create policy meter_burns_write on public.meter_burns for insert to authenticated with check (true);
 drop policy if exists meter_burns_update on public.meter_burns;
 create policy meter_burns_update on public.meter_burns for update to authenticated using (true) with check (true);

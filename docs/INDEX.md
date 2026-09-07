@@ -69,7 +69,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 
 **🔥 צריבות — meter burn tracker built (Tasks 0–6 of superpowers/plans/2026-09-07-meter-burn-tracker.md).** Module `24-meter-burns.js`, tables `meter_burns`/`generators`. **Action (עידן):** run `db/meter_burns.sql` then `db/meter_burns_seed.sql` (expect 268 rows, 261 with solar_names), smoke the tab as אביאם on a phone, then merge `feat/meter-burns` → `dev` → `main`. No EMS writes by design.
 
-## 🚦 Current state — last: 2026-07-16 (**1.54 RELEASED — main = dev**).
+## Previous: 1.54
 
 **✅ 1.54 — attendance missing days = RED ROWS + accumulating 🔔 (per עידן's screenshots feedback).**
 Missing weekdays render as red rows INSIDE the attendance table, each with a 🔔 (viewer+עידן); every
