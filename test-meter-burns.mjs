@@ -131,4 +131,10 @@ assert.equal(conv.rows[2].solar_names, null, 'empty solar name never becomes a l
 assert.ok(!('status' in conv.rows[0]) && !('note' in conv.rows[0]) && !('generator_id' in conv.rows[0]), 'refresh must never touch tracking columns');
 assert.deepEqual(B.emsToBurnRows(null, null), { rows: [], skipped: 0 });
 
+// --- generator picker: EMS search hits → display lines ---
+assert.deepEqual(B.emsHitLines({}), []);
+assert.deepEqual(B.emsHitLines([{ serialNumber: 555, address: 'גנרטור רפת', site: { name: 'אור הנר' }, type: { name: 'Landis E360PP' } }, { serialNumber: null }]),
+  [{ serial: '555', label: '555 · גנרטור רפת · אור הנר · Landis E360PP' }]);
+assert.deepEqual(B.emsHitLines([{ serialNumber: '7' }]), [{ serial: '7', label: '7 · —' }]);
+
 console.log('✅ test-meter-burns: state/search/filter/group/sort/patch/excel/genSummary/emsRefresh logic verified');

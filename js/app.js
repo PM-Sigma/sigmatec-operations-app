@@ -10173,6 +10173,11 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     });
     return { rows: rows, skipped: skipped };
   };
+  B.emsHitLines = function (items) {   // EMS /meters?search= hits → [{serial, label}] for the generator picker
+    return (Array.isArray(items) ? items : []).filter(function (m) { return m && m.serialNumber; }).map(function (m) {
+      return { serial: String(m.serialNumber), label: String(m.serialNumber) + ' · ' + (m.address || '—') + (m.site && m.site.name ? ' · ' + m.site.name : '') + (m.type && m.type.name ? ' · ' + m.type.name : '') };
+    });
+  };
   // PURE-END
   window._burnLogic = B;
 
@@ -10188,6 +10193,10 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     var tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
     if (write && !tok) throw new Error('אין חיבור מאומת — התחבר ל-EMS מחדש ואז נסה שוב');
     return { apikey: SB_ANON, Authorization: 'Bearer ' + (tok || SB_ANON), 'Content-Type': 'application/json' };
+  }
+  async function burnWriteHdr() {   // mint the Supabase pass on demand (EMS-tab login reloads without one) instead of failing "not connected"
+    if (!(window._sbToken && window._sbTokenExp > Date.now()) && typeof window._sbBridge === 'function') { try { await window._sbBridge(); } catch (e) {} }
+    return burnHdr(true);
   }
   async function burnLoad() {
     burnState.loading = true; burnState.err = null;
@@ -10205,7 +10214,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   }
   async function burnPatchRow(id, patch) {
     var r = await fetch(SB_URL + '/rest/v1/meter_burns?meter_id=eq.' + encodeURIComponent(id), {
-      method: 'PATCH', headers: Object.assign(burnHdr(true), { Prefer: 'return=minimal' }), body: JSON.stringify(patch)
+      method: 'PATCH', headers: Object.assign(await burnWriteHdr(), { Prefer: 'return=minimal' }), body: JSON.stringify(patch)
     });
     if (!r.ok) throw new Error('שמירה נכשלה (' + r.status + ')');
     var row = burnState.rows.find(function (x) { return x.meter_id === id; });
@@ -10213,7 +10222,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   }
   async function burnCreateGenerator(site, name) {
     var r = await fetch(SB_URL + '/rest/v1/generators?on_conflict=site,name', {
-      method: 'POST', headers: Object.assign(burnHdr(true), { Prefer: 'resolution=merge-duplicates,return=representation' }),
+      method: 'POST', headers: Object.assign(await burnWriteHdr(), { Prefer: 'resolution=merge-duplicates,return=representation' }),
       body: JSON.stringify({ site: site, name: name, created_by: getCurrentUser() })
     });
     if (!r.ok) throw new Error('יצירת גנרטור נכשלה (' + r.status + ')');
@@ -10253,7 +10262,7 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       var known = {}; (burnState.rows || []).forEach(function (r) { known[r.meter_id] = 1; });
       var fresh = out.rows.filter(function (r) { return !known[r.meter_id]; }).length;
       var r = await fetch(SB_URL + '/rest/v1/meter_burns?on_conflict=meter_id', {
-        method: 'POST', headers: Object.assign(burnHdr(true), { Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(out.rows)
+        method: 'POST', headers: Object.assign(await burnWriteHdr(), { Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(out.rows)
       });
       if (!r.ok) throw new Error('עדכון מה-EMS נכשל (' + r.status + ')');
       try { localStorage.setItem(BURN_SYNC_KEY, String(Date.now())); } catch (e) {}
@@ -10422,7 +10431,10 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     var site = sites[0], gens = burnState.gens.filter(function (g) { return g.site === site; });
     var m = document.getElementById('burnAssignModal'), c = document.getElementById('burnAssignContent');
     c.innerHTML = '<h3>⚡ שיבוץ לגנרטור — ' + burnEsc(site) + '</h3><p class="burn-muted">' + rows.length + ' מונים. בחר גנרטור קיים או הקלד שם חדש.</p>' +
-      '<input id="burnGenName" list="burnGenList" class="burn-search" placeholder="שם הגנרטור" autocomplete="off"><datalist id="burnGenList">' + gens.map(function (g) { return '<option value="' + burnEsc(g.name) + '">'; }).join('') + '</datalist>' +
+      '<input id="burnGenName" list="burnGenList" class="burn-search" placeholder="שם הגנרטור" autocomplete="off" oninput="burnGenNameChanged(\'' + burnAttr(site) + '\')"><datalist id="burnGenList">' + gens.map(function (g) { return '<option value="' + burnEsc(g.name) + '">'; }).join('') + '</datalist>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;align-items:center;"><input id="burnGenSerial" class="burn-search" style="flex:1" placeholder="מס\' מונה/בקר של הגנרטור (אופציונלי)" autocomplete="off" inputmode="numeric">' +
+        '<button class="inv-btn small" type="button" onclick="burnGenSearchEms()" title="חיפוש המונה ב-EMS">🔍 EMS</button></div>' +
+      '<div id="burnGenHits" class="burn-muted" style="margin-top:6px;font-size:13px;"></div>' +
       '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-start;"><button class="inv-btn" onclick="burnAssignSave(\'' + burnAttr(site) + '\')">שמור</button>' +
       '<button class="inv-btn" style="background:#64748b" onclick="burnAssignSave(\'' + burnAttr(site) + '\', true)">הסר שיבוץ</button>' +
       '<button class="inv-btn" style="background:#94a3b8" onclick="document.getElementById(\'burnAssignModal\').classList.remove(\'open\')">ביטול</button></div>';
@@ -10434,10 +10446,31 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     if (!clear && !name) { emsToast('הקלד שם גנרטור'); return; }
     burnSafe(async function () {
       var gid = null;
-      if (!clear) { var g = burnState.gens.find(function (x) { return x.site === site && x.name === name; }) || await burnCreateGenerator(site, name); gid = g.id; }
+      if (!clear) {
+        var g = burnState.gens.find(function (x) { return x.site === site && x.name === name; }) || await burnCreateGenerator(site, name); gid = g.id;
+        var serial = (document.getElementById('burnGenSerial').value || '').trim();
+        if (serial && serial !== (g.device_serial || '')) await burnGenSaveSerial(g.id, serial, true);
+      }
       for (var i = 0; i < ids.length; i++) await burnPatchRow(ids[i], B.assignPatch(gid, burnNow()));
       burnState.sel = {}; m.classList.remove('open'); emsToast(clear ? 'השיבוץ הוסר' : '⚡ שובצו תחת ' + name);
     });
+  }
+  function burnGenNameChanged(site) {   // picked an existing generator → prefill its meter number
+    var name = (document.getElementById('burnGenName').value || '').trim();
+    var g = burnState.gens.find(function (x) { return x.site === site && x.name === name; });
+    var el = document.getElementById('burnGenSerial'); if (g && el) el.value = g.device_serial || '';
+  }
+  async function burnGenSearchEms() {
+    var q = (document.getElementById('burnGenSerial').value || '').trim(), out = document.getElementById('burnGenHits');
+    if (!q) { emsToast('הקלד מספר מונה לחיפוש'); return; }
+    if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { emsToast('⚠️ אין חיבור ל-EMS'); return; }
+    out.textContent = '⏳ מחפש ב-EMS…';
+    try {
+      var res = await emsApi('/meters?search=' + encodeURIComponent(q) + '&take=5');
+      var hits = B.emsHitLines(res && res.data);
+      out.innerHTML = hits.length ? hits.map(function (h) { return '<div><button type="button" class="inv-btn small" style="margin:2px 4px 2px 0" onclick="document.getElementById(\'burnGenSerial\').value=\'' + burnAttr(h.serial) + '\'">בחר</button><bdi>' + burnEsc(h.label) + '</bdi></div>'; }).join('')
+                                  : '❌ לא נמצא מונה כזה ב-EMS';
+    } catch (e) { out.textContent = '⚠️ ' + e.message; }
   }
   // meter card (read-only details + per-meter actions)
   function burnOpen(id) {
@@ -10480,18 +10513,19 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       '</tbody></table></div>' : '<div class="dev-empty">עדיין לא נוצרו גנרטורים — שבץ מונה מהרשימה כדי ליצור.</div>');
     m.classList.add('open');
   }
-  function burnGenSaveSerial(id, v) {
+  async function burnGenSaveSerial(id, v, quiet) {
     var g = burnState.gens.find(function (x) { return x.id === id; }); if (!g || (g.device_serial || '') === v.trim()) return;
-    burnSafe(async function () {
-      var r = await fetch(SB_URL + '/rest/v1/generators?id=eq.' + id, { method: 'PATCH', headers: Object.assign(burnHdr(true), { Prefer: 'return=minimal' }), body: JSON.stringify({ device_serial: v.trim() || null }) });
+    var run = async function () {
+      var r = await fetch(SB_URL + '/rest/v1/generators?id=eq.' + id, { method: 'PATCH', headers: Object.assign(await burnWriteHdr(), { Prefer: 'return=minimal' }), body: JSON.stringify({ device_serial: v.trim() || null }) });
       if (!r.ok) throw new Error('שמירת הגנרטור נכשלה (' + r.status + ')');
       g.device_serial = v.trim() || null;
-      emsToast('✅ נשמר');
-    });
+      if (!quiet) emsToast('✅ נשמר');
+    };
+    if (quiet) return run(); burnSafe(run);
   }
   window.burnGensOpen = burnGensOpen; window.burnGenSaveSerial = burnGenSaveSerial; window.burnCanManageGens = burnCanManageGens;
   window.renderBurns = renderBurns; window.burnCanSee = burnCanSee; window.burnCanWrite = burnCanWrite;
   window.burnSetFilter = burnSetFilter; window.burnEnter = burnEnter; window.burnToggleSite = burnToggleSite;
   window.burnSelect = burnSelect; window.burnClearSel = burnClearSel; window.burnToggle = burnToggle; window.burnIssue = burnIssue;
   window.burnBurnSelected = burnBurnSelected; window.burnAssignSelected = burnAssignSelected; window.burnAssignSave = burnAssignSave; window.burnOpen = burnOpen;
-  window.burnExportXlsx = burnExportXlsx; window.burnRefreshFromEms = burnRefreshFromEms;
+  window.burnExportXlsx = burnExportXlsx; window.burnRefreshFromEms = burnRefreshFromEms; window.burnGenNameChanged = burnGenNameChanged; window.burnGenSearchEms = burnGenSearchEms;
