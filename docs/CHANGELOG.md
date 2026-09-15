@@ -1,5 +1,19 @@
 # Changelog
 
+
+## 2026-09-15 — 🔧 dev-page board columns fixed (branch `fix/dev-board-columns`, not built/pushed)
+Fixed the two follow-ups from the 2026-09-08 board rework: `devStage()` now recognizes "Main Fields" and
+"Scope Refinement" (were both silently falling into Backlog); empty columns now collapse to a small
+draggable chip row above the real board instead of full-width dead columns (grid switched from fixed
+`grid-template-areas` to `auto-fit`). `devReleaseVersion()`'s source stage moved from the removed `done`
+to `review` — unconfirmed assumption, flag to עידן. Not rebuilt into `js/app.js`: unrelated uncommitted
+calendar WIP was sitting in the tree and a rebuild would have reverted it.
+
+## 2026-09-08 — 📋 logged: EMS board rework breaks the dev page (no code change yet)
+עידן reworked the GitHub Projects board: **Done removed** (option renamed in place → **Scope Refinement**),
+**Main Fields** added for parent/domain issues, **Ready → Sprint Ready**. `js/src/18-dev-tasks.js` still
+encodes the old six columns — `devStage()` silently buckets both new columns into `backlog` and
+`devReleaseVersion()` is dead. Spec with exact line numbers written to `docs/backlog.md`.
 All notable changes to the **Sigmatec Operations App**. Format follows
 [Keep a Changelog](https://keepachangelog.com/). Newest first.
 

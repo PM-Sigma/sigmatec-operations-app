@@ -3,6 +3,71 @@
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
 
+## ✅ IMPLEMENTED — dev-page board columns fixed (branch `fix/dev-board-columns`, NOT built/pushed yet)
+Idan's follow-up requests, both addressed in `js/src/18-dev-tasks.js` + `css/app.css`:
+1. **Couldn't see the "Main Fields" (ראשיים) tickets** — `devStage()` now matches `"Main Fields"` and
+   `"Scope Refinement"` explicitly (new `fields`/`scope` keys in `DEV_STAGES`), instead of both silently
+   falling into `backlog` as before.
+2. **Empty columns should be minimized, not compete with open ones** — `devBoard()` now splits stages
+   into a `.dev-board-mini` row of small square chips (empty columns) above a `.dev-board-grid` of real
+   `<details>` columns (non-empty ones only). The grid switched from a fixed 6-slot `grid-template-areas`
+   (which required all 6 stages always present) to `repeat(auto-fit, minmax(260px,1fr))`, since the set
+   of non-empty stages now varies per load.
+3. **Drag a task into an empty column → it opens fully** — mini chips keep the same `.dev-stage` class +
+   `data-stage` attribute as real columns, so the existing drag/drop wiring needed zero changes: dragging
+   over a chip already gets the `.dev-drop-hover` highlight, a drop already writes the status, and the
+   next repaint promotes that stage into a real full-width column automatically (it now has ≥1 card).
+
+**Also fixed as part of the same rework** (required — devStage() needed a full rewrite anyway):
+- `DEV_STAGE_TARGET` now sends the exact 7 live option names (`Main Fields`/`Backlog`/`Scope Refinement`/
+  `Sprint Ready`/`In Progress`/`In Review`/`Committed`). Checked against `supabase/functions/github/index.ts`'s
+  `optionRegexFor()` — the two new names hit no keyword family and fall through to its literal-string
+  match, which resolves them correctly. **No edge-function redeploy needed.**
+- `devReleaseVersion()` (🚀 עלתה גרסה) — its source stage was `done`, which no longer exists. **Assumption
+  made, not confirmed with עידן:** now sources from `review` ("בשלבי בדיקות") instead. Flag to him if a
+  different stage was intended as the pre-release bucket.
+- `devStamps()` label map updated (no more `done`; added `fields`/`scope`). Old `dev_status_log` rows with
+  `status='done'` are now silently orphaned (no schema constraint, nothing breaks — just unused old rows).
+
+⚠️ **NOT rebuilt into `js/app.js` yet.** The working tree had unrelated uncommitted WIP sitting in
+`js/app.js`/`index.html`/`sw.js`/`js/src/14-calendar.js` (a calendar feature) when this session started —
+running `node build.mjs` now would have regenerated `js/app.js` from `js/src/*` and silently reverted
+that other work, so it was left untouched (per this project's own multi-session build-hygiene rule). This
+fix's source is committed on its own branch `fix/dev-board-columns`; **run `node build.mjs` on that branch
+once the calendar WIP is safely committed or stashed by whoever owns it**, then merge to `dev`.
+
+## 🔴 TODO — dev page (פיתוח) must follow the reworked EMS board (2026-09-08)
+**עידן changed the GitHub Projects board columns. `js/src/18-dev-tasks.js` is now wrong in 4 places.**
+
+**What changed on the board** (`Sigmatec EMS — Roadmap`, field `Status` = `PVTSSF_lADOESUai84BYul6zhTyR6I`):
+
+| Column | Option ID | Meaning |
+|---|---|---|
+| **Main Fields** 🆕 | `9cc1d1d9` | **Parent/domain issues only** — the headers that group the areas. NOT tasks. 37 issues sit here. |
+| Backlog | `ea2c2675` | **The actual tasks** |
+| **Scope Refinement** 🆕 | `b4885823` | Ticket sent **back for re-spec** |
+| Sprint Ready | `9b75d758` | was **`Ready`** — renamed |
+| In Progress | `7e60541e` | unchanged |
+| In Review | `092819ac` | unchanged |
+| Committed | `83d8b3f6` | unchanged |
+| ~~Done~~ | — | **GONE.** Option `b4885823` was **renamed in place** to `Scope Refinement` |
+
+⚠️ **The `Done` option was renamed, not deleted** — same ID. Anything still writing `"Done"` now writes **Scope Refinement**.
+
+**Required fixes in `js/src/18-dev-tasks.js`:**
+1. **`DEV_STAGES` (:103-111)** — drop `done`, add `fields` (Main Fields) and `scope` (Scope Refinement).
+   Suggested order: `fields → backlog → scope → ready → prog → review → committed`.
+   Main Fields is a grouping column — consider `open:false`, or render it as the tree roots rather than a stage.
+2. **`devStage()` (:112-122)** — 🔴 **the real bug**: neither `"Main Fields"` nor `"Scope Refinement"` matches any regex, so **both fall through to `backlog`**. All 37 parent issues will silently pile into "ממתין לפיתוח" as if they were tasks. Add the two matchers **before** the others, and drop the `done` branch.
+   Also `if (t.state==='closed') return 'done'` (:120) → retarget to `committed`.
+3. **`devReleaseVersion()` / 🚀 עלתה גרסה (:730-737)** — filters `devStage(t)==='done'`, which is now **always empty → dead button**. Rewire to move **In Review → Committed** (confirm the intended source column with עידן).
+4. **`DEV_STAGE_TARGET` (:750)** — `ready:'Ready'` and `done:'Done'` no longer name real options. Use the exact strings **`Sprint Ready`**, **`Scope Refinement`**, **`Main Fields`**. Verify the `github` fn's synonym matcher (`supabase/functions/github/index.ts:105, :232`) resolves them — **it was written for the old six names**; if it matches loosely it may still land `Ready`→`Sprint Ready`, but `Done` will now silently hit **Scope Refinement**, which is a data-corrupting drag-and-drop.
+5. **`devStamps()` names map (:442)** — `done:'גמר'` → replace with `scope`/`fields` labels; `dev_status_log` rows keyed `done` become orphans (`db/dev_status_log.sql`).
+
+**Also:** there is a new **`sprint` ITERATION field** (`PVTIF_lADOESUai84BYul6zhTzARg`) on the board — not consumed by the dev page today; worth surfacing on the cards.
+
+**Suggested check:** extend `test-devboard.mjs` with a case per new column name asserting `devStage()` returns the right key (especially that `"Main Fields"` does NOT return `backlog`).
+
 ## 🟡 IN PROGRESS — EMS-linking batch (4 features, A built 2026-07-19)
 Sequence A→D→B→C, one spec+branch each.
 - **A = ✅ BUILT on `feat/kibbutz-site-integrity` (1.59), pending dev→main.** Exact-match resolver (killed
@@ -109,14 +174,16 @@ until asked.
 1. **Supabase MCP** — added to `~/.claude.json` (`mcp.mcpServers.supabase`). This machine runs Claude in the
    **desktop app** (no `claude` CLI). Activate: **fully quit + reopen the desktop app → `/mcp` → authenticate**
    (Supabase OAuth). Then a session can deploy functions / read logs / run SQL directly (closes the redeploy loop).
-2. **Calendar** — Workspace **Domain-Wide Delegation**: admin authorizes the SA `client_id` for the `calendar`
-   scope → then add a `sub` impersonation claim + wire the יומן UI. (`calendar` fn already in repo.)
+2. **Calendar** — **calendar-sharing** model (NOT DWD): create a service account + key, **share the
+   `information@sigmatec-energy.com` calendar** with the SA's `client_email` ("Make changes to events"),
+   set `GCAL_SA_EMAIL`/`GCAL_SA_KEY`/`GCAL_ID` secrets + redeploy → then wire the יומן UI (Step 5).
+   Full guide: `docs/calendar-setup.md`. (`calendar` fn already in repo **and deployed/ACTIVE**.)
 3. **Rotate `service_role`** (exposed in chat) — coordinated: roll the JWT secret → update `ems-auth`'s
    `JWT_SECRET` env + redeploy → swap the new `anon` key into the bundle + rebuild.
 4. **EMS changelog → calendar** — show EMS version-release days in the יומן (needs the calendar unblocked + the
    changelog source מתניה maintains).
 _(No open blockers. Dev sprint board incl. writes is LIVE & verified (·94). Standing admin items: Supabase MCP,
-calendar DWD, `service_role` rotation.)_
+calendar sharing+secrets, `service_role` rotation.)_
 
 ## 🔜 Open feature work (next sessions)
 

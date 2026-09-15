@@ -637,25 +637,19 @@
 
   /* ===== DEV TASKS (פיתוח) — centered column + nested hierarchy rails ===== */
   /* Topic-tree view keeps the readable 880px column; the STATUS BOARD gets the full
-     container width and lays its 6 stages out as real kanban columns on wide screens. */
+     container width and lays its up-to-7 stages out as real kanban columns on wide screens. */
   .dev-wrap { max-width: 880px; margin: 0 auto; }
-  /* Weighted board: the ACTIVE columns (ספרינט קרוב / בפיתוח / בדיקות) get the width and sit first
-     (RTL: rightmost); the backlog pool is a narrower side column; done/committed live in a bottom
-     row (collapsed by default). This is the "expand the open ones" layout, not a uniform 6-way split. */
+  /* Only NON-EMPTY stages get a real grid column (empty ones are a mini chip row above, see
+     .dev-board-mini) — so the set of columns here varies per load and a fixed template-areas
+     layout (the old 6-always-present assumption) no longer fits. auto-fit reflows to however
+     many are actually open, sharing the row evenly among them. */
   @media (min-width: 1100px) {
     .dev-wrap.dev-wrap-board { max-width: 1400px; }
-    .dev-board { display: grid; gap: 12px; align-items: start;
-      grid-template-columns: 1.35fr 1.35fr 1.35fr 1fr;
-      grid-template-areas: "ready prog review backlog" "done done committed committed"; }
-    .dev-board .dev-stage { margin-bottom: 0; }
-    .dev-board .dev-stage-ready     { grid-area: ready; }
-    .dev-board .dev-stage-prog      { grid-area: prog; }
-    .dev-board .dev-stage-review    { grid-area: review; }
-    .dev-board .dev-stage-backlog   { grid-area: backlog; }
-    .dev-board .dev-stage-done      { grid-area: done; }
-    .dev-board .dev-stage-committed { grid-area: committed; }
-    .dev-board .dev-mtask[draggable="true"] { cursor: grab; }
-    .dev-board .dev-mtask[draggable="true"]:active { cursor: grabbing; }
+    .dev-board-grid { display: grid; gap: 12px; align-items: start;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .dev-board-grid .dev-stage { margin-bottom: 0; }
+    .dev-board-grid .dev-mtask[draggable="true"] { cursor: grab; }
+    .dev-board-grid .dev-mtask[draggable="true"]:active { cursor: grabbing; }
   }
   /* 2K+ screens: break the board out of the 1400px container — no dead side margins */
   @media (min-width: 1700px) {
@@ -897,8 +891,21 @@
   .dev-stage-ready     { border-inline-start: 4px solid #16a34a; }
   .dev-stage-prog      { border-inline-start: 4px solid #7c5cdb; }
   .dev-stage-review    { border-inline-start: 4px solid #c87f0a; }
-  .dev-stage-done      { border-inline-start: 4px solid #0e9aa7; }
+  .dev-stage-scope     { border-inline-start: 4px solid #d97706; }
   .dev-stage-committed { border-inline-start: 4px solid #475569; }
+
+  /* Empty columns (0 tickets) collapse to a small square chip instead of a full column — a row of
+     these sits above the real board. Same .dev-stage + data-stage classes as a real column, so the
+     drag/drop wiring in 18-dev-tasks.js needs no changes: dragging a card over one just works, and a
+     successful drop repaints it into a full column (it now has ≥1 card). */
+  .dev-board-mini { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .dev-stage-mini {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    width: 46px; height: 46px; flex-shrink: 0; margin-bottom: 0; opacity: .55;
+    transition: transform .12s ease, opacity .12s ease;
+  }
+  .dev-stage-mini .dev-stage-n { background: none; padding: 0; font-size: 10px; color: var(--text-light); }
+  .dev-stage-mini.dev-drop-hover { opacity: 1; transform: scale(1.25); z-index: 1; }
 
   /* sprint actions + multi-select */
   .dev-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }

@@ -65,6 +65,25 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — last: 2026-09-15 (**dev-page board-column fix implemented, not built**).
+
+Idan's two follow-ups on the 2026-09-08 board rework are now coded on branch `fix/dev-board-columns`:
+Main Fields tickets are recognized (`devStage()`), and empty columns collapse to a small draggable chip
+row instead of full-width dead columns. **`js/app.js` was NOT rebuilt** — the tree has unrelated
+uncommitted calendar-feature WIP that a rebuild would have clobbered. Full detail: [backlog.md](backlog.md)
+→ "dev-page board columns fixed". **Next: build once safe, verify on a `dev` preview, merge.**
+
+## 🚦 Current state — last: 2026-09-08 (**dev-page fix required — board columns changed**).
+
+**🔴 The EMS GitHub board was restructured by עידן (2026-09-08) and `js/src/18-dev-tasks.js` no longer
+matches it.** `Done` is gone (its option was **renamed in place** to **Scope Refinement**), **Main Fields**
+was added for the parent/domain issues, and `Ready` is now **`Sprint Ready`**. Net effect today:
+`devStage()` maps both new columns to `backlog`, so **37 parent issues pollute "ממתין לפיתוח"**, and the
+**🚀 עלתה גרסה button is dead** (its source stage is always empty). Full spec + line numbers:
+[backlog.md](backlog.md) → "dev page must follow the reworked EMS board". **Next: apply that fix.**
+
+## Previous: 1.59
+
 ## 🚦 Current state — last: 2026-07-19 (**1.59 on `feat/kibbutz-site-integrity`, pending dev→main**).
 
 **🔗 1.59 — kibbutz↔EMS site integrity (spec A of a 4-feature EMS-linking batch A→D→B→C).** Fixed the

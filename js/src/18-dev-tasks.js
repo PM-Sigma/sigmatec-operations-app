@@ -100,24 +100,27 @@
     }
   };
 
-  // ----- Pipeline stages: the 6 named board columns (Backlog→Ready→In Progress→In Review→Done→Committed) -----
+  // ----- Pipeline stages: the 7 named board columns (2026-09-08 EMS board rework — "Done" was
+  // renamed to "Scope Refinement" in place, and "Main Fields" was added for parent/domain issues) -----
   var DEV_STAGES = [
+    { key: 'fields',    label: 'תחומים ראשיים',           ico: '🗂️', open: false },
     { key: 'backlog',   label: 'ממתין לפיתוח',           ico: '📋', open: false },
+    { key: 'scope',     label: 'חזר לאפיון מחדש',         ico: '↩️', open: false },
     { key: 'ready',     label: 'ספרינט קרוב',             ico: '🟢', open: true  },
     { key: 'prog',      label: 'בפיתוח עכשיו',            ico: '🔨', open: true  },
     { key: 'review',    label: 'בשלבי בדיקות',            ico: '🔍', open: true  },
-    { key: 'done',      label: 'גמר פיתוח ממתין לגרסה',   ico: '✅', open: false },
     { key: 'committed', label: 'עלה לאוויר',              ico: '🚀', open: false }
   ];
   // map a ticket's Projects-v2 Status string → one stage key (most-specific match first)
   function devStage(t) {
     var s = String(t.status || '').toLowerCase();
-    if (/commit|deployed|\blive\b|released|production|פרוד|עלה לאוויר|אונליין/.test(s)) return 'committed';
-    if (/done|בוצע|הושלם|complete|merged|נסגר/.test(s)) return 'done';
+    if (/^main fields$|תחומים ראשי/.test(s)) return 'fields';
+    if (/scope refinement|אפיון מחדש/.test(s)) return 'scope';
+    if (/commit|deployed|\blive\b|released|production|פרוד|עלה לאוויר|אונליין|^done$|בוצע|הושלם|complete|merged|נסגר/.test(s)) return 'committed';
     if (/review|בדיק|qa/.test(s)) return 'review';
     if (/progress|בעבודה|doing|פיתוח|wip|בתהליך|active/.test(s)) return 'prog';
-    if (/ready|מוכן|ספרינט|next|planned/.test(s)) return 'ready';
-    if (t.state === 'closed') return 'done';   // closed without a status → treat as done
+    if (/ready|מוכן|ספרינט|next|planned/.test(s)) return 'ready';   // matches "Sprint Ready" too (renamed from "Ready")
+    if (t.state === 'closed') return 'committed';   // closed without a status → treat as committed
     return 'backlog';                          // backlog / todo / new / empty
   }
   var DEV_PRANK = { 'קריטי': 4, 'גבוהה': 3, 'גבוה': 3, 'בינונית': 2, 'נמוכה': 1, 'נמוך': 1 };
@@ -422,16 +425,29 @@
     // board fall to the end (pos defaults to 1e9). ponytail: pos is the project's global item order,
     // the closest the API exposes — per-column board drag-order isn't queryable.
     var pos = function (t) { return (typeof t.pos === 'number') ? t.pos : 1e9; };
-    return DEV_STAGES.map(function (s) {
+    // Empty columns collapse to a small square chip in a row up top instead of a full-width grid
+    // track (עידן: "עמודה ריקה ... ממוזערת ולא תפריע לעמודות הפתוחות") — but keep every column as a
+    // real <details> while a search/filter is active, since "no matches here" is itself useful then.
+    // A mini chip keeps class dev-stage + data-stage so the existing drag/drop wiring (below) needs
+    // no changes — dragging a card over it just works, and a successful drop repaints it into a real column.
+    var mini = [], full = [];
+    DEV_STAGES.forEach(function (s) {
       var list = byStage[s.key].sort(function (a, b) { return pos(a) - pos(b); });
+      if (!list.length && !f) {
+        mini.push('<div class="dev-stage dev-stage-mini dev-stage-' + s.key + '" data-stage="' + s.key + '" title="' + devEsc(s.label) + '">' +
+          '<span class="dev-stage-ico" aria-hidden="true">' + s.ico + '</span><span class="dev-stage-n">0</span></div>');
+        return;
+      }
       var openAttr = ((s.open || f) && list.length) ? ' open' : '';
       var inner = list.length ? list.map(devMobileCard).join('') : '<div class="dev-stage-empty">—</div>';
-      return '<details class="dev-stage dev-stage-' + s.key + '" data-stage="' + s.key + '"' + openAttr + '>' +
+      full.push('<details class="dev-stage dev-stage-' + s.key + '" data-stage="' + s.key + '"' + openAttr + '>' +
         '<summary class="dev-stage-sum"><span class="dev-stage-ico" aria-hidden="true">' + s.ico + '</span>' +
         '<span class="dev-stage-name">' + devEsc(s.label) + '</span>' +
         '<span class="dev-stage-n">' + list.length + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
-        '<div class="dev-stage-body">' + inner + '</div></details>';
-    }).join('');
+        '<div class="dev-stage-body">' + inner + '</div></details>');
+    });
+    var miniRow = mini.length ? '<div class="dev-board-mini">' + mini.join('') + '</div>' : '';
+    return miniRow + '<div class="dev-board-grid">' + full.join('') + '</div>';
   }
 
   // ----- Status-entry day-stamps (Supabase `dev_status_log`, forward-tracking; see db/dev_status_log.sql) -----
@@ -439,7 +455,7 @@
   function devStamps(t) {
     var log = (window._devStatusLog && window._devStatusLog[t.number]) || null;
     if (!log) return '';
-    var names = { backlog: 'Backlog', ready: 'Ready', prog: 'בפיתוח', review: 'בדיקות', done: 'גמר', committed: 'עלה' };
+    var names = { fields: 'תחומים', backlog: 'Backlog', scope: 'אפיון', ready: 'Sprint Ready', prog: 'בפיתוח', review: 'בדיקות', committed: 'עלה' };
     var parts = DEV_STAGES.map(function (s) { return log[s.key] ? names[s.key] + ' ' + devFmtDay(log[s.key]) : null; }).filter(Boolean);
     return parts.length ? '<div class="dev-stamps">' + parts.join(' · ') + '</div>' : '';
   }
@@ -548,7 +564,7 @@
     var actions = (view === 'status') ? '<div class="dev-actions">' +
       '<button class="inv-btn small' + (window._devSelMode ? ' active' : '') + '" onclick="devToggleSelMode()">' + (window._devSelMode ? '✕ בטל בחירה' : '☑️ בחר משימות') + '</button>' +
       (window._devDragOn ? '<span class="dev-drag-hint" style="font-size:11px;color:#94a3b8;align-self:center;">✋ אפשר לגרור משימה בין עמודות</span>' : '') +
-      '<button class="inv-btn small dev-release-btn" onclick="devReleaseVersion(this)" title="לשימוש רק בעת העלאת גרסה אמיתית — מעביר את כל \'גמר פיתוח\' ל\'עלה לאוויר\'">🚀 עלתה גרסה</button>' +
+      '<button class="inv-btn small dev-release-btn" onclick="devReleaseVersion(this)" title="לשימוש רק בעת העלאת גרסה אמיתית — מעביר את כל \'בשלבי בדיקות\' ל\'עלה לאוויר\'">🚀 עלתה גרסה</button>' +
       '</div>' : '';
     var head = '<div class="dev-toolbar">' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
@@ -727,12 +743,15 @@
       if (btn) { btn.disabled = false; btn.textContent = '🟢 העבר משימות לספרינט הקרוב'; }
     }
   };
-  // "עלתה גרסה" → move everything currently in Done (גמר פיתוח) to Committed (עלה לאוויר)
+  // "עלתה גרסה" → move everything currently in review (בשלבי בדיקות) to Committed (עלה לאוויר).
+  // ponytail: the board's old "Done" column (גמר פיתוח ממתין לגרסה) was removed 2026-09-08 — this
+  // button's source column is inferred as "In Review", the step right before a release. Flag to עידן
+  // if a different source stage was intended.
   window.devReleaseVersion = async function (btn) {
     var d = window._devData; if (!d) return;
-    var nums = d.tasks.filter(function (t) { return devStage(t) === 'done'; }).map(function (t) { return t.number; });
-    if (!nums.length) { alert('אין משימות ב"גמר פיתוח ממתין לגרסה".'); return; }
-    if (!confirm('להעביר ' + nums.length + ' משימות מ"גמר פיתוח" ל"עלה לאוויר"?')) return;
+    var nums = d.tasks.filter(function (t) { return devStage(t) === 'review'; }).map(function (t) { return t.number; });
+    if (!nums.length) { alert('אין משימות ב"בשלבי בדיקות".'); return; }
+    if (!confirm('להעביר ' + nums.length + ' משימות מ"בשלבי בדיקות" ל"עלה לאוויר"?')) return;
     if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
     try {
       var res = devWriteResult(await devWriteStatus(nums, 'Committed'), 'עלו לאוויר');
@@ -745,9 +764,12 @@
     }
   };
   // ----- drag a card to another column (עידן only, desktop board) -----
-  // Writes through the same `github` fn setStatus path as דחוף-ל-Ready; the fn's synonym matcher
-  // already covers all six stages (Backlog/Ready/In Progress/In Review/Done/Committed) — no redeploy.
-  var DEV_STAGE_TARGET = { backlog: 'Backlog', ready: 'Ready', prog: 'In Progress', review: 'In Review', done: 'Done', committed: 'Committed' };
+  // Writes through the same `github` fn setStatus path as דחוף-ל-Ready. Checked against
+  // supabase/functions/github/index.ts's optionRegexFor() (2026-09-08 board rework): "Sprint Ready"/
+  // "Committed"/"Backlog"/"In Progress"/"In Review" all still hit its keyword families unchanged;
+  // "Main Fields" and "Scope Refinement" match none of them and fall through to its literal-string
+  // regex, which matches the live option names exactly — no redeploy needed for either.
+  var DEV_STAGE_TARGET = { fields: 'Main Fields', backlog: 'Backlog', scope: 'Scope Refinement', ready: 'Sprint Ready', prog: 'In Progress', review: 'In Review', committed: 'Committed' };
   window.devDragStart = function (e, n) {
     try { e.dataTransfer.setData('text/plain', String(n)); e.dataTransfer.effectAllowed = 'move'; } catch (er) {}
   };
