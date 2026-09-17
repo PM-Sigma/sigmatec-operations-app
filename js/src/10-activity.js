@@ -623,18 +623,29 @@
     // The card list itself is data now. It loads from its OWN table, independently of the
     // Sheet/Supabase snapshot, and renders BEFORE the passes that decorate cards — so the
     // sections are populated even when the snapshot fetch fails.
+    let cardsRepainted = false;
     if (typeof kibbutzimLoad === 'function') {
       try { renderKibbutzCards(await kibbutzimLoad()); }
       catch (e) { console.warn('[kibbutzim] load failed — painting from cache', e); renderKibbutzCards(); }
+      cardsRepainted = true;
     }
     const data = await fetchSheetData();
-    if (data) {
-      window.dataLoaded = true;
-      enrichCardsWithSheet(data);
-      renderPotentials(data);
+    if (data) window.dataLoaded = true;
+
+    // The repaint above replaces the grid's innerHTML, which wipes every decoration. So the
+    // card passes must run on THIS poll even when its snapshot fetch failed — otherwise one
+    // dropped request leaves every card bare (no code badge / EMS widget / last visit) until
+    // the next good one. Fall back to the last snapshot we did get.
+    const snap = data || window.SHEET_DATA;
+    if (snap && (data || cardsRepainted)) {
+      enrichCardsWithSheet(snap);
+      renderPotentials(snap);
       injectCustomerCodes();
       applyCardLastVisit();
       reorderCards();
+    }
+
+    if (data) {
       renderCompanyTasks();
       maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();

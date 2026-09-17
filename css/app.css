@@ -130,9 +130,10 @@
   .section.collapsed .section-body { display: none; }
   .section.collapsed .section-toggle { transform: rotate(-90deg); }
   /* Section headers: clean neutral surface + colored accent strip on the right (RTL) */
-  .section-header { position: relative; }.pipeline-section .section-header,
-.ready-live-section .section-header,
-.new-clients-section .section-header { background: var(--card); }
+  .section-header { position: relative; }
+  .pipeline-section .section-header,
+  .ready-live-section .section-header,
+  .new-clients-section .section-header { background: var(--card); }
   .pipeline-section .section-header { border-right: 4px solid var(--pipeline); }
   .pipeline-section .section-title { color: #0c7d88; }
   .ready-live-section .section-header { border-right: 4px solid var(--danger); }
@@ -1078,8 +1079,6 @@
   .status-arrived      { background: #fce7f3; color: #9d174d; }
   .status-delivered    { background: #d1fae5; color: #065f46; }
   .btn-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-left: 4px; }
-  @media (max-width: 768px) { }
-
   /* Collapsible legend at bottom of page */
   .legend-collapsible { background: white; border-radius: 10px; padding: 8px 14px; margin: 18px 0; border: 1px solid var(--border); }
   .legend-collapsible summary { cursor: pointer; font-weight: 700; color: var(--text-light); padding: 4px 0; }
@@ -1101,20 +1100,16 @@
   body.meeting-mode::before { content: "🚀 מצב ישיבה פעיל"; position: fixed; top: 0; left: 0; right: 0; background: #10b981; color: white; text-align: center; padding: 6px 8px; font-size: 12px; font-weight: 700; z-index: 999; box-shadow: 0 2px 6px rgba(16,185,129,0.3); }
   body.meeting-mode { padding-top: 28px; }
   body.meeting-mode .setup-fields-group { display: none; }
-  body.meeting-mode #editStatus { min-height: 220px; font-size: 16px; line-height: 1.6; }/* MEETING MODE — fast updates: keep name + status + EMS tasks + last visit; hide the
-     onboarding/progress noise (stepper,
-flags,
-proc button,
-calendar,
-owners,
-region). */
+  body.meeting-mode #editStatus { min-height: 220px; font-size: 16px; line-height: 1.6; }
+  /* MEETING MODE — fast updates: keep name + EMS tasks + last visit; hide the
+     onboarding/progress noise (stepper, proc button, calendar, region). */
   body.meeting-mode .stepper,
-body.meeting-mode .current-step-label,
-body.meeting-mode .proc-btn,
-body.meeting-mode .calendar-event,
-body.meeting-mode .bug-details,
-body.meeting-mode .region-badge,
-body.meeting-mode .card-divider { display: none !important; }
+  body.meeting-mode .current-step-label,
+  body.meeting-mode .proc-btn,
+  body.meeting-mode .calendar-event,
+  body.meeting-mode .bug-details,
+  body.meeting-mode .region-badge,
+  body.meeting-mode .card-divider { display: none !important; }
   body.meeting-mode .kibbutz { padding: 9px 11px; }
   body.meeting-mode .kibbutz-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
   body.meeting-mode .search-input { font-size: 16px; padding: 12px 16px; font-weight: 600; }
@@ -1414,17 +1409,8 @@ body.meeting-mode .card-divider { display: none !important; }
   .my-tasks-btn:hover { background: #e0e7ff; transform: translateY(-1px); }
   .my-tasks-btn.copy { background: #fbbf24; color: #78350f; }
   .my-tasks-btn.email { background: #34d399; color: white; }
-  .my-tasks-btn.wa { background: #25d366; color: white; }/* Compact mode: hide ONLY setup-progress visuals (stepper,
-divider,
-proc btn,
-calendar)
-     KEEP visible: status,
-expected task,
-owners,
-region,
-energy {
-    display: none !important;
-  }
+  .my-tasks-btn.wa { background: #25d366; color: white; }
+
   @media (max-width: 768px) {
     .modal-backdrop {
       align-items: flex-start;

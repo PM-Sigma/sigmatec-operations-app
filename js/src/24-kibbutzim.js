@@ -148,8 +148,32 @@
       const cached = kibbutzimCached();
       if (cached && cached.length) renderKibbutzCards(cached);
     }
+
+    // This module sits at the END of the bundle, so the app's init (11-search-login.js) has
+    // already run its first refreshData() by the time we get here — that call could not see
+    // kibbutzimLoad yet. Boot ourselves: paint the cache, then fetch once. Waiting for the
+    // 15s poll instead would leave the page empty on load.
+    // A repaint replaces the grid innerHTML, so whatever decorated the old cards is gone.
+    // Re-run the card passes against the snapshot already in memory (refreshData does the
+    // same after its own fetch; both are idempotent).
+    function kibbutzimDecorate() {
+      if (!window.SHEET_DATA) return;
+      if (typeof enrichCardsWithSheet === 'function') enrichCardsWithSheet(window.SHEET_DATA);
+      if (typeof injectCustomerCodes === 'function') injectCustomerCodes();
+      if (typeof applyCardLastVisit === 'function') applyCardLastVisit();
+      if (typeof reorderCards === 'function') reorderCards();
+    }
+
+    function kibbutzimBoot() {
+      kibbutzimFirstPaint();
+      kibbutzimDecorate();
+      kibbutzimLoad()
+        .then(rows => { renderKibbutzCards(rows); kibbutzimDecorate(); })
+        .catch(e => console.warn('[kibbutzim] initial load failed — showing the cached list', e));
+    }
     if (typeof document !== 'undefined' && document.addEventListener) {
-      document.addEventListener('DOMContentLoaded', kibbutzimFirstPaint);
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kibbutzimBoot);
+      else kibbutzimBoot();
     }
 
     window.KIBBUTZIM = window.KIBBUTZIM || [];

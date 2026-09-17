@@ -4907,18 +4907,29 @@
     // The card list itself is data now. It loads from its OWN table, independently of the
     // Sheet/Supabase snapshot, and renders BEFORE the passes that decorate cards — so the
     // sections are populated even when the snapshot fetch fails.
+    let cardsRepainted = false;
     if (typeof kibbutzimLoad === 'function') {
       try { renderKibbutzCards(await kibbutzimLoad()); }
       catch (e) { console.warn('[kibbutzim] load failed — painting from cache', e); renderKibbutzCards(); }
+      cardsRepainted = true;
     }
     const data = await fetchSheetData();
-    if (data) {
-      window.dataLoaded = true;
-      enrichCardsWithSheet(data);
-      renderPotentials(data);
+    if (data) window.dataLoaded = true;
+
+    // The repaint above replaces the grid's innerHTML, which wipes every decoration. So the
+    // card passes must run on THIS poll even when its snapshot fetch failed — otherwise one
+    // dropped request leaves every card bare (no code badge / EMS widget / last visit) until
+    // the next good one. Fall back to the last snapshot we did get.
+    const snap = data || window.SHEET_DATA;
+    if (snap && (data || cardsRepainted)) {
+      enrichCardsWithSheet(snap);
+      renderPotentials(snap);
       injectCustomerCodes();
       applyCardLastVisit();
       reorderCards();
+    }
+
+    if (data) {
       renderCompanyTasks();
       maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();
@@ -9580,8 +9591,32 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       const cached = kibbutzimCached();
       if (cached && cached.length) renderKibbutzCards(cached);
     }
+
+    // This module sits at the END of the bundle, so the app's init (11-search-login.js) has
+    // already run its first refreshData() by the time we get here — that call could not see
+    // kibbutzimLoad yet. Boot ourselves: paint the cache, then fetch once. Waiting for the
+    // 15s poll instead would leave the page empty on load.
+    // A repaint replaces the grid innerHTML, so whatever decorated the old cards is gone.
+    // Re-run the card passes against the snapshot already in memory (refreshData does the
+    // same after its own fetch; both are idempotent).
+    function kibbutzimDecorate() {
+      if (!window.SHEET_DATA) return;
+      if (typeof enrichCardsWithSheet === 'function') enrichCardsWithSheet(window.SHEET_DATA);
+      if (typeof injectCustomerCodes === 'function') injectCustomerCodes();
+      if (typeof applyCardLastVisit === 'function') applyCardLastVisit();
+      if (typeof reorderCards === 'function') reorderCards();
+    }
+
+    function kibbutzimBoot() {
+      kibbutzimFirstPaint();
+      kibbutzimDecorate();
+      kibbutzimLoad()
+        .then(rows => { renderKibbutzCards(rows); kibbutzimDecorate(); })
+        .catch(e => console.warn('[kibbutzim] initial load failed — showing the cached list', e));
+    }
     if (typeof document !== 'undefined' && document.addEventListener) {
-      document.addEventListener('DOMContentLoaded', kibbutzimFirstPaint);
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kibbutzimBoot);
+      else kibbutzimBoot();
     }
 
     window.KIBBUTZIM = window.KIBBUTZIM || [];
