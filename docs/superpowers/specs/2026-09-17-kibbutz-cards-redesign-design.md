@@ -213,6 +213,20 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
   chunk 4 replaces the existing hex literals in `app.css` with tokens (a contract test greps for stray hex in new CSS).
 - **Libraries (עידן 17.9 — "פחות AI, יותר מקצועי ונקי, טיפה יותר הנפשות"):** Lucide SVG icons instead of UI emoji ·
   GSAP core for sheet/cards/link animations (CSS fallback, reduced-motion respected) · **Assistant** as the body face (עידן 17.9: cleaner, faster to read; Rubik as the alternative if he prefers rounder), base 15px. Flat hairline cards, shadows only on floating layers, gradient only on brand touchpoints.
+- **Visit-summary and attendance pages are redesigned too (עידן 17.9):** the visit form (`#tab-visit`, `visitQuickModal`,
+  products checklist, workday/duration, 🚚 cert status chip) and the attendance page (daily day-type buttons, monthly
+  report, missing-days nags) get the same tokens, shadcn controls (ToggleGroup for day type, Checkbox list for
+  products, Textarea, Sheet on phone) and Assistant type. Logic, gates and data shapes are untouched
+  (`test-visit-cert-gate.mjs`, `test-attendance-*.mjs` keep passing); this is a re-skin through the legacy markup +
+  tokens where the form stays vanilla, or a React island where the form is re-mounted — implementer's call per form,
+  recorded in the report.
+- **RTL correctness is a release gate (עידן 17.9: "שאין עיצוב שבור בעברית"):** `dir="rtl"` on `html` and on every
+  island root; logical CSS only (`margin-inline-start`, `padding-inline`, `inset-inline`, `text-align:start`) — a
+  contract test greps new CSS/TSX for `margin-left|margin-right|padding-left|padding-right|left:|right:|text-align:
+  left|text-align: right` outside an allowlist; numbers, codes, dates, phone numbers and English tokens wrapped in
+  `<bdi>` (or `unicode-bidi: isolate`) so they never flip inside Hebrew rows; icons that imply direction (chevrons,
+  arrows, "back") are mirrored via `rtl:` Tailwind variants; inputs `text-align:start`; toasts and sheets anchored by
+  logical side. Manual RTL smoke (390 px + 1440 px, both themes) is part of every task's smoke and the release smoke.
 - **Micro-motion (עידן 17.9):** cards fade in/out on filter and search (crossfade, staggered), sections tween open/closed,
   new/edited card fades in with a brief brand-gradient hairline highlight, bullet→🔗 morph, button press scale, sliding
   chip pill, toast slide, skeleton shimmer while loading. All ≤ 250 ms (sheet 320 ms); `prefers-reduced-motion` disables.
