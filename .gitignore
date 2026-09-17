@@ -13,3 +13,8 @@ desktop.ini
 .claude/
 .mcp.json
 supabase/.temp/
+
+# React islands workspace — source is committed, node_modules and the intermediate
+# Vite output are not (ui/sigma.js|css IS committed: GitHub Pages serves it directly).
+app/node_modules
+app/dist

@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== shadcn tokens mapped to the Sigmatec brand (spec §6) =====
+   --brand-1 cyan → --brand-2 green is the company Σ gradient; it is used sparingly
+   (wordmark, active tab indicator, primary buttons, loaders). Everything else is tokens. */
+:root {
+  --brand-1: #06C2CB;
+  --brand-2: #1ABE63;
+  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+
+  --background: 197 26% 95%;
+  --foreground: 210 13% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 210 13% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 210 13% 12%;
+  --primary: 178 94% 41%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 205 22% 93%;
+  --secondary-foreground: 210 13% 12%;
+  --muted: 205 22% 93%;
+  --muted-foreground: 210 12% 40%;
+  --accent: 178 94% 41%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 205 18% 89%;
+  --input: 205 18% 89%;
+  --ring: 178 94% 41%;
+  --radius: 0.875rem;
+}
+
+:root[data-theme='dark'],
+.dark {
+  --background: 202 21% 7%;
+  --foreground: 208 35% 93%;
+  --card: 207 20% 11%;
+  --card-foreground: 208 35% 93%;
+  --popover: 207 20% 11%;
+  --popover-foreground: 208 35% 93%;
+  --primary: 178 94% 41%;
+  --primary-foreground: 202 21% 7%;
+  --secondary: 206 19% 14%;
+  --secondary-foreground: 208 35% 93%;
+  --muted: 206 19% 14%;
+  --muted-foreground: 208 14% 63%;
+  --accent: 178 94% 41%;
+  --accent-foreground: 202 21% 7%;
+  --destructive: 0 62% 47%;
+  --destructive-foreground: 208 35% 93%;
+  --border: 207 19% 18%;
+  --input: 207 19% 18%;
+  --ring: 178 94% 41%;
+}
+
+/* ===== island scope =====
+   Tailwind preflight is off (the legacy css/app.css owns the page), so each island root carries
+   its own mini-reset. `.sigma-root` is also Tailwind's `important` selector — utilities only ever
+   apply inside an island. */
+.sigma-root {
+  font-family: 'Assistant', 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  direction: rtl;
+  text-align: start;
+  color: hsl(var(--foreground));
+  -webkit-tap-highlight-color: transparent;
+}
+.sigma-root *,
+.sigma-root *::before,
+.sigma-root *::after { box-sizing: border-box; }
+.sigma-root button,
+.sigma-root input,
+.sigma-root textarea,
+.sigma-root select { font: inherit; color: inherit; }
+.sigma-root button { background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
+.sigma-root input,
+.sigma-root textarea { text-align: start; }
+.sigma-root :where(h1, h2, h3, h4, p, figure, blockquote) { margin: 0; }
+.sigma-root :where(ul, ol) { margin: 0; padding: 0; list-style: none; }
+.sigma-root svg { display: block; }
+
+/* Portalled layers (Sheet / Dialog / Toaster) render at <body>, outside an island root —
+   give them the same scope so tokens, font and direction still apply. */
+[data-sigma-portal] { direction: rtl; font-family: 'Assistant', 'Segoe UI', system-ui, sans-serif; font-size: 15px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sigma-root *, [data-sigma-portal] * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -90,6 +90,7 @@
       localStorage.setItem(USER_KEY, name);
       localStorage.setItem(ROLE_KEY, name === 'עידן' ? 'idan' : 'team');
       localStorage.setItem(AUTH_KEY, 'ok');
+      if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
       try { await sbBridge(); } catch (e) {}   // get the Supabase pass before loading data
@@ -180,6 +181,7 @@
       localStorage.setItem(USER_KEY, 'צפייה');
       localStorage.setItem(ROLE_KEY, 'viewer');
       localStorage.setItem(AUTH_KEY, 'ok');
+      if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       err.textContent = '';
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();

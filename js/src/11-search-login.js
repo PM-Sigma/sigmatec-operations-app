@@ -244,6 +244,7 @@
       localStorage.setItem(USER_KEY, name);
       localStorage.setItem(ROLE_KEY, (name === 'עידן') ? 'idan' : 'team');
       localStorage.setItem(AUTH_KEY, 'ok');
+      if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       _pendingUser = '';
       document.getElementById('authGate').style.display = 'none';
       updateUserBadge();

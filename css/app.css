@@ -25,6 +25,32 @@
     --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
     --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
   }
+
+  /* Brand tokens (spec §6) — the company Σ gradient. Used sparingly: wordmark, active tab,
+     primary buttons, loaders. Shared with the React islands (app/src/styles.css). */
+  :root {
+    --brand-1: #06C2CB;
+    --brand-2: #1ABE63;
+    --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+    --surface-2: #eef2f7;
+    --radius-lg: 14px;
+  }
+
+  /* Dark mode (spec §6) — a real toggle, not only the OS preference. The choice is stored in
+     localStorage('theme'); the inline snippet in index.html <head> sets data-theme before the
+     first paint, and app/src/lib/theme.ts keeps it in sync with the islands' `.dark` class. */
+  :root[data-theme="dark"] {
+    --bg: #0f1417;
+    --card: #161c21;
+    --surface-2: #1d252b;
+    --text: #e6edf3;
+    --text-light: #93a1ad;
+    --border: #263038;
+    --gray-light: #1d252b;
+    --accent-soft: #14262f;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
+  }
   /* delivery-cert modal: stack the customer grid on phones (default 2-col is too cramped) */
   @media (max-width: 520px) {
     .cert-grid { grid-template-columns: 1fr !important; }
@@ -1616,3 +1642,11 @@ body.user-viewer #invProductsList button { display: none !important; }
 .xl-hub-row input, .xl-hub-row select { font-size: 13px; padding: 4px 6px; }
 .xl-hub-row .inv-btn.small.xl-green { background: #16a34a; color: #fff; }
 body.user-viewer .legend-collapsible { display: none !important; }
+
+/* ===== Bottom nav (React island #sigma-nav) takes over on phones =====
+   The legacy top `.page-nav` stays on desktop; on a phone the thumb-zone bar replaces it
+   and the body reserves room so nothing hides behind it. */
+@media (max-width: 767px) {
+  .page-nav { display: none; }
+  body { padding-bottom: 84px; }
+}

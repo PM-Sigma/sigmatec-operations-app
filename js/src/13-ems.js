@@ -57,6 +57,7 @@
     await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, tasks: slim }) });
     if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy };
+    if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: slim.length });   // → React islands (bridge)
     return { cached: slim.length };
   }
 

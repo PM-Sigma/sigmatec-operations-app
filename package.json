@@ -1,0 +1,8 @@
+{
+  "name": "sigmatec-operations-app",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node scripts/test-all.mjs"
+  }
+}

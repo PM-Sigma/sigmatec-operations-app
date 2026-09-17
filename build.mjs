@@ -2,6 +2,20 @@
 // numeric filename prefix) into the single deployed js/app.js. Run before committing
 // after editing anything in js/src/:   node build.mjs
 import fs from 'fs';
+import { execSync } from 'node:child_process';
+
+// ===== React islands (app/) =====
+// The islands are built FIRST and their output committed into ui/ — GitHub Pages is static,
+// same convention as js/app.js. Skip with SKIP_UI=1 when iterating on legacy modules only.
+if (!process.env.SKIP_UI) {
+  console.log('building React islands (app/) …');
+  execSync('npm --prefix app run build', { stdio: 'inherit' });
+  fs.mkdirSync(new URL('./ui/', import.meta.url), { recursive: true });
+  for (const f of ['sigma.js', 'sigma.css']) {
+    fs.copyFileSync(new URL('./app/dist/' + f, import.meta.url), new URL('./ui/' + f, import.meta.url));
+  }
+}
+
 const dir = new URL('./js/src/', import.meta.url);
 const out = new URL('./js/app.js', import.meta.url);
 const files = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort();
@@ -13,7 +27,8 @@ fs.writeFileSync(out, bundle);
 const idxUrl = new URL('./index.html', import.meta.url);
 let idx = fs.readFileSync(idxUrl, 'utf8');
 const ver = Date.now().toString(36);
-idx = idx.replace(/(js\/app\.js\?v=)[^"]*/, '$1' + ver).replace(/(css\/app\.css\?v=)[^"]*/, '$1' + ver);
+idx = idx.replace(/(js\/app\.js\?v=)[^"]*/, '$1' + ver).replace(/(css\/app\.css\?v=)[^"]*/, '$1' + ver)
+         .replace(/(ui\/sigma\.js\?v=)[^"]*/, '$1' + ver).replace(/(ui\/sigma\.css\?v=)[^"]*/, '$1' + ver);
 // force phones to refresh on every deploy: bump the SW cache name so sw.js bytes change → the browser
 // installs the new SW (skipWaiting + clients.claim), the page hears 'controllerchange' and reloads once.
 const swUrl = new URL('./sw.js', import.meta.url);
