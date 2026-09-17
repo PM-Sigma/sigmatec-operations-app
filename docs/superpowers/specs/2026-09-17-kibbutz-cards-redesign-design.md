@@ -240,14 +240,14 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
 
 ## 7. Part F — Complaints & ideas box (📣 תיבת רעיונות ותלונות)
 
-- Entry: **⋯ עוד → 📣 רעיון / תלונה** (all roles). Sheet with: kind toggle (💡 רעיון / 😠 תלונה), textarea, **🎙 הקלט**
+- Entry: **⋯ עוד → 📣 רעיון / באג / תלונה** (all roles). Sheet with: kind toggle (💡 רעיון / 🐞 דיווח באג / 😠 תלונה — עידן, mockup comment 17.9), textarea, **🎙 הקלט**
   button, anonymous checkbox, שלח.
 - Voice, ladder order: (1) **Web Speech API** (`webkitSpeechRecognition`, `lang='he-IL'`, continuous) — live
   transcript into the textarea, editable, no server. Android Chrome + desktop Chrome/Edge: yes. (2) Fallback where
   unsupported (iOS Safari PWA): `MediaRecorder` → upload `.webm/.m4a` to Supabase Storage bucket `feedback-audio` →
   Edge Fn **`transcribe`** → **Groq Whisper (`whisper-large-v3`)** (Groq key already a project secret from
   `parse-order`) → text returned and saved. Recording capped at 3 min.
-- Table `feedback` (`id, author text null, kind, text, audio_path null, status 'new'|'seen'|'done', created_at`).
+- Table `feedback` (`id, author text null, kind ('idea'|'bug'|'complaint'), text, audio_path null, status 'new'|'seen'|'done', github_issue int null, created_at`). In the admin inbox a **bug** row has **🐙 פתח כרטיס בלוח הפיתוח** → creates a GitHub issue via the existing `github` edge function (title = first line, body = text + author + date, label `bug`, project column Backlog) and stores `github_issue`; the row then links to the dev page.
   Admin view for עידן/עמיחי in the ⋯ menu: list, mark seen/done. Push to עידן on new feedback (existing `sendTo`).
 
 ## 7b. Part G — Kibbutzim as data (create from the app)
