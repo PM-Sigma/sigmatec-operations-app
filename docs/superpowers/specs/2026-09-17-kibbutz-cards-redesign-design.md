@@ -18,6 +18,7 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
    tasks + last meeting bullets + last visit; **2 h later, if no visit summary was filed → push reminder** with
    motivating copy.
 9. (added mid-turn) **Complaints & ideas box** — anyone can type or **record voice → transcribed**.
+10. (added mid-turn) **Create kibbutzim from inside the app** — no code change per new client.
 
 ## 1. Current state (what exists, what we reuse)
 
@@ -175,6 +176,26 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
 - Table `feedback` (`id, author text null, kind, text, audio_path null, status 'new'|'seen'|'done', created_at`).
   Admin view for עידן/עמיחי in the ⋯ menu: list, mark seen/done. Push to עידן on new feedback (existing `sendTo`).
 
+## 7b. Part G — Kibbutzim as data (create from the app)
+
+Today every card is hard-coded in `index.html` (adding גבעת חיים איחוד on 17.9 needed a code commit). This part
+makes the card list **data-driven**, which also simplifies Part A (renames/re-homing become row updates).
+
+- New table `kibbutzim`: `id uuid pk · name text unique (= card data-name) · display_name text · section text
+  ('setup'|'active') · energy text[] ('electric'|'water'|'gas') · marketing bool default false · ems_site_ids text[]
+  · sort int · archived_at timestamptz null · created_by, created_at`.
+- **Seed migration**: `db/kibbutzim_seed.mjs` parses the current `index.html` cards (name, section per §2 re-homing,
+  energy badge, flags) → insert rows; then the static card markup is deleted and `01-data.js` renders cards from the
+  table (one `renderCards()` pass, then the existing EMS-widget / meeting-bullet passes attach as today).
+- **➕ קיבוץ חדש** (עידן/עמיחי): header button (desktop) and ⋯ עוד (phone). Sheet: name · section toggle · energy chips
+  · 🤝 marketing toggle · EMS site (auto-suggest by exact name against live `/sites`; may be saved unlinked → card
+  shows the existing ⚠️ "לא מקושר ל-EMS" indicator). Save → row inserted → card appears for everyone on next load.
+- Edit the same fields from the card modal (replaces the removed category/step/note fields). Archive instead of
+  delete (`archived_at`) so history in `kibbutz_meeting_notes` / `visits` stays reachable.
+- `KIBBUTZ_SITE_MAP` fallback stays for offline; `ems_site_ids` on the row is the source when online.
+- Contract test: every row renders exactly one card; every meeting-note kibbutz resolves to a row or the import
+  preview flags it (the "אין כרטיס תואם" state in §3.2 now offers "צור קיבוץ" inline).
+
 ## 8. Execution plan (agents)
 
 Branch `feat/kibbutz-cards-redesign`; sub-branches per chunk merged into it; then → `dev` → `main` per CLAUDE.md
@@ -182,7 +203,8 @@ parallel-safe loop. Each chunk ends green on `node --test` suites + a smoke on `
 
 | # | Chunk | Agent | Depends on |
 |---|-------|-------|-----------|
-| 1 | Part A removals/renames + re-home cards + reports rewrite | Sonnet | — |
+| 1 | Part G table + seed + data-driven cards, then Part A removals/renames on top + reports rewrite | Opus | — |
+| 1b | ➕ קיבוץ חדש sheet + modal edit/archive | Sonnet | 1 |
 | 2 | Part B parser + table SQL + import modal + card/modal timeline + ➕ task | Opus | 1 |
 | 3 | Part C full EMS tasks on card (+ cache field) | Sonnet | 1 |
 | 4 | Part E brand tokens + dark mode + layout/bottom-nav/motion sweep (CSS + markup) | Sonnet (frontend-design skill) | 1,2,3 |
