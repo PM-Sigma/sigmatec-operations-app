@@ -589,6 +589,10 @@
     const BOTTOM_CLASSES = ['kibbutz-note','proc-btn','calendar-event'];
 
     document.querySelectorAll('.kibbutz').forEach(card => {
+      // React owns the children of an island card (#sigma-home) and renders them in the
+      // order the design asks for — name row first, quick actions last. Moving them with
+      // appendChild here would both fight the renderer and put the action row on top.
+      if (card.closest && card.closest('#sigma-home')) return;
       // Remove existing divider
       card.querySelectorAll('.card-divider').forEach(d => d.remove());
 

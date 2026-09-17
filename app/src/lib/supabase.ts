@@ -30,3 +30,35 @@ export function getSupabase(): Promise<SupabaseClient> {
   }
   return clientPromise;
 }
+
+/** A 401 / 42501 / RLS rejection — the bridge pass lapsed and the write went out as anon. */
+export function isAuthError(e: unknown): boolean {
+  return /row-level security|42501|401|JWT/i.test(String((e as any)?.message ?? e ?? ''));
+}
+
+/** The shared client with a FRESH authenticated bridge pass on it (anon is read-only). */
+export async function authedSupabase(force = false): Promise<SupabaseClient> {
+  const client = await getSupabase();
+  try {
+    const pass = await (window as any).sigma?.sbAuthPass?.(force);
+    if (pass && pass.token) {
+      await client.auth.setSession({ access_token: pass.token, refresh_token: '' } as any);
+    }
+  } catch { /* no EMS session — the write will fail with a clear message below */ }
+  return client;
+}
+
+export const EMS_LOGIN_REQUIRED = 'יש להתחבר ל-EMS כדי לשמור';
+
+/**
+ * Run a write with the legacy retry contract: one forced re-mint of the pass on an RLS/401
+ * rejection, then a clear "log in to EMS" message instead of the raw Postgres error.
+ */
+export async function sbWrite<T>(
+  run: (sb: SupabaseClient) => PromiseLike<{ data: T | null; error: any }>,
+): Promise<T | null> {
+  let res = await run(await authedSupabase());
+  if (res.error && isAuthError(res.error)) res = await run(await authedSupabase(true));
+  if (res.error) throw new Error(isAuthError(res.error) ? EMS_LOGIN_REQUIRED : (res.error.message || String(res.error)));
+  return res.data;
+}

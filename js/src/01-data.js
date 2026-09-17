@@ -30,6 +30,9 @@
   function applyFilters() {
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     document.querySelectorAll('.kibbutz').forEach(card => {
+      // The React card home (#sigma-home) does its own filtering, with its own chips and
+      // search box. Toggling .hidden on a card React owns would fight its renderer.
+      if (card.closest && card.closest('#sigma-home')) return;
       const name = (card.dataset.name || '').toLowerCase();
       const section = card.dataset.section || '';
       const marketing = card.dataset.marketing === 'true';

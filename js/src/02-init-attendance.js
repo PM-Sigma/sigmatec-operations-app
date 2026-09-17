@@ -5,6 +5,13 @@
   function switchTab(tabName) {
     document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tabName));
+    // Announce the visit form to the React side (spec §7c bus): the card's 🚚 quick action
+    // opens the visit form first and only then asks for the certificate, so the cert is
+    // linked to that visit. Every path into the form goes through here, so this is the
+    // single place that can say "the form is on screen now".
+    if (tabName === 'visit' && typeof sigmaEmit === 'function') {
+      sigmaEmit('visit-form-open', { kibbutz: window.currentKibbutz || '' });
+    }
   }
 
   // ===========================================================

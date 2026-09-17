@@ -3,12 +3,23 @@
 // to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
 // (Supabase / Apps Script) is never touched → data is always live. build.mjs restamps CACHE
 // on every build so phones fetch fresh bytes each deploy.
-const CACHE = 'sigmatec-ops-mu5u0eg2';
-const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.css', './ui/sigma.js', './ui/sigma.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE = 'sigmatec-ops-mu5v4jqs';
+const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.css', './ui/sigma.js', './ui/sigma.css', './ui/manifest.json', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+
+// The React islands are code-split, so their file list is not knowable here — build.mjs
+// writes ui/manifest.json (every ui/*.js|css of this build) and we precache from it.
+async function precache() {
+  const c = await caches.open(CACHE);
+  await c.addAll(SHELL).catch(() => {});
+  try {
+    const r = await fetch('./ui/manifest.json', { cache: 'no-store' });
+    if (r.ok) { const files = await r.json(); if (Array.isArray(files)) await c.addAll(files).catch(() => {}); }
+  } catch (_) { /* offline install — the network-first handler fills the cache later */ }
+}
 
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL).catch(() => {})));
+  e.waitUntil(precache());
 });
 
 self.addEventListener('activate', e => {

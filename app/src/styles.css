@@ -89,3 +89,27 @@
 @media (prefers-reduced-motion: reduce) {
   .sigma-root *, [data-sigma-portal] * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* A newly created / edited card gets a brief brand-gradient hairline (spec §6: "new/edited
+   card fades in with a brief brand-gradient hairline highlight"). Magic UI's BorderBeam was
+   not worth vendoring for 1.2 s of border — this is the same effect in 10 lines. */
+.sigma-root .sigma-beam {
+  position: relative;
+}
+.sigma-root .sigma-beam::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: var(--brand-grad);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: sigma-beam-fade 1.2s ease-out forwards;
+}
+@keyframes sigma-beam-fade {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}

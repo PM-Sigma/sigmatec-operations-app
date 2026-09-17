@@ -8,6 +8,7 @@
   //   React → legacy   window.sigma.<fn>()
   //   legacy → React   window.sigmaBus.dispatchEvent(new CustomEvent('<name>'))
   //                    events: user-changed · ems-cache-synced · visit-saved · theme-changed
+//                            · visit-form-open (the legacy visit form just came on screen)
   // ═══════════════════════════════════════════════════════════════════════════
   window.sigmaBus = window.sigmaBus || new EventTarget();
   window.sigmaEmit = function (name, detail) {
@@ -63,7 +64,47 @@
         return Promise.resolve(call('emsSiteIdForKibbutz', [name], '')).then(function (id) { return !!id; }).catch(function () { return false; });
       },
       openKibbutzEmsTask: function (id) { return call('openKibbutzEmsTask', [id]); },
+
+      // ---- kibbutz cards ----------------------------------------------------
+      // The modal is opened from the CARD element (openEditModal reads data-name off it), so
+      // React hands us a name and we find the card the legacy way. Works for a React card and
+      // a legacy one alike — both are `.kibbutz[data-name]`.
+      openKibbutzModal: function (name, tab) {
+        var sel = (window.CSS && CSS.escape) ? CSS.escape(name) : String(name).replace(/"/g, '\\"');
+        var card = document.querySelector('.kibbutz[data-name="' + sel + '"]');
+        if (!card) { console.warn('[sigma] no card for', name); return; }
+        call('openEditModal', [card]);
+        if (tab) call('switchTab', [tab]);
+      },
+      // Re-run every legacy pass that decorates a card, after React replaced the card DOM.
+      // All of them are idempotent (each clears its own nodes first) and all are optional —
+      // a module that is not in the bundle simply skips.
+      decorateCards: function () {
+        var data = window.SHEET_DATA;
+        if (data && typeof enrichCardsWithSheet === 'function') enrichCardsWithSheet(data);
+        if (typeof injectCustomerCodes === 'function') injectCustomerCodes();
+        if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+        if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
+        if (typeof applyCardLastVisit === 'function') applyCardLastVisit();
+        if (typeof renderCardNotes === 'function') renderCardNotes();
+      },
       createTask: function (item) { return call('emsWriteOrQueue', [Object.assign({ kind: 'createTask' }, item || {})]); },
+
+      // ---- supabase write pass ----------------------------------------------
+      // Every write needs the AUTHENTICATED pass minted from the EMS session: the anon key
+      // is read-only under RLS, so an island write without it comes back as
+      // "row violates row-level security policy". Mint (or re-mint with force) and hand the
+      // React side the token it should setSession() with. Null = no EMS session → no writes.
+      sbAuthPass: function (force) {
+        var fresh = function () { return !!window._sbToken && (window._sbTokenExp || 0) > Date.now(); };
+        if (force) { window._sbToken = null; window._sbTokenExp = 0; }
+        var mint = (!fresh() && typeof window._sbBridge === 'function')
+          ? Promise.resolve().then(function () { return window._sbBridge(); }).catch(function () { return null; })
+          : Promise.resolve(null);
+        return mint.then(function () {
+          return fresh() ? { token: window._sbToken, exp: window._sbTokenExp } : null;
+        });
+      },
 
       // ---- visits + delivery certificates ------------------------------------
       openVisitQuick: function (kibbutz) {
@@ -124,6 +165,9 @@
   function applyFilters() {
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     document.querySelectorAll('.kibbutz').forEach(card => {
+      // The React card home (#sigma-home) does its own filtering, with its own chips and
+      // search box. Toggling .hidden on a card React owns would fight its renderer.
+      if (card.closest && card.closest('#sigma-home')) return;
       const name = (card.dataset.name || '').toLowerCase();
       const section = card.dataset.section || '';
       const marketing = card.dataset.marketing === 'true';
@@ -997,6 +1041,13 @@
   function switchTab(tabName) {
     document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tabName));
+    // Announce the visit form to the React side (spec §7c bus): the card's 🚚 quick action
+    // opens the visit form first and only then asks for the certificate, so the cert is
+    // linked to that visit. Every path into the form goes through here, so this is the
+    // single place that can say "the form is on screen now".
+    if (tabName === 'visit' && typeof sigmaEmit === 'function') {
+      sigmaEmit('visit-form-open', { kibbutz: window.currentKibbutz || '' });
+    }
   }
 
   // ===========================================================
@@ -4968,6 +5019,10 @@
     const BOTTOM_CLASSES = ['kibbutz-note','proc-btn','calendar-event'];
 
     document.querySelectorAll('.kibbutz').forEach(card => {
+      // React owns the children of an island card (#sigma-home) and renders them in the
+      // order the design asks for — name row first, quick actions last. Moving them with
+      // appendChild here would both fight the renderer and put the action row on top.
+      if (card.closest && card.closest('#sigma-home')) return;
       // Remove existing divider
       card.querySelectorAll('.card-divider').forEach(d => d.remove());
 
@@ -9627,6 +9682,17 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
 
     // ---- render ----
     function renderKibbutzCards(rows) {
+      // The React island (#sigma-home) owns the card list once it has mounted; this renderer
+      // stays in the bundle as the fallback for when ui/sigma.js fails to load or is offline.
+      // The model + cache are still updated below the guard so legacy readers stay correct.
+      if (typeof document !== 'undefined' && document.body &&
+          document.body.classList.contains('sigma-home-ready')) {
+        if (Array.isArray(rows)) {
+          window.KIBBUTZIM = rows;
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
+        }
+        return;
+      }
       if (Array.isArray(rows)) {
         window.KIBBUTZIM = rows;
         try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* private mode / quota */ }

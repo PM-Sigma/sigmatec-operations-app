@@ -19,10 +19,20 @@ if (!process.env.SKIP_UI) {
     console.error('build.mjs: the React island build failed (see the Vite output above).');
     process.exit(1);
   }
-  fs.mkdirSync(new URL('./ui/', import.meta.url), { recursive: true });
-  for (const f of ['sigma.js', 'sigma.css']) {
-    fs.copyFileSync(new URL('./app/dist/' + f, import.meta.url), new URL('./ui/' + f, import.meta.url));
+  // The island build is CODE-SPLIT (the card home is a lazy chunk), so copy every artefact,
+  // not just the entry pair — and drop stale chunks from a previous build so ui/ is exactly
+  // what app/dist/ says it is. ui/manifest.json lists them for the service worker to precache.
+  const uiDir = new URL('./ui/', import.meta.url);
+  fs.mkdirSync(uiDir, { recursive: true });
+  const dist = fs.readdirSync(new URL('./app/dist/', import.meta.url)).filter(f => /\.(js|css)$/.test(f));
+  for (const f of fs.readdirSync(uiDir)) {
+    if (/\.(js|css)$/.test(f) && !dist.includes(f)) fs.unlinkSync(new URL(f, uiDir));
   }
+  for (const f of dist) {
+    fs.copyFileSync(new URL('./app/dist/' + f, import.meta.url), new URL(f, uiDir));
+  }
+  fs.writeFileSync(new URL('manifest.json', uiDir), JSON.stringify(dist.map(f => './ui/' + f), null, 2) + '\n');
+  console.log('ui/: ' + dist.join(', '));
 }
 
 const dir = new URL('./js/src/', import.meta.url);

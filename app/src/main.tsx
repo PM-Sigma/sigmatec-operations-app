@@ -24,6 +24,15 @@ function boot() {
   // Sonner replaces the legacy #toast strip for everything that goes through the bridge.
   const sigma = (window as any).sigma;
   if (sigma) sigma.toast = (msg: string, opts?: Record<string, unknown>) => toast(msg, opts as any);
+
+  // The card home is a LAZY chunk (ui/sigma-Home.js): it drags in TanStack Query and
+  // supabase-js, which no other island needs, so the boot bundle stays small. If the chunk
+  // fails to load the legacy renderer (js/src/24-kibbutzim.js) still paints the cards.
+  if (document.getElementById('sigma-home')) {
+    import('@/islands/Home')
+      .then(m => m.mountHome())
+      .catch(e => console.warn('[sigma] card home island failed — legacy cards stay', e));
+  }
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

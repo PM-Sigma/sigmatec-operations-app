@@ -1653,3 +1653,19 @@ body.user-viewer .legend-collapsible { display: none !important; }
   body.sigma-nav-ready { padding-bottom: 84px; }
   body.sigma-nav-ready #visitFab { display: none !important; }
 }
+
+/* ===== סיגמה 2.00 — the React card home (#sigma-home) took over =====
+   The island sets body.sigma-home-ready when it mounts. From that moment the legacy card
+   grids and the legacy filter chips are dead weight: the island renders the same cards with
+   its own chips + search. The .filter-bar itself STAYS (hidden children only) because it is
+   the positioned container for #globalSearchResults, which is still legacy and still works. */
+body.sigma-home-ready #grid-new,
+body.sigma-home-ready #grid-active { display: none; }
+body.sigma-home-ready #grid-new.kibbutz-grid,
+body.sigma-home-ready #grid-active.kibbutz-grid { display: none; }
+/* the two legacy section shells around those grids */
+body.sigma-home-ready .section:has(#grid-new),
+body.sigma-home-ready .section:has(#grid-active) { display: none; }
+body.sigma-home-ready .filter-bar { padding: 0; margin: 0; border: 0; background: none; min-height: 0; }
+body.sigma-home-ready .filter-bar > .search-input,
+body.sigma-home-ready .filter-bar > .filter-chip { display: none; }

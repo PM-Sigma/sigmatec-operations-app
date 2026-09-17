@@ -83,6 +83,17 @@
 
     // ---- render ----
     function renderKibbutzCards(rows) {
+      // The React island (#sigma-home) owns the card list once it has mounted; this renderer
+      // stays in the bundle as the fallback for when ui/sigma.js fails to load or is offline.
+      // The model + cache are still updated below the guard so legacy readers stay correct.
+      if (typeof document !== 'undefined' && document.body &&
+          document.body.classList.contains('sigma-home-ready')) {
+        if (Array.isArray(rows)) {
+          window.KIBBUTZIM = rows;
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
+        }
+        return;
+      }
       if (Array.isArray(rows)) {
         window.KIBBUTZIM = rows;
         try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* private mode / quota */ }

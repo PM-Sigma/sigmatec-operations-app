@@ -36,6 +36,10 @@ export interface Sigma {
   getEmsSites(): Promise<Array<{ id: string; name: string }>>;
   kibbutzHasSite(name: string): Promise<boolean>;
   openKibbutzEmsTask(id: string): void;
+  /** Open the legacy kibbutz modal for a card, optionally on a given tab ('meetings' | 'visit'). */
+  openKibbutzModal(name: string, tab?: string): void;
+  /** Re-run the legacy card-decorating passes after React re-rendered the cards. */
+  decorateCards?(): void;
   createTask(item: Record<string, unknown>): Promise<unknown>;
 
   openVisitQuick(kibbutz?: string): void;
@@ -48,10 +52,14 @@ export interface Sigma {
   toast(msg: string, opts?: Record<string, unknown>): void;
 }
 
-export const sigma = (window as any).sigma as Sigma;
-export const sigmaBus: EventTarget = (window as any).sigmaBus;
+export const sigma = (globalThis as any).sigma as Sigma;
+export const sigmaBus: EventTarget = (globalThis as any).sigmaBus;
 
-export type SigmaEvent = 'user-changed' | 'ems-cache-synced' | 'visit-saved' | 'theme-changed';
+export type SigmaEvent =
+  | 'user-changed' | 'ems-cache-synced' | 'visit-saved' | 'theme-changed'
+  // fired by switchTab('visit') — the moment the legacy visit form is on screen, which is
+  // what the 🚚 quick action waits for before asking for a delivery certificate.
+  | 'visit-form-open';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {
