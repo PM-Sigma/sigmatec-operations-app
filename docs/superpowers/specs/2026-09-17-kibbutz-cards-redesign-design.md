@@ -52,7 +52,7 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
 **Re-home cards** (עידן, 17.9): the former **ממתינים** (`pending`) kibbutzim are "יותר פעילים" → all move to
 **לקוחות פעילים** with the 🧲 tag on. Former `track priority` cards (גבת, יגור, חוקוק, דגניה א, אלומות) → **חדשים
 בהקמה**; former `pending priority` cards (עין חרוד מאוחד, בית זרע, כנרת, כפר עזה, יסעור, מגידו, ניר עציון, כפר מנחם,
-משואות יצחק) → **לקוחות פעילים** + 🧲. Existing flags (`ready-flow`, `has-bug`, notes) are kept. Category select in
+משואות יצחק) → **לקוחות פעילים** + 🧲. **Status/flow flags are removed** (עידן, mockup comment 17.9: "לא צריך את זה יותר את הזרימה והכל"): `ready-flow`, `flow-active`, `manual-flow`, `new-client-flag` pills, the `urgentAlert` "באוויר ללא זרימת נתונים" banner, the modal's **שלב 1–15** + **הערת הקמה** fields and the "התקדמות הקמת מערכת" group. A card shows only: name · energy badge · 🧲 tag (if set) · meeting bullets · EMS tasks. The `has-bug` note goes too — bugs live as EMS tasks. Category select in
 the modal shrinks to two values: חדשים בהקמה / לקוחות פעילים.
 
 Final page order (עידן): **🆕 לקוחות חדשים — בהקמה → ✅ לקוחות פעילים**. Filter chips: הכל · חדשים · פעילים · 🧲 שיווקי.
