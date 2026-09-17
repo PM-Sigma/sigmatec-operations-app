@@ -44,13 +44,18 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
   person** (data already in cache) + company tasks.
 
 **Rename**: `done` → label **"✅ לקוחות פעילים"** (chip + section + modal option + `kibbutz-stats.html` +
-`17-staff.js` pipe text); `pending` → **"🧲 בתהליך שיווקי"**. Internal keys `done`/`pending` stay (no data churn).
+`17-staff.js` pipe text). Internal key `done` stays (no data churn).
 
-**Re-home the 14 priority kibbutzim** (decision D2): cards whose `data-types` is `track priority` (גבת, יגור, חוקוק,
-דגניה א, אלומות) → **🆕 לקוחות חדשים — בהקמה**; `pending priority` (עין חרוד מאוחד, בית זרע, כנרת, כפר עזה, יסעור,
-מגידו, ניר עציון, כפר מנחם, משואות יצחק) → **בתהליך שיווקי**. Existing flags (`ready-flow`, `has-bug`, notes) are kept.
+**"בתהליך שיווקי" is a TAG, not a section** (עידן, 17.9: "שיווקי יכול להיות גם פעילים וגם חדשים"). New card flag
+`data-marketing="true"` → 🧲 **בתהליך שיווקי** badge on the card + a filter chip. Set from the modal (checkbox).
 
-Final page order: **לקוחות פעילים → לקוחות חדשים בהקמה → בתהליך שיווקי**. Filter chips: הכל · פעילים · חדשים · שיווקי.
+**Re-home cards** (עידן, 17.9): the former **ממתינים** (`pending`) kibbutzim are "יותר פעילים" → all move to
+**לקוחות פעילים** with the 🧲 tag on. Former `track priority` cards (גבת, יגור, חוקוק, דגניה א, אלומות) → **חדשים
+בהקמה**; former `pending priority` cards (עין חרוד מאוחד, בית זרע, כנרת, כפר עזה, יסעור, מגידו, ניר עציון, כפר מנחם,
+משואות יצחק) → **לקוחות פעילים** + 🧲. Existing flags (`ready-flow`, `has-bug`, notes) are kept. Category select in
+the modal shrinks to two values: חדשים בהקמה / לקוחות פעילים.
+
+Final page order (עידן): **🆕 לקוחות חדשים — בהקמה → ✅ לקוחות פעילים**. Filter chips: הכל · חדשים · פעילים · 🧲 שיווקי.
 
 ## 3. Part B — Meeting bullets per kibbutz
 
@@ -194,7 +199,7 @@ skipped when a visit exists, skipped when dismissed).
 | # | Question | Recommendation |
 |---|----------|----------------|
 | D1 | "תשתמש בחבילות האלו" — no packages were attached. Which ones? | Until told: `motion` + View Transitions + `canvas-confetti`, no framework. |
-| D2 | Where do the 14 "בעדיפות עליונה" kibbutzim land? | `track priority` → בהקמה; `pending priority` → בתהליך שיווקי (§2). |
+| D2 | ~~Where do the 14 priority kibbutzim land?~~ **Decided 17.9:** two sections (בהקמה → פעילים); שיווקי = tag; ממתינים → פעילים+🧲. | — |
 | D3 | Import via in-app paste, or a Python step in the Management pipeline? | In-app paste (works from anywhere, one codebase). |
 | D4 | Bullet granularity: one per sentence, or one per paragraph? | Per sentence (matches "משפטים … כבולטים"). |
 | D5 | EMS description on the card: full text always, or expand-on-tap? | Full always (you asked "במלואן"); modal is the same. |
