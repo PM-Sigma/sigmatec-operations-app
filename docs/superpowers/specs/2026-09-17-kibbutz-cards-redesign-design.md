@@ -129,7 +129,8 @@ pipeline can POST the same JSON (not in scope).
   (Hour-gating not needed; a check-in implies a work day.)
 - Push copy (D6, proposal):
   - title: **`📍 <קיבוץ> — עוד לא סיכמת את הביקור`**
-  - body: **`2 דקות עכשיו חוסכות טלפונים בסוף החודש. מה נעשה, מה נשאר? הסיכום מזין את החיוב — בלעדיו הביקור לא נספר.`**
+  - body: **`2 דקות עכשיו חוסכות טלפונים בסוף החודש. מה נעשה, מה נשאר? — וסיימת את <קיבוץ> נקי 💪`**
+    (עידן 17.9: positive reinforcement only — no "בלעדיו הביקור לא נספר" threat line.)
   - actions: **✍️ כתוב סיכום** → `#visit?kibbutz=<name>&person=<me>` (opens the visit form prefilled) ·
     **🙈 לא היום** → sets `dismissed`.
 - Client (`22-push.js` + `sw.js`): handle the new deep link; `09-visits.js` reads `?kibbutz=` to prefill.
@@ -203,5 +204,5 @@ skipped when a visit exists, skipped when dismissed).
 | D3 | Import via in-app paste, or a Python step in the Management pipeline? | In-app paste (works from anywhere, one codebase). |
 | D4 | Bullet granularity: one per sentence, or one per paragraph? | Per sentence (matches "משפטים … כבולטים"). |
 | D5 | EMS description on the card: full text always, or expand-on-tap? | Full always (you asked "במלואן"); modal is the same. |
-| D6 | Reminder copy (§5.2) — OK, or tone change? | As proposed; add a second nudge at 18:00 only if the first is ignored? (default: no). |
+| D6 | ~~Reminder copy~~ **Decided 17.9:** positive-only wording (§5.2). One nudge, no second. | — |
 | D7 | Feedback: allow anonymous? Who sees the inbox? | Yes anonymous; inbox = עידן + עמיחי. |
