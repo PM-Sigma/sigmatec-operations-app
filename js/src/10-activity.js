@@ -518,20 +518,8 @@
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
     document.getElementById('modalSub').textContent = 'קיבוץ: ' + name + (task && task.code ? ' (#' + task.code + ')' : '');
-    // merged status field — fold any legacy expectedTask into the status text
-    document.getElementById('editStatus').value = [task && task.status, task && task.expectedTask]
-      .map(x => String(x || '').trim()).filter(x => x && x !== '-').join('\n');
-    document.getElementById('editTask').value = '';
-    document.getElementById('editOwner1').value = (task && task.owners && task.owners[0]) || '';
-    document.getElementById('editOwner2').value = (task && task.owners && task.owners[1]) || '';
     document.getElementById('editorName').value = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-    // Setup progress: parse from task field or use card defaults
-    const parsedT = task ? parseTaskField(task.task) : {step:null, note:''};
-    const cardStep = card.dataset.step ? parseInt(card.dataset.step) : null;
-    const cardNote = card.querySelector('.kibbutz-note')?.textContent || '';
-    document.getElementById('editStep').value = parsedT.step || cardStep || '';
-    document.getElementById('editSetupNote').value = parsedT.note || cardNote || '';
-    document.getElementById('editCategory').value = '';
+    const parsedT = task ? parseTaskField(task.task) : { type: null };
     document.getElementById('editEngagement').value = parsedT.type || '';
     window.currentEditTask = task || null;
     // Reset visit form
@@ -566,140 +554,18 @@
       if (lastV) { elvContent.textContent = lastVisitText(lastV); elvBox.style.display = 'block'; }
       else { elvBox.style.display = 'none'; }
     }
-    switchTab('edit');
+    switchTab('meetings');
     document.getElementById('modalBackdrop').classList.add('open');
   }
 
-  // Override the existing card click handler
-  document.querySelectorAll('.kibbutz').forEach(card => {
-    const newCard = card.cloneNode(true);
-    card.parentNode.replaceChild(newCard, card);
+  // Cards are re-rendered from the `kibbutzim` table on every refresh, so the click
+  // handler is DELEGATED instead of bound per card (a bound handler would die on re-render).
+  document.addEventListener('click', (e) => {
+    const card = e.target && e.target.closest && e.target.closest('.kibbutz[data-name]');
+    if (!card) return;
+    e.stopPropagation();
+    openEditModal(card);
   });
-  document.querySelectorAll('.kibbutz').forEach(card => {
-    card.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openEditModal(card);
-    });
-  });
-
-  async function saveTask() {
-    if (!checkEditPermission()) return;
-    const task = window.currentEditTask;
-    const editorName = document.getElementById('editorName').value.trim();
-    if (!editorName) { alert('נא לבחור מי מעדכן'); return; }
-
-    const owners = [
-      document.getElementById('editOwner1').value,
-      document.getElementById('editOwner2').value
-    ].filter(Boolean);
-
-    // task may be null when the kibbutz exists as a card but has no sheet row yet
-    const currentParsed = task ? parseTaskField(task.task) : { proc: null, step: null, note: '', cat: null, type: null };
-    const stepVal = parseInt(document.getElementById('editStep').value);
-    const noteVal = document.getElementById('editSetupNote').value.trim();
-    const catSelected = document.getElementById('editCategory').value;
-    const finalCat = catSelected || currentParsed.cat || null;
-    const engagementSelected = document.getElementById('editEngagement').value;
-    const finalType = engagementSelected || currentParsed.type || null;
-    const newTaskField = serializeTaskField(
-      currentParsed.proc,
-      isNaN(stepVal) ? null : stepVal,
-      noteVal,
-      finalCat,
-      finalType
-    );
-
-    // Move card locally for immediate feedback
-    if (catSelected && CATEGORIES[catSelected]) {
-      const card = document.querySelector('.kibbutz[data-name="' + currentKibbutz + '"]');
-      if (card) moveCardToCategory(card, catSelected);
-    }
-
-    const body = {
-      name: currentKibbutz,
-      row: task && task.row ? task.row : null,
-      status: document.getElementById('editStatus').value,
-      expectedTask: '',   // merged into status — keep this column empty going forward
-      owners: owners,
-      task: newTaskField,
-      editor: editorName,
-      lastSeenTs: (task && task.lastModified) ? task.lastModified : ''
-    };
-
-    try {
-      const r = await fetch(SHEET_API, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'},
-        body: JSON.stringify(body)
-      });
-      const res = await r.json();
-      if (res.conflict) {
-        if (!confirm('השדה עודכן על-ידי משתמש אחר. להחליף בכל זאת?')) return;
-        body.lastSeenTs = '';
-        await fetch(SHEET_API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(body)});
-      }
-      closeModal({target: {id: 'modalBackdrop'}});
-      const t = document.getElementById('toast');
-      t.textContent = res.created ? '✅ נוסף בהצלחה' : '✅ נשמר בהצלחה';
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2500);
-      setTimeout(refreshData, 1500);
-    } catch (e) {
-      alert('שגיאה בשמירה: ' + e.message);
-    }
-  }
-
-  // Recompute the compact stats row from the actual cards (was hardcoded before)
-  // Single source of truth for every displayed count — counts the actual cards
-  // in each section grid (so numbers always reflect reality, never hardcoded HTML).
-  function updateStatsFromCards() {
-    const gridCount = id => {
-      const g = document.getElementById(id);
-      return g ? g.querySelectorAll('.kibbutz').length : 0;
-    };
-    const c = {
-      priority:  gridCount('grid-priority'),
-      newClient: gridCount('grid-new_client'),
-      done:      gridCount('grid-done'),
-      pending:   gridCount('grid-pending')
-    };
-    const total = c.priority + c.newClient + c.done + c.pending;
-    if (!total) return; // cards not rendered yet — keep placeholders
-
-    // Section-count badges (next to each section header)
-    const setSection = (gridId, n) => {
-      const grid = document.getElementById(gridId);
-      const badge = grid && grid.closest('.section')?.querySelector('.section-count');
-      if (badge) badge.textContent = n;
-    };
-    setSection('grid-priority',   c.priority);
-    setSection('grid-new_client', c.newClient);
-    setSection('grid-done',       c.done);
-    setSection('grid-pending',    c.pending);
-
-    // Filter-chip counts (replaced the old compact stat squares)
-    const setCnt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    setCnt('cnt-all',        total);
-    setCnt('cnt-priority',   c.priority);
-    setCnt('cnt-done',       c.done);
-    setCnt('cnt-new_client', c.newClient);
-    setCnt('cnt-pending',    c.pending);
-
-    // Overall progress = live / total
-    const pct = Math.round((c.done / total) * 100);
-    const pctEl = document.querySelector('.progress-percent');
-    if (pctEl) pctEl.textContent = pct + '%';
-    const bar = document.querySelector('.progress-bar');
-    if (bar) {
-      const w = n => (n / total * 100).toFixed(1) + '%';
-      const segDone  = bar.querySelector('.seg-done');
-      const segTrack = bar.querySelector('.seg-track');
-      const segThird = bar.children[2];
-      if (segDone)  segDone.style.width  = w(c.done);
-      if (segTrack) segTrack.style.width = w(c.priority);
-      if (segThird) segThird.style.width = w(c.newClient);
-    }
-  }
 
   // "ביקור אחרון" line on each card (latest visit from VISITS). Always rendered; prominent in meeting mode.
   function applyCardLastVisit() {
@@ -719,8 +585,8 @@
   }
 
   function reorderCards() {
-    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','kibbutz-meta','excel-status','card-ems','card-ems-new','card-last-visit','owners-row','marketing-badge'];
-    const BOTTOM_CLASSES = ['kibbutz-note','ready-flow-flag','flow-active-flag','urgent-flag','manual-flow-flag','new-client-flag','flow-bug-flag','bug-details','stepper','current-step-label','proc-btn','calendar-event'];
+    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','card-ems','card-ems-new','card-last-visit'];
+    const BOTTOM_CLASSES = ['kibbutz-note','proc-btn','calendar-event'];
 
     document.querySelectorAll('.kibbutz').forEach(card => {
       // Remove existing divider
@@ -728,7 +594,6 @@
 
       const top = [], bottom = [], comment = [];
       Array.from(card.children).forEach(child => {
-        if (child.classList.contains('priority-flag')) return;
         if (child.classList.contains('comment-hint')) { comment.push(child); return; }
         const cls = Array.from(child.classList);
         if (cls.some(c => TOP_CLASSES.includes(c))) top.push(child);
@@ -755,16 +620,21 @@
     try { await _refreshDataInner(); } finally { window._refreshing = false; }
   }
   async function _refreshDataInner() {
+    // The card list itself is data now. It loads from its OWN table, independently of the
+    // Sheet/Supabase snapshot, and renders BEFORE the passes that decorate cards — so the
+    // sections are populated even when the snapshot fetch fails.
+    if (typeof kibbutzimLoad === 'function') {
+      try { renderKibbutzCards(await kibbutzimLoad()); }
+      catch (e) { console.warn('[kibbutzim] load failed — painting from cache', e); renderKibbutzCards(); }
+    }
     const data = await fetchSheetData();
     if (data) {
       window.dataLoaded = true;
       enrichCardsWithSheet(data);
       renderPotentials(data);
       injectCustomerCodes();
-      injectSteppers();
       applyCardLastVisit();
       reorderCards();
-      updateStatsFromCards();
       renderCompanyTasks();
       maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();

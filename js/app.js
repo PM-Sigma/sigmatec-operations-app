@@ -31,14 +31,18 @@
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     document.querySelectorAll('.kibbutz').forEach(card => {
       const name = (card.dataset.name || '').toLowerCase();
-      const types = (card.dataset.types || '').split(' ');
+      const section = card.dataset.section || '';
+      const marketing = card.dataset.marketing === 'true';
       const region = (card.dataset.region || '').toLowerCase();
       // Build full haystack: name + region + all visible text inside the card
       let haystack = name + ' ' + region + ' ' + (card.textContent || '').toLowerCase();
 
       const matchSearch = !search || haystack.includes(search);
       // When user types in search, ignore category filter (better UX)
-      const matchFilter = search ? true : (currentFilter === 'all' || types.includes(currentFilter));
+      const matchFilter = search ? true
+        : currentFilter === 'all' ? true
+        : currentFilter === 'marketing' ? marketing
+        : section === currentFilter;
       card.classList.toggle('hidden', !(matchSearch && matchFilter));
     });
 
@@ -47,23 +51,6 @@
       const cards = section.querySelectorAll('.kibbutz:not(.hidden)');
       section.style.display = (search || currentFilter !== 'all') && cards.length === 0 ? 'none' : '';
     });
-  }
-
-  function toggleCompactMode() {
-    document.body.classList.toggle('compact');
-    const isCompact = document.body.classList.contains('compact');
-    const btn = document.getElementById('compactToggle');
-    if (btn) {
-      btn.classList.toggle('active', isCompact);
-      btn.textContent = isCompact ? '🖥 תצוגה מלאה' : '📱 תצוגה מצומצמת';
-    }
-  }
-
-  // Auto-compact ONLY on mobile (no localStorage persistence — fresh each session per device)
-  if (window.innerWidth < 768) {
-    document.body.classList.add('compact');
-    const btn = document.getElementById('compactToggle');
-    if (btn) { btn.classList.add('active'); btn.textContent = '🖥 תצוגה מלאה'; }
   }
 
   function toggleSection(header) {
@@ -121,99 +108,22 @@
   };
   const DATA_FLOWING = new Set([926, 951, 927, 946, 957, 911, 950, 919, 915, 964, 959, 934, 974, 906, 971, 975, 948, 953, 903, 944, 940]);
 
+  // Customer-code badge on each card. The old "no data flow" urgent banner it used to
+  // feed is gone (spec §2 — flow flags removed); EMS tasks carry that signal now.
   function injectCustomerCodes() {
-    const urgent = new Map();
     document.querySelectorAll('.kibbutz').forEach(card => {
-      const name = card.dataset.name;
-      const code = CUSTOMER_CODES[name];
-      const isDone = (card.dataset.types || '').split(' ').includes('done');
-
-      const meta = card.querySelector('.kibbutz-meta');
-      if (meta && !meta.querySelector('.code-badge')) {
+      const code = CUSTOMER_CODES[card.dataset.name];
+      const row = card.querySelector('.kibbutz-name-row');
+      if (row && !row.querySelector('.code-badge')) {
         const badge = document.createElement('span');
         badge.className = 'code-badge';
         badge.textContent = code ? '#' + code : '⚠️ אין קוד';
-        meta.appendChild(badge);
+        row.appendChild(badge);
       }
-
-      // Note: urgent-flag is now redundant with the procedure button.
-      // The proc-btn (red pending / green done) is the single source of truth
-      // for "data flow active or not" — same concept per user spec.
     });
-
-    if (urgent.size > 0) {
-      const alertEl = document.getElementById('urgentAlert');
-      alertEl.style.display = 'block';
-      const items = [...urgent.entries()].map(([n, c]) =>
-        '<strong>' + n + '</strong> <span class="code-badge">' + (typeof c === 'number' ? '#' + c : c) + '</span>'
-      ).join(' &nbsp;·&nbsp; ');
-      document.getElementById('urgentList').innerHTML = items;
-      document.getElementById('urgentCount').textContent = urgent.size;
-    }
   }
 
   window.addEventListener('load', injectCustomerCodes);
-
-  // 12 setup steps stepper
-  const STEPS = [
-    'הקמת אתר ופרטי המחלק',
-    'הקמת מונים',
-    'הקמת לקוחות',
-    'השלמת פרטי לקוחות ותעריפים',
-    'הקמת שיוכים לקוחות/מונים',
-    'הקמת מערכות סולאריות',
-    'השלמת פרטי מערכות',
-    'הקמת שיוכים מערכות/מונים',
-    'הקמת תבנית אקסל מותאמת אישית',
-    'הקמת משתמשים ושליחת הזמנות',
-    'ווידוא פרטי מחלק (אייקון + מס׳ חוזה סולארי)',
-    'תיאום הדרכה',
-    'חיבור תקשורת / פתיחת זרימת נתונים',
-    'בדיקת חשבונות'
-  ];
-  const TOTAL_STEPS = 14;
-
-  function injectSteppers() {
-    document.querySelectorAll('.kibbutz').forEach(card => {
-      const types = (card.dataset.types || '').split(' ');
-      let currentStep = parseInt(card.dataset.step);
-      if (isNaN(currentStep)) {
-        if (types.includes('done')) currentStep = TOTAL_STEPS + 1;
-        else if (types.includes('priority') || types.includes('dev')) currentStep = 3;
-        else return;
-      }
-      // Finished kibbutz (live / "done" / reached the final step) → hide the whole setup
-      // progression (stepper + current-step label). No need to re-show steps. Notes kept.
-      if (types.includes('done') || currentStep > TOTAL_STEPS) {
-        card.querySelectorAll('.stepper, .current-step-label').forEach(e => e.remove());
-        return;
-      }
-      if (card.querySelector('.stepper')) return;
-      const stepper = document.createElement('div');
-      stepper.className = 'stepper';
-      let html = '';
-      for (let i = 1; i <= TOTAL_STEPS; i++) {
-        let cls = 'step';
-        if (i < currentStep) cls += ' done';
-        else if (i === currentStep) cls += ' current';
-        html += '<div class="' + cls + '" title="' + i + '. ' + STEPS[i-1] + '">' + i + '</div>';
-      }
-      stepper.innerHTML = html;
-      card.appendChild(stepper);
-
-      const label = document.createElement('div');
-      if (currentStep > TOTAL_STEPS) {
-        label.className = 'current-step-label complete';
-        label.textContent = '✅ כל ' + TOTAL_STEPS + ' השלבים הושלמו';
-      } else {
-        label.className = 'current-step-label';
-        label.textContent = '🟠 שלב נוכחי: ' + currentStep + '. ' + STEPS[currentStep-1];
-      }
-      card.appendChild(label);
-    });
-  }
-
-  window.addEventListener('load', injectSteppers);
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
@@ -456,6 +366,18 @@
   const USE_SUPABASE = location.search.indexOf('sb=0') === -1;
   const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
   const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
+  // 🧪 ?sb=0 (Apps Script fallback / offline sandbox): there is no Supabase router, so the
+  // kibbutz cards have no source. Serve a 3-row fixture instead — enough for both sections
+  // (and both region groups) to render, so the page is never blank in the sandbox.
+  if (!USE_SUPABASE) {
+    const MOCK_KIBBUTZIM = [
+      { name: 'דפנה',  section: 'new',    energy: ['electric'], marketing: false, region: 'גליל וגולן', archived_at: null },
+      { name: 'יגור',  section: 'active', energy: ['electric'], marketing: false, region: 'העמקים',    archived_at: null },
+      { name: 'שלוחות', section: 'active', energy: ['electric'], marketing: true,  region: 'העמקים',    archived_at: null }
+    ];
+    window._sbGet = async (path) => /^kibbutzim/.test(path) ? MOCK_KIBBUTZIM.slice() : [];
+  }
+
   if (USE_SUPABASE) (function setupSupabaseRouter() {
     // Auth header. The bridge mints a role=authenticated token, but the DB only USES it once
     // USE_SB_BRIDGE is on (i.e. AFTER the 'authenticated' RLS policies exist). Until then → anon,
@@ -475,6 +397,7 @@
     // insert that RETURNS the row (delivery_certs needs the server-assigned cert_number back)
     const sbInsertRet = async (table, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(), { Prefer: 'return=representation' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); return (await r.json())[0]; };
     window._sbCertGet = sbGet;   // read-only handle for the delivery-cert module (kibbutz_details + cert reports)
+    window._sbGet = sbGet;       // read-only handle for the kibbutzim card list (js/src/24-kibbutzim.js)
 
     // ---- READ: assemble the exact snapshot shape the app already consumes ----
     async function readSnapshot() {
@@ -807,31 +730,6 @@
     prospect: { label: '⚪ פוטנציאלי',   color: '#94a3b8' }
   };
 
-  // Category → DOM target + class config
-  const CATEGORIES = {
-    priority:   { gridId: 'grid-priority',   classes: 'kibbutz pending priority', types: 'pending priority', addFlag: true  },
-    new_client: { gridId: 'grid-new_client', classes: 'kibbutz new-client',       types: 'pending',          addFlag: false },
-    done:       { gridId: 'grid-done',       classes: 'kibbutz done',             types: 'done',             addFlag: false },
-    pending:    { gridId: 'grid-pending',    classes: 'kibbutz pending',          types: 'pending',          addFlag: false }
-  };
-
-  function moveCardToCategory(card, category) {
-    const cfg = CATEGORIES[category];
-    if (!cfg) return;
-    card.className = cfg.classes;
-    card.dataset.types = cfg.types;
-    const existingFlag = card.querySelector('.priority-flag');
-    if (!cfg.addFlag && existingFlag) existingFlag.remove();
-    if (cfg.addFlag && !existingFlag) {
-      const flag = document.createElement('span');
-      flag.className = 'priority-flag';
-      flag.textContent = 'עדיפות';
-      card.insertBefore(flag, card.firstChild);
-    }
-    const target = document.getElementById(cfg.gridId);
-    if (target && card.parentNode !== target) target.appendChild(card);
-  }
-
   // "עודכן לאחרונה ע"י X · HH:MM" — editor + timestamp already live on each task row
   // (server-set, same fields the activity tracker reads). ponytail: no new storage, just surface them.
   function lastUpdateText(task) {
@@ -860,96 +758,14 @@
       card.dataset.lastModified = task.lastModified || '';
 
       const parsed = parseTaskField(task.task);
-      // Move card to category if Sheet has a value (overrides static HTML placement)
-      if (parsed.cat && CATEGORIES[parsed.cat]) {
-        moveCardToCategory(card, parsed.cat);
-      }
-      // Override data-step if Sheet has a value
-      if (parsed.step) {
-        card.dataset.step = String(parsed.step);
-      }
-      // Override the .kibbutz-note if Sheet has one
-      if (parsed.note) {
-        let noteEl = card.querySelector('.kibbutz-note');
-        if (!noteEl) {
-          noteEl = document.createElement('div');
-          noteEl.className = 'kibbutz-note';
-          card.appendChild(noteEl);
-        }
-        noteEl.textContent = parsed.note;
-      }
 
       // Remove old enrichment if exists
       card.querySelectorAll('.excel-injected').forEach(e => e.remove());
-      // Remove old stepper so it can be re-built with possibly new step
-      card.querySelectorAll('.stepper, .current-step-label').forEach(e => e.remove());
 
-      const wrap = document.createElement('div');
-      wrap.className = 'excel-injected';
-
-      // Region badge — placed in a row with the kibbutz name (LEFT of name in RTL)
-      // Clean up old placement if any
-      card.querySelectorAll('.kibbutz-meta .region-badge').forEach(e => e.remove());
-
-      const nameEl = card.querySelector('.kibbutz-name');
-      if (nameEl && task.region) {
-        let nameRow = card.querySelector('.kibbutz-name-row');
-        if (!nameRow) {
-          nameRow = document.createElement('div');
-          nameRow.className = 'kibbutz-name-row';
-          nameEl.parentNode.insertBefore(nameRow, nameEl);
-          nameRow.appendChild(nameEl);
-        }
-        // Remove any duplicate region badge in the name row first
-        nameRow.querySelectorAll('.region-badge').forEach(e => e.remove());
-        const rb = document.createElement('span');
-        rb.className = 'region-badge excel-injected';
-        rb.setAttribute('data-region', task.region);
-        rb.textContent = '📍 ' + task.region;
-        nameRow.appendChild(rb);
-      }
-      // Save region on card itself for filter/search
+      // The region is grouped into a sub-header by renderKibbutzCards, so the card
+      // itself only carries it as data (search + filters read it).
       if (task.region) card.dataset.region = task.region;
-
-      // (Client-type/engagement badge intentionally not rendered — hidden per request.)
       card.dataset.engagement = parsed.type || '';
-
-      // Status (single merged field). The legacy expectedTask is folded in until the
-      // next save migrates it (the edit modal now has one combined "סטטוס ומשימות" field).
-      // The EMS-tasks widget (or the "open new EMS task" line) is added below this by
-      // applyCardEmsWidgets — reorderCards keeps the order name → status → EMS.
-      const mergedStatus = [task.status, task.expectedTask]
-        .map(x => String(x || '').trim()).filter(x => x && x !== '-').join('\n');
-      if (mergedStatus) {
-        const s = document.createElement('div');
-        s.className = 'excel-status excel-injected';
-        // prominent header inside the element so reorderCards keeps them together
-        const sh = document.createElement('div');
-        sh.className = 'card-sec-head';
-        sh.textContent = '📋 סטטוס ומשימות';
-        const sb = document.createElement('div');
-        sb.textContent = mergedStatus;
-        s.appendChild(sh); s.appendChild(sb);
-        card.appendChild(s);
-      }
-
-      // Owners as chips (with a prominent header)
-      if (task.owners && task.owners.length > 0) {
-        const row = document.createElement('div');
-        row.className = 'owners-row excel-injected';
-        const oh = document.createElement('span');
-        oh.className = 'card-sec-head';
-        oh.textContent = '👥 אחראים';
-        row.appendChild(oh);
-        task.owners.slice(0, 2).forEach(o => {
-          const chip = document.createElement('span');
-          const known = ['עידן','עמיחי','אביאם','ניתאי'];
-          chip.className = 'owner-chip ' + (known.includes(o) ? 'owner-' + o : 'owner-other');
-          chip.textContent = '👤 ' + o;
-          row.appendChild(chip);
-        });
-        card.appendChild(row);
-      }
 
       // Last-updated indicator (who + when)
       const updTxt = lastUpdateText(task);
@@ -958,17 +774,6 @@
         u.className = 'card-updated excel-injected';
         u.textContent = updTxt;
         card.appendChild(u);
-      }
-
-      // Marketing badge for "שיווק" status
-      if (task.status === 'שיווק' || task.expectedTask === 'שיווק') {
-        const meta2 = card.querySelector('.kibbutz-meta');
-        if (meta2 && !meta2.querySelector('.marketing-badge')) {
-          const mb = document.createElement('span');
-          mb.className = 'marketing-badge excel-injected';
-          mb.textContent = '🛒 שיווק';
-          meta2.appendChild(mb);
-        }
       }
 
       // Calendar events for this kibbutz (from data.calendar map)
@@ -983,8 +788,7 @@
       });
 
       // Single procedure/flow button for "באוויר" kibbutzim
-      const types = (card.dataset.types || '').split(' ');
-      if (types.includes('done')) {
+      if (card.dataset.section === 'active') {
         const procDone = parsed.proc;
         card.dataset.procDone = procDone ? 'true' : 'false';
 
@@ -4998,20 +4802,8 @@
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
     document.getElementById('modalSub').textContent = 'קיבוץ: ' + name + (task && task.code ? ' (#' + task.code + ')' : '');
-    // merged status field — fold any legacy expectedTask into the status text
-    document.getElementById('editStatus').value = [task && task.status, task && task.expectedTask]
-      .map(x => String(x || '').trim()).filter(x => x && x !== '-').join('\n');
-    document.getElementById('editTask').value = '';
-    document.getElementById('editOwner1').value = (task && task.owners && task.owners[0]) || '';
-    document.getElementById('editOwner2').value = (task && task.owners && task.owners[1]) || '';
     document.getElementById('editorName').value = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-    // Setup progress: parse from task field or use card defaults
-    const parsedT = task ? parseTaskField(task.task) : {step:null, note:''};
-    const cardStep = card.dataset.step ? parseInt(card.dataset.step) : null;
-    const cardNote = card.querySelector('.kibbutz-note')?.textContent || '';
-    document.getElementById('editStep').value = parsedT.step || cardStep || '';
-    document.getElementById('editSetupNote').value = parsedT.note || cardNote || '';
-    document.getElementById('editCategory').value = '';
+    const parsedT = task ? parseTaskField(task.task) : { type: null };
     document.getElementById('editEngagement').value = parsedT.type || '';
     window.currentEditTask = task || null;
     // Reset visit form
@@ -5046,140 +4838,18 @@
       if (lastV) { elvContent.textContent = lastVisitText(lastV); elvBox.style.display = 'block'; }
       else { elvBox.style.display = 'none'; }
     }
-    switchTab('edit');
+    switchTab('meetings');
     document.getElementById('modalBackdrop').classList.add('open');
   }
 
-  // Override the existing card click handler
-  document.querySelectorAll('.kibbutz').forEach(card => {
-    const newCard = card.cloneNode(true);
-    card.parentNode.replaceChild(newCard, card);
+  // Cards are re-rendered from the `kibbutzim` table on every refresh, so the click
+  // handler is DELEGATED instead of bound per card (a bound handler would die on re-render).
+  document.addEventListener('click', (e) => {
+    const card = e.target && e.target.closest && e.target.closest('.kibbutz[data-name]');
+    if (!card) return;
+    e.stopPropagation();
+    openEditModal(card);
   });
-  document.querySelectorAll('.kibbutz').forEach(card => {
-    card.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openEditModal(card);
-    });
-  });
-
-  async function saveTask() {
-    if (!checkEditPermission()) return;
-    const task = window.currentEditTask;
-    const editorName = document.getElementById('editorName').value.trim();
-    if (!editorName) { alert('נא לבחור מי מעדכן'); return; }
-
-    const owners = [
-      document.getElementById('editOwner1').value,
-      document.getElementById('editOwner2').value
-    ].filter(Boolean);
-
-    // task may be null when the kibbutz exists as a card but has no sheet row yet
-    const currentParsed = task ? parseTaskField(task.task) : { proc: null, step: null, note: '', cat: null, type: null };
-    const stepVal = parseInt(document.getElementById('editStep').value);
-    const noteVal = document.getElementById('editSetupNote').value.trim();
-    const catSelected = document.getElementById('editCategory').value;
-    const finalCat = catSelected || currentParsed.cat || null;
-    const engagementSelected = document.getElementById('editEngagement').value;
-    const finalType = engagementSelected || currentParsed.type || null;
-    const newTaskField = serializeTaskField(
-      currentParsed.proc,
-      isNaN(stepVal) ? null : stepVal,
-      noteVal,
-      finalCat,
-      finalType
-    );
-
-    // Move card locally for immediate feedback
-    if (catSelected && CATEGORIES[catSelected]) {
-      const card = document.querySelector('.kibbutz[data-name="' + currentKibbutz + '"]');
-      if (card) moveCardToCategory(card, catSelected);
-    }
-
-    const body = {
-      name: currentKibbutz,
-      row: task && task.row ? task.row : null,
-      status: document.getElementById('editStatus').value,
-      expectedTask: '',   // merged into status — keep this column empty going forward
-      owners: owners,
-      task: newTaskField,
-      editor: editorName,
-      lastSeenTs: (task && task.lastModified) ? task.lastModified : ''
-    };
-
-    try {
-      const r = await fetch(SHEET_API, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'},
-        body: JSON.stringify(body)
-      });
-      const res = await r.json();
-      if (res.conflict) {
-        if (!confirm('השדה עודכן על-ידי משתמש אחר. להחליף בכל זאת?')) return;
-        body.lastSeenTs = '';
-        await fetch(SHEET_API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(body)});
-      }
-      closeModal({target: {id: 'modalBackdrop'}});
-      const t = document.getElementById('toast');
-      t.textContent = res.created ? '✅ נוסף בהצלחה' : '✅ נשמר בהצלחה';
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2500);
-      setTimeout(refreshData, 1500);
-    } catch (e) {
-      alert('שגיאה בשמירה: ' + e.message);
-    }
-  }
-
-  // Recompute the compact stats row from the actual cards (was hardcoded before)
-  // Single source of truth for every displayed count — counts the actual cards
-  // in each section grid (so numbers always reflect reality, never hardcoded HTML).
-  function updateStatsFromCards() {
-    const gridCount = id => {
-      const g = document.getElementById(id);
-      return g ? g.querySelectorAll('.kibbutz').length : 0;
-    };
-    const c = {
-      priority:  gridCount('grid-priority'),
-      newClient: gridCount('grid-new_client'),
-      done:      gridCount('grid-done'),
-      pending:   gridCount('grid-pending')
-    };
-    const total = c.priority + c.newClient + c.done + c.pending;
-    if (!total) return; // cards not rendered yet — keep placeholders
-
-    // Section-count badges (next to each section header)
-    const setSection = (gridId, n) => {
-      const grid = document.getElementById(gridId);
-      const badge = grid && grid.closest('.section')?.querySelector('.section-count');
-      if (badge) badge.textContent = n;
-    };
-    setSection('grid-priority',   c.priority);
-    setSection('grid-new_client', c.newClient);
-    setSection('grid-done',       c.done);
-    setSection('grid-pending',    c.pending);
-
-    // Filter-chip counts (replaced the old compact stat squares)
-    const setCnt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    setCnt('cnt-all',        total);
-    setCnt('cnt-priority',   c.priority);
-    setCnt('cnt-done',       c.done);
-    setCnt('cnt-new_client', c.newClient);
-    setCnt('cnt-pending',    c.pending);
-
-    // Overall progress = live / total
-    const pct = Math.round((c.done / total) * 100);
-    const pctEl = document.querySelector('.progress-percent');
-    if (pctEl) pctEl.textContent = pct + '%';
-    const bar = document.querySelector('.progress-bar');
-    if (bar) {
-      const w = n => (n / total * 100).toFixed(1) + '%';
-      const segDone  = bar.querySelector('.seg-done');
-      const segTrack = bar.querySelector('.seg-track');
-      const segThird = bar.children[2];
-      if (segDone)  segDone.style.width  = w(c.done);
-      if (segTrack) segTrack.style.width = w(c.priority);
-      if (segThird) segThird.style.width = w(c.newClient);
-    }
-  }
 
   // "ביקור אחרון" line on each card (latest visit from VISITS). Always rendered; prominent in meeting mode.
   function applyCardLastVisit() {
@@ -5199,8 +4869,8 @@
   }
 
   function reorderCards() {
-    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','kibbutz-meta','excel-status','card-ems','card-ems-new','card-last-visit','owners-row','marketing-badge'];
-    const BOTTOM_CLASSES = ['kibbutz-note','ready-flow-flag','flow-active-flag','urgent-flag','manual-flow-flag','new-client-flag','flow-bug-flag','bug-details','stepper','current-step-label','proc-btn','calendar-event'];
+    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','card-ems','card-ems-new','card-last-visit'];
+    const BOTTOM_CLASSES = ['kibbutz-note','proc-btn','calendar-event'];
 
     document.querySelectorAll('.kibbutz').forEach(card => {
       // Remove existing divider
@@ -5208,7 +4878,6 @@
 
       const top = [], bottom = [], comment = [];
       Array.from(card.children).forEach(child => {
-        if (child.classList.contains('priority-flag')) return;
         if (child.classList.contains('comment-hint')) { comment.push(child); return; }
         const cls = Array.from(child.classList);
         if (cls.some(c => TOP_CLASSES.includes(c))) top.push(child);
@@ -5235,16 +4904,21 @@
     try { await _refreshDataInner(); } finally { window._refreshing = false; }
   }
   async function _refreshDataInner() {
+    // The card list itself is data now. It loads from its OWN table, independently of the
+    // Sheet/Supabase snapshot, and renders BEFORE the passes that decorate cards — so the
+    // sections are populated even when the snapshot fetch fails.
+    if (typeof kibbutzimLoad === 'function') {
+      try { renderKibbutzCards(await kibbutzimLoad()); }
+      catch (e) { console.warn('[kibbutzim] load failed — painting from cache', e); renderKibbutzCards(); }
+    }
     const data = await fetchSheetData();
     if (data) {
       window.dataLoaded = true;
       enrichCardsWithSheet(data);
       renderPotentials(data);
       injectCustomerCodes();
-      injectSteppers();
       applyCardLastVisit();
       reorderCards();
-      updateStatsFromCards();
       renderCompanyTasks();
       maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();
@@ -5537,9 +5211,9 @@
   updateMeetingBadge();
   if (isMeetingMode()) document.body.classList.add('meeting-mode');
 
-  // Compute the counts/percentages from the static cards on first paint, so the numbers
-  // are correct immediately instead of showing stale hardcoded HTML until the fetch lands.
-  updateStatsFromCards();
+  // First paint of the card list from the local cache, so the sections are populated
+  // before the Supabase round-trip lands (renderKibbutzCards also sets every count).
+  if (typeof kibbutzimFirstPaint === 'function') kibbutzimFirstPaint();
   refreshData();
   // Smart polling: only when tab is visible. Pauses when user switches tabs/minimizes.
   let _pollHandle = null;
@@ -5718,68 +5392,41 @@
     return hasAny ? section + '\n' : '';
   }
 
+  // "משימות באחריותי" — since "סיגמה 2.00" (spec §2) the per-kibbutz status lines are gone
+  // from the app, so this report lists the person's OPEN EMS tasks (already in the shared
+  // cache) grouped by site, plus the general company tasks.
   function buildMyTasksReport(person) {
-    if (!window.SHEET_DATA || !window.SHEET_DATA.tasks) return '';
-    const owned = window.SHEET_DATA.tasks.filter(t => isOwnerOf(t, person));
+    const cache = (typeof emsCacheData === 'function') ? emsCacheData() : { tasks: [] };
+    const mine = (cache.tasks || []).filter(t =>
+      t.assignee && String(t.assignee.firstName || '').indexOf(person) === 0 && EMS_CLOSED.indexOf(t.status) === -1);
 
-    // Group by region
-    const byRegion = {};
-    owned.forEach(t => {
-      const region = t.region && t.region !== '#N/A' ? t.region : 'ללא אזור';
-      if (!byRegion[region]) byRegion[region] = [];
-      byRegion[region].push(t);
+    const bySite = {};
+    mine.forEach(t => {
+      const site = (t.site && t.site.name) || 'ללא אתר';
+      (bySite[site] = bySite[site] || []).push(t);
     });
+    const sites = Object.keys(bySite).sort((a, b) => a.localeCompare(b, 'he'));
 
-    // Order regions: known order first, then any unknown alphabetically
-    const knownOrdered = REGION_ORDER.filter(r => byRegion[r]);
-    const unknown = Object.keys(byRegion).filter(r => !REGION_ORDER.includes(r)).sort();
-    const orderedRegions = [...knownOrdered, ...unknown];
-
-    const header = `*📋 משימות באחריותי — ${person}*\n📅 ${new Date().toLocaleString('he-IL')}\n`;
+    const header = `*📋 משימות EMS באחריותי — ${person}*
+📅 ${new Date().toLocaleString('he-IL')}
+`;
     const companySection = buildCompanyTasksSection();
-
-    if (orderedRegions.length === 0) {
-      return header + companySection + '\n✨ אין משימות אישיות פתוחות';
-    }
+    if (sites.length === 0) return header + companySection + '\n✨ אין משימות EMS פתוחות';
 
     let report = header + companySection;
-
-    orderedRegions.forEach(region => {
-      report += `\n*━━━ ${region} ━━━*\n`;
-      byRegion[region].forEach(t => {
-        // Decide which lines to show:
-        // 1. Lines mentioning "- person" in status/expectedTask
-        // 2. If none, but person is in owners array → show all status/task lines
-        const personStatusLines = linesForPerson(t.status, person);
-        const personTaskLines = linesForPerson(t.expectedTask, person);
-        const allPersonLines = [...personStatusLines, ...personTaskLines];
-
-        const cleanLines = (raw) => String(raw || '').split(/\n+/).map(s => s.trim()).filter(s => s && s !== '-');
-
-        let lines;
-        if (allPersonLines.length > 0) {
-          lines = allPersonLines;
-        } else {
-          // person is in owners — show generic status/task
-          const allStatus = cleanLines(t.status);
-          const allTask = cleanLines(t.expectedTask);
-          lines = [...allTask, ...allStatus];
-        }
-
-        // De-duplicate while preserving order
-        const seen = new Set();
-        lines = lines.filter(l => { if (seen.has(l)) return false; seen.add(l); return true; });
-
-        report += `*${t.name}*${t.code ? ' (#' + t.code + ')' : ''}\n`;
-        if (lines.length === 0) {
-          report += `- (אין פירוט)\n`;
-        } else {
-          lines.forEach(l => { report += `- ${l}\n`; });
-        }
+    sites.forEach(site => {
+      report += `
+*━━━ ${site} ━━━*
+`;
+      bySite[site].forEach(t => {
+        const due = t.expectedCompletionDate ? ' · 📅 ' + new Date(t.expectedCompletionDate).toLocaleDateString('he-IL') : '';
+        const st = (typeof emsStatusLabel === 'function') ? emsStatusLabel(t.status) : t.status;
+        report += `- ${t.title}${st ? ' (' + st + ')' : ''}${due}
+`;
       });
     });
-
-    report += `\n🔗 https://gist.githack.com/PM-Sigma/4863a959e53104be99a98fa33b5abace/raw/kibbutz-dashboard.html`;
+    report += `
+🔗 https://pm-sigma.github.io/sigmatec-operations-app/`;
     return report;
   }
 
@@ -7260,19 +6907,22 @@
     'ניתאי': { kind: 'field', title: 'טכנאי שטח' },
     'מתניה': { kind: 'dev',   title: 'מפתח (משרד)' }
   };
-  // company-wide go-live pipeline — counts from the rendered card grids (the real categorization)
+  // company-wide pipeline — counted off the `kibbutzim` rows (the single source of truth
+  // since "סיגמה 2.00"; the old four static grids are gone).
   function staffPipeline() {
-    const g = id => { const el = document.getElementById(id); return el ? el.querySelectorAll('.kibbutz').length : 0; };
-    const live = g('grid-done'), priority = g('grid-priority'), pending = g('grid-pending'), nw = g('grid-new_client');
-    const total = live + priority + pending + nw;
-    return { live, priority, pending, new_client: nw, total, pctLive: total ? Math.round(live / total * 100) : 0 };
+    const rows = (window.KIBBUTZIM || []).filter(r => r && !r.archived_at);
+    const live = rows.filter(r => r.section === 'active').length;
+    const nw = rows.filter(r => r.section === 'new').length;
+    const marketing = rows.filter(r => r.marketing).length;
+    const total = live + nw;
+    return { live, new_client: nw, marketing, total, pctLive: total ? Math.round(live / total * 100) : 0 };
   }
 
   async function renderStaff() {
     const el = document.getElementById('staffContent');
     if (!el) return;
     if (!canManageStaff()) { el.innerHTML = '<div style="color:#991b1b;">אין הרשאה לעמוד זה.</div>'; return; }
-    const CATL = { priority: '🔴 עדיפות', done: '✅ באוויר', pending: '⬜ ממתין', new_client: '🆕 חדש' };
+    const CATL = { done: '✅ לקוחות פעילים', new_client: '🆕 לקוחות חדשים' };
 
     // unread message counts per person (best effort; empty if the table isn't created yet)
     const unreadByPerson = {};
@@ -7295,14 +6945,13 @@
       let body = '';
       if (role.kind === 'ops') {
         body = `
-        <div style="font-size:12px;color:#64748b;margin:4px 0 6px;">צנרת העלאה לאוויר — כל החברה</div>
+        <div style="font-size:12px;color:#64748b;margin:4px 0 6px;">צנרת לקוחות — כל החברה</div>
         <div style="background:#e2e8f0;border-radius:6px;height:10px;overflow:hidden;"><div style="background:#10b981;height:100%;width:${pipe.pctLive}%;"></div></div>
-        <div style="font-size:12px;color:#64748b;margin-top:4px;">${pipe.live}/${pipe.total} עלו לאוויר (${pipe.pctLive}%)</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">${pipe.live}/${pipe.total} לקוחות פעילים (${pipe.pctLive}%)</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px;font-size:13px;">
-          <div>✅ באוויר: <strong>${pipe.live}</strong></div>
-          <div>🔴 בעדיפות: <strong>${pipe.priority}</strong></div>
-          <div>⬜ ממתינים: <strong>${pipe.pending}</strong></div>
-          <div>🆕 חדשים: <strong>${pipe.new_client}</strong></div>
+          <div>✅ לקוחות פעילים: <strong>${pipe.live}</strong></div>
+          <div>🆕 לקוחות חדשים: <strong>${pipe.new_client}</strong></div>
+          <div>🤝 בתהליך שיווקי: <strong>${pipe.marketing}</strong></div>
           <div>📝 עדכוני סטטוס שלי: <strong>${s.edits}</strong></div>
         </div>`;
       } else if (role.kind === 'field') {
@@ -9781,3 +9430,167 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
   }
 
   window.renderPushLog = renderPushLog;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // KIBBUTZIM — the card list as DATA (spec §7b). Until "סיגמה 2.00" every card was
+  // static markup in index.html; adding one meant a commit. Now the `kibbutzim` table
+  // is the source of truth and this module renders the two sections from it.
+  //
+  // Contract kept for the existing decorating passes (01-data.js / 13-ems.js):
+  //   the card root is `.kibbutz[data-name]` and holds a `.kibbutz-name-row` they
+  //   insert after. Everything else on a card is appended by those passes.
+  //
+  // Paint order: the localStorage cache paints instantly on DOMContentLoaded, then
+  // kibbutzimLoad() re-renders with the server rows.
+  // ═══════════════════════════════════════════════════════════════════════════
+  (function () {
+    const CACHE_KEY = 'kibbutzim_v1';
+
+    // North → south. The first six are the regions the `tasks` table actually uses
+    // (same list as 12-reports.js); the finer-grained names after them are accepted
+    // too, so a hand-typed region still sorts sensibly instead of landing in the
+    // "unknown" bucket. Anything else sorts after the list, alphabetically; '' last.
+    const REGION_ORDER = [
+      'גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'יהודה ושומרון', 'דרום, עוטף עזה והנגב',
+      'גליל עליון', 'גליל תחתון', 'עמק הירדן', 'עמק יזרעאל', 'עמק המעיינות', 'בקעת בית שאן',
+      'חוף הכרמל', 'שרון', 'שפלה', 'שער הנגב', 'נגב'
+    ];
+    const NO_REGION_LABEL = 'ללא איזור';
+
+    const ENERGY_LABEL = { electric: '⚡ חשמל', water: '💧 מים', gas: '🔥 גז' };
+
+    const esc = s => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const label = row => String((row && (row.display_name || row.name)) || '');
+    const energyText = row => ((row && row.energy) || ['electric'])
+      .map(e => ENERGY_LABEL[e] || ENERGY_LABEL.electric).join(' + ');
+
+    // ---- pure: one card ----
+    function buildCardHtml(row) {
+      const section = row.section === 'new' ? 'new' : 'active';
+      const marketing = !!row.marketing;
+      const isSub = row.kind === 'subsite' && row.parent;
+      return '<div class="kibbutz ' + section + '" data-name="' + esc(row.name) + '"' +
+        ' data-section="' + section + '" data-marketing="' + (marketing ? 'true' : 'false') + '"' +
+        (isSub ? ' data-parent="' + esc(row.parent) + '"' : '') + '>' +
+        '<div class="kibbutz-name-row">' +
+        '<div class="kibbutz-name">' + esc(label(row)) + '</div>' +
+        '<span class="energy-badge">' + esc(energyText(row)) + '</span>' +
+        (isSub ? '<span class="tag-subsite">↳ תת-אתר של ' + esc(row.parent) + '</span>' : '') +
+        (marketing ? '<span class="tag-marketing">🤝 בתהליך שיווקי</span>' : '') +
+        '</div></div>';
+    }
+
+    // ---- pure: rows → {new:[{region,rows}], active:[…]} ----
+    function groupBySection(rows) {
+      const out = { new: [], active: [] };
+      const byLabel = {};
+      (rows || []).forEach(r => { byLabel[r.name] = label(r); });
+
+      // A sub-site sorts under its parent: it borrows the parent's sort key and then
+      // comes right after it (kind tiebreak), so the pair never drifts apart.
+      const sortKey = r => (r.kind === 'subsite' && r.parent) ? (byLabel[r.parent] || r.parent) : label(r);
+      const cmp = (a, b) =>
+        sortKey(a).localeCompare(sortKey(b), 'he') ||
+        ((a.kind === 'subsite' ? 1 : 0) - (b.kind === 'subsite' ? 1 : 0)) ||
+        label(a).localeCompare(label(b), 'he');
+
+      ['new', 'active'].forEach(section => {
+        const mine = (rows || []).filter(r => (r.section === 'new' ? 'new' : 'active') === section);
+        const byRegion = {};
+        mine.forEach(r => {
+          const reg = String(r.region || '');
+          (byRegion[reg] = byRegion[reg] || []).push(r);
+        });
+        const known = REGION_ORDER.filter(r => byRegion[r]);
+        const unknown = Object.keys(byRegion)
+          .filter(r => r && REGION_ORDER.indexOf(r) === -1)
+          .sort((a, b) => a.localeCompare(b, 'he'));
+        const ordered = known.concat(unknown);
+        if (byRegion['']) ordered.push('');            // "ללא איזור" always last
+        out[section] = ordered.map(reg => ({ region: reg, rows: byRegion[reg].slice().sort(cmp) }));
+      });
+      return out;
+    }
+
+    // ---- render ----
+    function renderKibbutzCards(rows) {
+      if (Array.isArray(rows)) {
+        window.KIBBUTZIM = rows;
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* private mode / quota */ }
+      }
+      const all = (window.KIBBUTZIM || []).filter(r => r && r.name && !r.archived_at);
+      const groups = groupBySection(all);
+
+      ['new', 'active'].forEach(section => {
+        const grid = document.getElementById('grid-' + section);
+        if (!grid) return;
+        const gs = groups[section];
+        const showRegions = gs.length > 1;                       // one region → no sub-header
+        grid.innerHTML = gs.map(g =>
+          (showRegions ? '<div class="region-label" data-region="' + esc(g.region) + '">' + esc(g.region || NO_REGION_LABEL) + '</div>' : '') +
+          g.rows.map(buildCardHtml).join('')
+        ).join('');
+        const sec = grid.closest ? grid.closest('.section') : null;
+        const badge = sec ? sec.querySelector('.section-count') : null;
+        if (badge) badge.textContent = String(gs.reduce((n, g) => n + g.rows.length, 0));
+      });
+
+      const n = s => all.filter(r => (r.section === 'new' ? 'new' : 'active') === s).length;
+      const setCnt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+      setCnt('cnt-all', all.length);
+      setCnt('cnt-new', n('new'));
+      setCnt('cnt-active', n('active'));
+      setCnt('cnt-marketing', all.filter(r => r.marketing).length);
+
+      if (typeof applyFilters === 'function') applyFilters();
+    }
+
+    function kibbutzByName(name) {
+      if (!name) return undefined;
+      const list = window.KIBBUTZIM || [];
+      return list.find(r => r.name === name) || list.find(r => r.display_name === name);
+    }
+
+    // ---- load ----
+    const SB_KIB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
+    const SB_KIB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
+    // 01-data.js exposes its closure-local sbGet as window._sbGet; the plain-fetch
+    // fallback keeps this module usable when that router is off (?sb=0) or in tests.
+    function kibGet(path) {
+      if (typeof window._sbGet === 'function') return window._sbGet(path);
+      return fetch(SB_KIB_URL + '/rest/v1/' + path, { headers: { apikey: SB_KIB_ANON, Authorization: 'Bearer ' + SB_KIB_ANON } })
+        .then(r => { if (!r.ok) throw new Error('kibbutzim GET ' + r.status); return r.json(); });
+    }
+
+    async function kibbutzimLoad() {
+      const rows = await kibGet('kibbutzim?select=*&order=region,name&archived_at=is.null');
+      window.KIBBUTZIM = rows;
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
+      return rows;
+    }
+
+    function kibbutzimCached() {
+      try { const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) : null; }
+      catch (e) { return null; }
+    }
+
+    // First paint from cache — before Supabase answers, so the page is never empty.
+    function kibbutzimFirstPaint() {
+      const cached = kibbutzimCached();
+      if (cached && cached.length) renderKibbutzCards(cached);
+    }
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('DOMContentLoaded', kibbutzimFirstPaint);
+    }
+
+    window.KIBBUTZIM = window.KIBBUTZIM || [];
+    window.REGION_ORDER_KIB = REGION_ORDER;
+    window.buildCardHtml = buildCardHtml;
+    window.groupBySection = groupBySection;
+    window.renderKibbutzCards = renderKibbutzCards;
+    window.kibbutzByName = kibbutzByName;
+    window.kibbutzimLoad = kibbutzimLoad;
+    window.kibbutzimCached = kibbutzimCached;
+    window.kibbutzimFirstPaint = kibbutzimFirstPaint;
+  })();

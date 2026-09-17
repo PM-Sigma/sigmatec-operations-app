@@ -1,0 +1,164 @@
+  // ═══════════════════════════════════════════════════════════════════════════
+  // KIBBUTZIM — the card list as DATA (spec §7b). Until "סיגמה 2.00" every card was
+  // static markup in index.html; adding one meant a commit. Now the `kibbutzim` table
+  // is the source of truth and this module renders the two sections from it.
+  //
+  // Contract kept for the existing decorating passes (01-data.js / 13-ems.js):
+  //   the card root is `.kibbutz[data-name]` and holds a `.kibbutz-name-row` they
+  //   insert after. Everything else on a card is appended by those passes.
+  //
+  // Paint order: the localStorage cache paints instantly on DOMContentLoaded, then
+  // kibbutzimLoad() re-renders with the server rows.
+  // ═══════════════════════════════════════════════════════════════════════════
+  (function () {
+    const CACHE_KEY = 'kibbutzim_v1';
+
+    // North → south. The first six are the regions the `tasks` table actually uses
+    // (same list as 12-reports.js); the finer-grained names after them are accepted
+    // too, so a hand-typed region still sorts sensibly instead of landing in the
+    // "unknown" bucket. Anything else sorts after the list, alphabetically; '' last.
+    const REGION_ORDER = [
+      'גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'יהודה ושומרון', 'דרום, עוטף עזה והנגב',
+      'גליל עליון', 'גליל תחתון', 'עמק הירדן', 'עמק יזרעאל', 'עמק המעיינות', 'בקעת בית שאן',
+      'חוף הכרמל', 'שרון', 'שפלה', 'שער הנגב', 'נגב'
+    ];
+    const NO_REGION_LABEL = 'ללא איזור';
+
+    const ENERGY_LABEL = { electric: '⚡ חשמל', water: '💧 מים', gas: '🔥 גז' };
+
+    const esc = s => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const label = row => String((row && (row.display_name || row.name)) || '');
+    const energyText = row => ((row && row.energy) || ['electric'])
+      .map(e => ENERGY_LABEL[e] || ENERGY_LABEL.electric).join(' + ');
+
+    // ---- pure: one card ----
+    function buildCardHtml(row) {
+      const section = row.section === 'new' ? 'new' : 'active';
+      const marketing = !!row.marketing;
+      const isSub = row.kind === 'subsite' && row.parent;
+      return '<div class="kibbutz ' + section + '" data-name="' + esc(row.name) + '"' +
+        ' data-section="' + section + '" data-marketing="' + (marketing ? 'true' : 'false') + '"' +
+        (isSub ? ' data-parent="' + esc(row.parent) + '"' : '') + '>' +
+        '<div class="kibbutz-name-row">' +
+        '<div class="kibbutz-name">' + esc(label(row)) + '</div>' +
+        '<span class="energy-badge">' + esc(energyText(row)) + '</span>' +
+        (isSub ? '<span class="tag-subsite">↳ תת-אתר של ' + esc(row.parent) + '</span>' : '') +
+        (marketing ? '<span class="tag-marketing">🤝 בתהליך שיווקי</span>' : '') +
+        '</div></div>';
+    }
+
+    // ---- pure: rows → {new:[{region,rows}], active:[…]} ----
+    function groupBySection(rows) {
+      const out = { new: [], active: [] };
+      const byLabel = {};
+      (rows || []).forEach(r => { byLabel[r.name] = label(r); });
+
+      // A sub-site sorts under its parent: it borrows the parent's sort key and then
+      // comes right after it (kind tiebreak), so the pair never drifts apart.
+      const sortKey = r => (r.kind === 'subsite' && r.parent) ? (byLabel[r.parent] || r.parent) : label(r);
+      const cmp = (a, b) =>
+        sortKey(a).localeCompare(sortKey(b), 'he') ||
+        ((a.kind === 'subsite' ? 1 : 0) - (b.kind === 'subsite' ? 1 : 0)) ||
+        label(a).localeCompare(label(b), 'he');
+
+      ['new', 'active'].forEach(section => {
+        const mine = (rows || []).filter(r => (r.section === 'new' ? 'new' : 'active') === section);
+        const byRegion = {};
+        mine.forEach(r => {
+          const reg = String(r.region || '');
+          (byRegion[reg] = byRegion[reg] || []).push(r);
+        });
+        const known = REGION_ORDER.filter(r => byRegion[r]);
+        const unknown = Object.keys(byRegion)
+          .filter(r => r && REGION_ORDER.indexOf(r) === -1)
+          .sort((a, b) => a.localeCompare(b, 'he'));
+        const ordered = known.concat(unknown);
+        if (byRegion['']) ordered.push('');            // "ללא איזור" always last
+        out[section] = ordered.map(reg => ({ region: reg, rows: byRegion[reg].slice().sort(cmp) }));
+      });
+      return out;
+    }
+
+    // ---- render ----
+    function renderKibbutzCards(rows) {
+      if (Array.isArray(rows)) {
+        window.KIBBUTZIM = rows;
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* private mode / quota */ }
+      }
+      const all = (window.KIBBUTZIM || []).filter(r => r && r.name && !r.archived_at);
+      const groups = groupBySection(all);
+
+      ['new', 'active'].forEach(section => {
+        const grid = document.getElementById('grid-' + section);
+        if (!grid) return;
+        const gs = groups[section];
+        const showRegions = gs.length > 1;                       // one region → no sub-header
+        grid.innerHTML = gs.map(g =>
+          (showRegions ? '<div class="region-label" data-region="' + esc(g.region) + '">' + esc(g.region || NO_REGION_LABEL) + '</div>' : '') +
+          g.rows.map(buildCardHtml).join('')
+        ).join('');
+        const sec = grid.closest ? grid.closest('.section') : null;
+        const badge = sec ? sec.querySelector('.section-count') : null;
+        if (badge) badge.textContent = String(gs.reduce((n, g) => n + g.rows.length, 0));
+      });
+
+      const n = s => all.filter(r => (r.section === 'new' ? 'new' : 'active') === s).length;
+      const setCnt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+      setCnt('cnt-all', all.length);
+      setCnt('cnt-new', n('new'));
+      setCnt('cnt-active', n('active'));
+      setCnt('cnt-marketing', all.filter(r => r.marketing).length);
+
+      if (typeof applyFilters === 'function') applyFilters();
+    }
+
+    function kibbutzByName(name) {
+      if (!name) return undefined;
+      const list = window.KIBBUTZIM || [];
+      return list.find(r => r.name === name) || list.find(r => r.display_name === name);
+    }
+
+    // ---- load ----
+    const SB_KIB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
+    const SB_KIB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
+    // 01-data.js exposes its closure-local sbGet as window._sbGet; the plain-fetch
+    // fallback keeps this module usable when that router is off (?sb=0) or in tests.
+    function kibGet(path) {
+      if (typeof window._sbGet === 'function') return window._sbGet(path);
+      return fetch(SB_KIB_URL + '/rest/v1/' + path, { headers: { apikey: SB_KIB_ANON, Authorization: 'Bearer ' + SB_KIB_ANON } })
+        .then(r => { if (!r.ok) throw new Error('kibbutzim GET ' + r.status); return r.json(); });
+    }
+
+    async function kibbutzimLoad() {
+      const rows = await kibGet('kibbutzim?select=*&order=region,name&archived_at=is.null');
+      window.KIBBUTZIM = rows;
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch (e) { /* ignore */ }
+      return rows;
+    }
+
+    function kibbutzimCached() {
+      try { const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) : null; }
+      catch (e) { return null; }
+    }
+
+    // First paint from cache — before Supabase answers, so the page is never empty.
+    function kibbutzimFirstPaint() {
+      const cached = kibbutzimCached();
+      if (cached && cached.length) renderKibbutzCards(cached);
+    }
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('DOMContentLoaded', kibbutzimFirstPaint);
+    }
+
+    window.KIBBUTZIM = window.KIBBUTZIM || [];
+    window.REGION_ORDER_KIB = REGION_ORDER;
+    window.buildCardHtml = buildCardHtml;
+    window.groupBySection = groupBySection;
+    window.renderKibbutzCards = renderKibbutzCards;
+    window.kibbutzByName = kibbutzByName;
+    window.kibbutzimLoad = kibbutzimLoad;
+    window.kibbutzimCached = kibbutzimCached;
+    window.kibbutzimFirstPaint = kibbutzimFirstPaint;
+  })();

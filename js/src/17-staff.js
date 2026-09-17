@@ -73,19 +73,22 @@
     'ניתאי': { kind: 'field', title: 'טכנאי שטח' },
     'מתניה': { kind: 'dev',   title: 'מפתח (משרד)' }
   };
-  // company-wide go-live pipeline — counts from the rendered card grids (the real categorization)
+  // company-wide pipeline — counted off the `kibbutzim` rows (the single source of truth
+  // since "סיגמה 2.00"; the old four static grids are gone).
   function staffPipeline() {
-    const g = id => { const el = document.getElementById(id); return el ? el.querySelectorAll('.kibbutz').length : 0; };
-    const live = g('grid-done'), priority = g('grid-priority'), pending = g('grid-pending'), nw = g('grid-new_client');
-    const total = live + priority + pending + nw;
-    return { live, priority, pending, new_client: nw, total, pctLive: total ? Math.round(live / total * 100) : 0 };
+    const rows = (window.KIBBUTZIM || []).filter(r => r && !r.archived_at);
+    const live = rows.filter(r => r.section === 'active').length;
+    const nw = rows.filter(r => r.section === 'new').length;
+    const marketing = rows.filter(r => r.marketing).length;
+    const total = live + nw;
+    return { live, new_client: nw, marketing, total, pctLive: total ? Math.round(live / total * 100) : 0 };
   }
 
   async function renderStaff() {
     const el = document.getElementById('staffContent');
     if (!el) return;
     if (!canManageStaff()) { el.innerHTML = '<div style="color:#991b1b;">אין הרשאה לעמוד זה.</div>'; return; }
-    const CATL = { priority: '🔴 עדיפות', done: '✅ באוויר', pending: '⬜ ממתין', new_client: '🆕 חדש' };
+    const CATL = { done: '✅ לקוחות פעילים', new_client: '🆕 לקוחות חדשים' };
 
     // unread message counts per person (best effort; empty if the table isn't created yet)
     const unreadByPerson = {};
@@ -108,14 +111,13 @@
       let body = '';
       if (role.kind === 'ops') {
         body = `
-        <div style="font-size:12px;color:#64748b;margin:4px 0 6px;">צנרת העלאה לאוויר — כל החברה</div>
+        <div style="font-size:12px;color:#64748b;margin:4px 0 6px;">צנרת לקוחות — כל החברה</div>
         <div style="background:#e2e8f0;border-radius:6px;height:10px;overflow:hidden;"><div style="background:#10b981;height:100%;width:${pipe.pctLive}%;"></div></div>
-        <div style="font-size:12px;color:#64748b;margin-top:4px;">${pipe.live}/${pipe.total} עלו לאוויר (${pipe.pctLive}%)</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">${pipe.live}/${pipe.total} לקוחות פעילים (${pipe.pctLive}%)</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px;font-size:13px;">
-          <div>✅ באוויר: <strong>${pipe.live}</strong></div>
-          <div>🔴 בעדיפות: <strong>${pipe.priority}</strong></div>
-          <div>⬜ ממתינים: <strong>${pipe.pending}</strong></div>
-          <div>🆕 חדשים: <strong>${pipe.new_client}</strong></div>
+          <div>✅ לקוחות פעילים: <strong>${pipe.live}</strong></div>
+          <div>🆕 לקוחות חדשים: <strong>${pipe.new_client}</strong></div>
+          <div>🤝 בתהליך שיווקי: <strong>${pipe.marketing}</strong></div>
           <div>📝 עדכוני סטטוס שלי: <strong>${s.edits}</strong></div>
         </div>`;
       } else if (role.kind === 'field') {

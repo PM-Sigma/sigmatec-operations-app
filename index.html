@@ -20,7 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mrnm8c1v">
+<link rel="stylesheet" href="css/app.css?v=mu5s12xt">
 </head>
 <body>
 <div class="container">
@@ -128,8 +128,8 @@
   <div class="header">
     <div class="header-top">
       <div>
-        <h1>⚡ מערכת ניהול סיגמטק</h1>
-        <div class="subtitle">Sigmatec EMS · מערכת חדשה — סטטוס הקמה</div>
+        <h1 class="brand"><span class="brand-mark">Σ</span><span class="brand-name">סיגמה</span></h1>
+        <div class="subtitle">תפעול שטח</div>
       </div>
       <div class="header-meta">
         <div class="header-date" id="lastUpdated">📅 טוען...</div>
@@ -138,25 +138,9 @@
         <a class="copy-btn" id="emsBubble" href="https://sigmatec-ems.com/" target="_blank" rel="noopener" title="חיבור ל-EMS" style="text-decoration:none;">🟢 EMS</a>
         <button class="copy-btn" id="meetingBadge" onclick="toggleMeetingMode()">🔓 ישיבה</button>
         <button class="copy-btn" id="potentialsBtn" onclick="document.getElementById('sidePanel').classList.toggle('open')">🏘️ לקוחות פוטנציאליים</button>
-        <button class="compact-toggle" id="compactToggle" onclick="toggleCompactMode()">📱 תצוגה מצומצמת</button>
         <a class="compact-toggle" href="kibbutz-stats.html" style="text-decoration:none;">📊 סטטיסטיקה</a>
       </div>
     </div>
-    <div>
-      <div class="progress-label">
-        <span>התקדמות כוללת</span>
-        <span class="progress-percent">47%</span>
-      </div>
-      <div class="progress-bar" style="cursor:pointer;" title="עלה לאוויר · בעדיפות/בעבודה · חדשים בהקמה · ממתינים — לחץ למקרא" onclick="var l=document.getElementById('progressLegend');if(l)l.style.display=(l.style.display==='block')?'none':'block';">
-        <div class="seg-done" style="width: 46.6%" title="🟢 עלה לאוויר (פעיל)"></div>
-        <div class="seg-track" style="width: 17.7%" title="בעדיפות / בעבודה"></div>
-        <div style="width: 4.4%; background: #f97316;" title="🟠 לקוחות חדשים בהקמה"></div>
-      </div>
-      <div id="progressLegend" style="display:none;font-size:11px;color:#64748b;margin-top:6px;line-height:1.9;">
-        🟢 <b>עלה לאוויר</b> · <span style="color:#2563eb;">▮</span> <b>בעדיפות / בעבודה</b> · 🟠 <b>חדשים בהקמה</b> · ⬜ <b>ממתינים</b> (יתרת הסרגל)
-      </div>
-    </div>
-
   </div>
 
   <!-- 📊 viewer reports hub — viewer-only (body.user-viewer shows it); all aggregate reports from one card -->
@@ -199,21 +183,14 @@
     </div>
   </div>
 
-  <div class="urgent-alert" id="urgentAlert" style="display:none;">
-    <div class="urgent-alert-header">
-      <span class="urgent-alert-icon">🚨</span>
-      <span><strong id="urgentCount">0</strong> קיבוצים באוויר ללא זרימת נתונים — דורש טיפול דחוף!</span>
-    </div>
-    <div class="urgent-alert-list" id="urgentList"></div>
   </div>
 
   <div class="filter-bar" style="position:relative;">
     <input type="text" class="search-input" id="searchInput" autocomplete="off" placeholder="🔍 חיפוש: קיבוץ · דרישה · הזמנה · ביקור · פריט" oninput="applyFilters(); doGlobalSearch(this.value)" onfocus="doGlobalSearch(this.value)" onkeydown="if(event.key==='Escape')closeGlobalSearch()">
     <button class="filter-chip active" data-filter="all" onclick="setFilter('all', this)">הכל <span class="chip-count" id="cnt-all" style="opacity:.6;font-weight:700;">0</span></button>
-    <button class="filter-chip" data-filter="priority" onclick="setFilter('priority', this)">🔴 עדיפות <span class="chip-count" id="cnt-priority" style="opacity:.6;font-weight:700;">0</span></button>
-    <button class="filter-chip" data-filter="done" onclick="setFilter('done', this)">✅ עלה לאוויר <span class="chip-count" id="cnt-done" style="opacity:.6;font-weight:700;">0</span></button>
-    <button class="filter-chip" data-filter="new_client" onclick="setFilter('new_client', this)">🆕 חדשים <span class="chip-count" id="cnt-new_client" style="opacity:.6;font-weight:700;">0</span></button>
-    <button class="filter-chip" data-filter="pending" onclick="setFilter('pending', this)">⬜ ממתינים <span class="chip-count" id="cnt-pending" style="opacity:.6;font-weight:700;">0</span></button>
+    <button class="filter-chip" data-filter="new" onclick="setFilter('new', this)">🆕 חדשים <span class="chip-count" id="cnt-new" style="opacity:.6;font-weight:700;">0</span></button>
+    <button class="filter-chip" data-filter="active" onclick="setFilter('active', this)">✅ פעילים <span class="chip-count" id="cnt-active" style="opacity:.6;font-weight:700;">0</span></button>
+    <button class="filter-chip" data-filter="marketing" onclick="setFilter('marketing', this)">🤝 שיווקי <span class="chip-count" id="cnt-marketing" style="opacity:.6;font-weight:700;">0</span></button>
     <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
   </div>
 
@@ -245,114 +222,31 @@
   </div>
 
 
-  <div class="section priority-section">
+  <div class="section">
     <div class="section-header" onclick="toggleSection(this)">
-      <div class="section-title">🔴 בעדיפות עליונה<span class="section-note">⚠️ בעבודה נא לעבוד באתר החדש והישן במקביל</span></div>
+      <div class="section-title">🆕 לקוחות חדשים</div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <div class="section-count">14</div>
+        <div class="section-count">0</div>
         <span class="section-toggle">▼</span>
       </div>
     </div>
     <div class="section-body">
-      <div class="kibbutz-grid" id="grid-priority">
-        <div class="kibbutz track priority ready-flow" data-name="גבת" data-types="track priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">גבת</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="ready-flow-flag">🟠 בעבודה — מוכן לפתיחת זרימה</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz track priority flow-active" data-name="יגור" data-types="track priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">יגור</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="flow-active-flag">🔵 זרימת נתונים פעילה</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz track priority has-bug" data-name="חוקוק" data-types="track priority" data-step="2"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">חוקוק</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">🐞 באג — מונה כפול בהקמה (פתח טיקט)</div></div>
-        <div class="kibbutz track priority ready-flow" data-name="דגניה" data-types="track priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">דגניה א</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="ready-flow-flag">🟠 בעבודה — מוכן לפתיחת זרימה</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority ready-flow" data-name="עין חרוד מאוחד" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">עין חרוד מאוחד</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="ready-flow-flag">🟠 בעבודה — מוכן לפתיחת זרימה</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>        <div class="kibbutz track priority ready-flow" data-name="אלומות" data-types="track priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">אלומות</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="ready-flow-flag">🟠 מעבר ראשון — לפני דגניה</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="בית זרע" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">בית זרע</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">דורש פיתוח — אקסל מותאם אישית</div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="כנרת" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">כנרת</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">דורש פיתוח — מאופיין ב-TRELLO</div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="כפר עזה" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">כפר עזה</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="יסעור" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">יסעור</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="מגידו" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">מגידו</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="ניר עציון" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">ניר עציון</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="כפר מנחם" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">כפר מנחם</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending priority" data-name="משואות יצחק" data-types="pending priority"><span class="priority-flag">עדיפות</span><div class="kibbutz-name">משואות יצחק</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-      </div>
+      <!-- cards are rendered from the `kibbutzim` table by renderKibbutzCards() (js/src/24-kibbutzim.js) -->
+      <div class="kibbutz-grid" id="grid-new"></div>
     </div>
   </div>
-
-  <div class="section new-clients-section">
-    <div class="section-header" onclick="toggleSection(this)">
-      <div class="section-title">🆕 לקוחות חדשים — בהקמה</div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <div class="section-count">2</div>
-        <span class="section-toggle">▼</span>
-      </div>
-    </div>
-    <div class="section-body">
-      <div class="kibbutz-grid" id="grid-new_client">
-        <div class="kibbutz new-client" data-name="עין דור" data-types="new_client"><div class="kibbutz-name">עין דור</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="new-client-flag">🆕 ממתין לשליחת מייל על נתוני הקמה</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz new-client" data-name="דגניה ב" data-types="new_client"><div class="kibbutz-name">דגניה ב'</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="new-client-flag">🆕 ממתין לשליחת מייל על נתוני הקמה</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz new-client" data-name="דפנה" data-types="new_client"><div class="kibbutz-name">דפנה</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="new-client-flag">🆕 ממתין למייל נתוני הקמה מהלקוח</span><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-      </div>
-    </div>
-  </div>
-
 
   <div class="section">
     <div class="section-header" onclick="toggleSection(this)">
-      <div class="section-title">✅ עלו לאוויר במערכת החדשה</div>
+      <div class="section-title">✅ לקוחות פעילים</div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <div class="section-count">22</div>
+        <div class="section-count">0</div>
         <span class="section-toggle">▼</span>
       </div>
     </div>
     <div class="section-body">
-      <div class="kibbutz-grid" id="grid-done">
-        <div class="kibbutz done" data-name="משמר השרון" data-types="done"><div class="kibbutz-name">משמר השרון</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz done" data-name="תל קציר" data-types="done"><div class="kibbutz-name">תל קציר</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz done" data-name="כפר גלעדי" data-types="done" data-step="12"><div class="kibbutz-name">כפר גלעדי</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">נותרה: הדרכה</div></div>
-        <div class="kibbutz done" data-name="גניגר" data-types="done" data-step="11"><div class="kibbutz-name">גניגר</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">נותרו: ווידוא פרטי מחלק + הדרכה</div></div>
-        <div class="kibbutz done" data-name="גבים" data-types="done" data-step="14"><div class="kibbutz-name">גבים</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">נותרה: בדיקת חשבונות</div></div>
-        <div class="kibbutz done" data-name="מעוז חיים" data-types="done"><div class="kibbutz-name">מעוז חיים</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz done" data-name="אפיקים" data-types="done" data-step="14"><div class="kibbutz-name">אפיקים</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="flow-active-flag">🔵 זרימת נתונים פעילה</span><div class="kibbutz-note">נותרה: בדיקת חשבונות</div></div>
-        <div class="kibbutz done" data-name="גברעם" data-types="done" data-step="12"><div class="kibbutz-name">גברעם</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">📅 הדרכה מחר (25.5.2026)</div></div>
-        <div class="kibbutz done" data-name="עין המפרץ" data-types="done"><div class="kibbutz-name">עין המפרץ</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל + 💧 מים</span></div></div>
-        <div class="kibbutz done" data-name="אלונים" data-types="done" data-step="12"><div class="kibbutz-name">אלונים</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">נותרה: הדרכה</div></div>
-        <div class="kibbutz done" data-name="אור הנר חשמל" data-types="done" data-step="14"><div class="kibbutz-name">אור הנר — חשמל</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">ליווי חשבונות חשמל במע׳ חדשה</div></div>
-        <div class="kibbutz done" data-name="אור הנר גז" data-types="done" data-step="14"><div class="kibbutz-name">אור הנר — גז</div><div class="kibbutz-meta"><span class="energy-badge">🔥 גז</span></div><div class="kibbutz-note">ליווי חשבונות גז במע׳ חדשה</div></div>
-        <div class="kibbutz done" data-name="מתחם חינוך שער הנגב" data-types="done"><div class="kibbutz-name">מתחם חינוך שער הנגב</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz done" data-name="שדה אליהו" data-types="done" data-step="14"><div class="kibbutz-name">שדה אליהו</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">נותרה: בדיקת חשבונות</div></div>
-        <div class="kibbutz done" data-name="קיבוץ גת" data-types="done"><div class="kibbutz-name">קיבוץ גת</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz done" data-name="מעלה גלבוע" data-types="done"><div class="kibbutz-name">מעלה גלבוע</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz done" data-name="חולדה" data-types="done" data-step="12" data-manual-flow="true"><div class="kibbutz-name">חולדה</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="manual-flow-flag">🔴 זרימת נתונים ידנית</span><div class="kibbutz-note">נותרו: הדרכה + בדיקת חשבונות + חיבור תקשורת</div></div>
-        <div class="kibbutz done" data-name="שריד" data-types="done" data-step="12" data-manual-flow="true"><div class="kibbutz-name">שריד</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><span class="manual-flow-flag">🔴 זרימת נתונים ידנית</span><div class="kibbutz-note">נותרו: הדרכה + בדיקת חשבונות + חיבור תקשורת</div></div>
-        <div class="kibbutz done" data-name="גבעת חיים מאוחד" data-types="done" data-step="12"><div class="kibbutz-name">גבעת חיים מאוחד</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">📅 הדרכה היום (24.5.2026)</div></div>
-        <div class="kibbutz done" data-name="עין השופט" data-types="done" data-step="14"><div class="kibbutz-name">עין השופט</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל + 💧 מים</span></div><span class="flow-active-flag">🔵 זרימת נתונים פעילה</span><div class="kibbutz-note">נותרה: בדיקת חשבונות (עמיחי)</div></div>
-        <div class="kibbutz done" data-name="קבוצת יבנה" data-types="done" data-step="12"><div class="kibbutz-name">קבוצת יבנה</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">נותרה: הדרכה</div></div>
-        <div class="kibbutz done" data-name="להב" data-types="done" data-step="12"><div class="kibbutz-name">להב</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="kibbutz-note">נותרה: הדרכה</div></div>
-      </div>
-    </div>
-  </div>
-
-
-  <div class="section">
-    <div class="section-header" onclick="toggleSection(this)">
-      <div class="section-title">⬜ ממתינים</div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <div class="section-count">14</div>
-        <span class="section-toggle">▼</span>
-      </div>
-    </div>
-    <div class="section-body">
-      <div class="kibbutz-grid" id="grid-pending">
-        <div class="kibbutz pending" data-name="עין חרוד איחוד" data-types="pending"><div class="kibbutz-name">עין חרוד איחוד</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div><div class="comment-hint">💬 לחץ לשליחת הערה</div></div>
-        <div class="kibbutz pending" data-name="אפיק" data-types="pending"><div class="kibbutz-name">אפיק</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="חוצות יגור" data-types="pending"><div class="kibbutz-name">חוצות יגור</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="שלוחות" data-types="pending"><div class="kibbutz-name">שלוחות</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="אגודת המים עמק הירדן" data-types="pending"><div class="kibbutz-name">אגודת המים עמק הירדן</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="כפר מסריק" data-types="pending"><div class="kibbutz-name">כפר מסריק</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="שער הגולן" data-types="pending"><div class="kibbutz-name">שער הגולן</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="בית אריזה גלבוע" data-types="pending"><div class="kibbutz-name">בית אריזה גלבוע</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="דביר" data-types="pending"><div class="kibbutz-name">דביר</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="לביא" data-types="pending"><div class="kibbutz-name">לביא</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="מגן" data-types="pending"><div class="kibbutz-name">מגן</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="פרחי אביב" data-types="pending"><div class="kibbutz-name">פרחי אביב</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="קיבוץ ניצנים" data-types="pending"><div class="kibbutz-name">קיבוץ ניצנים</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="כפר דניאל" data-types="pending"><div class="kibbutz-name">כפר דניאל</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-        <div class="kibbutz pending" data-name="רמות מנשה" data-types="pending"><div class="kibbutz-name">רמות מנשה</div><div class="kibbutz-meta"><span class="energy-badge">⚡ חשמל</span></div></div>
-      </div>
+      <!-- cards are rendered from the `kibbutzim` table by renderKibbutzCards() (js/src/24-kibbutzim.js) -->
+      <div class="kibbutz-grid" id="grid-active"></div>
     </div>
   </div>
 
@@ -362,20 +256,14 @@
       <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>הושלם — עלה לאוויר</div>
       <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>על המסלול</div>
       <div class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>דורש פיתוח</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#e2e8f0;border:1px solid #cbd5e1"></span>ממתין</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span>בעדיפות</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>🟠 בעבודה — מוכן לפתיחת זרימת נתונים</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#06b6d4"></span>🔵 זרימת נתונים פעילה</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>🟣 מוכן לעלייה לאוויר (הנהלת חשבונות)</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#dc2626"></span>🐞 באג בהקמה</div>
       <div class="legend-item" style="font-weight:600;color:var(--primary);">💬 לחץ על קיבוץ לשליחת הערה</div>
       <button class="steps-info-btn" onclick="document.getElementById('stepsModal').classList.add('open')">ℹ️ הסבר על 12 שלבי ההקמה</button>
     </div>
   </details>
 
   <div class="footer">
-    Sigmatec EMS · Kibbutz Onboarding Dashboard · 45 קיבוצים · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-07-16·1.57</bdi></span>
+    Sigmatec EMS · Kibbutz Onboarding Dashboard · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-17·1.62</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -747,71 +635,21 @@
     <div class="modal-sub" id="modalSub">קיבוץ:</div>
 
     <div class="modal-tabs">
-      <button class="modal-tab active" data-tab="edit" onclick="switchTab('edit')">✏️ עדכון</button>
+      <button class="modal-tab active" data-tab="meetings" onclick="switchTab('meetings')">🗓 ישיבות</button>
       <button class="modal-tab" data-tab="visit" onclick="switchTab('visit')">📍 סיכום ביקור</button>
     </div>
 
-    <div class="tab-content active" id="tab-edit">
+    <div class="tab-content active" id="tab-meetings">
       <!-- Read-only last visit report — shown above the status so the visit is NOT typed into status -->
       <div id="editLastVisitBox" style="background:#ecfdf5;border-right:3px solid #10b981;padding:10px 12px;border-radius:6px;margin-bottom:14px;font-size:12px;color:#065f46;display:none;white-space:pre-line;line-height:1.5;">
         <div style="font-weight:700;margin-bottom:4px;">📍 דוח ביקור אחרון (לקריאה בלבד):</div>
         <div id="editLastVisitContent"></div>
       </div>
-      <div style="background:#f0f9ff;border-right:3px solid #2563eb;padding:8px 10px;border-radius:6px;margin-bottom:14px;font-size:12px;font-weight:600;color:#1e40af;">📋 נתוני תפעול (סטטוס + משימה צפויה)</div>
-      <label for="editStatus">📋 סטטוס ומשימות:</label>
-      <textarea id="editStatus" placeholder="מצב הקיבוץ, משימות... (שורה שמתחילה ב־'- שם' = משימה של אותו אדם)" style="min-height:90px;"></textarea>
-      <textarea id="editTask" style="display:none;"></textarea>
       <div id="modalEmsSection" style="display:none;margin:0 0 14px;"></div>
-      <label>👥 אחראים (עד 2):</label>
-      <div style="display:flex; gap:8px;">
-        <select id="editOwner1" style="margin-bottom:12px;">
-          <option value="">-- ללא --</option>
-          <option value="עידן">עידן</option>
-          <option value="עמיחי">עמיחי</option>
-          <option value="אביאם">אביאם</option>
-          <option value="ניתאי">ניתאי</option>
-          <option value="אבצן">אבצן</option>
-          <option value="מתניה">מתניה</option>
-          <option value="אליה">אליה</option>
-        </select>
-        <select id="editOwner2" style="margin-bottom:12px;">
-          <option value="">-- ללא --</option>
-          <option value="עידן">עידן</option>
-          <option value="עמיחי">עמיחי</option>
-          <option value="אביאם">אביאם</option>
-          <option value="ניתאי">ניתאי</option>
-          <option value="אבצן">אבצן</option>
-          <option value="מתניה">מתניה</option>
-          <option value="אליה">אליה</option>
-        </select>
-      </div>
-      <div class="setup-fields-group">
-        <div style="background:#fef3c7;border-right:3px solid #4338ca;padding:8px 10px;border-radius:6px;margin:18px 0 14px;font-size:12px;font-weight:600;color:#4338ca;">🏗️ התקדמות הקמת מערכת</div>
+      <!-- ponytail: "סוג לקוח" kept as a hidden input so existing type data survives a save. -->
+      <input type="hidden" id="editEngagement">
 
-        <label for="editCategory">📂 קטגוריה (סקציה בדף):</label>
-        <select id="editCategory">
-          <option value="">-- ללא שינוי --</option>
-          <option value="priority">🔴 בעדיפות עליונה</option>
-          <option value="new_client">🆕 לקוחות חדשים</option>
-          <option value="done">✅ עלה לאוויר</option>
-          <option value="pending">⬜ ממתין</option>
-        </select>
-
-        <!-- ponytail: "סוג לקוח" field removed per request; kept as hidden input so existing
-             type data is preserved on save without re-introducing the UI control. -->
-        <input type="hidden" id="editEngagement">
-
-        <label for="editStep">📍 שלב נוכחי (1-15, 15=הכל הושלם):</label>
-        <input type="number" id="editStep" min="1" max="15" placeholder="לדוגמה: 12">
-
-        <label for="editSetupNote">📝 הערת הקמה (גלוי על הכרטיס):</label>
-        <input type="text" id="editSetupNote" placeholder="לדוגמה: נותרה הדרכה">
-
-        <div style="background:#f3f4f6;padding:8px 10px;border-radius:6px;margin:14px 0;font-size:11px;color:#374151;">
-          <strong>טיפ:</strong> 1=הקמת אתר, 12=הדרכה, 13=פתיחת זרימה, 14=בדיקת חשבונות, 15=הושלם
-        </div>
-      </div>
-
+      <!-- 🗓 meeting bullets are rendered here by Task 2 -->
       <div id="editorNameWrap">
         <label for="editorName">👤 מי מעדכן:</label>
         <select id="editorName">
@@ -827,8 +665,7 @@
       </div>
       <div id="editorNameDisplay" style="display:none;padding:8px 10px;background:#f0f9ff;border-right:3px solid #2563eb;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;margin-bottom:12px;"></div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeModal()">ביטול</button>
-        <button class="btn btn-primary" onclick="saveTask()">💾 שמור</button>
+        <button class="btn btn-secondary" onclick="closeModal()">סגור</button>
       </div>
     </div>
 
@@ -1412,7 +1249,7 @@
     <div style="font-size:11px;color:#94a3b8;margin-top:16px;">מערכת התפעול של סיגמטק · כניסה מאובטחת</div>
   </div>
 </div>
-<script src="js/app.js?v=mrnm8c1v"></script>
+<script src="js/app.js?v=mu5s12xt"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

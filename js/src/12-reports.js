@@ -144,68 +144,41 @@
     return hasAny ? section + '\n' : '';
   }
 
+  // "משימות באחריותי" — since "סיגמה 2.00" (spec §2) the per-kibbutz status lines are gone
+  // from the app, so this report lists the person's OPEN EMS tasks (already in the shared
+  // cache) grouped by site, plus the general company tasks.
   function buildMyTasksReport(person) {
-    if (!window.SHEET_DATA || !window.SHEET_DATA.tasks) return '';
-    const owned = window.SHEET_DATA.tasks.filter(t => isOwnerOf(t, person));
+    const cache = (typeof emsCacheData === 'function') ? emsCacheData() : { tasks: [] };
+    const mine = (cache.tasks || []).filter(t =>
+      t.assignee && String(t.assignee.firstName || '').indexOf(person) === 0 && EMS_CLOSED.indexOf(t.status) === -1);
 
-    // Group by region
-    const byRegion = {};
-    owned.forEach(t => {
-      const region = t.region && t.region !== '#N/A' ? t.region : 'ללא אזור';
-      if (!byRegion[region]) byRegion[region] = [];
-      byRegion[region].push(t);
+    const bySite = {};
+    mine.forEach(t => {
+      const site = (t.site && t.site.name) || 'ללא אתר';
+      (bySite[site] = bySite[site] || []).push(t);
     });
+    const sites = Object.keys(bySite).sort((a, b) => a.localeCompare(b, 'he'));
 
-    // Order regions: known order first, then any unknown alphabetically
-    const knownOrdered = REGION_ORDER.filter(r => byRegion[r]);
-    const unknown = Object.keys(byRegion).filter(r => !REGION_ORDER.includes(r)).sort();
-    const orderedRegions = [...knownOrdered, ...unknown];
-
-    const header = `*📋 משימות באחריותי — ${person}*\n📅 ${new Date().toLocaleString('he-IL')}\n`;
+    const header = `*📋 משימות EMS באחריותי — ${person}*
+📅 ${new Date().toLocaleString('he-IL')}
+`;
     const companySection = buildCompanyTasksSection();
-
-    if (orderedRegions.length === 0) {
-      return header + companySection + '\n✨ אין משימות אישיות פתוחות';
-    }
+    if (sites.length === 0) return header + companySection + '\n✨ אין משימות EMS פתוחות';
 
     let report = header + companySection;
-
-    orderedRegions.forEach(region => {
-      report += `\n*━━━ ${region} ━━━*\n`;
-      byRegion[region].forEach(t => {
-        // Decide which lines to show:
-        // 1. Lines mentioning "- person" in status/expectedTask
-        // 2. If none, but person is in owners array → show all status/task lines
-        const personStatusLines = linesForPerson(t.status, person);
-        const personTaskLines = linesForPerson(t.expectedTask, person);
-        const allPersonLines = [...personStatusLines, ...personTaskLines];
-
-        const cleanLines = (raw) => String(raw || '').split(/\n+/).map(s => s.trim()).filter(s => s && s !== '-');
-
-        let lines;
-        if (allPersonLines.length > 0) {
-          lines = allPersonLines;
-        } else {
-          // person is in owners — show generic status/task
-          const allStatus = cleanLines(t.status);
-          const allTask = cleanLines(t.expectedTask);
-          lines = [...allTask, ...allStatus];
-        }
-
-        // De-duplicate while preserving order
-        const seen = new Set();
-        lines = lines.filter(l => { if (seen.has(l)) return false; seen.add(l); return true; });
-
-        report += `*${t.name}*${t.code ? ' (#' + t.code + ')' : ''}\n`;
-        if (lines.length === 0) {
-          report += `- (אין פירוט)\n`;
-        } else {
-          lines.forEach(l => { report += `- ${l}\n`; });
-        }
+    sites.forEach(site => {
+      report += `
+*━━━ ${site} ━━━*
+`;
+      bySite[site].forEach(t => {
+        const due = t.expectedCompletionDate ? ' · 📅 ' + new Date(t.expectedCompletionDate).toLocaleDateString('he-IL') : '';
+        const st = (typeof emsStatusLabel === 'function') ? emsStatusLabel(t.status) : t.status;
+        report += `- ${t.title}${st ? ' (' + st + ')' : ''}${due}
+`;
       });
     });
-
-    report += `\n🔗 https://gist.githack.com/PM-Sigma/4863a959e53104be99a98fa33b5abace/raw/kibbutz-dashboard.html`;
+    report += `
+🔗 https://pm-sigma.github.io/sigmatec-operations-app/`;
     return report;
   }
 

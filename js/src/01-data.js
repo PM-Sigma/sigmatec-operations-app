@@ -31,14 +31,18 @@
     const search = document.getElementById('searchInput').value.trim().toLowerCase();
     document.querySelectorAll('.kibbutz').forEach(card => {
       const name = (card.dataset.name || '').toLowerCase();
-      const types = (card.dataset.types || '').split(' ');
+      const section = card.dataset.section || '';
+      const marketing = card.dataset.marketing === 'true';
       const region = (card.dataset.region || '').toLowerCase();
       // Build full haystack: name + region + all visible text inside the card
       let haystack = name + ' ' + region + ' ' + (card.textContent || '').toLowerCase();
 
       const matchSearch = !search || haystack.includes(search);
       // When user types in search, ignore category filter (better UX)
-      const matchFilter = search ? true : (currentFilter === 'all' || types.includes(currentFilter));
+      const matchFilter = search ? true
+        : currentFilter === 'all' ? true
+        : currentFilter === 'marketing' ? marketing
+        : section === currentFilter;
       card.classList.toggle('hidden', !(matchSearch && matchFilter));
     });
 
@@ -47,23 +51,6 @@
       const cards = section.querySelectorAll('.kibbutz:not(.hidden)');
       section.style.display = (search || currentFilter !== 'all') && cards.length === 0 ? 'none' : '';
     });
-  }
-
-  function toggleCompactMode() {
-    document.body.classList.toggle('compact');
-    const isCompact = document.body.classList.contains('compact');
-    const btn = document.getElementById('compactToggle');
-    if (btn) {
-      btn.classList.toggle('active', isCompact);
-      btn.textContent = isCompact ? '🖥 תצוגה מלאה' : '📱 תצוגה מצומצמת';
-    }
-  }
-
-  // Auto-compact ONLY on mobile (no localStorage persistence — fresh each session per device)
-  if (window.innerWidth < 768) {
-    document.body.classList.add('compact');
-    const btn = document.getElementById('compactToggle');
-    if (btn) { btn.classList.add('active'); btn.textContent = '🖥 תצוגה מלאה'; }
   }
 
   function toggleSection(header) {
@@ -121,99 +108,22 @@
   };
   const DATA_FLOWING = new Set([926, 951, 927, 946, 957, 911, 950, 919, 915, 964, 959, 934, 974, 906, 971, 975, 948, 953, 903, 944, 940]);
 
+  // Customer-code badge on each card. The old "no data flow" urgent banner it used to
+  // feed is gone (spec §2 — flow flags removed); EMS tasks carry that signal now.
   function injectCustomerCodes() {
-    const urgent = new Map();
     document.querySelectorAll('.kibbutz').forEach(card => {
-      const name = card.dataset.name;
-      const code = CUSTOMER_CODES[name];
-      const isDone = (card.dataset.types || '').split(' ').includes('done');
-
-      const meta = card.querySelector('.kibbutz-meta');
-      if (meta && !meta.querySelector('.code-badge')) {
+      const code = CUSTOMER_CODES[card.dataset.name];
+      const row = card.querySelector('.kibbutz-name-row');
+      if (row && !row.querySelector('.code-badge')) {
         const badge = document.createElement('span');
         badge.className = 'code-badge';
         badge.textContent = code ? '#' + code : '⚠️ אין קוד';
-        meta.appendChild(badge);
+        row.appendChild(badge);
       }
-
-      // Note: urgent-flag is now redundant with the procedure button.
-      // The proc-btn (red pending / green done) is the single source of truth
-      // for "data flow active or not" — same concept per user spec.
     });
-
-    if (urgent.size > 0) {
-      const alertEl = document.getElementById('urgentAlert');
-      alertEl.style.display = 'block';
-      const items = [...urgent.entries()].map(([n, c]) =>
-        '<strong>' + n + '</strong> <span class="code-badge">' + (typeof c === 'number' ? '#' + c : c) + '</span>'
-      ).join(' &nbsp;·&nbsp; ');
-      document.getElementById('urgentList').innerHTML = items;
-      document.getElementById('urgentCount').textContent = urgent.size;
-    }
   }
 
   window.addEventListener('load', injectCustomerCodes);
-
-  // 12 setup steps stepper
-  const STEPS = [
-    'הקמת אתר ופרטי המחלק',
-    'הקמת מונים',
-    'הקמת לקוחות',
-    'השלמת פרטי לקוחות ותעריפים',
-    'הקמת שיוכים לקוחות/מונים',
-    'הקמת מערכות סולאריות',
-    'השלמת פרטי מערכות',
-    'הקמת שיוכים מערכות/מונים',
-    'הקמת תבנית אקסל מותאמת אישית',
-    'הקמת משתמשים ושליחת הזמנות',
-    'ווידוא פרטי מחלק (אייקון + מס׳ חוזה סולארי)',
-    'תיאום הדרכה',
-    'חיבור תקשורת / פתיחת זרימת נתונים',
-    'בדיקת חשבונות'
-  ];
-  const TOTAL_STEPS = 14;
-
-  function injectSteppers() {
-    document.querySelectorAll('.kibbutz').forEach(card => {
-      const types = (card.dataset.types || '').split(' ');
-      let currentStep = parseInt(card.dataset.step);
-      if (isNaN(currentStep)) {
-        if (types.includes('done')) currentStep = TOTAL_STEPS + 1;
-        else if (types.includes('priority') || types.includes('dev')) currentStep = 3;
-        else return;
-      }
-      // Finished kibbutz (live / "done" / reached the final step) → hide the whole setup
-      // progression (stepper + current-step label). No need to re-show steps. Notes kept.
-      if (types.includes('done') || currentStep > TOTAL_STEPS) {
-        card.querySelectorAll('.stepper, .current-step-label').forEach(e => e.remove());
-        return;
-      }
-      if (card.querySelector('.stepper')) return;
-      const stepper = document.createElement('div');
-      stepper.className = 'stepper';
-      let html = '';
-      for (let i = 1; i <= TOTAL_STEPS; i++) {
-        let cls = 'step';
-        if (i < currentStep) cls += ' done';
-        else if (i === currentStep) cls += ' current';
-        html += '<div class="' + cls + '" title="' + i + '. ' + STEPS[i-1] + '">' + i + '</div>';
-      }
-      stepper.innerHTML = html;
-      card.appendChild(stepper);
-
-      const label = document.createElement('div');
-      if (currentStep > TOTAL_STEPS) {
-        label.className = 'current-step-label complete';
-        label.textContent = '✅ כל ' + TOTAL_STEPS + ' השלבים הושלמו';
-      } else {
-        label.className = 'current-step-label';
-        label.textContent = '🟠 שלב נוכחי: ' + currentStep + '. ' + STEPS[currentStep-1];
-      }
-      card.appendChild(label);
-    });
-  }
-
-  window.addEventListener('load', injectSteppers);
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
@@ -456,6 +366,18 @@
   const USE_SUPABASE = location.search.indexOf('sb=0') === -1;
   const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
   const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
+  // 🧪 ?sb=0 (Apps Script fallback / offline sandbox): there is no Supabase router, so the
+  // kibbutz cards have no source. Serve a 3-row fixture instead — enough for both sections
+  // (and both region groups) to render, so the page is never blank in the sandbox.
+  if (!USE_SUPABASE) {
+    const MOCK_KIBBUTZIM = [
+      { name: 'דפנה',  section: 'new',    energy: ['electric'], marketing: false, region: 'גליל וגולן', archived_at: null },
+      { name: 'יגור',  section: 'active', energy: ['electric'], marketing: false, region: 'העמקים',    archived_at: null },
+      { name: 'שלוחות', section: 'active', energy: ['electric'], marketing: true,  region: 'העמקים',    archived_at: null }
+    ];
+    window._sbGet = async (path) => /^kibbutzim/.test(path) ? MOCK_KIBBUTZIM.slice() : [];
+  }
+
   if (USE_SUPABASE) (function setupSupabaseRouter() {
     // Auth header. The bridge mints a role=authenticated token, but the DB only USES it once
     // USE_SB_BRIDGE is on (i.e. AFTER the 'authenticated' RLS policies exist). Until then → anon,
@@ -475,6 +397,7 @@
     // insert that RETURNS the row (delivery_certs needs the server-assigned cert_number back)
     const sbInsertRet = async (table, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(), { Prefer: 'return=representation' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); return (await r.json())[0]; };
     window._sbCertGet = sbGet;   // read-only handle for the delivery-cert module (kibbutz_details + cert reports)
+    window._sbGet = sbGet;       // read-only handle for the kibbutzim card list (js/src/24-kibbutzim.js)
 
     // ---- READ: assemble the exact snapshot shape the app already consumes ----
     async function readSnapshot() {
@@ -807,31 +730,6 @@
     prospect: { label: '⚪ פוטנציאלי',   color: '#94a3b8' }
   };
 
-  // Category → DOM target + class config
-  const CATEGORIES = {
-    priority:   { gridId: 'grid-priority',   classes: 'kibbutz pending priority', types: 'pending priority', addFlag: true  },
-    new_client: { gridId: 'grid-new_client', classes: 'kibbutz new-client',       types: 'pending',          addFlag: false },
-    done:       { gridId: 'grid-done',       classes: 'kibbutz done',             types: 'done',             addFlag: false },
-    pending:    { gridId: 'grid-pending',    classes: 'kibbutz pending',          types: 'pending',          addFlag: false }
-  };
-
-  function moveCardToCategory(card, category) {
-    const cfg = CATEGORIES[category];
-    if (!cfg) return;
-    card.className = cfg.classes;
-    card.dataset.types = cfg.types;
-    const existingFlag = card.querySelector('.priority-flag');
-    if (!cfg.addFlag && existingFlag) existingFlag.remove();
-    if (cfg.addFlag && !existingFlag) {
-      const flag = document.createElement('span');
-      flag.className = 'priority-flag';
-      flag.textContent = 'עדיפות';
-      card.insertBefore(flag, card.firstChild);
-    }
-    const target = document.getElementById(cfg.gridId);
-    if (target && card.parentNode !== target) target.appendChild(card);
-  }
-
   // "עודכן לאחרונה ע"י X · HH:MM" — editor + timestamp already live on each task row
   // (server-set, same fields the activity tracker reads). ponytail: no new storage, just surface them.
   function lastUpdateText(task) {
@@ -860,96 +758,14 @@
       card.dataset.lastModified = task.lastModified || '';
 
       const parsed = parseTaskField(task.task);
-      // Move card to category if Sheet has a value (overrides static HTML placement)
-      if (parsed.cat && CATEGORIES[parsed.cat]) {
-        moveCardToCategory(card, parsed.cat);
-      }
-      // Override data-step if Sheet has a value
-      if (parsed.step) {
-        card.dataset.step = String(parsed.step);
-      }
-      // Override the .kibbutz-note if Sheet has one
-      if (parsed.note) {
-        let noteEl = card.querySelector('.kibbutz-note');
-        if (!noteEl) {
-          noteEl = document.createElement('div');
-          noteEl.className = 'kibbutz-note';
-          card.appendChild(noteEl);
-        }
-        noteEl.textContent = parsed.note;
-      }
 
       // Remove old enrichment if exists
       card.querySelectorAll('.excel-injected').forEach(e => e.remove());
-      // Remove old stepper so it can be re-built with possibly new step
-      card.querySelectorAll('.stepper, .current-step-label').forEach(e => e.remove());
 
-      const wrap = document.createElement('div');
-      wrap.className = 'excel-injected';
-
-      // Region badge — placed in a row with the kibbutz name (LEFT of name in RTL)
-      // Clean up old placement if any
-      card.querySelectorAll('.kibbutz-meta .region-badge').forEach(e => e.remove());
-
-      const nameEl = card.querySelector('.kibbutz-name');
-      if (nameEl && task.region) {
-        let nameRow = card.querySelector('.kibbutz-name-row');
-        if (!nameRow) {
-          nameRow = document.createElement('div');
-          nameRow.className = 'kibbutz-name-row';
-          nameEl.parentNode.insertBefore(nameRow, nameEl);
-          nameRow.appendChild(nameEl);
-        }
-        // Remove any duplicate region badge in the name row first
-        nameRow.querySelectorAll('.region-badge').forEach(e => e.remove());
-        const rb = document.createElement('span');
-        rb.className = 'region-badge excel-injected';
-        rb.setAttribute('data-region', task.region);
-        rb.textContent = '📍 ' + task.region;
-        nameRow.appendChild(rb);
-      }
-      // Save region on card itself for filter/search
+      // The region is grouped into a sub-header by renderKibbutzCards, so the card
+      // itself only carries it as data (search + filters read it).
       if (task.region) card.dataset.region = task.region;
-
-      // (Client-type/engagement badge intentionally not rendered — hidden per request.)
       card.dataset.engagement = parsed.type || '';
-
-      // Status (single merged field). The legacy expectedTask is folded in until the
-      // next save migrates it (the edit modal now has one combined "סטטוס ומשימות" field).
-      // The EMS-tasks widget (or the "open new EMS task" line) is added below this by
-      // applyCardEmsWidgets — reorderCards keeps the order name → status → EMS.
-      const mergedStatus = [task.status, task.expectedTask]
-        .map(x => String(x || '').trim()).filter(x => x && x !== '-').join('\n');
-      if (mergedStatus) {
-        const s = document.createElement('div');
-        s.className = 'excel-status excel-injected';
-        // prominent header inside the element so reorderCards keeps them together
-        const sh = document.createElement('div');
-        sh.className = 'card-sec-head';
-        sh.textContent = '📋 סטטוס ומשימות';
-        const sb = document.createElement('div');
-        sb.textContent = mergedStatus;
-        s.appendChild(sh); s.appendChild(sb);
-        card.appendChild(s);
-      }
-
-      // Owners as chips (with a prominent header)
-      if (task.owners && task.owners.length > 0) {
-        const row = document.createElement('div');
-        row.className = 'owners-row excel-injected';
-        const oh = document.createElement('span');
-        oh.className = 'card-sec-head';
-        oh.textContent = '👥 אחראים';
-        row.appendChild(oh);
-        task.owners.slice(0, 2).forEach(o => {
-          const chip = document.createElement('span');
-          const known = ['עידן','עמיחי','אביאם','ניתאי'];
-          chip.className = 'owner-chip ' + (known.includes(o) ? 'owner-' + o : 'owner-other');
-          chip.textContent = '👤 ' + o;
-          row.appendChild(chip);
-        });
-        card.appendChild(row);
-      }
 
       // Last-updated indicator (who + when)
       const updTxt = lastUpdateText(task);
@@ -958,17 +774,6 @@
         u.className = 'card-updated excel-injected';
         u.textContent = updTxt;
         card.appendChild(u);
-      }
-
-      // Marketing badge for "שיווק" status
-      if (task.status === 'שיווק' || task.expectedTask === 'שיווק') {
-        const meta2 = card.querySelector('.kibbutz-meta');
-        if (meta2 && !meta2.querySelector('.marketing-badge')) {
-          const mb = document.createElement('span');
-          mb.className = 'marketing-badge excel-injected';
-          mb.textContent = '🛒 שיווק';
-          meta2.appendChild(mb);
-        }
       }
 
       // Calendar events for this kibbutz (from data.calendar map)
@@ -983,8 +788,7 @@
       });
 
       // Single procedure/flow button for "באוויר" kibbutzim
-      const types = (card.dataset.types || '').split(' ');
-      if (types.includes('done')) {
+      if (card.dataset.section === 'active') {
         const procDone = parsed.proc;
         card.dataset.procDone = procDone ? 'true' : 'false';
 

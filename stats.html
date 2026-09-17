@@ -148,7 +148,7 @@
     <!-- KPIs -->
     <div class="kpi-grid">
       <div class="kpi green">
-        <div class="kpi-label">✅ עלו לאוויר</div>
+        <div class="kpi-label">✅ לקוחות פעילים</div>
         <div class="kpi-value" id="kpiDone">0</div>
         <div class="kpi-sub" id="kpiDonePct">0%</div>
       </div>
@@ -163,7 +163,7 @@
         <div class="kpi-sub" id="kpiNewClientPct">0%</div>
       </div>
       <div class="kpi">
-        <div class="kpi-label">⬜ ממתינים</div>
+        <div class="kpi-label">🤝 בתהליך שיווקי</div>
         <div class="kpi-value" id="kpiPending">0</div>
         <div class="kpi-sub" id="kpiPendingPct">0%</div>
       </div>
@@ -214,8 +214,8 @@
             <th>אחראי</th>
             <th>סה"כ קיבוצים</th>
             <th>בעדיפות</th>
-            <th>באוויר</th>
-            <th>ממתינים</th>
+            <th>לקוחות פעילים</th>
+            <th>בתהליך שיווקי</th>
             <th>לקוחות חדשים</th>
           </tr>
         </thead>
@@ -232,8 +232,8 @@
             <th>אזור</th>
             <th>סה"כ קיבוצים</th>
             <th>בעדיפות</th>
-            <th>באוויר</th>
-            <th>ממתינים</th>
+            <th>לקוחות פעילים</th>
+            <th>בתהליך שיווקי</th>
             <th>שוטף</th>
             <th>מתנדנד</th>
             <th>חדש</th>
@@ -488,7 +488,7 @@ function render(data) {
 
   // ===== Category chart =====
   drawChart('categoryChart', 'doughnut',
-    ['✅ עלה לאוויר', '🔴 עדיפות', '🆕 חדש', '⬜ ממתין'],
+    ['✅ לקוחות פעילים', '🔴 עדיפות', '🆕 חדש', '🤝 בתהליך שיווקי'],
     [countDone, countPriority, countNew, countPending],
     ['#10b981', '#dc2626', '#f97316', '#94a3b8']
   );

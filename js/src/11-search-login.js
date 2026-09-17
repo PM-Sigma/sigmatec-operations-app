@@ -268,9 +268,9 @@
   updateMeetingBadge();
   if (isMeetingMode()) document.body.classList.add('meeting-mode');
 
-  // Compute the counts/percentages from the static cards on first paint, so the numbers
-  // are correct immediately instead of showing stale hardcoded HTML until the fetch lands.
-  updateStatsFromCards();
+  // First paint of the card list from the local cache, so the sections are populated
+  // before the Supabase round-trip lands (renderKibbutzCards also sets every count).
+  if (typeof kibbutzimFirstPaint === 'function') kibbutzimFirstPaint();
   refreshData();
   // Smart polling: only when tab is visible. Pauses when user switches tabs/minimizes.
   let _pollHandle = null;
