@@ -184,6 +184,9 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
 - **Libraries (עידן 17.9 — "פחות AI, יותר מקצועי ונקי, טיפה יותר הנפשות"):** Lucide SVG icons instead of UI emoji ·
   GSAP core for sheet/cards/link animations (CSS fallback, reduced-motion respected) · IBM Plex Sans Hebrew as the body
   face (Heebo fallback). Flat hairline cards, shadows only on floating layers, gradient only on brand touchpoints.
+- **Micro-motion (עידן 17.9):** cards fade in/out on filter and search (crossfade, staggered), sections tween open/closed,
+  new/edited card fades in with a brief brand-gradient hairline highlight, bullet→🔗 morph, button press scale, sliding
+  chip pill, toast slide, skeleton shimmer while loading. All ≤ 250 ms (sheet 320 ms); `prefers-reduced-motion` disables.
 - **Tokens**: add `--radius-lg:14px`, `--surface-2`, the brand pair, and the dark block above.
 - **Density**: one card ≈ 3 scrolls of thumb max; long EMS descriptions allowed (per §4) — tall cards, dense grid.
 - **Viewer / reports user (עידן 17.9):** the `body.user-viewer` experience is redesigned with the same tokens, bottom
