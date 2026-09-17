@@ -281,6 +281,43 @@ makes the card list **data-driven**, which also simplifies Part A (renames/re-ho
 - Contract test: every row renders exactly one card; every meeting-note kibbutz resolves to a row or the import
   preview flags it (the "אין כרטיס תואם" state in §3.2 now offers "צור קיבוץ" inline).
 
+## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
+
+עידן named a React/Tailwind stack: **shadcn/ui, Magic UI, Aceternity UI, Motion, Sonner, Vite, TanStack Query,
+supabase-js** (+ shadcn Charts / Tremor for data viz). The app today is 13k lines of vanilla JS in 23 modules. A full
+rewrite is out of scope for this release; instead the **new surfaces are built in React** and mounted as islands
+inside the existing page, while legacy modules (orders, inventory, certs, attendance, calendar, dev board, push,
+EMS client) keep running unchanged and are reached through a typed bridge.
+
+- **`app/`** — Vite + React 18 + TypeScript + Tailwind 3 + shadcn/ui (Lucide icons come with it). Build output
+  `ui/sigma.js` + `ui/sigma.css` **committed** (GitHub Pages is static; same convention as `js/app.js`).
+  `node build.mjs` runs `npm --prefix app run build` first, then the legacy concat + cache-bust.
+- **Islands** (each a `createRoot` into a placeholder in `index.html`): `#sigma-home` (cards: sections, regions,
+  meeting bullets, EMS tasks, filters/search, ➕ sheet), `#sigma-nav` (bottom nav + theme toggle + user chip),
+  `#sigma-field` (arrival sheet + briefing), `#sigma-feedback`, `#sigma-import`, `#sigma-toaster` (Sonner).
+- **Bridge `window.sigma`** (defined in a new legacy module `js/src/00-bridge.js`, first in concat order): `{
+  getCurrentUser, isViewer, isIdan, isAdmin, ATT_PEOPLE, emsApi, isEmsConnected, emsCacheData, emsSiteIdForKibbutz,
+  getEmsSites, kibbutzHasSite, openVisitQuick(kibbutz?), certFromVisitForm, certFromVisit(id), getLastVisit,
+  loadAllVisitsCombined, openKibbutzEmsTask(id), createTask(item), showPage, toast(msg) }` — React never touches other
+  globals. Legacy code calls back into React through `window.sigmaBus` (a tiny `EventTarget`): events `user-changed`,
+  `ems-cache-synced`, `visit-saved`, `theme-changed`.
+- **Data**: supabase-js client (anon key; the EMS-gate JWT is passed with `setSession` when present) + TanStack Query
+  (`['kibbutzim']`, `['meetingNotes']`, `['checkins', person]`, `['feedback']`; `staleTime` 60 s; persisted to
+  `localStorage` via the query persister for offline first paint).
+- **Styling isolation**: Tailwind `corePlugins.preflight=false`, `important: '#sigma-root'` (every island root has that
+  id-class pair), scoped mini-reset inside islands; shadcn CSS variables map to the brand tokens (`--primary` = brand
+  gradient stops, `--radius: 0.875rem`); `darkMode: ['class']`, `.dark` toggled together with `data-theme`.
+- **Library roles**: shadcn — Button, Sheet (bottom sheets), Dialog, Badge, Tabs, Command (kibbutz search / arrival
+  picker), Select, Switch, Textarea, Skeleton, ToggleGroup; **Motion** — `AnimatePresence` + `layout` for card
+  crossfade/reorder on filters, sheet springs, bullet→🔗 morph; **Magic UI** — BorderBeam (new/edited card), ShimmerButton
+  (primary CTA), AnimatedList (bullets), NumberTicker (section counts), BlurFade (screen enter); **Aceternity** — one
+  restrained Spotlight hover on desktop cards and a subtle background-beams header on the briefing only; **Sonner** —
+  all toasts (replaces legacy `toast` for React surfaces, legacy toast kept for legacy pages); **Charts (shadcn/Recharts,
+  Tremor)** — NOT in this release; earmarked for the `kibbutz-stats.html` rewrite.
+- **Tests**: pure logic lives in `app/src/lib/*.ts` (parser, grouping, chain reduce, nudges, validators) with **vitest**
+  golden fixtures (same methodology); legacy node runners keep running; `npm test` runs both.
+- **Motion budget** stays as §6: ≤ 250 ms (sheets 320), `useReducedMotion()` disables.
+
 ## 8. Execution plan (agents)
 
 Branch `feat/kibbutz-cards-redesign`; sub-branches per chunk merged into it; then → `dev` → `main` per CLAUDE.md
@@ -288,7 +325,8 @@ parallel-safe loop. Each chunk ends green on `node --test` suites + a smoke on `
 
 | # | Chunk | Agent | Depends on |
 |---|-------|-------|-----------|
-| 1 | Part G table + seed + data-driven cards, then Part A removals/renames on top + reports rewrite | Opus | — |
+| 0 | React islands scaffold: `app/` Vite+React+TS+Tailwind+shadcn, bridge, build integration, theme, Sonner, bottom nav shell | Opus | — |
+| 1 | Part G table + seed + Part A removals/renames + reports rewrite (data layer; card render moves to React in 1b) | Opus | — |
 | 1b | ➕ קיבוץ חדש sheet + modal edit/archive | Sonnet | 1 |
 | 2 | Part B parser + table SQL + import modal + card/modal timeline + ➕ task | Opus | 1 |
 | 3 | Part C full EMS tasks on card (+ cache field) | Sonnet | 1 |

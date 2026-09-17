@@ -6,13 +6,14 @@
 
 **Architecture:** Vanilla JS PWA (`js/src/NN-*.js` concatenated by `node build.mjs` into `js/app.js`), Supabase REST + Edge Functions (`push-send`), static `index.html` + `css/app.css`. New modules are pure-builder + thin-writer so `node test-*.mjs` runners can prove them without a browser. Cards become rows in a new `kibbutzim` table rendered client-side; everything else attaches to those cards as today.
 
-**Tech Stack:** ES5-style browser JS (no bundler, no framework), Supabase (Postgres, RLS, pg_cron, Edge Functions on Deno), Web Push, Web Speech API, Groq Whisper, Google Fonts (Heebo), `motion` UMD from cdnjs.
+**Tech Stack:** **REVISION 2 (17.9, עידן's library list):** new surfaces are **React islands** — `app/` = Vite + React 18 + TypeScript + Tailwind 3 + shadcn/ui + Motion + Sonner + TanStack Query + supabase-js + Magic UI / Aceternity components (copied in), Lucide icons; built to committed `ui/sigma.js|css`. Legacy vanilla modules stay and are reached via `window.sigma` (spec §7c). Backend: Supabase (Postgres, RLS, pg_cron, Edge Functions on Deno), Web Push, Web Speech API, Groq Whisper. Pure logic in `app/src/lib/*.ts` tested with vitest; legacy `test-*.mjs` runners stay.
 
 **Spec:** `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (APPROVED 17.9.26). Mockup: https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP
 
 ## Global Constraints
 
 - Work ONLY in worktree `C:\Users\idann\Projects\SigmatecOps-wt-cards` on branch `feat/kibbutz-cards-redesign` (off `origin/dev`). Sub-branches `feat/kcr-<task>` merge into it. Never touch `main`/`dev` directly; never `git add -A`.
+- React islands rules (spec §7c): all new UI is React in `app/src/`; NO new vanilla UI. Legacy globals only via `window.sigma`. Tailwind `important:'#sigma-root'`, preflight off. shadcn components via `npx shadcn@latest add <name>` into `app/src/components/ui/`. Magic UI / Aceternity components are copied into `app/src/components/fx/` with their MIT header. Commit `ui/sigma.js|css` build output together with the source change.
 - Edit `js/src/*.js`, never `js/app.js`. Run `node build.mjs` only at the end of a task (it rewrites `js/app.js`, `index.html ?v=`, `sw.js` cache name, `VERSION`). Final release uses `node build.mjs major` → `2.00`.
 - Tests: plain `node test-<area>.mjs` with `assert`, pattern of `test-visit-cert-gate.mjs` (read the source file, stub `document`/`localStorage`/`fetch`, eval, assert). One runner per task; the full set must be green before a task is "done": `for f in test-*.mjs; do node $f || exit 1; done`.
 - Hebrew UI copy exactly as in the spec. Section labels: **🆕 לקוחות חדשים**, **✅ לקוחות פעילים**. Tag: **🤝 בתהליך שיווקי**. App name **סיגמה**, subtitle **תפעול שטח**.
@@ -52,9 +53,37 @@
 
 ---
 
+### Task 0: React islands scaffold + bridge + build + theme + Sonner + bottom nav
+
+**Agent:** Opus. Runs BEFORE Task 1b; Task 1 (data layer) may run in parallel on the legacy side.
+
+**Files:**
+- Create: `app/package.json`, `app/vite.config.ts`, `app/tailwind.config.ts`, `app/tsconfig.json`, `app/postcss.config.js`, `app/components.json` (shadcn), `app/src/main.tsx`, `app/src/islands.tsx`, `app/src/bridge.ts`, `app/src/lib/supabase.ts`, `app/src/lib/query.ts`, `app/src/lib/theme.ts`, `app/src/lib/theme.test.ts`, `app/src/components/Nav.tsx`, `app/src/components/ThemeToggle.tsx`, `app/src/components/UserChip.tsx`, `app/src/components/ui/*` (shadcn: button, sheet, dialog, badge, tabs, command, select, switch, textarea, skeleton, toggle-group, sonner), `app/src/styles.css`, `js/src/00-bridge.js`, `ui/.gitkeep`
+- Modify: `build.mjs` (run `npm --prefix app run build` before concat; copy `app/dist/sigma.js|css` → `ui/`; add `?v=` stamping for `ui/sigma.*` in `index.html`), `index.html` (add `<link rel="stylesheet" href="ui/sigma.css">`, `<script type="module" src="ui/sigma.js">`, placeholders `#sigma-nav`, `#sigma-toaster`, `#sigma-home` (empty for now, above the legacy sections), `#sigma-field`, `#sigma-feedback`, `#sigma-import`), `sw.js` (precache `ui/sigma.js|css`), `.gitignore` (`app/node_modules`, `app/dist`), `package.json` root (`"test": "for f in test-*.mjs …; npm --prefix app test"` → use a `scripts/test-all.mjs` that runs both and exits non-zero on first failure).
+
+**Interfaces:**
+- `js/src/00-bridge.js` defines `window.sigma` exactly as spec §7c lists (functions resolved lazily: `sigma.emsApi = (...a) => emsApi(...a)` so load order does not matter) and `window.sigmaBus = new EventTarget()`. Legacy emits: `sigmaBus.dispatchEvent(new CustomEvent('user-changed'))` from the two places that write `USER_KEY` (11-search-login.js, 15-login-gate.js), `'ems-cache-synced'` at the end of the EMS cache sync in 13-ems.js, `'visit-saved'` at the end of `saveVisit` success in 09-visits.js.
+- `app/src/bridge.ts`: `export const sigma = (window as any).sigma as Sigma` with the `Sigma` type; `useSigmaEvent(name, handler)` hook; `useCurrentUser()` (re-renders on `user-changed`).
+- `app/src/lib/theme.ts`: `themeResolve(stored:'light'|'dark'|'system'|null, prefersDark:boolean): 'light'|'dark'`; `applyTheme(v)` sets `html.dataset.theme`, toggles `html.classList('dark')`, updates `<meta name="theme-color">` (`#EEF3F5` / `#0F1417`), persists `localStorage.theme`. Inline boot snippet in `index.html <head>` applies stored theme before first paint.
+- `app/src/islands.tsx`: `mount(id, Component)` helper — mounts only if the placeholder exists; each root element gets `id="sigma-root"` class wrapper `.sigma-root` (Tailwind `important:'.sigma-root'` — use the class, several roots exist).
+- `Nav.tsx`: phone-only bottom nav (`md:hidden`): 🏘 קיבוצים → `sigma.showPage('kibbutz')`, 🚚 תעודה → `sigma.certFromVisitForm()`… (per spec §6; the center raised **📍 ביקור** → `sigma.openVisitQuick()`), ⋯ עוד → shadcn `Sheet` (side="bottom") listing the legacy pages (`showPage`), 🌙/☀️ ThemeToggle, and slots later tasks fill (`navMoreItems` registry in `app/src/lib/registry.ts`: `registerMoreItem({id,label,icon,onSelect,roles})`). Viewer role sees 🏘 · 📊 דוחות (scroll to `#viewerReportsHub`) · ⋯.
+- Sonner: `<Toaster richColors position="top-center" dir="rtl" />` in `#sigma-toaster`; `sigma.toast = (msg, opts) => toast(msg, opts)` is written back onto `window.sigma` so legacy code can use it too.
+
+**Steps:**
+- [ ] 1. `npm create vite@latest app -- --template react-ts`; add tailwind (`npx tailwindcss init -p`), shadcn (`npx shadcn@latest init` → style default, base color slate, CSS vars yes, `components.json` aliases `@/`), `npm i motion sonner @tanstack/react-query @tanstack/query-sync-storage-persister @tanstack/react-query-persist-client @supabase/supabase-js lucide-react`, `npm i -D vitest`. Vite config: `build.outDir:'dist'`, `build.rollupOptions.output.entryFileNames:'sigma.js', assetFileNames:'sigma.[ext]'`, `base:'./'`, `build.cssCodeSplit:false`. Tailwind: `important:'.sigma-root'`, `corePlugins:{preflight:false}`, `darkMode:['class']`, `content:['./src/**/*.{ts,tsx}']`, fonts `sans:['IBM Plex Sans Hebrew','Heebo',…]`, brand colors from CSS vars.
+- [ ] 2. `styles.css`: shadcn `:root` / `.dark` variable blocks mapped to the brand (`--primary: 178 94% 41%` cyan, `--ring` brand, `--radius:0.875rem`, surfaces from spec §6 dark palette), plus `.sigma-root{font-family:…;direction:rtl;color:var(--foreground)}` mini-reset (`*,::before,::after{box-sizing:border-box}` scoped, `button{font:inherit}`).
+- [ ] 3. vitest for `themeResolve` (3 cases) + `registry` (register/list by role; viewer excluded items). RED → implement → GREEN.
+- [ ] 4. Bridge module + events; islands + Nav + ThemeToggle + UserChip (● dot green when `sigma.isEmsConnected()`, label = current user; click → legacy `changeUser()` via `sigma.showUserMenu` — add that to the bridge as `changeUser`).
+- [ ] 5. `build.mjs` integration; `sw.js` precache; `index.html` placeholders + head boot snippet + font link (IBM Plex Sans Hebrew). Run `node build.mjs`; verify `ui/sigma.js` exists and `index.html?login=0&sb=0` shows the bottom nav on a 390 px viewport (browser pane) and legacy pages still switch. Both themes.
+- [ ] 6. `scripts/test-all.mjs` runs legacy runners then `npm --prefix app test -- --run`; all green. Commit (source + `ui/` output + lockfile).
+
+---
+
 ### Task 1: Kibbutzim as data (table, seed, render) + Part A removals/renames
 
 **Agent:** Opus. **Branch:** `feat/kcr-kibbutzim`.
+
+**REVISION 2 delta:** this task stays on the legacy side as the **data layer + removals**: table, seed, migration, Part A removals/renames, reports rewrite, and a minimal `renderKibbutzCards` fallback so the page is never empty before Task 1b lands. Task 1b replaces that render with the React `Home` island and deletes the fallback.
 
 **Files:**
 - Create: `db/kibbutzim.sql`, `db/kibbutzim_seed.mjs`, `js/src/24-kibbutzim.js`, `test-kibbutzim.mjs`
@@ -115,7 +144,9 @@ create policy kibbutzim_write on kibbutzim for all to authenticated using (true)
 
 ### Task 1b: ➕ קיבוץ חדש / תת-אתר sheet + EMS verification chain + edit/archive
 
-**Agent:** Opus (EMS chain needs judgment). **Branch:** `feat/kcr-new-kibbutz`. Depends on Task 1.
+**Agent:** Opus (EMS chain needs judgment).
+
+**REVISION 2 delta — this task builds the React `Home` island (spec §7c):** `app/src/islands/Home.tsx` mounted in `#sigma-home`: TanStack query `['kibbutzim']` via supabase-js (`from('kibbutzim').select('*').is('archived_at',null)`), pure `groupBySection` moved to `app/src/lib/kibbutzim.ts` (same golden tests, vitest), `<Section>` → `<RegionLabel>` → `<KibbutzCard>` (flat hairline card, `motion.div layout` + `AnimatePresence` for filter crossfade — leaving 160 ms fade+y6, entering 220 ms stagger 25 ms), filter chips as shadcn `ToggleGroup`, search as shadcn `Command`-style input, section counts with Magic UI `NumberTicker`. Legacy decorators (`applyCardEmsWidgets`, `applyCardSiteWarnings`, `renderCardNotes` until Task 2 ports them) still run on `.kibbutz[data-name]` — keep those attributes and the `.kibbutz-name-row` anchor on the React card, and re-run them from a `useEffect` after render via `sigma.decorateCards()` (add to bridge: calls the three legacy passes). The ➕ / ✏️ sheet is a shadcn `Sheet side="bottom"` (`KibbutzSheet.tsx`) with the two modes and the EMS chain panel (`EmsChain.tsx`, steps animate in with Magic UI `AnimatedList`); a new/edited card gets Magic UI `BorderBeam` for 1.2 s. Toasts via Sonner. Delete the legacy `renderKibbutzCards` fallback and `#grid-new/#grid-active` static shells when the island is in. **Branch:** `feat/kcr-new-kibbutz`. Depends on Task 1.
 
 **Files:** Modify `js/src/24-kibbutzim.js`, `index.html` (sheet markup), `test-kibbutzim.mjs`.
 
@@ -136,7 +167,9 @@ create policy kibbutzim_write on kibbutzim for all to authenticated using (true)
 
 ### Task 2: Meeting notes — parser, table, import, card timeline, ➕ EMS task from bullet
 
-**Agent:** Opus. **Branch:** `feat/kcr-meeting-notes`. Depends on Task 1.
+**Agent:** Opus. **Branch:** `feat/kcr-meeting-notes`. Depends on Task 1b.
+
+**REVISION 2 delta:** parser → `app/src/lib/meetingNotes.ts` (vitest goldens with the same fixtures under `app/src/lib/__fixtures__/`); timeline → `MeetingNotes.tsx` rendered inside `KibbutzCard` (Magic UI `AnimatedList` for bullets, shadcn `Collapsible` for היסטוריה, bullet→🔗 morph with Motion `layoutId`); import → `ImportSheet.tsx` island in `#sigma-import` (admins; opened from ⋯ עוד via the registry); ➕ task from bullet calls `sigma.createTask(item)` then mutates the note. No `25-meeting-notes.js`.
 
 **Files:** Create `db/kibbutz_meeting_notes.sql`, `js/src/25-meeting-notes.js`, `test-meeting-notes.mjs`, `test/fixtures/summary_17.9.26.md` (copy of `C:\Users\idann\Projects\Sigmatec Management\Company Meeting\17.9.26\summary_17.9.26.md`), `test/fixtures/summary_6.9.26.md` (copy of `…\6.9.26\_edited2.md`), `test/fixtures/expected_17.9.26.json`. Modify `index.html` (import modal, modal tab content), `js/src/13-ems.js` (export `createTask` prefill helper).
 
@@ -180,7 +213,9 @@ create policy kmn_write on kibbutz_meeting_notes for all to authenticated using 
 
 ### Task 3: EMS tasks in full on the card
 
-**Agent:** Sonnet. **Branch:** `feat/kcr-ems-full`. Depends on Task 1.
+**Agent:** Sonnet. **Branch:** `feat/kcr-ems-full`. Depends on Task 1b.
+
+**REVISION 2 delta:** legacy change stays (add `description` to the cache slim in 13-ems.js). The card widget becomes `EmsTasks.tsx` inside `KibbutzCard`, reading `sigma.emsCacheData()` and re-rendering on `ems-cache-synced`; click → `sigma.openKibbutzEmsTask(id)`. `buildEmsTaskHtml` is replaced by the component; the golden test becomes a vitest render test with `@testing-library/react` (add dev dep) asserting text content and classes. Remove `renderCardEmsTasks`/`applyCardEmsWidgets` from the legacy pass list once ported.
 
 **Files:** Modify `js/src/13-ems.js` (slim mapper ~line 48; `renderCardEmsTasks` ~line 219), `css/app.css` (temporary; Task 4 restyles), create `test-ems-card.mjs`.
 
@@ -197,7 +232,9 @@ create policy kmn_write on kibbutz_meeting_notes for all to authenticated using 
 
 ### Task 4: Brand tokens, dark mode, layout, bottom nav, motion
 
-**Agent:** Sonnet (use `frontend-design` skill). **Branch:** `feat/kcr-ui`. Depends on 1, 2, 3.
+**Agent:** Sonnet (use `frontend-design` skill). **Branch:** `feat/kcr-ui`. Depends on 0, 1b, 2, 3.
+
+**REVISION 2 delta:** tokens/dark/nav/theme are done in Task 0; this task is the **polish pass**: Aceternity Spotlight on desktop cards (hover only, `md:`), Magic UI `BlurFade` on screen enter, `ShimmerButton` for the two briefing CTAs and שמור buttons, skeletons (shadcn `Skeleton`) while queries load, viewer-role restyle of `#viewerReportsHub` (legacy markup — style with tokens in `css/app.css`), legacy `css/app.css` dark-mode coverage for the legacy pages (inventory, attendance, EMS, calendar, dev, reports) so nothing stays white in dark mode, and removal of dead CSS. GSAP is NOT used (Motion covers it).
 
 **Files:** Modify `css/app.css`, `index.html` (nav + header), create `js/src/26-theme.js`, `test-theme.mjs`.
 
@@ -220,6 +257,8 @@ create policy kmn_write on kibbutz_meeting_notes for all to authenticated using 
 ### Task 5: Field arrival flow, briefing, check-ins, `visitCron` push
 
 **Agent:** Opus. **Branch:** `feat/kcr-field`. Depends on 2, 3, 4.
+
+**REVISION 2 delta:** `27-field.js` becomes `app/src/islands/Field.tsx` (`ArrivalSheet` = shadcn `Sheet side="bottom"` + `Command` list; `Briefing` = full-screen `Dialog`), pure `arrivalOrder`/`visitCronSelect`/`hashIdx`/`VISIT_NUDGES` in `app/src/lib/field.ts` (vitest). Check-ins via supabase-js + TanStack mutation. Deep links: keep the legacy `22-push.js` handler but route `act==='visit'` to `sigma.openVisitQuick(kibbutz)` and `visitDismiss` to a supabase-js PATCH exposed as `window.sigmaField.dismiss(cid)`. Edge function + cron unchanged.
 
 **Files:** Create `db/field_checkins.sql`, `db/cron_visit_15min.sql`, `js/src/27-field.js`, `test-field.mjs`; modify `supabase/functions/push-send/index.ts`, `sw.js` (no change expected — `actUrls` handles it), `js/src/22-push.js` (deep-link `act==='visit'`), `js/src/09-visits.js` (`openVisitQuick(prefKibbutz)` accepts a kibbutz to preselect; read `?kibbutz=` from deep link).
 
@@ -300,6 +339,8 @@ function hashIdx(s: string, n: number) { let h = 0; for (const ch of s) h = (h *
 ### Task 6: Feedback box (text + voice) + `transcribe` function
 
 **Agent:** Opus. **Branch:** `feat/kcr-feedback`. Depends on 4.
+
+**REVISION 2 delta:** `28-feedback.js` becomes `app/src/islands/Feedback.tsx` (shadcn `Sheet`, `ToggleGroup` kind, `Textarea`, `Switch` anonymous, mic button with a Motion waveform), speech/recorder logic in `app/src/lib/speech.ts`, Storage upload via supabase-js `storage.from('feedback-audio').upload`, inbox as a `Dialog` table for admins; registered in ⋯ עוד via the registry (roles: all incl. viewer). Edge function unchanged.
 
 **Files:** Create `db/feedback.sql`, `supabase/functions/transcribe/index.ts`, `js/src/28-feedback.js`, `test-feedback.mjs`; modify `index.html` (sheet + admin inbox in ⋯ עוד), `supabase/functions/push-send/index.ts` (mode `feedbackNew` → push to `['עידן','עמיחי']`).
 
