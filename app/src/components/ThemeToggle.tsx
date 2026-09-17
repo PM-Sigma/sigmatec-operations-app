@@ -1,16 +1,20 @@
 import { Moon, Sun } from 'lucide-react';
 import { useState } from 'react';
 import { currentTheme, toggleTheme } from '@/lib/theme';
+import { useSigmaEvent } from '@/bridge';
 import { cn } from '@/lib/utils';
 
 /** 🌙/☀️ light-dark switch. The choice is persisted; the whole page follows (html[data-theme]). */
 export function ThemeToggle({ className, withLabel = false }: { className?: string; withLabel?: boolean }) {
   const [theme, setTheme] = useState(() => currentTheme());
+  // The header toggle and the ⋯-sheet toggle are two instances of this component — both follow
+  // the bus, so flipping one immediately re-labels the other.
+  useSigmaEvent('theme-changed', () => setTheme(currentTheme()));
   const isDark = theme === 'dark';
   return (
     <button
       type="button"
-      onClick={() => setTheme(toggleTheme())}
+      onClick={() => toggleTheme()}
       aria-label={isDark ? 'מצב בהיר' : 'מצב כהה'}
       title={isDark ? 'מצב בהיר' : 'מצב כהה'}
       className={cn(

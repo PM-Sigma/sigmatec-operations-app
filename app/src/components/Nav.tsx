@@ -115,6 +115,14 @@ function MoreSheet({ role }: { role: RegistryRole }) {
  */
 export function Nav() {
   const { role, isViewer } = useCurrentUser();
+
+  // css/app.css hides the legacy `.page-nav` and `#visitFab` on phones only while this class is
+  // present. If ui/sigma.js never loads, the class never lands and the phone keeps the old nav.
+  React.useEffect(() => {
+    document.body.classList.add('sigma-nav-ready');
+    return () => document.body.classList.remove('sigma-nav-ready');
+  }, []);
+
   const registryRole: RegistryRole = isViewer ? 'viewer' : role === 'idan' ? 'idan' : 'team';
 
   const scrollToReports = () => {

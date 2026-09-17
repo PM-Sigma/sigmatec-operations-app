@@ -1644,9 +1644,12 @@ body.user-viewer #invProductsList button { display: none !important; }
 body.user-viewer .legend-collapsible { display: none !important; }
 
 /* ===== Bottom nav (React island #sigma-nav) takes over on phones =====
-   The legacy top `.page-nav` stays on desktop; on a phone the thumb-zone bar replaces it
-   and the body reserves room so nothing hides behind it. */
+   Gated on `body.sigma-nav-ready`, which Nav adds only AFTER it mounts: if ui/sigma.js fails
+   to load (cache miss, blocked module, JS error) the phone keeps the legacy top nav instead of
+   being left with no navigation at all. The FAB is hidden for the same reason — it sits at
+   bottom:70px, right where the bar lands, and duplicates the raised 📍 ביקור button. */
 @media (max-width: 767px) {
-  .page-nav { display: none; }
-  body { padding-bottom: 84px; }
+  body.sigma-nav-ready .page-nav { display: none; }
+  body.sigma-nav-ready { padding-bottom: 84px; }
+  body.sigma-nav-ready #visitFab { display: none !important; }
 }

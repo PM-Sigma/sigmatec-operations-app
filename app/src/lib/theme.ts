@@ -42,7 +42,12 @@ export function applyTheme(choice: ThemeChoice): Theme {
   let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
   if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
   meta.content = THEME_COLOR[theme];
-  try { localStorage.setItem(THEME_KEY, choice); } catch { /* private mode */ }
+  // 'system' is the ABSENCE of a choice — storing the literal would make themeResolve()'s
+  // "nothing stored" and "system" paths diverge the moment one of them changes.
+  try {
+    if (choice === 'system') localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, choice);
+  } catch { /* private mode */ }
   try {
     (window as any).sigmaBus?.dispatchEvent(new CustomEvent('theme-changed', { detail: theme }));
   } catch { /* no bus yet */ }

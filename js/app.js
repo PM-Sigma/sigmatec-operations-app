@@ -5273,6 +5273,7 @@
     }
     if (confirm('להחליף משתמש? (השם הנוכחי יוסר מהמכשיר)')) {
       localStorage.removeItem(USER_KEY);
+      if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       updateUserBadge();
       applyLoginRoleOptions();
       document.getElementById('loginModal').classList.add('open');
@@ -6909,6 +6910,7 @@
     window.gateLogout = function () {
       try { localStorage.removeItem(EMS_TOKEN_KEY); localStorage.removeItem(EMS_TOKEN_AT_KEY); } catch (e) {}
       localStorage.removeItem(USER_KEY); localStorage.removeItem(AUTH_KEY); localStorage.removeItem(ROLE_KEY);
+      if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       location.reload();
     };
   })();

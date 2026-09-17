@@ -1,6 +1,6 @@
 // Typed access to the legacy app (window.sigma, defined in js/src/00-bridge.js).
 // React NEVER touches any other global — every legacy call goes through here.
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 export type SigmaRole = 'idan' | 'team' | 'viewer' | '';
 export type SigmaPage =
@@ -55,12 +55,16 @@ export type SigmaEvent = 'user-changed' | 'ems-cache-synced' | 'visit-saved' | '
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {
+  // The handler is kept in a ref so callers can pass an inline arrow: the listener is
+  // attached once per event name, not detached and re-attached on every render.
+  const ref = useRef(handler);
+  ref.current = handler;
   useEffect(() => {
     if (!sigmaBus) return;
-    const fn = (e: Event) => handler(e as CustomEvent);
+    const fn = (e: Event) => ref.current(e as CustomEvent);
     sigmaBus.addEventListener(name, fn);
     return () => sigmaBus.removeEventListener(name, fn);
-  }, [name, handler]);
+  }, [name]);
 }
 
 function subscribeUser(cb: () => void) {

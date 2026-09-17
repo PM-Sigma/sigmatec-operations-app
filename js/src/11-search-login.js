@@ -224,6 +224,7 @@
     }
     if (confirm('להחליף משתמש? (השם הנוכחי יוסר מהמכשיר)')) {
       localStorage.removeItem(USER_KEY);
+      if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       updateUserBadge();
       applyLoginRoleOptions();
       document.getElementById('loginModal').classList.add('open');

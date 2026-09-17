@@ -8,8 +8,17 @@ import { execSync } from 'node:child_process';
 // The islands are built FIRST and their output committed into ui/ — GitHub Pages is static,
 // same convention as js/app.js. Skip with SKIP_UI=1 when iterating on legacy modules only.
 if (!process.env.SKIP_UI) {
+  if (!fs.existsSync(new URL('./app/node_modules/', import.meta.url))) {
+    console.error('build.mjs: app/node_modules is missing — run `npm --prefix app ci` first (or set SKIP_UI=1 to build the legacy bundle only).');
+    process.exit(1);
+  }
   console.log('building React islands (app/) …');
-  execSync('npm --prefix app run build', { stdio: 'inherit' });
+  try {
+    execSync('npm --prefix app run build', { stdio: 'inherit' });
+  } catch (e) {
+    console.error('build.mjs: the React island build failed (see the Vite output above).');
+    process.exit(1);
+  }
   fs.mkdirSync(new URL('./ui/', import.meta.url), { recursive: true });
   for (const f of ['sigma.js', 'sigma.css']) {
     fs.copyFileSync(new URL('./app/dist/' + f, import.meta.url), new URL('./ui/' + f, import.meta.url));
