@@ -247,8 +247,9 @@ if (body.mode === "visitCron") {
     const day = israelDateOf(c.checked_in_at);           // 'YYYY-MM-DD' in Asia/Jerusalem
     const { data: v } = await sb.from("visits").select("id").eq("visitor", c.person).eq("kibbutz", c.kibbutz).eq("date", day).limit(1);
     if (v && v.length) { await sb.from("field_checkins").update({ reminded_at: new Date().toISOString() }).eq("id", c.id); results.push({id:c.id, skipped:"visit exists"}); continue; }
-    const title = `📍 ${c.kibbutz} — עוד לא סיכמת את הביקור`;
-    const bodyTxt = `2 דקות עכשיו חוסכות טלפונים בסוף החודש. מה נעשה, מה נשאר? — וסיימת את ${c.kibbutz} נקי 💪`;
+    const n = VISIT_NUDGES[hashIdx(c.id, VISIT_NUDGES.length)];          // rotating copy pool (spec §5.2)
+    const title = `📍 ${c.kibbutz} — ${n.t}`;
+    const bodyTxt = n.b.replace(/{kibbutz}/g, c.kibbutz);
     const url = APP + "?pushact=visit&kibbutz=" + encodeURIComponent(c.kibbutz);
     const dismissUrl = APP + "?pushact=visitDismiss&cid=" + c.id;
     const payload = JSON.stringify({ title, body: bodyTxt, tag: "visit-" + c.id, requireInteraction: true, url,
@@ -262,6 +263,29 @@ if (body.mode === "visitCron") {
 }
 ```
   Pure helpers exported for tests (mirror in JS for `test-field.mjs`): `visitCronSelect(checkins, visits, nowIso)` → `{remind:[ids], skip:[ids]}` (2 h rule, ≤14 h window, dismissed/reminded excluded, visit-exists excluded).
+- Copy pool constant (top of `push-send/index.ts`, mirrored in `27-field.js` for the unit test):
+```ts
+const VISIT_NUDGES = [
+  { t: "עוד לא סיכמת את הביקור", b: "2 דקות עכשיו חוסכות טלפונים בסוף החודש. מה נעשה, מה נשאר? — וסיימת את {kibbutz} נקי 💪" },
+  { t: "סוגרים עכשיו, נחים אחר כך", b: "רבע שעה של פוקוס עכשיו, ושקט נפשי מוחלט בסוף החודש 🧘‍♂️" },
+  { t: "העתיד שלך מודה לך", b: "תחשוב על עצמך ב-30 לחודש שותה קפה בנחת, בלי לרדוף אחרי מה היה ב{kibbutz} ☕✨" },
+  { t: "שליטה על השטח", b: "מה שכתוב נשמר. מה שבראש נעלם. הסיכום של {kibbutz} הוא הכוח שלך בישיבה הבאה 💪" },
+  { t: "חוק ה-10 דקות", b: "פשוט תתחיל. שתי שורות על {kibbutz} וזה זורם מעצמו ונמחק מהראש ⏱️🚀" },
+  { t: "כל מונה מקבל כתובת", b: "משימה קטנה אחת שחוסכת טלפונים והפתעות בחיוב של {kibbutz} 🎯" },
+  { t: "מורידים משקל מהכתפיים", b: "אין תחושה משחררת יותר מלסמן וי על הביקור ב{kibbutz} כבר עכשיו 📋✔️" },
+  { t: "זמן שווה זהב", b: "השעה שתחסוך בסוף החודש שווה יותר מהדקות האלה עכשיו. תשקיע אותן בעצמך ⏳🙌" },
+  { t: "מקצוען של השטח", b: "ככה בדיוק עובד מי שמנהל את הקיבוצים שלו ולא נותן להם לנהל אותו 💼😎" },
+  { t: "בלי דרמות ברגע האחרון", b: "סוגרים את {kibbutz} בלי לחץ, בלי פאניקה, בשיא הסטייל 🧊👌" },
+  { t: "צעד קטן, תוצאה גדולה", b: "נראה טכני, אבל הסיכום של {kibbutz} הוא הפעולה הכי חכמה שתעשה היום 🧠📈" },
+  { t: "ניצחון קל על הדחיינות", b: "שלוק מים, שתי דקות, וסוגרים את הפינה של {kibbutz} כמו אלוף 🥊🏆" },
+  { t: "שקט בשטח, שקט בראש", b: "סיכום ביקור שנכתב בזמן מביא את השינה הכי טובה בלילה 😴" },
+  { t: "חוסך לעצמך כאב ראש", b: "מה שלוקח עכשיו 2 דקות ייקח פי ארבעה כשינסו לשחזר את {kibbutz} בסוף החודש 💡🛡️" },
+  { t: "הרגלים של תותח", b: "עוד ביקור אחד מתועד באותו יום. ככה נבנה שם של איש שטח מסודר 🏗️🔥" },
+  { t: "יאללה, לגמור עם זה", b: "מוזיקה טובה ברקע, שתי שורות על {kibbutz}, ועוד דקה אתה חופשי לגמרי 🎧" }
+];
+function hashIdx(s: string, n: number) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % n; }
+```
+  Test: `hashIdx` is deterministic and in range for 1000 random ids; two different ids usually differ; every body with `{kibbutz}` substitutes it; no body contains "לא נספר" or "חובה".
 - `22-push.js` deep link: `act==='visit'` → `showPage('kibbutz'); openVisitQuick(qs.get('kibbutz'))`; `act==='visitDismiss'` → PATCH `field_checkins?id=eq.<cid>` `{dismissed:true}` + toast `בסדר, לא היום.`
 - `db/cron_visit_15min.sql`: `select cron.schedule('push-visit-15min','*/15 * * * *', $$ select net.http_post(url:='https://wwqfcajnxinaxmobrgol.supabase.co/functions/v1/push-send', headers:='{"Content-Type":"application/json","Authorization":"Bearer <ANON>","apikey":"<ANON>"}'::jsonb, body:='{"mode":"visitCron"}'::jsonb) $$);` (anon key copied from `22-push.js`, same as the existing attendance job).
 
