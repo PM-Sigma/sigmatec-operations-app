@@ -356,6 +356,50 @@ screen, no scrolling to the important part) and a wide desktop table view.
   `company_holidays`). Golden test: September 2026 fixture with 13.9, 21.9, 26.9, 27.9–2.10 → missing list excludes
   them; a filled 21.9 row is still reported with the 🕎 marker.
 
+## 7f. Part I — Unified calendar (יומן) redesign (עידן 17.9)
+
+One calendar, three layers, one toggle. Data sources already exist: office Google Calendar (edge fn `calendar`),
+visits (`visits`), EMS tasks with `expectedCompletionDate` (shared EMS cache). New: **day plans** (route order).
+
+- **Layers:** 📅 אירועי משרד (Google) · 📍 ביקורים · 📋 משימות EMS (only tasks that have a due date). A **"הסתר משימות
+  EMS" toggle** (remembered per device) hides the EMS layer. עמיחי sees the full unified calendar (all people); a
+  field worker sees the same calendar with **his** tasks/visits highlighted and others dimmed (toggle "רק שלי").
+- **Views:** switcher **שבוע / חודש** (remembered). Month: 7 columns Sun→Sat (RTL, Sunday at the right), **week
+  numbers in a narrow column on the right side** (same treatment as the day letters on top: small, muted). Week: 7
+  day columns with the day's items as full rows (no clipping), grouped by kibbutz. Day cells show up to 3 chips per
+  layer color and "+N"; today has a ring; holidays (company_holidays, §7e) show a violet dot.
+- **Tap a day (not the +):** desktop → a **day panel below the grid** (stays open while browsing days); phone → a
+  **bottom sheet**. Content: the day's items **grouped by kibbutz**, each group: kibbutz name · EMS tasks due that day
+  (title, assignee) · visit (if any) · office events; group header has **📍 בריפינג** (opens the briefing for that
+  kibbutz, §5) and **➕ צ׳ק-אין** when the day is today. This links the calendar to the arrival flow.
+- **Route order ("מסלול היום"):** inside the day panel, the kibbutz groups are an **ordered list** the user can reorder
+  with **↑ ↓ arrows** or by **dragging** (mouse and touch; Motion `Reorder`). Order is saved per (person, date) in
+  `day_plans(person text, date date, stops jsonb [{kibbutz, task_ids[]}], updated_at, pk(person,date))`. Headers are
+  derived, not typed: stop 1 = **🌅 תחילת יום**, middle = **➡️ בהמשך**, last = **🌇 אחרון להיום**; a kibbutz with due
+  tasks but not placed in the route sits under **📥 לא משובץ** (עידן asked for a suggested classification — this is it;
+  free-text headers are not needed). The arrival sheet (§5.1) orders its list by today's `day_plans` first, then the
+  existing heuristic.
+- **➕ on a day (schedule EMS tasks):** opens **"שיבוץ משימות EMS ל-<date>"**: search a kibbutz (Command list of cards)
+  → shows all its open EMS tasks (from cache; live refresh when connected) with status/assignee → **multi-select** →
+  **שבץ N משימות** → PATCH each task's `expectedCompletionDate` to that date via `emsApi('/employee-tasks/:id',
+  PATCH)` (existing write path in `14-calendar.js saveEmsTask`), optimistic update in the cache, toast with undo
+  (undo = PATCH back the previous dates). Tasks already due another day show their current date and move on select.
+  Also allowed: "➕ אירוע משרד" (existing `calAddLink` flow) and "➕ משימה חדשה" (existing create modal with the date
+  prefilled).
+- Roles: everyone with EMS access can schedule; viewer sees the calendar read-only (no ➕, no reorder).
+- Tests: pure `calendarItems(events, visits, emsTasks, {hideEms, onlyMine, me})` golden; `weekNumber(date)` ISO-8601
+  with Sunday-start display; `groupByKibbutz(items)`; `routeWithHeaders(stops, dueByKibbutz)` → headers per spec incl.
+  "לא משובץ"; `reorder(stops, from, to)`; `scheduleTasksPlan(taskIds, date)` → PATCH bodies + undo bodies; role matrix.
+
+## 7g. Part J — "משימות" page redesign (עידן 17.9)
+
+The "משימות" nav page (`#my-tasks-view`, `renderMyTasks` in `14-calendar.js` + `12-reports.js` builders) becomes a
+React island: **my open EMS tasks** grouped by kibbutz, sorted by due date (overdue first, no-date last), each row =
+full task (title, description, due, priority, status, 🔗 open in EMS); filters: status, kibbutz, "כולל של אחרים"
+(admins); quick actions on a row: **📅 שבץ** (opens the same scheduler as §7f with the task preselected), **✓ סיים**
+(PATCH status via the existing write path), **📍 בריפינג**. Company tasks (`companyTasks`) stay as a collapsible block
+at the top. Export/copy/mail actions of `generateMyTasksReport` are kept as a ⋯ menu.
+
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 
 עידן named a React/Tailwind stack: **shadcn/ui, Magic UI, Aceternity UI, Motion, Sonner, Vite, TanStack Query,
