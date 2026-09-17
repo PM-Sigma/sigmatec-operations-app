@@ -110,6 +110,11 @@ pipeline can POST the same JSON (not in scope).
 - **Modal**: tab ✏️ becomes **"🗓 ישיבות"** = same timeline, full history expanded, plus the import button for admins.
   Tab 📍 סיכום ביקור unchanged.
 - Empty state on card: "אין סיכום ישיבה עדיין" (muted, one line).
+- **Card quick actions (עידן, mockup comment 17.9 — "סיכום ביקור כבר מלחיצה על קיבוץ"):** every card ends with a
+  compact action row: **📍 סיכום ביקור** (opens the visit form with this kibbutz prefilled — `openVisitQuick(name)`,
+  one tap, no modal in between), **🚚 תעודת משלוח** (`certFromVisitForm()` after the visit form opens, so the cert
+  links to the visit — spec §5 cert rules), **🗓 ישיבות** (opens the modal timeline). Roles: 📍/🚚 shown to אביאם, ניתאי,
+  עידן, עמיחי; viewer sees only 🗓. Tapping the card body still opens the modal as today.
 
 ## 4. Part C — EMS tasks in full on the card
 
