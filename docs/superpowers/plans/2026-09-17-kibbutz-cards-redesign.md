@@ -15,7 +15,7 @@
 - Work ONLY in worktree `C:\Users\idann\Projects\SigmatecOps-wt-cards` on branch `feat/kibbutz-cards-redesign` (off `origin/dev`). Sub-branches `feat/kcr-<task>` merge into it. Never touch `main`/`dev` directly; never `git add -A`.
 - Edit `js/src/*.js`, never `js/app.js`. Run `node build.mjs` only at the end of a task (it rewrites `js/app.js`, `index.html ?v=`, `sw.js` cache name, `VERSION`). Final release uses `node build.mjs major` → `2.00`.
 - Tests: plain `node test-<area>.mjs` with `assert`, pattern of `test-visit-cert-gate.mjs` (read the source file, stub `document`/`localStorage`/`fetch`, eval, assert). One runner per task; the full set must be green before a task is "done": `for f in test-*.mjs; do node $f || exit 1; done`.
-- Hebrew UI copy exactly as in the spec. Section labels: **🆕 לקוחות חדשים — בהקמה**, **✅ לקוחות פעילים**. Tag: **🤝 בתהליך שיווקי**. App name **סיגמה**, subtitle **תפעול שטח**.
+- Hebrew UI copy exactly as in the spec. Section labels: **🆕 לקוחות חדשים**, **✅ לקוחות פעילים**. Tag: **🤝 בתהליך שיווקי**. App name **סיגמה**, subtitle **תפעול שטח**.
 - No hard-coded colors in new CSS — tokens only (`--brand-1:#06C2CB`, `--brand-2:#1ABE63`, `--brand-grad`, surfaces). Dark mode via `:root[data-theme="dark"]` + `prefers-color-scheme`.
 - Roles: `getCurrentUser()` returns the Hebrew name; admins = `'עידן'`, `'עמיחי'`; field = `ATT_PEOPLE = ['אביאם','ניתאי']`; `isViewer()` must stay read-only everywhere (regression assert in every role test).
 - Secrets never in repo. Supabase anon key is public (already in `01-data.js`/`22-push.js`). Groq key only as an Edge Function secret.
@@ -62,11 +62,11 @@
 
 **Interfaces:**
 - Produces (global, from `24-kibbutzim.js`):
-  - `window.KIBBUTZIM` — `Array<{id,name,display_name,section:'setup'|'active',energy:string[],marketing:boolean,region:string,ems_site_ids:string[],archived_at:string|null}>`
-  - `buildCardHtml(row)` → string. Pure. Output root: `<div class="kibbutz {setup|active}" data-name="{name}" data-section="{section}" data-marketing="{true|false}"><div class="kibbutz-name-row"><div class="kibbutz-name">{display_name||name}</div><span class="energy-badge">…</span>{marketing? '<span class="tag-marketing">🤝 בתהליך שיווקי</span>':''}</div></div>`. Energy label map: `electric→'⚡ חשמל'`, `water→'💧 מים'`, `gas→'🔥 גז'`, joined with `' + '`.
+  - `window.KIBBUTZIM` — `Array<{id,name,display_name,section:'new'|'active',energy:string[],marketing:boolean,region:string,ems_site_ids:string[],archived_at:string|null}>`
+  - `buildCardHtml(row)` → string. Pure. Output root: `<div class="kibbutz {new|active}" data-name="{name}" data-section="{section}" data-marketing="{true|false}"><div class="kibbutz-name-row"><div class="kibbutz-name">{display_name||name}</div><span class="energy-badge">…</span>{marketing? '<span class="tag-marketing">🤝 בתהליך שיווקי</span>':''}</div></div>`. Energy label map: `electric→'⚡ חשמל'`, `water→'💧 מים'`, `gas→'🔥 גז'`, joined with `' + '`.
   - `REGION_ORDER = ['גליל עליון','גליל תחתון','עמק הירדן','עמק יזרעאל','עמק המעיינות','בקעת בית שאן','חוף הכרמל','שרון','שפלה','שער הנגב','נגב']` (extend from seed data; unknown regions after the list, alphabetical; `''` last as `ללא איזור`).
-  - Pure `groupBySection(rows)` → `{setup:[{region, rows:[…alpha he-IL]}], active:[…]}` — regions ordered by `REGION_ORDER`, rows alphabetical by `display_name||name` with `localeCompare(…,'he')`.
-  - `renderKibbutzCards(rows)` — fills `#grid-setup` and `#grid-active` from `groupBySection`; before each region's cards inserts `<div class="region-label" data-region="{region}">{region}</div>` (subtle: 11px, muted, hairline; spans the full grid row via `grid-column:1/-1`); updates `.section-count` and chip counts `#cnt-all/#cnt-setup/#cnt-active/#cnt-marketing`, skips `archived_at != null`. Region labels are omitted when a section has a single region.
+  - Pure `groupBySection(rows)` → `{new:[{region, rows:[…alpha he-IL]}], active:[…]}` — regions ordered by `REGION_ORDER`, rows alphabetical by `display_name||name` with `localeCompare(…,'he')`.
+  - `renderKibbutzCards(rows)` — fills `#grid-new` and `#grid-active` from `groupBySection`; before each region's cards inserts `<div class="region-label" data-region="{region}">{region}</div>` (subtle: 11px, muted, hairline; spans the full grid row via `grid-column:1/-1`); updates `.section-count` and chip counts `#cnt-all/#cnt-new/#cnt-active/#cnt-marketing`, skips `archived_at != null`. Region labels are omitted when a section has a single region.
   - `kibbutzimLoad()` → Promise<rows>; GET `kibbutzim?select=*&order=region,name&archived_at=is.null` via the `sbGet` pattern; caches in `localStorage['kibbutzim_v1']` for offline first paint.
   - `kibbutzByName(name)` → row|undefined (also matches `display_name`).
 - Consumes: `applyFilters()` in `01-data.js` (must be updated to read `data-section`/`data-marketing` instead of `data-types`), `kibbutzHasSite`, `applyCardEmsWidgets`, `applyCardSiteWarnings` (they query `.kibbutz[data-name]` — unchanged).
@@ -79,10 +79,13 @@ create table if not exists kibbutzim (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,          -- canonical = old card data-name
   display_name text,
-  section text not null check (section in ('setup','active')),
+  section text not null check (section in ('new','active')),
   energy text[] not null default '{electric}',
   marketing boolean not null default false,
   region text not null default '',
+  kind text not null default 'kibbutz' check (kind in ('kibbutz','subsite')),
+  parent text,
+  ems_params jsonb,
   ems_site_ids text[] not null default '{}',
   archived_at timestamptz,
   created_by text, created_at timestamptz default now(), updated_at timestamptz default now()
@@ -92,17 +95,17 @@ create policy kibbutzim_read on kibbutzim for select using (true);
 create policy kibbutzim_write on kibbutzim for all to authenticated using (true) with check (true);
 ```
   (Same staged pattern as `db/rls_staged.sql`; viewer role is blocked client-side as elsewhere.)
-- [ ] 2. `db/kibbutzim_seed.mjs`: read `index.html`, regex every `<div class="kibbutz …" data-name="X" data-types="T"…>` inside `#grid-priority/#grid-new_client/#grid-done/#grid-pending`; map per spec §2: `grid-new_client` → `setup`; `data-types` contains `track priority` → `setup`; `grid-done` → `active`; `grid-pending` or `pending priority` → `active` + `marketing=true`; energy from `.energy-badge` text (`💧`→water, `🔥`→gas, else electric; both when `+`); `display_name` = inner `.kibbutz-name` text when it differs from `data-name`. Region: read the Supabase `tasks` table (`select name,region from tasks`) via the anon REST key at seed time and match by name; unmatched → `''` (עידן fills them in the sheet). Print `insert into kibbutzim (name,display_name,section,energy,marketing,region) values …;` to stdout, and the count. Run it, save output to `db/kibbutzim_seed.sql`, append to `kibbutzim.sql`. **Expected: 44 rows** (14 priority + 3 new + 22 done + 14 pending − duplicates by name; assert no duplicate `name`).
+- [ ] 2. `db/kibbutzim_seed.mjs`: read `index.html`, regex every `<div class="kibbutz …" data-name="X" data-types="T"…>` inside `#grid-priority/#grid-new_client/#grid-done/#grid-pending`; map per spec §2: `grid-new_client` → `new`; `data-types` contains `track priority` → `new`; `grid-done` → `active`; `grid-pending` or `pending priority` → `active` + `marketing=true`; energy from `.energy-badge` text (`💧`→water, `🔥`→gas, else electric; both when `+`); `display_name` = inner `.kibbutz-name` text when it differs from `data-name`. Region: read the Supabase `tasks` table (`select name,region from tasks`) via the anon REST key at seed time and match by name; unmatched → `''` (עידן fills them in the sheet). Print `insert into kibbutzim (name,display_name,section,energy,marketing,region) values …;` to stdout, and the count. Run it, save output to `db/kibbutzim_seed.sql`, append to `kibbutzim.sql`. **Expected: 44 rows** (14 priority + 3 new + 22 done + 14 pending − duplicates by name; assert no duplicate `name`).
 - [ ] 3. Test `test-kibbutzim.mjs` (write first, run, see FAIL):
   - `buildCardHtml` golden: `{name:'אור הנר גז',display_name:'אור הנר — גז',section:'active',energy:['gas'],marketing:false}` → exact string above with `🔥 גז`.
   - marketing row emits `tag-marketing` span; `energy:['electric','water']` → `⚡ חשמל + 💧 מים`.
   - `groupBySection` golden: rows `[{name:'יגור',region:'עמק יזרעאל',section:'active'},{name:'אפיקים',region:'עמק הירדן',section:'active'},{name:'גבת',region:'עמק יזרעאל',section:'active'},{name:'שלוחות',region:'',section:'active'}]` → active groups in order `עמק הירדן`(אפיקים) · `עמק יזרעאל`(גבת, יגור — alphabetical) · `''`(שלוחות).
-  - `renderKibbutzCards` with 4 stub rows (2 active in 2 regions, 1 setup+marketing, 1 archived) → `#grid-setup` has 1 card and 0 `.region-label` (single region), `#grid-active` has 2 cards + 2 `.region-label`, `#cnt-marketing` text `1`, `#cnt-all` `3`, archived not rendered.
+  - `renderKibbutzCards` with 4 stub rows (2 active in 2 regions, 1 new+marketing, 1 archived) → `#grid-new` has 1 card and 0 `.region-label` (single region), `#grid-active` has 2 cards + 2 `.region-label`, `#cnt-marketing` text `1`, `#cnt-all` `3`, archived not rendered.
   - contract: seed SQL parses → every row has section in set, no duplicate names, count 44.
   - regression: `isViewer()` true → `kibbutzimSave()` throws `'viewer'` before any fetch.
 - [ ] 4. Implement `24-kibbutzim.js` (IIFE, expose on `window`). Hook: in `01-data.js` where Supabase data load resolves (the code that calls `enrichCardsWithSheet(data)`), call `await kibbutzimLoad().then(renderKibbutzCards)` **first**, then the existing passes. Offline: paint from cache immediately on `DOMContentLoaded`.
-- [ ] 5. `index.html`: delete `#compactToggle`, progress block, `#urgentAlert`, `.priority-section`, all 4 static grids; add two section shells in this order: `🆕 לקוחות חדשים — בהקמה` (`#grid-setup`) then `✅ לקוחות פעילים` (`#grid-active`). Filter chips: `all` · `setup` (🆕 חדשים) · `active` (✅ פעילים) · `marketing` (🤝 שיווקי). Modal: remove `editStatus`, `editTask`, owners, `editCategory`, `editStep`, `editSetupNote`, the two banners and tip; rename tab ✏️ to `🗓 ישיבות` (content filled in Task 2; leave `<div id="tab-meetings"></div>`). Header: `⚡ מערכת ניהול סיגמטק` → Σ mark + `סיגמה` / `תפעול שטח` (structure only; styling in Task 4).
-- [ ] 6. `01-data.js`: remove `toggleCompactMode`, owners-row injection, `.excel-status` injection, `updateProgressBar`-like code, modal read/write of removed fields (keep visit tab logic). `setFilter/applyFilters`: `all` shows all; `setup`/`active` match `data-section`; `marketing` matches `data-marketing="true"`.
+- [ ] 5. `index.html`: delete `#compactToggle`, progress block, `#urgentAlert`, `.priority-section`, all 4 static grids; add two section shells in this order: `🆕 לקוחות חדשים — בהקמה` (`#grid-new`) then `✅ לקוחות פעילים` (`#grid-active`). Filter chips: `all` · `new` (🆕 חדשים) · `active` (✅ פעילים) · `marketing` (🤝 שיווקי). Modal: remove `editStatus`, `editTask`, owners, `editCategory`, `editStep`, `editSetupNote`, the two banners and tip; rename tab ✏️ to `🗓 ישיבות` (content filled in Task 2; leave `<div id="tab-meetings"></div>`). Header: `⚡ מערכת ניהול סיגמטק` → Σ mark + `סיגמה` / `תפעול שטח` (structure only; styling in Task 4).
+- [ ] 6. `01-data.js`: remove `toggleCompactMode`, owners-row injection, `.excel-status` injection, `updateProgressBar`-like code, modal read/write of removed fields (keep visit tab logic). `setFilter/applyFilters`: `all` shows all; `new`/`active` match `data-section`; `marketing` matches `data-marketing="true"`.
 - [ ] 7. `12-reports.js buildMyTasksReport(person)`: replace status-line parsing with `emsCacheData().tasks.filter(t => t.assignee && (t.assignee.firstName||'').indexOf(person)===0 && EMS_CLOSED.indexOf(t.status)===-1)` grouped by site name; keep company tasks section. Update its header text to `📋 משימות EMS באחריותי — ${person}`.
 - [ ] 8. `17-staff.js`, `kibbutz-stats.html`: `עלו לאוויר` → `לקוחות פעילים`, `ממתינים` → `בתהליך שיווקי`.
 - [ ] 9. Remove dead CSS listed above. Run `node test-kibbutzim.mjs` → PASS, then full suite. `node build.mjs`. Smoke `index.html?login=0&sb=0`: two sections render from cache/mock (add a 3-row mock in the `?sb=0` mock branch of `01-data.js`).
@@ -110,19 +113,22 @@ create policy kibbutzim_write on kibbutzim for all to authenticated using (true)
 
 ---
 
-### Task 1b: ➕ קיבוץ חדש sheet + edit/archive from modal
+### Task 1b: ➕ קיבוץ חדש / תת-אתר sheet + EMS verification chain + edit/archive
 
-**Agent:** Sonnet. **Branch:** `feat/kcr-new-kibbutz`. Depends on Task 1.
+**Agent:** Opus (EMS chain needs judgment). **Branch:** `feat/kcr-new-kibbutz`. Depends on Task 1.
 
 **Files:** Modify `js/src/24-kibbutzim.js`, `index.html` (sheet markup), `test-kibbutzim.mjs`.
 
 **Interfaces:**
 - Produces: `openKibbutzSheet(row|null)` (null = create), `kibbutzimSave(row)` → Promise<row> (POST or PATCH `kibbutzim?on_conflict=name`, `Prefer: resolution=merge-duplicates,return=representation`), `kibbutzArchive(name)` → PATCH `archived_at=now()`. Pure `validateKibbutz(row)` → `{ok:boolean, errors:string[]}` (name required, trimmed, unique vs `KIBBUTZIM`, energy non-empty, section valid). `suggestEmsSite(name)` → `{id,name}|null` using live `/sites` exact match (reuse `emsSiteIdForKibbutz` from `13-ems.js`), fallback `KIBBUTZ_SITE_MAP`.
+- **Two modes (spec §7b):** the sheet opens with a segmented choice `🏘 קיבוץ חדש (לקוח חדש)` / `↳ תת-אתר של קיבוץ קיים`. Sub-site mode adds a parent `<select>` (non-archived rows, alphabetical), hides section/region (inherited on save), and shows the **EMS chain panel** `#emsChain` with 5 rows (אתר ב-EMS · מונים · משימות פתוחות · אנשי קשר · קיבוץ-אב), each `⏳ → ✓ / ⚠️ / ✗ + value`.
+- Pure `emsChainPlan(name, parentRow, allRows)` → ordered step list; pure `emsChainReduce(results)` → `{ems_site_ids, energy, ems_params, canSave:boolean, warnings:[…]}` where `energy` derives from meter counts (`electric` if count>0 … ; empty → `['electric']`), `canSave` true when step 1 passed OR user ticked `שמור בלי קישור`. Thin async `emsChainRun(name, parentRow)` calls: `getEmsSites()`; `emsApi('/meters?siteId='+id+'&take=500')` (catch → `{skipped:true}`); `emsApi('/employee-tasks?siteId='+id+'&statuses=open,in_progress,pending&take=100')`; `window._sbGet('site_contacts?select=*&site_id=eq.'+id)`; duplicate-link check against `KIBBUTZIM`. Button `🔄 בדוק מול EMS` also appears in edit mode for normal kibbutzim.
 - Gate: `canManageKibbutzim()` = `['עידן','עמיחי'].indexOf(getCurrentUser())!==-1 && !isViewer()`. **Energy chips editable only when `isIdan()`** (`canEditEnergy()`); for others the chips render disabled with title `רק עידן משנה סוגי אנרגיה` and `kibbutzimSaveBody(row,user)` strips `energy` from the PATCH body when `!canEditEnergy()` (server keeps the old value). Region is a free-text input with a datalist of `REGION_ORDER` + existing regions, editable by both admins.
 
 **Steps:**
+- [ ] 0. Tests for the chain: `emsChainReduce` goldens — all-pass fixture (site found, meters `{1:12,2:3}` → `energy:['electric','water']`, 2 open tasks, 1 contact) → `canSave:true`, `ems_params.meters.total===15`; site-not-found → `canSave:false`, warnings `['לא נמצא אתר ב-EMS']`, other steps `skipped`; duplicate site id already on row `יגור` → warning `'האתר כבר מקושר ל-יגור'`; meters call skipped → `energy:['electric']` + warning. `validateKibbutz` for a sub-site requires `parent` to exist and not be archived (`'קיבוץ-אב לא נמצא'`), and inherits `section`/`region` from it (test the returned normalized row).
 - [ ] 1. Tests: `validateKibbutz` (empty name → error `'שם חובה'`; duplicate → `'קיבוץ בשם הזה כבר קיים'`; ok row → `{ok:true,errors:[]}`); role matrix `canManageKibbutzim` for עידן/עמיחי true, אביאם/ניתאי/מתניה/viewer false; `canEditEnergy` true only for עידן; `kibbutzimSaveBody(row, user)` pure → for עמיחי the body has no `energy` key, for עידן it does; `kibbutzimSave` throws when gate false.
-- [ ] 2. Sheet markup `#kibbutzSheet` (bottom sheet on phone, dialog on desktop): `#kName` input, section toggle (`🆕 בהקמה` / `✅ פעיל`), energy chips (multi), `🤝 בתהליך שיווקי` switch, EMS site row (auto-filled by `suggestEmsSite`, badge `✓ מקושר` / `⚠️ לא נמצא — יישמר בלי קישור`), `שמור קיבוץ` (56 px), `ארכב קיבוץ` (edit mode, confirm dialog). Header button `➕ קיבוץ חדש` shown only when `canManageKibbutzim()`. Card click for admins opens the modal whose `🗓 ישיבות` tab header has an `✏️ פרטי קיבוץ` link → `openKibbutzSheet(row)`.
+- [ ] 2. Sheet markup `#kibbutzSheet` (bottom sheet on phone, dialog on desktop): `#kName` input, section toggle (`🆕 לקוח חדש` / `✅ פעיל`), energy chips (multi), `🤝 בתהליך שיווקי` switch, EMS site row (auto-filled by `suggestEmsSite`, badge `✓ מקושר` / `⚠️ לא נמצא — יישמר בלי קישור`), `שמור קיבוץ` (56 px), `ארכב קיבוץ` (edit mode, confirm dialog). Header button `➕ קיבוץ חדש` shown only when `canManageKibbutzim()`. Card click for admins opens the modal whose `🗓 ישיבות` tab header has an `✏️ פרטי קיבוץ` link → `openKibbutzSheet(row)`.
 - [ ] 3. After save → update `KIBBUTZIM` in place, `renderKibbutzCards`, re-run `applyCardSiteWarnings()`/`applyCardEmsWidgets()`, toast `נשמר: <name>`.
 - [ ] 4. Run runner + full suite, `node build.mjs`, smoke create/edit/archive on `?login=0` against Supabase. Commit.
 

@@ -23,6 +23,10 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
 12. (added 17.9) **Inside each section, group by geographic region** — visually subtle — and **alphabetical (א״ב)
     inside each region.**
 13. (added 17.9) **The viewer / reports user gets the new design too**, with every existing viewer function intact.
+14. (added 17.9) **Sections are 🆕 לקוחות חדשים and ✅ פעילים** — the word "בהקמה" is gone; שיווק stays a tag.
+15. (added 17.9) **➕ has two modes:** a new kibbutz (= new client) **or a new sub-site (תת-אתר) of an existing
+    kibbutz** that עידן wants to visit. Marking a sub-site runs a **verification chain against the EMS** that pulls the
+    relevant parameters.
 
 ## 1. Current state (what exists, what we reuse)
 
@@ -55,12 +59,12 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
 `data-marketing="true"` → 🤝 **בתהליך שיווקי** badge on the card + a filter chip. Set from the modal (checkbox).
 
 **Re-home cards** (עידן, 17.9): the former **ממתינים** (`pending`) kibbutzim are "יותר פעילים" → all move to
-**לקוחות פעילים** with the 🤝 tag on. Former `track priority` cards (גבת, יגור, חוקוק, דגניה א, אלומות) → **חדשים
-בהקמה**; former `pending priority` cards (עין חרוד מאוחד, בית זרע, כנרת, כפר עזה, יסעור, מגידו, ניר עציון, כפר מנחם,
+**לקוחות פעילים** with the 🤝 tag on. Former `track priority` cards (גבת, יגור, חוקוק, דגניה א, אלומות) → **לקוחות
+חדשים**; former `pending priority` cards (עין חרוד מאוחד, בית זרע, כנרת, כפר עזה, יסעור, מגידו, ניר עציון, כפר מנחם,
 משואות יצחק) → **לקוחות פעילים** + 🤝. **Status/flow flags are removed** (עידן, mockup comment 17.9: "לא צריך את זה יותר את הזרימה והכל"): `ready-flow`, `flow-active`, `manual-flow`, `new-client-flag` pills, the `urgentAlert` "באוויר ללא זרימת נתונים" banner, the modal's **שלב 1–15** + **הערת הקמה** fields and the "התקדמות הקמת מערכת" group. A card shows only: name · energy badge · 🤝 tag (if set) · meeting bullets · EMS tasks. The `has-bug` note goes too — bugs live as EMS tasks. Category select in
 the modal shrinks to two values: חדשים בהקמה / לקוחות פעילים.
 
-Final page order (עידן): **🆕 לקוחות חדשים — בהקמה → ✅ לקוחות פעילים**. Filter chips: הכל · חדשים · פעילים · 🤝 שיווקי.
+Final page order (עידן): **🆕 לקוחות חדשים → ✅ לקוחות פעילים** (section keys `new` / `active`). Filter chips: הכל · חדשים · פעילים · 🤝 שיווקי.
 
 ## 3. Part B — Meeting bullets per kibbutz
 
@@ -213,7 +217,7 @@ Today every card is hard-coded in `index.html` (adding גבעת חיים איח�
 makes the card list **data-driven**, which also simplifies Part A (renames/re-homing become row updates).
 
 - New table `kibbutzim`: `id uuid pk · name text unique (= card data-name) · display_name text · section text
-  ('setup'|'active') · energy text[] ('electric'|'water'|'gas') · marketing bool default false · **region text**
+  ('new'|'active') · energy text[] ('electric'|'water'|'gas') · marketing bool default false · **region text**
   (e.g. עמק יזרעאל, עמק הירדן, גליל, שער הנגב, שפלה, שרון, עמק המעיינות…) · ems_site_ids text[] · archived_at
   timestamptz null · created_by, created_at`. (`sort` dropped — order is deterministic, see below.)
 - **Order inside a section (עידן 17.9):** group by `region` (rows with empty region last under "ללא איזור"), regions
@@ -232,6 +236,26 @@ makes the card list **data-driven**, which also simplifies Part A (renames/re-ho
   shows the existing ⚠️ "לא מקושר ל-EMS" indicator). Save → row inserted → card appears for everyone on next load.
 - Edit the same fields from the card modal (replaces the removed category/step/note fields). Archive instead of
   delete (`archived_at`) so history in `kibbutz_meeting_notes` / `visits` stays reachable.
+- **Sub-sites (עידן 17.9).** Columns `kind text ('kibbutz'|'subsite') default 'kibbutz'`, `parent text null`,
+  `ems_params jsonb null`. The ➕ sheet opens with a two-way choice: **🏘 קיבוץ חדש (לקוח חדש)** or **↳ תת-אתר של
+  קיבוץ קיים** (parent picker = existing rows). A sub-site inherits the parent's `section` and `region`, is rendered as
+  its own card directly after the parent (badge `↳ תת-אתר של <parent>`), and is a valid target for check-in, visit
+  summary, delivery cert, meeting bullets and EMS tasks like any card.
+- **EMS verification chain for a sub-site** (runs when the name is typed / on "בדוק מול EMS", needs EMS connection;
+  each step shows ✓ / ⚠️ / ✗ and the pulled value, all steps run even if one fails):
+  1. **אתר ב-EMS** — `GET /sites`, exact normalized name match, then containment (`emsSiteIdForKibbutz`). ✗ → the
+     sub-site can still be saved unlinked (⚠️ card indicator), nothing else runs.
+  2. **מונים** — `GET /meters?siteId=<id>&take=500` (if the API rejects the filter, fall back to skipping with ⚠️
+     "לא ניתן לספור מונים"): count per `energy_type_code` (1 חשמל / 2 מים / 3 גז) → proposes `energy[]` (עידן may
+     override; for non-עידן this proposal is what gets saved).
+  3. **משימות פתוחות** — `GET /employee-tasks?siteId=<id>&statuses=open,in_progress,pending&take=100` → count +
+     titles (shown, and the card's EMS widget will pick them up via the cache).
+  4. **אנשי קשר** — Supabase `site_contacts?site_id=eq.<id>` (existing table) → names/phones shown.
+  5. **קיבוץ-אב** — the parent row must exist and not be archived; the sub-site's `ems_site_ids` must not already
+     belong to another row (else ⚠️ "האתר כבר מקושר ל-<name>").
+  Result is stored in `ems_params` (`{site:{id,name}, meters:{electric,water,gas,total}, openTasks:n, contacts:[…],
+  checkedAt}`) and the sheet's save button reads "שמור תת-אתר" once step 1 passed or the user confirms saving unlinked.
+  The same chain is offered (as "🔄 בדוק מול EMS") on a normal kibbutz card edit to refresh `ems_site_ids`/energy.
 - `KIBBUTZ_SITE_MAP` fallback stays for offline; `ems_site_ids` on the row is the source when online.
 - Contract test: every row renders exactly one card; every meeting-note kibbutz resolves to a row or the import
   preview flags it (the "אין כרטיס תואם" state in §3.2 now offers "צור קיבוץ" inline).
