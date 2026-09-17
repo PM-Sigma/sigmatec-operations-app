@@ -47,15 +47,15 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
 `17-staff.js` pipe text). Internal key `done` stays (no data churn).
 
 **"בתהליך שיווקי" is a TAG, not a section** (עידן, 17.9: "שיווקי יכול להיות גם פעילים וגם חדשים"). New card flag
-`data-marketing="true"` → 🧲 **בתהליך שיווקי** badge on the card + a filter chip. Set from the modal (checkbox).
+`data-marketing="true"` → 🤝 **בתהליך שיווקי** badge on the card + a filter chip. Set from the modal (checkbox).
 
 **Re-home cards** (עידן, 17.9): the former **ממתינים** (`pending`) kibbutzim are "יותר פעילים" → all move to
-**לקוחות פעילים** with the 🧲 tag on. Former `track priority` cards (גבת, יגור, חוקוק, דגניה א, אלומות) → **חדשים
+**לקוחות פעילים** with the 🤝 tag on. Former `track priority` cards (גבת, יגור, חוקוק, דגניה א, אלומות) → **חדשים
 בהקמה**; former `pending priority` cards (עין חרוד מאוחד, בית זרע, כנרת, כפר עזה, יסעור, מגידו, ניר עציון, כפר מנחם,
-משואות יצחק) → **לקוחות פעילים** + 🧲. **Status/flow flags are removed** (עידן, mockup comment 17.9: "לא צריך את זה יותר את הזרימה והכל"): `ready-flow`, `flow-active`, `manual-flow`, `new-client-flag` pills, the `urgentAlert` "באוויר ללא זרימת נתונים" banner, the modal's **שלב 1–15** + **הערת הקמה** fields and the "התקדמות הקמת מערכת" group. A card shows only: name · energy badge · 🧲 tag (if set) · meeting bullets · EMS tasks. The `has-bug` note goes too — bugs live as EMS tasks. Category select in
+משואות יצחק) → **לקוחות פעילים** + 🤝. **Status/flow flags are removed** (עידן, mockup comment 17.9: "לא צריך את זה יותר את הזרימה והכל"): `ready-flow`, `flow-active`, `manual-flow`, `new-client-flag` pills, the `urgentAlert` "באוויר ללא זרימת נתונים" banner, the modal's **שלב 1–15** + **הערת הקמה** fields and the "התקדמות הקמת מערכת" group. A card shows only: name · energy badge · 🤝 tag (if set) · meeting bullets · EMS tasks. The `has-bug` note goes too — bugs live as EMS tasks. Category select in
 the modal shrinks to two values: חדשים בהקמה / לקוחות פעילים.
 
-Final page order (עידן): **🆕 לקוחות חדשים — בהקמה → ✅ לקוחות פעילים**. Filter chips: הכל · חדשים · פעילים · 🧲 שיווקי.
+Final page order (עידן): **🆕 לקוחות חדשים — בהקמה → ✅ לקוחות פעילים**. Filter chips: הכל · חדשים · פעילים · 🤝 שיווקי.
 
 ## 3. Part B — Meeting bullets per kibbutz
 
@@ -199,7 +199,7 @@ skipped when a visit exists, skipped when dismissed).
 | # | Question | Recommendation |
 |---|----------|----------------|
 | D1 | "תשתמש בחבילות האלו" — no packages were attached. Which ones? | Until told: `motion` + View Transitions + `canvas-confetti`, no framework. |
-| D2 | ~~Where do the 14 priority kibbutzim land?~~ **Decided 17.9:** two sections (בהקמה → פעילים); שיווקי = tag; ממתינים → פעילים+🧲. | — |
+| D2 | ~~Where do the 14 priority kibbutzim land?~~ **Decided 17.9:** two sections (בהקמה → פעילים); שיווקי = tag; ממתינים → פעילים+🤝. | — |
 | D3 | Import via in-app paste, or a Python step in the Management pipeline? | In-app paste (works from anywhere, one codebase). |
 | D4 | Bullet granularity: one per sentence, or one per paragraph? | Per sentence (matches "משפטים … כבולטים"). |
 | D5 | EMS description on the card: full text always, or expand-on-tap? | Full always (you asked "במלואן"); modal is the same. |
