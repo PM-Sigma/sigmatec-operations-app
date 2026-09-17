@@ -22,7 +22,7 @@ Requested by עידן, 17.9.26: "עוברים לניהול מלאי אחוד ל�
 | Visit summary deducts issued products **from the visitor's location** | `09-visits.js:346-389` | Deducts from `חברה` → kibbutz. `created_by` = visitor (who did it stays on the row). |
 | Customer-order approval deducts from the **responsible's** location; supplier delivery credits the **distribution** per person | `07-orders.js:512-560, 1275-1300` | Approval: `חברה` → kibbutz. Delivery: supplier → `חברה` (distribution UI collapses to one line: quantity received). Drop-ship unchanged (no movement). |
 | SIMs checked against the holder's own stock | `08-inventory.js:24-60` | Against the pool. |
-| Transfer between locations (person ↔ person) | `08-inventory.js:106-…` | **Removed** (no persons). A single **"תיקון מלאי"** (manual adjust, reason `adjust`, note required) stays for עידן/עמיחי. |
+| Transfer between locations (person ↔ person) | `08-inventory.js:106-…` | **Removed** (no persons). Replaced by **"דיווח שינוי במלאי"** (§4b) — every change is linked to a visit, an order or a recount. |
 | `products(id,name,category,active)` | `db/supabase_schema.sql:50` | + `display_name text`, `technical_name` = existing `name` (renamed in UI only), + `unit text default 'יח׳'`, + `min_qty numeric null` (low-stock alert threshold). |
 | Viewer exports (stock by location / by kibbutz) | `21-excel-export.js` | Stock = pool; product column = display name. |
 | Alerts: order approvals only | `push-send`, `22-push.js` | + inventory events + 12:00/17:00 digest. |
@@ -69,6 +69,28 @@ when the pool drops below it.
   assignee, due date unchanged). Stock hint on each item = pool quantity.
 - Drop-ship: no movement (unchanged). Idempotency guards unchanged (`refId` + `reason`).
 
+## 4b. Reporting a stock change (עידן 17.9 — "חייב להיות מקושר כמו שצריך")
+
+There is no free "adjust". A stock change is always one of three linked things, and the UI forces the link:
+
+| Direction | The dialog asks | Result |
+|-----------|-----------------|--------|
+| **ירידה** (less in the pool) | "מה קרה?" → **📍 יצא בביקור** or **🔢 ספירה מחדש** | Visit: opens the visit form for the kibbutz with the product/qty pre-checked → the visit's normal movement `חברה → kibbutz` (reason `visit_supply`, `ref_id` = visit id) + the delivery-cert gate applies as always. Recount: user enters the **counted quantity** (not a delta); system computes `delta = counted − pool`, writes one movement `חברה → ספירה` (reason `recount`, note required, `ref_id` = recount id). |
+| **עלייה** (more in the pool) | "מאיפה?" → **🧾 הזמנה** or **🔢 ספירה מחדש** | Order: pick an open supplier order (status ordered/arrived) → marks it delivered through the existing order flow → movement `ספק → חברה` (reason `order_delivery`, `ref_id` = order id). No matching order → the dialog offers "צור הזמנת ספק" (existing create flow) or falls back to recount. Recount: counted quantity → `ספירה → חברה` (reason `recount`). |
+
+- Entry points: **📦 מלאי → "דווח שינוי"** button and the ⋯ on a product row; also from the visit form ("ציוד שסופק"
+  is already this path) and from the order delivery step (already this path). Roles: all inventory actors (עידן,
+  עמיחי, אביאם, ניתאי) may report a recount; every recount raises an alert to עידן + עמיחי (§5) with the note.
+- `movements.reason` becomes an enum in the UI: `visit_supply` · `customer_supply` · `order_delivery` · `recount` ·
+  `pool_migration` (legacy `manual` rows stay readable). `ref_id` is **required** for visit/order reasons; `recount`
+  rows carry `ref_id` = a `stock_recounts(id, product, counted, before, delta, note, actor, created_at)` row so the
+  count itself is auditable. The alerts list and the digest show the reason and a link to the visit/order/recount.
+- Pure builders: `stockChangePlan({product, pool, direction, source, counted?, visitId?, orderId?, note?})` →
+  `{movements:[…], recount?:{…}, requires:'visit'|'order'|null, errors:[…]}`; goldens: decrease via recount 38→35 →
+  one `חברה → ספירה` ×3; increase via order → routes to the order flow (no direct movement); decrease via visit →
+  routes to the visit form (no direct movement); recount without note → error `'חובה להזין הערה לספירה'`;
+  recount equal to pool → error `'הספירה זהה למלאי — אין שינוי'`.
+
 ## 5. Alerts
 
 ### 5.1 In-app
@@ -92,10 +114,15 @@ when the pool drops below it.
 ## 6. UI changes (React islands, same stack as the cards redesign)
 
 - Inventory page keeps its legacy structure this release but its stock matrix collapses to **one column (חברה)** +
-  per-kibbutz "supplied" view; the transfer form is removed; a **תיקון מלאי** dialog (product, ±qty, note) for
-  עידן/עמיחי; product table gets the second name column.
+  per-kibbutz "supplied" view; the transfer form is removed; the **דיווח שינוי במלאי** sheet (§4b) replaces any
+  free adjust; product table gets the second name column.
 - Bell + alerts list island; digest is server-only.
 - RTL rule from the cards spec §6 applies (numbers LTR inside RTL rows: `<bdi>` around quantities and codes).
+
+- **KPI tiles are tappable (עידן 17.9):** the three tiles at the top of the inventory page act as filters/links —
+  **פריטים במאגר** → clears filters (full list); **תנועות היום** → opens the alerts list filtered to today's
+  movements; **מלאי נמוך** → filters the product list to items below `min_qty` (and the chip row reflects it). Same
+  pattern for the dashboard KPIs elsewhere (attendance KPIs → filtered day list; section counts → filter chips).
 
 ## 7. Tests (methodology)
 
