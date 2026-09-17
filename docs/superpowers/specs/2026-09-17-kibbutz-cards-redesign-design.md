@@ -19,6 +19,10 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
    motivating copy.
 9. (added mid-turn) **Complaints & ideas box** — anyone can type or **record voice → transcribed**.
 10. (added mid-turn) **Create kibbutzim from inside the app** — no code change per new client.
+11. (added 17.9, during planning) **Energy types editable per kibbutz — עידן only.**
+12. (added 17.9) **Inside each section, group by geographic region** — visually subtle — and **alphabetical (א״ב)
+    inside each region.**
+13. (added 17.9) **The viewer / reports user gets the new design too**, with every existing viewer function intact.
 
 ## 1. Current state (what exists, what we reuse)
 
@@ -179,6 +183,11 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
   chunk 4 replaces the existing hex literals in `app.css` with tokens (a contract test greps for stray hex in new CSS).
 - **Tokens**: add `--radius-lg:14px`, `--surface-2`, the brand pair, and the dark block above.
 - **Density**: one card ≈ 3 scrolls of thumb max; long EMS descriptions allowed (per §4) — tall cards, dense grid.
+- **Viewer / reports user (עידן 17.9):** the `body.user-viewer` experience is redesigned with the same tokens, bottom
+  nav (🏘 · 📊 דוחות · ⋯) and dark mode. Every current viewer function stays: `#viewerReportsHub` (visits PDF/Excel,
+  attendance PDF/Excel, delivery-cert PDF/Excel, monthly cert summary, stock/kibbutz Excel), read-only cards, read-only
+  meeting bullets (no ➕), read-only EMS tasks, cert view/reprint, and all write blocks (`test-viewer-gate.mjs`
+  regression). Feedback box IS allowed for the viewer.
 
 ## 7. Part F — Complaints & ideas box (📣 תיבת רעיונות ותלונות)
 
@@ -198,8 +207,17 @@ Today every card is hard-coded in `index.html` (adding גבעת חיים איח�
 makes the card list **data-driven**, which also simplifies Part A (renames/re-homing become row updates).
 
 - New table `kibbutzim`: `id uuid pk · name text unique (= card data-name) · display_name text · section text
-  ('setup'|'active') · energy text[] ('electric'|'water'|'gas') · marketing bool default false · ems_site_ids text[]
-  · sort int · archived_at timestamptz null · created_by, created_at`.
+  ('setup'|'active') · energy text[] ('electric'|'water'|'gas') · marketing bool default false · **region text**
+  (e.g. עמק יזרעאל, עמק הירדן, גליל, שער הנגב, שפלה, שרון, עמק המעיינות…) · ems_site_ids text[] · archived_at
+  timestamptz null · created_by, created_at`. (`sort` dropped — order is deterministic, see below.)
+- **Order inside a section (עידן 17.9):** group by `region` (rows with empty region last under "ללא איזור"), regions
+  ordered by a fixed list `REGION_ORDER` (north → south), then **alphabetical he-IL** inside each region. The region
+  appears as a **subtle sub-header** — a small muted label with a hairline, never a card or a colored bar
+  ("שלא יהיה בולט מדי"). The section count stays on the section header only. No region filter chips; the search box
+  already matches region text.
+- **Energy types are editable only by עידן** (`isIdan()`): in the ➕/✏️ sheet the energy chips are disabled for everyone
+  else (עמיחי can still create a kibbutz and set section/region/marketing; energy defaults to ⚡ חשמל). Region is
+  editable by עידן + עמיחי.
 - **Seed migration**: `db/kibbutzim_seed.mjs` parses the current `index.html` cards (name, section per §2 re-homing,
   energy badge, flags) → insert rows; then the static card markup is deleted and `01-data.js` renders cards from the
   table (one `renderCards()` pass, then the existing EMS-widget / meeting-bullet passes attach as today).
