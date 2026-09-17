@@ -181,6 +181,9 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
   choice persisted in `localStorage('theme')`, default = `prefers-color-scheme`. `theme-color` meta updated live so the
   PWA chrome matches. Every new component is written against tokens only — no hard-coded colors — and the CSS sweep in
   chunk 4 replaces the existing hex literals in `app.css` with tokens (a contract test greps for stray hex in new CSS).
+- **Libraries (עידן 17.9 — "פחות AI, יותר מקצועי ונקי, טיפה יותר הנפשות"):** Lucide SVG icons instead of UI emoji ·
+  GSAP core for sheet/cards/link animations (CSS fallback, reduced-motion respected) · IBM Plex Sans Hebrew as the body
+  face (Heebo fallback). Flat hairline cards, shadows only on floating layers, gradient only on brand touchpoints.
 - **Tokens**: add `--radius-lg:14px`, `--surface-2`, the brand pair, and the dark block above.
 - **Density**: one card ≈ 3 scrolls of thumb max; long EMS descriptions allowed (per §4) — tall cards, dense grid.
 - **Viewer / reports user (עידן 17.9):** the `body.user-viewer` experience is redesigned with the same tokens, bottom
