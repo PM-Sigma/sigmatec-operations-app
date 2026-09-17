@@ -299,6 +299,63 @@ makes the card list **data-driven**, which also simplifies Part A (renames/re-ho
 - Contract test: every row renders exactly one card; every meeting-note kibbutz resolves to a row or the import
   preview flags it (the "אין כרטיס תואם" state in §3.2 now offers "צור קיבוץ" inline).
 
+## 7d. Part H — Dev page (עמוד פיתוח) redesign (עידן 17.9)
+
+Keep it **more colorful** than the rest of the app (it is the one page where color carries meaning per column), but on
+the new tokens/type. Data source and write paths are unchanged (`18-dev-tasks.js`: GitHub Projects v2 via the `github`
+edge function, `devStage()`, `dev_status_log`).
+
+- **Board view (default):** four **full columns** in this order — **ספרינט הקרוב** (`ready` / Sprint Ready) ·
+  **בפיתוח עכשיו** (`prog`) · **שלבי בדיקות** (`review`) · **ממתין לפיתוח** (`backlog`). Every other column (`done` /
+  Scope Refinement, `committed` / עלה, Main Fields…) is a **minimized chip** in a thin rail at the end of the board
+  (count + name, colored dot); tapping a chip expands that column in place (as a 5th column) and collapses back on a
+  second tap. Column widths never shrink below 280 px because of the rail. **No "משימות כלליות" columns** (the general
+  tasks lane is removed from this page). Drag-and-drop, multi-select → "העבר לספרינט", 🚀 עלתה גרסה, filters and search
+  stay exactly as today.
+- **Tree view (toggle 🌳 / 🗂 at the top):** the GitHub sub-issue tree — one row per **נושא/epic** (root issue), children
+  nested with indent; each row shows a status pill and each **root shows a stacked status bar** (backlog / ready / in
+  progress / review / done / committed, proportional) — the "Sankey-ish" glance at what is left under each topic.
+  Filters: **הסתר שבוצע** (hides done+committed leaves and roots whose children are all done), by assignee, by
+  column; search. Expand/collapse per root, "פתח הכל / כווץ הכל". Clicking a leaf opens the issue drawer as today.
+- **Tree data:** already fetched (`t.parent` / children from the `github` function's tree mode); when a task has no
+  parent it appears under **ללא נושא**.
+- **Flow strip (top of the page):** one horizontal stacked bar for the whole board (same six colors) with counts —
+  reads like a mini Sankey without the ribbons; tapping a segment filters the board/tree to that stage.
+- Colors: six stage colors defined as tokens (`--stage-backlog … --stage-committed`) with dark-mode variants; column
+  headers keep a colored top border + tinted count pill; cards stay neutral surfaces with a colored left rule.
+- Mobile: columns become a horizontal snap-scroll (one column ≈ 88 vw), the rail becomes a chip row above; tree view
+  is the recommended mobile default (remembered per device).
+- Tests: pure `devBoardLayout(tasks, expandedKeys)` → `{full:[…], rail:[…]}` golden; `devTree(tasks, {hideDone})` →
+  nested structure golden (root with all-done children disappears when hideDone); stacked-bar proportions sum to 100.
+
+## 7e. Attendance (עמוד נוכחות) redesign + holidays (עידן 17.9)
+
+Beyond the re-skin in §6: the page is rebuilt for **density on the phone** (a month at a glance + today's action in one
+screen, no scrolling to the important part) and a wide desktop table view.
+
+- **Phone:** header (person, month switcher) → **היום** card with the day-type row (one tap) → 3 KPIs (שטח / משרד /
+  חסרים) → **month grid** 7 columns: filled (green), office/home (blue), missing (red dashed), weekend (dim), **חג /
+  חול המועד (violet with a small label)** → list of missing days as tappable chips → monthly report button. Tapping a
+  day opens a small sheet to set/edit that day.
+- **Desktop:** left: the same grid larger; right: a table of the month (date, day, type, kibbutz visited, hours,
+  source: ביקור/ידני) + the existing monthly PDF/Excel.
+- **Holidays (עידן 17.9):** dates that are **Israeli public holidays or company-declared closures** are not required for
+  attendance and are **not counted as missing** — e.g. 13.9.26 (ראש השנה), 21.9 (יום כיפור), 26.9 (סוכות), 3.10 (שמחת
+  תורה); and **חול המועד סוכות 27.9–2.10.26 is a company closure (עמיחי)**. They render as **חג** (or **חול המועד**)
+  cells. **Entering attendance on a holiday is still allowed** (someone did urgent work) — the sheet shows a note "יום
+  חג — הזנה אופציונלית" and the row is counted as a work day in the report with a 🕎 marker.
+- **Holiday source:** `db/company_holidays.sql` table `company_holidays(date date pk, name text, kind text
+  ('holiday'|'chol_hamoed'|'company_closure'), required boolean default false, created_by)`, seeded for 5786/5787
+  (Sept 2026 → Oct 2027) from Hebcal's Israel calendar (one-shot script `db/holidays_seed.mjs` calling
+  `https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=off&i=on&year=2026&month=x` … and writing rows; chol hamoed
+  rows inserted as `company_closure` with `name='חול המועד סוכות'` per עמיחי's decision; Pesach chol hamoed 2027 is
+  inserted as `chol_hamoed` with `required=true` until עמיחי decides). עידן/עמיחי can toggle a date's `required` in a
+  small admin list (⋯ עוד → חגים).
+- **Missing-days logic** skips non-required holiday dates in BOTH places: client `attMissingDays` (04-attendance-daily
+  / 22-push.js) and server `priorMissing` + evening check in `push-send` `attendanceCron` (reads
+  `company_holidays`). Golden test: September 2026 fixture with 13.9, 21.9, 26.9, 27.9–2.10 → missing list excludes
+  them; a filled 21.9 row is still reported with the 🕎 marker.
+
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 
 עידן named a React/Tailwind stack: **shadcn/ui, Magic UI, Aceternity UI, Motion, Sonner, Vite, TanStack Query,
