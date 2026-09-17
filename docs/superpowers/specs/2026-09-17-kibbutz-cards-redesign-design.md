@@ -1,6 +1,6 @@
 # Kibbutz cards redesign + field-worker flow — design spec
 
-STATUS: 🟡 DRAFT — awaiting עידן's approval of the open decisions (§9). NOT built.
+STATUS: 🟢 APPROVED by עידן 17.9.26 (mockup https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP reviewed, comments folded in) — NOT built yet. Next: implementation plan → chunks.
 Date: 2026-09-17. Branch: `feat/kibbutz-cards-redesign` (worktree `SigmatecOps-wt-cards`, off `origin/dev` 425437f).
 Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, arrival flow) + Sonnet (markup/CSS sweeps, tests).
 
@@ -121,6 +121,18 @@ pipeline can POST the same JSON (not in scope).
   the **בריפינג** screen for that kibbutz: open EMS tasks in full (mine first), latest meeting bullets, last visit
   summary, then two primary buttons **📍 סיכום ביקור** and **🚚 תעודת משלוח** (existing flows, kibbutz prefilled).
 - A second check-in the same day (another kibbutz) is allowed from the 📍 tab.
+- **Fast path to סיכום ביקור (עידן, 17.9):** the bottom-nav **📍 ביקור** button ALWAYS opens the visit form directly
+  (kibbutz picker inline, prefilled with today's check-in if any) — the arrival sheet/briefing is never a mandatory
+  detour. The arrival sheet itself has a **"ישר לסיכום ביקור →"** link under the kibbutz list, and the briefing's
+  primary button is the same form. Target: visit form visible within 2 taps from cold start.
+- **Delivery-cert rules are preserved verbatim (עידן, 17.9 — "יש התניות שעשינו בנושא"):**
+  1. Equipment supplied in a visit **MUST have an issued, active delivery cert linked to the visit** before the
+     summary can be saved (`09-visits.js` saveVisit gate, עידן 2026-07-15) — the briefing's 🚚 button and the form's
+     🚚 button both go through `certFromVisitForm()` with the pre-minted draft id so the cert links to the visit.
+  2. The status chip in the visit form ("✅ תעודה N נופקה" / "❌ טרם הופקה תעודה") stays, restyled with tokens.
+  3. 🚚 on a saved visit (last-visit box, history rows, briefing "ביקור קודם") appears only when the visit has items.
+  4. Cert issuing needs connection; offline → the existing guidance alert. Reprint/reissue/cancel flows untouched.
+  Contract test: saving a visit with checked products and no active cert is rejected; with a linked cert it saves.
 
 ### 5.2 Reminder
 - Edge Fn `push-send` gets mode **`visitCron`**: for each `field_checkins` row with `checked_in_at < now()-2h`,
@@ -148,6 +160,10 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
   one row; search becomes a sticky pill. Touch targets ≥ 44 px, primary ≥ 56 px. Pull-down search focus.
 - **Cards**: name + energy badge on one row; flags as small pills; meeting bullets; EMS tasks; light shadow, 14 px
   radius, hover lift on desktop, press-scale on mobile. Section color = left border only (calm).
+- **App name (mockup review 17.9):** wordmark **סיגמה** with subtitle "תפעול שטח" (alternatives offered: Σ שטח, סיגמה
+  בשטח, מגדלור, SigmaOps — עידן to confirm; default סיגמה). Push notifications show the same name.
+- **Header (mockup review):** Σ mark · wordmark · spacer · 🌙/☀️ · **user chip "● עידן"** (green dot = EMS connected;
+  tap → switch user / EMS status / install / notifications). No bare 👤 icon.
 - **Brand orientation (עידן, 17.9)**: the design keys off the company logo — the Σ with a **cyan → green gradient**
   (`icons/sigma_crop.png`; brand values already used in the הדרכות template: turquoise `#06C2CB`, green `#1ABE63`,
   text `#1B1F23`, secondary `#5A6672`). Tokens: `--brand-1:#06C2CB`, `--brand-2:#1ABE63`,
@@ -225,6 +241,6 @@ skipped when a visit exists, skipped when dismissed).
 | D2 | ~~Where do the 14 priority kibbutzim land?~~ **Decided 17.9:** two sections (בהקמה → פעילים); שיווקי = tag; ממתינים → פעילים+🤝. | — |
 | D3 | Import via in-app paste, or a Python step in the Management pipeline? | In-app paste (works from anywhere, one codebase). |
 | D4 | Bullet granularity: one per sentence, or one per paragraph? | Per sentence (matches "משפטים … כבולטים"). |
-| D5 | EMS description on the card: full text always, or expand-on-tap? | Full always (you asked "במלואן"); modal is the same. |
+| D5 | ~~EMS description~~ **Decided 17.9 (mockup approved):** full text always. | — |
 | D6 | ~~Reminder copy~~ **Decided 17.9:** positive-only wording (§5.2). One nudge, no second. | — |
 | D7 | Feedback: allow anonymous? Who sees the inbox? | Yes anonymous; inbox = עידן + עמיחי. |
