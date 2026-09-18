@@ -214,7 +214,9 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
 - **App name (mockup review 17.9):** wordmark **סיגמה** with subtitle "תפעול שטח" (alternatives offered: Σ שטח, סיגמה
   בשטח, מגדלור, SigmaOps — עידן to confirm; default סיגמה). Push notifications show the same name.
 - **Header (mockup review):** Σ mark · wordmark · spacer · 🌙/☀️ · **user chip "● עידן"** (green dot = EMS connected;
-  tap → switch user / EMS status / install / notifications). No bare 👤 icon.
+  tap → a small menu: **⚙️ הגדרות** (§7h), **👤 האזור האישי** with the gaps count badge, 🔔 התראות, 📲 התקנה, EMS
+  status/connect, החלפת משתמש / יציאה — עידן, mockup comment 18.9: app settings live here too, not only under ⋯).
+  No bare 👤 icon.
 - **Brand orientation (עידן, 17.9)**: the design keys off the company logo — the Σ with a **cyan → green gradient**
   (`icons/sigma_crop.png`; brand values already used in the הדרכות template: turquoise `#06C2CB`, green `#1ABE63`,
   text `#1B1F23`, secondary `#5A6672`). Tokens: `--brand-1:#06C2CB`, `--brand-2:#1ABE63`,
