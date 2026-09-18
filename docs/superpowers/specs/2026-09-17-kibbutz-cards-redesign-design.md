@@ -164,6 +164,22 @@ Two rules that pull in opposite directions, both binding:
   the 2 h nudge and the gap list mention the count ("3 פריטים נשארו פתוחים בגבים"). Roles are decided by
   `sigma.getRole()`; the same card component renders both views from one `audienceFor(role)` filter (pure, tested).
 
+### 5.1c Visit drafts — nothing typed is ever lost (עידן, mockup comment 18.9)
+- **Autosave:** the visit form saves a **draft** on every field change (debounced 800 ms) and on every section
+  change / tab switch / `pagehide`: `visit_drafts(id = the pre-minted visit id, person, kibbutz, date, payload jsonb,
+  updated_at)` in Supabase (authenticated) **and** a `localStorage` mirror for offline. Reopening the app, the card,
+  the briefing or 📍 for that kibbutz offers **"המשך טיוטה מ-14:02"** (one tap restores; "התחל מחדש" discards).
+- **Visible state:** a card/briefing with an open draft shows a **"סיכום ביקור בהתהוות"** chip; the gaps list counts
+  a draft as "started, not filed" (its own line, not a missing visit); the 2 h nudge copy changes to "יש לך טיוטה
+  פתוחה על <קיבוץ> — עוד דקה וזה סגור".
+- **Cert requires a summary first:** when 🚚 תעודת משלוח is pressed and there is no visit form open and no draft for
+  this kibbutz today, the app says **"נדרש קודם סיכום ביקור — פותח את הטופס"** (toast + opens the form with the
+  kibbutz prefilled); the cert opens from inside the form (existing `certFromVisitForm`), so the link to the visit is
+  guaranteed. With a draft present, the same tap resumes the draft and opens the cert on top.
+- Drafts are deleted when the visit is saved (same transaction path) and expire after 14 days (cron sweep). Pure
+  `draftState(kibbutz, person, today, drafts)` → `none|draft|filed` with tests; autosave debounce tested with fake
+  timers.
+
 ### 5.2 Reminder
 - Edge Fn `push-send` gets mode **`visitCron`**: for each `field_checkins` row with `checked_in_at < now()-2h`,
   `reminded_at is null`, `dismissed=false`, and **no `visits` row** for (person, kibbutz, that date) → send push,
