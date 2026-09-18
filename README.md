@@ -5,7 +5,6 @@ Operations + kibbutz-onboarding dashboard for Sigmatec. Installable PWA (phone +
 ## What's here
 ```
 index.html              the dashboard (single-file app; data layer routes to Supabase)
-stats.html              statistics page (read-only)
 manifest.webmanifest    PWA manifest (name, icons, standalone display)
 sw.js                   service worker — caches the app shell only; APIs stay live
 icons/                  app icon (svg + generated png 192/512)

@@ -112,6 +112,32 @@ for (const id of ['id="emsTaskModal"', 'id="emsDetailModal"', 'id="emsLoginGate"
 // A SHELL entry pointing at a deleted file makes caches.addAll() reject the whole precache.
 assert.ok(!SW.includes('stats.html'), "sw.js's SHELL must not precache the retired stats page");
 
+// NOBODY may still navigate to a retired page. `showPage()` REDIRECTS those three keys to
+// 🏘 קיבוצים, so a leftover caller does not throw — it quietly lands somewhere else and the
+// thing it meant to open never happens. That is precisely how the #emsBubble fallback chip
+// (js/src/11-search-login.js) lost its login prompt in review round 1. Comments are stripped
+// first, so the ones explaining this history do not trip the check.
+{
+  const stripComments = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const LEGACY = ['00-bridge', '01-data', '02-init-attendance', '09-visits', '10-activity',
+    '11-search-login', '12-reports', '13-ems', '14-calendar', '15-login-gate', '22-push'];
+  for (const f of LEGACY) {
+    const src = stripComments(readFileSync(new URL('./js/src/' + f + '.js', import.meta.url), 'utf8'));
+    for (const page of ['ems', 'mytasks', 'staff']) {
+      assert.ok(
+        !src.includes("showPage('" + page + "')"),
+        f + ".js still navigates to the retired '" + page + "' page — it would land on קיבוצים instead",
+      );
+    }
+  }
+  // …and the one that was caught: the legacy EMS chip is the ONLY EMS entry point on a page
+  // where ui/sigma.js never loaded, so while disconnected it must reach the sign-in surface.
+  const LOGIN = readFileSync(new URL('./js/src/11-search-login.js', import.meta.url), 'utf8');
+  const bubble = LOGIN.slice(LOGIN.indexOf('function updateEmsBubble'));
+  assert.ok(/sigmaBeginReLogin|emsRequireLogin/.test(bubble),
+    '#emsBubble must open the sign-in surface when disconnected, not a retired page');
+}
+
 // ─────────────────── the harness ───────────────────
 
 /**

@@ -128,6 +128,7 @@ function buildCommands(user: string, isViewer: boolean): Command[] {
   const page = (() => { try { return ((window as any)._currentPage || 'kibbutz') as SigmaPage; } catch { return 'kibbutz' as SigmaPage; } })();
   const role = roleOf(user, (() => { try { return sigma?.getRole?.() || ''; } catch { return ''; } })());
   const canShow = (p: SigmaPage) => { try { return sigma.canShowPage(p); } catch { return false; } };
+  const canUseEms = () => { try { return !!sigma.canUseEms?.(); } catch { return false; } };
 
   // ---- actions (the `>` prefix) ----
   const add = primaryAdd(page, role, { canManageKibbutzim: canManageKibbutzim(user, isViewer) });
@@ -146,8 +147,13 @@ function buildCommands(user: string, isViewer: boolean): Command[] {
     // The list the retired משימות page used to be (§7m R1) — by the name people type.
     out.push({ id: 'action:mytasks', label: '✅ המשימות שלי', keywords: 'משימות רשימה יומן',
       kind: 'action', run: () => openCalendarView('list') });
-    // Ruling 3 (19.9): the retired EMS page's two header buttons become Ctrl+K actions. A
-    // kibbutz-less ➕ has no card to start from, which is exactly what a command bar is for.
+  }
+  // Ruling 3 (19.9): the retired EMS page's two header buttons become Ctrl+K actions. A
+  // kibbutz-less ➕ has no card to start from, which is exactly what a command bar is for.
+  //
+  // Gated on `canUseEms()` — the gate that page itself carried — and NOT on the broader
+  // "any non-viewer": retiring a screen must not hand anyone a capability they never had.
+  if (canUseEms()) {
     out.push({ id: 'action:ems-task', label: '➕ משימה חדשה ב-EMS', keywords: 'EMS task משימה',
       kind: 'action', run: () => { void sigma.emsCreateTask?.(''); } });
     out.push({ id: 'action:ems-disconnect', label: '🔌 ניתוק EMS', keywords: 'logout disconnect התנתק',

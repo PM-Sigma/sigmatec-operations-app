@@ -391,6 +391,12 @@
       //
       // ✓ סיים goes through `changeEmsStatus`, which is QUEUE-AWARE: offline the change is
       // parked and applied on the next connect, exactly like closing a task from the visit form.
+      //
+      // `canUseEms` is WHO may act on EMS at all (js/src/11-search-login.js `EMS_USERS`). Until
+      // now the only thing that asked was `showPage('ems')`; with that page retired the Ctrl+K
+      // actions that replaced its two header buttons ask the same question, so retiring a screen
+      // cannot quietly hand anyone a capability they did not have.
+      canUseEms: function () { return !!call('canUseEms', [], false); },
       emsSetStatus: function (id, status) { return call('changeEmsStatus', [id, status]); },
       emsCreateTask: function (siteId) { return call('emsCreateTaskModal', [siteId || '']); },
       emsDisconnect: function () { return call('emsDisconnect'); },

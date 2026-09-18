@@ -170,6 +170,18 @@ describe('companyItems', () => {
       .toEqual(['הזמנת בקר 504']);
   });
 
+  it('every company row DONE is an empty block — a finished item never returns as a legacy line', () => {
+    const allDone: CompanyRow[] = [
+      { id: 'i1', title: 'הזמנת בקר 504', kibbutz: null, done: true, owner: 'עידן' },
+      { id: 'i2', title: 'ספק קרלו', kibbutz: null, done: true, owner: null },
+    ];
+    expect(companyItems(allDone, { orders: ['הזמנת בקר 504'], info: ['ספק קרלו'], guidelines: [] })).toEqual([]);
+    // …and the same holds when the rows that exist all belong to a kibbutz: the table has been
+    // migrated, so the legacy lists are history whether or not anything is company-wide today.
+    expect(companyItems([{ id: 'i3', title: 'של יגור', kibbutz: 'יגור', done: false, owner: null }],
+      { orders: ['ישן'], info: [], guidelines: [] })).toEqual([]);
+  });
+
   it('nothing anywhere is an empty block, not a crash', () => {
     expect(companyItems(null, null)).toEqual([]);
     expect(companyItems([], { orders: [], info: [], guidelines: [] })).toEqual([]);

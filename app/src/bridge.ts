@@ -173,6 +173,12 @@ export interface Sigma {
 
   // ── רשימה — the calendar's third view (spec §7g, Task 14) ─────────────────
   /**
+   * Who may act on EMS at all (`EMS_USERS`, js/src/11-search-login.js). The retired EMS page
+   * was gated on this; the Ctrl+K actions that replaced its two header buttons ask the same
+   * question, so the retirement widens nobody's reach.
+   */
+  canUseEms?(): boolean;
+  /**
    * ✓ סיים and any other status change from a row. Queue-aware (js/src/14-calendar.js
    * `changeEmsStatus`): offline it is parked and applied on the next connect, which is the
    * same promise the visit form makes. One writer, and it is the legacy one.
