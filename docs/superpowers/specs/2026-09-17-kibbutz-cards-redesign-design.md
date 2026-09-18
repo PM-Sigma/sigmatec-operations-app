@@ -559,6 +559,19 @@ down (so the free path is the default and the paid one is insurance; Groq can be
 in ⚙️ הגדרות for עידן (last success, model, avg seconds per audio minute). Prototype = Task 6 step 0: run the
 container on עידן's server, transcribe three real WhatsApp voice notes, compare `ivrit-ai` vs base `large-v3` on
 Hebrew names of kibbutzim/products, record WER-by-ear and latency in the report before wiring the function.
+**Whisper server — live (18.9, handoff from עידן's server):** `SELF_WHISPER_URL = https://idanhomepc.tail9e880d.ts.net`
+(permanent, Tailscale Funnel, may be hard-coded; token stays a secret). Not the Docker image from the runbook — a small
+FastAPI app on faster-whisper with bearer auth on every route; GPU fast pass ≈ 17× realtime (60 s audio → ~5 s, 3 min →
+~10 s), so the 25 s timeout stands. Contract: `POST /v1/audio/transcriptions` (multipart `file`, **always
+`language=he`** — the Hebrew fine-tunes have degraded auto-detect) → `{text, job_id, refine_eta_seconds}`; a slower,
+more accurate model re-transcribes in the background; `GET /v1/audio/transcriptions/{job_id}` → `{seconds_remaining}`
+then the refined text (fixes foreign words: `אונסרטנטי` → `Uncertainty`). Rate limit 120/h. Restarts within 5 min, 10–60 s
+boot during which requests are refused → keep Groq as fallback. **Decisions:** (1) use the refine pass — show the fast
+text immediately (editable) and poll `job_id` while the field is still open; (2) if the refined text arrives while the
+user has not edited or sent → replace silently with a small "עודכן" marker and undo; if the user already edited or sent →
+**discard** (never mutate saved records behind the user); (3) the Edge Function retries once after 2 s on network/5xx,
+never on 4xx, then falls back to Groq; job results are cached by `job_id` so polling does not count against the limit;
+(4) the three real WhatsApp voice notes for the proper-noun comparison must come from עידן (agent cannot supply them).
 Recordings go to the private `feedback-audio`/`visit-audio` Storage buckets and are deleted after transcription
 succeeds (retention 7 days for retry). Every transcript is editable before it is used.
 
