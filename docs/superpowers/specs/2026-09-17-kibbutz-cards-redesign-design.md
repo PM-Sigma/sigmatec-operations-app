@@ -459,8 +459,20 @@ quality in the open-weights family, seconds per minute of audio, fractions of a 
 exists in this project → **default**; (2) OpenAI `whisper-1` / `gpt-4o-transcribe` API — similar, costs a bit more;
 (3) on-device browser speech recognition (Android Chrome, `he-IL`) — free and instant, weaker on jargon, no iOS PWA
 support → used as the live path when available; (4) self-hosting `faster-whisper` needs a GPU/VPS (~$20–40/month) —
-not worth it at this volume. Recordings go to the private `feedback-audio`/`visit-audio` Storage buckets and are
-deleted after transcription succeeds (retention 7 days for retry). Every transcript is editable before it is used.
+not worth it at this volume. **Free-first decision (עידן 18.9): self-hosted Whisper on the office server, prototyped on עידן's existing
+Whisper machine.** Architecture: the office server runs `faster-whisper` behind an OpenAI-compatible HTTP API
+(`fedirz/faster-whisper-server` Docker image, or `speaches`), model **`ivrit-ai/whisper-large-v3-turbo-ct2`** (Hebrew
+fine-tune, CTranslate2 int8 — near real-time on a modern CPU, ~4× faster on any NVIDIA GPU) with `whisper-large-v3`
+as the quality fallback. Because the PWA is HTTPS (GitHub Pages), the server must be reachable over HTTPS: a **Cloudflare
+Tunnel** (free) or **Tailscale Funnel** (free) publishes `https://whisper.<domain>` with a bearer token; the browser
+never calls it directly — the `transcribe` Edge Function proxies (`SELF_WHISPER_URL` + `SELF_WHISPER_TOKEN` secrets),
+tries the office server first with a 25 s timeout, and falls back to Groq `whisper-large-v3` only if the server is
+down (so the free path is the default and the paid one is insurance; Groq can be disabled with a flag). Health is shown
+in ⚙️ הגדרות for עידן (last success, model, avg seconds per audio minute). Prototype = Task 6 step 0: run the
+container on עידן's server, transcribe three real WhatsApp voice notes, compare `ivrit-ai` vs base `large-v3` on
+Hebrew names of kibbutzim/products, record WER-by-ear and latency in the report before wiring the function.
+Recordings go to the private `feedback-audio`/`visit-audio` Storage buckets and are deleted after transcription
+succeeds (retention 7 days for retry). Every transcript is editable before it is used.
 
 ## 7j. Part M — Usage analytics (עידן 18.9) — עידן only
 
