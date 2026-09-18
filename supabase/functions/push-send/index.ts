@@ -3,11 +3,17 @@
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
 //   feedbackNew             : { mode:'feedbackNew', kind, preview, token }     → 📣 box → עידן + עמיחי (EMS-gated)
+//   usageDigest             : { mode:'usageDigest', force? }                   → weekly narrative → עידן (Sun 08:00)
 // Recipients + text + action buttons are computed/fixed SERVER-SIDE.
 // Every recipient device gets one push_log row (audit). Logging is non-fatal.
 // Secrets (Supabase dashboard → Edge Functions → Secrets, NEVER in repo): VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT.
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+// 📈 שימוש (spec §7j). BYTE-IDENTICAL copy of app/src/lib/usageNarrative.ts — Deno cannot
+// import out of app/src, and the sentences pushed on Sunday must be the SAME ones the
+// 📈 שימוש page shows and the vitest goldens pin. test-usage-track.mjs fails if the two
+// files ever drift, so treat this file as generated: edit app/src/lib and copy it over.
+import { digestBody, PAGE_KEYS, usageNarrative, weekTag, type UsageEvent } from "./usageNarrative.ts";
 
 const APP = "/sigmatec-operations-app/";   // GitHub Pages base path (openWindow target)
 const CORS = {
@@ -34,6 +40,10 @@ async function emsValid(token: string): Promise<boolean> {
 const APPROVE_GROUP = ["אביאם", "ניתאי", "עמיחי"];
 // 📣 feedback box (spec §7 Part F) — the inbox owners, fixed server-side like every recipient list.
 const FEEDBACK_INBOX = ["עידן", "עמיחי"];
+// 📈 שימוש (spec §7j) — the weekly narrative goes to עידן and to nobody else, and the
+// roster is the five EMS logins (js/src/11-search-login.js EMS_USERS), in display order.
+const USAGE_DIGEST_TO = ["עידן"];
+const USAGE_ROSTER = ["עידן", "אביאם", "ניתאי", "עמיחי", "מתניה"];
 const qty = (o: any) => (o.items || []).reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0);
 const otype = (o: any) => o.order_type || o.orderType || (/בקשת לקוח/.test(o.notes || "") ? "customer" : "supplier");
 const needsAmichai = (o: any) => otype(o) === "supplier" && qty(o) > 10;
@@ -204,6 +214,57 @@ Deno.serve(async (req: Request) => {
       results.push({ person, kind, dates: dates.length, delivered: r.delivered });
     }
     return json({ ok: true, kind, results });
+  }
+
+  // ---- 📈 weekly usage digest (spec §7j) ------------------------------------------------
+  // pg_cron hits push-send hourly (db/cron_usage_weekly.sql); the GATE is here, on Israel
+  // local time, exactly like attendanceCron — one job, no duplicated schedule maths, and DST
+  // handled by israelNow(). `force: true` bypasses the gate AND the idempotency check, which
+  // is how the release smoke sends one on a Friday afternoon.
+  //
+  // Recipient is FIXED server-side to עידן, like every other mode. The narrative names people,
+  // so who may receive it is not something a caller gets to choose (adoption §5.4: this is
+  // עידן's tool for noticing, never a performance-review artefact handed around).
+  if (body.mode === "usageDigest") {
+    const t = israelNow();
+    const force = body.force === true;
+    if (!force && !(t.dow === 0 && t.hh === 8)) {
+      return json({ ok: true, skipped: "not Sunday 08:00 Israel", dow: t.dow, hour: t.hh });
+    }
+    const tag = weekTag(new Date());
+    if (!force) {
+      const { data: prior } = await sb.from("push_log").select("id")
+        .eq("event", "usageDigest").eq("where_txt", tag).limit(1);
+      if (prior && prior.length) return json({ ok: true, skipped: "already sent", tag });
+    }
+
+    // 14 days: the reported week plus the one before it, which is what the "(שבוע שעבר N)"
+    // comparison needs. Service role, so no RPC — usage_report() is the CLIENT's door.
+    const from = new Date(Date.now() - 14 * 86400 * 1000).toISOString();
+    const { data: rows, error } = await sb.from("usage_events")
+      .select("person,page,action,target,at,session_id,device").gte("at", from).order("at");
+    if (error) return json({ ok: false, error: error.message }, 500);
+
+    const all = (rows ?? []) as UsageEvent[];
+    const cut = Date.now() - 7 * 86400 * 1000;
+    const week = all.filter((e) => +new Date(e.at) >= cut);
+    const prevWeek = all.filter((e) => +new Date(e.at) < cut);
+    const sentences = usageNarrative(week, prevWeek, USAGE_ROSTER, PAGE_KEYS);
+
+    const title = "📈 שימוש בשבוע האחרון";
+    const bodyTxt = digestBody(sentences);
+    const openUrl = APP + "#usage";
+    const payload = JSON.stringify({
+      title, body: bodyTxt, tag, url: openUrl,
+      actions: [{ action: "usage", title: "📈 פתח שימוש" }],
+      data: { actUrls: { usage: openUrl } },
+    });
+    const meta = {
+      event: "usageDigest", order_id: null, where_txt: tag, qty: sentences.length,
+      actor: null, title, body: bodyTxt,
+    };
+    const r = await sendTo(USAGE_DIGEST_TO, payload, meta);
+    return json({ ok: true, tag, sentences, ...r });
   }
 
   // ---- one-tap approve (supplier orders only; customer approval must run in-app) ----

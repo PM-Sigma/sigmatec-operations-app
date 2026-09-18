@@ -16,6 +16,55 @@
     catch (e) { console.warn('[sigma] emit failed', name, e); }
   };
 
+  // ───────────────────────── usage tracking (spec §7j) ─────────────────────────
+  // The legacy half: stamp WHO / WHERE / WHEN and park the event in one shared array. The
+  // React side (app/src/lib/track.ts) drains it and owns the only insert — legacy code never
+  // touches Supabase for analytics, and if ui/sigma.js never loads the array just caps out.
+  //
+  // PII-light by construction: a person's name, the page, an action key and a short target
+  // (a kibbutz name, a cert number, an id). NEVER free text a user typed — the one exception
+  // is the failed kibbutz SEARCH TERM, which spec §7j asks for by name.
+  window.__sigmaTrack = window.__sigmaTrack || [];
+  var TRACK_CAP = 200, TRACK_TARGET = 40;
+  window.sigmaTrack = function (action, target, page) {
+    try {
+      if (!action) return;
+      var q = window.__sigmaTrack;
+      if (q.length >= TRACK_CAP) q.shift();          // a tab with no React bundle must not grow forever
+      q.push({
+        person: (typeof getCurrentUser === 'function' && getCurrentUser()) || null,
+        page: page || window._currentPage || null,
+        action: String(action),
+        target: (target === null || target === undefined) ? null : String(target).slice(0, TRACK_TARGET),
+        at: new Date().toISOString()
+      });
+    } catch (e) { /* tracking never affects the caller */ }
+  };
+
+  // Page views. showPage() is a top-level function declaration in the same concatenated
+  // script, so it is HOISTED and already assignable here even though 02-init-attendance.js
+  // comes later in the bundle. Wrapping it — rather than tracking inside sigma.showPage — is
+  // what makes the legacy nav buttons, the deep links and the React nav all count once:
+  // showPage is the single door every page change goes through. The DOMContentLoaded retry is
+  // only a safety net for a bundle where the hoist did not happen.
+  window.sigmaWrapShowPage = function () {
+    if (window.__sigmaShowPageWrapped) return true;
+    var orig = window.showPage;
+    if (typeof orig !== 'function') return false;
+    window.__sigmaShowPageWrapped = true;
+    window.showPage = function (page) {
+      var r = orig.apply(this, arguments);
+      // AFTER the call: showPage rewrites `page` when a gate denies it, and what belongs in
+      // the log is the page the user actually landed on (window._currentPage).
+      window.sigmaTrack('view', null, window._currentPage || page);
+      return r;
+    };
+    return true;
+  };
+  if (!window.sigmaWrapShowPage()) {
+    document.addEventListener('DOMContentLoaded', function () { window.sigmaWrapShowPage(); });
+  }
+
   (function () {
     var fn = function (name) { return typeof window[name] === 'function' ? window[name] : null; };
     var call = function (name, args, fallback) {
@@ -51,8 +100,14 @@
       get ATT_PEOPLE() { return (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE) || []; },
 
       // ---- navigation -------------------------------------------------------
+      // Page views are tracked by the showPage WRAPPER above, not here — otherwise a legacy
+      // nav button would go unrecorded and a React nav click would be recorded twice.
       showPage: function (page) { return call('showPage', [page]); },
       canShowPage: canShowPage,
+
+      // ---- usage analytics (spec §7j) ---------------------------------------
+      // The same signature React's track() has; both land in the one queue.
+      track: function (action, target, page) { return window.sigmaTrack(action, target, page); },
 
       // ---- EMS --------------------------------------------------------------
       emsApi: function () { return call('emsApi', Array.prototype.slice.call(arguments)); },
@@ -2612,7 +2667,8 @@
     try {
       const res = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'pending' }) });
       const data = await res.json();
-      if (data.ok) { orderNotifMarkSeen([o.id]); if (typeof pushNotify === 'function') pushNotify('approved', o.id, getCurrentUser()); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
+      if (data.ok) { orderNotifMarkSeen([o.id]); if (typeof sigmaTrack === 'function') sigmaTrack('order-approved', o.id);   // 📈 שימוש (spec §7j)
+        if (typeof pushNotify === 'function') pushNotify('approved', o.id, getCurrentUser()); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
       else alert('שגיאה: ' + JSON.stringify(data));
     } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
   }
@@ -2631,6 +2687,7 @@
         var linkedD = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
         await Promise.all(linkedD.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
         orderNotifMarkSeen([o.id]);
+        if (typeof sigmaTrack === 'function') sigmaTrack('order-approved', o.id);   // 📈 שימוש (spec §7j)
         if (typeof pushNotify === 'function') pushNotify('approved', o.id, me);
         var td = document.getElementById('toast'); td.textContent = '✅ אושרה אספקה ישירה מהספק'; td.classList.add('show'); setTimeout(function () { td.classList.remove('show'); }, 3000);
         setTimeout(refreshData, 1000);
@@ -3721,6 +3778,7 @@
       });
       const data = await res.json();
       if (data.ok) {
+        if (typeof sigmaTrack === 'function') sigmaTrack('stock-report', product);   // 📈 שימוש (spec §7j)
         const t = document.getElementById('toast');
         t.textContent = `✅ ${dir === 'remove' ? 'הופחתו' : 'נוספו'} ${qty}× ${product} ${dir === 'remove' ? 'מ' : 'ל'}${loc}`;
         t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
@@ -4379,6 +4437,7 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-saved', { kibbutz: visit.kibbutz });   // → React islands (bridge)
+    if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz);   // 📈 שימוש (spec §7j)
 
     // Phase 2: push the summary as a comment + status to the chosen open EMS task
     // (captured in-form before the modal closed; sent live or queued if not connected).
@@ -6694,6 +6753,9 @@
         res = await emsApi('/employee-tasks', { method: 'POST', body: JSON.stringify(body) });
       }
       if (res && res.id) {
+        // 📈 שימוש (spec §7j): a new task is "נוצרה", an edit of an existing one is what
+        // "שובצה ליום" looks like from here — the due date is a field on this same form.
+        if (typeof sigmaTrack === 'function') sigmaTrack(_emsEditingId ? 'ems-task-scheduled' : 'ems-task-created', res.id);
         closeEmsModal();
         emsToast(_emsEditingId ? '✅ המשימה עודכנה' : '✅ המשימה נוצרה ב-EMS');
         if (document.getElementById('ems-view').style.display !== 'none') loadEmsTasks();
@@ -8449,6 +8511,7 @@
           customer: cert.customer, items: cert.items, notes: cert.notes, source: cert.source, ref_id: cert.refId,
           created_by: (typeof getCurrentUser === 'function' && getCurrentUser()) || '', recipient: cert.recipient || '', signature: cert.signature || '', status: 'active', replaced_by: 0 });
       }
+      if (cert.number && typeof sigmaTrack === 'function') sigmaTrack('cert-issued', cert.number);   // 📈 שימוש (spec §7j)
       document.getElementById('certModal').classList.remove('open');
       if (cert.id) { try { certSendOpen(cert.id); } catch (e) {} }   // natural next step in the field: send it
       const t = document.getElementById('toast');

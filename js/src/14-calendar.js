@@ -619,6 +619,9 @@
         res = await emsApi('/employee-tasks', { method: 'POST', body: JSON.stringify(body) });
       }
       if (res && res.id) {
+        // 📈 שימוש (spec §7j): a new task is "נוצרה", an edit of an existing one is what
+        // "שובצה ליום" looks like from here — the due date is a field on this same form.
+        if (typeof sigmaTrack === 'function') sigmaTrack(_emsEditingId ? 'ems-task-scheduled' : 'ems-task-created', res.id);
         closeEmsModal();
         emsToast(_emsEditingId ? '✅ המשימה עודכנה' : '✅ המשימה נוצרה ב-EMS');
         if (document.getElementById('ems-view').style.display !== 'none') loadEmsTasks();

@@ -411,6 +411,7 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-saved', { kibbutz: visit.kibbutz });   // → React islands (bridge)
+    if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz);   // 📈 שימוש (spec §7j)
 
     // Phase 2: push the summary as a comment + status to the chosen open EMS task
     // (captured in-form before the modal closed; sent live or queued if not connected).

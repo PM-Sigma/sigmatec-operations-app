@@ -72,3 +72,27 @@ Channels, in the order of how loosely they couple:
 | `transcribe` (new) | `{token, path, audio_sec}` → `{text, engine, ms}` — **EMS-gated**, and `path` must match the whitelist `<name>.<audio ext>` (`chain.ts validAudioPath`): a blocklist could not keep a percent-encoded `%2e%2e/` inside the bucket, and an anon caller could spend Groq credit | `app/src/lib/speech.ts:uploadAndTranscribe` (the fallback voice path). Self-hosted Whisper first, Groq as insurance — `supabase/functions/transcribe/chain.ts`, runbook in `docs/whisper-server.md`. Writes `transcribe_log`. |
 | `push-send` | `feedbackNew` `{token, kind, preview}` → עידן + עמיחי — **EMS-gated** (the public anon key alone must not be able to push to anyone's phone) | `islands/Feedback.tsx:sendFeedback` (fire-and-forget; the author is never sent, so an anonymous feedback stays anonymous) |
 | `github` | `listParents` · `createIssue` `{title, body, labels, parent}` — `parent` is **required server-side** (the board is two-level by rule) and `body` is capped at 20k | `islands/FeedbackInbox.tsx` — a bug becomes a CHILD of a Main Fields parent, titled `[מודול] | [תת-תחום] | [תיאור]`, into Backlog (the Git Ticket System rules) |
+
+## Surfaces / channels added by the usage-analytics task (Task 17, spec §7j)
+
+| Surface | Direction | Why |
+|---|---|---|
+| `window.sigmaTrack(action, target?, page?)` + `sigma.track(...)` | legacy → shared queue → React | ONE stamping point for who/where/when. Legacy modules call it guarded by `typeof` and never touch Supabase; `app/src/lib/track.ts` drains `window.__sigmaTrack` and owns the only insert. If `ui/sigma.js` never loads, the array caps at 200 and the events are lost — the intended failure mode. |
+| `window.showPage` **wrapped** by `sigma.sigmaWrapShowPage()` | legacy → analytics | page views are tracked in the wrapper, NOT in `sigma.showPage`. showPage is the single door every page change goes through (legacy nav buttons, deep links, the React nav), so the wrapper counts each change exactly once; tracking inside the bridge call would have missed the legacy buttons and double-counted React clicks. It logs `window._currentPage` (the page actually landed on), because showPage rewrites `page` when a gate denies it. Pinned behaviourally by `test-usage-track.mjs [1]`. |
+| `track()` / `trackMount()` from `app/src/lib/track.ts` | island → analytics | the React-side twin of `sigmaTrack`; routes through the bridge when legacy is loaded. `islands.tsx mount()` calls `trackMount(id)`, so **every island mount is an event** with no per-island wiring. `track.ts` is in the BOOT chunk and therefore imports supabase-js lazily (`await import('./supabase')`) — `test-sigma-shell.mjs [3]` enforces that the library itself never lands there. |
+| `registerMoreItem({id:'usage'})` — label `📈 שימוש`, `roles:['idan']` + live `canSeeUsage` | island → nav | §7j makes this screen עידן's alone. The predicate is evaluated on every listing, so `changeUser()` cannot leave it listed, and the dialog closes itself if the current user stops being עידן. |
+| `#usage` hash | push → island | `push-send` mode `usageDigest` opens the app at `#usage`; `islands/Usage.tsx` watches the hash AND `user-changed` (the island mounts before the user is known, so a single check at mount would swallow the deep link — same lesson as `#feedback-inbox`). |
+| `usage_report(p_days, p_actor)` RPC | island → DB | `usage_events` has **no client SELECT policy and the privilege is revoked**, so the page cannot read the table at all. The RPC is SECURITY DEFINER and refuses any actor but עידן. The client gate is the first door, this is the second; identity is still the app's one shared `authenticated` pass (same honest limitation as `feedback_admin_update`). |
+| `app/src/lib/usageNarrative.ts` ↔ `supabase/functions/push-send/usageNarrative.ts` | shared logic | a **byte-identical copy**: Deno cannot import from `app/src`, and the Sunday push must say exactly what the page says and what the vitest goldens pin. Edit `app/src/lib` and copy it over — `test-usage-track.mjs [3]` fails the build on any drift. Keep the module import-free so the copy stays possible. |
+
+### Query keys (Task 17)
+
+| Key | Invalidated by | Read by |
+|---|---|---|
+| `['usage', 30]` | nothing — `staleTime` 60 s, and the island flushes the tracker before each fetch so the current session's own events are in the report | `islands/Usage.tsx` (📈 שימוש) |
+
+### Edge function / cron (Task 17)
+
+| Function | Mode added | Called by |
+|---|---|---|
+| `push-send` | `usageDigest` `{force?}` → the weekly narrative to עידן. Gated on **Sunday 08:00 Israel** (`israelNow()`, so DST is handled server-side and a missed hour re-fires safely), idempotent on the `usage-<yyyy>-w<ww>` tag in `push_log`, recipient fixed server-side. Reads `usage_events` with the service role (no RPC — that is the client's door). | pg_cron `push-usage-hourly` (`db/cron_usage_weekly.sql`, `5 * * * *` so it never races `push-attendance-hourly` at `0 * * * *`). **Not scheduled yet** — one prod step after the merge. |

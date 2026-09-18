@@ -17,6 +17,7 @@ import { FilterChips } from '@/components/home/FilterChips';
 import { Section } from '@/components/home/Section';
 import { KibbutzSheet } from '@/components/home/KibbutzSheet';
 import { mount } from '@/islands';
+import { track } from '@/lib/track';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
@@ -124,6 +125,28 @@ function HomeIsland() {
     if (name) { setHighlight(name); setTimeout(() => setHighlight(null), 1200); }
   }, [qc]);
 
+  // ---- 📈 שימוש — the two DEAD-END signals (spec §7j) ---------------------
+  // A search that finds nothing, and a sheet opened and abandoned, are the earliest evidence
+  // that a UI decision (not motivation) is losing people — adoption §5.2 says check them daily
+  // in week 1. Both are deliberately cheap: one event each, never a keystroke log.
+  React.useEffect(() => {
+    const q = query.trim();
+    if (!q || !rows.length || visible.length) return;
+    // Debounced: the miss is only interesting once the person STOPPED typing, otherwise every
+    // prefix of a real name ("ג", "גב", "גבת") would be logged as a failure.
+    const t = setTimeout(() => track('search-no-results', q), 900);
+    return () => clearTimeout(t);
+  }, [query, visible.length, rows.length]);
+
+  // `saved` is a ref, not state: it must survive the same render that closes the sheet.
+  const savedRef = React.useRef(false);
+  const wasOpen = React.useRef(false);
+  React.useEffect(() => {
+    if (sheetOpen) { savedRef.current = false; wasOpen.current = true; return; }
+    if (wasOpen.current && !savedRef.current) track('sheet-dismissed', 'kibbutz-sheet');
+    wasOpen.current = false;
+  }, [sheetOpen]);
+
   if (isLoading && !rows.length) {
     return (
       <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
@@ -172,8 +195,16 @@ function HomeIsland() {
           prefillName={prefillName}
           allRows={rows}
           user={user}
-          onSaved={r => afterWrite(r?.name || null)}
-          onArchived={n => { afterWrite(null); toast.info('הכרטיס הוסר מהעמוד: ' + n); }}
+          onSaved={r => {
+            savedRef.current = true;
+            if (!editRow && r?.name) track('kibbutz-created', r.name);
+            afterWrite(r?.name || null);
+          }}
+          onArchived={n => {
+            savedRef.current = true;   // archiving is a decision, not an abandoned sheet
+            afterWrite(null);
+            toast.info('הכרטיס הוסר מהעמוד: ' + n);
+          }}
         />
       )}
     </div>

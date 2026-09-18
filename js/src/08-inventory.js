@@ -258,6 +258,7 @@
       });
       const data = await res.json();
       if (data.ok) {
+        if (typeof sigmaTrack === 'function') sigmaTrack('stock-report', product);   // 📈 שימוש (spec §7j)
         const t = document.getElementById('toast');
         t.textContent = `✅ ${dir === 'remove' ? 'הופחתו' : 'נוספו'} ${qty}× ${product} ${dir === 'remove' ? 'מ' : 'ל'}${loc}`;
         t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);

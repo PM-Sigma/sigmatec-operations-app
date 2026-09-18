@@ -15,6 +15,7 @@ import { Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { mount } from '@/islands';
+import { track } from '@/lib/track';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
@@ -215,6 +216,7 @@ function ImportSheet() {
       const parts = [`${r.inserted + r.updated} בולטים`];
       if (r.deleted) parts.push(`${r.deleted} הוסרו`);
       if (r.flagged) parts.push(`${r.flagged} עודכנו אחרי פתיחת משימה`);
+      track('notes-imported', String(r.inserted + r.updated));   // 📈 שימוש (spec §7j)
       toast.success(`ישיבת ${dmy(effective.meeting_date)}: ${parts.join(' · ')}`);
       setOpen(false); reset();
     } catch (e: any) {

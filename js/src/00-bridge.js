@@ -16,6 +16,55 @@
     catch (e) { console.warn('[sigma] emit failed', name, e); }
   };
 
+  // ───────────────────────── usage tracking (spec §7j) ─────────────────────────
+  // The legacy half: stamp WHO / WHERE / WHEN and park the event in one shared array. The
+  // React side (app/src/lib/track.ts) drains it and owns the only insert — legacy code never
+  // touches Supabase for analytics, and if ui/sigma.js never loads the array just caps out.
+  //
+  // PII-light by construction: a person's name, the page, an action key and a short target
+  // (a kibbutz name, a cert number, an id). NEVER free text a user typed — the one exception
+  // is the failed kibbutz SEARCH TERM, which spec §7j asks for by name.
+  window.__sigmaTrack = window.__sigmaTrack || [];
+  var TRACK_CAP = 200, TRACK_TARGET = 40;
+  window.sigmaTrack = function (action, target, page) {
+    try {
+      if (!action) return;
+      var q = window.__sigmaTrack;
+      if (q.length >= TRACK_CAP) q.shift();          // a tab with no React bundle must not grow forever
+      q.push({
+        person: (typeof getCurrentUser === 'function' && getCurrentUser()) || null,
+        page: page || window._currentPage || null,
+        action: String(action),
+        target: (target === null || target === undefined) ? null : String(target).slice(0, TRACK_TARGET),
+        at: new Date().toISOString()
+      });
+    } catch (e) { /* tracking never affects the caller */ }
+  };
+
+  // Page views. showPage() is a top-level function declaration in the same concatenated
+  // script, so it is HOISTED and already assignable here even though 02-init-attendance.js
+  // comes later in the bundle. Wrapping it — rather than tracking inside sigma.showPage — is
+  // what makes the legacy nav buttons, the deep links and the React nav all count once:
+  // showPage is the single door every page change goes through. The DOMContentLoaded retry is
+  // only a safety net for a bundle where the hoist did not happen.
+  window.sigmaWrapShowPage = function () {
+    if (window.__sigmaShowPageWrapped) return true;
+    var orig = window.showPage;
+    if (typeof orig !== 'function') return false;
+    window.__sigmaShowPageWrapped = true;
+    window.showPage = function (page) {
+      var r = orig.apply(this, arguments);
+      // AFTER the call: showPage rewrites `page` when a gate denies it, and what belongs in
+      // the log is the page the user actually landed on (window._currentPage).
+      window.sigmaTrack('view', null, window._currentPage || page);
+      return r;
+    };
+    return true;
+  };
+  if (!window.sigmaWrapShowPage()) {
+    document.addEventListener('DOMContentLoaded', function () { window.sigmaWrapShowPage(); });
+  }
+
   (function () {
     var fn = function (name) { return typeof window[name] === 'function' ? window[name] : null; };
     var call = function (name, args, fallback) {
@@ -51,8 +100,14 @@
       get ATT_PEOPLE() { return (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE) || []; },
 
       // ---- navigation -------------------------------------------------------
+      // Page views are tracked by the showPage WRAPPER above, not here — otherwise a legacy
+      // nav button would go unrecorded and a React nav click would be recorded twice.
       showPage: function (page) { return call('showPage', [page]); },
       canShowPage: canShowPage,
+
+      // ---- usage analytics (spec §7j) ---------------------------------------
+      // The same signature React's track() has; both land in the one queue.
+      track: function (action, target, page) { return window.sigmaTrack(action, target, page); },
 
       // ---- EMS --------------------------------------------------------------
       emsApi: function () { return call('emsApi', Array.prototype.slice.call(arguments)); },

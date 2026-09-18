@@ -59,7 +59,15 @@ console.log('\n[3] the boot bundle carries no data stack');
   check('islands opt in via SigmaProviders', q.includes('export function SigmaProviders'));
 
   const bundle = read('./ui/sigma.js');
-  check('bundle has no supabase-js', !bundle.includes('supabase'), 'supabase-js leaked into the boot chunk');
+  // The rule is "the boot chunk does not CARRY the data stack", not "never mentions it":
+  // Task 17's tracker (app/src/lib/track.ts) IS in the boot chunk and reaches Supabase through
+  // `await import('./supabase')`, which leaves a lazy `./sigma-supabase.js` specifier behind —
+  // a reference, not the 120 kB library. So the library's own classes are what we look for,
+  // and the only permitted textual mention is that one chunk specifier.
+  const LIB = /GoTrueClient|PostgrestClient|SupabaseClient|SupabaseAuthClient/;
+  check('bundle has no supabase-js', !LIB.test(bundle), 'supabase-js leaked into the boot chunk');
+  const stray = [...new Set((bundle.match(/supabase[A-Za-z./-]*/g) || []).filter(s => s !== 'supabase.js'))];
+  check('the only mention is the lazy chunk specifier', stray.length === 0, stray.join(', '));
   check('bundle has no TanStack Query', !/QueryClient|tanstack/i.test(bundle), 'TanStack leaked into the boot chunk');
 }
 

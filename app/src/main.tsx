@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Nav } from '@/components/Nav';
 import { mount } from '@/islands';
 import { applyTheme, storedTheme } from '@/lib/theme';
+import { startTracking } from '@/lib/track';
 
 // REGRESSION GUARD for the cache-bust stamps. index.html loads this module as
 // `ui/sigma.js?v=<ver>`; build.mjs stamps the chunks' own `./sigma*.js` specifiers with the
@@ -36,6 +37,10 @@ function boot() {
   // Re-apply the stored theme through the full path (the <head> snippet only set the class
   // before first paint; this also syncs theme-color and announces 'theme-changed').
   applyTheme(storedTheme() ?? 'system');
+
+  // 📈 שימוש (spec §7j): install the flush loop BEFORE the first mount, so the mount
+  // events themselves are buffered. Nothing here touches Supabase until the first flush.
+  startTracking();
 
   // Both are provider-free islands — neither reads data, so neither pulls TanStack or supabase-js in.
   mount('sigma-toaster', SigmaToaster);
@@ -73,6 +78,13 @@ function boot() {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())
       .catch(e => console.warn('[sigma] feedback inbox island failed', e));
+  }
+  // 📈 שימוש (Task 17) — עידן only, and a lazy chunk like every data island: it drags in
+  // Recharts, which nobody else needs.
+  if (document.getElementById('sigma-usage')) {
+    import('@/islands/Usage')
+      .then(m => m.mountUsage())
+      .catch(e => console.warn('[sigma] usage island failed', e));
   }
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')

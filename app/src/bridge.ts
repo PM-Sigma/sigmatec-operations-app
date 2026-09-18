@@ -32,6 +32,13 @@ export interface Sigma {
   showPage(page: SigmaPage): void;
   canShowPage(page: SigmaPage): boolean;
 
+  /**
+   * Usage analytics (spec §7j). Stamps person + current page and parks the event in the
+   * shared queue; app/src/lib/track.ts drains it and owns the insert. Islands should call
+   * `track()` from lib/track, which routes here when legacy is loaded.
+   */
+  track?(action: string, target?: string | null, page?: string | null): void;
+
   emsApi(path: string, options?: RequestInit): Promise<any>;
   isEmsConnected(): boolean;
   emsCacheData(): { tasks: EmsTask[]; syncedAt?: string; syncedBy?: string };

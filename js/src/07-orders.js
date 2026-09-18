@@ -505,7 +505,8 @@
     try {
       const res = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'pending' }) });
       const data = await res.json();
-      if (data.ok) { orderNotifMarkSeen([o.id]); if (typeof pushNotify === 'function') pushNotify('approved', o.id, getCurrentUser()); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
+      if (data.ok) { orderNotifMarkSeen([o.id]); if (typeof sigmaTrack === 'function') sigmaTrack('order-approved', o.id);   // 📈 שימוש (spec §7j)
+        if (typeof pushNotify === 'function') pushNotify('approved', o.id, getCurrentUser()); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
       else alert('שגיאה: ' + JSON.stringify(data));
     } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
   }
@@ -524,6 +525,7 @@
         var linkedD = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
         await Promise.all(linkedD.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
         orderNotifMarkSeen([o.id]);
+        if (typeof sigmaTrack === 'function') sigmaTrack('order-approved', o.id);   // 📈 שימוש (spec §7j)
         if (typeof pushNotify === 'function') pushNotify('approved', o.id, me);
         var td = document.getElementById('toast'); td.textContent = '✅ אושרה אספקה ישירה מהספק'; td.classList.add('show'); setTimeout(function () { td.classList.remove('show'); }, 3000);
         setTimeout(refreshData, 1000);

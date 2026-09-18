@@ -279,6 +279,7 @@
           customer: cert.customer, items: cert.items, notes: cert.notes, source: cert.source, ref_id: cert.refId,
           created_by: (typeof getCurrentUser === 'function' && getCurrentUser()) || '', recipient: cert.recipient || '', signature: cert.signature || '', status: 'active', replaced_by: 0 });
       }
+      if (cert.number && typeof sigmaTrack === 'function') sigmaTrack('cert-issued', cert.number);   // 📈 שימוש (spec §7j)
       document.getElementById('certModal').classList.remove('open');
       if (cert.id) { try { certSendOpen(cert.id); } catch (e) {} }   // natural next step in the field: send it
       const t = document.getElementById('toast');

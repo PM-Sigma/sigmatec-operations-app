@@ -7,6 +7,7 @@
 // bundle's boot path for islands that need neither (nav, toaster).
 import { StrictMode, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
+import { trackMount } from '@/lib/track';
 
 export function mount(id: string, Component: ComponentType): boolean {
   const el = document.getElementById(id);
@@ -21,6 +22,7 @@ export function mount(id: string, Component: ComponentType): boolean {
   el.dataset.sigmaMounted = '1';
   el.classList.add('sigma-root');
   el.setAttribute('dir', 'rtl');          // RTL is a release gate (spec §6): every island root declares it
+  trackMount(id);                         // 📈 שימוש (spec §7j) — one event per island, per mount
   createRoot(el).render(
     <StrictMode>
       <Component />

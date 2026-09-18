@@ -7,6 +7,54 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [unreleased · feat/kibbutz-cards-redesign] 2026-09-18 — 📈 שימוש: usage analytics + weekly narrative digest (עידן בלבד)
+Task 17 of "סיגמה 2.00" (spec §7j Part M; wording rules from `docs/reports/2026-09-18-adoption-strategy.md` §5.4).
+**Why:** the 2-week pilot needs numbers to run on, and עידן needs them as SENTENCES — "כדי להבין שמישות ולא לפקח".
+
+**Collection.** New table `usage_events` (`db/usage_events.sql`, applied + verified): person · page key ·
+action key · short target · timestamp · per-tab session · `phone`/`desktop`. **PII-light by construction** —
+nothing a user typed is stored, with ONE documented exception §7j asks for by name: the failed kibbutz
+search term. Client: `app/src/lib/track.ts` buffers and flushes every 10 s / on `pagehide` +
+`visibilitychange` as **one bulk insert**, and **drops the buffer silently** when offline or without an
+EMS write pass — analytics never blocks the UI and never retries in a loop. Legacy half in
+`js/src/00-bridge.js`: `sigmaTrack()` stamps who/where/when into one shared queue the React side drains,
+and `showPage` is **wrapped once** so every page view (legacy nav, deep link, React nav) counts exactly
+once. Instrumented actions: visit saved · cert issued · order approved (supplier + ספק ישיר) · EMS task
+created/scheduled · stock report · feedback sent · notes imported · קיבוץ created · island mounts · and the
+two DEAD-END signals adoption §5.2 wants watched daily (search with 0 results, sheet opened and abandoned).
+
+**📈 שימוש page** (`app/src/islands/Usage.tsx`, ⋯ עוד → עידן only, or the `#usage` deep link): KPI strip,
+person × page heat table (30 d, shaded with the primary token at four opacities), **actions per day bar
+chart — the app's first use of shadcn Charts / Recharts**, top actions (7 d), pages nobody opened, median
+seconds to the first primary action, "נראו לאחרונה", and the narrative עידן will be sent on Sunday.
+Everything on screen comes from ONE pure `aggregate()` (`app/src/lib/usage.ts`). The island is a lazy
+chunk (`ui/sigma-Usage.js`, ~400 kB with Recharts) that nobody else ever downloads.
+
+**Weekly digest.** `usageNarrative()` (`app/src/lib/usageNarrative.ts`) → Hebrew sentences, system health
+FIRST (a dead page / a failing search points at the product, not a person), never a ranking, no
+failure adverbs. `push-send` mode **`usageDigest`** (deployed v10): gated on **Sunday 08:00 Israel** via
+`israelNow()`, idempotent on the `usage-<yyyy>-w<ww>` tag in `push_log`, recipient FIXED server-side to
+עידן, body = first 3 sentences + "עוד ב-📈 שימוש", action opens `#usage`; `force:true` is the smoke path.
+The function carries a byte-identical COPY of the narrative module (Deno cannot import from `app/src`)
+and `test-usage-track.mjs` fails if the two ever drift.
+
+**Security.** `usage_events` is **write-only for the client**: INSERT for `authenticated`, and SELECT /
+UPDATE / DELETE have no policy AND are revoked. Reads go through `usage_report(days, actor)`, a
+SECURITY DEFINER RPC that refuses any actor but עידן (even עמיחי, an `app_admins` member). Verified in
+prod per role: `authenticated` inserts, `anon` blocked, עידן reads, ניתאי/עמיחי refused (42501).
+
+**Tests:** 51 new goldens — `app/src/lib/{usageNarrative,usage,track}.test.ts` (sentences character by
+character, heat table / zero-use pages / last seen / median, flush timing + the offline drop) + 4 render
+goldens in `app/src/islands/Usage.test.tsx` + the contract sweep `test-usage-track.mjs` (showPage wrapped
+once, every legacy call typeof-guarded, the Edge Function copy identical, the RLS grants, tokens only).
+Full suite **21 legacy runners + 306 vitest green**.
+
+**One prod step open (עידן, after the merge):** schedule the cron job — `db/cron_usage_weekly.sql`
+(`push-usage-hourly`, `5 * * * *`, `{"mode":"usageDigest"}`). Until it is scheduled nothing is pushed;
+the page itself already works. Note also that `test-sigma-shell.mjs`'s "no supabase-js in the boot chunk"
+check now looks for the LIBRARY rather than the bare string, because the tracker's lazy
+`import('./supabase')` legitimately leaves a `./sigma-supabase.js` specifier in the boot chunk.
+
 ## [unreleased · feat/kibbutz-cards-redesign] 2026-09-18 — 📣 תיבת רעיונות / באגים / תלונות + תמלול עברית
 Task 6 of "סיגמה 2.00" (spec §7 Part F). New React islands `app/src/islands/Feedback.tsx` (⋯ עוד →
 **📣 רעיון / באג / תלונה**, open to EVERY role incl. the viewer) and `FeedbackInbox.tsx` (admins only:

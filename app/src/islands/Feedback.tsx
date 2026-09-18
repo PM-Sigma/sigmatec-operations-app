@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { mount } from '@/islands';
+import { track } from '@/lib/track';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
@@ -293,6 +294,8 @@ function FeedbackSheet() {
     setSending(true);
     try {
       await sendFeedback(feedbackRow({ kind, text, anon, user, audioPath }));
+      // The KIND only — never the text, and never who sent it when it was anonymous.
+      track('feedback-sent', kind);   // 📈 שימוש (spec §7j)
       toast.success(anon ? 'נשלח אנונימית — תודה!' : 'נשלח לעידן ולעמיחי — תודה!');
       setOpen(false); reset();
     } catch (e: any) {

@@ -67,6 +67,13 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 
 ## 🚦 Current state — last: 2026-07-16 (**1.54 RELEASED — main = dev**).
 
+**🟡 Branch `feat/kibbutz-cards-redesign` (סיגמה 2.00), 2026-09-18 — Task 17 📈 שימוש done on the branch.**
+Usage analytics end to end: `usage_events` (write-only for the client, reads only through the עידן-only
+`usage_report()` RPC) · a buffered `track()` that drops silently offline · `showPage` wrapped once for page
+views · the 📈 שימוש island (heat table + the app's first Recharts chart + the weekly narrative) · `push-send`
+mode `usageDigest` (Sunday 08:00 Israel, deployed v10). **Next step for this task: schedule
+`db/cron_usage_weekly.sql` after the merge** — until then no digest is pushed. See CHANGELOG 2026-09-18.
+
 **✅ 1.54 — attendance missing days = RED ROWS + accumulating 🔔 (per עידן's screenshots feedback).**
 Missing weekdays render as red rows INSIDE the attendance table, each with a 🔔 (viewer+עידן); every
 click ADDS the day to ONE accumulating notification per person+month (same tag replaces — the worker
