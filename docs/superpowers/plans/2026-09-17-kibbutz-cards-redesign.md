@@ -465,3 +465,23 @@ Method: assemble from the three specs, the plan, the ledger rulings, `integratio
 - **Spec coverage:** §2 → T1; §7b region grouping + alpha + energy gate → T1/T1b; §6 viewer redesign → T4 step 6; §3 → T2; §4 → T3; §5 (arrival, fast visit path, cert rules, cron, copy) → T5 (+T4 nav button); §6 (brand, dark, layout, name, header chip, motion) → T4; §7 feedback → T6; §7b kibbutzim → T1/T1b; §8 release → T7. D1 packages: `motion` optional with CSS fallback (T4). D3 in-app paste (T2). D4 per-sentence (T2). D7 anonymous + admin inbox (T6).
 - **Placeholders:** none; every step names files, functions, copy, and tests.
 - **Type consistency:** `buildCardHtml`, `renderKibbutzCards`, `kibbutzByName`, `openKibbutzSheet`, `notesForKibbutz`, `renderCardNotes`, `buildEmsTaskHtml`, `openVisitQuick(pref)`, `openBriefing(name)`, `emsSiteIdForKibbutz` used consistently across tasks.
+
+## Task 23 — 🔥 צריבות inside 2.00 (temporary project, אביאם/ניתאי) — P3, after Task 11
+Source: עידן 18.9 21:40 ("זה כבר מאופיין… פרויקט זמני לאורך כמה חודשים… תחשוב איפה הכי נכון להכניס"). Feature exists on
+`feat/meter-burns-rel` (1.69: `js/src/24-meter-burns.js`, `db/meter_burns.sql` APPLIED, EMS live refresh, spec
+`superpowers/specs/2026-09-06-meter-burn-tracker-design.md` in that worktree). Controller decision (עידן may override):
+- **Not a permanent nav tab.** A temporary project lives where the work happens — in the field flow:
+  1. **Kibbutz card**: a small chip `🔥 נותרו X/Y` only while X>0 (disappears when done — nothing stale). Card modal gets a
+     section "🔥 צריבות" = the per-site list (✅ נצרב / ⚠ בעיה / ⚡ גנרטור, multi-select) re-skinned with the card components.
+  2. **Briefing "לפני שיוצאים"**: pending burns at this kibbutz appear as checklist rows (kind `burn`), so the technician sees
+     them at arrival; ticking one there = ✅ נצרב.
+  3. **Landing (field role)**: one progress strip "🔥 צריבות — נותרו N ב-M קיבוצים" above the arrival list, tap → filter
+     cards to sites with pending burns. Hidden at N=0.
+  4. Full table + Excel + generators helper stay as one screen reachable from that strip / ⋯ עוד, tagged
+     "פרויקט זמני"; the same screen is what עמיחי/עידן/viewer see.
+- Gate reverts to the spec's original audience: write אביאם/ניתאי/עידן/עמיחי, viewer read, hidden from מתניה/אליה.
+- Merge `feat/meter-burns-rel` into the feature branch first (conflicts: VERSION, css/app.css, index.html, js/app.js,
+  01-data.js, CHANGELOG, INDEX — resolve keep-both then `node build.mjs`), keep the legacy PURE block + `test-meter-burns.mjs`,
+  build the three surfaces as React pieces reading the same `meter_burns` table (TanStack Query, invalidate on write).
+- Removal path (end of project): one flag `BURNS_PROJECT_ACTIVE=false` hides every surface; data stays for the report.
+- Tests: chip count golden, briefing rows, hide-at-zero, role matrix; Playwright card + briefing; qa gates.

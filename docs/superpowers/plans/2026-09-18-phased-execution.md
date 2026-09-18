@@ -32,7 +32,7 @@ window reopens. Every phase ends in a state that is shippable on its own; a phas
 | **P0 — Gates & maintenance** | 22 (QA infra), maintenance mode on `main` | Nothing ships without gates; app offline for users as requested | — |
 | **P1 — Security & field core** | 21 (session), 5 (arrival+briefing+push), 6b (Whisper live) | Field workers have the full daily loop, secure | P0 |
 | **P2 — Calendar & tasks** | 13 (calendar), 14 (list view + retirements per coverage audit), 12 (attendance + holidays) | Planning and attendance complete | P1 |
-| **P3 — Dev & analytics surfaces** | 11 (dev page), 20 (stale-while-revalidate + PC refresh), 15 (settings/gaps) | Dev team + gaps | P1 |
+| **P3 — Dev & analytics surfaces** | 11 (dev page), 23 (🔥 צריבות in 2.00 — temporary project, עידן 18.9), 20 (stale-while-revalidate + PC refresh), 15 (settings/gaps) | Dev team + gaps | P1 |
 | **P4 — AI & meetings** | 16 (day-log AI), company-process tasks (to be planned: meeting mode, internal tasks, PM inbox-lite, onboarding, health v1, hours) | PM/CEO loop | P2, P3 |
 | **P5 — Sweep & release** | 18 (integration sweep + EmsGateway), 19 (SRS), 7 (release 2.00, restore access) | Shippable, documented | all above |
 | **P6 — Inventory** | 8, 9, 10 (ships as 2.01) | Unified stock | P5 |
