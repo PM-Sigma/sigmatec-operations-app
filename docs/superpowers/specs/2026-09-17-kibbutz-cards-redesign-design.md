@@ -672,6 +672,34 @@ Briefing). Bottom nav unchanged; ⋯ sheet becomes shorter: יומן · נוכח
 - Tests: gate matrix (connected / expired / never logged in × every island → content or login sheet); interceptor
   fires once for concurrent 401s; re-mint timer math; draft preserved across re-login (round-trip).
 
+## 7o. Part O — EMS access behind one gateway, MCP-ready (עידן 18.9)
+
+The EMS will expose an **MCP server** in the future. The app must be able to swap REST for MCP without touching
+features, and gain capabilities as the MCP grows. Modeling rules, binding for every task that touches the EMS:
+
+- **One gateway, typed operations.** All EMS access goes through `EmsGateway` (`app/src/lib/ems/gateway.ts`, mirrored
+  for legacy by the bridge `sigma.ems.*`): `listOpenTasks({siteIds?, assignee?, since?})`, `getTask(id)`,
+  `createTask(input)`, `updateTask(id, patch)` (status, due date, assignee), `addComment(id, text)`,
+  `listSites()`, `listMeters(siteId)`, `listAlerts(siteId?)`, `energyBalance(siteId, period)`, `billingSummary(siteId,
+  period)`, `listUsers()`, `login/verifyOtp/refresh`. Each returns **app-owned types** (`EmsTask`, `EmsSite`, …), never raw
+  API JSON; mapping lives in the adapter only. No feature imports `fetch`/`emsApi` directly — a contract test greps for
+  it.
+- **Adapters:** `ems-rest` (today: `/employee-tasks`, `/sites`, `/meters`, `/users`) and `ems-mcp` (future: the same
+  operations mapped to MCP tools/resources; unknown tools surface as `capabilities`). Selection by config
+  (`EMS_TRANSPORT=rest|mcp`, per operation fallback allowed during migration). `capabilities()` tells the UI what the
+  current transport supports so buttons appear only when the operation exists (no purposeless buttons).
+- **Server side too:** edge functions (`push-send` digests, `parse-daylog`, meeting classification, health) call the EMS
+  only via the same gateway package (Deno build of the adapter), so an MCP-capable agent can later be given the same
+  operations as tools with identical semantics.
+- **Offline queue** (`emsWriteOrQueue`) becomes a gateway concern: queued *operations* (not HTTP calls) replay through
+  whichever adapter is active.
+- **Cache** (`ems_cache`) is keyed by operation + args, adapter-agnostic; the office-PC refresh job (§7k #10) uses the
+  gateway as well.
+- **Migration plan:** Task 18 (integration sweep) introduces the gateway interface and moves existing calls behind the
+  REST adapter with byte-identical behavior (golden tests on request/response mapping); Task 19 (SRS) documents the
+  interface as the EMS integration contract; when the MCP server exists, a single task adds `ems-mcp`, runs the same
+  goldens, and flips the flag per operation.
+
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 
 עידן named a React/Tailwind stack: **shadcn/ui, Magic UI, Aceternity UI, Motion, Sonner, Vite, TanStack Query,
