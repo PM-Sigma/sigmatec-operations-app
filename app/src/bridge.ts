@@ -14,6 +14,9 @@ export interface EmsTask {
   type?: string;
   site?: { id: string; name: string } | null;
   expectedCompletionDate?: string;
+  /** Full task description — added to the shared cache slim row for the card widget (spec §4). */
+  description?: string;
+  assignee?: { id: string; firstName: string; lastName?: string } | null;
   linkCount?: number;
 }
 
@@ -32,6 +35,8 @@ export interface Sigma {
   emsApi(path: string, options?: RequestInit): Promise<any>;
   isEmsConnected(): boolean;
   emsCacheData(): { tasks: EmsTask[]; syncedAt?: string; syncedBy?: string };
+  /** Open tasks for one kibbutz card, from the shared cache (site aggregation included). */
+  emsCacheTasksForKibbutz(name: string): EmsTask[];
   emsSiteIdForKibbutz(name: string): Promise<string>;
   getEmsSites(): Promise<Array<{ id: string; name: string }>>;
   kibbutzHasSite(name: string): Promise<boolean>;

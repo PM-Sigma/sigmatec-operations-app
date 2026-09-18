@@ -188,7 +188,7 @@
         { id: 'u-nitai',  firstName: 'ניתאי', lastName: '',       email: 'nitai@example.com', role: 'admin', status: 'active' }
       ],
       tasks: [
-        { id: 'task-1', title: 'תקלת תקשורת בבקר', type: 'fixing_fault',     priority: 'high',   status: 'in_progress',        site: { id: SID.yagur,   name: 'יגור' },   assignee: null, expectedCompletionDate: addDays(3),  description: 'הבקר לא מדווח נתונים מאתמול בלילה.' },
+        { id: 'task-1', title: 'תקלת תקשורת בבקר', type: 'fixing_fault',     priority: 'high',   status: 'in_progress',        site: { id: SID.yagur,   name: 'יגור' },   assignee: { id: 'u-nitai', firstName: 'ניתאי', lastName: '' }, expectedCompletionDate: addDays(3),  description: 'הבקר לא מדווח נתונים מאתמול בלילה. ננסה לתאם ביקור טכנאי בהקדם ולבדוק את חיבור האנטנה מול הספק — יש חשד שהתקלה חוזרת בעקבות תנאי מזג האוויר האחרונים באזור.' },
         { id: 'task-2', title: 'אספקת 12 מונים',   type: 'supplying_meters', priority: 'urgent', status: 'new',                site: { id: SID.dganya,  name: 'דגניה' },  assignee: null, expectedCompletionDate: addDays(-2), description: 'מתואם מול חשמלאי הקיבוץ.' },
         { id: 'task-3', title: 'התקנה הושלמה',     type: 'supplying_meters', priority: 'normal', status: 'done',               site: { id: SID.hukok,   name: 'חוקוק' },  assignee: null, expectedCompletionDate: addDays(-10), description: '' },
         { id: 'task-4', title: 'ממתין לאישור לקוח', type: 'other',           priority: 'normal', status: 'waiting_for_client', site: { id: SID.yagur,   name: 'יגור' },   assignee: null, expectedCompletionDate: addDays(7),  description: 'נשלחה הצעת מחיר.' },
@@ -210,9 +210,12 @@
     window.__MOCK = M;   // exposed for console inspection
 
     const CLOSED = ['done', 'rejected', 'not_relevant', 'cancelled'];
+    // Mirrors the real emsSlimTask (js/src/13-ems.js) — including `description` (task-3-brief,
+    // spec §4) — so the local mock exercises the exact shape the card widget reads in prod.
     const slimTask = t => ({ id:t.id, title:t.title, status:t.status, priority:t.priority, type:t.type,
       site: t.site ? { id:t.site.id, name:t.site.name } : null, expectedCompletionDate: t.expectedCompletionDate || '',
-      assignee: t.assignee ? { id:t.assignee.id, firstName:t.assignee.firstName, lastName:t.assignee.lastName } : null });
+      assignee: t.assignee ? { id:t.assignee.id, firstName:t.assignee.firstName, lastName:t.assignee.lastName } : null,
+      description: t.description || '' });
     // Seed the shared cache as if עידן had already synced — so field users see tasks offline.
     M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
 
@@ -678,6 +681,10 @@
         window._emsCacheWarned = true;
         console.warn('[EMS] SHEET_DATA.emsCache missing — Apps Script v5.8 not deployed yet. EMS task widgets will not show until it is.');
       }
+      // A snapshot cached before `description` was added to the slim row (task-3-brief) is
+      // missing it on every task — resync once now if we're already connected, so field users
+      // see the field without waiting for the next explicit EMS action.
+      if (typeof emsResyncIfStaleCache === 'function') emsResyncIfStaleCache();
       setSourceIndicator('online');
       return data;
     } catch (e) {

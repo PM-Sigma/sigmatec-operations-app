@@ -1,11 +1,13 @@
-// One kibbutz card. The React tree owns the name row and the quick actions; everything else
-// on the card (EMS tasks widget, last visit, customer code, notes) is still appended by the
-// LEGACY decorating passes, which is why the DOM contract below is load-bearing:
+// One kibbutz card. The React tree owns the name row, the notes and the EMS-tasks widget (in
+// that order); everything else (last visit, customer code, site warnings) is still appended by
+// the LEGACY decorating passes, which is why the DOM contract below is load-bearing:
 //   .kibbutz[data-name][data-section][data-marketing]  +  a direct child .kibbutz-name-row
-// (13-ems.js / 01-data.js / 10-activity.js query exactly that and insert after the name row).
+// (01-data.js / 10-activity.js query exactly that and insert after the name row; the on-card
+// EMS-tasks widget itself moved to React in task-3-brief — see EmsTasks.tsx).
 // No status/flow badges — spec §2: "A card shows only: name · energy badge · 🤝 tag".
 import { motion, useReducedMotion } from 'motion/react';
 import { CardActions } from '@/components/home/CardActions';
+import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { energyText, labelOf, sectionOf, isSubsite, type KibbutzRow } from '@/lib/kibbutzim';
 
@@ -73,9 +75,11 @@ export function KibbutzCard({
           </button>
         )}
       </div>
-      {/* name → NOTES → EMS tasks: the legacy decorators insert right after .kibbutz-name-row,
-          so the notes block has to sit here for the card to read in that order (spec §3.3). */}
+      {/* name → NOTES → EMS TASKS (spec §3.3, §4 Part C). EmsTasks is React now too (task-3-brief) —
+          both it and the legacy decorators (site warnings etc.) still anchor after .card-notes,
+          so this order stays load-bearing even though the EMS widget itself no longer is legacy. */}
       <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
+      <EmsTasks kibbutz={row.name} />
       <CardActions name={row.name} role={role} />
     </motion.div>
   );

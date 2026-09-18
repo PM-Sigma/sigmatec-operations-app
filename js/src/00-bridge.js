@@ -58,6 +58,11 @@
       emsApi: function () { return call('emsApi', Array.prototype.slice.call(arguments)); },
       isEmsConnected: function () { return !!call('isEmsConnected', [], false); },
       emsCacheData: function () { return call('emsCacheData', [], { tasks: [] }); },
+      // Open tasks for one kibbutz card, from the shared cache — the exact filter (site
+      // aggregation for merged sites, e.g. שדה אליהו + חקלאות) legacy code already owns; the
+      // React widget (components/home/EmsTasks.tsx) reuses it instead of re-deriving site ids
+      // in TS from the hardcoded KIBBUTZ_SITE_MAP.
+      emsCacheTasksForKibbutz: function (name) { return call('emsCacheTasksForKibbutz', [name], []); },
       emsSiteIdForKibbutz: function (name) { return call('emsSiteIdForKibbutz', [name], Promise.resolve('')); },
       getEmsSites: function () { return call('getEmsSites', [], Promise.resolve([])); },
       kibbutzHasSite: function (name) {
@@ -83,7 +88,8 @@
         var data = window.SHEET_DATA;
         if (data && typeof enrichCardsWithSheet === 'function') enrichCardsWithSheet(data);
         if (typeof injectCustomerCodes === 'function') injectCustomerCodes();
-        if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+        // The on-card EMS-tasks widget is React now (components/home/EmsTasks.tsx,
+        // task-3-brief) — applyCardEmsWidgets/renderCardEmsTasks are gone from js/src/13-ems.js.
         if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
         if (typeof applyCardLastVisit === 'function') applyCardLastVisit();
         if (typeof renderCardNotes === 'function') renderCardNotes();

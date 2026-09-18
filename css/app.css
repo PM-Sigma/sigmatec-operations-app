@@ -1170,12 +1170,11 @@
   .engagement-badge { display:none !important; }
   /* Prominent card section header (contrasting dark bar) */
   .card-sec-head { display:inline-block;font-size:10px;font-weight:800;color:#fff;background:#1b2a4a;padding:2px 9px;border-radius:6px;margin-bottom:4px;letter-spacing:.2px; }
-  /* On-card EMS tasks widget (field 2 — "משימות מה-EMS") — made prominent */
-  .card-ems { margin-top:10px;background:#eff6ff;border:1.5px solid #93c5fd;border-right:4px solid #2563eb;border-radius:9px;padding:8px 10px; }
-  .card-ems-new { margin-top:8px;border-top:1px dashed #e2e8f0;padding-top:6px;font-size:12px;font-weight:600;color:#2563eb;cursor:pointer; }
-  .card-ems-new:hover { text-decoration:underline; }
-  .card-ems-head { font-size:12px;font-weight:800;color:#1e3a8a;margin-bottom:6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 5px; }
-  .card-ems-stale { font-size:9px;font-weight:500;color:#94a3b8; }
+  /* .card-ems-task / .t-dot / .t-title / .ems-badge stay — the legacy kibbutz-modal task list
+     (js/src/14-calendar.js prepModalEmsSection / emsModalTaskClick) still renders with them.
+     The on-card WIDGET itself (.card-ems / .card-ems-new / .card-ems-head / .card-ems-stale /
+     .card-ems-empty — "משימות מה-EMS") is React now (components/home/EmsTasks.tsx,
+     task-3-brief) and styled with Tailwind utilities there; these rules had no other reader. */
   .card-ems-task { display:flex;align-items:center;gap:7px;background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 10px;margin:4px 0;cursor:pointer;transition:background .12s,box-shadow .12s;box-shadow:0 1px 3px rgba(37,99,235,.08);overflow:hidden; }
   .card-ems-task:hover { background:#f0f7ff;box-shadow:0 2px 8px rgba(37,99,235,.16); }
   /* min-width:0 lets the title actually shrink+ellipsize instead of overflowing → no wrapped/clipped row */
@@ -1183,7 +1182,6 @@
   .card-ems-task .t-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
   .card-ems-task .ems-badge { flex-shrink:0;white-space:nowrap;margin-right:0;font-size:10px;padding:2px 6px; }
   .card-ems-task.overdue .t-title { color:#b91c1c; }
-  .card-ems-empty { font-size:11px;color:#94a3b8;font-style:italic; }
   .ems-filter-bar { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center; }
   .ems-filter-bar select,.ems-filter-bar input[type=text] { padding:7px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-family:inherit;background:white; }
   .ems-filter-bar label { display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap; }

@@ -11,6 +11,11 @@
   function emsOpenStatuses() {
     return Object.keys(EMS_STATUS).filter(s => EMS_CLOSED.indexOf(s) === -1);
   }
+  // Bumped whenever the slim cache row's SHAPE changes. `description` (task-3-brief, spec §4)
+  // is the first such change — a snapshot written before this shipped has every task missing
+  // the field entirely, so `emsResyncIfStaleCache` below treats that as the "stale" signal
+  // instead of persisting a separate version number nobody reads yet.
+  const EMS_CACHE_VER = 2;
   function emsCacheData() {
     const c = window.SHEET_DATA && window.SHEET_DATA.emsCache;
     return (c && Array.isArray(c.tasks)) ? c : { tasks: [], syncedAt: '', syncedBy: '' };
@@ -23,6 +28,34 @@
     return emsCacheData().tasks.filter(t => t.site && ids.indexOf(t.site.id) !== -1 && EMS_CLOSED.indexOf(t.status) === -1);
   }
 
+  // The Sheet-cacheable projection of one EMS task. Pure — pinned by test-ems-card.mjs, which
+  // evaluates it directly against fake API rows (both with and without `description`) so a
+  // future field drop is caught without spinning up the whole sync pipeline.
+  function emsSlimTask(t) {
+    return {
+      id: t.id, title: t.title, status: t.status, priority: t.priority, type: t.type,
+      site: t.site ? { id: t.site.id, name: t.site.name } : null,
+      expectedCompletionDate: t.expectedCompletionDate || '',
+      assignee: t.assignee ? { id: t.assignee.id, firstName: t.assignee.firstName, lastName: t.assignee.lastName } : null,
+      // Full description in the field, per spec §4 ("no line-clamp") — the card widget
+      // (app/src/components/home/EmsTasks.tsx) needs the whole text, not just the title.
+      description: t.description || '',
+      linkType: (t.linkType || t.link_type || ''), linkCount: emsLinkIds(t).length
+    };
+  }
+  // A cached snapshot written before `description` existed lacks the key on every task
+  // (JSON never round-trips a key it never had). If we happen to be connected right now,
+  // resync once so the newer shape lands without waiting for the next explicit EMS action —
+  // otherwise a field user who never opens the EMS tab would keep the old, description-less
+  // cache forever. Guarded so it fires at most once per session either way.
+  let _emsStaleCacheChecked = false;
+  function emsResyncIfStaleCache() {
+    if (_emsStaleCacheChecked) return;
+    _emsStaleCacheChecked = true;
+    const tasks = emsCacheData().tasks;
+    const stale = tasks.length && tasks.some(t => t.description === undefined);
+    if (stale && isEmsConnected()) emsSyncCache().catch(e => console.warn('[EMS] stale-cache resync failed', e));
+  }
   // Pull ALL open tasks from EMS (paginated) and write a fresh snapshot to the Sheet.
   async function emsSyncCache() {
     if (!isEmsConnected()) return { cached: 0 };
@@ -44,13 +77,7 @@
     }
     // de-dup by id (clamping/overlapping pages can repeat tasks)
     const _seen = {};
-    const slim = open.filter(t => t && t.id && !_seen[t.id] && (_seen[t.id] = 1)).map(t => ({
-      id: t.id, title: t.title, status: t.status, priority: t.priority, type: t.type,
-      site: t.site ? { id: t.site.id, name: t.site.name } : null,
-      expectedCompletionDate: t.expectedCompletionDate || '',
-      assignee: t.assignee ? { id: t.assignee.id, firstName: t.assignee.firstName, lastName: t.assignee.lastName } : null,
-      linkType: (t.linkType || t.link_type || ''), linkCount: emsLinkIds(t).length
-    }));
+    const slim = open.filter(t => t && t.id && !_seen[t.id] && (_seen[t.id] = 1)).map(emsSlimTask);
     const syncedBy = localStorage.getItem('dashboard_user_v1') || '';
     // ponytail: last-writer-wins snapshot — a slow sync could overwrite a fresher one.
     // Self-heals on the next connect/sync. Upgrade path: send fetch-start ts, server keeps newer.
@@ -199,64 +226,13 @@
     setTimeout(function () { if (typeof refreshData === 'function') refreshData(); }, 1200);
   }
 
-  // ---- On-card EMS tasks widget (field 2) ----
+  // ---- On-card EMS tasks widget ----
+  // Ported to React (app/src/components/home/EmsTasks.tsx, task-3-brief REVISION 2): the
+  // widget now reads `sigma.emsCacheData()`/`emsCacheTasksForKibbutz()` directly and
+  // re-renders on `ems-cache-synced`, so `applyCardEmsWidgets`/`renderCardEmsTasks` are gone
+  // from here and from `sigma.decorateCards()` (js/src/00-bridge.js). `EMS_PRIORITY_DOT` stays
+  // — the legacy kibbutz-modal task list (js/src/14-calendar.js) still renders with it.
   const EMS_PRIORITY_DOT = { urgent: '#dc2626', high: '#ea580c', normal: '#64748b', low: '#94a3b8' };
-  function emsSyncStamp(iso) {
-    if (!iso) return '';
-    try { return ' · עודכן ' + new Date(iso).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
-    catch (e) { return ''; }
-  }
-  // Attach the EMS-tasks widget to every site-mapped card. Runs as its own pass so it
-  // also covers cards that have NO Sheet row (e.g. a newly-added kibbutz). No-op until
-  // the shared cache has actually been synced (syncedAt set) — until then cards keep
-  // their legacy expectedTask via the enrichment fallback.
-  function applyCardEmsWidgets() {
-    if (!emsCacheData().syncedAt) return;
-    document.querySelectorAll('.kibbutz[data-name]').forEach(card => {
-      card.querySelectorAll('.card-ems, .card-ems-new').forEach(e => e.remove());   // clear stale
-      const nm = card.dataset.name;
-      if (!kibbutzSiteIds(nm).length) return;   // not an EMS-mapped kibbutz
-      // Widget appears ONLY when there are open tasks. The "open new EMS task" affordance
-      // lives inside the kibbutz modal (below the status), not on the cards.
-      try { renderCardEmsTasks(card, nm); }
-      catch (e) { console.warn('[EMS] card widget failed for', nm, e); }
-    });
-  }
-  // Append the "משימות מה-EMS" block to a kibbutz card (open tasks from the shared cache).
-  function renderCardEmsTasks(card, name) {
-    const tasks = emsCacheTasksForKibbutz(name);
-    if (!tasks.length) return false;   // no open task → caller shows the "open new EMS task" line
-    const cache = emsCacheData();
-    const wrap = document.createElement('div');
-    wrap.className = 'card-ems excel-injected';
-    const head = document.createElement('div');
-    head.className = 'card-ems-head';
-    head.innerHTML = '📋 משימות מה-EMS <span class="card-ems-stale">(' + tasks.length + emsSyncStamp(cache.syncedAt) + ')</span>';
-    wrap.appendChild(head);
-    tasks.forEach(t => {
-      const row = document.createElement('div');
-      const overdue = t.expectedCompletionDate && EMS_CLOSED.indexOf(t.status) === -1 && new Date(t.expectedCompletionDate) < new Date();
-      row.className = 'card-ems-task status-' + t.status + (overdue ? ' overdue' : '');
-      row.innerHTML =
-        '<span class="t-dot" style="background:' + (EMS_PRIORITY_DOT[t.priority] || '#94a3b8') + '"></span>' +
-        '<span class="t-title">' + (overdue ? '⏰ ' : '') + emsEsc(t.title) + (t.linkCount ? ' 🔗' + t.linkCount : '') + '</span>' +
-        '<span class="ems-badge status-' + t.status + '">' + (EMS_STATUS[t.status] || t.status) + '</span>';
-      row.onclick = (e) => { e.stopPropagation(); openKibbutzEmsTask(t.id); };
-      wrap.appendChild(row);
-    });
-    // deterministic order: name → 🗓 notes → status → EMS tasks (spec §3.3). A React card
-    // ALWAYS has a `.card-notes` child (MeetingNotes.tsx renders it even while its query is in
-    // flight, precisely so this anchor is stable), so the widget goes below it; a legacy card
-    // has none and the chain falls through to the status / name as before. Never blind-append,
-    // or the widget can land above the name.
-    const anchor = card.querySelector(':scope > .card-notes')
-                || card.querySelector(':scope > .excel-status')
-                || card.querySelector(':scope > .kibbutz-name-row')
-                || card.querySelector(':scope > .kibbutz-name');
-    if (anchor) anchor.insertAdjacentElement('afterend', wrap);
-    else card.appendChild(wrap);
-    return true;
-  }
   // Click a task on a card: connected → full live detail (+comments); offline → cached read-only view.
   function openKibbutzEmsTask(id) {
     if (isEmsConnected()) { openEmsTask(id); return; }
