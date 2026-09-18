@@ -64,6 +64,12 @@ recording clock; every classification happens afterwards, on the transcript, wit
   tap, sets owner (due date optional — field decides), and presses **בצע**: EMS tasks are created (visible to the
   kibbutz), internal tasks stored, decisions logged, ideas sent to the dev board, deferrals dated. Bullets land in
   `kibbutz_meeting_notes` (redesign §3) linked to what they created. Nothing is written before **בצע**.
+- **The review screen is עידן's editor, not just an approver (עידן 18.9):** per sentence — the classification chips
+  (one tap), an **owner picker**, and **✏️ עריכה** to rewrite the sentence; tagging **📋 EMS** opens the task modal
+  prefilled (site, title = first clause, description = sentence, owner) so the task is created on the spot, not
+  later; per kibbutz — **➕ שורה משלי** to add a sentence that was never said aloud (it joins the bullets and gets
+  the same chips); drag a sentence to another kibbutz when the transcript split got it wrong. Everything remains
+  unsaved until **בצע**, and the DOCX renders from the edited result.
 - **Output = the same styled DOCX** (`build_styled.py` format) generated from the accepted bullets, editable
   (re-generate after edits), distributable (Drive link + optional email). Whether Claude or an edge function renders
   it is an implementation choice; the format is the contract.
@@ -98,6 +104,37 @@ kibbutz. Shown in משימות, calendar, gaps and the card (🔒 badge) beside 
   following the Git Ticket System rules: always a child under an existing Main Fields parent (title
   `[מודול] | [תת-תחום] | [תיאור]`, into Backlog, never a new parent without עידן). The parent picker is the list of
   parents (#55–#84, #87, #90, #95, #104…); the EMS knowledge graph can suggest the module from keywords (later).
+
+### 3b. Gmail integration — full picture and data exposure (עידן 18.9: "מי חשוף למידע")
+
+**Architecture (one intake, pluggable handlers — the hook for the future agent):** a single Edge Function
+`gmail-intake` polls (or receives Pub/Sub pushes for) the `pm@sigmatec-energy.com` mailbox using a Google OAuth
+refresh token stored **only as a Supabase secret** (`GMAIL_REFRESH_TOKEN`, scopes `gmail.readonly` +
+`gmail.modify` for labels, later `gmail.send` only if a reply feature ships). It fetches only messages carrying app
+labels (`EMS משימה`, `EMS הקמה`, future `EMS פעולה`), normalizes them to `{id, threadId, from, to, date, subject,
+bodyText, attachments[meta only], kibbutzGuess}` and runs `handlers[]` in order: `taskDraft` (→ `internal_tasks`
+draft), `onboardingProgress` (→ onboarding step wait-state), and a **stub `emsActionAgent`** (interface only,
+returns "not implemented", logged) so עידן's future "smart agent that performs EMS actions from emails" plugs in
+without redesign. Every handler writes an `email_intake_log(msg_id, handler, result, at)` row. Nothing is sent back
+to Gmail in phase 1.
+
+**Who sees the email data (exposure map):**
+
+| Service | What it receives | Why | Can we avoid it |
+|---------|------------------|-----|-----------------|
+| Google (Gmail API) | already holds the mail | source | n/a |
+| Supabase Edge Function (`gmail-intake`) | full labelled messages, in memory | normalize + route | keep; no persistence of bodies beyond what is stored below |
+| Supabase Postgres (`internal_tasks`, `onboarding_steps`, `email_intake_log`) | subject, a **trimmed** body excerpt (≤ 2,000 chars), sender, thread id, kibbutz | the task/onboarding record | store excerpt not full body; attachments never stored |
+| The app (all employees) | the task title/description created from the email | internal task is visible to all employees (עידן's rule) | עידן confirms every draft before it becomes visible |
+| EMS (kibbutz can read) | only what עידן promotes to an **EMS task** | customer-facing | promotion is an explicit action |
+| Gemini / Groq | **nothing in phase 1**. If AI classification of emails is turned on later, the body excerpt is sent to Google (Gemini) or Groq under their API terms | kibbutz guess, task extraction | keep rule-based (labels + `site_contacts` domain map) for as long as possible; if enabled, strip signatures/phones first |
+| Whisper server (self-hosted) | nothing | — | — |
+| GitHub | only 💡 ideas עידן explicitly sends | dev board | explicit |
+| Clockify | session descriptions עידן types, never email content | hours | explicit |
+| Claude (this tooling) | email content only when עידן uses the Gmail connector in a session | ad hoc | n/a |
+
+Rules: least scopes; secrets only in Edge Functions; no raw bodies at rest; no attachments; a kill switch
+(`GMAIL_INTAKE=off`); the exposure map is part of the SRS (Task 19) and must be updated when the agent handler ships.
 
 ## 4. New-client onboarding template
 
