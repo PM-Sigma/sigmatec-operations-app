@@ -63,6 +63,10 @@
       // React widget (components/home/EmsTasks.tsx) reuses it instead of re-deriving site ids
       // in TS from the hardcoded KIBBUTZ_SITE_MAP.
       emsCacheTasksForKibbutz: function (name) { return call('emsCacheTasksForKibbutz', [name], []); },
+      // The legacy EMS_STATUS/EMS_PRIORITY label maps (js/src/14-calendar.js) — single source
+      // of truth for display text; app/src/lib/emsTasks.ts reads these first and only falls
+      // back to its own mirror when the bridge isn't reachable.
+      emsLabels: function () { return call('emsLabels', [], { status: {}, priority: {} }); },
       emsSiteIdForKibbutz: function (name) { return call('emsSiteIdForKibbutz', [name], Promise.resolve('')); },
       getEmsSites: function () { return call('getEmsSites', [], Promise.resolve([])); },
       kibbutzHasSite: function (name) {
@@ -386,7 +390,9 @@
       assignee: t.assignee ? { id:t.assignee.id, firstName:t.assignee.firstName, lastName:t.assignee.lastName } : null,
       description: t.description || '' });
     // Seed the shared cache as if עידן had already synced — so field users see tasks offline.
-    M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
+    // `ver: 2` matches EMS_CACHE_VER in js/src/13-ems.js — hardcoded (not referenced) because
+    // this IIFE runs at load time, before that later-concatenated module's `const` exists.
+    M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', ver: 2, tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
 
     // ---- mock Google-Sheet data (kibbutz cards) ----
     function mockSheetData() {
@@ -488,7 +494,7 @@
         payload = mockEms(body);                          // EMS proxy → {status, body}
       } else if (body && body.type === 'emsCacheWrite') {
         // full-replace snapshot (all admins → everyone writes the complete set)
-        M.cacheStore = { syncedAt: nowISO(), syncedBy: body.syncedBy || '', tasks: body.tasks || [] };
+        M.cacheStore = { syncedAt: nowISO(), syncedBy: body.syncedBy || '', ver: body.ver || 1, tasks: body.tasks || [] };
         payload = { ok: true, cached: M.cacheStore.tasks.length };
       } else if (body && body.type === 'emsQueueAdd') {
         M.queue.push(Object.assign({ id: nextId('q'), at: nowISO() }, body.item || {}));
@@ -595,7 +601,7 @@
         requirements: requirements.map(r => ({ id: String(r.id), createdAt: r.created_at || '', createdBy: r.created_by || '', kibbutz: r.kibbutz || '', contactName: r.contact_name || '', items: r.items || [], notes: r.notes || '', status: r.status || 'open', linkedOrderId: r.linked_order_id || '', fulfilledAt: r.fulfilled_at || '', lastUpdated: r.last_updated ? String(r.last_updated) : '' })),
         returns: returns_.map(r => ({ id: String(r.id), visitId: r.visit_id || '', date: r.date || '', kibbutz: r.kibbutz || '', visitor: r.visitor || '', product: r.product || '', qty: parseInt(r.qty) || 0, reason: r.reason || '', status: r.status || 'open' })),
         attendance: attendance.map(a => ({ id: String(a.id), date: a.date || '', person: a.person || '', dayType: a.day_type || '', note: a.note || '' })),
-        emsCache: { tasks: cache.tasks || [], syncedAt: cache.synced_at || '', syncedBy: cache.synced_by || '' },
+        emsCache: { tasks: cache.tasks || [], syncedAt: cache.synced_at || '', syncedBy: cache.synced_by || '', ver: cache.ver || 1 },
         emsQueue: queueRows.map(qr => qr.payload)
       };
     }
@@ -726,7 +732,7 @@
           if (b.type === 'requirement') return respond(await writeRequirement(b));
           if (b.type === 'visit') return respond(await writeVisit(b));
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
-          if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '' }); return respond({ ok: true, cached: (b.tasks || []).length }); }
+          if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '', ver: b.ver || 1 }); return respond({ ok: true, cached: (b.tasks || []).length }); }
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
           if (b.type === 'emsQueueClear') { const ids = (b.ids || []).map(x => '"' + String(x).replace(/"/g, '') + '"'); if (ids.length) await sbDelete('ems_queue?payload->>id=in.(' + ids.join(',') + ')'); return respond({ ok: true }); }
           if (b.type === 'parseCorrection') { await sbInsert('parse_corrections', [{ raw_text: b.rawText || '', items: b.items || [], created_by: b.createdBy || '' }]); return respond({ ok: true }); }
@@ -990,10 +996,9 @@
         card.appendChild(btn);
       }
     });
-
-    // Field 2 — attach the EMS-tasks widget to EVERY site-mapped card (independent of
-    // whether it had a Sheet row), once the shared cache has been synced.
-    if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+    // The on-card EMS-tasks widget is React now (components/home/EmsTasks.tsx, task-3-brief) —
+    // it reads sigma.emsCacheTasksForKibbutz() itself and re-renders on ems-cache-synced, so
+    // there is nothing left for this pass to trigger here.
   }
 
   async function toggleProcedure(btn) {
@@ -5072,7 +5077,9 @@
   }
 
   function reorderCards() {
-    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','card-ems','card-ems-new','card-last-visit'];
+    // 'card-ems'/'card-ems-new' removed (task-3-brief) — the on-card EMS-tasks widget is React
+    // now (components/home/EmsTasks.tsx) and never appears in this legacy-only DOM anyway.
+    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','card-last-visit'];
     const BOTTOM_CLASSES = ['kibbutz-note','proc-btn','calendar-event'];
 
     document.querySelectorAll('.kibbutz').forEach(card => {
@@ -5816,13 +5823,13 @@
     return Object.keys(EMS_STATUS).filter(s => EMS_CLOSED.indexOf(s) === -1);
   }
   // Bumped whenever the slim cache row's SHAPE changes. `description` (task-3-brief, spec §4)
-  // is the first such change — a snapshot written before this shipped has every task missing
-  // the field entirely, so `emsResyncIfStaleCache` below treats that as the "stale" signal
-  // instead of persisting a separate version number nobody reads yet.
+  // is the first such change. Persisted as `ver` on the snapshot itself (db/ems_cache.ver,
+  // migration ems_cache_add_ver) — `emsResyncIfStaleCache` below compares against it directly,
+  // so a snapshot written before this shipped (ver missing/older) resyncs exactly once.
   const EMS_CACHE_VER = 2;
   function emsCacheData() {
     const c = window.SHEET_DATA && window.SHEET_DATA.emsCache;
-    return (c && Array.isArray(c.tasks)) ? c : { tasks: [], syncedAt: '', syncedBy: '' };
+    return (c && Array.isArray(c.tasks)) ? c : { tasks: [], syncedAt: '', syncedBy: '', ver: 0 };
   }
   // Open EMS tasks for a kibbutz card — reads the shared cache, resolves via the
   // bridge map (aggregates across merged sites, e.g. שדה אליהו + חקלאות).
@@ -5847,17 +5854,19 @@
       linkType: (t.linkType || t.link_type || ''), linkCount: emsLinkIds(t).length
     };
   }
-  // A cached snapshot written before `description` existed lacks the key on every task
-  // (JSON never round-trips a key it never had). If we happen to be connected right now,
+  // A cached snapshot written by an older EMS_CACHE_VER is missing whatever shape change came
+  // with the bump (e.g. `description`, task-3-brief). If we happen to be connected right now,
   // resync once so the newer shape lands without waiting for the next explicit EMS action —
-  // otherwise a field user who never opens the EMS tab would keep the old, description-less
-  // cache forever. Guarded so it fires at most once per session either way.
+  // otherwise a field user who never opens the EMS tab would keep the stale cache forever.
+  // Guarded so it fires at most once per session either way (never loops: it does not re-check
+  // after the resync completes, so an emsSyncCache that itself fails to bump `ver` — it can't,
+  // it always writes EMS_CACHE_VER — still can't retrigger this session).
   let _emsStaleCacheChecked = false;
   function emsResyncIfStaleCache() {
     if (_emsStaleCacheChecked) return;
     _emsStaleCacheChecked = true;
-    const tasks = emsCacheData().tasks;
-    const stale = tasks.length && tasks.some(t => t.description === undefined);
+    const cache = emsCacheData();
+    const stale = cache.tasks.length && (cache.ver || 0) !== EMS_CACHE_VER;
     if (stale && isEmsConnected()) emsSyncCache().catch(e => console.warn('[EMS] stale-cache resync failed', e));
   }
   // Pull ALL open tasks from EMS (paginated) and write a fresh snapshot to the Sheet.
@@ -5886,8 +5895,8 @@
     // ponytail: last-writer-wins snapshot — a slow sync could overwrite a fresher one.
     // Self-heals on the next connect/sync. Upgrade path: send fetch-start ts, server keeps newer.
     await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, tasks: slim }) });
-    if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy };
+      body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, ver: EMS_CACHE_VER, tasks: slim }) });
+    if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy, ver: EMS_CACHE_VER };
     if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: slim.length });   // → React islands (bridge)
     return { cached: slim.length };
   }
@@ -6499,6 +6508,13 @@
   const EMS_TYPE     = { supplying_meters:'📦 אספקת מונים', fixing_fault:'🔧 תיקון תקלה', other:'📌 אחר' };
   const EMS_CLOSED   = ['done', 'rejected', 'not_relevant', 'cancelled'];
   function emsStatusLabel(s) { return EMS_STATUS[s] || s; }
+  // Exposed to the bridge (js/src/00-bridge.js sigma.emsLabels()) so the React card widget
+  // (app/src/lib/emsTasks.ts statusLabel/priorityLabel) renders with these EXACT labels —
+  // this file stays the single source of truth; the TS side keeps its own copy only as a
+  // fallback for when the bridge isn't reachable (e.g. under plain vitest). Pinned identical
+  // by test-ems-labels.mjs.
+  function emsLabels() { return { status: EMS_STATUS, priority: EMS_PRIORITY }; }
+  window.emsLabels = emsLabels;
 
   function renderEmsTaskCard(t) {
     const site     = t.site && t.site.name ? t.site.name : '—';
@@ -6633,7 +6649,12 @@
   // kibbutz cards (which read the cache, not EMS live) reflect the change immediately.
   async function emsAfterWrite() {
     try { await emsSyncCache(); } catch (e) { console.warn('emsAfterWrite sync failed', e); }
-    if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+    // The on-card EMS-tasks widget is React now (components/home/EmsTasks.tsx) — it re-reads
+    // sigma.emsCacheTasksForKibbutz() on this event. emsSyncCache() above already fires it on a
+    // SUCCESSFUL resync; fire it again unconditionally here so a card still refreshes even when
+    // that resync failed (matches the old applyCardEmsWidgets() call, which redrew unconditionally
+    // too — from whatever the cache already held). A double-fire on the success path is harmless.
+    if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: emsCacheData().tasks.length });
     if (typeof reorderCards === 'function') reorderCards();
     // If the kibbutz modal is still open (task created from a card), refresh its EMS section.
     const backdrop = document.getElementById('modalBackdrop');

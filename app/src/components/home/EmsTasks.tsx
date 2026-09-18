@@ -12,7 +12,7 @@
 // stays inside the kibbutz modal). Nothing here needs `sigma.getRole()`.
 import * as React from 'react';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
-import { sortTasksForCard, taskMeta, EMS_STATUS_LABEL, type CardEmsTask } from '@/lib/emsTasks';
+import { sortTasksForCard, taskMeta, statusLabel, toggleClamp, type CardEmsTask } from '@/lib/emsTasks';
 
 // Pending עידן's final word (task-3-brief REVISION 2 delta): the spec (§4, "No line-clamp —
 // D5") wants the full description everywhere, but the controller asked for a phone compromise
@@ -65,7 +65,7 @@ function EmsTaskRow({
         <PriorityDot priority={task.priority} />
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">{task.title}</span>
         <span className="shrink-0 whitespace-nowrap rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold text-muted-foreground">
-          {EMS_STATUS_LABEL[task.status] || task.status}
+          {statusLabel(task.status)}
         </span>
       </div>
 
@@ -119,7 +119,7 @@ export function EmsTasks({ kibbutz }: { kibbutz: string }) {
             key={t.id}
             task={t}
             expanded={!!expanded[t.id]}
-            onToggle={() => setExpanded(e => ({ ...e, [t.id]: !e[t.id] }))}
+            onToggle={() => setExpanded(e => toggleClamp(e, t.id))}
           />
         ))}
       </div>

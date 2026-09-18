@@ -217,7 +217,9 @@
       assignee: t.assignee ? { id:t.assignee.id, firstName:t.assignee.firstName, lastName:t.assignee.lastName } : null,
       description: t.description || '' });
     // Seed the shared cache as if עידן had already synced — so field users see tasks offline.
-    M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
+    // `ver: 2` matches EMS_CACHE_VER in js/src/13-ems.js — hardcoded (not referenced) because
+    // this IIFE runs at load time, before that later-concatenated module's `const` exists.
+    M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', ver: 2, tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
 
     // ---- mock Google-Sheet data (kibbutz cards) ----
     function mockSheetData() {
@@ -319,7 +321,7 @@
         payload = mockEms(body);                          // EMS proxy → {status, body}
       } else if (body && body.type === 'emsCacheWrite') {
         // full-replace snapshot (all admins → everyone writes the complete set)
-        M.cacheStore = { syncedAt: nowISO(), syncedBy: body.syncedBy || '', tasks: body.tasks || [] };
+        M.cacheStore = { syncedAt: nowISO(), syncedBy: body.syncedBy || '', ver: body.ver || 1, tasks: body.tasks || [] };
         payload = { ok: true, cached: M.cacheStore.tasks.length };
       } else if (body && body.type === 'emsQueueAdd') {
         M.queue.push(Object.assign({ id: nextId('q'), at: nowISO() }, body.item || {}));
@@ -426,7 +428,7 @@
         requirements: requirements.map(r => ({ id: String(r.id), createdAt: r.created_at || '', createdBy: r.created_by || '', kibbutz: r.kibbutz || '', contactName: r.contact_name || '', items: r.items || [], notes: r.notes || '', status: r.status || 'open', linkedOrderId: r.linked_order_id || '', fulfilledAt: r.fulfilled_at || '', lastUpdated: r.last_updated ? String(r.last_updated) : '' })),
         returns: returns_.map(r => ({ id: String(r.id), visitId: r.visit_id || '', date: r.date || '', kibbutz: r.kibbutz || '', visitor: r.visitor || '', product: r.product || '', qty: parseInt(r.qty) || 0, reason: r.reason || '', status: r.status || 'open' })),
         attendance: attendance.map(a => ({ id: String(a.id), date: a.date || '', person: a.person || '', dayType: a.day_type || '', note: a.note || '' })),
-        emsCache: { tasks: cache.tasks || [], syncedAt: cache.synced_at || '', syncedBy: cache.synced_by || '' },
+        emsCache: { tasks: cache.tasks || [], syncedAt: cache.synced_at || '', syncedBy: cache.synced_by || '', ver: cache.ver || 1 },
         emsQueue: queueRows.map(qr => qr.payload)
       };
     }
@@ -557,7 +559,7 @@
           if (b.type === 'requirement') return respond(await writeRequirement(b));
           if (b.type === 'visit') return respond(await writeVisit(b));
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
-          if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '' }); return respond({ ok: true, cached: (b.tasks || []).length }); }
+          if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '', ver: b.ver || 1 }); return respond({ ok: true, cached: (b.tasks || []).length }); }
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
           if (b.type === 'emsQueueClear') { const ids = (b.ids || []).map(x => '"' + String(x).replace(/"/g, '') + '"'); if (ids.length) await sbDelete('ems_queue?payload->>id=in.(' + ids.join(',') + ')'); return respond({ ok: true }); }
           if (b.type === 'parseCorrection') { await sbInsert('parse_corrections', [{ raw_text: b.rawText || '', items: b.items || [], created_by: b.createdBy || '' }]); return respond({ ok: true }); }
@@ -821,10 +823,9 @@
         card.appendChild(btn);
       }
     });
-
-    // Field 2 — attach the EMS-tasks widget to EVERY site-mapped card (independent of
-    // whether it had a Sheet row), once the shared cache has been synced.
-    if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+    // The on-card EMS-tasks widget is React now (components/home/EmsTasks.tsx, task-3-brief) —
+    // it reads sigma.emsCacheTasksForKibbutz() itself and re-renders on ems-cache-synced, so
+    // there is nothing left for this pass to trigger here.
   }
 
   async function toggleProcedure(btn) {

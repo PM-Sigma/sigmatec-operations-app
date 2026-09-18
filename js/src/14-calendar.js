@@ -437,6 +437,13 @@
   const EMS_TYPE     = { supplying_meters:'📦 אספקת מונים', fixing_fault:'🔧 תיקון תקלה', other:'📌 אחר' };
   const EMS_CLOSED   = ['done', 'rejected', 'not_relevant', 'cancelled'];
   function emsStatusLabel(s) { return EMS_STATUS[s] || s; }
+  // Exposed to the bridge (js/src/00-bridge.js sigma.emsLabels()) so the React card widget
+  // (app/src/lib/emsTasks.ts statusLabel/priorityLabel) renders with these EXACT labels —
+  // this file stays the single source of truth; the TS side keeps its own copy only as a
+  // fallback for when the bridge isn't reachable (e.g. under plain vitest). Pinned identical
+  // by test-ems-labels.mjs.
+  function emsLabels() { return { status: EMS_STATUS, priority: EMS_PRIORITY }; }
+  window.emsLabels = emsLabels;
 
   function renderEmsTaskCard(t) {
     const site     = t.site && t.site.name ? t.site.name : '—';
@@ -571,7 +578,12 @@
   // kibbutz cards (which read the cache, not EMS live) reflect the change immediately.
   async function emsAfterWrite() {
     try { await emsSyncCache(); } catch (e) { console.warn('emsAfterWrite sync failed', e); }
-    if (typeof applyCardEmsWidgets === 'function') applyCardEmsWidgets();
+    // The on-card EMS-tasks widget is React now (components/home/EmsTasks.tsx) — it re-reads
+    // sigma.emsCacheTasksForKibbutz() on this event. emsSyncCache() above already fires it on a
+    // SUCCESSFUL resync; fire it again unconditionally here so a card still refreshes even when
+    // that resync failed (matches the old applyCardEmsWidgets() call, which redrew unconditionally
+    // too — from whatever the cache already held). A double-fire on the success path is harmless.
+    if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: emsCacheData().tasks.length });
     if (typeof reorderCards === 'function') reorderCards();
     // If the kibbutz modal is still open (task created from a card), refresh its EMS section.
     const backdrop = document.getElementById('modalBackdrop');

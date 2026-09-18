@@ -1,10 +1,14 @@
-// Pure logic behind the on-card EMS-tasks widget (spec §4 Part C — EmsTasks.tsx). Kept
-// import-free of the bridge/legacy bundle so it is testable in plain vitest (task-3-brief).
-//
-// EMS_STATUS_LABEL / EMS_PRIORITY_LABEL / EMS_CLOSED mirror js/src/14-calendar.js's
-// EMS_STATUS / EMS_PRIORITY / EMS_CLOSED verbatim (exact backend enum values) — that file
-// stays the source of truth for the legacy surfaces (task modal, calendar); this is the
-// TS-side copy for the React card. Keep both in sync if EMS adds a status or priority.
+// Pure logic behind the on-card EMS-tasks widget (spec §4 Part C — EmsTasks.tsx). The
+// date/sort/meta functions stay import-free of the bridge so they're testable in plain vitest
+// (task-3-brief); label lookup takes the LIVE legacy maps via `sigma.emsLabels()` when
+// available and falls back to the mirror below otherwise (fix round 1 — a hand-mirror alone
+// could silently drift from js/src/14-calendar.js's real EMS_STATUS/EMS_PRIORITY).
+import { sigma } from '@/bridge';
+
+// Mirrors js/src/14-calendar.js's EMS_STATUS / EMS_PRIORITY verbatim (exact backend enum
+// values) — used only when the live bridge maps aren't reachable (no `sigma` global, e.g. this
+// file under plain vitest with nothing mocked). `test-ems-labels.mjs` asserts this stays
+// byte-identical to the real maps, so a drift is caught immediately, not silently rendered.
 export const EMS_STATUS_LABEL: Record<string, string> = {
   new: '🆕 חדשה', in_progress: '🔄 בטיפול', waiting_for_client: '⏳ ממתין ללקוח', on_hold: '⏸️ מוקפא',
   done: '✅ בוצע', rejected: '🚫 נדחה', not_relevant: '➖ לא רלוונטי', cancelled: '❌ בוטל',
@@ -13,6 +17,25 @@ export const EMS_PRIORITY_LABEL: Record<string, string> = {
   low: '🔵 נמוכה', normal: '🟡 רגילה', high: '🟠 גבוהה', urgent: '🔴 דחופה',
 };
 export const EMS_CLOSED = ['done', 'rejected', 'not_relevant', 'cancelled'];
+
+function liveLabels(): { status: Record<string, string>; priority: Record<string, string> } | null {
+  try {
+    const l = sigma?.emsLabels?.();
+    return l && l.status && l.priority ? l : null;
+  } catch { return null; }
+}
+
+/** Status badge text — live `sigma.emsLabels().status` first, the mirror as fallback. */
+export function statusLabel(status: string): string {
+  const live = liveLabels();
+  return (live && live.status[status]) || EMS_STATUS_LABEL[status] || status;
+}
+
+/** Priority chip text — live `sigma.emsLabels().priority` first, the mirror as fallback. */
+export function priorityLabel(priority: string): string {
+  const live = liveLabels();
+  return (live && live.priority[priority]) || EMS_PRIORITY_LABEL[priority] || priority;
+}
 
 export interface CardEmsTask {
   id: string;
@@ -27,20 +50,40 @@ export interface CardEmsTask {
   linkCount?: number;
 }
 
-/** Only the shared cache's OPEN tasks ever reach a card, but a closed one is never overdue. */
+/**
+ * The viewer's local CALENDAR DAY a due-date value names (fix round 1 — date timezone slide).
+ * A bare `YYYY-MM-DD` (all EMS due-dates so far) is read LITERALLY: it names a day, not an
+ * instant, so `new Date('2026-09-18')` (parsed as UTC midnight) must never be compared against
+ * a local `now` — in Israel (UTC+2/3) that instant is already 02:00–03:00 local, so a task due
+ * "today" would flip to overdue hours before the local day is over. Anything WITH a time/zone
+ * component (a real EMS timestamp, e.g. `2026-09-17T21:00:00.000Z`) is a genuine instant and is
+ * converted to the viewer's local day the normal way (`Date` getters are local by default).
+ */
+function localDayOf(dateStr: string): { y: number; m: number; d: number } | null {
+  const bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (bare) return { y: +bare[1], m: +bare[2] - 1, d: +bare[3] };
+  const dt = new Date(dateStr);
+  if (Number.isNaN(dt.getTime())) return null;
+  return { y: dt.getFullYear(), m: dt.getMonth(), d: dt.getDate() };
+}
+
+/** Only the shared cache's OPEN tasks ever reach a card, but a closed one is never overdue.
+ *  Day granularity, not time — due TODAY is never overdue, whatever the hour. */
 export function isOverdue(task: CardEmsTask, now: Date = new Date()): boolean {
   if (!task.expectedCompletionDate) return false;
   if (EMS_CLOSED.includes(task.status)) return false;
-  const due = new Date(task.expectedCompletionDate);
-  return !Number.isNaN(due.getTime()) && due < now;
+  const day = localDayOf(task.expectedCompletionDate);
+  if (!day) return false;
+  const due = new Date(day.y, day.m, day.d);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return due < today;
 }
 
 /** "📅 d.m" — no year, spec §4's compact due-date chip. */
 export function dueText(task: CardEmsTask): string {
-  if (!task.expectedCompletionDate) return '';
-  const d = new Date(task.expectedCompletionDate);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getDate()}.${d.getMonth() + 1}`;
+  const day = localDayOf(task.expectedCompletionDate || '');
+  if (!day) return '';
+  return `${day.d}.${day.m + 1}`;
 }
 
 export interface TaskMeta {
@@ -56,7 +99,7 @@ export function taskMeta(task: CardEmsTask, now: Date = new Date()): TaskMeta {
     assigneeFirstName: task.assignee?.firstName || null,
     due: dueText(task),
     overdue: isOverdue(task, now),
-    priorityLabel: EMS_PRIORITY_LABEL[task.priority || ''] || task.priority || '',
+    priorityLabel: priorityLabel(task.priority || ''),
   };
 }
 
@@ -75,4 +118,13 @@ export function sortTasksForCard(tasks: CardEmsTask[], me: string): CardEmsTask[
       return ra !== rb ? ra - rb : a.i - b.i;
     })
     .map(x => x.t);
+}
+
+/**
+ * "עוד"/"פחות" per-card clamp state (mobile description toggle, fix round 1: extracted so the
+ * flip itself is a pure, jsdom-free unit — EmsTasks.tsx only owns the actual React state, kept
+ * in memory, never persisted).
+ */
+export function toggleClamp(state: Record<string, boolean>, taskId: string): Record<string, boolean> {
+  return { ...state, [taskId]: !state[taskId] };
 }

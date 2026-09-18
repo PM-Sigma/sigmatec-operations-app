@@ -37,6 +37,8 @@ export interface Sigma {
   emsCacheData(): { tasks: EmsTask[]; syncedAt?: string; syncedBy?: string };
   /** Open tasks for one kibbutz card, from the shared cache (site aggregation included). */
   emsCacheTasksForKibbutz(name: string): EmsTask[];
+  /** The legacy EMS_STATUS/EMS_PRIORITY label maps (js/src/14-calendar.js) — display-text source of truth. */
+  emsLabels(): { status: Record<string, string>; priority: Record<string, string> };
   emsSiteIdForKibbutz(name: string): Promise<string>;
   getEmsSites(): Promise<Array<{ id: string; name: string }>>;
   kibbutzHasSite(name: string): Promise<boolean>;

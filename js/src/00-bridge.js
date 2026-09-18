@@ -63,6 +63,10 @@
       // React widget (components/home/EmsTasks.tsx) reuses it instead of re-deriving site ids
       // in TS from the hardcoded KIBBUTZ_SITE_MAP.
       emsCacheTasksForKibbutz: function (name) { return call('emsCacheTasksForKibbutz', [name], []); },
+      // The legacy EMS_STATUS/EMS_PRIORITY label maps (js/src/14-calendar.js) — single source
+      // of truth for display text; app/src/lib/emsTasks.ts reads these first and only falls
+      // back to its own mirror when the bridge isn't reachable.
+      emsLabels: function () { return call('emsLabels', [], { status: {}, priority: {} }); },
       emsSiteIdForKibbutz: function (name) { return call('emsSiteIdForKibbutz', [name], Promise.resolve('')); },
       getEmsSites: function () { return call('getEmsSites', [], Promise.resolve([])); },
       kibbutzHasSite: function (name) {

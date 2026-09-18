@@ -3,8 +3,9 @@
 //
 // WHY THIS EXISTS. The on-card EMS-tasks widget moved to React (EmsTasks.tsx), which reads
 // `description` off the shared cache row — a field the mapper never carried before. This pins
-// the mapper directly (no need to spin up the whole sync pipeline) and the guard that resyncs
-// a snapshot written before the field existed, so field users don't get stuck on a stale cache.
+// the mapper directly (no need to spin up the whole sync pipeline) and the EMS_CACHE_VER guard
+// that resyncs a snapshot written by an older version, so field users don't get stuck on a
+// stale cache without ever reconnecting to EMS themselves.
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,6 +19,7 @@ const src = fs.readFileSync(path.join(__dirname, 'js/src/13-ems.js'), 'utf8') + 
   '', 'window.emsSlimTask = emsSlimTask;',
   'window.emsResyncIfStaleCache = emsResyncIfStaleCache;',
   'window.emsSyncCache = emsSyncCache;',
+  'window.EMS_CACHE_VER = EMS_CACHE_VER;',
 ].join('\n');
 
 let failures = 0, passes = 0;
@@ -119,18 +121,45 @@ check('no site / no assignee → both null, never throw', () => {
   assert.strictEqual(slim.assignee, null);
 });
 
-// ── emsResyncIfStaleCache: the migration guard ───────────────────────────────
-check('stale cache (tasks missing description) + connected → resyncs once', async () => {
+// ── emsResyncIfStaleCache: the migration guard (real `ver`, not a description sniff) ─────────
+check('EMS_CACHE_VER is exposed and is the real, read version marker', () => {
+  assert.strictEqual(boot.win.EMS_CACHE_VER, 2);
+});
+
+check('cache with NO ver (pre-migration snapshot) + connected → resyncs once', async () => {
   let calls = 0;
   const { win } = loadModule({
     connected: true,
     api: async () => { calls++; return { data: [{ id: 'x', title: 't', description: 'd' }] }; },
-    emsCache: { tasks: [{ id: '1', title: 't' /* no description key at all */ }], syncedAt: '2026-01-01', syncedBy: '' },
+    emsCache: { tasks: [{ id: '1', title: 't' /* no ver on the snapshot at all */ }], syncedAt: '2026-01-01', syncedBy: '' },
   });
   await win.emsResyncIfStaleCache();
   // emsSyncCache is async and fire-and-forget from the guard — give its microtasks a tick.
   await new Promise(r => setTimeout(r, 20));
   assert.strictEqual(calls, 1, 'a stale, connected cache must trigger exactly one resync');
+});
+
+check('cache at an OLDER ver (1) + connected → resyncs once', async () => {
+  let calls = 0;
+  const { win } = loadModule({
+    connected: true,
+    api: async () => { calls++; return { data: [] }; },
+    emsCache: { tasks: [{ id: '1', title: 't' }], syncedAt: '2026-01-01', syncedBy: '', ver: 1 },
+  });
+  await win.emsResyncIfStaleCache();
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(calls, 1);
+});
+
+check('a resync writes the CURRENT ver onto the in-memory cache (no more staleness to find)', async () => {
+  const { win } = loadModule({
+    connected: true,
+    api: async () => ({ data: [{ id: 'x', title: 't' }] }),
+    emsCache: { tasks: [{ id: '1', title: 't' }], syncedAt: '2026-01-01', syncedBy: '' },
+  });
+  await win.emsResyncIfStaleCache();
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(win.SHEET_DATA.emsCache.ver, boot.win.EMS_CACHE_VER);
 });
 
 check('stale cache but NOT connected → no resync (nothing to fetch with)', async () => {
@@ -145,19 +174,19 @@ check('stale cache but NOT connected → no resync (nothing to fetch with)', asy
   assert.strictEqual(calls, 0);
 });
 
-check('cache already has description on every task → no resync, even when connected', async () => {
+check('cache already at the CURRENT ver → no resync, even when connected', async () => {
   let calls = 0;
   const { win } = loadModule({
     connected: true,
     api: async () => { calls++; return { data: [] }; },
-    emsCache: { tasks: [{ id: '1', title: 't', description: '' }], syncedAt: '2026-01-01', syncedBy: '' },
+    emsCache: { tasks: [{ id: '1', title: 't' }], syncedAt: '2026-01-01', syncedBy: '', ver: 2 },
   });
   await win.emsResyncIfStaleCache();
   await new Promise(r => setTimeout(r, 20));
   assert.strictEqual(calls, 0);
 });
 
-check('called twice in one session → resyncs at most once (the guard flag)', async () => {
+check('called twice in one session → resyncs at most once (the guard flag — no loop)', async () => {
   let calls = 0;
   const { win } = loadModule({
     connected: true,
@@ -166,8 +195,21 @@ check('called twice in one session → resyncs at most once (the guard flag)', a
   });
   await win.emsResyncIfStaleCache();
   await win.emsResyncIfStaleCache();
+  await win.emsResyncIfStaleCache();
   await new Promise(r => setTimeout(r, 20));
   assert.strictEqual(calls, 1);
+});
+
+check('no open tasks at all → never resyncs, ver or not (nothing to fix)', async () => {
+  let calls = 0;
+  const { win } = loadModule({
+    connected: true,
+    api: async () => { calls++; return { data: [] }; },
+    emsCache: { tasks: [], syncedAt: '', syncedBy: '' },
+  });
+  await win.emsResyncIfStaleCache();
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(calls, 0);
 });
 
 await run();

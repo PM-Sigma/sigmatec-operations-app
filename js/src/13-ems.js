@@ -12,13 +12,13 @@
     return Object.keys(EMS_STATUS).filter(s => EMS_CLOSED.indexOf(s) === -1);
   }
   // Bumped whenever the slim cache row's SHAPE changes. `description` (task-3-brief, spec §4)
-  // is the first such change — a snapshot written before this shipped has every task missing
-  // the field entirely, so `emsResyncIfStaleCache` below treats that as the "stale" signal
-  // instead of persisting a separate version number nobody reads yet.
+  // is the first such change. Persisted as `ver` on the snapshot itself (db/ems_cache.ver,
+  // migration ems_cache_add_ver) — `emsResyncIfStaleCache` below compares against it directly,
+  // so a snapshot written before this shipped (ver missing/older) resyncs exactly once.
   const EMS_CACHE_VER = 2;
   function emsCacheData() {
     const c = window.SHEET_DATA && window.SHEET_DATA.emsCache;
-    return (c && Array.isArray(c.tasks)) ? c : { tasks: [], syncedAt: '', syncedBy: '' };
+    return (c && Array.isArray(c.tasks)) ? c : { tasks: [], syncedAt: '', syncedBy: '', ver: 0 };
   }
   // Open EMS tasks for a kibbutz card — reads the shared cache, resolves via the
   // bridge map (aggregates across merged sites, e.g. שדה אליהו + חקלאות).
@@ -43,17 +43,19 @@
       linkType: (t.linkType || t.link_type || ''), linkCount: emsLinkIds(t).length
     };
   }
-  // A cached snapshot written before `description` existed lacks the key on every task
-  // (JSON never round-trips a key it never had). If we happen to be connected right now,
+  // A cached snapshot written by an older EMS_CACHE_VER is missing whatever shape change came
+  // with the bump (e.g. `description`, task-3-brief). If we happen to be connected right now,
   // resync once so the newer shape lands without waiting for the next explicit EMS action —
-  // otherwise a field user who never opens the EMS tab would keep the old, description-less
-  // cache forever. Guarded so it fires at most once per session either way.
+  // otherwise a field user who never opens the EMS tab would keep the stale cache forever.
+  // Guarded so it fires at most once per session either way (never loops: it does not re-check
+  // after the resync completes, so an emsSyncCache that itself fails to bump `ver` — it can't,
+  // it always writes EMS_CACHE_VER — still can't retrigger this session).
   let _emsStaleCacheChecked = false;
   function emsResyncIfStaleCache() {
     if (_emsStaleCacheChecked) return;
     _emsStaleCacheChecked = true;
-    const tasks = emsCacheData().tasks;
-    const stale = tasks.length && tasks.some(t => t.description === undefined);
+    const cache = emsCacheData();
+    const stale = cache.tasks.length && (cache.ver || 0) !== EMS_CACHE_VER;
     if (stale && isEmsConnected()) emsSyncCache().catch(e => console.warn('[EMS] stale-cache resync failed', e));
   }
   // Pull ALL open tasks from EMS (paginated) and write a fresh snapshot to the Sheet.
@@ -82,8 +84,8 @@
     // ponytail: last-writer-wins snapshot — a slow sync could overwrite a fresher one.
     // Self-heals on the next connect/sync. Upgrade path: send fetch-start ts, server keeps newer.
     await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, tasks: slim }) });
-    if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy };
+      body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, ver: EMS_CACHE_VER, tasks: slim }) });
+    if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy, ver: EMS_CACHE_VER };
     if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: slim.length });   // → React islands (bridge)
     return { cached: slim.length };
   }

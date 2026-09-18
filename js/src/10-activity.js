@@ -594,7 +594,9 @@
   }
 
   function reorderCards() {
-    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','card-ems','card-ems-new','card-last-visit'];
+    // 'card-ems'/'card-ems-new' removed (task-3-brief) — the on-card EMS-tasks widget is React
+    // now (components/home/EmsTasks.tsx) and never appears in this legacy-only DOM anyway.
+    const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','card-last-visit'];
     const BOTTOM_CLASSES = ['kibbutz-note','proc-btn','calendar-event'];
 
     document.querySelectorAll('.kibbutz').forEach(card => {
