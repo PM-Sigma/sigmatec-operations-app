@@ -15,7 +15,7 @@ import { sigma, sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
 import {
-  chipDate, isQuiet, KIND_LABEL, notesForKibbutz, taskFromBullet,
+  chipDate, collapseBullets, isQuiet, KIND_LABEL, notesForKibbutz, taskFromBullet,
   type MeetingGroup, type MeetingKind, type NoteRow,
 } from '@/lib/meetingNotes';
 
@@ -294,33 +294,60 @@ function MeetingBlock({ group, canAct }: { group: MeetingGroup; canAct: boolean 
  * The timeline itself — pure presentation over already-fetched rows, so the card, the modal
  * tab and (one day) a report can all render the same thing.
  * `expandAll` = the modal: full history open, no disclosure.
+ * `collapse` = the card (§7k #7): only the latest one or two lines, then "עוד N".
  */
 export function MeetingTimeline({
-  rows, kibbutz, canAct, expandAll = false, empty = 'אין סיכום ישיבה עדיין',
+  rows, kibbutz, canAct, expandAll = false, collapse = 0, empty = 'אין סיכום ישיבה עדיין',
 }: {
   rows: NoteRow[] | undefined;
   kibbutz: string;
   canAct: boolean;
   expandAll?: boolean;
+  /** How many bullets to show before the "עוד N" disclosure. 0 = no collapsing. */
+  collapse?: number;
   empty?: string | null;
 }) {
   const groups = React.useMemo(() => notesForKibbutz(rows, kibbutz), [rows, kibbutz]);
   const [open, setOpen] = React.useState(false);
+  const [showAll, setShowAll] = React.useState(false);
   const [latest, ...older] = groups;
+  const brief = React.useMemo(() => collapseBullets(groups, collapse), [groups, collapse]);
+  const collapsed = !expandAll && collapse > 0 && !showAll && brief.hidden > 0;
 
   // `.card-notes` is rendered UNCONDITIONALLY — empty, and even while the query is still in
-  // flight. js/src/13-ems.js anchors the EMS task widget below it (`:scope > .card-notes`) to
-  // get the card's name → notes → EMS tasks order, and the legacy decorating pass runs before
-  // the notes query resolves: an element that appears late means the widget has already
-  // anchored to the name row and sits ABOVE the bullets. A stable anchor is the fix.
+  // flight — so the card never reflows by a line when the notes land. (It used to also be the
+  // anchor js/src/13-ems.js measured the EMS widget against; that widget is React now, and the
+  // card order is EMS tasks → notes per §7k #7, so nothing outside this file depends on it.)
   return (
     <div className={'card-notes ' + (groups.length ? 'mt-1.5 border-t border-border/70 pt-1.5' : '')}>
       {!groups.length && empty && (
         <p className="card-notes-empty py-0.5 text-[12px] text-muted-foreground">{empty}</p>
       )}
-      {latest && <MeetingBlock group={latest} canAct={canAct} />}
+      {/* Collapsed card view: the latest line(s) only, with the date chip of the newest
+          meeting for context, and one tap to the whole history. */}
+      {collapsed && latest && (
+        <>
+          <div className="mb-0.5 flex items-center gap-1.5">
+            <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
+              🗓 <bdi>{chipDate(latest.meeting_date)}</bdi>
+            </span>
+          </div>
+          <ul>
+            {brief.shown.map((b, i) => <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} />)}
+          </ul>
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); setShowAll(true); }}
+            className="card-notes-more mt-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+          >
+            עוד <bdi>{brief.hidden}</bdi>
+          </button>
+        </>
+      )}
 
-      {!!latest && older.length > 0 && (expandAll ? (
+      {!collapsed && latest && <MeetingBlock group={latest} canAct={canAct} />}
+
+      {!collapsed && !!latest && older.length > 0 && (expandAll ? (
         <div className="mt-2 flex flex-col gap-2">
           {older.map(g => <MeetingBlock key={g.meeting_date + g.meeting_kind} group={g} canAct={canAct} />)}
         </div>
@@ -353,5 +380,10 @@ export function MeetingTimeline({
 export function MeetingNotes({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
   const { data, isLoading } = useMeetingNotes();
   if (isLoading && !data) return null;
-  return <MeetingTimeline rows={data} kibbutz={kibbutz} canAct={canAct} />;
+  // §7k #7: two lines on the card. The full history is one tap away, and the kibbutz modal's
+  // summaries tab (expandAll) still opens everything at once.
+  return <MeetingTimeline rows={data} kibbutz={kibbutz} canAct={canAct} collapse={CARD_BULLETS} />;
 }
+
+/** The latest N bullets a card shows before "עוד N" (§7k #7: "the latest 1–2 lines"). */
+export const CARD_BULLETS = 2;

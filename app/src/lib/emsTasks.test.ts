@@ -2,7 +2,7 @@
 // emsTasks.ts (TDD) — every case below is one of the task-3-brief decisions.
 import { describe, it, expect } from 'vitest';
 import {
-  isOverdue, dueText, taskMeta, sortTasksForCard, toggleClamp,
+  isOverdue, dueText, taskMeta, sortTasksForCard, toggleClamp, isUnassigned, unassignedCount,
   EMS_STATUS_LABEL, EMS_PRIORITY_LABEL, type CardEmsTask,
 } from './emsTasks';
 
@@ -120,5 +120,29 @@ describe('toggleClamp — pure "עוד"/"פחות" state (fix round 1)', () => {
     const s2 = toggleClamp(s1, 'b');
     expect(s2).toEqual({ a: true, b: true });
     expect(toggleClamp(s2, 'a')).toEqual({ a: false, b: true });
+  });
+});
+
+describe('unassigned tasks (§7k #6)', () => {
+  const t = (over: Partial<CardEmsTask> = {}): CardEmsTask =>
+    ({ id: 'x', title: 't', status: 'new', ...over }) as CardEmsTask;
+
+  it('no assignee at all is unassigned', () => {
+    expect(isUnassigned(t())).toBe(true);
+    expect(isUnassigned(t({ assignee: null }))).toBe(true);
+  });
+
+  it('an assignee whose name is blank is still unassigned — an empty chip is not an owner', () => {
+    expect(isUnassigned(t({ assignee: { id: '1', firstName: '  ' } }))).toBe(true);
+  });
+
+  it('a real owner is assigned', () => {
+    expect(isUnassigned(t({ assignee: { id: '1', firstName: 'אביאם' } }))).toBe(false);
+  });
+
+  it('counts across a card', () => {
+    expect(unassignedCount([t(), t({ assignee: { id: '1', firstName: 'עידן' } }), t()])).toBe(2);
+    expect(unassignedCount([])).toBe(0);
+    expect(unassignedCount(null)).toBe(0);
   });
 });

@@ -75,11 +75,12 @@ export function KibbutzCard({
           </button>
         )}
       </div>
-      {/* name → NOTES → EMS TASKS (spec §3.3, §4 Part C). EmsTasks is React now too (task-3-brief) —
-          both it and the legacy decorators (site warnings etc.) still anchor after .card-notes,
-          so this order stays load-bearing even though the EMS widget itself no longer is legacy. */}
-      <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
+      {/* name → EMS TASKS → NOTES (§7k #7, עידן 18.9): the tasks are the ACTION and go first;
+          the bullets are history and are collapsed to the latest lines below them. No legacy
+          decorator anchors on `.card-notes` any more (the EMS widget became React in Task 3),
+          so the swap is free of the old DOM contract. */}
       <EmsTasks kibbutz={row.name} />
+      <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
       <CardActions name={row.name} role={role} />
     </motion.div>
   );

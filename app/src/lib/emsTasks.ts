@@ -128,3 +128,19 @@ export function sortTasksForCard(tasks: CardEmsTask[], me: string): CardEmsTask[
 export function toggleClamp(state: Record<string, boolean>, taskId: string): Record<string, boolean> {
   return { ...state, [taskId]: !state[taskId] };
 }
+
+/**
+ * Tasks with nobody on them (§7k #6 — "EMS tasks without an assignee are tracked"). The card
+ * shows a "⚠️ ללא אחראי" badge on the row and admins get the count in the section's chip row;
+ * the gaps view, the Sunday agenda and עמיחי's one-pager read the same rule later.
+ * An assignee with no name at all counts as unassigned — an empty chip is not an owner.
+ */
+export function isUnassigned(task: CardEmsTask): boolean {
+  const a = task.assignee;
+  return !a || !String(a.firstName ?? '').trim();
+}
+
+/** How many of these tasks have no owner. */
+export function unassignedCount(tasks: CardEmsTask[] | null | undefined): number {
+  return (tasks || []).filter(isUnassigned).length;
+}

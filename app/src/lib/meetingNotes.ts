@@ -462,3 +462,18 @@ export function taskFromBullet(
     priority: 'medium',
   };
 }
+
+/**
+ * Card view of the bullets (§7k #7): the phone card shows only the LATEST one or two lines and
+ * an "עוד N" disclosure — the bullets are history, and history must not push the open EMS tasks
+ * below the fold. `hidden` counts every bullet that is not shown, across every meeting, so the
+ * number on the disclosure is the number of lines the person gets when he taps it.
+ */
+export function collapseBullets(
+  groups: MeetingGroup[] | null | undefined,
+  max = 2,
+): { shown: NoteRow[]; hidden: number; total: number } {
+  const all = (groups || []).flatMap(g => g.bullets || []);
+  const limit = Math.max(0, max);
+  return { shown: all.slice(0, limit), hidden: Math.max(0, all.length - limit), total: all.length };
+}

@@ -13,7 +13,7 @@ import {
   headingNames, resolveKibbutzName, titleFromBullet, descriptionFromBullet, taskFromBullet,
   notesForKibbutz, rowsFromParsed, countRowsToSave, normalizeName, isQuiet, dmy, chipDate,
   KIBBUTZ_ALIASES, type NoteRow,
-  canImportNotes, importPayload,
+  canImportNotes, importPayload, collapseBullets, type MeetingGroup,
 } from './meetingNotes';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -429,5 +429,36 @@ describe('import RPC payload', () => {
   it('an unmatched section contributes no rows — nothing is written under a name with no card', () => {
     const p = importPayload({ meeting_date: '2026-09-17', meeting_kind: 'company', sections: [parsed17.sections[7]] });
     expect(p.rows).toEqual([]);
+  });
+});
+
+describe('collapseBullets (§7k #7 — the card shows the latest lines only)', () => {
+  const g = (date: string, texts: string[]): MeetingGroup => ({
+    meeting_date: date, meeting_kind: 'company',
+    bullets: texts.map((t, i) => ({ id: date + i, seq: i, text: t } as NoteRow)),
+  });
+
+  it('shows the first N and counts the rest across every meeting', () => {
+    const r = collapseBullets([g('2026-09-17', ['a', 'b', 'c']), g('2026-09-10', ['d'])], 2);
+    expect(r.shown.map(b => b.text)).toEqual(['a', 'b']);
+    expect(r.hidden).toBe(2);
+    expect(r.total).toBe(4);
+  });
+
+  it('nothing hidden when the card already shows everything — no "עוד 0"', () => {
+    const r = collapseBullets([g('2026-09-17', ['a'])], 2);
+    expect(r.shown).toHaveLength(1);
+    expect(r.hidden).toBe(0);
+  });
+
+  it('empty and missing input are safe', () => {
+    expect(collapseBullets(undefined, 2)).toEqual({ shown: [], hidden: 0, total: 0 });
+    expect(collapseBullets([], 2).hidden).toBe(0);
+  });
+
+  it('max 0 hides everything (a caller that wants only the disclosure)', () => {
+    const r = collapseBullets([g('2026-09-17', ['a', 'b'])], 0);
+    expect(r.shown).toEqual([]);
+    expect(r.hidden).toBe(2);
   });
 });
