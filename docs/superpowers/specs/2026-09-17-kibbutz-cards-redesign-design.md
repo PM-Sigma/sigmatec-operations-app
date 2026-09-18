@@ -636,6 +636,18 @@ function that is still needed and not covered by the remaining spec** — a cove
 2026-09-18-retirement-coverage.md`) maps every function of the retired pages/blocks to its new home or marks it KEEP;
 Task 18 enforces it (a retired function with no mapping fails the sweep).
 
+**Coverage audit result (18.9, `docs/reports/2026-09-18-retirement-coverage.md`): 17 MOVE · 4 KEEP · 8 GAP · 8 DROP.**
+Controller rulings on the technical gaps (binding for Task 14/21): G1 `openActivityModal` → a "יומן פעילות" row in ⋯;
+G2 `emsOnConnected`/`scheduleEmsExpiry` → wired into the login-gate startup (Task 21); G3 `emsRequireLogin` fallback →
+the re-login sheet (Task 21), no `#ems-view` needed; G4 kibbutz-agnostic "משימת EMS חדשה" → a Ctrl+K action + the
+context ➕ on the calendar list view; G7 per-person task load → re-derived from EMS + internal tasks inside סקירה (not
+ported from the deleted status strings). **Product gaps for עידן (open until he answers, retirement of those functions
+blocked meanwhile):** G5 a manager pulling *another person's* task report by mail/WhatsApp — recommend: keep as a
+"שתף" with a person picker for admins on the calendar list view; G6 "השאר הודעה לעובד" + login-time popup (staff page) —
+recommend: replace with an internal task assigned to that person (it appears in his list, his gaps and a push), drop the
+popup; G8 visit-analytics charts + "לא עודכן 14 ימים" list (kibbutz-stats) — recommend: fold both into סקירה (visits by
+person/month, top products, most-visited, stale kibbutzim).
+
 Net effect (all accepted): **4 pages retired** (EMS, משימות, עובדים, kibbutz-stats), **2 admin lists merged** (gaps
 admin, holidays), **1 legacy block removed** (company tasks), **3 shared components** (MeetingNotes, VoiceInput,
 Briefing). Bottom nav unchanged; ⋯ sheet becomes shorter: יומן · נוכחות · הגדרות · יומן היום · פידבק (+ admins: פיתוח,
