@@ -585,7 +585,7 @@ selected; else `event`) · `stockChange` (inventory) · `visit` (my tasks / atte
 ("➕ קיבוץ", "➕ שבץ ליום", "➕ דיווח מלאי"), never a bare plus; when `none`, the button is not rendered (no purposeless
 buttons). Pure function with a full page×role matrix test; the same function feeds Ctrl+K's actions list.
 
-## 7l. First screen per role (עידן 18.9: "מה המסך הראשון") — recommendation, to confirm
+## 7l. First screen per role — **APPROVED by עידן 18.9 as the default landing per employee**
 
 Same app, same bottom nav; only the landing view and the "היום" strip content differ. Rule: the first screen answers
 the one question that role asks every morning, and the second tap is the most frequent action.
@@ -594,12 +594,40 @@ the one question that role asks every morning, and the second tap is the most fr
 |------|----------|--------------------|-----|
 | אביאם / ניתאי (field) | **קיבוצים** with the arrival sheet auto-opened when there is no check-in today (§5.1); after check-in → the briefing of the current kibbutz | route stops in order, open nudge/draft, gaps count | "Where am I going and what do I owe?" — visit form ≤ 2 taps |
 | עידן (PM) | **היום שלי** — a PM landing card set: email drafts to confirm (§3b), internal tasks due, onboarding waits ("ממתין למייל" > 3 days), unassigned EMS tasks (§7k #6), Sunday agenda button (Sat/Sun), hours timer state; then the קיבוצים grid below | same cards, collapsed to counts on phone | His day is triage across kibbutzim, not one kibbutz |
-| מתניה (dev) | **פיתוח** board (4 columns; on phone the tree view) with his cards first; Saturday: the sprint prep card | comments mentioning him, cards in בדיקות waiting on him, next dev meeting Meet link | He lives in the board, kibbutz cards are secondary |
+| מתניה, **אליה** (devs) | **פיתוח** board (4 columns; on phone the tree view) with his cards first; Saturday: the sprint prep card | comments mentioning him, cards in בדיקות waiting on him, next dev meeting Meet link | He lives in the board, kibbutz cards are secondary |
 | עמיחי (CEO) | **סקירה** — the health table (§5 of the company-process spec) sorted red→green, yesterday's stock digest, gaps per person (admin view), Monday one-pager, revenue mix (hours vs equipment) when Task 8–10/hours ship | KPIs: red kibbutzim, unanswered client requests, missing summaries | He reads, rarely acts; one screen must let him spot trouble in 30 s |
 | צופה (reports) | **דוחות** hub (existing `#viewerReportsHub`) | none | Only job: produce reports |
 
-Landing is remembered per device (`localStorage.landing`) and overridable in ⚙️ הגדרות ("מסך פתיחה"). All roles keep
+Landing = role default (field / pm / dev / ceo / viewer, from `getCurrentUser()` → role map incl. אליה as dev), overridable per person in ⚙️ הגדרות ("מסך פתיחה") and remembered in `user_settings.landing`. All roles keep
 🏘 קיבוצים one tap away in the bottom nav.
+
+## 7m. Redundancy audit (עידן 18.9: "תמליץ לי מה מיותר וכפול") — recommendations
+
+Current pages in the legacy nav: קיבוצים · מלאי · נוכחות · EMS · משימות · יומן · עובדים · פיתוח (+ `kibbutz-stats.html`).
+Planned additions: הגדרות, פערים, יומן היום, שימוש, סקירה (CEO), פידבק, ישיבה. Overlaps found and what to do:
+
+| # | Duplicate / redundant | Recommendation |
+|---|-----------------------|----------------|
+| R1 | **משימות page (§7g)** = my EMS tasks; the same tasks already appear on cards (§4), in the calendar's EMS layer + day panel (§7f), in the briefing (§5.1), in פערים (overdue) and in Ctrl+K (#) | **Drop the standalone page.** Add a third view to יומן: **שבוע / חודש / רשימה** — the list view = my open tasks grouped by kibbutz, overdue first (exactly §7g's content), with the same 📅 שבץ / ✓ / 📍 row actions. Task 14 shrinks to "list view inside the calendar island". |
+| R2 | **Legacy 📋 EMS page** (task list with filters, create/edit modal) vs cards + calendar + list view | **Retire the page**; keep only the task detail/create/edit modals (they are used everywhere). Its filters live on in the calendar list view. |
+| R3 | **משימות חברה כלליות** block + its edit modal on the home page vs **internal tasks (🔒)** | **Merge**: a company task = an internal task with `kibbutz = null`. Delete the legacy block/modal; internal tasks with no kibbutz show under a "חברה" group in the list view and the Sunday agenda header. |
+| R4 | **"משימות באחריותי" report** (copy/WhatsApp/mail export in 12-reports.js) vs the list view | **Drop the report**; keep one "שתף" action on the list view (copies the same text). |
+| R5 | **עובדים page (staff)** — per-employee load/stats — vs פערים admin view, שימוש analytics, CEO סקירה | **Retire**; its useful numbers (visits/month, open tasks per person) move into עמיחי's סקירה. |
+| R6 | **kibbutz-stats.html** (legacy stats page) vs CEO סקירה + health | **Retire** after סקירה ships. |
+| R7 | **Gaps admin screen** ("פערים בצוות") vs עמיחי's סקירה vs Monday one-pager vs Sunday agenda header | **No separate screen**: gaps-per-person is a block inside סקירה; the one-pager and agenda quote the same numbers. |
+| R8 | **Holidays admin list** (⋯ → חגים, §7e) vs calendar absences (§7f) | **Merge**: in the calendar, a day's ➕ offers "סמן כחג / סגירת חברה" (admins); no separate list. |
+| R9 | **Meeting bullets** on card + modal "ישיבות" tab + briefing "ישיבת חברה" block | Keep, but **one component** (`MeetingNotes` with `mode: latest | history | field`); briefing shows only bullets tagged `field|all` (§5.1b). |
+| R10 | **Mic/dictation** in feedback (§7), day-log (§7i), future visit form | **One `VoiceInput` component** and one ladder (already `voiceNext`); no second implementation. |
+| R11 | **Home search box** vs **Ctrl+K** | Same component (§7k.1) — search field on phone is the Ctrl+K list. |
+| R12 | **Feedback inbox statuses** (new/seen/done) vs the dev board for bugs and 💡 ideas | Keep the inbox tiny: a row is "done" when forwarded (bug → card, idea → card or internal task) or dismissed; no separate seen state. |
+| R13 | **Two settings entry points** (⋯ and user chip) | Fine — one screen, two doors (עידן asked for both). |
+| R14 | **Briefing** reached from arrival, from the card 📍, from the calendar day panel | One component; the arrival sheet morphs into it (#1). |
+| R15 | **Digests**: stock 12:00/17:00 (עמיחי), Monday one-pager (עמיחי), Sunday agenda (עידן), weekly usage (עידן), low-stock instant | Keep all — different questions, different days; the global 3/day cap (ג) protects against stacking. |
+
+Net effect if all accepted: **4 pages retired** (EMS, משימות, עובדים, kibbutz-stats), **2 admin lists merged** (gaps
+admin, holidays), **1 legacy block removed** (company tasks), **3 shared components** (MeetingNotes, VoiceInput,
+Briefing). Bottom nav unchanged; ⋯ sheet becomes shorter: יומן · נוכחות · הגדרות · יומן היום · פידבק (+ admins: פיתוח,
+סקירה, שימוש, ייבוא, ➕ קיבוץ).
 
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 
