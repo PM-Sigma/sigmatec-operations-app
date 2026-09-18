@@ -59,6 +59,37 @@ check('every dark surface token has a value in both dark blocks', () => {
   }
 });
 
+// ── the island tokens may NEVER sit on :root (task 22b fix) ──────────────────
+// --primary / --card / --border / --accent / --radius are LEGACY token names holding hex
+// colours in css/app.css. ui/sigma.css loads after it, so a shadcn `:root { --card: 0 0% 100% }`
+// replaced the legacy value with a bare HSL triple and every legacy `background: var(--card)`
+// became invalid — transparent surfaces app-wide and white-on-white on the a11y gate. The
+// shadcn blocks are scoped to `.sigma-root` / `[data-sigma-portal]` (app/src/styles.css); this
+// guards the BUILT sheet, because that is what the browser loads.
+check('ui/sigma.css never declares a legacy token name on :root', () => {
+  const isl = fs.readFileSync(path.join(__dirname, 'ui/sigma.css'), 'utf8');
+  const COLLIDING = ['--card', '--border', '--accent', '--radius', '--primary'];
+  // Every rule of the BUILT sheet, and then only the ones that declare a token on the DOCUMENT
+  // itself. `:root[data-theme=dark] .sigma-root` starts with :root and is perfectly fine — what
+  // must never appear is a selector that ends at :root / html, because that is the document.
+  const bad = [];
+  for (const m of isl.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const onDocument = m[1].split(',').some(sel => /^\s*(:root|html)[^\s>+~]*\s*$/.test(sel));
+    if (!onDocument) continue;
+    for (const t of COLLIDING) if (new RegExp('(^|[;\\s])' + t + '\\s*:').test(m[2])) bad.push(t);
+  }
+  assert.deepEqual([...new Set(bad)], [],
+    'ui/sigma.css sets legacy token name(s) on :root: ' + [...new Set(bad)].join(', ') +
+    ' — scope the shadcn block to .sigma-root in app/src/styles.css');
+});
+
+check('the island tokens ARE declared on the island scope', () => {
+  const isl = fs.readFileSync(path.join(__dirname, 'ui/sigma.css'), 'utf8');
+  const flat = isl.replace(/\s+/g, ' ');
+  assert.ok(/\.sigma-root[^{}]*\{[^{}]*--primary\s*:/.test(flat),
+    'no .sigma-root block declares --primary — the islands would have no tokens at all');
+});
+
 check('native pickers get color-scheme:dark (otherwise their glyphs stay black)', () => {
   assert.ok(/color-scheme: dark/.test(css), 'no color-scheme:dark for date/number inputs');
 });

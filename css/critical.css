@@ -19,8 +19,6 @@
 :root {
   --primary: #1b2a4a;
   --primary-hover: #25395f;
-  --legacy-primary: #1b2a4a;
-  --legacy-primary-hover: #25395f;
   --accent: #2f6fed;
   --accent-soft: #eef3fe;
   --success: #0e9f6e;
@@ -95,7 +93,7 @@ body {
 /* ── nav ──────────────────────────────────────────────────────────────────── */
 .page-nav { display: flex; gap: 8px; margin-bottom: 16px; background: var(--card); padding: 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-height: 60px; }
 .page-nav button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: transparent; color: var(--text-light); border: none; padding: 10px 16px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 44px; }
-.page-nav button.active { background: var(--legacy-primary); color: #fff; }
+.page-nav button.active { background: var(--primary); color: #fff; }
 .page-nav .nav-icon { font-size: 15px; line-height: 1; }
 /* ── section shells + the card grid skeleton ──────────────────────────────── */
 .section { background: var(--card); border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); overflow: hidden; }

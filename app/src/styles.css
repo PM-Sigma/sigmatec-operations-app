@@ -4,8 +4,20 @@
 
 /* ===== shadcn tokens mapped to the Sigmatec brand (spec §6) =====
    --brand-1 cyan → --brand-2 green is the company Σ gradient; it is used sparingly
-   (wordmark, active tab indicator, primary buttons, loaders). Everything else is tokens. */
-:root {
+   (wordmark, active tab indicator, primary buttons, loaders). Everything else is tokens.
+
+   SCOPED TO THE ISLANDS, never `:root` (task 22b fix). These names — --primary, --card,
+   --border, --accent, --radius — are also LEGACY token names in css/app.css, where they hold
+   hex colours. ui/sigma.css loads after css/app.css, so declaring them on :root replaced the
+   legacy values with shadcn's bare HSL channels: `background: var(--card)` in the legacy layer
+   became `background: 0 0% 100%`, which is INVALID and paints nothing. Legacy navy buttons and
+   card surfaces were transparent app-wide, and the accessibility gate saw white text on the
+   page surface (1.08:1). `.sigma-root` is the island root (islands.tsx sets it, and both
+   portalled layers carry it too), and it is already Tailwind's `important` selector — so every
+   utility that reads these tokens is inside this scope by construction.
+   test-theme.mjs pins it: no :root block in ui/sigma.css may set one of those names. */
+.sigma-root,
+[data-sigma-portal] {
   --brand-1: #06C2CB;
   --brand-2: #1ABE63;
   --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
@@ -41,8 +53,11 @@
   --radius: 0.875rem;
 }
 
-:root[data-theme='dark'],
-.dark {
+/* Dark: the class / data-theme lives on <html>, so the island scope is a DESCENDANT of it. */
+:root[data-theme='dark'] .sigma-root,
+:root[data-theme='dark'] [data-sigma-portal],
+.dark .sigma-root,
+.dark [data-sigma-portal] {
   --background: 202 21% 7%;
   --foreground: 208 35% 93%;
   --card: 207 20% 11%;

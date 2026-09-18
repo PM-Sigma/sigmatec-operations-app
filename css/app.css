@@ -3,13 +3,6 @@
     /* Calm professional palette — deep navy primary, muted semantic tints */
     --primary: #1b2a4a;
     --primary-hover: #25395f;
-    /* The SAME navy under a name the island layer does not own. ui/sigma.css declares its
-       shadcn tokens on :root too and loads later, so :root{--primary} is the HSL triple
-       '178 94% 41%' by the time a legacy rule reads it — `background: var(--legacy-primary)` was
-       INVALID and painted nothing (white-on-near-white, 1.08:1, on the a11y gate). Legacy
-       rules use these two; the islands keep --primary. */
-    --legacy-primary: #1b2a4a;
-    --legacy-primary-hover: #25395f;
     --accent: #2f6fed;
     --accent-soft: #eef3fe;
     --success: #0e9f6e;
@@ -133,14 +126,14 @@
     flex: 1; min-width: 250px; padding: 10px 16px; border-radius: 10px;
     border: 1px solid var(--border); font-size: 14px; font-family: inherit; background: var(--card);
   }
-  .search-input:focus { outline: none; border-color: var(--legacy-primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
+  .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
   .filter-chip {
     padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border);
     background: var(--card); font-size: 13px; cursor: pointer; font-family: inherit;
     transition: all 0.2s; user-select: none;
   }
-  .filter-chip:hover { border-color: var(--legacy-primary); }
-  .filter-chip.active { background: var(--legacy-primary); color: white; border-color: var(--legacy-primary); }
+  .filter-chip:hover { border-color: var(--primary); }
+  .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
   .stat {
     background: var(--card); border-radius: 12px; padding: 20px;
@@ -267,7 +260,7 @@
   .energy-badge { background: var(--gray-light); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-light); }
   .kibbutz-note { font-size: 11px; color: var(--text-light); font-style: italic; margin-top: 4px; }
   .kibbutz.hidden { display: none; }
-  .comment-hint { font-size: 10px; color: var(--legacy-primary); margin-top: 6px; text-align: center; opacity: 0; transition: opacity 0.2s; }
+  .comment-hint { font-size: 10px; color: var(--primary); margin-top: 6px; text-align: center; opacity: 0; transition: opacity 0.2s; }
   .kibbutz:hover .comment-hint { opacity: 0.7; }
   .legend {
     display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 20px;
@@ -315,14 +308,14 @@
     width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border);
     border-radius: 10px; font-family: inherit; font-size: 14px; resize: vertical;
   }
-  .modal textarea:focus { outline: none; border-color: var(--legacy-primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
+  .modal textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
   .modal input[type="text"], .modal select {
     width: 100%; padding: 10px 12px; border: 1px solid var(--border);
     border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 12px;
     background: var(--card);
   }
   .modal select:focus, .modal input[type="text"]:focus {
-    outline: none; border-color: var(--legacy-primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12);
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12);
   }
   .modal label {
     display: block; font-size: 12px; color: var(--text-light);
@@ -333,8 +326,8 @@
     padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer;
     font-family: inherit; font-size: 14px; font-weight: 500; transition: all 0.2s;
   }
-  .btn-primary { background: var(--legacy-primary); color: white; }
-  .btn-primary:hover { background: var(--legacy-primary-hover); }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-hover); }
   .btn-whatsapp { background: #25d366; color: white; }
   .btn-whatsapp:hover { background: #1ebe57; }
   .btn-secondary { background: var(--gray-light); color: var(--text); }
@@ -430,13 +423,13 @@
   }
   .side-panel-toggle {
     position: fixed; bottom: 24px; left: 24px;
-    background: var(--legacy-primary); color: white;
+    background: var(--primary); color: white;
     padding: 12px 18px; border-radius: 30px;
     cursor: pointer; box-shadow: 0 4px 12px rgba(27,42,74,0.3);
     z-index: 91; border: none; font-family: inherit;
     font-size: 14px; font-weight: 600;
   }
-  .side-panel-toggle:hover { background: var(--legacy-primary-hover); }
+  .side-panel-toggle:hover { background: var(--primary-hover); }
   /* draggable hint: small arrows around the visit FAB, glowing in the bubble's blue; fade once it's moved */
   .vfab-arrow {
     position: absolute; color: #2563eb; font-size: 10px; line-height: 1; pointer-events: none;
@@ -467,7 +460,7 @@
   .side-panel-body { padding: 16px 20px; }
   .side-panel h3 { font-size: 18px; }
   .potential-region {
-    margin-top: 16px; font-weight: 700; color: var(--legacy-primary);
+    margin-top: 16px; font-weight: 700; color: var(--primary);
     padding: 6px 10px; background: var(--gray-light); border-radius: 6px;
     font-size: 13px;
   }
@@ -492,7 +485,7 @@
     border-bottom: 3px solid transparent;
   }
   .modal-tab.active {
-    color: var(--legacy-primary); border-bottom-color: var(--legacy-primary);
+    color: var(--primary); border-bottom-color: var(--primary);
   }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
@@ -689,7 +682,7 @@
     border-radius: 10px; font-size: 14px; font-family: inherit; background: var(--card); color: var(--text); }
   .dev-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .dev-state-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-  .dev-state-btns .inv-btn.small.active { background: var(--legacy-primary); border-color: var(--legacy-primary); color: #fff; }
+  .dev-state-btns .inv-btn.small.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
   /* Topic jump chips */
   .dev-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -711,7 +704,7 @@
     border-radius: var(--radius); overflow: hidden; background: var(--card); }
   .dev-topic[open] { box-shadow: var(--shadow-sm); }
   .dev-topic-sum { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 9px;
-    min-height: 48px; padding: 12px 14px; background: var(--gray-light); font-size: 16px; font-weight: 700; color: var(--legacy-primary); }
+    min-height: 48px; padding: 12px 14px; background: var(--gray-light); font-size: 16px; font-weight: 700; color: var(--primary); }
   .dev-topic-sum::-webkit-details-marker { display: none; }
   .dev-topic-ico { font-size: 15px; flex-shrink: 0; }
   .dev-topic-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -982,7 +975,7 @@
   .page-nav { display: flex; gap: 8px; margin-bottom: 16px; background: var(--card); padding: 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .page-nav button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: transparent; color: var(--text-light); border: none; padding: 10px 16px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
   .page-nav button:hover { background: var(--gray-light); }
-  .page-nav button.active { background: var(--legacy-primary); color: white; }
+  .page-nav button.active { background: var(--primary); color: white; }
   .page-nav .nav-icon { font-size: 15px; line-height: 1; }
   .login-btn { padding: 14px 8px; font-size: 15px; }
   .login-btn-wide { grid-column: 1 / -1; }
@@ -995,14 +988,14 @@
   /* ===== Inventory UI ===== */
   .inv-tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--card); padding: 6px; border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; }
   .inv-tab-btn { background: transparent; color: var(--text-light); border: none; padding: 8px 14px; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .inv-tab-btn.active { background: var(--legacy-primary); color: white; }
+  .inv-tab-btn.active { background: var(--primary); color: white; }
   .inv-section { display: none; }
   .inv-section.active { display: block; }
   .inv-card { background: var(--card); border-radius: 12px; padding: 18px 20px; border: 1px solid var(--border); margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .inv-card h3 { font-size: 16px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
   .inv-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  .inv-btn { background: var(--legacy-primary); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.15s; }
-  .inv-btn:hover { background: var(--legacy-primary-hover); }
+  .inv-btn { background: var(--primary); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.15s; }
+  .inv-btn:hover { background: var(--primary-hover); }
   .inv-btn.success { background: var(--success); }
   .inv-btn.success:hover { filter: brightness(1.1); }
   .inv-btn.warning { background: #d99c20; }
@@ -1235,7 +1228,7 @@
     .mobile-setup-toggle {
       display: inline-block;
       font-size: 10px;
-      color: var(--legacy-primary);
+      color: var(--primary);
       cursor: pointer;
       margin-top: 6px;
       text-decoration: underline;
@@ -1306,7 +1299,7 @@
     margin-bottom: 14px;
   }
   .company-tasks-edit-btn {
-    background: var(--legacy-primary);
+    background: var(--primary);
     color: white;
     border: none;
     padding: 6px 14px;
@@ -1317,7 +1310,7 @@
     font-family: inherit;
     transition: background 0.2s;
   }
-  .company-tasks-edit-btn:hover { background: var(--legacy-primary-hover); }
+  .company-tasks-edit-btn:hover { background: var(--primary-hover); }
   .company-tasks-edit-btn.local { background: #f59e0b; }
   .company-tasks-edit-btn.local:hover { background: #d97706; }
 
@@ -1351,7 +1344,7 @@
   }
   .my-tasks-btn {
     background: var(--card);
-    color: var(--legacy-primary);
+    color: var(--primary);
     border: none;
     padding: 7px 14px;
     border-radius: 8px;
@@ -1546,7 +1539,7 @@
 #my-tasks-view .my-tasks-bar { background: var(--card); border: 1px solid var(--border); }
 #my-tasks-view .my-tasks-bar label { color: var(--text); }
 #my-tasks-view .my-tasks-bar select { border: 1px solid var(--border); }
-#my-tasks-view .my-tasks-btn { background: var(--gray-light); color: var(--legacy-primary); }
+#my-tasks-view .my-tasks-btn { background: var(--gray-light); color: var(--primary); }
 
 @media (max-width: 480px) {
   /* edge-to-edge side panel on the smallest phones (95vw → 100vw) */

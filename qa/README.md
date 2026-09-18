@@ -94,10 +94,31 @@ same thing over the whole tree.
 
 `qa/semgrep/config.yml` is the manifest `scripts/qa.mjs` reads: the four rule packs
 (`p/default`, `p/owasp-top-ten`, `p/javascript`, `p/typescript`), the severities that fail the
-gate, the paths never scanned (generated bundles, `ui/`, `js/app.js`, QA output), and
-`exclude_rules` — the accepted findings, each with the sites reviewed and the reason. Prefer
-fixing code over adding an entry there; a *new* site under an already-excluded rule is not
-automatically safe.
+gate, **`include`** (the scan targets), `exclude` (paths never scanned), and `exclude_rules` —
+the accepted findings, each with the sites reviewed and the reason. Prefer fixing code over
+adding an entry there; a *new* site under an already-excluded rule is not automatically safe.
+
+**`include` is the scan target list, and it is deliberate** (task 22b): `js/src`, `app/src`,
+`supabase/functions`, `scripts`, `db`, `build.mjs`, `index.html`, `stats.html`, `sw.js` and the
+root `test-*.mjs` runners. Generated output is NOT scanned — `js/app.js`, `ui/**`,
+`css/app.min.css`, `app/dist` — because every byte of it is derived from a path that is. The
+gate used to scan `.` minus excludes, which broke quietly the moment `js/app.js` became
+minified: one 480 kB line, semgrep stopped reporting inside it, and the accepted-findings count
+fell from 24 to 0 with nothing fixed. An entry may contain `*` (expanded against the repo root).
+
+Two Windows traps this gate now handles, both of which used to read as a clean PASS:
+
+* semgrep writes its JSON through Python's **default encoding** — cp1255 on a Hebrew Windows —
+  and dies with a `UnicodeEncodeError` on the first finding whose line carries an emoji. The
+  runner spawns it with `PYTHONUTF8=1` / `PYTHONIOENCODING=utf-8`.
+* an unreadable / empty `findings.json` is now a **FAILED** gate, not "0 findings". A scan that
+  crashed can no longer report zero.
+
+Expect `0 blocking · 25 accepted by config.yml`. A manual run:
+
+```bash
+semgrep scan --config qa/semgrep/.cache --metrics=off --severity ERROR --severity WARNING   --exclude node_modules --exclude js/app.js --exclude ui --exclude css/app.min.css   --json-output "$PWD/out.json"   js/src app/src supabase/functions scripts db build.mjs index.html stats.html sw.js test-*.mjs
+```
 
 A single line can be suppressed with `// nosemgrep` on its own line directly above it, plus a
 comment saying why (`scripts/qa.mjs` does exactly that for its own `spawnSync`).

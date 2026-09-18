@@ -18,7 +18,7 @@
 //
 // Install + fallbacks: qa/README.md.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -103,7 +103,7 @@ function semgrepCmd() {
 /** A tiny YAML reader for qa/semgrep/config.yml — a list/scalar manifest, not arbitrary YAML. */
 function readSemgrepManifest() {
   const text = readFileSync(resolve(ROOT, 'qa/semgrep/config.yml'), 'utf8');
-  const out = { rulesets: [], severities: [], exclude: [], exclude_rules: [], cache: 'qa/semgrep/.cache' };
+  const out = { rulesets: [], severities: [], include: [], exclude: [], exclude_rules: [], cache: 'qa/semgrep/.cache' };
   let key = null;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.replace(/\s+#.*$/, '');
@@ -123,6 +123,18 @@ function readSemgrepManifest() {
     } else if (out[key]) {
       out[key].push(v.replace(/^['"]|['"]$/g, ''));
     }
+  }
+  return out;
+}
+
+/** Expand a manifest target list: `test-*.mjs` → every matching name at the repo root. */
+function expandTargets(list) {
+  const out = [];
+  for (const entry of list) {
+    if (!entry.includes('*')) { out.push(entry); continue; }
+    const parts = entry.split('*').map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const re = new RegExp('^' + parts.join('[^/]*') + '$');
+    for (const name of readdirSync(ROOT)) if (re.test(name)) out.push(name);
   }
   return out;
 }
@@ -192,11 +204,29 @@ gate('semgrep', '0 ERROR / 0 WARNING (after qa/semgrep/config.yml exclude_rules)
     ...sg.pre, 'scan', '--config', man.cache, '--metrics=off', '--quiet',
     ...man.severities.flatMap(s => ['--severity', s]),
     ...man.exclude.flatMap(e => ['--exclude', e]),
-    '--json-output', json, '.',
+    // The manifest's `include` list IS the scan target list (task 22b): naming the source paths
+    // is what keeps a generated file — a minified js/app.js, ui/** — from silently swallowing
+    // findings that the allowlist has reviewed in the source it came from. A `*` in an entry is
+    // expanded against the repo root (semgrep gets paths, not patterns, and there is no shell).
+    '--json-output', json, ...(man.include.length ? expandTargets(man.include) : ['.']),
   ];
-  const r = run(sg.cmd, args);
-  let parsed = { results: [], errors: [] };
-  try { parsed = JSON.parse(readFileSync(json, 'utf8')); } catch { /* reported below */ }
+  // PYTHONUTF8: semgrep writes its JSON through Python's DEFAULT encoding, which on this
+  // machine is the Hebrew ANSI codepage (cp1255) — the first finding whose line carries an
+  // emoji or a Hebrew glyph outside it made semgrep die inside _save_output with a
+  // UnicodeEncodeError, leaving a 0-byte findings.json that used to read as "0 findings, PASS".
+  const r = run(sg.cmd, args, { env: { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' } });
+  let parsed = null;
+  try { parsed = JSON.parse(readFileSync(json, 'utf8')); } catch { /* handled right below */ }
+  // An unreadable result is a FAILED gate, never a clean one: a scan that crashed must not be
+  // able to report zero findings.
+  if (!parsed || !Array.isArray(parsed.results)) {
+    return {
+      status: 'FAIL',
+      summary: 'semgrep produced no readable JSON (exit ' + r.code + ') — the scan did not complete',
+      detail: r.out.slice(-4000),
+      ms: r.ms,
+    };
+  }
 
   // The exclusions are applied HERE, on check_id suffixes: semgrep prefixes rule ids with the
   // config path when the packs are loaded from a directory, so the suffix is the stable part.
