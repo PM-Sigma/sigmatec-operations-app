@@ -64,7 +64,10 @@
       { header: 'תאריך', type: 'd', width: 12 }, { header: 'יום', type: 's', width: 6 },
       { header: 'עובד', type: 's', width: 10 }, { header: 'סוג יום', type: 's', width: 12 },
       { header: 'קיבוץ', type: 's', width: 18 }, { header: 'ימי עבודה', type: 'n', width: 10 },
-      { header: 'שעות', type: 'n', width: 8 }, { header: 'פירוט', type: 's', width: 44 }
+      { header: 'שעות', type: 'n', width: 8 },
+      // 🕎 — a day that was a חג / חול המועד / סגירת חברה and was worked anyway (spec §7e).
+      // It counts as a normal work day; the column says which days those were.
+      { header: 'חג', type: 's', width: 14 }, { header: 'פירוט', type: 's', width: 44 }
     ];
     const out = (rows || []).map(r => {
       const d = xlDate(r.date);
@@ -72,9 +75,12 @@
       if (r.type === 'field' && (r.visits || []).length) {
         detail = r.visits.map(v => (v.kibbutz || '—') + ': ' + (v.summary || '')).join(' | ');
       } else if (r.note) { detail = r.note; }
+      const hol = (typeof attHolidayOn === 'function' && typeof attYmd === 'function')
+        ? attHolidayOn(attYmd(r.date)) : null;
+      const holCell = (hol && !hol.required) ? '🕎 ' + hol.name : '';
       return [d, xlDayLetter(d), xlStr(person), xlStr((labels || {})[r.type] || r.type), xlStr(r.kibbutz),
               xlNum(r.workdays || 0), xlNum(r.type === 'field' ? (r.hourHours || 0) : (r.duration || 0)),
-              xlStr(detail)];
+              xlStr(holCell), xlStr(detail)];
     });
     return { sheet: 'נוכחות — ' + xlStr(person), columns: columns, rows: out };
   }

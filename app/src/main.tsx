@@ -127,6 +127,36 @@ function boot() {
       .then(m => m.mountFeedbackInbox())
       .catch(e => console.warn('[sigma] feedback inbox island failed', e));
   }
+  // 📅 נוכחות (Task 12) + 🕎 חגים. Same lazy-chunk reasoning as the rest: both read data.
+  // The attendance island also HIDES the legacy summary/table when it mounts, so a chunk
+  // that never lands simply leaves the old page on screen — working, just not redesigned.
+  // Loaded WHEN THE PAGE IS FIRST OPENED, not at boot. נוכחות is only ever reached by a nav
+  // click, and its chunk pulls TanStack and supabase-js in — on the card home (which is
+  // where almost every session starts) that was bandwidth and main-thread time spent on a
+  // screen nobody is looking at, and it showed up as the command bar building its list a
+  // beat late. `showPage` toggles the view's inline `display`, so watching that attribute is
+  // the whole trigger; a deep link that lands on the page already open is handled by the
+  // immediate check.
+  const attView = document.getElementById('attendance-view');
+  if (attView && document.getElementById('sigma-attendance')) {
+    const loadAttendance = () => import('@/islands/Attendance')
+      .then(m => m.mountAttendance())
+      .catch(e => console.warn('[sigma] attendance island failed — legacy report stays', e));
+    if (attView.style.display !== 'none') void loadAttendance();
+    else {
+      const obs = new MutationObserver(() => {
+        if (attView.style.display === 'none') return;
+        obs.disconnect();
+        void loadAttendance();
+      });
+      obs.observe(attView, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
+  if (document.getElementById('sigma-holidays')) {
+    import('@/islands/Holidays')
+      .then(m => m.mountHolidays())
+      .catch(e => console.warn('[sigma] holidays island failed', e));
+  }
   // 📈 שימוש (Task 17) — עידן only, and a lazy chunk like every data island: it drags in
   // Recharts, which nobody else needs.
   if (document.getElementById('sigma-usage')) {

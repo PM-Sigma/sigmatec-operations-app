@@ -213,6 +213,41 @@
     // this IIFE runs at load time, before that later-concatenated module's `const` exists.
     M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', ver: 2, tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
 
+    // ---- 📅 mock attendance month (Task 12) ----
+    // The attendance island needs a month with something in it, and the QA suite runs in this
+    // sandbox (?sb=0 on localhost). Everything is anchored to the FIRST <weekday> of the
+    // current month, so the fixture is the same shape whatever month it runs in and never
+    // lands on a Friday/Saturday — a weekend cell would hide what the spec is looking at.
+    function mockFirstDow(dow) {
+      var d = new Date();
+      var x = new Date(d.getFullYear(), d.getMonth(), 1);
+      while (x.getDay() !== dow) x.setDate(x.getDate() + 1);
+      return x;
+    }
+    function mockYmd(d) {
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    // 🕎 first Monday = חג, first Thursday = סגירת חברה. Served to the app through the same
+    // _sbGet('company_holidays…') call production uses.
+    window.MOCK_HOLIDAYS = [
+      { date: mockYmd(mockFirstDow(1)), name: 'חג לדוגמה', kind: 'holiday', required: false },
+      { date: mockYmd(mockFirstDow(4)), name: 'חול המועד סוכות', kind: 'company_closure', required: false }
+    ];
+    function mockAttendance() {
+      var out = [];
+      ['אביאם', 'ניתאי'].forEach(function (who) {
+        out.push({ id: 'att-' + who + '-1', person: who, dayType: 'office', note: '', date: new Date(mockYmd(mockFirstDow(0)) + 'T12:00:00').toISOString() });
+        out.push({ id: 'att-' + who + '-2', person: who, dayType: 'wfh', note: '', date: new Date(mockYmd(mockFirstDow(2)) + 'T12:00:00').toISOString() });
+      });
+      return out;
+    }
+    function mockVisits() {
+      return ['אביאם', 'ניתאי'].map(function (who, i) {
+        return { id: 'vis-' + who, visitor: who, kibbutz: i ? 'דגניה' : 'חוקוק', duration: 4,
+                 summary: 'ביקור לדוגמה', workday: false, date: new Date(mockYmd(mockFirstDow(3)) + 'T09:00:00').toISOString() };
+      });
+    }
+
     // ---- mock Google-Sheet data (kibbutz cards) ----
     function mockSheetData() {
       return {
@@ -226,7 +261,8 @@
           { name: 'כפר עזה', row: 7, region: 'שער הנגב', owners: ['עמיחי'], status: 'בתהליך אפיון', expectedTask: '🎯 תיאום פגישת אפיון (אין אתר EMS — fallback)', task: 'step=1', code: '106', lastModified: nowISO() }
         ],
         potentials: [], regions: [], orders: [], products: [], movements: [],
-        requirements: [], returns: [], settings: [], attendance: [], calendar: {},
+        requirements: [], returns: [], settings: [], calendar: {},
+        attendance: mockAttendance(), visits: mockVisits(), holidays: window.MOCK_HOLIDAYS.slice(),
         // Phase 1/2 surfaces (shared EMS snapshot + queue, served from the Sheet):
         emsCache: M.cacheStore || { syncedAt: '', syncedBy: '', tasks: [] },
         emsQueue: M.queue
@@ -377,7 +413,12 @@
       { name: 'יגור',  section: 'active', energy: ['electric'], marketing: false, region: 'העמקים',    archived_at: null },
       { name: 'שלוחות', section: 'active', energy: ['electric'], marketing: true,  region: 'העמקים',    archived_at: null }
     ];
-    window._sbGet = async (path) => /^kibbutzim/.test(path) ? MOCK_KIBBUTZIM.slice() : [];
+    window._sbGet = async (path) => {
+      if (/^kibbutzim/.test(path)) return MOCK_KIBBUTZIM.slice();
+      // 🕎 the attendance island and the legacy report both read the holidays through here.
+      if (/^company_holidays/.test(path)) return (window.MOCK_HOLIDAYS || []).slice();
+      return [];
+    };
   }
 
   if (USE_SUPABASE) (function setupSupabaseRouter() {

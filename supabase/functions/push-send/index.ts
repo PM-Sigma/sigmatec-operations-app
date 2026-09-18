@@ -1,6 +1,8 @@
 // push-send — Web Push sender. Modes over one endpoint:
 //   (default) order events  : { event: 'pending'|'approved', orderId, actor } → notifies approvers
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
+//   attendanceCron          : { mode:'attendanceCron' }  → hourly; 09:00 missing-days, 19:00 today
+//                             🕎 skips `company_holidays` rows with required=false (spec §7e)
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
 //   feedbackNew             : { mode:'feedbackNew', kind, preview, token }     → 📣 box → עידן + עמיחי (EMS-gated)
 //   usageDigest             : { mode:'usageDigest', force?, token?, actor? }   → weekly narrative → עידן (Sun 08:00)
@@ -101,13 +103,40 @@ async function haveDates(person: string, y: number, m: number): Promise<Set<stri
   for (const r of (vis.data ?? [])) if ((r as any).date) have.add(String((r as any).date).slice(0, 10));
   return have;
 }
-// Prior weekdays (Sun–Thu) this month, from the 1st up to yesterday, with no record. Ascending.
-function priorMissing(have: Set<string>, t: { y: number; m: number; d: number }): string[] {
+// 🕎 The dates in a month that DO NOT require attendance (spec §7e): Israeli public
+// holidays and company closures, i.e. `company_holidays` rows with `required = false`.
+// A row with `required = true` (חול המועד פסח, until עמיחי rules) is a normal work day and
+// is deliberately NOT in this set.
+//
+// This is the SERVER half of one rule that lives in three places and must not drift:
+//   • app/src/lib/attendance.ts  isRequiredDay / missingDays   (the screen)
+//   • js/src/22-push.js          attMissingDays                (the legacy report)
+//   • here                       priorMissing + the evening gate (the nudges)
+// A phone that buzzes "חסרה נוכחות" on יום כיפור is the failure this prevents.
+async function holidayOff(y: number, m: number): Promise<Set<string>> {
+  const lo = `${y}-${String(m).padStart(2, "0")}-01`;
+  const hi = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
+  const off = new Set<string>();
+  try {
+    const { data } = await sb.from("company_holidays").select("date,required")
+      .eq("required", false).gte("date", lo).lt("date", hi);
+    for (const r of (data ?? [])) if ((r as any).date) off.add(String((r as any).date).slice(0, 10));
+  } catch {
+    // The table not being there yet (or a transient read error) must not stop the nudges —
+    // it degrades to the pre-holiday behaviour, which is what this job did for a year.
+  }
+  return off;
+}
+
+// Prior weekdays (Sun–Thu) this month, from the 1st up to yesterday, with no record and not
+// a holiday. Ascending.
+function priorMissing(have: Set<string>, t: { y: number; m: number; d: number }, off: Set<string> = new Set()): string[] {
   const out: string[] = [];
   for (let day = 1; day < t.d; day++) {   // strictly before today
     const dow = new Date(Date.UTC(t.y, t.m - 1, day)).getUTCDay();
     if (dow > 4) continue;                // Fri/Sat out
     const key = `${t.y}-${String(t.m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    if (off.has(key)) continue;           // 🕎 חג / חול המועד / סגירת חברה
     if (!have.has(key)) out.push(key);
   }
   return out;
@@ -238,6 +267,14 @@ Deno.serve(async (req: Request) => {
     if (!kind) return json({ ok: true, skipped: "not a scheduled hour", hour: t.hh });
     const since = new Date(Date.now() - 12 * 3600 * 1000).toISOString();   // 12h window → DST-proof idempotency
     const results: any[] = [];
+    // 🕎 Read once for the whole run, not per person — the calendar is the same for everyone.
+    const off = await holidayOff(t.y, t.m);
+    // Nobody is asked to fill in a day the company was closed. The EVENING nudge is about
+    // TODAY, so when today is a holiday the job simply has nothing to say — and says nothing,
+    // rather than asking someone on his day off to account for it.
+    if (kind === "evening" && off.has(t.date)) {
+      return json({ ok: true, kind, skipped: "holiday", date: t.date });
+    }
     // NOT capped (fix round 1): attendance is the record of the work day, so a day full of
     // visit nudges must never swallow it. It does not spend the cap either — `sentTodayCounts`
     // skips `CAP_EXEMPT_EVENTS`. Its own "already sent" check below is the idempotency.
@@ -248,7 +285,7 @@ Deno.serve(async (req: Request) => {
       const have = await haveDates(person, t.y, t.m);
       let dates: string[] = [];
       if (kind === "evening") { if (t.dow >= 0 && t.dow <= 4 && !have.has(t.date)) dates = [t.date]; }
-      else dates = priorMissing(have, t);
+      else dates = priorMissing(have, t, off);
       if (!dates.length) { results.push({ person, kind, none: true }); continue; }
       const fmt = dates.map((d) => { const mm = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return mm ? `${+mm[2]}.${+mm[1]}` : ""; }).filter(Boolean);
       const title = kind === "evening" ? "📅 עדכן נוכחות להיום" : "📅 חסרה נוכחות — " + person;

@@ -31,6 +31,16 @@
   --sigma-warn-ink: #8a5a00;
   --sigma-ink: #076e70;
 
+  /* 📅 נוכחות (spec §7e) — one fill + one ink per day state, so a month reads at a glance:
+     green = יום שטח · blue = משרד/מהבית · slate = חופש/מילואים · red = חסר ·
+     violet = 🕎 חג / חול המועד / סגירת חברה. The inks are the 4.5:1 text colours on the
+     matching fill; the fills alone never carry meaning (every cell also has a label). */
+  --att-field-bg: #d1fae5;   --att-field-ink: #065f46;
+  --att-office-bg: #dbeafe;  --att-office-ink: #1e40af;
+  --att-away-bg: #e2e8f0;    --att-away-ink: #334155;
+  --att-missing-bg: #fee2e2; --att-missing-ink: #b91c1c;
+  --att-holiday-bg: #ede9fe; --att-holiday-ink: #5b21b6;
+
   --background: 197 26% 95%;
   --foreground: 210 13% 12%;
   --card: 0 0% 100%;
@@ -80,6 +90,13 @@
   --sigma-warn: #f0b24a;
   --sigma-warn-ink: #f0b24a;
   --sigma-ink: #5ee9e2;
+  /* Dark: the fills drop to a tint of the same hue and the ink becomes the bright one, so
+     the month keeps its shape without five glowing blocks. */
+  --att-field-bg: #0c3b2c;   --att-field-ink: #6ee7b7;
+  --att-office-bg: #10294d;  --att-office-ink: #93c5fd;
+  --att-away-bg: #1d2630;    --att-away-ink: #cbd5e1;
+  --att-missing-bg: #3d1618; --att-missing-ink: #fca5a5;
+  --att-holiday-bg: #2a1f4d; --att-holiday-ink: #c4b5fd;
 }
 
 /* ===== island scope =====
@@ -164,4 +181,95 @@
 @keyframes sigma-shimmer {
   0%   { transform: translateX(-60%); }
   100% { transform: translateX(60%); }
+}
+
+/* ===== 📅 נוכחות — the month grid (spec §7e) =====
+   Phone-dense by construction: seven equal columns, a cell that is square at 390 px and
+   never smaller than a 36 px touch target, and the whole month on one screen. */
+.att-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.att-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 38px;
+  padding: 3px 1px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  /* ≤250 ms everywhere (spec §6). Colour only — a cell never moves. */
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.att-cell:hover { border-color: hsl(var(--border)); }
+.att-cell:focus-visible { outline: 2px solid var(--brand-1); outline-offset: 1px; }
+.att-cell-tag {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: .85;
+}
+.att-cell-field   { background: var(--att-field-bg);   color: var(--att-field-ink); }
+.att-cell-office  { background: var(--att-office-bg);  color: var(--att-office-ink); }
+.att-cell-away    { background: var(--att-away-bg);    color: var(--att-away-ink); }
+.att-cell-holiday { background: var(--att-holiday-bg); color: var(--att-holiday-ink); }
+.att-cell-missing {
+  background: var(--att-missing-bg);
+  color: var(--att-missing-ink);
+  border-style: dashed;
+  border-color: currentColor;
+}
+.att-cell-weekend { background: transparent; color: hsl(var(--muted-foreground)); opacity: .55; }
+.att-cell-future  { background: transparent; color: hsl(var(--muted-foreground)); }
+.att-cell-today   { background: hsl(var(--muted)); box-shadow: inset 0 0 0 2px var(--brand-1); }
+.att-cell-sel     { box-shadow: 0 0 0 2px var(--brand-2); }
+
+.att-kpi {
+  border-radius: 12px;
+  padding: 9px 10px;
+  text-align: center;
+}
+.att-kpi-field   { background: var(--att-field-bg);   color: var(--att-field-ink); }
+.att-kpi-office  { background: var(--att-office-bg);  color: var(--att-office-ink); }
+.att-kpi-missing { background: var(--att-missing-bg); color: var(--att-missing-ink); }
+
+.att-icon-btn {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  transition: background-color .15s ease;
+}
+.att-icon-btn:hover { background: hsl(var(--secondary)); }
+
+.att-chip-missing {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--att-missing-ink);
+  background: var(--att-missing-bg);
+  color: var(--att-missing-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.att-badge-holiday {
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: var(--att-holiday-bg);
+  color: var(--att-holiday-ink);
+  font-size: 11.5px;
+  font-weight: 700;
 }

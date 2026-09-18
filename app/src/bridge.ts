@@ -20,6 +20,24 @@ export interface EmsTask {
   linkCount?: number;
 }
 
+/** One day of a person's month, as the bridge hands it over (ISO date, merged). */
+export interface AttendanceRow {
+  date: string;
+  type: string;
+  kibbutz?: string;
+  hours?: number;
+  note?: string;
+  source?: 'visit' | 'manual' | 'calendar';
+}
+
+/** A row of `company_holidays` (spec §7e). `required=false` → the day is never "missing". */
+export interface CompanyHoliday {
+  date: string;
+  name: string;
+  kind: 'holiday' | 'chol_hamoed' | 'company_closure';
+  required: boolean;
+}
+
 export interface Sigma {
   getCurrentUser(): string;
   getRole(): SigmaRole;
@@ -107,6 +125,23 @@ export interface Sigma {
   remintOnce?(): Promise<boolean>;
   passPending?(): boolean;
 
+  // ── attendance + holidays (spec §7e) ──────────────────────────────────────
+  /** Save one day. The SAME write the legacy form makes (js/src/04-attendance-daily.js). */
+  attSave?(entry: { person: string; date: string; dayType: string; note?: string }): Promise<unknown>;
+  /** One merged row per day for (person, year, month). `month` is 1-12 here. */
+  attRows?(person: string, year: number, month: number): AttendanceRow[];
+  /** The session's holiday list as it stands, and the promise that loads it. */
+  attHolidays?(): CompanyHoliday[];
+  attHolidaysLoad?(): Promise<CompanyHoliday[]>;
+  /** Who the report is about, and switching that (עידן / the viewer only). */
+  attPerson?(): string;
+  setAttPerson?(name: string): void;
+  canSeeAttendance?(): boolean;
+  /** Re-render the (hidden) legacy report — what the two export buttons read. */
+  attRefresh?(): void;
+  attExportPdf?(): void;
+  attExportExcel?(): void;
+
   /**
    * Ctrl+K (§7k.1). ASSIGNED BY React (islands/CommandBar.tsx), not by the legacy bridge —
    * it is the one entry that travels the other way, so the legacy header search and the
@@ -144,6 +179,11 @@ export type SigmaEvent =
   | 'checkin-created'
   // js/src/09-visits.js wrote / restored / discarded a draft (spec §5.1c)
   | 'visit-draft-changed'
+  // a day was saved on the attendance page, from either half (spec §7e). Consumers: the
+  // attendance island's month + KPIs (docs/integration-map.md)
+  | 'attendance-saved'
+  // the session's 🕎 holiday list landed in SHEET_DATA.holidays (js/src/04-attendance-daily.js)
+  | 'holidays-loaded'
   // a 401 anywhere (EMS, supabase-js, the legacy reads) — ONE per expiry, debounced by
   // js/src/00-bridge.js. Consumer: components/ReLoginSheet.tsx (docs/integration-map.md)
   | 'session-expired';

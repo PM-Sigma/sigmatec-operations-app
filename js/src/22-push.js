@@ -122,7 +122,27 @@
   // ---- missing attendance (pure — tested in test-attendance-push.mjs) ----
   // A weekday (Sun–Thu) from the 1st of (year,month) up to `today`-1 with no visit AND no
   // attendance entry for `person`. Dates returned as 'YYYY-MM-DD' ascending.
-  function attMissingDays(attendance, visits, person, year, month, today) {
+  //
+  // 🕎 HOLIDAYS (spec §7e): a date in `holidays` with `required=false` — an Israeli public
+  // holiday or a company closure — is NOT a work day and is never missing. `holidays` is
+  // optional and defaults to whatever the session loaded into SHEET_DATA.holidays, so every
+  // existing caller gets the behaviour without passing anything. The same rule is applied by
+  // app/src/lib/attendance.ts (isRequiredDay) and by push-send's priorMissing; all three must
+  // agree or a worker is nagged about יום כיפור.
+  function attNotRequired(holidays) {
+    var src = holidays;
+    if (!src) { try { src = (window.SHEET_DATA || {}).holidays; } catch (e) { src = null; } }
+    var out = {};
+    (src || []).forEach(function (h) {
+      if (!h || !h.date || h.required) return;
+      out[String(h.date).slice(0, 10)] = 1;
+    });
+    return out;
+  }
+  window.attNotRequired = attNotRequired;
+
+  function attMissingDays(attendance, visits, person, year, month, today, holidays) {
+    const off = attNotRequired(holidays);
     const have = {};
     (attendance || []).forEach(a => { if (a.person === person && a.date) have[String(a.date).slice(0, 10)] = 1; });
     (visits || []).forEach(v => {
@@ -138,6 +158,7 @@
       if (d >= end) break;                                   // only up to yesterday
       if (d.getDay() > 4) continue;                          // Fri/Sat out
       const key = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+      if (off[key]) continue;                                // 🕎 חג / חול המועד / סגירת חברה
       if (!have[key]) out.push(key);
     }
     return out;

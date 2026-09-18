@@ -319,6 +319,32 @@
       },
       passPending: function () { return !!window._sbPassPending; },
 
+      // ---- attendance + holidays (spec §7e) ---------------------------------
+      // The island renders the month; the WRITE stays here. `attSave` is the same call the
+      // legacy form makes (js/src/04-attendance-daily.js attSaveRow), so the Apps Script
+      // endpoint, the optimistic SHEET_DATA push and the monthly PDF/Excel all keep seeing
+      // one shape — a second writer is how a report starts disagreeing with a screen.
+      attSave: function (entry) {
+        var f = fn('attSaveRow');
+        if (!f) return Promise.reject(new Error('attendance save unavailable'));
+        return f(entry);
+      },
+      // One merged row per day for (person, year, month). `month` is 1-12 HERE — the island
+      // and app/src/lib/attendance.ts speak ISO months; the legacy 0-based month stops at
+      // this line.
+      attRows: function (person, year, month) { return call('attRowsFor', [person, year, (month || 1) - 1], []); },
+      // The session's holiday list, already loaded (or []). `attHolidaysLoad()` is the
+      // promise, for an island that mounts before the legacy fetch finished.
+      attHolidays: function () { return call('attHolidays', [], []); },
+      attHolidaysLoad: function () { return call('attLoadHolidays', [], Promise.resolve([])); },
+      // Who the report is about (עידן may switch people; a field worker cannot).
+      attPerson: function () { return call('attPerson', [], ''); },
+      setAttPerson: function (name) { return call('setAttPerson', [name]); },
+      canSeeAttendance: function () { return !!call('canSeeAttendance', [], false); },
+      attRefresh: function () { return call('renderAttendanceReport'); },
+      attExportPdf: function () { return call('downloadAttendancePDF'); },
+      attExportExcel: function () { return call('xlExportAttendanceCurrent'); },
+
       // ---- feedback ---------------------------------------------------------
       // Replaced by Sonner once #sigma-toaster mounts (islands.tsx writes sigma.toast back).
       // Until then (and if the island never mounts) fall back to the legacy #toast strip.

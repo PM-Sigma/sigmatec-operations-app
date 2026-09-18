@@ -88,8 +88,24 @@ const ATT = [
 ];
 check('golden rows', () => {
   const s = M.xlBuildAttendance(ATT, 'אביאם', ATT_LABELS);
-  assert.deepStrictEqual(s.rows[0].slice(2), ['אביאם', 'יום שטח', 'שדה אליהו, אפיק', 1, 2, 'שדה אליהו: סיכום; רב שורות | אפיק:']);   // xlStr trims — empty summary leaves no trailing space
-  assert.deepStrictEqual(s.rows[1].slice(2), ['אביאם', 'אחר', '', 0, 0, 'יום עיון']);
+  // …, ימי עבודה, שעות, 🕎 חג, פירוט — the חג cell is empty here: neither day is a holiday
+  // (and this harness has no holiday list at all, which is the no-legacy-page case).
+  assert.deepStrictEqual(s.rows[0].slice(2), ['אביאם', 'יום שטח', 'שדה אליהו, אפיק', 1, 2, '', 'שדה אליהו: סיכום; רב שורות | אפיק:']);   // xlStr trims — empty summary leaves no trailing space
+  assert.deepStrictEqual(s.rows[1].slice(2), ['אביאם', 'אחר', '', 0, 0, '', 'יום עיון']);
+});
+check('🕎 a day worked on a holiday is marked in the sheet (spec §7e)', () => {
+  // The builder asks the legacy helpers, which only exist on the attendance page; the test
+  // stands them up the same way the page would.
+  globalThis.attYmd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  globalThis.attHolidayOn = key => (key === '2026-07-01' ? { date: key, name: 'חג לדוגמה', kind: 'holiday', required: false } : null);
+  try {
+    const s = M.xlBuildAttendance(ATT, 'אביאם', ATT_LABELS);
+    assert.strictEqual(s.rows[0][7], '🕎 חג לדוגמה');
+    assert.strictEqual(s.rows[1][7], '');
+  } finally {
+    delete globalThis.attYmd;
+    delete globalThis.attHolidayOn;
+  }
 });
 check('attendance contract', () => assertContract(M.xlBuildAttendance(ATT, 'אביאם', ATT_LABELS), 'att'));
 

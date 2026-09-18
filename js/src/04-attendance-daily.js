@@ -19,6 +19,125 @@
     }
   }
 
+  // ───────────────────────── 🕎 holidays (spec §7e) ─────────────────────────
+  // ONE list per session, shared by everything that has to know whether a day was a work
+  // day: this report, the red missing rows (22-push.js), the React island and the calendar.
+  // It lives on SHEET_DATA like every other shared table, and a failure to load it is not an
+  // error — the screen falls back to "weekdays are work days", which is what it did before.
+  window.attHolidaysLoaded = window.attHolidaysLoaded || null;
+  function attHolidays() { return ((window.SHEET_DATA || {}).holidays) || []; }
+  window.attHolidays = attHolidays;
+
+  function attLoadHolidays() {
+    if (window.attHolidaysLoaded) return window.attHolidaysLoaded;
+    window.attHolidaysLoaded = Promise.resolve()
+      .then(function () {
+        if (typeof window._sbGet !== 'function') return [];
+        return window._sbGet('company_holidays?select=date,name,kind,required&order=date');
+      })
+      .then(function (rows) {
+        var list = (rows || []).map(function (h) {
+          return { date: String(h.date || '').slice(0, 10), name: h.name || '', kind: h.kind || 'holiday', required: !!h.required };
+        }).filter(function (h) { return h.date; });
+        window.SHEET_DATA = window.SHEET_DATA || {};
+        window.SHEET_DATA.holidays = list;
+        try { if (window.sigmaEmit) window.sigmaEmit('holidays-loaded', { count: list.length }); } catch (e) {}
+        return list;
+      })
+      .catch(function () {
+        window.SHEET_DATA = window.SHEET_DATA || {};
+        window.SHEET_DATA.holidays = window.SHEET_DATA.holidays || [];
+        return [];
+      });
+    return window.attHolidaysLoaded;
+  }
+  window.attLoadHolidays = attLoadHolidays;
+
+  // ───────────────────────── the save path, without the DOM ─────────────────────────
+  // saveAttendance() below reads the legacy form; THIS is the same write with the values
+  // handed in. The React island (app/src/islands/Attendance.tsx) goes through the bridge to
+  // here — `sigma.attSave` — rather than posting on its own, so the endpoint, the optimistic
+  // SHEET_DATA update and the report refresh stay in ONE place and the monthly reports keep
+  // seeing exactly the rows they always saw.
+  function attSaveRow(entry) {
+    var e = entry || {};
+    var dateVal = String(e.date || '').slice(0, 10);
+    var dayType = e.dayType || 'office';
+    var note = String(e.note || '').trim();
+    var person = e.person || (typeof attPerson === 'function' ? attPerson() : '');
+    if (!dateVal) return Promise.reject(new Error('חסר תאריך'));
+    if (!person) return Promise.reject(new Error('חסר עובד'));
+    if (dayType === 'other' && !note) return Promise.reject(new Error('נא לפרט מה היה ביום (אחר)'));
+    var isoDate = new Date(dateVal + 'T12:00:00').toISOString();
+    return fetch(SHEET_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'attendance', person: person, dayType: dayType, note: note, date: isoDate })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res || !res.ok) throw new Error((res && res.error) || 'שמירה נכשלה');
+      var row = { id: res.id, person: person, dayType: dayType, note: note, date: isoDate };
+      if (window.SHEET_DATA) {
+        window.SHEET_DATA.attendance = window.SHEET_DATA.attendance || [];
+        window.SHEET_DATA.attendance.push(row);
+      }
+      try { if (window.sigmaEmit) window.sigmaEmit('attendance-saved', row); } catch (e2) {}
+      return row;
+    });
+  }
+  window.attSaveRow = attSaveRow;
+
+  // The month a person actually has, merged one-row-per-day — the same merge the table and
+  // the exports use, handed to the island as plain ISO rows. `month` is 0-based here (the
+  // legacy convention); the island converts once, at the bridge.
+  function attRowsFor(person, year, month) {
+    var who = person || (typeof attPerson === 'function' ? attPerson() : '');
+    var data = window.SHEET_DATA || {};
+    var inMonth = function (d) { return d.getFullYear() === year && d.getMonth() === month; };
+    var attRows = (data.attendance || [])
+      .filter(function (a) { return a.person === who; })
+      .map(function (a) { return { date: new Date(a.date), type: a.dayType, kibbutz: '', duration: 0, note: a.note || '' }; })
+      .filter(function (a) { return !isNaN(a.date) && inMonth(a.date); });
+    var fieldRows = (data.visits || [])
+      .filter(function (v) { return v.visitor === who; })
+      .map(function (v) {
+        return { date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0,
+                 summary: v.summary || '', id: v.id || '', workday: !!v.workday };
+      })
+      .filter(function (v) { return !isNaN(v.date) && inMonth(v.date); });
+    return mergeAttendanceByDate(attRows.concat(fieldRows)).map(function (r) {
+      var d = r.date;
+      return {
+        date: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+        type: r.type,
+        kibbutz: r.kibbutz || '',
+        hours: r.duration || 0,
+        note: r.note || '',
+        source: r.type === 'field' ? 'visit' : 'manual',
+        visits: r.visits || []
+      };
+    });
+  }
+  window.attRowsFor = attRowsFor;
+
+  // The holiday row for a date, or null — used for the 🕎 marker on a day someone worked
+  // anyway, and for the violet חג label on an empty one.
+  function attHolidayOn(dateKey) {
+    var list = attHolidays();
+    for (var i = 0; i < list.length; i++) if (list[i].date === dateKey) return list[i];
+    return null;
+  }
+  window.attHolidayOn = attHolidayOn;
+  // 🕎 only for a day that was NOT required and was filled in anyway (spec §7e).
+  function attHolidayMark(dateKey) {
+    var h = attHolidayOn(dateKey);
+    return (h && !h.required) ? '🕎' : '';
+  }
+  window.attHolidayMark = attHolidayMark;
+  function attYmd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  window.attYmd = attYmd;
+
   function saveAttendance(btn) {
     const dateVal = document.getElementById('aviamSimpleDate').value;
     if (!dateVal) { alert('נא לבחור תאריך'); return; }
@@ -27,23 +146,12 @@
     if (dayType === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
     const person = (document.getElementById('visitor') && document.getElementById('visitor').value) || attPerson();
     setBtnLoading(btn, true);
-    const isoDate = new Date(dateVal + 'T12:00:00').toISOString();
-    fetch(SHEET_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'attendance', person: person, dayType, note, date: isoDate })
-    }).then(r => r.json()).then(res => {
-      if (res && res.ok) {
-        if (window.SHEET_DATA) {
-          window.SHEET_DATA.attendance = window.SHEET_DATA.attendance || [];
-          window.SHEET_DATA.attendance.push({ id: res.id, person: person, dayType, note, date: isoDate });
-        }
-        const t = document.getElementById('toast');
-        t.textContent = '✅ ' + ATT_LABELS[dayType] + (note ? ' (' + note + ')' : '') + ' נשמר';
-        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500);
-        closeModal();
-        if (document.getElementById('attendance-view').style.display !== 'none') renderAttendanceReport();
-      }
+    attSaveRow({ person: person, date: dateVal, dayType: dayType, note: note }).then(() => {
+      const t = document.getElementById('toast');
+      t.textContent = '✅ ' + ATT_LABELS[dayType] + (note ? ' (' + note + ')' : '') + ' נשמר';
+      t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500);
+      closeModal();
+      if (document.getElementById('attendance-view').style.display !== 'none') renderAttendanceReport();
     }).catch(() => {
       const t = document.getElementById('toast');
       t.textContent = '⚠️ שגיאה בשמירה'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
@@ -58,6 +166,15 @@
   }
 
   function renderAttendanceReport() {
+    // First paint of the session happens before the holiday list has landed. Rather than
+    // block the report on a network call, draw it now and redraw once — the only visible
+    // difference is that a חג stops being a red "missing" row.
+    if (!window.attHolidaysLoaded) {
+      attLoadHolidays().then(function () {
+        if (document.getElementById('attendance-view') &&
+            document.getElementById('attendance-view').style.display !== 'none') renderAttendanceReport();
+      });
+    }
     const year  = window.attendanceViewYear;
     const month = window.attendanceViewMonth;
     const heMonths = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -127,7 +244,7 @@
     if (!tableEl) return;
     const missingDays = (typeof attMissingDays === 'function')
       ? attMissingDays(((window.SHEET_DATA || {}).attendance) || [], ((window.SHEET_DATA || {}).visits) || [],
-          who, year, month, new Date())
+          who, year, month, new Date(), attHolidays())
       : [];
     if (!all.length && !missingDays.length) {
       tableEl.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">אין נתונים לחודש זה</div>';
@@ -141,6 +258,10 @@
       const r = entry.r, i = entry.i;
       const [bg,color] = ATT_COLORS[r.type] || ['#f3f4f6','#374151'];
       const dateStr = r.date.toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit', weekday:'short' });
+      // 🕎 — this day was a חג / חול המועד / סגירת חברה and he worked it anyway. It counts
+      // as a work day; the marker is so whoever reads the report knows why it is there.
+      const hol = attHolidayOn(attYmd(r.date));
+      const holMark = (hol && !hol.required) ? ` <span title="${hol.name}" style="font-size:12px;">🕎</span>` : '';
       const kib = r.kibbutz ? `<span style="color:#475569;">${r.kibbutz}</span>` : '—';
       // hours column: work days shown as "יום עבודה" (priced as a day), loose hours as Xש'
       let dur;
@@ -159,7 +280,7 @@
         ? `<button onclick="toggleAttDetail(${i})" id="attToggle-${i}" style="background:#eef2ff;color:#3730a3;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;font-weight:700;">+</button>`
         : '';
       const mainRow = `<tr>
-        <td>${dateStr}</td>
+        <td>${dateStr}${holMark}</td>
         <td><span class="att-badge" style="background:${bg};color:${color};">${ATT_LABELS[r.type]}</span></td>
         <td>${kib}</td>
         <td style="text-align:center;">${dur}</td>
@@ -231,6 +352,8 @@
     const monthLabel = document.getElementById('attendanceMonthLabel')?.textContent || '';
     const body = rows.map(r => {
       const dateStr = r.date.toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit', weekday:'short' });
+      const hol = attHolidayOn(attYmd(r.date));
+      const holMark = (hol && !hol.required) ? ' 🕎' : '';
       let dur;
       if (r.type === 'field') {
         const segs = [];
@@ -245,7 +368,7 @@
       } else if (r.type === 'other' && r.note) {
         detail = r.note.replace(/</g,'&lt;');
       }
-      return `<tr><td>${dateStr}</td><td>${ATT_LABELS[r.type]}</td><td>${r.kibbutz || '—'}</td><td style="text-align:center;">${dur}</td><td>${detail}</td></tr>`;
+      return `<tr><td>${dateStr}${holMark}</td><td>${ATT_LABELS[r.type]}</td><td>${r.kibbutz || '—'}</td><td style="text-align:center;">${dur}</td><td>${detail}</td></tr>`;
     }).join('');
     const counts = {};
     rows.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
@@ -255,9 +378,11 @@
     const hoursSegs = [];
     if (totalWorkdays) hoursSegs.push(`${totalWorkdays} ימי עבודה`);
     if (totalLooseHours) hoursSegs.push(`${totalLooseHours}ש'`);
+    const holidayWorked = rows.filter(r => { const h = attHolidayOn(attYmd(r.date)); return h && !h.required; }).length;
     const chips = Object.keys(ATT_LABELS).filter(k => counts[k])
       .map(k => `${ATT_LABELS[k]}: ${counts[k]}`).join(' · ') +
-      (hoursSegs.length ? ` · ⏱️ ${hoursSegs.join(' + ')} (≈${approxTotal}ש')` : '');
+      (hoursSegs.length ? ` · ⏱️ ${hoursSegs.join(' + ')} (≈${approxTotal}ש')` : '') +
+      (holidayWorked ? ` · 🕎 ${holidayWorked} ימי עבודה בחג` : '');
     const w = window.open('', '_blank');
     w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
       <title>נוכחות ${attPerson()} — ${monthLabel}</title>

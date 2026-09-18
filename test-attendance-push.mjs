@@ -71,6 +71,47 @@ check('fully-logged month → empty', () => {
   assert.deepStrictEqual(M.attMissingDays(att, [], 'אביאם', 2026, 6, TODAY), []);
 });
 
+console.log('== 🕎 holidays (spec §7e) ==');
+// September 2026, the spec's fixture: ראש השנה 12-13.9, יום כיפור 21.9, סוכות 26.9 and the
+// company closure 27.9-2.10. The list is the same one db/company_holidays_seed.sql writes.
+const SEPT_HOLIDAYS = [
+  { date: '2026-09-12', name: 'ראש השנה 5787',   kind: 'holiday',          required: false },
+  { date: '2026-09-13', name: 'ראש השנה ב׳',     kind: 'holiday',          required: false },
+  { date: '2026-09-21', name: 'יום כיפור',        kind: 'holiday',          required: false },
+  { date: '2026-09-26', name: 'סוכות א׳',         kind: 'holiday',          required: false },
+  { date: '2026-09-27', name: 'חול המועד סוכות', kind: 'company_closure',  required: false },
+  { date: '2026-09-28', name: 'חול המועד סוכות', kind: 'company_closure',  required: false },
+  { date: '2026-09-29', name: 'חול המועד סוכות', kind: 'company_closure',  required: false },
+  { date: '2026-09-30', name: 'חול המועד סוכות', kind: 'company_closure',  required: false },
+];
+const OCT = new Date(2026, 9, 15);   // the whole of September is behind us
+
+check('holidays and the closure are never missing', () => {
+  const out = M.attMissingDays([], [], 'אביאם', 2026, 8, OCT, SEPT_HOLIDAYS);
+  assert.deepStrictEqual(out, ['2026-09-01', '2026-09-02', '2026-09-03',
+    '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10',
+    '2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17',
+    '2026-09-20', '2026-09-22', '2026-09-23', '2026-09-24']);
+});
+check('without the list, the same month nags about יום כיפור', () => {
+  const out = M.attMissingDays([], [], 'אביאם', 2026, 8, OCT);
+  assert.ok(out.includes('2026-09-21') && out.includes('2026-09-28'));
+});
+check('a holiday marked required is a work day again', () => {
+  const worked = SEPT_HOLIDAYS.map(h => h.date === '2026-09-28' ? { ...h, required: true } : h);
+  assert.ok(M.attMissingDays([], [], 'אביאם', 2026, 8, OCT, worked).includes('2026-09-28'));
+});
+check('entering attendance on a holiday is allowed and keeps it out of the list', () => {
+  const att = [{ person: 'אביאם', date: '2026-09-21', dayType: 'field' }];
+  const out = M.attMissingDays(att, [], 'אביאם', 2026, 8, OCT, SEPT_HOLIDAYS);
+  assert.ok(!out.includes('2026-09-21'));
+});
+check('the list defaults to SHEET_DATA.holidays when the caller passes none', () => {
+  const w = loadModule();
+  w.SHEET_DATA = { holidays: SEPT_HOLIDAYS };
+  assert.ok(!w.attMissingDays([], [], 'אביאם', 2026, 8, OCT).includes('2026-09-21'));
+});
+
 console.log('== reminder text ==');
 check('text formats dates d.M', () => {
   assert.strictEqual(M.attReminderText('אביאם', ['2026-07-03', '2026-07-08']), 'נא לעדכן נוכחות לימים: 3.7, 8.7');
