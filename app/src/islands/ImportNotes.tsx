@@ -51,8 +51,8 @@ const fieldBox =
  * names are simply never built (rowsFromParsed skips a section with no card), so nothing is
  * written under a name that has no card.
  */
-export async function saveParsedMeeting(parsed: ParsedMeeting, createdBy: string, skip: string[] = []): Promise<number> {
-  const rows = rowsFromParsed(parsed, createdBy).filter(r => !skip.includes(r.kibbutz));
+export async function saveParsedMeeting(parsed: ParsedMeeting, createdBy: string): Promise<number> {
+  const rows = rowsFromParsed(parsed, createdBy);
   const sb = await getSupabase();
   await sbWrite(() =>
     sb.from('kibbutz_meeting_notes').delete()

@@ -7,12 +7,13 @@
 // emitting `notes-changed` on sigmaBus, which is what makes the card, the modal tab and the
 // import preview agree without any of them knowing the others exist (docs/integration-map.md).
 import * as React from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { sigma, sigmaBus, useSigmaEvent } from '@/bridge';
+import { sigma, sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
+import { queryClient } from '@/lib/query';
 import {
   chipDate, isQuiet, KIND_LABEL, notesForKibbutz, taskFromBullet,
   type MeetingGroup, type MeetingKind, type NoteRow,
@@ -33,13 +34,23 @@ export async function fetchMeetingNotes(): Promise<NoteRow[]> {
   return (data || []) as NoteRow[];
 }
 
-/** All notes, once per island tree (TanStack dedupes + persists them for the offline paint). */
+// Another surface wrote → refetch. Attached ONCE per page, at module scope, against the
+// queryClient singleton: a listener per component would mean one per CARD (54 of them on the
+// home page), all invalidating the same key on every single write. This is the whole
+// cross-surface contract (docs/integration-map.md).
+let listening = false;
+function listenForNotesChanges(): void {
+  if (listening || !sigmaBus) return;
+  listening = true;
+  sigmaBus.addEventListener(NOTES_CHANGED, () => {
+    void queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
+  });
+}
+
+/** All notes, shared by every card and the modal tab (TanStack dedupes + persists them). */
 export function useMeetingNotes() {
-  const qc = useQueryClient();
-  const q = useQuery({ queryKey: NOTES_QUERY_KEY, queryFn: fetchMeetingNotes });
-  // Another surface wrote → refetch here too. This is the whole cross-surface contract.
-  useSigmaEvent(NOTES_CHANGED, () => { void qc.invalidateQueries({ queryKey: NOTES_QUERY_KEY }); });
-  return q;
+  React.useEffect(listenForNotesChanges, []);
+  return useQuery({ queryKey: NOTES_QUERY_KEY, queryFn: fetchMeetingNotes });
 }
 
 export function emitNotesChanged(detail?: Record<string, unknown>): void {
@@ -94,7 +105,7 @@ function OwnerChip({ name }: { name: string }) {
   );
 }
 
-function NoteBullet({ row, canAct }: { row: NoteRow; canAct: boolean }) {
+function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; index: number }) {
   const reduce = useReducedMotion();
   const [menu, setMenu] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -114,8 +125,11 @@ function NoteBullet({ row, canAct }: { row: NoteRow; canAct: boolean }) {
   };
 
   return (
-    <li
+    <motion.li
       data-id={row.id}
+      initial={reduce ? false : { opacity: 0, x: 6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.18, delay: reduce ? 0 : Math.min(index, 8) * 0.03 }}
       className={
         'note-bullet flex items-start gap-1.5 py-[3px] text-[13px] leading-snug ' +
         (done ? 'done opacity-50 line-through decoration-1 ' : '')
@@ -191,12 +205,11 @@ function NoteBullet({ row, canAct }: { row: NoteRow; canAct: boolean }) {
           )}
         </span>
       )}
-    </li>
+    </motion.li>
   );
 }
 
 function MeetingBlock({ group, canAct }: { group: MeetingGroup; canAct: boolean }) {
-  const reduce = useReducedMotion();
   const kindLabel = KIND_LABEL[group.meeting_kind as MeetingKind] || KIND_LABEL.company;
   return (
     <div className="card-notes-meeting">
@@ -215,14 +228,7 @@ function MeetingBlock({ group, canAct }: { group: MeetingGroup; canAct: boolean 
           notifications, which is not what a fixed bullet list is (spec §6 motion budget). */}
       <ul>
         {group.bullets.map((b, i) => (
-          <motion.div
-            key={b.id || b.seq}
-            initial={reduce ? false : { opacity: 0, x: 6 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.18, delay: reduce ? 0 : Math.min(i, 8) * 0.03 }}
-          >
-            <NoteBullet row={b} canAct={canAct} />
-          </motion.div>
+          <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} />
         ))}
       </ul>
     </div>
