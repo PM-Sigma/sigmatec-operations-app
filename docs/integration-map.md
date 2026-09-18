@@ -105,3 +105,41 @@ Channels, in the order of how loosely they couple:
 | Function | Mode added | Called by |
 |---|---|---|
 | `push-send` | `usageDigest` `{force?, token?, actor?}` → the weekly narrative to עידן. **AUTH (fix round 1): the public anon key is NOT enough.** Either the `X-Cron-Key` header matches the `CRON_SECRET` secret (pg_cron — scheduled runs only, never a forced one, because the key sits in a readable SQL job body) or `emsValid(token)` passes AND `actor === 'עידן'` (the only caller allowed to `force` past the Sunday gate, and with `force:'resend'` past the week tag). The decision is the pure `usageDigestAuth()` — `app/src/lib/usageDigest.ts`, byte-identical copy in the function dir, four cases tested. Gated on **Sunday 08:00 Israel** (`israelNow()`: DST server-side, a missed hour re-fires safely), idempotent on the `usage-<yyyy>-w<ww>` tag in `push_log`, recipient fixed server-side. **The response never contains the sentences** — `{ok, tag, sent, lines}` only; the narrative names people and reaches עידן's devices and `push_log`, never a caller. Reads `usage_events` with the service role (no RPC — that is the client's door). | pg_cron `push-usage-hourly` (`db/cron_usage_weekly.sql`, `5 * * * *` so it never races `push-attendance-hourly` at `0 * * * *`; the same file re-schedules the attendance job with the header). **Not scheduled yet** — prod steps after the merge: set `CRON_SECRET`, then run the file. |
+
+---
+
+## Task 4 — brand polish, landing per role, settings, Ctrl+K, visit drafts (סיגמה 2.00)
+
+### Tables added
+
+| Table / column | Written by | Read by | Notes |
+|---|---|---|---|
+| `user_settings(person pk, landing, card_desc, font, theme, eod_hour, updated_at)` (`db/user_settings.sql`) | `app/src/lib/settings.ts saveSettings()` (⚙️ הגדרות) | `loadSettings()` at boot and on `user-changed` | Identity is the person's NAME (`dashboard_user_v1`), the app's only identity. A **localStorage mirror** (`sigma_settings_v1`) is authoritative for the first paint and offline; the row is merged over it field-by-field (`mergeSettings`), so an unknown value from another build cannot strand someone on the defaults. `card_desc` drives the phone clamp (§7k #2), `font` writes the `--font` token, `landing` overrides the §7l role default. Task 15 extends both. |
+| `visits.open_items text` (`db/visits_open_items.sql`) | `saveVisit()` in `js/src/09-visits.js` (the "מה נשאר לי פתוח" field) | the visit form's edit path, the last-visit block, the visits PDF/Excel (`js/src/12-reports.js`, `js/src/21-excel-export.js`), and the briefing's previous-visit block (Task 5) | The summary is now TWO fields: `summary` = "מה עשיתי בביקור", `open_items` = what he left open (§5.1b). Old visits have `null` — every reader treats that as "nothing left open", never as an error. |
+| `visit_drafts(id pk, person, kibbutz, date, payload jsonb, updated_at)` (`db/visit_drafts.sql`) | `visitDraftSave()` in `js/src/09-visits.js` — debounced 800 ms, plus `switchTab` / `pagehide` / `visibilitychange` | `visitDraftFor()` via the bridge (the card chip, the "המשך טיוטה" prompt, the 🚚 gate) | **`id` is the PRE-MINTED visit id** (`visitDraftId()`), so a draft, the delivery certificate issued from it and the saved visit share one identity — the cert's `refId` keeps pointing at the right visit before the visit row exists. Deleted on a successful save. A localStorage mirror (`visitDraft_v1`) carries the offline case. 14-day sweep statement is in the .sql. |
+
+### Bridge surface added (`js/src/00-bridge.js`)
+
+| Surface | Direction | Why |
+|---|---|---|
+| `sigma.visitDraftFor(kibbutz, person, date)` → `{id, updated_at, payload} \| null` | React → legacy | The card chip "סיכום ביקור בהתהוות" and the "המשך טיוטה מ-HH:MM" prompt need to know a draft exists WITHOUT owning the draft format. The legacy module is the only writer, so it is the only reader too. |
+| `sigma.visitDraftDiscard(id?)` | React → legacy | "התחל מחדש" in the resume prompt. |
+| `sigma.onLanding(target, role)` — **optional hook, assigned by a later task** | landing → legacy | §7l's landing calls it after the first screen is chosen, for every role. Task 5 attaches the field arrival sheet here instead of editing `app/src/lib/landing.ts`. |
+| `sigma.openCommandBar()` | legacy → React | The desktop header search and the phone search field open the Ctrl+K list (§7k.1) instead of carrying their own result UI. |
+
+### Query keys / events added
+
+| Key or event | Fired / invalidated by | Read by |
+|---|---|---|
+| `visit-draft-changed` (sigmaBus) | every `visitDraftSave()` / discard / delete-on-save | the card's draft chip, the briefing (Task 5) |
+| `sigma-open-settings` (window event, `SETTINGS_OPEN_EVENT`) | the ⋯ sheet row, the user-chip menu, Ctrl+K | `islands/Settings.tsx` | The event lives in `lib/settings.ts`, NOT in the island, so the boot chunk can ask for the panel without importing it. |
+
+### Standing rulings from Task 4
+
+| Ruling | What it means in code |
+|---|---|
+| **The ⋯ sheet badges are ATTENTION ONLY** (§7k #3). | `registry.itemBadge()` — a positive integer means "this needs you". Totals and "new since" counts get no badge. The gaps badge is 0 until Task 15 computes it. |
+| **No page is retired here** (§7m guard rail). | `MoreSheet`'s `MORE_PAGES` still lists משימות / EMS / עובדים; Task 14 removes them after a coverage audit. |
+| **The tokens-only region of `css/app.css` may not contain a hex literal.** | The marked `/* @tokens-only */ … /* @end */` block; `test-theme.mjs` fails the build otherwise. New legacy CSS goes inside it. |
+| **RTL is a release gate.** | `test-rtl.mjs` — logical properties only in the new CSS and in `app/src/**`; a physical property needs a `/* rtl-ok */` on the line, with the reason. |
+| **The UI never explains its own mechanics, and never says who else sees the data.** | `test-copy-rules.mjs` greps `app/src/**` and `index.html` for the banned words. |

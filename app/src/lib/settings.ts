@@ -28,6 +28,18 @@ export interface UserSettings {
 
 export const SETTINGS_KEY = 'sigma_settings_v1';
 
+/**
+ * The window event that opens ⚙️ הגדרות. It lives HERE, not in the island, so the boot chunk
+ * (nav, user chip) can ask for the panel without importing the panel — the island stays a lazy
+ * chunk and a missing island simply means nothing opens.
+ */
+export const SETTINGS_OPEN_EVENT = 'sigma-open-settings';
+
+/** Open ⚙️ הגדרות from anywhere (the ⋯ sheet, the user chip, Ctrl+K). */
+export function openSettings(): void {
+  try { window.dispatchEvent(new CustomEvent(SETTINGS_OPEN_EVENT)); } catch { /* no DOM */ }
+}
+
 export const DEFAULT_SETTINGS: UserSettings = {
   landing: 'auto',
   card_desc: 'short',

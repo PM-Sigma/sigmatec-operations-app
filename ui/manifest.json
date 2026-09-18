@@ -9,6 +9,7 @@
   "./ui/sigma-ModalMeetings.js",
   "./ui/sigma-query.js",
   "./ui/sigma-react.js",
+  "./ui/sigma-Settings.js",
   "./ui/sigma-skeleton.js",
   "./ui/sigma-supabase.js",
   "./ui/sigma-switch.js",

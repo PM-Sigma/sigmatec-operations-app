@@ -12,6 +12,18 @@ export interface MoreItem {
   onSelect: () => void;
   roles?: SigmaRole[];
   /**
+   * Which block of the ⋯ sheet the row belongs to (§7k #3): 'app' = the everyday rows every
+   * role sees, 'admin' = the management block that is separated by a rule and a label.
+   * Defaults to 'app'.
+   */
+  group?: 'app' | 'admin';
+  /**
+   * An ATTENTION count — how many things here need the person to act (§7k #3: "attention
+   * badges only for action-needed items"). Anything else (a total, a "new since" number) does
+   * not belong on a nav badge. Asked live, like `visible`; 0 / undefined = no badge.
+   */
+  badge?: () => number;
+  /**
    * An extra gate, asked EVERY time the sheet is listed. `roles` cannot express the app's
    * finer permissions — "admin" is `canManageStaff()` (עידן + עמיחי), a subset of the `idan`
    * + `team` roles — and a role read once at registration goes stale the moment someone uses
@@ -36,6 +48,13 @@ export function listMoreItems(role: SigmaRole): MoreItem[] {
     try { return !!i.visible(); } catch { return false; }
   };
   return items.filter(i => (!i.roles || i.roles.includes(role)) && allowed(i));
+}
+
+/** The attention count for one row, never throwing and never negative. */
+export function itemBadge(item: MoreItem): number {
+  if (!item.badge) return 0;
+  try { const n = Number(item.badge()); return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0; }
+  catch { return 0; }
 }
 
 /** Subscribe to registry changes (used by Nav so a late registration still shows up). */

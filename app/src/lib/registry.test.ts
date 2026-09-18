@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { registerMoreItem, listMoreItems, _resetRegistry } from './registry';
+import { registerMoreItem, listMoreItems, _resetRegistry, itemBadge } from '@/lib/registry';
 
 const item = (id: string, roles?: Array<'idan' | 'team' | 'viewer'>) => ({
   id, label: id, icon: 'Star' as const, onSelect: () => {}, roles,
@@ -67,5 +67,37 @@ describe('navMoreItems visible() predicate', () => {
     registerMoreItem({ ...item('boom'), visible: () => { throw new Error('bridge missing'); } });
     registerMoreItem(item('fine'));
     expect(listMoreItems('idan').map(i => i.id)).toEqual(['fine']);
+  });
+});
+
+describe('⋯ sheet grouping and attention badges (§7k #3)', () => {
+  beforeEach(() => _resetRegistry());
+
+  it('itemBadge is 0 for a row with no badge', () => {
+    expect(itemBadge({ id: 'a', label: 'a', icon: 'Home', onSelect: () => {} })).toBe(0);
+  });
+
+  it('a positive count shows; zero and negative do not (a badge means "act on this")', () => {
+    const b = (n: number) => itemBadge({ id: 'a', label: 'a', icon: 'Home', onSelect: () => {}, badge: () => n });
+    expect(b(3)).toBe(3);
+    expect(b(0)).toBe(0);
+    expect(b(-2)).toBe(0);
+  });
+
+  it('a fractional count is floored — a nav badge is a whole number of things to do', () => {
+    expect(itemBadge({ id: 'a', label: 'a', icon: 'Home', onSelect: () => {}, badge: () => 2.7 })).toBe(2);
+  });
+
+  it('a throwing or non-numeric badge hides the badge instead of the row', () => {
+    expect(itemBadge({ id: 'a', label: 'a', icon: 'Home', onSelect: () => {}, badge: () => { throw new Error('x'); } })).toBe(0);
+    expect(itemBadge({ id: 'a', label: 'a', icon: 'Home', onSelect: () => {}, badge: (() => 'many') as any })).toBe(0);
+  });
+
+  it('the group travels with the item so the sheet can split app rows from ניהול rows', () => {
+    registerMoreItem({ id: 'imp', label: 'ייבוא', icon: 'Download', group: 'admin', onSelect: () => {} });
+    registerMoreItem({ id: 'set', label: 'הגדרות', icon: 'Settings', group: 'app', onSelect: () => {} });
+    const items = listMoreItems('idan');
+    expect(items.find(i => i.id === 'imp')?.group).toBe('admin');
+    expect(items.find(i => i.id === 'set')?.group).toBe('app');
   });
 });

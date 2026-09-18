@@ -7,6 +7,9 @@ import { Toaster } from '@/components/ui/sonner';
 import { Nav } from '@/components/Nav';
 import { mount } from '@/islands';
 import { applyTheme, storedTheme } from '@/lib/theme';
+import { applySettings, getSettings, loadSettings, openSettings } from '@/lib/settings';
+import { applyLanding } from '@/lib/landing';
+import { registerMoreItem } from '@/lib/registry';
 import { startTracking } from '@/lib/track';
 
 // REGRESSION GUARD for the cache-bust stamps. index.html loads this module as
@@ -37,6 +40,9 @@ function boot() {
   // Re-apply the stored theme through the full path (the <head> snippet only set the class
   // before first paint; this also syncs theme-color and announces 'theme-changed').
   applyTheme(storedTheme() ?? 'system');
+  // …then the person's own choices, from the localStorage mirror: the font token lands before
+  // the first island paints, so nothing re-types after the fact.
+  applySettings(getSettings());
 
   // 📈 שימוש (spec §7j): install the flush loop BEFORE the first mount, so the mount
   // events themselves are buffered. Nothing here touches Supabase until the first flush.
@@ -45,6 +51,16 @@ function boot() {
   // Both are provider-free islands — neither reads data, so neither pulls TanStack or supabase-js in.
   mount('sigma-toaster', SigmaToaster);
   mount('sigma-nav', Nav);
+
+  // 📝 יומן היום (§7i) is Task 16; the ⋯ row exists now so the sheet's shape is final and the
+  // task only has to replace the handler (§7k #3 lists it among the sheet's rows).
+  registerMoreItem({
+    id: 'field-journal',
+    label: 'יומן היום',
+    icon: 'Notebook',
+    group: 'app',
+    onSelect: () => { const s = (window as any).sigma; s?.toast?.('יומן היום — בקרוב'); },
+  });
 
   // Sonner replaces the legacy #toast strip for everything that goes through the bridge.
   const sigma = (window as any).sigma;
@@ -86,12 +102,33 @@ function boot() {
       .then(m => m.mountUsage())
       .catch(e => console.warn('[sigma] usage island failed', e));
   }
+  // ⚙️ הגדרות (§7h) — a lazy chunk like every other panel, but its row in the ⋯ sheet and the
+  // user-chip menu are registered by the island itself, so a failed chunk simply means no row.
+  if (document.getElementById('sigma-settings')) {
+    import('@/islands/Settings')
+      .then(m => m.mountSettings())
+      .catch(e => console.warn('[sigma] settings island failed', e));
+  }
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')
       .then(m => m.mountImportNotes())
       .catch(e => console.warn('[sigma] import island failed', e));
   }
+  // First screen per role (§7l). Last in boot, and only ever once per session: the landing
+  // reads the page gates, which need the legacy bundle to be fully up. The person's stored row
+  // may override the role default, so the landing is re-evaluated once it arrives — but only
+  // if the mirror had nothing to say yet (a landing that moves under the person is worse than
+  // a landing that is one session late).
+  const hadMirror = getSettings().landing !== 'auto';
+  applyLanding(getSettings());
+  if (!hadMirror) {
+    const who = (window as any).sigma?.getCurrentUser?.() || '';
+    if (who) void loadSettings(who).catch(() => { /* the mirror is authoritative offline */ });
+  }
 }
+
+/** Exposed for the ⋯ sheet / user chip in a page that never mounted the settings island. */
+(window as any).sigmaOpenSettings = openSettings;
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();
