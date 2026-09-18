@@ -205,8 +205,9 @@
         .catch(e => console.warn('[kibbutzim] initial load failed — showing the cached list', e));
     }
     if (typeof document !== 'undefined' && document.addEventListener) {
+      // deferred bundle (task 22b): a macrotask, never inline — see 02-init-attendance.js.
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kibbutzimBoot);
-      else kibbutzimBoot();
+      else setTimeout(kibbutzimBoot, 0);
     }
 
     window.KIBBUTZIM = window.KIBBUTZIM || [];

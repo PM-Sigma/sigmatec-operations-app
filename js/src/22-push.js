@@ -105,8 +105,9 @@
     if (currentOwner() === 'צפייה') return;      // viewer never approves orders → no push needed
     setTimeout(function () { window.initPush(); }, 2500);
   }
+  // deferred bundle (task 22b): a macrotask, never inline — see 02-init-attendance.js.
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  else setTimeout(boot, 0);
 })();
 
 // ===== Attendance reminders (viewer-triggered) =====

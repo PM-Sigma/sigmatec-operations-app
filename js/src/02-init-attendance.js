@@ -206,7 +206,11 @@
     fab.addEventListener('click', function () { if (!moved) openVisitQuick(); moved = false; });
     window.addEventListener('resize', function () { var r = fab.getBoundingClientRect(); place(r.left, r.top); });   // keep on-screen after rotate/resize
   }
-  if (document.readyState !== 'loading') initVisitFabDrag();
+  // js/app.js is loaded with `defer` (task 22b), so readyState is already 'interactive' when
+  // this line runs: calling it inline would run it DURING the bundle's evaluation, before the
+  // later modules' top-level consts exist (it really did throw on getCurrentUser). A macrotask
+  // runs after the whole bundle AND after DOMContentLoaded, which is what this always meant.
+  if (document.readyState !== 'loading') setTimeout(initVisitFabDrag, 0);
   else document.addEventListener('DOMContentLoaded', initVisitFabDrag);
 
   function vqSetType(type) {
