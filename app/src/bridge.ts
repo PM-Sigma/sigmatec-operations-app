@@ -75,6 +75,12 @@ export interface Sigma {
   } | null;
   visitDraftDiscard?(id?: string | null): void;
   getLastVisit(kibbutz: string): any;
+  /**
+   * The briefing's "לפני שיוצאים" leftovers (spec §5.1b, Task 5). React hands over the text
+   * and the legacy form writes it into `#visitOpenItems` the moment the form is on screen —
+   * and only while that field is still empty, so it can never overwrite what he typed.
+   */
+  prefillOpenItems?(kibbutz: string, text: string): void;
   loadAllVisitsCombined(): any[];
   openDeliveryCert(pre?: Record<string, unknown>): void;
   certFromVisitForm(): void;
@@ -133,6 +139,11 @@ export type SigmaEvent =
   // a feedback was sent, its status flipped, or a bug became a dev-board card — the 📣 inbox
   // refetches ['feedback'] (docs/integration-map.md)
   | 'feedback-changed'
+  // a field worker checked in at a kibbutz (islands/Field.tsx). Consumers: the "היום" strip
+  // and anything that wants to know he is on site (docs/integration-map.md)
+  | 'checkin-created'
+  // js/src/09-visits.js wrote / restored / discarded a draft (spec §5.1c)
+  | 'visit-draft-changed'
   // a 401 anywhere (EMS, supabase-js, the legacy reads) — ONE per expiry, debounced by
   // js/src/00-bridge.js. Consumer: components/ReLoginSheet.tsx (docs/integration-map.md)
   | 'session-expired';

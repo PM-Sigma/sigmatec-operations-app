@@ -157,3 +157,11 @@
      correction is small enough to stay inside the CLS budget. */
   contain-intrinsic-size: auto 150px;
 }
+
+/* The sweep of the vendored Magic UI ShimmerButton (components/ui/shimmer-button.tsx), used
+   by the briefing's two sticky CTAs. Transform only, so it never costs a layout; the
+   component hides the band entirely under `prefers-reduced-motion`. */
+@keyframes sigma-shimmer {
+  0%   { transform: translateX(-60%); }
+  100% { transform: translateX(60%); }
+}

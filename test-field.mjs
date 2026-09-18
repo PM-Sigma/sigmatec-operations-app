@@ -1,0 +1,142 @@
+// Contract sweep for the field flow (Task 5, spec §5 + §7k 1/4/11/ג). The DECISIONS are
+// covered by vitest goldens (app/src/lib/field.test.ts); what is checked here is everything
+// another task can break from the OUTSIDE:
+//   1. the Edge Function's copy of the pure module is byte-identical to app/src/lib/field.ts
+//   2. push-send's visitCron is authenticated, guarded, idempotent and uses the pure planner
+//   3. the adoption guards (ג) are real numbers in the shipped code, not prose
+//   4. the deep links exist on both sides (22-push.js ↔ push-send ↔ sw.js actUrls)
+//   5. the island is mounted, its placeholders exist, and the bridge carries the prefill
+//   6. the migration + the cron job say what the runbook says
+//   7. the UI copy rules (no system talk, nobody is told who else sees his data)
+import fs from 'node:fs';
+
+let failures = 0;
+const ok = (name) => console.log('  ✓ ' + name);
+const check = (name, cond, detail) => { if (cond) ok(name); else { failures++; console.log('  ✗ ' + name + (detail ? ' — ' + detail : '')); } };
+const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
+
+console.log('\n[1] the Edge Function carries a byte-identical copy of the pure module');
+{
+  const a = fs.readFileSync(new URL('./app/src/lib/field.ts', import.meta.url));
+  const b = fs.readFileSync(new URL('./supabase/functions/push-send/field.ts', import.meta.url));
+  check('app/src/lib/field.ts === supabase/functions/push-send/field.ts', a.equals(b),
+    'copy the app/src file over the function one — Deno cannot import out of app/src');
+  const src = read('./app/src/lib/field.ts');
+  check('the module stays import-free (Deno + vitest + the browser all evaluate it)',
+    !/^\s*import\s/m.test(src));
+}
+
+console.log('\n[2] push-send mode visitCron');
+{
+  const fn = read('./supabase/functions/push-send/index.ts');
+  check('the mode exists', /body\.mode === "visitCron"/.test(fn));
+  check('it is authenticated (cron key OR a live EMS login)',
+    /x-cron-key/.test(fn) && /unauthorized: cron key or valid EMS login required/.test(fn));
+  check('the selection is the PURE planner, not a hand-rolled query',
+    /visitCronSelect\(\{/.test(fn) && /from\("field_checkins"\)/.test(fn));
+  check('the 14 h window is applied in the query too', /14 \* 3600 \* 1000/.test(fn));
+  check('a row is stamped reminded_at after the send (at most one nudge per arrival)',
+    /update\(\{ reminded_at: new Date\(\)\.toISOString\(\) \}\)\.eq\("id", pick\.id\)/.test(fn));
+  check('a check-in whose visit is already filed is settled, not re-scanned',
+    /s\.reason === "visit exists"/.test(fn));
+  check('the words come from the rotating pool', /nudgeFor\(pick\.id, pick\.kibbutz, pick\.hasDraft\)/.test(fn));
+  check('both notification actions are offered', /"✍️ כתוב סיכום"/.test(fn) && /"🙈 לא היום"/.test(fn));
+  check('push_log gets the kibbutz as where_txt', /event: "visitCron", order_id: null, where_txt: pick\.kibbutz/.test(fn));
+}
+
+console.log('\n[3] adoption guards ג — global cap, quiet hours, the 20:00 cap');
+{
+  const lib = read('./app/src/lib/field.ts');
+  const fn = read('./supabase/functions/push-send/index.ts');
+  check('the cap is three a day', /PUSH_DAILY_CAP = 3/.test(lib));
+  check('quiet hours are 21:00 → 06:30', /QUIET_FROM_HH = 21/.test(lib) && /QUIET_TO_HH = 6/.test(lib) && /QUIET_TO_MM = 30/.test(lib));
+  check('the reminder is never later than 20:00', /REMINDER_LATEST_HH = 20/.test(lib));
+  check('the cap is counted from push_log, folded per push', /async function sentTodayCounts/.test(fn));
+  check('the weekly digest is exempt from the cap', /neq\("event", "usageDigest"\)/.test(fn));
+  check('attendanceCron respects the same cap', /capCount\[person\] \?\? 0\) >= PUSH_DAILY_CAP/.test(fn));
+  check('visitCron feeds today’s counts into the planner', /sentToday: sent/.test(fn));
+}
+
+console.log('\n[4] the deep links, on both sides');
+{
+  const push = read('./js/src/22-push.js');
+  const fn = read('./supabase/functions/push-send/index.ts');
+  const sw = read('./sw.js');
+  check('?pushact=visit opens the visit form with the kibbutz', /act === 'visit'/.test(push) && /openVisitQuick\(kibbutz\)/.test(push));
+  check('?pushact=visitDismiss reaches the island', /act === 'visitDismiss'/.test(push) && /sigmaField\.dismiss\(cid\)/.test(push));
+  check('the island is given time to load (lazy chunk)', /waitField/.test(push));
+  check('the function builds both URLs', /pushact=visit&kibbutz=/.test(fn) && /pushact=visitDismiss&cid=/.test(fn));
+  check('the service worker routes notification actions through actUrls', /actUrls/.test(sw));
+}
+
+console.log('\n[5] the island, its placeholders and the bridge');
+{
+  const idx = read('./index.html');
+  check('#sigma-field exists', idx.includes('<div id="sigma-field"></div>'));
+  check('#sigma-today sits ABOVE the cards',
+    idx.includes('<div id="sigma-today"></div>')
+    && idx.indexOf('id="sigma-today"') < idx.indexOf('id="sigma-home"'));
+
+  const main = read('./app/src/main.tsx');
+  check('main.tsx mounts the field chunk lazily', /import\('@\/islands\/Field'\)/.test(main));
+
+  const island = read('./app/src/islands/Field.tsx');
+  check('both roots are mounted from one chunk', /mount\('sigma-field', Field\)/.test(island) && /mount\('sigma-today', Today\)/.test(island));
+  check('a new check-in announces itself on the bus', /CHECKIN_CREATED = 'checkin-created'/.test(island));
+  check('the sheet morphs in place (one Sheet, AnimatePresence)',
+    (island.match(/<Sheet\b/g) || []).length === 1 && /AnimatePresence/.test(island));
+  check('the sheet’s motion stays inside the 320 ms budget', /const dur = reduce \? 0 : 0\.28;/.test(island));
+  check('🚚 waits for the form before asking for the certificate', /addEventListener\('visit-form-open', once\)/.test(island));
+  check('🚚 is only offered when there is something to deliver', /canDeliver && \(/.test(island));
+  check('the day plan is feature-detected, never assumed', /day_plans/.test(island) && /if \(error\) return \[\];/.test(island));
+
+  const bridge = read('./js/src/00-bridge.js');
+  check('the bridge carries the checklist prefill', /prefillOpenItems: function \(kibbutz, text\)/.test(bridge));
+  check('the prefill never overwrites what he typed', /if \(!el \|\| String\(el\.value \|\| ''\)\.trim\(\)\) return;/.test(bridge));
+
+  const nav = read('./app/src/components/Nav.tsx');
+  check('the raised 📍 offers the arrival sheet when there is no check-in', /sigmaField\?\.maybeOpen\?\.\(\)/.test(nav));
+}
+
+console.log('\n[6] the migration and the cron job');
+{
+  const sql = read('./db/field_checkins.sql');
+  check('the table has the five columns the flow needs',
+    ['person', 'kibbutz', 'checked_in_at', 'reminded_at', 'dismissed'].every((c) => sql.includes(c)));
+  check('RLS is on, writes are authenticated-only', /enable row level security/.test(sql) && /for all to authenticated/.test(sql));
+  const cron = read('./db/cron_visit_15min.sql');
+  check('the job runs every quarter hour', /'7-52\/15 \* \* \* \*'/.test(cron));
+  check('it proves itself with X-Cron-Key', /X-Cron-Key/.test(cron));
+  check('it never races the hourly jobs', /never on the hour/.test(cron));
+  check('the secret is a placeholder, never a value', /<CRON_SECRET>/.test(cron) && !/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\./.test(cron.replace(/<ANON>/g, '')));
+}
+
+console.log('\n[7] the copy rules (spec, before §7i)');
+{
+  const lib = read('./app/src/lib/field.ts');
+  const island = read('./app/src/islands/Field.tsx');
+  // Hebrew strings only, and COMMENTS STRIPPED FIRST: this file's own prose explains the
+  // rules in Hebrew-adjacent terms, and a comment is not something a user ever reads.
+  const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const hebrew = (raw) => {
+    const src = strip(raw);
+    const q = String.fromCharCode(39), b = String.fromCharCode(96);
+    const line = (open, close) => new RegExp(open + '[^' + close + '\n]*[א-ת][^' + close + '\n]*' + close, 'g');
+    return (src.match(line(q, q)) || [])
+      .concat(src.match(line(b, b)) || [])
+      .concat(src.match(new RegExp('>[^<>{}' + String.fromCharCode(10) + ']*[א-ת][^<>{}' + String.fromCharCode(10) + ']*<', 'g')) || []);
+  };
+
+  const strings = hebrew(lib).concat(hebrew(island));
+  check('there are visible Hebrew strings to check at all', strings.length > 20, String(strings.length));
+  const systemTalk = strings.filter((s) => /Supabase|RLS|\bAPI\b|נשמר אוטומטית|בדיקה אוטומטית|מחושב/.test(s));
+  check('no system talk in the UI', systemTalk.length === 0, systemTalk.join(' | '));
+  const whoSees = strings.filter((s) => /(עמיחי|עידן)[^']*(רואה|יראה|ראה)/.test(s));
+  check('nobody is told who else sees his data', whoSees.length === 0, whoSees.join(' | '));
+  const threat = strings.filter((s) => /לא נספר|חובה לסכם|אחרת/.test(s));
+  check('the nudges never threaten', threat.length === 0, threat.join(' | '));
+}
+
+console.log('\n' + '─'.repeat(60));
+if (failures) { console.log(`FAILED  ${failures} check(s)`); process.exit(1); }
+console.log('PASSED  field flow contract sweep');

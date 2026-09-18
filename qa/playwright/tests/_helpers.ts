@@ -58,7 +58,7 @@ function tableOf(url: string): string {
  * which is the real state of a mock-mode session (no EMS pass → RLS would refuse it) and is
  * what makes the islands show their login hint instead of pretending a save happened.
  */
-export async function installRoutes(page: Page): Promise<void> {
+export async function installRoutes(page: Page, opts: { checkins?: boolean } = {}): Promise<void> {
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
   await page.route('**://fonts.googleapis.com/**', r => r.abort());
@@ -98,6 +98,9 @@ export async function installRoutes(page: Page): Promise<void> {
       // No stored per-user settings → the islands use DEFAULT_SETTINGS, which is the state a
       // first-run device is in and the one the specs assert against.
       case 'user_settings': return route.fulfill(json(shape([], accept)));
+      // Field arrivals: empty unless the spec asked for one, so the "היום" strip and its
+      // nudge only appear on the screen that is about them (qa/playwright/tests/field.spec.ts).
+      case 'field_checkins': return route.fulfill(json(shape(opts.checkins ? FIXTURES.checkins() : [], accept)));
       case 'feedback': return route.fulfill(json(shape([], accept)));
       default: return route.fulfill(json(shape([], accept)));
     }
@@ -160,6 +163,14 @@ export interface BootOptions {
   storage?: Record<string, string>;
   /** Wait for this selector after load instead of the card home. */
   ready?: string;
+  /** Serve today's field check-in fixture (spec §5.1) instead of an empty list. */
+  checkins?: boolean;
+  /**
+   * Let the arrival sheet open by itself. It is latched off for every other spec the way the
+   * push and attendance prompts are — a full-screen sheet on an unrelated screen is harness
+   * noise, not the app misbehaving.
+   */
+  fieldPrompt?: boolean;
 }
 
 export interface Booted { rec: Recorder; theme: 'light' | 'dark'; viewport: string }
@@ -170,7 +181,7 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
   const viewport = (testInfo.project.metadata as any).viewport as string;
 
   const rec = watchConsole(page);
-  await installRoutes(page);
+  await installRoutes(page, { checkins: opts.checkins });
 
   const seed: Record<string, string> = {
     dashboard_user_v1: who,
@@ -181,9 +192,13 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
     theme,
     ...(opts.storage || {}),
   };
+  if (opts.fieldPrompt) (seed as any).__fieldPrompt = true;
   await page.addInitScript(entries => {
     try {
-      for (const [k, v] of Object.entries(entries as Record<string, string>)) localStorage.setItem(k, v);
+      // `__`-prefixed entries are harness FLAGS (see `__fieldPrompt`), not storage keys.
+      for (const [k, v] of Object.entries(entries as Record<string, string>)) {
+        if (!k.startsWith('__')) localStorage.setItem(k, v);
+      }
     } catch { /* private mode */ }
     // js/src/22-push.js opens a full-screen "אפשרו התראות" modal 2.5 s after load for every
     // non-viewer whose Notification.permission is not 'granted' — which is every headless
@@ -195,6 +210,10 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
     // Same story for js/src/02-init-attendance.js: אביאם / ניתאי get a full-screen
     // "חסר תיעוד!" reminder once per session, which also covers the page. Its own latch.
     (window as any)._attReminderShown = true;
+    // Same story again for the arrival sheet (spec §5.1): אביאם / ניתאי are asked where they
+    // arrived once per session, which covers the screen. Its own latch, cleared by
+    // `boot({ fieldPrompt: true })`.
+    if (!(entries as any).__fieldPrompt) (window as any)._fieldPromptShown = true;
   }, seed);
 
   const q = 'login=0&sb=0' + (opts.query ? '&' + opts.query : '');

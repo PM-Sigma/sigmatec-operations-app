@@ -229,6 +229,8 @@
   var act = qs.get('pushact');
   if (!act) return;
   var oid = qs.get('oid') || '';
+  var kibbutz = qs.get('kibbutz') || '';
+  var cid = qs.get('cid') || '';
 
   function ready() { return !!(window.SHEET_DATA && typeof getCurrentUser === 'function' && getCurrentUser()); }
   function run() {
@@ -237,6 +239,27 @@
       else if (act === 'order' && typeof showPage === 'function') { showPage('inventory'); }
       else if (act === 'fillToday') { if (typeof showPage === 'function') showPage('attendance'); if (typeof openVisitQuick === 'function') openVisitQuick(); }
       else if (act === 'fillMissing') { if (typeof showPage === 'function') showPage('attendance'); }
+      // ✍️ כתוב סיכום — the 2 h visit nudge (spec §5.2). One tap = the visit form with the
+      // kibbutz already in it; `openVisitQuick` with a name opens the form directly.
+      else if (act === 'visit') {
+        if (typeof showPage === 'function') showPage('kibbutz');
+        if (window.sigma && typeof window.sigma.openVisitQuick === 'function') window.sigma.openVisitQuick(kibbutz);
+        else if (typeof openVisitQuick === 'function') openVisitQuick();
+      }
+      // 🙈 לא היום — the React island owns the write (supabase-js + the query cache); without
+      // it (no bundle) there is nothing to do but say so, and the next run will nudge again.
+      else if (act === 'visitDismiss') {
+        // The island is a LAZY chunk, so it can still be loading when the deep link runs.
+        var tries2 = 0;
+        (function waitField() {
+          if (window.sigmaField && typeof window.sigmaField.dismiss === 'function') { window.sigmaField.dismiss(cid); return; }
+          if (++tries2 > 20) {                       // ~5 s, then say it plainly and move on
+            if (window.sigma && typeof window.sigma.toast === 'function') window.sigma.toast('בסדר, לא היום.');
+            return;
+          }
+          setTimeout(waitField, 250);
+        })();
+      }
     } catch (e) { console.warn('[push] deep-link failed', e); }
     // strip the params (keep the hash) so a manual refresh doesn't repeat the action
     try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) {}

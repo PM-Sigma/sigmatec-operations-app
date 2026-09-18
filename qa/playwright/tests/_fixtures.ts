@@ -19,6 +19,12 @@ export interface Fixtures {
   kibbutzim: Array<Record<string, unknown>>;
   notes: Array<Record<string, unknown>>;
   usage: Array<Record<string, unknown>>;
+  /**
+   * Field arrivals (spec §5.1). Built RELATIVE TO NOW, not to a frozen date: the "היום" strip
+   * and its 2 h nudge are decided by the clock, so a fixed timestamp would pass in the
+   * morning and fail in the afternoon. `checkins()` is a function for the same reason.
+   */
+  checkins: () => Array<Record<string, unknown>>;
 }
 
 const daysAgo = (n: number) => {
@@ -86,4 +92,20 @@ export const USAGE_EVENTS = (() => {
   return out;
 })();
 
-export const FIXTURES: Fixtures = { kibbutzim: KIBBUTZIM, notes: NOTES, usage: USAGE_EVENTS };
+/**
+ * One arrival, two and a half hours old, with no visit filed for it — which is exactly the
+ * state the in-app nudge (§7k #4) and the `visitCron` push both exist for. Only served to
+ * specs that ask for it (`boot({ checkins: true })`), so no other screen grows a strip.
+ */
+export const CHECKINS = () => [
+  {
+    id: '11111111-1111-4111-8111-111111111111',
+    person: 'אביאם',
+    kibbutz: 'חוקוק',
+    checked_in_at: new Date(Date.now() - 2.5 * 3600_000).toISOString(),
+    reminded_at: null,
+    dismissed: false,
+  },
+];
+
+export const FIXTURES: Fixtures = { kibbutzim: KIBBUTZIM, notes: NOTES, usage: USAGE_EVENTS, checkins: CHECKINS };

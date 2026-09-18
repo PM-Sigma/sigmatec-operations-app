@@ -4,6 +4,8 @@
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
 //   feedbackNew             : { mode:'feedbackNew', kind, preview, token }     → 📣 box → עידן + עמיחי (EMS-gated)
 //   usageDigest             : { mode:'usageDigest', force?, token?, actor? }   → weekly narrative → עידן (Sun 08:00)
+//   visitCron               : { mode:'visitCron' }                             → "2 h after the check-in, no summary yet"
+//                             AUTH: X-Cron-Key header (pg_cron, db/cron_visit_15min.sql) OR a valid EMS login
 //                             AUTH: X-Cron-Key header (pg_cron) OR a valid EMS login; only עידן may force
 // Recipients + text + action buttons are computed/fixed SERVER-SIDE.
 // Every recipient device gets one push_log row (audit). Logging is non-fatal.
@@ -18,6 +20,14 @@ import { digestBody, PAGE_KEYS, usageNarrative, weekTag, type UsageEvent } from 
 // Same copy-and-pin arrangement as the narrative: who may ask for a digest is a PURE
 // decision, tested in app/src/lib/usageDigest.test.ts (the four review cases).
 import { usageDigestAuth } from "./usageDigest.ts";
+// 📍 The field flow (spec §5). Same copy-and-pin arrangement: app/src/lib/field.ts is the
+// original, this is a BYTE-IDENTICAL copy, and test-field.mjs fails the build on any drift.
+// EVERY decision the visitCron mode makes — the 2 h rule, the 20:00 cap, the quiet hours, the
+// daily cap, which words go out — is one of these pure functions, tested in field.test.ts.
+import {
+  israelAt, nudgeFor, PUSH_DAILY_CAP, visitCronSelect,
+  type CheckinRow, type DraftRow, type VisitRow,
+} from "./field.ts";
 
 const APP = "/sigmatec-operations-app/";   // GitHub Pages base path (openWindow target)
 const CORS = {
@@ -100,6 +110,27 @@ function priorMissing(have: Set<string>, t: { y: number; m: number; d: number })
     const key = `${t.y}-${String(t.m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     if (!have.has(key)) out.push(key);
   }
+  return out;
+}
+
+// ── adoption guard ג: at most PUSH_DAILY_CAP non-digest pushes per person per day ──────────
+// Counted from push_log, which is the only record of what actually left the building. One
+// push writes ONE ROW PER DEVICE, so the rows are folded by title: a person with a phone and
+// a tablet used one of his three, not two. The weekly digest is exempt by design — it is the
+// one message that is a report rather than a nudge.
+async function sentTodayCounts(people: string[]): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  if (!people.length) return out;
+  const since = new Date(israelAt(new Date(), 0, 0)).toISOString();
+  const { data } = await sb.from("push_log").select("recipient,title,event")
+    .in("recipient", people).gte("sent_at", since).neq("event", "usageDigest");
+  const seen = new Map<string, Set<string>>();
+  for (const r of (data ?? []) as Array<{ recipient: string; title: string; event: string }>) {
+    const set = seen.get(r.recipient) ?? new Set<string>();
+    set.add(String(r.event) + "|" + String(r.title));
+    seen.set(r.recipient, set);
+  }
+  for (const [person, set] of seen) out[person] = set.size;
   return out;
 }
 
@@ -193,7 +224,11 @@ Deno.serve(async (req: Request) => {
     if (!kind) return json({ ok: true, skipped: "not a scheduled hour", hour: t.hh });
     const since = new Date(Date.now() - 12 * 3600 * 1000).toISOString();   // 12h window → DST-proof idempotency
     const results: any[] = [];
+    // Adoption guard ג: the cap is global, so this job has to ask too — three nudges in a day
+    // is the ceiling across attendance, visits and anything added later.
+    const capCount = await sentTodayCounts(ATT_PEOPLE);
     for (const person of ATT_PEOPLE) {
+      if ((capCount[person] ?? 0) >= PUSH_DAILY_CAP) { results.push({ person, kind, skipped: "daily cap" }); continue; }
       const { data: prior } = await sb.from("push_log").select("id")
         .eq("event", "attendanceCron").eq("recipient", person).eq("where_txt", kind).gte("sent_at", since).limit(1);
       if (prior && prior.length) { results.push({ person, kind, skipped: "already sent" }); continue; }
@@ -218,6 +253,73 @@ Deno.serve(async (req: Request) => {
       results.push({ person, kind, dates: dates.length, delivered: r.delivered });
     }
     return json({ ok: true, kind, results });
+  }
+
+  // ---- 📍 the 2 h visit-summary reminder (spec §5.2, guards §7k ג) --------------------
+  // pg_cron hits this every quarter of an hour (db/cron_visit_15min.sql). Everything it
+  // decides is `visitCronSelect` in ./field.ts — a pure function with goldens
+  // (app/src/lib/field.test.ts), so the rules can be read and changed in one place instead of
+  // being spread through this handler.
+  if (body.mode === "visitCron") {
+    // AUTH, like usageDigest: pg_cron's shared secret, or a live EMS login. The PUBLIC anon
+    // key alone must never be able to make two people's phones buzz.
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    const byCron = !!secret && !!cronKey && cronKey === secret;
+    if (!byCron && !(await emsValid(String(body.token || "")))) {
+      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
+    }
+
+    const nowIso = new Date().toISOString();
+    const windowStart = new Date(Date.now() - 14 * 3600 * 1000).toISOString();
+    const { data: rows } = await sb.from("field_checkins").select("*")
+      .is("reminded_at", null).eq("dismissed", false)
+      .gte("checked_in_at", windowStart).order("checked_in_at");
+    const checkins = (rows ?? []) as CheckinRow[];
+    if (!checkins.length) return json({ ok: true, results: [] });
+
+    const people = [...new Set(checkins.map((c) => c.person))];
+    // Two days of visits and drafts: a check-in can be 14 h old, which crosses midnight.
+    const fromDay = new Date(Date.now() - 2 * 86400 * 1000).toISOString().slice(0, 10);
+    const [vis, dr, sent] = await Promise.all([
+      sb.from("visits").select("visitor,kibbutz,date").in("visitor", people).gte("date", fromDay),
+      sb.from("visit_drafts").select("id,person,kibbutz,date").in("person", people).gte("date", fromDay),
+      sentTodayCounts(people),
+    ]);
+
+    const plan = visitCronSelect({
+      checkins,
+      visits: (vis.data ?? []) as VisitRow[],
+      drafts: (dr.data ?? []) as DraftRow[],
+      sentToday: sent,
+      nowIso,
+    });
+
+    // A check-in whose visit is already filed is DONE, not pending: stamping it keeps the
+    // next 96 runs of the day from re-reading it.
+    const settled = plan.skip.filter((s) => s.reason === "visit exists").map((s) => s.id);
+    if (settled.length) await sb.from("field_checkins").update({ reminded_at: nowIso }).in("id", settled);
+
+    const results: any[] = [];
+    for (const pick of plan.remind) {
+      const { title, body: bodyTxt } = nudgeFor(pick.id, pick.kibbutz, pick.hasDraft);
+      const url = APP + "?pushact=visit&kibbutz=" + encodeURIComponent(pick.kibbutz);
+      const dismissUrl = APP + "?pushact=visitDismiss&cid=" + pick.id;
+      const payload = JSON.stringify({
+        title, body: bodyTxt, tag: "visit-" + pick.id, requireInteraction: true, url,
+        actions: [{ action: "visit", title: "✍️ כתוב סיכום" }, { action: "visitDismiss", title: "🙈 לא היום" }],
+        data: { cid: pick.id, actUrls: { visit: url, visitDismiss: dismissUrl } },
+      });
+      const meta = {
+        event: "visitCron", order_id: null, where_txt: pick.kibbutz, qty: 1, actor: null, title, body: bodyTxt,
+      };
+      const r = await sendTo([pick.person], payload, meta);
+      // Stamped whatever the delivery said: a person with no subscription must not be
+      // re-selected every fifteen minutes for the rest of the day.
+      await sb.from("field_checkins").update({ reminded_at: new Date().toISOString() }).eq("id", pick.id);
+      results.push({ id: pick.id, kibbutz: pick.kibbutz, draft: pick.hasDraft, delivered: r.delivered });
+    }
+    return json({ ok: true, results, skipped: plan.skip });
   }
 
   // ---- 📈 weekly usage digest (spec §7j) ------------------------------------------------

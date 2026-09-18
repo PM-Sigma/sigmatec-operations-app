@@ -268,6 +268,32 @@
       },
       getLastVisit: function (kibbutz) { return call('getLastVisit', [kibbutz], null); },
 
+      // The briefing's "לפני שיוצאים" leftovers (spec §5.1b). React never touches the legacy
+      // form's DOM, so it hands the text over here and we write it the moment the form is on
+      // screen — ONCE, and only while the field is still empty, so a draft that already has
+      // his own words in it is never overwritten. The `input` event is what makes the visit
+      // form's autosave pick the text up as part of the draft.
+      prefillOpenItems: function (kibbutz, text) {
+        var value = String(text == null ? '' : text).trim();
+        if (!value) return;
+        var done = false;
+        var fill = function () {
+          if (done) return;
+          done = true;
+          window.sigmaBus.removeEventListener('visit-form-open', fill);
+          setTimeout(function () {
+            var el = document.getElementById('visitOpenItems');
+            if (!el || String(el.value || '').trim()) return;   // his own text always wins
+            el.value = value;
+            try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}
+          }, 60);
+        };
+        window.sigmaBus.addEventListener('visit-form-open', fill);
+        // Already open (he pressed 📍 from a form that was on screen) — no event is coming.
+        if (window._visitFormOpen) fill();
+        setTimeout(function () { window.sigmaBus.removeEventListener('visit-form-open', fill); }, 120000);
+      },
+
       // ---- visit drafts (spec §5.1c) ---------------------------------------
       // The legacy module is the only writer of a draft, so it is the only reader too: React
       // asks "is there one?" and never learns the payload's shape. `date` omitted = any day.

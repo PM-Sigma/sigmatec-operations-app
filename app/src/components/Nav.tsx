@@ -64,6 +64,17 @@ export function Nav() {
     sigma.openVisitQuick();
   };
 
+  /**
+   * The raised 📍 (§5.1 fast path + §7k #1). For a field worker who has not checked in yet
+   * today it opens the arrival sheet — that IS his fastest route, because the briefing's own
+   * 📍 is the same form one tap later. For everyone else, and once he has checked in, it goes
+   * straight to the visit form, exactly as before.
+   */
+  const openVisitOrArrival = () => {
+    try { if ((window as any).sigmaField?.maybeOpen?.()) return; } catch { /* no field island */ }
+    sigma.openVisitQuick();
+  };
+
   const scrollToReports = () => {
     sigma.showPage('kibbutz');
     document.getElementById('viewerReportsHub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -89,7 +100,7 @@ export function Nav() {
             <div className="relative flex w-[72px] shrink-0 justify-center">
               <button
                 type="button"
-                onClick={() => sigma.openVisitQuick()}
+                onClick={openVisitOrArrival}
                 aria-label="תיעוד ביקור"
                 // 46 px, radius 14, pulled 16 px up — the mockup's `.nav a.big i`. A circle
                 // read as a third-party FAB dropped onto the bar; this reads as part of it.

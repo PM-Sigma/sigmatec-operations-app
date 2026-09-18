@@ -97,6 +97,16 @@ function boot() {
       .catch(e => console.warn('[sigma] card home island failed — legacy cards stay', e));
   }
 
+  // 📍 The field day (Task 5): the arrival sheet + briefing (#sigma-field) and the "היום"
+  // strip above the cards (#sigma-today). One lazy chunk, two roots — the strip has to render
+  // before the cards, and the sheet is a portal. Neither surface exists for a non-field role,
+  // so a failed chunk costs nothing but the nudge.
+  if (document.getElementById('sigma-field') || document.getElementById('sigma-today')) {
+    import('@/islands/Field')
+      .then(m => m.mountField())
+      .catch(e => console.warn('[sigma] field island failed', e));
+  }
+
   // 🗓 Meeting notes (Task 2): the modal tab + the admin-only import sheet. Same lazy-chunk
   // reasoning as the home island — both read data, and the modal tab is only ever opened
   // from a card. They are separate roots so one failing never takes the other down.
