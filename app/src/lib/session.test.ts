@@ -13,7 +13,7 @@ import {
 import { REMINT_EVERY_MS, remintDelay, shouldRemintNow } from './remint';
 
 const base: GateInput = {
-  emsConnected: false, everSignedIn: false, role: 'team',
+  emsConnected: false, hasPass: false, passPending: false, everSignedIn: false, role: 'team',
   hostname: 'pm-sigma.github.io', search: '',
 };
 
@@ -45,6 +45,7 @@ describe('?login=0 is test-only', () => {
 describe('gate matrix (connected / expired / never × role)', () => {
   it('connected → content', () => {
     expect(gateState({ ...base, emsConnected: true })).toBe('open');
+    expect(gateState({ ...base, hasPass: true })).toBe('open');
     expect(isGateOpen('open')).toBe(true);
   });
 
@@ -58,9 +59,23 @@ describe('gate matrix (connected / expired / never × role)', () => {
     expect(isGateOpen('locked')).toBe(false);
   });
 
-  it('view-only entry has no EMS account by design → content', () => {
-    expect(gateState({ ...base, role: 'viewer', everSignedIn: true })).toBe('viewer');
-    expect(isGateOpen('viewer')).toBe(true);
+  // review fix 2: the view-only entry mints the SAME pass (ems-auth mode 'viewer'), so the one
+  // rule is "has a pass" — a viewer waved through without one read empty screens and was then
+  // shown a sheet he could not satisfy.
+  it('a viewer WITH a pass sees content', () => {
+    expect(gateState({ ...base, role: 'viewer', hasPass: true, everSignedIn: true })).toBe('open');
+  });
+
+  it('a viewer WITHOUT a pass is not waved through', () => {
+    expect(gateState({ ...base, role: 'viewer', everSignedIn: true })).toBe('expired');
+    expect(gateState({ ...base, role: 'viewer' })).toBe('locked');
+  });
+
+  it('a cold boot mid-mint renders content, not the sign-in card', () => {
+    expect(gateState({ ...base, passPending: true, everSignedIn: true })).toBe('pending');
+    expect(isGateOpen('pending')).toBe(true);
+    // …but a device that never signed in is still locked, mint or no mint
+    expect(gateState({ ...base, passPending: true })).toBe('locked');
   });
 
   it('mock mode on an allowed host wins over everything', () => {

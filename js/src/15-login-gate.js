@@ -51,15 +51,35 @@
     return _sbMintInflight;
   }
   window._sbBridge = sbBridge;
+  // What this device can trade for a pass right now: an EMS session, or the view-only code the
+  // person typed this session (kept in sessionStorage so a silent re-mint needs no re-typing,
+  // and gone when the browser closes — the code itself is only ever compared by the function).
+  window.VIEWER_CODE_KEY = 'viewer_code_v1';
+  function viewerCode() {
+    try {
+      if ((localStorage.getItem('dashboard_role_v1') || '') !== 'viewer') return '';
+      return sessionStorage.getItem(window.VIEWER_CODE_KEY) || '';
+    } catch (e) { return ''; }
+  }
+  function mintBody() {
+    var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
+    if (tok) return { emsToken: tok };
+    var code = viewerCode();
+    if (code) return { mode: 'viewer', pin: code };
+    return null;
+  }
+  window._sbMintBody = mintBody;   // the viewer sign-in reuses the same shape
+
   async function _sbBridgeMint() {
     try {
-      var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
-      if (!tok) return false;
+      var body = mintBody();
+      if (!body) return false;
+      window._sbPassPending = true;
       var ac = new AbortController(); var tt = setTimeout(function () { ac.abort(); }, 15000);   // a hung ems-auth fn must not stall login
       var r = await fetch(SB_URL + '/functions/v1/ems-auth', {
         method: 'POST',
         headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emsToken: tok }),
+        body: JSON.stringify(body),
         signal: ac.signal
       });
       clearTimeout(tt);
@@ -77,6 +97,9 @@
             if (!t.ok) { console.warn('[bridge] pass rejected (' + t.status + ') — staying on anon'); window._sbToken = null; window._sbTokenExp = 0; }
             else {
               console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
+              // The grace stamp: a 401 that was already on the wire when this landed belongs to
+              // the cold boot, not to an expiry (js/src/00-bridge.js reads it).
+              window._sbPassMintedAt = Date.now();
               // proactive re-mint before expiry → writes never silently fail post-lockdown (while the EMS session lives)
               scheduleRemint();
             }
@@ -87,6 +110,32 @@
     } catch (e) { console.warn('[bridge] failed', e); }
     return false;
   }
+
+  // ── THE one promise every read and write waits on (review fix 1) ───────────────────────
+  // `sbGet` used to fire the moment a module asked for data, which on a cold boot raced the
+  // async mint: the read went out anon, the authenticated-only tables answered 401, and the
+  // person was shown a re-login sheet on a perfectly valid session. Memoized, so a boot that
+  // asks eight times mints once, and cheap once the pass is in hand.
+  var _ensureInflight = null;
+  window._sbPassPending = false;
+  function sbEnsurePass() {
+    if (window._sbToken && (window._sbTokenExp || 0) > Date.now()) return Promise.resolve(true);
+    if (_ensureInflight) return _ensureInflight;
+    if (!mintBody()) return Promise.resolve(false);            // nothing to trade — go out anon
+    window._sbPassPending = true;
+    _ensureInflight = sbBridge()
+      .catch(function () { return false; })
+      .then(function (ok) { window._sbPassPending = false; _ensureInflight = null; return !!ok; });
+    return _ensureInflight;
+  }
+  window.sbEnsurePass = sbEnsurePass;
+
+  /** One forced re-mint, for the single retry a 401 is allowed before it counts as an expiry. */
+  function sbRemintOnce() {
+    window._sbToken = null; window._sbTokenExp = 0;
+    return sbEnsurePass();
+  }
+  window.sbRemintOnce = sbRemintOnce;
 
   (function setupEmsLoginGate() {
     if (typeof LOGIN_FLAG === 'undefined' || !LOGIN_FLAG) return;
@@ -99,7 +148,7 @@
       // A returning session (spec §7m G2): mint the pass, then run the two things that used to
       // fire only from the retired EMS page — the queued-writes flush + cache sync, and the
       // session-cap timer that ends a stale session through the one expiry funnel.
-      sbBridge().then(function () {
+      sbEnsurePass().then(function () {
         try { if (typeof emsOnConnected === 'function') emsOnConnected(false); } catch (e) {}
         try { if (typeof scheduleEmsExpiry === 'function') scheduleEmsExpiry(); } catch (e) {}
         if (typeof refreshData === 'function') refreshData();
@@ -149,6 +198,16 @@
         window._sigmaExpiryAt = 0;   // a fresh session may raise a fresh expiry
       } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');
+      // A reload is the clean way to re-init every role-dependent element — EXCEPT while the
+      // person is in a form (the visit summary): the draft is saved, but what is on screen and
+      // not yet in the draft is not, so there we restore in place (review fix, minors).
+      if (window._visitFormOpen) {
+        try { sessionStorage.removeItem('ems_return_page_v1'); sessionStorage.removeItem('ems_return_scroll_v1'); } catch (e) {}
+        try { if (typeof refreshData === 'function') refreshData(); } catch (e) {}
+        try { if (typeof scheduleEmsExpiry === 'function') scheduleEmsExpiry(); } catch (e) {}
+        try { if (typeof updateEmsBubble === 'function') updateEmsBubble(); } catch (e) {}
+        return;
+      }
       try { location.reload(); } catch (e) {}
     }
     function storeToken(url, token) {
@@ -215,17 +274,37 @@
       catch (e) { err.textContent = 'שגיאה בשליחת קוד: ' + e.message; }
     };
     // ---- view-only entry (no EMS account): reports + reading only, every write blocked (isViewer) ----
-    const VIEWER_PIN = '0540';   // change here to rotate the viewer access code (same as the legacy team PIN, per עידן)
+    // The access code is NOT in this bundle any more (review fix 2): `ems-auth` compares it
+    // against its own VIEWER_PIN secret and mints the same bridge pass a signed-in person gets,
+    // with the subject "viewer". That is what lets every screen gate on "has a pass" — before
+    // this a viewer could not hold one at all, so the locked-down tables read as empty.
     window.gateViewerToggle = function () {
       const box = document.getElementById('gateViewerBox');
       if (!box) return;
       box.style.display = box.style.display === 'none' ? '' : 'none';
       if (box.style.display !== 'none') setTimeout(function () { document.getElementById('gateViewerPin').focus(); }, 50);
     };
-    window.gateViewerLogin = function () {
+    window.gateViewerLogin = async function () {
       const err = document.getElementById('gateError');
       const pin = (document.getElementById('gateViewerPin').value || '').trim();
-      if (pin !== VIEWER_PIN) { err.textContent = 'קוד צפייה שגוי'; return; }
+      if (!pin) { err.textContent = 'נא להזין את קוד הצפייה'; return; }
+      err.innerHTML = '<span class="gate-spin"></span> בודק...';
+      let d = null, status = 0;
+      try {
+        const r = await fetch(SB_URL + '/functions/v1/ems-auth', {
+          method: 'POST',
+          headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'viewer', pin: pin })
+        });
+        status = r.status;
+        d = await r.json().catch(function () { return null; });
+      } catch (e) { err.textContent = 'שגיאת חיבור: ' + e.message; return; }
+      if (!d || !d.token) { err.textContent = (d && d.error) || ('(' + status + ') לא ניתן להיכנס כרגע'); return; }
+      // The code stays for THIS browser session only, so a silent re-mint needs no re-typing.
+      try { sessionStorage.setItem(window.VIEWER_CODE_KEY, pin); } catch (e) {}
+      var ttlMs = (d.expiresIn ? d.expiresIn * 1000 : 180 * 60 * 1000) - 5 * 60 * 1000;
+      window._sbToken = d.token; window._sbTokenExp = Date.now() + Math.max(60000, ttlMs);
+      window._sbPassMintedAt = Date.now();
       localStorage.setItem(USER_KEY, 'צפייה');
       localStorage.setItem(ROLE_KEY, 'viewer');
       localStorage.setItem(AUTH_KEY, 'ok');
@@ -238,6 +317,12 @@
     };
     window.gateLogout = function () {
       try { localStorage.removeItem(EMS_TOKEN_KEY); localStorage.removeItem(EMS_TOKEN_AT_KEY); } catch (e) {}
+      // Drop the pass and everything that would renew it — a re-mint timer firing after a
+      // logout would quietly mint a new pass for a session the person just ended.
+      try { clearTimeout(window._sbRefreshTimer); } catch (e) {}
+      window._sbRefreshTimer = null;
+      window._sbToken = null; window._sbTokenExp = 0; window._sbPassMintedAt = 0;
+      try { sessionStorage.removeItem(window.VIEWER_CODE_KEY); } catch (e) {}
       localStorage.removeItem(USER_KEY); localStorage.removeItem(AUTH_KEY); localStorage.removeItem(ROLE_KEY);
       if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       location.reload();

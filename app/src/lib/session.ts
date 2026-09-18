@@ -50,12 +50,12 @@ export function mockModeAllowed(hostname: string, search: string): boolean {
 }
 
 export type GateState =
-  /** a live EMS session — render the content */
+  /** a live session — an EMS sign-in, or the view-only entry: both hold a write pass */
   | 'open'
   /** `?login=0` on a host allowed to mock — render the content against fixtures */
   | 'mock'
-  /** view-only entry (no EMS account by design) — render the content read-only */
-  | 'viewer'
+  /** the pass is being minted (a cold boot) — render the content, the queries wait for it */
+  | 'pending'
   /** signed in earlier, the session is gone — render the sign-in card */
   | 'expired'
   /** never signed in on this device — render the sign-in card */
@@ -63,6 +63,14 @@ export type GateState =
 
 export interface GateInput {
   emsConnected: boolean;
+  /**
+   * A valid write pass is in hand. Since review fix 2 the view-only entry mints one too (the
+   * access code is checked by `ems-auth`), so "has a pass" is the one rule for every role —
+   * a viewer used to be waved through with no pass at all and then read empty screens.
+   */
+  hasPass: boolean;
+  /** The mint is in flight: a cold boot, not a closed gate. */
+  passPending: boolean;
   /** A completed sign-in is remembered on the device, which is what separates expired from never. */
   everSignedIn: boolean;
   role: string;
@@ -73,14 +81,14 @@ export interface GateInput {
 /** What an island should render. Pure — the hook below feeds it the live values. */
 export function gateState(i: GateInput): GateState {
   if (mockModeAllowed(i.hostname, i.search)) return 'mock';
-  if (i.emsConnected) return 'open';
-  if (i.role === 'viewer') return 'viewer';
+  if (i.emsConnected || i.hasPass) return 'open';
+  if (i.passPending && i.everSignedIn) return 'pending';
   return i.everSignedIn ? 'expired' : 'locked';
 }
 
 /** Content, or the sign-in card. */
 export function isGateOpen(state: GateState): boolean {
-  return state === 'open' || state === 'mock' || state === 'viewer';
+  return state === 'open' || state === 'mock' || state === 'pending';
 }
 
 /** True when this 401 starts a NEW expiry rather than joining the one in flight. */
@@ -126,21 +134,50 @@ function everSignedIn(): boolean {
   try { return localStorage.getItem(AUTH_KEY) === 'ok'; } catch { return false; }
 }
 
-/** The live gate state, re-read whenever the connection or the person changes. */
+function passNow(): { hasPass: boolean; passPending: boolean } {
+  const s = (window as any).sigma;
+  let hasPass = false;
+  let passPending = false;
+  try { hasPass = !!s?.sbPass?.(); } catch { /* no bridge */ }
+  try { passPending = !!s?.passPending?.(); } catch { /* no bridge */ }
+  return { hasPass, passPending };
+}
+
+/**
+ * The live gate state. Re-read on the person / connection / expiry events — and, while the
+ * pass is being minted, on a short poll: the mint is a promise in the legacy bundle, not an
+ * event, and a cold boot must flip to content the moment it lands (review fix 1).
+ */
 export function useEmsGate(): GateState {
   const connected = useEmsConnected();
   const { role } = useCurrentUser();
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
+  const bump = () => setTick(t => t + 1);
   useEffect(() => {
     const b = bus();
-    if (!b) return;
-    const fn = () => setTick(t => t + 1);
-    b.addEventListener(SESSION_EXPIRED, fn);
-    return () => b.removeEventListener(SESSION_EXPIRED, fn);
+    const fn = () => bump();
+    b?.addEventListener(SESSION_EXPIRED, fn);
+    // asking the bridge to start the mint is free once it is done (the promise is memoized)
+    try { void (window as any).sigma?.ensurePass?.().then(fn).catch(fn); } catch { /* no bridge */ }
+    // A safety tick ONLY while the mint is in flight — the promise above is the normal path,
+    // and this covers a mint started by someone else (a legacy read) before this island mounted.
+    let poll: ReturnType<typeof setInterval> | null = null;
+    if (passNow().passPending) {
+      poll = setInterval(() => {
+        if (!passNow().passPending && poll) { clearInterval(poll); poll = null; }
+        bump();
+      }, 500);
+    }
+    return () => {
+      b?.removeEventListener(SESSION_EXPIRED, fn);
+      if (poll) clearInterval(poll);
+    };
   }, []);
-  void tick;
+  const { hasPass, passPending } = passNow();
   return gateState({
     emsConnected: connected,
+    hasPass,
+    passPending,
     everSignedIn: everSignedIn(),
     role: String(role || ''),
     hostname: location.hostname,

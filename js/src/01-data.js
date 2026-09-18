@@ -395,14 +395,32 @@
     // sheet — instead of surfacing as an empty screen. Mock mode (?login=0 on a dev host) is
     // excluded: there the 401s are the test harness, not an expiry.
     const sbAuthFailed = (status) => {
-      if (status !== 401 && status !== 403) return;
+      // 401 ONLY. A 403 / 42501 is "this row is not yours", which is a permission answer, not an
+      // expired session — funnelling it would raise a sign-in sheet at a person who IS signed
+      // in (review fix 3).
+      if (status !== 401) return;
       try {
         var mockHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || /(^|\.)githack\.com$/.test(location.hostname);
         if (location.search.indexOf('login=0') !== -1 && mockHost) return;
         if (typeof window.sigmaSessionExpired === 'function') window.sigmaSessionExpired('sb-read-' + status);
       } catch (e) {}
     };
-    const sbGet = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { headers: baseH() }); if (!r.ok) { sbAuthFailed(r.status); throw new Error('supabase GET ' + path + ' ' + r.status); } return r.json(); };
+    // Every read waits for the pass first (review fix 1): the authenticated-only tables answer
+    // 401 to an anon read, and `kibbutzimBoot` used to fire before the mint had landed. One
+    // 401 afterwards still buys ONE forced re-mint + retry before it counts as an expiry.
+    const sbEnsure = () => (typeof window.sbEnsurePass === 'function' ? window.sbEnsurePass() : Promise.resolve(false));
+    const sbGet = async (path, retried) => {
+      await sbEnsure();
+      const r = await realFetch(SB_URL + '/rest/v1/' + path, { headers: baseH() });
+      if (!r.ok) {
+        if (r.status === 401 && !retried && typeof window.sbRemintOnce === 'function') {
+          try { if (await window.sbRemintOnce()) return await sbGet(path, true); } catch (e) {}
+        }
+        sbAuthFailed(r.status);
+        throw new Error('supabase GET ' + path + ' ' + r.status);
+      }
+      return r.json();
+    };
     const sbUpsert = async (table, key, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?on_conflict=' + key, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase upsert ' + table + ' ' + r.status + ' ' + await r.text()); };
     // PATCH = partial update: writes ONLY the columns in `row`, leaving the rest of the existing record untouched.
     const sbPatch = async (table, filter, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?' + filter, { method: 'PATCH', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase patch ' + table + ' ' + r.status + ' ' + await r.text()); };
@@ -556,9 +574,9 @@
           // Writes need the AUTHENTICATED bridge pass (anon is read-only post-lockdown). If it lapsed,
           // re-mint BEFORE any upsert — otherwise the write goes out as anon and is rejected, which is the
           // root of the recurring "נשמר מקומית/לוקאלית" failures (company-tasks, requirements, etc.).
-          if ((!window._sbToken || (window._sbTokenExp || 0) <= Date.now()) && typeof window._sbBridge === 'function') {
-            try { await window._sbBridge(); } catch (e) {}
-          }
+          // The same one promise the reads wait on (review fix 1) — memoized, so a burst of
+          // writes mints once instead of once each.
+          try { await sbEnsure(); } catch (e) {}
           if (!b.type) return respond(await writeTask(b));
           if (b.type === 'order') return respond(await writeOrder(b));
           if (b.type === 'requirement') return respond(await writeRequirement(b));

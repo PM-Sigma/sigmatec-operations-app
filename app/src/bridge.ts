@@ -91,6 +91,15 @@ export interface Sigma {
    */
   sessionExpired?(reason?: string): boolean;
   beginReLogin?(): void;
+  /**
+   * The ONE memoized mint promise (review fix 1), shared with every legacy read and write: an
+   * island awaits it before its first request, so a cold boot never reads anon against the
+   * authenticated-only tables and never mistakes that 401 for an expiry. `remintOnce` forces a
+   * fresh pass for the single retry a 401 is allowed; `passPending` says a mint is in flight.
+   */
+  ensurePass?(): Promise<boolean>;
+  remintOnce?(): Promise<boolean>;
+  passPending?(): boolean;
 
   /**
    * Ctrl+K (§7k.1). ASSIGNED BY React (islands/CommandBar.tsx), not by the legacy bridge —

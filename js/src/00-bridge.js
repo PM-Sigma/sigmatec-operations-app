@@ -25,10 +25,18 @@
   //
   // Returns true when this call actually announced an expiry (the tests assert on that).
   var SIGMA_EXPIRY_WINDOW_MS = 4000;
+  // A cold boot mints the pass asynchronously (js/src/15-login-gate.js `sbEnsurePass`). A 401
+  // that was already on the wire while that was happening — or that crossed a fresh mint by a
+  // hair — is the boot racing itself, NOT an expired session, and the caller retries it once.
+  // Without this the very first visit of the day showed a re-login sheet on a valid session
+  // (review fix 1).
+  var SIGMA_MINT_GRACE_MS = 2000;
   window._sigmaExpiryAt = window._sigmaExpiryAt || 0;
   window.sigmaSessionExpired = function (reason) {
     try { if (window._certViewMode) return false; } catch (e) {}
     var now = Date.now();
+    if (window._sbPassPending) return false;
+    if (window._sbPassMintedAt && (now - window._sbPassMintedAt) < SIGMA_MINT_GRACE_MS) return false;
     if (window._sigmaExpiryAt && (now - window._sigmaExpiryAt) < SIGMA_EXPIRY_WINDOW_MS) return false;
     window._sigmaExpiryAt = now;
     window.sigmaEmit('session-expired', { reason: reason || 'unknown' });
@@ -55,6 +63,11 @@
     // No gate markup on this page → a reload lands on it (the gate is the front door).
     try { location.reload(); } catch (e) {}
   };
+
+  // Is the person in the middle of the visit form? The gate reads this to restore the screen
+  // in place after a re-login instead of reloading it away from under him (review fix, minors).
+  window.sigmaBus.addEventListener('visit-form-open', function () { window._visitFormOpen = true; });
+  window.sigmaBus.addEventListener('visit-saved', function () { window._visitFormOpen = false; });
 
   // ───────────────────────── usage tracking (spec §7j) ─────────────────────────
   // The legacy half: stamp WHO / WHERE / WHEN and park the event in one shared array. The
@@ -270,6 +283,15 @@
       // through app/src/lib/session.ts; nothing else may open a login surface.
       sessionExpired: function (reason) { return window.sigmaSessionExpired(reason); },
       beginReLogin: function () { return window.sigmaBeginReLogin(); },
+      // The ONE mint promise (review fix 1). Islands await it before their first request, so a
+      // cold boot never reads anon against the authenticated-only tables.
+      ensurePass: function () {
+        return (typeof window.sbEnsurePass === 'function') ? window.sbEnsurePass() : Promise.resolve(false);
+      },
+      remintOnce: function () {
+        return (typeof window.sbRemintOnce === 'function') ? window.sbRemintOnce() : Promise.resolve(false);
+      },
+      passPending: function () { return !!window._sbPassPending; },
 
       // ---- feedback ---------------------------------------------------------
       // Replaced by Sonner once #sigma-toaster mounts (islands.tsx writes sigma.toast back).

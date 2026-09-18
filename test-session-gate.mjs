@@ -38,7 +38,11 @@ function loadBridge({ certView = false, withSheet = true, page = 'inventory', sc
     _currentPage: page,
     scrollY,
     _certViewMode: certView,
-    sigmaBus: { dispatchEvent(e) { events.push({ type: e.type, detail: e.detail }); } },
+    sigmaBus: {
+      dispatchEvent(e) { events.push({ type: e.type, detail: e.detail }); },
+      // the module subscribes to visit-form-open / visit-saved (the in-place restore flag)
+      addEventListener() {}, removeEventListener() {},
+    },
     emsRequireLogin: () => legacyModalOpens.push(1),
     location: { reload() { window_.reloaded = true; }, hostname: 'pm-sigma.github.io', search: '' },
   };
@@ -112,10 +116,87 @@ check('the retired EMS page is never the destination', () => {
   assert.ok(!session.get('ems_return_page_v1'), 'must not send anyone back to the EMS page');
 });
 
-check('the bridge exposes the funnel to the islands', () => {
+check('the bridge exposes the funnel and the one mint promise to the islands', () => {
   const { window_ } = loadBridge();
-  assert.strictEqual(typeof window_.sigma.sessionExpired, 'function');
-  assert.strictEqual(typeof window_.sigma.beginReLogin, 'function');
+  for (const fn of ['sessionExpired', 'beginReLogin', 'ensurePass', 'remintOnce', 'passPending']) {
+    assert.strictEqual(typeof window_.sigma[fn], 'function', fn + ' is missing from the bridge');
+  }
+});
+
+console.log('\n── a cold boot is not an expiry (review fix 1)');
+
+check('a 401 while the pass is still being minted is ignored', () => {
+  const { window_, events, sheetOpens } = loadBridge();
+  window_._sbPassPending = true;
+  assert.strictEqual(window_.sigmaSessionExpired('sb-read-401'), false);
+  assert.deepStrictEqual(events, []);
+  assert.strictEqual(sheetOpens.length, 0);
+});
+
+check('a 401 that crossed a fresh mint (< 2 s) is ignored', () => {
+  const { window_, events } = loadBridge();
+  window_._sbPassPending = false;
+  window_._sbPassMintedAt = Date.now();
+  assert.strictEqual(window_.sigmaSessionExpired('sb-read-401'), false);
+  assert.deepStrictEqual(events, []);
+});
+
+check('once the mint is old, a real 401 IS an expiry', () => {
+  const { window_, events } = loadBridge();
+  window_._sbPassMintedAt = Date.now() - 5000;
+  assert.strictEqual(window_.sigmaSessionExpired('sb-read-401'), true);
+  assert.strictEqual(events.length, 1);
+});
+
+check('the cold-boot read sequence: one mint, one retry, no sheet', async () => {
+  // The real shape of the bug: kibbutzimBoot fires while the mint is in flight. `sbGet` now
+  // awaits the ONE memoized promise, so the read goes out WITH the pass; and if a 401 still
+  // comes back it buys one forced re-mint + retry before anyone is asked to sign in.
+  const src = read('js/src/01-data.js');
+  assert.match(src, /const sbGet = async \(path, retried\) => \{\s*\n\s*await sbEnsure\(\);/,
+    'every read must await the pass BEFORE the request');
+  assert.match(src, /if \(r\.status === 401 && !retried[\s\S]{0,200}sbRemintOnce/, 'one retry per read');
+  assert.match(src, /if \(status !== 401\) return;/, 'only a 401 may reach the funnel');
+  // the writes wait on the same promise instead of their own ad-hoc mint
+  assert.match(src, /try \{ await sbEnsure\(\); \} catch/);
+  const gate = read('js/src/15-login-gate.js');
+  assert.match(gate, /function sbEnsurePass\(\)/);
+  assert.match(gate, /if \(_ensureInflight\) return _ensureInflight;/, 'the mint must be memoized');
+  assert.match(gate, /window\._sbPassMintedAt = Date\.now\(\);/, 'the grace stamp');
+});
+
+console.log('\n── the view-only entry holds a pass like everyone else (review fix 2)');
+
+check('the access code is no longer a constant in the client bundle', () => {
+  const gate = read('js/src/15-login-gate.js');
+  assert.doesNotMatch(gate, /VIEWER_PIN\s*=\s*['"]/, 'the PIN must not be a client constant any more');
+  assert.match(gate, /mode: 'viewer', pin: pin/, 'the gate asks the function to check the code');
+  assert.match(gate, /window\._sbToken = d\.token/, 'a viewer must end up holding a pass');
+});
+
+check('the function checks the code itself and fails closed until the secret is set', () => {
+  const fn = read('supabase/functions/ems-auth/index.ts');
+  assert.match(fn, /Deno\.env\.get\("VIEWER_PIN"\)/);
+  assert.match(fn, /setup: "VIEWER_PIN"/, 'an unset secret must say so, not fall back');
+  assert.match(fn, /mintPass\("viewer", \{ viewer: true \}\)/);
+});
+
+check('a logout drops the pass and everything that would renew it', () => {
+  const gate = read('js/src/15-login-gate.js');
+  const logout = gate.slice(gate.indexOf('window.gateLogout'));
+  assert.match(logout, /clearTimeout\(window\._sbRefreshTimer\)/);
+  assert.match(logout, /window\._sbToken = null/);
+  assert.match(logout, /removeItem\(window\.VIEWER_CODE_KEY\)/);
+});
+
+check('a re-login inside the visit form restores in place instead of reloading', () => {
+  const gate = read('js/src/15-login-gate.js');
+  assert.match(gate, /if \(window\._visitFormOpen\)[\s\S]{0,900}return;/);
+  assert.match(read('js/src/00-bridge.js'), /'visit-form-open', function \(\) \{ window\._visitFormOpen = true;/);
+});
+
+check('the sheet offers back only THIS person\'s draft', () => {
+  assert.match(read('app/src/components/ReLoginSheet.tsx'), /visitDraftFor\?\.\(null, me\)/);
 });
 
 // ───────────────────────── source contracts ─────────────────────────

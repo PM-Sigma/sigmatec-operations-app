@@ -110,3 +110,77 @@ test('no sign-in → no data, just the one step to take', async ({ page }, testI
   await expect(page.locator('#sigma-home .kibbutz')).toHaveCount(0);
   await shot(page, testInfo, 'locked');
 });
+
+// ── review fix 1 + 4: a REAL 401 through the interceptor, and a cold boot that races the mint.
+
+test('a real 401 from the REST layer raises exactly one sheet', async ({ page }, testInfo) => {
+  const { rec } = await boot(page, testInfo);
+  await page.evaluate(() => (window as any).showPage('inventory'));
+
+  // From here every Supabase read answers "the pass expired" — the shape PostgREST really
+  // sends. This goes through app/src/lib/supabase.ts `sessionAwareFetch`, not through a hand
+  // call of the funnel, so the interceptor itself is what is under test.
+  await page.route('**/rest/v1/**', route => route.fulfill({
+    status: 401,
+    contentType: 'application/json',
+    body: JSON.stringify({ code: 'PGRST301', message: 'JWT expired' }),
+  }));
+  // …and the app is no longer in mock mode for the funnel's purposes
+  await page.evaluate(() => {
+    // the interceptor asks `mockModeAllowed(location.hostname, location.search)`; drop the flag
+    history.replaceState({}, '', location.pathname + '?sb=0');
+    (window as any)._sbToken = null; (window as any)._sbTokenExp = 0;
+    (window as any)._sbPassPending = false; (window as any)._sbPassMintedAt = 0;
+    // record what the funnel announces, so the assertion is about the INTERCEPTOR and not
+    // about a sheet that happened to open for some other reason
+    (window as any).__expiries = [];
+    (window as any).sigmaBus.addEventListener('session-expired',
+      (e: any) => (window as any).__expiries.push(String(e.detail?.reason || '')));
+  });
+
+  // Several surfaces re-read at once — the normal consequence of one write — so several 401s
+  // are in flight together. The app's own channels do it; no test-only hook is involved.
+  await page.evaluate(() => {
+    const emit = (window as any).sigmaEmit;
+    emit('notes-changed', {});
+    emit('feedback-changed', {});
+    emit('ems-cache-synced', {});
+    (window as any).sigma?.track?.('session-gate-spec');
+  });
+
+  const sheet = page.locator('[data-sigma-relogin]');
+  await expect(sheet).toHaveCount(1);
+  await expect(sheet).toContainText('נדרשת התחברות מחדש');
+  // exactly one announcement, and it came from the supabase-js interceptor
+  const expiries = await page.evaluate(() => (window as any).__expiries as string[]);
+  expect(expiries).toHaveLength(1);
+  expect(expiries[0]).toMatch(/^sb-401/);
+  expectNoConsoleErrors(rec);
+});
+
+test('a cold boot that races the mint shows no sheet, and the data lands', async ({ page }, testInfo) => {
+  await installRoutes(page);
+  // The mint takes 2 s — exactly the race that used to raise a sheet on a valid session.
+  await page.route('**/functions/v1/ems-auth', async route => {
+    await new Promise(r => setTimeout(r, 2000));
+    await route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ token: 'mock-pass', expiresIn: 10800 }),
+    });
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem('dashboard_user_v1', 'עידן');
+    localStorage.setItem('dashboard_role_v1', 'idan');
+    localStorage.setItem('dashboard_auth_v4', 'ok');
+    localStorage.setItem('ems_token_v1', 'mock-ems-token');
+    localStorage.setItem('ems_token_at_v1', String(Date.now()));
+    (window as any)._pushPromptShown = true;
+    (window as any)._attReminderShown = true;
+  });
+
+  await page.goto('/index.html?sb=0', { waitUntil: 'domcontentloaded' });
+  // the cards paint (the gate is 'pending', not 'locked') and nobody is asked to sign in
+  await expect(page.locator('#sigma-home .kibbutz').first()).toBeVisible({ timeout: 25_000 });
+  await expect(page.locator('[data-sigma-relogin]')).toHaveCount(0);
+  await expect(page.locator('#sigma-home [data-sigma-login-required]')).toHaveCount(0);
+});

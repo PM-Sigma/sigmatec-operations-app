@@ -4,7 +4,18 @@
 // The app sends its EMS token here right after login; the returned token is then used as the
 // Authorization bearer for all DB calls, so the public anon key alone can no longer pass RLS.
 //
-// Secret to set (Edge Functions → Secrets):  JWT_SECRET (Settings → JWT Keys → legacy secret).
+// Two ways in, one kind of pass out:
+//   { emsToken }               an EMS sign-in — the token is validated against the EMS API
+//   { mode: "viewer", pin }    the view-only entry, which has NO EMS account by design. The
+//                              access code is compared HERE, against the VIEWER_PIN secret, so
+//                              it is no longer a constant in the client bundle — and a viewer
+//                              now holds the same bridge pass as everyone else (sub "viewer"),
+//                              which is what lets the app gate every screen on "has a pass".
+//
+// Secrets to set (Edge Functions → Secrets):
+//   JWT_SECRET  (Settings → JWT Keys → legacy secret)
+//   VIEWER_PIN  the view-only access code. Until it is set the viewer entry FAILS CLOSED with a
+//               message that says so — it never falls back to a code in the client.
 // Optional:  EMS_API_BASE (defaults to https://api.sigmatec-ems.com).
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
@@ -42,8 +53,45 @@ Deno.serve(async (req) => {
     return json({ error: "JWT_SECRET not visible to function", env_lengths }, 500);
   }
 
+  // The pass is 180 min for everyone (spec §7n) — see the note at the mint below.
+  const TTL_SECONDS = 180 * 60;
+  const mintPass = async (sub: string, extra: Record<string, unknown> = {}) => {
+    const token = await create(
+      { alg: "HS256", typ: "JWT" },
+      {
+        role: "authenticated", aud: "authenticated", iss: "ems-bridge", sub,
+        exp: getNumericDate(TTL_SECONDS), ...extra,
+      },
+      await signingKey(JWT_SECRET),
+    );
+    // `expiresIn` (seconds) lets the client hold the pass for as long as it is really valid
+    // instead of guessing; an older client that ignores it keeps working unchanged.
+    return json({ token, expiresIn: TTL_SECONDS });
+  };
+
   try {
-    const { emsToken } = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({}));
+    const { emsToken } = body as { emsToken?: string };
+
+    // ── the view-only entry ───────────────────────────────────────────────────
+    // Same pass, different subject. A viewer has no EMS account (by design), so without this
+    // he could never hold a pass — and with the business tables authenticated-only he would
+    // see empty screens and a re-login sheet he could not satisfy.
+    if ((body as { mode?: string }).mode === "viewer") {
+      const VIEWER_PIN = Deno.env.get("VIEWER_PIN") || "";
+      if (!VIEWER_PIN) {
+        return json({ error: "כניסת הצפייה עוד לא הופעלה — עידן צריך להגדיר את קוד הצפייה", setup: "VIEWER_PIN" }, 503);
+      }
+      const pin = String((body as { pin?: string }).pin || "");
+      // Length-independent compare, so a wrong code cannot be measured character by character.
+      const a = new TextEncoder().encode(pin);
+      const b = new TextEncoder().encode(VIEWER_PIN);
+      let diff = a.length === b.length ? 0 : 1;
+      for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+      if (diff !== 0) return json({ error: "קוד צפייה שגוי" }, 401);
+      return await mintPass("viewer", { viewer: true });
+    }
+
     if (!emsToken) return json({ error: "missing emsToken" }, 400);
 
     // 1) Validate the EMS token: any authenticated EMS endpoint returning 200 proves it's genuine.
@@ -75,15 +123,7 @@ Deno.serve(async (req) => {
     // lunch hit a write it could not make. The client still re-mints every 50 min while the
     // EMS session lives (js/src/15-login-gate.js) and still caps the whole session at 12 h —
     // this only removes the cliff a sleeping tab used to fall off.
-    const TTL_SECONDS = 180 * 60;
-    const token = await create(
-      { alg: "HS256", typ: "JWT" },
-      { role: "authenticated", aud: "authenticated", iss: "ems-bridge", sub, exp: getNumericDate(TTL_SECONDS) },
-      await signingKey(JWT_SECRET),
-    );
-    // `expiresIn` (seconds) lets the client hold the pass for as long as it is really valid
-    // instead of guessing; an older client that ignores it keeps working unchanged.
-    return json({ token, expiresIn: TTL_SECONDS });
+    return await mintPass(sub);
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
   }

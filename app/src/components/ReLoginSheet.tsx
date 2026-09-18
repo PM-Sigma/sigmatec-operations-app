@@ -22,10 +22,16 @@ function isPublicCertView(): boolean {
   try { return !!(window as any)._certViewMode; } catch { return false; }
 }
 
-/** The draft line, only when there really is one waiting. */
+/**
+ * The draft line, only when there really is one waiting — and only THIS person's (review fix,
+ * minors): the mirror is per device, so a shared office phone would otherwise promise someone
+ * else's draft back.
+ */
 function openDraftNote(): string {
   try {
-    const d = (window as any).sigma?.visitDraftFor?.();
+    const s = (window as any).sigma;
+    const me = (() => { try { return s?.getCurrentUser?.() || null; } catch { return null; } })();
+    const d = s?.visitDraftFor?.(null, me);
     if (!d) return '';
     const at = String(d.updated_at || '').slice(11, 16);
     return at ? 'הטיוטה מ-' + at + ' שמורה.' : 'הטיוטה שלך שמורה.';

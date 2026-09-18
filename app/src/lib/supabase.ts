@@ -47,13 +47,17 @@ function currentPass(): SbPass | null {
 async function bearerForRequest(): Promise<string> {
   const pass = currentPass();
   if (pass && pass.token && (pass.exp || 0) > Date.now()) return pass.token;
-  const s = (window as any).sigma;
+  // THE one memoized mint promise (review fix 1), shared with every legacy read and write. It
+  // resolves false when there is nothing to trade (no sign-in at all), and then the request
+  // goes out anon and RLS answers — which is what the closed gate is showing anyway.
   try {
-    if (s?.isEmsConnected?.()) {
-      const minted = (await s.sbAuthPass?.(false)) as SbPass | null;
-      if (minted && minted.token) return minted.token;
+    const ensure = (window as any).sigma?.ensurePass as undefined | (() => Promise<boolean>);
+    if (ensure) {
+      await ensure();
+      const fresh = currentPass();
+      if (fresh && fresh.token && (fresh.exp || 0) > Date.now()) return fresh.token;
     }
-  } catch { /* no EMS session — go out anon and let RLS answer */ }
+  } catch { /* no bridge — go out anon */ }
   return SB_ANON;
 }
 
@@ -66,18 +70,31 @@ async function bearerForRequest(): Promise<string> {
  * (qa/playwright/tests/_helpers.ts answers every write with 42501 on purpose), not an expiry.
  */
 export async function sessionAwareFetch(input: any, init?: any): Promise<Response> {
-  const res = await fetch(input, init);
-  if (res.status === 401 || res.status === 403) {
-    const mock = mockModeAllowed(location.hostname, location.search);
-    if (!mock) {
-      // The body is read from a CLONE: the caller still gets an unread stream.
-      let code = '';
-      try { code = String(((await res.clone().json()) as any)?.code || ''); } catch { /* not json */ }
-      if (res.status === 401 || code === 'PGRST301' || code === '42501') {
-        notifySessionExpired('sb-' + res.status + (code ? ':' + code : ''));
-      }
+  let res = await fetch(input, init);
+  if (res.status !== 401 && res.status !== 403) return res;
+  if (mockModeAllowed(location.hostname, location.search)) return res;
+
+  // The body is read from a CLONE: the caller still gets an unread stream.
+  let code = '';
+  try { code = String(((await res.clone().json()) as any)?.code || ''); } catch { /* not json */ }
+
+  // ONLY an expired/rejected pass is an expiry (review fix 3): `42501` and `403` mean "you are
+  // signed in and this is not allowed", which the write path already reports as its own
+  // "יש להתחבר ל-EMS כדי לשמור" / permission message — a sign-in sheet would be nonsense there.
+  const expired = res.status === 401 ? code !== '42501' : code === 'PGRST301';
+  if (!expired) return res;
+
+  // One forced re-mint + retry before anyone is asked to sign in: a pass that lapsed while the
+  // tab slept is renewable without the person doing anything (review fix 1).
+  try {
+    const remint = (window as any).sigma?.remintOnce as undefined | (() => Promise<boolean>);
+    if (remint && (await remint())) {
+      res = await fetch(input, init);
+      if (res.status !== 401 && res.status !== 403) return res;
     }
-  }
+  } catch { /* fall through to the funnel */ }
+
+  notifySessionExpired('sb-' + res.status + (code ? ':' + code : ''));
   return res;
 }
 

@@ -19,6 +19,36 @@ Spec §7n. Two tokens are involved, and only one of them is ours.
   draft are kept, and the sign-in lands the person back where he was.
 - After 12 h the session ends on purpose and a fresh sign-in is required.
 
+## ⚠️ One secret has to be set by hand: `VIEWER_PIN`
+
+The view-only entry (👁 צפייה) has no EMS account by design, so until now it held **no write
+pass at all** — which, with the business tables authenticated-only, meant empty screens and a
+sign-in sheet a viewer could not satisfy. The access code is therefore checked **server-side**
+now: `ems-auth` accepts `{ mode: "viewer", pin }`, compares the code against its own
+`VIEWER_PIN` secret, and mints the same 180-min pass with the subject `viewer`. The code is no
+longer a constant in the client bundle.
+
+**Until the secret is set, the viewer entry fails closed** — it answers
+`כניסת הצפייה עוד לא הופעלה — עידן צריך להגדיר את קוד הצפייה` (HTTP 503, `setup: "VIEWER_PIN"`)
+and never falls back to a client-side code. Nothing else is affected: an EMS sign-in is
+untouched.
+
+**עידן — one-time setup** (an agent cannot set a secret through the MCP tools):
+
+1. Supabase dashboard → the project → **Edge Functions → Secrets → Add new secret**
+   (or `supabase secrets set VIEWER_PIN=<code>` with the CLI).
+2. Name: `VIEWER_PIN` · Value: **the 4-digit view-only code the team already uses** — the one
+   that was the `VIEWER_PIN` constant in `js/src/15-login-gate.js` until this task removed it
+   (`git show 0925a56:js/src/15-login-gate.js | grep VIEWER_PIN`). It is deliberately not
+   written in this file or in the task report any more.
+3. No redeploy is needed — the function reads its secrets per request. Verify with the app:
+   the gate's 👁 entry should sign in and the cards should load.
+4. From now on the code is rotated in that one secret, not in the client.
+
+The code the person types is kept in `sessionStorage` for that browser session only, so the
+silent re-mint every 50 min needs no re-typing; it is gone when the browser closes, and a
+logout removes it immediately.
+
 ## Probe findings — is there an EMS refresh? (18.9.26)
 
 `scripts/ems-auth-probe.mjs` (the token comes from `EMS_TOKEN` in the environment, never from
