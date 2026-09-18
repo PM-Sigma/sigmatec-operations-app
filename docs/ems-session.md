@@ -49,6 +49,25 @@ The code the person types is kept in `sessionStorage` for that browser session o
 silent re-mint every 50 min needs no re-typing; it is gone when the browser closes, and a
 logout removes it immediately.
 
+### The guessing limit (why a short code behind a public function is still safe)
+
+`ems-auth` counts the failures itself: every refused viewer attempt is one row in
+**`auth_attempts`** (written with the service role; the table is RLS-enabled with **no
+policies** and its privileges revoked, so no client role can read or write it — verified: anon
+and authenticated both get `42501`). From the **6th** attempt of the same address within
+**15 minutes** the answer is `429` with *"יותר מדי ניסיונות — נסה שוב בעוד 15 דקות"*, and the
+code is not even looked at. Every failure also costs a constant **300 ms** — the same for a
+right-length wrong code as for a wrong-length one, so nothing can be measured from the timing.
+A successful sign-in **deletes that address's rows**, so a person who mistyped four times and
+then got it right starts clean. The address is the **first hop** of `X-Forwarded-For` (the later
+hops are the client's to forge), and a missing header becomes one shared bucket rather than an
+exemption. If the table is ever unreachable the count reads 0 — the limit must never become an
+outage of the sign-in itself.
+
+The numbers and the sentence live in `app/src/lib/authThrottle.ts` (unit-tested, and a contract
+test asserts the function agrees). **Note:** the limit only comes into play once `VIEWER_PIN` is
+set — before that the entry is closed for everyone anyway (503, above).
+
 ## Probe findings — is there an EMS refresh? (18.9.26)
 
 `scripts/ems-auth-probe.mjs` (the token comes from `EMS_TOKEN` in the environment, never from

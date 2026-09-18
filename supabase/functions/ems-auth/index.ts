@@ -16,6 +16,8 @@
 //   JWT_SECRET  (Settings → JWT Keys → legacy secret)
 //   VIEWER_PIN  the view-only access code. Until it is set the viewer entry FAILS CLOSED with a
 //               message that says so — it never falls back to a code in the client.
+// Provided by the platform (no setup): SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, used ONLY to
+// count failed viewer attempts in `auth_attempts` (see the rate limit below).
 // Optional:  EMS_API_BASE (defaults to https://api.sigmatec-ems.com).
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
@@ -26,6 +28,77 @@ const CORS = {
 };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
+
+// ───────────────────── the view-only rate limit (fix round 2) ─────────────────────
+// A short access code behind a PUBLIC function is only as strong as the number of guesses it
+// allows, so the function counts them: every FAILED viewer attempt is one row in
+// `auth_attempts` (service role; deny-all for anon and authenticated), five failures from the
+// same address inside 15 minutes are refused, and a successful sign-in clears that address.
+// The rules are mirrored — and unit-tested — in app/src/lib/authThrottle.ts.
+const THROTTLE_MAX_FAILURES = 5;
+const THROTTLE_WINDOW_MS = 15 * 60_000;
+/** A constant pause on every failure: the same cost per guess, and no timing hint. */
+const THROTTLE_FAIL_DELAY_MS = 300;
+const THROTTLE_MESSAGE = "יותר מדי ניסיונות — נסה שוב בעוד 15 דקות";
+
+/** The caller's address: the FIRST hop of x-forwarded-for (the later hops are forgeable). */
+function firstHop(xff: string | null): string {
+  const first = String(xff || "").split(",")[0].trim();
+  return first || "unknown";
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function attemptsApi() {
+  const url = Deno.env.get("SUPABASE_URL") || "";
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!url || !key) return null;
+  return {
+    base: url.replace(/\/$/, "") + "/rest/v1/auth_attempts",
+    headers: { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json" },
+  };
+}
+
+/**
+ * How many failures this address has inside the window. A table that cannot be reached returns
+ * 0 — the limit must never become an outage of the sign-in itself.
+ */
+async function recentFailures(ip: string): Promise<number> {
+  const api = attemptsApi();
+  if (!api) return 0;
+  try {
+    const since = new Date(Date.now() - THROTTLE_WINDOW_MS).toISOString();
+    const r = await fetch(
+      `${api.base}?select=at&ip=eq.${encodeURIComponent(ip)}&at=gte.${encodeURIComponent(since)}`,
+      { headers: api.headers },
+    );
+    if (!r.ok) return 0;
+    const rows = await r.json().catch(() => []);
+    return Array.isArray(rows) ? rows.length : 0;
+  } catch { return 0; }
+}
+
+async function recordFailure(ip: string): Promise<void> {
+  const api = attemptsApi();
+  if (!api) return;
+  try {
+    await fetch(api.base, {
+      method: "POST",
+      headers: { ...api.headers, Prefer: "return=minimal" },
+      body: JSON.stringify({ ip }),
+    });
+  } catch { /* the refusal already happened; losing the count is not worth failing on */ }
+}
+
+async function clearAttempts(ip: string): Promise<void> {
+  const api = attemptsApi();
+  if (!api) return;
+  try {
+    await fetch(`${api.base}?ip=eq.${encodeURIComponent(ip)}`, {
+      method: "DELETE", headers: { ...api.headers, Prefer: "return=minimal" },
+    });
+  } catch { /* the person is in; a stale row expires with the window anyway */ }
+}
 
 async function signingKey(secret: string) {
   return await crypto.subtle.importKey(
@@ -82,13 +155,25 @@ Deno.serve(async (req) => {
       if (!VIEWER_PIN) {
         return json({ error: "כניסת הצפייה עוד לא הופעלה — עידן צריך להגדיר את קוד הצפייה", setup: "VIEWER_PIN" }, 503);
       }
+      // Out of guesses? Refused before the code is even looked at.
+      const ip = firstHop(req.headers.get("x-forwarded-for"));
+      if ((await recentFailures(ip)) >= THROTTLE_MAX_FAILURES) {
+        return json({ error: THROTTLE_MESSAGE, retryAfterMinutes: 15 }, 429);
+      }
+
       const pin = String((body as { pin?: string }).pin || "");
       // Length-independent compare, so a wrong code cannot be measured character by character.
       const a = new TextEncoder().encode(pin);
       const b = new TextEncoder().encode(VIEWER_PIN);
       let diff = a.length === b.length ? 0 : 1;
       for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
-      if (diff !== 0) return json({ error: "קוד צפייה שגוי" }, 401);
+      if (diff !== 0) {
+        await recordFailure(ip);
+        await sleep(THROTTLE_FAIL_DELAY_MS);
+        return json({ error: "קוד צפייה שגוי" }, 401);
+      }
+      // In — so this address starts from zero again.
+      await clearAttempts(ip);
       return await mintPass("viewer", { viewer: true });
     }
 

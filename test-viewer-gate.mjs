@@ -145,6 +145,24 @@ if (ctx) {
     assert.equal(c.window_._sbToken || null, null, 'no pass while the entry is disabled');
   });
 
+  // ---- (iii-b) too many guesses: the function refuses the ADDRESS, not the code ----
+  await check('too many attempts: the 429 sentence is shown as-is, nothing stored', async () => {
+    const c = runGate();
+    const { err } = viewerEls(c);
+    const MSG = 'יותר מדי ניסיונות — נסה שוב בעוד 15 דקות';
+    c.setReply({ status: 429, body: { error: MSG, retryAfterMinutes: 15 } });
+    viewerEls(c).pin.value = CODE;
+    await c.window_.gateViewerLogin();
+    assert.equal(err.textContent, MSG, 'the sentence must reach the person unchanged');
+    // the copy rules: what he reads is his next step, never the mechanics behind it
+    for (const w of ['Supabase', 'RLS', '429', 'IP', 'auth_attempts']) {
+      assert.ok(err.textContent.indexOf(w) === -1, 'the message must not mention ' + w);
+    }
+    assert.equal(c.localStorage_.getItem(ROLE_KEY), null, 'nothing stored while refused');
+    assert.equal(c.window_._sbToken || null, null, 'no pass while refused');
+    assert.equal(c.location_.reloaded, false, 'must not reload while refused');
+  });
+
   // ---- (iv) an empty box never reaches the network ----
   await check('an empty code box asks for the code instead of calling out', async () => {
     const c = runGate();
