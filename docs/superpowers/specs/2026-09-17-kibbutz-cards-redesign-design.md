@@ -114,7 +114,11 @@ pipeline can POST the same JSON (not in scope).
   compact action row: **📍 סיכום ביקור** (opens the visit form with this kibbutz prefilled — `openVisitQuick(name)`,
   one tap, no modal in between), **🚚 תעודת משלוח** (`certFromVisitForm()` after the visit form opens, so the cert
   links to the visit — spec §5 cert rules), **🗓 ישיבות** (opens the modal timeline). Roles: 📍/🚚 shown to אביאם, ניתאי,
-  עידן, עמיחי; viewer sees only 🗓. Tapping the card body still opens the modal as today.
+  עידן, עמיחי; viewer sees only 🗓. **🚚 appears only when there is something to deliver to this kibbutz** (עידן,
+  mockup comment 18.9): an open customer order (`orders` type customer, not delivered) or products checked in a
+  visit draft — with the item count as a badge; otherwise the button is not rendered. General rule for every
+  screen: **no button without a current purpose** — actions render only when their precondition holds (pure
+  `visibleActions(role, context)` per surface, tested). Tapping the card body still opens the modal as today.
 
 ## 4. Part C — EMS tasks in full on the card
 
