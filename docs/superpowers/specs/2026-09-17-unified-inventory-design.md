@@ -57,6 +57,12 @@ when the pool drops below it.
   reports hub as a viewer** (a field-issued cert keeps technical names — the recipient signs for what is written on
   the box), monthly cert summary, "מלאי לפי קיבוץ".
 - Visit checkboxes, order item pickers, EMS task text, inventory tables for staff: technical name.
+- **Placement + proof (עידן, mockup comment 18.9):** `display_name` is the **last column**, visually set aside (hairline,
+  muted header "ניהולי · חד-פעמי"), because it is edited once by עידן and then only read by the report generator. To
+  make the wiring visible, the products page shows a **"🔗 מחובר למחולל הדוחות ✓"** status computed from the same
+  `productLabel` the exports use (red if any active product would render its technical name in a viewer export), and
+  every row has **"תצוגה בדוח"** — a preview of the product line exactly as the next viewer PDF/Excel will print it.
+  The §3 contract test is the automated proof.
 - Contract test: for every export builder, no output cell contains a technical name that has a different display
   name (fixture with `name:'E360CT-3P', display_name:'מונה חשמל תלת-פאזי'`).
 
