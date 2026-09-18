@@ -1,0 +1,25 @@
+# Semgrep ignore list for the Sigmatec Operations App (QA gate 2).
+# Only generated, vendored or QA-tool paths. Product source is never ignored.
+
+node_modules/
+app/node_modules/
+.git/
+
+# Generated bundles — identical content to js/src/*.js and app/src/**, which ARE scanned.
+js/app.js
+ui/
+app/dist/
+
+# QA tooling itself (downloaded rule packs, binaries, reports, screenshots).
+qa/bin/
+qa/semgrep/.cache/
+qa/reports/
+qa/playwright/shots/
+test-results/
+
+# Process scratch (untracked review diffs; mirrors tracked source line for line).
+.superpowers/
+
+# Third-party vendored assets.
+js/vendor/
+css/vendor/

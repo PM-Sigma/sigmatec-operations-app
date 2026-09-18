@@ -41,6 +41,9 @@ export function emitFeedbackChanged(detail?: Record<string, unknown>): void {
 
 let opener: ((kind?: FeedbackKind) => void) | null = null;
 
+/** The window event the command bar / `runAdd('feedback')` dispatch to open this sheet. */
+export const FEEDBACK_OPEN_EVENT = 'sigma-open-feedback';
+
 /** Open the feedback sheet from anywhere in the React bundle. */
 export function openFeedback(kind?: FeedbackKind): void {
   if (opener) opener(kind);
@@ -142,12 +145,22 @@ function FeedbackSheet() {
   const machine = React.useRef(voiceIdle());
 
   React.useEffect(() => {
-    opener = (k?: FeedbackKind) => {
+    const open = (k?: FeedbackKind) => {
       if (!canSubmitFeedback(role || sigma?.getRole?.() || '')) { toast.error('יש להתחבר כדי לשלוח'); return; }
       if (k) setKind(k);
       setOpen(true);
     };
-    return () => { opener = null; };
+    opener = open;
+    // The command bar and `runAdd('feedback')` reach the sheet by EVENT rather than by
+    // importing this module (app/src/islands/CommandBar.tsx dispatches 'sigma-open-feedback'),
+    // so without this listener both of those did nothing at all. Caught by the Playwright
+    // backfill, Task 22.
+    const onEvent = () => open();
+    window.addEventListener(FEEDBACK_OPEN_EVENT, onEvent as EventListener);
+    return () => {
+      window.removeEventListener(FEEDBACK_OPEN_EVENT, onEvent as EventListener);
+      opener = null;
+    };
   }, [role]);
 
   const append = (chunk: string) => {
@@ -249,7 +262,7 @@ function FeedbackSheet() {
       onLevel: setLevel,
       onTick: setElapsed,
       onCap: () => dispatch('record-cap'),
-      onError: k => dispatch(k === 'denied' ? 'live-denied' : 'record-error'),
+      onError: k => dispatch(k === 'denied' ? 'record-denied' : 'record-error'),
     }).then(session => {
       if (!session) return;                                  // onError already dispatched
       rec.current = session;

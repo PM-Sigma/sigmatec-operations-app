@@ -18,3 +18,22 @@ supabase/.temp/
 # Vite output are not (ui/sigma.js|css IS committed: GitHub Pages serves it directly).
 app/node_modules
 app/dist
+
+# ── QA gates (qa/, scripts/qa.mjs) ────────────────────────────────────────────────────────
+# Configs, specs, the runners and ONE baseline report are committed; everything a run
+# PRODUCES is not. Each tool re-creates its cache on first use (see qa/README.md).
+# NOTE: .gitignore has no trailing comments — a "pattern  # why" line is one long pattern.
+#
+# the gitleaks binary (downloaded per machine)
+qa/bin/
+# screenshots — one set per project per run
+qa/playwright/shots/
+# semgrep rule packs, lighthouse runs, zap + gitleaks output
+qa/**/.cache/
+# Playwright's own failure artifacts (traces)
+test-results/
+playwright-report/
+# every report a run writes…
+qa/reports/*
+# …except the baseline a reviewer needs
+!qa/reports/2026-09-18-task-22.md

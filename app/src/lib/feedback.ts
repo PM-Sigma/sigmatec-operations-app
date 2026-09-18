@@ -220,6 +220,7 @@ export type VoiceEvent =
   | 'live-failed'          // recognition errored for any other reason
   | 'live-end'             // recognition ended by itself
   | 'no-result-timeout'    // LIVE_NO_RESULT_MS passed with nothing heard
+  | 'record-denied'        // the RECORD leg's getUserMedia was REFUSED
   | 'start-timeout'        // getUserMedia never settled (MIC_START_TIMEOUT_MS)
   | 'record-ready'         // startRecording resolved with a session
   | 'record-error'         // startRecording failed / the mic was refused
@@ -333,6 +334,13 @@ export function voiceNext(m: VoiceMachine, ev: VoiceEvent, caps: SpeechCapsShape
 
     case 'record-error':
       return { machine: { ...m, phase: 'failed', pending: false }, action: 'stop-all', notice: 'failed' };
+
+    // A REFUSED microphone in the record leg. It needs its own event: 'live-denied' belongs to
+    // the LISTENING phase, so routing the record leg's refusal through it was a no-op and the
+    // sheet sat on "מקליט…" until the 10 s watchdog reported the wrong reason
+    // ("המיקרופון לא נפתח"). Found by the Playwright backfill, Task 22.
+    case 'record-denied':
+      return { machine: { ...m, phase: 'failed', pending: false }, action: 'stop-all', notice: 'denied' };
 
     case 'record-cap':
       if (m.phase !== 'recording') return stay(m);

@@ -3,6 +3,12 @@
   "private": true,
   "scripts": {
     "build": "node build.mjs",
-    "test": "node scripts/test-all.mjs"
+    "test": "node scripts/test-all.mjs",
+    "qa": "node scripts/qa.mjs"
+  },
+  "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.63.0",
+    "http-server": "^14.1.1"
   }
 }

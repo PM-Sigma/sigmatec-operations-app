@@ -29,7 +29,12 @@ for (const f of runners) {
 
 if (!failed) {
   process.stdout.write('\n── app (vitest)\n');
-  const r = spawnSync('npm', ['--prefix', 'app', 'test', '--', '--run'], { cwd: root, stdio: 'inherit', shell: true });
+  // Vitest is run through its OWN js entry point with this node, not through `npm test` in a
+  // shell. Two reasons: no `shell: true` (semgrep spawn-shell-true, QA gate 2), and node >= 22
+  // refuses to spawn a .cmd/.bat without a shell at all (EINVAL, CVE-2024-27980) — so
+  // `spawnSync('npm.cmd', …)` is not an option either.
+  const vitest = resolve(root, 'app', 'node_modules', 'vitest', 'vitest.mjs');
+  const r = spawnSync(process.execPath, [vitest, 'run'], { cwd: resolve(root, 'app'), stdio: 'inherit' });
   if (r.status !== 0) failed = 'app (vitest)';
 }
 

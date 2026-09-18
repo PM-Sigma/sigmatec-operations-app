@@ -1,0 +1,94 @@
+// #sigma-home — the card page (spec §2 + §7b + §7c).
+// Covers: both sections render, region sub-labels appear only when a section has >1 region,
+// the filter chips actually filter (and the card list crossfades rather than jumping), and
+// the card quick-action row is role-gated (viewer = ישיבות only).
+import { boot, expect, expectNoConsoleErrors, expectRtl, expectTheme, shot, test } from './_helpers';
+
+test('home cards: sections, region labels, filters, quick actions', async ({ page }, ti) => {
+  const { rec, theme } = await boot(page, ti);
+
+  await expectRtl(page);
+  await expectTheme(page, theme);
+
+  const home = page.locator('#sigma-home');
+
+  // ── two sections, each with its own animated count
+  await expect(home.getByRole('heading', { name: '🆕 לקוחות חדשים' })).toBeVisible();
+  await expect(home.getByRole('heading', { name: '✅ לקוחות פעילים' })).toBeVisible();
+
+  // ── every fixture kibbutz has a card, and the sub-site carries its parent chip
+  await expect(home.locator('.kibbutz')).toHaveCount(7);
+  await expect(home.locator('.kibbutz[data-name="חוקוק"]')).toBeVisible();
+  await expect(home.locator('.kibbutz[data-name="יגור — רפת"] .tag-subsite')).toContainText('יגור');
+  await expect(home.locator('.kibbutz[data-name="כפר עזה"] .tag-marketing')).toBeVisible();
+  // the energy badge is per-row data, never a hardcoded ⚡
+  await expect(home.locator('.kibbutz[data-name="כפר עזה"] .energy-badge')).toContainText('גז');
+
+  // ── region sub-labels: the active section spans three regions, so they are rendered
+  const regions = home.locator('[data-region]:not(.kibbutz)');
+  await expect(regions.filter({ hasText: 'גליל וגולן' }).first()).toBeVisible();
+  await expect(regions.filter({ hasText: 'העמקים' }).first()).toBeVisible();
+  await expect(regions.filter({ hasText: 'דרום, עוטף עזה והנגב' }).first()).toBeVisible();
+
+  await shot(page, ti);
+
+  // ── filter chips. 🤝 שיווקי leaves exactly the one marketing row; the transition is a
+  // crossfade, so the old cards must be GONE once it settles (an AnimatePresence leak used to
+  // leave exited cards stranded in the DOM — see Section.tsx).
+  await home.getByRole('radio', { name: '🤝 שיווקי' }).click();
+  await expect(home.locator('.kibbutz')).toHaveCount(1);
+  await expect(home.locator('.kibbutz[data-name="כפר עזה"]')).toBeVisible();
+  // a single region in a single section → no region sub-label
+  await expect(home.locator('[data-region]:not(.kibbutz)')).toHaveCount(0);
+  await shot(page, ti, 'filter-marketing');
+
+  await home.getByRole('radio', { name: '🆕 חדשים' }).click();
+  await expect(home.locator('.kibbutz')).toHaveCount(2);
+  await expect(home.getByRole('heading', { name: '✅ לקוחות פעילים' })).toHaveCount(0);
+
+  await home.getByRole('radio', { name: 'הכל' }).click();
+  await expect(home.locator('.kibbutz')).toHaveCount(7);
+
+  // ── search narrows the same list
+  await home.getByRole('searchbox', { name: 'חיפוש קיבוץ' }).fill('חוקוק');
+  await expect(home.locator('.kibbutz')).toHaveCount(1);
+  await home.getByRole('searchbox', { name: 'חיפוש קיבוץ' }).fill('');
+  await expect(home.locator('.kibbutz')).toHaveCount(7);
+
+  // ── quick actions, עידן: 📍 סיכום ביקור · 🚚 תעודת משלוח · 🗓 ישיבות
+  const card = home.locator('.kibbutz[data-name="חוקוק"]');
+  await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'ישיבות' })).toBeVisible();
+  // עידן is a kibbutz admin → the ✏️ edit affordance is on the card
+  await expect(card.locator('button[title="פרטי קיבוץ"]')).toBeVisible();
+
+  expectNoConsoleErrors(rec);
+});
+
+test('home cards: viewer gets the read-only action row', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'צפייה' });
+
+  const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await expect(card.getByRole('button', { name: 'ישיבות' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toHaveCount(0);
+  // not a kibbutz admin → no edit pencil, and no "קיבוץ חדש" button
+  await expect(card.locator('button[title="פרטי קיבוץ"]')).toHaveCount(0);
+  await expect(page.locator('#sigma-home').getByRole('button', { name: 'קיבוץ חדש' })).toHaveCount(0);
+
+  await shot(page, ti, 'viewer');
+  expectNoConsoleErrors(rec);
+});
+
+test('home cards: a team member sees the actions but not the admin affordances', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+
+  const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toBeVisible();
+  // אביאם is not in KIBBUTZ_ADMINS (עידן · עמיחי)
+  await expect(card.locator('button[title="פרטי קיבוץ"]')).toHaveCount(0);
+
+  expectNoConsoleErrors(rec);
+});

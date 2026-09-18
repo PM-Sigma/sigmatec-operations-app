@@ -153,3 +153,48 @@ Channels, in the order of how loosely they couple:
 | `user_settings` now carries **`updated_at` as the person's own choice stamp**, and `pickNewer(local, remote)` decides boot conflicts newest-wins; a device that is ahead PUSHES its row back. | Task 15 must stamp every settings write (`setSettingsLocal` does it by default) and must pass `{ stamp: false }` when the patch came FROM the row, or the row's timestamp is lost and the two devices ping-pong. |
 | `primaryAdd`'s labels: only `kibbutz` / `visit` / `feedback` carry ➕. `stockChange` / `schedule` / `event` read "עבור למלאי" / "עבור ליומן" until Tasks 8/13 ship their forms — `ADD_OPENS_FORM` is the flag to flip. | §7k.2's matrix is unchanged; only the wording is. When those forms land, flip the flag and the label in ONE place and the header icon follows. |
 | Ctrl+K renders ONE flat ranked list with the kind labels as dividers (`flatWithHeadings`), because cmdk selects by DOM order and real groups made Enter run the first ACTION instead of the top hit. | Any new command source just needs a `kind`; do not reintroduce `CommandGroup` per kind. |
+
+## QA gates (Task 22 — P0) — the commands every later task is measured by
+
+`npm run qa` (= `scripts/qa.mjs`) runs six gates on the current tree, writes
+`qa/reports/<yyyy-mm-dd>-<label>.md`, and exits non-zero if any of them failed.
+**Definition of Done for every task from P0 on: `npm run qa` green + the reviewer can read
+`qa/reports/<date>-task-N.md`.** Install steps, per-gate detail and every fallback:
+[`qa/README.md`](../qa/README.md).
+
+| # | Gate | Command | Threshold |
+|---|------|---------|-----------|
+| 1 | gitleaks | `qa/bin/gitleaks.exe detect --source . --config qa/gitleaks/.gitleaks.toml --no-git` | 0 findings |
+| 2 | semgrep | `npm run qa -- --only semgrep` (manifest: `qa/semgrep/config.yml`) | 0 ERROR / 0 WARNING |
+| 3 | existing suites | `npm test` | green |
+| 4 | Playwright | `npx playwright test --config qa/playwright/playwright.config.ts` | 4 projects green, no console errors |
+| 5 | Lighthouse | `node qa/lighthouse/run.mjs` | perf ≥ 85 · a11y ≥ 95 · bp ≥ 95 |
+| 6 | ZAP baseline | `pwsh -File qa/zap/baseline.ps1` · `bash qa/zap/baseline.sh` | 0 High / 0 Medium (passive) |
+
+```bash
+npm run qa                        # all six
+npm run qa -- --label task-23     # → qa/reports/<date>-task-23.md
+npm run qa -- --only playwright   # one gate (repeatable)
+git config core.hooksPath .githooks   # ONCE per clone / worktree: pre-commit = gitleaks --staged
+```
+
+### Standing rulings from Task 22 (do not re-litigate per task)
+
+| Ruling | What it means in code |
+|---|---|
+| **A gate is never silently skipped.** | Only the ZAP baseline may report `SKIPPED`, and only when Docker is absent (its script exits 2). Every other gate is PASS or FAIL. |
+| **Thresholds are not lowered to make a run pass.** | A page that cannot reach a Lighthouse threshold gets its numbers and its top causes written into the report instead. |
+| **An accepted finding is recorded, not hidden.** | `qa/semgrep/config.yml` `exclude_rules` / the allowlist in `qa/gitleaks/.gitleaks.toml`, each with the sites reviewed and the reason. A NEW site under an already-excluded rule is not automatically safe. |
+| **The Playwright suite owns port 8124.** | Not 8123: `cards-wt` serves this worktree there with a single-threaded python server, which drops island-chunk requests under four workers. The suite starts `qa/playwright/server.mjs` itself (`reuseExistingServer: false`). |
+| **Specs are hermetic and can never write to production.** | `qa/playwright/tests/_helpers.ts` `boot()` serves Supabase reads from `_fixtures.ts` and answers every write 401 — which is a real mock-mode session, and the reason a spec can assert the "יש להתחבר ל-EMS כדי לשמור" hint. A new island's tables go in `_fixtures.ts`, not in a live call. |
+| **One spec per screen, four projects, RTL asserted in every one.** | `desktop-1440-{light,dark}` + `mobile-390-{light,dark}`; `expectRtl()` + `expectNoConsoleErrors()` end every test. A new feature adds its spec to `qa/playwright/tests/`. |
+| **The fixture rows are UI fixtures, not a copy of production.** | Two sections · three regions · one sub-site · one 🤝 marketing row · one gas site — so section headers, region sub-labels, both chips and a non-⚡ energy badge all have something to render. |
+
+### Bugs the backfill found and fixed (Task 22)
+
+| Fix | Downstream note |
+|---|---|
+| `app/src/islands/Feedback.tsx` now listens for **`sigma-open-feedback`** (exported as `FEEDBACK_OPEN_EVENT`). The command bar's 📣 action and `runAdd('feedback')` dispatch that event and nothing was listening, so both did nothing at all. | Any surface may open the sheet with `window.dispatchEvent(new CustomEvent('sigma-open-feedback'))`; importing `openFeedback()` still works. |
+| `app/src/lib/feedback.ts` gained the **`record-denied`** voice event. A microphone refused during the RECORD leg was reported as `live-denied`, which only the `listening` phase handles — so the sheet sat on "מקליט…" for 10 s and then blamed the wrong thing ("המיקרופון לא נפתח"). It now fails immediately with "אין הרשאה למיקרופון — אפשר להקליד". | Task 6b (Whisper live) must keep the two legs' error events distinct: `live-denied` for the listening leg, `record-denied` for the recorder. |
+| `stats.html` — the jsdelivr `chart.js` tag gained `integrity` + `crossorigin` (semgrep `missing-integrity`). | Any new CDN tag needs an SRI hash or gate 2 fails. |
+| `scripts/test-all.mjs` — dropped `shell: true` in favour of `npm.cmd` on Windows (semgrep `spawn-shell-true`). | Spawn native commands by name, never through a shell. |

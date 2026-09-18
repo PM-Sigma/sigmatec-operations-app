@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Pre-commit: QA gate 1 on the STAGED changes only — a secret must never reach a commit, not
+# even a local one (the service_role key leaked once already; see CLAUDE.md).
+#
+# Enabled per clone / per worktree with:
+#     git config core.hooksPath .githooks
+# (git does not enable hooks from the repo automatically, by design.)
+#
+# It is fast (~0.3 s) and offline. To commit anyway in a genuine emergency:
+#     git commit --no-verify
+# …and then fix it, because `npm run qa` runs the same scan over the whole tree.
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+BIN="qa/bin/gitleaks.exe"
+[ -x "$BIN" ] || BIN="qa/bin/gitleaks"
+if [ ! -x "$BIN" ]; then
+  if command -v gitleaks >/dev/null 2>&1; then BIN="gitleaks"; else
+    echo "pre-commit: gitleaks is not installed — see qa/README.md (install it, or commit with --no-verify)" >&2
+    exit 1
+  fi
+fi
+
+"$BIN" protect --staged --config qa/gitleaks/.gitleaks.toml --no-banner --redact
+code=$?
+if [ $code -ne 0 ]; then
+  cat >&2 <<'MSG'
+
+pre-commit BLOCKED: gitleaks found a secret in the staged changes.
+
+  · A real secret → remove it from the change, then ROTATE it. It is not enough to unstage.
+  · Public by design (the Supabase anon key, the VAPID public key) → add it to the allowlist in
+    qa/gitleaks/.gitleaks.toml WITH a comment saying why it is safe, and commit that too.
+
+MSG
+fi
+exit $code
