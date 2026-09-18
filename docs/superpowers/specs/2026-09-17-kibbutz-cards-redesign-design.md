@@ -641,6 +641,25 @@ admin, holidays), **1 legacy block removed** (company tasks), **3 shared compone
 Briefing). Bottom nav unchanged; ⋯ sheet becomes shorter: יומן · נוכחות · הגדרות · יומן היום · פידבק (+ admins: פיתוח,
 סקירה, שימוש, ייבוא, ➕ קיבוץ).
 
+## 7n. Part N — Session & access rule (עידן 18.9): nothing without EMS login, one re-login prompt, ≥ 3 h sessions
+
+- **Hard gate:** no data is rendered on any page without a valid EMS login. The existing gate (`15-login-gate.js`) stays
+  the front door; every React island checks `sigma.isEmsConnected()` before fetching and renders the login sheet
+  instead of content when not connected (the `?login=0` bypass is test-only and must be disabled on the production
+  origin). Supabase reads that are today anon-readable become authenticated-only where the table holds business data
+  (kibbutzim, notes, visits, drafts, feedback, usage) — anon stays only for the login flow.
+- **One expiry experience, everywhere:** a single interceptor for EMS `401` and Supabase `401/PGRST301` (bridge JWT
+  expired) → one full-screen **"נדרשת התחברות מחדש"** sheet on whatever page the user is on, preserving the current
+  page, scroll and any open visit draft (§5.1c); after login the user lands back where he was. No per-page error toasts.
+- **Session length ≥ 3 h:** the bridge JWT minted by `ems-auth` goes from 60 to **180 min** and is re-minted
+  proactively every 50 min while the EMS token is valid (client already re-mints; make it a timer + on `visibilitychange`).
+  For the EMS token itself: probe the EMS API for a refresh endpoint (`/auth/refresh` or token TTL from the login
+  response); if it exists, silent refresh 10 min before expiry; if not, open a dev-board card "EMS: refresh token /
+  TTL ≥ 8h for the ops app" (parent: הרשאות) and keep the OTP re-login as the fallback. Client-side max session stays
+  12 h (workday), then a fresh login is required.
+- Tests: gate matrix (connected / expired / never logged in × every island → content or login sheet); interceptor
+  fires once for concurrent 401s; re-mint timer math; draft preserved across re-login (round-trip).
+
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 
 עידן named a React/Tailwind stack: **shadcn/ui, Magic UI, Aceternity UI, Motion, Sonner, Vite, TanStack Query,
