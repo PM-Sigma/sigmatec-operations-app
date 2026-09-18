@@ -6,6 +6,7 @@
 // `data-kibbutz` on that slot — this island reads that attribute through a MutationObserver,
 // so ONE React root serves every card instead of mounting and unmounting per open.
 import * as React from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { sigma, useCurrentUser } from '@/bridge';
@@ -62,7 +63,11 @@ function ModalMeetingsPanel() {
         )}
       </div>
       {isLoading && !data
-        ? <p className="text-[12px] text-muted-foreground">⏳ טוען סיכומים…</p>
+        ? (
+          <div className="flex flex-col gap-1.5" aria-busy="true">
+            {[0, 1, 2].map(i => <Skeleton key={i} className="h-[34px] rounded-lg" />)}
+          </div>
+        )
         : <MeetingTimeline rows={data} kibbutz={kibbutz} canAct={!isViewer} expandAll />}
       {/* `user`/`role` are read so the panel re-renders on user-changed — the buttons above
           are role-gated and a changeUser() must take effect without reopening the modal. */}

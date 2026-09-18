@@ -9,6 +9,7 @@
 // which then links to the card.
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -290,7 +291,11 @@ function InboxDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading && <div className="py-6 text-center text-muted-foreground"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div>}
+        {isLoading && (
+          <div className="flex flex-col gap-2" aria-busy="true">
+            {[0, 1, 2].map(i => <Skeleton key={i} className="h-[74px] rounded-xl" />)}
+          </div>
+        )}
         {error && <p className="text-[13px] text-destructive">{(error as any)?.message || 'הטעינה נכשלה'}</p>}
         {!isLoading && !items.length && <p className="py-4 text-center text-[13px] text-muted-foreground">אין עדיין פניות</p>}
 
