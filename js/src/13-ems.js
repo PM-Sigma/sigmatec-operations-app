@@ -87,7 +87,8 @@
     // createTask — used by customer-order approval ("אספקת ציוד"). The site + assignee are resolved
     // at SEND time (works whether sent live or flushed later by another connected user).
     if (item.kind === 'createTask') {
-      var body = { title: item.title, type: item.taskType || 'supplying_meters', priority: 'normal' };
+      var body = { title: item.title, type: item.taskType || 'supplying_meters', priority: item.priority || 'normal' };
+      if (item.siteId) body.siteId = item.siteId;
       // Resolve the site at SEND time. A lookup ERROR (network) must NOT be swallowed — otherwise we'd
       // create a site-less task and dead-letter it forever. Let it throw so the item stays queued and
       // retries on the next connect. (A successful lookup that finds NO match returns '' → we proceed;
@@ -104,17 +105,20 @@
   // Try a write live; queue it for next connect ONLY on connectivity/expiry errors.
   // A real API rejection (4xx/5xx — emsApi throws "(NNN) …") is NOT retryable: queuing
   // it would loop forever, so we surface it instead.
+  // Returns {sent:true, id?} when it went out live — a meeting note has to remember WHICH
+  // task it became (app/src/components/home/MeetingNotes.tsx `linkNoteToTask`), so the created
+  // task's id is passed back instead of being dropped. Queued path returns the queue id.
   async function emsWriteOrQueue(item) {
     if (isEmsConnected()) {
-      try { await emsSendItem(item); return { sent: true }; }
+      try { const res = await emsSendItem(item); return { sent: true, id: res && res.id }; }
       catch (e) {
         const httpErr = /^\(\d{3}\)/.test(e.message || '');
         if (httpErr && isEmsConnected()) return { sent: false, error: e.message };   // real rejection → don't queue
         /* connectivity/expiry → fall through to queue */
       }
     }
-    await emsQueueAdd(item);
-    return { sent: false, queued: true };
+    const queueId = await emsQueueAdd(item);
+    return { sent: false, queued: true, queueId: queueId };
   }
 
   // Idempotency guard: ids we already sent to EMS but haven't confirmed-cleared from
@@ -218,9 +222,12 @@
       row.onclick = (e) => { e.stopPropagation(); openKibbutzEmsTask(t.id); };
       wrap.appendChild(row);
     });
-    // deterministic order: name → status → EMS tasks. Insert right after the status
-    // (or the name) instead of blind-append, so the widget can never land above the name.
-    const anchor = card.querySelector(':scope > .excel-status')
+    // deterministic order: name → 🗓 notes → status → EMS tasks (spec §3.3). On a React
+    // card the meeting bullets are already there, so anchor BELOW them; on a legacy card they
+    // are absent and the chain falls through to the status / name as before. Never
+    // blind-append, or the widget can land above the name.
+    const anchor = card.querySelector(':scope > .card-notes, :scope > .card-notes-empty')
+                || card.querySelector(':scope > .excel-status')
                 || card.querySelector(':scope > .kibbutz-name-row')
                 || card.querySelector(':scope > .kibbutz-name');
     if (anchor) anchor.insertAdjacentElement('afterend', wrap);

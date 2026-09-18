@@ -21,8 +21,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mu6nmson">
-<link rel="stylesheet" href="ui/sigma.css?v=mu6nmson">
+<link rel="stylesheet" href="css/app.css?v=mu6ot0da">
+<link rel="stylesheet" href="ui/sigma.css?v=mu6ot0da">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -282,7 +282,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.79</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.84</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -668,7 +668,10 @@
       <!-- ponytail: "סוג לקוח" kept as a hidden input so existing type data survives a save. -->
       <input type="hidden" id="editEngagement">
 
-      <!-- 🗓 meeting bullets are rendered here by Task 2 -->
+      <!-- 🗓 meeting bullets — React island (app/src/islands/ModalMeetings.tsx). openEditModal
+           stamps data-kibbutz on it; the island observes that attribute, so ONE root serves
+           every card instead of a mount per modal open. -->
+      <div id="sigma-modal-meetings"></div>
       <div id="editorNameWrap">
         <label for="editorName">👤 מי מעדכן:</label>
         <select id="editorName">
@@ -1274,8 +1277,8 @@
 <div id="sigma-import"></div>
 <div id="sigma-toaster"></div>
 <div id="sigma-nav"></div>
-<script src="js/app.js?v=mu6nmson"></script>
-<script type="module" src="ui/sigma.js?v=mu6nmson"></script>
+<script src="js/app.js?v=mu6ot0da"></script>
+<script type="module" src="ui/sigma.js?v=mu6ot0da"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

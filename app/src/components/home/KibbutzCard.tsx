@@ -6,6 +6,7 @@
 // No status/flow badges — spec §2: "A card shows only: name · energy badge · 🤝 tag".
 import { motion, useReducedMotion } from 'motion/react';
 import { CardActions } from '@/components/home/CardActions';
+import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { energyText, labelOf, sectionOf, isSubsite, type KibbutzRow } from '@/lib/kibbutzim';
 
 export function KibbutzCard({
@@ -72,6 +73,9 @@ export function KibbutzCard({
           </button>
         )}
       </div>
+      {/* name → NOTES → EMS tasks: the legacy decorators insert right after .kibbutz-name-row,
+          so the notes block has to sit here for the card to read in that order (spec §3.3). */}
+      <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
       <CardActions name={row.name} role={role} />
     </motion.div>
   );

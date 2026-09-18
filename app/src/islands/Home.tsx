@@ -49,6 +49,7 @@ function HomeIsland() {
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editRow, setEditRow] = React.useState<KibbutzRow | null>(null);
   const [highlight, setHighlight] = React.useState<string | null>(null);
+  const [prefillName, setPrefillName] = React.useState('');
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['kibbutzim'],
@@ -91,14 +92,32 @@ function HomeIsland() {
     return () => { document.body.classList.remove('sigma-home-ready'); };
   }, []);
 
-  const openCreate = React.useCallback(() => { setEditRow(null); setSheetOpen(true); }, []);
-  const openEdit = React.useCallback((r: KibbutzRow) => { setEditRow(r); setSheetOpen(true); }, []);
+  const openCreate = React.useCallback(() => { setEditRow(null); setPrefillName(''); setSheetOpen(true); }, []);
+  const openEdit = React.useCallback((r: KibbutzRow) => { setEditRow(r); setPrefillName(''); setSheetOpen(true); }, []);
 
   // "➕ קיבוץ" in the ⋯ עוד sheet — the phone has no room for a header button.
   React.useEffect(() => {
     if (!canManage) return;
     registerMoreItem({ id: 'new-kibbutz', label: 'קיבוץ חדש', icon: 'Home', roles: ['idan', 'team'], onSelect: openCreate });
   }, [canManage, openCreate]);
+
+  // `window.sigmaHome` is this island's OWN surface for other islands and for legacy code:
+  // openSheet(name) edits that card if it exists and otherwise opens create mode with the
+  // name filled in — which is exactly what the import preview's "צור קיבוץ" needs for a
+  // kibbutz that appeared in a summary but has no card (docs/integration-map.md).
+  React.useEffect(() => {
+    if (!canManage) return;
+    const api = {
+      openSheet(name?: string) {
+        const existing = rows.find(r => r.name === name) || null;
+        setEditRow(existing);
+        setPrefillName(existing ? '' : (name || ''));
+        setSheetOpen(true);
+      },
+    };
+    (window as any).sigmaHome = api;
+    return () => { if ((window as any).sigmaHome === api) delete (window as any).sigmaHome; };
+  }, [canManage, rows]);
 
   const afterWrite = React.useCallback((name: string | null) => {
     void qc.invalidateQueries({ queryKey: ['kibbutzim'] });
@@ -150,6 +169,7 @@ function HomeIsland() {
           open={sheetOpen}
           onOpenChange={setSheetOpen}
           row={editRow}
+          prefillName={prefillName}
           allRows={rows}
           user={user}
           onSaved={r => afterWrite(r?.name || null)}

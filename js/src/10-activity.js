@@ -520,6 +520,10 @@
     // `window.currentKibbutz`. Mirror it, or a certificate opened from the visit form comes
     // up with an empty kibbutz.
     window.currentKibbutz = name;
+    // → app/src/islands/ModalMeetings.tsx (🗓 ישיבות tab): the React root lives for the whole
+    // session and reads the kibbutz off this attribute.
+    var mtgSlot = document.getElementById('sigma-modal-meetings');
+    if (mtgSlot) mtgSlot.setAttribute('data-kibbutz', name);
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
     document.getElementById('modalSub').textContent = 'קיבוץ: ' + name + (task && task.code ? ' (#' + task.code + ')' : '');

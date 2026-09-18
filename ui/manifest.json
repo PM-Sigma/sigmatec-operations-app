@@ -1,6 +1,9 @@
 [
   "./ui/sigma-Home.js",
+  "./ui/sigma-ImportNotes.js",
   "./ui/sigma-index.js",
+  "./ui/sigma-ModalMeetings.js",
+  "./ui/sigma-query.js",
   "./ui/sigma.css",
   "./ui/sigma.js"
 ]

@@ -13,6 +13,14 @@ function SigmaToaster() {
 }
 
 function boot() {
+  // Same two-copies-of-the-entry problem as in islands.tsx `mount`, but here the cost is
+  // higher than duplicate DOM: a second evaluation brings a SECOND TanStack queryClient and
+  // a second persister writing the same localStorage key. The flag is on `window` so it is
+  // shared by both copies.
+  const w = window as any;
+  if (w.__sigmaBooted) return;
+  w.__sigmaBooted = true;
+
   // Re-apply the stored theme through the full path (the <head> snippet only set the class
   // before first paint; this also syncs theme-color and announces 'theme-changed').
   applyTheme(storedTheme() ?? 'system');
@@ -32,6 +40,20 @@ function boot() {
     import('@/islands/Home')
       .then(m => m.mountHome())
       .catch(e => console.warn('[sigma] card home island failed — legacy cards stay', e));
+  }
+
+  // 🗓 Meeting notes (Task 2): the modal tab + the admin-only import sheet. Same lazy-chunk
+  // reasoning as the home island — both read data, and the modal tab is only ever opened
+  // from a card. They are separate roots so one failing never takes the other down.
+  if (document.getElementById('sigma-modal-meetings')) {
+    import('@/islands/ModalMeetings')
+      .then(m => m.mountModalMeetings())
+      .catch(e => console.warn('[sigma] meetings tab island failed', e));
+  }
+  if (document.getElementById('sigma-import')) {
+    import('@/islands/ImportNotes')
+      .then(m => m.mountImportNotes())
+      .catch(e => console.warn('[sigma] import island failed', e));
   }
 }
 

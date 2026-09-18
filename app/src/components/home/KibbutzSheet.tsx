@@ -27,12 +27,14 @@ const fieldBox =
   'w-full min-h-[48px] rounded-xl border border-border bg-muted px-3 py-2.5 text-base outline-none focus:border-[color:var(--brand-1)]';
 
 export function KibbutzSheet({
-  open, onOpenChange, row, allRows, user, onSaved, onArchived,
+  open, onOpenChange, row, allRows, user, onSaved, onArchived, prefillName,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   /** null → create mode. */
   row: KibbutzRow | null;
+  /** Create mode only: the name to start from (the import preview's "צור קיבוץ"). */
+  prefillName?: string;
   allRows: KibbutzRow[];
   user: string;
   onSaved: (row: KibbutzRow) => void;
@@ -59,14 +61,14 @@ export function KibbutzSheet({
   React.useEffect(() => {
     if (!open) return;
     setKind(row?.kind === 'subsite' ? 'subsite' : 'kibbutz');
-    setName(row?.name || '');
+    setName(row?.name || prefillName || '');
     setParent(row?.parent || '');
     setSection(row ? sectionOf(row) : 'new');
     setRegion(row?.region || '');
     setEnergy(row ? energyOf(row) : ['electric']);
     setMarketing(!!row?.marketing);
     setSteps([]); setChain(null); setAllowUnlinked(false); setConfirmArchive(false); setSaving(false);
-  }, [open, row]);
+  }, [open, row, prefillName]);
 
   const parents = React.useMemo(
     () => allRows.filter(r => !r.archived_at && r.kind !== 'subsite' && r.name !== row?.name)

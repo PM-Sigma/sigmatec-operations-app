@@ -64,7 +64,10 @@ export type SigmaEvent =
   | 'user-changed' | 'ems-cache-synced' | 'visit-saved' | 'theme-changed'
   // fired by switchTab('visit') — the moment the legacy visit form is on screen, which is
   // what the 🚚 quick action waits for before asking for a delivery certificate.
-  | 'visit-form-open';
+  | 'visit-form-open'
+  // a meeting note was imported / linked to an EMS task / marked done — every surface that
+  // shows bullets refetches ['meetingNotes'] (docs/integration-map.md)
+  | 'notes-changed';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {
