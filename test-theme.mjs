@@ -101,5 +101,79 @@ check('motion stays inside the budget and respects reduced-motion', () => {
   assert.ok(/prefers-reduced-motion: reduce/.test(css), 'no reduced-motion guard in app.css');
 });
 
+// ── no white surfaces left in the legacy layers (review fix 7) ───────────────
+// The first sweep only touched css/app.css; these surfaces are built in JS strings and inline
+// styles, which is why four of them stayed white in dark mode. The guard is on the SURFACE
+// properties only: a white FOREGROUND on a coloured fill is correct and stays allowed.
+check('no hardcoded white surface in the legacy modules or index.html', () => {
+  const WHITE = /(?:background|background-color)\s*:\s*(?:#fff(?:fff)?\b|white\b)/i;
+  const files = ['index.html', ...fs.readdirSync(path.join(__dirname, 'js/src')).filter(f => f.endsWith('.js')).map(f => 'js/src/' + f)];
+  const bad = [];
+  for (const f of files) {
+    const body = fs.readFileSync(path.join(__dirname, f), 'utf8');
+    let inPrintTemplate = false;
+    const lines = body.split(/\r?\n/);
+    lines.forEach((line, i) => {
+      // A whole DOCUMENT built from a JS string (the visits PDF, the certificate): from its
+      // doctype to its closing html tag, white paper is the point.
+      if (/<!doctype html>/i.test(line)) inPrintTemplate = true;
+      if (/<[/]html>/i.test(line)) { inPrintTemplate = false; return; }
+      // certDocHtml is a PRINTED document — paper is white on purpose (the brief says so).
+      // `print-ok` marks a one-off surface that is also paper (a signature pad, the cert
+      // preview frame). It may sit on the line or on the line just above it — the same
+      // convention the rtl-ok / copy-ok gates use, because a long inline style has no room
+      // for the reason.
+      if (/certDoc|@media print|printable|print-ok/i.test(line)) return;
+      if (/print-ok/i.test(lines[i - 1] || '')) return;
+      if (inPrintTemplate) return;
+      if (WHITE.test(line)) bad.push(f + ':' + (i + 1) + ' ' + line.trim().slice(0, 90));
+    });
+  }
+  assert.deepEqual(bad, [], 'white surfaces that will not flip in dark mode:\n    ' + bad.join('\n    '));
+});
+
+// ── the viewer's shell (task-4 step 6, review miss 8) ────────────────────────
+// The BEHAVIOURAL viewer matrix lives where the gates are: app/src/lib/viewerGate.test.ts (the
+// React half — canManageKibbutzim, the import gate, the bullet→task gate, 📣 allowed) and
+// test-viewer-gate.mjs (the legacy half, untouched). What only THIS file can see is the
+// viewer's SHELL: the reports hub shown, every write surface hidden, 44 px controls.
+check('body.user-viewer shows the reports hub and hides the write surfaces', () => {
+  assert.ok(/body\.user-viewer #viewerReportsHub \{ display: block !important; \}/.test(css),
+    'the reports hub is not force-shown for the viewer');
+  for (const hidden of ['#invTransferCard', '#invAdjustCard', '#invOrdersList button']) {
+    assert.ok(css.includes('body.user-viewer ' + hidden), 'the viewer can still reach ' + hidden);
+  }
+});
+
+check('the viewer reports hub has 44 px controls (it is the only screen he uses)', () => {
+  const hub = css.slice(css.indexOf('.xl-hub-rows'), css.indexOf('body.user-viewer.sigma-nav-ready'));
+  const minHeights = hub.match(/min-height: (\d+)px/g) || [];
+  assert.ok(minHeights.length >= 2, 'no min-height on the hub controls');
+  minHeights.forEach(m => assert.ok(parseInt(m.match(/\d+/)[0], 10) >= 44, 'a hub control under 44 px: ' + m));
+});
+
+// ── the re-skinned visit form keeps every affordance it replaced ─────────────
+// Review fix (minor): the re-skin showed the 🚚 button only while the cert gate was
+// UNSATISFIED, which quietly removed the reprint / corrected-certificate path the old
+// always-present button gave (spec §5 rule 4 keeps reissue).
+check('the cert chip offers 🚚 in BOTH states — issued and not yet issued', () => {
+  const visits = fs.readFileSync(path.join(__dirname, 'js/src/09-visits.js'), 'utf8');
+  const paint = visits.slice(visits.indexOf('async function paintVisitCertStatus'));
+  const body = paint.slice(0, paint.indexOf('window.paintVisitCertStatus'));
+  const buttons = body.match(/certFromVisitForm\(\)/g) || [];
+  assert.ok(buttons.length >= 2,
+    'expected a 🚚 button in both chip states, found ' + buttons.length);
+  const oneLine = body.split(/\r?\n/).join(' ');
+  assert.ok(/sig-certchip ok[\s\S]{0,200}?certFromVisitForm/.test(oneLine),
+    'the ISSUED chip has no way back to a certificate');
+});
+
+check('the save button relabels only while a certificate is actually owed', () => {
+  const visits = fs.readFileSync(path.join(__dirname, 'js/src/09-visits.js'), 'utf8');
+  assert.ok(visits.includes("'🚚 הפק תעודה ← שמור'"), 'the relabel is gone (§7k #5)');
+  assert.ok(/save.innerHTML = n \? '💾 שמור ביקור'/.test(visits),
+    'an issued cert must put the plain save label back');
+});
+
 console.log(failures === 0 ? '\nPASS — all theme/visual contract checks passed' : '\nFAIL — ' + failures + ' check(s) failed');
 process.exit(failures === 0 ? 0 : 1);

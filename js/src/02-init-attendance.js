@@ -15,6 +15,13 @@
     // Visit drafts (spec §5.1c). Leaving the form flushes whatever is pending — a tab switch
     // is exactly the moment someone means to come back — and entering it offers to resume.
     if (tabName === 'visit') {
+      // Pull this person's drafts from the shared table first (review fix 2), then offer to
+      // resume — so a draft started on his other device is one of the options.
+      if (typeof visitDraftsSync === 'function') {
+        Promise.resolve(visitDraftsSync()).then(function () {
+          if (typeof visitDraftPromptShow === 'function') visitDraftPromptShow(window.currentKibbutz || '');
+        });
+      }
       if (typeof visitDraftPromptShow === 'function') visitDraftPromptShow(window.currentKibbutz || '');
       if (typeof syncVisitDurationChips === 'function') syncVisitDurationChips();
     } else if (typeof visitDraftFlush === 'function') {

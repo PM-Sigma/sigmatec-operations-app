@@ -180,8 +180,8 @@
     const ov = document.createElement('div');
     ov.id = 'msgPopup';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;';
-    ov.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-      <h3 style="margin:0 0 12px;color:#1e40af;">✉️ יש לך ${msgs.length} הודעות חדשות</h3>
+    ov.innerHTML = `<div style="background:var(--card);color:var(--text);border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 12px;">✉️ יש לך ${msgs.length} הודעות חדשות</h3>
       <div style="max-height:50vh;overflow:auto;">${msgs.map(m => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
         <div style="font-size:14px;white-space:pre-wrap;">${_staffEsc(m.text)}</div>
         <div style="font-size:11px;color:#94a3b8;margin-top:4px;">מאת ${_staffEsc(m.from_person || '?')} · ${new Date(m.created_at).toLocaleString('he-IL')}</div>

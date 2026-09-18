@@ -4,8 +4,8 @@
 // so the tiers are pinned here rather than tuned by feel.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  groupCommands, parseQuery, pushRecent, rankCommands, readRecents, RECENTS_KEY, scoreCommand,
-  withRecent, type Command,
+  groupCommands, parseQuery, pushRecent, rankCommands, rankedRows, readRecents,
+  RECENTS_KEY, scoreCommand, topCommand, withRecent, type Command,
 } from '@/lib/commands';
 
 const cmd = (id: string, label: string, over: Partial<Command> = {}): Command =>
@@ -129,5 +129,49 @@ describe('groupCommands', () => {
   it('keeps each group in its ranked order', () => {
     const ranked = [cmd('k1', 'א'), cmd('k2', 'ב')];
     expect(groupCommands(ranked)[0].items.map(c => c.id)).toEqual(['k1', 'k2']);
+  });
+});
+
+describe('rankedRows — Enter must run the TOP-RANKED item (review fix 4)', () => {
+  it('the first row is the top-ranked command, whatever kind it is', () => {
+    // A kibbutz outranks an action here (exact prefix vs. fuzzy), and grouping used to put the
+    // action first in the DOM — so cmdk selected it and Enter ran the wrong thing.
+    const list = [cmd('act', 'הוסף גיבוי', { kind: 'action' }), cmd('kib', 'גבת')];
+    const ranked = rankCommands(list, 'גבת');
+    expect(ranked[0].id).toBe('kib');
+    expect(rankedRows(ranked)[0].cmd.id).toBe('kib');
+  });
+
+  it('keeps the ranked order EXACTLY — one row in, one row out', () => {
+    const ranked = [cmd('k1', 'גבת'), cmd('a1', 'פעולה', { kind: 'action' }), cmd('k2', 'גבים')];
+    expect(rankedRows(ranked).map(r => r.cmd.id)).toEqual(['k1', 'a1', 'k2']);
+  });
+
+  it('labels the row that OPENS each run of a kind, and only that one', () => {
+    const ranked = [cmd('k1', 'א'), cmd('k2', 'ב'), cmd('a1', 'ג', { kind: 'action' }), cmd('p1', 'ד', { kind: 'page' })];
+    expect(rankedRows(ranked).map(r => r.startsKind)).toEqual([true, false, true, true]);
+  });
+
+  it('an interleaved ranking re-labels the run rather than reordering it', () => {
+    // This is the real case: an exact-prefix kibbutz, a task matched on its site, then a fuzzy
+    // kibbutz. The order is the ranking's; the labels follow it.
+    const ranked = [cmd('k1', 'גבת'), cmd('t1', 'x', { kind: 'task' }), cmd('k2', 'גבעת חיים')];
+    expect(rankedRows(ranked).map(r => (r.startsKind ? 'L:' : '') + r.cmd.id)).toEqual(['L:k1', 'L:t1', 'L:k2']);
+  });
+
+  it('every row has a stable unique key (React would otherwise re-mount rows as you type)', () => {
+    const keys = rankedRows([cmd('k1', 'a'), cmd('a1', 'b', { kind: 'action' })]).map(r => r.key);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('empty input is an empty list', () => {
+    expect(rankedRows([])).toEqual([]);
+    expect(rankedRows(null)).toEqual([]);
+  });
+
+  it('topCommand is the head of the ranked list', () => {
+    const ranked = rankCommands([cmd('a', 'גבת'), cmd('b', 'גבים')], 'גבת');
+    expect(topCommand(ranked)?.id).toBe('a');
+    expect(topCommand([])).toBe(null);
   });
 });

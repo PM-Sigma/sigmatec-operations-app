@@ -140,3 +140,38 @@ export function groupCommands(ranked: Command[]): Array<{ kind: CommandKind; ite
     .map(kind => ({ kind, items: ranked.filter(c => c.kind === kind) }))
     .filter(g => g.items.length > 0);
 }
+
+/**
+ * ONE FLAT LIST in the global ranked order, each row told whether it OPENS a run of its kind
+ * (review fix 4).
+ *
+ * Why not real groups: cmdk selects the FIRST ITEM IN DOM ORDER, so grouping meant Enter ran
+ * the first ACTION rather than the top-ranked result — the top hit could be three groups down
+ * and Enter would ignore it.
+ *
+ * Why not full-width dividers either: the ranking INTERLEAVES kinds by design (an exact-prefix
+ * kibbutz, then a task matched on its site, then a fuzzy kibbutz), so a divider on every change
+ * repeats "קיבוצים" every other row. The kind is an inline label on the row that starts the
+ * run instead — same information, where a divider would have been, and it never repeats
+ * itself into noise.
+ */
+export interface CommandRow {
+  cmd: Command;
+  /** First row of a run of this kind → render its kind label. */
+  startsKind: boolean;
+  key: string;
+}
+
+export function rankedRows(ranked: Command[] | null | undefined): CommandRow[] {
+  let last: CommandKind | null = null;
+  return (ranked || []).map(cmd => {
+    const startsKind = cmd.kind !== last;
+    last = cmd.kind;
+    return { cmd, startsKind, key: cmd.id };
+  });
+}
+
+/** The command Enter runs: the globally top-ranked one, whatever kind it is. */
+export function topCommand(ranked: Command[] | null | undefined): Command | null {
+  return (ranked && ranked[0]) || null;
+}

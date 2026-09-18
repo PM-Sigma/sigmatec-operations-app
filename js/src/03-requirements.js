@@ -66,11 +66,11 @@
       return;
     }
     wrap.innerHTML = reqItems.map((it, idx) => `
-      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:white;padding:5px 8px;border-radius:6px;">
-        <select onchange="reqItems[${idx}].name = this.value" style="flex:1;padding:4px 6px;border-radius:4px;border:1px solid #e2e8f0;">
+      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:var(--card);padding:5px 8px;border-radius:6px;">
+        <select onchange="reqItems[${idx}].name = this.value" style="flex:1;padding:4px 6px;border-radius:4px;border:1px solid var(--border);">
           ${getActiveProducts().map(pr => pr.name).map(p => `<option value="${p}" ${it.name === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
-        <input type="number" min="1" value="${it.qty}" onchange="reqItems[${idx}].qty = parseInt(this.value)||1" style="width:60px;padding:3px 6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
+        <input type="number" min="1" value="${it.qty}" onchange="reqItems[${idx}].qty = parseInt(this.value)||1" style="width:60px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);text-align:center;">
         <button type="button" onclick="reqItems.splice(${idx},1); renderReqItems();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
       </div>
     `).join('');

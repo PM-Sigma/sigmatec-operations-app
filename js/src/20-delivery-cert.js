@@ -113,6 +113,7 @@
           <label for="certSignName">👤 שם המקבל:</label>
           <input type="text" id="certSignName" placeholder="שם מלא">
           <label>✍️ חתימה:</label>
+          <!-- print-ok: a signature pad is PAPER — ink on white, like the certificate it goes on -->
           <canvas id="certSignCanvas" style="width:100%;height:180px;border:2px dashed #94a3b8;border-radius:10px;background:#fff;touch-action:none;display:block;"></canvas>
           <div class="modal-actions">
             <button class="btn btn-secondary" onclick="document.getElementById('certSignModal').classList.remove('open')">ביטול</button>
@@ -450,6 +451,7 @@
           <span style="flex:1;"></span>
           <button onclick="document.getElementById('certViewOverlay').style.display='none'" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;min-width:40px;min-height:40px;">✕</button>
         </div>
+        <!-- print-ok: the frame shows the PRINTED certificate (certDocHtml) — white paper -->
         <iframe id="certOvFrame" style="flex:1;border:none;background:#fff;width:100%;"></iframe>`;
       document.body.appendChild(ov);
     }

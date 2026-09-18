@@ -287,6 +287,13 @@
     const monthYearLabel = fromDate ? new Date(fromDate).toLocaleDateString('he-IL', {month:'long', year:'numeric'}) : '';
 
     // Build calendar table rows — only days with visits
+    // §5.1b: the PDF carries "נשאר פתוח" beside the summary, like the Excel and the
+    // WhatsApp report do (review fix 3 — the PDF was the one reader that dropped it).
+    const openItemsCell = (v) => {
+      const t = v.openItems || v.open_items || '';
+      const esc = String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      return t ? esc.replace(/\r?\n/g, '<br>') : '<span class="muted">—</span>';
+    };
     const tableRows = [];
     allDates.forEach(d => {
       const k = dayKey(d);
@@ -325,6 +332,7 @@
               <td class="num">${v.duration || 0}</td>
               <td>${v.contact || '<span class="muted">—</span>'}</td>
               <td class="summary">${(v.summary || '').replace(/</g,'&lt;').replace(/\n/g,'<br>') || '<span class="muted">—</span>'}</td>
+              <td class="summary">${openItemsCell(v)}</td>
               <td>${v.productsOther ? v.productsOther : '<span class="muted">—</span>'}</td>
               <td class="num"><span class="muted">—</span></td>
             </tr>`);
@@ -338,6 +346,7 @@
                 <td rowspan="${visitRowspan}" class="num">${v.duration || 0}</td>
                 <td rowspan="${visitRowspan}">${v.contact || '<span class="muted">—</span>'}</td>
                 <td rowspan="${visitRowspan}" class="summary">${(v.summary || '').replace(/</g,'&lt;').replace(/\n/g,'<br>') || '<span class="muted">—</span>'}</td>
+                <td rowspan="${visitRowspan}" class="summary">${openItemsCell(v)}</td>
               ` : '';
               tableRows.push(`<tr class="${isWeekend ? 'weekend-row' : ''}">
                 ${rowDayCell}
@@ -471,6 +480,7 @@
               <th class="num">משך</th>
               <th>איש קשר</th>
               <th>סיכום ביקור</th>
+              <th>נשאר פתוח</th>
               <th>פריט שסופק</th>
               <th class="num">כמות</th>
             </tr>

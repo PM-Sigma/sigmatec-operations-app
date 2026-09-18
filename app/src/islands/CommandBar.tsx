@@ -21,7 +21,7 @@ import { roleOf } from '@/lib/landing';
 import { canManageKibbutzim, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
 import { primaryAdd, primaryAddLabel } from '@/lib/primaryAdd';
 import {
-  groupCommands, KIND_HEADING, pushRecent, rankCommands, readRecents, type Command,
+  KIND_HEADING, pushRecent, rankCommands, rankedRows, readRecents, type Command,
 } from '@/lib/commands';
 
 const OPEN_EVENT = 'sigma-open-command-bar';
@@ -157,17 +157,20 @@ function CommandBarPanel() {
     const onEvent = () => show('trigger');
     window.addEventListener(OPEN_EVENT, onEvent as EventListener);
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-        e.preventDefault();
-        show('shortcut');
-      }
+      if (!(e.ctrlKey || e.metaKey) || (e.key !== 'k' && e.key !== 'K')) return;
+      // Mid-composition (an IME / dead-key sequence) the keydown is not a shortcut press.
+      if (e.isComposing) return;
+      e.preventDefault();
+      // Already open: swallow the key rather than rebuild the sources and WIPE what he typed.
+      if (open) return;
+      show('shortcut');
     };
     document.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener(OPEN_EVENT, onEvent as EventListener);
       document.removeEventListener('keydown', onKey);
     };
-  }, [show]);
+  }, [show, open]);
 
   // The legacy header search and the phone search field call this instead of carrying their
   // own result UI (docs/integration-map.md).
@@ -181,7 +184,9 @@ function CommandBarPanel() {
     () => rankCommands(commands, query, { role: personRole, recents }),
     [commands, query, personRole, recents],
   );
-  const groups = React.useMemo(() => groupCommands(ranked), [ranked]);
+  // FLAT, in the global ranked order — so Enter runs the top-ranked result and not the first
+  // row of the first group (review fix 4). Each row knows whether it opens a run of its kind.
+  const rows = React.useMemo(() => rankedRows(ranked), [ranked]);
 
   const pick = (cmd: Command) => {
     setOpen(false);
@@ -203,16 +208,23 @@ function CommandBarPanel() {
           />
           <CommandList className="max-h-[60vh]">
             <CommandEmpty>לא נמצא כלום</CommandEmpty>
-            {groups.map(g => (
-              <CommandGroup key={g.kind} heading={KIND_HEADING[g.kind]}>
-                {g.items.map(cmd => (
-                  <CommandItem key={cmd.id} value={cmd.id} onSelect={() => pick(cmd)}>
-                    <span className="flex-1 truncate">{cmd.label}</span>
-                    {cmd.hint && <span className="ms-2 shrink-0 text-[11px] text-muted-foreground"><bdi>{cmd.hint}</bdi></span>}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            ))}
+            {/* One group so cmdk keeps ONE selection sequence in the ranked order. */}
+            <CommandGroup>
+              {rows.map(({ cmd, startsKind, key }) => (
+                <CommandItem key={key} value={cmd.id} onSelect={() => pick(cmd)}>
+                  {/* the kind, on the row that opens its run — where a divider would have been */}
+                  {startsKind && (
+                    <span className="shrink-0 text-[10px] font-bold uppercase text-muted-foreground">
+                      {KIND_HEADING[cmd.kind]}
+                    </span>
+                  )}
+                  <span className="flex-1 truncate">{cmd.label}</span>
+                  {cmd.hint && (
+                    <span className="ms-2 shrink-0 text-[11px] text-muted-foreground"><bdi>{cmd.hint}</bdi></span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
           </CommandList>
         </CommandRoot>
       </DialogContent>

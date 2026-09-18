@@ -860,7 +860,7 @@
         return `
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:#fff7ed;border:1px solid #fdba74;padding:6px 8px;border-radius:6px;flex-wrap:wrap;">
         <span style="font-weight:700;font-size:12px;color:#9a3412;flex:1;min-width:120px;">⚡ ${it.label || 'בחר סוג'}:</span>
-        ${it.choose.map((c, ci) => `<button type="button" onclick="invChooseProduct(${idx}, ${ci})" style="font-size:12px;font-weight:700;background:#fff;color:#9a3412;border:1px solid #fb923c;border-radius:6px;padding:4px 12px;cursor:pointer;">${psLabel(c)}</button>`).join('')}
+        ${it.choose.map((c, ci) => `<button type="button" onclick="invChooseProduct(${idx}, ${ci})" style="font-size:12px;font-weight:700;background:var(--card);color:#9a3412;border:1px solid #fb923c;border-radius:6px;padding:4px 12px;cursor:pointer;">${psLabel(c)}</button>`).join('')}
         <input type="number" min="1" value="${it.qty}" onchange="invOrderItems[${idx}].qty = parseInt(this.value) || 1" style="width:64px;padding:3px 6px;border-radius:4px;border:1px solid #fb923c;text-align:center;" title="כמות">
         <button onclick="invOrderItems.splice(${idx}, 1); renderOrderItems(); invToggleDistribution();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
       </div>`;
@@ -1185,7 +1185,7 @@
               style="width:60px;padding:3px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
           </div>`;
       }).join('');
-      return `<div style="background:white;padding:8px 10px;border-radius:6px;margin-bottom:6px;">
+      return `<div style="background:var(--card);padding:8px 10px;border-radius:6px;margin-bottom:6px;">
         <div style="font-weight:700;font-size:12px;margin-bottom:4px;">
           ${it.name} (סה"כ: ${it.qty})
         </div>

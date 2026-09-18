@@ -89,7 +89,7 @@
       return;
     }
     wrap.innerHTML = visitReturnedItems.map((r, idx) => `
-      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:white;padding:5px 8px;border-radius:6px;">
+      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:var(--card);padding:5px 8px;border-radius:6px;">
         <select onchange="visitReturnedItems[${idx}].name = this.value" style="flex:1;padding:3px 6px;border-radius:4px;border:1px solid #fecaca;font-size:11px;">
           ${getActiveProducts().map(pr => pr.name).map(p => `<option value="${p}" ${r.name === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>

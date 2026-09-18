@@ -1861,3 +1861,15 @@ body.sigma-header-ready .header-meta { align-items: center; }
   color: var(--text); font-family: inherit; cursor: pointer;
 }
 /* @end */
+
+/* @tokens-only */
+/* The resume prompt's "other open drafts" row (review fix 1: a person can have a draft at
+   more than one kibbutz on the same day, so he picks instead of guessing which comes back). */
+.sig-draft-more { display: flex; flex-wrap: wrap; gap: 6px; }
+.sig-draft-more:empty { display: none; }
+.sig-draft-more button {
+  flex: none; min-height: 34px; padding: 0 12px; font-size: 13px; font-weight: 700;
+  border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); font-family: inherit; cursor: pointer;
+}
+/* @end */

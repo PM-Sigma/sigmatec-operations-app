@@ -5,7 +5,7 @@
 // as the place identity and settings live; the legacy chips that still have no React home
 // (ישיבה, פוטנציאליים, סטטיסטיקה) stay where they are and are untouched.
 import * as React from 'react';
-import { Plus, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Search } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserChip } from '@/components/UserChip';
 import { mount } from '@/islands';
@@ -13,7 +13,7 @@ import { useCurrentUser } from '@/bridge';
 import { useCurrentPage } from '@/lib/currentPage';
 import { roleOf } from '@/lib/landing';
 import { canManageKibbutzim } from '@/lib/kibbutzim';
-import { primaryAdd, primaryAddLabel } from '@/lib/primaryAdd';
+import { primaryAdd, primaryAddLabel, primaryAddOpensForm } from '@/lib/primaryAdd';
 import { openCommandBar, runAdd } from '@/islands/CommandBar';
 import { track } from '@/lib/track';
 
@@ -23,6 +23,9 @@ function HeaderActionsPanel() {
   const personRole = roleOf(user, role);
   const add = primaryAdd(page, personRole, { canManageKibbutzim: canManageKibbutzim(user, isViewer) });
   const addLabel = primaryAddLabel(add);
+  // A ➕ is a promise that something is created right here; a navigation action gets an arrow
+  // and its own wording instead (review fix 5).
+  const addCreates = primaryAddOpensForm(add);
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
@@ -46,8 +49,11 @@ function HeaderActionsPanel() {
           onClick={() => { track('primary-add', add); runAdd(add); }}
           className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-brand-grad px-3 text-[13px] font-bold text-white transition-transform active:scale-[.97]"
         >
-          <Plus className="h-4 w-4" />
-          {/* the label already carries its own ➕ glyph for the command bar — strip it here */}
+          {addCreates
+            ? <Plus className="h-4 w-4" />
+            /* ArrowLeft points to the INLINE START inside this RTL container, i.e. forward */
+            : <ArrowLeft className="h-4 w-4" />}
+          {/* the label carries its own ➕ glyph for the command bar — strip it here */}
           <span>{addLabel.replace(/^➕\s*/, '')}</span>
         </button>
       )}

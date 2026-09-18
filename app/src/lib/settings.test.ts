@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   cardDescClamp, DEFAULT_SETTINGS, fontStack, mergeSettings, setSettingsLocal, getSettings,
-  _resetSettings, SETTINGS_KEY,
+  _resetSettings, SETTINGS_KEY, pickNewer, type UserSettings,
 } from '@/lib/settings';
 
 describe('mergeSettings', () => {
@@ -82,5 +82,62 @@ describe('the live store', () => {
     localStorage.setItem(SETTINGS_KEY, '{not json');
     _resetSettings();
     expect(getSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe('pickNewer — newest wins between this device and the row (review fix 6)', () => {
+  const at = (iso: string, over: Partial<UserSettings> = {}): UserSettings =>
+    ({ ...DEFAULT_SETTINGS, updated_at: iso, ...over });
+
+  it('the ROW wins when it is newer', () => {
+    const local = at('2026-09-18T10:00:00.000Z', { theme: 'light' });
+    const r = pickNewer(local, { theme: 'dark', updated_at: '2026-09-18T11:00:00.000Z' });
+    expect(r.settings.theme).toBe('dark');
+    expect(r.push).toBe(false);
+  });
+
+  it('THIS DEVICE wins when its choice is newer — and the stale row is pushed back', () => {
+    const local = at('2026-09-18T12:00:00.000Z', { theme: 'light' });
+    const r = pickNewer(local, { theme: 'dark', updated_at: '2026-09-18T11:00:00.000Z' });
+    expect(r.settings.theme).toBe('light');   // the explicit local choice is NOT clobbered
+    expect(r.push).toBe(true);                // …and the other device will converge
+  });
+
+  it('a tie keeps what is already on screen and pushes nothing', () => {
+    const local = at('2026-09-18T12:00:00.000Z', { theme: 'light' });
+    const r = pickNewer(local, { theme: 'dark', updated_at: '2026-09-18T12:00:00.000Z' });
+    expect(r.settings.theme).toBe('light');
+    expect(r.push).toBe(false);
+  });
+
+  it('a device that never chose anything loses to any row', () => {
+    const r = pickNewer(at(''), { card_desc: 'full', updated_at: '2026-01-01T00:00:00.000Z' });
+    expect(r.settings.card_desc).toBe('full');
+    expect(r.push).toBe(false);
+  });
+
+  it('no row at all changes nothing', () => {
+    const local = at('2026-09-18T12:00:00.000Z', { font: 'Rubik' });
+    expect(pickNewer(local, null)).toEqual({ settings: local, push: false });
+  });
+
+  it('the winning row still goes through the per-field validation', () => {
+    const r = pickNewer(at('2026-01-01'), { font: 'Wingdings', updated_at: '2026-09-18' } as any);
+    expect(r.settings.font).toBe('Assistant');
+  });
+});
+
+describe('setSettingsLocal stamps the person\u2019s own choices', () => {
+  beforeEach(() => { _resetSettings(); localStorage.clear(); });
+
+  it('a local choice gets a fresh updated_at (that is how it beats a stale row)', () => {
+    const before = new Date().toISOString();
+    const s = setSettingsLocal({ card_desc: 'full' });
+    expect(s.updated_at >= before).toBe(true);
+  });
+
+  it('a patch that came FROM the row keeps the row\u2019s timestamp', () => {
+    const s = setSettingsLocal({ card_desc: 'full', updated_at: '2020-01-01T00:00:00.000Z' }, { stamp: false });
+    expect(s.updated_at).toBe('2020-01-01T00:00:00.000Z');
   });
 });

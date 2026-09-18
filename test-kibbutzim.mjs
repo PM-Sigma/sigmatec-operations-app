@@ -311,5 +311,29 @@ check('the phone-only block still opens before the fixed bottom nav', () => {
   }
 });
 
+// ── region integrity (task-4 review fix 9) ──────────────────────────────────
+// A kibbutz with no איזור is refused by validateKibbutz now (spec §2), and the cards are
+// GROUPED by region — so a row without one lands in a bucket that exists only because a field
+// was skipped. עידן closed the last two empty rows in production; this keeps the SEED from
+// re-creating the state the rule forbids, on the next `db/kibbutzim_seed.sql` run.
+check('the kibbutzim seed has no empty region', () => {
+  const seed = fs.readFileSync(path.join(__dirname, 'db/kibbutzim_seed.sql'), 'utf8');
+  const rows = seed.split('\n').filter(l => /^\s*\('/.test(l));
+  assert.ok(rows.length > 40, 'expected the full seed, found ' + rows.length + ' rows');
+  const empty = rows.filter(l => /,\s*''\s*\)/.test(l)).map(l => (l.match(/^\s*\('([^']+)'/) || [])[1]);
+  assert.deepStrictEqual(empty, [], 'seed rows with no region: ' + empty.join(', '));
+});
+
+check('every seeded region is one of the five the app offers', () => {
+  const seed = fs.readFileSync(path.join(__dirname, 'db/kibbutzim_seed.sql'), 'utf8');
+  const FIVE = ['גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'דרום, עוטף עזה והנגב'];
+  const used = [...new Set(seed.split('\n')
+    .filter(l => /^\s*\('/.test(l))
+    .map(l => (l.match(/,\s*'([^']*)'\s*\)/) || [])[1])
+    .filter(Boolean))];
+  const strays = used.filter(r => !FIVE.includes(r));
+  assert.deepStrictEqual(strays, [], 'regions outside REGION_ORDER: ' + strays.join(' | '));
+});
+
 console.log(failures === 0 ? '\n✅ all kibbutzim checks passed' : '\n❌ ' + failures + ' check(s) failed');
 process.exit(failures === 0 ? 0 : 1);

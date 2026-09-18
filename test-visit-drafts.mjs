@@ -98,19 +98,20 @@ const window_ = {
 };
 const emitted = [];
 
-function load() {
+function load(kibbutz) {
   const fn = new Function(
     'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
     'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
     'visitReturnedItems', 'renderReturnedItems', 'setTimeout', 'clearTimeout', 'getCurrentUser', 'sigmaEmit',
     src + '\nreturn { visitDraftSave, visitDraftTouch, visitDraftFlush, visitDraftFor, visitDraftRestore,'
-        + ' visitDraftDiscard, visitDraftPayload, visitDraftHasContent, saveVisit };',
+        + ' visitDraftDiscard, visitDraftPayload, visitDraftHasContent, saveVisit,'
+        + ' visitDraftsForPerson, draftMergeRows, draftKey };',
   );
   return fn(
     window_, document_, localStorage_, fetch_, () => {}, 'http://sheet.test', () => {},
     async () => 0, () => '', () => {}, () => {}, () => {},
-    'גבים', ['אביאם'], 'תקול', () => ({}), () => {}, () => {},
+    kibbutz || 'גבים', ['אביאם'], 'תקול', () => ({}), () => {}, () => {},
     [], () => {}, setTimeout_, clearTimeout_, () => 'אביאם',
     (name, detail) => emitted.push({ name, detail }),
   );
@@ -260,6 +261,119 @@ if (mod) {
     els.visitSummary.value = 'מ';
     mod.visitDraftFlush();
     assert.equal(emitted.filter(e => e.name === 'visit-draft-changed').length, 1);
+  });
+
+  // ── C. TWO KIBBUTZIM, ONE DAY (review fix 1) ──────────────────────────────
+  // The regression that motivated the fix: the mirror was ONE slot, so starting a summary at
+  // a second kibbutz on the same day silently destroyed the first one.
+  check('C1 a draft at a second kibbutz does not destroy the first', () => {
+    reset();
+    const gvim = load('גבים');
+    els.visitDate.value = '2026-09-18';
+    els.visitSummary.value = 'בגבים: הוחלף בקר';
+    gvim.visitDraftFlush();
+    // …then גבת, same person, same day. A fresh load() mints a NEW draft id, exactly as a
+    // second card opening the form does.
+    window_._visitDraftId = null;
+    const gvat = load('גבת');
+    els.visitSummary.value = 'בגבת: נבדקו 4 מונים';
+    gvat.visitDraftFlush();
+
+    const mine = gvat.visitDraftsForPerson('אביאם');
+    assert.equal(mine.length, 2, 'expected BOTH drafts, got ' + mine.length);
+    assert.deepEqual(mine.map(r => r.kibbutz).sort(), ['גבים', 'גבת']);
+  });
+
+  check('C2 each kibbutz gets ITS OWN draft back, not the other one', () => {
+    const m = load('גבת');
+    const atGvim = m.visitDraftFor('גבים', 'אביאם', '2026-09-18');
+    const atGvat = m.visitDraftFor('גבת', 'אביאם', '2026-09-18');
+    assert.ok(atGvim && atGvat, 'one of the two lookups found nothing');
+    assert.equal(atGvim.payload.summary, 'בגבים: הוחלף בקר');
+    assert.equal(atGvat.payload.summary, 'בגבת: נבדקו 4 מונים');
+    assert.notEqual(atGvim.id, atGvat.id, 'the two drafts share one id');
+  });
+
+  check('C3 restore picks the draft of the kibbutz on screen', () => {
+    const m = load('גבים');
+    els.visitSummary.value = '';
+    m.visitDraftRestore();
+    assert.equal(els.visitSummary.value, 'בגבים: הוחלף בקר');
+  });
+
+  check('C4 restore BY ID reaches a draft from another kibbutz (the prompt list)', () => {
+    const m = load('גבים');
+    const atGvat = m.visitDraftFor('גבת', 'אביאם', null);
+    els.visitSummary.value = '';
+    m.visitDraftRestore(atGvat.id);
+    assert.equal(els.visitSummary.value, 'בגבת: נבדקו 4 מונים');
+  });
+
+  check('C5 discarding one draft leaves the other alone', () => {
+    const m = load('גבת');
+    const atGvat = m.visitDraftFor('גבת', 'אביאם', null);
+    m.visitDraftDiscard(atGvat.id, false);
+    assert.equal(m.visitDraftFor('גבת', 'אביאם', null), null, 'the discarded draft survived');
+    assert.ok(m.visitDraftFor('גבים', 'אביאם', null), 'the OTHER draft was discarded too');
+  });
+
+  check('C6 a widened lookup (the nav 🚚) answers with the NEWEST, never an arbitrary one', () => {
+    const m = load('גבת');
+    const all = m.visitDraftsForPerson('אביאם');
+    const wild = m.visitDraftFor(null, 'אביאם', null);
+    assert.ok(wild, 'the wildcard lookup found nothing');
+    assert.equal(wild.id, all[0].id, 'the wildcard lookup did not answer with the newest');
+  });
+
+  check('C7 a v1 single-slot draft is MIGRATED, not lost', () => {
+    reset();
+    storage['visitDraft_v1'] = JSON.stringify({
+      id: 'v_OLD1', person: 'אביאם', kibbutz: 'חוקוק', date: '2026-09-18',
+      payload: { kibbutz: 'חוקוק', summary: 'מהגרסה הקודמת' }, updated_at: '2026-09-18T08:00:00.000Z',
+    });
+    const m = load('חוקוק');
+    const found = m.visitDraftFor('חוקוק', 'אביאם', '2026-09-18');
+    assert.ok(found, 'the v1 draft was not migrated');
+    assert.equal(found.payload.summary, 'מהגרסה הקודמת');
+    assert.equal(storage['visitDraft_v1'], undefined, 'the v1 key was not cleaned up');
+  });
+
+  // ── D. the cross-device merge rule (review fix 2) ─────────────────────────
+  const row = (o) => Object.assign({ person: 'אביאם', kibbutz: 'גבים', date: '2026-09-18' }, o);
+  const KEY = 'אביאם|גבים|2026-09-18';
+
+  check('D1 newest updated_at wins — remote over local', () => {
+    const m = load('גבים');
+    const mine = { [KEY]: row({ id: 'L', updated_at: '2026-09-18T10:00:00.000Z', payload: { summary: 'מקומי' } }) };
+    const remote = [row({ id: 'R', updated_at: '2026-09-18T11:00:00.000Z', payload: { summary: 'מהמכשיר השני' } })];
+    assert.equal(m.draftMergeRows(mine, remote)[KEY].payload.summary, 'מהמכשיר השני');
+  });
+
+  check('D2 …and local over remote when the local one is newer (offline typing is not lost)', () => {
+    const m = load('גבים');
+    const mine = { [KEY]: row({ id: 'L', updated_at: '2026-09-18T12:00:00.000Z', payload: { summary: 'מקומי חדש' } }) };
+    const remote = [row({ id: 'R', updated_at: '2026-09-18T11:00:00.000Z', payload: { summary: 'מהמכשיר השני' } })];
+    assert.equal(m.draftMergeRows(mine, remote)[KEY].payload.summary, 'מקומי חדש');
+  });
+
+  check('D3 a remote draft for a kibbutz this device never saw is ADDED', () => {
+    const m = load('גבים');
+    const merged = m.draftMergeRows({}, [row({ id: 'R2', kibbutz: 'יגור', updated_at: '2026-09-18T09:00:00.000Z' })]);
+    assert.equal(Object.keys(merged).length, 1);
+    assert.equal(merged['אביאם|יגור|2026-09-18'].id, 'R2');
+  });
+
+  check('D4 junk rows from the server are ignored, not merged', () => {
+    const m = load('גבים');
+    assert.deepEqual(m.draftMergeRows({}, [null, {}, { id: 'x' }, { kibbutz: 'y' }]), {});
+  });
+
+  check('D5 the merge never mutates the mirror it was handed', () => {
+    const m = load('גבים');
+    const mine = { k: { id: 'L', updated_at: '2026-01-01' } };
+    const copy = JSON.parse(JSON.stringify(mine));
+    m.draftMergeRows(mine, [row({ id: 'R', updated_at: '2030-01-01' })]);
+    assert.deepEqual(mine, copy);
   });
 }
 

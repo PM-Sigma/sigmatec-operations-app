@@ -24,6 +24,12 @@ export interface UserSettings {
   theme: ThemeChoice;
   /** Task 15 (end-of-day nudge hour). Carried through so a Task-4 write never drops it. */
   eod_hour: number | null;
+  /**
+   * When these settings were last CHANGED BY THIS PERSON. It is the tie-breaker between a
+   * device and the row: newest wins (review fix 6). An ISO string, or '' for "never touched",
+   * which always loses to a real timestamp.
+   */
+  updated_at: string;
 }
 
 export const SETTINGS_KEY = 'sigma_settings_v1';
@@ -46,6 +52,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   font: 'Assistant',
   theme: 'system',
   eod_hour: null,
+  updated_at: '',
 };
 
 const LANDINGS: Landing[] = ['auto', 'kibbutz', 'dev', 'reports', 'attendance', 'calendar', 'inventory'];
@@ -72,7 +79,28 @@ export function mergeSettings(patch: Partial<UserSettings> | Record<string, unkn
     font: FONTS.includes(p.font as FontChoice) ? (p.font as FontChoice) : base.font,
     theme: p.theme === 'light' || p.theme === 'dark' || p.theme === 'system' ? p.theme : base.theme,
     eod_hour: p.eod_hour === null ? null : Number.isInteger(eod) && eod >= 0 && eod <= 23 ? eod : base.eod_hour,
+    updated_at: typeof p.updated_at === 'string' ? p.updated_at : base.updated_at,
   };
+}
+
+/**
+ * NEWEST WINS (review fix 6). The row used to be merged over the mirror wholesale, so a theme
+ * chosen on the phone came back and overwrote the one just chosen on the desktop.
+ *
+ * `push` says the LOCAL side is newer and the row is stale — the caller writes it back, which
+ * is what makes two devices converge instead of fighting on every boot. Pure, so the rule is
+ * pinned by tests rather than by watching two browsers.
+ */
+export function pickNewer(local: UserSettings, remote: Partial<UserSettings> | null | undefined):
+  { settings: UserSettings; push: boolean } {
+  if (!remote) return { settings: local, push: false };
+  const r = mergeSettings(remote as Record<string, unknown>, local);
+  const localAt = String(local.updated_at || '');
+  const remoteAt = String(r.updated_at || '');
+  // A tie keeps the local copy: it is what is already on screen, and re-applying an identical
+  // value would still flash the theme.
+  if (localAt && localAt >= remoteAt) return { settings: local, push: localAt > remoteAt };
+  return { settings: r, push: false };
 }
 
 /**
@@ -121,9 +149,17 @@ export function applySettings(s: UserSettings): void {
 
 function notify(): void { listeners.forEach(fn => { try { fn(); } catch { /* a bad listener never blocks the rest */ } }); }
 
-/** Merge a patch into the live settings: mirror, apply, notify. Persistence is the caller's. */
-export function setSettingsLocal(patch: Partial<UserSettings>): UserSettings {
-  current = mergeSettings(patch as Record<string, unknown>, getSettings());
+/**
+ * Merge a patch into the live settings: mirror, apply, notify. Persistence is the caller's.
+ * A patch that came from THIS PERSON (the default) is stamped `updated_at`, which is what
+ * lets it win over a stale row on another device; `{ stamp: false }` is for a patch that came
+ * FROM the row, where the row's own timestamp must survive.
+ */
+export function setSettingsLocal(patch: Partial<UserSettings>, opts: { stamp?: boolean } = {}): UserSettings {
+  const stamped = opts.stamp === false
+    ? patch
+    : { ...patch, updated_at: new Date().toISOString() };
+  current = mergeSettings(stamped as Record<string, unknown>, getSettings());
   writeMirror(current);
   applySettings(current);
   // A theme is applied only when the person actually CHOSE one in this call — 'system' is
@@ -158,7 +194,20 @@ export async function loadSettings(person: string): Promise<UserSettings> {
     const sb = await getSupabase();
     const { data, error } = await sb.from('user_settings').select('*').eq('person', person).maybeSingle();
     if (error || !data) return getSettings();
-    return setSettingsLocal(data as Partial<UserSettings>);
+    // ONE snapshot: getSettings() re-derives `theme` from localStorage and can hand back a
+    // fresh object, so comparing against a second call would be comparing two strangers.
+    const before = getSettings();
+    const { settings, push } = pickNewer(before, data as Partial<UserSettings>);
+    if (settings !== before) {
+      // the row is newer → adopt it, keeping ITS timestamp (not now)
+      setSettingsLocal(settings, { stamp: false });
+      applyTheme(settings.theme);
+    } else if (push) {
+      // this device is newer → the row is stale, so write ours back and let the other device
+      // pick it up on its next boot instead of losing to it forever.
+      void saveSettings(person, {}).catch(() => { /* offline — the mirror is still right */ });
+    }
+    return getSettings();
   } catch { return getSettings(); }
 }
 
@@ -174,6 +223,8 @@ export async function saveSettings(person: string, patch: Partial<UserSettings>)
     font: next.font,
     theme: next.theme,
     eod_hour: next.eod_hour,
-    updated_at: new Date().toISOString(),
+    // The person's OWN stamp, not "now": `pickNewer` compares this against the other device's,
+    // and a fresh "now" on every push would make the last device to boot always win.
+    updated_at: next.updated_at || new Date().toISOString(),
   }, { onConflict: 'person' }));
 }

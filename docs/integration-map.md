@@ -143,3 +143,13 @@ Channels, in the order of how loosely they couple:
 | **The tokens-only region of `css/app.css` may not contain a hex literal.** | The marked `/* @tokens-only */ … /* @end */` block; `test-theme.mjs` fails the build otherwise. New legacy CSS goes inside it. |
 | **RTL is a release gate.** | `test-rtl.mjs` — logical properties only in the new CSS and in `app/src/**`; a physical property needs a `/* rtl-ok */` on the line, with the reason. |
 | **The UI never explains its own mechanics, and never says who else sees the data.** | `test-copy-rules.mjs` greps `app/src/**` and `index.html` for the banned words. |
+
+### Task 4 — review fix round 1
+
+| Change | Why it matters downstream |
+|---|---|
+| The visit-draft mirror is a **MAP** keyed `person|kibbutz|date` in `localStorage['visitDrafts_v2']` (was one slot in `visitDraft_v1`, which a second kibbutz overwrote). `visitDraftFor(kibbutz?, person?, date?)` still answers one row — the NEWEST when the query is widened — and `visitDraftsForPerson(person)` lists them all, newest first. A v1 row is migrated on the first read. | Anything asking "is there a draft?" keeps the same call. Anything LISTING drafts (Task 5's briefing, Task 15's gaps line) should use `visitDraftsForPerson` rather than assuming one. |
+| `visitDraftsSync()` READS `visit_drafts` for the logged-in person and merges newest-`updated_at`-wins into the mirror (pure `draftMergeRows`, tested). Called on `switchTab('visit')` and on `user-changed`. | The table is no longer write-only, so "the draft follows you to another device" is now true. A new draft writer must keep `updated_at` honest — it is the only tie-breaker. |
+| `user_settings` now carries **`updated_at` as the person's own choice stamp**, and `pickNewer(local, remote)` decides boot conflicts newest-wins; a device that is ahead PUSHES its row back. | Task 15 must stamp every settings write (`setSettingsLocal` does it by default) and must pass `{ stamp: false }` when the patch came FROM the row, or the row's timestamp is lost and the two devices ping-pong. |
+| `primaryAdd`'s labels: only `kibbutz` / `visit` / `feedback` carry ➕. `stockChange` / `schedule` / `event` read "עבור למלאי" / "עבור ליומן" until Tasks 8/13 ship their forms — `ADD_OPENS_FORM` is the flag to flip. | §7k.2's matrix is unchanged; only the wording is. When those forms land, flip the flag and the label in ONE place and the header icon follows. |
+| Ctrl+K renders ONE flat ranked list with the kind labels as dividers (`flatWithHeadings`), because cmdk selects by DOM order and real groups made Enter run the first ACTION instead of the top hit. | Any new command source just needs a `kind`; do not reintroduce `CommandGroup` per kind. |

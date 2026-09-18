@@ -142,7 +142,7 @@
     let html = '';
     kibs.forEach(k => {
       const grp = groups[k], kEsc = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      html += '<div style="background:white;border:1px solid var(--border);border-right:3px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:10px;">';
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-inline-start:3px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:10px;">';
       html += '<div style="font-weight:700;color:var(--primary);margin-bottom:6px;cursor:pointer;" onclick="openKibbutzByName(\'' + kEsc + '\')">🏘️ ' + emsEsc(k) + '</div>';
       grp.ems.forEach(t => {
         const overdue = t.expectedCompletionDate && new Date(t.expectedCompletionDate) < new Date();

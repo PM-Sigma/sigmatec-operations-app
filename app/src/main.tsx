@@ -127,16 +127,15 @@ function boot() {
       .catch(e => console.warn('[sigma] import island failed', e));
   }
   // First screen per role (§7l). Last in boot, and only ever once per session: the landing
-  // reads the page gates, which need the legacy bundle to be fully up. The person's stored row
-  // may override the role default, so the landing is re-evaluated once it arrives — but only
-  // if the mirror had nothing to say yet (a landing that moves under the person is worse than
-  // a landing that is one session late).
-  const hadMirror = getSettings().landing !== 'auto';
+  // reads the page gates, which need the legacy bundle to be fully up.
+  //
+  // The landing is decided ONCE, from the localStorage mirror, and is deliberately NOT
+  // re-applied when the person's stored row arrives a moment later: a screen that moves under
+  // someone a second after he started reading is worse than a preference that takes effect on
+  // his next visit. The row is still fetched here, so the mirror is right from then on.
   applyLanding(getSettings());
-  if (!hadMirror) {
-    const who = (window as any).sigma?.getCurrentUser?.() || '';
-    if (who) void loadSettings(who).catch(() => { /* the mirror is authoritative offline */ });
-  }
+  const who = (window as any).sigma?.getCurrentUser?.() || '';
+  if (who) void loadSettings(who).catch(() => { /* the mirror is authoritative offline */ });
 }
 
 /** Exposed for the ⋯ sheet / user chip in a page that never mounted the settings island. */

@@ -1113,6 +1113,13 @@
     // Visit drafts (spec §5.1c). Leaving the form flushes whatever is pending — a tab switch
     // is exactly the moment someone means to come back — and entering it offers to resume.
     if (tabName === 'visit') {
+      // Pull this person's drafts from the shared table first (review fix 2), then offer to
+      // resume — so a draft started on his other device is one of the options.
+      if (typeof visitDraftsSync === 'function') {
+        Promise.resolve(visitDraftsSync()).then(function () {
+          if (typeof visitDraftPromptShow === 'function') visitDraftPromptShow(window.currentKibbutz || '');
+        });
+      }
       if (typeof visitDraftPromptShow === 'function') visitDraftPromptShow(window.currentKibbutz || '');
       if (typeof syncVisitDurationChips === 'function') syncVisitDurationChips();
     } else if (typeof visitDraftFlush === 'function') {
@@ -1436,11 +1443,11 @@
       return;
     }
     wrap.innerHTML = reqItems.map((it, idx) => `
-      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:white;padding:5px 8px;border-radius:6px;">
-        <select onchange="reqItems[${idx}].name = this.value" style="flex:1;padding:4px 6px;border-radius:4px;border:1px solid #e2e8f0;">
+      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:var(--card);padding:5px 8px;border-radius:6px;">
+        <select onchange="reqItems[${idx}].name = this.value" style="flex:1;padding:4px 6px;border-radius:4px;border:1px solid var(--border);">
           ${getActiveProducts().map(pr => pr.name).map(p => `<option value="${p}" ${it.name === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
-        <input type="number" min="1" value="${it.qty}" onchange="reqItems[${idx}].qty = parseInt(this.value)||1" style="width:60px;padding:3px 6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
+        <input type="number" min="1" value="${it.qty}" onchange="reqItems[${idx}].qty = parseInt(this.value)||1" style="width:60px;padding:3px 6px;border-radius:4px;border:1px solid var(--border);text-align:center;">
         <button type="button" onclick="reqItems.splice(${idx},1); renderReqItems();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
       </div>
     `).join('');
@@ -1929,7 +1936,7 @@
       return;
     }
     wrap.innerHTML = visitReturnedItems.map((r, idx) => `
-      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:white;padding:5px 8px;border-radius:6px;">
+      <div style="display:flex;gap:6px;align-items:center;margin:4px 0;background:var(--card);padding:5px 8px;border-radius:6px;">
         <select onchange="visitReturnedItems[${idx}].name = this.value" style="flex:1;padding:3px 6px;border-radius:4px;border:1px solid #fecaca;font-size:11px;">
           ${getActiveProducts().map(pr => pr.name).map(p => `<option value="${p}" ${r.name === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
@@ -2983,7 +2990,7 @@
         return `
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:#fff7ed;border:1px solid #fdba74;padding:6px 8px;border-radius:6px;flex-wrap:wrap;">
         <span style="font-weight:700;font-size:12px;color:#9a3412;flex:1;min-width:120px;">⚡ ${it.label || 'בחר סוג'}:</span>
-        ${it.choose.map((c, ci) => `<button type="button" onclick="invChooseProduct(${idx}, ${ci})" style="font-size:12px;font-weight:700;background:#fff;color:#9a3412;border:1px solid #fb923c;border-radius:6px;padding:4px 12px;cursor:pointer;">${psLabel(c)}</button>`).join('')}
+        ${it.choose.map((c, ci) => `<button type="button" onclick="invChooseProduct(${idx}, ${ci})" style="font-size:12px;font-weight:700;background:var(--card);color:#9a3412;border:1px solid #fb923c;border-radius:6px;padding:4px 12px;cursor:pointer;">${psLabel(c)}</button>`).join('')}
         <input type="number" min="1" value="${it.qty}" onchange="invOrderItems[${idx}].qty = parseInt(this.value) || 1" style="width:64px;padding:3px 6px;border-radius:4px;border:1px solid #fb923c;text-align:center;" title="כמות">
         <button onclick="invOrderItems.splice(${idx}, 1); renderOrderItems(); invToggleDistribution();" style="background:#dc2626;color:white;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;">×</button>
       </div>`;
@@ -3308,7 +3315,7 @@
               style="width:60px;padding:3px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
           </div>`;
       }).join('');
-      return `<div style="background:white;padding:8px 10px;border-radius:6px;margin-bottom:6px;">
+      return `<div style="background:var(--card);padding:8px 10px;border-radius:6px;margin-bottom:6px;">
         <div style="font-weight:700;font-size:12px;margin-bottom:4px;">
           ${it.name} (סה"כ: ${it.qty})
         </div>
@@ -4198,8 +4205,13 @@
       return;
     }
     const n = vid && typeof certIssuedForVisit === 'function' ? await certIssuedForVisit(vid) : 0;
+    // Both states keep a 🚚 button (review fix, minor): the pre-re-skin form had one at all
+    // times, so a technician could reprint or issue a corrected certificate for a visit that
+    // already has one — spec §5 rule 4 keeps reprint/reissue, and the re-skin had dropped it
+    // by only showing the button while the gate was unsatisfied.
     el.innerHTML = n
-      ? '<div class="sig-certchip ok">✅ תעודה <bdi>' + n + '</bdi> נופקה</div>'
+      ? '<div class="sig-certchip ok">✅ תעודה <bdi>' + n + '</bdi> נופקה<span class="sp"></span>'
+        + '<button type="button" onclick="certFromVisitForm()">🚚 תעודה נוספת</button></div>'
       : '<div class="sig-certchip">⚠️ סופק ציוד — טרם הופקה תעודת משלוח<span class="sp"></span>'
         + '<button type="button" onclick="certFromVisitForm()">🚚 הפק</button></div>';
     // The label states the order of operations, which is what the gate enforces anyway.
@@ -4348,7 +4360,8 @@
   // test-visit-cert-gate.mjs inside a function scope with a fixed set of stubs, and an
   // unguarded global would turn a re-skin into a broken save path.
   // ═══════════════════════════════════════════════════════════════════════════
-  const DRAFT_MIRROR_KEY = 'visitDraft_v1';
+  // v2 = a MAP keyed by (person, kibbutz, date); v1 was one slot and is migrated on read.
+  const DRAFT_MIRROR_KEY = 'visitDrafts_v2';
   const DRAFT_DEBOUNCE_MS = 800;
   let visitDraftTimer = null;
 
@@ -4412,16 +4425,108 @@
       || (payload.returnedItems || []).length);
   }
 
-  function draftMirrorRead() {
-    try { return JSON.parse(localStorage.getItem(DRAFT_MIRROR_KEY) || 'null'); }
-    catch (e) { return null; }
+  // ── the mirror is a MAP, keyed by (person, kibbutz, date) ────────────────────
+  // Review fix 1: it used to be ONE slot, so starting a summary at a second kibbutz on the
+  // same day silently destroyed the first one — the exact failure §5.1c exists to prevent.
+  // The key is the same triple `draftState()` already models on the React side.
+  function draftKey(person, kibbutz, date) {
+    return [person || '', kibbutz || '', String(date || '').slice(0, 10)].join('|');
   }
-  function draftMirrorWrite(row) {
+
+  /** The whole map. A corrupt store reads as empty rather than throwing. */
+  function draftMirrorAll() {
+    let map = null;
+    try { map = JSON.parse(localStorage.getItem(DRAFT_MIRROR_KEY) || 'null'); }
+    catch (e) { map = null; }
+    if (!map || typeof map !== 'object' || Array.isArray(map)) map = {};
+
+    // One-time migration from the single-slot v1 key, so a draft someone is in the middle of
+    // typing survives the upgrade instead of being the one draft this fix loses.
     try {
-      if (row) localStorage.setItem(DRAFT_MIRROR_KEY, JSON.stringify(row));
+      const old = JSON.parse(localStorage.getItem('visitDraft_v1') || 'null');
+      if (old && old.id && old.kibbutz) {
+        const k = draftKey(old.person, old.kibbutz, old.date);
+        if (!map[k]) map[k] = old;
+        localStorage.removeItem('visitDraft_v1');
+        localStorage.setItem(DRAFT_MIRROR_KEY, JSON.stringify(map));
+      }
+    } catch (e) { /* nothing to migrate */ }
+    return map;
+  }
+
+  function draftMirrorSave(map) {
+    try {
+      if (map && Object.keys(map).length) localStorage.setItem(DRAFT_MIRROR_KEY, JSON.stringify(map));
       else localStorage.removeItem(DRAFT_MIRROR_KEY);
     } catch (e) { /* private mode */ }
   }
+
+  function draftMirrorPut(row) {
+    const map = draftMirrorAll();
+    map[draftKey(row.person, row.kibbutz, row.date)] = row;
+    draftMirrorSave(map);
+  }
+
+  /** Remove by id (the caller never has to know the key). Returns the row it dropped. */
+  function draftMirrorDeleteById(id) {
+    const map = draftMirrorAll();
+    let gone = null;
+    Object.keys(map).forEach(function (k) {
+      if (map[k] && map[k].id === id) { gone = map[k]; delete map[k]; }
+    });
+    draftMirrorSave(map);
+    return gone;
+  }
+
+  /** Rows sorted newest-first. `person` omitted = everyone on this device. */
+  function draftMirrorList(person) {
+    const map = draftMirrorAll();
+    return Object.keys(map)
+      .map(function (k) { return map[k]; })
+      .filter(function (r) { return r && r.id && r.kibbutz && (!person || r.person === person); })
+      .sort(function (x, y) { return String(y.updated_at || '').localeCompare(String(x.updated_at || '')); });
+  }
+
+  /**
+   * Pure: merge remote rows into the mirror, NEWEST `updated_at` WINS (review fix 2).
+   * Exported for the test — the rule is the whole point of the cross-device claim, and it is
+   * the kind of thing that is easy to get backwards and impossible to notice by hand.
+   */
+  function draftMergeRows(mirror, remote) {
+    const out = Object.assign({}, mirror || {});
+    (remote || []).forEach(function (r) {
+      if (!r || !r.id || !r.kibbutz) return;
+      const k = draftKey(r.person, r.kibbutz, r.date);
+      const mine = out[k];
+      const newer = !mine || String(r.updated_at || '') > String(mine.updated_at || '');
+      if (newer) out[k] = r;
+    });
+    return out;
+  }
+  window.draftMergeRows = draftMergeRows;
+
+  /**
+   * Pull this person's drafts from the shared table and merge them in (review fix 2 — the
+   * table was write-only, so "the draft follows you to another device" was not true).
+   * Silent by design: no network, no pass, no table → the mirror is already on screen.
+   */
+  async function visitDraftsSync() {
+    const me = draftPerson();
+    if (!me) return null;
+    if (typeof SB_URL !== 'string' || typeof SB_ANON !== 'string' || typeof fetch !== 'function') return null;
+    try {
+      const tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : SB_ANON;
+      const r = await fetch(SB_URL + '/rest/v1/visit_drafts?person=eq.' + encodeURIComponent(me)
+        + '&select=id,person,kibbutz,date,payload,updated_at', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + tok } });
+      if (!r.ok) return null;
+      const rows = await r.json();
+      if (!Array.isArray(rows)) return null;
+      draftMirrorSave(draftMergeRows(draftMirrorAll(), rows));
+      if (typeof sigmaEmit === 'function') sigmaEmit('visit-draft-changed', { synced: rows.length });
+      return rows.length;
+    } catch (e) { return null; }
+  }
+  window.visitDraftsSync = visitDraftsSync;
 
   /** Save the draft now (no debounce). Editing an EXISTING visit never leaves a draft —
    *  the visit itself is the record, and a draft beside it would offer to restore the past. */
@@ -4437,7 +4542,7 @@
       payload: payload,
       updated_at: new Date().toISOString()
     };
-    draftMirrorWrite(row);
+    draftMirrorPut(row);
     // Best effort to the shared table — a failure is invisible, because the mirror already has it.
     if (typeof SHEET_API === 'string' && typeof fetch === 'function') {
       try {
@@ -4466,23 +4571,32 @@
   }
 
   /**
-   * Is there a draft for this kibbutz / person / day? The mirror answers instantly and is
-   * what the card chip and the resume prompt read (the bridge hands this to React).
+   * Is there a draft for this kibbutz / person / day? Any argument may be omitted to widen
+   * the match (the bottom-nav 🚚 asks "any draft of mine today?"), and a widened match that
+   * hits several returns the NEWEST — never an arbitrary one.
    */
   function visitDraftFor(kibbutz, person, date) {
-    const row = draftMirrorRead();
-    if (!row || !row.id) return null;
-    if (kibbutz && row.kibbutz !== kibbutz) return null;
-    if (person && row.person !== person) return null;
-    if (date && row.date !== date) return null;
-    return row;
+    const rows = draftMirrorList(person).filter(function (r) {
+      if (kibbutz && r.kibbutz !== kibbutz) return false;
+      if (date && String(r.date).slice(0, 10) !== String(date).slice(0, 10)) return false;
+      return true;
+    });
+    return rows[0] || null;
   }
 
-  /** Drop the draft. `announce` = the person pressed "התחל מחדש", so the form is cleared too. */
+  /** Every open draft of this person's, newest first — what the resume prompt lists. */
+  function visitDraftsForPerson(person) {
+    return draftMirrorList(person || draftPerson());
+  }
+
+  /** Drop ONE draft. `announce` = the person pressed "התחל מחדש", so the form is cleared too. */
   function visitDraftDiscard(id, announce) {
-    const row = draftMirrorRead();
-    const target = id || (row && row.id);
-    draftMirrorWrite(null);
+    // With no id, discard the draft for the kibbutz the form is actually on — never "whatever
+    // was stored", which with a map would be somebody else's kibbutz.
+    const target = id
+      || (visitDraftFor((typeof currentKibbutz !== 'undefined' && currentKibbutz) || '', draftPerson(), null) || {}).id
+      || window._visitDraftId;
+    const row = target ? draftMirrorDeleteById(target) : null;
     if (visitDraftTimer) { clearTimeout(visitDraftTimer); visitDraftTimer = null; }
     if (target && typeof SHEET_API === 'string' && typeof fetch === 'function') {
       try {
@@ -4507,9 +4621,11 @@
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-draft-changed', { kibbutz: row && row.kibbutz, at: null });
   }
 
-  /** Put a draft back into the form. */
+  /** Put a draft back into the form. No id = the draft for the kibbutz on screen. */
   function visitDraftRestore(id) {
-    const row = id ? { id: id, payload: (draftMirrorRead() || {}).payload } : draftMirrorRead();
+    const row = id
+      ? draftMirrorList(null).find(function (r) { return r.id === id; })
+      : visitDraftFor((typeof currentKibbutz !== 'undefined' && currentKibbutz) || '', draftPerson(), null);
     const d = row && row.payload;
     if (!d) { visitDraftPromptHide(); return false; }
     window._visitDraftId = row.id;                 // the pre-minted id comes back with it
@@ -4554,21 +4670,53 @@
   function visitDraftPromptHide() {
     const box = document.getElementById('visitDraftPrompt');
     if (box) box.style.display = 'none';
+    const more = document.getElementById('visitDraftPromptMore');
+    if (more) more.innerHTML = '';
+  }
+
+  function draftTime(row) {
+    const t = new Date(row && row.updated_at);
+    return isNaN(t) ? '' : (String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'));
   }
 
   /**
-   * Offer to resume, if there is something to resume. The copy names the time and the next
-   * step and nothing else (copy rule: no system talk).
+   * Offer to resume. One draft → "המשך טיוטה מ-14:02". SEVERAL (review fix 1: now possible,
+   * and before this fix the second one ate the first) → the prompt lists every open draft of
+   * his with its kibbutz and time, so he picks instead of guessing which one comes back.
+   * The copy names the time and the next step and nothing else (copy rule: no system talk).
    */
   function visitDraftPromptShow(kibbutz) {
     const box = document.getElementById('visitDraftPrompt');
     if (!box) return false;
-    const row = visitDraftFor(kibbutz || (typeof currentKibbutz !== 'undefined' ? currentKibbutz : ''), draftPerson(), null);
-    if (!row || window.editingVisitId) { visitDraftPromptHide(); return false; }
-    const t = new Date(row.updated_at);
-    const hhmm = isNaN(t) ? '' : (String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'));
+    const me = draftPerson();
+    const here = visitDraftFor(kibbutz || (typeof currentKibbutz !== 'undefined' ? currentKibbutz : ''), me, null);
+    const mine = visitDraftsForPerson(me);
+    const others = mine.filter(function (r) { return !here || r.id !== here.id; });
+    if ((!here && !others.length) || window.editingVisitId) { visitDraftPromptHide(); return false; }
+
     const label = document.getElementById('visitDraftPromptText');
-    if (label) label.textContent = hhmm ? ('המשך טיוטה מ-' + hhmm) : 'המשך טיוטה';
+    if (label) {
+      label.textContent = here
+        ? ('המשך טיוטה מ-' + draftTime(here))
+        : ('יש לך ' + mine.length + ' טיוטות פתוחות');
+    }
+    // The continue/discard pair only makes sense for the kibbutz on screen.
+    ['visitDraftContinue', 'visitDraftRestart'].forEach(function (id) {
+      const b = document.getElementById(id);
+      if (b) b.style.display = here ? '' : 'none';
+    });
+
+    const more = document.getElementById('visitDraftPromptMore');
+    if (more) {
+      more.innerHTML = '';
+      others.forEach(function (r) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = r.kibbutz + ' · ' + draftTime(r);
+        b.onclick = function () { visitDraftRestore(r.id); };
+        more.appendChild(b);
+      });
+    }
     box.style.display = '';
     return true;
   }
@@ -4579,9 +4727,19 @@
   window.visitDraftTouch = visitDraftTouch;
   window.visitDraftFlush = visitDraftFlush;
   window.visitDraftFor = visitDraftFor;
+  window.visitDraftsForPerson = visitDraftsForPerson;
   window.visitDraftDiscard = visitDraftDiscard;
   window.visitDraftRestore = visitDraftRestore;
   window.visitDraftPromptShow = visitDraftPromptShow;
+
+  // A user switch changes WHOSE drafts these are, so the new person's are pulled in (review
+  // fix 2). Guarded: `sigmaBus` is the bridge's, and this module is also evaluated by the
+  // gate test with no bus at all.
+  try {
+    if (window.sigmaBus && typeof window.sigmaBus.addEventListener === 'function') {
+      window.sigmaBus.addEventListener('user-changed', function () { visitDraftsSync(); });
+    }
+  } catch (e) { /* no bus */ }
 
   // Autosave triggers. Delegated on the document (the form's markup is re-rendered), and the
   // page-level ones flush a pending debounce so closing the app mid-sentence keeps it.
@@ -5170,6 +5328,13 @@
     const monthYearLabel = fromDate ? new Date(fromDate).toLocaleDateString('he-IL', {month:'long', year:'numeric'}) : '';
 
     // Build calendar table rows — only days with visits
+    // §5.1b: the PDF carries "נשאר פתוח" beside the summary, like the Excel and the
+    // WhatsApp report do (review fix 3 — the PDF was the one reader that dropped it).
+    const openItemsCell = (v) => {
+      const t = v.openItems || v.open_items || '';
+      const esc = String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      return t ? esc.replace(/\r?\n/g, '<br>') : '<span class="muted">—</span>';
+    };
     const tableRows = [];
     allDates.forEach(d => {
       const k = dayKey(d);
@@ -5208,6 +5373,7 @@
               <td class="num">${v.duration || 0}</td>
               <td>${v.contact || '<span class="muted">—</span>'}</td>
               <td class="summary">${(v.summary || '').replace(/</g,'&lt;').replace(/\n/g,'<br>') || '<span class="muted">—</span>'}</td>
+              <td class="summary">${openItemsCell(v)}</td>
               <td>${v.productsOther ? v.productsOther : '<span class="muted">—</span>'}</td>
               <td class="num"><span class="muted">—</span></td>
             </tr>`);
@@ -5221,6 +5387,7 @@
                 <td rowspan="${visitRowspan}" class="num">${v.duration || 0}</td>
                 <td rowspan="${visitRowspan}">${v.contact || '<span class="muted">—</span>'}</td>
                 <td rowspan="${visitRowspan}" class="summary">${(v.summary || '').replace(/</g,'&lt;').replace(/\n/g,'<br>') || '<span class="muted">—</span>'}</td>
+                <td rowspan="${visitRowspan}" class="summary">${openItemsCell(v)}</td>
               ` : '';
               tableRows.push(`<tr class="${isWeekend ? 'weekend-row' : ''}">
                 ${rowDayCell}
@@ -5354,6 +5521,7 @@
               <th class="num">משך</th>
               <th>איש קשר</th>
               <th>סיכום ביקור</th>
+              <th>נשאר פתוח</th>
               <th>פריט שסופק</th>
               <th class="num">כמות</th>
             </tr>
@@ -6618,7 +6786,7 @@
     let html = '';
     kibs.forEach(k => {
       const grp = groups[k], kEsc = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      html += '<div style="background:white;border:1px solid var(--border);border-right:3px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:10px;">';
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-inline-start:3px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:10px;">';
       html += '<div style="font-weight:700;color:var(--primary);margin-bottom:6px;cursor:pointer;" onclick="openKibbutzByName(\'' + kEsc + '\')">🏘️ ' + emsEsc(k) + '</div>';
       grp.ems.forEach(t => {
         const overdue = t.expectedCompletionDate && new Date(t.expectedCompletionDate) < new Date();
@@ -7673,8 +7841,8 @@
     const ov = document.createElement('div');
     ov.id = 'msgPopup';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;';
-    ov.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-      <h3 style="margin:0 0 12px;color:#1e40af;">✉️ יש לך ${msgs.length} הודעות חדשות</h3>
+    ov.innerHTML = `<div style="background:var(--card);color:var(--text);border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h3 style="margin:0 0 12px;">✉️ יש לך ${msgs.length} הודעות חדשות</h3>
       <div style="max-height:50vh;overflow:auto;">${msgs.map(m => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;">
         <div style="font-size:14px;white-space:pre-wrap;">${_staffEsc(m.text)}</div>
         <div style="font-size:11px;color:#94a3b8;margin-top:4px;">מאת ${_staffEsc(m.from_person || '?')} · ${new Date(m.created_at).toLocaleString('he-IL')}</div>
@@ -8685,6 +8853,7 @@
           <label for="certSignName">👤 שם המקבל:</label>
           <input type="text" id="certSignName" placeholder="שם מלא">
           <label>✍️ חתימה:</label>
+          <!-- print-ok: a signature pad is PAPER — ink on white, like the certificate it goes on -->
           <canvas id="certSignCanvas" style="width:100%;height:180px;border:2px dashed #94a3b8;border-radius:10px;background:#fff;touch-action:none;display:block;"></canvas>
           <div class="modal-actions">
             <button class="btn btn-secondary" onclick="document.getElementById('certSignModal').classList.remove('open')">ביטול</button>
@@ -9022,6 +9191,7 @@
           <span style="flex:1;"></span>
           <button onclick="document.getElementById('certViewOverlay').style.display='none'" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;min-width:40px;min-height:40px;">✕</button>
         </div>
+        <!-- print-ok: the frame shows the PRINTED certificate (certDocHtml) — white paper -->
         <iframe id="certOvFrame" style="flex:1;border:none;background:#fff;width:100%;"></iframe>`;
       document.body.appendChild(ov);
     }

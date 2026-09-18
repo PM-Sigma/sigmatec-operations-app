@@ -23,8 +23,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- The four faces ⚙️ הגדרות → פונט offers. All four are loaded so switching is instant. -->
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mu6ysurz">
-<link rel="stylesheet" href="ui/sigma.css?v=mu6ysurz">
+<link rel="stylesheet" href="css/app.css?v=mu703kfp">
+<link rel="stylesheet" href="ui/sigma.css?v=mu703kfp">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -70,7 +70,7 @@
       <div class="nudge-bell">🔔</div>
       <h3 id="aviamReminderHead" style="margin:10px 0 4px;color:#9a3412;">חסר תיעוד!</h3>
       <div class="modal-sub" style="margin-bottom:10px;">יש ימים ללא סיכום ביקור או נוכחות. נא להשלים כדי שלא יישכח:</div>
-      <div id="aviamReminderList" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;color:#9a3412;line-height:1.8;"></div>
+      <div id="aviamReminderList" style="background:var(--tint-warn);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;color:var(--text);line-height:1.8;"></div>
       <div class="modal-actions" style="flex-direction:column;gap:8px;">
         <button class="btn btn-primary" onclick="document.getElementById('aviamReminderModal').classList.remove('open'); openVisitQuick();">📍 תעד עכשיו</button>
         <button class="btn btn-secondary" onclick="document.getElementById('aviamReminderModal').classList.remove('open')">אטפל בזה אחר כך</button>
@@ -288,7 +288,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.121</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.123</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -360,7 +360,7 @@
           <div class="order-flow-arrow">←</div>
           <div class="order-flow-step"><span class="of-num">5</span><div><strong>חולק למיקומים</strong><br><span style="color:#10b981;">🟢 סופקה וחולקה</span><br><small>נוצרות תנועות מלאי</small></div></div>
         </div>
-        <div style="margin-top:10px;padding:8px 10px;background:#fff7ed;border-right:3px solid #f97316;border-radius:4px;font-size:12px;">
+        <div style="margin-top:10px;padding:8px 10px;background:var(--tint-warn);border-inline-start:3px solid var(--warning);border-radius:4px;font-size:12px;">
           🟠 <strong>תקוע</strong> = מצב חריג בכל שלב (משלוח עוכב, ספק לא עונה, וכו') — סמן ידנית
         </div>
       </div>
@@ -461,7 +461,7 @@
 
       <!-- Not connected -->
       <div id="emsLoginPanel">
-        <div style="background:white;border-radius:12px;padding:36px 32px;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-width:420px;margin:60px auto;text-align:center;">
+        <div style="background:var(--card);color:var(--text);border-radius:12px;padding:36px 32px;box-shadow:var(--shadow-md);max-width:420px;margin:60px auto;text-align:center;">
           <div style="font-size:44px;margin-bottom:10px;">🔗</div>
           <h3 style="color:var(--primary);margin:0 0 4px;">חיבור ל-Sigmatec EMS</h3>
           <div style="color:#64748b;font-size:13px;margin-bottom:24px;">הכנס פרטי כניסה למערכת</div>
@@ -709,8 +709,11 @@
       <div id="visitDraftPrompt" class="sig-draft" style="display:none;margin-bottom:12px;">
         <span id="visitDraftPromptText">יש טיוטה פתוחה</span>
         <span class="sp"></span>
-        <button type="button" onclick="visitDraftRestore()">המשך</button>
-        <button type="button" onclick="visitDraftDiscard(null, true)">התחל מחדש</button>
+        <button type="button" id="visitDraftContinue" onclick="visitDraftRestore()">המשך</button>
+        <button type="button" id="visitDraftRestart" onclick="visitDraftDiscard(null, true)">התחל מחדש</button>
+        <!-- One button per OTHER open draft of his (review fix 1: several are now possible).
+             Filled by visitDraftPromptShow(); empty and invisible when there is only one. -->
+        <span id="visitDraftPromptMore" class="sig-draft-more"></span>
       </div>
 
       <div id="lastVisitBox" class="sig-frm" style="background:var(--surface-2);border:1px solid var(--border);border-inline-start:3px solid var(--brand-2);padding:10px 12px;border-radius:12px;margin-bottom:14px;font-size:12.5px;display:none;gap:6px;">
@@ -933,7 +936,7 @@
 </div>
 
 <div id="authGate" style="position:fixed;inset:0;z-index:2000;background:linear-gradient(160deg,#16223c 0%,#1b2a4a 55%,#233a66 100%);display:none;align-items:center;justify-content:center;padding:24px;">
-  <div style="background:white;border-radius:16px;padding:36px 32px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+  <div style="background:var(--card);color:var(--text);border-radius:16px;padding:36px 32px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
     <div style="font-size:40px;margin-bottom:8px;">🔒</div>
     <h2 style="font-size:20px;color:#1b2a4a;margin-bottom:4px;" id="authGateTitle">הזן קוד גישה</h2>
     <div style="font-size:13px;color:#6b7280;margin-bottom:24px;" id="authGateSub">הזן את קוד הגישה כדי להמשיך</div>
@@ -1232,7 +1235,7 @@
 </div>
 
 <div id="emsLoginGate" style="position:fixed;inset:0;z-index:3000;background:linear-gradient(160deg,#0f766e 0%,#15803d 100%);display:none;align-items:center;justify-content:center;padding:24px;">
-  <div style="background:#fff;border-radius:18px;padding:32px 28px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);text-align:center;">
+  <div style="background:var(--card);color:var(--text);border-radius:18px;padding:32px 28px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);text-align:center;">
     <img src="icons/icon-192.png" alt="Sigmatec" style="width:84px;height:84px;margin:0 auto 10px;display:block;">
     <h2 style="margin:0 0 2px;font-size:20px;color:#15803d;">Sigmatec Operations</h2>
     <div style="font-size:13px;color:#64748b;margin-bottom:22px;">התחברות עם חשבון ה-EMS שלך</div>
@@ -1285,8 +1288,8 @@
 <div id="sigma-ceo"></div>
 <div id="sigma-toaster"></div>
 <div id="sigma-nav"></div>
-<script src="js/app.js?v=mu6ysurz"></script>
-<script type="module" src="ui/sigma.js?v=mu6ysurz"></script>
+<script src="js/app.js?v=mu703kfp"></script>
+<script type="module" src="ui/sigma.js?v=mu703kfp"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

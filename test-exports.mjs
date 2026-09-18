@@ -206,5 +206,35 @@ check('styles survive write→read round-trip (data intact)', () => {
   assert.strictEqual(ws['H4'].v, 'מבוטלת');
 });
 
+// ── the visits PDF table (js/src/10-activity.js) ────────────────────────────
+// Review fix 3: the PDF was the ONE reader that dropped "נשאר פתוח" (open_items) — the Excel
+// and the WhatsApp report both carry it. The builder needs a live DOM, so this is a source
+// contract, and it guards the failure that actually bites in a rowspan table: a header with
+// more columns than the rows fill, which renders as a silently shifted table, not an error.
+console.log('== 5. visits PDF table contract ==');
+const ACT = fs.readFileSync(path.join(__dirname, 'js/src/10-activity.js'), 'utf8');
+
+check('the PDF header carries נשאר פתוח right after the summary', () => {
+  assert.match(ACT, /<th>סיכום ביקור<\/th>\s*<th>נשאר פתוח<\/th>/, 'the column is missing or out of order');
+});
+
+check('both row shapes fill it (the no-products row AND the per-product visit block)', () => {
+  const cells = ACT.match(/openItemsCell\(v\)/g) || [];
+  assert.strictEqual(cells.length, 2, 'expected the cell in both row shapes, found ' + cells.length);
+});
+
+check('header column count === the cells a full visit row emits', () => {
+  const head = ACT.slice(ACT.indexOf('<th class="day">יום</th>'));
+  const headCells = (head.slice(0, head.indexOf('</tr>')).match(/<th/g) || []).length;
+  const dayDate = 2, visitCells = 6, productCells = 2;   // visitCells includes נשאר פתוח
+  assert.strictEqual(headCells, dayDate + visitCells + productCells,
+    'the header has ' + headCells + ' columns but a row fills ' + (dayDate + visitCells + productCells));
+});
+
+check('the cell escapes markup and turns newlines into <br>', () => {
+  assert.ok(/replace\(\/&\/g, '&amp;'\)/.test(ACT), 'no &-escaping in openItemsCell');
+  assert.ok(ACT.includes("'<br>'"), 'newlines are not turned into <br>');
+});
+
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);

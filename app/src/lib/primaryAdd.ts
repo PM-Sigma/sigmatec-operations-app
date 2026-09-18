@@ -30,18 +30,39 @@ export interface AddContext {
   canManageKibbutzim?: boolean;
 }
 
+/**
+ * Which actions OPEN A FORM here and now. A ➕ label is a promise that something gets created
+ * on the spot; `stockChange` and the two calendar actions only NAVIGATE until Tasks 8 and 13
+ * ship their forms, so they say "עבור ל…" instead (review fix 5). When those tasks land they
+ * flip to true and take a ➕ label — the matrix §7k.2 fixes does not change.
+ */
+export const ADD_OPENS_FORM: Record<Exclude<AddAction, 'none'>, boolean> = {
+  kibbutz: true,
+  visit: true,
+  feedback: true,
+  schedule: false,
+  event: false,
+  stockChange: false,
+};
+
 export const ADD_LABEL: Record<Exclude<AddAction, 'none'>, string> = {
   kibbutz: '➕ קיבוץ',
-  schedule: '➕ שבץ ליום',
-  event: '➕ פגישה',
-  stockChange: '➕ דיווח מלאי',
   visit: '➕ סיכום ביקור',
   feedback: '➕ רעיון או תלונה',
+  // Navigation, and the words say so — never "➕ דיווח מלאי" on a button that just changes page.
+  schedule: 'עבור ליומן',
+  event: 'עבור ליומן',
+  stockChange: 'עבור למלאי',
 };
 
 /** The label for the header button; `null` when nothing should be rendered. */
 export function primaryAddLabel(action: AddAction): string | null {
   return action === 'none' ? null : ADD_LABEL[action];
+}
+
+/** Does this action create something (➕) or merely go somewhere? Drives the header's icon. */
+export function primaryAddOpensForm(action: AddAction): boolean {
+  return action !== 'none' && ADD_OPENS_FORM[action];
 }
 
 /**
