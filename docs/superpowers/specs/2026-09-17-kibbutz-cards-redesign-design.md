@@ -641,7 +641,7 @@ Controller rulings on the technical gaps (binding for Task 14/21): G1 `openActiv
 G2 `emsOnConnected`/`scheduleEmsExpiry` → wired into the login-gate startup (Task 21); G3 `emsRequireLogin` fallback →
 the re-login sheet (Task 21), no `#ems-view` needed; G4 kibbutz-agnostic "משימת EMS חדשה" → a Ctrl+K action + the
 context ➕ on the calendar list view; G7 per-person task load → re-derived from EMS + internal tasks inside סקירה (not
-ported from the deleted status strings). **Product gaps for עידן (open until he answers, retirement of those functions
+ported from the deleted status strings). Second-pass additions (same audit, consolidated): the 📍 דוח ביקורים and 📊 פעילות היום launchers on the old משימות page → the calendar list-view ⋯ menu (and the viewer reports hub for the visits report); EMS "ניתוק" → ⚙️ הגדרות (EMS row); `sw.js` precaches `./stats.html` (name mismatch with `kibbutz-stats.html`) → fix the SHELL list when retiring; `REGION_ORDER` exists in 12-reports.js and as `REGION_ORDER_KIB` — Task 18 unifies to one export; the staff task-category sub-metric (built on the deleted status strings) is DROPPED explicitly. **Product gaps for עידן (open until he answers, retirement of those functions
 blocked meanwhile):** G5 a manager pulling *another person's* task report by mail/WhatsApp — recommend: keep as a
 "שתף" with a person picker for admins on the calendar list view; G6 "השאר הודעה לעובד" + login-time popup (staff page) —
 recommend: replace with an internal task assigned to that person (it appears in his list, his gaps and a push), drop the
