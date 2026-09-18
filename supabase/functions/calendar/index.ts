@@ -91,9 +91,19 @@ Deno.serve(async (req) => {
     const auth = { Authorization: "Bearer " + access };
 
     if (body.action === "list") {
+      // Two ways to ask, because there are two callers: the agenda wants "the next N days",
+      // and the unified calendar (spec §7f) wants ONE MONTH — including the one before this
+      // one, which `days` could never express. `from`/`to` are plain 'YYYY-MM-DD'.
+      const ymdRe = /^\d{4}-\d{2}-\d{2}$/;
+      const from = String(body.from || "");
+      const to = String(body.to || "");
+      const ranged = ymdRe.test(from) && ymdRe.test(to) && to >= from;
       const days = Math.min(Math.max(parseInt(body.days) || 90, 1), 365);
-      const timeMin = new Date().toISOString();
-      const timeMax = new Date(Date.now() + days * 86400000).toISOString();
+      const timeMin = ranged ? new Date(from + "T00:00:00Z").toISOString() : new Date().toISOString();
+      const timeMax = ranged
+        // `to` is inclusive — the caller means "up to the end of that day".
+        ? new Date(new Date(to + "T00:00:00Z").getTime() + 86400000).toISOString()
+        : new Date(Date.now() + days * 86400000).toISOString();
       const r = await fetch(calUrl("?singleEvents=true&orderBy=startTime&maxResults=250&timeMin=" +
         encodeURIComponent(timeMin) + "&timeMax=" + encodeURIComponent(timeMax)), { headers: auth });
       const d = await r.json();
@@ -103,6 +113,13 @@ Deno.serve(async (req) => {
         start: (ev.start && (ev.start.dateTime || ev.start.date)) || null,
         end: (ev.end && (ev.end.dateTime || ev.end.date)) || null,
         allDay: !!(ev.start && ev.start.date), location: ev.location || "", description: ev.description || "",
+        // 🎥 The Meet link (spec §7f). `hangoutLink` is the simple field; a newer event only
+        // carries it inside conferenceData. NULL when the event has no conference at all —
+        // the client renders the button only when this is a real link, never a dead one.
+        hangoutLink: ev.hangoutLink
+          || (ev.conferenceData && Array.isArray(ev.conferenceData.entryPoints)
+            && (ev.conferenceData.entryPoints.find((p: any) => p && p.entryPointType === "video") || {}).uri)
+          || null,
       }));
       return json({ calendar }, 200, ORIGIN);
     }

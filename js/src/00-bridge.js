@@ -345,6 +345,31 @@
       attExportPdf: function () { return call('downloadAttendancePDF'); },
       attExportExcel: function () { return call('xlExportAttendanceCurrent'); },
 
+      // ---- 🗓️ calendar (spec §7f, Task 13) ----------------------------------
+      // The island reads day_plans / calendar_absences itself (supabase-js). These three are
+      // what it CANNOT reach: the office Google Calendar (an Edge Function that needs the
+      // live EMS bearer) and the EMS write path, which stays a single writer.
+      calFetchEvents: function (range) { return call('calFetchEvents', [range], Promise.resolve([])); },
+      calAddEvent: function (ev) { return call('calAddEvent', [ev], Promise.resolve({ error: 'unavailable' })); },
+      emsPatchTask: function (id, body) {
+        var f = fn('emsPatchTask');
+        if (!f) return Promise.reject(new Error('EMS write unavailable'));
+        return f(id, body);
+      },
+      // A whole שיבוץ (or its undo) in one call — one cache resync for the batch, not N.
+      emsPatchTasks: function (patches) {
+        var f = fn('emsPatchTasks');
+        if (!f) return Promise.reject(new Error('EMS write unavailable'));
+        return f(patches);
+      },
+      // The legacy month grid steps aside the moment the island mounts (same contract the
+      // attendance island has with #attendanceLegacy).
+      calIslandMounted: function () {
+        window.__sigmaCalendarIsland = true;
+        var legacy = document.getElementById('calendarLegacy');
+        if (legacy) legacy.style.display = 'none';
+      },
+
       // ---- feedback ---------------------------------------------------------
       // Replaced by Sonner once #sigma-toaster mounts (islands.tsx writes sigma.toast back).
       // Until then (and if the island never mounts) fall back to the legacy #toast strip.

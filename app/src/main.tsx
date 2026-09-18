@@ -152,6 +152,25 @@ function boot() {
       obs.observe(attView, { attributes: true, attributeFilter: ['style'] });
     }
   }
+  // 🗓️ יומן (Task 13). Same page-open trigger as נוכחות, and for the same reason: the
+  // calendar chunk pulls TanStack, supabase-js and Motion's Reorder in, and almost every
+  // session starts on the cards. A failed chunk simply leaves the legacy month grid on
+  // screen — working, just not redesigned.
+  const calView = document.getElementById('calendar-view');
+  if (calView && document.getElementById('sigma-calendar')) {
+    const loadCalendar = () => import('@/islands/Calendar')
+      .then(m => m.mountCalendar())
+      .catch(e => console.warn('[sigma] calendar island failed — legacy grid stays', e));
+    if (calView.style.display !== 'none') void loadCalendar();
+    else {
+      const obs = new MutationObserver(() => {
+        if (calView.style.display === 'none') return;
+        obs.disconnect();
+        void loadCalendar();
+      });
+      obs.observe(calView, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
   if (document.getElementById('sigma-holidays')) {
     import('@/islands/Holidays')
       .then(m => m.mountHolidays())

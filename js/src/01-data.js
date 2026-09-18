@@ -229,6 +229,26 @@
     }
     // 🕎 first Monday = חג, first Thursday = סגירת חברה. Served to the app through the same
     // _sbGet('company_holidays…') call production uses.
+    // ---- 🗓️ mock calendar day (Task 13) ----
+    // The unified calendar needs ONE day with TWO kibbutzim on it, or there is no route to
+    // reorder and no grouping to look at. Anchored to the first TUESDAY of the month for the
+    // same reason the attendance fixture is anchored: the shape is identical whatever month
+    // the suite runs in, and it never lands on a weekend.
+    var _calDay = mockYmd(mockFirstDow(2));
+    M.tasks.push(
+      // Deliberately NOT יגור: qa/playwright/tests/ems-tasks.spec.ts asserts that card's
+      // open count, and a fixture for one screen must not move the numbers on another.
+      { id: 'task-cal-1', title: 'סבב מונים', type: 'other', priority: 'normal', status: 'new',
+        site: { id: SID.gvat, name: 'גבת' }, assignee: { id: 'u-aviam', firstName: 'אביאם', lastName: '' },
+        expectedCompletionDate: new Date(_calDay + 'T12:00:00').toISOString(), description: '' },
+      { id: 'task-cal-2', title: 'בדיקת בקר', type: 'other', priority: 'normal', status: 'new',
+        site: { id: SID.dganya, name: 'דגניה' }, assignee: { id: 'u-aviam', firstName: 'אביאם', lastName: '' },
+        expectedCompletionDate: new Date(_calDay + 'T12:00:00').toISOString(), description: '' }
+    );
+    // The shared cache was seeded above, before these two existed — re-seed it.
+    M.cacheStore.tasks = M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask);
+    window.MOCK_CAL_DAY = _calDay;
+
     window.MOCK_HOLIDAYS = [
       { date: mockYmd(mockFirstDow(1)), name: 'חג לדוגמה', kind: 'holiday', required: false },
       { date: mockYmd(mockFirstDow(4)), name: 'חול המועד סוכות', kind: 'company_closure', required: false }

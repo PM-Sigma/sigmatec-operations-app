@@ -31,6 +31,19 @@ export interface AttendanceRow {
 }
 
 /** A row of `company_holidays` (spec §7e). `required=false` → the day is never "missing". */
+/** One office Google-Calendar event, as the `calendar` Edge Function returns it. */
+export interface OfficeCalEvent {
+  id: string;
+  title: string;
+  start: string | null;
+  end?: string | null;
+  allDay?: boolean;
+  location?: string;
+  description?: string;
+  /** Google's Meet link — absent when the event has no conference data. */
+  hangoutLink?: string | null;
+}
+
 export interface CompanyHoliday {
   date: string;
   name: string;
@@ -142,6 +155,18 @@ export interface Sigma {
   attExportPdf?(): void;
   attExportExcel?(): void;
 
+  // ── 🗓️ calendar (spec §7f) ────────────────────────────────────────────────
+  /** Office events in a day range, through the `calendar` Edge Function. Never throws. */
+  calFetchEvents?(range: { from: string; to: string; force?: boolean }): Promise<OfficeCalEvent[]>;
+  /** ➕ אירוע משרד. */
+  calAddEvent?(ev: { title: string; start: string; end?: string | null; allDay?: boolean; description?: string; location?: string }): Promise<{ ok?: boolean; id?: string; error?: string }>;
+  /** PATCH one EMS task (the scheduler + its undo). The ONE EMS write path. */
+  emsPatchTask?(id: string, body: Record<string, unknown>): Promise<any>;
+  /** A whole batch of PATCHes with ONE cache resync at the end. */
+  emsPatchTasks?(patches: Array<{ id: string; body: Record<string, unknown> }>): Promise<{ ok: number; failed: Array<{ id: string; error: string }> }>;
+  /** Told once, when the island mounts: the legacy month grid folds away. */
+  calIslandMounted?(): void;
+
   /**
    * Ctrl+K (§7k.1). ASSIGNED BY React (islands/CommandBar.tsx), not by the legacy bridge —
    * it is the one entry that travels the other way, so the legacy header search and the
@@ -184,6 +209,9 @@ export type SigmaEvent =
   | 'attendance-saved'
   // the session's 🕎 holiday list landed in SHEET_DATA.holidays (js/src/04-attendance-daily.js)
   | 'holidays-loaded'
+  // the route for one (person, date) was reordered in the calendar (spec §7f). Consumer:
+  // the arrival sheet + the "היום" strip, which order by the same day_plans row
+  | 'dayplan-changed'
   // a 401 anywhere (EMS, supabase-js, the legacy reads) — ONE per expiry, debounced by
   // js/src/00-bridge.js. Consumer: components/ReLoginSheet.tsx (docs/integration-map.md)
   | 'session-expired';

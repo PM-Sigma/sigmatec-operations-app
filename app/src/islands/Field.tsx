@@ -472,6 +472,9 @@ function FieldIsland() {
     enabled: !!me,
   });
   const planQ = useQuery({ queryKey: ['dayPlan', me, today], queryFn: () => fetchDayPlan(me, today), enabled: !!me });
+  // A reorder in the calendar (§7f) is the same route this sheet offers — re-read it when
+  // the calendar says it changed, instead of making him reload to see his own order.
+  useSigmaEvent('dayplan-changed', () => { void planQ.refetch(); });
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: mode === 'briefing' });
   const notesQ = useMeetingNotes();
 
@@ -714,6 +717,7 @@ function TodayIsland() {
 
   const checkinsQ = useQuery({ queryKey: ['checkins', me, today], queryFn: () => fetchCheckins(me), enabled: !!me });
   const planQ = useQuery({ queryKey: ['dayPlan', me, today], queryFn: () => fetchDayPlan(me, today), enabled: !!me });
+  useSigmaEvent('dayplan-changed', () => { void planQ.refetch(); });
   const visits = useVisits();
   const checkins = (checkinsQ.data || []) as CheckinRow[];
 

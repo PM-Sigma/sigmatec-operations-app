@@ -43,6 +43,11 @@
     return ev;
   }
   function renderCompanyCalendar() {
+    // 🗓️ Task 13: once the React island mounts in #calendar-view it OWNS the screen, and the
+    // legacy month grid steps aside — exactly the way the attendance table does (Task 12).
+    // The functions below stay reachable (the bridge, test-calendar-legacy.mjs and the agenda
+    // builders still call them), they just stop painting over the island.
+    if (window.__sigmaCalendarIsland) return;
     const year = window.calViewYear, month = window.calViewMonth;
     const heMonths = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
     const lbl = document.getElementById('calMonthLabel'); if (lbl) lbl.textContent = heMonths[month] + ' ' + year;
@@ -111,6 +116,100 @@
       (items.length ? items.map(it => `<div style="margin-top:6px;"><span class="cal-chip ${it.cls}" style="display:inline-block;">${it.icon} ${calEsc(it.text)}</span> <a href="${calAddLink(new Date(y,m,d,9,0), it.icon+' '+it.text, '')}" target="_blank" rel="noopener" style="font-size:12px;text-decoration:none;color:var(--primary);white-space:nowrap;">📅 ליומן שלי</a></div>`).join('')
                     : '<br><span style="color:#94a3b8;">אין אירועים ביום זה</span>') + '</div>';
   }
+
+  // ═══════════════════ 🗓️ calendar bridge (Task 13, spec §7f) ═══════════════════
+  // The React island (app/src/islands/Calendar.tsx) reads Supabase itself, but the two
+  // things it CANNOT reach from there stay here: the office Google Calendar (an Edge
+  // Function that requires the live EMS bearer) and the EMS write path. One writer per
+  // system — that is the rule the whole bridge is built on.
+
+  var CAL_SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
+  var CAL_SB_ANON = (typeof SB_ANON !== 'undefined' && SB_ANON) || '';
+  var _calEventsCache = {};   // 'from|to' → { at, events }
+  var CAL_EVENTS_TTL = 5 * 60 * 1000;
+
+  /**
+   * Office events between two 'YYYY-MM-DD' days, through the `calendar` Edge Function.
+   * Returns [] — never throws and never raises a login surface: a calendar that cannot
+   * reach Google still has to show the visits and the EMS tasks.
+   */
+  async function calFetchEvents(range) {
+    var r = range || {};
+    var from = String(r.from || '').slice(0, 10);
+    var to   = String(r.to || '').slice(0, 10);
+    if (!from || !to) return [];
+    var key = from + '|' + to;
+    var hit = _calEventsCache[key];
+    if (hit && (Date.now() - hit.at) < CAL_EVENTS_TTL && !r.force) return hit.events;
+    var token = (typeof getEmsToken === 'function' && getEmsToken()) || '';
+    if (!token) return [];                    // no EMS login → the function would 401 anyway
+    try {
+      var res = await fetch(CAL_SB_URL + '/functions/v1/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: CAL_SB_ANON, Authorization: 'Bearer ' + CAL_SB_ANON },
+        body: JSON.stringify({ action: 'list', token: token, from: from, to: to })
+      });
+      var body = await res.json().catch(function () { return {}; });
+      var events = (body && body.calendar) || [];
+      _calEventsCache[key] = { at: Date.now(), events: events };
+      return events;
+    } catch (e) {
+      console.warn('[cal] office events unavailable', e);
+      return [];
+    }
+  }
+
+  /** ➕ אירוע משרד — the same Edge Function, `add`. Returns { ok, id } or { error }. */
+  async function calAddEvent(ev) {
+    var e = ev || {};
+    var token = (typeof getEmsToken === 'function' && getEmsToken()) || '';
+    if (!token) return { error: 'יש להתחבר ל-EMS כדי להוסיף אירוע' };
+    try {
+      var res = await fetch(CAL_SB_URL + '/functions/v1/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: CAL_SB_ANON, Authorization: 'Bearer ' + CAL_SB_ANON },
+        body: JSON.stringify({
+          action: 'add', token: token, title: e.title || '', start: e.start,
+          end: e.end || null, allDay: !!e.allDay, description: e.description || '', location: e.location || ''
+        })
+      });
+      var body = await res.json().catch(function () { return {}; });
+      if (body && body.ok) { _calEventsCache = {}; }      // the new event has to show up next read
+      return body || {};
+    } catch (err) {
+      return { error: String((err && err.message) || err) };
+    }
+  }
+
+  /**
+   * PATCH one EMS task — the scheduler's only write, and the UNDO's only write.
+   * Deliberately thin: it reuses `emsApi` (so the 401 funnel, the error shapes and the proxy
+   * are the existing ones) and then `emsAfterWrite`, so the cards, the calendar layer and the
+   * briefing all see the new date without anyone re-syncing by hand.
+   */
+  async function emsPatchTask(id, body) {
+    if (!id) throw new Error('חסר מזהה משימה');
+    var res = await emsApi('/employee-tasks/' + id, { method: 'PATCH', body: JSON.stringify(body || {}) });
+    if (typeof sigmaTrack === 'function') sigmaTrack('ems-task-scheduled', id);
+    return res;
+  }
+
+  /** One round of PATCHes (a שיבוץ or its undo), then ONE cache resync for the whole batch. */
+  async function emsPatchTasks(patches) {
+    var list = patches || [];
+    var ok = 0, failed = [];
+    for (var i = 0; i < list.length; i++) {
+      try { await emsPatchTask(list[i].id, list[i].body); ok++; }
+      catch (e) { failed.push({ id: list[i].id, error: String((e && e.message) || e) }); }
+    }
+    if (ok) { try { await emsAfterWrite(); } catch (e2) { /* the write landed; the refresh is best-effort */ } }
+    return { ok: ok, failed: failed };
+  }
+
+  window.calFetchEvents = calFetchEvents;
+  window.calAddEvent    = calAddEvent;
+  window.emsPatchTask   = emsPatchTask;
+  window.emsPatchTasks  = emsPatchTasks;
 
   function renderMyTasks() {
     const box = document.getElementById('myTasksList');

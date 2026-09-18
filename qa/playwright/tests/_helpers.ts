@@ -59,6 +59,13 @@ function tableOf(url: string): string {
  * what makes the islands show their login hint instead of pretending a save happened.
  */
 export async function installRoutes(page: Page, opts: { checkins?: boolean } = {}): Promise<void> {
+  /**
+   * 🗺️ day_plans — the ONE table in this harness that is a real store rather than a fixture.
+   * The calendar's route (spec §7f) is only meaningful if a reorder STICKS: the spec drags a
+   * stop, reloads the panel and asserts the new order came back. Keyed (person, date), the
+   * way the table's primary key is.
+   */
+  const dayPlans = new Map<string, Record<string, unknown>>();
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
   await page.route('**://fonts.googleapis.com/**', r => r.abort());
@@ -88,6 +95,14 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       // usage_events is fire-and-forget telemetry (lib/track.ts); 401-ing it would print a
       // console error on every page that tracks a mount. Accept and drop it.
       if (tableOf(url) === 'usage_events') return route.fulfill(json([], 201));
+      // day_plans accepts the upsert and REMEMBERS it (see the store above).
+      if (tableOf(url) === 'day_plans') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = Array.isArray(body) ? body : [body];
+        for (const r of rows) dayPlans.set(String(r.person) + '|' + String(r.date), r);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
       return route.fulfill(json({ message: 'new row violates row-level security policy', code: '42501' }, 401));
     }
 
@@ -102,6 +117,18 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       // nudge only appear on the screen that is about them (qa/playwright/tests/field.spec.ts).
       case 'field_checkins': return route.fulfill(json(shape(opts.checkins ? FIXTURES.checkins() : [], accept)));
       case 'feedback': return route.fulfill(json(shape([], accept)));
+      // The saved route comes back for exactly the (person, date) the island asked for —
+      // PostgREST filters look like `person=eq.<name>&date=eq.<day>`.
+      case 'day_plans': {
+        const q = new URL(url).searchParams;
+        const person = (q.get('person') || '').replace(/^eq\./, '');
+        const date = (q.get('date') || '').replace(/^eq\./, '');
+        const hit = dayPlans.get(decodeURIComponent(person) + '|' + decodeURIComponent(date));
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
+      // No absence fixture: 🌴 is entered in the spec, and the write 401s like every other
+      // one — what the spec asserts there is the sheet, not a round trip.
+      case 'calendar_absences': return route.fulfill(json(shape([], accept)));
       default: return route.fulfill(json(shape([], accept)));
     }
   });

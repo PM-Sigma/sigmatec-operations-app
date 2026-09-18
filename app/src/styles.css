@@ -273,3 +273,230 @@
   font-size: 11.5px;
   font-weight: 700;
 }
+
+/* ===== 🗓️ יומן — the unified calendar (spec §7f) =====
+   EIGHT columns, not seven: the first one is the ISO week number, and because the island
+   root is `dir="rtl"` the first column is the RIGHTMOST — which is exactly where the spec
+   puts it. It is 26 px wide, muted, and never interactive: the same treatment the day
+   letters on top get. */
+.ucal-grid {
+  display: grid;
+  grid-template-columns: 26px repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.ucal-dow,
+.ucal-weekno {
+  font-size: 11px;
+  font-weight: 700;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  padding: 2px 0;
+  align-self: center;
+}
+.ucal-weekno { font-variant-numeric: tabular-nums; opacity: .7; }
+.ucal-weekno-head { opacity: .5; }
+
+.ucal-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 62px;
+  padding: 3px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: hsl(var(--muted));
+  /* ≤250 ms and colour only (spec §6) — a day cell never moves. */
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.ucal-cell:hover { border-color: hsl(var(--border)); }
+.ucal-cell[data-state='weekend'] { background: transparent; opacity: .6; }
+.ucal-cell[data-state='holiday'] { background: var(--att-holiday-bg); color: var(--att-holiday-ink); }
+.ucal-cell[data-state='today']   { box-shadow: inset 0 0 0 2px var(--brand-1); }
+.ucal-out { opacity: .45; }
+.ucal-sel { box-shadow: 0 0 0 2px var(--brand-2); }
+
+.ucal-cell-head { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
+.ucal-daynum {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 26px;
+  min-height: 24px;
+  padding: 0 4px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.ucal-daynum:hover { background: hsl(var(--secondary)); }
+.ucal-daynum:focus-visible { outline: 2px solid var(--brand-1); outline-offset: 1px; }
+/* The violet dot a company_holidays day carries (spec §7e + §7f). */
+.ucal-holidot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--att-holiday-ink);
+}
+.ucal-add {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  opacity: .55;
+  transition: opacity .15s ease, background-color .15s ease;
+}
+.ucal-cell:hover .ucal-add,
+.ucal-add:focus-visible { opacity: 1; }
+.ucal-cell-body { display: flex; flex-direction: column; gap: 2px; text-align: start; }
+
+.ucal-chip {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.ucal-chip-event   { background: var(--att-office-bg);  color: var(--att-office-ink); }
+.ucal-chip-visit   { background: var(--att-field-bg);   color: var(--att-field-ink); }
+.ucal-chip-ems     { background: var(--att-away-bg);    color: var(--att-away-ink); }
+.ucal-chip-absence { background: var(--att-holiday-bg); color: var(--att-holiday-ink); }
+/* "רק שלי": what is not yours is still ON the calendar — a day is not free because the
+   work in it is somebody else's — it is just quieter. */
+.ucal-dim { opacity: .42; }
+.ucal-more { font-size: 10px; font-weight: 700; color: hsl(var(--muted-foreground)); padding-inline-start: 4px; }
+
+/* The week view gives each day a full column of rows instead of three chips and a "+N". */
+.ucal-grid-week .ucal-cell { min-height: 190px; }
+.ucal-grid-week .ucal-chip { white-space: normal; }
+
+/* ── the day panel / sheet ─────────────────────────────────────────────── */
+.ucal-day-title { margin: 0 0 8px; font-size: 15px; font-weight: 800; }
+.ucal-loose { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.ucal-route-list { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.ucal-route-item { list-style: none; }
+.ucal-stop {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  padding: 8px 9px;
+}
+.ucal-stop-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ucal-stop-hdr { font-size: 11px; font-weight: 800; color: hsl(var(--muted-foreground)); }
+.ucal-stop-name { font-size: 14px; font-weight: 800; }
+.ucal-arrows { margin-inline-start: auto; display: flex; gap: 2px; }
+.ucal-arrow {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+.ucal-arrow:disabled { opacity: .35; }
+.ucal-stop-items { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; }
+.ucal-stop-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ucal-who { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.ucal-empty { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.ucal-stop-actions { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+.ucal-unplaced { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+/* ── controls ──────────────────────────────────────────────────────────── */
+.ucal-switch { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: hsl(var(--muted)); }
+.ucal-switch-btn {
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: hsl(var(--muted-foreground));
+  transition: background-color .15s ease, color .15s ease;
+}
+.ucal-switch-btn:disabled { opacity: .45; }
+.ucal-switch-on { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.ucal-icon,
+.ucal-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 30px;
+  min-width: 30px;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  font-size: 12px;
+  font-weight: 700;
+  transition: background-color .15s ease;
+}
+.ucal-icon { padding: 0; }
+.ucal-mini:hover, .ucal-icon:hover { background: hsl(var(--secondary)); }
+.ucal-mini-on { background: var(--brand-1); color: #fff; border-color: transparent; }
+.ucal-meet {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--att-office-bg);
+  color: var(--att-office-ink);
+  text-decoration: none;
+}
+.ucal-row {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  font-size: 14px;
+  font-weight: 700;
+  text-align: start;
+}
+.ucal-row:hover { background: hsl(var(--secondary)); }
+.ucal-primary {
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  border-radius: 12px;
+  background: var(--brand-1);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 800;
+}
+.ucal-primary:disabled { opacity: .45; }
+.ucal-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+  font-size: 13px;
+}
+.ucal-input {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  min-height: 38px;
+  padding: 0 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-size: 13.5px;
+  font-weight: 600;
+}
