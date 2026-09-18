@@ -23,8 +23,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- The four faces ⚙️ הגדרות → פונט offers. All four are loaded so switching is instant. -->
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mu6x2sh8">
-<link rel="stylesheet" href="ui/sigma.css?v=mu6x2sh8">
+<link rel="stylesheet" href="css/app.css?v=mu6xg1lv">
+<link rel="stylesheet" href="ui/sigma.css?v=mu6xg1lv">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -150,6 +150,11 @@
         <div class="subtitle">תפעול שטח</div>
       </div>
       <div class="header-meta">
+        <!-- React island: 🔍 חיפוש (Ctrl+K) · the context ➕ · 🌙 · ● user chip (spec §6, §7k.2).
+             `body.sigma-header-ready` hides the legacy 👤/🟢 EMS chips it replaces; if
+             ui/sigma.js never loads they stay, so the page is never left without a user
+             switcher or an EMS link. -->
+        <div id="sigma-header-actions"></div>
         <div class="header-date" id="lastUpdated">📅 טוען...</div>
         <button class="copy-btn" id="installBtn" onclick="appInstall()" style="display:none;background:#15803d;color:#fff;border-color:#15803d;">📲 התקן אפליקציה</button>
         <button class="copy-btn" id="userBadge" onclick="changeUser()">👤 ...</button>
@@ -284,7 +289,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.108</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.111</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1280,6 +1285,7 @@
 <div id="sigma-usage"></div>
 <div id="sigma-import"></div>
 <div id="sigma-settings"></div>
+<div id="sigma-command"></div>
 <!-- §7l landings that are not built yet: עידן's "היום שלי" card set (Tasks 15/16) and עמיחי's
      "סקירה" screen. They are mounted EMPTY on purpose — those tasks render into them without
      touching the landing rule, and both roles land on 🏘 קיבוצים until then. -->
@@ -1287,8 +1293,8 @@
 <div id="sigma-ceo"></div>
 <div id="sigma-toaster"></div>
 <div id="sigma-nav"></div>
-<script src="js/app.js?v=mu6x2sh8"></script>
-<script type="module" src="ui/sigma.js?v=mu6x2sh8"></script>
+<script src="js/app.js?v=mu6xg1lv"></script>
+<script type="module" src="ui/sigma.js?v=mu6xg1lv"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

@@ -99,7 +99,7 @@ function HomeIsland() {
   // "➕ קיבוץ" in the ⋯ עוד sheet — the phone has no room for a header button.
   React.useEffect(() => {
     if (!canManage) return;
-    registerMoreItem({ id: 'new-kibbutz', label: 'קיבוץ חדש', icon: 'Home', roles: ['idan', 'team'], onSelect: openCreate });
+    registerMoreItem({ id: 'new-kibbutz', label: 'קיבוץ חדש', icon: 'Home', group: 'admin', roles: ['idan', 'team'], onSelect: openCreate });
   }, [canManage, openCreate]);
 
   // `window.sigmaHome` is this island's OWN surface for other islands and for legacy code:

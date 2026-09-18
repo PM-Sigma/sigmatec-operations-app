@@ -1789,3 +1789,14 @@ input, select, textarea {
   .btn:active, .inv-btn:active, .copy-btn:active, .filter-chip:active, .day-type-btn:active { transform: none; }
 }
 /* @end */
+
+/* @tokens-only */
+/* ===== סיגמה 2.00 — the header cluster island (#sigma-header-actions) took over =====
+   Gated on `body.sigma-header-ready` (set only after the island mounts): the legacy 👤 user
+   chip and the 🟢 EMS bubble are now rows in the user-chip menu, so leaving both on screen
+   would be two ways to do the same thing. Without the island they stay — the page must never
+   be left with no way to switch user or reach EMS. */
+body.sigma-header-ready #userBadge,
+body.sigma-header-ready #emsBubble { display: none !important; }
+body.sigma-header-ready .header-meta { align-items: center; }
+/* @end */

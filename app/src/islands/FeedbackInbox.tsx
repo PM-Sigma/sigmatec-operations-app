@@ -329,6 +329,7 @@ export function mountFeedbackInbox(): boolean {
   if (!ok) return false;
   registerMoreItem({
     id: 'feedback-inbox',
+    group: 'admin',
     label: '📥 תיבה נכנסת (רעיונות ובאגים)',
     icon: 'Inbox',
     roles: ['idan', 'team'],

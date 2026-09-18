@@ -1,7 +1,7 @@
 // Filter chips + search (spec §2: "Filter chips: הכל · חדשים · פעילים · 🤝 שיווקי").
 // The chips are a shadcn ToggleGroup so the selected pill is a single controlled value;
 // counts are wrapped in <bdi> so a Hebrew label can never flip the digits (RTL gate, §6).
-import { Search } from 'lucide-react';
+import { Command as CommandIcon, Search } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { CardFilter, Counts } from '@/lib/kibbutzim';
 
@@ -21,6 +21,9 @@ export function FilterChips({
   onQuery: (q: string) => void;
   counts: Counts;
 }) {
+  // §7k.1: the phone has no keyboard shortcut, so the same merged list (kibbutzim · משימות ·
+  // מסכים · פעולות) is reachable from this field — one tap, not a second search UI.
+  const openAll = () => { try { (window as any).sigma?.openCommandBar?.(); } catch { /* no island */ } };
   return (
     <div className="sticky top-0 z-[3] -mx-1 bg-background/95 px-1 pb-2 pt-1 backdrop-blur">
       <label className="mb-2 flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2.5 text-sm">
@@ -33,6 +36,15 @@ export function FilterChips({
           aria-label="חיפוש קיבוץ"
           className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-muted-foreground"
         />
+        <button
+          type="button"
+          onClick={openAll}
+          aria-label="חיפוש בכל המערכת"
+          title="חיפוש בכל המערכת"
+          className="-me-1 shrink-0 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <CommandIcon className="h-4 w-4" />
+        </button>
       </label>
       <ToggleGroup
         type="single"

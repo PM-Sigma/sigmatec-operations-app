@@ -32,11 +32,14 @@ check('css/app.css marks a tokens-only region', () => {
   assert.ok(/\/\* @end \*\//.test(css), 'missing /* @end */ marker');
 });
 
-check('no hex literal inside the tokens-only region', () => {
-  const region = css.split('/* @tokens-only */')[1].split('/* @end */')[0];
-  // Comments are prose, not paint — strip them before looking for colours.
-  const code = region.replace(/\/\*[\s\S]*?\*\//g, '');
-  const hex = code.match(/#[0-9a-fA-F]{3,8}\b/g) || [];
+check('no hex literal inside ANY tokens-only region', () => {
+  // EVERY marked region, not just the first — sections are appended over time and a
+  // one-region check would silently stop guarding the newest one.
+  const regions = [...css.matchAll(/\/\* @tokens-only \*\/([\s\S]*?)\/\* @end \*\//g)].map(m => m[1]);
+  assert.ok(regions.length >= 1, 'no tokens-only region found');
+  const hex = regions
+    // Comments are prose, not paint — strip them before looking for colours.
+    .flatMap(r => r.replace(/\/\*[\s\S]*?\*\//g, '').match(/#[0-9a-fA-F]{3,8}\b/g) || []);
   assert.deepEqual(hex, [], 'hex literals in a tokens-only section: ' + hex.join(', '));
 });
 

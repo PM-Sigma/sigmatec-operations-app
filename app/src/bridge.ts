@@ -71,6 +71,20 @@ export interface Sigma {
   certFromVisit(visitId: string): void;
 
   toast(msg: string, opts?: Record<string, unknown>): void;
+
+  /**
+   * Ctrl+K (§7k.1). ASSIGNED BY React (islands/CommandBar.tsx), not by the legacy bridge —
+   * it is the one entry that travels the other way, so the legacy header search and the
+   * phone search field can open the merged list instead of carrying their own result UI.
+   * Optional: with no island mounted, the callers simply do nothing.
+   */
+  openCommandBar?(): void;
+
+  /**
+   * The first screen per role (§7l) calls this hook once it has chosen, for every role.
+   * Task 5 attaches the field arrival sheet to it — nothing in Task 4 assigns it.
+   */
+  onLanding?(target: { page: SigmaPage; scrollTo?: string }, role: string): void;
 }
 
 export const sigma = (globalThis as any).sigma as Sigma;

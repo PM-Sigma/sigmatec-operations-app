@@ -7,9 +7,9 @@
 // inbox island's own registration.
 import * as React from 'react';
 import {
-  CalendarDays, CheckSquare, ClipboardList, Code2, Download, FileText, Home, MapPin,
-  MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck, Users,
-  Bell, type LucideIcon,
+  CalendarDays, CheckSquare, ClipboardList, Code2, Download, FileDown, FileText, Home, Inbox,
+  MapPin, MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck,
+  Users, Bell, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -22,8 +22,16 @@ import { track } from '@/lib/track';
 
 export const MORE_ICONS: Record<string, LucideIcon> = {
   Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell,
-  Settings, MessageSquarePlus, Download, TrendingUp, Notebook, FileText, MoreHorizontal,
+  Settings, MessageSquarePlus, Download, FileDown, Inbox, TrendingUp, Notebook, FileText,
+  MoreHorizontal,
 };
+
+/**
+ * §7k #3 fixes the ORDER of the everyday rows, and the registry's order is the order islands
+ * happened to mount in — which changes with lazy chunks. Registered rows are sorted by this
+ * list (anything unlisted keeps its registration order, after the listed ones).
+ */
+const APP_ORDER = ['settings', 'field-journal', 'feedback'];
 
 /**
  * Legacy pages reachable from the sheet, in the order §7k #3 lists them. `משימות` stays until
@@ -80,9 +88,16 @@ export function MoreSheet({ role }: { role: RegistryRole }) {
   const extras = listMoreItems(role);
   const go = (fn: () => void) => { setOpen(false); fn(); };
 
+  const rank = (id: string) => {
+    const i = APP_ORDER.indexOf(id);
+    return i === -1 ? APP_ORDER.length : i;
+  };
   const block = (g: 'app' | 'admin') => ({
     pages: role === 'viewer' ? [] : pages.filter(p => (p.group || 'app') === g),
-    items: extras.filter((i: MoreItem) => (i.group || 'app') === g),
+    items: extras
+      .filter((i: MoreItem) => (i.group || 'app') === g)
+      .slice()
+      .sort((a, b) => (g === 'app' ? rank(a.id) - rank(b.id) : 0)),
   });
   const app = block('app');
   const admin = block('admin');

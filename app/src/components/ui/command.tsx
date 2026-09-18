@@ -113,7 +113,10 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      // --accent is the brand cyan; using it as the selection fill put white text on cyan (a
+      // contrast failure, and it shouted). The selection is the muted surface plus a brand
+      // hairline on the INLINE START, which is direction-agnostic.
+      "relative flex cursor-default gap-2 select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none data-[selected=true]:border-s-2 data-[selected=true]:border-s-[color:var(--brand-1)] data-[disabled=true]:pointer-events-none data-[selected='true']:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       className
     )}
     {...props}

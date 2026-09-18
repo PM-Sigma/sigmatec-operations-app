@@ -333,6 +333,7 @@ export function mountImportNotes(): boolean {
   // canManageStaff(): עידן + עמיחי, a subset of idan + team).
   registerMoreItem({
     id: 'import-meeting',
+    group: 'admin',
     label: 'ייבוא סיכום ישיבה',
     icon: 'FileDown',
     roles: ['idan', 'team'],
