@@ -1,6 +1,7 @@
 // Supabase Edge Function: github
-// Read-only proxy for the dev-tasks (פיתוח) view — fetches GitHub Issues from the company
-// tickets repo with a read-only token, gated by a valid EMS login. View-only (phase 1).
+// Proxy for the dev-tasks (פיתוח) view — fetches GitHub Issues from the company tickets repo,
+// gated by a valid EMS login. Reads (default), Projects-v2 writes (setStatus / setPriority) and
+// ticket creation (createIssue / listParents, for the 📣 feedback inbox's 🐙 button, spec §7).
 //
 // Secrets to set (Edge Functions → Secrets):
 //   GH_TOKEN  — GitHub token. Needs repo Issues:Read AND the **project** scope. Reading the Projects-v2
@@ -207,6 +208,97 @@ async function setProjectField(token: string, owner: string, num: number, repo: 
   return { updated, failed, statusOptions: optionNames, target: clear ? "" : opt.name };
 }
 
+// ───────────────────── ticket creation (📣 feedback inbox → dev board) ─────────────────────
+// The Git Ticket System rules (C:\Users\idann\Projects\Git Ticket System For EMS): a two-level
+// board — **Main Fields** parents and their children — every card is a CHILD of an existing
+// parent, titled `[מודול] | [תת-תחום] | [תיאור]`, and lands in **Backlog**. A new PARENT is
+// never created from the app: עידן picks the parent in the inbox from `listParents` below.
+const MAIN_FIELDS_RE = /main\s*fields|תחומים ראשיים/i;
+
+async function ghJson(token: string, url: string, init: RequestInit = {}, ms = 12000) {
+  const r = await fetchT(url, {
+    ...init,
+    headers: {
+      Authorization: "Bearer " + token, Accept: "application/vnd.github+json",
+      "User-Agent": "sigmatec-ops", "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  }, ms);
+  const text = await r.text();
+  let data: any = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 300) }; }
+  if (!r.ok) throw new Error("github " + r.status + ": " + String(data?.message || text).slice(0, 200));
+  return data;
+}
+
+async function gqlCall(token: string, query: string, variables: any) {
+  const r = await fetchT("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + token, "Content-Type": "application/json",
+      "User-Agent": "sigmatec-ops", "GraphQL-Features": "sub_issues",
+    },
+    body: JSON.stringify({ query, variables }),
+  }, 12000);
+  const d = await r.json();
+  if (d.errors) throw new Error(d.errors.map((e: any) => e.message).join("; "));
+  return d.data;
+}
+
+/** The Main Fields parents, for the inbox's parent picker: [{number, title}] by board order. */
+async function listParents(token: string, repo: string, projOwner: string, projNum: number) {
+  let items: any[] = [];
+  for (let page = 1; page <= 5; page++) {
+    const batch = await ghJson(token, `https://api.github.com/repos/${repo}/issues?state=open&per_page=100&page=${page}`);
+    if (!Array.isArray(batch)) break;
+    items = items.concat(batch);
+    if (batch.length < 100) break;
+  }
+  const pf = await fetchProjectFields(token, projOwner, projNum);
+  return (items || [])
+    .filter((it: any) => !it.pull_request && MAIN_FIELDS_RE.test(String(pf[it.number]?.status || "")))
+    .map((it: any) => ({ number: it.number, title: String(it.title || ""), url: it.html_url }))
+    .sort((a: any, b: any) => (pf[a.number]?.pos ?? 1e9) - (pf[b.number]?.pos ?? 1e9));
+}
+
+/**
+ * Create one ticket: the issue, then the parent link (native sub-issue), then the board with
+ * Status=Backlog. The issue is the only step that may fail hard — a missing parent link or a
+ * project without a Backlog option is reported as a `warning` next to a real issue number,
+ * because losing the ticket over a board detail would be worse than an imperfect card.
+ */
+async function createIssue(
+  token: string, repo: string, projOwner: string, projNum: number,
+  t: { title: string; body: string; labels: string[]; parent?: number },
+) {
+  const issue = await ghJson(token, `https://api.github.com/repos/${repo}/issues`, {
+    method: "POST",
+    body: JSON.stringify({ title: t.title, body: t.body, labels: t.labels }),
+  });
+  const warnings: string[] = [];
+
+  if (t.parent) {
+    try {
+      const [o, n] = repo.split("/");
+      const p = await gqlCall(token, `query($o:String!,$n:String!,$num:Int!){ repository(owner:$o,name:$n){ issue(number:$num){ id } } }`,
+        { o, n, num: t.parent });
+      const parentId = p?.repository?.issue?.id;
+      if (!parentId) throw new Error("parent #" + t.parent + " not found");
+      await gqlCall(token, `mutation($p:ID!,$c:ID!){ addSubIssue(input:{issueId:$p, subIssueId:$c}){ issue{ number } } }`,
+        { p: parentId, c: issue.node_id });
+    } catch (e) { warnings.push("parent: " + String((e as Error)?.message || e)); }
+  }
+
+  let status = "";
+  try {
+    const r = await setProjectField(token, projOwner, projNum, repo, [issue.number], /status|סטטוס/i, "Backlog", optionRegexFor);
+    status = r.target || "";
+    for (const f of (r.failed || [])) warnings.push("board #" + f.number + ": " + f.error);
+  } catch (e) { warnings.push("board: " + String((e as Error)?.message || e)); }
+
+  return { number: issue.number, url: issue.html_url, title: issue.title, parent: t.parent || null, status, warnings };
+}
+
 Deno.serve(async (req) => {
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   const GH_TOKEN = Deno.env.get("GH_TOKEN") || "";
@@ -249,6 +341,33 @@ Deno.serve(async (req) => {
     const target = String(body.priority || "").trim();   // "" clears the priority
     try {
       const res = await setProjectField(GH_TOKEN, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, GH_REPO, numbers, /priority|עדיפות/i, target, priorityRegexFor);
+      return json(res, 200, ORIGIN);
+    } catch (e) {
+      return json({ error: String((e as Error)?.message || e) }, 502, ORIGIN);
+    }
+  }
+
+  // READ: the Main Fields parents, for the 📣 inbox's parent picker (a card is always a child).
+  if (body.mode === "listParents") {
+    try {
+      return json({ parents: await listParents(GH_TOKEN, GH_REPO, GH_PROJECT_OWNER, GH_PROJECT_NUMBER) }, 200, ORIGIN);
+    } catch (e) {
+      return json({ error: String((e as Error)?.message || e) }, 502, ORIGIN);
+    }
+  }
+
+  // WRITE: create one ticket (feedback bug → dev board). Title/body are built client-side by
+  // app/src/lib/feedback.ts (issueTitle/issueBody) so they are covered by goldens; the parent
+  // is required unless the caller explicitly says there is none.
+  if (body.mode === "createIssue") {
+    const title = String(body.title || "").trim();
+    if (!title) return json({ error: "title is required" }, 400, ORIGIN);
+    const labels = Array.isArray(body.labels) ? body.labels.map(String).slice(0, 10) : [];
+    const parent = Number(body.parent) || undefined;
+    try {
+      const res = await createIssue(GH_TOKEN, GH_REPO, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, {
+        title, body: String(body.body || ""), labels, parent,
+      });
       return json(res, 200, ORIGIN);
     } catch (e) {
       return json({ error: String((e as Error)?.message || e) }, 502, ORIGIN);

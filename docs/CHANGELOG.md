@@ -7,6 +7,24 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [unreleased · feat/kibbutz-cards-redesign] 2026-09-18 — 📣 תיבת רעיונות / באגים / תלונות + תמלול עברית
+Task 6 of "סיגמה 2.00" (spec §7 Part F). New React islands `app/src/islands/Feedback.tsx` (⋯ עוד →
+**📣 רעיון / באג / תלונה**, open to EVERY role incl. the viewer) and `FeedbackInbox.tsx` (admins only:
+list, חדש/נראה/טופל, and **🐙 פתח כרטיס בלוח הפיתוח** for a bug → the `github` function's new
+`createIssue` mode creates a CHILD of a Main Fields parent titled `[מודול] | [תת-תחום] | [תיאור]` in
+Backlog, per the Git Ticket System rules; `listParents` feeds the parent picker). Voice is a **ladder**,
+not platform detection: Web Speech `he-IL` live → MediaRecorder → private bucket `feedback-audio` →
+new Edge Function **`transcribe`** whenever Web Speech is missing, refused, or silent for 3 s (Android
+weak signal). `transcribe` tries the **self-hosted Whisper server first** (`SELF_WHISPER_URL/_TOKEN`,
+`ivrit-ai/whisper-large-v3-turbo-ct2`, 25 s) and falls back to Groq `whisper-large-v3` unless
+`GROQ_FALLBACK=off`; it deletes the recording on success and logs `transcribe_log`. New push mode
+`feedbackNew` notifies עידן + עמיחי with an 80-char preview and never the author (anonymous stays
+anonymous). DB: `db/feedback.sql` (`feedback`, `transcribe_log`, private bucket + insert-only policy),
+applied and verified. Tests: 68 new goldens in `app/src/lib/{feedback,speech,transcribeChain}.test.ts`
++ 23 render goldens in `app/src/islands/Feedback*.test.tsx`; full suite 225 green.
+**Manual step left to עידן: `docs/whisper-server.md`** — run the container on the office server, publish
+it over Cloudflare Tunnel, set the two secrets. Until then every transcription runs on Groq.
+
 ## [1.54] 2026-07-16 — 🔴 attendance missing days as red table rows + accumulating 🔔
 Per עידן (live screenshots): the top chip block was replaced — missing weekdays now render as **red
 rows inside the attendance table** (❌ חסרה נוכחות), each with a **🔔 per row** (viewer+עידן). Every

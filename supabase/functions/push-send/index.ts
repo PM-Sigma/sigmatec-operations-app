@@ -2,6 +2,7 @@
 //   (default) order events  : { event: 'pending'|'approved', orderId, actor } → notifies approvers
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
+//   feedbackNew             : { mode:'feedbackNew', kind, preview }            → 📣 box → עידן + עמיחי
 // Recipients + text + action buttons are computed/fixed SERVER-SIDE.
 // Every recipient device gets one push_log row (audit). Logging is non-fatal.
 // Secrets (Supabase dashboard → Edge Functions → Secrets, NEVER in repo): VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT.
@@ -15,6 +16,8 @@ const CORS = {
 };
 
 const APPROVE_GROUP = ["אביאם", "ניתאי", "עמיחי"];
+// 📣 feedback box (spec §7 Part F) — the inbox owners, fixed server-side like every recipient list.
+const FEEDBACK_INBOX = ["עידן", "עמיחי"];
 const qty = (o: any) => (o.items || []).reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0);
 const otype = (o: any) => o.order_type || o.orderType || (/בקשת לקוח/.test(o.notes || "") ? "customer" : "supplier");
 const needsAmichai = (o: any) => otype(o) === "supplier" && qty(o) > 10;
@@ -200,6 +203,30 @@ Deno.serve(async (req: Request) => {
     const recips = computeRecipients("approved", order, actor);
     if (recips.length) { const { payload, meta } = orderPayload("approved", order, actor); await sendTo(recips, payload, meta); }
     return json({ ok: true, status: "pending" });
+  }
+
+  // ---- new feedback from the 📣 box (spec §7 Part F) ----
+  // Recipients are FIXED server-side (עידן + עמיחי), exactly like every other mode: the client
+  // only says which kind it was and hands over the 80-char preview it already shows in the UI.
+  // The author is NEVER sent — a feedback may be anonymous, and a push that named the sender
+  // would leak exactly what the anonymous switch promises to hide.
+  if (body.mode === "feedbackNew") {
+    const kind = String(body.kind || "");
+    const titles: Record<string, string> = {
+      idea: "📣 רעיון חדש", bug: "🐞 באג חדש", complaint: "😠 תלונה חדשה",
+    };
+    if (!titles[kind]) return json({ error: "bad kind" }, 400);
+    const preview = String(body.preview || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const title = titles[kind];
+    const bodyTxt = preview || "ללא טקסט";
+    const openUrl = APP + "?pushact=feedback#feedback-inbox";
+    const payload = JSON.stringify({
+      title, body: bodyTxt, tag: "feedback-" + kind + "-" + Date.now(), url: openUrl,
+      actions: [{ action: "feedback", title: "📥 פתח תיבה" }],
+      data: { actUrls: { feedback: openUrl } },
+    });
+    const meta = { event: "feedbackNew", order_id: null, where_txt: kind, qty: 1, actor: null, title, body: bodyTxt };
+    return json(await sendTo(FEEDBACK_INBOX, payload, meta));
   }
 
   // ---- attendance reminder (manual viewer nudge; scheduled job uses attendance-cron) ----

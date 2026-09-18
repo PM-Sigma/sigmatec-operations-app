@@ -26,6 +26,7 @@ Channels, in the order of how loosely they couple:
 | `visit-form-open` | `js/src/02-init-attendance.js:13` (`switchTab('visit')`) | `components/home/CardActions.tsx` (🚚 waits for the form before asking for a cert) |
 | `theme-changed` | `app/src/lib/theme.ts:applyTheme` | `components/ThemeToggle.tsx:12` · `components/ui/sonner.tsx:18` |
 | **`notes-changed`** | `components/home/MeetingNotes.tsx:emitNotesChanged` — after import (`islands/ImportNotes.tsx:saveParsedMeeting`), ➕ link (`linkNoteToTask`), ✓ done (`setNoteDone`), pending→real id (`resolvePendingTasks`) | `MeetingNotes.tsx:listenForNotesChanges` → invalidates `['meetingNotes']`, which repaints **every card** (`components/home/KibbutzCard.tsx`) and the modal tab (`islands/ModalMeetings.tsx`). ONE listener per page, at module scope — a listener per component would mean one per card. |
+| **`feedback-changed`** | `islands/Feedback.tsx:emitFeedbackChanged` — after a feedback is sent (and after a status flip / a bug→card in the inbox, both of which also invalidate the key directly) | `islands/FeedbackInbox.tsx` → invalidates `['feedback']`, so an admin with the inbox open sees the new row without reloading |
 | **`ems-queue-flushed`** | `js/src/13-ems.js:emsQueueFlush` — `detail.created = [{queueId, taskId}]`, one entry per `createTask` that went out | `components/home/MeetingNotes.tsx:resolvePendingTasks` — swaps every `ems_task_id = 'pending:<queueId>'` for the real task id. Without it a bullet linked while offline keeps a 🔗 that can never open anything. |
 
 ## Postgres functions (RPC)
@@ -40,6 +41,8 @@ Channels, in the order of how loosely they couple:
 |---|---|---|
 | `['kibbutzim']` | `islands/Home.tsx` (create/edit/archive) | `islands/Home.tsx` · `islands/ImportNotes.tsx` (the parser's name catalog — the import must never resolve against a staler list than the cards do) |
 | `['meetingNotes']` | `islands/ImportNotes.tsx` · `components/home/MeetingNotes.tsx` | `components/home/MeetingNotes.tsx` (cards + modal tab) |
+| `['feedback']` | `islands/Feedback.tsx:sendFeedback` (via `feedback-changed`) · `islands/FeedbackInbox.tsx` (status flip, `github_issue`) | `islands/FeedbackInbox.tsx` (the admin inbox) |
+| `['gh-parents']` | — (read-only, `staleTime` 10 min) | `islands/FeedbackInbox.tsx` — the Main Fields parent picker, from the `github` function's `listParents` mode |
 
 ## Bridge surfaces added / changed by the meeting-notes task
 
@@ -51,3 +54,20 @@ Channels, in the order of how loosely they couple:
 | `#sigma-modal-meetings[data-kibbutz]` | legacy → island | `js/src/10-activity.js:openEditModal` stamps the kibbutz it is showing; `islands/ModalMeetings.tsx` observes the attribute. One React root for the whole session instead of a mount per modal open. |
 | `sigma.decorateCards()` | React → legacy | already existed; the cards' notes block is React, so the legacy passes still attach after `.kibbutz-name-row` — the notes sit between the two (order: name → notes → EMS tasks). |
 | `sigma.emsCacheTasksForKibbutz(name)` → `EmsTask[]` | React → legacy (`js/src/13-ems.js:emsCacheTasksForKibbutz`) | task-3-brief: the on-card EMS-tasks widget moved to React (`components/home/EmsTasks.tsx`), reusing the legacy site-id filter (merged sites, e.g. שדה אליהו + חקלאות) instead of re-deriving `KIBBUTZ_SITE_MAP` in TS. `applyCardEmsWidgets`/`renderCardEmsTasks` are removed from `js/src/13-ems.js` and from `sigma.decorateCards()`; the legacy kibbutz-modal task list (`prepModalEmsSection`) is untouched. Pinned by `test-ems-card.mjs` (slim-mapper `description` field) and `app/src/components/home/EmsTasks.test.tsx`. |
+
+## Bridge surfaces / channels added by the feedback task (Task 6)
+
+| Surface | Direction | Why |
+|---|---|---|
+| `sigma.emsToken()` → `string` | React → legacy (`getEmsToken`, `js/src/12-reports.js`) | the `github` Edge Function gates EVERY mode on a valid EMS login (the legacy dev board passes the same token). The inbox's 🐙 button needs it to create a ticket; no other island may use it. |
+| `registerMoreItem({id:'feedback'})` — label `📣 רעיון / באג / תלונה`, **no `roles`** | island → nav | every role may submit, the viewer included (spec §7). The live `visible` predicate only hides it before anyone has picked who they are. |
+| `registerMoreItem({id:'feedback-inbox'})` — `roles: ['idan','team']` + live `canSeeFeedbackInbox` | island → nav | the inbox is admins only (`canManageStaff` = עידן + עמיחי) and never a viewer, evaluated on every listing so `changeUser()` cannot leave it open. |
+| `#feedback-inbox` hash | push → island | `push-send` mode `feedbackNew` opens the app at `?pushact=feedback#feedback-inbox`; `islands/FeedbackInbox.tsx` watches the hash AND `user-changed` (the island mounts before the user is known, so a single check at mount would swallow the deep link). |
+
+## Edge functions this release touches
+
+| Function | Mode added | Called by |
+|---|---|---|
+| `transcribe` (new) | `{path, audio_sec}` → `{text, engine, ms}` | `app/src/lib/speech.ts:uploadAndTranscribe` (the fallback voice path). Self-hosted Whisper first, Groq as insurance — `supabase/functions/transcribe/chain.ts`, runbook in `docs/whisper-server.md`. Writes `transcribe_log`. |
+| `push-send` | `feedbackNew` `{kind, preview}` → עידן + עמיחי | `islands/Feedback.tsx:sendFeedback` (fire-and-forget; the author is never sent, so an anonymous feedback stays anonymous) |
+| `github` | `listParents` · `createIssue` `{title, body, labels, parent}` | `islands/FeedbackInbox.tsx` — a bug becomes a CHILD of a Main Fields parent, titled `[מודול] | [תת-תחום] | [תיאור]`, into Backlog (the Git Ticket System rules) |

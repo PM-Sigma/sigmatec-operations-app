@@ -1,4 +1,4 @@
-🟡 IN PROGRESS (2026-09-17→) — **סיגמה 2.00 redesign**: spec `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md`, plan `docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md`, branch `feat/kibbutz-cards-redesign` (worktree `SigmatecOps-wt-cards`). Tasks 0, 1, 1b done; 2 in fix round. Companion specs: unified inventory (17.9), company process (18.9, draft).
+🟡 IN PROGRESS (2026-09-17→) — **סיגמה 2.00 redesign**: spec `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md`, plan `docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md`, branch `feat/kibbutz-cards-redesign` (worktree `SigmatecOps-wt-cards`). Tasks 0, 1, 1b done; 2 in fix round. Task 6 (📣 feedback box + `transcribe`) built, tested and deployed on the branch — **one manual step open: the Whisper server runbook `docs/whisper-server.md` (עידן), until then transcription runs on Groq**. Companion specs: unified inventory (17.9), company process (18.9, draft).
 
 # Backlog & status
 

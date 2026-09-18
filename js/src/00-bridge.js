@@ -73,6 +73,10 @@
         return Promise.resolve(call('emsSiteIdForKibbutz', [name], '')).then(function (id) { return !!id; }).catch(function () { return false; });
       },
       openKibbutzEmsTask: function (id) { return call('openKibbutzEmsTask', [id]); },
+      // The raw EMS bearer. The ONLY consumer is the `github` Edge Function, which gates every
+      // mode on a valid EMS login (js/src/18-dev-tasks.js passes the same token) — the 📣
+      // feedback inbox needs it to open a dev-board card from a bug report.
+      emsToken: function () { return call('getEmsToken', [], '') || ''; },
 
       // ---- kibbutz cards ----------------------------------------------------
       // The modal is opened from the CARD element (openEditModal reads data-name off it), so

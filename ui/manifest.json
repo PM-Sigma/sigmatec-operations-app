@@ -1,9 +1,15 @@
 [
+  "./ui/sigma-Feedback.js",
+  "./ui/sigma-FeedbackInbox.js",
   "./ui/sigma-Home.js",
   "./ui/sigma-ImportNotes.js",
   "./ui/sigma-index.js",
   "./ui/sigma-MeetingNotes.js",
   "./ui/sigma-ModalMeetings.js",
+  "./ui/sigma-query.js",
+  "./ui/sigma-switch.js",
+  "./ui/sigma-textarea.js",
+  "./ui/sigma-useQuery.js",
   "./ui/sigma.css",
   "./ui/sigma.js"
 ]

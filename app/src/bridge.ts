@@ -43,6 +43,8 @@ export interface Sigma {
   getEmsSites(): Promise<Array<{ id: string; name: string }>>;
   kibbutzHasSite(name: string): Promise<boolean>;
   openKibbutzEmsTask(id: string): void;
+  /** The raw EMS bearer — only for the `github` Edge Function, which gates on a valid EMS login. */
+  emsToken?(): string;
   /** Open the legacy kibbutz modal for a card, optionally on a given tab ('meetings' | 'visit'). */
   openKibbutzModal(name: string, tab?: string): void;
   /** Re-run the legacy card-decorating passes after React re-rendered the cards. */
@@ -77,7 +79,10 @@ export type SigmaEvent =
   | 'notes-changed'
   // the outbound EMS queue drained. `detail.created = [{queueId, taskId}]` for every
   // createTask that went out, so a note stamped `pending:<queueId>` can pick up its real id.
-  | 'ems-queue-flushed';
+  | 'ems-queue-flushed'
+  // a feedback was sent, its status flipped, or a bug became a dev-board card — the 📣 inbox
+  // refetches ['feedback'] (docs/integration-map.md)
+  | 'feedback-changed';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {

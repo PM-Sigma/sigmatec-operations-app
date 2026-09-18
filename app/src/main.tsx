@@ -62,6 +62,18 @@ function boot() {
       .then(m => m.mountModalMeetings())
       .catch(e => console.warn('[sigma] meetings tab island failed', e));
   }
+  // 📣 Feedback box (Task 6): the sheet for everyone, the admin inbox as its own root so a
+  // failure in one never takes the other down. Both register their own ⋯ עוד entries.
+  if (document.getElementById('sigma-feedback')) {
+    import('@/islands/Feedback')
+      .then(m => m.mountFeedback())
+      .catch(e => console.warn('[sigma] feedback island failed', e));
+  }
+  if (document.getElementById('sigma-feedback-inbox')) {
+    import('@/islands/FeedbackInbox')
+      .then(m => m.mountFeedbackInbox())
+      .catch(e => console.warn('[sigma] feedback inbox island failed', e));
+  }
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')
       .then(m => m.mountImportNotes())
