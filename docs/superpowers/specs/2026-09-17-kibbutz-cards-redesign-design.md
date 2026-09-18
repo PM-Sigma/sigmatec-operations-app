@@ -414,6 +414,20 @@ visits (`visits`), EMS tasks with `expectedCompletionDate` (shared EMS cache). N
   tasks but not placed in the route sits under **📥 לא משובץ** (עידן asked for a suggested classification — this is it;
   free-text headers are not needed). The arrival sheet (§5.1) orders its list by today's `day_plans` first, then the
   existing heuristic.
+- **Absences & events in the calendar (עידן 18.9):** the ➕ on a day (or a drag across days) also offers **🌴 חופש**,
+  **🪖 מילואים**, **🎉 אירוע** (company event / training / conference) for a **person** (or the whole company) with a
+  date range and a note. Stored in `calendar_absences(id, person null=all, kind 'vacation'|'reserve'|'event', start_date,
+  end_date, note, created_by)`. They render as a fourth layer (soft grey band across the range, person avatar), are
+  visible to everyone, and: **for אביאם/ניתאי a vacation or reserve range auto-fills attendance** for those days (day
+  type `vacation` / `reserve`, source `calendar`), so the missing-days logic and the nudges skip them and the monthly
+  report shows them correctly; a company-wide event marks the day as not-required like a holiday (§7e) unless עידן
+  ticks "נדרשת נוכחות". Editing/deleting the range updates the generated attendance rows (only rows with source
+  `calendar`). Who may enter: עידן/עמיחי for anyone; a technician for himself. Tests: range → generated attendance rows
+  (incl. weekend skip), edit shrinks range → rows removed, overlap with a manual row → manual wins.
+- **Company meetings show the Meet link (עידן 18.9):** the office Google Calendar event for ישיבת חברה / ישיבת פיתוח
+  (already fetched by the `calendar` function) exposes `hangoutLink`/`conferenceData`; the calendar chip, the day
+  panel and the meeting-mode header show **🎥 הצטרף ל-Meet** (opens the link) and the agenda push includes it. If the
+  event has no conference data the button is not rendered.
 - **➕ on a day (schedule EMS tasks):** opens **"שיבוץ משימות EMS ל-<date>"**: search a kibbutz (Command list of cards)
   → shows all its open EMS tasks (from cache; live refresh when connected) with status/assignee → **multi-select** →
   **שבץ N משימות** → PATCH each task's `expectedCompletionDate` to that date via `emsApi('/employee-tasks/:id',
@@ -524,6 +538,46 @@ succeeds (retention 7 days for retry). Every transcript is editable before it is
   sentences, not numbers — a pure `usageNarrative(events, prevWeek)` builder produces lines like "אביאם נכנס 5 ימים
   מתוך 6 ופתח סיכום ביקור 9 פעמים (שבוע שעבר 4)", "ניתאי לא השתמש בעמוד המשימות כלל השבוע", "עמוד המלאי לא נפתח על
   ידי אף אחד", "החיפוש בקיבוצים נכשל 3 פעמים (לא נמצאו: 'גשר', 'שלוחות ב')". Golden tests on the narrative.
+
+## 7k. Decisions from the UX / navigation / adoption review (עידן 18.9) — binding
+
+Source: `docs/reports/2026-09-18-ux-review.md`, `docs/reports/2026-09-18-adoption-strategy.md`, decision page
+https://claude.ai/artifact/Cq6MPDDU1MavN2HujKqzYo. עידן's rulings:
+
+| # | Decision | Where it lands |
+|---|----------|----------------|
+| 1 | **Accepted.** Arrival pick + briefing = one screen: picking a kibbutz morphs the sheet into the briefing in place (view transition); the 📍/🚚 CTAs are already in its sticky footer. Visit form ≤ 2 taps from cold start. | §5.1, Task 5 |
+| 2 | **Accepted with a test period.** Phone cards: 2 lines + "עוד"; desktop/briefing/modal: full. **A per-user setting** (⚙️ הגדרות → "תיאור משימות בכרטיס: מקוצר / מלא") overrides the default. **Reminder set for 3 weeks (≈ 9.10.26)** to ask עידן which is better; the constant stays. | §4, §7h, Task 4/15 |
+| 3 | **Accepted.** ⋯ עוד = labeled bottom sheet with large rows (יומן, נוכחות, משימות, הגדרות, יומן היום, פידבק, and admin items), attention badges only for action-needed items (gaps, replies). נוכחות never hidden without a label. | §6, Task 4 |
+| 4 | **Accepted.** In-app banner at the top of the home screen mirrors the 2 h reminder when the timer fires, independent of push delivery. | §5.2, Task 5 |
+| 5 | **Accepted.** Cert gate chip sits under the products list; the save button relabels to "🚚 הפק תעודה ← שמור" the moment a product is checked. Logic untouched. | §5.1b/Task 4 (5b) |
+| 6 | **Changed.** No "unlink". Every EMS task must stay visible and traceable. Rule: a bullet that produced an EMS task **may be deleted** (its content lives in the task; the task keeps `מקור: ישיבת חברה d.m.yy` in its description). New requirement: **EMS tasks without an assignee are tracked** — card badge "⚠️ ללא אחראי", a line in the admins' gaps view, the Sunday agenda header, and עמיחי's Monday one-pager; the ➕ flow from a bullet requires an assignee (owner from "אחריות" or an explicit pick). | §3.3, §7h, Task 2 follow-up in Task 18 |
+| 7 | **Accepted.** Card order: EMS tasks (action) above meeting bullets (history); bullets collapsed to the latest 1–2 lines + "עוד N". | §3.3/§4, Task 4 |
+| 8 | **Accepted.** Dev-page rail is a horizontal chip strip, no rotated text. | §7d, Task 11 |
+| 9 | **Accepted (strongly).** Voice fallback also on permission denied / no result in 3 s. | §7, done in Task 6 |
+| 10 | **Changed to stale-while-revalidate.** Every screen paints the **last known state instantly** (persisted cache), then refreshes silently in the background; skeletons only when there is no cache at all. **Pull-to-refresh** on phone. The shared EMS cache refreshes in the background from any page on any user's device (existing sync, throttled), and additionally a **half-hourly refresh job from עידן's office PC** (`scripts/ems-cache-refresh.mjs`, Windows Task Scheduler, uses עידן's EMS login; runbook) keeps it fresh for everyone even when nobody is in the app. Later: server-side refresh once EMS issues a service token. | §6, §7c, Task 4 + new Task 20 |
+| 11 | Needs a picture — added to the mockup ("היום" strip above the cards): today's route stops + open nudge, collapsible. עידן to confirm after seeing it. | §6, Task 5 |
+| 12 | **Accepted.** Desktop Ctrl+K command bar. Methodology (§7k.1 below). | §6, Task 4 |
+| 13 | **Accepted with care.** One context-aware header ➕ — must be fully modeled (§7k.2) and never ambiguous. | §6, Task 4 |
+| 14 | **Accepted.** Unified view-switcher + breadcrumbs beyond one level. | §6, Tasks 11/13 |
+| 15 | "What not to copy" — explanation in the mockup notes; nothing to build. | — |
+| ג | **All accepted.** Global cap 3 non-digest pushes/person/day enforced in `push-send`; quiet hours 21:00–06:30 (except immediate low-stock); 2 h reminder capped at 20:00; escalation of audience not tone; 10 new copy variants added to the pool; 2-week pilot with thresholds via usage events. | §5.2, §7j, Task 5 + Task 18 |
+
+### 7k.1 Ctrl+K command bar — methodology
+One input, one list, keyboard first. Sources merged and ranked: kibbutzim (name/display/region), EMS tasks (title, site),
+internal tasks, pages (`קיבוצים, יומן, מלאי, נוכחות, משימות, פיתוח, הגדרות, שימוש`), actions (`➕ קיבוץ`, `📥 ייבוא`,
+`📝 יומן היום`, `🔢 דיווח שינוי במלאי`). Ranking: exact prefix > word prefix > fuzzy; recent items first; role-filtered
+by the same `visibleActions(role, context)`. Enter runs the first result; `↑/↓` move; `Esc` closes; typing `>` limits
+to actions, `#` to tasks, `@` to people (future). Built on shadcn `Command` (cmdk), opened by Ctrl+K / Cmd+K and by the
+header search on desktop; on phone the same list backs the search field (no shortcut). Every open/select is tracked
+(usage events) so unused sources can be removed later.
+
+### 7k.2 Context-aware header ➕ — model
+`primaryAdd(page, role, context)` → exactly one of: `kibbutz` (home, admins) · `schedule` (calendar, when a day is
+selected; else `event`) · `stockChange` (inventory) · `visit` (my tasks / attendance → opens the visit form) ·
+`feedback` (anywhere for the viewer) · `none` (page has no add). The button label always says what it does
+("➕ קיבוץ", "➕ שבץ ליום", "➕ דיווח מלאי"), never a bare plus; when `none`, the button is not rendered (no purposeless
+buttons). Pure function with a full page×role matrix test; the same function feeds Ctrl+K's actions list.
 
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 

@@ -233,7 +233,9 @@ create policy kmn_write on kibbutz_meeting_notes for all to authenticated using 
 
 ### Task 4: Brand tokens, dark mode, layout, bottom nav, motion
 
-**Agent:** Sonnet (use `frontend-design` skill). **Branch:** `feat/kcr-ui`. Depends on 0, 1b, 2, 3.
+**Agent:** Opus (scope grew with §7k). **Branch:** `feat/kcr-ui`. Depends on 0, 1b, 2, 3.
+
+**§7k decisions to implement here:** #2 clamp + ⚙️ setting override (`user_settings.card_desc` 'short'|'full', default short on phone) · #3 ⋯ labeled sheet with rows + attention badges · #5 cert chip under products + save-button relabel · #7 EMS tasks above bullets, bullets collapsed to 1–2 lines + "עוד N" · #12 Ctrl+K command bar (§7k.1, shadcn Command, sources: kibbutzim/EMS tasks/pages/actions, tracked) · #13 context-aware header ➕ (§7k.2 `primaryAdd` pure + matrix test) · #14 unified view-switcher component + breadcrumbs component · #6 card badge "⚠️ ללא אחראי" on EMS tasks without assignee.
 
 **REVISION 2 delta:** tokens/dark/nav/theme are done in Task 0; this task is the **polish pass**: Aceternity Spotlight on desktop cards (hover only, `md:`), Magic UI `BlurFade` on screen enter, `ShimmerButton` for the two briefing CTAs and שמור buttons, skeletons (shadcn `Skeleton`) while queries load, viewer-role restyle of `#viewerReportsHub` (legacy markup — style with tokens in `css/app.css`), legacy `css/app.css` dark-mode coverage for the legacy pages (inventory, attendance, EMS, calendar, dev, reports) so nothing stays white in dark mode, and removal of dead CSS. GSAP is NOT used (Motion covers it).
 
@@ -258,9 +260,15 @@ create policy kmn_write on kibbutz_meeting_notes for all to authenticated using 
 
 ---
 
+### Task 20: Stale-while-revalidate + pull-to-refresh + office-PC EMS refresh job
+
+**Agent:** Opus. Depends on 0, 1b, 3. **Spec §7k (#10).** Files: `app/src/lib/query.ts` (staleTime/gcTime policy: paint from the persisted cache first, `refetchOnMount:'always'` in background, `refetchOnWindowFocus`, network-mode offlineFirst), `app/src/components/PullToRefresh.tsx` (phone only; invalidates all queries + triggers the legacy EMS sync via `sigma.emsSync()` — add to bridge), skeletons only when `!data && !cached`, `js/src/13-ems.js` (throttled background sync on any page when connected: `ems-cache-synced` already emitted), `scripts/ems-cache-refresh.mjs` (Node: logs in with עידן's EMS credentials from a local `.env` NOT committed, pulls open tasks the same way `13-ems.js` does, writes the shared cache via the existing `emsCacheWrite` path; exit codes; log file), `docs/ems-cache-refresh.md` (Task Scheduler every 30 min, 07:00–20:00, how to rotate the password), tests: query policy unit tests, the refresh script's mapper against a fixture (same slim shape as the client). Steps: tests → implement → build → run the script once manually against prod (with עידן's credentials only if he provides them in `.env`; otherwise dry-run) → commit.
+
 ### Task 5: Field arrival flow, briefing, check-ins, `visitCron` push
 
 **Agent:** Opus. **Branch:** `feat/kcr-field`. Depends on 2, 3, 4.
+
+**§7k decisions to implement here:** #1 arrival pick morphs into the briefing in place (one sheet, view transition; CTAs in sticky footer; ≤ 2 taps to the visit form) · #4 in-app banner on home when the 2 h timer fires (client timer from the check-in, independent of push) · #11 "היום" strip above the cards (route stops + open nudge, collapsible, remembered) · ג: `push-send` global cap 3 non-digest pushes/person/day (check `push_log` before any send in `visitCron`/`gapReminder`/`attendanceCron`), quiet hours 21:00–06:30 except `low_stock`, 2 h reminder capped at 20:00, 10 new copy variants appended to `VISIT_NUDGES` (from adoption report §3.5) · draft-aware nudge copy (§5.1c) · visit drafts autosave (plan step 5b2) if not done in Task 4.
 
 **REVISION 2 delta:** `27-field.js` becomes `app/src/islands/Field.tsx` (`ArrivalSheet` = shadcn `Sheet side="bottom"` + `Command` list; `Briefing` = full-screen `Dialog`), pure `arrivalOrder`/`visitCronSelect`/`hashIdx`/`VISIT_NUDGES` in `app/src/lib/field.ts` (vitest). Check-ins via supabase-js + TanStack mutation. Deep links: keep the legacy `22-push.js` handler but route `act==='visit'` to `sigma.openVisitQuick(kibbutz)` and `visitDismiss` to a supabase-js PATCH exposed as `window.sigmaField.dismiss(cid)`. Edge function + cron unchanged.
 
@@ -389,7 +397,7 @@ function hashIdx(s: string, n: number) { let h = 0; for (const ch of s) h = (h *
 
 ### Task 13: Unified calendar — week/month, week numbers, day panel, route order, EMS scheduler
 
-**Agent:** Opus. Depends on 0, 3, 5, 12 (holidays). **Spec §7f.** Files: Create `db/day_plans.sql`, `app/src/islands/Calendar.tsx` (month + week views, `WeekNumbers`, `DayPanel` desktop / `DaySheet` phone, `RoutePlan` with Motion `Reorder` + ↑↓, `ScheduleSheet` with Command kibbutz search + multi-select), `app/src/lib/calendar.ts` (`calendarItems`, `weekNumber`, `groupByKibbutz`, `routeWithHeaders`, `reorder`, `scheduleTasksPlan`) + vitest goldens; Modify `js/src/14-calendar.js` (expose `calFetchEvents(range)`, `emsPatchTask(id, body)`, `calAddEvent` on the bridge; remove the legacy month render once the island mounts in `#calendar-view`), `app/src/islands/Field.tsx` (arrival order reads today's `day_plans` first), `test-calendar-legacy.mjs` (bridge functions still behave). Steps: tests → implement → suite → build → apply `day_plans` migration → smoke: month with week numbers on the right at 1440, week view at 390, hide-EMS toggle, tap day → panel/sheet grouped by kibbutz → drag reorder persists after reload → ➕ → search גבים → select 2 tasks → dates PATCHed (verify in EMS) → undo → commit.
+**Agent:** Opus. Depends on 0, 3, 5, 12 (holidays). **Spec §7f.** Files: Create `db/day_plans.sql`, `db/calendar_absences.sql` (+ `apply_absence` fn), `app/src/islands/Calendar.tsx` (month + week views, `WeekNumbers`, `DayPanel` desktop / `DaySheet` phone, `RoutePlan` with Motion `Reorder` + ↑↓, `ScheduleSheet` with Command kibbutz search + multi-select, `AbsenceSheet` for 🌴/🪖/🎉 ranges → `calendar_absences` + generated attendance rows for אביאם/ניתאי via a Postgres function `apply_absence(id)` (source='calendar'), 🎥 Meet link on company/dev meeting chips + day panel from `hangoutLink`), `app/src/lib/calendar.ts` (`calendarItems`, `weekNumber`, `groupByKibbutz`, `routeWithHeaders`, `reorder`, `scheduleTasksPlan`) + vitest goldens; Modify `js/src/14-calendar.js` (expose `calFetchEvents(range)`, `emsPatchTask(id, body)`, `calAddEvent` on the bridge; remove the legacy month render once the island mounts in `#calendar-view`), `app/src/islands/Field.tsx` (arrival order reads today's `day_plans` first), `test-calendar-legacy.mjs` (bridge functions still behave). Steps: tests → implement → suite → build → apply `day_plans` migration → smoke: month with week numbers on the right at 1440, week view at 390, hide-EMS toggle, tap day → panel/sheet grouped by kibbutz → drag reorder persists after reload → ➕ → search גבים → select 2 tasks → dates PATCHed (verify in EMS) → undo → commit.
 
 ### Task 14: "משימות" page island
 
