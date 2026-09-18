@@ -257,3 +257,58 @@ describe('Feedback sheet — the voice ladder', () => {
     expect(speech.startRecording).not.toHaveBeenCalled();
   });
 });
+
+// ───────────── fix round 1, finding #2 — at the component level ─────────────
+describe('Feedback sheet — one microphone, always', () => {
+  it('starts the recorder ONCE when live errors while the 3 s timer is still pending', async () => {
+    vi.useFakeTimers();
+    caps.speechRecognition = true;
+    speech.startRecording.mockResolvedValue({ stop: async () => null, cancel: vi.fn() });
+    speech.startLive.mockImplementation((h: any) => {
+      setTimeout(() => h.onError('failed', 'network'), 100);   // dies well before the 3 s timer
+      return { stop: vi.fn() };
+    });
+
+    render(<Feedback />);
+    act(() => openFeedback());
+    fireEvent.click(screen.getByLabelText('הקלט'));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });   // past LIVE_NO_RESULT_MS
+    vi.useRealTimers();
+
+    // The old code armed the timer and never cleared it on the error path: the error started a
+    // recorder and the timer then started a SECOND one, orphaning the first stream.
+    expect(speech.startRecording).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels the session of a recorder the user stopped while it was still starting', async () => {
+    caps.speechRecognition = false;
+    const cancel = vi.fn();
+    let resolveStart: (v: any) => void = () => {};
+    speech.startRecording.mockReturnValue(new Promise(res => { resolveStart = res; }));
+
+    render(<Feedback />);
+    act(() => openFeedback());
+    fireEvent.click(screen.getByLabelText('הקלט'));          // the start is now pending
+    fireEvent.click(screen.getByLabelText('עצור הקלטה'));    // stopped before it resolved
+
+    await act(async () => { resolveStart({ stop: async () => null, cancel }); });
+
+    expect(cancel).toHaveBeenCalled();                        // the stream is released at once
+    expect(speech.uploadAndTranscribe).not.toHaveBeenCalled();
+  });
+
+  it('releases the microphone when the sheet closes mid-recording', async () => {
+    caps.speechRecognition = false;
+    const cancel = vi.fn();
+    speech.startRecording.mockResolvedValue({ stop: async () => null, cancel });
+
+    render(<Feedback />);
+    act(() => openFeedback());
+    fireEvent.click(screen.getByLabelText('הקלט'));
+    await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
+
+    fireEvent.keyDown(document, { key: 'Escape' });           // Radix closes the sheet
+    await waitFor(() => expect(cancel).toHaveBeenCalled());
+  });
+});

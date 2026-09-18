@@ -21,8 +21,9 @@ import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import {
-  KINDS, KIND_LABEL, RECORD_CAP_MS, canSubmitFeedback, feedbackPreview, feedbackRow,
-  feedbackValidate, speechLadder, type FeedbackKind, type FeedbackRow, type VoicePhase,
+  KINDS, KIND_LABEL, LIVE_NO_RESULT_MS, RECORD_CAP_MS, canSubmitFeedback, feedbackPreview,
+  feedbackRow, feedbackValidate, voiceIdle, voiceNext,
+  type FeedbackKind, type FeedbackRow, type VoiceEvent, type VoicePhase,
 } from '@/lib/feedback';
 import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 
@@ -53,13 +54,15 @@ export async function sendFeedback(row: FeedbackRow): Promise<{ id: string }> {
     sb.from('feedback').insert(row).select('id').single() as any);
 
   // Fire-and-forget: the feedback is already saved, and a failed push must not read as a
-  // failed send. Recipients + titles are fixed SERVER-SIDE (push-send mode feedbackNew), and
-  // the author is never sent — an anonymous feedback must stay anonymous in the notification.
+  // failed send. Recipients + titles are fixed SERVER-SIDE (push-send mode feedbackNew), the
+  // mode is EMS-gated (so the public anon key alone cannot push to anyone's phone), and the
+  // author is never sent — an anonymous feedback must stay anonymous in the notification too.
   try {
+    const token = (() => { try { return sigma?.emsToken?.() || ''; } catch { return ''; } })();
     void fetch(SB_URL + '/functions/v1/push-send', {
       method: 'POST',
       headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'feedbackNew', kind: row.kind, preview: feedbackPreview(row.text) }),
+      body: JSON.stringify({ mode: 'feedbackNew', token, kind: row.kind, preview: feedbackPreview(row.text) }),
     }).catch(() => {});
   } catch { /* offline */ }
 
@@ -126,9 +129,12 @@ function FeedbackSheet() {
   const caps = React.useMemo(() => speechCaps(), []);
   const live = React.useRef<{ stop: () => void } | null>(null);
   const rec = React.useRef<RecordSession | null>(null);
-  // Nothing arrived within LIVE_NO_RESULT_MS of speaking → the ladder says `record`.
   const noResult = React.useRef<number | null>(null);
-  const results = React.useRef(0);
+  // The machine lives in a REF, not in state: every handler below (a recognition callback, a
+  // timer, a resolved getUserMedia) must read the phase as it is at that instant, and a state
+  // value captured in a closure is exactly how the double-start bug happened. `phase` state is
+  // only a mirror for rendering.
+  const machine = React.useRef(voiceIdle());
 
   React.useEffect(() => {
     opener = (k?: FeedbackKind) => {
@@ -139,104 +145,138 @@ function FeedbackSheet() {
     return () => { opener = null; };
   }, [role]);
 
-  const stopVoice = React.useCallback(() => {
-    if (noResult.current) { clearTimeout(noResult.current); noResult.current = null; }
-    live.current?.stop(); live.current = null;
-    rec.current?.cancel(); rec.current = null;
-    setInterim(''); setLevel(0); setElapsed(0);
-  }, []);
-
-  // Leaving the sheet with a hot microphone is the one thing that must never happen.
-  React.useEffect(() => () => stopVoice(), [stopVoice]);
-  React.useEffect(() => { if (!open) { stopVoice(); setPhase('idle'); } }, [open, stopVoice]);
-
-  const reset = () => {
-    setText(''); setInterim(''); setKind('idea'); setAnon(false);
-    setPhase('idle'); setAudioPath(null); setLevel(0); setElapsed(0);
-  };
-
   const append = (chunk: string) => {
     const t = chunk.trim();
     if (!t) return;
     setText(prev => (prev ? prev.replace(/\s+$/, '') + ' ' + t : t));
   };
 
-  // ── the record → upload → transcribe leg ─────────────────────────────────
-  const startRecordPath = React.useCallback(async () => {
-    setPhase('recording'); setElapsed(0);
-    const session = await startRecording({
+  const NOTICE: Record<string, string> = {
+    unsupported: 'הדפדפן הזה לא תומך בהקלטה — אפשר להקליד',
+    denied: 'אין הרשאה למיקרופון — אפשר להקליד',
+    failed: 'ההקלטה נכשלה — אפשר להקליד או לנסות שוב',
+    cap: 'ההקלטה נעצרה אחרי ' + Math.round(RECORD_CAP_MS / 60_000) + ' דקות',
+  };
+
+  // ── ONE dispatch for every voice transition (fix round 1) ───────────────────
+  // `voiceNext` (app/src/lib/feedback.ts, goldens in voiceMachine.test.ts) decides the next
+  // phase and the ONE action to perform; this function only carries that action out. Timers and
+  // sessions are torn down at the TOP of every transition, so nothing scheduled before a
+  // transition can act after it — that is what makes a second recorder impossible.
+  const dispatch = React.useCallback((ev: VoiceEvent) => {
+    const step = voiceNext(machine.current, ev, caps, Date.now());
+    const before = machine.current;
+    machine.current = step.machine;
+
+    const clearTimer = () => {
+      if (noResult.current) { clearTimeout(noResult.current); noResult.current = null; }
+    };
+    const stopLive = () => { const s = live.current; live.current = null; s?.stop(); };
+    const dropRecorder = () => { const s = rec.current; rec.current = null; s?.cancel(); };
+
+    if (step.action !== 'none') clearTimer();
+
+    switch (step.action) {
+      case 'stop-all':
+        stopLive(); dropRecorder();
+        setInterim(''); setLevel(0); setElapsed(0);
+        break;
+
+      case 'cancel-record':
+        // Either the user changed their mind while getUserMedia was resolving, or the session
+        // has just arrived for a leg we already left. Both must release the microphone.
+        dropRecorder();
+        setLevel(0); setElapsed(0);
+        break;
+
+      case 'start-live':
+        setInterim('');
+        startLiveLeg();
+        break;
+
+      case 'switch-to-record':
+        stopLive();
+        setInterim('');
+        toast.info('לא נשמע כלום — עוברים להקלטה ותמלול בשרת');
+        startRecordLeg();
+        break;
+
+      case 'start-record':
+        if (before.phase === 'listening') stopLive();      // live died → recorder takes over
+        setInterim('');
+        startRecordLeg();
+        break;
+
+      case 'finish-record':
+        finishRecordLeg();
+        break;
+    }
+
+    if (step.notice) {
+      const msg = NOTICE[step.notice];
+      if (step.notice === 'cap') toast.info(msg); else toast.error(msg);
+    }
+    setPhase(step.machine.phase);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caps]);
+
+  // ── the legs the actions drive. None of them decides a phase. ───────────────
+  const startLiveLeg = () => {
+    const session = startLive({
+      onFinal: t => { dispatch('live-result'); append(t); setInterim(''); },
+      onInterim: t => { if (t) dispatch('live-result'); setInterim(t); },
+      onError: kindOfError => dispatch(kindOfError === 'denied' ? 'live-denied' : 'live-failed'),
+      onEnd: () => { live.current = null; dispatch('live-end'); },
+    });
+    if (!session) { dispatch('live-failed'); return; }        // no API after all → the ladder falls through
+    live.current = session;
+    noResult.current = window.setTimeout(() => dispatch('no-result-timeout'), LIVE_NO_RESULT_MS);
+  };
+
+  const startRecordLeg = () => {
+    setElapsed(0);
+    void startRecording({
       onLevel: setLevel,
       onTick: setElapsed,
-      onCap: () => toast.info('ההקלטה נעצרה אחרי ' + Math.round(RECORD_CAP_MS / 60000) + ' דקות'),
-      onError: (k, detail) => {
-        setPhase('failed');
-        toast.error(k === 'denied' ? 'אין הרשאה למיקרופון — אפשר להקליד' : 'ההקלטה נכשלה: ' + detail);
-      },
+      onCap: () => dispatch('record-cap'),
+      onError: k => dispatch(k === 'denied' ? 'live-denied' : 'record-error'),
+    }).then(session => {
+      if (!session) return;                                  // onError already dispatched
+      rec.current = session;
+      dispatch('record-ready');                              // cancels itself if we already stopped
     });
-    if (!session) return;
-    rec.current = session;
-  }, []);
+  };
 
-  const finishRecordPath = React.useCallback(async () => {
+  const finishRecordLeg = () => {
     const session = rec.current;
     rec.current = null;
-    if (!session) { setPhase('idle'); return; }
-    const audio = await session.stop();
-    setLevel(0);
-    if (!audio || audio.ms < 600) { setPhase('idle'); toast.info('ההקלטה קצרה מדי'); return; }
-    setPhase('transcribing');
-    try {
-      const r = await uploadAndTranscribe(audio, { author: anon ? null : user });
-      append(r.text);
-      setAudioPath(r.path);            // kept on the row for the 7-day retry window
-      setPhase('idle');
-    } catch (e: any) {
-      setPhase('failed');
-      toast.error(e?.message || 'התמלול נכשל');
-    }
-  }, [anon, user]);
-
-  // ── the live leg ─────────────────────────────────────────────────────────
-  const startLivePath = React.useCallback(() => {
-    results.current = 0;
-    const session = startLive({
-      onFinal: t => { results.current++; append(t); setInterim(''); },
-      onInterim: t => { if (t) results.current++; setInterim(t); },
-      onError: (k) => {
-        live.current = null;
-        setInterim('');
-        // Denied / failed → the ladder's own answer is `record`, so take it silently rather
-        // than telling the user a browser detail they cannot act on.
-        if (caps.mediaRecorder) { void startRecordPath(); }
-        else { setPhase('failed'); toast.error(k === 'denied' ? 'אין הרשאה למיקרופון — אפשר להקליד' : 'זיהוי הדיבור נכשל'); }
-      },
-      onEnd: () => { live.current = null; setInterim(''); setPhase(p => (p === 'listening' ? 'idle' : p)); },
-    });
-    if (!session) { void startRecordPath(); return; }
-    live.current = session;
-    setPhase('listening');
-    const startedAt = Date.now();
-    noResult.current = window.setTimeout(() => {
-      const next = speechLadder(
-        { phase: 'listening', liveResults: results.current, msSinceStart: Date.now() - startedAt },
-        caps,
-      );
-      if (next === 'record') {
-        live.current?.stop(); live.current = null;
-        toast.info('לא נשמע כלום — עוברים להקלטה ותמלול בשרת');
-        void startRecordPath();
+    if (!session) { dispatch('transcribed'); return; }
+    void session.stop().then(async audio => {
+      setLevel(0);
+      if (!audio || audio.ms < 600) { toast.info('ההקלטה קצרה מדי'); dispatch('transcribed'); return; }
+      try {
+        const r = await uploadAndTranscribe(audio);
+        append(r.text);
+        setAudioPath(r.path);          // kept on the row for the 7-day retry window
+        dispatch('transcribed');
+      } catch (e: any) {
+        toast.error(e?.message || 'התמלול נכשל');
+        dispatch('transcribe-failed');
       }
-    }, 3000);
-  }, [caps, startRecordPath]);
-
-  const micTap = () => {
-    if (phase === 'listening') { stopVoice(); setPhase('idle'); return; }
-    if (phase === 'recording') { void finishRecordPath(); return; }
-    if (phase === 'transcribing') return;
-    const path = speechLadder({ phase: 'idle' }, caps);
-    if (path === 'none') { toast.error('הדפדפן הזה לא תומך בהקלטה — אפשר להקליד'); return; }
-    if (path === 'live') startLivePath(); else void startRecordPath();
+    });
   };
+
+  // Leaving the sheet — or the page — with a hot microphone is the one thing that must never
+  // happen, so 'close' is dispatched from both the unmount and the open→closed transition.
+  React.useEffect(() => () => { dispatch('close'); }, [dispatch]);
+  React.useEffect(() => { if (!open) dispatch('close'); }, [open, dispatch]);
+
+  const reset = () => {
+    setText(''); setInterim(''); setKind('idea'); setAnon(false);
+    setAudioPath(null);
+  };
+
+  const micTap = () => dispatch('mic-tap');
 
   const send = async () => {
     const errs = feedbackValidate({ kind, text });

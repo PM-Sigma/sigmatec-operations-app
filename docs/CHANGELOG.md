@@ -22,7 +22,18 @@ weak signal). `transcribe` tries the **self-hosted Whisper server first** (`SELF
 anonymous). DB: `db/feedback.sql` (`feedback`, `transcribe_log`, private bucket + insert-only policy),
 applied and verified. Tests: 68 new goldens in `app/src/lib/{feedback,speech,transcribeChain}.test.ts`
 + 23 render goldens in `app/src/islands/Feedback*.test.tsx`; full suite 225 green.
-**Manual step left to עידן: `docs/whisper-server.md`** — run the container on the office server, publish
+**Fix round 1 (review):** `transcribe` now requires a valid EMS login and WHITELISTS the object
+path (`<name>.<ext>`) — the first version blocklisted a literal `..`, which a percent-encoded
+`%2e%2e/` walked straight past, so an anon caller could have had any object in the project
+transcribed back to them; `push-send feedbackNew` is EMS-gated too (the public anon key must not
+be able to push to anyone's phone); `github createIssue` requires `parent` server-side and caps the
+body. The voice ladder became ONE pure state machine (`voiceNext`), which closes two ways the app
+could hold two microphones at once (a live error left the 3 s timer armed; stopping during
+`getUserMedia` orphaned the stream). `feedback` RLS is no longer `for all to authenticated`:
+authenticated-only SELECT (no anon read — a complaint may be anonymous), INSERT for authenticated,
+and **no UPDATE/DELETE at all** — the inbox goes through the SECURITY DEFINER
+`feedback_admin_update(id, actor, status, github_issue)`, which checks the actor against a new
+`app_admins` table. **Manual step left to עידן: `docs/whisper-server.md`** — run the container on the office server, publish
 it over Cloudflare Tunnel, set the two secrets. Until then every transcription runs on Groq.
 
 ## [1.54] 2026-07-16 — 🔴 attendance missing days as red table rows + accumulating 🔔

@@ -219,6 +219,8 @@ export async function startRecording(h: RecordHandlers): Promise<RecordSession |
 
 export interface TranscribeResult { text: string; engine: string; ms: number; path: string }
 
+export const EMS_LOGIN_REQUIRED_VOICE = 'יש להתחבר ל-EMS כדי לתמלל הקלטה — אפשר להקליד';
+
 /**
  * Upload the recording to the private bucket and ask `transcribe` for the text. The function
  * deletes the object once it succeeded (retention is 7 days for a failure, so a retry can
@@ -226,8 +228,13 @@ export interface TranscribeResult { text: string; engine: string; ms: number; pa
  */
 export async function uploadAndTranscribe(
   audio: { blob: Blob; mime: string; ms: number },
-  opts: { author?: string | null } = {},
 ): Promise<TranscribeResult> {
+  // The function is EMS-gated (it downloads with the service role and spends Groq credit), and
+  // the bucket only accepts the EMS-minted pass anyway — so fail here with something the user
+  // can act on instead of a 401 from two calls later.
+  const ems = (() => { try { return (window as any).sigma?.emsToken?.() || ''; } catch { return ''; } })();
+  if (!ems) throw new Error(EMS_LOGIN_REQUIRED_VOICE);
+
   const path = audioObjectPath(uuid(), audio.mime);
   const sb = await getSupabase();
   const up = await sb.storage.from(AUDIO_BUCKET).upload(path, audio.blob, {
@@ -250,7 +257,7 @@ export async function uploadAndTranscribe(
     r = await fetch(SB_URL + '/functions/v1/transcribe', {
       method: 'POST', signal: ac.signal,
       headers: { apikey: SB_ANON, Authorization: 'Bearer ' + bearer, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, audio_sec: Math.round(audio.ms / 1000), author: opts.author ?? null }),
+      body: JSON.stringify({ token: ems, path, audio_sec: Math.round(audio.ms / 1000) }),
     });
   } catch (e: any) {
     throw new Error(ac.signal.aborted ? 'התמלול לקח יותר מדי זמן — נסה שוב' : 'תקלת רשת בתמלול');

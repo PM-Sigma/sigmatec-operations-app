@@ -11,13 +11,16 @@
 //   2. Groq whisper-large-v3 — the paid insurance, skipped when GROQ_FALLBACK=off.
 // Answers { text, engine:'self'|'groq', ms }; 502 { error } when the whole chain failed.
 //
-// AUTH: anon is allowed on purpose — the payload is a path inside OUR bucket and nothing else,
-// and the whole app already sits behind the EMS login gate. The object must live in
-// `feedback-audio` (or `visit-audio`), so this cannot be used to read other storage.
+// AUTH (hardened, fix round 1): the caller must present a VALID EMS login (`token`), the same
+// gate `github` and `calendar` use. Anon was allowed at first "because the payload is only a
+// path in our bucket" — but that reasoning was wrong twice: a blocklist could not keep the path
+// inside the bucket (see chain.ts `validAudioPath`), and an anonymous caller could spend Groq
+// credit at will. The path must ALSO match the whitelist `<name>.<audio ext>`.
 //
-// Secrets: SELF_WHISPER_URL, SELF_WHISPER_TOKEN, GROQ_API_KEY, GROQ_FALLBACK (optional).
+// Secrets: SELF_WHISPER_URL, SELF_WHISPER_TOKEN, GROQ_API_KEY, GROQ_FALLBACK (optional),
+// EMS_API_BASE (already set).
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { transcribeChain, type ChainEnv } from "./chain.ts";
+import { transcribeChain, validAudioPath, type ChainEnv } from "./chain.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -27,8 +30,8 @@ const CORS = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 
-/** Only our own audio buckets, and no traversal / absolute paths. */
-const ALLOWED_BUCKETS = ["feedback-audio", "visit-audio"];
+/** Our own audio bucket. `visit-audio` is NOT here until that bucket actually exists. */
+const ALLOWED_BUCKETS = ["feedback-audio"];
 const MAX_BYTES = 25 * 1024 * 1024;   // 25 MB — ~3 min of opus with room to spare
 
 const sb = createClient(
@@ -36,8 +39,17 @@ const sb = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-function badPath(p: string): boolean {
-  return !p || p.length > 300 || p.startsWith("/") || p.includes("..") || /[\r\n]/.test(p);
+/** The EMS-login gate, the same check `github`/`calendar` apply, with a hard timeout. */
+async function emsValid(base: string, token: string): Promise<boolean> {
+  if (!token) return false;
+  const ac = new AbortController();
+  const id = setTimeout(() => ac.abort(), 8000);
+  try {
+    const r = await fetch(base + "/v1/employee-tasks?take=1",
+      { headers: { Authorization: "Bearer " + token }, signal: ac.signal });
+    return r.ok;
+  } catch { return false; }
+  finally { clearTimeout(id); }
 }
 
 Deno.serve(async (req: Request) => {
@@ -47,10 +59,15 @@ Deno.serve(async (req: Request) => {
   let body: any = {};
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
 
+  const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
+  if (!(await emsValid(EMS_API_BASE, String(body.token || "")))) {
+    return json({ error: "unauthorized: valid EMS login required" }, 401);
+  }
+
   const bucket = String(body.bucket || "feedback-audio");
   const path = String(body.path || "");
   if (!ALLOWED_BUCKETS.includes(bucket)) return json({ error: "bucket not allowed" }, 400);
-  if (badPath(path)) return json({ error: "bad path" }, 400);
+  if (!validAudioPath(path)) return json({ error: "bad path" }, 400);
 
   const audioSec = Number.isFinite(+body.audio_sec) ? Math.max(0, Math.round(+body.audio_sec)) : null;
 
@@ -93,6 +110,8 @@ Deno.serve(async (req: Request) => {
   } catch (e) {
     const msg = String((e as Error)?.message || e);
     await log("failed", Date.now() - t0, false, msg);
-    return json({ error: "התמלול נכשל", detail: msg.slice(0, 300) }, 502);
+    // The upstream error is LOGGED (transcribe_log.error) but not echoed: it can carry the
+    // office server's own hostname / response text, which the client has no use for.
+    return json({ error: "התמלול נכשל" }, 502);
   }
 });

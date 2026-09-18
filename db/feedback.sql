@@ -14,11 +14,21 @@
 -- (github Edge Fn, mode createIssue — always a CHILD of a Main Fields parent, title
 -- `[מודול] | [תת-תחום] | [תיאור]`, into Backlog: the Git Ticket System rules).
 --
--- RLS is staged exactly like db/rls_staged.sql: anon READS (the whole app sits behind the EMS
--- login gate), WRITES need the `authenticated` pass js/src/01-data.js mints from the EMS
--- session. Submitting is open to every role INCLUDING the viewer (spec §7 "all roles"); the
--- inbox is gated client-side to admins (canSeeFeedbackInbox), like every other elevated
--- surface in this app.
+-- RLS (hardened in fix round 1). Feedback is not like the other tables: a complaint may be
+-- ANONYMOUS, so "anyone with the public anon key can read it" was wrong, and "any EMS user can
+-- update or delete anyone's row" was worse.
+--   • SELECT  — `authenticated` only (the EMS-minted pass). No anon read at all.
+--   • INSERT  — `authenticated`. Every role may submit, the viewer included (spec §7).
+--   • UPDATE / DELETE — NO policy, and the privilege is revoked: a direct write fails outright.
+--     Status changes and the github_issue stamp go through `feedback_admin_update()` below.
+--
+-- LIMITATION, stated plainly: the app has ONE shared `authenticated` JWT minted from the EMS
+-- gate (js/src/01-data.js), so Postgres cannot tell עידן from ניתאי. RLS therefore cannot be
+-- the identity check, and the admin gate is the `app_admins` table consulted by a
+-- SECURITY DEFINER function against the `actor` the client passes. That is honest defence in
+-- depth, not authentication: it stops the ordinary app paths and any accidental write, and it
+-- makes tampering require deliberately forging an actor name. Real per-user identity needs
+-- per-user Supabase auth, which is its own piece of work (docs/integration-map.md).
 -- ══════════════════════════════════════════════════════════════════════════════
 create table if not exists feedback (
   id uuid primary key default gen_random_uuid(),
@@ -37,11 +47,59 @@ create index if not exists feedback_status_idx  on feedback (status, created_at 
 
 alter table feedback enable row level security;
 
-drop policy if exists feedback_read on feedback;
-create policy feedback_read on feedback for select using (true);
+-- The admin roster the SECURITY DEFINER function below checks its `actor` against.
+create table if not exists app_admins (
+  name text primary key,
+  added_at timestamptz not null default now()
+);
+insert into app_admins (name) values ('עידן'), ('עמיחי') on conflict (name) do nothing;
+alter table app_admins enable row level security;
+drop policy if exists app_admins_read on app_admins;
+create policy app_admins_read on app_admins for select to authenticated using (true);
 
-drop policy if exists feedback_write on feedback;
-create policy feedback_write on feedback for all to authenticated using (true) with check (true);
+drop policy if exists feedback_read on feedback;          -- the old anon-read policy
+drop policy if exists feedback_write on feedback;         -- the old `for all to authenticated`
+
+create policy feedback_select on feedback for select to authenticated using (true);
+create policy feedback_insert on feedback for insert to authenticated with check (true);
+-- No UPDATE/DELETE policy on purpose. Belt and braces: take the privilege away too, so a
+-- direct update fails loudly ("permission denied") instead of silently touching zero rows.
+revoke update, delete on feedback from anon, authenticated;
+
+-- The ONLY way a feedback row changes after it is written. SECURITY DEFINER (owner: postgres)
+-- so it may write past the missing policy, and it refuses any actor that is not in app_admins.
+create or replace function feedback_admin_update(
+  p_id uuid,
+  p_actor text,
+  p_status text default null,
+  p_github_issue int default null
+) returns feedback
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare r feedback;
+begin
+  if not exists (select 1 from app_admins where name = p_actor) then
+    raise exception 'feedback_admin_update: % is not an admin', coalesce(p_actor, '(null)')
+      using errcode = '42501';
+  end if;
+  if p_status is not null and p_status not in ('new','seen','done') then
+    raise exception 'feedback_admin_update: bad status %', p_status using errcode = '22023';
+  end if;
+  update feedback
+     set status       = coalesce(p_status, status),
+         github_issue = coalesce(p_github_issue, github_issue)
+   where id = p_id
+  returning * into r;
+  if r.id is null then
+    raise exception 'feedback_admin_update: no such feedback %', p_id using errcode = 'P0002';
+  end if;
+  return r;
+end $$;
+
+revoke all on function feedback_admin_update(uuid, text, text, int) from public, anon;
+grant execute on function feedback_admin_update(uuid, text, text, int) to authenticated;
 
 
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -64,7 +122,7 @@ create index if not exists transcribe_log_created_idx on transcribe_log (created
 alter table transcribe_log enable row level security;
 
 drop policy if exists transcribe_log_read on transcribe_log;
-create policy transcribe_log_read on transcribe_log for select using (true);
+create policy transcribe_log_read on transcribe_log for select to authenticated using (true);
 -- No client write policy on purpose: only the service role (the Edge Function) inserts here.
 
 

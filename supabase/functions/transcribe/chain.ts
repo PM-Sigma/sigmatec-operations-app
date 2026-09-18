@@ -11,6 +11,22 @@ export const GROQ_TIMEOUT_MS = 60_000;
 
 export type Engine = 'self' | 'groq';
 
+/**
+ * The ONLY object paths this function will touch: `<name>.<audio ext>`, nothing else.
+ *
+ * This is a WHITELIST on purpose. The first version blocklisted a literal ".." — but storage-js
+ * does not percent-encode the object path and Deno's fetch normalises dot segments, so
+ * `%2e%2e/<bucket>/<key>` walked straight out of our bucket and let an anonymous caller have any
+ * object in the project transcribed back to them. Our client only ever writes
+ * `crypto.randomUUID() + "." + ext` (app/src/lib/speech.ts `audioObjectPath`), so anything else
+ * is refused.
+ */
+export function validAudioPath(p: string): boolean {
+  const s = String(p ?? "");
+  return s.length <= 120 && /^[A-Za-z0-9_-]+\.(webm|m4a|mp4|ogg|wav)$/.test(s);
+}
+
+
 export interface ChainEnv {
   SELF_WHISPER_URL?: string;
   SELF_WHISPER_TOKEN?: string;

@@ -148,3 +148,50 @@ describe('transcribeChain — Groq fallback', () => {
     expect((await transcribeChain(audio(), 'n.webm', SELF_ENV, { fetch: fetchMock as any })).text).toBe('שלום עולם');
   });
 });
+
+// ───────────── fix round 1, finding #1 (CRITICAL): the storage-path whitelist ─────────────
+// `badPath` used to blocklist a literal ".." only. storage-js does not percent-encode the
+// object path and Deno's fetch normalises dot segments, so "%2e%2e/<bucket>/<key>" walked out
+// of the bucket and an ANON caller could have any object in the project transcribed back to
+// them. The rule is now a WHITELIST: our paths are only ever `<uuid>.<ext>`.
+describe('validAudioPath (whitelist)', () => {
+  it('accepts exactly what the client writes — <uuid>.<ext>', async () => {
+    const { validAudioPath } = await import('../../../supabase/functions/transcribe/chain');
+    expect(validAudioPath('0b9c1f42-6d5e-4a77-9d2b-1f0e6a7c3b84.webm')).toBe(true);
+    expect(validAudioPath('r2k9x1_note-3.m4a')).toBe(true);
+    for (const ext of ['webm', 'm4a', 'mp4', 'ogg', 'wav']) expect(validAudioPath('abc.' + ext)).toBe(true);
+  });
+
+  it('rejects the percent-encoded traversal that the blocklist missed', async () => {
+    const { validAudioPath } = await import('../../../supabase/functions/transcribe/chain');
+    expect(validAudioPath('%2e%2e/avatars/secret.webm')).toBe(false);
+    expect(validAudioPath('%2E%2E%2Fsecret.webm')).toBe(false);
+    expect(validAudioPath('%2e%2e%2f%2e%2e%2fsecret.m4a')).toBe(false);
+  });
+
+  it('rejects a literal traversal, any slash, and an absolute path', async () => {
+    const { validAudioPath } = await import('../../../supabase/functions/transcribe/chain');
+    expect(validAudioPath('../secret.webm')).toBe(false);
+    expect(validAudioPath('a/b.webm')).toBe(false);
+    expect(validAudioPath('/a.webm')).toBe(false);
+    expect(validAudioPath('a\b.webm')).toBe(false);
+  });
+
+  it('rejects empty, whitespace, a bare name, a foreign extension and CRLF', async () => {
+    const { validAudioPath } = await import('../../../supabase/functions/transcribe/chain');
+    expect(validAudioPath('')).toBe(false);
+    expect(validAudioPath('   ')).toBe(false);
+    expect(validAudioPath('note')).toBe(false);
+    expect(validAudioPath('note.mp3')).toBe(false);
+    expect(validAudioPath('note.webm\r\nx')).toBe(false);
+    expect(validAudioPath('a'.repeat(300) + '.webm')).toBe(false);
+  });
+
+  it('is exactly the shape app/src/lib/speech.ts produces', async () => {
+    const { validAudioPath } = await import('../../../supabase/functions/transcribe/chain');
+    const { audioObjectPath } = await import('./speech');
+    for (const mime of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', '']) {
+      expect(validAudioPath(audioObjectPath('0b9c1f42-6d5e-4a77-9d2b-1f0e6a7c3b84', mime))).toBe(true);
+    }
+  });
+});

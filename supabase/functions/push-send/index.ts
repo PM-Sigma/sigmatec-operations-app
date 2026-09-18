@@ -2,7 +2,7 @@
 //   (default) order events  : { event: 'pending'|'approved', orderId, actor } → notifies approvers
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
-//   feedbackNew             : { mode:'feedbackNew', kind, preview }            → 📣 box → עידן + עמיחי
+//   feedbackNew             : { mode:'feedbackNew', kind, preview, token }     → 📣 box → עידן + עמיחי (EMS-gated)
 // Recipients + text + action buttons are computed/fixed SERVER-SIDE.
 // Every recipient device gets one push_log row (audit). Logging is non-fatal.
 // Secrets (Supabase dashboard → Edge Functions → Secrets, NEVER in repo): VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT.
@@ -14,6 +14,22 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// The EMS-login gate, the same check `github`/`calendar`/`transcribe` apply. Used by the modes
+// a BROWSER calls directly with a user's own token (feedbackNew); the order/attendance modes keep
+// their existing contract (they are called with ids the server re-reads from the DB).
+async function emsValid(token: string): Promise<boolean> {
+  if (!token) return false;
+  const base = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
+  const ac = new AbortController();
+  const id = setTimeout(() => ac.abort(), 8000);
+  try {
+    const r = await fetch(base + "/v1/employee-tasks?take=1",
+      { headers: { Authorization: "Bearer " + token }, signal: ac.signal });
+    return r.ok;
+  } catch { return false; }
+  finally { clearTimeout(id); }
+}
 
 const APPROVE_GROUP = ["אביאם", "ניתאי", "עמיחי"];
 // 📣 feedback box (spec §7 Part F) — the inbox owners, fixed server-side like every recipient list.
@@ -211,6 +227,11 @@ Deno.serve(async (req: Request) => {
   // The author is NEVER sent — a feedback may be anonymous, and a push that named the sender
   // would leak exactly what the anonymous switch promises to hide.
   if (body.mode === "feedbackNew") {
+    // EMS-gated (fix round 1): without this, anyone holding the PUBLIC anon key could push
+    // arbitrary text to עידן and עמיחי's phones.
+    if (!(await emsValid(String(body.token || "")))) {
+      return json({ error: "unauthorized: valid EMS login required" }, 401);
+    }
     const kind = String(body.kind || "");
     const titles: Record<string, string> = {
       idea: "📣 רעיון חדש", bug: "🐞 באג חדש", complaint: "😠 תלונה חדשה",

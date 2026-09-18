@@ -30,32 +30,29 @@ import { queryClient } from '@/lib/query';
 
 vi.mock('@/lib/supabase', () => ({
   SB_URL: 'https://sb.test', SB_ANON: 'anon',
-  getSupabase: async () => ({
-    from: () => ({
-      select: () => ({ order: () => ({ limit: async () => ({ data: rows, error: null }) }) }),
-      update: (patch: any) => ({
-        eq: (_c: string, id: string) => {
-          updates.push({ id, patch });
-          return { select: () => ({ single: async () => ({ data: { id }, error: null }) }) };
-        },
-      }),
-    }),
-  }),
+  getSupabase: async () => sbStub(),
   sbWrite: async (run: any) => {
-    const sb = {
-      from: () => ({
-        update: (patch: any) => ({
-          eq: (_c: string, id: string) => {
-            updates.push({ id, patch });
-            return { select: () => ({ single: async () => ({ data: { id }, error: null }) }) };
-          },
-        }),
-      }),
-    };
-    const res = await run(sb);
+    const res = await run(sbStub());
+    if (res?.error) throw res.error;
     return res?.data ?? null;
   },
 }));
+
+// The inbox never UPDATEs `feedback` directly — the table has no UPDATE policy and the
+// privilege is revoked (db/feedback.sql). Every change goes through the SECURITY DEFINER
+// function `feedback_admin_update(p_id, p_actor, p_status, p_github_issue)`, so that is what
+// the stub records: the call, WITH the actor it was given.
+function sbStub() {
+  return {
+    from: () => ({
+      select: () => ({ order: () => ({ limit: async () => ({ data: rows, error: null }) }) }),
+    }),
+    rpc: async (fn: string, args: any) => {
+      updates.push({ fn, ...args });
+      return { data: { id: args.p_id }, error: null };
+    },
+  };
+}
 
 const { FeedbackInbox, openFeedbackInbox } = await import('./FeedbackInbox');
 
@@ -132,7 +129,9 @@ describe('inbox rows', () => {
     render(<FeedbackInbox />);
     act(() => openFeedbackInbox());
     fireEvent.click(await screen.findByText('טופל'));
-    await waitFor(() => expect(updates).toEqual([{ id: 'f1', patch: { status: 'done' } }]));
+    await waitFor(() => expect(updates).toEqual([
+      { fn: 'feedback_admin_update', p_id: 'f1', p_actor: 'עידן', p_status: 'done', p_github_issue: null },
+    ]));
   });
 
   it('offers 🐙 only for a bug, and only while it has no card yet', async () => {
@@ -166,7 +165,9 @@ describe('bug → dev-board card', () => {
     expect(call.token).toBe('ems-tok');
 
     // and the issue number lands on the row
-    await waitFor(() => expect(updates).toEqual([{ id: 'f1', patch: { github_issue: 321, status: 'seen' } }]));
+    await waitFor(() => expect(updates).toEqual([
+      { fn: 'feedback_admin_update', p_id: 'f1', p_actor: 'עידן', p_status: 'seen', p_github_issue: 321 },
+    ]));
     expect(sonner.success).toHaveBeenCalledWith('נוצר כרטיס #321 ב-Backlog');
   });
 

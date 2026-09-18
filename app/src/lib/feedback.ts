@@ -195,3 +195,151 @@ export function speechLadder(state: VoiceLadderState, caps: SpeechCapsShape): Vo
   }
   return 'live';
 }
+
+// ───────────────────────── the voice state machine ─────────────────────────
+// ONE reducer for every voice transition (fix round 1, finding #2). The island holds a
+// `VoiceMachine` and does nothing but hand events to `voiceNext` and perform the single action
+// it answers with; it never decides a phase on its own. That is what makes two classes of bug
+// impossible rather than merely fixed:
+//   • `pending` is true while `startRecording` is awaiting getUserMedia, so a second tap (or a
+//     late live error, or the 3 s timer) can never start a second recorder over the first;
+//   • an event that no longer applies to the current phase answers `none`, so a timer that was
+//     scheduled before a transition cannot act after it.
+// `speechLadder` above stays the pure "which path" rule; the machine is the "when" around it.
+
+export type VoiceEvent =
+  | 'mic-tap'
+  | 'live-result'          // live recognition produced interim or final text
+  | 'live-denied'          // the mic was refused for live recognition
+  | 'live-failed'          // recognition errored for any other reason
+  | 'live-end'             // recognition ended by itself
+  | 'no-result-timeout'    // LIVE_NO_RESULT_MS passed with nothing heard
+  | 'record-ready'         // startRecording resolved with a session
+  | 'record-error'         // startRecording failed / the mic was refused
+  | 'record-cap'           // the 180 s cap stopped the recording
+  | 'transcribed'
+  | 'transcribe-failed'
+  | 'close';               // the sheet closed / the component unmounted
+
+export type VoiceAction =
+  | 'none'
+  | 'start-live'
+  | 'start-record'
+  | 'switch-to-record'     // stop live, then start the recorder
+  | 'finish-record'        // stop the recorder and transcribe what it captured
+  | 'cancel-record'        // throw the recording away (incl. a session still being created)
+  | 'stop-all';
+
+export type VoiceNotice = 'unsupported' | 'denied' | 'failed' | 'cap';
+
+export interface VoiceMachine {
+  phase: VoicePhase;
+  /** A recorder start is in flight. No new start may be issued while this is true. */
+  pending: boolean;
+  /** How many results live recognition produced (the 3 s rule reads this). */
+  liveResults: number;
+  /** When the current leg started, for the no-result rule. */
+  startedAt: number;
+  deniedLive: boolean;
+  liveFailed: boolean;
+}
+
+export function voiceIdle(): VoiceMachine {
+  return { phase: 'idle', pending: false, liveResults: 0, startedAt: 0, deniedLive: false, liveFailed: false };
+}
+
+export interface VoiceStep { machine: VoiceMachine; action: VoiceAction; notice?: VoiceNotice }
+
+const stay = (m: VoiceMachine): VoiceStep => ({ machine: m, action: 'none' });
+
+/** Pure: (state, event) → (state, ONE action to perform). `now` is injected so it is testable. */
+export function voiceNext(m: VoiceMachine, ev: VoiceEvent, caps: SpeechCapsShape, now: number): VoiceStep {
+  // Closing always wins, from every phase, pending or not — a hot microphone must never
+  // survive the sheet.
+  if (ev === 'close') return { machine: voiceIdle(), action: 'stop-all' };
+
+  const startRecord = (from: VoiceMachine, action: VoiceAction): VoiceStep => ({
+    machine: { ...from, phase: 'recording', pending: true, startedAt: now },
+    action,
+  });
+
+  switch (ev) {
+    case 'mic-tap': {
+      if (m.phase === 'transcribing') return stay(m);
+      // A tap during a pending start means "never mind": the session that is still being
+      // created is cancelled the moment it resolves (see 'record-ready').
+      if (m.pending) return { machine: { ...m, phase: 'idle', pending: false }, action: 'cancel-record' };
+      if (m.phase === 'listening') return { machine: { ...voiceIdle(), deniedLive: m.deniedLive, liveFailed: m.liveFailed }, action: 'stop-all' };
+      if (m.phase === 'recording') return { machine: { ...m, phase: 'transcribing' }, action: 'finish-record' };
+      // idle / failed → start whichever path the ladder allows RIGHT NOW (a refusal earlier in
+      // this session is remembered, so a retry does not ask live again).
+      const path = ladderFor(m, caps);
+      if (path === 'live') {
+        return { machine: { ...m, phase: 'listening', pending: false, liveResults: 0, startedAt: now }, action: 'start-live' };
+      }
+      if (path === 'record') return startRecord({ ...m, liveResults: 0 }, 'start-record');
+      return { machine: { ...m, phase: 'idle' }, action: 'none', notice: 'unsupported' };
+    }
+
+    case 'live-result':
+      return m.phase === 'listening' ? stay({ ...m, liveResults: m.liveResults + 1 }) : stay(m);
+
+    case 'live-denied':
+    case 'live-failed': {
+      // Late arrival: we already left listening (the 3 s timer fired, or the user stopped) —
+      // acting now would start a second recorder over the live one.
+      if (m.phase !== 'listening') return stay(m);
+      const flagged = { ...m, deniedLive: m.deniedLive || ev === 'live-denied', liveFailed: m.liveFailed || ev === 'live-failed' };
+      if (caps.mediaRecorder) return startRecord(flagged, 'start-record');
+      return {
+        machine: { ...flagged, phase: 'failed', pending: false },
+        action: 'stop-all',
+        notice: ev === 'live-denied' ? 'denied' : 'failed',
+      };
+    }
+
+    case 'live-end':
+      return m.phase === 'listening' ? { machine: { ...m, phase: 'idle' }, action: 'stop-all' } : stay(m);
+
+    case 'no-result-timeout': {
+      if (m.phase !== 'listening') return stay(m);           // the timer outlived its phase
+      const path = ladderFor(m, caps, { listening: true, msSinceStart: now - m.startedAt });
+      if (path !== 'record') return stay(m);
+      return startRecord(m, 'switch-to-record');
+    }
+
+    case 'record-ready':
+      // The session arrived; if we are no longer recording the user changed their mind while
+      // getUserMedia was still resolving, and the stream must be released at once.
+      if (m.phase !== 'recording') return { machine: { ...m, pending: false }, action: 'cancel-record' };
+      return stay({ ...m, pending: false });
+
+    case 'record-error':
+      return { machine: { ...m, phase: 'failed', pending: false }, action: 'stop-all', notice: 'failed' };
+
+    case 'record-cap':
+      if (m.phase !== 'recording') return stay(m);
+      return { machine: { ...m, phase: 'transcribing', pending: false }, action: 'finish-record', notice: 'cap' };
+
+    case 'transcribed':
+      return { machine: { ...voiceIdle(), deniedLive: m.deniedLive, liveFailed: m.liveFailed }, action: 'none' };
+
+    case 'transcribe-failed':
+      return { machine: { ...m, phase: 'failed', pending: false }, action: 'none' };
+
+    default:
+      return stay(m);
+  }
+}
+
+function ladderFor(
+  m: VoiceMachine, caps: SpeechCapsShape, live?: { listening: boolean; msSinceStart: number },
+): VoicePath {
+  return speechLadder({
+    phase: live?.listening ? 'listening' : 'idle',
+    deniedLive: m.deniedLive,
+    liveFailed: m.liveFailed,
+    liveResults: m.liveResults,
+    msSinceStart: live?.msSinceStart ?? 0,
+  }, caps);
+}

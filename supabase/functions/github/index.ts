@@ -360,13 +360,19 @@ Deno.serve(async (req) => {
   // app/src/lib/feedback.ts (issueTitle/issueBody) so they are covered by goldens; the parent
   // is required unless the caller explicitly says there is none.
   if (body.mode === "createIssue") {
-    const title = String(body.title || "").trim();
+    const title = String(body.title || "").trim().slice(0, 240);
     if (!title) return json({ error: "title is required" }, 400, ORIGIN);
     const labels = Array.isArray(body.labels) ? body.labels.map(String).slice(0, 10) : [];
-    const parent = Number(body.parent) || undefined;
+    // The board is two-level BY RULE: a card is always a child of an existing Main Fields
+    // parent, and the app never creates a parent. Enforced server-side, not only in the UI.
+    const parent = Number(body.parent) || 0;
+    if (!parent) return json({ error: "parent is required (a card is always a child of a Main Fields parent)" }, 400, ORIGIN);
+    // A feedback body is a person typing or dictating; 20k characters is far more than any real
+    // report and still well under GitHub's own 65k limit.
+    const issueBody = String(body.body || "").slice(0, 20000);
     try {
       const res = await createIssue(GH_TOKEN, GH_REPO, GH_PROJECT_OWNER, GH_PROJECT_NUMBER, {
-        title, body: String(body.body || ""), labels, parent,
+        title, body: issueBody, labels, parent,
       });
       return json(res, 200, ORIGIN);
     } catch (e) {

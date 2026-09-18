@@ -197,7 +197,7 @@ function Row({
 
 function InboxDialog() {
   const qc = useQueryClient();
-  const { isViewer } = useCurrentUser();
+  const { name: actor, isViewer } = useCurrentUser();
   const admin = canSeeFeedbackInbox(!!sigma?.isAdmin?.(), isViewer);
   const [open, setOpen] = React.useState(false);
 
@@ -240,10 +240,16 @@ function InboxDialog() {
     retry: 0,
   });
 
+  // A feedback row is NEVER updated directly (fix round 1): `feedback` has no UPDATE policy and
+  // the privilege is revoked, so the only way through is `feedback_admin_update`, which checks
+  // the actor against the `app_admins` table server-side. The client gate stays as the first
+  // door; this is the second one.
   const status = useMutation({
     mutationFn: async (v: { id: string; status: FeedbackStatus }) => {
       const sb = await getSupabase();
-      await sbWrite(() => sb.from('feedback').update({ status: v.status }).eq('id', v.id).select('id').single() as any);
+      await sbWrite(() => sb.rpc('feedback_admin_update', {
+        p_id: v.id, p_actor: actor, p_status: v.status, p_github_issue: null,
+      }) as any);
     },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: FEEDBACK_QUERY_KEY }); },
     onError: (e: any) => toast.error(e?.message || 'העדכון נכשל'),
@@ -260,8 +266,9 @@ function InboxDialog() {
         parent,
       });
       const sb = await getSupabase();
-      await sbWrite(() =>
-        sb.from('feedback').update({ github_issue: res.number, status: 'seen' }).eq('id', item.id).select('id').single() as any);
+      await sbWrite(() => sb.rpc('feedback_admin_update', {
+        p_id: item.id, p_actor: actor, p_status: 'seen', p_github_issue: res.number,
+      }) as any);
       await qc.invalidateQueries({ queryKey: FEEDBACK_QUERY_KEY });
       if (res.warnings?.length) toast.warning('נוצר כרטיס #' + res.number + ' עם אזהרות: ' + res.warnings.join(' · '));
       else toast.success('נוצר כרטיס #' + res.number + ' ב-Backlog');
