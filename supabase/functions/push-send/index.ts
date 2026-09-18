@@ -435,7 +435,7 @@ Deno.serve(async (req: Request) => {
     }
     const kind = String(body.kind || "");
     const titles: Record<string, string> = {
-      idea: "📣 רעיון חדש", bug: "🐞 באג חדש", complaint: "😠 תלונה חדשה",
+      idea: "💡 רעיון חדש", bug: "🐞 באג / שיפור חדש",
     };
     if (!titles[kind]) return json({ error: "bad kind" }, 400);
     const preview = String(body.preview || "").replace(/\s+/g, " ").trim().slice(0, 80);

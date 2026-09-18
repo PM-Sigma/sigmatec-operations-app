@@ -54,7 +54,7 @@ test('viewer shell: the ⋯ sheet offers no pages and no ניהול', async ({ p
   await expect(sheet.getByText('ניהול', { exact: true })).toHaveCount(0);
   // …but the everyday rows every role has are there, labelled
   await expect(sheet.getByRole('button', { name: 'הגדרות', exact: true })).toBeVisible();
-  await expect(sheet.getByRole('button', { name: '📣 רעיון / באג / תלונה', exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: '📣 רעיון / באג', exact: true })).toBeVisible();
   // and the identity chip says who he is
   await expect(sheet.getByRole('button', { name: /צפייה/ })).toBeVisible();
 

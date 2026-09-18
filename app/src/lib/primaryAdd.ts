@@ -20,7 +20,7 @@ export type AddAction =
   | 'event'         // ➕ פגישה — the calendar with no day selected
   | 'stockChange'   // ➕ דיווח מלאי — inventory
   | 'visit'         // ➕ סיכום ביקור — my tasks / attendance (opens the visit form)
-  | 'feedback'      // ➕ רעיון או תלונה — the viewer's one write, anywhere (§7 Part F)
+  | 'feedback'      // ➕ רעיון / באג — the viewer's one write, anywhere (§7 Part F)
   | 'none';         // the page has nothing to add → render nothing
 
 export interface AddContext {
@@ -48,7 +48,7 @@ export const ADD_OPENS_FORM: Record<Exclude<AddAction, 'none'>, boolean> = {
 export const ADD_LABEL: Record<Exclude<AddAction, 'none'>, string> = {
   kibbutz: '➕ קיבוץ',
   visit: '➕ סיכום ביקור',
-  feedback: '➕ רעיון או תלונה',
+  feedback: '➕ רעיון / באג',
   // Navigation, and the words say so — never "➕ דיווח מלאי" on a button that just changes page.
   schedule: 'עבור ליומן',
   event: 'עבור ליומן',

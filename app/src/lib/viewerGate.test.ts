@@ -44,7 +44,7 @@ describe('the viewer matrix', () => {
     // NO `roles` and NO `visible` predicate, so the registry offers it to the viewer like
     // everyone else. (Feedback.test.tsx covers the submit path itself for a viewer.)
     _resetRegistry();
-    registerMoreItem({ id: 'feedback', label: '📣 רעיון / באג / תלונה', icon: 'MessageSquarePlus', onSelect: () => {} });
+    registerMoreItem({ id: 'feedback', label: '📣 רעיון / באג', icon: 'MessageSquarePlus', onSelect: () => {} });
     expect(listMoreItems('viewer').map(i => i.id)).toContain('feedback');
     // …while an admin-only row is NOT offered to him
     registerMoreItem({ id: 'import-meeting', label: 'ייבוא', icon: 'FileDown', roles: ['idan', 'team'], onSelect: () => {} });

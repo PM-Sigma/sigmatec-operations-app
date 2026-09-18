@@ -1,5 +1,7 @@
 -- ══════════════════════════════════════════════════════════════════════════════
--- 📣 `feedback` — the ideas / bug / complaint box (spec §7 Part F, "סיגמה 2.00").
+-- 📣 `feedback` — the ideas / bugs box (spec §7 Part F, "סיגמה 2.00"). Two kinds only
+-- (עידן's ruling, 18.9): 'complaint' was cut — see db/feedback_kinds.sql for the migration that
+-- drops the old three-way constraint on an existing install.
 --
 -- One row = one thing somebody wanted to say. `author` is NULL for an anonymous send —
 -- deliberately null, not the string "אנונימי", so nothing in the row can be walked back to
@@ -14,7 +16,7 @@
 -- (github Edge Fn, mode createIssue — always a CHILD of a Main Fields parent, title
 -- `[מודול] | [תת-תחום] | [תיאור]`, into Backlog: the Git Ticket System rules).
 --
--- RLS (hardened in fix round 1). Feedback is not like the other tables: a complaint may be
+-- RLS (hardened in fix round 1). Feedback is not like the other tables: a send may be
 -- ANONYMOUS, so "anyone with the public anon key can read it" was wrong, and "any EMS user can
 -- update or delete anyone's row" was worse.
 --   • SELECT  — `authenticated` only (the EMS-minted pass). No anon read at all.
@@ -33,7 +35,7 @@
 create table if not exists feedback (
   id uuid primary key default gen_random_uuid(),
   author text,                                             -- NULL = sent anonymously
-  kind text not null check (kind in ('idea','bug','complaint')),
+  kind text not null check (kind in ('idea','bug')),
   text text not null,
   audio_path text,                                         -- object in `feedback-audio`, or NULL
   status text not null default 'new' check (status in ('new','seen','done')),

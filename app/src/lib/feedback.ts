@@ -6,30 +6,30 @@
 // roles"), only an admin (canManageStaff = עידן + עמיחי) may open the INBOX.
 import type { SigmaRole } from '@/bridge';
 
-export type FeedbackKind = 'idea' | 'bug' | 'complaint';
+// RULING (עידן, 18.9 21:40, binding): feedback kinds are ONLY two — idea and bug. 'complaint'
+// was cut entirely (no third bucket in the toggle, the inbox filter, the push title, or the DB
+// constraint — see db/feedback_kinds.sql for the migration that drops the old check).
+export type FeedbackKind = 'idea' | 'bug';
 export type FeedbackStatus = 'new' | 'seen' | 'done';
 
-export const KINDS: FeedbackKind[] = ['idea', 'bug', 'complaint'];
+export const KINDS: FeedbackKind[] = ['idea', 'bug'];
 
-/** The toggle labels — עידן's wording from the mockup ("💡 רעיון · 🐞 דיווח באג · 😠 תלונה"). */
+/** The toggle labels — two buckets only (עידן's ruling, 18.9). */
 export const KIND_LABEL: Record<FeedbackKind, string> = {
   idea: '💡 רעיון',
-  bug: '🐞 דיווח באג',
-  complaint: '😠 תלונה',
+  bug: '🐞 באג / שיפור',
 };
 
 /** Push title per kind (push-send mode `feedbackNew` builds the same strings server-side). */
 export const KIND_PUSH_TITLE: Record<FeedbackKind, string> = {
-  idea: '📣 רעיון חדש',
-  bug: '🐞 באג חדש',
-  complaint: '😠 תלונה חדשה',
+  idea: '💡 רעיון חדש',
+  bug: '🐞 באג / שיפור חדש',
 };
 
 /** The `[תת-תחום]` used when the chosen parent has no sub-field of its own. */
 export const KIND_SUB: Record<FeedbackKind, string> = {
   idea: 'רעיון',
   bug: 'באג',
-  complaint: 'תלונה',
 };
 
 export const STATUS_LABEL: Record<FeedbackStatus, string> = {
@@ -59,7 +59,7 @@ export const DEFAULT_MODULE = 'אפליקציית תפעול';
 
 export function feedbackValidate(d: { kind: string; text: string }): string[] {
   const errs: string[] = [];
-  if (!KINDS.includes(d.kind as FeedbackKind)) errs.push('בחר סוג: רעיון / באג / תלונה');
+  if (!KINDS.includes(d.kind as FeedbackKind)) errs.push('בחר סוג: רעיון / באג');
   if (String(d.text ?? '').trim().length < FEEDBACK_MIN) errs.push('כתוב או הקלט משהו');
   return errs;
 }
@@ -148,7 +148,7 @@ export function issueBody(i: {
   kind: FeedbackKind; text: string; author: string | null; createdAt: string;
 }): string {
   return [
-    `**מתוך תיבת הרעיונות והתלונות באפליקציה** (${KIND_LABEL[i.kind]})`,
+    `**מתוך תיבת הרעיונות והבאגים באפליקציה** (${KIND_LABEL[i.kind]})`,
     '',
     String(i.text ?? '').trim(),
     '',
@@ -382,6 +382,22 @@ export interface RefineMergeResult {
 export function refineMerge(state: RefineMergeInput, refinedText: string): RefineMergeResult {
   if (state.fieldState !== 'untouched') return { text: state.text, chip: false };
   return { text: refinedText, chip: true };
+}
+
+/**
+ * How long the island should keep polling `job_id` (task 6b): back off 2s → 5s, but never
+ * past the server's own estimate ×3, and never past a hard 90s ceiling — a stuck job must not
+ * poll forever while the sheet sits open.
+ */
+export const REFINE_POLL_MAX_MS = 90_000;
+
+export function refinePollDelayMs(attempt: number): number {
+  return attempt <= 0 ? 2000 : 5000;
+}
+
+export function refinePollDeadlineMs(refineEtaSeconds?: number): number {
+  const byEta = Number.isFinite(refineEtaSeconds) ? Math.round((refineEtaSeconds as number) * 3 * 1000) : REFINE_POLL_MAX_MS;
+  return Math.min(byEta, REFINE_POLL_MAX_MS);
 }
 
 function ladderFor(

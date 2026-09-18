@@ -1,4 +1,4 @@
-// #sigma-feedback — 📣 רעיון / באג / תלונה (spec §7 Part F). Open to EVERY role, the viewer
+// #sigma-feedback — 📣 רעיון / באג (spec §7 Part F). Open to EVERY role, the viewer
 // included: this is the one write surface a viewer has, and it is deliberate.
 //
 // Voice is a LADDER, not platform detection (app/src/lib/feedback.ts speechLadder):
@@ -24,10 +24,13 @@ import { sigma, useCurrentUser } from '@/bridge';
 import {
   KINDS, KIND_LABEL, LIVE_NO_RESULT_MS, MIC_START_TIMEOUT_MS, RECORD_CAP_MS,
   canSubmitFeedback, feedbackPreview,
-  feedbackRow, feedbackValidate, voiceIdle, voiceNext,
-  type FeedbackKind, type FeedbackRow, type VoiceEvent, type VoicePhase,
+  feedbackRow, feedbackValidate, refineMerge, refinePollDelayMs, refinePollDeadlineMs, voiceIdle, voiceNext,
+  type FeedbackKind, type FeedbackRow, type RefineFieldState, type VoiceEvent, type VoicePhase,
 } from '@/lib/feedback';
-import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
+import {
+  speechCaps, startLive, startRecording, uploadAndTranscribe, pollRefineStatus,
+  type RecordSession,
+} from '@/lib/speech';
 import { EmsGate } from '@/components/EmsGate';
 
 /** Bus event every feedback surface listens to (the inbox refetches on it). */
@@ -131,6 +134,19 @@ function FeedbackSheet() {
   const [elapsed, setElapsed] = React.useState(0);
   const [sending, setSending] = React.useState(false);
   const [audioPath, setAudioPath] = React.useState<string | null>(null);
+  // Task 6b "fast + refine": once the fast transcript lands with a job_id, we poll for the
+  // slower, more accurate pass and — only while the field is still untouched — swap the text
+  // in silently with a small "עודכן" chip + undo (spec §7i). `fieldState` tracks real keystrokes
+  // (never the voice-append text) so a poll landing after the user started typing never clobbers
+  // what they wrote.
+  const fieldState = React.useRef<RefineFieldState>('untouched');
+  const pollTimer = React.useRef<number | null>(null);
+  const [refineChip, setRefineChip] = React.useState(false);
+  const undoText = React.useRef<string | null>(null);
+  // A poll tick fires well after the render that scheduled it, so it must read the LIVE text —
+  // a value captured in the tick's own closure would be stale the moment the user typed a key.
+  const textRef = React.useRef('');
+  React.useEffect(() => { textRef.current = text; }, [text]);
 
   const caps = React.useMemo(() => speechCaps(), []);
   const live = React.useRef<{ stop: () => void } | null>(null);
@@ -280,9 +296,13 @@ function FeedbackSheet() {
       if (!audio || audio.ms < 600) { toast.info('ההקלטה קצרה מדי'); dispatch('transcribed'); return; }
       try {
         const r = await uploadAndTranscribe(audio);
+        // A fresh recording resets "did the user touch this?" — the text the recording itself
+        // added is not a hand-edit, so the refine chip stays eligible for THIS transcript.
+        fieldState.current = 'untouched';
         append(r.text);
         setAudioPath(r.path);          // kept on the row for the 7-day retry window
         dispatch('transcribed');
+        if (r.refined === false && r.jobId) startRefinePoll(r.jobId, r.refineEtaSeconds);
       } catch (e: any) {
         toast.error(e?.message || 'התמלול נכשל');
         dispatch('transcribe-failed');
@@ -290,14 +310,56 @@ function FeedbackSheet() {
     });
   };
 
+  // ── the refine poll loop (task 6b) ──────────────────────────────────────────
+  const stopRefinePoll = () => {
+    if (pollTimer.current) { window.clearTimeout(pollTimer.current); pollTimer.current = null; }
+  };
+
+  const startRefinePoll = (jobId: string, etaSeconds?: number) => {
+    stopRefinePoll();
+    const deadline = Date.now() + refinePollDeadlineMs(etaSeconds);
+    let attempt = 0;
+    const tick = async () => {
+      pollTimer.current = null;
+      if (Date.now() >= deadline) return;                  // gave up quietly — the fast text stands
+      try {
+        const res = await pollRefineStatus(jobId);
+        if (res.status === 'done' && res.refined) {
+          const before = textRef.current;
+          const merged = refineMerge({ fieldState: fieldState.current, text: before }, res.text);
+          if (merged.chip) {
+            undoText.current = before;
+            setText(merged.text);
+            setRefineChip(true);
+          }
+          return;                                          // job finished either way — stop polling
+        }
+        if (res.status === 'failed') return;                // fast text stands, nothing to show
+      } catch { /* a failed poll just tries again on the next tick */ }
+      attempt += 1;
+      pollTimer.current = window.setTimeout(() => { void tick(); }, refinePollDelayMs(attempt));
+    };
+    pollTimer.current = window.setTimeout(() => { void tick(); }, refinePollDelayMs(0));
+  };
+
+  const undoRefine = () => {
+    if (undoText.current !== null) { setText(undoText.current); undoText.current = null; }
+    setRefineChip(false);
+  };
+
   // Leaving the sheet — or the page — with a hot microphone is the one thing that must never
-  // happen, so 'close' is dispatched from both the unmount and the open→closed transition.
-  React.useEffect(() => () => { dispatch('close'); }, [dispatch]);
-  React.useEffect(() => { if (!open) dispatch('close'); }, [open, dispatch]);
+  // happen, so 'close' is dispatched from both the unmount and the open→closed transition. The
+  // refine poll loop gets the same treatment (spec §7i: "stop … when the field is closed").
+  React.useEffect(() => () => { dispatch('close'); stopRefinePoll(); }, [dispatch]);
+  React.useEffect(() => { if (!open) { dispatch('close'); stopRefinePoll(); } }, [open, dispatch]);
 
   const reset = () => {
     setText(''); setInterim(''); setKind('idea'); setAnon(false);
     setAudioPath(null);
+    stopRefinePoll();
+    fieldState.current = 'untouched';
+    undoText.current = null;
+    setRefineChip(false);
   };
 
   const micTap = () => dispatch('mic-tap');
@@ -306,6 +368,8 @@ function FeedbackSheet() {
     const errs = feedbackValidate({ kind, text });
     if (errs.length) { toast.error(errs[0]); return; }
     setSending(true);
+    fieldState.current = 'sent';
+    stopRefinePoll();
     try {
       await sendFeedback(feedbackRow({ kind, text, anon, user, audioPath }));
       // The KIND only — never the text, and never who sent it when it was anonymous.
@@ -324,7 +388,7 @@ function FeedbackSheet() {
     <Sheet open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>📣 רעיון או תלונה</SheetTitle>
+          <SheetTitle>📣 תיבת רעיונות ובאגים</SheetTitle>
           <SheetDescription>
             מגיע לעידן ולעמיחי. אפשר להקליד או ללחוץ על המיקרופון.
             {isViewer ? ' גם בצפייה אפשר לשלוח.' : ''}
@@ -372,12 +436,21 @@ function FeedbackSheet() {
 
         <Textarea
           value={text + (interim ? (text ? ' ' : '') + interim : '')}
-          onChange={e => { setText(e.target.value); setInterim(''); }}
+          onChange={e => { fieldState.current = 'edited'; setRefineChip(false); setText(e.target.value); setInterim(''); }}
           dir="rtl"
           rows={6}
           placeholder="מה קרה / מה היה עוזר לך?"
           className="mt-2 min-h-[130px] text-[15px]"
         />
+
+        {refineChip && (
+          <div className="mt-1 flex items-center gap-2 text-[12px] font-semibold text-muted-foreground">
+            <span className="rounded-full bg-muted px-2 py-0.5">עודכן</span>
+            <button type="button" onClick={undoRefine} className="underline underline-offset-2 hover:text-foreground">
+              ↩ בטל
+            </button>
+          </div>
+        )}
 
         <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-muted/50 p-2">
           <button
@@ -430,7 +503,7 @@ export function mountFeedback(): boolean {
   if (!ok) return false;
   registerMoreItem({
     id: 'feedback',
-    label: '📣 רעיון / באג / תלונה',
+    label: '📣 רעיון / באג',
     icon: 'MessageSquarePlus',
     // No `roles` on purpose: all three roles may submit (spec §7). The live predicate only
     // keeps it hidden before anyone has picked who they are.

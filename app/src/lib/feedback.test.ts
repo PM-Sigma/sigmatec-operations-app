@@ -21,21 +21,21 @@ describe('feedbackValidate', () => {
   });
 
   it('rejects an unknown kind', () => {
-    expect(feedbackValidate({ kind: 'praise', text: 'נהדר, עובד מצוין' })).toEqual(['בחר סוג: רעיון / באג / תלונה']);
+    expect(feedbackValidate({ kind: 'praise', text: 'נהדר, עובד מצוין' })).toEqual(['בחר סוג: רעיון / באג']);
   });
 
   it('reports both errors at once', () => {
     expect(feedbackValidate({ kind: '', text: '' })).toEqual([
-      'בחר סוג: רעיון / באג / תלונה',
+      'בחר סוג: רעיון / באג',
       'כתוב או הקלט משהו',
     ]);
   });
 
-  it('knows the three kinds and their Hebrew labels', () => {
-    expect(Object.keys(KIND_LABEL)).toEqual(['idea', 'bug', 'complaint']);
-    expect(KIND_LABEL.bug).toBe('🐞 דיווח באג');
+  it('knows the two kinds and their Hebrew labels (עידן ruling, 18.9: no complaint)', () => {
+    expect(Object.keys(KIND_LABEL)).toEqual(['idea', 'bug']);
+    expect(KIND_LABEL.bug).toBe('🐞 באג / שיפור');
     expect(KIND_PUSH_TITLE).toEqual({
-      idea: '📣 רעיון חדש', bug: '🐞 באג חדש', complaint: '😠 תלונה חדשה',
+      idea: '💡 רעיון חדש', bug: '🐞 באג / שיפור חדש',
     });
   });
 });
@@ -89,7 +89,7 @@ describe('feedbackRow', () => {
   });
 
   it('drops the author when anonymous', () => {
-    expect(feedbackRow({ kind: 'complaint', text: 'לא נוח', anon: true, user: 'ניתאי' }).author).toBe(null);
+    expect(feedbackRow({ kind: 'bug', text: 'לא נוח', anon: true, user: 'ניתאי' }).author).toBe(null);
   });
 
   it('has a null author when there is no user at all', () => {
@@ -136,7 +136,7 @@ describe('issueTitle — Git Ticket System rules', () => {
 
   it('uses the kind as the sub-field when the parent has only a module', () => {
     expect(issueTitle('idea', 'כפתור כמו בביקור האחרון', 'ביקורים')).toBe('ביקורים | רעיון | כפתור כמו בביקור האחרון');
-    expect(issueTitle('complaint', 'איטי', 'מלאי')).toBe('מלאי | תלונה | איטי');
+    expect(issueTitle('bug', 'איטי', 'מלאי')).toBe('מלאי | באג | איטי');
   });
 
   it('falls back to the app module when no parent was picked', () => {
@@ -163,7 +163,7 @@ describe('issueBody', () => {
     expect(b).toContain('שורה 1\nשורה 2');
     expect(b).toContain('אביאם');
     expect(b).toContain('18.9.26');
-    expect(b).toContain('🐞 דיווח באג');
+    expect(b).toContain('🐞 באג / שיפור');
   });
 
   it('says אנונימי when there is no author', () => {
@@ -215,7 +215,7 @@ describe('speechLadder', () => {
 
 describe('kinds are exhaustive', () => {
   it('every kind has a label, a push title and a sub-field', () => {
-    const kinds: FeedbackKind[] = ['idea', 'bug', 'complaint'];
+    const kinds: FeedbackKind[] = ['idea', 'bug'];
     for (const k of kinds) {
       expect(KIND_LABEL[k]).toBeTruthy();
       expect(KIND_PUSH_TITLE[k]).toBeTruthy();

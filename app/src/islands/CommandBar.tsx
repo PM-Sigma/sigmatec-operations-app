@@ -77,7 +77,7 @@ function buildCommands(user: string, isViewer: boolean): Command[] {
     out.push({ id: 'action:stock', label: '🔢 דיווח שינוי במלאי', kind: 'action', run: () => sigma.showPage('inventory') });
   }
   out.push({ id: 'action:settings', label: '⚙️ הגדרות', kind: 'action', run: openSettings });
-  out.push({ id: 'action:feedback', label: '📣 רעיון או תלונה', kind: 'action',
+  out.push({ id: 'action:feedback', label: '📣 רעיון / באג', kind: 'action',
     run: () => window.dispatchEvent(new CustomEvent('sigma-open-feedback')) });
 
   // ---- kibbutzim ----

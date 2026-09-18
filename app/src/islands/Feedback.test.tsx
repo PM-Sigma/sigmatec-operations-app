@@ -91,7 +91,7 @@ describe('Feedback sheet — the role matrix', () => {
   it('opens for a viewer and sends (the viewer\'s one write surface)', async () => {
     render(<Feedback />);
     act(() => openFeedback());
-    expect(await screen.findByText('📣 רעיון או תלונה')).toBeTruthy();
+    expect(await screen.findByText('📣 תיבת רעיונות ובאגים')).toBeTruthy();
 
     type('הרשימה לא זוכרת מה סימנתי בביקור הקודם');
     fireEvent.click(screen.getByText('שלח'));
@@ -105,7 +105,7 @@ describe('Feedback sheet — the role matrix', () => {
     mockSigma.role = '';
     render(<Feedback />);
     act(() => openFeedback());
-    expect(screen.queryByText('📣 רעיון או תלונה')).toBeNull();
+    expect(screen.queryByText('📣 תיבת רעיונות ובאגים')).toBeNull();
     expect(sonner.error).toHaveBeenCalledWith('יש להתחבר כדי לשלוח');
   });
 });
@@ -139,7 +139,7 @@ describe('Feedback sheet — the form', () => {
 
   it('notifies the inbox owners through push-send, never with the author', async () => {
     render(<Feedback />);
-    act(() => openFeedback('complaint'));
+    act(() => openFeedback('bug'));
     type('האפליקציה איטית בשטח');
     fireEvent.click(screen.getByLabelText('שלח אנונימי'));
     fireEvent.click(screen.getByText('שלח'));
@@ -147,7 +147,7 @@ describe('Feedback sheet — the form', () => {
     const [url, init] = (globalThis as any).fetch.mock.calls[0];
     expect(url).toContain('/functions/v1/push-send');
     const sent = JSON.parse(init.body);
-    expect(sent).toMatchObject({ mode: 'feedbackNew', kind: 'complaint' });
+    expect(sent).toMatchObject({ mode: 'feedbackNew', kind: 'bug' });
     expect(sent.preview).toContain('האפליקציה איטית');
     expect(JSON.stringify(sent)).not.toContain('ניתאי');
   });

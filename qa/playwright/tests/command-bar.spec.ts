@@ -77,9 +77,9 @@ test('command bar: the viewer is offered no write actions', async ({ page }, ti)
   await expect(bar.getByRole('option', { name: /📍 סיכום ביקור/ })).toHaveCount(0);
   await expect(bar.getByRole('option', { name: /🚚 תעודת משלוח/ })).toHaveCount(0);
   await expect(bar.getByRole('option', { name: /➕ קיבוץ/ })).toHaveCount(0);
-  // …but ⚙️ הגדרות and 📣 רעיון או תלונה are everyone's
+  // …but ⚙️ הגדרות and 📣 רעיון / באג are everyone's
   await expect(bar.getByRole('option', { name: /⚙️ הגדרות/ })).toBeVisible();
-  await expect(bar.getByRole('option', { name: /📣 רעיון או תלונה/ })).toBeVisible();
+  await expect(bar.getByRole('option', { name: /📣 רעיון \/ באג/ })).toBeVisible();
 
   await shot(page, ti, 'viewer');
   expectNoConsoleErrors(rec);

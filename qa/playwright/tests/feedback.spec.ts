@@ -1,5 +1,6 @@
-// 📣 רעיון או תלונה — the feedback box (spec §7 + §6.5 voice).
-// Covers: the sheet opens from the command bar and from ⋯ עוד, the three kinds and the
+// 📣 רעיון / באג — the feedback box (spec §7 + §6.5 voice). Two kinds only (עידן's ruling,
+// 18.9 — no 'complaint').
+// Covers: the sheet opens from the command bar and from ⋯ עוד, the two kinds and the
 // anonymous switch, and — the point of this spec — the MIC-REFUSED path: this harness grants
 // no permissions, so pressing 🎙 must land on "אין הרשאה למיקרופון — אפשר להקליד" and leave
 // the person typing, never on a dead button or a hot recorder.
@@ -7,20 +8,20 @@ import { boot, expect, expectNoConsoleErrors, shot, test } from './_helpers';
 
 const openSheet = async (page: any) => {
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
-  await expect(page.getByRole('heading', { name: '📣 רעיון או תלונה' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
 };
 
-test('feedback: the sheet, its three kinds and the anonymous switch', async ({ page }, ti) => {
+test('feedback: the sheet, its two kinds and the anonymous switch', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   await openSheet(page);
   await expect(page.getByText('מגיע לעידן ולעמיחי')).toBeVisible();
 
-  for (const label of ['💡 רעיון', '🐞 דיווח באג', '😠 תלונה']) {
+  for (const label of ['💡 רעיון', '🐞 באג / שיפור']) {
     await expect(page.getByRole('radio', { name: label })).toBeVisible();
   }
-  await page.getByRole('radio', { name: '🐞 דיווח באג' }).click();
-  await expect(page.getByRole('radio', { name: '🐞 דיווח באג' })).toHaveAttribute('data-state', 'on');
+  await page.getByRole('radio', { name: '🐞 באג / שיפור' }).click();
+  await expect(page.getByRole('radio', { name: '🐞 באג / שיפור' })).toHaveAttribute('data-state', 'on');
 
   const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
   await expect(box).toBeVisible();
