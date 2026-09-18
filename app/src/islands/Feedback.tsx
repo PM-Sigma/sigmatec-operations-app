@@ -21,7 +21,8 @@ import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import {
-  KINDS, KIND_LABEL, LIVE_NO_RESULT_MS, RECORD_CAP_MS, canSubmitFeedback, feedbackPreview,
+  KINDS, KIND_LABEL, LIVE_NO_RESULT_MS, MIC_START_TIMEOUT_MS, RECORD_CAP_MS,
+  canSubmitFeedback, feedbackPreview,
   feedbackRow, feedbackValidate, voiceIdle, voiceNext,
   type FeedbackKind, type FeedbackRow, type VoiceEvent, type VoicePhase,
 } from '@/lib/feedback';
@@ -130,6 +131,9 @@ function FeedbackSheet() {
   const live = React.useRef<{ stop: () => void } | null>(null);
   const rec = React.useRef<RecordSession | null>(null);
   const noResult = React.useRef<number | null>(null);
+  // Watchdog on getUserMedia: an OS/webview that swallows the permission prompt never settles
+  // the promise, and without this the sheet would sit on "מקליט…" forever with nothing recording.
+  const micStart = React.useRef<number | null>(null);
   // The machine lives in a REF, not in state: every handler below (a recognition callback, a
   // timer, a resolved getUserMedia) must read the phase as it is at that instant, and a state
   // value captured in a closure is exactly how the double-start bug happened. `phase` state is
@@ -156,6 +160,7 @@ function FeedbackSheet() {
     denied: 'אין הרשאה למיקרופון — אפשר להקליד',
     failed: 'ההקלטה נכשלה — אפשר להקליד או לנסות שוב',
     cap: 'ההקלטה נעצרה אחרי ' + Math.round(RECORD_CAP_MS / 60_000) + ' דקות',
+    'mic-timeout': 'המיקרופון לא נפתח — נסה שוב או הקלד',
   };
 
   // ── ONE dispatch for every voice transition (fix round 1) ───────────────────
@@ -170,6 +175,7 @@ function FeedbackSheet() {
 
     const clearTimer = () => {
       if (noResult.current) { clearTimeout(noResult.current); noResult.current = null; }
+      if (micStart.current) { clearTimeout(micStart.current); micStart.current = null; }
     };
     const stopLive = () => { const s = live.current; live.current = null; s?.stop(); };
     const dropRecorder = () => { const s = rec.current; rec.current = null; s?.cancel(); };
@@ -235,6 +241,9 @@ function FeedbackSheet() {
 
   const startRecordLeg = () => {
     setElapsed(0);
+    // Armed BEFORE the call, cleared by the next transition (a resolved session dispatches
+    // 'record-ready', which clears it); if neither happens the watchdog fires.
+    micStart.current = window.setTimeout(() => dispatch('start-timeout'), MIC_START_TIMEOUT_MS);
     void startRecording({
       onLevel: setLevel,
       onTick: setElapsed,

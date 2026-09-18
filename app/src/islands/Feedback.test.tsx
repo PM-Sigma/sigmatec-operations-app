@@ -311,4 +311,42 @@ describe('Feedback sheet — one microphone, always', () => {
     fireEvent.keyDown(document, { key: 'Escape' });           // Radix closes the sheet
     await waitFor(() => expect(cancel).toHaveBeenCalled());
   });
+
+  it('gives up on a microphone that never opens, and shows a retry', async () => {
+    vi.useFakeTimers();
+    caps.speechRecognition = false;
+    const cancel = vi.fn();
+    let resolveStart: (v: any) => void = () => {};
+    speech.startRecording.mockReturnValue(new Promise(res => { resolveStart = res; }));
+
+    render(<Feedback />);
+    act(() => openFeedback());
+    fireEvent.click(screen.getByLabelText('הקלט'));
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });   // MIC_START_TIMEOUT_MS
+
+    expect(sonner.error).toHaveBeenCalledWith('המיקרופון לא נפתח — נסה שוב או הקלד');
+    expect(screen.getByText('ההקלטה נכשלה')).toBeTruthy();
+    expect(screen.getByText('נסה שוב')).toBeTruthy();
+
+    // and a session that lands after we gave up is released rather than left recording
+    await act(async () => { resolveStart({ stop: async () => null, cancel }); });
+    vi.useRealTimers();
+    expect(cancel).toHaveBeenCalled();
+  });
+
+  it('does not fire the watchdog once the recorder actually started', async () => {
+    vi.useFakeTimers();
+    caps.speechRecognition = false;
+    speech.startRecording.mockResolvedValue({ stop: async () => null, cancel: vi.fn() });
+
+    render(<Feedback />);
+    act(() => openFeedback());
+    fireEvent.click(screen.getByLabelText('הקלט'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    vi.useRealTimers();
+
+    expect(screen.getByText('מקליט…')).toBeTruthy();          // still recording, not failed
+    expect(sonner.error).not.toHaveBeenCalled();
+  });
 });

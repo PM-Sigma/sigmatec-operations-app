@@ -44,6 +44,12 @@ export const PREVIEW_MAX = 80;
 export const LIVE_NO_RESULT_MS = 3000;
 /** Hard cap on one recording (spec §7: 3 minutes). */
 export const RECORD_CAP_MS = 180_000;
+/**
+ * How long we wait for getUserMedia to settle before giving up on the microphone.
+ * A permission prompt the OS swallows (seen for real: an embedded webview simply never resolves
+ * the promise) would otherwise leave "מקליט…" on screen forever with nothing recording.
+ */
+export const MIC_START_TIMEOUT_MS = 10_000;
 /** The private Storage bucket for fallback recordings. */
 export const AUDIO_BUCKET = 'feedback-audio';
 /** Default `[מודול]` when no parent was picked (never used once עידן picks one). */
@@ -214,6 +220,7 @@ export type VoiceEvent =
   | 'live-failed'          // recognition errored for any other reason
   | 'live-end'             // recognition ended by itself
   | 'no-result-timeout'    // LIVE_NO_RESULT_MS passed with nothing heard
+  | 'start-timeout'        // getUserMedia never settled (MIC_START_TIMEOUT_MS)
   | 'record-ready'         // startRecording resolved with a session
   | 'record-error'         // startRecording failed / the mic was refused
   | 'record-cap'           // the 180 s cap stopped the recording
@@ -230,7 +237,7 @@ export type VoiceAction =
   | 'cancel-record'        // throw the recording away (incl. a session still being created)
   | 'stop-all';
 
-export type VoiceNotice = 'unsupported' | 'denied' | 'failed' | 'cap';
+export type VoiceNotice = 'unsupported' | 'denied' | 'failed' | 'cap' | 'mic-timeout';
 
 export interface VoiceMachine {
   phase: VoicePhase;
@@ -307,6 +314,16 @@ export function voiceNext(m: VoiceMachine, ev: VoiceEvent, caps: SpeechCapsShape
       if (path !== 'record') return stay(m);
       return startRecord(m, 'switch-to-record');
     }
+
+    case 'start-timeout':
+      // Only meaningful while a start is STILL in flight: once the session arrived (or the leg
+      // was left) the timer is stale, and a stale timer must never tear a live recording down.
+      if (!m.pending) return stay(m);
+      return {
+        machine: { ...m, phase: 'failed', pending: false },
+        action: 'cancel-record',                             // also releases a session that lands later
+        notice: 'mic-timeout',
+      };
 
     case 'record-ready':
       // The session arrived; if we are no longer recording the user changed their mind while

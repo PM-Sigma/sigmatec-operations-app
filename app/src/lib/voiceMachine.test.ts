@@ -8,7 +8,7 @@
 // of truth for every transition, so both are impossible by construction: the machine knows a
 // start is `pending`, and it answers `none` to any event that no longer applies to its phase.
 import { describe, it, expect } from 'vitest';
-import { LIVE_NO_RESULT_MS, RECORD_CAP_MS, voiceIdle, voiceNext } from './feedback';
+import { LIVE_NO_RESULT_MS, MIC_START_TIMEOUT_MS, RECORD_CAP_MS, voiceIdle, voiceNext } from './feedback';
 
 const caps = { speechRecognition: true, mediaRecorder: true };
 const noLive = { speechRecognition: false, mediaRecorder: true };
@@ -176,5 +176,42 @@ describe('voiceNext — the ladder inside the machine', () => {
       expect(r.action).toBe('stop-all');
       expect(r.machine).toMatchObject({ phase: 'idle', pending: false });
     }
+  });
+});
+
+describe('voiceNext — the microphone-start watchdog', () => {
+  it('gives up after 10 s when getUserMedia never settles, and releases everything', () => {
+    const pending = voiceNext(voiceIdle(), 'mic-tap', noLive, 0).machine;
+    expect(pending.pending).toBe(true);
+
+    const timedOut = voiceNext(pending, 'start-timeout', noLive, MIC_START_TIMEOUT_MS);
+    expect(timedOut.action).toBe('cancel-record');           // also catches a session landing later
+    expect(timedOut.machine).toMatchObject({ phase: 'failed', pending: false });
+    expect(timedOut.notice).toBe('mic-timeout');
+    expect(MIC_START_TIMEOUT_MS).toBe(10_000);
+  });
+
+  it('is ignored once the session actually arrived — a stale timer must not kill a live recording', () => {
+    let m = voiceNext(voiceIdle(), 'mic-tap', noLive, 0).machine;
+    m = voiceNext(m, 'record-ready', noLive, 500).machine;
+    const late = voiceNext(m, 'start-timeout', noLive, MIC_START_TIMEOUT_MS);
+    expect(late.action).toBe('none');
+    expect(late.machine.phase).toBe('recording');
+  });
+
+  it('is ignored in every phase with nothing in flight', () => {
+    for (const phase of ['idle', 'listening', 'transcribing', 'failed'] as const) {
+      const r = voiceNext({ ...voiceIdle(), phase }, 'start-timeout', caps, MIC_START_TIMEOUT_MS);
+      expect(r.action).toBe('none');
+      expect(r.machine.phase).toBe(phase);
+    }
+  });
+
+  it('leaves the user a retry that starts a fresh recorder', () => {
+    const pending = voiceNext(voiceIdle(), 'mic-tap', noLive, 0).machine;
+    const failed = voiceNext(pending, 'start-timeout', noLive, MIC_START_TIMEOUT_MS).machine;
+    const retry = voiceNext(failed, 'mic-tap', noLive, MIC_START_TIMEOUT_MS + 1000);
+    expect(retry.action).toBe('start-record');
+    expect(retry.machine).toMatchObject({ phase: 'recording', pending: true });
   });
 });
