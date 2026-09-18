@@ -1,4 +1,4 @@
-import{c as Z,j as c,n as be,o as xe,s as q,a as k,u as ve,r as f,S as Se,i as we,k as ye,l as ke,m as Ee,L as J,p as Re}from"./sigma.js?v=mu6ydwwf";import{u as Te,m as Le}from"./sigma-react.js?v=mu6ydwwf";import{T as Me}from"./sigma-textarea.js?v=mu6ydwwf";import{T as Ae,a as _e,S as je}from"./sigma-switch.js?v=mu6ydwwf";import{S as Ce}from"./sigma-query.js?v=mu6ydwwf";import{getSupabase as ee,SB_ANON as B,SB_URL as te,sbWrite as Ne}from"./sigma-supabase.js?v=mu6ydwwf";/**
+import{c as Z,j as c,n as be,o as xe,s as q,a as k,u as ve,r as f,S as Se,i as we,k as ye,l as ke,m as Ee,L as J,p as Re}from"./sigma.js?v=mu6yluhr";import{u as Te,m as Le}from"./sigma-react.js?v=mu6yluhr";import{T as Me}from"./sigma-textarea.js?v=mu6yluhr";import{T as Ae,a as _e,S as je}from"./sigma-switch.js?v=mu6yluhr";import{S as Ce}from"./sigma-query.js?v=mu6yluhr";import{getSupabase as ee,SB_ANON as B,SB_URL as te,sbWrite as Ne}from"./sigma-supabase.js?v=mu6yluhr";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

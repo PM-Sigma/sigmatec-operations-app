@@ -421,6 +421,8 @@
         { id: 'task-2', title: 'אספקת 12 מונים',   type: 'supplying_meters', priority: 'urgent', status: 'new',                site: { id: SID.dganya,  name: 'דגניה' },  assignee: null, expectedCompletionDate: addDays(-2), description: 'מתואם מול חשמלאי הקיבוץ.' },
         { id: 'task-3', title: 'התקנה הושלמה',     type: 'supplying_meters', priority: 'normal', status: 'done',               site: { id: SID.hukok,   name: 'חוקוק' },  assignee: null, expectedCompletionDate: addDays(-10), description: '' },
         { id: 'task-4', title: 'ממתין לאישור לקוח', type: 'other',           priority: 'normal', status: 'waiting_for_client', site: { id: SID.yagur,   name: 'יגור' },   assignee: null, expectedCompletionDate: addDays(7),  description: 'נשלחה הצעת מחיר.' },
+        // copy-ok: a mock EMS task TITLE — data, not UI copy (it stands in for whatever
+        // someone typed in EMS). The ruling in spec §2 keeps it.
         { id: 'task-5', title: 'בדיקת זרימת נתונים', type: 'other',          priority: 'low',    status: 'new',                site: { id: SID.gvat,    name: 'גבת' },   assignee: null, expectedCompletionDate: '',          description: '' },
         { id: 'task-6', title: 'תקלה בחלקת החקלאות', type: 'fixing_fault',    priority: 'high',   status: 'new',                site: { id: SID.sdeAgri, name: 'שדה אליהו - חקלאות' }, assignee: null, expectedCompletionDate: addDays(5), description: 'משויך לתת-אתר החקלאות — אמור להופיע תחת כרטיס "שדה אליהו".' }
       ],
@@ -454,6 +456,7 @@
     function mockSheetData() {
       return {
         tasks: [
+          // copy-ok: mock row DATA — an `expectedTask` is a task title from the sheet, not UI copy.
           { name: 'יגור',     row: 2, region: 'עמק יזרעאל', owners: ['אביאם'], status: 'מותקנים 12 מונים\nממתין לבקר חדש', expectedTask: 'בדיקת זרימת נתונים', task: '[PROC_DONE] step=9', code: '101', lastModified: nowISO() },
           { name: 'דגניה',    row: 3, region: 'עמק הירדן',  owners: ['ניתאי'], status: 'ממתין למשלוח מונים', expectedTask: 'תיאום ביקור התקנה', task: 'step=3', code: '102', lastModified: nowISO() },
           { name: 'חוקוק',    row: 4, region: 'גליל תחתון', owners: ['אביאם'], status: 'באג: מונה כפול בהקמה', expectedTask: '', task: 'step=2', code: '103', lastModified: nowISO() },

@@ -1,0 +1,157 @@
+// The two COPY RULES (spec, the paragraphs before §7i) plus the §2 deletion of the
+// data-flow / procedure vocabulary. All three are עידן's, all three are binding.
+//   node test-copy-rules.mjs
+//
+//  1. NO SYSTEM TALK. The interface never explains its own mechanics ("נשמר אוטומטית
+//     ל-Supabase", "בדיקה אוטומטית", "מחושב מאותה פונקציה", "RLS"). Every visible sentence is
+//     addressed to the user about HIS situation and next step. Engineering guarantees live in
+//     tests and docs — which is what this file is.
+//  2. NEVER TELL A USER WHO ELSE SEES HIS DATA. Management visibility is a fact of the roles,
+//     not a message to the employee.
+//  3. The pipeline vocabulary is DELETED, not hidden (spec §2): no זרימת נתונים, פרוצדורה,
+//     צינור or "שלב N" anywhere in the UI.
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const read = p => fs.readFileSync(path.join(__dirname, p), 'utf8');
+
+let failures = 0;
+function check(name, fn) {
+  try { fn(); console.log('  ok - ' + name); }
+  catch (e) { failures++; console.log('  FAIL - ' + name + ': ' + e.message); }
+}
+
+function walk(dir, out = []) {
+  for (const e of fs.readdirSync(path.join(__dirname, dir), { withFileTypes: true })) {
+    const rel = dir + '/' + e.name;
+    if (e.isDirectory()) walk(rel, out);
+    else if (/\.(ts|tsx)$/.test(e.name) && !e.name.includes('.test.')) out.push(rel);
+  }
+  return out;
+}
+
+/**
+ * Comments are notes to US, not copy — and several of ours quote a banned word precisely to
+ * say "never write this on screen". Blanked, with the line count preserved.
+ *
+ * The carriage-return normalisation is load-bearing on Windows: with CRLF endings a `$` anchor
+ * sits before the CR, so the `//` stripper matched nothing and every explanatory comment was
+ * reported as an offending sentence. (Found while writing this file.)
+ */
+function stripComments(body) {
+  return body
+    .split(/\r?\n/)
+    .map(l => l.replace(/(^|\s)\/\/.*$/, ''))
+    .join('\n')
+    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '));
+}
+
+// ── rule 1: no system talk ────────────────────────────────────────────────────
+// `API` is deliberately NOT here: it lives in identifiers (SHEET_API, emsApi) far more often
+// than in copy, and the spec's own contract sentence lists the words that matter.
+const SYSTEM_TALK = [
+  ['Supabase', /Supabase/i],
+  ['RLS', /\bRLS\b/],
+  ['בדיקה אוטומטית', /בדיקה אוטומטית/],
+  ['מחושב', /מחושב/],
+  ['פונקציה', /פונקציה/],
+];
+
+// ── rule 2: who sees what ─────────────────────────────────────────────────────
+const WHO_SEES = [
+  ['עמיחי רואה / יראה', /עמיחי\s+(?:רואה|ראה|יראה)/],
+  ['עידן רואה / יראה', /עידן\s+(?:רואה|ראה|יראה)/],
+  ['מנהל רואה / יראה', /מנהל\s+(?:רואה|ראה|יראה)/],
+];
+
+// ── rule 3: the deleted pipeline vocabulary (spec §2) ─────────────────────────
+const PIPELINE = [
+  ['זרימת נתונים', /זרימת נתונים/],
+  ['פרוצדורה', /פרוצדורה/],
+  ['צינור', /צינור/],
+  ['שלב N', /שלב [0-9]/],
+];
+
+/** index.html + the island sources are the redesign's own surfaces. */
+const NEW_UI = ['index.html', ...walk('app/src')];
+/** The legacy modules carry copy too — rules 2 and 3 apply across the whole app. */
+const LEGACY = fs.readdirSync(path.join(__dirname, 'js/src')).filter(f => f.endsWith('.js')).map(f => 'js/src/' + f);
+
+/**
+ * A line may declare itself DATA rather than copy with `copy-ok` — on the line, or in the
+ * comment block immediately above it. The only use today is the `?sb=0` mock rows: a task
+ * title is whatever somebody typed in EMS, and spec §2 keeps them.
+ */
+function exempt(rawLines, i) {
+  if (/copy-ok/.test(rawLines[i] || '')) return true;
+  for (let j = i - 1; j >= 0; j--) {
+    const t = (rawLines[j] || '').trim();
+    if (!(t.startsWith('//') || t.startsWith('/*') || t.startsWith('*') || t.startsWith('{/*'))) return false;
+    if (/copy-ok/.test(t)) return true;
+  }
+  return false;
+}
+
+/**
+ * The COPY a person reads — and nothing else. The rules are about SENTENCES, not identifiers:
+ * `getSupabase()` is a function name; `'נשמר ל-Supabase'` is a promise made to the user. Every
+ * user-facing string in this app is Hebrew, so "contains a Hebrew letter" is the precise
+ * filter: quoted literals with Hebrew in them, and JSX / HTML text nodes with Hebrew in them.
+ */
+const HEBREW = /[֐-׿]/;
+const QUOTED = /'([^'\n]*)'|"([^"\n]*)"|`([^`\n]*)`/g;
+
+function copyStrings(file) {
+  const raw = read(file).split(/\r?\n/);
+  const out = [];                                   // [{ line, text }]
+  stripComments(read(file)).split('\n').forEach((line, i) => {
+    if (exempt(raw, i)) return;
+    const push = t => { if (t && HEBREW.test(t)) out.push({ line: i + 1, text: t }); };
+    for (const m of line.matchAll(QUOTED)) push(m[1] ?? m[2] ?? m[3]);
+    for (const m of line.matchAll(/>([^<>{}]+)</g)) push(m[1]);
+    // a JSX text node that spans lines — the line carries no tags or quotes at all
+    if (!/[<>{}'"`]/.test(line)) push(line);
+  });
+  return out;
+}
+
+function hits(files, rules) {
+  const bad = [];
+  for (const f of files) {
+    for (const { line, text } of copyStrings(f)) {
+      for (const [label, re] of rules) {
+        if (re.test(text)) bad.push(`${f}:${line} [${label}] ${text.trim().slice(0, 90)}`);
+      }
+    }
+  }
+  return bad;
+}
+
+check('rule 1 — the UI never explains its own mechanics', () => {
+  const bad = hits(NEW_UI, SYSTEM_TALK);
+  assert.deepEqual(bad, [], 'system talk in UI strings:\n    ' + bad.join('\n    '));
+});
+
+check('rule 2 — no sentence tells a user who else sees his data', () => {
+  const bad = hits([...NEW_UI, ...LEGACY], WHO_SEES);
+  assert.deepEqual(bad, [], 'visibility talk:\n    ' + bad.join('\n    '));
+});
+
+check('rule 3 — the data-flow / procedure vocabulary is gone from the UI (spec §2)', () => {
+  const bad = hits([...NEW_UI, ...LEGACY], PIPELINE);
+  assert.deepEqual(bad, [], 'deleted vocabulary still on screen:\n    ' + bad.join('\n    '));
+});
+
+check('the sweep is actually looking at copy (not passing on an empty scan)', () => {
+  assert.ok(NEW_UI.length > 20, 'expected the island sources + index.html, found ' + NEW_UI.length);
+  assert.ok(LEGACY.length > 20, 'expected the legacy modules, found ' + LEGACY.length);
+  assert.match(read('index.html'), /סיגמה/, 'index.html has no Hebrew copy — the scan is pointed at the wrong thing');
+  // and it can still SEE a sentence: the copy extractor must find plenty in index.html
+  assert.ok(copyStrings('index.html').length > 50, 'the extractor found almost no Hebrew copy in index.html');
+});
+
+console.log(failures === 0 ? '\nPASS — copy rules clean' : '\nFAIL — ' + failures + ' check(s) failed');
+process.exit(failures === 0 ? 0 : 1);

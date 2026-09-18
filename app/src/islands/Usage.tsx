@@ -142,6 +142,7 @@ function PerDayChart({ report }: { report: UsageReport }) {
   );
   return (
     <ChartContainer config={CHART_CONFIG} className="aspect-auto h-[160px] w-full">
+      {/* rtl-ok: Recharts' margin prop takes physical sides only, and this one is symmetric. */}
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="label" tickLine={false} axisLine={false} interval={4} tickMargin={6} />
