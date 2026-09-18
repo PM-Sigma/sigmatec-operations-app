@@ -217,7 +217,14 @@ export async function startRecording(h: RecordHandlers): Promise<RecordSession |
   };
 }
 
-export interface TranscribeResult { text: string; engine: string; ms: number; path: string }
+export interface TranscribeResult {
+  text: string; engine: string; ms: number; path: string;
+  /** "fast + refine" (spec §7i): when `engine==='self'`, the fast pass answers refined:false
+   * with a job_id to poll; Groq has nothing to refine, so these are absent/refined:true. */
+  refined: boolean; jobId?: string; refineEtaSeconds?: number;
+}
+
+export interface RefinePollResult { text: string; status: 'refining' | 'done' | 'failed'; refined: boolean; secondsRemaining?: number }
 
 export const EMS_LOGIN_REQUIRED_VOICE = 'יש להתחבר ל-EMS כדי לתמלל הקלטה — אפשר להקליד';
 
@@ -265,5 +272,43 @@ export async function uploadAndTranscribe(
 
   const d = await r.json().catch(() => ({} as any));
   if (!r.ok || !d?.text) throw new Error(d?.error || ('התמלול נכשל (' + r.status + ')'));
-  return { text: String(d.text).trim(), engine: String(d.engine || ''), ms: Number(d.ms || 0), path };
+  return {
+    text: String(d.text).trim(), engine: String(d.engine || ''), ms: Number(d.ms || 0), path,
+    refined: d.refined !== false, jobId: d.job_id ? String(d.job_id) : undefined,
+    refineEtaSeconds: Number.isFinite(+d.refine_eta_seconds) ? +d.refine_eta_seconds : undefined,
+  };
+}
+
+/**
+ * Poll the refine job once. The island calls this every `min(secondsRemaining, 5)` s while the
+ * field is open and untouched, and stops on close/unmount/1 h (spec §7i) — none of that timing
+ * lives here, so it stays testable as a single fetch instead of a fake-timer dance.
+ */
+export async function pollRefineStatus(jobId: string): Promise<RefinePollResult> {
+  const ems = (() => { try { return (window as any).sigma?.emsToken?.() || ''; } catch { return ''; } })();
+  let bearer = SB_ANON;
+  try {
+    const pass = (window as any).sigma?.sbPass?.();
+    if (pass?.token && (pass.exp || 0) > Date.now()) bearer = pass.token;
+  } catch { /* no bridge */ }
+
+  const ac = new AbortController();
+  const to = setTimeout(() => ac.abort(), 25_000);
+  let r: Response;
+  try {
+    r = await fetch(SB_URL + '/functions/v1/transcribe', {
+      method: 'POST', signal: ac.signal,
+      headers: { apikey: SB_ANON, Authorization: 'Bearer ' + bearer, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: ems, job_id: jobId }),
+    });
+  } finally { clearTimeout(to); }
+
+  const d = await r.json().catch(() => ({} as any));
+  if (!r.ok) throw new Error(d?.error || ('שגיאת עדכון (' + r.status + ')'));
+  return {
+    text: String(d.text || '').trim(),
+    status: d.status === 'done' || d.status === 'failed' ? d.status : 'refining',
+    refined: !!d.refined,
+    secondsRemaining: Number.isFinite(+d.seconds_remaining) ? +d.seconds_remaining : undefined,
+  };
 }

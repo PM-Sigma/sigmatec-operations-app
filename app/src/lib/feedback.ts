@@ -357,6 +357,33 @@ export function voiceNext(m: VoiceMachine, ev: VoiceEvent, caps: SpeechCapsShape
   }
 }
 
+// ───────────────────────── refine merge (task 6b, spec §7i) ─────────────────────────
+// After the fast transcript lands, the self server keeps refining in the background and the
+// client polls `job_id`. When the refined text arrives it must NOT clobber what the user is
+// doing with the field: only an UNTOUCHED field is replaced (with the "עודכן" chip + undo); an
+// EDITED or already-SENT field discards the refinement outright. Pure on purpose — the island
+// just calls this and applies the verdict; whether the poll timer even keeps running is a
+// separate, non-pure decision (stop on close/unmount/1 h, made by the caller).
+export type RefineFieldState = 'untouched' | 'edited' | 'sent';
+
+export interface RefineMergeInput {
+  /** Has the user touched the field, or already sent it, since the fast text landed? */
+  fieldState: RefineFieldState;
+  /** The field's current text (kept as-is when the refinement is discarded). */
+  text: string;
+}
+
+export interface RefineMergeResult {
+  text: string;
+  /** Show the small "עודכן" chip with undo — only ever true when we actually replaced the text. */
+  chip: boolean;
+}
+
+export function refineMerge(state: RefineMergeInput, refinedText: string): RefineMergeResult {
+  if (state.fieldState !== 'untouched') return { text: state.text, chip: false };
+  return { text: refinedText, chip: true };
+}
+
 function ladderFor(
   m: VoiceMachine, caps: SpeechCapsShape, live?: { listening: boolean; msSinceStart: number },
 ): VoicePath {

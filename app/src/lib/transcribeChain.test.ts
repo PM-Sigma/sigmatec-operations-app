@@ -5,6 +5,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   GROQ_MODEL, GROQ_URL, SELF_MODEL, SELF_TIMEOUT_MS, enginePlan, transcribeChain,
+  pollRefine, checkHealth,
 } from '../../../supabase/functions/transcribe/chain';
 
 const SELF_ENV = { SELF_WHISPER_URL: 'https://whisper.example.com', SELF_WHISPER_TOKEN: 'tok' };
@@ -72,61 +73,85 @@ describe('transcribeChain — self-hosted first', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('https://w.example.com/v1/audio/transcriptions');
   });
 
-  it('aborts the office server after 25 s and falls back to Groq', async () => {
+  it('aborts the office server after 25 s, retries once, and falls back to Groq', async () => {
+    const abortOnce = (_u: string, init: any) => new Promise((_res, rej) => {
+      init.signal.addEventListener('abort', () => rej(new Error('aborted')));
+    });
     const fetchMock = vi.fn()
-      .mockImplementationOnce((_u: string, init: any) => new Promise((_res, rej) => {
-        init.signal.addEventListener('abort', () => rej(new Error('aborted')));
-      }))
+      .mockImplementationOnce(abortOnce)   // self, attempt 1
+      .mockImplementationOnce(abortOnce)   // self, retry (spec §7i: network error retries once)
       .mockResolvedValueOnce(okJson('מ-Groq'));
 
     vi.useFakeTimers();
     const p = transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any });
-    await vi.advanceTimersByTimeAsync(SELF_TIMEOUT_MS + 10);
+    await vi.advanceTimersByTimeAsync(SELF_TIMEOUT_MS + 10);   // attempt 1 times out
+    await vi.advanceTimersByTimeAsync(2_100);                  // 2 s retry delay
+    await vi.advanceTimersByTimeAsync(SELF_TIMEOUT_MS + 10);   // retry times out too
     const r = await p;
     vi.useRealTimers();
 
     expect(SELF_TIMEOUT_MS).toBe(25_000);
     expect(r).toMatchObject({ text: 'מ-Groq', engine: 'groq' });
-    expect(fetchMock.mock.calls[1][0]).toBe(GROQ_URL);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][0]).toBe(GROQ_URL);
   });
 });
 
 describe('transcribeChain — Groq fallback', () => {
-  it('falls back when the office server answers 502', async () => {
+  it('falls back when the office server answers 502 (after one retry)', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response('down', { status: 502 }))
+      .mockResolvedValueOnce(new Response('down', { status: 502 }))   // self, attempt 1
+      .mockResolvedValueOnce(new Response('down', { status: 502 }))   // self, retry
       .mockResolvedValueOnce(okJson('טקסט מ-Groq'));
-    const r = await transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any });
+    vi.useFakeTimers();
+    const p = transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any });
+    await vi.advanceTimersByTimeAsync(2_100);
+    const r = await p;
+    vi.useRealTimers();
 
     expect(r.engine).toBe('groq');
-    const [url, init] = fetchMock.mock.calls[1];
+    const [url, init] = fetchMock.mock.calls[2];
     expect(url).toBe(GROQ_URL);
     expect((init.headers as any).Authorization).toBe('Bearer gsk_x');
     expect((init.body as FormData).get('model')).toBe(GROQ_MODEL);
     expect((init.body as FormData).get('language')).toBe('he');
-  });
+  }, 10_000);
 
-  it('falls back when the office server throws (DNS / tunnel down)', async () => {
+  it('falls back when the office server throws (DNS / tunnel down), after one retry', async () => {
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new Error('dns'))
+      .mockRejectedValueOnce(new Error('dns again'))
       .mockResolvedValueOnce(okJson('ok'));
-    expect((await transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any })).engine)
-      .toBe('groq');
-  });
+    vi.useFakeTimers();
+    const p = transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any });
+    await vi.advanceTimersByTimeAsync(2_100);
+    const r = await p;
+    vi.useRealTimers();
+    expect(r.engine).toBe('groq');
+  }, 10_000);
 
-  it('does NOT call Groq when the fallback is off — it fails instead', async () => {
+  it('does NOT call Groq when the fallback is off — retries once, then fails', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('down', { status: 502 }));
-    await expect(transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV, GROQ_FALLBACK: 'off' },
+    vi.useFakeTimers();
+    const p = expect(transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV, GROQ_FALLBACK: 'off' },
       { fetch: fetchMock as any })).rejects.toThrow(/self/);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
+    await vi.advanceTimersByTimeAsync(2_100);
+    await p;
+    vi.useRealTimers();
+    expect(fetchMock).toHaveBeenCalledTimes(2);   // attempt + retry, no Groq
+  }, 10_000);
 
-  it('reports every attempt when the whole chain fails', async () => {
+  it('reports every attempt when the whole chain fails (each engine retries once)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('nope', { status: 500 }));
-    await expect(transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any }))
+    vi.useFakeTimers();
+    const p = expect(transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any }))
       .rejects.toThrow(/self.*groq|groq.*self/s);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
+    await vi.advanceTimersByTimeAsync(2_100);
+    await vi.advanceTimersByTimeAsync(2_100);
+    await p;
+    vi.useRealTimers();
+    expect(fetchMock).toHaveBeenCalledTimes(4);   // self x2 + groq x2
+  }, 10_000);
 
   it('fails loudly when no engine is configured at all', async () => {
     const fetchMock = vi.fn();
@@ -193,5 +218,107 @@ describe('validAudioPath (whitelist)', () => {
     for (const mime of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus', '']) {
       expect(validAudioPath(audioObjectPath('0b9c1f42-6d5e-4a77-9d2b-1f0e6a7c3b84', mime))).toBe(true);
     }
+  });
+});
+
+// ───────────── task 6b: live Whisper server — fast + refine, retry, poll, health ─────────────
+describe('transcribeChain — retry-once (spec §7i ruling)', () => {
+  it('retries once after a 5xx, then succeeds without falling back to Groq', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('down', { status: 503 }))
+      .mockResolvedValueOnce(okJson('אחרי ניסיון שני'));
+    vi.useFakeTimers();
+    const p = transcribeChain(audio(), 'n.webm', SELF_ENV, { fetch: fetchMock as any });
+    await vi.advanceTimersByTimeAsync(2_100);
+    const r = await p;
+    vi.useRealTimers();
+    expect(r).toMatchObject({ text: 'אחרי ניסיון שני', engine: 'self' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries once on a network error, then falls back to Groq if the retry also fails', async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error('tunnel down'))
+      .mockRejectedValueOnce(new Error('still down'))
+      .mockResolvedValueOnce(okJson('מ-Groq'));
+    vi.useFakeTimers();
+    const p = transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any });
+    await vi.advanceTimersByTimeAsync(2_100);
+    const r = await p;
+    vi.useRealTimers();
+    expect(r.engine).toBe('groq');
+    expect(fetchMock).toHaveBeenCalledTimes(3);   // self x2 (retry) + groq x1
+  });
+
+  it('never retries a 4xx — goes straight to Groq', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('bad', { status: 400 }))
+      .mockResolvedValueOnce(okJson('מ-Groq'));
+    const r = await transcribeChain(audio(), 'n.webm', { ...SELF_ENV, ...GROQ_ENV }, { fetch: fetchMock as any });
+    expect(r.engine).toBe('groq');
+    expect(fetchMock).toHaveBeenCalledTimes(2);   // self x1 (no retry) + groq x1
+  });
+
+  it('a 401 from the self server is not retried either', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('nope', { status: 401 }));
+    await expect(transcribeChain(audio(), 'n.webm', SELF_ENV, { fetch: fetchMock as any })).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('transcribeChain — fast + refine passthrough (self only)', () => {
+  const fastAnswer = (extra: object) =>
+    new Response(JSON.stringify({ text: 'טקסט מהיר', refined: false, ...extra }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  it('carries job_id and refine_eta_seconds through for engine:self', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(fastAnswer({ job_id: 'job-123', refine_eta_seconds: 8 }));
+    const r = await transcribeChain(audio(), 'n.webm', SELF_ENV, { fetch: fetchMock as any });
+    expect(r).toMatchObject({ text: 'טקסט מהיר', engine: 'self', refined: false, job_id: 'job-123', refine_eta_seconds: 8 });
+  });
+
+  it('does not attach job_id fields for engine:groq', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson('מ-Groq'));
+    const r = await transcribeChain(audio(), 'n.webm', GROQ_ENV, { fetch: fetchMock as any });
+    expect(r.job_id).toBeUndefined();
+    expect(r.refined).toBeUndefined();
+  });
+});
+
+describe('pollRefine', () => {
+  it('reports refining with seconds_remaining', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ text: 'טקסט מהיר', status: 'refining', refined: false, seconds_remaining: 4 }),
+      { status: 200 }));
+    const s = await pollRefine('job-123', SELF_ENV, { fetch: fetchMock as any });
+    expect(s).toMatchObject({ status: 'refining', refined: false, seconds_remaining: 4 });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://whisper.example.com/v1/audio/transcriptions/job-123');
+    expect((fetchMock.mock.calls[0][1].headers as any).Authorization).toBe('Bearer tok');
+  });
+
+  it('reports done with the refined text', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ text: 'טקסט מתוקן', status: 'done', refined: true }), { status: 200 }));
+    const s = await pollRefine('job-123', SELF_ENV, { fetch: fetchMock as any });
+    expect(s).toMatchObject({ text: 'טקסט מתוקן', status: 'done', refined: true });
+  });
+});
+
+describe('checkHealth', () => {
+  it('is ok:true engine:self when the self server answers 200', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('ok', { status: 200 }));
+    expect(await checkHealth(SELF_ENV, { fetch: fetchMock as any })).toEqual({ ok: true, engine: 'self' });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://whisper.example.com/health');
+  });
+
+  it('is ok:false engine:none when SELF_WHISPER_URL is unset', async () => {
+    const fetchMock = vi.fn();
+    expect(await checkHealth({}, { fetch: fetchMock as any })).toEqual({ ok: false, engine: 'none' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('is ok:false engine:none on a network error', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('down'));
+    expect(await checkHealth(SELF_ENV, { fetch: fetchMock as any })).toEqual({ ok: false, engine: 'none' });
   });
 });

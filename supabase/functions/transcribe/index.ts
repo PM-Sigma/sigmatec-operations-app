@@ -20,7 +20,11 @@
 // Secrets: SELF_WHISPER_URL, SELF_WHISPER_TOKEN, GROQ_API_KEY, GROQ_FALLBACK (optional),
 // EMS_API_BASE (already set).
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { transcribeChain, validAudioPath, type ChainEnv } from "./chain.ts";
+import { transcribeChain, validAudioPath, pollRefine, checkHealth, type ChainEnv } from "./chain.ts";
+
+/** The office server's default base (spec §7i "Whisper server — live"); SELF_WHISPER_URL
+ * overrides it, so a moved/renamed server never needs a code change. */
+const DEFAULT_SELF_WHISPER_URL = "https://idanhomepc.tail9e880d.ts.net";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -59,9 +63,35 @@ Deno.serve(async (req: Request) => {
   let body: any = {};
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
 
+  const env: ChainEnv = {
+    SELF_WHISPER_URL: Deno.env.get("SELF_WHISPER_URL") || DEFAULT_SELF_WHISPER_URL,
+    SELF_WHISPER_TOKEN: Deno.env.get("SELF_WHISPER_TOKEN") || "",
+    GROQ_API_KEY: Deno.env.get("GROQ_API_KEY") || "",
+    GROQ_FALLBACK: Deno.env.get("GROQ_FALLBACK") || "",
+  };
+
+  // `/health` mode — open, no EMS gate (spec §7i: "a later settings chip"). Never touches audio.
+  if (body.health === true) {
+    const h = await checkHealth(env, { fetch });
+    return json(h);
+  }
+
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   if (!(await emsValid(EMS_API_BASE, String(body.token || "")))) {
     return json({ error: "unauthorized: valid EMS login required" }, 401);
+  }
+
+  // Poll mode — `{ token, job_id }`, no `path`. Proxies the self server's GET with our bearer
+  // so the client never holds SELF_WHISPER_TOKEN (spec §7i). No transcribe_log row: this is a
+  // status check on an attempt already logged, not a new attempt against the 120/h budget.
+  if (body.job_id) {
+    if (!env.SELF_WHISPER_TOKEN) return json({ error: "self server not configured" }, 502);
+    try {
+      const s = await pollRefine(String(body.job_id), env, { fetch });
+      return json(s);
+    } catch (e) {
+      return json({ error: "poll failed: " + String((e as Error)?.message || e) }, 502);
+    }
   }
 
   const bucket = String(body.bucket || "feedback-audio");
@@ -92,13 +122,6 @@ Deno.serve(async (req: Request) => {
     return json({ error: "ההקלטה גדולה מדי (מעל 25MB)" }, 413);
   }
 
-  const env: ChainEnv = {
-    SELF_WHISPER_URL: Deno.env.get("SELF_WHISPER_URL") || "",
-    SELF_WHISPER_TOKEN: Deno.env.get("SELF_WHISPER_TOKEN") || "",
-    GROQ_API_KEY: Deno.env.get("GROQ_API_KEY") || "",
-    GROQ_FALLBACK: Deno.env.get("GROQ_FALLBACK") || "",
-  };
-
   const t0 = Date.now();
   try {
     const r = await transcribeChain(blob, path, env, { fetch });
@@ -106,7 +129,10 @@ Deno.serve(async (req: Request) => {
     // Retention (spec §7i): the recording is deleted the moment we have the text; a FAILED
     // one stays for the 7-day retry window that db/feedback.sql documents.
     try { await sb.storage.from(bucket).remove([path]); } catch { /* the bucket's lifecycle will */ }
-    return json({ text: r.text, engine: r.engine, ms: r.ms });
+    return json({
+      text: r.text, engine: r.engine, ms: r.ms,
+      refined: r.refined ?? true, job_id: r.job_id, refine_eta_seconds: r.refine_eta_seconds,
+    });
   } catch (e) {
     const msg = String((e as Error)?.message || e);
     await log("failed", Date.now() - t0, false, msg);
