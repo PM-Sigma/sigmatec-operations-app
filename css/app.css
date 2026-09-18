@@ -38,6 +38,18 @@
     /* Text ON the brand gradient. White in both themes — the gradient itself never flips
        (spec §6: "brand gradient unchanged, it reads well on dark"). */
     --on-brand: #ffffff;
+    /* Dev-board stage colors (spec §7d). The dev page is the ONE page where color carries
+       meaning per column, so each live Projects-v2 column owns a token: the column's left rule,
+       its count pill, its rail dot, the card's status pill and every stacked-bar slice all read
+       from the same one. Seven, not six — the board gained "Main Fields"/"Scope Refinement" and
+       lost "Done" in the 2026-09-08 rework, so a --stage-done token would style nothing. */
+    --stage-fields:    #0891b2;
+    --stage-backlog:   #64748b;
+    --stage-scope:     #d97706;
+    --stage-ready:     #15803d;
+    --stage-prog:      #6d4fd0;
+    --stage-review:    #b45309;
+    --stage-committed: #475569;
   }
 
   /* Dark mode (spec §6) — a real toggle, not only the OS preference. The choice is stored in
@@ -54,6 +66,15 @@
     --accent-soft: #14262f;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
+    /* Dev-board stage colors, dark variants (spec §7d): lifted so each one still reads as pill
+       text on --card and keeps the same hue identity on the stacked bars. */
+    --stage-fields:    #38bdf8;
+    --stage-backlog:   #9aa8b8;
+    --stage-scope:     #f0a94b;
+    --stage-ready:     #4ade80;
+    --stage-prog:      #a78bfa;
+    --stage-review:    #fbbf24;
+    --stage-committed: #94a3b8;
   }
   /* delivery-cert modal: stack the customer grid on phones (default 2-col is too cramped) */
   @media (max-width: 520px) {
@@ -596,31 +617,71 @@
   }
 
   /* ===== DEV TASKS (פיתוח) — centered column + nested hierarchy rails ===== */
-  /* Topic-tree view keeps the readable 880px column; the STATUS BOARD gets the full
-     container width and lays its 6 stages out as real kanban columns on wide screens. */
+  /* Tree view keeps the readable 880px column; the BOARD gets the full container width and lays
+     its four FULL stages out as real kanban columns, with every other stage minimized to a rail
+     chip (spec §7d). The rail is a strip of horizontal chips — never rotated text (ledger 8). */
   .dev-wrap { max-width: 880px; margin: 0 auto; }
-  /* Weighted board: the ACTIVE columns (ספרינט קרוב / בפיתוח / בדיקות) get the width and sit first
-     (RTL: rightmost); the backlog pool is a narrower side column; done/committed live in a bottom
-     row (collapsed by default). This is the "expand the open ones" layout, not a uniform 6-way split. */
+  /* Phone/tablet default: the columns stack, the rail is a wrapping chip row ABOVE them
+     (column-reverse — the rail is last in the DOM so it can sit at the board's end on desktop). */
+  .dev-board { display: flex; flex-direction: column-reverse; gap: 12px; align-items: stretch; }
+  .dev-board-grid { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .dev-rail { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; }
   @media (min-width: 1100px) {
     .dev-wrap.dev-wrap-board { max-width: 1400px; }
-    .dev-board { display: grid; gap: 12px; align-items: start;
-      grid-template-columns: 1.35fr 1.35fr 1.35fr 1fr;
-      grid-template-areas: "ready prog review backlog" "done done committed committed"; }
-    .dev-board .dev-stage { margin-bottom: 0; }
-    .dev-board .dev-stage-ready     { grid-area: ready; }
-    .dev-board .dev-stage-prog      { grid-area: prog; }
-    .dev-board .dev-stage-review    { grid-area: review; }
-    .dev-board .dev-stage-backlog   { grid-area: backlog; }
-    .dev-board .dev-stage-done      { grid-area: done; }
-    .dev-board .dev-stage-committed { grid-area: committed; }
-    .dev-board .dev-mtask[draggable="true"] { cursor: grab; }
-    .dev-board .dev-mtask[draggable="true"]:active { cursor: grabbing; }
+    .dev-board { flex-direction: row; align-items: flex-start; }
+    /* auto-fit, not a fixed template: spec §7d — "column widths never shrink below 280 px because
+       of the rail", so the four tracks share the row and WRAP rather than being squeezed, and an
+       expanded rail chip can join them as a 5th column without re-writing the template. */
+    .dev-board-grid { flex: 1 1 auto; display: grid; gap: 12px; align-items: start;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .dev-board-grid .dev-stage { margin-bottom: 0; }
+    .dev-board-grid .dev-mtask[draggable="true"] { cursor: grab; }
+    .dev-board-grid .dev-mtask[draggable="true"]:active { cursor: grabbing; }
+    .dev-rail { flex: 0 0 168px; flex-direction: column; flex-wrap: nowrap; position: sticky; top: 12px; }
   }
   /* 2K+ screens: break the board out of the 1400px container — no dead side margins */
   @media (min-width: 1700px) {
     .dev-wrap.dev-wrap-board { max-width: none; margin-inline: calc(50% - 50vw + 32px); }
   }
+  /* A minimized column: colored dot + name + count. Same .dev-stage + data-stage as a real column,
+     so the drag/drop wiring in 18-dev-tasks.js needs no second code path — dragging a card over a
+     chip highlights it, and a successful drop repaints it (expanded or not) with the card inside. */
+  .dev-rail-chip { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px;
+    padding: 8px 10px; font-family: inherit; font-size: 13px; font-weight: 600; text-align: start;
+    color: var(--text); cursor: pointer; transition: border-color .15s, background .15s, opacity .15s; }
+  .dev-rail-chip:hover { background: var(--surface-2); }
+  .dev-rail-chip.active { background: var(--accent-soft); border-color: var(--accent); }
+  .dev-rail-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+    background: var(--stage-c, var(--text-light)); }
+  .dev-rail-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dev-rail-chip.dev-drop-hover { transform: scale(1.04); }
+
+  /* ===== FLOW STRIP — one stacked bar for the whole board; a segment filters to that stage ===== */
+  .dev-flow { margin: 0 0 14px; }
+  .dev-flow-cap { font-size: 11px; font-weight: 600; letter-spacing: .03em; color: var(--text-light); margin-bottom: 6px; }
+  .dev-flow-bar { display: flex; height: 26px; border-radius: 8px; overflow: hidden;
+    background: var(--gray-light); border: 1px solid var(--border); }
+  .dev-flow-seg { display: flex; align-items: center; justify-content: center; min-width: 20px; height: 100%;
+    padding: 0; border: 0; border-inline-end: 1px solid rgba(255,255,255,.35); font-family: inherit;
+    cursor: pointer; transition: filter .15s, opacity .15s; }
+  .dev-flow-seg:last-child { border-inline-end: 0; }
+  .dev-flow-seg:hover { filter: brightness(1.12); }
+  .dev-flow-seg.active { outline: 2px solid var(--text); outline-offset: -2px; }
+  .dev-flow-n { font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.35); font-feature-settings: "tnum"; }
+
+  /* ===== TREE VIEW — one row per נושא (root issue) + its stacked status bar ===== */
+  .dev-troot { margin-bottom: 10px; border: 1px solid var(--border); border-inline-start: 4px solid var(--accent);
+    border-radius: 12px; background: var(--card); overflow: hidden; }
+  .dev-troot[open] { box-shadow: var(--shadow-sm); }
+  .dev-troot-sum { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center;
+    gap: 9px; padding: 12px 14px; font-weight: 700; font-size: 15px; }
+  .dev-troot-sum::-webkit-details-marker { display: none; }
+  .dev-troot-bar { display: flex; height: 6px; margin: 0 14px 8px; border-radius: 4px; overflow: hidden; background: var(--gray-light); }
+  .dev-troot-bar > span { display: block; height: 100%; min-width: 2px; }
+  .dev-troot .dev-topic-n { background: var(--text-light); }
+  .dev-troot[open] .dev-topic-caret { transform: rotate(180deg); }
+  .dev-select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+    color: var(--text); font-family: inherit; font-size: 13px; min-height: 38px; }
   /* drop-target highlight while dragging a card (עידן only) */
   .dev-stage.dev-drop-hover { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--accent-soft); }
   /* "עלתה גרסה" — rare, deliberate action: ghost look, pushed to the far (left) edge so it can't be hit by habit */
@@ -820,12 +881,20 @@
     content: "\21B2"; color: var(--pc); opacity: .85; font-weight: 700; flex-shrink: 0;
     display: inline-block; margin-inline-end: 2px; }
 
-  /* Projects-v2 Status badge (Backlog / In Progress / Done / בעבודה…) */
-  .dev-status { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px; white-space: nowrap; border: 1px solid transparent; }
-  .dev-status-prog   { color: #1e40af; background: #dbeafe; border-color: #bfdbfe; }
-  .dev-status-done   { color: #15803d; background: #dcfce7; }
-  .dev-status-review { color: var(--warning); background: var(--warning-light); }
-  .dev-status-todo   { color: var(--text-light); background: var(--gray-light); }
+  /* Column pill — the ticket's stage, in Hebrew, tinted with that stage's token so a card in a
+     column, its pill and its slice of a stacked bar are visibly the same thing (spec §7d). */
+  .dev-status { flex-shrink: 0; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 8px;
+    white-space: nowrap; border: 1px solid transparent;
+    color: var(--stage-c, var(--text-light));
+    background: color-mix(in srgb, var(--stage-c, var(--text-light)) 14%, transparent);
+    border-color: color-mix(in srgb, var(--stage-c, var(--text-light)) 30%, transparent); }
+  .dev-status-fields    { --stage-c: var(--stage-fields); }
+  .dev-status-backlog   { --stage-c: var(--stage-backlog); }
+  .dev-status-scope     { --stage-c: var(--stage-scope); }
+  .dev-status-ready     { --stage-c: var(--stage-ready); }
+  .dev-status-prog      { --stage-c: var(--stage-prog); }
+  .dev-status-review    { --stage-c: var(--stage-review); }
+  .dev-status-committed { --stage-c: var(--stage-committed); }
 
   /* ===== Task card (.dev-mtask) — used by the status board (all widths) AND the mobile topic tree ===== */
   .dev-mtask { border: 0.5px solid var(--border); border-inline-start: 4px solid var(--border); border-radius: 10px; background: var(--card); overflow: hidden; }
@@ -854,11 +923,18 @@
   .dev-stage[open] > .dev-stage-sum .dev-topic-caret { transform: rotate(180deg); }
   .dev-stage-body { display: flex; flex-direction: column; gap: 8px; padding: 0 10px 12px; }
   .dev-stage-empty { color: var(--text-light); font-size: 13px; padding: 0 4px 8px; }
-  .dev-stage-ready     { border-inline-start: 4px solid #16a34a; }
-  .dev-stage-prog      { border-inline-start: 4px solid #7c5cdb; }
-  .dev-stage-review    { border-inline-start: 4px solid #c87f0a; }
-  .dev-stage-done      { border-inline-start: 4px solid #0e9aa7; }
-  .dev-stage-committed { border-inline-start: 4px solid #475569; }
+  /* Per-stage color: --stage-c is set once per column/chip/pill from the stage token, so the
+     column rule, the rail dot, the status pill and the stacked bars all read as the same color. */
+  .dev-stage-fields    { --stage-c: var(--stage-fields); }
+  .dev-stage-backlog   { --stage-c: var(--stage-backlog); }
+  .dev-stage-scope     { --stage-c: var(--stage-scope); }
+  .dev-stage-ready     { --stage-c: var(--stage-ready); }
+  .dev-stage-prog      { --stage-c: var(--stage-prog); }
+  .dev-stage-review    { --stage-c: var(--stage-review); }
+  .dev-stage-committed { --stage-c: var(--stage-committed); }
+  .dev-stage { border-inline-start: 4px solid var(--stage-c, var(--border)); }
+  .dev-stage-sum .dev-stage-n { background: color-mix(in srgb, var(--stage-c, var(--text-light)) 14%, transparent);
+    color: var(--stage-c, var(--text-light)); }
 
   /* sprint actions + multi-select */
   .dev-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }
@@ -894,9 +970,21 @@
     .dev-git { width: 34px; height: 34px; }
     .dev-detail { margin-right: 4px; font-size: 14px; }
 
-    /* ---- mobile topic-tree (·78): topic header crit badge + flex body ---- */
+    /* ---- mobile tree (·78 + §7d): root header crit badge + flex body ---- */
     .dev-topic-crit { flex-shrink: 0; font-size: 11px; font-weight: 700; color: #fff; background: #dc2626; border-radius: 12px; padding: 2px 9px; }
     .dev-topic-body { display: flex; flex-direction: column; gap: 8px; }
+    .dev-troot-sum { min-height: 54px; padding: 13px 14px; font-size: 15px; }
+
+    /* ---- the phone BOARD (spec §7d): the columns become a horizontal snap-scroll, one column
+       ≈ 88 vw, so a thumb swipe lands square on the next column instead of half a column. The
+       rail already sits above them (.dev-board is column-reverse) as a wrapping chip row. ---- */
+    .dev-board-grid { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; overflow-y: visible;
+      gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+    .dev-board-grid > .dev-stage { flex: 0 0 88vw; max-width: 88vw; scroll-snap-align: center; margin-bottom: 0; }
+    .dev-rail-chip { width: auto; min-width: 0; }
+    .dev-flow-bar { height: 30px; }
+    .dev-select { min-height: 44px; font-size: 16px; }
   }
 
   /* order-type toggle (ספק / לקוח) in the new-order modal */
@@ -1540,6 +1628,13 @@ body.sigma-home-fallback .section:has(#grid-active) { display: block; }
     --accent-soft: #14262f;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
+    --stage-fields:    #38bdf8;
+    --stage-backlog:   #9aa8b8;
+    --stage-scope:     #f0a94b;
+    --stage-ready:     #4ade80;
+    --stage-prog:      #a78bfa;
+    --stage-review:    #fbbf24;
+    --stage-committed: #94a3b8;
   }
 }
 

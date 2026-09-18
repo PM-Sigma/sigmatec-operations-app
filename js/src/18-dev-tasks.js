@@ -51,15 +51,14 @@
     }
     return null;
   }
-  // status badge from the Projects-v2 Status field (Backlog / In Progress / Done / בעבודה …)
+  // status pill — the ticket's COLUMN, in Hebrew, colored by the same --stage-* token as the
+  // column it sits in (spec §7d: "color carries meaning per column"). A ticket with no Status
+  // field and still open shows nothing, exactly as before; the raw option name is the tooltip.
   function devStatus(t) {
     var s = String(t.status || '').trim();
-    if (!s) return null;
-    var cls = 'todo';
-    if (/progress|בעבודה|doing|פיתוח|active|wip|בתהליך/i.test(s)) cls = 'prog';
-    else if (/done|בוצע|הושלם|complete|closed|נסגר/i.test(s)) cls = 'done';
-    else if (/review|בדיקה|qa/i.test(s)) cls = 'review';
-    return { label: s, cls: cls };
+    if (!s && t.state !== 'closed') return null;
+    var k = devStage(t);
+    return { label: DEV_STAGE[k].label, cls: k, raw: s };
   }
   function devInProgress(t) { return t.state !== 'closed' && /progress|בעבודה|doing|פיתוח|active|wip|בתהליך/i.test(String(t.status || '')); }
   function devEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -100,25 +99,40 @@
     }
   };
 
-  // ----- Pipeline stages: the 6 named board columns (Backlog→Ready→In Progress→In Review→Done→Committed) -----
+  // ----- Pipeline stages: the SEVEN live board columns, in pipeline order -----
+  // The GitHub Projects v2 board was reworked on 2026-09-08: "Done" was removed, "Main Fields"
+  // (parent/domain issues) and "Scope Refinement" (sent back for re-spec) were added, and "Ready"
+  // became "Sprint Ready". The mapping below is PORTED from 91c0d5a (branch fix/dev-board-columns,
+  // never merged) — without it "Main Fields"/"Scope Refinement" match no regex and ~37 parent
+  // tickets fall silently into ממתין-לפיתוח. See the Task 11 report for the porting decision.
+  // This order drives the flow strip, the rail and the day-stamps; the BOARD's four full columns
+  // are DEV_FULL_KEYS below (spec §7d), and everything else is a minimized rail chip.
   var DEV_STAGES = [
-    { key: 'backlog',   label: 'ממתין לפיתוח',           ico: '📋', open: false },
-    { key: 'ready',     label: 'ספרינט קרוב',             ico: '🟢', open: true  },
-    { key: 'prog',      label: 'בפיתוח עכשיו',            ico: '🔨', open: true  },
-    { key: 'review',    label: 'בשלבי בדיקות',            ico: '🔍', open: true  },
-    { key: 'done',      label: 'גמר פיתוח ממתין לגרסה',   ico: '✅', open: false },
-    { key: 'committed', label: 'עלה לאוויר',              ico: '🚀', open: false }
+    { key: 'fields',    label: 'תחומים ראשיים',   ico: '🗂️' },
+    { key: 'backlog',   label: 'ממתין לפיתוח',    ico: '📋' },
+    { key: 'scope',     label: 'חזר לאפיון מחדש', ico: '↩️' },
+    { key: 'ready',     label: 'ספרינט הקרוב',    ico: '🟢' },
+    { key: 'prog',      label: 'בפיתוח עכשיו',    ico: '🔨' },
+    { key: 'review',    label: 'שלבי בדיקות',     ico: '🔍' },
+    { key: 'committed', label: 'עלה לאוויר',      ico: '🚀' }
   ];
+  // spec §7d: exactly these four are FULL columns, in this order (RTL: ספרינט rightmost).
+  var DEV_FULL_KEYS = ['ready', 'prog', 'review', 'backlog'];
+  var DEV_STAGE = {}; DEV_STAGES.forEach(function (s) { DEV_STAGE[s.key] = s; });
+  // "שבוצע" for the tree's הסתר-שבוצע filter. The board folded Done into Committed, so עלה-לאוויר
+  // (which is also where devStage sends a closed issue) is the only finished state left.
+  var DEV_DONE_KEYS = { committed: true };
   // map a ticket's Projects-v2 Status string → one stage key (most-specific match first)
   function devStage(t) {
     var s = String(t.status || '').toLowerCase();
-    if (/commit|deployed|\blive\b|released|production|פרוד|עלה לאוויר|אונליין/.test(s)) return 'committed';
-    if (/done|בוצע|הושלם|complete|merged|נסגר/.test(s)) return 'done';
+    if (/^main fields$|תחומים ראשי/.test(s)) return 'fields';
+    if (/scope refinement|אפיון מחדש/.test(s)) return 'scope';
+    if (/commit|deployed|\blive\b|released|production|פרוד|עלה לאוויר|אונליין|^done$|בוצע|הושלם|complete|merged|נסגר/.test(s)) return 'committed';
     if (/review|בדיק|qa/.test(s)) return 'review';
     if (/progress|בעבודה|doing|פיתוח|wip|בתהליך|active/.test(s)) return 'prog';
-    if (/ready|מוכן|ספרינט|next|planned/.test(s)) return 'ready';
-    if (t.state === 'closed') return 'done';   // closed without a status → treat as done
-    return 'backlog';                          // backlog / todo / new / empty
+    if (/ready|מוכן|ספרינט|next|planned/.test(s)) return 'ready';   // matches "Sprint Ready" too
+    if (t.state === 'closed') return 'committed';   // closed without a status → it shipped
+    return 'backlog';                               // backlog / todo / new / empty
   }
   var DEV_PRANK = { 'קריטי': 4, 'גבוהה': 3, 'גבוה': 3, 'בינונית': 2, 'נמוכה': 1, 'נמוך': 1 };
   function devFmtDate(s) { if (!s) return ''; var d = new Date(s); if (isNaN(d.getTime())) return ''; return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
@@ -126,17 +140,15 @@
   // ----- FILTER predicates (open tasks only; closed never match a filter) -----
   function devMatchFilter(t, f) {
     if (!f) return true;
+    // the flow strip / column filter is about the COLUMN, so it must reach closed tickets too
+    // (עלה-לאוויר is mostly closed issues) — checked before the open-only rule below.
+    if (f.type === 'stage') return devStage(t) === f.val;
+    if (f.type === 'topic') return ((t._p || devParseT(t.title)).topic === f.val);
     if (t.state === 'closed') return false;
     if (f.type === 'prio')   { var pr = devPriority(t); return !!pr && pr.label === f.val; }
     if (f.type === 'status') return devInProgress(t);
     if (f.type === 'week')   { var u = t.updatedAt ? new Date(t.updatedAt).getTime() : 0; return u >= (new Date().getTime() - 7 * 864e5); }
     return true;
-  }
-  // a node belongs in a filtered tree if it matches OR any descendant matches (path is preserved)
-  function devSubtreeMatch(t, f, depth) {
-    if (devMatchFilter(t, f)) return true;
-    if (depth >= 6) return false;
-    return (DEV_CHILDREN[t.number] || []).some(function (k) { return devSubtreeMatch(k, f, depth + 1); });
   }
   function devCountMatches(t, f, depth) {
     var n = devMatchFilter(t, f) ? 1 : 0;
@@ -149,9 +161,12 @@
     if (f.type === 'prio')   return 'עדיפות ' + f.val;
     if (f.type === 'status') return 'בפיתוח עכשיו';
     if (f.type === 'week')   return 'עודכנו השבוע';
+    if (f.type === 'stage')  return DEV_STAGE[f.val] ? DEV_STAGE[f.val].label : f.val;
+    if (f.type === 'topic')  return 'נושא ' + f.val;
     return '';
   }
-  function devOtherLabel(f) { return (f && f.type === 'prio') ? 'בעדיפות אחרת' : 'שלא תואמים לסינון'; }
+  // a Hebrew string safe inside an inline onclick="fn('…')" (topic names carry apostrophes)
+  function devArg(s) { return devEsc(String(s == null ? '' : s)).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
   // One color per topic, reused across the hero load-bar, the legend, and each topic's spine —
   // so a slice of the bar, its legend chip, and its section in the tree all read as the same color.
@@ -197,9 +212,13 @@
     var bar = visTopics.map(function (tp) {
       return '<span style="width:' + (matchCounts[tp] / total * 100).toFixed(2) + '%;background:' + colorOf[tp] + '" title="' + devEsc(tp) + ' · ' + matchCounts[tp] + '"></span>';
     }).join('');
+    // the legend is a TOPIC filter (it used to scroll to a topic section; the topic sections are
+    // gone with the §7d tree view, and every other hero control is a toggle filter anyway).
     var legend = visTopics.map(function (tp) {
-      var fi = topicNames.indexOf(tp);
-      return '<button class="dev-leg" onclick="devJump(' + fi + ')"><span class="dev-leg-dot" style="background:' + colorOf[tp] + '"></span><bdi>' + devEsc(tp) + '</bdi><span class="dev-leg-n">' + matchCounts[tp] + '</span></button>';
+      var act = !!f && f.type === 'topic' && f.val === tp;
+      return '<button class="dev-leg' + (act ? ' active' : '') + '" onclick="devSetFilter({type:\'topic\',val:\'' + devArg(tp) + '\'})">' +
+        '<span class="dev-leg-dot" style="background:' + colorOf[tp] + '"></span><bdi>' + devEsc(tp) + '</bdi>' +
+        '<span class="dev-leg-n">' + matchCounts[tp] + '</span></button>';
     }).join('');
 
     return '<div class="dev-hero">' +
@@ -299,20 +318,16 @@
     return title.replace(/\s*\|\s*/g, ' › ');
   }
 
-  // recursive tree node — renders the issue + its GitHub sub-issues nested, to any depth.
-  // Under a filter (f): subtrees with no match are dropped; matching rows get .dev-match (highlight),
-  // ancestor-only rows get .dev-ctx (dimmed context), and the path auto-expands so matches are visible.
-  function devNode(t, isRoot, groupTopic, depth, f) {
-    if (f && !devSubtreeMatch(t, f, depth)) return '';
-    var isMatch = !f || devMatchFilter(t, f);
-    var kids = depth < 6 ? (DEV_CHILDREN[t.number] || []) : [];
+  // desktop tree row — the issue + its GitHub sub-issues nested, to any depth. Takes a PURE node
+  // from devTree() (already pruned by the tree filters), so the row itself only paints.
+  function devTreeRowDesktop(node, depth) {
+    var t = node.task, kids = node.children;
     var s = devEsc((t.title + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase());
-    var childrenHtml = kids.length ? '<div class="dev-children">' + kids.map(function (k) { return devNode(k, false, groupTopic, depth + 1, f); }).join('') + '</div>' : '';
+    var childrenHtml = kids.length ? '<div class="dev-children">' + kids.map(function (k) { return devTreeRowDesktop(k, depth + 1); }).join('') + '</div>' : '';
     var pr = devPriority(t);
-    var cls = 'dev-task' + (kids.length ? ' dev-haskids' : '') + (pr ? ' dev-pr-' + pr.cls : '') + (f ? (isMatch ? ' dev-match' : ' dev-ctx') : '');
-    var openAttr = (f && childrenHtml) ? ' open' : '';
-    return '<details class="' + cls + '"' + openAttr + ' data-s="' + s + '">' +
-      devNodeSummary(devNodeLabel(t, isRoot, groupTopic), t, kids) + devDetailPanel(t) + childrenHtml +
+    var cls = 'dev-task' + (kids.length ? ' dev-haskids' : '') + (pr ? ' dev-pr-' + pr.cls : '');
+    return '<details class="' + cls + '" data-s="' + s + '">' +
+      devNodeSummary(node.label, t, kids) + devDetailPanel(t) + childrenHtml +
     '</details>';
   }
 
@@ -343,22 +358,21 @@
       (t.body ? '<div class="dev-detail-body">' + devEsc(t.body) + '</div>' : '<div class="dev-detail-empty">— אין תיאור זמין —</div>') +
     '</details>';
   }
-  function devMobileNodes(nodes, f, depth) {
-    return nodes.map(function (t) {
-      if (f && !devSubtreeMatch(t, f, depth)) return '';
-      var kids = depth < 6 ? (DEV_CHILDREN[t.number] || []) : [];
-      if (!kids.length) return devMobileCard(t);   // leaf → card
-      var pr = devPriority(t);                       // epic → thin label + flattened children
-      return '<div class="dev-mepic-wrap' + (depth ? ' dev-mepic-sub' : '') + '">' +
-        '<div class="dev-mepic">' +
-          '<span class="dev-mepic-name">' + devEsc(devNodeLabel(t, depth === 0, t._p.topic)) + '</span>' +
-          (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
-          '<span class="dev-mepic-n">' + kids.length + ' תת-משימות</span>' +
-          '<a class="dev-git" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="devGitOpen(event,this)" title="פתח ב-GitHub">' + DEV_GH + '</a>' +
-        '</div>' +
-        '<div class="dev-mgroup">' + devMobileNodes(kids, f, depth + 1) + '</div>' +
-      '</div>';
-    }).join('');
+  // mobile tree row — a leaf is a card, a node with sub-issues collapses to a thin label + count
+  // (its generic title isn't something to tap) and flattens its children under it.
+  function devTreeRowMobile(node, depth) {
+    var t = node.task, kids = node.children;
+    if (!kids.length) return devMobileCard(t);
+    var pr = devPriority(t);
+    return '<div class="dev-mepic-wrap' + (depth ? ' dev-mepic-sub' : '') + '">' +
+      '<div class="dev-mepic">' +
+        '<span class="dev-mepic-name">' + devEsc(node.label) + '</span>' +
+        (pr ? '<span class="dev-prio dev-prio-' + pr.cls + '">' + devEsc(pr.label) + '</span>' : '') +
+        '<span class="dev-mepic-n">' + kids.length + ' תת-משימות</span>' +
+        '<a class="dev-git" href="' + devEsc(t.url) + '" target="_blank" rel="noopener" onclick="devGitOpen(event,this)" title="פתח ב-GitHub">' + DEV_GH + '</a>' +
+      '</div>' +
+      '<div class="dev-mgroup">' + kids.map(function (k) { return devTreeRowMobile(k, depth + 1); }).join('') + '</div>' +
+    '</div>';
   }
 
   // ---- Offline cache: tickets persist in localStorage so the page paints instantly (even before
@@ -410,27 +424,200 @@
     window._devData = { tasks: tasks, topics: topics, topicNames: topicNames, colors: colors };
   }
 
-  // ----- Status board (the 6 named stage columns) -----
-  // PER-TICKET board: EVERY ticket (parent or child) sits in the column matching ITS OWN status — so a
-  // pushed child actually moves, and the column count = the cards shown. A tree may split across columns
-  // (by design); the full אב→בנים hierarchy lives in the "לפי נושא" (topic) view. Cards are flat here, so
-  // each one is directly selectable in בחר-משימות (no parent-cascade needed).
-  function devBoard(d, f) {
+  // ═══════════════ PURE layout builders (spec §7d) — no DOM, no globals ═══════════════
+  // They are the unit under test (test-devboard.mjs evaluates this module and calls them), so
+  // anything with a rule in it lives HERE and the render functions below only paint.
+
+  // Board layout: the four full columns, plus a rail of every other column as a minimized chip.
+  // Tapping a chip (devToggleRail) puts its key in `expanded`, which appends it as a 5th column
+  // IN PLACE while leaving the chip in the rail (flagged) so a second tap collapses it again.
+  //   → { full: [{key, tasks}], rail: [{key, count, expanded}] }
+  // PER-TICKET placement: EVERY ticket (parent or child) sits in the column matching ITS OWN
+  // status — so a pushed child actually moves and a column's count equals the cards it shows.
+  function devBoardLayout(tasks, expanded) {
+    var exp = {}; (expanded || []).forEach(function (k) { exp[k] = true; });
     var byStage = {}; DEV_STAGES.forEach(function (s) { byStage[s.key] = []; });
-    d.tasks.forEach(function (t) { if (!f || devMatchFilter(t, f)) byStage[devStage(t)].push(t); });
+    (tasks || []).forEach(function (t) { var k = devStage(t); if (byStage[k]) byStage[k].push(t); });
     // order = GitHub Project board order (t.pos from the projectV2 items query); tickets not on the
     // board fall to the end (pos defaults to 1e9). ponytail: pos is the project's global item order,
     // the closest the API exposes — per-column board drag-order isn't queryable.
     var pos = function (t) { return (typeof t.pos === 'number') ? t.pos : 1e9; };
-    return DEV_STAGES.map(function (s) {
-      var list = byStage[s.key].sort(function (a, b) { return pos(a) - pos(b); });
-      var openAttr = ((s.open || f) && list.length) ? ' open' : '';
-      var inner = list.length ? list.map(devMobileCard).join('') : '<div class="dev-stage-empty">—</div>';
-      return '<details class="dev-stage dev-stage-' + s.key + '" data-stage="' + s.key + '"' + openAttr + '>' +
+    DEV_STAGES.forEach(function (s) { byStage[s.key].sort(function (a, b) { return pos(a) - pos(b); }); });
+    var full = DEV_FULL_KEYS.map(function (k) { return { key: k, tasks: byStage[k] }; });
+    var rail = [];
+    DEV_STAGES.forEach(function (s) {
+      if (DEV_FULL_KEYS.indexOf(s.key) !== -1) return;
+      var on = !!exp[s.key];
+      rail.push({ key: s.key, count: byStage[s.key].length, expanded: on });
+      if (on) full.push({ key: s.key, tasks: byStage[s.key] });
+    });
+    return { full: full, rail: rail };
+  }
+
+  // Stacked-bar segments from a {stageKey: count} map, in pipeline order, as INTEGER percentages
+  // that sum to exactly 100 (largest-remainder; ties broken by pipeline order so it is stable).
+  function devPctSegments(counts) {
+    var total = 0; DEV_STAGES.forEach(function (s) { total += counts[s.key] || 0; });
+    if (!total) return [];
+    var out = [];
+    DEV_STAGES.forEach(function (s, i) {
+      var n = counts[s.key] || 0; if (!n) return;
+      var exact = n * 100 / total;
+      out.push({ key: s.key, label: s.label, n: n, pct: Math.floor(exact), _rem: exact - Math.floor(exact), _i: i });
+    });
+    var left = 100 - out.reduce(function (a, x) { return a + x.pct; }, 0);
+    out.slice()
+      .sort(function (a, b) { return (b._rem - a._rem) || (a._i - b._i); })
+      .slice(0, Math.max(0, Math.min(left, out.length)))
+      .forEach(function (x) { x.pct += 1; });
+    out.forEach(function (x) { delete x._rem; delete x._i; });
+    return out;
+  }
+  // Flow strip: one stacked bar for the WHOLE board — a mini Sankey without the ribbons.
+  function devFlowSegments(tasks) {
+    var counts = {};
+    (tasks || []).forEach(function (t) { var k = devStage(t); counts[k] = (counts[k] || 0) + 1; });
+    return devPctSegments(counts);
+  }
+
+  // Tree: the GitHub sub-issue tree. A parentless issue WITH sub-issues is a נושא row (root); a
+  // parentless issue without them has no נושא, so it lands in the ללא-נושא bucket (always last).
+  // Filters: hideDone (done leaves go; a container with nothing live left under it goes too — that
+  // is the "root whose children are all done disappears" rule), assignee, stage (= column), q.
+  //   → [{ key, number, task, label, stage, children, bar, n }]
+  function devTreeMatch(t, o) {
+    if (o.stage && devStage(t) !== o.stage) return false;
+    if (o.assignee && String(t.assignee || '') !== o.assignee) return false;
+    if (o.q) {
+      var s = (String(t.title || '') + ' #' + t.number + ' ' + (t.assignee || '') + ' ' + (t.status || '')).toLowerCase();
+      if (s.indexOf(String(o.q).toLowerCase()) === -1) return false;
+    }
+    return true;
+  }
+  function devTree(tasks, opts) {
+    var o = opts || {}, list = tasks || [];
+    var byNum = {}; list.forEach(function (t) { byNum[t.number] = t; });
+    var kids = {}, tops = [];
+    list.forEach(function (t) {
+      if (t.parent && byNum[t.parent]) (kids[t.parent] = kids[t.parent] || []).push(t);
+      else tops.push(t);   // no parent, or a parent outside the fetched set (orphans still surface)
+    });
+    // the ROOT row keeps its whole "נושא › תת-נושא › תיאור" path; a child drops the (redundant)
+    // group topic, so same-topic children read cleanly and cross-topic ones keep their full path.
+    function mk(t, children, groupTopic, depth) {
+      var n = 1; children.forEach(function (c) { n += c.n; });
+      return { key: 'i' + t.number, number: t.number, task: t, groupTopic: groupTopic,
+        label: devNodeLabel(t, depth === 0, depth === 0 ? '' : groupTopic),
+        stage: devStage(t), children: children, n: n };
+    }
+    function node(t, depth, groupTopic) {
+      var raw = depth < 6 ? (kids[t.number] || []) : [];
+      var children = raw.map(function (c) { return node(c, depth + 1, groupTopic); }).filter(Boolean);
+      var st = devStage(t);
+      if (raw.length) {
+        if (children.length) return mk(t, children, groupTopic, depth);
+        // a container with nothing left under it survives only if IT matches an explicit filter
+        if (o.hideDone && DEV_DONE_KEYS[st]) return null;
+        return (o.stage || o.assignee || o.q) && devTreeMatch(t, o) ? mk(t, [], groupTopic, depth) : null;
+      }
+      if (o.hideDone && DEV_DONE_KEYS[st]) return null;
+      return devTreeMatch(t, o) ? mk(t, [], groupTopic, depth) : null;
+    }
+    function bar(children, self) {
+      var counts = {};
+      (function walk(ns) { ns.forEach(function (x) { counts[x.stage] = (counts[x.stage] || 0) + 1; walk(x.children); }); })(children);
+      if (self) counts[self.stage] = (counts[self.stage] || 0) + 1;
+      return devPctSegments(counts);
+    }
+    var roots = [], loose = [];
+    tops.forEach(function (t) {
+      if (!(kids[t.number] || []).length) { var lf = node(t, 0, ''); if (lf) loose.push(lf); return; }
+      var r = node(t, 0, (t._p || devParseT(t.title)).topic);
+      if (r) { r.bar = bar(r.children, r); roots.push(r); }
+    });
+    if (loose.length) {
+      var n = 0; loose.forEach(function (x) { n += x.n; });
+      roots.push({ key: 'none', number: null, task: null, groupTopic: '', label: 'ללא נושא',
+        stage: null, children: loose, n: n, bar: bar(loose, null) });
+    }
+    return roots;
+  }
+
+  // ═══════════════ RENDER (paint only — every rule is in the pure builders above) ═══════════════
+
+  // The board: four full columns + the minimized rail (spec §7d). Both carry .dev-stage and
+  // data-stage, so the drag/drop wiring at the bottom of this file needs no second code path —
+  // dropping a card on a rail chip writes the same status as dropping it on a full column.
+  function renderDevBoard(d, f) {
+    d = d || window._devData; f = (f === undefined) ? window._devFilter : f;
+    var tasks = (d.tasks || []).filter(function (t) { return devMatchFilter(t, f); });
+    var L = devBoardLayout(tasks, window._devExpanded);
+    var cols = L.full.map(function (c) {
+      var s = DEV_STAGE[c.key];
+      var inner = c.tasks.length ? c.tasks.map(devMobileCard).join('') : '<div class="dev-stage-empty">—</div>';
+      return '<details class="dev-stage dev-stage-' + c.key + '" data-stage="' + c.key + '" open>' +
         '<summary class="dev-stage-sum"><span class="dev-stage-ico" aria-hidden="true">' + s.ico + '</span>' +
         '<span class="dev-stage-name">' + devEsc(s.label) + '</span>' +
-        '<span class="dev-stage-n">' + list.length + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
+        '<span class="dev-stage-n">' + c.tasks.length + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
         '<div class="dev-stage-body">' + inner + '</div></details>';
+    }).join('');
+    var rail = L.rail.map(function (r) {
+      var s = DEV_STAGE[r.key];
+      return '<button type="button" class="dev-stage dev-rail-chip dev-stage-' + r.key + (r.expanded ? ' active' : '') + '"' +
+        ' data-stage="' + r.key + '" onclick="devToggleRail(\'' + r.key + '\')"' +
+        ' aria-expanded="' + (r.expanded ? 'true' : 'false') + '" title="' + devEsc(s.label) + ' · ' + r.count + '">' +
+        '<span class="dev-rail-dot" aria-hidden="true"></span>' +
+        '<span class="dev-rail-name">' + devEsc(s.label) + '</span>' +
+        '<span class="dev-stage-n">' + r.count + '</span></button>';
+    }).join('');
+    return '<div class="dev-board"><div class="dev-board-grid">' + cols + '</div>' +
+      (rail ? '<div class="dev-rail">' + rail + '</div>' : '') + '</div>';
+  }
+
+  // The flow strip: one stacked bar for the whole board; a tap filters the board/tree to that stage.
+  function renderFlowStrip(d, f) {
+    d = d || window._devData; f = (f === undefined) ? window._devFilter : f;
+    var segs = devFlowSegments((d && d.tasks) || []);
+    if (!segs.length) return '';
+    var bar = segs.map(function (s) {
+      var on = !!f && f.type === 'stage' && f.val === s.key;
+      return '<button type="button" class="dev-flow-seg' + (on ? ' active' : '') + '"' +
+        ' style="width:' + s.pct + '%;background:var(--stage-' + s.key + ')"' +
+        ' onclick="devSetFilter({type:\'stage\',val:\'' + s.key + '\'})"' +
+        ' title="' + devEsc(s.label) + ' · ' + s.n + '" aria-label="' + devEsc(s.label) + ' · ' + s.n + '">' +
+        '<span class="dev-flow-n">' + s.n + '</span></button>';
+    }).join('');
+    return '<div class="dev-flow"><div class="dev-flow-cap">זרימת הלוח</div>' +
+      '<div class="dev-flow-bar">' + bar + '</div></div>';
+  }
+
+  // The tree view: one row per נושא (root issue), children indented, a stacked status bar per root.
+  function renderDevTree(d, f) {
+    d = d || window._devData; f = (f === undefined) ? window._devFilter : f;
+    var roots = devTree((d && d.tasks) || [], {
+      hideDone: !!window._devHideDone,
+      assignee: window._devAssignee || '',
+      stage: (f && f.type === 'stage') ? f.val : '',
+      q: window._devQ || ''
+    });
+    if (!roots.length) return '<div class="dev-empty">אין משימות בסינון הזה.</div>';
+    var mobile = devIsMobile();
+    var openAll = window._devTreeOpen;
+    return roots.map(function (r, i) {
+      var bar = r.bar.map(function (s) {
+        return '<span style="width:' + s.pct + '%;background:var(--stage-' + s.key + ')" title="' + devEsc(s.label) + ' · ' + s.n + '"></span>';
+      }).join('');
+      var body = r.children.map(function (c) { return mobile ? devTreeRowMobile(c, 0) : devTreeRowDesktop(c, 0); }).join('');
+      var open = (openAll === false) ? '' : ((openAll === true || i === 0 || !!f || !!window._devQ) ? ' open' : '');
+      return '<details class="dev-troot" id="dtroot-' + i + '"' + open + '>' +
+        '<summary class="dev-troot-sum">' +
+          '<span class="dev-topic-ico" aria-hidden="true">' + (r.task ? '🌳' : '📄') + '</span>' +
+          '<span class="dev-topic-name"><bdi>' + devEsc(r.label) + '</bdi></span>' +
+          (r.stage ? '<span class="dev-status dev-status-' + r.stage + '">' + devEsc(DEV_STAGE[r.stage].label) + '</span>' : '') +
+          '<span class="dev-topic-n">' + r.n + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span>' +
+        '</summary>' +
+        '<div class="dev-troot-bar" aria-hidden="true">' + bar + '</div>' +
+        '<div class="dev-topic-body">' + body + '</div></details>';
     }).join('');
   }
 
@@ -439,7 +626,7 @@
   function devStamps(t) {
     var log = (window._devStatusLog && window._devStatusLog[t.number]) || null;
     if (!log) return '';
-    var names = { backlog: 'Backlog', ready: 'Ready', prog: 'בפיתוח', review: 'בדיקות', done: 'גמר', committed: 'עלה' };
+    var names = { fields: 'תחומים', backlog: 'Backlog', scope: 'אפיון', ready: 'Sprint Ready', prog: 'בפיתוח', review: 'בדיקות', committed: 'עלה' };
     var parts = DEV_STAGES.map(function (s) { return log[s.key] ? names[s.key] + ' ' + devFmtDay(log[s.key]) : null; }).filter(Boolean);
     return parts.length ? '<div class="dev-stamps">' + parts.join(' · ') + '</div>' : '';
   }
@@ -532,7 +719,7 @@
       matchCounts[tp] = d.topics[tp].roots.reduce(function (s, r) { return s + devCountMatches(r, f, 0); }, 0);
     });
 
-    var view = window._devView || 'status';
+    var view = devView();
     var active = function (s) { return window._devState === s ? ' active' : ''; };
     var vactive = function (v) { return view === v ? ' active' : ''; };
     var fchip = f ? '<div class="dev-fchip">מציג: ' + devEsc(devFilterLabel(f)) + ' <button type="button" onclick="devSetFilter(null)" aria-label="נקה סינון">✕</button></div>' : '';
@@ -541,30 +728,30 @@
     if (c) cacheLine = '<div class="dev-cacheline">📦 נשמר מקומית · עודכן ' + devEsc(devAgo(c.at)) +
       (c.refreshing ? ' · <span class="dev-refreshing">מרענן…</span>' : '') +
       (c.error ? ' · <span class="dev-refresherr">רענון נכשל</span>' : '') + '</div>';
-    // sprint actions (status view only): multi-select → push to Ready, and "version released" → Committed
-    var mobilePre = !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    // drag-to-move: עידן only, desktop status board only (cards get draggable + columns accept drops)
-    window._devDragOn = (view === 'status') && !mobilePre && (typeof isIdan === 'function' && isIdan());
-    var actions = (view === 'status') ? '<div class="dev-actions">' +
+    // sprint actions (board view only): multi-select → push to Sprint Ready, and "version released"
+    var mobilePre = devIsMobile();
+    // drag-to-move: עידן only, desktop board only (cards get draggable + columns accept drops)
+    window._devDragOn = (view === 'board') && !mobilePre && (typeof isIdan === 'function' && isIdan());
+    var actions = (view === 'board') ? '<div class="dev-actions">' +
       '<button class="inv-btn small' + (window._devSelMode ? ' active' : '') + '" onclick="devToggleSelMode()">' + (window._devSelMode ? '✕ בטל בחירה' : '☑️ בחר משימות') + '</button>' +
       (window._devDragOn ? '<span class="dev-drag-hint" style="font-size:11px;color:#94a3b8;align-self:center;">✋ אפשר לגרור משימה בין עמודות</span>' : '') +
-      '<button class="inv-btn small dev-release-btn" onclick="devReleaseVersion(this)" title="לשימוש רק בעת העלאת גרסה אמיתית — מעביר את כל \'גמר פיתוח\' ל\'עלה לאוויר\'">🚀 עלתה גרסה</button>' +
-      '</div>' : '';
+      '<button class="inv-btn small dev-release-btn" onclick="devReleaseVersion(this)" title="לשימוש רק בעת העלאת גרסה אמיתית — מעביר את כל \'' + DEV_STAGE.review.label + '\' ל\'עלה לאוויר\'">🚀 עלתה גרסה</button>' +
+      '</div>' : devTreeControls(d, f);
     var head = '<div class="dev-toolbar">' +
       '<input id="devSearch" class="dev-search" oninput="devFilter(this.value)" placeholder="🔍 חיפוש משימה…" inputmode="search">' +
       '<div class="dev-view-btns">' +
-        '<button class="inv-btn small' + vactive('status') + '" onclick="devSetView(\'status\')">לפי סטטוס</button>' +
-        '<button class="inv-btn small' + vactive('topic') + '" onclick="devSetView(\'topic\')">לפי נושא</button>' +
+        '<button class="inv-btn small' + vactive('board') + '" onclick="devSetView(\'board\')">🗂 לוח</button>' +
+        '<button class="inv-btn small' + vactive('tree') + '" onclick="devSetView(\'tree\')">🌳 עץ</button>' +
       '</div>' +
       '<div class="dev-state-btns">' +
         '<button class="inv-btn small' + active('open') + '" onclick="devSetState(\'open\')">פתוחות</button>' +
         '<button class="inv-btn small' + active('all') + '" onclick="devSetState(\'all\')">הכל</button>' +
       '</div></div>' + actions + cacheLine + fchip;
 
-    // "בפיתוח עכשיו" spotlight — only in topic view (the status board has its own In-Progress column),
+    // "בפיתוח עכשיו" spotlight — only in tree view (the board has its own In-Progress column),
     // and hidden while a filter is active (focused view).
     var ipBox = '';
-    if (!f && view !== 'status') {
+    if (!f && view !== 'board') {
       var inProg = d.tasks.filter(devInProgress);
       var recent, ipSub;
       if (inProg.length) { recent = inProg.slice(0, 12); ipSub = '· לפי סטטוס'; }
@@ -573,40 +760,16 @@
         '<div class="dev-now-list">' + recent.map(devTaskNode).join('') + '</div></div>' : '';
     }
 
-    // ponytail: mobile detected once at paint time; the phone PWA is always mobile, desktop always desktop.
-    var mobile = !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
-    var bodyHtml;
-    if (!d.tasks.length) {
-      bodyHtml = '<div class="dev-empty">אין משימות להצגה.</div>';
-    } else if (view === 'status') {
-      bodyHtml = '<div class="dev-board">' + devBoard(d, f) + '</div>';   // the 6 named stage columns (grid on wide screens)
-    } else {
-      var visTopics = f ? d.topicNames.filter(function (tp) { return matchCounts[tp] > 0; }) : d.topicNames;
-      var body = visTopics.map(function (topic) {
-        var fi = d.topicNames.indexOf(topic);   // stable id/color index even when the list is filtered
-        var tp = d.topics[topic];
-        var inner = mobile
-          ? devMobileNodes(tp.roots, f, 0)
-          : tp.roots.map(function (r) { return devNode(r, true, topic, 0, f); }).join('');
-        var shown = matchCounts[topic], other = tp.n - shown;
-        var note = (f && other > 0) ? '<div class="dev-topic-note">+' + other + ' כרטיסים ' + devEsc(devOtherLabel(f)) + '</div>' : '';
-        var crit = (mobile && !f) ? tp.roots.reduce(function (s, r) { return s + devCountMatches(r, { type: 'prio', val: 'קריטי' }, 0); }, 0) : 0;
-        return '<details id="dtopic-' + fi + '" class="dev-topic" style="--tc:' + colorOf[topic] + '"' + ((fi === 0 || f) ? ' open' : '') + '>' +
-          '<summary class="dev-topic-sum"><span class="dev-topic-ico" aria-hidden="true">📂</span>' +
-          '<span class="dev-topic-name"><bdi>' + devEsc(topic) + '</bdi></span>' +
-          (crit ? '<span class="dev-topic-crit">' + crit + ' קריטי</span>' : '') +
-          '<span class="dev-topic-n">' + (f ? shown : tp.n) + '</span><span class="dev-topic-caret" aria-hidden="true">⌄</span></summary>' +
-          '<div class="dev-topic-body">' + note + inner + '</div></details>';
-      }).join('');
-      bodyHtml = visTopics.length ? body : '<div class="dev-empty">אין משימות בסינון הזה.</div>';
-    }
+    var bodyHtml = !d.tasks.length ? '<div class="dev-empty">אין משימות להצגה.</div>'
+      : (view === 'board' ? renderDevBoard(d, f) : renderDevTree(d, f));
     // sticky action bar for multi-select (shown only in select mode)
     var selBar = window._devSelMode ? '<div id="devSelBar" class="dev-selbar" style="display:flex">' +
       '<span class="dev-selbar-n">' + devSelCount() + ' נבחרו</span>' +
       '<button class="inv-btn small dev-selbar-push" onclick="devPushToReady(this)"' + (devSelCount() ? '' : ' disabled') + '>🟢 העבר משימות לספרינט הקרוב</button>' +
       '<button class="inv-btn small" onclick="devToggleSelMode()">בטל</button>' +
       '</div>' : '';
-    el.innerHTML = '<div class="dev-wrap' + (view === 'status' ? ' dev-wrap-board' : '') + '">' + devHero(d, f, matchCounts, colorOf) + head + ipBox + bodyHtml + selBar + '</div>';
+    el.innerHTML = '<div class="dev-wrap' + (view === 'board' ? ' dev-wrap-board' : '') + '">' +
+      devHero(d, f, matchCounts, colorOf) + renderFlowStrip(d, f) + head + ipBox + bodyHtml + selBar + '</div>';
 
     // restore the live text search across the re-paint
     var sb = document.getElementById('devSearch');
@@ -632,7 +795,8 @@
     devPaint();
   };
 
-  window.devJump = function (i) { var dd = document.getElementById('dtopic-' + i); if (!dd) return; dd.open = true; dd.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  // the column select in the tree toolbar SETS (never toggles) — a <select> has no "tap again"
+  window.devSetStageFilter = function (v) { window._devFilter = v ? { type: 'stage', val: v } : null; devPaint(); };
 
   // live filter over the nested tree: a node shows if IT matches or any descendant matches; the
   // path to a match auto-expands so deep sub-tasks are reachable from the search.
@@ -652,14 +816,70 @@
       var any = Array.prototype.some.call(w.querySelectorAll('[data-s]'), function (t) { return t.style.display !== 'none'; });
       w.style.display = any ? '' : 'none';
     });
-    document.querySelectorAll('#devTasksContent .dev-topic').forEach(function (dd) {
+    document.querySelectorAll('#devTasksContent .dev-troot').forEach(function (dd) {
       var any = Array.prototype.some.call(dd.querySelectorAll('[data-s]'), function (t) { return t.style.display !== 'none'; });
       dd.style.display = any ? '' : 'none'; if (q) dd.open = any;
     });
   };
 
   window.devSetState = function (s) { window._devState = s; window._devFilter = null; renderDevTasks(); };
-  window.devSetView = function (v) { window._devView = v; devPaint(); };   // 'status' board | 'topic' tree — instant, no fetch
+
+  // ----- view: 🗂 לוח (board) | 🌳 עץ (tree). Remembered PER DEVICE (spec §7d: "tree is the
+  // recommended mobile default, remembered per device"), so the phone can sit on the tree while
+  // the desktop sits on the board. Instant — a view flip never re-fetches. -----
+  var DEV_VIEW_KEY = 'dev_view';
+  function devIsMobile() { return !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches); }
+  function devView() {
+    var v = window._devView;
+    if (v === 'status') v = 'board';          // back-compat with the pre-§7d names
+    if (v === 'topic') v = 'tree';
+    if (v === 'board' || v === 'tree') return (window._devView = v);
+    try {
+      var s = localStorage.getItem(DEV_VIEW_KEY);
+      if (s === 'board' || s === 'tree') return (window._devView = s);
+    } catch (e) { /* private mode — fall through to the per-device default */ }
+    return (window._devView = devIsMobile() ? 'tree' : 'board');
+  }
+  window.devSetView = function (v) {
+    v = (v === 'tree') ? 'tree' : 'board';
+    window._devView = v;
+    try { localStorage.setItem(DEV_VIEW_KEY, v); } catch (e) { /* best-effort */ }
+    devPaint();
+  };
+  // ----- the minimized rail: tap a chip to expand that column in place, tap again to collapse -----
+  window._devExpanded = [];
+  window.devToggleRail = function (key) {
+    var a = window._devExpanded || (window._devExpanded = []);
+    var i = a.indexOf(key);
+    if (i === -1) a.push(key); else a.splice(i, 1);
+    devPaint();
+  };
+  // ----- tree toolbar: הסתר שבוצע · by assignee · by column · פתח/כווץ הכל -----
+  window.devToggleHideDone = function () { window._devHideDone = !window._devHideDone; devPaint(); };
+  window.devSetAssignee = function (v) { window._devAssignee = v || ''; devPaint(); };
+  window.devTreeAll = function (open) { window._devTreeOpen = !!open; devPaint(); };
+  function devTreeControls(d, f) {
+    var who = {};
+    (d.tasks || []).forEach(function (t) { if (t.assignee) who[t.assignee] = true; });
+    var cur = window._devAssignee || '';
+    var asg = '<select class="dev-select" aria-label="סינון לפי אחראי" onchange="devSetAssignee(this.value)">' +
+      '<option value=""' + (cur ? '' : ' selected') + '>כל האחראים</option>' +
+      Object.keys(who).sort().map(function (a) {
+        return '<option value="' + devEsc(a) + '"' + (cur === a ? ' selected' : '') + '>' + devEsc(a) + '</option>';
+      }).join('') + '</select>';
+    var st = (f && f.type === 'stage') ? f.val : '';
+    var col = '<select class="dev-select" aria-label="סינון לפי עמודה" onchange="devSetStageFilter(this.value)">' +
+      '<option value=""' + (st ? '' : ' selected') + '>כל העמודות</option>' +
+      DEV_STAGES.map(function (s) {
+        return '<option value="' + s.key + '"' + (st === s.key ? ' selected' : '') + '>' + devEsc(s.label) + '</option>';
+      }).join('') + '</select>';
+    return '<div class="dev-actions">' +
+      '<button class="inv-btn small' + (window._devHideDone ? ' active' : '') + '" onclick="devToggleHideDone()" aria-pressed="' + (window._devHideDone ? 'true' : 'false') + '">🙈 הסתר שבוצע</button>' +
+      asg + col +
+      '<button class="inv-btn small" onclick="devTreeAll(true)">פתח הכל</button>' +
+      '<button class="inv-btn small" onclick="devTreeAll(false)">כווץ הכל</button>' +
+      '</div>';
+  }
 
   // ----- WRITE: move issues to a target Status via the github fn (needs project write token + redeploy) -----
   async function devWriteStatus(numbers, targetName) {
@@ -718,7 +938,7 @@
     if (!numbers.length) return;
     if (btn) { btn.disabled = true; btn.textContent = '⏳ מעביר…'; }
     try {
-      var res = devWriteResult(await devWriteStatus(numbers, 'Ready'), 'הועברו ל"ספרינט קרוב"');
+      var res = devWriteResult(await devWriteStatus(numbers, 'Sprint Ready'), 'הועברו ל"' + DEV_STAGE.ready.label + '"');
       if (res.fail) alert(res.msg); else if (typeof toast === 'function') toast(res.msg); else alert(res.msg);
       if (res.ok) { window._devSelMode = false; window._devSel = {}; renderDevTasks(true); }   // refresh so the board reflects the move
       else if (btn) { btn.disabled = false; btn.textContent = '🟢 העבר משימות לספרינט הקרוב'; }
@@ -727,12 +947,16 @@
       if (btn) { btn.disabled = false; btn.textContent = '🟢 העבר משימות לספרינט הקרוב'; }
     }
   };
-  // "עלתה גרסה" → move everything currently in Done (גמר פיתוח) to Committed (עלה לאוויר)
+  // "עלתה גרסה" → move everything currently in review (שלבי בדיקות) to Committed (עלה לאוויר).
+  // ponytail (ported from 91c0d5a): the board's old "Done" column (גמר פיתוח ממתין לגרסה) was
+  // removed in the 2026-09-08 rework, so this button's source column is INFERRED as In Review —
+  // the step right before a release. Flagged to עידן in the Task 11 report; the confirm dialog
+  // below names the source column, so a wrong assumption is visible before anything is written.
   window.devReleaseVersion = async function (btn) {
     var d = window._devData; if (!d) return;
-    var nums = d.tasks.filter(function (t) { return devStage(t) === 'done'; }).map(function (t) { return t.number; });
-    if (!nums.length) { alert('אין משימות ב"גמר פיתוח ממתין לגרסה".'); return; }
-    if (!confirm('להעביר ' + nums.length + ' משימות מ"גמר פיתוח" ל"עלה לאוויר"?')) return;
+    var nums = d.tasks.filter(function (t) { return devStage(t) === 'review'; }).map(function (t) { return t.number; });
+    if (!nums.length) { alert('אין משימות ב"' + DEV_STAGE.review.label + '".'); return; }
+    if (!confirm('להעביר ' + nums.length + ' משימות מ"' + DEV_STAGE.review.label + '" ל"עלה לאוויר"?')) return;
     if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
     try {
       var res = devWriteResult(await devWriteStatus(nums, 'Committed'), 'עלו לאוויר');
@@ -744,10 +968,13 @@
       if (btn) { btn.disabled = false; btn.textContent = '🚀 עלתה גרסה'; }
     }
   };
-  // ----- drag a card to another column (עידן only, desktop board) -----
-  // Writes through the same `github` fn setStatus path as דחוף-ל-Ready; the fn's synonym matcher
-  // already covers all six stages (Backlog/Ready/In Progress/In Review/Done/Committed) — no redeploy.
-  var DEV_STAGE_TARGET = { backlog: 'Backlog', ready: 'Ready', prog: 'In Progress', review: 'In Review', done: 'Done', committed: 'Committed' };
+  // ----- drag a card to another column OR onto a minimized rail chip (עידן only, desktop board) -----
+  // Writes through the same `github` fn setStatus path as דחוף-לספרינט. Ported from 91c0d5a and
+  // re-checked against supabase/functions/github/index.ts → optionRegexFor(): "Sprint Ready" /
+  // "Committed" / "Backlog" / "In Progress" / "In Review" hit its keyword families unchanged, and
+  // "Main Fields" / "Scope Refinement" match none of them, so they fall through to its literal
+  // regex — which matches the live option names exactly. No function redeploy needed for either.
+  var DEV_STAGE_TARGET = { fields: 'Main Fields', backlog: 'Backlog', scope: 'Scope Refinement', ready: 'Sprint Ready', prog: 'In Progress', review: 'In Review', committed: 'Committed' };
   window.devDragStart = function (e, n) {
     try { e.dataTransfer.setData('text/plain', String(n)); e.dataTransfer.effectAllowed = 'move'; } catch (er) {}
   };
@@ -793,3 +1020,11 @@
 
   window.renderDevTasks = renderDevTasks;
   window.canSeeDevTasks = canSeeDevTasks;
+  // the PURE builders (spec §7d) — exposed so test-devboard.mjs asserts on the SHIPPED functions
+  // instead of a copy of them. Nothing in the app calls them through window.
+  window.devStage = devStage;
+  window.devBoardLayout = devBoardLayout;
+  window.devTree = devTree;
+  window.devFlowSegments = devFlowSegments;
+  window.devStageKeys = DEV_STAGES.map(function (s) { return s.key; });
+  window.devFullKeys = DEV_FULL_KEYS;

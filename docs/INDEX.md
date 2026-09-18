@@ -28,7 +28,7 @@ building on a stale tree silently **reverts** the other lane. Both lanes commit 
 
 | Lane | Owns (edit only these) | Delivered & live |
 |------|------------------------|------------------|
-| 🧑‍💻 **DEV-PAGE** (פיתוח) | `js/src/18-dev-tasks.js` · `supabase/functions/github/` · `.dev-*` in `css/app.css` · `#dev-view` markup · `db/dev_status_log.sql` | **Sprint board** — 6 status columns, **tree nesting preserved** (each tree grouped by its root's stage; epic→children nested) + view toggle + filters + search · **multi-select → "העבר משימות לספרינט הקרוב"** (leaf-only checkboxes; all-children-selected cascades the parent) + **🚀 עלתה גרסה** (Done→Committed) via `github` fn `mode:"setStatus"` — **verified live, GH_TOKEN needs `project` WRITE (gotcha: `read:project` ≠ write)** · **day-stamps** (`dev_status_log`) · **offline cache** (fetch once/connection) · access for **מתניה + אליה** |
+| 🧑‍💻 **DEV-PAGE** (פיתוח) | `js/src/18-dev-tasks.js` · `supabase/functions/github/` · `.dev-*` + `--stage-*` in `css/app.css` · `#dev-view` markup · `db/dev_status_log.sql` | **Board** — four FULL columns (ספרינט הקרוב · בפיתוח · בדיקות · ממתין) + a **minimized rail** for the rest (tap = expand in place) + a **flow strip** (tap a slice = filter) · **🌳 tree view** — one row per נושא with a stacked status bar, ללא נושא bucket, הסתר שבוצע / assignee / column / search · view remembered per device · phone = snap-scroll columns · **multi-select → "העבר משימות לספרינט הקרוב"** + **🚀 עלתה גרסה** (In Review→Committed) + drag-and-drop, all via `github` fn `mode:"setStatus"` — **GH_TOKEN needs `project` WRITE (gotcha: `read:project` ≠ write)** · **day-stamps** (`dev_status_log`) · **offline cache** (fetch once/connection) · access for **מתניה + אליה** |
 | 📦 **INVENTORY** (מלאי) | `js/src/06/07/08-*.js` · `13-ems.js` (`createTask`) · `supabase/functions/parse-order/` · inventory CSS/markup · `02` order-status | **Two-type order flow** (ספק raises / לקוח consumes stock) · **AI order parsing** (Gemini→Groq→offline + learning loop) · conversational accessory modal · **parse-source badge** · order/delivery dates |
 
 **Build hygiene (if resuming parallel):** pull → build → stage ONLY your `js/src/*` + the regenerated
@@ -316,15 +316,28 @@ requirements, tasks, visits, orders. Buttons/toasts "שמור לגיליון"→
 **💻 Dev page (פיתוח) — `18-dev-tasks.js` + `github` Edge Fn + Supabase `dev_status_log`:**
 Live tickets from the **GitHub Projects-v2 "Sigmatec EMS — Roadmap" (Sigmatec-Energy #1)** via the EMS-gated
 `github` fn (GraphQL: issues + Priority/Status fields + native sub-issue `parent`). Visible to **עידן+עמיחי+מתניה+אליה** (`canSeeDevTasks`).
-- **Two views (`devSetView`):** **לפי סטטוס** (default) = the **sprint board** — 6 named columns via `devStage()`:
-  ממתין לפיתוח(Backlog) · ספרינט קרוב(Ready) · בפיתוח עכשיו(In Progress) · בשלבי בדיקות(In Review) · גמר פיתוח ממתין לגרסה(Done) ·
-  עלה לאוויר(Committed); each card = title/#num/priority/assignee, sorted by priority. **לפי נושא** = the older topic
-  tree (📂 topic → nested GitHub sub-issues, any depth). Mobile = flattened card-based tree.
+- **Two views (`devSetView`, remembered per device in `localStorage['dev_view']`; 🌳 tree is the phone default):**
+  **🗂 לוח** = the board — **four FULL columns** (ספרינט הקרוב · בפיתוח עכשיו · שלבי בדיקות · ממתין לפיתוח, never
+  under 280 px) plus a **minimized rail** at the board's end holding every other column as a chip (dot + name +
+  count) — a tap expands one in place as a 5th column, a second tap collapses it. `devStage()` maps the **seven
+  live** Projects-v2 options (2026-09-08 rework): תחומים ראשיים(Main Fields) · ממתין לפיתוח(Backlog) ·
+  חזר לאפיון מחדש(Scope Refinement) · ספרינט הקרוב(Sprint Ready) · בפיתוח עכשיו(In Progress) · שלבי בדיקות(In Review) ·
+  עלה לאוויר(Committed) — there is **no Done column any more**. On a phone the columns become a horizontal
+  snap-scroll (≈88 vw each) and the rail a chip row above them.
+  **🌳 עץ** = the GitHub sub-issue tree — one row per נושא (root issue) with a **stacked status bar**, children nested;
+  parentless leaves live under **ללא נושא**. Filters: 🙈 הסתר שבוצע (drops done leaves **and** any root with nothing
+  live left under it) · by assignee · by column · search · פתח/כווץ הכל. Mobile = flattened card-based tree.
+- **Flow strip:** one stacked bar for the whole board above the toolbar (integer percentages summing to 100,
+  counts on the slices); tapping a slice filters board **and** tree to that column (`devSetFilter {type:'stage'}`).
+- **Stage colors:** `--stage-fields … --stage-committed` tokens in `css/app.css` (light + dark). One token feeds the
+  column's left rule, its count pill, the rail dot, the card's Hebrew column pill and every stacked-bar slice.
 - **Hero + filters:** KPI tiles + "עומס לפי עדיפות"/"עומס לפי נושא" bar+legend; every tile is a **toggle filter**
   (priority / In-Progress / last-7d) re-rendering from cached `_devData` (`devSetFilter`→`devPaint`, no re-fetch). Live search.
 - **Writes (·84/·86 — `github` fn `mode:"setStatus"` → `setProjectStatus`):** **☑️ בחר משימות** multi-select +
-  sticky bar **🟢 דחוף ל-Ready**; **🚀 עלתה גרסה** = move all Done → Committed. EMS-gated; needs `GH_TOKEN` Projects-v2
-  **write** scope + the target Status options ("Ready"/"Committed") to exist in the project (both done).
+  sticky bar **🟢 העבר משימות לספרינט הקרוב** (writes `Sprint Ready`); **🚀 עלתה גרסה** = move all **In Review** →
+  Committed (the old Done column was removed on 8.9 — source column INFERRED, see task-11-report.md); drag-and-drop
+  onto a full column **or a rail chip** writes the same way (`DEV_STAGE_TARGET` carries all seven live option names).
+  EMS-gated; needs `GH_TOKEN` Projects-v2 **write** scope.
 - **Day-stamps:** tiny gray `Backlog 1.6 · Ready 5.6 · …` per card, from Supabase **`dev_status_log`** (forward-tracking:
   client records first day seen per stage on each sync — anon read, auth insert; `on_conflict do nothing`). `db/dev_status_log.sql`.
 - **Offline cache (·77/·79):** tickets persist in `localStorage` (`dev_tasks_cache_v1`) → instant paint even pre-login;
