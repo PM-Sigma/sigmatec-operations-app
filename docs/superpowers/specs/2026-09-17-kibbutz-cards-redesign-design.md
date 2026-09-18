@@ -478,6 +478,12 @@ Each gap row has the one action that closes it (📍 סיכום ביקור prefi
 Golden tests: fixture week with two check-ins (one with a visit, one without), one overdue task, one holiday →
 exactly two gaps, in date order.
 
+**Copy rule — never tell a user who else sees his data (עידן, mockup comment 18.9):** no sentence in the app says
+"עמיחי רואה…", "עידן רואה…", "מנהל יראה…" or similar. Management visibility is a fact of the roles, not a message to
+the employee; the personal area speaks only to the person ("סוגרים את השלושה האלה — והחודש נקי."). The admin views
+(gaps per person, health, usage) exist as their own screens with no mirror text on the employee side. Contract test:
+grep UI strings for the names עמיחי/עידן followed by ראה/רואה/יראה → must be empty outside admin-only screens.
+
 ## 7i. Part L — יומן שטח חופשי: paste/dictate the day, AI splits it into visit summaries (עידן 18.9)
 
 Field workers already write what they did on paper or in WhatsApp. New entry **📝 יומן היום** (bottom-nav ⋯ and a
