@@ -24,6 +24,22 @@ if (evals > 1) {
   );
 }
 
+/**
+ * Run after the first paint is out of the way (task 22b). Used for 📈 שימוש only: its chunk is
+ * 400 kB of Recharts for a panel one person opens from a menu, and importing it during boot
+ * spent that bandwidth against the first paint ("reduce unused JavaScript ≈ 1.7 s" on the
+ * Lighthouse gate). It still mounts on every boot, one idle tick later.
+ *
+ * The other panels are NOT deferred, deliberately: each registers its own ⋯ row / open
+ * listener when it mounts, so a deferred one means a 📣 tap in the first second does nothing —
+ * qa/playwright/tests/feedback.spec.ts caught exactly that. Their chunks are 1–8 kB each.
+ */
+function whenIdle(fn: () => void): void {
+  const ric = (window as any).requestIdleCallback as undefined | ((cb: () => void, o?: { timeout: number }) => void);
+  if (ric) ric(fn, { timeout: 1500 });
+  else setTimeout(fn, 200);
+}
+
 function SigmaToaster() {
   return <Toaster richColors position="top-center" dir="rtl" closeButton />;
 }
@@ -98,9 +114,9 @@ function boot() {
   // 📈 שימוש (Task 17) — עידן only, and a lazy chunk like every data island: it drags in
   // Recharts, which nobody else needs.
   if (document.getElementById('sigma-usage')) {
-    import('@/islands/Usage')
+    whenIdle(() => void import('@/islands/Usage')
       .then(m => m.mountUsage())
-      .catch(e => console.warn('[sigma] usage island failed', e));
+      .catch(e => console.warn('[sigma] usage island failed', e)));
   }
   // Ctrl+K (§7k.1) and the header cluster (§6, §7k.2). The header island imports the command
   // bar's opener, so they share one chunk; both are lazy, and the legacy header chips stay in

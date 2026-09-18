@@ -45,7 +45,7 @@
         '<button id="newVerReloadBtn" type="button">רענן עכשיו</button>';
       b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#1e293b;color:#fff;' +
         'display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;' +
-        'font:600 13px Heebo,sans-serif;padding:9px 14px;box-shadow:0 2px 10px rgba(0,0,0,.35);';
+        'font:600 13px Assistant,sans-serif;padding:9px 14px;box-shadow:0 2px 10px rgba(0,0,0,.35);';
       document.body.appendChild(b);
       var btn = document.getElementById('newVerReloadBtn');
       btn.style.cssText = 'background:#22c55e;color:#04210f;border:none;border-radius:8px;padding:6px 18px;' +

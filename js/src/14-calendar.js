@@ -98,7 +98,7 @@
       const k = it.d.getFullYear() + '-' + it.d.getMonth() + '-' + it.d.getDate();
       if (k !== lastK) { lastK = k; html += '<div class="cal-agenda-day">' + it.d.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }) + '</div>'; }
       html += '<div class="cal-agenda-row"><span class="cal-chip ' + it.cls + '" style="display:inline-block;">' + it.icon + ' ' + calEsc(it.text) + '</span>'
-        + '<a href="' + calAddLink(it.d, it.icon + ' ' + it.text, '') + '" target="_blank" rel="noopener" title="הוסף ליומן האישי שלי" style="margin-right:8px;font-size:12px;text-decoration:none;color:var(--primary);white-space:nowrap;">📅 ליומן שלי</a></div>';
+        + '<a href="' + calAddLink(it.d, it.icon + ' ' + it.text, '') + '" target="_blank" rel="noopener" title="הוסף ליומן האישי שלי" style="margin-right:8px;font-size:12px;text-decoration:none;color:var(--legacy-primary);white-space:nowrap;">📅 ליומן שלי</a></div>';
     });
     box.innerHTML = html;
   }
@@ -108,7 +108,7 @@
     const panel = document.getElementById('calDayPanel'); if (!panel) return;
     const dateStr = new Date(y, m, d).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
     panel.innerHTML = '<div class="cal-panel"><strong>' + dateStr + '</strong>' +
-      (items.length ? items.map(it => `<div style="margin-top:6px;"><span class="cal-chip ${it.cls}" style="display:inline-block;">${it.icon} ${calEsc(it.text)}</span> <a href="${calAddLink(new Date(y,m,d,9,0), it.icon+' '+it.text, '')}" target="_blank" rel="noopener" style="font-size:12px;text-decoration:none;color:var(--primary);white-space:nowrap;">📅 ליומן שלי</a></div>`).join('')
+      (items.length ? items.map(it => `<div style="margin-top:6px;"><span class="cal-chip ${it.cls}" style="display:inline-block;">${it.icon} ${calEsc(it.text)}</span> <a href="${calAddLink(new Date(y,m,d,9,0), it.icon+' '+it.text, '')}" target="_blank" rel="noopener" style="font-size:12px;text-decoration:none;color:var(--legacy-primary);white-space:nowrap;">📅 ליומן שלי</a></div>`).join('')
                     : '<br><span style="color:#94a3b8;">אין אירועים ביום זה</span>') + '</div>';
   }
 
@@ -143,7 +143,7 @@
     kibs.forEach(k => {
       const grp = groups[k], kEsc = k.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       html += '<div style="background:var(--card);border:1px solid var(--border);border-inline-start:3px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:10px;">';
-      html += '<div style="font-weight:700;color:var(--primary);margin-bottom:6px;cursor:pointer;" onclick="openKibbutzByName(\'' + kEsc + '\')">🏘️ ' + emsEsc(k) + '</div>';
+      html += '<div style="font-weight:700;color:var(--legacy-primary);margin-bottom:6px;cursor:pointer;" onclick="openKibbutzByName(\'' + kEsc + '\')">🏘️ ' + emsEsc(k) + '</div>';
       grp.ems.forEach(t => {
         const overdue = t.expectedCompletionDate && new Date(t.expectedCompletionDate) < new Date();
         html += '<div class="card-ems-task status-' + t.status + (overdue ? ' overdue' : '') + '" onclick="openKibbutzEmsTask(\'' + t.id + '\')" style="cursor:pointer;">' +
@@ -453,7 +453,7 @@
     return `
     <div class="ems-task-card priority-${t.priority} status-${t.status}" onclick="openEmsTask('${t.id}')" style="cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
-        <div style="font-weight:700;font-size:14px;color:var(--primary);flex:1;">${emsEsc(t.title)}</div>
+        <div style="font-weight:700;font-size:14px;color:var(--legacy-primary);flex:1;">${emsEsc(t.title)}</div>
         <div style="white-space:nowrap;">
           <span class="ems-badge status-${t.status}">${emsStatusLabel(t.status)}</span>
           <span class="ems-badge priority-${t.priority}">${EMS_PRIORITY[t.priority] || t.priority}</span>
@@ -706,7 +706,7 @@
       ? `<a href="${emsCalendarLink(t)}" target="_blank" rel="noopener" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;text-decoration:none;">📅 הוסף ליומן</a>` : '';
     document.getElementById('emsDetailContent').innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-        <h3 style="margin:0;flex:1;color:var(--primary);">${emsEsc(t.title)}</h3>
+        <h3 style="margin:0;flex:1;color:var(--legacy-primary);">${emsEsc(t.title)}</h3>
         <button onclick="document.getElementById('emsDetailModal').classList.remove('open')" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">

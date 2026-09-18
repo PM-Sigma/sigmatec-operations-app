@@ -78,7 +78,7 @@ function EmsTaskRow({
         </span>
         {/* §7k #6: a task nobody owns is the failure mode worth showing on the card itself. */}
         {orphan && (
-          <span className="t-orphan shrink-0 whitespace-nowrap rounded-full bg-[color:var(--sigma-warn)]/15 px-1.5 py-px text-[10px] font-bold text-[color:var(--sigma-warn)]">
+          <span className="t-orphan shrink-0 whitespace-nowrap rounded-full bg-[color:var(--sigma-warn)]/15 px-1.5 py-px text-[10px] font-bold text-[color:var(--sigma-warn-ink)]">
             ⚠️ ללא אחראי
           </span>
         )}
@@ -93,7 +93,10 @@ function EmsTaskRow({
             <button
               type="button"
               onClick={e => { e.stopPropagation(); onToggle(); }}
-              className="t-more self-start text-[11px] font-semibold text-primary md:hidden"
+              // --sigma-ink, not text-primary: the brand cyan on a card surface measured
+              // 1.73:1. min-h/min-w + the negative margin give the 24 px target the gate asks
+              // for without moving the text (a11y gate target-size).
+              className="t-more -mx-1 -my-0.5 inline-flex min-h-6 min-w-6 items-center self-start px-1 py-0.5 text-[11px] font-semibold text-[color:var(--sigma-ink)] md:hidden"
             >
               {expanded ? 'פחות' : 'עוד'}
             </button>

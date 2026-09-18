@@ -3,6 +3,13 @@
     /* Calm professional palette — deep navy primary, muted semantic tints */
     --primary: #1b2a4a;
     --primary-hover: #25395f;
+    /* The SAME navy under a name the island layer does not own. ui/sigma.css declares its
+       shadcn tokens on :root too and loads later, so :root{--primary} is the HSL triple
+       '178 94% 41%' by the time a legacy rule reads it — `background: var(--legacy-primary)` was
+       INVALID and painted nothing (white-on-near-white, 1.08:1, on the a11y gate). Legacy
+       rules use these two; the islands keep --primary. */
+    --legacy-primary: #1b2a4a;
+    --legacy-primary-hover: #25395f;
     --accent: #2f6fed;
     --accent-soft: #eef3fe;
     --success: #0e9f6e;
@@ -17,7 +24,7 @@
     --bg: #f4f6f9;
     --card: #ffffff;
     --text: #1f2937;
-    --text-light: #6b7280;
+    --text-light: #5c6572;   /* 5.6:1 on --bg; #6b7280 measured 4.46:1 and failed the a11y gate */
     --border: #e3e8ef;
     --radius: 10px;
     --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
@@ -48,7 +55,7 @@
     --card: #161c21;
     --surface-2: #1d252b;
     --text: #e6edf3;
-    --text-light: #93a1ad;
+    --text-light: #a7b4c0;
     --border: #263038;
     --gray-light: #1d252b;
     --accent-soft: #14262f;
@@ -126,14 +133,14 @@
     flex: 1; min-width: 250px; padding: 10px 16px; border-radius: 10px;
     border: 1px solid var(--border); font-size: 14px; font-family: inherit; background: var(--card);
   }
-  .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
+  .search-input:focus { outline: none; border-color: var(--legacy-primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
   .filter-chip {
     padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border);
     background: var(--card); font-size: 13px; cursor: pointer; font-family: inherit;
     transition: all 0.2s; user-select: none;
   }
-  .filter-chip:hover { border-color: var(--primary); }
-  .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .filter-chip:hover { border-color: var(--legacy-primary); }
+  .filter-chip.active { background: var(--legacy-primary); color: white; border-color: var(--legacy-primary); }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
   .stat {
     background: var(--card); border-radius: 12px; padding: 20px;
@@ -260,7 +267,7 @@
   .energy-badge { background: var(--gray-light); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: var(--text-light); }
   .kibbutz-note { font-size: 11px; color: var(--text-light); font-style: italic; margin-top: 4px; }
   .kibbutz.hidden { display: none; }
-  .comment-hint { font-size: 10px; color: var(--primary); margin-top: 6px; text-align: center; opacity: 0; transition: opacity 0.2s; }
+  .comment-hint { font-size: 10px; color: var(--legacy-primary); margin-top: 6px; text-align: center; opacity: 0; transition: opacity 0.2s; }
   .kibbutz:hover .comment-hint { opacity: 0.7; }
   .legend {
     display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 20px;
@@ -276,6 +283,8 @@
     padding: 24px 0; overflow-y: auto;
   }
   .modal-backdrop.open { display: flex; animation: fadeIn .15s ease-out; }
+  /* first-frame paint of the ?login=0 picker — see the <head> snippet and css/critical.css */
+  :root[data-gate="pick"] #loginModal { display: flex; }
   .modal-backdrop.open .modal { animation: modalPop .18s ease-out; }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes modalPop { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
@@ -306,14 +315,14 @@
     width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--border);
     border-radius: 10px; font-family: inherit; font-size: 14px; resize: vertical;
   }
-  .modal textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
+  .modal textarea:focus { outline: none; border-color: var(--legacy-primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
   .modal input[type="text"], .modal select {
     width: 100%; padding: 10px 12px; border: 1px solid var(--border);
     border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 12px;
     background: var(--card);
   }
   .modal select:focus, .modal input[type="text"]:focus {
-    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12);
+    outline: none; border-color: var(--legacy-primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12);
   }
   .modal label {
     display: block; font-size: 12px; color: var(--text-light);
@@ -324,8 +333,8 @@
     padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer;
     font-family: inherit; font-size: 14px; font-weight: 500; transition: all 0.2s;
   }
-  .btn-primary { background: var(--primary); color: white; }
-  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-primary { background: var(--legacy-primary); color: white; }
+  .btn-primary:hover { background: var(--legacy-primary-hover); }
   .btn-whatsapp { background: #25d366; color: white; }
   .btn-whatsapp:hover { background: #1ebe57; }
   .btn-secondary { background: var(--gray-light); color: var(--text); }
@@ -421,13 +430,13 @@
   }
   .side-panel-toggle {
     position: fixed; bottom: 24px; left: 24px;
-    background: var(--primary); color: white;
+    background: var(--legacy-primary); color: white;
     padding: 12px 18px; border-radius: 30px;
     cursor: pointer; box-shadow: 0 4px 12px rgba(27,42,74,0.3);
     z-index: 91; border: none; font-family: inherit;
     font-size: 14px; font-weight: 600;
   }
-  .side-panel-toggle:hover { background: var(--primary-hover); }
+  .side-panel-toggle:hover { background: var(--legacy-primary-hover); }
   /* draggable hint: small arrows around the visit FAB, glowing in the bubble's blue; fade once it's moved */
   .vfab-arrow {
     position: absolute; color: #2563eb; font-size: 10px; line-height: 1; pointer-events: none;
@@ -458,7 +467,7 @@
   .side-panel-body { padding: 16px 20px; }
   .side-panel h3 { font-size: 18px; }
   .potential-region {
-    margin-top: 16px; font-weight: 700; color: var(--primary);
+    margin-top: 16px; font-weight: 700; color: var(--legacy-primary);
     padding: 6px 10px; background: var(--gray-light); border-radius: 6px;
     font-size: 13px;
   }
@@ -483,7 +492,7 @@
     border-bottom: 3px solid transparent;
   }
   .modal-tab.active {
-    color: var(--primary); border-bottom-color: var(--primary);
+    color: var(--legacy-primary); border-bottom-color: var(--legacy-primary);
   }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
@@ -680,7 +689,7 @@
     border-radius: 10px; font-size: 14px; font-family: inherit; background: var(--card); color: var(--text); }
   .dev-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .dev-state-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-  .dev-state-btns .inv-btn.small.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .dev-state-btns .inv-btn.small.active { background: var(--legacy-primary); border-color: var(--legacy-primary); color: #fff; }
 
   /* Topic jump chips */
   .dev-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -702,7 +711,7 @@
     border-radius: var(--radius); overflow: hidden; background: var(--card); }
   .dev-topic[open] { box-shadow: var(--shadow-sm); }
   .dev-topic-sum { list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: 9px;
-    min-height: 48px; padding: 12px 14px; background: var(--gray-light); font-size: 16px; font-weight: 700; color: var(--primary); }
+    min-height: 48px; padding: 12px 14px; background: var(--gray-light); font-size: 16px; font-weight: 700; color: var(--legacy-primary); }
   .dev-topic-sum::-webkit-details-marker { display: none; }
   .dev-topic-ico { font-size: 15px; flex-shrink: 0; }
   .dev-topic-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -973,7 +982,7 @@
   .page-nav { display: flex; gap: 8px; margin-bottom: 16px; background: var(--card); padding: 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .page-nav button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: transparent; color: var(--text-light); border: none; padding: 10px 16px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
   .page-nav button:hover { background: var(--gray-light); }
-  .page-nav button.active { background: var(--primary); color: white; }
+  .page-nav button.active { background: var(--legacy-primary); color: white; }
   .page-nav .nav-icon { font-size: 15px; line-height: 1; }
   .login-btn { padding: 14px 8px; font-size: 15px; }
   .login-btn-wide { grid-column: 1 / -1; }
@@ -986,14 +995,14 @@
   /* ===== Inventory UI ===== */
   .inv-tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--card); padding: 6px; border-radius: 10px; border: 1px solid var(--border); overflow-x: auto; }
   .inv-tab-btn { background: transparent; color: var(--text-light); border: none; padding: 8px 14px; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .inv-tab-btn.active { background: var(--primary); color: white; }
+  .inv-tab-btn.active { background: var(--legacy-primary); color: white; }
   .inv-section { display: none; }
   .inv-section.active { display: block; }
   .inv-card { background: var(--card); border-radius: 12px; padding: 18px 20px; border: 1px solid var(--border); margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .inv-card h3 { font-size: 16px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
   .inv-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  .inv-btn { background: var(--primary); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.15s; }
-  .inv-btn:hover { background: var(--primary-hover); }
+  .inv-btn { background: var(--legacy-primary); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.15s; }
+  .inv-btn:hover { background: var(--legacy-primary-hover); }
   .inv-btn.success { background: var(--success); }
   .inv-btn.success:hover { filter: brightness(1.1); }
   .inv-btn.warning { background: #d99c20; }
@@ -1226,7 +1235,7 @@
     .mobile-setup-toggle {
       display: inline-block;
       font-size: 10px;
-      color: var(--primary);
+      color: var(--legacy-primary);
       cursor: pointer;
       margin-top: 6px;
       text-decoration: underline;
@@ -1247,7 +1256,7 @@
     padding: 14px 16px;
     margin-bottom: 16px;
   }
-  .company-tasks h3 {
+  .company-tasks h2, .company-tasks h3 {
     font-size: 16px;
     color: var(--text);
     margin-bottom: 12px;
@@ -1274,14 +1283,14 @@
   .company-task-group.orders { border-color: #2563eb; }
   .company-task-group.info { border-color: #16a34a; }
   .company-task-group.guidelines { border-color: #db2777; }
-  .company-task-group h4 {
+  .company-task-group h3, .company-task-group h4 {
     font-size: 13px;
     font-weight: 700;
     margin-bottom: 8px;
   }
   /* The heading inks were near-black blues/greens that stayed unreadable on the dark
      surface; the colour lives on the edge, the text is just text. */
-  .company-task-group h4 { color: var(--text); }
+  .company-task-group h3, .company-task-group h4 { color: var(--text); }
   .company-task-group ol {
     padding-inline-start: 18px;
     padding-right: 0;
@@ -1297,7 +1306,7 @@
     margin-bottom: 14px;
   }
   .company-tasks-edit-btn {
-    background: var(--primary);
+    background: var(--legacy-primary);
     color: white;
     border: none;
     padding: 6px 14px;
@@ -1308,7 +1317,7 @@
     font-family: inherit;
     transition: background 0.2s;
   }
-  .company-tasks-edit-btn:hover { background: var(--primary-hover); }
+  .company-tasks-edit-btn:hover { background: var(--legacy-primary-hover); }
   .company-tasks-edit-btn.local { background: #f59e0b; }
   .company-tasks-edit-btn.local:hover { background: #d97706; }
 
@@ -1342,7 +1351,7 @@
   }
   .my-tasks-btn {
     background: var(--card);
-    color: var(--primary);
+    color: var(--legacy-primary);
     border: none;
     padding: 7px 14px;
     border-radius: 8px;
@@ -1427,10 +1436,13 @@
   @media (max-width: 480px) {
     .kibbutz-grid { grid-template-columns: 1fr; }
   }
+  /* A surface chip like .header-date / .copy-btn next to it. It was white text on a
+     translucent WHITE pill — correct on the navy header this redesign removed, and 1.07:1
+     against the page ever since. */
   .compact-toggle {
-    background: rgba(255,255,255,0.13);
-    border: 1px solid rgba(255,255,255,0.25);
-    color: white;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
     padding: 6px 12px;
     border-radius: 8px;
     font-size: 12px;
@@ -1438,7 +1450,7 @@
     cursor: pointer;
     font-family: inherit;
   }
-  .compact-toggle:hover { background: rgba(255,255,255,0.25); }
+  .compact-toggle:hover { background: var(--surface-2); }
 
 
 /* ============================================================
@@ -1468,7 +1480,9 @@
   }
   /* non-tappable date pill: de-emphasise so it stops reading as a button */
   .header-meta .header-date {
-    background: transparent; padding: 4px 0; opacity: .85; flex-basis: 100%;
+    /* no `opacity` here: it composited --text-light down to 3.37:1. The token is already
+       the de-emphasised colour. */
+    background: transparent; padding: 4px 0; flex-basis: 100%;
   }
 
   /* --- HOME: priority section-note can't shrink → pushes the toggle (app.css:222/116).
@@ -1532,7 +1546,7 @@
 #my-tasks-view .my-tasks-bar { background: var(--card); border: 1px solid var(--border); }
 #my-tasks-view .my-tasks-bar label { color: var(--text); }
 #my-tasks-view .my-tasks-bar select { border: 1px solid var(--border); }
-#my-tasks-view .my-tasks-btn { background: var(--gray-light); color: var(--primary); }
+#my-tasks-view .my-tasks-btn { background: var(--gray-light); color: var(--legacy-primary); }
 
 @media (max-width: 480px) {
   /* edge-to-edge side panel on the smallest phones (95vw → 100vw) */
@@ -1616,6 +1630,24 @@ body.sigma-home-ready .section:has(#grid-active) { display: none; }
 body.sigma-home-ready .filter-bar { padding: 0; margin: 0; border: 0; background: none; min-height: 0; }
 body.sigma-home-ready .filter-bar > .search-input,
 body.sigma-home-ready .filter-bar > .filter-chip { display: none; }
+/* …and, like the header chips, that is now the DEFAULT state. The legacy bar collapsing when
+   the island mounted pulled everything below it up by ~157 px — on its own two thirds of the
+   page's CLS. The fallback class (watchdog at the end of index.html) restores the legacy bar
+   and the legacy grids if the island never arrives, so the page is still usable without it. */
+.filter-bar { padding: 0; margin: 0; border: 0; background: none; min-height: 0; }
+.filter-bar > .search-input,
+.filter-bar > .filter-chip { display: none; }
+#grid-new, #grid-active { display: none; }
+.section:has(#grid-new), .section:has(#grid-active) { display: none; }
+#sigma-home { min-height: 100vh; }
+body.sigma-home-fallback #sigma-home { min-height: 0; }
+body.sigma-home-fallback .filter-bar { padding: 14px 16px; margin-bottom: 16px; }
+body.sigma-home-fallback .filter-bar > .search-input,
+body.sigma-home-fallback .filter-bar > .filter-chip { display: inline-flex; }
+body.sigma-home-fallback #grid-new,
+body.sigma-home-fallback #grid-active { display: grid; }
+body.sigma-home-fallback .section:has(#grid-new),
+body.sigma-home-fallback .section:has(#grid-active) { display: block; }
 
 /* ═════════════════════════════════════════════════════════════════════════════
    סיגמה 2.00 — Task 4 polish pass. Dark-mode coverage for the LEGACY pages,
@@ -1633,7 +1665,7 @@ body.sigma-home-ready .filter-bar > .filter-chip { display: none; }
     --card: #161c21;
     --surface-2: #1d252b;
     --text: #e6edf3;
-    --text-light: #93a1ad;
+    --text-light: #a7b4c0;
     --border: #263038;
     --gray-light: #1d252b;
     --accent-soft: #14262f;
@@ -1738,6 +1770,17 @@ input, select, textarea {
 body.sigma-header-ready #userBadge,
 body.sigma-header-ready #emsBubble { display: none !important; }
 body.sigma-header-ready .header-meta { align-items: center; }
+/* …and they start HIDDEN, because the swap itself was the page's biggest layout shift: the
+   island mounting removed a 46 px row of chips and then added its own, moving the whole page
+   twice (CLS 0.33 on the Lighthouse gate). The safety net is kept, just inverted — the
+   watchdog at the end of index.html adds `sigma-header-fallback` if the island has not mounted,
+   and then the legacy chips come back exactly as before. */
+#userBadge, #emsBubble { display: none; }
+body.sigma-header-fallback #userBadge,
+body.sigma-header-fallback #emsBubble { display: inline-flex !important; }
+/* the island's own row, reserved BEFORE it paints so its content lands in existing space */
+#sigma-header-actions { min-height: 40px; }
+body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
 /* @end */
 
 /* @tokens-only */

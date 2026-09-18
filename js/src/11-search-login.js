@@ -265,6 +265,10 @@
     applyLoginRoleOptions();
     document.getElementById('loginModal').classList.add('open');
   }
+  // The <head> may have painted the picker one frame after navigation (html[data-gate="pick"]).
+  // From here the CLASS above is the only state: drop the hint whichever way this went, so
+  // closing the picker closes it.
+  try { delete document.documentElement.dataset.gate; } catch (e) {}
   applyLoginRoleOptions();
   updateUserBadge();
   updateMeetingBadge();

@@ -1,0 +1,130 @@
+/* ═══════════════════════════════════════════════════════════════════════════════
+   CRITICAL CSS — inlined into index.html <head> by build.mjs (task 22b).
+
+   WHY: css/app.css (104 kB) + ui/sigma.css (48 kB) in <head> were "Eliminate render-blocking
+   resources ≈ 1.3 s" on the Lighthouse mobile gate. Both are now loaded NON-blocking
+   (`media="print" onload="this.media='all'"`), and what the first screen actually needs —
+   the tokens, the page frame, the header, the bottom/top nav, the section shells and the
+   space the React islands will fill — lives here and ships inside the HTML.
+
+   RULES for editing this file:
+   · It is a SUBSET, never a fork: every rule here also exists in css/app.css, which loads a
+     moment later and wins (same selectors, later sheet). A stale rule here is therefore at
+     worst a few hundred ms of slightly-wrong paint, never a permanently wrong app.
+   · Tokens only for colour, logical properties only for direction (RTL), and nothing that is
+     not visible above the fold — every byte here is on the critical path.
+   · Do NOT hand-edit index.html's inlined copy: run `node build.mjs`.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --primary: #1b2a4a;
+  --primary-hover: #25395f;
+  --legacy-primary: #1b2a4a;
+  --legacy-primary-hover: #25395f;
+  --accent: #2f6fed;
+  --accent-soft: #eef3fe;
+  --success: #0e9f6e;
+  --success-light: #e7f6f0;
+  --warning: #c87f0a;
+  --warning-light: #fdf4e3;
+  --danger: #7c5cdb;
+  --danger-light: #f2eefb;
+  --priority: #d64545;
+  --priority-light: #fcecec;
+  --gray-light: #f1f4f8;
+  --bg: #f4f6f9;
+  --card: #ffffff;
+  --text: #1f2937;
+  --text-light: #5c6572;
+  --border: #e3e8ef;
+  --radius: 10px;
+  --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
+  --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
+  --brand-1: #06C2CB;
+  --brand-2: #1ABE63;
+  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  --surface-2: #eef2f7;
+  --radius-lg: 14px;
+  --font: 'Assistant', 'Segoe UI', system-ui, sans-serif;
+  --on-brand: #ffffff;
+}
+/* Dark, twice — an explicit choice and the OS preference — so the inline <head> snippet's
+   data-theme never paints a light frame first. Same values as css/app.css. */
+:root[data-theme="dark"] {
+  --bg: #0f1417;
+  --card: #161c21;
+  --surface-2: #1d252b;
+  --text: #e6edf3;
+  --text-light: #a7b4c0;
+  --border: #263038;
+  --gray-light: #1d252b;
+  --accent-soft: #14262f;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1417;
+    --card: #161c21;
+    --surface-2: #1d252b;
+    --text: #e6edf3;
+    --text-light: #a7b4c0;
+    --border: #263038;
+    --gray-light: #1d252b;
+    --accent-soft: #14262f;
+  }
+}
+body {
+  font-family: var(--font);
+  font-size: 15px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 12px 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+@media (min-width: 768px) { body { padding: 24px; } }
+.container { max-width: none; margin: 0 auto; }
+/* ── header ───────────────────────────────────────────────────────────────── */
+.header { background: var(--bg); color: var(--text); padding: 10px 2px 8px; margin-bottom: 8px; position: sticky; top: 0; z-index: 5; min-height: 56px; }
+.header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 44px; }
+.header h1 { font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+.header .subtitle { font-size: 11px; font-weight: 500; color: var(--text-light); margin-top: 3px; }
+.header-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+/* ── nav ──────────────────────────────────────────────────────────────────── */
+.page-nav { display: flex; gap: 8px; margin-bottom: 16px; background: var(--card); padding: 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-height: 60px; }
+.page-nav button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: transparent; color: var(--text-light); border: none; padding: 10px 16px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 44px; }
+.page-nav button.active { background: var(--legacy-primary); color: #fff; }
+.page-nav .nav-icon { font-size: 15px; line-height: 1; }
+/* ── section shells + the card grid skeleton ──────────────────────────────── */
+.section { background: var(--card); border-radius: 12px; margin-bottom: 16px; border: 1px solid var(--border); overflow: hidden; }
+.section-header { padding: 16px 24px; background: var(--gray-light); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 3; min-height: 60px; }
+.section-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.section-body { padding: 16px 24px 24px; }
+.kibbutz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; grid-auto-flow: dense; }
+.kibbutz { padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--card); box-shadow: var(--shadow-sm); position: relative; cursor: pointer; border-right-width: 3px; /* rtl-ok: the legacy status rail, mirrored in app.css */ min-height: 120px; }
+/* ── the space the React islands land in (CLS) ────────────────────────────────
+   #sigma-home replaces the legacy home grid and #sigma-nav paints the phone's bottom bar;
+   both mount after the first paint, so their boxes are reserved here instead of letting the
+   legacy content below them jump. `1px` + min-height keeps an EMPTY island invisible. */
+/* A SCREEN, from the first paint: the card home is the page on a phone, and reserving only
+   420px meant the legend + footer sat above the fold and were pushed down (and out) when the
+   cards landed — the last third of the CLS. Collapsed again by body.sigma-home-fallback. */
+#sigma-home { min-height: 100vh; }
+body.sigma-home-fallback #sigma-home { min-height: 0; }
+#sigma-nav:not(:empty) { min-height: 64px; }
+.company-tasks { min-height: 120px; }
+/* The header chips the island replaces start hidden (see css/app.css → sigma-header-fallback):
+   swapping them for the island's row moved the whole page twice. */
+#userBadge, #emsBubble { display: none; }
+#sigma-header-actions { min-height: 40px; }
+/* The legacy home bar + grids the card island replaces: collapsed from the first paint, and
+   restored by body.sigma-home-fallback if the island never mounts (see css/app.css). */
+.filter-bar { padding: 0; margin: 0; border: 0; background: none; min-height: 0; }
+.filter-bar > .search-input,
+.filter-bar > .filter-chip { display: none; }
+#grid-new, #grid-active { display: none; }
+/* The break-glass name picker, painted in the first frame from html[data-gate="pick"] (see the
+   <head> snippet); js/src/11-search-login.js drops the attribute once it has decided for real. */
+:root[data-gate="pick"] #loginModal { display: flex; }

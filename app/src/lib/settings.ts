@@ -145,6 +145,44 @@ export function getSettings(): UserSettings {
  */
 export function applySettings(s: UserSettings): void {
   try { document.documentElement.style.setProperty('--font', fontStack(s.font)); } catch { /* no DOM */ }
+  ensureFontLink(s.font);
+}
+
+/**
+ * The Google-Fonts stylesheet a face needs. `null` = it is already in index.html's <head>.
+ *
+ * Task 22b: all four faces used to be linked in the <head> — three extra render-blocking
+ * stylesheets (and their woff2) on every boot, for a setting almost nobody changes. Only the
+ * default face, Assistant, is linked now; the other three arrive when somebody picks one.
+ */
+export function fontHref(font: FontChoice | string | null | undefined): string | null {
+  const HREF: Record<string, string | null> = {
+    Assistant: null,
+    Rubik: 'https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap',
+    'Noto Sans Hebrew': 'https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap',
+    Heebo: 'https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap',
+  };
+  return HREF[String(font)] ?? null;
+}
+
+/**
+ * Inject a face's stylesheet once. Idempotent (keyed by `data-sigma-font`), so re-applying the
+ * same settings — every boot, every remote merge — never adds a second <link>. `display=swap`
+ * here, unlike the boot face: the person just chose this face and it is what they are waiting
+ * for, so a late swap is the desired outcome and not a layout shift nobody asked for.
+ */
+export function ensureFontLink(font: FontChoice | string | null | undefined): void {
+  const href = fontHref(font);
+  if (!href) return;
+  try {
+    const key = String(font);
+    if (document.head.querySelector('link[data-sigma-font="' + key + '"]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.dataset.sigmaFont = key;
+    document.head.appendChild(link);
+  } catch { /* no DOM */ }
 }
 
 function notify(): void { listeners.forEach(fn => { try { fn(); } catch { /* a bad listener never blocks the rest */ } }); }

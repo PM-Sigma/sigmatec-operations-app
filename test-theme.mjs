@@ -82,10 +82,33 @@ check('body types from --font, and --font has a value', () => {
   assert.ok(/--font:\s*'Assistant'/.test(css), '--font does not default to Assistant');
 });
 
-check('every font the ⚙️ setting offers is loaded', () => {
-  for (const f of ['Assistant', 'Rubik', 'Noto+Sans+Hebrew', 'Heebo']) {
-    assert.ok(html.includes('family=' + f), f + ' is offered in הגדרות but never loaded');
+check('every font the ⚙️ setting offers is loadable — eagerly or on demand', () => {
+  // Task 22b: three of the four faces left the <head>. Linking all four was three extra
+  // render-blocking stylesheets on every boot for a setting almost nobody touches, so only the
+  // BODY face is eager and the rest are injected by app/src/lib/settings.ts the moment someone
+  // picks one. The contract is unchanged — a face the setting offers must still be loadable.
+  assert.ok(html.includes('family=Assistant'), 'the body face is not loaded in <head>');
+  const settings = fs.readFileSync(path.join(__dirname, 'app/src/lib/settings.ts'), 'utf8');
+  for (const f of ['Rubik', 'Noto+Sans+Hebrew', 'Heebo']) {
+    assert.ok(html.includes('family=' + f) || settings.includes('family=' + f),
+      f + ' is offered in הגדרות but neither linked in <head> nor injectable by applySettings()');
   }
+  assert.ok(/export function ensureFontLink/.test(settings), 'no lazy font injector at all');
+});
+
+// Task 22b: the two big sheets are non-blocking, so the first screen's CSS must be inlined —
+// otherwise the page paints unstyled and the "flash" עידן called out comes back.
+check('the critical CSS is inlined in <head> and generated from css/critical.css', () => {
+  const head = html.split('</head>')[0];
+  assert.ok(/<!-- critical:start[\s\S]*?<style>/.test(head), 'no generated critical <style> block');
+  const inlined = head.match(/<!-- critical:start[^>]*-->\s*<style>([\s\S]*?)<\/style>/);
+  assert.ok(inlined && inlined[1].length > 1000, 'the critical block is empty — run node build.mjs');
+  for (const sel of ['--bg:', 'body{', '.page-nav', '.section-header', '.kibbutz-grid']) {
+    assert.ok(inlined[1].includes(sel), 'the critical CSS is missing ' + sel);
+  }
+  // The sheets themselves stay render-blocking (task 22b measured the swap as a 0.62 layout
+  // shift), so what this guards is that the inlined copy is REAL and generated — a hand-edited
+  // or empty block is the failure mode.
 });
 
 // ---- layout ------------------------------------------------------------------

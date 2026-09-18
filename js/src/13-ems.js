@@ -246,7 +246,7 @@
     const due  = t.expectedCompletionDate ? new Date(t.expectedCompletionDate).toLocaleDateString('he-IL') : '—';
     document.getElementById('emsDetailContent').innerHTML =
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">' +
-        '<h3 style="margin:0;flex:1;color:var(--primary);">' + emsEsc(t.title) + '</h3>' +
+        '<h3 style="margin:0;flex:1;color:var(--legacy-primary);">' + emsEsc(t.title) + '</h3>' +
         '<button onclick="document.getElementById(\'emsDetailModal\').classList.remove(\'open\')" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">✕</button>' +
       '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">' +

@@ -3,8 +3,8 @@
 // to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
 // (Supabase / Apps Script) is never touched → data is always live. build.mjs restamps CACHE
 // on every build so phones fetch fresh bytes each deploy.
-const CACHE = 'sigmatec-ops-mu7320pg';
-const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.css', './ui/sigma.js', './ui/sigma.css', './ui/manifest.json', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE = 'sigmatec-ops-mu74o4nl';
+const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.min.css', './ui/sigma.js', './ui/sigma.css', './ui/manifest.json', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 // The React islands are code-split, so their file list is not knowable here — build.mjs
 // writes ui/manifest.json (every ui/*.js|css of this build) and we precache from it.
@@ -17,9 +17,19 @@ async function precache() {
   } catch (_) { /* offline install — the network-first handler fills the cache later */ }
 }
 
+// Precaching used to run inside `install`, i.e. WHILE the page was still loading: it re-fetched
+// the shell the page was already downloading and pulled every code-split island chunk (📈 שימוש
+// alone is 400 kB) over the same connection. On a throttled phone that was ~1.8 s of "unused
+// JavaScript" competing with the first paint (task 22b). The page now asks for it once it is
+// loaded and idle — see the end of index.html — so offline readiness lands a few seconds later
+// and costs the boot nothing. A page that never asks (an old cached index.html) still gets a
+// filled cache from the network-first fetch handler below.
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(precache());
+});
+
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'precache') e.waitUntil ? e.waitUntil(precache()) : precache();
 });
 
 self.addEventListener('activate', e => {

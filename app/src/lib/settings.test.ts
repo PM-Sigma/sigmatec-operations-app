@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   cardDescClamp, DEFAULT_SETTINGS, fontStack, mergeSettings, setSettingsLocal, getSettings,
-  _resetSettings, SETTINGS_KEY, pickNewer, type UserSettings,
+  _resetSettings, SETTINGS_KEY, pickNewer, fontHref, ensureFontLink, FONTS, type UserSettings,
 } from '@/lib/settings';
 
 describe('mergeSettings', () => {
@@ -58,6 +58,36 @@ describe('fontStack', () => {
   it('an unknown face falls back to Assistant', () => {
     expect(fontStack('Comic Sans')).toContain("'Assistant'");
     expect(fontStack(null)).toContain("'Assistant'");
+  });
+});
+
+// Task 22b: only Assistant is linked in index.html's <head> (three render-blocking font
+// stylesheets left the boot path). The other three faces MUST therefore arrive on demand —
+// a face with no stylesheet is a setting that silently does nothing.
+describe('fontHref / ensureFontLink (the lazy faces)', () => {
+  beforeEach(() => { document.head.innerHTML = ''; });
+
+  it('Assistant needs no link (it ships in the <head>), every other face has one', () => {
+    expect(fontHref('Assistant')).toBeNull();
+    for (const f of FONTS.filter(f => f !== 'Assistant')) {
+      expect(fontHref(f)).toContain('fonts.googleapis.com');
+      expect(fontHref(f)).toContain('display=swap');
+    }
+    expect(fontHref('Comic Sans')).toBeNull();
+  });
+
+  it('injects the face once, however often the settings are re-applied', () => {
+    ensureFontLink('Rubik');
+    ensureFontLink('Rubik');
+    expect(document.head.querySelectorAll('link[data-sigma-font="Rubik"]').length).toBe(1);
+    ensureFontLink('Heebo');
+    expect(document.head.querySelectorAll('link[data-sigma-font]').length).toBe(2);
+  });
+
+  it('choosing a face through the store is what injects it', () => {
+    _resetSettings(); localStorage.clear(); document.head.innerHTML = '';
+    setSettingsLocal({ font: 'Noto Sans Hebrew' });
+    expect(document.head.querySelector('link[data-sigma-font="Noto Sans Hebrew"]')).not.toBeNull();
   });
 });
 

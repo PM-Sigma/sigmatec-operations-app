@@ -56,10 +56,14 @@ export function FilterChips({
           <ToggleGroupItem
             key={c.value}
             value={c.value}
-            aria-label={c.label}
+            // The accessible name must CONTAIN the visible text (a11y gate
+            // label-content-name-mismatch): the chip SHOWS "הכל 12", so a bare label that omits
+            // the count made voice control ask for a name nobody can see.
+            aria-label={c.label + ' ' + counts[c.key]}
             className="h-auto shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-muted-foreground data-[state=on]:border-transparent data-[state=on]:bg-foreground data-[state=on]:text-background"
           >
-            {c.label} <bdi className="opacity-70">{counts[c.key]}</bdi>
+            {/* no `opacity-70`: it composited --muted-foreground down to 3.07:1 (a11y gate). */}
+            {c.label} <bdi>{counts[c.key]}</bdi>
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
