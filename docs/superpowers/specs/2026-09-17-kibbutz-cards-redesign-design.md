@@ -571,7 +571,7 @@ text immediately (editable) and poll `job_id` while the field is still open; (2)
 user has not edited or sent → replace silently with a small "עודכן" marker and undo; if the user already edited or sent →
 **discard** (never mutate saved records behind the user); (3) the Edge Function retries once after 2 s on network/5xx,
 never on 4xx, then falls back to Groq; job results are cached by `job_id` so polling does not count against the limit;
-(4) the three real WhatsApp voice notes for the proper-noun comparison must come from עידן (agent cannot supply them).
+(4) the three real WhatsApp voice notes for the proper-noun comparison must come from עידן (agent cannot supply them). Server-side answers (18.9): (3) no named domain now — the Funnel hostname is permanent and hard-coded; (4) `/health` stays unauthenticated (reveals nothing; used for the settings health chip); (6) **no transcript logging on the server** — the app logs only engine/ms/ok in `transcribe_log`. Facts to design around: refine pass about 0.7x realtime on CPU (60 s -> ~82 s, 3 min -> ~4 min) -> poll at most every 5 s, stop after the job TTL of 1 h or when the field is closed; requests are serialized per device (fine at our volume); fast pass = `ivrit-ai/whisper-large-v3-turbo-ggml` on GPU, refine = `ivrit-ai/whisper-large-v3-ct2` on CPU; the server runbook lives at `C:/Users/idann/Projects IdanHomeServer/whisper-server/docs/whisper-server.md` (this repo's `docs/whisper-server.md` must point there instead of describing the old Docker image).
 Recordings go to the private `feedback-audio`/`visit-audio` Storage buckets and are deleted after transcription
 succeeds (retention 7 days for retry). Every transcript is editable before it is used.
 
