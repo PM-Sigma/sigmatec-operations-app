@@ -53,6 +53,12 @@ recording clock; every classification happens afterwards, on the transcript, wit
   returns to navigation. Nothing else to click during the meeting.
 - Navigation log: `meeting_events(session_id, t_sec, kind 'kibbutz'|'marker'|'parking'|'general', kibbutz, hint)`.
 
+### 1.2b Live quick-note (עידן 18.9 21:50, ruling)
+עידן shares his screen during the meeting, so the presenter view carries a **✏️ pencil on the current kibbutz**: tap →
+one text field + the same classification chips as the review screen (📋 משימת EMS / 🔒 פנימי / 📝 הערה / …) + owner → **הזן**
+creates it immediately (an EMS task is created on the spot, a note joins that kibbutz's bullets). Visible to everyone
+in the room because the screen is shared; stored like any reviewed sentence (source `live`). Not held until "בצע".
+
 ### 1.3 After the meeting — classification with the transcript already split
 - The transcript (Whisper on עידן's server, §7i of the redesign spec) is **segmented by the navigation log**: each
   segment carries its kibbutz. The summary job (Claude, as today, or the app's own `parse-daylog`-style function)

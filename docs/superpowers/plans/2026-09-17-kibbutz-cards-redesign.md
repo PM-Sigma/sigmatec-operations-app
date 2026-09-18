@@ -477,6 +477,9 @@ Source: עידן 18.9 21:40 ("זה כבר מאופיין… פרויקט זמנ�
      them at arrival; ticking one there = ✅ נצרב.
   3. **Landing (field role)**: one progress strip "🔥 צריבות — נותרו N ב-M קיבוצים" above the arrival list, tap → filter
      cards to sites with pending burns. Hidden at N=0.
+  3b. **עמיחי's landing (סקירה) — ruling עידן 18.9 21:50:** the same strip as a PROGRESS summary (בוצע / סה״כ per kibbutz,
+     overall %), and pending burns count as part of the routine open work of every kibbutz that has them (they appear in
+     the card's open-work count and the kibbutz health signals, not only in the field flow).
   4. Full table + Excel + generators helper stay as one screen reachable from that strip / ⋯ עוד, tagged
      "פרויקט זמני"; the same screen is what עמיחי/עידן/viewer see.
 - Gate reverts to the spec's original audience: write אביאם/ניתאי/עידן/עמיחי, viewer read, hidden from מתניה/אליה.
