@@ -1,4 +1,4 @@
-# Kibbutz Cards Redesign + Field Flow — Implementation Plan
+﻿# Kibbutz Cards Redesign + Field Flow — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -488,3 +488,408 @@ Source: עידן 18.9 21:40 ("זה כבר מאופיין… פרויקט זמנ�
   build the three surfaces as React pieces reading the same `meter_burns` table (TanStack Query, invalidate on write).
 - Removal path (end of project): one flag `BURNS_PROJECT_ACTIVE=false` hides every surface; data stays for the report.
 - Tests: chip count golden, briefing rows, hide-at-zero, role matrix; Playwright card + briefing; qa gates.
+
+---
+
+## P4 — Company process (planned 18.9 22:20)
+
+Source spec: `docs/superpowers/specs/2026-09-18-company-process-design.md` (§0 answers, §1.2b live-note ruling,
+§8b rulings 22:05, §9 remaining open items). Tasks 24–30 turn it into build work. They are deliberately small and
+**independent of each other** — any one can ship alone, any one can be dropped if the budget window closes.
+
+**Shared rules for all of 24–30 (on top of the Global Constraints):**
+- React islands only (`app/src/`), legacy reached through `window.sigma` (`js/src/00-bridge.js`); any new bridge fn,
+  bus event, table, edge function or island placeholder is added to `docs/integration-map.md` + `test-integration.mjs`
+  **in the same commit**.
+- Pure logic in `app/src/lib/*.ts` with vitest goldens (`docs/testing-methodology.md`: pure builders, golden fixtures,
+  contract sweeps, edge-case set, role-gating matrix incl. the viewer regression assert).
+- **Reuse Task 2, do not rebuild it.** `app/src/lib/meetingNotes.ts` already owns parse / aliases / owners /
+  `titleFromBullet` / `descriptionFromBullet` / `taskFromBullet` / `rowsFromParsed` / `notesForKibbutz`;
+  `app/src/islands/ImportNotes.tsx` owns `openImportSheet` + `saveParsedMeeting`; EMS task creation goes through
+  `sigma.createTask` (+ the `ems-queue-flushed` / `notes-changed` bus contract). New code extends these files.
+- **Copy rules (master spec §7):** Hebrew, no system-talk (never "נשמר ל-DB", "אירוע", "סנכרון"), and never surface
+  "who sees what" in the UI. Internal tasks are simply 🔒; nothing says "הקיבוץ לא רואה".
+- **DoD for every task 24–30:** `npm run qa -- --label task-NN` green (Gitleaks 0 · Semgrep 0 · Playwright
+  **desktop 1440×900 + mobile 390×844, light + dark**, RTL, `?login=0&sb=0` · Lighthouse · ZAP baseline · `npm test`)
+  with `qa/reports/<date>-task-NN.md` attached, plus the visual-parity screenshots gate.
+- DB files follow `db/<thing>.sql` naming (table + `enable row level security` + read/write policies, like
+  `db/kibbutz_meeting_notes.sql`); migrations are applied by name, never by ad-hoc SQL.
+
+**Explicitly EXCLUDED from P4: Gmail intake-lite (spec §3 / §3b).** עידן has not approved it (§8b: "לא מבין" →
+OPTIONAL) — no task, no table, no `gmail-intake` function and no `GMAIL_REFRESH_TOKEN` secret in this release.
+
+### P4 handoff items for עידן (append to `docs/HANDOFF-עידן.md`)
+- [ ] `CLOCKIFY_API_KEY` — Clockify → Profile settings → API → generate; hand it over for the Supabase secret (Task 29).
+- [ ] `CLOCKIFY_WORKSPACE_ID` — from the Clockify URL, or consult the `sigmatec-email-manager` integration (Task 29).
+- [ ] Drive folder ids (spec §8b) — recordings `1C-fmIISkqqb7FcQxwxNG2Dvdn4_WjK5J`, summaries
+  `17nvkpdn5crmlbZCc6SbwaNmNKY4Ml7YV`: confirm they are shared with the app's service account **if/when** Drive
+  auto-import ships (§9 — deferred; Task 25 uses upload/paste, so this is not blocking).
+- [ ] Health thresholds (Task 28) — answer by Tue 22.9 09:00 (scheduled task `sigma-health-v1-thresholds`).
+
+---
+
+### Task 24: Meeting presenter mode (מצב ישיבה) — navigate + live quick-note
+
+**Agent:** Opus. **Branch:** `feat/kcr-presenter`. Depends on Task 2 (notes), Task 13 (calendar event + 🎥 Meet link). Size: **L**.
+
+Spec §1.2 + §1.2b. **No recording in the browser** (§8b closed it: עידן records locally, Drive sync). This task is the
+in-meeting screen only: navigate, mark, and — when he wants — write one line that lands immediately.
+
+**Files:** Create `db/meeting_sessions.sql`, `db/meeting_events.sql`, `db/kibbutz_meeting_notes_source.sql`,
+`app/src/lib/meetingSession.ts` (+ `.test.ts`), `app/src/islands/Presenter.tsx` (+ `.test.tsx`),
+`qa/playwright/presenter.spec.ts`. Modify `index.html` (`<div id="sigma-presenter">` placeholder),
+`app/src/lib/registry.ts` (⋯ עוד → **▶ מצב ישיבה**, admins only), `docs/integration-map.md`, `test-integration.mjs`.
+
+**Interfaces:**
+- SQL: `meeting_sessions(id uuid pk default gen_random_uuid(), date date not null, kind text not null default 'company'
+  check (kind in ('company','dev')), started_at timestamptz default now(), ended_at timestamptz, host text,
+  calendar_event_id text)`; `meeting_events(id uuid pk, session_id uuid references meeting_sessions(id) on delete
+  cascade, t_sec int not null, kind text not null check (kind in ('kibbutz','marker','parking','general','note','issue')),
+  kibbutz text, issue_number int, hint text, created_at timestamptz default now())`. RLS on; read `using (true)`,
+  write `to authenticated`.
+- Pure (`meetingSession.ts`): `presenterOrder(kibbutzRows)` → board order (🆕 new → ✅ active, region groups; import the
+  comparator from `lib/kibbutzim.ts`, do not re-implement); `tSec(startedAt, now)` → int ≥ 0; `nextIndex(i, len, dir)`
+  clamped (no wrap); `carryOverLine(groups, kibbutz)` → `'מהישיבה הקודמת: 3 פתוחים'` or `null` at 0, computed from
+  `notesForKibbutz` rows with `done_at == null` belonging to the **most recent previous** meeting_date;
+  `eventRow(sessionId, startedAt, kind, payload)`; `canPresent(isAdmin, isViewer)`.
+- `Presenter.tsx`: full-screen overlay, big type, one kibbutz per screen. Header = live timer (`mm:ss` from
+  `started_at`), `X / N`, the carry-over line, and the 🎥 Meet link of today's company/dev meeting event read from the
+  calendar island's query (Task 13) — display only, opens in a new tab.
+  Keys: `←/→` and `J/K` move · `Space` = 📌 סמן רגע (marker, no text) · `P` = parking lot (tangent — recorded as
+  `kind:'parking'` with the current kibbutz as `hint`; the screen does **not** move) · `Esc` = back to the last kibbutz,
+  and from the note field back to navigation · `N` focuses the quick-note line · a second `Esc` exits presenter mode
+  (confirm sheet → `ended_at`).
+  Under the kibbutz: the two state strips (ניהולי / שטח·מערכת) from existing card data plus Task 28's strip **when it
+  exists** (render nothing if absent — no hard dependency), last meeting's bullets with age, and the always-visible
+  one-line quick note (Enter → `meeting_events kind:'note'`, clears the field, toast).
+- **✏️ live quick-note (§1.2b):** the pencil on the current kibbutz opens one text field + the review chips
+  (📋 משימת EMS · 🔒 פנימי · 📝 הערה · 🧭 הכרעה · 💡 רעיון) + owner picker (`MEETING_PEOPLE`) + **הזן**, and creates
+  **immediately**, source `'live'`: 📋 → `sigma.createTask(taskFromBullet(...))` (the existing chain, so the offline
+  queue and `ems-queue-flushed` resolution keep working) · 🔒 → an `internal_tasks` row once Task 26 has shipped,
+  otherwise the chip is hidden · everything else → a `kibbutz_meeting_notes` row for that kibbutz/date with
+  `source='live'` (nullable `source text` column added in `db/kibbutz_meeting_notes_source.sql`). Emits
+  `notes-changed`, so the cards behind the overlay are already right when he exits.
+
+**Steps:**
+- [ ] 1. SQL files + the `source` column migration.
+- [ ] 2. vitest first: `presenterOrder` golden over a 30-row fixture (new before active, region grouping, alpha inside);
+  `tSec` clock skew (negative → 0); `nextIndex` clamps at both ends; `carryOverLine` null at 0, singular/plural Hebrew,
+  ignores the current meeting's own notes; `eventRow` shape per kind; `canPresent` role matrix + viewer regression.
+- [ ] 3. `Presenter.test.tsx` (@testing-library): key map (each key → exactly one action; `P` does not move the screen;
+  `Esc` from the note field does not exit); quick-note Enter creates one row and clears; ✏️ with 📋 calls the stubbed
+  `sigma.createTask` **once** with a `taskFromBullet` payload; the 🔒 chip is hidden when `internal_tasks` is absent;
+  contract sweep over the rendered text — no "נשמר" / "DB" / "אירוע".
+- [ ] 4. Implement, register the island, add the table/bus/bridge rows to `docs/integration-map.md` +
+  `test-integration.mjs`, `node build.mjs`, apply the migrations.
+- [ ] 5. `npm run qa -- --label task-24` (Playwright: open presenter desktop+mobile, light+dark, walk 3 kibbutzim, type
+  a note, create a live EMS task against the mock) → green + report. Commit.
+
+**Tests:** vitest goldens + RTL render tests + Playwright + role matrix, as above.
+**DoD:** `npm run qa -- --label task-24` green, `qa/reports/<date>-task-24.md` attached, Playwright desktop/mobile
+light/dark green, integration map updated.
+**Model:** **Opus** (judgment, multi-file, key handling, creates real EMS tasks).
+
+---
+
+### Task 25: Review-as-editor (ישיבה → סיכום)
+
+**Agent:** Opus. **Branch:** `feat/kcr-review-editor`. Depends on Task 2; uses Task 24's sessions when present and degrades without them. Size: **L**.
+
+Spec §1.3 — "the review screen is עידן's editor, not just an approver". Import source is **upload/paste of the summary**
+(the §9 default); Drive auto-import is deferred, not stubbed.
+
+**Files:** Create `app/src/islands/MeetingReview.tsx` (+ `.test.tsx`), `app/src/lib/meetingReview.ts` (+ `.test.ts`),
+`app/src/lib/__fixtures__/review_17.9.26.json`, `qa/playwright/meeting-review.spec.ts`. Modify
+`app/src/islands/ImportNotes.tsx` (after a successful parse add **📝 עבור על הסיכום** → hands the `ParsedMeeting` to the
+review island; the existing straight-save path stays), `app/src/lib/meetingNotes.ts` (export the chip vocabulary),
+`index.html` (`#sigma-meeting-review`), `docs/integration-map.md`, `test-integration.mjs`.
+
+**Interfaces:**
+- `type Chip = 'ems'|'internal'|'decision'|'idea'|'deferred'|'chatter'`, labels
+  `📋 משימת EMS · 🔒 פנימי · 🧭 הכרעה · 💡 רעיון · ⏭ נדחה · — רק דיבורים`. `proposeChip(text, owners, hadMarker)` —
+  pure, golden-tested; default `'chatter'` for a sentence with no action verb; a 📌 marker raises `chatter` → `decision`.
+- Draft model, in memory only — **nothing is written before בצע**:
+  `ReviewDraft = { meeting_date, meeting_kind, sections: Array<{ kibbutz, lines: Array<{ key, text, owners, chip,
+  edited:boolean, added:boolean, movedFrom?:string }> }> }`, with pure builders `draftFromParsed(parsed)` ·
+  `setChip(d,key,chip)` · `setOwner(d,key,owners)` · `editLine(d,key,text)` · `addLine(d,kibbutz,text)`
+  (➕ שורה משלי, `added:true`) · `moveLine(d,key,toKibbutz)` (keeps text + chip, records `movedFrom`) ·
+  `removeLine(d,key)` · `reviewSummary(d)` → `{ems, internal, notes, chatter}` for the בצע button label.
+- `applyReview(d)` → `{ notes: NoteRow[], emsTasks: TaskInput[], internalTasks: InternalTaskInput[] }`, reusing
+  `rowsFromParsed`'s row shape and `taskFromBullet` for the EMS payloads; `'chatter'` → a note with `quiet:true`,
+  `'deferred'` → a note marked deferred. The thin writer then bulk-POSTs the notes (same delete-then-insert key as
+  `saveParsedMeeting`), calls `sigma.createTask` per EMS line and PATCHes the note's `ems_task_id`, inserts internal
+  tasks when Task 26 has shipped (else the 🔒 chip is hidden), and emits `notes-changed`.
+- UI per line: the chip row (one tap), the owner picker, **✏️ עריכה** inline, and — on 📋 — the task modal prefilled
+  (site via `sigma.emsSiteIdForKibbutz`, title/description/assignee from `taskFromBullet`) so the task is created on the
+  spot. Per kibbutz: **➕ שורה משלי**. Drag a line onto another kibbutz's header to move it; on mobile ⋯ → "העבר
+  לקיבוץ אחר" picker (drag alone is not usable on a phone).
+
+**Steps:**
+- [ ] 1. vitest first over the 17.9 fixture already in `app/src/lib/__fixtures__/`: `draftFromParsed` golden;
+  `proposeChip` table (action verb → `ems`; "ללא פערים" → `chatter`; marker → `decision`); every mutator is immutable
+  (`deepStrictEqual` of the input against a frozen copy); `moveLine` across sections keeps line counts;
+  `applyReview` golden against `review_17.9.26.json`; **contract sweep: the lib imports nothing from `supabase.ts`**
+  (no mutator can write).
+- [ ] 2. `MeetingReview.test.tsx`: chips / owner / edit / ➕ / move render and mutate; בצע calls the writer once with the
+  expected bundle; cancel discards everything; viewer and non-admin cannot open it (role matrix).
+- [ ] 3. Implement, wire the ImportNotes hand-off, integration map, build.
+- [ ] 4. `npm run qa -- --label task-25` green + report. Commit.
+
+**DoD:** the P4 shared DoD + a Playwright run that pastes the 17.9 fixture, edits one line, moves one line and presses
+בצע against the mock backend.
+**Model:** **Opus** (the most judgment-heavy screen in P4).
+
+---
+
+### Task 26: Internal tasks (🔒)
+
+**Agent:** Sonnet. **Branch:** `feat/kcr-internal-tasks`. Depends on Task 1. Size: **M**.
+
+Spec §2 as amended by the §8b ruling: **no due dates, no reminders** — a list with owner + done, visible to all employees.
+
+**Files:** Create `db/internal_tasks.sql`, `app/src/lib/internalTasks.ts` (+ `.test.ts`),
+`app/src/components/home/InternalTasks.tsx` (+ `.test.tsx`), `qa/playwright/internal-tasks.spec.ts`. Modify
+`app/src/components/home/KibbutzCard.tsx` (🔒 section beside the EMS tasks), `app/src/islands/Home.tsx` ("היום שלי" — my
+open 🔒 rows), `docs/integration-map.md`, `test-integration.mjs`, plus the legacy retirement below.
+
+**Interfaces:**
+- SQL exactly per the ruling — nothing more:
+```sql
+create table if not exists internal_tasks (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  owner text,
+  kibbutz text,                         -- null = company-wide
+  done boolean not null default false,
+  created_by text,
+  created_at timestamptz default now()
+);
+alter table internal_tasks enable row level security;
+create policy it_read on internal_tasks for select using (true);
+create policy it_write on internal_tasks for all to authenticated using (true) with check (true);
+```
+  No `due`, no `remind_at`, no `source_ref`; a later feature that needs one adds it with its own migration.
+- Pure: `openFor(rows, kibbutz)` · `myOpen(rows, person)` (owner = person, `done=false`, kibbutz-null included) ·
+  `countBadge(rows, kibbutz)` · `toggleDone(row)` · `promoteToEms(row, kibbutz)` → a `taskFromBullet`-shaped payload
+  (⬆ הפוך למשימת EMS creates the EMS task and then sets `done=true` on the internal one — no cross-table link column) ·
+  `canWriteInternal(user)` (every employee; viewer read-only).
+- Bus: new event **`internal-tasks-changed`** with ONE module-scope listener invalidating `['internalTasks']` — the same
+  pattern as `notes-changed` in `MeetingNotes.tsx` (a listener per card would mean one per card).
+- **Legacy merge (redundancy-audit R-rulings):** the company-task surfaces the audit marked redundant retire here —
+  find them by grepping the company-task helpers in `js/src/12-reports.js` and the ⋯ עוד registry, remove the duplicate
+  entry points and point what remains at the 🔒 list. Data is never deleted.
+
+**Steps:**
+- [ ] 1. `db/internal_tasks.sql` + apply the migration.
+- [ ] 2. vitest: `openFor` / `myOpen` goldens incl. the kibbutz-null case; `countBadge` hides at 0; `promoteToEms`
+  payload golden; role matrix with the **viewer write-block regression**; contract sweep asserting **no field named
+  `due` or `remind`** anywhere in the module (the ruling, enforced by a test).
+- [ ] 3. Component tests: the card section renders and hides at 0; the "היום שלי" row; ✓ flips and emits the bus event
+  exactly once.
+- [ ] 4. Retire the duplicate legacy surfaces; update `docs/integration-map.md` + `test-integration.mjs`; build.
+- [ ] 5. `npm run qa -- --label task-26` green + report. Commit.
+
+**DoD:** the P4 shared DoD; the copy never mentions who can or cannot see the list.
+**Model:** **Sonnet** (table + list + two placements; the only judgment is the retirement, already decided by the audit).
+
+---
+
+### Task 27: New-client onboarding template
+
+**Agent:** Sonnet. **Branch:** `feat/kcr-onboarding`. Depends on Task 1b (create-kibbutz flow) and Task 26 (steps are internal tasks). Size: **M**.
+
+Spec §4. Wait-states are a display state only — the Gmail flow that would close them is excluded from P4, so a waiting
+step is closed manually.
+
+**Files:** Create `db/onboarding_templates.sql`, `db/onboarding_steps.sql`, `app/src/lib/onboarding.ts` (+ `.test.ts`),
+`app/src/components/home/OnboardingProgress.tsx` (+ `.test.tsx`), `qa/playwright/onboarding.spec.ts`. Modify the
+create-kibbutz sheet from Task 1b (on create with status לקוח חדש → spawn the steps), `KibbutzCard.tsx` (🆕 cards only),
+`app/src/islands/Settings.tsx` (template editor for עידן), `docs/integration-map.md`, `test-integration.mjs`.
+
+**Interfaces:**
+- `onboarding_templates(id uuid pk, name text, steps jsonb not null, updated_by text, updated_at timestamptz)` with one
+  seeded row `'ברירת מחדל'` holding the nine steps of §4 in order — `הקמת אתר ב-EMS · קבלת רשימת לקוחות מהקיבוץ ·
+  קבלת פרטי כניסה למערכת המונים · ייבוא מונים · תעריפים · תקשורת · הדרכה · בדיקת חשבון ראשון · העברה לפעילים` —
+  each `{key, label, waits:boolean}` (`waits:true` on the two "ממתין למייל" steps).
+  `onboarding_steps(id uuid pk, kibbutz text not null, step_key text not null, label text, seq int, state text not null
+  default 'open' check (state in ('open','waiting','done')), sent_at timestamptz, done_at timestamptz,
+  created_at timestamptz default now(), unique (kibbutz, step_key))`. RLS as in the other tables.
+- Pure: `stepsFromTemplate(tpl, kibbutz)` → the insert rows · `progressOf(steps)` → `{done, total, pct, label:'5/9'}` ·
+  `daysInOnboarding(steps, now)` (from the earliest `created_at`) · `waitAge(step, now)` → days since `sent_at`, null
+  when not waiting · `nextStep(steps)` (first non-done, for the card's one-line hint) · `isComplete(steps)` (all done →
+  the card **offers** "העבר לפעילים"; it is never flipped automatically).
+- Card (🆕 section only): the progress bar `5/9`, the next step, days in onboarding; tapping a step cycles
+  open → waiting → done. עמיחי's overview gains one column: onboarding age per client.
+- The template is editable by עידן from ⚙️ הגדרות (ordered-list editor); edits never touch already-spawned steps.
+
+**Steps:**
+- [ ] 1. SQL + seed the default template + apply.
+- [ ] 2. vitest: `stepsFromTemplate` golden (9 rows, seq, `waits` maps to state `open` — not `waiting` — until sent);
+  `progressOf` at 0 / partial / 9; `daysInOnboarding` across a timezone/DST boundary (build from Y/M/D parts per the
+  methodology); `waitAge` null when not waiting; `isComplete`; role matrix (viewer read-only; only עידן edits templates).
+- [ ] 3. Component test: a 🆕 card shows the strip, a ✅ card does not; a toggle emits exactly once.
+- [ ] 4. Wire into Task 1b's create flow; integration map; build.
+- [ ] 5. `npm run qa -- --label task-27` green + report. Commit.
+
+**DoD:** the P4 shared DoD.
+**Model:** **Sonnet** (template → rows → progress bar; well specified, low judgment).
+
+---
+
+### Task 28: Kibbutz health v1 — DRAFT
+
+**Agent:** Opus. **Branch:** `feat/kcr-health-v1`. Depends on Task 1. Size: **M**.
+
+Spec §5 + the §8b ruling: **build a first draft and leave thresholds and the data source open** (reminder
+`sigma-health-v1-thresholds`, Tue 22.9 09:00). The deliverable is the *shape*, not the numbers.
+
+**Files:** Create `db/kibbutz_health.sql`, `app/src/lib/health.ts` (+ `.test.ts`), `app/src/lib/healthSources.ts`
+(+ `.test.ts`), `app/src/components/home/HealthStrip.tsx` (+ `.test.tsx`), `qa/playwright/health.spec.ts`. Modify the
+card modal (Task 1b's sheet), `docs/integration-map.md`, `test-integration.mjs`.
+
+**Interfaces:**
+- **One config object, clearly marked draft** — the entire tuning surface lives in one exported const, so Tuesday's
+  answer is a one-line diff:
+```ts
+/** DRAFT — placeholder thresholds, pending עידן 22.9 (sigma-health-v1-thresholds). Not to be read as truth. */
+export const HEALTH_CONFIG_DRAFT = {
+  draft: true,
+  weights: { finance: 1, energy: 1, alerts: 1, recurring: 1 },   // §5: "start equal"
+  finance: { lossIsRed: true, marginBandPct: 10, missingBillDays: 5 },
+  energy:  { lossWarnPct: 8, lossRedPct: 15 },                   // גבים's 15–20% is red
+  alerts:  { silentMeterWarn: 1, silentMeterRed: 3, staleTaskDays: 7 },
+  recurring: { windowDays: 60, clusterWarn: 2, clusterRed: 4 }
+} as const;
+```
+- Four signals, each scored **0–3** by a pure `(input) => {score, why}`: `scoreFinance` · `scoreEnergy` ·
+  `scoreAlerts` · `scoreRecurring`; `healthOf(signals, cfg)` → `{score, band:'green'|'amber'|'red', signals, draft:true}`.
+  Every signal maps `input === null` to `{score:null, why:'אין נתונים'}` and is then **excluded from the average**,
+  never counted as 0 — a missing source must not fake a red.
+- **Data-source abstraction — one interface, implementations chosen by config**, so the EMS-API-vs-read-only-DB question
+  (§9) never reaches the UI:
+```ts
+export interface HealthSource {
+  finance(kibbutz: string): Promise<FinanceInput | null>;
+  energy(kibbutz: string): Promise<EnergyInput | null>;
+  alerts(kibbutz: string): Promise<AlertsInput | null>;
+  recurring(kibbutz: string): Promise<RecurringInput | null>;
+}
+```
+  Ship `emsApiSource` (over `sigma.emsApi`, returning `null` for anything EMS does not expose yet) and `nullSource`
+  (everything `null`, for tests and mock mode). A `pgReadOnlySource` is **not** written in this task — the interface is
+  the point.
+- `kibbutz_health(kibbutz text primary key, score numeric, signals jsonb, computed_at timestamptz default now())`,
+  written by an on-demand recompute; **no pg_cron job** until the thresholds are real.
+- UI = a small strip in the **card modal, for עמיחי and עידן only**: four dots + a tooltip carrying each signal's `why`,
+  and a visible **"טיוטה"** marker so nobody acts on the numbers yet. No dot on the card face in v1.
+
+**Steps:**
+- [ ] 1. vitest first: each scorer's table incl. the `null` path; `healthOf` excludes nulls from the average; all-null →
+  a neutral band, not red; weights applied; **contract sweep: every threshold the scorers use comes from
+  `HEALTH_CONFIG_DRAFT`** — no numeric literal in a scorer (source scan, same trick as the internal-tasks no-`due`
+  sweep); `nullSource` structurally satisfies `HealthSource`.
+- [ ] 2. Component test: the strip renders for עמיחי/עידן and is absent for everyone else (role matrix + viewer); the
+  "טיוטה" marker is present; the tooltip shows `why`.
+- [ ] 3. Implement, integration map, build.
+- [ ] 4. `npm run qa -- --label task-28` green + report. Commit. **Leave the spec's §9 health bullet open.**
+
+**DoD:** the P4 shared DoD; this task is explicitly allowed to ship with signals reading `אין נתונים`.
+**Model:** **Opus** (the abstraction is the deliverable; getting it wrong costs a rewrite on Tuesday).
+
+---
+
+### Task 29: Clockify per kibbutz (▶/■ on the card)
+
+**Agent:** Opus. **Branch:** `feat/kcr-clockify`. Depends on Task 1 and Task 1b (contacts). Size: **L**.
+
+Spec §6 + the §8b ruling (closed). **Step 0 is reading the live tag list from the Clockify API** — the tag vocabulary is
+theirs, not ours, and is never hard-coded.
+
+**Files:** Create `supabase/functions/clockify/index.ts`, `db/work_sessions.sql`, `app/src/lib/clockify.ts`
+(+ `.test.ts`), `app/src/components/home/WorkTimer.tsx` (+ `.test.tsx`), `qa/playwright/clockify.spec.ts`. Modify
+`KibbutzCard.tsx` (the ▶/■ control), `docs/integration-map.md`, `test-integration.mjs`, `docs/HANDOFF-עידן.md`.
+
+**Interfaces:**
+- **Secrets are Supabase Edge Function secrets only, never in the bundle:** `CLOCKIFY_API_KEY` and
+  `CLOCKIFY_WORKSPACE_ID` (handoff items above). The `clockify` function is the only holder and exposes exactly three
+  actions: `{action:'tags'}` → the workspace tag list · `{action:'projects'}` → projects, to map kibbutz → project
+  (creating a project is out of scope; an unmatched kibbutz falls back to no project plus the name in the description) ·
+  `{action:'entry', …}` → create a time entry. Modelled on the existing `github` function (same auth check, same error
+  shape); it rejects any caller that is not an authenticated employee and rate-limits `tags`.
+- Tag cache: `tagsCached(fetcher, now, ttlMin=60)` — tested with a fake clock, cached in `localStorage` under
+  `sigma_clockify_tags_v1`. The first run of the task reads the live list and **records it in the task report** so the
+  reviewer can see what the workspace really contains.
+- `work_sessions(id uuid pk, person text not null, kibbutz text, task_ref text, kind text, attendees text[] not null
+  default '{}', tags text[] not null default '{}', description text, started_at timestamptz not null,
+  ended_at timestamptz, billable boolean not null default false, clockify_id text, note text,
+  created_at timestamptz default now())`. RLS on; read for authenticated, write own rows.
+- UI: **▶ / ■ on the kibbutz card, for עידן and מתניה only** (`canTrackTime(user)`, pure and role-matrixed; everyone else
+  sees nothing, viewer never). ▶ starts a local running session, persisted so a reload does not lose it, one running
+  session per person (starting a second offers to stop the first). ■ opens the stop sheet: **who attended** (the
+  kibbutz's contacts from `site_contacts`, multi-select, **addable inline exactly like the visit summary** — reuse that
+  component), **tags** (the live list, multi-select), an optional note and the billable toggle (default **off**).
+- On confirm, `entryPayload(session)` → a Clockify entry with `description = '<kibbutz> — <tags joined by ", ">'`,
+  ISO `start`/`end`, the mapped project and tag ids resolved from the cached list; the function returns the entry id and
+  the `work_sessions` row is written with `clockify_id`. **If Clockify fails the local row is still written**
+  (`clockify_id = null`, quiet retry next time) — hours are never lost because a third-party API blinked. Emits
+  `work-session-saved`.
+
+**Steps:**
+- [ ] 0. **Read the live tag list** through the deployed function (or curl with the handed-over key) and paste it into
+  the task report. If the secrets have not arrived: implement against fixtures, mark the task 🟡 blocked on the handoff
+  item, and do not guess tag names.
+- [ ] 1. `db/work_sessions.sql` + apply.
+- [ ] 2. The edge function with its auth check and the three actions; deploy.
+- [ ] 3. vitest: `entryPayload` golden (description format, ISO stamps, empty tags → no dangling `— `, billable flag);
+  `elapsed()` across a reload (`started_at` from storage) and across midnight; `tagsCached` TTL, and a fetch failure
+  keeps the stale list; the duplicate-start guard; `canTrackTime` matrix (עידן ✓, מתניה ✓, אביאם ✗, עמיחי ✗, viewer ✗);
+  **secret sweep: no `CLOCKIFY_` string anywhere under `app/` or `js/`** (Gitleaks plus an explicit assert).
+- [ ] 4. Component test: the stop sheet requires nothing but allows attendees + tags; a Clockify failure still writes
+  the local row.
+- [ ] 5. Integration map, build, `npm run qa -- --label task-29` green + report. Commit.
+
+**DoD:** the P4 shared DoD + the live tag list recorded in the report + zero secrets in the bundle.
+**Model:** **Opus** (third-party API, secrets, failure semantics).
+
+---
+
+### Task 30: Dev meeting mode + sprint prep
+
+**Agent:** Opus. **Branch:** `feat/kcr-dev-meeting`. Depends on Task 24 (presenter shell) and Task 11 (dev page). Size: **M**.
+
+Spec §7. Reuses the **existing `github` edge function** — no new integration, no new secret.
+
+**Files:** Create `app/src/lib/sprintPrep.ts` (+ `.test.ts`), `app/src/islands/DevPresenter.tsx` (+ `.test.tsx`) — or a
+`mode` prop on `Presenter.tsx` if that shell is clean enough; the implementer picks and records why —
+`qa/playwright/dev-meeting.spec.ts`. Modify `app/src/lib/registry.ts` (⋯ עוד → **▶ ישיבת פיתוח**),
+`docs/integration-map.md`, `test-integration.mjs`.
+
+**Interfaces:**
+- The presenter is driven by the **dev board** instead of the kibbutzim: walk the columns `בפיתוח עכשיו → שלבי בדיקות →
+  ספרינט הקרוב`, one card per screen with its title, description, comments and open questions, fetched through the
+  existing `github` function already used by Task 11 (reuse its query keys — no second fetch path). Keys are Task 24's;
+  📌 writes `meeting_events kind:'issue'` with `issue_number`.
+- Pure (`sprintPrep.ts`), all golden-tested against a board fixture: `cardsWithoutSpec(cards)` (Scope Refinement
+  candidates — empty body or no `## ` section) · `blockedOver(cards, days=7)` (no state change in N days) ·
+  `questionsForIdan(comments)` (comments mentioning עידן, newest first) · `burndown(cards)` → `{done, total, pct}` ·
+  `proposeSprint(cards, opts)` → ranked Backlog candidates by parent-module priority, age, and — when Task 28 has
+  shipped — a bonus for cards tied to a red health signal; the ranking is one exported `rankCard()` so it is re-tunable
+  in one place · `sprintList(picked)` → the task's **output**: an ordered list עידן accepts, each entry
+  `{issue_number, title, parent, why}`.
+- Accepting a card moves it with the **existing** "העבר לספרינט הקרוב" action (Task 11). This task writes to GitHub by
+  no other path and **never creates a parent card** (Git Ticket System rule: every card is a child under an existing
+  Main Fields parent, title `[מודול] | [תת-תחום] | [תיאור]`).
+- **"📋 הכן ישיבת פיתוח"** renders the prep card — burndown, the no-spec list, the blocked list, the questions and the
+  proposed sprint — from the same object that drives the presenter; no second data path.
+
+**Steps:**
+- [ ] 1. vitest first over a board fixture: each selector's golden; `rankCard` ordering is total and stable (ties →
+  issue number ascending, so a re-run does not reshuffle); `proposeSprint` respects a cap and never proposes a parent
+  card; `sprintList` shape; an empty board → empty lists, never a crash.
+- [ ] 2. Component test: the column walk-through; 📌 writes exactly one `issue` event; accepting calls the existing move
+  action once and never a create; role matrix (עידן + מתניה behind the dev-page gate; viewer read-only).
+- [ ] 3. Implement, integration map, build.
+- [ ] 4. `npm run qa -- --label task-30` green + report. Commit.
+
+**DoD:** the P4 shared DoD; one dev-meeting run outputs a sprint list and the board shows the accepted moves.
+**Model:** **Opus** (ranking judgment plus reuse of two existing subsystems without duplicating them).
