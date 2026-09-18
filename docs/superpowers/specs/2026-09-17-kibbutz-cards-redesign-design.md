@@ -478,6 +478,12 @@ Each gap row has the one action that closes it (📍 סיכום ביקור prefi
 Golden tests: fixture week with two check-ins (one with a visit, one without), one overdue task, one holiday →
 exactly two gaps, in date order.
 
+**Copy rule — no system talk in the UI (עידן, mockup comment 18.9):** the interface never explains its own mechanics
+("נשמר אוטומטית ל-Supabase", "בדיקה אוטומטית", "מחושב מאותה פונקציה", "RLS"…). Every visible sentence is addressed to
+the user about *his* situation and next step ("יש טיוטה מ-14:02 — המשך", "נדרש קודם סיכום ביקור"). Engineering
+guarantees live in tests and docs, not on screen; status indicators are icons/short states, not explanations.
+Contract test: UI strings must not contain the words Supabase, RLS, API, פונקציה, בדיקה אוטומטית, מחושב, מקושר ל-.
+
 **Copy rule — never tell a user who else sees his data (עידן, mockup comment 18.9):** no sentence in the app says
 "עמיחי רואה…", "עידן רואה…", "מנהל יראה…" or similar. Management visibility is a fact of the roles, not a message to
 the employee; the personal area speaks only to the person ("סוגרים את השלושה האלה — והחודש נקי."). The admin views
