@@ -76,7 +76,7 @@ Channels, in the order of how loosely they couple:
 | Surface | Direction | Why |
 |---|---|---|
 | `sigma.emsToken()` → `string` | React → legacy (`getEmsToken`, `js/src/12-reports.js`) | the `github` Edge Function gates EVERY mode on a valid EMS login (the legacy dev board passes the same token). The inbox's 🐙 button needs it to create a ticket; no other island may use it. |
-| `registerMoreItem({id:'feedback'})` — label `📣 רעיון / באג / תלונה`, **no `roles`** | island → nav | every role may submit, the viewer included (spec §7). The live `visible` predicate only hides it before anyone has picked who they are. |
+| `registerMoreItem({id:'feedback'})` — label `📣 רעיון / באג`, **no `roles`** | island → nav | every role may submit, the viewer included (spec §7). The live `visible` predicate only hides it before anyone has picked who they are. |
 | `registerMoreItem({id:'feedback-inbox'})` — `roles: ['idan','team']` + live `canSeeFeedbackInbox` | island → nav | the inbox is admins only (`canManageStaff` = עידן + עמיחי) and never a viewer, evaluated on every listing so `changeUser()` cannot leave it open. |
 | `#feedback-inbox` hash | push → island | `push-send` mode `feedbackNew` opens the app at `?pushact=feedback#feedback-inbox`; `islands/FeedbackInbox.tsx` watches the hash AND `user-changed` (the island mounts before the user is known, so a single check at mount would swallow the deep link). |
 

@@ -198,11 +198,27 @@ Weights and thresholds are עידן's; start equal.
   dev prep, on-demand agenda button.
 - עמיחי: 12:00/17:00 stock digest; Monday one-pager; health table; hours/equipment revenue mix monthly.
 
-## 9. Open items to settle before planning tasks
-- Recording: confirm in-browser tab-audio capture of Meet works on עידן's PC (Chrome, share the Meet tab with audio);
-  otherwise fallback with calibration.
-- Which Drive folder becomes `meetings/inbox`; whether the summary DOCX is rendered by Claude (as today) or by an edge
-  function (needs the `build_styled.py` format ported).
+## 8b. Rulings 18.9 22:05 (עידן) — closes most of §9
+- **Recording (closed):** עידן records locally on his PC today; recordings auto-upload to Drive folder
+  `1C-fmIISkqqb7FcQxwxNG2Dvdn4_WjK5J` under `ישיבת חברה XX.26` / `ישיבת פיתוח XX.26` (client meetings also exist,
+  `CLIENT MEETINGS`). Transcription + summary are done in Claude and written to a folder that syncs to Drive folder
+  `17nvkpdn5crmlbZCc6SbwaNmNKY4Ml7YV` under `COMPANY MEETING` / `DEV MEETINGS`. A future bot will summarise as a
+  participant. The app's meeting import reads from the second folder (or the synced local folder); no in-browser capture.
+- **Health v1:** build a first draft, leave thresholds/data-source open; reminder set for Tue 22.9 09:00
+  (scheduled task `sigma-health-v1-thresholds`).
+- **Clockify (closed):** under every kibbutz card, עידן and מתניה get ▶ Clockify start/stop. On stop: pick who attended
+  (contact from the kibbutz contact list, addable like in the visit summary) and choose topic **tags** = the tags that
+  exist in the Clockify workspace (fetch via Clockify API, cache; Task must read the live tag list first). Entry is
+  written to Clockify with description "<kibbutz> — <tags>" and stored locally in `work_sessions`.
+- **Internal tasks:** NO due dates, no reminders. Just a list with owner + done.
+- **"Hours for מתניה"** simply means מתניה also schedules work with kibbutzim and gets the same Clockify control.
+- **Gmail intake-lite** (עידן: "לא מבין") — see §3b for the full description. In one line: the app reads only emails עידן
+  labels `EMS משימה` in Gmail and turns each into a DRAFT internal task he confirms. Nothing is sent, nothing is read
+  without a label. עידן has not yet approved it → stays OPTIONAL, not in the plan until he says so.
+
+## 9. Open items to settle before planning tasks (remaining)
+- Whether the app imports the summary from Drive automatically (Drive API, service account) or עידן pastes/uploads it
+  (import screen already exists — Task 2). Default: upload/paste now, Drive auto-import later.
 - Health thresholds and where EMS exposes billing profit/loss and energy balance (API vs read-only DB via the PG
   session memory).
-- Clockify workspace/project mapping (consult `sigmatec-email-manager`).
+- Clockify: API key location + workspace id (consult `sigmatec-email-manager`); tag list is read live.
