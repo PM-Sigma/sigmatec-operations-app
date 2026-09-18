@@ -2,6 +2,7 @@
   "./ui/sigma-Attendance.js",
   "./ui/sigma-attendance2.js",
   "./ui/sigma-Calendar.js",
+  "./ui/sigma-check.js",
   "./ui/sigma-chevron-down.js",
   "./ui/sigma-chevron-right.js",
   "./ui/sigma-command.js",

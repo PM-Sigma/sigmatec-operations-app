@@ -47,10 +47,14 @@
     supplied:   { label: '🟢 סופק ללקוח',             color: '#059669' }
   };
 
+  // The pages that still exist. 'ems', 'mytasks' and 'staff' retired in Task 14 (spec §7m
+  // R1/R2/R5) — a stale deep link, a remembered landing or an old push payload still names
+  // one, so they are redirected to 🏘 קיבוצים rather than left pointing at nothing.
+  const RETIRED_PAGES = { ems: 1, mytasks: 1, staff: 1 };
+
   function showPage(page) {
+    if (RETIRED_PAGES[page]) page = 'kibbutz';
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
-    if (page === 'ems' && !canUseEms()) page = 'kibbutz';               // EMS tasks — עידן/ניתאי/אביאם
-    if (page === 'staff' && typeof canManageStaff === 'function' && !canManageStaff()) page = 'kibbutz'; // עידן + עמיחי only
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי only
     if (page === 'pushlog' && !(typeof isIdan === 'function' && isIdan())) page = 'kibbutz'; // התראות — עידן only
@@ -58,23 +62,17 @@
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
-    document.getElementById('ems-view').style.display        = page === 'ems'        ? '' : 'none';
-    document.getElementById('my-tasks-view').style.display   = page === 'mytasks'    ? '' : 'none';
     document.getElementById('calendar-view').style.display   = page === 'calendar'   ? '' : 'none';
-    var _sv = document.getElementById('staff-view'); if (_sv) _sv.style.display = page === 'staff' ? '' : 'none';
     var _dv = document.getElementById('dev-view'); if (_dv) _dv.style.display = page === 'dev' ? '' : 'none';
     var _pl = document.getElementById('pushlog-view'); if (_pl) _pl.style.display = page === 'pushlog' ? '' : 'none';
     document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
-    if (page === 'ems')        renderEmsPage();
-    if (page === 'mytasks')    renderMyTasks();
     if (page === 'calendar')   renderCompanyCalendar();
-    if (page === 'staff' && typeof renderStaff === 'function') renderStaff();
     if (page === 'dev' && typeof renderDevTasks === 'function') renderDevTasks();
     if (page === 'pushlog' && typeof renderPushLog === 'function') renderPushLog();
     // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
-    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', ems: 'ems-view', mytasks: 'my-tasks-view', calendar: 'calendar-view', staff: 'staff-view', dev: 'dev-view', pushlog: 'pushlog-view' }[page];
+    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view' }[page];
     var _pe = _pv && document.getElementById(_pv);
     if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
     const fab = document.getElementById('visitFab');

@@ -333,8 +333,8 @@
   .btn-secondary { background: var(--gray-light); color: var(--text); }
   .btn-secondary:hover { background: #e5e7eb; }
   /* tactile press + a real disabled look, app-wide */
-  .btn:active, .inv-btn:active, .page-nav button:active, .my-tasks-btn:active { transform: scale(.97); }
-  .btn:disabled, .inv-btn:disabled, .my-tasks-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  .btn:active, .inv-btn:active, .page-nav button:active { transform: scale(.97); }
+  .btn:disabled, .inv-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
   /* accessibility: one global guard instead of per-animation opt-outs */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -1055,15 +1055,6 @@
   .card-updated { font-size: 10px; color: var(--text-light); margin-top: 5px; }
 
   /* ===== EMS Integration ===== */
-  .ems-task-card { background:var(--card);border-radius:10px;border:1px solid var(--border);padding:14px 16px;margin-bottom:10px;border-right:4px solid #2563eb;transition:box-shadow .15s; }
-  .ems-task-card:hover { box-shadow:0 4px 14px rgba(0,0,0,0.08); }
-  .ems-task-card.priority-high    { border-right-color:#f97316; }
-  .ems-task-card.priority-urgent  { border-right-color:#dc2626; }
-  .ems-task-card.priority-low     { border-right-color:var(--text-light); }
-  .ems-task-card.status-done,
-  .ems-task-card.status-cancelled,
-  .ems-task-card.status-rejected,
-  .ems-task-card.status-not_relevant { opacity:.6; }
   .ems-badge { display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-right:4px; }
   .ems-badge.status-new                { background:#dbeafe;color:#1e40af; }
   .ems-badge.status-in_progress        { background:#fef3c7;color:#92400e; }
@@ -1093,9 +1084,9 @@
   .card-ems-task .t-dot { width:9px;height:9px;border-radius:50%;flex-shrink:0; }
   .card-ems-task .ems-badge { flex-shrink:0;white-space:nowrap;margin-right:0;font-size:10px;padding:2px 6px; }
   .card-ems-task.overdue .t-title { color:#b91c1c; }
-  .ems-filter-bar { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center; }
-  .ems-filter-bar select,.ems-filter-bar input[type=text] { padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--card); }
-  .ems-filter-bar label { display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap; }
+
+
+
   /* Day type — the mockup's `.seg` geometry (44 px targets, gradient BORDER when chosen, no
      fill: §6 keeps the gradient for brand touchpoints). `.active` is what the legacy JS
      toggles; `.on` is what the re-skinned visit form writes. Both mean the same thing. */
@@ -1257,107 +1248,13 @@
     align-items: center;
     gap: 8px;
   }
-  .company-tasks-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-  }
-  @media (max-width: 768px) {
-    .company-tasks-grid { grid-template-columns: 1fr; }
-  }
-  /* `border-right` is a PHYSICAL side (RTL gate, §6): `border-inline-start` is the same edge
-     in Hebrew and the correct one in any direction. */
-  .company-task-group {
-    background: var(--surface-2);
-    border-radius: 10px;
-    padding: 12px 14px;
-    border-inline-start: 3px solid;
-  }
-  .company-task-group.orders { border-color: #2563eb; }
-  .company-task-group.info { border-color: #16a34a; }
-  .company-task-group.guidelines { border-color: #db2777; }
-  .company-task-group h3, .company-task-group h4 {
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 8px;
-  }
-  /* The heading inks were near-black blues/greens that stayed unreadable on the dark
-     surface; the colour lives on the edge, the text is just text. */
-  .company-task-group h3, .company-task-group h4 { color: var(--text); }
-  .company-task-group ol {
-    padding-inline-start: 18px;
-    padding-right: 0;
-    font-size: 12px;
-    line-height: 1.6;
-    color: var(--text);
-  }
-  .company-task-group ol li { margin-bottom: 4px; }
   .company-tasks-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 14px;
   }
-  .company-tasks-edit-btn {
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.2s;
-  }
-  .company-tasks-edit-btn:hover { background: var(--primary-hover); }
-  .company-tasks-edit-btn.local { background: #f59e0b; }
-  .company-tasks-edit-btn.local:hover { background: #d97706; }
 
-  /* My Tasks panel (in header) */
-  .my-tasks-bar {
-    background: rgba(255,255,255,0.13);
-    border: 1px solid rgba(255,255,255,0.25);
-    backdrop-filter: blur(8px);
-    border-radius: 10px;
-    padding: 10px 14px;
-    margin-top: 14px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .my-tasks-bar label {
-    color: white;
-    font-size: 13px;
-    font-weight: 600;
-    margin: 0;
-  }
-  .my-tasks-bar select {
-    padding: 6px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.3);
-    background: rgba(255,255,255,0.95);
-    font-family: inherit;
-    font-size: 13px;
-    min-width: 130px;
-  }
-  .my-tasks-btn {
-    background: var(--card);
-    color: var(--primary);
-    border: none;
-    padding: 7px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    transition: all 0.2s;
-  }
-  .my-tasks-btn:hover { background: #e0e7ff; transform: translateY(-1px); }
-  .my-tasks-btn.copy { background: #fbbf24; color: #78350f; }
-  .my-tasks-btn.email { background: #34d399; color: white; }
-  .my-tasks-btn.wa { background: #25d366; color: white; }
 
   @media (max-width: 768px) {
     .modal-backdrop {
@@ -1381,8 +1278,6 @@
       z-index: 5;
     }
     .filter-bar { padding: 0; }
-    .my-tasks-bar { gap: 6px; padding: 8px; }
-    .my-tasks-btn { padding: 6px 10px; font-size: 12px; }
     /* General mobile polish */
     body { padding: 10px; padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
     .header { padding: 18px 16px; border-radius: 12px; }
@@ -1513,33 +1408,14 @@
          input rule) and ~28px tall (app.css:979). Enlarge the hit area. --- */
   .day-type-btn { padding: 9px 14px; font-size: 13px; min-height: 40px; }
 
-  /* --- EMS: filter bar controls don't go full-width → cramped wrap (app.css:976). --- */
-  .ems-filter-bar { gap: 8px; }
-  .ems-filter-bar select,
-  .ems-filter-bar input[type=text] { flex: 1 1 100%; min-width: 0; width: 100%; min-height: 42px; }
-  .ems-filter-bar label { flex: 1 1 calc(50% - 4px); }
   /* EMS detail status row: give the select its own row, bump the action buttons */
   #emsDetailModal #emsDetailStatus { flex: 1 1 100%; min-width: 0; }
   #emsDetailModal .btn-secondary { min-height: 42px; padding: 10px 14px; }
-
-  /* --- MY-TASKS: stack the bar full-width on phones (color fix below is global). --- */
-  #my-tasks-view .my-tasks-bar { flex-direction: column; align-items: stretch; }
-  #my-tasks-view .my-tasks-bar select { min-width: 0; width: 100%; }
-  #my-tasks-view .my-tasks-btn { flex: 1 1 calc(50% - 6px); text-align: center; min-height: 42px; }
 
   /* --- PROGRESS LEGEND: 11px inline is below the readability floor; beat the
          inline size with specificity + !important (app.css can't otherwise win). --- */
   #progressLegend[style] { font-size: 13px !important; line-height: 2 !important; }
 }
-
-/* --- MY-TASKS bar lives in the LIGHT #my-tasks-view page, but was styled for the
-       dark header → white labels on glass-white = invisible (app.css:1180-1196).
-       Give it a solid light surface + dark labels at ALL widths (the bar only
-       appears in #my-tasks-view, so this is desktop-safe). --- */
-#my-tasks-view .my-tasks-bar { background: var(--card); border: 1px solid var(--border); }
-#my-tasks-view .my-tasks-bar label { color: var(--text); }
-#my-tasks-view .my-tasks-bar select { border: 1px solid var(--border); }
-#my-tasks-view .my-tasks-btn { background: var(--gray-light); color: var(--primary); }
 
 @media (max-width: 480px) {
   /* edge-to-edge side panel on the smallest phones (95vw → 100vw) */

@@ -42,7 +42,6 @@ include:
   - db                  # seeds / migrations (they carry the public anon key)
   - build.mjs
   - index.html
-  - stats.html
   - sw.js
   - test-*.mjs          # the legacy test runners (the allowlist below reviews findings in two)
 
@@ -70,7 +69,7 @@ exclude_rules:
       All 9 hits are the same Supabase ANON key (role:"anon") of project wwqfcajnxinaxmobrgol,
       which is public by design and must ship in the browser bundle; access is decided by RLS.
       Sites: js/src/01-data.js:370, js/src/22-push.js:9+119, js/src/24-kibbutzim.js:158,
-      app/src/lib/supabase.ts:19, db/kibbutzim_seed.mjs:30, stats.html:308,
+      app/src/lib/supabase.ts:19, db/kibbutzim_seed.mjs:30,
       supabase/functions/parse-order/index.ts:14. Secret detection is owned by gate 1
       (gitleaks), whose `jwt` rule allowlists ONLY that exact value — verified on 2026-09-18 that
       a fabricated service_role JWT dropped into the tree is still reported by gitleaks, so
@@ -114,4 +113,5 @@ exclude_rules:
 
 # ── Fixed rather than accepted (Task 22) ─────────────────────────────────────────────────────
 #   html.security.audit.missing-integrity          stats.html:10  → added SRI + crossorigin
+#                                                  (stats.html itself retired in Task 14, §7m R6)
 #   javascript.lang.security.audit.spawn-shell-true  scripts/test-all.mjs:32 → dropped shell:true

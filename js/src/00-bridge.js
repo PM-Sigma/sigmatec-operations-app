@@ -11,6 +11,20 @@
 //                            · visit-form-open (the legacy visit form just came on screen)
   //                            · session-expired (one 401 anywhere → one re-login sheet, §7n)
   // ═══════════════════════════════════════════════════════════════════════════
+  // ───────────────────────── a role that outlived its page ─────────────────────────
+  // `canManageStaff()` used to live in js/src/17-staff.js. That module WAS the עובדים page and
+  // retired with it (spec §7m R5) — the gate it defined did not. It is the app's elevated group
+  // (עידן + עמיחי) and it decides 💻 פיתוח, 📥 ייבוא, 📣 the feedback inbox and ➕ קיבוץ, so it
+  // lives here, in the file concatenated FIRST, where nothing can reference it too early.
+  function canManageStaff() {
+    var me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    return (typeof isIdan === 'function' && isIdan()) || me === 'עמיחי';
+  }
+  window.canManageStaff = canManageStaff;
+  // The people a message can be left for (was 17-staff.js's STAFF_PEOPLE — עמיחי is the CEO,
+  // not a managed employee). Read by the ✉️ הודעה לעובד action in Ctrl+K.
+  window.STAFF_PEOPLE = ['עידן', 'אביאם', 'ניתאי', 'מתניה'];
+
   window.sigmaBus = window.sigmaBus || new EventTarget();
   window.sigmaEmit = function (name, detail) {
     try { window.sigmaBus.dispatchEvent(new CustomEvent(name, { detail: detail })); }
@@ -132,12 +146,12 @@
     function canShowPage(page) {
       switch (page) {
         case 'attendance': return !!call('canSeeAttendance', [], false);
-        case 'ems':        return !!call('canUseEms', [], false);
-        case 'staff':      return !!call('canManageStaff', [], false);
         case 'dev':        return !!call('canSeeDevTasks', [], false);
         case 'pushlog':    return !!call('isIdan', [], false);
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';
-        case 'kibbutz': case 'mytasks': case 'calendar': return true;
+        case 'kibbutz': case 'calendar': return true;
+        // 'ems' / 'mytasks' / 'staff' are retired (§7m R1/R2/R5) — they fall through to false,
+        // so a stale deep link or a remembered landing lands on 🏘 קיבוצים instead of nowhere.
         default: return false;
       }
     }
@@ -369,6 +383,34 @@
         var legacy = document.getElementById('calendarLegacy');
         if (legacy) legacy.style.display = 'none';
       },
+
+      // ---- רשימה — the calendar's third view (spec §7g, Task 14) ------------
+      // The retired משימות and 📋 EMS pages had these behind their own buttons. They are
+      // behaviours, not screens, so they survive as bridge entries the list view (and Ctrl+K)
+      // calls — there is no second copy of any of them anywhere.
+      //
+      // ✓ סיים goes through `changeEmsStatus`, which is QUEUE-AWARE: offline the change is
+      // parked and applied on the next connect, exactly like closing a task from the visit form.
+      emsSetStatus: function (id, status) { return call('changeEmsStatus', [id, status]); },
+      emsCreateTask: function (siteId) { return call('emsCreateTaskModal', [siteId || '']); },
+      emsDisconnect: function () { return call('emsDisconnect'); },
+      openVisitsReport: function () { return call('openVisitsReportModal'); },
+      openActivity: function () { return call('openActivityModal'); },
+      contactPhone: function (person) { return call('contactPhone', [person], ''); },
+      // The retired home block's three lists — the FALLBACK source for the "חברה" group until
+      // the one-shot migration into `internal_tasks` has run (§7m R3, db/internal_tasks.sql).
+      companyTasks: function () {
+        try {
+          var s = window.SHEET_DATA && window.SHEET_DATA.settings;
+          return (s && s.companyTasks) || null;
+        } catch (e) { return null; }
+      },
+      staffSendMessage: function (toPerson, text) {
+        var f = fn('staffSendMessage');
+        if (!f) return Promise.reject(new Error('messaging unavailable'));
+        return f(toPerson, text);
+      },
+      get STAFF_PEOPLE() { return window.STAFF_PEOPLE || []; },
 
       // ---- feedback ---------------------------------------------------------
       // Replaced by Sonner once #sigma-toaster mounts (islands.tsx writes sigma.toast back).

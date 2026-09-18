@@ -1,5 +1,9 @@
-  // ===== My Tasks Report =====
+  // ===== team contacts =====
   // Contact map: name → { email, phone }. Phones in international format (972...).
+  // The "משימות באחריותי" report that used to live here retired with the משימות page
+  // (spec §7m R4) — its שתף is the calendar's רשימה view now. This map did NOT move with it:
+  // js/src/10-activity.js shares the daily-activity report from the same numbers, and the
+  // list view reaches them through `sigma.contactPhone()`. One map, two readers, no copy.
   const CONTACTS = {
     'עידן':    { email: 'pm@sigmatec-energy.com', phone: '972544649833' },
     'עמיחי':   { email: '',                       phone: '972524234370' },
@@ -10,6 +14,13 @@
     'אליה':    { email: '',                       phone: '' }
   };
 
+  /** One person's WhatsApp number, or '' — what the שתף action on the list view sends to. */
+  function contactPhone(person) {
+    var c = CONTACTS[person];
+    return (c && c.phone) || '';
+  }
+  window.contactPhone = contactPhone;
+
   // Region order — north to south
   const REGION_ORDER = [
     'גליל וגולן',
@@ -19,203 +30,6 @@
     'יהודה ושומרון',
     'דרום, עוטף עזה והנגב'
   ];
-
-  // Test if this person is the owner — either via the owners field
-  // OR via a line ending with "- person_name" in status/expectedTask/task
-  function isOwnerOf(task, person) {
-    if ((task.owners || []).map(s => s.trim()).includes(person)) return true;
-    const haystack = (task.status || '') + '\n' + (task.expectedTask || '') + '\n' + (task.task || '');
-    const esc = person.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp('-\\s*' + esc + '\\s*(?:\\n|$)', 'm');
-    return re.test(haystack);
-  }
-
-  // Extract only the lines that explicitly mention "- person_name"
-  function linesForPerson(text, person) {
-    if (!text) return [];
-    const esc = person.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp('-\\s*' + esc + '\\s*$');
-    return String(text).split(/\n+/).map(l => l.trim()).filter(l => re.test(l));
-  }
-
-  // ===== Company Tasks editing (localStorage with team-share option) =====
-  const COMPANY_TASKS_KEY = 'companyTasks_v1';
-
-  function readCompanyTasksFromDOM() {
-    const out = {};
-    [['orders','🛒 הזמנות'],['info','ℹ️ מידע'],['guidelines','📋 הנחיות']].forEach(([cls,heading]) => {
-      const el = document.querySelector('.company-task-group.' + cls + ' ol');
-      out[cls] = el ? Array.from(el.querySelectorAll('li')).map(li => li.textContent.trim()).filter(Boolean) : [];
-    });
-    return out;
-  }
-
-  function loadCompanyTasks() {
-    // Sheet data takes priority (shared across devices)
-    const fromSheet = window.SHEET_DATA && window.SHEET_DATA.settings && window.SHEET_DATA.settings.companyTasks;
-    if (fromSheet) return fromSheet;
-    try {
-      const saved = localStorage.getItem(COMPANY_TASKS_KEY);
-      if (!saved) return null;
-      return JSON.parse(saved);
-    } catch(e) { return null; }
-  }
-
-  function renderCompanyTasks() {
-    const data = loadCompanyTasks();
-    if (!data) return;
-    ['orders','info','guidelines'].forEach(g => {
-      const el = document.querySelector('.company-task-group.' + g + ' ol');
-      if (!el || !Array.isArray(data[g])) return;
-      el.innerHTML = data[g].map(item => '<li>' + item.replace(/</g,'&lt;') + '</li>').join('');
-    });
-  }
-
-  function openCompanyTasksModal() {
-    const current = loadCompanyTasks() || readCompanyTasksFromDOM();
-    document.getElementById('compOrders').value = (current.orders || []).join('\n');
-    document.getElementById('compInfo').value = (current.info || []).join('\n');
-    document.getElementById('compGuidelines').value = (current.guidelines || []).join('\n');
-    document.getElementById('companyTasksModal').classList.add('open');
-  }
-
-  function gatherCompanyTasksFromForm() {
-    const clean = id => document.getElementById(id).value.split('\n').map(s => s.trim()).filter(Boolean);
-    return {
-      orders:     clean('compOrders'),
-      info:       clean('compInfo'),
-      guidelines: clean('compGuidelines')
-    };
-  }
-
-  async function saveCompanyTasks() {
-    const data = gatherCompanyTasksFromForm();
-    localStorage.setItem(COMPANY_TASKS_KEY, JSON.stringify(data)); // local safety net so nothing is lost
-    // optimistic UI: reflect immediately + close the modal, then persist in the background
-    if (window.SHEET_DATA) {
-      window.SHEET_DATA.settings = window.SHEET_DATA.settings || {};
-      window.SHEET_DATA.settings.companyTasks = data;
-    }
-    renderCompanyTasks();
-    document.getElementById('companyTasksModal').classList.remove('open');
-    const t = document.getElementById('toast');
-    t.textContent = '⏳ שומר…';
-    t.classList.add('show');
-    // Persist to Supabase (settings.companyTasks via the write shim). Writes need the AUTHENTICATED
-    // bridge pass — anon is read-only (RLS). If the pass is missing/expired, re-mint it first, else the
-    // write goes out as anon and is rejected → the old "saved locally only" failure. Timeout so a slow
-    // backend can't hang the UI; the local copy above is the fallback either way.
-    let ok = false;
-    try {
-      if ((!window._sbToken || (window._sbTokenExp || 0) <= Date.now()) && typeof window._sbBridge === 'function') {
-        try { await window._sbBridge(); } catch (e) {}
-      }
-      const resp = await Promise.race([
-        fetch(SHEET_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ type: 'setting', key: 'companyTasks', value: data })
-        }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000))
-      ]);
-      const res = await resp.json().catch(() => null);
-      ok = !!(res && res.ok);
-    } catch (e) { ok = false; }
-    t.textContent = ok ? '✅ משימות החברה נשמרו' : '⚠️ נשמר במכשיר — השמירה לשרת נכשלה. ודא חיבור/התחברות ל-EMS ונסה שוב.';
-    setTimeout(() => t.classList.remove('show'), ok ? 2500 : 5500);
-  }
-
-  // Apply any saved company tasks on load
-  renderCompanyTasks();
-
-  function buildCompanyTasksSection() {
-    const root = document.querySelector('.company-tasks');
-    if (!root) return '';
-    let section = '\n*━━━ 📌 משימות חברה כלליות ━━━*\n';
-    let hasAny = false;
-    root.querySelectorAll('.company-task-group').forEach(group => {
-      const heading = (group.querySelector('h4')?.textContent || '').trim();
-      const items = Array.from(group.querySelectorAll('li')).map(li => li.textContent.trim()).filter(Boolean);
-      if (!items.length) return;
-      hasAny = true;
-      if (heading) section += `\n*${heading}*\n`;
-      items.forEach(it => { section += `- ${it}\n`; });
-    });
-    return hasAny ? section + '\n' : '';
-  }
-
-  // "משימות באחריותי" — since "סיגמה 2.00" (spec §2) the per-kibbutz status lines are gone
-  // from the app, so this report lists the person's OPEN EMS tasks (already in the shared
-  // cache) grouped by site, plus the general company tasks.
-  function buildMyTasksReport(person) {
-    const cache = (typeof emsCacheData === 'function') ? emsCacheData() : { tasks: [] };
-    const mine = (cache.tasks || []).filter(t =>
-      t.assignee && String(t.assignee.firstName || '').indexOf(person) === 0 && EMS_CLOSED.indexOf(t.status) === -1);
-
-    const bySite = {};
-    mine.forEach(t => {
-      const site = (t.site && t.site.name) || 'ללא אתר';
-      (bySite[site] = bySite[site] || []).push(t);
-    });
-    const sites = Object.keys(bySite).sort((a, b) => a.localeCompare(b, 'he'));
-
-    const header = `*📋 משימות EMS באחריותי — ${person}*
-📅 ${new Date().toLocaleString('he-IL')}
-`;
-    const companySection = buildCompanyTasksSection();
-    if (sites.length === 0) return header + companySection + '\n✨ אין משימות EMS פתוחות';
-
-    let report = header + companySection;
-    sites.forEach(site => {
-      report += `
-*━━━ ${site} ━━━*
-`;
-      bySite[site].forEach(t => {
-        const due = t.expectedCompletionDate ? ' · 📅 ' + new Date(t.expectedCompletionDate).toLocaleDateString('he-IL') : '';
-        const st = (typeof emsStatusLabel === 'function') ? emsStatusLabel(t.status) : t.status;
-        report += `- ${t.title}${st ? ' (' + st + ')' : ''}${due}
-`;
-      });
-    });
-    report += `
-🔗 https://pm-sigma.github.io/sigmatec-operations-app/`;
-    return report;
-  }
-
-  function generateMyTasksReport(action) {
-    const person = document.getElementById('myTasksPerson').value;
-    if (!person) { alert('בחר אחראי קודם'); return; }
-    const report = buildMyTasksReport(person);
-    const contact = CONTACTS[person] || {};
-
-    if (action === 'preview') {
-      try {
-        const html = '<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"><title>דוח</title></head><body><pre style="font-family:Heebo,Tahoma,sans-serif;font-size:14px;direction:rtl;padding:20px;white-space:pre-wrap;">' + report.replace(/</g, '&lt;') + '</pre></body></html>';
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const w = window.open(url, '_blank');
-        if (!w) alert('הדפדפן חסם את פתיחת הדוח. אנא אפשר חלונות קופצים.');
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-      } catch (e) {
-        alert('שגיאה: ' + e.message);
-      }
-    } else if (action === 'copy') {
-      navigator.clipboard.writeText(report).then(() => {
-        const t = document.getElementById('toast');
-        t.textContent = '✅ הדוח הועתק לקליפבורד';
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
-      });
-    } else if (action === 'email') {
-      const to = contact.email || '';
-      const subject = encodeURIComponent('משימות באחריותך — ' + person);
-      const body = encodeURIComponent(report);
-      window.location.href = 'mailto:' + to + '?subject=' + subject + '&body=' + body;
-    } else if (action === 'whatsapp') {
-      if (!contact.phone) { alert('אין מספר טלפון רשום עבור ' + person); return; }
-      window.open('https://wa.me/' + contact.phone + '?text=' + encodeURIComponent(report), '_blank');
-    }
-  }
 
   // ===========================================================
   // EMS INTEGRATION
@@ -291,12 +105,15 @@
   }
   window.emsRequireLogin = emsRequireLogin;
 
+  // ניתוק EMS — a Ctrl+K action since the EMS page retired (§7m R2, ruling 3). There is no
+  // page to re-render afterwards: the reload lands on the sign-in gate, which is the front door.
   function emsDisconnect() {
     if (!confirm('לנתק מה-EMS?')) return;
     clearEmsSession();
     if (_emsExpiryTimer) clearTimeout(_emsExpiryTimer);
-    renderEmsPage();
+    try { location.reload(); } catch (e) { /* no window */ }
   }
+  window.emsDisconnect = emsDisconnect;
 
   // All EMS calls are relayed through the Apps Script proxy (type='ems') to
   // bypass browser CORS — the dashboard never talks to the EMS host directly.

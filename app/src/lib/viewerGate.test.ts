@@ -53,7 +53,7 @@ describe('the viewer matrix', () => {
   });
 
   it('his ONE ➕ is feedback, on every page — so no ➕ of his is ever blocked after the tap', () => {
-    for (const page of ['kibbutz', 'calendar', 'inventory', 'attendance', 'mytasks', 'ems'] as const) {
+    for (const page of ['kibbutz', 'calendar', 'inventory', 'attendance', 'dev', 'pushlog'] as const) {
       expect(primaryAdd(page, 'viewer', { canManageKibbutzim: true, daySelected: true })).toBe('feedback');
     }
   });

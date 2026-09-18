@@ -3,8 +3,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 export type SigmaRole = 'idan' | 'team' | 'viewer' | '';
+// The pages that still exist. `ems`, `mytasks` and `staff` were retired in Task 14 (§7m
+// R1/R2/R5): the EMS task list and "המשימות שלי" became the calendar's רשימה view, and עובדים
+// is gone. Historic usage events still carry those page keys — that is data about the past,
+// which is why app/src/lib/usageNarrative.ts keeps their labels.
 export type SigmaPage =
-  | 'kibbutz' | 'inventory' | 'attendance' | 'ems' | 'mytasks' | 'calendar' | 'staff' | 'dev' | 'pushlog';
+  | 'kibbutz' | 'inventory' | 'attendance' | 'calendar' | 'dev' | 'pushlog';
 
 export interface EmsTask {
   id: string;
@@ -166,6 +170,32 @@ export interface Sigma {
   emsPatchTasks?(patches: Array<{ id: string; body: Record<string, unknown> }>): Promise<{ ok: number; failed: Array<{ id: string; error: string }> }>;
   /** Told once, when the island mounts: the legacy month grid folds away. */
   calIslandMounted?(): void;
+
+  // ── רשימה — the calendar's third view (spec §7g, Task 14) ─────────────────
+  /**
+   * ✓ סיים and any other status change from a row. Queue-aware (js/src/14-calendar.js
+   * `changeEmsStatus`): offline it is parked and applied on the next connect, which is the
+   * same promise the visit form makes. One writer, and it is the legacy one.
+   */
+  emsSetStatus?(id: string, status: string): Promise<void> | void;
+  /** ➕ משימה חדשה — the surviving create modal, optionally scoped to a site. */
+  emsCreateTask?(siteId?: string): Promise<void> | void;
+  /** ניתוק EMS (was the retired EMS page's header button; now a Ctrl+K action). */
+  emsDisconnect?(): void;
+  /** 📍 דוח ביקורים / 📊 פעילות היום — the two launchers the retired משימות page carried. */
+  openVisitsReport?(): void;
+  openActivity?(): void;
+  /** One person's WhatsApp number, from the legacy CONTACTS map (js/src/12-reports.js). */
+  contactPhone?(person: string): string;
+  /**
+   * The retired home block's three lists, straight from the settings snapshot. Read ONLY as
+   * the fallback for the "חברה" group until the `internal_tasks` rows exist (§7m R3).
+   */
+  companyTasks?(): { orders?: string[]; info?: string[]; guidelines?: string[] } | null;
+  /** ✉️ הודעה לעובד — the `messages` table (js/src/17-messages.js). */
+  staffSendMessage?(toPerson: string, text: string): Promise<void>;
+  /** The people a message can be left for. */
+  readonly STAFF_PEOPLE?: string[];
 
   /**
    * Ctrl+K (§7k.1). ASSIGNED BY React (islands/CommandBar.tsx), not by the legacy bridge —

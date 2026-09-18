@@ -35,6 +35,83 @@ for (const fn of ['collectCalendarEvents', 'renderCalendarAgenda', 'calAddLink',
   assert.ok(SRC.includes('function ' + fn), fn + ' must survive the island');
 }
 
+// ───────────── the Task 14 retirements (spec §7m R1/R2/R4/R5) ─────────────
+//
+// §7m's guard rail is "no retirement may drop a function that is still needed". The two lists
+// below ARE that guard rail, asserted against the real sources: a later edit that deletes a
+// survivor — or quietly reinstates a retired page — fails here.
+
+const REPORTS = readFileSync(new URL('./js/src/12-reports.js', import.meta.url), 'utf8');
+const BRIDGE = readFileSync(new URL('./js/src/00-bridge.js', import.meta.url), 'utf8');
+const MESSAGES = readFileSync(new URL('./js/src/17-messages.js', import.meta.url), 'utf8');
+const INDEX = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+const SW = readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
+
+// GONE: the page renderers and their page-only helpers.
+for (const [name, where, src] of [
+  ['renderMyTasks', '14-calendar.js', SRC],
+  ['openKibbutzByName', '14-calendar.js', SRC],
+  ['renderEmsPage', '14-calendar.js', SRC],
+  ['loadEmsTasks', '14-calendar.js', SRC],
+  ['debounceEmsSearch', '14-calendar.js', SRC],
+  ['renderEmsTaskCard', '14-calendar.js', SRC],
+  ['renderEmsLoadMore', '14-calendar.js', SRC],
+  ['emsPopulateSiteFilter', '14-calendar.js', SRC],
+  ['emsDoLogin', '14-calendar.js', SRC],          // ONE EMS sign-in surface (§7n, ruling 3)
+  ['emsVerifyOtp', '14-calendar.js', SRC],
+  ['emsResendOtp', '14-calendar.js', SRC],
+  ['renderCompanyTasks', '12-reports.js', REPORTS],
+  ['openCompanyTasksModal', '12-reports.js', REPORTS],
+  ['saveCompanyTasks', '12-reports.js', REPORTS],
+  ['buildCompanyTasksSection', '12-reports.js', REPORTS],
+  ['buildMyTasksReport', '12-reports.js', REPORTS],
+  ['generateMyTasksReport', '12-reports.js', REPORTS],
+  ['isOwnerOf', '12-reports.js', REPORTS],
+  ['linesForPerson', '12-reports.js', REPORTS],
+]) {
+  assert.ok(!src.includes(name), name + ' is retired and must be gone from ' + where);
+}
+
+// STAYS: everything the coverage audit marked KEEP — i.e. used outside the retired pages.
+for (const fn of [
+  'getEmsSites', 'emsSiteIdForKibbutz', 'emsNormName', 'getEmsUsers', 'emsUserName',
+  'emsEsc', 'emsToast', 'emsTokenRole', 'emsStatusLabel', 'emsLabels',
+  'emsCreateTaskModal', 'emsEditTask', 'emsFillSiteAndAssignee', 'openEmsTask', 'renderEmsDetail',
+  'loadEmsComments', 'addEmsComment', 'changeEmsStatus', 'emsCalendarLink', 'emsEnrichMeters',
+]) {
+  assert.ok(SRC.includes('function ' + fn), fn + ' is load-bearing outside the retired page — it must not be deleted');
+}
+for (const label of ['EMS_STATUS', 'EMS_PRIORITY', 'EMS_TYPE', 'EMS_CLOSED']) {
+  assert.ok(SRC.includes('const ' + label), label + ' is the single source of truth for the React labels');
+}
+// The EMS transport layer + the contacts map stay in 12-reports.js. CONTACTS did NOT move with
+// the report: js/src/10-activity.js shares the daily-activity report from the same numbers.
+for (const fn of ['emsApi', 'emsProxyCall', 'emsRequireLogin', 'emsDisconnect', 'contactPhone']) {
+  assert.ok(REPORTS.includes('function ' + fn), fn + ' must stay in 12-reports.js');
+}
+assert.ok(REPORTS.includes('const CONTACTS'), 'CONTACTS stays — 10-activity.js shares reports from it');
+assert.ok(REPORTS.includes('const REGION_ORDER'), 'REGION_ORDER stays untouched (ruling 7 — Part G owns it)');
+
+// The two survivors of the retired 17-staff.js: the gate every admin screen asks, and the
+// messaging — whose login-time popup was never part of that page to begin with.
+assert.ok(BRIDGE.includes('function canManageStaff'), 'canManageStaff moved to the bridge; it did not die with the staff page');
+for (const fn of ['staffSendMessage', 'staffFetchMessages', 'staffMarkRead', 'staffCheckMessages', 'staffSendMessageUI']) {
+  assert.ok(MESSAGES.includes('function ' + fn), fn + ' must live on in 17-messages.js');
+}
+assert.ok(/setTimeout\([\s\S]{0,80}staffCheckMessages\(\)/.test(MESSAGES),
+  'the login-time unread popup still fires unconditionally on every load');
+
+// The markup of the retired pages is gone; the task modals they shared are not.
+for (const id of ['id="ems-view"', 'id="my-tasks-view"', 'id="staff-view"', 'id="companyTasksModal"',
+  'id="navEms"', 'id="navMyTasks"', 'id="navStaff"', 'kibbutz-stats.html']) {
+  assert.ok(!INDEX.includes(id), id + ' is retired and must be gone from index.html');
+}
+for (const id of ['id="emsTaskModal"', 'id="emsDetailModal"', 'id="emsLoginGate"', 'id="viewerReportsHub"']) {
+  assert.ok(INDEX.includes(id), id + ' must survive the retirements');
+}
+// A SHELL entry pointing at a deleted file makes caches.addAll() reject the whole precache.
+assert.ok(!SW.includes('stats.html'), "sw.js's SHELL must not precache the retired stats page");
+
 // ─────────────────── the harness ───────────────────
 
 /**

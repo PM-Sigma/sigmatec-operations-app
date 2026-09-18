@@ -59,10 +59,10 @@ test('calendar: the island owns the screen and the legacy grid steps aside', asy
 
   await expect(page.getByRole('heading', { name: /יומן/ })).toBeVisible();
   await expect(page.getByTestId('cal-label')).toBeVisible();
-  // שבוע / חודש, with the רשימה slot reserved for Task 14 and disabled until then.
+  // שבוע / חודש / רשימה — all three live since Task 14.
   await expect(page.locator('[data-view="week"]')).toBeVisible();
   await expect(page.locator('[data-view="month"]')).toBeVisible();
-  await expect(page.locator('[data-view="list"]')).toBeDisabled();
+  await expect(page.locator('[data-view="list"]')).toBeEnabled();
 
   await expectRtl(page);
   await shot(page, ti, 'month');
@@ -261,6 +261,116 @@ test('calendar: the viewer reads it and cannot change it', async ({ page }, ti) 
   await expect(dayBody(page)).toBeVisible();
   await expect(page.locator('.ucal-arrow')).toHaveCount(0);
   await expect(page.locator('[data-place]')).toHaveCount(0);
+
+  expectNoConsoleErrors(rec);
+});
+
+// ───────────────────────────── רשימה (Task 14, spec §7g) ─────────────────────────────
+
+test('calendar: רשימה is my open work by kibbutz, overdue first, with the row actions', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+
+  await page.locator('[data-view="list"]').click();
+  const list = page.getByTestId('cal-list');
+  await expect(list).toBeVisible();
+  // The grid steps aside — one view at a time.
+  await expect(page.getByTestId('cal-grid')).toHaveCount(0);
+  // עידן sees everyone, so "כולל של אחרים" starts ON and the whole open cache is grouped here
+  // — the same thing the two grids already show him.
+  await expect(page.getByTestId('cal-list-others')).toHaveAttribute('aria-pressed', 'true');
+  const groups = page.locator('[data-group]');
+  expect(await groups.count(), 'the sandbox cache has open tasks at several kibbutzim').toBeGreaterThan(1);
+  // The oldest debt is the first group (js/src/01-data.js: דגניה is 2 days late).
+  await expect(groups.first().getByTestId('cal-list-late')).toBeVisible();
+
+  // Every row carries the three actions the spec names.
+  const row = page.locator('.ucal-ltask').first();
+  await expect(row.locator('[data-schedule]')).toBeVisible();
+  await expect(row.locator('[data-done]')).toBeVisible();
+  await expect(groups.first().locator('[data-brief]')).toBeVisible();
+
+  // Remembered per device, like the other two views.
+  expect(await page.evaluate(() => localStorage.getItem('cal_view_v1'))).toBe('list');
+
+  await expectRtl(page);
+  await shot(page, ti, 'list');
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar: the list carries the retired EMS page filters, and they narrow it', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  await page.locator('[data-view="list"]').click();
+  await expect(page.getByTestId('cal-list')).toBeVisible();
+
+  const before = await page.locator('.ucal-ltask').count();
+  expect(before).toBeGreaterThan(1);
+
+  // ⏰ באיחור keeps only what is late — strictly fewer rows, and every one of them flagged.
+  await page.getByTestId('cal-list-overdue').click();
+  await expect.poll(() => page.locator('.ucal-ltask').count()).toBeLessThan(before);
+  expect(await page.locator('.ucal-ltask:not(.ucal-ltask-late)').count()).toBe(0);
+  await page.getByTestId('cal-list-overdue').click();
+
+  // A search that matches nothing says so, and offers the way back.
+  await page.getByTestId('cal-list-search').fill('זzzםםם');
+  await expect(page.getByTestId('cal-list-empty')).toBeVisible();
+  await page.getByTestId('cal-list-clear').click();
+  await expect.poll(() => page.locator('.ucal-ltask').count()).toBe(before);
+
+  // The site filter is built from the tasks themselves (was `emsPopulateSiteFilter`).
+  expect(await page.getByTestId('cal-list-site').locator('option').count()).toBeGreaterThan(1);
+
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar: the ⋯ menu carries the two launchers the משימות page used to hold', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  await page.locator('[data-view="list"]').click();
+  await expect(page.getByTestId('cal-list')).toBeVisible();
+
+  await page.getByTestId('cal-list-more').locator('summary').click();
+  for (const id of ['cal-list-copy', 'cal-list-wa', 'cal-list-visits', 'cal-list-activity']) {
+    await expect(page.getByTestId(id)).toBeVisible();
+  }
+  // 📊 פעילות היום really opens its modal — the launcher moved, the feature did not.
+  await page.getByTestId('cal-list-activity').click();
+  await expect(page.locator('#activityModal')).toHaveClass(/open/);
+
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar: 📅 שבץ from a row opens the SAME scheduler, with the task and a day to pick', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  await page.locator('[data-view="list"]').click();
+  await expect(page.getByTestId('cal-list')).toBeVisible();
+
+  await page.locator('.ucal-ltask [data-schedule]').first().click();
+  const sheet = page.getByTestId('cal-schedule');
+  await expect(sheet).toBeVisible();
+  // Opened from a row there is no day yet, so the day is asked for; the task is already ticked.
+  await expect(page.getByTestId('cal-schedule-date')).toBeVisible();
+  await expect(page.getByTestId('cal-task-list').locator('input:checked')).toHaveCount(1);
+  await expect(page.getByTestId('cal-schedule-go')).toBeEnabled();
+
+  await shot(page, ti, 'list-schedule');
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar: רשימה for a field user is HIS work — no "כולל של אחרים"', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+  await openCalendar(page);
+  await page.locator('[data-view="list"]').click();
+  await expect(page.getByTestId('cal-list')).toBeVisible();
+
+  // The admin-only filter is not offered to him at all.
+  await expect(page.getByTestId('cal-list-others')).toHaveCount(0);
+  // Whatever he sees is assigned to him (the sandbox gives ניתאי one task).
+  const rows = page.locator('.ucal-ltask');
+  if (await rows.count()) await expect(rows.first()).toContainText('ניתאי');
 
   expectNoConsoleErrors(rec);
 });

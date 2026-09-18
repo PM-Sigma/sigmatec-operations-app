@@ -26,23 +26,91 @@ import {
 } from '@/lib/commands';
 
 const OPEN_EVENT = 'sigma-open-command-bar';
+const MESSAGE_EVENT = 'sigma-open-message';
 
 /** Open the command bar from anywhere (the header search, the phone search, a shortcut). */
 export function openCommandBar(): void {
   try { window.dispatchEvent(new CustomEvent(OPEN_EVENT)); } catch { /* no DOM */ }
 }
 
+/**
+ * ✉️ הודעה לעובד — the compose half of the messaging the עובדים page used to hold (§7m R5,
+ * ruling 4). It rides along with the command bar because that is the one island mounted on
+ * every page, and because the action that opens it lives right there.
+ *
+ * The message itself is unchanged: `sigma.staffSendMessage` → the same `messages` row, and the
+ * recipient still sees it in the unread popup on his next load.
+ */
+function MessageSheet() {
+  const [open, setOpen] = React.useState(false);
+  const [to, setTo] = React.useState('');
+  const [text, setText] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const people = React.useMemo(() => { try { return sigma.STAFF_PEOPLE || []; } catch { return []; } }, []);
+
+  React.useEffect(() => {
+    const onEvent = () => { setTo(people[0] || ''); setText(''); setOpen(true); };
+    window.addEventListener(MESSAGE_EVENT, onEvent as EventListener);
+    return () => window.removeEventListener(MESSAGE_EVENT, onEvent as EventListener);
+  }, [people]);
+
+  async function send() {
+    const body = text.trim();
+    if (!to || !body) return;
+    setBusy(true);
+    try {
+      await sigma.staffSendMessage?.(to, body);
+      setOpen(false);
+      sigma.toast('✉️ ההודעה נשלחה ל' + to);
+      track('message-sent', to);
+    } catch (e: any) {
+      sigma.toast('ההודעה לא נשלחה — ' + String(e?.message || e));
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-[420px]" dir="rtl" data-testid="cmd-message">
+        <DialogTitle>✉️ הודעה לעובד</DialogTitle>
+        <p className="text-[12.5px] text-muted-foreground">הוא יראה אותה בכניסה הבאה שלו.</p>
+        <label className="block text-[12.5px] font-semibold">
+          למי
+          <select className="ucal-input" data-testid="cmd-message-to" value={to} onChange={e => setTo(e.target.value)}>
+            {people.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </label>
+        <label className="block text-[12.5px] font-semibold">
+          ההודעה
+          <textarea
+            className="ucal-input min-h-[90px] py-2" data-testid="cmd-message-text"
+            value={text} onChange={e => setText(e.target.value)}
+          />
+        </label>
+        <button
+          type="button" className="ucal-primary" data-testid="cmd-message-send"
+          disabled={busy || !to || !text.trim()} onClick={send}
+        >שלח</button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// The משימות / 📋 EMS / עובדים pages retired in Task 14 (§7m R1/R2/R5): "המשימות שלי" is the
+// calendar's רשימה view, and it is reachable from here under its own name (the action below).
 const PAGES: Array<{ page: SigmaPage; label: string }> = [
   { page: 'kibbutz', label: 'קיבוצים' },
   { page: 'calendar', label: 'יומן' },
   { page: 'inventory', label: 'מלאי' },
   { page: 'attendance', label: 'נוכחות' },
-  { page: 'mytasks', label: 'משימות' },
-  { page: 'ems', label: 'משימות EMS' },
-  { page: 'staff', label: 'עובדים' },
   { page: 'dev', label: 'פיתוח' },
   { page: 'pushlog', label: 'התראות' },
 ];
+
+/** Open 🗓️ יומן on a given view — the island reads the same key on mount. */
+function openCalendarView(view: 'week' | 'month' | 'list'): void {
+  try { localStorage.setItem('cal_view_v1', view); } catch { /* private mode */ }
+  sigma.showPage('calendar');
+}
 
 function readKibbutzim(): KibbutzRow[] {
   // The same cache key the card home writes (`kibbutzim_v1`) — no query, no network, so the
@@ -75,6 +143,20 @@ function buildCommands(user: string, isViewer: boolean): Command[] {
     out.push({ id: 'action:visit', label: '📍 סיכום ביקור', kind: 'action', run: () => sigma.openVisitQuick() });
     out.push({ id: 'action:cert', label: '🚚 תעודת משלוח', kind: 'action', run: () => sigma.openDeliveryCert({}) });
     out.push({ id: 'action:stock', label: '🔢 דיווח שינוי במלאי', kind: 'action', run: () => sigma.showPage('inventory') });
+    // The list the retired משימות page used to be (§7m R1) — by the name people type.
+    out.push({ id: 'action:mytasks', label: '✅ המשימות שלי', keywords: 'משימות רשימה יומן',
+      kind: 'action', run: () => openCalendarView('list') });
+    // Ruling 3 (19.9): the retired EMS page's two header buttons become Ctrl+K actions. A
+    // kibbutz-less ➕ has no card to start from, which is exactly what a command bar is for.
+    out.push({ id: 'action:ems-task', label: '➕ משימה חדשה ב-EMS', keywords: 'EMS task משימה',
+      kind: 'action', run: () => { void sigma.emsCreateTask?.(''); } });
+    out.push({ id: 'action:ems-disconnect', label: '🔌 ניתוק EMS', keywords: 'logout disconnect התנתק',
+      kind: 'action', run: () => sigma.emsDisconnect?.() });
+  }
+  // Ruling 4 (19.9): the עובדים page retired with its compose box; the messaging did not.
+  if (canManageKibbutzim(user, isViewer)) {
+    out.push({ id: 'action:message', label: '✉️ הודעה לעובד', keywords: 'message הודעה',
+      kind: 'action', run: () => window.dispatchEvent(new CustomEvent(MESSAGE_EVENT)) });
   }
   out.push({ id: 'action:settings', label: '⚙️ הגדרות', kind: 'action', run: openSettings });
   out.push({ id: 'action:feedback', label: '📣 רעיון / באג', kind: 'action',
@@ -235,6 +317,16 @@ function CommandBarPanel() {
   );
 }
 
+/** The bar and the one dialog its actions open — one root, mounted on every page. */
+function CommandBarRoot() {
+  return (
+    <>
+      <CommandBarPanel />
+      <MessageSheet />
+    </>
+  );
+}
+
 export function mountCommandBar(): boolean {
-  return mount('sigma-command', CommandBarPanel);
+  return mount('sigma-command', CommandBarRoot);
 }

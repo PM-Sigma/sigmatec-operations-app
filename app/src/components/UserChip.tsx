@@ -89,10 +89,12 @@ export function UserChip({ className }: { className?: string }) {
             onClick={() => pick(() => sigma.toast('האזור האישי — בקרוב'), 'personal')}
           />
           <span className="my-1 border-t border-border" />
+          {/* There is no EMS PAGE any more (§7m R2). Connected → the one way out is ניתוק;
+              disconnected → the one way in is the sign-in gate (§7n), never a second panel. */}
           {connected ? (
-            <MenuRow icon={Plug} label="מחובר ל-EMS" onClick={() => pick(() => sigma.showPage('ems'), 'ems-status')} />
+            <MenuRow icon={Plug} label="מחובר ל-EMS · ניתוק" onClick={() => pick(() => sigma.emsDisconnect?.(), 'ems-disconnect')} />
           ) : (
-            <MenuRow icon={LogIn} label="התחבר ל-EMS" onClick={() => pick(() => sigma.showPage('ems'), 'ems-connect')} />
+            <MenuRow icon={LogIn} label="התחבר ל-EMS" onClick={() => pick(() => sigma.beginReLogin?.(), 'ems-connect')} />
           )}
           <MenuRow icon={UserCog} label="החלפת משתמש" onClick={() => pick(() => sigma.changeUser(), 'change-user')} />
         </span>

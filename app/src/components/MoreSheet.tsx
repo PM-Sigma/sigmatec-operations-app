@@ -34,17 +34,15 @@ export const MORE_ICONS: Record<string, LucideIcon> = {
 const APP_ORDER = ['settings', 'field-journal', 'feedback'];
 
 /**
- * Legacy pages reachable from the sheet, in the order §7k #3 lists them. `משימות` stays until
- * Task 14 retires it (gated by a coverage audit — nothing is removed here).
+ * Legacy pages reachable from the sheet, in the order §7k #3 lists them. משימות · 📋 EMS ·
+ * עובדים retired in Task 14 (§7m R1/R2/R5) — the first two are 🗓️ יומן's רשימה view, which the
+ * row below opens directly, and the third is gone.
  */
 const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; group?: 'admin' }> = [
   { page: 'calendar', label: 'יומן', icon: CalendarDays },
   { page: 'attendance', label: 'נוכחות', icon: CalendarDays },
-  { page: 'mytasks', label: 'משימות', icon: CheckSquare },
-  { page: 'ems', label: 'משימות EMS', icon: ClipboardList },
   { page: 'inventory', label: 'מלאי', icon: Package },
   { page: 'pushlog', label: 'התראות', icon: Bell, group: 'admin' },
-  { page: 'staff', label: 'עובדים', icon: Users, group: 'admin' },
   { page: 'dev', label: 'פיתוח', icon: Code2, group: 'admin' },
 ];
 

@@ -100,7 +100,7 @@ the accepted findings, each with the sites reviewed and the reason. Prefer fixin
 adding an entry there; a *new* site under an already-excluded rule is not automatically safe.
 
 **`include` is the scan target list, and it is deliberate** (task 22b): `js/src`, `app/src`,
-`supabase/functions`, `scripts`, `db`, `build.mjs`, `index.html`, `stats.html`, `sw.js` and the
+`supabase/functions`, `scripts`, `db`, `build.mjs`, `index.html`, `sw.js` and the
 root `test-*.mjs` runners. Generated output is NOT scanned — `js/app.js`, `ui/**`,
 `css/app.min.css`, `app/dist` — because every byte of it is derived from a path that is. The
 gate used to scan `.` minus excludes, which broke quietly the moment `js/app.js` became
@@ -128,7 +128,7 @@ adjacently in a `.mjs` source**; build the string (`'<' + '!--'`) instead.
 A manual run:
 
 ```bash
-semgrep scan --config qa/semgrep/.cache --metrics=off --severity ERROR --severity WARNING   --exclude node_modules --exclude js/app.js --exclude ui --exclude css/app.min.css   --json-output "$PWD/out.json"   js/src app/src supabase/functions scripts db build.mjs index.html stats.html sw.js test-*.mjs
+semgrep scan --config qa/semgrep/.cache --metrics=off --severity ERROR --severity WARNING   --exclude node_modules --exclude js/app.js --exclude ui --exclude css/app.min.css   --json-output "$PWD/out.json"   js/src app/src supabase/functions scripts db build.mjs index.html sw.js test-*.mjs
 ```
 
 A single line can be suppressed with `// nosemgrep` on its own line directly above it, plus a

@@ -47,12 +47,17 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   // נוכחות is NOT here for עידן: `canSeeAttendance()` (js/src/11-search-login.js) lists
   // אביאם · ניתאי · עמיחי · viewer only, and the sheet offers exactly the pages showPage()
   // would open. The team test below asserts the labelled נוכחות row for אביאם.
-  for (const label of ['יומן', 'משימות', 'משימות EMS', 'מלאי', 'הגדרות', 'יומן היום']) {
+  // משימות · משימות EMS · עובדים retired in Task 14 (§7m R1/R2/R5): the first two are 🗓️ יומן's
+  // רשימה view and the third is gone, so the sheet no longer offers a row that opens nothing.
+  for (const label of ['יומן', 'מלאי', 'הגדרות', 'יומן היום']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
+  }
+  for (const gone of ['משימות', 'משימות EMS', 'עובדים']) {
+    await expect(sheet.getByRole('button', { name: gone, exact: true })).toHaveCount(0);
   }
   // …and the management block is behind its own rule, for עידן
   await expect(sheet.getByText('ניהול', { exact: true })).toBeVisible();
-  for (const label of ['התראות', 'עובדים', 'פיתוח', '📈 שימוש']) {
+  for (const label of ['התראות', 'פיתוח', '📈 שימוש']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
   // the identity chip is in the sheet on the phone (the header has no room for it)

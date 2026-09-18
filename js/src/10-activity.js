@@ -676,7 +676,6 @@
     }
 
     if (data) {
-      renderCompanyTasks();
       maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();
       if (typeof maybeShowOrderNotifications === 'function') maybeShowOrderNotifications();
@@ -687,7 +686,8 @@
       const viewOpen = id => { const v = document.getElementById(id); return v && v.style.display !== 'none'; };
       if (viewOpen('inventory-view') && typeof renderInventory === 'function') renderInventory();
       if (viewOpen('calendar-view') && typeof renderCompanyCalendar === 'function') renderCompanyCalendar();
-      if (viewOpen('my-tasks-view') && typeof renderMyTasks === 'function') renderMyTasks();
+      // 🗓️ יומן is a React island now and refreshes itself off the bus; the משימות page it used
+      // to repaint here is retired (spec §7m R1) — its list is the calendar's רשימה view.
     }
   }
 

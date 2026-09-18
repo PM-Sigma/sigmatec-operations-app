@@ -169,10 +169,8 @@
   function applyNavVisibility() {
     const att = document.getElementById('navAttendance');
     if (att) att.style.display = canSeeAttendance() ? '' : 'none';
-    const ems = document.getElementById('navEms');   // hidden for everyone — EMS is reached via the bubble link / re-login only
-    if (ems) ems.style.display = 'none';
-    const staff = document.getElementById('navStaff');   // עידן + עמיחי only
-    if (staff) staff.style.display = (typeof canManageStaff === 'function' && canManageStaff()) ? '' : 'none';
+    // 📋 EMS · ✅ משימות · 👥 עובדים retired in Task 14 (spec §7m R1/R2/R5) — their nav buttons
+    // are gone from index.html, so there is nothing left to show or hide here.
     const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory; viewer gets read-only inventory (certs registry + stock views; writes stay blocked at the router)
     if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
     const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
@@ -181,8 +179,6 @@
     if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
     const plog = document.getElementById('navPushLog');    // התראות (push log) — עידן only
     if (plog) plog.style.display = isIdan() ? '' : 'none';
-    const myt = document.getElementById('navMyTasks');     // viewer: משימות not needed (reports hub covers their use)
-    if (myt) myt.style.display = isViewer() ? 'none' : '';
     // 📗 Excel export buttons — עידן + viewer only (canExportExcel in 21-excel-export.js)
     const xlOn = typeof canExportExcel === 'function' && canExportExcel();
     document.querySelectorAll('.xl-export-btn').forEach(b => { b.style.display = xlOn ? '' : 'none'; });

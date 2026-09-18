@@ -38,8 +38,14 @@ import {
   type AbsenceKind, type AbsenceRow, type CalCell, type CalEmsTask, type CalItem,
   type CalWeek, type OfficeEvent, type RouteRow,
 } from '@/lib/calendar';
+import { dueText, isOverdue, priorityLabel, statusLabel } from '@/lib/emsTasks';
+import {
+  companyItems, COMPANY_GROUP, DEFAULT_FILTERS, EMPTY_FILTERED, EMPTY_LIST, filterTasks,
+  groupTasks, hasActiveFilters, LIST_TITLE, shareText, siteOptions, sortTasks, waLink,
+  type CompanyRow, type ListTask, type TaskFilters,
+} from '@/lib/taskList';
 
-type ViewMode = 'week' | 'month';
+type ViewMode = 'week' | 'month' | 'list';
 
 const VIEW_KEY = 'cal_view_v1';
 const HIDE_EMS_KEY = 'cal_hide_ems_v1';
@@ -53,12 +59,19 @@ function writeFlag(key: string, on: boolean): void {
   try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* private mode */ }
 }
 function readView(): ViewMode {
-  try { return localStorage.getItem(VIEW_KEY) === 'week' ? 'week' : 'month'; } catch { return 'month'; }
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    return v === 'week' || v === 'list' ? v : 'month';
+  } catch { return 'month'; }
 }
 
 // ───────────────────────────── data ─────────────────────────────
 
-/** The visible range, as the two plain days every query keys on. */
+/**
+ * The visible range, as the two plain days every query keys on. רשימה has no range of its own
+ * — it reads the whole open cache — so it keys on the MONTH, which keeps the office-events and
+ * absences queries warm for the day the person switches back to a grid.
+ */
 function rangeOf(view: ViewMode, anchor: string): { from: string; to: string } {
   if (view === 'week') {
     const d = weekDays(anchor);
@@ -395,15 +408,28 @@ function DayBody({
 
 // ───────────────────────────── ➕ schedule EMS tasks ─────────────────────────────
 
+/**
+ * ONE scheduler, two doors. From a day cell the date is already known and the person picks a
+ * kibbutz; from a רשימה row (📅 שבץ) the TASK is already known and the person picks a day —
+ * so `preTask` skips straight to the task list and the date turns into a field. Same plan,
+ * same PATCHes, same undo (spec §7g: "opens the same scheduler as §7f with the task
+ * preselected").
+ */
 function ScheduleSheet({
-  date, open, onClose, onScheduled,
+  date, open, onClose, onScheduled, preTask,
 }: {
   date: string; open: boolean; onClose: () => void;
   onScheduled: (plan: ReturnType<typeof scheduleTasksPlan>) => void;
+  preTask?: CalEmsTask | null;
 }) {
   const [kibbutz, setKibbutz] = React.useState('');
   const [picked, setPicked] = React.useState<Record<string, boolean>>({});
-  React.useEffect(() => { if (!open) { setKibbutz(''); setPicked({}); } }, [open]);
+  const [when, setWhen] = React.useState(date);
+  React.useEffect(() => {
+    if (!open) { setKibbutz(''); setPicked({}); return; }
+    setWhen(date || ymd(new Date()));
+    if (preTask) { setKibbutz((preTask.site && preTask.site.name) || ''); setPicked({ [preTask.id]: true }); }
+  }, [open, date, preTask]);
 
   const all = React.useMemo<CalEmsTask[]>(() => {
     try { return (sigma.emsCacheData?.()?.tasks || []) as CalEmsTask[]; } catch { return []; }
@@ -420,15 +446,27 @@ function ScheduleSheet({
     [all, kibbutz],
   );
   const selected = tasks.filter(t => picked[t.id]);
-  const plan = scheduleTasksPlan(selected, date);
+  const plan = scheduleTasksPlan(selected, when);
 
   return (
     <Sheet open={open} onOpenChange={o => { if (!o) onClose(); }}>
       <SheetContent side="bottom" data-testid="cal-schedule" className="max-h-[86svh] overflow-y-auto">
-        <SheetTitle>שיבוץ משימות EMS ל{heShort(date)}</SheetTitle>
+        <SheetTitle>שיבוץ משימות EMS{when ? ' ל' + heShort(when) : ''}</SheetTitle>
         <SheetDescription className="text-[12.5px]">
-          בוחרים קיבוץ, מסמנים מה עושים באותו יום — והתאריך ב-EMS מתעדכן.
+          {date
+            ? 'בוחרים קיבוץ, מסמנים מה עושים באותו יום — והתאריך ב-EMS מתעדכן.'
+            : 'בוחרים יום למשימה — והתאריך ב-EMS מתעדכן.'}
         </SheetDescription>
+        {/* Opened from a רשימה row there is no day yet, so the day is the first thing asked. */}
+        {!date ? (
+          <label className="mt-3 block text-[12.5px] font-semibold">
+            ליום
+            <input
+              type="date" className="ucal-input" data-testid="cal-schedule-date"
+              value={when} onChange={e => setWhen(e.target.value)}
+            />
+          </label>
+        ) : null}
         {!kibbutz ? (
           <Command className="mt-3 rounded-[12px] border border-border">
             <CommandInput placeholder="חיפוש קיבוץ…" data-testid="cal-kib-search" />
@@ -473,7 +511,7 @@ function ScheduleSheet({
               type="button"
               className="ucal-primary"
               data-testid="cal-schedule-go"
-              disabled={!plan.count}
+              disabled={!plan.count || !when}
               onClick={() => onScheduled(plan)}
             >
               שבץ {plan.count} משימות
@@ -482,6 +520,234 @@ function ScheduleSheet({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ───────────────────────────── רשימה — the third view (spec §7g) ─────────────────────────────
+
+/**
+ * What the standalone משימות page and the legacy 📋 EMS page used to be (§7m R1/R2): MY open
+ * work, grouped by the kibbutz it is at, the oldest debt first — with their filters and their
+ * ⋯ exports on top of it.
+ *
+ * It reads the SHARED CACHE, not EMS live. That is the same source the cards, the calendar
+ * layers and Ctrl+K already read: it holds every open task, it answers instantly, and it works
+ * with no signal — which is the state a phone in a kibbutz is usually in. The old page's
+ * paginated fetch and its "טען עוד" went with the page.
+ */
+function TaskListView({
+  me, canSeeOthers, onOpenCard, onBriefing, onSchedule, onRefresh, tick,
+}: {
+  me: string; canSeeOthers: boolean;
+  onOpenCard: (kibbutz: string) => void;
+  onBriefing: (kibbutz: string) => void;
+  onSchedule: (task: ListTask) => void;
+  onRefresh: () => void;
+  tick: number;
+}) {
+  // Someone who sees everyone (עידן / עמיחי) starts with everyone, exactly as the two grids
+  // already show him everyone's day — his job here is triage, and a screen that opens empty
+  // because EMS spells his name differently is a screen that looks broken. A field user gets
+  // his own work and is never offered the toggle (spec §7g: "כולל של אחרים" is for admins).
+  const [filters, setFilters] = React.useState<TaskFilters>(() => ({ ...DEFAULT_FILTERS, mine: !canSeeOthers }));
+  const [showCompany, setShowCompany] = React.useState(true);
+  const [busy, setBusy] = React.useState('');
+  const now = new Date();
+  const set = <K extends keyof TaskFilters>(k: K, v: TaskFilters[K]) => setFilters(f => ({ ...f, [k]: v }));
+
+  const all = React.useMemo<ListTask[]>(() => {
+    try { return (sigma.emsCacheData?.()?.tasks || []) as ListTask[]; } catch { return []; }
+  }, [tick]);
+
+  // 🔒 "חברה" — internal tasks with no kibbutz. Until the one-shot migration has run, the
+  // retired home block's three lists stand in for them (§7m R3); `companyItems` prefers a real
+  // row the moment one exists, so the same item can never show twice.
+  const company = useQuery({
+    queryKey: ['cal', 'company-tasks'],
+    queryFn: async (): Promise<CompanyRow[]> => {
+      try {
+        const sb = await getSupabase();
+        const { data, error } = await sb.from('internal_tasks')
+          .select('id,title,kibbutz,done,owner').is('kibbutz', null).eq('done', false);
+        if (error) throw error;
+        return (data || []) as CompanyRow[];
+      } catch { return []; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const companyRows = React.useMemo(
+    () => companyItems(company.data || [], (() => { try { return sigma.companyTasks?.() || null; } catch { return null; } })()),
+    [company.data, tick],
+  );
+
+  const shown = React.useMemo(
+    () => sortTasks(filterTasks(all, filters, { me, now }), now),
+    [all, filters, me, tick],
+  );
+  const groups = React.useMemo(() => groupTasks(shown, now), [shown]);
+  const sites = React.useMemo(() => siteOptions(all), [all]);
+  const openCount = React.useMemo(
+    () => filterTasks(all, { ...DEFAULT_FILTERS, mine: false }, { me, now }).length,
+    [all, me, tick],
+  );
+
+  async function finish(task: ListTask) {
+    setBusy(task.id);
+    try {
+      await sigma.emsSetStatus?.(task.id, 'done');
+      track('list-task-done', task.id);
+      onRefresh();
+    } finally { setBusy(''); }
+  }
+
+  function share(how: 'copy' | 'whatsapp') {
+    const text = shareText({ person: me || 'הצוות', groups, company: companyRows, now });
+    if (how === 'copy') {
+      navigator.clipboard?.writeText(text)
+        .then(() => toast.success('הדוח הועתק'))
+        .catch(() => toast.error('ההעתקה לא עברה'));
+      track('list-share', 'copy');
+      return;
+    }
+    const phone = (() => { try { return sigma.contactPhone?.(me) || ''; } catch { return ''; } })();
+    const url = waLink(phone, text);
+    if (!url) { toast.error('אין מספר טלפון רשום'); return; }
+    window.open(url, '_blank', 'noopener');
+    track('list-share', 'whatsapp');
+  }
+
+  return (
+    <div data-testid="cal-list">
+      {/* ── the filters the retired EMS page carried ─────────────────────── */}
+      <div className="ucal-filters" data-testid="cal-list-filters">
+        <input
+          className="ucal-input" data-testid="cal-list-search" type="search"
+          placeholder="🔍 חיפוש משימה" value={filters.q} onChange={e => set('q', e.target.value)}
+        />
+        <select className="ucal-input" data-testid="cal-list-status" value={filters.status} onChange={e => set('status', e.target.value)}>
+          <option value="">כל הסטטוסים</option>
+          <option value="new">🆕 חדשה</option>
+          <option value="in_progress">🔄 בטיפול</option>
+          <option value="waiting_for_client">⏳ ממתין ללקוח</option>
+          <option value="on_hold">⏸️ מוקפא</option>
+        </select>
+        <select className="ucal-input" data-testid="cal-list-priority" value={filters.priority} onChange={e => set('priority', e.target.value)}>
+          <option value="">כל העדיפויות</option>
+          <option value="urgent">🔴 דחופה</option>
+          <option value="high">🟠 גבוהה</option>
+          <option value="normal">🟡 רגילה</option>
+          <option value="low">🔵 נמוכה</option>
+        </select>
+        <select className="ucal-input" data-testid="cal-list-site" value={filters.site} onChange={e => set('site', e.target.value)}>
+          <option value="">כל הקיבוצים</option>
+          {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <button
+          type="button" data-testid="cal-list-overdue" aria-pressed={filters.overdue}
+          className={'ucal-mini' + (filters.overdue ? ' ucal-mini-on' : '')}
+          onClick={() => set('overdue', !filters.overdue)}
+        >⏰ באיחור</button>
+        {canSeeOthers ? (
+          <button
+            type="button" data-testid="cal-list-others" aria-pressed={!filters.mine}
+            className={'ucal-mini' + (!filters.mine ? ' ucal-mini-on' : '')}
+            onClick={() => set('mine', !filters.mine)}
+          >👥 כולל של אחרים</button>
+        ) : null}
+        {/* ⋯ — where the retired page's launchers and its report live now (rulings 1 + 2). */}
+        <details className="ucal-more" data-testid="cal-list-more">
+          <summary className="ucal-mini">⋯ עוד</summary>
+          <div className="ucal-more-menu">
+            <button type="button" className="ucal-row" data-testid="cal-list-copy" onClick={() => share('copy')}>📋 העתק את הרשימה</button>
+            <button type="button" className="ucal-row" data-testid="cal-list-wa" onClick={() => share('whatsapp')}>📱 שתף בוואטסאפ</button>
+            <button type="button" className="ucal-row" data-testid="cal-list-visits" onClick={() => sigma.openVisitsReport?.()}>📍 דוח ביקורים</button>
+            <button type="button" className="ucal-row" data-testid="cal-list-activity" onClick={() => sigma.openActivity?.()}>📊 פעילות היום</button>
+          </div>
+        </details>
+      </div>
+
+      {/* ── 🏢 חברה — collapsible, at the top (spec §7g) ──────────────────── */}
+      {companyRows.length ? (
+        <section className="ucal-company" data-testid="cal-list-company">
+          <button
+            type="button" className="ucal-company-head" aria-expanded={showCompany}
+            onClick={() => setShowCompany(v => !v)}
+          >
+            📌 {COMPANY_GROUP} <span className="ucal-count">{companyRows.length}</span>
+            {showCompany ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          </button>
+          {showCompany ? (
+            <ul className="ucal-company-list">
+              {companyRows.map(i => (
+                <li key={i.id}>
+                  {i.heading ? <span className="ucal-company-tag"><bdi>{i.heading}</bdi></span> : null}
+                  <bdi>{i.title}</bdi>
+                  {i.owner ? <span className="ucal-who"><bdi>{i.owner}</bdi></span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* ── the work, by kibbutz ──────────────────────────────────────────── */}
+      {!groups.length ? (
+        <div className="ucal-list-empty" data-testid="cal-list-empty">
+          <p className="text-[14px] font-semibold">{hasActiveFilters(filters) ? EMPTY_FILTERED : EMPTY_LIST}</p>
+          {filters.mine && !hasActiveFilters(filters) && openCount ? (
+            <button type="button" className="ucal-mini mt-2" data-testid="cal-list-show-all" onClick={() => set('mine', false)}>
+              👥 הצג את כל {openCount} המשימות הפתוחות
+            </button>
+          ) : null}
+          {hasActiveFilters(filters) ? (
+            <button type="button" className="ucal-mini mt-2" data-testid="cal-list-clear" onClick={() => setFilters({ ...DEFAULT_FILTERS, mine: filters.mine })}>
+              נקה סינון
+            </button>
+          ) : null}
+        </div>
+      ) : groups.map(g => (
+        <section className="ucal-lgroup" data-group={g.kibbutz} key={g.kibbutz}>
+          <div className="ucal-lgroup-head">
+            {g.real ? (
+              <button type="button" className="ucal-lgroup-name" data-open-card={g.kibbutz} onClick={() => onOpenCard(g.kibbutz)}>
+                🏘️ <bdi>{g.kibbutz}</bdi>
+              </button>
+            ) : (
+              <span className="ucal-lgroup-name"><bdi>{g.kibbutz}</bdi></span>
+            )}
+            {g.overdue ? <span className="ucal-late" data-testid="cal-list-late">⏰ {g.overdue} באיחור</span> : null}
+            {g.real ? (
+              <button type="button" className="ucal-mini" data-brief={g.kibbutz} onClick={() => onBriefing(g.kibbutz)}>📍 בריפינג</button>
+            ) : null}
+          </div>
+          {g.items.map(t => {
+            const late = isOverdue(t, now);
+            const due = dueText(t);
+            return (
+              <article className={'ucal-ltask' + (late ? ' ucal-ltask-late' : '')} data-task={t.id} key={t.id}>
+                <button type="button" className="ucal-ltask-main" onClick={() => sigma.openKibbutzEmsTask(t.id)}>
+                  <strong className="ucal-ltask-title"><bdi>{t.title}</bdi></strong>
+                  <span className="ucal-ltask-meta">
+                    <span className="ucal-badge">{statusLabel(t.status)}</span>
+                    <span className="ucal-badge">{priorityLabel(t.priority || '')}</span>
+                    {due ? <span className="ucal-badge">{(late ? '⏰ ' : '📅 ') + due}</span> : null}
+                    {t.assignee?.firstName ? <span className="ucal-who"><bdi>{t.assignee.firstName}</bdi></span> : null}
+                  </span>
+                  {t.description ? <span className="ucal-ltask-desc"><bdi>{t.description}</bdi></span> : null}
+                </button>
+                <div className="ucal-ltask-actions">
+                  <button type="button" className="ucal-mini" data-schedule={t.id} onClick={() => onSchedule(t)}>📅 שבץ</button>
+                  <button
+                    type="button" className="ucal-mini" data-done={t.id}
+                    disabled={busy === t.id} onClick={() => finish(t)}
+                  >✓ סיים</button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -620,6 +886,9 @@ function CalendarIsland() {
   const [addDay, setAddDay] = React.useState('');
   const [scheduleDay, setScheduleDay] = React.useState('');
   const [absenceDay, setAbsenceDay] = React.useState('');
+  // 📅 שבץ from a רשימה row: the TASK is known and the day is not — the opposite of the day
+  // cell's ➕, and the same sheet either way.
+  const [scheduleTask, setScheduleTask] = React.useState<CalEmsTask | null>(null);
 
   const range = rangeOf(view, anchor);
 
@@ -650,12 +919,12 @@ function CalendarIsland() {
   const index = React.useMemo(() => byDate(items), [items]);
 
   const [y, m] = anchor.split('-').map(Number);
-  const weeks: CalWeek[] = view === 'month'
-    ? monthView(y, m, holidays.data || [], today).weeks
-    : [weekView(anchor, holidays.data || [], today)];
-  const label = view === 'month'
-    ? HE_MONTHS[m - 1] + ' ' + y
-    : 'שבוע ' + weeks[0].week + ' · ' + heShort(weeks[0].days[0].date) + '–' + heShort(weeks[0].days[6].date);
+  const weeks: CalWeek[] = view === 'week'
+    ? [weekView(anchor, holidays.data || [], today)]
+    : monthView(y, m, holidays.data || [], today).weeks;
+  const label = view === 'week'
+    ? 'שבוע ' + weeks[0].week + ' · ' + heShort(weeks[0].days[0].date) + '–' + heShort(weeks[0].days[6].date)
+    : HE_MONTHS[m - 1] + ' ' + y;
 
   // ── the day's route ────────────────────────────────────────────────────
   const openDate = sheetDay || selected;
@@ -717,6 +986,7 @@ function CalendarIsland() {
     },
     onSuccess: p => {
       setScheduleDay('');
+      setScheduleTask(null);
       setTick(t => t + 1);
       toast.success(p.message, {
         action: {
@@ -780,56 +1050,80 @@ function CalendarIsland() {
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="m-0 text-[19px] font-extrabold text-primary">🗓️ יומן</h2>
         <div className="flex items-center gap-1.5">
-          <button type="button" className="ucal-icon" data-testid="cal-prev" aria-label="הקודם" onClick={() => step(-1)}>
-            <ChevronRight size={16} aria-hidden />
-          </button>
-          <strong className="min-w-[140px] text-center text-[14px] tabular-nums" data-testid="cal-label">{label}</strong>
-          <button type="button" className="ucal-icon" data-testid="cal-next" aria-label="הבא" onClick={() => step(1)}>
-            <ChevronLeft size={16} aria-hidden />
-          </button>
-          <button type="button" className="ucal-mini" data-testid="cal-today" onClick={() => setAnchor(today)}>היום</button>
+          {/* רשימה is not a period — there is nothing to step through, so the arrows go away
+              rather than sit there doing nothing. */}
+          {view !== 'list' ? (
+            <>
+              <button type="button" className="ucal-icon" data-testid="cal-prev" aria-label="הקודם" onClick={() => step(-1)}>
+                <ChevronRight size={16} aria-hidden />
+              </button>
+              <strong className="min-w-[140px] text-center text-[14px] tabular-nums" data-testid="cal-label">{label}</strong>
+              <button type="button" className="ucal-icon" data-testid="cal-next" aria-label="הבא" onClick={() => step(1)}>
+                <ChevronLeft size={16} aria-hidden />
+              </button>
+              <button type="button" className="ucal-mini" data-testid="cal-today" onClick={() => setAnchor(today)}>היום</button>
+            </>
+          ) : (
+            <strong className="text-[14px]" data-testid="cal-label">{LIST_TITLE}</strong>
+          )}
         </div>
       </header>
 
-      {/* The switcher. רשימה is Task 14 — the slot is here so the shape is final. */}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="ucal-switch" role="group" aria-label="תצוגה">
-          {([['week', 'שבוע'], ['month', 'חודש']] as Array<[ViewMode, string]>).map(([v, lbl]) => (
+          {([['week', 'שבוע'], ['month', 'חודש'], ['list', 'רשימה']] as Array<[ViewMode, string]>).map(([v, lbl]) => (
             <button
               key={v}
               type="button"
               data-view={v}
               aria-pressed={view === v}
               className={'ucal-switch-btn' + (view === v ? ' ucal-switch-on' : '')}
-              onClick={() => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ } }}
+              onClick={() => {
+                setView(v);
+                try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ }
+                track('calendar-view', v);
+              }}
             >
               {lbl}
             </button>
           ))}
-          <button type="button" className="ucal-switch-btn" data-view="list" disabled title="בקרוב">רשימה</button>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-1.5 text-[12.5px] font-semibold">
-            <Switch
-              checked={hideEms}
-              data-testid="cal-hide-ems"
-              onCheckedChange={v => { setHideEms(v); writeFlag(HIDE_EMS_KEY, v); track('calendar-hide-ems', v ? '1' : '0'); }}
-            />
-            הסתר משימות EMS
-          </label>
-          {!can.seesEveryone ? (
+        {/* The two layer toggles belong to the GRIDS; רשימה has its own filter bar. */}
+        {view !== 'list' ? (
+          <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-1.5 text-[12.5px] font-semibold">
               <Switch
-                checked={onlyMine}
-                data-testid="cal-only-mine"
-                onCheckedChange={v => { setOnlyMine(v); writeFlag(ONLY_MINE_KEY, v); }}
+                checked={hideEms}
+                data-testid="cal-hide-ems"
+                onCheckedChange={v => { setHideEms(v); writeFlag(HIDE_EMS_KEY, v); track('calendar-hide-ems', v ? '1' : '0'); }}
               />
-              רק שלי
+              הסתר משימות EMS
             </label>
-          ) : null}
-        </div>
+            {!can.seesEveryone ? (
+              <label className="flex items-center gap-1.5 text-[12.5px] font-semibold">
+                <Switch
+                  checked={onlyMine}
+                  data-testid="cal-only-mine"
+                  onCheckedChange={v => { setOnlyMine(v); writeFlag(ONLY_MINE_KEY, v); }}
+                />
+                רק שלי
+              </label>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
+      {view === 'list' ? (
+        <TaskListView
+          me={me}
+          canSeeOthers={can.seesEveryone}
+          onOpenCard={k => sigma.openKibbutzModal?.(k)}
+          onBriefing={openBriefing}
+          onSchedule={t => { setScheduleTask(t); setScheduleDay(''); }}
+          onRefresh={() => setTick(t => t + 1)}
+          tick={tick}
+        />
+      ) : (
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div>
           {loading ? <Skeleton className="h-[280px] w-full rounded-[14px]" /> : (
@@ -841,7 +1135,7 @@ function CalendarIsland() {
               onAdd={d => setAddDay(d)}
               canAdd={can.canAdd}
               onlyMine={onlyMine}
-              mode={view}
+              mode={view === 'week' ? 'week' : 'month'}
             />
           )}
         </div>
@@ -866,6 +1160,7 @@ function CalendarIsland() {
           </div>
         </aside>
       </div>
+      )}
 
       {/* phone: the same day, as a bottom sheet */}
       <Sheet open={!!sheetDay} onOpenChange={o => { if (!o) setSheetDay(''); }}>
@@ -918,8 +1213,9 @@ function CalendarIsland() {
       />
       <ScheduleSheet
         date={scheduleDay}
-        open={!!scheduleDay}
-        onClose={() => setScheduleDay('')}
+        open={!!scheduleDay || !!scheduleTask}
+        preTask={scheduleTask}
+        onClose={() => { setScheduleDay(''); setScheduleTask(null); }}
         onScheduled={p => schedule.mutate(p)}
       />
       <AbsenceSheet

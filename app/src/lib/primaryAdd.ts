@@ -84,14 +84,11 @@ export function primaryAdd(page: AddPage, role: PersonRole, context: AddContext 
       return context.daySelected ? 'schedule' : 'event';
     case 'inventory':
       return 'stockChange';
-    case 'mytasks':
     case 'attendance':
       return 'visit';
-    // Read-only or externally owned screens: EMS tasks are created from a kibbutz card or in
-    // EMS itself, the dev board has its own per-column add, עובדים and התראות are lists.
-    case 'ems':
+    // Read-only or externally owned screens: the dev board has its own per-column add and
+    // התראות is a list. (The משימות / EMS / עובדים pages retired in Task 14 — §7m R1/R2/R5.)
     case 'dev':
-    case 'staff':
     case 'pushlog':
     default:
       return 'none';
