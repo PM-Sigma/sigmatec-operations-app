@@ -585,6 +585,22 @@ selected; else `event`) · `stockChange` (inventory) · `visit` (my tasks / atte
 ("➕ קיבוץ", "➕ שבץ ליום", "➕ דיווח מלאי"), never a bare plus; when `none`, the button is not rendered (no purposeless
 buttons). Pure function with a full page×role matrix test; the same function feeds Ctrl+K's actions list.
 
+## 7l. First screen per role (עידן 18.9: "מה המסך הראשון") — recommendation, to confirm
+
+Same app, same bottom nav; only the landing view and the "היום" strip content differ. Rule: the first screen answers
+the one question that role asks every morning, and the second tap is the most frequent action.
+
+| Role | Lands on | Top strip ("היום") | Why |
+|------|----------|--------------------|-----|
+| אביאם / ניתאי (field) | **קיבוצים** with the arrival sheet auto-opened when there is no check-in today (§5.1); after check-in → the briefing of the current kibbutz | route stops in order, open nudge/draft, gaps count | "Where am I going and what do I owe?" — visit form ≤ 2 taps |
+| עידן (PM) | **היום שלי** — a PM landing card set: email drafts to confirm (§3b), internal tasks due, onboarding waits ("ממתין למייל" > 3 days), unassigned EMS tasks (§7k #6), Sunday agenda button (Sat/Sun), hours timer state; then the קיבוצים grid below | same cards, collapsed to counts on phone | His day is triage across kibbutzim, not one kibbutz |
+| מתניה (dev) | **פיתוח** board (4 columns; on phone the tree view) with his cards first; Saturday: the sprint prep card | comments mentioning him, cards in בדיקות waiting on him, next dev meeting Meet link | He lives in the board, kibbutz cards are secondary |
+| עמיחי (CEO) | **סקירה** — the health table (§5 of the company-process spec) sorted red→green, yesterday's stock digest, gaps per person (admin view), Monday one-pager, revenue mix (hours vs equipment) when Task 8–10/hours ship | KPIs: red kibbutzim, unanswered client requests, missing summaries | He reads, rarely acts; one screen must let him spot trouble in 30 s |
+| צופה (reports) | **דוחות** hub (existing `#viewerReportsHub`) | none | Only job: produce reports |
+
+Landing is remembered per device (`localStorage.landing`) and overridable in ⚙️ הגדרות ("מסך פתיחה"). All roles keep
+🏘 קיבוצים one tap away in the bottom nav.
+
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 
 עידן named a React/Tailwind stack: **shadcn/ui, Magic UI, Aceternity UI, Motion, Sonner, Vite, TanStack Query,
