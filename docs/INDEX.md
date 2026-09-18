@@ -65,6 +65,21 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — last: 2026-09-18 (**סיגמה 2.00 redesign IN PROGRESS on `feat/kibbutz-cards-redesign`, worktree `SigmatecOps-wt-cards`; PAUSED for עידן's instructions**).
+
+Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (master spec §0–§7o, all
+עידן's rulings inline), (2) `docs/superpowers/specs/2026-09-17-unified-inventory-design.md`, (3)
+`docs/superpowers/specs/2026-09-18-company-process-design.md` (draft, not yet planned), (4) the plan
+`docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md` (Tasks 0–21 + 6b), (5) the SDD ledger
+`.superpowers/sdd/2026-09-17-kibbutz-cards-redesign/progress.md` (git-ignored, on disk), (6) mockup
+https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP, decisions page https://claude.ai/artifact/Cq6MPDDU1MavN2HujKqzYo,
+(7) reports `docs/reports/2026-09-18-*.md` (UX, adoption, retirement coverage).
+
+**Done (reviewed clean):** Tasks 1, 0, 1b, 2, 3, 6, 17, 4. **Next:** 21 (session) → 5 (arrival) → 6b (Whisper live) → 11 → 12 →
+13 → 14 → 15 → 16 → 20 → 18 → 19 (SRS) → 7 (release 2.00 via `node build.mjs major`) → 8–10 (inventory).
+**Open for עידן:** coverage gaps G5/G6/G8; plan the company-process spec into tasks + mockup; manual steps (SELF_WHISPER_TOKEN,
+GH_TOKEN scopes, CRON_SECRET + cron scheduling, first logged-in saves, 3 voice notes for the Whisper comparison).
+
 ## 🚦 Current state — last: 2026-07-16 (**1.54 RELEASED — main = dev**).
 
 **🟡 Branch `feat/kibbutz-cards-redesign` (סיגמה 2.00), 2026-09-18 — Task 17 📈 שימוש done on the branch.**
