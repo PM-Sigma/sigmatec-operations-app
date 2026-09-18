@@ -6,6 +6,9 @@
 // `supabase/functions/push-send/usageNarrative.ts`, and test-usage-track.mjs fails the build
 // if the two files ever drift. Keep this module free of imports so the copy stays possible.
 //
+// PII (review fix round 1): nothing here may quote a stored `target` that could be user input.
+// A search miss is counted, never quoted — see the SEARCH_MISS branch.
+//
 // TONE (adoption §5.4, non-negotiable):
 //   • system health FIRST — a dead page or a failing search points at the product, not a person
 //   • describe behaviour, never rank people against each other (no "הכי", no superlatives)
@@ -139,15 +142,12 @@ export function usageNarrative(
     out.push('דפים ללא שימוש השבוע: ' + dead.map(p => PAGE_LABEL[p] || p).join(', ') + '.');
   }
 
+  // §7j's example quoted the terms ("לא נמצאו: 'גשר'"). Review fix round 1 overruled that:
+  // a typed query is typed text, so it is never stored and therefore cannot be quoted. The
+  // COUNT is what points at the product, which is the line's whole purpose (adoption §5.4).
   const misses = rows.filter(e => e.action === SEARCH_MISS);
   if (misses.length) {
-    const terms: string[] = [];
-    for (const e of misses) {
-      const t = (e.target || '').trim();
-      if (t && terms.indexOf(t) === -1 && terms.length < 3) terms.push(t);
-    }
-    out.push('החיפוש בקיבוצים נכשל ' + times(misses.length)
-      + (terms.length ? ' (לא נמצאו: ' + terms.map(t => '"' + t + '"').join(', ') + ')' : '') + '.');
+    out.push('החיפוש בקיבוצים נכשל ' + times(misses.length) + ' ולא החזיר תוצאה.');
   }
 
   const dismissed = rows.filter(e => e.action === SHEET_DISMISSED);

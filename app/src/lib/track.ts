@@ -1,7 +1,9 @@
 // Usage tracking (spec §7j). The rules, all of them load-bearing:
-//   • PII-light — person name, page, action, target, timestamp. NEVER free text a user typed.
-//     The ONE exception is the failed kibbutz search term, which §7j asks for by name
-//     ("לא נמצאו: 'גשר'") and which is a kibbutz name, not personal content. Capped at 40 chars.
+//   • PII-light — person name, page, action, target, timestamp. NEVER free text a user typed,
+//     WITHOUT EXCEPTION (review fix round 1). §7j's example narrative quoted the failed search
+//     terms; the ruling is that a typed query is typed text whatever it is likely to contain, so
+//     a search miss stores `searchMissTarget(q)` = "results:0,len:<n>" and the narrative counts
+//     misses instead of quoting them. A target is an id or a name the APP chose, never input.
 //   • Buffered, flushed every 10 s and on pagehide / visibilitychange, as ONE bulk insert.
 //   • DROPPED SILENTLY when offline or unauthenticated. Analytics must never block the UI,
 //     never retry in a loop, never warn at the user, and never hold a page unload open.
@@ -19,6 +21,15 @@ export const FLUSH_AT = 40;
 export const MAX_BUFFER = 200;
 /** Longest field we ever store — a target is a name or an id, never prose. */
 export const MAX_TARGET = 40;
+
+/**
+ * The only thing a failed search may contribute: that it found nothing, and how long the query
+ * was. No query, no prefix, no first letter — the length alone still tells us whether people
+ * are mistyping one character or pasting a whole name that does not exist.
+ */
+export function searchMissTarget(query: string | null | undefined): string {
+  return 'results:0,len:' + String(query == null ? '' : query).trim().length;
+}
 
 export type FlushReason = 'timer' | 'pagehide' | 'queued';
 export type FlushVerdict = 'flush' | 'wait' | 'drop';
@@ -46,7 +57,8 @@ export function flushPolicy(s: FlushState): FlushVerdict {
 }
 
 export interface TrackerDeps {
-  insert: (rows: UsageEvent[]) => Promise<void>;
+  /** `reason` is passed on so the unload path can pick a transport that outlives the page. */
+  insert: (rows: UsageEvent[], reason: FlushReason) => Promise<void>;
   now: () => number;
   online: () => boolean;
   authenticated: () => boolean;
@@ -90,7 +102,10 @@ export function createTracker(deps: TrackerDeps): Tracker {
     if (verdict === 'drop') { dropped += rows.length; return verdict; }
     const session = deps.session(), device = deps.device();
     try {
-      await deps.insert(rows.map(r => ({ ...r, session_id: r.session_id || session, device: r.device || device })));
+      await deps.insert(
+        rows.map(r => ({ ...r, session_id: r.session_id || session, device: r.device || device })),
+        reason,
+      );
     } catch {
       // A failed insert is a dropped insert. Re-buffering would retry forever on a 401 and
       // would eventually push the same rows twice — analytics is not worth either.
@@ -126,13 +141,50 @@ function device(): string {
   try { return window.innerWidth < 768 ? 'phone' : 'desktop'; } catch { return ''; }
 }
 
+/**
+ * The unload transport. `fetch(..., {keepalive:true})` — NOT `navigator.sendBeacon`, and that is
+ * a deliberate choice, not an oversight:
+ *
+ *   sendBeacon cannot set request headers. PostgREST needs `apikey` AND
+ *   `Authorization: Bearer <the EMS-minted pass>`; without the pass the insert arrives as `anon`
+ *   and RLS rejects it (db/usage_events.sql grants INSERT to `authenticated` only). The apikey
+ *   could go in the query string, but a JWT in a URL is exactly what we do not do — it lands in
+ *   logs and history. So sendBeacon would either fail RLS or leak the pass.
+ *
+ * keepalive is the same "outlives the document" guarantee with real headers. Its limits, accepted
+ * knowingly: a 64 kB body cap per request (a full 200-event buffer is ~20 kB, so it fits) and no
+ * support in very old browsers — there the request is cancelled with the page and those events
+ * are LOST. That is the documented accepted loss: analytics is best-effort by design, and the
+ * 10-second timer means at most one page's tail is ever at risk.
+ */
+async function beaconInsert(rows: UsageEvent[]): Promise<void> {
+  const { SB_ANON, SB_URL, sbBearer } = await import('./supabase');
+  let pass: any = null;
+  try { pass = (window as any).sigma?.sbPass?.() ?? null; } catch { /* no EMS session */ }
+  const res = await fetch(SB_URL + '/rest/v1/usage_events', {
+    method: 'POST',
+    keepalive: true,
+    headers: {
+      apikey: SB_ANON,
+      Authorization: 'Bearer ' + sbBearer(pass),
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',       // nothing to read back, and one less thing to serialise
+    },
+    body: JSON.stringify(rows),
+  });
+  if (!res.ok) throw new Error('usage beacon ' + res.status);
+}
+
 let live: Tracker | null = null;
 let timer: number | null = null;
 
 function tracker(): Tracker {
   if (live) return live;
   live = createTracker({
-    insert: async rows => {
+    insert: async (rows, reason) => {
+      // The UNLOAD path cannot use supabase-js: the tab is going away, and an ordinary fetch
+      // (or a dynamic import that has not resolved yet) is cancelled with it.
+      if (reason === 'pagehide') { await beaconInsert(rows); return; }
       // Imported HERE, not at module scope: this module is in the boot bundle (islands.tsx
       // tracks every mount), and the boot bundle must not carry supabase-js — the contract
       // test-sigma-shell.mjs enforces. The first flush is the first time we need it.

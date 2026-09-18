@@ -22,8 +22,9 @@
   // touches Supabase for analytics, and if ui/sigma.js never loads the array just caps out.
   //
   // PII-light by construction: a person's name, the page, an action key and a short target
-  // (a kibbutz name, a cert number, an id). NEVER free text a user typed — the one exception
-  // is the failed kibbutz SEARCH TERM, which spec §7j asks for by name.
+  // (a kibbutz name, a cert number, an id). NEVER free text a user typed, WITHOUT EXCEPTION
+  // (review fix round 1): a search miss is recorded as "results:0,len:<n>", never the query.
+  // The slice below is a backstop, not a licence — pass an id or a name, never user input.
   window.__sigmaTrack = window.__sigmaTrack || [];
   var TRACK_CAP = 200, TRACK_TARGET = 40;
   window.sigmaTrack = function (action, target, page) {

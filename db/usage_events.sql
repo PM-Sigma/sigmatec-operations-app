@@ -11,9 +11,10 @@
 --   action  — a fixed key from app/src/lib/usageNarrative.ts, never free text
 --   target  — a SHORT identifier: a kibbutz name, a cert number, an EMS id (40 chars max)
 --   at / session_id / device — timestamp, per-tab id, and 'phone' | 'desktop'
--- Nothing a user TYPED is stored, with exactly ONE documented exception: the failed kibbutz
--- search term, which spec §7j asks for by name ("החיפוש נכשל… לא נמצאו: 'גשר'") and which is
--- a kibbutz name, not personal content.
+-- Nothing a user TYPED is ever stored — NO EXCEPTIONS (review fix round 1). §7j's example
+-- narrative quoted the failed search terms; the ruling is that a typed query is typed text
+-- whatever it happens to contain, so a search miss lands as `target = 'results:0,len:<n>'` and
+-- the weekly narrative counts misses instead of quoting them.
 --
 -- RLS. The client may only ever WRITE here:
 --   • INSERT — `authenticated` (the EMS-minted pass). A phone with no EMS session simply

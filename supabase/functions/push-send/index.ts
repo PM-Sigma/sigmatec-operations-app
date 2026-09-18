@@ -3,7 +3,8 @@
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
 //   feedbackNew             : { mode:'feedbackNew', kind, preview, token }     → 📣 box → עידן + עמיחי (EMS-gated)
-//   usageDigest             : { mode:'usageDigest', force? }                   → weekly narrative → עידן (Sun 08:00)
+//   usageDigest             : { mode:'usageDigest', force?, token?, actor? }   → weekly narrative → עידן (Sun 08:00)
+//                             AUTH: X-Cron-Key header (pg_cron) OR a valid EMS login; only עידן may force
 // Recipients + text + action buttons are computed/fixed SERVER-SIDE.
 // Every recipient device gets one push_log row (audit). Logging is non-fatal.
 // Secrets (Supabase dashboard → Edge Functions → Secrets, NEVER in repo): VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT.
@@ -14,6 +15,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // 📈 שימוש page shows and the vitest goldens pin. test-usage-track.mjs fails if the two
 // files ever drift, so treat this file as generated: edit app/src/lib and copy it over.
 import { digestBody, PAGE_KEYS, usageNarrative, weekTag, type UsageEvent } from "./usageNarrative.ts";
+// Same copy-and-pin arrangement as the narrative: who may ask for a digest is a PURE
+// decision, tested in app/src/lib/usageDigest.test.ts (the four review cases).
+import { usageDigestAuth } from "./usageDigest.ts";
 
 const APP = "/sigmatec-operations-app/";   // GitHub Pages base path (openWindow target)
 const CORS = {
@@ -219,20 +223,36 @@ Deno.serve(async (req: Request) => {
   // ---- 📈 weekly usage digest (spec §7j) ------------------------------------------------
   // pg_cron hits push-send hourly (db/cron_usage_weekly.sql); the GATE is here, on Israel
   // local time, exactly like attendanceCron — one job, no duplicated schedule maths, and DST
-  // handled by israelNow(). `force: true` bypasses the gate AND the idempotency check, which
-  // is how the release smoke sends one on a Friday afternoon.
+  // handled by israelNow().
   //
   // Recipient is FIXED server-side to עידן, like every other mode. The narrative names people,
   // so who may receive it is not something a caller gets to choose (adoption §5.4: this is
   // עידן's tool for noticing, never a performance-review artefact handed around).
   if (body.mode === "usageDigest") {
+    // AUTH FIRST (review fix round 1). Before this, anyone holding the PUBLIC anon key could
+    // force a send, spam עידן's phone, and read every employee's narrative straight out of the
+    // response body. Two callers only: pg_cron with the X-Cron-Key secret (scheduled runs
+    // only), or עידן with a live EMS login — the only caller that may skip the Sunday gate, and
+    // with force:'resend' the week tag too. The decision itself is pure and tested:
+    // app/src/lib/usageDigest.test.ts covers no-auth → 401, cron key → ok, non-עידן force → 403.
+    const auth = usageDigestAuth({
+      cronKey: req.headers.get("x-cron-key"),
+      cronSecret: Deno.env.get("CRON_SECRET"),
+      emsValid: body.token ? await emsValid(String(body.token)) : false,
+      actor: body.actor == null ? null : String(body.actor),
+      force: body.force,
+    });
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
+
     const t = israelNow();
-    const force = body.force === true;
-    if (!force && !(t.dow === 0 && t.hh === 8)) {
+    if (!auth.bypassGate && !(t.dow === 0 && t.hh === 8)) {
       return json({ ok: true, skipped: "not Sunday 08:00 Israel", dow: t.dow, hour: t.hh });
     }
     const tag = weekTag(new Date());
-    if (!force) {
+    // The week tag still holds for a plain `force` — only an explicit force:'resend' from עידן
+    // repeats a week that already went out, so a stuck cron, a retry or a replayed request can
+    // never push the same digest twice.
+    if (!auth.bypassTag) {
       const { data: prior } = await sb.from("push_log").select("id")
         .eq("event", "usageDigest").eq("where_txt", tag).limit(1);
       if (prior && prior.length) return json({ ok: true, skipped: "already sent", tag });
@@ -264,7 +284,10 @@ Deno.serve(async (req: Request) => {
       actor: null, title, body: bodyTxt,
     };
     const r = await sendTo(USAGE_DIGEST_TO, payload, meta);
-    return json({ ok: true, tag, sentences, ...r });
+    // The narrative NAMES PEOPLE. It reaches עידן's devices and push_log — never the caller,
+    // who in the cron case is a SQL job and in the app case reads it from 📈 שימוש anyway.
+    // `lines` is a count, deliberately: enough to smoke-test, nothing to harvest.
+    return json({ ok: true, tag, sent: r.delivered, lines: sentences.length });
   }
 
   // ---- one-tap approve (supplier orders only; customer approval must run in-app) ----

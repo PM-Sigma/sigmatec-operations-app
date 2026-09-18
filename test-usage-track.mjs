@@ -84,13 +84,40 @@ console.log('\n[3] the Edge Function narrative is a byte-identical copy');
   check('the copy has no imports (so it can BE copied)', !/^import /m.test(a));
 }
 
-console.log('\n[4] push-send usageDigest: gate, tag, fixed recipient');
+console.log('\n[4] push-send usageDigest: AUTH, gate, tag, fixed recipient, quiet response');
 {
   const fn = read('./supabase/functions/push-send/index.ts');
+  const modeBlock = fn.slice(fn.indexOf('body.mode === "usageDigest"'), fn.indexOf('// ---- one-tap approve'));
   check('the mode exists', fn.includes('body.mode === "usageDigest"'));
+  // ── fix round 1: the mode must not answer the public anon key at all ──────────
+  check('auth is the FIRST thing the mode does', /^[\s\S]{0,900}?const auth = usageDigestAuth\(/.test(modeBlock));
+  check('the cron key comes from the X-Cron-Key header', /req\.headers\.get\("x-cron-key"\)/.test(modeBlock));
+  check('the secret comes from CRON_SECRET, and is not in the repo',
+    /Deno\.env\.get\("CRON_SECRET"\)/.test(modeBlock) && !/CRON_SECRET\s*=\s*["']/.test(fn));
+  check('an EMS token is validated with the same emsValid as feedbackNew',
+    /emsValid: body\.token \? await emsValid\(String\(body\.token\)\) : false/.test(modeBlock));
+  check('a refusal answers the auth status and stops',
+    /if \(!auth\.ok\) return json\(\{ error: auth\.error \}, auth\.status\);/.test(modeBlock));
+  check('the Sunday gate is skipped only via auth.bypassGate',
+    /!auth\.bypassGate && !\(t\.dow === 0 && t\.hh === 8\)/.test(modeBlock)
+    // `body.force` may appear ONLY as an argument to usageDigestAuth — never as a gate of its own
+    && !/if \(body\.force|body\.force === true/.test(modeBlock));
+  check('the week tag is skipped only via auth.bypassTag (a plain force does NOT)',
+    /if \(!auth\.bypassTag\) \{/.test(modeBlock));
+  // ── and it must never hand the narrative back to the caller ───────────────────
+  check('the response carries no sentences',
+    /return json\(\{ ok: true, tag, sent: r\.delivered, lines: sentences\.length \}\);/.test(modeBlock)
+    && !/sentences,/.test(modeBlock) && !/\.\.\.r \}/.test(modeBlock));
+
+  const authSrc = read('./app/src/lib/usageDigest.ts');
+  check('the auth module copy is byte-identical',
+    authSrc === read('./supabase/functions/push-send/usageDigest.ts'), 'copy app/src/lib/usageDigest.ts over');
+  check('the auth module has no imports (so it can BE copied)', !/^import /m.test(authSrc));
+  check('a cron caller can never force', /if \(force && !\(emsOk && owner\)\)/.test(authSrc));
   check('gated on Sunday 08:00 Israel', /t\.dow === 0 && t\.hh === 8/.test(fn));
   check('the gate uses israelNow() (DST-correct)', /const t = israelNow\(\);[\s\S]{0,400}usageDigest|usageDigest[\s\S]{0,400}israelNow\(\)/.test(fn));
-  check('force bypasses the gate for the smoke', /const force = body\.force === true/.test(fn));
+  check('force is decided by the auth module, not inline', /force: body\.force,/.test(fn)
+    && !/const force = body\.force === true/.test(fn));
   check('idempotent on the week tag via push_log', /\.eq\("event", "usageDigest"\)\.eq\("where_txt", tag\)/.test(fn));
   check('the recipient is fixed server-side to עידן', /const USAGE_DIGEST_TO = \["עידן"\]/.test(fn)
     && /sendTo\(USAGE_DIGEST_TO,/.test(fn));
@@ -112,6 +139,38 @@ console.log('\n[5] usage_events is write-only for the client');
   const cron = read('./db/cron_usage_weekly.sql');
   check('the cron job is hourly and posts usageDigest', /'5 \* \* \* \*'/.test(cron) && /"mode":"usageDigest"/.test(cron));
   check('re-running the cron file cannot leave two jobs', /cron\.unschedule\('push-usage-hourly'\)/.test(cron));
+  // fix round 1: both scheduled jobs prove themselves with the shared secret header
+  check('both jobs send X-Cron-Key', (cron.match(/"X-Cron-Key":"<CRON_SECRET>"/g) || []).length === 2);
+  check('the attendance job is re-scheduled with it too', /cron\.schedule\(\s*'push-attendance-hourly'/.test(cron));
+  check('no real secret is committed', !/"X-Cron-Key":"(?!<CRON_SECRET>)/.test(cron));
+}
+
+console.log('\n[5b] analytics never stores user-typed text (fix round 1 ruling)');
+{
+  const track = read('./app/src/lib/track.ts');
+  const home = read('./app/src/islands/Home.tsx');
+  const bridge = read('./js/src/00-bridge.js');
+  const narrative = read('./app/src/lib/usageNarrative.ts');
+  const sql = read('./db/usage_events.sql');
+  check('track.ts offers only the PII-safe shape',
+    /export function searchMissTarget/.test(track) && /'results:0,len:' \+/.test(track));
+  check('Home.tsx sends searchMissTarget(q), never q',
+    /track\('search-no-results', searchMissTarget\(q\)\)/.test(home) && !/track\('search-no-results', q\)/.test(home));
+  check('no file still claims a search-term exception',
+    ![track, bridge, sql].some(f => /ONE (?:documented )?exception is the failed kibbutz/.test(f)));
+  check('the narrative counts misses and quotes nothing',
+    /times\(misses\.length\)/.test(narrative) && !/terms\.map/.test(narrative));
+}
+
+console.log('\n[5c] the unload flush outlives the page (fix round 1, minor)');
+{
+  const track = read('./app/src/lib/track.ts');
+  check('pagehide uses a keepalive transport',
+    /keepalive: true/.test(track) && /if \(reason === 'pagehide'\) \{ await beaconInsert\(rows\); return; \}/.test(track));
+  check('insert is told the reason it ran', /insert: \(rows: UsageEvent\[\], reason: FlushReason\)/.test(track));
+  check('the pass travels in a HEADER, never a query string',
+    /Authorization: 'Bearer ' \+ sbBearer\(pass\)/.test(track) && !/apikey=/.test(track));
+  check('why sendBeacon is NOT used is written down', /sendBeacon cannot set request headers/.test(track));
 }
 
 console.log('\n[6] the island: עידן only, lazy, and the boot bundle stays lean');

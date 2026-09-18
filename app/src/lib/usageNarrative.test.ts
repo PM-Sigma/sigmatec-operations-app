@@ -42,9 +42,9 @@ describe('usageNarrative', () => {
       ev('ניתאי', 'cert-issued', D(15, 9), 'kibbutz', '1041'),
       // עמיחי — never showed up
       // system-health signals
-      ev('אביאם', 'search-no-results', D(13, 8), 'kibbutz', 'גשר'),
-      ev('אביאם', 'search-no-results', D(13, 8), 'kibbutz', 'שלוחות ב'),
-      ev('ניתאי', 'search-no-results', D(15, 8), 'kibbutz', 'גשר'),
+      ev('אביאם', 'search-no-results', D(13, 8), 'kibbutz', 'results:0,len:4'),
+      ev('אביאם', 'search-no-results', D(13, 8), 'kibbutz', 'results:0,len:9'),
+      ev('ניתאי', 'search-no-results', D(15, 8), 'kibbutz', 'results:0,len:4'),
     ];
     const prevWeek: UsageEvent[] = [
       ev('אביאם', 'visit-saved', D(6), 'kibbutz'),
@@ -54,7 +54,7 @@ describe('usageNarrative', () => {
 
     expect(usageNarrative(week, prevWeek, PEOPLE, PAGES)).toEqual([
       'דפים ללא שימוש השבוע: מלאי, משימות.',
-      'החיפוש בקיבוצים נכשל 3 פעמים (לא נמצאו: "גשר", "שלוחות ב").',
+      'החיפוש בקיבוצים נכשל 3 פעמים ולא החזיר תוצאה.',
       'אביאם נכנס 3 ימים מתוך 3; סיכום ביקור נשמר אצלו 2 פעמים (שבוע שעבר 3).',
       'ניתאי נכנס יום אחד מתוך 3; תעודת משלוח הופקה אצלו פעם אחת (שבוע שעבר 0).',
       'ניתאי לא השתמש בעמוד יומן כלל השבוע.',
@@ -97,6 +97,20 @@ describe('usageNarrative', () => {
     for (const banned of ['הכי', 'שוב לא', 'עדיין לא', 'יותר מ', 'פחות מ', 'לעומת']) {
       expect(lines).not.toContain(banned);
     }
+  });
+
+  it('NEVER quotes a stored target — not even one that looks like a search term (fix round 1)', () => {
+    // Belt and braces: even if a row somehow carries typed text (an old row, a forged insert),
+    // the narrative must not print it. The line is a COUNT.
+    const week = [
+      ev('אביאם', 'view', D(13), 'kibbutz'),
+      ev('אביאם', 'search-no-results', D(13, 8), 'kibbutz', 'גשר'),
+      ev('אביאם', 'search-no-results', D(13, 9), 'kibbutz', 'results:0,len:4'),
+    ];
+    const lines = usageNarrative(week, [], ['אביאם'], ['kibbutz']).join(' ');
+    expect(lines).toContain('החיפוש בקיבוצים נכשל 2 פעמים ולא החזיר תוצאה.');
+    expect(lines).not.toContain('גשר');
+    expect(lines).not.toContain('len:');
   });
 
   it('writes a single day as "יום אחד", never "1 ימים"', () => {

@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createTracker, FLUSH_AT, FLUSH_MS, flushPolicy, MAX_BUFFER, MAX_TARGET,
-  track, _resetTracking, type FlushState, type TrackerDeps,
+  searchMissTarget, track, _resetTracking, type FlushReason, type FlushState, type TrackerDeps,
 } from './track';
 import type { UsageEvent } from './usageNarrative';
 
@@ -48,9 +48,10 @@ describe('createTracker', () => {
 
   function harness(over: Partial<TrackerDeps> = {}) {
     const inserts: UsageEvent[][] = [];
+    const reasons: FlushReason[] = [];
     let now = 0;
     const deps: TrackerDeps = {
-      insert: async rows => { inserts.push(rows); },
+      insert: async (rows, reason) => { inserts.push(rows); reasons.push(reason); },
       now: () => now,
       online: () => true,
       authenticated: () => true,
@@ -58,7 +59,7 @@ describe('createTracker', () => {
       device: () => 'phone',
       ...over,
     };
-    return { inserts, deps, at: (ms: number) => { now = ms; }, t: createTracker(deps) };
+    return { inserts, reasons, deps, at: (ms: number) => { now = ms; }, t: createTracker(deps) };
   }
 
   it('buffers and sends everything as ONE bulk insert', async () => {
@@ -93,6 +94,16 @@ describe('createTracker', () => {
     h.t.push(ev('view'));
     expect(await h.t.tick('timer')).toBe('drop');
     expect(h.inserts).toHaveLength(0);
+  });
+
+  it('tells insert WHY it ran, so the unload path can pick a surviving transport', async () => {
+    const h = harness();
+    h.t.push(ev('view'));
+    await h.t.tick('pagehide');
+    h.t.push(ev('view'));
+    h.at(FLUSH_MS * 2);
+    await h.t.tick('timer');
+    expect(h.reasons).toEqual(['pagehide', 'timer']);
   });
 
   it('never throws and never re-queues when the insert fails', async () => {
@@ -140,9 +151,22 @@ describe('track()', () => {
     expect(Date.parse(q[0].at)).not.toBeNaN();
   });
 
-  it('truncates a target instead of storing prose', () => {
-    track('search-no-results', 'x'.repeat(200));
+  it('truncates a target instead of storing prose (the backstop)', () => {
+    track('kibbutz-created', 'x'.repeat(200));
     expect(((window as any).__sigmaTrack as UsageEvent[])[0].target).toHaveLength(MAX_TARGET);
+  });
+
+  it('records a search miss WITHOUT the query (review fix round 1)', () => {
+    // searchMissTarget is the only thing islands/Home.tsx may hand to track() for a miss.
+    expect(searchMissTarget('גשר')).toBe('results:0,len:3');
+    expect(searchMissTarget('  שלוחות ב  ')).toBe('results:0,len:8');   // trimmed, and the space counts
+    expect(searchMissTarget('')).toBe('results:0,len:0');
+    expect(searchMissTarget(null)).toBe('results:0,len:0');
+    // nothing that came out of it can contain a Hebrew letter — i.e. any of the query
+    expect(/[֐-׿]/.test(searchMissTarget('גשר'))).toBe(false);
+
+    track('search-no-results', searchMissTarget('גשר'));
+    expect(((window as any).__sigmaTrack as UsageEvent[])[0].target).toBe('results:0,len:3');
   });
 
   it('delegates to the bridge when legacy is loaded, so who/where is stamped in ONE place', () => {

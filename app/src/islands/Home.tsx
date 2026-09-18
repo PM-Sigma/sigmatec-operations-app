@@ -17,7 +17,7 @@ import { FilterChips } from '@/components/home/FilterChips';
 import { Section } from '@/components/home/Section';
 import { KibbutzSheet } from '@/components/home/KibbutzSheet';
 import { mount } from '@/islands';
-import { track } from '@/lib/track';
+import { searchMissTarget, track } from '@/lib/track';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
@@ -134,7 +134,8 @@ function HomeIsland() {
     if (!q || !rows.length || visible.length) return;
     // Debounced: the miss is only interesting once the person STOPPED typing, otherwise every
     // prefix of a real name ("ג", "גב", "גבת") would be logged as a failure.
-    const t = setTimeout(() => track('search-no-results', q), 900);
+    // The QUERY IS NEVER SENT (review fix round 1) — only "it found nothing" and its length.
+    const t = setTimeout(() => track('search-no-results', searchMissTarget(q)), 900);
     return () => clearTimeout(t);
   }, [query, visible.length, rows.length]);
 
