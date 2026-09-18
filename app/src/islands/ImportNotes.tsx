@@ -22,7 +22,7 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { emitNotesChanged, NOTES_QUERY_KEY } from '@/components/home/MeetingNotes';
 import type { KibbutzRow } from '@/lib/kibbutzim';
 import {
-  canImportNotes, countRowsToSave, dmy, KIND_LABEL, parseMeetingSummary, rowsFromParsed,
+  canImportNotes, countRowsToSave, dmy, importPayload, KIND_LABEL, parseMeetingSummary,
   type MeetingKind, type ParsedMeeting,
 } from '@/lib/meetingNotes';
 
@@ -46,24 +46,29 @@ const fieldBox =
 
 // ───────────────────────────── the write ─────────────────────────────
 
+export interface ImportResult { inserted: number; updated: number; deleted: number; flagged: number }
+
 /**
- * Idempotent save: DELETE that (date, kind) then INSERT the whole parse. Rows for unmatched
- * names are simply never built (rowsFromParsed skips a section with no card), so nothing is
- * written under a name that has no card.
+ * The save — ONE call to `import_meeting_notes(jsonb)`
+ * (db/kibbutz_meeting_notes_import.sql), which is one Postgres transaction.
+ *
+ * It used to be a client-side DELETE of that (date, kind) followed by an INSERT. That was
+ * wrong twice over: it WIPED `ems_task_id` / `done_at`, so re-importing a corrected summary
+ * silently unlinked every task opened from a bullet and forgot every ✓; and it was not
+ * atomic, so a failure in between left the kibbutz with no bullets at all. The function
+ * upserts on the unique key, keeps the link and the ✓, flags a bullet whose wording changed
+ * under an existing task, and deletes only the rows the new parse no longer has.
+ *
+ * Rows for unmatched names are never built (rowsFromParsed skips a section with no card), so
+ * nothing is ever written under a name that has no card.
  */
-export async function saveParsedMeeting(parsed: ParsedMeeting, createdBy: string): Promise<number> {
-  const rows = rowsFromParsed(parsed, createdBy);
+export async function saveParsedMeeting(parsed: ParsedMeeting, createdBy: string): Promise<ImportResult> {
   const sb = await getSupabase();
-  await sbWrite(() =>
-    sb.from('kibbutz_meeting_notes').delete()
-      .eq('meeting_date', parsed.meeting_date)
-      .eq('meeting_kind', parsed.meeting_kind)
-      .select('id'));
-  if (rows.length) {
-    await sbWrite(() => sb.from('kibbutz_meeting_notes').insert(rows).select('id'));
-  }
-  emitNotesChanged({ imported: rows.length, meeting_date: parsed.meeting_date });
-  return rows.length;
+  const res = await sbWrite<ImportResult>(() =>
+    sb.rpc('import_meeting_notes', { p: importPayload(parsed, createdBy) }) as any);
+  const out = res || { inserted: 0, updated: 0, deleted: 0, flagged: 0 };
+  emitNotesChanged({ meeting_date: parsed.meeting_date, ...out });
+  return out;
 }
 
 // ───────────────────────────── preview ─────────────────────────────
@@ -130,7 +135,11 @@ function SectionPreview({
 
 function ImportSheet() {
   const qc = useQueryClient();
-  const { name: user } = useCurrentUser();
+  // `useCurrentUser` re-renders this component on every `user-changed`, so the gate below is
+  // re-evaluated live. It used to be computed ONCE at mount, which meant a changeUser() left
+  // the sheet openable (or closed off) until a page reload.
+  const { name: user, isViewer } = useCurrentUser();
+  const admin = canImportNotes(!!sigma?.isAdmin?.(), isViewer);
   const [open, setOpen] = React.useState(false);
   const [md, setMd] = React.useState('');
   const [preview, setPreview] = React.useState(false);
@@ -155,9 +164,22 @@ function ImportSheet() {
   });
 
   React.useEffect(() => {
-    opener = (prefill?: string) => { setOpen(true); if (prefill) setMd(prefill); };
+    opener = (prefill?: string) => {
+      // The gate is checked at OPEN time, not at mount: the ⋯ entry is already hidden for a
+      // non-admin, but the modal tab's button and any future caller go through here too.
+      if (!canImportNotes(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.())) {
+        toast.error('ייבוא סיכום ישיבה מוגבל למנהלים');
+        return;
+      }
+      setOpen(true);
+      if (prefill) setMd(prefill);
+    };
     return () => { opener = null; };
   }, []);
+
+  // Someone switched to a non-admin while the sheet was open → close it rather than leave a
+  // write surface on screen.
+  React.useEffect(() => { if (open && !admin) setOpen(false); }, [open, admin]);
 
   // Auto-detect the date + kind the moment there is text to detect them from; the user can
   // still override both, and an override survives further typing.
@@ -188,9 +210,12 @@ function ImportSheet() {
     if (!effective || !effective.meeting_date) { toast.error('חסר תאריך ישיבה'); return; }
     setSaving(true);
     try {
-      const n = await saveParsedMeeting(effective, user);
+      const r = await saveParsedMeeting(effective, user);
       await qc.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
-      toast.success(`נשמרו ${n} בולטים לישיבת ${dmy(effective.meeting_date)}`);
+      const parts = [`${r.inserted + r.updated} בולטים`];
+      if (r.deleted) parts.push(`${r.deleted} הוסרו`);
+      if (r.flagged) parts.push(`${r.flagged} עודכנו אחרי פתיחת משימה`);
+      toast.success(`ישיבת ${dmy(effective.meeting_date)}: ${parts.join(' · ')}`);
       setOpen(false); reset();
     } catch (e: any) {
       toast.error(e?.message || 'השמירה נכשלה');
@@ -299,14 +324,18 @@ export function ImportNotes() {
 /** Mounted from main.tsx. Registers the ⋯ עוד entry itself, so nav knows nothing about imports. */
 export function mountImportNotes(): boolean {
   const ok = mount('sigma-import', ImportNotes);
-  if (ok && canImportNotes(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.())) {
-    registerMoreItem({
-      id: 'import-meeting',
-      label: 'ייבוא סיכום ישיבה',
-      icon: 'FileDown',
-      roles: ['idan', 'team'],
-      onSelect: () => openImportSheet(),
-    });
-  }
+  if (!ok) return false;
+  // Registered unconditionally, gated by a LIVE predicate. Registering behind an
+  // `isAdmin()` read taken at mount meant the entry was decided once, before the user had
+  // even picked who they are — and `roles` alone cannot say "admin" (that is
+  // canManageStaff(): עידן + עמיחי, a subset of idan + team).
+  registerMoreItem({
+    id: 'import-meeting',
+    label: 'ייבוא סיכום ישיבה',
+    icon: 'FileDown',
+    roles: ['idan', 'team'],
+    visible: () => canImportNotes(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.()),
+    onSelect: () => openImportSheet(),
+  });
   return ok;
 }

@@ -5872,6 +5872,15 @@
       return null;
     }
   }
+  // emsApi hands back `wrapped.body`, and EMS is inconsistent about whether a single
+  // resource sits at the top level or under `data` (emsSyncCache above unwraps lists the
+  // same way). A created task's id MUST come back: a meeting note stores it as
+  // `ems_task_id`, and a miss leaves the bullet stamped `pending:…` forever.
+  function emsCreatedId(res) {
+    var body = (res && res.data) || res;
+    return (body && body.id) ? String(body.id) : null;
+  }
+
   async function emsSendItem(item) {
     if (item.kind === 'comment') return emsApi('/employee-tasks/' + item.taskId + '/comments', { method: 'POST', body: JSON.stringify({ message: item.message }) });
     if (item.kind === 'status')  return emsApi('/employee-tasks/' + item.taskId, { method: 'PATCH', body: JSON.stringify({ status: item.status }) });
@@ -5901,7 +5910,7 @@
   // task's id is passed back instead of being dropped. Queued path returns the queue id.
   async function emsWriteOrQueue(item) {
     if (isEmsConnected()) {
-      try { const res = await emsSendItem(item); return { sent: true, id: res && res.id }; }
+      try { const res = await emsSendItem(item); return { sent: true, id: emsCreatedId(res) }; }
       catch (e) {
         const httpErr = /^\(\d{3}\)/.test(e.message || '');
         if (httpErr && isEmsConnected()) return { sent: false, error: e.message };   // real rejection → don't queue
@@ -5931,10 +5940,20 @@
     const q = emsQueuePending();
     const alreadySent = _emsFlushedIds();
     const doneIds = []; let failed = 0, skipped = 0, dead = 0;
+    // A createTask that was queued offline was written to its meeting note as
+    // `pending:<queueId>`, because the real task id does not exist yet. It does now — collect
+    // (queueId → taskId) so the React side can swap the placeholder for the real id
+    // (app/src/components/home/MeetingNotes.tsx, 'ems-queue-flushed'). Without this the
+    // bullet's 🔗 would never become clickable.
+    const created = [];
     for (const item of q) {
       if (item.id && alreadySent.indexOf(item.id) !== -1) { doneIds.push(item.id); skipped++; continue; }  // sent before, clear pending
       try {
-        await emsSendItem(item);
+        const res = await emsSendItem(item);
+        if (item.kind === 'createTask' && item.id) {
+          const taskId = emsCreatedId(res);
+          if (taskId) created.push({ queueId: String(item.id), taskId: taskId });
+        }
         _emsAddFlushed(item.id);
         doneIds.push(item.id);
       } catch (e) {
@@ -5952,6 +5971,9 @@
         if (body && body.ok) _emsDropFlushed(doneIds);   // confirmed cleared → release the guard ids
       } catch (e) { console.warn('emsQueueClear failed — items stay guarded against re-send', e); }
     }
+    // → React islands (bridge). Emitted even when `created` is empty is pointless, so only
+    // when there is something to resolve.
+    if (created.length && typeof sigmaEmit === 'function') sigmaEmit('ems-queue-flushed', { created: created });
     return { done: doneIds.length - skipped - dead, failed: failed, skipped: skipped, dead: dead };  // done = real sends only
   }
 
@@ -6013,11 +6035,12 @@
       row.onclick = (e) => { e.stopPropagation(); openKibbutzEmsTask(t.id); };
       wrap.appendChild(row);
     });
-    // deterministic order: name → 🗓 notes → status → EMS tasks (spec §3.3). On a React
-    // card the meeting bullets are already there, so anchor BELOW them; on a legacy card they
-    // are absent and the chain falls through to the status / name as before. Never
-    // blind-append, or the widget can land above the name.
-    const anchor = card.querySelector(':scope > .card-notes, :scope > .card-notes-empty')
+    // deterministic order: name → 🗓 notes → status → EMS tasks (spec §3.3). A React card
+    // ALWAYS has a `.card-notes` child (MeetingNotes.tsx renders it even while its query is in
+    // flight, precisely so this anchor is stable), so the widget goes below it; a legacy card
+    // has none and the chain falls through to the status / name as before. Never blind-append,
+    // or the widget can land above the name.
+    const anchor = card.querySelector(':scope > .card-notes')
                 || card.querySelector(':scope > .excel-status')
                 || card.querySelector(':scope > .kibbutz-name-row')
                 || card.querySelector(':scope > .kibbutz-name');

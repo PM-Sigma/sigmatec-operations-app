@@ -29,6 +29,9 @@ create table if not exists kibbutz_meeting_notes (
   owners text[] not null default '{}',                          -- from the "אחריות …" clause
   ems_task_id text,                                             -- set once a task was opened from this bullet
   done_at timestamptz,
+  -- stamped when a re-import changed this bullet's wording while it already carried a task;
+  -- added by db/kibbutz_meeting_notes_import.sql, which owns the merge that sets it
+  text_changed_at timestamptz,
   created_by text,
   created_at timestamptz default now(),
   unique (kibbutz, meeting_date, meeting_kind, seq)

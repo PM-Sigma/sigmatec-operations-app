@@ -4,6 +4,10 @@
 import fs from 'fs';
 import { execSync } from 'node:child_process';
 
+// One cache-bust stamp per build, shared by index.html's asset URLs AND the island chunks'
+// own import specifiers (see the ui/ block below — the two MUST agree).
+const ver = Date.now().toString(36);
+
 // ===== React islands (app/) =====
 // The islands are built FIRST and their output committed into ui/ — GitHub Pages is static,
 // same convention as js/app.js. Skip with SKIP_UI=1 when iterating on legacy modules only.
@@ -31,8 +35,29 @@ if (!process.env.SKIP_UI) {
   for (const f of dist) {
     fs.copyFileSync(new URL('./app/dist/' + f, import.meta.url), new URL(f, uiDir));
   }
+  // ── stamp the module graph CONSISTENTLY ────────────────────────────────────
+  // index.html loads the entry as `ui/sigma.js?v=<ver>`, but Vite emits the chunks importing
+  // it back as a bare `./sigma.js`. Two URLs for one module = the browser evaluates the entry
+  // TWICE: two boot()s, two TanStack queryClients over one localStorage key, and every island
+  // mounted twice (the 🗓 ישיבות tab really did render its panel twice). So every relative
+  // `./sigma*.js` specifier inside ui/*.js gets the SAME stamp index.html uses — including the
+  // ones in Vite's `__vite__mapDeps` array, which the modulepreload links are built from, so
+  // nothing is downloaded twice either.
+  // The service worker is unaffected: it keys its cache on the path WITHOUT the query and
+  // matches with `ignoreSearch`, so ui/manifest.json stays unstamped.
+  const SPEC = /(["'])(\.\/)?(sigma(?:-[A-Za-z0-9_.-]+)?\.js)\1/g;
+  let stamped = 0;
+  for (const f of dist.filter(x => x.endsWith('.js'))) {
+    const u = new URL(f, uiDir);
+    const before = fs.readFileSync(u, 'utf8');
+    const after = before.replace(SPEC, (m, q, dot, name) => {
+      stamped++;
+      return q + (dot || './') + name + '?v=' + ver + q;
+    });
+    if (after !== before) fs.writeFileSync(u, after);
+  }
   fs.writeFileSync(new URL('manifest.json', uiDir), JSON.stringify(dist.map(f => './ui/' + f), null, 2) + '\n');
-  console.log('ui/: ' + dist.join(', '));
+  console.log('ui/: ' + dist.join(', ') + ' (' + stamped + ' module specifiers stamped v=' + ver + ')');
 }
 
 const dir = new URL('./js/src/', import.meta.url);
@@ -45,7 +70,6 @@ fs.writeFileSync(out, bundle);
 // so a new deploy can never be masked by a cached bundle (SW or CDN).
 const idxUrl = new URL('./index.html', import.meta.url);
 let idx = fs.readFileSync(idxUrl, 'utf8');
-const ver = Date.now().toString(36);
 idx = idx.replace(/(js\/app\.js\?v=)[^"]*/, '$1' + ver).replace(/(css\/app\.css\?v=)[^"]*/, '$1' + ver)
          .replace(/(ui\/sigma\.js\?v=)[^"]*/, '$1' + ver).replace(/(ui\/sigma\.css\?v=)[^"]*/, '$1' + ver);
 // force phones to refresh on every deploy: bump the SW cache name so sw.js bytes change → the browser

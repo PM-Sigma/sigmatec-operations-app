@@ -36,3 +36,36 @@ describe('navMoreItems registry', () => {
     expect(listMoreItems('team').map(i => i.id)).toEqual(['write']);
   });
 });
+
+describe('navMoreItems visible() predicate', () => {
+  beforeEach(() => _resetRegistry());
+
+  it('is asked on every listing, so a permission change is never stale', () => {
+    // The import entry's real gate is `sigma.isAdmin() && !sigma.isViewer()`. It was
+    // evaluated ONCE at mount before this, so changeUser() left it wrong until a reload.
+    let admin = false;
+    registerMoreItem({ ...item('import'), visible: () => admin });
+    expect(listMoreItems('idan')).toHaveLength(0);
+    admin = true;
+    expect(listMoreItems('idan').map(i => i.id)).toEqual(['import']);
+    admin = false;
+    expect(listMoreItems('idan')).toHaveLength(0);
+  });
+
+  it('roles AND visible must both pass', () => {
+    registerMoreItem({ ...item('a', ['idan']), visible: () => true });
+    expect(listMoreItems('idan').map(i => i.id)).toEqual(['a']);
+    expect(listMoreItems('team')).toHaveLength(0);       // role rejects
+  });
+
+  it('an item with no predicate is unaffected', () => {
+    registerMoreItem(item('plain'));
+    expect(listMoreItems('viewer').map(i => i.id)).toEqual(['plain']);
+  });
+
+  it('a throwing predicate hides that item instead of breaking the sheet', () => {
+    registerMoreItem({ ...item('boom'), visible: () => { throw new Error('bridge missing'); } });
+    registerMoreItem(item('fine'));
+    expect(listMoreItems('idan').map(i => i.id)).toEqual(['fine']);
+  });
+});

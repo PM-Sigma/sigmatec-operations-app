@@ -45,6 +45,35 @@ function listenForNotesChanges(): void {
   sigmaBus.addEventListener(NOTES_CHANGED, () => {
     void queryClient.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
   });
+  // The outbound EMS queue drained → every bullet that was stamped `pending:<queueId>`
+  // while offline now has a real task id waiting for it (js/src/13-ems.js emsQueueFlush).
+  // Without this the 🔗 would stay un-clickable for the rest of that note's life.
+  sigmaBus.addEventListener('ems-queue-flushed', e => {
+    const created = ((e as CustomEvent).detail?.created || []) as Array<{ queueId: string; taskId: string }>;
+    if (created.length) void resolvePendingTasks(created);
+  });
+}
+
+/**
+ * `pending:<queueId>` → the real EMS task id, for each createTask the queue just sent.
+ * Best-effort: a row that no longer exists, or a write we are not authenticated for, must
+ * not turn into a toast — the queue flush is a background event the user did not ask for.
+ */
+export async function resolvePendingTasks(created: Array<{ queueId: string; taskId: string }>): Promise<number> {
+  const sb = await getSupabase();
+  let fixed = 0;
+  for (const { queueId, taskId } of created) {
+    if (!queueId || !taskId) continue;
+    try {
+      const { data } = await sb.from('kibbutz_meeting_notes')
+        .update({ ems_task_id: taskId })
+        .eq('ems_task_id', 'pending:' + queueId)
+        .select('id');
+      fixed += (data || []).length;
+    } catch (e) { console.warn('[notes] could not resolve pending task', queueId, e); }
+  }
+  if (fixed) emitNotesChanged({ resolved: fixed });
+  return fixed;
 }
 
 /** All notes, shared by every card and the modal tab (TanStack dedupes + persists them). */
@@ -109,6 +138,26 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
   const reduce = useReducedMotion();
   const [menu, setMenu] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const menuRef = React.useRef<HTMLSpanElement>(null);
+
+  // A tap anywhere else, or Escape, closes it. `mousedown`/`touchstart` rather than `click`
+  // so the menu is gone before the thing underneath reacts, and the listener only exists
+  // while the menu is open.
+  React.useEffect(() => {
+    if (!menu) return;
+    const away = (ev: Event) => {
+      if (!menuRef.current?.contains(ev.target as Node)) setMenu(false);
+    };
+    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setMenu(false); };
+    document.addEventListener('mousedown', away, true);
+    document.addEventListener('touchstart', away, true);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', away, true);
+      document.removeEventListener('touchstart', away, true);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [menu]);
   const done = !!row.done_at;
   const linked = !!row.ems_task_id;
 
@@ -119,16 +168,24 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
     finally { setBusy(false); }
   };
 
+  const pending = isPending(row.ems_task_id);
+  // The wording moved on after the task was opened (set by db/kibbutz_meeting_notes_import.sql
+  // on a re-import). The link is kept — the task is real and someone is working it — but the
+  // row says so, so nobody assumes the EMS task still matches this sentence.
+  const stale = !!row.text_changed_at && !!row.ems_task_id;
+
   const openTask = () => {
-    if (isPending(row.ems_task_id)) { toast.info('המשימה ממתינה לשליחה ל-EMS'); return; }
+    if (pending) { toast.info('המשימה ממתינה לסנכרון עם EMS'); return; }
     sigma.openKibbutzEmsTask(String(row.ems_task_id));
   };
 
   return (
     <motion.li
       data-id={row.id}
-      initial={reduce ? false : { opacity: 0, x: 6 }}
-      animate={{ opacity: 1, x: 0 }}
+      // `y` only: `x` is a PHYSICAL axis, so a 6px x-offset slides the wrong way in RTL
+      // (and the right way in LTR) — a vertical entry is direction-agnostic.
+      initial={reduce ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, delay: reduce ? 0 : Math.min(index, 8) * 0.03 }}
       className={
         'note-bullet flex items-start gap-1.5 py-[3px] text-[13px] leading-snug ' +
@@ -156,11 +213,12 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
             layoutId={reduce ? undefined : 'note-act-' + row.id}
             type="button"
             onClick={e => { e.stopPropagation(); openTask(); }}
-            title={isPending(row.ems_task_id) ? 'ממתין לשליחה ל-EMS' : 'פתח את המשימה ב-EMS'}
+            title={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
             className={'note-act linked shrink-0 rounded-md px-1 text-[13px] leading-5 hover:bg-muted '
-              + (isPending(row.ems_task_id) ? 'opacity-60' : '')}
+              + (pending ? 'note-act-pending opacity-60 ' : '')
+              + (stale ? 'note-act-stale text-[color:var(--sigma-warn)] ' : '')}
           >
-            🔗
+            {pending ? '⏳' : '🔗'}
           </motion.button>
         ) : canAct && !done ? (
           <motion.button
@@ -178,7 +236,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
       </AnimatePresence>
 
       {canAct && (
-        <span className="relative shrink-0">
+        <span ref={menuRef} className="relative shrink-0">
           <button
             type="button"
             onClick={e => { e.stopPropagation(); setMenu(v => !v); }}
@@ -189,10 +247,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
             ⋯
           </button>
           {menu && (
-            <span
-              className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]"
-              onMouseLeave={() => setMenu(false)}
-            >
+            <span className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]">
               <button
                 type="button"
                 disabled={busy}
@@ -251,18 +306,21 @@ export function MeetingTimeline({
 }) {
   const groups = React.useMemo(() => notesForKibbutz(rows, kibbutz), [rows, kibbutz]);
   const [open, setOpen] = React.useState(false);
-
-  if (!groups.length) {
-    return empty ? <p className="card-notes-empty py-0.5 text-[12px] text-muted-foreground">{empty}</p> : null;
-  }
-
   const [latest, ...older] = groups;
 
+  // `.card-notes` is rendered UNCONDITIONALLY — empty, and even while the query is still in
+  // flight. js/src/13-ems.js anchors the EMS task widget below it (`:scope > .card-notes`) to
+  // get the card's name → notes → EMS tasks order, and the legacy decorating pass runs before
+  // the notes query resolves: an element that appears late means the widget has already
+  // anchored to the name row and sits ABOVE the bullets. A stable anchor is the fix.
   return (
-    <div className="card-notes mt-1.5 border-t border-border/70 pt-1.5">
-      <MeetingBlock group={latest} canAct={canAct} />
+    <div className={'card-notes ' + (groups.length ? 'mt-1.5 border-t border-border/70 pt-1.5' : '')}>
+      {!groups.length && empty && (
+        <p className="card-notes-empty py-0.5 text-[12px] text-muted-foreground">{empty}</p>
+      )}
+      {latest && <MeetingBlock group={latest} canAct={canAct} />}
 
-      {older.length > 0 && (expandAll ? (
+      {!!latest && older.length > 0 && (expandAll ? (
         <div className="mt-2 flex flex-col gap-2">
           {older.map(g => <MeetingBlock key={g.meeting_date + g.meeting_kind} group={g} canAct={canAct} />)}
         </div>

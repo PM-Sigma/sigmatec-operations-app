@@ -49,6 +49,11 @@ export interface NoteRow {
   owners?: string[] | null;
   ems_task_id?: string | null;
   done_at?: string | null;
+  /**
+   * Stamped by `import_meeting_notes` when a re-import changed this bullet's wording while it
+   * already carried an EMS task: the link is kept, but the task was opened from the OLD text.
+   */
+  text_changed_at?: string | null;
   created_by?: string | null;
 }
 
@@ -371,6 +376,26 @@ export function rowsFromParsed(parsed: ParsedMeeting, createdBy?: string): NoteR
     });
   });
   return rows;
+}
+
+/**
+ * The exact argument `import_meeting_notes(jsonb)` expects
+ * (db/kibbutz_meeting_notes_import.sql). Pure, so the wire shape is pinned by a golden
+ * instead of by whatever the island happened to send: the function keys its merge on
+ * (kibbutz, seq), and a row missing either silently does nothing.
+ */
+export function importPayload(parsed: ParsedMeeting, createdBy?: string) {
+  return {
+    meeting_date: parsed.meeting_date,
+    meeting_kind: parsed.meeting_kind,
+    created_by: createdBy || null,
+    rows: rowsFromParsed(parsed).map(r => ({
+      kibbutz: r.kibbutz,
+      seq: r.seq,
+      text: r.text,
+      owners: r.owners || [],
+    })),
+  };
 }
 
 export const countRowsToSave = (parsed: ParsedMeeting): number =>

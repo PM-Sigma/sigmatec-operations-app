@@ -8,6 +8,18 @@ import { Nav } from '@/components/Nav';
 import { mount } from '@/islands';
 import { applyTheme, storedTheme } from '@/lib/theme';
 
+// REGRESSION GUARD for the cache-bust stamps. index.html loads this module as
+// `ui/sigma.js?v=<ver>`; build.mjs stamps the chunks' own `./sigma*.js` specifiers with the
+// SAME ver so there is exactly ONE URL — and therefore one evaluation — per module. If the two
+// ever disagree again the entry is evaluated twice: two queryClients over one localStorage
+// key, and every island mounted twice. The counter makes that loud instead of subtle.
+const evals = ((window as any).__sigmaEntryEvals = (((window as any).__sigmaEntryEvals as number) || 0) + 1);
+if (evals > 1) {
+  console.warn(
+    `[sigma] ui/sigma.js evaluated ${evals}× — the ?v= stamps in index.html and the ui/ chunks disagree (build.mjs)`,
+  );
+}
+
 function SigmaToaster() {
   return <Toaster richColors position="top-center" dir="rtl" closeButton />;
 }

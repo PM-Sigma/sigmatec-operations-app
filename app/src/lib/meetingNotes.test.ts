@@ -13,7 +13,7 @@ import {
   headingNames, resolveKibbutzName, titleFromBullet, descriptionFromBullet, taskFromBullet,
   notesForKibbutz, rowsFromParsed, countRowsToSave, normalizeName, isQuiet, dmy, chipDate,
   KIBBUTZ_ALIASES, type NoteRow,
-  canImportNotes,
+  canImportNotes, importPayload,
 } from './meetingNotes';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -395,5 +395,39 @@ describe('import role gate', () => {
     expect(canImportNotes(false, false)).toBe(false);
     expect(canImportNotes(true, true)).toBe(false);
     expect(canImportNotes(false, true)).toBe(false);
+  });
+});
+
+describe('import RPC payload', () => {
+  it('is exactly what import_meeting_notes(jsonb) expects', () => {
+    const parsed = { meeting_date: '2026-09-17', meeting_kind: 'company' as const, sections: [parsed17.sections[5]] };
+    const p = importPayload(parsed, 'עידן');
+    expect(Object.keys(p).sort()).toEqual(['created_by', 'meeting_date', 'meeting_kind', 'rows']);
+    expect(p.created_by).toBe('עידן');
+    expect(p.rows).toHaveLength(6);
+    // (kibbutz, seq) is the merge key — a row missing either silently does nothing server-side.
+    expect(Object.keys(p.rows[0]).sort()).toEqual(['kibbutz', 'owners', 'seq', 'text']);
+    expect(p.rows[0]).toEqual({
+      kibbutz: 'גבים', seq: 1,
+      text: 'מאזן אנרגיה: אובדן קבוע בראשי, יותר יציאה מכניסה — "לא הגיוני".',
+      owners: ['אביאם', 'עידן'],
+    });
+  });
+
+  it('no user → created_by null (not the string "undefined")', () => {
+    expect(importPayload({ meeting_date: '2026-09-17', meeting_kind: 'company', sections: [] }).created_by).toBeNull();
+  });
+
+  it('a multi-kibbutz section is expanded to one row per card, seq restarting at 1', () => {
+    const p = importPayload({ meeting_date: '2026-09-17', meeting_kind: 'company', sections: [parsed17.sections[26]] });
+    expect([...new Set(p.rows.map(r => r.kibbutz))]).toEqual(['כפר עזה', 'יסעור', 'כפר מנחם', 'משואות יצחק']);
+    const per = parsed17.sections[26].bullets.map(b => b.seq);
+    ['כפר עזה', 'יסעור', 'כפר מנחם', 'משואות יצחק'].forEach(k =>
+      expect(p.rows.filter(r => r.kibbutz === k).map(r => r.seq)).toEqual(per));
+  });
+
+  it('an unmatched section contributes no rows — nothing is written under a name with no card', () => {
+    const p = importPayload({ meeting_date: '2026-09-17', meeting_kind: 'company', sections: [parsed17.sections[7]] });
+    expect(p.rows).toEqual([]);
   });
 });

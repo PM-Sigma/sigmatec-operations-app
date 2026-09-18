@@ -11,6 +11,13 @@ export interface MoreItem {
   icon: string;
   onSelect: () => void;
   roles?: SigmaRole[];
+  /**
+   * An extra gate, asked EVERY time the sheet is listed. `roles` cannot express the app's
+   * finer permissions — "admin" is `canManageStaff()` (עידן + עמיחי), a subset of the `idan`
+   * + `team` roles — and a role read once at registration goes stale the moment someone uses
+   * changeUser(). A predicate is evaluated live, so it can never be stale.
+   */
+  visible?: () => boolean;
 }
 
 const items: MoreItem[] = [];
@@ -23,7 +30,12 @@ export function registerMoreItem(item: MoreItem): void {
 }
 
 export function listMoreItems(role: SigmaRole): MoreItem[] {
-  return items.filter(i => !i.roles || i.roles.includes(role));
+  // A throwing predicate hides the item rather than taking the whole sheet down with it.
+  const allowed = (i: MoreItem) => {
+    if (!i.visible) return true;
+    try { return !!i.visible(); } catch { return false; }
+  };
+  return items.filter(i => (!i.roles || i.roles.includes(role)) && allowed(i));
 }
 
 /** Subscribe to registry changes (used by Nav so a late registration still shows up). */

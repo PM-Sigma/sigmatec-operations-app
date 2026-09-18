@@ -67,7 +67,10 @@ export type SigmaEvent =
   | 'visit-form-open'
   // a meeting note was imported / linked to an EMS task / marked done — every surface that
   // shows bullets refetches ['meetingNotes'] (docs/integration-map.md)
-  | 'notes-changed';
+  | 'notes-changed'
+  // the outbound EMS queue drained. `detail.created = [{queueId, taskId}]` for every
+  // createTask that went out, so a note stamped `pending:<queueId>` can pick up its real id.
+  | 'ems-queue-flushed';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {
