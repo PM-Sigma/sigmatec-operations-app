@@ -17,10 +17,9 @@ import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
-import { getSupabase, sbWrite } from '@/lib/supabase';
+import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
-import { SB_ANON, SB_URL } from '@/lib/supabase';
 import {
   KINDS, KIND_LABEL, RECORD_CAP_MS, canSubmitFeedback, feedbackPreview, feedbackRow,
   feedbackValidate, speechLadder, type FeedbackKind, type FeedbackRow, type VoicePhase,

@@ -2,7 +2,6 @@
 // Render goldens for the 📣 admin inbox (spec §7 Part F): the admin-only gate, the status
 // buttons, and the 🐙 "פתח כרטיס בלוח הפיתוח" path — a bug becomes a CHILD card of a Main
 // Fields parent, titled by the Git Ticket System rules, and the issue number lands on the row.
-import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 

@@ -230,7 +230,7 @@ function InboxDialog() {
   });
 
   // A new feedback sent from this device (or a status flip) refetches the list.
-  useSigmaEvent('feedback-changed' as any, () => { void qc.invalidateQueries({ queryKey: FEEDBACK_QUERY_KEY }); });
+  useSigmaEvent('feedback-changed', () => { void qc.invalidateQueries({ queryKey: FEEDBACK_QUERY_KEY }); });
 
   const { data: parents, isLoading: parentsLoading } = useQuery({
     queryKey: ['gh-parents'],

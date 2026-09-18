@@ -1,4 +1,4 @@
-import{c as J,j as n,a as Ie,C as ze,T as Fe,M as De,s as E,b as te,u as ye,r as d,d as ke,X as Ke,e as Be,L as ie,t as T,S as Pe,f as $e,g as qe,h as He,i as Ue,m as Ge,k as Qe}from"./sigma.js?v=mu6si69k";import{u as X,m as oe,g as ve,s as me,S as Ye,a as Ve}from"./sigma-query.js?v=mu6si69k";import{u as Je}from"./sigma-useQuery.js?v=mu6si69k";import{T as re,a as Y,S as pe}from"./sigma-switch.js?v=mu6si69k";import{M as We,A as je}from"./sigma-MeetingNotes.js?v=mu6si69k";/**
+import{c as J,j as n,a as Ie,C as ze,T as Fe,M as De,s as E,b as te,u as ye,r as d,d as ke,X as Ke,e as Be,L as ie,t as T,S as Pe,f as $e,g as qe,h as He,i as Ue,m as Ge,k as Qe}from"./sigma.js?v=mu6t1jn0";import{u as X,m as oe,g as ve,s as me,S as Ye,a as Ve}from"./sigma-query.js?v=mu6t1jn0";import{u as Je}from"./sigma-useQuery.js?v=mu6t1jn0";import{T as re,a as Y,S as pe}from"./sigma-switch.js?v=mu6t1jn0";import{M as We,A as je}from"./sigma-MeetingNotes.js?v=mu6t1jn0";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

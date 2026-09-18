@@ -3,7 +3,6 @@
 // the voice ladder's fallback leg, and the role matrix — the viewer MAY submit. Written before
 // the island was wired into main.tsx (TDD); the pure rules themselves live in
 // app/src/lib/feedback.test.ts.
-import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 
