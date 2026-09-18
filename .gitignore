@@ -37,3 +37,6 @@ playwright-report/
 qa/reports/*
 # …except the baseline a reviewer needs
 !qa/reports/2026-09-18-task-22.md
+
+# minified legacy bundle sourcemap (devtools only; js/app.js IS committed)
+js/app.js.map

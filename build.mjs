@@ -3,6 +3,7 @@
 // after editing anything in js/src/:   node build.mjs
 import fs from 'fs';
 import { execSync } from 'node:child_process';
+import esbuild from 'esbuild';
 
 // One cache-bust stamp per build, shared by index.html's asset URLs AND the island chunks'
 // own import specifiers (see the ui/ block below — the two MUST agree).
@@ -65,7 +66,24 @@ const out = new URL('./js/app.js', import.meta.url);
 const files = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort();
 let bundle = '';
 for (const f of files) bundle += fs.readFileSync(new URL(f, dir), 'utf8');
-fs.writeFileSync(out, bundle);
+// MINIFY the legacy bundle (task 22b / Lighthouse gate): 661 kB of concatenated source, ~200 kB
+// of it whitespace, was "Minify JavaScript ~300 ms" + a chunk of "unused JavaScript" on every
+// boot. esbuild's TRANSFORM api is used on purpose (not `bundle`): it leaves TOP-LEVEL names
+// alone, which is the whole contract of this file — index.html's inline `onclick="showPage(…)"`
+// handlers and the ui/ islands both reach the legacy code through globals. `keepNames` keeps
+// `fn.name` intact for the few places that log it. The map is emitted next to the bundle and
+// is gitignored (devtools-only; GitHub Pages simply 404s it).
+const min = esbuild.transformSync(bundle, {
+  minify: true,
+  target: 'es2017',
+  keepNames: true,
+  sourcemap: true,
+  sourcefile: 'app.src.js',
+  legalComments: 'none',
+});
+fs.writeFileSync(out, min.code + `\n//# sourceMappingURL=app.js.map\n`);
+fs.writeFileSync(new URL('./js/app.js.map', import.meta.url), min.map);
+console.log('js/app.js: ' + (bundle.length / 1024).toFixed(0) + ' kB source → ' + (min.code.length / 1024).toFixed(0) + ' kB minified');
 // cache-bust: stamp a fresh version onto the asset URLs in index.html every build,
 // so a new deploy can never be masked by a cached bundle (SW or CDN).
 const idxUrl = new URL('./index.html', import.meta.url);
