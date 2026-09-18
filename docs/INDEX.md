@@ -71,8 +71,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 Usage analytics end to end: `usage_events` (write-only for the client, reads only through the עידן-only
 `usage_report()` RPC) · a buffered `track()` that drops silently offline · `showPage` wrapped once for page
 views · the 📈 שימוש island (heat table + the app's first Recharts chart + the weekly narrative) · `push-send`
-mode `usageDigest` (Sunday 08:00 Israel, deployed v10). **Next step for this task: schedule
-`db/cron_usage_weekly.sql` after the merge** — until then no digest is pushed. See CHANGELOG 2026-09-18.
+mode `usageDigest` (Sunday 08:00 Israel, deployed **v11**, cron-key/EMS-gated after review fix round 1).
+**Next steps for this task: set the `CRON_SECRET` secret, then run `db/cron_usage_weekly.sql`** — until
+then no digest is pushed. See CHANGELOG 2026-09-18 (entry + fix round 1).
 
 **✅ 1.54 — attendance missing days = RED ROWS + accumulating 🔔 (per עידן's screenshots feedback).**
 Missing weekdays render as red rows INSIDE the attendance table, each with a 🔔 (viewer+עידן); every

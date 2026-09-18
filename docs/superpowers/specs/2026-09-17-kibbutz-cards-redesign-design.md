@@ -624,7 +624,13 @@ Planned additions: הגדרות, פערים, יומן היום, שימוש, סק
 | R14 | **Briefing** reached from arrival, from the card 📍, from the calendar day panel | One component; the arrival sheet morphs into it (#1). |
 | R15 | **Digests**: stock 12:00/17:00 (עמיחי), Monday one-pager (עמיחי), Sunday agenda (עידן), weekly usage (עידן), low-stock instant | Keep all — different questions, different days; the global 3/day cap (ג) protects against stacking. |
 
-Net effect if all accepted: **4 pages retired** (EMS, משימות, עובדים, kibbutz-stats), **2 admin lists merged** (gaps
+**עידן's ruling (18.9): all accepted.** R10 clarified: it means one shared recording/dictation component used by every
+surface (not merging the surfaces). R12 accepted as a design detail. **Guard rail (עידן): no retirement may drop a
+function that is still needed and not covered by the remaining spec** — a coverage audit (`docs/reports/
+2026-09-18-retirement-coverage.md`) maps every function of the retired pages/blocks to its new home or marks it KEEP;
+Task 18 enforces it (a retired function with no mapping fails the sweep).
+
+Net effect (all accepted): **4 pages retired** (EMS, משימות, עובדים, kibbutz-stats), **2 admin lists merged** (gaps
 admin, holidays), **1 legacy block removed** (company tasks), **3 shared components** (MeetingNotes, VoiceInput,
 Briefing). Bottom nav unchanged; ⋯ sheet becomes shorter: יומן · נוכחות · הגדרות · יומן היום · פידבק (+ admins: פיתוח,
 סקירה, שימוש, ייבוא, ➕ קיבוץ).

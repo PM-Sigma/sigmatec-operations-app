@@ -55,6 +55,37 @@ the page itself already works. Note also that `test-sigma-shell.mjs`'s "no supab
 check now looks for the LIBRARY rather than the bare string, because the tracker's lazy
 `import('./supabase')` legitimately leaves a `./sigma-supabase.js` specifier in the boot chunk.
 
+**Fix round 1 (review).** The `usageDigest` mode shipped with **no request-level auth**: anyone
+holding the PUBLIC anon key could POST `{"mode":"usageDigest","force":true}`, skip both the Sunday
+gate and the week tag, spam עידן's phone, and read every employee's weekly narrative — which names
+people — straight out of the JSON response. Now: the mode requires **either** the `X-Cron-Key`
+header matching a new `CRON_SECRET` secret (pg_cron; scheduled runs **only** — a cron key may never
+`force`, because it sits in a readable SQL job body) **or** `emsValid(token)` **and**
+`actor === 'עידן'` (the only caller that may `force` past the gate, and only `force:'resend'` skips
+the already-sent tag, so a stuck cron or a replay cannot push twice). The response is
+`{ok, tag, sent, lines}` — **never the sentences**. The decision is one pure function
+(`app/src/lib/usageDigest.ts`, byte-identical copy in the function dir) with the four review cases
+tested; verified live against the deployed v11: every anon-key shape, including the original
+`force:true` attack, answers **401** and returns no narrative, while `attendanceCron` and
+`feedbackNew` keep their contracts. `db/cron_usage_weekly.sql` now sends the header and
+re-schedules the attendance job with it too, and documents the two prod steps (set `CRON_SECRET`,
+then run the file).
+**Ruling: analytics never stores text a user typed — no exceptions.** §7j's example quoted the
+failed search terms; that is overruled, because a typed query is typed text whatever it happens to
+contain. A search miss is now `searchMissTarget(q)` → `target = "results:0,len:<n>"`, and the
+narrative counts misses ("החיפוש בקיבוצים נכשל 3 פעמים ולא החזיר תוצאה.") instead of quoting them —
+belt and braces, it will not print a stored target even if an old or forged row carries text.
+**Also:** the `pagehide` flush now goes out with `fetch(..., {keepalive:true})` so it outlives the
+page. NOT `navigator.sendBeacon`, deliberately: sendBeacon cannot set headers, PostgREST needs
+`apikey` + `Authorization: Bearer <the EMS-minted pass>`, and without the pass the insert arrives
+as `anon` and RLS rejects it (a JWT in a query string is not something we do). The accepted loss —
+browsers with no `keepalive` lose the last page's tail, ≤ 10 s of events — is written down in
+`track.ts`. Standing rulings now live in `docs/integration-map.md` so the next task does not
+re-litigate them. **Deferred to Task 18:** `usage_report(p_actor)` trusts a client-supplied name
+(one shared `authenticated` pass), the same documented limitation as `feedback_admin_update`.
+Suite after the fixes: **21 legacy runners + 317 vitest green**.
+
+
 ## [unreleased · feat/kibbutz-cards-redesign] 2026-09-18 — 📣 תיבת רעיונות / באגים / תלונות + תמלול עברית
 Task 6 of "סיגמה 2.00" (spec §7 Part F). New React islands `app/src/islands/Feedback.tsx` (⋯ עוד →
 **📣 רעיון / באג / תלונה**, open to EVERY role incl. the viewer) and `FeedbackInbox.tsx` (admins only:
