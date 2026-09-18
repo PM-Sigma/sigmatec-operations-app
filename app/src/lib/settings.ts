@@ -9,7 +9,7 @@
 // Reads are merged onto the defaults, never trusted whole: a row written by an older (or
 // newer) build can be missing keys or carry values this build does not know.
 import { useSyncExternalStore } from 'react';
-import { applyTheme, type ThemeChoice } from '@/lib/theme';
+import { applyTheme, storedTheme, type ThemeChoice } from '@/lib/theme';
 
 /** Landing views a person can be sent to. `auto` = whatever the role default says (§7l). */
 export type Landing = 'auto' | 'kibbutz' | 'dev' | 'reports' | 'attendance' | 'calendar' | 'inventory';
@@ -100,15 +100,23 @@ function writeMirror(s: UserSettings): void {
 
 export function getSettings(): UserSettings {
   if (!current) current = readMirror();
+  // THE THEME HAS ONE SOURCE OF TRUTH: localStorage('theme'), which the <head> boot snippet
+  // and the 🌙 toggle both use. This store only MIRRORS it — otherwise the settings default
+  // ('system') silently overwrites an explicit light/dark choice on the next boot, which is
+  // exactly what the browser smoke caught.
+  const stored = storedTheme();
+  const theme: ThemeChoice = stored || 'system';
+  if (current.theme !== theme) current = { ...current, theme };
   return current;
 }
 
-/** Apply the parts of the settings that are pure presentation (font + theme). */
+/**
+ * Apply the parts of the settings that are pure presentation. The FONT only: the theme is
+ * already on the document by the time this runs (the <head> snippet set it before the first
+ * paint), and re-applying it here is what used to clobber an explicit choice.
+ */
 export function applySettings(s: UserSettings): void {
   try { document.documentElement.style.setProperty('--font', fontStack(s.font)); } catch { /* no DOM */ }
-  // The theme has its OWN source of truth (localStorage('theme'), read by the <head> boot
-  // snippet). applyTheme keeps the two in step; 'system' is still the absence of a choice.
-  applyTheme(s.theme);
 }
 
 function notify(): void { listeners.forEach(fn => { try { fn(); } catch { /* a bad listener never blocks the rest */ } }); }
@@ -118,6 +126,9 @@ export function setSettingsLocal(patch: Partial<UserSettings>): UserSettings {
   current = mergeSettings(patch as Record<string, unknown>, getSettings());
   writeMirror(current);
   applySettings(current);
+  // A theme is applied only when the person actually CHOSE one in this call — 'system' is
+  // still the absence of a choice, and applyTheme() removes the stored key for it.
+  if (patch.theme !== undefined) applyTheme(current.theme);
   notify();
   return current;
 }

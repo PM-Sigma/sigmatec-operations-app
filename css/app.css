@@ -76,36 +76,49 @@
   @media (min-width: 768px) { body { padding: 24px; } }
   /* Desktop fills any width — the grid, not a max-width, decides the column count (spec §6). */
   .container { max-width: none; margin: 0 auto; }
+  /* The mockup's `.hdr`: FLAT on the page background, sticky, one row. The navy gradient
+     card it replaces was the old identity — the brand is the Σ mark and the wordmark now
+     (spec §6 "Header"), and a coloured slab at the top of every screen fought the cards
+     below it for attention. */
   .header {
-    background: linear-gradient(160deg, #16223c 0%, #1b2a4a 55%, #233a66 100%);
-    color: white;
-    padding: 28px 32px;
-    border-radius: 14px;
-    margin-bottom: 20px;
-    box-shadow: var(--shadow-md);
+    background: var(--bg);
+    color: var(--text);
+    padding: 10px 2px 8px;
+    margin-bottom: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
   }
   .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 24px;
+    align-items: center;
+    margin-bottom: 0;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 10px;
   }
-  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
-  .header .subtitle { font-size: 14px; opacity: 0.9; }
-  .header-meta { display: flex; gap: 8px; flex-direction: column; align-items: flex-end; }
+  /* wordmark 17px/800 + an 11px subtitle, exactly the mockup's `.wordmark` */
+  .header h1 { font-size: 21px; font-weight: 800; margin-bottom: 0; letter-spacing: -.01em; }
+  .header .subtitle { font-size: 11px; font-weight: 500; color: var(--text-light); margin-top: 3px; }
+  .header-meta { display: flex; gap: 8px; flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  /* The chips are now surface chips, not translucent-white-on-navy (the navy is gone). */
   .header-date, .copy-btn {
-    background: rgba(255,255,255,0.15);
-    padding: 8px 16px;
-    border-radius: 8px;
+    background: var(--card);
+    padding: 0 12px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 10px;
     font-size: 13px;
-    border: none;
-    color: white;
+    border: 1px solid var(--border);
+    color: var(--text);
     cursor: pointer;
     transition: background 0.2s;
+    font-family: inherit;
   }
-  .copy-btn:hover { background: rgba(255,255,255,0.25); }
+  .header-date { color: var(--text-light); font-weight: 600; }
+  .copy-btn:hover { background: var(--surface-2); }
   .copy-btn.copied { background: var(--success); }
   .seg-done { background: #10b981; }
   .seg-track { background: #f59e0b; }
@@ -1199,10 +1212,16 @@
   .ems-filter-bar { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center; }
   .ems-filter-bar select,.ems-filter-bar input[type=text] { padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;background:var(--card); }
   .ems-filter-bar label { display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap; }
-  .day-type-btn { padding:6px 12px;border:2px solid var(--border);border-radius:20px;background:var(--card);cursor:pointer;font-size:12px;font-weight:600;color:var(--text-light);font-family:inherit;transition:all .15s; }
-  .day-type-btn:hover { border-color:var(--accent);color:var(--accent); }
-  .day-type-btn.active { background:var(--primary);border-color:var(--primary);color:white; }
-  .att-chip { padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px; }
+  /* Day type — the mockup's `.seg` geometry (44 px targets, gradient BORDER when chosen, no
+     fill: §6 keeps the gradient for brand touchpoints). `.active` is what the legacy JS
+     toggles; `.on` is what the re-skinned visit form writes. Both mean the same thing. */
+  .day-type-btn { min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2);cursor:pointer;font-size:13.5px;font-weight:700;color:var(--text);font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:border-color .15s,background .15s; }
+  .day-type-btn:hover { border-color:var(--brand-1); }
+  .day-type-btn.active, .day-type-btn.on {
+    border:2px solid transparent;
+    background:linear-gradient(var(--card),var(--card)) padding-box, var(--brand-grad) border-box;
+  }
+  .att-chip { min-height:36px;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px; }
   /* Company calendar */
   .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
   .cal-dow { text-align:center; font-weight:800; font-size:11px; color:var(--text-light); padding:4px 0; }
@@ -1210,7 +1229,7 @@
   .cal-cell:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); }
   .cal-empty { background:transparent; border:none; cursor:default; }
   .cal-today { border:2px solid var(--accent); }
-  .cal-daynum { font-size:11px; font-weight:700; color:#334155; margin-bottom:2px; }
+  .cal-daynum { font-size:11px; font-weight:700; color:var(--text); margin-bottom:2px; }
   .cal-chip { font-size:9px; line-height:1.35; border-radius:4px; padding:1px 5px; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
   .cal-visit { background:#d1fae5; color:#065f46; }
   .cal-att   { background:#fef3c7; color:#92400e; }
@@ -1219,11 +1238,13 @@
   .cal-more  { font-size:9px; color:var(--text-light); font-weight:700; }
   .cal-panel { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-top:12px; font-size:13px; }
   .cal-agenda-head { font-weight:800; color:var(--text); font-size:14px; margin:18px 0 8px; padding-bottom:6px; border-bottom:2px solid var(--border); }
-  .cal-agenda-day { font-weight:700; color:#2f6fed; font-size:12px; margin:10px 0 4px; }
+  .cal-agenda-day { font-weight:700; color:var(--brand-1); font-size:12px; margin:10px 0 4px; }
   .cal-agenda-row { padding:3px 0; }
   @media (max-width:768px){ .cal-cell{ min-height:58px; padding:2px; } .cal-chip{ font-size:8px; padding:1px 3px; } .cal-daynum{ font-size:10px; } }
   .att-table { width:100%;border-collapse:collapse;font-size:13px; }
-  .att-table th { background:var(--primary);color:white;padding:8px 12px;text-align:right;font-weight:600; }
+  /* `text-align:right` was a PHYSICAL direction (RTL gate, §6) — `start` is the same thing
+     in Hebrew and the correct thing everywhere else. */
+  .att-table th { background:var(--surface-2);color:var(--text-light);padding:8px 12px;text-align:start;font-weight:700;font-size:11px;letter-spacing:.03em; }
   .att-table td { padding:8px 12px;border-bottom:1px solid var(--border); }
   .att-table tr:hover td { background:var(--surface-2); }
   .att-badge { display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700; }
@@ -1335,16 +1356,19 @@
   }
 
   /* Company tasks panel */
+  /* Was a cream→amber gradient slab with a 2px amber border: it stayed near-white in dark
+     mode and shouted in light. A hairline card on the card surface, like everything else
+     (spec §6 "flat cards with a hairline, no gradient backgrounds on surfaces"). */
   .company-tasks {
-    background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
-    border: 2px solid #ca8a04;
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+    margin-bottom: 16px;
   }
   .company-tasks h3 {
     font-size: 16px;
-    color: #854d0e;
+    color: var(--text);
     margin-bottom: 12px;
     display: flex;
     align-items: center;
@@ -1358,11 +1382,13 @@
   @media (max-width: 768px) {
     .company-tasks-grid { grid-template-columns: 1fr; }
   }
+  /* `border-right` is a PHYSICAL side (RTL gate, §6): `border-inline-start` is the same edge
+     in Hebrew and the correct one in any direction. */
   .company-task-group {
-    background: var(--card);
-    border-radius: 8px;
+    background: var(--surface-2);
+    border-radius: 10px;
     padding: 12px 14px;
-    border-right: 4px solid;
+    border-inline-start: 3px solid;
   }
   .company-task-group.orders { border-color: #2563eb; }
   .company-task-group.info { border-color: #16a34a; }
@@ -1372,11 +1398,12 @@
     font-weight: 700;
     margin-bottom: 8px;
   }
-  .company-task-group.orders h4 { color: #1e40af; }
-  .company-task-group.info h4 { color: #166534; }
-  .company-task-group.guidelines h4 { color: #9d174d; }
+  /* The heading inks were near-black blues/greens that stayed unreadable on the dark
+     surface; the colour lives on the edge, the text is just text. */
+  .company-task-group h4 { color: var(--text); }
   .company-task-group ol {
-    padding-right: 18px;
+    padding-inline-start: 18px;
+    padding-right: 0;
     font-size: 12px;
     line-height: 1.6;
     color: var(--text);
@@ -1646,13 +1673,40 @@ body.user-viewer #invOrdersList select,
 body.user-viewer #invReturnsList button,
 body.user-viewer #invProductsList button { display: none !important; }
 /* reports hub layout */
-.xl-hub-rows { display: flex; flex-direction: column; gap: 8px; }
-.xl-hub-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
-.xl-hub-row .xl-hub-name { font-weight: 700; min-width: 170px; }
-.xl-hub-row label { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 12px; color: var(--text-light); }
-.xl-hub-row input, .xl-hub-row select { font-size: 13px; padding: 4px 6px; }
-.xl-hub-row .inv-btn.small.xl-green { background: #16a34a; color: #fff; }
+/* @tokens-only */
+/* 📊 The viewer's reports hub (spec §6 "Viewer / reports user"). His ONE job is producing
+   reports, so each report is a CARD with 44 px controls instead of a cramped table row. Every
+   function stays exactly where it was — this is markup-free restyling (test-viewer-gate.mjs
+   is untouched and green). */
+.xl-hub-rows { display: flex; flex-direction: column; gap: 10px; }
+.xl-hub-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 12px 14px;
+}
+.xl-hub-row .xl-hub-name { font-weight: 700; font-size: 14.5px; min-width: 170px; flex: 1 1 170px; }
+.xl-hub-row label {
+  display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px;
+  font-weight: 600; color: var(--text-light);
+}
+.xl-hub-row input, .xl-hub-row select {
+  font-size: 14px; min-height: 44px; padding: 0 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+}
+.xl-hub-row .inv-btn {
+  min-height: 44px; padding: 0 14px; border-radius: 10px; font-size: 13.5px; font-weight: 700;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+}
+/* Excel gets the brand green, PDF stays the quiet surface — the two are told apart by weight,
+   not by two loud fills. */
+.xl-hub-row .inv-btn.small.xl-green { background: var(--brand-2); color: var(--on-brand); border-color: transparent; }
+
+/* The viewer's own bottom nav is the React one (#sigma-nav renders 🏘 · 📊 דוחות · ⋯ for the
+   viewer role); the legacy top nav is hidden on phones like everyone else's. On DESKTOP the
+   viewer has no use for the legacy page tabs either — every page he may open is one of the
+   two in his nav. */
+body.user-viewer.sigma-nav-ready .page-nav { display: none; }
+/* @end */
 body.user-viewer .legend-collapsible { display: none !important; }
 
 /* ===== Bottom nav (React island #sigma-nav) takes over on phones =====
