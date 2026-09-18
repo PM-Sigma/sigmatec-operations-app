@@ -176,6 +176,36 @@ check('cached rows are written to localStorage for the offline first paint', () 
   assert.equal(JSON.parse(storage['kibbutzim_v1'])[0].name, 'אור הנר גז');
 });
 
+// ───────────────────────── kibbutzOptions / kibbutzNames ─────────────────────────
+// Every picker in the app (visit-quick, order intake, customer order, the potentials
+// dedupe) used to read the kibbutz list off the card DOM. The React island renders ONLY
+// the cards that pass the current chip/search, so the model — not the DOM — has to be the
+// source, or a filtered page silently truncates those pickers.
+console.log('kibbutzOptions (picker list):');
+check('reads the MODEL, so a filtered / empty card DOM changes nothing', () => {
+  W.KIBBUTZIM = [
+    { name: 'יגור', section: 'active', region: 'העמקים' },
+    { name: 'אור הנר גז', display_name: 'אור הנר — גז', section: 'active', region: '' },
+    { name: 'אפיקים', section: 'new', region: 'גליל וגולן' },
+    { name: 'ישן', section: 'active', archived_at: '2026-01-01T00:00:00Z' }
+  ];
+  // the DOM stub has no cards at all — the worst case of "everything is filtered out"
+  assert.deepEqual(W.kibbutzNames(), ['אור הנר גז', 'אפיקים', 'יגור'], 'all live names, he-IL by label');
+  assert.deepEqual(W.kibbutzOptions()[0], { value: 'אור הנר גז', label: 'אור הנר — גז' },
+    'value stays the canonical name (the join key); display_name is only the label');
+});
+check('archived rows never reach a picker', () => {
+  assert.ok(W.kibbutzNames().indexOf('ישן') === -1);
+});
+check('falls back to the card DOM while the model is still empty', () => {
+  W.KIBBUTZIM = [];
+  document_.querySelectorAll = sel => (sel.indexOf('.kibbutz') === 0
+    ? [{ dataset: { name: 'דפנה' } }, { dataset: { name: 'חוקוק' } }, { dataset: { name: 'דפנה' } }]
+    : []);
+  assert.deepEqual(W.kibbutzNames(), ['דפנה', 'חוקוק'], 'DOM fallback, de-duplicated and sorted');
+  document_.querySelectorAll = () => [];
+});
+
 // ───────────────────────── seed SQL contract ─────────────────────────
 console.log('seed SQL contract:');
 const sql = fs.readFileSync(path.join(__dirname, 'db/kibbutzim.sql'), 'utf8');

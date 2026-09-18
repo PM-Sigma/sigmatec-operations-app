@@ -40,6 +40,11 @@ export interface Sigma {
   openKibbutzModal(name: string, tab?: string): void;
   /** Re-run the legacy card-decorating passes after React re-rendered the cards. */
   decorateCards?(): void;
+
+  /** The EMS-minted Supabase write pass as it stands now (no minting), or null. */
+  sbPass?(): { token: string; exp: number } | null;
+  /** Mint / re-mint that pass (force = discard the current one first). */
+  sbAuthPass?(force?: boolean): Promise<{ token: string; exp: number } | null>;
   createTask(item: Record<string, unknown>): Promise<unknown>;
 
   openVisitQuick(kibbutz?: string): void;

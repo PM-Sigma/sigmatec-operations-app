@@ -140,17 +140,24 @@ export function KibbutzSheet({
     };
     const v = validateKibbutz(draft, allRows);
     if (!v.ok) { toast.error(v.errors[0]); return; }
-    if (kind === 'subsite' && reduced && !reduced.canSave) {
-      toast.error('לא נמצא אתר ב-EMS — סמן "שמור בלי קישור" כדי לשמור בכל זאת');
+    // A sub-site exists to be linked to an EMS site. Saving one is allowed only when the
+    // chain actually ran and found the site, or when the user explicitly said "unlinked" —
+    // `reduced === null` (the chain never ran, e.g. the name was pasted and saved at once)
+    // must not slip through as if it had passed.
+    if (kind === 'subsite' && !allowUnlinked && !(reduced && reduced.canSave)) {
+      toast.error(reduced
+        ? 'לא נמצא אתר ב-EMS — סמן "שמור בלי קישור" כדי לשמור בכל זאת'
+        : 'הרץ "בדוק מול EMS" לפני שמירת תת-אתר, או סמן "שמור בלי קישור"');
       return;
     }
     setSaving(true);
     try {
       const body = kibbutzimSaveBody(v.row, user);
-      const data = await sbWrite<KibbutzRow>(sb => sb.from('kibbutzim')
-        .upsert(body, { onConflict: 'name' })
-        .select()
-        .single() as any);
+      // Editing is an UPDATE BY ID, never an upsert on `name`: renaming a kibbutz through an
+      // on_conflict=name upsert would insert a second row (new name) or trip the primary key.
+      const data = await sbWrite<KibbutzRow>(sb => (row?.id
+        ? sb.from('kibbutzim').update(body).eq('id', row.id).select().single()
+        : sb.from('kibbutzim').insert(body).select().single()) as any);
       toast.success('נשמר: ' + v.row.name);
       onSaved(data || v.row);
       onOpenChange(false);
@@ -295,7 +302,7 @@ export function KibbutzSheet({
         </div>
         <EmsChain steps={steps} running={running} />
 
-        {reduced && !reduced.ems_site_ids.length && (
+        {(isSub || !!reduced) && !(reduced && reduced.ems_site_ids.length) && (
           <div className="mt-1 flex items-center gap-2 rounded-xl border border-border bg-muted px-2.5 py-2 text-xs">
             <Switch id="kibUnlinked" checked={allowUnlinked} onCheckedChange={setAllowUnlinked} />
             <label htmlFor="kibUnlinked">שמור בלי קישור — הכרטיס יסומן ⚠️ עד שיקושר</label>

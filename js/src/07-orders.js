@@ -48,9 +48,10 @@
 
   function openIntake() {
     const sel = document.getElementById('intakeKibbutz');
-    const names = Array.from(document.querySelectorAll('.kibbutz')).map(c => c.dataset.name)
-      .filter(Boolean).sort((a, b) => a.localeCompare(b, 'he'));
-    sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + names.map(n => `<option value="${n}">${n}</option>`).join('');
+    // The model, not the cards — a filtered card page must not shrink this picker.
+    const opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(c => ({ value: c.dataset.name, label: c.dataset.name })).filter(o => o.value);
+    sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
     document.getElementById('intakeContact').value = '';
     document.getElementById('intakeRaw').value = '';
     document.getElementById('intakeStep1').style.display = '';
@@ -736,12 +737,13 @@
   }
 
   let invOrderItems = [];
-  // fill the customer-order kibbutz picker from the live cards (same source as the intake flow)
+  // fill the customer-order kibbutz picker from the kibbutzim model (same source as the intake flow)
   function invPopulateOrderKibbutz(selected) {
     var ksel = document.getElementById('invOrderKibbutz');
     if (!ksel) return;
-    var names = Array.from(document.querySelectorAll('.kibbutz')).map(function (c) { return c.dataset.name; }).filter(Boolean).sort(function (a, b) { return a.localeCompare(b, 'he'); });
-    ksel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + names.map(function (n) { return '<option value="' + n + '"' + (n === selected ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+    var opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(function (c) { return { value: c.dataset.name, label: c.dataset.name }; }).filter(function (o) { return !!o.value; });
+    ksel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + opts.map(function (o) { return '<option value="' + o.value + '"' + (o.value === selected ? ' selected' : '') + '>' + o.label + '</option>'; }).join('');
   }
   // ספק vs לקוח toggle → show the right fields (supplier name vs kibbutz; raw-request box only for a new לקוח)
   window.invSetOrderType = function (t) {

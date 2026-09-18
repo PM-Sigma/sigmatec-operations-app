@@ -130,12 +130,13 @@
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     const isAtt = ATT_PEOPLE.indexOf(me) !== -1;
     const sel = document.getElementById('visitQuickKibbutz');
-    const names = Array.from(document.querySelectorAll('.kibbutz'))
-      .map(c => c.dataset.name).filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, 'he'));
+    // From the MODEL, not the cards: the React island hides filtered-out cards, and this
+    // picker must still offer every kibbutz (kibbutzOptions falls back to the DOM itself).
+    const opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(c => ({ value: c.dataset.name, label: c.dataset.name })).filter(o => o.value);
     const last = localStorage.getItem('last_visit_kibbutz') || '';
     sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' +
-      names.map(n => `<option value="${n}" ${n === last ? 'selected' : ''}>${n}</option>`).join('');
+      opts.map(o => `<option value="${o.value}" ${o.value === last ? 'selected' : ''}>${o.label}</option>`).join('');
     const dateEl = document.getElementById('vqDate'); if (dateEl) dateEl.value = todayYmd();
     document.getElementById('vqTitle').textContent = isAtt ? '📋 תיעוד נוכחות' : '📍 תיעוד ביקור מהיר';
     document.getElementById('vqSub').textContent = isAtt

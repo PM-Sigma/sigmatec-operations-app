@@ -95,6 +95,13 @@
       // is read-only under RLS, so an island write without it comes back as
       // "row violates row-level security policy". Mint (or re-mint with force) and hand the
       // React side the token it should setSession() with. Null = no EMS session → no writes.
+      // The pass as it stands RIGHT NOW, without minting — supabase-js asks for it on every
+      // request (app/src/lib/supabase.ts), so this has to stay cheap and synchronous.
+      sbPass: function () {
+        return (window._sbToken && (window._sbTokenExp || 0) > Date.now())
+          ? { token: window._sbToken, exp: window._sbTokenExp }
+          : null;
+      },
       sbAuthPass: function (force) {
         var fresh = function () { return !!window._sbToken && (window._sbTokenExp || 0) > Date.now(); };
         if (force) { window._sbToken = null; window._sbTokenExp = 0; }
@@ -107,7 +114,28 @@
       },
 
       // ---- visits + delivery certificates ------------------------------------
+      // With a kibbutz in hand this is ONE TAP: the visit form opens straight away with that
+      // kibbutz, no picker in between (spec §3.3 — "סיכום ביקור כבר מלחיצה על קיבוץ"). That
+      // also means switchTab('visit') — and with it the `visit-form-open` event the 🚚 quick
+      // action waits for — fires now, instead of only after the user confirms a picker.
+      // No name (the FAB) or no card for that name → the normal picker.
       openVisitQuick: function (kibbutz) {
+        if (kibbutz) {
+          var esc = (window.CSS && CSS.escape) ? CSS.escape(kibbutz) : String(kibbutz).replace(/"/g, '\\"');
+          var card = document.querySelector('.kibbutz[data-name="' + esc + '"]');
+          if (card && typeof window.openEditModal === 'function') {
+            call('openEditModal', [card]);
+            call('switchTab', ['visit']);
+            var me = call('getCurrentUser', [], '');
+            var visitorSel = document.getElementById('visitor');
+            if (visitorSel && me) {
+              visitorSel.value = me;
+              if (typeof window.onVisitorChange === 'function') window.onVisitorChange(me);
+            }
+            try { localStorage.setItem('last_visit_kibbutz', kibbutz); } catch (e) { /* private mode */ }
+            return;
+          }
+        }
         var r = call('openVisitQuick');
         if (kibbutz) {
           var sel = document.getElementById('visitQuickKibbutz');

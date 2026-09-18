@@ -16,7 +16,7 @@ const ICON: Record<ChainState, typeof Check> = {
 const TONE: Record<ChainState, string> = {
   pending: 'text-muted-foreground',
   ok: 'text-[color:var(--brand-2)]',
-  warn: 'text-amber-600',
+  warn: 'text-[color:var(--sigma-warn)]',
   bad: 'text-destructive',
   skipped: 'text-muted-foreground',
 };

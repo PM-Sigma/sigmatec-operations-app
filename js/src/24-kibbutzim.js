@@ -125,6 +125,28 @@
       if (typeof applyFilters === 'function') applyFilters();
     }
 
+    // ---- the canonical list for every picker ----
+    // Legacy code used to read the kibbutz list off the card DOM. The React island only
+    // renders the cards that pass the current chip/search, so on a filtered page those
+    // pickers (visit-quick, order intake, customer order) silently lost options. The MODEL
+    // is the source of truth; the DOM stays as the fallback for the moment before the model
+    // has loaded (very first paint with an empty cache).
+    function kibbutzOptions() {
+      const rows = (window.KIBBUTZIM || []).filter(r => r && r.name && !r.archived_at);
+      if (rows.length) {
+        return rows
+          .map(r => ({ value: r.name, label: String(r.display_name || r.name) }))
+          .sort((a, b) => a.label.localeCompare(b.label, 'he'));
+      }
+      const seen = {};
+      return Array.prototype.slice.call(document.querySelectorAll('.kibbutz[data-name]'))
+        .map(c => c.dataset.name)
+        .filter(n => { if (!n || seen[n]) return false; seen[n] = 1; return true; })
+        .sort((a, b) => a.localeCompare(b, 'he'))
+        .map(n => ({ value: n, label: n }));
+    }
+    function kibbutzNames() { return kibbutzOptions().map(o => o.value); }
+
     function kibbutzByName(name) {
       if (!name) return undefined;
       const list = window.KIBBUTZIM || [];
@@ -193,6 +215,8 @@
     window.groupBySection = groupBySection;
     window.renderKibbutzCards = renderKibbutzCards;
     window.kibbutzByName = kibbutzByName;
+    window.kibbutzOptions = kibbutzOptions;
+    window.kibbutzNames = kibbutzNames;
     window.kibbutzimLoad = kibbutzimLoad;
     window.kibbutzimCached = kibbutzimCached;
     window.kibbutzimFirstPaint = kibbutzimFirstPaint;

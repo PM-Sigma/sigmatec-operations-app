@@ -95,6 +95,13 @@
       // is read-only under RLS, so an island write without it comes back as
       // "row violates row-level security policy". Mint (or re-mint with force) and hand the
       // React side the token it should setSession() with. Null = no EMS session → no writes.
+      // The pass as it stands RIGHT NOW, without minting — supabase-js asks for it on every
+      // request (app/src/lib/supabase.ts), so this has to stay cheap and synchronous.
+      sbPass: function () {
+        return (window._sbToken && (window._sbTokenExp || 0) > Date.now())
+          ? { token: window._sbToken, exp: window._sbTokenExp }
+          : null;
+      },
       sbAuthPass: function (force) {
         var fresh = function () { return !!window._sbToken && (window._sbTokenExp || 0) > Date.now(); };
         if (force) { window._sbToken = null; window._sbTokenExp = 0; }
@@ -107,7 +114,28 @@
       },
 
       // ---- visits + delivery certificates ------------------------------------
+      // With a kibbutz in hand this is ONE TAP: the visit form opens straight away with that
+      // kibbutz, no picker in between (spec §3.3 — "סיכום ביקור כבר מלחיצה על קיבוץ"). That
+      // also means switchTab('visit') — and with it the `visit-form-open` event the 🚚 quick
+      // action waits for — fires now, instead of only after the user confirms a picker.
+      // No name (the FAB) or no card for that name → the normal picker.
       openVisitQuick: function (kibbutz) {
+        if (kibbutz) {
+          var esc = (window.CSS && CSS.escape) ? CSS.escape(kibbutz) : String(kibbutz).replace(/"/g, '\\"');
+          var card = document.querySelector('.kibbutz[data-name="' + esc + '"]');
+          if (card && typeof window.openEditModal === 'function') {
+            call('openEditModal', [card]);
+            call('switchTab', ['visit']);
+            var me = call('getCurrentUser', [], '');
+            var visitorSel = document.getElementById('visitor');
+            if (visitorSel && me) {
+              visitorSel.value = me;
+              if (typeof window.onVisitorChange === 'function') window.onVisitorChange(me);
+            }
+            try { localStorage.setItem('last_visit_kibbutz', kibbutz); } catch (e) { /* private mode */ }
+            return;
+          }
+        }
         var r = call('openVisitQuick');
         if (kibbutz) {
           var sel = document.getElementById('visitQuickKibbutz');
@@ -211,6 +239,7 @@
     card.addEventListener('click', (e) => {
       e.stopPropagation();
       currentKibbutz = card.dataset.name;
+      window.currentKibbutz = currentKibbutz;     // script-scope `let` → mirror for window readers
       if (typeof prepModalEmsSection === 'function') prepModalEmsSection(currentKibbutz);   // open EMS task / create-new, below status
       const _ct = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === currentKibbutz);
       const _cu = lastUpdateText(_ct);
@@ -1000,10 +1029,13 @@
     // Exclude potentials that already exist as active kibbutzim. Normalize (strip
     // apostrophes/quotes + collapse spaces) so "דגניה ב'" matches the card "דגניה ב".
     const pNorm = s => String(s || '').replace(/['"׳]/g, '').replace(/\s+/g, ' ').trim();
+    // From the model (kibbutzNames), so a filtered card page cannot make an existing
+    // kibbutz reappear in the "potentials" list.
     const activeNames = new Set();
-    document.querySelectorAll('.kibbutz').forEach(c => {
-      if (c.dataset.name) activeNames.add(pNorm(c.dataset.name));
-    });
+    const known = (typeof kibbutzNames === 'function')
+      ? kibbutzNames()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(c => c.dataset.name).filter(Boolean);
+    known.forEach(n => activeNames.add(pNorm(n)));
     (data.tasks || []).forEach(t => { if (t.name) activeNames.add(pNorm(t.name)); });
 
     const filteredPotentials = data.potentials.filter(p => p.name && !activeNames.has(pNorm(p.name)));
@@ -1166,12 +1198,13 @@
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     const isAtt = ATT_PEOPLE.indexOf(me) !== -1;
     const sel = document.getElementById('visitQuickKibbutz');
-    const names = Array.from(document.querySelectorAll('.kibbutz'))
-      .map(c => c.dataset.name).filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, 'he'));
+    // From the MODEL, not the cards: the React island hides filtered-out cards, and this
+    // picker must still offer every kibbutz (kibbutzOptions falls back to the DOM itself).
+    const opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(c => ({ value: c.dataset.name, label: c.dataset.name })).filter(o => o.value);
     const last = localStorage.getItem('last_visit_kibbutz') || '';
     sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' +
-      names.map(n => `<option value="${n}" ${n === last ? 'selected' : ''}>${n}</option>`).join('');
+      opts.map(o => `<option value="${o.value}" ${o.value === last ? 'selected' : ''}>${o.label}</option>`).join('');
     const dateEl = document.getElementById('vqDate'); if (dateEl) dateEl.value = todayYmd();
     document.getElementById('vqTitle').textContent = isAtt ? '📋 תיעוד נוכחות' : '📍 תיעוד ביקור מהיר';
     document.getElementById('vqSub').textContent = isAtt
@@ -2100,9 +2133,10 @@
 
   function openIntake() {
     const sel = document.getElementById('intakeKibbutz');
-    const names = Array.from(document.querySelectorAll('.kibbutz')).map(c => c.dataset.name)
-      .filter(Boolean).sort((a, b) => a.localeCompare(b, 'he'));
-    sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + names.map(n => `<option value="${n}">${n}</option>`).join('');
+    // The model, not the cards — a filtered card page must not shrink this picker.
+    const opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(c => ({ value: c.dataset.name, label: c.dataset.name })).filter(o => o.value);
+    sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
     document.getElementById('intakeContact').value = '';
     document.getElementById('intakeRaw').value = '';
     document.getElementById('intakeStep1').style.display = '';
@@ -2788,12 +2822,13 @@
   }
 
   let invOrderItems = [];
-  // fill the customer-order kibbutz picker from the live cards (same source as the intake flow)
+  // fill the customer-order kibbutz picker from the kibbutzim model (same source as the intake flow)
   function invPopulateOrderKibbutz(selected) {
     var ksel = document.getElementById('invOrderKibbutz');
     if (!ksel) return;
-    var names = Array.from(document.querySelectorAll('.kibbutz')).map(function (c) { return c.dataset.name; }).filter(Boolean).sort(function (a, b) { return a.localeCompare(b, 'he'); });
-    ksel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + names.map(function (n) { return '<option value="' + n + '"' + (n === selected ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+    var opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(function (c) { return { value: c.dataset.name, label: c.dataset.name }; }).filter(function (o) { return !!o.value; });
+    ksel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' + opts.map(function (o) { return '<option value="' + o.value + '"' + (o.value === selected ? ' selected' : '') + '>' + o.label + '</option>'; }).join('');
   }
   // ספק vs לקוח toggle → show the right fields (supplier name vs kibbutz; raw-request box only for a new לקוח)
   window.invSetOrderType = function (t) {
@@ -4945,6 +4980,11 @@
   function openEditModal(card) {
     const name = card.dataset.name;
     currentKibbutz = name;
+    // `currentKibbutz` above is a script-scope `let`, so it never lands on `window` — yet
+    // certFromVisitForm (20-delivery-cert.js) and the `visit-form-open` event both read
+    // `window.currentKibbutz`. Mirror it, or a certificate opened from the visit form comes
+    // up with an empty kibbutz.
+    window.currentKibbutz = name;
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
     document.getElementById('modalSub').textContent = 'קיבוץ: ' + name + (task && task.code ? ' (#' + task.code + ')' : '');
@@ -9724,6 +9764,28 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       if (typeof applyFilters === 'function') applyFilters();
     }
 
+    // ---- the canonical list for every picker ----
+    // Legacy code used to read the kibbutz list off the card DOM. The React island only
+    // renders the cards that pass the current chip/search, so on a filtered page those
+    // pickers (visit-quick, order intake, customer order) silently lost options. The MODEL
+    // is the source of truth; the DOM stays as the fallback for the moment before the model
+    // has loaded (very first paint with an empty cache).
+    function kibbutzOptions() {
+      const rows = (window.KIBBUTZIM || []).filter(r => r && r.name && !r.archived_at);
+      if (rows.length) {
+        return rows
+          .map(r => ({ value: r.name, label: String(r.display_name || r.name) }))
+          .sort((a, b) => a.label.localeCompare(b.label, 'he'));
+      }
+      const seen = {};
+      return Array.prototype.slice.call(document.querySelectorAll('.kibbutz[data-name]'))
+        .map(c => c.dataset.name)
+        .filter(n => { if (!n || seen[n]) return false; seen[n] = 1; return true; })
+        .sort((a, b) => a.localeCompare(b, 'he'))
+        .map(n => ({ value: n, label: n }));
+    }
+    function kibbutzNames() { return kibbutzOptions().map(o => o.value); }
+
     function kibbutzByName(name) {
       if (!name) return undefined;
       const list = window.KIBBUTZIM || [];
@@ -9792,6 +9854,8 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
     window.groupBySection = groupBySection;
     window.renderKibbutzCards = renderKibbutzCards;
     window.kibbutzByName = kibbutzByName;
+    window.kibbutzOptions = kibbutzOptions;
+    window.kibbutzNames = kibbutzNames;
     window.kibbutzimLoad = kibbutzimLoad;
     window.kibbutzimCached = kibbutzimCached;
     window.kibbutzimFirstPaint = kibbutzimFirstPaint;

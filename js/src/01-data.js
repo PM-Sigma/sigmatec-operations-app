@@ -76,6 +76,7 @@
     card.addEventListener('click', (e) => {
       e.stopPropagation();
       currentKibbutz = card.dataset.name;
+      window.currentKibbutz = currentKibbutz;     // script-scope `let` → mirror for window readers
       if (typeof prepModalEmsSection === 'function') prepModalEmsSection(currentKibbutz);   // open EMS task / create-new, below status
       const _ct = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === currentKibbutz);
       const _cu = lastUpdateText(_ct);
@@ -865,10 +866,13 @@
     // Exclude potentials that already exist as active kibbutzim. Normalize (strip
     // apostrophes/quotes + collapse spaces) so "דגניה ב'" matches the card "דגניה ב".
     const pNorm = s => String(s || '').replace(/['"׳]/g, '').replace(/\s+/g, ' ').trim();
+    // From the model (kibbutzNames), so a filtered card page cannot make an existing
+    // kibbutz reappear in the "potentials" list.
     const activeNames = new Set();
-    document.querySelectorAll('.kibbutz').forEach(c => {
-      if (c.dataset.name) activeNames.add(pNorm(c.dataset.name));
-    });
+    const known = (typeof kibbutzNames === 'function')
+      ? kibbutzNames()
+      : Array.from(document.querySelectorAll('.kibbutz')).map(c => c.dataset.name).filter(Boolean);
+    known.forEach(n => activeNames.add(pNorm(n)));
     (data.tasks || []).forEach(t => { if (t.name) activeNames.add(pNorm(t.name)); });
 
     const filteredPotentials = data.potentials.filter(p => p.name && !activeNames.has(pNorm(p.name)));

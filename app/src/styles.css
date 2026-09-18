@@ -9,6 +9,10 @@
   --brand-1: #06C2CB;
   --brand-2: #1ABE63;
   --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  /* The one warning tone the islands use (⚠️ chain rows, the 🆕 section's card edge). The
+     legacy --warning is amber-on-white only and has no dark value, so the islands carry
+     their own pair rather than hard-coding amber-500/600 utilities. */
+  --sigma-warn: #c87f0a;
 
   --background: 197 26% 95%;
   --foreground: 210 13% 12%;
@@ -53,6 +57,7 @@
   --border: 207 19% 18%;
   --input: 207 19% 18%;
   --ring: 178 94% 41%;
+  --sigma-warn: #f0b24a;
 }
 
 /* ===== island scope =====

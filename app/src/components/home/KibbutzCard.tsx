@@ -36,7 +36,7 @@ export function KibbutzCard({
       className={
         'kibbutz ' + section + ' relative m-0 rounded-lg border border-border bg-card p-3 pb-2.5 shadow-none ' +
         'transition-transform active:scale-[.985] ' +
-        (section === 'new' ? 'border-s-[3px] border-s-amber-500 ' : 'border-s-[3px] border-s-[color:var(--brand-2)] ') +
+        (section === 'new' ? 'border-s-[3px] border-s-[color:var(--sigma-warn)] ' : 'border-s-[3px] border-s-[color:var(--brand-2)] ') +
         (highlight ? 'sigma-beam ' : '')
       }
       // ---- legacy decorator contract ----

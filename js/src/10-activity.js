@@ -515,6 +515,11 @@
   function openEditModal(card) {
     const name = card.dataset.name;
     currentKibbutz = name;
+    // `currentKibbutz` above is a script-scope `let`, so it never lands on `window` — yet
+    // certFromVisitForm (20-delivery-cert.js) and the `visit-form-open` event both read
+    // `window.currentKibbutz`. Mirror it, or a certificate opened from the visit form comes
+    // up with an empty kibbutz.
+    window.currentKibbutz = name;
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
     document.getElementById('modalSub').textContent = 'קיבוץ: ' + name + (task && task.code ? ' (#' + task.code + ')' : '');
