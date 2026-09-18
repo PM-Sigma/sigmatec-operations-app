@@ -22,6 +22,7 @@ import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import { emitNotesChanged, NOTES_QUERY_KEY } from '@/components/home/MeetingNotes';
 import type { KibbutzRow } from '@/lib/kibbutzim';
+import { EmsGate } from '@/components/EmsGate';
 import {
   canImportNotes, countRowsToSave, dmy, importPayload, KIND_LABEL, parseMeetingSummary,
   type MeetingKind, type ParsedMeeting,
@@ -237,6 +238,7 @@ function ImportSheet() {
           <SheetTitle>📥 ייבוא סיכום ישיבה</SheetTitle>
           <SheetDescription>הדבק את הסיכום, בדוק את התצוגה המקדימה, ושמור. ייבוא חוזר של אותו תאריך מחליף את הרשומות.</SheetDescription>
         </SheetHeader>
+        <EmsGate>
 
         {!preview ? (
           <>
@@ -310,6 +312,7 @@ function ImportSheet() {
             </div>
           </>
         )}
+        </EmsGate>
       </SheetContent>
     </Sheet>
   );

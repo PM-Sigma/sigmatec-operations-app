@@ -1,6 +1,7 @@
 [
   "./ui/sigma-CommandBar.js",
   "./ui/sigma-dialog.js",
+  "./ui/sigma-EmsGate.js",
   "./ui/sigma-Feedback.js",
   "./ui/sigma-FeedbackInbox.js",
   "./ui/sigma-HeaderActions.js",

@@ -26,6 +26,7 @@ import {
   type UsageEvent, type UsageReport,
 } from '@/lib/usage';
 import { usageNarrative } from '@/lib/usageNarrative';
+import { EmsGate } from '@/components/EmsGate';
 
 export const USAGE_QUERY_KEY = ['usage', 30] as const;
 const DAYS = 30;
@@ -240,6 +241,7 @@ function UsageDialog() {
             מי נכנס לאיזה עמוד וכמה, הפעולות המובילות, עמודים שלא נפתחו — ומה ייצא בתקציר של יום ראשון.
           </DialogDescription>
         </DialogHeader>
+      <EmsGate>
 
         {isLoading && (
           <div className="flex flex-col gap-2">
@@ -309,6 +311,7 @@ function UsageDialog() {
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> טוען נתוני שימוש…
           </p>
         )}
+      </EmsGate>
       </DialogContent>
     </Dialog>
   );

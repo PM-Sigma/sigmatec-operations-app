@@ -9,11 +9,51 @@
   //   legacy → React   window.sigmaBus.dispatchEvent(new CustomEvent('<name>'))
   //                    events: user-changed · ems-cache-synced · visit-saved · theme-changed
 //                            · visit-form-open (the legacy visit form just came on screen)
+  //                            · session-expired (one 401 anywhere → one re-login sheet, §7n)
   // ═══════════════════════════════════════════════════════════════════════════
   window.sigmaBus = window.sigmaBus || new EventTarget();
   window.sigmaEmit = function (name, detail) {
     try { window.sigmaBus.dispatchEvent(new CustomEvent(name, { detail: detail })); }
     catch (e) { console.warn('[sigma] emit failed', name, e); }
+  };
+
+  // ───────────────────── session expiry — ONE experience (spec §7n) ─────────────────────
+  // Every 401 in the app funnels in here: an EMS call (js/src/12-reports.js emsApi), a legacy
+  // REST read (js/src/01-data.js), a supabase-js read/write (app/src/lib/supabase.ts). The
+  // debouncer lives HERE and not on the React side because both halves have to share it — a
+  // screen that fired five requests must show ONE sheet, whichever half noticed first.
+  //
+  // Returns true when this call actually announced an expiry (the tests assert on that).
+  var SIGMA_EXPIRY_WINDOW_MS = 4000;
+  window._sigmaExpiryAt = window._sigmaExpiryAt || 0;
+  window.sigmaSessionExpired = function (reason) {
+    try { if (window._certViewMode) return false; } catch (e) {}
+    var now = Date.now();
+    if (window._sigmaExpiryAt && (now - window._sigmaExpiryAt) < SIGMA_EXPIRY_WINDOW_MS) return false;
+    window._sigmaExpiryAt = now;
+    window.sigmaEmit('session-expired', { reason: reason || 'unknown' });
+    // The React sheet is the surface. Without it (a page whose island never loaded) the
+    // legacy re-login modal is the fallback — never a page jump, never a per-page toast.
+    try {
+      if (typeof window.sigmaOpenReLogin === 'function') window.sigmaOpenReLogin();
+      else if (typeof window.emsRequireLogin === 'function') window.emsRequireLogin();
+    } catch (e) { console.warn('[sigma] re-login surface failed', e); }
+    return true;
+  };
+
+  // Hand over to the sign-in, keeping the place the person was in: the page, the scroll
+  // position and the draft the visit form has already saved. The gate restores both after a
+  // successful sign-in (js/src/15-login-gate.js).
+  window.sigmaBeginReLogin = function () {
+    try {
+      var page = window._currentPage || '';
+      if (page && page !== 'ems') sessionStorage.setItem('ems_return_page_v1', page);
+      sessionStorage.setItem('ems_return_scroll_v1', String(window.scrollY || 0));
+    } catch (e) {}
+    var gate = document.getElementById('emsLoginGate');
+    if (gate) { gate.style.display = 'flex'; return; }
+    // No gate markup on this page → a reload lands on it (the gate is the front door).
+    try { location.reload(); } catch (e) {}
   };
 
   // ───────────────────────── usage tracking (spec §7j) ─────────────────────────
@@ -224,6 +264,12 @@
       openDeliveryCert: function (pre) { return call('openDeliveryCert', [pre || {}]); },
       certFromVisitForm: function () { return call('certFromVisitForm'); },
       certFromVisit: function (visitId) { return call('certFromVisit', [visitId]); },
+
+      // ---- session (spec §7n) -----------------------------------------------
+      // One funnel for every 401 and one way to hand over to the sign-in. Islands call these
+      // through app/src/lib/session.ts; nothing else may open a login surface.
+      sessionExpired: function (reason) { return window.sigmaSessionExpired(reason); },
+      beginReLogin: function () { return window.sigmaBeginReLogin(); },
 
       // ---- feedback ---------------------------------------------------------
       // Replaced by Sonner once #sigma-toaster mounts (islands.tsx writes sigma.toast back).

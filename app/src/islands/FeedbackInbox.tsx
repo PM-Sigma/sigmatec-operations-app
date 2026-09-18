@@ -23,6 +23,7 @@ import {
   type FeedbackKind, type FeedbackStatus,
 } from '@/lib/feedback';
 import { FEEDBACK_QUERY_KEY } from '@/islands/Feedback';
+import { EmsGate } from '@/components/EmsGate';
 
 export interface FeedbackItem {
   id: string;
@@ -290,6 +291,7 @@ function InboxDialog() {
             {fresh ? <><bdi>{fresh}</bdi> חדשים · </> : null}סה״כ <bdi>{items.length}</bdi>. באג אפשר להפוך לכרטיס בלוח הפיתוח.
           </DialogDescription>
         </DialogHeader>
+      <EmsGate>
 
         {isLoading && (
           <div className="flex flex-col gap-2" aria-busy="true">
@@ -311,6 +313,7 @@ function InboxDialog() {
             />
           ))}
         </div>
+      </EmsGate>
       </DialogContent>
     </Dialog>
   );

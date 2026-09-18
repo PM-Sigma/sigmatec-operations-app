@@ -390,7 +390,19 @@
     const numish = v => (v != null && /^-?\d+$/.test(String(v))) ? Number(v) : v;
     const genId = p => p + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     const realFetch = window.fetch.bind(window);
-    const sbGet = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { headers: baseH() }); if (!r.ok) throw new Error('supabase GET ' + path + ' ' + r.status); return r.json(); };
+    // Spec §7n: a read that comes back 401/403 means the pass lapsed (the business tables are
+    // authenticated-only), so it goes through the ONE debounced expiry funnel — the re-login
+    // sheet — instead of surfacing as an empty screen. Mock mode (?login=0 on a dev host) is
+    // excluded: there the 401s are the test harness, not an expiry.
+    const sbAuthFailed = (status) => {
+      if (status !== 401 && status !== 403) return;
+      try {
+        var mockHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) || /(^|\.)githack\.com$/.test(location.hostname);
+        if (location.search.indexOf('login=0') !== -1 && mockHost) return;
+        if (typeof window.sigmaSessionExpired === 'function') window.sigmaSessionExpired('sb-read-' + status);
+      } catch (e) {}
+    };
+    const sbGet = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { headers: baseH() }); if (!r.ok) { sbAuthFailed(r.status); throw new Error('supabase GET ' + path + ' ' + r.status); } return r.json(); };
     const sbUpsert = async (table, key, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?on_conflict=' + key, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase upsert ' + table + ' ' + r.status + ' ' + await r.text()); };
     // PATCH = partial update: writes ONLY the columns in `row`, leaving the rest of the existing record untouched.
     const sbPatch = async (table, filter, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?' + filter, { method: 'PATCH', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase patch ' + table + ' ' + r.status + ' ' + await r.text()); };

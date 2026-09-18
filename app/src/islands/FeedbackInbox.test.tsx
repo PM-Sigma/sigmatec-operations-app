@@ -19,6 +19,8 @@ vi.mock('@/bridge', () => ({
   sigma: { isAdmin: () => who.admin, isViewer: () => who.viewer, emsToken: () => 'ems-tok' },
   useCurrentUser: () => ({ name: 'עידן', role: 'idan', isViewer: who.viewer }),
   useSigmaEvent: () => {},
+  // The §7n gate asks the bridge whether the sign-in is live; in a unit test it is.
+  useEmsConnected: () => true,
 }));
 
 vi.mock('sonner', () => ({ toast: sonner }));

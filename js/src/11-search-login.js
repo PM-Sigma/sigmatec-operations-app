@@ -260,7 +260,18 @@
   }
   // Entry point. ?login=1 → real EMS login gate (js/src/15-login-gate.js). Otherwise the
   // legacy name-picker + PIN (kept as default so the live app can never lock anyone out).
-  const LOGIN_FLAG = location.search.indexOf('login=0') === -1;   // default ON (EMS login); ?login=0 = break-glass to the legacy PIN entry
+  // Entry mode. `?login=0` (the legacy name+PIN entry, mock data) is TEST-ONLY from spec §7n
+  // on: it is honoured on a developer machine and on the githack branch previews, and IGNORED
+  // on the live origin — a query parameter must never be able to open the app's data there.
+  // Mirrored in app/src/lib/session.ts (mockHostAllowed), which is where it is unit-tested.
+  function mockHostAllowed() {
+    var h = String(location.hostname || '').toLowerCase();
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]') return true;
+    if (/\.localhost$/.test(h)) return true;
+    return h === 'githack.com' || /\.githack\.com$/.test(h);
+  }
+  window.sigmaMockHostAllowed = mockHostAllowed;
+  const LOGIN_FLAG = !(location.search.indexOf('login=0') !== -1 && mockHostAllowed());   // default ON (EMS login)
   if (!LOGIN_FLAG && !isAuthed()) {
     applyLoginRoleOptions();
     document.getElementById('loginModal').classList.add('open');

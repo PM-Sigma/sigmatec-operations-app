@@ -13,6 +13,7 @@
 // request, so a pass minted (or re-minted, or expired) mid-session is picked up with no
 // client rebuild and no listener to keep in sync.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mockModeAllowed, notifySessionExpired } from './session';
 
 export const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
 export const SB_ANON =
@@ -36,6 +37,50 @@ function currentPass(): SbPass | null {
   catch { return null; }
 }
 
+/**
+ * The bearer for one request, MINTING one first if the sign-in is live but the pass has
+ * lapsed (spec §7n). Reads need it now too — the business tables are authenticated-only — and
+ * `accessToken` is async, so a first paint right after boot waits for the pass instead of
+ * going out anon and coming back empty. `sigma.sbAuthPass` is single-flight, so a screen that
+ * fires eight reads mints once.
+ */
+async function bearerForRequest(): Promise<string> {
+  const pass = currentPass();
+  if (pass && pass.token && (pass.exp || 0) > Date.now()) return pass.token;
+  const s = (window as any).sigma;
+  try {
+    if (s?.isEmsConnected?.()) {
+      const minted = (await s.sbAuthPass?.(false)) as SbPass | null;
+      if (minted && minted.token) return minted.token;
+    }
+  } catch { /* no EMS session — go out anon and let RLS answer */ }
+  return SB_ANON;
+}
+
+/**
+ * THE interceptor (spec §7n). Every supabase-js request — read, write and RPC alike — goes
+ * through this fetch, so a `401` / `PGRST301` anywhere lands in the one debounced funnel that
+ * raises the re-login sheet. No per-island error handling, no per-page toast.
+ *
+ * `?login=0` on a host allowed to mock is the exception: there the 401s are the test harness
+ * (qa/playwright/tests/_helpers.ts answers every write with 42501 on purpose), not an expiry.
+ */
+export async function sessionAwareFetch(input: any, init?: any): Promise<Response> {
+  const res = await fetch(input, init);
+  if (res.status === 401 || res.status === 403) {
+    const mock = mockModeAllowed(location.hostname, location.search);
+    if (!mock) {
+      // The body is read from a CLONE: the caller still gets an unread stream.
+      let code = '';
+      try { code = String(((await res.clone().json()) as any)?.code || ''); } catch { /* not json */ }
+      if (res.status === 401 || code === 'PGRST301' || code === '42501') {
+        notifySessionExpired('sb-' + res.status + (code ? ':' + code : ''));
+      }
+    }
+  }
+  return res;
+}
+
 let clientPromise: Promise<SupabaseClient> | null = null;
 
 /** The shared client. Imports supabase-js on the first call. */
@@ -44,7 +89,8 @@ export function getSupabase(): Promise<SupabaseClient> {
     clientPromise = import('@supabase/supabase-js').then(({ createClient }) =>
       createClient(SB_URL, SB_ANON, {
         auth: { persistSession: false, autoRefreshToken: false },
-        accessToken: async () => sbBearer(currentPass()),
+        accessToken: async () => await bearerForRequest(),
+        global: { fetch: sessionAwareFetch as any },
       } as any),
     );
   }

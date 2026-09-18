@@ -68,13 +68,22 @@ Deno.serve(async (req) => {
       sub = String(p.id || p.sub || p.userId || "ems-user");
     } catch { /* keep default */ }
 
-    // 3) Mint a Supabase-compatible JWT (role=authenticated), valid 1h.
+    // 3) Mint a Supabase-compatible JWT (role=authenticated), valid 180 min.
+    //
+    // Was 60 min. Spec §7n ("session length >= 3 h"): a field day is a sequence of short
+    // visits with the phone asleep in between, and a one-hour pass meant the first tap after
+    // lunch hit a write it could not make. The client still re-mints every 50 min while the
+    // EMS session lives (js/src/15-login-gate.js) and still caps the whole session at 12 h —
+    // this only removes the cliff a sleeping tab used to fall off.
+    const TTL_SECONDS = 180 * 60;
     const token = await create(
       { alg: "HS256", typ: "JWT" },
-      { role: "authenticated", aud: "authenticated", iss: "ems-bridge", sub, exp: getNumericDate(60 * 60) },
+      { role: "authenticated", aud: "authenticated", iss: "ems-bridge", sub, exp: getNumericDate(TTL_SECONDS) },
       await signingKey(JWT_SECRET),
     );
-    return json({ token });
+    // `expiresIn` (seconds) lets the client hold the pass for as long as it is really valid
+    // instead of guessing; an older client that ignores it keeps working unchanged.
+    return json({ token, expiresIn: TTL_SECONDS });
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
   }

@@ -11,6 +11,39 @@
   // Lives OUTSIDE the gate so PIN-mode (?login=0) sessions mint too — without it every Supabase
   // write (incl. emsSyncCache on EMS connect) went out anon → RLS 401. Single-flight: concurrent
   // callers (gate init / emsOnConnected / the write shim) share one in-flight mint.
+  // ── the re-mint schedule (spec §7n). Mirrors app/src/lib/remint.ts, where the math is
+  //    unit-tested: every 50 min while the pass lives, never later than 10 min before it ends,
+  //    and again the moment the tab comes back to the foreground inside that margin.
+  var PASS_TTL_MS = 180 * 60 * 1000;
+  var REMINT_EVERY_MS = 50 * 60 * 1000;
+  var REMINT_MARGIN_MS = 10 * 60 * 1000;
+  function remintDelay(exp, now) {
+    if (!exp) return 0;
+    var untilMargin = exp - REMINT_MARGIN_MS - now;
+    if (untilMargin <= 0) return 0;
+    return Math.min(REMINT_EVERY_MS, untilMargin);
+  }
+  window._sigmaRemintDelay = remintDelay;   // the legacy runner (test-session-gate.mjs) reads it
+  function scheduleRemint() {
+    try { clearTimeout(window._sbRefreshTimer); } catch (e) {}
+    var delay = remintDelay(window._sbTokenExp || 0, Date.now());
+    window._sbRefreshTimer = setTimeout(function () {
+      // Only while the EMS session itself is alive — with no EMS token there is nothing to
+      // trade, and the expiry funnel (js/src/00-bridge.js) owns that case.
+      if (typeof getEmsToken === 'function' && !getEmsToken()) return;
+      if (window._sbBridge) window._sbBridge();
+    }, delay);
+  }
+  // A phone that spent two hours asleep wakes up with a dead pass; re-mint on the way back in
+  // rather than letting the first tap discover it.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    if (typeof getEmsToken === 'function' && !getEmsToken()) return;
+    var exp = window._sbTokenExp || 0;
+    if (exp - Date.now() <= REMINT_MARGIN_MS && window._sbBridge) window._sbBridge();
+    else scheduleRemint();
+  });
+
   let _sbMintInflight = null;
   function sbBridge() {
     if (_sbMintInflight) return _sbMintInflight;
@@ -33,7 +66,11 @@
       if (r.ok) {
         var d = await r.json().catch(function () { return null; });
         if (d && d.token) {
-          window._sbToken = d.token; window._sbTokenExp = Date.now() + 55 * 60 * 1000;
+          // The function mints a 180-min pass (spec §7n: a session must survive a workday
+          // stretch). We hold it for 175 min, one safety margin inside the server's own exp,
+          // and re-mint every 50 min while the EMS session lives.
+          var ttlMs = (d.expiresIn ? d.expiresIn * 1000 : PASS_TTL_MS) - REMINT_MARGIN_MS / 2;
+          window._sbToken = d.token; window._sbTokenExp = Date.now() + Math.max(60000, ttlMs);
           // self-verify: the pass must actually pass RLS, else drop it → stay on anon (safe during staging)
           try {
             var t = await fetch(SB_URL + '/rest/v1/tasks?select=name&limit=1', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + window._sbToken } });
@@ -41,8 +78,7 @@
             else {
               console.log('%c🔒 Supabase pass active (authenticated)', 'color:#15803d;font-weight:700');
               // proactive re-mint before expiry → writes never silently fail post-lockdown (while the EMS session lives)
-              try { clearTimeout(window._sbRefreshTimer); } catch (e) {}
-              window._sbRefreshTimer = setTimeout(function () { if (window._sbBridge) window._sbBridge(); }, 50 * 60 * 1000);
+              scheduleRemint();
             }
           } catch (e) { window._sbToken = null; window._sbTokenExp = 0; }
           return !!window._sbToken;
@@ -60,7 +96,14 @@
     if (typeof isAuthed === 'function' ? !isAuthed() : true) {
       show();
     } else if (typeof getEmsToken === 'function' && getEmsToken()) {
-      sbBridge().then(function () { if (typeof refreshData === 'function') refreshData(); });   // returning session → refresh the DB pass
+      // A returning session (spec §7m G2): mint the pass, then run the two things that used to
+      // fire only from the retired EMS page — the queued-writes flush + cache sync, and the
+      // session-cap timer that ends a stale session through the one expiry funnel.
+      sbBridge().then(function () {
+        try { if (typeof emsOnConnected === 'function') emsOnConnected(false); } catch (e) {}
+        try { if (typeof scheduleEmsExpiry === 'function') scheduleEmsExpiry(); } catch (e) {}
+        if (typeof refreshData === 'function') refreshData();
+      });
       restoreReturnPage();                                                                      // land back where we were before a re-login
     } else if (typeof getRole !== 'function' || getRole() !== 'viewer') {
       // signed in before but the EMS connection is gone → lead them straight to re-login on open
@@ -72,6 +115,10 @@
         try {
           var rp = sessionStorage.getItem('ems_return_page_v1');
           if (rp) { sessionStorage.removeItem('ems_return_page_v1'); if (typeof showPage === 'function' && rp !== 'ems') showPage(rp); }
+          // …and the exact place on it (spec §7n: "lands back where he was").
+          var sy = parseInt(sessionStorage.getItem('ems_return_scroll_v1') || '0', 10);
+          sessionStorage.removeItem('ems_return_scroll_v1');
+          if (sy > 0) setTimeout(function () { try { window.scrollTo(0, sy); } catch (e) {} }, 120);
         } catch (e) {}
       }, 600);
     }
@@ -99,6 +146,7 @@
       try {
         var _rp = window._emsReturnPage || ''; window._emsReturnPage = ''; window._emsReloginActive = false;
         if (_rp && _rp !== 'ems') sessionStorage.setItem('ems_return_page_v1', _rp);
+        window._sigmaExpiryAt = 0;   // a fresh session may raise a fresh expiry
       } catch (e) {}
       if (!person) console.warn('[gate] signed in but no EMS profile matched email "' + email + '" — using email as display name');
       try { location.reload(); } catch (e) {}

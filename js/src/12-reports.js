@@ -250,7 +250,9 @@
     const left = EMS_MAX_SESSION_MS - (Date.now() - at);
     _emsExpiryTimer = setTimeout(() => {
       clearEmsSession();
-      if (typeof emsRequireLogin === 'function') emsRequireLogin();
+      // Through the one funnel (spec §7n), so the cap and a 401 look identical to the user.
+      if (typeof window.sigmaSessionExpired === 'function') window.sigmaSessionExpired('ems-max-session');
+      else if (typeof emsRequireLogin === 'function') emsRequireLogin();
     }, Math.max(0, left));
   }
 
@@ -262,6 +264,11 @@
     window._emsReloginActive = true;
     window._emsReturnPage = (window._currentPage && window._currentPage !== 'ems') ? window._currentPage : '';
     try { if (typeof updateEmsBubble === 'function') updateEmsBubble(); } catch (e) {}
+    // Spec §7n: ONE re-login surface for the whole app. The sheet (app/src/components/
+    // ReLoginSheet.tsx) is it; the modal below is what a page without the React bundle gets.
+    if (typeof window.sigmaOpenReLogin === 'function') {
+      try { window.sigmaOpenReLogin(); return; } catch (e) { console.warn('[ems] re-login sheet failed', e); }
+    }
     const wrap = document.createElement('div');
     wrap.id = 'emsReloginModal';
     wrap.className = 'modal-backdrop open';   // shared modal system → inherits animation + mobile sizing
@@ -275,9 +282,11 @@
     document.body.appendChild(wrap);
     document.getElementById('emsReloginBtn').onclick = function () {
       wrap.remove();
-      const gate = document.getElementById('emsLoginGate');
-      if (gate) gate.style.display = 'flex';                      // universal EMS sign-in (returns to last page via onAuthed)
-      else if (typeof showPage === 'function') showPage('ems');   // fallback: in-app EMS login
+      // Keeps the page + scroll and opens the gate (js/src/00-bridge.js). The old fallback
+      // jumped to showPage('ems'); that page is retired by the redesign (spec §7m G3), so the
+      // sign-in is the only destination.
+      if (typeof window.sigmaBeginReLogin === 'function') window.sigmaBeginReLogin();
+      else { var gate = document.getElementById('emsLoginGate'); if (gate) gate.style.display = 'flex'; }
     };
   }
   window.emsRequireLogin = emsRequireLogin;
@@ -321,7 +330,10 @@
     if (wrapped.error) throw new Error(wrapped.error);
     if (wrapped.status === 401) {
       clearEmsSession();
-      if (typeof emsRequireLogin === 'function') emsRequireLogin(); else renderEmsPage();
+      // ONE debounced expiry for the whole app (spec §7n): ten cards refreshing at once
+      // raise one sheet, not ten. The funnel owns the surface — this call never opens a page.
+      if (typeof window.sigmaSessionExpired === 'function') window.sigmaSessionExpired('ems-401');
+      else if (typeof emsRequireLogin === 'function') emsRequireLogin();
       throw new Error('פג תוקף החיבור — התחבר מחדש');
     }
     // Surface real API errors (422/403/500…) instead of silently returning an

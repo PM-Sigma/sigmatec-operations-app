@@ -5,6 +5,7 @@ import './styles.css';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { Nav } from '@/components/Nav';
+import { mountReLoginSheet } from '@/components/ReLoginSheet';
 import { mount } from '@/islands';
 import { applyTheme, storedTheme } from '@/lib/theme';
 import { applySettings, getSettings, loadSettings, openSettings } from '@/lib/settings';
@@ -63,6 +64,11 @@ function boot() {
   // 📈 שימוש (spec §7j): install the flush loop BEFORE the first mount, so the mount
   // events themselves are buffered. Nothing here touches Supabase until the first flush.
   startTracking();
+
+  // 🔑 The re-login sheet (spec §7n) is NOT lazy and NOT deferred: it is the surface every
+  // 401 in the app raises, so it has to be listening before the first request goes out. It is
+  // provider-free and a few hundred bytes.
+  mountReLoginSheet();
 
   // Both are provider-free islands — neither reads data, so neither pulls TanStack or supabase-js in.
   mount('sigma-toaster', SigmaToaster);

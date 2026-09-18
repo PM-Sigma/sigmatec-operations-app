@@ -42,6 +42,7 @@ function asUser(name: string, opts: { idan?: boolean; viewer?: boolean } = {}) {
     getRole: () => (opts.viewer ? 'viewer' : opts.idan ? 'idan' : 'team'),
     isIdan: () => !!opts.idan,
     isViewer: () => !!opts.viewer,
+    isEmsConnected: () => true,   // the §7n gate: a signed-in session
     toast: vi.fn(),
     sbPass: () => ({ token: 't', exp: Date.now() + 60_000 }),
   };

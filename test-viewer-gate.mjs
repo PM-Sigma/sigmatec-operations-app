@@ -46,7 +46,11 @@ function runGate() {
   const elements = {};
   // lazily creates+caches a permissive stub for ANY id — the outer IIFE touches 'emsLoginGate'
   // at eval time, and gateViewerLogin/gateViewerToggle touch gateError/gateViewerBox/gateViewerPin.
-  const document_ = { getElementById: (id) => (elements[id] || (elements[id] = makeEl())) };
+  const document_ = {
+    getElementById: (id) => (elements[id] || (elements[id] = makeEl())),
+    // the module registers a `visibilitychange` listener for the pass re-mint (spec §7n)
+    addEventListener() {}, removeEventListener() {}, visibilityState: 'visible',
+  };
   const fetch_ = async () => ({ ok: false, json: async () => ({}) });
   const getRole_ = () => localStorage_.getItem(ROLE_KEY) || '';
   const getEmsToken_ = () => '';

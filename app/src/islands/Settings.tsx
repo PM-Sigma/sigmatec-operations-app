@@ -16,6 +16,7 @@ import {
   type CardDesc, type FontChoice, type Landing, type UserSettings,
 } from '@/lib/settings';
 import type { ThemeChoice } from '@/lib/theme';
+import { EmsGate } from '@/components/EmsGate';
 
 /** The landing options a person may pick, in the order they read. */
 const LANDING_OPTIONS: Array<{ value: Landing; label: string }> = [
@@ -108,6 +109,7 @@ function SettingsPanel() {
           </DialogTitle>
           <DialogDescription>{user || 'לא מחובר'}</DialogDescription>
         </DialogHeader>
+        <EmsGate>
 
         <div className="flex flex-col">
           <Row label="מסך פתיחה" hint={landingHint}>
@@ -160,6 +162,7 @@ function SettingsPanel() {
 
         {/* read so the panel re-renders after changeUser() — the landing options are gated per person */}
         <span hidden data-role={personRole} />
+        </EmsGate>
       </DialogContent>
     </Dialog>
   );

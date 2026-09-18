@@ -13,6 +13,7 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { MeetingTimeline, useMeetingNotes } from '@/components/home/MeetingNotes';
 import { openImportSheet } from '@/islands/ImportNotes';
 import { canImportNotes } from '@/lib/meetingNotes';
+import { EmsGate } from '@/components/EmsGate';
 
 const SLOT_ID = 'sigma-modal-meetings';
 
@@ -79,7 +80,9 @@ function ModalMeetingsPanel() {
 export function ModalMeetings() {
   return (
     <SigmaProviders>
-      <ModalMeetingsPanel />
+      <EmsGate>
+        <ModalMeetingsPanel />
+      </EmsGate>
     </SigmaProviders>
   );
 }

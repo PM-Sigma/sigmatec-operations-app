@@ -83,6 +83,16 @@ export interface Sigma {
   toast(msg: string, opts?: Record<string, unknown>): void;
 
   /**
+   * Session & access (spec §7n). `sessionExpired` is the ONE funnel every 401 goes through
+   * (debounced in the legacy bundle, so a legacy 401 and an island 401 arriving together
+   * still produce one `session-expired`); `beginReLogin` hands over to the sign-in, keeping
+   * the page, the scroll position and the saved draft. Islands use app/src/lib/session.ts,
+   * never these directly.
+   */
+  sessionExpired?(reason?: string): boolean;
+  beginReLogin?(): void;
+
+  /**
    * Ctrl+K (§7k.1). ASSIGNED BY React (islands/CommandBar.tsx), not by the legacy bridge —
    * it is the one entry that travels the other way, so the legacy header search and the
    * phone search field can open the merged list instead of carrying their own result UI.
@@ -113,7 +123,10 @@ export type SigmaEvent =
   | 'ems-queue-flushed'
   // a feedback was sent, its status flipped, or a bug became a dev-board card — the 📣 inbox
   // refetches ['feedback'] (docs/integration-map.md)
-  | 'feedback-changed';
+  | 'feedback-changed'
+  // a 401 anywhere (EMS, supabase-js, the legacy reads) — ONE per expiry, debounced by
+  // js/src/00-bridge.js. Consumer: components/ReLoginSheet.tsx (docs/integration-map.md)
+  | 'session-expired';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {
@@ -141,10 +154,22 @@ export function useCurrentUser(): { name: string; role: SigmaRole; isViewer: boo
   return { name, role, isViewer: role === 'viewer' };
 }
 
-/** EMS connection state, refreshed on every cache sync (the only moment it can flip mid-session). */
+/**
+ * EMS connection state, refreshed on every cache sync and on a sign-in / sign-out (the moments
+ * it can flip mid-session) — and on `session-expired`, since an expiry IS the connection
+ * flipping off (spec §7n).
+ *
+ * Read off `window.sigma` rather than the captured const: the §7n gate asks this on the first
+ * render of every island, which can be before the legacy bundle finished defining the bridge.
+ */
+function emsConnectedNow(): boolean {
+  try { return !!(window as any).sigma?.isEmsConnected?.(); } catch { return false; }
+}
+
 export function useEmsConnected(): boolean {
-  const [on, setOn] = useState(() => !!sigma?.isEmsConnected());
-  useSigmaEvent('ems-cache-synced', () => setOn(!!sigma?.isEmsConnected()));
-  useSigmaEvent('user-changed', () => setOn(!!sigma?.isEmsConnected()));
+  const [on, setOn] = useState(emsConnectedNow);
+  useSigmaEvent('ems-cache-synced', () => setOn(emsConnectedNow()));
+  useSigmaEvent('user-changed', () => setOn(emsConnectedNow()));
+  useSigmaEvent('session-expired', () => setOn(emsConnectedNow()));
   return on;
 }

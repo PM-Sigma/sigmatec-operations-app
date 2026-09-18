@@ -22,6 +22,7 @@ import { SigmaProviders } from '@/lib/query';
 import { getSupabase } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
+import { EmsGate } from '@/components/EmsGate';
 import {
   canManageKibbutzim, countRows, filterRows, groupBySection,
   type CardFilter, type KibbutzRow,
@@ -215,7 +216,10 @@ function HomeIsland() {
 export function Home() {
   return (
     <SigmaProviders>
-      <HomeIsland />
+      {/* spec §7n — the cards are business data: no sign-in, no content */}
+      <EmsGate>
+        <HomeIsland />
+      </EmsGate>
     </SigmaProviders>
   );
 }

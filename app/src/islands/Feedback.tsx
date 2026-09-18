@@ -28,6 +28,7 @@ import {
   type FeedbackKind, type FeedbackRow, type VoiceEvent, type VoicePhase,
 } from '@/lib/feedback';
 import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
+import { EmsGate } from '@/components/EmsGate';
 
 /** Bus event every feedback surface listens to (the inbox refetches on it). */
 export const FEEDBACK_CHANGED = 'feedback-changed';
@@ -329,6 +330,7 @@ function FeedbackSheet() {
             {isViewer ? ' גם בצפייה אפשר לשלוח.' : ''}
           </SheetDescription>
         </SheetHeader>
+        <EmsGate>
 
         <ToggleGroup
           type="single"
@@ -408,6 +410,7 @@ function FeedbackSheet() {
         >
           {sending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'שלח'}
         </button>
+        </EmsGate>
       </SheetContent>
     </Sheet>
   );

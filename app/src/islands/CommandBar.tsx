@@ -20,6 +20,7 @@ import { sigma, useCurrentUser, type SigmaPage } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { canManageKibbutzim, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
 import { primaryAdd, primaryAddLabel } from '@/lib/primaryAdd';
+import { EmsGate } from '@/components/EmsGate';
 import {
   KIND_HEADING, pushRecent, rankCommands, rankedRows, readRecents, type Command,
 } from '@/lib/commands';
@@ -200,6 +201,7 @@ function CommandBarPanel() {
       <DialogContent className="max-w-[560px] p-0" dir="rtl">
         <DialogTitle className="sr-only">חיפוש ופעולות</DialogTitle>
         {/* cmdk's own filtering is OFF — `rankCommands` is the ranking, and it is tested. */}
+        <EmsGate>
         <CommandRoot shouldFilter={false} loop>
           <CommandInput
             value={query}
@@ -227,6 +229,7 @@ function CommandBarPanel() {
             </CommandGroup>
           </CommandList>
         </CommandRoot>
+        </EmsGate>
       </DialogContent>
     </Dialog>
   );
