@@ -23,8 +23,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- The four faces ⚙️ הגדרות → פונט offers. All four are loaded so switching is instant. -->
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/app.css?v=mu6y4x9n">
-<link rel="stylesheet" href="ui/sigma.css?v=mu6y4x9n">
+<link rel="stylesheet" href="css/app.css?v=mu6ydwwf">
+<link rel="stylesheet" href="ui/sigma.css?v=mu6ydwwf">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -283,13 +283,12 @@
       <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>על המסלול</div>
       <div class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>דורש פיתוח</div>
       <div class="legend-item" style="font-weight:600;color:var(--primary);">💬 לחץ על קיבוץ לשליחת הערה</div>
-      <button class="steps-info-btn" onclick="document.getElementById('stepsModal').classList.add('open')">ℹ️ הסבר על 12 שלבי ההקמה</button>
     </div>
   </details>
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.117</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:#cbd5e1;line-height:1.7;"><bdi>גרסה 2026-09-18·1.118</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -1219,44 +1218,12 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="stepsModal" onclick="if(event.target.id==='stepsModal') this.classList.remove('open')">
-  <div class="modal steps-modal-content" onclick="event.stopPropagation()">
-    <div class="steps-modal-header">
-      <div>
-        <h3 style="margin:0;">📋 14 שלבי הקמת קיבוץ</h3>
-        <div style="font-size:13px;color:var(--text-light);margin-top:4px;">
-          🟢 ירוק = הושלם &nbsp;·&nbsp; 🟠 כתום מהבהב = בעבודה &nbsp;·&nbsp; ⚪ אפור = ממתין
-        </div>
-      </div>
-      <button class="steps-modal-close" onclick="document.getElementById('stepsModal').classList.remove('open')">✕</button>
-    </div>
-    <div class="steps-modal-body">
-      <ol class="steps-legend-list">
-        <li><div><strong>הקמת אתר ופרטי המחלק</strong></div></li>
-        <li><div><strong>הקמת מונים</strong></div></li>
-        <li><div><strong>הקמת לקוחות</strong></div></li>
-        <li><div><strong>השלמת פרטי לקוחות ותעריפים</strong></div></li>
-        <li><div><strong>הקמת שיוכים לקוחות/מונים</strong></div></li>
-        <li><div><strong>הקמת מערכות סולאריות</strong></div></li>
-        <li><div><strong>השלמת פרטי מערכות</strong></div></li>
-        <li><div><strong>הקמת שיוכים מערכות/מונים</strong></div></li>
-        <li><div><strong>הקמת תבנית אקסל מותאמת אישית</strong></div></li>
-        <li><div><strong>הקמת משתמשים ושליחת הזמנות</strong></div></li>
-        <li><div><strong>ווידוא פרטי מחלק בשנית (אייקון + מספר חוזה סולארי)</strong></div></li>
-        <li><div><strong>תיאום הדרכה</strong></div></li>
-        <li><div><strong>חיבור תקשורת / פתיחת זרימת נתונים</strong></div></li>
-        <li><div><strong>בדיקת חשבונות</strong></div></li>
-      </ol>
-    </div>
-  </div>
-</div>
-
 <!-- Potential-clients panel is opened from the header button (#potentialsBtn) — no floating toggle (it overlapped the visit FAB). -->
 
 <div class="side-panel" id="sidePanel">
   <div class="side-panel-header">
     <h3>📋 לקוחות פוטנציאליים</h3>
-    <button class="steps-modal-close" onclick="document.getElementById('sidePanel').classList.remove('open')">✕</button>
+    <button class="panel-close" onclick="document.getElementById('sidePanel').classList.remove('open')">✕</button>
   </div>
   <div class="side-panel-body">
     <input type="text" class="potential-search" id="potentialSearch" placeholder="🔍 חיפוש קיבוץ..." oninput="filterPotentials()">
@@ -1318,8 +1285,8 @@
 <div id="sigma-ceo"></div>
 <div id="sigma-toaster"></div>
 <div id="sigma-nav"></div>
-<script src="js/app.js?v=mu6y4x9n"></script>
-<script type="module" src="ui/sigma.js?v=mu6y4x9n"></script>
+<script src="js/app.js?v=mu6ydwwf"></script>
+<script type="module" src="ui/sigma.js?v=mu6ydwwf"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {

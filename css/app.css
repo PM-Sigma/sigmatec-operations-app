@@ -13,8 +13,6 @@
     --danger-light: #f2eefb;
     --priority: #d64545;
     --priority-light: #fcecec;
-    --pipeline: #0e9aa7;
-    --pipeline-light: #e6f6f7;
     --gray-light: #f1f4f8;
     --bg: #f4f6f9;
     --card: #ffffff;
@@ -183,12 +181,9 @@
   /* was `position: relative` — sticky is also a positioned ancestor, so the absolutely
      positioned section notes inside keep working (spec §6 sticky section headers). */
   .section-header { position: sticky; top: 0; }
-  .pipeline-section .section-header,
   .ready-live-section .section-header,
   .new-clients-section .section-header { background: var(--card); }
-  .pipeline-section .section-header { border-right: 4px solid var(--pipeline); }
-  .pipeline-section .section-title { color: #0c7d88; }
-  .ready-live-section .section-header { border-right: 4px solid var(--danger); }
+  .ready-live-section .section-header { border-inline-start: 4px solid var(--danger); }
   .ready-live-section .section-title { color: #6549b8; }
   .new-clients-section .section-header { border-right: 4px solid #dd7d23; }
   .new-clients-section .section-title { color: #b35f12; }
@@ -196,31 +191,6 @@
     background: #fffaf4 !important;
     border: 1px solid #ecc89e !important;
     border-right: 3px solid #dd7d23 !important;
-  }
-  .proc-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 6px;
-    margin-top: 6px;
-    cursor: pointer;
-    border: none;
-    font-family: inherit;
-    transition: transform 0.15s;
-  }
-  .proc-btn:hover { transform: scale(1.05); }
-  .proc-btn.proc-done {
-    background: var(--success-light);
-    color: #0b7a55;
-    border: 1px solid #b5e2d2;
-  }
-  .proc-btn.proc-pending {
-    background: #fceeee;
-    color: #b03a3a;
-    border: 1px solid #ecc7c7;
   }
   /* Visual split: card top (operational) vs bottom (setup progress) */
   .card-divider {
@@ -524,16 +494,6 @@
     margin-left: 8px; vertical-align: middle;
   }
   .data-source-pill.offline { background: #fee2e2; color: #991b1b; }
-  .code-badge {
-    background: var(--accent-soft);
-    color: var(--accent);
-    padding: 2px 7px;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: 700;
-    font-family: 'Courier New', monospace;
-    margin-right: 4px;
-  }
   .kibbutz.urgent {
     border-color: #e8b4b4 !important;
     border-right: 4px solid var(--priority) !important;
@@ -570,11 +530,6 @@
     background: #fffcf5 !important;
     border: 1px solid #ecd9ae !important;
     border-right: 3px solid #d99c20 !important;
-  }
-  .flow-active {
-    background: #f7fcfd !important;
-    border: 1px solid #b8e3e6 !important;
-    border-right: 3px solid var(--pipeline) !important;
   }
   .kibbutz.flow-bug {
     background: #fdf8f8 !important;
@@ -995,76 +950,9 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
     50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
   }
-  .steps-info-btn {
-    background: rgba(47,111,237,0.12);
-    color: var(--primary);
-    border: 1px solid rgba(47,111,237,0.2);
-    padding: 8px 14px;
-    border-radius: 10px;
-    font-size: 13px;
-    cursor: pointer;
-    font-family: inherit;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-  .steps-info-btn:hover { background: rgba(47,111,237,0.15); }
-  .steps-legend-list {
-    list-style: none;
-    counter-reset: step-counter;
-    padding: 0;
-  }
-  .steps-legend-list li {
-    counter-increment: step-counter;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px;
-    border-radius: 10px;
-    margin-bottom: 6px;
-    background: var(--bg);
-    font-size: 15px;
-  }
-  .steps-legend-list li::before {
-    content: counter(step-counter);
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--primary);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 15px;
-    flex-shrink: 0;
-  }
-  .steps-modal-content {
-    max-width: 700px;
-    width: 95%;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    padding: 0 !important;
-  }
-  .steps-modal-header {
-    position: sticky;
-    top: 0;
-    background: var(--card);
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--border);
-    z-index: 2;
-    border-radius: 16px 16px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-  }
-  .steps-modal-body {
-    padding: 20px 24px;
-    overflow-y: auto;
-    flex: 1;
-  }
-  .steps-modal-close {
+  /* The side panel borrows this round close button — the only survivor of the deleted
+     15-step modal (spec §2). */
+  .panel-close {
     background: var(--gray-light);
     color: var(--text);
     width: 40px;
@@ -1079,13 +967,8 @@
     justify-content: center;
     line-height: 1;
   }
-  .steps-modal-close:hover { background: #e5e7eb; }
-  @media (max-width: 768px) {
-    .steps-modal-content { width: 100%; height: 100vh; max-height: 100vh; border-radius: 0; }
-    .steps-modal-header { border-radius: 0; }
-    .steps-legend-list li { font-size: 16px; padding: 16px; }
-    .steps-legend-list li::before { width: 38px; height: 38px; font-size: 17px; }
-  }
+  .panel-close:hover { background: var(--surface-2); }
+
   /* ===== Page navigation ===== */
   .page-nav { display: flex; gap: 8px; margin-bottom: 16px; background: var(--card); padding: 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
   .page-nav button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; background: transparent; color: var(--text-light); border: none; padding: 10px 16px; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
@@ -1158,7 +1041,6 @@
      onboarding/progress noise (stepper, proc button, calendar, region). */
   body.meeting-mode .stepper,
   body.meeting-mode .current-step-label,
-  body.meeting-mode .proc-btn,
   body.meeting-mode .calendar-event,
   body.meeting-mode .bug-details,
   body.meeting-mode .region-badge,
@@ -1340,8 +1222,7 @@
     .mobile-toggle-setup .card-divider,
     .mobile-toggle-setup .stepper,
     .mobile-toggle-setup .current-step-label,
-    .mobile-toggle-setup .kibbutz-note,
-    .mobile-toggle-setup .proc-btn { display: none; }
+    .mobile-toggle-setup .kibbutz-note { display: none; }
     .mobile-setup-toggle {
       display: inline-block;
       font-size: 10px;

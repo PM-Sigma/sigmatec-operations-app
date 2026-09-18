@@ -73,8 +73,9 @@
     'ניתאי': { kind: 'field', title: 'טכנאי שטח' },
     'מתניה': { kind: 'dev',   title: 'מפתח (משרד)' }
   };
-  // company-wide pipeline — counted off the `kibbutzim` rows (the single source of truth
-  // since "סיגמה 2.00"; the old four static grids are gone).
+  // Company-wide COUNTS off the `kibbutzim` rows. Formerly drawn as a "צנרת לקוחות"
+  // progress bar — deleted with the pipeline concept (spec §2); the three numbers stay
+  // because they are facts about the customers, not a stage in a procedure.
   function staffPipeline() {
     const rows = (window.KIBBUTZIM || []).filter(r => r && !r.archived_at);
     const live = rows.filter(r => r.section === 'active').length;
@@ -111,10 +112,7 @@
       let body = '';
       if (role.kind === 'ops') {
         body = `
-        <div style="font-size:12px;color:#64748b;margin:4px 0 6px;">צנרת לקוחות — כל החברה</div>
-        <div style="background:#e2e8f0;border-radius:6px;height:10px;overflow:hidden;"><div style="background:#10b981;height:100%;width:${pipe.pctLive}%;"></div></div>
-        <div style="font-size:12px;color:#64748b;margin-top:4px;">${pipe.live}/${pipe.total} לקוחות פעילים (${pipe.pctLive}%)</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px;font-size:13px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:8px;font-size:13px;">
           <div>✅ לקוחות פעילים: <strong>${pipe.live}</strong></div>
           <div>🆕 לקוחות חדשים: <strong>${pipe.new_client}</strong></div>
           <div>🤝 בתהליך שיווקי: <strong>${pipe.marketing}</strong></div>

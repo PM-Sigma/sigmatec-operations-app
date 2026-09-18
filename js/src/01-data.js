@@ -110,28 +110,18 @@
     'כפר מנחם': 961, 'לביא': 968, 'מגן': 935, 'משואות יצחק': 900,
     'פרחי אביב': 930, 'קיבוץ ניצנים': 910, 'כפר דניאל': 977
   };
-  const DATA_FLOWING = new Set([926, 951, 927, 946, 957, 911, 950, 919, 915, 964, 959, 934, 974, 906, 971, 975, 948, 953, 903, 944, 940]);
+  // The customer code is NOT on the card any more (עידן, spec §2): a technician reading his
+  // cards has no use for an internal number, and "⚠️ אין קוד" was a warning about a fact he
+  // cannot act on. It lives in the kibbutz modal's header, next to the name, as a muted
+  // <bdi> — see `paintModalCode()` below, called by openEditModal.
+  window.customerCodeFor = function (name) { return CUSTOMER_CODES[name] || ''; };
 
-  // Customer-code badge on each card. The old "no data flow" urgent banner it used to
-  // feed is gone (spec §2 — flow flags removed); EMS tasks carry that signal now.
-  function injectCustomerCodes() {
-    document.querySelectorAll('.kibbutz').forEach(card => {
-      const code = CUSTOMER_CODES[card.dataset.name];
-      const row = card.querySelector('.kibbutz-name-row');
-      if (row && !row.querySelector('.code-badge')) {
-        const badge = document.createElement('span');
-        badge.className = 'code-badge';
-        badge.textContent = code ? '#' + code : '⚠️ אין קוד';
-        row.appendChild(badge);
-      }
-    });
-  }
-
-  window.addEventListener('load', injectCustomerCodes);
+  // Kept as a NO-OP: sigma.decorateCards() and the legacy passes both call it by name, and a
+  // missing function would take the whole decorating pass down with it.
+  function injectCustomerCodes() { /* the code badge left the card (spec §2) */ }
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      document.getElementById('stepsModal').classList.remove('open');
       document.getElementById('sidePanel').classList.remove('open');
     }
   });
@@ -712,7 +702,9 @@
     el.appendChild(pill);
   }
 
-  // Parse the task field which can contain [PROC_DONE] | step=N | note=... | cat=X
+  // Parse the `task` column, which carries `step=N | note=… | cat=X | type=Y`. The legacy
+  // `[PROC_DONE]` marker is still READ so old rows round-trip unchanged through an edit, but
+  // nothing in the UI shows it any more (spec §2 — the concept is deleted).
   function parseTaskField(taskStr) {
     taskStr = String(taskStr || '');
     const proc = taskStr.includes('[PROC_DONE]');
@@ -805,70 +797,16 @@
         card.appendChild(el);
       });
 
-      // Single procedure/flow button for "באוויר" kibbutzim
-      if (card.dataset.section === 'active') {
-        const procDone = parsed.proc;
-        card.dataset.procDone = procDone ? 'true' : 'false';
-
-        // Remove any stale legacy flags (kept here as cleanup)
-        card.querySelectorAll('.flow-active-flag, .urgent-flag').forEach(e => e.remove());
-
-        const btn = document.createElement('button');
-        btn.className = 'proc-btn excel-injected ' + (procDone ? 'proc-done' : 'proc-pending');
-        btn.textContent = procDone
-          ? '🔵 זרימת נתונים פעילה (פרוצדורה בוצעה)'
-          : '🚨 אין זרימת נתונים — לחץ לסימון פרוצדורה';
-        btn.dataset.row = task.row;
-        btn.dataset.currentValue = task.task || '';
-        btn.dataset.kibbutzName = task.name;
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          toggleProcedure(btn);
-        };
-        card.appendChild(btn);
-      }
+      // The "זרימת נתונים / פרוצדורה" button is DELETED (עידן, spec §2): the whole
+      // data-flow-and-procedure concept is gone — a non-transmitting meter is an EMS task,
+      // which the card already shows in full, and a 15-step pipeline nobody maintained was
+      // telling people about the app instead of about the kibbutz.
+      // Stale flags from older builds are still swept, so an old cached card cleans itself up.
+      card.querySelectorAll('.flow-active-flag, .urgent-flag, .proc-btn').forEach(e => e.remove());
     });
     // The on-card EMS-tasks widget is React now (components/home/EmsTasks.tsx, task-3-brief) —
     // it reads sigma.emsCacheTasksForKibbutz() itself and re-renders on ems-cache-synced, so
     // there is nothing left for this pass to trigger here.
-  }
-
-  async function toggleProcedure(btn) {
-    const row = parseInt(btn.dataset.row);
-    const currentValue = btn.dataset.currentValue || '';
-    const parsed = parseTaskField(currentValue);
-    const name = btn.dataset.kibbutzName;
-
-    const action = parsed.proc ? 'לבטל סימון פרוצדורה' : 'לסמן פרוצדורה כבוצעה';
-    if (!confirm(`האם ${action} עבור "${name}"?`)) return;
-
-    const newValue = serializeTaskField(!parsed.proc, parsed.step, parsed.note, parsed.cat, parsed.type);
-    const isDone = parsed.proc;
-
-    const body = {
-      row: row,
-      task: newValue,
-      editor: 'proc_toggle'
-    };
-    try {
-      const r = await fetch(SHEET_API, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain;charset=utf-8'},
-        body: JSON.stringify(body)
-      });
-      const res = await r.json();
-      if (res.ok) {
-        const t = document.getElementById('toast');
-        t.textContent = isDone ? '↩️ סימון פרוצדורה בוטל' : '✅ הפרוצדורה סומנה כבוצעה';
-        t.classList.add('show');
-        setTimeout(() => t.classList.remove('show'), 2500);
-        setTimeout(refreshData, 800);
-      } else {
-        alert('שגיאה: ' + JSON.stringify(res));
-      }
-    } catch (e) {
-      alert('שגיאת רשת: ' + e.message);
-    }
   }
 
   function renderPotentials(data) {

@@ -526,7 +526,12 @@
     if (mtgSlot) mtgSlot.setAttribute('data-kibbutz', name);
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
-    document.getElementById('modalSub').textContent = 'קיבוץ: ' + name + (task && task.code ? ' (#' + task.code + ')' : '');
+    // The customer code lives HERE and nowhere else (עידן, spec §2): muted, isolated in a
+    // <bdi> so a Hebrew name can never flip the digits, and off the home cards entirely.
+    const codeFor = (task && task.code) || (typeof customerCodeFor === 'function' ? customerCodeFor(name) : '');
+    document.getElementById('modalSub').innerHTML =
+      'קיבוץ: ' + String(name).replace(/</g, '&lt;')
+      + (codeFor ? ' <span style="opacity:.6;font-variant-numeric:tabular-nums;"><bdi>#' + String(codeFor).replace(/</g, '') + '</bdi></span>' : '');
     document.getElementById('editorName').value = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     const parsedT = task ? parseTaskField(task.task) : { type: null };
     document.getElementById('editEngagement').value = parsedT.type || '';
@@ -597,7 +602,7 @@
     // 'card-ems'/'card-ems-new' removed (task-3-brief) — the on-card EMS-tasks widget is React
     // now (components/home/EmsTasks.tsx) and never appears in this legacy-only DOM anyway.
     const TOP_CLASSES = ['kibbutz-name-row','kibbutz-name','card-last-visit'];
-    const BOTTOM_CLASSES = ['kibbutz-note','proc-btn','calendar-event'];
+    const BOTTOM_CLASSES = ['kibbutz-note','calendar-event'];   // 'proc-btn' deleted with the pipeline (spec §2)
 
     document.querySelectorAll('.kibbutz').forEach(card => {
       // React owns the children of an island card (#sigma-home) and renders them in the

@@ -239,9 +239,13 @@ export function KibbutzSheet({
 
         {!isSub && (
           <>
-            <label className={fieldLabel} htmlFor="kibRegion">איזור</label>
-            <input id="kibRegion" className={fieldBox} value={region} list="kibRegions"
-                   onChange={e => setRegion(e.target.value)} placeholder="עמק הירדן" autoComplete="off" />
+            {/* An איזור is required (spec §2) — the cards are GROUPED by it, so skipping the
+                field puts a customer in a bucket that exists only because of the skip. */}
+            <label className={fieldLabel} htmlFor="kibRegion">
+              איזור <span className="text-destructive">*</span>
+            </label>
+            <input id="kibRegion" className={fieldBox} value={region} list="kibRegions" required
+                   onChange={e => setRegion(e.target.value)} placeholder="בחר איזור" autoComplete="off" />
             <datalist id="kibRegions">{regions.map(r => <option key={r} value={r} />)}</datalist>
 
             <label className={fieldLabel}>מדור</label>

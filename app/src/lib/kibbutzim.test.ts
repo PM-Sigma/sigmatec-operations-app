@@ -5,12 +5,14 @@ import { describe, it, expect } from 'vitest';
 import {
   groupBySection, filterRows, countRows, matchesQuery,
   validateKibbutz, kibbutzimSaveBody, canEditEnergy, canManageKibbutzim, cardActionsFor,
-  emsChainPlan, emsChainReduce, energyText,
+  emsChainPlan, emsChainReduce, energyText, REGION_ORDER,
   type KibbutzRow,
 } from './kibbutzim';
 
+// A region is REQUIRED on a kibbutz now (Task 4, spec §2), so the default fixture carries a
+// real one; the cases that test the rule itself pass region: '' explicitly.
 const row = (r: Partial<KibbutzRow> & { name: string }): KibbutzRow =>
-  ({ section: 'active', energy: ['electric'], region: '', ...r });
+  ({ section: 'active', energy: ['electric'], region: 'העמקים', ...r });
 
 describe('groupBySection', () => {
   it('orders regions by REGION_ORDER, rows alphabetical he-IL, "" last', () => {
@@ -120,6 +122,22 @@ describe('validateKibbutz', () => {
     expect(same.ok).toBe(true);
     // an archived row does not block the name
     expect(validateKibbutz(row({ name: 'ארכיון' }), all).ok).toBe(true);
+  });
+
+  it('requires an איזור — a row without one only exists because a field was skipped', () => {
+    const v = validateKibbutz(row({ name: 'חדש', region: '' }), all);
+    expect(v.ok).toBe(false);
+    expect(v.errors).toContain('חובה לבחור איזור');
+    // whitespace is not a region
+    expect(validateKibbutz(row({ name: 'חדש', region: '   ' }), all).errors).toContain('חובה לבחור איזור');
+    // ...and a valid one is trimmed on the way through
+    expect(validateKibbutz(row({ name: 'חדש', region: '  העמקים ' }), all).row.region).toBe('העמקים');
+  });
+
+  it('a SUB-SITE is exempt — it inherits its parent region', () => {
+    const v = validateKibbutz(row({ name: 'גבים — שכונה', kind: 'subsite', parent: 'גבים', region: '' }), all);
+    expect(v.ok).toBe(true);
+    expect(v.errors).not.toContain('חובה לבחור איזור');
   });
 
   it('requires at least one energy type and a valid section', () => {
@@ -276,5 +294,19 @@ describe('emsChainReduce', () => {
     }, NOW);
     expect(res.warnings).toContain('קיבוץ-אב לא נמצא');
     expect(res.steps[4].state).toBe('bad');
+  });
+});
+
+describe('REGION_ORDER (spec §2 — the regions the table actually holds)', () => {
+  it('is exactly the five real regions, north → south', () => {
+    expect(REGION_ORDER).toEqual([
+      'גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'דרום, עוטף עזה והנגב',
+    ]);
+  });
+
+  it('carries none of the old sub-region names — the data was consolidated in prod', () => {
+    for (const gone of ['גליל תחתון', 'עמק הירדן', 'שער הנגב', 'נגב', 'יהודה ושומרון', 'בקעת בית שאן']) {
+      expect(REGION_ORDER).not.toContain(gone);
+    }
   });
 });

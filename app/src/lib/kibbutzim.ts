@@ -29,10 +29,15 @@ export interface RegionGroup {
 
 // North → south. Mirrors js/src/24-kibbutzim.js so the island and the legacy fallback agree;
 // at runtime the legacy global wins (see regionOrder()), this is the offline default.
+/**
+ * The FIVE regions the `kibbutzim` table actually holds, north → south (עידן, spec §2). The
+ * long tail of old sub-region names ('גליל תחתון', 'עמק הירדן', 'שער הנגב'…) is gone: the data
+ * was consolidated in prod, so offering them again would only let someone re-create the mess.
+ * The datalist offers exactly these; `NO_REGION_LABEL` is a defensive fallback for a row that
+ * somehow arrives empty, not a choice.
+ */
 export const REGION_ORDER = [
-  'גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'יהודה ושומרון', 'דרום, עוטף עזה והנגב',
-  'גליל עליון', 'גליל תחתון', 'עמק הירדן', 'עמק יזרעאל', 'עמק המעיינות', 'בקעת בית שאן',
-  'חוף הכרמל', 'שרון', 'שפלה', 'שער הנגב', 'נגב',
+  'גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'דרום, עוטף עזה והנגב',
 ];
 
 export const NO_REGION_LABEL = 'ללא איזור';
@@ -196,6 +201,12 @@ export function validateKibbutz(row: KibbutzRow, allRows: KibbutzRow[] = []): Va
     out.kind = 'kibbutz';
     out.parent = null;
     if (out.section !== 'new' && out.section !== 'active') errors.push('מדור לא תקין');
+    // An איזור is REQUIRED (עידן, spec §2): the cards are grouped by it, so a row without one
+    // lands in a "ללא איזור" bucket that exists only because someone skipped a field. A
+    // sub-site is exempt — it inherits its parent's region above.
+    const region = String(out.region || '').trim();
+    if (!region) errors.push('חובה לבחור איזור');
+    else out.region = region;
   }
 
   return { ok: errors.length === 0, errors, row: out };

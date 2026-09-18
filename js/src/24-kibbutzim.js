@@ -17,10 +17,10 @@
     // (same list as 12-reports.js); the finer-grained names after them are accepted
     // too, so a hand-typed region still sorts sensibly instead of landing in the
     // "unknown" bucket. Anything else sorts after the list, alphabetically; '' last.
+    // The FIVE regions the table actually holds, north → south (עידן, spec §2). Kept
+    // byte-identical to REGION_ORDER in app/src/lib/kibbutzim.ts — both renderers group by it.
     const REGION_ORDER = [
-      'גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'יהודה ושומרון', 'דרום, עוטף עזה והנגב',
-      'גליל עליון', 'גליל תחתון', 'עמק הירדן', 'עמק יזרעאל', 'עמק המעיינות', 'בקעת בית שאן',
-      'חוף הכרמל', 'שרון', 'שפלה', 'שער הנגב', 'נגב'
+      'גליל וגולן', 'העמקים', 'מישור החוף והשרון', 'שפלה ומרכז', 'דרום, עוטף עזה והנגב'
     ];
     const NO_REGION_LABEL = 'ללא איזור';
 
