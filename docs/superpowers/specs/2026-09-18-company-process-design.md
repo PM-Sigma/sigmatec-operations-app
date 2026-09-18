@@ -45,8 +45,12 @@ recording clock; every classification happens afterwards, on the transcript, wit
 - Per kibbutz, **two state strips** side by side, no interaction needed: **ניהולי** (onboarding stage, billing status,
   unanswered requests, health score) and **שטח/מערכת** (visits this month, open EMS tasks, alerts, stock supplied).
   This is עידן's point: a kibbutz can be red on one strip and green on the other — the meeting should see both.
-- Below: last meeting's bullets (state + age) and this week's changes. **No capture text box.** Optional: a single
-  "one-word hint" field that accepts a few characters and Enter — used only when a marker needs a label.
+- Below: last meeting's bullets (state + age) and this week's changes. **Typing stays optional, never required
+  (עידן 18.9: "לפעמים אני כן ארצה לרשום").** One always-visible quick-note line under the kibbutz: type anything, Enter
+  saves it as a timestamped note on that kibbutz (`meeting_events.kind='note'`, no tag, no owner, no decision) and
+  clears the field. A typed note is just a stronger marker: after the meeting it appears next to its transcript segment
+  and gets the same one-tap classification as every other sentence. `N` focuses the field from the keyboard; `Esc`
+  returns to navigation. Nothing else to click during the meeting.
 - Navigation log: `meeting_events(session_id, t_sec, kind 'kibbutz'|'marker'|'parking'|'general', kibbutz, hint)`.
 
 ### 1.3 After the meeting — classification with the transcript already split
