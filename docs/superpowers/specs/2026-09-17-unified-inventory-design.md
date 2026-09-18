@@ -69,6 +69,15 @@ when the pool drops below it.
   assignee, due date unchanged). Stock hint on each item = pool quantity.
 - Drop-ship: no movement (unchanged). Idempotency guards unchanged (`refId` + `reason`).
 
+## 4a. Orders on the inventory page — only the decisive stages, with an active note (עידן 18.9)
+The order module keeps its full flow, but the inventory page shows orders as a **compact strip**: one row per open
+order with only the stages that matter — **ממתין לאישור → הוזמן → הגיע → סופק** (4 dots; drop-ship shows `ספק ישיר`).
+Each row carries **one active note** computed from the data, never free text: `⏳ ממתין לאישור עמיחי 3 ימים` ·
+`🚚 הוזמן, צפוי 24.9` · `⚠️ באיחור 5 ימים מהתאריך הצפוי` · `📦 הגיע — לסמן סופק כדי שייכנס למלאי` · `🔗 לקוח: משימת EMS
+פתוחה` · `⚠️ פריט לא בקטלוג`. Rows sorted by urgency (late → needs action → waiting → in transit). Tap → the existing
+order modal. Closed orders are not on this page (they live in the orders history). The strip is also the "increase via
+order" picker for §4b. Pure `orderNote(order, today)` → `{icon, text, level}` with goldens for each state.
+
 ## 4b. Reporting a stock change (עידן 17.9 — "חייב להיות מקושר כמו שצריך")
 
 There is no free "adjust". A stock change is always one of three linked things, and the UI forces the link:

@@ -147,6 +147,19 @@ pipeline can POST the same JSON (not in scope).
   4. Cert issuing needs connection; offline → the existing guidance alert. Reprint/reissue/cancel flows untouched.
   Contract test: saving a visit with checked products and no active cert is rejected; with a linked cert it saves.
 
+### 5.1b Field-worker view: clean, but complete (עידן 18.9)
+Two rules that pull in opposite directions, both binding:
+- **Clean:** a technician's card and briefing show only what serves the field work. Hidden for the `field` role
+  (אביאם, ניתאי): health score, onboarding progress, billing/financial signals, PM internal notes tagged
+  `audience:'office'`, usage/analytics, import/admin buttons. Visible: open EMS tasks (mine first), open items from the
+  previous visit ("נשאר פתוח"), meeting bullets tagged for the field (`audience:'field'|'all'` — the review screen sets
+  it; default `all`), stock to deliver / open customer orders for this kibbutz, contacts, alerts on non-transmitting
+  meters (they are field work).
+- **Complete:** he must leave the kibbutz with nothing untouched. The briefing ends with a **"לפני שיוצאים" checklist**
+  = every open item above as a checkbox row; the visit form's "מה נשאר לי פתוח" is pre-filled with the unchecked ones;
+  the 2 h nudge and the gap list mention the count ("3 פריטים נשארו פתוחים בגבים"). Roles are decided by
+  `sigma.getRole()`; the same card component renders both views from one `audienceFor(role)` filter (pure, tested).
+
 ### 5.2 Reminder
 - Edge Fn `push-send` gets mode **`visitCron`**: for each `field_checkins` row with `checked_in_at < now()-2h`,
   `reminded_at is null`, `dismissed=false`, and **no `visits` row** for (person, kibbutz, that date) → send push,

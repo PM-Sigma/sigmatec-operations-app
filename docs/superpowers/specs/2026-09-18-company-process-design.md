@@ -121,6 +121,7 @@ Weights and thresholds are עידן's; start equal.
 
 - Table `work_sessions(id, person, kibbutz, task_ref (ems:id|internal:id|null), kind 'הדרכה'|'תמיכה'|'אפיון'|'הקמה'|
   'פגישה'|'שיחה', with_whom text, description, started_at, ended_at, billable bool default false, clockify_id, note)`.
+- **Who logs sessions (עידן 18.9):** עידן (PM) and **מתניה (developer) — he sometimes has to schedule client work too**. Sessions carry `person` and a derived `role` (`pm`|`dev`|`field`), and every report separates them (PM hours / dev hours / technician visit hours), never summed into one number.
 - **Timer** from a card / task / calendar: "▶ התחל עבודה על גבים" → stop → fill with-whom/description/kind, billable
   toggle (default off, sensitive). Calendar/Meet events tagged with a kibbutz suggest a session.
 - **Clockify sync:** each session is mirrored to Clockify (project = kibbutz, tags = kind/billable) through its API so
