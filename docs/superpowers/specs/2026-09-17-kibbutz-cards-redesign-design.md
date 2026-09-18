@@ -73,6 +73,13 @@ checklist (company-process spec §4) when that ships; until then a new client is
 module's internal "supplier pipeline" comments are code comments, not UI, and may stay. Contract test: UI strings must
 not contain `זרימת נתונים|פרוצדורה|צינור|שלב [0-9]`.
 
+**Kibbutz code (עידן 18.9):** the legacy code badge (`code` column of `tasks`, e.g. 926) is **not shown on the home
+cards**. It appears only inside the kibbutz modal/briefing header as a small muted `<bdi>` next to the name — present,
+unobtrusive. **No kibbutz without a region:** every row in `kibbutzim` must have a region from `REGION_ORDER`; rows
+that came out of the seed with `''` are filled by עידן or, when unknown, resolved from public sources according to our
+own region split (see the data fix in Task 4's report). `validateKibbutz` rejects an empty region on create/edit; the
+"ללא איזור" group therefore never renders in production.
+
 Final page order (עידן): **🆕 לקוחות חדשים → ✅ לקוחות פעילים** (section keys `new` / `active`). Filter chips: הכל · חדשים · פעילים · 🤝 שיווקי.
 
 ## 3. Part B — Meeting bullets per kibbutz
