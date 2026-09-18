@@ -400,6 +400,84 @@ full task (title, description, due, priority, status, 🔗 open in EMS); filters
 (PATCH status via the existing write path), **📍 בריפינג**. Company tasks (`companyTasks`) stay as a collapsible block
 at the top. Export/copy/mail actions of `generateMyTasksReport` are kept as a ⋯ menu.
 
+## 7h. Part K — Personal settings + personal area (עידן 18.9)
+
+**⚙️ הגדרות** (⋯ עוד → הגדרות; React island `#sigma-settings`, per-user rows in `user_settings(person text pk, font text,
+theme text, eod_hour int, updated_at)` + `localStorage` mirror for instant apply):
+- **פונט**: Assistant (default) · Rubik · Noto Sans Hebrew · Heebo — applies to the whole app via `--font` token.
+- **מצב תצוגה**: בהיר / כהה / לפי המכשיר (same toggle as the header).
+- **📲 התקן כאפליקציה**: the existing `appInstall()` prompt (shown when the browser exposes `beforeinstallprompt`; on
+  iOS shows the "שתף → הוסף למסך הבית" instructions).
+- **🔔 התראות**: one button that requests notification permission and subscribes push (existing `22-push.js`
+  subscribe flow), with state text: פעיל / חסום (with the unblock instructions) / לא נתמך.
+- **⏰ שעת תזכורת סוף יום** (אביאם/ניתאי): time picker, default 19:00, stored in `user_settings.eod_hour`; the server
+  `attendanceCron` evening job reads it per person instead of the fixed 19. The 2-hour visit reminder is unchanged.
+- **👤 האזור האישי**: name, role, EMS connection status, devices registered for push (from `push_subscriptions`),
+  and the **פערים** panel below.
+
+**📋 הפערים שלי** (personal gaps — for אביאם/ניתאי in their area; for עמיחי and the viewer as a per-person list):
+a derived list, no new table, computed by `gapsFor(person, {visits, checkins, dayPlans, emsTasks, attendance,
+holidays}, today)`:
+- **ביקור בלי סיכום**: a check-in (`field_checkins`) or a route stop (`day_plans`) or an EMS task due that day at that
+  kibbutz, with no `visits` row for (person, kibbutz, date) → "היית ב-<קיבוץ> ב-<date> ואין סיכום ביקור".
+- **נוכחות חסרה**: the existing missing-days logic (§7e, holiday-aware).
+- **משימת EMS שעבר תאריך היעד** assigned to the person, still open.
+- **ספירת מלאי פתוחה** (later, from the inventory spec).
+Each gap row has the one action that closes it (📍 סיכום ביקור prefilled with kibbutz+date · 📅 מלא נוכחות · 🔗 פתח
+משימה). The viewer/עמיחי view is the existing red-rows + 🔔 nudge flow (already live for attendance: `attNagDay` in
+`22-push.js`) extended to visit gaps — one `push-send` mode `gapReminder` reusing `attendanceReminder`'s shape.
+Golden tests: fixture week with two check-ins (one with a visit, one without), one overdue task, one holiday →
+exactly two gaps, in date order.
+
+## 7i. Part L — יומן שטח חופשי: paste/dictate the day, AI splits it into visit summaries (עידן 18.9)
+
+Field workers already write what they did on paper or in WhatsApp. New entry **📝 יומן היום** (bottom-nav ⋯ and a
+button on the visit page): one big textarea (or 🎙 dictation, §7 voice) → **נתח** → the text is sent to the existing
+edge function pattern (`parse-order` uses Gemini `gemini-2.5-flash-lite` with Groq `llama-3.1-8b-instant` fallback
+and an offline heuristic — the same chain, in a new function `parse-daylog`) with the **catalog of kibbutz names +
+sub-sites, the product list (technical names), and today's date** as grounding. The model returns strict JSON:
+`{visits:[{kibbutz, date, duration_hours|workday, did, open_items, products:[{name, qty}], ems_updates:[{task_hint,
+comment}], confidence}], unmatched_text}`. The UI shows **one editable card per kibbutz** (kibbutz picker if the
+match is uncertain, products as the normal checklist with the parsed quantities pre-filled, did/open text fields),
+the user fixes anything, then **שמור הכל** creates the visits through the normal `saveVisit` path (so the cert gate,
+stock movements from the pool, and `visit-saved` events all apply). Nothing is saved before the user confirms.
+- **EMS task updates from the same text:** when a sentence clearly refers to an open EMS task at that kibbutz (title
+  similarity ≥ threshold, computed client-side over the cached tasks), the card offers "עדכן משימה" → posts a
+  comment on the task via the existing comments write path with the prefix **"עדכון מ<שם> על המשימה: …"** (עידן's
+  wording); optional status change (in_progress / done) as a checkbox, off by default. Editing a saved visit later
+  that is linked to a task posts a second comment with the same prefix.
+- **Verify the AI chain still works** as the first step of the task: call `parse-order` with a known fixture and
+  confirm Gemini answers (else Groq); record model, latency, and cost tier in the report. The prompt is a file
+  (`supabase/functions/parse-daylog/prompt.md`) with a golden test: 5 real-style Hebrew day logs → expected JSON
+  (structure asserted, kibbutz names must resolve to the catalog).
+- Learning loop like `parse-order`'s `parse_corrections`: every user correction (kibbutz, product, qty) is stored and
+  fed back as few-shot examples.
+
+**Voice / Whisper — feasibility answer (עידן 18.9):** Google Drive / OneDrive are storage, not compute; Whisper cannot
+"run on" them. Real options, all fine for Hebrew: (1) **Groq Whisper `whisper-large-v3`** via API — best Hebrew
+quality in the open-weights family, seconds per minute of audio, fractions of a cent per minute, the key already
+exists in this project → **default**; (2) OpenAI `whisper-1` / `gpt-4o-transcribe` API — similar, costs a bit more;
+(3) on-device browser speech recognition (Android Chrome, `he-IL`) — free and instant, weaker on jargon, no iOS PWA
+support → used as the live path when available; (4) self-hosting `faster-whisper` needs a GPU/VPS (~$20–40/month) —
+not worth it at this volume. Recordings go to the private `feedback-audio`/`visit-audio` Storage buckets and are
+deleted after transcription succeeds (retention 7 days for retry). Every transcript is editable before it is used.
+
+## 7j. Part M — Usage analytics (עידן 18.9) — עידן only
+
+- Table `usage_events(id bigint identity, person text, page text, action text, target text, at timestamptz default
+  now(), session_id text, device text)`; client `track(action, target?)` in the bridge (legacy) and a hook (React),
+  buffered and flushed every 10 s / on `pagehide` via one bulk insert; PII-free (person name + what/when only).
+  Instrumented: page views (`showPage`), island mounts, every primary action (save visit, check-in, cert issued,
+  task created/scheduled, order approved, stock report, feedback sent, import, ➕ kibbutz), and dead-end signals
+  (search with no results, sheet opened and dismissed without saving).
+- **📈 שימוש** page (⋯ עוד, `isIdan()` only): per person × page heat table for the last 30 days, top actions, pages with
+  zero use, median time-to-first-action after check-in, "last seen". Charts here use shadcn Charts (Recharts) — the
+  first use of the chart library in the app.
+- **Weekly digest push to עידן (Sunday 08:00, `push-send` mode `usageDigest`, pg_cron hourly gate):** written as
+  sentences, not numbers — a pure `usageNarrative(events, prevWeek)` builder produces lines like "אביאם נכנס 5 ימים
+  מתוך 6 ופתח סיכום ביקור 9 פעמים (שבוע שעבר 4)", "ניתאי לא השתמש בעמוד המשימות כלל השבוע", "עמוד המלאי לא נפתח על
+  ידי אף אחד", "החיפוש בקיבוצים נכשל 3 פעמים (לא נמצאו: 'גשר', 'שלוחות ב')". Golden tests on the narrative.
+
 ## 7c. Architecture — React islands on the existing PWA (עידן 17.9: "תשתמש בספריות שנתתי לך")
 
 עידן named a React/Tailwind stack: **shadcn/ui, Magic UI, Aceternity UI, Motion, Sonner, Vite, TanStack Query,

@@ -20,6 +20,7 @@
 - No hard-coded colors in new CSS — tokens only (`--brand-1:#06C2CB`, `--brand-2:#1ABE63`, `--brand-grad`, surfaces). Dark mode via `:root[data-theme="dark"]` + `prefers-color-scheme`.
 - Roles: `getCurrentUser()` returns the Hebrew name; admins = `'עידן'`, `'עמיחי'`; field = `ATT_PEOPLE = ['אביאם','ניתאי']`; `isViewer()` must stay read-only everywhere (regression assert in every role test).
 - Secrets never in repo. Supabase anon key is public (already in `01-data.js`/`22-push.js`). Groq key only as an Edge Function secret.
+- **Integration rule (עידן 18.9):** any task that adds a bridge function, bus event, table, push mode, island placeholder or page must add it to `docs/integration-map.md` and to `test-integration.mjs` in the same commit; a feature that changes shared data (visits, kibbutzim, EMS cache, stock, day plans, notes) must emit its bus event so the other surfaces refresh — no page may show stale data that another page just changed.
 - Delivery-cert gate (spec §5 rules 1–4) must remain byte-for-byte in behavior; `test-visit-cert-gate.mjs` must keep passing untouched.
 - Commit after each task: `git add <your files> && git commit -m "<type>(kcr): <what>"` + `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 
@@ -391,6 +392,27 @@ function hashIdx(s: string, n: number) { let h = 0; for (const ch of s) h = (h *
 ### Task 14: "משימות" page island
 
 **Agent:** Sonnet. Depends on 13. **Spec §7g.** Files: `app/src/islands/MyTasks.tsx`, `app/src/lib/myTasks.ts` (`groupMyTasks(tasks, me, {includeOthers, status, kibbutz})` → groups sorted overdue→due→none) + vitest; Modify `js/src/14-calendar.js` (`renderMyTasks` → mount island; keep `generateMyTasksReport` reachable via bridge). Steps: tests → implement → suite → build → smoke as אביאם and עידן → commit.
+
+### Task 15: Settings + personal area + gaps + gap nudges
+
+**Agent:** Opus. Depends on 5, 12. **Spec §7h.** Files: `db/user_settings.sql`, `app/src/islands/Settings.tsx` (font, theme, install, notifications, EOD hour, personal area), `app/src/islands/Gaps.tsx`, `app/src/lib/gaps.ts` (`gapsFor`) + vitest goldens (spec fixture), `app/src/lib/settings.ts` (`applyFont`, `loadSettings`), Modify `supabase/functions/push-send/index.ts` (`attendanceCron` evening hour per person from `user_settings.eod_hour`; mode `gapReminder`), `js/src/22-push.js` (viewer nudge for visit gaps), `js/src/16-install.js` (expose `appInstall` + `canInstall` on bridge), `index.html` (`#sigma-settings`, `#sigma-gaps`), registry items. Steps: tests → implement → suite → build → apply migration → deploy `push-send` (diff vs origin/main) → smoke as ניתאי (settings persist, EOD 18:00 respected by a forced cron call) → commit.
+
+### Task 16: יומן שטח חופשי — AI day-log → visit summaries + EMS comments
+
+**Agent:** Opus. Depends on 5, 6 (voice), 15. **Spec §7i.** Step 0: call `parse-order` with a fixture and record Gemini/Groq status. Files: `supabase/functions/parse-daylog/{index.ts,prompt.md}` (same provider chain as `parse-order`, strict-JSON output, grounding lists in the request), `app/src/islands/DayLog.tsx` (textarea/dictation → נתח → editable per-kibbutz cards → שמור הכל via `sigma.saveVisitFromData(visit)` — add to bridge, wrapping the existing `saveVisit` builder so gates apply), `app/src/lib/daylog.ts` (`normalizeDayLog(json, catalog)`, `matchEmsTask(sentence, tasks)`, `emsCommentText(person, text)` = `עדכון מ${person} על המשימה: ${text}`) + vitest goldens (5 Hebrew day logs → structure; task matching threshold cases), `db/daylog_corrections.sql`, Modify `js/src/14-calendar.js` (comment write path exposed as `sigma.emsAddComment(taskId, text)`), `js/src/09-visits.js` (post "עדכון מ… על המשימה" comment when a visit linked to a task is edited). Steps: tests → implement → deploy function (secrets reuse GEMINI_API_KEY/GROQ_API_KEY) → smoke: paste a 3-kibbutz day log → 3 cards → fix one kibbutz → save → 3 visits exist, movements from `חברה`, one EMS comment posted with the prefix → commit.
+
+### Task 17: Usage analytics + weekly narrative digest (עידן only)
+
+**Agent:** Opus. Depends on 0, 4. **Spec §7j.** Files: `db/usage_events.sql`, `app/src/lib/track.ts` (buffer/flush, `useTrack`), `js/src/00-bridge.js` (`sigma.track`, auto-track in `showPage`), `app/src/islands/Usage.tsx` (Recharts via shadcn Charts: heat table, top actions, zero-use pages, last seen), `app/src/lib/usageNarrative.ts` + vitest goldens (spec sentences), `supabase/functions/push-send/index.ts` (mode `usageDigest`, Sunday 08:00 gate, tag `usage-<yyyy-ww>`), `db/cron_usage_weekly.sql`. Steps: tests → implement → build → migration → deploy → force one digest to עידן → commit.
+
+### Task 18: Integration sweep — every page and feature wired, nothing stale (עידן 18.9: "תוודא שיש בין כל דף ופיצר את הקשר בקוד")
+
+**Agent:** Opus. Runs after all feature tasks, before Task 7. Files: `docs/integration-map.md` (generated + hand-annotated), `test-integration.mjs`, fixes wherever the sweep finds a gap.
+
+- Build the **integration map**: (a) every `sigma.<fn>` referenced in `app/src/**` must exist in `js/src/00-bridge.js` AND resolve to a real legacy function (grep the concat order); (b) every `sigmaBus` event name emitted anywhere must have ≥1 listener and every listener ≥1 emitter (`user-changed`, `ems-cache-synced`, `visit-saved`, `visit-form-open`, `theme-changed`, `kibbutzim-changed`, `checkin-created`, `stock-changed`, `notes-changed`, `dayplan-changed`); (c) every island placeholder id in `index.html` is mounted in `main.tsx` and vice versa; (d) every Supabase table/column referenced in `app/src/**` or `js/src/**` has a `db/*.sql` file and exists live (`information_schema` query via MCP); (e) every `showPage('x')` target has a view element and a nav/⋯ entry gated the same way; (f) every push mode used by the client exists in `push-send/index.ts` and vice versa; (g) every registry item resolves.
+- **Cross-feature propagation contract** (asserted by `test-integration.mjs` with DOM/bus stubs, and smoked live): visit saved → card last-visit/open-items refresh, gaps list drops the item, calendar day panel shows it, inventory pool decrements, alert row created, check-in marked done (no 2 h push); EMS cache synced → cards' EMS block, calendar EMS layer, משימות page, briefing; kibbutz created/edited/archived → cards, pickers (visit-quick, orders, scheduler), calendar groups, arrival sheet; day plan reordered → arrival sheet order; meeting notes imported → cards + modal timeline + briefing; theme/font changed → all islands + legacy pages; user changed → nav roles, quick actions, ➕ visibility.
+- Stale-part hunt: grep for functions/ids no longer referenced (`#stepsModal`, `DATA_FLOWING`, `.compact-*`, old `data-types` readers, `updateStatsFromCards`, distribution UI after Task 8) and delete them; run the RTL gate and the CSS balance test on the final tree.
+- Output: `docs/integration-map.md` table (source → event → consumers, with file:line), green `test-integration.mjs`, and a list of fixes made. Any gap that needs design goes to the ledger as a ruling, not silently patched.
 
 ### Task 7: Release — docs, version, dev → main
 
