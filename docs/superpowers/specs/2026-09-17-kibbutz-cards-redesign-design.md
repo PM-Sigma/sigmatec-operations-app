@@ -64,6 +64,15 @@ Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, a
 משואות יצחק) → **לקוחות פעילים** + 🤝. **Status/flow flags are removed** (עידן, mockup comment 17.9: "לא צריך את זה יותר את הזרימה והכל"): `ready-flow`, `flow-active`, `manual-flow`, `new-client-flag` pills, the `urgentAlert` "באוויר ללא זרימת נתונים" banner, the modal's **שלב 1–15** + **הערת הקמה** fields and the "התקדמות הקמת מערכת" group. A card shows only: name · energy badge · 🤝 tag (if set) · meeting bullets · EMS tasks. The `has-bug` note goes too — bugs live as EMS tasks. Category select in
 the modal shrinks to two values: חדשים בהקמה / לקוחות פעילים.
 
+**The whole "data flow / procedure / setup pipeline" concept is gone (עידן 18.9: "זרימת הנתונים והפרוצדורה והצינור — לא
+רוצה").** Delete, not hide: the card `proc-btn` ("זרימת נתונים פעילה / אין זרימת נתונים — לחץ לסימון פרוצדורה") and its
+`PROC_DONE` marker in the legacy task string, the `DATA_FLOWING` set, the 15-step `#stepsModal` + its `steps-info-btn`,
+the stepper, the "🏗️ התקדמות הקמת מערכת" group, the `--pipeline` tokens, the staff-page "pipeline" progress bar, and
+every UI string containing זרימה/פרוצדורה/צינור/שלב N. Setup state of a new client is expressed only by the onboarding
+checklist (company-process spec §4) when that ships; until then a new client is simply in 🆕 לקוחות חדשים. The order
+module's internal "supplier pipeline" comments are code comments, not UI, and may stay. Contract test: UI strings must
+not contain `זרימת נתונים|פרוצדורה|צינור|שלב [0-9]`.
+
 Final page order (עידן): **🆕 לקוחות חדשים → ✅ לקוחות פעילים** (section keys `new` / `active`). Filter chips: הכל · חדשים · פעילים · 🤝 שיווקי.
 
 ## 3. Part B — Meeting bullets per kibbutz
