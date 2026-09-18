@@ -1,3 +1,5 @@
+🟡 IN PROGRESS (2026-09-17→) — **סיגמה 2.00 redesign**: spec `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md`, plan `docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md`, branch `feat/kibbutz-cards-redesign` (worktree `SigmatecOps-wt-cards`). Tasks 0, 1, 1b done; 2 in fix round. Companion specs: unified inventory (17.9), company process (18.9, draft).
+
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
