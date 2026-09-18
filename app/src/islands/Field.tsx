@@ -50,6 +50,13 @@ export const CHECKIN_KEY = 'checkin_today';
 export const NO_FIELD_KEY = 'field_no_visit_v1';
 /** Is the "היום" strip folded? His choice, remembered (§7k #11). */
 export const TODAY_FOLDED_KEY = 'sigma_today_folded_v1';
+/**
+ * The sheet arrived uninvited today already (fix round 1). Keyed BY CALENDAR DAY in
+ * localStorage, not by browser session: a session latch meant a reload asked him again on the
+ * same morning, and — worse — a phone that is never really closed would not ask him again the
+ * NEXT day. A new date is a new key, so the prompt comes back exactly once a day.
+ */
+export const arrivalPromptKey = (day: string) => 'arrival_dismissed_' + day;
 
 const readJson = <T,>(key: string): T | null => {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : null; }
@@ -96,13 +103,32 @@ async function fetchDayPlan(person: string, day: string): Promise<string[]> {
   } catch { return []; }
 }
 
-/** Open customer orders — what makes 🚚 meaningful and what the checklist lists as stock to hand over. */
+/** Statuses that mean an order is finished — nothing left to hand over. */
+const CLOSED_ORDER_STATUS = ['delivered', 'cancelled', 'canceled', 'done'];
+const ORDER_PAGE = 500;
+
+/**
+ * Open CUSTOMER orders — what makes 🚚 meaningful and what the checklist lists as stock to
+ * take with him. Filtered SERVER-SIDE (fix round 1): the old flat 300-row cap silently dropped
+ * the oldest open order once the table grew, which on this screen reads as "there is nothing
+ * to deliver" — the one answer that must never be a guess. Paged until the server stops
+ * sending, with a hard ceiling so a runaway table cannot spin the phone.
+ */
 async function fetchOpenOrders(): Promise<OrderRow[]> {
   try {
     const sb = await getSupabase();
-    const { data, error } = await sb.from('orders').select('*').neq('status', 'delivered').limit(300);
-    if (error) return [];
-    return (data || []) as OrderRow[];
+    const out: OrderRow[] = [];
+    for (let page = 0; page < 20; page++) {
+      const { data, error } = await sb.from('orders').select('*')
+        .not('status', 'in', '(' + CLOSED_ORDER_STATUS.join(',') + ')')
+        .order('id')
+        .range(page * ORDER_PAGE, page * ORDER_PAGE + ORDER_PAGE - 1);
+      if (error) return out;
+      const rows = (data || []) as OrderRow[];
+      out.push(...rows);
+      if (rows.length < ORDER_PAGE) break;
+    }
+    return out;
   } catch { return []; }
 }
 
@@ -502,18 +528,20 @@ function FieldIsland() {
   const openArrival = React.useCallback(() => { setQuery(''); setMode('arrival'); track('field-arrival-open'); }, []);
 
   /**
-   * The sheet may only ARRIVE UNINVITED once per browser session — the same latch the other
-   * two full-screen prompts use (`_pushPromptShown`, `_attReminderShown`), which is also what
-   * lets the Playwright harness keep it out of the way of specs that are about other screens.
-   * Opening it by hand (the 📍 button, a stop in the "היום" strip) is never latched.
+   * The sheet may only ARRIVE UNINVITED once A DAY — `arrival_dismissed_<date>`, so a reload
+   * does not ask him twice on the same morning and a phone that is never closed is still
+   * asked tomorrow. `window._fieldPromptShown` stays as the override the Playwright harness
+   * sets, the way it already does for the push and attendance prompts. Opening the sheet BY
+   * HAND (the 📍 button, a stop in the "היום" strip) is never latched.
    */
   const autoOpenOnce = React.useCallback(() => {
     const w = window as any;
-    if (w._fieldPromptShown) return;
+    if (w._fieldPromptShown) return;               // the harness / an explicit opt-out
+    if (readStr(arrivalPromptKey(today)) === '1') return;
     if (!shouldPrompt()) return;
-    w._fieldPromptShown = true;
+    try { localStorage.setItem(arrivalPromptKey(today), '1'); } catch { /* private mode */ }
     openArrival();
-  }, [openArrival, shouldPrompt]);
+  }, [openArrival, shouldPrompt, today]);
 
   React.useEffect(() => {
     const api = {

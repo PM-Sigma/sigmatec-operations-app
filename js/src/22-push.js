@@ -246,15 +246,20 @@
         if (window.sigma && typeof window.sigma.openVisitQuick === 'function') window.sigma.openVisitQuick(kibbutz);
         else if (typeof openVisitQuick === 'function') openVisitQuick();
       }
-      // 🙈 לא היום — the React island owns the write (supabase-js + the query cache); without
-      // it (no bundle) there is nothing to do but say so, and the next run will nudge again.
+      // 🙈 לא היום — the React island owns the write (supabase-js + the query cache).
       else if (act === 'visitDismiss') {
         // The island is a LAZY chunk, so it can still be loading when the deep link runs.
         var tries2 = 0;
         (function waitField() {
           if (window.sigmaField && typeof window.sigmaField.dismiss === 'function') { window.sigmaField.dismiss(cid); return; }
-          if (++tries2 > 20) {                       // ~5 s, then say it plainly and move on
-            if (window.sigma && typeof window.sigma.toast === 'function') window.sigma.toast('בסדר, לא היום.');
+          // ~5 s and the island never arrived: NOTHING WAS WRITTEN. Saying "בסדר, לא היום"
+          // here would be a lie — the reminder is already spent for this arrival (push-send
+          // stamped reminded_at), but the check-in is not dismissed, and the in-app banner
+          // will still ask. Say what is true and leave him one tap that works.
+          if (++tries2 > 20) {
+            if (window.sigma && typeof window.sigma.toast === 'function') {
+              window.sigma.toast('לא הצלחתי לסמן — תוכל לסגור את זה מהבאנר במסך הראשי');
+            }
             return;
           }
           setTimeout(waitField, 250);

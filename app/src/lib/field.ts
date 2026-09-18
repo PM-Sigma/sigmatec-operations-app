@@ -553,8 +553,43 @@ export function nudgeFor(checkinId: string, kibbutz: string, hasDraft = false): 
 
 // ───────────────────────── the reminder's decision (spec §5.2 + §7k ג) ─────────────────────────
 
-/** Adoption guard ג: at most three non-digest pushes per person per day. */
+/**
+ * Adoption guard ג, as the review settled it (fix round 1) — THREE numbers, not one:
+ *   · `PUSH_DAILY_CAP` is the ceiling on the SUM of the capped modes (visit + gap + any other
+ *     non-digest nudge added later);
+ *   · each capped mode has its own, smaller ceiling, so one noisy mode can never eat the whole
+ *     budget and leave the others silent;
+ *   · attendance and the weekly digest are EXEMPT — attendance is the record of the work day
+ *     and the digest is a report, so neither may be crowded out by nudges, and neither counts
+ *     towards the sum.
+ */
 export const PUSH_DAILY_CAP = 3;
+/** At most two visit nudges a day, however many kibbutzim he stopped at. */
+export const VISIT_DAILY_CAP = 2;
+/** The gaps nudge (Task 18) gets exactly one. */
+export const GAP_DAILY_CAP = 1;
+
+/** Modes that are neither capped nor counted (see above). */
+export const CAP_EXEMPT_EVENTS = ['attendanceCron', 'attendanceReminder', 'usageDigest'];
+
+/** The per-mode ceiling, or `null` for an exempt mode. */
+export function capFor(event: string): number | null {
+  if (CAP_EXEMPT_EVENTS.indexOf(String(event)) !== -1) return null;
+  if (event === 'visitCron') return VISIT_DAILY_CAP;
+  if (event === 'gapReminder') return GAP_DAILY_CAP;
+  return PUSH_DAILY_CAP;
+}
+
+/**
+ * May this mode send one more push to this person today? `globalUsed` counts every capped
+ * push already sent to him today, `modeUsed` only this mode's. An exempt mode always may.
+ */
+export function capBlocked(event: string, globalUsed: number, modeUsed: number): false | 'daily cap' | 'mode cap' {
+  const own = capFor(event);
+  if (own === null) return false;
+  if (globalUsed >= PUSH_DAILY_CAP) return 'daily cap';
+  return modeUsed >= own ? 'mode cap' : false;
+}
 /** Adoption guard ג: nothing between 21:00 and 06:30 Israel (except immediate low-stock). */
 export const QUIET_FROM_HH = 21;
 export const QUIET_TO_HH = 6;
@@ -568,28 +603,45 @@ export function inQuietHours(at: Date | string | number): boolean {
   return hh < QUIET_TO_HH || (hh === QUIET_TO_HH && mm < QUIET_TO_MM);
 }
 
+/** A nudge sent sooner than this after the arrival would reach him while he is still there. */
+export const REMINDER_MIN_GAP_MS = 30 * 60_000;
+
 /**
- * When this check-in's reminder is due: two hours later — but never after 20:00 Israel on the
- * day of the check-in, so an afternoon arrival is nudged before the evening rather than at
- * bedtime (§7k ג). An arrival already past 20:00 is due immediately, and the quiet-hours rule
- * then holds it to the morning.
+ * When this check-in's reminder is due — or `null`, meaning it never goes out (fix round 1).
+ *
+ * The 20:00 rule is a SEND-TIME GATE, not an accelerator: two hours after the arrival is the
+ * promise, and 20:00 may only pull a nudge EARLIER than that promise, never turn a late
+ * arrival into an immediate buzz. So:
+ *   · due = arrival + 2 h, whenever that lands at or before 20:00 Israel;
+ *   · later than that → 20:00, but ONLY if 20:00 is still at least half an hour after the
+ *     arrival (`REMINDER_MIN_GAP_MS`);
+ *   · otherwise no good moment is left in the day and there is NO push at all. The in-app
+ *     banner (§7k #4) still carries it — the screen may say so, a phone buzz may not.
  */
-export function reminderDueAt(checkedInAt: string): number {
+export function reminderDueAt(checkedInAt: string): number | null {
   const at = new Date(checkedInAt).getTime();
-  if (isNaN(at)) return Number.POSITIVE_INFINITY;
-  return Math.min(at + 2 * 3600_000, israelAt(at, REMINDER_LATEST_HH, 0));
+  if (isNaN(at)) return null;
+  const twoHours = at + 2 * 3600_000;
+  const latest = israelAt(at, REMINDER_LATEST_HH, 0);
+  if (twoHours <= latest) return twoHours;
+  return latest - at >= REMINDER_MIN_GAP_MS ? latest : null;
 }
 
 export type SkipReason =
-  | 'dismissed' | 'reminded' | 'too early' | 'too old' | 'visit exists' | 'quiet hours' | 'daily cap';
+  | 'dismissed' | 'reminded' | 'too early' | 'too old' | 'visit exists' | 'quiet hours'
+  | 'daily cap' | 'mode cap'
+  /** No sendable moment was left in the day — the banner carries it, the phone stays quiet. */
+  | 'late';
 
 export interface CronInput {
   checkins: CheckinRow[];
   visits: VisitRow[];
   /** Open drafts — they do not stop the nudge, they change its words (§5.1c). */
   drafts?: DraftRow[];
-  /** Non-digest pushes already sent to each person today (from `push_log`). */
+  /** CAPPED pushes already sent to each person today, every mode (from `push_log`). */
   sentToday?: Record<string, number>;
+  /** …and how many of those were visit nudges. */
+  sentTodayVisit?: Record<string, number>;
   nowIso: string;
 }
 
@@ -598,6 +650,11 @@ export interface CronPick { id: string; person: string; kibbutz: string; hasDraf
 export interface CronPlan {
   remind: CronPick[];
   skip: Array<{ id: string; reason: SkipReason }>;
+  /**
+   * Rows that are FINISHED — the caller stamps `reminded_at` so they stop being re-read every
+   * quarter of an hour: the visit is filed, or the day ran out of sendable time (`late`).
+   */
+  settle: Array<{ id: string; reason: SkipReason }>;
 }
 
 /**
@@ -613,7 +670,9 @@ export function visitCronSelect(i: CronInput): CronPlan {
   const now = new Date(i.nowIso).getTime();
   const remind: CronPick[] = [];
   const skip: Array<{ id: string; reason: SkipReason }> = [];
+  const settle: Array<{ id: string; reason: SkipReason }> = [];
   const used: Record<string, number> = { ...(i.sentToday || {}) };
+  const usedVisit: Record<string, number> = { ...(i.sentTodayVisit || {}) };
 
   const rows = [...(i.checkins || [])].sort(
     (a, b) => new Date(a.checked_in_at).getTime() - new Date(b.checked_in_at).getTime(),
@@ -627,17 +686,23 @@ export function visitCronSelect(i: CronInput): CronPlan {
     if (c.dismissed) { drop('dismissed'); continue; }
     if (c.reminded_at) { drop('reminded'); continue; }
     if (isNaN(at) || now - at > 14 * 3600_000) { drop('too old'); continue; }
-    if (now < reminderDueAt(c.checked_in_at)) { drop('too early'); continue; }
 
     const day = israelParts(c.checked_in_at).date;
     const filed = (i.visits || []).some(v => v && v.visitor === c.person && v.kibbutz === c.kibbutz
       && String(v.date || '').slice(0, 10) === day);
-    if (filed) { drop('visit exists'); continue; }
+    // Asked BEFORE the clock: a filed visit settles the row whatever the hour is.
+    if (filed) { drop('visit exists'); settle.push({ id: c.id, reason: 'visit exists' }); continue; }
+
+    const due = reminderDueAt(c.checked_in_at);
+    if (due === null) { drop('late'); settle.push({ id: c.id, reason: 'late' }); continue; }
+    if (now < due) { drop('too early'); continue; }
 
     if (inQuietHours(now)) { drop('quiet hours'); continue; }
-    if ((used[c.person] || 0) >= PUSH_DAILY_CAP) { drop('daily cap'); continue; }
+    const blocked = capBlocked('visitCron', used[c.person] || 0, usedVisit[c.person] || 0);
+    if (blocked) { drop(blocked); continue; }
 
     used[c.person] = (used[c.person] || 0) + 1;
+    usedVisit[c.person] = (usedVisit[c.person] || 0) + 1;
     remind.push({
       id: c.id,
       person: c.person,
@@ -645,7 +710,7 @@ export function visitCronSelect(i: CronInput): CronPlan {
       hasDraft: (i.drafts || []).some(d => d && d.person === c.person && d.kibbutz === c.kibbutz && d.date === day),
     });
   }
-  return { remind, skip };
+  return { remind, skip, settle };
 }
 
 // ───────────────────────────── deep links ─────────────────────────────

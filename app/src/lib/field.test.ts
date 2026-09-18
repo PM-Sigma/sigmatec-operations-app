@@ -2,8 +2,8 @@
 // briefing, the "היום" strip and the `visitCron` reminder decide is pinned here.
 import { describe, expect, it } from 'vitest';
 import {
-  arrivalGroups, arrivalOrder, audienceFor, bulletForField, DAYLOG_NUDGES, dm,
-  fieldShouldPrompt, hasSomethingToDeliver, hashIdx, inQuietHours, israelAt, israelParts,
+  arrivalGroups, arrivalOrder, audienceFor, bulletForField, capBlocked, capFor, DAYLOG_NUDGES,
+  dm, fieldShouldPrompt, hasSomethingToDeliver, hashIdx, inQuietHours, israelAt, israelParts,
   leaveChecklist, nudgeFor, openItemsPrefill, openNudges, pushactParse, RECOUNT_NUDGES,
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   type CheckinRow, type FieldTask,
@@ -251,9 +251,51 @@ describe('israel time', () => {
     expect(inQuietHours('2026-09-17T03:15:00Z')).toBe(true);    // 06:15
     expect(inQuietHours('2026-09-17T03:35:00Z')).toBe(false);   // 06:35
   });
-  it('the reminder is due at +2 h, capped at 20:00', () => {
+  it('the reminder is due at +2 h', () => {
     expect(reminderDueAt('2026-09-17T09:12:00+03:00')).toBe(+new Date('2026-09-17T11:12:00+03:00'));
-    expect(reminderDueAt('2026-09-17T19:00:00+03:00')).toBe(+new Date('2026-09-17T20:00:00+03:00'));
+    expect(reminderDueAt('2026-09-17T06:00:00+03:00')).toBe(+new Date('2026-09-17T08:00:00+03:00'));
+    expect(reminderDueAt('2026-09-17T17:30:00+03:00')).toBe(+new Date('2026-09-17T19:30:00+03:00'));
+  });
+
+  it('20:00 only ever pulls it EARLIER, and never closer than 30 min to the arrival (fix 1)', () => {
+    // +2 h would be 20:30 → 20:00, and 20:00 is 1.5 h after he arrived: fine.
+    expect(reminderDueAt('2026-09-17T18:30:00+03:00')).toBe(+new Date('2026-09-17T20:00:00+03:00'));
+    // exactly the 30 min floor — still allowed
+    expect(reminderDueAt('2026-09-17T19:30:00+03:00')).toBe(+new Date('2026-09-17T20:00:00+03:00'));
+  });
+
+  it('an arrival too late in the day gets NO push at all — the banner carries it', () => {
+    expect(reminderDueAt('2026-09-17T19:40:00+03:00')).toBeNull();   // 20 min — under the floor
+    expect(reminderDueAt('2026-09-17T19:45:00+03:00')).toBeNull();
+    expect(reminderDueAt('2026-09-17T20:30:00+03:00')).toBeNull();
+    expect(reminderDueAt('not a date')).toBeNull();
+  });
+});
+
+describe('the daily caps (§7k ג, as fix round 1 settled them)', () => {
+  it('attendance and the digest are exempt; visits get 2, gaps 1, everything else 3', () => {
+    expect(capFor('attendanceCron')).toBeNull();
+    expect(capFor('attendanceReminder')).toBeNull();
+    expect(capFor('usageDigest')).toBeNull();
+    expect(capFor('visitCron')).toBe(2);
+    expect(capFor('gapReminder')).toBe(1);
+    expect(capFor('somethingNew')).toBe(3);
+  });
+
+  it('an exempt mode always sends, however full the day is', () => {
+    expect(capBlocked('attendanceCron', 9, 9)).toBe(false);
+  });
+
+  it('the mode ceiling bites before the global one', () => {
+    expect(capBlocked('visitCron', 1, 1)).toBe(false);
+    expect(capBlocked('visitCron', 2, 2)).toBe('mode cap');
+    expect(capBlocked('gapReminder', 1, 1)).toBe('mode cap');
+  });
+
+  it('the global ceiling is the sum of the capped modes', () => {
+    // two visit nudges + one gap already out → the day is full for everything capped
+    expect(capBlocked('gapReminder', 3, 0)).toBe('daily cap');
+    expect(capBlocked('visitCron', 3, 0)).toBe('daily cap');
   });
 });
 
@@ -287,17 +329,35 @@ describe('visitCronSelect', () => {
     expect(plan.skip[0].reason).toBe('quiet hours');
   });
 
-  it('three a day is the ceiling, and this run counts towards it', () => {
-    const four = ['a', 'b', 'c', 'd'].map((id, n) =>
+  it('TWO visit nudges a day is the ceiling, and this run counts towards it', () => {
+    const three = ['a', 'b', 'c'].map((id, n) =>
       mk({ id, kibbutz: 'ק' + n, checked_in_at: '2026-09-17T0' + n + ':00:00Z' }));
-    const plan = run(four);
-    expect(plan.remind.map(r => r.id)).toEqual(['a', 'b', 'c']);
-    expect(plan.skip).toEqual([{ id: 'd', reason: 'daily cap' }]);
+    const plan = run(three);
+    expect(plan.remind.map(r => r.id)).toEqual(['a', 'b']);
+    expect(plan.skip).toEqual([{ id: 'c', reason: 'mode cap' }]);
   });
 
-  it('pushes already sent today count against the cap', () => {
+  it('visit nudges already sent today count; the attendance nudges he got do not', () => {
+    expect(run([mk()], { sentTodayVisit: { 'אביאם': 2 } }).skip[0].reason).toBe('mode cap');
+    // `sentToday` is fed ONLY the capped modes (push-send filters attendance out), so a full
+    // day of other capped pushes is what closes the door here.
     expect(run([mk()], { sentToday: { 'אביאם': 3 } }).skip[0].reason).toBe('daily cap');
-    expect(run([mk()], { sentToday: { 'ניתאי': 3 } }).remind).toHaveLength(1);
+    expect(run([mk()], { sentToday: { 'ניתאי': 3 }, sentTodayVisit: { 'ניתאי': 2 } }).remind).toHaveLength(1);
+  });
+
+  it('a filed visit and a too-late arrival are SETTLED, so the cron stops re-reading them', () => {
+    const filed = run([mk()], { visits: [{ visitor: 'אביאם', kibbutz: 'גבים', date: '2026-09-17' }] });
+    expect(filed.settle).toEqual([{ id: 'c1', reason: 'visit exists' }]);
+    const late = visitCronSelect({
+      checkins: [mk({ checked_in_at: '2026-09-17T16:45:00Z' })],   // 19:45 Israel
+      visits: [], nowIso: '2026-09-17T17:30:00Z',
+    });
+    expect(late.remind).toEqual([]);
+    expect(late.settle).toEqual([{ id: 'c1', reason: 'late' }]);
+  });
+
+  it('a row that is merely waiting is NOT settled', () => {
+    expect(run([mk({ checked_in_at: '2026-09-17T07:01:00Z' })]).settle).toEqual([]);
   });
 
   it('a draft does not stop the nudge — it changes its words (§5.1c)', () => {

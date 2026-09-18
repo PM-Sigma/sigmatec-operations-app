@@ -37,24 +37,34 @@ console.log('\n[2] push-send mode visitCron');
   check('the 14 h window is applied in the query too', /14 \* 3600 \* 1000/.test(fn));
   check('a row is stamped reminded_at after the send (at most one nudge per arrival)',
     /update\(\{ reminded_at: new Date\(\)\.toISOString\(\) \}\)\.eq\("id", pick\.id\)/.test(fn));
-  check('a check-in whose visit is already filed is settled, not re-scanned',
-    /s\.reason === "visit exists"/.test(fn));
+  check('rows the planner calls finished are settled, not re-scanned',
+    /const settled = plan\.settle\.map\(\(x\) => x\.id\);/.test(fn));
   check('the words come from the rotating pool', /nudgeFor\(pick\.id, pick\.kibbutz, pick\.hasDraft\)/.test(fn));
   check('both notification actions are offered', /"✍️ כתוב סיכום"/.test(fn) && /"🙈 לא היום"/.test(fn));
   check('push_log gets the kibbutz as where_txt', /event: "visitCron", order_id: null, where_txt: pick\.kibbutz/.test(fn));
 }
 
-console.log('\n[3] adoption guards ג — global cap, quiet hours, the 20:00 cap');
+console.log('\n[3] adoption guards ג — the caps, quiet hours, the 20:00 gate (fix round 1)');
 {
   const lib = read('./app/src/lib/field.ts');
   const fn = read('./supabase/functions/push-send/index.ts');
-  check('the cap is three a day', /PUSH_DAILY_CAP = 3/.test(lib));
+  check('the global ceiling is three', /PUSH_DAILY_CAP = 3/.test(lib));
+  check('visits get two a day, gaps one', /VISIT_DAILY_CAP = 2/.test(lib) && /GAP_DAILY_CAP = 1/.test(lib));
+  check('attendance and the digest are exempt',
+    /CAP_EXEMPT_EVENTS = \['attendanceCron', 'attendanceReminder', 'usageDigest'\]/.test(lib));
+  check('attendanceCron is NOT gated on the cap any more',
+    !/PUSH_DAILY_CAP/.test(fn.slice(fn.indexOf('attendanceCron'), fn.indexOf('visitCron'))));
+  check('the counter skips the exempt modes in BOTH directions',
+    /CAP_EXEMPT_EVENTS\.indexOf\(String\(r\.event\)\) !== -1\) continue;/.test(fn));
+  check('the counter reports the per-mode figure too', /if \(r\.event === "visitCron"\)/.test(fn));
+  check('visitCron feeds both counts into the planner',
+    /sentToday: sent\.total/.test(fn) && /sentTodayVisit: sent\.visit/.test(fn));
   check('quiet hours are 21:00 → 06:30', /QUIET_FROM_HH = 21/.test(lib) && /QUIET_TO_HH = 6/.test(lib) && /QUIET_TO_MM = 30/.test(lib));
-  check('the reminder is never later than 20:00', /REMINDER_LATEST_HH = 20/.test(lib));
-  check('the cap is counted from push_log, folded per push', /async function sentTodayCounts/.test(fn));
-  check('the weekly digest is exempt from the cap', /neq\("event", "usageDigest"\)/.test(fn));
-  check('attendanceCron respects the same cap', /capCount\[person\] \?\? 0\) >= PUSH_DAILY_CAP/.test(fn));
-  check('visitCron feeds today’s counts into the planner', /sentToday: sent/.test(fn));
+  check('20:00 is a gate, never an accelerator (≥ 30 min after the arrival, else no push)',
+    /REMINDER_LATEST_HH = 20/.test(lib) && /REMINDER_MIN_GAP_MS = 30 \* 60_000/.test(lib)
+    && /return latest - at >= REMINDER_MIN_GAP_MS \? latest : null;/.test(lib));
+  check('a day with no sendable moment is settled as `late`, not retried',
+    /drop\('late'\); settle\.push\(\{ id: c\.id, reason: 'late' \}\)/.test(lib));
 }
 
 console.log('\n[4] the deep links, on both sides');
@@ -65,6 +75,8 @@ console.log('\n[4] the deep links, on both sides');
   check('?pushact=visit opens the visit form with the kibbutz', /act === 'visit'/.test(push) && /openVisitQuick\(kibbutz\)/.test(push));
   check('?pushact=visitDismiss reaches the island', /act === 'visitDismiss'/.test(push) && /sigmaField\.dismiss\(cid\)/.test(push));
   check('the island is given time to load (lazy chunk)', /waitField/.test(push));
+  check('a dismissal that never landed does NOT claim it did',
+    !/toast\('בסדר, לא היום\.'\)/.test(push) && /לא הצלחתי לסמן/.test(push));
   check('the function builds both URLs', /pushact=visit&kibbutz=/.test(fn) && /pushact=visitDismiss&cid=/.test(fn));
   check('the service worker routes notification actions through actUrls', /actUrls/.test(sw));
 }
@@ -89,6 +101,10 @@ console.log('\n[5] the island, its placeholders and the bridge');
   check('🚚 waits for the form before asking for the certificate', /addEventListener\('visit-form-open', once\)/.test(island));
   check('🚚 is only offered when there is something to deliver', /canDeliver && \(/.test(island));
   check('the day plan is feature-detected, never assumed', /day_plans/.test(island) && /if \(error\) return \[\];/.test(island));
+  check('open orders are filtered server-side and paged, never truncated',
+    /not\('status', 'in'/.test(island) && /\.range\(page \* ORDER_PAGE/.test(island) && !/limit\(300\)/.test(island));
+  check('the uninvited sheet is latched PER DAY, not per session',
+    /arrival_dismissed_/.test(island) && /readStr\(arrivalPromptKey\(today\)\) === '1'/.test(island));
 
   const bridge = read('./js/src/00-bridge.js');
   check('the bridge carries the checklist prefill', /prefillOpenItems: function \(kibbutz, text\)/.test(bridge));

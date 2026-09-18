@@ -25,7 +25,7 @@ import { usageDigestAuth } from "./usageDigest.ts";
 // EVERY decision the visitCron mode makes — the 2 h rule, the 20:00 cap, the quiet hours, the
 // daily cap, which words go out — is one of these pure functions, tested in field.test.ts.
 import {
-  israelAt, nudgeFor, PUSH_DAILY_CAP, visitCronSelect,
+  CAP_EXEMPT_EVENTS, israelAt, nudgeFor, visitCronSelect,
   type CheckinRow, type DraftRow, type VisitRow,
 } from "./field.ts";
 
@@ -113,24 +113,38 @@ function priorMissing(have: Set<string>, t: { y: number; m: number; d: number })
   return out;
 }
 
-// ── adoption guard ג: at most PUSH_DAILY_CAP non-digest pushes per person per day ──────────
-// Counted from push_log, which is the only record of what actually left the building. One
-// push writes ONE ROW PER DEVICE, so the rows are folded by title: a person with a phone and
-// a tablet used one of his three, not two. The weekly digest is exempt by design — it is the
-// one message that is a report rather than a nudge.
-async function sentTodayCounts(people: string[]): Promise<Record<string, number>> {
-  const out: Record<string, number> = {};
+// ── adoption guard ג (as fix round 1 settled it) ───────────────────────────────────────────
+// Counted from push_log, the only record of what actually left the building. One push writes
+// ONE ROW PER DEVICE, so the rows are folded by `event|title`: a person with a phone and a
+// tablet spent one of his allowance, not two. (Folding by title is a known approximation —
+// deferred to Task 18 with a proper per-send id.)
+//
+// Only the CAPPED modes are counted. Attendance and the weekly digest are exempt in both
+// directions (`CAP_EXEMPT_EVENTS`): they are never blocked by the cap, and they never spend
+// it — the record of the work day must not be crowded out by nudges.
+//
+// Returns the total per person and, separately, how many of those were visit nudges, because
+// each mode has its own smaller ceiling on top of the global one.
+interface CapCounts { total: Record<string, number>; visit: Record<string, number> }
+
+async function sentTodayCounts(people: string[]): Promise<CapCounts> {
+  const out: CapCounts = { total: {}, visit: {} };
   if (!people.length) return out;
   const since = new Date(israelAt(new Date(), 0, 0)).toISOString();
   const { data } = await sb.from("push_log").select("recipient,title,event")
-    .in("recipient", people).gte("sent_at", since).neq("event", "usageDigest");
+    .in("recipient", people).gte("sent_at", since);
   const seen = new Map<string, Set<string>>();
   for (const r of (data ?? []) as Array<{ recipient: string; title: string; event: string }>) {
+    if (CAP_EXEMPT_EVENTS.indexOf(String(r.event)) !== -1) continue;
+    const key = String(r.event) + "|" + String(r.title);
     const set = seen.get(r.recipient) ?? new Set<string>();
-    set.add(String(r.event) + "|" + String(r.title));
+    if (!set.has(key)) {
+      set.add(key);
+      out.total[r.recipient] = (out.total[r.recipient] ?? 0) + 1;
+      if (r.event === "visitCron") out.visit[r.recipient] = (out.visit[r.recipient] ?? 0) + 1;
+    }
     seen.set(r.recipient, set);
   }
-  for (const [person, set] of seen) out[person] = set.size;
   return out;
 }
 
@@ -224,11 +238,10 @@ Deno.serve(async (req: Request) => {
     if (!kind) return json({ ok: true, skipped: "not a scheduled hour", hour: t.hh });
     const since = new Date(Date.now() - 12 * 3600 * 1000).toISOString();   // 12h window → DST-proof idempotency
     const results: any[] = [];
-    // Adoption guard ג: the cap is global, so this job has to ask too — three nudges in a day
-    // is the ceiling across attendance, visits and anything added later.
-    const capCount = await sentTodayCounts(ATT_PEOPLE);
+    // NOT capped (fix round 1): attendance is the record of the work day, so a day full of
+    // visit nudges must never swallow it. It does not spend the cap either — `sentTodayCounts`
+    // skips `CAP_EXEMPT_EVENTS`. Its own "already sent" check below is the idempotency.
     for (const person of ATT_PEOPLE) {
-      if ((capCount[person] ?? 0) >= PUSH_DAILY_CAP) { results.push({ person, kind, skipped: "daily cap" }); continue; }
       const { data: prior } = await sb.from("push_log").select("id")
         .eq("event", "attendanceCron").eq("recipient", person).eq("where_txt", kind).gte("sent_at", since).limit(1);
       if (prior && prior.length) { results.push({ person, kind, skipped: "already sent" }); continue; }
@@ -291,13 +304,15 @@ Deno.serve(async (req: Request) => {
       checkins,
       visits: (vis.data ?? []) as VisitRow[],
       drafts: (dr.data ?? []) as DraftRow[],
-      sentToday: sent,
+      sentToday: sent.total,
+      sentTodayVisit: sent.visit,
       nowIso,
     });
 
-    // A check-in whose visit is already filed is DONE, not pending: stamping it keeps the
-    // next 96 runs of the day from re-reading it.
-    const settled = plan.skip.filter((s) => s.reason === "visit exists").map((s) => s.id);
+    // A row the planner calls FINISHED is stamped so the next 96 runs of the day skip it: the
+    // visit is already filed, or the day ran out of sendable time (`late` — no push ever goes
+    // out for it; the in-app banner is what carries it, §7k #4).
+    const settled = plan.settle.map((x) => x.id);
     if (settled.length) await sb.from("field_checkins").update({ reminded_at: nowIso }).in("id", settled);
 
     const results: any[] = [];
