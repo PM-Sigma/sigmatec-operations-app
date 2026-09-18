@@ -15,6 +15,7 @@ silently.
 
 | # | Gate | Threshold | Config |
 |---|------|-----------|--------|
+| 0 | build freshness | generated CSS matches its sources · the runner still fails when it should | `build.mjs --check` · `scripts/qa.selftest.mjs` |
 | 1 | gitleaks | 0 findings | `qa/gitleaks/.gitleaks.toml` |
 | 2 | semgrep | 0 ERROR / 0 WARNING | `qa/semgrep/config.yml` |
 | 3 | `npm test` | legacy `test-*.mjs` + app vitest green | `scripts/test-all.mjs` |
@@ -114,7 +115,17 @@ Two Windows traps this gate now handles, both of which used to read as a clean P
 * an unreadable / empty `findings.json` is now a **FAILED** gate, not "0 findings". A scan that
   crashed can no longer report zero.
 
-Expect `0 blocking · 25 accepted by config.yml`. A manual run:
+Expect `0 blocking · 24–25 accepted by config.yml · 178 file(s) scanned` (the accepted count
+moves by one between runs; what is binding is **0 blocking**, 0 scan errors and a non-zero file
+count). The gate also **fails on
+semgrep's own `errors[]`** — a rule that timed out or a file it could not parse is a coverage
+hole, not a pass. Two were found the day the check landed: `raw-html-concat` timed out on
+`js/src/18-dev-tasks.js` (hence `--timeout 60`, up from the 5 s default), and semgrep's
+JavaScript parser gave up on a whole `.mjs` file because it contained the literal characters
+`<!--` inside a regex — it reads them as an HTML-style line comment. **Never write `<!--`
+adjacently in a `.mjs` source**; build the string (`'<' + '!--'`) instead.
+
+A manual run:
 
 ```bash
 semgrep scan --config qa/semgrep/.cache --metrics=off --severity ERROR --severity WARNING   --exclude node_modules --exclude js/app.js --exclude ui --exclude css/app.min.css   --json-output "$PWD/out.json"   js/src app/src supabase/functions scripts db build.mjs index.html stats.html sw.js test-*.mjs
@@ -122,6 +133,23 @@ semgrep scan --config qa/semgrep/.cache --metrics=off --severity ERROR --severit
 
 A single line can be suppressed with `// nosemgrep` on its own line directly above it, plus a
 comment saying why (`scripts/qa.mjs` does exactly that for its own `spawnSync`).
+
+## 2b · gate 0 — build freshness, and the runner's own teeth
+
+Two preconditions that used to be invisible (task 22b review):
+
+* **`node build.mjs --check`** — `css/app.min.css` and the `<style>` block inlined into
+  index.html's `<head>` are GENERATED from `css/app.css` and `css/critical.css`. Each output
+  carries the `src-sha256` of its source, so a source edit committed without `node build.mjs`
+  is a checkable fact instead of a silent no-op. The same assertion runs in three places: this
+  gate, `test-css-build.mjs` (so `npm test` catches it too) and `.githooks/pre-commit`, which
+  blocks the commit. Never hand-edit either output. The generation itself lives in
+  `scripts/css-build.mjs`, so the builder and the checkers cannot drift apart.
+* **`node scripts/qa.selftest.mjs`** — the semgrep verdict is a pure function
+  (`scripts/qa-semgrep-judge.mjs`) and the self-test feeds it the cases a real run cannot
+  produce: unreadable JSON, an exit code that is neither 0 (clean) nor 1 (findings reported),
+  a non-empty `errors[]`, and a scan that touched 0 files. All four must FAIL the gate — they
+  are the ways it could otherwise report "0 findings" without having looked at anything.
 
 ## 3 · `npm test`
 

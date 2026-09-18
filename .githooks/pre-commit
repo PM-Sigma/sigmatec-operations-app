@@ -12,6 +12,25 @@
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
+# ── generated CSS must be fresh ───────────────────────────────────────────────────────────────
+# css/app.min.css and the critical block inlined into index.html are BUILT from css/app.css and
+# css/critical.css. Committing a source edit without `node build.mjs` ships the previous bytes —
+# the change silently does nothing. `--check` compares both outputs (and their src-sha256 stamps)
+# against the sources; it writes nothing and takes ~0.3 s.
+if command -v node >/dev/null 2>&1; then
+  if ! node build.mjs --check; then
+    cat >&2 <<'MSG'
+
+pre-commit BLOCKED: the generated CSS is stale (or was hand-edited).
+
+  Run `node build.mjs`, stage css/app.min.css + index.html, and commit again.
+  Never edit css/app.min.css or index.html's <!-- critical:start --> block by hand.
+
+MSG
+    exit 1
+  fi
+fi
+
 BIN="qa/bin/gitleaks.exe"
 [ -x "$BIN" ] || BIN="qa/bin/gitleaks"
 if [ ! -x "$BIN" ]; then

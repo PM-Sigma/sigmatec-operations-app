@@ -1,4 +1,4 @@
-import{c as l,n as m,u as p,N as x,O as u,j as e,p as n,Q as b,U as h}from"./sigma.js?v=mu74zanv";import{S as f,n as g}from"./sigma-kibbutzim.js?v=mu74zanv";import{p as j,o as N,r as y,a as C,b as w}from"./sigma-CommandBar.js?v=mu74zanv";import{P as A}from"./sigma-plus.js?v=mu74zanv";import"./sigma-dialog.js?v=mu74zanv";/**
+import{c as l,n as m,u as p,N as x,O as u,j as e,p as n,Q as b,U as h}from"./sigma.js?v=mu76i5hp";import{S as f,n as g}from"./sigma-kibbutzim.js?v=mu76i5hp";import{p as j,o as N,r as y,a as C,b as w}from"./sigma-CommandBar.js?v=mu76i5hp";import{P as A}from"./sigma-plus.js?v=mu76i5hp";import"./sigma-dialog.js?v=mu76i5hp";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

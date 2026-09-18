@@ -91,6 +91,15 @@ check('no physical-direction property in the tokens-only CSS regions', () => {
   assert.deepEqual(bad, [], 'physical directions:\n    ' + bad.join('\n    '));
 });
 
+// css/critical.css is inlined into <head> on every build and is therefore the FIRST CSS the
+// phone applies — a physical direction there is a broken first paint in Hebrew, which is exactly
+// what this gate exists to stop. It is small and hand-written, so the whole file is swept (no
+// marked regions needed).
+check('no physical-direction property in css/critical.css', () => {
+  const bad = offenders('css/critical.css', read('css/critical.css'));
+  assert.deepEqual(bad, [], 'physical directions in css/critical.css: ' + bad.join(' | '));
+});
+
 // ── 2. every island source ────────────────────────────────────────────────────
 check('no physical-direction property anywhere in app/src', () => {
   const bad = walk('app/src').flatMap(f => offenders(f, read(f)));

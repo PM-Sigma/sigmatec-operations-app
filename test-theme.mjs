@@ -127,22 +127,37 @@ check('every font the ⚙️ setting offers is loadable — eagerly or on demand
   assert.ok(/export function ensureFontLink/.test(settings), 'no lazy font injector at all');
 });
 
-// Task 22b: the two big sheets are non-blocking, so the first screen's CSS must be inlined —
-// otherwise the page paints unstyled and the "flash" עידן called out comes back.
+// Task 22b: the first screen's CSS is inlined into <head>, so a missing or empty block is the
+// unstyled "flash" עידן called out. Its FRESHNESS (that the block is what css/critical.css
+// minifies to) is test-css-build.mjs's job; this is the shape of it.
+//
+// NOTE the string concatenation below: a literal `<!--` inside this source makes semgrep's
+// JavaScript parser treat the rest of the line as an HTML-style comment and give up on the whole
+// file — a scan error that, until task 22b, the QA gate quietly ignored. Never write the four
+// characters `<` `!` `-` `-` adjacently in a .mjs source.
+const CRIT_START = '<' + '!-- critical:start';
+const CRIT_END = '<' + '!-- critical:end -->';
 check('the critical CSS is inlined in <head> and generated from css/critical.css', () => {
   const head = html.split('</head>')[0];
-  assert.ok(/<!-- critical:start[\s\S]*?<style>/.test(head), 'no generated critical <style> block');
-  const inlined = head.match(/<!-- critical:start[^>]*-->\s*<style>([\s\S]*?)<\/style>/);
-  assert.ok(inlined && inlined[1].length > 1000, 'the critical block is empty — run node build.mjs');
+  const from = head.indexOf(CRIT_START);
+  const to = head.indexOf(CRIT_END);
+  assert.ok(from !== -1 && to > from, 'no critical:start … critical:end block in <head>');
+  const block = head.slice(from, to);
+  assert.match(block, /src-sha256:[0-9a-f]{16}/, 'the critical marker is not stamped — run node build.mjs');
+  const style = /<style>([\s\S]*?)<\/style>/.exec(block);
+  assert.ok(style && style[1].length > 1000, 'the critical block is empty — run node build.mjs');
   for (const sel of ['--bg:', 'body{', '.page-nav', '.section-header', '.kibbutz-grid']) {
-    assert.ok(inlined[1].includes(sel), 'the critical CSS is missing ' + sel);
+    assert.ok(style[1].includes(sel), 'the critical CSS is missing ' + sel);
   }
-  // The sheets themselves stay render-blocking (task 22b measured the swap as a 0.62 layout
-  // shift), so what this guards is that the inlined copy is REAL and generated — a hand-edited
-  // or empty block is the failure mode.
+  // The two sheets themselves stay render-blocking (task 22b measured the async swap as a 0.62
+  // layout shift, and an island must never paint unstyled), and index.html loads the GENERATED
+  // css/app.min.css.
+  assert.match(head, /<link rel="stylesheet" href="css\/app\.min\.css\?v=\w+">/,
+    'index.html must load the generated css/app.min.css');
+  assert.match(head, /<link rel="stylesheet" href="ui\/sigma\.css\?v=\w+">/,
+    'ui/sigma.css must load at normal priority (no media=print swap — islands must not paint unstyled)');
 });
 
-// ---- layout ------------------------------------------------------------------
 check('layout numbers from spec §6', () => {
   assert.ok(/body \{[\s\S]*?padding: 12px 16px;/.test(css), 'body padding is not 12px 16px');
   assert.ok(/@media \(min-width: 768px\) \{ body \{ padding: 24px; \} \}/.test(css), 'no 24px desktop padding');

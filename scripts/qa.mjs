@@ -1,5 +1,7 @@
 // `npm run qa` — the six quality gates, in order, on the current tree.
 //
+//   0. build freshness       (build.mjs --check + scripts/qa.selftest.mjs) → generated CSS
+//                             matches its sources, and the runner still fails when it should
 //   1. gitleaks detect        (qa/gitleaks/.gitleaks.toml)          → 0 findings
 //   2. semgrep               (qa/semgrep/config.yml)               → 0 ERROR / 0 WARNING
 //   3. npm test              (legacy test-*.mjs runners + vitest)   → green
@@ -21,6 +23,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { judgeSemgrep } from './qa-semgrep-judge.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPORTS = resolve(ROOT, 'qa', 'reports');
@@ -147,6 +150,26 @@ const results = [];
 /** name, threshold (one line for the report), and a fn returning {status, summary, detail}. */
 const gate = (name, threshold, fn) => GATES.push({ name, threshold, fn });
 
+// ── 0. build freshness + the runner's own teeth ────────────────────────────────────────────
+// Two preconditions, both of which used to be invisible (task 22b review):
+//   · the generated CSS (css/app.min.css, the critical block inlined into index.html) must match
+//     its hand-written sources, or the whole run measured bytes nobody meant to ship;
+//   · the semgrep verdict function must still FAIL on a crashed scan — scripts/qa.selftest.mjs
+//     feeds it the cases a real run cannot produce.
+gate('build freshness', 'generated CSS matches its sources · the runner still fails when it should', () => {
+  const css = run(node, [resolve(ROOT, 'build.mjs'), '--check']);
+  const self = run(node, [resolve(ROOT, 'scripts/qa.selftest.mjs')]);
+  const bad = [];
+  if (css.code !== 0) bad.push('stale generated CSS');
+  if (self.code !== 0) bad.push('the QA runner self-test failed');
+  return {
+    status: bad.length ? 'FAIL' : 'PASS',
+    summary: bad.length ? bad.join(' · ') : 'css fresh · runner self-test green',
+    detail: bad.length ? [css.out, self.out].filter(Boolean).join(String.fromCharCode(10)).slice(-4000) : '',
+    ms: css.ms + self.ms,
+  };
+});
+
 // ── 1. gitleaks ────────────────────────────────────────────────────────────────────────────
 gate('gitleaks', '0 findings', () => {
   const exe = existsSync(bin('qa/bin/gitleaks')) ? bin('qa/bin/gitleaks') : 'gitleaks';
@@ -201,7 +224,10 @@ gate('semgrep', '0 ERROR / 0 WARNING (after qa/semgrep/config.yml exclude_rules)
 
   const json = resolve(cache, 'findings.json');
   const args = [
-    ...sg.pre, 'scan', '--config', man.cache, '--metrics=off', '--quiet',
+    // --timeout 60 (default 5 s): raw-html-concat times out on js/src/18-dev-tasks.js at the
+    // default, which leaves that file unscanned by that rule — a coverage hole the gate used to
+    // ignore and now reports as a scan error. 60 s is per rule per file; the whole scan is ~45 s.
+    ...sg.pre, 'scan', '--config', man.cache, '--metrics=off', '--quiet', '--timeout', '60',
     ...man.severities.flatMap(s => ['--severity', s]),
     ...man.exclude.flatMap(e => ['--exclude', e]),
     // The manifest's `include` list IS the scan target list (task 22b): naming the source paths
@@ -216,33 +242,19 @@ gate('semgrep', '0 ERROR / 0 WARNING (after qa/semgrep/config.yml exclude_rules)
   // UnicodeEncodeError, leaving a 0-byte findings.json that used to read as "0 findings, PASS".
   const r = run(sg.cmd, args, { env: { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' } });
   let parsed = null;
-  try { parsed = JSON.parse(readFileSync(json, 'utf8')); } catch { /* handled right below */ }
-  // An unreadable result is a FAILED gate, never a clean one: a scan that crashed must not be
-  // able to report zero findings.
-  if (!parsed || !Array.isArray(parsed.results)) {
-    return {
-      status: 'FAIL',
-      summary: 'semgrep produced no readable JSON (exit ' + r.code + ') — the scan did not complete',
-      detail: r.out.slice(-4000),
-      ms: r.ms,
-    };
-  }
-
-  // The exclusions are applied HERE, on check_id suffixes: semgrep prefixes rule ids with the
-  // config path when the packs are loaded from a directory, so the suffix is the stable part.
-  const excluded = new Set(man.exclude_rules);
-  const isExcluded = id => [...excluded].some(x => String(id).endsWith(x));
-  const live = (parsed.results || []).filter(f => !isExcluded(f.check_id));
-  const accepted = (parsed.results || []).length - live.length;
-
-  const detail = live.map(f => `${f.extra?.severity} · ${f.check_id} · ${f.path}:${f.start?.line}`).join('\n');
-  return {
-    status: live.length ? 'FAIL' : 'PASS',
-    summary: `${live.length} blocking · ${accepted} accepted by config.yml`
-      + (fetched.length ? ` · fetched ${fetched.join(', ')}` : ''),
-    detail: detail || (r.code === -1 ? r.out : ''),
-    ms: r.ms,
-  };
+  try { parsed = JSON.parse(readFileSync(json, 'utf8')); } catch { /* judged below */ }
+  // The VERDICT is a pure function in scripts/qa-semgrep-judge.mjs, covered by
+  // scripts/qa.selftest.mjs: unreadable JSON, an exit code that is neither 0 (clean) nor 1
+  // (findings), semgrep's own `errors[]`, and a scan that touched 0 files all FAIL — each one is
+  // a way this gate could otherwise report "0 findings" without having looked at anything.
+  const verdict = judgeSemgrep({
+    code: r.code,
+    out: r.out,
+    parsed,
+    excludeRules: man.exclude_rules,
+    fetchedNote: fetched.length ? ` · fetched ${fetched.join(', ')}` : '',
+  });
+  return { ...verdict, ms: r.ms };
 });
 
 // ── 3. the existing suites ─────────────────────────────────────────────────────────────────

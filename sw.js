@@ -3,7 +3,7 @@
 // to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
 // (Supabase / Apps Script) is never touched → data is always live. build.mjs restamps CACHE
 // on every build so phones fetch fresh bytes each deploy.
-const CACHE = 'sigmatec-ops-mu74zanv';
+const CACHE = 'sigmatec-ops-mu76i5hp';
 const SHELL = ['./', './index.html', './stats.html', './js/app.js', './css/app.min.css', './ui/sigma.js', './ui/sigma.css', './ui/manifest.json', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 // The React islands are code-split, so their file list is not knowable here — build.mjs
