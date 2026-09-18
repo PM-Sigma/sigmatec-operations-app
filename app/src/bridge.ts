@@ -64,6 +64,16 @@ export interface Sigma {
   createTask(item: Record<string, unknown>): Promise<unknown>;
 
   openVisitQuick(kibbutz?: string): void;
+  /**
+   * Visit drafts (spec §5.1c). js/src/09-visits.js owns the draft — the form, the debounce
+   * and both stores — so React only ever ASKS. Any argument may be omitted to widen the
+   * match ("a draft for anyone, on any day").
+   */
+  visitDraftFor?(kibbutz?: string | null, person?: string | null, date?: string | null): {
+    id: string; person: string; kibbutz: string; date: string; updated_at: string;
+    payload?: Record<string, unknown>;
+  } | null;
+  visitDraftDiscard?(id?: string | null): void;
   getLastVisit(kibbutz: string): any;
   loadAllVisitsCombined(): any[];
   openDeliveryCert(pre?: Record<string, unknown>): void;

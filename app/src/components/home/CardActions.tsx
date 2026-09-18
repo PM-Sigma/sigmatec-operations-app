@@ -1,8 +1,10 @@
 // Card quick-action row (spec §3.3). One tap from the card straight into the form —
 // "סיכום ביקור כבר מלחיצה על קיבוץ". Role-gated: the viewer only gets the read-only timeline.
 import { CalendarDays, MapPin, Truck } from 'lucide-react';
+import { toast } from 'sonner';
 import { sigma, sigmaBus } from '@/bridge';
 import { cardActionsFor, type CardAction } from '@/lib/kibbutzim';
+import { todayISO } from '@/lib/visitDrafts';
 
 const LABEL: Record<CardAction, string> = {
   visit: 'סיכום ביקור',
@@ -16,7 +18,17 @@ const ICON = { visit: MapPin, cert: Truck, meetings: CalendarDays } as const;
  * linked to that visit (spec §5 cert rules). The visit form is legacy DOM, so we wait for
  * the bridge's one-shot `visit-form-open` event rather than guessing at a timeout.
  */
-function certAfterVisitForm(name: string) {
+export function certAfterVisitForm(name: string) {
+  // §5.1c: a certificate must hang off a visit summary, so 🚚 with nothing started says so
+  // in one sentence and opens the form. With a draft in hand there is nothing to announce —
+  // the form comes back with his own words in it and the certificate opens on top.
+  let hasDraft = false;
+  try {
+    const me = sigma?.getCurrentUser?.() || '';
+    hasDraft = !!sigma?.visitDraftFor?.(name, me, todayISO());
+  } catch { hasDraft = false; }
+  if (!hasDraft) toast.info('נדרש קודם סיכום ביקור — פותח את הטופס');
+
   const once = () => {
     sigmaBus.removeEventListener('visit-form-open', once);
     clearTimeout(timer);

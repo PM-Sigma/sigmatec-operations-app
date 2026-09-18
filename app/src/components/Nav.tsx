@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { BarChart3, Home, MapPin, Package, Truck, type LucideIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { MoreSheet } from '@/components/MoreSheet';
+import { todayISO } from '@/lib/visitDrafts';
 import { type SigmaRole as RegistryRole } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 
@@ -33,6 +35,23 @@ export function Nav() {
 
   const registryRole: RegistryRole = isViewer ? 'viewer' : role === 'idan' ? 'idan' : 'team';
 
+  /**
+   * 🚚 from the nav has no kibbutz in hand. §5.1c: a certificate hangs off a visit summary,
+   * so with nothing started this says so in one sentence and opens the form; with a draft
+   * open it resumes that kibbutz and the certificate opens from inside the form, which is
+   * what guarantees the cert ↔ visit link.
+   */
+  const certFromNav = () => {
+    let draft = null as null | { kibbutz: string };
+    try {
+      const me = sigma?.getCurrentUser?.() || '';
+      draft = (sigma?.visitDraftFor?.(null, me, todayISO()) as { kibbutz: string }) || null;
+    } catch { draft = null; }
+    if (draft?.kibbutz) { sigma.openVisitQuick(draft.kibbutz); return; }
+    toast.info('נדרש קודם סיכום ביקור — פותח את הטופס');
+    sigma.openVisitQuick();
+  };
+
   const scrollToReports = () => {
     sigma.showPage('kibbutz');
     document.getElementById('viewerReportsHub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -51,7 +70,7 @@ export function Nav() {
           <TabButton icon={BarChart3} label="דוחות" onClick={scrollToReports} />
         ) : (
           <>
-            <TabButton icon={Truck} label="תעודה" onClick={() => sigma.openDeliveryCert({})} />
+            <TabButton icon={Truck} label="תעודה" onClick={certFromNav} />
 
             {/* center raised primary action — the brand gradient's one appearance in the nav */}
             <div className="relative flex w-[72px] shrink-0 justify-center">

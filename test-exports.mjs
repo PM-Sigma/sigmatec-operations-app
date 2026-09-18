@@ -59,17 +59,21 @@ check('xlDate no timezone slide', () => {
 check('xlMonthRange 2026-02', () => assert.deepStrictEqual(M.xlMonthRange('2026-02'), ['2026-02-01', '2026-02-28']));
 
 console.log('== 1. visits builder ==');
+// The 'נשאר פתוח' column (visits.open_items) arrived in Task 4 per spec §5.1b — the visit
+// summary is two fields now, and the export carries both. The goldens below include it.
 const VISITS = [
   { date: '2026-07-02', kibbutz: 'שדה אליהו', visitor: 'אביאם', duration: 3.5, contact: 'יוסי כהן',
-    summary: 'החלפת מונה\nוגם הדרכה', products: [{ name: 'מונה Landis+Gyr E360PP', qty: 2 }, 'סים Cellcom'] },
+    summary: 'החלפת מונה\nוגם הדרכה', openItems: 'CT חלופי\nלמונה 133',
+    products: [{ name: 'מונה Landis+Gyr E360PP', qty: 2 }, 'סים Cellcom'] },
   { date: '2026-07-09', kibbutz: 'אפיק', visitor: 'ניתאי', duration: '2', contact: null, summary: '', products: [], productsOther: 'כבל 3מ' },
 ];
 check('golden rows (explode, repeat parent fields)', () => {
   const s = M.xlBuildVisits(VISITS);
   assert.strictEqual(s.rows.length, 3);
-  assert.deepStrictEqual(s.rows[0].slice(2), ['שדה אליהו', 'אביאם', 3.5, 'יוסי כהן', 'החלפת מונה; וגם הדרכה', 'מונה Landis+Gyr E360PP', 2]);
-  assert.deepStrictEqual(s.rows[1].slice(2), ['שדה אליהו', 'אביאם', 3.5, 'יוסי כהן', 'החלפת מונה; וגם הדרכה', 'סים Cellcom', 1]);
-  assert.deepStrictEqual(s.rows[2].slice(2), ['אפיק', 'ניתאי', 2, '', '', 'כבל 3מ', 1]);
+  assert.deepStrictEqual(s.rows[0].slice(2), ['שדה אליהו', 'אביאם', 3.5, 'יוסי כהן', 'החלפת מונה; וגם הדרכה', 'CT חלופי; למונה 133', 'מונה Landis+Gyr E360PP', 2]);
+  assert.deepStrictEqual(s.rows[1].slice(2), ['שדה אליהו', 'אביאם', 3.5, 'יוסי כהן', 'החלפת מונה; וגם הדרכה', 'CT חלופי; למונה 133', 'סים Cellcom', 1]);
+  // a visit with nothing left open → an empty cell, never a placeholder
+  assert.deepStrictEqual(s.rows[2].slice(2), ['אפיק', 'ניתאי', 2, '', '', '', 'כבל 3מ', 1]);
   assert.ok(s.rows[0][0] instanceof Date && s.rows[0][1] === 'ה');
 });
 check('visits contract', () => assertContract(M.xlBuildVisits(VISITS), 'visits'));

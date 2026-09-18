@@ -445,7 +445,7 @@
     // visit: upsert the visit AND append any returned-equipment rows (mirrors appendVisit)
     async function writeVisit(b) {
       const id = b.id || genId('v');
-      const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', workday: !!b.workday };
+      const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', open_items: b.openItems || '', workday: !!b.workday };
       if (!b.id || b.isNew) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now). New visits now carry a pre-minted id, so isNew distinguishes create from edit.
       await sbUpsert('visits', 'id', row);
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
@@ -558,6 +558,11 @@
           if (b.type === 'order') return respond(await writeOrder(b));
           if (b.type === 'requirement') return respond(await writeRequirement(b));
           if (b.type === 'visit') return respond(await writeVisit(b));
+          // Visit drafts (spec §5.1c). Fire-and-forget from the form's autosave: the
+          // localStorage mirror is what the resume prompt reads, so a failure here is a
+          // missing cross-device copy, never lost typing.
+          if (b.type === 'visitDraft') { const d = b.draft || {}; await sbUpsert('visit_drafts', 'id', { id: d.id, person: d.person || '', kibbutz: d.kibbutz || '', date: (d.date || nowISO()).slice(0, 10), payload: d.payload || {}, updated_at: d.updated_at || nowISO() }); return respond({ ok: true, id: d.id }); }
+          if (b.type === 'visitDraftDelete') { await sbDelete('visit_drafts?id=eq.' + encodeURIComponent(b.id || '')); return respond({ ok: true }); }
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
           if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '', ver: b.ver || 1 }); return respond({ ok: true, cached: (b.tasks || []).length }); }
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }

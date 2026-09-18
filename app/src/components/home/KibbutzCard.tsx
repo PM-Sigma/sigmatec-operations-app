@@ -6,6 +6,7 @@
 // EMS-tasks widget itself moved to React in task-3-brief — see EmsTasks.tsx).
 // No status/flow badges — spec §2: "A card shows only: name · energy badge · 🤝 tag".
 import { motion, useReducedMotion } from 'motion/react';
+import { useVisitDraft } from '@/lib/visitDrafts';
 import { CardActions } from '@/components/home/CardActions';
 import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
@@ -25,6 +26,9 @@ export function KibbutzCard({
   const reduce = useReducedMotion();
   const section = sectionOf(row);
   const sub = isSubsite(row);
+  // §5.1c: an open draft is visible state — the person sees that his own typing is waiting
+  // for him, and the gaps list counts it as "started, not filed" rather than as a miss.
+  const draft = useVisitDraft(row.name);
 
   return (
     <motion.div
@@ -57,6 +61,11 @@ export function KibbutzCard({
         {sub && (
           <span className="tag-subsite rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
             ↳ תת-אתר של {row.parent}
+          </span>
+        )}
+        {draft && (
+          <span className="tag-draft rounded-full bg-[color:var(--brand-1)]/15 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+            ✍️ סיכום ביקור בהתהוות
           </span>
         )}
         {row.marketing && (

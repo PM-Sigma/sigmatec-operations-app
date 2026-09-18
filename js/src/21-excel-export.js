@@ -39,14 +39,15 @@
       { header: 'תאריך', type: 'd', width: 12 }, { header: 'יום', type: 's', width: 6 },
       { header: 'קיבוץ', type: 's', width: 16 }, { header: 'מבקר', type: 's', width: 10 },
       { header: 'משך (שעות)', type: 'n', width: 12 }, { header: 'איש קשר', type: 's', width: 14 },
-      { header: 'סיכום', type: 's', width: 40 }, { header: 'פריט שסופק', type: 's', width: 26 },
+      { header: 'סיכום', type: 's', width: 40 }, { header: 'נשאר פתוח', type: 's', width: 30 },
+      { header: 'פריט שסופק', type: 's', width: 26 },
       { header: 'כמות', type: 'n', width: 8 }
     ];
     const rows = [], groupKeys = [];
     (visits || []).forEach((v, gi) => {
       const d = xlDate(v.date);
       const base = [d, xlDayLetter(d), xlStr(v.kibbutz), xlStr(v.visitor), xlNum(v.duration),
-                    xlStr(v.contact), xlStr(v.summary)];
+                    xlStr(v.contact), xlStr(v.summary), xlStr(v.openItems || v.open_items)];
       const products = (v.products || []).map(p => typeof p === 'string' ? { name: p, qty: 1 } : p).filter(p => p && p.name);
       if (products.length === 0) {
         rows.push(base.concat([xlStr(v.productsOther), v.productsOther ? xlNum(1) : ''])); groupKeys.push(gi);

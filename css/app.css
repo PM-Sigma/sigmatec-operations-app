@@ -37,6 +37,9 @@
     /* Body face (spec §6: Assistant, Rubik the approved alternative). ⚙️ הגדרות writes this
        token on <html> per person, so one declaration re-types the whole app. */
     --font: 'Assistant', 'Segoe UI', system-ui, sans-serif;
+    /* Text ON the brand gradient. White in both themes — the gradient itself never flips
+       (spec §6: "brand gradient unchanged, it reads well on dark"). */
+    --on-brand: #ffffff;
   }
 
   /* Dark mode (spec §6) — a real toggle, not only the OS preference. The choice is stored in
@@ -1799,4 +1802,126 @@ input, select, textarea {
 body.sigma-header-ready #userBadge,
 body.sigma-header-ready #emsBubble { display: none !important; }
 body.sigma-header-ready .header-meta { align-items: center; }
+/* @end */
+
+/* @tokens-only */
+/* ═════════════════════════════════════════════════════════════════════════════
+   Form anatomy ported from the approved mockup (`sigmatec-ops-mockup.html`,
+   screen `visit`): `.frm .fl .seg .pl .pi .cb .step .certchip .fi .fb`.
+   The names are PREFIXED `sig-` because this stylesheet is 1700 lines of legacy
+   rules and a bare `.card` / `.seg` would collide. Same geometry, same numbers.
+   ═════════════════════════════════════════════════════════════════════════════ */
+.sig-frm { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
+.sig-fl {
+  display: block; font-size: 12px; font-weight: 700; color: var(--text-light);
+  letter-spacing: .02em; margin: 0;
+}
+.sig-fl .hint { font-weight: 500; color: var(--text-light); }
+
+/* segmented row — day type, duration chips. The active one carries the brand gradient as a
+   2px border (gradient border-box over a card padding-box), never as a fill: §6 keeps the
+   gradient for brand touchpoints only. */
+.sig-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.sig-seg button {
+  flex: 1 1 auto; min-height: 44px; border: 1px solid var(--border); background: var(--surface-2);
+  border-radius: 12px; font-weight: 700; font-size: 13.5px; color: var(--text);
+  display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px;
+  font-family: inherit; cursor: pointer;
+}
+.sig-seg button.on {
+  border: 2px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--brand-grad) border-box;
+}
+.sig-seg button:disabled { opacity: .45; cursor: default; }
+
+/* products — a checkbox list with quantity steppers */
+.sig-pl { display: flex; flex-direction: column; gap: 6px; }
+.sig-pi {
+  display: flex; align-items: center; gap: 10px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; min-height: 52px;
+}
+.sig-pi.out { opacity: .55; }
+.sig-pi .cb {
+  /* The unchecked square needs to be VISIBLE: --border on --card is a hairline meant for
+     separating surfaces, and a checkbox drawn in it disappears in dark mode (browser smoke). */
+  width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--text-light);
+  display: grid; place-items: center; flex: none; background: none; padding: 0;
+  color: transparent; font-size: 14px; font-weight: 800; line-height: 1; cursor: pointer;
+}
+.sig-pi.on .cb { background: var(--brand-grad); border-color: transparent; color: var(--card); }
+.sig-pi .nm { flex: 1; font-weight: 600; font-size: 14.5px; min-width: 0; }
+.sig-pi .sub { display: block; font-size: 12px; color: var(--text-light); font-weight: 500; }
+/* The stepper belongs to a PICKED item — an empty −/+ next to an unticked row is a control
+   with nothing to control (mockup: `.pi` without `.on` has no `.step`). The input stays in
+   the DOM either way, because saveVisit() reads it. */
+.sig-pi:not(.on) .sig-step { visibility: hidden; }
+.sig-step {
+  display: flex; align-items: center; border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; flex: none;
+}
+.sig-step button {
+  width: 36px; height: 36px; border: none; background: var(--surface-2); font-size: 18px;
+  color: var(--text); font-family: inherit; cursor: pointer; line-height: 1;
+}
+.sig-step input {
+  width: 42px; height: 36px; border: 0; background: var(--card); text-align: center;
+  font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--text);
+  -moz-appearance: textfield; appearance: textfield;
+}
+.sig-step input::-webkit-outer-spin-button,
+.sig-step input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.sig-pl-empty {
+  background: var(--surface-2); border: 1px dashed var(--border); border-radius: 12px;
+  padding: 14px; text-align: center; font-size: 12.5px; color: var(--text-light);
+}
+
+/* the delivery-cert gate chip — §7k #5: it sits UNDER the products list */
+.sig-certchip {
+  display: flex; align-items: center; gap: 8px; border-radius: 12px; padding: 10px 12px;
+  font-size: 13.5px; font-weight: 700;
+  background: color-mix(in srgb, var(--priority) 14%, transparent); color: var(--priority);
+}
+.sig-certchip.ok {
+  background: color-mix(in srgb, var(--brand-2) 16%, transparent); color: var(--brand-2);
+}
+.sig-certchip .sp { flex: 1; }
+.sig-certchip button {
+  flex: none; min-height: 34px; padding: 0 12px; font-size: 13px; font-weight: 700;
+  border-radius: 10px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); font-family: inherit; cursor: pointer;
+}
+
+/* text inputs / textareas inside a sig-frm */
+.sig-frm .sig-fi, .sig-frm .sig-fb, .sig-frm select {
+  width: 100%; border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  border-radius: 12px; padding: 12px; font-size: 15px; font-family: inherit;
+  min-height: 48px; text-align: start;
+}
+.sig-frm .sig-fb { min-height: 96px; resize: vertical; line-height: 1.55; }
+
+/* the form's primary / secondary buttons — mockup `.btn p|s|lg` */
+.sig-btn {
+  flex: 1; border: none; border-radius: 12px; padding: 12px 10px; font-weight: 700;
+  font-size: 14px; min-height: 48px; display: flex; align-items: center;
+  justify-content: center; gap: 6px; font-family: inherit; cursor: pointer;
+}
+.sig-btn.p { background: var(--brand-grad); color: var(--on-brand); }
+.sig-btn.s { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+.sig-btn.lg { min-height: 56px; font-size: 16px; }
+.sig-btn:active { transform: scale(.97); }
+@media (prefers-reduced-motion: reduce) { .sig-btn:active { transform: none; } }
+.sig-actions { display: flex; gap: 8px; }
+
+/* the resume-a-draft prompt (§5.1c) — one line, one tap, no explanation of the machinery */
+.sig-draft {
+  display: flex; align-items: center; gap: 8px; border-radius: 12px; padding: 10px 12px;
+  background: color-mix(in srgb, var(--brand-1) 12%, transparent);
+  border: 1px solid var(--border); font-size: 13.5px; font-weight: 700; color: var(--text);
+}
+.sig-draft .sp { flex: 1; }
+.sig-draft button {
+  flex: none; min-height: 34px; padding: 0 12px; font-size: 13px; font-weight: 700;
+  border-radius: 10px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); font-family: inherit; cursor: pointer;
+}
 /* @end */

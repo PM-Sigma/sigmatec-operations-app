@@ -214,6 +214,12 @@
         return r;
       },
       getLastVisit: function (kibbutz) { return call('getLastVisit', [kibbutz], null); },
+
+      // ---- visit drafts (spec §5.1c) ---------------------------------------
+      // The legacy module is the only writer of a draft, so it is the only reader too: React
+      // asks "is there one?" and never learns the payload's shape. `date` omitted = any day.
+      visitDraftFor: function (kibbutz, person, date) { return call('visitDraftFor', [kibbutz, person, date], null); },
+      visitDraftDiscard: function (id) { return call('visitDraftDiscard', [id, false]); },
       loadAllVisitsCombined: function () { return call('loadAllVisitsCombined', [], []); },
       openDeliveryCert: function (pre) { return call('openDeliveryCert', [pre || {}]); },
       certFromVisitForm: function () { return call('certFromVisitForm'); },
@@ -678,7 +684,7 @@
     // visit: upsert the visit AND append any returned-equipment rows (mirrors appendVisit)
     async function writeVisit(b) {
       const id = b.id || genId('v');
-      const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', workday: !!b.workday };
+      const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', open_items: b.openItems || '', workday: !!b.workday };
       if (!b.id || b.isNew) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now). New visits now carry a pre-minted id, so isNew distinguishes create from edit.
       await sbUpsert('visits', 'id', row);
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
@@ -791,6 +797,11 @@
           if (b.type === 'order') return respond(await writeOrder(b));
           if (b.type === 'requirement') return respond(await writeRequirement(b));
           if (b.type === 'visit') return respond(await writeVisit(b));
+          // Visit drafts (spec §5.1c). Fire-and-forget from the form's autosave: the
+          // localStorage mirror is what the resume prompt reads, so a failure here is a
+          // missing cross-device copy, never lost typing.
+          if (b.type === 'visitDraft') { const d = b.draft || {}; await sbUpsert('visit_drafts', 'id', { id: d.id, person: d.person || '', kibbutz: d.kibbutz || '', date: (d.date || nowISO()).slice(0, 10), payload: d.payload || {}, updated_at: d.updated_at || nowISO() }); return respond({ ok: true, id: d.id }); }
+          if (b.type === 'visitDraftDelete') { await sbDelete('visit_drafts?id=eq.' + encodeURIComponent(b.id || '')); return respond({ ok: true }); }
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
           if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '', ver: b.ver || 1 }); return respond({ ok: true, cached: (b.tasks || []).length }); }
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
@@ -1157,6 +1168,14 @@
     // single place that can say "the form is on screen now".
     if (tabName === 'visit' && typeof sigmaEmit === 'function') {
       sigmaEmit('visit-form-open', { kibbutz: window.currentKibbutz || '' });
+    }
+    // Visit drafts (spec §5.1c). Leaving the form flushes whatever is pending — a tab switch
+    // is exactly the moment someone means to come back — and entering it offers to resume.
+    if (tabName === 'visit') {
+      if (typeof visitDraftPromptShow === 'function') visitDraftPromptShow(window.currentKibbutz || '');
+      if (typeof syncVisitDurationChips === 'function') syncVisitDurationChips();
+    } else if (typeof visitDraftFlush === 'function') {
+      visitDraftFlush();
     }
   }
 
@@ -4053,7 +4072,48 @@
     const on = document.getElementById('visitWorkday').checked;
     const dur = document.getElementById('visitDuration');
     if (dur) { dur.disabled = on; dur.style.opacity = on ? '0.45' : ''; if (on) dur.value = ''; }
+    syncVisitDurationChips();
   }
+
+  // ── duration: quick chips + a יום שלם chip + the exact-hours input (spec §6, task-4 5b).
+  // The chips are PURE UI: they write into #visitDuration / #visitWorkday, the two fields
+  // saveVisit() has always read, so the save path and its gate test are untouched.
+  function setVisitHours(h) {
+    setVisitWorkday(false);
+    const dur = document.getElementById('visitDuration');
+    if (!dur) return;
+    // Tapping the chip that is already on clears it — otherwise a wrong tap could only be
+    // corrected by typing, which on a phone in the field is the worst of both worlds.
+    dur.value = (parseFloat(dur.value) === h) ? '' : String(h);
+    syncVisitDurationChips();
+    visitDraftTouch();
+  }
+
+  /** `on` omitted = toggle. יום שלם and hours are either/or, exactly as before. */
+  function setVisitWorkday(on) {
+    const wd = document.getElementById('visitWorkday');
+    if (!wd) return;
+    wd.checked = (on === undefined) ? !wd.checked : !!on;
+    toggleVisitWorkday();
+    visitDraftTouch();
+  }
+
+  /** Paint the chip row from the two real fields — the only place chip state is decided. */
+  function syncVisitDurationChips() {
+    const wrap = document.getElementById('visitDurationChips');
+    if (!wrap) return;
+    const workday = !!(document.getElementById('visitWorkday') || {}).checked;
+    const hours = parseFloat((document.getElementById('visitDuration') || {}).value);
+    wrap.querySelectorAll('button[data-hours]').forEach(b => {
+      b.classList.toggle('on', !workday && parseFloat(b.dataset.hours) === hours);
+      b.disabled = workday;
+    });
+    const chip = document.getElementById('visitWorkdayChip');
+    if (chip) chip.classList.toggle('on', workday);
+  }
+  window.setVisitHours = setVisitHours;
+  window.setVisitWorkday = setVisitWorkday;
+  window.syncVisitDurationChips = syncVisitDurationChips;
 
   // Combined source: Sheet visits authoritative; local visits added only if NOT already in Sheet
   function loadAllVisitsCombined() {
@@ -4078,7 +4138,7 @@
     const source = document.getElementById('visitSource')?.value || 'משרד';
 
     if (!visitor) {
-      wrap.innerHTML = '<div style="grid-column:1/-1;padding:14px;text-align:center;color:#94a3b8;font-style:italic;font-size:12px;background:white;border-radius:6px;">👤 בחר תחילה את המבקר כדי לראות את המלאי שלו</div>';
+      wrap.innerHTML = '<div class="sig-pl-empty">בחר תחילה את המבקר כדי לראות את המלאי שלו</div>';
       return;
     }
 
@@ -4104,32 +4164,66 @@
     Object.keys(editingProducts).forEach(p => itemNames.add(p));
 
     if (itemNames.size === 0) {
-      wrap.innerHTML = `<div style="grid-column:1/-1;padding:12px;text-align:center;color:#92400e;background:#fef3c7;border-radius:6px;font-size:12px;">
-        ⚠️ ב-${source} אין כרגע מלאי. השתמש בשדה "פריטים אחרים" למטה לפריטים מיוחדים.
-      </div>`;
+      wrap.innerHTML = `<div class="sig-pl-empty">⚠️ ב-${source} אין כרגע מלאי. השתמש ב"מוצרים שאינם בקטלוג" למטה.</div>`;
       return;
     }
 
     const sorted = Array.from(itemNames).sort((a, b) => a.localeCompare(b, 'he'));
-    const header = `<div style="grid-column:1/-1;font-size:11px;color:#64748b;margin-bottom:4px;font-weight:700;">📦 מלאי זמין ב-${source}:</div>`;
-    wrap.innerHTML = header + sorted.map(p => {
+    // The row anatomy is the mockup's `.pi` (checkbox · name + stock sub-line · stepper).
+    // `.prod-chk` / `.prod-qty` and their data-attributes are UNCHANGED — saveVisit() and the
+    // cert gate read exactly these, so this is a re-skin and nothing more.
+    wrap.innerHTML = sorted.map(p => {
       const available  = sourceStock[p] || 0;
       const usedInVisit = editingProducts[p] || 0;
       const maxAllowed = available + usedInVisit;
-      const checked  = usedInVisit > 0 ? 'checked' : '';
-      const disabled = usedInVisit > 0 ? '' : 'disabled';
-      const qtyValue = usedInVisit > 0 ? usedInVisit : '';
-      const lowStock = available === 0 && usedInVisit === 0;
+      const on = usedInVisit > 0;
+      const qtyValue = on ? usedInVisit : '';
+      const out = available === 0 && !on;
+      const esc = String(p).replace(/"/g, '&quot;');
       return `
-        <div style="display:flex;align-items:center;gap:6px;background:white;padding:4px 8px;border-radius:6px;${lowStock ? 'opacity:0.6;' : ''}">
-          <input type="checkbox" class="prod-chk" data-product="${p}" ${checked} onchange="toggleProductQty(this)">
-          <label style="font-size:12px;flex:1;">${p} <span style="color:#64748b;font-size:10px;">(${available} זמין)</span></label>
-          <input type="number" class="prod-qty" data-product="${p}" data-max="${maxAllowed}" min="1" max="${maxAllowed}" step="1" placeholder="כמות" value="${qtyValue}" style="width:55px;padding:3px 6px;font-size:11px;" ${disabled}>
+        <div class="sig-pi ${on ? 'on' : ''} ${out ? 'out' : ''}" data-row="${esc}">
+          <input type="checkbox" class="prod-chk" data-product="${esc}" ${on ? 'checked' : ''} onchange="toggleProductQty(this)" hidden>
+          <button type="button" class="cb" aria-label="בחר ${esc}" onclick="toggleProductRow(this)">✓</button>
+          <span class="nm">${p}<span class="sub">במלאי: <bdi>${available}</bdi>${out ? ' · אין מלאי' : ''}</span></span>
+          <div class="sig-step">
+            <button type="button" aria-label="פחות" onclick="stepProductQty('${esc.replace(/'/g, "\\'")}', -1)">−</button>
+            <input type="number" class="prod-qty" data-product="${esc}" data-max="${maxAllowed}" min="1" max="${maxAllowed}" step="1" value="${qtyValue}" ${on ? '' : 'disabled'} oninput="visitDraftTouch()">
+            <button type="button" aria-label="עוד" onclick="stepProductQty('${esc.replace(/'/g, "\\'")}', 1)">+</button>
+          </div>
         </div>
       `;
     }).join('');
     paintVisitCertStatus();
   }
+
+  /** The visible checkbox square. Flips the real (hidden) `.prod-chk`, which owns the state. */
+  function toggleProductRow(btn) {
+    const row = btn.closest('.sig-pi');
+    const chk = row && row.querySelector('.prod-chk');
+    if (!chk) return;
+    chk.checked = !chk.checked;
+    toggleProductQty(chk);
+  }
+
+  /** ± on the quantity stepper. Clamps to the available stock and unchecks at zero. */
+  function stepProductQty(product, delta) {
+    const qty = document.querySelector('.prod-qty[data-product="' + String(product).replace(/"/g, '\\"') + '"]');
+    if (!qty) return;
+    const chk = document.querySelector('.prod-chk[data-product="' + String(product).replace(/"/g, '\\"') + '"]');
+    const max = parseInt(qty.dataset.max);
+    let n = (parseInt(qty.value) || 0) + delta;
+    if (n <= 0) {
+      // Stepping below 1 is how someone un-picks an item with the same thumb he picked it.
+      if (chk && chk.checked) { chk.checked = false; toggleProductQty(chk); }
+      return;
+    }
+    if (!isNaN(max) && n > max) n = max;
+    if (chk && !chk.checked) { chk.checked = true; toggleProductQty(chk); }
+    qty.value = String(n);
+    visitDraftTouch();
+  }
+  window.toggleProductRow = toggleProductRow;
+  window.stepProductQty = stepProductQty;
 
   function toggleProductQty(chk) {
     const product = chk.dataset.product;
@@ -4138,26 +4232,37 @@
     if (chk.checked) {
       qtyInput.disabled = false;
       if (!qtyInput.value) qtyInput.value = '1';
-      qtyInput.focus();
     } else {
       qtyInput.disabled = true;
       qtyInput.value = '';
     }
+    const row = chk.closest && chk.closest('.sig-pi');
+    if (row) row.classList.toggle('on', chk.checked);
     paintVisitCertStatus();
+    visitDraftTouch();
   }
 
   // Status chip next to "🚚 תעודת משלוח" in the visit form: has an issued cert been linked yet?
   // No-op (clears) when no products are checked — the gate only applies when equipment is supplied.
   async function paintVisitCertStatus() {
     const el = document.getElementById('visitCertStatus');
+    const save = document.getElementById('visitSaveBtn');
     if (!el) return;
     const vid = window.editingVisitId || window._visitDraftId || '';
     const hasProducts = document.querySelectorAll('.prod-chk:checked').length > 0;
-    if (!hasProducts) { el.innerHTML = ''; return; }
+    if (!hasProducts) {
+      el.innerHTML = '';
+      // §7k #5: the save button only promises a certificate while equipment is actually ticked.
+      if (save) save.innerHTML = '💾 שמור ביקור';
+      return;
+    }
     const n = vid && typeof certIssuedForVisit === 'function' ? await certIssuedForVisit(vid) : 0;
     el.innerHTML = n
-      ? '<span style="color:#059669;font-weight:700;">✅ תעודה ' + n + ' נופקה</span>'
-      : '<span style="color:#dc2626;font-weight:700;">❌ טרם הופקה תעודה</span>';
+      ? '<div class="sig-certchip ok">✅ תעודה <bdi>' + n + '</bdi> נופקה</div>'
+      : '<div class="sig-certchip">⚠️ סופק ציוד — טרם הופקה תעודת משלוח<span class="sp"></span>'
+        + '<button type="button" onclick="certFromVisitForm()">🚚 הפק</button></div>';
+    // The label states the order of operations, which is what the gate enforces anyway.
+    if (save) save.innerHTML = n ? '💾 שמור ביקור' : '🚚 הפק תעודה ← שמור';
   }
   window.paintVisitCertStatus = paintVisitCertStatus;
 
@@ -4195,6 +4300,10 @@
     }
     if (visit.productsOther) text += `📦 אחר: ${visit.productsOther}\n`;
     if (visit.summary) text += `\n${visit.summary}`;
+    // §5.1b: what he left open is the part the NEXT visit has to act on, so it is called out
+    // rather than folded into the summary. Old visits have none — then there is nothing to show.
+    const open = visit.openItems || visit.open_items;
+    if (open) text += `\n\n⚠️ נשאר פתוח:\n${open}`;
     return text;
   }
 
@@ -4260,11 +4369,14 @@
     window.editingVisitId = visitId;
     // Pre-fill form with this visit's data
     document.getElementById('visitSummary').value = visit.summary || '';
+    const oi = document.getElementById('visitOpenItems');
+    if (oi) oi.value = visit.openItems || visit.open_items || '';
     document.getElementById('visitProductsOther').value = visit.productsOther || '';
     document.getElementById('visitContact').value = visit.contact || '';
     document.getElementById('visitDuration').value = visit.workday ? '' : (visit.duration || '');
     const wdEl = document.getElementById('visitWorkday');
     if (wdEl) { wdEl.checked = !!visit.workday; toggleVisitWorkday(); }
+    syncVisitDurationChips();
     document.getElementById('visitor').value = visit.visitor || '';
     const d = visit.date ? new Date(visit.date) : new Date();
     document.getElementById('visitDate').value =
@@ -4276,6 +4388,277 @@
     onVisitorChange(visit.visitor || '');
     switchTab('visit');
     paintVisitCertStatus();
+  }
+
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VISIT DRAFTS — "nothing typed is ever lost" (spec §5.1c)
+  //
+  // The draft's id IS the pre-minted visit id (`visitDraftId()`), so the draft, a delivery
+  // certificate issued from it and the saved visit all share one identity: the cert's refId
+  // keeps pointing at the right visit although the visit row does not exist yet.
+  //
+  // Two stores, on purpose: `visit_drafts` in Supabase so the draft follows the person to
+  // another device, and a localStorage MIRROR so a phone with no signal — the normal state in
+  // a cowshed — loses nothing. The mirror is written first and is authoritative for the
+  // resume prompt; the row is best-effort.
+  //
+  // Everything below is guarded with `typeof`: this module is evaluated by
+  // test-visit-cert-gate.mjs inside a function scope with a fixed set of stubs, and an
+  // unguarded global would turn a re-skin into a broken save path.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const DRAFT_MIRROR_KEY = 'visitDraft_v1';
+  const DRAFT_DEBOUNCE_MS = 800;
+  let visitDraftTimer = null;
+
+  function draftToday() {
+    const el = document.getElementById('visitDate');
+    const v = el && el.value;
+    return v || new Date().toISOString().slice(0, 10);
+  }
+
+  /**
+   * WHOSE draft is this? The LOGGED-IN person, not the value of the "מי ביקר" select.
+   * They are usually the same, but not always — עידן opening אביאם's form would otherwise
+   * write a draft nobody is ever offered again (caught in the browser smoke: the card chip
+   * and the resume prompt both went missing). The draft belongs to whoever will come back
+   * to this device; the visitor field is what he is REPORTING, and it lives in the payload.
+   */
+  function draftPerson() {
+    const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    if (me) return me;
+    const el = document.getElementById('visitor');
+    return (el && el.value) || '';
+  }
+
+  /** Everything the form holds right now. One shape, used by save AND restore. */
+  function visitDraftPayload() {
+    const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const products = [];
+    document.querySelectorAll('.prod-chk:checked').forEach(chk => {
+      const name = chk.dataset.product;
+      const qtyEl = document.querySelector('.prod-qty[data-product="' + String(name).replace(/"/g, '\\"') + '"]');
+      products.push({ name: name, qty: parseInt(qtyEl && qtyEl.value) || 1 });
+    });
+    const wd = document.getElementById('visitWorkday');
+    return {
+      kibbutz: (typeof currentKibbutz !== 'undefined' && currentKibbutz) || '',
+      visitor: val('visitor'),
+      source: val('visitSource'),
+      date: val('visitDate'),
+      duration: val('visitDuration'),
+      workday: !!(wd && wd.checked),
+      products: products,
+      productsOther: val('visitProductsOther'),
+      summary: val('visitSummary'),
+      openItems: val('visitOpenItems'),
+      contact: val('visitContact'),
+      returnedItems: (typeof visitReturnedItems !== 'undefined' && Array.isArray(visitReturnedItems))
+        ? visitReturnedItems.slice() : []
+    };
+  }
+
+  /** Pure-ish: is there anything worth keeping? An untouched form must not leave a draft. */
+  function visitDraftHasContent(payload) {
+    if (!payload) return false;
+    return !!(String(payload.summary || '').trim()
+      || String(payload.openItems || '').trim()
+      || String(payload.productsOther || '').trim()
+      || String(payload.contact || '').trim()
+      || String(payload.duration || '').trim()
+      || payload.workday
+      || (payload.products || []).length
+      || (payload.returnedItems || []).length);
+  }
+
+  function draftMirrorRead() {
+    try { return JSON.parse(localStorage.getItem(DRAFT_MIRROR_KEY) || 'null'); }
+    catch (e) { return null; }
+  }
+  function draftMirrorWrite(row) {
+    try {
+      if (row) localStorage.setItem(DRAFT_MIRROR_KEY, JSON.stringify(row));
+      else localStorage.removeItem(DRAFT_MIRROR_KEY);
+    } catch (e) { /* private mode */ }
+  }
+
+  /** Save the draft now (no debounce). Editing an EXISTING visit never leaves a draft —
+   *  the visit itself is the record, and a draft beside it would offer to restore the past. */
+  function visitDraftSave() {
+    if (window.editingVisitId) return null;
+    const payload = visitDraftPayload();
+    if (!payload.kibbutz || !visitDraftHasContent(payload)) return null;
+    const row = {
+      id: visitDraftId(),
+      person: draftPerson(),
+      kibbutz: payload.kibbutz,
+      date: draftToday(),
+      payload: payload,
+      updated_at: new Date().toISOString()
+    };
+    draftMirrorWrite(row);
+    // Best effort to the shared table — a failure is invisible, because the mirror already has it.
+    if (typeof SHEET_API === 'string' && typeof fetch === 'function') {
+      try {
+        fetch(SHEET_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ type: 'visitDraft', draft: row })
+        }).catch(function () { /* offline — the mirror is the record */ });
+      } catch (e) { /* no network at all */ }
+    }
+    if (typeof sigmaEmit === 'function') sigmaEmit('visit-draft-changed', { kibbutz: row.kibbutz, at: row.updated_at });
+    return row;
+  }
+
+  /** Debounced autosave — every keystroke, 800 ms after the last one (spec §5.1c). */
+  function visitDraftTouch() {
+    if (window.editingVisitId) return;
+    if (visitDraftTimer) clearTimeout(visitDraftTimer);
+    visitDraftTimer = setTimeout(function () { visitDraftTimer = null; visitDraftSave(); }, DRAFT_DEBOUNCE_MS);
+  }
+
+  /** Flush a pending debounce immediately — tab switch, pagehide, tab hidden. */
+  function visitDraftFlush() {
+    if (visitDraftTimer) { clearTimeout(visitDraftTimer); visitDraftTimer = null; }
+    visitDraftSave();
+  }
+
+  /**
+   * Is there a draft for this kibbutz / person / day? The mirror answers instantly and is
+   * what the card chip and the resume prompt read (the bridge hands this to React).
+   */
+  function visitDraftFor(kibbutz, person, date) {
+    const row = draftMirrorRead();
+    if (!row || !row.id) return null;
+    if (kibbutz && row.kibbutz !== kibbutz) return null;
+    if (person && row.person !== person) return null;
+    if (date && row.date !== date) return null;
+    return row;
+  }
+
+  /** Drop the draft. `announce` = the person pressed "התחל מחדש", so the form is cleared too. */
+  function visitDraftDiscard(id, announce) {
+    const row = draftMirrorRead();
+    const target = id || (row && row.id);
+    draftMirrorWrite(null);
+    if (visitDraftTimer) { clearTimeout(visitDraftTimer); visitDraftTimer = null; }
+    if (target && typeof SHEET_API === 'string' && typeof fetch === 'function') {
+      try {
+        fetch(SHEET_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ type: 'visitDraftDelete', id: target })
+        }).catch(function () { /* it is gone locally, which is what the person asked for */ });
+      } catch (e) { /* no network */ }
+    }
+    if (announce) {
+      ['visitSummary', 'visitOpenItems', 'visitProductsOther', 'visitContact', 'visitDuration'].forEach(function (fid) {
+        const el = document.getElementById(fid);
+        if (el) el.value = '';
+      });
+      const wd = document.getElementById('visitWorkday');
+      if (wd && wd.checked) { wd.checked = false; toggleVisitWorkday(); }
+      window._visitDraftId = null;
+      if (typeof renderProductsForVisitor === 'function') renderProductsForVisitor();
+    }
+    visitDraftPromptHide();
+    if (typeof sigmaEmit === 'function') sigmaEmit('visit-draft-changed', { kibbutz: row && row.kibbutz, at: null });
+  }
+
+  /** Put a draft back into the form. */
+  function visitDraftRestore(id) {
+    const row = id ? { id: id, payload: (draftMirrorRead() || {}).payload } : draftMirrorRead();
+    const d = row && row.payload;
+    if (!d) { visitDraftPromptHide(); return false; }
+    window._visitDraftId = row.id;                 // the pre-minted id comes back with it
+    const set = (fid, v) => { const el = document.getElementById(fid); if (el && v != null) el.value = v; };
+    set('visitor', d.visitor);
+    if (d.visitor && typeof onVisitorChange === 'function') onVisitorChange(d.visitor);
+    set('visitSource', d.source);
+    set('visitDate', d.date);
+    set('visitDuration', d.duration);
+    set('visitProductsOther', d.productsOther);
+    set('visitSummary', d.summary);
+    set('visitOpenItems', d.openItems);
+    set('visitContact', d.contact);
+    const wd = document.getElementById('visitWorkday');
+    if (wd) { wd.checked = !!d.workday; toggleVisitWorkday(); }
+    if (typeof visitReturnedItems !== 'undefined' && Array.isArray(d.returnedItems)) {
+      visitReturnedItems = d.returnedItems.slice();
+      if (typeof renderReturnedItems === 'function') renderReturnedItems();
+    }
+    // The products list is rebuilt from live stock; re-tick what the draft had, clamped by
+    // whatever the checkbox for that product still allows.
+    if (typeof renderProductsForVisitor === 'function') renderProductsForVisitor();
+    (d.products || []).forEach(function (p) {
+      const sel = String(p.name).replace(/"/g, '\\"');
+      const chk = document.querySelector('.prod-chk[data-product="' + sel + '"]');
+      const qty = document.querySelector('.prod-qty[data-product="' + sel + '"]');
+      if (!chk) return;
+      chk.checked = true;
+      if (typeof toggleProductQty === 'function') toggleProductQty(chk);
+      if (qty) {
+        const max = parseInt(qty.dataset.max);
+        qty.value = String(!isNaN(max) ? Math.min(p.qty || 1, max) : (p.qty || 1));
+      }
+    });
+    syncVisitDurationChips();
+    paintVisitCertStatus();
+    visitDraftPromptHide();
+    if (typeof sigmaTrack === 'function') sigmaTrack('visit-draft-restored', row.kibbutz || '');
+    return true;
+  }
+
+  function visitDraftPromptHide() {
+    const box = document.getElementById('visitDraftPrompt');
+    if (box) box.style.display = 'none';
+  }
+
+  /**
+   * Offer to resume, if there is something to resume. The copy names the time and the next
+   * step and nothing else (copy rule: no system talk).
+   */
+  function visitDraftPromptShow(kibbutz) {
+    const box = document.getElementById('visitDraftPrompt');
+    if (!box) return false;
+    const row = visitDraftFor(kibbutz || (typeof currentKibbutz !== 'undefined' ? currentKibbutz : ''), draftPerson(), null);
+    if (!row || window.editingVisitId) { visitDraftPromptHide(); return false; }
+    const t = new Date(row.updated_at);
+    const hhmm = isNaN(t) ? '' : (String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'));
+    const label = document.getElementById('visitDraftPromptText');
+    if (label) label.textContent = hhmm ? ('המשך טיוטה מ-' + hhmm) : 'המשך טיוטה';
+    box.style.display = '';
+    return true;
+  }
+
+  window.visitDraftPayload = visitDraftPayload;
+  window.visitDraftHasContent = visitDraftHasContent;
+  window.visitDraftSave = visitDraftSave;
+  window.visitDraftTouch = visitDraftTouch;
+  window.visitDraftFlush = visitDraftFlush;
+  window.visitDraftFor = visitDraftFor;
+  window.visitDraftDiscard = visitDraftDiscard;
+  window.visitDraftRestore = visitDraftRestore;
+  window.visitDraftPromptShow = visitDraftPromptShow;
+
+  // Autosave triggers. Delegated on the document (the form's markup is re-rendered), and the
+  // page-level ones flush a pending debounce so closing the app mid-sentence keeps it.
+  if (typeof document.addEventListener === 'function') {
+    document.addEventListener('input', function (e) {
+      const t = e && e.target;
+      if (t && t.closest && t.closest('#tab-visit')) visitDraftTouch();
+    }, true);
+    document.addEventListener('change', function (e) {
+      const t = e && e.target;
+      if (t && t.closest && t.closest('#tab-visit')) visitDraftTouch();
+    }, true);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') visitDraftFlush();
+    });
+  }
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('pagehide', function () { visitDraftFlush(); });
   }
 
   async function saveVisit(btn) {
@@ -4324,6 +4707,9 @@
     const dateInput = document.getElementById('visitDate').value;
     const visitDate = dateInput ? new Date(dateInput + 'T12:00:00').toISOString() : new Date().toISOString();
     const summary = document.getElementById('visitSummary').value.trim();
+    // §5.1b — "מה נשאר לי פתוח" is its own field (visits.open_items).
+    const openItemsEl = document.getElementById('visitOpenItems');
+    const openItems = openItemsEl ? String(openItemsEl.value || '').trim() : '';
 
     const visit = {
       kibbutz: currentKibbutz,
@@ -4335,6 +4721,7 @@
       productsOther: document.getElementById('visitProductsOther').value.trim(),
       returnedItems: visitReturnedItems.filter(r => r.name && r.qty > 0),
       summary: summary,
+      openItems: openItems,
       workday: workday
     };
 
@@ -4356,6 +4743,7 @@
       productsOther: visit.productsOther,
       returnedItems: visit.returnedItems,
       summary: visit.summary,
+      openItems: visit.openItems,
       workday: visit.workday,
       id: window.editingVisitId || window._visitDraftId || undefined,
       isNew: !window.editingVisitId
@@ -4423,8 +4811,11 @@
     });
 
     // Clear editing flag + reset returns list
+    // The draft's whole job is over the moment the visit is a record (spec §5.1c).
+    try { visitDraftDiscard(reqBody.id || null, false); } catch (e) { console.warn('draft cleanup', e); }
     window.editingVisitId = null;
     window._visitDraftId = null;
+    if (openItemsEl) openItemsEl.value = '';
     visitReturnedItems = [];
     renderReturnedItems();
 
@@ -4523,6 +4914,10 @@
           report += `  📦 ${productsStr}${v.productsOther ? ' · ' + v.productsOther : ''}\n`;
         }
         if (v.summary) report += `  📝 ${v.summary}\n`;
+        // §5.1b — an open item is the part someone still owes; it reads as its own line so a
+        // manager scanning the report sees it without reading the summary.
+        const vOpen = v.openItems || v.open_items;
+        if (vOpen) report += `  ⚠️ נשאר פתוח: ${vOpen}\n`;
       });
       report += '\n';
     });
@@ -9116,14 +9511,15 @@ ${groups || '<div style="color:#94a3b8;">אין תעודות בטווח הזה</
       { header: 'תאריך', type: 'd', width: 12 }, { header: 'יום', type: 's', width: 6 },
       { header: 'קיבוץ', type: 's', width: 16 }, { header: 'מבקר', type: 's', width: 10 },
       { header: 'משך (שעות)', type: 'n', width: 12 }, { header: 'איש קשר', type: 's', width: 14 },
-      { header: 'סיכום', type: 's', width: 40 }, { header: 'פריט שסופק', type: 's', width: 26 },
+      { header: 'סיכום', type: 's', width: 40 }, { header: 'נשאר פתוח', type: 's', width: 30 },
+      { header: 'פריט שסופק', type: 's', width: 26 },
       { header: 'כמות', type: 'n', width: 8 }
     ];
     const rows = [], groupKeys = [];
     (visits || []).forEach((v, gi) => {
       const d = xlDate(v.date);
       const base = [d, xlDayLetter(d), xlStr(v.kibbutz), xlStr(v.visitor), xlNum(v.duration),
-                    xlStr(v.contact), xlStr(v.summary)];
+                    xlStr(v.contact), xlStr(v.summary), xlStr(v.openItems || v.open_items)];
       const products = (v.products || []).map(p => typeof p === 'string' ? { name: p, qty: 1 } : p).filter(p => p && p.name);
       if (products.length === 0) {
         rows.push(base.concat([xlStr(v.productsOther), v.productsOther ? xlNum(1) : ''])); groupKeys.push(gi);

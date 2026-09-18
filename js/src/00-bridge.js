@@ -214,6 +214,12 @@
         return r;
       },
       getLastVisit: function (kibbutz) { return call('getLastVisit', [kibbutz], null); },
+
+      // ---- visit drafts (spec §5.1c) ---------------------------------------
+      // The legacy module is the only writer of a draft, so it is the only reader too: React
+      // asks "is there one?" and never learns the payload's shape. `date` omitted = any day.
+      visitDraftFor: function (kibbutz, person, date) { return call('visitDraftFor', [kibbutz, person, date], null); },
+      visitDraftDiscard: function (id) { return call('visitDraftDiscard', [id, false]); },
       loadAllVisitsCombined: function () { return call('loadAllVisitsCombined', [], []); },
       openDeliveryCert: function (pre) { return call('openDeliveryCert', [pre || {}]); },
       certFromVisitForm: function () { return call('certFromVisitForm'); },

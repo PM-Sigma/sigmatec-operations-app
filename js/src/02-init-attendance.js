@@ -12,6 +12,14 @@
     if (tabName === 'visit' && typeof sigmaEmit === 'function') {
       sigmaEmit('visit-form-open', { kibbutz: window.currentKibbutz || '' });
     }
+    // Visit drafts (spec §5.1c). Leaving the form flushes whatever is pending — a tab switch
+    // is exactly the moment someone means to come back — and entering it offers to resume.
+    if (tabName === 'visit') {
+      if (typeof visitDraftPromptShow === 'function') visitDraftPromptShow(window.currentKibbutz || '');
+      if (typeof syncVisitDurationChips === 'function') syncVisitDurationChips();
+    } else if (typeof visitDraftFlush === 'function') {
+      visitDraftFlush();
+    }
   }
 
   // ===========================================================
