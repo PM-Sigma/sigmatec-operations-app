@@ -9,29 +9,13 @@ import { Plus, Search } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserChip } from '@/components/UserChip';
 import { mount } from '@/islands';
-import { sigma, useCurrentUser, useSigmaEvent, type SigmaPage } from '@/bridge';
+import { useCurrentUser } from '@/bridge';
+import { useCurrentPage } from '@/lib/currentPage';
 import { roleOf } from '@/lib/landing';
 import { canManageKibbutzim } from '@/lib/kibbutzim';
 import { primaryAdd, primaryAddLabel } from '@/lib/primaryAdd';
 import { openCommandBar, runAdd } from '@/islands/CommandBar';
 import { track } from '@/lib/track';
-
-/** The page the legacy shell is showing. It changes without any React event, so we poll the
- *  one global that always holds it — on the events that can change it, not on a timer. */
-function useCurrentPage(): SigmaPage {
-  const read = () => (((window as any)._currentPage as SigmaPage) || 'kibbutz');
-  const [page, setPage] = React.useState<SigmaPage>(read);
-  React.useEffect(() => {
-    // showPage() is wrapped by the bridge for analytics; a click anywhere is the cheapest
-    // reliable "the page may have changed" signal, and re-reading a global is free.
-    const on = () => setPage(read());
-    document.addEventListener('click', on, true);
-    window.addEventListener('hashchange', on);
-    return () => { document.removeEventListener('click', on, true); window.removeEventListener('hashchange', on); };
-  }, []);
-  useSigmaEvent('user-changed', on => { void on; setPage(read()); });
-  return page;
-}
 
 function HeaderActionsPanel() {
   const { name: user, role, isViewer } = useCurrentUser();

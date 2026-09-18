@@ -1703,9 +1703,10 @@ input, select, textarea {
 .brand { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 800; }
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; border-radius: 9px;
-  background: var(--brand-grad); color: var(--card);
-  font-size: 18px; font-weight: 800; line-height: 1;
+  width: 34px; height: 34px; border-radius: 10px;
+  background: var(--brand-grad); color: var(--on-brand);
+  font-size: 20px; font-weight: 800; line-height: 1;
+  box-shadow: 0 4px 12px rgba(6, 194, 203, .35);
 }
 .brand-name { letter-spacing: -0.2px; }
 

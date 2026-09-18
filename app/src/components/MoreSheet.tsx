@@ -123,7 +123,10 @@ export function MoreSheet({ role }: { role: RegistryRole }) {
           )}
         </button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl border-border bg-background pb-8">
+      {/* No `rounded-t-*` here: the `side="bottom"` variant already carries the mockup's 26 px
+            radius and the grab handle, and a class passed in WINS over the variant (caught in
+            the browser smoke — the sheet was rendering at 16 px). */}
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto border-border bg-card pb-8">
         <SheetHeader className="mb-2 text-start">
           <SheetTitle className="text-base">עוד</SheetTitle>
         </SheetHeader>

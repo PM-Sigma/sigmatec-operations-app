@@ -41,8 +41,10 @@ const sheetVariants = cva(
     variants: {
       side: {
         top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
+        // 26 px top radius + a grab handle (the mockup's `.sheet` / `.sheet .grab`): the handle
+        // is what tells a thumb this panel is draggable-looking and dismissible.
         bottom:
-          "inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+          "inset-x-0 bottom-0 rounded-t-[26px] border-t pt-2.5 before:absolute before:inset-x-0 before:top-2.5 before:mx-auto before:h-1 before:w-10 before:rounded before:bg-border before:content-[''] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // rtl-ok (both lines): `side="left"` / `side="right"` MEAN a physical side — that is
         // what the caller is asking for. This app only ever uses `side="bottom"` (the ⋯ sheet
         // and the kibbutz sheet), so neither variant is on screen; they are kept so the

@@ -188,7 +188,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, delay: reduce ? 0 : Math.min(index, 8) * 0.03 }}
       className={
-        'note-bullet flex items-start gap-1.5 py-[3px] text-[13px] leading-snug ' +
+        'note-bullet flex items-start gap-2 py-[5px] text-[14.5px] leading-[1.55] ' +
         (done ? 'done opacity-50 line-through decoration-1 ' : '')
       }
     >
@@ -319,7 +319,7 @@ export function MeetingTimeline({
   // anchor js/src/13-ems.js measured the EMS widget against; that widget is React now, and the
   // card order is EMS tasks → notes per §7k #7, so nothing outside this file depends on it.)
   return (
-    <div className={'card-notes ' + (groups.length ? 'mt-1.5 border-t border-border/70 pt-1.5' : '')}>
+    <div className={'card-notes ' + (groups.length ? 'mt-2.5 border-t border-dashed border-border pt-2' : '')}>
       {!groups.length && empty && (
         <p className="card-notes-empty py-0.5 text-[12px] text-muted-foreground">{empty}</p>
       )}

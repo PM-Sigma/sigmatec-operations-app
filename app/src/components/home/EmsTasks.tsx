@@ -65,12 +65,14 @@ function EmsTaskRow({
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sigma.openKibbutzEmsTask(task.id); } }}
       className={
         'card-ems-task status-' + task.status + (meta.overdue ? ' overdue' : '') + ' ' +
-        'flex cursor-pointer flex-col gap-1 rounded-lg border border-border bg-muted/40 p-2 transition-colors hover:bg-muted/70'
+        // A row inside the panel, separated by a hairline — the mockup's `.task`. Each task in
+        // its own bordered box made a card of five tasks read as five cards.
+        'flex cursor-pointer flex-col gap-0.5 border-t border-border py-[7px] transition-colors first:border-t-0 first:pt-0 hover:opacity-90'
       }
     >
       <div className="t-row flex min-w-0 items-center gap-1.5">
         <PriorityDot priority={task.priority} />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">{task.title}</span>
+        <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-foreground">{task.title}</span>
         <span className="shrink-0 whitespace-nowrap rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold text-muted-foreground">
           {statusLabel(task.status)}
         </span>
@@ -84,7 +86,7 @@ function EmsTaskRow({
 
       {task.description && (
         <>
-          <p className={'t-desc whitespace-pre-line text-[12px] leading-snug text-muted-foreground ' + (clamp ? 'line-clamp-2 md:line-clamp-none' : '')}>
+          <p className={'t-desc my-[3px] whitespace-pre-line text-[14px] leading-[1.55] text-muted-foreground ' + (clamp ? 'line-clamp-2 md:line-clamp-none' : '')}>
             {task.description}
           </p>
           {clampOn && (
@@ -99,7 +101,7 @@ function EmsTaskRow({
         </>
       )}
 
-      <div className="t-meta flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-muted-foreground">
+      <div className="t-meta flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground [&>span]:rounded-md [&>span]:border [&>span]:border-border [&>span]:bg-card [&>span]:px-1.5 [&>span]:py-px">
         {meta.assigneeFirstName && <span>👤 {meta.assigneeFirstName}</span>}
         {meta.due && (
           <span className={meta.overdue ? 'font-semibold text-destructive' : ''}>
@@ -146,8 +148,8 @@ export function EmsTasks({ kibbutz }: { kibbutz: string }) {
   if (!tasks.length) return null;
 
   return (
-    <div className="card-ems-tasks mt-1.5 border-t border-border/70 pt-1.5">
-      <div className="card-ems-head mb-1 flex items-center gap-1.5 text-[12px] font-bold text-muted-foreground">
+    <div className="card-ems-tasks mt-2.5 rounded-[10px] bg-muted px-2.5 py-2">
+      <div className="card-ems-head mb-1.5 flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
         <span>📋 משימות EMS</span>
         <span className="badge rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold">{tasks.length} פתוחות</span>
         {isAdmin && orphans > 0 && (
@@ -156,7 +158,7 @@ export function EmsTasks({ kibbutz }: { kibbutz: string }) {
           </span>
         )}
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col">
         {tasks.map(t => (
           <EmsTaskRow
             key={t.id}
