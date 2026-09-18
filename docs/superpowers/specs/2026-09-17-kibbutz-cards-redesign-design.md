@@ -262,6 +262,17 @@ sheet and bullet-linked feedback; `canvas-confetti` (tiny) once, when a visit su
   `<bdi>` (or `unicode-bidi: isolate`) so they never flip inside Hebrew rows; icons that imply direction (chevrons,
   arrows, "back") are mirrored via `rtl:` Tailwind variants; inputs `text-align:start`; toasts and sheets anchored by
   logical side. Manual RTL smoke (390 px + 1440 px, both themes) is part of every task's smoke and the release smoke.
+- **Visual parity with the approved mockup is an acceptance criterion (עידן 18.9: "שזה יראה יפה וחלק כמו ב-ARTIFACT").**
+  The mockup (https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP) is the visual reference for every screen it shows:
+  same layout rhythm, card anatomy, spacing scale (12/16/24), radii (12/14), hairlines, the Σ gradient only on brand
+  touchpoints, Assistant type sizes (15 base, 14.5 bullets, 17 card titles), chip and badge shapes, bottom-nav
+  raised 📍, sheet grab-handle, and the same dark palette. Deviations are allowed only where the spec says so (#2 clamp,
+  real data volume, Lucide icons instead of emoji chrome) and must be listed in the task report. **Smoothness:** every
+  transition runs at 60 fps on a mid-range Android (no layout thrash: animate opacity/transform only, `will-change`
+  on sheets, virtualize lists > 60 rows), first paint from cache < 300 ms, no flash of unstyled or un-themed content.
+  **Evidence per task:** side-by-side screenshots (mockup tab vs. app) at 390 and 1440, light and dark, attached to the
+  report, plus a Chrome performance trace of the heaviest interaction (filter crossfade / sheet open) showing no long
+  frames > 50 ms. The reviewer compares them; a visible mismatch is a finding.
 - **Micro-motion (עידן 17.9):** cards fade in/out on filter and search (crossfade, staggered), sections tween open/closed,
   new/edited card fades in with a brief brand-gradient hairline highlight, bullet→🔗 morph, button press scale, sliding
   chip pill, toast slide, skeleton shimmer while loading. All ≤ 250 ms (sheet 320 ms); `prefers-reduced-motion` disables.
