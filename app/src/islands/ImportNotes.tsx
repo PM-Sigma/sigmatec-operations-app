@@ -41,6 +41,8 @@ export function openImportSheet(prefill?: string): void {
   else toast.error('מסך הייבוא עוד לא נטען — רענן את העמוד');
 }
 
+export const IMPORT_OPEN_EVENT = 'sigma-open-import';
+
 const KINDS: MeetingKind[] = ['company', 'dev', 'client'];
 
 const fieldBox =
@@ -166,6 +168,11 @@ function ImportSheet() {
   });
 
   React.useEffect(() => {
+    // A window event as well as the module opener, exactly like the other sheets
+    // (feedback, day log, מצב ישיבה): the legacy bundle and the QA harness reach a sheet
+    // that way, and a module-scoped function is not reachable from either.
+    const onEvent = (e: Event) => opener?.((e as CustomEvent)?.detail?.md);
+    window.addEventListener(IMPORT_OPEN_EVENT, onEvent);
     opener = (prefill?: string) => {
       // The gate is checked at OPEN time, not at mount: the ⋯ entry is already hidden for a
       // non-admin, but the modal tab's button and any future caller go through here too.
@@ -176,7 +183,7 @@ function ImportSheet() {
       setOpen(true);
       if (prefill) setMd(prefill);
     };
-    return () => { opener = null; };
+    return () => { opener = null; window.removeEventListener(IMPORT_OPEN_EVENT, onEvent); };
   }, []);
 
   // Someone switched to a non-admin while the sheet was open → close it rather than leave a
@@ -223,6 +230,24 @@ function ImportSheet() {
     } catch (e: any) {
       toast.error(e?.message || 'השמירה נכשלה');
     } finally { setSaving(false); }
+  };
+
+  /**
+   * ישיבה → סיכום (Task 25, spec §1.3). The straight save above STAYS — a summary that is
+   * already right does not need a review — and this is the door to the editor: the parse is
+   * handed over as it stands and NOTHING is written until בצע there. The review island is
+   * imported lazily, so an ordinary import never pays for its chunk.
+   */
+  const review = async () => {
+    if (!effective || !effective.meeting_date) { toast.error('חסר תאריך ישיבה'); return; }
+    try {
+      const m = await import('@/islands/MeetingReview');
+      m.mountMeetingReview();
+      m.openMeetingReview(effective);
+      setOpen(false); reset();
+    } catch {
+      toast.error('מסך הסיכום לא נטען — רענן את העמוד');
+    }
   };
 
   const createKibbutz = (name: string) => {
@@ -304,6 +329,15 @@ function ImportSheet() {
                 className="min-h-[48px] flex-1 rounded-xl bg-brand-grad px-4 text-sm font-bold text-white disabled:opacity-40"
               >
                 {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : `שמור ${total} בולטים`}
+              </button>
+              <button
+                type="button"
+                data-testid="import-review"
+                disabled={saving || !total}
+                onClick={() => void review()}
+                className="min-h-[48px] rounded-xl border border-border px-3 text-sm font-bold disabled:opacity-40"
+              >
+                📝 עבור על הסיכום
               </button>
               <button type="button" onClick={() => setPreview(false)}
                       className="min-h-[48px] rounded-xl border border-border px-4 text-sm font-bold">

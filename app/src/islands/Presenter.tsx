@@ -21,6 +21,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
+import { INTERNAL_TASKS_WRITABLE } from '@/lib/caps';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
@@ -36,15 +37,6 @@ import {
 } from '@/lib/meetingSession';
 
 export const PRESENTER_OPEN_EVENT = 'sigma-open-presenter';
-
-/**
- * 🔒 פנימי is offered only where an internal-task WRITE path exists. `internal_tasks` is in
- * the database (db/internal_tasks.sql, Task 14) but the client only READS it today — Task 26
- * ships the screen that writes. A chip that silently does nothing in the middle of a meeting
- * is worse than no chip, so until then it is not offered. Flipping this to `true` is the
- * whole change on this side.
- */
-const INTERNAL_TASKS_WRITABLE = false;
 
 /** Cold-open flag, consumed synchronously inside the island's first render (see Gaps.tsx). */
 let pendingOpen = false;
@@ -251,7 +243,7 @@ function LiveSheet({
       onOpenChange(false);
       onDone();
     } catch (e) {
-      toast.error((e as Error)?.message || 'לא נשמר');
+      toast.error((e as Error)?.message || 'לא הצלחתי, נסה שוב');
     } finally { setBusy(false); }
   }
 

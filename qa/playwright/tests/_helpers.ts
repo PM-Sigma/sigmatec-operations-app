@@ -100,6 +100,30 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
     // no client select policy. Served from the fixtures so 📈 שימוש renders a real report.
     if (url.includes('/rest/v1/rpc/usage_report')) return route.fulfill(json(FIXTURES.usage));
 
+    /**
+     * `import_meeting_notes(jsonb)` — the one transactional merge behind both 📥 ייבוא and
+     * 📝 ישיבה → סיכום (Task 25). It is applied to the live-note store for real (replace that
+     * (date, kind), then insert), so a spec can press בצע and then assert that the bullets
+     * came back and that the card behind the sheet has them.
+     */
+    if (url.includes('/rest/v1/rpc/import_meeting_notes')) {
+      let body: any = {};
+      try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+      const p = body?.p || {};
+      for (let i = liveNotes.length - 1; i >= 0; i--) {
+        if (liveNotes[i].meeting_date === p.meeting_date && liveNotes[i].meeting_kind === p.meeting_kind) {
+          liveNotes.splice(i, 1);
+        }
+      }
+      const rows = (p.rows || []).map((r: any, i: number) => ({
+        id: 'kmn-rev-' + (liveNotes.length + i + 1),
+        kibbutz: r.kibbutz, meeting_date: p.meeting_date, meeting_kind: p.meeting_kind,
+        seq: r.seq, text: r.text, owners: r.owners || [], ems_task_id: null, done_at: null,
+      }));
+      liveNotes.push(...rows);
+      return route.fulfill(json({ inserted: rows.length, updated: 0, deleted: 0, flagged: 0 }));
+    }
+
     if (method !== 'GET') {
       // usage_events is fire-and-forget telemetry (lib/track.ts); 401-ing it would print a
       // console error on every page that tracks a mount. Accept and drop it.
@@ -133,6 +157,16 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         meetingEvents.push(...rows);
         return route.fulfill(json(shape(rows, accept), 201));
       }
+      // …and the ems_task_id link the review PATCHes onto a bullet it just wrote.
+      if (tableOf(url) === 'kibbutz_meeting_notes' && method === 'PATCH') {
+        const q = new URL(url).searchParams;
+        const id = decodeURIComponent((q.get('id') || '').replace(/^eq\./, ''));
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = liveNotes.find(n => n.id === id);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
       if (tableOf(url) === 'kibbutz_meeting_notes' && method === 'POST') {
         let body: any = {};
         try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
@@ -145,7 +179,22 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
 
     switch (tableOf(url)) {
       case 'kibbutzim': return route.fulfill(json(shape(FIXTURES.kibbutzim, accept)));
-      case 'kibbutz_meeting_notes': return route.fulfill(json(shape([...FIXTURES.notes, ...liveNotes], accept)));
+      // The review reads back the rows of ONE (date, kind) to link its tasks, so the
+      // PostgREST filters have to be honoured here — without them it would link a task onto
+      // a fixture bullet that happens to share a (kibbutz, seq).
+      case 'kibbutz_meeting_notes': {
+        const q = new URL(url).searchParams;
+        const eq = (k: string) => {
+          const v = q.get(k);
+          return v ? decodeURIComponent(v.replace(/^eq\./, '')) : '';
+        };
+        const date = eq('meeting_date');
+        const kind = eq('meeting_kind');
+        let rows = [...FIXTURES.notes, ...liveNotes];
+        if (date) rows = rows.filter(r => String(r.meeting_date) === date);
+        if (kind) rows = rows.filter(r => String(r.meeting_kind) === kind);
+        return route.fulfill(json(shape(rows, accept)));
+      }
       case 'meeting_sessions': return route.fulfill(json(shape(meetingSessions, accept)));
       case 'meeting_events': return route.fulfill(json(shape(meetingEvents, accept)));
       case 'usage_events': return route.fulfill(json(shape(FIXTURES.usage, accept)));
