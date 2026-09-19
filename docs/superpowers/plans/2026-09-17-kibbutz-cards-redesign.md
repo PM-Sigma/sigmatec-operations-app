@@ -907,3 +907,16 @@ recount, return, cert, day-log) with a golden ledger; 11. Reports: PDF + Excel o
 stock, meetings) — open, RTL, display names, 🕎; 12. Dev world (dev page, dev meeting, GitHub wiring).
 Method: 3 Opus auditors in parallel (read-only + Playwright screenshots; A: 1,2,3,8,9 · B: 4,5,6,11 · C: 7,10,12) → one
 findings file → fix rounds by severity (Critical/Important now, Minor listed) → full `npm run qa -- --label task-31`.
+### Task 31 — audit D (עידן 19.9 16:10): transitions, waits, click-to-action, duplication
+13. Every transition and every WAIT on EMS / GitHub / Supabase / Whisper / Gemini: no frozen UI — a pending state within 100 ms
+    (skeleton / spinner / optimistic row / disabled button with label), a timeout with a Hebrew message and a retry, and the
+    offline queue's state visible. Consult the design libraries in use (shadcn Skeleton/Button loading, Sonner promise
+    toasts, Motion layout transitions, TanStack Query `isPending`/`isFetching`) and write the ONE pattern per case into
+    `docs/ux-loading-patterns.md`; every deviation is a finding.
+14. Click-to-action map: for EVERY clickable element (legacy + islands) prove the handler runs, reaches the right backend
+    call (EMS op / Supabase table / edge fn / GitHub mode) with the right payload, and the UI reflects the result — as a
+    generated table (`scripts/click-map.mjs` → `docs/click-map.md`) + a Playwright suite with DELAYED mocks
+    (`qa/playwright/tests/pending-states.spec.ts`) asserting the pending state appears and clears.
+15. Code duplication: `npx jscpd` (or an equivalent) across `js/src` + `app/src` + `supabase/functions`; every duplicate
+    block > 8 lines is a finding with the canonical location to keep (the byte-identical Deno copies are allowlisted).
+QA gate: `pending-states.spec.ts` + the click-map contract join `npm run qa` permanently.
