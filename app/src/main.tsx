@@ -147,6 +147,15 @@ function boot() {
       .then(m => m.mountBurns())
       .catch(e => console.warn('[sigma] burns island failed', e));
   }
+  // 🩺 מצב הקיבוץ (Task 28) — the DRAFT health strip in the kibbutz modal. Lazy like every
+  // data island, and it renders nothing for anyone outside the overview's audience. Its mount
+  // also publishes `sigma.presenterStrip` for ▶ מצב ישיבה; a chunk that never lands simply
+  // leaves that strip out.
+  if (document.getElementById('sigma-health-modal')) {
+    import('@/islands/Health')
+      .then(m => m.mountHealth())
+      .catch(e => console.warn('[sigma] health island failed', e));
+  }
   // 📣 Feedback box (Task 6): the sheet for everyone, the admin inbox as its own root so a
   // failure in one never takes the other down. Both register their own ⋯ עוד entries.
   if (document.getElementById('sigma-feedback')) {

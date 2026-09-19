@@ -515,6 +515,9 @@
     // → app/src/islands/Burns.tsx (🔥 צריבות section, Task 23) — same one-root-per-session contract.
     var burnSlot = document.getElementById('sigma-burns-modal');
     if (burnSlot) burnSlot.setAttribute('data-kibbutz', name);
+    // → app/src/islands/Health.tsx (מצב הקיבוץ, Task 28) — same one-root-per-session contract.
+    var healthSlot = document.getElementById('sigma-health-modal');
+    if (healthSlot) healthSlot.setAttribute('data-kibbutz', name);
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
     // The customer code lives HERE and nowhere else (עידן, spec §2): muted, isolated in a
