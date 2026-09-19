@@ -33,7 +33,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.canShowPage` | js/src/00-bridge.js:237 | *(own logic)* | app/src/lib/canShowPage.ts:14 |
 | `sigma.canUseEms` | js/src/00-bridge.js:556 | `canUseEms` → js/src/11-search-login.js:134 | app/src/islands/CommandBar.tsx:132 |
 | `sigma.certFromVisit` | js/src/00-bridge.js:459 | `certFromVisit` → js/src/20-delivery-cert.js:742 | **—** |
-| `sigma.certFromVisitForm` | js/src/00-bridge.js:458 | `certFromVisitForm` → js/src/20-delivery-cert.js:719 | app/src/components/home/CardActions.tsx:35<br>app/src/islands/Field.tsx:1186 |
+| `sigma.certFromVisitForm` | js/src/00-bridge.js:458 | `certFromVisitForm` → js/src/20-delivery-cert.js:719 | app/src/components/home/CardActions.tsx:46<br>app/src/islands/Field.tsx:1186 |
 | `sigma.certIssuedForVisit` | js/src/00-bridge.js:453 | *(own logic)* | app/src/islands/Field.tsx:587 |
 | `sigma.changeUser` | js/src/00-bridge.js:230 | `changeUser` → js/src/11-search-login.js:227 | app/src/components/UserChip.tsx:90 |
 | `sigma.companyTasks` | js/src/00-bridge.js:565 | *(own logic)* | app/src/islands/Calendar.tsx:589 |
@@ -57,7 +57,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsWrite` | js/src/00-bridge.js:320 | `emsWriteOrQueue` → js/src/13-ems.js:297 | **—** |
 | `sigma.ensurePass` | js/src/00-bridge.js:468 | *(own logic)* | **—** |
 | `sigma.gapNag` | js/src/00-bridge.js:517 | `gapNag` → js/src/22-push.js:309 | app/src/islands/Gaps.tsx:200 |
-| `sigma.getCurrentUser` | js/src/00-bridge.js:224 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:379<br>app/src/components/home/CardActions.tsx:27<br>app/src/components/Nav.tsx:60<br>app/src/islands/Burns.tsx:70<br>…+8 |
+| `sigma.getCurrentUser` | js/src/00-bridge.js:224 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:379<br>app/src/components/home/CardActions.tsx:38<br>app/src/components/Nav.tsx:60<br>app/src/islands/Burns.tsx:70<br>…+8 |
 | `sigma.getEmsSites` | js/src/00-bridge.js:280 | `getEmsSites` → js/src/14-calendar.js:364 | app/src/components/home/HealthStrip.tsx:24<br>app/src/lib/ems/adapters/rest.ts:130<br>app/src/lib/emsChain.ts:59 |
 | `sigma.getLastVisit` | js/src/00-bridge.js:380 | `getLastVisit` → js/src/09-visits.js:244 | app/src/islands/Field.tsx:1144 |
 | `sigma.getRole` | js/src/00-bridge.js:225 | *(own logic)* | app/src/bridge.ts:380<br>app/src/islands/CommandBar.tsx:130<br>app/src/islands/Feedback.tsx:170<br>app/src/islands/Feedback.tsx:548<br>…+1 |
@@ -75,9 +75,9 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.openCommandBar` | app/src/islands/CommandBar.tsx:281 *(island)* | *(island-provided)* | **—** |
 | `sigma.openDeliveryCert` | js/src/00-bridge.js:457 | `openDeliveryCert` → js/src/20-delivery-cert.js:165 | app/src/islands/CommandBar.tsx:146<br>app/src/islands/Field.tsx:823 |
 | `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:284 | `openKibbutzEmsTask` → js/src/13-ems.js:406 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:64<br>app/src/components/home/EmsTasks.tsx:65<br>app/src/components/home/MeetingNotes.tsx:166<br>…+5 |
-| `sigma.openKibbutzModal` | js/src/00-bridge.js:294 | *(own logic)* | app/src/components/home/Burns.tsx:154<br>app/src/components/home/CardActions.tsx:47<br>app/src/islands/Calendar.tsx:1053<br>app/src/islands/Calendar.tsx:1138<br>…+1 |
+| `sigma.openKibbutzModal` | js/src/00-bridge.js:294 | *(own logic)* | app/src/components/home/Burns.tsx:154<br>app/src/components/home/CardActions.tsx:61<br>app/src/islands/Calendar.tsx:1053<br>app/src/islands/Calendar.tsx:1138<br>…+1 |
 | `sigma.openOrder` | js/src/00-bridge.js:392 | `invEditOrder` → js/src/07-orders.js:811 | app/src/islands/Alerts.tsx:56<br>app/src/islands/InventoryStrip.tsx:87<br>app/src/islands/StockChange.tsx:133 |
-| `sigma.openVisitQuick` | js/src/00-bridge.js:356 | *(own logic)* | app/src/components/home/CardActions.tsx:39<br>app/src/components/home/CardActions.tsx:45<br>app/src/components/Nav.tsx:63<br>app/src/components/Nav.tsx:65<br>…+11 |
+| `sigma.openVisitQuick` | js/src/00-bridge.js:356 | *(own logic)* | app/src/components/home/CardActions.tsx:50<br>app/src/components/home/CardActions.tsx:59<br>app/src/components/Nav.tsx:63<br>app/src/components/Nav.tsx:65<br>…+11 |
 | `sigma.openVisitsReport` | js/src/00-bridge.js:560 | `openVisitsToolsModal` → js/src/09-visits.js:1170 | app/src/islands/Calendar.tsx:673 |
 | `sigma.orders` | js/src/00-bridge.js:391 | *(own logic)* | app/src/islands/InventoryStrip.tsx:40<br>app/src/islands/StockChange.tsx:91 |
 | `sigma.passPending` | js/src/00-bridge.js:474 | *(own logic)* | **—** |
@@ -102,7 +102,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.toast` | js/src/00-bridge.js:581 | *(own logic)* | app/src/components/UserChip.tsx:80<br>app/src/islands/CommandBar.tsx:65<br>app/src/islands/CommandBar.tsx:68<br>app/src/islands/CommandBar.tsx:216<br>…+3 |
 | `sigma.track` | js/src/00-bridge.js:241 | *(own logic)* | **—** |
 | `sigma.visitDraftDiscard` | js/src/00-bridge.js:444 | `visitDraftDiscard` → js/src/09-visits.js:605 | app/src/islands/Field.tsx:673 |
-| `sigma.visitDraftFor` | js/src/00-bridge.js:443 | `visitDraftFor` → js/src/09-visits.js:589 | app/src/components/home/CardActions.tsx:28<br>app/src/components/Nav.tsx:61<br>app/src/islands/Field.tsx:603<br>app/src/islands/Field.tsx:1299<br>…+1 |
+| `sigma.visitDraftFor` | js/src/00-bridge.js:443 | `visitDraftFor` → js/src/09-visits.js:589 | app/src/components/home/CardActions.tsx:39<br>app/src/components/Nav.tsx:61<br>app/src/islands/Field.tsx:603<br>app/src/islands/Field.tsx:1299<br>…+1 |
 | `sigma.visitDraftId` | js/src/00-bridge.js:451 | `visitDraftId` → js/src/09-visits.js:20 | app/src/islands/Field.tsx:615 |
 | `sigma.visitDraftPut` | js/src/00-bridge.js:448 | `visitDraftPut` → js/src/09-visits.js:748 | app/src/islands/Field.tsx:569 |
 
@@ -132,7 +132,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
 | `user-changed` | js/src/11-search-login.js:234<br>js/src/11-search-login.js:255<br>js/src/15-login-gate.js:202<br>js/src/15-login-gate.js:215<br>js/src/15-login-gate.js:342<br>…+1 | app/src/bridge.ts:399<br>app/src/islands/Attendance.tsx:251<br>app/src/islands/FeedbackInbox.tsx:228<br>app/src/islands/Field.tsx:157<br>app/src/islands/Usage.tsx:217<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:536<br>js/src/09-visits.js:567<br>js/src/09-visits.js:634<br>js/src/09-visits.js:769 | app/src/lib/visitDrafts.ts:66 |
-| `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:143<br>js/src/00-bridge.js:434<br>app/src/components/home/CardActions.tsx:38<br>app/src/islands/Field.tsx:1189 |
+| `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:143<br>js/src/00-bridge.js:434<br>app/src/components/home/CardActions.tsx:49<br>app/src/islands/Field.tsx:1189 |
 | `visit-saved` | js/src/09-visits.js:1013<br>js/src/09-visits.js:1130 | app/src/islands/Attendance.tsx:244<br>app/src/islands/Calendar.tsx:916<br>app/src/islands/Field.tsx:156<br>app/src/islands/Field.tsx:1295<br>app/src/islands/Presenter.tsx:111<br>app/src/lib/visitDrafts.ts:67<br>…+2 |
 | `work-session-saved` | app/src/components/home/WorkTimerStopSheet.tsx:102 | **—** |
 
