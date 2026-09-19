@@ -31,6 +31,7 @@
   "./ui/sigma-MeetingReview.js",
   "./ui/sigma-ModalMeetings.js",
   "./ui/sigma-modalSlot.js",
+  "./ui/sigma-OnboardingProgress.js",
   "./ui/sigma-plus.js",
   "./ui/sigma-PmToday.js",
   "./ui/sigma-Presenter.js",

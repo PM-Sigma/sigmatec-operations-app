@@ -18,6 +18,8 @@ import {
 } from '@/lib/settings';
 import type { ThemeChoice } from '@/lib/theme';
 import { EmsGate } from '@/components/EmsGate';
+import { canEditTemplate, type OnboardingTemplate, type TemplateStep } from '@/lib/onboarding';
+import { fetchOnboardingTemplate, saveOnboardingTemplate } from '@/components/home/OnboardingProgress';
 
 /** The landing options a person may pick, in the order they read. */
 const LANDING_OPTIONS: Array<{ value: Landing; label: string }> = [
@@ -198,6 +200,83 @@ function PersonalArea({ user, role, onClose }: { user: string; role: string; onC
   );
 }
 
+/**
+ * 🆕 תבנית קליטת לקוח חדש — עידן only (spec §4: "template editable by עידן"). An ordered-list
+ * editor: reorder, edit a step's label, toggle "ממתין למייל". Saving changes the ORDER a
+ * FUTURE 🆕 client gets — it never rewrites steps already spawned on an existing card.
+ */
+function OnboardingTemplateRow({ user }: { user: string }) {
+  const [tpl, setTpl] = React.useState<OnboardingTemplate | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    let live = true;
+    void fetchOnboardingTemplate().then(t => { if (live) { setTpl(t); setLoading(false); } })
+      .catch(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, []);
+
+  if (!canEditTemplate(user)) return null;
+  if (loading) return null;
+  if (!tpl) return <Row label="תבנית קליטת לקוח חדש" hint="לא נמצאה תבנית"><span /></Row>;
+
+  const move = (i: number, dir: -1 | 1) => {
+    const steps = tpl.steps.slice();
+    const j = i + dir;
+    if (j < 0 || j >= steps.length) return;
+    [steps[i], steps[j]] = [steps[j], steps[i]];
+    setTpl({ ...tpl, steps });
+  };
+  const setLabel = (i: number, label: string) => {
+    const steps = tpl.steps.slice();
+    steps[i] = { ...steps[i], label };
+    setTpl({ ...tpl, steps });
+  };
+  const setWaits = (i: number, waits: boolean) => {
+    const steps = tpl.steps.slice();
+    steps[i] = { ...steps[i], waits };
+    setTpl({ ...tpl, steps });
+  };
+  const save = async () => {
+    setSaving(true);
+    try { await saveOnboardingTemplate(tpl, user); toast.success('התבנית נשמרה'); }
+    catch (e: any) { toast.error(e?.message || 'השמירה נכשלה'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Row label="תבנית קליטת לקוח חדש" hint="הסדר והתוויות שכל 🆕 לקוח חדש מקבל — לא משפיע על קיבוצים שכבר בקליטה">
+      <ol className="flex w-full flex-col gap-1.5" data-testid="onboarding-template-editor">
+        {tpl.steps.map((s: TemplateStep, i: number) => (
+          <li key={s.key} className="flex items-center gap-1.5">
+            <span className="w-5 shrink-0 text-center text-[12px] text-muted-foreground">{i + 1}</span>
+            <input
+              value={s.label}
+              onChange={e => setLabel(i, e.target.value)}
+              className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-[13px]"
+            />
+            <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+              <input type="checkbox" checked={!!s.waits} onChange={e => setWaits(i, e.target.checked)} />
+              ממתין למייל
+            </label>
+            <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="shrink-0 px-1 text-muted-foreground disabled:opacity-30">▲</button>
+            <button type="button" disabled={i === tpl.steps.length - 1} onClick={() => move(i, 1)} className="shrink-0 px-1 text-muted-foreground disabled:opacity-30">▼</button>
+          </li>
+        ))}
+      </ol>
+      <button
+        type="button"
+        disabled={saving}
+        onClick={() => void save()}
+        className="mt-2 inline-flex min-h-[40px] w-fit items-center gap-1.5 rounded-xl bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+      >
+        שמור תבנית
+      </button>
+    </Row>
+  );
+}
+
 function SettingsPanel() {
   const [open, setOpen] = React.useState(false);
   const { name: user, role } = useCurrentUser();
@@ -301,6 +380,7 @@ function SettingsPanel() {
 
           <InstallRow />
           <NotificationsRow />
+          <OnboardingTemplateRow user={user} />
         </div>
 
         <PersonalArea user={user} role={personRole} onClose={() => setOpen(false)} />

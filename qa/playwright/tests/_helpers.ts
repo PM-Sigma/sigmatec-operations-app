@@ -81,6 +81,31 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
    * has to see what the step before it wrote.
    */
   const internalTasks: Array<Record<string, unknown>> = [];
+  /**
+   * 🆕 onboarding (Task 27) — one real template row (so the Settings editor round-trips) and
+   * a real per-kibbutz steps store (so a card's tap → wait/done round-trips and "0/9 → 1/9"
+   * is a real assertion, not a fixture that never changes).
+   */
+  const onboardingTemplate: Record<string, unknown> = {
+    id: 'ot-1', name: 'ברירת מחדל', updated_by: null, updated_at: null,
+    steps: [
+      { key: 'ems_site', label: 'הקמת אתר ב-EMS', waits: false },
+      { key: 'customer_list', label: 'קבלת רשימת לקוחות מהקיבוץ (ממתין למייל)', waits: true },
+      { key: 'meter_login', label: 'קבלת פרטי כניסה למערכת המונים (ממתין למייל)', waits: true },
+      { key: 'meter_import', label: 'ייבוא מונים', waits: false },
+      { key: 'tariffs', label: 'תעריפים', waits: false },
+      { key: 'comms', label: 'תקשורת', waits: false },
+      { key: 'training', label: 'הדרכה', waits: false },
+      { key: 'first_bill_check', label: 'בדיקת חשבון ראשון', waits: false },
+      { key: 'go_live', label: 'העברה לפעילים', waits: false },
+    ],
+  };
+  const onboardingSteps: Array<Record<string, unknown>> = FIXTURES.kibbutzim
+    .filter((k: any) => k.section === 'new')
+    .flatMap((k: any) => (onboardingTemplate.steps as any[]).map((s, i) => ({
+      id: 'onb-' + k.name + '-' + s.key, kibbutz: k.name, step_key: s.key, label: s.label,
+      seq: i, state: 'open', sent_at: null, done_at: null, created_at: '2026-09-10T08:00:00Z',
+    })));
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
   await page.route('**://fonts.googleapis.com/**', r => r.abort());
@@ -199,6 +224,36 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         if (hit) Object.assign(hit, body);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
+      // onboarding_steps — the upsert the create-kibbutz flow spawns with, and the update a
+      // card's tap sends. `Prefer: resolution=ignore-duplicates` (an upsert) is honoured as a
+      // real upsert-by-key so a spec that creates a 🆕 kibbutz can then see its checklist.
+      if (tableOf(url) === 'onboarding_steps' && method === 'POST') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = Array.isArray(body) ? body : [body];
+        for (const r of rows) {
+          const hit = onboardingSteps.find(s => s.kibbutz === r.kibbutz && s.step_key === r.step_key);
+          if (hit) Object.assign(hit, r);
+          else onboardingSteps.push({ id: 'onb-' + r.kibbutz + '-' + r.step_key, created_at: new Date().toISOString(), ...r });
+        }
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'onboarding_steps' && method === 'PATCH') {
+        const q = new URL(url).searchParams;
+        const id = decodeURIComponent((q.get('id') || '').replace(/^eq\./, ''));
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = onboardingSteps.find(s => s.id === id);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
+      // onboarding_templates — the Settings ordered-list editor (עידן only) saves here.
+      if (tableOf(url) === 'onboarding_templates' && method === 'PATCH') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        Object.assign(onboardingTemplate, body);
+        return route.fulfill(json(shape([onboardingTemplate], accept)));
+      }
       return route.fulfill(json({ message: 'new row violates row-level security policy', code: '42501' }, 401));
     }
 
@@ -247,6 +302,8 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       // No absence fixture: 🌴 is entered in the spec, and the write 401s like every other
       // one — what the spec asserts there is the sheet, not a round trip.
       case 'calendar_absences': return route.fulfill(json(shape([], accept)));
+      case 'onboarding_templates': return route.fulfill(json(shape([onboardingTemplate], accept)));
+      case 'onboarding_steps': return route.fulfill(json(shape(onboardingSteps, accept)));
       default: return route.fulfill(json(shape([], accept)));
     }
   });

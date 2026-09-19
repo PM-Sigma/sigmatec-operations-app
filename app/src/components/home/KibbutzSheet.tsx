@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { EmsChain } from '@/components/home/EmsChain';
+import { spawnOnboardingForNewKibbutz } from '@/components/home/OnboardingProgress';
 import { sigma } from '@/bridge';
 import { sbWrite } from '@/lib/supabase';
 import { emsChainRun } from '@/lib/emsChain';
@@ -157,9 +158,15 @@ export function KibbutzSheet({
       const body = kibbutzimSaveBody(v.row, user);
       // Editing is an UPDATE BY ID, never an upsert on `name`: renaming a kibbutz through an
       // on_conflict=name upsert would insert a second row (new name) or trip the primary key.
+      const isCreate = !row?.id;
       const data = await sbWrite<KibbutzRow>(sb => (row?.id
         ? sb.from('kibbutzim').update(body).eq('id', row.id).select().single()
         : sb.from('kibbutzim').insert(body).select().single()) as any);
+      // 🆕 לקוח חדש — spawn the onboarding checklist (Task 27, spec §4). Best-effort: a
+      // template hiccup must never block the kibbutz itself from being created.
+      if (isCreate && section === 'new') {
+        void spawnOnboardingForNewKibbutz(v.row.name).catch(() => { /* card shows nothing to spawn from */ });
+      }
       toast.success('נשמר: ' + v.row.name);
       onSaved(data || v.row);
       onOpenChange(false);

@@ -11,6 +11,7 @@ import { CardActions } from '@/components/home/CardActions';
 import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { InternalTasksSection } from '@/components/home/InternalTasks';
+import { OnboardingProgress } from '@/components/home/OnboardingProgress';
 import { BurnChip } from '@/components/home/Burns';
 import { energyText, labelOf, sectionOf, isSubsite, type KibbutzRow } from '@/lib/kibbutzim';
 
@@ -97,6 +98,9 @@ export function KibbutzCard({
       <EmsTasks kibbutz={row.name} />
       <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
       <InternalTasksSection kibbutz={row.name} canAct={role !== 'viewer'} />
+      {/* 🆕 onboarding checklist (Task 27, spec §4) — a 🆕 לקוח חדש card only; a ✅ active
+          card never had rows spawned for it, so OnboardingProgress renders nothing there. */}
+      {section === 'new' && <OnboardingProgress kibbutz={row.name} canAct={role !== 'viewer'} />}
       <CardActions name={row.name} role={role} />
     </motion.div>
   );
