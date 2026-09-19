@@ -6,7 +6,8 @@
 // gets `null`, and the day a `pgReadOnlySource` is written nothing above this file changes.
 //
 // WHAT EMS ACTUALLY EXPOSES TODAY (read off js/src/13-ems.js, 14-calendar.js, 24-meter-burns.js
-// and app/src/lib/emsChain.ts — the only callers of `sigma.emsApi`):
+// and app/src/lib/emsChain.ts). Since Task 18b every one of them is an operation on
+// `EmsGateway`, and these URLs live ONLY in lib/ems/adapters/rest.ts:
 //   /sites                 · the site list, and the id every other call needs
 //   /meters                · `?siteId=…&take=…`, and `?search=…`
 //   /employee-tasks        · list `?siteId=&statuses=&take=`, one task, PATCH, POST, /comments
@@ -20,6 +21,7 @@
 //   בעיות חוזרות  → null   (the keyword bucket needs the mail/task history, §5's v1 proxy)
 // A signal whose fields are all null scores `null`, and the strip says אין נתונים — which the
 // task's DoD explicitly allows.
+import type { EmsGateway } from '@/lib/ems/gateway';
 import {
   HEALTH_CONFIG_DRAFT, emptySignals, healthOf, scoreAlerts, scoreEnergy, scoreFinance,
   scoreRecurring,
@@ -42,20 +44,12 @@ export const nullSource: HealthSource = {
   recurring: async () => null,
 };
 
-/** The slice of the legacy bridge this file needs, injected so the source is testable. */
-export interface EmsDeps {
-  emsApi(path: string, options?: RequestInit): Promise<any>;
-  getEmsSites(): Promise<Array<{ id: string; name: string }>>;
-}
-
-/** EMS wraps a list in `{items|data|results}` or returns it bare (same unwrap as emsChain.ts). */
-function unwrap(res: any): any[] {
-  if (Array.isArray(res)) return res;
-  for (const key of ['items', 'data', 'results', 'rows']) {
-    if (Array.isArray(res?.[key])) return res[key];
-  }
-  return [];
-}
+/**
+ * What the health source needs from the EMS: the typed gateway (spec §7o), injected so the
+ * source is testable without a bridge. Was a `{emsApi, getEmsSites}` pair of raw calls until
+ * Task 18b moved every EMS URL into `lib/ems/adapters/rest.ts`.
+ */
+export type EmsDeps = Pick<EmsGateway, 'listSites' | 'listOpenTasks' | 'capabilities'>;
 
 function siteMatches(site: { name?: string }, kibbutz: string): boolean {
   const a = String(site?.name || '').trim();
@@ -73,8 +67,6 @@ export function ageInDays(iso: string | null | undefined, now: number): number |
   return days >= 0 ? days : 0;
 }
 
-const OPEN_STATUSES = 'open,in_progress,pending';
-
 /**
  * The age of the oldest open EMS request for this site. Pure over the rows so the scoring of a
  * real payload is a golden rather than a network test.
@@ -90,30 +82,31 @@ export function oldestOpenTaskDays(rows: any[], now: number): number | null {
 }
 
 /**
- * Over `sigma.emsApi`. Every call is wrapped: an EMS that is not signed in, a filter the API
+ * Over the EMS gateway (`lib/ems/gateway.ts`). Every call is wrapped: an EMS that is not signed in, a filter the API
  * rejects, or a site that does not resolve all mean "nothing to show", never a thrown error on
  * a screen that is only an overview.
  */
 export function emsApiSource(deps: EmsDeps, now: () => number = Date.now): HealthSource {
   const siteIdFor = async (kibbutz: string): Promise<string | null> => {
     try {
-      const hit = ((await deps.getEmsSites()) || []).find(s => siteMatches(s, kibbutz));
+      const hit = ((await deps.listSites()) || []).find(s => siteMatches(s, kibbutz));
       return hit ? String(hit.id) : null;
     } catch { return null; }
   };
 
   return {
-    // No billing endpoint in EMS — §9 is still open on where this lives.
+    // No billing endpoint in EMS — §9 is still open on where this lives. `capabilities()`
+    // says the same thing to the UI, which is what hides the strip's rows.
     finance: async () => null,
     // No energy-balance report reachable from the client.
     energy: async () => null,
     alerts: async (kibbutz: string) => {
+      try { if (!deps.capabilities().listOpenTasks) return null; } catch { return null; }
       const siteId = await siteIdFor(kibbutz);
       if (!siteId) return null;
       try {
-        const res = await deps.emsApi(
-          '/employee-tasks?siteId=' + encodeURIComponent(siteId) + '&statuses=' + OPEN_STATUSES + '&take=100');
-        return { silentMeters: null, oldestOpenTaskDays: oldestOpenTaskDays(unwrap(res), now()) };
+        const rows = await deps.listOpenTasks({ siteId, take: 100 });
+        return { silentMeters: null, oldestOpenTaskDays: oldestOpenTaskDays(rows, now()) };
       } catch { return null; }
     },
     // The keyword bucket needs the task + mail history; not available from here yet.

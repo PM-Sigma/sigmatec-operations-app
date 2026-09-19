@@ -252,6 +252,17 @@
         if (typeof renderCardNotes === 'function') renderCardNotes();
       },
       createTask: function (item) { return call('emsWriteOrQueue', [Object.assign({ kind: 'createTask' }, item || {})]); },
+      // The queue-aware write primitive behind EmsGateway's createTask/updateTask/addComment
+      // (spec §7o: "the offline queue becomes a gateway concern — queued OPERATIONS replay
+      // through whichever adapter is active"). `createTask` above stays as the legacy
+      // shorthand; both land in the one `emsWriteOrQueue`, so the queue semantics are
+      // unchanged by the gateway.
+      emsWrite: function (item) { return call('emsWriteOrQueue', [item || {}], Promise.resolve({ sent: false })); },
+
+      // `sigma.ems` — the typed EmsGateway (app/src/lib/ems/gateway.ts). NOT implemented here
+      // on purpose: the React bundle INSTALLS the one instance on boot (installEmsBridge), so
+      // legacy and React share a single implementation and can never drift. Undefined until
+      // ui/sigma.js has evaluated — legacy callers must guard (`sigma.ems && …`).
 
       // ---- supabase write pass ----------------------------------------------
       // Every write needs the AUTHENTICATED pass minted from the EMS session: the anon key

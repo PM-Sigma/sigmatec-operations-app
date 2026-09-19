@@ -14,16 +14,15 @@ import {
   HEALTH_CONFIG_DRAFT, NO_DATA, SIGNAL_LABELS, canSeeHealth, type Band, type Health,
 } from '@/lib/health';
 import { loadHealth, sourceFor, type EmsDeps } from '@/lib/healthSources';
+import { emsGateway } from '@/lib/ems/gateway';
 
 export const HEALTH_QUERY_KEY = 'kibbutzHealth';
 
-/** The bridge, as the source's dependency — absent (tests, a bare page) → the null source. */
+/** The EMS gateway as the source's dependency (spec §7o) — no bridge (tests, a bare page)
+ *  → the null source, exactly as before. */
 function bridgeDeps(): EmsDeps | null {
-  if (!sigma || typeof sigma.emsApi !== 'function') return null;
-  return {
-    emsApi: (path, options) => sigma.emsApi(path, options),
-    getEmsSites: () => Promise.resolve(sigma.getEmsSites?.() as any).then(v => (v as any) || []),
-  };
+  if (!sigma || typeof sigma.getEmsSites !== 'function') return null;   // no legacy bundle
+  return emsGateway();
 }
 
 /** The last answer per kibbutz — read by `presenterStripFor`, written by the query below. */

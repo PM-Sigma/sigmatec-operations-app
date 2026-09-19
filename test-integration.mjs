@@ -311,6 +311,51 @@ for (const [event, emitters, consumers] of PROPAGATION) {
     'devEsc must not entity-escape quotes — devArg JS-escapes them, and HTML decoding runs first');
 }
 
+// ════════════════════ (h) the EMS gateway (§7o) ════════════════════
+// "No feature imports fetch/emsApi directly — a contract test greps for it." The EMS is about
+// to grow an MCP server; the whole point of EmsGateway is that the swap touches one adapter
+// and nothing else. A direct call added anywhere else is what would quietly make that false.
+
+ok(a.ems.stray.length === 0,
+  'direct EMS call(s) outside app/src/lib/ems/adapters/ and outside the migration allowlist '
+  + '(scripts/integration-map.mjs EMS_LEGACY_ALLOWLIST) — use `emsGateway()` (spec §7o):\n    '
+  + a.ems.stray.map(h => `${at(h)}  ${h.text.slice(0, 90)}`).join('\n    '));
+
+ok(a.ems.staleAllowlist.length === 0,
+  'EMS_LEGACY_ALLOWLIST names files that no longer call the EMS at all — delete the line so the '
+  + 'list keeps meaning "still to migrate": ' + a.ems.staleAllowlist.join(', '));
+
+ok(a.ems.adapter.length > 0,
+  'no EMS call left in app/src/lib/ems/adapters/ — the REST adapter must be the one place that '
+  + 'talks to the EMS; if it stopped, every operation is a no-op');
+
+// `sigma.ems` is INSTALLED by the React bundle (one gateway instance shared with legacy), so
+// the bridge object must NOT re-implement the operations — two implementations would drift.
+{
+  const bridge = code('js/src/00-bridge.js');
+  ok(!/^\s{6}ems\s*:/m.test(bridge),
+    'js/src/00-bridge.js must not define an `ems:` member — app/src/lib/ems/gateway.ts '
+    + '`installEmsBridge()` publishes the single EmsGateway instance as `sigma.ems`');
+  ok(/emsWrite\s*:/.test(bridge),
+    'js/src/00-bridge.js must expose `emsWrite` — the gateway createTask/updateTask/addComment '
+    + 'go through it so the offline queue semantics stay exactly as they were');
+  ok(/installEmsBridge\(\)/.test(code('app/src/main.tsx')),
+    'app/src/main.tsx must call installEmsBridge() on boot — without it `sigma.ems` is undefined '
+    + 'and legacy has no typed way to reach the EMS');
+}
+
+// The queue must understand every kind the gateway can write, or a queued operation replays
+// as a silent no-op (emsSendItem returns undefined → the flush counts it as sent and drops it).
+{
+  const rest = code('app/src/lib/ems/adapters/rest.ts');
+  const send = code('js/src/13-ems.js');
+  for (const kind of [...new Set([...rest.matchAll(/kind:\s*'([a-zA-Z]+)'/g)].map(m => m[1]))]) {
+    ok(send.includes(`item.kind === '${kind}'`),
+      `the gateway writes queue items of kind '${kind}' but js/src/13-ems.js emsSendItem does not `
+      + 'handle it — the flush would drop the operation and report it as sent');
+  }
+}
+
 // One re-login surface for the whole app (§7n): exactly one placeholder, one mount.
 ok(a.islands.placeholders.filter(p => p.name === 'sigma-relogin').length === 1,
   'index.html must have exactly one #sigma-relogin — two sheets would both answer a 401');

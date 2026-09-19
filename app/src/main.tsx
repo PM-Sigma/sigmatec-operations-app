@@ -12,6 +12,7 @@ import { applySettings, getSettings, loadSettings, openSettings } from '@/lib/se
 import { applyLanding } from '@/lib/landing';
 import { registerMoreItem } from '@/lib/registry';
 import { startTracking } from '@/lib/track';
+import { installEmsBridge } from '@/lib/ems/gateway';
 
 // REGRESSION GUARD for the cache-bust stamps. index.html loads this module as
 // `ui/sigma.js?v=<ver>`; build.mjs stamps the chunks' own `./sigma*.js` specifiers with the
@@ -64,6 +65,11 @@ function boot() {
   // 📈 שימוש (spec §7j): install the flush loop BEFORE the first mount, so the mount
   // events themselves are buffered. Nothing here touches Supabase until the first flush.
   startTracking();
+
+  // 🔗 Publish the ONE EmsGateway instance as `sigma.ems` (spec §7o) before anything can ask
+  // the EMS for something. Legacy and React share this object, so a future `ems-mcp` adapter
+  // swaps both at once. Synchronous and network-free.
+  installEmsBridge();
 
   // 🔑 The re-login sheet (spec §7n) is NOT lazy and NOT deferred: it is the surface every
   // 401 in the app raises, so it has to be listening before the first request goes out. It is

@@ -2,6 +2,7 @@
 // wrapped so a failing step degrades to "skipped" instead of killing the run ("all steps run
 // even if one fails"), and the decision of what that MEANS lives in the pure emsChainReduce.
 import { sigma } from '@/bridge';
+import { emsGateway } from '@/lib/ems/gateway';
 import { getSupabase } from '@/lib/supabase';
 import type { ChainInput, KibbutzRow } from '@/lib/kibbutzim';
 
@@ -23,14 +24,12 @@ export function matchSite(
 export function countMeters(list: any[]): Record<string, number> {
   const counts: Record<string, number> = {};
   (list || []).forEach(m => {
-    const code = String(m?.energy_type_code ?? m?.energyTypeCode ?? m?.energyType?.code ?? '');
+    const code = String(m?.energyCode ?? m?.energy_type_code ?? m?.energyTypeCode ?? m?.energyType?.code ?? '');
     if (!code) return;
     counts[code] = (counts[code] || 0) + 1;
   });
   return counts;
 }
-
-const unwrap = (res: any): any[] => (Array.isArray(res) ? res : (res?.data || res?.items || []));
 
 /** Which other live row already claims this EMS site id (spec §7b step 5). */
 export function duplicateLinkOf(siteId: string, allRows: KibbutzRow[], selfName: string): string | null {
@@ -68,19 +67,21 @@ export async function emsChainRun(
     return acc;
   }
 
-  // 2. meters — the API may reject the filter; that is a ⚠️, not a failure.
+  // 2. meters — the API may reject the filter; that is a ⚠️, not a failure. A transport that
+  // cannot list meters at all (capabilities(), spec §7o) is the same "skipped", not an error.
+  const gw = emsGateway();
+  const caps = gw.capabilities();
   try {
-    const res = await sigma.emsApi('/meters?siteId=' + encodeURIComponent(site.id) + '&take=500');
-    acc.meters = { counts: countMeters(unwrap(res)) };
+    if (!caps.listMeters) throw new Error('unsupported');
+    acc.meters = { counts: countMeters(await gw.listMeters(site.id)) };
   } catch { acc.meters = { skipped: true }; }
   emit();
 
   // 3. open tasks
   try {
-    const res = await sigma.emsApi(
-      '/employee-tasks?siteId=' + encodeURIComponent(site.id) + '&statuses=open,in_progress,pending&take=100');
-    const list = unwrap(res);
-    acc.tasks = { count: list.length, titles: list.slice(0, 3).map((t: any) => String(t?.title || '')).filter(Boolean) };
+    if (!caps.listOpenTasks) throw new Error('unsupported');
+    const list = await gw.listOpenTasks({ siteId: site.id, take: 100 });
+    acc.tasks = { count: list.length, titles: list.slice(0, 3).map(t => String(t.title || '')).filter(Boolean) };
   } catch { acc.tasks = { skipped: true }; }
   emit();
 

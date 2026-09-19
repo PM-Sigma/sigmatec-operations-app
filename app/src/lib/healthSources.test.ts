@@ -3,6 +3,7 @@
 // rather than a red kibbutz.
 import { describe, expect, it, vi } from 'vitest';
 import { HEALTH_CONFIG_DRAFT, NO_DATA, SCORE } from './health';
+import { REST_CAPABILITIES as CAPS } from '@/lib/ems/adapters/rest';
 import {
   ageInDays, emsApiSource, loadHealth, nullSource, oldestOpenTaskDays, sourceFor,
   type EmsDeps, type HealthSource,
@@ -22,7 +23,7 @@ describe('nullSource', () => {
 });
 
 describe('sourceFor', () => {
-  const deps: EmsDeps = { emsApi: async () => [], getEmsSites: async () => [] };
+  const deps: EmsDeps = { listSites: async () => [], listOpenTasks: async () => [], capabilities: () => CAPS };
 
   it('config `ems` with a bridge → the EMS source', () => {
     expect(sourceFor(HEALTH_CONFIG_DRAFT, deps)).not.toBe(nullSource);
@@ -54,8 +55,9 @@ describe('ageInDays / oldestOpenTaskDays', () => {
 
 describe('emsApiSource — only what EMS actually exposes', () => {
   const deps = (over: Partial<EmsDeps> = {}): EmsDeps => ({
-    getEmsSites: async () => [{ id: 'site-1', name: 'דפנה' }],
-    emsApi: async () => ({ items: [{ updatedAt: daysAgo(9) }] }),
+    listSites: async () => [{ id: 'site-1', name: 'דפנה' }],
+    listOpenTasks: async () => [{ updatedAt: daysAgo(9) } as any],
+    capabilities: () => CAPS,
     ...over,
   });
 
@@ -71,21 +73,29 @@ describe('emsApiSource — only what EMS actually exposes', () => {
     await expect(s.alerts('דפנה')).resolves.toEqual({ silentMeters: null, oldestOpenTaskDays: 9 });
   });
 
-  it('asks EMS for the open statuses of that site only', async () => {
-    const emsApi = vi.fn(async () => []);
-    await emsApiSource(deps({ emsApi }), () => NOW).alerts('דפנה');
-    expect(emsApi.mock.calls[0][0]).toContain('siteId=site-1');
-    expect(emsApi.mock.calls[0][0]).toContain('statuses=open,in_progress,pending');
+  // The URL itself is now the adapter's business (lib/ems/rest.test.ts pins it character for
+  // character); what this file owns is that the source asks for THAT site's open tasks.
+  it('asks the gateway for the open tasks of that site only', async () => {
+    const listOpenTasks = vi.fn(async () => []);
+    await emsApiSource(deps({ listOpenTasks }), () => NOW).alerts('דפנה');
+    expect(listOpenTasks.mock.calls[0][0]).toEqual({ siteId: 'site-1', take: 100 });
+  });
+
+  it('a transport that cannot list tasks (capabilities) is asked nothing at all', async () => {
+    const listOpenTasks = vi.fn(async () => []);
+    const s = emsApiSource(deps({ listOpenTasks, capabilities: () => ({ ...CAPS, listOpenTasks: false }) }), () => NOW);
+    await expect(s.alerts('דפנה')).resolves.toBeNull();
+    expect(listOpenTasks).not.toHaveBeenCalled();
   });
 
   it('a kibbutz that resolves to no EMS site → null, not an error', async () => {
-    const s = emsApiSource(deps({ getEmsSites: async () => [] }), () => NOW);
+    const s = emsApiSource(deps({ listSites: async () => [] }), () => NOW);
     await expect(s.alerts('דפנה')).resolves.toBeNull();
   });
 
   it('EMS not signed in (every call throws) → null everywhere, never a throw', async () => {
     const boom = async () => { throw new Error('401'); };
-    const s = emsApiSource({ emsApi: boom, getEmsSites: boom as any }, () => NOW);
+    const s = emsApiSource({ listOpenTasks: boom as any, listSites: boom as any, capabilities: () => CAPS }, () => NOW);
     await expect(s.alerts('דפנה')).resolves.toBeNull();
   });
 });

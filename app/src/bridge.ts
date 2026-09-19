@@ -82,7 +82,19 @@ export interface Sigma {
   /** Live product catalog names — the day log's grounding list. */
   productNames?(): string[];
 
+  /**
+   * The raw EMS proxy call. RESERVED for app/src/lib/ems/adapters/* — every feature goes
+   * through `emsGateway()` (spec §7o) and a contract test in test-integration.mjs fails the
+   * build if a new `sigma.emsApi(` shows up anywhere else.
+   */
   emsApi(path: string, options?: RequestInit): Promise<any>;
+  /** Queue-aware EMS write (`emsWriteOrQueue`). Also adapter-only — see `emsApi`. */
+  emsWrite?(item: Record<string, unknown>): Promise<{ sent: boolean; id?: string | null; queued?: boolean; queueId?: string; error?: string }>;
+  /**
+   * The typed EMS gateway, installed on boot by the React bundle (lib/ems/gateway.ts
+   * `installEmsBridge`). Legacy reaches EMS through this; undefined until ui/sigma.js runs.
+   */
+  ems?: import('@/lib/ems/gateway').EmsGateway;
   isEmsConnected(): boolean;
   emsCacheData(): { tasks: EmsTask[]; syncedAt?: string; syncedBy?: string };
   /** Open tasks for one kibbutz card, from the shared cache (site aggregation included). */

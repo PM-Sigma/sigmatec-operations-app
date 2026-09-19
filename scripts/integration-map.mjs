@@ -340,6 +340,61 @@ export function registryIcons() {
   return new Set([...src.slice(at, at + 2000).matchAll(/([A-Z][A-Za-z0-9]*)\s*[,:}]/g)].map(m => m[1]));
 }
 
+// ══════════════════════════ (h) the EMS gateway (spec §7o) ══════════════════════════
+
+/**
+ * Every place the EMS is reached. Since Task 18b there is supposed to be exactly ONE:
+ * `app/src/lib/ems/adapters/*`. Anything else is either a legacy file still awaiting the
+ * migration (ALLOWED below, with the reason) or a regression the contract test fails on.
+ *
+ * "Reaching the EMS" is `emsApi(` (the Apps-Script proxy) or a `fetch(` whose URL mentions
+ * the EMS base — in the browser bundles and in the Deno edge functions alike.
+ */
+export const EMS_ADAPTER_DIR = 'app/src/lib/ems/adapters/';
+
+/**
+ * Legacy call sites the gateway does NOT yet own, each with why. Moving one means deleting
+ * its line here; a file that leaves the list and comes back fails the contract test.
+ */
+export const EMS_LEGACY_ALLOWLIST = {
+  'js/src/12-reports.js': 'the proxy ITSELF — emsApi()/emsProxyCall() are the REST transport the adapter calls',
+  'js/src/13-ems.js': 'the offline queue + cache crawl (emsSendItem/emsSyncCache); replays queued OPERATIONS, so it moves with the queue, not before it',
+  'js/src/14-calendar.js': 'the legacy EMS tab (create/patch/comments/sites/users/meter lookup) — a UI rewrite, not a call swap',
+  'js/src/24-meter-burns.js': 'the meter-burn sync + meter search; paginates with its own page loop',
+  'js/src/15-login-gate.js': 'login / verify-otp / resend-otp — the auth operations; they run BEFORE there is a session for the gateway to use',
+  'app/src/bridge.ts': 'the TYPE DECLARATION of the adapter transport (`emsApi(path: string…)`), not a call site',
+  'supabase/functions/calendar/index.ts': 'Deno emsValid() login probe — needs the Deno build of the adapter (spec §7o "server side too")',
+  'supabase/functions/clockify/index.ts': 'Deno emsValid() login probe',
+  'supabase/functions/ems-auth/index.ts': 'Deno — mints the bridge JWT; IS the login operation',
+  'supabase/functions/github/index.ts': 'Deno emsValid() login probe',
+  'supabase/functions/parse-daylog/index.ts': 'Deno emsValid() login probe',
+  'supabase/functions/parse-order/index.ts': 'Deno emsValid() login probe',
+  'supabase/functions/transcribe/index.ts': 'Deno emsValid() login probe',
+  'supabase/functions/push-send/index.ts': 'Deno — the digest crawl runs on a cron with no browser bridge',
+};
+
+export function emsCallSites() {
+  const files = [...APP_FILES_ALL(), ...LEGACY_FILES(), ...FN_FILES()];
+  // `/v1/audio/transcriptions` is ElevenLabs, not the EMS — the resource list keeps the
+  // scan on EMS endpoints only.
+  const re = /(?:^|[^\w$.])emsApi\s*\(|emsProxyCall\s*\(|EMS_API_BASE|\/v1\/(?:employee-tasks|sites|meters|users|auth)/;
+  const seen = new Set();
+  const all = hits(files, re, { group: 0 })
+    .map(h => ({ ...h, name: h.text.slice(0, 120) }))
+    .filter(h => { const k = h.file + ':' + h.line; if (seen.has(k)) return false; seen.add(k); return true; });
+  const adapter = all.filter(h => h.file.startsWith(EMS_ADAPTER_DIR));
+  const rest = all.filter(h => !h.file.startsWith(EMS_ADAPTER_DIR));
+  return {
+    adapter,
+    allowed: rest.filter(h => EMS_LEGACY_ALLOWLIST[h.file]),
+    // The whole point: a NEW direct EMS call, in a file nobody signed off on.
+    stray: rest.filter(h => !EMS_LEGACY_ALLOWLIST[h.file]),
+    allowlist: EMS_LEGACY_ALLOWLIST,
+    // An allowlist entry whose file no longer calls the EMS at all — delete the line.
+    staleAllowlist: Object.keys(EMS_LEGACY_ALLOWLIST).filter(f => !rest.some(h => h.file === f)),
+  };
+}
+
 // ══════════════════════════ the whole picture ══════════════════════════
 export function analyze() {
   const keys = bridgeKeys();
@@ -350,6 +405,7 @@ export function analyze() {
   const forwards = bridgeForwards();
   const provided = new Set([...keys.keys(), ...ext.map(e => e.name)]);
 
+  const ems = emsCallSites();
   const emits = busEmits(), listens = busListens(), vocab = busVocabulary();
   const eventNames = [...new Set([...emits, ...listens].map(h => h.name))].sort();
 
@@ -419,6 +475,7 @@ export function analyze() {
         pushClientOnly: [...pushClient].filter(m => !pushServer.has(m)).sort(),
       };
     })(),
+    ems,
     registry: registryItems(),
     registryIcons: registryIcons(),
   };
@@ -540,6 +597,23 @@ export function render(a = analyze()) {
   L.push('|---|---|---|');
   for (const r of [...a.registry].sort((x, y) => x.name.localeCompare(y.name))) {
     L.push(`| \`${r.name}\` | \`${r.icon || '—'}\` | ${r.file}:${r.line} |`);
+  }
+  L.push('');
+
+  L.push('## (h) EMS access — the gateway (spec §7o)');
+  L.push('');
+  L.push('Every EMS operation goes through `EmsGateway` (`app/src/lib/ems/gateway.ts`), implemented');
+  L.push('today by `ems-rest` (`app/src/lib/ems/adapters/rest.ts`) and published to legacy as');
+  L.push('`sigma.ems` by `main.tsx`. The adapter is the ONLY place allowed to build an EMS URL or');
+  L.push('read raw EMS JSON; `test-integration.mjs` fails on a direct EMS call anywhere else.');
+  L.push('');
+  L.push(`Direct EMS call sites: **${a.ems.adapter.length}** in the adapter, **${a.ems.allowed.length}** in files still awaiting migration, **${a.ems.stray.length}** stray.`);
+  L.push('');
+  L.push('| file | direct EMS calls | why it is not behind the gateway yet |');
+  L.push('|---|---|---|');
+  for (const f of Object.keys(a.ems.allowlist).sort()) {
+    const n = a.ems.allowed.filter(h => h.file === f).length;
+    L.push(`| \`${f}\` | ${n} | ${a.ems.allowlist[f]} |`);
   }
   L.push('');
 

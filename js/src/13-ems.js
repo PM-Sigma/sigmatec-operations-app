@@ -189,6 +189,11 @@
   async function emsSendItem(item) {
     if (item.kind === 'comment') return emsApi('/employee-tasks/' + item.taskId + '/comments', { method: 'POST', body: JSON.stringify({ message: item.message }) });
     if (item.kind === 'status')  return emsApi('/employee-tasks/' + item.taskId, { method: 'PATCH', body: JSON.stringify({ status: item.status }) });
+    // Generic partial update — the queue-aware half of EmsGateway.updateTask (spec §7o). The
+    // same HTTP request the `status` kind makes, with whichever keys the caller sent (status,
+    // expectedCompletionDate, assigneeUserId…). `status` stays as its own kind so queue rows
+    // written before the gateway keep replaying exactly as they did.
+    if (item.kind === 'patch')   return emsApi('/employee-tasks/' + item.taskId, { method: 'PATCH', body: JSON.stringify(item.patch || {}) });
     // createTask — used by customer-order approval ("אספקת ציוד"). The site + assignee are resolved
     // at SEND time (works whether sent live or flushed later by another connected user).
     if (item.kind === 'createTask') {
