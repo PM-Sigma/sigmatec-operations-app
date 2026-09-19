@@ -30,9 +30,18 @@ export async function ghCall(payload: Record<string, unknown>): Promise<any> {
   return d;
 }
 
-/** The board, as the function's read mode returns it. */
-export async function fetchDevBoard(state: 'open' | 'all' = 'open'): Promise<DevCard[]> {
-  const d = await ghCall({ state });
+/**
+ * The board, as the function's read mode returns it.
+ *
+ * `comments` costs one extra paginated GraphQL query server-side, so only the caller that
+ * needs them asks: ▶ ישיבת פיתוח builds "שאלות פתוחות לעידן" and the per-card comment list
+ * out of them, and 💻 פיתוח does not show comments at all. Until the Task 18 sweep the read
+ * never returned comments in any case, so both of those surfaces rendered permanently empty.
+ * A function that has not been redeployed yet simply omits them — `card.comments` is optional
+ * and every consumer already treats "absent" as "none".
+ */
+export async function fetchDevBoard(state: 'open' | 'all' = 'open', opts?: { comments?: boolean }): Promise<DevCard[]> {
+  const d = await ghCall(opts?.comments ? { state, comments: true } : { state });
   return (d?.tasks || []) as DevCard[];
 }
 

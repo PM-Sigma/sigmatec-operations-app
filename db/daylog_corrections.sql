@@ -26,6 +26,9 @@ alter table public.daylog_corrections enable row level security;
 -- key. These are product/kibbutz mapping shapes, not a person's day — the same call parse_corrections
 -- makes. Dropped first so re-running this file is idempotent.
 drop policy if exists daylog_corrections_read on public.daylog_corrections;
+-- ⚠️ SUPERSEDED by db/rls_corrections_lockdown.sql (Task 18): `person` + `raw_len` say who
+-- dictated a day log and how long it was, and no browser code reads this table — only the
+-- Edge Function does, now with the service role. Apply that file to drop this policy.
 create policy daylog_corrections_read on public.daylog_corrections
   for select using (true);
 

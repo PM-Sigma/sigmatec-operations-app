@@ -146,8 +146,13 @@ Deno.serve(async (req) => {
   // few-shot: recent accepted text→items pairs (graceful if the table/policy isn't there yet)
   let examples: any[] = [];
   try {
+    // SERVICE ROLE, not anon: db/rls_corrections_lockdown.sql removes the anon SELECT on
+    // parse_corrections (the rows carry real customer order text). The key is injected into
+    // every edge function by the platform, so this works before and after the lockdown —
+    // deploy this function FIRST, then apply the migration. Task 18.
+    const SB_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || SB_ANON;
     const r = await fetchT(SB_URL + "/rest/v1/parse_corrections?select=raw_text,items&order=created_at.desc&limit=15",
-      { headers: { apikey: SB_ANON, Authorization: "Bearer " + SB_ANON } }, 6000);
+      { headers: { apikey: SB_SERVICE, Authorization: "Bearer " + SB_SERVICE } }, 6000);
     if (r.ok) examples = await r.json();
   } catch { /* no examples yet */ }
 

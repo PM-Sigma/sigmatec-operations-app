@@ -245,8 +245,13 @@ Deno.serve(async (req) => {
   // few-shot: recent accepted corrections (graceful if the table isn't there yet)
   let examples: any[] = [];
   try {
+    // SERVICE ROLE, not anon: db/rls_corrections_lockdown.sql removes the anon SELECT on
+    // daylog_corrections (a public key could enumerate who wrote a day log and how long it was).
+    // The key is injected into every edge function by the platform, so this works before and
+    // after the lockdown — deploy this function FIRST, then apply the migration. Task 18.
+    const SB_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || SB_ANON;
     const r = await fetchT(SB_URL + "/rest/v1/daylog_corrections?select=json_after&order=created_at.desc&limit=8",
-      { headers: { apikey: SB_ANON, Authorization: "Bearer " + SB_ANON } }, 6000);
+      { headers: { apikey: SB_SERVICE, Authorization: "Bearer " + SB_SERVICE } }, 6000);
     if (r.ok) examples = await r.json();
   } catch { /* no examples yet */ }
 

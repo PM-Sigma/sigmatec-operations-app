@@ -106,6 +106,53 @@ async function fetchParentLinks(token: string, owner: string, name: string): Pro
 // WRITE: set the Projects-v2 Status field for a set of issues to a target stage (e.g. "Ready" / "Committed").
 // Robust: matches the target against the project's actual option names by KEYWORD (so English targets hit
 // Hebrew-named columns), and AUTO-ADDS an issue to the board if it isn't a project item yet (push from backlog).
+/**
+ * The last few comments of every OPEN issue, by issue number. One paginated GraphQL query for
+ * the whole repo — the REST alternative is one request per issue, which for a 200-card board
+ * is 200 round trips and a rate-limit.
+ *
+ * Only fetched when the caller asks (`{ comments: true }`): ▶ ישיבת פיתוח needs them for
+ * "שאלות פתוחות לעידן" and the per-card comment list, and the ordinary 💻 פיתוח board render
+ * does not — it should not pay for them. Until the Task 18 sweep the read mode returned no
+ * comments at all, so both of those surfaces were permanently empty with no error to show for it.
+ * Failure is graceful: an empty map, never a 502 — comments are an enrichment, not the board.
+ */
+async function fetchIssueComments(token: string, owner: string, name: string): Promise<Record<number, any[]>> {
+  const out: Record<number, any[]> = {};
+  const q = `query($owner:String!,$name:String!,$after:String){ repository(owner:$owner,name:$name){ issues(first:50, after:$after, states:[OPEN]){ pageInfo{ hasNextPage endCursor } nodes{ number comments(last:20){ nodes{ id author{ login } body createdAt url } } } } } }`;
+  let after: string | null = null;
+  try {
+    for (let page = 0; page < 10; page++) {
+      const r = await fetchT("https://api.github.com/graphql", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", "User-Agent": "sigmatec-ops" },
+        body: JSON.stringify({ query: q, variables: { owner, name, after } }),
+      }, 12000);
+      if (!r.ok) break;
+      const d = await r.json();
+      const issues = d?.data?.repository?.issues;
+      if (!issues) break;
+      for (const node of (issues.nodes || [])) {
+        const n = node?.number;
+        if (!n) continue;
+        const list = (node.comments?.nodes || []).map((c: any) => ({
+          id: c?.id,
+          issue_number: n,
+          author: c?.author?.login || "",
+          // The board is read on a phone; a 4 kB comment is not a thing anyone reads there.
+          body: String(c?.body || "").slice(0, 2000),
+          createdAt: c?.createdAt || null,
+          url: c?.url || "",
+        }));
+        if (list.length) out[n] = list;
+      }
+      if (!issues.pageInfo?.hasNextPage) break;
+      after = issues.pageInfo.endCursor;
+    }
+  } catch { /* comments are an enrichment — the board still renders without them */ }
+  return out;
+}
+
 // Needs a token with project WRITE scope (classic PAT `project`). Returns { updated, failed[{number,error}], statusOptions, target }.
 function optionRegexFor(target: string): RegExp {
   const t = String(target).toLowerCase();
@@ -426,6 +473,12 @@ Deno.serve(async (req) => {
     const [ghOwner, ghName] = GH_REPO.split("/");
     const links = await fetchParentLinks(GH_TOKEN, ghOwner, ghName);
     for (const t of tasks) { const p = links[t.number]; if (p) t.parent = p; }
+
+    // …and the comments, only for a caller that asked for them (▶ ישיבת פיתוח).
+    if (body.comments) {
+      const byIssue = await fetchIssueComments(GH_TOKEN, ghOwner, ghName);
+      for (const t of tasks) { const c = byIssue[t.number]; if (c && c.length) (t as any).comments = c; }
+    }
 
     return json({ tasks }, 200, ORIGIN);
   } catch (e) {

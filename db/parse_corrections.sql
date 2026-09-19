@@ -18,6 +18,9 @@ alter table public.parse_corrections enable row level security;
 -- Read: allowed (anon ok) — the function reads recent rows for few-shot. These are product-mapping
 -- examples, not sensitive. Drop the policy first so re-running this file is idempotent.
 drop policy if exists parse_corrections_read on public.parse_corrections;
+-- ⚠️ SUPERSEDED by db/rls_corrections_lockdown.sql (Task 18): `raw_text` is the customer's
+-- order text verbatim, which the public anon key should not be able to read. Only the Edge
+-- Function reads this table, now with the service role. Apply that file to drop this policy.
 create policy parse_corrections_read on public.parse_corrections
   for select using (true);
 
