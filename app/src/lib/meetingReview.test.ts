@@ -313,7 +313,7 @@ describe('applyReview', () => {
 
   it('an internal line becomes an internal task, owner first', () => {
     const d = setChip(setOwner(tiny(), 'דפנה#2', ['מתניה']), 'דפנה#2', 'internal');
-    expect(applyReview(d).internalTasks).toEqual([{ title: 'ללא פערים.', owner: 'מתניה', kibbutz: 'דפנה' }]);
+    expect(applyReview(d).internalTasks).toEqual([{ key: 'דפנה#2', title: 'ללא פערים.', owner: 'מתניה', kibbutz: 'דפנה' }]);
   });
 
   it('created_by rides along only when there is one', () => {

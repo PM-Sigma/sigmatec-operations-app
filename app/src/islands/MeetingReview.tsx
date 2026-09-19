@@ -60,6 +60,12 @@ export interface SaveReviewOpts {
   /** Called the instant a line gets a task id, so the caller can persist it before any later
    *  line in the same run throws — a crash on line 3 must not lose what line 1 and 2 wrote. */
   onCreated?: (key: string, taskId: string) => void;
+  /** 🔒-line keys that already have an `internal_tasks` row from an earlier, partially-failed
+   *  בצע — mirrors `created` for the EMS loop, so a retry never re-inserts them. */
+  createdInternal?: Record<string, string>;
+  /** Called the instant a 🔒 line's row is inserted, so the caller can persist it the same way
+   *  `onCreated` does for EMS tasks. */
+  onInternalCreated?: (key: string, rowId: string) => void;
 }
 
 /**
@@ -89,13 +95,28 @@ export async function saveReview(
   const b = bundle || applyReview(draft, createdBy);
   const sb = await getSupabase();
   const already = opts?.created || {};
+  const alreadyInternal = opts?.createdInternal || {};
 
   await sbWrite(() => sb.rpc('import_meeting_notes', { p: reviewPayload(b, draft, createdBy) }) as any);
 
-  if (INTERNAL_TASKS_WRITABLE && b.internalTasks.length) {
-    await sbWrite(() => sb.from('internal_tasks')
-      .insert(b.internalTasks.map(t => ({ ...t, created_by: createdBy })))
-      .select('id') as any);
+  let internal = 0;
+  let internalFailed = 0;
+  if (INTERNAL_TASKS_WRITABLE) {
+    for (const t of b.internalTasks) {
+      if (alreadyInternal[t.key]) { internal++; continue; } // already inserted by an earlier, partial בצע
+      try {
+        // `sbWrite` already unwraps to the row (or throws on error) — no `{data,error}` here.
+        const row = await sbWrite(() => sb.from('internal_tasks')
+          .insert({ title: t.title, owner: t.owner, kibbutz: t.kibbutz, created_by: createdBy })
+          .select('id').single() as any);
+        const rowId = row?.id ? String(row.id) : '';
+        if (rowId) opts?.onInternalCreated?.(t.key, rowId);
+        internal++;
+      } catch {
+        internalFailed++;
+        // keep going — the rest of the batch is independent, and a retry can pick up just this line
+      }
+    }
   }
 
   let tasks = 0;
@@ -142,7 +163,7 @@ export async function saveReview(
 
   emitNotesChanged({ meeting_date: draft.meeting_date, review: true, notes: b.notes.length, tasks });
   return {
-    notes: b.notes.length, tasks, internal: INTERNAL_TASKS_WRITABLE ? b.internalTasks.length : 0, queued, failed,
+    notes: b.notes.length, tasks, internal, queued, failed: failed + internalFailed,
   };
 }
 
@@ -398,6 +419,7 @@ function ReviewSheet() {
   // within the same open review so a retry never re-creates an already-linked task; wiped on
   // ביטול/close and on a fresh start (see cancel()/start()).
   const [created, setCreated] = React.useState<Record<string, string>>({});
+  const [createdInternal, setCreatedInternal] = React.useState<Record<string, string>>({});
 
   const start = React.useCallback((parsed: ParsedMeeting, marked?: string[]) => {
     if (!canReview(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.())) {
@@ -406,6 +428,7 @@ function ReviewSheet() {
     }
     setDraft(draftFromParsed(parsed, { marked }));
     setCreated({});
+    setCreatedInternal({});
     setOpen(true);
     track('review-open', parsed.meeting_date || '');
   }, []);
@@ -429,7 +452,8 @@ function ReviewSheet() {
 
   const cancel = () => {
     // Nothing was written, so there is nothing to undo — the draft simply stops existing.
-    setOpen(false); setDraft(null); setAdding(null); setAddText(''); setTaskFor(null); setCreated({});
+    setOpen(false); setDraft(null); setAdding(null); setAddText(''); setTaskFor(null);
+    setCreated({}); setCreatedInternal({});
   };
 
   const commit = async () => {
@@ -442,6 +466,8 @@ function ReviewSheet() {
         // Record as each line lands, not just at the end — if a LATER line throws (it won't,
         // saveReview catches per line, but stay defensive), the earlier successes still stick.
         onCreated: (key, taskId) => setCreated(prev => ({ ...prev, [key]: taskId })),
+        createdInternal,
+        onInternalCreated: (key, rowId) => setCreatedInternal(prev => ({ ...prev, [key]: rowId })),
       });
       if (r.failed) {
         // The draft stays open and untouched — בצע again only retries the lines still missing

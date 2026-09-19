@@ -326,7 +326,14 @@ export interface ReviewEmsTask {
   task: ReturnType<typeof taskFromBullet>;
 }
 
-export interface ReviewInternalTask { title: string; owner: string | null; kibbutz: string | null }
+export interface ReviewInternalTask {
+  /** The draft line this came from — mirrors `ReviewEmsTask.key`, so a retried בצע can skip a
+   *  line already inserted (see `saveReview`'s `opts.createdInternal`). */
+  key: string;
+  title: string;
+  owner: string | null;
+  kibbutz: string | null;
+}
 
 export interface ReviewBundle {
   notes: ReviewNoteRow[];
@@ -379,7 +386,7 @@ export function applyReview(d: ReviewDraft, createdBy?: string): ReviewBundle {
         });
       }
       if (l.chip === 'internal') {
-        internalTasks.push({ title: l.text, owner: l.owners[0] || null, kibbutz: sec.kibbutz || null });
+        internalTasks.push({ key: l.key, title: l.text, owner: l.owners[0] || null, kibbutz: sec.kibbutz || null });
       }
     });
   });

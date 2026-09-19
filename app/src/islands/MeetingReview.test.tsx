@@ -54,7 +54,10 @@ vi.mock('@/lib/supabase', () => {
     },
     insert: (row: any) => {
       inserted.push({ table: name, row });
-      return { select: async () => ({ data: [{ id: name + '-1' }], error: null }) };
+      const id = name + '-' + inserted.filter(r => r.table === name).length;
+      const result = { data: [{ id }], error: null };
+      const single = async () => ({ data: { id }, error: null });
+      return { select: () => Object.assign(Promise.resolve(result), { single, maybeSingle: single }) };
     },
     update: (row: any) => {
       updated.push({ table: name, row });
@@ -156,7 +159,54 @@ describe('the screen', () => {
     await waitFor(() => expect(sonner.success).toHaveBeenCalled());
     const rows = inserted.filter(i => i.table === 'internal_tasks');
     expect(rows).toHaveLength(1);
-    expect(rows[0].row).toEqual([{ title: 'להחליף את המונה הראשי מול הגזבר.', owner: 'אביאם', kibbutz: 'דפנה', created_by: 'עידן' }]);
+    expect(rows[0].row).toEqual({ title: 'להחליף את המונה הראשי מול הגזבר.', owner: 'אביאם', kibbutz: 'דפנה', created_by: 'עידן' });
+  });
+
+  it('a partial internal-task insert failure never re-inserts the lines that already landed (fix round 1)', async () => {
+    await openScreen();
+    // Both lines to 🔒, so the run has two internal-task rows to insert — line 2 (חוקוק#1)
+    // throws on the first attempt.
+    fireEvent.click(screen.getByTestId('review-chip-דפנה#1-internal'));
+    fireEvent.click(screen.getByTestId('review-chip-חוקוק#1-internal'));
+
+    const { getSupabase } = await import('@/lib/supabase');
+    const sb = await getSupabase();
+    const realFrom = sb.from.bind(sb);
+    let internalInsertCalls = 0;
+    sb.from = ((name: string) => {
+      const real = realFrom(name);
+      if (name !== 'internal_tasks') return real;
+      return {
+        ...real,
+        insert: (row: any) => {
+          internalInsertCalls++;
+          if (internalInsertCalls === 2) {
+            return { select: () => ({ single: async () => ({ data: null, error: new Error('DB down') }) }) };
+          }
+          return real.insert(row);
+        },
+      };
+    }) as any;
+
+    await act(async () => { fireEvent.click(screen.getByTestId('review-commit')); });
+    await waitFor(() => expect(sonner.error).toHaveBeenCalled());
+    expect(inserted.filter(i => i.table === 'internal_tasks')).toHaveLength(1); // only line 1 landed
+
+    // second בצע: only the still-missing line (חוקוק#1) is inserted again
+    await act(async () => { fireEvent.click(screen.getByTestId('review-commit')); });
+    await waitFor(() => expect(sonner.success).toHaveBeenCalled());
+    expect(inserted.filter(i => i.table === 'internal_tasks')).toHaveLength(2); // line 1 not re-inserted, line 2 landed
+  });
+
+  it('a clean בצע (no failures) inserts exactly one row per 🔒 line, never more', async () => {
+    await openScreen();
+    fireEvent.click(screen.getByTestId('review-chip-דפנה#1-internal'));
+    fireEvent.click(screen.getByTestId('review-chip-חוקוק#1-internal'));
+
+    await act(async () => { fireEvent.click(screen.getByTestId('review-commit')); });
+    await waitFor(() => expect(sonner.success).toHaveBeenCalled());
+    // total internal inserts across the whole run == number of 🔒 lines (2), not double-counted.
+    expect(inserted.filter(i => i.table === 'internal_tasks')).toHaveLength(2);
   });
 
   it('a chip tap changes exactly that line', async () => {
