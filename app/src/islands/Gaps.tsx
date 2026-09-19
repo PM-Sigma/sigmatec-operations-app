@@ -29,6 +29,15 @@ import {
 
 export const GAPS_OPEN_EVENT = 'sigma-open-gaps';
 
+// Cold-open flag (FIX ROUND 1, task-15 review §Important): `main.tsx`'s deferred loader wants
+// the very FIRST open of this panel to show the sheet the instant it mounts, but the sheet's
+// own `sigma-open-gaps` listener only attaches inside a `useEffect`, which React flushes
+// asynchronously — a re-dispatched event fired right after `mountGaps()` returns can beat the
+// effect and be lost (the "first tap does nothing" bug). `pendingOpen` is read synchronously
+// by `GapsIsland`'s `useState` initializer, which runs during the SAME synchronous render pass
+// `mount()` triggers, so it can never race the effect.
+let pendingOpen = false;
+
 /** Open 📋 הפערים שלי from anywhere (⋯ עוד, the settings panel, a push deep link). */
 export function openGaps(): void {
   try { window.dispatchEvent(new CustomEvent(GAPS_OPEN_EVENT)); } catch { /* no DOM */ }
@@ -208,8 +217,19 @@ function EveryoneList() {
 }
 
 function GapsIsland() {
-  const [open, setOpen] = React.useState(false);
+  // Initializer runs synchronously during this render — the same tick `mount()` calls
+  // `createRoot(...).render(...)` in, well before any `useEffect` flushes. Consuming
+  // `pendingOpen` here (instead of via a re-dispatched event) is what makes the cold-load
+  // open land instead of racing the listener below into existence.
+  const [open, setOpen] = React.useState(() => {
+    if (pendingOpen) { pendingOpen = false; return true; }
+    return false;
+  });
   const { name: user } = useCurrentUser();
+
+  React.useEffect(() => {
+    if (open) track('gaps-open'); // covers the cold-open path (state already true on mount)
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     const on = () => { setOpen(true); track('gaps-open'); };
@@ -240,7 +260,8 @@ export function Gaps() {
   return <SigmaProviders><GapsIsland /></SigmaProviders>;
 }
 
-export function mountGaps(): boolean {
+export function mountGaps(opts?: { open?: boolean }): boolean {
+  if (opts?.open) pendingOpen = true;
   const ok = mount('sigma-gaps', Gaps);
   if (!ok) return false;
   // Exposed for the push deep link (?pushact=gaps), which runs in the legacy bundle.

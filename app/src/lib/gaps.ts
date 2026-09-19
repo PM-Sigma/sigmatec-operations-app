@@ -124,6 +124,9 @@ function visitGaps(person: string, src: GapSources, range: GapRange): Gap[] {
     // same piece of work on the list twice and is the fastest way to make a list unreadable.
     // A task marked done, on the other hand, says he WAS there: the summary is what is
     // missing, and there is nothing else on the list to say so.
+    // Ruling 19.9 (controller, task-15 review Minor #1): keep this as-is — open/overdue → task
+    // gap only, closed → visit gap. Not literal spec text, but the intended reading, and the
+    // 29 goldens are built on it.
     if (!CLOSED.has(String(t.status || '').toLowerCase())) continue;
     add(t.site?.name, t.expectedCompletionDate);
   }

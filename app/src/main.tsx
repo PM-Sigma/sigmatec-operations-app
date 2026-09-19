@@ -238,17 +238,46 @@ function boot() {
   //
   // Deferring a panel normally means a tap in the first second does nothing (the reason every
   // other panel here is NOT deferred — qa/playwright/tests/feedback.spec.ts caught exactly
-  // that). So the row and the opener are registered NOW, cheaply, and the first open loads
-  // the chunk and then re-fires the event for the island that just mounted.
+  // that). So the row and the opener are registered NOW, cheaply, and `whenIdle` mounts the
+  // chunk (unopened) a tick later so the panel is ready before anyone asks for it.
+  //
+  // FIX ROUND 1 (task-15 review §Important): the ORIGINAL open path re-dispatched the open
+  // event right after `mountGaps()` resolved, racing the island's own `useEffect` listener
+  // (attached asynchronously) and sometimes losing a tap that landed on the very first,
+  // still-loading chunk. `mountGaps({ open })` now hands the island a flag it consumes
+  // synchronously inside its OWN first render (see Gaps.tsx's `pendingOpen`), so the ONE
+  // mount call that actually happens never needs an event round-trip. `wantOpen` (not a
+  // per-call argument closed over a single `.then`) is what lets a click that lands WHILE the
+  // idle-triggered load is still in flight upgrade that same in-flight mount from "just warm
+  // it up" to "and open it" — reading a shared, live variable inside every `.then` callback,
+  // rather than each callback's own frozen copy of the flag at the time it was attached.
   if (document.getElementById('sigma-gaps')) {
-    let loading: Promise<unknown> | null = null;
-    const loadGaps = () => (loading ||= import('@/islands/Gaps')
-      .then(m => { m.mountGaps(); })
-      .catch(e => { loading = null; console.warn('[sigma] gaps island failed', e); }));
-    const openGaps = () => { void loadGaps().then(() => window.dispatchEvent(new CustomEvent('sigma-open-gaps'))); };
-    // An event that arrives BEFORE the island exists: load, then let it through. Once
-    // `loading` is set the island is mounting and owns the event itself, so this never loops.
-    window.addEventListener('sigma-open-gaps', () => { if (!loading) openGaps(); });
+    let modulePromise: Promise<typeof import('@/islands/Gaps')> | null = null;
+    let mounted = false;
+    let wantOpen = false;
+    const ensureLoaded = () => (modulePromise ||= import('@/islands/Gaps'));
+    const mountOnce = (open: boolean) => {
+      wantOpen = wantOpen || open;
+      void ensureLoaded()
+        .then(m => {
+          if (mounted) {
+            // Mounted by an earlier call already — that island's effect listener has had a
+            // full macrotask (at least) to attach, so a plain dispatch is safe here.
+            if (wantOpen) { wantOpen = false; window.dispatchEvent(new CustomEvent('sigma-open-gaps')); }
+            return;
+          }
+          mounted = m.mountGaps({ open: wantOpen });
+          wantOpen = false;
+        })
+        .catch(e => { modulePromise = null; console.warn('[sigma] gaps island failed', e); });
+    };
+    const openGaps = () => {
+      if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-gaps')); return; }
+      mountOnce(true);
+    };
+    // An event that arrives BEFORE the island exists: load-and-open. Once `mounted` is true
+    // the island owns the event itself via its own listener, so this never double-opens.
+    window.addEventListener('sigma-open-gaps', () => { if (!mounted) openGaps(); });
     (window as any).sigmaOpenGaps = openGaps;          // the ?pushact=gaps deep link
     registerMoreItem({
       id: 'gaps',
@@ -268,7 +297,7 @@ function boot() {
       },
       onSelect: openGaps,
     });
-    whenIdle(() => void loadGaps());
+    whenIdle(() => mountOnce(false));
   }
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')

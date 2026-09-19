@@ -427,11 +427,19 @@ describe('eodHourFor', () => {
   });
   it('honours his own hour', () => {
     expect(eodHourFor('אביאם', { אביאם: 18, ניתאי: 21 })).toBe(18);
-    expect(eodHourFor('אביאם', { אביאם: 0 })).toBe(0);
+  });
+  it('honours the ends of the picker range, 17 and 20', () => {
+    expect(eodHourFor('אביאם', { אביאם: 17 })).toBe(17);
+    expect(eodHourFor('אביאם', { אביאם: 20 })).toBe(20);
   });
   it('a value that is not an hour is not an hour', () => {
     for (const bad of [24, -1, 7.5, NaN, 'שש' as unknown as number])
       expect(eodHourFor('אביאם', { אביאם: bad })).toBe(19);
+  });
+  it('clamped to the Settings picker range 17–20 (FIX ROUND 1, task-15 review Minor #2) — a ' +
+    'stray/legacy value outside it falls back to the default instead of being honored', () => {
+    for (const outside of [0, 16, 21, 23])
+      expect(eodHourFor('אביאם', { אביאם: outside })).toBe(19);
   });
 });
 
@@ -467,8 +475,12 @@ describe('attendanceCronRuns', () => {
       .toEqual([{ person: 'אביאם', kind: 'morning' }, { person: 'ניתאי', kind: 'morning' }]);
   });
 
-  it('an end-of-day hour of 09:00 gets both, and they are different messages', () => {
+  it('a stored hour outside the 17–20 picker range falls back to the 19:00 default ' +
+    '(FIX ROUND 1, task-15 review Minor #2 — 09:00 is no longer a reachable evening choice, ' +
+    'so it can no longer collide with the fixed 09:00 morning slot)', () => {
     expect(attendanceCronRuns(9, ['אביאם'], { אביאם: 9 }))
-      .toEqual([{ person: 'אביאם', kind: 'morning' }, { person: 'אביאם', kind: 'evening' }]);
+      .toEqual([{ person: 'אביאם', kind: 'morning' }]);
+    expect(attendanceCronRuns(19, ['אביאם'], { אביאם: 9 }))
+      .toEqual([{ person: 'אביאם', kind: 'evening' }]);
   });
 });

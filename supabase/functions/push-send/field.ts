@@ -650,14 +650,20 @@ export const EOD_DEFAULT_HH = 19;
 /** The morning "days are missing" nudge. Not a preference — it is one hour for everyone. */
 export const ATT_MORNING_HH = 9;
 
-/** A person's own end-of-day hour, or the default. Anything outside 0–23 is not an hour. */
+/**
+ * A person's own end-of-day hour, or the default. Clamped to 17–20 (FIX ROUND 1, task-15
+ * review Minor #2): `Settings.tsx`'s `EOD_HOURS` picker only ever writes 17/18/19/20, but this
+ * reads whatever is actually sitting in `user_settings.eod_hour` — a stray/legacy value
+ * outside that range would otherwise be honored verbatim by the cron instead of falling back
+ * to the 19:00 default.
+ */
 export function eodHourFor(person: string, eodHours: Record<string, number | null | undefined> | null | undefined): number {
   // `null` is the column's "never chose" — and `Number(null)` is 0, i.e. midnight, so the
   // empty value has to be rejected BEFORE it is turned into a number.
   const raw = (eodHours || {})[person];
   if (raw === null || raw === undefined) return EOD_DEFAULT_HH;
   const h = Number(raw);
-  return Number.isInteger(h) && h >= 0 && h <= 23 ? h : EOD_DEFAULT_HH;
+  return Number.isInteger(h) && h >= 17 && h <= 20 ? h : EOD_DEFAULT_HH;
 }
 
 /**

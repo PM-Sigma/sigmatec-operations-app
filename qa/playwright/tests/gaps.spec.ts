@@ -110,6 +110,45 @@ test('gaps: the panel is reachable from the personal area', async ({ page }, ti)
   expectNoConsoleErrors(rec);
 });
 
+test('gaps: the row opens the sheet on a COLD tap, before the deferred chunk has ever mounted (FIX ROUND 1)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await seedOldCheckin(page, 'אביאם');
+
+  // Deliberately the opposite of `openGaps()` above: no wait for
+  // `#sigma-gaps[data-sigma-mounted="1"]`. This is the exact race the review flagged —
+  // `main.tsx` used to re-dispatch the open event right after the deferred chunk resolved,
+  // which could beat the island's own `useEffect` listener into existing and silently drop
+  // the tap. The fix reads a pending-open flag synchronously during the island's first
+  // render instead, so this must work on the very first tap, cold, every time.
+  //
+  // The registry's "⋯ עוד" row (`MoreSheet.tsx`) only renders on the phone-width nav
+  // (`Nav.tsx`: `md:hidden`) — desktop has no bottom bar in this build. Both entry points
+  // dispatch/consume the SAME `sigma-open-gaps` event through the SAME `main.tsx` listener
+  // (`Settings.tsx` line ~85 dispatches it raw, exactly like the row's `onSelect`), so the
+  // desktop branch below exercises the identical race via the personal area instead.
+  const isMobileNav = (page.viewportSize()?.width ?? 1440) < 768;
+  if (isMobileNav) {
+    // `getByRole('button', { name: 'עוד' })` also matches the legacy per-card "עוד" (t-more)
+    // buttons scattered on the home cards; the bottom-nav trigger is the one with this exact
+    // aria-label (`MoreSheet.tsx`), so `getByLabel` is what actually disambiguates it.
+    await page.getByLabel('עוד', { exact: true }).click();
+    await page.getByRole('button', { name: 'פערים' }).click();
+  } else {
+    await page.waitForSelector('#sigma-settings[data-sigma-mounted="1"]', { state: 'attached' });
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-settings')));
+    const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
+    await expect(dlg).toBeVisible();
+    // No wait for `#sigma-gaps` here either — this click is the cold tap under test.
+    await dlg.getByTestId('settings-open-gaps').click();
+  }
+
+  const sheet = page.getByTestId('gaps-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('heading', { name: 'הפערים שלי' })).toBeVisible();
+  await expect(page.getByTestId('gaps-list')).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
 test('gaps: nothing on the screen explains the app, or names who else is watching (§7h)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await seedOldCheckin(page, 'אביאם');
