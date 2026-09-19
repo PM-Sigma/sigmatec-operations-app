@@ -23,27 +23,7 @@
 // `{error}` JSON shape, same allowlisted-origin CORS, same hard fetch timeout.
 const CLOCKIFY_BASE = "https://api.clockify.me/api/v1";
 
-const cors = (o: string) => ({
-  "Access-Control-Allow-Origin": o,
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-});
-const json = (b: unknown, s = 200, o = "*") =>
-  new Response(JSON.stringify(b), { status: s, headers: { ...cors(o), "Content-Type": "application/json" } });
-
-/** fetch with a hard timeout — a slow upstream must never make this function hang. */
-async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Response> {
-  const ac = new AbortController();
-  const id = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, { ...opts, signal: ac.signal }); }
-  finally { clearTimeout(id); }
-}
-
-async function emsValid(base: string, token: string): Promise<boolean> {
-  if (!token) return false;
-  try { const r = await fetchT(base + "/v1/employee-tasks?take=1", { headers: { Authorization: "Bearer " + token } }, 8000); return r.ok; }
-  catch { return false; }
-}
+import { cors, emsValid, fetchT, json } from "../_shared/http.ts";
 
 async function clockify(key: string, path: string, init: RequestInit = {}, ms = 12000): Promise<any> {
   const r = await fetchT(CLOCKIFY_BASE + path, {

@@ -5,6 +5,7 @@
 // the menu never says who else sees anything, and never explains the app's own machinery —
 // the EMS row states a state and offers the one action that changes it.
 import * as React from 'react';
+import { useClickAway } from '@/lib/useClickAway';
 import { LogIn, Plug, Settings, User, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sigma, useCurrentUser, useEmsConnected } from '@/bridge';
@@ -40,20 +41,10 @@ export function UserChip({ className }: { className?: string }) {
   const [open, setOpen] = React.useState(false);
   const wrap = React.useRef<HTMLSpanElement>(null);
 
-  // A tap anywhere else, or Escape, closes it — and the listeners only exist while it is open.
-  React.useEffect(() => {
-    if (!open) return;
-    const away = (e: Event) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', away, true);
-    document.addEventListener('touchstart', away, true);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('mousedown', away, true);
-      document.removeEventListener('touchstart', away, true);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [open]);
+  // A tap anywhere else, or Escape, closes it — and the listeners only exist while it is
+  // open. The behaviour lives in @/lib/useClickAway (F14 ⑩); it used to be written out here
+  // and again, identically, in MeetingNotes.
+  useClickAway(open, wrap, () => setOpen(false));
 
   const pick = (fn: () => void, what: string) => { setOpen(false); track('user-menu', what); fn(); };
 

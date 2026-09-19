@@ -14,11 +14,13 @@
 // Copy rule (master spec §6): everything on screen is Hebrew, nothing explains the app's own
 // mechanics, and nothing tells anyone who else can see what.
 import * as React from 'react';
+import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, MapPin, Pencil, Video, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { mount } from '@/islands';
+import { fetchKibbutzRows } from '@/lib/kibbutzRows';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
 import { INTERNAL_TASKS_WRITABLE } from '@/lib/caps';
@@ -32,8 +34,8 @@ import {
   type MeetingKind, type NoteRow,
 } from '@/lib/meetingNotes';
 import {
-  canPresent, carryOverLine, clockText, eventRow, liveChips, nextIndex, presenterOrder, tSec,
-  type LiveChipId, type MeetingEventKind, type MeetingSessionRow,
+  canPresent, carryOverLine, clockText, liveChips, nextIndex, presenterOrder,
+  type LiveChipId, type MeetingSessionRow,
 } from '@/lib/meetingSession';
 
 export const PRESENTER_OPEN_EVENT = 'sigma-open-presenter';
@@ -63,12 +65,7 @@ export function openPresenter(): void {
 
 // ───────────────────────────── reads ─────────────────────────────
 
-async function fetchKibbutzim(): Promise<KibbutzRow[]> {
-  const sb = await getSupabase();
-  const { data, error } = await sb.from('kibbutzim').select('*').is('archived_at', null);
-  if (error) throw error;
-  return (data || []) as KibbutzRow[];
-}
+const fetchKibbutzim = () => fetchKibbutzRows<KibbutzRow>();   // F14 ⑫ — the ONE reader
 
 async function fetchNotes(): Promise<NoteRow[]> {
   const sb = await getSupabase();
@@ -354,11 +351,10 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const meeting = React.useMemo(() => todaysMeeting(eventsQ.data || []), [eventsQ.data]);
 
   const [idx, setIdx] = React.useState(0);
-  const [session, setSession] = React.useState<MeetingSessionRow | null>(null);
+  const { session, seconds, log, endSession } = useMeetingRun(meeting?.kind || 'company', me, today);   // F14 ①
   const [draft, setDraft] = React.useState('');
   const [liveOpen, setLiveOpen] = React.useState(false);
   const [exitOpen, setExitOpen] = React.useState(false);
-  const [seconds, setSeconds] = React.useState(0);
   const noteRef = React.useRef<HTMLInputElement | null>(null);
   const logged = React.useRef<string>('');
 
@@ -370,47 +366,6 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const lastMeeting = groups.find(g => g.meeting_date < today) || null;
   const carry = React.useMemo(
     () => (current ? carryOverLine(notes, current.name, today) : null), [notes, current, today]);
-
-  // ── the session row ────────────────────────────────────────────────────
-  // Opened once, on mount. A failure is NOT fatal: the meeting has to run whether or not the
-  // log can be written, so the screen works with `session === null` and simply logs nothing.
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      const row: MeetingSessionRow = {
-        date: today,
-        kind: meeting?.kind || 'company',
-        host: me || null,
-        started_at: new Date().toISOString(),
-      };
-      try {
-        const sb = await getSupabase();
-        const saved = await sbWrite(() =>
-          sb.from('meeting_sessions').insert(row).select('id,date,kind,started_at').single());
-        if (alive) setSession((saved as MeetingSessionRow) || row);
-      } catch {
-        if (alive) setSession(row);
-      }
-    })();
-    return () => { alive = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── the timer ──────────────────────────────────────────────────────────
-  React.useEffect(() => {
-    const t = window.setInterval(() => setSeconds(tSec(session?.started_at, new Date())), 1000);
-    setSeconds(tSec(session?.started_at, new Date()));
-    return () => window.clearInterval(t);
-  }, [session?.started_at]);
-
-  // ── the log ────────────────────────────────────────────────────────────
-  const log = React.useCallback(async (kind: MeetingEventKind, payload: Record<string, unknown> = {}) => {
-    if (!session?.id) return;
-    const row = eventRow(session.id, session.started_at, kind, payload, new Date());
-    try {
-      const sb = await getSupabase();
-      await sbWrite(() => sb.from('meeting_events').insert(row).select('id').single());
-    } catch { /* the meeting matters more than its log */ }
-  }, [session]);
 
   // Every arrival at a kibbutz is a segment boundary. Keyed so StrictMode's double render
   // cannot log the same arrival twice.
@@ -449,17 +404,11 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   }, [draft, log, current?.name]);
 
   const finish = React.useCallback(async () => {
-    if (session?.id) {
-      try {
-        const sb = await getSupabase();
-        await sbWrite(() => sb.from('meeting_sessions')
-          .update({ ended_at: new Date().toISOString() }).eq('id', session.id!).select('id').single());
-      } catch { /* the screen closes either way */ }
-    }
+    await endSession();
     track('presenter-close');
     void qc.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
     onClose();
-  }, [session, qc, onClose]);
+  }, [endSession, qc, onClose]);
 
   // ── keys ───────────────────────────────────────────────────────────────
   React.useEffect(() => {

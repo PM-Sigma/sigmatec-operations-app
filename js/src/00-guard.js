@@ -212,16 +212,30 @@
   window.modalPrompt = modalPrompt;
 
   // ── the ONE Esc dispatcher (was two — F4) ───────────────────────────────────────────────
+  /**
+   * The topmost DISMISSIBLE modal: highest stacking order wins, DOM order breaks a tie.
+   * Document order alone is not "topmost" — #emsTaskModal sits above #modalBackdrop on
+   * screen (z-index 1160) while appearing BEFORE it in index.html, so an Esc used to close
+   * the one underneath and leave the one the person was looking at.
+   */
+  function topmostDismissible() {
+    var open = document.querySelectorAll('.modal-backdrop.open');
+    var best = null, bestZ = -Infinity;
+    for (var i = 0; i < open.length; i++) {
+      var el = open[i];
+      if (MODAL_NEVER_DISMISS[el.id]) continue;   // a gate is never the topmost dismissible one
+      var z = parseInt(window.getComputedStyle(el).zIndex, 10);
+      if (!isFinite(z)) z = 0;
+      if (z >= bestZ) { bestZ = z; best = el; }   // >= so a later sibling wins an exact tie
+    }
+    return best;
+  }
+
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (document.getElementById('sigmaUnsavedPrompt')) { modalPromptClose(); return; }  // Esc = "להמשיך לערוך"
-    var open = document.querySelectorAll('.modal-backdrop.open');
-    for (var i = open.length - 1; i >= 0; i--) {
-      var id = open[i].id;
-      if (MODAL_NEVER_DISMISS[id]) continue;     // a gate is never the topmost DISMISSIBLE layer
-      modalDismiss(id);
-      break;                                     // one layer per Esc, always
-    }
+    var top = topmostDismissible();
+    if (top) modalDismiss(top.id);               // one layer per Esc, always
   });
 
   // ── the ONE backdrop-tap dispatcher ─────────────────────────────────────────────────────
@@ -253,7 +267,16 @@
       if (f.disabled || f.type === 'hidden' || f.type === 'button' || f.type === 'submit') continue;
       if (f.type === 'checkbox' || f.type === 'radio') { if (f.checked !== f.defaultChecked) return true; continue; }
       if (f.tagName === 'SELECT') {
-        for (var j = 0; j < f.options.length; j++) if (f.options[j].selected !== f.options[j].defaultSelected) return true;
+        // Only when the markup states a default. A <select> whose options carry no `selected`
+        // attribute has one anyway — the browser picks the first — and reading that as an
+        // edit made every modal with a plain dropdown permanently "dirty".
+        var hasDefault = false;
+        for (var j = 0; j < f.options.length; j++) if (f.options[j].defaultSelected) hasDefault = true;
+        if (hasDefault) {
+          for (var k2 = 0; k2 < f.options.length; k2++) {
+            if (f.options[k2].selected !== f.options[k2].defaultSelected) return true;
+          }
+        }
         continue;
       }
       var now = String(f.value == null ? '' : f.value);

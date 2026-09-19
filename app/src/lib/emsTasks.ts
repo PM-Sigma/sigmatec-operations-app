@@ -4,6 +4,7 @@
 // available and falls back to the mirror below otherwise (fix round 1 — a hand-mirror alone
 // could silently drift from js/src/14-calendar.js's real EMS_STATUS/EMS_PRIORITY).
 import { sigma } from '@/bridge';
+import type { EmsTask } from '@/bridge';
 
 // Mirrors js/src/14-calendar.js's EMS_STATUS / EMS_PRIORITY verbatim (exact backend enum
 // values) — used only when the live bridge maps aren't reachable (no `sigma` global, e.g. this
@@ -37,18 +38,12 @@ export function priorityLabel(priority: string): string {
   return (live && live.priority[priority]) || EMS_PRIORITY_LABEL[priority] || priority;
 }
 
-export interface CardEmsTask {
-  id: string;
-  title: string;
-  status: string;
-  priority?: string;
-  type?: string;
-  site?: { id: string; name: string } | null;
-  expectedCompletionDate?: string;
-  description?: string;
-  assignee?: { id: string; firstName: string; lastName?: string } | null;
-  linkCount?: number;
-}
+/**
+ * The shape the card widget reads. It was a byte-for-byte second copy of `EmsTask` in
+ * app/src/bridge.ts (F14 ⑨) — two declarations of one wire format, free to drift the next
+ * time EMS adds a field. The NAME stays, because a dozen call sites read well with it.
+ */
+export type CardEmsTask = EmsTask;
 
 /**
  * The viewer's local CALENDAR DAY a due-date value names (fix round 1 — date timezone slide).

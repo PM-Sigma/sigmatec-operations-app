@@ -9,6 +9,7 @@
 // the React cards through `sigma.decorateCards()`, which is why KibbutzCard preserves the
 // `.kibbutz[data-name]` + `.kibbutz-name-row` DOM contract.
 import * as React from 'react';
+import { fetchKibbutzRows } from '@/lib/kibbutzRows';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus } from 'lucide-react';
@@ -20,7 +21,6 @@ import { mount } from '@/islands';
 import { searchMissTarget, track } from '@/lib/track';
 import { hasPersistedData, showSkeleton, SigmaProviders } from '@/lib/query';
 import { SyncHairline } from '@/components/SyncHairline';
-import { getSupabase } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { EmsGate } from '@/components/EmsGate';
@@ -31,12 +31,7 @@ import {
 
 const CACHE_KEY = 'kibbutzim_v1';   // shared with the legacy renderer's first paint
 
-async function fetchKibbutzim(): Promise<KibbutzRow[]> {
-  const sb = await getSupabase();
-  const { data, error } = await sb.from('kibbutzim').select('*').is('archived_at', null);
-  if (error) throw error;
-  return (data || []) as KibbutzRow[];
-}
+const fetchKibbutzim = () => fetchKibbutzRows<KibbutzRow>();   // F14 ⑫ — the ONE reader
 
 /**
  * Keep the legacy world in sync: window.KIBBUTZIM + the localStorage cache both feed legacy code.

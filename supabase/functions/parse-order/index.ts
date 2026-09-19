@@ -13,25 +13,8 @@
 const SB_URL = "https://wwqfcajnxinaxmobrgol.supabase.co";
 const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4";
 
-const cors = (o: string) => ({
-  "Access-Control-Allow-Origin": o,
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-});
-const json = (b: unknown, s = 200, o = "*") =>
-  new Response(JSON.stringify(b), { status: s, headers: { ...cors(o), "Content-Type": "application/json" } });
-
-async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Response> {
-  const ac = new AbortController();
-  const id = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, { ...opts, signal: ac.signal }); }
-  finally { clearTimeout(id); }
-}
-async function emsValid(base: string, token: string): Promise<boolean> {
-  if (!token) return false;
-  try { const r = await fetchT(base + "/v1/employee-tasks?take=1", { headers: { Authorization: "Bearer " + token } }, 8000); return r.ok; }
-  catch { return false; }
-}
+import { cors, emsValid, fetchT, json } from "../_shared/http.ts";
+import { callGeminiText, callGroqText } from "../_shared/ai.ts";
 
 // Curated business aliases — authoritative term→product rules, ALWAYS applied. Add new ones here.
 // product = EXACT catalog string (so the AI copies it verbatim and it links to stock).
@@ -94,26 +77,10 @@ function extractItems(text: string): any[] {
 
 // --- providers: each returns an items[] or throws on error ---
 async function callGemini(key: string, model: string, prompt: string): Promise<any[]> {
-  const r = await fetchT(
-    "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key,
-    { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json", responseSchema: SCHEMA } }) },
-    15000);
-  const d = await r.json();
-  if (!r.ok) throw new Error("gemini " + r.status + " " + String(d?.error?.message || JSON.stringify(d)).slice(0, 140));
-  return extractItems(d?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+  return extractItems(await callGeminiText(key, model, prompt, SCHEMA, 15000));
 }
 async function callGroq(key: string, model: string, prompt: string): Promise<any[]> {
-  const r = await fetchT(
-    "https://api.groq.com/openai/v1/chat/completions",
-    { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
-      body: JSON.stringify({ model, temperature: 0.1, response_format: { type: "json_object" },
-        messages: [{ role: "user", content: prompt }] }) },
-    15000);
-  const d = await r.json();
-  if (!r.ok) throw new Error("groq " + r.status + " " + String(d?.error?.message || JSON.stringify(d)).slice(0, 140));
-  return extractItems(d?.choices?.[0]?.message?.content || "{}");
+  return extractItems(await callGroqText(key, model, prompt, 15000));
 }
 
 Deno.serve(async (req) => {

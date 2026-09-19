@@ -43,18 +43,8 @@ const sb = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-/** The EMS-login gate, the same check `github`/`calendar` apply, with a hard timeout. */
-async function emsValid(base: string, token: string): Promise<boolean> {
-  if (!token) return false;
-  const ac = new AbortController();
-  const id = setTimeout(() => ac.abort(), 8000);
-  try {
-    const r = await fetch(base + "/v1/employee-tasks?take=1",
-      { headers: { Authorization: "Bearer " + token }, signal: ac.signal });
-    return r.ok;
-  } catch { return false; }
-  finally { clearTimeout(id); }
-}
+/** The EMS-login gate — the ONE copy, in ../_shared/http.ts (F14 ⑥). */
+import { emsValid } from "../_shared/http.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });

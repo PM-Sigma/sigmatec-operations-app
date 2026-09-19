@@ -53,21 +53,13 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+import { emsValid as emsValidAt } from "../_shared/http.ts";
+
 // The EMS-login gate, the same check `github`/`calendar`/`transcribe` apply. Used by the modes
 // a BROWSER calls directly with a user's own token (feedbackNew); the order/attendance modes keep
 // their existing contract (they are called with ids the server re-reads from the DB).
-async function emsValid(token: string): Promise<boolean> {
-  if (!token) return false;
-  const base = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
-  const ac = new AbortController();
-  const id = setTimeout(() => ac.abort(), 8000);
-  try {
-    const r = await fetch(base + "/v1/employee-tasks?take=1",
-      { headers: { Authorization: "Bearer " + token }, signal: ac.signal });
-    return r.ok;
-  } catch { return false; }
-  finally { clearTimeout(id); }
-}
+const emsValid = (token: string) =>
+  emsValidAt(Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com", token);
 
 const APPROVE_GROUP = ["אביאם", "ניתאי", "עמיחי"];
 // 📣 feedback box (spec §7 Part F) — the inbox owners, fixed server-side like every recipient list.

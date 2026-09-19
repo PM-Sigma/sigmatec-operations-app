@@ -12,6 +12,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
+import { toastFailure } from '@/lib/pending';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -383,7 +384,8 @@ function FeedbackSheet() {
       toast.success(anon ? 'נשלח אנונימית — תודה!' : 'נשלח לעידן ולעמיחי — תודה!');
       setOpen(false); reset();
     } catch (e: any) {
-      toast.error(e?.message || 'השליחה נכשלה');
+      // Rule 3 (F5/F10): Hebrew, with נסה שוב — and the text stays in the box to retry with.
+      toastFailure(e, () => void send(), 'השליחה נכשלה');
     } finally { setSending(false); }
   };
 

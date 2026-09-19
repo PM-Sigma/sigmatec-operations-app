@@ -5,6 +5,10 @@
 //   1. gitleaks detect        (qa/gitleaks/.gitleaks.toml)          → 0 findings
 //   2. semgrep               (qa/semgrep/config.yml)               → 0 ERROR / 0 WARNING
 //   3. npm test              (legacy test-*.mjs runners + vitest)   → green
+//   3b. click-map contract   (scripts/click-map.mjs --check)        → docs/click-map.md fresh
+//                             AND §2 empty: no clickable reaches a backend without a
+//                             pending state (docs/ux-loading-patterns.md, pattern 4)
+//   3c. duplication          (jscpd, allowlist below)               → under the ratchet
 //   4. lighthouse            (qa/lighthouse/lighthouserc.json)      → perf 85 / a11y 95 / bp 95
 //                             (runs BEFORE playwright on purpose — see the gate)
 //   5. playwright            (qa/playwright/playwright.config.ts)   → green, 4 projects
@@ -263,6 +267,57 @@ gate('npm test', 'legacy test-*.mjs runners + app vitest, green', () => {
   const r = run(node, [TEST_ALL]);
   const tail = r.out.trim().split('\n').slice(-6).join('\n');
   return { status: r.code === 0 ? 'PASS' : 'FAIL', summary: r.code === 0 ? 'green' : 'red', detail: tail, ms: r.ms };
+});
+
+// ── 3b. the click-map contract ─────────────────────────────────────────────────────────────
+// Task 31 audit D found 20 clickables that reach a backend with no pending state — a dead
+// button on a slow phone. Fixing them is worth one round; keeping them fixed is worth a gate.
+// `--check` fails on a stale docs/click-map.md AND on a non-empty §2, so the NEXT one fails
+// the build the day it is written.
+gate('click-map', 'docs/click-map.md fresh · 0 backend clickables without a pending state', () => {
+  const r = run(node, [resolve(ROOT, 'scripts/click-map.mjs'), '--check']);
+  return {
+    status: r.code === 0 ? 'PASS' : 'FAIL',
+    summary: r.code === 0 ? r.out.trim().split('\n').pop() : 'the click-map contract is broken',
+    detail: r.code === 0 ? '' : r.out.trim(),
+    ms: r.ms,
+  };
+});
+
+// ── 3c. duplication ────────────────────────────────────────────────────────────────────────
+// A ratchet, not an ideal: audit D measured 32 clones (2.88%), fix round 3 brought the real
+// ones down to 7 (0.19% of lines). The threshold sits just above that, so the number can only
+// go down. What is deliberately NOT counted:
+//   · **/*.test.*        — a test's arrange block SHOULD repeat; sharing it hides the setup.
+//   · lib/field.ts, lib/alerts.ts, lib/usageNarrative.ts, lib/usageDigest.ts — each is
+//     byte-identical to a copy inside supabase/functions ON PURPOSE. Deno cannot import from
+//     app/src, and these are the pure rules both halves must agree on; the copies are kept in
+//     lockstep by their own tests, not by a bundler.
+const JSCPD_IGNORE = [
+  '**/*.test.*',
+  '**/lib/field.ts',
+  '**/lib/alerts.ts',
+  '**/lib/usageNarrative.ts',
+  '**/lib/usageDigest.ts',
+].join(',');
+
+gate('duplication', 'jscpd ≤ 0.25% duplicated lines outside the allowlist (was 2.88%)', () => {
+  const r = run(node, [
+    resolve(ROOT, 'node_modules/jscpd/run-jscpd.js'),
+    'js/src', 'app/src', 'supabase/functions',
+    '--min-lines', '8', '--min-tokens', '60',
+    '--ignore', JSCPD_IGNORE,
+    '--threshold', '0.25',
+    '--reporters', 'console',
+  ]);
+  const m = /Found (\d+) clones/.exec(r.out);
+  const pct = /Total:[^|]*\|[^|]*\|[^|]*\|[^|]*\|[^|]*\|\s*\d+ \(([\d.]+)%\)/.exec(r.out.replace(/\u001b\[[0-9;]*m/g, ''));
+  return {
+    status: r.code === 0 ? 'PASS' : 'FAIL',
+    summary: `${m ? m[1] : '?'} clone(s)${pct ? ` · ${pct[1]}% of lines` : ''}`,
+    detail: r.code === 0 ? '' : r.out.replace(/\u001b\[[0-9;]*m/g, '').trim().slice(-3000),
+    ms: r.ms,
+  };
 });
 
 // ── 4. lighthouse ──────────────────────────────────────────────────────────────────────────

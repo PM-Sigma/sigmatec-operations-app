@@ -692,14 +692,14 @@ function FieldIsland() {
     setMode('closed');
   };
 
-  const dur = reduce ? 0 : 0.28;
-  if (!isGateOpen(gate)) return null;          // §7n — nothing without a live sign-in
-
   // §7p, wired for completeness: every checklist tick is written through the moment it is
   // made (`onToggle` above), and the open items travel to the visit form through the bridge,
   // so this sheet never holds an unsaved draft — the predicate is honestly false. The hook
   // stays so the first field that DOES hold one is covered the day it lands.
   const guard = useUnsavedGuard({ dirty: () => false, onClose: () => setMode('closed') });
+
+  const dur = reduce ? 0 : 0.28;
+  if (!isGateOpen(gate)) return null;          // §7n — nothing without a live sign-in
 
   return (
     <Sheet open={mode !== 'closed'} onOpenChange={o => { if (!o) guard.ask(); }}>

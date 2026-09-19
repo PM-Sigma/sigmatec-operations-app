@@ -363,6 +363,8 @@ export const EMS_LEGACY_ALLOWLIST = {
   'js/src/24-meter-burns.js': 'the meter-burn sync + meter search; paginates with its own page loop',
   'js/src/15-login-gate.js': 'login / verify-otp / resend-otp — the auth operations; they run BEFORE there is a session for the gateway to use',
   'app/src/bridge.ts': 'the TYPE DECLARATION of the adapter transport (`emsApi(path: string…)`), not a call site',
+  // Fix round 3 (F14 ⑥): the login probe the Deno functions share now lives in ONE file.
+  'supabase/functions/_shared/http.ts': 'Deno emsValid() login probe — the ONE copy the edge functions import (spec §7o "server side too")',
   'supabase/functions/calendar/index.ts': 'Deno emsValid() login probe — needs the Deno build of the adapter (spec §7o "server side too")',
   'supabase/functions/clockify/index.ts': 'Deno emsValid() login probe',
   'supabase/functions/ems-auth/index.ts': 'Deno — mints the bridge JWT; IS the login operation',

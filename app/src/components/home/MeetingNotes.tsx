@@ -7,6 +7,7 @@
 // emitting `notes-changed` on sigmaBus, which is what makes the card, the modal tab and the
 // import preview agree without any of them knowing the others exist (docs/integration-map.md).
 import * as React from 'react';
+import { useClickAway } from '@/lib/useClickAway';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
@@ -143,21 +144,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
   // A tap anywhere else, or Escape, closes it. `mousedown`/`touchstart` rather than `click`
   // so the menu is gone before the thing underneath reacts, and the listener only exists
   // while the menu is open.
-  React.useEffect(() => {
-    if (!menu) return;
-    const away = (ev: Event) => {
-      if (!menuRef.current?.contains(ev.target as Node)) setMenu(false);
-    };
-    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setMenu(false); };
-    document.addEventListener('mousedown', away, true);
-    document.addEventListener('touchstart', away, true);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('mousedown', away, true);
-      document.removeEventListener('touchstart', away, true);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [menu]);
+  useClickAway(menu, menuRef, () => setMenu(false));   // F14 ⑩ — the ONE copy
   const done = !!row.done_at;
   const linked = !!row.ems_task_id;
 

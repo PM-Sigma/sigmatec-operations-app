@@ -19,25 +19,8 @@
 const SB_URL = "https://wwqfcajnxinaxmobrgol.supabase.co";
 const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4";
 
-const cors = (o: string) => ({
-  "Access-Control-Allow-Origin": o,
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-});
-const json = (b: unknown, s = 200, o = "*") =>
-  new Response(JSON.stringify(b), { status: s, headers: { ...cors(o), "Content-Type": "application/json" } });
-
-async function fetchT(url: string, opts: RequestInit, ms: number): Promise<Response> {
-  const ac = new AbortController();
-  const id = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, { ...opts, signal: ac.signal }); }
-  finally { clearTimeout(id); }
-}
-async function emsValid(base: string, token: string): Promise<boolean> {
-  if (!token) return false;
-  try { const r = await fetchT(base + "/v1/employee-tasks?take=1", { headers: { Authorization: "Bearer " + token } }, 8000); return r.ok; }
-  catch { return false; }
-}
+import { cors, emsValid, fetchT, json } from "../_shared/http.ts";
+import { callGeminiText, callGroqText } from "../_shared/ai.ts";
 
 // ─── the prompt ───────────────────────────────────────────────────────────────
 // The body below is the file `supabase/functions/parse-daylog/prompt.md` (everything after its
@@ -164,35 +147,11 @@ export function extractDayLog(text: string): { visits: any[]; unmatched: string[
 }
 
 async function callGemini(key: string, model: string, prompt: string) {
-  const r = await fetchT(
-    "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + key,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json", responseSchema: SCHEMA },
-      }),
-    },
-    25000,
-  );
-  const d = await r.json();
-  if (!r.ok) throw new Error("gemini " + r.status + " " + String(d?.error?.message || JSON.stringify(d)).slice(0, 140));
-  return extractDayLog(d?.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+  // 25 s, not 15: a whole day log is a much longer prompt than one order line.
+  return extractDayLog(await callGeminiText(key, model, prompt, SCHEMA, 25000));
 }
 async function callGroq(key: string, model: string, prompt: string) {
-  const r = await fetchT(
-    "https://api.groq.com/openai/v1/chat/completions",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + key },
-      body: JSON.stringify({ model, temperature: 0.1, response_format: { type: "json_object" }, messages: [{ role: "user", content: prompt }] }),
-    },
-    25000,
-  );
-  const d = await r.json();
-  if (!r.ok) throw new Error("groq " + r.status + " " + String(d?.error?.message || JSON.stringify(d)).slice(0, 140));
-  return extractDayLog(d?.choices?.[0]?.message?.content || "{}");
+  return extractDayLog(await callGroqText(key, model, prompt, 25000));
 }
 
 Deno.serve(async (req) => {

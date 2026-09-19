@@ -71,8 +71,20 @@ export function runMutation<T>(p: Promise<T>, t: MutationToast): Promise<T> {
   return p;
 }
 
-/** The failure half on its own, for callers that already report their own success. */
+/**
+ * Rule 3, in one place: a failure the person sees is in Hebrew and offers a way to try again.
+ *
+ * The `hasHebrew` test is the part that matters. A dropped connection surfaces as
+ * "Failed to fetch" and a PostgREST fault as an English sentence with a code in it — neither
+ * is a message, and putting one on screen is the anti-pattern this rule exists for. Anything
+ * without a Hebrew letter in it is replaced by the caller's own Hebrew fallback; the original
+ * goes to the console, where it belongs.
+ */
+const hasHebrew = (s: string) => /[\u0590-\u05FF]/.test(s);
+
 export function toastFailure(e: unknown, retry?: () => void, fallback = 'הפעולה נכשלה'): void {
-  const msg = isTimeout(e) ? TIMEOUT_MSG : ((e as any)?.message || fallback);
+  const raw = String((e as any)?.message || e || '');
+  const msg = isTimeout(e) ? TIMEOUT_MSG : (hasHebrew(raw) ? raw : fallback);
+  if (raw && !hasHebrew(raw)) console.warn('[sigma] ' + raw);
   toast.error(msg, retry ? { action: { label: RETRY_LABEL, onClick: retry } } : undefined);
 }

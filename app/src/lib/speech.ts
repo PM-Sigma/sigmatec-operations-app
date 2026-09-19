@@ -229,6 +229,19 @@ export interface RefinePollResult { text: string; status: 'refining' | 'done' | 
 export const EMS_LOGIN_REQUIRED_VOICE = 'יש להתחבר ל-EMS כדי לתמלל הקלטה — אפשר להקליד';
 
 /**
+ * The bearer the `transcribe` function is called with: the EMS-derived Supabase pass when
+ * there is a live session, the anon key otherwise — the payload is only a path inside our own
+ * bucket either way. Written out twice in this file before fix round 3 (F14 ⑬).
+ */
+function transcribeBearer(): string {
+  try {
+    const pass = (window as any).sigma?.sbPass?.();
+    if (pass?.token && (pass.exp || 0) > Date.now()) return pass.token as string;
+  } catch { /* no bridge */ }
+  return SB_ANON;
+}
+
+/**
  * Upload the recording to the private bucket and ask `transcribe` for the text. The function
  * deletes the object once it succeeded (retention is 7 days for a failure, so a retry can
  * re-transcribe the same path — that is why the path is returned either way).
@@ -251,11 +264,7 @@ export async function uploadAndTranscribe(
 
   // The pass (when there is an EMS session) is what the bucket's RLS reads; anon works too —
   // the payload is just a path inside our own bucket.
-  let bearer = SB_ANON;
-  try {
-    const pass = (window as any).sigma?.sbPass?.();
-    if (pass?.token && (pass.exp || 0) > Date.now()) bearer = pass.token;
-  } catch { /* no bridge */ }
+  const bearer = transcribeBearer();
 
   const ac = new AbortController();
   const to = setTimeout(() => ac.abort(), 60_000);
@@ -286,11 +295,7 @@ export async function uploadAndTranscribe(
  */
 export async function pollRefineStatus(jobId: string): Promise<RefinePollResult> {
   const ems = (() => { try { return (window as any).sigma?.emsToken?.() || ''; } catch { return ''; } })();
-  let bearer = SB_ANON;
-  try {
-    const pass = (window as any).sigma?.sbPass?.();
-    if (pass?.token && (pass.exp || 0) > Date.now()) bearer = pass.token;
-  } catch { /* no bridge */ }
+  const bearer = transcribeBearer();
 
   const ac = new AbortController();
   const to = setTimeout(() => ac.abort(), 25_000);

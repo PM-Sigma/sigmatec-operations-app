@@ -18,13 +18,13 @@
 // Copy rule (master spec §6): Hebrew on screen, no app mechanics explained, nothing about who
 // else can see what.
 import * as React from 'react';
+import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
-import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser } from '@/bridge';
 import { DEV_BOARD_QUERY_KEY, fetchDevBoard, moveToSprint } from '@/lib/devBoard';
@@ -32,10 +32,7 @@ import {
   canRunDevMeeting, devPrep, parseTitle, stageOf, STAGE_LABEL,
   type DevCard, type DevComment, type DevPrep,
 } from '@/lib/sprintPrep';
-import {
-  clockText, eventRow, nextIndex, tSec,
-  type MeetingEventKind, type MeetingSessionRow,
-} from '@/lib/meetingSession';
+import { clockText, nextIndex } from '@/lib/meetingSession';
 
 export const DEV_PRESENTER_OPEN_EVENT = 'sigma-open-dev-presenter';
 
@@ -220,46 +217,13 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
 
   const [phase, setPhase] = React.useState<'prep' | 'walk'>('prep');
   const [idx, setIdx] = React.useState(0);
-  const [session, setSession] = React.useState<MeetingSessionRow | null>(null);
-  const [seconds, setSeconds] = React.useState(0);
+  // F14 ①: the session row, the clock and the event log are ONE hook now, shared with
+  // ▶ מצב ישיבה (islands/Presenter) — the two screens ran identical copies of all three.
+  const { session, seconds, log, endSession } = useMeetingRun('dev', me, today);
   const logged = React.useRef<string>('');
 
   const walk = prep.walk;
   const current = walk[Math.min(idx, Math.max(walk.length - 1, 0))] || null;
-
-  // ── the session row ── opened once. A failure is never fatal: the meeting runs either way.
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      const row: MeetingSessionRow = {
-        date: today, kind: 'dev', host: me || null, started_at: new Date().toISOString(),
-      };
-      try {
-        const sb = await getSupabase();
-        const saved = await sbWrite(() =>
-          sb.from('meeting_sessions').insert(row).select('id,date,kind,started_at').single());
-        if (alive) setSession((saved as MeetingSessionRow) || row);
-      } catch {
-        if (alive) setSession(row);
-      }
-    })();
-    return () => { alive = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  React.useEffect(() => {
-    const t = window.setInterval(() => setSeconds(tSec(session?.started_at, new Date())), 1000);
-    setSeconds(tSec(session?.started_at, new Date()));
-    return () => window.clearInterval(t);
-  }, [session?.started_at]);
-
-  const log = React.useCallback(async (kind: MeetingEventKind, payload: Record<string, unknown> = {}) => {
-    if (!session?.id) return;
-    const row = eventRow(session.id, session.started_at, kind, payload, new Date());
-    try {
-      const sb = await getSupabase();
-      await sbWrite(() => sb.from('meeting_events').insert(row).select('id').single());
-    } catch { /* the meeting matters more than its log */ }
-  }, [session]);
 
   // Every arrival at a card is a segment boundary. Keyed so StrictMode cannot log it twice.
   React.useEffect(() => {
@@ -294,16 +258,10 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
   }, [log, current]);
 
   const finish = React.useCallback(async () => {
-    if (session?.id) {
-      try {
-        const sb = await getSupabase();
-        await sbWrite(() => sb.from('meeting_sessions')
-          .update({ ended_at: new Date().toISOString() }).eq('id', session.id!).select('id').single());
-      } catch { /* the screen closes either way */ }
-    }
+    await endSession();
     track('dev-meeting-close');
     onClose();
-  }, [session, onClose]);
+  }, [endSession, onClose]);
 
   // ── keys — the same map ▶ מצב ישיבה uses (Task 24), so the two screens feel like one.
   React.useEffect(() => {
