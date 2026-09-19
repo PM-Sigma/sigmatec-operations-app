@@ -156,7 +156,12 @@ export function GapsList({ person, onClose }: { person: string; onClose?: () => 
     track('gap-act', g.kind);
     onClose?.();
     try {
-      if (g.kind === 'visit' && g.kibbutz) sigma.openVisitQuick?.(g.kibbutz);
+      // §7p: a visit gap lands in the chapters sheet, on the chapter he left off at.
+      if (g.kind === 'visit' && g.kibbutz) {
+        const chapters = (window as any).sigmaVisitChapters;
+        if (chapters?.open) chapters.open(g.kibbutz);
+        else sigma.openVisitQuick?.(g.kibbutz);
+      }
       else if (g.kind === 'attendance') sigma.showPage?.('attendance');
       else if (g.kind === 'task' && g.taskId) sigma.openKibbutzEmsTask?.(g.taskId);
     } catch { toast.error('לא הצלחתי לפתוח — נסה מהמסך הראשי'); }

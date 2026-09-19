@@ -442,6 +442,17 @@
       // asks "is there one?" and never learns the payload's shape. `date` omitted = any day.
       visitDraftFor: function (kibbutz, person, date) { return call('visitDraftFor', [kibbutz, person, date], null); },
       visitDraftDiscard: function (id) { return call('visitDraftDiscard', [id, false]); },
+      // §7p chapters: the React stepper owns its own fields, so "שמור וסגור" hands the row
+      // over here instead of typing into a form that is not on screen. Same stores, same
+      // event — a chapters draft and a form draft are indistinguishable afterwards.
+      visitDraftPut: function (row) { return call('visitDraftPut', [row], null); },
+      // The PRE-MINTED visit id, so the draft, the certificate issued from it and the saved
+      // visit are ONE identity from the first keystroke (js/src/09-visits.js `visitDraftId`).
+      visitDraftId: function () { return call('visitDraftId', [], ''); },
+      // "Is a delivery certificate already linked to this visit id?" — the number, or 0.
+      certIssuedForVisit: function (visitId) {
+        return Promise.resolve(call('certIssuedForVisit', [visitId], 0)).catch(function () { return 0; });
+      },
       loadAllVisitsCombined: function () { return call('loadAllVisitsCombined', [], []); },
       openDeliveryCert: function (pre) { return call('openDeliveryCert', [pre || {}]); },
       certFromVisitForm: function () { return call('certFromVisitForm'); },

@@ -4,7 +4,7 @@
 Every clickable that reaches a backend, and whether its handler shows a pending state.
 Generated from source text (see `scripts/click-map.mjs` for the detectors).
 
-- clickables scanned: **289** (legacy 222, react 67)
+- clickables scanned: **293** (legacy 222, react 71)
 - with a backend call: **38**
 - **with a backend call and NO pending state: 0** ← the pending-states backlog
 
@@ -300,18 +300,22 @@ Usually a handler that delegates through a bridge the detectors do not follow �
 | 234 | react | `app/src/islands/FeedbackInbox.tsx:171` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
 | 235 | react | `app/src/islands/FeedbackInbox.tsx:185` | `(inline)` | — | disabled prop, busy state, spinner |
 | 236 | react | `app/src/islands/FeedbackInbox.tsx:189` | `(inline)` | — | busy state, spinner |
-| 237 | react | `app/src/islands/Gaps.tsx:219` | `(inline)` | — | disabled prop |
-| 238 | react | `app/src/islands/ImportNotes.tsx:303` | `(inline)` | — | disabled prop |
-| 239 | react | `app/src/islands/ImportNotes.tsx:339` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 240 | react | `app/src/islands/ImportNotes.tsx:348` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 241 | react | `app/src/islands/MeetingReview.tsx:405` | `(inline)` | — | busy state |
-| 242 | react | `app/src/islands/MeetingReview.tsx:598` | `(inline)` | — | disabled prop, busy state, spinner |
-| 243 | react | `app/src/islands/MeetingReview.tsx:603` | `cancel` | — | busy state, spinner |
-| 244 | react | `app/src/islands/ModalMeetings.tsx:35` | `(inline)` | — | aria-busy, busy state, Skeleton |
-| 245 | react | `app/src/islands/ModalMeetings.tsx:44` | `(inline)` | — | aria-busy, busy state, Skeleton |
-| 246 | react | `app/src/islands/Settings.tsx:109` | `(inline)` | — | disabled prop |
-| 247 | react | `app/src/islands/Settings.tsx:150` | `(inline)` | — | disabled prop |
-| 248 | react | `app/src/islands/Settings.tsx:265` | `(inline)` | — | disabled prop, saving/sending state |
-| 249 | react | `app/src/islands/Settings.tsx:266` | `(inline)` | — | disabled prop, saving/sending state |
-| 250 | react | `app/src/islands/Settings.tsx:273` | `(inline)` | — | disabled prop, saving/sending state |
-| 251 | react | `app/src/lib/useUnsavedGuard.tsx:138` | `(inline)` | — | disabled prop, saving/sending state |
+| 237 | react | `app/src/islands/Field.tsx:898` | `(inline)` | — | disabled prop, saving/sending state |
+| 238 | react | `app/src/islands/Field.tsx:907` | `saveAndClose` | — | disabled prop, saving/sending state |
+| 239 | react | `app/src/islands/Field.tsx:914` | `(inline)` | — | disabled prop, saving/sending state |
+| 240 | react | `app/src/islands/Field.tsx:924` | `(inline)` | — | saving/sending state |
+| 241 | react | `app/src/islands/Gaps.tsx:224` | `(inline)` | — | disabled prop |
+| 242 | react | `app/src/islands/ImportNotes.tsx:303` | `(inline)` | — | disabled prop |
+| 243 | react | `app/src/islands/ImportNotes.tsx:339` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 244 | react | `app/src/islands/ImportNotes.tsx:348` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 245 | react | `app/src/islands/MeetingReview.tsx:405` | `(inline)` | — | busy state |
+| 246 | react | `app/src/islands/MeetingReview.tsx:598` | `(inline)` | — | disabled prop, busy state, spinner |
+| 247 | react | `app/src/islands/MeetingReview.tsx:603` | `cancel` | — | busy state, spinner |
+| 248 | react | `app/src/islands/ModalMeetings.tsx:35` | `(inline)` | — | aria-busy, busy state, Skeleton |
+| 249 | react | `app/src/islands/ModalMeetings.tsx:44` | `(inline)` | — | aria-busy, busy state, Skeleton |
+| 250 | react | `app/src/islands/Settings.tsx:109` | `(inline)` | — | disabled prop |
+| 251 | react | `app/src/islands/Settings.tsx:150` | `(inline)` | — | disabled prop |
+| 252 | react | `app/src/islands/Settings.tsx:265` | `(inline)` | — | disabled prop, saving/sending state |
+| 253 | react | `app/src/islands/Settings.tsx:266` | `(inline)` | — | disabled prop, saving/sending state |
+| 254 | react | `app/src/islands/Settings.tsx:273` | `(inline)` | — | disabled prop, saving/sending state |
+| 255 | react | `app/src/lib/useUnsavedGuard.tsx:138` | `(inline)` | — | disabled prop, saving/sending state |

@@ -17,7 +17,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import {
-  AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, MapPin, Search, Sun, Truck,
+  AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, MapPin, Save, Search, Send, Sun,
+  Truck,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
@@ -42,6 +43,11 @@ import {
   type ArrivalItem, type CheckinRow, type DraftRow, type FieldTask, type LeaveItem, type OrderRow,
   type VisitRow,
 } from '@/lib/field';
+import {
+  canSubmit, chapterState, draftAge, nextChapter, prevChapter, resumeChapter,
+  type ChapterDraft, type ChapterId,
+} from '@/lib/visitDraft';
+import { runMutation } from '@/lib/pending';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
 
@@ -446,6 +452,498 @@ function Briefing({
   );
 }
 
+// ─────────────────── the visit summary, in chapters (§7p) ───────────────────
+//
+// The old summary was one long form with one save at the end, so an interruption — and in
+// the field there is always one — cost the whole thing. Here it is five short chapters, each
+// with its own **שמור וסגור** (the draft is written, the sheet closes, and NOTHING else
+// happens: no visit, no stock movement, no certificate, no EMS comment) and **המשך**.
+// **שלח** lives in chapter 5 alone and is the only thing that creates the visit.
+//
+// Every rule is pure and lives in app/src/lib/visitDraft.ts (goldens: visitDraft.test.ts).
+// The draft itself is the LEGACY store (js/src/09-visits.js): same table, same mirror, same
+// (person, kibbutz, date) key, so a chapters draft and a form draft are one kind of thing.
+
+/** What the opener may ask for. */
+export interface VisitChaptersOpen { chapter?: ChapterId; openItems?: string }
+
+/** The global the other islands (the strip's nudge, gaps, the push deep link) call. */
+export const VISIT_CHAPTERS_API = 'sigmaVisitChapters';
+
+/** Is there anything in here worth keeping? Decides whether a stray tap is allowed to close. */
+function chapterDraftHasContent(d: ChapterDraft): boolean {
+  return !!(String(d.summary || '').trim() || String(d.openItems || '').trim()
+    || String(d.productsOther || '').trim() || String(d.contact || '').trim()
+    || (d.products || []).length || d.duration || d.workday);
+}
+
+const Field2 = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <label className="block">
+    <span className="mb-1 block text-[12.5px] font-bold text-muted-foreground">{label}</span>
+    {children}
+  </label>
+);
+
+const AREA =
+  'min-h-[132px] w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground focus:border-[color:var(--brand-1)]';
+const LINE =
+  'min-h-[44px] w-full rounded-xl border border-border bg-muted px-3 text-[15px] outline-none focus:border-[color:var(--brand-1)]';
+
+/** The quick hours chips — the same five the legacy form offers, spelled the same way. */
+const HOUR_CHIPS = [0.5, 1, 2, 3, 4];
+
+function Stepper({ steps, current, onGo }: {
+  steps: ReturnType<typeof chapterState>; current: ChapterId; onGo: (id: ChapterId) => void;
+}) {
+  const shown = steps.filter(s => s.applies);
+  return (
+    <div className="flex gap-1.5 overflow-x-auto px-4 pb-2 [scrollbar-width:none]" data-testid="vc-stepper">
+      {shown.map(s => {
+        const on = s.id === current;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            data-testid={'vc-step-' + s.id}
+            data-current={on ? '1' : undefined}
+            aria-current={on ? 'step' : undefined}
+            onClick={() => onGo(s.id)}
+            className={'flex min-h-[34px] flex-none items-center gap-1.5 rounded-full border px-2.5 text-[12.5px] font-bold transition-colors ' +
+              (on ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted text-muted-foreground')}
+          >
+            {s.done && !on && <Check className="h-3.5 w-3.5" />}
+            <span>{s.title}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function VisitChapters({ me, today }: { me: string; today: string }) {
+  const reduce = useReducedMotion();
+  const [open, setOpen] = React.useState(false);
+  const [kibbutz, setKibbutz] = React.useState('');
+  const [draftId, setDraftId] = React.useState('');
+  const [chapter, setChapter] = React.useState<ChapterId>(1);
+  const [d, setD] = React.useState<ChapterDraft>({});
+  const [resumedAt, setResumedAt] = React.useState('');
+  const [certNum, setCertNum] = React.useState(0);
+  const [sending, setSending] = React.useState(false);
+  /** The id this sheet already filed. A second שלח on it does nothing at all. */
+  const sentRef = React.useRef('');
+
+  // The same query key the briefing uses, so this costs no extra request.
+  const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: open });
+
+  // Chapter 4 exists only when there IS something to hand over: an open customer order for
+  // this kibbutz, or equipment he ticked in chapter 3 (§7p, "🚚 only when").
+  const deliver = React.useMemo(() => hasSomethingToDeliver(
+    kibbutz,
+    (ordersQ.data || []) as OrderRow[],
+    { payload: { items: (d.products || []).map(p => ({ qty: p.qty })) } } as unknown as DraftRow,
+  ), [kibbutz, ordersQ.data, d.products]);
+
+  /** Everything the pure rules judge: what he typed, plus the two facts only the app knows. */
+  const model = React.useMemo<ChapterDraft>(
+    () => ({ ...d, kibbutz, visitor: me, date: today, deliver, certIssued: certNum > 0 }),
+    [d, kibbutz, me, today, deliver, certNum],
+  );
+  const steps = React.useMemo(() => chapterState(model), [model]);
+  const verdict = React.useMemo(() => canSubmit(model), [model]);
+  // The hours are the form's own rule, not §7p's: `saveVisitFromData` refuses a visit with no
+  // duration, so the sheet says so BEFORE the round trip instead of after it.
+  const hasHours = !!d.workday || (parseFloat(String(d.duration || '')) > 0);
+
+  // Refs, so the autosave and the openers never read a stale render.
+  const ref = React.useRef({ model, draftId, chapter, kibbutz });
+  ref.current = { model, draftId, chapter, kibbutz };
+
+  /** Write the draft NOW. The one persistence path — autosave and שמור וסגור share it. */
+  const persist = React.useCallback((patch: Partial<ChapterDraft> = {}) => {
+    const cur = ref.current;
+    if (!cur.kibbutz) return;
+    const payload = { ...cur.model, ...patch, chapter: cur.chapter } as Record<string, unknown>;
+    if (!chapterDraftHasContent(payload as ChapterDraft)) return;   // an untouched sheet leaves nothing
+    try {
+      sigma.visitDraftPut?.({ id: cur.draftId, person: me, kibbutz: cur.kibbutz, date: today, payload });
+    } catch (e) { console.warn('[visit-chapters] draft', e); }
+  }, [me, today]);
+
+  // Autosave, 800 ms after the last change — the same rhythm the legacy form uses, so the two
+  // halves of the app feel like one (spec §5.1c).
+  React.useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => persist(), 800);
+    return () => clearTimeout(t);
+  }, [open, d, chapter, deliver, persist]);
+
+  // A certificate is issued in a LEGACY modal that announces nothing, so chapter 4 asks —
+  // only while it is the chapter on screen, and only until the answer is yes.
+  React.useEffect(() => {
+    if (!open || chapter !== 4 || !draftId || certNum) return;
+    let live = true;
+    const ask = () => {
+      Promise.resolve(sigma.certIssuedForVisit?.(draftId) ?? 0)
+        .then(n => { if (live && n) setCertNum(Number(n) || 0); })
+        .catch(() => { /* no pass, no table — the gate stays closed, which is the safe way */ });
+    };
+    ask();
+    const t = setInterval(ask, 3000);
+    return () => { live = false; clearInterval(t); };
+  }, [open, chapter, draftId, certNum]);
+
+  const set = React.useCallback((patch: Partial<ChapterDraft>) => setD(p => ({ ...p, ...patch })), []);
+
+  /** Open on this kibbutz, resuming whatever is already stored for (me, kibbutz, today). */
+  const openOn = React.useCallback((name: string, opts: VisitChaptersOpen = {}) => {
+    const k = String(name || '').trim();
+    if (!k) return;
+    let row: { id?: string; updated_at?: string; payload?: Record<string, unknown> } | null = null;
+    try { row = (sigma.visitDraftFor?.(k, me, today) as any) || null; } catch { row = null; }
+    const stored = (row?.payload || {}) as ChapterDraft;
+    const next: ChapterDraft = {
+      ...stored,
+      // The briefing's unticked leftovers pre-fill chapter 2 — but never over his own words.
+      openItems: String(stored.openItems || '').trim() || opts.openItems || '',
+    };
+    setKibbutz(k);
+    setD(next);
+    setCertNum(0);
+    sentRef.current = '';
+    let id = String(row?.id || '');
+    if (!id) { try { id = String(sigma.visitDraftId?.() || ''); } catch { id = ''; } }
+    setDraftId(id || 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    setChapter(opts.chapter ?? resumeChapter(next));
+    setResumedAt(String(row?.updated_at || ''));
+    setOpen(true);
+    track('visit-chapters-open', k);
+  }, [me, today]);
+
+  // The one global the rest of the app calls (the strip's nudge, gaps, the push deep link).
+  React.useEffect(() => {
+    const api = { open: openOn };
+    (window as any)[VISIT_CHAPTERS_API] = api;
+    return () => { if ((window as any)[VISIT_CHAPTERS_API] === api) delete (window as any)[VISIT_CHAPTERS_API]; };
+  }, [openOn]);
+
+  const close = React.useCallback(() => { setOpen(false); }, []);
+
+  /** שמור וסגור — on EVERY chapter. Persist, close, and nothing else happens (§7p). */
+  const saveAndClose = React.useCallback(() => {
+    persist();
+    setOpen(false);
+    toast.success('נשמר. תמשיך מתי שנוח לך.');
+    track('visit-chapters-save', ref.current.kibbutz);
+  }, [persist]);
+
+  /** שלח — chapter 5 only, and the only thing here that creates anything. */
+  const send = React.useCallback(async () => {
+    const cur = ref.current;
+    if (sentRef.current && sentRef.current === cur.draftId) return;     // idempotent by id
+    const v = canSubmit(cur.model);
+    if (!v.ok) { toast.error(v.reason || 'לא ניתן לשלוח'); return; }
+    if (!hasHours) { toast.error('כמה זמן היית שם?'); return; }
+    // Claimed BEFORE the round trip: a double-tap on a phone arrives long before the answer.
+    sentRef.current = cur.draftId;
+    setSending(true);
+    try {
+      const res = await runMutation(
+        Promise.resolve(sigma.saveVisitFromData?.({
+          id: cur.draftId,
+          kibbutz: cur.kibbutz,
+          visitor: me,
+          date: today,
+          duration: cur.model.duration || '',
+          workday: !!cur.model.workday,
+          summary: cur.model.summary || '',
+          openItems: cur.model.openItems || '',
+          products: cur.model.products || [],
+          productsOther: cur.model.productsOther || '',
+          contact: cur.model.contact || '',
+        }) ?? Promise.resolve({ ok: false, error: 'שמירת ביקור אינה זמינה' })),
+        {
+          loading: 'שומר את הסיכום…',
+          success: 'הסיכום נשלח 🎉',
+          error: 'השליחה נכשלה',
+          retry: () => { sentRef.current = ''; void send(); },
+        },
+      );
+      if (res && (res as any).ok) {
+        try { sigma.visitDraftDiscard?.(cur.draftId); } catch { /* it is filed; the draft is noise */ }
+        set({ submittedId: String((res as any).id || cur.draftId) });
+        track('visit-chapters-send', cur.kibbutz);
+        setOpen(false);
+      } else {
+        sentRef.current = '';                                   // it did not happen — let him retry
+        toast.error(String((res as any)?.error || 'השליחה נכשלה'));
+      }
+    } catch {
+      sentRef.current = '';
+    } finally { setSending(false); }
+  }, [hasHours, me, today, set]);
+
+  // §7p: a sheet holding his words never closes by accident. "לשמור" IS שמור וסגור, and
+  // "לבטל" only closes — the draft is never thrown away here (§7p: never auto-delete).
+  const guard = useUnsavedGuard({
+    dirty: () => !sentRef.current && chapterDraftHasContent(ref.current.model),
+    onSave: saveAndClose,
+    onDiscard: close,
+    onClose: close,
+  });
+
+  const stock = React.useMemo<Record<string, number>>(() => {
+    if (!open) return {};
+    try { return (sigma.poolStock?.() as Record<string, number>) || {}; } catch { return {}; }
+  }, [open]);
+  const stockNames = React.useMemo(
+    () => Object.keys(stock).filter(n => (stock[n] || 0) > 0).sort((a, b) => a.localeCompare(b, 'he')),
+    [stock],
+  );
+  const qtyOf = (name: string) => (d.products || []).find(p => p.name === name)?.qty || 0;
+  const setQty = (name: string, qty: number) => {
+    const rest = (d.products || []).filter(p => p.name !== name);
+    set({ products: qty > 0 ? [...rest, { name, qty }] : rest });
+  };
+
+  const age = draftAge({ ...d, updated_at: resumedAt });
+  const dur = reduce ? 0 : 0.22;                                // §7p: a chapter turn is ≤250 ms
+  const last = chapter === 5;
+
+  return (
+    <Sheet open={open} onOpenChange={guard.onOpenChange(v => { if (!v) guard.ask(); })}>
+      <SheetContent
+        side="bottom"
+        data-testid="visit-chapters"
+        data-chapter={chapter}
+        className="max-h-[94svh] overflow-hidden p-0 pt-2.5"
+        {...guard.contentProps}
+      >
+        <SheetTitle className="px-4 text-[20px] font-extrabold tracking-[-.01em]">
+          סיכום ביקור · {kibbutz}
+        </SheetTitle>
+        <SheetDescription className="px-4 pb-2 pt-0.5 text-[12.5px] text-muted-foreground">
+          {age.label
+            ? <span data-testid="vc-draft-chip">{age.label}{age.note ? ' · ' + age.note : ''}</span>
+            : 'פרק אחד בכל פעם. אפשר לשמור ולצאת בכל שלב.'}
+        </SheetDescription>
+
+        <Stepper steps={steps} current={chapter} onGo={setChapter} />
+
+        <div className="min-h-0 max-h-[60svh] overflow-y-auto px-4 pb-4">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={chapter}
+              initial={{ opacity: 0, x: reduce ? 0 : -14 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: reduce ? 0 : 14 }}
+              transition={{ duration: dur, ease: 'easeOut' }}
+            >
+              {chapter === 1 && (
+                <Field2 label="מה עשיתי">
+                  <textarea
+                    data-testid="vc-summary"
+                    autoFocus
+                    value={d.summary || ''}
+                    onChange={e => set({ summary: e.target.value })}
+                    placeholder="הוחלף המונה הראשי, נבדקה תקשורת…"
+                    className={AREA}
+                  />
+                </Field2>
+              )}
+
+              {chapter === 2 && (
+                <Field2 label="מה נשאר לי פתוח">
+                  <textarea
+                    data-testid="vc-open-items"
+                    value={d.openItems || ''}
+                    onChange={e => set({ openItems: e.target.value })}
+                    placeholder="חסר בקר לחלקה הדרומית — להביא בביקור הבא"
+                    className={AREA}
+                  />
+                </Field2>
+              )}
+
+              {chapter === 3 && (
+                <div className="flex flex-col gap-3">
+                  {!stockNames.length && (
+                    <p className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
+                      אין כרגע מלאי זמין. אם השארת משהו — תכתוב את זה למטה.
+                    </p>
+                  )}
+                  {stockNames.map(name => {
+                    const q = qtyOf(name);
+                    return (
+                      <div key={name} data-product={name} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+                        <span className="min-w-0 flex-1 text-[14px] font-semibold">{name}</span>
+                        <span className="flex-none text-[11px] text-muted-foreground">במלאי <bdi>{stock[name]}</bdi></span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={stock[name]}
+                          value={q || ''}
+                          onChange={e => setQty(name, Math.max(0, Math.min(parseInt(e.target.value, 10) || 0, stock[name] || 0)))}
+                          aria-label={'כמות — ' + name}
+                          className="h-[40px] w-[64px] flex-none rounded-lg border border-border bg-muted text-center text-[15px] outline-none"
+                        />
+                      </div>
+                    );
+                  })}
+                  <Field2 label="משהו אחר שהשארת">
+                    <input
+                      data-testid="vc-products-other"
+                      value={d.productsOther || ''}
+                      onChange={e => set({ productsOther: e.target.value })}
+                      placeholder="כבל, מתאם…"
+                      className={LINE}
+                    />
+                  </Field2>
+                </div>
+              )}
+
+              {chapter === 4 && (
+                <div className="flex flex-col gap-3">
+                  <p className="text-[13.5px] leading-[1.6] text-muted-foreground">
+                    {certNum
+                      ? 'התעודה הופקה. אפשר להמשיך.'
+                      : 'השארת ציוד — צריך תעודת משלוח לפני שהסיכום נשלח.'}
+                  </p>
+                  {!!certNum && (
+                    <div className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[14px] font-bold" data-testid="vc-cert-ok">
+                      ✅ תעודה <bdi>{certNum}</bdi> נופקה
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="vc-cert"
+                    onClick={() => {
+                      persist();
+                      try {
+                        sigma.openDeliveryCert?.({
+                          kibbutz, date: today, contact: d.contact || '',
+                          items: (d.products || []).map(p => ({ name: p.name, qty: p.qty })),
+                          source: 'visit', refId: draftId,
+                        });
+                      } catch (e) { console.warn('[visit-chapters] cert', e); }
+                    }}
+                    className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-foreground text-[15px] font-extrabold text-background"
+                  >
+                    <Truck className="h-5 w-5" /> {certNum ? 'תעודה נוספת' : 'הפק תעודת משלוח'}
+                  </button>
+                </div>
+              )}
+
+              {chapter === 5 && (
+                <div className="flex flex-col gap-3">
+                  <Field2 label="כמה זמן היית שם">
+                    <div className="flex flex-wrap gap-1.5">
+                      {HOUR_CHIPS.map(h => {
+                        const on = !d.workday && parseFloat(String(d.duration || '')) === h;
+                        return (
+                          <button
+                            key={h}
+                            type="button"
+                            data-testid={'vc-hours-' + h}
+                            onClick={() => set({ workday: false, duration: on ? '' : String(h) })}
+                            className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' +
+                              (on ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted')}
+                          >
+                            <bdi>{h}</bdi> ש׳
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        data-testid="vc-workday"
+                        onClick={() => set({ workday: !d.workday, duration: '' })}
+                        className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' +
+                          (d.workday ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted')}
+                      >
+                        יום שלם
+                      </button>
+                    </div>
+                  </Field2>
+                  <Field2 label="עם מי דיברת">
+                    <input
+                      data-testid="vc-contact"
+                      value={d.contact || ''}
+                      onChange={e => set({ contact: e.target.value })}
+                      placeholder="שם איש הקשר בקיבוץ"
+                      className={LINE}
+                    />
+                  </Field2>
+                  {!verdict.ok && (
+                    <p data-testid="vc-blocked" className="rounded-xl border-s-[3px] border-[color:var(--sigma-warn)] bg-[color:var(--sigma-warn)]/10 px-3 py-2 text-[13px] font-semibold">
+                      {verdict.reason}
+                    </p>
+                  )}
+                  {verdict.ok && !hasHours && (
+                    <p data-testid="vc-blocked" className="rounded-xl border-s-[3px] border-[color:var(--sigma-warn)] bg-[color:var(--sigma-warn)]/10 px-3 py-2 text-[13px] font-semibold">
+                      כמה זמן היית שם?
+                    </p>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* The two buttons of §7p, on every chapter — plus שלח on the last one, and nowhere else. */}
+        <div className="flex gap-2 border-t border-border bg-background px-3 pb-5 pt-2.5">
+          {chapter !== 1 && (
+            <button
+              type="button"
+              data-testid="vc-back"
+              onClick={() => setChapter(c => prevChapter(model, c))}
+              className="min-h-[52px] flex-none rounded-xl border border-border px-3 text-[14px] font-bold text-muted-foreground"
+            >
+              חזרה
+            </button>
+          )}
+          <button
+            type="button"
+            data-testid="vc-save-close"
+            onClick={saveAndClose}
+            className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted text-[15px] font-extrabold"
+          >
+            <Save className="h-[18px] w-[18px]" /> שמור וסגור
+          </button>
+          {last ? (
+            <ShimmerButton
+              onClick={() => void send()}
+              data-testid="vc-send"
+              disabled={sending || !verdict.ok || !hasHours}
+              background="var(--brand-grad)"
+              className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50"
+            >
+              <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
+            </ShimmerButton>
+          ) : (
+            <ShimmerButton
+              onClick={() => setChapter(c => nextChapter(model, c))}
+              data-testid="vc-next"
+              background="var(--brand-grad)"
+              className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white"
+            >
+              המשך
+            </ShimmerButton>
+          )}
+        </div>
+        {guard.prompt}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** Open the chapters sheet from anywhere in the app. False when it is not mounted. */
+export function openVisitChapters(kibbutz: string, opts: VisitChaptersOpen = {}): boolean {
+  const api = (window as any)[VISIT_CHAPTERS_API];
+  if (!api?.open) return false;
+  api.open(kibbutz, opts);
+  return true;
+}
+
 // ───────────────────────────── the island ─────────────────────────────
 
 type Mode = 'closed' | 'arrival' | 'briefing';
@@ -657,23 +1155,31 @@ function FieldIsland() {
   }, [picked, me, notesQ.data, ordersQ.data, checkins, draft, burnItems]);
 
   /**
-   * 📍 סיכום ביקור. The unticked rows travel with him: they are parked on the draft the visit
-   * form is about to pick up, so "מה נשאר לי פתוח" is already written when he gets there.
+   * 📍 סיכום ביקור → the chapters sheet (§7p), resuming wherever he left off. The unticked
+   * rows travel with him as chapter 2's starting text — and only while chapter 2 is still
+   * empty, so they can never overwrite what he already wrote.
+   *
+   * The legacy `prefillOpenItems` bridge stays wired for the desk path (the card's 📍, which
+   * still opens the full form), and the fallback below is what makes a browser with no
+   * chapters island still land somewhere sensible.
    */
   const openVisit = () => {
     if (!brief) return;
-    // The unticked rows travel through the BRIDGE, never by touching the legacy form's DOM
-    // from here: `prefillOpenItems` waits for `visit-form-open` and writes the field once,
-    // only while it is still empty, so it can never overwrite what he already typed.
     const text = openItemsPrefill(brief.checklist, checked);
-    try { sigma.prefillOpenItems?.(picked, text); } catch (e) { console.warn('[field] prefill', e); }
     track('field-brief-visit', picked);
     setMode('closed');
+    if (openVisitChapters(picked, { openItems: text })) return;
+    try { sigma.prefillOpenItems?.(picked, text); } catch (e) { console.warn('[field] prefill', e); }
     sigma.openVisitQuick(picked);
   };
 
-  /** 🚚 — the form first, the certificate once it is on screen, so the cert links to the visit. */
+  /** 🚚 — straight to chapter 4, where the certificate is issued against the draft's id. */
   const openCert = () => {
+    track('field-brief-cert', picked);
+    setMode('closed');
+    if (openVisitChapters(picked, { chapter: 4 })) return;
+    // Fallback: the legacy form first, the certificate once it is on screen, so the cert
+    // links to the visit rather than to nothing.
     const once = () => {
       sigmaBus.removeEventListener('visit-form-open', once);
       clearTimeout(timer);
@@ -681,8 +1187,6 @@ function FieldIsland() {
     };
     const timer = setTimeout(() => sigmaBus.removeEventListener('visit-form-open', once), 120_000);
     sigmaBus.addEventListener('visit-form-open', once);
-    track('field-brief-cert', picked);
-    setMode('closed');
     sigma.openVisitQuick(picked);
   };
 
@@ -702,6 +1206,11 @@ function FieldIsland() {
   if (!isGateOpen(gate)) return null;          // §7n — nothing without a live sign-in
 
   return (
+    <>
+    {/* §7p — the visit summary itself. It lives beside the briefing rather than inside it,
+        because it is opened from five other places too (the strip's nudge, gaps, the push
+        deep link, the briefing's two CTAs) and must outlive the sheet that launched it. */}
+    <VisitChapters me={me} today={today} />
     <Sheet open={mode !== 'closed'} onOpenChange={o => { if (!o) guard.ask(); }}>
       <SheetContent
         side="bottom"
@@ -760,6 +1269,7 @@ function FieldIsland() {
         {guard.prompt}
       </SheetContent>
     </Sheet>
+    </>
   );
 }
 
@@ -852,7 +1362,11 @@ function TodayIsland() {
               <span className="min-w-0 flex-1">{n.text}</span>
               <button
                 type="button"
-                onClick={() => { track('field-nudge-visit', n.kibbutz); sigma.openVisitQuick(n.kibbutz); }}
+                onClick={() => {
+                  track('field-nudge-visit', n.kibbutz);
+                  // §7p: the nudge lands on the chapter he left, with the טיוטה chip on it.
+                  if (!openVisitChapters(n.kibbutz)) sigma.openVisitQuick(n.kibbutz);
+                }}
                 className="min-h-8 flex-none rounded-lg bg-brand-grad px-2.5 text-[12px] font-bold text-white"
               >
                 סיכום ביקור

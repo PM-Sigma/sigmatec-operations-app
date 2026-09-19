@@ -735,6 +735,42 @@
     return true;
   }
 
+  /**
+   * Save a draft that came from DATA rather than from the form's DOM (§7p chapters — the
+   * React stepper in app/src/islands/Field.tsx owns its own fields, and "שמור וסגור" has to
+   * persist them with no legacy form on screen). Same row shape, same two stores, same
+   * event, so a chapters draft and a form draft are ONE kind of thing: either can be resumed
+   * by the other, and `visitDraftFor` cannot tell them apart.
+   *
+   * The id is passed in (the pre-minted visit id), so the draft, the delivery certificate
+   * issued from it and the visit it becomes keep one identity — exactly as visitDraftSave.
+   */
+  function visitDraftPut(row) {
+    const r = row || {};
+    if (!r.kibbutz || !r.person) return null;
+    const out = {
+      id: String(r.id || visitDraftId()),
+      person: String(r.person),
+      kibbutz: String(r.kibbutz),
+      date: String(r.date || new Date().toISOString().slice(0, 10)).slice(0, 10),
+      payload: r.payload || {},
+      updated_at: new Date().toISOString()
+    };
+    draftMirrorPut(out);
+    if (typeof SHEET_API === 'string' && typeof fetch === 'function') {
+      try {
+        fetch(SHEET_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ type: 'visitDraft', draft: out })
+        }).catch(function () { /* offline — the mirror is the record */ });
+      } catch (e) { /* no network at all */ }
+    }
+    if (typeof sigmaEmit === 'function') sigmaEmit('visit-draft-changed', { kibbutz: out.kibbutz, at: out.updated_at });
+    return out;
+  }
+  window.visitDraftPut = visitDraftPut;
+
   window.visitDraftPayload = visitDraftPayload;
   window.visitDraftHasContent = visitDraftHasContent;
   window.visitDraftSave = visitDraftSave;

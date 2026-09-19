@@ -95,8 +95,12 @@ console.log('\n[5] the island, its placeholders and the bridge');
   const island = read('./app/src/islands/Field.tsx');
   check('both roots are mounted from one chunk', /mount\('sigma-field', Field\)/.test(island) && /mount\('sigma-today', Today\)/.test(island));
   check('a new check-in announces itself on the bus', /CHECKIN_CREATED = 'checkin-created'/.test(island));
-  check('the sheet morphs in place (one Sheet, AnimatePresence)',
-    (island.match(/<Sheet\b/g) || []).length === 1 && /AnimatePresence/.test(island));
+  // TWO sheets in this file, and exactly two: the arrival/briefing one that MORPHS in place
+  // (§7k #1 — one surface, two states) and the §7p chapters sheet, which is a separate
+  // surface on purpose because it is opened from five places the briefing knows nothing
+  // about. A third would mean the morph was broken up again.
+  check('the sheet morphs in place (one briefing Sheet + the §7p chapters Sheet)',
+    (island.match(/<Sheet\b/g) || []).length === 2 && /AnimatePresence/.test(island));
   check('the sheet’s motion stays inside the 320 ms budget', /const dur = reduce \? 0 : 0\.28;/.test(island));
   check('🚚 waits for the form before asking for the certificate', /addEventListener\('visit-form-open', once\)/.test(island));
   check('🚚 is only offered when there is something to deliver', /canDeliver && \(/.test(island));

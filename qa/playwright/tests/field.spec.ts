@@ -26,7 +26,7 @@ test('arrival: nobody else is interrupted', async ({ page }, ti) => {
   expectNoConsoleErrors(rec);
 });
 
-test('arrival → briefing: the same sheet morphs, and 📍 opens the visit form prefilled', async ({ page }, ti) => {
+test('arrival → briefing: the same sheet morphs, and 📍 opens the summary prefilled', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
 
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
@@ -40,9 +40,13 @@ test('arrival → briefing: the same sheet morphs, and 📍 opens the visit form
   await expect(page.getByRole('heading', { name: 'חוקוק', exact: true })).toBeVisible();
   await shot(page, ti, 'briefing');
 
-  // 📍 סיכום ביקור → the legacy visit form, with חוקוק already chosen.
+  // 📍 סיכום ביקור → the §7p chapters sheet, on חוקוק, at chapter 1. The briefing is gone:
+  // one surface hands over to the next, it does not stack on top of it.
   await page.getByTestId('brief-visit').click();
-  await expect(page.locator('#visit-tab, #tab-visit, #visitOpenItems').first()).toBeVisible({ timeout: 10_000 });
+  const chapters = page.getByTestId('visit-chapters');
+  await expect(chapters).toBeVisible({ timeout: 10_000 });
+  await expect(chapters).toHaveAttribute('data-chapter', '1');
+  await expect(chapters).toContainText('חוקוק');
   await expect(page.locator('[data-mode="briefing"]')).toHaveCount(0);
 
   expectNoConsoleErrors(rec);

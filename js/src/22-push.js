@@ -355,12 +355,21 @@
         if (typeof window.sigmaOpenGaps === 'function') window.sigmaOpenGaps();
         else window.dispatchEvent(new CustomEvent('sigma-open-gaps'));
       }
-      // ✍️ כתוב סיכום — the 2 h visit nudge (spec §5.2). One tap = the visit form with the
-      // kibbutz already in it; `openVisitQuick` with a name opens the form directly.
+      // ✍️ כתוב סיכום — the 2 h visit nudge (spec §5.2). One tap = the summary with the
+      // kibbutz already in it. §7p: that is the CHAPTERS sheet, resumed on the chapter he
+      // left; it is a lazy React chunk, so we wait a moment for it before falling back to
+      // the legacy form (which is still the right answer on a desk browser).
       else if (act === 'visit') {
         if (typeof showPage === 'function') showPage('kibbutz');
-        if (window.sigma && typeof window.sigma.openVisitQuick === 'function') window.sigma.openVisitQuick(kibbutz);
-        else if (typeof openVisitQuick === 'function') openVisitQuick();
+        var vTries = 0;
+        var vOpen = function () {
+          var ch = window.sigmaVisitChapters;
+          if (ch && typeof ch.open === 'function' && kibbutz) { ch.open(kibbutz); return; }
+          if (++vTries < 12) { setTimeout(vOpen, 250); return; }
+          if (window.sigma && typeof window.sigma.openVisitQuick === 'function') window.sigma.openVisitQuick(kibbutz);
+          else if (typeof openVisitQuick === 'function') openVisitQuick();
+        };
+        vOpen();
       }
       // 🙈 לא היום — the React island owns the write (supabase-js + the query cache).
       else if (act === 'visitDismiss') {

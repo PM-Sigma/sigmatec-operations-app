@@ -144,6 +144,19 @@ export interface Sigma {
     payload?: Record<string, unknown>;
   } | null;
   visitDraftDiscard?(id?: string | null): void;
+  /**
+   * §7p chapters — the ONE draft write React does. The stepper in islands/Field.tsx owns its
+   * own fields, so "שמור וסגור" hands the whole row over rather than typing into a legacy
+   * form that is not on screen. Same two stores and the same `visit-draft-changed` event as
+   * the form's autosave, so either half of the app can resume the other's draft.
+   */
+  visitDraftPut?(row: {
+    id?: string; person: string; kibbutz: string; date: string; payload: Record<string, unknown>;
+  }): { id: string; updated_at: string } | null;
+  /** The pre-minted visit id: draft → certificate → saved visit are one identity. */
+  visitDraftId?(): string;
+  /** The delivery certificate linked to this visit id, or 0 — the §5 gate's question. */
+  certIssuedForVisit?(visitId: string): Promise<number>;
   getLastVisit(kibbutz: string): any;
   /**
    * 📝 יומן היום (spec §7i) — one confirmed card → one visit, through the form's OWN save path
