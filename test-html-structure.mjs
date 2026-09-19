@@ -34,7 +34,13 @@ const lineOf = i => html.slice(0, i).split('\n').length;
 function parse() {
   const root = { tag: '#root', line: 0, attrs: '', children: [], parent: null };
   const stack = [root];
-  const re = /<!--[\s\S]*?-->|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)(\/?)>/g;
+  // The attribute part skips over quoted values, because index.html really does carry `>`
+  // inside four of them (`onclick="if(a>b)…"`). The quotes are written as \x22 / \x27 rather
+  // than literally, and the comment delimiters as hex escapes: a regex literal holding both kinds of
+  // raw quote trips semgrep's JS parser, and a literal `<!--` inside a script is a LEGACY
+  // HTML-like line comment in sloppy-mode JS, which makes every parser downstream of it
+  // disagree with this one. A gate that cannot parse a file calls the whole scan untrustworthy.
+  const re = /<!\x2D\x2D[\s\S]*?\x2D\x2D>|<(\/?)([a-zA-Z][a-zA-Z0-9-]*)((?:\x22[^\x22]*\x22|\x27[^\x27]*\x27|[^>\x22\x27])*?)(\/?)>/g;
   let m;
   while ((m = re.exec(html))) {
     if (m[0].startsWith('<!--')) continue;
