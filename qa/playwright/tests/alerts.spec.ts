@@ -94,3 +94,26 @@ test('אביאם cannot set a red line', async ({ page }, ti) => {
   await expect(page.getByTestId('minqty-open')).toHaveCount(0);
   await expectNoConsoleErrors(rec);
 });
+
+// A2 — the bell is app chrome, not card-home chrome. It used to live inside `#kibbutz-view`
+// (index.html), so `showPage('inventory')` hid it: on the very screen it belongs to it
+// measured 0×0 and this click timed out. The four projects run this at 390 and at 1440.
+test('the bell is visible and clickable on the מלאי page too', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await openInventory(page);
+
+  const bell = page.getByTestId('alerts-bell');
+  await expect(bell).toBeVisible({ timeout: 15_000 });
+  const box = await bell.boundingBox();
+  expect(box!.width).toBeGreaterThan(0);
+  expect(box!.height).toBeGreaterThan(0);
+
+  await bell.click();
+  await expect(page.getByTestId('alerts-list')).toBeVisible({ timeout: 15_000 });
+
+  // …and the rest of the header cluster came along: the user badge and the EMS bubble.
+  await expect(page.locator('#userBadge')).toBeVisible();
+  await expect(page.locator('#emsBubble')).toBeVisible();
+
+  await expectNoConsoleErrors(rec);
+});
