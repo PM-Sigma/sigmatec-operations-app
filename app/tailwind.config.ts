@@ -6,7 +6,12 @@ import type { Config } from 'tailwindcss';
 export default {
   darkMode: ['class'],
   important: '.sigma-root',
-  corePlugins: { preflight: false },
+  // `container` is a COMPONENT class, not a utility, so Tailwind emits it WITHOUT the
+  // `important: '.sigma-root'` prefix — i.e. unscoped, into the legacy page. The legacy shell's
+  // own `<div class="container">` (index.html) then picked up Tailwind's `max-width: 1280px`
+  // and capped the whole kibbutz home at 1280 px on a 1440 screen, against spec §6's full-width
+  // desktop (audit B · F-12). Nothing in app/src uses `container`; turning it off is the fix.
+  corePlugins: { preflight: false, container: false },
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {

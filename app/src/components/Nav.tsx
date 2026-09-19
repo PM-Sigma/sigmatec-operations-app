@@ -6,6 +6,7 @@ import { todayISO } from '@/lib/visitDrafts';
 import { type SigmaRole as RegistryRole } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import { useCurrentPage } from '@/lib/currentPage';
+import { canShowPage } from '@/lib/canShowPage';
 
 function TabButton({
   icon: Icon, label, onClick, active = false,
@@ -111,7 +112,11 @@ export function Nav() {
               <span className="mt-auto pb-1.5 text-[11px] font-medium text-muted-foreground">ביקור</span>
             </div>
 
-            <TabButton icon={Package} label="מלאי" active={page === 'inventory'} onClick={() => sigma.showPage('inventory')} />
+            {/* The same gate showPage() enforces and the legacy desktop nav obeys — an
+                unpermitted page is not offered at all (audit A · A3: מתניה's מלאי tab
+                bounced her back to קיבוצים). */}
+            {canShowPage('inventory')
+              && <TabButton icon={Package} label="מלאי" active={page === 'inventory'} onClick={() => sigma.showPage('inventory')} />}
           </>
         )}
 

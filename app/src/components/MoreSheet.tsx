@@ -19,6 +19,7 @@ import {
 } from '@/lib/registry';
 import { sigma, type SigmaPage } from '@/bridge';
 import { track } from '@/lib/track';
+import { canShowPage } from '@/lib/canShowPage';
 
 export const MORE_ICONS: Record<string, LucideIcon> = {
   Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell,
@@ -82,7 +83,7 @@ export function MoreSheet({ role }: { role: RegistryRole }) {
   const [, bump] = React.useReducer((n: number) => n + 1, 0);
   React.useEffect(() => onMoreItemsChanged(bump), []);
 
-  const pages = MORE_PAGES.filter(p => { try { return sigma.canShowPage(p.page); } catch { return false; } });
+  const pages = MORE_PAGES.filter(p => canShowPage(p.page));
   const extras = listMoreItems(role);
   const go = (fn: () => void) => { setOpen(false); fn(); };
 

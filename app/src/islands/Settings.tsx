@@ -12,6 +12,7 @@ import { track } from '@/lib/track';
 import { toast } from 'sonner';
 import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
+import { canShowPage } from '@/lib/canShowPage';
 import {
   FONTS, loadSettings, openSettings, saveSettings, SETTINGS_OPEN_EVENT, useSettings,
   type CardDesc, type FontChoice, type Landing, type UserSettings,
@@ -279,7 +280,7 @@ function OnboardingTemplateRow({ user }: { user: string }) {
 
 function SettingsPanel() {
   const [open, setOpen] = React.useState(false);
-  const { name: user, role } = useCurrentUser();
+  const { name: user, role, isViewer } = useCurrentUser();
   const settings = useSettings();
 
   // The person's row, read once per session (and again after a user switch) and merged over
@@ -329,8 +330,10 @@ function SettingsPanel() {
             >
               {LANDING_OPTIONS
                 // Offer only what this person can actually open.
-                .filter(o => o.value === 'auto' || o.value === 'reports'
-                  || (() => { try { return sigma.canShowPage(o.value as any); } catch { return true; } })())
+                // 📊 דוחות only for the viewer: #viewerReportsHub is display:none unless
+                // body.user-viewer, so for anyone else the choice lands nowhere (audit A · A8).
+                .filter(o => o.value === 'auto'
+                  || (o.value === 'reports' ? isViewer : canShowPage(o.value as any)))
                 .map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </Row>

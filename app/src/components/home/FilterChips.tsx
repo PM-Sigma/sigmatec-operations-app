@@ -24,8 +24,11 @@ export function FilterChips({
   // §7k.1: the phone has no keyboard shortcut, so the same merged list (kibbutzim · משימות ·
   // מסכים · פעולות) is reachable from this field — one tap, not a second search UI.
   const openAll = () => { try { (window as any).sigma?.openCommandBar?.(); } catch { /* no island */ } };
+  // No `-mx-1` here: a negative margin on a full-width block adds 8 px to the DOCUMENT width,
+  // and at 390 px that is a sideways scroll the moment any Radix sheet locks the body and the
+  // scrollbar gutter stops hiding it (audit A · A6). The bleed is not worth a broken viewport.
   return (
-    <div className="sticky top-0 z-[3] -mx-1 bg-background/95 px-1 pb-2 pt-1 backdrop-blur">
+    <div className="sticky top-0 z-[3] bg-background/95 px-1 pb-2 pt-1 backdrop-blur">
       <label className="mb-2 flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-2.5 text-sm">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input

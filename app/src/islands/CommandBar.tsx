@@ -24,6 +24,7 @@ import { EmsGate } from '@/components/EmsGate';
 import {
   KIND_HEADING, pushRecent, rankCommands, rankedRows, readRecents, type Command,
 } from '@/lib/commands';
+import { canShowPage } from '@/lib/canShowPage';
 
 const OPEN_EVENT = 'sigma-open-command-bar';
 const MESSAGE_EVENT = 'sigma-open-message';
@@ -127,7 +128,7 @@ function buildCommands(user: string, isViewer: boolean): Command[] {
   const out: Command[] = [];
   const page = (() => { try { return ((window as any)._currentPage || 'kibbutz') as SigmaPage; } catch { return 'kibbutz' as SigmaPage; } })();
   const role = roleOf(user, (() => { try { return sigma?.getRole?.() || ''; } catch { return ''; } })());
-  const canShow = (p: SigmaPage) => { try { return sigma.canShowPage(p); } catch { return false; } };
+  const canShow = canShowPage;
   const canUseEms = () => { try { return !!sigma.canUseEms?.(); } catch { return false; } };
 
   // ---- actions (the `>` prefix) ----
