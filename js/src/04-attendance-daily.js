@@ -19,6 +19,13 @@
     }
   }
 
+  // ONE marker for "worked on a day the company was closed" — the summary line used to say
+  // 🕯️ while the row right above it, the month grid and the Excel all said 🕎, i.e. two glyphs
+  // for one concept inside a single document (audit B · F-09). Mirrored in
+  // app/src/lib/attendance.ts as HOLIDAY_MARK; test-exports.mjs asserts nothing else is used.
+  var ATT_HOLIDAY_MARK = '🕎';
+  window.ATT_HOLIDAY_MARK = ATT_HOLIDAY_MARK;
+
   // ───────────────────────── 🕎 holidays (spec §7e) ─────────────────────────
   // ONE list per session, shared by everything that has to know whether a day was a work
   // day: this report, the red missing rows (22-push.js), the React island and the calendar.
@@ -130,7 +137,7 @@
   // 🕎 only for a day that was NOT required and was filled in anyway (spec §7e).
   function attHolidayMark(dateKey) {
     var h = attHolidayOn(dateKey);
-    return (h && !h.required) ? '🕎' : '';
+    return (h && !h.required) ? ATT_HOLIDAY_MARK : '';
   }
   window.attHolidayMark = attHolidayMark;
   // attYmd itself is declared further down (the robust version that also accepts an ISO string
@@ -261,7 +268,7 @@
       // 🕎 — this day was a חג / חול המועד / סגירת חברה and he worked it anyway. It counts
       // as a work day; the marker is so whoever reads the report knows why it is there.
       const hol = attHolidayOn(attYmd(r.date));
-      const holMark = (hol && !hol.required) ? ` <span title="${attEsc(hol.name)}" style="font-size:12px;">🕎</span>` : '';
+      const holMark = (hol && !hol.required) ? ` <span title="${attEsc(hol.name)}" style="font-size:12px;">${ATT_HOLIDAY_MARK}</span>` : '';
       const kib = r.kibbutz ? `<span style="color:#475569;">${r.kibbutz}</span>` : '—';
       // hours column: work days shown as "יום עבודה" (priced as a day), loose hours as Xש'
       let dur;
@@ -507,7 +514,7 @@
     const body = rows.map(r => {
       const dateStr = r.date.toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit', weekday:'short' });
       const hol = attHolidayOn(attYmd(r.date));
-      const holMark = (hol && !hol.required) ? ' 🕎' : '';
+      const holMark = (hol && !hol.required) ? ' ' + ATT_HOLIDAY_MARK : '';
       let dur;
       if (r.type === 'field') {
         const segs = [];
@@ -530,8 +537,11 @@
           if (extra)     s += `<div style="color:#475569;font-size:12px;">📦 ${esc(extra)}</div>`;
           return s + '</div>';
         }).join('');
-      } else if (r.type === 'other' && r.note) {
-        detail = r.note.replace(/</g,'&lt;');
+      } else if (r.note) {
+        // ANY day's note, not only `other` — an office/home/מילואים note used to be dropped
+        // from the PDF while the Excel printed it, so the two documents for the same month
+        // disagreed (audit B · F-10). Same condition as js/src/21-excel-export.js.
+        detail = attEsc(r.note);
       }
       return `<tr><td>${dateStr}${holMark}</td><td>${ATT_LABELS[r.type]}</td><td>${attEsc(r.kibbutz) || '—'}</td><td style="text-align:center;">${dur}</td><td>${detail}</td></tr>`;
     }).join('');
@@ -551,10 +561,18 @@
       .map(k => `${ATT_LABELS[k]}: ${counts[k]}`).join(' · ') +
       (hoursSegs.length ? ` · ⏱️ ${hoursSegs.join(' + ')} (≈${approxTotal}ש')` : '') +
       (allVisits.length ? ` · 📍 ${allVisits.length} ביקורים ב-${visitKibs.length} קיבוצים` : '') +
-      (holidayWorked ? ` · 🕯️ ${holidayWorked} ימי עבודה בחג` : '');
+      (holidayWorked ? ` · ${ATT_HOLIDAY_MARK} ${holidayWorked} ימי עבודה בחג` : '');
+    // No dangling separators when the page has no month label: the <title> IS the default
+    // PDF filename, and "נוכחות אביאם — " is what the user then has to rename (audit B · F-11).
+    const docTitle = [['נוכחות', attPerson()].filter(Boolean).join(' '), monthLabel]
+      .filter(Boolean).join(' — ');
+    const subLine = [monthLabel, chips].filter(Boolean).join(' · ');
     const w = window.open('', '_blank');
+    // A blocked popup used to throw a TypeError and the user saw nothing at all
+    // (audit B · F-24) — the same guard js/src/20-delivery-cert.js already has.
+    if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
     w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
-      <title>נוכחות ${attPerson()} — ${monthLabel}</title>
+      <title>${attEsc(docTitle)}</title>
       <style>
         body{font-family:Arial,'Heebo',sans-serif;padding:24px;color:#1b2a4a;}
         h1{font-size:20px;margin:0 0 4px;} .sub{color:#64748b;font-size:13px;margin-bottom:16px;}
@@ -562,7 +580,7 @@
         th{background:#1b2a4a;color:white;} tr:nth-child(even) td{background:#f8fafc;}
       </style></head><body>
       <h1>📅 דוח נוכחות — ${attPerson()}</h1>
-      <div class="sub">${monthLabel} · ${chips}</div>
+      <div class="sub">${subLine}</div>
       <table><thead><tr><th>תאריך</th><th>סוג יום</th><th>קיבוץ</th><th>שעות</th><th>סיכום ביקור</th></tr></thead><tbody>${body}</tbody></table>
       <script>window.onload=function(){window.print();}<\/script>
       </body></html>`);

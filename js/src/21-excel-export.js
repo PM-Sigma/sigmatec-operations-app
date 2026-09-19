@@ -91,7 +91,7 @@
       } else if (r.note) { detail = r.note; }
       const hol = (typeof attHolidayOn === 'function' && typeof attYmd === 'function')
         ? attHolidayOn(attYmd(r.date)) : null;
-      const holCell = (hol && !hol.required) ? '🕎 ' + hol.name : '';
+      const holCell = (hol && !hol.required) ? (window.ATT_HOLIDAY_MARK || '🕎') + ' ' + hol.name : '';
       return [d, xlDayLetter(d), xlStr(person), xlStr((labels || {})[r.type] || r.type), xlStr(r.kibbutz),
               xlNum(r.workdays || 0), xlNum(r.type === 'field' ? (r.hourHours || 0) : (r.duration || 0)),
               xlStr(holCell), xlStr(detail)];
@@ -99,9 +99,18 @@
     return { sheet: 'נוכחות — ' + xlStr(person), columns: columns, rows: out };
   }
 
+  // THE customer name for a certificate, in one place. The printed report used to group by
+  // `cert.kibbutz` ("חוקוק") while the Excel of the SAME report used `customer.name`
+  // ("קיבוץ חוקוק") — two documents handed to one person, disagreeing on the customer
+  // (audit B · F-08). `customer.name` wins (it is the canonical name on the certificate) and
+  // `kibbutz` is the fallback. Mirrored as `certGroupName` in js/src/20-delivery-cert.js.
+  function xlCertGroupName(c) {
+    return (((c || {}).customer || {}).name) || (c || {}).kibbutz || '';
+  }
+
   // 3. דוח תעודות משלוח (טווח) — one row per item per cert; cancelled kept, marked מבוטלת
   const XL_CERT_SRC = { visit: 'ביקור', order: 'הזמנה', ems: 'משימת EMS', manual: 'ידני' };
-  function xlBuildCerts(certs) {
+  function xlBuildCerts(certs, productMap) {
     const columns = [
       { header: "מס' תעודה", type: 'n', width: 10 }, { header: 'תאריך', type: 'd', width: 12 },
       { header: 'קיבוץ', type: 's', width: 16 }, { header: 'פריט', type: 's', width: 28 },
@@ -112,13 +121,15 @@
     (certs || []).forEach((c, gi) => {
       const status = c.status === 'cancelled' ? 'מבוטלת' : 'הופקה';
       const base = [xlNum(c.cert_number), xlDate(c.cert_date),
-                    xlStr(((c.customer || {}).name) || c.kibbutz), null, null,
+                    xlStr(xlCertGroupName(c)), null, null,
                     xlStr(c.created_by), xlStr(XL_CERT_SRC[c.source] || c.source), status];
       const items = (c.items || []).filter(i => i && i.name);
       if (items.length === 0) {
         const r = base.slice(); r[3] = ''; r[4] = ''; rows.push(r); groupKeys.push(gi);
       } else {
-        items.forEach(i => { const r = base.slice(); r[3] = xlStr(i.name); r[4] = xlNum(i.qty || 1); rows.push(r); groupKeys.push(gi); });
+        // A report never prints a technical name when a display name exists (spec §3);
+        // this was the one builder that skipped xlLabel (audit B · F-06).
+        items.forEach(i => { const r = base.slice(); r[3] = xlStr(xlLabel(i.name, productMap)); r[4] = xlNum(i.qty || 1); rows.push(r); groupKeys.push(gi); });
       }
     });
     return { sheet: 'תעודות משלוח', columns: columns, rows: rows, groupKeys: groupKeys };
@@ -132,7 +143,7 @@
     ];
     const agg = {};   // kibbutz|item → {qty, certNos:Set}
     (certs || []).filter(c => c.status !== 'cancelled').forEach(c => {
-      const kib = xlStr(((c.customer || {}).name) || c.kibbutz);
+      const kib = xlStr(xlCertGroupName(c));
       (c.items || []).filter(i => i && i.name).forEach(i => {
         const item = xlStr(xlLabel(i.name, productMap));
         const k = kib + '|' + item;
@@ -270,7 +281,7 @@
       ('דוח_נוכחות_' + attPerson() + '_' + lbl).replace(/\s+/g, '_') + '.xlsx');
   }
   async function xlFetchCerts(from, to) {
-    if (typeof window._sbCertGet !== 'function') { alert('ייצוא תעודות זמין רק במצב Supabase'); return null; }
+    if (typeof window._sbCertGet !== 'function') { alert('ייצוא תעודות לא זמין במצב הדגמה'); return null; }
     try {
       return await window._sbCertGet('delivery_certs?select=*&cert_date=gte.' + (from || '2000-01-01') +
         '&cert_date=lte.' + (to || '2099-12-31') + '&order=cert_number.asc');
@@ -278,7 +289,7 @@
   }
   async function xlExportCerts(from, to) {
     const certs = await xlFetchCerts(from, to);
-    if (certs) xlDownload(xlBuildCerts(certs), 'דוח_תעודות_משלוח_' + (from || '') + '_' + (to || '') + '.xlsx');
+    if (certs) xlDownload(xlBuildCerts(certs, xlProductMapFromSheet()), 'דוח_תעודות_משלוח_' + (from || '') + '_' + (to || '') + '.xlsx');
   }
   function xlExportCertsFromTab() {
     xlExportCerts(document.getElementById('invCertsFrom').value, document.getElementById('invCertsTo').value);

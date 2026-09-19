@@ -300,5 +300,108 @@ check('no display_name set anywhere → technical name prints (nothing to leak)'
   assert.ok(cellsContain(spec, PLAIN));
 });
 
+// ════════════════════════════════════════════════════════════════════════════════
+// AUDIT B · F-06 / F-07 / F-08 / F-09 / F-10 / F-11 — the PDF and the Excel of the
+// SAME report must agree, and neither may leak a technical product name.
+// ════════════════════════════════════════════════════════════════════════════════
+console.log('== the two media of one report ==');
+
+const CERT_LEAK = [{
+  status: 'issued', cert_number: 7, cert_date: '2026-09-01', kibbutz: 'חוקוק',
+  customer: { name: 'קיבוץ חוקוק' }, created_by: 'אביאם', source: 'visit',
+  items: [{ name: METER, qty: 3 }],
+}];
+
+check('F-06 — דוח תעודות משלוח (Excel) prints the DISPLAY name', () => {
+  const spec = M.xlBuildCerts(CERT_LEAK, PRODUCT_MAP);
+  assert.ok(cellsContain(spec, METER_DISPLAY), 'display name missing from the cert export');
+  assert.ok(!cellsContain(spec, METER), 'technical name leaked into a report');
+});
+check('F-06 — no productMap (a legacy call site) still falls back, never throws', () => {
+  assert.ok(cellsContain(M.xlBuildCerts(CERT_LEAK), METER));
+});
+check('F-08 — the Excel groups by customer.name, falling back to kibbutz', () => {
+  assert.strictEqual(M.xlBuildCerts(CERT_LEAK, PRODUCT_MAP).rows[0][2], 'קיבוץ חוקוק');
+  const noCustomer = [{ ...CERT_LEAK[0], customer: null }];
+  assert.strictEqual(M.xlBuildCerts(noCustomer, PRODUCT_MAP).rows[0][2], 'חוקוק');
+});
+
+// ---- the printed cert report (js/src/20-delivery-cert.js) ----
+const certSrc = fs.readFileSync(path.join(__dirname, 'js/src/20-delivery-cert.js'), 'utf8');
+function liftFrom(src, name) {
+  const start = src.indexOf('function ' + name + '(');
+  assert.ok(start !== -1, 'could not find function ' + name);
+  let depth = 0;
+  for (let j = src.indexOf('{', start); j < src.length; j++) {
+    if (src[j] === '{') depth++;
+    else if (src[j] === '}') { depth--; if (depth === 0) return src.slice(start, j + 1); }
+  }
+  throw new Error('unbalanced braces reading ' + name);
+}
+const certHelpers = new Function('window', 'productLabel',
+  liftFrom(certSrc, 'certGroupName') + '\n' + liftFrom(certSrc, 'certReportLabel')
+  + '\nreturn { certGroupName, certReportLabel };')(
+  { SHEET_DATA: { products: [{ name: METER, display_name: METER_DISPLAY }] } }, M.productLabel);
+
+check('F-08 — the PDF groups by the SAME key as the Excel', () => {
+  assert.strictEqual(certHelpers.certGroupName(CERT_LEAK[0]), 'קיבוץ חוקוק');
+  assert.strictEqual(certHelpers.certGroupName({ kibbutz: 'חוקוק', customer: null }), 'חוקוק');
+  assert.match(certSrc, /certs\.forEach\(cr => \{ const k = certGroupName\(cr\) \|\| '—';/);
+});
+check('F-07 — the printed cert REPORT prints display names (the field cert does not)', () => {
+  assert.strictEqual(certHelpers.certReportLabel(METER), METER_DISPLAY);
+  assert.strictEqual(certHelpers.certReportLabel(PLAIN), PLAIN);
+  assert.match(certSrc, /certEsc\(certReportLabel\(i\.name\)\) \+ ' ×'/);
+  assert.match(certSrc, /certEsc\(certReportLabel\(n\)\)/);
+  assert.ok(certSrc.includes("certEsc(i.name)"),
+    'the field certificate must keep the technical name');
+});
+
+// ---- the attendance PDF (js/src/04-attendance-daily.js) ----
+const attSrc = fs.readFileSync(path.join(__dirname, 'js/src/04-attendance-daily.js'), 'utf8');
+function attPdfHtml(rows, monthLabel) {
+  let html = '';
+  const w = { document: { write(h) { html += h; }, close() {} } };
+  const fn = new Function(
+    'window', 'document', 'alert', 'attPerson', 'attHolidayOn', 'attYmd', 'ATT_LABELS',
+    'WORKDAY_HOURS', 'ATT_HOLIDAY_MARK',
+    liftFrom(attSrc, 'attEsc') + '\n' + liftFrom(attSrc, 'downloadAttendancePDF')
+    + '\nreturn downloadAttendancePDF;');
+  fn({ _attendanceRows: rows, open: () => w },
+     { getElementById: id => (id === 'attendanceMonthLabel' && monthLabel !== null
+       ? { textContent: monthLabel } : null) },
+     () => {}, () => 'אביאם',
+     d => (d === '2026-09-15' ? { name: 'סוכות', required: false } : null),
+     d => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d)),
+     { field: 'שטח', office: 'משרד', other: 'אחר' }, 9, '🕎')();
+  return html;
+}
+const ATT_PDF_ROWS = [
+  { date: new Date('2026-09-15T09:00:00Z'), type: 'field', workdays: 1, hourHours: 0, visits: [{ kibbutz: 'דפנה', summary: 'התקנה', workday: true }] },
+  { date: new Date('2026-09-16T09:00:00Z'), type: 'office', duration: 8, note: 'טיפול בתעריפים' },
+];
+
+check('F-09 — ONE holiday glyph in the whole document', () => {
+  const html = attPdfHtml(ATT_PDF_ROWS, 'ספטמבר 2026');
+  assert.ok(html.includes('🕎'), 'the 🕎 marker is missing');
+  assert.ok(!html.includes('🕯️'), 'two glyphs for one concept (🕯️ in the summary line)');
+  assert.ok(/🕎 1 ימי עבודה בחג/.test(html), 'the summary line must use the same marker');
+});
+check('F-10 — an office day KEEPS its note, exactly like the Excel', () => {
+  const html = attPdfHtml(ATT_PDF_ROWS, 'ספטמבר 2026');
+  assert.ok(html.includes('טיפול בתעריפים'), 'the PDF dropped a note the Excel prints');
+  const xl = M.xlBuildAttendance(ATT_PDF_ROWS, 'אביאם', { field: 'שטח', office: 'משרד' });
+  assert.ok(xl.rows.some(r => r.some(c => typeof c === 'string' && c.includes('טיפול בתעריפים'))));
+});
+check('F-11 — no month label → no dangling separator in the title or the sub-line', () => {
+  const html = attPdfHtml(ATT_PDF_ROWS, null);
+  const title = /<title>([^<]*)<\/title>/.exec(html)[1];
+  assert.strictEqual(title, 'נוכחות אביאם', 'the title IS the default PDF filename: ' + title);
+  const sub = /<div class="sub">([^<]*)</.exec(html)[1];
+  assert.ok(!sub.trimStart().startsWith('·'), 'sub-line opens with a stray separator: ' + sub);
+  const full = attPdfHtml(ATT_PDF_ROWS, 'ספטמבר 2026');
+  assert.strictEqual(/<title>([^<]*)<\/title>/.exec(full)[1], 'נוכחות אביאם — ספטמבר 2026');
+});
+
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);

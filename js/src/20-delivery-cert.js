@@ -550,7 +550,7 @@
     bd.classList.add('open');
     let contacts = [];
     try {
-      if (typeof window._sbCertGet !== 'function') throw new Error('אין חיבור Supabase');
+      if (typeof window._sbCertGet !== 'function') throw new Error('אין חיבור כרגע — בדוק רשת ונסה שוב');
       contacts = await window._sbCertGet('site_contacts?select=*&active=eq.true&kibbutz=eq.' + encodeURIComponent(c.kibbutz) + '&order=role,name');
     } catch (e) { /* table missing / anon (viewer) / offline → manual row only */ }
     const text = certShareText(c);
@@ -626,7 +626,7 @@
     const section = document.getElementById('inv-section-certs');
     if (!root || !section) return;
     if (!section.classList.contains('active') && !force) return;   // don't hit Supabase for a hidden tab
-    if (typeof window._sbCertGet !== 'function') { root.innerHTML = '<div style="padding:16px;color:#94a3b8;">זמין רק במצב Supabase (ללא ?sb=0)</div>'; return; }
+    if (typeof window._sbCertGet !== 'function') { root.innerHTML = '<div style="padding:16px;color:#94a3b8;">לא זמין במצב הדגמה</div>'; return; }
     const fromEl = document.getElementById('invCertsFrom');
     if (!fromEl.value) { const d = new Date(); fromEl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }   // default: current month
     const from = fromEl.value || '2000-01-01';
@@ -821,6 +821,23 @@
   }
   window.certRangeReport = certRangeReport;
 
+  // Mirrors xlCertGroupName in js/src/21-excel-export.js: the PDF and the Excel of the SAME
+  // report must name the customer identically (audit B · F-08).
+  function certGroupName(c) {
+    return (((c || {}).customer || {}).name) || (c || {}).kibbutz || '';
+  }
+  window.certGroupName = certGroupName;
+  // A REPORT prints display names (spec §3). The single field certificate at certDocHtml
+  // deliberately keeps the technical name — that is what the recipient signs for — but this
+  // report was leaking it too (audit B · F-07).
+  function certReportLabel(name) {
+    const map = {};
+    ((window.SHEET_DATA && window.SHEET_DATA.products) || []).forEach(p => { map[p.name] = p; });
+    return (typeof productLabel === 'function')
+      ? productLabel(map[name] || name, { forReport: true }) : name;
+  }
+  window.certReportLabel = certReportLabel;
+
   async function certRangeReportRange(from, to) {
     const w = window.open('', '_blank');
     if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
@@ -831,7 +848,7 @@
       certs = await window._sbCertGet('delivery_certs?select=*&cert_date=gte.' + from + '&cert_date=lte.' + to + '&order=cert_number');
     } catch (e) { w.document.body.innerHTML = 'שגיאה בטעינת התעודות: ' + certEsc(e.message); return; }
     const byK = {};
-    certs.forEach(cr => { (byK[cr.kibbutz || '—'] = byK[cr.kibbutz || '—'] || []).push(cr); });
+    certs.forEach(cr => { const k = certGroupName(cr) || '—'; (byK[k] = byK[k] || []).push(cr); });
     const groups = Object.keys(byK).sort((a, b) => a.localeCompare(b, 'he')).map(k => {
       const list = byK[k];
       const totals = {};
@@ -841,9 +858,9 @@
         const cancelled = cr.status === 'cancelled';
         return `<tr${cancelled ? ' style="opacity:.55;text-decoration:line-through;"' : ''}>
         <td>${cr.cert_number}${cancelled ? ' 🚫' + (cr.replaced_by ? '→' + cr.replaced_by : '') : ''}</td><td>${certFmtDate(cr.cert_date)}</td>
-        <td>${(cr.items || []).map(i => certEsc(i.name) + ' ×' + i.qty).join('<br>')}</td>
+        <td>${(cr.items || []).map(i => certEsc(certReportLabel(i.name)) + ' ×' + i.qty).join('<br>')}</td>
         <td>${certEsc(cr.created_by)}</td><td>${certEsc(cr.notes)}</td></tr>`; }).join('');
-      const totalRows = Object.keys(totals).sort((a, b) => a.localeCompare(b, 'he')).map(n => `<tr><td>${certEsc(n)}</td><td class="c">${totals[n]}</td></tr>`).join('');
+      const totalRows = Object.keys(totals).sort((a, b) => a.localeCompare(b, 'he')).map(n => `<tr><td>${certEsc(certReportLabel(n))}</td><td class="c">${totals[n]}</td></tr>`).join('');
       return `<h2>${certEsc(k)} <small>(${list.length} תעודות)</small></h2>
         <table><thead><tr><th>מס' תעודה</th><th>תאריך</th><th>פריטים</th><th>הופק ע"י</th><th>הערות</th></tr></thead><tbody>${rows}</tbody></table>
         <table class="tot"><thead><tr><th>סה"כ לפי פריט</th><th class="c">כמות</th></tr></thead><tbody>${totalRows}</tbody></table>`;
