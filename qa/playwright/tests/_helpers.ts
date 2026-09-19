@@ -75,6 +75,12 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
   const meetingSessions: Array<Record<string, unknown>> = [];
   const meetingEvents: Array<Record<string, unknown>> = [];
   const liveNotes: Array<Record<string, unknown>> = [];
+  /**
+   * 🔒 internal_tasks (Task 26) — a real store for the same reason: the spec adds a row on a
+   * card, expects it in "היום שלי", toggles it done and promotes it to EMS, and every step
+   * has to see what the step before it wrote.
+   */
+  const internalTasks: Array<Record<string, unknown>> = [];
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
   await page.route('**://fonts.googleapis.com/**', r => r.abort());
@@ -174,11 +180,31 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         liveNotes.push(...rows);
         return route.fulfill(json(shape(rows, accept), 201));
       }
+      // internal_tasks (Task 26) — insert, and the ✓ / ⬆ PATCH that flips `done`.
+      if (tableOf(url) === 'internal_tasks' && method === 'POST') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({
+          id: 'it-' + (internalTasks.length + i + 1), done: false, created_at: new Date().toISOString(), ...r,
+        }));
+        internalTasks.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'internal_tasks' && method === 'PATCH') {
+        const q = new URL(url).searchParams;
+        const id = decodeURIComponent((q.get('id') || '').replace(/^eq\./, ''));
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = internalTasks.find(r => r.id === id);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
       return route.fulfill(json({ message: 'new row violates row-level security policy', code: '42501' }, 401));
     }
 
     switch (tableOf(url)) {
       case 'kibbutzim': return route.fulfill(json(shape(FIXTURES.kibbutzim, accept)));
+      case 'internal_tasks': return route.fulfill(json(shape(internalTasks, accept)));
       // The review reads back the rows of ONE (date, kind) to link its tasks, so the
       // PostgREST filters have to be honoured here — without them it would link a task onto
       // a fixture bullet that happens to share a (kibbutz, seq).

@@ -6,13 +6,11 @@
 // silently does nothing.
 
 /**
- * 🔒 פנימי is offered only where an internal-task WRITE path exists. `internal_tasks` is in
- * the database (db/internal_tasks.sql, Task 14) but the client only READS it today — Task 26
- * ships the screen that writes. A chip that silently does nothing in the middle of a meeting,
- * or in the summary review, is worse than no chip, so until then it is not offered.
- *
- * Flipping this to `true` is the whole change on the client side, for BOTH
- * `islands/Presenter.tsx` (the live ✏️ chips) and `islands/MeetingReview.tsx` (the review
- * chips) — which is exactly why it is not a `const` inside either of them.
+ * 🔒 פנימי is offered wherever an internal-task WRITE path exists. `internal_tasks` is in the
+ * database (db/internal_tasks.sql, Task 14) and Task 26 ships the screen that writes —
+ * `components/home/InternalTasks.tsx` (the card section + "היום שלי") and the two chips this
+ * flag already gated, `islands/Presenter.tsx`'s live ✏️ chip and `islands/MeetingReview.tsx`'s
+ * review chip + `saveReview`'s internal-task insert. All four agree because none of them holds
+ * its own copy of this flag.
  */
-export const INTERNAL_TASKS_WRITABLE = false;
+export const INTERNAL_TASKS_WRITABLE = true;

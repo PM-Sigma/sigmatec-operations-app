@@ -144,9 +144,19 @@ describe('the screen', () => {
     expect(created).toHaveLength(0);
   });
 
-  it('the 🔒 chip is not offered while internal tasks have no write path', async () => {
+  it('the 🔒 chip is offered now that internal tasks have a write path (Task 26)', async () => {
     await openScreen();
-    expect(screen.queryByTestId('review-chip-דפנה#1-internal')).toBeNull();
+    expect(screen.getByTestId('review-chip-דפנה#1-internal')).toBeTruthy();
+  });
+
+  it('בצע with a line marked 🔒 inserts exactly one internal_tasks row, owner + kibbutz carried over', async () => {
+    await openScreen();
+    fireEvent.click(screen.getByTestId('review-chip-דפנה#1-internal'));
+    await act(async () => { fireEvent.click(screen.getByTestId('review-commit')); });
+    await waitFor(() => expect(sonner.success).toHaveBeenCalled());
+    const rows = inserted.filter(i => i.table === 'internal_tasks');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].row).toEqual([{ title: 'להחליף את המונה הראשי מול הגזבר.', owner: 'אביאם', kibbutz: 'דפנה', created_by: 'עידן' }]);
   });
 
   it('a chip tap changes exactly that line', async () => {
@@ -225,7 +235,7 @@ describe('the screen', () => {
     expect(created[0].kibbutz).toBe('דפנה');
     expect(updated.filter(u => u.table === 'kibbutz_meeting_notes' && u.row.ems_task_id)).toHaveLength(1);
     expect(tracked).toContain('review-commit:3');
-    // the internal-task table is untouched while the chip is hidden
+    // no line was set to 🔒 in this run, so the internal-task table is untouched
     expect(inserted.filter(i => i.table === 'internal_tasks')).toHaveLength(0);
   });
 

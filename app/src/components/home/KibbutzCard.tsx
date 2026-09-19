@@ -10,6 +10,7 @@ import { useVisitDraft } from '@/lib/visitDrafts';
 import { CardActions } from '@/components/home/CardActions';
 import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
+import { InternalTasksSection } from '@/components/home/InternalTasks';
 import { BurnChip } from '@/components/home/Burns';
 import { energyText, labelOf, sectionOf, isSubsite, type KibbutzRow } from '@/lib/kibbutzim';
 
@@ -95,6 +96,7 @@ export function KibbutzCard({
           so the swap is free of the old DOM contract. */}
       <EmsTasks kibbutz={row.name} />
       <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
+      <InternalTasksSection kibbutz={row.name} canAct={role !== 'viewer'} />
       <CardActions name={row.name} role={role} />
     </motion.div>
   );

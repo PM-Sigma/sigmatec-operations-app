@@ -79,8 +79,8 @@ test('review: paste → edit → move → בצע writes the bullets and opens th
   await expect(page.getByTestId('review-chip-חוקוק#1-ems')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('review-chip-חוקוק#2-chatter')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('review-chip-גבת#1-decision')).toHaveAttribute('aria-pressed', 'true');
-  // 🔒 פנימי is not offered — nothing can write an internal task yet (Task 26)
-  await expect(page.getByTestId('review-chip-חוקוק#1-internal')).toHaveCount(0);
+  // 🔒 פנימי is offered now that internal tasks have a write path (Task 26)
+  await expect(page.getByTestId('review-chip-חוקוק#1-internal')).toBeVisible();
 
   await shot(page, ti);
   await expectRtl(page);

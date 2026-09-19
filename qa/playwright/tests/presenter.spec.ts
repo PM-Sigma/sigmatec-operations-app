@@ -128,8 +128,8 @@ test('presenter: ✏️ writes the line onto the kibbutz card while the meeting 
   const sheet = page.getByTestId('presenter-live');
   await expect(sheet).toBeVisible();
 
-  // 🔒 פנימי is not offered — nothing can write an internal task yet (Task 26)
-  await expect(page.getByTestId('live-chip-internal')).toHaveCount(0);
+  // 🔒 פנימי is offered now that internal tasks have a write path (Task 26)
+  await expect(page.getByTestId('live-chip-internal')).toBeVisible();
   for (const id of ['ems', 'note', 'decision', 'idea']) {
     await expect(page.getByTestId('live-chip-' + id)).toBeVisible();
   }

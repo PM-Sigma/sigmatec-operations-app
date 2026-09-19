@@ -262,9 +262,9 @@ describe('✏️ live quick-note', () => {
     });
   });
 
-  it('HIDES 🔒 פנימי while nothing can write an internal task', async () => {
+  it('offers 🔒 פנימי now that internal tasks have a write path (Task 26)', async () => {
     await openSheet();
-    expect(screen.queryByTestId('live-chip-internal')).toBeNull();
+    expect(screen.getByTestId('live-chip-internal')).toBeTruthy();
   });
 
   it('📋 creates the EMS task through the existing chain, ONCE, with a taskFromBullet payload', async () => {
