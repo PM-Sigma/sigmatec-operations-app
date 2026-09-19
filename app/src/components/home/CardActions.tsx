@@ -6,6 +6,17 @@ import { sigma, sigmaBus } from '@/bridge';
 import { cardActionsFor, type CardAction } from '@/lib/kibbutzim';
 import { todayISO } from '@/lib/visitDrafts';
 
+/**
+ * Open the §7p chapters sheet if it is mounted, same window-global pattern as Gaps.tsx —
+ * no static import of Field.tsx (a lazy island), so the card's own chunk stays small.
+ */
+function openChapters(kibbutz: string): boolean {
+  const api = (window as any).sigmaVisitChapters;
+  if (!api?.open) return false;
+  api.open(kibbutz);
+  return true;
+}
+
 const LABEL: Record<CardAction, string> = {
   visit: 'סיכום ביקור',
   cert: 'תעודת משלוח',
@@ -42,7 +53,10 @@ export function certAfterVisitForm(name: string) {
 export function CardActions({ name, role }: { name: string; role: string }) {
   const actions = cardActionsFor(role);
   const run = (a: CardAction) => {
-    if (a === 'visit') sigma.openVisitQuick(name);
+    // 📍 — ruling 19.9: the card's visit action opens the chapters sheet for every role,
+    // same as briefing/gaps/nudge (one visit path). Legacy form stays only as the fallback
+    // for a browser where the chapters island did not mount.
+    if (a === 'visit') { if (!openChapters(name)) sigma.openVisitQuick(name); }
     else if (a === 'cert') certAfterVisitForm(name);
     else sigma.openKibbutzModal(name, 'meetings');
   };

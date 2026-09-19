@@ -1,27 +1,49 @@
-// The visit form (spec §3.3 one tap from the card, §5 cert rules, §5.1c drafts).
-// Covers: 📍 on a card opens the form straight away with that kibbutz and the visitor filled
-// in; the summary is SPLIT into "מה נעשה בפועל" + "מה לא נסגר"; checking a supplied product
-// relabels the 🚚 certificate line into the "טרם הופקה תעודת משלוח" gate; and a draft is
-// autosaved and offered back after a full reload.
+// The visit form (spec §3.3 desk contract, §5 cert rules, §5.1c drafts).
 //
-// The form is legacy DOM (js/src/09-visits.js) driven through the bridge — the React card is
-// only the entry point, which is exactly the contract this spec pins.
+// Ruling 19.9: the card's 📍 now opens the same §7p CHAPTERS sheet as briefing/gaps/nudge —
+// one visit path, no separate card-only entry (see `openVisitChapters` used from
+// `app/src/components/home/CardActions.tsx`). The legacy form (js/src/09-visits.js) stays
+// wired only as the FALLBACK for a browser where the chapters island did not mount. The
+// split-summary / cert-gate / draft-autosave / restart tests below exercise that legacy DOM
+// directly through `openLegacyFormDirect` — exactly the fallback's own call
+// (`sigma.openVisitQuick(kibbutz)`) — so the desk contract stays pinned even though the card
+// no longer reaches it on the happy path.
 import { boot, expect, expectNoConsoleErrors, shot, test } from './_helpers';
 
 const DRAFT_KEY = 'visitDrafts_v2';
 
-/** 📍 סיכום ביקור on a card → the kibbutz modal, already on the ביקור tab. */
+/** 📍 סיכום ביקור on a card → the §7p chapters sheet, at chapter 1, for that kibbutz. */
 async function openFromCard(page: any, kibbutz: string) {
   await page.locator(`#sigma-home .kibbutz[data-name="${kibbutz}"]`)
     .getByRole('button', { name: 'סיכום ביקור' }).click();
+  const chapters = page.getByTestId('visit-chapters');
+  await expect(chapters).toBeVisible({ timeout: 10_000 });
+  await expect(chapters).toHaveAttribute('data-chapter', '1');
+  await expect(chapters).toContainText(kibbutz);
+}
+
+/** The legacy form's own fallback path (`openVisitChapters` returning false) — no card tap. */
+async function openLegacyFormDirect(page: any, kibbutz: string) {
+  await page.waitForSelector('#sigma-home .kibbutz');
+  await page.waitForFunction(() => typeof (window as any).sigma?.openVisitQuick === 'function');
+  await page.evaluate(k => (window as any).sigma.openVisitQuick(k), kibbutz);
   await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
   await expect(page.locator('#visitSummary')).toBeVisible();
 }
 
-test('visit form: 📍 on a card opens it in one tap, with split summary fields', async ({ page }, ti) => {
+test('visit form: 📍 on a card opens the chapters sheet in one tap, for that kibbutz', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   await openFromCard(page, 'חוקוק');
+
+  await shot(page, ti);
+  expectNoConsoleErrors(rec);
+});
+
+test('visit form (legacy fallback): split summary fields, one tap, visitor pre-filled', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+
+  await openLegacyFormDirect(page, 'חוקוק');
 
   // one tap, no picker in between (bridge `openVisitQuick(kibbutz)`)
   await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
@@ -43,10 +65,10 @@ test('visit form: 📍 on a card opens it in one tap, with split summary fields'
   expectNoConsoleErrors(rec);
 });
 
-test('visit form: checking a supplied product raises the 🚚 certificate gate', async ({ page }, ti) => {
+test('visit form (legacy fallback): checking a supplied product raises the 🚚 certificate gate', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
-  await openFromCard(page, 'חוקוק');
+  await openLegacyFormDirect(page, 'חוקוק');
 
   // The mock sheet ships no MOVEMENTS, so nobody has stock and the product list is empty by
   // design. Seed one movement into the in-page mock (the same shape computeStock() reads) so
@@ -77,10 +99,10 @@ test('visit form: checking a supplied product raises the 🚚 certificate gate',
   expectNoConsoleErrors(rec);
 });
 
-test('visit form: a draft autosaves and is offered back after a reload', async ({ page }, ti) => {
+test('visit form (legacy fallback): a draft autosaves and is offered back after a reload', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
-  await openFromCard(page, 'חוקוק');
+  await openLegacyFormDirect(page, 'חוקוק');
   await page.locator('#visitSummary').fill('התחלתי לכתוב ואז נסעתי');
 
   // 800 ms debounce (DRAFT_DEBOUNCE_MS) → the localStorage mirror is what the resume prompt
@@ -104,7 +126,7 @@ test('visit form: a draft autosaves and is offered back after a reload', async (
   // ── a FULL reload: the draft survives in localStorage and the form offers to resume
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#sigma-home .kibbutz');
-  await openFromCard(page, 'חוקוק');
+  await openLegacyFormDirect(page, 'חוקוק');
 
   const prompt = page.locator('#visitDraftPrompt');
   await expect(prompt).toBeVisible();
@@ -118,7 +140,7 @@ test('visit form: a draft autosaves and is offered back after a reload', async (
   expectNoConsoleErrors(rec);
 });
 
-test('visit form: "התחל מחדש" clears the form and drops the draft', async ({ page }, ti) => {
+test('visit form (legacy fallback): "התחל מחדש" clears the form and drops the draft', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, {
     who: 'אביאם',
     // Pre-seeded so the prompt is there on the first open — the same shape the autosave writes.
@@ -133,7 +155,7 @@ test('visit form: "התחל מחדש" clears the form and drops the draft', asyn
     },
   });
 
-  await openFromCard(page, 'חוקוק');
+  await openLegacyFormDirect(page, 'חוקוק');
   await expect(page.locator('#visitDraftPrompt')).toBeVisible();
 
   await page.locator('#visitDraftRestart').click();
