@@ -114,6 +114,182 @@ and **no UPDATE/DELETE at all** — the inbox goes through the SECURITY DEFINER
 `feedback_admin_update(id, actor, status, github_issue)`, which checks the actor against a new
 `app_admins` table. **Manual step left to עידן: `docs/whisper-server.md`** — run the container on the office server, publish
 it over Cloudflare Tunnel, set the two secrets. Until then every transcription runs on Groq.
+## [1.70] 2026-09-07 (on `feat/meter-burns-rel`, ships with 1.68-1.69) — 🔥 צריבות: writes mint the pass on demand + generator meter number with EMS lookup
+עידן's smoke: saving a generator while signed in to the EMS said "not connected". Cause: burns writes required the
+Supabase bridge pass to already be in memory, but the EMS-tab login reloads the page without minting one. Now every
+burns write (`burnWriteHdr`) calls `window._sbBridge()` first, like the data router does. ⚡ assignment dialog: name +
+שמור / הסר שיבוץ were already there; added a **"מס' מונה/בקר של הגנרטור"** field (prefilled when an existing generator
+is picked) with **🔍 EMS** lookup (`GET /v1/meters?search=`, pick a hit) — saved on the generator's `device_serial`.
+PURE `B.emsHitLines` tested; 27 suites green.
+
+## [1.69] 2026-09-07 (on `feat/meter-burns-rel`, ships with 1.68) — 🔥 צריבות: live refresh from the EMS
+עידן: "the seed is nice, but the update from the system is what matters." The seed is now only the bootstrap.
+Opening the tab (per device, when the last pull is ≥12h old) or pressing **⟳ EMS** pulls the current generation meters
+(`GET /v1/meters?roleCodes=20-24`, paginated ×200) + all solars (`GET /v1/solars`) through the existing `emsApi` proxy
+with the signed-in user's EMS token, keeps only Landis E360 by `type.key`/`type.name` (`landis_e360pp|sp|ct`), and
+upserts the EMS-owned columns by `meter_id` (`POST /rest/v1/meter_burns?on_conflict=meter_id`, merge-duplicates).
+Tracking columns (status / burned_* / generator_id / note) are never in the payload, so field work survives; a meter
+new in the EMS arrives as `pending`. Footer shows "עודכן מה-EMS <date time>"; toast reports N meters · M new.
+Still read-only on the EMS. **DB:** `db/meter_burns.sql` + seed applied by עידן (268 / 261 solar / 85 CT verified),
+plus new policy `meter_burns_insert` (authenticated) — migration `meter_burns_insert_policy`. Security advisors: no new findings.
+PURE `B.emsMeterType / emsSolarNames / emsToBurnRows` covered in `test-meter-burns.mjs`; 27 suites green. Spec §7.
+Ceiling (documented): meters that vanish from the EMS stay listed — add `seen_at` if it bites.
+
+## [1.68] 2026-09-07 (on `feat/meter-burns-rel`, NOT yet on main) — 🔥 צריבות (meter burn tracker), rollout gated to עידן
+New tab 🔥 צריבות: 268 Landis E360 generation meters (PP 176 / CT 85 / SP 7) grouped by kibbutz with
+"נותרו X/Y" + progress bar (most-pending sites first); search (site / partial serial / address / solar system /
+generator); one-tap ✅ נצרב / ⚠ בעיה (note prompt; empty note clears an issue); undo with confirm; multi-select →
+bulk burn / ⚡ assign to generator (one site at a time, datalist, new name creates the row); CT tag with ratio +
+warnings (no parent / ratio 1); burned CT styled 🟣 "מוכן לעיסוק" (display only — statuses stay pending/burned/issue);
+linked solar systems per meter; meter card with EMS link + role code; generators helper table (device serial);
+📗 Excel export (sanitized cells). **No EMS writes by design.** Module `js/src/24-meter-burns.js` (PURE block
+tested by `test-meter-burns.mjs`), tables `meter_burns` + `generators` (`db/meter_burns.sql` + `db/meter_burns_seed.sql`).
+**Why 1.68 and not 1.62/1.63:** the feature branch (10 commits, `c92a915`) was cut from a stale `dev` (1.57), so it
+was squash-replayed onto `main` 1.67 (only build-stamp conflicts) to ship on top of site consolidation.
+**Rollout gate (עידן, 2026-09-07):** `burnCanSee`/`burnCanWrite` = **עידן only** for now; the intended audience
+(see = everyone but מתניה, write = אביאם/ניתאי/עידן/עמיחי) is kept in a comment in the module.
+**DB:** migration + seed NOT applied yet (Supabase MCP `apply_migration` was blocked by the permission classifier
+in this session) — see backlog for the exact steps. 27 suites green; gate verified in-browser on the worktree preview.
+
+## [1.67] 2026-08-24 (RELEASED to main) — 🏗️ site consolidation: sub-site cards, EMS-link integrity, no more setup procedure
+Groundwork before the operations-app pivot. Ground truth pulled live from the prod EMS DB
+(`sites` + `employee_tasks`), not guessed — 59 EMS sites vs 54 cards.
+
+**1. אור הנר unified.** It is ONE EMS site but had TWO cards (חשמל / גז) both pointing at the same
+UUID, so its tasks rendered twice and neither card matched `CUSTOMER_CODES['אור הנר']` (both showed
+"אין קוד"). Now one card, `⚡ חשמל + 🔥 גז`, code #915. Sheet rows 12/13 keep their old split names,
+so `SHEET_NAME_ALIASES` folds them onto the unified card with row 12 as the save target.
+
+**2. Five sub-sites got their own cards** — גשר השלום · שדה אליהו - חקלאות · מכללת ספיר ·
+שלוחות ספק חיצוני · שער הגולן מחוץ למחלק. Each maps to its own EMS UUID, and that UUID was
+**removed from the parent entry** (מעוז חיים and שדה אליהו were carrying two each), so no task can
+render on two cards. Sub-sites show a `↳ parent` chip and are exempt from the customer-code badge.
+
+**3. Backend integrity.** כפר עזה showed no EMS tasks because its site (`d1ed862f…`) existed all
+along but was **missing from `KIBBUTZ_SITE_MAP`**; same for דביר (`52b24c7f…`). Both mapped.
+`KNOWN_UNLINKED` pins the three cards that genuinely have no EMS site — **ניר עציון, עין דור,
+דגניה ב** — and a contract test asserts nothing outside that list is unlinked.
+
+**4. A region on every card.** The Sheet has **three** `שדה אליהו` rows, two region-less, and
+last-wins was shadowing the good one — fixed so a region-less duplicate never overwrites a row that
+has a region. `REGION_FALLBACK` covers the rest (דגניה ב, דפנה, the 5 sub-sites, אור הנר).
+
+**5. The data-entry procedure is gone** — `proc-btn`, `toggleProcedure`, `[PROC_DONE]`
+parse/serialize, the CSS, and the `🔵 פרוצדורת זרימה` KPI tile in `stats.html`. Legacy
+`[PROC_DONE]` text in the Sheet is ignored on read and dropped on the next save; no migration.
+
+**6. Live ("עלה לאוויר") cards lost the construction-process fields** — no `data-step`, no stepper,
+no step label, no progress note, and the edit modal hides שלב נוכחי / הערת הקמה for them. Non-done
+cards are unchanged.
+
+`test-site-consolidation.mjs` (72 checks) + 24 sibling suites green. Verified in-browser against the
+live Sheet: 58 cards, all with a region badge, 0 proc buttons, כפר עזה now renders its EMS tasks.
+**Action (עידן):** create EMS sites for ניר עציון / עין דור / דגניה ב; delete the orphan Sheet row
+13 (אור הנר גז) and the duplicate שדה אליהו rows.
+Spec: [docs/superpowers/specs/2026-08-24-site-consolidation-design.md](superpowers/specs/2026-08-24-site-consolidation-design.md).
+
+## [1.60] 2026-08-02 — 🎯 נוכחות is now the operations hub (visits editable there, one report, EMS push)
+Per עידן: **everything is managed on the attendance page.** Five changes.
+
+**1. Field days (יום שטח) are editable from נוכחות.** 1.59 only covered non-field rows; a field day is
+derived from a VISIT, so it needed the visit editor. `openVisitFromAttendance()` resolves the visit
+globally (`editVisit()` only sees the open kibbutz card), checks the same permission rule, opens the
+kibbutz card and delegates to the normal editor. **One visit → opens directly; a day with two kibbutzim
+→ expands so you pick which.** After saving, the snapshot is patched in place and the report re-rendered,
+so the corrected day shows immediately. Fixing the visit fixes the attendance report — same record.
+
+**2. A visit now remembers its EMS task.** It never did — the task was picked in-form and thrown away, so
+"is this linked to EMS?" had no stored answer. Added `visits.ems_task_id` (**migration applied to
+production**, mirrors `orders.ems_task_id`), mapped both ways, written **partial-safe** so an edit that
+touches no EMS task can't blank an existing link.
+
+**3. Editing a linked visit pushes an EMS comment.** `buildVisitEditNote()` diffs the visit and posts
+e.g. "📅 תאריך הביקור תוקן: 3.8.2026 → 6.8.2026" plus the updated summary, via the offline-safe queue.
+**Comment only — never a status or due-date PATCH** (a visit's date is not the task's due date; patching
+it would silently move EMS planning). Returns nothing when nothing changed, and is skipped when the form
+already has an EMS intent, so the task never gets a duplicate comment.
+
+**4. דוח ביקורי שטח removed; the נוכחות PDF is the one report.** Visits are contained in attendance, so
+the monthly PDF now carries full visit detail (contact, products, work-day marking) plus a
+`📍 N ביקורים ב-M קיבוצים` total. Deleted `generateVisitsReport` + `buildVisitsReport` and the my-tasks
+button. **Careful bit:** that modal also hosted the 🚚 delivery-cert picker, the issued-certs report for
+accounting, and the visits Excel export — those were NOT deleted; they moved to a "🚚 תעודות משלוח וייצוא"
+button on the נוכחות header (they work on a date range, so they keep their own dialog).
+
+**5. The visit form no longer pre-fills today's date.** It opens empty, and `saveVisit` now **refuses**
+an empty date instead of silently falling back to `new Date()` — that silent fallback was the actual
+source of mis-dated visits, so clearing the default alone would only have hidden it. The quick-FAB is
+unaffected (it injects its wizard-chosen date after the clear).
+
+`test-attendance-hub.mjs` → 33 green; full suite 18/18. Verified live: 03.08→06.08 correction saved as an
+update (`isNew:false`), EMS comment landed on the stored task, attendance row moved, visit count unchanged
+(no duplicate); empty-date save refused; zero דוח ביקורים buttons left; PDF carries contact/products/
+totals; console clean. Spec: `docs/superpowers/specs/2026-08-02-attendance-hub-design.md`.
+**Still open:** no month-lock — a month already sent to accounting can still be edited.
+
+## [1.59] 2026-08-02 — ✏️ workers can now FIX an attendance report they already submitted
+**Asked: "can a worker update the date of an attendance entry?" Answer was no — not the date, not the
+type, not the note.** `saveAttendance()` always POSTed without an `id`, so every save was an INSERT, and
+the monthly table rendered read-only rows (only the `+` detail toggle). Worse, re-entering the day did
+**not** fix a wrong date: `mergeAttendanceByDate()` groups by calendar date, so the mis-dated row
+survived *next to* the corrected one and both showed up in the report and the PDF. The only remedy was
+editing the Supabase row by hand.
+
+**No backend work was needed** — the write router (`01-data.js`) already upserts `attendance` on `id`, so
+POSTing the usual body *with* an id PATCHes that row (same create-or-edit pattern `writeVisit()` uses).
+The gap was purely client plumbing: the row `id` was being dropped in `renderAttendanceReport()`'s
+mapping and again in `mergeAttendanceByDate()`. Both now carry it, which lights up an **✏️ on each
+non-field row** (placed inside the existing last cell, so the detail row's `colspan=5` stays valid).
+✏️ opens a small dedicated modal — date + day type + the "אחר" note — and saves with the id.
+
+**Permissions (per עידן):** each person edits **their own** entries; **עידן + עמיחי may fix anyone's**;
+viewer none (and every write is already hard-blocked for viewers at the single choke point). **Edit-only,
+no delete** — a wrong date is fixed by changing the date. `person` is always resent unchanged, so an edit
+can never reassign whose day it is; the date is noon-anchored so a timezone offset can't roll the day back.
+**יום שטח is deliberately not offered** — a field day is a VISIT, edited through the visit form.
+
+`test-attendance-edit.mjs` → 28 green (full permission matrix incl. viewer-beats-admin, local-date
+formatter vs the toISOString day-shift bug, payload carries id + preserves person, note dropped when
+leaving "אחר", id-threading regression guards, field rows carry no id, column/colspan contract). Full
+suite 17/17. Verified live: mis-dated חופש moved 07.08→09.08, **row count stayed 3 — no duplicate**;
+עידן/עמיחי see ✏️ on ניתאי's rows, מתניה and viewer see none; forcing `openAttEdit()` from the console as
+a viewer/other-person is refused; console clean.
+Spec: `docs/superpowers/specs/2026-08-02-attendance-edit-design.md`.
+
+## [1.58] 2026-08-02 — ✅ "המשימות שלי": the אחראי picker now filters the VIEW, defaulting to yourself
+The top-row אחראי picker in המשימות שלי used to only feed the report buttons — the task list below it
+always showed the logged-in user's own tasks, so there was no way to look at someone else's workload
+in the UI. The picker now drives the list too: `renderMyTasks()` resolves a `who` from the picker and
+filters all three sources on it (EMS assignee, kibbutz-owner, and the status/expectedTask "- name"
+lines). **Default: the picker auto-selects the logged-in user**, so everyone still lands on their own
+tasks; the heading switches to "המשימות של &lt;name&gt;" when viewing someone else. The placeholder option
+was relabelled `-- המשימות שלי --` (it resolves to self), and the label now says it filters the view.
+No new data exposure — the report buttons already produced any person's task list for every user.
+Graceful: a user who isn't one of the options (e.g. viewer) falls back to their own tasks.
+`test-mytasks-filter.mjs` → 14 green (default-per-person sweep, explicit pick wins, placeholder
+resets to self, unknown-user fallback, no-picker fallback, + regression guards that the three filters
+key off `who` and not `me`). Full suite 16/16 green. Verified live in the browser: אביאם defaults to
+אביאם/יגור, switching to ניתאי re-renders to דגניה+שדה אליהו, אליה shows the empty state, console clean.
+## [1.59] 2026-07-19 — 🔗 kibbutz↔EMS site integrity (spec A of the EMS-linking batch)
+Fixes the kibbutz→EMS-site linking that produced wrong-site / missing tasks (reported for דפנה, שלוחות).
+- **Exact-match resolver.** `emsSiteIdForKibbutz` now does an exact normalized-name match against live
+  `/sites`, falling back to the curated `KIBBUTZ_SITE_MAP` offline. The old **fuzzy `indexOf` containment
+  match is gone** — that was silently resolving to the wrong site.
+- **`kibbutzHasSite(name)` gate** (sync) backs both a **⚠️ "לא מקושר ל-EMS" indicator** on site-less kibbutz
+  cards and a **hard block** on every task-creation path: kibbutz-modal "new EMS task" + customer-order
+  approval (`approveCustomerOrder`). No more silent site-less/dead-lettered tasks.
+- **Data corrections (confirmed from live EMS `ems_cache`):** `KIBBUTZ_SITE_MAP` — fixed שלוחות's UUID
+  (was a wrong site), added דפנה + קיבוץ ניצנים. `kibbutz_details` (Supabase) — cleared שלוחות's wrong
+  "שלטרון" entity; added דפנה + קיבוץ ניצנים rows. In-browser smoke caught a card-name/site-name mismatch
+  (card "קיבוץ ניצנים" vs site "ניצנים") → map keyed to the card name.
+- **עידן-only linkage audit** ("🔗 בדיקת קישור אתרים") in the EMS tab — every kibbutz × resolved site × ✅/⚠️.
+- **Still flagged for עידן to resolve in EMS** (no known site UUID; auto-resolve via live match when a real
+  EMS site with the same name exists): כפר עזה, ניר עציון, עין דור, דגניה ב, דביר.
+- Tests: `test-site-resolver` (8) · `test-site-map` (4) · `test-site-indicator` (2) · `test-site-block` (3) ·
+  `test-order-site-gate` (3) · `test-site-audit` (3) — all green; regressions (dropship/order-patch/visit-cert)
+  green. Bundle boots clean (no console errors), 5 ⚠️ chips render correctly. Spec:
+  `superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md` · plan: `superpowers/plans/2026-07-19-kibbutz-site-integrity.md`.
+  On `feat/kibbutz-site-integrity` — pending dev→main. **Next in batch: D (delivery-note overhaul), B, C.**
 
 ## [1.54] 2026-07-16 — 🔴 attendance missing days as red table rows + accumulating 🔔
 Per עידן (live screenshots): the top chip block was replaced — missing weekdays now render as **red

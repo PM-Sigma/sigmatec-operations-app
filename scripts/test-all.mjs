@@ -14,6 +14,15 @@ const SKIP = new Map([
   // shells out to `timeout /t` (cmd.exe), which has no stdin under a non-interactive runner
   // on Windows → always fails locally. Pre-existing, unrelated to the React islands.
   ['test-cert-pdf.mjs', 'pre-existing Windows failure (shells out to `timeout /t`)'],
+  // Merged in with feat/meter-burns-rel (main 1.67). It is a contract test for the 1.x STATIC
+  // card architecture: it rebuilds a DOM double out of index.html's `#grid-done` / `#grid-pending`
+  // markup and lifts `injectSteppers` / the legacy edit-modal gate out of the source. 2.00 renders
+  // the cards from the `kibbutzim` table into empty `#grid-new` / `#grid-active` (Task 1) and
+  // deleted the stepper, the code badge and that edit modal, so those checks have no subject left.
+  // Its DATA half — site map, aliases, region fallback, unlinked list — is still enforced by
+  // test-site-map / test-site-resolver / test-site-block / test-site-audit / test-order-site-gate
+  // (all green). Kept on disk so the data checks can be ported onto `kibbutzim` later.
+  ['test-site-consolidation.mjs', 'tests the retired 1.x static-card DOM (2.00 renders cards from the kibbutzim table)'],
 ]);
 
 const runners = readdirSync(root).filter(f => /^test-.*\.mjs$/.test(f)).sort();

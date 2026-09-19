@@ -400,7 +400,7 @@
       emsSetStatus: function (id, status) { return call('changeEmsStatus', [id, status]); },
       emsCreateTask: function (siteId) { return call('emsCreateTaskModal', [siteId || '']); },
       emsDisconnect: function () { return call('emsDisconnect'); },
-      openVisitsReport: function () { return call('openVisitsReportModal'); },
+      openVisitsReport: function () { return call('openVisitsToolsModal'); },   // renamed with the retired דוח ביקורים — the cert/Excel tools live on נוכחות now
       openActivity: function () { return call('openActivityModal'); },
       contactPhone: function (person) { return call('contactPhone', [person], ''); },
       // The retired home block's three lists — the FALLBACK source for the "חברה" group until

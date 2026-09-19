@@ -223,6 +223,7 @@
     let flushed = { done: 0, failed: 0, dead: 0 };
     try { flushed = await emsQueueFlush(); } catch (e) { console.warn('EMS queue flush failed', e); }
     try { await emsSyncCache(); } catch (e) { console.warn('EMS cache sync failed', e); }
+    try { if (typeof getEmsSites === 'function') await getEmsSites(); } catch (e) { /* gate falls back to the map */ }
     if (flushed.done) emsToast('✅ נשלחו ' + flushed.done + ' פעולות שהמתינו בתור');
     if (flushed.dead) emsToast('⚠️ ' + flushed.dead + ' פעולות בתור נדחו ע"י EMS ונמחקו (בדוק בלוג)');
     setTimeout(function () { if (typeof refreshData === 'function') refreshData(); }, 1200);
@@ -235,6 +236,23 @@
   // from here and from `sigma.decorateCards()` (js/src/00-bridge.js). `EMS_PRIORITY_DOT` stays
   // — the legacy kibbutz-modal task list (js/src/14-calendar.js) still renders with it.
   const EMS_PRIORITY_DOT = { urgent: '#dc2626', high: '#ea580c', normal: '#64748b', low: '#94a3b8' };
+  // ⚠️ indicator: mark every kibbutz card whose name has no confident EMS site. Runs regardless of
+  // cache-sync state (it needs no EMS connection), so field users offline still see the warning.
+  function applyCardSiteWarnings() {
+    document.querySelectorAll('.kibbutz[data-name]').forEach(card => {
+      card.querySelectorAll('.card-no-site').forEach(e => e.remove());   // clear stale
+      const nm = card.dataset.name;
+      if (typeof kibbutzHasSite === 'function' && kibbutzHasSite(nm)) return;
+      const chip = document.createElement('div');
+      chip.className = 'card-no-site';
+      chip.innerHTML = '⚠️ לא מקושר ל-EMS';
+      const anchor = card.querySelector(':scope > .excel-status')
+                  || card.querySelector(':scope > .kibbutz-name-row')
+                  || card.querySelector(':scope > .kibbutz-name');
+      if (anchor) anchor.insertAdjacentElement('afterend', chip); else card.appendChild(chip);
+    });
+  }
+  window.applyCardSiteWarnings = applyCardSiteWarnings;
   // Click a task on a card: connected → full live detail (+comments); offline → cached read-only view.
   function openKibbutzEmsTask(id) {
     if (isEmsConnected()) { openEmsTask(id); return; }

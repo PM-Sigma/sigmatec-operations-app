@@ -3,8 +3,79 @@
 # Backlog & status
 
 _Update this file as things move. Session-by-session history lives in claude-mem._
-_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **·95 on dev** / **·94 on main** (2026-06-25)._
+_Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.67 on main** (2026-08-24, live)._
 
+## ✅ DONE — site consolidation & EMS-link integrity (RELEASED 1.67 to main, 2026-08-24)
+Spec: [docs/superpowers/specs/2026-08-24-site-consolidation-design.md](superpowers/specs/2026-08-24-site-consolidation-design.md).
+אור הנר unified from two energy-split cards into one · 5 sub-site cards added (גשר השלום, שדה אליהו
+חקלאות, מכללת ספיר, שלוחות ספק חיצוני, שער הגולן מחוץ למחלק), each on its own EMS UUID with the UUID
+removed from the parent so no task double-renders · כפר עזה + דביר mapped (their EMS sites existed but
+were missing from the map — that was the "no EMS tasks" bug) · every card now gets a region (the
+three-duplicate-row שדה אליהו shadowing bug fixed + REGION_FALLBACK) · the data-entry procedure deleted
+everywhere including the stats.html KPI · live cards lost the construction-process fields.
+72 checks + 24 suites green, verified in-browser against the live Sheet.
+**⛔ Blocked on עידן (EMS writes, cannot be done from the app):** create EMS sites for **ניר עציון,
+עין דור, דגניה ב** — until then those three keep the ⚠️ "לא מקושר ל-EMS" indicator and the hard block
+on task creation. Also worth cleaning in the Sheet: orphan row 13 (אור הנר גז) + duplicate שדה אליהו rows.
+**Note:** this branch also carries the never-merged 1.59 kibbutz↔EMS site-integrity work (18 commits).
+
+## ✅ DONE — נוכחות is the operations hub (shipped 1.60)
+Spec: [docs/superpowers/specs/2026-08-02-attendance-hub-design.md](superpowers/specs/2026-08-02-attendance-hub-design.md) (SHIPPED).
+Field days editable from נוכחות via the visit editor (one visit opens directly, a 2-kibbutz day expands
+to pick) · `visits.ems_task_id` added (**migration applied to prod**) so a visit remembers its EMS task ·
+editing a linked visit posts an EMS **comment** naming the change (never a status/due-date PATCH) ·
+דוח ביקורי שטח deleted, its content folded into the monthly נוכחות PDF (contact/products/visit totals),
+while the cert picker + certs report + visits Excel moved to a button on the נוכחות header · the visit
+form no longer defaults to today and refuses an empty date. 33 checks + full suite 18/18, verified live.
+**Open:** no month-lock (a month already sent to accounting is still editable); no attendance↔field
+conversion; the quick-FAB still defaults its wizard date to today (deliberate — it's an explicit step).
+
+## ✅ DONE — editable attendance reports (shipped 1.59)
+Spec: [docs/superpowers/specs/2026-08-02-attendance-edit-design.md](superpowers/specs/2026-08-02-attendance-edit-design.md) (SHIPPED).
+Workers could not fix a submitted attendance report at all (no edit path; re-entering left the mis-dated
+row alongside the new one). ✏️ per non-field row → edit date / day type / "אחר" note; saves with the row
+`id` so the router UPDATEs instead of inserting. Own entries only; עידן+עמיחי may fix anyone's; viewer none.
+**Edit-only, no delete** (a wrong date is fixed by editing the date). 28 checks + full suite 17/17, verified live.
+**Open follow-ups:** no month-lock, so a month already reported to accounting can still be edited — worth
+a lock or an edit log once a month-close concept exists. No attendance↔field conversion (mis-logging a
+field day as משרד still needs a visit created).
+
+## ✅ DONE — "המשימות שלי" per-אחראי view filter (shipped 1.58)
+The top-row אחראי picker now filters the displayed task list too (was report-buttons-only), and
+**defaults to the logged-in user** so everyone opens on their own tasks. Heading switches to
+"המשימות של &lt;name&gt;" for others. `test-mytasks-filter.mjs` → 14 green; full suite 16/16; verified live.
+
+## ✅ DONE — עידן can open others' נוכחות (shipped 1.57)
+`canSeeAttendance()` had עידן explicitly excluded; re-added via `isIdan()` so the pre-existing
+person-toggle works for him. One-line fix.
+
+## ⚠️ NEEDS RECONCILING — `feat/kibbutz-site-integrity`
+18 commits diverged from `main`, **conflicts on rebase** (index.html + sw.js generated files). 1.57 and
+1.58 both shipped by cherry-picking source-only edits into a clean worktree off `origin/main` instead.
+Decide: rebase-and-resolve, or re-apply its source edits onto main the same way. Its 7 site-* test
+suites live only on that branch (hence 16 suites on main vs 23 there).
+
+## 🟡 IN PROGRESS — EMS-linking batch (4 features, A built 2026-07-19)
+Sequence A→D→B→C, one spec+branch each.
+- **A = ✅ BUILT on `feat/kibbutz-site-integrity` (1.59), pending dev→main.** Exact-match resolver (killed
+  the fuzzy `indexOf` bug), corrected data (שלוחות UUID/entity, added דפנה + קיבוץ ניצנים), ⚠️ indicator +
+  hard block on all task-creation paths + עידן-only linkage audit. 23 checks green. Spec + plan:
+  [spec](superpowers/specs/2026-07-19-kibbutz-site-integrity-design.md) ·
+  [plan](superpowers/plans/2026-07-19-kibbutz-site-integrity.md). **Action (עידן):** in EMS, create/verify
+  sites for the still-unlinked cards — כפר עזה, ניר עציון, עין דור, דגניה ב, דביר — then ship dev→main.
+- **D = delivery-note overhaul** (save-without-PDF → produce-PDF → email; visit-summary-central auto-open
+  pulling EMS site details), **B = quick-order-from "אספקת מונים" task (AI)**, **C = remove מלאי בקיבוצים
+  window** — not yet spec'd. Next up: D.
+
+## 🟡 IN PROGRESS — 🔥 צריבות 1.70 on `feat/meter-burns-rel` (gated to עידן only) — DB ✅, EMS live refresh ✅, pending live smoke → ff dev→main
+Spec: [docs/superpowers/specs/2026-09-06-meter-burn-tracker-design.md](superpowers/specs/2026-09-06-meter-burn-tracker-design.md) (§7 = EMS refresh)
+(worktree `C:/Users/idann/Projects/SigmatecOps-wt-burns`, preview config `burns-wt` in `.claude/launch.json`).
+Done 7.9.26: tables + seed applied by עידן (268 / 261 / 85 verified), insert policy migration, tab renders real data (28 kibbutz groups),
+⟳ EMS button + auto-sync on open built (1.69), writes mint the pass on demand + generator meter-number/EMS lookup (1.70), 27 suites green, gate verified (עידן only).
+**Next:** עידן signs in to the EMS in the preview → run ⟳ EMS once → verify toast/footer + DB row count → ff-push
+`feat/meter-burns-rel` → `dev` → `main` (`dev` is stale at 1.57, fast-forwards through main) → `git worktree remove SigmatecOps-wt-burns`,
+delete superseded `feat/meter-burns`. Widen the gate when עידן approves. Deferred: EMS write-back of role, JSON export for the
+disconnect software, `seen_at` for meters that vanish from the EMS, `burnAttr` backslash escape.
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
 Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.

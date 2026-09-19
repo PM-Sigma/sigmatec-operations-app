@@ -29,7 +29,7 @@
      simply skips the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="modulepreload" href="ui/sigma.js?v=mu7lnomb">
+<link rel="modulepreload" href="ui/sigma.js?v=mu7njb2q">
 <!-- critical:start — generated from css/critical.css by build.mjs; do NOT hand-edit. src-sha256:4da873b1ce4a6e0a -->
 <style>*{box-sizing:border-box;margin:0;padding:0}:root{--primary: #1b2a4a;--primary-hover: #25395f;--accent: #2f6fed;--accent-soft: #eef3fe;--success: #0e9f6e;--success-light: #e7f6f0;--warning: #c87f0a;--warning-light: #fdf4e3;--danger: #7c5cdb;--danger-light: #f2eefb;--priority: #d64545;--priority-light: #fcecec;--gray-light: #f1f4f8;--bg: #f4f6f9;--card: #ffffff;--text: #1f2937;--text-light: #5c6572;--border: #e3e8ef;--radius: 10px;--shadow-sm: 0 1px 2px rgba(16,24,40,.05);--shadow-md: 0 4px 12px rgba(16,24,40,.08);--brand-1: #06C2CB;--brand-2: #1ABE63;--brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));--surface-2: #eef2f7;--radius-lg: 14px;--font: "Assistant", "Segoe UI", system-ui, sans-serif;--on-brand: #ffffff}:root[data-theme=dark]{--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f;--shadow-sm: 0 1px 2px rgba(0,0,0,.5);--shadow-md: 0 4px 12px rgba(0,0,0,.55)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f}}body{font-family:var(--font);font-size:15px;background:var(--bg);color:var(--text);min-height:100vh;padding:12px 16px;line-height:1.5;-webkit-font-smoothing:antialiased}@media(min-width:768px){body{padding:24px}}.container{max-width:none;margin:0 auto}.header{background:var(--bg);color:var(--text);padding:10px 2px 8px;margin-bottom:8px;position:sticky;top:0;z-index:5;min-height:56px}.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:44px}.header h1{font-size:21px;font-weight:800;letter-spacing:-.01em}.header .subtitle{font-size:11px;font-weight:500;color:var(--text-light);margin-top:3px}.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.page-nav{display:flex;gap:8px;margin-bottom:16px;background:var(--card);padding:8px;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 3px #0000000a;min-height:60px}.page-nav button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--text-light);border:none;padding:10px 16px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;min-height:44px}.page-nav button.active{background:var(--primary);color:#fff}.page-nav .nav-icon{font-size:15px;line-height:1}.section{background:var(--card);border-radius:12px;margin-bottom:16px;border:1px solid var(--border);overflow:hidden}.section-header{padding:16px 24px;background:var(--gray-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3;min-height:60px}.section-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}.section-body{padding:16px 24px 24px}.kibbutz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start;grid-auto-flow:dense}.kibbutz{padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm);position:relative;cursor:pointer;border-right-width:3px;min-height:120px}#sigma-home{min-height:100vh}body.sigma-home-fallback #sigma-home{min-height:0}#sigma-nav:not(:empty){min-height:64px}.company-tasks{min-height:120px}#userBadge,#emsBubble{display:none}#sigma-header-actions{min-height:40px}.filter-bar{padding:0;margin:0;border:0;background:none;min-height:0}.filter-bar>.search-input,.filter-bar>.filter-chip{display:none}#grid-new,#grid-active{display:none}:root[data-gate=pick] #loginModal{display:flex}</style>
 <!-- critical:end -->
@@ -40,11 +40,11 @@
      the inlined critical block above stays because it is what paints if either 404s. -->
 <!-- css/app.min.css is GENERATED from css/app.css by build.mjs (26 kB → 14 kB gzipped on a
      render-blocking request); css/app.css stays the hand-written source of truth. -->
-<link rel="stylesheet" href="css/app.min.css?v=mu7lnomb">
+<link rel="stylesheet" href="css/app.min.css?v=mu7njb2q">
 <!-- ui/sigma.css loads at NORMAL priority. It was tried as a `media="print"` swap: 8 kB
      gzipped off the critical path, against the risk of an island painting unstyled if the
      swap lands after it mounts. Not a trade worth making for 8 kB. -->
-<link rel="stylesheet" href="ui/sigma.css?v=mu7lnomb">
+<link rel="stylesheet" href="ui/sigma.css?v=mu7njb2q">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -166,6 +166,40 @@
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="document.getElementById('visitQuickModal').classList.remove('open')">ביטול</button>
         <button class="btn btn-primary" onclick="visitQuickGo()">המשך →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit an already-reported attendance day (✏️ on a row in the נוכחות report). Own entries;
+       עידן/עמיחי may fix anyone's. 'יום שטח' is absent on purpose — a field day is a VISIT. -->
+  <div class="modal-backdrop" id="attEditModal" style="z-index:1100;">
+    <div class="modal" onclick="event.stopPropagation()" style="max-width:430px;">
+      <h3>✏️ עריכת דיווח נוכחות</h3>
+      <div class="modal-sub">שנה תאריך או סוג יום ושמור. הדיווח המקורי יתעדכן — לא ייווצר דיווח נוסף.</div>
+      <div id="attEditWho" style="margin-top:10px;padding:6px 10px;background:#f0f9ff;border-right:3px solid #2563eb;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;"></div>
+
+      <label for="attEditDate" style="margin-top:12px;">📅 תאריך:</label>
+      <input type="date" id="attEditDate" style="font-size:16px;">
+
+      <div style="margin:12px 0 4px;">
+        <div style="font-size:12px;font-weight:700;color:#1b2a4a;margin-bottom:8px;">📅 סוג יום:</div>
+        <div id="attEditTypes" style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="day-type-btn" data-type="office"   onclick="attEditSetType('office')">🏢 משרד</button>
+          <button class="day-type-btn" data-type="wfh"      onclick="attEditSetType('wfh')">🏠 מהבית</button>
+          <button class="day-type-btn" data-type="reserve"  onclick="attEditSetType('reserve')">🪖 מילואים</button>
+          <button class="day-type-btn" data-type="vacation" onclick="attEditSetType('vacation')">🌴 חופש</button>
+          <button class="day-type-btn" data-type="off"      onclick="attEditSetType('off')">🚫 לא בעבודה</button>
+          <button class="day-type-btn" data-type="other"    onclick="attEditSetType('other')">➕ אחר</button>
+        </div>
+      </div>
+      <div id="attEditOtherWrap" style="display:none;margin-top:8px;">
+        <label for="attEditNote">➕ פירוט (אחר):</label>
+        <input type="text" id="attEditNote" placeholder="למשל: יום עיון, כנס, חופשת מחלה...">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeAttEdit()">ביטול</button>
+        <button class="btn btn-primary" onclick="saveAttEdit(this)">💾 שמור שינויים</button>
       </div>
     </div>
   </div>
@@ -292,7 +326,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-18·1.176</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-19·1.181</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -457,6 +491,9 @@
         <button class="inv-btn" onclick="changeAttendanceMonth(1)">←</button>
         <button class="sig-btn s" style="flex:0 0 auto;min-height:44px;padding:0 14px;" onclick="downloadAttendancePDF()">📄 PDF</button>
         <button class="sig-btn s xl-export-btn" style="display:none;flex:0 0 auto;min-height:44px;padding:0 14px;" onclick="xlExportAttendanceCurrent()">📗 Excel</button>
+        <!-- נוכחות is the hub: the delivery-cert tools + visits Excel moved here from the (removed)
+             דוח ביקורים. They all work on a date RANGE, so they keep their own small dialog. -->
+        <button class="sig-btn s" style="flex:0 0 auto;min-height:44px;padding:0 14px;" onclick="openVisitsToolsModal()">🚚 תעודות / ייצוא</button>
       </div>
     </div>
     <div id="attendanceSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
@@ -551,6 +588,16 @@
   <div id="devTasksContent" aria-live="polite">
     <div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>
   </div>
+</div>
+
+<div id="burns-view" style="display:none;padding:16px 0;">
+  <div id="burnsContent">טוען...</div>
+</div>
+<div class="modal-backdrop" id="burnCardModal" style="z-index:1150;" onclick="if(event.target.id==='burnCardModal') this.classList.remove('open')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;"><div id="burnCardContent"></div></div>
+</div>
+<div class="modal-backdrop" id="burnAssignModal" style="z-index:1160;" onclick="if(event.target.id==='burnAssignModal') this.classList.remove('open')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px;"><div id="burnAssignContent"></div></div>
 </div>
 
 <!-- EMS Task Detail Modal (status change, comments, calendar) -->
@@ -692,7 +739,7 @@
             <input type="number" id="visitDuration" class="sig-fi" min="0.25" step="0.25" placeholder="1.5" oninput="syncVisitDurationChips()">
           </div>
           <div style="flex:1;">
-            <label class="sig-fl" for="visitDate" style="margin-bottom:6px;">תאריך הביקור</label>
+            <label class="sig-fl" for="visitDate" style="margin-bottom:6px;">תאריך הביקור — בחר תאריך</label>
             <input type="date" id="visitDate" class="sig-fi">
           </div>
         </div>
@@ -1060,11 +1107,15 @@
   </div>
 </div>
 
-<!-- Visits Report Modal -->
+<!-- Delivery-cert + export tools, opened from the נוכחות page.
+     The דוח ביקורי שטח that used to live here is GONE — visits are contained in the נוכחות report
+     (📄 PDF), which is now the single report. These three tools stayed because they work on a date
+     RANGE rather than the report's single month, and they share these inputs. -->
 <div class="modal-backdrop" id="visitsReportModal" onclick="if(event.target.id==='visitsReportModal') this.classList.remove('open')">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;">
-    <h3>📍 דוח ביקורי שטח</h3>
-    <div class="modal-sub">הפק דוח של הביקורים שנשמרו במכשיר זה</div>
+    <h3>🚚 תעודות משלוח וייצוא</h3>
+    <div class="modal-sub">בחר טווח תאריכים (ואופציונלית עובד), ואז הפק תעודה / דוח תעודות / ייצוא Excel.<br>
+      <span style="color:#64748b;">דוח הנוכחות עצמו — כולל הביקורים — מופק בכפתור 📄 PDF שבעמוד נוכחות.</span></div>
 
     <label for="visitsReportVisitor">👤 מבקר (אופציונלי):</label>
     <select id="visitsReportVisitor">
@@ -1099,10 +1150,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="document.getElementById('visitsReportModal').classList.remove('open')">סגור</button>
-      <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportVisitsFromModal()">📗 Excel</button>
-      <button class="btn btn-primary" onclick="generateVisitsReport('preview')">👁 הצג</button>
-      <button class="btn btn-whatsapp" onclick="generateVisitsReport('copy')">📋 העתק</button>
-      <button class="btn btn-whatsapp" onclick="generateVisitsReport('whatsapp')">📱 וואטסאפ</button>
+      <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportVisitsFromModal()">📗 Excel ביקורים</button>
     </div>
   </div>
 </div>
@@ -1178,7 +1226,7 @@
 <div id="sigma-relogin"></div>
 <div id="sigma-toaster"></div>
 <div id="sigma-nav"></div>
-<script defer src="js/app.js?v=mu7lnomb"></script>
+<script defer src="js/app.js?v=mu7njb2q"></script>
 <script>
 // The islands are FETCHED early (rel=modulepreload in <head>) but EXECUTED after the first
 // paint (task 22b). As a plain deferred module they ran in the same turn as the legacy bundle,
@@ -1190,7 +1238,7 @@
   function go() {
     var s = document.createElement('script');
     s.type = 'module';
-    s.src = 'ui/sigma.js?v=mu7lnomb';
+    s.src = 'ui/sigma.js?v=mu7njb2q';
     document.body.appendChild(s);
   }
   function afterPaint() {

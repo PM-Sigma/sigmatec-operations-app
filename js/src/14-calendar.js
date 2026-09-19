@@ -282,6 +282,36 @@
     if (!errored && isEmsConnected()) { try { await emsSyncCache(); } catch (e) {} }
   }
 
+  // ---- Editing a visit that is already tied to an EMS task → tell that task what changed ----
+  // COMMENT ONLY, by decision: a visit's date is not the task's due date, so we never PATCH the task
+  // (that would silently move everyone's EMS planning). Returns '' when nothing actually changed, so
+  // a no-op save never spams the task with an empty update.
+  function buildVisitEditNote(prev, next) {
+    const dl = s => { const d = new Date(s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('he-IL'); };
+    const dur = v => v.workday ? 'יום עבודה' : ((v.duration || 0) + "ש'");
+    const prods = v => (v.products || []).map(p => (typeof p === 'string' ? p : p.name + '×' + p.qty)).sort().join(', ');
+    const ch = [];
+    if (dl(prev.date) !== dl(next.date))               ch.push('📅 תאריך הביקור תוקן: ' + dl(prev.date) + ' → ' + dl(next.date));
+    if ((prev.visitor || '') !== (next.visitor || '')) ch.push('👤 מבצע הביקור: ' + (prev.visitor || '—') + ' → ' + (next.visitor || '—'));
+    if (dur(prev) !== dur(next))                       ch.push('⏱️ משך: ' + dur(prev) + ' → ' + dur(next));
+    if ((prev.contact || '') !== (next.contact || '')) ch.push('🤝 איש קשר: ' + (prev.contact || '—') + ' → ' + (next.contact || '—'));
+    if (prods(prev) !== prods(next))                   ch.push('📦 מוצרים: ' + (prods(prev) || '—') + ' → ' + (prods(next) || '—'));
+    if ((prev.summary || '') !== (next.summary || '')) ch.push('📝 הסיכום עודכן');
+    if (!ch.length) return '';
+    let s = '✏️ דוח הביקור עודכן במערכת הניהול\n' + ch.map(c => '• ' + c).join('\n');
+    if ((next.summary || '').trim()) s += '\n\n📝 הסיכום המעודכן:\n' + next.summary.trim();
+    return s;
+  }
+  async function pushVisitEditToEms(taskId, prev, next) {
+    const msg = buildVisitEditNote(prev, next);
+    if (!taskId || !msg) return;
+    try {
+      const r = await emsWriteOrQueue({ kind: 'comment', taskId: taskId, message: msg, meta: { kibbutz: next.kibbutz } });
+      if (r && r.error) emsToast('⚠️ שגיאת EMS: ' + r.error);
+      else emsToast(r && r.queued ? '🕒 עדכון הביקור יישלח ל-EMS בהתחברות הבאה' : '✅ עדכון הביקור נשלח למשימת ה-EMS');
+    } catch (e) { console.warn('EMS visit-edit push failed', e); }
+  }
+
   // ponytail: dead post-save EMS popup removed — superseded by the in-form visit→EMS block.
 
   // Sites cache
@@ -295,15 +325,29 @@
   }
   // Normalize a Hebrew site/kibbutz name for matching (collapse whitespace, trim).
   function emsNormName(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
-  // Best-effort map a kibbutz name → EMS site id. Returns '' if no confident match.
+  // Map a kibbutz name → EMS site id. EXACT normalized-name match against live /sites first
+  // (self-heals EMS renames); offline / no live match → the curated KIBBUTZ_SITE_MAP. Returns ''
+  // when there is no confident site — callers must treat '' as "not linked" (no fuzzy guessing).
   async function emsSiteIdForKibbutz(name) {
     const target = emsNormName(name);
     if (!target) return '';
-    const sites = await getEmsSites();
-    // exact (normalized) match first, then containment either way ("קיבוץ X" vs "X")
-    let hit = sites.find(s => emsNormName(s.name) === target);
-    if (!hit) hit = sites.find(s => { const n = emsNormName(s.name); return n && (n.indexOf(target) !== -1 || target.indexOf(n) !== -1); });
-    return hit ? hit.id : '';
+    try {
+      const sites = await getEmsSites();
+      const hit = sites.find(s => emsNormName(s.name) === target);
+      if (hit) return hit.id;
+    } catch (e) { /* offline / API down → fall through to the curated map */ }
+    const mapped = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
+    return mapped.length ? mapped[0] : '';
+  }
+  // The live /sites list, cached by getEmsSites (module-local _emsSites). Exposed for kibbutzHasSite/tests.
+  function emsSitesCached() { return _emsSites; }
+  // SYNC gate used by the ⚠️ indicator AND every task-creation block — they can never disagree.
+  // True iff the kibbutz is in the curated map, OR (connected) an exact live-site name match exists.
+  function kibbutzHasSite(name) {
+    if ((typeof kibbutzSiteIds === 'function') && kibbutzSiteIds(name).length) return true;
+    const sites = emsSitesCached();
+    if (sites && sites.length) { const t = emsNormName(name); return sites.some(s => emsNormName(s.name) === t); }
+    return false;
   }
   // Admin-role users — eligible task assignees. May 403 if the token role is low → empty list.
   async function getEmsUsers() {
@@ -385,6 +429,12 @@
     if (!box) return;
     if (!(typeof canUseEms === 'function' && canUseEms())) { box.style.display = 'none'; box.innerHTML = ''; return; }
     box.style.display = '';
+    if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {
+      box.innerHTML = '<div class="modal-ems-nosite" style="margin-top:6px;padding:9px 12px;background:#fef2f2;' +
+        'border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:700;">' +
+        '⚠️ לא מקושר ל-EMS — צור או קשר את האתר ב-EMS לפני פתיחת משימה.</div>';
+      return;
+    }
     const ids = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
     const tasks = ids.length ? emsCacheTasksForKibbutz(name) : [];
     // Full-width button when there's NO open task; small side bubble when a task exists.
@@ -408,6 +458,12 @@
 
   async function createEmsTaskForKibbutz() {
     const name = currentKibbutz;
+    // main 1.67 site integrity: a kibbutz with no EMS site cannot open a task there at all,
+    // so the hard block comes BEFORE the sign-in surface — signing in would not help.
+    if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {
+      emsToast('⚠️ אין אתר EMS מקושר לקיבוץ — צור/קשר את האתר ב-EMS תחילה');
+      return;
+    }
     if (!isEmsConnected()) {   // not connected → the ONE sign-in surface (spec §7n)
       emsRequireLogin();
       return;
@@ -419,6 +475,40 @@
     await emsCreateTaskModal(siteId);
     if (!siteId) emsToast('⚠️ לא נמצא אתר EMS תואם ל"' + name + '" — בחר אתר ידנית');
   }
+
+  // Pure: build audit rows — for each kibbutz name, resolve its site id via the map, then look up the
+  // matching live site NAME to confirm the UUID is real. ok = mapped AND the UUID exists in live /sites.
+  function emsSiteAuditRows(kibbutzNames, sites, resolveIds) {
+    const byId = {}; (sites || []).forEach(s => { byId[s.id] = s.name; });
+    return (kibbutzNames || []).map(nm => {
+      const ids = (resolveIds || (() => []))(nm);
+      const siteName = ids.length ? (byId[ids[0]] || '') : '';
+      return { kibbutz: nm, siteName: siteName || '—', ok: !!siteName };
+    });
+  }
+  async function renderEmsSiteAudit() {
+    const box = document.getElementById('emsSiteAudit');
+    if (!box) return;
+    if (!(typeof isIdan === 'function' && isIdan())) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    let sites = []; try { sites = await getEmsSites(); } catch (e) {}
+    // Names come from the rendered kibbutz cards — the same source the ⚠️ indicator uses, so the two
+    // views can never disagree.
+    const names = Array.from(document.querySelectorAll('.kibbutz[data-name]'))
+      .map(c => c.dataset.name).filter((v, i, a) => v && a.indexOf(v) === i);
+    const rows = emsSiteAuditRows(names, sites, (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds : () => []);
+    const bad = rows.filter(r => !r.ok).length;
+    const bodyEl = box.querySelector('.audit-body');
+    if (!bodyEl) return;
+    bodyEl.innerHTML =
+      '<div style="font-size:12px;color:#64748b;margin-bottom:6px;">' + rows.length + ' קיבוצים · ' +
+      (bad ? ('<b style="color:#b91c1c;">' + bad + ' לא מקושרים</b>') : '✅ הכל מקושר') + '</div>' +
+      rows.sort((a, b) => a.ok - b.ok).map(r =>
+        '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid #f1f5f9;font-size:13px;">' +
+        '<span>' + (r.ok ? '✅' : '⚠️') + ' ' + emsEsc(r.kibbutz) + '</span>' +
+        '<span style="color:#64748b;">' + emsEsc(r.siteName) + '</span></div>').join('');
+  }
+  window.renderEmsSiteAudit = renderEmsSiteAudit;
 
   async function emsEditTask(id) {
     const t = window._emsCurrentTask;
@@ -448,6 +538,7 @@
     // that resync failed (matches the old applyCardEmsWidgets() call, which redrew unconditionally
     // too — from whatever the cache already held). A double-fire on the success path is harmless.
     if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: emsCacheData().tasks.length });
+    if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
     if (typeof reorderCards === 'function') reorderCards();
     // If the kibbutz modal is still open (task created from a card), refresh its EMS section.
     const backdrop = document.getElementById('modalBackdrop');

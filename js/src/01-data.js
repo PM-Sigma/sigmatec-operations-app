@@ -273,11 +273,11 @@
       return {
         tasks: [
           // copy-ok: mock row DATA — an `expectedTask` is a task title from the sheet, not UI copy.
-          { name: 'יגור',     row: 2, region: 'עמק יזרעאל', owners: ['אביאם'], status: 'מותקנים 12 מונים\nממתין לבקר חדש', expectedTask: 'בדיקת זרימת נתונים', task: '[PROC_DONE] step=9', code: '101', lastModified: nowISO() },
+          { name: 'יגור',     row: 2, region: 'עמק יזרעאל', owners: ['אביאם'], status: 'מותקנים 12 מונים\nממתין לבקר חדש', expectedTask: 'בדיקת זרימת נתונים', task: 'step=9', code: '101', lastModified: nowISO() },
           { name: 'דגניה',    row: 3, region: 'עמק הירדן',  owners: ['ניתאי'], status: 'ממתין למשלוח מונים', expectedTask: 'תיאום ביקור התקנה', task: 'step=3', code: '102', lastModified: nowISO() },
           { name: 'חוקוק',    row: 4, region: 'גליל תחתון', owners: ['אביאם'], status: 'באג: מונה כפול בהקמה', expectedTask: '', task: 'step=2', code: '103', lastModified: nowISO() },
           { name: 'גבת',      row: 5, region: 'עמק יזרעאל', owners: ['עידן'],  status: '', expectedTask: 'שיווק', task: '', code: '104', lastModified: nowISO() },
-          { name: 'שדה אליהו', row: 6, region: 'בקעת בית שאן', owners: ['ניתאי'], status: 'באוויר', expectedTask: '', task: '[PROC_DONE] step=9', code: '105', lastModified: nowISO() },
+          { name: 'שדה אליהו', row: 6, region: 'בקעת בית שאן', owners: ['ניתאי'], status: 'באוויר', expectedTask: '', task: 'step=9', code: '105', lastModified: nowISO() },
           { name: 'כפר עזה', row: 7, region: 'שער הנגב', owners: ['עמיחי'], status: 'בתהליך אפיון', expectedTask: '🎯 תיאום פגישת אפיון (אין אתר EMS — fallback)', task: 'step=1', code: '106', lastModified: nowISO() }
         ],
         potentials: [], regions: [], orders: [], products: [], movements: [],
@@ -354,6 +354,18 @@
         const se = qs.get('search');   if (se) list = list.filter(t => (t.title || '').indexOf(se) !== -1);
         if (qs.get('overdueOnly') === 'true') list = list.filter(t => CLOSED.indexOf(t.status) === -1 && t.expectedCompletionDate && new Date(t.expectedCompletionDate) < new Date());
         return ok({ data: list, meta: { total: list.length, skip: 0, take: 50 } });
+      }
+      // 🔥 meters / solars (burns tab: ⟳ EMS refresh + generator 🔍 EMS lookup) — a few E360 generation meters on יגור
+      if (p === '/meters' || p === '/solars') {
+        const yagur = M.sites[0], mk = (id, sn, addr, key, role, cm, parent) => ({ id, serialNumber: sn, address: addr, currentMultiplier: cm, site: yagur,
+          role: { code: role, name: 'Solar production' }, type: { key, name: 'Landis ' + key.split('_')[1].toUpperCase() }, parent: parent ? { id: 'mock-p', serialNumber: parent } : null });
+        const meters = [mk('mock-m1', '68369287', 'רפת 7 מונה ייצור', 'landis_e360ct', 20, 50, '68369290'), mk('mock-m2', '59965612', 'סולארי דיר', 'landis_e360pp', 24, 1, null),
+                        mk('mock-m3', '11223344', 'גנרטור חירום — בקר', 'landis_e360pp', 11, 1, null)];
+        if (p === '/solars') return ok({ data: [{ id: 'mock-so1', name: 'סולארי רפת 7', solarMeters: [{ meter: { id: 'mock-m1' } }] }], meta: { total: 1 } });
+        let list = meters.slice();
+        const rc = qs.get('roleCodes'); if (rc) list = list.filter(m => rc.split(',').map(Number).indexOf(m.role.code) !== -1);
+        const se = qs.get('search');    if (se) list = list.filter(m => m.serialNumber.indexOf(se) !== -1 || m.address.indexOf(se) !== -1);
+        return ok({ data: list, meta: { total: list.length } });
       }
       return ok({ message: 'mock: unhandled ' + method + ' ' + p }, 404);
     }
@@ -505,7 +517,7 @@
         tasks: tasks.map(t => ({ row: t.seq, code: t.code == null ? null : numish(t.code), region: t.region || '', migrated: t.migrated || '', name: t.name || '', status: t.status || '', expectedTask: t.expected_task || '', owners: String(t.owners || '').split(/[,\n\/]/).map(s => s.trim()).filter(Boolean), task: t.task || '', lastCheckup: t.last_checkup || '', editor: t.editor || '', lastModified: t.last_modified ? String(t.last_modified) : '' })),
         potentials: potentials.map(p => ({ serial: (p.serial === '' || p.serial == null) ? '' : numish(p.serial), region: p.region || '', name: p.name || '' })),
         regions: regionsObj,
-        visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday })),
+        visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday, emsTaskId: v.ems_task_id || '' })),
         products: products.map(p => ({ id: String(p.id), name: p.name || '', category: p.category || '', active: !!p.active, createdAt: p.created_at ? String(p.created_at) : '', createdBy: p.created_by || '' })),
         orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, orderType: o.order_type || '', kibbutz: o.kibbutz || '', assignee: o.assignee || '', lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
         movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
@@ -531,6 +543,10 @@
       const id = b.id || genId('v');
       const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', open_items: b.openItems || '', workday: !!b.workday };
       if (!b.id || b.isNew) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now). New visits now carry a pre-minted id, so isNew distinguishes create from edit.
+      // EMS link: only written when the caller actually sends one. An edit that touches no EMS task
+      // omits the key entirely, so the upsert-merge keeps whatever task the visit was already tied to
+      // instead of blanking it (same partial-safe reasoning as created_at above).
+      if (b.emsTaskId !== undefined) row.ems_task_id = b.emsTaskId || '';
       await sbUpsert('visits', 'id', row);
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
         const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: it.toStock ? 'restocked' : 'open' }));
@@ -686,8 +702,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
   const KIBBUTZ_SITE_MAP = {
     "אגודת המים עמק הירדן": ["c40203ac-2f3a-4445-9fd8-b3f0d08c1b2f"],
-    "אור הנר גז": ["9d755469-c2f7-4abd-9a48-88d1b07c3146"],
-    "אור הנר חשמל": ["9d755469-c2f7-4abd-9a48-88d1b07c3146"],
+    "אור הנר": ["9d755469-c2f7-4abd-9a48-88d1b07c3146"],
     "אלומות": ["4094e057-97e8-4acc-ba92-e81ab119665e"],
     "אלונים": ["38493e06-b7dd-470d-a81d-c00634337f9f"],
     "אפיק": ["bf8fcda4-ebde-45ca-aada-07075989436d"],
@@ -699,6 +714,7 @@
     "גברעם": ["29b3e1c2-6ce0-4d6b-b699-847fee42d995"],
     "גבת": ["ed86a5b9-ae41-4317-942e-f42b0ba44aba"],
     "גניגר": ["7c70b14b-754a-43ed-8bf1-9c1ade6f075c"],
+    "דביר": ["52b24c7f-dfb8-4985-bd25-51f9ad082a83"],
     "חולדה": ["d697d259-95ee-4dcc-95fa-820f6ec3d32a"],
     "חוצות יגור": ["0cf0467c-f8e6-4807-96dc-1d154e2b7fda"],
     "חוקוק": ["d1bdff7a-82c2-46d1-92f1-96ab0679911e"],
@@ -709,15 +725,18 @@
     "כפר דניאל": ["5cbf4b2b-b968-4f10-8733-a055db5cfa60"],
     "כפר מנחם": ["52e1f273-ca7b-4b75-bcc1-3b4451774e87"],
     "כפר מסריק": ["e1f2535b-e977-4f34-82c3-0af89fcd4851"],
+    "כפר עזה": ["d1ed862f-a03a-4a43-8c22-1f19028a1b68"],
     "לביא": ["69a9e842-0742-4d21-b3a2-3ed46b221a73"],
     "להב": ["bcb46661-abd1-4884-a54e-45906a52f6c2"],
     "מגידו": ["d66a0a58-15c2-486d-82c0-d2add10c2b6b"],
     "מגן": ["c54ef394-9a51-46e1-8758-0a0a1b715ab7"],
-    "מעוז חיים": ["f5becfd4-5193-4b55-b7a1-4c067ba9e2b9","b7229e14-ff17-4f69-bc94-6d248cdadd7e"],
+    "מעוז חיים": ["f5becfd4-5193-4b55-b7a1-4c067ba9e2b9"],
+    "גשר השלום": ["b7229e14-ff17-4f69-bc94-6d248cdadd7e"],
     "מעלה גלבוע": ["a755f8a2-f3cd-4962-a23c-62b32b619898"],
     "משואות יצחק": ["7e1ce0e8-5ac6-401e-a525-53ebe5f0d62a"],
     "משמר השרון": ["800f1b97-c7ae-425b-bf01-f4a17c028f8b"],
     "מתחם חינוך שער הנגב": ["1eaeb274-7227-46e0-b9ff-31b674ebaaf9"],
+    "מכללת ספיר": ["de0b71a3-b0c2-48d8-94b5-67c02561640e"],
     "עין המפרץ": ["5535f354-7a39-4364-a929-e16ad8e4bd07"],
     "עין השופט": ["0ab92b61-53fc-426d-ac44-67f3406b87fb"],
     "עין חרוד מאוחד": ["be2827e9-69eb-4f51-b298-9a04076c775d"],
@@ -726,9 +745,14 @@
     "קבוצת יבנה": ["a2a36e36-58c8-48c7-8a7f-3c5defe5bc43"],
     "קיבוץ גת": ["0b0d7c89-78d6-4dc4-b0fb-4df5cf76c35b"],
     "רמות מנשה": ["b5f691ab-6941-481b-860c-adb1d4532cf5"],
-    "שדה אליהו": ["3f91ccf9-67ae-4420-bf30-b7ea57ad16b2","14a28537-15a6-4860-8a57-410d9cbf738c"],
-    "שלוחות": ["07ab3dee-7192-4f19-a004-0fae7c09d3fd"],
+    "שדה אליהו": ["3f91ccf9-67ae-4420-bf30-b7ea57ad16b2"],
+    "שדה אליהו - חקלאות": ["14a28537-15a6-4860-8a57-410d9cbf738c"],
+    "שלוחות": ["9a0ba3d3-b7f2-4597-b3ee-3537e4f8d75e"],
+    "שלוחות ספק חיצוני": ["60520f2f-a813-41e4-8fbf-783800ca86ad"],
+    "דפנה": ["490a865d-c4f4-4a4a-96da-14a273e7f03b"],
+    "קיבוץ ניצנים": ["ae9ac4c6-119e-496c-9aad-331e95a2551d"],
     "שער הגולן": ["829c78e9-e497-47f4-9aa1-ee8f4bc1085c"],
+    "שער הגולן מחוץ למחלק": ["9cbdadcd-0c5f-40de-a804-c429bf9bcf3e"],
     "שריד": ["b8a2aa72-feab-400d-9d27-14d7635a7db1"],
     "תל קציר": ["6ec619fb-ee23-4a8d-b075-4c735ef61324"],
     "דגניה": ["cc079fe9-5f00-4a3d-a654-707207d831db"]
@@ -745,6 +769,26 @@
     for (const k in KIBBUTZ_SITE_MAP) { if (k.replace(/\s+/g, ' ').trim() === n) return KIBBUTZ_SITE_MAP[k]; }
     return [];
   }
+
+  // sheet rows 12/13 still carry the old split names → fold onto the unified card.
+  // declaration order matters: row 12 (חשמל) wins as the save target.
+  const SHEET_NAME_ALIASES = { 'אור הנר חשמל': 'אור הנר', 'אור הנר גז': 'אור הנר' };
+
+  // region when the Sheet row has none, or no row exists yet (new sub-sites)
+  const REGION_FALLBACK = {
+    'אור הנר': 'דרום, עוטף עזה והנגב',
+    'דגניה ב': 'העמקים',
+    'דפנה': 'גליל וגולן',
+    'גשר השלום': 'העמקים',
+    'שדה אליהו - חקלאות': 'העמקים',
+    'שלוחות ספק חיצוני': 'העמקים',
+    'שער הגולן מחוץ למחלק': 'העמקים',
+    'מכללת ספיר': 'דרום, עוטף עזה והנגב'
+  };
+
+  // cards with no EMS site yet — עידן must create them in EMS. The contract test
+  // (test-site-consolidation.mjs) asserts nothing OUTSIDE this list is unlinked.
+  const KNOWN_UNLINKED = ['ניר עציון', 'עין דור', 'דגניה ב'];
 
   window.SHEET_DATA = null;
   window.currentEditTask = null;
@@ -796,18 +840,14 @@
     el.appendChild(pill);
   }
 
-  // Parse the `task` column, which carries `step=N | note=… | cat=X | type=Y`. The legacy
-  // `[PROC_DONE]` marker is still READ so old rows round-trip unchanged through an edit, but
-  // nothing in the UI shows it any more (spec §2 — the concept is deleted).
+  // Parse the task field which can contain step=N | note=... | cat=X | type=X
   function parseTaskField(taskStr) {
     taskStr = String(taskStr || '');
-    const proc = taskStr.includes('[PROC_DONE]');
     const stepMatch = taskStr.match(/step=(\d+)/);
     const noteMatch = taskStr.match(/note=([^|]*?)(?:\||$)/);
     const catMatch = taskStr.match(/cat=([a-z_]+)/);
     const typeMatch = taskStr.match(/type=([a-z_]+)/);
     return {
-      proc,
       step: stepMatch ? parseInt(stepMatch[1]) : null,
       note: noteMatch ? noteMatch[1].trim() : '',
       cat: catMatch ? catMatch[1] : null,
@@ -816,9 +856,8 @@
     };
   }
 
-  function serializeTaskField(proc, step, note, cat, type) {
+  function serializeTaskField(step, note, cat, type) {
     const parts = [];
-    if (proc) parts.push('[PROC_DONE]');
     if (step) parts.push('step=' + step);
     if (note) parts.push('note=' + note);
     if (cat) parts.push('cat=' + cat);
@@ -850,15 +889,31 @@
   function enrichCardsWithSheet(data) {
     if (!data || !data.tasks) return;
     const byName = {};
-    data.tasks.forEach(t => { if (t.name) byName[t.name] = t; });
+    // duplicate rows (שדה אליהו 28/63/64): a region-less row must not shadow one with a region
+    data.tasks.forEach(t => {
+      if (!t.name) return;
+      const prev = byName[t.name];
+      if (prev && prev.region && !t.region) return;
+      byName[t.name] = t;
+    });
+    // fold legacy split-name rows onto the unified card (first alias in sheet order wins)
+    for (const from in SHEET_NAME_ALIASES) {
+      const to = SHEET_NAME_ALIASES[from];
+      if (byName[from] && !byName[to]) byName[to] = byName[from];
+    }
 
     document.querySelectorAll('.kibbutz').forEach(card => {
       const name = card.dataset.name;
       if (!name) return;
-      const task = byName[name];
-      if (!task) return;
+      let task = byName[name];
+      if (task && !task.region) task.region = REGION_FALLBACK[name] || '';
+      if (!task) {
+        // no sheet row yet (new sub-site): synthetic row so the region badge still renders
+        if (!REGION_FALLBACK[name]) return;
+        task = { row: null, region: REGION_FALLBACK[name], status: '', expectedTask: '', owners: [], task: '', lastModified: '' };
+      }
 
-      card.dataset.row = task.row;
+      if (task.row) card.dataset.row = task.row;
       card.dataset.lastModified = task.lastModified || '';
 
       const parsed = parseTaskField(task.task);
