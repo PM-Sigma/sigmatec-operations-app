@@ -10,6 +10,7 @@ import { useVisitDraft } from '@/lib/visitDrafts';
 import { CardActions } from '@/components/home/CardActions';
 import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
+import { BurnChip } from '@/components/home/Burns';
 import { energyText, labelOf, sectionOf, isSubsite, type KibbutzRow } from '@/lib/kibbutzim';
 
 export function KibbutzCard({
@@ -68,6 +69,10 @@ export function KibbutzCard({
             ✍️ סיכום ביקור בהתהוות
           </span>
         )}
+        {/* 🔥 צריבות (Task 23) — a TEMPORARY project chip: `נותרו X/Y` while there is work
+            left here, and nothing at all once the kibbutz is finished. It counts as part of
+            the card's routine open work (עידן 18.9 21:50), so it is not gated to the field role. */}
+        <BurnChip kibbutz={row.name} />
         {row.marketing && (
           <span className="tag-marketing rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
             🤝 בתהליך שיווקי

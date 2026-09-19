@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ADD_LABEL, primaryAdd, primaryAddLabel, type AddAction, type AddPage } from '@/lib/primaryAdd';
 import type { PersonRole } from '@/lib/landing';
 
-const PAGES: AddPage[] = ['kibbutz', 'calendar', 'inventory', 'attendance', 'dev', 'pushlog'];
+const PAGES: AddPage[] = ['kibbutz', 'calendar', 'inventory', 'attendance', 'dev', 'pushlog', 'burns'];
 const ROLES: PersonRole[] = ['field', 'pm', 'dev', 'ceo', 'viewer'];
 
 describe('primaryAdd — the matrix', () => {
@@ -16,6 +16,7 @@ describe('primaryAdd — the matrix', () => {
     attendance: 'visit',
     dev: 'none',
     pushlog: 'none',
+    burns: 'none',      // 🔥 צריבות (Task 23) — a fixed meter list, nothing to add by hand
   };
 
   for (const page of PAGES) {

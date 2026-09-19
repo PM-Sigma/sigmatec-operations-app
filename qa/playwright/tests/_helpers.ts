@@ -117,6 +117,10 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       // nudge only appear on the screen that is about them (qa/playwright/tests/field.spec.ts).
       case 'field_checkins': return route.fulfill(json(shape(opts.checkins ? FIXTURES.checkins() : [], accept)));
       case 'feedback': return route.fulfill(json(shape([], accept)));
+      // 🔥 צריבות (Task 23) — the temporary project's two tables. Reads are fixtures;
+      // a ✅ נצרב is a PATCH, which the write branch above 401s like every other write.
+      case 'meter_burns': return route.fulfill(json(shape(FIXTURES.burns, accept)));
+      case 'generators': return route.fulfill(json(shape(FIXTURES.generators, accept)));
       // The saved route comes back for exactly the (person, date) the island asked for —
       // PostgREST filters look like `person=eq.<name>&date=eq.<day>`.
       case 'day_plans': {

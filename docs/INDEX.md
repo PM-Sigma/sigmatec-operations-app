@@ -76,8 +76,17 @@ Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-rede
 https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP, decisions page https://claude.ai/artifact/Cq6MPDDU1MavN2HujKqzYo,
 (7) reports `docs/reports/2026-09-18-*.md` (UX, adoption, retirement coverage).
 
-**Done (reviewed clean):** Tasks 1, 0, 1b, 2, 3, 6, 17, 4. **Next:** 21 (session) → 5 (arrival) → 6b (Whisper live) → 11 → 12 →
-13 → 14 → 15 → 16 → 20 → 18 → 19 (SRS) → 7 (release 2.00 via `node build.mjs major`) → 8–10 (inventory).
+**Done (reviewed clean):** Tasks 1, 0, 1b, 2, 3, 6, 17, 4, 21, 5, 6b, 12, 13, 14, 11, **23 (🔥 צריבות)**.
+**Next:** 15 → 16 → 20 → 18 → 19 (SRS) → 7 (release 2.00 via `node build.mjs major`) → 8–10 (inventory) → P4 (24–30).
+
+**Task 23 (19.9) — 🔥 צריבות is inside 2.00 now.** `feat/meter-burns-rel` (1.71) was merged into this branch, which also
+brought **main 1.67** (site consolidation + attendance hub + login self-heal) onto the 2.00 branch for the first time.
+The project has no nav tab: a card chip `🔥 נותרו X/Y` (hidden at 0), a 🔥 צריבות section in the card modal, `burn` rows
+in the briefing (ticking one = ✅ נצרב), and a progress strip above the cards — work for אביאם/ניתאי, **progress** for
+עמיחי/עידן. One flag removes all of it: `window.BURNS_PROJECT_ACTIVE = false` in `js/src/24-meter-burns.js`.
+Two test files are worth knowing about after that merge: `test-mytasks-filter.mjs` was deleted (the משימות page it
+guarded was retired in Task 14) and `test-site-consolidation.mjs` is SKIPped in `scripts/test-all.mjs` with a reason — it
+asserts against the 1.x static card DOM that 2.00 replaced with the `kibbutzim` table.
 **Open for עידן:** coverage gaps G5/G6/G8; plan the company-process spec into tasks + mockup; manual steps (SELF_WHISPER_TOKEN,
 GH_TOKEN scopes, CRON_SECRET + cron scheduling, first logged-in saves, 3 voice notes for the Whisper comparison).
 ## 🚦 Current state — last: 2026-09-07 (**1.70 on `feat/meter-burns-rel` — 🔥 צריבות on real data + EMS live refresh, gated to עידן; pending live smoke → ff dev→main; main still 1.67**).

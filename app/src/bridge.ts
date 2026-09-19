@@ -7,8 +7,11 @@ export type SigmaRole = 'idan' | 'team' | 'viewer' | '';
 // R1/R2/R5): the EMS task list and "המשימות שלי" became the calendar's רשימה view, and עובדים
 // is gone. Historic usage events still carry those page keys — that is data about the past,
 // which is why app/src/lib/usageNarrative.ts keeps their labels.
+// `burns` is the 🔥 צריבות full table (Task 23). It is a TEMPORARY project page with no
+// nav tab — reached from the landing strip, the card-modal section and ⋯ עוד only — and it
+// disappears with the rest of the project when BURNS_PROJECT_ACTIVE goes false.
 export type SigmaPage =
-  | 'kibbutz' | 'inventory' | 'attendance' | 'calendar' | 'dev' | 'pushlog';
+  | 'kibbutz' | 'inventory' | 'attendance' | 'calendar' | 'dev' | 'pushlog' | 'burns';
 
 export interface EmsTask {
   id: string;

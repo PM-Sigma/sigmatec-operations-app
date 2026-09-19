@@ -1,6 +1,11 @@
 # 🔥 מעקב צריבת מונים (Landis E360 ייצור) — תכנון
 
-**STATUS: 🟡 OPEN — built (1.69 on `feat/meter-burns-rel`, DB applied, EMS live refresh §7), NOT shipped.** Resume: `docs/backlog.md` → 🟡 IN PROGRESS 🔥 צריבות (live smoke with EMS login, ff to dev→main).
+**STATUS: ✅ BUILT — merged into סיגמה 2.00 (Task 23, 19.9.26), ships with it.** The standalone 🔥 tab is GONE: the plan's
+Task 23 (`docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md`) placed the project in the field flow instead — a
+card chip `🔥 נותרו X/Y` (hidden at 0), a 🔥 צריבות section in the card modal, `burn` rows in the briefing, and a progress
+strip above the cards; this table survives as one screen reached from the strip / ⋯ עוד, tagged פרויקט זמני.
+Audience is §5's again (write אביאם/ניתאי/עידן/עמיחי, viewer reads, hidden from מתניה/אליה), not עידן-only.
+Removal path: `window.BURNS_PROJECT_ACTIVE = false`. Remaining: the live ⟳ EMS smoke with a real login (backlog).
 
 **תאריך:** 2026-09-06 · **סטטוס:** בנוי (1.69 על `feat/meter-burns-rel`), DB הוקם, ממתין למיזוג · שער השקה: עידן בלבד · **משתמשים:** אביאם, ניתאי (עדכון) · עידן, עמיחי (צפייה + ניהול)
 

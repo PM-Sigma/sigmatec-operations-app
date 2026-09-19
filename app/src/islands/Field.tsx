@@ -29,6 +29,8 @@ import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, sigmaBus, useCurrentUser, useSigmaEvent, type EmsTask } from '@/bridge';
 import { sortTasksForCard, statusLabel, taskMeta, type CardEmsTask } from '@/lib/emsTasks';
+import { burnLeaveItems } from '@/lib/burns';
+import { markBurned, useBurnAccess, useBurns } from '@/components/home/Burns';
 import { notesForKibbutz, type NoteRow } from '@/lib/meetingNotes';
 import { useMeetingNotes } from '@/components/home/MeetingNotes';
 import { roleOf } from '@/lib/landing';
@@ -458,6 +460,10 @@ function FieldIsland() {
   const [picked, setPicked] = React.useState('');
   const [query, setQuery] = React.useState('');
   const [checked, setChecked] = React.useState<Record<string, boolean>>({});
+  // The toggle callback needs the value BEFORE its own setState, and must not be re-created
+  // on every tick (it would re-render 30 checklist rows), so `checked` is mirrored in a ref.
+  const checkedRef = React.useRef(checked);
+  checkedRef.current = checked;
 
   const kibbutzimQ = useQuery({
     queryKey: ['kibbutzim'],
@@ -476,6 +482,12 @@ function FieldIsland() {
   // the calendar says it changed, instead of making him reload to see his own order.
   useSigmaEvent('dayplan-changed', () => { void planQ.refetch(); });
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: mode === 'briefing' });
+  // 🔥 צריבות — only fetched while the briefing is open, and only for someone who may MARK
+  // one: a read-only viewer has nothing to tick here (the chip and the strip already tell him).
+  const burnAccess = useBurnAccess();
+  const burnCanWrite = burnAccess.canWrite;
+  const burnsQ = useBurns(burnCanWrite && mode === 'briefing');
+  const burnRows = burnsQ.data;
   const notesQ = useMeetingNotes();
 
   const rows = (kibbutzimQ.data || []) as Array<{ name: string; display_name?: string | null }>;
@@ -585,6 +597,40 @@ function FieldIsland() {
     return () => { (sigma as any).onLanding = prev; };
   }, [personRole, autoOpenOnce]);
 
+  // ---- 🔥 צריבות rows (Task 23) --------------------------------------------
+  // SNAPSHOT per briefing, on purpose: ticking one writes ✅ נצרב, the query invalidates and
+  // `burnLeaveItems` stops returning that meter — the row would vanish from under his finger
+  // in the middle of a 30-meter list. It is re-derived the next time he arrives somewhere.
+  const burnSnap = React.useRef<{ key: string; items: LeaveItem[] }>({ key: '', items: [] });
+  const burnItems = React.useMemo<LeaveItem[]>(() => {
+    if (!picked || !burnCanWrite) return [];
+    const stale = burnSnap.current.key !== picked || !burnSnap.current.items.length;
+    if (stale) burnSnap.current = { key: picked, items: burnLeaveItems(burnRows, picked) as LeaveItem[] };
+    return burnSnap.current.items;
+  }, [picked, burnCanWrite, burnRows]);
+
+  /**
+   * One checklist row. Everything except a 🔥 row is local state (the unticked ones pre-fill
+   * "מה נשאר לי פתוח"); a 🔥 row IS the meter's state, so ticking it marks the meter
+   * נצרב in `meter_burns` — the card chip, the strip and the modal section all move with it.
+   * The tick is optimistic and rolls back if the write is refused.
+   */
+  const toggleLeaveItem = React.useCallback((id: string) => {
+    const item = (burnSnap.current.key === picked ? burnSnap.current.items : []).find(x => x.id === id);
+    const meterId = (item as { meterId?: string } | undefined)?.meterId;
+    setChecked(st => ({ ...st, [id]: !st[id] }));
+    if (!meterId) return;
+    const turningOn = !checkedRef.current[id];
+    if (!turningOn) return;                        // un-ticking is only a UI undo, never an unburn
+    track('burn-brief-marked', picked);
+    markBurned([meterId], me)
+      .then(() => toast.success('✅ נצרב'))
+      .catch((e: Error) => {
+        setChecked(st => ({ ...st, [id]: false }));
+        toast.error(e?.message || 'לא נשמר — נסה שוב');
+      });
+  }, [picked, me]);
+
   // ---- the briefing's content -------------------------------------------
   const brief = React.useMemo(() => {
     if (!picked) return null;
@@ -597,13 +643,16 @@ function FieldIsland() {
     let prevVisit: VisitRow | null = null;
     try { prevVisit = (sigma?.getLastVisit?.(picked) as VisitRow) || null; } catch { prevVisit = null; }
     const orders = (ordersQ.data || []) as OrderRow[];
-    const checklist = leaveChecklist({ tasks: tasks as unknown as FieldTask[], prevVisit, orders, me, kibbutz: picked });
+    // 🔥 צריבות (Task 23): the pending meters of this kibbutz ride along as checklist rows
+    // of kind `burn`, so the technician sees them at arrival — and ticking one MARKS the
+    // meter ✅ נצרב rather than only crossing a line out (see `toggleLeaveItem`).
+    const checklist = leaveChecklist({ tasks: tasks as unknown as FieldTask[], prevVisit, orders, me, kibbutz: picked, burns: burnItems });
     return {
       tasks, notes, prevVisit, checklist,
       canDeliver: hasSomethingToDeliver(picked, orders, draft as DraftRow | null),
       checkinAt: checkins.find(c => c.kibbutz === picked)?.checked_in_at || new Date().toISOString(),
     };
-  }, [picked, me, notesQ.data, ordersQ.data, checkins, draft]);
+  }, [picked, me, notesQ.data, ordersQ.data, checkins, draft, burnItems]);
 
   /**
    * 📍 סיכום ביקור. The unticked rows travel with him: they are parked on the draft the visit
@@ -692,7 +741,7 @@ function FieldIsland() {
                 prevVisit={brief.prevVisit}
                 checklist={brief.checklist}
                 checked={checked}
-                onToggle={id => setChecked(s => ({ ...s, [id]: !s[id] }))}
+                onToggle={toggleLeaveItem}
                 canDeliver={brief.canDeliver}
                 onVisit={openVisit}
                 onCert={openCert}

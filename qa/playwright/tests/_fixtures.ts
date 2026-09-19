@@ -25,6 +25,10 @@ export interface Fixtures {
    * morning and fail in the afternoon. `checkins()` is a function for the same reason.
    */
   checkins: () => Array<Record<string, unknown>>;
+  /** 🔥 צריבות (Task 23): חוקוק has work left, יגור is finished — so one card
+   *  carries the chip and the other proves hide-at-zero on the same screen. */
+  burns: Array<Record<string, unknown>>;
+  generators: Array<Record<string, unknown>>;
 }
 
 const daysAgo = (n: number) => {
@@ -108,4 +112,33 @@ export const CHECKINS = () => [
   },
 ];
 
-export const FIXTURES: Fixtures = { kibbutzim: KIBBUTZIM, notes: NOTES, usage: USAGE_EVENTS, checkins: CHECKINS };
+/**
+ * 🔥 צריבות — the temporary meter-burn project (Task 23).
+ *   חוקוק: 1 CT pending · 1 PP issue · 1 PP burned  → chip "🔥 נותרו 2/3", 2 briefing rows
+ *   יגור:  2 burned                                → NO chip (hide at zero) on the same screen
+ * חוקוק is also the kibbutz the check-in fixture arrives at, so the briefing has burns in it.
+ */
+export const METER_BURNS = [
+  { meter_id: 'mb1', serial: '68369287', site: 'חוקוק', site_id: null, meter_type: 'E360CT', address: 'רפת 7 מונה ייצור',
+    role_code: 20, ct_ratio: 50, parent_serial: '68369290', solar_names: 'סולארי רפת 7',
+    status: 'pending', burned_by: null, burned_at: null, generator_id: null, note: null },
+  { meter_id: 'mb2', serial: '59965612', site: 'חוקוק', site_id: null, meter_type: 'E360PP', address: 'סולארי דיר',
+    role_code: 24, ct_ratio: 1, parent_serial: '59965600', solar_names: null,
+    status: 'issue', burned_by: null, burned_at: null, generator_id: null, note: 'אין גישה לארון' },
+  { meter_id: 'mb3', serial: '11112222', site: 'חוקוק', site_id: null, meter_type: 'E360PP', address: 'מוסך',
+    role_code: 20, ct_ratio: 1, parent_serial: '11112200', solar_names: null,
+    status: 'burned', burned_by: 'ניתאי', burned_at: daysAgo(3), generator_id: null, note: null },
+  { meter_id: 'mb4', serial: '33334444', site: 'יגור', site_id: null, meter_type: 'E360PP', address: 'לול 4',
+    role_code: 20, ct_ratio: 1, parent_serial: '33334400', solar_names: null,
+    status: 'burned', burned_by: 'אביאם', burned_at: daysAgo(5), generator_id: null, note: null },
+  { meter_id: 'mb5', serial: '55556666', site: 'יגור', site_id: null, meter_type: 'E360CT', address: 'מחלבה',
+    role_code: 20, ct_ratio: 40, parent_serial: '55556600', solar_names: 'סולארי מחלבה',
+    status: 'burned', burned_by: 'אביאם', burned_at: daysAgo(5), generator_id: null, note: null },
+];
+
+export const GENERATORS: Array<Record<string, unknown>> = [];
+
+export const FIXTURES: Fixtures = {
+  kibbutzim: KIBBUTZIM, notes: NOTES, usage: USAGE_EVENTS, checkins: CHECKINS,
+  burns: METER_BURNS, generators: GENERATORS,
+};

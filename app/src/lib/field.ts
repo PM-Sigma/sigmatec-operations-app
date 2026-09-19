@@ -295,7 +295,7 @@ export function bulletForField(audience: string | null | undefined): boolean {
   return a === 'all' || a === 'field';
 }
 
-export type LeaveKind = 'task' | 'prev' | 'order' | 'alert';
+export type LeaveKind = 'task' | 'prev' | 'order' | 'alert' | 'burn';
 
 export interface LeaveItem {
   /** Stable within one briefing — the checkbox state and the prefill both key on it. */
@@ -306,6 +306,8 @@ export interface LeaveItem {
   kind: LeaveKind;
   /** Mine-first ordering inside the task group. */
   mine?: boolean;
+  /** `burn` rows only — the meter_burns row this checkbox marks ✅ נצרב (Task 23). */
+  meterId?: string;
 }
 
 /** Split "מה נשאר פתוח" free text into one row per item (newlines, bullets, semicolons). */
@@ -329,6 +331,8 @@ export interface ChecklistInput {
   orders?: OrderRow[];
   me: string;
   kibbutz: string;
+  /** 🔥 צריבות (Task 23) — already built by lib/burns.ts `burnLeaveItems`, appended last. */
+  burns?: LeaveItem[];
 }
 
 /**
@@ -370,6 +374,9 @@ export function leaveChecklist(i: ChecklistInput): LeaveItem[] {
       });
     }
   }
+  // 🔥 צריבות last: they are a temporary project, so they never push the kibbutz's own
+  // open work down the list — but the technician still sees them before he drives away.
+  for (const b of i.burns || []) out.push(b);
   return out.filter(x => x.text);
 }
 
@@ -383,7 +390,10 @@ function assigneeName(t: FieldTask): string {
 
 /** The unchecked rows, as the one block of text the visit form's "מה נשאר לי פתוח" starts from. */
 export function openItemsPrefill(items: LeaveItem[], checked: Record<string, boolean>): string {
-  return (items || []).filter(x => !checked?.[x.id]).map(x => x.text).join('\n');
+  // `burn` rows are DELIBERATELY left out (Task 23): an unburned meter is not lost — it is a
+  // row in `meter_burns` that the card chip, the strip and tomorrow's briefing all still
+  // show. Ten meter serials pasted into a visit summary would be noise, not memory.
+  return (items || []).filter(x => x.kind !== 'burn' && !checked?.[x.id]).map(x => x.text).join('\n');
 }
 
 /**

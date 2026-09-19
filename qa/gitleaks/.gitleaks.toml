@@ -66,4 +66,11 @@ Do not add anything here without that justification.
     # 4. FALSE POSITIVE — a deliberately fake HMAC secret used as test input in the vitest
     #    fixture app/src/lib/usageDigest.test.ts. Not a credential for anything.
     '''sekrit-cron-key-0123456789''',
+
+    # 5. FALSE POSITIVE of the same `generic-api-key` rule, on `key: '<string>'`. These are EMS
+    #    METER-TYPE identifiers from the `/v1/meters` payload (meter_types.key), used as test
+    #    input in test-meter-burns.mjs and as mock rows in js/src/01-data.js — `landis_e360pp`,
+    #    `landis_e360sp`, `landis_e360ct`, `satec_em133`. They are product model names, not
+    #    credentials, and they are what `B.emsMeterType()` parses.
+    '''(landis_e360(pp|sp|ct)|satec_em133)''',
   ]

@@ -5,7 +5,6 @@
 // it. The legacy modal is opened and closed by js/src/10-activity.js, which only ever sets
 // `data-kibbutz` on that slot — this island reads that attribute through a MutationObserver,
 // so ONE React root serves every card instead of mounting and unmounting per open.
-import * as React from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
@@ -14,26 +13,12 @@ import { MeetingTimeline, useMeetingNotes } from '@/components/home/MeetingNotes
 import { openImportSheet } from '@/islands/ImportNotes';
 import { canImportNotes } from '@/lib/meetingNotes';
 import { EmsGate } from '@/components/EmsGate';
+import { useModalKibbutz } from '@/lib/modalSlot';
 
 const SLOT_ID = 'sigma-modal-meetings';
 
-/** The kibbutz the legacy modal is currently showing, as an attribute on our own slot. */
-function useModalKibbutz(): string {
-  const [name, setName] = React.useState('');
-  React.useEffect(() => {
-    const el = document.getElementById(SLOT_ID);
-    if (!el) return;
-    const read = () => setName(el.getAttribute('data-kibbutz') || '');
-    read();
-    const obs = new MutationObserver(read);
-    obs.observe(el, { attributes: true, attributeFilter: ['data-kibbutz'] });
-    return () => obs.disconnect();
-  }, []);
-  return name;
-}
-
 function ModalMeetingsPanel() {
-  const kibbutz = useModalKibbutz();
+  const kibbutz = useModalKibbutz(SLOT_ID);
   const { name: user, role, isViewer } = useCurrentUser();
   const { data, isLoading } = useMeetingNotes();
   const admin = canImportNotes(!!sigma?.isAdmin?.(), isViewer);

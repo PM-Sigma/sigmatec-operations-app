@@ -133,9 +133,33 @@
   // ---------- data ----------
   var burnState = { rows: null, gens: [], f: { q: '', status: 'all', kind: 'all', site: '' }, open: {}, sel: {}, loading: false, err: null, syncing: false };
   try { var _sf = JSON.parse(localStorage.getItem('burn_filter_v1') || 'null'); if (_sf) burnState.f = Object.assign(burnState.f, _sf); } catch (e) {}
-  // ponytail: rollout gate — עידן only (2026-09-07). Widen when approved: see = everyone but מתניה; write = אביאם/ניתאי/עידן/עמיחי (non-viewer).
-  function burnCanSee()  { return typeof getCurrentUser === 'function' && getCurrentUser() === 'עידן'; }
-  function burnCanWrite(){ return burnCanSee() && !(typeof isViewer === 'function' && isViewer()); }
+
+  // ── THE REMOVAL PATH (Task 23) ──────────────────────────────────────────────
+  // צריבות is a TEMPORARY project — a few months of field work, not a part of the app. Set
+  // this ONE flag to false at the end of it and every surface disappears: this page, the
+  // kibbutz-card chip, the card-modal section, the briefing rows and the landing strip (the
+  // React half reads the same global through app/src/lib/burns.ts `burnsProjectActive`).
+  // The DATA stays in `meter_burns` for the report.
+  window.BURNS_PROJECT_ACTIVE = true;
+  function burnsActive() { return window.BURNS_PROJECT_ACTIVE !== false; }
+
+  // THE AUDIENCE (spec §5 צפייה, restored by עידן 18.9): write = אביאם/ניתאי/עידן/עמיחי,
+  // the viewer reads, מתניה/אליה see nothing. Kept byte-identical in meaning to
+  // app/src/lib/burns.ts `canSeeBurns`/`canWriteBurns` — test-meter-burns.mjs asserts the lists.
+  // BURN-AUDIENCE-START
+  var BURN_WRITERS = ['אביאם', 'ניתאי', 'עידן', 'עמיחי'];
+  var BURN_HIDDEN  = ['מתניה', 'אליה'];
+  // BURN-AUDIENCE-END
+  function burnUser() { return (typeof getCurrentUser === 'function' ? String(getCurrentUser() || '') : '').trim(); }
+  function burnIsViewer() { return typeof isViewer === 'function' && isViewer(); }
+  function burnCanSee() {
+    if (!burnsActive()) return false;
+    if (burnIsViewer()) return true;
+    var u = burnUser();
+    if (BURN_HIDDEN.indexOf(u) !== -1) return false;
+    return BURN_WRITERS.indexOf(u) !== -1;
+  }
+  function burnCanWrite() { return burnCanSee() && !burnIsViewer() && BURN_WRITERS.indexOf(burnUser()) !== -1; }
   function burnEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function burnAttr(s) { return burnEsc(s).replace(/'/g, "\\'"); }
   function burnHdr(write) {
@@ -301,7 +325,7 @@
     var sites = B.groupBySite(burnState.rows || []).map(function (g) { return g.site; });
     var seg = function (key, opts) { return '<div class="burn-seg">' + opts.map(function (o) { return '<button class="' + (f[key] === o[0] ? 'on' : '') + '" onclick="burnSetFilter(\'' + key + '\',\'' + o[0] + '\')">' + o[1] + '</button>'; }).join('') + '</div>'; };
     el.innerHTML = '<div class="dev-wrap burn-wrap">' +
-      '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור</h2>' +
+      '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור <span class="burn-temp">פרויקט זמני</span></h2>' +
         '<div><button class="inv-btn small xl-export-btn" onclick="burnExportXlsx()" style="' + (typeof canExportExcel === 'function' && canExportExcel() ? '' : 'display:none') + '">📗 Excel</button> ' +
         (burnCanManageGens() ? '<button class="inv-btn small" onclick="burnGensOpen()">⚡ גנרטורים</button> ' : '') +
         (burnCanWrite() ? '<button class="inv-btn small" onclick="burnRefreshFromEms(true)" title="עדכון נתוני המונים מה-EMS"' + (burnState.syncing ? ' disabled' : '') + '>' + (burnState.syncing ? '⏳ EMS…' : '⟳ EMS') + '</button> ' : '') +
@@ -452,7 +476,7 @@
     var rows = B.filterRows(burnState.rows || [], burnState.f, burnState.gens);
     xlDownload(B.xlsxSpec(rows, burnState.gens), 'צריבות-' + new Date().toISOString().slice(0, 10) + '.xlsx');
   }
-  function burnCanManageGens() { return ['עידן', 'עמיחי'].indexOf(getCurrentUser()) !== -1; }
+  function burnCanManageGens() { return burnCanWrite() && ['עידן', 'עמיחי'].indexOf(burnUser()) !== -1; }
   function burnGensOpen() {
     if (!burnCanManageGens()) return;
     var m = document.getElementById('burnCardModal'), c = document.getElementById('burnCardContent');
@@ -473,7 +497,16 @@
     };
     if (quiet) return run(); burnSafe(run);
   }
+  // A ✅ נצרב from the card modal / the briefing (app/src/components/home/Burns.tsx) has to
+  // land here too, or the table someone left open goes stale (docs/integration-map.md).
+  try {
+    window.sigmaBus.addEventListener('burns-changed', function () {
+      if (document.getElementById('burnsContent') && burnState.rows) { burnLoad().then(burnRepaint); }
+    });
+  } catch (e) {}
+
   window.burnGensOpen = burnGensOpen; window.burnGenSaveSerial = burnGenSaveSerial; window.burnCanManageGens = burnCanManageGens;
+  window.burnsActive = burnsActive; window.BURN_WRITERS = BURN_WRITERS; window.BURN_HIDDEN = BURN_HIDDEN;
   window.renderBurns = renderBurns; window.burnCanSee = burnCanSee; window.burnCanWrite = burnCanWrite;
   window.burnSetFilter = burnSetFilter; window.burnEnter = burnEnter; window.burnToggleSite = burnToggleSite;
   window.burnSelect = burnSelect; window.burnClearSel = burnClearSel; window.burnToggle = burnToggle; window.burnIssue = burnIssue;

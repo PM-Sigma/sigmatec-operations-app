@@ -7,6 +7,59 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [unreleased · feat/kibbutz-cards-redesign] 2026-09-19 — 🔥 צריבות נכנסו ל-2.00 כפרויקט זמני (Task 23)
+`feat/meter-burns-rel` (1.71) merged into the 2.00 branch, and the meter-burn project placed where
+the work actually happens instead of behind a nav tab of its own.
+**Why (עידן 18.9 21:40):** "זה כבר מאופיין… פרויקט זמני לאורך כמה חודשים… תחשוב איפה הכי נכון להכניס".
+A temporary project that owns a permanent tab is a permanent reminder of itself; one that lives on the
+kibbutz card disappears with the work.
+
+**The four surfaces**, all reading one `meter_burns` table through one TanStack key (`['meterBurns']`),
+all invalidated by one bus event (`burns-changed`):
+1. **Kibbutz card** — a chip `🔥 נותרו X/Y`, rendered **only while X > 0** so a finished kibbutz never
+   carries a stale "0/30". It counts as part of that kibbutz's routine open work (עידן 21:50), so it is
+   not gated to the field role; `burnOpenWork()` is exported for Task 28's health signals to add.
+2. **Card modal** — a "🔥 צריבות" section: that kibbutz's meters (not-done first, CT before PP), ✅ נצרב /
+   ⚠ בעיה / ⚡ גנרטור, multi-select for the 10–30 meters a field day covers, re-skinned with the card
+   components and tagged פרויקט זמני.
+3. **Briefing "לפני שיוצאים"** — the pending meters arrive as checklist rows of kind `burn`, LAST in the
+   list; ticking one **marks the meter נצרב** (optimistic, rolls back on a refusal) instead of only crossing
+   a line out. They are deliberately excluded from the "מה נשאר לי פתוח" prefill — an unburned meter is a
+   row in `meter_burns`, not ten serial numbers pasted into a visit summary.
+4. **Landing strip** (`#sigma-burns`, above the cards) — `🔥 צריבות — נותרו N ב-M קיבוצים` for the field
+   team and **בוצעו X מתוך Y · NN%** for everyone else (עידן 21:50 — progress on עמיחי's סקירה, not only a
+   field surface). Hidden at zero; a tap filters the cards to the kibbutzim that still have work.
+
+The full table + Excel + generators helper stay as **one legacy screen** (`js/src/24-meter-burns.js`),
+reached from the strip's "הכול ›", from the section's link and from ⋯ עוד → צריבות מונים (פרויקט זמני).
+**No nav tab** — `#navBurns` was dropped in the merge.
+
+**Audience** (back to the spec's, per עידן 18.9): write = אביאם/ניתאי/עידן/עמיחי · the viewer reads
+everything and is offered no button · מתניה/אליה and any unknown name see nothing. The rule lives once in
+`app/src/lib/burns.ts` and is mirrored in the legacy table between `BURN-AUDIENCE-START/END`;
+`test-meter-burns.mjs` fails the build if the two lists drift.
+
+**Removal path:** `window.BURNS_PROJECT_ACTIVE = false` (one line in `js/src/24-meter-burns.js`) hides
+the chip, the section, the briefing rows, the strip, the ⋯ row and the page. The data stays for the report.
+
+**Tests:** 37 goldens (`app/src/lib/burns.test.ts` — chip count, hide-at-zero, the role matrix incl. the
+viewer regression, the strip wording, the briefing rows, every patch asserted to carry no EMS-owned
+column) · 15 render goldens (`app/src/components/home/Burns.test.tsx`) · 3 new checklist goldens in
+`field.test.ts` · the viewer matrix (`viewerGate.test.ts`) · 7 Playwright tests × 4 projects
+(`qa/playwright/tests/burns.spec.ts`) · the shared-audience + flag contract in `test-meter-burns.mjs`.
+
+**The merge itself** brought main 1.67 (site consolidation, the attendance hub, the login self-heal)
+onto the 2.00 branch for the first time. Conflicts were resolved keep-HEAD wherever 2.00 had
+deliberately deleted a 1.x surface and keep-theirs/both wherever main added something 2.00 lacks;
+generated files were regenerated with `node build.mjs`. Three semantic repairs the merge needed:
+`createEmsTaskForKibbutz` had two `if (!isEmsConnected())` openings for one brace (the EMS-site hard
+block now runs BEFORE the sign-in surface — signing in cannot help a kibbutz with no site);
+`04-attendance-daily.js` had two `attYmd` declarations in one scope; and `reconcileIdentity` wrote
+`USER_KEY` without emitting `user-changed`, so the React islands never saw a corrected name.
+`test-mytasks-filter.mjs` was deleted (the משימות page it guards was retired in Task 14) and
+`test-site-consolidation.mjs` is SKIPped with a reason — it asserts against the 1.x static card DOM,
+and its data half is still covered by the five green `test-site-*` runners.
+
 ## [unreleased · feat/kibbutz-cards-redesign] 2026-09-18 — 📈 שימוש: usage analytics + weekly narrative digest (עידן בלבד)
 Task 17 of "סיגמה 2.00" (spec §7j Part M; wording rules from `docs/reports/2026-09-18-adoption-strategy.md` §5.4).
 **Why:** the 2-week pilot needs numbers to run on, and עידן needs them as SENTENCES — "כדי להבין שמישות ולא לפקח".

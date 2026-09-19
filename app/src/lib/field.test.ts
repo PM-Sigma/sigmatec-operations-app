@@ -8,6 +8,7 @@ import {
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   type CheckinRow, type FieldTask,
 } from './field';
+import { burnLeaveItems } from './burns';
 
 const task = (id: string, kibbutz: string, title: string, who?: string): FieldTask => ({
   id, kibbutz, title, assignee: who ? { firstName: who } : null,
@@ -127,6 +128,33 @@ describe('leaveChecklist ("לפני שיוצאים")', () => {
       'הסבת בקרים', 'לבדוק כופל במונה הראשי', 'לספק 2 × E360CT',
     ]);
     expect(openItemsPrefill(out, {}).split('\n')).toHaveLength(5);
+  });
+
+  // 🔥 צריבות (Task 23) — the pending meters ride in as rows of kind `burn`.
+  it('🔥 rows come LAST, so a temporary project never pushes the kibbutz own work down', () => {
+    const burns = burnLeaveItems([
+      { meter_id: 'b1', serial: '68369287', site: 'גבים', meter_type: 'E360CT', ct_ratio: 50, address: 'רפת 7', status: 'pending', parent_serial: '900' },
+      { meter_id: 'b2', serial: '59965612', site: 'גבים', meter_type: 'E360PP', status: 'burned', parent_serial: '900' },
+    ], 'גבים');
+    const out = leaveChecklist({ ...input, burns });
+    expect(out.map(x => x.kind)).toEqual(['task', 'task', 'prev', 'prev', 'order', 'burn']);
+    expect(out[5].text).toBe('לצרוב מונה 68369287 · רפת 7');
+    expect((out[5] as { meterId?: string }).meterId).toBe('b1');
+  });
+
+  it('🔥 rows are NEVER pre-filled into "מה נשאר לי פתוח" — they live in meter_burns', () => {
+    const burns = burnLeaveItems([
+      { meter_id: 'b1', serial: '68369287', site: 'גבים', meter_type: 'E360CT', status: 'pending', parent_serial: '900' },
+      { meter_id: 'b2', serial: '11112222', site: 'גבים', meter_type: 'E360PP', status: 'pending', parent_serial: '900' },
+    ], 'גבים');
+    const out = leaveChecklist({ ...input, burns });
+    const text = openItemsPrefill(out, {});
+      expect(text.split('\n')).toHaveLength(5);            // the same five as without burns
+    expect(text).not.toMatch(/לצרוב/);
+  });
+
+  it('no burns passed in is the same checklist as before (the surface is optional)', () => {
+    expect(leaveChecklist({ ...input, burns: [] })).toEqual(leaveChecklist(input));
   });
 
   it('splitOpenItems copes with bullets, dashes and semicolons', () => {

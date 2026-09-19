@@ -10,6 +10,7 @@ import { canImportNotes } from '@/lib/meetingNotes';
 import { listMoreItems, registerMoreItem, _resetRegistry } from '@/lib/registry';
 import { primaryAdd } from '@/lib/primaryAdd';
 import { roleOf, landingFor } from '@/lib/landing';
+import { canSeeBurns, canWriteBurns } from '@/lib/burns';
 
 describe('the viewer matrix', () => {
   it('canManageKibbutzim === false, even for a name that otherwise could', () => {
@@ -56,6 +57,17 @@ describe('the viewer matrix', () => {
     for (const page of ['kibbutz', 'calendar', 'inventory', 'attendance', 'dev', 'pushlog'] as const) {
       expect(primaryAdd(page, 'viewer', { canManageKibbutzim: true, daySelected: true })).toBe('feedback');
     }
+  });
+
+  it('🔥 צריבות: he READS the temporary project and marks nothing (Task 23)', () => {
+    // The project's own audience is אביאם/ניתאי/עידן/עמיחי; the viewer is on top of that,
+    // read-only — the chip, the modal section, the strip and the table are all visible to him
+    // and every ✅ נצרב / ⚠ בעיה / ⚡ גנרטור button is simply not rendered.
+    expect(canSeeBurns('צופה', true)).toBe(true);
+    expect(canWriteBurns('צופה', true)).toBe(false);
+    // …and the PIN role wins over the name here too
+    expect(canWriteBurns('עידן', true)).toBe(false);
+    expect(canWriteBurns('אביאם', true)).toBe(false);
   });
 
   it('he is recognised as a viewer from the PIN role alone, and lands on the reports hub', () => {

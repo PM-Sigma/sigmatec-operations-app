@@ -86,10 +86,13 @@ export function primaryAdd(page: AddPage, role: PersonRole, context: AddContext 
       return 'stockChange';
     case 'attendance':
       return 'visit';
-    // Read-only or externally owned screens: the dev board has its own per-column add and
-    // התראות is a list. (The משימות / EMS / עובדים pages retired in Task 14 — §7m R1/R2/R5.)
+    // Read-only or externally owned screens: the dev board has its own per-column add,
+    // התראות is a list, and 🔥 צריבות is a fixed set of meters nobody adds to by hand
+    // (the list is refreshed from the EMS). (The משימות / EMS / עובדים pages retired in
+    // Task 14 — §7m R1/R2/R5.)
     case 'dev':
     case 'pushlog':
+    case 'burns':
     default:
       return 'none';
   }

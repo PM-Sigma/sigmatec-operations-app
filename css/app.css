@@ -1952,3 +1952,14 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
   .burn-site-head { grid-template-columns: auto 1fr auto; grid-template-areas: "c t l" "m m m" "b b b"; }
   .burn-wrap .inv-btn.small { min-height: 40px; padding: 8px 12px; font-size: 13px; }
 }
+
+/* 🔥 צריבות — the pieces Task 23 added around the legacy table:
+   · the "פרויקט זמני" tag on the page title, so nobody mistakes it for a permanent screen;
+   · the card filter the landing strip toggles (a tapped strip shows only the kibbutzim that
+     still have pending burns — the cards themselves are React, this only hides them). */
+.burn-temp {
+  display: inline-block; margin-inline-start: 8px; padding: 2px 8px; border-radius: 999px;
+  background: var(--gray-light); color: var(--text-light);
+  font-size: 11px; font-weight: 700; vertical-align: middle;
+}
+.kibbutz.burn-filtered-out { display: none !important; }

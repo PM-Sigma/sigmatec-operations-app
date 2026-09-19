@@ -150,6 +150,9 @@
         case 'pushlog':    return !!call('isIdan', [], false);
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';
         case 'kibbutz': case 'calendar': return true;
+        // 🔥 צריבות (Task 23) — a temporary project page: the same audience gate the
+        // chip, the section and the strip use, and false for everyone once the project ends.
+        case 'burns':      return !!call('burnCanSee', [], false);
         // 'ems' / 'mytasks' / 'staff' are retired (§7m R1/R2/R5) — they fall through to false,
         // so a stale deep link or a remembered landing lands on 🏘 קיבוצים instead of nowhere.
         default: return false;

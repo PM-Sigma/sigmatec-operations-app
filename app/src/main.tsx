@@ -115,6 +115,15 @@ function boot() {
       .then(m => m.mountModalMeetings())
       .catch(e => console.warn('[sigma] meetings tab island failed', e));
   }
+  // 🔥 צריבות (Task 23) — the temporary meter-burn project: the kibbutz-modal section and
+  // the landing progress strip. A lazy chunk like every data island, and one that simply
+  // renders nothing for anyone outside the project's audience or once BURNS_PROJECT_ACTIVE
+  // is false — at which point this block is the only line that has to be deleted.
+  if (document.getElementById('sigma-burns') || document.getElementById('sigma-burns-modal')) {
+    import('@/islands/Burns')
+      .then(m => m.mountBurns())
+      .catch(e => console.warn('[sigma] burns island failed', e));
+  }
   // 📣 Feedback box (Task 6): the sheet for everyone, the admin inbox as its own root so a
   // failure in one never takes the other down. Both register their own ⋯ עוד entries.
   if (document.getElementById('sigma-feedback')) {

@@ -1,6 +1,8 @@
 [
   "./ui/sigma-Attendance.js",
   "./ui/sigma-attendance2.js",
+  "./ui/sigma-Burns.js",
+  "./ui/sigma-Burns2.js",
   "./ui/sigma-Calendar.js",
   "./ui/sigma-check.js",
   "./ui/sigma-chevron-down.js",
@@ -22,6 +24,7 @@
   "./ui/sigma-kibbutzim.js",
   "./ui/sigma-MeetingNotes.js",
   "./ui/sigma-ModalMeetings.js",
+  "./ui/sigma-modalSlot.js",
   "./ui/sigma-plus.js",
   "./ui/sigma-query.js",
   "./ui/sigma-react.js",

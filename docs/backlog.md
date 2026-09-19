@@ -67,15 +67,21 @@ Sequence A→D→B→C, one spec+branch each.
   pulling EMS site details), **B = quick-order-from "אספקת מונים" task (AI)**, **C = remove מלאי בקיבוצים
   window** — not yet spec'd. Next up: D.
 
-## 🟡 IN PROGRESS — 🔥 צריבות 1.70 on `feat/meter-burns-rel` (gated to עידן only) — DB ✅, EMS live refresh ✅, pending live smoke → ff dev→main
+## ✅ DONE — 🔥 צריבות merged into 2.00 as a temporary project (Task 23, on `feat/kibbutz-cards-redesign`)
 Spec: [docs/superpowers/specs/2026-09-06-meter-burn-tracker-design.md](superpowers/specs/2026-09-06-meter-burn-tracker-design.md) (§7 = EMS refresh)
 (worktree `C:/Users/idann/Projects/SigmatecOps-wt-burns`, preview config `burns-wt` in `.claude/launch.json`).
 Done 7.9.26: tables + seed applied by עידן (268 / 261 / 85 verified), insert policy migration, tab renders real data (28 kibbutz groups),
 ⟳ EMS button + auto-sync on open built (1.69), writes mint the pass on demand + generator meter-number/EMS lookup (1.70), 27 suites green, gate verified (עידן only).
-**Next:** עידן signs in to the EMS in the preview → run ⟳ EMS once → verify toast/footer + DB row count → ff-push
-`feat/meter-burns-rel` → `dev` → `main` (`dev` is stale at 1.57, fast-forwards through main) → `git worktree remove SigmatecOps-wt-burns`,
-delete superseded `feat/meter-burns`. Widen the gate when עידן approves. Deferred: EMS write-back of role, JSON export for the
-disconnect software, `seen_at` for meters that vanish from the EMS, `burnAttr` backslash escape.
+**19.9.26 — Task 23 (plan §"Task 23"):** `feat/meter-burns-rel` (1.71) merged into `feat/kibbutz-cards-redesign`
+and the feature re-placed where the work happens: card chip `🔥 נותרו X/Y` (hidden at 0) · a 🔥 צריבות section in the
+card modal · `burn` rows in the briefing's לפני שיוצאים (ticking = ✅ נצרב) · a progress strip above the cards
+(work for the field team, **progress** for everyone else — עידן 21:50). **No nav tab**; the full table stays one legacy
+screen reached from the strip / ⋯ עוד, tagged פרויקט זמני. Audience back to the spec's: write אביאם/ניתאי/עידן/עמיחי,
+viewer reads, hidden from מתניה/אליה. **Removal path:** `window.BURNS_PROJECT_ACTIVE = false` hides every surface, data stays.
+**Still open (עידן):** the live smoke with a real EMS login (⟳ EMS once, verify the toast/footer + the row count) — it ships
+with 2.00 now, not on its own branch; then `git worktree remove SigmatecOps-wt-burns` and delete the superseded
+`feat/meter-burns` / `feat/meter-burns-rel`. Deferred: EMS write-back of role, JSON export for the disconnect software,
+`seen_at` for meters that vanish from the EMS, `burnAttr` backslash escape.
 ## ✅ DONE — attendance-reminder push, viewer-triggered (shipped 1.50)
 Spec: [docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md](superpowers/specs/2026-07-16-attendance-push-reminder-design.md) (SHIPPED).
 Viewer sees missing weekdays (red chips) + 🔔 בקש עדכון נוכחות button → sticky push to the worker.
