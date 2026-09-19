@@ -66,24 +66,30 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-19 (**סיגמה 2.00 built and pushed to `dev`; `main` PARKED on maintenance mode pending עידן's production steps**).
+## 🚦 Current state — last: 2026-09-19 (**סיגמה 2.01 built and pushed to `dev`; `main` PARKED on maintenance mode pending עידן's 27 production steps**).
 
-Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (master spec §0–§7o, all
-עידן's rulings inline, STATUS ✅ BUILT 2.00 — release pending עידן's production steps), (2)
-`docs/superpowers/specs/2026-09-17-unified-inventory-design.md` (Tasks 8–10, next up, ships 2.01), (3)
+Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (master spec §0–§7p, all
+עידן's rulings inline, STATUS ✅ BUILT 2.01 — go-live pending production steps), (2)
+`docs/superpowers/specs/2026-09-17-unified-inventory-design.md` (Tasks 8–10, ✅ BUILT 2.01), (3)
 `docs/superpowers/specs/2026-09-18-company-process-design.md` (draft, P4, not yet planned), (4) the plan
-`docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md` (Tasks 0–30 + 18a/18b/19 + 7, all done), (5) the SDD ledger
-`.superpowers/sdd/2026-09-17-kibbutz-cards-redesign/progress.md` (git-ignored, on disk) + `task-7-report.md`, (6) mockup
-https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP, (7) **`docs/HANDOFF-עידן.md`** — the ADHD-simple, ordered list of
-everything that still needs a human hand before `main` can go live.
+`docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md` (all 36 tasks + 18a/18b/19/7, all done), (5) the SDD ledger
+`.superpowers/sdd/2026-09-17-kibbutz-cards-redesign/progress.md` (git-ignored, on disk) + `release-2.01-report.md`, (6)
+mockup https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP, (7) **`docs/HANDOFF-עידן.md`** — the ADHD-simple, ordered
+list of everything that still needs a human hand before `main` can go live (now 27 steps, was 20 at 2.00).
 
-**Done:** Tasks 0–30 + 18a/18b/19 (all reviewed, all green), **Task 7 (release 2.00)**: `VERSION` 2.00,
-`node build.mjs major`, full `npm test`/vitest/qa green, docs checkpointed, fast-forwarded `feat/kibbutz-cards-redesign`→`dev`.
-**`main` NOT touched** — still serving maintenance mode (`e398947`, bypass `?maint=0`) until עידן runs the 20 parked
-production steps (10 migrations in dependency order, 6 edge-fn deploys, 3 cron schedules, 1 re-run) and sets the
-listed secrets (see `docs/HANDOFF-עידן.md` parts A–B). Once done: controller ff's `dev`→`main`, removes maintenance
-mode, records the logged-in manual smoke in `docs/CHANGELOG.md`.
-**Next:** 8–10 (unified inventory, depends on 2.00) → P4 company-process spec into tasks.
+**Done since 2.00:** P6 unified inventory (Tasks 8–10, ONE stock pool), Task 31 whole-app QA audit (4 auditors × 12
+dimensions, 9 Critical + 22 Important + 22 Minor, all Critical + most Important fixed across 3 fix rounds), Task 32
+visit-summary-in-chapters (§7p, save-without-submit), and this release-prep pass: card 📍 now opens the same
+chapters sheet as briefing/gaps/nudge (ruling 19.9), `pending-states.spec.ts` extended (14→18 tests / 64 assertions,
+partial click-map sweep — ~30 clickables still need it, see `docs/backlog.md`), `VERSION` → **2.01**, full
+`npm test`/vitest/qa green, docs checkpointed, pushed to `dev`.
+**`main` NOT touched** — still serving maintenance mode (`e398947`, bypass `?maint=0`) until עידן runs the 27 parked
+production steps (13 migrations in dependency order, 6 edge-fn deploys, 3 cron schedules, 1 re-run, 4 new from P6) and
+sets the listed secrets (see `docs/HANDOFF-עידן.md` parts A–B). Once done: controller ff's `dev`→`main`, removes
+maintenance mode, records the logged-in manual smoke (incl. the visit double-submit idempotency check on the Apps
+Script backend) in `docs/CHANGELOG.md`.
+**Next:** P4 company-process spec into tasks; the deferred Task 31 items (A7/A10/A11/F-17..F-22/jscpd) and the
+remaining pending-states click-map coverage, once עידן rules on the open decisions.
 **Preview (dev, maintenance bypass):** `https://raw.githack.com/PM-Sigma/sigmatec-operations-app/dev/index.html?maint=0`
 
 **Task 23 (19.9) — 🔥 צריבות is inside 2.00 now.** `feat/meter-burns-rel` (1.71) was merged into this branch, which also

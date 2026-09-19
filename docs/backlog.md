@@ -1,3 +1,30 @@
+✅ DONE (2026-09-19, release-prep) — **סיגמה 2.01**: unified inventory (P6, Tasks 8–10) + whole-app
+QA audit (Task 31, 9 Critical/22 Important/22 Minor found, all Critical + most Important fixed)
++ visit summary in chapters (Task 32) + this release-prep pass (card 📍 → chapters, pending-states
+extended, `VERSION` → 2.01, docs checkpointed). Full detail: `docs/CHANGELOG.md` [2.01]. Pushed to
+`dev`. **`main` NOT updated** — 27 parked production steps now (was 20 at 2.00), see
+`docs/HANDOFF-עידן.md`. **Deferred from the Task 31 audit** (reasons in `task-31-fix2-report.md` /
+`task-31-fix3-report.md`; pick these up in a follow-up, not blockers for go-live):
+- **A7** — a bus-contract cleanup (needs a wider pass across every `sigmaEmit` caller, not a
+  one-file fix).
+- **A10/A11** — need a product decision before touching them (see the audit report for the two
+  options each).
+- **F-17/F-18** — their own dedicated sweep (broader than the fix rounds' scope).
+- **F-19/F-20** — decisions pending, same shape as A10/A11.
+- **F-22 — עידן's decision to make** (flagged explicitly by the auditor; not the controller's call).
+- **4 jscpd duplication leftovers** — cosmetic, non-blocking, listed by file in
+  `task-31-fix3-report.md`.
+- **Health v1 thresholds** — only "פניות ללא מענה" has real EMS data behind it; the rest wait on
+  עידן's numbers (originally slated for Tue 22.9, still open).
+- **Day-log per-task status ownership** — who resolves a day-log line item, still undecided.
+- **Attendees-as-tags (Clockify)** — ~40 of the 87 live Clockify tags are people, not
+  projects/kibbutzim; decide whether attendees should also apply as tags.
+- **Dev-board inference** — the 🚀 "source column" question from 2.00 is still open.
+- **Gmail intake** — still optional/unapproved, not part of any shipped task.
+- **pending-states.spec.ts full sweep** — this release only added 4 of ~30 remaining
+  click-map §1 clickables (see [2.01] CHANGELOG entry); the rest need the same delay/abort
+  treatment in a follow-up task.
+
 ✅ DONE (2026-09-19, Task 7) — **סיגמה 2.00 redesign** built through Task 30 + 18a/18b/19, version bumped (`node build.mjs major` → **2.00**), full suite green, pushed to `dev`. Spec `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md`, plan `docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md`, branch `feat/kibbutz-cards-redesign` (worktree `SigmatecOps-wt-cards`). **`main` NOT updated** — stays on maintenance mode (`e398947`) until עידן completes the 20 parked production steps (10 migrations, 6 edge-fn deploys, 3 cron jobs, 1 re-run) and secrets in `docs/HANDOFF-עידן.md`, after which the controller fast-forwards `dev`→`main` and removes maintenance mode. Open decisions waiting on עידן: health v1 thresholds (Tue 22.9), day-log per-task status ownership, Clockify attendees-as-tags, dev-board 🚀 source column, Gmail intake (still optional/unapproved). Companion specs: unified inventory (Tasks 8–10, ships 2.01, depends on this release), company process (P4, planned).
 
 # Backlog & status

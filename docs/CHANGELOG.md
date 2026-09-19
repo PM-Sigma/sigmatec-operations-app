@@ -7,6 +7,72 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.01] 2026-09-19 — מלאי מאוחד + ביקורת QA מלאה (Task 31) + סיכום ביקור בפרקים
+
+**Why:** 2.00 shipped the cards redesign to `dev`; 2.01 finishes the inventory rebuild the 2.00
+spec deferred (P6, Tasks 8–10), then runs the whole-app QA audit עידן asked for on top of it
+(Task 31, 4 auditors × 12 dimensions) so `main` inherits a swept app rather than an
+unreviewed one, and closes with the visit-summary UX ruling (Task 32) and this release-prep
+pass. `main` stays PARKED on maintenance mode — see `docs/HANDOFF-עידן.md` for all 27
+production steps now needed (was 20 at 2.00; P6 + audit fixes add 7 more).
+
+**P6 — unified inventory (Tasks 8–10):**
+- **Task 8:** ONE stock pool (`חברה`) replaces per-person locations — `db/inventory_pool.sql`
+  (products + `inventory_alerts` + movements trigger) + `db/stock_recounts.sql` (every recount
+  carries its own evidence note) + `db/pool_migration.mjs` (dry-run by default). The free
+  transfer/adjust forms and the distribution UI are retired; visits/orders/returns/Excel all
+  read the one pool. `StockChange.tsx` routes a stock change to the visit form / order modal
+  and only writes directly for a 🔢 recount.
+- **Task 9:** product-name consistency sweep across the pool, visit form and Excel exports.
+- **Task 10:** low-stock push alerts (modes), `inventory_pool_v2` + `inventory_alert_webhook`
+  + a daily digest cron — all parked for עידן (secrets + `--apply` on the migration).
+
+**Task 31 — whole-app QA audit (4 auditors, 12 dimensions) + 3 fix rounds:** 9 Critical + 22
+Important + 22 Minor found, all Critical and all but 6 explicitly-deferred Important items
+fixed. The 9 Critical: a stray `</div>` in `index.html` that broke every non-kibbutz view on
+mobile; the header cluster nested inside `#kibbutz-view` (bell 0×0 elsewhere); newer tables
+still `select`-public even after the 2.00 RLS lockdowns, and `push_subscriptions` open to
+anon `DELETE`; five dark-mode contrast failures (messages modal, EMS comment bubble, order
+chips, the whole צריבות screen, legacy state tints); and three §7p popups (16 input-holding
+sheets, 2 of them wiping the draft) that dismissed silently instead of asking. Deferred with
+reasons (see `task-31-fix2-report.md`): A7 (bus contract), A10/A11 (decisions), F-17/F-18 (own
+sweep), F-19/F-20 (decisions), **F-22 — עידן's decision**, plus 4 jscpd duplication leftovers.
+Two latent product bugs found while fixing, not audit findings: `productLabel` treated every
+call as a report call without a bundle, and Tailwind's unprefixed `.container` capped the
+desktop home at 1280px.
+
+**Task 32 — visit summary in chapters (§7p) + save-without-submit:** `app/src/lib/visitDraft.ts`
+(pure, 24 goldens) + `VisitChapters` in `Field.tsx` — 5 chapters (מה עשיתי / מה נשאר לי פתוח /
+מוצרים־מלאי / תעודת משלוח / שליחה), every chapter has שמור וסגור (persists, submits nothing)
+and המשך, chapter 5 alone has שלח (claims the draft id before the round trip so a double-tap
+files one visit). Entry points: briefing's 📍/🚚, the "היום" strip nudge, `Gaps.tsx`, the push
+deep link — all reroute through `resumeChapter`. Ruling 19.9 (this release): the **card's** 📍
+now opens the same chapters sheet too (was the one deliberate deviation in Task 32's report) —
+one visit path everywhere, legacy form kept only as the fallback for a browser where the
+chapters island did not mount.
+
+**This release-prep pass:**
+- `visit-form.spec.ts` updated for the card's 📍 → chapters ruling: the card-tap test now pins
+  chapter 1 of the sheet; the desk-contract tests (split summary, cert gate, draft
+  autosave/resume, restart) now drive the legacy form directly through its own fallback call,
+  since the card no longer reaches it on the happy path.
+- `pending-states.spec.ts` extended with 4 more delay/abort pairs over `docs/click-map.md`'s
+  §1 (KibbutzSheet save over Supabase `kibbutzim`, StockChange recount over `stock_recounts` +
+  `movements`) — 18 tests / 64 assertions total, up from 14. **Not** the full 41-clickable ×
+  role sweep the audit sketched; ~30 clickables (legacy apps-script writes, EMS calls, edge
+  functions, the rest of the React mutations) still need the same treatment, filed to backlog.
+  Two real gaps surfaced and documented rather than silently patched: `StockChange`'s
+  `sc-submit` shows only a spinner while saving (no label, the one button in the app that
+  fails the F11 rule), and an immediate (non-timeout) Supabase write failure surfaces the raw
+  `TypeError: Failed to fetch` in English — only the 15 s hung-request leg is localized.
+- `VERSION` → **2.01** (`node build.mjs`, one run only — the build bumps the minor on every
+  invocation, so this file was hand-set to `2.00` first).
+
+**Deploy needed before `main` can go live:** see `docs/HANDOFF-עידן.md` — 27 parked production
+steps in dependency order, plus the RLS-lockdown ordering rule (`rls_2_00_lockdown` ships with
+the `alert_mark_seen` RPC + `Alerts.tsx`; `rls_corrections_lockdown` only after `parse-daylog` +
+`parse-order` redeploy; `rls_certs_checkins_lockdown` only after the app itself is live).
+
 ## [2.00] 2026-09-19 — סיגמה 2.00: cards redesign + field flow + calendar + meetings + onboarding + health + Clockify
 
 Major version (`node build.mjs major`, ·NN/1.xx era closes as "major 1"). Ships to `dev` from this

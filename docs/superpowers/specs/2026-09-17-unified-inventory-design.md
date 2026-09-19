@@ -1,8 +1,12 @@
 # Unified company inventory + product display names + inventory alerts — design spec
 
-STATUS: 🟢 APPROVED in principle by עידן 17.9.26 (chat) — NOT built. Open decisions in §8. Builds after the cards
-redesign (`2026-09-17-kibbutz-cards-redesign-design.md`, Tasks 0–7) as Tasks 8–10 of the same plan.
-Requested by עידן, 17.9.26: "עוברים לניהול מלאי אחוד לחברה ללא שיוך לעובד לאור פער ביכולת דיווח".
+STATUS: ✅ BUILT 2.01 — go-live pending production steps. Built as Tasks 8–10 of the cards-redesign
+plan, after the QA audit (Task 31). `db/inventory_pool.sql` → `db/stock_recounts.sql` →
+`node db/pool_migration.mjs --apply` → `db/inventory_pool_v2.sql` →
+`db/inventory_alert_webhook.sql` (+ `push_config`) → `db/cron_inventory_digest.sql` all parked for
+עידן, see `docs/HANDOFF-עידן.md`. Open decisions from §8 not yet ruled on stay open (min_qty
+defaults editor for עמיחי, §4a orders strip). Requested by עידן, 17.9.26: "עוברים לניהול מלאי אחוד
+לחברה ללא שיוך לעובד לאור פער ביכולת דיווח".
 
 ## 0. What עידן asked for
 

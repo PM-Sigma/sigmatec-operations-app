@@ -116,6 +116,10 @@ apply order (dependency order matters, listed there).
 | `usage_events` | 📈 usage analytics feeding the weekly narrative digest. | `db/usage_events.sql` | prod (Task 17) |
 | `feedback` (+ `feedback_kinds`) | 📣 feedback box (idea/bug/complaint), audio via `feedback-audio` bucket. | `db/feedback.sql`, `db/feedback_kinds` migration | prod (Task 6/6b) |
 | `company_holidays` (+ seed) | 🕎 Hebcal holidays for attendance/gap logic. | `db/company_holidays.sql`, `db/company_holidays_seed.sql` (38 rows) | ⛔ parked |
+| `inventory_pool` (+ `products` display_name/unit/min_qty, `inventory_alerts`) | 📦 P6/Task 8 — the ONE stock pool (`חברה`); people are no longer locations. Movements trigger emits the low-stock branch. | `db/inventory_pool.sql` | ⛔ parked |
+| `stock_recounts` | Every 🔢 recount's own evidence note (NOT NULL), auditable against its `movements` row. | `db/stock_recounts.sql` | ⛔ parked |
+| `inventory_pool_v2` | P6/Task 10 — low-stock alert plumbing, second generation. | `db/inventory_pool_v2.sql` | ⛔ parked |
+| `inventory_alert_webhook` (+ `push_config` insert) | P6/Task 10 — outbound low-stock push. | `db/inventory_alert_webhook.sql` | ⛔ parked |
 
 **Three RLS lockdowns (Task 18a/18b + Task 31, run in this exact order relative to app deploys):**
 - `db/rls_corrections_lockdown.sql` — must run **AFTER** `parse-daylog` + `parse-order` are
@@ -151,7 +155,16 @@ included in the read), `clockify` (new, needs `CLOCKIFY_API_KEY`/`WORKSPACE_ID`/
 
 **New cron jobs (parked):** `db/cron_usage_weekly.sql` (weekly 📈 digest + re-schedules the
 attendance job with the auth header), a 15-minute visit-reminder cron, an hourly attendance-header
-cron. All need `CRON_SECRET` set first.
+cron, `db/cron_inventory_digest.sql` (P6/Task 10 — daily low-stock digest). All need `CRON_SECRET`
+set first.
+
+**P6 migration ordering (Tasks 8–10):** `db/inventory_pool.sql` → `db/stock_recounts.sql` → run
+`node db/pool_migration.mjs` (dry-run by default; the dry run against production found 20 rows /
+1079 units to migrate — אביאם + ניתאי only, משרד/עמיחי net to 0, and one negative balance, מונה
+E360PP ×2 at אביאם, which the migration absorbs) → show עידן the numbers → `--apply --yes` →
+`db/inventory_pool_v2.sql` → `db/inventory_alert_webhook.sql` (+ the `push_config` insert it needs)
+→ `db/cron_inventory_digest.sql`. `stock_recounts` is covered by `db/rls_2_00_lockdown.sql`'s
+append-only treatment above — no separate lockdown file needed for it.
 
 Full list, order, and links: `docs/HANDOFF-עידן.md`.
 
