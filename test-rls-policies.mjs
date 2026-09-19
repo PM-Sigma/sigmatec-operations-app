@@ -29,8 +29,6 @@ const ok = (cond, msg) => { checks++; assert.ok(cond, msg); };
  * must be `to authenticated` — add a line WITH a reason, never a bare name.
  */
 const PUBLIC_READ_OK = new Map([
-  ['delivery_certs', 'a customer opens a ?cert= link with no session at all '
-    + '(js/src/20-delivery-cert.js, _certViewMode) — stated in db/rls_certs_checkins_lockdown.sql'],
   ['push_log', 'the 📨 push-log screen\'s own table; holds no customer data (audit C, "minor")'],
 ]);
 

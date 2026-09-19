@@ -32,8 +32,10 @@
 --   · company_holidays — DECIDED: locked down too. The login screen does not read it; the
 --     only readers are the attendance grid (js/src/04-attendance-daily.js:36) and the
 --     Holidays island, both behind the gate. Nothing stays public here.
---   · delivery_certs stays public on purpose (a customer opens a ?cert= link with no
---     session) — that is rls_certs_checkins_lockdown.sql's decision and is untouched.
+--   · delivery_certs is NOT public: rls_certs_checkins_lockdown.sql dropped the old
+--     `for select using(true)` and re-created delivery_certs_read `to authenticated`. The
+--     ?cert= share link is served exclusively by the SECURITY DEFINER RPC cert_by_id(uuid),
+--     which returns exactly one row by id — anon enumeration of the table is closed.
 --   · push_log keeps its anon read for now: it is the 📨 log screen's own table and holds no
 --     customer data. Listed in the allowlist of the static test, not fixed here.
 --
