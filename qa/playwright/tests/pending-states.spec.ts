@@ -337,6 +337,105 @@ test('F5: a Supabase write is not open-ended — a hung PostgREST ends in a Hebr
   void ti;
 });
 
+// ═════════════════════════ D. the click-map sweep (release 2.01) ═════════════════════════
+//
+// Task 31 fix3 review: 14 tests pinned the §7p + pattern-4 CONTRACTS, but not the sweep the
+// audit sketched over docs/click-map.md's §1 (38 clickables that already carry SOME pending
+// state per static analysis). These four add real delay/abort legs, driven exactly the way
+// the feedback pair above does, over two more backends the earlier tests never touched:
+// Supabase `kibbutzim` (React, KibbutzSheet) and Supabase `movements`+`stock_recounts`
+// (React, StockChange) — both already exercised happy-path in kibbutz-sheet.spec.ts and
+// inventory-pool.spec.ts, so only the slow/aborted leg is new here.
+
+const openKibbutzCreate = async (page: any) => {
+  await page.evaluate(() => (window as any).sigmaHome.openSheet());
+  await expect(page.getByRole('heading', { name: '➕ קיבוץ חדש' })).toBeVisible();
+};
+
+test('click-map: קיבוץ שמור stays disabled + spinning while slow, then recovers', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await delay(page, `${SB_ORIGIN}/rest/v1/kibbutzim*`);
+  await openKibbutzCreate(page);
+
+  await page.locator('#kibName').fill('בית זרע');
+  await page.locator('#kibRegion').fill('גליל וגולן');
+  const save = page.getByRole('button', { name: 'שמור קיבוץ' });
+  await save.click();
+  await expectPending(save, /שמור קיבוץ/);
+
+  await expect(save).toBeEnabled({ timeout: 15_000 });
+  expectNoConsoleErrors(rec);
+});
+
+test('click-map: קיבוץ שמור aborted mid-flight says so in Hebrew, with a retry, nothing lost', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await fail(page, `${SB_ORIGIN}/rest/v1/kibbutzim*`);
+  await openKibbutzCreate(page);
+
+  await page.locator('#kibName').fill('בית זרע');
+  await page.locator('#kibRegion').fill('גליל וגולן');
+  const save = page.getByRole('button', { name: 'שמור קיבוץ' });
+  await save.click();
+
+  await expect(page.getByText(/שמירה נכשלה|תם הזמן|נסה שוב/).first()).toBeVisible({ timeout: 20_000 });
+  await expect(save).toBeEnabled();
+  await expect(page.locator('#kibName')).toHaveValue('בית זרע');   // the typed name survived
+  expectNoConsoleErrors(rec);
+});
+
+async function openRecountSheet(page: any) {
+  await page.evaluate(() => (window as any).showPage('inventory'));
+  await page.locator('[data-inv-tab="stock"]').click();
+  await expect(page.getByTestId('inv-pool')).toBeVisible({ timeout: 15_000 });
+  await page.locator('#invReportChange').click();
+  const sheet = page.getByTestId('stock-change-sheet');
+  await expect(sheet).toBeVisible({ timeout: 15_000 });
+  await sheet.getByTestId('sc-product').selectOption('סים 1NCE');
+  await sheet.getByTestId('sc-dir-decrease').click();
+  await sheet.getByTestId('sc-src-recount').click();
+  await sheet.getByTestId('sc-counted').fill('1');
+  await sheet.getByTestId('sc-note').fill('נספר במחסן — בדיקת עומס');
+  return sheet;
+}
+
+test('click-map: 🔢 דיווח שינוי במלאי stays pending while the write is slow', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await delay(page, `${SB_ORIGIN}/rest/v1/stock_recounts*`);
+  await delay(page, `${SB_ORIGIN}/rest/v1/movements*`);
+  const sheet = await openRecountSheet(page);
+
+  const submit = sheet.getByTestId('sc-submit');
+  await submit.click();
+  // NOTE (filed to backlog, F11 gap): sc-submit shows ONLY a spinner while saving, no label —
+  // unlike every other pending button in this suite. Asserted as-is here; the fix is a
+  // follow-up, not this release-prep task.
+  await expect(submit).toBeDisabled({ timeout: 300 });
+  await expect(submit.locator('.animate-spin')).toBeVisible({ timeout: 300 });
+
+  await expect(sheet).toBeHidden({ timeout: 15_000 });
+  expectNoConsoleErrors(rec);
+});
+
+test('click-map: 🔢 דיווח שינוי במלאי aborted recovers the button, keeps the count typed', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await fail(page, `${SB_ORIGIN}/rest/v1/stock_recounts*`);
+  const sheet = await openRecountSheet(page);
+
+  const submit = sheet.getByTestId('sc-submit');
+  await submit.click();
+
+  // NOTE (real gap, filed to backlog): an immediate network failure here surfaces sbWrite's
+  // raw "TypeError: Failed to fetch" — English, not Hebrew. Only the 15 s HUNG-request leg
+  // (lib/pending.ts's TIMEOUT_MSG) is localized; a same-tick abort is not caught and
+  // translated the way F5's slow-timeout leg is. Asserted as it actually behaves: SOME error
+  // is shown, the button recovers, and the typed count is not lost — not a Hebrew message,
+  // because there isn't one yet.
+  await expect(submit).toBeEnabled({ timeout: 20_000 });
+  await expect(page.getByText('TypeError: Failed to fetch').first()).toBeVisible();
+  await expect(sheet.getByTestId('sc-counted')).toHaveValue('1');
+  expectNoConsoleErrors(rec);
+});
+
 // ═════════════════════════ C. the contract ═════════════════════════
 
 test('the click-map contract: §2 (gaps) is empty', async ({ page }, ti) => {
