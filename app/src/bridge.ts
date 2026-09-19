@@ -169,6 +169,26 @@ export interface Sigma {
   attExportPdf?(): void;
   attExportExcel?(): void;
 
+  // ── ⚙️ הגדרות: install + notifications (spec §7h) ─────────────────────────
+  // Both are BROWSER state, not app state: the install prompt is an event the page had to
+  // capture before React existed, and the push subscription belongs to the service worker the
+  // legacy boot registered. The settings island only asks and renders.
+  /** Already running as an installed app. */
+  isInstalled?(): boolean;
+  /** The browser can actually install — a captured prompt, or iOS where the steps are it. */
+  canInstall?(): boolean;
+  appInstall?(): Promise<void> | void;
+  /** One word for the 🔔 row. `ios-needs-install` = Safari, not on the home screen yet. */
+  pushState?(): 'granted' | 'denied' | 'default' | 'ios-needs-install' | 'unsupported';
+  /** Ask + subscribe. FROM A USER GESTURE ONLY. Resolves with the state after the answer. */
+  pushEnable?(): Promise<'granted' | 'denied' | 'default' | 'unsupported' | 'error'>;
+  /** 🔔 בדיקה — one notification to this device, through the service worker. */
+  pushTest?(): Promise<boolean>;
+  /** How many devices this person has registered for notifications. */
+  pushDeviceCount?(): Promise<number>;
+  /** 📋 הפערים — 🔔 on someone's row. The count only; the server owns the words and the cap. */
+  gapNag?(person: string, count: number): Promise<boolean>;
+
   // ── 🗓️ calendar (spec §7f) ────────────────────────────────────────────────
   /** Office events in a day range, through the `calendar` Edge Function. Never throws. */
   calFetchEvents?(range: { from: string; to: string; force?: boolean }): Promise<OfficeCalEvent[]>;

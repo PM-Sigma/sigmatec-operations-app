@@ -15,6 +15,7 @@
   "./ui/sigma-Feedback.js",
   "./ui/sigma-FeedbackInbox.js",
   "./ui/sigma-Field.js",
+  "./ui/sigma-Gaps.js",
   "./ui/sigma-HeaderActions.js",
   "./ui/sigma-Holidays.js",
   "./ui/sigma-Home.js",

@@ -530,6 +530,36 @@ export const DAYLOG_NUDGES: Nudge[] = [
   { t: 'סוף יום, לא סוף כוח', b: 'שיחה קצרה של דקה מתעדת את כל היום — תשאיר את זה מאחוריך ותנוח 🌙' },
 ];
 
+/**
+ * Adoption report §3.5 — 📋 הפערים שלי (rows 4–6): the words the `gapReminder` mode sends.
+ *
+ * The same three sentences also sit in VISIT_NUDGES at 16–18, rewritten there around ONE
+ * kibbutz ("2 דקות על {kibbutz}"). These are the originals — a gaps nudge is about a LIST,
+ * not a place, so `{n}` is the only substitution and no kibbutz is ever named.
+ */
+export const GAP_NUDGES: Nudge[] = [
+  { t: 'כמה דברים קטנים מחכים לך', b: '2 דקות בפערים האישיים שלך וזהו — הכל סגור ומסודר ✅' },
+  { t: 'הרשימה שלך כמעט נקייה', b: 'נשארו {n} פריטים ברשימת הפערים — תגמור את זה ותתפנה לגמרי 🧹' },
+  { t: 'סדר עושה שקט', b: 'תסתכל רגע בפערים שלך — כל סגירה שם היא עוד דבר שיורד מהראש 🧠✔️' },
+];
+
+/**
+ * The exact words one gaps nudge goes out with. `key` pins the rotation — person + day, so
+ * the single nudge he may get today always reads the same (a retry is not a new message) and
+ * tomorrow's differs.
+ *
+ * The plural line is skipped when there is exactly one gap: "נשארו 1 פריטים" is the kind of
+ * sentence that tells a person a machine wrote it, and §7h's copy rule is that every line is
+ * addressed to him. One gap therefore falls back to the neighbouring words, which carry no
+ * count at all.
+ */
+export function gapNudgeFor(key: string, count: number): { title: string; body: string } {
+  let i = hashIdx(key, GAP_NUDGES.length);
+  if (count === 1 && GAP_NUDGES[i].b.indexOf('{n}') !== -1) i = (i + 1) % GAP_NUDGES.length;
+  const n = GAP_NUDGES[i];
+  return { title: `📋 ${n.t}`, body: n.b.replace(/\{n\}/g, String(count)) };
+}
+
 /** Adoption report §3.5 — ספירת מלאי מחדש. Their mode is the inventory work, not this task. */
 export const RECOUNT_NUDGES: Nudge[] = [
   { t: 'כמעט שם עם המלאי', b: 'נשאר רק להסביר בכמה מילים מה קרה עם הספירה — ואז הכל מתועד נכון 📦📝' },
@@ -611,6 +641,53 @@ export function inQuietHours(at: Date | string | number): boolean {
   const { hh, mm } = israelParts(at);
   if (hh >= QUIET_FROM_HH) return true;
   return hh < QUIET_TO_HH || (hh === QUIET_TO_HH && mm < QUIET_TO_MM);
+}
+
+// ───────────── the attendance cron's two hours (spec §7h: ⏰ שעת תזכורת סוף יום) ─────────────
+
+/** The evening nudge's hour for anyone who never chose one. */
+export const EOD_DEFAULT_HH = 19;
+/** The morning "days are missing" nudge. Not a preference — it is one hour for everyone. */
+export const ATT_MORNING_HH = 9;
+
+/** A person's own end-of-day hour, or the default. Anything outside 0–23 is not an hour. */
+export function eodHourFor(person: string, eodHours: Record<string, number | null | undefined> | null | undefined): number {
+  // `null` is the column's "never chose" — and `Number(null)` is 0, i.e. midnight, so the
+  // empty value has to be rejected BEFORE it is turned into a number.
+  const raw = (eodHours || {})[person];
+  if (raw === null || raw === undefined) return EOD_DEFAULT_HH;
+  const h = Number(raw);
+  return Number.isInteger(h) && h >= 0 && h <= 23 ? h : EOD_DEFAULT_HH;
+}
+
+/**
+ * Who the hourly attendance job has something to say to RIGHT NOW, and which of the two
+ * things it is. Pure, because the evening hour stopped being a constant the moment §7h let
+ * each person pick his own: the job now runs against a different set of people every hour,
+ * and that is a rule worth pinning in a test rather than reading out of a cron log.
+ *
+ * · morning (09:00, everyone) — the days already missing this month.
+ * · evening (his own hour)    — today, which he has not filled in yet.
+ *
+ * A holiday silences the EVENING half only: nobody is asked to account for a day the company
+ * was closed, but the missing days from before it are still missing.
+ */
+export function attendanceCronRuns(
+  hour: number,
+  people: string[],
+  eodHours: Record<string, number | null | undefined> | null | undefined,
+  todayIsHoliday = false,
+): Array<{ person: string; kind: 'morning' | 'evening' }> {
+  const out: Array<{ person: string; kind: 'morning' | 'evening' }> = [];
+  for (const person of people || []) {
+    if (hour === ATT_MORNING_HH) out.push({ person, kind: 'morning' });
+  }
+  if (!todayIsHoliday) {
+    for (const person of people || []) {
+      if (eodHourFor(person, eodHours) === hour) out.push({ person, kind: 'evening' });
+    }
+  }
+  return out;
 }
 
 /** A nudge sent sooner than this after the arrival would reach him while he is still there. */

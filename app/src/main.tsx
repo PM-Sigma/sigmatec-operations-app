@@ -232,6 +232,44 @@ function boot() {
       .then(m => m.mountSettings())
       .catch(e => console.warn('[sigma] settings island failed', e));
   }
+  // 📋 הפערים שלי (§7h) — a lazy chunk, and a DEFERRED one: it reads five sources, so it
+  // drags TanStack and supabase-js behind it, and it is a panel reached from a menu. Loading
+  // it during boot cost a measured 7 points of Lighthouse performance on the card home.
+  //
+  // Deferring a panel normally means a tap in the first second does nothing (the reason every
+  // other panel here is NOT deferred — qa/playwright/tests/feedback.spec.ts caught exactly
+  // that). So the row and the opener are registered NOW, cheaply, and the first open loads
+  // the chunk and then re-fires the event for the island that just mounted.
+  if (document.getElementById('sigma-gaps')) {
+    let loading: Promise<unknown> | null = null;
+    const loadGaps = () => (loading ||= import('@/islands/Gaps')
+      .then(m => { m.mountGaps(); })
+      .catch(e => { loading = null; console.warn('[sigma] gaps island failed', e); }));
+    const openGaps = () => { void loadGaps().then(() => window.dispatchEvent(new CustomEvent('sigma-open-gaps'))); };
+    // An event that arrives BEFORE the island exists: load, then let it through. Once
+    // `loading` is set the island is mounting and owns the event itself, so this never loops.
+    window.addEventListener('sigma-open-gaps', () => { if (!loading) openGaps(); });
+    (window as any).sigmaOpenGaps = openGaps;          // the ?pushact=gaps deep link
+    registerMoreItem({
+      id: 'gaps',
+      label: 'פערים',
+      icon: 'ClipboardList',
+      group: 'app',
+      // Gated here too, not only in the island: the row is registered before the chunk
+      // lands, and for the seconds in between it must not offer a panel to someone the
+      // panel is not for. `mountGaps` re-registers the same id with the same rule.
+      visible: () => {
+        try {
+          const s = (window as any).sigma;
+          const me = s?.getCurrentUser?.() || '';
+          return !!s?.isViewer?.() || !!s?.isIdan?.() || me === 'עמיחי'
+            || (s?.ATT_PEOPLE || ['אביאם', 'ניתאי']).includes(me);
+        } catch { return false; }
+      },
+      onSelect: openGaps,
+    });
+    whenIdle(() => void loadGaps());
+  }
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')
       .then(m => m.mountImportNotes())

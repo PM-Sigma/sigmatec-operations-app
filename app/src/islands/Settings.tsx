@@ -4,11 +4,12 @@
 // Copy rule (§ before 7i): nothing here explains the app's own mechanics. Each row says what
 // the person gets, not where it is stored or how it is applied.
 import * as React from 'react';
-import { Monitor, Moon, Settings as Cog, Sun } from 'lucide-react';
+import { Bell, ClipboardList, Monitor, Moon, Settings as Cog, Smartphone, Sun } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { mount } from '@/islands';
 import { registerMoreItem } from '@/lib/registry';
 import { track } from '@/lib/track';
+import { toast } from 'sonner';
 import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import {
@@ -75,6 +76,128 @@ function Choice<T extends string>({
   );
 }
 
+/**
+ * 📋 Open the gaps panel without importing it: the panel is its own lazy chunk (TanStack,
+ * supabase-js), and a static import here would drag all of it into the settings chunk for a
+ * button most people never press. The island listens for this event.
+ */
+function openGaps(): void {
+  try { window.dispatchEvent(new CustomEvent('sigma-open-gaps')); } catch { /* no DOM */ }
+}
+
+/** ⏰ שעת תזכורת סוף יום — a short list beats a time picker for four realistic answers. */
+const EOD_HOURS = [17, 18, 19, 20];
+
+/**
+ * 📲 התקן כאפליקציה. Three states and three different sentences: an install the browser can
+ * actually perform, the iOS steps, and "it is already installed" — which is a fact, not a
+ * button.
+ */
+function InstallRow() {
+  const installed = (() => { try { return !!sigma.isInstalled?.(); } catch { return false; } })();
+  const can = (() => { try { return !!sigma.canInstall?.(); } catch { return false; } })();
+  return (
+    <Row label="התקנה על המכשיר" hint={installed ? 'האפליקציה מותקנת' : 'פתיחה מהמסך הראשי, בלי דפדפן'}>
+      <button
+        type="button"
+        data-testid="settings-install"
+        disabled={installed}
+        onClick={() => { track('settings-install'); void sigma.appInstall?.(); }}
+        className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-xl bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+      >
+        <Smartphone className="h-4 w-4" />
+        {installed ? 'מותקנת' : can ? 'התקן כאפליקציה' : 'איך מתקינים'}
+      </button>
+    </Row>
+  );
+}
+
+/** 🔔 התראות — one button, and a state line that says what to do next, never why. */
+function NotificationsRow() {
+  const read = React.useCallback(() => {
+    try { return sigma.pushState?.() || 'unsupported'; } catch { return 'unsupported'; }
+  }, []);
+  const [state, setState] = React.useState<string>(read);
+
+  const TEXT: Record<string, string> = {
+    granted: 'פעיל',
+    denied: 'חסום — יש לאשר התראות עבור האתר בהגדרות הדפדפן',
+    default: 'לא פעיל',
+    'ios-needs-install': 'צריך להוסיף את האפליקציה למסך הבית קודם',
+    unsupported: 'לא נתמך במכשיר הזה',
+    error: 'לא הצלחתי להפעיל — נסה שוב',
+  };
+
+  const enable = async () => {
+    track('settings-push-enable');
+    const next = await sigma.pushEnable?.();
+    setState(next || read());
+    if (next === 'granted') toast.success('התראות פעילות');
+  };
+
+  return (
+    <Row label="התראות" hint={TEXT[state] || TEXT.unsupported}>
+      <div className="flex flex-wrap gap-1.5">
+        {state !== 'granted' && (
+          <button
+            type="button"
+            data-testid="settings-push-enable"
+            disabled={state === 'unsupported' || state === 'ios-needs-install'}
+            onClick={() => void enable()}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+          >
+            <Bell className="h-4 w-4" /> הפעל התראות
+          </button>
+        )}
+        {state === 'granted' && (
+          <button
+            type="button"
+            data-testid="settings-push-test"
+            onClick={() => { track('settings-push-test'); void sigma.pushTest?.().then(ok => { if (!ok) toast.error('לא הצלחתי לשלוח'); }); }}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-[13px] font-semibold text-foreground"
+          >
+            <Bell className="h-4 w-4" /> שלח התראת בדיקה
+          </button>
+        )}
+      </div>
+    </Row>
+  );
+}
+
+/** 👤 האזור האישי — who he is, what is still open on him, and how to get to it. */
+function PersonalArea({ user, role, onClose }: { user: string; role: string; onClose: () => void }) {
+  const [devices, setDevices] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    let live = true;
+    void Promise.resolve(sigma.pushDeviceCount?.() ?? 0).then(n => { if (live) setDevices(Number(n) || 0); });
+    return () => { live = false; };
+  }, [user]);
+
+  const ROLE_HE: Record<string, string> = {
+    field: 'שטח', pm: 'ניהול מוצר', dev: 'פיתוח', ceo: 'הנהלה', viewer: 'צפייה',
+  };
+  const connected = (() => { try { return !!sigma.isEmsConnected?.(); } catch { return false; } })();
+
+  return (
+    <div className="mt-2 rounded-xl border border-border bg-muted/40 p-3" data-testid="settings-personal">
+      <div className="text-[14px] font-extrabold text-foreground">{user || 'לא מחובר'}</div>
+      <div className="mt-0.5 text-[12px] text-muted-foreground">
+        {ROLE_HE[role] || role}
+        {' · '}{connected ? 'מחובר ל-EMS' : 'לא מחובר ל-EMS'}
+        {devices !== null && ' · ' + (devices ? devices + ' מכשירים מקבלים התראות' : 'אין מכשיר שמקבל התראות')}
+      </div>
+      <button
+        type="button"
+        data-testid="settings-open-gaps"
+        onClick={() => { track('settings-gaps'); onClose(); openGaps(); }}
+        className="mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-[13px] font-extrabold text-foreground"
+      >
+        <ClipboardList className="h-4 w-4" /> מה נשאר לי לסגור
+      </button>
+    </div>
+  );
+}
+
 function SettingsPanel() {
   const [open, setOpen] = React.useState(false);
   const { name: user, role } = useCurrentUser();
@@ -96,13 +219,18 @@ function SettingsPanel() {
   }, [user]);
 
   const personRole = roleOf(user, role);
+  // The end-of-day reminder exists for the field team only (§7h).
+  const isField = (() => { try { return (sigma.ATT_PEOPLE || []).includes(user); } catch { return personRole === 'field'; } })();
   const landingHint = settings.landing === 'auto'
     ? 'המסך שנפתח כשאתה נכנס'
     : 'המסך שבחרת נפתח תמיד';
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-[460px]" dir="rtl">
+      {/* The panel grew past a phone screen once the install / notifications / personal rows
+          joined it (Task 15) — on a 390×844 device the last button sat outside the dialog and
+          could not be tapped at all. It scrolls now, and stops short of the screen edge. */}
+      <DialogContent className="max-h-[88svh] max-w-[460px] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Cog className="h-5 w-5" /> הגדרות
@@ -158,7 +286,24 @@ function SettingsPanel() {
               ]}
             />
           </Row>
+
+          {/* ⏰ Only the two people the evening nudge is for. Nobody else has one to move. */}
+          {isField && (
+            <Row label="תזכורת סוף יום" hint="השעה שבה מגיעה התזכורת לעדכן את היום">
+              <Choice<string>
+                ariaLabel="תזכורת סוף יום"
+                value={String(settings.eod_hour ?? 19)}
+                onChange={v => set({ eod_hour: Number(v) }, v)}
+                options={EOD_HOURS.map(h => ({ value: String(h), label: String(h).padStart(2, '0') + ':00' }))}
+              />
+            </Row>
+          )}
+
+          <InstallRow />
+          <NotificationsRow />
         </div>
+
+        <PersonalArea user={user} role={personRole} onClose={() => setOpen(false)} />
 
         {/* read so the panel re-renders after changeUser() — the landing options are gated per person */}
         <span hidden data-role={personRole} />

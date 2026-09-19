@@ -370,6 +370,23 @@
       attExportPdf: function () { return call('downloadAttendancePDF'); },
       attExportExcel: function () { return call('xlExportAttendanceCurrent'); },
 
+      // ---- ⚙️ הגדרות: install + notifications (spec §7h) --------------------
+      // Both live in the legacy bundle because both are BROWSER state, not app state: the
+      // install prompt is an event the page must have captured before React existed, and the
+      // push subscription is tied to the service worker the legacy boot registered. The
+      // settings island only ASKS and RENDERS.
+      isInstalled: function () { return !!call('isInstalled', [], false); },
+      canInstall: function () { return !!call('canInstall', [], false); },
+      appInstall: function () { return call('appInstall', [], Promise.resolve()); },
+      /** 'granted' | 'denied' | 'default' | 'ios-needs-install' | 'unsupported'. */
+      pushState: function () { return call('pushState', [], 'unsupported'); },
+      /** Must be called from a real user gesture — a browser ignores any other request. */
+      pushEnable: function () { return call('pushEnable', [], Promise.resolve('unsupported')); },
+      pushTest: function () { return call('pushTest', [], Promise.resolve(false)); },
+      pushDeviceCount: function () { return call('pushDeviceCount', [], Promise.resolve(0)); },
+      /** 📋 הפערים: 🔔 on a person's row (עמיחי / the viewer). The server decides the words. */
+      gapNag: function (person, count) { return call('gapNag', [person, count], Promise.resolve(false)); },
+
       // ---- 🗓️ calendar (spec §7f, Task 13) ----------------------------------
       // The island reads day_plans / calendar_absences itself (supabase-js). These three are
       // what it CANNOT reach: the office Google Calendar (an Edge Function that needs the

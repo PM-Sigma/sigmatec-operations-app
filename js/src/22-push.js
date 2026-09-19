@@ -88,6 +88,57 @@
     } catch (e) { console.warn('[push] init failed', e); }
   };
 
+  // ⚙️ הגדרות (spec §7h) — the 🔔 row. The panel needs three things the legacy prompt never
+  // exposed: what the state IS, a way to ASK for permission from a real user gesture (which
+  // is the only kind a browser honours), and a way to prove the device is registered.
+  //
+  // `pushState()` answers with one word, so the row can say פעיל / חסום / לא נתמך without
+  // reading `Notification` itself from a React chunk that may run before the SW is ready.
+  window.pushState = function () {
+    if (!supported) return 'unsupported';
+    if (isIOS && !(window.navigator.standalone === true)) return 'ios-needs-install';
+    try { return Notification.permission === 'granted' ? 'granted' : Notification.permission === 'denied' ? 'denied' : 'default'; }
+    catch (e) { return 'unsupported'; }
+  };
+
+  // Ask, then subscribe. Resolves with the state AFTER the answer, so the caller re-renders
+  // from the truth and not from what it hoped the person would tap.
+  window.pushEnable = async function () {
+    if (!supported) return 'unsupported';
+    try {
+      var perm = Notification.permission;
+      if (perm === 'default') perm = await Notification.requestPermission();
+      if (perm !== 'granted') return perm === 'denied' ? 'denied' : 'default';
+      await subscribe();
+      return 'granted';
+    } catch (e) { console.warn('[push] enable failed', e); return 'error'; }
+  };
+
+  // 🔔 בדיקה — one notification to THIS device, shown by the service worker so it looks
+  // exactly like a real one (a `new Notification()` in the page does not, on Android).
+  window.pushTest = async function () {
+    try {
+      if (window.pushState() !== 'granted') return false;
+      var reg = await navigator.serviceWorker.ready;
+      await reg.showNotification('🔔 ההתראות עובדות', {
+        body: 'ככה תיראה התראה מהאפליקציה.', tag: 'push-test', icon: 'icons/icon-192.png'
+      });
+      return true;
+    } catch (e) { console.warn('[push] test failed', e); return false; }
+  };
+
+  // How many devices this person has registered — the 👤 האזור האישי line.
+  window.pushDeviceCount = async function () {
+    try {
+      var owner = currentOwner();
+      if (!owner) return 0;
+      var r = await fetch(SB_URL + '/rest/v1/push_subscriptions?select=endpoint&owner=eq.' + encodeURIComponent(owner), { headers: authHeaders() });
+      if (!r.ok) return 0;
+      var rows = await r.json();
+      return Array.isArray(rows) ? rows.length : 0;
+    } catch (e) { return 0; }
+  };
+
   // Fire a push for an order event. Best-effort: never blocks or breaks the calling flow.
   // event: 'pending' (created, awaiting approval) | 'approved'. actor = the acting user (excluded).
   window.pushNotify = function (event, orderId, actor) {
@@ -238,6 +289,32 @@
     }
   }
   window.attNagDay = attNagDay;
+
+  // 📋 הפערים שלי (spec §7h) — the same 🔔 nudge flow as attendance, for the gaps list.
+  // עמיחי / the viewer taps a person's row; the SERVER decides the words, the daily cap and
+  // whether the hour is a decent one to buzz someone (push-send `gapReminder`). `count` is
+  // only how many items are open — never which, and never what they are.
+  async function gapNag(person, count) {
+    if (!person) return false;
+    try {
+      const tok = (typeof getEmsToken === 'function' && getEmsToken()) || (window.EMS_TOKEN || '');
+      const r = await fetch(SB_URL + '/functions/v1/push-send', {
+        method: 'POST',
+        headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'gapReminder', person: person, count: count || 1, token: tok, actor: currentOwner() })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || r.status);
+      if (j.skipped) { attToast('כבר נשלחה תזכורת היום ל' + person); return false; }
+      if (!j.delivered) { attToast('ל' + person + ' אין מכשיר רשום להתראות'); return false; }
+      attToast('🔔 נשלחה תזכורת ל' + person);
+      return true;
+    } catch (e) {
+      attToast('❌ שליחה נכשלה: ' + e.message);
+      return false;
+    }
+  }
+  window.gapNag = gapNag;
 })();
 
 // ===== Push deep-links =====
@@ -260,6 +337,12 @@
       else if (act === 'order' && typeof showPage === 'function') { showPage('inventory'); }
       else if (act === 'fillToday') { if (typeof showPage === 'function') showPage('attendance'); if (typeof openVisitQuick === 'function') openVisitQuick(); }
       else if (act === 'fillMissing') { if (typeof showPage === 'function') showPage('attendance'); }
+      // 📋 פתח את הרשימה — the gaps nudge (spec §7h). The panel is the settings island's,
+      // and it opens over whatever page the app landed on.
+      else if (act === 'gaps') {
+        if (typeof window.sigmaOpenGaps === 'function') window.sigmaOpenGaps();
+        else window.dispatchEvent(new CustomEvent('sigma-open-gaps'));
+      }
       // ✍️ כתוב סיכום — the 2 h visit nudge (spec §5.2). One tap = the visit form with the
       // kibbutz already in it; `openVisitQuick` with a name opens the form directly.
       else if (act === 'visit') {

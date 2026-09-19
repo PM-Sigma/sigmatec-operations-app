@@ -1,7 +1,10 @@
 // push-send — Web Push sender. Modes over one endpoint:
 //   (default) order events  : { event: 'pending'|'approved', orderId, actor } → notifies approvers
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
-//   attendanceCron          : { mode:'attendanceCron' }  → hourly; 09:00 missing-days, 19:00 today
+//   attendanceCron          : { mode:'attendanceCron' }  → hourly; 09:00 missing-days, each
+//                             person's own `user_settings.eod_hour` (default 19:00) → today
+//   gapReminder             : { mode:'gapReminder', person, count, token } → 📋 הפערים שלי (§7h)
+//                             AUTH: X-Cron-Key OR a valid EMS login; one per person per day
 //                             🕎 skips `company_holidays` rows with required=false (spec §7e)
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
 //   feedbackNew             : { mode:'feedbackNew', kind, preview, token }     → 📣 box → עידן + עמיחי (EMS-gated)
@@ -27,7 +30,8 @@ import { usageDigestAuth } from "./usageDigest.ts";
 // EVERY decision the visitCron mode makes — the 2 h rule, the 20:00 cap, the quiet hours, the
 // daily cap, which words go out — is one of these pure functions, tested in field.test.ts.
 import {
-  CAP_EXEMPT_EVENTS, israelAt, nudgeFor, visitCronSelect,
+  attendanceCronRuns, capBlocked, CAP_EXEMPT_EVENTS, gapNudgeFor, inQuietHours, israelAt,
+  nudgeFor, visitCronSelect,
   type CheckinRow, type DraftRow, type VisitRow,
 } from "./field.ts";
 
@@ -128,6 +132,20 @@ async function holidayOff(y: number, m: number): Promise<Set<string>> {
   return off;
 }
 
+// ⏰ Everyone's chosen end-of-day hour (spec §7h), as `person → hour`. Never throws: the table
+// missing, the column missing or a transient read error all degrade to an empty map, which
+// `eodHourFor` reads as "he never chose one" → 19:00, the behaviour this job had for a year.
+async function eodHourMap(): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  try {
+    const { data } = await sb.from("user_settings").select("person,eod_hour");
+    for (const r of (data ?? []) as Array<{ person: string; eod_hour: number | null }>) {
+      if (r.eod_hour != null) out[String(r.person)] = Number(r.eod_hour);
+    }
+  } catch { /* the default hour is the answer */ }
+  return out;
+}
+
 // Prior weekdays (Sun–Thu) this month, from the 1st up to yesterday, with no record and not
 // a holiday. Ascending.
 function priorMissing(have: Set<string>, t: { y: number; m: number; d: number }, off: Set<string> = new Set()): string[] {
@@ -154,10 +172,15 @@ function priorMissing(have: Set<string>, t: { y: number; m: number; d: number },
 //
 // Returns the total per person and, separately, how many of those were visit nudges, because
 // each mode has its own smaller ceiling on top of the global one.
-interface CapCounts { total: Record<string, number>; visit: Record<string, number> }
+interface CapCounts {
+  total: Record<string, number>;
+  visit: Record<string, number>;
+  /** 📋 gaps nudges only (GAP_DAILY_CAP = 1). */
+  gap: Record<string, number>;
+}
 
 async function sentTodayCounts(people: string[]): Promise<CapCounts> {
-  const out: CapCounts = { total: {}, visit: {} };
+  const out: CapCounts = { total: {}, visit: {}, gap: {} };
   if (!people.length) return out;
   const since = new Date(israelAt(new Date(), 0, 0)).toISOString();
   const { data } = await sb.from("push_log").select("recipient,title,event")
@@ -171,6 +194,7 @@ async function sentTodayCounts(people: string[]): Promise<CapCounts> {
       set.add(key);
       out.total[r.recipient] = (out.total[r.recipient] ?? 0) + 1;
       if (r.event === "visitCron") out.visit[r.recipient] = (out.visit[r.recipient] ?? 0) + 1;
+      if (r.event === "gapReminder") out.gap[r.recipient] = (out.gap[r.recipient] ?? 0) + 1;
     }
     seen.set(r.recipient, set);
   }
@@ -263,22 +287,27 @@ Deno.serve(async (req: Request) => {
   // ---- scheduled attendance reminders (pg_cron hits this hourly; gate on Israel local hour) ----
   if (body.mode === "attendanceCron") {
     const t = israelNow();
-    const kind = t.hh === 19 ? "evening" : t.hh === 9 ? "morning" : null;
-    if (!kind) return json({ ok: true, skipped: "not a scheduled hour", hour: t.hh });
     const since = new Date(Date.now() - 12 * 3600 * 1000).toISOString();   // 12h window → DST-proof idempotency
     const results: any[] = [];
     // 🕎 Read once for the whole run, not per person — the calendar is the same for everyone.
     const off = await holidayOff(t.y, t.m);
+    // ⏰ Each person's own end-of-day hour (spec §7h). Read once per run; a missing row, a
+    // missing column or a read that fails all mean the same thing — he never chose one, so he
+    // keeps 19:00, which is what this job did for everyone before the setting existed.
+    const eodHours = await eodHourMap();
     // Nobody is asked to fill in a day the company was closed. The EVENING nudge is about
-    // TODAY, so when today is a holiday the job simply has nothing to say — and says nothing,
-    // rather than asking someone on his day off to account for it.
-    if (kind === "evening" && off.has(t.date)) {
-      return json({ ok: true, kind, skipped: "holiday", date: t.date });
-    }
+    // TODAY, so on a holiday it simply has nothing to say — and says nothing, rather than
+    // asking someone on his day off to account for it. The morning half still runs: the days
+    // missing from before the holiday are still missing.
+    //
+    // WHO gets what, at this hour, is the pure `attendanceCronRuns` in ./field.ts
+    // (app/src/lib/field.test.ts), so the schedule can be read in one place.
+    const runs = attendanceCronRuns(t.hh, ATT_PEOPLE, eodHours, off.has(t.date));
+    if (!runs.length) return json({ ok: true, skipped: "not a scheduled hour", hour: t.hh });
     // NOT capped (fix round 1): attendance is the record of the work day, so a day full of
     // visit nudges must never swallow it. It does not spend the cap either — `sentTodayCounts`
     // skips `CAP_EXEMPT_EVENTS`. Its own "already sent" check below is the idempotency.
-    for (const person of ATT_PEOPLE) {
+    for (const { person, kind } of runs) {
       const { data: prior } = await sb.from("push_log").select("id")
         .eq("event", "attendanceCron").eq("recipient", person).eq("where_txt", kind).gte("sent_at", since).limit(1);
       if (prior && prior.length) { results.push({ person, kind, skipped: "already sent" }); continue; }
@@ -302,7 +331,47 @@ Deno.serve(async (req: Request) => {
       const r = await sendTo([person], payload, meta);
       results.push({ person, kind, dates: dates.length, delivered: r.delivered });
     }
-    return json({ ok: true, kind, results });
+    return json({ ok: true, hour: t.hh, results });
+  }
+
+  // ---- 📋 הפערים שלי — the gaps nudge (spec §7h) ----------------------------------------
+  // { mode:'gapReminder', person, count, token } — sent by עמיחי or the viewer from the gaps
+  // screen, or by a cron key. WHAT is open is decided on the client (app/src/lib/gaps.ts,
+  // which reads the same five sources the person's own screen reads); this endpoint decides
+  // WHO may be nudged, HOW OFTEN, and WITH WHICH WORDS — all three server-side, like every
+  // other mode.
+  if (body.mode === "gapReminder") {
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    const byCron = !!secret && !!cronKey && cronKey === secret;
+    if (!byCron && !(await emsValid(String(body.token || "")))) {
+      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
+    }
+    const person = String(body.person || "");
+    // The field team only. A nudge is about a day in the field, and the recipient list is
+    // fixed here so no caller can point it at somebody else.
+    if (!ATT_PEOPLE.includes(person)) return json({ error: "recipient not allowed" }, 403);
+    const count = Math.max(1, Math.min(99, Math.floor(Number(body.count) || 1)));
+
+    // Adoption guard ג: at most ONE gaps nudge a day per person (GAP_DAILY_CAP), and never
+    // when the day's whole nudge budget is already spent. Quiet hours apply — a list of open
+    // items at 22:40 is not something anyone is going to act on tonight.
+    if (inQuietHours(new Date())) return json({ ok: true, skipped: "quiet hours" });
+    const counts = await sentTodayCounts([person]);
+    const blocked = capBlocked("gapReminder", counts.total[person] ?? 0, counts.gap[person] ?? 0);
+    if (blocked) return json({ ok: true, skipped: blocked });
+
+    const t = israelNow();
+    const { title, body: bodyTxt } = gapNudgeFor(person + "|" + t.date, count);
+    const url = APP + "?pushact=gaps#kibbutz";
+    const payload = JSON.stringify({
+      title, body: bodyTxt, tag: "gaps-" + person + "-" + t.date, requireInteraction: false, url,
+      actions: [{ action: "gaps", title: "📋 פתח את הרשימה" }],
+      data: { actUrls: { gaps: url } },
+    });
+    const meta = { event: "gapReminder", order_id: null, where_txt: person, qty: count, actor: body.actor == null ? null : String(body.actor), title, body: bodyTxt };
+    const r = await sendTo([person], payload, meta);
+    return json({ ok: true, delivered: r.delivered, pruned: r.pruned });
   }
 
   // ---- 📍 the 2 h visit-summary reminder (spec §5.2, guards §7k ג) --------------------

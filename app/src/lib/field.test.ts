@@ -6,6 +6,7 @@ import {
   dm, fieldShouldPrompt, hasSomethingToDeliver, hashIdx, inQuietHours, israelAt, israelParts,
   leaveChecklist, nudgeFor, openItemsPrefill, openNudges, pushactParse, RECOUNT_NUDGES,
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
+  ATT_MORNING_HH, attendanceCronRuns, EOD_DEFAULT_HH, eodHourFor,
   type CheckinRow, type FieldTask,
 } from './field';
 import { burnLeaveItems } from './burns';
@@ -412,5 +413,62 @@ describe('dm', () => {
   it('formats the short date a field worker reads', () => {
     expect(dm('2026-09-02')).toBe('2.9');
     expect(dm(null)).toBe('');
+  });
+});
+
+
+// ───────────── ⏰ the attendance cron's two hours (spec §7h) ─────────────
+describe('eodHourFor', () => {
+  it('is 19:00 for anyone who never chose', () => {
+    expect(EOD_DEFAULT_HH).toBe(19);
+    expect(eodHourFor('אביאם', {})).toBe(19);
+    expect(eodHourFor('אביאם', null)).toBe(19);
+    expect(eodHourFor('אביאם', { אביאם: null })).toBe(19);
+  });
+  it('honours his own hour', () => {
+    expect(eodHourFor('אביאם', { אביאם: 18, ניתאי: 21 })).toBe(18);
+    expect(eodHourFor('אביאם', { אביאם: 0 })).toBe(0);
+  });
+  it('a value that is not an hour is not an hour', () => {
+    for (const bad of [24, -1, 7.5, NaN, 'שש' as unknown as number])
+      expect(eodHourFor('אביאם', { אביאם: bad })).toBe(19);
+  });
+});
+
+describe('attendanceCronRuns', () => {
+  const people = ['אביאם', 'ניתאי'];
+
+  it('09:00 is the morning nudge, for everyone', () => {
+    expect(ATT_MORNING_HH).toBe(9);
+    expect(attendanceCronRuns(9, people, {})).toEqual([
+      { person: 'אביאם', kind: 'morning' }, { person: 'ניתאי', kind: 'morning' },
+    ]);
+  });
+
+  it('19:00 is the evening nudge for whoever did not choose', () => {
+    expect(attendanceCronRuns(19, people, {})).toEqual([
+      { person: 'אביאם', kind: 'evening' }, { person: 'ניתאי', kind: 'evening' },
+    ]);
+  });
+
+  it('a chosen hour moves that person and nobody else', () => {
+    expect(attendanceCronRuns(18, people, { אביאם: 18 })).toEqual([{ person: 'אביאם', kind: 'evening' }]);
+    expect(attendanceCronRuns(19, people, { אביאם: 18 })).toEqual([{ person: 'ניתאי', kind: 'evening' }]);
+  });
+
+  it('any other hour has nothing to say', () => {
+    expect(attendanceCronRuns(14, people, { אביאם: 18 })).toEqual([]);
+    expect(attendanceCronRuns(19, [], {})).toEqual([]);
+  });
+
+  it('a holiday silences the evening half only', () => {
+    expect(attendanceCronRuns(19, people, {}, true)).toEqual([]);
+    expect(attendanceCronRuns(9, people, {}, true))
+      .toEqual([{ person: 'אביאם', kind: 'morning' }, { person: 'ניתאי', kind: 'morning' }]);
+  });
+
+  it('an end-of-day hour of 09:00 gets both, and they are different messages', () => {
+    expect(attendanceCronRuns(9, ['אביאם'], { אביאם: 9 }))
+      .toEqual([{ person: 'אביאם', kind: 'morning' }, { person: 'אביאם', kind: 'evening' }]);
   });
 });
