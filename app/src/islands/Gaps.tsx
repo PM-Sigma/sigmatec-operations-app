@@ -40,6 +40,7 @@ let pendingOpen = false;
 
 /** Open 📋 הפערים שלי from anywhere (⋯ עוד, the settings panel, a push deep link). */
 export function openGaps(): void {
+  pendingOpen = true;   // cleared by the listener, or drained by the island's first effect
   try { window.dispatchEvent(new CustomEvent(GAPS_OPEN_EVENT)); } catch { /* no DOM */ }
 }
 
@@ -232,7 +233,15 @@ function GapsIsland() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
-    const on = () => { setOpen(true); track('gaps-open'); };
+  // The window event is only half the wiring. `mount()` returns synchronously, but THIS effect
+  // runs after React has committed — so an open dispatched in that gap (the ⋯ row tapped the
+  // instant the chunk lands, or a Playwright spec that dispatches right after boot) reaches an
+  // island that is not listening yet and is lost: the sheet silently never opens. `openX()`
+  // therefore raises `pendingOpen` as well as dispatching, and the effect drains it on attach.
+  // That is the real cause of the daylog.spec.ts timeout flake filed to Task 18 — a race, not
+  // a slow machine, which is why the fix is a drain and not a longer timeout.
+    const on = () => { pendingOpen = false; setOpen(true); track('gaps-open'); };
+    if (pendingOpen) { pendingOpen = false; setOpen(true); }
     window.addEventListener(GAPS_OPEN_EVENT, on as EventListener);
     return () => window.removeEventListener(GAPS_OPEN_EVENT, on as EventListener);
   }, []);

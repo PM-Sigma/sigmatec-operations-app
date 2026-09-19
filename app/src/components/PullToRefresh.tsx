@@ -83,7 +83,12 @@ export function PullToRefresh() {
     busyRef.current = true;
     setBusy(true);
     track('pull-to-refresh');
+    // A refresh that fails is invisible by design — the screen keeps the data it already has.
+    // The `catch` is what makes it invisible: without it an offline pull, the commonest way
+    // for this to fail, escaped as an unhandled promise rejection (Task 18, pinned by
+    // PullToRefresh.test.tsx "the guard is released even when the refresh REJECTS").
     try { await refreshAll(); }
+    catch { /* offline or a dead query — the next pull tries again */ }
     finally {
       busyRef.current = false;
       setBusy(false);

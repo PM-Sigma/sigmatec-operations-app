@@ -43,6 +43,7 @@ let pendingOpen = false;
 
 /** Open מצב ישיבה from anywhere (⋯ עוד, a deep link). No-op before the island mounts. */
 export function openPresenter(): void {
+  pendingOpen = true;   // cleared by the listener, or drained by the island's first effect
   try { window.dispatchEvent(new CustomEvent(PRESENTER_OPEN_EVENT)); } catch { /* no DOM */ }
 }
 
@@ -137,6 +138,12 @@ function useStrips(row: KibbutzRow | null, notes: NoteRow[]): { admin: StripItem
 /**
  * Task 28's own strip, when it exists. It is read through the bridge rather than imported, so
  * this screen has NO dependency on that task: nothing there → nothing rendered, no error.
+ *
+ * Every layer of the defence is deliberate and none of it is redundant (Task 18 review note):
+ * `presenterStrip?.()` covers "the health island never mounted"; `Array.isArray` covers a
+ * future implementation that answers with an object or a promise; `String(...?? '')` covers a
+ * row with a missing or non-string field; the `catch` covers a throwing implementation. A
+ * meeting is being run on this screen — it may render less, never blank.
  */
 function useExtraStrip(row: KibbutzRow | null): StripItem[] {
   return React.useMemo(() => {
@@ -675,7 +682,15 @@ function PresenterIsland() {
   const { name: user, isViewer } = useCurrentUser();
 
   React.useEffect(() => {
-    const on = () => { setOpen(true); track('presenter-open'); };
+  // The window event is only half the wiring. `mount()` returns synchronously, but THIS effect
+  // runs after React has committed — so an open dispatched in that gap (the ⋯ row tapped the
+  // instant the chunk lands, or a Playwright spec that dispatches right after boot) reaches an
+  // island that is not listening yet and is lost: the sheet silently never opens. `openX()`
+  // therefore raises `pendingOpen` as well as dispatching, and the effect drains it on attach.
+  // That is the real cause of the daylog.spec.ts timeout flake filed to Task 18 — a race, not
+  // a slow machine, which is why the fix is a drain and not a longer timeout.
+    const on = () => { pendingOpen = false; setOpen(true); track('presenter-open'); };
+    if (pendingOpen) { pendingOpen = false; setOpen(true); }
     window.addEventListener(PRESENTER_OPEN_EVENT, on as EventListener);
     return () => window.removeEventListener(PRESENTER_OPEN_EVENT, on as EventListener);
   }, []);
@@ -687,7 +702,15 @@ function PresenterIsland() {
   return <PresenterOverlay onClose={() => setOpen(false)} />;
 }
 
-/** עידן + עמיחי, asked live (a role read once at registration goes stale after changeUser). */
+/**
+ * "admin" = the bridge's `canManageStaff()` (js/src/00-bridge.js) — עידן + עמיחי — asked LIVE,
+ * because a role read once at registration goes stale the moment someone uses changeUser().
+ *
+ * The literal list is a FALLBACK for the one case the bridge cannot answer: the legacy bundle
+ * has not finished evaluating yet. It is therefore a second copy of a permission rule, which
+ * is how gates drift apart — so test-integration.mjs pins it against `canManageStaff`'s own
+ * definition and fails the build if either side gains or loses a name. Change one, change both.
+ */
 function isAdminNow(user?: string): boolean {
   try {
     if (sigma.isAdmin?.()) return true;

@@ -6,7 +6,7 @@
 // always 0×0 in jsdom, so the real chart would render nothing and only slow the suite down.
 // The chart's DATA is covered by usage.test.ts (perDay) — what matters here is the page around it.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 vi.mock('recharts', () => {
@@ -92,7 +92,14 @@ describe('📈 שימוש island', () => {
     location.hash = '#usage';
     const { Usage } = await import('./Usage');
     render(<Usage />);
-    await new Promise(r => setTimeout(r, 30));
+    // Flush the microtask queue and one macrotask turn — NOT a wall-clock sleep. A fixed
+    // `setTimeout(30)` is a race against the machine: on a loaded runner the query had not
+    // fired yet and the test passed for the wrong reason, and the same arbitrary number is
+    // what made this file time out under `npm run qa`. Two `act` turns are enough for React
+    // to commit and for any promise the island kicked off to settle, whatever the CPU is
+    // doing. (Task 18 — flake filed from Task 29's review.)
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await Promise.resolve(); });
     expect(screen.queryByText('📈 שימוש · 30 ימים אחרונים')).not.toBeInTheDocument();
     expect(rpc).not.toHaveBeenCalled();
   });
@@ -111,6 +118,9 @@ describe('📈 שימוש island', () => {
     const { Usage } = await import('./Usage');
     render(<Usage />);
     await waitFor(() => expect(rpc).toHaveBeenCalled());
-    expect(await screen.findByText(/עוד לא נאספו נתוני שימוש/, undefined, { timeout: 3000 })).toBeInTheDocument();
+    // No hand-tuned timeout: testing-library's default already retries until the suite's own
+    // deadline, and a 3 s ceiling inside a 5 s test is what turned a slow render into a
+    // confusing "element not found" instead of a clean timeout. (Task 18)
+    expect(await screen.findByText(/עוד לא נאספו נתוני שימוש/)).toBeInTheDocument();
   });
 });

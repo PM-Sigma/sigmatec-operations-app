@@ -31,6 +31,7 @@ export const DAYLOG_OPEN_EVENT = 'sigma-open-daylog';
 
 /** Open 📝 יומן היום from anywhere (⋯ עוד, the visit page, a nudge deep link). */
 export function openDayLog(): void {
+  pendingOpen = true;   // cleared by the listener, or drained by the island's first effect
   try { window.dispatchEvent(new CustomEvent(DAYLOG_OPEN_EVENT)); } catch { /* no DOM */ }
 }
 
@@ -224,7 +225,15 @@ function DayLogSheet() {
   const rec = React.useRef<RecordSession | null>(null);
 
   React.useEffect(() => {
-    const onEvent = () => setOpen(true);
+  // The window event is only half the wiring. `mount()` returns synchronously, but THIS effect
+  // runs after React has committed — so an open dispatched in that gap (the ⋯ row tapped the
+  // instant the chunk lands, or a Playwright spec that dispatches right after boot) reaches an
+  // island that is not listening yet and is lost: the sheet silently never opens. `openX()`
+  // therefore raises `pendingOpen` as well as dispatching, and the effect drains it on attach.
+  // That is the real cause of the daylog.spec.ts timeout flake filed to Task 18 — a race, not
+  // a slow machine, which is why the fix is a drain and not a longer timeout.
+    const onEvent = () => { pendingOpen = false; setOpen(true); };
+    if (pendingOpen) { pendingOpen = false; setOpen(true); }
     window.addEventListener(DAYLOG_OPEN_EVENT, onEvent as EventListener);
     return () => window.removeEventListener(DAYLOG_OPEN_EVENT, onEvent as EventListener);
   }, []);
@@ -323,7 +332,12 @@ function DayLogSheet() {
       for (const m of v.task_matches) {
         const r = await (sigma.emsAddComment?.(m.task_id, emsCommentText(me, m.text), { kibbutz: v.kibbutz })
           ?? Promise.resolve({ ok: false }));
+        // `ok` covers two different outcomes and the person deserves to know which: the
+        // legacy writer returns `{ ok: true, queued: true }` when there is no connection and
+        // the comment was parked for the next sign-in. Reporting that as a plain success is
+        // how somebody walks away believing the team already saw his update (Task 16 → 18).
         if (!r?.ok) toast.error(`העדכון למשימה "${m.title || m.task_id}" לא נשלח`);
+        else if (r.queued) toast(`🕒 העדכון למשימה "${m.title || m.task_id}" יישלח בהתחברות הבאה`);
       }
     }
     setSaved(marks);
