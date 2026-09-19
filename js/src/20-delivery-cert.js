@@ -496,13 +496,24 @@
     }
   }
 
+  // Report-facing preview only (spec §3): 👁 from the reports hub, viewed as a viewer, prints
+  // display names — a field-issued cert (the technical-name snapshot everyone else sees, and
+  // what the recipient actually signed for) is never rewritten. Applied here only, not in
+  // certReprint (the internal "reissue"/print-again path), which stays byte-identical to what
+  // was issued.
+  function certItemsForView(items) {
+    if (!(typeof isViewer === 'function' && isViewer())) return items || [];
+    const map = typeof xlProductMapFromSheet === 'function' ? xlProductMapFromSheet() : {};
+    return (items || []).map(i => ({ name: typeof xlLabel === 'function' ? xlLabel(i.name, map) : i.name, qty: i.qty }));
+  }
+
   // stored cert → overlay (registry 👁 button)
   function certView(id) {
     const c = _certRows.find(x => x.id === id);
     if (!c) return;
     certOverlayShow(certDocHtml({
       number: c.cert_number, date: c.cert_date, kibbutz: c.kibbutz,
-      customer: c.customer || {}, items: c.items || [], notes: c.notes || '',
+      customer: c.customer || {}, items: certItemsForView(c.items || []), notes: c.notes || '',
       source: c.source, refId: c.ref_id, recipient: c.recipient || '', signature: c.signature || '',
       cancelled: c.status === 'cancelled', replacedBy: c.replaced_by || 0
     }, { screen: true }), id, c.drive_url || '');

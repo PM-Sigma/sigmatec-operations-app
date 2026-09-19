@@ -6,7 +6,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const src = fs.readFileSync(path.join(__dirname, 'js/src/21-excel-export.js'), 'utf8');
+// 06-products.js supplies the `productLabel` legacy mirror (Task 9, spec §3) that
+// xlLabel()/xlProductMapFromSheet() in 21-excel-export.js call.
+const src = fs.readFileSync(path.join(__dirname, 'js/src/06-products.js'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(__dirname, 'js/src/21-excel-export.js'), 'utf8');
 
 let failures = 0, passes = 0;
 function check(name, fn) {
@@ -18,7 +21,7 @@ function check(name, fn) {
 function loadModule(role) {
   const window_ = {};
   const fn = new Function('window', 'document', 'alert', 'isIdan', 'isViewer',
-    src + '\nreturn { canExportExcel, xlStr, xlNum, xlDate, xlBuildVisits, xlBuildAttendance, xlBuildCerts, xlBuildCertSummary, xlBuildStockByLocation, xlBuildStockByKibbutz, xlSpecToWorkbook, xlMonthRange };');
+    src + '\nreturn { canExportExcel, xlStr, xlNum, xlDate, xlBuildVisits, xlBuildAttendance, xlBuildCerts, xlBuildCertSummary, xlBuildStockByLocation, xlBuildStockByKibbutz, xlSpecToWorkbook, xlMonthRange, xlLabel, xlProductMapFromSheet, productLabel };');
   return fn(window_, { createElement: () => ({}), head: { appendChild() {} }, getElementById: () => ({ value: '', textContent: '' }) },
     () => {}, () => role === 'idan', () => role === 'viewer');
 }
@@ -250,6 +253,51 @@ check('header column count === the cells a full visit row emits', () => {
 check('the cell escapes markup and turns newlines into <br>', () => {
   assert.ok(/replace\(\/&\/g, '&amp;'\)/.test(ACT), 'no &-escaping in openItemsCell');
   assert.ok(ACT.includes("'<br>'"), 'newlines are not turned into <br>');
+});
+
+// ── §3 product display names (Task 9) ────────────────────────────────────────
+// No export cell may print a technical name that has a different display_name (spec §3
+// contract). Fixture per the spec: name:'E360CT-3P', display_name:'מונה חשמל תלת-פאזי'.
+console.log('== §3 product display names — no technical-name leak ==');
+const METER = 'E360CT-3P', METER_DISPLAY = 'מונה חשמל תלת-פאזי', PLAIN = 'SIM-XYZ';
+const PRODUCT_MAP = { [METER]: { name: METER, display_name: METER_DISPLAY }, [PLAIN]: { name: PLAIN } };
+
+function cellsContain(spec, needle) { return spec.rows.some(r => r.some(c => typeof c === 'string' && c.includes(needle))); }
+
+check('productLabel: technical in-app, display for forReport/viewer, fallback when unset', () => {
+  assert.strictEqual(M.productLabel({ name: METER, display_name: METER_DISPLAY }), METER);
+  assert.strictEqual(M.productLabel({ name: METER, display_name: METER_DISPLAY }, { forReport: true }), METER_DISPLAY);
+  assert.strictEqual(M.productLabel({ name: METER, display_name: METER_DISPLAY }, { role: 'viewer' }), METER_DISPLAY);
+  assert.strictEqual(M.productLabel({ name: PLAIN }, { forReport: true }), PLAIN);
+});
+
+check('visits export: display name in the cell, technical name absent', () => {
+  const spec = M.xlBuildVisits([{ date: '2026-09-01', kibbutz: 'דפנה', products: [{ name: METER, qty: 2 }] }], PRODUCT_MAP);
+  assert.ok(cellsContain(spec, METER_DISPLAY));
+  assert.ok(!cellsContain(spec, METER));
+});
+check('visits export, no productMap (legacy call site) → falls back to technical, no throw', () => {
+  const spec = M.xlBuildVisits([{ date: '2026-09-01', kibbutz: 'דפנה', products: [{ name: METER, qty: 1 }] }]);
+  assert.ok(cellsContain(spec, METER));
+});
+check('cert summary: display name in the cell, technical name absent', () => {
+  const spec = M.xlBuildCertSummary([{ status: 'active', cert_number: 1, kibbutz: 'דפנה', items: [{ name: METER, qty: 3 }] }], PRODUCT_MAP);
+  assert.ok(cellsContain(spec, METER_DISPLAY));
+  assert.ok(!cellsContain(spec, METER));
+});
+check('stock by location: display name in the פריט cell', () => {
+  const spec = M.xlBuildStockByLocation({ 'חברה': { [METER]: 5 } }, ['חברה'], {}, PRODUCT_MAP);
+  assert.ok(cellsContain(spec, METER_DISPLAY));
+  assert.ok(!cellsContain(spec, METER));
+});
+check('stock by kibbutz: display name in the column header', () => {
+  const spec = M.xlBuildStockByKibbutz({ 'דפנה': { [METER]: 2 } }, ['דפנה'], PRODUCT_MAP);
+  assert.ok(spec.columns.some(c => c.header === METER_DISPLAY));
+  assert.ok(!spec.columns.some(c => c.header === METER));
+});
+check('no display_name set anywhere → technical name prints (nothing to leak)', () => {
+  const spec = M.xlBuildVisits([{ date: '2026-09-01', kibbutz: 'דפנה', products: [{ name: PLAIN, qty: 1 }] }], PRODUCT_MAP);
+  assert.ok(cellsContain(spec, PLAIN));
 });
 
 console.log(`\n${passes} passed, ${failures} failed`);

@@ -33,8 +33,22 @@
   function xlDayLetter(d) { return d instanceof Date ? XL_DAY_LETTERS[d.getDay()] : ''; }
 
   // ---- builders ----
+  // Every builder below feeds a report/export, so a technical name with a set display_name
+  // must never survive into a cell (spec §3 contract, proven by test-exports.mjs). `productMap`
+  // is an optional `{name → {name, display_name}}` lookup; builders stay pure/DOM-free either
+  // way — an empty map just means every label falls back to the technical name.
+  function xlLabel(name, productMap) {
+    const p = (productMap || {})[name];
+    return (typeof productLabel === 'function') ? productLabel(p || name, { forReport: true }) : name;
+  }
+  function xlProductMapFromSheet() {
+    const map = {};
+    ((window.SHEET_DATA && window.SHEET_DATA.products) || []).forEach(p => { map[p.name] = p; });
+    return map;
+  }
+
   // 1. דוח ביקורי שטח — one row per supplied item (visit fields repeated; no-product visit = one row)
-  function xlBuildVisits(visits) {
+  function xlBuildVisits(visits, productMap) {
     const columns = [
       { header: 'תאריך', type: 'd', width: 12 }, { header: 'יום', type: 's', width: 6 },
       { header: 'קיבוץ', type: 's', width: 16 }, { header: 'מבקר', type: 's', width: 10 },
@@ -52,7 +66,7 @@
       if (products.length === 0) {
         rows.push(base.concat([xlStr(v.productsOther), v.productsOther ? xlNum(1) : ''])); groupKeys.push(gi);
       } else {
-        products.forEach(p => { rows.push(base.concat([xlStr(p.name), xlNum(p.qty || 1)])); groupKeys.push(gi); });
+        products.forEach(p => { rows.push(base.concat([xlStr(xlLabel(p.name, productMap)), xlNum(p.qty || 1)])); groupKeys.push(gi); });
       }
     });
     return { sheet: 'ביקורי שטח', columns: columns, rows: rows, groupKeys: groupKeys };
@@ -111,7 +125,7 @@
   }
 
   // 4. סיכום חודשי תעודות — aggregate per kibbutz+item; cancelled EXCLUDED (matches the print report)
-  function xlBuildCertSummary(certs) {
+  function xlBuildCertSummary(certs, productMap) {
     const columns = [
       { header: 'קיבוץ', type: 's', width: 16 }, { header: 'פריט', type: 's', width: 28 },
       { header: 'סה"כ כמות', type: 'n', width: 10 }, { header: "מס' תעודות", type: 'n', width: 12 }
@@ -120,8 +134,9 @@
     (certs || []).filter(c => c.status !== 'cancelled').forEach(c => {
       const kib = xlStr(((c.customer || {}).name) || c.kibbutz);
       (c.items || []).filter(i => i && i.name).forEach(i => {
-        const k = kib + '|' + i.name;
-        if (!agg[k]) agg[k] = { kibbutz: kib, item: xlStr(i.name), qty: 0, certs: {} };
+        const item = xlStr(xlLabel(i.name, productMap));
+        const k = kib + '|' + item;
+        if (!agg[k]) agg[k] = { kibbutz: kib, item: item, qty: 0, certs: {} };
         agg[k].qty += Number(i.qty) || 1;
         agg[k].certs[c.cert_number] = 1;
       });
@@ -133,7 +148,7 @@
   }
 
   // 5. מלאי לפי מיקום — product rows × location columns (zero-across-all products dropped)
-  function xlBuildStockByLocation(stock, locations, catMap) {
+  function xlBuildStockByLocation(stock, locations, catMap, productMap) {
     const columns = [{ header: 'קטגוריה', type: 's', width: 12 }, { header: 'פריט', type: 's', width: 28 }]
       .concat((locations || []).map(l => ({ header: xlStr(l), type: 'n', width: 9 })))
       .concat([{ header: 'סה"כ', type: 'n', width: 9 }]);
@@ -148,20 +163,20 @@
       .map(p => {
         let total = 0;
         const cells = (locations || []).map(loc => { const q = (stock[loc] || {})[p] || 0; total += q; return xlNum(q); });
-        return [xlStr((catMap || {})[p] || 'אחר'), xlStr(p)].concat(cells, [xlNum(total)]);
+        return [xlStr((catMap || {})[p] || 'אחר'), xlStr(xlLabel(p, productMap))].concat(cells, [xlNum(total)]);
       });
     return { sheet: 'מלאי לפי מיקום', columns: columns, rows: rows };
   }
 
   // 6. מלאי לפי קיבוץ — kibbutz rows × product columns
-  function xlBuildStockByKibbutz(stock, kibbutzim) {
+  function xlBuildStockByKibbutz(stock, kibbutzim, productMap) {
     const products = {};
     (kibbutzim || []).forEach(k => Object.keys((stock || {})[k] || {}).forEach(p => { products[p] = 1; }));
     const productList = Object.keys(products)
       .filter(p => (kibbutzim || []).some(k => ((stock[k] || {})[p] || 0) !== 0))
       .sort((a, b) => a.localeCompare(b, 'he'));
     const columns = [{ header: 'קיבוץ', type: 's', width: 16 }]
-      .concat(productList.map(p => ({ header: xlStr(p), type: 'n', width: 12 })))
+      .concat(productList.map(p => ({ header: xlStr(xlLabel(p, productMap)), type: 'n', width: 12 })))
       .concat([{ header: 'סה"כ', type: 'n', width: 9 }]);
     const rows = (kibbutzim || []).slice().sort((a, b) => a.localeCompare(b, 'he')).map(k => {
       let total = 0;
@@ -240,7 +255,7 @@
     }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }
   function xlExportVisits(visitor, from, to) {
-    return xlDownload(xlBuildVisits(xlVisitsInRange(visitor, from, to)),
+    return xlDownload(xlBuildVisits(xlVisitsInRange(visitor, from, to), xlProductMapFromSheet()),
       'דוח_ביקורי_שטח_' + (from || '') + '_' + (to || '') + '.xlsx');
   }
   function xlExportVisitsFromModal() {
@@ -270,18 +285,18 @@
   }
   async function xlExportCertSummary(from, to) {
     const certs = await xlFetchCerts(from, to);
-    if (certs) xlDownload(xlBuildCertSummary(certs), 'סיכום_תעודות_' + (from || '') + '_' + (to || '') + '.xlsx');
+    if (certs) xlDownload(xlBuildCertSummary(certs, xlProductMapFromSheet()), 'סיכום_תעודות_' + (from || '') + '_' + (to || '') + '.xlsx');
   }
   function xlExportCertSummaryFromTab() {
     xlExportCertSummary(document.getElementById('invCertsFrom').value, document.getElementById('invCertsTo').value);
   }
   function xlExportStockXlsx() {
-    xlDownload(xlBuildStockByLocation(computeStock(), INV_LOCATIONS, productCategoryMap()), 'מלאי_לפי_מיקום.xlsx');
+    xlDownload(xlBuildStockByLocation(computeStock(), INV_LOCATIONS, productCategoryMap(), xlProductMapFromSheet()), 'מלאי_לפי_מיקום.xlsx');
   }
   function xlExportKibbutzXlsx() {
     const stock = computeStock();
     const kibbutzim = Object.keys(stock).filter(loc => !NON_KIBBUTZ_LOCATIONS.includes(loc) && loc);
-    xlDownload(xlBuildStockByKibbutz(stock, kibbutzim), 'מלאי_לפי_קיבוץ.xlsx');
+    xlDownload(xlBuildStockByKibbutz(stock, kibbutzim, xlProductMapFromSheet()), 'מלאי_לפי_קיבוץ.xlsx');
   }
 
   // ---- 📊 viewer reports hub (home page, viewer-only) ----
