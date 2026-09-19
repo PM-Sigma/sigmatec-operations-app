@@ -104,7 +104,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
     .filter((k: any) => k.section === 'new')
     .flatMap((k: any) => (onboardingTemplate.steps as any[]).map((s, i) => ({
       id: 'onb-' + k.name + '-' + s.key, kibbutz: k.name, step_key: s.key, label: s.label,
-      seq: i, state: 'open', sent_at: null, done_at: null, created_at: '2026-09-10T08:00:00Z',
+      seq: i, waits: s.waits, state: 'open', sent_at: null, done_at: null, created_at: '2026-09-10T08:00:00Z',
     })));
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.

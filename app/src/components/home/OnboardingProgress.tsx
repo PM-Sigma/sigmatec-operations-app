@@ -67,7 +67,7 @@ export async function tapStep(step: OnboardingStepRow, waits: boolean): Promise<
 export async function spawnOnboardingForNewKibbutz(kibbutz: string): Promise<void> {
   const sb = await getSupabase();
   const { data: tpl, error } = await sb.from('onboarding_templates').select('*').limit(1).maybeSingle();
-  if (error || !tpl) return;   // no template configured yet — nothing to spawn
+  if (error || !tpl) { console.warn('[onboarding] spawn skipped — no template', error); return; }
   const rows = stepsFromTemplate(tpl as OnboardingTemplate, kibbutz);
   if (!rows.length) return;
   await sb.from('onboarding_steps').upsert(rows, { onConflict: 'kibbutz,step_key', ignoreDuplicates: true });
@@ -97,10 +97,6 @@ export async function saveOnboardingTemplate(tpl: OnboardingTemplate, updatedBy:
 
 // ───────────────────────────── UI ─────────────────────────────
 
-/** A default `waits` guess per key when the spawned row's own `waits` flag isn't carried —
- *  the two "ממתין למייל" steps by their frozen `step_key`, everything else does not wait. */
-const WAITS_KEYS = new Set(['customer_list', 'meter_login']);
-
 export function OnboardingProgress({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
   const { data, isLoading } = useOnboardingSteps();
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -116,7 +112,7 @@ export function OnboardingProgress({ kibbutz, canAct }: { kibbutz: string; canAc
   const tap = async (step: OnboardingStepRow) => {
     if (!canAct || busy) return;
     setBusy(step.id || step.step_key);
-    try { await tapStep(step, WAITS_KEYS.has(step.step_key)); }
+    try { await tapStep(step, !!step.waits); }
     catch (e: any) { toast.error(e?.message || 'העדכון נכשל'); }
     finally { setBusy(null); }
   };

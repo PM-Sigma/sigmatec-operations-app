@@ -26,6 +26,7 @@ export interface OnboardingStepRow {
   step_key: string;
   label?: string | null;
   seq?: number | null;
+  waits?: boolean;
   state: StepState;
   sent_at?: string | null;
   done_at?: string | null;
@@ -45,6 +46,7 @@ export function stepsFromTemplate(tpl: OnboardingTemplate, kibbutz: string): Onb
     step_key: s.key,
     label: s.label,
     seq: i,
+    waits: !!s.waits,
     state: 'open' as StepState,
     sent_at: null,
     done_at: null,

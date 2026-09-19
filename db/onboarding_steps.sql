@@ -15,6 +15,7 @@ create table if not exists onboarding_steps (
   label text,
   seq int,
   state text not null default 'open' check (state in ('open', 'waiting', 'done')),
+  waits boolean not null default false,
   sent_at timestamptz,
   done_at timestamptz,
   created_at timestamptz default now(),

@@ -91,7 +91,7 @@ describe('OnboardingProgress', () => {
   });
 
   it('a waits step goes to waiting, not done, on the first tap', async () => {
-    rows.push(step({ id: 'a', step_key: 'customer_list', label: 'קבלת רשימת לקוחות מהקיבוץ (ממתין למייל)' }));
+    rows.push(step({ id: 'a', step_key: 'customer_list', label: 'קבלת רשימת לקוחות מהקיבוץ (ממתין למייל)', waits: true }));
     render(withClient(<OnboardingProgress kibbutz="גבת" canAct={true} />));
     await waitFor(() => expect(document.querySelector('.onboarding-next-step')).toBeTruthy());
     const btn = document.querySelector('.onboarding-next-step') as HTMLButtonElement;

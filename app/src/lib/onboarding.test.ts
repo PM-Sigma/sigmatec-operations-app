@@ -32,6 +32,10 @@ describe('stepsFromTemplate', () => {
     // the two "ממתין למייל" steps still start open, not waiting
     expect(rows[1].state).toBe('open');
     expect(rows[2].state).toBe('open');
+    // waits is carried into the frozen row from the template step, not re-derived by key later
+    expect(rows[1].waits).toBe(true);
+    expect(rows[2].waits).toBe(true);
+    expect(rows[0].waits).toBe(false);
   });
 
   it('empty template → empty rows', () => {
