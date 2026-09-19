@@ -753,7 +753,7 @@
       if (!list.length) { el.innerHTML = '<div style="font-size:12px;color:#94a3b8;font-style:italic;">אין תגובות עדיין</div>'; return; }
       el.innerHTML = list.map(c => {
         const when = c.createdAt ? new Date(c.createdAt).toLocaleString('he-IL') : '';
-        return `<div style="background:#f1f5f9;border-radius:8px;padding:6px 10px;margin:4px 0;font-size:13px;"><div style="font-weight:600;color:#1e40af;font-size:11px;margin-bottom:2px;">${emsEsc(emsUserName(c.author))} · ${when}</div>${emsEsc(c.message)}</div>`;
+        return `<div style="background:var(--surface-2);color:var(--text);border-radius:8px;padding:6px 10px;margin:4px 0;font-size:13px;"><div style="font-weight:600;color:var(--accent-fg);font-size:11px;margin-bottom:2px;">${emsEsc(emsUserName(c.author))} · ${when}</div>${emsEsc(c.message)}</div>`;
       }).join('');
       el.scrollTop = el.scrollHeight;
     } catch (e) {

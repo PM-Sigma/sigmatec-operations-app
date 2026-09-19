@@ -419,7 +419,7 @@
     if (!items.length) { wrap.innerHTML = '<div style="font-size:12px;color:#94a3b8;">לא זוהו פריטים בהקלטה.</div>'; window._voiceItems = []; return; }
     window._voiceItems = items;
     wrap.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">📦 פריטים שזוהו (יסומנו בטופס):</div>' +
-      items.map(it => `<div style="font-size:13px;padding:4px 8px;background:#f1f5f9;border-radius:6px;margin:3px 0;">${it.name} × ${it.qty}</div>`).join('');
+      items.map(it => `<div style="font-size:13px;padding:4px 8px;background:var(--surface-2);color:var(--text);border-radius:6px;margin:3px 0;">${it.name} × ${it.qty}</div>`).join('');
   }
 
   function voiceRetry() {
@@ -632,7 +632,7 @@
     var rows = orders.slice(0, 10).map(function (o) {
       var cust = orderType(o) === 'customer';
       var where = cust ? ('לקיבוץ ' + (orderKibbutz(o) || '—')) : ('מספק' + (o.supplier ? ' ' + String(o.supplier).replace(/</g, '&lt;') : ''));
-      return '<div style="padding:6px 9px;background:#f8fafc;border-radius:8px;">' +
+      return '<div style="padding:6px 9px;background:var(--surface-2);color:var(--text);border-radius:8px;">' +
         (cust ? '🧑‍🌾 לקוח' : '🏭 ספק') + ' · ' + where + ' · ' + orderTotalQty(o) + ' פריטים</div>';
     }).join('');
     var more = orders.length > 10 ? '<div style="font-size:12px;color:#64748b;">+ עוד ' + (orders.length - 10) + '</div>' : '';

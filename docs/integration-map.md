@@ -137,7 +137,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 
 | placeholder | index.html | mounted at |
 |---|---|---|
-| `#sigma-alerts` | :222 | app/src/islands/Alerts.tsx:192<br>app/src/main.tsx:182 |
+| `#sigma-alerts` | :221 | app/src/islands/Alerts.tsx:192<br>app/src/main.tsx:182 |
 | `#sigma-attendance` | :466 | app/src/islands/Attendance.tsx:470<br>app/src/main.tsx:210 |
 | `#sigma-burns` | :290 | app/src/islands/Burns.tsx:87<br>app/src/main.tsx:151 |
 | `#sigma-burns-modal` | :635 | app/src/main.tsx:151 |
@@ -150,7 +150,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-feedback-inbox` | :1218 | app/src/islands/FeedbackInbox.tsx:331<br>app/src/main.tsx:194 |
 | `#sigma-field` | :1216 | app/src/islands/Field.tsx:869<br>app/src/main.tsx:133 |
 | `#sigma-gaps` | :1224 | app/src/islands/Gaps.tsx:285<br>app/src/main.tsx:293 |
-| `#sigma-header-actions` | :223 | app/src/islands/HeaderActions.tsx:68<br>app/src/main.tsx:258 |
+| `#sigma-header-actions` | :222 | app/src/islands/HeaderActions.tsx:68<br>app/src/main.tsx:258 |
 | `#sigma-health-modal` | :640 | app/src/main.tsx:160 |
 | `#sigma-holidays` | :1220 | app/src/islands/Holidays.tsx:142<br>app/src/main.tsx:243 |
 | `#sigma-home` | :293 | app/src/islands/Home.tsx:253<br>app/src/main.tsx:115 |
@@ -214,7 +214,7 @@ must contain all 29: `attendance`, `calendar_absences`, `company_holidays`, `day
 | `burns` | `#burns-view` (index.html:587) | ✓ | app/src/components/home/Burns.tsx:351 |
 | `calendar` | `#calendar-view` (index.html:547) | ✓ | app/src/islands/CommandBar.tsx:112<br>app/src/islands/CommandBar.tsx:218 |
 | `inventory` | `#inventory-view` (index.html:340) | ✓ | js/src/07-orders.js:654<br>js/src/11-search-login.js:113<br>js/src/22-push.js:337<br>app/src/components/Nav.tsx:114<br>…+2 |
-| `kibbutz` | `#kibbutz-view` (index.html:207) | ✓ | js/src/11-search-login.js:97<br>js/src/22-push.js:349<br>app/src/components/Nav.tsx:79<br>app/src/components/Nav.tsx:91 |
+| `kibbutz` | `#kibbutz-view` (index.html:233) | ✓ | js/src/11-search-login.js:97<br>js/src/22-push.js:349<br>app/src/components/Nav.tsx:79<br>app/src/components/Nav.tsx:91 |
 
 Gated in `canShowPage` with no `showPage()` caller in the source (reached by a remembered landing or a ⋯ row that passes the name through a variable): `dev`, `pushlog`.
 
