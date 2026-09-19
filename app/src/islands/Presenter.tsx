@@ -41,6 +41,20 @@ export const PRESENTER_OPEN_EVENT = 'sigma-open-presenter';
 /** Cold-open flag, consumed synchronously inside the island's first render (see Gaps.tsx). */
 let pendingOpen = false;
 
+// ─────────────────────── the open latch (the REAL daylog.spec flake) ───────────────────────
+// `mount()` calls `createRoot(...).render(...)`, which SCHEDULES a render — main.tsx flips its
+// `mounted` flag the instant that returns, but the component's own window listener only exists
+// after React commits, one tick later. An open event dispatched in that gap therefore reached
+// nobody: main.tsx saw `mounted === true` and stood down, and the island was not listening yet.
+// That is the daylog.spec.ts timeout that was filed to Task 18 as a flake, and it is a real user
+// bug — tapping ⋯ → יומן היום at the moment the chunk lands did nothing. (`openDayLog()` alone
+// could not cover it: the ⋯ row and the specs dispatch the raw event.)
+//
+// This listener is attached when the CHUNK evaluates — strictly before the first render — and
+// only raises the flag. The component's own handler is registered later, so on a warm open it
+// runs after this one and clears the flag again.
+try { window.addEventListener(PRESENTER_OPEN_EVENT, () => { pendingOpen = true; }); } catch { /* no DOM */ }
+
 /** Open מצב ישיבה from anywhere (⋯ עוד, a deep link). No-op before the island mounts. */
 export function openPresenter(): void {
   pendingOpen = true;   // cleared by the listener, or drained by the island's first effect
@@ -682,15 +696,12 @@ function PresenterIsland() {
   const { name: user, isViewer } = useCurrentUser();
 
   React.useEffect(() => {
-  // The window event is only half the wiring. `mount()` returns synchronously, but THIS effect
-  // runs after React has committed — so an open dispatched in that gap (the ⋯ row tapped the
-  // instant the chunk lands, or a Playwright spec that dispatches right after boot) reaches an
-  // island that is not listening yet and is lost: the sheet silently never opens. `openX()`
-  // therefore raises `pendingOpen` as well as dispatching, and the effect drains it on attach.
-  // That is the real cause of the daylog.spec.ts timeout flake filed to Task 18 — a race, not
-  // a slow machine, which is why the fix is a drain and not a longer timeout.
+  // The cold-load open is already handled: `openX()` raises `pendingOpen` before it dispatches,
+  // and the `useState` initializer above drains it during the very render `mount()` schedules —
+  // strictly before this effect commits. So this effect only has to carry the WARM path (the
+  // island is mounted, somebody dispatches the event). A second `pendingOpen` drain here would
+  // be dead code: the initializer has always cleared it by the time we get here.
     const on = () => { pendingOpen = false; setOpen(true); track('presenter-open'); };
-    if (pendingOpen) { pendingOpen = false; setOpen(true); }
     window.addEventListener(PRESENTER_OPEN_EVENT, on as EventListener);
     return () => window.removeEventListener(PRESENTER_OPEN_EVENT, on as EventListener);
   }, []);

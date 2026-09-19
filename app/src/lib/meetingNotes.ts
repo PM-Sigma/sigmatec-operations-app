@@ -384,18 +384,65 @@ export function rowsFromParsed(parsed: ParsedMeeting, createdBy?: string): NoteR
  * instead of by whatever the island happened to send: the function keys its merge on
  * (kibbutz, seq), and a row missing either silently does nothing.
  */
-export function importPayload(parsed: ParsedMeeting, createdBy?: string) {
+export function importPayload(
+  parsed: ParsedMeeting,
+  createdBy?: string,
+  aliases: Record<string, string | string[]> = KIBBUTZ_ALIASES,
+) {
+  const rows = rowsFromParsed(parsed).map(r => ({
+    kibbutz: r.kibbutz,
+    seq: r.seq,
+    text: r.text,
+    owners: r.owners || [],
+  }));
   return {
     meeting_date: parsed.meeting_date,
     meeting_kind: parsed.meeting_kind,
     created_by: createdBy || null,
-    rows: rowsFromParsed(parsed).map(r => ({
-      kibbutz: r.kibbutz,
-      seq: r.seq,
-      text: r.text,
-      owners: r.owners || [],
-    })),
+    aliases: aliasRenames(rows.map(r => r.kibbutz), aliases),
+    rows,
   };
+}
+
+/**
+ * The (old name → canonical name) pairs the importer must apply to the rows ALREADY stored
+ * for this meeting, BEFORE it merges (controller ruling 2, 19.9 — db/kibbutz_meeting_notes_
+ * import.sql step 0).
+ *
+ * Why it exists: the parse writes the CANONICAL card name. When a card is renamed (`גת` →
+ * `קיבוץ גת`, recorded as an alias), a re-import of the same meeting used to insert fresh
+ * rows under the new name and delete the old ones — throwing away the `ems_task_id` of every
+ * task someone had opened from a bullet, and every ✓. Renaming the stored row instead keeps
+ * both.
+ *
+ * Two deliberate restrictions:
+ *   · only aliases whose target is a kibbutz IN THIS IMPORT — we never touch rows for a
+ *     kibbutz this summary says nothing about;
+ *   · only single-target aliases — `אור הנר` → [חשמל, גז] is a SPLIT, not a rename, and one
+ *     row cannot become two. Those rows are left to the normal merge.
+ */
+export function aliasRenames(
+  targets: string[],
+  aliases: Record<string, string | string[]> = KIBBUTZ_ALIASES,
+): Array<{ from: string; to: string }> {
+  const wanted = new Map(targets.map(t => [normalizeName(t), t]));
+  const out: Array<{ from: string; to: string }> = [];
+  const seen = new Set<string>();
+  for (const [from, target] of Object.entries(aliases)) {
+    if (Array.isArray(target)) continue;
+    const to = wanted.get(normalizeName(target));
+    if (!to) continue;
+    // A row is stored under the name the PARSER produced, so compare the way the parser
+    // compares; an alias that only differs in whitespace/bidi marks is not a rename.
+    for (const candidate of new Set([from, normalizeName(from)])) {
+      if (!candidate || normalizeName(candidate) === normalizeName(to)) continue;
+      const key = candidate + ' => ' + to;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ from: candidate, to });
+    }
+  }
+  return out;
 }
 
 export const countRowsToSave = (parsed: ParsedMeeting): number =>

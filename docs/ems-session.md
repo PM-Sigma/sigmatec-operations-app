@@ -112,3 +112,49 @@ EMS_TOKEN=<token from a real sign-in> node scripts/ems-auth-probe.mjs
 
 It prints the token's own `exp`/`iat` (so the real EMS TTL stops being a guess), the status of
 each candidate refresh route, and a one-line conclusion. Update the table above when it changes.
+
+## The gateway — how the app reaches the EMS at all (spec §7o, Task 18b)
+
+Everything above is about the *session*. What uses it is a single object.
+
+```
+feature code  →  emsGateway()  →  ems-rest adapter  →  sigma.emsApi (Apps-Script proxy)  →  EMS
+                     ▲
+                legacy JS reaches the SAME instance as `sigma.ems`
+```
+
+| where | what |
+|---|---|
+| `app/src/lib/ems/types.ts` | the app-owned types (`EmsTask`, `EmsSite`, `EmsMeter`, `EmsUser`, `EmsComment`). No feature ever sees raw API JSON. |
+| `app/src/lib/ems/gateway.ts` | the `EmsGateway` interface, `emsGateway()`, `emsCan(op)` and `installEmsBridge()` |
+| `app/src/lib/ems/adapters/rest.ts` | **the only place allowed to build an EMS URL or read raw EMS JSON** |
+| `sigma.ems` | the same instance, published on the bridge by `main.tsx` on boot |
+
+**Operations:** `listSites` · `listMeters` · `getMeter` · `listOpenTasks` · `getTask` ·
+`createTask` · `updateTask` · `listComments` · `addComment` · `listUsers` · `listAlerts` ·
+`energyBalance` · `billingSummary`.
+
+**`capabilities()`** answers which of those the *current* transport actually has, so a button is
+only drawn for an operation that exists. REST answers `false` for `listAlerts`,
+`energyBalance` and `billingSummary` — the EMS REST API has no endpoint for them.
+
+**Writes** (`createTask` / `updateTask` / `addComment`) go through `sigma.emsWrite` =
+`emsWriteOrQueue`, so the offline queue is unchanged: a write is tried live, queued on a
+connectivity/expiry failure, and surfaced on a real `4xx`.
+
+**401** is unchanged too — the adapter does not handle it. `emsApi` clears the session and
+raises the one debounced `session-expired` described above.
+
+### Adding the MCP adapter later
+
+1. Write `app/src/lib/ems/adapters/mcp.ts` implementing `EmsGateway`, with its own
+   `capabilities()` derived from the MCP tool list.
+2. Run `app/src/lib/ems/rest.test.ts`'s mapping goldens against it (the response half is
+   transport-independent).
+3. Select it in `emsGateway()` behind `VITE_EMS_TRANSPORT=mcp` — per operation during the
+   migration, since `capabilities()` already lets the UI cope with a partial transport.
+
+No feature file changes. `test-integration.mjs` fails the build if a direct `emsApi(` / EMS
+`fetch(` appears outside the adapter; the files still awaiting migration are listed with their
+reasons in `scripts/integration-map.mjs` (`EMS_LEGACY_ALLOWLIST`) and rendered into
+`docs/integration-map.md` section (h).

@@ -11,7 +11,8 @@
 -- One plpgsql function = one statement = one transaction, and the merge keeps the human work.
 --
 -- MERGE RULES
---   · match on the table's unique key (kibbutz, meeting_date, meeting_kind, seq)
+--   · the kibbutz is CANONICALIZED first (see below), then match on the table's unique key
+--     (kibbutz, meeting_date, meeting_kind, seq)
 --   · upsert `text` + `owners`; `ems_task_id` / `done_at` are NOT in the update list, so they
 --     survive a re-import untouched
 --   · text changed while a link existed → the link is KEPT (the task is real and someone is
@@ -21,13 +22,29 @@
 --     has — a shorter re-import drops the tail, a dropped kibbutz loses that meeting's rows,
 --     and nothing outside that (date, kind) is ever touched
 --
+-- THE ALIAS RULE (controller ruling 2, 19.9)
+--   The merge key is (CANONICAL kibbutz, meeting_date, seq) — canonical, not as-typed. A card
+--   that gets renamed (or gains an alias: `גת` → `קיבוץ גת`) used to lose everything on the
+--   next re-import: the new parse writes the canonical name, so step (2) INSERTS fresh rows and
+--   step (3) DELETES the old ones — taking `ems_task_id` and `done_at` with them. The link is
+--   real work by a human and must survive a rename.
+--   So step (0) runs FIRST: for the (date, kind) being re-imported, every stored row whose
+--   kibbutz appears in the payload's `aliases` map is RENAMED to its canonical name in place.
+--   The row keeps its id, its ems_task_id and its done_at, and by the time the upsert runs it
+--   is simply the row the new parse is about to update.
+--   `aliases` is [{"from":"<stored name>","to":"<canonical name>"}, …], built client-side from
+--   the same KIBBUTZ_ALIASES the parser resolves with (app/src/lib/meetingNotes.ts
+--   `importPayload`), so there is ONE alias table, not two. Omitted ⇒ nothing is renamed and
+--   the function behaves exactly as it did before.
+--
 -- SECURITY INVOKER (the default): RLS still applies, so an anon caller is refused exactly as
 -- a direct insert would be, and the island maps that to "יש להתחבר ל-EMS כדי לשמור".
 --
 -- PAYLOAD
 --   {"meeting_date":"2026-09-17","meeting_kind":"company","created_by":"עידן",
+--    "aliases":[{"from":"גת","to":"קיבוץ גת"}, …],
 --    "rows":[{"kibbutz":"גבים","seq":1,"text":"…","owners":["אביאם","עידן"]}, …]}
--- RETURNS {"inserted":n,"updated":n,"deleted":n,"flagged":n}
+-- RETURNS {"inserted":n,"updated":n,"deleted":n,"flagged":n,"renamed":n}
 -- ══════════════════════════════════════════════════════════════════════════════
 
 -- The flag column (idempotent — this file is re-runnable).
@@ -45,10 +62,38 @@ declare
   v_upd  int := 0;
   v_del  int := 0;
   v_flag int := 0;
+  v_ren  int := 0;
 begin
   if v_date is null then
     raise exception 'import_meeting_notes: meeting_date is required';
   end if;
+
+  -- (0) CANONICALIZE the kibbutz names of the rows ALREADY stored for this (date, kind),
+  -- BEFORE anything looks at them (ruling 2, 19.9). This is the whole point: a renamed card
+  -- keeps its `ems_task_id` / `done_at` because the row is RENAMED, not deleted-and-reinserted.
+  -- Guarded by `not exists` so a rename can never collide with a row that already sits on the
+  -- canonical name at that seq (the unique key) — in that case the alias row is left alone and
+  -- step (3) deletes it as a duplicate, which is the correct outcome: the canonical row is the
+  -- one the new parse is writing.
+  with al as (
+    select distinct a->>'from' as from_name, a->>'to' as to_name
+      from jsonb_array_elements(coalesce(p->'aliases', '[]'::jsonb)) a
+     where nullif(a->>'from', '') is not null
+       and nullif(a->>'to', '') is not null
+       and a->>'from' <> a->>'to'
+  ), r as (
+    update kibbutz_meeting_notes n
+       set kibbutz = al.to_name
+      from al
+     where n.meeting_date = v_date
+       and n.meeting_kind = v_kind
+       and n.kibbutz = al.from_name
+       and not exists (
+             select 1 from kibbutz_meeting_notes c
+              where c.meeting_date = v_date and c.meeting_kind = v_kind
+                and c.kibbutz = al.to_name and c.seq = n.seq)
+    returning 1
+  ) select count(*) into v_ren from r;
 
   -- (1) FLAG first — it has to compare against the OLD text, before the upsert rewrites it.
   with inc as (
@@ -100,7 +145,8 @@ begin
     returning 1
   ) select count(*) into v_del from d;
 
-  return jsonb_build_object('inserted', v_ins, 'updated', v_upd, 'deleted', v_del, 'flagged', v_flag);
+  return jsonb_build_object('inserted', v_ins, 'updated', v_upd, 'deleted', v_del,
+                            'flagged', v_flag, 'renamed', v_ren);
 end;
 $func$;
 
@@ -115,14 +161,16 @@ grant execute on function import_meeting_notes(jsonb) to authenticated;
 -- change to the function. It cleans up after itself and touches only kibbutz '__test__'.
 --
 -- Expected (verified 18.9.26):
---   first  import → {"inserted":3,"updated":0,"deleted":0,"flagged":0}
---   second import → {"inserted":1,"updated":2,"deleted":1,"flagged":1}
+--   first  import → {"inserted":3,"updated":0,"deleted":0,"flagged":0,"renamed":0}
+--   second import → {"inserted":1,"updated":2,"deleted":1,"flagged":1,"renamed":0}
+--   alias import  → {"inserted":0,"updated":1,"deleted":0,"flagged":0,"renamed":1}
+--                   and the renamed row still carries its ems_task_id
 --   final rows    → seq 1 keeps task-A, owners updated,   not flagged
 --                   seq 2 keeps task-B AND done_at, text updated, FLAGGED
 --                   seq 3 deleted (dropped from the parse)
 --                   seq 4 inserted
 -- ══════════════════════════════════════════════════════════════════════════════
--- delete from kibbutz_meeting_notes where kibbutz = '__test__';
+-- delete from kibbutz_meeting_notes where kibbutz in ('__test__', '__test_new__');
 --
 -- select import_meeting_notes('{"meeting_date":"2020-01-01","meeting_kind":"company","created_by":"t","rows":[
 --   {"kibbutz":"__test__","seq":1,"text":"one","owners":["עידן"]},
@@ -145,3 +193,21 @@ grant execute on function import_meeting_notes(jsonb) to authenticated;
 --   from kibbutz_meeting_notes where kibbutz='__test__' order by seq;
 --
 -- delete from kibbutz_meeting_notes where kibbutz = '__test__';
+--
+-- -- RULING 2 — the alias change. The card '__test__' is renamed '__test_new__'; the
+-- -- re-import must MOVE the row (keeping task-A), not delete+insert it.
+-- delete from kibbutz_meeting_notes where kibbutz in ('__test__', '__test_new__');
+-- select import_meeting_notes('{"meeting_date":"2020-01-01","meeting_kind":"company","rows":[
+--   {"kibbutz":"__test__","seq":1,"text":"one","owners":[]}]}'::jsonb);
+-- update kibbutz_meeting_notes set ems_task_id = 'task-A' where kibbutz='__test__' and seq=1;
+--
+-- select import_meeting_notes('{"meeting_date":"2020-01-01","meeting_kind":"company",
+--   "aliases":[{"from":"__test__","to":"__test_new__"}],
+--   "rows":[{"kibbutz":"__test_new__","seq":1,"text":"one","owners":[]}]}'::jsonb);
+--   -- expect {"inserted":0,"updated":1,"deleted":0,"flagged":0,"renamed":1}
+--
+-- select kibbutz, seq, ems_task_id from kibbutz_meeting_notes
+--  where kibbutz in ('__test__','__test_new__');
+--   -- expect exactly one row: __test_new__ / 1 / task-A
+--
+-- delete from kibbutz_meeting_notes where kibbutz in ('__test__', '__test_new__');

@@ -13,7 +13,7 @@ import {
   headingNames, resolveKibbutzName, titleFromBullet, descriptionFromBullet, taskFromBullet,
   notesForKibbutz, rowsFromParsed, countRowsToSave, normalizeName, isQuiet, dmy, chipDate,
   KIBBUTZ_ALIASES, type NoteRow,
-  canImportNotes, importPayload, collapseBullets, type MeetingGroup,
+  canImportNotes, importPayload, aliasRenames, collapseBullets, type MeetingGroup,
 } from './meetingNotes';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -402,7 +402,7 @@ describe('import RPC payload', () => {
   it('is exactly what import_meeting_notes(jsonb) expects', () => {
     const parsed = { meeting_date: '2026-09-17', meeting_kind: 'company' as const, sections: [parsed17.sections[5]] };
     const p = importPayload(parsed, 'עידן');
-    expect(Object.keys(p).sort()).toEqual(['created_by', 'meeting_date', 'meeting_kind', 'rows']);
+    expect(Object.keys(p).sort()).toEqual(['aliases', 'created_by', 'meeting_date', 'meeting_kind', 'rows']);
     expect(p.created_by).toBe('עידן');
     expect(p.rows).toHaveLength(6);
     // (kibbutz, seq) is the merge key — a row missing either silently does nothing server-side.
@@ -411,6 +411,52 @@ describe('import RPC payload', () => {
       kibbutz: 'גבים', seq: 1,
       text: 'מאזן אנרגיה: אובדן קבוע בראשי, יותר יציאה מכניסה — "לא הגיוני".',
       owners: ['אביאם', 'עידן'],
+    });
+  });
+
+  // ───────── ruling 2 (19.9): the merge key is the CANONICAL kibbutz ─────────
+  // A card that is renamed must not lose the EMS tasks opened from its bullets. The payload
+  // carries the (old name → canonical) pairs, and db/kibbutz_meeting_notes_import.sql renames
+  // the STORED rows in place before the merge — so `ems_task_id` and `done_at` ride along.
+  describe('aliasRenames — the alias half of the merge key', () => {
+    it('an alias whose target is in this import becomes a rename pair', () => {
+      expect(aliasRenames(['קיבוץ גת'], { 'גת': 'קיבוץ גת' })).toEqual([{ from: 'גת', to: 'קיבוץ גת' }]);
+    });
+
+    it('an alias for a kibbutz this summary never mentions is NOT emitted', () => {
+      expect(aliasRenames(['דפנה'], { 'גת': 'קיבוץ גת' })).toEqual([]);
+    });
+
+    it('a SPLIT alias (one name → two cards) is never a rename', () => {
+      expect(aliasRenames(['אור הנר חשמל', 'אור הנר גז'],
+        { 'אור הנר': ['אור הנר חשמל', 'אור הנר גז'] })).toEqual([]);
+    });
+
+    it('an alias that only differs in bidi marks / spacing is not a rename', () => {
+      expect(aliasRenames(['דגניה'], { ' דגניה ': 'דגניה' })).toEqual([]);
+    });
+
+    it('the real table: importing גת + ניצנים + שער הנגב emits exactly their three renames', () => {
+      const got = aliasRenames(['קיבוץ גת', 'קיבוץ ניצנים', 'מתחם חינוך שער הנגב']);
+      expect(got).toEqual([
+        { from: 'גת', to: 'קיבוץ גת' },
+        { from: 'ניצנים', to: 'קיבוץ ניצנים' },
+        { from: 'שער הנגב', to: 'מתחם חינוך שער הנגב' },
+        { from: 'מתחם חינוך', to: 'מתחם חינוך שער הנגב' },
+      ]);
+    });
+
+    it('END TO END — a renamed kibbutz: the payload tells the importer to MOVE the old rows', () => {
+      const parsed = {
+        meeting_date: '2026-09-17', meeting_kind: 'company' as const,
+        sections: [{ heading: 'גת', kibbutzim: ['קיבוץ גת'], bullets: [{ seq: 1, text: 'מונה', owners: [] }] }],
+      };
+      const p = importPayload(parsed as any, 'עידן');
+      // the ROW carries the canonical name …
+      expect(p.rows[0].kibbutz).toBe('קיבוץ גת');
+      // … and the payload carries the instruction that turns the stored `גת` row INTO that row
+      // instead of letting step (3) delete it (and its ems_task_id) as "dropped by the parse".
+      expect(p.aliases).toContainEqual({ from: 'גת', to: 'קיבוץ גת' });
     });
   });
 
