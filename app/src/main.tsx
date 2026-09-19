@@ -401,6 +401,51 @@ function boot() {
     });
     whenIdle(() => mountOnce(false));
   }
+  // ▶ ישיבת פיתוח (company-process §7) — the same deferred pattern as ▶ מצב ישיבה above, and
+  // for the same reason: one meeting a week, three people, opened from a menu. The ⋯ row is
+  // registered NOW with the dev-page's own live gate (עידן + מתניה + אליה, or an admin, never
+  // a viewer) so the first tap lands, and the island pulls the board only once it is open.
+  if (document.getElementById('sigma-dev-presenter')) {
+    let modulePromise: Promise<typeof import('@/islands/DevPresenter')> | null = null;
+    let mounted = false;
+    let wantOpen = false;
+    const ensureLoaded = () => (modulePromise ||= import('@/islands/DevPresenter'));
+    const mountOnce = (open: boolean) => {
+      wantOpen = wantOpen || open;
+      void ensureLoaded()
+        .then(m => {
+          if (mounted) {
+            if (wantOpen) { wantOpen = false; window.dispatchEvent(new CustomEvent('sigma-open-dev-presenter')); }
+            return;
+          }
+          mounted = m.mountDevPresenter({ open: wantOpen });
+          wantOpen = false;
+        })
+        .catch(e => { modulePromise = null; console.warn('[sigma] dev presenter island failed', e); });
+    };
+    const openDevPresenter = () => {
+      if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-dev-presenter')); return; }
+      mountOnce(true);
+    };
+    window.addEventListener('sigma-open-dev-presenter', () => { if (!mounted) openDevPresenter(); });
+    (window as any).sigmaOpenDevPresenter = openDevPresenter;
+    registerMoreItem({
+      id: 'dev-presenter',
+      label: 'ישיבת פיתוח',
+      icon: 'GitPullRequest',
+      group: 'admin',
+      visible: () => {
+        try {
+          const s = (window as any).sigma;
+          const me = s?.getCurrentUser?.() || '';
+          return !s?.isViewer?.()
+            && (!!s?.isAdmin?.() || me === 'עידן' || me === 'מתניה' || me === 'אליה');
+        } catch { return false; }
+      },
+      onSelect: openDevPresenter,
+    });
+    whenIdle(() => mountOnce(false));
+  }
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')
       .then(m => m.mountImportNotes())

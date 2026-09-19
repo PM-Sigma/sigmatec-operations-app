@@ -116,6 +116,41 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
     { id: 'sc-1', kibbutz: 'חוקוק', name: 'גפן', role: 'manager', active: true },
     { id: 'sc-2', kibbutz: 'חוקוק', name: 'רבקה', role: 'billing', active: true },
   ];
+  /**
+   * 💻 the dev board (Task 30) — a real store for the same reason: ▶ ישיבת פיתוח is only
+   * meaningful if accepting a proposal MOVES the card, so `setStatus` is applied here and the
+   * next read returns the moved board. One Main Fields parent, one card per walked column, a
+   * card with no spec, a stale card and two backlog candidates.
+   */
+  const devBoard: Array<Record<string, any>> = [
+    { number: 1, title: 'קיבוצים | — | תחום ראשי', status: 'Main Fields', state: 'open', pos: 0, body: '', labels: [] },
+    {
+      number: 10, title: 'קיבוצים | קריאות | תיקון קריאה שלילית', status: 'In Progress', state: 'open',
+      parent: 1, pos: 1, labels: [], body: '## מטרה\nלתקן קריאה שלילית בדפנה.',
+      createdAt: '2026-08-10T08:00:00Z', updatedAt: '2026-08-30T08:00:00Z',
+      comments: [{ id: 'c1', author: 'מתניה', body: 'עידן, איזה תעריף לוקחים?', createdAt: '2026-09-17T08:00:00Z' }],
+    },
+    {
+      number: 12, title: 'דוחות | ייצוא | ייצוא אקסל', status: 'In Review', state: 'open',
+      parent: 1, pos: 2, labels: [], body: '## אפיון\nגיליון אחד לכל קיבוץ.',
+      createdAt: '2026-07-20T08:00:00Z', updatedAt: '2026-09-01T08:00:00Z',
+    },
+    {
+      number: 13, title: 'דוחות | ייצוא | ייצוא PDF', status: 'Ready', state: 'open',
+      parent: 1, pos: 3, labels: [], body: 'שורה בלי סעיפים',
+      createdAt: '2026-09-10T08:00:00Z', updatedAt: '2026-09-18T08:00:00Z',
+    },
+    {
+      number: 21, title: 'דוחות | הדפסה | כותרת עמוד', status: 'Backlog', state: 'open',
+      parent: 1, pos: 4, priority: 'קריטי', labels: [], body: '## רקע\nדחוף.',
+      createdAt: '2026-09-15T08:00:00Z', updatedAt: '2026-09-15T08:00:00Z',
+    },
+    {
+      number: 22, title: 'תשתית | ניטור | לוג שגיאות', status: 'Backlog', state: 'open',
+      parent: 1, pos: 5, labels: [], body: '## רקע\nחסר לוג.',
+      createdAt: '2026-09-15T08:00:00Z', updatedAt: '2026-09-15T08:00:00Z',
+    },
+  ];
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
   await page.route('**://fonts.googleapis.com/**', r => r.abort());
@@ -148,6 +183,21 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       if (b.action === 'projects') return route.fulfill(json({ projects: [{ id: 'p-חוקוק', name: 'חוקוק', billable: true }] }));
       if (b.action === 'entry') return route.fulfill(json({ entry: { id: 'clk-qa-1', description: b?.entry?.description } }));
       return route.fulfill(json({ error: 'unknown action' }, 400));
+    }
+    // 💻 the `github` function — the dev board, for ▶ ישיבת פיתוח (Task 30). The default mode
+    // reads the board above; `setStatus` (the EXISTING "העבר לספרינט הקרוב" action) is applied
+    // to it for real. Every OTHER mode — createIssue above all — is refused, which is how the
+    // spec proves a dev meeting moves cards and never creates one.
+    if (url.includes('/functions/v1/github')) {
+      let b: any = {};
+      try { b = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+      if (b.mode === 'setStatus') {
+        const numbers = (b.numbers || []).map(Number);
+        for (const t of devBoard) if (numbers.includes(Number(t.number))) t.status = 'Ready';
+        return route.fulfill(json({ updated: numbers, failed: [], target: 'Ready' }));
+      }
+      if (b.mode) return route.fulfill(json({ error: 'mode not available in qa: ' + b.mode }, 400));
+      return route.fulfill(json({ tasks: devBoard }));
     }
     // Edge functions (ems-auth, push-send, …) — never called in mock mode; refuse clearly.
     if (url.includes('/functions/v1/')) return route.fulfill(json({ error: 'offline (qa)' }, 401));

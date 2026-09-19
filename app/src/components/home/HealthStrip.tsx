@@ -54,6 +54,18 @@ export function presenterStripFor(kibbutz: string): Array<{ label: string; value
   return SIGNAL_LABELS.map(({ key, label }) => ({ label, value: health.signals[key].why || NO_DATA }));
 }
 
+/**
+ * Every band known so far, `kibbutz → 'green'|'amber'|'red'`. ▶ ישיבת פיתוח (Task 30) reads it
+ * through `sigma.healthBands` — never by importing this file — so a card that fixes a red
+ * signal can outrank one that does not. Nothing known yet → an empty map, which that screen
+ * treats as "no bonus" rather than as an error.
+ */
+export function healthBandsKnown(): Record<string, Band> {
+  const out: Record<string, Band> = {};
+  lastKnown.forEach((health, kibbutz) => { if (health?.band) out[kibbutz] = health.band; });
+  return out;
+}
+
 const DOT_COLOR: Record<Band, string> = {
   green: 'var(--brand-2)',
   amber: 'var(--sigma-warn)',

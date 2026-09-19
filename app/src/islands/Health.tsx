@@ -7,7 +7,7 @@
 // The mount also publishes `sigma.presenterStrip`, which ▶ מצב ישיבה (Task 24) reads through
 // the bridge if it happens to be there. That direction is deliberate: the presenter has no
 // import of this file and no dependency on this task.
-import { HealthStrip, presenterStripFor } from '@/components/home/HealthStrip';
+import { healthBandsKnown, HealthStrip, presenterStripFor } from '@/components/home/HealthStrip';
 import { sigma } from '@/bridge';
 import { useModalKibbutz } from '@/lib/modalSlot';
 import { mount } from '@/islands';
@@ -36,6 +36,9 @@ export function HealthModal() {
 export function mountHealth(): boolean {
   try {
     (sigma as unknown as { presenterStrip?: (k: string) => unknown }).presenterStrip = presenterStripFor;
+    // …and the bands, for ▶ ישיבת פיתוח's red-health bonus (Task 30). Same direction: that
+    // screen reads the bridge if this island happens to be on the page, and never imports it.
+    (sigma as unknown as { healthBands?: () => unknown }).healthBands = healthBandsKnown;
   } catch { /* no bridge on this page */ }
   return mount(SLOT_ID, HealthModal);
 }
