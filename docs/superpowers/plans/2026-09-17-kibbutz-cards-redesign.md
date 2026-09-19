@@ -893,3 +893,17 @@ Spec §7. Reuses the **existing `github` edge function** — no new integration,
 
 **DoD:** the P4 shared DoD; one dev-meeting run outputs a sprint list and the board shows the accepted moves.
 **Model:** **Opus** (ranking judgment plus reuse of two existing subsystems without duplicating them).
+
+## Task 31 — Whole-app QA audit (עידן 19.9 14:30) — after Task 10, before the 2.01 release prep
+Scope (each is a checklist section in `qa/reports/2026-09-19-task-31-audit.md`, every finding = file:line + severity + fix):
+1. Correctness + functionality of every page/module as one whole; 2. Mobile (390 px) on every screen incl. sheets/popups;
+3. Flow between modules (kibbutz card → visit → inventory → alerts → calendar → gaps → meetings → dev);
+4. Text: Hebrew correctness, copy rules (no system-talk, no "who sees what"), consistent terms; 5. Visual consistency
+(tokens, brand, motion) — light AND dark on every screen; 6. Popup/sheet/dialog backgrounds and overlays in both themes;
+7. Security (RLS per table, edge-function gates, secrets, XSS in legacy templates); 8. Connectivity/wiring (integration
+contracts + live-ish smoke in mock mode); 9. User names everywhere (עידן/ניתאי/אביאם/עמיחי/מתניה/אליה/צופה) — no
+"PM", no stale "עידן only" gates; 10. Inventory: stock up/down on EVERY movement path (visit, order approval/delivery,
+recount, return, cert, day-log) with a golden ledger; 11. Reports: PDF + Excel of every domain (attendance, visits, certs,
+stock, meetings) — open, RTL, display names, 🕎; 12. Dev world (dev page, dev meeting, GitHub wiring).
+Method: 3 Opus auditors in parallel (read-only + Playwright screenshots; A: 1,2,3,8,9 · B: 4,5,6,11 · C: 7,10,12) → one
+findings file → fix rounds by severity (Critical/Important now, Minor listed) → full `npm run qa -- --label task-31`.
