@@ -260,7 +260,7 @@
         body: JSON.stringify({ token: tok, state: state || 'open' })
       });
     } catch (e) {
-      throw new Error(ac.signal.aborted ? 'השרת מתעורר (cold start) — נסה שוב בעוד רגע' : ('תקלת רשת: ' + (e && e.message || e)));
+      throw new Error(ac.signal.aborted ? 'זה לוקח רגע — נסה שוב עוד מעט' : ('אין חיבור כרגע — בדוק רשת ונסה שוב'));
     } finally { clearTimeout(to); }
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) {

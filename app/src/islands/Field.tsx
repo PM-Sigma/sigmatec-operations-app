@@ -423,8 +423,9 @@ function Briefing({
         <ShimmerButton
           onClick={onVisit}
           data-testid="brief-visit"
-          background="linear-gradient(135deg,#00B4C6,#0FBF5F)"
-          className="pointer-events-auto min-h-[58px] flex-1 rounded-xl text-[16px] font-extrabold text-white shadow-[0_10px_24px_rgba(6,194,203,.45)]"
+          // The brand gradient token, not a near-miss of it (audit B · F-15).
+          background="var(--brand-grad)"
+          className="pointer-events-auto min-h-[58px] flex-1 rounded-xl text-[16px] font-extrabold text-white shadow-[0_10px_24px_color-mix(in_srgb,var(--brand-1)_45%,transparent)]"
         >
           <MapPin className="h-[22px] w-[22px]" /> סיכום ביקור
         </ShimmerButton>

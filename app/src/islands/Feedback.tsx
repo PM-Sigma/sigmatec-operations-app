@@ -118,7 +118,7 @@ const STATE_TEXT: Record<VoicePhase, string> = {
   idle: '',
   listening: 'מקליט ומתמלל…',
   recording: 'מקליט…',
-  transcribing: 'מתמלל בשרת…',
+  transcribing: 'מתמלל…',
   failed: 'ההקלטה נכשלה',
 };
 
@@ -234,7 +234,7 @@ function FeedbackSheet() {
       case 'switch-to-record':
         stopLive();
         setInterim('');
-        toast.info('לא נשמע כלום — עוברים להקלטה ותמלול בשרת');
+        toast.info('לא נשמע כלום — מקשיב שוב, עוד רגע');
         startRecordLeg();
         break;
 

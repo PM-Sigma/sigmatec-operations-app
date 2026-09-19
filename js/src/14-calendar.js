@@ -482,11 +482,11 @@
     const ids = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
     const tasks = ids.length ? emsCacheTasksForKibbutz(name) : [];
     // Full-width button when there's NO open task; small side bubble when a task exists.
-    const newBtnFull = '<button type="button" onclick="createEmsTaskForKibbutz()" style="width:100%;margin-top:6px;background:#eff6ff;color:#1d4ed8;border:1px dashed #93c5fd;border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;">➕ פתח משימה חדשה ב-EMS</button>';
-    const newBubble = '<button type="button" onclick="createEmsTaskForKibbutz()" style="background:#eff6ff;color:#1d4ed8;border:1px solid #93c5fd;border-radius:14px;padding:4px 11px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;">➕ משימה חדשה</button>';
+    const newBtnFull = '<button type="button" onclick="createEmsTaskForKibbutz()" style="width:100%;margin-top:6px;background:var(--accent-soft);color:var(--accent-fg);border:1px dashed var(--accent);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;">➕ פתח משימה חדשה ב-EMS</button>';
+    const newBubble = '<button type="button" onclick="createEmsTaskForKibbutz()" style="background:var(--accent-soft);color:var(--accent-fg);border:1px solid var(--accent);border-radius:14px;padding:4px 11px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;">➕ משימה חדשה</button>';
     if (tasks.length) {
       let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">' +
-              '<div style="font-size:13px;font-weight:800;color:#1e3a8a;">📋 משימת EMS פתוחה — לחץ לעדכון/תגובה:</div>' + newBubble + '</div>';
+              '<div style="font-size:13px;font-weight:800;color:var(--accent-fg);">📋 משימת EMS פתוחה — לחץ לעדכון/תגובה:</div>' + newBubble + '</div>';
       tasks.forEach(t => { h += '<div class="card-ems-task status-' + t.status + '" onclick="emsModalTaskClick(\'' + t.id + '\')" style="cursor:pointer;margin:4px 0;"><span class="t-dot" style="background:' + (EMS_PRIORITY_DOT[t.priority] || '#94a3b8') + '"></span><span class="t-title">' + emsEsc(t.title) + '</span><span class="ems-badge status-' + t.status + '">' + (EMS_STATUS[t.status] || t.status) + '</span></div>'; });
       box.innerHTML = h;
     } else {

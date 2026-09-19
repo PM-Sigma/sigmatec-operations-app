@@ -226,7 +226,7 @@
   }
   async function burnRefreshFromEms(manual) {
     if (!burnCanWrite() || burnState.syncing) return;
-    if (window.__MOCK) { if (manual) emsToast('🧪 סביבת בדיקה — רענון מה-EMS מושבת (לא כותבים נתוני דמה ל-Supabase)'); return; }
+    if (window.__MOCK) { if (manual) emsToast('🧪 סביבת בדיקה — רענון מה-EMS מושבת'); return; }
     if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { if (manual) emsToast('⚠️ אין חיבור ל-EMS — התחבר ואז נסה שוב'); return; }
     burnState.syncing = true; burnRepaint();
     try {

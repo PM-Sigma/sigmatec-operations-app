@@ -130,9 +130,9 @@
         body: JSON.stringify({ type: 'ems', base, path, method, token, payload }),
         signal: ac.signal
       });
-      return await res.json().catch(() => ({ error: 'תשובת שרת לא תקינה — נסה שוב' }));
+      return await res.json().catch(() => ({ error: 'לא הצלחנו להביא את הנתונים — נסה שוב' }));
     } catch (e) {
-      return { error: e.name === 'AbortError' ? 'תם הזמן — השרת לא הגיב (20 שניות)' : e.message };
+      return { error: e.name === 'AbortError' ? 'זה לוקח יותר מדי זמן — נסה שוב בעוד רגע' : e.message };
     } finally { clearTimeout(tt); }
   }
 

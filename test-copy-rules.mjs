@@ -58,6 +58,13 @@ const SYSTEM_TALK = [
   ['בדיקה אוטומטית', /בדיקה אוטומטית/],
   ['מחושב', /מחושב/],
   ['פונקציה', /פונקציה/],
+  // שרת / מודל / API / cold start — audit B · F-14 found five such sentences on screen.
+  // Safe to ban despite living in identifiers too: copyStrings only yields strings that
+  // CONTAIN HEBREW, so `emsApi` never reaches here and "השרת מתעורר (cold start)" does.
+  ['שרת', /(?<![א-ת])[הלמבכשו]{0,2}שרת(?![א-ת])/],
+  ['cold start', /cold\s*start/i],
+  ['מודל', /(?<![א-ת])[הו]?מודל/],
+  ['API', /\bAPI\b/i],
 ];
 
 // ── rule 2: who sees what ─────────────────────────────────────────────────────
@@ -131,7 +138,9 @@ function hits(files, rules) {
 }
 
 check('rule 1 — the UI never explains its own mechanics', () => {
-  const bad = hits(NEW_UI, SYSTEM_TALK);
+  // NEW_UI *and* LEGACY: a toast thrown from js/src is copy the user reads exactly like a
+  // React string is, and F-14's offenders all lived there.
+  const bad = hits([...NEW_UI, ...LEGACY], SYSTEM_TALK);
   assert.deepEqual(bad, [], 'system talk in UI strings:\n    ' + bad.join('\n    '));
 });
 
@@ -143,6 +152,23 @@ check('rule 2 — no sentence tells a user who else sees his data', () => {
 check('rule 3 — the data-flow / procedure vocabulary is gone from the UI (spec §2)', () => {
   const bad = hits([...NEW_UI, ...LEGACY], PIPELINE);
   assert.deepEqual(bad, [], 'deleted vocabulary still on screen:\n    ' + bad.join('\n    '));
+});
+
+check('rule 1 still BITES — the four words added after F-14 match real sentences', () => {
+  // A word list is worthless if it silently stops matching. These are the exact sentences the
+  // audit found on screen, plus the false positives that forced the Hebrew boundaries.
+  const must = [
+    'מתמלל בשרת…',
+    'תם הזמן — השרת לא הגיב (20 שניות)',
+    'השרת מתעורר (cold start) — נסה שוב בעוד רגע',
+    'לא נשמע כלום — עוברים להקלטה ותמלול בשרת',
+    'המודל לא החזיר תשובה',
+    'שגיאת API — נסה שוב',
+  ];
+  const mustNot = ['ללא מערכת מקושרת', 'התעודה נשלחה ללקוח', 'הרשימה מסודרת'];
+  const fires = t => SYSTEM_TALK.some(([, re]) => re.test(t));
+  must.forEach(t => assert.ok(fires(t), 'should have been caught as system talk: ' + t));
+  mustNot.forEach(t => assert.ok(!fires(t), 'false positive: ' + t));
 });
 
 check('the sweep is actually looking at copy (not passing on an empty scan)', () => {

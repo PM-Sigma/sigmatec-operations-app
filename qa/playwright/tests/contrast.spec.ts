@@ -1,4 +1,5 @@
-// Dark-mode contrast — the regression guard for audit B F-01…F-05 (Task 31 fix round 1).
+// Dark-mode contrast — the regression guard for audit B F-01…F-05 (fix round 1) and
+// F-13 / F-16 (fix round 2).
 //
 // Every one of those five findings is the same mistake: a surface painted with a near-white
 // literal (`#f8fafc`, `#f1f5f9`, `#fff`, `#fef3c7`, `#fbfefd`…) while the text on it keeps
@@ -80,6 +81,23 @@ const CASES: Array<{ id: string; what: string; html: string }> = [
                           <div class="kibbutz-meta"><span data-probe>3 משימות</span></div></div>`).join('')}
            </div>`,
   },
+  {
+    id: 'F-13',
+    what: 'js/src/14-calendar.js:485-486 — "➕ פתח משימה חדשה ב-EMS" (was a white slab in the dark sheet)',
+    html: `<button data-probe type="button" style="width:100%;margin-top:6px;background:var(--accent-soft);color:var(--accent-fg);border:1px dashed var(--accent);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;">➕ פתח משימה חדשה ב-EMS</button>
+           <button data-probe type="button" style="background:var(--accent-soft);color:var(--accent-fg);border:1px solid var(--accent);border-radius:14px;padding:4px 11px;font-size:11px;font-weight:700;">➕ משימה חדשה</button>
+           <div data-probe style="font-size:13px;font-weight:800;color:var(--accent-fg);">📋 משימת EMS פתוחה</div>`,
+  },
+  {
+    id: 'F-16',
+    what: 'js/src/22-push.js:249-251 — the "חסרה נוכחות" row (1.74:1 in BOTH themes)',
+    html: `<table><tbody><tr style="background:var(--tint-danger);">
+             <td data-probe style="color:var(--danger-fg);font-weight:700;">01.09</td>
+             <td><span data-probe class="att-badge" style="background:var(--tint-danger);color:var(--danger-fg);">❌ חסרה נוכחות</span></td>
+             <td data-probe style="color:var(--danger-fg);">—</td>
+             <td data-probe style="text-align:center;color:var(--danger-fg);">—</td>
+           </tr></tbody></table>`,
+  },
 ];
 
 /**
@@ -129,7 +147,7 @@ function probeFn(el: Element) {
   };
 }
 
-test('every surface fixed in F-01…F-05 clears 4.5:1 on its own text', async ({ page }, ti) => {
+test('every surface fixed in F-01…F-05, F-13 and F-16 clears 4.5:1 on its own text', async ({ page }, ti) => {
   const { rec, theme } = await boot(page, ti);
 
   const failures: string[] = [];
