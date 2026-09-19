@@ -144,4 +144,16 @@ fs.writeFileSync(verFile, verStr + '\n');
 const today = new Date().toISOString().slice(0, 10);
 idx = idx.replace(/גרסה \d{4}-\d{2}-\d{2}·[\d.]+/, 'גרסה ' + today + '·' + verStr);
 fs.writeFileSync(idxUrl, idx);
+// docs/integration-map.md is GENERATED from the same sources this build just concatenated, and
+// its rows carry file:line — so almost any edit makes it stale. Regenerating it here means the
+// contract test (test-integration.mjs, which fails on a stale map) can never turn into a chore
+// people learn to work around: build, and the map is right.
+await (async () => {
+  const { render } = await import('./scripts/integration-map.mjs');
+  const out = new URL('./docs/integration-map.md', import.meta.url);
+  const next = render() + String.fromCharCode(10);
+  const prev = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+  if (prev !== next) { fs.writeFileSync(out, next, 'utf8'); console.log('docs/integration-map.md: regenerated'); }
+})();
+
 console.log('built js/app.js from ' + files.length + ' modules; stamped assets v=' + ver + ' · גרסה ' + today + '·' + verStr);

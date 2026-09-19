@@ -209,7 +209,13 @@ check('contact/products are actually carried into the row data the PDF reads', (
 });
 check('PDF escapes visit text (summary/contact/products are user input)', () => {
   const f = lift(att, 'downloadAttendancePDF');
-  assert.ok(/const esc = s =>[\s\S]*?replace\(\/</.test(f), 'visit fields must be HTML-escaped');
+  // Task 18 replaced the inline `const esc = s => …replace(/</…)` with the file-level attEsc(),
+  // which covers `& < > " '` — the report interpolates two of these into a title ATTRIBUTE,
+  // where a quote is what breaks out and `<` is harmless. The contract is the ESCAPING, not
+  // where the function is declared, so this asserts the escaper the PDF actually uses.
+  assert.ok(/const esc = attEsc;/.test(f), 'the PDF must route its visit fields through attEsc');
+  assert.ok(/function attEsc\(v\)[\s\S]*?replace\(\/"\/g, '&quot;'\)/.test(att),
+    'attEsc must escape quotes as well as angle brackets — two call sites are inside attributes');
   assert.ok(/esc\(v\.summary\)/.test(f) && /esc\(v\.contact\)/.test(f) && /esc\(extra\)/.test(f),
     'summary, contact and products must all go through esc()');
 });

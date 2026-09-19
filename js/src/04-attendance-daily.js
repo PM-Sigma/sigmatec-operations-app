@@ -261,7 +261,7 @@
       // 🕎 — this day was a חג / חול המועד / סגירת חברה and he worked it anyway. It counts
       // as a work day; the marker is so whoever reads the report knows why it is there.
       const hol = attHolidayOn(attYmd(r.date));
-      const holMark = (hol && !hol.required) ? ` <span title="${hol.name}" style="font-size:12px;">🕎</span>` : '';
+      const holMark = (hol && !hol.required) ? ` <span title="${attEsc(hol.name)}" style="font-size:12px;">🕎</span>` : '';
       const kib = r.kibbutz ? `<span style="color:#475569;">${r.kibbutz}</span>` : '—';
       // hours column: work days shown as "יום עבודה" (priced as a day), loose hours as Xש'
       let dur;
@@ -483,6 +483,22 @@
       .finally(() => setBtnLoading(btn, false));
   }
 
+  /**
+   * The one escaper for everything this file interpolates into HTML — the on-screen report
+   * (innerHTML) and the printable PDF (document.write into a new window) alike.
+   *
+   * It escapes `"` and `'` as well as `& < >`, because two of the call sites put the value
+   * inside an ATTRIBUTE (`title="…"`), where `<` is harmless and a quote is what breaks out.
+   * Both values come from data a person typed — a holiday name from `company_holidays`, a
+   * kibbutz name from the `kibbutzim` table — so "it is our own data" is not a defence: it is
+   * OUR PEOPLE'S data, and one apostrophe in a name was enough to mangle the report. Task 18.
+   */
+  function attEsc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   // Export the current month's attendance to a printable PDF (browser "Save as PDF")
   function downloadAttendancePDF() {
     const rows = window._attendanceRows || [];
@@ -505,7 +521,7 @@
         // Full visit detail — this is what makes the נוכחות PDF a replacement for the old
         // standalone דוח ביקורים: kibbutz, hours, contact, products and the summary.
         detail = r.visits.map(v => {
-          const esc = s => String(s == null ? '' : s).replace(/</g, '&lt;');
+          const esc = attEsc;
           const hrs = v.workday ? 'יום עבודה' : (v.duration ? v.duration + "ש'" : '');
           const prods = (v.products || []).map(p => (typeof p === 'string' ? p : (p.qty > 1 ? p.name + ' ×' + p.qty : p.name))).join(', ');
           const extra = [prods, v.productsOther].filter(Boolean).join(' · ');
@@ -517,7 +533,7 @@
       } else if (r.type === 'other' && r.note) {
         detail = r.note.replace(/</g,'&lt;');
       }
-      return `<tr><td>${dateStr}${holMark}</td><td>${ATT_LABELS[r.type]}</td><td>${r.kibbutz || '—'}</td><td style="text-align:center;">${dur}</td><td>${detail}</td></tr>`;
+      return `<tr><td>${dateStr}${holMark}</td><td>${ATT_LABELS[r.type]}</td><td>${attEsc(r.kibbutz) || '—'}</td><td style="text-align:center;">${dur}</td><td>${detail}</td></tr>`;
     }).join('');
     const counts = {};
     rows.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
