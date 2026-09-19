@@ -95,15 +95,9 @@ function boot() {
     document.addEventListener('touchstart', loadPullToRefresh, { once: true, passive: true });
   }
 
-  // 📝 יומן היום (§7i) is Task 16; the ⋯ row exists now so the sheet's shape is final and the
-  // task only has to replace the handler (§7k #3 lists it among the sheet's rows).
-  registerMoreItem({
-    id: 'field-journal',
-    label: 'יומן היום',
-    icon: 'Notebook',
-    group: 'app',
-    onSelect: () => { const s = (window as any).sigma; s?.toast?.('יומן היום — בקרוב'); },
-  });
+  // 📝 יומן היום (§7i) — the row that used to say "בקרוב" here is the real thing now; it is
+  // registered further down, next to the island it opens, under the same id `field-journal`
+  // so the sheet's order does not move.
 
   // Sonner replaces the legacy #toast strip for everything that goes through the bridge.
   const sigma = (window as any).sigma;
@@ -296,6 +290,52 @@ function boot() {
         } catch { return false; }
       },
       onSelect: openGaps,
+    });
+    whenIdle(() => mountOnce(false));
+  }
+
+  // 📝 יומן היום (§7i) — deferred exactly like the gaps panel, and for the same reason: it is
+  // a sheet reached from a menu, and it pulls the speech helpers in behind it. The row and the
+  // opener are registered NOW so a tap in the first second still lands; `whenIdle` warms the
+  // chunk, and the cold-open flag is handed to the island's first render rather than
+  // re-dispatched at it (the task-15 fix-round lesson, applied from the start here).
+  if (document.getElementById('sigma-daylog')) {
+    let modulePromise: Promise<typeof import('@/islands/DayLog')> | null = null;
+    let mounted = false;
+    let wantOpen = false;
+    const ensureLoaded = () => (modulePromise ||= import('@/islands/DayLog'));
+    const mountOnce = (open: boolean) => {
+      wantOpen = wantOpen || open;
+      void ensureLoaded()
+        .then(m => {
+          if (mounted) {
+            if (wantOpen) { wantOpen = false; window.dispatchEvent(new CustomEvent('sigma-open-daylog')); }
+            return;
+          }
+          mounted = m.mountDayLog({ open: wantOpen });
+          wantOpen = false;
+        })
+        .catch(e => { modulePromise = null; console.warn('[sigma] daylog island failed', e); });
+    };
+    const openDayLog = () => {
+      if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-daylog')); return; }
+      mountOnce(true);
+    };
+    window.addEventListener('sigma-open-daylog', () => { if (!mounted) openDayLog(); });
+    (window as any).sigmaOpenDayLog = openDayLog;
+    registerMoreItem({
+      id: 'field-journal',
+      label: 'יומן היום',
+      icon: 'Notebook',
+      group: 'app',
+      visible: () => {
+        try {
+          const s = (window as any).sigma;
+          const me = s?.getCurrentUser?.() || '';
+          return !!me && (!!s?.isIdan?.() || (s?.ATT_PEOPLE || ['אביאם', 'ניתאי']).includes(me));
+        } catch { return false; }
+      },
+      onSelect: openDayLog,
     });
     whenIdle(() => mountOnce(false));
   }

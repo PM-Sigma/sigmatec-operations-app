@@ -298,10 +298,34 @@
     if (prods(prev) !== prods(next))                   ch.push('📦 מוצרים: ' + (prods(prev) || '—') + ' → ' + (prods(next) || '—'));
     if ((prev.summary || '') !== (next.summary || '')) ch.push('📝 הסיכום עודכן');
     if (!ch.length) return '';
-    let s = '✏️ דוח הביקור עודכן במערכת הניהול\n' + ch.map(c => '• ' + c).join('\n');
+    // עידן's wording for anything this app writes on an EMS task (spec §7i) — the same opening
+    // line the day log uses, so a person reading the task sees one voice, not two formats.
+    // Kept byte-identical to app/src/lib/daylog.ts emsCommentText(); test-daylog.mjs pins it.
+    let s = emsCommentText(next.visitor || '', 'דוח הביקור עודכן') + '\n' + ch.map(c => '• ' + c).join('\n');
     if ((next.summary || '').trim()) s += '\n\n📝 הסיכום המעודכן:\n' + next.summary.trim();
     return s;
   }
+  // עדכון מ<שם> על המשימה: <טקסט> — the ONE sentence shape this app writes on an EMS task.
+  function emsCommentText(person, text) {
+    return 'עדכון מ' + String(person == null ? '' : person).trim() + ' על המשימה: ' + String(text == null ? '' : text).trim();
+  }
+  window.emsCommentText = emsCommentText;
+  // Post a comment on an EMS task from anywhere (📝 יומן היום → sigma.emsAddComment). Goes
+  // through emsWriteOrQueue, so a comment written with no connection is SENT LATER instead of
+  // lost — the day log is filled in the field, where there often is no connection.
+  async function emsAddCommentTo(taskId, message, meta) {
+    const id = String(taskId || '');
+    const msg = String(message || '').trim();
+    if (!id || !msg) return { ok: false, error: 'missing task or message' };
+    try {
+      const r = await emsWriteOrQueue({ kind: 'comment', taskId: id, message: msg, meta: meta || {} });
+      if (r && r.error) return { ok: false, error: r.error };
+      return { ok: true, queued: !!(r && r.queued) };
+    } catch (e) {
+      return { ok: false, error: (e && e.message) || 'EMS comment failed' };
+    }
+  }
+  window.emsAddCommentTo = emsAddCommentTo;
   async function pushVisitEditToEms(taskId, prev, next) {
     const msg = buildVisitEditNote(prev, next);
     if (!taskId || !msg) return;

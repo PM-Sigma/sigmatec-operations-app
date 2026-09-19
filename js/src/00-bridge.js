@@ -181,6 +181,21 @@
       track: function (action, target, page) { return window.sigmaTrack(action, target, page); },
 
       // ---- EMS --------------------------------------------------------------
+      // ---- catalogs (the grounding lists the day-log parser is given) --------
+      // Names only, and always the LIVE lists: an AI that is handed a stale catalog invents
+      // the difference. Both are safe before their sources load — an empty list simply means
+      // the parser grounds on less, never that it grounds on something wrong.
+      kibbutzNames: function () {
+        try {
+          return (window.KIBBUTZIM || []).filter(function (r) { return r && r.name && !r.archived_at; })
+            .map(function (r) { return String(r.name); });
+        } catch (e) { return []; }
+      },
+      productNames: function () {
+        try { return (call('getActiveProducts', [], []) || []).map(function (p) { return String(p && p.name || ''); }).filter(Boolean); }
+        catch (e) { return []; }
+      },
+
       emsApi: function () { return call('emsApi', Array.prototype.slice.call(arguments)); },
       isEmsConnected: function () { return !!call('isEmsConnected', [], false); },
       emsCacheData: function () { return call('emsCacheData', [], { tasks: [] }); },
@@ -292,6 +307,23 @@
         return r;
       },
       getLastVisit: function (kibbutz) { return call('getLastVisit', [kibbutz], null); },
+
+      // 📝 יומן היום (spec §7i) — one confirmed card → one visit record, without the form.
+      // The legacy `saveVisitFromData` (js/src/09-visits.js) is the form's own save path with
+      // the values handed in, so the delivery-cert gate, the stock movement and the
+      // `visit-saved` event all apply exactly as they do when a person types the form.
+      // Resolves { ok:true, id } or { ok:false, error } — it NEVER rejects, because the caller
+      // is saving several cards in a row and one bad card must not abort the rest.
+      saveVisitFromData: function (visit) {
+        return Promise.resolve(call('saveVisitFromData', [visit], { ok: false, error: 'שמירת ביקור אינה זמינה' }))
+          .catch(function (e) { return { ok: false, error: (e && e.message) || 'השמירה נכשלה' }; });
+      },
+      // Post a comment on an EMS task (the day log's matched tasks; js/src/14-calendar.js).
+      // Queued when there is no connection, so a comment written in the field is not lost.
+      emsAddComment: function (taskId, text, meta) {
+        return Promise.resolve(call('emsAddCommentTo', [taskId, text, meta], { ok: false, error: 'EMS לא זמין' }))
+          .catch(function (e) { return { ok: false, error: (e && e.message) || 'שליחת העדכון נכשלה' }; });
+      },
 
       // The briefing's "לפני שיוצאים" leftovers (spec §5.1b). React never touches the legacy
       // form's DOM, so it hands the text over here and we write it the moment the form is on

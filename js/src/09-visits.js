@@ -979,6 +979,108 @@
     } catch (e) { console.warn('EMS visit-edit push failed', e); }
   }
 
+  // ───────────────────────── headless save (spec §7i — 📝 יומן היום) ─────────────────────────
+  // ONE card of the day log → one visit record, WITHOUT the form. `saveVisit` above is the
+  // form's path: it reads the DOM, then does exactly what this does. This is the same work
+  // with the values handed in instead of read off inputs, and — this is the point — the SAME
+  // GATES: a visitor, an explicit date, a real duration, and the delivery-certificate rule
+  // when equipment was supplied. A day log that skipped any of them would put a record in the
+  // system that the form itself would have refused.
+  //
+  // Returns a promise of { ok:true, id } or { ok:false, error } — never throws, never alerts:
+  // the caller is a React card that shows the failure on that card and keeps the others.
+  async function saveVisitFromData(data) {
+    const d = data || {};
+    const kibbutz = String(d.kibbutz || '').trim();
+    const visitor = String(d.visitor || '').trim();
+    const dateStr = String(d.date || '').trim();
+    const workday = !!d.workday;
+    const duration = workday ? WORKDAY_HOURS : (parseFloat(d.duration) || 0);
+    const products = (d.products || [])
+      .map(p => ({ name: String((p && p.name) || '').trim(), qty: parseInt(p && p.qty, 10) || 1 }))
+      .filter(p => p.name && p.qty > 0);
+
+    if (!kibbutz) return { ok: false, error: 'חסר שם הקיבוץ' };
+    if (!visitor) return { ok: false, error: 'חסר מי ביקר' };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return { ok: false, error: 'חסר תאריך הביקור' };
+    if (!workday && !(duration > 0)) return { ok: false, error: 'חסר משך הביקור בשעות' };
+
+    // The cert rule, unchanged: equipment supplied → an issued certificate linked to this visit.
+    const id = String(d.id || '') || ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    if (products.length) {
+      const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(id) : 0;
+      if (!certNum) return { ok: false, error: 'סופק ציוד — נדרשת תעודת משלוח לפני שמירת הסיכום', needsCert: true, visitId: id };
+    }
+
+    const visit = {
+      kibbutz: kibbutz,
+      date: new Date(dateStr + 'T12:00:00').toISOString(),
+      visitor: visitor,
+      duration: duration,
+      contact: String(d.contact || '').trim(),
+      products: products,
+      productsOther: String(d.productsOther || '').trim(),
+      returnedItems: [],
+      summary: String(d.summary || '').trim(),
+      openItems: String(d.openItems || '').trim(),
+      workday: workday
+    };
+
+    // Local backup first — same as the form, so a failed network call still leaves the day recorded.
+    try { const all = loadAllVisits(); all.push(visit); saveAllVisits(all); } catch (e) { console.warn('local visit backup', e); }
+
+    const reqBody = {
+      type: 'visit', kibbutz: visit.kibbutz, date: visit.date, visitor: visit.visitor, duration: visit.duration,
+      contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
+      returnedItems: [], summary: visit.summary, openItems: visit.openItems, workday: visit.workday,
+      id: id, isNew: true
+    };
+    if (d.emsTaskId) reqBody.emsTaskId = String(d.emsTaskId);
+
+    let res;
+    try {
+      const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(reqBody) });
+      res = await r.json();
+    } catch (e) {
+      console.warn('Visit save failed (kept locally):', e);
+      return { ok: false, error: 'השמירה נכשלה — הסיכום נשמר במכשיר, נסה שוב' };
+    }
+    if (!res || !res.ok) return { ok: false, error: (res && res.error) || 'השמירה נכשלה' };
+
+    visit.synced = true;
+    try { saveAllVisits(loadAllVisits()); } catch (e) {}
+    const savedId = res.id || id;
+
+    // Keep the in-memory snapshot honest immediately — the cards and the נוכחות report read it
+    // long before refreshData() lands.
+    try {
+      if (window.SHEET_DATA && Array.isArray(window.SHEET_DATA.visits)) {
+        window.SHEET_DATA.visits.push({
+          id: String(savedId), emsTaskId: reqBody.emsTaskId || '',
+          kibbutz: visit.kibbutz, date: visit.date, visitor: visit.visitor, duration: visit.duration,
+          contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
+          summary: visit.summary, workday: visit.workday
+        });
+      }
+    } catch (e) {}
+
+    // Stock: the supply leaves the visitor's own stock when he holds one, the office otherwise —
+    // the same default `onVisitorChange` puts in the form's מלאי מקור picker.
+    const source = String(d.source || '') ||
+      ((typeof STOCK_HOLDERS !== 'undefined' && STOCK_HOLDERS.indexOf(visitor) !== -1) ? visitor : 'משרד');
+    const moves = products.map(p => fetch(SHEET_API, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ type: 'movement', product: p.name, fromLocation: source, toLocation: kibbutz, quantity: p.qty, reason: 'visit_supply', refId: savedId, createdBy: visitor })
+    }).catch(e => console.warn('Movement failed:', e)));
+    if (moves.length) { try { await Promise.all(moves); } catch (e) {} }
+    setTimeout(refreshData, 1500);
+
+    if (typeof sigmaEmit === 'function') sigmaEmit('visit-saved', { kibbutz: visit.kibbutz });
+    if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz, 'daylog');
+    return { ok: true, id: String(savedId) };
+  }
+  window.saveVisitFromData = saveVisitFromData;
+
   // Append visit info to the kibbutz's status field in Google Sheet
   async function autoAppendVisitToStatus(kibbutzName, dateShort, visitor, summary) {
     if (!window.SHEET_DATA || !window.SHEET_DATA.tasks) return;

@@ -84,10 +84,13 @@ check('the migration file exists and is additive + re-runnable', () => {
 });
 
 console.log('\n— editing a linked visit pushes a COMMENT, never a task PATCH —');
-const noteFn = new Function(lift(cal, 'buildVisitEditNote') + '; return buildVisitEditNote;')();
+// buildVisitEditNote now opens with עידן's ONE comment sentence (spec §7i), so its helper
+// comes along for the ride. test-daylog.mjs is what pins the wording itself.
+const noteFn = new Function(lift(cal, 'emsCommentText') + ';' + lift(cal, 'buildVisitEditNote') + '; return buildVisitEditNote;')();
 const base = { date: '2026-07-07T09:00:00.000Z', visitor: 'אביאם', duration: 2, workday: false, contact: 'דני', products: [{ name: 'מונה', qty: 2 }], summary: 'הוחלף בקר' };
 check('a date change produces a comment naming old → new', () => {
   const msg = noteFn(base, { ...base, date: '2026-07-09T09:00:00.000Z' });
+  assert.ok(msg.startsWith('עדכון מאביאם על המשימה:'), 'must open with עידן’s sentence, got: ' + msg);
   assert.ok(msg.includes('תאריך הביקור תוקן'), 'must call out the date correction');
   assert.ok(msg.includes('7.7.2026') && msg.includes('9.7.2026'), 'must show both dates, got: ' + msg);
 });

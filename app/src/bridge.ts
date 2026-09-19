@@ -77,6 +77,11 @@ export interface Sigma {
    */
   track?(action: string, target?: string | null, page?: string | null): void;
 
+  /** Live kibbutz names (not archived) — the day log's grounding list. */
+  kibbutzNames?(): string[];
+  /** Live product catalog names — the day log's grounding list. */
+  productNames?(): string[];
+
   emsApi(path: string, options?: RequestInit): Promise<any>;
   isEmsConnected(): boolean;
   emsCacheData(): { tasks: EmsTask[]; syncedAt?: string; syncedBy?: string };
@@ -120,6 +125,16 @@ export interface Sigma {
   } | null;
   visitDraftDiscard?(id?: string | null): void;
   getLastVisit(kibbutz: string): any;
+  /**
+   * 📝 יומן היום (spec §7i) — one confirmed card → one visit, through the form's OWN save path
+   * (delivery-cert gate, stock movement, `visit-saved`). Never rejects; a refused card comes
+   * back as `{ ok:false, error }` so the other cards still save.
+   */
+  saveVisitFromData?(visit: Record<string, unknown>):
+    Promise<{ ok: boolean; id?: string; error?: string; needsCert?: boolean; visitId?: string }>;
+  /** Comment on an EMS task — queued when offline, so a comment written in the field survives. */
+  emsAddComment?(taskId: string, text: string, meta?: Record<string, unknown>):
+    Promise<{ ok: boolean; queued?: boolean; error?: string }>;
   /**
    * The briefing's "לפני שיוצאים" leftovers (spec §5.1b, Task 5). React hands over the text
    * and the legacy form writes it into `#visitOpenItems` the moment the form is on screen —
