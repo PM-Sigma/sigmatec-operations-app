@@ -6,6 +6,7 @@
 // save body drops the `energy` key entirely, so the server keeps whatever it had.
 import * as React from 'react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
@@ -194,11 +195,18 @@ export function KibbutzSheet({
     }
   }
 
+  // §7p: a half-typed new kibbutz (name / region / parent) survives a stray backdrop tap.
+  const guard = useUnsavedGuard({
+    dirty: () => !editing && (name.trim() !== '' || region.trim() !== '' || parent.trim() !== ''),
+    onDiscard: () => onOpenChange(false),
+    onClose: () => onOpenChange(false),
+  });
+
   const isSub = kind === 'subsite';
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[88svh] overflow-y-auto rounded-t-[26px] p-4 pb-7">
+    <Sheet open={open} onOpenChange={guard.onOpenChange(onOpenChange)}>
+      <SheetContent side="bottom" className="max-h-[88svh] overflow-y-auto rounded-t-[26px] p-4 pb-7" {...guard.contentProps}>
         <SheetHeader className="text-start">
           <SheetTitle className="text-[22px] font-extrabold">
             {editing ? '✏️ פרטי קיבוץ' : '➕ קיבוץ חדש'}
@@ -351,6 +359,7 @@ export function KibbutzSheet({
             </button>
           )
         )}
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

@@ -12,6 +12,7 @@
 import * as React from 'react';
 import { ArrowDownLeft, ArrowUpRight, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -159,6 +160,13 @@ function StockChangeSheet() {
     }
   }
 
+  // §7p: a half-filled stock report (direction, source, count, note) survives a stray tap.
+  const guard = useUnsavedGuard({
+    dirty: () => !!direction || !!source || counted.trim() !== '' || note.trim() !== '',
+    onDiscard: close,
+    onClose: close,
+  });
+
   const Choice = ({ on, onClick, testId, children }: { on: boolean; onClick: () => void; testId: string; children: React.ReactNode }) => (
     <button
       type="button"
@@ -173,7 +181,7 @@ function StockChangeSheet() {
 
   return (
     <Sheet open={open} onOpenChange={o => (o ? setOpen(true) : close())}>
-      <SheetContent side="bottom" dir="rtl" data-testid="stock-change-sheet" className="max-h-[92vh] overflow-y-auto">
+      <SheetContent side="bottom" dir="rtl" data-testid="stock-change-sheet" className="max-h-[92vh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2 text-[17px]">
             <Package className="h-5 w-5" /> דיווח שינוי במלאי
@@ -291,6 +299,7 @@ function StockChangeSheet() {
               : 'שמור'}
           </button>
         </div>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

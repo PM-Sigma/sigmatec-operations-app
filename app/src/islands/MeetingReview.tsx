@@ -17,6 +17,7 @@
 import * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { mount } from '@/islands';
@@ -226,9 +227,16 @@ function TaskModal({
     return () => { alive = false; };
   }, [kibbutz]);
 
+  // §7p: a title and description typed for a new EMS task are unsaved input.
+  const taskGuard = useUnsavedGuard({
+    dirty: () => title.trim() !== prefill.title.trim() || description.trim() !== (prefill.description || '').trim(),
+    onDiscard: onClose,
+    onClose,
+  });
+
   return (
-    <Sheet open onOpenChange={v => { if (!v) onClose(); }}>
-      <SheetContent side="bottom" data-testid="review-task-modal" className="max-h-[88svh] overflow-y-auto">
+    <Sheet open onOpenChange={v => { if (!v) taskGuard.ask(); }}>
+      <SheetContent side="bottom" data-testid="review-task-modal" className="max-h-[88svh] overflow-y-auto" {...taskGuard.contentProps}>
         <SheetHeader className="text-start">
           <SheetTitle className="text-base">📋 משימת EMS — <bdi>{kibbutz}</bdi></SheetTitle>
           <SheetDescription>
@@ -280,6 +288,7 @@ function TaskModal({
         <p className="mt-2 text-[12px] text-muted-foreground" data-testid="review-task-hint">
           המשימה תיפתח כשתלחץ בצע — <bdi>{line.key ? 'שורה זו בלבד' : ''}</bdi>
         </p>
+        {taskGuard.prompt}
       </SheetContent>
     </Sheet>
   );
@@ -488,9 +497,17 @@ function ReviewSheet() {
     } finally { setBusy(false); }
   };
 
+  // §7p: the whole point of this screen is a draft under review — losing it to a stray tap
+  // costs the entire meeting summary.
+  const reviewGuard = useUnsavedGuard({
+    dirty: () => !!draft,
+    onDiscard: cancel,
+    onClose: cancel,
+  });
+
   return (
-    <Sheet open={open} onOpenChange={v => { if (!v) cancel(); }}>
-      <SheetContent side="bottom" data-testid="meeting-review" className="max-h-[94svh] overflow-y-auto">
+    <Sheet open={open} onOpenChange={v => { if (!v) reviewGuard.ask(); }}>
+      <SheetContent side="bottom" data-testid="meeting-review" className="max-h-[94svh] overflow-y-auto" {...reviewGuard.contentProps}>
         <SheetHeader className="text-start">
           <SheetTitle>📝 מעבר על הסיכום</SheetTitle>
           <SheetDescription>
@@ -607,6 +624,7 @@ function ReviewSheet() {
             />
           );
         })()}
+        {reviewGuard.prompt}
       </SheetContent>
     </Sheet>
   );

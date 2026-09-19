@@ -21,6 +21,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { CalendarDays, ChevronLeft, ChevronRight, FileSpreadsheet, FileText } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isGateOpen, useEmsGate } from '@/lib/session';
 import { mount } from '@/islands';
@@ -211,6 +212,7 @@ function AttendanceIsland() {
   const [ym, setYm] = React.useState(() => ({ y: today.getFullYear(), m: today.getMonth() + 1 }));
   const [open, setOpen] = React.useState('');            // the date the phone sheet is on
   const [selected, setSelected] = React.useState(todayKey);   // the date the desktop panel shows
+  const attGuard = useUnsavedGuard({ dirty: () => false, onClose: () => setOpen('') });
 
   // עידן (and the viewer) may look at someone else's month; a field worker sees his own.
   // This mirrors the legacy person toggle exactly (js/src/04-attendance-daily.js) so both
@@ -429,8 +431,10 @@ function AttendanceIsland() {
       </div>
 
       {/* ── phone: the same editor as a bottom sheet ─────────────────────────── */}
-      <Sheet open={!!open} onOpenChange={o => { if (!o) setOpen(''); }}>
-        <SheetContent side="bottom" data-testid="att-sheet" className="max-h-[80svh] overflow-y-auto lg:hidden">
+      {/* §7p, wired for completeness: the day editor writes each choice as it is made, so
+          there is no draft to lose and the predicate is honestly false. */}
+      <Sheet open={!!open} onOpenChange={o => { if (!o) attGuard.ask(); }}>
+        <SheetContent side="bottom" data-testid="att-sheet" className="max-h-[80svh] overflow-y-auto lg:hidden" {...attGuard.contentProps}>
           <SheetTitle className="sr-only">{openCell ? dayChip(openCell.date) : 'יום'}</SheetTitle>
           <SheetDescription className="sr-only">עריכת סוג היום.</SheetDescription>
           <AnimatePresence mode="wait" initial={false}>
@@ -450,6 +454,7 @@ function AttendanceIsland() {
               </motion.div>
             )}
           </AnimatePresence>
+        {attGuard.prompt}
         </SheetContent>
       </Sheet>
     </div>

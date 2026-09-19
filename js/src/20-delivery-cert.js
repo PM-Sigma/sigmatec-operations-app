@@ -658,7 +658,7 @@
           ${c.drive_url ? `<a class="inv-btn small" style="background:#f59e0b;text-decoration:none;display:inline-block;" href="${certEsc(c.drive_url)}" target="_blank" rel="noopener" title="עותק ה-PDF בדרייב">📁</a>` : ''}
           ${vw ? '' : `<button class="inv-btn small" style="background:#16a34a;" onclick="certSendOpen('${idArg}')" title="שליחה במייל / וואטסאפ לאנשי הקשר של האתר">📤</button>`}
           ${(cancelled || vw) ? '' : `<button class="inv-btn small" style="background:#0e7490;" onclick="certReissue('${idArg}')" title="פתח לעריכה, הפק תעודה חדשה ובטל את זו אוטומטית">📝 הפק מתוקנת</button>
-          <button class="inv-btn small" style="background:#dc2626;" onclick="certCancel('${idArg}')">🚫 בטל</button>`}
+          <button class="inv-btn small" style="background:#dc2626;" onclick="certCancel('${idArg}', this)">🚫 בטל</button>`}
         </td>
       </tr>`; }).join('') + '</tbody></table></div>' +
       `<div style="font-size:11px;color:#64748b;margin-top:6px;">${rows.length} תעודות · ${rows.filter(c => c.status !== 'cancelled').length} פעילות</div>`;
@@ -696,16 +696,20 @@
   window.certReissue = certReissue;
 
   // Manual cancel (no replacement) — e.g. a delivery that never happened.
-  async function certCancel(id) {
+  // F12: cancelling a certificate writes to the sheet — the בטל button is the pending
+  // state, and the failure is a Sonner error with נסה שוב instead of a blocking alert (F20).
+  function certCancel(id, btn) {
     const c = _certRows.find(x => x.id === id);
     if (!c) return;
     if (!confirm('לבטל את תעודת משלוח ' + c.cert_number + '?\nהתעודה תישאר ברישום כמבוטלת (לא נמחקת) ולא תיספר בדוחות.')) return;
-    try {
-      await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'deliveryCertCancel', id: c.id }) });
-      if (c.ref_id && window._certIssuedFor && window._certIssuedFor[c.ref_id]) delete window._certIssuedFor[c.ref_id];
-      invRenderCerts(true);
-    } catch (e) { alert('שגיאה בביטול: ' + e.message); }
+    return runOnce(btn, 'מבטל…', async function () {
+      try {
+        await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ type: 'deliveryCertCancel', id: c.id }) });
+        if (c.ref_id && window._certIssuedFor && window._certIssuedFor[c.ref_id]) delete window._certIssuedFor[c.ref_id];
+        invRenderCerts(true);
+      } catch (e) { sigmaError('שגיאה בביטול: ' + e.message, function () { certCancel(id, btn); }); }
+    });
   }
   window.certCancel = certCancel;
 

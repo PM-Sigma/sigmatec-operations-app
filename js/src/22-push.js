@@ -68,14 +68,19 @@
       '</div></div>';
     document.body.appendChild(wrap);
     document.getElementById('pushEnableLater').onclick = function () { wrap.remove(); };   // session-only; reappears next login
-    document.getElementById('pushEnableYes').onclick = async function () {
+    document.getElementById('pushEnableYes').onclick = function (ev) {
       if (blocked) { wrap.remove(); location.reload(); return; }
-      wrap.remove();
-      try {
-        var perm = await Notification.requestPermission();
-        if (perm === 'granted') await subscribe();
-        else if (perm === 'denied') { window._pushPromptShown = false; showEnablePrompt('denied'); }   // they blocked it → show the manual-enable guidance
-      } catch (e) { console.warn('[push] enable failed', e); }
+      // F8: single-flight. This used to be a bare async onclick, so a double tap ran
+      // requestPermission()+subscribe() twice and registered the device twice.
+      var btn = ev && ev.currentTarget;
+      return runOnce(btn, 'מפעיל…', async function () {
+        try {
+          var perm = await Notification.requestPermission();
+          if (perm === 'granted') await subscribe();
+          else if (perm === 'denied') { window._pushPromptShown = false; showEnablePrompt('denied'); }   // they blocked it → show the manual-enable guidance
+        } catch (e) { console.warn('[push] enable failed', e); }
+        wrap.remove();
+      });
     };
   }
 
@@ -243,7 +248,7 @@
     const ym = dateKey.slice(0, 7);
     const sent = attNagSelected(person, ym).indexOf(dateKey) !== -1;
     const bell = attCanNag()
-      ? '<button data-d="' + dateKey + '" onclick="attNagDay(this.dataset.d)" title="' + (sent ? 'נשלחה תזכורת — לחיצה שולחת שוב את כל הימים' : 'שלח תזכורת על יום זה (מצטרף להתראה הקיימת)') + '"' +
+      ? '<button data-d="' + dateKey + '" onclick="attNagDay(this.dataset.d, this)" title="' + (sent ? 'נשלחה תזכורת — לחיצה שולחת שוב את כל הימים' : 'שלח תזכורת על יום זה (מצטרף להתראה הקיימת)') + '"' +
         ' style="background:' + (sent ? 'var(--tint-ok)' : 'var(--tint-danger)') + ';border:1px solid ' + (sent ? 'var(--success)' : 'var(--tint-danger-border)') + ';border-radius:6px;min-width:34px;height:26px;cursor:pointer;font-size:13px;">' + (sent ? '✅' : '🔔') + '</button>'
       : '';
     // Tokens, not literals: the row used to be a light slab in dark mode and its em-dash
@@ -262,7 +267,12 @@
     setTimeout(() => t.classList.remove('show'), 3500);
   }
   // 🔔 click: add the day to the month's selection and (re)send ONE notification with all of it
-  async function attNagDay(dateKey) {
+  // F7: a bell with no pending state and no timeout could be tapped into duplicate pushes.
+  // `runOnce` disables it for the round trip; `fetchWithTimeout` ends the wait at 20 s.
+  function attNagDay(dateKey, btn) {
+    return runOnce(btn, 'שולח…', function () { return attNagDaySend(dateKey); });
+  }
+  async function attNagDaySend(dateKey) {
     const person = (typeof attPerson === 'function') ? attPerson() : '';
     if (!person) return;
     const ym = dateKey.slice(0, 7);
@@ -272,11 +282,11 @@
     try { localStorage.setItem(attNagKey(person, ym), JSON.stringify(sel)); } catch (e) {}
     if (typeof renderAttendanceReport === 'function') { try { renderAttendanceReport(); } catch (e) {} }
     try {
-      const r = await fetch(SB_URL + '/functions/v1/push-send', {
+      const r = await fetchWithTimeout(SB_URL + '/functions/v1/push-send', {
         method: 'POST',
         headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'attendanceReminder', person: person, dates: sel })
-      });
+      }, 20000);
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || r.status);
       if (j.delivered > 0) {

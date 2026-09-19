@@ -11,6 +11,7 @@
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
@@ -256,9 +257,19 @@ function ImportSheet() {
     else toast.error('פתח את עמוד הקיבוצים כדי ליצור כרטיס');
   };
 
+  // §7p / F3. Same wipe as the feedback sheet: `reset()` on every dismiss threw away pasted
+  // meeting markdown AND the parsed preview built from it. The draft survives now; only a
+  // successful save, a handover to the review screen, or an explicit לבטל clears it.
+  const guard = useUnsavedGuard({
+    dirty: () => md.trim() !== '',
+    onSave: () => save(),
+    onDiscard: reset,
+    onClose: () => setOpen(false),
+  });
+
   return (
-    <Sheet open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
+    <Sheet open={open} onOpenChange={guard.onOpenChange(setOpen)}>
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader>
           <SheetTitle>📥 ייבוא סיכום ישיבה</SheetTitle>
           <SheetDescription>הדבק את הסיכום, בדוק את התצוגה המקדימה, ושמור. ייבוא חוזר של אותו תאריך מחליף את הרשומות.</SheetDescription>
@@ -347,6 +358,7 @@ function ImportSheet() {
           </>
         )}
         </EmsGate>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

@@ -2,7 +2,7 @@
 // for the Sheet primitives and this form when someone actually stops a timer. The rules it
 // applies are goldens in app/src/lib/clockify.ts; the render contract is WorkTimer.test.tsx.
 import * as React from 'react';
-import { Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { sigmaBus } from '@/bridge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -11,6 +11,7 @@ import { track } from '@/lib/track';
 import { elapsed, entryPayload, formatElapsed, tagsCached, type ClockifyTag, type RunningSession, type SessionDraft } from '@/lib/clockify';
 import { clockifyCall, fetchContacts, fetchProjects, type Contact } from '@/components/home/workTimerApi';
 import { WORK_SESSION_SAVED } from '@/components/home/workTimerEvents';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 
 // ───────────────────────────── the stop sheet ─────────────────────────────
 
@@ -25,6 +26,8 @@ export default function StopSheet({
   const [note, setNote] = React.useState('');
   const [billable, setBillable] = React.useState(false);   // default OFF (spec §8b)
   const [saving, setSaving] = React.useState(false);
+  // F12 / pattern 4: הוסף inserts into `site_contacts` and had no pending state at all.
+  const [addingContact, setAddingContact] = React.useState(false);
 
   React.useEffect(() => {
     let live = true;
@@ -45,7 +48,8 @@ export default function StopSheet({
    *  `site_contacts` insert is refused (no EMS pass) — the attendee list is free text. */
   const addContact = async () => {
     const name = newContact.trim();
-    if (!name) return;
+    if (!name || addingContact) return;
+    setAddingContact(true);
     setNewContact('');
     if (!contacts.some(c => c.name === name)) setContacts(prev => [...prev, { name }]);
     if (!pickedPeople.includes(name)) setPickedPeople(prev => [...prev, name]);
@@ -53,6 +57,7 @@ export default function StopSheet({
       await sbWrite(async sb => await sb.from('site_contacts')
         .insert({ kibbutz: running.kibbutz, name, active: true }).select().single());
     } catch { /* the session still records him; the contact card just was not saved */ }
+    finally { setAddingContact(false); }
   };
 
   const confirm = async () => {
@@ -101,9 +106,17 @@ export default function StopSheet({
     onSaved();
   };
 
+  // §7p: attendees, tags and a note are minutes of work — a backdrop tap must not end them.
+  const guard = useUnsavedGuard({
+    dirty: () => pickedPeople.length > 0 || pickedTags.length > 0 || newContact.trim() !== '' || note.trim() !== '',
+    onSave: () => confirm(),
+    onDiscard: onClose,
+    onClose,
+  });
+
   return (
-    <Sheet open onOpenChange={o => { if (!o) onClose(); }}>
-      <SheetContent side="bottom" data-testid="work-timer-sheet" className="max-h-[88svh] overflow-y-auto">
+    <Sheet open onOpenChange={o => { if (!o) guard.ask(); }}>
+      <SheetContent side="bottom" data-testid="work-timer-sheet" className="max-h-[88svh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader className="text-start">
           <SheetTitle className="text-base">סגירת שעות — {running.kibbutz}</SheetTitle>
           <SheetDescription>{formatElapsed(elapsed(running.started_at))} · מי השתתף, על מה, והאם זה לחיוב</SheetDescription>
@@ -139,9 +152,11 @@ export default function StopSheet({
               />
               <button
                 type="button" data-testid="work-timer-add-contact" onClick={() => void addContact()}
-                className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-muted px-2.5 text-[13px] font-semibold"
+                disabled={addingContact}
+                aria-busy={addingContact || undefined}
+                className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-muted px-2.5 text-[13px] font-semibold disabled:opacity-60"
               >
-                <Plus className="h-4 w-4" /> הוסף
+                {addingContact ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Plus className="h-4 w-4" />} הוסף
               </button>
             </div>
           </section>
@@ -198,6 +213,7 @@ export default function StopSheet({
             </button>
           </div>
         </div>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

@@ -17,6 +17,7 @@ import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -132,9 +133,13 @@ function MinQtySheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
     } finally { setSaving(''); }
   };
 
+  // §7p, wired for completeness: each minimum saves on blur (`save` above), so this sheet
+  // never holds a draft and the predicate is honestly false.
+  const guard = useUnsavedGuard({ dirty: () => false, onClose: () => onOpenChange(false) });
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+    <Sheet open={open} onOpenChange={guard.onOpenChange(onOpenChange)}>
+      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader>
           <SheetTitle>🎚 מינימום מלאי</SheetTitle>
           <SheetDescription>כמה יחידות במלאי החברה מצדיקות התראה</SheetDescription>
@@ -157,6 +162,7 @@ function MinQtySheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
             </li>
           ))}
         </ul>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

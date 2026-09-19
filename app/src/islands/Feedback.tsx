@@ -11,6 +11,7 @@ import * as React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Loader2, Mic, Square } from 'lucide-react';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -142,6 +143,8 @@ function FeedbackSheet() {
   const fieldState = React.useRef<RefineFieldState>('untouched');
   const pollTimer = React.useRef<number | null>(null);
   const [refineChip, setRefineChip] = React.useState(false);
+  // F18: the refine poll used to run with no visible state and no cancel.
+  const [refining, setRefining] = React.useState(false);
   const undoText = React.useRef<string | null>(null);
   // A poll tick fires well after the render that scheduled it, so it must read the LIVE text —
   // a value captured in the tick's own closure would be stale the moment the user typed a key.
@@ -313,15 +316,17 @@ function FeedbackSheet() {
   // ── the refine poll loop (task 6b) ──────────────────────────────────────────
   const stopRefinePoll = () => {
     if (pollTimer.current) { window.clearTimeout(pollTimer.current); pollTimer.current = null; }
+    setRefining(false);
   };
 
   const startRefinePoll = (jobId: string, etaSeconds?: number) => {
     stopRefinePoll();
+    setRefining(true);   // F18: the poll is visible from here until it ends, one way or another
     const deadline = Date.now() + refinePollDeadlineMs(etaSeconds);
     let attempt = 0;
     const tick = async () => {
       pollTimer.current = null;
-      if (Date.now() >= deadline) return;                  // gave up quietly — the fast text stands
+      if (Date.now() >= deadline) { setRefining(false); return; }   // gave up — the fast text stands
       try {
         const res = await pollRefineStatus(jobId);
         if (res.status === 'done' && res.refined) {
@@ -332,9 +337,10 @@ function FeedbackSheet() {
             setText(merged.text);
             setRefineChip(true);
           }
+          setRefining(false);
           return;                                          // job finished either way — stop polling
         }
-        if (res.status === 'failed') return;                // fast text stands, nothing to show
+        if (res.status === 'failed') { setRefining(false); return; }   // fast text stands
       } catch { /* a failed poll just tries again on the next tick */ }
       attempt += 1;
       pollTimer.current = window.setTimeout(() => { void tick(); }, refinePollDelayMs(attempt));
@@ -384,9 +390,20 @@ function FeedbackSheet() {
   const voiceActive = phase === 'listening' || phase === 'recording';
   const busy = phase === 'transcribing';
 
+  // §7p / F2. This sheet used to `reset()` on EVERY dismiss, so a backdrop tap or a stray Esc
+  // wiped a dictated idea with no way back — the probe found the field empty on reopen. Now a
+  // dismiss with text in it asks לשמור / לבטל / להמשיך לערוך, and the ONLY paths that clear
+  // the draft are a successful send and an explicit לבטל.
+  const guard = useUnsavedGuard({
+    dirty: () => text.trim() !== '' || interim.trim() !== '',
+    onSave: () => send(),
+    onDiscard: reset,
+    onClose: () => setOpen(false),
+  });
+
   return (
-    <Sheet open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
+    <Sheet open={open} onOpenChange={guard.onOpenChange(setOpen)}>
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader>
           <SheetTitle>📣 תיבת רעיונות ובאגים</SheetTitle>
           <SheetDescription>
@@ -443,6 +460,18 @@ function FeedbackSheet() {
           className="mt-2 min-h-[130px] text-[15px]"
         />
 
+        {refining && (
+          <div data-testid="feedback-refining"
+               className="mt-1 flex items-center gap-2 text-[12px] font-semibold text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            <span>משתפר…</span>
+            <button type="button" data-testid="feedback-refine-cancel" onClick={stopRefinePoll}
+                    className="underline underline-offset-2 hover:text-foreground">
+              בטל
+            </button>
+          </div>
+        )}
+
         {refineChip && (
           <div className="mt-1 flex items-center gap-2 text-[12px] font-semibold text-muted-foreground">
             <span className="rounded-full bg-muted px-2 py-0.5">עודכן</span>
@@ -475,15 +504,22 @@ function FeedbackSheet() {
           שלח אנונימי
         </label>
 
+        {/* F11 / pattern rule 4: the label STAYS while sending. It used to be replaced by a
+            bare Loader2, which dropped the button's accessible name and made the pending state
+            impossible to assert — the delayed-mock probe could not see it at all. */}
         <button
           type="button"
+          data-testid="feedback-send"
           onClick={() => void send()}
           disabled={sending || busy}
-          className="mt-3 min-h-[48px] w-full rounded-xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-40"
+          aria-busy={sending || undefined}
+          className="mt-3 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-40"
         >
-          {sending ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'שלח'}
+          {sending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+          שלח
         </button>
         </EmsGate>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

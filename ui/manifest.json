@@ -58,6 +58,7 @@
   "./ui/sigma-Usage.js",
   "./ui/sigma-useMutation.js",
   "./ui/sigma-useQuery.js",
+  "./ui/sigma-useUnsavedGuard.js",
   "./ui/sigma-video.js",
   "./ui/sigma-WorkTimerStopSheet.js",
   "./ui/sigma.css",

@@ -14,6 +14,7 @@
 // client rebuild and no listener to keep in sync.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { mockModeAllowed, notifySessionExpired } from './session';
+import { SB_TIMEOUT_MS, withTimeout } from './pending';
 
 export const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
 export const SB_ANON =
@@ -162,11 +163,16 @@ export async function sbWrite<T>(
     try { await (window as any).sigma?.sbAuthPass?.(force); } catch { /* no EMS session */ }
   };
 
+  // F5: no Supabase write is open-ended any more. A hung PostgREST used to leave every save
+  // button spinning forever with no message; now the wait ends at 15 s with the Hebrew
+  // 'תם הזמן — נסה שוב' that the caller surfaces with a retry action (lib/pending.ts).
+  const once = () => withTimeout(Promise.resolve(run(sb)), SB_TIMEOUT_MS);
+
   await mint(false);
-  let res = await run(sb);
+  let res = await once();
   if (res.error && isWriteBlocked(res.error)) {
     await mint(true);
-    res = await run(sb);
+    res = await once();
   }
   if (res.error) {
     throw new Error(isWriteBlocked(res.error) ? EMS_LOGIN_REQUIRED : (res.error.message || String(res.error)));

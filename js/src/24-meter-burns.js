@@ -224,7 +224,14 @@
     }
     return out;
   }
-  async function burnRefreshFromEms(manual) {
+  // F12: the EMS-refresh label is rendered by burnRepaint() from `burnState.syncing`, but
+  // the button the thumb actually hit stayed live until that repaint landed — setBtnLoading
+  // closes the gap and gives the handler a pending state of its own.
+  async function burnRefreshFromEms(manual, btn) {
+    if (btn) setBtnLoading(btn, true, 'מעדכן…');
+    try { return await burnRefreshFromEmsRun(manual); } finally { if (btn) setBtnLoading(btn, false); }
+  }
+  async function burnRefreshFromEmsRun(manual) {
     if (!burnCanWrite() || burnState.syncing) return;
     if (window.__MOCK) { if (manual) emsToast('🧪 סביבת בדיקה — רענון מה-EMS מושבת'); return; }
     if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { if (manual) emsToast('⚠️ אין חיבור ל-EMS — התחבר ואז נסה שוב'); return; }
@@ -328,7 +335,7 @@
       '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור <span class="burn-temp">פרויקט זמני</span></h2>' +
         '<div><button class="inv-btn small xl-export-btn" onclick="burnExportXlsx()" style="' + (typeof canExportExcel === 'function' && canExportExcel() ? '' : 'display:none') + '">📗 Excel</button> ' +
         (burnCanManageGens() ? '<button class="inv-btn small" onclick="burnGensOpen()">⚡ גנרטורים</button> ' : '') +
-        (burnCanWrite() ? '<button class="inv-btn small" onclick="burnRefreshFromEms(true)" title="עדכון נתוני המונים מה-EMS"' + (burnState.syncing ? ' disabled' : '') + '>' + (burnState.syncing ? '⏳ EMS…' : '⟳ EMS') + '</button> ' : '') +
+        (burnCanWrite() ? '<button class="inv-btn small" onclick="burnRefreshFromEms(true, this)" title="עדכון נתוני המונים מה-EMS"' + (burnState.syncing ? ' disabled' : '') + '>' + (burnState.syncing ? '⏳ EMS…' : '⟳ EMS') + '</button> ' : '') +
         '<button class="inv-btn small" onclick="renderBurns(true)" title="רענן">🔄</button>' +
         (burnState.loading && burnState.rows ? ' <span class="burn-muted">⏳</span>' : '') + '</div></div>' +
       '<div class="push-tiles" id="burnTiles"></div>' +
@@ -407,7 +414,7 @@
     c.innerHTML = '<h3>⚡ שיבוץ לגנרטור — ' + burnEsc(site) + '</h3><p class="burn-muted">' + rows.length + ' מונים. בחר גנרטור קיים או הקלד שם חדש.</p>' +
       '<input id="burnGenName" list="burnGenList" class="burn-search" placeholder="שם הגנרטור" autocomplete="off" oninput="burnGenNameChanged(\'' + burnAttr(site) + '\')"><datalist id="burnGenList">' + gens.map(function (g) { return '<option value="' + burnEsc(g.name) + '">'; }).join('') + '</datalist>' +
       '<div style="display:flex;gap:6px;margin-top:8px;align-items:center;"><input id="burnGenSerial" class="burn-search" style="flex:1" placeholder="מס\' מונה/בקר של הגנרטור (אופציונלי)" autocomplete="off" inputmode="numeric">' +
-        '<button class="inv-btn small" type="button" onclick="burnGenSearchEms()" title="חיפוש המונה ב-EMS">🔍 EMS</button></div>' +
+        '<button class="inv-btn small" type="button" onclick="burnGenSearchEms(this)" title="חיפוש המונה ב-EMS">🔍 EMS</button></div>' +
       '<div id="burnGenHits" class="burn-muted" style="margin-top:6px;font-size:13px;"></div>' +
       '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-start;"><button class="inv-btn" onclick="burnAssignSave(\'' + burnAttr(site) + '\')">שמור</button>' +
       '<button class="inv-btn" style="background:#64748b" onclick="burnAssignSave(\'' + burnAttr(site) + '\', true)">הסר שיבוץ</button>' +
@@ -434,7 +441,11 @@
     var g = burnState.gens.find(function (x) { return x.site === site && x.name === name; });
     var el = document.getElementById('burnGenSerial'); if (g && el) el.value = g.device_serial || '';
   }
-  async function burnGenSearchEms() {
+  // F12: an EMS /meters lookup — the EMS search button is the pending state (rule 4).
+  function burnGenSearchEms(btn) {
+    return runOnce(btn, 'מחפש…', burnGenSearchEmsRun);
+  }
+  async function burnGenSearchEmsRun() {
     var q = (document.getElementById('burnGenSerial').value || '').trim(), out = document.getElementById('burnGenHits');
     if (!q) { emsToast('הקלד מספר מונה לחיפוש'); return; }
     if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { emsToast('⚠️ אין חיבור ל-EMS'); return; }

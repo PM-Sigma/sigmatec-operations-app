@@ -601,7 +601,9 @@
   }
 
   /** Drop ONE draft. `announce` = the person pressed "התחל מחדש", so the form is cleared too. */
-  function visitDraftDiscard(id, announce) {
+  // F12: התחל מחדש deletes the draft server-side too, so the button carries the wait.
+  function visitDraftDiscard(id, announce, btn) {
+    if (btn) setBtnLoading(btn, true, 'מוחק…');
     // With no id, discard the draft for the kibbutz the form is actually on — never "whatever
     // was stored", which with a map would be somebody else's kibbutz.
     const target = id
@@ -630,6 +632,7 @@
     }
     visitDraftPromptHide();
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-draft-changed', { kibbutz: row && row.kibbutz, at: null });
+    if (btn) setBtnLoading(btn, false);
   }
 
   /** Put a draft back into the form. No id = the draft for the kibbutz on screen. */

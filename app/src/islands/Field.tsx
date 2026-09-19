@@ -20,6 +20,7 @@ import {
   AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, MapPin, Search, Sun, Truck,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShimmerButton } from '@/components/ui/shimmer-button';
 import { isGateOpen, useEmsGate } from '@/lib/session';
@@ -694,8 +695,14 @@ function FieldIsland() {
   const dur = reduce ? 0 : 0.28;
   if (!isGateOpen(gate)) return null;          // §7n — nothing without a live sign-in
 
+  // §7p, wired for completeness: every checklist tick is written through the moment it is
+  // made (`onToggle` above), and the open items travel to the visit form through the bridge,
+  // so this sheet never holds an unsaved draft — the predicate is honestly false. The hook
+  // stays so the first field that DOES hold one is covered the day it lands.
+  const guard = useUnsavedGuard({ dirty: () => false, onClose: () => setMode('closed') });
+
   return (
-    <Sheet open={mode !== 'closed'} onOpenChange={o => { if (!o) setMode('closed'); }}>
+    <Sheet open={mode !== 'closed'} onOpenChange={o => { if (!o) guard.ask(); }}>
       <SheetContent
         side="bottom"
         data-mode={mode}
@@ -750,6 +757,7 @@ function FieldIsland() {
             </motion.div>
           ) : null}
         </AnimatePresence>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

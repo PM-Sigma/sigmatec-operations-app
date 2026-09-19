@@ -12,6 +12,7 @@
 import * as React from 'react';
 import { Check, Loader2, Mic, Square, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -82,10 +83,12 @@ export function readCatalog(): DayLogCatalog {
 }
 
 /** Ask `parse-daylog`. Throws with a sentence the person can act on — never a status code. */
-async function parseDayLog(text: string, catalog: DayLogCatalog): Promise<any> {
+async function parseDayLog(text: string, catalog: DayLogCatalog, external?: AbortController): Promise<any> {
   const token = (() => { try { return sigma.emsToken?.() || ''; } catch { return ''; } })();
   if (!token) throw new Error('יש להתחבר כדי לנתח את היום — אפשר לכתוב סיכום ביקור ידנית');
-  const ac = new AbortController();
+  // F19: the caller may hand in its own controller so a בטל button can end the wait. The
+  // 30 s deadline still fires on top of it.
+  const ac = external || new AbortController();
   const timer = setTimeout(() => ac.abort(), 30_000);
   try {
     const r = await fetch(`${SB_URL}/functions/v1/parse-daylog`, {
@@ -100,7 +103,11 @@ async function parseDayLog(text: string, catalog: DayLogCatalog): Promise<any> {
     if (!r.ok || res?.error) throw new Error(r.status === 401 ? 'יש להתחבר שוב כדי לנתח את היום' : 'הניתוח לא הצליח — נסה שוב או כתוב סיכום ידנית');
     return res;
   } catch (e: any) {
-    if (e?.name === 'AbortError') throw new Error('הניתוח לוקח יותר מדי זמן — נסה שוב');
+    if (e?.name === 'AbortError') {
+      throw new Error(external && external.signal.aborted && !(e as any).__deadline
+        ? 'CANCELLED'
+        : 'הניתוח לוקח יותר מדי זמן — נסה שוב');
+    }
     throw e;
   } finally {
     clearTimeout(timer);
@@ -228,6 +235,10 @@ function DayLogSheet() {
   const [open, setOpen] = React.useState(() => { const p = pendingOpen; pendingOpen = false; return p; });
   const [text, setText] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  // F19 / pattern 5: a long job gets an elapsed counter and a בטל wired to its controller.
+  const [analysing, setAnalysing] = React.useState(false);
+  const [analyseSec, setAnalyseSec] = React.useState(0);
+  const analyseAc = React.useRef<AbortController | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [result, setResult] = React.useState<DayLogResult | null>(null);
   const [saved, setSaved] = React.useState<Record<number, { ok: boolean; note: string }>>({});
@@ -296,13 +307,28 @@ function DayLogSheet() {
     if (!rec.current) setListening(false);
   };
 
+  const cancelAnalyse = () => {
+    analyseAc.current?.abort();
+    analyseAc.current = null;
+  };
+
+  // The elapsed counter only ticks while a job is actually in flight.
+  React.useEffect(() => {
+    if (!analysing) { setAnalyseSec(0); return; }
+    const id = window.setInterval(() => setAnalyseSec(n => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [analysing]);
+
   const analyse = async () => {
     const raw = text.trim();
-    if (!raw) return;
+    if (!raw || analysing) return;
     setBusy(true);
+    setAnalysing(true);
     setSaved({});
+    const ac = new AbortController();
+    analyseAc.current = ac;
     try {
-      const json = await parseDayLog(raw, catalog);
+      const json = await parseDayLog(raw, catalog, ac);
       const norm = normalizeDayLog(json, catalog);
       rawLen.current = raw.length;
       original.current = JSON.parse(JSON.stringify(norm));
@@ -310,9 +336,12 @@ function DayLogSheet() {
       track('daylog-parsed', String(norm.visits.length));
       if (!norm.visits.length) toast.message('לא זוהו ביקורים בטקסט — אפשר לנסח מחדש');
     } catch (e: any) {
-      toast.error(String(e?.message || 'הניתוח לא הצליח'));
+      // A cancel the person asked for is not a failure — say nothing, the text is still there.
+      if (String(e?.message) !== 'CANCELLED') toast.error(String(e?.message || 'הניתוח לא הצליח'));
     } finally {
       setBusy(false);
+      setAnalysing(false);
+      analyseAc.current = null;
     }
   };
 
@@ -365,9 +394,16 @@ function DayLogSheet() {
 
   const allSaved = !!result && result.visits.length > 0 && result.visits.every((_, i) => saved[i]?.ok);
 
+  // §7p: a dictated day is minutes of talking — a backdrop tap must not end it.
+  const guard = useUnsavedGuard({
+    dirty: () => text.trim() !== '',
+    onDiscard: () => { setText(''); setResult(null); },
+    onClose: () => setOpen(false),
+  });
+
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" data-testid="daylog-sheet">
+    <Sheet open={open} onOpenChange={guard.onOpenChange(setOpen)}>
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" data-testid="daylog-sheet" {...guard.contentProps}>
         <SheetHeader>
           <SheetTitle>📝 יומן היום</SheetTitle>
           <SheetDescription>ספר מה עשית היום — בכתיבה או בדיבור. תראה כרטיס לכל קיבוץ לפני שמשהו נשמר.</SheetDescription>
@@ -393,11 +429,28 @@ function DayLogSheet() {
               {listening ? <Square className="size-4" /> : <Mic className="size-4" />}
               <span className="ms-1">{listening ? 'עצור' : 'דבר'}</span>
             </Button>
-            <Button type="button" data-testid="daylog-analyse" onClick={() => void analyse()} disabled={busy || !text.trim()}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+            <Button type="button" data-testid="daylog-analyse" loading={busy} onClick={() => void analyse()} disabled={!text.trim()}>
               <span className="ms-1">נתח</span>
             </Button>
           </div>
+
+          {/* F19 / pattern 5: the long job says how long it has been running and offers a way
+              out. The text area stays editable the whole time — nothing here blocks it. */}
+          {analysing && (
+            <div data-testid="daylog-progress" className="flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-[13px]">
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <span className="font-semibold">מנתח את היום…</span>
+              <span className="tabular-nums text-muted-foreground"><bdi>{analyseSec}s</bdi></span>
+              <button
+                type="button"
+                data-testid="daylog-cancel"
+                onClick={cancelAnalyse}
+                className="ms-auto rounded-lg border border-border px-2 py-0.5 text-[12px] font-bold hover:bg-muted"
+              >
+                בטל
+              </button>
+            </div>
+          )}
 
           {result && (
             <div className="space-y-2" data-testid="daylog-cards">
@@ -428,6 +481,7 @@ function DayLogSheet() {
             </div>
           )}
         </div>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

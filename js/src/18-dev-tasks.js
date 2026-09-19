@@ -892,34 +892,27 @@
       '</div>';
   }
 
-  // ----- WRITE: move issues to a target Status via the github fn (needs project write token + redeploy) -----
-  async function devWriteStatus(numbers, targetName) {
+  // ----- WRITE: one project field, via the github fn (needs a project write token + redeploy) --
+  // Status and Priority were two byte-identical copies of this (fix round 3, F14 ⑧) and
+  // NEITHER had a deadline, while the read at devFetchTasks did (F6). One function now, with
+  // the same 20 s budget as the read — `fetchWithTimeout` lives in js/src/00-guard.js.
+  async function devWriteField(mode, numbers, value) {
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
     if (!tok) throw new Error('יש להתחבר ל-EMS');
-    var r = await fetch(SB_URL + '/functions/v1/github', {
+    var body = { token: tok, mode: mode, numbers: numbers };
+    if (mode === 'setStatus') body.status = value; else body.priority = value;
+    var r = await fetchWithTimeout(SB_URL + '/functions/v1/github', {
       method: 'POST',
       headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: tok, mode: 'setStatus', numbers: numbers, status: targetName })
-    });
+      body: JSON.stringify(body)
+    }, 20000);
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) throw new Error(d.error || ('github ' + r.status));
     if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
     return d;   // { updated:[], failed:[], statusOptions:[], target }
   }
-  // WRITE: set the Priority field (label '' clears it). Same github fn, mode:setPriority.
-  async function devWritePriority(numbers, label) {
-    var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
-    if (!tok) throw new Error('יש להתחבר ל-EMS');
-    var r = await fetch(SB_URL + '/functions/v1/github', {
-      method: 'POST',
-      headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: tok, mode: 'setPriority', numbers: numbers, priority: label })
-    });
-    var d = await r.json().catch(function () { return {}; });
-    if (!r.ok) throw new Error(d.error || ('github ' + r.status));
-    if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
-    return d;
-  }
+  function devWriteStatus(numbers, targetName) { return devWriteField('setStatus', numbers, targetName); }
+  function devWritePriority(numbers, label) { return devWriteField('setPriority', numbers, label); }
   // selection mode (multi-select tickets → push to Ready)
   window._devSel = {};
   window.devToggleSelMode = function () { window._devSelMode = !window._devSelMode; window._devSel = {}; devPaint(); };

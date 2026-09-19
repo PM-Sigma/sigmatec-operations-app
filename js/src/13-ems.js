@@ -155,10 +155,84 @@
       setInterval(function () { if (!document.hidden) emsBackgroundSync(); }, EMS_BG_MIN_MS);
     } catch (e) { /* a page without these APIs simply keeps the connect-time sync */ }
     emsBackgroundSync();   // and once now, for the tab that was opened cold
+    emsQueueChipRender();  // F9: and paint the queue chip for whatever survived the last session
   }
 
   // Outbound queue ---------------------------------------------------------
   function emsQueuePending() { return (window.SHEET_DATA && window.SHEET_DATA.emsQueue) || []; }
+
+  // F9 — pattern 6: the queue is VISIBLE. `emsQueuePending()` had no reader in the whole
+  // app, so a write made on a roof with no signal looked exactly like a write that went
+  // out. The header chip counts what is waiting, the tap lists it, and a flush clears it.
+  var EMS_QUEUE_KIND_LABEL = {
+    comment: 'תגובה למשימה',
+    status: 'שינוי סטטוס',
+    patch: 'עדכון משימה',
+    createTask: 'פתיחת משימה'
+  };
+  function emsQueueCount() {
+    var local = 0;
+    try { local = _emsLocalQ().length; } catch (e) { local = 0; }
+    return emsQueuePending().length + local;
+  }
+  window.emsQueueCount = emsQueueCount;
+
+  function emsQueueChipRender() {
+    var el = document.getElementById('emsQueueChip');
+    if (!el) return;
+    var n = emsQueueCount();
+    if (!n) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = '';
+    el.textContent = '⏳ ' + n + ' פעולות ממתינות לחיבור';
+    el.setAttribute('data-count', String(n));
+    el.setAttribute('data-testid', 'ems-queue-chip');
+    el.setAttribute('title', 'לחץ כדי לראות מה ממתין');
+  }
+  window.emsQueueChipRender = emsQueueChipRender;
+
+  function emsQueueChipOpen() {
+    var items = emsQueuePending().slice();
+    try { items = items.concat(_emsLocalQ()); } catch (e) { /* localStorage blocked */ }
+    var wrap = document.getElementById('emsQueueModal');
+    if (wrap) wrap.remove();
+    wrap = document.createElement('div');
+    wrap.id = 'emsQueueModal';
+    wrap.className = 'modal-backdrop open';
+    wrap.style.zIndex = '1500';
+    var box = document.createElement('div');
+    box.className = 'modal';
+    box.style.maxWidth = '420px';
+    var h = document.createElement('h3');
+    h.textContent = '⏳ ' + items.length + ' פעולות ממתינות לחיבור';
+    var sub = document.createElement('div');
+    sub.className = 'modal-sub';
+    sub.textContent = items.length
+      ? 'הפעולות נשמרו ויישלחו ל-EMS בהתחברות הבאה — אין מה לעשות.'
+      : 'הכל נשלח. אין פעולות ממתינות.';
+    var list = document.createElement('div');
+    list.setAttribute('data-testid', 'ems-queue-list');
+    list.style.cssText = 'max-height:40vh;overflow-y:auto;margin-top:10px;';
+    items.forEach(function (it) {
+      var row = document.createElement('div');
+      row.style.cssText = 'background:var(--surface-2,#f8fafc);border-radius:8px;padding:8px 10px;margin:4px 0;font-size:13px;';
+      var what = EMS_QUEUE_KIND_LABEL[it.kind] || it.kind || 'פעולה';
+      var who = it.title || it.taskId || '';
+      row.textContent = 'בתור · ' + what + (who ? ' · ' + who : '');
+      list.appendChild(row);
+    });
+    var acts = document.createElement('div');
+    acts.className = 'modal-actions';
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'btn btn-secondary';
+    close.textContent = 'סגור';
+    close.addEventListener('click', function () { wrap.remove(); });
+    acts.appendChild(close);
+    box.appendChild(h); box.appendChild(sub); box.appendChild(list); box.appendChild(acts);
+    wrap.appendChild(box);
+    document.body.appendChild(wrap);
+  }
+  window.emsQueueChipOpen = emsQueueChipOpen;
   // Truly-offline fallback: the queue itself lives in Supabase, so with NO internet the enqueue
   // POST fails — park the item in localStorage instead of losing it, and drain on the next flush.
   function _emsLocalQ() { try { return JSON.parse(localStorage.getItem('ems_local_queue_v1') || '[]'); } catch (e) { return []; } }
@@ -171,9 +245,11 @@
       let id = null; try { const b = await r.json(); id = b && b.id; } catch (e) {}
       // reflect in memory immediately so a same-session flush sees the item with its server id
       if (id && window.SHEET_DATA) { (window.SHEET_DATA.emsQueue = window.SHEET_DATA.emsQueue || []).push(Object.assign({ id: id }, item)); }
+      emsQueueChipRender();
       return id;
     } catch (e) {
       const q = _emsLocalQ(); q.push(item); _emsLocalQSave(q);   // offline → park locally, never lose the write
+      emsQueueChipRender();
       return null;
     }
   }
@@ -294,6 +370,7 @@
     _emsSyncedThisSession = true;
     let flushed = { done: 0, failed: 0, dead: 0 };
     try { flushed = await emsQueueFlush(); } catch (e) { console.warn('EMS queue flush failed', e); }
+    emsQueueChipRender();   // F9: the chip clears itself the moment the queue does
     try { await emsSyncCache(); } catch (e) { console.warn('EMS cache sync failed', e); }
     try { if (typeof getEmsSites === 'function') await getEmsSites(); } catch (e) { /* gate falls back to the map */ }
     if (flushed.done) emsToast('✅ נשלחו ' + flushed.done + ' פעולות שהמתינו בתור');

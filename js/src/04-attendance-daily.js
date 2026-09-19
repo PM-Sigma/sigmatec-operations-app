@@ -449,9 +449,12 @@
     if (w) w.style.display = (type === 'other') ? '' : 'none';
   }
 
-  function closeAttEdit() {
+  // §7p: ביטול on a form with edits asks first (js/src/00-guard.js). `force` is what the
+  // successful save passes — there is nothing left to lose once the row is written.
+  function closeAttEdit(force) {
+    if (!force && typeof modalDismiss === 'function' && !modalDismiss('attEditModal')) return;
     window._attEdit = null;
-    document.getElementById('attEditModal').classList.remove('open');
+    if (force) modalForceClose('attEditModal');
   }
 
   function attToast(msg, ms) {
@@ -468,7 +471,7 @@
     if (ATT_EDIT_TYPES.indexOf(dayType) === -1) { alert('נא לבחור סוג יום'); return; }
     const note = (dayType === 'other') ? (document.getElementById('attEditNote').value || '').trim() : '';
     if (dayType === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
-    setBtnLoading(btn, true);
+    setBtnLoading(btn, true, 'שומר…');
     const isoDate = new Date(dateVal + 'T12:00:00').toISOString();   // noon anchor: a TZ offset can't roll the day back
     fetch(SHEET_API, {
       method: 'POST',
@@ -481,7 +484,7 @@
         const row = ((window.SHEET_DATA && window.SHEET_DATA.attendance) || []).find(a => String(a.id) === st.id);
         if (row) { row.date = isoDate; row.dayType = dayType; row.note = note; }   // patch in place, don't push a duplicate
         attToast('✅ הדיווח עודכן — ' + ATT_LABELS[dayType]);
-        closeAttEdit();
+        closeAttEdit(true);
         renderAttendanceReport();
       } else {
         attToast('⚠️ ' + ((res && res.error) || 'העדכון נכשל'), 3000);

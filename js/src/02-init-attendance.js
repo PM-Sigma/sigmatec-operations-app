@@ -102,16 +102,9 @@
     }
   }
 
-  // Esc closes the topmost open modal. Blocking flows are excluded: login/auth gates and the
-  // conversational order-question modal (its askChoice() promise must resolve via a button).
-  document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape') return;
-    var skip = { loginModal: 1, authGate: 1, emsLoginGate: 1, orderQModal: 1, emsReloginModal: 1 };
-    var open = document.querySelectorAll('.modal-backdrop.open');
-    for (var i = open.length - 1; i >= 0; i--) {
-      if (!skip[open[i].id]) { open[i].classList.remove('open'); break; }
-    }
-  });
+  // Esc — including this skip list — now lives in the ONE dispatcher in js/src/00-guard.js
+  // (fix round 3, F4), so the same code answers a backdrop tap and a keypress and both
+  // consult the §7p unsaved-changes guard.
 
   // ===== Attendance missing-days reminder (אביאם / ניתאי) =====
   // Workdays (Sun–Thu) in the last 31 calendar days, floored at 2026-05-31 (tracking start),
@@ -233,7 +226,7 @@
     document.getElementById('vqOtherWrap').style.display = (type === 'other') ? '' : 'none';
     document.getElementById('vqKibbutzWrap').style.display = (type === 'field') ? '' : 'none';   // kibbutz only for field days
   }
-  function visitQuickGo() {
+  function visitQuickGo(btn) {
     const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     const isAtt = ATT_PEOPLE.indexOf(me) !== -1;
     const type = isAtt ? (window._vqType || 'field') : 'field';
@@ -245,6 +238,8 @@
     if (isAtt && type !== 'field') {
       const note = (type === 'other') ? (document.getElementById('vqOther').value || '').trim() : '';
       if (type === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
+      // F12: the המשך button is the pending state for the sheet write behind it.
+      setBtnLoading(btn, true, 'שומר…');
       fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'attendance', person: me, dayType: type, note, date: isoDate }) })
         .then(r => r.json()).then(res => {
@@ -258,9 +253,10 @@
             t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500);
             const av = document.getElementById('attendance-view');
             if (av && av.style.display !== 'none') renderAttendanceReport();
-          } else { alert('שגיאה בשמירה'); }
-        }).catch(() => alert('שגיאה בשמירה'));
-      document.getElementById('visitQuickModal').classList.remove('open');
+          } else { sigmaError('שגיאה בשמירה'); }
+        }).catch(() => sigmaError('שגיאה בשמירה'))
+        .finally(() => setBtnLoading(btn, false));
+      modalForceClose('visitQuickModal');
       return;
     }
 
@@ -269,7 +265,7 @@
     if (!name) { alert('נא לבחור קיבוץ'); return; }
     const card = document.querySelector('.kibbutz[data-name="' + name + '"]');
     if (!card) { alert('קיבוץ לא נמצא'); return; }
-    document.getElementById('visitQuickModal').classList.remove('open');
+    modalForceClose('visitQuickModal');
     openEditModal(card);
     switchTab('visit');
     const visitorSel = document.getElementById('visitor');

@@ -142,12 +142,16 @@ function runModule(overrides) {
   overrides = overrides || {};
   const fn = new Function(
     'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
+    // fix round 3: the shared helpers from js/src/00-guard.js (runOnce = the ONE pending-state
+    // wrapper, sigmaError = the ONE failure surface). Passed through transparently here.
+    'runOnce', 'sigmaError',
     'location', 'SB_URL', 'SB_ANON', 'emsWriteOrQueue', 'isViewer',
     certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, certView, certSetRange, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
   );
   return fn(
     overrides.window || window_, overrides.document || document_, overrides.fetch || fetch_, 'http://sheet.test',
     () => 'עידן', () => {}, (msg) => alerts.push(msg), confirm_, console,
+    (btn, label, job) => job(), (msg) => alerts.push(msg),
     overrides.location || location_, overrides.SB_URL || 'https://sb.test', overrides.SB_ANON || 'anonkey',
     overrides.emsWriteOrQueue || emsWriteOrQueue_, overrides.isViewer || isViewer_
   );

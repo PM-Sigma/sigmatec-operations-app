@@ -37,17 +37,44 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  /**
+   * Pattern 4 of `docs/ux-loading-patterns.md` (fix round 3, F10/F11): the button IS the
+   * pending state. `loading` disables it and prepends a spinner **without touching the
+   * label** — swapping the label for a bare spinner drops the accessible name and makes the
+   * state unassertable in Playwright. `asChild` buttons keep the plain shadcn behaviour.
+   */
+  loading?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        disabled={asChild ? disabled : disabled || loading}
+        data-loading={loading ? "true" : undefined}
+        aria-busy={loading || undefined}
         {...props}
-      />
+      >
+        {asChild ? children : (
+          <>
+            {/* A CSS ring, not a lucide icon: this component is in the BOOT chunk, and the
+                shell contract (test-sigma-shell.mjs) holds it under a hard size ceiling —
+                an icon import for a spinner is not worth the bytes. `.animate-spin` is what
+                docs/ux-loading-patterns.md and the Playwright helper both look for. */}
+            {loading && (
+              <span
+                aria-hidden
+                data-spinner
+                className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+              />
+            )}
+            {children}
+          </>
+        )}
+      </Comp>
     )
   }
 )

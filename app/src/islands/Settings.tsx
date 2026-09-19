@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { Bell, ClipboardList, Monitor, Moon, Settings as Cog, Smartphone, Sun } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { mount } from '@/islands';
 import { registerMoreItem } from '@/lib/registry';
 import { track } from '@/lib/track';
@@ -305,8 +306,12 @@ function SettingsPanel() {
     ? 'המסך שנפתח כשאתה נכנס'
     : 'המסך שבחרת נפתח תמיד';
 
+  // §7p, wired for completeness: every control writes the moment it is touched (`set()`
+  // above), so there is never a draft to lose and the predicate is honestly false.
+  const guard = useUnsavedGuard({ dirty: () => false, onClose: () => setOpen(false) });
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={guard.onOpenChange(setOpen)}>
       {/* The panel grew past a phone screen once the install / notifications / personal rows
           joined it (Task 15) — on a 390×844 device the last button sat outside the dialog and
           could not be tapped at all. It scrolls now, and stops short of the screen edge. */}
@@ -391,6 +396,7 @@ function SettingsPanel() {
         {/* read so the panel re-renders after changeUser() — the landing options are gated per person */}
         <span hidden data-role={personRole} />
         </EmsGate>
+        {guard.prompt}
       </DialogContent>
     </Dialog>
   );

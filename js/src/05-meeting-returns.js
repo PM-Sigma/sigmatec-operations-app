@@ -127,7 +127,7 @@
       const st = r.status || 'open';
       const actions = (st === 'open')
         ? `<button class="inv-btn small success" onclick="returnToStock('${r.id}')">✅ החזר למלאי</button>
-           <button class="inv-btn small warning" onclick="markReturnDefective('${r.id}')">🔧 תקול</button>`
+           <button class="inv-btn small warning" onclick="markReturnDefective('${r.id}', this)">🔧 תקול</button>`
         : '—';
       html += `<tr>
         <td data-label="תאריך" style="white-space:nowrap;">${r.date ? new Date(r.date).toLocaleDateString('he-IL') : '—'}</td>
@@ -177,33 +177,25 @@
       const t = document.getElementById('toast'); t.textContent = '✅ הוחזר למלאי (' + loc + ')';
       t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2200);
       setTimeout(refreshData, 1000);
-    } catch (e) { alert('שגיאה: ' + e.message); }
+    } catch (e) { sigmaError('שגיאה: ' + e.message, function () { returnToStock(retId); }); }
   }
   // Returned item is defective → stays out of stock; just record the decision.
-  async function markReturnDefective(retId) {
+  function markReturnDefective(retId, btn) {
     if (!checkEditPermission()) return;
     if (!confirm('לסמן את הפריט כתקול? הוא יישאר מחוץ למלאי הזמין.')) return;
-    try {
+    // F12: this wrote to the sheet with no pending state at all — on a slow phone the תקול
+    // button read as dead and invited a second tap.
+    return runOnce(btn, 'מסמן…', async function () {
+      try {
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'return', id: retId, status: 'defective' }) });
       const r = ((window.SHEET_DATA && window.SHEET_DATA.returns) || []).find(x => x.id === retId);
       if (r) r.status = 'defective';
       setTimeout(refreshData, 800);
-    } catch (e) { alert('שגיאה: ' + e.message); }
+    } catch (e) { sigmaError('שגיאה: ' + e.message, function () { markReturnDefective(retId, btn); }); }
+    });
   }
 
-  // ===== Save-button loading state =====
-  function setBtnLoading(btn, loading) {
-    if (!btn) return;
-    if (loading) {
-      btn.dataset.origText = btn.innerHTML;
-      btn.innerHTML = '<span class="btn-spinner"></span> שומר...';
-      btn.disabled = true;
-      btn.style.opacity = '0.7';
-    } else {
-      if (btn.dataset.origText) btn.innerHTML = btn.dataset.origText;
-      btn.disabled = false;
-      btn.style.opacity = '';
-    }
-  }
+  // The save-button loading state lives in js/src/00-guard.js now (fix round 3, F15):
+  // ONE helper, a `label` argument instead of a hard-coded שומר..., shared by every module.
 

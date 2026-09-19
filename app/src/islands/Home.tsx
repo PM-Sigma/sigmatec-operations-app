@@ -19,6 +19,7 @@ import { KibbutzSheet } from '@/components/home/KibbutzSheet';
 import { mount } from '@/islands';
 import { searchMissTarget, track } from '@/lib/track';
 import { hasPersistedData, showSkeleton, SigmaProviders } from '@/lib/query';
+import { SyncHairline } from '@/components/SyncHairline';
 import { getSupabase } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
@@ -240,6 +241,9 @@ function HomeIsland() {
 export function Home() {
   return (
     <SigmaProviders>
+      {/* F17 / pattern 3: the 2 px hairline that says a background refresh is running. It
+          lives here because this is the first island with a QueryClient on every page. */}
+      <SyncHairline />
       {/* spec §7n — the cards are business data: no sign-in, no content */}
       <EmsGate>
         <HomeIsland />

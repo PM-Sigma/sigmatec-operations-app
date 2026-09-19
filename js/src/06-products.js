@@ -34,7 +34,7 @@
         <td data-label="תצוגה בדוח" style="font-size:12px;color:#64748b;">${preview}</td>
         <td class="actions-cell">
           <button class="inv-btn small" onclick="invEditProduct('${p.id}')">✏️ ערוך</button>
-          <button class="inv-btn small ${p.active ? 'warning' : 'success'}" onclick="invToggleProductActive('${p.id}', ${!p.active})">${p.active ? 'השבת' : 'הפעל'}</button>
+          <button class="inv-btn small ${p.active ? 'warning' : 'success'}" onclick="invToggleProductActive('${p.id}', ${!p.active}, this)">${p.active ? 'השבת' : 'הפעל'}</button>
         </td>
       </tr>`;
     });
@@ -108,12 +108,18 @@
     document.getElementById('invProductModal').classList.add('open');
   }
 
-  function invToggleProductActive(id, makeActive) {
-    fetch(SHEET_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'product', id: id, active: makeActive })
-    }).then(() => setTimeout(refreshData, 1000));
+  // F12: השבת / הפעל writes to the sheet — the button is the pending state, and a failure
+  // now says so in Hebrew with a retry instead of resolving into silence.
+  function invToggleProductActive(id, makeActive, btn) {
+    return runOnce(btn, makeActive ? 'מפעיל…' : 'משבית…', function () {
+      return fetch(SHEET_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'product', id: id, active: makeActive })
+      })
+        .then(function () { setTimeout(refreshData, 1000); })
+        .catch(function (e) { sigmaError('עדכון הפריט נכשל: ' + e.message, function () { invToggleProductActive(id, makeActive, btn); }); });
+    });
   }
 
   function invSaveProduct(btn) {

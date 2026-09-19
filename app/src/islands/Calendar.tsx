@@ -21,6 +21,7 @@ import { AnimatePresence, motion, Reorder, useReducedMotion } from 'motion/react
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Video } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -448,9 +449,17 @@ function ScheduleSheet({
   const selected = tasks.filter(t => picked[t.id]);
   const plan = scheduleTasksPlan(selected, when);
 
+  // §7p: tasks already ticked for a day are unsaved work — a stray backdrop tap re-opens to
+  // an empty sheet and the person starts again.
+  const schedGuard = useUnsavedGuard({
+    dirty: () => selected.length > 0,
+    onDiscard: onClose,
+    onClose,
+  });
+
   return (
-    <Sheet open={open} onOpenChange={o => { if (!o) onClose(); }}>
-      <SheetContent side="bottom" data-testid="cal-schedule" className="max-h-[86svh] overflow-y-auto">
+    <Sheet open={open} onOpenChange={o => { if (!o) schedGuard.ask(); }}>
+      <SheetContent side="bottom" data-testid="cal-schedule" className="max-h-[86svh] overflow-y-auto" {...schedGuard.contentProps}>
         <SheetTitle>שיבוץ משימות EMS{when ? ' ל' + heShort(when) : ''}</SheetTitle>
         <SheetDescription className="text-[12.5px]">
           {date
@@ -518,6 +527,7 @@ function ScheduleSheet({
             </button>
           </div>
         )}
+        {schedGuard.prompt}
       </SheetContent>
     </Sheet>
   );
@@ -772,9 +782,16 @@ function AbsenceSheet({
     try { return (sigma.ATT_PEOPLE || []) as string[]; } catch { return ['אביאם', 'ניתאי']; }
   }, []);
 
+  // §7p: a typed note (and a range widened past the day it opened on) is unsaved input.
+  const absGuard = useUnsavedGuard({
+    dirty: () => note.trim() !== '' || from !== date || to !== date,
+    onDiscard: onClose,
+    onClose,
+  });
+
   return (
-    <Sheet open={open} onOpenChange={o => { if (!o) onClose(); }}>
-      <SheetContent side="bottom" data-testid="cal-absence" className="max-h-[86svh] overflow-y-auto">
+    <Sheet open={open} onOpenChange={o => { if (!o) absGuard.ask(); }}>
+      <SheetContent side="bottom" data-testid="cal-absence" className="max-h-[86svh] overflow-y-auto" {...absGuard.contentProps}>
         <SheetTitle>יום לא רגיל</SheetTitle>
         <SheetDescription className="text-[12.5px]">חופש, מילואים או אירוע — וכולם יראו את זה ביומן.</SheetDescription>
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -834,6 +851,7 @@ function AbsenceSheet({
         >
           שמור
         </button>
+        {absGuard.prompt}
       </SheetContent>
     </Sheet>
   );

@@ -7,7 +7,9 @@
 // Everything else about a holiday is a fact, not a preference, so there is nothing to edit.
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,9 +76,16 @@ function HolidaysIsland() {
 
   const rows = q.data || [];
 
+  // §7p: a half-entered closure (date + name) is not thrown away by a stray tap.
+  const guard = useUnsavedGuard({
+    dirty: () => date !== '' || name.trim() !== '',
+    onDiscard: () => { setDate(''); setName(''); },
+    onClose: () => setOpen(false),
+  });
+
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="bottom" data-testid="holidays-sheet" className="max-h-[88svh] overflow-y-auto">
+    <Sheet open={open} onOpenChange={guard.onOpenChange(setOpen)}>
+      <SheetContent side="bottom" data-testid="holidays-sheet" className="max-h-[88svh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader className="text-start">
           <SheetTitle>🕎 חגים וסגירות</SheetTitle>
           <SheetDescription>בימים האלה לא נדרשת נוכחות. אפשר להזין נוכחות בכל זאת — היא נספרת כיום עבודה.</SheetDescription>
@@ -122,13 +131,16 @@ function HolidaysIsland() {
               className="h-10 min-w-0 flex-1 rounded-[10px] border border-border bg-background px-3 text-[13px]"
             />
             <button
-              type="submit" disabled={add.isPending || !date || !name.trim()}
-              className="min-h-10 flex-none rounded-[10px] bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+              type="submit" data-testid="holiday-add" disabled={add.isPending || !date || !name.trim()}
+              aria-busy={add.isPending || undefined}
+              className="inline-flex min-h-10 flex-none items-center justify-center gap-1.5 rounded-[10px] bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
             >
-              {add.isPending ? 'מוסיף…' : 'הוספה'}
+              {add.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+              הוספה
             </button>
           </div>
         </form>
+        {guard.prompt}
       </SheetContent>
     </Sheet>
   );

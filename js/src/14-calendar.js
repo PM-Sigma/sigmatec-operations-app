@@ -717,7 +717,7 @@
       ${(function(){var ids=emsLinkIds(t);return ids.length?'<div id="emsLinkedBox" style="font-size:13px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 10px;margin:8px 0;">🔗 '+ids.length+' '+emsLinkLabel(t.linkType||t.link_type)+' משויכים למשימה…</div>':'';})()}
       <div style="display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap;">
         <label style="margin:0;font-size:13px;font-weight:600;">סטטוס:</label>
-        <select id="emsDetailStatus" onchange="changeEmsStatus('${t.id}', this.value)" style="flex:1;min-width:120px;">${statusOpts}</select>
+        <select id="emsDetailStatus" onchange="changeEmsStatus('${t.id}', this.value, this)" style="flex:1;min-width:120px;">${statusOpts}</select>
         <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="emsEditTask('${t.id}')">✏️ ערוך</button>
         ${cal}
       </div>
@@ -725,23 +725,27 @@
       <div style="font-weight:700;font-size:14px;margin-bottom:6px;">💬 תגובות</div>
       <div id="emsComments" style="max-height:30vh;overflow-y:auto;margin-bottom:8px;">⏳ טוען...</div>
       <div style="display:flex;gap:6px;">
-        <input type="text" id="emsCommentInput" placeholder="כתוב תגובה..." style="flex:1;" onkeydown="if(event.key==='Enter')addEmsComment('${t.id}')">
-        <button class="btn btn-primary" style="padding:8px 14px;" onclick="addEmsComment('${t.id}')">שלח</button>
+        <input type="text" id="emsCommentInput" placeholder="כתוב תגובה..." style="flex:1;" onkeydown="if(event.key==='Enter')addEmsComment('${t.id}', this.nextElementSibling)">
+        <button class="btn btn-primary" style="padding:8px 14px;" onclick="addEmsComment('${t.id}', this)">שלח</button>
       </div>`;
     try { emsEnrichMeters(t); } catch (e) {}
   }
 
-  async function changeEmsStatus(id, status) {
+  // F12: a status change is an EMS write. The <select> is the pending state — disabled for
+  // the round trip so a slow gateway cannot be read as a dead control or double-submitted.
+  async function changeEmsStatus(id, status, el) {
+    if (el) { if (el.disabled) return; el.disabled = true; el.setAttribute('aria-busy', 'true'); }
     try {
       // queue-aware: offline the change is queued and applied on the next connect (was a live-only
       // direct PATCH that just errored offline — same model as closing a task from the visit form).
       var res = await emsWriteOrQueue({ kind: 'status', taskId: id, status: status });
-      if (res && res.error) { alert('שגיאה: ' + res.error); return; }
+      if (res && res.error) { sigmaError('שגיאה: ' + res.error, function () { changeEmsStatus(id, status, el); }); return; }
       emsToast(res && res.queued ? '✅ הסטטוס יעודכן בהתחברות הבאה' : '✅ הסטטוס עודכן');
       // reflect locally only on a LIVE send — if merely queued (offline), don't show a status that isn't applied yet
       if (!(res && res.queued) && window._emsCurrentTask && window._emsCurrentTask.id === id) window._emsCurrentTask.status = status;
       emsAfterWrite();   // reflect the new status on the kibbutz card + the רשימה view
-    } catch (e) { alert('שגיאה: ' + e.message); }
+    } catch (e) { sigmaError('שגיאה: ' + e.message, function () { changeEmsStatus(id, status, el); }); }
+    finally { if (el) { el.disabled = false; el.removeAttribute('aria-busy'); } }
   }
 
   async function loadEmsComments(id) {
@@ -761,14 +765,21 @@
     }
   }
 
-  async function addEmsComment(id) {
+  // F12: שלח is an EMS write — the button is the pending state (rule 4, label kept), and a
+  // failure is a Sonner error with נסה שוב instead of a blocking alert() (F20).
+  function addEmsComment(id, btn) {
     const input = document.getElementById('emsCommentInput');
-    const msg = input.value.trim();
+    const msg = input ? input.value.trim() : '';
     if (!msg) return;
-    input.value = '';
-    try {
-      await emsApi('/employee-tasks/' + id + '/comments', { method: 'POST', body: JSON.stringify({ message: msg }) });
-      loadEmsComments(id);
-    } catch (e) { alert('שגיאה: ' + e.message); input.value = msg; }
+    return runOnce(btn, 'שולח…', async function () {
+      input.value = '';
+      try {
+        await emsApi('/employee-tasks/' + id + '/comments', { method: 'POST', body: JSON.stringify({ message: msg }) });
+        loadEmsComments(id);
+      } catch (e) {
+        input.value = msg;
+        sigmaError('שגיאה: ' + e.message, function () { addEmsComment(id, btn); });
+      }
+    });
   }
 

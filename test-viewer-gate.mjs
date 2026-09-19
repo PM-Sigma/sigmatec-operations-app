@@ -80,12 +80,16 @@ function runGate() {
     'window', 'document', 'localStorage', 'sessionStorage', 'location', 'fetch',
     'LOGIN_FLAG', 'USER_KEY', 'ROLE_KEY', 'AUTH_KEY', 'SB_URL', 'SB_ANON',
     'getEmsToken', 'getRole', 'isAuthed', 'console',
+    // fix round 3: the shared helpers from js/src/00-guard.js (runOnce = the ONE pending-state
+    // wrapper and double-tap guard, fetchWithTimeout = the ONE deadline).
+    'runOnce', 'fetchWithTimeout',
     gateSrc
   );
   fn(
     window_, document_, localStorage_, sessionStorage_, location_, fetch_,
     true, USER_KEY, ROLE_KEY, AUTH_KEY, '', '',
-    getEmsToken_, getRole_, isAuthed_, console
+    getEmsToken_, getRole_, isAuthed_, console,
+    (btn, label, job) => job(), (url, opts) => fetch_(url, opts)
   );
 
   return { window_, document_, elements, localStorage_, sessionStorage_, location_, calls, setReply };

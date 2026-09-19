@@ -310,18 +310,23 @@
       box.style.display = box.style.display === 'none' ? '' : 'none';
       if (box.style.display !== 'none') setTimeout(function () { document.getElementById('gateViewerPin').focus(); }, 50);
     };
-    window.gateViewerLogin = async function () {
+    // F12: the כניסה לצפייה button had a text spinner but stayed enabled — a second tap
+    // fired a second ems-auth mint. `runOnce` is the pending state and the double-tap guard.
+    window.gateViewerLogin = function (btn) {
+      return runOnce(btn, 'בודק…', gateViewerLoginRun);
+    };
+    var gateViewerLoginRun = async function () {
       const err = document.getElementById('gateError');
       const pin = (document.getElementById('gateViewerPin').value || '').trim();
       if (!pin) { err.textContent = 'נא להזין את קוד הצפייה'; return; }
       err.innerHTML = '<span class="gate-spin"></span> בודק...';
       let d = null, status = 0;
       try {
-        const r = await fetch(SB_URL + '/functions/v1/ems-auth', {
+        const r = await fetchWithTimeout(SB_URL + '/functions/v1/ems-auth', {
           method: 'POST',
           headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
           body: JSON.stringify({ mode: 'viewer', pin: pin })
-        });
+        }, 20000);
         status = r.status;
         d = await r.json().catch(function () { return null; });
       } catch (e) { err.textContent = 'שגיאת חיבור: ' + e.message; return; }

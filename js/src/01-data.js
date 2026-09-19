@@ -85,16 +85,19 @@
     });
   });
 
+  // Kept for the callers that close the visit modal AFTER a successful save (09-visits.js,
+  // 04-attendance-daily.js): those must not be asked whether to keep a draft they just wrote.
+  // Every ACCIDENTAL dismiss goes through `modalDismiss('modalBackdrop')` instead (§7p, F1/F4).
   function closeModal(e) {
     if (e && e.target && e.target.id !== 'modalBackdrop') return;
-    document.getElementById('modalBackdrop').classList.remove('open');
+    modalForceClose('modalBackdrop');
   }
 
   // ponytail: "💬 הערה" tab removed per request — sendComment/toggleCustomName deleted with it.
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal({target: {id: 'modalBackdrop'}});
-  });
+  // Esc is owned by the ONE dispatcher in js/src/00-guard.js (fix round 3, F4). The listener
+  // that used to be here closed #modalBackdrop unconditionally, bypassing the skip list and
+  // the §7p unsaved-changes guard, and could close two layers on one keypress.
 
   // Customer code mapping + data flow check
   const CUSTOMER_CODES = {

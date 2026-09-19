@@ -60,10 +60,18 @@ export function ReLoginSheet() {
   }, []);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    // F13 / §7p: this is a BLOCKING gate. `onOpenChange={setOpen}` let Esc or a backdrop tap
+    // dismiss it, leaving a session that is silently unauthenticated and a person who thinks
+    // they are still signed in. The legacy gates were already on the Esc skip list; this one
+    // now matches them — the only way out is the sign-in button.
+    <Sheet open={open} onOpenChange={v => { if (v) setOpen(true); }}>
       <SheetContent
         side="bottom"
+        hideClose
         data-sigma-relogin
+        onEscapeKeyDown={e => e.preventDefault()}
+        onPointerDownOutside={e => e.preventDefault()}
+        onInteractOutside={e => e.preventDefault()}
         className="flex h-[88vh] max-h-[88vh] flex-col justify-center gap-6 overflow-y-auto"
       >
         <SheetHeader className="items-center text-center">

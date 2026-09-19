@@ -508,8 +508,9 @@
       const data = await res.json();
       if (data.ok) { orderNotifMarkSeen([o.id]); if (typeof sigmaTrack === 'function') sigmaTrack('order-approved', o.id);   // 📈 שימוש (spec §7j)
         if (typeof pushNotify === 'function') pushNotify('approved', o.id, getCurrentUser()); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
-      else alert('שגיאה: ' + JSON.stringify(data));
-    } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
+      else sigmaError('שגיאה: ' + JSON.stringify(data), function () { approveSupplierOrder(o, btn); });
+    } catch (e) { sigmaError('שגיאה: ' + e.message, function () { approveSupplierOrder(o, btn); }); }
+    finally { setBtnLoading(btn, false); }
   }
 
   // Customer approval (אביאם/ניתאי) → deduct from the approver's stock → the kibbutz, open an EMS
@@ -530,7 +531,8 @@
         if (typeof pushNotify === 'function') pushNotify('approved', o.id, me);
         var td = document.getElementById('toast'); td.textContent = '✅ אושרה אספקה ישירה מהספק'; td.classList.add('show'); setTimeout(function () { td.classList.remove('show'); }, 3000);
         setTimeout(refreshData, 1000);
-      } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
+      } catch (e) { sigmaError('שגיאה: ' + e.message, function () { approveCustomerOrder(o, btn); }); }
+      finally { setBtnLoading(btn, false); }
       return;
     }
     // עידן can hand the responsibility at creation → the EMS task is assigned to them and the stock
@@ -576,7 +578,8 @@
       t.textContent = (emsRes && emsRes.queued) ? '✅ סופק · משימת EMS תיפתח בהתחברות הבאה' : '✅ סופק ללקוח · נפתחה משימת EMS';
       t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 3500);
       setTimeout(refreshData, 1000);
-    } catch (e) { alert('שגיאה: ' + e.message); } finally { setBtnLoading(btn, false); }
+    } catch (e) { sigmaError('שגיאה: ' + e.message, function () { approveCustomerOrder(o, btn); }); }
+    finally { setBtnLoading(btn, false); }
   }
 
   // עמיחי floating reminder — supplier orders >10 awaiting his approval (mirrors the attendance nudge).

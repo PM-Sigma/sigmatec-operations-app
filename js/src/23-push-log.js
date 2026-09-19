@@ -18,7 +18,13 @@
     expired: { icon: '💀', label: 'מנוי מת', color: '#92400e', bg: '#fef3c7' }
   };
 
-  async function renderPushLog() {
+  // F12: רענן / נסה שוב hit `push_log` over REST. The button is the pending state and the
+  // single-flight guard; the panel keeps its own ⏳ טוען line for the first paint (pattern 1).
+  function renderPushLog(btn) {
+    if (!btn) return renderPushLogRun();
+    return runOnce(btn, 'מרענן…', renderPushLogRun);
+  }
+  async function renderPushLogRun() {
     var el = document.getElementById('pushLogContent');
     if (!el) return;
     if (!pushLogCanSee()) { el.innerHTML = '<div class="dev-wrap"><div class="dev-error">אין הרשאה לעמוד זה.</div></div>'; return; }
@@ -32,12 +38,12 @@
       rows = await r.json();
     } catch (e) {
       el.innerHTML = '<div class="dev-wrap"><div class="dev-error">⚠️ טעינת הלוג נכשלה: ' + pushEsc(e.message) +
-        ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderPushLog()">🔄 נסה שוב</button></div></div>';
+        ' <button class="inv-btn small" style="margin-right:8px;" onclick="renderPushLog(this)">🔄 נסה שוב</button></div></div>';
       return;
     }
     if (!Array.isArray(rows) || !rows.length) {
       el.innerHTML = '<div class="dev-wrap"><div class="push-head"><h2 class="push-title">🔔 לוג התראות Push</h2>' +
-        '<button class="inv-btn small" onclick="renderPushLog()" title="רענן">🔄</button></div>' +
+        '<button class="inv-btn small" onclick="renderPushLog(this)" title="רענן">🔄</button></div>' +
         '<div class="dev-empty">לא נשלחו התראות עדיין.</div></div>';
       return;
     }
@@ -70,7 +76,7 @@
 
     el.innerHTML = '<div class="dev-wrap">' +
       '<div class="push-head"><h2 class="push-title">🔔 לוג התראות Push</h2>' +
-      '<button class="inv-btn small" onclick="renderPushLog()" title="רענן עכשיו">🔄 רענן</button></div>' +
+      '<button class="inv-btn small" onclick="renderPushLog(this)" title="רענן עכשיו">🔄 רענן</button></div>' +
       tiles +
       '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr>' +
       '<th>זמן</th><th>סוג</th><th>הזמנה</th><th>נמען</th><th>סטטוס</th><th>מבצע</th>' +
