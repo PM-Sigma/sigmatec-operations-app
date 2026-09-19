@@ -69,7 +69,7 @@
     if (RETIRED_PAGES[page]) page = 'kibbutz';
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
-    if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי only
+    if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי (admin) + מתניה + אליה — canSeeDevTasks(), js/src/18-dev-tasks.js
     if (page === 'pushlog' && !(typeof isIdan === 'function' && isIdan())) page = 'kibbutz'; // התראות — עידן only
     if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz'; // 🔥 צריבות — אביאם/ניתאי/עידן/עמיחי write · viewer read · hidden from מתניה/אליה · everyone once BURNS_PROJECT_ACTIVE is false
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards

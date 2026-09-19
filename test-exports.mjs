@@ -403,5 +403,15 @@ check('F-11 — no month label → no dangling separator in the title or the sub
   assert.strictEqual(/<title>([^<]*)<\/title>/.exec(full)[1], 'נוכחות אביאם — ספטמבר 2026');
 });
 
+check('F-23 — an empty range writes the same "no data" row the printed report shows', () => {
+
+  const wb = M.xlSpecToWorkbook(XLSX, M.xlBuildCerts([]));
+  const ws = wb.Sheets['תעודות משלוח'];
+  assert.strictEqual(ws.A2 && ws.A2.v, 'אין נתונים בטווח שנבחר');
+  // …and a non-empty export is untouched by it.
+  const full = M.xlSpecToWorkbook(XLSX, M.xlBuildCerts(CERTS)).Sheets['תעודות משלוח'];
+  assert.notStrictEqual(full.A2 && full.A2.v, 'אין נתונים בטווח שנבחר');
+});
+
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);

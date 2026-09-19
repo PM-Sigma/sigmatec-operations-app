@@ -16,7 +16,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 |---|---|---|---|
 | `sigma.appInstall` | js/src/00-bridge.js:498 | `appInstall` → js/src/16-install.js:34 | app/src/islands/Settings.tsx:108 |
 | `sigma.ATT_PEOPLE` | js/src/00-bridge.js:231 | *(own logic)* | app/src/islands/Attendance.tsx:219<br>app/src/islands/Calendar.tsx:772<br>app/src/islands/DayLog.tsx:59<br>app/src/islands/Gaps.tsx:63<br>…+1 |
-| `sigma.attExportExcel` | js/src/00-bridge.js:489 | `xlExportAttendanceCurrent` → js/src/21-excel-export.js:277 | app/src/islands/Attendance.tsx:341 |
+| `sigma.attExportExcel` | js/src/00-bridge.js:489 | `xlExportAttendanceCurrent` → js/src/21-excel-export.js:282 | app/src/islands/Attendance.tsx:341 |
 | `sigma.attExportPdf` | js/src/00-bridge.js:488 | `downloadAttendancePDF` → js/src/04-attendance-daily.js:510 | app/src/islands/Attendance.tsx:338 |
 | `sigma.attHolidays` | js/src/00-bridge.js:481 | `attHolidays` → js/src/04-attendance-daily.js:35 | app/src/islands/Attendance.tsx:54<br>app/src/islands/Calendar.tsx:87<br>app/src/islands/Gaps.tsx:93 |
 | `sigma.attHolidaysLoad` | js/src/00-bridge.js:482 | `attLoadHolidays` → js/src/04-attendance-daily.js:38 | app/src/islands/Attendance.tsx:53<br>app/src/islands/Calendar.tsx:87<br>app/src/islands/Holidays.tsx:55 |

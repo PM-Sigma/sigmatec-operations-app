@@ -332,7 +332,7 @@
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   html, body { margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1b2a4a; width: 210mm; height: 296mm; padding: 14mm 14mm 30mm; position: relative; overflow: hidden; }
+  body { font-family: 'Assistant','Segoe UI',Arial,sans-serif; color: #1b2a4a; width: 210mm; height: 296mm; padding: 14mm 14mm 30mm; position: relative; overflow: hidden; }
   .bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
   .circ { position: absolute; border-radius: 50%; }
   .ring { position: absolute; border-radius: 50%; background: none !important; }
@@ -866,10 +866,10 @@
         <table class="tot"><thead><tr><th>סה"כ לפי פריט</th><th class="c">כמות</th></tr></thead><tbody>${totalRows}</tbody></table>`;
     }).join('');
     w.document.open();
-    w.document.write(`<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8">
+    w.document.write(`<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
 <title>דוח תעודות משלוח ${from} — ${to}</title>
 <style>
-  body { font-family:'Segoe UI',Arial,sans-serif; color:#1b2a4a; padding:14mm; font-size:12.5px; }
+  body { font-family:'Assistant','Segoe UI',Arial,sans-serif; color:#1b2a4a; padding:14mm; font-size:12.5px; }
   h1 { font-size:20px; margin-bottom:2mm; } .sub { color:#64748b; font-size:11px; margin-bottom:8mm; }
   h2 { font-size:15px; border-bottom:2px solid #a9c938; padding-bottom:2px; margin:8mm 0 3mm; }
   h2 small { color:#64748b; font-weight:400; font-size:11px; }

@@ -214,7 +214,12 @@
   // soft banding palette — each source record (visit/cert) keeps ONE color for all its rows
   const XL_GROUP_FILLS = ['FFFFFF', 'E8F0FE', 'FDF4E3', 'E9F7EC', 'F3E8FD', 'FDE8EC'];
   function xlSpecToWorkbook(XLSX, spec) {
-    const aoa = [spec.columns.map(c => c.header)].concat(spec.rows);
+    // An empty range used to write a header-only sheet with nothing under it, while the
+    // printed report for the SAME range says "אין תעודות בטווח הזה" — the reader could not
+    // tell an empty range from a broken export (audit B · F-23). One row, first cell.
+    const emptyRow = spec.columns.map((_, i) => (i === 0 ? 'אין נתונים בטווח שנבחר' : ''));
+    const body = spec.rows.length ? spec.rows : [emptyRow];
+    const aoa = [spec.columns.map(c => c.header)].concat(body);
     const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates: true });
     // header row style — navy like the app
     spec.columns.forEach((col, ci) => {
@@ -223,12 +228,12 @@
                      alignment: { horizontal: 'center' } };
     });
     // per-group fill: groupKeys[i] labels row i's source record; color switches when the group changes
-    const gk = spec.groupKeys || spec.rows.map((_, i) => i);
+    const gk = spec.groupKeys || body.map((_, i) => i);
     let band = -1, lastKey;
     const bandFor = [];
     gk.forEach(k => { if (k !== lastKey) { band++; lastKey = k; } bandFor.push(XL_GROUP_FILLS[band % XL_GROUP_FILLS.length]); });
     // date format on 'd' columns + row fills
-    for (let r = 1; r <= spec.rows.length; r++) {
+    for (let r = 1; r <= body.length; r++) {
       for (let ci = 0; ci < spec.columns.length; ci++) {
         const addr = XLSX.utils.encode_cell({ r: r, c: ci });
         let cell = ws[addr];
@@ -238,7 +243,7 @@
       }
     }
     ws['!cols'] = spec.columns.map(c => ({ wch: c.width || 12 }));
-    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: spec.rows.length, c: spec.columns.length - 1 } }) };
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: body.length, c: spec.columns.length - 1 } }) };
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, spec.sheet.slice(0, 31));
     wb.Workbook = { Views: [{ RTL: true }] };

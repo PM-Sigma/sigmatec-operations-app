@@ -571,10 +571,10 @@
     // A blocked popup used to throw a TypeError and the user saw nothing at all
     // (audit B · F-24) — the same guard js/src/20-delivery-cert.js already has.
     if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
-    w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">
+    w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
       <title>${attEsc(docTitle)}</title>
       <style>
-        body{font-family:Arial,'Heebo',sans-serif;padding:24px;color:#1b2a4a;}
+        body{font-family:'Assistant','Segoe UI',Arial,sans-serif;padding:24px;color:#1b2a4a;}
         h1{font-size:20px;margin:0 0 4px;} .sub{color:#64748b;font-size:13px;margin-bottom:16px;}
         table{width:100%;border-collapse:collapse;font-size:13px;} th,td{border:1px solid #e2e8f0;padding:7px 9px;text-align:right;}
         th{background:#1b2a4a;color:white;} tr:nth-child(even) td{background:#f8fafc;}

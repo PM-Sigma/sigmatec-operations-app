@@ -178,7 +178,7 @@
     if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
     const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
     if (mb) mb.style.display = isIdan() ? '' : 'none';
-    const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי only
+    const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי (admin) + מתניה + אליה
     if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
     const plog = document.getElementById('navPushLog');    // התראות (push log) — עידן only
     if (plog) plog.style.display = isIdan() ? '' : 'none';
