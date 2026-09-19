@@ -816,7 +816,11 @@ if (mod) {
     const routeWindow = {};
     const routeDoc = { _html: '', open() { this._html = ''; }, write(s) { this._html += s; }, close() {} };
     let routeFetchCall = null;
-    const routeFetch = async (url, opts) => { routeFetchCall = { url, opts }; return { json: async () => [] }; };
+    const routeCalls = [];
+    const routeFetch = async (url, opts) => {
+      routeFetchCall = { url, opts }; routeCalls.push({ url, opts });
+      return { ok: true, json: async () => [] };
+    };
     const testUuid = '99999999-9999-9999-9999-999999999999';
 
     runModule({
@@ -831,10 +835,18 @@ if (mod) {
 
     await new Promise(r => setTimeout(r, 20));   // flush the route's internal fetch + document.write
 
-    check('?cert route: fetches the delivery_certs REST endpoint with the uuid from the query string', () => {
-      assert.ok(routeFetchCall, 'expected the route to call fetch');
-      assert.ok(routeFetchCall.url.includes('https://sb.test/rest/v1/delivery_certs'), 'expected the SB_URL REST endpoint in the fetch URL');
-      assert.ok(routeFetchCall.url.includes(testUuid), 'expected the uuid from the query string in the fetch URL');
+    // Ruling 19.9: the public share link reads ONE row through the SECURITY DEFINER
+    // `cert_by_id(uuid)` RPC — the anon SELECT on the table (which made every certificate in
+    // the business enumerable with the key in this bundle) is gone.
+    check('?cert route: reads the cert through the cert_by_id RPC, not the table', () => {
+      assert.ok(routeCalls.length, 'expected the route to call fetch');
+      const first = routeCalls[0];
+      assert.ok(first.url.includes('https://sb.test/rest/v1/rpc/cert_by_id'), 'expected the cert_by_id RPC endpoint, got ' + first.url);
+      assert.equal(first.opts.method, 'POST');
+      assert.deepEqual(JSON.parse(first.opts.body), { p_id: testUuid });
+    });
+    check('?cert route: an empty RPC answer is "no such cert" — it does NOT fall back to the table', () => {
+      assert.equal(routeCalls.length, 1, 'expected exactly one request, got: ' + routeCalls.map(c => c.url).join(' , '));
     });
     check('?cert route: fetch carries the SB_ANON apikey + bearer auth headers', () => {
       const h = routeFetchCall.opts.headers;
@@ -843,6 +855,25 @@ if (mod) {
     });
     check('?cert route: renders the not-found message when the lookup returns no rows', () => {
       assert.ok(routeDoc._html.includes('התעודה לא נמצאה'), 'expected the not-found message to be written to document');
+    });
+
+    // The one-version deploy window: the app ships BEFORE the migration, so for one release
+    // the RPC does not exist. `certFetchRow` must fall back to the legacy table read rather
+    // than break every share link that is already out in the world.
+    await0(async () => {
+      const calls = [];
+      const f = async (url, opts) => {
+        calls.push(url);
+        if (url.includes('/rpc/cert_by_id')) throw new Error('404 — function not deployed yet');
+        return { ok: true, json: async () => [{ cert_number: 1234 }] };
+      };
+      const row = await routeWindow._certFetchRow(f, 'https://sb.test', 'anonkey', testUuid);
+      check('certFetchRow: the RPC missing (pre-migration) falls back to the table read once', () => {
+        assert.equal(calls.length, 2);
+        assert.ok(calls[0].includes('/rpc/cert_by_id'));
+        assert.ok(calls[1].includes('/rest/v1/delivery_certs?id=eq.' + testUuid));
+        assert.equal(row.cert_number, 1234);
+      });
     });
   });
 

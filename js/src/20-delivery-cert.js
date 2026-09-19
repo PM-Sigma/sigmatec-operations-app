@@ -410,7 +410,35 @@
 
   // ---- 🔗 public view route: ?cert=<uuid> renders the stored cert full-page (share-link target) ----
   // Replaces the whole app document — recipients see ONLY the certificate, exactly as issued,
-  // with a print/save button. Anonymous read (cert ids are unguessable uuids, like a Drive link).
+  // with a print/save button.
+  //
+  // The read is `cert_by_id(uuid)` — a SECURITY DEFINER function that returns THAT ONE ROW
+  // (db/rls_certs_checkins_lockdown.sql). It used to be an anon SELECT on the table, which
+  // also made every certificate in the business enumerable with the public key that ships in
+  // this bundle: customer names, ח.פ., item lines and the recipient's signature image
+  // (controller ruling, 19.9). The link is a capability; the table is not a listing.
+  //
+  // ONE-VERSION FALLBACK: until the migration is applied the function does not exist (404/
+  // PGRST202) and the old table read still works — so we try the RPC and fall back once.
+  // TODO (remove with the next release after the migration lands): drop `certFetchRow`'s
+  // second branch; after the migration the fallback can only ever return an empty list.
+  async function certFetchRow(fetchFn, base, key, id) {
+    const headers = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+    try {
+      const r = await fetchFn(base + '/rest/v1/rpc/cert_by_id',
+        { method: 'POST', headers: headers, body: JSON.stringify({ p_id: id }) });
+      if (r && r.ok !== false) {
+        const rows = await r.json();
+        // A SETOF/TABLE function comes back as an array; a 0-row answer is "no such cert",
+        // which is a real answer and must NOT fall through to the legacy read.
+        if (Array.isArray(rows)) return rows[0] || null;
+      }
+    } catch (e) { /* network / not deployed yet → try the legacy read below */ }
+    const r2 = await fetchFn(base + '/rest/v1/delivery_certs?id=eq.' + id + '&select=*',
+      { headers: { apikey: key, Authorization: 'Bearer ' + key } });
+    return (await r2.json())[0] || null;
+  }
+  window._certFetchRow = certFetchRow;   // test handle (test-delivery-cert.mjs §16)
   (function certViewRoute() {
     if (typeof location === 'undefined') return;   // headless test harness — no route to serve
     const m = location.search.match(/[?&]cert=([0-9a-f-]{36})/i);
@@ -419,9 +447,7 @@
     (async () => {
       let html;
       try {
-        const r = await fetch(SB_URL + '/rest/v1/delivery_certs?id=eq.' + m[1] + '&select=*',
-          { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON } });
-        const c = (await r.json())[0];
+        const c = await certFetchRow(fetch, SB_URL, SB_ANON, m[1]);
         if (!c) throw new Error('not found');
         html = certDocHtml({
           number: c.cert_number, date: c.cert_date, kibbutz: c.kibbutz,
