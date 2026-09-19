@@ -66,6 +66,15 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
    * way the table's primary key is.
    */
   const dayPlans = new Map<string, Record<string, unknown>>();
+  /**
+   * ▶ מצב ישיבה (Task 24) — three more real stores, for the same reason day_plans is one:
+   * the presenter screen is only meaningful if what it writes COMES BACK. The spec opens the
+   * screen, walks it, types a line and adds a bullet, then asserts the rows exist and that the
+   * card behind the overlay has the new bullet on it.
+   */
+  const meetingSessions: Array<Record<string, unknown>> = [];
+  const meetingEvents: Array<Record<string, unknown>> = [];
+  const liveNotes: Array<Record<string, unknown>> = [];
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
   await page.route('**://fonts.googleapis.com/**', r => r.abort());
@@ -103,12 +112,42 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         for (const r of rows) dayPlans.set(String(r.person) + '|' + String(r.date), r);
         return route.fulfill(json(shape(rows, accept), 201));
       }
+      // The meeting tables accept their writes and remember them (see the stores above).
+      if (tableOf(url) === 'meeting_sessions') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'ms-' + (meetingSessions.length + i + 1), ...r }));
+        if (method === 'PATCH') {
+          // …the only PATCH the screen makes is `ended_at` on the way out.
+          const last = meetingSessions[meetingSessions.length - 1];
+          if (last) Object.assign(last, rows[0]);
+          return route.fulfill(json(shape([last || rows[0]], accept)));
+        }
+        meetingSessions.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'meeting_events') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'me-' + (meetingEvents.length + i + 1), ...r }));
+        meetingEvents.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'kibbutz_meeting_notes' && method === 'POST') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'kmn-live-' + (liveNotes.length + i + 1), ...r }));
+        liveNotes.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
       return route.fulfill(json({ message: 'new row violates row-level security policy', code: '42501' }, 401));
     }
 
     switch (tableOf(url)) {
       case 'kibbutzim': return route.fulfill(json(shape(FIXTURES.kibbutzim, accept)));
-      case 'kibbutz_meeting_notes': return route.fulfill(json(shape(FIXTURES.notes, accept)));
+      case 'kibbutz_meeting_notes': return route.fulfill(json(shape([...FIXTURES.notes, ...liveNotes], accept)));
+      case 'meeting_sessions': return route.fulfill(json(shape(meetingSessions, accept)));
+      case 'meeting_events': return route.fulfill(json(shape(meetingEvents, accept)));
       case 'usage_events': return route.fulfill(json(shape(FIXTURES.usage, accept)));
       // No stored per-user settings → the islands use DEFAULT_SETTINGS, which is the state a
       // first-run device is in and the one the specs assert against.

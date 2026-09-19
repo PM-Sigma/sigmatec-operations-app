@@ -339,6 +339,51 @@ function boot() {
     });
     whenIdle(() => mountOnce(false));
   }
+  // ▶ מצב ישיבה (company-process §1.2) — deferred like the two panels above. It is opened
+  // once a week, by two people, from a menu; loading its overlay, its sheet and the meeting
+  // tables at boot would cost every other screen for nothing. The ⋯ row is registered NOW
+  // (with the same live role predicate the island uses) so the first tap lands, and the
+  // cold-open flag rides into the island's own first render.
+  if (document.getElementById('sigma-presenter')) {
+    let modulePromise: Promise<typeof import('@/islands/Presenter')> | null = null;
+    let mounted = false;
+    let wantOpen = false;
+    const ensureLoaded = () => (modulePromise ||= import('@/islands/Presenter'));
+    const mountOnce = (open: boolean) => {
+      wantOpen = wantOpen || open;
+      void ensureLoaded()
+        .then(m => {
+          if (mounted) {
+            if (wantOpen) { wantOpen = false; window.dispatchEvent(new CustomEvent('sigma-open-presenter')); }
+            return;
+          }
+          mounted = m.mountPresenter({ open: wantOpen });
+          wantOpen = false;
+        })
+        .catch(e => { modulePromise = null; console.warn('[sigma] presenter island failed', e); });
+    };
+    const openPresenter = () => {
+      if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-presenter')); return; }
+      mountOnce(true);
+    };
+    window.addEventListener('sigma-open-presenter', () => { if (!mounted) openPresenter(); });
+    (window as any).sigmaOpenPresenter = openPresenter;
+    registerMoreItem({
+      id: 'presenter',
+      label: 'מצב ישיבה',
+      icon: 'Presentation',
+      group: 'admin',
+      visible: () => {
+        try {
+          const s = (window as any).sigma;
+          const me = s?.getCurrentUser?.() || '';
+          return !s?.isViewer?.() && (!!s?.isAdmin?.() || me === 'עידן' || me === 'עמיחי');
+        } catch { return false; }
+      },
+      onSelect: openPresenter,
+    });
+    whenIdle(() => mountOnce(false));
+  }
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')
       .then(m => m.mountImportNotes())

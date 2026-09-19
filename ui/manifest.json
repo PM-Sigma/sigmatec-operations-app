@@ -28,6 +28,7 @@
   "./ui/sigma-ModalMeetings.js",
   "./ui/sigma-modalSlot.js",
   "./ui/sigma-plus.js",
+  "./ui/sigma-Presenter.js",
   "./ui/sigma-PullToRefresh.js",
   "./ui/sigma-query.js",
   "./ui/sigma-react.js",
@@ -43,6 +44,7 @@
   "./ui/sigma-Usage.js",
   "./ui/sigma-useMutation.js",
   "./ui/sigma-useQuery.js",
+  "./ui/sigma-video.js",
   "./ui/sigma.css",
   "./ui/sigma.js"
 ]
