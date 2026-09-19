@@ -242,5 +242,11 @@ Then read the report and treat any High or Medium as a gate failure.
 
 Committed: every config, the specs and fixtures, `server.mjs`, `run.mjs`, the ZAP scripts, this
 README, and **one** baseline report (`qa/reports/2026-09-18-task-22.md`).
+
+`qa/fixtures/` holds fixtures that are not Playwright's — today `ems-tasks.json`, raw EMS task rows in
+the three link encodings the API really answers with. `test-ems-refresh.mjs` maps it through BOTH the
+office-PC job's mapper and the REAL `emsSlimTask` out of `js/src/13-ems.js` and diffs them, and
+`node scripts/ems-cache-refresh.mjs --dry-run --fixture qa/fixtures/ems-tasks.json` exercises the same
+mapper offline, with no credentials and no request (docs/ems-cache-refresh.md).
 Gitignored: `qa/bin/`, `qa/playwright/shots/`, every `qa/**/.cache/`, `test-results/`, and all
 other `qa/reports/*`. Never `git add -A` here — add the files you mean.

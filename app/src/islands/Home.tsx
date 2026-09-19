@@ -18,7 +18,7 @@ import { Section } from '@/components/home/Section';
 import { KibbutzSheet } from '@/components/home/KibbutzSheet';
 import { mount } from '@/islands';
 import { searchMissTarget, track } from '@/lib/track';
-import { SigmaProviders } from '@/lib/query';
+import { hasPersistedData, showSkeleton, SigmaProviders } from '@/lib/query';
 import { getSupabase } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
@@ -37,10 +37,23 @@ async function fetchKibbutzim(): Promise<KibbutzRow[]> {
   return (data || []) as KibbutzRow[];
 }
 
-/** Keep the legacy world in sync: window.KIBBUTZIM + the localStorage cache both feed legacy code. */
+/**
+ * Keep the legacy world in sync: window.KIBBUTZIM + the localStorage cache both feed legacy code.
+ *
+ * …and ANNOUNCE it. Both stores are plain values with no change notification, so anything that
+ * reads them ONCE — Ctrl+K snapshots them when it opens (islands/CommandBar.tsx) — is stuck with
+ * whatever was there at that instant. On a cold boot that instant can precede this effect by a
+ * few milliseconds, and the bar then answers "לא נמצא כלום" for a kibbutz that plainly exists,
+ * for as long as it stays open. Caught by qa/playwright/tests/command-bar.spec.ts under load.
+ */
 function publishToLegacy(rows: KibbutzRow[]) {
   (window as any).KIBBUTZIM = rows;
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(rows)); } catch { /* private mode */ }
+  try {
+    (window as any).sigmaBus?.dispatchEvent(
+      new CustomEvent('kibbutzim-published', { detail: { count: rows.length } }),
+    );
+  } catch { /* no legacy bundle on this page */ }
 }
 
 function HomeIsland() {
@@ -149,7 +162,18 @@ function HomeIsland() {
     wasOpen.current = false;
   }, [sheetOpen]);
 
-  if (isLoading && !rows.length) {
+  // §7k #10 — skeletons ONLY when there is nothing at all to paint. Two caches can beat the
+  // network here: the legacy localStorage mirror (which also feeds `initialData` above) and
+  // TanStack's own persisted blob, which restores one microtask AFTER the first render. Read
+  // once — this answers "was there a cache when this screen opened", not "is there one now".
+  const cachedRef = React.useRef<boolean | null>(null);
+  if (cachedRef.current === null) {
+    let legacy = false;
+    try { legacy = !!localStorage.getItem(CACHE_KEY); } catch { /* private mode */ }
+    cachedRef.current = legacy || hasPersistedData(['kibbutzim']);
+  }
+
+  if (isLoading && showSkeleton(rows.length > 0, cachedRef.current)) {
     return (
       <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
         {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-[104px] rounded-lg" />)}

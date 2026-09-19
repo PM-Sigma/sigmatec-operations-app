@@ -820,6 +820,11 @@
       // missing it on every task — resync once now if we're already connected, so field users
       // see the field without waiting for the next explicit EMS action.
       if (typeof emsResyncIfStaleCache === 'function') emsResyncIfStaleCache();
+      // Stale-while-revalidate (spec §7k #10): from here on the shared snapshot refreshes in
+      // the background from ANY page while connected — on tab focus, on becoming visible, and
+      // on a slow tick — throttled to one crawl per 5 minutes across every tab of this
+      // browser. Installed once; the call itself is idempotent.
+      if (typeof emsBgSyncInstall === 'function') emsBgSyncInstall();
       setSourceIndicator('online');
       return data;
     } catch (e) {

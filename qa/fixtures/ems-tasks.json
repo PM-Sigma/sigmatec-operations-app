@@ -1,0 +1,58 @@
+[
+  {
+    "id": "t-1001",
+    "title": "החלפת מונה ראשי",
+    "status": "in_progress",
+    "priority": "high",
+    "type": "fixing_fault",
+    "site": { "id": "s-dafna", "name": "דפנה", "extra": "dropped by the slim mapper" },
+    "expectedCompletionDate": "2026-09-24T00:00:00.000Z",
+    "assignee": { "id": "u-nitai", "firstName": "ניתאי", "lastName": "כהן", "email": "dropped@example.com" },
+    "description": "המונה בלוח הראשי קורא 0 מאז 12.9 — להחליף ולסנכרן קריאה.",
+    "linkType": "meter",
+    "linkedEntityIds": ["m-1", "m-2", "m-3"]
+  },
+  {
+    "id": "t-1002",
+    "title": "אספקת מונים לשלב ב'",
+    "status": "new",
+    "priority": "normal",
+    "type": "supplying_meters",
+    "site": { "id": "s-hukok", "name": "חוקוק" },
+    "expectedCompletionDate": "",
+    "assignee": null,
+    "description": "",
+    "link_type": "site",
+    "linked_entity_ids": "[\"s-hukok\"]"
+  },
+  {
+    "id": "t-1003",
+    "title": "בדיקת צרכנים חורגים",
+    "status": "waiting_for_client",
+    "priority": "low",
+    "type": "other",
+    "site": null,
+    "assignee": { "id": "u-aviam", "firstName": "אביעם" },
+    "linked_entity_ids": "c-11, c-12 ,c-13"
+  },
+  {
+    "id": "t-1003",
+    "title": "בדיקת צרכנים חורגים (עמוד חופף — אותו id)",
+    "status": "waiting_for_client",
+    "priority": "low",
+    "type": "other",
+    "site": null
+  },
+  {
+    "id": "t-1004",
+    "title": "הקפאה עד לתשובת הלקוח",
+    "status": "on_hold",
+    "priority": "urgent",
+    "type": "other",
+    "site": { "id": "s-kfar-aza", "name": "כפר עזה" },
+    "expectedCompletionDate": "2026-10-01T00:00:00.000Z",
+    "assignee": { "id": "u-amichai", "firstName": "עמיחי", "lastName": "" },
+    "description": "ממתין לאישור תקציב.",
+    "linkedEntityIds": []
+  }
+]

@@ -74,6 +74,27 @@ function boot() {
   mount('sigma-toaster', SigmaToaster);
   mount('sigma-nav', Nav);
 
+  // 📲 Pull-to-refresh (§7k #10). Lazy, and loaded on the FIRST TOUCH — not at boot, and not
+  // on `whenIdle` either. It reaches into the query client, so a static import would drag
+  // TanStack into the boot chunk; and `whenIdle` fires in exactly the window where the card
+  // home is flushing its effects, which made an extra chunk fetch+parse into real contention.
+  // That cost a measured regression: under the 4-project Playwright load a Ctrl+K landed
+  // before the card home had published `window.KIBBUTZIM`, and the command bar opened with no
+  // kibbutzim at all (qa/playwright/tests/command-bar.spec.ts — 2 of 3 full runs, against 0 of
+  // 3 on the same tree without this task). The bar is robust to that now (islands/Home.tsx
+  // announces the publish), but the right place for a touch-only feature is still the first
+  // touch: a device that never receives one can never pull, and it pays nothing.
+  //
+  // `once` + passive, so it never delays a scroll. The gesture that triggers the import is not
+  // the one that refreshes — the component is not mounted yet — so the very first pull of a
+  // session is spent loading it, and nothing after.
+  if (document.getElementById('sigma-refresh')) {
+    const loadPullToRefresh = () => void import('@/components/PullToRefresh')
+      .then(m => m.mountPullToRefresh())
+      .catch(e => console.warn('[sigma] pull-to-refresh island failed', e));
+    document.addEventListener('touchstart', loadPullToRefresh, { once: true, passive: true });
+  }
+
   // 📝 יומן היום (§7i) is Task 16; the ⋯ row exists now so the sheet's shape is final and the
   // task only has to replace the handler (§7k #3 lists it among the sheet's rows).
   registerMoreItem({

@@ -184,6 +184,14 @@
       emsApi: function () { return call('emsApi', Array.prototype.slice.call(arguments)); },
       isEmsConnected: function () { return !!call('isEmsConnected', [], false); },
       emsCacheData: function () { return call('emsCacheData', [], { tasks: [] }); },
+      // Refresh the SHARED EMS snapshot now (spec §7k #10). `force` skips the 5-minute
+      // background throttle — that is the pull-to-refresh path (app/src/lib/query.ts
+      // refreshAll); called bare it is a polite nudge the throttle may decline. Resolves
+      // false when there is nothing to do (not connected, throttled, or the crawl failed)
+      // and NEVER rejects: a refresh gesture must not become an unhandled rejection.
+      emsSync: function (force) {
+        return Promise.resolve(call('emsBackgroundSync', [!!force], false)).catch(function () { return false; });
+      },
       // Open tasks for one kibbutz card, from the shared cache — the exact filter (site
       // aggregation for merged sites, e.g. שדה אליהו + חקלאות) legacy code already owns; the
       // React widget (components/home/EmsTasks.tsx) reuses it instead of re-deriving site ids

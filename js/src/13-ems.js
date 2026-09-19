@@ -86,8 +86,67 @@
     await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, ver: EMS_CACHE_VER, tasks: slim }) });
     if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy, ver: EMS_CACHE_VER };
+    emsBgStamp(Date.now());            // a sync from ANY path resets the background throttle
     if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: slim.length });   // → React islands (bridge)
     return { cached: slim.length };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Background refresh of the shared cache  (spec §7k #10, Task 20)
+  // ---------------------------------------------------------------------------
+  // Until Task 20 the snapshot was only refreshed when somebody CONNECTED to EMS
+  // (emsOnConnected, once per session) or acted on a task. A connected admin who
+  // left the app open all morning therefore served everyone else a snapshot from
+  // 08:00 — and the field users, who never connect, had no way to improve on it.
+  // So: any page, any time, while connected — throttled hard, because every sync
+  // is a full paginated crawl of EMS plus one Sheet write.
+  //
+  // The throttle timestamp lives in localStorage on purpose: three tabs open on
+  // one phone share it, so they cost one sync between them, not three. The
+  // office-PC job (scripts/ems-cache-refresh.mjs) runs the same refresh from
+  // outside the browser for the hours when nobody has the app open at all.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const EMS_BG_MIN_MS = 5 * 60 * 1000;          // at most one background sync per 5 minutes
+  const EMS_BG_KEY = 'ems_bg_sync_at_v1';
+  function emsBgLastAt() { try { return Number(localStorage.getItem(EMS_BG_KEY) || 0) || 0; } catch (e) { return 0; } }
+  function emsBgStamp(t) { try { localStorage.setItem(EMS_BG_KEY, String(t)); } catch (e) {} }
+  // Pure — pinned by test-ems-refresh.mjs. `last === 0` means "never synced in this browser",
+  // which is always due; a clock that jumped BACKWARDS (now < last) is due too, otherwise a
+  // DST change or a corrected phone clock could park the sync for hours.
+  function emsBgDue(now, last, minMs) {
+    if (!last) return true;
+    if (now < last) return true;
+    return (now - last) >= (minMs || EMS_BG_MIN_MS);
+  }
+  let _emsBgInFlight = null;
+  // Refresh the shared snapshot if it is due. `force` (pull-to-refresh) skips the throttle but
+  // NOT the single-flight. Never throws and never toasts — it is invisible by design; the
+  // 'ems-cache-synced' event emsSyncCache already emits is what re-renders the cards.
+  function emsBackgroundSync(force) {
+    if (!isEmsConnected()) return Promise.resolve(false);
+    if (_emsBgInFlight) return _emsBgInFlight;
+    if (!force && !emsBgDue(Date.now(), emsBgLastAt(), EMS_BG_MIN_MS)) return Promise.resolve(false);
+    emsBgStamp(Date.now());   // stamp BEFORE the crawl: two tabs waking together must not both go
+    _emsBgInFlight = emsSyncCache()
+      .then(function () { return true; })
+      .catch(function (e) { console.warn('[EMS] background sync failed', e); return false; })
+      .then(function (ok) { _emsBgInFlight = null; return ok; });
+    return _emsBgInFlight;
+  }
+  window.emsBackgroundSync = emsBackgroundSync;
+  // Install the triggers ONCE (called from the data load, js/src/01-data.js). Three of them:
+  // the tab becoming visible again, the window regaining focus, and a slow tick for the
+  // person who simply leaves the app open on the desk. All three funnel through the throttle.
+  let _emsBgInstalled = false;
+  function emsBgSyncInstall() {
+    if (_emsBgInstalled) return;
+    _emsBgInstalled = true;
+    try {
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) emsBackgroundSync(); });
+      window.addEventListener('focus', function () { emsBackgroundSync(); });
+      setInterval(function () { if (!document.hidden) emsBackgroundSync(); }, EMS_BG_MIN_MS);
+    } catch (e) { /* a page without these APIs simply keeps the connect-time sync */ }
+    emsBackgroundSync();   // and once now, for the tab that was opened cold
   }
 
   // Outbound queue ---------------------------------------------------------

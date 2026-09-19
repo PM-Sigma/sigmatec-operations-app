@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { mount } from '@/islands';
 import { track } from '@/lib/track';
 import { openSettings } from '@/lib/settings';
-import { sigma, useCurrentUser, type SigmaPage } from '@/bridge';
+import { sigma, useCurrentUser, useSigmaEvent, type SigmaPage } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { canManageKibbutzim, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
 import { primaryAdd, primaryAddLabel } from '@/lib/primaryAdd';
@@ -241,6 +241,18 @@ function CommandBarPanel() {
     setOpen(true);
     track('command-open', how);
   }, [user, isViewer]);
+
+  // …with ONE exception to "rebuilt only on open" (Task 20). `readKibbutzim()` reads two stores
+  // that nobody notifies about, and on a cold boot the card home publishes them a few
+  // milliseconds after the first card is in the DOM. A Ctrl+K inside that window used to leave
+  // the bar with no kibbutzim AT ALL, for as long as it stayed open — "לא נמצא כלום" for a
+  // kibbutz plainly on the screen behind it. islands/Home.tsx now announces the publish, and
+  // this rebuilds on it. Only while OPEN (a closed bar rebuilds on its next open anyway), and
+  // the query the person has typed is deliberately NOT cleared — `show()` would wipe it.
+  useSigmaEvent('kibbutzim-published', () => {
+    if (!open) return;
+    setCommands(buildCommands(user, isViewer));
+  });
 
   React.useEffect(() => {
     const onEvent = () => show('trigger');

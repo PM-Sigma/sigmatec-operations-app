@@ -7,6 +7,56 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [unreleased · feat/kibbutz-cards-redesign] 2026-09-19 — Stale-while-revalidate, משיכה לרענון ורענון מטמון EMS מהמשרד (Task 20)
+Decision §7k #10, in three halves.
+**Why (עידן 18.9):** a screen that spins before it shows anything trains people to wait; one that shows
+yesterday's tasks trains them not to trust it. The answer is both — paint the last known state instantly,
+replace it silently, and make "refresh now" a gesture rather than a hope.
+
+1. **The policy** (`app/src/lib/query.ts`): `refetchOnMount:'always'` · `refetchOnWindowFocus` ·
+   `networkMode:'offlineFirst'` · `staleTime` 60 s · `gcTime` 24 h. `'always'` is what makes painting a
+   stale cache safe; `offlineFirst` exists because `navigator.onLine` is wrong often enough on cellular in
+   a קיבוץ that the default `'online'` mode leaves a screen `fetchStatus:'paused'` with no refresh at all.
+   All five are pinned **by name** in `app/src/lib/query.test.ts` — a tidy-up that flips one fails the suite.
+   New pure helpers `showSkeleton(hasData, cached)` + `persistedHas`/`hasPersistedData(key)`: the persister
+   restores one microtask AFTER the first render, so the card home asks the dehydrated blob directly and
+   skips the skeleton whenever *either* cache can paint (§7k #10: "skeletons only when there is no cache").
+2. **משיכה לרענון** (`app/src/components/PullToRefresh.tsx`, `#sigma-refresh`): phone only, one mount for
+   the whole app (the listeners are on `document`; a `window.__sigmaPullToRefresh` claim makes a second
+   instance inert so one pull can never refresh twice). It invalidates every query **and** forces
+   `sigma.emsSync(true)` — two different caches. Lazy + `whenIdle`, so TanStack stays out of the boot chunk;
+   nothing renders until a pull actually begins.
+3. **The shared EMS snapshot keeps refreshing.** In-app (`js/src/13-ems.js:emsBackgroundSync`): any page, on
+   `visibilitychange`/`focus`/a 5-minute tick, while connected — throttled by a stamp in `localStorage`
+   that every tab shares, so three tabs cost one crawl. Outside the app
+   (`scripts/ems-cache-refresh.mjs` + `docs/ems-cache-refresh.md`): a half-hourly Windows Task Scheduler job,
+   07:00–20:00, for the hours when nobody has the app open. It reproduces the browser's real write path —
+   **`emsCacheWrite` is not an Apps Script call**; `js/src/01-data.js` intercepts it and upserts Supabase with
+   the EMS-minted bridge pass — so the job signs in, mints through `ems-auth`, then upserts `ems_cache` id=1.
+
+**Credentials: none were provided and none are in this commit.** The job reads a git-ignored `.env`, never
+prints a secret, and ships **dry-run verified only** (`--dry-run`, and `--dry-run --fixture` which maps
+`qa/fixtures/ems-tasks.json` through the real mapper with no network). The live path — sign-in, crawl,
+`ems-auth` mint, upsert — is unexercised until עידן supplies them; if his account has 2FA the job will exit 3
+and needs `EMS_TOKEN` or a service account. `test-ems-refresh.mjs` diffs the job's mapper against the REAL
+`emsSlimTask` lifted from `js/src/13-ems.js` (values *and* key order), pins `EMS_CACHE_VER` and
+`OPEN_STATUSES`, and asserts nothing is hardcoded and `.env` is ignored.
+
+**One regression, found by this task's own gate and fixed here.** Ctrl+K builds its source list
+ONCE per open, from `window.KIBBUTZIM` / `localStorage.kibbutzim_v1` — two stores that notify nobody. The
+boot-time work this task added was enough, under the 4-project Playwright load, to get a Ctrl+K in before the
+card home had published them: the bar then answered "לא נמצא כלום" for a kibbutz visible on the screen behind
+it, for as long as it stayed open. Measured, not guessed — **2 of 3** full gate runs failed on the same test,
+against **0 of 3** on the same tree with this task stashed. Two fixes, and 3 of 3 clean after:
+`islands/Home.tsx` now emits `kibbutzim-published` when it publishes and `islands/CommandBar.tsx` rebuilds
+on it while open (keeping what was typed); and the pull-to-refresh chunk moved off `whenIdle` — which fires
+in exactly the window the card home flushes its effects — to the first `touchstart`, which is both later and
+the only moment a touch-only feature is needed. The underlying fragility was pre-existing; this task made it
+reachable, so it is fixed here rather than filed.
+
+**Gates:** 39 legacy runners + 722 vitest (38 files) · Playwright 306/0/10 · Lighthouse perf 90 / a11y 98 /
+bp 100 · gitleaks 0 · semgrep 0 blocking · ZAP skipped (no Docker). `qa/reports/2026-09-19-task-20.md`.
+
 ## [unreleased · feat/kibbutz-cards-redesign] 2026-09-19 — 🔥 צריבות נכנסו ל-2.00 כפרויקט זמני (Task 23)
 `feat/meter-burns-rel` (1.71) merged into the 2.00 branch, and the meter-burn project placed where
 the work actually happens instead of behind a nav tab of its own.

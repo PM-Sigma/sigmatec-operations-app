@@ -222,7 +222,13 @@ function AttendanceIsland() {
 
   const rowsQ = useQuery({
     queryKey: ['attRows', person, ym.y, ym.m],
-    queryFn: () => readRows(person, ym.y, ym.m),
+    // §7k #10: every mount now refetches in the background (lib/query.ts
+    // `refetchOnMount: 'always'`), and this reader answers `null` while SHEET_DATA is still
+    // in flight. Letting that null land would BLANK a month restored from the persisted
+    // cache — exactly the flash stale-while-revalidate exists to prevent — so a null keeps
+    // whatever is already there and the poll below tries again.
+    queryFn: () => readRows(person, ym.y, ym.m)
+      ?? ((qc.getQueryData(['attRows', person, ym.y, ym.m]) as AttRow[] | null | undefined) ?? null),
     enabled: !!person,
     // SHEET_DATA lands a moment after boot and announces nothing. Poll ONLY until it does.
     refetchInterval: q => (q.state.data ? false : 1500),

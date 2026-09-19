@@ -88,6 +88,13 @@ export interface Sigma {
   getEmsSites(): Promise<Array<{ id: string; name: string }>>;
   kibbutzHasSite(name: string): Promise<boolean>;
   openKibbutzEmsTask(id: string): void;
+  /**
+   * Refresh the SHARED EMS snapshot (spec §7k #10). `force` skips the 5-minute background
+   * throttle — pull-to-refresh passes it; a bare call is a nudge the throttle may decline.
+   * Resolves false when nothing happened, and never rejects. Islands reach it through
+   * `refreshAll()` in app/src/lib/query.ts, not directly.
+   */
+  emsSync?(force?: boolean): Promise<boolean>;
   /** The raw EMS bearer — only for the `github` Edge Function, which gates on a valid EMS login. */
   emsToken?(): string;
   /** Open the legacy kibbutz modal for a card, optionally on a given tab ('meetings' | 'visit'). */
@@ -253,7 +260,12 @@ export type SigmaEvent =
   | 'dayplan-changed'
   // a 401 anywhere (EMS, supabase-js, the legacy reads) — ONE per expiry, debounced by
   // js/src/00-bridge.js. Consumer: components/ReLoginSheet.tsx (docs/integration-map.md)
-  | 'session-expired';
+  | 'session-expired'
+  // islands/Home.tsx wrote the kibbutz list to `window.KIBBUTZIM` + `localStorage.kibbutzim_v1`
+  // (Task 20). Neither store notifies anyone, so a reader that SNAPSHOTS them — Ctrl+K builds
+  // its source list once per open — needs telling when the list finally lands. Consumer:
+  // islands/CommandBar.tsx (docs/integration-map.md)
+  | 'kibbutzim-published';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {
