@@ -920,3 +920,14 @@ findings file → fix rounds by severity (Critical/Important now, Minor listed) 
 15. Code duplication: `npx jscpd` (or an equivalent) across `js/src` + `app/src` + `supabase/functions`; every duplicate
     block > 8 lines is a finding with the canonical location to keep (the byte-identical Deno copies are allowlisted).
 QA gate: `pending-states.spec.ts` + the click-map contract join `npm run qa` permanently.
+
+### Task 31 — audit D addendum (עידן 19.9 16:20)
+16. Every popup/sheet/dialog with user input: backdrop / Esc / swipe must NOT dismiss silently (spec §7p). Inventory of
+    every popup (legacy + islands) with its dismiss behaviour → findings for each violation.
+
+## Task 32 — Visit summary in chapters + save-without-submit (spec §7p) — after Task 31 fixes, before go-live
+**Agent:** Opus. Files: `app/src/islands/Field.tsx` (visit form → `VisitChapters` stepper), `app/src/lib/visitDraft.ts`
+(pure: `chapterState(draft)`, `nextChapter`, `canSubmit(draft)`, `resumeChapter(draft)`, draft age) + goldens,
+`js/src/09-visits.js` (`saveVisit` untouched; draft persistence keyed (person,kibbutz,date) already exists — reuse),
+Playwright `visit-chapters.spec.ts` (fill chapter 1 → שמור וסגור → reopen from card → resumes at chapter 2 with the
+טיוטה chip → chapter 5 שלח → visit created once, no duplicate movements). Copy rules apply. DoD = qa green.

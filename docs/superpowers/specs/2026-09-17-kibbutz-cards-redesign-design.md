@@ -820,3 +820,17 @@ skipped when a visit exists, skipped when dismissed).
 | D5 | ~~EMS description~~ **Decided 17.9 (mockup approved):** full text always. | — |
 | D6 | ~~Reminder copy~~ **Decided 17.9:** positive-only wording (§5.2). One nudge, no second. | — |
 | D7 | Feedback: allow anonymous? Who sees the inbox? | Yes anonymous; inbox = עידן + עמיחי. |
+
+
+## 7p. Rulings 19.9 16:20 (עידן) — popups never lose data; visit summary in chapters
+- **Popups/sheets/dialogs that hold user input never close by accident.** Backdrop tap, Esc and swipe-down do NOT
+  dismiss a popup with unsaved input; they either do nothing or show "יש שינויים שלא נשמרו — לשמור / לבטל / להמשיך
+  לערוך". Only an explicit button closes it (שמור / שמור וסגור / בטל). Popups with no input (info, pickers) may keep
+  backdrop-dismiss. Applies to legacy modals, shadcn Sheet/Dialog and the command bar.
+- **Visit summary is edited in chapters and can be saved WITHOUT submitting.** Chapters: 1 מה עשיתי · 2 מה נשאר לי פתוח ·
+  3 מוצרים/מלאי · 4 תעודת משלוח (only when there is something to deliver) · 5 שליחה. Each chapter has **שמור וסגור**
+  (persists the draft to `visit_drafts`, closes, no submission, no cert, no EMS comment) and **המשך**. Re-opening the
+  kibbutz (card, briefing, gaps, the 2 h nudge, the "היום" strip) resumes at the last chapter with a "טיוטה מ-HH:MM"
+  chip. **שלח** exists only in chapter 5 and is the only action that creates the visit, the movements and the cert.
+  Drafts autosave every change as today; a draft older than 7 days shows an "עדיין רלוונטי?" line, never deleted
+  automatically.
