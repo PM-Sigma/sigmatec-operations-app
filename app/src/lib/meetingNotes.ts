@@ -11,6 +11,8 @@
 // One bullet per SENTENCE (spec D4); the trailing אחריות clause is removed from the text and
 // becomes `owners[]` on every bullet of that paragraph.
 
+import { APP_PEOPLE } from '@/lib/people';
+
 export type MeetingKind = 'company' | 'dev' | 'client';
 
 export interface MeetingBullet {
@@ -63,8 +65,11 @@ export interface MeetingGroup {
   bullets: NoteRow[];
 }
 
-/** The staff whose names may appear in an "אחריות …" clause (js/src/02-init-attendance.js ATT_PEOPLE). */
-export const MEETING_PEOPLE = ['עידן', 'עמיחי', 'אביאם', 'ניתאי', 'מתניה', 'אבצן', 'אליה'] as const;
+/**
+ * The staff whose names may appear in an "אחריות …" clause. Derived from the one roster
+ * (`@/lib/people`) rather than re-typed — audit A · A12.
+ */
+export const MEETING_PEOPLE = APP_PEOPLE;
 
 /**
  * Summary name → card name(s). The summaries are written by hand, the cards come from the

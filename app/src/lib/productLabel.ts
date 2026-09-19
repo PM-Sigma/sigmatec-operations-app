@@ -7,6 +7,8 @@
 // every export builder (legacy js/src/21-excel-export.js, js/src/20-delivery-cert.js's
 // reports-hub cert preview, js/src/12-reports.js) and every React surface must go through it
 // (or its legacy mirror) so a technical name never leaks into a report that has a display name.
+import { isViewerToken } from '@/lib/people';
+
 export interface ProductLike {
   name: string;
   display_name?: string | null;
@@ -19,10 +21,11 @@ export interface ProductLabelOpts {
   forReport?: boolean;
 }
 
-const VIEWER_TOKENS = new Set(['viewer', 'צופה']);
-
+// The viewer is identified by the PIN role token OR by the ONE stored viewer name
+// (`VIEWER_NAME`). This used to hold a second spelling that the app never stores, so a
+// by-name caller silently fell through to the technical product name — audit A · A5.
 export function isViewerRole(role?: string): boolean {
-  return !!role && VIEWER_TOKENS.has(role);
+  return isViewerToken(role);
 }
 
 /**

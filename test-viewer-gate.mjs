@@ -39,10 +39,16 @@ const USER_KEY = 'dashboard_user_v1';
 const ROLE_KEY = 'dashboard_role_v1';
 const AUTH_KEY = 'dashboard_auth_v4';
 
+const VIEWER_NAME = /window\.VIEWER_NAME = '([^']+)';/.exec(
+  fs.readFileSync(path.join(__dirname, 'js/src/00-bridge.js'), 'utf8'))[1];
+
 function runGate() {
   const localStorage_ = makeLocalStorage();
   const location_ = { reloaded: false, reload() { this.reloaded = true; } };
-  const window_ = {};
+  // The gate writes the ONE viewer name the bridge declares (js/src/00-bridge.js is
+  // concatenated first, so window.VIEWER_NAME exists before this module runs). Read from the
+  // real source, never re-typed here — that is the whole point of the constant (audit A · A5).
+  const window_ = { VIEWER_NAME: VIEWER_NAME };
   const elements = {};
   // lazily creates+caches a permissive stub for ANY id — the outer IIFE touches 'emsLoginGate'
   // at eval time, and gateViewerLogin/gateViewerToggle touch gateError/gateViewerBox/gateViewerPin.
@@ -123,7 +129,7 @@ if (ctx) {
     await c.window_.gateViewerLogin();
     assert.deepStrictEqual(c.calls[c.calls.length - 1].body, { mode: 'viewer', pin: CODE },
       'the code must be sent to the function, trimmed, with mode=viewer');
-    assert.equal(c.localStorage_.getItem(USER_KEY), 'צפייה', 'expected the viewer display name to be stored');
+    assert.equal(c.localStorage_.getItem(USER_KEY), VIEWER_NAME, 'expected the viewer display name to be stored');
     assert.equal(c.localStorage_.getItem(ROLE_KEY), 'viewer', 'expected role=viewer to be stored');
     assert.equal(c.localStorage_.getItem(AUTH_KEY), 'ok', 'expected auth=ok to be stored');
     // THE fix: a viewer now holds a pass, so the authenticated-only tables answer him

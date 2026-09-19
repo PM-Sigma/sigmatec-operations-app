@@ -11,6 +11,12 @@
 // sheet is Task 5; `sigma.onLanding` is the hook it attaches to.
 import { sigma, type SigmaPage, type SigmaRole } from '@/bridge';
 import type { Landing, UserSettings } from '@/lib/settings';
+import { VIEWER_NAME, isViewerToken } from '@/lib/people';
+import { canShowPage } from '@/lib/canShowPage';
+
+// The roster lives in one place; re-exported here because `roleOf` is what most callers
+// already import when they need to reason about who someone is.
+export { APP_PEOPLE, VIEWER_NAME, isViewerToken } from '@/lib/people';
 
 /** The five people-shaped roles §7l reasons about (not the same axis as the PIN role). */
 export type PersonRole = 'field' | 'pm' | 'dev' | 'ceo' | 'viewer';
@@ -34,7 +40,8 @@ const BY_NAME: Record<string, PersonRole> = {
  * the only landing that assumes nothing.
  */
 export function roleOf(user: string, sigmaRole: SigmaRole | string | null | undefined): PersonRole {
-  if (sigmaRole === 'viewer') return 'viewer';
+  if (isViewerToken(sigmaRole)) return 'viewer';
+  if (String(user ?? '').trim() === VIEWER_NAME) return 'viewer';
   return BY_NAME[String(user ?? '').trim()] || 'field';
 }
 
@@ -102,7 +109,7 @@ export function applyLanding(settings?: Pick<UserSettings, 'landing'> | null): L
   const user = (() => { try { return sigma?.getCurrentUser?.() || ''; } catch { return ''; } })();
   if (!user) return null;                       // nobody logged in yet — the gate lands him
   const role = roleOf(user, (() => { try { return sigma?.getRole?.() || ''; } catch { return ''; } })());
-  const target = landingFor(role, user, settings, p => { try { return sigma.canShowPage(p); } catch { return false; } });
+  const target = landingFor(role, user, settings, canShowPage);
 
   try {
     if (target.page !== 'kibbutz') sigma.showPage(target.page);

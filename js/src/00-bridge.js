@@ -65,9 +65,25 @@
     return (typeof isIdan === 'function' && isIdan()) || me === 'עמיחי';
   }
   window.canManageStaff = canManageStaff;
-  // The people a message can be left for (was 17-staff.js's STAFF_PEOPLE — עמיחי is the CEO,
-  // not a managed employee). Read by the ✉️ הודעה לעובד action in Ctrl+K.
-  window.STAFF_PEOPLE = ['עידן', 'אביאם', 'ניתאי', 'מתניה'];
+  // ───────────────────────── ONE roster (audit A · A4/A5/A12) ─────────────────────────
+  // There used to be four person lists with four different memberships (the login roster in
+  // index.html, EMS_USERS, MEETING_PEOPLE, STAFF_PEOPLE) — אליה and אבצן fell through the
+  // cracks and nobody could be sent them a message. This is the single source: exactly the
+  // names the login screen offers, in the order it offers them. `test-roster.mjs` asserts the
+  // login roster, MEETING_PEOPLE and EMS_USERS all agree with it (EMS_USERS is a declared
+  // subset — an EMS account is a fact about a person, not a permission we choose here).
+  window.APP_PEOPLE = ['עידן', 'עמיחי', 'אביאם', 'ניתאי', 'אבצן', 'מתניה', 'אליה'];
+
+  // The view-only identity. STORED by the login gate under `dashboard_user_v1`, so every
+  // by-name viewer check must compare against THIS string and no other spelling ('צופה' was
+  // the second spelling that never matched anything — audit A · A5). Mirrored in
+  // app/src/lib/landing.ts as VIEWER_NAME; test-roster.mjs asserts the two agree.
+  window.VIEWER_NAME = 'צפייה';
+
+  // The people a message can be left for. Everyone who can log in is addressable — the old
+  // list dropped אליה and אבצן entirely, and excluded עמיחי "because he is the CEO", which
+  // only meant nobody could ever message him. Read by ✉️ הודעה לעובד in Ctrl+K.
+  window.STAFF_PEOPLE = window.APP_PEOPLE.slice();
 
   window.sigmaBus = window.sigmaBus || new EventTarget();
   window.sigmaEmit = function (name, detail) {

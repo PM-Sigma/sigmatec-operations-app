@@ -153,7 +153,7 @@
   // Auto-init on load (login hard-refreshes, so this covers the authed state). Delay lets the SW register.
   function boot() {
     if (!currentOwner()) return;                 // not logged in yet → skip
-    if (currentOwner() === 'צפייה') return;      // viewer never approves orders → no push needed
+    if (currentOwner() === window.VIEWER_NAME) return;   // viewer never approves orders → no push needed
     setTimeout(function () { window.initPush(); }, 2500);
   }
   // deferred bundle (task 22b): a macrotask, never inline — see 02-init-attendance.js.
@@ -244,12 +244,14 @@
     const sent = attNagSelected(person, ym).indexOf(dateKey) !== -1;
     const bell = attCanNag()
       ? '<button data-d="' + dateKey + '" onclick="attNagDay(this.dataset.d)" title="' + (sent ? 'נשלחה תזכורת — לחיצה שולחת שוב את כל הימים' : 'שלח תזכורת על יום זה (מצטרף להתראה הקיימת)') + '"' +
-        ' style="background:' + (sent ? '#dcfce7' : '#fee2e2') + ';border:1px solid ' + (sent ? '#16a34a' : '#fecaca') + ';border-radius:6px;min-width:34px;height:26px;cursor:pointer;font-size:13px;">' + (sent ? '✅' : '🔔') + '</button>'
+        ' style="background:' + (sent ? 'var(--tint-ok)' : 'var(--tint-danger)') + ';border:1px solid ' + (sent ? 'var(--success)' : 'var(--tint-danger-border)') + ';border-radius:6px;min-width:34px;height:26px;cursor:pointer;font-size:13px;">' + (sent ? '✅' : '🔔') + '</button>'
       : '';
-    return '<tr style="background:#fef2f2;">' +
-      '<td style="color:#b91c1c;font-weight:700;">' + dateStr + '</td>' +
-      '<td><span class="att-badge" style="background:#fee2e2;color:#b91c1c;">❌ חסרה נוכחות</span></td>' +
-      '<td style="color:#fca5a5;">—</td><td style="text-align:center;color:#fca5a5;">—</td>' +
+    // Tokens, not literals: the row used to be a light slab in dark mode and its em-dash
+    // cells measured 1.74:1 in BOTH themes (audit B · F-16). --danger-fg is the 4.5:1 ink.
+    return '<tr style="background:var(--tint-danger);">' +
+      '<td style="color:var(--danger-fg);font-weight:700;">' + dateStr + '</td>' +
+      '<td><span class="att-badge" style="background:var(--tint-danger);color:var(--danger-fg);">❌ חסרה נוכחות</span></td>' +
+      '<td style="color:var(--danger-fg);">—</td><td style="text-align:center;color:var(--danger-fg);">—</td>' +
       '<td style="text-align:center;">' + bell + '</td></tr>';
   }
   window.attMissingRowHtml = attMissingRowHtml;

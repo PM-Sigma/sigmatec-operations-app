@@ -3,6 +3,7 @@
 // viewer, and only when a display name was actually set.
 import { describe, expect, it } from 'vitest';
 import { canEditDisplayName, productLabel, reportPreview, reportWiringOk } from '@/lib/productLabel';
+import { VIEWER_NAME } from '@/lib/people';
 
 const METER = { name: 'E360CT-3P', display_name: 'מונה חשמל תלת-פאזי' };
 const NO_DISPLAY = { name: 'SIM-XYZ' };
@@ -22,7 +23,13 @@ describe('productLabel — role × forReport matrix', () => {
 
   it('viewer role → display name, without forReport', () => {
     expect(productLabel(METER, { role: 'viewer' })).toBe('מונה חשמל תלת-פאזי');
-    expect(productLabel(METER, { role: 'צופה' })).toBe('מונה חשמל תלת-פאזי');
+    // The STORED viewer name, which is the only one the app ever writes (audit A · A5).
+    expect(productLabel(METER, { role: VIEWER_NAME })).toBe('מונה חשמל תלת-פאזי');
+  });
+
+  it("the dead spelling 'צופה' is NOT the viewer — it is just a name", () => {
+    // It was never stored, so anything that matched on it was dead code pretending to work.
+    expect(productLabel(METER, { role: 'צופה' })).toBe('E360CT-3P');
   });
 
   it('no display_name set → technical name, even forReport or viewer', () => {

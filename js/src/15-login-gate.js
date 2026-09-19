@@ -331,7 +331,7 @@
       var ttlMs = (d.expiresIn ? d.expiresIn * 1000 : 180 * 60 * 1000) - 5 * 60 * 1000;
       window._sbToken = d.token; window._sbTokenExp = Date.now() + Math.max(60000, ttlMs);
       window._sbPassMintedAt = Date.now();
-      localStorage.setItem(USER_KEY, 'צפייה');
+      localStorage.setItem(USER_KEY, window.VIEWER_NAME);
       localStorage.setItem(ROLE_KEY, 'viewer');
       localStorage.setItem(AUTH_KEY, 'ok');
       if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)

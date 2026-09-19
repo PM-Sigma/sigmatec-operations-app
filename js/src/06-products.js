@@ -55,7 +55,14 @@
     opts = opts || {};
     const name = typeof p === 'string' ? p : ((p && p.name) || '');
     const display = typeof p === 'string' ? undefined : (p && p.display_name);
-    const wantsDisplay = !!opts.forReport || opts.role === 'viewer' || opts.role === 'צופה';
+    // ONE viewer spelling (window.VIEWER_NAME) — audit A · A5. The old literal 'צופה' is
+    // never what the login gate stores, so this branch could never fire.
+    // ONE viewer spelling (window.VIEWER_NAME, js/src/00-bridge.js) — audit A · A5. The old
+    // literal 'צופה' is never what the login gate stores, so that branch could never fire.
+    // `opts.role &&` is load-bearing: without a bundle window.VIEWER_NAME is undefined, and
+    // `undefined === undefined` would make EVERY call a report call.
+    const viewerName = window.VIEWER_NAME || 'צפייה';
+    const wantsDisplay = !!opts.forReport || (!!opts.role && (opts.role === 'viewer' || opts.role === viewerName));
     if (wantsDisplay && display && display.trim()) return display.trim();
     return name;
   }
