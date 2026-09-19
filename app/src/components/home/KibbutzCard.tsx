@@ -13,6 +13,7 @@ import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { InternalTasksSection } from '@/components/home/InternalTasks';
 import { OnboardingProgress } from '@/components/home/OnboardingProgress';
 import { BurnChip } from '@/components/home/Burns';
+import { WorkTimer } from '@/components/home/WorkTimer';
 import { energyText, labelOf, sectionOf, isSubsite, type KibbutzRow } from '@/lib/kibbutzim';
 
 export function KibbutzCard({
@@ -75,6 +76,9 @@ export function KibbutzCard({
             left here, and nothing at all once the kibbutz is finished. It counts as part of
             the card's routine open work (עידן 18.9 21:50), so it is not gated to the field role. */}
         <BurnChip kibbutz={row.name} />
+        {/* ▶/■ שעות (Task 29, spec §8b) — עידן and מתניה only; for everyone else the
+            component renders nothing at all, so the row is unchanged. */}
+        <WorkTimer kibbutz={row.name} />
         {row.marketing && (
           <span className="tag-marketing rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
             🤝 בתהליך שיווקי

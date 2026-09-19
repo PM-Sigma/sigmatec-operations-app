@@ -106,6 +106,16 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       id: 'onb-' + k.name + '-' + s.key, kibbutz: k.name, step_key: s.key, label: s.label,
       seq: i, waits: s.waits, state: 'open', sent_at: null, done_at: null, created_at: '2026-09-10T08:00:00Z',
     })));
+  /**
+   * ⏱️ work_sessions + site_contacts (Task 29) — two more real stores. The ▶/■ spec is only
+   * meaningful if the stop sheet's row COMES BACK: it starts a timer, reloads, stops, picks an
+   * attendee and two tags, and then asserts the row that was written.
+   */
+  const workSessions: Array<Record<string, unknown>> = [];
+  const siteContacts: Array<Record<string, unknown>> = [
+    { id: 'sc-1', kibbutz: 'חוקוק', name: 'גפן', role: 'manager', active: true },
+    { id: 'sc-2', kibbutz: 'חוקוק', name: 'רבקה', role: 'billing', active: true },
+  ];
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
   await page.route('**://fonts.googleapis.com/**', r => r.abort());
@@ -122,6 +132,23 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
     const method = req.method();
     const accept = req.headers()['accept'];
 
+    // ⏱️ the `clockify` function — the ONE edge function this harness answers, because the
+    // ▶/■ flow is about what comes back from it (the live tag vocabulary) and what happens to
+    // the row when it does. The real function holds the credentials; this one holds fixtures.
+    if (url.includes('/functions/v1/clockify')) {
+      let b: any = {};
+      try { b = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+      if (b.action === 'tags') {
+        return route.fulfill(json({ tags: [
+          { id: 't1', name: 'הדרכה על המערכת' },
+          { id: 't2', name: 'טיפול בתקלות' },
+          { id: 't3', name: 'הקמת מונים' },
+        ] }));
+      }
+      if (b.action === 'projects') return route.fulfill(json({ projects: [{ id: 'p-חוקוק', name: 'חוקוק', billable: true }] }));
+      if (b.action === 'entry') return route.fulfill(json({ entry: { id: 'clk-qa-1', description: b?.entry?.description } }));
+      return route.fulfill(json({ error: 'unknown action' }, 400));
+    }
     // Edge functions (ems-auth, push-send, …) — never called in mock mode; refuse clearly.
     if (url.includes('/functions/v1/')) return route.fulfill(json({ error: 'offline (qa)' }, 401));
 
@@ -224,6 +251,21 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         if (hit) Object.assign(hit, body);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
+      // work_sessions / site_contacts (Task 29) accept their inserts and remember them.
+      if (tableOf(url) === 'work_sessions' && method === 'POST') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'ws-' + (workSessions.length + i + 1), created_at: new Date().toISOString(), ...r }));
+        workSessions.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'site_contacts' && method === 'POST') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'sc-new-' + (siteContacts.length + i + 1), ...r }));
+        siteContacts.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
       // onboarding_steps — the upsert the create-kibbutz flow spawns with, and the update a
       // card's tap sends. `Prefer: resolution=ignore-duplicates` (an upsert) is honoured as a
       // real upsert-by-key so a spec that creates a 🆕 kibbutz can then see its checklist.
@@ -302,6 +344,12 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       // No absence fixture: 🌴 is entered in the spec, and the write 401s like every other
       // one — what the spec asserts there is the sheet, not a round trip.
       case 'calendar_absences': return route.fulfill(json(shape([], accept)));
+      case 'work_sessions': return route.fulfill(json(shape(workSessions, accept)));
+      case 'site_contacts': {
+        const q = new URL(url).searchParams;
+        const k = decodeURIComponent((q.get('kibbutz') || '').replace(/^eq\./, ''));
+        return route.fulfill(json(shape(k ? siteContacts.filter(c => c.kibbutz === k) : siteContacts, accept)));
+      }
       case 'onboarding_templates': return route.fulfill(json(shape([onboardingTemplate], accept)));
       case 'onboarding_steps': return route.fulfill(json(shape(onboardingSteps, accept)));
       default: return route.fulfill(json(shape([], accept)));

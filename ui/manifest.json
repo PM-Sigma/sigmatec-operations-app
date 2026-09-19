@@ -45,6 +45,7 @@
   "./ui/sigma-Settings.js",
   "./ui/sigma-skeleton.js",
   "./ui/sigma-speech.js",
+  "./ui/sigma-square.js",
   "./ui/sigma-supabase.js",
   "./ui/sigma-switch.js",
   "./ui/sigma-textarea.js",
@@ -53,6 +54,7 @@
   "./ui/sigma-useMutation.js",
   "./ui/sigma-useQuery.js",
   "./ui/sigma-video.js",
+  "./ui/sigma-WorkTimerStopSheet.js",
   "./ui/sigma.css",
   "./ui/sigma.js"
 ]
