@@ -152,7 +152,7 @@ Usually a handler that delegates through a bridge the detectors do not follow �
 | 86 | legacy | `js/src/00-bridge.js:38` | `stepProductQty` | — | **none** |
 | 87 | legacy | `js/src/00-guard.js:90` | `if` | — | **none** |
 | 88 | legacy | `js/src/00-guard.js:184` | `(inline listener)` | — | **none** |
-| 89 | legacy | `js/src/00-guard.js:230` | `(inline listener)` | — | **none** |
+| 89 | legacy | `js/src/00-guard.js:244` | `(inline listener)` | — | **none** |
 | 90 | legacy | `js/src/01-data.js:76` | `(inline listener)` | — | **none** |
 | 91 | legacy | `js/src/02-init-attendance.js:213` | `(inline listener)` | — | **none** |
 | 92 | legacy | `js/src/03-requirements.js:43` | `invEditRequirement` | — | **none** |
@@ -291,11 +291,11 @@ Usually a handler that delegates through a bridge the detectors do not follow �
 | 225 | react | `app/src/islands/DayLog.tsx:432` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
 | 226 | react | `app/src/islands/DayLog.tsx:476` | `(inline)` | — | disabled prop, saving/sending state, spinner |
 | 227 | react | `app/src/islands/DevPresenter.tsx:179` | `(inline)` | — | disabled prop, busy state |
-| 228 | react | `app/src/islands/Feedback.tsx:446` | `micTap` | — | spinner |
-| 229 | react | `app/src/islands/Feedback.tsx:468` | `stopRefinePoll` | — | disabled prop, busy state, spinner |
-| 230 | react | `app/src/islands/Feedback.tsx:478` | `undoRefine` | — | disabled prop, busy state, spinner |
-| 231 | react | `app/src/islands/Feedback.tsx:487` | `micTap` | — | disabled prop, busy state, spinner |
-| 232 | react | `app/src/islands/Feedback.tsx:513` | `(inline)` | — | aria-busy, disabled prop, busy state, saving/sending state, spinner |
+| 228 | react | `app/src/islands/Feedback.tsx:448` | `micTap` | — | spinner |
+| 229 | react | `app/src/islands/Feedback.tsx:470` | `stopRefinePoll` | — | disabled prop, busy state, spinner |
+| 230 | react | `app/src/islands/Feedback.tsx:480` | `undoRefine` | — | disabled prop, busy state, spinner |
+| 231 | react | `app/src/islands/Feedback.tsx:489` | `micTap` | — | disabled prop, busy state, spinner |
+| 232 | react | `app/src/islands/Feedback.tsx:515` | `(inline)` | — | aria-busy, disabled prop, busy state, saving/sending state, spinner |
 | 233 | react | `app/src/islands/FeedbackInbox.tsx:162` | `(inline)` | — | Button loading, disabled prop |
 | 234 | react | `app/src/islands/FeedbackInbox.tsx:171` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
 | 235 | react | `app/src/islands/FeedbackInbox.tsx:185` | `(inline)` | — | disabled prop, busy state, spinner |
