@@ -177,6 +177,20 @@ function boot() {
       .then(m => m.mountStockChange())
       .catch(e => console.warn('[sigma] stock-change island failed', e));
   }
+  // 🔔 התראות מלאי (inventory spec §5.1) — the header bell. Not deferred: it carries the
+  // unseen badge, and a badge that appears a second late is a badge nobody trusts.
+  if (document.getElementById('sigma-alerts')) {
+    import('@/islands/Alerts')
+      .then(m => m.mountAlerts())
+      .catch(e => console.warn('[sigma] alerts island failed', e));
+  }
+  // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5) — lives inside the 📦 מלאי page, so it
+  // loads with everything else on that page rather than on its own idle tick.
+  if (document.getElementById('sigma-inventory-strip')) {
+    import('@/islands/InventoryStrip')
+      .then(m => m.mountInventoryStrip())
+      .catch(e => console.warn('[sigma] inventory-strip island failed', e));
+  }
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())

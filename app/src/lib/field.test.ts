@@ -306,6 +306,7 @@ describe('the daily caps (§7k ג, as fix round 1 settled them)', () => {
     expect(capFor('attendanceCron')).toBeNull();
     expect(capFor('attendanceReminder')).toBeNull();
     expect(capFor('usageDigest')).toBeNull();
+    expect(capFor('inventoryDigest')).toBeNull();   // the 12:00/17:00 stock digest is a report too
     expect(capFor('visitCron')).toBe(2);
     expect(capFor('gapReminder')).toBe(1);
     expect(capFor('somethingNew')).toBe(3);

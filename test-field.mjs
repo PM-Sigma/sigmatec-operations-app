@@ -50,8 +50,8 @@ console.log('\n[3] adoption guards ג — the caps, quiet hours, the 20:00 gate 
   const fn = read('./supabase/functions/push-send/index.ts');
   check('the global ceiling is three', /PUSH_DAILY_CAP = 3/.test(lib));
   check('visits get two a day, gaps one', /VISIT_DAILY_CAP = 2/.test(lib) && /GAP_DAILY_CAP = 1/.test(lib));
-  check('attendance and the digest are exempt',
-    /CAP_EXEMPT_EVENTS = \['attendanceCron', 'attendanceReminder', 'usageDigest'\]/.test(lib));
+  check('attendance and both digests are exempt',
+    /CAP_EXEMPT_EVENTS = \['attendanceCron', 'attendanceReminder', 'usageDigest', 'inventoryDigest'\]/.test(lib));
   check('attendanceCron is NOT gated on the cap any more',
     !/PUSH_DAILY_CAP/.test(fn.slice(fn.indexOf('attendanceCron'), fn.indexOf('visitCron'))));
   check('the counter skips the exempt modes in BOTH directions',

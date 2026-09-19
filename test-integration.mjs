@@ -181,7 +181,11 @@ ok(a.fns.unknownMode.length === 0,
 // The reverse for push-send specifically, per the plan: every mode the sender implements must
 // have a caller, and the ones that do not must be cron-triggered on purpose.
 {
-  const CRON_ONLY = new Set(['attendanceCron', 'visitCron', 'usageDigest', 'approveOrder']);
+  const CRON_ONLY = new Set(['attendanceCron', 'visitCron', 'usageDigest', 'approveOrder',
+    // Task 10 (inventory spec §5.2): the DATABASE calls `inventoryAlert` — the movements
+    // trigger, over pg_net — and pg_cron calls `inventoryDigest` hourly. No browser sends
+    // either, by design: a client must not be able to make two people's phones buzz.
+    'inventoryAlert', 'inventoryDigest']);
   const stranded = a.fns.pushServerOnly.filter(m => !CRON_ONLY.has(m));
   ok(stranded.length === 0,
     'push-send implements modes nothing sends and that are not cron-only: ' + stranded.join(', '));

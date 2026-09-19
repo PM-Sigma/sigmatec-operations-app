@@ -9,6 +9,12 @@
 //   approveOrder            : { mode:'approveOrder', orderId, actor }          → one-tap approve (supplier only)
 //   feedbackNew             : { mode:'feedbackNew', kind, preview, token }     → 📣 box → עידן + עמיחי (EMS-gated)
 //   usageDigest             : { mode:'usageDigest', force?, token?, actor? }   → weekly narrative → עידן (Sun 08:00)
+//   inventoryAlert          : { mode:'inventoryAlert', product, qty }  -> low stock -> idan + amichai
+//                             AUTH: X-Cron-Key (the DB trigger's pg_net call, db/inventory_alert_webhook.sql)
+//                             The ONE push that ignores quiet hours (master spec 7k guard g),
+//                             capped at one per product per day.
+//   inventoryDigest         : { mode:'inventoryDigest', force? }        -> 12:00/17:00 digest -> amichai
+//                             AUTH: X-Cron-Key; hourly cron, gate on Israel 12/17, tag inv-digest-<date>-<hh>
 //   visitCron               : { mode:'visitCron' }                             → "2 h after the check-in, no summary yet"
 //                             AUTH: X-Cron-Key header (pg_cron, db/cron_visit_15min.sql) OR a valid EMS login
 //                             AUTH: X-Cron-Key header (pg_cron) OR a valid EMS login; only עידן may force
@@ -34,6 +40,12 @@ import {
   nudgeFor, visitCronSelect,
   type CheckinRow, type DraftRow, type VisitRow,
 } from "./field.ts";
+// Inventory alerts (inventory spec 5). Third copy-and-pin module: app/src/lib/alerts.ts is the
+// original, this is a BYTE-IDENTICAL copy, and test-inventory-alerts.mjs fails the build on any
+// drift - the digest the bell shows and the digest that reaches Amichai's phone are ONE builder.
+import {
+  digestBody, digestTitle, digestWindow, israelParts, lowStockTag, type AlertRow,
+} from "./alerts.ts";
 
 const APP = "/sigmatec-operations-app/";   // GitHub Pages base path (openWindow target)
 const CORS = {
@@ -63,6 +75,11 @@ const FEEDBACK_INBOX = ["עידן", "עמיחי"];
 // 📈 שימוש (spec §7j) — the weekly narrative goes to עידן and to nobody else, and the
 // roster is the five EMS logins (js/src/11-search-login.js EMS_USERS), in display order.
 const USAGE_DIGEST_TO = ["עידן"];
+// Inventory (spec 5.2). Who hears about a shortage the moment it happens, and who gets the
+// twice-a-day digest. Fixed server-side like every other recipient list: a caller never chooses
+// whose phone buzzes. I2: the digest is Amichai's alone until Idan says otherwise.
+const INV_LOW_TO = ["עידן", "עמיחי"];
+const INV_DIGEST_TO = ["עמיחי"];
 const USAGE_ROSTER = ["עידן", "אביאם", "ניתאי", "עמיחי", "מתניה"];
 const qty = (o: any) => (o.items || []).reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0);
 const otype = (o: any) => o.order_type || o.orderType || (/בקשת לקוח/.test(o.notes || "") ? "customer" : "supplier");
@@ -511,6 +528,110 @@ Deno.serve(async (req: Request) => {
     // who in the cron case is a SQL job and in the app case reads it from 📈 שימוש anyway.
     // `lines` is a count, deliberately: enough to smoke-test, nothing to harvest.
     return json({ ok: true, tag, sent: r.delivered, lines: sentences.length });
+  }
+
+  // ---- 🔻 מלאי נמוך, immediately (inventory spec §5.2) -----------------------------------
+  // Called by the DATABASE, not by a browser: `inventory_alert_on_movement()` raises a
+  // `low_stock` row and db/inventory_alert_webhook.sql posts here over pg_net with the shared
+  // cron secret. There is no EMS-login path — nobody's session may fire a shortage alarm.
+  //
+  // QUIET HOURS: this mode is the documented EXCEPTION (master spec §7k guard ג). Every other
+  // nudge waits for the morning; a shortage found at 22:00 is what stops a van leaving at 06:00
+  // with nothing on it, and the two people it reaches are the two who can order more.
+  // It is still CAPPED — one push per product per day, by the `inv-low-<date>-<product>` tag in
+  // push_log — so a product bouncing over its line cannot buzz all night.
+  if (body.mode === "inventoryAlert") {
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    if (!secret || !cronKey || cronKey !== secret) {
+      return json({ error: "unauthorized: cron key required" }, 401);
+    }
+    const product = String(body.product || "").trim();
+    if (!product) return json({ error: "bad request" }, 400);
+    const qtyNow = Number(body.qty ?? 0);
+
+    const tag = lowStockTag(product, israelParts(new Date()).date);
+    const { data: prior } = await sb.from("push_log").select("id")
+      .eq("event", "inventoryAlert").eq("where_txt", tag).limit(1);
+    if (prior && prior.length) return json({ ok: true, skipped: "already sent today", tag });
+
+    const title = "🔻 מלאי נמוך";
+    const bodyTxt = `${product} · ${qtyNow} יח׳ במלאי החברה`;
+    const openUrl = APP + "#inventory";
+    const payload = JSON.stringify({
+      title, body: bodyTxt, tag, url: openUrl,
+      actions: [{ action: "inventory", title: "📦 פתח מלאי" }],
+      data: { actUrls: { inventory: openUrl } },
+    });
+    const meta = {
+      event: "inventoryAlert", order_id: null, where_txt: tag, qty: qtyNow,
+      actor: null, title, body: bodyTxt,
+    };
+    const r = await sendTo(INV_LOW_TO, payload, meta);
+    return json({ ok: true, tag, sent: r.delivered });
+  }
+
+  // ---- 📦 the 12:00 / 17:00 stock digest for עמיחי (inventory spec §5.2) -------------------
+  // Same shape as usageDigest: pg_cron fires HOURLY (db/cron_inventory_digest.sql) and the GATE
+  // lives here, on Israel local time, so DST is `digestWindow`'s problem and a missed hour
+  // re-fires safely. The window is pure and golden-tested (app/src/lib/alerts.test.ts): 12:00
+  // covers everything since yesterday 17:00, 17:00 everything since noon.
+  //
+  // An empty window sends NOTHING — a push that says "no movements" is a push that teaches
+  // people to ignore the next one.
+  if (body.mode === "inventoryDigest") {
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    const byCron = !!secret && !!cronKey && cronKey === secret;
+    if (!byCron && !(await emsValid(String(body.token || "")))) {
+      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
+    }
+    // Only עידן may force one off-schedule (the release smoke), and only with a live EMS login.
+    const forced = !!body.force && !byCron && String(body.actor || "") === "עידן";
+    const forceRefused = !!body.force && !forced;
+    if (forceRefused) return json({ error: "forbidden: force is עידן's alone" }, 403);
+
+    const now = new Date();
+    const t = israelParts(now);
+    const win = digestWindow(now)
+      // A forced run still needs a window: the last six hours, tagged by the hour it actually
+      // is, so it can never collide with a real 12:00 or 17:00 digest.
+      ?? (forced
+        ? {
+          hh: t.hh as 12 | 17,
+          from: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
+          to: now.toISOString(),
+          tag: "inv-digest-" + t.date + "-force-" + t.hh,
+        }
+        : null);
+    if (!win) return json({ ok: true, skipped: "not 12:00 or 17:00 Israel", hour: t.hh });
+
+    const { data: priorRows } = await sb.from("push_log").select("id")
+      .eq("event", "inventoryDigest").eq("where_txt", win.tag).limit(1);
+    if (priorRows && priorRows.length) return json({ ok: true, skipped: "already sent", tag: win.tag });
+
+    const { data: rows, error } = await sb.from("inventory_alerts")
+      .select("id,kind,product,qty,from_location,to_location,reason,ref_id,actor,created_at")
+      .gte("created_at", win.from).lte("created_at", win.to)
+      .in("kind", ["movement", "low_stock"]).order("created_at");
+    if (error) return json({ ok: false, error: error.message }, 500);
+    const alerts = (rows ?? []) as AlertRow[];
+    if (!alerts.length) return json({ ok: true, skipped: "empty window", tag: win.tag });
+
+    const title = digestTitle(alerts, win.hh);
+    const bodyTxt = digestBody(alerts);
+    const openUrl = APP + "#inventory";
+    const payload = JSON.stringify({
+      title, body: bodyTxt, tag: win.tag, url: openUrl,
+      actions: [{ action: "inventory", title: "📦 פתח מלאי" }],
+      data: { actUrls: { inventory: openUrl } },
+    });
+    const meta = {
+      event: "inventoryDigest", order_id: null, where_txt: win.tag, qty: alerts.length,
+      actor: null, title, body: bodyTxt,
+    };
+    const r = await sendTo(INV_DIGEST_TO, payload, meta);
+    return json({ ok: true, tag: win.tag, sent: r.delivered, lines: alerts.length });
   }
 
   // ---- one-tap approve (supplier orders only; customer approval must run in-app) ----

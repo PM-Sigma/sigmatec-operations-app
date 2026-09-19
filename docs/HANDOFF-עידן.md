@@ -82,6 +82,26 @@
   VERIFY: קישור שיתוף קיים עדיין נפתח, ו-`select * from delivery_certs` בתור `anon` מחזיר 0 שורות.
   אם מריצים לפני שהגרסה באוויר — קישורי שיתוף פתוחים יראו "התעודה לא נמצאה" עד שהיא תעלה.
 
+### 🔔 התראות מלאי (Task 10) — צעד ידני שאין דרך לאוטמט אותו
+הטריגר על `movements` שולח דחיפה מיידית על מלאי נמוך (pg_net → push-send). ל-SQL אין
+גישה ל-`CRON_SECRET` של ה-Edge Functions, אז צריך להעתיק אותו פעם אחת לטבלה פרטית
+(`private.push_config`, ללא גישה ל-anon). אחרי הרצת `db/inventory_alert_webhook.sql`:
+
+- [ ] **25.** ב-SQL editor (לא לשמור בריפו):
+```sql
+insert into private.push_config(key, value) values
+  ('base_url',    'https://wwqfcajnxinaxmobrgol.supabase.co'),
+  ('anon_key',    '<anon key>'),
+  ('cron_secret', '<אותו ערך כמו CRON_SECRET>')
+on conflict (key) do update set value = excluded.value;
+```
+עד שזה רץ — ההתראה עדיין נרשמת בטבלה ונראית בפעמון, רק הדחיפה לא נשלחת.
+
+- [ ] **26.** `db/cron_inventory_digest.sql` — להחליף `<ANON>` ו-`<CRON_SECRET>` ולהריץ
+  (התקציר 12:00/17:00 לעמיחי).
+- [ ] **27.** למלא `min_qty` לפריטים המרכזיים (📦 מלאי → 🎚 מינימום מלאי) — בלי זה
+  אין התראות מלאי נמוך בכלל (הכרעה I3).
+
 ---
 
 ## C. שחרור ל-main + הסרת מצב תחזוקה

@@ -609,8 +609,12 @@ export const VISIT_DAILY_CAP = 2;
 /** The gaps nudge (Task 18) gets exactly one. */
 export const GAP_DAILY_CAP = 1;
 
-/** Modes that are neither capped nor counted (see above). */
-export const CAP_EXEMPT_EVENTS = ['attendanceCron', 'attendanceReminder', 'usageDigest'];
+/**
+ * Modes that are neither capped nor counted (see above). `inventoryDigest` joins them for the
+ * same reason the weekly one did: the 12:00 / 17:00 stock digest is a REPORT עמיחי asked for,
+ * not a nudge, so a busy day of visit reminders must never swallow it (inventory spec §5.2).
+ */
+export const CAP_EXEMPT_EVENTS = ['attendanceCron', 'attendanceReminder', 'usageDigest', 'inventoryDigest'];
 
 /** The per-mode ceiling, or `null` for an exempt mode. */
 export function capFor(event: string): number | null {

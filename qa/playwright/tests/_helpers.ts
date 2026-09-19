@@ -120,6 +120,24 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
    */
   const movements: Array<Record<string, unknown>> = [];
   const stockRecounts: Array<Record<string, unknown>> = [];
+  /**
+   * 🔔 inventory_alerts + the catalog's red lines (Task 10, inventory spec §5). The bell is
+   * only meaningful if a real row COMES BACK: one low-stock row and two movements, the newest
+   * first, and a PATCH that records who marked one seen.
+   */
+  const inventoryAlerts: Array<Record<string, any>> = [
+    { id: 'ia-1', kind: 'low_stock', product: 'סים 1NCE', qty: 4, from_location: null, to_location: 'חברה',
+      reason: 'min_qty', ref_id: '', actor: 'עמיחי', created_at: '2026-09-19T11:05:00Z', seen_by: [] },
+    { id: 'ia-2', kind: 'movement', product: 'מונה Landis+Gyr E360PP', qty: 3, from_location: 'חברה', to_location: 'חוקוק',
+      reason: 'visit_supply', ref_id: 'vis-אביאם', actor: 'אביאם', created_at: '2026-09-19T10:00:00Z', seen_by: [] },
+    { id: 'ia-3', kind: 'movement', product: 'בקר 504', qty: 12, from_location: 'ספק', to_location: 'חברה',
+      reason: 'order_delivery', ref_id: 'ord-1', actor: 'עמיחי', created_at: '2026-09-19T09:00:00Z', seen_by: ['עמיחי'] },
+  ];
+  const products: Array<Record<string, any>> = [
+    { id: 'p-1', name: 'מונה Landis+Gyr E360PP', min_qty: 15, active: true },
+    { id: 'p-2', name: 'בקר 504', min_qty: null, active: true },
+    { id: 'p-3', name: 'סים 1NCE', min_qty: 15, active: true },
+  ];
   const siteContacts: Array<Record<string, unknown>> = [
     { id: 'sc-1', kibbutz: 'חוקוק', name: 'גפן', role: 'manager', active: true },
     { id: 'sc-2', kibbutz: 'חוקוק', name: 'רבקה', role: 'billing', active: true },
@@ -309,6 +327,18 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         if (hit) Object.assign(hit, body);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
+      // 🔔 the bell marks a row seen; 🎚 the min_qty editor sets a product's red line (Task 10).
+      if ((tableOf(url) === 'inventory_alerts' || tableOf(url) === 'products') && method === 'PATCH') {
+        const q = new URL(url).searchParams;
+        const store = tableOf(url) === 'inventory_alerts' ? inventoryAlerts : products;
+        const key = tableOf(url) === 'inventory_alerts' ? 'id' : 'name';
+        const want = decodeURIComponent((q.get(key) || '').replace(/^eq\./, ''));
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = store.find(r => String(r[key]) === want);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
       // 📦 movements / stock_recounts (Task 8) — the 🔢 recount writes both, in that order.
       if ((tableOf(url) === 'movements' || tableOf(url) === 'stock_recounts') && method === 'POST') {
         let body: any = {};
@@ -415,6 +445,8 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       case 'work_sessions': return route.fulfill(json(shape(workSessions, accept)));
       case 'movements': return route.fulfill(json(shape(movements, accept)));
       case 'stock_recounts': return route.fulfill(json(shape(stockRecounts, accept)));
+      case 'inventory_alerts': return route.fulfill(json(shape(inventoryAlerts, accept)));
+      case 'products': return route.fulfill(json(shape(products, accept)));
       case 'site_contacts': {
         const q = new URL(url).searchParams;
         const k = decodeURIComponent((q.get('kibbutz') || '').replace(/^eq\./, ''));
