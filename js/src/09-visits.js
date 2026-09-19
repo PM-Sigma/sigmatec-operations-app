@@ -133,16 +133,21 @@
       const on = usedInVisit > 0;
       const qtyValue = on ? usedInVisit : '';
       const out = available === 0 && !on;
-      const esc = String(p).replace(/"/g, '&quot;');
+      // audit C #7: `"`→`&quot;` alone is not enough for the onclick arguments — the browser
+      // DECODES the entity before parsing the JS, so a `"` in a product name still broke out
+      // of `stepProductQty('…')`. `esc` is the plain-attribute form (it round-trips through
+      // dataset), `arg` is the handler-argument form. Both live in js/src/00-bridge.js.
+      const esc = attrEsc(p);
+      const arg = jsArgEsc(p);
       return `
         <div class="sig-pi ${on ? 'on' : ''} ${out ? 'out' : ''}" data-row="${esc}">
           <input type="checkbox" class="prod-chk" data-product="${esc}" ${on ? 'checked' : ''} onchange="toggleProductQty(this)" hidden>
           <button type="button" class="cb" aria-label="בחר ${esc}" onclick="toggleProductRow(this)">✓</button>
-          <span class="nm">${p}<span class="sub">במלאי: <bdi>${available}</bdi>${out ? ' · אין מלאי' : ''}</span></span>
+          <span class="nm">${esc}<span class="sub">במלאי: <bdi>${available}</bdi>${out ? ' · אין מלאי' : ''}</span></span>
           <div class="sig-step">
-            <button type="button" aria-label="פחות" onclick="stepProductQty('${esc.replace(/'/g, "\\'")}', -1)">−</button>
+            <button type="button" aria-label="פחות" onclick="stepProductQty('${arg}', -1)">−</button>
             <input type="number" class="prod-qty" data-product="${esc}" data-max="${maxAllowed}" min="1" max="${maxAllowed}" step="1" value="${qtyValue}" ${on ? '' : 'disabled'} oninput="visitDraftTouch()">
-            <button type="button" aria-label="עוד" onclick="stepProductQty('${esc.replace(/'/g, "\\'")}', 1)">+</button>
+            <button type="button" aria-label="עוד" onclick="stepProductQty('${arg}', 1)">+</button>
           </div>
         </div>
       `;
@@ -1070,7 +1075,12 @@
 
     // Stock: the supply leaves the ONE company pool — the same default `onVisitorChange` puts in
     // the form's מלאי מקור picker (inventory spec §1).
-    const source = String(d.source || '') || POOL_LOCATION;
+    //
+    // audit C #13: this read `d.source` first. `d` is the day-log PARSER's output, i.e. text a
+    // model produced from what somebody dictated — so a person's name landing in `source` moved
+    // stock out of a personal bag that stopped existing in §1, and the quantity simply vanished
+    // from poolStock(). There is one source, and the client does not get to name it.
+    const source = POOL_LOCATION;
     const moves = products.map(p => fetch(SHEET_API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'movement', product: p.name, fromLocation: source, toLocation: kibbutz, quantity: p.qty, reason: 'visit_supply', refId: savedId, createdBy: visitor })

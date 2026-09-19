@@ -138,7 +138,10 @@ function AlertsBell() {
     qc.setQueryData(['inventoryAlerts'], (old: AlertRow[] | undefined) =>
       (old ?? []).map(r => (r.id === row.id ? { ...r, seen_by: next } : r)));
     try {
-      await sbWrite(sb => sb.from('inventory_alerts').update({ seen_by: next }).eq('id', row.id as string).select());
+      // Through the RPC, not a table UPDATE: `inventory_alerts` is an audit trail and has no
+      // client UPDATE or DELETE policy any more (audit C #3, db/rls_2_00_lockdown.sql).
+      // `alert_mark_seen` is SECURITY DEFINER and touches seen_at/seen_by and nothing else.
+      await sbWrite(sb => sb.rpc('alert_mark_seen', { p_id: row.id as string, p_person: user }) as any);
     } catch { /* the optimistic row stands; the next fetch corrects it */ }
   }, [qc, user]);
 

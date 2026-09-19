@@ -13,7 +13,7 @@
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { analyze, code, ROOT } from './scripts/integration-map.mjs';
+import { analyze, code, walk, ROOT } from './scripts/integration-map.mjs';
 
 const a = analyze();
 const at = h => `${h.file}:${h.line}`;
@@ -313,6 +313,82 @@ for (const [event, emitters, consumers] of PROPAGATION) {
   // turn a quote into an entity (the browser would decode it back and break the JS string).
   ok(!/&#39;|&quot;/.test(devEsc(`a'b"c`)),
     'devEsc must not entity-escape quotes — devArg JS-escapes them, and HTML decoding runs first');
+}
+
+// ── every inline handler argument goes through an approved escaper (audit C #6/#7) ──
+// `onclick="fn('${x}')"` is a DOUBLE context: the browser HTML-decodes the attribute and only
+// then parses it as JavaScript. Escaping only `'` (11-search-login.js) or only `"` as an
+// entity (09-visits.js) both left the hole open — a kibbutz or product name carrying the other
+// quote broke out of the string or ended the attribute. There is no way to see that by reading
+// one line, so this sweep reads all 39 of them.
+//
+// Three ways for a value to be acceptable:
+//   1. it IS a call to an approved escaper — `jsArgEsc(x)`, `devArg(x)`, `attJsStr(x)`, …
+//   2. it is a local assigned from one in the same file (`const arg = jsArgEsc(p);`)
+//   3. it cannot carry user text at all — a database id, a loop index, a boolean, or a value
+//      the code itself chose from a fixed set. Those are listed below, each with its reason.
+{
+  const ESCAPER = /^(jsArgEsc|devArg|attJsStr|attrEsc|certEsc|calEsc|emsEsc|_staffEsc|burnAttr)\s*\(/;
+  /** Identifiers/paths that provably cannot carry user text. */
+  const NOT_USER_TEXT = [
+    // Supabase/Sheets row ids: uuid or integer, never typed by a person.
+    /^[\w.]+\.id$/,
+    // loop counters and numbers built in the same expression
+    /^(i|idx|ci|n|year|month|day|qty|available|maxAllowed)$/,
+    // a boolean the code computed
+    /^!?[\w.]+\.(active|done|open)$/,
+    // ids.join(',') — an array of integer message ids (17-messages.js)
+    /^ids\.join\(','\)$/,
+    // the next status the code picked from its own fixed table (07-orders.js orderQuick)
+    /^quick\.next$/,
+    // `it.onClick` (11-search-login.js) and `act` (04-attendance-daily.js:296) are whole
+    // handler EXPRESSIONS the file just built, with every argument inside them already run
+    // through jsArgEsc / attJsStr. Escaping them again would escape the JavaScript itself.
+    /^it\.onClick$/,
+    /^act$/,
+  ];
+  const offenders = [];
+  for (const f of walk('js/src', n => n.endsWith('.js'))) {
+    const src = code(f);
+    // locals assigned from an approved escaper, e.g. `const arg = jsArgEsc(p);`
+    const safeLocals = new Set(
+      [...src.matchAll(/\b(?:const|let|var)\s+(\w+)\s*=\s*(\w+)\s*\(/g)]
+        .filter(m => ESCAPER.test(m[2] + '('))
+        .map(m => m[1]));
+    src.split('\n').forEach((line, i) => {
+      const handler = /\bon[a-z]+\s*=\s*"([^"]*)"/gi;
+      let h;
+      while ((h = handler.exec(line))) {
+        for (const m of h[1].matchAll(/\$\{([^}]*)\}/g)) {
+          const expr = m[1].trim();
+          if (ESCAPER.test(expr)) continue;
+          if (safeLocals.has(expr)) continue;
+          if (NOT_USER_TEXT.some(re => re.test(expr))) continue;
+          offenders.push(`${f}:${i + 1}  \${${expr}}  in  ${h[0].slice(0, 70)}`);
+        }
+      }
+    });
+  }
+  ok(offenders.length === 0,
+    'these inline handlers interpolate a value that no approved escaper produced. In '
+    + 'onclick="fn(\'${x}\')" the value is HTML-decoded and THEN parsed as JS, so it needs '
+    + 'jsArgEsc() (js/src/00-bridge.js); a plain attribute needs attrEsc(). If the value truly '
+    + 'cannot carry user text, add it to NOT_USER_TEXT in this file WITH the reason:\n    '
+    + offenders.join('\n    '));
+
+  // …and the two shared helpers must keep their shape, in the right order.
+  const bridge = code('js/src/00-bridge.js');
+  const jsArg = bridge.slice(bridge.indexOf('function jsArgEsc'), bridge.indexOf('window.attrEsc'));
+  ok(/&quot;/.test(jsArg),
+    'js/src/00-bridge.js jsArgEsc() must turn `"` into &quot; — otherwise a name with a double '
+    + 'quote ends the onclick attribute early (audit C #6/#7)');
+  ok(jsArg.indexOf("\\'") < jsArg.indexOf('&quot;'),
+    'jsArgEsc() must JS-escape the apostrophe BEFORE entity-escaping the double quote; the '
+    + 'apostrophe must never become an entity, because HTML decoding runs before JS parsing');
+  const attr = bridge.slice(bridge.indexOf('function attrEsc'), bridge.indexOf('function jsArgEsc'));
+  for (const ent of ['&amp;', '&lt;', '&gt;', '&quot;', '&#39;']) {
+    ok(attr.includes(ent), `js/src/00-bridge.js attrEsc() must escape ${ent}`);
+  }
 }
 
 // ════════════════════ (h) the EMS gateway (§7o) ════════════════════

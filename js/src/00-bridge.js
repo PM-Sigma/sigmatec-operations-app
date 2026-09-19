@@ -11,6 +11,50 @@
 //                            · visit-form-open (the legacy visit form just came on screen)
   //                            · session-expired (one 401 anywhere → one re-login sheet, §7n)
   // ═══════════════════════════════════════════════════════════════════════════
+  // ───────────────────────── escaping for generated HTML ─────────────────────────
+  // Two helpers, because there are two different contexts and mixing them up is exactly how
+  // audit C #6/#7 happened. This file is concatenated FIRST, so both are in scope everywhere.
+  //
+  // The rule that makes this subtle: inside an attribute the browser DECODES HTML entities
+  // FIRST and only then parses the result (as JavaScript, for an on*-handler). So a JS-string
+  // escape must survive that decode as a literal character — which means a quote that is part
+  // of the JS syntax must NOT become an entity.
+
+  /**
+   * Safe inside any plain HTML attribute value: `data-product="${attrEsc(name)}"`,
+   * `aria-label="בחר ${attrEsc(name)}"`, and safe in text content too. Every entity decodes
+   * back to the original character, so `el.dataset.product` still reads the real name.
+   */
+  function attrEsc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  /**
+   * Safe as ONE ARGUMENT of an inline handler: `onclick="stepProductQty('${jsArgEsc(p)}', 1)"`.
+   * Order matters: entity-escape `&`/`<`/`>` (never the quotes), then JS-escape the backslash
+   * and the apostrophe so they survive HTML decoding as real characters, then close the
+   * attribute hole by turning `"` into `&quot;` — a product or kibbutz name containing a double
+   * quote (`מונה "ראשי"`) used to end the attribute early and scatter the rest into the tag.
+   * Identical to `devArg()` in js/src/18-dev-tasks.js, which is where this pattern was first
+   * written; that copy stays so the dev page keeps its own local reading.
+   */
+  function jsArgEsc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '&quot;');
+  }
+  window.attrEsc = attrEsc;
+  window.jsArgEsc = jsArgEsc;
+
   // ───────────────────────── a role that outlived its page ─────────────────────────
   // `canManageStaff()` used to live in js/src/17-staff.js. That module WAS the עובדים page and
   // retired with it (spec §7m R5) — the gate it defined did not. It is the app's elevated group

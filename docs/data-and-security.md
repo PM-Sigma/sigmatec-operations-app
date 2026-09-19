@@ -117,7 +117,7 @@ apply order (dependency order matters, listed there).
 | `feedback` (+ `feedback_kinds`) | 📣 feedback box (idea/bug/complaint), audio via `feedback-audio` bucket. | `db/feedback.sql`, `db/feedback_kinds` migration | prod (Task 6/6b) |
 | `company_holidays` (+ seed) | 🕎 Hebcal holidays for attendance/gap logic. | `db/company_holidays.sql`, `db/company_holidays_seed.sql` (38 rows) | ⛔ parked |
 
-**Two RLS lockdowns (Task 18a/18b, run in this exact order relative to app deploys):**
+**Three RLS lockdowns (Task 18a/18b + Task 31, run in this exact order relative to app deploys):**
 - `db/rls_corrections_lockdown.sql` — must run **AFTER** `parse-daylog` + `parse-order` are
   redeployed, or it silently kills the few-shot correction flow for both parsers.
 - `db/rls_certs_checkins_lockdown.sql` — drops anonymous `SELECT` on `delivery_certs` and
@@ -125,6 +125,18 @@ apply order (dependency order matters, listed there).
   adds `cert_by_id(uuid)` (security definer) for the cert share-link. Must run **AFTER** 2.00 is
   live on `main`, because the cert viewer's one-release RPC fallback still reads the open table
   until then.
+- `db/rls_2_00_lockdown.sql` — **LAST**. Task 31 audit C found that after all of the above, the
+  public anon key still `SELECT`ed 15 business tables, because `for select using (true)` with no
+  `to` clause grants to `public` (which includes `anon`). This file re-creates every one of them
+  `for select to authenticated`, replaces `push_subscriptions`' `for all to anon` (anyone with the
+  bundle could delete every push subscription in the company), turns `inventory_alerts` /
+  `stock_recounts` into append-only audit trails with an `alert_mark_seen(id, person)` RPC for the
+  bell, drops the `work_sessions` ownership tautology (`person = coalesce(auth.jwt()->>'name',
+  person)` is `person = person` — the bridge pass has no identity claim), and adds the
+  `meter_burns` INSERT policy this document already promised. `company_holidays` is locked down
+  too: the login screen never reads it. `db/rls_2_00_lockdown.sql` ships WITH the client change in
+  `app/src/islands/Alerts.tsx`, so deploy them together. `node test-rls-policies.mjs` is the static
+  sweep that keeps this true.
 
 **Re-run needed:** `db/kibbutz_meeting_notes_import.sql` (`create or replace`, safe to re-run) — a
 kibbutz that changed name (e.g. `גת`→`קיבוץ גת`) now keeps its EMS link/✓ across re-imports via

@@ -234,6 +234,22 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
     // no client select policy. Served from the fixtures so 📈 שימוש renders a real report.
     if (url.includes('/rest/v1/rpc/usage_report')) return route.fulfill(json(FIXTURES.usage));
 
+    // `alert_mark_seen(p_id, p_person)` — the ONLY write to inventory_alerts a client may
+    // make (audit C #3): the table is an audit trail with no client UPDATE/DELETE policy, so
+    // 🔔 "סמן כנקרא" goes through this SECURITY DEFINER RPC. Applied to the live store so a
+    // spec can assert the row really carries the reader afterwards.
+    if (url.includes('/rest/v1/rpc/alert_mark_seen')) {
+      let body: any = {};
+      try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+      const hit = inventoryAlerts.find(r => String(r.id) === String(body?.p_id));
+      if (hit) {
+        const seen = new Set([...(hit.seen_by as string[] ?? []), String(body?.p_person ?? '')]);
+        hit.seen_by = [...seen];
+        hit.seen_at = new Date().toISOString();
+      }
+      return route.fulfill(json(null));
+    }
+
     /**
      * `import_meeting_notes(jsonb)` — the one transactional merge behind both 📥 ייבוא and
      * 📝 ישיבה → סיכום (Task 25). It is applied to the live-note store for real (replace that
@@ -327,11 +343,14 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         if (hit) Object.assign(hit, body);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
-      // 🔔 the bell marks a row seen; 🎚 the min_qty editor sets a product's red line (Task 10).
-      if ((tableOf(url) === 'inventory_alerts' || tableOf(url) === 'products') && method === 'PATCH') {
+      // 🎚 the min_qty editor sets a product's red line (Task 10). A PATCH on
+      // `inventory_alerts` is deliberately NOT handled here any more: the table has no client
+      // UPDATE policy (audit C #3), so a regression back to a table write must fail loudly
+      // rather than quietly pass against a permissive fixture.
+      if (tableOf(url) === 'products' && method === 'PATCH') {
         const q = new URL(url).searchParams;
-        const store = tableOf(url) === 'inventory_alerts' ? inventoryAlerts : products;
-        const key = tableOf(url) === 'inventory_alerts' ? 'id' : 'name';
+        const store = products;
+        const key = 'name';
         const want = decodeURIComponent((q.get(key) || '').replace(/^eq\./, ''));
         let body: any = {};
         try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }

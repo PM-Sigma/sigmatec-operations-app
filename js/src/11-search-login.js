@@ -27,7 +27,7 @@
     const kibMatches = tasks.filter(t => matchText(t.name, ql) || matchText(t.status, ql) || matchText(t.expectedTask, ql)).slice(0, 6);
     if (kibMatches.length) sections.push({ title: '🏘 קיבוצים', items: kibMatches.map(t => ({
       icon: '🏘', title: t.name, meta: (t.region || '') + (t.status ? ' · ' + (t.status||'').slice(0,40) : ''),
-      onClick: `goToKibbutz('${(t.name||'').replace(/'/g, "\\'")}')`
+      onClick: `goToKibbutz('${jsArgEsc(t.name)}')`
     })) });
 
     // 📋 Requirements
@@ -49,7 +49,7 @@
     if (ordMatches.length) sections.push({ title: '🧾 הזמנות', items: ordMatches.map(o => ({
       icon: '🧾', title: (o.supplier || 'ספק לא ידוע') + ' · ' + (o.status || ''),
       meta: (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 80),
-      onClick: `goToInventoryTab('orders'); setTimeout(()=>invEditOrder('${o.id}'), 300)`
+      onClick: `goToInventoryTab('orders'); setTimeout(()=>invEditOrder('${jsArgEsc(o.id)}'), 300)`
     })) });
 
     // 📝 Visits
@@ -60,7 +60,7 @@
     if (visitMatches.length) sections.push({ title: '📝 ביקורים', items: visitMatches.map(v => ({
       icon: '📝', title: v.kibbutz + ' · ' + (v.visitor || ''),
       meta: (v.date ? new Date(v.date).toLocaleDateString('he-IL') + ' · ' : '') + (v.summary || '').slice(0, 80),
-      onClick: `goToKibbutz('${(v.kibbutz||'').replace(/'/g, "\\'")}')`
+      onClick: `goToKibbutz('${jsArgEsc(v.kibbutz)}')`
     })) });
 
     // 📦 Products
@@ -71,7 +71,7 @@
     })) });
 
     if (sections.length === 0) {
-      box.innerHTML = '<div class="gs-empty">לא נמצאו תוצאות עבור "' + q.replace(/</g,'&lt;') + '"</div>';
+      box.innerHTML = '<div class="gs-empty">לא נמצאו תוצאות עבור "' + attrEsc(q) + '"</div>';
       box.style.display = 'block';
       return;
     }
@@ -82,8 +82,8 @@
           <div class="gs-result" onclick="closeGlobalSearch(); ${it.onClick}">
             <span class="gs-icon">${it.icon}</span>
             <div class="gs-text">
-              <div class="gs-title">${(it.title||'').replace(/</g,'&lt;')}</div>
-              <div class="gs-meta">${(it.meta||'').replace(/</g,'&lt;')}</div>
+              <div class="gs-title">${attrEsc(it.title)}</div>
+              <div class="gs-meta">${attrEsc(it.meta)}</div>
             </div>
           </div>
         `).join('')}
@@ -96,7 +96,10 @@
     // Ensure on kibbutz page first
     if (typeof showPage === 'function') showPage('kibbutz');
     setTimeout(() => {
-      const card = document.querySelector(`.kibbutz[data-name="${name}"]`);
+      // Not a built selector: a kibbutz name carrying a `"` or a `]` would make
+      // querySelector THROW (and was one interpolation away from being audit C #6 twice over).
+      const card = [...document.querySelectorAll('.kibbutz[data-name]')]
+        .find(el => el.getAttribute('data-name') === String(name));
       if (!card) return;
       // Expand parent section if collapsed
       const section = card.closest('.section');
