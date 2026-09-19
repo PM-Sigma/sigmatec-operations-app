@@ -114,25 +114,87 @@ async function resolveUserId(key: string, fromEnv: string): Promise<string> {
   return cachedUserId;
 }
 
+// Who may call `entry` — defence-in-depth. The EMS pass only proves "a valid EMS login exists"
+// (`emsValid` below), not which EMS user is calling: `ems-auth`'s minted JWT carries no `name`/
+// identity claim (see task-29-review.md Important #2), so this function cannot verify identity by
+// itself. Requiring `body.person` to be one of the two people allowed to track time at all
+// (mirrors `canTrackTime` in app/src/lib/clockify.ts and the `usageDigest` actor pattern) at least
+// stops an arbitrary EMS-authenticated caller from writing entries — it does not stop עידן/מתניה
+// impersonating each other, which needs a real identity claim to fix (tracked separately).
+const ALLOWED_ENTRY_PERSONS = ["עידן", "מתניה"];
+const MAX_DESCRIPTION_LEN = 300;
+const MAX_DURATION_MS = 16 * 60 * 60 * 1000; // 16h
+const FUTURE_SLACK_MS = 5 * 60 * 1000; // 5min clock-skew allowance
+
+/**
+ * Validates the entry the client sent against the server's OWN cached tag/project lists — never
+ * the client's copy, which cannot be trusted. Mirrors app/src/lib/clockifyEntryValidate.ts
+ * (kept node-testable there since Deno edge functions aren't runnable under vitest); keep both in
+ * sync if the rules change. Returns an ASCII error code (no Hebrew), matching github/index.ts.
+ */
+function validateEntry(
+  e: any,
+  opts: { tags: Array<{ id: string }>; projects: Array<{ id: string }>; person: unknown; now: number },
+): { ok: true; entry: Record<string, unknown> } | { ok: false; error: string } {
+  if (!ALLOWED_ENTRY_PERSONS.includes(String(opts.person || ""))) return { ok: false, error: "forbidden_person" };
+
+  const startMs = Date.parse(String(e?.start ?? ""));
+  if (!Number.isFinite(startMs)) return { ok: false, error: "invalid_start" };
+  const endMs = Date.parse(String(e?.end ?? ""));
+  if (!Number.isFinite(endMs)) return { ok: false, error: "invalid_end" };
+  if (!(startMs < endMs)) return { ok: false, error: "end_before_start" };
+  if (endMs - startMs > MAX_DURATION_MS) return { ok: false, error: "duration_too_long" };
+  if (endMs > opts.now + FUTURE_SLACK_MS) return { ok: false, error: "entry_in_future" };
+
+  const description = String(e?.description ?? "").trim();
+  if (description.length > MAX_DESCRIPTION_LEN) return { ok: false, error: "description_too_long" };
+
+  let projectId: string | null = null;
+  if (e?.projectId != null && e.projectId !== "") {
+    const pid = String(e.projectId);
+    if (!opts.projects.some((p) => p.id === pid)) return { ok: false, error: "invalid_project" };
+    projectId = pid;
+  }
+
+  let tagIds: string[] = [];
+  if (Array.isArray(e?.tagIds) && e.tagIds.length) {
+    const known = new Set(opts.tags.map((t) => t.id));
+    tagIds = e.tagIds.map(String).slice(0, 50);
+    for (const id of tagIds) if (!known.has(id)) return { ok: false, error: "invalid_tag" };
+  }
+
+  return {
+    ok: true,
+    entry: {
+      start: new Date(startMs).toISOString(),
+      end: new Date(endMs).toISOString(),
+      description,
+      billable: !!e?.billable,
+      projectId,
+      tagIds,
+    },
+  };
+}
+
 /**
  * One finished entry. The client builds the payload (`entryPayload` in app/src/lib/clockify.ts,
- * covered by goldens) — the function only validates it, so the description format lives in one
- * place and is testable without the network.
+ * covered by goldens); `body` here has already passed `validateEntry` against the server's own
+ * tag/project lists, so this only shapes the Clockify request.
  */
-async function createEntry(key: string, ws: string, uid: string, e: any) {
-  const body: Record<string, unknown> = {
-    start: String(e.start),
-    end: String(e.end),
-    description: String(e.description || "").slice(0, 3000),
-    billable: !!e.billable,
+async function createEntry(key: string, ws: string, uid: string, body: Record<string, unknown>) {
+  const payload: Record<string, unknown> = {
+    start: body.start,
+    end: body.end,
+    description: body.description,
+    billable: body.billable,
   };
-  if (e.projectId) body.projectId = String(e.projectId);
-  if (Array.isArray(e.tagIds) && e.tagIds.length) body.tagIds = e.tagIds.map(String).slice(0, 50);
+  if (body.projectId) payload.projectId = body.projectId;
+  if (Array.isArray(body.tagIds) && body.tagIds.length) payload.tagIds = body.tagIds;
   const res = await clockify(key, `/workspaces/${ws}/user/${uid}/time-entries`, {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
-  return { id: String(res?.id || ""), description: body.description, projectId: body.projectId || null };
+  return { id: String(res?.id || ""), description: payload.description, projectId: payload.projectId || null };
 }
 
 Deno.serve(async (req) => {
@@ -172,9 +234,14 @@ Deno.serve(async (req) => {
 
     if (action === "entry") {
       const e = body.entry || {};
-      if (!e.start || !e.end) return json({ error: "entry.start and entry.end are required" }, 400, ORIGIN);
+      // Validate against the server's OWN, freshly-fetched tag/project lists (never the client's
+      // copy — see the review's Important #1: any string up to 50 tag ids and any projectId were
+      // previously forwarded to Clockify as-is).
+      const [tags, projects] = await Promise.all([fetchTags(KEY, WS, now), fetchProjects(KEY, WS)]);
+      const v = validateEntry(e, { tags, projects, person: body.person, now });
+      if (!v.ok) return json({ error: v.error }, 400, ORIGIN);
       const uid = await resolveUserId(KEY, ENV_UID);
-      return json({ entry: await createEntry(KEY, WS, uid, e) }, 200, ORIGIN);
+      return json({ entry: await createEntry(KEY, WS, uid, v.entry) }, 200, ORIGIN);
     }
 
     return json({ error: "unknown action (tags | projects | entry)" }, 400, ORIGIN);
