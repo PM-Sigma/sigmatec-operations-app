@@ -32,10 +32,23 @@
   // ===========================================================
   // INVENTORY MANAGEMENT
   // ===========================================================
-  const INV_LOCATIONS = ['עמיחי', 'אביאם', 'ניתאי', 'משרד'];
-  const STOCK_HOLDERS = ['עמיחי', 'אביאם', 'ניתאי']; // אנשים שמחזיקים מלאי אישי (משרד הוא ברירת מחדל ליתר)
-  const DEFECTIVE_LOCATION = 'תקול';                  // defective bucket — returns land here, not back in available stock
-  const NON_KIBBUTZ_LOCATIONS = INV_LOCATIONS.concat([DEFECTIVE_LOCATION]); // excluded from the "stock at kibbutzim" matrix
+  // 📦 מלאי אחוד (inventory spec §1, Task 8). There is ONE internal stock location — the
+  // company pool — and people are no longer locations: who did it lives on the movement's
+  // `created_by`, which is where it always belonged. The React half of these constants is
+  // app/src/lib/inventory.ts; test-inventory-pool.mjs holds both to the same goldens.
+  const POOL_LOCATION = 'חברה';
+  const RECOUNT_LOCATION = 'ספירה';      // the counterparty of a 🔢 ספירה מחדש (§4b)
+  const SUPPLIER_LOCATION = 'ספק';        // outside-in: a supplier delivery credits the pool
+  const INV_LOCATIONS = [POOL_LOCATION];
+  const DEFECTIVE_LOCATION = 'תקול';      // defective bucket — returns land here, not back in available stock
+  // The person-locations the ledger used until 2.00. NOT locations any more — kept only so
+  // (a) db/pool_migration.mjs knows whose balance to sweep and (b) the rows ALREADY on disk
+  // keep being excluded from the "stock at kibbutzim" matrix until עידן runs the migration.
+  const LEGACY_PERSON_LOCATIONS = ['עמיחי', 'אביאם', 'ניתאי', 'משרד'];
+  const STOCK_HOLDERS = [];               // nobody holds a personal bag any more (§1)
+  const NON_KIBBUTZ_LOCATIONS = INV_LOCATIONS
+    .concat([RECOUNT_LOCATION, SUPPLIER_LOCATION, DEFECTIVE_LOCATION])
+    .concat(LEGACY_PERSON_LOCATIONS);     // excluded from the "stock at kibbutzim" matrix
   const ORDER_STATUSES = {
     pending_approval: { label: '🟣 ממתינה לאישור',     color: '#7c3aed' },
     pending:    { label: '🔴 ממתין להזמנה',          color: '#dc2626' },

@@ -82,17 +82,17 @@
   }
 
   // Renders the products checklist DYNAMICALLY based on:
-  //   - selected visitor → source location (auto, see onVisitorChange)
-  //   - actual current stock at that source (computed from MOVEMENTS)
+  //   - the ONE company pool as the source (inventory spec §1 — no personal bags)
+  //   - actual current stock in it (computed from MOVEMENTS)
   //   - + items from the visit being edited (so edit flow shows what was already supplied)
   function renderProductsForVisitor() {
     const wrap = document.getElementById('visitProducts');
     if (!wrap) return;
     const visitor = document.getElementById('visitor')?.value || '';
-    const source = document.getElementById('visitSource')?.value || 'משרד';
+    const source = document.getElementById('visitSource')?.value || POOL_LOCATION;
 
     if (!visitor) {
-      wrap.innerHTML = '<div class="sig-pl-empty">בחר תחילה את המבקר כדי לראות את המלאי שלו</div>';
+      wrap.innerHTML = '<div class="sig-pl-empty">בחר תחילה את המבקר כדי לראות את מלאי החברה</div>';
       return;
     }
 
@@ -896,8 +896,9 @@
         // NEW visit  → post full supply (source → kibbutz).
         // EDIT visit → post only the DELTA vs the previous products, so stock
         //              always matches reality instead of silently diverging.
-        const sourceSelect = document.getElementById('visitSource');
-        const source = (sourceSelect && sourceSelect.value) || visitor;
+        // The supply leaves the ONE company pool (inventory spec §1). The visitor is still on
+        // the row — as `created_by`, which is where "who did it" belongs.
+        const source = POOL_LOCATION;
         const refId = res.id || window.editingVisitId || '';
         const movementPromises = [];
         const postMovement = (product, from, to, qty, reason) => {
@@ -928,14 +929,17 @@
         // available stock; otherwise defective → the 'תקול' bucket (stays out of available stock).
         // Only on a new visit: edits can't reliably diff returns (not loaded with the visit).
         if (!isEditing) {
-          const visitorLoc = (typeof STOCK_HOLDERS !== 'undefined' && STOCK_HOLDERS.indexOf(visitor) !== -1) ? visitor : 'משרד';
+          const visitorLoc = POOL_LOCATION;   // an intact return goes back into the pool (§1)
           (visit.returnedItems || []).forEach(r => {
             if (r.toStock) postMovement(r.name, currentKibbutz, visitorLoc, parseInt(r.qty) || 0, 'return_restock');
             else postMovement(r.name, currentKibbutz, DEFECTIVE_LOCATION, parseInt(r.qty) || 0, 'return_defective');
           });
         }
 
-        if (movementPromises.length) Promise.all(movementPromises).then(() => setTimeout(refreshData, 1500));
+        if (movementPromises.length) {
+          if (typeof sigmaEmit === 'function') sigmaEmit('stock-changed', { source: 'visit', kibbutz: currentKibbutz });
+          Promise.all(movementPromises).then(() => setTimeout(refreshData, 1500));
+        }
         else setTimeout(refreshData, 1500);
       }
     }).catch(e => {
@@ -1064,10 +1068,9 @@
       }
     } catch (e) {}
 
-    // Stock: the supply leaves the visitor's own stock when he holds one, the office otherwise —
-    // the same default `onVisitorChange` puts in the form's מלאי מקור picker.
-    const source = String(d.source || '') ||
-      ((typeof STOCK_HOLDERS !== 'undefined' && STOCK_HOLDERS.indexOf(visitor) !== -1) ? visitor : 'משרד');
+    // Stock: the supply leaves the ONE company pool — the same default `onVisitorChange` puts in
+    // the form's מלאי מקור picker (inventory spec §1).
+    const source = String(d.source || '') || POOL_LOCATION;
     const moves = products.map(p => fetch(SHEET_API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'movement', product: p.name, fromLocation: source, toLocation: kibbutz, quantity: p.qty, reason: 'visit_supply', refId: savedId, createdBy: visitor })

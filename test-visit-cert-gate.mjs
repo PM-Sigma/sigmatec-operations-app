@@ -44,7 +44,7 @@ function load() {
   const fn = new Function(
     'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
-    'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
+    'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
     'visitReturnedItems', 'renderReturnedItems',
     src + '\nreturn { saveVisit, visitDraftId };'
   );
@@ -52,7 +52,7 @@ function load() {
     window_, document_, localStorage_, fetch_, m => alerts.push(m), 'http://sheet.test',
     (btn, on) => btnStates.push(on),
     async () => certReturn, () => '', () => {}, () => {}, () => {},
-    'שדה אליהו', ['אביאם'], 'תקול', () => ({}), () => {}, () => {},
+    'שדה אליהו', ['אביאם'], 'תקול', 'חברה', () => ({}), () => {}, () => {},
     [], () => {}
   );
 }

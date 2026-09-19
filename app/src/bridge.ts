@@ -126,6 +126,14 @@ export interface Sigma {
   createTask(item: Record<string, unknown>): Promise<unknown>;
 
   openVisitQuick(kibbutz?: string): void;
+  // 📦 מלאי אחוד (inventory spec §1, §4b) — the ONE pool and the two flows a reported
+  // change routes into instead of writing a delta itself.
+  poolStock?(): Record<string, number>;
+  products?(): Array<{ name?: string; category?: string; active?: boolean }>;
+  orders?(): Array<Record<string, unknown>>;
+  openOrder?(id: string): void;
+  markOrderDelivered?(id: string): void;
+  refreshData?(): void;
   /**
    * Visit drafts (spec §5.1c). js/src/09-visits.js owns the draft — the form, the debounce
    * and both stores — so React only ever ASKS. Any argument may be omitted to widen the
@@ -328,6 +336,10 @@ export type SigmaEvent =
   // the event exists so a surface added later hears about the write without that island having
   // to learn who its readers are. test-integration.mjs holds the announce-only list — an event
   // that is neither consumed nor on that list fails the build, so the choice stays deliberate.
+  // 📦 a movement was written — a visit supplied from the pool, a supplier delivery landed in
+  // it, or a 🔢 recount corrected it (inventory spec §4b). Consumer: the legacy מלאי page, which
+  // re-renders the pool without waiting for the next data poll (docs/integration-map.md).
+  | 'stock-changed'
   | 'work-session-saved';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */

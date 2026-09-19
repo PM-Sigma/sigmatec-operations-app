@@ -29,7 +29,7 @@
      simply skips the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="modulepreload" href="ui/sigma.js?v=mu8aqw1g">
+<link rel="modulepreload" href="ui/sigma.js?v=mu8bzycu">
 <!-- critical:start — generated from css/critical.css by build.mjs; do NOT hand-edit. src-sha256:4da873b1ce4a6e0a -->
 <style>*{box-sizing:border-box;margin:0;padding:0}:root{--primary: #1b2a4a;--primary-hover: #25395f;--accent: #2f6fed;--accent-soft: #eef3fe;--success: #0e9f6e;--success-light: #e7f6f0;--warning: #c87f0a;--warning-light: #fdf4e3;--danger: #7c5cdb;--danger-light: #f2eefb;--priority: #d64545;--priority-light: #fcecec;--gray-light: #f1f4f8;--bg: #f4f6f9;--card: #ffffff;--text: #1f2937;--text-light: #5c6572;--border: #e3e8ef;--radius: 10px;--shadow-sm: 0 1px 2px rgba(16,24,40,.05);--shadow-md: 0 4px 12px rgba(16,24,40,.08);--brand-1: #06C2CB;--brand-2: #1ABE63;--brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));--surface-2: #eef2f7;--radius-lg: 14px;--font: "Assistant", "Segoe UI", system-ui, sans-serif;--on-brand: #ffffff}:root[data-theme=dark]{--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f;--shadow-sm: 0 1px 2px rgba(0,0,0,.5);--shadow-md: 0 4px 12px rgba(0,0,0,.55)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f}}body{font-family:var(--font);font-size:15px;background:var(--bg);color:var(--text);min-height:100vh;padding:12px 16px;line-height:1.5;-webkit-font-smoothing:antialiased}@media(min-width:768px){body{padding:24px}}.container{max-width:none;margin:0 auto}.header{background:var(--bg);color:var(--text);padding:10px 2px 8px;margin-bottom:8px;position:sticky;top:0;z-index:5;min-height:56px}.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:44px}.header h1{font-size:21px;font-weight:800;letter-spacing:-.01em}.header .subtitle{font-size:11px;font-weight:500;color:var(--text-light);margin-top:3px}.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.page-nav{display:flex;gap:8px;margin-bottom:16px;background:var(--card);padding:8px;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 3px #0000000a;min-height:60px}.page-nav button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--text-light);border:none;padding:10px 16px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;min-height:44px}.page-nav button.active{background:var(--primary);color:#fff}.page-nav .nav-icon{font-size:15px;line-height:1}.section{background:var(--card);border-radius:12px;margin-bottom:16px;border:1px solid var(--border);overflow:hidden}.section-header{padding:16px 24px;background:var(--gray-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3;min-height:60px}.section-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}.section-body{padding:16px 24px 24px}.kibbutz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start;grid-auto-flow:dense}.kibbutz{padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm);position:relative;cursor:pointer;border-right-width:3px;min-height:120px}#sigma-home{min-height:100vh}body.sigma-home-fallback #sigma-home{min-height:0}#sigma-nav:not(:empty){min-height:64px}.company-tasks{min-height:120px}#userBadge,#emsBubble{display:none}#sigma-header-actions{min-height:40px}.filter-bar{padding:0;margin:0;border:0;background:none;min-height:0}.filter-bar>.search-input,.filter-bar>.filter-chip{display:none}#grid-new,#grid-active{display:none}:root[data-gate=pick] #loginModal{display:flex}</style>
 <!-- critical:end -->
@@ -40,11 +40,11 @@
      the inlined critical block above stays because it is what paints if either 404s. -->
 <!-- css/app.min.css is GENERATED from css/app.css by build.mjs (26 kB → 14 kB gzipped on a
      render-blocking request); css/app.css stays the hand-written source of truth. -->
-<link rel="stylesheet" href="css/app.min.css?v=mu8aqw1g">
+<link rel="stylesheet" href="css/app.min.css?v=mu8bzycu">
 <!-- ui/sigma.css loads at NORMAL priority. It was tried as a `media="print"` swap: 8 kB
      gzipped off the critical path, against the risk of an island painting unstyled if the
      swap lands after it mounts. Not a trade worth making for 8 kB. -->
-<link rel="stylesheet" href="ui/sigma.css?v=mu8aqw1g">
+<link rel="stylesheet" href="ui/sigma.css?v=mu8bzycu">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -329,7 +329,7 @@
 
   <div class="footer">
     Sigmatec EMS · Kibbutz Onboarding Dashboard · 💬 לחץ על כרטיס קיבוץ לשליחת הערה
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-19·2.00</bdi></span>
+    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-19·2.03</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -337,7 +337,7 @@
   <div id="inventory-view" style="display:none;">
     <div class="inv-tabs">
       <button class="inv-tab-btn active" data-inv-tab="orders" onclick="invShowTab('orders')">🧾 הזמנות</button>
-      <button class="inv-tab-btn" data-inv-tab="stock" onclick="invShowTab('stock')">📍 מלאי לפי מיקום</button>
+      <button class="inv-tab-btn" data-inv-tab="stock" onclick="invShowTab('stock')">🏢 מלאי החברה</button>
       <button class="inv-tab-btn" data-inv-tab="kibbutz" onclick="invShowTab('kibbutz')">🏘 מלאי בקיבוצים</button>
       <button class="inv-tab-btn" data-inv-tab="returns" onclick="invShowTab('returns')">🔧 החזרות</button>
       <button class="inv-tab-btn" data-inv-tab="products" onclick="invShowTab('products')">📋 פריטים</button>
@@ -408,35 +408,12 @@
     </div>
 
     <div class="inv-section" id="inv-section-stock">
-      <div class="inv-card" id="invTransferCard" style="background:#eff6ff;border:1px solid #bfdbfe;">
-        <h3 style="font-size:14px;">🔄 העברת מלאי מהירה</h3>
-        <div class="transfer-row">
-          <div><label>מ:</label><select id="transferFrom" onchange="renderTransferProducts()"></select></div>
-          <div><label>אל:</label><select id="transferTo"></select></div>
-          <div><label>פריט:</label><select id="transferProduct" onchange="renderTransferMax()"></select></div>
-          <div><label>כמות:</label><input type="number" id="transferQty" min="1" placeholder="כמות"></div>
-          <div><label>&nbsp;</label><button class="inv-btn success" onclick="doStockTransfer(this)">✅ בצע</button></div>
-        </div>
-        <div id="transferHint" style="font-size:11px;color:#64748b;margin-top:6px;"></div>
-      </div>
-
-      <div class="inv-card" id="invAdjustCard" style="display:none;background:#fef9c3;border:1px solid #fde047;">
-        <h3 style="font-size:14px;">🛠️ הוספה/הפחתה עצמאית של מלאי <span style="font-weight:400;font-size:11px;color:#78716c;">(עידן בלבד)</span></h3>
-        <div class="transfer-row">
-          <div><label>מיקום:</label><select id="adjustLocation" onchange="renderAdjustHint()"></select></div>
-          <div><label>פריט:</label><select id="adjustProduct" onchange="renderAdjustHint()"></select></div>
-          <div><label>פעולה:</label><select id="adjustDirection" onchange="renderAdjustHint()">
-            <option value="add">➕ הוספה</option>
-            <option value="remove">➖ הפחתה</option>
-          </select></div>
-          <div><label>כמות:</label><input type="number" id="adjustQty" min="1" placeholder="כמות"></div>
-          <div><label>&nbsp;</label><button class="inv-btn success" onclick="doStockAdjust(this)">✅ בצע</button></div>
-        </div>
-        <div id="adjustHint" style="font-size:11px;color:#64748b;margin-top:6px;"></div>
-      </div>
-
+      <!-- 🔄 העברת מלאי + 🛠️ הוספה/הפחתה were REMOVED here (inventory spec §1, §4b):
+           there are no person-locations left to transfer between, and a stock change must be
+           linked to a visit, an order or an auditable recount. Both are replaced by the
+           🔢 דווח שינוי button the pool view renders, which opens #sigma-stock-change. -->
       <div class="inv-card">
-        <h3>📍 מלאי לפי מיקום
+        <h3>🏢 מלאי החברה
           <button class="inv-btn small" onclick="invExportStock()">📊 ייצוא</button>
           <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportStockXlsx()">📗 Excel</button>
         </h3>
@@ -739,10 +716,7 @@
       <div id="visitFieldForm" class="sig-frm">
         <label class="sig-fl" for="visitSource">מלאי מקור <span class="hint">· מהיכן נלקחו המוצרים</span></label>
         <select id="visitSource" onchange="renderProductsForVisitor()">
-          <option value="משרד">משרד</option>
-          <option value="עמיחי">עמיחי</option>
-          <option value="אביאם">אביאם</option>
-          <option value="ניתאי">ניתאי</option>
+          <option value="חברה">חברה</option>
         </select>
 
         <label class="sig-fl">משך הביקור <span class="hint">· שעות או יום שלם</span> <span style="color:var(--priority);">*</span></label>
@@ -1038,10 +1012,8 @@
     </div>
     <div id="invOrderNewStatusNote" style="display:none;background:#f3e8ff;border-right:3px solid #7c3aed;border-radius:6px;padding:8px 10px;font-size:12px;color:#5b21b6;font-weight:600;">📊 הזמנה חדשה נפתחת כ"🟣 ממתינה לאישור". עדכון סטטוס לאחר אישור — בעריכה או בכפתורי הפעולה.</div>
 
-    <div id="invDistributionWrap" style="display:none;background:#ecfdf5;border-right:3px solid #10b981;padding:10px 12px;border-radius:6px;margin-top:14px;">
-      <div style="font-weight:700;color:#065f46;margin-bottom:8px;">🎯 חלוקת המלאי — לאן הלך כל פריט:</div>
-      <div id="invDistributionList"></div>
-    </div>
+    <!-- 🎯 חלוקת המלאי removed (inventory spec §4): a supplier delivery is one line and it
+         lands in the company pool. `orders.distribution` is kept as a column for old rows. -->
 
     <label for="invOrderCreatedBy">👤 נוצר ע"י:</label>
     <select id="invOrderCreatedBy">
@@ -1242,6 +1214,7 @@
 <div id="sigma-gaps"></div>
 <!-- 📝 יומן היום (Task 16, spec §7i) — the day-log sheet, opened from ⋯ עוד -->
 <div id="sigma-daylog"></div>
+<div id="sigma-stock-change"></div>
 <!-- ▶ מצב ישיבה (Task 24) — a full-screen overlay; the island renders nothing until it is opened. -->
 <div id="sigma-presenter"></div>
 <!-- ▶ ישיבת פיתוח (Task 30) — the dev board's own meeting screen and its 📋 prep card. Same
@@ -1263,7 +1236,7 @@
 <div id="sigma-refresh"></div>
 <div id="sigma-toaster"></div>
 <div id="sigma-nav"></div>
-<script defer src="js/app.js?v=mu8aqw1g"></script>
+<script defer src="js/app.js?v=mu8bzycu"></script>
 <script>
 // The islands are FETCHED early (rel=modulepreload in <head>) but EXECUTED after the first
 // paint (task 22b). As a plain deferred module they ran in the same turn as the legacy bundle,
@@ -1275,7 +1248,7 @@
   function go() {
     var s = document.createElement('script');
     s.type = 'module';
-    s.src = 'ui/sigma.js?v=mu8aqw1g';
+    s.src = 'ui/sigma.js?v=mu8bzycu';
     document.body.appendChild(s);
   }
   function afterPaint() {

@@ -112,6 +112,14 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
    * attendee and two tags, and then asserts the row that was written.
    */
   const workSessions: Array<Record<string, unknown>> = [];
+  /**
+   * 📦 movements + stock_recounts (Task 8) — two more real stores. 🔢 דווח שינוי במלאי is
+   * only meaningful if what it writes COMES BACK: the spec reports a recount and then asserts
+   * the `stock_recounts` row and its `חברה → ספירה` movement exist, with the counted
+   * quantity and the note on them.
+   */
+  const movements: Array<Record<string, unknown>> = [];
+  const stockRecounts: Array<Record<string, unknown>> = [];
   const siteContacts: Array<Record<string, unknown>> = [
     { id: 'sc-1', kibbutz: 'חוקוק', name: 'גפן', role: 'manager', active: true },
     { id: 'sc-2', kibbutz: 'חוקוק', name: 'רבקה', role: 'billing', active: true },
@@ -301,6 +309,16 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         if (hit) Object.assign(hit, body);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
+      // 📦 movements / stock_recounts (Task 8) — the 🔢 recount writes both, in that order.
+      if ((tableOf(url) === 'movements' || tableOf(url) === 'stock_recounts') && method === 'POST') {
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const store = tableOf(url) === 'movements' ? movements : stockRecounts;
+        const rows = (Array.isArray(body) ? body : [body])
+          .map((r, i) => ({ id: tableOf(url) + '-' + (store.length + i + 1), created_at: new Date().toISOString(), ...r }));
+        store.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
       // work_sessions / site_contacts (Task 29) accept their inserts and remember them.
       if (tableOf(url) === 'work_sessions' && method === 'POST') {
         let body: any = {};
@@ -395,6 +413,8 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       // one — what the spec asserts there is the sheet, not a round trip.
       case 'calendar_absences': return route.fulfill(json(shape([], accept)));
       case 'work_sessions': return route.fulfill(json(shape(workSessions, accept)));
+      case 'movements': return route.fulfill(json(shape(movements, accept)));
+      case 'stock_recounts': return route.fulfill(json(shape(stockRecounts, accept)));
       case 'site_contacts': {
         const q = new URL(url).searchParams;
         const k = decodeURIComponent((q.get('kibbutz') || '').replace(/^eq\./, ''));

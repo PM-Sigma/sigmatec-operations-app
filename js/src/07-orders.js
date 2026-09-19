@@ -458,7 +458,8 @@
       case 'in_transit': return { next: 'at_port',    label: '🟡 בנמל',   bg: '#fef3c7', fg: '#92400e' };
       case 'at_port':    return { next: 'arrived',    label: '📦 התקבל',  bg: '#fce7f3', fg: '#9d174d' };
       case 'stuck':      return { next: 'arrived',    label: '📦 התקבל',  bg: '#fce7f3', fg: '#9d174d' };
-      case 'arrived':    return { next: 'distribute',label: '🎯 חלק',   bg: '#d1fae5', fg: '#065f46' };
+      // 📦→🏢 the distribution step is gone (inventory spec §4): a delivery lands in the ONE pool.
+      case 'arrived':    return { next: 'delivered',  label: '🏢 נכנס למלאי', bg: '#d1fae5', fg: '#065f46' };
       default:           return null; // delivered → no quick action
     }
   }
@@ -533,7 +534,7 @@
       return;
     }
     // עידן can hand the responsibility at creation → the EMS task is assigned to them and the stock
-    // leaves THEIR bag (they're the one physically supplying). Default: the approver, as before.
+    // leaves the ONE pool (inventory spec §4), never a personal bag. Default: the approver, as before.
     var responsible = o.assignee || me;
     var items = (o.items || []).filter(function (i) { return i.name && (parseInt(i.qty) || 0) > 0; });
     if (!items.length) { alert('אין פריטים בהזמנה.'); return; }
@@ -545,17 +546,17 @@
       alert('⚠️ לקיבוץ "' + kibbutz + '" אין אתר EMS מקושר — קשר או צור את האתר ב-EMS לפני אישור ההזמנה.');
       return;
     }
-    if (!confirm('לאשר אספקת לקוח?\nירד מהמלאי של ' + responsible + ' → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS' + (o.assignee ? ' באחריות ' + o.assignee : '') + '.')) return;
+    if (!confirm('לאשר אספקת לקוח?\nירד ממלאי החברה → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS' + (o.assignee ? ' באחריות ' + o.assignee : '') + '.')) return;
     setBtnLoading(btn, true);
     try {
-      // 1) stock: responsible → kibbutz (deduct from his bag, credit the kibbutz).
+      // 1) stock: חברה → kibbutz (deduct the ONE pool, credit the kibbutz) — inventory spec §4.
       // Idempotency: if a previous attempt posted the movements but failed before step 3, a re-click
       // must NOT deduct twice. ponytail: checked against SHEET_DATA (refreshes ≤15s) — a same-second
       // double-click is still covered by the disabled button; server-side unique refId if it ever bites.
       var alreadyMoved = (window.SHEET_DATA && window.SHEET_DATA.movements || []).some(function (m) { return m.refId === o.id && m.reason === 'customer_supply'; });
       if (!alreadyMoved) await Promise.all(items.map(function (it) {
         return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: responsible, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
+          body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: POOL_LOCATION, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
       }));
       // 2) EMS "אספקת ציוד" task — live if connected, else queued for the next connect (field staff rarely connect)
       var desc = 'אספקת ציוד ל' + kibbutz + ' — אושר ע"י ' + me + (o.assignee ? ' · אחראי: ' + o.assignee : '') + '\n' + items.map(function (i) { return '• ' + i.name + ' ×' + i.qty; }).join('\n');
@@ -656,17 +657,6 @@
 
   async function quickOrderStatus(orderId, newStatus, btn) {
     if (!checkEditPermission()) return;
-    // Special: 'distribute' opens the edit modal and jumps to distribution section
-    if (newStatus === 'distribute') {
-      invEditOrder(orderId);
-      setTimeout(() => {
-        const wrap = document.getElementById('invDistributionWrap');
-        if (wrap && wrap.style.display !== 'none') {
-          wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 200);
-      return;
-    }
     setBtnLoading(btn, true);
     try {
       const res = await fetch(SHEET_API, {
@@ -767,7 +757,7 @@
     var aw = document.getElementById('invOrderAssigneeWrap'); if (aw) aw.style.display = (isCust && typeof getCurrentUser === 'function' && ['עידן', 'עמיחי'].indexOf(getCurrentUser()) !== -1) ? '' : 'none';
     var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
     // customer orders never enter the supplier pipeline — hide those statuses in the edit picker
-    // (otherwise setting 'delivered'+distribution would post INBOUND stock for goods that left)
+    // (otherwise setting 'delivered' would post INBOUND pool stock for goods that left)
     var st = document.getElementById('invOrderStatus');
     if (st) {
       var suppOnly = { pending: 1, in_transit: 1, stuck: 1, at_port: 1, arrived: 1, delivered: 1 };
@@ -791,11 +781,8 @@
     if (!checkEditPermission()) return;
     window.invEditingOrderId = null;
     invOrderItems = [];
-    window.invDistribution = {};
-    window.invDistributionTouched = false;
     window.invOrigOrderStatus = null;
     window.invImportedReqIds = [];
-    window.invOrigDistribution = {};
     document.getElementById('invOrderTitle').textContent = '🧾 הזמנה חדשה';
     document.getElementById('invOrderSupplier').value = '';
     document.getElementById('invOrderDate').value = todayYmd();
@@ -832,11 +819,6 @@
     // 'arrived' is shown as 'delivered' in the dropdown (it's a derived sub-state)
     document.getElementById('invOrderStatus').value = (o.status === 'arrived') ? 'delivered' : (o.status || 'pending');
     document.getElementById('invOrderCreatedBy').value = o.createdBy || '';
-    window.invDistribution = o.distribution || {};
-    // Snapshot the saved distribution so we can post only the correction delta on re-save
-    window.invOrigDistribution = JSON.parse(JSON.stringify(o.distribution || {}));
-    // If order was already 'delivered' (green) — distribution was confirmed before; otherwise reset touched
-    window.invDistributionTouched = (o.status === 'delivered');
     // Remember original status — prevents duplicate movements when re-saving an already-delivered order
     window.invOrigOrderStatus = o.status || 'pending';
     // Editing: the status picker is available; the raw-requirement box + new-order note are hidden.
@@ -901,9 +883,10 @@
     return ((document.getElementById('invOrderCreatedBy') || {}).value || '').trim()
       || (typeof getCurrentUser === 'function' ? (getCurrentUser() || '') : '');
   }
-  // The updater's current stock as { productName: qty } (their own bag/location from movements).
+  // The stock hint on an order item: the COMPANY POOL (inventory spec §4), not a personal bag —
+  // there is no such thing any more. The name stays; every caller means "what do we have".
   function updaterStockMap() {
-    try { return (typeof computeStock === 'function' ? (computeStock()[orderUpdater()] || {}) : {}); }
+    try { return (typeof poolStockMap === 'function' ? poolStockMap() : {}); }
     catch (e) { return {}; }
   }
   // Badge showing which engine parsed the text: Gemini (spark) / Groq / Offline. src = window._lastParseSource.
@@ -1103,7 +1086,7 @@
   function onVisitorChange(visitor) {
     const src = document.getElementById('visitSource');
     if (!src) return;
-    src.value = STOCK_HOLDERS.includes(visitor) ? visitor : 'משרד';
+    src.value = POOL_LOCATION;   // one pool, one source (inventory spec §1)
     if (typeof renderProductsForVisitor === 'function') renderProductsForVisitor();
     // Aviam: show day type selector; reset to field day
     const sel = document.getElementById('aviamDayTypeSelector');
@@ -1119,86 +1102,14 @@
     }
   }
 
-  // Ensures distribution defaults to {משרד: totalQty} for each item if not set yet
-  function ensureDistributionDefaults() {
-    if (!window.invDistribution) window.invDistribution = {};
-    invOrderItems.forEach(it => {
-      if (!window.invDistribution[it.name]) {
-        window.invDistribution[it.name] = { 'משרד': it.qty };
-      } else {
-        // Always recompute משרד = total - sum(others) (in case items qty changed)
-        const others = INV_LOCATIONS.filter(l => l !== 'משרד')
-          .reduce((s, l) => s + (parseInt(window.invDistribution[it.name][l]) || 0), 0);
-        window.invDistribution[it.name]['משרד'] = it.qty - others;
-      }
-    });
-  }
-
-  // Called when user changes a non-משרד location qty. Validates and rebalances משרד.
-  function invDistChange(itemName, location, rawValue) {
-    const it = invOrderItems.find(i => i.name === itemName);
-    if (!it) return;
-    let v = parseInt(rawValue) || 0;
-    if (v < 0) v = 0;
-    if (v > it.qty) v = it.qty;
-    if (!window.invDistribution[itemName]) window.invDistribution[itemName] = {};
-    window.invDistribution[itemName][location] = v;
-    window.invDistributionTouched = true;
-    // Recompute משרד
-    const others = INV_LOCATIONS.filter(l => l !== 'משרד')
-      .reduce((s, l) => s + (parseInt(window.invDistribution[itemName][l]) || 0), 0);
-    const msrad = it.qty - others;
-    if (msrad < 0) {
-      // Block: revert this change. Should not happen due to max clamp, but defensive.
-      alert(`לא ניתן להקצות יותר מהכמות הכוללת (${it.qty}). נסה להקטין מיקומים אחרים קודם.`);
-      window.invDistribution[itemName][location] = Math.max(0, v - (-msrad));
-    }
-    window.invDistribution[itemName]['משרד'] = it.qty - INV_LOCATIONS.filter(l => l !== 'משרד')
-      .reduce((s, l) => s + (parseInt(window.invDistribution[itemName][l]) || 0), 0);
-    invToggleDistribution();
-  }
-
+  // The per-person חלוקה step is RETIRED (inventory spec §4): a supplier delivery is one
+  // line — the quantity received — and it lands in the pool, so there is nothing to divide and
+  // nobody to divide it between. The function name stays because a dozen call sites toggle it
+  // after every item edit; it now only guarantees the old block can never appear again.
+  // `orders.distribution` is kept as a COLUMN for the rows already written (spec §4).
   function invToggleDistribution() {
-    const status = document.getElementById('invOrderStatus').value;
     const wrap = document.getElementById('invDistributionWrap');
-    if (status !== 'delivered' || invOrderItems.length === 0 || window._invOrderType === 'customer') {
-      wrap.style.display = 'none';
-      return;
-    }
-    wrap.style.display = 'block';
-    ensureDistributionDefaults();
-    const dist = window.invDistribution;
-    const list = document.getElementById('invDistributionList');
-    list.innerHTML = invOrderItems.map(it => {
-      const itemDist = dist[it.name] || {};
-      const others = INV_LOCATIONS.filter(l => l !== 'משרד');
-      const usedByOthers = others.reduce((s, l) => s + (parseInt(itemDist[l]) || 0), 0);
-      const msradQty = it.qty - usedByOthers;
-      const rows = INV_LOCATIONS.map(loc => {
-        if (loc === 'משרד') {
-          return `
-          <div style="display:flex;gap:6px;align-items:center;margin:3px 0;background:#fef3c7;padding:3px 6px;border-radius:4px;">
-            <span style="flex:1;font-size:12px;font-weight:700;">🏢 משרד:</span>
-            <span style="width:60px;text-align:center;font-weight:700;color:${msradQty === 0 ? '#10b981' : '#0f172a'};">${msradQty}</span>
-          </div>`;
-        }
-        const v = parseInt(itemDist[loc]) || 0;
-        const max = it.qty - (usedByOthers - v); // can fill up to remaining + own current
-        return `
-          <div style="display:flex;gap:6px;align-items:center;margin:3px 0;">
-            <span style="flex:1;font-size:12px;">${loc}:</span>
-            <input type="number" min="0" max="${max}" value="${v}"
-              oninput="invDistChange('${it.name.replace(/'/g, "\\'")}', '${loc}', this.value)"
-              style="width:60px;padding:3px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
-          </div>`;
-      }).join('');
-      return `<div style="background:var(--card);padding:8px 10px;border-radius:6px;margin-bottom:6px;">
-        <div style="font-weight:700;font-size:12px;margin-bottom:4px;">
-          ${it.name} (סה"כ: ${it.qty})
-        </div>
-        ${rows}
-      </div>`;
-    }).join('');
+    if (wrap) wrap.style.display = 'none';
   }
 
   async function invSaveOrder(btn) {
@@ -1234,12 +1145,6 @@
     let status = document.getElementById('invOrderStatus').value;
     if (!window.invEditingOrderId) {
       status = 'pending_approval';   // ponytail: new orders are ALWAYS hardcoded to await approval
-    } else if (status === 'delivered' && !window.invDistributionTouched) {
-      // "סופקה" chosen but distribution never set → no stock movements would post. Confirm instead of
-      // SILENTLY downgrading to 'arrived', so the user knows the stock won't update (and can cancel to
-      // set the distribution first).
-      if (!confirm('סימנת "סופקה" אך לא הגדרת חלוקה — המלאי לא יתעדכן.\nלשמור כ"התקבל" (ללא עדכון מלאי)?\nבטל כדי להגדיר חלוקה ואז לשמור.')) { setBtnLoading(btn, false); return; }
-      status = 'arrived';   // saved as 'arrived' (pink) — no movements yet
     }
     let notes = document.getElementById('invOrderNotes').value.trim();
     const rawReq = (document.getElementById('invOrderRaw')?.value || '').trim();
@@ -1262,7 +1167,6 @@
     // db/orders_schedule_fields.sql adds the `assignee` column (setting one before that errors loudly).
     var _asgVal = (document.getElementById('invOrderAssignee') || {}).value || '';
     if (otype === 'customer' && _asgVal) body.assignee = _asgVal;
-    if (status === 'delivered' && window.invDistribution) body.distribution = window.invDistribution;
 
     try {
       const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
@@ -1283,51 +1187,28 @@
         } catch (e) { /* non-blocking */ }
       }
 
-      // If delivered (green), create movement events. 'arrived' (pink) does NOT create movements.
-      // Skip if the order was ALREADY delivered before this edit — movements exist, don't duplicate.
-      if (status === 'delivered' && body.distribution && window.invOrigOrderStatus !== 'delivered') {
-        const movementPromises = [];
-        Object.entries(body.distribution).forEach(([productName, locs]) => {
-          Object.entries(locs).forEach(([loc, qty]) => {
-            if (productName && qty > 0) {   // skip empty/blank product names → no orphan movement rows
-              movementPromises.push(fetch(SHEET_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                  type: 'movement',
-                  product: productName,
-                  fromLocation: '', // from external (supplier)
-                  toLocation: loc,
-                  quantity: qty,
-                  reason: 'order_delivered',
-                  refId: res.id,
-                  createdBy: createdBy
-                })
-              }));
-            }
-          });
-        });
-        await Promise.all(movementPromises);
-      }
-      // Editing an ALREADY-delivered order → post only the correction delta vs the
-      // previously-saved distribution, so stock stays accurate instead of diverging silently.
-      else if (status === 'delivered' && body.distribution && window.invOrigOrderStatus === 'delivered') {
-        const oldD = window.invOrigDistribution || {};
-        const newD = body.distribution;
-        const corrections = [];
-        new Set([...Object.keys(oldD), ...Object.keys(newD)]).forEach(prod => {
-          const locs = new Set([...Object.keys(oldD[prod] || {}), ...Object.keys(newD[prod] || {})]);
-          locs.forEach(loc => {
-            const delta = (parseInt(newD[prod]?.[loc]) || 0) - (parseInt(oldD[prod]?.[loc]) || 0);
-            if (delta > 0)      corrections.push({ product: prod, fromLocation: '',  toLocation: loc, quantity: delta });
-            else if (delta < 0) corrections.push({ product: prod, fromLocation: loc, toLocation: '',  quantity: -delta });
-          });
-        });
-        await Promise.all(corrections.map(c => fetch(SHEET_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(Object.assign({ type: 'movement', reason: 'order_correction', refId: res.id || window.invEditingOrderId, createdBy }, c))
-        }).catch(e => console.warn('Correction movement failed:', e))));
+      // ----- Stock: the delivery lands in the pool (inventory spec §4) -----
+      // ONE line per item, `ספק → חברה`, quantity = what was received. 'arrived' (pink) still
+      // creates nothing. Skipped when the order was ALREADY delivered before this edit — the
+      // rows exist, and `ref_id` + `reason` is the idempotency key the rest of the app relies on
+      // (which is also why the per-location correction delta is gone with the distribution).
+      if (status === 'delivered' && window.invOrigOrderStatus !== 'delivered') {
+        const _refId = res.id || window.invEditingOrderId || '';
+        const _already = (window.SHEET_DATA && window.SHEET_DATA.movements || [])
+          .some(function (m) { return m.refId === _refId && m.reason === 'order_delivery'; });
+        if (!_already) await Promise.all(invOrderItems
+          .filter(it => it.name && (parseInt(it.qty) || 0) > 0)
+          .map(it => fetch(SHEET_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              type: 'movement', product: it.name,
+              fromLocation: SUPPLIER_LOCATION, toLocation: POOL_LOCATION,
+              quantity: parseInt(it.qty) || 0, reason: 'order_delivery',
+              refId: _refId, createdBy: createdBy,
+            }),
+          }).catch(e => console.warn('Movement failed:', e))));
+        if (typeof sigmaEmit === 'function') sigmaEmit('stock-changed', { source: 'order', orderId: _refId });
       }
 
       // ----- Requirement ↔ order linkage (closes the customer-request chain) -----

@@ -55,14 +55,23 @@ console.log('\n[2] every legacy primary action is instrumented, and guarded');
     ['07-orders.js', "sigmaTrack('order-approved'"],
     ['20-delivery-cert.js', "sigmaTrack('cert-issued'"],
     ['14-calendar.js', "'ems-task-scheduled' : 'ems-task-created'"],
-    ['08-inventory.js', "sigmaTrack('stock-report'"],
+    // 📦 the stock report moved out of the legacy page in Task 8: the free הוספה/הפחתה card
+    // is gone and every change now goes through the 🔢 sheet (app/src/islands/StockChange.tsx),
+    // which calls the SAME action name through track().
+  ];
+  const wantsReact = [
+    ['islands/StockChange.tsx', "track('stock-report'"],
   ];
   for (const [file, needle] of wants) {
     const src = read('./js/src/' + file);
     check(`${file} calls ${needle.slice(0, 34)}…`, src.includes(needle));
   }
+  for (const [file, needle] of wantsReact) {
+    const src = read('./app/src/' + file);
+    check(`${file} calls ${needle.slice(0, 34)}…`, src.includes(needle));
+  }
   // A missing bridge (an old cached js/app.js, a legacy-only page) must never throw.
-  for (const file of ['09-visits.js', '07-orders.js', '20-delivery-cert.js', '14-calendar.js', '08-inventory.js']) {
+  for (const file of ['09-visits.js', '07-orders.js', '20-delivery-cert.js', '14-calendar.js']) {
     const src = read('./js/src/' + file).split('\n');
     let seen = 0;
     src.forEach((line, i) => {

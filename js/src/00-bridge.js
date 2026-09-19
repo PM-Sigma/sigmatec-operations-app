@@ -319,6 +319,21 @@
       },
       getLastVisit: function (kibbutz) { return call('getLastVisit', [kibbutz], null); },
 
+      // ---- 📦 מלאי אחוד (inventory spec §1, §4b) ---------------------------------
+      // The ONE pool, as `{product: qty}` — the same map js/src/08-inventory.js renders. The
+      // React sheet asks for it on every open rather than keeping a copy, because the legacy
+      // snapshot refreshes on its own every few seconds.
+      poolStock: function () { return call('poolStockMap', [], {}); },
+      // The catalog rows (name + category + active), for the product picker in 🔢 דווח שינוי.
+      products: function () { return call('getActiveProducts', [], []) || []; },
+      // The supplier orders a 🧾 עלייה can be booked against, and the two flows the sheet
+      // routes INTO instead of writing itself (§4b): the order modal and the delivery status.
+      orders: function () { try { return (window.SHEET_DATA && window.SHEET_DATA.orders) || []; } catch (e) { return []; } },
+      openOrder: function (id) { return call('invEditOrder', [id]); },
+      markOrderDelivered: function (id) { return call('quickOrderStatus', [id, 'delivered', null]); },
+      // Re-read the shared snapshot after a write, so the pool number is right immediately.
+      refreshData: function () { return call('refreshData'); },
+
       // 📝 יומן היום (spec §7i) — one confirmed card → one visit record, without the form.
       // The legacy `saveVisitFromData` (js/src/09-visits.js) is the form's own save path with
       // the values handed in, so the delivery-cert gate, the stock movement and the

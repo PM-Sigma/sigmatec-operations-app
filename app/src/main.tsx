@@ -169,6 +169,14 @@ function boot() {
       .then(m => m.mountFeedback())
       .catch(e => console.warn('[sigma] feedback island failed', e));
   }
+  // 🔢 דיווח שינוי במלאי (inventory spec §4b): NOT deferred, like the feedback sheet and for
+  // the same reason — the 📦 מלאי page renders a legacy button that dispatches the raw open
+  // event, so the island has to be listening before the first tap. Its chunk is a few kB.
+  if (document.getElementById('sigma-stock-change')) {
+    import('@/islands/StockChange')
+      .then(m => m.mountStockChange())
+      .catch(e => console.warn('[sigma] stock-change island failed', e));
+  }
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())

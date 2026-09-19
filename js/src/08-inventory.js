@@ -18,6 +18,16 @@
     return stock;
   }
 
+  // The ONE pool (inventory spec §1): `{product: qty}` at `חברה`. Mirrors
+  // app/src/lib/inventory.ts `poolStock` — test-inventory-pool.mjs holds them to one golden.
+  // Zero nets are dropped: a catalog rename is not "0 in stock", it is nothing at all.
+  function poolStockMap() {
+    const at = computeStock()[POOL_LOCATION] || {};
+    const out = {};
+    Object.keys(at).forEach(p => { if (at[p] !== 0) out[p] = at[p]; });
+    return out;
+  }
+
   // ===== Low-stock "red line" =====
   // Meters: company-wide total PER TYPE (matched by substring so two name spellings of the
   // same meter — e.g. "מונה Landis+Gyr E360PP" / legacy "מונה 360PP" — collapse into ONE bucket).
@@ -30,14 +40,13 @@
     { label: 'מונה E570',   match: 'E570',  min: 10 },
     { label: 'מונה PM135',  match: 'PM135',  min: 5  },
   ];
-  const SIM_HOLDERS = [ { person: 'אביאם', min: 15 }, { person: 'ניתאי', min: 10 } ];
+  // SIMs used to be checked per holder, against that person's own bag. There are no bags any
+  // more (§1), so one company-wide red line per SIM type, like the meters.
+  const SIM_MIN = 15;
 
   function lowStockReport() {
-    const stock = computeStock();
-    const companyTotal = {};
-    Object.values(stock).forEach(locObj => Object.entries(locObj).forEach(([p, q]) => {
-      companyTotal[p] = (companyTotal[p] || 0) + q;
-    }));
+    // Company-wide means THE POOL now — what a kibbutz already holds is not our shortage.
+    const companyTotal = poolStockMap();
     // Meters — company-wide, bucketed by rule.match (dedups name variants)
     const meters = METER_RULES.map(rule => {
       let total = 0, found = false;
@@ -46,12 +55,10 @@
       });
       return { label: rule.label, match: rule.match, total, min: rule.min, found };
     }).filter(m => m.found && m.total < m.min);
-    // SIMs — per holder, their own location stock; each SIM type checked separately
+    // SIMs — one line per type, against the pool.
     const sims = [];
-    SIM_HOLDERS.forEach(h => {
-      Object.entries(stock[h.person] || {}).forEach(([p, q]) => {
-        if (p.indexOf('סים') === 0 && q < h.min) sims.push({ person: h.person, type: p, qty: q, min: h.min });
-      });
+    Object.entries(companyTotal).forEach(([p, q]) => {
+      if (p.indexOf('סים') === 0 && q < SIM_MIN) sims.push({ person: POOL_LOCATION, type: p, qty: q, min: SIM_MIN });
     });
     return { meters, sims };
   }
@@ -77,17 +84,13 @@
       });
     }
 
-    // (2) main-page banner — אביאם/עמיחי see meters; SIMs are per-person (אביאם, as manager,
-    //     also sees ניתאי's — named, since the stock may be in אביאם's bag).
+    // (2) main-page banner — אביאם/עמיחי, the two who order. Both lines are about the pool
+    //     now, so there is no "אצל מי" left to name (§1).
     const lines = [];
     if (me === 'אביאם' || me === 'עמיחי') {
       meters.forEach(m => lines.push(`${m.label}: נותרו ${m.total} (קו אדום ${m.min})`));
+      sims.forEach(s => lines.push(`${s.type}: נותרו ${s.qty} (קו אדום ${s.min})`));
     }
-    sims.forEach(s => {
-      if (s.person === me || me === 'אביאם') {
-        lines.push(`${s.type} אצל ${s.person}: נותרו ${s.qty} (קו אדום ${s.min})`);
-      }
-    });
 
     const view = document.getElementById('kibbutz-view');
     let banner = document.getElementById('lowStockBanner');
@@ -103,171 +106,37 @@
       ' <button onclick="document.getElementById(\'lowStockBanner\').remove()" style="float:left;background:none;border:none;font-size:16px;cursor:pointer;color:#991b1b;">✕</button>';
   }
 
-  // ===== Stock transfer between locations =====
-  function populateTransferDropdowns() {
-    const stock = computeStock();
-    const from = document.getElementById('transferFrom');
-    const to   = document.getElementById('transferTo');
-    if (!from || !to) return;
-    // Preserve user's current selection across re-renders (the 10s data poll)
-    const prevFrom = from.value;
-    const prevTo   = to.value;
-    const prevProduct = document.getElementById('transferProduct')?.value || '';
-    const prevQty     = document.getElementById('transferQty')?.value || '';
-
-    const fromLocs = INV_LOCATIONS.filter(loc => Object.values(stock[loc] || {}).some(q => q > 0));
-    from.innerHTML = '<option value="">-- בחר --</option>' +
-      fromLocs.sort((a,b) => a.localeCompare(b,'he')).map(l => `<option value="${l}">${l}</option>`).join('');
-    to.innerHTML = '<option value="">-- בחר --</option>' +
-      INV_LOCATIONS.slice().sort((a,b) => a.localeCompare(b,'he')).map(l => `<option value="${l}">${l}</option>`).join('');
-
-    if (prevFrom && Array.from(from.options).some(o => o.value === prevFrom)) from.value = prevFrom;
-    if (prevTo   && Array.from(to.options).some(o => o.value === prevTo))     to.value = prevTo;
-    renderTransferProducts();
-    // Restore product + qty after products dropdown re-rendered
-    const prodSel = document.getElementById('transferProduct');
-    if (prodSel && prevProduct && Array.from(prodSel.options).some(o => o.value === prevProduct)) {
-      prodSel.value = prevProduct;
-      renderTransferMax();
-    }
-    const qtyEl = document.getElementById('transferQty');
-    if (qtyEl && prevQty) qtyEl.value = prevQty;
-  }
-  function renderTransferProducts() {
-    const fromLoc = document.getElementById('transferFrom')?.value;
-    const sel = document.getElementById('transferProduct');
-    if (!sel) return;
-    if (!fromLoc) {
-      sel.innerHTML = '<option value="">-- בחר תחילה מקור --</option>';
-      renderTransferMax(); return;
-    }
-    const stock = computeStock()[fromLoc] || {};
-    const items = Object.entries(stock).filter(([_, q]) => q > 0)
-      .sort((a,b) => a[0].localeCompare(b[0],'he'));
-    sel.innerHTML = '<option value="">-- בחר פריט --</option>' +
-      items.map(([p, q]) => `<option value="${p}" data-qty="${q}">${p} (${q})</option>`).join('');
-    renderTransferMax();
-  }
-  function renderTransferMax() {
-    const sel = document.getElementById('transferProduct');
-    const qty = document.getElementById('transferQty');
-    const hint = document.getElementById('transferHint');
-    if (!sel || !qty || !hint) return;
-    const opt = sel.options[sel.selectedIndex];
-    const max = opt && opt.dataset.qty ? parseInt(opt.dataset.qty) : 0;
-    qty.max = max || '';
-    qty.placeholder = max ? `מקס ${max}` : 'כמות';
-    hint.textContent = max ? `📦 זמין במקור: ${max}` : '';
-  }
-  async function doStockTransfer(btn) {
-    if (!checkEditPermission()) return;
-    const from    = document.getElementById('transferFrom').value;
-    const to      = document.getElementById('transferTo').value;
-    const product = document.getElementById('transferProduct').value;
-    const qty     = parseInt(document.getElementById('transferQty').value) || 0;
-    if (!from || !to)   { alert('בחר מקור ויעד'); return; }
-    if (from === to)    { alert('המקור והיעד זהים'); return; }
-    if (!product)       { alert('בחר פריט'); return; }
-    if (qty <= 0)       { alert('הזן כמות חיובית'); return; }
-    const maxOpt = document.querySelector(`#transferProduct option[value="${product}"]`);
-    const max = maxOpt ? parseInt(maxOpt.dataset.qty) : 0;
-    if (qty > max)      { alert(`לא ניתן להעביר ${qty}. זמין רק ${max}.`); return; }
-    setBtnLoading(btn, true);
+  // ===== דיווח שינוי במלאי (§4b) =====
+  // The transfer form and the free "הוספה/הפחתה" card are GONE. There are no person-locations
+  // to transfer between any more, and עידן's ruling (17.9) is that a stock change must always
+  // be linked to something: a visit, an order, or an auditable recount. Both are replaced by
+  // ONE button that opens the React sheet (app/src/islands/StockChange.tsx); it does the
+  // routing and writes the `stock_recounts` row plus its movement.
+  //
+  // This shim is what the legacy button calls. If the island's chunk never landed, the button
+  // says so rather than doing nothing.
+  function openStockChangeSheet(product) {
     try {
-      const res = await fetch(SHEET_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          type: 'movement',
-          product: product,
-          fromLocation: from,
-          toLocation: to,
-          quantity: qty,
-          reason: 'transfer'
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        const t = document.getElementById('toast');
-        t.textContent = `✅ הועברו ${qty}× ${product}: ${from} → ${to}`;
-        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
-        document.getElementById('transferQty').value = '';
-        document.getElementById('transferProduct').value = '';
-        setTimeout(refreshData, 1000);
-      } else { alert('שגיאה: ' + JSON.stringify(data)); }
-    } catch(e) { alert('שגיאה: ' + e.message); }
-    finally { setBtnLoading(btn, false); }
+      window.dispatchEvent(new CustomEvent('sigma-open-stock-change', { detail: { product: product || '' } }));
+    } catch (e) { /* no DOM */ }
+    // The island clears this flag when it handles the event; nothing else reads it.
+    setTimeout(function () {
+      if (!window.__sigmaStockChangeMounted) {
+        alert('מסך דיווח שינוי במלאי עוד נטען — נסה שוב בעוד רגע.');
+      }
+    }, 600);
   }
+  window.openStockChangeSheet = openStockChangeSheet;
 
-  // ===== Independent add/remove stock (עידן only) — replaces the need for direct DB writes
-  // for "opening stock" / manual corrections. Writes a plain movement with only one side set
-  // (toLocation for a add, fromLocation for a remove) — same shape the earlier SQL seedings used. =====
-  function populateAdjustDropdowns() {
-    const loc = document.getElementById('adjustLocation');
-    const prod = document.getElementById('adjustProduct');
-    if (!loc || !prod) return;
-    const prevLoc = loc.value, prevProd = prod.value;
-    loc.innerHTML = '<option value="">-- בחר --</option>' +
-      INV_LOCATIONS.slice().sort((a,b) => a.localeCompare(b,'he')).map(l => `<option value="${l}">${l}</option>`).join('');
-    const names = getActiveProducts().map(p => p.name).sort((a,b) => a.localeCompare(b,'he'));
-    prod.innerHTML = '<option value="">-- בחר פריט --</option>' +
-      names.map(n => `<option value="${n}">${n}</option>`).join('');
-    if (prevLoc && Array.from(loc.options).some(o => o.value === prevLoc)) loc.value = prevLoc;
-    if (prevProd && Array.from(prod.options).some(o => o.value === prevProd)) prod.value = prevProd;
-    renderAdjustHint();
-  }
-  function renderAdjustHint() {
-    const loc = document.getElementById('adjustLocation')?.value;
-    const product = document.getElementById('adjustProduct')?.value;
-    const dir = document.getElementById('adjustDirection')?.value;
-    const qtyEl = document.getElementById('adjustQty');
-    const hint = document.getElementById('adjustHint');
-    if (!hint) return;
-    if (!loc || !product) { hint.textContent = ''; if (qtyEl) qtyEl.max = ''; return; }
-    const current = ((computeStock()[loc] || {})[product]) || 0;
-    hint.textContent = `📦 יתרה נוכחית ב${loc}: ${current}`;
-    if (qtyEl) qtyEl.max = dir === 'remove' ? (current > 0 ? current : 0) : '';
-  }
-  async function doStockAdjust(btn) {
-    if (!isIdan()) return;
-    const loc     = document.getElementById('adjustLocation').value;
-    const product = document.getElementById('adjustProduct').value;
-    const dir     = document.getElementById('adjustDirection').value;
-    const qty     = parseInt(document.getElementById('adjustQty').value) || 0;
-    if (!loc)     { alert('בחר מיקום'); return; }
-    if (!product) { alert('בחר פריט'); return; }
-    if (qty <= 0) { alert('הזן כמות חיובית'); return; }
-    if (dir === 'remove') {
-      const current = ((computeStock()[loc] || {})[product]) || 0;
-      if (qty > current) { alert(`לא ניתן להפחית ${qty}. יתרה נוכחית: ${current}.`); return; }
-    }
-    setBtnLoading(btn, true);
-    try {
-      const res = await fetch(SHEET_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          type: 'movement',
-          product: product,
-          fromLocation: dir === 'remove' ? loc : '',
-          toLocation: dir === 'remove' ? '' : loc,
-          quantity: qty,
-          reason: 'manual_adjustment',
-          createdBy: getCurrentUser()
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        if (typeof sigmaTrack === 'function') sigmaTrack('stock-report', product);   // 📈 שימוש (spec §7j)
-        const t = document.getElementById('toast');
-        t.textContent = `✅ ${dir === 'remove' ? 'הופחתו' : 'נוספו'} ${qty}× ${product} ${dir === 'remove' ? 'מ' : 'ל'}${loc}`;
-        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
-        document.getElementById('adjustQty').value = '';
-        setTimeout(refreshData, 1000);
-      } else { alert('שגיאה: ' + JSON.stringify(data)); }
-    } catch(e) { alert('שגיאה: ' + e.message); }
-    finally { setBtnLoading(btn, false); }
-  }
+  // Something wrote a movement — a visit supplied from the pool, a supplier delivery landed in
+  // it, or the 🔢 sheet recorded a recount. Re-render the pool NOW instead of waiting for the
+  // next data poll, so the number a person just changed is the number he is looking at.
+  try {
+    window.sigmaBus.addEventListener('stock-changed', function () {
+      try { if (typeof invRenderStock === 'function') invRenderStock(); } catch (e) { /* page not open */ }
+      try { if (typeof renderLowStockAlert === 'function') renderLowStockAlert(); } catch (e) { /* no banner */ }
+    });
+  } catch (e) { /* no DOM */ }
 
   // Category grouping for the stock views — minimal visual separation between item types
   // (מונה/בקר/סים/...). Order is fixed so groups don't jump around between renders.
@@ -288,100 +157,86 @@
     });
   }
 
+  // 📦 The pool view (§6). One column — `חברה` — on every viewport: the matrix collapsed to a
+  // single number per product, so the screen finally says what the company HAS instead of
+  // four half-true bags. The KPI tiles above it are tappable filters (§6 עידן 17.9):
+  // "פריטים במאגר" clears them, "מלאי נמוך" keeps only what is below its red line.
+  let invStockFilter = '';   // '' | 'low'
+  function invSetStockFilter(f) {
+    invStockFilter = (invStockFilter === f) ? '' : f;
+    invRenderStock();
+  }
+  window.invSetStockFilter = invSetStockFilter;
+
   function invRenderStock() {
     const root = document.getElementById('invStockMatrix');
     if (!root) return;
     const loading = invLoadingPlaceholder();
     if (loading) { root.innerHTML = loading; return; }
-    populateTransferDropdowns();
-    const adjustCard = document.getElementById('invAdjustCard');
-    if (adjustCard) {
-      const showAdjust = typeof isIdan === 'function' && isIdan();
-      adjustCard.style.display = showAdjust ? '' : 'none';
-      if (showAdjust) populateAdjustDropdowns();
-    }
-    const stock = computeStock();
-    // red-line helpers: meter types (company-wide) red everywhere; SIM cells red per-holder
+
+    const pool = poolStockMap();
     const _lsr = lowStockReport();
     const _lowMeterMatches = _lsr.meters.map(m => m.match);
-    const isLowMeter = name => name.indexOf('מונה') === 0 && _lowMeterMatches.some(mm => name.indexOf(mm) !== -1);
-    const lowSimCells = new Set(_lsr.sims.map(s => s.type + '|' + s.person));
+    const lowSimTypes = new Set(_lsr.sims.map(s => s.type));
+    const isLow = name =>
+      (name.indexOf('מונה') === 0 && _lowMeterMatches.some(mm => name.indexOf(mm) !== -1)) || lowSimTypes.has(name);
 
     const catMap = productCategoryMap();
+    let names = sortByCategoryThenName(Object.keys(pool), catMap);
+    if (invStockFilter === 'low') names = names.filter(isLow);
 
-    if (window.innerWidth < 768) {
-      // Mobile: accordion per location (NO scrolling table). Items grouped by category
-      // (מונה/בקר/סים/...) with a small muted label between groups.
-      let html = '';
-      INV_LOCATIONS.forEach(loc => {
-        const locStock = stock[loc] || {};
-        const names = sortByCategoryThenName(Object.keys(locStock).filter(p => locStock[p] !== 0), catMap);
-        const totalUnits = names.reduce((s, p) => s + locStock[p], 0);
-        if (names.length === 0) {
-          html += `<details class="inv-loc-card" style="opacity:0.55;">
-            <summary class="inv-loc-head"><span class="loc-name">${loc}</span><span class="loc-count" style="background:#f1f5f9;color:#64748b;">ריק</span></summary>
-          </details>`;
-          return;
-        }
-        let lastCat = null, rowsHtml = '';
-        names.forEach(p => {
-          const q = locStock[p];
-          const cat = catMap[p] || 'אחר';
-          if (cat !== lastCat) { rowsHtml += `<div class="item-cat-label">${cat}</div>`; lastCat = cat; }
-          rowsHtml += `
-            <div class="item-row ${q < 0 ? 'neg' : ''}" ${(isLowMeter(p) || lowSimCells.has(p + '|' + loc)) ? 'style="color:#dc2626;font-weight:700;"' : ''}>
-              <span>${(isLowMeter(p) || lowSimCells.has(p + '|' + loc)) ? '🔴 ' : ''}${p}</span><span class="qty">${q}</span>
-            </div>`;
-        });
-        html += `<details class="inv-loc-card" ${totalUnits > 0 ? 'open' : ''}>
-          <summary class="inv-loc-head">
-            <span class="loc-name">${loc}</span>
-            <span class="loc-count">${totalUnits} יח׳ · ${names.length} פריטים</span>
-          </summary>
-          <div class="inv-loc-items">${rowsHtml}</div>
-        </details>`;
+    const totalUnits = names.reduce((sum, p) => sum + pool[p], 0);
+    const lowCount = Object.keys(pool).filter(isLow).length;
+    const canReport = typeof checkEditPermission === 'function' ? !(typeof isViewer === 'function' && isViewer()) : true;
+
+    // KPI row + the one write button on this screen. The tiles are FILTERS (spec §6,
+    // עידן 17.9): פריטים במאגר clears them, מלאי נמוך keeps only what is below its red
+    // line. The handlers are bound after the innerHTML rather than written into it — an
+    // inline onclick with a quoted argument is how this file used to grow escaping bugs.
+    const kpi = (key, n, label, on) =>
+      '<button type="button" class="inv-kpi' + (on ? ' active' : '') + '" data-kpi="' + key + '">' +
+      '<span class="inv-kpi-n"><bdi>' + n + '</bdi></span>' +
+      '<span class="inv-kpi-l">' + label + '</span></button>';
+    let html = '<div class="inv-pool-kpis" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
+      kpi('all', Object.keys(pool).length, 'פריטים במאגר', invStockFilter === '') +
+      kpi('all', totalUnits, 'יחידות', false) +
+      kpi('low', lowCount, 'מלאי נמוך', invStockFilter === 'low') +
+      (canReport ? '<button type="button" class="inv-btn success" id="invReportChange">🔢 דווח שינוי</button>' : '') +
+      '</div>';
+
+    // Bound once, after whichever branch below writes the markup.
+    const bindPoolControls = () => {
+      root.querySelectorAll('[data-kpi]').forEach(b => {
+        b.addEventListener('click', () => invSetStockFilter(b.getAttribute('data-kpi') === 'low' ? 'low' : ''));
       });
-      root.innerHTML = html || '<div style="padding:20px;text-align:center;color:#64748b;">עוד אין מלאי במיקומים</div>';
+      const rep = root.querySelector('#invReportChange');
+      if (rep) rep.addEventListener('click', () => openStockChangeSheet(''));
+    };
+
+    if (names.length === 0) {
+      root.innerHTML = html + '<div style="padding:20px;text-align:center;color:var(--text-light);">' +
+        (invStockFilter === 'low' ? 'אין פריטים מתחת לקו האדום.' : 'אין מלאי במאגר החברה.') + '</div>';
+      bindPoolControls();
       return;
     }
 
-    // Desktop: full matrix. Hide products whose net across all INV_LOCATIONS is 0
-    // (these are typically catalog renames or fully-countered demo data).
-    const products = Object.keys(stock).reduce((acc, loc) => {
-      Object.keys(stock[loc]).forEach(p => acc.add(p));
-      return acc;
-    }, new Set());
-    const productList = sortByCategoryThenName(
-      Array.from(products).filter(p => INV_LOCATIONS.some(loc => ((stock[loc] && stock[loc][p]) || 0) !== 0)),
-      catMap
-    );
-
-    if (productList.length === 0) {
-      root.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">עוד אין מלאי במיקומים. הוסף הזמנה עם סטטוס "סופקה" וחלוקה.</div>';
-      return;
-    }
-    const colCount = INV_LOCATIONS.length + 2;
-    let html = '<div style="overflow-x:auto;"><table class="matrix-table"><thead><tr><th>פריט</th>';
-    INV_LOCATIONS.forEach(loc => { html += `<th>${loc}</th>`; });
-    html += '<th>סה"כ</th></tr></thead><tbody>';
-    let lastCat = null;
-    productList.forEach(p => {
+    // One list, grouped by category. The same markup on phone and desktop — with a single
+    // column there is nothing left to scroll sideways.
+    let lastCat = null, rows = '';
+    names.forEach(p => {
       const cat = catMap[p] || 'אחר';
-      if (cat !== lastCat) { html += `<tr class="matrix-cat-row"><td colspan="${colCount}">${cat}</td></tr>`; lastCat = cat; }
-      let total = 0;
-      const low = isLowMeter(p);   // company-wide meter type below its red line
-      html += `<tr${low ? ' style="background:#fef2f2;"' : ''}><td>${low ? '🔴 ' : ''}${p}</td>`;
-      INV_LOCATIONS.forEach(loc => {
-        const q = (stock[loc] && stock[loc][p]) || 0;
-        total += q;
-        const simLow = lowSimCells.has(p + '|' + loc);   // this holder's SIM below his red line
-        const cls = q === 0 ? 'matrix-zero' : (q < 0 ? 'matrix-neg' : '');
-        html += `<td class="${cls}"${simLow ? ' style="background:#fef2f2;color:#dc2626;font-weight:700;"' : ''}>${q}</td>`;
-      });
-      html += `<td style="font-weight:700;${low ? 'color:#dc2626;' : ''}">${total}</td></tr>`;
+      if (cat !== lastCat) { rows += `<div class="item-cat-label">${cat}</div>`; lastCat = cat; }
+      const q = pool[p];
+      const low = isLow(p);
+      rows += `<div class="item-row ${q < 0 ? 'neg' : ''}"${low ? ' style="color:#dc2626;font-weight:700;"' : ''}>` +
+        `<span>${low ? '🔴 ' : ''}${p}</span><span class="qty"><bdi>${q}</bdi></span></div>`;
     });
-    html += '</tbody></table></div>';
+    html += `<div class="inv-loc-card" data-pool="1" data-testid="inv-pool"><div class="inv-loc-head">` +
+      `<span class="loc-name">🏢 ${POOL_LOCATION}</span>` +
+      `<span class="loc-count"><bdi>${totalUnits}</bdi> יח׳ · <bdi>${names.length}</bdi> פריטים</span></div>` +
+      `<div class="inv-loc-items">${rows}</div></div>`;
     root.innerHTML = html;
+    bindPoolControls();
   }
 
   // ========== KIBBUTZ INVENTORY ==========
@@ -451,24 +306,11 @@
   }
 
   function invExportStock() {
-    const stock = computeStock();
-    const products = Array.from(Object.keys(stock).reduce((acc, loc) => {
-      Object.keys(stock[loc]).forEach(p => acc.add(p));
-      return acc;
-    }, new Set())).sort((a,b) => a.localeCompare(b, 'he'));
-    const rows = [['פריט', ...INV_LOCATIONS, 'סה"כ']];
-    products.forEach(p => {
-      const row = [p];
-      let total = 0;
-      INV_LOCATIONS.forEach(loc => {
-        const q = (stock[loc] && stock[loc][p]) || 0;
-        total += q;
-        row.push(q);
-      });
-      row.push(total);
-      rows.push(row);
-    });
-    invDownloadCSV(rows, 'inventory_by_location.csv');
+    // The pool, one row per product — there is no second column to export any more (§6).
+    const pool = poolStockMap();
+    const rows = [['פריט', POOL_LOCATION]];
+    Object.keys(pool).sort((a, b) => a.localeCompare(b, 'he')).forEach(p => rows.push([p, pool[p]]));
+    invDownloadCSV(rows, 'inventory_pool.csv');
   }
 
   function invExportKibbutzInventory() {

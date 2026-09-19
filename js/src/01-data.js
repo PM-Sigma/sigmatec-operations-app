@@ -261,6 +261,27 @@
       });
       return out;
     }
+    function mockProducts() {
+      return [
+        { id: 'p-1', name: 'מונה Landis+Gyr E360PP', category: 'מונה', active: true },
+        { id: 'p-2', name: 'בקר 504', category: 'בקר', active: true },
+        { id: 'p-3', name: 'סים 1NCE', category: 'סים', active: true },
+      ];
+    }
+    function mockMovements() {
+      return [
+        { id: 'mov-1', date: addDays(-20), product: 'מונה Landis+Gyr E360PP', fromLocation: 'ספק', toLocation: 'חברה', quantity: 40, reason: 'order_delivery', refId: 'ord-1', createdBy: 'עידן' },
+        { id: 'mov-2', date: addDays(-10), product: 'בקר 504', fromLocation: 'ספק', toLocation: 'חברה', quantity: 12, reason: 'order_delivery', refId: 'ord-1', createdBy: 'עידן' },
+        { id: 'mov-3', date: addDays(-4),  product: 'מונה Landis+Gyr E360PP', fromLocation: 'חברה', toLocation: 'חוקוק', quantity: 3, reason: 'visit_supply', refId: 'vis-אביאם', createdBy: 'אביאם' },
+        { id: 'mov-4', date: addDays(-2),  product: 'סים 1NCE', fromLocation: 'ספק', toLocation: 'חברה', quantity: 4, reason: 'order_delivery', refId: 'ord-2', createdBy: 'עמיחי' },
+      ];
+    }
+    function mockOrders() {
+      return [
+        { id: 'ord-3', createdAt: addDays(-6), createdBy: 'עמיחי', supplier: 'לנדיס', status: 'arrived',
+          items: [{ name: 'מונה Landis+Gyr E360PP', qty: 20 }], expectedDate: '', notes: '', distribution: {} },
+      ];
+    }
     function mockVisits() {
       return ['אביאם', 'ניתאי'].map(function (who, i) {
         return { id: 'vis-' + who, visitor: who, kibbutz: i ? 'דגניה' : 'חוקוק', duration: 4,
@@ -280,7 +301,10 @@
           { name: 'שדה אליהו', row: 6, region: 'בקעת בית שאן', owners: ['ניתאי'], status: 'באוויר', expectedTask: '', task: 'step=9', code: '105', lastModified: nowISO() },
           { name: 'כפר עזה', row: 7, region: 'שער הנגב', owners: ['עמיחי'], status: 'בתהליך אפיון', expectedTask: '🎯 תיאום פגישת אפיון (אין אתר EMS — fallback)', task: 'step=1', code: '106', lastModified: nowISO() }
         ],
-        potentials: [], regions: [], orders: [], products: [], movements: [],
+        potentials: [], regions: [],
+        // 📦 מלאי אחוד (inventory spec §1): one open supplier order (so 🔢 דווח שינוי → 🧾
+        // הזמנה has something to point at) and a pool with a real number in it.
+        orders: mockOrders(), products: mockProducts(), movements: mockMovements(),
         requirements: [], returns: [], settings: [], calendar: {},
         attendance: mockAttendance(), visits: mockVisits(), holidays: window.MOCK_HOLIDAYS.slice(),
         // Phase 1/2 surfaces (shared EMS snapshot + queue, served from the Sheet):

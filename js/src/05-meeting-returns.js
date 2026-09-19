@@ -150,9 +150,8 @@
     if (!r) { alert('פריט החזרה לא נמצא'); return; }
     const qty = parseInt(r.qty) || 0;
     if (qty <= 0) { alert('כמות לא תקינה'); return; }
-    const loc = prompt('לאיזה מיקום להחזיר את "' + r.product + '" (×' + qty + ')?\n' + INV_LOCATIONS.join(' / '), 'משרד');
-    if (!loc) return;
-    if (INV_LOCATIONS.indexOf(loc) === -1) { alert('מיקום לא מוכר. בחר מתוך: ' + INV_LOCATIONS.join(', ')); return; }
+    const loc = POOL_LOCATION;   // one pool, nothing to choose (inventory spec §1)
+    if (!confirm('להחזיר את "' + r.product + '" (×' + qty + ') למלאי החברה?')) return;
     try {
       const by = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },

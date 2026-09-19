@@ -102,7 +102,7 @@ function load(kibbutz) {
   const fn = new Function(
     'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
-    'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
+    'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
     'visitReturnedItems', 'renderReturnedItems', 'setTimeout', 'clearTimeout', 'getCurrentUser', 'sigmaEmit',
     src + '\nreturn { visitDraftSave, visitDraftTouch, visitDraftFlush, visitDraftFor, visitDraftRestore,'
         + ' visitDraftDiscard, visitDraftPayload, visitDraftHasContent, saveVisit,'
@@ -111,7 +111,7 @@ function load(kibbutz) {
   return fn(
     window_, document_, localStorage_, fetch_, () => {}, 'http://sheet.test', () => {},
     async () => 0, () => '', () => {}, () => {}, () => {},
-    kibbutz || 'גבים', ['אביאם'], 'תקול', () => ({}), () => {}, () => {},
+    kibbutz || 'גבים', ['אביאם'], 'תקול', 'חברה', () => ({}), () => {}, () => {},
     [], () => {}, setTimeout_, clearTimeout_, () => 'אביאם',
     (name, detail) => emitted.push({ name, detail }),
   );

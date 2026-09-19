@@ -126,14 +126,14 @@ function load() {
   const fn = new Function(
     'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
-    'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
+    'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
     'visitReturnedItems', 'renderReturnedItems', 'sigmaEmit', 'sigmaTrack', 'setTimeout',
     visitsSrc + '\nreturn { saveVisitFromData };',
   );
   return fn(
     window_, document_, localStorage_, fetch_, () => {}, 'http://sheet.test', () => {},
     async () => certReturn, () => '', () => {}, () => {}, () => {},
-    'שדה אליהו', ['אביאם', 'ניתאי'], 'תקול', () => ({}), () => {}, () => {},
+    'שדה אליהו', ['אביאם', 'ניתאי'], 'תקול', 'חברה', 'חברה', () => ({}), () => {}, () => {},
     [], () => {},
     (name, detail) => emitted.push({ name, detail }),
     (a, t, p) => tracked.push([a, t, p]),
@@ -187,11 +187,11 @@ if (mod) {
       assert.equal(visitPosts()[0].isNew, true);
       assert.equal(visitPosts()[0].kibbutz, 'דפנה');
     });
-    check('the supply leaves the visitor’s own stock and lands at the kibbutz', () => {
+    check('the supply leaves the company pool and lands at the kibbutz', () => {
       assert.equal(movePosts().length, 1);
       assert.deepEqual(
         { from: movePosts()[0].fromLocation, to: movePosts()[0].toLocation, qty: movePosts()[0].quantity, ref: movePosts()[0].refId },
-        { from: 'אביאם', to: 'דפנה', qty: 2, ref: 'SRV_ID' },
+        { from: 'חברה', to: 'דפנה', qty: 2, ref: 'SRV_ID' },
       );
     });
     check('the rest of the app is told (visit-saved) and the day is tracked', () => {
@@ -214,10 +214,10 @@ if (mod) {
 
     reset(); certReturn = 9001;
     const office = await mod.saveVisitFromData({ ...base, visitor: 'מתניה', products: [{ name: 'בקר 485', qty: 1 }] });
-    check('a visitor who holds no personal stock supplies from the office', () => {
+    check('every visitor supplies from the same pool — there are no personal bags', () => {
       assert.equal(office.ok, true);
       assert.equal(visitPosts()[0].visitor, 'מתניה');
-      assert.equal(movePosts()[0].fromLocation, 'משרד');
+      assert.equal(movePosts()[0].fromLocation, 'חברה');
     });
 
     reset(); certReturn = 9001;
