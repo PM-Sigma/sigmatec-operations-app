@@ -1,6 +1,9 @@
 # Kibbutz cards redesign + field-worker flow — design spec
 
-STATUS: 🟢 APPROVED by עידן 17.9.26 (mockup https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP reviewed, comments folded in) — NOT built yet. Next: implementation plan → chunks.
+STATUS: ✅ BUILT 2.00 — release pending עידן's production steps. Built through Task 30 + 18a/18b/19 + Task 7
+(release prep, 2026-09-19), version `2.00`, full suite green, pushed to `dev`. `main` stays on
+maintenance mode until עידן completes the 20 parked production steps in `docs/HANDOFF-עידן.md`, after
+which the controller fast-forwards `dev`→`main`. Mockup https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP.
 Date: 2026-09-17. Branch: `feat/kibbutz-cards-redesign` (worktree `SigmatecOps-wt-cards`, off `origin/dev` 425437f).
 Requested by עידן, 17.9.26 (chat). Execution: Opus (parser, DB, push cron, arrival flow) + Sonnet (markup/CSS sweeps, tests).
 

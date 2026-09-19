@@ -94,6 +94,55 @@ DB helper scripts in `db/`: `supabase_schema.sql` (schema + RLS), `import_from_a
   request. ~5 lines; kills the "anyone with the URL" problem.
 - **Blast radius:** the script holds only **Calendar + external-fetch** scopes (not Gmail/Drive).
 
+## 2.00 additions (Task 7 checkpoint, 2026-09-19)
+
+New tables shipped on `feat/kibbutz-cards-redesign` (schema files in `db/`). **Migrations are
+committed but NOT yet applied to prod** unless noted — see `docs/HANDOFF-עידן.md` part B for the
+apply order (dependency order matters, listed there).
+
+| Table | Purpose | Migration | Applied? |
+|-------|---------|-----------|----------|
+| `kibbutzim` | Card data-source (region, status, notes, EMS site link); replaces the static card grid + `tasks`-as-card-source. | (part of the T1 migration set) | prod |
+| `day_plans` | Field route order per day (drag-reorder persisted). | `db/day_plans.sql` | ⛔ parked |
+| `calendar_absences` | 🌴/🪖/🎉 absences; adds `attendance.source`. | `db/calendar_absences.sql` | ⛔ parked |
+| `internal_tasks` | 🔒 internal task list (read-only client-side until `INTERNAL_TASKS_WRITABLE` flips). | `db/internal_tasks.sql` | ⛔ parked |
+| `daylog_corrections` | 📝 few-shot pairs (raw_len only, no text) improving the day-log parser. | `db/daylog_corrections.sql` | ⛔ parked |
+| `meeting_sessions` | ▶ presenter-mode session state. | `db/meeting_sessions.sql` | ⛔ parked |
+| `meeting_events` | Presenter events (note/task/parking) per session. | `db/meeting_events.sql` | ⛔ parked |
+| `kibbutz_meeting_notes_source` | Raw imported meeting-notes rows, canonical-name merge key. | `db/kibbutz_meeting_notes_source.sql` | ⛔ parked |
+| `onboarding_templates` / `onboarding_steps` | New-client onboarding checklist templates + per-client progress (`waits` column). | `db/onboarding_templates.sql`, `db/onboarding_steps.sql` | ⛔ parked |
+| `kibbutz_health` | Health v1 scorer inputs/outputs (thresholds still DRAFT, decision pending 22.9). | `db/kibbutz_health.sql` | ⛔ parked |
+| `work_sessions` | ▶/■ Clockify work-session timer per kibbutz card. | `db/work_sessions.sql` | ⛔ parked |
+| `usage_events` | 📈 usage analytics feeding the weekly narrative digest. | `db/usage_events.sql` | prod (Task 17) |
+| `feedback` (+ `feedback_kinds`) | 📣 feedback box (idea/bug/complaint), audio via `feedback-audio` bucket. | `db/feedback.sql`, `db/feedback_kinds` migration | prod (Task 6/6b) |
+| `company_holidays` (+ seed) | 🕎 Hebcal holidays for attendance/gap logic. | `db/company_holidays.sql`, `db/company_holidays_seed.sql` (38 rows) | ⛔ parked |
+
+**Two RLS lockdowns (Task 18a/18b, run in this exact order relative to app deploys):**
+- `db/rls_corrections_lockdown.sql` — must run **AFTER** `parse-daylog` + `parse-order` are
+  redeployed, or it silently kills the few-shot correction flow for both parsers.
+- `db/rls_certs_checkins_lockdown.sql` — drops anonymous `SELECT` on `delivery_certs` and
+  `field_checkins` (today enumerable: customer names, ח.פ., signatures, who-was-where-when) and
+  adds `cert_by_id(uuid)` (security definer) for the cert share-link. Must run **AFTER** 2.00 is
+  live on `main`, because the cert viewer's one-release RPC fallback still reads the open table
+  until then.
+
+**Re-run needed:** `db/kibbutz_meeting_notes_import.sql` (`create or replace`, safe to re-run) — a
+kibbutz that changed name (e.g. `גת`→`קיבוץ גת`) now keeps its EMS link/✓ across re-imports via
+`aliasRenames()` instead of losing it.
+
+**New Edge Functions / redeploys needed:** `calendar` (route range + `hangoutLink`), `push-send`
+(carries `usageDigest`, `gapReminder`, feedback/Task-6 titles — currently v13 live, several modes
+behind), `parse-daylog` (new, Gemini→Groq chain like `parse-order`, EMS-gated, nothing server-trusted),
+`parse-order` (redeploy, shares the corrections-lockdown ordering above), `github` (comments now
+included in the read), `clockify` (new, needs `CLOCKIFY_API_KEY`/`WORKSPACE_ID`/`USER_ID` secrets).
+`transcribe` (Groq Whisper) already deployed v3, no action needed.
+
+**New cron jobs (parked):** `db/cron_usage_weekly.sql` (weekly 📈 digest + re-schedules the
+attendance job with the auth header), a 15-minute visit-reminder cron, an hourly attendance-header
+cron. All need `CRON_SECRET` set first.
+
+Full list, order, and links: `docs/HANDOFF-עידן.md`.
+
 ### Action items
 
 1. Redeploy `ems-auth` (load `JWT_SECRET`) → verify `🔒 pass active`.

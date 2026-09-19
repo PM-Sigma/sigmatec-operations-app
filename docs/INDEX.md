@@ -66,18 +66,25 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-18 (**סיגמה 2.00 redesign IN PROGRESS on `feat/kibbutz-cards-redesign`, worktree `SigmatecOps-wt-cards`; PAUSED for עידן's instructions**).
+## 🚦 Current state — last: 2026-09-19 (**סיגמה 2.00 built and pushed to `dev`; `main` PARKED on maintenance mode pending עידן's production steps**).
 
 Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (master spec §0–§7o, all
-עידן's rulings inline), (2) `docs/superpowers/specs/2026-09-17-unified-inventory-design.md`, (3)
-`docs/superpowers/specs/2026-09-18-company-process-design.md` (draft, not yet planned), (4) the plan
-`docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md` (Tasks 0–21 + 6b), (5) the SDD ledger
-`.superpowers/sdd/2026-09-17-kibbutz-cards-redesign/progress.md` (git-ignored, on disk), (6) mockup
-https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP, decisions page https://claude.ai/artifact/Cq6MPDDU1MavN2HujKqzYo,
-(7) reports `docs/reports/2026-09-18-*.md` (UX, adoption, retirement coverage).
+עידן's rulings inline, STATUS ✅ BUILT 2.00 — release pending עידן's production steps), (2)
+`docs/superpowers/specs/2026-09-17-unified-inventory-design.md` (Tasks 8–10, next up, ships 2.01), (3)
+`docs/superpowers/specs/2026-09-18-company-process-design.md` (draft, P4, not yet planned), (4) the plan
+`docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md` (Tasks 0–30 + 18a/18b/19 + 7, all done), (5) the SDD ledger
+`.superpowers/sdd/2026-09-17-kibbutz-cards-redesign/progress.md` (git-ignored, on disk) + `task-7-report.md`, (6) mockup
+https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP, (7) **`docs/HANDOFF-עידן.md`** — the ADHD-simple, ordered list of
+everything that still needs a human hand before `main` can go live.
 
-**Done (reviewed clean):** Tasks 1, 0, 1b, 2, 3, 6, 17, 4, 21, 5, 6b, 12, 13, 14, 11, **23 (🔥 צריבות)**.
-**Next:** 15 → 16 → 20 → 18 → 19 (SRS) → 7 (release 2.00 via `node build.mjs major`) → 8–10 (inventory) → P4 (24–30).
+**Done:** Tasks 0–30 + 18a/18b/19 (all reviewed, all green), **Task 7 (release 2.00)**: `VERSION` 2.00,
+`node build.mjs major`, full `npm test`/vitest/qa green, docs checkpointed, fast-forwarded `feat/kibbutz-cards-redesign`→`dev`.
+**`main` NOT touched** — still serving maintenance mode (`e398947`, bypass `?maint=0`) until עידן runs the 20 parked
+production steps (10 migrations in dependency order, 6 edge-fn deploys, 3 cron schedules, 1 re-run) and sets the
+listed secrets (see `docs/HANDOFF-עידן.md` parts A–B). Once done: controller ff's `dev`→`main`, removes maintenance
+mode, records the logged-in manual smoke in `docs/CHANGELOG.md`.
+**Next:** 8–10 (unified inventory, depends on 2.00) → P4 company-process spec into tasks.
+**Preview (dev, maintenance bypass):** `https://raw.githack.com/PM-Sigma/sigmatec-operations-app/dev/index.html?maint=0`
 
 **Task 23 (19.9) — 🔥 צריבות is inside 2.00 now.** `feat/meter-burns-rel` (1.71) was merged into this branch, which also
 brought **main 1.67** (site consolidation + attendance hub + login self-heal) onto the 2.00 branch for the first time.
