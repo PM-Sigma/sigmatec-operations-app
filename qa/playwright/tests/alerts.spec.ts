@@ -111,9 +111,11 @@ test('the bell is visible and clickable on the מלאי page too', async ({ page
   await bell.click();
   await expect(page.getByTestId('alerts-list')).toBeVisible({ timeout: 15_000 });
 
-  // …and the rest of the header cluster came along: the user badge and the EMS bubble.
-  await expect(page.locator('#userBadge')).toBeVisible();
-  await expect(page.locator('#emsBubble')).toBeVisible();
+  // …and the rest of the header cluster came along. The legacy #userBadge / #emsBubble are
+  // hidden by `body.sigma-header-ready` once the island replaces them, so the thing to assert
+  // is the island itself — the Ctrl+K trigger, the context add and the user chip.
+  await expect(page.locator('#sigma-header-actions')).toBeVisible();
+  await expect(page.locator('#sigma-header-actions')).not.toBeEmpty();
 
   await expectNoConsoleErrors(rec);
 });

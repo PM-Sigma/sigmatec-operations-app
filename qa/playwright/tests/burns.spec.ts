@@ -58,7 +58,11 @@ test('card modal: the viewer reads the meters and is offered no button at all', 
 });
 
 test('card: מתניה sees no chip and no section — the project is hidden from him', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'מתניה' });
+  // מתניה lands on the dev page, not on the card home, so this spec has to walk to the cards.
+  // It did not need to while index.html was unbalanced (audit A1): the card home stayed
+  // rendered under every other page, so `#sigma-home .kibbutz` was "visible" on the dev page.
+  const { rec } = await boot(page, ti, { who: 'מתניה', ready: 'body' });
+  await page.evaluate(() => (window as any).showPage('kibbutz'));
 
   await expect(page.locator('#sigma-home .kibbutz').first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('burn-chip')).toHaveCount(0);

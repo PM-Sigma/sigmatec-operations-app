@@ -1,4 +1,4 @@
-import{c as ot,j as a,s as k,m as ct,q as dt,u as lt,r as h,S as ut,l as mt,n as ft,o as pt,p as ht,aj as M,L as U,b as S,t as Y,X as yt}from"./sigma.js?v=mu8f3rzr";import{T as R}from"./sigma-textarea.js?v=mu8f3rzr";import{S as gt}from"./sigma-query.js?v=mu8f3rzr";import{SB_URL as X,SB_ANON as I}from"./sigma-supabase.js?v=mu8f3rzr";import{h as bt,u as kt,s as xt,d as St,e as _t}from"./sigma-speech.js?v=mu8f3rzr";import{S as Nt}from"./sigma-square.js?v=mu8f3rzr";import{C as jt}from"./sigma-check.js?v=mu8f3rzr";/**
+import{c as ot,j as a,s as k,m as ct,q as dt,u as lt,r as h,S as ut,l as mt,n as ft,o as pt,p as ht,aj as M,L as U,b as S,t as Y,X as yt}from"./sigma.js?v=mu8g5g1a";import{T as R}from"./sigma-textarea.js?v=mu8g5g1a";import{S as gt}from"./sigma-query.js?v=mu8g5g1a";import{SB_URL as X,SB_ANON as I}from"./sigma-supabase.js?v=mu8g5g1a";import{h as bt,u as kt,s as xt,d as St,e as _t}from"./sigma-speech.js?v=mu8g5g1a";import{S as Nt}from"./sigma-square.js?v=mu8g5g1a";import{C as jt}from"./sigma-check.js?v=mu8g5g1a";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

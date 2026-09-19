@@ -22,8 +22,23 @@ test('an expired session raises ONE sheet and keeps the page + the draft', async
   await expectRtl(page);
 
   // …on the inventory page, with something typed and a scroll position.
+  //
+  // The scroll has to be REAL, and until the index.html structure was repaired (audit A1) it
+  // was real by accident: the card home stayed rendered underneath every other page, so the
+  // document was ~3.4k px tall on any viewport and `scrollTo(0, 320)` always took. With the
+  // pages actually hidden, the מלאי page is shorter than a 1440×900 viewport and the browser
+  // clamps the scroll to 0 — so the spec makes the page long enough to have a scroll position
+  // to keep, instead of relying on a layout bug to provide one.
   await page.evaluate(() => (window as any).showPage('inventory'));
+  await page.evaluate(() => {
+    const pad = document.createElement('div');
+    pad.id = 'scroll-pad';
+    pad.style.height = '2000px';
+    document.getElementById('inventory-view')!.appendChild(pad);
+  });
   await page.evaluate(() => window.scrollTo(0, 320));
+  const scrolled = await page.evaluate(() => window.scrollY);
+  expect(scrolled, 'the page must really be scrolled before the session dies').toBeGreaterThan(0);
 
   // The pass dies, and five requests come back 401 at once (the real shape of a screen that
   // refreshed everything it shows).
@@ -52,7 +67,7 @@ test('an expired session raises ONE sheet and keeps the page + the draft', async
     draft: !!localStorage.getItem('visitDrafts_v2'),
   }));
   expect(kept.page).toBe('inventory');
-  expect(kept.scroll).toBeGreaterThan(0);
+  expect(kept.scroll, 'the scroll position is kept for the return trip').toBe(scrolled);
   expect(kept.draft, 'the draft must survive the hand-over').toBe(true);
 
   expectNoConsoleErrors(rec);

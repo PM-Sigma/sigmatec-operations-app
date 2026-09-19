@@ -151,11 +151,26 @@
     const qty = parseInt(r.qty) || 0;
     if (qty <= 0) { alert('כמות לא תקינה'); return; }
     const loc = POOL_LOCATION;   // one pool, nothing to choose (inventory spec §1)
+    // audit C #12: this used to post `fromLocation: ''` — the pool was credited FROM NOWHERE and
+    // the kibbutz that returned the item was never debited. A return is a move, so it names both
+    // ends: <kibbutz> → חברה, exactly like the visit-save path (09-visits.js, 'return_restock').
+    const from = String(r.kibbutz || '').trim();
+    if (!from) { alert('לא ידוע מאיזה קיבוץ הוחזר הפריט — לא ניתן להחזיר למלאי בלי לזכות את הקיבוץ.'); return; }
     if (!confirm('להחזיר את "' + r.product + '" (×' + qty + ') למלאי החברה?')) return;
+    // …and the SAME physical return must not be credited twice: saving the visit already posts
+    // `return_restock` with this refId when the item was marked ↩️ למלאי there. Same guard the
+    // order paths use (js/src/07-orders.js `alreadyMoved`).
+    var already = ((window.SHEET_DATA && window.SHEET_DATA.movements) || []).some(function (m) {
+      return m.refId === retId && m.reason === 'return_restock';
+    });
+    if (already) {
+      alert('הפריט כבר הוחזר למלאי (נרשמה תנועה על החזרה הזו) — לא נרשמה תנועה נוספת.');
+      return;
+    }
     try {
       const by = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'movement', product: r.product, fromLocation: '', toLocation: loc, quantity: qty, reason: 'return_restock', refId: retId, createdBy: by }) });
+        body: JSON.stringify({ type: 'movement', product: r.product, fromLocation: from, toLocation: loc, quantity: qty, reason: 'return_restock', refId: retId, createdBy: by }) });
       await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'return', id: retId, status: 'restocked' }) });
       if (r) r.status = 'restocked';

@@ -220,10 +220,15 @@ if (mod) {
       assert.equal(movePosts()[0].fromLocation, 'חברה');
     });
 
+    // This used to assert the opposite ("an explicit source wins"). Audit C #13: `source` comes
+    // out of the day-log PARSER — text a model produced from what somebody dictated — so a
+    // person's name there moved stock out of a personal bag that §1 abolished, and the quantity
+    // vanished from poolStock() with nothing to reconcile it against. There is one pool, and the
+    // client does not get to name the source.
     reset(); certReturn = 9001;
     await mod.saveVisitFromData({ ...base, source: 'עמיחי', products: [{ name: 'בקר 485', qty: 1 }] });
-    check('an explicit source wins over the default', () => {
-      assert.equal(movePosts()[0].fromLocation, 'עמיחי');
+    check('#13 — a source the parser invented is IGNORED; the pool is the only source', () => {
+      assert.equal(movePosts()[0].fromLocation, 'חברה');
     });
 
     reset(); certReturn = 0;

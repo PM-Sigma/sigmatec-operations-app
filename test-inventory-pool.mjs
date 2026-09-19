@@ -250,6 +250,112 @@ console.log('\n[4] the constants and db/pool_migration.mjs agree with the spec')
   });
 }
 
+
+// ─────────── 5. the golden ledger: a return debits the kibbutz, and only once ───────────
+// Audit C #12 + #13. One append-only ledger, the REAL builders run over it, balances asserted
+// after each step. Both findings are the same failure: a movement that names only one of its
+// two ends, or names an end the CLIENT was told about. Either way the pool stops adding up,
+// and nothing in the app ever says so.
+
+console.log('\n[5] the golden ledger: returns and the day-log source');
+{
+  /** The one ledger. `bal(loc, product)` = everything that arrived minus everything that left. */
+  const ledger = [];
+  const bal = (loc, product) => ledger.reduce((n, m) =>
+    n + (m.product === product && m.toLocation === loc ? (m.quantity | 0) : 0)
+      - (m.product === product && m.fromLocation === loc ? (m.quantity | 0) : 0), 0);
+
+  // step 1 — the pool is stocked from a supplier, then a visit supplies 4 to גבים
+  ledger.push({ product: 'E360CT', fromLocation: SUPPLIER, toLocation: POOL, quantity: 40, reason: 'order_delivery', refId: 'ord-7' });
+  ledger.push({ product: 'E360CT', fromLocation: POOL, toLocation: 'גבים', quantity: 4, reason: 'visit_supply', refId: 'V9' });
+  check('after the visit: pool 36, גבים 4', () => {
+    assert.equal(bal(POOL, 'E360CT'), 36);
+    assert.equal(bal('גבים', 'E360CT'), 4);
+  });
+
+  // step 2 — גבים returns one, and the returns table's ✅ החזר למלאי is what posts it.
+  // returnToStock() is lifted out of the source and RUN, so this is the real body, not a copy.
+  const src5 = read('./js/src/05-meeting-returns.js');
+  const posts5 = [];
+  const alerts = [];
+  const win5 = { SHEET_DATA: { returns: [], movements: ledger } };
+  const doc5 = {
+    getElementById: () => ({ textContent: '', classList: { add() {}, remove() {} } }),
+    querySelector: () => null, querySelectorAll: () => [], body: { classList: { toggle() {} } },
+  };
+  const fetch5 = (u, o) => {
+    if (o && o.body) { try { posts5.push(JSON.parse(o.body)); } catch (e) { /* not json */ } }
+    return Promise.resolve({ json: async () => ({ ok: true }) });
+  };
+  const mod5 = new Function(
+    'window', 'document', 'localStorage', 'fetch', 'alert', 'confirm', 'setTimeout',
+    'SHEET_API', 'POOL_LOCATION', 'checkEditPermission', 'getCurrentUser', 'refreshData',
+    'updateMeetingBadge', 'renderKibbutzCards', 'applyFilters',
+    src5 + '\nreturn { returnToStock };',
+  )(
+    win5, doc5, { getItem: () => null, setItem() {} }, fetch5,
+    m => alerts.push(String(m)), () => true, () => 0,
+    'http://sheet.test', POOL, () => true, () => 'עידן', () => {},
+    () => {}, () => {}, () => {},
+  );
+
+  win5.SHEET_DATA.returns = [{ id: 'r-1', kibbutz: 'גבים', product: 'E360CT', qty: 1, status: 'open', visitor: 'אביאם' }];
+  await mod5.returnToStock('r-1');
+  const mv5 = posts5.filter(x => x.type === 'movement');
+
+  check('#12 — the return names BOTH ends: גבים → חברה (it used to credit from nowhere)', () => {
+    assert.equal(mv5.length, 1, 'expected exactly one movement, got ' + mv5.length);
+    assert.deepEqual(
+      { from: mv5[0].fromLocation, to: mv5[0].toLocation, qty: mv5[0].quantity, reason: mv5[0].reason },
+      { from: 'גבים', to: POOL, qty: 1, reason: 'return_restock' },
+    );
+    assert.notEqual(mv5[0].fromLocation, '',
+      'fromLocation:"" is the bug — the pool gained a unit and no kibbutz gave one up');
+  });
+
+  mv5.forEach(m => ledger.push(m));
+  check('the ledger balances: pool 37, גבים 3 — the kibbutz really gave the unit up', () => {
+    assert.equal(bal(POOL, 'E360CT'), 37);
+    assert.equal(bal('גבים', 'E360CT'), 3);
+  });
+
+  // step 3 — the SAME physical return, already restocked once (the visit save posts the very
+  // same refId + reason). Pressing the button must not credit the pool a second time.
+  posts5.length = 0;
+  await mod5.returnToStock('r-1');
+  check('#12 — a second press posts nothing: the refId guard sees the existing movement', () => {
+    assert.equal(posts5.filter(x => x.type === 'movement').length, 0,
+      'the same return was credited twice — this is the double-credit half of #12');
+    assert.ok(alerts.some(a => a.indexOf('כבר הוחזר') !== -1), 'and it says why, instead of failing silently');
+  });
+  check('the balances did not move', () => {
+    assert.equal(bal(POOL, 'E360CT'), 37);
+    assert.equal(bal('גבים', 'E360CT'), 3);
+  });
+
+  // step 4 — a return row with no kibbutz cannot be restocked: a credit with no debit IS the
+  // bug, so the path refuses rather than inventing stock.
+  posts5.length = 0; alerts.length = 0;
+  win5.SHEET_DATA.returns.push({ id: 'r-2', kibbutz: '', product: 'E360CT', qty: 1, status: 'open' });
+  await mod5.returnToStock('r-2');
+  check('a return with no kibbutz is refused, not credited from nowhere', () => {
+    assert.equal(posts5.filter(x => x.type === 'movement').length, 0);
+    assert.ok(alerts.length > 0, 'and the person is told why');
+  });
+
+  // step 5 — #13: the day-log's `source` is model output about what someone dictated. The
+  // ledger's source is the pool, full stop (spec §1).
+  const src9 = read('./js/src/09-visits.js');
+  check('#13 — the day-log save never reads d.source for the ledger', () => {
+    const line = src9.split('\n').find(l => /^\s*const source = /.test(l));
+    assert.ok(line, 'the `source` assignment in saveVisitFromData is gone entirely');
+    assert.ok(!/d\.source/.test(line),
+      'saveVisitFromData still trusts the parser\'s `source`: a person name there moves stock '
+      + 'out of a personal bag that no longer exists, and the quantity vanishes from poolStock()');
+    assert.ok(/POOL_LOCATION/.test(line), 'the source must be pinned to the pool (spec §1)');
+  });
+}
+
 console.log('\n' + '─'.repeat(60));
 if (failed) { console.log(`FAILED  ${failed} check(s)`); process.exit(1); }
 console.log('PASSED  unified inventory pool — legacy half');
