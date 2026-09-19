@@ -58,7 +58,7 @@
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי only
     if (page === 'pushlog' && !(typeof isIdan === 'function' && isIdan())) page = 'kibbutz'; // התראות — עידן only
-    if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz'; // 🔥 צריבות — עידן only (rollout gate)
+    if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz'; // 🔥 צריבות — אביאם/ניתאי/עידן/עמיחי write · viewer read · hidden from מתניה/אליה · everyone once BURNS_PROJECT_ACTIVE is false
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';

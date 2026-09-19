@@ -165,8 +165,19 @@
     if (f.type === 'topic')  return 'נושא ' + f.val;
     return '';
   }
-  // a Hebrew string safe inside an inline onclick="fn('…')" (topic names carry apostrophes)
-  function devArg(s) { return devEsc(String(s == null ? '' : s)).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+  // A string safe inside an inline onclick="fn('…')". Two layers, and the ORDER matters: the
+  // browser un-escapes the HTML entities FIRST and only then parses the result as JavaScript,
+  // so the JS-string escaping (backslash, apostrophe) has to survive that pass as literal
+  // characters — which is why devEsc() must never turn a quote into an entity.
+  // The final `"` → `&quot;` is the attribute layer: a GitHub issue title containing a double
+  // quote (`תיקון "מצב ישיבה"`) used to end the onclick attribute early and scatter the rest of
+  // the title into the tag as bogus attributes. Task 18 sweep; pinned by test-integration.mjs.
+  function devArg(s) {
+    return devEsc(String(s == null ? '' : s))
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/"/g, '&quot;');
+  }
 
   // One color per topic, reused across the hero load-bar, the legend, and each topic's spine —
   // so a slice of the bar, its legend chip, and its section in the tree all read as the same color.

@@ -5,8 +5,9 @@
 //   1. gitleaks detect        (qa/gitleaks/.gitleaks.toml)          → 0 findings
 //   2. semgrep               (qa/semgrep/config.yml)               → 0 ERROR / 0 WARNING
 //   3. npm test              (legacy test-*.mjs runners + vitest)   → green
-//   4. playwright            (qa/playwright/playwright.config.ts)   → green, 4 projects
-//   5. lighthouse            (qa/lighthouse/lighthouserc.json)      → perf 85 / a11y 95 / bp 95
+//   4. lighthouse            (qa/lighthouse/lighthouserc.json)      → perf 85 / a11y 95 / bp 95
+//                             (runs BEFORE playwright on purpose — see the gate)
+//   5. playwright            (qa/playwright/playwright.config.ts)   → green, 4 projects
 //   6. zap baseline          (qa/zap/baseline.*)                    → 0 High/Medium
 //
 // Every run writes qa/reports/<yyyy-mm-dd>-<label>.md and exits non-zero if ANY gate failed.
@@ -264,22 +265,13 @@ gate('npm test', 'legacy test-*.mjs runners + app vitest, green', () => {
   return { status: r.code === 0 ? 'PASS' : 'FAIL', summary: r.code === 0 ? 'green' : 'red', detail: tail, ms: r.ms };
 });
 
-// ── 4. playwright ──────────────────────────────────────────────────────────────────────────
-gate('playwright', 'desktop 1440×900 + mobile 390×844, light + dark, RTL, no console errors', () => {
-  const r = run(node, [PLAYWRIGHT_CLI, 'test', '--config', 'qa/playwright/playwright.config.ts']);
-  const m = /(\d+) passed/.exec(r.out);
-  const f = /(\d+) failed/.exec(r.out);
-  const s = /(\d+) skipped/.exec(r.out);
-  const failedNames = r.out.split('\n').filter(l => /›.*spec\.ts/.test(l) && /^\s{2}\d+\)/.test(l));
-  return {
-    status: r.code === 0 ? 'PASS' : 'FAIL',
-    summary: `${m ? m[1] : '?'} passed · ${f ? f[1] : 0} failed · ${s ? s[1] : 0} skipped`,
-    detail: failedNames.join('\n'),
-    ms: r.ms,
-  };
-});
-
-// ── 5. lighthouse ──────────────────────────────────────────────────────────────────────────
+// ── 4. lighthouse ──────────────────────────────────────────────────────────────────────────
+// BEFORE Playwright, deliberately. Lighthouse measures a machine as much as a page, and
+// running it behind four parallel browser projects measured a machine that had just finished
+// driving them: the same tree scored 94 in isolation and 83–85 straight after the suite,
+// which is how the 85 threshold came to be decided by luck. Median-of-3 (qa/lighthouse/run.mjs)
+// smooths the noise inside a run; running first is what removes the load that caused it.
+// Task 18.
 gate('lighthouse', 'mobile preset: performance ≥ 85 · accessibility ≥ 95 · best-practices ≥ 95', () => {
   const r = run(process.execPath, ['qa/lighthouse/run.mjs']);
   let sum = null;
@@ -296,6 +288,22 @@ gate('lighthouse', 'mobile preset: performance ≥ 85 · accessibility ≥ 95 ·
     ...sum.topIssues.slice(0, 8).map(i => `  · ${i.title}${i.savingsMs ? ` (~${Math.round(i.savingsMs)} ms)` : ''}`),
   ].join('\n');
   return { status: sum.pass ? 'PASS' : 'FAIL', summary: line, detail, ms: r.ms };
+});
+
+
+// ── 5. playwright ──────────────────────────────────────────────────────────────────────────
+gate('playwright', 'desktop 1440×900 + mobile 390×844, light + dark, RTL, no console errors', () => {
+  const r = run(node, [PLAYWRIGHT_CLI, 'test', '--config', 'qa/playwright/playwright.config.ts']);
+  const m = /(\d+) passed/.exec(r.out);
+  const f = /(\d+) failed/.exec(r.out);
+  const s = /(\d+) skipped/.exec(r.out);
+  const failedNames = r.out.split('\n').filter(l => /›.*spec\.ts/.test(l) && /^\s{2}\d+\)/.test(l));
+  return {
+    status: r.code === 0 ? 'PASS' : 'FAIL',
+    summary: `${m ? m[1] : '?'} passed · ${f ? f[1] : 0} failed · ${s ? s[1] : 0} skipped`,
+    detail: failedNames.join('\n'),
+    ms: r.ms,
+  };
 });
 
 // ── 6. zap baseline ────────────────────────────────────────────────────────────────────────

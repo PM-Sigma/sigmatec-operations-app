@@ -1,7 +1,7 @@
 # Retirement coverage audit — R1–R8
 
 Guard rail per §7m: "no retirement may drop a function that is still needed and not covered by the remaining spec."
-Scope: `C:\Users\idann\Projects\SigmatecOps-wt-cards` (branch `fix/dev-board-columns`). Read in full:
+Scope: `C:\Users\idann\Projects\SigmatecOps-wt-cards` (branch `feat/kibbutz-cards-redesign` — an earlier revision of this header said `fix/dev-board-columns`, which is the SIBLING repo's branch and a different lineage; corrected by the Task 18 sweep). Read in full:
 `js/src/14-calendar.js`, `js/src/12-reports.js`, `js/src/17-staff.js`, `js/src/13-ems.js`, `js/src/00-bridge.js`,
 `js/src/22-push.js`, `sw.js`, and the relevant `index.html` sections (home company-tasks block, `#ems-view`,
 `#my-tasks-view`, `#staff-view`, `#calendar-view`, EMS task modal). Cross-referenced against `app/src/**` (the

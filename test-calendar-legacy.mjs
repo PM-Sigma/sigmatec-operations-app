@@ -15,7 +15,7 @@
 // source: this file asserts on BEHAVIOUR of the real js/src/14-calendar.js text, not on a
 // copy of it, so a change there that breaks the contract fails here.
 import assert from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 const SRC = readFileSync(new URL('./js/src/14-calendar.js', import.meta.url), 'utf8');
 
@@ -119,14 +119,18 @@ assert.ok(!SW.includes('stats.html'), "sw.js's SHELL must not precache the retir
 // first, so the ones explaining this history do not trip the check.
 {
   const stripComments = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
-  const LEGACY = ['00-bridge', '01-data', '02-init-attendance', '09-visits', '10-activity',
-    '11-search-login', '12-reports', '13-ems', '14-calendar', '15-login-gate', '22-push'];
+  // EVERY legacy module, globbed — not a hand-picked list. The hand-picked list covered 11 of
+  // the 26 files, and a `showPage('mytasks')` dropped into 18-dev-tasks.js was shown (Task 14
+  // review, empirically) to sail straight through it. A sweep that only looks where someone
+  // remembered to look is not a sweep. Task 18.
+  const LEGACY = readdirSync(new URL('./js/src/', import.meta.url)).filter(f => f.endsWith('.js')).sort();
+  assert.ok(LEGACY.length >= 26, 'the retired-page sweep must see every js/src module (saw ' + LEGACY.length + ')');
   for (const f of LEGACY) {
-    const src = stripComments(readFileSync(new URL('./js/src/' + f + '.js', import.meta.url), 'utf8'));
+    const src = stripComments(readFileSync(new URL('./js/src/' + f, import.meta.url), 'utf8'));
     for (const page of ['ems', 'mytasks', 'staff']) {
       assert.ok(
         !src.includes("showPage('" + page + "')"),
-        f + ".js still navigates to the retired '" + page + "' page — it would land on קיבוצים instead",
+        f + " still navigates to the retired '" + page + "' page — it would land on קיבוצים instead",
       );
     }
   }

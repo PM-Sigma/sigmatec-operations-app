@@ -202,28 +202,11 @@
   /* was `position: relative` — sticky is also a positioned ancestor, so the absolutely
      positioned section notes inside keep working (spec §6 sticky section headers). */
   .section-header { position: sticky; top: 0; }
-  .ready-live-section .section-header,
-  .new-clients-section .section-header { background: var(--card); }
-  .ready-live-section .section-header { border-inline-start: 4px solid var(--danger); }
-  .ready-live-section .section-title { color: #6549b8; }
-  .new-clients-section .section-header { border-right: 4px solid #dd7d23; }
-  .new-clients-section .section-title { color: #b35f12; }
-  .kibbutz.new-client {
-    background: #fffaf4 !important;
-    border: 1px solid #ecc89e !important;
-    border-right: 3px solid #dd7d23 !important;
-  }
-  .new-client-flag {
-    display: inline-block;
-    background: #fdf1e3;
-    color: #b35f12;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 6px;
-    margin-top: 6px;
-    border: 1px solid #ecc89e;
-  }
+  /* `.ready-live-section` / `.new-clients-section` / `.kibbutz.new-client` / `.new-client-flag`
+     were deleted by the Task 18 stale-part hunt. They styled the 1.x STATIC card grid; 2.00
+     renders the cards from the `kibbutzim` table and emits none of those classes. The Task 23
+     report claimed index.html still emitted them — it does not, and had not since before that
+     merge. Nothing else in the tree references them (grep over index.html, js/src, app/src). */
   /* Visual split: card top (operational) vs bottom (setup progress) */
   .card-divider {
     margin: 14px -14px 10px;
@@ -1388,7 +1371,7 @@
     .header h1 { font-size: 20px; }
     .header .subtitle { font-size: 12px; }
     .header-meta { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px; }
-    .header-date, .copy-btn, .compact-toggle { padding: 6px 10px; font-size: 11px; }
+    .header-date, .copy-btn { padding: 6px 10px; font-size: 11px; }
 
     /* Toasts (errors / "שלום") appear at the TOP on mobile — the bottom is the nav bar */
     .toast {
@@ -1428,21 +1411,8 @@
   @media (max-width: 480px) {
     .kibbutz-grid { grid-template-columns: 1fr; }
   }
-  /* A surface chip like .header-date / .copy-btn next to it. It was white text on a
-     translucent WHITE pill — correct on the navy header this redesign removed, and 1.07:1
-     against the page ever since. */
-  .compact-toggle {
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .compact-toggle:hover { background: var(--surface-2); }
+  /* `.compact-toggle` (the 1.x "תצוגה מצומצמת" header chip) was deleted by the Task 18
+     stale-part hunt — the button went with the old header and nothing emits the class. */
 
 
 /* ============================================================
@@ -1465,8 +1435,7 @@
   .filter-bar { gap: 8px; }
   .search-input { min-width: 0; flex: 1 1 100%; }   /* search on its own clean row */
 
-  .header-meta .copy-btn,
-  .header-meta .compact-toggle {
+  .header-meta .copy-btn {
     min-height: 40px; padding: 9px 12px; font-size: 12px;
     display: inline-flex; align-items: center;
   }

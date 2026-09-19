@@ -102,7 +102,15 @@
   // is a full paginated crawl of EMS plus one Sheet write.
   //
   // The throttle timestamp lives in localStorage on purpose: three tabs open on
-  // one phone share it, so they cost one sync between them, not three. The
+  // one phone share it, so they USUALLY cost one sync between them, not three.
+  // Usually, not always — this comment used to claim always. Read-then-write over
+  // localStorage is check-then-act, not a lock: two tabs that both read the stamp
+  // before either writes both decide they are due and both crawl. The window is
+  // the few milliseconds between that read and that write, the cost of losing the
+  // race is one extra crawl, and the next tick is throttled again — self-healing,
+  // which is why this stays a stamp. If duplicate crawls ever show up in practice
+  // the fix is `navigator.locks.request` around emsBackgroundSync, not a longer
+  // throttle. The
   // office-PC job (scripts/ems-cache-refresh.mjs) runs the same refresh from
   // outside the browser for the hours when nobody has the app open at all.
   // ═══════════════════════════════════════════════════════════════════════════
