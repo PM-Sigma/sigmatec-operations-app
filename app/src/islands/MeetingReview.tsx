@@ -52,7 +52,15 @@ export function openMeetingReview(parsed: ParsedMeeting, marked?: string[]): voi
 
 // ───────────────────────────── the write (thin) ─────────────────────────────
 
-export interface ReviewResult { notes: number; tasks: number; internal: number; queued: number }
+export interface ReviewResult { notes: number; tasks: number; internal: number; queued: number; failed: number }
+
+export interface SaveReviewOpts {
+  /** Line keys that already carry an EMS task id from an earlier, partially-failed בצע. */
+  created?: Record<string, string>;
+  /** Called the instant a line gets a task id, so the caller can persist it before any later
+   *  line in the same run throws — a crash on line 3 must not lose what line 1 and 2 wrote. */
+  onCreated?: (key: string, taskId: string) => void;
+}
 
 /**
  * בצע — and the ONLY function in this feature that writes anything.
@@ -68,12 +76,19 @@ export interface ReviewResult { notes: number; tasks: number; internal: number; 
  *      carries the 📋 modal's overrides, which that helper cannot see).
  * An EMS call that is only queued (no network) still links, as `pending:…` — exactly what the
  * card's ➕ does, so `resolvePendingTasks` picks it up when the queue drains.
+ *
+ * Idempotent under a partial failure: a line that already has an `ems_task_id` — either from
+ * `opts.created` (this island's in-memory record of an earlier failed run) or from the freshly
+ * re-read note row — is never re-sent to `sigma.createTask`; בצע pressed again only fills the
+ * gaps. A `createTask` throw is caught per line (not re-thrown), so one bad line does not stop
+ * the rest of the batch from linking; the caller decides whether to close on `result.failed`.
  */
 export async function saveReview(
-  draft: ReviewDraft, createdBy: string, bundle?: ReviewBundle,
+  draft: ReviewDraft, createdBy: string, bundle?: ReviewBundle, opts?: SaveReviewOpts,
 ): Promise<ReviewResult> {
   const b = bundle || applyReview(draft, createdBy);
   const sb = await getSupabase();
+  const already = opts?.created || {};
 
   await sbWrite(() => sb.rpc('import_meeting_notes', { p: reviewPayload(b, draft, createdBy) }) as any);
 
@@ -85,21 +100,38 @@ export async function saveReview(
 
   let tasks = 0;
   let queued = 0;
+  let failed = 0;
   if (b.emsTasks.length) {
     const { data } = await sb.from('kibbutz_meeting_notes')
-      .select('id,kibbutz,seq')
+      .select('id,kibbutz,seq,ems_task_id')
       .eq('meeting_date', draft.meeting_date)
       .eq('meeting_kind', draft.meeting_kind);
     const idOf = new Map<string, string>();
-    (data || []).forEach((r: any) => idOf.set(String(r.kibbutz) + '#' + String(r.seq), String(r.id)));
+    const existing = new Map<string, string>();
+    (data || []).forEach((r: any) => {
+      idOf.set(String(r.kibbutz) + '#' + String(r.seq), String(r.id));
+      if (r.ems_task_id) existing.set(String(r.kibbutz) + '#' + String(r.seq), String(r.ems_task_id));
+    });
 
     for (const t of b.emsTasks) {
-      const res = (await sigma.createTask(t.task)) as any;
-      if (res && res.error) throw new Error(String(res.error));
-      const taskId = res && res.id ? String(res.id) : null;
-      if (!taskId) queued++;
-      const value = taskId || 'pending:' + (res?.queueId || Date.now());
-      const noteId = idOf.get(t.kibbutz + '#' + t.seq);
+      const noteKey = t.kibbutz + '#' + t.seq;
+      const noteId = idOf.get(noteKey);
+      let value = already[t.key] || existing.get(noteKey) || null;
+
+      if (!value) {
+        try {
+          const res = (await sigma.createTask(t.task)) as any;
+          if (res && res.error) throw new Error(String(res.error));
+          const taskId = res && res.id ? String(res.id) : null;
+          if (!taskId) queued++;
+          value = taskId || 'pending:' + (res?.queueId || Date.now());
+          opts?.onCreated?.(t.key, value);
+        } catch {
+          failed++;
+          continue; // keep going — the rest of the batch is independent, and a retry can pick up just this line
+        }
+      }
+
       if (noteId) {
         await sbWrite(() => sb.from('kibbutz_meeting_notes')
           .update({ ems_task_id: value }).eq('id', noteId).select('id').single() as any);
@@ -109,7 +141,9 @@ export async function saveReview(
   }
 
   emitNotesChanged({ meeting_date: draft.meeting_date, review: true, notes: b.notes.length, tasks });
-  return { notes: b.notes.length, tasks, internal: INTERNAL_TASKS_WRITABLE ? b.internalTasks.length : 0, queued };
+  return {
+    notes: b.notes.length, tasks, internal: INTERNAL_TASKS_WRITABLE ? b.internalTasks.length : 0, queued, failed,
+  };
 }
 
 // ───────────────────────────── small pieces ─────────────────────────────
@@ -360,6 +394,10 @@ function ReviewSheet() {
   const [addText, setAddText] = React.useState('');
   const [taskFor, setTaskFor] = React.useState<{ line: ReviewLine; kibbutz: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
+  // Line key → EMS task id, filled in as בצע succeeds per line. Survives a partial failure
+  // within the same open review so a retry never re-creates an already-linked task; wiped on
+  // ביטול/close and on a fresh start (see cancel()/start()).
+  const [created, setCreated] = React.useState<Record<string, string>>({});
 
   const start = React.useCallback((parsed: ParsedMeeting, marked?: string[]) => {
     if (!canReview(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.())) {
@@ -367,6 +405,7 @@ function ReviewSheet() {
       return;
     }
     setDraft(draftFromParsed(parsed, { marked }));
+    setCreated({});
     setOpen(true);
     track('review-open', parsed.meeting_date || '');
   }, []);
@@ -390,7 +429,7 @@ function ReviewSheet() {
 
   const cancel = () => {
     // Nothing was written, so there is nothing to undo — the draft simply stops existing.
-    setOpen(false); setDraft(null); setAdding(null); setAddText(''); setTaskFor(null);
+    setOpen(false); setDraft(null); setAdding(null); setAddText(''); setTaskFor(null); setCreated({});
   };
 
   const commit = async () => {
@@ -398,7 +437,18 @@ function ReviewSheet() {
     if (!draft.meeting_date) { toast.error('חסר תאריך ישיבה'); return; }
     setBusy(true);
     try {
-      const r = await saveReview(draft, user, applyReview(draft, user));
+      const r = await saveReview(draft, user, applyReview(draft, user), {
+        created,
+        // Record as each line lands, not just at the end — if a LATER line throws (it won't,
+        // saveReview catches per line, but stay defensive), the earlier successes still stick.
+        onCreated: (key, taskId) => setCreated(prev => ({ ...prev, [key]: taskId })),
+      });
+      if (r.failed) {
+        // The draft stays open and untouched — בצע again only retries the lines still missing
+        // a task id (tracked in `created` above), never the ones that already succeeded.
+        toast.error(`נוצרו ${r.tasks} משימות, ${r.failed} נכשלו — לחץ שוב כדי להשלים`);
+        return;
+      }
       await qc.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
       const parts = [`${r.notes} בולטים`];
       if (r.tasks) parts.push(`${r.tasks} משימות`);

@@ -58,7 +58,15 @@ vi.mock('@/lib/supabase', () => {
     },
     update: (row: any) => {
       updated.push({ table: name, row });
-      return { eq: () => ({ select: () => ({ single: async () => ({ data: { id: 'x' }, error: null }) }) }) };
+      return {
+        eq: (_col: string, val: any) => {
+          if (name === 'kibbutz_meeting_notes') {
+            const hit = stored.find((s: any) => s.id === val);
+            if (hit) Object.assign(hit, row);
+          }
+          return { select: () => ({ single: async () => ({ data: { id: 'x' }, error: null }) }) };
+        },
+      };
     },
   });
   const client = {
@@ -246,6 +254,43 @@ describe('the screen', () => {
     await openScreen();
     expect(screen.getByTestId('review-commit').textContent)
       .toBe('בצע — 1 משימות · 1 הערות · 1 דיבורים');
+  });
+
+  it('a partial בצע failure never re-creates the tasks that already landed', async () => {
+    await openScreen();
+    // Turn all three lines into 📋 lines, so the run has three EMS tasks to create (line 2 —
+    // דפנה#2 — is the one whose sigma.createTask throws on the first attempt).
+    fireEvent.click(screen.getByTestId('review-chip-דפנה#2-ems'));
+    fireEvent.click(screen.getByTestId('review-chip-חוקוק#1-ems'));
+
+    const { sigma } = await import('@/bridge');
+    let calls = 0;
+    sigma.createTask = ((row: any) => {
+      calls++;
+      if (calls === 2) return Promise.reject(new Error('EMS down'));
+      created.push(row);
+      return Promise.resolve({ sent: true, id: 'T-' + created.length });
+    }) as any;
+
+    await act(async () => { fireEvent.click(screen.getByTestId('review-commit')); });
+    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(
+      expect.stringContaining('נוצרו 2 משימות, 1 נכשלו'),
+    ));
+    expect(calls).toBe(3); // line 1 succeeded, line 2 (דפנה#2) threw, line 3 was still attempted
+    expect(created).toHaveLength(2); // line 1's and line 3's tasks (line 2's create rejected)
+
+    // second בצע: only the still-missing line (דפנה#2) goes to createTask again
+    const callsBeforeRetry = calls;
+    await act(async () => { fireEvent.click(screen.getByTestId('review-commit')); });
+    await waitFor(() => expect(sonner.success).toHaveBeenCalled());
+    expect(calls - callsBeforeRetry).toBe(1);
+    expect(created).toHaveLength(3); // one more real task created on retry
+
+    // all three notes ended up linked (three distinct task ids patched) across the two attempts
+    const ids = new Set(
+      updated.filter(u => u.table === 'kibbutz_meeting_notes' && u.row.ems_task_id).map(u => u.row.ems_task_id),
+    );
+    expect(ids.size).toBe(3);
   });
 
   it('a failed write is reported in words the person can act on', async () => {
