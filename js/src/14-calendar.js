@@ -8,6 +8,24 @@
     renderCompanyCalendar();
   }
   function calEsc(s) { return String(s == null ? '' : s).replace(/</g, '&lt;'); }
+  /**
+   * An EMS due-date as the LOCAL calendar day it names — the legacy twin of
+   * app/src/lib/emsTasks.ts `localDayOf` (Task 3's date-timezone fix, deferred here to Task 18).
+   * A bare `YYYY-MM-DD` names a DAY, not an instant: `new Date('2026-09-18')` is parsed as UTC
+   * midnight, so the value that reaches every local getter is 02:00–03:00 on the 18th in Israel
+   * and 19:00 on the 17th in New York — the task lands on the wrong square of the month grid,
+   * in the wrong agenda group and with the wrong date in the detail sheet. A value WITH a time
+   * or a zone is a genuine instant and is left alone. Returns null for an unparsable value, so
+   * a caller can skip it instead of rendering `Invalid Date`.
+   */
+  function calDueDate(value) {
+    var s = String(value == null ? '' : value);
+    var bare = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (bare) return new Date(+bare[1], +bare[2] - 1, +bare[3]);
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  window.calDueDate = calDueDate;
   // One-click "add to MY calendar": a Google-Calendar create-event URL from any event.
   function calAddLink(d, title, details) {
     const start = new Date(d);
@@ -22,7 +40,8 @@
   // Build { 'Y-M-D': [{icon,text,cls}] } from all data sources.
   function collectCalendarEvents() {
     const ev = {};
-    const push = (d, o) => { if (isNaN(d.getTime())) return; const k = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); (ev[k] = ev[k] || []).push(o); };
+    // `!d` — calDueDate returns null for an unparsable due date.
+    const push = (d, o) => { if (!d || isNaN(d.getTime())) return; const k = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); (ev[k] = ev[k] || []).push(o); };
     (typeof loadAllVisitsCombined === 'function' ? loadAllVisitsCombined() : []).forEach(v => {
       if (!v.date) return;
       push(new Date(v.date), { icon: '📍', text: (v.visitor || '') + ' · ' + (v.kibbutz || '') + (v.workday ? ' (יום עבודה)' : ''), cls: 'cal-visit' });
@@ -32,7 +51,7 @@
     (typeof emsCacheData === 'function' ? (emsCacheData().tasks || []) : []).forEach(t => {
       if (!t.expectedCompletionDate) return;                                            // no due date → can't place it
       if (typeof EMS_CLOSED !== 'undefined' && EMS_CLOSED.indexOf(t.status) !== -1) return;   // skip closed tasks
-      push(new Date(t.expectedCompletionDate), { icon: '📋', text: (t.title || '') + (t.site && t.site.name ? ' · ' + t.site.name : ''), cls: 'cal-ems' });
+      push(calDueDate(t.expectedCompletionDate), { icon: '📋', text: (t.title || '') + (t.site && t.site.name ? ' · ' + t.site.name : ''), cls: 'cal-ems' });
     });
     return ev;
   }
@@ -81,7 +100,8 @@
     emsTasks.forEach(t => {
       if (!t.expectedCompletionDate) return;
       if (typeof EMS_CLOSED !== 'undefined' && EMS_CLOSED.indexOf(t.status) !== -1) return;
-      const d = new Date(t.expectedCompletionDate);
+      const d = calDueDate(t.expectedCompletionDate);
+      if (!d) return;
       if (within(d)) items.push({ d: d, icon: '📋', text: (t.title || '') + (t.site && t.site.name ? ' · ' + t.site.name : ''), cls: 'cal-ems' });
     });
     const cal = (window.SHEET_DATA && window.SHEET_DATA.calendar) || {};
@@ -629,7 +649,7 @@
   }
 
   function emsCalendarLink(t) {
-    const start = new Date(t.expectedCompletionDate);
+    const start = calDueDate(t.expectedCompletionDate) || new Date();
     const end   = new Date(start.getTime() + 30 * 60000);
     const fmt   = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
@@ -678,7 +698,8 @@
   function renderEmsDetail(t) {
     window._emsCurrentTask = t;
     const site = t.site && t.site.name ? t.site.name : '—';
-    const due  = t.expectedCompletionDate ? new Date(t.expectedCompletionDate).toLocaleDateString('he-IL') : '—';
+    const dueD = calDueDate(t.expectedCompletionDate);
+    const due  = dueD ? dueD.toLocaleDateString('he-IL') : '—';
     const statusOpts = Object.keys(EMS_STATUS).map(s => `<option value="${s}" ${s === t.status ? 'selected' : ''}>${EMS_STATUS[s]}</option>`).join('');
     const cal = t.expectedCompletionDate
       ? `<a href="${emsCalendarLink(t)}" target="_blank" rel="noopener" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;text-decoration:none;">📅 הוסף ליומן</a>` : '';

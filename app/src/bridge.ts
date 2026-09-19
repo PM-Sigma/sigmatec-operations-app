@@ -300,7 +300,23 @@ export type SigmaEvent =
   // (Task 20). Neither store notifies anyone, so a reader that SNAPSHOTS them — Ctrl+K builds
   // its source list once per open — needs telling when the list finally lands. Consumer:
   // islands/CommandBar.tsx (docs/integration-map.md)
-  | 'kibbutzim-published';
+  | 'kibbutzim-published'
+  // ── added by the Task 18 sweep ───────────────────────────────────────────────
+  // All four were already being emitted with the union never updated, so TypeScript could not
+  // spell-check them and docs/integration-map.md never listed them.
+  // 🔥 a burn was marked נצרב / בעיה / גנרטור (components/home/Burns.tsx). Consumer: the legacy
+  // 🔥 צריבות table (js/src/24-meter-burns.js) re-renders.
+  | 'burns-changed'
+  // 🔒 an internal task was added, closed or reassigned (components/home/InternalTasks.tsx)
+  | 'internal-tasks-changed'
+  // a kibbutz onboarding step was ticked (components/home/OnboardingProgress.tsx)
+  | 'onboarding-changed'
+  // ▶/■ שעות: a work session was stopped and written (components/home/WorkTimerStopSheet.tsx).
+  // ANNOUNCE-ONLY, like `checkin-created`: the island that emits invalidates its own query, and
+  // the event exists so a surface added later hears about the write without that island having
+  // to learn who its readers are. test-integration.mjs holds the announce-only list — an event
+  // that is neither consumed nor on that list fails the build, so the choice stays deliberate.
+  | 'work-session-saved';
 
 /** Subscribe to a legacy → React event for the lifetime of the component. */
 export function useSigmaEvent(name: SigmaEvent, handler: (e: CustomEvent) => void): void {

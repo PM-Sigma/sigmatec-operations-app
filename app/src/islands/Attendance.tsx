@@ -240,6 +240,12 @@ function AttendanceIsland() {
   }, [qc]);
   useSigmaEvent('attendance-saved', refresh);
   useSigmaEvent('visit-saved', refresh);
+  // The 🕎 list is fetched by the LEGACY side (js/src/04-attendance-daily.js) and cached here
+  // for six hours. Mount before that fetch lands — the ordinary cold boot — and the island
+  // caches an EMPTY list for the rest of the session: no 🕎 in the month grid, and every
+  // holiday counted as a missing day in the KPIs. `holidays-loaded` is emitted exactly when
+  // the list arrives; until the Task 18 sweep nothing listened to it (integration contract b).
+  useSigmaEvent('holidays-loaded', () => { void qc.invalidateQueries({ queryKey: ['holidays'] }); });
   useSigmaEvent('user-changed', () => { try { setPerson(sigma.attPerson?.() || ''); } catch { /* legacy gone */ } });
 
   const rows = (rowsQ.data || []) as AttRow[];
