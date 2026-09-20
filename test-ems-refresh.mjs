@@ -88,6 +88,14 @@ function loadLegacyEms() {
     EMS_STATUS: LEGACY_STATUS,
     EMS_PRIORITY: { normal: 'רגילה' },
     EMS_CLOSED: LEGACY_CLOSED,
+    // Hoisted to js/src/00-consts.js by the task-33 TDZ fix — 13-ems.js reads them but no
+    // longer declares them, so the sandbox has to supply them like any other sibling symbol.
+    EMS_CACHE_VER: 2,
+    _emsStaleCacheChecked: false,
+    EMS_BG_MIN_MS: 5 * 60 * 1000,
+    EMS_BG_KEY: 'ems_bg_sync_at_v1',
+    _emsBgInFlight: null,
+    _emsBgInstalled: false,
   };
   const names = Object.keys(params);
   // eslint-disable-next-line no-new-func

@@ -34,6 +34,18 @@ import {
   type RecordSession,
 } from '@/lib/speech';
 import { TranscribeRetry } from '@/components/TranscribeRetry';
+
+/**
+ * A PRECONDITION failure (no EMS session) is not a service outage: retrying it fails the same
+ * way forever, so it keeps its toast and the recording is not held. Read off the error object
+ * rather than imported from @/lib/speech on purpose — the unit tests mock that whole module,
+ * and a classifier that a mock can silently turn into `undefined` is a classifier that decides
+ * nothing. `speech.ts` stamps `precondition: true`; everything else is worth a retry.
+ */
+function heldForRetry(e: unknown): boolean {
+  return !(e && typeof e === 'object' && (e as { precondition?: boolean }).precondition === true);
+}
+
 import { EmsGate } from '@/components/EmsGate';
 
 /** Bus event every feedback surface listens to (the inbox refetches on it). */
@@ -311,9 +323,12 @@ function FeedbackSheet() {
       setPendingAudio(null);
       if (r.refined === false && r.jobId) startRefinePoll(r.jobId, r.refineEtaSeconds);
       return true;
-    } catch {
-      // No toast. A toast disappears, and with it the only sign that the speech still exists;
-      // the strip stays on screen with the ↻ until the person decides.
+    } catch (e: any) {
+      // A precondition (no EMS session) is not a service outage: the retry would fail the same
+      // way forever, so it keeps the toast and the recording is not held.
+      if (!heldForRetry(e)) { toast.error(e?.message || 'התמלול נכשל'); return false; }
+      // Otherwise: no toast. A toast disappears, and with it the only sign that the speech
+      // still exists; the strip stays on screen with the ↻ until the person decides.
       setPendingAudio(audio);
       return false;
     } finally { setTranscribing(false); }
@@ -453,7 +468,11 @@ function FeedbackSheet() {
           ))}
         </ToggleGroup>
 
-        {(voiceActive || busy || phase === 'failed') && (
+        {/* When a recording is HELD (the transcription could not be reached, עידן 20.9), the
+            strip below owns the retry and says the true thing: the recording is fine, the
+            transcription is not. Showing "ההקלטה נכשלה" + a second נסה שוב next to it would be
+            both wrong and a second button competing for the same tap. */}
+        {(voiceActive || busy || (phase === 'failed' && !pendingAudio)) && (
           <div className="mt-2 flex items-center gap-2 text-[13px] font-semibold">
             <span
               className={'inline-block h-2.5 w-2.5 rounded-full '

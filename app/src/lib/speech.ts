@@ -253,7 +253,9 @@ export async function uploadAndTranscribe(
   // the bucket only accepts the EMS-minted pass anyway — so fail here with something the user
   // can act on instead of a 401 from two calls later.
   const ems = (() => { try { return (window as any).sigma?.emsToken?.() || ''; } catch { return ''; } })();
-  if (!ems) throw new Error(EMS_LOGIN_REQUIRED_VOICE);
+  // Not a transcription failure — a precondition. The islands must NOT offer "try again
+  // later" for it: retrying without a sign-in fails identically, forever.
+  if (!ems) throw Object.assign(new Error(EMS_LOGIN_REQUIRED_VOICE), { precondition: true });
 
   const path = audioObjectPath(uuid(), audio.mime);
   const sb = await getSupabase();
@@ -316,4 +318,14 @@ export async function pollRefineStatus(jobId: string): Promise<RefinePollResult>
     refined: !!d.refined,
     secondsRemaining: Number.isFinite(+d.seconds_remaining) ? +d.seconds_remaining : undefined,
   };
+}
+
+/**
+ * Is this failure worth holding the recording for? A transcription that could not be reached
+ * (the self server down, the Groq fallback silent, a timeout, a 5xx) is — it will very likely
+ * work later, with the same audio. A PRECONDITION failure is not: with no EMS session the
+ * retry fails identically, forever, and offering "נסה שוב מאוחר יותר" for it would be a lie.
+ */
+export function isRetriableTranscribeError(e: unknown): boolean {
+  return !(e && typeof e === 'object' && (e as { precondition?: boolean }).precondition === true);
 }

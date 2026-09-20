@@ -233,9 +233,13 @@ describe('Feedback sheet — the voice ladder', () => {
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
   });
 
-  it('shows a retry when the transcription failed', async () => {
+  // עידן 20.9: an unreachable transcription is not a failed recording. The recording is HELD,
+  // one line says so, and the ↻ re-sends THAT blob — so there is exactly one retry on screen
+  // (the machine's own "ההקלטה נכשלה" banner steps aside while a recording is held).
+  it('holds the recording and shows one retry when the transcription is unavailable', async () => {
+    const blob = new Blob(['x']);
     speech.startRecording.mockResolvedValue({
-      stop: async () => ({ blob: new Blob(['x']), mime: 'audio/webm', ms: 3000 }), cancel: vi.fn(),
+      stop: async () => ({ blob, mime: 'audio/webm', ms: 3000 }), cancel: vi.fn(),
     });
     speech.uploadAndTranscribe.mockRejectedValue(new Error('התמלול נכשל'));
 
@@ -244,8 +248,18 @@ describe('Feedback sheet — the voice ladder', () => {
     fireEvent.click(screen.getByLabelText('הקלט'));
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
     fireEvent.click(screen.getByLabelText('עצור הקלטה'));
-    expect(await screen.findByText('ההקלטה נכשלה')).toBeTruthy();
-    expect(screen.getByText('נסה שוב')).toBeTruthy();
+
+    expect(await screen.findByTestId('transcribe-retry')).toBeTruthy();
+    expect(screen.getByText('התמלול לא זמין כרגע — נסה שוב מאוחר יותר')).toBeTruthy();
+    expect(screen.queryByText('ההקלטה נכשלה')).toBeNull();
+    expect(screen.getAllByText('נסה שוב')).toHaveLength(1);
+
+    // The ↻ re-sends the SAME blob — that is the whole point of holding it.
+    speech.uploadAndTranscribe.mockResolvedValue({ text: 'מה שנאמר', engine: 'self', ms: 10, path: 'p', refined: true });
+    fireEvent.click(screen.getByTestId('transcribe-retry-btn'));
+    await waitFor(() => expect(speech.uploadAndTranscribe).toHaveBeenCalledTimes(2));
+    expect(speech.uploadAndTranscribe.mock.calls[1][0].blob).toBe(blob);
+    await waitFor(() => expect(screen.queryByTestId('transcribe-retry')).toBeNull());
   });
 
   it('says so instead of failing silently when the browser has no voice path at all', async () => {

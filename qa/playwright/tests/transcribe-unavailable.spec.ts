@@ -7,9 +7,11 @@
 //   · whatever was TYPED is never touched — not on failure, not on retry;
 //   · the held recording survives until a transcription succeeds or the person discards it.
 //
-// Both voice islands answer the same way, so both are covered here: the feedback sheet and the
-// day log. The transcribe function is mocked per-test (502 first, 200 on the retry) the same
-// way feedback-refine.spec.ts mocks the happy chain.
+// Both voice islands answer the same way. The FEEDBACK side of it lives in feedback-refine.spec.ts
+// (the 502-then-↻ case and the quiet refine poll, beside the rest of that sheet's voice ladder);
+// this file is the DAY LOG — the second island, the one where the recording is a day's work and
+// losing it costs the most. The transcribe function is mocked the same way: 502 until the test
+// says otherwise.
 import { boot, expect, expectNoConsoleErrors, shot, test, SB_ORIGIN } from './_helpers';
 
 const TYPED = 'כתבתי את זה ביד לפני שהקלטתי';
@@ -80,41 +82,6 @@ const record = async (page: any, micName: string, stopName: string) => {
   await page.getByRole('button', { name: stopName }).click();
 };
 
-test('transcribe unavailable (feedback): one line + ↻, typed text kept, retry lands', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'אביאם' });
-  await stubRecorder(page);
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('#sigma-home .kibbutz');
-  await mockTranscribeDown(page);
-
-  await page.evaluate(() => { (window as any).sigma.emsToken = () => 'qa-fake-ems-token'; });
-  await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
-
-  const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
-  await box.fill(TYPED);
-
-  await record(page, 'הקלט', 'עצור הקלטה');
-
-  // The strip, not a toast — and it says the one line.
-  const strip = page.getByTestId('transcribe-retry');
-  await expect(strip).toBeVisible({ timeout: 10_000 });
-  await expect(strip).toContainText(UNAVAILABLE);
-  await expect(page.getByTestId('transcribe-retry-btn')).toBeVisible();
-  // Nothing was added to the field, and nothing was taken from it.
-  await expect(box).toHaveValue(TYPED);
-  await shot(page, ti, 'unavailable');
-
-  // The same recording is still held: ↻ re-sends it, and this time the server answers.
-  await page.evaluate(() => { (window as any).__whisperUp = true; });
-  await page.getByTestId('transcribe-retry-btn').click();
-
-  await expect(box).toHaveValue(TYPED + ' ' + LANDED, { timeout: 10_000 });
-  await expect(strip).toBeHidden();
-
-  expectNoConsoleErrors(rec);
-});
-
 test('transcribe unavailable (day log): the recording is held until it lands or is discarded', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await stubRecorder(page);
@@ -135,6 +102,7 @@ test('transcribe unavailable (day log): the recording is held until it lands or 
   await expect(strip).toBeVisible({ timeout: 10_000 });
   await expect(strip).toContainText(UNAVAILABLE);
   await expect(box).toHaveValue(TYPED);
+  await shot(page, ti, 'unavailable');
 
   // A retry while the server is still down leaves everything exactly as it was — the strip
   // stays, the recording stays, the typed text stays.

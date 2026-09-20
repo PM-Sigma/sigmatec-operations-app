@@ -289,12 +289,20 @@ gate('npm test', 'legacy test-*.mjs runners + app vitest, green', () => {
 // is missing the gate reports SKIP rather than FAIL — test-edge-imports.mjs (in `npm test`)
 // is the offline half and catches the duplicate-identifier case with no tooling at all.
 gate('deno-check', 'every supabase/functions/*/index.ts type-checks', () => {
-  const exe = resolve(ROOT, 'node_modules/deno/deno' + (isWin ? '.exe' : ''));
+  // Two places, because the npm `deno` package is a thin wrapper: its postinstall copies the
+  // binary next to the wrapper, but the real file always lives in the platform package
+  // (@deno/<platform>). A tree installed without postinstall scripts has only the second one —
+  // and a gate that skips itself because it looked in exactly one place is a gate that is not
+  // there. `.bin/deno` is deliberately NOT used: on Windows it is a POSIX shell script.
+  const exe = [
+    resolve(ROOT, 'node_modules/deno/deno' + (isWin ? '.exe' : '')),
+    resolve(ROOT, 'node_modules/@deno/' + process.platform + '-' + process.arch + '/deno' + (isWin ? '.exe' : '')),
+  ].find(p => existsSync(p)) || '';
   const entries = readdirSync(resolve(ROOT, 'supabase/functions'), { withFileTypes: true })
     .filter(d => d.isDirectory() && existsSync(resolve(ROOT, 'supabase/functions', d.name, 'index.ts')))
     .map(d => 'supabase/functions/' + d.name + '/index.ts')
     .sort();
-  if (!existsSync(exe)) {
+  if (!exe) {
     return { status: 'SKIPPED', summary: 'deno is not installed — run `npm ci` (devDependency)', detail: '', ms: 0 };
   }
   const r = run(exe, ['check', '--node-modules-dir=auto', ...entries]);

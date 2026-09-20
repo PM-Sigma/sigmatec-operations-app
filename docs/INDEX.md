@@ -66,7 +66,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-19 (**סיגמה 2.01 built and pushed to `dev`; `main` PARKED on maintenance mode pending עידן's 27 production steps**).
+## 🚦 Current state — last: 2026-09-20 (**2.01 is LIVE on `main`; 2.02 built on `dev` — עידן's first live-feedback round + the two Task 33 failures, fixed**).
 
 Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (master spec §0–§7p, all
 עידן's rulings inline, STATUS ✅ BUILT 2.01 — go-live pending production steps), (2)
@@ -76,6 +76,20 @@ Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-rede
 `.superpowers/sdd/2026-09-17-kibbutz-cards-redesign/progress.md` (git-ignored, on disk) + `release-2.01-report.md`, (6)
 mockup https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP, (7) **`docs/HANDOFF-עידן.md`** — the ADHD-simple, ordered
 list of everything that still needs a human hand before `main` can go live (now 27 steps, was 20 at 2.00).
+
+**Since the 13:43 go-live (2.02, Task 34):** all 27 production steps were applied and `main` went live at
+**2026-09-20 13:43** (`b8ca763`, maintenance removed). Task 33's from-scratch verification then scored **34 PASS / 2
+FAIL** (`.superpowers/sdd/…/task-33-verification.md`): the deployed `push-send` was stale (redeployed, then died on a
+duplicate `digestBody` import — hotfixed + gated with `deno check`), and every live cold load was throwing a TDZ
+`ReferenceError` and silently serving a three-month-old Apps Script snapshot (fixed by `js/src/00-consts.js`, pinned
+by `test-concat-order.mjs` + `boot-console.spec.ts`). On top of that, עידן's live-feedback list: the region moved
+**inside** the card, attendance opens with the **חסר לך** strip, and an unreachable Whisper server now shows one line
++ ↻ that re-sends the same held recording (`TranscribeRetry.tsx`). **⚠️ One thing waits for a human:**
+`db/rls_legacy_lockdown.sql` — the twelve legacy tables still answer the public anon key until it is applied in the
+SQL editor.
+**Next:** apply `db/rls_legacy_lockdown.sql`; re-run the Task 33 verification against 2.02; Task 35 (OSS tooling —
+axe-core in Playwright, visual-regression snapshots, Docker/ZAP) — note the home server is Whisper ONLY (ruling עידן
+20.9), so no monitoring lives on it.
 
 **Done since 2.00:** P6 unified inventory (Tasks 8–10, ONE stock pool), Task 31 whole-app QA audit (4 auditors × 12
 dimensions, 9 Critical + 22 Important + 22 Minor, all Critical + most Important fixed across 3 fix rounds), Task 32

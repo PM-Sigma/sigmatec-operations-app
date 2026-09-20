@@ -189,6 +189,35 @@ append-only treatment above — no separate lockdown file needed for it.
 
 Full list, order, and links: `docs/HANDOFF-עידן.md`.
 
+## 2.02 additions (Task 34, 2026-09-20)
+
+### The twelve legacy tables — `db/rls_legacy_lockdown.sql` (⚠️ NOT applied yet)
+
+Task 33's live sweep found the blind spot the earlier lockdowns never covered: twelve tables that
+predate `db/rls_2_00_lockdown.sql` still answer the **public anon key** with
+`for select using (true) to anon` — `attendance, ems_cache, ems_queue, movements, orders,
+potentials, products, regions, requirements, returns, settings, tasks`. They were invisible to
+`test-rls-policies.mjs` because no `db/*.sql` file defined a policy for them, so the sweep had
+nothing to read and passed.
+
+**Ruling (עידן 20.9): close them to `authenticated`.** `db/rls_legacy_lockdown.sql` does exactly
+that — one `drop policy` + one `create policy … to authenticated` per table, plus `enable row level
+security` — and keeps the two anon paths the app genuinely needs (the certificate link and the EMS
+login gate, which go through the `cert_by_id` / `ems-auth` functions, not through table SELECT).
+`test-rls-policies.mjs` now enumerates the twelve by name and fails if the file stops governing one
+of them. **The file is committed but NOT applied** — a human applies it in the SQL editor.
+
+### `deno check` is a gate now
+
+Task 33's `push-send` redeploy died at module scope on a duplicate `digestBody` import that no gate
+had ever looked at — the edge functions were only ever type-checked by the Supabase runtime, at
+deploy time, in production. Two gates close that:
+
+- **`deno-check`** in `scripts/qa.mjs` — `deno check` over every `supabase/functions/*/index.ts`
+  with the same compiler the runtime uses (`deno` is a devDependency).
+- **`test-edge-imports.mjs`** in `npm test` — the offline half: no binding imported twice, no
+  import colliding with a top-level declaration, no module imported by two statements.
+
 ### Action items
 
 1. Redeploy `ems-auth` (load `JWT_SECRET`) → verify `🔒 pass active`.

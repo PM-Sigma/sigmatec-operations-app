@@ -7,6 +7,54 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.02] 2026-09-20 — תיקוני אוויר: boot, אזור בכרטיס, נוכחות חסר-קודם, push-send, תמלול לא זמין
+
+**Why:** 2.01 went live on `main` at 13:43 and עידן started testing it. Task 33's from-scratch
+verification (34 PASS / 2 FAIL) plus his own list produced five fixes — two of them defects that
+were live and invisible, three of them his rulings about how the app should behave.
+
+**The boot crash nobody could see (Task 33 FAIL-2).** Every cold load on the live site threw
+`ReferenceError: Cannot access 'EMS_TOKEN_AT_KEY' before initialization` and fell back to a
+three-month-old Apps Script snapshot — with a clean console and a green suite, because a `catch`
+swallowed it. `refreshData()` runs at eval time in `js/src/11-search-login.js`; the hoisted
+function it reaches lands on a `const` declared one file later, still in the temporal dead zone.
+- `js/src/00-consts.js` (new, concatenated first) holds the EMS session constants, the four token
+  helpers and nine more consts the same sweep found on live boot paths.
+- `test-concat-order.mjs` enforces the contract: it seeds from eval-time code only and walks the
+  hoisted-function call graph, because the live crash had no direct textual reference.
+- `qa/playwright/tests/boot-console.spec.ts` cold-loads the REAL `js/app.js` in mock mode AND with
+  the Supabase router live, in all four projects, and fails on any console error.
+
+**`push-send` was dead at module scope (Task 33 FAIL-1).** The redeploy died on `digestBody`
+imported from both `usageNarrative.ts` and `alerts.ts` — aliased to `invDigestBody`. Two gates so
+it cannot recur: `deno check` over every edge function in `npm run qa`, and `test-edge-imports.mjs`
+in `npm test`.
+
+**עידן 20.9 #1 — the region moves inside the card.** The standalone region-label rows between the
+cards are gone; every card carries a muted `.region-chip` beside its energy badge. The grouping,
+the sort key and the alphabetical rows are unchanged.
+
+**עידן 20.9 #2 — the attendance page opens with what is MISSING.** A `חסר לך` strip comes before
+the calendar (asserted as document order, not as "both exist"), with the count, and each missing
+day a chip that opens that day. For עידן / עמיחי / צפייה a second strip, `חסר לצוות`, answers the
+same question for the whole team, worst first, and a tap switches the screen to that person —
+`missingByPerson` in `app/src/lib/attendance.ts` is `missingDays` per person and nothing else, so
+the two strips can never disagree; a person whose rows have not loaded shows `—`, never a zero.
+`canSwitch` now includes עמיחי, who could always reach the page but not the person toggle.
+
+**עידן 20.9 — the Whisper server is a service, and the app never explains it.** When `transcribe`
+cannot answer (self server unreachable and the Groq fallback silent), both voice islands show one
+line — `התמלול לא זמין כרגע — נסה שוב מאוחר יותר` — with a ↻ that re-sends the SAME recording. The
+blob is HELD until a transcription succeeds or the person explicitly discards it, a failed refine
+poll stops quietly, and typed text is never touched on any of these paths. New shared component
+`app/src/components/TranscribeRetry.tsx`; new `qa/playwright/tests/transcribe-unavailable.spec.ts`
+(page.route → 502, both islands, 8 tests across the 4 projects).
+
+**The twelve legacy tables.** `db/rls_legacy_lockdown.sql` closes `attendance, ems_cache, ems_queue,
+movements, orders, potentials, products, regions, requirements, returns, settings, tasks` to
+`authenticated` (ruling עידן 20.9) and `test-rls-policies.mjs` now enumerates them, so the blind
+spot that let them pass cannot reopen. **⚠️ NOT applied — a human applies it in the SQL editor.**
+
 ## [2.01] 2026-09-19 — מלאי מאוחד + ביקורת QA מלאה (Task 31) + סיכום ביקור בפרקים
 
 **Why:** 2.00 shipped the cards redesign to `dev`; 2.01 finishes the inventory rebuild the 2.00

@@ -24,6 +24,18 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { SB_ANON, SB_URL } from '@/lib/supabase';
 import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { TranscribeRetry } from '@/components/TranscribeRetry';
+
+/**
+ * A PRECONDITION failure (no EMS session) is not a service outage: retrying it fails the same
+ * way forever, so it keeps its toast and the recording is not held. Read off the error object
+ * rather than imported from @/lib/speech on purpose — the unit tests mock that whole module,
+ * and a classifier that a mock can silently turn into `undefined` is a classifier that decides
+ * nothing. `speech.ts` stamps `precondition: true`; everything else is worth a retry.
+ */
+function heldForRetry(e: unknown): boolean {
+  return !(e && typeof e === 'object' && (e as { precondition?: boolean }).precondition === true);
+}
+
 import {
   cardReady, emsCommentText, normalizeDayLog, visitPayload,
   type DayLogCatalog, type DayLogResult, type DayLogVisit, type GroundingTask,
@@ -280,9 +292,12 @@ function DayLogSheet() {
       const out = await uploadAndTranscribe(audio);
       append(out.text);
       setPendingAudio(null);        // it landed — nothing left to retry
-    } catch {
-      // No toast: a toast disappears, and with it the only sign that the speech still exists.
-      // The strip stays on screen with the ↻ instead.
+    } catch (e: any) {
+      // A precondition (no EMS session) is not a service outage — retrying it fails the same
+      // way forever, so it keeps the toast and the recording is not held.
+      if (!heldForRetry(e)) { toast.error(String(e?.message || 'התמלול נכשל — אפשר להקליד')); return; }
+      // Otherwise no toast: a toast disappears, and with it the only sign that the speech still
+      // exists. The strip stays on screen with the ↻ instead.
       setPendingAudio(audio);
     } finally {
       setBusy(false);

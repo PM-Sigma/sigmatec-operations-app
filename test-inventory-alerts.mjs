@@ -47,8 +47,12 @@ console.log('\n[2] push-send · inventoryAlert + inventoryDigest');
     /\.eq\("event", "inventoryDigest"\)\.eq\("where_txt", win\.tag\)/.test(dig));
   check('an empty window sends nothing', /skipped: "empty window"/.test(dig));
   check('only עידן may force one off-schedule', /force is עידן/.test(dig));
+  // The builder is imported as `invDigestBody` because usageNarrative.ts exports a `digestBody`
+  // of its own, and importing both names killed the deployed function at module scope
+  // (task-33 FAIL-1). The alias is the fix; what this check cares about is that the digest
+  // still calls the SHARED builder rather than growing a second copy of it.
   check('the digest body is the shared builder, not a second copy',
-    /digestBody\(alerts\)/.test(dig) && /digestTitle\(alerts, win\.hh\)/.test(dig));
+    /(inv)?[dD]igestBody\(alerts\)/.test(dig) && /digestTitle\(alerts, win\.hh\)/.test(dig));
 }
 
 console.log('\n[3] adoption guard ג — quiet hours and the daily cap');

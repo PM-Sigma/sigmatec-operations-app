@@ -1,3 +1,19 @@
+✅ DONE (2026-09-20, Task 34) — **סיגמה 2.02**, the post-go-live fix round. The boot TDZ that was
+silently serving a three-month-old snapshot on the live site (task-33 FAIL-2) + the two gates that
+catch its whole class (`test-concat-order.mjs`, `qa/playwright/tests/boot-console.spec.ts`); the
+duplicate `digestBody` import that stopped `push-send` booting (FAIL-1) + its two gates
+(`deno-check` in `npm run qa`, `test-edge-imports.mjs` in `npm test`); and עידן's three rulings of
+20.9 — the region inside the card, attendance leading with `חסר לך` plus a `חסר לצוות` strip for
+עידן/עמיחי/viewer, and a held recording with ↻ when transcription is unavailable. Full detail:
+`docs/CHANGELOG.md` [2.02]. Built on `feat/kibbutz-cards-redesign`, **not pushed**.
+
+🟡 PENDING — **`db/rls_legacy_lockdown.sql` is written but NOT APPLIED.** The twelve
+Apps-Script-era tables (`attendance, ems_cache, ems_queue, movements, orders, potentials,
+products, regions, requirements, returns, settings, tasks`) still answer the public anon key.
+עידן ruled 20.9: close them. A human applies this one in the SQL editor, after
+`db/rls_2_00_lockdown.sql`. Reversible, and it needs no client change — every read already goes
+out with the bridge pass. `test-rls-policies.mjs` fails if the file stops governing any of them.
+
 ✅ DONE (2026-09-19, release-prep) — **סיגמה 2.01**: unified inventory (P6, Tasks 8–10) + whole-app
 QA audit (Task 31, 9 Critical/22 Important/22 Minor found, all Critical + most Important fixed)
 + visit summary in chapters (Task 32) + this release-prep pass (card 📍 → chapters, pending-states

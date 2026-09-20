@@ -4,7 +4,7 @@
 Every clickable that reaches a backend, and whether its handler shows a pending state.
 Generated from source text (see `scripts/click-map.mjs` for the detectors).
 
-- clickables scanned: **293** (legacy 222, react 71)
+- clickables scanned: **294** (legacy 222, react 72)
 - with a backend call: **38**
 - **with a backend call and NO pending state: 0** ← the pending-states backlog
 
@@ -275,47 +275,48 @@ Usually a handler that delegates through a bridge the detectors do not follow �
 | 209 | react | `app/src/components/home/OnboardingProgress.tsx:134` | `(inline)` | — | disabled prop, busy state |
 | 210 | react | `app/src/components/home/WorkTimerStopSheet.tsx:209` | `onClose` | — | saving/sending state |
 | 211 | react | `app/src/components/MoreSheet.tsx:67` | `onClick` | — | disabled prop |
-| 212 | react | `app/src/islands/Attendance.tsx:92` | `(inline)` | — | disabled prop, busy state |
-| 213 | react | `app/src/islands/Attendance.tsx:126` | `(inline)` | — | busy state |
-| 214 | react | `app/src/islands/Attendance.tsx:188` | `(inline)` | — | disabled prop, busy state |
-| 215 | react | `app/src/islands/Attendance.tsx:402` | `(inline)` | — | isPending, isPending, busy state |
-| 216 | react | `app/src/islands/Calendar.tsx:286` | `(inline)` | — | disabled prop |
-| 217 | react | `app/src/islands/Calendar.tsx:290` | `(inline)` | — | disabled prop |
-| 218 | react | `app/src/islands/Calendar.tsx:524` | `(inline)` | — | disabled prop |
-| 219 | react | `app/src/islands/Calendar.tsx:749` | `(inline)` | — | disabled prop, busy state |
-| 220 | react | `app/src/islands/Calendar.tsx:752` | `(inline)` | — | disabled prop, busy state |
-| 221 | react | `app/src/islands/Calendar.tsx:844` | `(inline)` | — | disabled prop |
-| 222 | react | `app/src/islands/CommandBar.tsx:92` | `send` | — | disabled prop, busy state |
-| 223 | react | `app/src/islands/DayLog.tsx:217` | `(inline)` | — | busy state |
-| 224 | react | `app/src/islands/DayLog.tsx:426` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
-| 225 | react | `app/src/islands/DayLog.tsx:432` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
-| 226 | react | `app/src/islands/DayLog.tsx:476` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 227 | react | `app/src/islands/DevPresenter.tsx:179` | `(inline)` | — | disabled prop, busy state |
-| 228 | react | `app/src/islands/Feedback.tsx:448` | `micTap` | — | spinner |
-| 229 | react | `app/src/islands/Feedback.tsx:470` | `stopRefinePoll` | — | disabled prop, busy state, spinner |
-| 230 | react | `app/src/islands/Feedback.tsx:480` | `undoRefine` | — | disabled prop, busy state, spinner |
-| 231 | react | `app/src/islands/Feedback.tsx:489` | `micTap` | — | disabled prop, busy state, spinner |
-| 232 | react | `app/src/islands/Feedback.tsx:515` | `(inline)` | — | aria-busy, disabled prop, busy state, saving/sending state, spinner |
-| 233 | react | `app/src/islands/FeedbackInbox.tsx:162` | `(inline)` | — | Button loading, disabled prop |
-| 234 | react | `app/src/islands/FeedbackInbox.tsx:171` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
-| 235 | react | `app/src/islands/FeedbackInbox.tsx:185` | `(inline)` | — | disabled prop, busy state, spinner |
-| 236 | react | `app/src/islands/FeedbackInbox.tsx:189` | `(inline)` | — | busy state, spinner |
-| 237 | react | `app/src/islands/Field.tsx:898` | `(inline)` | — | disabled prop, saving/sending state |
-| 238 | react | `app/src/islands/Field.tsx:907` | `saveAndClose` | — | disabled prop, saving/sending state |
-| 239 | react | `app/src/islands/Field.tsx:914` | `(inline)` | — | disabled prop, saving/sending state |
-| 240 | react | `app/src/islands/Field.tsx:924` | `(inline)` | — | saving/sending state |
-| 241 | react | `app/src/islands/Gaps.tsx:224` | `(inline)` | — | disabled prop |
-| 242 | react | `app/src/islands/ImportNotes.tsx:303` | `(inline)` | — | disabled prop |
-| 243 | react | `app/src/islands/ImportNotes.tsx:339` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 244 | react | `app/src/islands/ImportNotes.tsx:348` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 245 | react | `app/src/islands/MeetingReview.tsx:405` | `(inline)` | — | busy state |
-| 246 | react | `app/src/islands/MeetingReview.tsx:598` | `(inline)` | — | disabled prop, busy state, spinner |
-| 247 | react | `app/src/islands/MeetingReview.tsx:603` | `cancel` | — | busy state, spinner |
-| 248 | react | `app/src/islands/ModalMeetings.tsx:35` | `(inline)` | — | aria-busy, busy state, Skeleton |
-| 249 | react | `app/src/islands/ModalMeetings.tsx:44` | `(inline)` | — | aria-busy, busy state, Skeleton |
-| 250 | react | `app/src/islands/Settings.tsx:109` | `(inline)` | — | disabled prop |
-| 251 | react | `app/src/islands/Settings.tsx:150` | `(inline)` | — | disabled prop |
-| 252 | react | `app/src/islands/Settings.tsx:265` | `(inline)` | — | disabled prop, saving/sending state |
-| 253 | react | `app/src/islands/Settings.tsx:266` | `(inline)` | — | disabled prop, saving/sending state |
-| 254 | react | `app/src/islands/Settings.tsx:273` | `(inline)` | — | disabled prop, saving/sending state |
-| 255 | react | `app/src/lib/useUnsavedGuard.tsx:138` | `(inline)` | — | disabled prop, saving/sending state |
+| 212 | react | `app/src/components/TranscribeRetry.tsx:42` | `onRetry` | — | disabled prop, busy state, spinner |
+| 213 | react | `app/src/components/TranscribeRetry.tsx:51` | `onDiscard` | — | busy state, spinner |
+| 214 | react | `app/src/islands/Attendance.tsx:92` | `(inline)` | — | disabled prop, busy state |
+| 215 | react | `app/src/islands/Attendance.tsx:126` | `(inline)` | — | busy state |
+| 216 | react | `app/src/islands/Attendance.tsx:188` | `(inline)` | — | disabled prop, busy state |
+| 217 | react | `app/src/islands/Calendar.tsx:286` | `(inline)` | — | disabled prop |
+| 218 | react | `app/src/islands/Calendar.tsx:290` | `(inline)` | — | disabled prop |
+| 219 | react | `app/src/islands/Calendar.tsx:524` | `(inline)` | — | disabled prop |
+| 220 | react | `app/src/islands/Calendar.tsx:749` | `(inline)` | — | disabled prop, busy state |
+| 221 | react | `app/src/islands/Calendar.tsx:752` | `(inline)` | — | disabled prop, busy state |
+| 222 | react | `app/src/islands/Calendar.tsx:844` | `(inline)` | — | disabled prop |
+| 223 | react | `app/src/islands/CommandBar.tsx:92` | `send` | — | disabled prop, busy state |
+| 224 | react | `app/src/islands/DayLog.tsx:230` | `(inline)` | — | busy state |
+| 225 | react | `app/src/islands/DayLog.tsx:463` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
+| 226 | react | `app/src/islands/DayLog.tsx:469` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
+| 227 | react | `app/src/islands/DayLog.tsx:513` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 228 | react | `app/src/islands/DevPresenter.tsx:179` | `(inline)` | — | disabled prop, busy state |
+| 229 | react | `app/src/islands/Feedback.tsx:486` | `micTap` | — | busy state |
+| 230 | react | `app/src/islands/Feedback.tsx:517` | `stopRefinePoll` | — | disabled prop, busy state, spinner |
+| 231 | react | `app/src/islands/Feedback.tsx:527` | `undoRefine` | — | disabled prop, busy state, spinner |
+| 232 | react | `app/src/islands/Feedback.tsx:536` | `micTap` | — | disabled prop, busy state, spinner |
+| 233 | react | `app/src/islands/Feedback.tsx:562` | `(inline)` | — | aria-busy, disabled prop, busy state, saving/sending state, spinner |
+| 234 | react | `app/src/islands/FeedbackInbox.tsx:162` | `(inline)` | — | Button loading, disabled prop |
+| 235 | react | `app/src/islands/FeedbackInbox.tsx:171` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
+| 236 | react | `app/src/islands/FeedbackInbox.tsx:185` | `(inline)` | — | disabled prop, busy state, spinner |
+| 237 | react | `app/src/islands/FeedbackInbox.tsx:189` | `(inline)` | — | busy state, spinner |
+| 238 | react | `app/src/islands/Field.tsx:898` | `(inline)` | — | disabled prop, saving/sending state |
+| 239 | react | `app/src/islands/Field.tsx:907` | `saveAndClose` | — | disabled prop, saving/sending state |
+| 240 | react | `app/src/islands/Field.tsx:914` | `(inline)` | — | disabled prop, saving/sending state |
+| 241 | react | `app/src/islands/Field.tsx:924` | `(inline)` | — | saving/sending state |
+| 242 | react | `app/src/islands/Gaps.tsx:224` | `(inline)` | — | disabled prop |
+| 243 | react | `app/src/islands/ImportNotes.tsx:303` | `(inline)` | — | disabled prop |
+| 244 | react | `app/src/islands/ImportNotes.tsx:339` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 245 | react | `app/src/islands/ImportNotes.tsx:348` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 246 | react | `app/src/islands/MeetingReview.tsx:405` | `(inline)` | — | busy state |
+| 247 | react | `app/src/islands/MeetingReview.tsx:598` | `(inline)` | — | disabled prop, busy state, spinner |
+| 248 | react | `app/src/islands/MeetingReview.tsx:603` | `cancel` | — | busy state, spinner |
+| 249 | react | `app/src/islands/ModalMeetings.tsx:35` | `(inline)` | — | aria-busy, busy state, Skeleton |
+| 250 | react | `app/src/islands/ModalMeetings.tsx:44` | `(inline)` | — | aria-busy, busy state, Skeleton |
+| 251 | react | `app/src/islands/Settings.tsx:109` | `(inline)` | — | disabled prop |
+| 252 | react | `app/src/islands/Settings.tsx:150` | `(inline)` | — | disabled prop |
+| 253 | react | `app/src/islands/Settings.tsx:265` | `(inline)` | — | disabled prop, saving/sending state |
+| 254 | react | `app/src/islands/Settings.tsx:266` | `(inline)` | — | disabled prop, saving/sending state |
+| 255 | react | `app/src/islands/Settings.tsx:273` | `(inline)` | — | disabled prop, saving/sending state |
+| 256 | react | `app/src/lib/useUnsavedGuard.tsx:138` | `(inline)` | — | disabled prop, saving/sending state |
