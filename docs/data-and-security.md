@@ -121,7 +121,7 @@ apply order (dependency order matters, listed there).
 | `inventory_pool_v2` | P6/Task 10 — low-stock alert plumbing, second generation. | `db/inventory_pool_v2.sql` | ⛔ parked |
 | `inventory_alert_webhook` (+ `push_config` insert) | P6/Task 10 — outbound low-stock push. | `db/inventory_alert_webhook.sql` | ⛔ parked |
 
-**Three RLS lockdowns (Task 18a/18b + Task 31, run in this exact order relative to app deploys):**
+**Four RLS lockdowns (Task 18a/18b + Task 31 + Task 34, run in this exact order relative to app deploys):**
 - `db/rls_corrections_lockdown.sql` — must run **AFTER** `parse-daylog` + `parse-order` are
   redeployed, or it silently kills the few-shot correction flow for both parsers.
 - `db/rls_certs_checkins_lockdown.sql` — drops anonymous `SELECT` on `delivery_certs` and
@@ -141,6 +141,27 @@ apply order (dependency order matters, listed there).
   too: the login screen never reads it. `db/rls_2_00_lockdown.sql` ships WITH the client change in
   `app/src/islands/Alerts.tsx`, so deploy them together. `node test-rls-policies.mjs` is the static
   sweep that keeps this true.
+- `db/rls_legacy_lockdown.sql` — **AFTER that one. NOT YET APPLIED — עידן/the controller applies
+  it.** Task 33's verification (D14) found twelve more tables still answering the public anon key:
+  `attendance · ems_cache · ems_queue · movements · orders · potentials · products · regions ·
+  requirements · returns · settings · tasks`. These are the ORIGINAL Apps-Script-era schema, and
+  the reason they survived all four lockdowns AND a green `test-rls-policies.mjs` is that **no
+  `db/*.sql` file had ever defined a policy for any of them** — the sweep reads `db/*.sql`, so a
+  table mentioned nowhere was a table it could not judge. The mistake was an absence, the same
+  shape as audit C #1. Between them they hold every kibbutz and region, every order and supplier,
+  the whole stock ledger, who worked where on which day, the app's settings, and the offline write
+  queue's pending BODIES. עידן's ruling 20.9: close them.
+  The file drops the public/anon read policies **by discovery** (their names were never written
+  down here, so a `do $$` block walks `pg_policies` instead of guessing), creates one named
+  `<table>_read … to authenticated` per table so `db/*.sql` governs them from now on, and turns
+  RLS on. Write policies are untouched — this closes reads only.
+  No client change ships with it: every read already goes through `sbGet`, which `await`s the
+  bridge mint first and sends the pass (`js/src/01-data.js:512`), the viewer mints the same pass,
+  the sign-in itself uses the `ems-auth` edge function, and the `?cert=` share link uses the
+  SECURITY DEFINER `cert_by_id(uuid)` RPC. What changes is the posture: a browser with no session
+  now gets 401 and falls back to Apps Script instead of quietly being served the data.
+  `test-rls-policies.mjs` carries a `LEGACY_TABLES` roster, so a table with no policy file is now
+  a **failure** rather than a silence — the blind spot itself is what the new contract tests.
 
 **Re-run needed:** `db/kibbutz_meeting_notes_import.sql` (`create or replace`, safe to re-run) — a
 kibbutz that changed name (e.g. `גת`→`קיבוץ גת`) now keeps its EMS link/✓ across re-imports via

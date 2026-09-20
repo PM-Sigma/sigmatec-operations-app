@@ -42,6 +42,23 @@ const LOCKDOWN_LAST = [
   'rls_corrections_lockdown.sql',
   'rls_certs_checkins_lockdown.sql',
   'rls_2_00_lockdown.sql',
+  'rls_legacy_lockdown.sql',
+];
+
+/**
+ * The twelve ORIGINAL Apps-Script-era tables (task-33 D14). They are the reason this sweep
+ * needs a roster at all: no db/*.sql file defined a policy for any of them, so the sweep
+ * never heard of them and passed — while all twelve answered the public anon key. A sweep
+ * that can only judge what it was told about is a sweep with a hole in it, and the hole is
+ * exactly the shape of the mistake it exists to catch.
+ *
+ * Every name here must end up with a SELECT policy in db/*.sql, granted to `authenticated`
+ * and to nothing else. Adding a table to this list is how a table becomes visible to the
+ * sweep; removing one requires a reason, in writing, right here.
+ */
+const LEGACY_TABLES = [
+  'attendance', 'ems_cache', 'ems_queue', 'movements', 'orders', 'potentials',
+  'products', 'regions', 'requirements', 'returns', 'settings', 'tasks',
 ];
 
 const files = readdirSync(DB).filter(f => f.endsWith('.sql'));
@@ -133,6 +150,35 @@ for (const table of ['inventory_alerts', 'stock_recounts']) {
   ok(bad.length === 0,
     `${table} is an audit trail, but a signed-in client can still rewrite or delete it:\n    `
     + bad.map(([n, p]) => `${n} — for ${p.cmd} to ${p.roles.join(', ')} (${p.where})`).join('\n    '));
+}
+
+// ── (4) the twelve legacy tables are GOVERNED, and closed ────────────────────
+// Contracts 1–3 can only judge a table some db/*.sql file mentions. These twelve were
+// mentioned by none, which is why they stayed public through four lockdowns and a green
+// sweep. Naming them makes the absence itself a failure.
+ok(files.includes('rls_legacy_lockdown.sql'),
+  'db/rls_legacy_lockdown.sql is missing — it is the migration that closes the twelve '
+  + 'Apps-Script-era tables (task-33 D14)');
+
+for (const table of LEGACY_TABLES) {
+  ok(state.has(table),
+    `${table} is in LEGACY_TABLES but NO db/*.sql file defines a policy for it. That is the `
+    + 'task-33 D14 blind spot itself: a table this sweep cannot see is a table it cannot '
+    + 'protect. Add its policy to db/rls_legacy_lockdown.sql.');
+  const reads = [...state.get(table)].filter(([, p]) => p.cmd === 'select' || p.cmd === 'all');
+  ok(reads.length > 0, `${table} ends up with no SELECT policy at all — the app could not read it`);
+  const open = reads.filter(([, p]) => reaches_anon(p.roles));
+  ok(open.length === 0,
+    `${table} still answers the public anon key:\n    `
+    + open.map(([n, p]) => `${n} — for ${p.cmd} to ${p.roles.join(', ')} (${p.where})`).join('\n    '));
+}
+
+// The lockdown must also turn RLS ON. A policy on a table with RLS disabled is decoration.
+const legacySql = readFileSync(join(DB, 'rls_legacy_lockdown.sql'), 'utf8');
+for (const table of LEGACY_TABLES) {
+  ok(new RegExp('alter\\s+table\\s+public\\.' + table + '\\s+enable\\s+row\\s+level\\s+security', 'i').test(legacySql),
+    `db/rls_legacy_lockdown.sql does not \`enable row level security\` on ${table} — the new `
+    + 'policy would not be enforced');
 }
 
 const rpc = readFileSync(join(DB, 'rls_2_00_lockdown.sql'), 'utf8');
