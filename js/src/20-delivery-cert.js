@@ -161,7 +161,7 @@
   // pre = {kibbutz, date, items:[{name,qty}], contact, notes, source, refId, customer?, reissueOf?}
   // customer  — full stored block (reissue path: overrides the kibbutz_details lookup)
   // reissueOf — {id, certNumber} of the cert being corrected; on successful issue the old one is auto-cancelled
-  let _certReissueOf = null;
+  // (_certReissueOf moved to js/src/00-consts.js — reached from an earlier file at boot)
   async function openDeliveryCert(pre) {
     pre = pre || {};
     certEnsureModal();
@@ -591,7 +591,7 @@
   };
 
   // ---- 🧾 issued-certs management (מלאי → תעודות משלוח) ----
-  let _certRows = [];   // last fetched list (reprint works off this cache)
+  // (_certRows moved to js/src/00-consts.js — reached from an earlier file at boot)
 
   function certSetRange(range) {
     const today = new Date();

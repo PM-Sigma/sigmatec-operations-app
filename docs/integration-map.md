@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 28 legacy modules, 129 island sources and 9 edge functions.
+Generated from 29 legacy modules, 129 island sources and 9 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
@@ -42,18 +42,18 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.decorateCards` | js/src/00-bridge.js:304 | *(own logic)* | app/src/islands/Home.tsx:94 |
 | `sigma.ems` | app/src/lib/ems/gateway.ts:70 *(island)* | *(island-provided)* | **—** |
 | `sigma.emsAddComment` | js/src/00-bridge.js:409 | *(own logic)* | app/src/islands/DayLog.tsx:373 |
-| `sigma.emsApi` | js/src/00-bridge.js:259 | `emsApi` → js/src/12-reports.js:139 | app/src/lib/ems/adapters/rest.ts:125 |
+| `sigma.emsApi` | js/src/00-bridge.js:259 | `emsApi` → js/src/12-reports.js:123 | app/src/lib/ems/adapters/rest.ts:125 |
 | `sigma.emsCacheData` | js/src/00-bridge.js:261 | `emsCacheData` → js/src/13-ems.js:19 | app/src/islands/Calendar.tsx:436<br>app/src/islands/Calendar.tsx:569<br>app/src/islands/Calendar.tsx:933<br>app/src/islands/CommandBar.tsx:187<br>…+2 |
 | `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:274 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/islands/Field.tsx:167<br>app/src/islands/Field.tsx:1138<br>app/src/islands/Presenter.tsx:119 |
 | `sigma.emsCreateTask` | js/src/00-bridge.js:558 | `emsCreateTaskModal` → js/src/14-calendar.js:453 | app/src/islands/CommandBar.tsx:159 |
-| `sigma.emsDisconnect` | js/src/00-bridge.js:559 | `emsDisconnect` → js/src/12-reports.js:110 | app/src/components/UserChip.tsx:86<br>app/src/islands/CommandBar.tsx:161 |
+| `sigma.emsDisconnect` | js/src/00-bridge.js:559 | `emsDisconnect` → js/src/12-reports.js:94 | app/src/components/UserChip.tsx:86<br>app/src/islands/CommandBar.tsx:161 |
 | `sigma.emsLabels` | js/src/00-bridge.js:278 | `emsLabels` → js/src/14-calendar.js:431 | app/src/lib/emsTasks.ts:24 |
 | `sigma.emsPatchTask` | js/src/00-bridge.js:525 | *(own logic)* | **—** |
 | `sigma.emsPatchTasks` | js/src/00-bridge.js:531 | *(own logic)* | app/src/islands/Calendar.tsx:1001<br>app/src/islands/Calendar.tsx:1013 |
 | `sigma.emsSetStatus` | js/src/00-bridge.js:557 | `changeEmsStatus` → js/src/14-calendar.js:736 | app/src/islands/Calendar.tsx:607 |
 | `sigma.emsSiteIdForKibbutz` | js/src/00-bridge.js:279 | `emsSiteIdForKibbutz` → js/src/14-calendar.js:375 | app/src/islands/MeetingReview.tsx:224 |
 | `sigma.emsSync` | js/src/00-bridge.js:267 | *(own logic)* | app/src/lib/query.ts:105 |
-| `sigma.emsToken` | js/src/00-bridge.js:288 | `getEmsToken` → js/src/12-reports.js:52 | app/src/components/home/workTimerApi.ts:9<br>app/src/islands/DayLog.tsx:87<br>app/src/islands/DayLog.tsx:120<br>app/src/islands/Feedback.tsx:72<br>…+2 |
+| `sigma.emsToken` | js/src/00-bridge.js:288 | `getEmsToken` → js/src/00-consts.js:38 | app/src/components/home/workTimerApi.ts:9<br>app/src/islands/DayLog.tsx:87<br>app/src/islands/DayLog.tsx:120<br>app/src/islands/Feedback.tsx:72<br>…+2 |
 | `sigma.emsWrite` | js/src/00-bridge.js:320 | `emsWriteOrQueue` → js/src/13-ems.js:297 | **—** |
 | `sigma.ensurePass` | js/src/00-bridge.js:468 | *(own logic)* | **—** |
 | `sigma.gapNag` | js/src/00-bridge.js:517 | `gapNag` → js/src/22-push.js:309 | app/src/islands/Gaps.tsx:200 |
@@ -62,7 +62,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.getLastVisit` | js/src/00-bridge.js:380 | `getLastVisit` → js/src/09-visits.js:244 | app/src/islands/Field.tsx:1144 |
 | `sigma.getRole` | js/src/00-bridge.js:225 | *(own logic)* | app/src/bridge.ts:380<br>app/src/islands/CommandBar.tsx:130<br>app/src/islands/Feedback.tsx:170<br>app/src/islands/Feedback.tsx:548<br>…+1 |
 | `sigma.isAdmin` | js/src/00-bridge.js:229 | `canManageStaff` → js/src/00-bridge.js:63 | app/src/components/home/EmsTasks.tsx:149<br>app/src/islands/DevPresenter.tsx:450<br>app/src/islands/FeedbackInbox.tsx:48<br>app/src/islands/FeedbackInbox.tsx:203<br>…+10 |
-| `sigma.isEmsConnected` | js/src/00-bridge.js:260 | `isEmsConnected` → js/src/12-reports.js:56 | app/src/components/home/KibbutzSheet.tsx:96<br>app/src/islands/Settings.tsx:183<br>app/src/lib/ems/adapters/rest.ts:127 |
+| `sigma.isEmsConnected` | js/src/00-bridge.js:260 | `isEmsConnected` → js/src/00-consts.js:42 | app/src/components/home/KibbutzSheet.tsx:96<br>app/src/islands/Settings.tsx:183<br>app/src/lib/ems/adapters/rest.ts:127 |
 | `sigma.isIdan` | js/src/00-bridge.js:227 | `isIdan` → js/src/11-search-login.js:126 | app/src/islands/Attendance.tsx:220<br>app/src/islands/DayLog.tsx:59<br>app/src/islands/Gaps.tsx:68<br>app/src/islands/Usage.tsx:38 |
 | `sigma.isInstalled` | js/src/00-bridge.js:507 | `isInstalled` → js/src/16-install.js:27 | app/src/islands/Settings.tsx:101 |
 | `sigma.isViewer` | js/src/00-bridge.js:226 | `isViewer` → js/src/11-search-login.js:128 | app/src/islands/Attendance.tsx:220<br>app/src/islands/Burns.tsx:70<br>app/src/islands/DevPresenter.tsx:472<br>app/src/islands/FeedbackInbox.tsx:48<br>…+9 |

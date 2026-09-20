@@ -473,6 +473,19 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       }
       case 'onboarding_templates': return route.fulfill(json(shape([onboardingTemplate], accept)));
       case 'onboarding_steps': return route.fulfill(json(shape(onboardingSteps, accept)));
+      /**
+       * The LEGACY snapshot's kibbutz table (js/src/01-data.js `readSnapshot`). Every other
+       * spec boots with `?sb=0` and never asks for it — boot-console.spec.ts is the one that
+       * does, because the whole point of that gate is to walk the real Supabase router. The
+       * rows are the `kibbutzim` fixture projected into the legacy column names, with a
+       * `last_modified` of now so the header's `max(last_modified)` is a real freshness
+       * signal rather than the build-time `LAST_UPDATED` fallback.
+       */
+      case 'tasks': return route.fulfill(json(shape(FIXTURES.kibbutzim.map((k: any, i: number) => ({
+        seq: i + 1, code: i + 1, region: k.region || '', migrated: '', name: k.name,
+        status: k.section === 'new' ? 'חדש' : 'פעיל', expected_task: '', owners: 'עידן',
+        task: '', last_checkup: '', editor: 'עידן', last_modified: new Date().toISOString(),
+      })), accept)));
       default: return route.fulfill(json(shape([], accept)));
     }
   });

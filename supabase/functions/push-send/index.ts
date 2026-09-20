@@ -44,7 +44,7 @@ import {
 // original, this is a BYTE-IDENTICAL copy, and test-inventory-alerts.mjs fails the build on any
 // drift - the digest the bell shows and the digest that reaches Amichai's phone are ONE builder.
 import {
-  digestBody, digestTitle, digestWindow, israelParts, lowStockTag, type AlertRow,
+  digestBody as invDigestBody, digestTitle, digestWindow, israelParts, lowStockTag, type AlertRow,
 } from "./alerts.ts";
 
 const APP = "/sigmatec-operations-app/";   // GitHub Pages base path (openWindow target)
@@ -611,7 +611,7 @@ Deno.serve(async (req: Request) => {
     if (!alerts.length) return json({ ok: true, skipped: "empty window", tag: win.tag });
 
     const title = digestTitle(alerts, win.hh);
-    const bodyTxt = digestBody(alerts);
+    const bodyTxt = invDigestBody(alerts);
     const openUrl = APP + "#inventory";
     const payload = JSON.stringify({
       title, body: bodyTxt, tag: win.tag, url: openUrl,

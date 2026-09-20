@@ -34,26 +34,10 @@
   // ===========================================================
   // EMS INTEGRATION
   // ===========================================================
-  const EMS_URL_KEY      = 'ems_url_v1';
-  const EMS_TOKEN_KEY    = 'ems_token_v1';
-  const EMS_TOKEN_AT_KEY = 'ems_token_at_v1';
-  const EMS_MAX_SESSION_MS = 12 * 60 * 60 * 1000;   // keep the connection alive through a workday (was 60m). A real EMS-token expiry is caught on the next call (401) → re-login modal.
-
-  function getEmsUrl()      { return (localStorage.getItem(EMS_URL_KEY) || 'https://api.sigmatec-ems.com').replace(/\/$/, ''); }
-  // Session expires after 60 min (or sooner if the JWT 401s — handled in emsApi).
-  function emsSessionExpired() {
-    const at = parseInt(localStorage.getItem(EMS_TOKEN_AT_KEY) || '0', 10);
-    return !at || (Date.now() - at) > EMS_MAX_SESSION_MS;
-  }
-  function clearEmsSession() {
-    localStorage.removeItem(EMS_TOKEN_KEY);
-    localStorage.removeItem(EMS_TOKEN_AT_KEY);
-  }
-  function getEmsToken() {
-    if (emsSessionExpired()) { clearEmsSession(); return ''; }
-    return localStorage.getItem(EMS_TOKEN_KEY) || '';
-  }
-  function isEmsConnected() { return !!getEmsToken(); }
+  // The session constants and the four token helpers used to live here. They now live in
+  // js/src/00-consts.js, because `refreshData()` runs at EVAL TIME in js/src/11-search-login.js
+  // — one file earlier — and reaches them through the hoisted global `getEmsToken`. See
+  // test-concat-order.mjs and task-33 FAIL-2.
 
   // Proactively log out exactly at the 60-min cap while the user sits on the page.
   let _emsExpiryTimer = null;

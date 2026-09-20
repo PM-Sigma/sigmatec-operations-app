@@ -118,7 +118,7 @@
   }
 
   // ====== Soft Login (per-device localStorage) ======
-  const USER_KEY = 'dashboard_user_v1';
+  // (USER_KEY moved to js/src/00-consts.js — reached from an earlier file at boot)
   const ROLE_KEY = 'dashboard_role_v1';   // 'idan' (elevated, PIN 4556) | 'team' (PIN 0540)
   function getCurrentUser() { return localStorage.getItem(USER_KEY) || ''; }
   function getRole()        { return localStorage.getItem(ROLE_KEY) || ''; }

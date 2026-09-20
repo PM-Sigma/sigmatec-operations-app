@@ -1,10 +1,13 @@
-// `npm run qa` — the six quality gates, in order, on the current tree.
+// `npm run qa` — the seven quality gates, in order, on the current tree.
 //
 //   0. build freshness       (build.mjs --check + scripts/qa.selftest.mjs) → generated CSS
 //                             matches its sources, and the runner still fails when it should
 //   1. gitleaks detect        (qa/gitleaks/.gitleaks.toml)          → 0 findings
 //   2. semgrep               (qa/semgrep/config.yml)               → 0 ERROR / 0 WARNING
 //   3. npm test              (legacy test-*.mjs runners + vitest)   → green
+//   3a. deno-check           (deno check supabase/functions/*/index.ts) → every edge function
+//                             type-checks. Added after the deployed push-send refused to boot
+//                             on a duplicate import identifier (Task 34).
 //   3b. click-map contract   (scripts/click-map.mjs --check)        → docs/click-map.md fresh
 //                             AND §2 empty: no clickable reaches a backend without a
 //                             pending state (docs/ux-loading-patterns.md, pattern 4)
@@ -15,10 +18,11 @@
 //   6. zap baseline          (qa/zap/baseline.*)                    → 0 High/Medium
 //
 // Every run writes qa/reports/<yyyy-mm-dd>-<label>.md and exits non-zero if ANY gate failed.
-// ZAP is the ONLY gate allowed to be SKIPPED, and only when Docker is absent — it says so
-// loudly in the console and in the report, never silently.
+// Two gates may be SKIPPED, never silently — both say so loudly in the console and in the
+// report: zap, when Docker is absent, and deno-check, when the deno devDependency has not
+// been installed (`npm ci`). Nothing else is ever allowed to skip.
 //
-//   npm run qa                        # all six, label "manual"
+//   npm run qa                        # all seven, label "manual"
 //   npm run qa -- --label task-22     # → qa/reports/2026-09-18-task-22.md
 //   npm run qa -- --only semgrep      # one gate (repeatable: --only gitleaks --only test)
 //   npm run qa -- --skip lighthouse   # everything but that gate
@@ -267,6 +271,42 @@ gate('npm test', 'legacy test-*.mjs runners + app vitest, green', () => {
   const r = run(node, [TEST_ALL]);
   const tail = r.out.trim().split('\n').slice(-6).join('\n');
   return { status: r.code === 0 ? 'PASS' : 'FAIL', summary: r.code === 0 ? 'green' : 'red', detail: tail, ms: r.ms };
+});
+
+// ── 3a. the edge functions type-check (Task 34) ────────────────────────────────────────────
+// The deployed push-send refused to BOOT after its redeploy: `SyntaxError: Identifier
+// 'digestBody' has already been declared` — index.ts imported the same name from
+// usageNarrative.ts and from alerts.ts. Every existing gate was blind to it: the legacy
+// runners never read supabase/functions, and the app's vitest suite compiles the copy-and-
+// pinned COPIES in app/src/lib, not the function entry points. So the functions get the same
+// treatment the rest of the repo has — a real type-check of every entry point, with the same
+// compiler the Supabase runtime uses.
+//
+// `deno` is a devDependency, so its binary is spawned directly (never `npx`, never a .cmd —
+// see the note above `const node`). `--node-modules-dir=auto` is required because push-send
+// imports `npm:web-push`. The check needs the network the first time it resolves a remote
+// module; after that Deno's cache answers, so a later offline run still passes. If the binary
+// is missing the gate reports SKIP rather than FAIL — test-edge-imports.mjs (in `npm test`)
+// is the offline half and catches the duplicate-identifier case with no tooling at all.
+gate('deno-check', 'every supabase/functions/*/index.ts type-checks', () => {
+  const exe = resolve(ROOT, 'node_modules/deno/deno' + (isWin ? '.exe' : ''));
+  const entries = readdirSync(resolve(ROOT, 'supabase/functions'), { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(resolve(ROOT, 'supabase/functions', d.name, 'index.ts')))
+    .map(d => 'supabase/functions/' + d.name + '/index.ts')
+    .sort();
+  if (!existsSync(exe)) {
+    return { status: 'SKIPPED', summary: 'deno is not installed — run `npm ci` (devDependency)', detail: '', ms: 0 };
+  }
+  const r = run(exe, ['check', '--node-modules-dir=auto', ...entries]);
+  if (r.code === -1) {
+    return { status: 'SKIPPED', summary: 'deno could not be spawned', detail: r.error || r.out, ms: r.ms };
+  }
+  return {
+    status: r.code === 0 ? 'PASS' : 'FAIL',
+    summary: r.code === 0 ? entries.length + ' functions type-check' : 'type check failed',
+    detail: r.code === 0 ? '' : r.out.trim().slice(-4000),
+    ms: r.ms,
+  };
 });
 
 // ── 3b. the click-map contract ─────────────────────────────────────────────────────────────

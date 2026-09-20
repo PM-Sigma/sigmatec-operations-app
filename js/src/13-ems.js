@@ -15,7 +15,7 @@
   // is the first such change. Persisted as `ver` on the snapshot itself (db/ems_cache.ver,
   // migration ems_cache_add_ver) — `emsResyncIfStaleCache` below compares against it directly,
   // so a snapshot written before this shipped (ver missing/older) resyncs exactly once.
-  const EMS_CACHE_VER = 2;
+  // (EMS_CACHE_VER moved to js/src/00-consts.js — reached from an earlier file at boot)
   function emsCacheData() {
     const c = window.SHEET_DATA && window.SHEET_DATA.emsCache;
     return (c && Array.isArray(c.tasks)) ? c : { tasks: [], syncedAt: '', syncedBy: '', ver: 0 };
@@ -50,7 +50,7 @@
   // Guarded so it fires at most once per session either way (never loops: it does not re-check
   // after the resync completes, so an emsSyncCache that itself fails to bump `ver` — it can't,
   // it always writes EMS_CACHE_VER — still can't retrigger this session).
-  let _emsStaleCacheChecked = false;
+  // (_emsStaleCacheChecked moved to js/src/00-consts.js — reached from an earlier file at boot)
   function emsResyncIfStaleCache() {
     if (_emsStaleCacheChecked) return;
     _emsStaleCacheChecked = true;
@@ -114,8 +114,8 @@
   // office-PC job (scripts/ems-cache-refresh.mjs) runs the same refresh from
   // outside the browser for the hours when nobody has the app open at all.
   // ═══════════════════════════════════════════════════════════════════════════
-  const EMS_BG_MIN_MS = 5 * 60 * 1000;          // at most one background sync per 5 minutes
-  const EMS_BG_KEY = 'ems_bg_sync_at_v1';
+  // (EMS_BG_MIN_MS moved to js/src/00-consts.js — reached from an earlier file at boot)
+  // (EMS_BG_KEY moved to js/src/00-consts.js — reached from an earlier file at boot)
   function emsBgLastAt() { try { return Number(localStorage.getItem(EMS_BG_KEY) || 0) || 0; } catch (e) { return 0; } }
   function emsBgStamp(t) { try { localStorage.setItem(EMS_BG_KEY, String(t)); } catch (e) {} }
   // Pure — pinned by test-ems-refresh.mjs. `last === 0` means "never synced in this browser",
@@ -126,7 +126,7 @@
     if (now < last) return true;
     return (now - last) >= (minMs || EMS_BG_MIN_MS);
   }
-  let _emsBgInFlight = null;
+  // (_emsBgInFlight moved to js/src/00-consts.js — reached from an earlier file at boot)
   // Refresh the shared snapshot if it is due. `force` (pull-to-refresh) skips the throttle but
   // NOT the single-flight. Never throws and never toasts — it is invisible by design; the
   // 'ems-cache-synced' event emsSyncCache already emits is what re-renders the cards.
@@ -145,7 +145,7 @@
   // Install the triggers ONCE (called from the data load, js/src/01-data.js). Three of them:
   // the tab becoming visible again, the window regaining focus, and a slow tick for the
   // person who simply leaves the app open on the desk. All three funnel through the throttle.
-  let _emsBgInstalled = false;
+  // (_emsBgInstalled moved to js/src/00-consts.js — reached from an earlier file at boot)
   function emsBgSyncInstall() {
     if (_emsBgInstalled) return;
     _emsBgInstalled = true;
