@@ -288,3 +288,38 @@ export function kpis(
   out.hours = Math.round(out.hours * 100) / 100;
   return out;
 }
+
+/**
+ * Missing days for SEVERAL people at once — the "who still owes days" overview עידן and
+ * עמיחי get at the top of the attendance screen (עידן 20.9 #2).
+ *
+ * `rowsFor` is a reader rather than a map because the rows come out of the legacy
+ * `SHEET_DATA` snapshot one person at a time, and that snapshot may not be there yet: a
+ * reader that answers `null` means "not loaded", which is not the same as "nothing missing"
+ * and must not be shown as a clean slate. Those people are returned with `known: false`.
+ *
+ * Holiday-aware by construction — it is `missingDays` per person, nothing else.
+ */
+export function missingByPerson(
+  people: string[] | null | undefined,
+  rowsFor: (person: string) => AttRow[] | null | undefined,
+  holidays: Holiday[] | null | undefined,
+  today: Date = new Date(),
+  year?: number,
+  month?: number,
+): Array<{ person: string; dates: string[]; count: number; known: boolean }> {
+  const out: Array<{ person: string; dates: string[]; count: number; known: boolean }> = [];
+  for (const person of people || []) {
+    if (!person) continue;
+    const rows = rowsFor(person);
+    if (rows == null) { out.push({ person, dates: [], count: 0, known: false }); continue; }
+    const dates = missingDays(rows, holidays, today, year, month);
+    out.push({ person, dates, count: dates.length, known: true });
+  }
+  // Worst first — the point of the strip is who needs chasing. Ties keep the roster order,
+  // and an unknown person sorts last rather than pretending to be a zero.
+  return out
+    .map((r, i) => ({ r, i }))
+    .sort((a, b) => Number(b.r.known) - Number(a.r.known) || b.r.count - a.r.count || a.i - b.i)
+    .map(x => x.r);
+}

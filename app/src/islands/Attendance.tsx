@@ -30,7 +30,7 @@ import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
   cellsOf, dayChip, dayLabel, DAY_ORDER, dm, HE_DAY_LETTERS, holidayNote, holidayShort,
-  kpis as computeKpis, missingDays, monthGrid, ymd,
+  kpis as computeKpis, missingByPerson, missingDays, monthGrid, ymd,
   type AttRow, type DayCell, type DayType, type Holiday,
 } from '@/lib/attendance';
 
@@ -214,10 +214,12 @@ function AttendanceIsland() {
   const [selected, setSelected] = React.useState(todayKey);   // the date the desktop panel shows
   const attGuard = useUnsavedGuard({ dirty: () => false, onClose: () => setOpen('') });
 
-  // עידן (and the viewer) may look at someone else's month; a field worker sees his own.
-  // This mirrors the legacy person toggle exactly (js/src/04-attendance-daily.js) so both
-  // halves of the page agree on who is on screen.
-  const canSwitch = (() => { try { return !!sigma.isIdan?.() || !!sigma.isViewer?.(); } catch { return false; } })();
+  // עידן, עמיחי (CEO) and the viewer may look at someone else's month; a field worker sees
+  // his own. This mirrors js/src/11-search-login.js `canSeeAttendance`, whose own comment
+  // says "עידן/עמיחי (CEO) see all via person-toggle" — עמיחי was missing from this half.
+  const canSwitch = (() => {
+    try { return !!sigma.isIdan?.() || !!sigma.isViewer?.() || me === 'עמיחי'; } catch { return me === 'עמיחי'; }
+  })();
   const people: string[] = (() => { try { return sigma.ATT_PEOPLE || []; } catch { return []; } })();
 
   React.useEffect(() => { if (!person && me) setPerson(me); }, [me, person]);
@@ -255,6 +257,17 @@ function AttendanceIsland() {
   const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today), [ym, rows, holidays, today]);
   const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m), [rows, holidays, today, ym]);
   const kpis = React.useMemo(() => computeKpis(rows, missing, holidays), [rows, missing, holidays]);
+  // עידן 20.9 #2 — whoever can switch person is here to CHASE the gaps, not to browse a
+  // calendar, so they get the same question answered for the whole team at once. Read
+  // straight off the legacy snapshot (the same source `readRows` uses for the open person),
+  // recomputed when the snapshot lands or the month moves.
+  const teamMissing = React.useMemo(
+    () => (canSwitch ? missingByPerson(people, p => readRows(p, ym.y, ym.m), holidays, today, ym.y, ym.m) : []),
+    // `rows` is in the deps on purpose: it is the signal that SHEET_DATA arrived, which is
+    // what makes every OTHER person's rows readable too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canSwitch, people.join('|'), ym.y, ym.m, holidays, today, rows],
+  );
 
   // Keep the LEGACY report in step: it is what `📄 PDF` and `📗 Excel` read
   // (window._attendanceRows + #attendanceMonthLabel), so the month and the person the island
@@ -348,6 +361,69 @@ function AttendanceIsland() {
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div className="space-y-3">
+          {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2) ──────────────
+              The screen used to open on the calendar and keep the gaps in a box underneath
+              it, so the one question a person comes here with — "what do I still owe?" —
+              was the last thing answered. It is now the first, and every chip is one tap
+              into that day's sheet. */}
+          <section data-testid="att-missing" className="rounded-[14px] border border-border bg-card p-3">
+            <div className="mb-1.5 flex items-baseline gap-2">
+              <span className="text-[13px] font-bold">{missing.length ? 'חסר לך' : 'החודש מלא — יפה!'}</span>
+              {missing.length > 0 && (
+                <span
+                  data-testid="att-missing-count"
+                  className="rounded-full bg-[color:var(--sigma-warn)]/15 px-2 py-0.5 text-[12px] font-extrabold"
+                >
+                  <bdi>{missing.length}</bdi>
+                </span>
+              )}
+            </div>
+            {missing.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {cellsOf(grid, 'missing').filter(c => c.date < todayKey).map(c => (
+                  <button
+                    key={c.date}
+                    type="button"
+                    data-missing={c.date}
+                    onClick={() => openDay(c)}
+                    className="att-chip-missing"
+                  >
+                    <bdi>{dayChip(c.date)}</bdi>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[12.5px] text-muted-foreground">
+                כל ימי העבודה בחודש מתועדים{kpis.onHoliday ? ` · 🕎 ${kpis.onHoliday} ימי עבודה בחג` : ''}
+              </p>
+            )}
+          </section>
+
+          {/* ── …and for עידן / עמיחי / צפייה, the same question for everyone ──── */}
+          {canSwitch && teamMissing.length > 1 && (
+            <section data-testid="att-missing-team" className="rounded-[14px] border border-border bg-card p-3">
+              <div className="mb-1.5 text-[13px] font-bold">חסר לצוות</div>
+              <div className="flex flex-wrap gap-1.5">
+                {teamMissing.map(t => (
+                  <button
+                    key={t.person}
+                    type="button"
+                    data-person-missing={t.person}
+                    data-count={t.known ? String(t.count) : ''}
+                    aria-pressed={t.person === person}
+                    onClick={() => { setPerson(t.person); track('attendance-person'); }}
+                    className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
+                      + (t.person === person ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted')}
+                  >
+                    <bdi>{t.person}</bdi>
+                    {' · '}
+                    <bdi>{t.known ? t.count : '—'}</bdi>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* ── היום: the one thing this screen is for ───────────────────────── */}
           {todayCell && (
             <section data-testid="att-today" className="rounded-[14px] border border-border bg-card p-3">
@@ -387,31 +463,6 @@ function AttendanceIsland() {
               : <MonthGridView grid={grid} onPick={openDay} selected={selected} />}
           </section>
 
-          {/* ── the days still waiting for him ────────────────────────────────── */}
-          <section data-testid="att-missing" className="rounded-[14px] border border-border bg-card p-3">
-            <div className="mb-1.5 text-[13px] font-bold">
-              {missing.length ? 'ימים שממתינים להשלמה' : 'החודש מלא — יפה!'}
-            </div>
-            {missing.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {cellsOf(grid, 'missing').filter(c => c.date < todayKey).map(c => (
-                  <button
-                    key={c.date}
-                    type="button"
-                    data-missing={c.date}
-                    onClick={() => openDay(c)}
-                    className="att-chip-missing"
-                  >
-                    <bdi>{dayChip(c.date)}</bdi>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[12.5px] text-muted-foreground">
-                כל ימי העבודה בחודש מתועדים{kpis.onHoliday ? ` · 🕎 ${kpis.onHoliday} ימי עבודה בחג` : ''}
-              </p>
-            )}
-          </section>
         </div>
 
         {/* ── desktop: the day panel stays open while browsing the grid ───────── */}

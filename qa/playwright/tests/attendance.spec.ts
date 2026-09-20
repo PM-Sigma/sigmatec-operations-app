@@ -140,3 +140,72 @@ test('attendance: the field worker sees only his own month', async ({ page }, ti
   await expect(page.getByRole('heading', { name: /נוכחות — ניתאי/ })).toBeVisible();
   expectNoConsoleErrors(rec);
 });
+
+// ── עידן 20.9 #2 — "what is missing" is the first thing on the screen ───────────────────
+//
+// The gaps used to sit in a box UNDER the calendar: the screen opened on a month grid and
+// answered the one question a person actually arrives with ("what do I still owe?") last.
+// The strip is now above everything, carries the count, and every chip is one tap into that
+// day's sheet. For whoever may look at the whole team, the same question is answered for
+// everyone in a second strip right after it.
+
+test('attendance: חסר לך comes before the calendar, and a chip opens the day', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openAttendance(page);
+
+  const strip = page.getByTestId('att-missing');
+  const grid = page.getByTestId('att-grid');
+  await expect(strip).toBeVisible();
+
+  // ── ORDER is the requirement, so it is asserted as order, not as "both exist".
+  const before = await strip.evaluate(
+    (el, g) => !!(el.compareDocumentPosition(g as Node) & Node.DOCUMENT_POSITION_FOLLOWING),
+    await grid.elementHandle(),
+  );
+  expect(before, 'the חסר לך strip must render BEFORE the month grid').toBe(true);
+
+  // ── the count, and a chip that opens that day's sheet
+  const chips = strip.locator('[data-missing]');
+  const n = await chips.count();
+  if (n > 0) {
+    await expect(strip).toContainText('חסר לך');
+    await expect(page.getByTestId('att-missing-count')).toHaveText(String(n));
+    const date = await chips.first().getAttribute('data-missing');
+    await chips.first().click();
+    // The phone opens a sheet; the desktop moves its side panel. Both land on that date.
+    await expect(page.locator('[data-date="' + date + '"], [data-testid="att-panel"]').first()).toBeVisible();
+  } else {
+    // A fully-filed month is a legitimate state — it must say so, not show an empty box.
+    await expect(strip).toContainText('החודש מלא');
+  }
+
+  await shot(page, ti, 'missing-first');
+  expectNoConsoleErrors(rec);
+});
+
+test('attendance: עידן gets the whole team\'s gaps, and a tap switches to that person', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openAttendance(page);
+
+  const team = page.getByTestId('att-missing-team');
+  await expect(team).toBeVisible();
+  await expect(team).toContainText('חסר לצוות');
+
+  const people = team.locator('[data-person-missing]');
+  await expect(people.first()).toBeVisible();
+
+  // worst first — the strip exists to say who needs chasing
+  const counts = await people.evaluateAll(els =>
+    els.map(e => e.getAttribute('data-count')).filter(v => v !== '' && v !== null).map(Number));
+  expect(counts, 'no per-person counts rendered').not.toHaveLength(0);
+  expect([...counts].sort((a, b) => b - a), 'the team strip is not sorted worst-first').toEqual(counts);
+
+  // a tap moves the whole screen onto that person
+  const who = await people.nth(1).getAttribute('data-person-missing');
+  await people.nth(1).click();
+  await expect(page.getByRole('heading', { name: /נוכחות/ })).toContainText(who!);
+  await expect(team.locator('[data-person-missing="' + who + '"]')).toHaveAttribute('aria-pressed', 'true');
+
+  await shot(page, ti, 'missing-team');
+  expectNoConsoleErrors(rec);
+});

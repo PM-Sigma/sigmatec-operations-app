@@ -6,7 +6,7 @@
 // grid's cells, which days are "missing", and the three KPIs.
 import { describe, expect, it } from 'vitest';
 import {
-  cellsOf, dayLabel, holidayNote, isRequiredDay, kpis, missingDays, monthGrid,
+  cellsOf, dayLabel, holidayNote, isRequiredDay, kpis, missingByPerson, missingDays, monthGrid,
   type AttRow, type Holiday,
 } from './attendance';
 
@@ -211,5 +211,37 @@ describe('cellsOf', () => {
     const rows = [row('2026-09-01', 'office')];
     const g = monthGrid(2026, 9, rows, HOLIDAYS, AFTER);
     expect(cellsOf(g, 'missing').map(c => c.date)).toEqual(missingDays(rows, HOLIDAYS, AFTER, 2026, 9));
+  });
+});
+
+describe('missingByPerson (עידן 20.9 #2 — the overview strip)', () => {
+  const holidays: Holiday[] = [];
+  const today = new Date('2026-09-20T09:00:00+03:00');
+  const day = (d: string, type = 'office') => ({ date: d, type } as AttRow);
+
+  it('counts each person, worst first, holiday-aware through missingDays', () => {
+    // September 2026: 1..19 are before today. אביאם filed two of them, ניתאי filed none.
+    const rowsFor = (p: string) => (p === 'אביאם' ? [day('2026-09-01'), day('2026-09-02')] : []);
+    const out = missingByPerson(['אביאם', 'ניתאי'], rowsFor, holidays, today, 2026, 9);
+    expect(out.map(r => r.person)).toEqual(['ניתאי', 'אביאם']);
+    expect(out[0].count).toBeGreaterThan(out[1].count);
+    expect(out.every(r => r.known)).toBe(true);
+    // the dates are real days of the month, all strictly before today
+    expect(out[1].dates.every(d => d < '2026-09-20')).toBe(true);
+    expect(out[1].dates).not.toContain('2026-09-01');
+  });
+
+  it('a person whose rows are not loaded yet is `known: false`, not a clean slate', () => {
+    const out = missingByPerson(['אביאם', 'ניתאי'], p => (p === 'ניתאי' ? null : []), holidays, today, 2026, 9);
+    const nitai = out.find(r => r.person === 'ניתאי')!;
+    expect(nitai.known).toBe(false);
+    expect(nitai.count).toBe(0);
+    // …and it sorts last, behind everyone whose count is real
+    expect(out[out.length - 1].person).toBe('ניתאי');
+  });
+
+  it('skips blanks and tolerates an empty roster', () => {
+    expect(missingByPerson([], () => [], holidays, today)).toEqual([]);
+    expect(missingByPerson(['', 'אביאם'], () => [], holidays, today, 2026, 9).map(r => r.person)).toEqual(['אביאם']);
   });
 });
