@@ -33,6 +33,7 @@ import {
   speechCaps, startLive, startRecording, uploadAndTranscribe, pollRefineStatus,
   type RecordSession,
 } from '@/lib/speech';
+import { TranscribeRetry } from '@/components/TranscribeRetry';
 import { EmsGate } from '@/components/EmsGate';
 
 /** Bus event every feedback surface listens to (the inbox refetches on it). */
@@ -136,6 +137,9 @@ function FeedbackSheet() {
   const [elapsed, setElapsed] = React.useState(0);
   const [sending, setSending] = React.useState(false);
   const [audioPath, setAudioPath] = React.useState<string | null>(null);
+  // The recording a failed transcription left behind, and whether a retry is in flight.
+  const [pendingAudio, setPendingAudio] = React.useState<{ blob: Blob; mime: string; ms: number } | null>(null);
+  const [transcribing, setTranscribing] = React.useState(false);
   // Task 6b "fast + refine": once the fast transcript lands with a job_id, we poll for the
   // slower, more accurate pass and — only while the field is still untouched — swap the text
   // in silently with a small "עודכן" chip + undo (spec §7i). `fieldState` tracks real keystrokes
@@ -291,6 +295,30 @@ function FeedbackSheet() {
     });
   };
 
+  // A recording whose transcription failed is HELD, not dropped (עידן 20.9). The ↻ in
+  // <TranscribeRetry> re-sends this exact blob; it lives until a transcription succeeds or
+  // the person discards it. Nothing here writes to the field on failure, so whatever was
+  // typed — before the recording or during it — is untouched.
+  const transcribeAudio = async (audio: { blob: Blob; mime: string; ms: number }) => {
+    setTranscribing(true);
+    try {
+      const r = await uploadAndTranscribe(audio);
+      // A fresh recording resets "did the user touch this?" — the text the recording itself
+      // added is not a hand-edit, so the refine chip stays eligible for THIS transcript.
+      fieldState.current = 'untouched';
+      append(r.text);
+      setAudioPath(r.path);          // kept on the row for the 7-day retry window
+      setPendingAudio(null);
+      if (r.refined === false && r.jobId) startRefinePoll(r.jobId, r.refineEtaSeconds);
+      return true;
+    } catch {
+      // No toast. A toast disappears, and with it the only sign that the speech still exists;
+      // the strip stays on screen with the ↻ until the person decides.
+      setPendingAudio(audio);
+      return false;
+    } finally { setTranscribing(false); }
+  };
+
   const finishRecordLeg = () => {
     const session = rec.current;
     rec.current = null;
@@ -298,19 +326,10 @@ function FeedbackSheet() {
     void session.stop().then(async audio => {
       setLevel(0);
       if (!audio || audio.ms < 600) { toast.info('ההקלטה קצרה מדי'); dispatch('transcribed'); return; }
-      try {
-        const r = await uploadAndTranscribe(audio);
-        // A fresh recording resets "did the user touch this?" — the text the recording itself
-        // added is not a hand-edit, so the refine chip stays eligible for THIS transcript.
-        fieldState.current = 'untouched';
-        append(r.text);
-        setAudioPath(r.path);          // kept on the row for the 7-day retry window
-        dispatch('transcribed');
-        if (r.refined === false && r.jobId) startRefinePoll(r.jobId, r.refineEtaSeconds);
-      } catch (e: any) {
-        toast.error(e?.message || 'התמלול נכשל');
-        dispatch('transcribe-failed');
-      }
+      const ok = await transcribeAudio(audio);
+      // Either way the machine leaves the recording leg — the retry is a plain button on the
+      // form from here, not another state of the recorder.
+      dispatch(ok ? 'transcribed' : 'transcribe-failed');
     });
   };
 
@@ -461,6 +480,15 @@ function FeedbackSheet() {
           placeholder="מה קרה / מה היה עוזר לך?"
           className="mt-2 min-h-[130px] text-[15px]"
         />
+
+        {pendingAudio && (
+          <TranscribeRetry
+            seconds={pendingAudio.ms / 1000}
+            busy={transcribing}
+            onRetry={() => void transcribeAudio(pendingAudio)}
+            onDiscard={() => setPendingAudio(null)}
+          />
+        )}
 
         {refining && (
           <div data-testid="feedback-refining"

@@ -130,3 +130,101 @@ test('feedback voice refine: an edit before the refine lands is never overwritte
 
   expectNoConsoleErrors(rec);
 });
+
+// ── עידן's ruling 20.9 — when transcription is simply not available ──────────────────────
+//
+// The home Whisper server is a SERVICE: the app does not probe it and does not explain it.
+// The only contract is `transcribe`'s reply, and a 502 means both legs are gone (the self
+// server unreachable AND the Groq fallback failed). What the person must get is one plain
+// line, the recording KEPT, a ↻ that re-sends that same recording — and whatever they had
+// already typed, untouched.
+test('feedback voice: a 502 from transcribe keeps the recording, says so, and ↻ re-sends it', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await stubRecorder(page);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#sigma-home .kibbutz');
+
+  await page.route(SB_ORIGIN + '/storage/v1/object/**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ Key: 'feedback-audio/x.webm' }) }));
+
+  // Down for the first attempt, back for the retry — so the ↻ is tested as a real re-send,
+  // not as a button that merely re-renders.
+  let attempts = 0;
+  await page.route(SB_ORIGIN + '/functions/v1/transcribe', route => {
+    attempts += 1;
+    if (attempts === 1) {
+      return route.fulfill({
+        status: 502, contentType: 'application/json',
+        body: JSON.stringify({ error: 'self server unreachable; groq fallback failed' }),
+      });
+    }
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ text: FAST_TEXT, engine: 'groq', ms: 400, refined: true }),
+    });
+  });
+
+  await page.evaluate(() => { (window as any).sigma.emsToken = () => 'qa-fake-ems-token'; });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
+  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
+
+  // Something typed BEFORE the recording — the failure must not touch it.
+  const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
+  await box.fill('כתבתי את זה ביד');
+
+  await page.getByRole('button', { name: 'הקלט' }).click();
+  await expect(page.getByText('מקליט…')).toBeVisible();
+  await page.waitForTimeout(750);
+  await page.getByRole('button', { name: 'עצור הקלטה' }).click();
+
+  // ── the line, and the recording still held
+  const strip = page.getByTestId('transcribe-retry');
+  await expect(strip).toBeVisible({ timeout: 10_000 });
+  await expect(strip).toContainText('התמלול לא זמין כרגע — נסה שוב מאוחר יותר');
+  await expect(strip).toContainText('ההקלטה נשמרה');
+  await expect(box, 'the typed text was lost on a transcription failure').toHaveValue('כתבתי את זה ביד');
+  await shot(page, ti, 'transcribe-unavailable');
+
+  // ── ↻ re-sends the SAME recording, and the text is appended to what was typed
+  await page.getByTestId('transcribe-retry-btn').click();
+  await expect(strip).toBeHidden({ timeout: 10_000 });
+  await expect(box).toHaveValue('כתבתי את זה ביד ' + FAST_TEXT);
+  expect(attempts, 'the ↻ did not actually re-send the recording').toBe(2);
+
+  expectNoConsoleErrors(rec);
+});
+
+test('feedback voice: a failing refine poll stops quietly and the fast text stands', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await stubRecorder(page);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#sigma-home .kibbutz');
+
+  await page.route(SB_ORIGIN + '/storage/v1/object/**', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ Key: 'feedback-audio/x.webm' }) }));
+  await page.route(SB_ORIGIN + '/functions/v1/transcribe', route => {
+    const body = route.request().postDataJSON() as any;
+    // The fast pass lands; every poll after it 502s — the self server went away mid-job.
+    if (body?.job_id) return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'gone' }) });
+    return route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ text: FAST_TEXT, engine: 'self', ms: 300, refined: false, job_id: 'job-1', refine_eta_seconds: 2 }),
+    });
+  });
+
+  await openSheetAndRecord(page);
+
+  const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
+  await expect(box).toHaveValue(FAST_TEXT, { timeout: 10_000 });
+
+  // The poll retries in the background and then gives up. Nothing may be said about it: no
+  // error toast, no retry strip (there is no recording to re-send — the fast text is here),
+  // and the fast transcript must still be in the box.
+  await page.waitForTimeout(9_000);
+  await expect(page.getByTestId('transcribe-retry')).toHaveCount(0);
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+  await expect(box).toHaveValue(FAST_TEXT);
+  await expect(page.getByTestId('feedback-refining')).toBeHidden();
+
+  expectNoConsoleErrors(rec);
+});

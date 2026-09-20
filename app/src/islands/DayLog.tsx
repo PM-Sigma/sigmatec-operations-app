@@ -23,6 +23,7 @@ import { track } from '@/lib/track';
 import { sigma, useCurrentUser } from '@/bridge';
 import { SB_ANON, SB_URL } from '@/lib/supabase';
 import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
+import { TranscribeRetry } from '@/components/TranscribeRetry';
 import {
   cardReady, emsCommentText, normalizeDayLog, visitPayload,
   type DayLogCatalog, type DayLogResult, type DayLogVisit, type GroundingTask,
@@ -268,6 +269,26 @@ function DayLogSheet() {
 
   // Dictation, the same two rungs the feedback box uses (app/src/lib/speech.ts): the browser's
   // own he-IL recognition when it has one, otherwise record → the `transcribe` function.
+  // A recording whose transcription failed is HELD, not dropped (עידן 20.9): the ↻ in
+  // <TranscribeRetry> re-sends this exact blob, and it lives until a transcription succeeds
+  // or the person discards it. Typed text is never touched either way.
+  const [pendingAudio, setPendingAudio] = React.useState<{ blob: Blob; mime: string; ms: number } | null>(null);
+
+  const transcribeAudio = async (audio: { blob: Blob; mime: string; ms: number }) => {
+    setBusy(true);
+    try {
+      const out = await uploadAndTranscribe(audio);
+      append(out.text);
+      setPendingAudio(null);        // it landed — nothing left to retry
+    } catch {
+      // No toast: a toast disappears, and with it the only sign that the speech still exists.
+      // The strip stays on screen with the ↻ instead.
+      setPendingAudio(audio);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const stopVoice = async () => {
     setListening(false);
     if (live.current) { live.current.stop(); live.current = null; return; }
@@ -275,17 +296,9 @@ function DayLogSheet() {
     rec.current = null;
     if (!session) return;
     setBusy(true);
-    try {
-      const audio = await session.stop();
-      if (audio) {
-        const out = await uploadAndTranscribe(audio);
-        append(out.text);
-      }
-    } catch (e: any) {
-      toast.error(String(e?.message || 'התמלול נכשל — אפשר להקליד'));
-    } finally {
-      setBusy(false);
-    }
+    let audio: { blob: Blob; mime: string; ms: number } | null = null;
+    try { audio = await session.stop(); } catch { audio = null; } finally { setBusy(false); }
+    if (audio) await transcribeAudio(audio);
   };
 
   const startVoice = async () => {
@@ -418,6 +431,15 @@ function DayLogSheet() {
             placeholder="היום הייתי בדפנה, החלפתי מונה ראשי בלול… אחר כך חוקוק…"
             onChange={e => setText(e.target.value)}
           />
+
+          {pendingAudio && (
+            <TranscribeRetry
+              seconds={pendingAudio.ms / 1000}
+              busy={busy}
+              onRetry={() => void transcribeAudio(pendingAudio)}
+              onDiscard={() => setPendingAudio(null)}
+            />
+          )}
 
           <div className="flex items-center gap-2">
             <Button
