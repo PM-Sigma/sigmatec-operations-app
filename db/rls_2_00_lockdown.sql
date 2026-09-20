@@ -105,11 +105,14 @@ drop policy if exists parse_corrections_read on public.parse_corrections;
 -- which RLS does not apply to.
 drop policy if exists push_subs_all on public.push_subscriptions;
 
+drop policy if exists push_subs_read on public.push_subscriptions;
 create policy push_subs_read on public.push_subscriptions
   for select to authenticated using (true);
 -- The device re-registers with `on_conflict=endpoint` + merge-duplicates, so it needs both.
+drop policy if exists push_subs_insert on public.push_subscriptions;
 create policy push_subs_insert on public.push_subscriptions
   for insert to authenticated with check (true);
+drop policy if exists push_subs_update on public.push_subscriptions;
 create policy push_subs_update on public.push_subscriptions
   for update to authenticated using (true) with check (true);
 -- No delete policy, by design: a stale subscription is pruned server-side by push-send when
@@ -129,6 +132,7 @@ create policy ia_read on public.inventory_alerts
   for select to authenticated using (true);
 -- The trigger does not need this; it is here only so a future server-side backfill through a
 -- normal session works. No client path inserts alerts.
+drop policy if exists ia_insert on public.inventory_alerts;
 create policy ia_insert on public.inventory_alerts
   for insert to authenticated with check (true);
 
@@ -162,6 +166,7 @@ drop policy if exists sr_write on public.stock_recounts;
 
 create policy sr_read on public.stock_recounts
   for select to authenticated using (true);
+drop policy if exists sr_insert on public.stock_recounts;
 create policy sr_insert on public.stock_recounts
   for insert to authenticated with check (true);
 -- No update, no delete: a recount is a historical fact.
