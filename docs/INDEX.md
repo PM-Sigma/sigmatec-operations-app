@@ -66,7 +66,19 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-20 (**2.01 is LIVE on `main`; 2.02 built on `dev` — עידן's first live-feedback round + the two Task 33 failures, fixed**).
+## 🚦 Current state — last: 2026-09-20 (**2.02 is LIVE on `main`; 2.03 pushed to `dev` — Task 35: no data before an EMS pass + a second boot-time TDZ, fixed**).
+
+**Task 35 (this session):** task-33b's live verification found the logged-out header still showing
+a frozen `📅 עודכן: 11.6.2026` + `0` potentials after the legacy-table RLS lockdown (a hardcoded
+fallback constant, not a real snapshot). Fixed per עידן's §7n ruling: no date, no counters before
+an EMS pass exists (`js/src/01-data.js` `renderLastUpdated`/`renderPotentials`, gated on
+`isEmsConnected()`); removed the dead Apps-Script GET fallback + the stale "anon is read-only"
+comment. Also found and fixed a SECOND task-33-FAIL-2-class TDZ while extending the boot test with
+a stubbed-authenticated case: `js/src/15-login-gate.js`'s `let _sbMintInflight` → `var` (a
+returning session with an EMS token in localStorage hit it on every cold boot, silently, before
+this session's fix). `qa/playwright/tests/boot-console.spec.ts` now has 3 cases (mock / stubbed-
+authenticated supabase / pre-login supabase). `VERSION` 2.03, full QA green (ZAP skip, no Docker),
+pushed to `dev` — **not yet merged to `main`**.
 
 Resume cold, in order: (1) `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (master spec §0–§7p, all
 עידן's rulings inline, STATUS ✅ BUILT 2.01 — go-live pending production steps), (2)

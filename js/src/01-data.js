@@ -1,11 +1,19 @@
-// ISO timestamp — מתעדכן בכל פוש
-  const LAST_UPDATED = '2026-06-11T10:00';
-
+// Spec §7n ruling (task-33b FAIL-2 / task-35): the header must never show a data date or
+  // counters before an EMS pass exists. Before login the legacy tables answer an anon read
+  // with `200 []` (RLS-filtered, not 401 — see 01-data.js readSnapshot below), so there is no
+  // real freshness to show; a hardcoded constant used to fill that gap and looked exactly
+  // like a frozen live snapshot (task-33b: "📅 עודכן: 11.6.2026" for two days). There is no
+  // fallback date any more — no pass, no date, period.
   function renderLastUpdated(isoStr) {
-    const d = new Date(isoStr || LAST_UPDATED);
+    const el = document.getElementById('lastUpdated');
+    if (!el) return;
+    const connected = (typeof isEmsConnected === 'function' && isEmsConnected()) || !window._useSupabase;
+    if (!connected) { el.textContent = '📅 —'; return; }
+    if (!isoStr) return;   // connected but no snapshot yet — keep the "טוען…" placeholder
+    const d = new Date(isoStr);
     const date = d.toLocaleDateString('he-IL');
     const time = d.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
-    document.getElementById('lastUpdated').textContent = '📅 עודכן: ' + date + ' · ' + time;
+    el.textContent = '📅 עודכן: ' + date + ' · ' + time;
   }
   renderLastUpdated();
 
@@ -461,6 +469,14 @@
   // Escape hatch: append ?sb=0 to the URL → falls back to Apps Script/Sheets (per-user, no redeploy).
   // Full rollback = set this back to `location.search.indexOf('sb=1') !== -1` (default off) + redeploy.
   const USE_SUPABASE = location.search.indexOf('sb=0') === -1;
+  // Read via `window.` (task-35): the §7n gate above (renderLastUpdated/renderPotentials) is
+  // evaluated on every call, including the very first one at eval time, before this line has
+  // run — a plain `const` reference there would be the exact TDZ class task-33 FAIL-2 already
+  // hit once. Only `sb=0` (Apps Script/local-fixture sandbox, no RLS at all) is exempt from the
+  // gate; `sb=1`/default on `localhost` is real Supabase traffic and must NOT be lumped in with
+  // the sandbox just because `MOCK_MODE` is also host-based (task-33b: the QA harness runs on
+  // 127.0.0.1, so a hostname-only exemption made the pre-login test always look "connected").
+  window._useSupabase = USE_SUPABASE;
   const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
   const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
   // 🧪 ?sb=0 (Apps Script fallback / offline sandbox): there is no Supabase router, so the
@@ -664,7 +680,13 @@
     window.fetch = function (url, opts) {
       if (typeof url === 'string' && url.indexOf(SHEET_API) === 0) {
         const method = (opts && opts.method ? opts.method : 'GET').toUpperCase();
-        if (method === 'GET') return readSnapshot().then(respond).catch(e => { console.error('[supabase] read failed → falling back to Apps Script', e); return realFetch(url, opts); });
+        // No Apps-Script fallback on a failed read (task-35): the legacy tables are
+        // `authenticated`-only now, so a pre-login/anon read never throws here — it resolves
+        // with `[]` rows (RLS-filtered, PostgREST 200), which readSnapshot turns into an
+        // empty-but-valid snapshot. A real network/DB failure below still just rejects; the
+        // caller (fetchSheetData) already has its own try/catch and shows "offline" instead of
+        // silently repainting a frozen sheet snapshot.
+        if (method === 'GET') return readSnapshot().then(respond);
         let b = null; if (opts && opts.body) { try { b = JSON.parse(opts.body); } catch (e) {} }
         if (!b) return realFetch(url, opts);
         // View-only role: HARD block on every write, in the one place all writes pass through.
@@ -675,7 +697,9 @@
         }
         if (b.type === 'ems' || b.type === 'transcribe' || b.type === 'parseRequest') return realFetch(url, opts);  // live proxy + AI stay on Apps Script
         const run = async () => {
-          // Writes need the AUTHENTICATED bridge pass (anon is read-only post-lockdown). If it lapsed,
+          // Writes need the AUTHENTICATED bridge pass — the legacy tables are `authenticated`-only
+          // post-lockdown, so an anon write is rejected outright (an anon READ instead comes back
+          // as `200 []`, RLS-filtered, not 401 — anon reads NOTHING from the twelve tables). If it lapsed,
           // re-mint BEFORE any upsert — otherwise the write goes out as anon and is rejected, which is the
           // root of the recurring "נשמר מקומית/לוקאלית" failures (company-tasks, requirements, etc.).
           // The same one promise the reads wait on (review fix 1) — memoized, so a burst of
@@ -994,6 +1018,10 @@
     if (!data || !data.potentials) return;
     const list = document.getElementById('potentialsList');
     if (!list) return;
+    // Spec §7n ruling: no counters before an EMS pass exists. Pre-login `potentials` reads
+    // back `[]` (RLS-filtered anon read, not an error) — that must render as "not shown yet",
+    // never as a real zero.
+    if (!((typeof isEmsConnected === 'function' && isEmsConnected()) || !window._useSupabase)) { list.innerHTML = ''; return; }
 
     // Exclude potentials that already exist as active kibbutzim. Normalize (strip
     // apostrophes/quotes + collapse spaces) so "דגניה ב'" matches the card "דגניה ב".

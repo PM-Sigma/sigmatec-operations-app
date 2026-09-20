@@ -31,18 +31,27 @@ for (const mode of ['mock', 'supabase'] as const) {
   test('cold boot is silent — ' + mode, async ({ page }, testInfo) => {
     const rec = watchConsole(page);
     await installRoutes(page);
-    await page.addInitScript(() => {
+    await page.addInitScript((m) => {
       try {
         localStorage.setItem('dashboard_user_v1', 'עידן');
         localStorage.setItem('dashboard_role_v1', 'idan');
         localStorage.setItem('dashboard_auth_v4', 'ok');
+        // task-35 (spec §7n): the legacy tables are `authenticated`-only post-lockdown, so the
+        // header/counters only render once an EMS pass exists (js/src/00-consts.js
+        // isEmsConnected). `mock` never checks that (window._mockMode, js/src/01-data.js), but
+        // `supabase` does — stub a live EMS session so this test still exercises the "logged
+        // in, fresh data" path rather than the pre-login one (covered separately below).
+        if (m === 'supabase') {
+          localStorage.setItem('ems_token_v1', 'stub-token');
+          localStorage.setItem('ems_token_at_v1', String(Date.now()));
+        }
       } catch { /* private mode */ }
       // The same once-per-session latches boot() sets: a full-screen prompt is harness noise,
       // and this spec is about the console, not about what is on top of the page.
       (window as any)._pushPromptShown = true;
       (window as any)._attReminderShown = true;
       (window as any)._fieldPromptShown = true;
-    });
+    }, mode);
 
     // `sb=1` is not a flag the app reads — `USE_SUPABASE` is on unless `sb=0` is present
     // (js/src/01-data.js). Passing it explicitly is how this file states which path it means.
@@ -84,3 +93,44 @@ for (const mode of ['mock', 'supabase'] as const) {
     await shot(page, testInfo, mode);
   });
 }
+
+// task-33b FAIL-2 / task-35: before an EMS pass exists, the header must show NO data date and
+// NO counters — never the frozen `📅 עודכן: 11.6.2026` a hardcoded fallback constant produced
+// for two days in production (task-33b). This is the `supabase` boot path (the one the live
+// site is actually on) with NO `ems_token_v1` in localStorage, i.e. no pass to mint —
+// `sbEnsurePass()` returns false and every legacy-table read comes back RLS-filtered `[]`.
+test('cold boot pre-login shows no date and no counters — supabase', async ({ page }, testInfo) => {
+  const rec = watchConsole(page);
+  await installRoutes(page);
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('dashboard_user_v1', 'עידן');
+      localStorage.setItem('dashboard_role_v1', 'idan');
+      localStorage.setItem('dashboard_auth_v4', 'ok');
+      // deliberately NOT setting ems_token_v1 — no EMS pass, the pre-login state.
+    } catch { /* private mode */ }
+    (window as any)._pushPromptShown = true;
+    (window as any)._attReminderShown = true;
+    (window as any)._fieldPromptShown = true;
+  });
+
+  await page.goto('/index.html?login=0&sb=1', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#sigma-nav')).toBeAttached();
+  await page.waitForLoadState('networkidle').catch(() => { /* islands may keep a socket */ });
+  await page.waitForTimeout(1500);
+
+  expect(rec.errors, 'cold boot (pre-login) console errors:\n' + rec.errors.join('\n')).toEqual([]);
+
+  // No stale/fallback date — neither the hardcoded constant nor a "today" date from data that
+  // was never really authorized.
+  const header = (await page.locator('#lastUpdated').innerText()).trim();
+  expect(header, 'the header must not show a data date before an EMS pass exists').not.toMatch(/עודכן/);
+  expect(header, 'the pre-login header must be the neutral placeholder').toBe('📅 —');
+
+  // No stale counters either — the potentials side-list must render empty, not "0" derived
+  // from an anon read that silently came back RLS-filtered.
+  const potentials = (await page.locator('#potentialsList').innerText()).trim();
+  expect(potentials, 'the potentials list must not render before an EMS pass exists').toBe('');
+
+  await shot(page, testInfo, 'pre-login');
+});

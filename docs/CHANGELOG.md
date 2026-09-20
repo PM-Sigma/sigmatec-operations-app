@@ -7,6 +7,31 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.03] 2026-09-20 — Task 35: no data before an EMS pass + a second boot-time TDZ
+
+**Why:** task-33b's live verification (score 21 PASS / 1 FAIL) found that after the legacy-table
+RLS lockdown, a logged-out visitor saw a frozen `📅 עודכן: 11.6.2026` and `0` potentials instead
+of nothing — the header's hardcoded fallback constant filling in for a snapshot that anon reads
+can no longer see. עידן's ruling (§7n): hide the date and the counters entirely until an EMS pass
+exists; never show a stale number.
+
+**What:** `js/src/01-data.js` — `renderLastUpdated`/`renderPotentials` now check
+`isEmsConnected()` (or `sb=0` sandbox mode) and render a neutral `📅 —` / empty list before a pass
+exists, instead of falling back to a hardcoded date constant (removed). Also removed the dead
+`.catch(... falling back to Apps Script)` on the Supabase GET path — the legacy tables are
+`authenticated`-only now, so an anon read never throws (`200 []`, RLS-filtered), and the stale
+"anon is read-only post-lockdown" comment is corrected. While wiring a stubbed-authenticated
+Playwright case to prove the "after login" side of the gate, hit a SECOND instance of the
+task-33 FAIL-2 TDZ class: `js/src/15-login-gate.js`'s `let _sbMintInflight` is reachable from the
+very first `refreshData()` (eval time, `11-search-login.js`) once an EMS token already sits in
+localStorage (a returning session) — every one of the ~13 parallel legacy-table reads threw
+`Cannot access '_sbMintInflight' before initialization`, silently swallowed as "offline" so the
+mint never ran and every read went out anon. Changed to `var` (no TDZ), matching the `00-consts.js`
+convention. `qa/playwright/tests/boot-console.spec.ts` extended: the `supabase` case now stubs a
+live EMS session (so it actually exercises the authenticated path) and a new pre-login case
+asserts no date / no counters. `VERSION` → 2.03. `npm test`, `npx vitest run` (app/), and
+`npm run qa -- --label task-35` all green (ZAP skipped, no Docker on this machine).
+
 ## [2.02] 2026-09-20 — תיקוני אוויר: boot, אזור בכרטיס, נוכחות חסר-קודם, push-send, תמלול לא זמין
 
 **Why:** 2.01 went live on `main` at 13:43 and עידן started testing it. Task 33's from-scratch

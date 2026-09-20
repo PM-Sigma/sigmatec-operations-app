@@ -44,7 +44,18 @@
     else scheduleRemint();
   });
 
-  let _sbMintInflight = null;
+  // `var`, not `let` (task-35): a `let` here is reachable from boot the same way
+  // `EMS_TOKEN_AT_KEY` was (task-33 FAIL-2, see js/src/00-consts.js) — sbGet's `await
+  // sbEnsure()` line evaluates `window.sbEnsurePass()` eagerly for EVERY one of the ~13
+  // parallel legacy-table reads the very first `refreshData()` fires at eval time
+  // (js/src/11-search-login.js), and once an EMS token already sits in localStorage
+  // (a returning session, cold-loading this file), that reaches all the way into this
+  // function before its own `let` line has run — `Cannot access '_sbMintInflight' before
+  // initialization`, one throw per parallel read, silently swallowed by fetchSheetData's
+  // catch (→ "offline", not a visible crash, but the mint never happens and every read
+  // goes out anon). `var` has no TDZ: it hoists to `undefined` at the top of the script,
+  // so an early read is simply falsy and `sbBridge()` mints normally instead of throwing.
+  var _sbMintInflight = null;
   function sbBridge() {
     if (_sbMintInflight) return _sbMintInflight;
     _sbMintInflight = _sbBridgeMint().finally(function () { _sbMintInflight = null; });

@@ -130,7 +130,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `session-expired` | js/src/00-bridge.js:116<br>app/src/lib/session.ts:126 | app/src/bridge.ts:400<br>app/src/components/ReLoginSheet.tsx:52<br>app/src/lib/session.test.ts:96 |
 | `stock-changed` | js/src/07-orders.js:1214<br>js/src/09-visits.js:984<br>app/src/islands/StockChange.tsx:152 | app/src/islands/Alerts.tsx:112<br>app/src/islands/InventoryStrip.tsx:75<br>js/src/08-inventory.js:135 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
-| `user-changed` | js/src/11-search-login.js:234<br>js/src/11-search-login.js:255<br>js/src/15-login-gate.js:202<br>js/src/15-login-gate.js:215<br>js/src/15-login-gate.js:342<br>…+1 | app/src/bridge.ts:399<br>app/src/islands/Attendance.tsx:253<br>app/src/islands/FeedbackInbox.tsx:228<br>app/src/islands/Field.tsx:157<br>app/src/islands/Usage.tsx:217<br>app/src/lib/currentPage.ts:27<br>…+2 |
+| `user-changed` | js/src/11-search-login.js:234<br>js/src/11-search-login.js:255<br>js/src/15-login-gate.js:213<br>js/src/15-login-gate.js:226<br>js/src/15-login-gate.js:353<br>…+1 | app/src/bridge.ts:399<br>app/src/islands/Attendance.tsx:253<br>app/src/islands/FeedbackInbox.tsx:228<br>app/src/islands/Field.tsx:157<br>app/src/islands/Usage.tsx:217<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:536<br>js/src/09-visits.js:567<br>js/src/09-visits.js:634<br>js/src/09-visits.js:769 | app/src/lib/visitDrafts.ts:66 |
 | `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:143<br>js/src/00-bridge.js:434<br>app/src/components/home/CardActions.tsx:49<br>app/src/islands/Field.tsx:1189 |
 | `visit-saved` | js/src/09-visits.js:1013<br>js/src/09-visits.js:1130 | app/src/islands/Attendance.tsx:246<br>app/src/islands/Calendar.tsx:916<br>app/src/islands/Field.tsx:156<br>app/src/islands/Field.tsx:1295<br>app/src/islands/Presenter.tsx:111<br>app/src/lib/visitDrafts.ts:67<br>…+2 |
@@ -227,8 +227,8 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 |---|---|---|---|
 | `calendar` | `(default)` | *(no mode field)* | js/src/14-calendar.js:161<br>js/src/14-calendar.js:182 |
 | `clockify` | `(default)` | *(no mode field)* | app/src/components/home/workTimerApi.ts:13 |
-| `ems-auth` | `(default)` | *(no mode field)* | js/src/15-login-gate.js:79 |
-| `ems-auth` | `viewer` | ✓ | js/src/15-login-gate.js:325 |
+| `ems-auth` | `(default)` | *(no mode field)* | js/src/15-login-gate.js:90 |
+| `ems-auth` | `viewer` | ✓ | js/src/15-login-gate.js:336 |
 | `github` | `(default)` | *(no mode field)* | js/src/18-dev-tasks.js:257<br>js/src/18-dev-tasks.js:904<br>app/src/islands/FeedbackInbox.tsx:73<br>app/src/lib/devBoard.ts:23 |
 | `parse-daylog` | `(default)` | *(no mode field)* | app/src/islands/DayLog.tsx:107 |
 | `parse-daylog` | `correction` | ✓ | app/src/islands/DayLog.tsx:136 |

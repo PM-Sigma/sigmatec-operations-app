@@ -153,7 +153,7 @@ Usually a handler that delegates through a bridge the detectors do not follow �
 | 87 | legacy | `js/src/00-guard.js:90` | `if` | — | **none** |
 | 88 | legacy | `js/src/00-guard.js:184` | `(inline listener)` | — | **none** |
 | 89 | legacy | `js/src/00-guard.js:244` | `(inline listener)` | — | **none** |
-| 90 | legacy | `js/src/01-data.js:76` | `(inline listener)` | — | **none** |
+| 90 | legacy | `js/src/01-data.js:84` | `(inline listener)` | — | **none** |
 | 91 | legacy | `js/src/02-init-attendance.js:213` | `(inline listener)` | — | **none** |
 | 92 | legacy | `js/src/03-requirements.js:43` | `invEditRequirement` | — | **none** |
 | 93 | legacy | `js/src/03-requirements.js:70` | `(inline) reqItems[${idx}].name = this.value` | — | **none** |
