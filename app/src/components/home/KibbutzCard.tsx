@@ -14,7 +14,7 @@ import { InternalTasksSection } from '@/components/home/InternalTasks';
 import { OnboardingProgress } from '@/components/home/OnboardingProgress';
 import { BurnChip } from '@/components/home/Burns';
 import { WorkTimer } from '@/components/home/WorkTimer';
-import { energyText, labelOf, sectionOf, isSubsite, type KibbutzRow } from '@/lib/kibbutzim';
+import { energyText, labelOf, sectionOf, isSubsite, NO_REGION_LABEL, type KibbutzRow } from '@/lib/kibbutzim';
 
 export function KibbutzCard({
   row, role, highlight, onEdit, canEdit, index = 0,
@@ -59,6 +59,13 @@ export function KibbutzCard({
     >
       <div className="kibbutz-name-row flex flex-wrap items-center gap-2">
         <h4 className="kibbutz-name flex-1 text-[17px] font-bold leading-tight">{labelOf(row)}</h4>
+        {/* Where this kibbutz is (עידן 20.9 #1). It used to be a label row between the
+            cards, which read as clutter once there were three of them on one screen. Muted
+            and unadorned, beside the energy badge: the two are the card's metadata row, and
+            the region still groups and orders the grid behind them. */}
+        <span className="region-chip rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+          {row.region || NO_REGION_LABEL}
+        </span>
         <span className="energy-badge rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
           {energyText(row)}
         </span>

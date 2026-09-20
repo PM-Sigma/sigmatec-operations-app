@@ -383,15 +383,18 @@
   }
   .kibbutz-name-row .kibbutz-name { margin-bottom: 0; }
 
-  /* ── סיגמה 2.00 · data-driven cards ── region sub-header + card tags (tokens only;
-     the visual pass lives in Task 4, so this stays deliberately minimal). */
-  .region-label {
-    grid-column: 1 / -1;
+  /* ── סיגמה 2.00 · data-driven cards ── the region chip + card tags (tokens only;
+     the visual pass lives in Task 4, so this stays deliberately minimal).
+     The region used to be a `.region-label` row spanning the grid between the cards. עידן
+     20.9: with three of them on one screen it read as clutter. It is now a chip ON the card,
+     styled like the other metadata tags, and the grouping lives in the sort order alone. */
+  .region-chip {
     font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
     color: var(--text-light);
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 4px;
-    margin: 6px 0 2px;
+    white-space: nowrap;
   }
   .tag-marketing, .tag-subsite {
     font-size: 11px;

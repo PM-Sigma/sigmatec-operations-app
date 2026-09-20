@@ -1,10 +1,11 @@
 // #sigma-home — the card page (spec §2 + §7b + §7c).
-// Covers: both sections render, region sub-labels appear only when a section has >1 region,
+// Covers: both sections render, every card carries its region chip (עידן 20.9 #1 — the old
+// standalone label rows between the cards are gone),
 // the filter chips actually filter (and the card list crossfades rather than jumping), and
 // the card quick-action row is role-gated (viewer = ישיבות only).
 import { boot, expect, expectNoConsoleErrors, expectRtl, expectTheme, shot, test } from './_helpers';
 
-test('home cards: sections, region labels, filters, quick actions', async ({ page }, ti) => {
+test('home cards: sections, region chips, filters, quick actions', async ({ page }, ti) => {
   const { rec, theme } = await boot(page, ti);
 
   await expectRtl(page);
@@ -24,11 +25,19 @@ test('home cards: sections, region labels, filters, quick actions', async ({ pag
   // the energy badge is per-row data, never a hardcoded ⚡
   await expect(home.locator('.kibbutz[data-name="כפר עזה"] .energy-badge')).toContainText('גז');
 
-  // ── region sub-labels: the active section spans three regions, so they are rendered
-  const regions = home.locator('[data-region]:not(.kibbutz)');
-  await expect(regions.filter({ hasText: 'גליל וגולן' }).first()).toBeVisible();
-  await expect(regions.filter({ hasText: 'העמקים' }).first()).toBeVisible();
-  await expect(regions.filter({ hasText: 'דרום, עוטף עזה והנגב' }).first()).toBeVisible();
+  // ── the region lives ON the card (עידן 20.9 #1). The standalone label rows between cards
+  // read as noise once every card already says where it is, so there are none — the chip
+  // beside the name carries the region, and the grouping survives as the sort order.
+  await expect(home.locator('[data-region]:not(.kibbutz)')).toHaveCount(0);
+  await expect(home.locator('.kibbutz[data-name="חוקוק"] .region-chip')).toHaveText('גליל וגולן');
+  await expect(home.locator('.kibbutz[data-name="יגור"] .region-chip')).toHaveText('העמקים');
+  await expect(home.locator('.kibbutz[data-name="כפר עזה"] .region-chip')).toHaveText('דרום, עוטף עזה והנגב');
+  // grouping = ordering: every card of one region is contiguous within its section.
+  const seen = await home.locator('#sigma-home .kibbutz .region-chip').allInnerTexts();
+  const firstSeen = new Map<string, number>();
+  seen.forEach((r, i) => { if (!firstSeen.has(r)) firstSeen.set(r, i); });
+  seen.forEach((r, i) => expect(i === 0 || seen[i - 1] === r || firstSeen.get(r) === i,
+    'region "' + r + '" is split across the grid — the grouping order broke').toBeTruthy());
 
   await shot(page, ti);
 
@@ -38,7 +47,6 @@ test('home cards: sections, region labels, filters, quick actions', async ({ pag
   await home.getByRole('radio', { name: '🤝 שיווקי' }).click();
   await expect(home.locator('.kibbutz')).toHaveCount(1);
   await expect(home.locator('.kibbutz[data-name="כפר עזה"]')).toBeVisible();
-  // a single region in a single section → no region sub-label
   await expect(home.locator('[data-region]:not(.kibbutz)')).toHaveCount(0);
   await shot(page, ti, 'filter-marketing');
 

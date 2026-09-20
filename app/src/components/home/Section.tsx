@@ -3,7 +3,6 @@
 // Magic UI's NumberTicker (one dependency for one number was not worth the boot budget).
 import * as React from 'react';
 import { AnimatePresence, useReducedMotion } from 'motion/react';
-import { RegionLabel } from '@/components/home/RegionLabel';
 import { KibbutzCard } from '@/components/home/KibbutzCard';
 import type { KibbutzRow, RegionGroup } from '@/lib/kibbutzim';
 
@@ -45,7 +44,6 @@ export function Section({
   onEdit: (row: KibbutzRow) => void;
 }) {
   if (!count) return null;
-  const showRegions = groups.length > 1;      // a single region needs no sub-header
   return (
     <section className="mb-1">
       <header className="mb-1.5 mt-3 flex items-center gap-2 px-0.5">
@@ -56,13 +54,14 @@ export function Section({
         <span className="h-px flex-1 bg-border" />
       </header>
       <div className="grid items-start gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
-        {/* AnimatePresence only tracks its DIRECT children, so the region labels and the
-            cards are flattened into ONE keyed list — wrapping each group in a Fragment
-            hid the cards from it and left exited cards stranded in the DOM. */}
+        {/* One flat keyed list. AnimatePresence only tracks its DIRECT children, so wrapping
+            each group in a Fragment hid the cards from it and left exited cards stranded.
+            There are no region rows any more (עידן 20.9 #1: "the label rows between the
+            cards are noise") — the groups still order the list, and each card carries its
+            own region chip, so the grouping is legible without a row spent on it. */}
         <AnimatePresence initial={false}>
           {groups.flatMap(g => {
             const out: React.ReactNode[] = [];
-            if (showRegions) out.push(<RegionLabel key={'region:' + (g.region || '—')} region={g.region} />);
             g.rows.forEach((row, i) => out.push(
               <KibbutzCard
                 key={row.name}

@@ -40,9 +40,14 @@
       const isSub = row.kind === 'subsite' && row.parent;
       return '<div class="kibbutz ' + section + '" data-name="' + esc(row.name) + '"' +
         ' data-section="' + section + '" data-marketing="' + (marketing ? 'true' : 'false') + '"' +
-        (isSub ? ' data-parent="' + esc(row.parent) + '"' : '') + '>' +
+        (isSub ? ' data-parent="' + esc(row.parent) + '"' : '') +
+        ' data-region="' + esc(row.region || '') + '">' +
         '<div class="kibbutz-name-row">' +
         '<div class="kibbutz-name">' + esc(label(row)) + '</div>' +
+        // The region (עידן 20.9 #1). It used to be a label row BETWEEN the cards; every card
+        // now says where it is, and the grouping survives as the sort order. Kept beside the
+        // energy badge so the two read as one row of card metadata.
+        '<span class="region-chip">' + esc(row.region || NO_REGION_LABEL) + '</span>' +
         '<span class="energy-badge">' + esc(energyText(row)) + '</span>' +
         (isSub ? '<span class="tag-subsite">↳ תת-אתר של ' + esc(row.parent) + '</span>' : '') +
         (marketing ? '<span class="tag-marketing">🤝 בתהליך שיווקי</span>' : '') +
@@ -105,11 +110,9 @@
         const grid = document.getElementById('grid-' + section);
         if (!grid) return;
         const gs = groups[section];
-        const showRegions = gs.length > 1;                       // one region → no sub-header
-        grid.innerHTML = gs.map(g =>
-          (showRegions ? '<div class="region-label" data-region="' + esc(g.region) + '">' + esc(g.region || NO_REGION_LABEL) + '</div>' : '') +
-          g.rows.map(buildCardHtml).join('')
-        ).join('');
+        // No standalone region rows (עידן 20.9 #1) — the grouping is still real, it is just
+        // carried by the order plus each card's own chip instead of by a row of its own.
+        grid.innerHTML = gs.map(g => g.rows.map(buildCardHtml).join('')).join('');
         const sec = grid.closest ? grid.closest('.section') : null;
         const badge = sec ? sec.querySelector('.section-count') : null;
         if (badge) badge.textContent = String(gs.reduce((n, g) => n + g.rows.length, 0));

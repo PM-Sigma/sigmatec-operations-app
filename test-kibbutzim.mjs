@@ -75,11 +75,18 @@ const W = load();
 // ───────────────────────── buildCardHtml ─────────────────────────
 console.log('buildCardHtml:');
 check('gas card golden', () => {
-  const html = W.buildCardHtml({ name: 'אור הנר גז', display_name: 'אור הנר — גז', section: 'active', energy: ['gas'], marketing: false });
+  const html = W.buildCardHtml({ name: 'אור הנר גז', display_name: 'אור הנר — גז', section: 'active', energy: ['gas'], marketing: false, region: 'דרום, עוטף עזה והנגב' });
   assert.equal(html,
-    '<div class="kibbutz active" data-name="אור הנר גז" data-section="active" data-marketing="false">' +
+    '<div class="kibbutz active" data-name="אור הנר גז" data-section="active" data-marketing="false"' +
+    ' data-region="דרום, עוטף עזה והנגב">' +
     '<div class="kibbutz-name-row"><div class="kibbutz-name">אור הנר — גז</div>' +
+    '<span class="region-chip">דרום, עוטף עזה והנגב</span>' +
     '<span class="energy-badge">🔥 גז</span></div></div>');
+});
+check('a row with no region still gets a chip, with the fallback label', () => {
+  const html = W.buildCardHtml({ name: 'ללא', section: 'active', energy: ['electric'], marketing: false });
+  assert.ok(html.includes('<span class="region-chip">ללא איזור</span>'), html);
+  assert.ok(html.includes('data-region=""'), 'the empty region is still declared for the filters');
 });
 check('marketing row emits the 🤝 tag', () => {
   const html = W.buildCardHtml({ name: 'שלוחות', section: 'active', energy: ['electric'], marketing: true });
@@ -143,7 +150,7 @@ check('display_name wins over name for sorting', () => {
 
 // ───────────────────────── renderKibbutzCards ─────────────────────────
 console.log('renderKibbutzCards:');
-check('fills both grids, region labels, counts, skips archived', () => {
+check('fills both grids, region chips on the cards, counts, skips archived', () => {
   ['grid-new', 'grid-active', 'cnt-all', 'cnt-new', 'cnt-active', 'cnt-marketing'].forEach(getEl);
   W.renderKibbutzCards([
     { name: 'יגור', region: 'העמקים', section: 'active', energy: ['electric'], marketing: false },
@@ -153,9 +160,18 @@ check('fills both grids, region labels, counts, skips archived', () => {
   ]);
   const setup = els['grid-new'], active = els['grid-active'];
   assert.equal(setup.querySelectorAll('.kibbutz').length, 1, 'new cards');
-  assert.equal(setup.querySelectorAll('.region-label').length, 0, 'single region → no region label');
+  // עידן 20.9 #1: the standalone region rows between cards are gone. The region moved INSIDE
+  // the card as a muted chip, so the grouping is still visible without a row of its own.
+  assert.equal(setup.querySelectorAll('.region-label').length, 0, 'no standalone region rows, ever');
   assert.equal(active.querySelectorAll('.kibbutz').length, 2, 'active cards');
-  assert.equal(active.querySelectorAll('.region-label').length, 2, 'two regions → two labels');
+  assert.equal(active.querySelectorAll('.region-label').length, 0, 'no standalone region rows, ever');
+  // …and the chip is on each card instead, carrying the region it groups under.
+  assert.ok(/class="region-chip"[^>]*>גליל וגולן</.test(active.innerHTML), 'אפיקים carries its region chip');
+  assert.ok(/class="region-chip"[^>]*>העמקים</.test(active.innerHTML), 'יגור carries its region chip');
+  assert.ok(/class="region-chip"/.test(setup.innerHTML), 'a single-region section still chips its cards');
+  // the grouping is still the sort key: גליל וגולן before העמקים, alphabetical inside each
+  const order = [...active.innerHTML.matchAll(/data-name="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(order, ['אפיקים', 'יגור'], 'region stays the sort key, alphabetical inside it');
   assert.ok(!active.innerHTML.includes('מגן'), 'archived row must not render');
   assert.equal(els['cnt-all'].textContent, '3');
   assert.equal(els['cnt-new'].textContent, '1');
