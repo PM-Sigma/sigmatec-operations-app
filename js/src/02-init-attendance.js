@@ -237,10 +237,17 @@
   if (document.readyState !== 'loading') setTimeout(initVisitFabDrag, 0);
   else document.addEventListener('DOMContentLoaded', initVisitFabDrag);
   // Resume where the person was (A7): a PWA the phone discarded in the background reloads to
-  // the cards; the page it was on is in sessionStorage. `replaceState` seeds the first history
-  // entry so the very first Back has somewhere to land.
+  // the cards; the page it was on is in sessionStorage.
+  //
+  // Two entries are seeded, not one (round 2, Package B item 1). The first is a SENTINEL the
+  // app never renders; the second is 🏘 קיבוצים. A Back from the cards therefore pops onto the
+  // sentinel instead of leaving the PWA, and the popstate owner in js/src/00-guard.js turns
+  // that pop into the "לצאת מהאפליקציה?" question rather than a silent exit.
   function restorePage() {
-    try { history.replaceState({ sigmaPage: 'kibbutz' }, ''); } catch (e) { /* */ }
+    try {
+      history.replaceState({ sigmaExit: 1 }, '');
+      history.pushState({ sigmaPage: 'kibbutz' }, '');
+    } catch (e) { /* file:// */ }
     var p = null;
     try { p = sessionStorage.getItem('sigma_page_v1'); } catch (e) { /* */ }
     if (p && p !== 'kibbutz' && !location.hash) showPage(p);

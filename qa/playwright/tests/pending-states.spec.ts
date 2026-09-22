@@ -81,7 +81,7 @@ test('§7p: the feedback sheet keeps a typed idea through a backdrop tap and thr
   // ── the backdrop ──
   await tapOutside(page);
   await expect(page.getByTestId('unsaved-guard')).toBeVisible();
-  await expect(page.getByText('יש שינויים שלא נשמרו — לשמור / לבטל / להמשיך לערוך')).toBeVisible();
+  await expect(page.getByText('אפשר לשמור טיוטה, לצאת בלי לשמור, או להמשיך לערוך.')).toBeVisible();
   await shot(page, ti, 'guard');
   await page.getByTestId('unsaved-keep').click();
   await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
@@ -442,4 +442,124 @@ test('the click-map contract: §2 (gaps) is empty', async ({ page }, ti) => {
 
   expect(md).toContain('with a backend call and NO pending state: 0');
   void ti;
+});
+
+// ═════════════════ D. the phone's Back button (round 2, Package B) ═════════════════
+//
+// `page.goBack()` is a real browser Back, so these three tests walk exactly the popstate the
+// thumb produces. The rule they exercise is `backAction()` in js/src/00-guard.js, pinned
+// state-by-state in test-back-button.mjs; here it is checked end to end, against the real
+// history the app pushes.
+
+/** The app seeds [sentinel, קיבוצים] at boot, so this is the state a thumb starts from. */
+async function atHome(page: any) {
+  await expect(page.locator('#kibbutz-view')).toBeVisible();
+}
+
+test('Back on 🏘 קיבוצים asks before it leaves the app, and [חזרה לדף הבית] stays put', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await atHome(page);
+  const url = page.url();
+
+  await page.goBack();
+
+  // Item 1: the pop landed on the sentinel → the question, NOT an exit.
+  const ask = page.getByTestId('exit-confirm');
+  await expect(ask).toBeVisible();
+  await expect(ask.getByText('לצאת מהאפליקציה?')).toBeVisible();
+  await expect(page.getByTestId('exit-home')).toBeVisible();
+  await expect(page.getByTestId('exit-leave')).toBeVisible();
+  await shot(page, ti, 'exit-confirm');
+
+  await page.getByTestId('exit-home').click();
+  await expect(page.getByTestId('exit-confirm')).toHaveCount(0);
+  await atHome(page);
+  expect(page.url()).toBe(url);   // still inside the app, same document
+
+  // And the entry was re-armed: a second Back asks again rather than falling out.
+  await page.goBack();
+  await expect(page.getByTestId('exit-confirm')).toBeVisible();
+  await page.getByTestId('exit-home').click();
+
+  expectNoConsoleErrors(rec);
+});
+
+test('Back on a dirty dialog asks שמור טיוטה / לצאת בלי לשמור / להמשיך, and never navigates', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await atHome(page);
+
+  // The same representative legacy modal the §7p cases use, with something typed in it.
+  const opened = await page.evaluate(() => {
+    const el = document.getElementById('visitQuickModal');
+    if (!el) return false;
+    el.classList.add('open');
+    const d = document.getElementById('vqDate') as HTMLInputElement | null;
+    if (d) { d.value = '2026-09-20'; d.dispatchEvent(new Event('input', { bubbles: true })); }
+    return true;
+  });
+  expect(opened, '#visitQuickModal is in index.html').toBe(true);
+
+  await page.goBack();
+
+  // Item 2: the §7p question, in the round-2 words.
+  await expect(page.getByTestId('unsaved-guard')).toBeVisible();
+  await expect(page.getByTestId('unsaved-keep')).toHaveText('להמשיך');
+  await expect(page.getByTestId('unsaved-discard')).toHaveText('לצאת בלי לשמור');
+
+  // "להמשיך" → the dialog is still open, the typing is still there, the page did not move.
+  await page.getByTestId('unsaved-keep').click();
+  await expect(page.locator('#visitQuickModal')).toHaveClass(/open/);
+  await expect(page.locator('#vqDate')).toHaveValue('2026-09-20');
+  await atHome(page);
+
+  // Back again → "לצאת בלי לשמור" closes the dialog and leaves the page where it was.
+  await page.goBack();
+  await expect(page.getByTestId('unsaved-guard')).toBeVisible();
+  await page.getByTestId('unsaved-discard').click();
+  await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
+  await atHome(page);
+
+  // An UNTOUCHED dialog just closes on Back — round-1 behaviour, unchanged. "לצאת בלי לשמור"
+  // closes the modal without clearing its fields (§7p: discarding is a decision, not a wipe),
+  // so the date is emptied here to make this reopen genuinely clean.
+  await page.evaluate(() => {
+    const d = document.getElementById('vqDate') as HTMLInputElement | null;
+    if (d) { d.value = ''; d.dispatchEvent(new Event('input', { bubbles: true })); }
+    document.getElementById('visitQuickModal')?.classList.add('open');
+  });
+  await page.goBack();
+  await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
+  await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
+  await atHome(page);
+
+  expectNoConsoleErrors(rec);
+});
+
+test('a tap outside a sheet closes it and stays on the same screen', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await atHome(page);
+  const url = page.url();
+
+  // Item 3: a clean sheet, dismissed by a thumb landing outside it.
+  await openFeedback(page);
+  await tapOutside(page);
+  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toHaveCount(0);
+  await atHome(page);
+  expect(page.url()).toBe(url);
+  await expect(page.getByTestId('exit-confirm')).toHaveCount(0);   // it did NOT pop history
+
+  // The legacy half: a backdrop tap on a clean modal, same expectation.
+  await page.evaluate(() => { document.getElementById('visitQuickModal')?.classList.add('open'); });
+  await page.locator('#visitQuickModal').click({ position: { x: 4, y: 4 } });
+  await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
+  await atHome(page);
+  expect(page.url()).toBe(url);
+  await expect(page.getByTestId('exit-confirm')).toHaveCount(0);
+
+  // And Back still has its full answer left: history was never consumed by the taps.
+  await page.goBack();
+  await expect(page.getByTestId('exit-confirm')).toBeVisible();
+  await page.getByTestId('exit-home').click();
+
+  expectNoConsoleErrors(rec);
 });
