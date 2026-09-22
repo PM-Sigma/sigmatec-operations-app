@@ -216,8 +216,18 @@
         }
       } catch (e) { /* leave the cached name as-is */ }
     }
+    // §N4 "login gets stuck": onAuthed used to `await` the EMS identity lookup and the whole
+    // connect/flush pass with no bound. One hung EMS call (the phone on a weak link, /users
+    // 403-retrying) left the gate on screen forever — the sign-in HAD succeeded. Every await
+    // below is now time-boxed; the worst case is a reload with a fallback display name.
+    function gateBounded(p, ms, fallback) {
+      return Promise.race([
+        Promise.resolve(p).catch(function () { return fallback; }),
+        new Promise(function (res) { setTimeout(function () { res(fallback); }, ms); }),
+      ]);
+    }
     async function onAuthed(email) {
-      const person = await resolveIdentity(email);
+      const person = await gateBounded(resolveIdentity(email), 10000, '');
       const name = person || email;            // fall back to email if no profile match
       localStorage.setItem(EMS_EMAIL_KEY, (email || '').toLowerCase().trim());   // enables reconcileIdentity on future refreshes
       localStorage.setItem(USER_KEY, name);
@@ -226,8 +236,9 @@
       if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
-      try { await sbBridge(); } catch (e) {}   // get the Supabase pass before loading data
-      try { if (typeof emsOnConnected === 'function') await emsOnConnected(true); } catch (e) {}   // flush queued writes + sync BEFORE the refresh
+      try { await gateBounded(sbBridge(), 10000, null); } catch (e) {}   // get the Supabase pass before loading data
+      // flush queued writes + sync BEFORE the refresh — bounded, see gateBounded above
+      try { if (typeof emsOnConnected === 'function') await gateBounded(emsOnConnected(true), 10000, null); } catch (e) {}
       // persist the page to return to, then hard-refresh so the connected state (bubble/data/pass) fully updates
       try {
         var _rp = window._emsReturnPage || ''; window._emsReturnPage = ''; window._emsReloginActive = false;

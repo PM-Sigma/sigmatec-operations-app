@@ -173,6 +173,18 @@
     // picker must still offer every kibbutz (kibbutzOptions falls back to the DOM itself).
     const opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
       : Array.from(document.querySelectorAll('.kibbutz')).map(c => ({ value: c.dataset.name, label: c.dataset.name })).filter(o => o.value);
+    // §N3: an EMS site with no card in the app is still a place someone visits. Offer it,
+    // clearly marked, so nothing in EMS is unreachable from the quick-visit picker.
+    const sites = (typeof emsSitesCached === 'function' && emsSitesCached()) || [];
+    const norm = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    const have = {};
+    opts.forEach(o => { have[norm(o.value)] = 1; have[norm(o.label)] = 1; });
+    sites.forEach(st => {
+      const nm = norm(st && st.name);
+      if (!nm || have[nm]) return;
+      have[nm] = 1;
+      opts.push({ value: st.name, label: st.name + ' (אתר EMS ללא כרטיס)' });
+    });
     const last = localStorage.getItem('last_visit_kibbutz') || '';
     sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' +
       opts.map(o => `<option value="${o.value}" ${o.value === last ? 'selected' : ''}>${o.label}</option>`).join('');

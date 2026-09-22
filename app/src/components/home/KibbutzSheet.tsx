@@ -58,6 +58,10 @@ export function KibbutzSheet({
   const [chain, setChain] = React.useState<ChainInput | null>(null);
   const [allowUnlinked, setAllowUnlinked] = React.useState(false);
   const [confirmArchive, setConfirmArchive] = React.useState(false);
+  // Archiving is TYPE-TO-CONFIRM (22.9): two kibbutzim were archived by accident when the
+  // confirm button rendered under the finger that had just tapped 🗄. A second tap can never
+  // archive anything now — only the exact name, typed, unlocks it.
+  const [archiveTyped, setArchiveTyped] = React.useState('');
 
   // Reset the form every time the sheet opens, so a previous edit can never bleed into a create.
   React.useEffect(() => {
@@ -70,6 +74,7 @@ export function KibbutzSheet({
     setEnergy(row ? energyOf(row) : ['electric']);
     setMarketing(!!row?.marketing);
     setSteps([]); setChain(null); setAllowUnlinked(false); setConfirmArchive(false); setSaving(false);
+    setArchiveTyped('');
   }, [open, row, prefillName]);
 
   const parents = React.useMemo(
@@ -180,6 +185,9 @@ export function KibbutzSheet({
 
   async function archive() {
     if (!row) return;
+    // Belt and braces: the button is disabled without the typed name, but a programmatic
+    // click (or a stale render) must not slip through either.
+    if (archiveTyped.trim() !== row.name.trim()) return;
     setSaving(true);
     try {
       await sbWrite(sb => sb.from('kibbutzim')
@@ -342,18 +350,32 @@ export function KibbutzSheet({
 
         {editing && (
           confirmArchive ? (
-            <div className="mt-2 flex gap-2">
-              <button type="button" onClick={() => void archive()} disabled={saving}
-                      className="min-h-[48px] flex-1 rounded-xl bg-destructive text-sm font-bold text-destructive-foreground">
-                כן, ארכב את <bdi>{row!.name}</bdi>
-              </button>
-              <button type="button" onClick={() => setConfirmArchive(false)}
-                      className="min-h-[48px] flex-1 rounded-xl border border-border text-sm font-bold">
-                ביטול
-              </button>
+            <div className="mt-2 rounded-xl border border-destructive/40 p-2.5">
+              <div className="text-xs font-bold text-destructive">
+                ארכוב מוציא את <bdi>{row!.name}</bdi> מכל המסכים. כדי לאשר, הקלד את שם הקיבוץ:
+              </div>
+              <input
+                id="kibArchiveConfirm"
+                className={fieldBox + ' mt-2'}
+                value={archiveTyped}
+                onChange={e => setArchiveTyped(e.target.value)}
+                placeholder={row!.name}
+                autoComplete="off"
+              />
+              <div className="mt-2 flex gap-2">
+                <button type="button" onClick={() => void archive()}
+                        disabled={saving || archiveTyped.trim() !== row!.name.trim()}
+                        className="min-h-[48px] flex-1 rounded-xl bg-destructive text-sm font-bold text-destructive-foreground disabled:opacity-40">
+                  כן, ארכב את <bdi>{row!.name}</bdi>
+                </button>
+                <button type="button" onClick={() => { setConfirmArchive(false); setArchiveTyped(''); }}
+                        className="min-h-[48px] flex-1 rounded-xl border border-border text-sm font-bold">
+                  ביטול
+                </button>
+              </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setConfirmArchive(true)}
+            <button type="button" onClick={() => { setConfirmArchive(true); setArchiveTyped(''); }}
                     className="mt-2 min-h-[48px] w-full rounded-xl border border-border text-sm font-bold text-destructive">
               🗄 ארכב קיבוץ
             </button>

@@ -88,7 +88,9 @@
       if (typeof prepModalEmsSection === 'function') prepModalEmsSection(currentKibbutz);   // open EMS task / create-new, below status
       const _ct = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === currentKibbutz);
       const _cu = lastUpdateText(_ct);
-      document.getElementById('modalSub').textContent = 'קיבוץ: ' + currentKibbutz + (_cu ? ' · ' + _cu : '');
+      // §N2: the name is the title; the sub-line carries only the "last update" note.
+      document.getElementById('modalTitle').textContent = currentKibbutz;
+      document.getElementById('modalSub').textContent = _cu || '';
       document.getElementById('modalBackdrop').classList.add('open');
     });
   });
@@ -821,6 +823,15 @@
   // Resolve a kibbutz card name → its EMS site ids (exact, then whitespace-normalized).
   function kibbutzSiteIds(name) {
     if (!name) return [];
+    // §N4: the `kibbutzim` ROW wins over the curated map. The ✏️ sheet's EMS chain writes the
+    // site it found into `ems_site_ids`, and until now nothing read it back — a kibbutz linked
+    // through the sheet still showed "⚠️ לא מקושר ל-EMS" and could not open a task there.
+    try {
+      var row = (typeof kibbutzByName === 'function') ? kibbutzByName(name) : null;
+      var ids = row && row.ems_site_ids;
+      if (typeof ids === 'string') { try { ids = JSON.parse(ids); } catch (e) { ids = ids ? [ids] : []; } }
+      if (Array.isArray(ids)) { ids = ids.filter(Boolean); if (ids.length) return ids; }
+    } catch (e) { /* model not loaded yet → the curated map below */ }
     if (KIBBUTZ_SITE_MAP[name]) return KIBBUTZ_SITE_MAP[name];
     const n = String(name).replace(/\s+/g, ' ').trim();
     if (KIBBUTZ_SITE_MAP[n]) return KIBBUTZ_SITE_MAP[n];

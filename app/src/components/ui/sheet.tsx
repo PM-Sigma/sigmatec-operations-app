@@ -20,13 +20,18 @@ const SheetPortal = ({ children, ...props }: React.ComponentProps<typeof SheetPr
   </SheetPrimitive.Portal>
 )
 
+// z-[1200], not the shadcn default z-50: every sheet here can be opened from INSIDE a legacy
+// overlay (.modal-backdrop is z-index:1000, the EMS task modal 1160). At z-50 the sheet opened
+// *underneath* them — it looked like the button "did nothing", while the sheet was live and
+// tappable the moment the legacy modal closed. That is how two kibbutzim got archived by
+// accident on 22.9. Still below the JS-built overlays (100001) and the toaster (100002).
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-[1200] bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -36,7 +41,7 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+  "fixed z-[1200] gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
   {
     variants: {
       side: {

@@ -47,7 +47,7 @@ test('visit form (legacy fallback): split summary fields, one tap, visitor pre-f
 
   // one tap, no picker in between (bridge `openVisitQuick(kibbutz)`)
   await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
-  await expect(page.locator('#modalSub')).toContainText('חוקוק');
+  await expect(page.locator('#modalTitle')).toContainText('חוקוק');
   // the visitor is pre-filled with the person doing it
   await expect(page.locator('#visitor')).toHaveValue('אביאם');
 
