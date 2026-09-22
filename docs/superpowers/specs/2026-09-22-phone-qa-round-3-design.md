@@ -66,10 +66,50 @@ Calendar and vice versa. Document what works TODAY (read of Google events into t
 `calendar` function has no write mode; absences are app-only). Do not build; the gap list is the deliverable.
 
 ## Package S — recording panel placement  (Sonnet)
-Files: `app/src/islands/Field.tsx` (visit chapters part), `qa/playwright/tests/visit-chapters.spec.ts`.
-עידן does not see the 🎙 "סיכום ביקור מהקלטה" panel. It must sit UNDER "📍 ביקור אחרון" and BEFORE "מי ביקר" (chapter 1),
-visible on the phone without scrolling tricks, for every writer role. Check why it is not visible in production for עידן
-(role gate? `canSubmit`? the collapsed default?) and fix; update the C8 spec accordingly.
+STATUS: ✅ SHIPPED (2.18).
+Files: `app/src/islands/Field.tsx`, `app/src/components/Nav.tsx`, `app/src/islands/Calendar.tsx`, `index.html`,
+`js/src/09-visits.js`, `test-field.mjs`, `qa/playwright/tests/visit-chapters.spec.ts`.
+
+**Root cause — a routing bug, not a role gate on the panel itself.** The 🎙 panel (`VoiceIntake` in
+`Field.tsx`, C8 round 2) was always correctly rendered at the top of the §7p chapters sheet, above the
+stepper, for every role — that part never needed a fix. The bug was that עידן almost never REACHED the
+chapters sheet at all:
+- The raised 📍 FAB (`app/src/components/Nav.tsx`, phone bottom bar) called `sigmaField?.maybeOpen?.()`
+  and nothing else. `maybeOpen()` gates on `fieldShouldPrompt()`, whose eligibility list is
+  `FIELD_PEOPLE = ['אביאם', 'ניתאי']` (`app/src/lib/field.ts`) — an AUTO-INVITE check (spec §5.1), never
+  meant to gate a manual tap. For every other writer (עידן, עמיחי, אבצן, מתניה, אליה) `maybeOpen()` always
+  returned `false`, so Nav fell straight to `sigma.openVisitQuick()` — the legacy `#modalBackdrop` form,
+  which has no voice panel at all.
+- `app/src/islands/Calendar.tsx`'s two `onCheckin` handlers had the same shape: `sigma.openVisitQuick?.(k)`
+  directly, never trying the chapters sheet first even though the kibbutz was already known.
+- The home card's own 📍 (`CardActions.tsx`) was NOT affected — ruling 19.9 already routes it through
+  `openVisitChapters` for every role; only the Nav FAB and the calendar check-in shared this bug.
+
+**Fix.**
+1. `Field.tsx`: added `openManual()` next to `maybeOpen()` on the `sigmaField` bridge — opens the arrival
+   sheet unconditionally (any non-viewer), decoupled from the FIELD_PEOPLE auto-invite check.
+2. `Nav.tsx`: `openVisitOrArrival` now tries `maybeOpen()` then `openManual()` before ever falling back to
+   `sigma.openVisitQuick()`. Every writer role now reaches arrival → briefing → chapters (with the 🎙 panel)
+   from the raised 📍; the legacy form is the true fallback only (no React island mounted).
+3. `Calendar.tsx`: both `onCheckin` handlers now try `openVisitChapters(k)` first, same pattern as
+   `Field.tsx` itself already used elsewhere.
+4. `index.html` + `js/src/09-visits.js`: added `#legacyVoiceHandoff` — a "🎙 הקלט סיכום ביקור (ניסיוני)"
+   button between `#lastVisitBox` (📍 ביקור אחרון) and `#visitorFieldWrap` (מי ביקר), calling
+   `legacyVoiceIntakeHandoff()`. It hands off to `window.sigmaVisitChapters.open(kibbutz)` the instant the
+   React island IS available (closing the legacy modal first); otherwise a plain "still loading" message —
+   never a dead button. This is the parity entry point for a browser where the chapters island never
+   mounted, exactly the "every writer role, phone and desktop" requirement.
+5. `test-field.mjs` updated: the `maybeOpen` source check stays, plus a new check that `Nav.tsx` also calls
+   `openManual`.
+6. New Playwright case in `visit-chapters.spec.ts`: "C8 (round 3 · S): עידן (not FIELD_PEOPLE) reaches the
+   🎙 panel from the raised 📍, not the legacy form" — boots as עידן, taps the FAB, confirms the arrival
+   sheet opens (never `#modalBackdrop`), picks חוקוק, opens the briefing's 📍, and asserts `vc-voice` is
+   visible above `vc-stepper`. Phone-only (the FAB is `md:hidden`); desktop parity is covered by the
+   existing C8 test plus the card/briefing paths, which were never role-gated.
+
+Test results: `npm test` — 1400 vitest + 51 legacy runners, all green. Playwright
+`--project=mobile-390-light --project=desktop-1440-light visit-chapters visit-form` — 31 passed, 1 skipped
+(desktop variant of the new עידן case, correctly skipped: the FAB it exercises doesn't exist on desktop).
 
 ## Not changed by ruling
 - Red missing-report days: shown in the calendar for the signed-in person only (already so). Kept.

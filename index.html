@@ -698,6 +698,16 @@
         <div id="visitsHistoryWrap"></div>
       </div>
 
+      <!-- Round 3 · Package S: the same entry point the React chapters sheet offers (🎙 הקלט
+           סיכום ביקור), for whoever lands on this legacy fallback (no React island mounted).
+           Hands off to the chapters sheet the instant it IS available; otherwise a plain note —
+           never a dead button. Position: under 📍 ביקור אחרון, before מי ביקר (spec S). -->
+      <div id="legacyVoiceHandoff" class="sig-frm" style="margin-bottom:12px;">
+        <button type="button" id="legacyVoiceBtn" class="sig-btn s" style="width:100%;min-height:44px;justify-content:center;gap:6px;" onclick="legacyVoiceIntakeHandoff()">
+          🎙 הקלט סיכום ביקור <span style="opacity:.65;font-weight:600;">(ניסיוני)</span>
+        </button>
+      </div>
+
       <div id="visitorFieldWrap" class="sig-frm">
         <label class="sig-fl" for="visitor">מי ביקר <span style="color:var(--priority);">*</span></label>
         <select id="visitor" onchange="onVisitorChange(this.value)">

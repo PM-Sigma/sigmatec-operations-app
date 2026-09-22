@@ -30,6 +30,9 @@ import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
+// Round 3 · Package S: a known kibbutz must try the chapters sheet (and its 🎙 panel) first,
+// the legacy form is the fallback only — same pattern `Field.tsx` itself uses.
+import { openVisitChapters } from '@/islands/Field';
 import type { Holiday } from '@/lib/attendance';
 import {
   abilities, ABSENCE_LABELS, addDays, byDate, calendarItems, canPlanDay, dayLetters, dayWhen,
@@ -1369,7 +1372,7 @@ function CalendarIsland() {
                 onMove={move}
                 onPlace={placeStop}
                 onBriefing={openBriefing}
-                onCheckin={k => sigma.openVisitQuick?.(k)}
+                onCheckin={k => { if (!openVisitChapters(k)) sigma.openVisitQuick?.(k); }}
                 onAdd={d => setAddDay(d)}
                 canAdd={can.canAdd}
                 visits={visits}
@@ -1405,7 +1408,7 @@ function CalendarIsland() {
                   onMove={move}
                   onPlace={placeStop}
                   onBriefing={openBriefing}
-                  onCheckin={k => sigma.openVisitQuick?.(k)}
+                  onCheckin={k => { if (!openVisitChapters(k)) sigma.openVisitQuick?.(k); }}
                   onAdd={d => setAddDay(d)}
                   canAdd={can.canAdd}
                   visits={visits}

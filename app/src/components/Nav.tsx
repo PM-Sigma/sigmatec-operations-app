@@ -59,13 +59,20 @@ export function Nav() {
   const registryRole: RegistryRole = isViewer ? 'viewer' : role === 'idan' ? 'idan' : 'team';
 
   /**
-   * The raised 📍 (§5.1 fast path + §7k #1). For a field worker who has not checked in yet
-   * today it opens the arrival sheet — that IS his fastest route, because the briefing's own
-   * 📍 is the same form one tap later. For everyone else, and once he has checked in, it goes
-   * straight to the visit form, exactly as before.
+   * The raised 📍 (§5.1 fast path + §7k #1). Round 3 · Package S: this must reach the React
+   * chapters sheet (and its 🎙 panel) for EVERY writer role, not only `FIELD_PEOPLE`
+   * (אביאם/ניתאי) — `maybeOpen` is an auto-invite ELIGIBILITY check and used to be the only
+   * thing this button called, so עידן (and every other non-field writer) fell straight to
+   * `sigma.openVisitQuick()`, the legacy form, which has no voice panel. `openManual` opens
+   * the same arrival → briefing → chapters route unconditionally; the legacy form stays the
+   * true fallback for a browser with no React island mounted.
    */
   const openVisitOrArrival = () => {
-    try { if ((window as any).sigmaField?.maybeOpen?.()) return; } catch { /* no field island */ }
+    try {
+      const field = (window as any).sigmaField;
+      if (field?.maybeOpen?.()) return;
+      if (field?.openManual?.()) return;
+    } catch { /* no field island */ }
     sigma.openVisitQuick();
   };
 
