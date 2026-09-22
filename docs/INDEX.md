@@ -73,7 +73,9 @@ Round 1 (2.08–2.11) went to production at noon; round 2 (עידן's second pho
 worktrees, merged and tested. Everything in the catalog has a row in `docs/reports/2026-09-22-round-2-test-plan.md`
 (done / verified how / open). Supabase has every migration (`work_sessions_log`, `internal_tasks_fields`,
 `meter_burns_ems_task`, `visits_reason`, `company_holidays_eves`) and the section ruling (new = דגניה ב · עין דור ·
-ניר עציון). **Open:** wire `missingDaysFor` into the calendar cell; humanizer remainder; 2 h timer push.
+ניר עציון). Follow-ups shipped the same night (2.17): red missing days on the calendar, server-side 2 h timer push (cron every
+5 min, push-send v22), home top section = drafts + active timer, humanizer sweep complete, meeting-review site gate.
+**Open:** tone decision on the motivational push texts; the Whisper meeting-scribe plan (`2026-09-23-meeting-scribe-design.md`).
 **Next:** עידן's desktop QA pass; the QA session (סשן B) reads `docs/HANDOFF-QA-phone-round.md`.
 
 ## 🚦 Previous — 2026-09-22 (**2.08 on `feat/phone-qa-round` — עידן's phone QA round, rounds 1–3 built; QA session next**).

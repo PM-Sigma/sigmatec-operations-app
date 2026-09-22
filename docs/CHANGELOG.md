@@ -7,6 +7,25 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.17] 2026-09-22 night — round-2 follow-ups: red missing days, timer server push, home sort, humanizer complete, site gate
+
+- **Calendar:** past work days with no attendance report are marked red (`missingInView` over F's `missingDaysFor`;
+  same query key as נוכחות so filing a day repaints the grid; legend line). J.
+- **2 h timer push, server side:** ▶ opens a `work_sessions` row (`ended_at null`), ■ updates it, 🗑 deletes it,
+  pauses/retimes keep `paused_ms`/`paused_at`/`started_at` in step; push-send mode `timerStale` (cron
+  `push-timer-5min`, every 5 min, quiet hours, once per row via `reminded_at`) pushes "עדכן את השעון של X" with a
+  deep link that opens the card's timer sheet. Applied: `db/work_sessions_timer.sql`, `db/cron_timer_5min.sql`
+  (cloned from the visit job's command), push-send v22 deployed. L.
+- **Home order (עידן's ruling):** the top section holds kibbutzim with an open visit draft OR a running/paused
+  work timer ("✍️ טיוטות ושעון פעיל"); EMS-task drafts are not a thing. M.
+- **Humanizer complete:** the remaining 170 dashed UI strings across app/src and js/src rewritten (period before an
+  instruction, comma for continuation, colon before detail, · in status titles) with their test pins; kept on purpose:
+  the 14 motivational push bodies in `field.ts` (tone decision), date ranges, alias keys, comments. Report updated. K.
+- **Meeting review:** an EMS task is never opened without a site — the save waits for the lookup and stays off when
+  none is found ("לא נמצא אתר ב-EMS לקיבוץ הזה. קשרו את הקיבוץ לאתר לפני פתיחת המשימה"). עידן 22.9.
+- Plan for the Whisper meeting scribe + presenter follow-ups: `docs/superpowers/specs/2026-09-23-meeting-scribe-design.md`
+  (surfaced to עידן 23.9 10:00 by a scheduled task).
+
 ## [2.12] 2026-09-22 — phone QA round 2: nine packages, planned by Fable, built by Opus/Sonnet agents
 
 **Why:** עידן's second batch of phone notes (22.9 15:15) plus the data ruling on which kibbutzim are "new".
