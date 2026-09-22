@@ -91,7 +91,7 @@ export function WorkTimer({ kibbutz }: { kibbutz: string }) {
     const blocked = startBlockedBy(current, kibbutz);
     if (blocked) {
       // One running session per person: the second ▶ does not silently take over.
-      toast.info('כבר רץ טיימר על ' + blocked + ' — עצור אותו קודם');
+      toast.info('כבר רץ טיימר על ' + blocked + '. עצור אותו קודם');
       return;
     }
     const s: RunningSession = { person: user, kibbutz, started_at: new Date().toISOString() };

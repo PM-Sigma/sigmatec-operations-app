@@ -39,7 +39,7 @@ let opener: Opener | null = null;
 /** Open the import sheet from anywhere in the React bundle. No-op before the island mounts. */
 export function openImportSheet(prefill?: string): void {
   if (opener) opener(prefill);
-  else toast.error('מסך הייבוא עוד לא נטען — רענן את העמוד');
+  else toast.error('מסך הייבוא עוד לא נטען. רענן את העמוד');
 }
 
 export const IMPORT_OPEN_EVENT = 'sigma-open-import';
@@ -247,7 +247,7 @@ function ImportSheet() {
       m.openMeetingReview(effective);
       setOpen(false); reset();
     } catch {
-      toast.error('מסך הסיכום לא נטען — רענן את העמוד');
+      toast.error('מסך הסיכום לא נטען. רענן את העמוד');
     }
   };
 
@@ -307,7 +307,7 @@ function ImportSheet() {
               </button>
             </div>
             {detected && !detected.meeting_date && md.trim() && (
-              <p className="mt-2 text-xs text-destructive">לא זוהה תאריך בשורה הראשונה — בחר אותו ידנית.</p>
+              <p className="mt-2 text-xs text-destructive">לא זוהה תאריך בשורה הראשונה. בחר אותו ידנית.</p>
             )}
           </>
         ) : (

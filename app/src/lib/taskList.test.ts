@@ -200,7 +200,7 @@ describe('shareText', () => {
       now: TODAY,
     });
     expect(text).toBe(
-      '*📋 משימות EMS באחריותי — ניתאי*\n'
+      '*📋 משימות EMS באחריותי: ניתאי*\n'
       + '📅 17.9.2026\n'
       + '\n*━━━ 📌 משימות חברה כלליות ━━━*\n'
       + '\n*🛒 הזמנות*\n'
@@ -216,7 +216,7 @@ describe('shareText', () => {
 
   it('no open work says so, and still carries whatever the company owes', () => {
     expect(shareText({ person: 'אביאם', groups: [], company: [], now: TODAY })).toBe(
-      '*📋 משימות EMS באחריותי — אביאם*\n📅 17.9.2026\n\n✨ אין משימות EMS פתוחות',
+      '*📋 משימות EMS באחריותי: אביאם*\n📅 17.9.2026\n\n✨ אין משימות EMS פתוחות',
     );
   });
 });

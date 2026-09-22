@@ -227,7 +227,7 @@ export interface TranscribeResult {
 
 export interface RefinePollResult { text: string; status: 'refining' | 'done' | 'failed'; refined: boolean; secondsRemaining?: number }
 
-export const EMS_LOGIN_REQUIRED_VOICE = 'יש להתחבר ל-EMS כדי לתמלל הקלטה — אפשר להקליד';
+export const EMS_LOGIN_REQUIRED_VOICE = 'יש להתחבר ל-EMS כדי לתמלל הקלטה. אפשר להקליד';
 
 /**
  * The bearer the `transcribe` function is called with: the EMS-derived Supabase pass when
@@ -279,7 +279,7 @@ export async function uploadAndTranscribe(
       body: JSON.stringify({ token: ems, path, audio_sec: Math.round(audio.ms / 1000) }),
     });
   } catch (e: any) {
-    throw new Error(ac.signal.aborted ? 'התמלול לקח יותר מדי זמן — נסה שוב' : 'תקלת רשת בתמלול');
+    throw new Error(ac.signal.aborted ? 'התמלול לקח יותר מדי זמן. נסה שוב' : 'תקלת רשת בתמלול');
   } finally { clearTimeout(to); }
 
   const d = await r.json().catch(() => ({} as any));

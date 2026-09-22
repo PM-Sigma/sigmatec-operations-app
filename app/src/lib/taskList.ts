@@ -280,7 +280,7 @@ export function shareText(input: {
   now?: Date;
 }): string {
   const now = input.now || new Date();
-  const header = '*📋 משימות EMS באחריותי — ' + input.person + '*\n📅 ' + heDay(now) + '\n';
+  const header = '*📋 משימות EMS באחריותי: ' + input.person + '*\n📅 ' + heDay(now) + '\n';
 
   let company = '';
   if (input.company.length) {

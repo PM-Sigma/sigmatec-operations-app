@@ -189,7 +189,7 @@
 
     const who = attPerson();   // אביאם / ניתאי — each report is private to that person
     const titleEl = document.getElementById('attendanceTitle');
-    if (titleEl) titleEl.textContent = '📅 נוכחות חודשית — ' + who;
+    if (titleEl) titleEl.textContent = '📅 נוכחות חודשית: ' + who;
     // עידן may switch between people; field users see only themselves
     const toggle = document.getElementById('attPersonToggle');
     if (toggle) {
@@ -301,7 +301,7 @@
       } else if (canEd && editableVisits.length) {
         const single = editableVisits.length === 1;
         const act = single ? `openVisitFromAttendance('${attJsStr(editableVisits[0].visitId)}')` : `toggleAttDetail(${i})`;
-        const tip = single ? 'עריכת דוח הביקור (תאריך, סיכום, מוצרים)' : 'יש כמה ביקורים ביום הזה — פתח ובחר איזה לערוך';
+        const tip = single ? 'עריכת דוח הביקור (תאריך, סיכום, מוצרים)' : 'יש כמה ביקורים ביום הזה. פתח ובחר איזה לערוך';
         editCell = `<button onclick="${act}" title="${tip}" style="background:#fef3c7;color:#92400e;border:none;border-radius:6px;width:24px;height:24px;cursor:pointer;margin-right:4px;">✏️</button>`;
       }
       const mainRow = `<tr>
@@ -408,10 +408,10 @@
   function openVisitFromAttendance(visitId) {
     const all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : ((window.SHEET_DATA || {}).visits || []);
     const v = all.find(x => String(x.id) === String(visitId));
-    if (!v) { alert('דוח הביקור לא נמצא — רענן את הדף ונסה שוב'); return; }
+    if (!v) { alert('דוח הביקור לא נמצא. רענן את הדף ונסה שוב'); return; }
     if (!canEditAttendanceOf(v.visitor)) { alert('אין לך הרשאה לערוך את הביקור של ' + (v.visitor || '—')); return; }
     const card = document.querySelector('.kibbutz[data-name="' + String(v.kibbutz || '').replace(/"/g, '\\"') + '"]');
-    if (!card) { alert('הקיבוץ "' + (v.kibbutz || '—') + '" לא נמצא בכרטיסים — לא ניתן לפתוח את הביקור מכאן'); return; }
+    if (!card) { alert('הקיבוץ "' + (v.kibbutz || '—') + '" לא נמצא בכרטיסים, לא ניתן לפתוח את הביקור מכאן'); return; }
     if (typeof openEditModal !== 'function' || typeof editVisit !== 'function') { alert('טופס הביקור לא זמין'); return; }
     openEditModal(card);                 // fills currentKibbutzVisits + clears the (now default-less) date
     if (typeof switchTab === 'function') switchTab('visit');
@@ -430,7 +430,7 @@
 
   function openAttEdit(id) {
     const e = ((window.SHEET_DATA && window.SHEET_DATA.attendance) || []).find(a => String(a.id) === String(id));
-    if (!e) { alert('הדיווח לא נמצא — רענן את הדף ונסה שוב'); return; }
+    if (!e) { alert('הדיווח לא נמצא. רענן את הדף ונסה שוב'); return; }
     if (!canEditAttendanceOf(e.person)) { alert('אין לך הרשאה לערוך את הדיווח של ' + e.person); return; }
     window._attEdit = { id: String(e.id), person: e.person, type: '' };
     document.getElementById('attEditDate').value = attYmd(e.date);
@@ -483,7 +483,7 @@
       if (res && res.ok) {
         const row = ((window.SHEET_DATA && window.SHEET_DATA.attendance) || []).find(a => String(a.id) === st.id);
         if (row) { row.date = isoDate; row.dayType = dayType; row.note = note; }   // patch in place, don't push a duplicate
-        attToast('✅ הדיווח עודכן — ' + ATT_LABELS[dayType]);
+        attToast('✅ הדיווח עודכן: ' + ATT_LABELS[dayType]);
         closeAttEdit(true);
         renderAttendanceReport();
       } else {
@@ -573,7 +573,7 @@
     const w = window.open('', '_blank');
     // A blocked popup used to throw a TypeError and the user saw nothing at all
     // (audit B · F-24) — the same guard js/src/20-delivery-cert.js already has.
-    if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
+    if (!w) { alert('הדפדפן חסם את חלון ההדפסה. אפשר חלונות קופצים לאתר.'); return; }
     w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
       <title>${attEsc(docTitle)}</title>
       <style>
@@ -582,7 +582,7 @@
         table{width:100%;border-collapse:collapse;font-size:13px;} th,td{border:1px solid #e2e8f0;padding:7px 9px;text-align:right;}
         th{background:#1b2a4a;color:white;} tr:nth-child(even) td{background:#f8fafc;}
       </style></head><body>
-      <h1>📅 דוח נוכחות — ${attPerson()}</h1>
+      <h1>📅 דוח נוכחות: ${attPerson()}</h1>
       <div class="sub">${subLine}</div>
       <table><thead><tr><th>תאריך</th><th>סוג יום</th><th>קיבוץ</th><th>שעות</th><th>סיכום ביקור</th></tr></thead><tbody>${body}</tbody></table>
       <script>window.onload=function(){window.print();}<\/script>

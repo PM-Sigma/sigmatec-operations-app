@@ -62,7 +62,7 @@
       function (r) { clearTimeout(t); return r; },
       function (e) {
         clearTimeout(t);
-        if (e && e.name === 'AbortError') throw new Error('תם הזמן — נסה שוב');
+        if (e && e.name === 'AbortError') throw new Error('תם הזמן. נסה שוב');
         throw e;
       }
     );

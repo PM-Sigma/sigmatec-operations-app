@@ -101,7 +101,7 @@
       banner.style.cssText = 'background:#fef2f2;border:2px solid #dc2626;border-radius:10px;padding:12px 14px;margin:0 0 14px;color:#991b1b;font-weight:600;box-shadow:0 2px 8px rgba(220,38,38,.18);';
       view.insertBefore(banner, view.firstChild);
     }
-    banner.innerHTML = '🔴 <strong>התראת מלאי — מתחת לקו האדום</strong><br>' +
+    banner.innerHTML = '🔴 <strong>התראת מלאי: מתחת לקו האדום</strong><br>' +
       lines.join('<br>') +
       ' <button onclick="document.getElementById(\'lowStockBanner\').remove()" style="float:left;background:none;border:none;font-size:16px;cursor:pointer;color:#991b1b;">✕</button>';
   }
@@ -122,7 +122,7 @@
     // The island clears this flag when it handles the event; nothing else reads it.
     setTimeout(function () {
       if (!window.__sigmaStockChangeMounted) {
-        alert('מסך דיווח שינוי במלאי עוד נטען — נסה שוב בעוד רגע.');
+        alert('מסך דיווח שינוי במלאי עוד נטען. נסה שוב בעוד רגע.');
       }
     }, 600);
   }

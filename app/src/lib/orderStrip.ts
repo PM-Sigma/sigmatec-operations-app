@@ -101,7 +101,7 @@ export function orderNote(o: OrderLike, today: string, catalog: string[] = []): 
   if (stage === 3) return { icon: '✅', text: 'סופק', level: 'done' };
 
   if (stage === 2) {
-    return { icon: '📦', text: 'הגיע — לסמן סופק כדי שייכנס למלאי', level: 'action' };
+    return { icon: '📦', text: 'הגיע. לסמן סופק כדי שייכנס למלאי', level: 'action' };
   }
 
   if (stage === 1) {

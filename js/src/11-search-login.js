@@ -138,7 +138,7 @@
     _pendingUser = name;
     document.getElementById('loginModal').classList.remove('open');
     const sub = document.getElementById('authGateSub');
-    if (sub) sub.textContent = 'שלום ' + name + ' — הזן קוד גישה';
+    if (sub) sub.textContent = 'שלום ' + name + '. הזן קוד גישה';
     const title = document.getElementById('authGateTitle');
     if (title) title.textContent = '🔑 קוד גישה';
     document.getElementById('authError').textContent = '';
@@ -204,7 +204,7 @@
     b.style.background = on ? '#dcfce7' : '#fee2e2';
     b.style.borderColor = on ? '#16a34a' : '#dc2626';
     b.style.color = on ? '#15803d' : '#991b1b';
-    b.title = on ? 'מחובר ל-EMS · לחץ לפתיחת המערכת' : 'אין חיבור ל-EMS — לחץ להתחברות למערכת';
+    b.title = on ? 'מחובר ל-EMS · לחץ לפתיחת המערכת' : 'אין חיבור ל-EMS. לחץ להתחברות למערכת';
     // Connected → open the external EMS system (the <a href>). Disconnected → the ONE sign-in
     // surface (spec §7n): the re-login sheet, falling back to #emsLoginGate. This chip is the
     // only EMS entry point on a page where ui/sigma.js never loaded (index.html keeps it for
@@ -261,7 +261,7 @@
       t.textContent = 'שלום ' + name + ' 👋' + (name === 'עידן' ? ' (הרשאת מנהל)' : '');
       t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
     } else {
-      document.getElementById('authError').textContent = 'קוד שגוי — נסה שוב';
+      document.getElementById('authError').textContent = 'קוד שגוי. נסה שוב';
       input.value = '';
       input.focus();
     }

@@ -65,7 +65,7 @@ function MessageSheet() {
       sigma.toast('✉️ ההודעה נשלחה ל' + to);
       track('message-sent', to);
     } catch (e: any) {
-      sigma.toast('ההודעה לא נשלחה — ' + String(e?.message || e));
+      sigma.toast('ההודעה לא נשלחה: ' + String(e?.message || e));
     } finally { setBusy(false); }
   }
 

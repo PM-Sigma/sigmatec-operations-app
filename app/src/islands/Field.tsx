@@ -228,7 +228,7 @@ function Arrival({
     <div className="px-4 pb-6">
       <SheetTitle className="text-[22px] font-extrabold tracking-[-.01em]">לאיזה קיבוץ הגעת?</SheetTitle>
       <SheetDescription className="mb-3 mt-1 text-[13px] text-muted-foreground">
-        נכין לך את כל מה שקורה שם — משימות, סיכום הישיבה וביקור קודם.
+        נכין לך את כל מה שקורה שם: משימות, סיכום הישיבה וביקור קודם.
       </SheetDescription>
 
       <div className="mb-1.5 flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2.5">
@@ -473,7 +473,7 @@ function Briefing({
 
         {!tasks.length && !latest && !checklist.length && !prevVisit && (
           <p className="mx-3 mt-6 text-center text-[13.5px] text-muted-foreground">
-            אין כאן שום דבר פתוח — יום נקי. תכתוב מה עשית וזהו.
+            אין כאן שום דבר פתוח, יום נקי. תכתוב מה עשית וזהו.
           </p>
         )}
       </div>
@@ -1278,7 +1278,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     data-testid="vc-open-items"
                     value={d.openItems || ''}
                     onChange={e => set({ openItems: e.target.value })}
-                    placeholder="חסר בקר לחלקה הדרומית — להביא בביקור הבא"
+                    placeholder="חסר בקר לחלקה הדרומית, להביא בביקור הבא"
                     className={AREA}
                   />
                 </Field2>
@@ -1288,7 +1288,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                 <div className="flex flex-col gap-3">
                   {!stockNames.length && (
                     <p className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
-                      אין כרגע מלאי זמין. אם השארת משהו — תחפש אותו למטה או תכתוב אותו.
+                      אין כרגע מלאי זמין. אם השארת משהו, תחפש אותו למטה או תכתוב אותו.
                     </p>
                   )}
                   {stockNames.map(name => {
@@ -1304,7 +1304,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                           max={stock[name]}
                           value={q || ''}
                           onChange={e => setQty(name, Math.max(0, Math.min(parseInt(e.target.value, 10) || 0, stock[name] || 0)))}
-                          aria-label={'כמות — ' + name}
+                          aria-label={'כמות: ' + name}
                           className="h-[40px] w-[64px] flex-none rounded-lg border border-border bg-muted text-center text-[15px] outline-none"
                         />
                       </div>
@@ -1790,7 +1790,7 @@ function FieldIsland() {
       .then(() => toast.success('✅ נצרב'))
       .catch((e: Error) => {
         setChecked(st => ({ ...st, [id]: false }));
-        toast.error(e?.message || 'לא נשמר — נסה שוב');
+        toast.error(e?.message || 'לא נשמר. נסה שוב');
       });
   }, [picked, me]);
 
@@ -1912,7 +1912,7 @@ function FieldIsland() {
               transition={{ duration: dur, ease: 'easeOut' }}
               className="relative max-h-[92svh]"
             >
-              <SheetTitle className="sr-only">{'בריפינג — ' + picked}</SheetTitle>
+              <SheetTitle className="sr-only">{'בריפינג: ' + picked}</SheetTitle>
               <SheetDescription className="sr-only">כל מה שפתוח בקיבוץ הזה, ושני כפתורי הפעולה.</SheetDescription>
               <Briefing
                 kibbutz={picked}

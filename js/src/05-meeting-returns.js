@@ -2,7 +2,7 @@
   // search box. ▶ מצב ישיבה (islands/Presenter.tsx) is a different feature and stays.
   // Always permits edit — meeting mode is now a personal boost, not a lock.
   function checkEditPermission() {
-    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה — אין הרשאת עריכה (דוחות בלבד)'); return false; }
+    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה, אין הרשאת עריכה (דוחות בלבד)'); return false; }
     return true;
   }
 
@@ -71,7 +71,7 @@
         </select>
         <input type="number" min="1" value="${r.qty}" onchange="visitReturnedItems[${idx}].qty = parseInt(this.value)||1" style="width:50px;padding:3px;border-radius:4px;border:1px solid #fecaca;text-align:center;font-size:11px;">
         <input type="text" value="${(r.reason||'').replace(/"/g,'&quot;')}" placeholder="סיבה (קצר)" onchange="visitReturnedItems[${idx}].reason = this.value" style="flex:1.5;padding:3px 6px;border-radius:4px;border:1px solid #fecaca;font-size:11px;">
-        <label title="תקין — להחזיר למלאי העובד המבקר. לא מסומן = תקול (יוצא מהמלאי)." style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#15803d;white-space:nowrap;cursor:pointer;">
+        <label title="תקין: להחזיר למלאי העובד המבקר. לא מסומן = תקול (יוצא מהמלאי)." style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#15803d;white-space:nowrap;cursor:pointer;">
           <input type="checkbox" ${r.toStock ? 'checked' : ''} onchange="visitReturnedItems[${idx}].toStock = this.checked" style="cursor:pointer;">↩️ למלאי
         </label>
         <button type="button" onclick="visitReturnedItems.splice(${idx},1); renderReturnedItems();" style="background:#dc2626;color:white;border:none;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
@@ -88,7 +88,7 @@
     if (returns.length === 0) {
       root.innerHTML = `<div style="padding:24px;text-align:center;color:#64748b;">
         עדיין אין ציוד שהוחזר במעקב.<br>
-        <small>כשיירשם בסיכום ביקור (תחת "🔧 ציוד שהוחזר"), הוא יופיע כאן — ותוכל להחזיר פריטים תקינים למלאי או לסמן כתקולים.</small>
+        <small>כשיירשם בסיכום ביקור (תחת "🔧 ציוד שהוחזר"), הוא יופיע כאן, ותוכל להחזיר פריטים תקינים למלאי או לסמן כתקולים.</small>
       </div>`;
       return;
     }
@@ -131,7 +131,7 @@
     // the kibbutz that returned the item was never debited. A return is a move, so it names both
     // ends: <kibbutz> → חברה, exactly like the visit-save path (09-visits.js, 'return_restock').
     const from = String(r.kibbutz || '').trim();
-    if (!from) { alert('לא ידוע מאיזה קיבוץ הוחזר הפריט — לא ניתן להחזיר למלאי בלי לזכות את הקיבוץ.'); return; }
+    if (!from) { alert('לא ידוע מאיזה קיבוץ הוחזר הפריט, לא ניתן להחזיר למלאי בלי לזכות את הקיבוץ.'); return; }
     if (!confirm('להחזיר את "' + r.product + '" (×' + qty + ') למלאי החברה?')) return;
     // …and the SAME physical return must not be credited twice: saving the visit already posts
     // `return_restock` with this refId when the item was marked ↩️ למלאי there. Same guard the
@@ -140,7 +140,7 @@
       return m.refId === retId && m.reason === 'return_restock';
     });
     if (already) {
-      alert('הפריט כבר הוחזר למלאי (נרשמה תנועה על החזרה הזו) — לא נרשמה תנועה נוספת.');
+      alert('הפריט כבר הוחזר למלאי (נרשמה תנועה על החזרה הזו), לא נרשמה תנועה נוספת.');
       return;
     }
     try {

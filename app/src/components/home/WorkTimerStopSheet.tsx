@@ -107,7 +107,7 @@ export default function StopSheet({
     track(clockifyId ? 'clockify_stop' : 'clockify_stop_unsynced', draft.kibbutz);
     try { sigmaBus?.dispatchEvent(new CustomEvent(WORK_SESSION_SAVED, { detail: { kibbutz: draft.kibbutz, clockify_id: clockifyId } })); }
     catch { /* no bus */ }
-    toast.success(clockifyId ? 'השעות נשמרו ונשלחו ל-Clockify' : 'השעות נשמרו — הסנכרון ל-Clockify יתבצע מאוחר יותר');
+    toast.success(clockifyId ? 'השעות נשמרו ונשלחו ל-Clockify' : 'השעות נשמרו, הסנכרון ל-Clockify יתבצע מאוחר יותר');
     setSaving(false);
     onSaved();
   };
@@ -124,7 +124,7 @@ export default function StopSheet({
     <Sheet open onOpenChange={o => { if (!o) guard.ask(); }}>
       <SheetContent side="bottom" data-testid="work-timer-sheet" className="max-h-[88svh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader className="text-start">
-          <SheetTitle className="text-base">סגירת שעות — {running.kibbutz}</SheetTitle>
+          <SheetTitle className="text-base">סגירת שעות: {running.kibbutz}</SheetTitle>
           <SheetDescription>{formatElapsed(elapsedFor(running))} · מי השתתף, על מה, והאם זה לחיוב</SheetDescription>
         </SheetHeader>
 
@@ -133,7 +133,7 @@ export default function StopSheet({
           <section>
             <h4 className="mb-1.5 text-[13px] font-bold">מי השתתף</h4>
             <div className="flex flex-wrap gap-1.5" data-testid="work-timer-attendees">
-              {contacts.length === 0 && <span className="text-[12px] text-muted-foreground">אין אנשי קשר שמורים — אפשר להוסיף כאן</span>}
+              {contacts.length === 0 && <span className="text-[12px] text-muted-foreground">אין אנשי קשר שמורים. אפשר להוסיף כאן</span>}
               {contacts.map(c => (
                 <button
                   key={c.name} type="button"
@@ -171,7 +171,7 @@ export default function StopSheet({
           <section>
             <h4 className="mb-1.5 text-[13px] font-bold">על מה עבדנו</h4>
             <div className="flex max-h-[28vh] flex-wrap gap-1.5 overflow-y-auto" data-testid="work-timer-tags">
-              {tags.length === 0 && <span className="text-[12px] text-muted-foreground">רשימת התגיות לא נטענה — אפשר לשמור בלי תגיות</span>}
+              {tags.length === 0 && <span className="text-[12px] text-muted-foreground">רשימת התגיות לא נטענה. אפשר לשמור בלי תגיות</span>}
               {tags.map(t => (
                 <button
                   key={t.id} type="button"

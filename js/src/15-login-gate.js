@@ -273,7 +273,7 @@
           return;
         }
         if (data.accessToken) { storeToken(url, data.accessToken); err.textContent = ''; await onAuthed(email); }
-        else if (wrapped.status >= 500) { err.textContent = '⏳ המערכת בעליית גרסה — נא לנסות שוב בעוד מספר דקות'; }
+        else if (wrapped.status >= 500) { err.textContent = '⏳ המערכת בעליית גרסה. נא לנסות שוב בעוד מספר דקות'; }
         else {
           const msg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
           err.textContent = '(' + (wrapped.status || '?') + ') ' + (msg || 'אימייל או סיסמה שגויים');
@@ -285,7 +285,7 @@
       const err = document.getElementById('gateError');
       const code = (document.getElementById('gateOtp').value || '').trim();
       const temp = window._gateTemp;
-      if (!temp) { err.textContent = 'פג תוקף שלב האימות — התחבר מחדש'; document.getElementById('gateOtpBox').style.display = 'none'; return; }
+      if (!temp) { err.textContent = 'פג תוקף שלב האימות. התחבר מחדש'; document.getElementById('gateOtpBox').style.display = 'none'; return; }
       if (!code) { err.textContent = 'נא להזין את הקוד מהאימייל'; return; }
       err.innerHTML = '<span class="gate-spin"></span> מאמת קוד...';
       try {
@@ -296,7 +296,7 @@
           storeToken(url, data.accessToken); window._gateTemp = null; err.textContent = '';
           document.getElementById('gateOtpBox').style.display = 'none';
           await onAuthed(window._gateEmail || (document.getElementById('gateEmail').value || '').trim());
-        } else if (wrapped.status >= 500) { err.textContent = '⏳ המערכת בעליית גרסה — נא לנסות שוב בעוד מספר דקות'; }
+        } else if (wrapped.status >= 500) { err.textContent = '⏳ המערכת בעליית גרסה. נא לנסות שוב בעוד מספר דקות'; }
         else {
           const msg = Array.isArray(data.message) ? data.message.join(', ') : data.message;
           err.textContent = '(' + (wrapped.status || '?') + ') ' + (msg || 'קוד שגוי או שפג תוקפו');
@@ -306,7 +306,7 @@
     window.gateResendOtp = async function () {
       const url = (typeof getEmsUrl === 'function') ? getEmsUrl() : 'https://api.sigmatec-ems.com';
       const err = document.getElementById('gateError'); const temp = window._gateTemp;
-      if (!temp) { err.textContent = 'פג תוקף שלב האימות — התחבר מחדש'; return; }
+      if (!temp) { err.textContent = 'פג תוקף שלב האימות. התחבר מחדש'; return; }
       try { await emsProxyCall(url, '/v1/auth/resend-otp', 'POST', temp, {}); if (typeof emsToast === 'function') emsToast('📧 קוד חדש נשלח לאימייל'); }
       catch (e) { err.textContent = 'שגיאה בשליחת קוד: ' + e.message; }
     };

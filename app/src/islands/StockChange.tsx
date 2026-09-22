@@ -131,7 +131,7 @@ function StockChangeSheet() {
       close();
       track('stock-report', product, 'inventory');
       try { sigma.openOrder?.(orderId); } catch { /* legacy not up */ }
-      toast('סמן את ההזמנה כסופקה — הפריטים ייכנסו למלאי');
+      toast('סמן את ההזמנה כסופקה, הפריטים ייכנסו למלאי');
       return;
     }
 
@@ -151,7 +151,7 @@ function StockChangeSheet() {
       track('stock-report', product, 'inventory');
       try { (window as any).sigmaEmit?.('stock-changed', { source: 'recount', product }); } catch { /* no bus */ }
       try { sigma.refreshData?.(); } catch { /* legacy not up */ }
-      toast.success(`נרשמה ספירה: ${product} — ${rc.counted}`);
+      toast.success(`נרשמה ספירה: ${product}: ${rc.counted}`);
       close();
     } catch (e: any) {
       toast.error(e?.message || 'השמירה נכשלה');
@@ -250,7 +250,7 @@ function StockChangeSheet() {
               </select>
               {orders.length === 0 && (
                 <div className="mt-1 text-[13px] text-muted-foreground">
-                  אין הזמנת ספק פתוחה — פתח הזמנה חדשה, או דווח ספירה מחדש.
+                  אין הזמנת ספק פתוחה. פתח הזמנה חדשה, או דווח ספירה מחדש.
                 </div>
               )}
             </div>

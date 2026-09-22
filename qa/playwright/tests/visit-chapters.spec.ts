@@ -201,7 +201,7 @@ test('chapters: C7 — supplied equipment no longer blocks שלח; the save LAND
 
   await page.getByTestId('vc-step-3').click();
   await expect(sheet).toHaveAttribute('data-chapter', '3');
-  await page.getByLabel('כמות — מונה Landis+Gyr E360PP').fill('1');
+  await page.getByLabel('כמות: מונה Landis+Gyr E360PP').fill('1');
 
   // 🚚 is now part of this visit …
   await expect(page.getByTestId('vc-step-4')).toBeVisible();
@@ -281,7 +281,7 @@ test('C4: מוצרים נוספים is a keyword search — "לנדיס" offers 
   await expect(hits.locator('[data-product-hit]')).toHaveCount(2);
 
   await hits.locator('[data-product-hit="מונה Landis+Gyr E360SP"]').click();
-  await expect(page.getByLabel('כמות — מונה Landis+Gyr E360SP')).toHaveValue('1');
+  await expect(page.getByLabel('כמות: מונה Landis+Gyr E360SP')).toHaveValue('1');
   // The search box empties itself, ready for the next product.
   await expect(page.getByTestId('vc-product-search')).toHaveValue('');
 

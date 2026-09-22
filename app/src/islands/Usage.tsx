@@ -55,7 +55,7 @@ let opener: (() => void) | null = null;
 
 export function openUsage(): void {
   if (!canSeeUsage()) { sigma?.toast?.('עמוד השימוש מוגבל לעידן'); return; }
-  if (opener) opener(); else sigma?.toast?.('העמוד עוד לא נטען — רענן');
+  if (opener) opener(); else sigma?.toast?.('העמוד עוד לא נטען. רענן');
 }
 
 // ───────────────────────── data ─────────────────────────
@@ -238,7 +238,7 @@ function UsageDialog() {
         <DialogHeader>
           <DialogTitle>📈 שימוש · 30 ימים אחרונים</DialogTitle>
           <DialogDescription>
-            מי נכנס לאיזה עמוד וכמה, הפעולות המובילות, עמודים שלא נפתחו — ומה ייצא בתקציר של יום ראשון.
+            מי נכנס לאיזה עמוד וכמה, הפעולות המובילות, עמודים שלא נפתחו, ומה ייצא בתקציר של יום ראשון.
           </DialogDescription>
         </DialogHeader>
       <EmsGate>
@@ -273,7 +273,7 @@ function UsageDialog() {
                 </section>
 
                 <section>
-                  <h3 className="mb-1 text-[13px] font-bold">מפת חום — אדם × עמוד (כניסות)</h3>
+                  <h3 className="mb-1 text-[13px] font-bold">מפת חום: אדם × עמוד (כניסות)</h3>
                   <HeatTable report={report} />
                   {!!report.zeroPages.length && (
                     <p className="mt-1 text-[11.5px] text-muted-foreground">

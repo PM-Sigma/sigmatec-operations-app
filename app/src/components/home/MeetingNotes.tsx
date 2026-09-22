@@ -213,7 +213,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
             layoutId={reduce ? undefined : 'note-act-' + row.id}
             type="button"
             disabled={busy}
-            onClick={e => { e.stopPropagation(); void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('אין חיבור ל-EMS — המשימה בתור'); }), 'נפתחה משימה ב-EMS'); }}
+            onClick={e => { e.stopPropagation(); void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('אין חיבור ל-EMS, המשימה בתור'); }), 'נפתחה משימה ב-EMS'); }}
             title="פתח משימה ב-EMS"
             className="note-act shrink-0 rounded-md px-1 text-[13px] leading-5 text-muted-foreground hover:bg-muted"
           >

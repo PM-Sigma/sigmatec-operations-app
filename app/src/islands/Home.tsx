@@ -213,7 +213,7 @@ function HomeIsland() {
 
       {isError && !rows.length && (
         <p className="rounded-xl border border-border bg-muted p-3 text-sm text-muted-foreground">
-          לא ניתן לטעון את רשימת הקיבוצים — בדוק חיבור.
+          לא ניתן לטעון את רשימת הקיבוצים. בדוק חיבור.
         </p>
       )}
 

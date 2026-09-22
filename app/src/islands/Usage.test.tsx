@@ -78,7 +78,7 @@ describe('📈 שימוש island', () => {
 
     // KPI strip + heat table + top actions + narrative, all from aggregate()/usageNarrative()
     expect(await screen.findByText('פעולות השבוע')).toBeInTheDocument();
-    expect(screen.getByText('מפת חום — אדם × עמוד (כניסות)')).toBeInTheDocument();
+    expect(screen.getByText('מפת חום: אדם × עמוד (כניסות)')).toBeInTheDocument();
     expect(screen.getByText('סיכום ביקור נשמר')).toBeInTheDocument();
     expect(screen.getByText('🔔 התקציר השבועי (ראשון 08:00)')).toBeInTheDocument();
     expect(screen.getByText(/החיפוש בקיבוצים נכשל פעם אחת/)).toBeInTheDocument();

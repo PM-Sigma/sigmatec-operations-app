@@ -103,7 +103,7 @@ function VisitCard({ v, catalog, saved, onChange, onDrop }: {
             value={catalog.kibbutzim.includes(v.kibbutz) ? v.kibbutz : ''}
             onChange={e => onChange({ kibbutz: e.target.value, kibbutzConfident: !!e.target.value })}
           >
-            <option value="">איזה קיבוץ? — {v.kibbutz || 'לא זוהה'}</option>
+            <option value="">איזה קיבוץ: {v.kibbutz || 'לא זוהה'}</option>
             {catalog.kibbutzim.map(k => <option key={k} value={k}>{k}</option>)}
           </select>
         ) : (
@@ -151,7 +151,7 @@ function VisitCard({ v, catalog, saved, onChange, onDrop }: {
                   onChange({ items: v.items.map((x, j) => (j === i ? { ...x, qty } : x)) });
                 }}
               />
-              {!it.resolved && <span className="text-xs text-muted-foreground">לא בקטלוג — לא ייכנס למלאי</span>}
+              {!it.resolved && <span className="text-xs text-muted-foreground">לא בקטלוג, לא ייכנס למלאי</span>}
             </div>
           ))}
         </div>
@@ -232,7 +232,7 @@ function DayLogSheet() {
     } catch (e: any) {
       // A precondition (no EMS session) is not a service outage — retrying it fails the same
       // way forever, so it keeps the toast and the recording is not held.
-      if (!heldForRetry(e)) { toast.error(String(e?.message || 'התמלול נכשל — אפשר להקליד')); return; }
+      if (!heldForRetry(e)) { toast.error(String(e?.message || 'התמלול נכשל. אפשר להקליד')); return; }
       // Otherwise no toast: a toast disappears, and with it the only sign that the speech still
       // exists. The strip stays on screen with the ↻ instead.
       setPendingAudio(audio);
@@ -260,14 +260,14 @@ function DayLogSheet() {
       live.current = startLive({
         onFinal: append,
         onInterim: () => { /* the interim guess is noise in a long day log */ },
-        onError: (_kind, _detail) => { setListening(false); live.current = null; toast.error('ההקלטה נכשלה — אפשר להקליד'); },
+        onError: (_kind, _detail) => { setListening(false); live.current = null; toast.error('ההקלטה נכשלה. אפשר להקליד'); },
         onEnd: () => { setListening(false); live.current = null; },
       });
       if (live.current) return;
     }
-    if (!caps.mediaRecorder) { setListening(false); toast.error('הדפדפן הזה לא תומך בהקלטה — אפשר להקליד'); return; }
+    if (!caps.mediaRecorder) { setListening(false); toast.error('הדפדפן הזה לא תומך בהקלטה. אפשר להקליד'); return; }
     rec.current = await startRecording({
-      onError: () => { setListening(false); rec.current = null; toast.error('אין הרשאה למיקרופון — אפשר להקליד'); },
+      onError: () => { setListening(false); rec.current = null; toast.error('אין הרשאה למיקרופון. אפשר להקליד'); },
     });
     if (!rec.current) setListening(false);
   };
@@ -299,7 +299,7 @@ function DayLogSheet() {
       original.current = JSON.parse(JSON.stringify(norm));
       setResult(norm);
       track('daylog-parsed', String(norm.visits.length));
-      if (!norm.visits.length) toast.message('לא זוהו ביקורים בטקסט — אפשר לנסח מחדש');
+      if (!norm.visits.length) toast.message('לא זוהו ביקורים בטקסט. אפשר לנסח מחדש');
     } catch (e: any) {
       // A cancel the person asked for is not a failure — say nothing, the text is still there.
       if (String(e?.message) !== 'CANCELLED') toast.error(String(e?.message || 'הניתוח לא הצליח'));
@@ -371,7 +371,7 @@ function DayLogSheet() {
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" data-testid="daylog-sheet" {...guard.contentProps}>
         <SheetHeader>
           <SheetTitle>📝 יומן היום</SheetTitle>
-          <SheetDescription>ספר מה עשית היום — בכתיבה או בדיבור. תראה כרטיס לכל קיבוץ לפני שמשהו נשמר.</SheetDescription>
+          <SheetDescription>ספר מה עשית היום, בכתיבה או בדיבור. תראה כרטיס לכל קיבוץ לפני שמשהו נשמר.</SheetDescription>
         </SheetHeader>
 
         <div className="space-y-3 p-4">

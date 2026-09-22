@@ -125,11 +125,11 @@ function NotificationsRow() {
 
   const TEXT: Record<string, string> = {
     granted: 'פעיל',
-    denied: 'חסום — יש לאשר התראות עבור האתר בהגדרות הדפדפן',
+    denied: 'חסום. יש לאשר התראות עבור האתר בהגדרות הדפדפן',
     default: 'לא פעיל',
     'ios-needs-install': 'צריך להוסיף את האפליקציה למסך הבית קודם',
     unsupported: 'לא נתמך במכשיר הזה',
-    error: 'לא הצלחתי להפעיל — נסה שוב',
+    error: 'לא הצלחתי להפעיל. נסה שוב',
   };
 
   const enable = async () => {
@@ -248,7 +248,7 @@ function OnboardingTemplateRow({ user }: { user: string }) {
   };
 
   return (
-    <Row label="תבנית קליטת לקוח חדש" hint="הסדר והתוויות שכל 🆕 לקוח חדש מקבל — לא משפיע על קיבוצים שכבר בקליטה">
+    <Row label="תבנית קליטת לקוח חדש" hint="הסדר והתוויות שכל 🆕 לקוח חדש מקבל, לא משפיע על קיבוצים שכבר בקליטה">
       <ol className="flex w-full flex-col gap-1.5" data-testid="onboarding-template-editor">
         {tpl.steps.map((s: TemplateStep, i: number) => (
           <li key={s.key} className="flex items-center gap-1.5">

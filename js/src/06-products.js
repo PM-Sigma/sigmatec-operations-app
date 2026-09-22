@@ -42,7 +42,7 @@
     // 🔗 status: computed from the SAME productLabel logic the exports use — red if any active
     // product would still render its technical name in a viewer export (spec §3 "make the wiring visible").
     html += `<div style="margin-top:8px;font-size:12px;font-weight:600;color:${wired ? '#16a34a' : '#dc2626'};">
-      ${wired ? '🔗 מחובר למחולל הדוחות ✓' : '🔗 מחובר למחולל הדוחות — יש פריטים פעילים בלי שם לדוחות'}
+      ${wired ? '🔗 מחובר למחולל הדוחות ✓' : '🔗 מחובר למחולל הדוחות, יש פריטים פעילים בלי שם לדוחות'}
     </div>`;
     root.innerHTML = html;
   }

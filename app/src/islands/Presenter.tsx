@@ -317,7 +317,7 @@ function LiveSheet({
       <SheetContent side="bottom" data-testid="presenter-live" className="max-h-[88svh] overflow-y-auto">
         <SheetHeader className="text-start">
           <SheetTitle className="text-base"><bdi>{kibbutz}</bdi></SheetTitle>
-          <SheetDescription>שורה אחת — ותיכנס עכשיו</SheetDescription>
+          <SheetDescription>שורה אחת, ותיכנס עכשיו</SheetDescription>
         </SheetHeader>
 
         <textarea

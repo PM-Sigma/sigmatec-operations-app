@@ -48,7 +48,7 @@
     bd.innerHTML = `
       <div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">
         <h3>🚚 תעודת משלוח</h3>
-        <div class="modal-sub">בדוק וערוך את הפרטים לפני ההפקה — התעודה מקבלת מספר רץ ונשמרת.</div>
+        <div class="modal-sub">בדוק וערוך את הפרטים לפני ההפקה, התעודה מקבלת מספר רץ ונשמרת.</div>
         <div class="cert-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;">
           <div><label for="certCustName">🧑‍🌾 לקוח:</label><input type="text" id="certCustName"></div>
           <div><label for="certCustCompanyId">🆔 ח.פ./ע.מ.:</label><input type="text" id="certCustCompanyId" placeholder="—"></div>
@@ -68,7 +68,7 @@
         <textarea id="certNotes" rows="2" placeholder="למשל: לא לחיוב"></textarea>
         <div class="modal-actions">
           <button class="btn btn-secondary" onclick="document.getElementById('certModal').classList.remove('open')">ביטול</button>
-          <button class="btn btn-secondary" onclick="certPreviewDraft()" title="בדיוק מה שיופק — לפני הקצאת מספר">👁 תצוגה מקדימה</button>
+          <button class="btn btn-secondary" onclick="certPreviewDraft()" title="בדיוק מה שיופק, לפני הקצאת מספר">👁 תצוגה מקדימה</button>
           <button class="btn btn-primary" onclick="issueDeliveryCert(this)">🖨️ הפק תעודה (PDF)</button>
         </div>
       </div>`;
@@ -96,7 +96,7 @@
     if (!el) return;
     el.innerHTML = _certSig.data
       ? '✅ נחתם' + (_certSig.name ? ' ע"י ' + certEsc(_certSig.name) : '') + ' <button type="button" onclick="certSignReset()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:12px;text-decoration:underline;min-height:36px;padding:6px 8px;">הסר</button>'
-      : 'לא נחתם — יודפס קו ריק לחתימה ידנית';
+      : 'לא נחתם, יודפס קו ריק לחתימה ידנית';
   }
   window.certSignReset = function () { _certSig = { name: '', data: '' }; certSigStatusPaint(); };
 
@@ -152,7 +152,7 @@
   };
   window.certSignConfirm = function () {
     const cv = document.getElementById('certSignCanvas');
-    if (!cv._hasInk) { alert('חסרה חתימה — יש לחתום בתוך המסגרת.'); return; }
+    if (!cv._hasInk) { alert('חסרה חתימה. יש לחתום בתוך המסגרת.'); return; }
     _certSig = { name: document.getElementById('certSignName').value.trim(), data: cv.toDataURL('image/png') };
     document.getElementById('certSignModal').classList.remove('open');
     certSigStatusPaint();
@@ -222,15 +222,15 @@
 
   async function issueDeliveryCert(btn) {
     // viewer = reports only; issuing consumes a cert number (a write) — blocked (the range report stays open to them)
-    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה — הפקת תעודות חדשות חסומה. דוח תעודות המשלוח זמין ממסך דוח הביקורים.'); return; }
+    if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה, הפקת תעודות חדשות חסומה. דוח תעודות המשלוח זמין ממסך דוח הביקורים.'); return; }
     const cert = certCollect();
-    if (!cert.items.length) { alert('אין פריטים בתעודה — הוסף לפחות פריט אחד.'); return; }
+    if (!cert.items.length) { alert('אין פריטים בתעודה. הוסף לפחות פריט אחד.'); return; }
     if (!cert.customer.name) { alert('חסר שם לקוח.'); return; }
     // open the window SYNCHRONOUSLY on the click (popup blockers), fill after the number arrives.
     // C7: not in the visit flow — there the certificate opens in the in-app overlay instead.
     const noPrint = document.getElementById('certModal').dataset.noPrint === '1';
     const w = noPrint ? null : window.open('', '_blank');
-    if (!noPrint && !w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
+    if (!noPrint && !w) { alert('הדפדפן חסם את חלון ההדפסה. אפשר חלונות קופצים לאתר.'); return; }
     if (w) w.document.write('<!doctype html><html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding-top:40vh;">⏳ מפיק תעודה…</body></html>');
     if (typeof setBtnLoading === 'function') setBtnLoading(btn, true);
     try {
@@ -300,7 +300,7 @@
       if (t) {
         t.textContent = cert.number
           ? (cancelledOld ? ('✅ הופקה תעודה מתוקנת ' + cert.number + ' · תעודה ' + cancelledOld + ' בוטלה') : ('✅ הופקה תעודת משלוח ' + cert.number))
-          : '⚠️ הופקה טיוטה ללא מספר (אין חיבור) — הפק שוב כשיש חיבור';
+          : '⚠️ הופקה טיוטה ללא מספר (אין חיבור). הפק שוב כשיש חיבור';
         t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 4000);
       }
       if (typeof invRenderCerts === 'function') invRenderCerts();   // refresh the registry if its tab is open
@@ -340,7 +340,7 @@
     const c = cert.customer;
     return `<!doctype html>
 <html dir="rtl" lang="he"><head><meta charset="utf-8">
-<title>תעודת משלוח ${certEsc(num)} — ${certEsc(c.name)}</title>
+<title>תעודת משלוח ${certEsc(num)}: ${certEsc(c.name)}</title>
 <style>
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -382,7 +382,7 @@
   <div class="content">
     <img class="logo" src="${CERT_LOGO}" alt="Sigmatec">
     <h1>תעודת משלוח ${certEsc(num)}</h1>
-    <div class="computed">מסמך ממוחשב${cert.number ? '' : ' — טיוטה (ללא מספר)'}${cert.cancelled ? ' · <b style="color:#dc2626;">תעודה מבוטלת' + (cert.replacedBy ? ' — הוחלפה בתעודה מס\' ' + certEsc(cert.replacedBy) : '') + '</b>' : ''}</div>
+    <div class="computed">מסמך ממוחשב${cert.number ? '' : ': טיוטה (ללא מספר)'}${cert.cancelled ? ' · <b style="color:#dc2626;">תעודה מבוטלת' + (cert.replacedBy ? ', הוחלפה בתעודה מס\' ' + certEsc(cert.replacedBy) : '') + '</b>' : ''}</div>
     <div class="blocks">
       <div>
         שם הלקוח: <b>${certEsc(c.name)}</b><br>
@@ -536,7 +536,7 @@
   // pre-issue preview from the edit modal — exactly what issuing would produce (as a draft, no number yet)
   function certPreviewDraft() {
     const cert = certCollect();
-    if (!cert.items.length) { alert('אין פריטים בתעודה — הוסף לפחות פריט אחד.'); return; }
+    if (!cert.items.length) { alert('אין פריטים בתעודה. הוסף לפחות פריט אחד.'); return; }
     cert.number = null;   // the running number is assigned only on issue
     certOverlayShow(certDocHtml(cert, { screen: true }), null);
   }
@@ -585,7 +585,7 @@
     bd.classList.add('open');
     let contacts = [];
     try {
-      if (typeof window._sbCertGet !== 'function') throw new Error('אין חיבור כרגע — בדוק רשת ונסה שוב');
+      if (typeof window._sbCertGet !== 'function') throw new Error('אין חיבור כרגע. בדוק רשת ונסה שוב');
       contacts = await window._sbCertGet('site_contacts?select=*&active=eq.true&kibbutz=eq.' + encodeURIComponent(c.kibbutz) + '&order=role,name');
     } catch (e) { /* table missing / anon (viewer) / offline → the inline add-contact row */ }
     const plan = certSendPlan(contacts);
@@ -612,7 +612,7 @@
       </details>`;
     bd.innerHTML = `
       <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;">
-        <h3>📤 שליחת תעודה ${c.cert_number} — ${certEsc(c.kibbutz)}</h3>
+        <h3>📤 שליחת תעודה ${c.cert_number}: ${certEsc(c.kibbutz)}</h3>
         <div class="modal-sub">הנמען מקבל קישור צפייה. התעודה נפתחת אצלו בדיוק כפי שהופקה, עם כפתור הדפסה/PDF.</div>
         <div style="max-height:38vh;overflow-y:auto;">${rows}${addForm}</div>
         <div class="modal-actions">
@@ -634,7 +634,7 @@
     const row = { kibbutz: ctx.cert.kibbutz, name: name.trim(), email: email.trim(), active: true };
     const done = function () {
       // Send even if the row did not persist: the certificate is in his hand either way.
-      location.href = 'mailto:' + row.email + '?subject=' + encodeURIComponent('תעודת משלוח ' + ctx.cert.cert_number + ' — סיגמאטק התייעלות אנרגטית') + '&body=' + encodeURIComponent(ctx.text);
+      location.href = 'mailto:' + row.email + '?subject=' + encodeURIComponent('תעודת משלוח ' + ctx.cert.cert_number + ': סיגמאטק התייעלות אנרגטית') + '&body=' + encodeURIComponent(ctx.text);
     };
     const tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
     if (!tok || typeof SB_URL === 'undefined') { done(); return; }
@@ -668,7 +668,7 @@
   window.certSendOpen = certSendOpen;
   window.certCopyLink = function () {
     const ctx = window._certSendCtx; if (!ctx) return;
-    const doToast = ok => { const t = document.getElementById('toast'); if (t) { t.textContent = ok ? '🔗 הקישור הועתק' : 'העתקה נכשלה — העתק ידנית: ' + certViewUrl(ctx.cert.id); t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); } };
+    const doToast = ok => { const t = document.getElementById('toast'); if (t) { t.textContent = ok ? '🔗 הקישור הועתק' : 'העתקה נכשלה. העתק ידנית: ' + certViewUrl(ctx.cert.id); t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); } };
     try { navigator.clipboard.writeText(certViewUrl(ctx.cert.id)).then(() => doToast(true), () => doToast(false)); } catch (e) { doToast(false); }
   };
   window.certEmailSelected = function () {
@@ -676,7 +676,7 @@
     const to = [...document.querySelectorAll('#certSendModal .cert-send-chk:checked')]
       .map(chk => (ctx.contacts[parseInt(chk.dataset.i)] || {}).email).filter(Boolean);
     if (!to.length) { alert('בחר לפחות איש קשר אחד עם מייל.'); return; }
-    const subject = 'תעודת משלוח ' + ctx.cert.cert_number + ' — סיגמאטק התייעלות אנרגטית';
+    const subject = 'תעודת משלוח ' + ctx.cert.cert_number + ': סיגמאטק התייעלות אנרגטית';
     location.href = 'mailto:' + to.join(',') + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(ctx.text);
   };
 
@@ -762,7 +762,7 @@
         <td data-label="הופק ע&quot;י">${certEsc(c.created_by)}</td>
         <td data-label="חתימה">${c.signature ? '✅ ' + certEsc(c.recipient || '') : '—'}</td>
         <td class="actions-cell" style="white-space:nowrap;text-align:left;">
-          <button class="inv-btn small" onclick="certView('${idArg}')" title="תצוגה מקדימה — בלי להוריד; הדפסה מתוך התצוגה">👁 הצג</button>
+          <button class="inv-btn small" onclick="certView('${idArg}')" title="תצוגה מקדימה, בלי להוריד; הדפסה מתוך התצוגה">👁 הצג</button>
           ${c.drive_url ? `<a class="inv-btn small" style="background:#f59e0b;text-decoration:none;display:inline-block;" href="${certEsc(c.drive_url)}" target="_blank" rel="noopener" title="עותק ה-PDF בדרייב">📁</a>` : ''}
           ${vw ? '' : `<button class="inv-btn small" style="background:#16a34a;" onclick="certSendOpen('${idArg}')" title="שליחה במייל / וואטסאפ לאנשי הקשר של האתר">📤</button>`}
           ${(!vw && (typeof window.certSendOpen === 'function' || typeof window.certSendByEmail === 'function')) ? `<button class="inv-btn small" style="background:#0369a1;" onclick="(typeof window.certSendOpen === 'function' ? window.certSendOpen : window.certSendByEmail)('${idArg}')" title="שליחה מהירה במייל לאיש הקשר האחרון">✉️</button>` : ''}
@@ -780,7 +780,7 @@
     const c = _certRows.find(x => x.id === id);
     if (!c) return;
     const w = window.open('', '_blank');
-    if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
+    if (!w) { alert('הדפדפן חסם את חלון ההדפסה. אפשר חלונות קופצים לאתר.'); return; }
     w.document.write(certDocHtml({
       number: c.cert_number, date: c.cert_date, kibbutz: c.kibbutz,
       customer: c.customer || {}, items: c.items || [], notes: c.notes || '',
@@ -953,7 +953,7 @@
 
   async function certRangeReportRange(from, to) {
     const w = window.open('', '_blank');
-    if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
+    if (!w) { alert('הדפדפן חסם את חלון ההדפסה. אפשר חלונות קופצים לאתר.'); return; }
     w.document.write('<!doctype html><html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding-top:40vh;">⏳ טוען תעודות…</body></html>');
     let certs = [];
     try {

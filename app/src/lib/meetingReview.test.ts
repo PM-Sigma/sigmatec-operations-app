@@ -269,7 +269,7 @@ describe('reviewSummary', () => {
   it('counts the four buckets the בצע button names', () => {
     const d = setChip(addLine(tiny(), 'דפנה', 'נוהל פנימי לסגירת חודש.'), 'דפנה#+5', 'internal');
     expect(reviewSummary(d)).toEqual({ ems: 1, internal: 1, notes: 2, chatter: 1 });
-    expect(summaryLabel(reviewSummary(d))).toBe('בצע — 1 משימות · 1 פנימיות · 2 הערות · 1 דיבורים');
+    expect(summaryLabel(reviewSummary(d))).toBe('בצע: 1 משימות · 1 פנימיות · 2 הערות · 1 דיבורים');
     expect(summaryLabel({ ems: 0, internal: 0, notes: 0, chatter: 0 })).toBe('בצע');
   });
 });

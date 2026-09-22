@@ -359,7 +359,7 @@ export function emsChainReduce(input: ChainInput, now = new Date().toISOString()
     label: CHAIN_LABELS.meters,
     state: skipRest ? 'skipped' : metersSkipped ? 'warn' : 'ok',
     value: skipRest ? 'לא נבדק'
-      : metersSkipped ? 'לא ניתן לספור מונים — ברירת מחדל ⚡ חשמל'
+      : metersSkipped ? 'לא ניתן לספור מונים, ברירת מחדל ⚡ חשמל'
       : ENERGY_SORT.filter(e => meters[e] > 0).map(e => `${meters[e]} ${ENERGY_LABEL[e]}`).join(' · '),
   });
 
@@ -385,7 +385,7 @@ export function emsChainReduce(input: ChainInput, now = new Date().toISOString()
     value: skipRest ? 'לא נבדק'
       : contactsSkipped ? 'לא ניתן לקרוא אנשי קשר'
       : contacts.length ? contacts.map(c => c.name || c.phone || '—').join(', ')
-      : 'אין רשומות — להוסיף אחר כך',
+      : 'אין רשומות, להוסיף אחר כך',
   });
   if (!skipRest && !contactsSkipped && !contacts.length) warnings.push('אין אנשי קשר');
 

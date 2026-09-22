@@ -200,9 +200,9 @@ describe('copy', () => {
   });
   it('a holiday note invites, never scolds', () => {
     expect(holidayNote({ date: '2026-09-21', name: 'יום כיפור', kind: 'holiday', required: false }))
-      .toBe('יום כיפור — הזנה אופציונלית');
+      .toBe('יום כיפור: הזנה אופציונלית');
     expect(holidayNote({ date: '2026-09-28', name: 'חול המועד סוכות', kind: 'company_closure', required: false }))
-      .toBe('חול המועד סוכות — הזנה אופציונלית');
+      .toBe('חול המועד סוכות: הזנה אופציונלית');
     expect(holidayNote(null)).toBe('');
   });
 });

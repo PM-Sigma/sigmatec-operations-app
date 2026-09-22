@@ -372,11 +372,11 @@ function AttendanceIsland() {
       track('attendance-save', v.type);
       const cell = grid.cells.find(c => c.date === v.date);
       toast.success('נשמר · ' + dayLabel(v.type) + ' · ' + dm(v.date)
-        + (cell?.holiday && !cell.holiday.required ? ' 🕎 (יום חג — נרשם בכל זאת)' : ''));
+        + (cell?.holiday && !cell.holiday.required ? ' 🕎 (יום חג, נרשם בכל זאת)' : ''));
       setOpen('');
       refresh();
     },
-    onError: (e: Error) => toast.error(e.message || 'השמירה לא עברה — אפשר לנסות שוב'),
+    onError: (e: Error) => toast.error(e.message || 'השמירה לא עברה. אפשר לנסות שוב'),
   });
 
   const openDay = (c: DayCell) => {
@@ -413,7 +413,7 @@ function AttendanceIsland() {
       <header className="mb-2.5 flex flex-wrap items-center gap-2">
         <h2 className="flex items-center gap-1.5 text-[17px] font-extrabold">
           <UserCheck className="h-[18px] w-[18px] text-[color:var(--brand-1)]" />
-          נוכחות — <bdi>{person || me}</bdi>
+          נוכחות: <bdi>{person || me}</bdi>
         </h2>
 
         {canSwitch && people.length > 1 && (
@@ -476,7 +476,7 @@ function AttendanceIsland() {
               into that day's sheet. */}
           <section data-testid="att-missing" className="rounded-[14px] border border-border bg-card p-3">
             <div className="mb-1.5 flex items-baseline gap-2">
-              <span className="text-[13px] font-bold">{missing.length ? 'חסר לך' : 'החודש מלא — יפה!'}</span>
+              <span className="text-[13px] font-bold">{missing.length ? 'חסר לך' : 'החודש מלא, יפה!'}</span>
               {missing.length > 0 && (
                 <span
                   data-testid="att-missing-count"

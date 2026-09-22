@@ -143,7 +143,7 @@ export function OnboardingProgress({ kibbutz, canAct }: { kibbutz: string; canAc
       )}
       {complete && (
         <div className="mt-1 rounded-md bg-[color:var(--sigma-warn)]/10 px-2 py-1 text-[12px] font-semibold text-foreground">
-          כל שלבי הקליטה הושלמו — להעביר לפעילים? (מתבצע בעריכת פרטי הקיבוץ ✏️)
+          כל שלבי הקליטה הושלמו. להעביר לפעילים? (מתבצע בעריכת פרטי הקיבוץ ✏️)
         </div>
       )}
     </div>

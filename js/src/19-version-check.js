@@ -45,7 +45,7 @@
       var b = document.createElement('div');
       b.id = 'newVerBanner';
       b.innerHTML =
-        '<span>🔄 עלתה גרסה חדשה' + (ver ? ' (' + ver + ')' : '') + ' — רעננו כדי לעדכן.</span>' +
+        '<span>🔄 עלתה גרסה חדשה' + (ver ? ' (' + ver + ')' : '') + '. רעננו כדי לעדכן.</span>' +
         '<button id="newVerReloadBtn" type="button">רענן עכשיו</button>';
       b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#1e293b;color:#fff;' +
         'display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;' +
