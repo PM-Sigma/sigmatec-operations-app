@@ -66,7 +66,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-22 evening (**2.12 — phone QA round 2 shipped: nine packages A–I merged, migrations applied**).
+## 🚦 Current state — last: 2026-09-22 night (**2.18 — phone QA rounds 2 + 3 shipped to `main`; every note from 22.9 has a test-plan row**).
 
 Round 1 (2.08–2.11) went to production at noon; round 2 (עידן's second phone batch) was planned by Fable in
 `docs/superpowers/specs/2026-09-22-phone-qa-round-2-design.md`, built by nine parallel Opus/Sonnet agents in
@@ -75,8 +75,12 @@ worktrees, merged and tested. Everything in the catalog has a row in `docs/repor
 `meter_burns_ems_task`, `visits_reason`, `company_holidays_eves`) and the section ruling (new = דגניה ב · עין דור ·
 ניר עציון). Follow-ups shipped the same night (2.17): red missing days on the calendar, server-side 2 h timer push (cron every
 5 min, push-send v22), home top section = drafts + active timer, humanizer sweep complete, meeting-review site gate.
-**Open:** tone decision on the motivational push texts; the Whisper meeting-scribe plan (`2026-09-23-meeting-scribe-design.md`).
-**Next:** עידן's desktop QA pass; the QA session (סשן B) reads `docs/HANDOFF-QA-phone-round.md`.
+Round 3 (2.18): packages N–S from עידן's evening batch plus the four audit gaps (T, U) — the ✏️ sheet under the modal
+(the accidental-archive path), unclearable alerts (broken RPC), stuck order status, invisible 🎙 panel, first-name chip,
+my-tasks strip everywhere, קוד לקוח/תתי-אתרים in the sheet, framed app icon. SQL applied: `alert_mark_seen_fix`,
+`kibbutzim_code`. Spec: `2026-09-22-phone-qa-round-3-design.md`.
+**Open:** tone decision on the motivational push texts; the Whisper meeting-scribe plan (`2026-09-23-meeting-scribe-design.md`, surfaced 23.9 10:00).
+**Next:** עידן re-tests rounds 2–3 on the phone; the QA session (סשן B) reads `docs/HANDOFF-QA-phone-round.md`.
 
 ## 🚦 Previous — 2026-09-22 (**2.08 on `feat/phone-qa-round` — עידן's phone QA round, rounds 1–3 built; QA session next**).
 

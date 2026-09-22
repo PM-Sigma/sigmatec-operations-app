@@ -7,7 +7,43 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
-## [2.17] 2026-09-22 night — round-2 follow-ups: red missing days, timer server push, home sort, humanizer complete, site gate
+## [2.18] 2026-09-22 night — phone QA round 3 (packages N–S) + the four audit gaps (T, U)
+
+Planned by Fable (`docs/superpowers/specs/2026-09-22-phone-qa-round-3-design.md`), built by eight Opus/Sonnet agents
+in worktrees off 2.14, merged, rebuilt and tested here. Test-plan rows: `docs/reports/2026-09-22-round-2-test-plan.md`
+→ "סבב 3".
+
+- **N · the two accidental archives (דפנה 08:46, גבת 16:06) — root cause.** The ✏️ פרטי קיבוץ sheet used shadcn's
+  `z-50` while the legacy kibbutz modal is `z-index:1000`: the sheet opened *under* the card ("the pencil does
+  nothing"), and when the card closed, the sheet's last control, 🗄 ארכב, sat under the finger; the confirm button
+  rendered in the same spot. Sheets are now `z-[1200]`; archiving requires typing the kibbutz name; ✏️ renders for
+  עידן before the Home island mounts. Also: the kibbutz name is the card's title; the quick-visit list adds EMS
+  sites with no card; `kibbutzSiteIds()` now reads the row's `ems_site_ids` (a kibbutz linked through the sheet
+  could never open an EMS task); the post-login awaits are time-boxed at 10 s so the gate cannot hang.
+- **O · shell:** header chip shows the first name; the color legend is gone from the kibbutz page; Ctrl+K lost the
+  "פעולות" group; "המשימות הפנימיות שלי" is a collapsible strip above the bottom bar on every module. Follow-up:
+  ✉️ הודעה לעובד moved to the ⋯ עוד sheet (it had lived only in the removed group).
+- **P · inventory:** certificates tab repainted on every 15 s poll (now only on changed data, proven by a
+  MutationObserver test); date range on one line; search styled like the app; orders edit status was stuck because
+  customer orders had **zero** selectable statuses (`supplied` missing from the select); "אחראי על האספקה" →
+  "מי יאשר ויספק את ההזמנה" + ✅ אשר ואספק inside the edit form under the row's rule.
+- **Q · alerts never cleared:** the `alert_mark_seen` RPC could never run (no `seen_at` column, `uuid = text`
+  variable). Fixed in `db/alert_mark_seen_fix.sql` (applied), the client no longer swallows the error, and a
+  Playwright case marks read → reload → still hidden.
+- **R · docs:** `docs/usage/יומן-גוגל.md` — what the Google Calendar (INFORMATION) link does today and the exact gap
+  list for two-way vacations.
+- **S · 🎙 סיכום ביקור מהקלטה not visible to עידן:** the raised 📍 called only `maybeOpen()`, gated on
+  `FIELD_PEOPLE` (אביאם/ניתאי), so everyone else fell to the legacy form. `openManual()` opens the chapters sheet
+  for every writer; the legacy form has a hand-off button between "ביקור אחרון" and "מי ביקר".
+- **T · morning-notes gaps:** ✏️ פרטי קיבוץ gains קוד לקוח (`kibbutzim.customer_code`, seeded from the old map by
+  `db/kibbutzim_code.sql`, applied), תתי-אתרים with ➕, and one קטגוריה group; the EMS section inside the card shows
+  the full description with priority/type bubbles bottom-left; the chapters sheet's ציוד שסופק is the same 3-column
+  tile grid as the legacy form.
+- **U · app icon:** the Σ mark framed in brand green with a "תפעול" pill (192/512 + maskable), generator in
+  `scripts/make-icons.py`.
+- Boot-bundle ceiling 302 → 303 kB (+287 B measured). push-send redeployed (Q's alerts mirror).
+
+## [2.14] 2026-09-22 night — round-2 follow-ups: red missing days, timer server push, home sort, humanizer complete, site gate
 
 - **Calendar:** past work days with no attendance report are marked red (`missingInView` over F's `missingDaysFor`;
   same query key as נוכחות so filing a day repaints the grid; legend line). J.

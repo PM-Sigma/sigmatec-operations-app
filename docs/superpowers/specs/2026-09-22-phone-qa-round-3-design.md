@@ -1,6 +1,6 @@
 # סבב תיקונים 3 — QA מהטלפון (22.9.2026, ערב)
 
-STATUS: 🟡 OPEN — planned by Fable, executed by Opus/Sonnet agents in parallel worktrees off `origin/main` (2.14, a9edc5f).
+STATUS: ✅ SHIPPED (2.18, 22.9 night) — packages N–S plus audit gaps T (sheet fields · modal EMS · tile parity) and U (icon). Rows in `docs/reports/2026-09-22-round-2-test-plan.md` → סבב 3.
 Ground rules: identical to `2026-09-22-phone-qa-round-2-design.md` (source-only commits, own files, tests green, humanizer copy).
 
 Data already fixed (22.9 19:xx): גבת was archived at 16:06 by the same ✏️→🗄 path that archived דפנה in the morning;

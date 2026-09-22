@@ -37,9 +37,12 @@ test('עידן: ▶ → reload → still running → ■ → attendee + 2 tags �
   // THE reload: the timer is derived from `started_at` in storage, so it comes back running.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#sigma-home .kibbutz');
-  const stop = card(page, 'חוקוק').getByTestId('work-timer-stop');
+  // The running timer floats חוקוק to the top section; for ~300 ms AnimatePresence still holds
+  // the exiting copy in ✅ פעילים, so pin the FIRST card (the top section is first in the DOM).
+  const stop = card(page, 'חוקוק').first().getByTestId('work-timer-stop');
   await expect(stop).toBeVisible({ timeout: 15_000 });
-  await expect(card(page, 'חוקוק').getByTestId('work-timer-elapsed')).toHaveText(/\d\d:\d\d/);
+  await expect(card(page, 'חוקוק').first().getByTestId('work-timer-elapsed')).toHaveText(/\d\d:\d\d/);
+  await expect(card(page, 'חוקוק')).toHaveCount(1, { timeout: 5_000 });
 
   // 22.9 (E1): a tap on the running clock opens ITS sheet first (pause · retime · people · tags);
   // "סגור שעות" hands over to the stop sheet.

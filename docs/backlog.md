@@ -49,6 +49,9 @@ extended, `VERSION` → 2.01, docs checkpointed). Full detail: `docs/CHANGELOG.m
 migrations applied. Test plan per item: `docs/reports/2026-09-22-round-2-test-plan.md`. Follow-ups shipped the same night (2.17): red missing days on the calendar, 2 h timer server push (cron +
 push-send v22), home top section = drafts + active timer, humanizer sweep complete, meeting-review site gate.
 Open: tone decision on the 14 motivational push texts in `field.ts`; Whisper meeting scribe plan (23.9 10:00).
+Round 3 (2.18, same night): packages N–S + audit gaps T/U shipped — root causes of the accidental archives, the
+unclearable alerts, the stuck order status and the invisible 🎙 panel are all fixed at the source; SQL applied
+(`alert_mark_seen_fix`, `kibbutzim_code`). Open: עידן re-tests on the phone; QA session reads `docs/HANDOFF-QA-phone-round.md`.
 
 🟡 IN PROGRESS — **phone QA round (22.9)**: rounds 1–2 built on `feat/phone-qa-round` (2.08), see
 [spec](superpowers/specs/2026-09-22-phone-qa-round-design.md). Round 3 built E1 (timer sheet: pause/resume, retime, people/tags while running, 2 h auto-stop + local notification)

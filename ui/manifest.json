@@ -72,7 +72,6 @@
   "./ui/sigma-useQuery.js",
   "./ui/sigma-useUnsavedGuard.js",
   "./ui/sigma-video.js",
-  "./ui/sigma-visitDrafts.js",
   "./ui/sigma-WorkTimerEditSheet.js",
   "./ui/sigma-WorkTimerStopSheet.js",
   "./ui/sigma.css",
