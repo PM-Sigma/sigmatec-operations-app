@@ -2080,6 +2080,8 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
     padding: 6px 12px; box-shadow: var(--shadow-md);
   }
   .my-tasks-strip ul { max-height: 40vh; overflow-y: auto; margin-top: 4px; }
+  /* room under the page for the collapsed strip (one line) so it never hides the last card */
+  body.sigma-nav-ready.has-my-tasks { padding-bottom: calc(84px + 48px); }
   .my-tasks-toggle {
     display: flex; align-items: center; justify-content: space-between; width: 100%;
     background: none; border: none; font: inherit; color: inherit; padding: 4px 0; cursor: pointer;

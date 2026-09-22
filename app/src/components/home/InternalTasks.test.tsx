@@ -175,6 +175,10 @@ describe('MyInternalTasks', () => {
   it('shows the person\'s own open rows, including company-wide (kibbutz null)', async () => {
     rows.push(row({ id: 'a', owner: 'עידן', kibbutz: null, title: 'לעדכן את המחירון' }));
     render(withClient(<MyInternalTasks person="עידן" canAct={true} />));
+    // Collapsed by default (22.9): the count shows, the list opens on the toggle.
+    await waitFor(() => expect(screen.getByTestId('my-tasks-strip')).toBeTruthy());
+    expect(document.body.classList.contains('has-my-tasks')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: /משימות פנימיות שלי/ }));
     await waitFor(() => expect(screen.getByText('לעדכן את המחירון')).toBeTruthy());
   });
 });

@@ -246,7 +246,9 @@ const MY_TASKS_COLLAPSED_KEY = 'sigma_my_tasks_collapsed_v1';
 
 /** Per-device collapsed state for the "המשימות הפנימיות שלי" strip (Package O §4, 22.9 round 3). */
 function readMyTasksCollapsed(): boolean {
-  try { return localStorage.getItem(MY_TASKS_COLLAPSED_KEY) === '1'; } catch { return false; }
+  // Collapsed by default (עידן 22.9: the open list sat on top of every page's scroll); the
+  // person opens it on purpose and the choice is remembered on the device.
+  try { return localStorage.getItem(MY_TASKS_COLLAPSED_KEY) !== '0'; } catch { return true; }
 }
 function writeMyTasksCollapsed(v: boolean): void {
   try { localStorage.setItem(MY_TASKS_COLLAPSED_KEY, v ? '1' : '0'); } catch { /* private mode */ }
@@ -264,9 +266,15 @@ function writeMyTasksCollapsed(v: boolean): void {
 export function MyInternalTasks({ person, canAct }: { person: string; canAct: boolean }) {
   const { data, isLoading } = useInternalTasks();
   const [collapsed, setCollapsed] = React.useState(readMyTasksCollapsed);
-  if (isLoading && !data) return null;
   const rows = myOpen(data, person);
-  if (!rows.length) return null;
+  const shown = !(isLoading && !data) && rows.length > 0;
+  // The strip floats above the bottom bar, so the page needs room under its last card —
+  // otherwise the strip covers the end of every list (עידן 22.9). css/app.css `.has-my-tasks`.
+  React.useEffect(() => {
+    document.body.classList.toggle('has-my-tasks', shown);
+    return () => { document.body.classList.remove('has-my-tasks'); };
+  }, [shown]);
+  if (!shown) return null;
   const toggle = () => {
     const next = !collapsed;
     setCollapsed(next);
