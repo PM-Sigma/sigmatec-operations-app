@@ -347,30 +347,31 @@
       <button class="inv-tab-btn active" data-inv-tab="orders" onclick="invShowTab('orders')">🧾 הזמנות</button>
       <button class="inv-tab-btn" data-inv-tab="stock" onclick="invShowTab('stock')">🏢 מלאי החברה</button>
       <button class="inv-tab-btn" data-inv-tab="kibbutz" onclick="invShowTab('kibbutz')">🏘 מלאי בקיבוצים</button>
+      <button class="inv-tab-btn" data-inv-tab="certs" onclick="invShowTab('certs')">🚚 תעודות משלוח</button>
       <button class="inv-tab-btn" data-inv-tab="returns" onclick="invShowTab('returns')">🔧 החזרות</button>
       <button class="inv-tab-btn" data-inv-tab="products" onclick="invShowTab('products')">📋 פריטים</button>
-      <button class="inv-tab-btn" data-inv-tab="certs" onclick="invShowTab('certs')">🚚 תעודות משלוח</button>
     </div>
 
     <div class="inv-section" id="inv-section-certs">
       <div class="inv-card">
         <h3>🚚 תעודות משלוח שהופקו</h3>
-        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-          <button type="button" class="btn-quick-date active" data-range="thisMonth" onclick="certSetRange('thisMonth')">📅 חודש נוכחי</button>
-          <button type="button" class="btn-quick-date" data-range="lastMonth" onclick="certSetRange('lastMonth')">⏪ חודש שעבר</button>
-          <button type="button" class="btn-quick-date" data-range="last7" onclick="certSetRange('last7')">📍 7 ימים אחרונים</button>
-          <button type="button" class="btn-quick-date" data-range="last30" onclick="certSetRange('last30')">📍 30 ימים אחרונים</button>
-          <button type="button" class="btn-quick-date" data-range="all" onclick="certSetRange('all')">∞ הכל</button>
+        <div class="sig-grid cert-range-grid" style="grid-template-columns:repeat(5, minmax(0, 1fr));margin-bottom:10px;">
+          <div class="sig-tile btn-quick-date active" data-range="all" onclick="certRangeTap('all')"><div class="nm">∞ הכל</div></div>
+          <div class="sig-tile btn-quick-date" data-range="thisMonth" onclick="certRangeTap('thisMonth')"><div class="nm">📅 חודש נוכחי</div></div>
+          <div class="sig-tile btn-quick-date" data-range="lastMonth" onclick="certRangeTap('lastMonth')"><div class="nm">⏪ חודש שעבר</div></div>
+          <div class="sig-tile btn-quick-date" data-range="last7" onclick="certRangeTap('last7')"><div class="nm">📍 7 ימים</div></div>
+          <div class="sig-tile btn-quick-date" data-range="last30" onclick="certRangeTap('last30')"><div class="nm">📍 30 ימים</div></div>
+        </div>
+        <div class="cert-date-range">
+          <label>מתאריך<input type="date" id="invCertsFrom" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
+          <label>עד<input type="date" id="invCertsTo" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
         </div>
         <div class="inv-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button id="invCertsNew" class="inv-btn success" onclick="openDeliveryCert({source:'manual'})">+ תעודה חדשה</button>
-          <label style="margin:0;font-size:12px;">מתאריך: <input type="date" id="invCertsFrom" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
-          <label style="margin:0;font-size:12px;">עד: <input type="date" id="invCertsTo" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
           <input type="text" id="invCertsSearch" placeholder="🔍 קיבוץ / לקוח / מס' תעודה" style="flex:1;min-width:160px;" oninput="invRenderCerts(true)">
           <button class="inv-btn small" onclick="invRenderCerts(true)">🔄 רענן</button>
-          <button class="inv-btn small" style="background:#0e7490;" onclick="certMonthlyFromTab()" title="טבלת סיכום לפי קיבוץ: מה נופק וכמה מכל פריט">📄 סיכום חודשי</button>
+          <button class="inv-btn small" style="background:#0e7490;" onclick="certMonthlyFromTab()" title="דוח לפי קיבוץ בטווח שסונן כרגע: מה נופק וכמה מכל פריט">📄 סיכום תקופתי</button>
           <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertsFromTab()" title="כל התעודות בטווח, שורה לכל פריט">📗 Excel</button>
-          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertSummaryFromTab()" title="סיכום כמויות לפי קיבוץ ופריט">📗 סיכום Excel</button>
         </div>
         <div id="invCertsList"></div>
       </div>
