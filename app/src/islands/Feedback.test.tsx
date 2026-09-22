@@ -80,6 +80,10 @@ beforeEach(() => {
   caps.speechRecognition = false;
   caps.mediaRecorder = true;
   caps.forceOffLive = false;
+  // The localStorage draft (round 2, Package D item 1) must never leak between tests — a
+  // draft left over from one test would auto-load into the NEXT test's empty sheet and quietly
+  // change its dirty-state / starting text.
+  try { window.localStorage.clear(); } catch { /* n/a in this env */ }
   for (const fn of Object.values(sonner)) (fn as any).mockClear();
   speech.startLive.mockReset();
   speech.startRecording.mockReset();
@@ -364,5 +368,93 @@ describe('Feedback sheet — one microphone, always', () => {
 
     expect(screen.getByText('מקליט…')).toBeTruthy();          // still recording, not failed
     expect(sonner.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('the draft (round 2, Package D item 1)', () => {
+  beforeEach(() => { window.localStorage.clear(); });
+
+  it('does not crash on closing the sheet, and the draft comes back on reopen', async () => {
+    vi.useFakeTimers();
+    render(<Feedback />);
+    act(() => openFeedback());
+    type('לא לאבד את זה כשסוגרים');
+    // Flush the 500 ms debounce that writes the draft to localStorage.
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+
+    // Close via the X — no confirmation is expected (the draft survives regardless), and this
+    // must never throw (the reported crash).
+    const closeBtn = screen.getByText('Close').closest('button')!;
+    expect(() => fireEvent.click(closeBtn)).not.toThrow();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    vi.useRealTimers();
+    expect(screen.queryByText('📣 תיבת רעיונות ובאגים')).toBeNull();
+
+    // A brand-new sheet instance (simulating a reload) reads the same localStorage draft back.
+    cleanup();
+    render(<Feedback />);
+    act(() => openFeedback());
+    expect((screen.getByPlaceholderText('מה קרה / מה היה עוזר לך?') as HTMLTextAreaElement).value)
+      .toBe('לא לאבד את זה כשסוגרים');
+  });
+
+  it('a successful send clears the draft — nothing comes back on the next open', async () => {
+    vi.useFakeTimers();
+    mockSigma.role = 'viewer';
+    render(<Feedback />);
+    act(() => openFeedback());
+    type('נשלח ולא אמור לחזור');
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+    expect(window.localStorage.getItem('sigma-feedback-draft')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('שלח'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    vi.useRealTimers();
+    await waitFor(() => expect(inserted).toHaveLength(1));
+    expect(window.localStorage.getItem('sigma-feedback-draft')).toBeNull();
+
+    cleanup();
+    render(<Feedback />);
+    act(() => openFeedback());
+    expect((screen.getByPlaceholderText('מה קרה / מה היה עוזר לך?') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('a real crash card prefill is never clobbered by a stale draft', async () => {
+    window.localStorage.setItem('sigma-feedback-draft', JSON.stringify({
+      kind: 'idea', text: 'טיוטה ישנה', anon: false, savedAt: '2026-01-01T00:00:00Z',
+    }));
+    render(<Feedback />);
+    act(() => openFeedback('bug', 'שגיאה: X — דווח אוטומטי'));
+    expect((screen.getByPlaceholderText('מה קרה / מה היה עוזר לך?') as HTMLTextAreaElement).value)
+      .toBe('שגיאה: X — דווח אוטומטי');
+  });
+
+  it('a corrupt draft in localStorage is ignored, not thrown', async () => {
+    window.localStorage.setItem('sigma-feedback-draft', '{not json');
+    expect(() => { render(<Feedback />); act(() => openFeedback()); }).not.toThrow();
+    expect((screen.getByPlaceholderText('מה קרה / מה היה עוזר לך?') as HTMLTextAreaElement).value).toBe('');
+  });
+});
+
+describe('the voice UI (round 2, Package D item 2)', () => {
+  it('shows ONE mic button labelled 🎤 דיבור לטקסט — no separate record affordance', () => {
+    render(<Feedback />);
+    act(() => openFeedback());
+    expect(screen.getByText('🎤 דיבור לטקסט')).toBeTruthy();
+    // The old always-on waveform is gone entirely.
+    expect(document.querySelector('[aria-hidden] > i')).toBeNull();
+  });
+});
+
+describe('the anonymous switch RTL thumb (round 2, Package D item 3)', () => {
+  it('moves the thumb toward the START (left) when checked — not the LTR default direction', () => {
+    render(<Feedback />);
+    act(() => openFeedback());
+    const sw = screen.getByRole('switch', { name: 'שלח אנונימי' });
+    const thumb = sw.querySelector('span') as HTMLElement;
+    expect(thumb.className).not.toMatch(/data-\[state=checked\]:translate-x-5(?!\])/);
+    fireEvent.click(sw);
+    expect(sw.getAttribute('data-state')).toBe('checked');
+    expect(thumb.className).toContain('-translate-x-5');
   });
 });

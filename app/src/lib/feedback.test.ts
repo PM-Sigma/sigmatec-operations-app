@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   FEEDBACK_MIN, KIND_LABEL, KIND_PUSH_TITLE, LIVE_NO_RESULT_MS, RECORD_CAP_MS,
-  canSeeFeedbackInbox, canSubmitFeedback, feedbackPreview, feedbackRow, feedbackValidate,
-  issueBody, issueTitle, speechLadder, type FeedbackKind,
+  canSeeFeedbackInbox, canSubmitFeedback, feedbackDraftPayload, feedbackDraftWorthSaving,
+  feedbackPreview, feedbackRow, feedbackValidate,
+  issueBody, issueTitle, parseFeedbackDraft, speechLadder, type FeedbackKind,
 } from './feedback';
 
 describe('feedbackValidate', () => {
@@ -210,6 +211,39 @@ describe('speechLadder', () => {
 
   it('caps a recording at 3 minutes', () => {
     expect(RECORD_CAP_MS).toBe(180_000);
+  });
+});
+
+describe('the draft (round 2, Package D item 1 — closing the sheet must not lose the text)', () => {
+  it('builds the stored shape', () => {
+    expect(feedbackDraftPayload({ kind: 'bug', text: 'הכרטיס נתקע', anon: true }, '2026-09-22T10:00:00Z')).toEqual({
+      kind: 'bug', text: 'הכרטיס נתקע', anon: true, savedAt: '2026-09-22T10:00:00Z',
+    });
+  });
+
+  it('is worth saving only when there is real text', () => {
+    expect(feedbackDraftWorthSaving('   ')).toBe(false);
+    expect(feedbackDraftWorthSaving('')).toBe(false);
+    expect(feedbackDraftWorthSaving('משהו')).toBe(true);
+  });
+
+  it('round-trips through JSON', () => {
+    const payload = feedbackDraftPayload({ kind: 'idea', text: 'רעיון טוב', anon: false }, '2026-09-22T09:00:00Z');
+    expect(parseFeedbackDraft(JSON.stringify(payload))).toEqual(payload);
+  });
+
+  it('treats anything malformed as no draft, never throws', () => {
+    expect(parseFeedbackDraft(null)).toBeNull();
+    expect(parseFeedbackDraft('not json')).toBeNull();
+    expect(parseFeedbackDraft('{}')).toBeNull();
+    expect(parseFeedbackDraft(JSON.stringify({ kind: 'complaint', text: 'x' }))).toBeNull();   // dead kind
+    expect(parseFeedbackDraft(JSON.stringify({ kind: 'idea', text: '   ' }))).toBeNull();       // blank text
+    expect(parseFeedbackDraft(JSON.stringify({ kind: 'idea' }))).toBeNull();                    // missing text
+    expect(parseFeedbackDraft('42')).toBeNull();
+  });
+
+  it('defaults a missing/invalid `anon` to false rather than throwing', () => {
+    expect(parseFeedbackDraft(JSON.stringify({ kind: 'idea', text: 'x' }))?.anon).toBe(false);
   });
 });
 

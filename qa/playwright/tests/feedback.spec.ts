@@ -15,7 +15,7 @@ test('feedback: the sheet, its two kinds and the anonymous switch', async ({ pag
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   await openSheet(page);
-  await expect(page.getByText('מגיע לעידן ולעמיחי')).toBeVisible();
+  await expect(page.getByText('אפשר להקליד או לדבר')).toBeVisible();
 
   for (const label of ['💡 רעיון', '🐞 באג / שיפור']) {
     await expect(page.getByRole('radio', { name: label })).toBeVisible();
@@ -91,6 +91,33 @@ test('feedback: a REFUSED microphone gets the permission wording', async ({ page
   await expect(page.getByText('אין הרשאה למיקרופון. אפשר להקליד')).toBeVisible();
   await expect(page.getByPlaceholder('מה קרה / מה היה עוזר לך?')).toBeEditable();
   await shot(page, ti, 'mic-denied');
+
+  expectNoConsoleErrors(rec);
+});
+
+// Round 2, Package D item 1: closing the sheet used to lose whatever was typed. Closing via
+// the X must never throw, and a page reload (simulating a crash / navigation away) must bring
+// the text back — the localStorage draft, not the in-memory state, is what is under test here.
+test('feedback: closing the sheet does not lose the text — a draft survives a reload', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+
+  await openSheet(page);
+  const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
+  await box.fill('לא לאבד את זה כשסוגרים את התיבה');
+
+  // The X close button — no confirmation dialog is expected here, and no crash card either.
+  await page.locator('button:has-text("Close")').click();
+  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeHidden();
+  await expect(page.getByTestId('crash-card')).toHaveCount(0);
+
+  // Give the debounced draft-save time to land, then reload — a fresh page load is the
+  // scenario the draft actually protects against (in-memory state alone survives a bare close).
+  await page.waitForTimeout(700);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#sigma-home .kibbutz');
+
+  await openSheet(page);
+  await expect(page.getByPlaceholder('מה קרה / מה היה עוזר לך?')).toHaveValue('לא לאבד את זה כשסוגרים את התיבה');
 
   expectNoConsoleErrors(rec);
 });

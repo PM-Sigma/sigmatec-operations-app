@@ -8,7 +8,6 @@
 // errors — and when 3 s of listening produced nothing (Android on a weak signal looks exactly
 // like iOS Safari from here, and both are better served by the server path than by a spinner).
 import * as React from 'react';
-import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Loader2, Mic, Square } from 'lucide-react';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
@@ -24,9 +23,11 @@ import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import {
+  FEEDBACK_DRAFT_KEY,
   KINDS, KIND_LABEL, LIVE_NO_RESULT_MS, MIC_START_TIMEOUT_MS, RECORD_CAP_MS,
-  canSubmitFeedback, feedbackPreview,
-  feedbackRow, feedbackValidate, refineMerge, refinePollDelayMs, refinePollDeadlineMs, voiceIdle, voiceNext,
+  canSubmitFeedback, feedbackDraftPayload, feedbackDraftWorthSaving, feedbackPreview,
+  feedbackRow, feedbackValidate, parseFeedbackDraft, refineMerge, refinePollDelayMs, refinePollDeadlineMs,
+  voiceIdle, voiceNext,
   type FeedbackKind, type FeedbackRow, type RefineFieldState, type VoiceEvent, type VoicePhase,
 } from '@/lib/feedback';
 import {
@@ -94,32 +95,18 @@ export async function sendFeedback(row: FeedbackRow): Promise<{ id: string }> {
   return saved || { id: '' };
 }
 
-// ───────────────────────────── the waveform ─────────────────────────────
-
-const BARS = 12;
-
-/** The mockup's 12-bar waveform. `level` (0..1) is the live mic signal; reduced motion → static. */
-function Waveform({ level, active }: { level: number; active: boolean }) {
-  const reduce = useReducedMotion();
-  return (
-    <div className="flex h-8 flex-1 items-center gap-[3px]" aria-hidden>
-      {Array.from({ length: BARS }, (_, i) => {
-        // A fixed per-bar profile times the live level — the bars differ from each other
-        // without re-randomising on every render (which reads as noise, not as a voice).
-        const profile = 0.35 + 0.65 * Math.abs(Math.sin((i + 1) * 1.7));
-        const h = active ? Math.max(0.12, Math.min(1, level * profile * 1.6)) : 0.12;
-        return (
-          <motion.i
-            key={i}
-            className="block w-[3px] rounded-full bg-brand-grad"
-            style={{ height: '100%', originY: 0.5 }}
-            animate={{ scaleY: h }}
-            transition={reduce ? { duration: 0 } : { duration: 0.12, ease: 'easeOut' }}
-          />
-        );
-      })}
-    </div>
-  );
+// ───────────────────────────── the draft store ─────────────────────────────
+// Thin, defensive wrappers — a private tab, a full quota or `?sb=0` in a locked-down webview
+// can all throw on a plain `localStorage.setItem`, and a draft save must never be the thing
+// that crashes the sheet it exists to protect.
+function safeStorageGet(key: string): string | null {
+  try { return window.localStorage.getItem(key); } catch { return null; }
+}
+function safeStorageSet(key: string, value: string): void {
+  try { window.localStorage.setItem(key, value); } catch { /* quota / private mode */ }
+}
+function safeStorageRemove(key: string): void {
+  try { window.localStorage.removeItem(key); } catch { /* nothing to clear */ }
 }
 
 const mmss = (ms: number) => {
@@ -145,7 +132,6 @@ function FeedbackSheet() {
   const [interim, setInterim] = React.useState('');
   const [anon, setAnon] = React.useState(false);
   const [phase, setPhase] = React.useState<VoicePhase>('idle');
-  const [level, setLevel] = React.useState(0);
   const [elapsed, setElapsed] = React.useState(0);
   const [sending, setSending] = React.useState(false);
   const [audioPath, setAudioPath] = React.useState<string | null>(null);
@@ -167,6 +153,13 @@ function FeedbackSheet() {
   // a value captured in the tick's own closure would be stale the moment the user typed a key.
   const textRef = React.useRef('');
   React.useEffect(() => { textRef.current = text; }, [text]);
+  // The draft flush on close (below) reads these — a ref, not the `kind`/`anon` state
+  // themselves, because the callback that flushes is memoized once and would otherwise close
+  // over whatever `kind`/`anon` were on the render that created it.
+  const kindRef = React.useRef<FeedbackKind>('idea');
+  const anonRef = React.useRef(false);
+  React.useEffect(() => { kindRef.current = kind; }, [kind]);
+  React.useEffect(() => { anonRef.current = anon; }, [anon]);
 
   const caps = React.useMemo(() => speechCaps(), []);
   const live = React.useRef<{ stop: () => void } | null>(null);
@@ -187,7 +180,20 @@ function FeedbackSheet() {
       if (k) setKind(k);
       // The crash card (js/src/00-guard.js sigmaCrash) hands the error + the last actions in as
       // the bug's text; a box the person already typed into is never overwritten.
-      if (prefill) setText(prev => (prev.trim() ? prev : prefill));
+      if (prefill) {
+        setText(prev => (prev.trim() ? prev : prefill));
+      } else {
+        // Round 2, Package D item 1: closing the sheet (the X, a backdrop tap, a crash, a
+        // reload mid-draft) must never lose what was typed or dictated. The draft is loaded
+        // ONLY when there is nothing already in the box — a live in-memory draft (the sheet
+        // reopened without a page reload) always wins over the stored one.
+        setText(prevText => {
+          if (prevText.trim()) return prevText;
+          const draft = parseFeedbackDraft(safeStorageGet(FEEDBACK_DRAFT_KEY));
+          if (draft) { setKind(draft.kind); setAnon(draft.anon); }
+          return draft?.text ?? prevText;
+        });
+      }
       setOpen(true);
     };
     opener = open;
@@ -242,14 +248,14 @@ function FeedbackSheet() {
     switch (step.action) {
       case 'stop-all':
         stopLive(); dropRecorder();
-        setInterim(''); setLevel(0); setElapsed(0);
+        setInterim(''); setElapsed(0);
         break;
 
       case 'cancel-record':
         // Either the user changed their mind while getUserMedia was resolving, or the session
         // has just arrived for a leg we already left. Both must release the microphone.
         dropRecorder();
-        setLevel(0); setElapsed(0);
+        setElapsed(0);
         break;
 
       case 'start-live':
@@ -302,7 +308,6 @@ function FeedbackSheet() {
     // 'record-ready', which clears it); if neither happens the watchdog fires.
     micStart.current = window.setTimeout(() => dispatch('start-timeout'), MIC_START_TIMEOUT_MS);
     void startRecording({
-      onLevel: setLevel,
       onTick: setElapsed,
       onCap: () => dispatch('record-cap'),
       onError: k => dispatch(k === 'denied' ? 'record-denied' : 'record-error'),
@@ -345,7 +350,6 @@ function FeedbackSheet() {
     rec.current = null;
     if (!session) { dispatch('transcribed'); return; }
     void session.stop().then(async audio => {
-      setLevel(0);
       if (!audio || audio.ms < 600) { toast.info('ההקלטה קצרה מדי'); dispatch('transcribed'); return; }
       const ok = await transcribeAudio(audio);
       // Either way the machine leaves the recording leg — the retry is a plain button on the
@@ -394,11 +398,50 @@ function FeedbackSheet() {
     setRefineChip(false);
   };
 
+  // Save (or clear) the draft RIGHT NOW, from the refs — never from `kind`/`anon`/`text`
+  // state directly, since this is called from callbacks that must not close over a stale
+  // render. Used both by the debounce below and by the guaranteed flush on close.
+  const flushDraft = React.useCallback(() => {
+    if (feedbackDraftWorthSaving(textRef.current)) {
+      safeStorageSet(FEEDBACK_DRAFT_KEY, JSON.stringify(
+        feedbackDraftPayload({ kind: kindRef.current, text: textRef.current, anon: anonRef.current }, new Date().toISOString())));
+    } else {
+      safeStorageRemove(FEEDBACK_DRAFT_KEY);
+    }
+  }, []);
+
   // Leaving the sheet — or the page — with a hot microphone is the one thing that must never
   // happen, so 'close' is dispatched from both the unmount and the open→closed transition. The
   // refine poll loop gets the same treatment (spec §7i: "stop … when the field is closed").
-  React.useEffect(() => () => { dispatch('close'); stopRefinePoll(); }, [dispatch]);
-  React.useEffect(() => { if (!open) { dispatch('close'); stopRefinePoll(); } }, [open, dispatch]);
+  // The draft gets a GUARANTEED flush here too (round 2, Package D item 1): closing fast right
+  // after typing used to race the debounce below — the effect that owns the pending timer
+  // re-runs on `open` flipping to false and cancels it before it ever fires, so the half-second
+  // of "unsaved" window was actually every close. Flushing synchronously on the way out closes
+  // that gap outright. Every step is wrapped: a teardown that throws must never surface as an
+  // uncaught error (Package D item 1 — "closing the sheet crashes").
+  const safeCloseTeardown = React.useCallback(() => {
+    try { dispatch('close'); } catch { /* teardown must never throw */ }
+    try { stopRefinePoll(); } catch { /* ditto */ }
+    try { flushDraft(); } catch { /* ditto */ }
+  }, [dispatch, flushDraft]);
+  React.useEffect(() => () => safeCloseTeardown(), [safeCloseTeardown]);
+  // Only a real open→closed TRANSITION runs the teardown here — `open` starts `false` on
+  // first mount, and firing on that initial render flushed an EMPTY textRef and wiped out
+  // any draft from a previous session before `openFeedback()` ever got to read it back.
+  const wasOpen = React.useRef(false);
+  React.useEffect(() => {
+    if (wasOpen.current && !open) safeCloseTeardown();
+    wasOpen.current = open;
+  }, [open, safeCloseTeardown]);
+
+  // The background debounce: while the sheet is OPEN, a half-second after the last
+  // keystroke/dictated word, so a tab kill or an OS-level crash (nothing left to run the
+  // guaranteed close-flush above) still only costs that half second.
+  React.useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(flushDraft, 500);
+    return () => window.clearTimeout(id);
+  }, [open, kind, text, anon, flushDraft]);
 
   const reset = () => {
     setText(''); setInterim(''); setKind('idea'); setAnon(false);
@@ -407,6 +450,7 @@ function FeedbackSheet() {
     fieldState.current = 'untouched';
     undoText.current = null;
     setRefineChip(false);
+    safeStorageRemove(FEEDBACK_DRAFT_KEY);
   };
 
   const micTap = () => dispatch('mic-tap');
@@ -449,7 +493,7 @@ function FeedbackSheet() {
         <SheetHeader>
           <SheetTitle>📣 תיבת רעיונות ובאגים</SheetTitle>
           <SheetDescription>
-            מגיע לעידן ולעמיחי. אפשר להקליד או ללחוץ על המיקרופון.
+            אפשר להקליד או לדבר.
             {isViewer ? ' גם בצפייה אפשר לשלוח.' : ''}
           </SheetDescription>
         </SheetHeader>
@@ -536,22 +580,27 @@ function FeedbackSheet() {
           </div>
         )}
 
+        {/* ONE voice button, not a record-vs-live pair — the ladder (speechLadder in feedback.ts)
+            picks Web Speech whenever it exists and drops to record→upload→transcribe only as
+            the fallback, so the person never chooses between them (round 2, Package D item 2). */}
         <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-muted/50 p-2">
           <button
             type="button"
             onClick={micTap}
             disabled={busy}
             aria-label={voiceActive ? 'עצור הקלטה' : 'הקלט'}
-            className={'grid h-11 w-11 shrink-0 place-items-center rounded-full text-white disabled:opacity-50 '
+            className={'flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg text-[14px] font-bold text-white disabled:opacity-50 '
               + (voiceActive ? 'bg-destructive' : 'bg-brand-grad')}
           >
-            {busy ? <Loader2 className="h-5 w-5 animate-spin" />
-              : voiceActive ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              : voiceActive ? <Square className="h-4 w-4" aria-hidden /> : <Mic className="h-4 w-4" aria-hidden />}
+            <span>{voiceActive ? 'עצור' : '🎤 דיבור לטקסט'}</span>
           </button>
-          <Waveform level={level} active={voiceActive} />
-          <span className="w-[42px] text-end text-[13px] font-bold tabular-nums text-muted-foreground">
-            <bdi>{mmss(phase === 'recording' ? elapsed : 0)}</bdi>
-          </span>
+          {phase === 'recording' && (
+            <span className="w-[42px] text-end text-[13px] font-bold tabular-nums text-muted-foreground">
+              <bdi>{mmss(elapsed)}</bdi>
+            </span>
+          )}
         </div>
 
         <label className="mt-3 flex items-center gap-2 text-[14px] font-semibold">

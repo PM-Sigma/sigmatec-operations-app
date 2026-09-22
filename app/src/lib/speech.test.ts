@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { audioExt, audioObjectPath, forceOffLive, pickAudioMime, speechCaps } from './speech';
+import {
+  audioExt, audioObjectPath, forceOffLive, parseRecognitionEvent, pickAudioMime, speechCaps,
+  type RecognitionEventLike,
+} from './speech';
+
+/** A fake SpeechRecognition result, shaped exactly like the browser's. */
+const result = (transcript: string, isFinal: boolean) => ({ isFinal, 0: { transcript } });
+const event = (resultIndex: number, results: ReturnType<typeof result>[]): RecognitionEventLike =>
+  ({ resultIndex, results });
 
 describe('forceOffLive (?speech=0)', () => {
   it('is on for ?speech=0 — the smoke path that simulates iOS', () => {
@@ -48,6 +56,60 @@ describe('audioExt / audioObjectPath', () => {
 
   it('builds a flat object path in the bucket', () => {
     expect(audioObjectPath('abc-123', 'audio/mp4')).toBe('abc-123.m4a');
+  });
+});
+
+describe('parseRecognitionEvent — interim REPLACES, final APPENDS (round 2, Package D item 2)', () => {
+  // Reproduces the reported bug: "זו זו זו בדיקה" — a live transcript that kept growing with
+  // repeated words because a stale interim segment from an earlier event lingered instead of
+  // being replaced by the current one. This sequence mirrors real continuous-recognition
+  // events: the interim guess is re-sent whole on every tick (not just the new word), and a
+  // browser occasionally re-announces an already-finalised result at the START of a later
+  // event's `results` array while still giving the correct `resultIndex` for what is NEW.
+  it('never lets an old interim survive into a newer event — only the CURRENT interim shows', () => {
+    // Tick 1: "זו" is still being recognised.
+    let e = event(0, [result('זו', false)]);
+    expect(parseRecognitionEvent(e)).toEqual({ finals: [], interim: 'זו' });
+
+    // Tick 2: recognition revised its guess to "זו זו" (still interim) — replaces, not appends.
+    e = event(0, [result('זו זו', false)]);
+    expect(parseRecognitionEvent(e)).toEqual({ finals: [], interim: 'זו זו' });
+
+    // Tick 3: "זו" finalises (index 0 changed → resultIndex 0); a NEW interim ("בדיקה")
+    // starts right after it in the same event. The caller must see exactly one final chunk
+    // and one fresh interim — never the old interim text glued onto it.
+    e = event(0, [result('זו', true), result('בדיקה', false)]);
+    expect(parseRecognitionEvent(e)).toEqual({ finals: ['זו'], interim: 'בדיקה' });
+
+    // Tick 4: "בדיקה" finalises too — only index 1 changed, so resultIndex is 1 and the
+    // already-reported "זו" at index 0 is never re-walked. Simulating the assembling caller
+    // (append-on-final, replace-on-interim, exactly like the island does) must land on
+    // "זו בדיקה" — never the duplicated "זו זו זו בדיקה זו בדיקה" the bug report described.
+    e = event(1, [result('זו', true), result('בדיקה', true)]);
+    expect(parseRecognitionEvent(e)).toEqual({ finals: ['בדיקה'], interim: '' });
+
+    let text = '';
+    let interim = '';
+    const append = (t: string) => { text = (text ? text + ' ' : '') + t; };
+    for (const ev of [
+      event(0, [result('זו', false)]),
+      event(0, [result('זו זו', false)]),
+      event(0, [result('זו', true), result('בדיקה', false)]),
+      event(1, [result('זו', true), result('בדיקה', true)]),
+    ]) {
+      const { finals, interim: i } = parseRecognitionEvent(ev);
+      for (const f of finals) append(f);
+      interim = i;
+    }
+    expect(text).toBe('זו בדיקה');
+    expect(interim).toBe('');
+  });
+
+  it('never re-emits an already-finalised result as a later final (no double-append)', () => {
+    const e1 = event(0, [result('בדיקה ראשונה', true)]);
+    const e2 = event(1, [result('בדיקה ראשונה', true), result('עוד משפט', true)]); // resultIndex=1 → only the NEW one
+    expect(parseRecognitionEvent(e1).finals).toEqual(['בדיקה ראשונה']);
+    expect(parseRecognitionEvent(e2).finals).toEqual(['עוד משפט']);
   });
 });
 

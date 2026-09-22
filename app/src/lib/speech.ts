@@ -69,6 +69,32 @@ export interface LiveHandlers {
 
 export interface LiveSession { stop: () => void }
 
+/** The bits of a SpeechRecognition result event this module actually reads — shaped so a
+ * fake event object (a plain array of `{isFinal, 0:{transcript}}`) is enough to test with,
+ * no real `SpeechRecognitionEvent` required. */
+export interface RecognitionResultLike { isFinal: boolean; 0: { transcript: string } }
+export interface RecognitionEventLike { resultIndex: number; results: ArrayLike<RecognitionResultLike> }
+
+/**
+ * Pure: turn one `onresult` event into the finalised chunks (in order) and the CURRENT
+ * interim guess. `resultIndex` is the first result this event changed — everything before it
+ * was already reported by an earlier event and must not be re-emitted, which is what makes
+ * this a REPLACE for interim rather than an append (round 2, Package D item 2: the live
+ * transcript used to duplicate — "זו זו זו בדיקה" — because a stale interim segment from a
+ * previous event lingered instead of being replaced by this one).
+ */
+export function parseRecognitionEvent(e: RecognitionEventLike): { finals: string[]; interim: string } {
+  const finals: string[] = [];
+  let interim = '';
+  for (let i = e.resultIndex; i < e.results.length; i++) {
+    const r = e.results[i];
+    const txt = String(r[0]?.transcript || '');
+    if (r.isFinal) finals.push(txt.trim());
+    else interim += txt;             // still ONE event's worth — never carried over from the last
+  }
+  return { finals, interim: interim.trim() };
+}
+
 /**
  * Start live he-IL recognition. Returns null when the API is absent, so the caller can fall
  * through to `startRecording` without duplicating the capability check.
@@ -83,13 +109,11 @@ export function startLive(h: LiveHandlers): LiveSession | null {
   rec.continuous = true;
   rec.interimResults = true;
   rec.onresult = (e: any) => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const r = e.results[i];
-      const txt = String(r[0]?.transcript || '');
-      if (r.isFinal) h.onFinal(txt.trim()); else interim += txt;
-    }
-    h.onInterim(interim.trim());
+    const { finals, interim } = parseRecognitionEvent(e);
+    // Finals append (each ONCE, in order); interim REPLACES whatever was showing — never both
+    // acting on the same chunk, which is exactly how the duplication happened before.
+    for (const f of finals) if (f) h.onFinal(f);
+    h.onInterim(interim);
   };
   rec.onerror = (e: any) => {
     const err = String(e?.error || '');
@@ -113,8 +137,6 @@ export function startLive(h: LiveHandlers): LiveSession | null {
 // ───────────────────────────── record → transcribe ─────────────────────────────
 
 export interface RecordHandlers {
-  /** 0..1, ~20×/s — drives the Motion waveform. */
-  onLevel?: (level: number) => void;
   /** Elapsed milliseconds, ~5×/s — drives the 0:42 timer. */
   onTick?: (ms: number) => void;
   /** The cap was reached; the recording stopped by itself. */
@@ -154,35 +176,14 @@ export async function startRecording(h: RecordHandlers): Promise<RecordSession |
   const started = Date.now();
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
 
-  // Level metering for the waveform. Best-effort: a browser without WebAudio still records,
-  // the bars just animate on the timer instead of on the real signal.
-  let audioCtx: any = null, raf = 0;
-  if (h.onLevel) {
-    try {
-      const Ctx = w.AudioContext || w.webkitAudioContext;
-      audioCtx = new Ctx();
-      const src = audioCtx.createMediaStreamSource(stream);
-      const an = audioCtx.createAnalyser();
-      an.fftSize = 512;
-      src.connect(an);
-      const buf = new Uint8Array(an.frequencyBinCount);
-      const loop = () => {
-        an.getByteTimeDomainData(buf);
-        let sum = 0;
-        for (const v of buf) { const d = (v - 128) / 128; sum += d * d; }
-        h.onLevel!(Math.min(1, Math.sqrt(sum / buf.length) * 3));
-        raf = requestAnimationFrame(loop);
-      };
-      raf = requestAnimationFrame(loop);
-    } catch { audioCtx = null; }
-  }
-
+  // No level metering here on purpose (round 2, Package D item 2): the waveform it used to
+  // drive animated on the RECORD leg only and sat flat at 0 on the far more common LIVE leg
+  // (Web Speech gives no signal level at all) — a meter that mostly does nothing is worse
+  // than none. The 0:42 elapsed timer below is the recording's only visible feedback now.
   const tick = h.onTick ? setInterval(() => h.onTick!(Date.now() - started), 200) : 0;
 
   const teardown = () => {
     if (tick) clearInterval(tick);
-    if (raf) cancelAnimationFrame(raf);
-    if (audioCtx) { try { audioCtx.close(); } catch { /* closed */ } }
     for (const t of stream.getTracks()) { try { t.stop(); } catch { /* gone */ } }
   };
 
