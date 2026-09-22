@@ -369,12 +369,31 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         return route.fulfill(json(shape(rows, accept), 201));
       }
       // work_sessions / site_contacts (Task 29) accept their inserts and remember them.
+      // ⏱ 22.9: the row is OPENED by ▶ and CLOSED by ■, so the store has to take a PATCH and a
+      // DELETE as well — a fixture that only accepted the insert would let a regression back to
+      // "the row appears at ■" pass, and that regression is exactly what breaks the server push.
       if (tableOf(url) === 'work_sessions' && method === 'POST') {
         let body: any = {};
         try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'ws-' + (workSessions.length + i + 1), created_at: new Date().toISOString(), ...r }));
         workSessions.push(...rows);
         return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'work_sessions' && method === 'PATCH') {
+        const q = new URL(url).searchParams;
+        const id = decodeURIComponent((q.get('id') || '').replace(/^eq\./, ''));
+        let body: any = {};
+        try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = workSessions.find(r => String(r.id) === id);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
+      if (tableOf(url) === 'work_sessions' && method === 'DELETE') {
+        const q = new URL(url).searchParams;
+        const id = decodeURIComponent((q.get('id') || '').replace(/^eq\./, ''));
+        const at = workSessions.findIndex(r => String(r.id) === id);
+        const gone = at >= 0 ? workSessions.splice(at, 1) : [];
+        return route.fulfill(json(shape(gone, accept)));
       }
       if (tableOf(url) === 'site_contacts' && method === 'POST') {
         let body: any = {};

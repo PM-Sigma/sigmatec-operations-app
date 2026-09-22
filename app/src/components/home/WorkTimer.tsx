@@ -11,6 +11,11 @@
 // through the `clockify` edge function — the only holder of the credentials — and the
 // `work_sessions` row is written.
 //
+// ▶ ALSO OPENS the `work_sessions` row (עידן 22.9), with `ended_at = null`. That is what makes
+// the two-hour "עדכן את השעון" notice reachable with the phone CLOSED: push-send's `timerStale`
+// cron reads the open row from Supabase and pushes (db/cron_timer_5min.sql). The in-app
+// auto-stop below is unchanged — it is the fast path for a screen that happens to be open.
+//
 // THE failure rule (spec §8b): if Clockify fails, the row is STILL written with
 // `clockify_id = null`. Hours are never lost because a third-party API blinked; the entry is
 // pushed on a later quiet retry. Every save ends with `work-session-saved` on the bus
@@ -24,6 +29,10 @@ import {
   autoStop, autoStopDue, canTrackTime, clearRunning, elapsedFor, formatElapsed, loadRunning, saveRunning, startBlockedBy,
   type RunningSession,
 } from '@/lib/clockify';
+import { dropSessionRow, openSessionRow } from '@/components/home/workTimerApi';
+
+/** `?pushact=timer&kibbutz=…` — the notification's one tap (js/src/22-push.js). */
+export const OPEN_TIMER_EVENT = 'sigma-open-timer';
 
 /** The bus event every saved session emits (docs/integration-map.md). */
 export { WORK_SESSION_SAVED } from '@/components/home/workTimerEvents';
@@ -84,6 +93,22 @@ export function WorkTimer({ kibbutz }: { kibbutz: string }) {
     return () => clearInterval(id);
   }, [mine?.started_at, mine?.paused_at, kibbutz, user]);
 
+  // ⏱ the notification's one tap (?pushact=timer&kibbutz=…). The card whose timer is running
+  // opens ITS sheet; every other card ignores the event.
+  React.useEffect(() => {
+    if (!allowed) return;
+    const onOpen = (e: Event) => {
+      const want = String((e as CustomEvent)?.detail?.kibbutz || '').trim();
+      if (want && want !== kibbutz) return;
+      const cur = loadRunning(user);
+      if (!cur || cur.kibbutz !== kibbutz) return;
+      setRunning(cur);
+      setEdit(true);
+    };
+    window.addEventListener(OPEN_TIMER_EVENT, onOpen as EventListener);
+    return () => window.removeEventListener(OPEN_TIMER_EVENT, onOpen as EventListener);
+  }, [allowed, kibbutz, user]);
+
   if (!allowed) return null;
 
   const start = () => {
@@ -99,6 +124,17 @@ export function WorkTimer({ kibbutz }: { kibbutz: string }) {
     setRunning(s);
     setNowTs(Date.now());
     track('clockify_start', kibbutz);
+    // …and the row, so the reminder can reach him with the phone closed. Best effort, off the
+    // critical path: the clock is already ticking whether or not this lands.
+    void openSessionRow(s.person, s.kibbutz, s.started_at).then(id => {
+      if (!id) return;
+      const cur = loadRunning(user);
+      // Still the same session? (he may have dropped it in the meantime)
+      if (!cur || cur.started_at !== s.started_at || cur.kibbutz !== s.kibbutz) return;
+      const withRow = { ...cur, row_id: id };
+      saveRunning(withRow);
+      setRunning(withRow);
+    });
   };
 
   return (
@@ -124,7 +160,12 @@ export function WorkTimer({ kibbutz }: { kibbutz: string }) {
           running={mine}
           onChange={s => { setRunning(s); setNowTs(Date.now()); }}
           onStop={() => { setEdit(false); setSheet(true); }}
-          onDrop={() => { clearRunning(user); setRunning(null); setEdit(false); track('clockify_drop', kibbutz); toast.info('התזמון נמחק'); }}
+          onDrop={() => {
+            // The row goes with the session — an open row nobody ever closes would keep being
+            // nudged by the cron for a timer he deliberately threw away.
+            if (mine.row_id) void dropSessionRow(mine.row_id);
+            clearRunning(user); setRunning(null); setEdit(false); track('clockify_drop', kibbutz); toast.info('התזמון נמחק');
+          }}
           onClose={() => setEdit(false)}
         />
         </React.Suspense>

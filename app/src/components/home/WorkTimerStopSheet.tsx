@@ -89,15 +89,25 @@ export default function StopSheet({
       clockifyId = String(d?.entry?.id || '') || null;
     } catch { clockifyId = null; }
 
-    // 2) the row — the source of truth.
+    // 2) the row — the source of truth. It has existed since ▶ (22.9), with `ended_at = null`,
+    //    so the server could remind him about it; ■ CLOSES that row rather than adding a
+    //    second one. `row_id` is absent only when the ▶ insert was refused — then this is the
+    //    original insert, unchanged, and the hours still land.
+    const fields = {
+      person: draft.person, kibbutz: draft.kibbutz, kind: 'session',
+      attendees: draft.attendees, tags: draft.tags,
+      description: entryPayload(draft, { projects: [], tags }).description,
+      started_at: draft.started_at, ended_at: draft.ended_at,
+      billable: draft.billable, clockify_id: clockifyId, note: draft.note || null,
+    };
     try {
-      await sbWrite(async sb => await sb.from('work_sessions').insert({
-        person: draft.person, kibbutz: draft.kibbutz, kind: 'session',
-        attendees: draft.attendees, tags: draft.tags,
-        description: entryPayload(draft, { projects: [], tags }).description,
-        started_at: draft.started_at, ended_at: draft.ended_at,
-        billable: draft.billable, clockify_id: clockifyId, note: draft.note || null,
-      }).select().single());
+      if (running.row_id) {
+        await sbWrite(async sb => await sb.from('work_sessions')
+          .update({ ...fields, paused_at: null, paused_ms: running.paused_ms || 0 })
+          .eq('id', running.row_id));
+      } else {
+        await sbWrite(async sb => await sb.from('work_sessions').insert(fields).select().single());
+      }
     } catch (e) {
       setSaving(false);
       toast.error(String((e as Error)?.message || e));

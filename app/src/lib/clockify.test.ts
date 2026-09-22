@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   AUTO_STOP_MS, autoStop, autoStopDue, canTrackTime, elapsed, elapsedFor, endedAtFor, entryPayload, formatElapsed, loadRunning, pauseSession, projectIdFor, resumeSession, saveRunning, tagsMatching,
   clearRunning, startBlockedBy, tagIdsFor, tagsCached, TAGS_KEY, RUNNING_KEY,
+  israelHHMM, timerNudgeFor, timerStaleSelect, type TimerRow,
 } from './clockify';
 
 const TAGS = [
@@ -248,5 +249,76 @@ describe('22.9 (E1) — pauses, the auto-stop, the tag search', () => {
     expect(tagsMatching(tags, '').length).toBe(3);
     expect(tagsMatching(tags, 'תקל').map(t => t.id)).toEqual(['2']);
     expect(tagsMatching(tags, 'bill').map(t => t.id)).toEqual(['3']);
+  });
+});
+
+
+// ─────────── the SERVER nudge: a ▶ clock nobody stopped (עידן 22.9) ───────────
+// The in-app auto-stop above only fires while a screen is open. These are the goldens the
+// `timerStale` cron runs on instead — the SAME two-hour arithmetic, over the open
+// `work_sessions` rows, so a phone that stayed in a pocket still gets told.
+describe('timerStaleSelect', () => {
+  const t0 = Date.parse('2026-09-22T08:00:00.000Z');
+  const now = t0 + AUTO_STOP_MS;
+  const row = (over: Partial<TimerRow> = {}): TimerRow => ({
+    id: 'ws-1', person: 'עידן', kibbutz: 'חוקוק', started_at: new Date(t0).toISOString(), ...over,
+  });
+
+  it('picks a clock that has run exactly two hours, and not a second earlier', () => {
+    expect(timerStaleSelect([row()], now - 1000)).toEqual([]);
+    expect(timerStaleSelect([row()], now)).toEqual([
+      { id: 'ws-1', person: 'עידן', kibbutz: 'חוקוק', started_at: new Date(t0).toISOString() },
+    ]);
+  });
+
+  it('a closed row, an already-nudged row and a paused row are all left alone', () => {
+    expect(timerStaleSelect([row({ ended_at: new Date(now).toISOString() })], now)).toEqual([]);
+    expect(timerStaleSelect([row({ reminded_at: new Date(now).toISOString() })], now)).toEqual([]);
+    expect(timerStaleSelect([row({ paused_at: new Date(t0 + 60_000).toISOString() })], now)).toEqual([]);
+  });
+
+  it('a pause is not worked time — the two hours move with it, exactly like autoStopDue', () => {
+    const paused = row({ paused_ms: 1_200_000 });               // 20 minutes banked
+    expect(timerStaleSelect([paused], now)).toEqual([]);
+    expect(timerStaleSelect([paused], now + 1_199_000)).toEqual([]);
+    expect(timerStaleSelect([paused], now + 1_200_000)).toHaveLength(1);
+    // the golden the server shares with the screen
+    expect(autoStopDue({ person: 'עידן', kibbutz: 'חוקוק', started_at: paused.started_at, paused_ms: 1_200_000 }, now + 1_200_000)).toBe(true);
+  });
+
+  it('junk is skipped rather than thrown on: the cron must never 500 on one bad row', () => {
+    const rows = [
+      row({ id: '', person: 'עידן' }),
+      row({ id: 'ws-2', person: '' }),
+      row({ id: 'ws-3', started_at: 'not a date' }),
+      null as any,
+    ];
+    expect(timerStaleSelect(rows, now)).toEqual([]);
+    expect(timerStaleSelect(null as any, now)).toEqual([]);
+  });
+
+  it('the longest-running clock is nudged first, and a missing kibbutz becomes an empty string', () => {
+    const older = row({ id: 'ws-old', started_at: new Date(t0 - 3_600_000).toISOString(), kibbutz: null });
+    const picks = timerStaleSelect([row(), older], now);
+    expect(picks.map(p => p.id)).toEqual(['ws-old', 'ws-1']);
+    expect(picks[0].kibbutz).toBe('');
+  });
+});
+
+describe('timerNudgeFor', () => {
+  it('says which clock and since when, in Israel time', () => {
+    // 05:00 UTC on a summer day = 08:00 in Israel
+    const n = timerNudgeFor('חוקוק', '2026-09-22T05:00:00.000Z');
+    expect(n.title).toBe('עדכן את השעון של חוקוק');
+    expect(n.body).toBe('רץ מאז 08:00 — סגור אותו או המשך');
+  });
+  it('winter time is Israel time too (UTC+2), not a fixed offset', () => {
+    expect(israelHHMM('2026-01-15T05:00:00.000Z')).toBe('07:00');
+  });
+  it('an unusable start or kibbutz still produces a sentence a person can act on', () => {
+    const n = timerNudgeFor('', 'not a date');
+    expect(n.title).toBe('עדכן את השעון של הקיבוץ');
+    expect(n.body).toBe('רץ כבר שעתיים — סגור אותו או המשך');
+    expect(israelHHMM('not a date')).toBe('');
   });
 });

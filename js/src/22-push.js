@@ -371,6 +371,20 @@
         };
         vOpen();
       }
+      // ⏱ פתח את השעון — the 2 h timer nudge (עידן 22.9). One tap = the running clock's own
+      // sheet on that kibbutz's card. The card is a React island rendered into the kibbutz
+      // page, so we show the page and then announce the event; the WorkTimer whose timer is
+      // running answers it, and every other card ignores it.
+      else if (act === 'timer') {
+        if (typeof showPage === 'function') showPage('kibbutz');
+        var tTries = 0;
+        (function tOpen() {
+          try { window.dispatchEvent(new CustomEvent('sigma-open-timer', { detail: { kibbutz: kibbutz } })); } catch (e) {}
+          // The cards mount asynchronously; keep announcing for a few seconds. A card that
+          // already opened its sheet just re-opens the same one, so repeating is harmless.
+          if (++tTries < 12) setTimeout(tOpen, 250);
+        })();
+      }
       // 🙈 לא היום — the React island owns the write (supabase-js + the query cache).
       else if (act === 'visitDismiss') {
         // The island is a LAZY chunk, so it can still be loading when the deep link runs.

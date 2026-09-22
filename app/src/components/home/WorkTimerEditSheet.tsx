@@ -13,7 +13,7 @@ import {
   type ClockifyTag, type RunningSession,
 } from '@/lib/clockify';
 import { toLocalInput } from '@/lib/hours';
-import { clockifyCall, fetchContacts, type Contact } from '@/components/home/workTimerApi';
+import { clockifyCall, fetchContacts, patchSessionRow, type Contact } from '@/components/home/workTimerApi';
 
 export default function WorkTimerEditSheet({
   running, onChange, onStop, onDrop, onClose,
@@ -80,18 +80,36 @@ export default function WorkTimerEditSheet({
     setTagQuery('');
   };
 
+  // The open `work_sessions` row is kept in step with the clock (22.9): a retimed start, a
+  // pause and a resume all change WHEN two hours are up, and the server-side reminder
+  // (push-send `timerStale`) reads that row, not this screen. Best effort — a refused write
+  // never blocks the edit.
+  const syncRow = (s: RunningSession) => {
+    if (!s.row_id) return;
+    void patchSessionRow(s.row_id, {
+      started_at: s.started_at,
+      paused_ms: s.paused_ms || 0,
+      paused_at: s.paused_at || null,
+      attendees: s.attendees || [],
+      tags: s.tags || [],
+      note: s.note || null,
+    });
+  };
+
   const saveAndContinue = () => {
     let s: RunningSession = { ...running, attendees: people, tags: picked, note: note.trim() || undefined };
     const t = Date.parse(start);
     if (Number.isFinite(t) && t <= Date.now()) s = { ...s, started_at: new Date(t).toISOString() };
     else if (start) { toast.error('שעת התחלה בעתיד? בדוק'); return; }
     saveRunning(s);
+    syncRow(s);
     onChange(s);
     toast.success('נשמר, השעון ממשיך');
   };
   const pauseOrResume = () => {
     const s = paused ? resumeSession(running, Date.now()) : pauseSession(running, Date.now());
     saveRunning(s);
+    syncRow(s);
     onChange(s);
   };
 
