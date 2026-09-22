@@ -103,6 +103,47 @@ export function feedbackRow(i: {
   };
 }
 
+// ───────────────────────────── the draft (round 2, Package D item 1) ─────────────────────────────
+// Closing the sheet — the X, a backdrop tap, Back — used to just lose whatever was typed or
+// dictated. Rather than chase every dismiss path individually, the box now keeps a plain
+// localStorage draft that comes back on reopen; only a successful send or an explicit "לבטל"
+// clears it. One draft per browser (this is a personal scratch pad, not a synced record).
+
+export const FEEDBACK_DRAFT_KEY = 'sigma-feedback-draft';
+
+export interface FeedbackDraft {
+  kind: FeedbackKind;
+  text: string;
+  anon: boolean;
+  savedAt: string;
+}
+
+/** Build the draft row written to localStorage. Pure so the shape is covered by a golden. */
+export function feedbackDraftPayload(d: { kind: FeedbackKind; text: string; anon: boolean }, nowIso: string): FeedbackDraft {
+  return { kind: d.kind, text: d.text, anon: d.anon, savedAt: nowIso };
+}
+
+/** Nothing worth keeping → nothing worth writing (an empty draft would just flash back empty). */
+export function feedbackDraftWorthSaving(text: string): boolean {
+  return String(text ?? '').trim().length > 0;
+}
+
+/**
+ * Parse whatever localStorage handed back. Anything malformed (a stale shape from an older
+ * build, a hand-edited value, `null`) is treated as "no draft" rather than thrown — a broken
+ * draft must never crash the sheet it is supposed to protect.
+ */
+export function parseFeedbackDraft(raw: string | null): FeedbackDraft | null {
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw);
+    if (!d || typeof d !== 'object') return null;
+    if (!KINDS.includes(d.kind)) return null;
+    if (typeof d.text !== 'string' || !d.text.trim()) return null;
+    return { kind: d.kind, text: d.text, anon: !!d.anon, savedAt: typeof d.savedAt === 'string' ? d.savedAt : '' };
+  } catch { return null; }
+}
+
 // ───────────────────────────── the role matrix ─────────────────────────────
 
 /** Every logged-in role may submit — the viewer included (spec §7: "all roles"). */
