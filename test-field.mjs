@@ -115,7 +115,11 @@ console.log('\n[5] the island, its placeholders and the bridge');
   check('the prefill never overwrites what he typed', /if \(!el \|\| String\(el\.value \|\| ''\)\.trim\(\)\) return;/.test(bridge));
 
   const nav = read('./app/src/components/Nav.tsx');
-  check('the raised 📍 offers the arrival sheet when there is no check-in', /sigmaField\?\.maybeOpen\?\.\(\)/.test(nav));
+  check('the raised 📍 offers the arrival sheet when there is no check-in', /field\?\.maybeOpen\?\.\(\)/.test(nav));
+  // Round 3 · Package S: `maybeOpen` is an auto-invite ELIGIBILITY check (FIELD_PEOPLE only) —
+  // a manual tap by any OTHER writer (עידן included) must still reach the chapters sheet, so
+  // Nav also tries `openManual` before it ever falls to the legacy `sigma.openVisitQuick()`.
+  check('a manual tap by every writer role also reaches the chapters sheet', /field\?\.openManual\?\.\(\)/.test(nav));
 }
 
 console.log('\n[6] the migration and the cron job');

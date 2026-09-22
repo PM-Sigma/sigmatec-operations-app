@@ -424,6 +424,28 @@
     editVisit(last.id);
   }
 
+  /**
+   * Round 3 · Package S: the legacy form's own entry point to the 🎙 voice-intake panel — for
+   * anyone who lands here (the React chapters sheet not mounted, or a browser that failed to
+   * load it). Hands off to the chapters sheet the moment it IS available (closing this legacy
+   * modal first, so the two forms are never open together); otherwise a plain, honest message —
+   * never a button that silently does nothing.
+   */
+  function legacyVoiceIntakeHandoff() {
+    const kibbutz = window.currentKibbutz || '';
+    const api = window.sigmaVisitChapters;
+    if (api && typeof api.open === 'function') {
+      // This form lives inside the "📝 ניהול קיבוץ" edit modal (#modalBackdrop), not the
+      // kibbutz-picker #visitQuickModal — close whichever is actually open.
+      if (typeof closeModal === 'function') closeModal();
+      else { const m = document.getElementById('modalBackdrop'); if (m) m.classList.remove('open'); }
+      api.open(kibbutz);
+      return;
+    }
+    alert('התכונה הנסיונית (🎙 הקלט סיכום ביקור) עדיין נטענת. רענן את הדף ונסה שוב בעוד רגע.');
+  }
+  window.legacyVoiceIntakeHandoff = legacyVoiceIntakeHandoff;
+
   function editVisit(visitId) {
     const visit = window.currentKibbutzVisits.find(v => v.id === visitId);
     if (!visit) return;

@@ -382,3 +382,42 @@ test('C8: 🎙 sits at the TOP of the sheet, labelled ניסיוני, with its t
   await shot(page, ti, 'voice-intake');
   expectNoConsoleErrors(rec);
 });
+
+test('C8 (round 3 · S): עידן (not FIELD_PEOPLE) reaches the 🎙 panel from the raised 📍, not the legacy form', async ({ page }, ti) => {
+  // Regression for the bug this package fixed: `Nav.tsx`'s raised 📍 used to call ONLY
+  // `sigmaField?.maybeOpen?.()`, whose eligibility check (`fieldShouldPrompt` → `FIELD_PEOPLE`)
+  // is `['אביאם', 'ניתאי']` only — so a MANUAL tap by any other writer (עידן included) fell
+  // straight through to `sigma.openVisitQuick()`, the legacy form, which has no voice panel.
+  // `openManual()` now covers everyone else. No prior check-in is set up on purpose: this is
+  // exactly the state that made `maybeOpen()` irrelevant to him even when it WAS reached.
+  // `Nav.tsx`'s raised 📍 is the phone bottom bar only (`md:hidden`) — desktop already reaches
+  // the chapters sheet through the card/briefing paths the base C8 test above covers, and the
+  // panel itself (`Field.tsx`) is viewport-agnostic, so this regression is phone-only by
+  // construction.
+  test.skip(ti.project.name.startsWith('desktop'), 'the raised 📍 FAB only exists on phone (md:hidden)');
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+
+  await page.getByRole('button', { name: 'תיעוד ביקור' }).click();
+
+  // He must land in the arrival picker (chapters route), never the legacy #modalBackdrop.
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
+
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+
+  const chapters = page.getByTestId('visit-chapters');
+  await expect(chapters).toBeVisible({ timeout: 10_000 });
+
+  const voice = page.getByTestId('vc-voice');
+  await expect(voice).toBeVisible();
+  await expect(voice).toContainText('ניסיוני');
+
+  // Same placement rule as C8 above: above the stepper, i.e. above chapter 1's fields.
+  const v = await voice.boundingBox();
+  const stepper = await page.getByTestId('vc-stepper').boundingBox();
+  expect(v!.y).toBeLessThan(stepper!.y);
+
+  await shot(page, ti, 'idan-voice-intake');
+  expectNoConsoleErrors(rec);
+});

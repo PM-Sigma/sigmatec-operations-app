@@ -1707,6 +1707,19 @@ function FieldIsland() {
         openArrival();
         return true;
       },
+      /**
+       * Round 3 · Package S: a MANUAL 📍 tap by any writer must reach the chapters sheet
+       * (and its 🎙 panel) — `maybeOpen`/`shouldPrompt` is an AUTO-INVITE eligibility check
+       * (`FIELD_PEOPLE` only, spec §5.1), never a gate on the person's own tap. Before this,
+       * everyone outside FIELD_PEOPLE (עידן included) fell straight through to
+       * `sigma.openVisitQuick()` — the legacy form, which never got a voice panel — because
+       * Nav.tsx had nothing else to call. This opens the same arrival → briefing → chapters
+       * route `pick()`/`openVisit()` already use, for anyone who is not a viewer.
+       */
+      openManual(): boolean {
+        openArrival();
+        return true;
+      },
       openArrival,
       openBriefing(name: string) { setPicked(name); setChecked({}); setMode('briefing'); },
       /** "🙈 לא היום" from the notification (js/src/22-push.js deep link). */
