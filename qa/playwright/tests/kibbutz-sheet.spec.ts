@@ -193,3 +193,64 @@ test('kibbutz sheet: a kibbutz with no sub-sites says so, and the code may be le
 
   expectNoConsoleErrors(rec);
 });
+
+// ───────────── QA round 4 Package Y (22.9): the EMS chain is gone ─────────────
+// עידן: "להעיף את השרשרת בדיקה מול ה-EMS." The sheet writes the row as typed — no "בדוק מול
+// EMS" button, no live step panel, no "שמור בלי קישור" gate on a sub-site. `ems_site_ids`
+// shows read-only instead.
+
+test('kibbutz sheet: no EMS chain — a sub-site saves straight away, no gate', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  await openCreate(page);
+  await page.getByRole('radio', { name: '↳ תת-אתר של קיבוץ קיים' }).click();
+  await page.locator('#kibParent').selectOption('חוקוק');
+  await page.locator('#kibName').fill('חוקוק — מחסן');
+
+  // none of the old chain UI exists any more
+  await expect(page.getByText('שרשרת בדיקה מול EMS')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'בדוק מול EMS' })).toHaveCount(0);
+  await expect(page.getByText('שמור בלי קישור')).toHaveCount(0);
+
+  // saving hits the write endpoint directly — no chain step stands in the way. The harness
+  // answers 401 (no EMS pass in mock mode); that IS the write being attempted.
+  await page.getByRole('button', { name: 'שמור תת-אתר' }).click();
+  await expect(page.getByText(/שמירה נכשלה|יש להתחבר ל-EMS כדי לשמור/)).toBeVisible();
+
+  await expectNoConsoleErrors(rec);
+});
+
+test('kibbutz sheet: אתר EMS is read-only — ✓ מקושר / ⚠️ לא מקושר, no verify button', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  // חוקוק ships linked in the fixture (ems_site_ids: ['ems-k1']).
+  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
+  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
+
+  const link = page.getByTestId('kib-ems-link');
+  await expect(link).toContainText('✓ מקושר');
+
+  await shot(page, ti, 'ems-link-status');
+  expectNoConsoleErrors(rec);
+});
+
+test('kibbutz sheet: סוגי אנרגיה is a real multi-select — more than one type at once', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);   // עידן — may edit energy
+
+  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
+  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
+
+  // חוקוק starts ⚡ חשמל only (fixture). Turning on 💧 מים must not turn ⚡ off.
+  const electric = page.getByRole('button', { name: '⚡ חשמל' });
+  const water = page.getByRole('button', { name: '💧 מים' });
+  await expect(electric).toHaveAttribute('data-state', 'on');
+  await expect(water).toHaveAttribute('data-state', 'off');
+
+  await water.click();
+  await expect(electric).toHaveAttribute('data-state', 'on');
+  await expect(water).toHaveAttribute('data-state', 'on');
+
+  expectNoConsoleErrors(rec);
+});

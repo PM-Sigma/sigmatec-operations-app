@@ -2,7 +2,7 @@
 // the hour gate and the idempotency tag"). Israel is UTC+3 in September, UTC+2 in January —
 // both are exercised, because the digest windows are the one thing DST can silently break.
 import { describe, expect, it } from 'vitest';
-import { alertArrow, alertText, alertTarget, canSeeAlerts, digestBody, digestTag, digestTitle, digestWindow, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, markRowsSeen, unmarkRowsSeen, POOL } from './alerts';
+import { alertArrow, alertText, alertTarget, canSeeAlerts, canSeeEmsUnlinkedAlert, digestBody, digestTag, digestTitle, digestWindow, emsUnlinkedGroup, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, markRowsSeen, unmarkRowsSeen, POOL } from './alerts';
 
 const mov = (o: Partial<AlertRow> = {}): AlertRow => ({
   id: 'a1', kind: 'movement', product: 'מונה E360CT', qty: 3,
@@ -204,5 +204,42 @@ describe('markRowsSeen / unmarkRowsSeen (round 3, Q)', () => {
     expect(back[0].seen_by).toEqual([]);
     expect(back[1].seen_by).toEqual(['עמיחי']);
     expect(isSeen(back[0], 'עידן')).toBe(false);
+  });
+});
+
+// ───────────── QA round 4 Package Y (22.9): אתרים לא מקושרים ל-EMS ─────────────
+
+describe('canSeeEmsUnlinkedAlert', () => {
+  it('עידן and עמיחי only — never אביאם/ניתאי, unlike the rest of the bell', () => {
+    expect(canSeeEmsUnlinkedAlert('עידן')).toBe(true);
+    expect(canSeeEmsUnlinkedAlert('עמיחי')).toBe(true);
+    expect(canSeeEmsUnlinkedAlert('אביאם')).toBe(false);
+    expect(canSeeEmsUnlinkedAlert('ניתאי')).toBe(false);
+    expect(canSeeEmsUnlinkedAlert('')).toBe(false);
+  });
+});
+
+describe('emsUnlinkedGroup', () => {
+  it('no unlinked names → no group at all', () => {
+    expect(emsUnlinkedGroup([])).toBe(null);
+  });
+
+  it('one name → its own title, kind ems_unlinked, never "seen"', () => {
+    const g = emsUnlinkedGroup(['גבים'], '2026-09-22T18:00:00Z')!;
+    expect(g.kind).toBe('ems_unlinked');
+    expect(g.title).toBe('⚠️ גבים לא מקושר ל-EMS');
+    expect(g.seen).toBe(false);
+    expect(g.at).toBe('2026-09-22T18:00:00Z');
+    expect(g.rows).toEqual([{ kind: 'ems_unlinked', product: 'גבים' }]);
+  });
+
+  it('several names → a count title, one row per name', () => {
+    const g = emsUnlinkedGroup(['גבים', 'יגור', 'חוקוק'])!;
+    expect(g.title).toBe('⚠️ 3 אתרים לא מקושרים ל-EMS');
+    expect(g.rows).toHaveLength(3);
+  });
+
+  it('alertText reads a single ems_unlinked row the same way the group title does', () => {
+    expect(alertText({ kind: 'ems_unlinked', product: 'גבים' })).toBe('⚠️ גבים לא מקושר ל-EMS');
   });
 });

@@ -7,8 +7,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  HEALTH_CONFIG_DRAFT, NO_DATA, SCORE, bandOf, canSeeHealth, emptySignals, healthOf,
-  scoreAlerts, scoreEnergy, scoreFinance, scoreRecurring, type Signals,
+  EMS_UNLINKED_NOTE, HEALTH_CONFIG_DRAFT, NO_DATA, SCORE, bandOf, canSeeHealth, emptySignals,
+  emsUnlinkedHealthNote, healthOf, scoreAlerts, scoreEnergy, scoreFinance, scoreRecurring,
+  type Signals,
 } from './health';
 
 const cfg = HEALTH_CONFIG_DRAFT;
@@ -190,5 +191,21 @@ describe('canSeeHealth', () => {
   it('nothing signed in → nothing shown', () => {
     expect(canSeeHealth('', '')).toBe(false);
     expect(canSeeHealth(null, null)).toBe(false);
+  });
+});
+
+// ───────────── QA round 4 Package Y (22.9): a fixed line, not a fifth scored signal ─────────────
+
+describe('emsUnlinkedHealthNote', () => {
+  it('a site with no ems_site_ids gets the note', () => {
+    expect(emsUnlinkedHealthNote({ ems_site_ids: [] })).toBe(EMS_UNLINKED_NOTE);
+    expect(emsUnlinkedHealthNote({ ems_site_ids: null })).toBe(EMS_UNLINKED_NOTE);
+    expect(emsUnlinkedHealthNote({})).toBe(EMS_UNLINKED_NOTE);
+  });
+
+  it('a linked site, or an unknown row, has nothing to say', () => {
+    expect(emsUnlinkedHealthNote({ ems_site_ids: ['S1'] })).toBe(null);
+    expect(emsUnlinkedHealthNote(null)).toBe(null);
+    expect(emsUnlinkedHealthNote(undefined)).toBe(null);
   });
 });

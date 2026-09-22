@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   groupBySection, filterRows, countRows, matchesQuery, draftsAtTop,
   validateKibbutz, kibbutzimSaveBody, canEditEnergy, canManageKibbutzim, cardActionsFor,
-  emsChainPlan, emsChainReduce, energyText, REGION_ORDER,
+  emsLinkedLabel, isUnlinked, energyText, REGION_ORDER,
   customerCodeOf, subsitesOf, isMissingCustomerCodeColumn, withoutCustomerCode,
   type KibbutzRow,
 } from './kibbutzim';
@@ -192,109 +192,34 @@ describe('kibbutzimSaveBody', () => {
   });
 });
 
-describe('emsChainPlan', () => {
-  it('is 5 ordered steps for a sub-site', () => {
-    const plan = emsChainPlan('גבים — שכונה', row({ name: 'גבים' }), []);
-    expect(plan.map(s => s.id)).toEqual(['site', 'meters', 'tasks', 'contacts', 'parent']);
-    expect(plan.every(s => s.state === 'pending')).toBe(true);
-    expect(plan[0].label).toBe('אתר ב-EMS');
+// ───────────── QA round 4 Package Y (22.9): the chain is gone; isUnlinked is the one rule ─────────────
+// left behind for "the most broken thing in the system" (עידן) — the card chip, the alerts
+// bell (alerts.ts emsUnlinkedGroup) and health.ts all ask THIS function, not a copy of it.
+
+describe('isUnlinked', () => {
+  it('a live row with no ems_site_ids is unlinked', () => {
+    expect(isUnlinked(row({ name: 'x', ems_site_ids: [] }))).toBe(true);
+    expect(isUnlinked(row({ name: 'x' }))).toBe(true);           // never set at all
   });
 
-  it('drops the parent step when re-checking a normal kibbutz', () => {
-    expect(emsChainPlan('גבים', null, []).map(s => s.id)).toEqual(['site', 'meters', 'tasks', 'contacts']);
+  it('a row with a site id is linked', () => {
+    expect(isUnlinked(row({ name: 'x', ems_site_ids: ['S1'] }))).toBe(false);
+  });
+
+  it('an archived row is never flagged — it left the fleet, not the integration', () => {
+    expect(isUnlinked(row({ name: 'x', ems_site_ids: [], archived_at: '2026-01-01' }))).toBe(false);
+  });
+
+  it('a sub-site follows the same rule as a kibbutz', () => {
+    expect(isUnlinked(row({ name: 'x', kind: 'subsite', parent: 'y', ems_site_ids: [] }))).toBe(true);
   });
 });
 
-describe('emsChainReduce', () => {
-  const NOW = '2026-09-17T10:00:00.000Z';
-  const parent = row({ name: 'גבים', section: 'active', region: 'שער הנגב' });
-
-  it('all-pass → canSave, energy from the meter counts, ems_params filled', () => {
-    const res = emsChainReduce({
-      site: { found: true, id: 'S1', name: 'גבים — שכונה חדשה' },
-      meters: { counts: { 1: 12, 2: 3 } },
-      tasks: { count: 2, titles: ['התקנת מונים', 'מאזן אנרגיה'] },
-      contacts: { contacts: [{ name: 'יוסי', phone: '050' }] },
-      parent: { row: parent },
-    }, NOW);
-
-    expect(res.canSave).toBe(true);
-    expect(res.energy).toEqual(['electric', 'water']);
-    expect(res.ems_site_ids).toEqual(['S1']);
-    expect(res.ems_params!.meters.total).toBe(15);
-    expect(res.ems_params!.meters).toEqual({ electric: 12, water: 3, gas: 0, total: 15 });
-    expect(res.ems_params!.openTasks).toBe(2);
-    expect(res.ems_params!.checkedAt).toBe(NOW);
-    expect(res.warnings).toEqual([]);
-    expect(res.steps.map(s => s.state)).toEqual(['ok', 'ok', 'ok', 'ok', 'ok']);
-  });
-
-  it('site not found → cannot save, one warning, every other step skipped', () => {
-    const res = emsChainReduce({ site: { found: false }, parent: { row: parent } }, NOW);
-    expect(res.canSave).toBe(false);
-    expect(res.warnings).toEqual(['לא נמצא אתר ב-EMS']);
-    expect(res.ems_params).toBe(null);
-    expect(res.ems_site_ids).toEqual([]);
-    expect(res.energy).toEqual(['electric']);
-    expect(res.steps[0].state).toBe('bad');
-    expect(res.steps.slice(1, 4).map(s => s.state)).toEqual(['skipped', 'skipped', 'skipped']);
-  });
-
-  it('site not found + "שמור בלי קישור" → savable, still unlinked', () => {
-    const res = emsChainReduce({ site: { found: false }, allowUnlinked: true }, NOW);
-    expect(res.canSave).toBe(true);
-    expect(res.ems_site_ids).toEqual([]);
-  });
-
-  it('meters call skipped → ⚡ חשמל default + a warning', () => {
-    const res = emsChainReduce({
-      site: { found: true, id: 'S1', name: 'x' },
-      meters: { skipped: true },
-      tasks: { count: 0, titles: [] },
-      contacts: { contacts: [{ name: 'יוסי' }] },
-    }, NOW);
-    expect(res.energy).toEqual(['electric']);
-    expect(res.warnings).toContain('לא ניתן לספור מונים');
-    expect(res.steps[1].state).toBe('warn');
-    expect(res.canSave).toBe(true);
-  });
-
-  it('a site already linked to another row → duplicate warning, still savable', () => {
-    const res = emsChainReduce({
-      site: { found: true, id: 'S1', name: 'x' },
-      meters: { counts: { 1: 4 } },
-      tasks: { count: 0, titles: [] },
-      contacts: { contacts: [] },
-      parent: { row: parent, duplicateOf: 'יגור' },
-    }, NOW);
-    expect(res.warnings).toContain('האתר כבר מקושר ל-יגור');
-    expect(res.steps[4].state).toBe('warn');
-    expect(res.canSave).toBe(true);
-  });
-
-  it('no contacts → warn row, no block', () => {
-    const res = emsChainReduce({
-      site: { found: true, id: 'S1', name: 'x' },
-      meters: { counts: { 3: 7 } },
-      tasks: { count: 1, titles: ['גז'] },
-      contacts: { contacts: [] },
-    }, NOW);
-    expect(res.energy).toEqual(['gas']);
-    expect(res.steps[3].state).toBe('warn');
-    expect(res.warnings).toContain('אין אנשי קשר');
-    expect(res.canSave).toBe(true);
-  });
-
-  it('an archived parent fails the parent step', () => {
-    const res = emsChainReduce({
-      site: { found: true, id: 'S1', name: 'x' },
-      meters: { counts: { 1: 1 } },
-      tasks: { count: 0, titles: [] },
-      contacts: { contacts: [{ name: 'a' }] },
-      parent: { row: { ...parent, archived_at: '2026-01-01' } },
-    }, NOW);
-    expect(res.warnings).toContain('קיבוץ-אב לא נמצא');
-    expect(res.steps[4].state).toBe('bad');
+describe('emsLinkedLabel', () => {
+  it('reads ✓ מקושר / ⚠️ לא מקושר, and null (create mode) as unlinked', () => {
+    expect(emsLinkedLabel(row({ name: 'x', ems_site_ids: ['S1'] }))).toBe('✓ מקושר');
+    expect(emsLinkedLabel(row({ name: 'x', ems_site_ids: [] }))).toBe('⚠️ לא מקושר');
+    expect(emsLinkedLabel(null)).toBe('⚠️ לא מקושר');
   });
 });
 

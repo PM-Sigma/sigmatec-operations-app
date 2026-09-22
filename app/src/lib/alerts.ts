@@ -16,7 +16,7 @@
 export const POOL = 'חברה';
 export const RECOUNT_LOC = 'ספירה';
 
-export type AlertKind = 'movement' | 'low_stock' | 'digest';
+export type AlertKind = 'movement' | 'low_stock' | 'digest' | 'ems_unlinked';
 
 export interface AlertRow {
   id?: string;
@@ -85,6 +85,7 @@ export function alertArrow(row: AlertRow): '↗' | '↘' | '⚠️' | '•' {
 export function alertText(row: AlertRow): string {
   const when = row.created_at ? israelClock(row.created_at) : '';
   const product = String(row.product ?? '').trim();
+  if (row.kind === 'ems_unlinked') return `⚠️ ${product} לא מקושר ל-EMS`;
   if (row.kind === 'low_stock') {
     const parts = [`⚠️ מלאי נמוך: ${product}`, `${num(row.qty)} יח׳`];
     if (when) parts.push(when);
@@ -221,6 +222,39 @@ export function unseenCount(rows: AlertRow[], user: string): number {
 export function canSeeAlerts(user: string, isViewer: boolean): boolean {
   if (isViewer) return false;
   return ['עידן', 'עמיחי', 'אביאם', 'ניתאי'].indexOf(String(user ?? '').trim()) !== -1;
+}
+
+// ───────────────────────────── EMS-unlinked sites (22.9, QA round 4 Package Y) ─────────────────────────────
+// עידן: "אני רוצה לקבל שגיאה אם יש אתר שלא מחובר ל-EMS — זה הדבר הכי לא תקין במערכת." Not a
+// database table: the group is built straight from the `kibbutzim` rows the bell already has
+// to read for other reasons (Alerts.tsx), using `isUnlinked` from lib/kibbutzim.ts — one rule,
+// asked in three places (the card chip, here, and health.ts).
+
+/** עידן/עמיחי only — never אביאם/ניתאי, unlike the rest of the inventory bell. */
+export function canSeeEmsUnlinkedAlert(user: string): boolean {
+  return ['עידן', 'עמיחי'].indexOf(String(user ?? '').trim()) !== -1;
+}
+
+/**
+ * The unlinked names → the one group the bell shows. A standing problem, not a moment-in-time
+ * event, so it always sorts to the top of the list (`at` = now) instead of drifting down as
+ * older rows arrive; `seen` is always `false` — it never actually clears until the site really
+ * gets linked, unlike an inventory movement nobody can "read again" once acted on.
+ */
+export function emsUnlinkedGroup(names: string[], now = new Date().toISOString()): AlertGroup | null {
+  const list = (names ?? []).filter(Boolean);
+  if (!list.length) return null;
+  const title = list.length === 1
+    ? `⚠️ ${list[0]} לא מקושר ל-EMS`
+    : `⚠️ ${list.length} אתרים לא מקושרים ל-EMS`;
+  return {
+    key: 'ems-unlinked',
+    kind: 'ems_unlinked',
+    rows: list.map(name => ({ kind: 'ems_unlinked' as const, product: name })),
+    title,
+    at: now,
+    seen: false,
+  };
 }
 
 // ───────────────────────────── the digest (§5.2) ─────────────────────────────
