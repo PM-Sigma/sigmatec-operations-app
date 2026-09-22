@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  canWriteInternal, countBadge, myOpen, openFor, promoteToEms, toggleDone,
+  canWriteInternal, countBadge, dueLabel, isOverdueInternal, myOpen, openFor, promoteToEms, toggleDone,
   type InternalTaskRow,
 } from './internalTasks';
 
@@ -94,19 +94,20 @@ describe('canWriteInternal', () => {
   });
 });
 
-// ───────────────────────────── §8b contract sweep ─────────────────────────────
-// The ruling is explicit: NO due dates, NO reminders. Enforced on the real source rather than
-// trusted, so a later "just one field" PR trips a test instead of drifting past review.
-describe('§8b contract — no due / remind fields', () => {
-  const src = fs.readFileSync(path.join(__dirname, 'internalTasks.ts'), 'utf8');
-  // Strip comments so the ruling's own prose (which must say the words) does not self-trigger.
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-
-  it('no `due` field/property anywhere in the module', () => {
-    expect(/\bdue\w*\s*[:?]/i.test(code)).toBe(false);
-  });
-
+// ───────────────────────────── contract sweep ─────────────────────────────
+// 22.9 (עידן): a due date IS allowed now (it is a fact on the row). Reminders still are not.
+describe('22.9 ruling — a due date is a fact on the row, never a reminder', () => {
+  const code = fs.readFileSync(path.resolve(__dirname, 'internalTasks.ts'), 'utf8');
   it('no `remind` field/property anywhere in the module', () => {
     expect(/\bremind\w*\s*[:?]/i.test(code)).toBe(false);
+  });
+  it('dueLabel / isOverdueInternal read the ISO date at day granularity', () => {
+    expect(dueLabel({ due_date: '2026-09-05' })).toBe('5.9');
+    expect(dueLabel({ due_date: null })).toBe('');
+    const now = new Date(2026, 8, 22);
+    expect(isOverdueInternal({ due_date: '2026-09-21', done: false }, now)).toBe(true);
+    expect(isOverdueInternal({ due_date: '2026-09-22', done: false }, now)).toBe(false);
+    expect(isOverdueInternal({ due_date: '2026-09-21', done: true }, now)).toBe(false);
+    expect(isOverdueInternal({ due_date: null, done: false }, now)).toBe(false);
   });
 });

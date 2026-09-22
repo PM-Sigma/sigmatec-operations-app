@@ -43,7 +43,7 @@
     }
     if (!Array.isArray(rows) || !rows.length) {
       el.innerHTML = '<div class="dev-wrap"><div class="push-head"><h2 class="push-title">🔔 לוג התראות Push</h2>' +
-        '<button class="inv-btn small" onclick="renderPushLog(this)" title="רענן">🔄</button></div>' +
+        '</div>' +
         '<div class="dev-empty">לא נשלחו התראות עדיין.</div></div>';
       return;
     }
@@ -76,7 +76,7 @@
 
     el.innerHTML = '<div class="dev-wrap">' +
       '<div class="push-head"><h2 class="push-title">🔔 לוג התראות Push</h2>' +
-      '<button class="inv-btn small" onclick="renderPushLog(this)" title="רענן עכשיו">🔄 רענן</button></div>' +
+      '</div>' +
       tiles +
       '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr>' +
       '<th>זמן</th><th>סוג</th><th>הזמנה</th><th>נמען</th><th>סטטוס</th><th>מבצע</th>' +

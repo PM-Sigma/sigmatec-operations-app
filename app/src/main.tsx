@@ -157,6 +157,12 @@ function boot() {
   // data island, and it renders nothing for anyone outside the overview's audience. Its mount
   // also publishes `sigma.presenterStrip` for ▶ מצב ישיבה; a chunk that never lands simply
   // leaves that strip out.
+  // 🔒 משימות פנימיות in the kibbutz modal (22.9) — the rows with their actions and the ➕.
+  if (document.getElementById('sigma-internal-modal')) {
+    import('@/islands/InternalModal')
+      .then(m => m.mountInternalModal())
+      .catch(e => console.warn('[sigma] internal-tasks island failed', e));
+  }
   if (document.getElementById('sigma-health-modal')) {
     import('@/islands/Health')
       .then(m => m.mountHealth())

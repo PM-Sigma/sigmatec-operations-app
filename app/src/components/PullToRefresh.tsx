@@ -37,6 +37,23 @@ export function pullState(deltaY: number): { offset: number; armed: boolean } {
   return { offset, armed: offset >= PULL_THRESHOLD };
 }
 
+/**
+ * Pure: may a touch that started on `target` become a pull? Not inside a Radix sheet or
+ * dialog (their own scroll swallowed the gesture and refreshed the page instead — עידן 22.9,
+ * A5), not inside a legacy `.modal-backdrop`, and not inside anything that scrolls on its own.
+ */
+export function pullAllowedFrom(target: EventTarget | null): boolean {
+  let el = (target as Element | null) ?? null;
+  if (!el || typeof (el as Element).closest !== 'function') return true;
+  if (el.closest('[data-sigma-portal], .modal-backdrop, [data-no-pull]')) return false;
+  for (let n: Element | null = el; n && n !== document.body; n = n.parentElement) {
+    if (n.scrollTop > 0) return false;
+    const oy = typeof getComputedStyle === 'function' ? getComputedStyle(n).overflowY : '';
+    if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight) return false;
+  }
+  return true;
+}
+
 /** The document is at the very top — the only place a pull may start. */
 function atTop(): boolean {
   return (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
@@ -103,7 +120,7 @@ export function PullToRefresh() {
     if (!claim()) return;
 
     const onStart = (e: TouchEvent) => {
-      if (busyRef.current || e.touches.length !== 1 || !atTop()) { startY.current = null; return; }
+      if (busyRef.current || e.touches.length !== 1 || !atTop() || !pullAllowedFrom(e.target)) { startY.current = null; return; }
       startY.current = e.touches[0].clientY;
     };
     const onMove = (e: TouchEvent) => {

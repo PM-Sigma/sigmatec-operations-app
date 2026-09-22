@@ -64,7 +64,8 @@ export function UserChip({ className }: { className?: string }) {
           aria-hidden
           className={cn('h-2 w-2 shrink-0 rounded-full', connected ? 'bg-brand-2' : 'bg-muted-foreground')}
         />
-        <span>{name || 'לא מחובר'}</span>
+        <span className="hidden sm:inline">{name || 'לא מחובר'}</span>
+        <span className="sm:hidden font-bold" aria-label={name || 'לא מחובר'}>{(name || '?').slice(0, 1)}</span>
       </button>
 
       {open && (

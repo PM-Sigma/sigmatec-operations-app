@@ -1,7 +1,8 @@
-// 🔒 internal_tasks — pure decisions (Task 26, company-process spec §2 as amended by §8b).
+// 🔒 internal_tasks — pure decisions (Task 26, company-process spec §2; the §8b "no due dates"
+// ruling was reversed by עידן on 22.9 — an internal task now carries a due date (may stay
+// empty), a priority and a kind, the same parts an EMS task has).
 //
-// NO due dates, NO reminders — a list with an owner and a done flag, visible to every
-// employee, never to the kibbutz. `kibbutz = null` means the whole company (that half is
+// A list with an owner and a done flag, visible to every employee, never to the kibbutz. `kibbutz = null` means the whole company (that half is
 // already read by app/src/lib/taskList.ts's `companyItems`; this module is the per-kibbutz
 // card section + "היום שלי", and the one write path both of them share).
 //
@@ -9,8 +10,8 @@
 // decision here is covered by vitest goldens instead of by clicking through the app.
 import { taskFromBullet } from './meetingNotes';
 
-/** Exactly `db/internal_tasks.sql`'s row shape — nothing more (the §8b ruling, enforced by a
- *  contract test: this module must never grow a field named `due` or `remind`). */
+/** `db/internal_tasks.sql` + `db/internal_tasks_fields.sql` (22.9). A due date is a fact on
+ *  the row; nothing here ever pushes a notification about it. */
 export interface InternalTaskRow {
   id: string;
   title: string;
@@ -20,6 +21,39 @@ export interface InternalTaskRow {
   done: boolean;
   created_by?: string | null;
   created_at?: string | null;
+  /** ISO date, or null — "may stay empty" (עידן 22.9). */
+  due_date?: string | null;
+  priority?: string | null;
+  kind?: string | null;
+}
+
+/** The three optional parts the ➕ form adds (22.9). */
+export interface InternalTaskExtra { due_date?: string | null; priority?: string | null; kind?: string | null }
+
+export const INTERNAL_PRIORITIES = [
+  { value: 'low', label: '🔵 נמוכה' }, { value: 'normal', label: '🟡 רגילה' },
+  { value: 'high', label: '🟠 גבוהה' }, { value: 'urgent', label: '🔴 דחופה' },
+] as const;
+export const INTERNAL_KINDS = ['מעקב', 'תיאום', 'טכני', 'מסמכים', 'אחר'] as const;
+
+export function priorityLabelOf(p: string | null | undefined): string {
+  return INTERNAL_PRIORITIES.find(x => x.value === p)?.label || String(p || '');
+}
+
+/** "d.m" for the chip; '' when there is no date. */
+export function dueLabel(row: Pick<InternalTaskRow, 'due_date'>): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(row.due_date || ''));
+  return m ? `${Number(m[3])}.${Number(m[2])}` : '';
+}
+
+/** Day granularity, local: due today is not late. */
+export function isOverdueInternal(row: Pick<InternalTaskRow, 'due_date' | 'done'>, now: Date = new Date()): boolean {
+  if (row.done) return false;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(row.due_date || ''));
+  if (!m) return false;
+  const due = new Date(+m[1], +m[2] - 1, +m[3]);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return due < today;
 }
 
 /** The card section's rows: this kibbutz's own, open, oldest first. */

@@ -21,7 +21,11 @@
     ['mousemove', 'keydown', 'touchstart', 'click', 'scroll'].forEach(function (ev) {
       window.addEventListener(ev, function () { lastActivity = Date.now(); }, { passive: true });
     });
-    function isIdle() { return document.hidden || (Date.now() - lastActivity) >= IDLE_MS; }
+    // Idle = looking at the app and not touching it for 5 minutes. A HIDDEN tab is not idle
+    // (עידן 22.9, A4): reloading it in the background is exactly the white screen he met
+    // when the phone came back — the reload was still in flight. Hidden tabs get the banner
+    // when they return, and reload only once they have really sat untouched on screen.
+    function isIdle() { return !document.hidden && (Date.now() - lastActivity) >= IDLE_MS; }
 
     function reloadNow() { try { location.reload(); } catch (e) { location.href = location.href; } }
     // auto path only: during a deploy the CDN can serve new index.html to the probe but the old
@@ -76,7 +80,9 @@
     }
 
     setInterval(check, POLL_MS);
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
+    // Coming back counts as activity, so a new version found on return shows the banner instead
+    // of reloading the screen the person just opened.
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) { lastActivity = Date.now(); check(); } });
     // debug/verify hook (no effect in normal use)
     window._verWatch = { myV: myV, check: check, showBanner: showBanner, isIdle: isIdle };
   })();

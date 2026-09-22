@@ -63,24 +63,27 @@ test('home cards: sections, region chips, filters, quick actions', async ({ page
   await home.getByRole('searchbox', { name: 'חיפוש קיבוץ' }).fill('');
   await expect(home.locator('.kibbutz')).toHaveCount(7);
 
-  // ── quick actions, עידן: 📍 סיכום ביקור · 🚚 תעודת משלוח · 🗓 ישיבות
+  // ── quick actions, עידן (22.9): 📍 סיכום ביקור + the two task adders; 🚚 and 🗓 are gone
   const card = home.locator('.kibbutz[data-name="חוקוק"]');
   await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'ישיבות' })).toBeVisible();
-  // עידן is a kibbutz admin → the ✏️ edit affordance is on the card
-  await expect(card.locator('button[title="פרטי קיבוץ"]')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toHaveCount(0);
+  await expect(card.getByRole('button', { name: 'ישיבות' })).toHaveCount(0);
+  await expect(card.getByTestId('add-ems-task')).toBeVisible();
+  await expect(card.getByTestId('add-internal-task')).toBeVisible();
+  // the ✏️ moved inside the kibbutz card (modal), עידן only — nothing on the home card
+  await expect(card.locator('button[title="פרטי קיבוץ"]')).toHaveCount(0);
 
   expectNoConsoleErrors(rec);
 });
 
-test('home cards: viewer gets the read-only action row', async ({ page }, ti) => {
+test('home cards: viewer gets no action row at all', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
 
   const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
-  await expect(card.getByRole('button', { name: 'ישיבות' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'ישיבות' })).toHaveCount(0);
   await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toHaveCount(0);
   await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toHaveCount(0);
+  await expect(card.getByTestId('add-internal-task')).toHaveCount(0);
   // not a kibbutz admin → no edit pencil, and no "קיבוץ חדש" button
   await expect(card.locator('button[title="פרטי קיבוץ"]')).toHaveCount(0);
   await expect(page.locator('#sigma-home').getByRole('button', { name: 'קיבוץ חדש' })).toHaveCount(0);

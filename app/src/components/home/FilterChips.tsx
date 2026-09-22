@@ -53,7 +53,7 @@ export function FilterChips({
         type="single"
         value={filter}
         onValueChange={v => onFilter((v || 'all') as CardFilter)}
-        className="flex justify-start gap-1.5 overflow-x-auto"
+        className="flex flex-nowrap justify-start gap-1"
       >
         {CHIPS.map(c => (
           <ToggleGroupItem
@@ -63,7 +63,7 @@ export function FilterChips({
             // label-content-name-mismatch): the chip SHOWS "הכל 12", so a bare label that omits
             // the count made voice control ask for a name nobody can see.
             aria-label={c.label + ' ' + counts[c.key]}
-            className="h-auto shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-muted-foreground data-[state=on]:border-transparent data-[state=on]:bg-foreground data-[state=on]:text-background"
+            className="h-auto min-w-0 flex-1 justify-center whitespace-nowrap rounded-full border border-border bg-card px-1.5 py-1 text-[12px] font-semibold text-muted-foreground data-[state=on]:border-transparent data-[state=on]:bg-foreground data-[state=on]:text-background"
           >
             {/* no `opacity-70`: it composited --muted-foreground down to 3.07:1 (a11y gate). */}
             {c.label} <bdi>{counts[c.key]}</bdi>

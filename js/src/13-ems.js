@@ -177,16 +177,12 @@
   }
   window.emsQueueCount = emsQueueCount;
 
+  // The header chip that counted the queue is gone (עידן 22.9, B6): the queue drains on its
+  // own on the next connect and needs nobody's attention. emsQueueChipOpen() still lists it
+  // for a debugging session; nothing on screen calls it.
   function emsQueueChipRender() {
     var el = document.getElementById('emsQueueChip');
-    if (!el) return;
-    var n = emsQueueCount();
-    if (!n) { el.style.display = 'none'; el.textContent = ''; return; }
-    el.style.display = '';
-    el.textContent = '⏳ ' + n + ' פעולות ממתינות לחיבור';
-    el.setAttribute('data-count', String(n));
-    el.setAttribute('data-testid', 'ems-queue-chip');
-    el.setAttribute('title', 'לחץ כדי לראות מה ממתין');
+    if (el) el.style.display = 'none';
   }
   window.emsQueueChipRender = emsQueueChipRender;
 

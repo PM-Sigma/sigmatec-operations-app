@@ -99,10 +99,10 @@ describe('roles', () => {
     ['עמיחי', 'אביאם', ''].forEach(u => expect(canEditEnergy(u)).toBe(false));
   });
 
-  it('cardActionsFor — viewer sees only the meetings timeline', () => {
-    expect(cardActionsFor('viewer')).toEqual(['meetings']);
-    expect(cardActionsFor('idan')).toEqual(['visit', 'cert', 'meetings']);
-    expect(cardActionsFor('team')).toEqual(['visit', 'cert', 'meetings']);
+  it('cardActionsFor — 📍 only; the viewer gets no action row (22.9)', () => {
+    expect(cardActionsFor('viewer')).toEqual([]);
+    expect(cardActionsFor('idan')).toEqual(['visit']);
+    expect(cardActionsFor('team')).toEqual(['visit']);
   });
 });
 

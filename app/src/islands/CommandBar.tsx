@@ -217,7 +217,7 @@ export function runAdd(action: string): void {
       break;
     }
     case 'schedule': case 'event': sigma.showPage('calendar'); break;
-    case 'stockChange': sigma.showPage('inventory'); break;
+    case 'stockChange': sigma.showPage('inventory'); window.dispatchEvent(new CustomEvent('sigma-open-stock-change', { detail: { product: '' } })); break;
     case 'visit': sigma.openVisitQuick(); break;
     case 'feedback': window.dispatchEvent(new CustomEvent('sigma-open-feedback')); break;
     default: break;

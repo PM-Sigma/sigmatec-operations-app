@@ -31,7 +31,7 @@ describe('the viewer matrix', () => {
   it('opening an EMS task from a bullet is refused — the viewer gets the timeline only', () => {
     // `noteOpenTask` in the review's wording: the ➕ that turns a bullet into an EMS task is
     // rendered from `cardActionsFor`/`canAct`, and for a viewer there is no write action at all.
-    expect(cardActionsFor('viewer')).toEqual(['meetings']);
+    expect(cardActionsFor('viewer')).toEqual([]);
     expect(cardActionsFor('viewer')).not.toContain('visit');
     expect(cardActionsFor('viewer')).not.toContain('cert');
   });

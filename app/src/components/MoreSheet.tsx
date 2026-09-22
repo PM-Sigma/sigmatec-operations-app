@@ -12,7 +12,6 @@ import {
   Users, Bell, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserChip } from '@/components/UserChip';
 import {
   itemBadge, listMoreItems, onMoreItemsChanged, type MoreItem, type SigmaRole as RegistryRole,
@@ -42,7 +41,7 @@ const APP_ORDER = ['settings', 'field-journal', 'feedback'];
 const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; group?: 'admin' }> = [
   { page: 'calendar', label: 'יומן', icon: CalendarDays },
   { page: 'attendance', label: 'נוכחות', icon: CalendarDays },
-  { page: 'inventory', label: 'מלאי', icon: Package },
+  // מלאי is a tab on the bar itself (F4, עידן 22.9): the sheet lists only what the bar does not.
   { page: 'pushlog', label: 'התראות', icon: Bell, group: 'admin' },
   { page: 'dev', label: 'פיתוח', icon: Code2, group: 'admin' },
 ];
@@ -78,8 +77,10 @@ function SheetRow({
   );
 }
 
-export function MoreSheet({ role }: { role: RegistryRole }) {
+export function MoreSheet({ role, openSignal = 0 }: { role: RegistryRole; openSignal?: number }) {
   const [open, setOpen] = React.useState(false);
+  // A long press on the bar (Nav.tsx) bumps `openSignal`; every bump opens the sheet.
+  React.useEffect(() => { if (openSignal > 0) setOpen(true); }, [openSignal]);
   const [, bump] = React.useReducer((n: number) => n + 1, 0);
   React.useEffect(() => onMoreItemsChanged(bump), []);
 
@@ -148,9 +149,6 @@ export function MoreSheet({ role }: { role: RegistryRole }) {
               />
             </li>
           ))}
-          <li>
-            <ThemeToggle withLabel className="w-full min-h-[52px] justify-start gap-3 rounded-xl px-3 text-[15px]" />
-          </li>
         </ul>
 
         {(admin.pages.length > 0 || admin.items.length > 0) && (

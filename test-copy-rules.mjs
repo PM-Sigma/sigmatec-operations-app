@@ -174,7 +174,7 @@ check('rule 1 still BITES — the four words added after F-14 match real sentenc
 check('the sweep is actually looking at copy (not passing on an empty scan)', () => {
   assert.ok(NEW_UI.length > 20, 'expected the island sources + index.html, found ' + NEW_UI.length);
   assert.ok(LEGACY.length > 20, 'expected the legacy modules, found ' + LEGACY.length);
-  assert.match(read('index.html'), /סיגמה/, 'index.html has no Hebrew copy — the scan is pointed at the wrong thing');
+  assert.match(read('index.html'), /לקוחות פעילים/, 'index.html has no Hebrew copy — the scan is pointed at the wrong thing');   // 22.9: the brand reads "Sigmatec Operations" now, so the sentinel is a section title
   // and it can still SEE a sentence: the copy extractor must find plenty in index.html
   assert.ok(copyStrings('index.html').length > 50, 'the extractor found almost no Hebrew copy in index.html');
 });

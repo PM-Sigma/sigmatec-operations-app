@@ -65,14 +65,24 @@
   // one, so they are redirected to 🏘 קיבוצים rather than left pointing at nothing.
   const RETIRED_PAGES = { ems: 1, mytasks: 1, staff: 1 };
 
-  function showPage(page) {
+  // The bottom bar's own pages; everything else is an inner page that gets a ← חזרה row and
+  // an Android Back that returns here (עידן 22.9, A3/A7).
+  var NAV_PAGES = { kibbutz: 1, inventory: 1, attendance: 1, calendar: 1 };
+  function showPage(page, opts) {
     if (RETIRED_PAGES[page]) page = 'kibbutz';
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי (admin) + מתניה + אליה — canSeeDevTasks(), js/src/18-dev-tasks.js
     if (page === 'pushlog' && !(typeof isIdan === 'function' && isIdan())) page = 'kibbutz'; // התראות — עידן only
     if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz'; // 🔥 צריבות — אביאם/ניתאי/עידן/עמיחי write · viewer read · hidden from מתניה/אליה · everyone once BURNS_PROJECT_ACTIVE is false
+    if (window._currentPage && window._currentPage !== page) window._prevPage = window._currentPage;
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
+    // One history entry per page switch, so the phone's Back returns to the previous page
+    // instead of leaving the app; and the page survives the app being resumed from the
+    // background (sessionStorage, read by the boot below).
+    if (!(opts && opts.fromHistory)) { try { history.pushState({ sigmaPage: page }, ''); } catch (e) { /* file:// */ } }
+    try { sessionStorage.setItem('sigma_page_v1', page); } catch (e) { /* private mode */ }
+    document.body.classList.toggle('inner-page', !NAV_PAGES[page]);
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
@@ -101,6 +111,11 @@
       var _lbl = fab.querySelector('.vfab-label'); if (_lbl) _lbl.textContent = _fabTxt; else fab.textContent = _fabTxt;   // set the label span, not textContent (would wipe the drag-hint arrows)
     }
   }
+
+  // ← חזרה on an inner page: the page before it, or the cards. (Declared AFTER showPage on
+  // purpose — test-integration.mjs reads showPage's gate ladder up to its first `_currentPage`.)
+  function pageBack() { var prev = window._prevPage; showPage(prev && prev !== window._currentPage ? prev : 'kibbutz'); }
+  window.pageBack = pageBack;
 
   // Esc — including this skip list — now lives in the ONE dispatcher in js/src/00-guard.js
   // (fix round 3, F4), so the same code answers a backdrop tap and a keypress and both
@@ -219,6 +234,17 @@
   // runs after the whole bundle AND after DOMContentLoaded, which is what this always meant.
   if (document.readyState !== 'loading') setTimeout(initVisitFabDrag, 0);
   else document.addEventListener('DOMContentLoaded', initVisitFabDrag);
+  // Resume where the person was (A7): a PWA the phone discarded in the background reloads to
+  // the cards; the page it was on is in sessionStorage. `replaceState` seeds the first history
+  // entry so the very first Back has somewhere to land.
+  function restorePage() {
+    try { history.replaceState({ sigmaPage: 'kibbutz' }, ''); } catch (e) { /* */ }
+    var p = null;
+    try { p = sessionStorage.getItem('sigma_page_v1'); } catch (e) { /* */ }
+    if (p && p !== 'kibbutz' && !location.hash) showPage(p);
+  }
+  if (document.readyState !== 'loading') setTimeout(restorePage, 0);
+  else document.addEventListener('DOMContentLoaded', restorePage);
 
   function vqSetType(type) {
     window._vqType = type;

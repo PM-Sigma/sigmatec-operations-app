@@ -23,7 +23,7 @@ import { queryClient } from '@/lib/query';
 import { roleOf } from '@/lib/landing';
 import { track } from '@/lib/track';
 import {
-  BURN_VISUAL_LABEL, burnChip, burnCounts, burnProgress, burnStripText, burnVisual,
+  burnChip, burnKindLabel, burnStateLabel, burnCounts, burnProgress, burnStripText, burnVisual,
   burnWarnings, burnedPatch, burnsForSite, burnSitesWithPending, canSeeBurns, canWriteBurns,
   clearIssuePatch, generatorPatch, generatorsForSite, issuePatch, unburnedPatch,
   type BurnRow, type GeneratorRow,
@@ -162,7 +162,7 @@ function StateTag({ row }: { row: BurnRow }) {
     : v === 'burned-ct' ? 'bg-primary/15 text-foreground'
     : v === 'issue' ? 'bg-destructive/15 text-destructive'
     : 'bg-muted text-muted-foreground';
-  return <span className={'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ' + tone}>{BURN_VISUAL_LABEL[v]}</span>;
+  return <span className={'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ' + tone}>{burnStateLabel(row)}</span>;
 }
 
 function MeterRow({
@@ -178,9 +178,11 @@ function MeterRow({
 }) {
   const warn = burnWarnings(row);
   const burned = row.status === 'burned';
+  // A tap on the row opens its details (עידן 22.9, I1) — the same facts the table page shows.
+  const [open, setOpen] = React.useState(false);
   return (
     <div data-testid="burn-row" data-meter={row.meter_id}
-         className="flex items-center gap-2 border-b border-border px-2 py-2 last:border-b-0">
+         className="flex flex-wrap items-center gap-2 border-b border-border px-2 py-2 last:border-b-0">
       {canWrite && (
         <input
           type="checkbox"
@@ -191,11 +193,11 @@ function MeterRow({
         />
       )}
       <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
-        {row.meter_type === 'E360CT'
-          ? '🧲 CT' + (row.ct_ratio && Number(row.ct_ratio) !== 1 ? ' ×' + Number(row.ct_ratio) : '')
-          : '🔌 ' + String(row.meter_type || '').replace('E360', '')}
+        {burnKindLabel(row)}
       </span>
-      <span className="min-w-0 flex-1">
+      <span role="button" tabIndex={0} aria-expanded={open} onClick={() => setOpen(o => !o)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); } }}
+            className="min-w-0 flex-1 cursor-pointer">
         <span className="block text-[14px] font-bold"><bdi>{row.serial}</bdi>{row.address ? <span className="ms-1.5 text-[12.5px] font-medium text-muted-foreground">{row.address}</span> : null}</span>
         <span className="block truncate text-[11.5px] text-muted-foreground">
           {row.solar_names ? '☀️ ' + row.solar_names : 'ללא מערכת מקושרת'}
@@ -205,6 +207,18 @@ function MeterRow({
         {!!warn.length && <span className="block text-[11.5px] font-semibold text-destructive">{warn.join(' · ')}</span>}
       </span>
       <StateTag row={row} />
+      {open && (
+        <dl className="mt-1 grid w-full grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg bg-muted px-2.5 py-2 text-[12px] [&>dt]:font-bold [&>dt]:text-muted-foreground">
+          <dt>סוג</dt><dd>{burnKindLabel(row)} · {row.meter_type}</dd>
+          <dt>כתובת</dt><dd>{row.address || '—'}</dd>
+          <dt>מערכות</dt><dd>{row.solar_names || '—'}</dd>
+          <dt>גנרטור</dt><dd>{gen ? gen.name + (gen.device_serial ? ' (' + gen.device_serial + ')' : '') : 'לא שובץ'}</dd>
+          <dt>מונה אב</dt><dd><bdi>{row.parent_serial || '—'}</bdi></dd>
+          {row.burned_at && <><dt>נצרב</dt><dd>{new Date(row.burned_at).toLocaleDateString('he-IL')}{row.burned_by ? ' · ' + row.burned_by : ''}</dd></>}
+          {row.note && <><dt>הערה</dt><dd>{row.note}</dd></>}
+          <dt>EMS</dt><dd><a className="underline" href={'https://sigmatec-ems.com/admin/meters/' + row.meter_id} target="_blank" rel="noopener">פתח ב-EMS ↗</a></dd>
+        </dl>
+      )}
       {canWrite && (
         <span className="flex shrink-0 gap-1">
           <button
@@ -304,7 +318,6 @@ export function BurnsPanel({ kibbutz }: { kibbutz: string }) {
         <span data-testid="burns-panel-count" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
           {counts.pending + counts.issue ? `נותרו ${counts.pending + counts.issue}/${counts.total}` : `הושלם · ${counts.total}`}
         </span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">פרויקט זמני</span>
       </div>
 
       {canWrite && !!selectedIds.length && (

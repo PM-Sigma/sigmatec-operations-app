@@ -1,16 +1,22 @@
-// 🔒 internal_tasks — Task 26 (company-process spec §2 + §8b: no due dates, no reminders).
+// 🔒 internal_tasks — Task 26, reshaped 22.9 (עידן, phone QA round D3).
 //
-// Same shape as MeetingNotes.tsx: one shared TanStack query (['internalTasks']), ONE
-// module-scope bus listener for `internal-tasks-changed` so 54 cards + "היום שלי" invalidate
-// together instead of one listener each, and every write funnels through the pure decisions
-// in lib/internalTasks.ts.
+// Two surfaces over one shared TanStack query (['internalTasks']):
+//   · the CARD at home reads only — title, the owner's dot + name, the due date. No checkbox,
+//     no promote, no input: "no internal-task actions outside the card";
+//   · the kibbutz MODAL (islands/InternalModal.tsx) carries the actions — done, promote to
+//     EMS, and the ➕ that opens the form (InternalTaskSheet) with owner · due · priority · kind.
+// ONE module-scope bus listener for `internal-tasks-changed`, so 54 cards + "היום שלי"
+// invalidate together; every write funnels through the pure decisions in lib/internalTasks.ts.
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { sigma, sigmaBus, useCurrentUser } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
-import { canWriteInternal, countBadge, myOpen, openFor, promoteToEms, toggleDone, type InternalTaskRow } from '@/lib/internalTasks';
+import {
+  canWriteInternal, countBadge, dueLabel, isOverdueInternal, myOpen, openFor, priorityLabelOf,
+  promoteToEms, toggleDone, type InternalTaskExtra, type InternalTaskRow,
+} from '@/lib/internalTasks';
 
 export const INTERNAL_QUERY_KEY = ['internalTasks'] as const;
 export const INTERNAL_TASKS_CHANGED = 'internal-tasks-changed' as const;
@@ -42,15 +48,25 @@ export function emitInternalTasksChanged(detail?: Record<string, unknown>): void
 
 // ───────────────────────────── writes ─────────────────────────────
 
+/**
+ * Create a row. The three 22.9 fields ride along when given; a database that has not had
+ * db/internal_tasks_fields.sql applied yet refuses unknown columns, and then the row is
+ * written in the old shape rather than not at all — the title and the owner are the task.
+ */
 export async function createInternalTask(
-  title: string, kibbutz: string | null, owner: string | null, createdBy: string,
+  title: string, kibbutz: string | null, owner: string | null, createdBy: string, extra?: InternalTaskExtra,
 ): Promise<void> {
   const t = title.trim();
   if (!t) return;
   const sb = await getSupabase();
-  await sbWrite(() => sb.from('internal_tasks')
-    .insert({ title: t, kibbutz, owner: owner || null, created_by: createdBy })
-    .select('id').single());
+  const base = { title: t, kibbutz, owner: owner || null, created_by: createdBy };
+  const full = extra ? { ...base, ...extra } : base;
+  try {
+    await sbWrite(() => sb.from('internal_tasks').insert(full).select('id').single());
+  } catch (e: any) {
+    if (!extra || !/column|schema/i.test(String(e?.message || ''))) throw e;
+    await sbWrite(() => sb.from('internal_tasks').insert(base).select('id').single());
+  }
   emitInternalTasksChanged({ created: true });
 }
 
@@ -71,7 +87,31 @@ export async function promoteInternalTask(row: InternalTaskRow, kibbutz: string)
 
 // ───────────────────────────── rows ─────────────────────────────
 
-function InternalRow({ row, kibbutz, canAct }: { row: InternalTaskRow; kibbutz: string | null; canAct: boolean }) {
+function OwnerDot({ owner }: { owner?: string | null }) {
+  if (!owner) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold text-muted-foreground">
+      <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--brand-2)]" />
+      {owner}
+    </span>
+  );
+}
+
+function DueChip({ row }: { row: InternalTaskRow }) {
+  const d = dueLabel(row);
+  if (!d) return null;
+  const late = isOverdueInternal(row);
+  return (
+    <span className={'rounded-md border border-border bg-card px-1.5 py-px text-[10px] ' + (late ? 'font-semibold text-destructive' : 'text-muted-foreground')}>
+      {late ? '⏰' : '📅'} <bdi>{d}</bdi>
+    </span>
+  );
+}
+
+/** One row. `readOnly` (the card) shows the facts; the modal gets the actions. */
+function InternalRow({ row, kibbutz, canAct, readOnly = false }: {
+  row: InternalTaskRow; kibbutz: string | null; canAct: boolean; readOnly?: boolean;
+}) {
   const [busy, setBusy] = React.useState(false);
   const act = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);
@@ -79,15 +119,16 @@ function InternalRow({ row, kibbutz, canAct }: { row: InternalTaskRow; kibbutz: 
     catch (e: any) { toast.error(e?.message || 'הפעולה נכשלה'); }
     finally { setBusy(false); }
   };
+  const actions = canAct && !readOnly;
   return (
-    <li data-id={row.id} className="internal-task-row flex items-start gap-2 py-[5px] text-[14.5px] leading-[1.55]">
-      {canAct ? (
+    <li data-id={row.id} className="internal-task-row flex items-start gap-2 py-[5px] text-[14px] leading-[1.5]">
+      {actions ? (
         <button
           type="button"
           disabled={busy}
           aria-label={row.done ? 'בטל סימון' : 'סמן כטופל'}
           onClick={e => { e.stopPropagation(); void act(() => writeToggleDone(row), row.done ? 'הסימון בוטל' : 'סומן כטופל'); }}
-          className="mt-[1px] h-4 w-4 shrink-0 rounded border border-border text-[11px] leading-4 text-muted-foreground hover:bg-muted"
+          className="mt-[2px] h-4 w-4 shrink-0 rounded border border-border text-[11px] leading-4 text-muted-foreground hover:bg-muted"
         >
           {row.done ? '✓' : ''}
         </button>
@@ -96,13 +137,18 @@ function InternalRow({ row, kibbutz, canAct }: { row: InternalTaskRow; kibbutz: 
       )}
       <span className="min-w-0 flex-1">
         <span className={row.done ? 'text-muted-foreground line-through' : ''}>{row.title}</span>
-        {row.owner && (
-          <span className="ms-1.5 inline-flex rounded-full bg-muted px-1.5 py-px align-middle text-[10px] font-semibold text-muted-foreground">
-            {row.owner}
-          </span>
-        )}
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          <OwnerDot owner={row.owner} />
+          <DueChip row={row} />
+          {!readOnly && row.priority && (
+            <span className="rounded-md border border-border bg-card px-1.5 py-px text-[10px] text-muted-foreground">{priorityLabelOf(row.priority)}</span>
+          )}
+          {!readOnly && row.kind && (
+            <span className="rounded-md border border-border bg-card px-1.5 py-px text-[10px] text-muted-foreground">{row.kind}</span>
+          )}
+        </span>
       </span>
-      {canAct && !row.done && kibbutz && (
+      {actions && !row.done && kibbutz && (
         <button
           type="button"
           disabled={busy}
@@ -117,59 +163,80 @@ function InternalRow({ row, kibbutz, canAct }: { row: InternalTaskRow; kibbutz: 
   );
 }
 
-/** The kibbutz-card section, beside the EMS tasks (§7k order: EMS tasks → notes → 🔒). */
-export function InternalTasksSection({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
+const InternalTaskSheet = React.lazy(() => import('@/components/home/InternalTaskSheet'));
+
+/** The card section at home — READ ONLY (22.9). A soft dashed rule separates it from the EMS tasks. */
+export function InternalTasksSection({ kibbutz }: { kibbutz: string; canAct?: boolean }) {
   const { data, isLoading } = useInternalTasks();
-  const { name: createdBy } = useCurrentUser();
-  const [draft, setDraft] = React.useState('');
-  const [adding, setAdding] = React.useState(false);
+  if (isLoading && !data) return null;
+  const rows = openFor(data, kibbutz);
+  if (!rows.length) return null;
+  return (
+    <div className="card-internal-tasks mt-2 border-t border-dashed border-border pt-1.5">
+      <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground">
+        <span>🔒 משימות פנימיות</span>
+        <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold"><bdi>{rows.length}</bdi></span>
+      </div>
+      <ul>{rows.map(r => <InternalRow key={r.id} row={r} kibbutz={kibbutz} canAct={false} readOnly />)}</ul>
+    </div>
+  );
+}
+
+/**
+ * The two bubbles under the card's tasks (22.9, D3): the ONLY actions the home card offers
+ * on tasks. ➕ משימת EMS opens the kibbutz modal and the EMS task form on top of it;
+ * ➕ משימה פנימית opens the internal form right here.
+ */
+export function TaskAdders({ kibbutz }: { kibbutz: string }) {
+  const { isViewer } = useCurrentUser();
+  const [open, setOpen] = React.useState(false);
+  if (!canWriteInternal(isViewer)) return null;
+  const addEms = () => {
+    try {
+      sigma.openKibbutzModal?.(kibbutz, 'meetings');
+      const w = window as any;
+      if (typeof w.createEmsTaskForKibbutz === 'function') setTimeout(() => { void w.createEmsTaskForKibbutz(); }, 60);
+    } catch { /* legacy not up */ }
+  };
+  const cls = 'inline-flex min-h-[32px] items-center gap-1 rounded-full border border-dashed border-border bg-card px-2.5 text-[12px] font-semibold text-muted-foreground active:scale-[.97]';
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
+      <button type="button" className={cls} onClick={addEms} data-testid="add-ems-task">➕ משימת EMS</button>
+      <button type="button" className={cls} onClick={() => setOpen(true)} data-testid="add-internal-task">➕ משימה פנימית</button>
+      {open && (
+        <React.Suspense fallback={null}>
+          <InternalTaskSheet kibbutz={kibbutz} open={open} onOpenChange={setOpen} />
+        </React.Suspense>
+      )}
+    </div>
+  );
+}
+
+/** The modal panel — rows with actions, and the ➕. Mounted by islands/InternalModal.tsx. */
+export function InternalTasksPanel({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
+  const { data, isLoading } = useInternalTasks();
+  const [open, setOpen] = React.useState(false);
   if (isLoading && !data) return null;
   const rows = openFor(data, kibbutz);
   const badge = countBadge(data, kibbutz);
-  if (!badge && !canAct) return null;   // nothing to show and no way to add — the section is a no-op
-
-  const submit = async () => {
-    const t = draft.trim();
-    if (!t) return;
-    setAdding(true);
-    // No owner-picker on the card (spec §2 names no per-person assignment UI) — a task
-    // someone adds is his own until reassigned, which is what makes it show up under his own
-    // "היום שלי" without a second step.
-    try { await createInternalTask(t, kibbutz, createdBy, createdBy); setDraft(''); }
-    catch (e: any) { toast.error(e?.message || 'ההוספה נכשלה'); }
-    finally { setAdding(false); }
-  };
-
+  if (!badge && !canAct) return null;
   return (
-    <div className="card-internal-tasks mt-2.5 border-t border-dashed border-border pt-2">
-      <div className="mb-0.5 flex items-center gap-1.5">
-        <span className="text-[11px] font-bold text-muted-foreground">🔒</span>
-        {badge > 0 && (
-          <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground"><bdi>{badge}</bdi></span>
+    <div className="mb-3" data-testid="internal-panel">
+      <div className="mb-1 flex items-center gap-1.5">
+        <h4 className="flex-1 text-[14px] font-bold">🔒 משימות פנימיות</h4>
+        {badge > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"><bdi>{badge}</bdi></span>}
+        {canAct && (
+          <button type="button" onClick={() => setOpen(true)}
+                  className="min-h-[32px] rounded-full border border-border bg-card px-2.5 text-[12px] font-semibold">➕ משימה פנימית</button>
         )}
       </div>
-      {rows.length > 0 && (
-        <ul>{rows.map(r => <InternalRow key={r.id} row={r} kibbutz={kibbutz} canAct={canAct} />)}</ul>
-      )}
-      {canAct && (
-        <div className="mt-1 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-          <input
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submit(); } }}
-            placeholder="משימה פנימית חדשה…"
-            disabled={adding}
-            className="internal-task-input min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-[13px]"
-          />
-          <button
-            type="button"
-            disabled={adding || !draft.trim()}
-            onClick={() => void submit()}
-            className="shrink-0 rounded-md px-2 py-1 text-[13px] font-semibold text-muted-foreground hover:bg-muted disabled:opacity-40"
-          >
-            ➕
-          </button>
-        </div>
+      {rows.length > 0
+        ? <ul className="rounded-[12px] border border-border bg-card px-2.5">{rows.map(r => <InternalRow key={r.id} row={r} kibbutz={kibbutz} canAct={canAct} />)}</ul>
+        : <p className="text-[12.5px] text-muted-foreground">אין משימות פנימיות פתוחות</p>}
+      {open && (
+        <React.Suspense fallback={null}>
+          <InternalTaskSheet kibbutz={kibbutz} open={open} onOpenChange={setOpen} />
+        </React.Suspense>
       )}
     </div>
   );

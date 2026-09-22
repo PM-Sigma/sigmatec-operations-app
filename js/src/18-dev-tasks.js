@@ -236,7 +236,6 @@
       '<div class="dev-hero-top">' +
         '<div><div class="dev-hero-title">💻 לוח פיתוח</div>' +
         '<div class="dev-hero-sub">טיקטים חיים מ-GitHub · מתעדכן אוטומטית מהפרויקט</div></div>' +
-        '<button class="dev-hero-refresh" onclick="renderDevTasks(true)" title="רענן עכשיו" aria-label="רענן">🔄</button>' +
       '</div>' +
       '<div class="dev-kpis">' + kpis + '</div>' +
       prioRow +

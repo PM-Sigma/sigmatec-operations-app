@@ -1,12 +1,11 @@
 import * as React from 'react';
-import { BarChart3, Home, MapPin, Package, Truck, type LucideIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { BarChart3, Home, MapPin, MessageSquarePlus, Package, type LucideIcon } from 'lucide-react';
 import { MoreSheet } from '@/components/MoreSheet';
-import { todayISO } from '@/lib/visitDrafts';
 import { type SigmaRole as RegistryRole } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import { useCurrentPage } from '@/lib/currentPage';
 import { canShowPage } from '@/lib/canShowPage';
+import { track } from '@/lib/track';
 
 function TabButton({
   icon: Icon, label, onClick, active = false,
@@ -31,13 +30,19 @@ function TabButton({
   );
 }
 
+/** How long a finger rests on the bar before it counts as "show me everything" (A6). */
+export const LONG_PRESS_MS = 450;
+
 /**
  * Bottom tab bar — phones only (`md:hidden`; the legacy `.page-nav` keeps the desktop).
- * Field roles: קיבוצים · תעודה · [ביקור] · מלאי · עוד. Viewer: קיבוצים · דוחות · עוד.
+ * Field roles: קיבוצים · רעיון/באג · [ביקור] · מלאי · עוד. Viewer: קיבוצים · דוחות · עוד.
+ * 22.9 (עידן): 🚚 תעודה left the bar — a certificate is made from inside a visit summary;
+ * its slot went to 📣 רעיון / באג. A long press anywhere on the bar opens the ⋯ sheet.
  */
 export function Nav() {
   const { role, isViewer } = useCurrentUser();
   const page = useCurrentPage();
+  const [moreSignal, setMoreSignal] = React.useState(0);
 
   // css/app.css hides the legacy `.page-nav` and `#visitFab` on phones only while this class is
   // present. If ui/sigma.js never loads, the class never lands and the phone keeps the old nav.
@@ -47,23 +52,6 @@ export function Nav() {
   }, []);
 
   const registryRole: RegistryRole = isViewer ? 'viewer' : role === 'idan' ? 'idan' : 'team';
-
-  /**
-   * 🚚 from the nav has no kibbutz in hand. §5.1c: a certificate hangs off a visit summary,
-   * so with nothing started this says so in one sentence and opens the form; with a draft
-   * open it resumes that kibbutz and the certificate opens from inside the form, which is
-   * what guarantees the cert ↔ visit link.
-   */
-  const certFromNav = () => {
-    let draft = null as null | { kibbutz: string };
-    try {
-      const me = sigma?.getCurrentUser?.() || '';
-      draft = (sigma?.visitDraftFor?.(null, me, todayISO()) as { kibbutz: string }) || null;
-    } catch { draft = null; }
-    if (draft?.kibbutz) { sigma.openVisitQuick(draft.kibbutz); return; }
-    toast.info('נדרש קודם סיכום ביקור — פותח את הטופס');
-    sigma.openVisitQuick();
-  };
 
   /**
    * The raised 📍 (§5.1 fast path + §7k #1). For a field worker who has not checked in yet
@@ -81,12 +69,30 @@ export function Nav() {
     document.getElementById('viewerReportsHub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const openFeedback = () => {
+    track('feedback-open', 'nav');
+    window.dispatchEvent(new CustomEvent('sigma-open-feedback'));
+  };
+
+  // Long press → the ⋯ sheet, the way a phone's quick-settings drawer opens on a pull (A6).
+  const pressTimer = React.useRef<number | null>(null);
+  const clearPress = () => { if (pressTimer.current != null) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
+  const onPointerDown = () => {
+    clearPress();
+    pressTimer.current = window.setTimeout(() => { pressTimer.current = null; track('more-sheet-open', 'long-press'); setMoreSignal(n => n + 1); }, LONG_PRESS_MS);
+  };
+
   return (
     <nav
       dir="rtl"
       aria-label="ניווט ראשי"
+      onPointerDown={onPointerDown}
+      onPointerUp={clearPress}
+      onPointerCancel={clearPress}
+      onPointerLeave={clearPress}
+      onContextMenu={e => e.preventDefault()}
       // `.nav` in the mockup: the CARD surface, a hairline on top, 8 px top / 18 px bottom.
-      className="sigma-root fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,.06)] md:hidden"
+      className="sigma-root fixed inset-x-0 bottom-0 z-40 select-none border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,.06)] md:hidden"
     >
       <div className="mx-auto flex max-w-lg items-stretch gap-1 px-1.5">
         <TabButton icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />
@@ -95,7 +101,7 @@ export function Nav() {
           <TabButton icon={BarChart3} label="דוחות" onClick={scrollToReports} />
         ) : (
           <>
-            <TabButton icon={Truck} label="תעודה" onClick={certFromNav} />
+            <TabButton icon={MessageSquarePlus} label="רעיון / באג" onClick={openFeedback} />
 
             {/* center raised primary action — the brand gradient's one appearance in the nav */}
             <div className="relative flex w-[72px] shrink-0 justify-center">
@@ -120,9 +126,8 @@ export function Nav() {
           </>
         )}
 
-        <MoreSheet role={registryRole} />
+        <MoreSheet role={registryRole} openSignal={moreSignal} />
       </div>
     </nav>
   );
 }
-

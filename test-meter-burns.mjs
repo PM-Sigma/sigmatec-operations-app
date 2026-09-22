@@ -23,7 +23,7 @@ const gens = [{ id: 'g1', site: 'אור הנר', name: 'גנרטור רפת', de
 assert.equal(B.isCT(rows[0]), true); assert.equal(B.isCT(rows[1]), false); assert.equal(B.isCT(rows[3]), false, 'SP is not CT');
 assert.equal(B.rowState(rows[0]), 'pending');
 assert.equal(B.rowState(rows[1]), 'burned', 'burned PP → plain burned');
-assert.equal(B.rowState(rows[2]), 'burned-ct', 'burned CT → purple "מוכן לעיסוק"');
+assert.equal(B.rowState(rows[2]), 'burned-ct', 'burned CT → purple colour (a colour, never a status word — 22.9)');
 assert.equal(B.rowState(rows[3]), 'issue');
 
 // --- search: partial serial, address, solar name, site, generator name; Hebrew spacing/case tolerant ---
@@ -87,8 +87,10 @@ assert.deepEqual(spec.groupKeys.slice(0, 2), [0, 0], 'both אור הנר rows sh
 const issueRow = spec.rows.find(r => r[3] === '22222222');
 assert.equal(issueRow[8], 'בעיה'); assert.equal(issueRow[11], 'אין גישה');
 const ctBurned = spec.rows.find(r => r[3] === '11111111');
-assert.equal(ctBurned[8], 'נצרב · מוכן לעיסוק');
-const genRow = spec.rows.find(r => r[3] === '59965612');
+assert.equal(ctBurned[8], 'נצרב · ממתין לשיבוץ גנרטור', 'burned with no generator says so (22.9, I2)');
+assert.equal(genRow0 = spec.rows.find(r => r[3] === '59965612')[8], 'נצרב', 'burned + generator = plain נצרב');
+assert.equal(B.kindLabel(rows[0]), '🔁 משנה זרם ×50'); assert.equal(B.kindLabel(rows[1]), '⚡ תלת-פאזי'); assert.equal(B.kindLabel(rows[3]), '⚡ חד-פאזי', 'SP is single-phase (22.9, I4)');
+var genRow0; const genRow = spec.rows.find(r => r[3] === '59965612');
 assert.equal(genRow[1], 'גנרטור רפת');
 
 // Excel export sanitizes free text (RTL marks / newlines) in the note column

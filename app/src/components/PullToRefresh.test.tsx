@@ -8,7 +8,7 @@
 // pull refreshes the world twice.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { PULL_MAX, PULL_THRESHOLD, PullToRefresh, pullState } from './PullToRefresh';
+import { PULL_MAX, PULL_THRESHOLD, PullToRefresh, pullAllowedFrom, pullState } from './PullToRefresh';
 import { refreshAll } from '@/lib/query';
 
 vi.mock('@/lib/query', () => ({ refreshAll: vi.fn(() => Promise.resolve()) }));
@@ -151,5 +151,22 @@ describe('<PullToRefresh>', () => {
     render(<PullToRefresh />);
     expect(add.mock.calls.filter(c => String(c[0]).startsWith('touch'))).toHaveLength(4);
     add.mockRestore();
+  });
+});
+
+
+describe('pullAllowedFrom — a finger inside a sheet or a scrolled box is not a pull (22.9, A5)', () => {
+  it('refuses a touch inside a Radix portal or a legacy modal', () => {
+    document.body.innerHTML = '<div data-sigma-portal><div id="in">x</div></div><div class="modal-backdrop open"><div class="modal" id="m">y</div></div><p id="free">z</p>';
+    expect(pullAllowedFrom(document.getElementById('in'))).toBe(false);
+    expect(pullAllowedFrom(document.getElementById('m'))).toBe(false);
+    expect(pullAllowedFrom(document.getElementById('free'))).toBe(true);
+    expect(pullAllowedFrom(null)).toBe(true);
+  });
+  it('refuses a touch inside an element that has scrolled', () => {
+    document.body.innerHTML = '<div id="box"><span id="t">t</span></div>';
+    const box = document.getElementById('box')!;
+    Object.defineProperty(box, 'scrollTop', { value: 12, configurable: true });
+    expect(pullAllowedFrom(document.getElementById('t'))).toBe(false);
   });
 });

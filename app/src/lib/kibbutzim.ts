@@ -156,11 +156,12 @@ export function canEditEnergy(user: string): boolean {
 
 export const ENERGY_LOCK_TITLE = 'רק עידן משנה סוגי אנרגיה';
 
-export type CardAction = 'visit' | 'cert' | 'meetings';
+export type CardAction = 'visit';
 
-/** Card quick-action row (spec §3.3): the viewer only gets the read-only meetings timeline. */
+/** Card quick-action row: 📍 סיכום ביקור and nothing else (עידן 22.9 — 🚚 lives inside the visit
+ *  summary, 🗓 only re-opened the card). The viewer, who cannot write, gets no row at all. */
 export function cardActionsFor(role: string): CardAction[] {
-  return role === 'viewer' ? ['meetings'] : ['visit', 'cert', 'meetings'];
+  return role === 'viewer' ? [] : ['visit'];
 }
 
 // ───────────────────────────── validation ─────────────────────────────

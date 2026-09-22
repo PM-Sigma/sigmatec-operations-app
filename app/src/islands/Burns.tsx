@@ -63,7 +63,7 @@ function useBurnsMoreRow(): void {
   useEffect(() => {
     registerMoreItem({
       id: 'burns-table',
-      label: 'צריבות מונים (פרויקט זמני)',
+      label: 'צריבות מונים',
       icon: 'Flame',
       group: 'app',
       visible: () => {

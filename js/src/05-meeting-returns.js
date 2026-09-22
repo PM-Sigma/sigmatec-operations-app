@@ -1,29 +1,5 @@
-  // ===== MEETING MODE — personal UX boost for Idan during the team meeting =====
-  // Doesn't lock anyone out. Just makes updates faster locally for the active user.
-  function isMeetingMode() { return localStorage.getItem('meeting_mode_v1') === '1'; }
-  function toggleMeetingMode() {
-    const cur = isMeetingMode();
-    localStorage.setItem('meeting_mode_v1', cur ? '0' : '1');
-    document.body.classList.toggle('meeting-mode', !cur);
-    updateMeetingBadge();
-    if (!cur) {
-      // Entering meeting mode: auto-expand all collapsed sections for fast scanning
-      document.querySelectorAll('.section-body.collapsed').forEach(b => b.classList.remove('collapsed'));
-      document.querySelectorAll('.section-toggle').forEach(t => t.textContent = '▼');
-      if (typeof applyCardLastVisit === 'function') applyCardLastVisit();   // ensure last-visit lines are present
-      setTimeout(() => { const s = document.getElementById('searchInput'); if (s) s.focus(); }, 100);   // fast find
-    }
-    const t = document.getElementById('toast');
-    t.textContent = cur ? '🔓 מצב ישיבה כובה' : '🚀 מצב ישיבה הופעל — הטופס מהיר יותר';
-    t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
-  }
-  function updateMeetingBadge() {
-    const btn = document.getElementById('meetingBadge');
-    if (!btn) return;
-    btn.textContent = isMeetingMode() ? '🚀 מצב ישיבה' : '💬 ישיבה';
-    btn.style.background = isMeetingMode() ? '#10b981' : '';
-    btn.style.color = isMeetingMode() ? 'white' : '';
-  }
+  // מצב ישיבה (the search-field boost) retired 22.9 (עידן): after 2.00 it only enlarged the
+  // search box. ▶ מצב ישיבה (islands/Presenter.tsx) is a different feature and stays.
   // Always permits edit — meeting mode is now a personal boost, not a lock.
   function checkEditPermission() {
     if (typeof isViewer === 'function' && isViewer()) { alert('👁 משתמש צפייה — אין הרשאת עריכה (דוחות בלבד)'); return false; }

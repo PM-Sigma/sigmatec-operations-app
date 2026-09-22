@@ -81,9 +81,22 @@ export function burnVisual(r: BurnRow): BurnVisual {
 export const BURN_VISUAL_LABEL: Record<BurnVisual, string> = {
   pending: '⬜ ממתין',
   burned: '✅ נצרב',
-  'burned-ct': '🟣 מוכן לעיסוק',
+  'burned-ct': '🟣 נצרב',
   issue: '⚠ בעיה',
 };
+
+/** The status in words (עידן 22.9, I2): burned is 'נצרב'; burned with no generator yet says so. */
+export function burnStateLabel(r: BurnRow): string {
+  const v = burnVisual(r);
+  if (v === 'pending' || v === 'issue') return BURN_VISUAL_LABEL[v];
+  return r.generator_id ? '✅ נצרב' : '✅ נצרב · ממתין לשיבוץ גנרטור';
+}
+
+/** The kind in words a technician uses (I4): PP = תלת-פאזי, CT = משנה זרם (with its ratio). */
+export function burnKindLabel(r: BurnRow): string {
+  if (isCT(r)) return '🔁 משנה זרם' + (r.ct_ratio && Number(r.ct_ratio) !== 1 ? ' ×' + Number(r.ct_ratio) : '');
+  return String(r.meter_type || '') === 'E360SP' ? '⚡ חד-פאזי' : '⚡ תלת-פאזי';
+}
 
 /** Card names and EMS site names are the same string where they are linked; compare them
  *  trimmed so one stray space in the sheet does not hide a whole kibbutz's meters. */
@@ -221,8 +234,7 @@ export function burnLeaveItems(rows: BurnRow[] | null | undefined, site: string)
     .map(r => ({
       id: 'burn:' + r.meter_id,
       text: `לצרוב מונה ${r.serial}` + (r.address ? ` · ${r.address}` : ''),
-      sub: (isCT(r) ? `🧲 CT${r.ct_ratio && Number(r.ct_ratio) !== 1 ? ' ×' + Number(r.ct_ratio) : ''}` : '🔌 ' + String(r.meter_type || '').replace('E360', ''))
-        + (r.status === 'issue' ? ' · ⚠ ' + (r.note || 'בעיה מדווחת') : ' · צריבה'),
+      sub: burnKindLabel(r) + (r.status === 'issue' ? ' · ⚠ ' + (r.note || 'בעיה מדווחת') : ' · צריבה'),
       kind: 'burn' as const,
       meterId: r.meter_id,
     }));

@@ -94,7 +94,7 @@ describe('row state', () => {
     expect(burnVisual(ROWS[1])).toBe('burned');
     expect(burnVisual(ROWS[2])).toBe('issue');
     expect(burnVisual({ ...ROWS[0], status: 'burned' })).toBe('burned-ct');
-    expect(BURN_VISUAL_LABEL['burned-ct']).toBe('🟣 מוכן לעיסוק');
+    expect(BURN_VISUAL_LABEL['burned-ct']).toBe('🟣 נצרב');
   });
 
   it('an SP meter is not a CT', () => {
@@ -207,11 +207,11 @@ describe('the briefing rows — kind `burn`', () => {
 
   it('reads as field work, with the meter type and the CT ratio', () => {
     expect(items[0].text).toBe('לצרוב מונה 68369287 · רפת 7');
-    expect(items[0].sub).toBe('🧲 CT ×50 · צריבה');
+    expect(items[0].sub).toBe('🔁 משנה זרם ×50 · צריבה');
   });
 
   it('a reported problem is carried into the row, so he sees it before he starts', () => {
-    expect(items[1].sub).toBe('🔌 PP · ⚠ אין גישה');
+    expect(items[1].sub).toBe('⚡ תלת-פאזי · ⚠ אין גישה');
   });
 
   it('a finished kibbutz contributes no rows', () => {

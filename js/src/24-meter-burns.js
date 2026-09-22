@@ -68,7 +68,19 @@
   B.assignPatch = function (genId, now){ return { generator_id: genId || null, updated_at: now }; };
   B.clearIssuePatch = function (now) { return { status: 'pending', note: null, updated_at: now }; };
   B.xs = function (v) { return String(v == null ? '' : v).replace(/[‎‏‪-‮]/g, '').replace(/\r?\n/g, ' ').trim(); };
-  var XL_STATE = { pending: 'ממתין', burned: 'נצרב', 'burned-ct': 'נצרב · מוכן לעיסוק', issue: 'בעיה' };
+  // The words (עידן 22.9, I2): a burned meter is 'נצרב'; burned with no generator yet is
+  // 'נצרב · ממתין לשיבוץ גנרטור'. `burned-ct` stays a COLOUR (rowState), never a status word.
+  B.stateLabel = function (r) {
+    var st = B.rowState(r);
+    if (st === 'pending') return 'ממתין';
+    if (st === 'issue') return 'בעיה';
+    return r.generator_id ? 'נצרב' : 'נצרב · ממתין לשיבוץ גנרטור';
+  };
+  // The kind, in words a technician uses (עידן 22.9, I4): PP = תלת-פאזי, CT = משנה זרם.
+  B.kindLabel = function (r) {
+    if (B.isCT(r)) return '🔁 משנה זרם' + (r.ct_ratio && Number(r.ct_ratio) !== 1 ? ' ×' + Number(r.ct_ratio) : '');
+    return String(r.meter_type || '') === 'E360SP' ? '⚡ חד-פאזי' : '⚡ תלת-פאזי';
+  };
   B.xlsxSpec = function (rows, gens) {
     var byId = {}; (gens || []).forEach(function (g) { byId[g.id] = g; });
     var columns = [
@@ -82,7 +94,7 @@
       g.rows.forEach(function (r) {
         var gen = byId[r.generator_id];
         out.push([B.xs(r.site), B.xs(gen ? gen.name : ''), B.xs(r.meter_type), B.xs(r.serial), B.xs(r.address), B.xs(r.solar_names),
-                  r.ct_ratio != null ? Number(r.ct_ratio) : null, B.xs(r.parent_serial), XL_STATE[B.rowState(r)],
+                  r.ct_ratio != null ? Number(r.ct_ratio) : null, B.xs(r.parent_serial), B.stateLabel(r),
                   B.xs(r.burned_by), r.burned_at ? (function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); })(new Date(r.burned_at)) : null, B.xs(r.note)]);
         keys.push(gi);
       });
@@ -254,15 +266,10 @@
   }
 
   // ---------- render ----------
-  var BURN_STATE_UI = {
-    pending:     { icon: '⬜', label: 'ממתין',        cls: 'burn-pending' },
-    burned:      { icon: '✅', label: 'נצרב',         cls: 'burn-burned' },
-    'burned-ct': { icon: '🟣', label: 'מוכן לעיסוק',  cls: 'burn-burned-ct' },
-    issue:       { icon: '⚠️', label: 'בעיה',         cls: 'burn-issue' }
-  };
+  var BURN_STATE_ICON = { pending: '⬜', burned: '✅', 'burned-ct': '🟣', issue: '⚠️' };
+  function burnStateUi(r) { var st = B.rowState(r); return { icon: BURN_STATE_ICON[st], label: B.stateLabel(r), cls: 'burn-' + st }; }
   function burnKindTag(r) {
-    return B.isCT(r) ? '<span class="burn-tag burn-tag-ct">🧲 CT' + (r.ct_ratio && Number(r.ct_ratio) !== 1 ? ' ×' + Number(r.ct_ratio) : '') + '</span>'
-                     : '<span class="burn-tag burn-tag-pp">🔌 ' + burnEsc(String(r.meter_type || '').replace('E360', '')) + '</span>';
+    return '<span class="burn-tag ' + (B.isCT(r) ? 'burn-tag-ct' : 'burn-tag-pp') + '">' + burnEsc(B.kindLabel(r)) + '</span>';
   }
   function burnWarn(r) {
     var w = [];
@@ -271,7 +278,7 @@
     return w.length ? '<div class="burn-warn">' + w.join(' · ') + '</div>' : '';
   }
   function burnRowHtml(r, write) {
-    var st = BURN_STATE_UI[B.rowState(r)];
+    var st = burnStateUi(r);
     var sel = burnState.sel[r.meter_id] ? ' checked' : '';
     var chk = write ? '<input type="checkbox" class="burn-chk" aria-label="בחר"' + sel + ' onclick="event.stopPropagation();burnSelect(\'' + burnAttr(r.meter_id) + '\', this.checked)">' : '';
     var btn = write ? '<button class="inv-btn small burn-btn ' + (r.status === 'burned' ? 'burn-btn-on' : '') + '" onclick="event.stopPropagation();burnToggle(\'' + burnAttr(r.meter_id) + '\')">' + (r.status === 'burned' ? '↩ בטל' : '✅ נצרב') + '</button>' +
@@ -297,7 +304,7 @@
       '<header class="burn-site-head" onclick="burnToggleSite(\'' + burnAttr(g.site) + '\')">' +
         '<span class="burn-caret">' + (open ? '▼' : '▶') + '</span><h3>' + burnEsc(g.site) + '</h3>' +
         '<span class="burn-left' + (g.pending ? '' : ' done') + '">נותרו ' + g.pending + '/' + g.total + '</span>' +
-        '<span class="burn-mini">CT ' + g.ct + ' · PP ' + g.pp + (g.issue ? ' · ⚠️ ' + g.issue : '') + '</span>' +
+        '<span class="burn-mini">משנה זרם ' + g.ct + ' · תלת-פאזי ' + g.pp + (g.issue ? ' · ⚠️ ' + g.issue : '') + '</span>' +
         '<div class="burn-bar"><i style="width:' + pct + '%"></i></div>' +
       '</header>' + (open ? '<div class="burn-site-body">' + body + '</div>' : '') + '</section>';
   }
@@ -332,18 +339,16 @@
     var sites = B.groupBySite(burnState.rows || []).map(function (g) { return g.site; });
     var seg = function (key, opts) { return '<div class="burn-seg">' + opts.map(function (o) { return '<button class="' + (f[key] === o[0] ? 'on' : '') + '" onclick="burnSetFilter(\'' + key + '\',\'' + o[0] + '\')">' + o[1] + '</button>'; }).join('') + '</div>'; };
     el.innerHTML = '<div class="dev-wrap burn-wrap">' +
-      '<div class="push-head"><h2 class="push-title">🔥 צריבות — Landis E360 ייצור <span class="burn-temp">פרויקט זמני</span></h2>' +
+      '<div class="push-head"><h2 class="push-title">🔥 צריבות — מוני ייצור Landis E360</h2>' +
         '<div><button class="inv-btn small xl-export-btn" onclick="burnExportXlsx()" style="' + (typeof canExportExcel === 'function' && canExportExcel() ? '' : 'display:none') + '">📗 Excel</button> ' +
         (burnCanManageGens() ? '<button class="inv-btn small" onclick="burnGensOpen()">⚡ גנרטורים</button> ' : '') +
-        (burnCanWrite() ? '<button class="inv-btn small" onclick="burnRefreshFromEms(true, this)" title="עדכון נתוני המונים מה-EMS"' + (burnState.syncing ? ' disabled' : '') + '>' + (burnState.syncing ? '⏳ EMS…' : '⟳ EMS') + '</button> ' : '') +
-        '<button class="inv-btn small" onclick="renderBurns(true)" title="רענן">🔄</button>' +
-        (burnState.loading && burnState.rows ? ' <span class="burn-muted">⏳</span>' : '') + '</div></div>' +
+        (burnState.syncing || (burnState.loading && burnState.rows) ? ' <span class="burn-muted">⏳</span>' : '') + '</div></div>' +
       '<div class="push-tiles" id="burnTiles"></div>' +
       '<div class="burn-filters">' +
         '<input id="burnSearch" class="burn-search" type="search" placeholder="🔍 קיבוץ / מס\' מונה / כתובת / מערכת" value="' + burnEsc(f.q) + '" oninput="burnSetFilter(\'q\', this.value)" onkeydown="if(event.key===\'Enter\')burnEnter()">' +
         '<select class="burn-site-sel" onchange="burnSetFilter(\'site\', this.value)"><option value="">כל הקיבוצים</option>' + sites.map(function (s) { return '<option' + (f.site === s ? ' selected' : '') + '>' + burnEsc(s) + '</option>'; }).join('') + '</select>' +
         seg('status', [['all', 'הכול'], ['pending', 'נותרו'], ['burned', 'נצרבו'], ['issue', 'בעיות']]) +
-        seg('kind', [['all', 'PP+CT'], ['PP', '🔌 PP'], ['CT', '🧲 CT']]) + '</div>' +
+        seg('kind', [['all', 'כל הסוגים'], ['PP', '⚡ תלת-פאזי'], ['CT', '🔁 משנה זרם']]) + '</div>' +
       '<div id="burnResults"></div></div>';
     burnRenderResults();
   }
@@ -461,7 +466,7 @@
   function burnOpen(id) {
     var r = burnState.rows.find(function (x) { return x.meter_id === id; }); if (!r) return;
     var gen = burnState.gens.find(function (g) { return g.id === r.generator_id; });
-    var st = BURN_STATE_UI[B.rowState(r)], write = burnCanWrite();
+    var st = burnStateUi(r), write = burnCanWrite();
     var row = function (k, v) { return '<tr><th>' + k + '</th><td>' + (v == null || v === '' ? '—' : v) + '</td></tr>'; };
     var m = document.getElementById('burnCardModal'), c = document.getElementById('burnCardContent');
     c.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h3 style="margin:0;">' + burnKindTag(r) + ' <bdi>' + burnEsc(r.serial) + '</bdi></h3>' +

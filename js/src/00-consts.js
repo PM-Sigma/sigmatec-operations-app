@@ -50,7 +50,7 @@
   // from 13-ems.js
   const EMS_CACHE_VER = 2;
   let _emsStaleCacheChecked = false;
-  const EMS_BG_MIN_MS = 5 * 60 * 1000;          // at most one background sync per 5 minutes
+  const EMS_BG_MIN_MS = 15 * 60 * 1000;         // one background sync per 15 minutes (עידן 22.9) — the only refresh there is
   const EMS_BG_KEY = 'ems_bg_sync_at_v1';
   let _emsBgInFlight = null;
   let _emsBgInstalled = false;

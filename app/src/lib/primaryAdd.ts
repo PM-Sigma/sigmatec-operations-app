@@ -42,7 +42,7 @@ export const ADD_OPENS_FORM: Record<Exclude<AddAction, 'none'>, boolean> = {
   feedback: true,
   schedule: false,
   event: false,
-  stockChange: false,
+  stockChange: true,     // 🔢 דיווח שינוי במלאי is a real form now (islands/StockChange.tsx)
 };
 
 export const ADD_LABEL: Record<Exclude<AddAction, 'none'>, string> = {
@@ -52,7 +52,7 @@ export const ADD_LABEL: Record<Exclude<AddAction, 'none'>, string> = {
   // Navigation, and the words say so — never "➕ דיווח מלאי" on a button that just changes page.
   schedule: 'עבור ליומן',
   event: 'עבור ליומן',
-  stockChange: 'עבור למלאי',
+  stockChange: '➕ דיווח מלאי',
 };
 
 /** The label for the header button; `null` when nothing should be rendered. */
@@ -81,7 +81,9 @@ export function primaryAdd(page: AddPage, role: PersonRole, context: AddContext 
       // the card's own actions (📍 ביקור, 🚚 תעודה) are not "add", they are the work.
       return context.canManageKibbutzim ? 'kibbutz' : 'none';
     case 'calendar':
-      return context.daySelected ? 'schedule' : 'event';
+      // The calendar's own ➕ lives inside the calendar island; a header button that only
+      // said "עבור ליומן" while ON the calendar was the bug עידן reported for מלאי (22.9, B4).
+      return 'none';
     case 'inventory':
       return 'stockChange';
     case 'attendance':

@@ -238,6 +238,79 @@
     if (top) modalDismiss(top.id);               // one layer per Esc, always
   });
 
+  // ── every dialog has a way out (עידן 22.9 — A1/A2) ─────────────────────────────────────
+  // On a phone `.modal` fills the whole backdrop (css/app.css ≤768px), so the backdrop tap the
+  // dispatcher below answers has nothing to land on, and a dialog whose buttons are all
+  // actions (🔥 צריבות: the meter card, the generator picker) had no exit at all. The ✕ is the
+  // one exit that exists at every size. It goes through modalDismiss, so a dirty form still
+  // gets the §7p question and a blocking gate still gets nothing.
+  function modalEnsureClose(bd) {
+    if (!bd || !bd.id || MODAL_NEVER_DISMISS[bd.id] || bd.id === 'sigmaUnsavedPrompt') return;
+    var box = bd.querySelector('.modal');
+    if (!box || box.querySelector('.modal-x')) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'modal-x';
+    b.setAttribute('aria-label', 'סגור');
+    b.setAttribute('data-testid', 'modal-x');
+    b.textContent = '✕';
+    b.addEventListener('click', function (e) { e.stopPropagation(); modalDismiss(bd.id); });
+    box.insertBefore(b, box.firstChild);
+  }
+  function modalEnsureCloseAll() {
+    var all = document.querySelectorAll('.modal-backdrop');
+    for (var i = 0; i < all.length; i++) modalEnsureClose(all[i]);
+  }
+  window.modalEnsureClose = modalEnsureClose;
+  if (document.readyState !== 'loading') modalEnsureCloseAll();
+  else document.addEventListener('DOMContentLoaded', modalEnsureCloseAll);
+  // Dialogs built at runtime (the EMS queue list, a delivery-note send box) arrive later.
+  try {
+    new MutationObserver(function (recs) {
+      for (var i = 0; i < recs.length; i++) {
+        var r = recs[i];
+        if (r.type === 'attributes' && r.target.classList && r.target.classList.contains('modal-backdrop')) modalEnsureClose(r.target);
+        for (var j = 0; j < r.addedNodes.length; j++) {
+          var n = r.addedNodes[j];
+          if (n.nodeType !== 1) continue;
+          if (n.classList.contains('modal-backdrop')) modalEnsureClose(n);
+          else if (n.querySelectorAll) { var inner = n.querySelectorAll('.modal-backdrop'); for (var k = 0; k < inner.length; k++) modalEnsureClose(inner[k]); }
+        }
+      }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
+  } catch (e) { /* no MutationObserver — the static dialogs already have their ✕ */ }
+
+  // ── the phone's Back button closes what is open, then goes back a page (A3/A7) ─────────
+  // showPage() (02-init-attendance.js) pushes one history entry per page switch. Back with a
+  // dialog open closes the dialog and re-arms the entry, so the page under it stays put; Back
+  // with nothing open pops to the previous page instead of leaving the app.
+  window.addEventListener('popstate', function (e) {
+    var top = topmostDismissible();
+    var sheet = document.querySelector('[data-sigma-portal] [role="dialog"][data-state="open"]');
+    if (top || sheet) {
+      if (top) modalDismiss(top.id);
+      else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      try { history.pushState({ sigmaPage: window._currentPage || 'kibbutz' }, ''); } catch (err) { /* */ }
+      return;
+    }
+    var p = e.state && e.state.sigmaPage;
+    if (typeof showPage === 'function') showPage(p || 'kibbutz', { fromHistory: true });
+  });
+
+  // ── the header slides away while reading, back on the first scroll up (B1) ────────────
+  // Same manners as a browser's address bar. It stays put near the top of the page and while
+  // a dialog is open (the page under a dialog does not scroll).
+  (function () {
+    var last = 0, hidden = false;
+    function set(h) { if (h === hidden) return; hidden = h; document.body.classList.toggle('hdr-hidden', h); }
+    window.addEventListener('scroll', function () {
+      var y = window.scrollY || document.documentElement.scrollTop || 0;
+      var dy = y - last; last = y;
+      if (y < 48) { set(false); return; }
+      if (dy > 6) set(true); else if (dy < -6) set(false);
+    }, { passive: true });
+  })();
+
   // ── the ONE backdrop-tap dispatcher ─────────────────────────────────────────────────────
   // Replaces the per-modal inline `onclick` handlers that index.html used to carry. A tap
   // INSIDE the dialog never reaches here: its target is the `.modal`, not the backdrop.

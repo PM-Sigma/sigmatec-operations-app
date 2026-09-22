@@ -1,12 +1,11 @@
 // The header's right-hand cluster (spec §6 header, §7k #12 search, §7k.2 the one ➕):
-//   🔍 חיפוש (desktop — opens Ctrl+K) · the context ➕ · 🌙/☀️ · ● user chip
+//   🔍 חיפוש (desktop — opens Ctrl+K) · the context ➕ · ● user chip (🌙 moved into ⚙️ הגדרות, 22.9)
 //
 // It replaces the legacy strip of six grey chips (👤 …, 🟢 EMS, 🔓 ישיבה, 🏘️ פוטנציאליים, …)
 // as the place identity and settings live; the legacy chips that still have no React home
 // (ישיבה, פוטנציאליים, סטטיסטיקה) stay where they are and are untouched.
 import * as React from 'react';
 import { ArrowLeft, Plus, Search } from 'lucide-react';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { UserChip } from '@/components/UserChip';
 import { mount } from '@/islands';
 import { useCurrentUser } from '@/bridge';
@@ -58,7 +57,6 @@ function HeaderActionsPanel() {
         </button>
       )}
 
-      <ThemeToggle className="min-h-[40px] rounded-xl border border-border bg-card" />
       <UserChip />
     </div>
   );

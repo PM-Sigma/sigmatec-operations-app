@@ -1123,22 +1123,8 @@
   .gs-result .gs-meta { font-size: 11px; color: var(--text-light); margin-top: 1px; }
   .gs-empty { padding: 16px; text-align: center; color: var(--text-light); font-size: 12px; }
 
-  /* Meeting mode visual cue — banner only, no header overrides */
-  body.meeting-mode::before { content: "🚀 מצב ישיבה פעיל"; position: fixed; top: 0; left: 0; right: 0; background: #10b981; color: white; text-align: center; padding: 6px 8px; font-size: 12px; font-weight: 700; z-index: 999; box-shadow: 0 2px 6px rgba(16,185,129,0.3); }
-  body.meeting-mode { padding-top: 28px; }
-  body.meeting-mode .setup-fields-group { display: none; }
-  body.meeting-mode #editStatus { min-height: 220px; font-size: 16px; line-height: 1.6; }
   /* MEETING MODE — fast updates: keep name + EMS tasks + last visit; hide the
      onboarding/progress noise (stepper, proc button, calendar, region). */
-  body.meeting-mode .stepper,
-  body.meeting-mode .current-step-label,
-  body.meeting-mode .calendar-event,
-  body.meeting-mode .bug-details,
-  body.meeting-mode .region-badge,
-  body.meeting-mode .card-divider { display: none !important; }
-  body.meeting-mode .kibbutz { padding: 9px 11px; }
-  body.meeting-mode .kibbutz-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
-  body.meeting-mode .search-input { font-size: 16px; padding: 12px 16px; font-weight: 600; }
   /* "last visit" line on cards */
   .card-last-visit { font-size: 11px; color: var(--text-light); margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 5px; line-height: 1.5; }
   .card-updated { font-size: 10px; color: var(--text-light); margin-top: 5px; }
@@ -1981,3 +1967,34 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
   font-size: 11px; font-weight: 700; vertical-align: middle;
 }
 .kibbutz.burn-filtered-out { display: none !important; }
+
+  /* ── every dialog has a way out (22.9, A1) ── */
+  .modal-x { position: absolute; top: 10px; inset-inline-end: 10px; z-index: 6; width: 36px; height: 36px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text-light); font-size: 15px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+  .modal-x:hover { background: var(--surface-2); color: var(--text); }
+  .modal > h3:first-of-type, .modal > .modal-head { padding-inline-end: 44px; }
+
+  /* ── inner pages: a way back (A3) ── */
+  .page-head { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; }
+  .page-head h2 { font-size: 18px; font-weight: 800; margin: 0; }
+  .page-back { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .page-back:active { transform: scale(.97); }
+  @media (min-width: 768px) { .page-back { display: none; } }
+
+  /* ── the header slides away on scroll-down, back on scroll-up (B1) ── */
+  .header { transition: transform .22s ease; will-change: transform; }
+  body.hdr-hidden .header { transform: translateY(-110%); }
+  @media (prefers-reduced-motion: reduce) { .header { transition: none; } }
+
+  /* ── sideways-scroll hint: a fade at the far edge says there is more (B5) ── */
+  .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+    mask-image: linear-gradient(to left, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, transparent 0, #000 28px, #000 calc(100% - 28px), transparent 100%); }
+  .scroll-x.at-start { mask-image: linear-gradient(to left, transparent 0, #000 28px); -webkit-mask-image: linear-gradient(to left, transparent 0, #000 28px); }
+  .scroll-x.at-end { mask-image: linear-gradient(to right, transparent 0, #000 28px); -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px); }
+  .scroll-x.at-start.at-end { mask-image: none; -webkit-mask-image: none; }
+
+  /* ✏️ פרטי קיבוץ inside the card (22.9) */
+  .modal-edit-kibbutz { border: 1px solid var(--border); background: var(--card); border-radius: 8px; min-width: 30px; min-height: 28px; margin-inline-start: 6px; cursor: pointer; font-size: 13px; vertical-align: middle; }

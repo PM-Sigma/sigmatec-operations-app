@@ -46,13 +46,15 @@ function PriorityDot({ priority }: { priority?: string }) {
 }
 
 function EmsTaskRow({
-  task, expanded, onToggle, clampOn,
+  task, expanded, onToggle, clampOn, compact = false,
 }: {
   task: CardEmsTask;
   expanded: boolean;
   onToggle: () => void;
   /** ⚙️ הגדרות → תיאור משימות בכרטיס: 'מקוצר' clamps on the phone, 'מלא' never clamps. */
   clampOn: boolean;
+  /** The home card: no description, only who and when. */
+  compact?: boolean;
 }) {
   const meta = React.useMemo(() => taskMeta(task), [task]);
   const clamp = clampOn && !expanded;
@@ -84,7 +86,7 @@ function EmsTaskRow({
         )}
       </div>
 
-      {task.description && (
+      {task.description && !compact && (
         <>
           <p className={'t-desc my-[3px] whitespace-pre-line text-[14px] leading-[1.55] text-muted-foreground ' + (clamp ? 'line-clamp-2 md:line-clamp-none' : '')}>
             {task.description}
@@ -111,7 +113,7 @@ function EmsTaskRow({
             {meta.overdue ? '⏰' : '📅'} <bdi>{meta.due}</bdi>
           </span>
         )}
-        {meta.priorityLabel && <span>{meta.priorityLabel}</span>}
+        {meta.priorityLabel && !compact && <span>{meta.priorityLabel}</span>}
       </div>
     </div>
   );
@@ -134,7 +136,7 @@ function usePhone(): boolean {
   return phone;
 }
 
-export function EmsTasks({ kibbutz }: { kibbutz: string }) {
+export function EmsTasks({ kibbutz, variant = 'full' }: { kibbutz: string; variant?: 'card' | 'full' }) {
   const rawTasks = useCardEmsTasks(kibbutz);
   const { name: me } = useCurrentUser();
   const tasks = React.useMemo(() => sortTasksForCard(rawTasks, me), [rawTasks, me]);
@@ -142,6 +144,9 @@ export function EmsTasks({ kibbutz }: { kibbutz: string }) {
   const settings = useSettings();
   const phone = usePhone();
   const clampOn = CLAMP_MOBILE_DESCRIPTION && cardDescClamp(settings, phone);
+  // The home card is a summary (עידן 22.9, D3): the description and the priority chip are read
+  // inside the kibbutz card, not on the list.
+  const compact = variant === 'card';
   // The count is for the people who can DO something about it (§7k #6); a technician seeing
   // "3 ללא אחראי" on a card he cannot assign is noise, and the per-row badge already tells
   // him which task has no owner.
@@ -168,6 +173,7 @@ export function EmsTasks({ kibbutz }: { kibbutz: string }) {
             task={t}
             expanded={!!expanded[t.id]}
             clampOn={clampOn}
+            compact={compact}
             onToggle={() => setExpanded(e => toggleClamp(e, t.id))}
           />
         ))}

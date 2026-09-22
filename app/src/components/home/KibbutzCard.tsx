@@ -10,9 +10,8 @@ import { useVisitDraft } from '@/lib/visitDrafts';
 import { CardActions } from '@/components/home/CardActions';
 import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
-import { InternalTasksSection } from '@/components/home/InternalTasks';
+import { InternalTasksSection, TaskAdders } from '@/components/home/InternalTasks';
 import { OnboardingProgress } from '@/components/home/OnboardingProgress';
-import { BurnChip } from '@/components/home/Burns';
 import { WorkTimer } from '@/components/home/WorkTimer';
 import { energyText, labelOf, sectionOf, isSubsite, NO_REGION_LABEL, type KibbutzRow } from '@/lib/kibbutzim';
 
@@ -27,6 +26,7 @@ export function KibbutzCard({
   /** Position in the section — entering cards stagger 25 ms each (spec §6 motion budget). */
   index?: number;
 }) {
+  void canEdit; void onEdit;   // the ✏️ lives in the modal now; Section still passes these
   const reduce = useReducedMotion();
   const section = sectionOf(row);
   const sub = isSubsite(row);
@@ -79,10 +79,8 @@ export function KibbutzCard({
             ✍️ סיכום ביקור בהתהוות
           </span>
         )}
-        {/* 🔥 צריבות (Task 23) — a TEMPORARY project chip: `נותרו X/Y` while there is work
-            left here, and nothing at all once the kibbutz is finished. It counts as part of
-            the card's routine open work (עידן 18.9 21:50), so it is not gated to the field role. */}
-        <BurnChip kibbutz={row.name} />
+        {/* 🔥 צריבות left the home card (עידן 22.9, D1): the summary lives inside the kibbutz
+            modal, collapsed until tapped. */}
         {/* ▶/■ שעות (Task 29, spec §8b) — עידן and מתניה only; for everyone else the
             component renders nothing at all, so the row is unchanged. */}
         <WorkTimer kibbutz={row.name} />
@@ -91,24 +89,17 @@ export function KibbutzCard({
             🤝 בתהליך שיווקי
           </span>
         )}
-        {canEdit && (
-          <button
-            type="button"
-            title="פרטי קיבוץ"
-            onClick={e => { e.stopPropagation(); onEdit(row); }}
-            className="rounded-lg px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted"
-          >
-            ✏️
-          </button>
-        )}
+        {/* ✏️ פרטי קיבוץ moved inside the modal, עידן only (22.9, D2/D10) — js/src/10-activity.js
+            renders it next to the name and opens the same sheet through window.sigmaHome. */}
       </div>
       {/* name → EMS TASKS → NOTES (§7k #7, עידן 18.9): the tasks are the ACTION and go first;
           the bullets are history and are collapsed to the latest lines below them. No legacy
           decorator anchors on `.card-notes` any more (the EMS widget became React in Task 3),
           so the swap is free of the old DOM contract. */}
-      <EmsTasks kibbutz={row.name} />
+      <EmsTasks kibbutz={row.name} variant="card" />
       <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
-      <InternalTasksSection kibbutz={row.name} canAct={role !== 'viewer'} />
+      <InternalTasksSection kibbutz={row.name} />
+      {role !== 'viewer' && <TaskAdders kibbutz={row.name} />}
       {/* 🆕 onboarding checklist (Task 27, spec §4) — a 🆕 לקוח חדש card only; a ✅ active
           card never had rows spawned for it, so OnboardingProgress renders nothing there. */}
       {section === 'new' && <OnboardingProgress kibbutz={row.name} canAct={role !== 'viewer'} />}

@@ -22,14 +22,14 @@ test('card: 🔥 נותרו X/Y on the kibbutz with work left, nothing on the fi
   expectNoConsoleErrors(rec);
 });
 
-test('card modal: the 🔥 צריבות section lists this kibbutz only, tagged פרויקט זמני', async ({ page }, ti) => {
+test('card modal: the 🔥 צריבות section lists this kibbutz only', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
   const panel = page.getByTestId('burns-panel');
   await expect(panel).toBeVisible({ timeout: 15_000 });
   await expect(panel.getByTestId('burns-panel-count')).toHaveText('נותרו 2/3');
-  await expect(panel.getByText('פרויקט זמני')).toBeVisible();
+  await expect(panel.getByText('פרויקט זמני')).toHaveCount(0);   // 22.9: the label is gone
 
   // not-done first (CT before PP), the burned one last — the order burnsForSite fixes
   const rows = panel.getByTestId('burn-row');

@@ -1,7 +1,7 @@
 {
-  "name": "Sigmatec Operations App",
-  "short_name": "Sigmatec",
-  "description": "מערכת ניהול תפעול וקיבוצים — Sigmatec Operations",
+  "name": "Sigmatec Operations",
+  "short_name": "Sigmatec Ops",
+  "description": "תפעול שטח, מלאי וקיבוצים",
   "lang": "he",
   "dir": "rtl",
   "start_url": ".",

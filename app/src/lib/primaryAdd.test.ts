@@ -11,7 +11,7 @@ describe('primaryAdd — the matrix', () => {
   // page → what a NON-viewer who cannot manage kibbutzim gets
   const plain: Record<AddPage, AddAction> = {
     kibbutz: 'none',
-    calendar: 'event',
+    calendar: 'none',    // the calendar island owns its own ➕ (22.9, B4)
     inventory: 'stockChange',
     attendance: 'visit',
     dev: 'none',
@@ -33,10 +33,10 @@ describe('primaryAdd — the matrix', () => {
     expect(primaryAdd('kibbutz', 'field')).toBe('none');
   });
 
-  it('the calendar depends on the context, exactly as §7k.2 words it', () => {
-    expect(primaryAdd('calendar', 'pm', { daySelected: true })).toBe('schedule');
-    expect(primaryAdd('calendar', 'pm', { daySelected: false })).toBe('event');
-    expect(primaryAdd('calendar', 'pm')).toBe('event');
+  it('the calendar offers no header ➕ — its island has its own (22.9, B4)', () => {
+    expect(primaryAdd('calendar', 'pm', { daySelected: true })).toBe('none');
+    expect(primaryAdd('calendar', 'pm', { daySelected: false })).toBe('none');
+    expect(primaryAdd('calendar', 'pm')).toBe('none');
   });
 
   it('the viewer gets 📣 and only 📣 — everywhere, so no ➕ of his is ever blocked', () => {

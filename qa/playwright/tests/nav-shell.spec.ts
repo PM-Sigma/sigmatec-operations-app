@@ -16,8 +16,8 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
 
   if (viewport === 'mobile-390') {
     await expect(nav).toBeVisible();
-    // field roles: קיבוצים · תעודה · [ביקור] · מלאי · עוד
-    for (const label of ['קיבוצים', 'תעודה', 'מלאי', 'עוד']) {
+    // field roles: קיבוצים · רעיון / באג · [ביקור] · מלאי · עוד (22.9: 🚚 תעודה left the bar)
+    for (const label of ['קיבוצים', 'רעיון / באג', 'מלאי', 'עוד']) {
       await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
     await expect(nav.getByRole('button', { name: 'תיעוד ביקור' })).toBeVisible();

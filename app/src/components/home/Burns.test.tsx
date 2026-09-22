@@ -129,7 +129,7 @@ describe('the card-modal section', () => {
     const list = await screen.findAllByTestId('burn-row');
     expect(list.map(el => el.getAttribute('data-meter'))).toEqual(['a1', 'a2']);
     expect(screen.getByTestId('burns-panel-count').textContent).toBe('נותרו 1/2');
-    expect(screen.getByText('פרויקט זמני')).toBeTruthy();
+    expect(screen.queryByText('פרויקט זמני')).toBeNull();   // 22.9: the label is gone
   });
 
   it('a kibbutz with no meters renders no section (not an empty one)', async () => {

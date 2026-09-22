@@ -3,7 +3,7 @@
 // to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
 // (Supabase / Apps Script) is never touched → data is always live. build.mjs restamps CACHE
 // on every build so phones fetch fresh bytes each deploy.
-const CACHE = 'sigmatec-ops-mu9xkrc7';
+const CACHE = 'sigmatec-ops-muck2o57';
 const SHELL = ['./', './index.html', './js/app.js', './css/app.min.css', './ui/sigma.js', './ui/sigma.css', './ui/manifest.json', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 // The React islands are code-split, so their file list is not knowable here — build.mjs
@@ -43,15 +43,35 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;   // APIs → live network, untouched
-  // network-first: fresh when online, cached fallback offline.
-  // Cache key = path WITHOUT the query string, and only 2xx responses — otherwise every
-  // version-probe (index.html?vc=<ts>) and every ?v= stamp minted a new cache entry forever, and a
-  // mid-deploy 404 could be cached and served as the offline shell.
-  const key = url.origin + url.pathname;
+  // Cache key = path, plus the `?v=` build stamp when there is one, so a new index.html can never
+  // be paired with an old js/app.js out of the cache. Only 2xx responses are stored — otherwise
+  // every version-probe (index.html?vc=<ts>) minted an entry and a mid-deploy 404 could be
+  // cached and served as the offline shell.
+  const v = url.searchParams.get('v');
+  const key = url.origin + url.pathname + (v ? '?v=' + v : '');
+  const store = r => { if (r && r.ok) { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(key, c)).catch(() => {}); } return r; };
+
+  // The page itself and the stamped shell files paint FROM THE CACHE, immediately, and the
+  // network refreshes the copy behind them (עידן 22.9, A4: a phone coming back from the
+  // background on a slow link sat on a loading screen while network-first waited). A new
+  // deploy still lands: build.mjs restamps CACHE, `activate` drops the old one, and the
+  // version watcher offers the reload.
+  if (req.mode === 'navigate' || v) {
+    e.respondWith(
+      caches.match(key).then(cached => {
+        const net = fetch(req).then(store).catch(() => undefined);
+        if (cached) { e.waitUntil(net); return cached; }
+        return net.then(r => r || caches.match(req, { ignoreSearch: true }))
+          .then(r => r || (req.mode === 'navigate' ? caches.match('./index.html') : undefined))
+          .then(r => r || Response.error());
+      })
+    );
+    return;
+  }
+  // Everything else same-origin (icons, the manifest): network-first, cached fallback offline.
   e.respondWith(
-    fetch(req)
-      .then(r => { if (r.ok) { const c = r.clone(); caches.open(CACHE).then(ca => ca.put(key, c)); } return r; })
-      .catch(() => caches.match(req, { ignoreSearch: true }).then(m => m || (req.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+    fetch(req).then(store)
+      .catch(() => caches.match(req, { ignoreSearch: true }))
   );
 });
 

@@ -689,7 +689,9 @@
     // Hide deleted orders from default view
     const orders = allOrders.filter(o => o.status !== 'deleted');
     const filter = document.getElementById('invOrdersFilter')?.value || '';
-    const filtered = filter ? orders.filter(o => o.status === filter) : orders;
+    // Default = what is still open (עידן 22.9, H1). "הכל" shows the finished and cancelled too.
+    const CLOSED = { delivered: 1, supplied: 1, cancelled: 1, deleted: 1 };
+    const filtered = filter === 'all' ? orders : filter ? orders.filter(o => o.status === filter) : orders.filter(o => !CLOSED[o.status]);
     if (filtered.length === 0) {
       root.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">אין הזמנות. לחץ "+ הזמנה חדשה"</div>';
       return;

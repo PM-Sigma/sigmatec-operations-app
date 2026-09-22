@@ -176,8 +176,9 @@
     // are gone from index.html, so there is nothing left to show or hide here.
     const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory; viewer gets read-only inventory (certs registry + stock views; writes stay blocked at the router)
     if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
-    const mb = document.getElementById('meetingBadge');    // meeting mode — עידן only
-    if (mb) mb.style.display = isIdan() ? '' : 'none';
+    // 🏘️ לקוחות פוטנציאליים — the card home only, עידן + עמיחי (22.9)
+    const pb = document.getElementById('potentialsBtn');
+    if (pb) pb.style.display = (isIdan() || getCurrentUser() === 'עמיחי') ? '' : 'none';
     const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי (admin) + מתניה + אליה
     if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
     const plog = document.getElementById('navPushLog');    // התראות (push log) — עידן only
@@ -289,8 +290,6 @@
   try { delete document.documentElement.dataset.gate; } catch (e) {}
   applyLoginRoleOptions();
   updateUserBadge();
-  updateMeetingBadge();
-  if (isMeetingMode()) document.body.classList.add('meeting-mode');
 
   // First paint of the card list from the local cache, so the sections are populated
   // before the Supabase round-trip lands (renderKibbutzCards also sets every count).

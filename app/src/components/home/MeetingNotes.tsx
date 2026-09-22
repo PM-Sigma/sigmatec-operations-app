@@ -284,7 +284,7 @@ function MeetingBlock({ group, canAct }: { group: MeetingGroup; canAct: boolean 
  * `collapse` = the card (§7k #7): only the latest one or two lines, then "עוד N".
  */
 export function MeetingTimeline({
-  rows, kibbutz, canAct, expandAll = false, collapse = 0, empty = 'אין סיכום ישיבה עדיין',
+  rows, kibbutz, canAct, expandAll = false, collapse = 0, empty = null,
 }: {
   rows: NoteRow[] | undefined;
   kibbutz: string;

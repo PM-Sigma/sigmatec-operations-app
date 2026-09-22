@@ -518,14 +518,23 @@
     // → app/src/islands/Health.tsx (מצב הקיבוץ, Task 28) — same one-root-per-session contract.
     var healthSlot = document.getElementById('sigma-health-modal');
     if (healthSlot) healthSlot.setAttribute('data-kibbutz', name);
+    // → app/src/islands/InternalModal.tsx (🔒 משימות פנימיות, 22.9) — same contract.
+    var internalSlot = document.getElementById('sigma-internal-modal');
+    if (internalSlot) internalSlot.setAttribute('data-kibbutz', name);
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
 
     // The customer code lives HERE and nowhere else (עידן, spec §2): muted, isolated in a
     // <bdi> so a Hebrew name can never flip the digits, and off the home cards entirely.
     const codeFor = (task && task.code) || (typeof customerCodeFor === 'function' ? customerCodeFor(name) : '');
+    // ✏️ פרטי קיבוץ — inside the card, next to the name, עידן only (22.9, D2/D10). It opens
+    // the same sheet the home page used to (app/src/islands/Home.tsx → window.sigmaHome).
+    var editBtn = (typeof isIdan === 'function' && isIdan() && window.sigmaHome && window.sigmaHome.openSheet)
+      ? ' <button type="button" class="modal-edit-kibbutz" title="פרטי קיבוץ" aria-label="פרטי קיבוץ" onclick="window.sigmaHome.openSheet(window.currentKibbutz)">✏️</button>'
+      : '';
     document.getElementById('modalSub').innerHTML =
       'קיבוץ: ' + String(name).replace(/</g, '&lt;')
-      + (codeFor ? ' <span style="opacity:.6;font-variant-numeric:tabular-nums;"><bdi>#' + String(codeFor).replace(/</g, '') + '</bdi></span>' : '');
+      + (codeFor ? ' <span style="opacity:.6;font-variant-numeric:tabular-nums;"><bdi>#' + String(codeFor).replace(/</g, '') + '</bdi></span>' : '')
+      + editBtn;
     document.getElementById('editorName').value = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     const parsedT = task ? parseTaskField(task.task) : { type: null };
     document.getElementById('editEngagement').value = parsedT.type || '';
