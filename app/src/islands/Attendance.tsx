@@ -176,16 +176,19 @@ function DayEditor({
   // ביטול button — cancels it, and שמירה just files it sooner.
   const eveCandidate = cell.eve && !cell.row && canEdit && !fromVisit;
   const [evePaused, setEvePaused] = React.useState(false);
-  const [secs, setSecs] = React.useState(EVE_COUNTDOWN_MS / 1000);
-  React.useEffect(() => { setEvePaused(false); setSecs(EVE_COUNTDOWN_MS / 1000); }, [cell.date]);
+  // `window.__sigmaEveCountdownMs` lets the QA harness stretch the 4 s (a loaded desktop run
+  // took longer than that to reach the ביטול button); production never sets it.
+  const eveMs = (typeof window !== 'undefined' && Number((window as any).__sigmaEveCountdownMs)) || EVE_COUNTDOWN_MS;
+  const [secs, setSecs] = React.useState(eveMs / 1000);
+  React.useEffect(() => { setEvePaused(false); setSecs(eveMs / 1000); }, [cell.date, eveMs]);
   React.useEffect(() => {
     if (!eveCandidate || evePaused || pending || busy) return;
     const started = Date.now();
     const tick = window.setInterval(() => {
-      const n = Math.ceil((EVE_COUNTDOWN_MS - (Date.now() - started)) / 1000);
+      const n = Math.ceil((eveMs - (Date.now() - started)) / 1000);
       setSecs(n > 0 ? n : 0);
     }, 250);
-    const fire = window.setTimeout(() => onSave(EVE_DEFAULT_TYPE, ''), EVE_COUNTDOWN_MS);
+    const fire = window.setTimeout(() => onSave(EVE_DEFAULT_TYPE, ''), eveMs);
     return () => { window.clearInterval(tick); window.clearTimeout(fire); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eveCandidate, evePaused, pending, busy, cell.date]);
@@ -378,6 +381,15 @@ function AttendanceIsland() {
 
   const openDay = (c: DayCell) => {
     setSelected(c.date);
+    // The phone bottom sheet must stay closed on desktop: opening it renders Radix's
+    // full-screen overlay (fixed inset-0 z-50), which isn't scoped by the `lg:hidden` on
+    // SheetContent and sat over the sticky att-panel, eating every click — including the
+    // ערב חג ביטול button — even though the sheet itself was invisible. Same guard as
+    // Calendar.tsx `openDay` for its own sheet.
+    if (typeof window === 'undefined' || !window.matchMedia || !window.matchMedia('(max-width: 1023px)').matches) {
+      track('attendance-day', c.state);
+      return;
+    }
     setOpen(c.date);
     track('attendance-day', c.state);
   };
