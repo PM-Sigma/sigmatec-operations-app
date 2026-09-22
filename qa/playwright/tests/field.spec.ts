@@ -52,6 +52,41 @@ test('arrival → briefing: the same sheet morphs, and 📍 opens the summary pr
   expectNoConsoleErrors(rec);
 });
 
+// Round 4 · Package Z, item 3 (עידן: "היה פעם בחירת תאריכים ואז גישה לקיבוץ").
+// The day is asked BEFORE the kibbutz list and travels into the chapters draft, so a summary
+// typed at night is filed under the day the visit actually happened.
+test('arrival: the visit date is picked before the kibbutz, and the summary opens on it', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  const date = page.getByTestId('arrival-date');
+  await expect(date).toBeVisible();
+
+  // Defaults to today, and sits above the kibbutz rows.
+  const today = await page.evaluate(() => new Date().toLocaleDateString('sv-SE'));
+  await expect(date).toHaveValue(today);
+  await expect(page.locator('[data-kibbutz]').first()).toBeVisible();
+  // Document order, not coordinates: the sheet is still sliding up while this runs.
+  const beforeList = await page.evaluate(() => {
+    const d = document.querySelector('[data-testid="arrival-date"]')!;
+    const k = document.querySelector('[data-kibbutz]')!;
+    return !!(d.compareDocumentPosition(k) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(beforeList).toBe(true);
+
+  // Pick the day before, then walk arrival → briefing → the summary.
+  const yesterday = await page.evaluate(
+    () => new Date(Date.now() - 86_400_000).toLocaleDateString('sv-SE'));
+  await date.fill(yesterday);
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('vc-date')).toHaveValue(yesterday);
+
+  await shot(page, ti, 'arrival-date');
+  expectNoConsoleErrors(rec);
+});
+
 test('arrival: "לא בקיבוץ היום" closes it for the day', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
 

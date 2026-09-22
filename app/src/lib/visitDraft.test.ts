@@ -3,7 +3,8 @@
 // allowed, and how old the thing he is resuming is.
 import { describe, expect, it } from 'vitest';
 import {
-  CHAPTERS, canSubmit, chapterState, draftAge, missingFields, type ChapterDraft,
+  CHAPTERS, canSubmit, chapterState, draftAge, missingFields, openingVisitDate,
+  type ChapterDraft,
 } from '@/lib/visitDraft';
 
 const d = (over: Partial<ChapterDraft> = {}): ChapterDraft => ({
@@ -148,5 +149,24 @@ describe('draftAge', () => {
   it('no draft, or a broken timestamp, reads as nothing rather than as NaN', () => {
     expect(draftAge(null, NOW)).toEqual({ label: '', stale: false, note: '' });
     expect(draftAge(d({ updated_at: 'לא תאריך' }), NOW)).toEqual({ label: '', stale: false, note: '' });
+  });
+});
+
+// Round 4 · Package Z, item 3: the arrival sheet asks for the DAY before it asks for the
+// kibbutz, so a summary written up at night still belongs to the day of the visit.
+describe('openingVisitDate', () => {
+  it('keeps what is already in the draft, whatever the arrival sheet said', () => {
+    expect(openingVisitDate('2026-09-18', '2026-09-22', '2026-09-22')).toBe('2026-09-18');
+  });
+
+  it('takes the day picked on the arrival sheet when the draft is new', () => {
+    expect(openingVisitDate('', '2026-09-21', '2026-09-22')).toBe('2026-09-21');
+    expect(openingVisitDate(null, '2026-09-21', '2026-09-22')).toBe('2026-09-21');
+    expect(openingVisitDate(undefined, '2026-09-21', '2026-09-22')).toBe('2026-09-21');
+  });
+
+  it('falls back to today when neither says anything', () => {
+    expect(openingVisitDate('', '', '2026-09-22')).toBe('2026-09-22');
+    expect(openingVisitDate('   ', '  ', '2026-09-22')).toBe('2026-09-22');
   });
 });

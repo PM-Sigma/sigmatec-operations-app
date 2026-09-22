@@ -583,9 +583,21 @@
     const elvBox = document.getElementById('editLastVisitBox');
     const elvContent = document.getElementById('editLastVisitContent');
     const lastV = (window.currentKibbutzVisits && window.currentKibbutzVisits[0]) || null;
+    const elvEdit = document.getElementById('editLastVisitEditBtn');
+    const elvCert = document.getElementById('editLastVisitCertBtn');
     if (elvBox && elvContent) {
       if (lastV) { elvContent.textContent = lastVisitText(lastV); elvBox.style.display = 'block'; }
       else { elvBox.style.display = 'none'; }
+    }
+    // Round 4 · Package Z: the same two actions the ביקורים tab offers, on the tab the card
+    // actually opens on. תעודה only when that visit has equipment to put on one.
+    if (elvEdit) {
+      elvEdit.style.display = (lastV && lastV.id) ? 'inline-block' : 'none';
+      elvEdit.dataset.visitId = (lastV && lastV.id) || '';
+    }
+    if (elvCert) {
+      elvCert.style.display = (lastV && lastV.id && (lastV.products || []).length) ? 'inline-block' : 'none';
+      elvCert.dataset.visitId = (lastV && lastV.id) || '';
     }
     switchTab('meetings');
     document.getElementById('modalBackdrop').classList.add('open');

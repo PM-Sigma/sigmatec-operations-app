@@ -192,3 +192,63 @@ test('legacy form: C1 · C2 · C7 — the hours example, no מלאי מקור, t
   await shot(page, ti, 'legacy-c1-c2-c7');
   expectNoConsoleErrors(rec);
 });
+
+// ── Round 4 · Package Z, item 1 ────────────────────────────────────────────────────────────
+// עידן, 22.9: "כשאני נכנס לקיבוץ אני לא רואה יותר עריכה והפקת תעודת משלוח של דוח סיכום שכבר היה".
+// `renderLastVisit` kept only visits from the last 31 days, so a kibbutz last visited two
+// months ago rendered NO box at all — no ✏️, no 🚚, no "ביקורים קודמים" — while the card itself
+// went on advertising "📍 ביקור אחרון · <date>" for the same visit (round 2, 068cc63). The
+// summary exists; it stays editable however old it is.
+const OLD_VISITS = `
+  const iso = (d) => new Date(Date.now() - d * 86400000).toISOString();
+  window.SHEET_DATA.visits = [
+    { id: 'z-old-1', kibbutz: 'חוקוק', visitor: 'אביאם', duration: 3, contact: 'יוסי',
+      summary: 'הוחלף המונה הראשי', products: [{ name: 'מונה Landis+Gyr E360PP', qty: 1 }], date: iso(62) },
+    { id: 'z-old-2', kibbutz: 'חוקוק', visitor: 'ניתאי', duration: 2, summary: 'בדיקת תקשורת',
+      products: [], date: iso(95) },
+  ];
+`;
+
+test('card: a visit older than a month still offers ✏️ ערוך, 🚚 תעודה and its history', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await page.waitForSelector('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await page.evaluate(OLD_VISITS);
+
+  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"]').click();
+  await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
+
+  // The tab the card actually opens on carries the same two actions.
+  await expect(page.locator('#editLastVisitBox')).toBeVisible();
+  await expect(page.locator('#editLastVisitEditBtn')).toBeVisible();
+  await expect(page.locator('#editLastVisitCertBtn')).toBeVisible();
+
+  // …and so does the ביקורים tab, with the older visit listed under it.
+  await page.locator('#modalBackdrop .modal-tab[data-tab="visit"]').click();
+  await expect(page.locator('#lastVisitBox')).toBeVisible();
+  await expect(page.locator('#editLastVisitBtn')).toBeVisible();
+  await expect(page.locator('#certLastVisitBtn')).toBeVisible();
+  await expect(page.locator('#visitsHistoryWrap')).toContainText('ביקורים קודמים');
+  await expect(page.locator('#visitsHistoryWrap')).toContainText('ניתאי');
+
+  // ✏️ really loads that visit into the form rather than opening an empty one.
+  await page.locator('#editLastVisitBtn').click();
+  await expect(page.locator('#visitSummary')).toHaveValue('הוחלף המונה הראשי');
+
+  await shot(page, ti, 'old-visit');
+  expectNoConsoleErrors(rec);
+});
+
+test('card: ✏️ on the מצב הקיבוץ tab moves to ביקורים and fills the form', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await page.waitForSelector('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await page.evaluate(OLD_VISITS);
+
+  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"]').click();
+  await page.locator('#editLastVisitEditBtn').click();
+
+  await expect(page.locator('#tab-visit')).toBeVisible();
+  await expect(page.locator('#visitSummary')).toHaveValue('הוחלף המונה הראשי');
+  await expect(page.locator('#visitor')).toHaveValue('אביאם');
+
+  expectNoConsoleErrors(rec);
+});

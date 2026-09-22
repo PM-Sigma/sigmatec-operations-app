@@ -370,11 +370,14 @@
   }
 
   function renderLastVisit(kibbutzName) {
-    // "ביקורים אחרונים" = visits within the last ~month. Trailing 31 days from midnight —
-    // avoids the setMonth() rollover bug (e.g. May 31 → "Apr 31" → May 1 collapses the window).
-    const monthAgo = new Date(); monthAgo.setHours(0, 0, 0, 0); monthAgo.setDate(monthAgo.getDate() - 31);
+    // Round 4 · Package Z, item 1. This used to keep only visits from the last 31 days, and
+    // that window is what swallowed ✏️ ערוך / 🚚 תעודה and the whole "ביקורים קודמים" list:
+    // a kibbutz last visited two months ago got `allForKibbutz = []` and the box was hidden
+    // outright. Round 2 (068cc63) put a "📍 ביקור אחרון · <date>" line on the card with NO
+    // window, so the card promised a summary the card's own modal then refused to open.
+    // A summary that exists is always editable, however old it is — no window.
     const allForKibbutz = loadAllVisitsCombined()
-      .filter(v => v.kibbutz === kibbutzName && v.date && new Date(v.date) >= monthAgo)
+      .filter(v => v.kibbutz === kibbutzName && v.date)
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     window.currentKibbutzVisits = allForKibbutz;
 
@@ -418,7 +421,10 @@
   }
 
   function editLastVisit() {
-    if (!window.currentKibbutzVisits.length) return;
+    if (!(window.currentKibbutzVisits || []).length) {
+      alert('אין ביקור שמור לקיבוץ הזה, אז אין מה לערוך. מלא סיכום ביקור חדש בטופס שמתחת.');
+      return;
+    }
     const last = window.currentKibbutzVisits[0];
     if (!last.id) { alert('הביקור הזה נשמר ללא ID, לא ניתן לערוך. נסה שוב אחרי שהדף סונכרן.'); return; }
     editVisit(last.id);
@@ -431,6 +437,16 @@
    * modal first, so the two forms are never open together); otherwise a plain, honest message —
    * never a button that silently does nothing.
    */
+  /**
+   * Round 4 · Package Z: ✏️ on the מצב הקיבוץ tab. The form it fills lives on the ביקורים tab,
+   * so it moves there first — otherwise the tap fills fields nobody can see.
+   */
+  function editLastVisitFromStatus() {
+    if (typeof switchTab === 'function') switchTab('visit');
+    editLastVisit();
+  }
+  window.editLastVisitFromStatus = editLastVisitFromStatus;
+
   function legacyVoiceIntakeHandoff() {
     const kibbutz = window.currentKibbutz || '';
     const api = window.sigmaVisitChapters;
