@@ -47,6 +47,59 @@ test('the bell lists what moved — low stock included — and marking one seen 
   await expectNoConsoleErrors(rec);
 });
 
+// Round 3, Q — "עידן marked them read five times and they still show". The mark must reach the
+// database (the RPC was broken: no `seen_at` column, and `id` uuid compared to a text variable),
+// so a RELOAD is the only honest assertion: what was crossed out stays out of the list.
+test('what was marked read is still read after a reload', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  await page.getByTestId('alerts-bell').click();
+  const list = page.getByTestId('alerts-list');
+  await expect(list).toBeVisible({ timeout: 15_000 });
+  await expect(list.getByTestId('alert-group')).toHaveCount(3);
+
+  // Mark every group read, one at a time (each click removes the group it marked).
+  for (let i = 0; i < 3; i++) {
+    await list.getByLabel('סמן כנקרא').first().click();
+    await expect(list.getByTestId('alert-group')).toHaveCount(2 - i, { timeout: 15_000 });
+  }
+  await expect(page.getByTestId('alerts-badge')).toHaveCount(0);
+
+  await page.reload();
+  const bell = page.getByTestId('alerts-bell');
+  await expect(bell).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('alerts-badge')).toHaveCount(0);
+  await bell.click();
+  await expect(page.getByTestId('alerts-list')).toContainText('הכול נקרא', { timeout: 15_000 });
+  await expect(page.getByTestId('alerts-list').getByTestId('alert-group')).toHaveCount(0);
+
+  // …and what was read is still reachable behind the toggle.
+  await page.getByTestId('alerts-toggle-seen').click();
+  await expect(page.getByTestId('alerts-list').getByTestId('alert-group')).toHaveCount(3);
+
+  await expectNoConsoleErrors(rec);
+});
+
+// The other half of the same rule: a write that did NOT reach the database must not look like
+// one. The row comes back unread and the person is told, instead of a silent lie that a refetch
+// undoes minutes later.
+test('a failed mark-seen does not leave a row looking read', async ({ page }, ti) => {
+  await boot(page, ti);
+  // Registered after the fixtures, so it wins (Playwright matches the newest route first).
+  await page.route('**/rest/v1/rpc/alert_mark_seen*', route =>
+    route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'boom' }) }));
+
+  await page.getByTestId('alerts-bell').click();
+  const list = page.getByTestId('alerts-list');
+  await expect(list).toBeVisible({ timeout: 15_000 });
+  await expect(list.getByTestId('alert-group')).toHaveCount(3);
+
+  await list.getByLabel('סמן כנקרא').first().click();
+  // It stays in the unread list, and the badge does not drop.
+  await expect(list.getByTestId('alert-group')).toHaveCount(3, { timeout: 15_000 });
+  await expect(page.getByTestId('alerts-badge')).toHaveText(/3/);
+});
+
 test('the viewer has no bell', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
   await expect(page.getByTestId('alerts-bell')).toHaveCount(0);
