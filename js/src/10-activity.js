@@ -500,6 +500,17 @@
     }
   }
 
+  // ✏️ פרטי קיבוץ (card title). `window.sigmaHome` is published by the Home island; if the
+  // island has not mounted yet the button used to be omitted entirely and the ✏️ looked dead.
+  function openKibbutzDetails(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    var api = window.sigmaHome;
+    if (api && typeof api.openSheet === 'function') { api.openSheet(window.currentKibbutz); return; }
+    var msg = 'פרטי הקיבוץ עוד נטענים. נסה שוב בעוד רגע';
+    if (typeof window.emsToast === 'function') window.emsToast(msg); else alert(msg);
+  }
+  window.openKibbutzDetails = openKibbutzDetails;
+
   function openEditModal(card) {
     const name = card.dataset.name;
     currentKibbutz = name;
@@ -528,13 +539,18 @@
     const codeFor = (task && task.code) || (typeof customerCodeFor === 'function' ? customerCodeFor(name) : '');
     // ✏️ פרטי קיבוץ — inside the card, next to the name, עידן only (22.9, D2/D10). It opens
     // the same sheet the home page used to (app/src/islands/Home.tsx → window.sigmaHome).
-    var editBtn = (typeof isIdan === 'function' && isIdan() && window.sigmaHome && window.sigmaHome.openSheet)
-      ? ' <button type="button" class="modal-edit-kibbutz" title="פרטי קיבוץ" aria-label="פרטי קיבוץ" onclick="window.sigmaHome.openSheet(window.currentKibbutz)">✏️</button>'
+    // The ✏️ is rendered for עידן REGARDLESS of whether the Home island has published
+    // `window.sigmaHome` yet (22.9 N1: "it does nothing"). The click resolves the api at
+    // click time and says so out loud when it truly is not there, instead of no-op'ing.
+    var editBtn = (typeof isIdan === 'function' && isIdan())
+      ? ' <button type="button" class="modal-edit-kibbutz" title="פרטי קיבוץ" aria-label="פרטי קיבוץ" onclick="openKibbutzDetails(event)">✏️</button>'
       : '';
+    // §N2: the kibbutz NAME is the modal's big title, with the ✏️ beside it. The sub-line
+    // keeps only the customer code (and the "קיבוץ:" prefix is gone — the title says it).
+    document.getElementById('modalTitle').innerHTML =
+      String(name).replace(/</g, '&lt;') + editBtn;
     document.getElementById('modalSub').innerHTML =
-      'קיבוץ: ' + String(name).replace(/</g, '&lt;')
-      + (codeFor ? ' <span style="opacity:.6;font-variant-numeric:tabular-nums;"><bdi>#' + String(codeFor).replace(/</g, '') + '</bdi></span>' : '')
-      + editBtn;
+      (codeFor ? '<span style="opacity:.6;font-variant-numeric:tabular-nums;"><bdi>#' + String(codeFor).replace(/</g, '') + '</bdi></span>' : '');
     document.getElementById('editorName').value = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
     const parsedT = task ? parseTaskField(task.task) : { type: null };
     document.getElementById('editEngagement').value = parsedT.type || '';

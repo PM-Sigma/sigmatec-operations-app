@@ -55,7 +55,7 @@ test('kibbutz sheet: edit mode opens from inside the card (עידן only, 22.9) 
   await expect(page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] button[title="פרטי קיבוץ"]')).toHaveCount(0);
   await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] .kibbutz-name').click();
   await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
-  await page.locator('#modalSub .modal-edit-kibbutz').click();
+  await page.locator('#modalTitle .modal-edit-kibbutz').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.locator('#kibName')).toHaveValue('כפר עזה');
@@ -63,9 +63,17 @@ test('kibbutz sheet: edit mode opens from inside the card (עידן only, 22.9) 
   await expect(page.getByRole('radio', { name: '✅ פעיל' })).toHaveAttribute('data-state', 'on');
   // editing never offers the kind toggle — a kibbutz does not become a sub-site here
   await expect(page.getByRole('radio', { name: '↳ תת-אתר של קיבוץ קיים' })).toHaveCount(0);
-  // 🗄 ארכב — deletion is archiving, and it asks first
+  // 🗄 ארכב — deletion is archiving, and it asks for the NAME TYPED (22.9 N1: two kibbutzim
+  // were archived by a second tap landing on the confirm button).
   await page.getByRole('button', { name: '🗄 ארכב קיבוץ' }).click();
-  await expect(page.getByRole('button', { name: /כן, ארכב את/ })).toBeVisible();
+  const confirmBtn = page.getByRole('button', { name: /כן, ארכב את/ });
+  await expect(confirmBtn).toBeVisible();
+  await expect(confirmBtn).toBeDisabled();
+  // a wrong name keeps it locked
+  await page.locator('#kibArchiveConfirm').fill('כפר');
+  await expect(confirmBtn).toBeDisabled();
+  await page.locator('#kibArchiveConfirm').fill('כפר עזה');
+  await expect(confirmBtn).toBeEnabled();
   await page.getByRole('button', { name: 'ביטול' }).click();
   await expect(page.getByRole('button', { name: '🗄 ארכב קיבוץ' })).toBeVisible();
 
@@ -79,7 +87,7 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
 
   // 22.9: the ✏️ inside the card is עידן's alone; עמיחי still reaches the sheet through the one api
   await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
-  await expect(page.locator('#modalSub .modal-edit-kibbutz')).toHaveCount(0);
+  await expect(page.locator('#modalTitle .modal-edit-kibbutz')).toHaveCount(0);
   await page.evaluate(() => (window as any).sigmaHome.openSheet('חוקוק'));
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
@@ -99,13 +107,35 @@ test('kibbutz sheet: עידן may change the energy types', async ({ page }, ti)
   const { rec } = await boot(page, ti);
 
   await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
-  await page.locator('#modalSub .modal-edit-kibbutz').click();
+  await page.locator('#modalTitle .modal-edit-kibbutz').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.getByText('רק עידן משנה סוגי אנרגיה')).toHaveCount(0);
   const gas = page.getByRole('button', { name: '🔥 גז' });
   await expect(gas).toBeEnabled();
   await gas.click();   // toggles on, no write attempted yet
+
+  expectNoConsoleErrors(rec);
+});
+
+test('kibbutz sheet: ✏️ opens ABOVE the kibbutz modal (22.9 N1 — the accidental-archive path)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] .kibbutz-name').click();
+  await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
+  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
+
+  // The sheet is the element the finger actually reaches: the legacy .modal-backdrop is
+  // z-index 1000, so anything below it was invisible AND untappable — the 22.9 root cause.
+  const modalZ = await page.locator('#modalBackdrop').evaluate(el => +getComputedStyle(el).zIndex || 0);
+  const sheet = page.getByRole('heading', { name: '✏️ פרטי קיבוץ' }).locator('xpath=ancestor::*[contains(@class,"fixed")][1]');
+  const sheetZ = await sheet.evaluate(el => +getComputedStyle(el).zIndex || 0);
+  expect(sheetZ).toBeGreaterThan(modalZ);
+
+  // and the archive button really is under the finger, so it must be name-gated
+  await page.getByRole('button', { name: '🗄 ארכב קיבוץ' }).click();
+  await expect(page.getByRole('button', { name: /כן, ארכב את/ })).toBeDisabled();
 
   expectNoConsoleErrors(rec);
 });

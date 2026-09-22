@@ -33,7 +33,7 @@ test('command bar: Ctrl+K opens, typing filters, Enter runs the top-ranked row',
   await expect(input).toHaveCount(0);                       // the bar closed itself
   // `#modalBackdrop` is the legacy kibbutz modal openEditModal() opens (js/src/10-activity.js).
   await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
-  await expect(page.locator('#modalSub')).toContainText('חוקוק');
+  await expect(page.locator('#modalTitle')).toContainText('חוקוק');
 
   expectNoConsoleErrors(rec);
 });
