@@ -465,3 +465,58 @@ test('calendar: רשימה for a field user is HIS work — no "כולל של א
 
   expectNoConsoleErrors(rec);
 });
+
+test('calendar: a day he never reported is RED on the grid, with a legend (F-4 · G)', async ({ page }, ti) => {
+  // אביאם, because the sandbox gives him a month with days in it — the office/wfh fixture
+  // rows plus whatever his visits add. The gaps are whatever is left.
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+
+  // What the month SHOULD be shouting about, asked of the SAME snapshot the screen reads:
+  // past Sun–Thu, no attendance row, not a holiday nobody had to work, never today or after.
+  const expected = await page.evaluate(() => {
+    const w = window as any;
+    const p = (v: number) => String(v).padStart(2, '0');
+    const ymd = (d: Date) => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    const now = new Date();
+    const today = ymd(now);
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+    const rows = (w.sigma?.attRows?.('אביאם', y, m) || []) as any[];
+    const filed = new Set(rows.map(r => String(r.date || '').slice(0, 10)));
+    const off = new Set(((w.MOCK_HOLIDAYS || []) as any[]).filter(h => !h.required).map(h => h.date));
+    const gaps: string[] = [];
+    for (let d = 1; d <= 31; d++) {
+      const x = new Date(y, m - 1, d);
+      if (x.getMonth() !== m - 1) break;
+      const key = ymd(x);
+      if (key >= today) continue;                      // never today, never the future
+      if (x.getDay() === 5 || x.getDay() === 6) continue;   // never Fri/Sat
+      if (off.has(key) || filed.has(key)) continue;
+      gaps.push(key);
+    }
+    return { gaps, today, holidays: Array.from(off), filed: Array.from(filed) };
+  });
+
+  const marked = page.locator('[data-testid="cal-grid"] .ucal-cell[data-missing="1"]');
+  if (!expected.gaps.length) {
+    // Early in a month there can genuinely be nothing behind him — then nothing is red.
+    await expect(marked).toHaveCount(0);
+    await expect(page.getByTestId('cal-missing-legend')).toHaveCount(0);
+    expectNoConsoleErrors(rec);
+    return;
+  }
+
+  // Every gap is red, and NOTHING else is — today, the future, Fri/Sat, the holidays and
+  // the days he did file all stay clean.
+  await expect.poll(async () => (await marked.evaluateAll(els => els.map(e => e.getAttribute('data-date') || ''))).sort().join(','),
+    { timeout: 20_000 }).toBe(expected.gaps.slice().sort().join(','));
+  await expect(page.locator(`.ucal-cell[data-date="${expected.today}"]`)).not.toHaveAttribute('data-missing', '1');
+
+  // The marker is a real red dot, not colour on the background alone.
+  await expect(page.locator(`.ucal-cell[data-date="${expected.gaps[0]}"] [data-testid="cal-missing"]`)).toBeAttached();
+  await expect(page.getByTestId('cal-missing-legend')).toBeVisible();
+
+  await shot(page, ti, 'missing-days');
+  expectNoConsoleErrors(rec);
+});

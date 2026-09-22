@@ -377,6 +377,32 @@
   border-radius: 999px;
   background: var(--att-holiday-ink);
 }
+/* A past work day with no attendance row (round 2, F-4 · G): a red ring + a red dot, so the
+   day reads as missing without colour alone carrying the message. --priority is the app's
+   one red and clears 3:1 against both themes' cell backgrounds. */
+.ucal-cell[data-missing='1'] {
+  box-shadow: inset 0 0 0 2px var(--priority);
+  background: color-mix(in srgb, var(--priority) 10%, hsl(var(--muted)));
+}
+/* היום keeps its own ring even when it is somehow both — today is never missing, but the
+   selected day may be, and the selection ring must still win. */
+.ucal-cell[data-missing='1'].ucal-sel { box-shadow: inset 0 0 0 2px var(--priority), 0 0 0 2px var(--brand-2); }
+.ucal-missdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--priority);
+}
+.ucal-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--priority);
+}
+
 .ucal-add {
   display: grid;
   place-items: center;

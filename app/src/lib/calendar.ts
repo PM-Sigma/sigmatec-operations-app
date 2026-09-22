@@ -11,7 +11,7 @@
 // only ever an input; nothing here hands one back. That is what keeps a day from sliding by
 // one when a phone is on a different timezone from the office calendar.
 
-import { isHolidayEve, type Holiday } from './attendance';
+import { isHolidayEve, missingDaysFor, type AttRow, type Holiday } from './attendance';
 
 // ───────────────────────────── types ─────────────────────────────
 
@@ -353,6 +353,48 @@ export function monthView(year: number, month: number, holidays: Holiday[] = [],
     if (w >= 4 && cursor.getMonth() !== month - 1 && days[6].date >= ymd(new Date(year, month, 0))) break;
   }
   return { year, month, label: HE_MONTHS[month - 1] + ' ' + year, weeks };
+}
+
+/**
+ * The days ON THIS GRID that the person never reported — the red cells (round 2, F-4 · G).
+ *
+ * The answer itself belongs to the attendance screen: `missingDaysFor` is the single
+ * predicate, so the calendar can never disagree with נוכחות about what is missing. All this
+ * adds is "…and it is visible right now": a week row can straddle two months, so each month
+ * the grid touches is asked once and the result is intersected with the cells on screen —
+ * the cells that BELONG to the view, never a dimmed lead/trail filler.
+ *
+ * Past work days only, and that too comes from `missingDaysFor` — never today, never the
+ * future, never Fri/Sat, never a holiday nobody had to work. No person (or a month whose
+ * snapshot has not landed) → an empty set: "nothing to paint", never "nothing missing".
+ */
+export function missingInView(
+  person: string,
+  weeks: CalWeek[],
+  rowsFor: (person: string, year: number, month: number) => AttRow[] | null | undefined,
+  holidays?: Holiday[] | null,
+  today: Date = new Date(),
+): Set<string> {
+  const out = new Set<string>();
+  if (!person) return out;
+  const onScreen = new Set<string>();
+  const months = new Set<string>();
+  for (const w of weeks || []) {
+    for (const c of w.days || []) {
+      // A lead/trail filler belongs to the month BEFORE or AFTER this one; it is already
+      // dimmed, and shouting at him about August from September's grid would be noise. The
+      // week view marks every one of its cells — there `inMonth` is true throughout.
+      if (!c.inMonth) continue;
+      onScreen.add(c.date);
+      months.add(c.date.slice(0, 7));
+    }
+  }
+  for (const ym of months) {
+    for (const date of missingDaysFor(person, ym, rowsFor, holidays ?? [], today)) {
+      if (onScreen.has(date)) out.add(date);
+    }
+  }
+  return out;
 }
 
 /** The week view's seven columns, with the same cell shape the month grid uses. */
