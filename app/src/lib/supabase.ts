@@ -165,7 +165,7 @@ export async function sbWrite<T>(
 
   // F5: no Supabase write is open-ended any more. A hung PostgREST used to leave every save
   // button spinning forever with no message; now the wait ends at 15 s with the Hebrew
-  // 'תם הזמן — נסה שוב' that the caller surfaces with a retry action (lib/pending.ts).
+  // 'תם הזמן. נסה שוב' that the caller surfaces with a retry action (lib/pending.ts).
   const once = () => withTimeout(Promise.resolve(run(sb)), SB_TIMEOUT_MS);
 
   await mint(false);

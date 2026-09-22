@@ -276,7 +276,7 @@
     const raw = document.getElementById('intakeRaw').value.trim();
     const items = (window.intakeItems || []).filter(it => it.name && it.qty > 0).map(it => ({ name: it.name, qty: it.qty }));
     if (!kibbutz) { alert('נא לבחור קיבוץ'); return; }
-    if (!items.length) { alert('אין פריטים — הוסף לפחות פריט אחד'); return; }
+    if (!items.length) { alert('אין פריטים. הוסף לפחות פריט אחד'); return; }
     setBtnLoading(btn, true);
     const createdBy = getCurrentUser() || '';
     const post = body => fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
@@ -284,7 +284,7 @@
       // 1) customer requirement (open) — keeps per-kibbutz attribution + the raw request
       const reqRes = await post({ type: 'requirement', kibbutz, contactName: contact, items, status: 'open', createdBy, notes: '📥 נקלט מבקשת לקוח:\n' + raw });
       // 2) purchase order awaiting Idan's approval (creates NO stock movement)
-      const ordRes = await post({ type: 'order', status: 'pending_approval', orderType: 'customer', kibbutz: kibbutz, items, createdBy, supplier: '', notes: 'בקשת לקוח — ' + kibbutz + (contact ? ' (' + contact + ')' : '') });
+      const ordRes = await post({ type: 'order', status: 'pending_approval', orderType: 'customer', kibbutz: kibbutz, items, createdBy, supplier: '', notes: 'בקשת לקוח: ' + kibbutz + (contact ? ' (' + contact + ')' : '') });
       // 3) link them
       if (ordRes?.id && typeof pushNotify === 'function') pushNotify('pending', ordRes.id, createdBy);   // customer request → approvers
       if (reqRes?.id && ordRes?.id) {
@@ -292,7 +292,7 @@
       }
       document.getElementById('intakeModal').classList.remove('open');
       const t = document.getElementById('toast');
-      t.textContent = isIdan() ? '✅ נוצרה הזמנה ממתינה לאישור' : '✅ נשלח — ממתין לאישור עידן';
+      t.textContent = isIdan() ? '✅ נוצרה הזמנה ממתינה לאישור' : '✅ נשלח, ממתין לאישור עידן';
       t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3500);
       setTimeout(refreshData, 1200);
     } catch (e) {
@@ -486,7 +486,7 @@
   }
   function approvalWaitingMsg(o) {
     if (orderType(o) === 'customer') return '🔔 ממתין לאישור אביאם/ניתאי';
-    return orderNeedsAmichai(o) ? '🔔 מעל 10 פריטים — ממתין לאישור עמיחי' : '🔔 ממתין לאישור אביאם';
+    return orderNeedsAmichai(o) ? '🔔 מעל 10 פריטים, ממתין לאישור עמיחי' : '🔔 ממתין לאישור אביאם';
   }
   function canApproveOrders() { return ['אביאם', 'עמיחי', 'ניתאי'].indexOf(getCurrentUser()) !== -1; }   // any approver (legacy callers)
 
@@ -520,7 +520,7 @@
     var kibbutz = orderKibbutz(o);
     // ספק ישיר: close the order + linked requirement only — no movements, no EMS task
     if (isDirectSupply(o)) {
-      if (!confirm('לאשר אספקה ישירה מהספק' + (o.supplier ? ' (' + o.supplier + ')' : '') + '?\nלא יירד מהמלאי ולא תיפתח משימת EMS — ההזמנה תסומן "סופק ללקוח".')) return;
+      if (!confirm('לאשר אספקה ישירה מהספק' + (o.supplier ? ' (' + o.supplier + ')' : '') + '?\nלא יירד מהמלאי ולא תיפתח משימת EMS, ההזמנה תסומן "סופק ללקוח".')) return;
       setBtnLoading(btn, true);
       try {
         await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
@@ -540,12 +540,12 @@
     var responsible = o.assignee || me;
     var items = (o.items || []).filter(function (i) { return i.name && (parseInt(i.qty) || 0) > 0; });
     if (!items.length) { alert('אין פריטים בהזמנה.'); return; }
-    if (!kibbutz) { alert('לא זוהה קיבוץ להזמנה — לא ניתן לאשר אספקת לקוח.'); return; }
+    if (!kibbutz) { alert('לא זוהה קיבוץ להזמנה, לא ניתן לאשר אספקת לקוח.'); return; }
     // Hard gate: a customer supply opens an EMS "אספקת ציוד" task. Refuse to approve if the kibbutz has
     // no confident EMS site (would create a wrong-site / dead-lettered task). Drop-ship (isDirectSupply)
     // returned above and opens no task, so it is exempt by construction.
     if (!isDirectSupply(o) && typeof kibbutzHasSite === 'function' && !kibbutzHasSite(kibbutz)) {
-      alert('⚠️ לקיבוץ "' + kibbutz + '" אין אתר EMS מקושר — קשר או צור את האתר ב-EMS לפני אישור ההזמנה.');
+      alert('⚠️ לקיבוץ "' + kibbutz + '" אין אתר EMS מקושר. קשר או צור את האתר ב-EMS לפני אישור ההזמנה.');
       return;
     }
     if (!confirm('לאשר אספקת לקוח?\nירד ממלאי החברה → "' + kibbutz + '", ותיפתח משימת "אספקת ציוד" ב-EMS' + (o.assignee ? ' באחריות ' + o.assignee : '') + '.')) return;
@@ -561,10 +561,10 @@
           body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: POOL_LOCATION, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
       }));
       // 2) EMS "אספקת ציוד" task — live if connected, else queued for the next connect (field staff rarely connect)
-      var desc = 'אספקת ציוד ל' + kibbutz + ' — אושר ע"י ' + me + (o.assignee ? ' · אחראי: ' + o.assignee : '') + '\n' + items.map(function (i) { return '• ' + i.name + ' ×' + i.qty; }).join('\n');
+      var desc = 'אספקת ציוד ל' + kibbutz + ': אושר ע"י ' + me + (o.assignee ? ' · אחראי: ' + o.assignee : '') + '\n' + items.map(function (i) { return '• ' + i.name + ' ×' + i.qty; }).join('\n');
       var emsRes = {};
       if (typeof emsWriteOrQueue === 'function') {
-        emsRes = await emsWriteOrQueue({ kind: 'createTask', kibbutz: kibbutz, title: 'אספקת ציוד — ' + kibbutz, description: desc, assigneeName: responsible });
+        emsRes = await emsWriteOrQueue({ kind: 'createTask', kibbutz: kibbutz, title: 'אספקת ציוד: ' + kibbutz, description: desc, assigneeName: responsible });
         // sent live → refresh the shared cache so the new task shows on kibbutz cards NOW (not next session)
         if (emsRes && emsRes.sent && typeof emsAfterWrite === 'function') { try { await emsAfterWrite(); } catch (e2) {} }
       }
@@ -696,7 +696,7 @@
       root.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">אין הזמנות. לחץ "+ הזמנה חדשה"</div>';
       return;
     }
-    let html = '<div class="scroll-x"><table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th style="text-align:left;">פעולות על ההזמנה — שנה סטטוס ל:</th></tr></thead><tbody>';
+    let html = '<div class="scroll-x"><table class="inv-table"><thead><tr><th>תאריך</th><th>סוג</th><th>סטטוס</th><th>ספק / קיבוץ</th><th>פריטים</th><th>נוצר ע"י</th><th>הערות</th><th style="text-align:left;">פעולות על ההזמנה: שנה סטטוס ל</th></tr></thead><tbody>';
     filtered.sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || '')).forEach(o => {
       const date = (o.expectedDate || o.createdAt) ? new Date(o.expectedDate || o.createdAt).toLocaleDateString('he-IL') : '—';
       const delivered = o.deliveredAt ? '<div style="font-size:10px;color:#059669;white-space:nowrap;">📦 סופק: ' + new Date(o.deliveredAt).toLocaleDateString('he-IL') + '</div>' : '';
@@ -866,10 +866,10 @@
         : '';
       return `
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;background:${inCatalog ? 'white' : '#fffbeb'};border:1px solid ${inCatalog ? 'transparent' : '#fcd34d'};padding:5px 8px;border-radius:6px;">
-        ${inCatalog ? '' : '<span title="פריט שאינו בקטלוג — לא יקושר למלאי. בחר מהרשימה או הוסף אותו במסך המוצרים." style="cursor:help;font-size:14px;">⚠️</span>'}
+        ${inCatalog ? '' : '<span title="פריט שאינו בקטלוג, לא יקושר למלאי. בחר מהרשימה או הוסף אותו במסך המוצרים." style="cursor:help;font-size:14px;">⚠️</span>'}
         <select onchange="invOrderItems[${idx}].name = this.value" style="flex:1;padding:4px 6px;border-radius:4px;border:1px solid #e2e8f0;">
           ${options.map(n => `<option value="${n}" ${it.name === n ? 'selected' : ''}>${n}</option>`).join('')}
-          ${inCatalog ? '' : `<option selected value="${it.name}">${it.name} — לא בקטלוג</option>`}
+          ${inCatalog ? '' : `<option selected value="${it.name}">${it.name}: לא בקטלוג</option>`}
         </select>
         ${stockBadge}
         <input type="number" min="1" value="${it.qty}" onchange="invOrderItems[${idx}].qty = parseInt(this.value) || 1" style="width:70px;padding:3px 6px;border-radius:4px;border:1px solid #e2e8f0;text-align:center;">
@@ -915,7 +915,7 @@
       return pill('#fff1ed', '#b3340f', q, 'Groq');
     }
     if (!src) return '';   // nothing parsed yet
-    return pill('#f1f5f9', '#475569', '📴', 'Offline — מנתח מקומי');
+    return pill('#f1f5f9', '#475569', '📴', 'Offline: מנתח מקומי');
   }
   // Resolve a "choose by click" row to the picked product.
   window.invChooseProduct = function (itemIdx, choiceIdx) {
@@ -976,7 +976,7 @@
       if (ctrlOpts.length >= 2) {
         chosen = await askChoice({
           title: '🎛️ בחירת בקר', progress: 'שאלה 1 מ-2',
-          question: 'יש ' + plan.nonLandisMeterQty + ' מונים שאינם לנדיס — לכל אחד נדרש בקר. איזה בקר להוסיף?',
+          question: 'יש ' + plan.nonLandisMeterQty + ' מונים שאינם לנדיס, לכל אחד נדרש בקר. איזה בקר להוסיף?',
           options: ctrlOpts.map(function (c) { return { label: ctrlLabel(c), value: c, hint: c + ' · במלאי שלך: ' + (_st[c] || 0) }; }),
         });
       }
@@ -1069,10 +1069,10 @@
       if (_badge) _badge.innerHTML = parseSourceBadge(_src);
       var _t = document.getElementById('toast');
       if (_t) {
-        _t.textContent = (_src && _src !== 'local') ? ('🤖 נותח ע"י AI — ' + _src) : '📴 נותח מקומית (ללא AI — לא מחובר/שגיאה)';
+        _t.textContent = (_src && _src !== 'local') ? ('🤖 נותח ע"י AI: ' + _src) : '📴 נותח מקומית (ללא AI: לא מחובר/שגיאה)';
         _t.classList.add('show'); setTimeout(function () { _t.classList.remove('show'); }, 3500);
       }
-      if (!items.length) { alert('לא זוהו פריטים מהטקסט — הוסף ידנית.'); return; }
+      if (!items.length) { alert('לא זוהו פריטים מהטקסט. הוסף ידנית.'); return; }
       items.forEach(it => {
         const exists = invOrderItems.find(i => i.name === it.name && !i.auto);
         if (exists) exists.qty += it.qty;
@@ -1119,7 +1119,7 @@
 
   async function invSaveOrder(btn) {
     if (invOrderItems.length === 0) { alert('הוסף לפחות פריט אחד'); return; }
-    if (invOrderItems.some(it => !it.name || (it.choose && it.choose.length))) { alert('יש שורת ספק כוח שטרם נבחר סוגה — בחר פס-דין או שקע'); return; }
+    if (invOrderItems.some(it => !it.name || (it.choose && it.choose.length))) { alert('יש שורת ספק כוח שטרם נבחר סוגה. בחר פס-דין או שקע'); return; }
     const createdBy = document.getElementById('invOrderCreatedBy').value;
     if (!createdBy && !window.invEditingOrderId) { alert('נא לבחור מי יוצר את ההזמנה'); return; }
     const otype = window._invOrderType || 'supplier';

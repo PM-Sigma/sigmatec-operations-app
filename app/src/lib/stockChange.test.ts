@@ -49,7 +49,7 @@ describe('stockChangePlan — §4b', () => {
 
   it('recount equal to the pool is refused', () => {
     const plan = stockChangePlan({ ...base, direction: 'decrease', source: 'recount', counted: 38, note: 'נספר' });
-    expect(plan.errors).toEqual(['הספירה זהה למלאי — אין שינוי']);
+    expect(plan.errors).toEqual(['הספירה זהה למלאי, אין שינוי']);
   });
 
   it('refuses a count that contradicts the chosen direction', () => {

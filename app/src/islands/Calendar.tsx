@@ -585,8 +585,8 @@ function ScheduleSheet({
         <SheetTitle>שיבוץ משימות EMS{when ? ' ל' + heShort(when) : ''}</SheetTitle>
         <SheetDescription className="text-[12.5px]">
           {date
-            ? 'בוחרים קיבוץ, מסמנים מה עושים באותו יום — והתאריך ב-EMS מתעדכן.'
-            : 'בוחרים יום למשימה — והתאריך ב-EMS מתעדכן.'}
+            ? 'בוחרים קיבוץ, מסמנים מה עושים באותו יום, והתאריך ב-EMS מתעדכן.'
+            : 'בוחרים יום למשימה, והתאריך ב-EMS מתעדכן.'}
         </SheetDescription>
         {/* Opened from a רשימה row there is no day yet, so the day is the first thing asked. */}
         {!date ? (
@@ -915,7 +915,7 @@ function AbsenceSheet({
     <Sheet open={open} onOpenChange={o => { if (!o) absGuard.ask(); }}>
       <SheetContent side="bottom" data-testid="cal-absence" className="max-h-[86svh] overflow-y-auto" {...absGuard.contentProps}>
         <SheetTitle>יום לא רגיל</SheetTitle>
-        <SheetDescription className="text-[12.5px]">חופש, מילואים או אירוע — וכולם יראו את זה ביומן.</SheetDescription>
+        <SheetDescription className="text-[12.5px]">חופש, מילואים או אירוע, וכולם יראו את זה ביומן.</SheetDescription>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {(['vacation', 'reserve', 'event'] as AbsenceKind[]).map(k => (
             <button

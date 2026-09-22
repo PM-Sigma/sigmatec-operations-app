@@ -37,7 +37,7 @@ export function readCatalog(): DayLogCatalog {
 /** Ask `parse-daylog`. Throws with a sentence the person can act on — never a status code. */
 export async function parseDayLog(text: string, catalog: DayLogCatalog, external?: AbortController): Promise<any> {
   const token = (() => { try { return sigma.emsToken?.() || ''; } catch { return ''; } })();
-  if (!token) throw new Error('יש להתחבר כדי לנתח את היום — אפשר לכתוב סיכום ביקור ידנית');
+  if (!token) throw new Error('יש להתחבר כדי לנתח את היום. אפשר לכתוב סיכום ביקור ידנית');
   // F19: the caller may hand in its own controller so a בטל button can end the wait. The
   // 30 s deadline still fires on top of it.
   const ac = external || new AbortController();
@@ -52,13 +52,13 @@ export async function parseDayLog(text: string, catalog: DayLogCatalog, external
       }),
     });
     const res = await r.json().catch(() => ({}));
-    if (!r.ok || res?.error) throw new Error(r.status === 401 ? 'יש להתחבר שוב כדי לנתח את היום' : 'הניתוח לא הצליח — נסה שוב או כתוב סיכום ידנית');
+    if (!r.ok || res?.error) throw new Error(r.status === 401 ? 'יש להתחבר שוב כדי לנתח את היום' : 'הניתוח לא הצליח. נסה שוב או כתוב סיכום ידנית');
     return res;
   } catch (e: any) {
     if (e?.name === 'AbortError') {
       throw new Error(external && external.signal.aborted && !(e as any).__deadline
         ? 'CANCELLED'
-        : 'הניתוח לוקח יותר מדי זמן — נסה שוב');
+        : 'הניתוח לוקח יותר מדי זמן. נסה שוב');
     }
     throw e;
   } finally {

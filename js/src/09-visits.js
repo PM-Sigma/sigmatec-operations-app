@@ -321,7 +321,7 @@
     el.innerHTML = n
       ? '<div class="sig-certchip ok">✅ תעודה <bdi>' + n + '</bdi> נופקה<span class="sp"></span>'
         + '<button type="button" onclick="certFromVisitForm()">🚚 תעודה נוספת</button></div>'
-      : '<div class="sig-certchip">⚠️ סופק ציוד — טרם הופקה תעודת משלוח<span class="sp"></span>'
+      : '<div class="sig-certchip">⚠️ סופק ציוד, טרם הופקה תעודת משלוח<span class="sp"></span>'
         + '<button type="button" onclick="certFromVisitForm()">🚚 הפק</button></div>';
     // The label states the order of operations, which is what the gate enforces anyway.
     if (save) save.innerHTML = n ? '💾 שמור ביקור' : '🚚 הפק תעודה ← שמור';
@@ -420,7 +420,7 @@
   function editLastVisit() {
     if (!window.currentKibbutzVisits.length) return;
     const last = window.currentKibbutzVisits[0];
-    if (!last.id) { alert('הביקור הזה נשמר ללא ID — לא ניתן לערוך. נסה שוב אחרי שהדף סונכרן.'); return; }
+    if (!last.id) { alert('הביקור הזה נשמר ללא ID, לא ניתן לערוך. נסה שוב אחרי שהדף סונכרן.'); return; }
     editVisit(last.id);
   }
 
@@ -978,7 +978,7 @@
         const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(vid) : 0;
         if (!certNum) {
           setBtnLoading(saveBtn, false);
-          alert('סופק ציוד בביקור — חובה להפיק תעודת משלוח לפני שמירת הסיכום.\nלחץ על "🚚 תעודת משלוח", הפק (נדרש חיבור), וחזור לשמור.');
+          alert('סופק ציוד בביקור, חובה להפיק תעודת משלוח לפני שמירת הסיכום.\nלחץ על "🚚 תעודת משלוח", הפק (נדרש חיבור), וחזור לשמור.');
           return;
         }
       }
@@ -1190,7 +1190,7 @@
     const id = String(d.id || '') || ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
     if (products.length && !d.certAfter) {
       const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(id) : 0;
-      if (!certNum) return { ok: false, error: 'סופק ציוד — נדרשת תעודת משלוח לפני שמירת הסיכום', needsCert: true, visitId: id };
+      if (!certNum) return { ok: false, error: 'סופק ציוד, נדרשת תעודת משלוח לפני שמירת הסיכום', needsCert: true, visitId: id };
     }
 
     const visit = {
@@ -1230,7 +1230,7 @@
       res = await r.json();
     } catch (e) {
       console.warn('Visit save failed (kept locally):', e);
-      return { ok: false, error: 'השמירה נכשלה — הסיכום נשמר במכשיר, נסה שוב' };
+      return { ok: false, error: 'השמירה נכשלה, הסיכום נשמר במכשיר, נסה שוב' };
     }
     if (!res || !res.ok) return { ok: false, error: (res && res.error) || 'השמירה נכשלה' };
 

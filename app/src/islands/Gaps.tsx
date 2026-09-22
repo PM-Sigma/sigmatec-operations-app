@@ -164,11 +164,11 @@ export function GapsList({ person, onClose }: { person: string; onClose?: () => 
       }
       else if (g.kind === 'attendance') sigma.showPage?.('attendance');
       else if (g.kind === 'task' && g.taskId) sigma.openKibbutzEmsTask?.(g.taskId);
-    } catch { toast.error('לא הצלחתי לפתוח — נסה מהמסך הראשי'); }
+    } catch { toast.error('לא הצלחתי לפתוח. נסה מהמסך הראשי'); }
   }, [onClose]);
 
   if (q.isLoading) return <div className="flex flex-col gap-2 py-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>;
-  if (q.isError) return <p className="py-4 text-[13px] text-muted-foreground">הרשימה לא נטענה — נסה שוב בעוד רגע.</p>;
+  if (q.isError) return <p className="py-4 text-[13px] text-muted-foreground">הרשימה לא נטענה. נסה שוב בעוד רגע.</p>;
 
   return (
     <div data-testid="gaps-list" data-count={gaps.length}>

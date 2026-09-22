@@ -114,9 +114,9 @@
         body: JSON.stringify({ type: 'ems', base, path, method, token, payload }),
         signal: ac.signal
       });
-      return await res.json().catch(() => ({ error: 'לא הצלחנו להביא את הנתונים — נסה שוב' }));
+      return await res.json().catch(() => ({ error: 'לא הצלחנו להביא את הנתונים. נסה שוב' }));
     } catch (e) {
-      return { error: e.name === 'AbortError' ? 'זה לוקח יותר מדי זמן — נסה שוב בעוד רגע' : e.message };
+      return { error: e.name === 'AbortError' ? 'זה לוקח יותר מדי זמן. נסה שוב בעוד רגע' : e.message };
     } finally { clearTimeout(tt); }
   }
 
@@ -135,7 +135,7 @@
       // raise one sheet, not ten. The funnel owns the surface — this call never opens a page.
       if (typeof window.sigmaSessionExpired === 'function') window.sigmaSessionExpired('ems-401');
       else if (typeof emsRequireLogin === 'function') emsRequireLogin();
-      throw new Error('פג תוקף החיבור — התחבר מחדש');
+      throw new Error('פג תוקף החיבור. התחבר מחדש');
     }
     // Surface real API errors (422/403/500…) instead of silently returning an
     // error body that callers mistake for "empty".

@@ -303,7 +303,7 @@ export function summaryLabel(s: ReviewSummary): string {
   if (s.internal) parts.push(`${s.internal} פנימיות`);
   if (s.notes) parts.push(`${s.notes} הערות`);
   if (s.chatter) parts.push(`${s.chatter} דיבורים`);
-  return parts.length ? `בצע — ${parts.join(' · ')}` : 'בצע';
+  return parts.length ? `בצע: ${parts.join(' · ')}` : 'בצע';
 }
 
 // ───────────────────────────── the bundle ─────────────────────────────

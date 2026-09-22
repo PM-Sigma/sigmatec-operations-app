@@ -110,7 +110,7 @@
       if (within(d)) items.push({ d: d, icon: '📅', text: (e.type || 'אירוע') + ' · ' + kib, cls: 'cal-event' });
     }));
     items.sort((a, b) => a.d - b.d);
-    let html = '<div class="cal-agenda-head">📋 לוח זמנים — מהקרוב לחודש קדימה</div>';
+    let html = '<div class="cal-agenda-head">📋 לוח זמנים: מהקרוב לחודש קדימה</div>';
     if (!items.length) { box.innerHTML = html + '<div style="color:#94a3b8;font-size:13px;padding:6px;">אין אירועים קרובים ב-31 הימים הבאים</div>'; return; }
     let lastK = '';
     items.forEach(it => {
@@ -228,7 +228,7 @@
   // ---- After a visit summary is saved: push it to the kibbutz's open EMS task(s) ----
   function buildVisitSummaryText(kibbutz, visit) {
     const d = visit.date ? new Date(visit.date).toLocaleDateString('he-IL') : '';
-    let s = '📋 סיכום ביקור — ' + kibbutz + '\n';
+    let s = '📋 סיכום ביקור: ' + kibbutz + '\n';
     s += '📅 ' + d + ' · ⏱️ ' + (visit.duration || '?') + ' שעות · 👤 ' + (visit.visitor || '') + '\n';
     if (visit.contact) s += '🤝 איש קשר מלווה: ' + visit.contact + '\n';
     if (visit.products && visit.products.length) s += '📦 מוצרים: ' + visit.products.map(p => (p.qty > 1 ? p.name + ' ×' + p.qty : p.name)).join(', ') + '\n';
@@ -258,7 +258,7 @@
       const head = document.getElementById('visitEmsHead');   // clear message about which task is being updated
       if (head) head.textContent = tasks.length > 1 ? '🔗 בחר את משימת ה-EMS לעדכון מהביקור:' : '🔗 הביקור יעדכן את משימת ה-EMS: «' + tasks[0].title + '»';
       const note = document.getElementById('visitEmsConnNote');
-      if (note) note.textContent = isEmsConnected() ? '' : ' (לא מחובר — יישלח בהתחברות הבאה)';
+      if (note) note.textContent = isEmsConnected() ? '' : ' (לא מחובר, יישלח בהתחברות הבאה)';
       block.style.display = '';
     } else if (newBlock && typeof canUseEms === 'function' && canUseEms()) {
       newBlock.style.display = '';   // no open task → offer to create one
@@ -476,7 +476,7 @@
     if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {
       box.innerHTML = '<div class="modal-ems-nosite" style="margin-top:6px;padding:9px 12px;background:#fef2f2;' +
         'border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:700;">' +
-        '⚠️ לא מקושר ל-EMS — צור או קשר את האתר ב-EMS לפני פתיחת משימה.</div>';
+        '⚠️ לא מקושר ל-EMS. צור או קשר את האתר ב-EMS לפני פתיחת משימה.</div>';
       return;
     }
     const ids = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
@@ -486,7 +486,7 @@
     const newBubble = '<button type="button" onclick="createEmsTaskForKibbutz()" style="background:var(--accent-soft);color:var(--accent-fg);border:1px solid var(--accent);border-radius:14px;padding:4px 11px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;">➕ משימה חדשה</button>';
     if (tasks.length) {
       let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">' +
-              '<div style="font-size:13px;font-weight:800;color:var(--accent-fg);">📋 משימת EMS פתוחה — לחץ לעדכון/תגובה:</div>' + newBubble + '</div>';
+              '<div style="font-size:13px;font-weight:800;color:var(--accent-fg);">📋 משימת EMS פתוחה, לחץ לעדכון/תגובה:</div>' + newBubble + '</div>';
       tasks.forEach(t => { h += '<div class="card-ems-task status-' + t.status + '" onclick="emsModalTaskClick(\'' + t.id + '\')" style="cursor:pointer;margin:4px 0;"><span class="t-dot" style="background:' + (EMS_PRIORITY_DOT[t.priority] || '#94a3b8') + '"></span><span class="t-title">' + emsEsc(t.title) + '</span><span class="ems-badge status-' + t.status + '">' + (EMS_STATUS[t.status] || t.status) + '</span></div>'; });
       box.innerHTML = h;
     } else {
@@ -505,7 +505,7 @@
     // main 1.67 site integrity: a kibbutz with no EMS site cannot open a task there at all,
     // so the hard block comes BEFORE the sign-in surface — signing in would not help.
     if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {
-      emsToast('⚠️ אין אתר EMS מקושר לקיבוץ — צור/קשר את האתר ב-EMS תחילה');
+      emsToast('⚠️ אין אתר EMS מקושר לקיבוץ. צור/קשר את האתר ב-EMS תחילה');
       return;
     }
     if (!isEmsConnected()) {   // not connected → the ONE sign-in surface (spec §7n)
@@ -517,7 +517,7 @@
     let siteId = '';
     try { siteId = await emsSiteIdForKibbutz(name); } catch (e) { /* fall back to manual pick */ }
     await emsCreateTaskModal(siteId);
-    if (!siteId) emsToast('⚠️ לא נמצא אתר EMS תואם ל"' + name + '" — בחר אתר ידנית');
+    if (!siteId) emsToast('⚠️ לא נמצא אתר EMS תואם ל"' + name + '". בחר אתר ידנית');
   }
 
   // Pure: build audit rows — for each kibbutz name, resolve its site id via the map, then look up the

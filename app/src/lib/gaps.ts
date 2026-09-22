@@ -206,7 +206,7 @@ function taskGaps(person: string, src: GapSources, range: GapRange): Gap[] {
       date,
       kibbutz: where || undefined,
       taskId: t.id,
-      text: `${String(t.title || 'משימה').trim()}${where ? ' — ' + where : ''} · תאריך היעד עבר (${DM(date)})`,
+      text: `${String(t.title || 'משימה').trim()}${where ? ': ' + where : ''} · תאריך היעד עבר (${DM(date)})`,
       action: 'task',
       actionLabel: '🔗 פתח משימה',
     });
@@ -252,9 +252,9 @@ export function gapCounts(gaps: Gap[]): { total: number; visit: number; attendan
  */
 export function gapsSummary(gaps: Gap[]): string {
   const n = gaps.length;
-  if (!n) return 'הכל סגור — אין פערים פתוחים 🎉';
+  if (!n) return 'הכל סגור, אין פערים פתוחים 🎉';
   if (n === 1) return 'נשאר פריט אחד לסגור';
-  if (n <= 3) return `סוגרים את ה-${n} האלה — והחודש נקי`;
+  if (n <= 3) return `סוגרים את ה-${n} האלה, והחודש נקי`;
   return `${n} פריטים מחכים לסגירה`;
 }
 

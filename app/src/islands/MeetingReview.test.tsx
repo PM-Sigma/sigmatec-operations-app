@@ -313,7 +313,7 @@ describe('the screen', () => {
   it('the button says what בצע is about to do', async () => {
     await openScreen();
     expect(screen.getByTestId('review-commit').textContent)
-      .toBe('בצע — 1 משימות · 1 הערות · 1 דיבורים');
+      .toBe('בצע: 1 משימות · 1 הערות · 1 דיבורים');
   });
 
   it('a partial בצע failure never re-creates the tasks that already landed', async () => {

@@ -63,7 +63,7 @@
       '<h3 style="margin:8px 0 6px;color:#b91c1c;">נדרש לאפשר התראות</h3>' +
       '<div style="font-size:14px;color:#334155;line-height:1.6;margin-bottom:16px;">' + msg + '</div>' +
       '<div style="display:flex;gap:8px;">' +
-      '<button id="pushEnableYes" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:12px;font-weight:800;cursor:pointer;font-size:15px;">' + (blocked ? '🔄 ניסיתי — רענן' : '✅ אפשר התראות') + '</button>' +
+      '<button id="pushEnableYes" style="flex:1;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:12px;font-weight:800;cursor:pointer;font-size:15px;">' + (blocked ? '🔄 ניסיתי, רענן' : '✅ אפשר התראות') + '</button>' +
       '<button id="pushEnableLater" style="background:#f1f5f9;color:#64748b;border:none;border-radius:8px;padding:12px 14px;font-weight:700;cursor:pointer;">אחר כך</button>' +
       '</div></div>';
     document.body.appendChild(wrap);
@@ -248,7 +248,7 @@
     const ym = dateKey.slice(0, 7);
     const sent = attNagSelected(person, ym).indexOf(dateKey) !== -1;
     const bell = attCanNag()
-      ? '<button data-d="' + dateKey + '" onclick="attNagDay(this.dataset.d, this)" title="' + (sent ? 'נשלחה תזכורת — לחיצה שולחת שוב את כל הימים' : 'שלח תזכורת על יום זה (מצטרף להתראה הקיימת)') + '"' +
+      ? '<button data-d="' + dateKey + '" onclick="attNagDay(this.dataset.d, this)" title="' + (sent ? 'נשלחה תזכורת, לחיצה שולחת שוב את כל הימים' : 'שלח תזכורת על יום זה (מצטרף להתראה הקיימת)') + '"' +
         ' style="background:' + (sent ? 'var(--tint-ok)' : 'var(--tint-danger)') + ';border:1px solid ' + (sent ? 'var(--success)' : 'var(--tint-danger-border)') + ';border-radius:6px;min-width:34px;height:26px;cursor:pointer;font-size:13px;">' + (sent ? '✅' : '🔔') + '</button>'
       : '';
     // Tokens, not literals: the row used to be a light slab in dark mode and its em-dash
@@ -290,9 +290,9 @@
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || r.status);
       if (j.delivered > 0) {
-        attToast('🔔 נשלחה תזכורת ל' + person + ' — ' + sel.length + ' ימים');
+        attToast('🔔 נשלחה תזכורת ל' + person + ': ' + sel.length + ' ימים');
       } else {
-        attToast('⚠️ ל' + person + ' אין מכשיר רשום להתראות — בקש ממנו לאשר 🔔 באפליקציה');
+        attToast('⚠️ ל' + person + ' אין מכשיר רשום להתראות. בקש ממנו לאשר 🔔 באפליקציה');
         // in-app fallback the worker sees on next open (their device reads att_nag_<name>)
         try { localStorage.setItem('att_nag_' + person + '_v1', JSON.stringify({ dates: sel, at: Date.now() })); } catch (e) {}
       }
@@ -397,7 +397,7 @@
           // will still ask. Say what is true and leave him one tap that works.
           if (++tries2 > 20) {
             if (window.sigma && typeof window.sigma.toast === 'function') {
-              window.sigma.toast('לא הצלחתי לסמן — תוכל לסגור את זה מהבאנר במסך הראשי');
+              window.sigma.toast('לא הצלחתי לסמן, תוכל לסגור את זה מהבאנר במסך הראשי');
             }
             return;
           }

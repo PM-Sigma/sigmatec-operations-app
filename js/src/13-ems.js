@@ -203,7 +203,7 @@
     var sub = document.createElement('div');
     sub.className = 'modal-sub';
     sub.textContent = items.length
-      ? 'הפעולות נשמרו ויישלחו ל-EMS בהתחברות הבאה — אין מה לעשות.'
+      ? 'הפעולות נשמרו ויישלחו ל-EMS בהתחברות הבאה, אין מה לעשות.'
       : 'הכל נשלח. אין פעולות ממתינות.';
     var list = document.createElement('div');
     list.setAttribute('data-testid', 'ems-queue-list');
@@ -403,7 +403,7 @@
     if (isEmsConnected()) { openEmsTask(id); return; }
     const t = emsCacheData().tasks.find(x => x.id === id);
     const modal = document.getElementById('emsDetailModal');
-    if (!t || !modal) { alert('המשימה אינה בנתונים המקומיים — התחבר ל-EMS לצפייה מלאה.'); return; }
+    if (!t || !modal) { alert('המשימה אינה בנתונים המקומיים. התחבר ל-EMS לצפייה מלאה.'); return; }
     window._emsCurrentTask = t;
     const site = t.site && t.site.name ? t.site.name : '—';
     const due  = t.expectedCompletionDate ? new Date(t.expectedCompletionDate).toLocaleDateString('he-IL') : '—';

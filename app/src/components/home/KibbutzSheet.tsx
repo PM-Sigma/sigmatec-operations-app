@@ -248,7 +248,7 @@ export function KibbutzSheet({
           className={fieldBox}
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder={isSub ? 'גבים — שכונה חדשה' : 'שם כפי שיופיע על הכרטיס'}
+          placeholder={isSub ? 'גבים, שכונה חדשה' : 'שם כפי שיופיע על הכרטיס'}
           autoComplete="off"
         />
 
@@ -326,7 +326,7 @@ export function KibbutzSheet({
         {(isSub || !!reduced) && !(reduced && reduced.ems_site_ids.length) && (
           <div className="mt-1 flex items-center gap-2 rounded-xl border border-border bg-muted px-2.5 py-2 text-xs">
             <Switch id="kibUnlinked" checked={allowUnlinked} onCheckedChange={setAllowUnlinked} />
-            <label htmlFor="kibUnlinked">שמור בלי קישור — הכרטיס יסומן ⚠️ עד שיקושר</label>
+            <label htmlFor="kibUnlinked">שמור בלי קישור. הכרטיס יסומן ⚠️ עד שיקושר</label>
           </div>
         )}
 

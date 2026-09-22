@@ -725,7 +725,7 @@ if (mod) {
       assert.ok(!location_.href.includes('undefined'), 'must not leak "undefined" for the no-email contact');
     });
     check('certEmailSelected: subject is URL-encoded and carries the cert number', () => {
-      const subject = 'תעודת משלוח 4001 — סיגמאטק התייעלות אנרגטית';
+      const subject = 'תעודת משלוח 4001: סיגמאטק התייעלות אנרגטית';
       assert.ok(location_.href.includes('subject=' + encodeURIComponent(subject)), 'expected encoded subject in mailto href');
     });
     check('certEmailSelected: body contains the view URL', () => {

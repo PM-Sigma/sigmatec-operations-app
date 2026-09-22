@@ -50,7 +50,7 @@ export function openFeedbackInbox(): void {
     return;
   }
   if (opener) opener();
-  else toast.error('התיבה עוד לא נטענה — רענן את העמוד');
+  else toast.error('התיבה עוד לא נטענה. רענן את העמוד');
 }
 
 // ───────────────────────── data ─────────────────────────
@@ -129,7 +129,7 @@ function Row({
   const [busy, setBusy] = React.useState(false);
 
   const create = async () => {
-    if (!parent) { toast.error('בחר תחום אב — כרטיס תמיד נתלה תחת תחום קיים'); return; }
+    if (!parent) { toast.error('בחר תחום אב, כרטיס תמיד נתלה תחת תחום קיים'); return; }
     setBusy(true);
     try { await onIssue(item, parent); setOpenCard(false); }
     finally { setBusy(false); }
@@ -286,7 +286,7 @@ function InboxDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle>📥 תיבה נכנסת — רעיונות, באגים ותלונות</DialogTitle>
+          <DialogTitle>📥 תיבה נכנסת: רעיונות, באגים ותלונות</DialogTitle>
           <DialogDescription>
             {fresh ? <><bdi>{fresh}</bdi> חדשים · </> : null}סה״כ <bdi>{items.length}</bdi>. באג אפשר להפוך לכרטיס בלוח הפיתוח.
           </DialogDescription>

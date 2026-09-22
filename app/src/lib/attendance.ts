@@ -130,7 +130,7 @@ export function dayLabel(type: DayType | string): string {
 export function holidayNote(h: Holiday | null | undefined): string {
   if (isHolidayEve(h)) return h!.name + ' · ברירת המחדל היא ' + DAY_LABELS[EVE_DEFAULT_TYPE];
   if (!h || h.required) return '';
-  return h.name + ' — הזנה אופציונלית';
+  return h.name + ': הזנה אופציונלית';
 }
 
 // ───────────────────────────── ערבי חג (round 2, F-5) ─────────────────────────────

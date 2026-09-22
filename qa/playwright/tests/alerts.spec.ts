@@ -61,7 +61,7 @@ test('the מלאי page shows the open orders as a strip with its stages and one
   await expect(strip).toBeVisible({ timeout: 15_000 });
   // The mock ledger has one open supplier order: arrived, from לנדיס (js/src/01-data.js).
   await expect(strip).toContainText('לנדיס');
-  await expect(strip).toContainText('הגיע — לסמן סופק כדי שייכנס למלאי');
+  await expect(strip).toContainText('הגיע. לסמן סופק כדי שייכנס למלאי');
   await expect(strip.locator('[data-order-row]')).toHaveCount(1);
 
   await expectRtl(page);

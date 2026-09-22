@@ -96,7 +96,7 @@
               xlNum(r.workdays || 0), xlNum(r.type === 'field' ? (r.hourHours || 0) : (r.duration || 0)),
               xlStr(holCell), xlStr(detail)];
     });
-    return { sheet: 'נוכחות — ' + xlStr(person), columns: columns, rows: out };
+    return { sheet: 'נוכחות: ' + xlStr(person), columns: columns, rows: out };
   }
 
   // THE customer name for a certificate, in one place. The printed report used to group by

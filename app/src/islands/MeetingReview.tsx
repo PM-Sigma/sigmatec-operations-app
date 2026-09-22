@@ -238,7 +238,7 @@ function TaskModal({
     <Sheet open onOpenChange={v => { if (!v) taskGuard.ask(); }}>
       <SheetContent side="bottom" data-testid="review-task-modal" className="max-h-[88svh] overflow-y-auto" {...taskGuard.contentProps}>
         <SheetHeader className="text-start">
-          <SheetTitle className="text-base">📋 משימת EMS — <bdi>{kibbutz}</bdi></SheetTitle>
+          <SheetTitle className="text-base">📋 משימת EMS: <bdi>{kibbutz}</bdi></SheetTitle>
           <SheetDescription>
             {site === '…' ? 'מאתר את האתר במערכת…'
               : site === 'yes' ? 'האתר זוהה במערכת' : 'לא נמצא אתר ב-EMS לקיבוץ הזה. קשרו את הקיבוץ לאתר (✏️ פרטי קיבוץ) לפני פתיחת המשימה'}
@@ -289,7 +289,7 @@ function TaskModal({
           </button>
         </div>
         <p className="mt-2 text-[12px] text-muted-foreground" data-testid="review-task-hint">
-          המשימה תיפתח כשתלחץ בצע — <bdi>{line.key ? 'שורה זו בלבד' : ''}</bdi>
+          המשימה תיפתח כשתלחץ בצע: <bdi>{line.key ? 'שורה זו בלבד' : ''}</bdi>
         </p>
         {taskGuard.prompt}
       </SheetContent>
@@ -484,7 +484,7 @@ function ReviewSheet() {
       if (r.failed) {
         // The draft stays open and untouched — בצע again only retries the lines still missing
         // a task id (tracked in `created` above), never the ones that already succeeded.
-        toast.error(`נוצרו ${r.tasks} משימות, ${r.failed} נכשלו — לחץ שוב כדי להשלים`);
+        toast.error(`נוצרו ${r.tasks} משימות, ${r.failed} נכשלו. לחץ שוב כדי להשלים`);
         return;
       }
       await qc.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
@@ -586,7 +586,7 @@ function ReviewSheet() {
                         />
                       ))}
                       {!sec.lines.length && (
-                        <li className="text-[12px] text-muted-foreground">(אין שורות — הקיבוץ נסקר בלי פערים)</li>
+                        <li className="text-[12px] text-muted-foreground">(אין שורות, הקיבוץ נסקר בלי פערים)</li>
                       )}
                     </ul>
                   </section>

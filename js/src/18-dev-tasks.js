@@ -73,7 +73,7 @@
     var opts = '<option value="">— עדיפות —</option>' + DEV_PRIO_OPTS.map(function (o) {
       return '<option value="' + o + '"' + (pr && pr.label === o ? ' selected' : '') + '>' + o + '</option>';
     }).join('');
-    return '<select class="dev-prio dev-prio-edit ' + cls + '" title="שנה עדיפות — נשמר אוטומטית ומתעדכן ב-GitHub"' +
+    return '<select class="dev-prio dev-prio-edit ' + cls + '" title="שנה עדיפות, נשמר אוטומטית ומתעדכן ב-GitHub"' +
       ' onclick="event.stopPropagation()" onmousedown="event.stopPropagation()"' +
       ' onchange="devSetPriority(' + t.number + ',this.value,this)">' + opts + '</select>';
   }
@@ -259,7 +259,7 @@
         body: JSON.stringify({ token: tok, state: state || 'open' })
       });
     } catch (e) {
-      throw new Error(ac.signal.aborted ? 'זה לוקח רגע — נסה שוב עוד מעט' : ('אין חיבור כרגע — בדוק רשת ונסה שוב'));
+      throw new Error(ac.signal.aborted ? 'זה לוקח רגע. נסה שוב עוד מעט' : ('אין חיבור כרגע. בדוק רשת ונסה שוב'));
     } finally { clearTimeout(to); }
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) {
@@ -931,7 +931,7 @@
     var ok = (d.updated || []).length, fail = (d.failed || []);
     var msg = '✅ ' + okLabel + ': ' + ok;
     if (fail.length) {
-      msg += ' · נכשלו: ' + fail.length + '\n' + fail.slice(0, 6).map(function (x) { return '#' + x.number + ' — ' + x.error; }).join('\n');
+      msg += ' · נכשלו: ' + fail.length + '\n' + fail.slice(0, 6).map(function (x) { return '#' + x.number + ': ' + x.error; }).join('\n');
       if (d.statusOptions && d.statusOptions.length) msg += '\n\nאופציות Status בפרויקט: ' + d.statusOptions.join(' · ');
     }
     return { msg: msg, ok: ok, fail: fail.length };

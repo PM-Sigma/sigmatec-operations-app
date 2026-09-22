@@ -88,7 +88,7 @@ function HolidaysIsland() {
       <SheetContent side="bottom" data-testid="holidays-sheet" className="max-h-[88svh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader className="text-start">
           <SheetTitle>🕎 חגים וסגירות</SheetTitle>
-          <SheetDescription>בימים האלה לא נדרשת נוכחות. אפשר להזין נוכחות בכל זאת — היא נספרת כיום עבודה.</SheetDescription>
+          <SheetDescription>בימים האלה לא נדרשת נוכחות. אפשר להזין נוכחות בכל זאת, היא נספרת כיום עבודה.</SheetDescription>
         </SheetHeader>
 
         <div className="mt-3 space-y-1.5">

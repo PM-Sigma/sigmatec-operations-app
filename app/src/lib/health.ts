@@ -145,7 +145,7 @@ export function scoreFinance(input: FinanceInput | null, cfg: HealthConfig = HEA
       why: `החשבון האחרון בהפסד של ${Math.abs(input.marginPct)}%`,
     });
   } else if (input.marginPct < cfg.finance.marginBandPct) {
-    parts.push({ score: SCORE.warn, why: `רווח נמוך מהרגיל — ${input.marginPct}%` });
+    parts.push({ score: SCORE.warn, why: `רווח נמוך מהרגיל: ${input.marginPct}%` });
   } else parts.push({ score: SCORE.good, why: `רווח ${input.marginPct}% בחשבון האחרון` });
 
   return worst(parts);
@@ -156,7 +156,7 @@ export function scoreEnergy(input: EnergyInput | null, cfg: HealthConfig = HEALT
   const loss = input.lossPct;
   if (loss >= cfg.energy.lossRedPct) return { score: SCORE.bad, why: `פער של ${loss}% בין המונה הראשי למרכזיות` };
   if (loss >= cfg.energy.lossWarnPct) return { score: SCORE.warn, why: `פער של ${loss}% בין המונה הראשי למרכזיות` };
-  return { score: SCORE.good, why: `פער של ${loss}% — בתחום הסביר` };
+  return { score: SCORE.good, why: `פער של ${loss}%, בתחום הסביר` };
 }
 
 export function scoreAlerts(input: AlertsInput | null, cfg: HealthConfig = HEALTH_CONFIG_DRAFT): Signal {

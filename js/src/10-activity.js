@@ -426,7 +426,7 @@
       <div class="container">
         <header>
           <div>
-            <h1>📍 סיכום ביקורי שטח — ${monthYearLabel || (fromLabel + ' → ' + toLabel)}</h1>
+            <h1>📍 סיכום ביקורי שטח: ${monthYearLabel || (fromLabel + ' → ' + toLabel)}</h1>
             <div class="sub">${visitor ? '👤 ' + visitor + ' · ' : ''}${filtered.length} ביקורים · ${totalHours.toFixed(1)} שעות · ${uniqueKibbutzim.size} קיבוצים</div>
           </div>
           <div class="actions">

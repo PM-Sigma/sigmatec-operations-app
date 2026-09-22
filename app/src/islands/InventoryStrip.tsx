@@ -127,7 +127,7 @@ function MinQtySheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
       await sbWrite(sb => sb.from('products').update({ min_qty: next }).eq('name', p.name).select());
       qc.setQueryData(['productMinQty'], (old: ProductRow[] | undefined) =>
         (old ?? []).map(r => (r.name === p.name ? { ...r, min_qty: next } : r)));
-      toast.success(next === null ? `${p.name} — בלי מינימום` : `${p.name} — מינימום ${next}`);
+      toast.success(next === null ? `${p.name}: בלי מינימום` : `${p.name}: מינימום ${next}`);
     } catch {
       toast.error('לא נשמר');
     } finally { setSaving(''); }

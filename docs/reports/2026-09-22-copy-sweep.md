@@ -14,15 +14,28 @@
 - `Feedback.tsx` (7), `KibbutzSheet.tsx` (2), `UserChip.tsx`, `Settings.tsx`, `TranscribeRetry.tsx`, `authThrottle.ts`, `burns.ts` (2) + הבדיקות שהצמידו את הנוסח הישן (`Feedback.test.tsx`, `Burns.test.tsx`, `burns.test.ts`, `feedback*.spec.ts`, `transcribe-unavailable.spec.ts`, `test-viewer-gate.mjs`).
 - צריבות (I2/I4): "מוכן לעיסוק" → "נצרב" / "נצרב · ממתין לשיבוץ גנרטור"; "PP"/"CT" → "תלת-פאזי"/"משנה זרם"; "פרויקט זמני" הוסר.
 
-## מה נשאר (להמשך, מודול-מודול)
+## סבב שני (22.9.2026, המשך באותו יום) — 170 מחרוזות
 
-| מודול | מחרוזות עם ` — ` | הערה |
+השלמת הטבלה "מה נשאר" מהסבב הראשון: כל שאר ה-` — ` בעברית ב-`app/src/**/*.ts(x)` (לא בדיקות) וב-`js/src/*.js`, לפי אותו כלל (נקודה לפני הוראה, פסיק להמשך משפט, נקודתיים לפני פירוט/ערך, · בכותרות סטטוס קצרות).
+
+**שונו (170 מחרוזות, 60 קבצי מקור):**
+
+| קבוצה | קבצים | מחרוזות |
 |---|---|---|
-| `app/src/lib/field.ts` (הודעות דחיפה של יום השטח) | ~20 | טקסט שיווקי-מוטיבציוני; humanizer §16 היה מקצר. דורש החלטת טון עם עידן. |
-| `app/src/islands/DayLog.tsx`, `Calendar.tsx`, `Attendance.tsx`, `Field.tsx`, `Gaps.tsx`, `ImportNotes.tsx`, `MeetingReview.tsx`, `StockChange.tsx`, `Usage.tsx` | ~35 | הודעות שגיאה/הצלחה. ההחלפה מכנית (נקודה לפני הוראה). 226 בדיקות מצמידות נוסחים — לעבוד קובץ-קובץ עם הבדיקה שלו. |
-| `js/src/*` (legacy) | 92 | בעיקר `alert()`/`emsToast()`. אותו כלל. |
+| `app/src/components/home/*` | KibbutzSheet, MeetingNotes, OnboardingProgress, WorkTimer, WorkTimerStopSheet | 9 |
+| `app/src/islands/*` | Attendance, Calendar, CommandBar, DayLog, FeedbackInbox, Field, Gaps, Holidays, Home, ImportNotes, InventoryStrip, MeetingReview, Presenter, Settings, StockChange, Usage | 37 |
+| `app/src/lib/*` | attendance, daylogChain, gaps, health, kibbutzim, meetingReview, orderStrip, pending, speech, stockChange, supabase (הערת קוד), taskList | 18 |
+| `js/src/*.js` (legacy) | 21 קבצים, `00`–`24` | 94 |
+| בדיקות שעודכנו בעקבות נוסח חדש | `MeetingReview.test.tsx`, `Usage.test.tsx`, `attendance.test.ts`, `meetingReview.test.ts`, `orderStrip.test.ts`, `stockChange.test.ts`, `taskList.test.ts`, `test-delivery-cert.mjs`, `qa/playwright/tests/alerts.spec.ts`, `qa/playwright/tests/visit-chapters.spec.ts` | 12 |
 
-דרך לעבוד: לכל קובץ, `grep -n " — "` על מחרוזות בעברית, להחליף לפי הכלל למעלה, ואז `npm test` + הבדיקה ב-Playwright של אותו מודול.
+**נשמר בכוונה (לא שונה):**
+- `app/src/lib/field.ts` — 14 מחרוזות של הודעות דחיפה (טון שיווקי-מוטיבציוני, כמו בסבב הראשון). ההחלטה נשארת: דורש שיחת טון עם עידן, לא תיקון מכני של מקף. מוצמד גם ב-`field.test.ts` ומשוקף ב-`supabase/functions/push-send/field.ts` — אם ייערך, לערוך את שניהם יחד.
+- `app/src/lib/meetingNotes.ts` שורות 87–88 (`'אור הנר — חשמל'`, `'אור הנר — גז'`) — אלה מפתחות בטבלת alias-ים (lookup), לא טקסט שמוצג למשתמש.
+- כל ה-` — ` שנמצאו בתוך הערות קוד (`//`, `/* */`) — לא טקסט משתמש, לא נגעתי.
+- `js/src/20-delivery-cert.js` שורות 983, 997 — טווח תאריכים (`${from} — ${to}`) הוא שימוש לגיטימי של מקף כמפריד טווח, לא מחבר משפטים; הושאר.
+- `js/src/01-data.js` — נתוני MOCK/דמו (תיאורי משימות והערות לדוגמה), לא ניסוח שכתב הצוות; הושאר מחוץ לתחום.
+
+דרך שעבדה: `grep` על ` — ` בעברית, סינון שורות קוד בלבד (לא הערות), מיפוי מפורש old→new לפי הכלל, `node build.mjs`, `npm test` (68 קבצי vitest + 50 ריצות legacy), ואז Playwright מלא (`--project=mobile-390-light`, פורט 8124) — 181 עברו, 2 מדולגים מראש. שלוש כשלים ראשונים (מחרוזות מוצמדות בדיקות: `כמות — <מוצר>` ב-`visit-chapters.spec.ts`, `הגיע — ...` ב-`alerts.spec.ts`) תוקנו ואז ירוק מלא.
 
 ## impeccable detect (K3) — ממצאים על הקבצים ששונו
 

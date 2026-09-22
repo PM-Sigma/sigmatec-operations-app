@@ -14,7 +14,7 @@ export const GH_TIMEOUT_MS = 20_000;
 /** EMS gateway ops (the Apps Script proxy) — the existing legacy budget. */
 export const EMS_TIMEOUT_MS = 25_000;
 
-export const TIMEOUT_MSG = 'תם הזמן — נסה שוב';
+export const TIMEOUT_MSG = 'תם הזמן. נסה שוב';
 export const RETRY_LABEL = 'נסה שוב';
 
 /** A timeout this module raised, not a server error — worth a different message. */

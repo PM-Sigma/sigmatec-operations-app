@@ -104,7 +104,7 @@ export function stockChangePlan(input: StockChangeInput | null | undefined): Sto
   if (!note) return { movements: [], requires: null, errors: ['חובה להזין הערה לספירה'] };
 
   const delta = counted - before;
-  if (delta === 0) return { movements: [], requires: null, errors: ['הספירה זהה למלאי — אין שינוי'] };
+  if (delta === 0) return { movements: [], requires: null, errors: ['הספירה זהה למלאי, אין שינוי'] };
   // A count that contradicts the direction the person chose is a mistake worth stopping on:
   // he said "less" and counted more, so one of the two is wrong and we do not guess which.
   if (direction === 'decrease' && delta > 0) {

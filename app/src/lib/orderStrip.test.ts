@@ -41,7 +41,7 @@ describe('orderNote — one computed note per state (§4a)', () => {
 
   it('📦 arrived — someone has to mark it supplied', () =>
     expect(orderNote(ord({ status: 'הגיעה' }), TODAY, CATALOG))
-      .toEqual({ icon: '📦', text: 'הגיע — לסמן סופק כדי שייכנס למלאי', level: 'action' }));
+      .toEqual({ icon: '📦', text: 'הגיע. לסמן סופק כדי שייכנס למלאי', level: 'action' }));
 
   it('🔗 a customer order with an open EMS task', () =>
     expect(orderNote(ord({ orderType: 'customer', kibbutz: 'גבים', emsTaskId: 't-1' }), TODAY, CATALOG))
