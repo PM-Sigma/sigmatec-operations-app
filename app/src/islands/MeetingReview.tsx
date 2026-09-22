@@ -241,7 +241,7 @@ function TaskModal({
           <SheetTitle className="text-base">📋 משימת EMS — <bdi>{kibbutz}</bdi></SheetTitle>
           <SheetDescription>
             {site === '…' ? 'מאתר את האתר במערכת…'
-              : site === 'yes' ? 'האתר זוהה במערכת' : 'לא נמצא אתר תואם — המשימה תיפתח ללא אתר'}
+              : site === 'yes' ? 'האתר זוהה במערכת' : 'לא נמצא אתר ב-EMS לקיבוץ הזה. קשרו את הקיבוץ לאתר (✏️ פרטי קיבוץ) לפני פתיחת המשימה'}
           </SheetDescription>
         </SheetHeader>
         <label className="mt-2 flex flex-col text-xs font-bold text-muted-foreground">
@@ -276,8 +276,11 @@ function TaskModal({
           <button
             type="button"
             data-testid="review-task-save"
+            // A task with no EMS site is never opened (the 1.59 site-integrity rule, עידן 22.9):
+            // the button waits for the lookup and stays off when it finds nothing.
+            disabled={site !== 'yes'}
             onClick={() => { onSave({ title, description, assigneeName: assignee, priority }); onClose(); }}
-            className="min-h-[48px] flex-1 rounded-xl bg-brand-grad px-4 text-sm font-bold text-white"
+            className="min-h-[48px] flex-1 rounded-xl bg-brand-grad px-4 text-sm font-bold text-white disabled:opacity-50"
           >
             שמור לטיוטה
           </button>
