@@ -144,11 +144,20 @@ test('chapters: שלח in chapter 5 files exactly one visit, however often it is
   await page.getByTestId('vc-next').click();                       // 5 — 4 does not apply
   await expect(sheet).toHaveAttribute('data-chapter', '5');
 
-  // The hours are the form's own rule, and the sheet says so before the round trip.
+  // QA round 2 · C3 + C6: REQUIRED is מי ביקר · משך ותאריך · מה עשיתי · איש קשר מלווה, plus a
+  // סיבת הביקור when nothing was linked. A שלח that is short of one says so IN PLACE and does
+  // not file anything.
+  await page.getByTestId('vc-send').click();
   await expect(page.getByTestId('vc-blocked')).toContainText('כמה זמן היית שם?');
-  await expect(page.getByTestId('vc-send')).toBeDisabled();
+  await expect(page.getByTestId('vc-miss').first()).toBeVisible();
+  expect(await posted(page, 'visit'), 'an incomplete summary files nothing').toHaveLength(0);
+
   await page.getByTestId('vc-hours-2').click();
-  await expect(page.getByTestId('vc-send')).toBeEnabled();
+  await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
+  // Nothing was linked, so the reason chips are required — and they are here.
+  await expect(page.getByTestId('vc-reasons')).toBeVisible();
+  await page.getByTestId('vc-reason-fault').click();
+  await expect(page.getByTestId('vc-blocked')).toHaveCount(0);
   await shot(page, ti, 'chapter-5');
 
   // Pressed twice, as a thumb on a phone does.
@@ -161,6 +170,8 @@ test('chapters: שלח in chapter 5 files exactly one visit, however often it is
   expect(visits[0].visitor).toBe('אביאם');
   expect(visits[0].summary).toContain('הוחלף מונה');
   expect(visits[0].duration).toBe(2);
+  expect(visits[0].contact).toBe('יוסי מהמחלבה');
+  expect(visits[0].reason, 'C6: the reason rode along with the visit').toBe('תקלה');
   // Nothing was handed over, so there are no movements and no certificate.
   expect(await posted(page, 'movement')).toHaveLength(0);
   // The draft is gone once the visit exists — a leftover beside a filed visit is noise.
@@ -169,7 +180,7 @@ test('chapters: שלח in chapter 5 files exactly one visit, however often it is
   expectNoConsoleErrors(rec);
 });
 
-test('chapters: 🚚 appears only once something is handed over, and then it gates שלח', async ({ page }, ti) => {
+test('chapters: C7 — supplied equipment no longer blocks שלח; the save LANDS on the certificate', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
   await recordSheet(page);
 
@@ -192,15 +203,26 @@ test('chapters: 🚚 appears only once something is handed over, and then it gat
   await expect(sheet).toHaveAttribute('data-chapter', '3');
   await page.getByLabel('כמות — מונה Landis+Gyr E360PP').fill('1');
 
-  // Now it is part of this visit — and it stands between him and שלח (§5 cert rule).
+  // 🚚 is now part of this visit …
   await expect(page.getByTestId('vc-step-4')).toBeVisible();
-  await page.getByTestId('vc-step-5').click();
-  await expect(page.getByTestId('vc-blocked')).toContainText('תעודת משלוח');
-  await expect(page.getByTestId('vc-send')).toBeDisabled();
 
-  await page.getByTestId('vc-step-4').click();
+  // … but it is no longer a gate: C7 puts the certificate AFTER the save.
+  await page.getByTestId('vc-step-5').click();
+  await page.getByTestId('vc-hours-2').click();
+  await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
+  await page.getByTestId('vc-reason-supply').click();
+  await expect(page.getByTestId('vc-blocked')).toHaveCount(0);
+
+  await page.getByTestId('vc-send').click();
+
+  // The visit is filed, the sheet stayed open, and it is now the certificate screen.
+  await expect(sheet).toHaveAttribute('data-sent', '1', { timeout: 15_000 });
   await expect(page.getByTestId('vc-cert')).toBeVisible();
-  await shot(page, ti, 'cert-chapter');
+  await expect.poll(() => posted(page, 'visit').then(v => v.length), { timeout: 10_000 }).toBe(1);
+  await shot(page, ti, 'cert-after-save');
+
+  await page.getByTestId('vc-done').click();
+  await expect(sheet).toBeHidden();
 
   expectNoConsoleErrors(rec as Recorder);
 });
@@ -231,5 +253,132 @@ test('chapters: a backdrop tap on a half-typed summary asks instead of losing it
   await expect.poll(() => draftRows(page), { timeout: 10_000 }).toHaveLength(1);
   expect(await localVisits(page)).toHaveLength(0);
 
+  expectNoConsoleErrors(rec);
+});
+
+// ───────────────── QA round 2, Package C — the new surfaces ─────────────────
+
+test('C4: מוצרים נוספים is a keyword search — "לנדיס" offers the family, one pick adds it', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+
+  await page.evaluate(() => {
+    const w = window as any;
+    w.SHEET_DATA.movements = [
+      { product: 'מונה Landis+Gyr E360PP', quantity: 5, fromLocation: '', toLocation: 'חברה' },
+      { product: 'מונה Landis+Gyr E360SP', quantity: 4, fromLocation: '', toLocation: 'חברה' },
+    ];
+  });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await page.getByTestId('vc-step-3').click();
+
+  // A word nobody could prefix-match: the old datalist answered nothing here.
+  await page.getByTestId('vc-product-search').fill('לנדיס');
+  const hits = page.getByTestId('vc-product-hits');
+  await expect(hits).toBeVisible();
+  await expect(hits.locator('[data-product-hit]')).toHaveCount(2);
+
+  await hits.locator('[data-product-hit="מונה Landis+Gyr E360SP"]').click();
+  await expect(page.getByLabel('כמות — מונה Landis+Gyr E360SP')).toHaveValue('1');
+  // The search box empties itself, ready for the next product.
+  await expect(page.getByTestId('vc-product-search')).toHaveValue('');
+
+  // Something that is genuinely not in the catalog still has a way out.
+  await page.getByTestId('vc-product-search').fill('מקרר');
+  await expect(hits).toHaveCount(0);
+  await page.getByTestId('vc-product-freetext').click();
+  await expect(page.getByTestId('vc-products-other')).toHaveValue('מקרר');
+
+  await shot(page, ti, 'product-search');
+  expectNoConsoleErrors(rec);
+});
+
+test('C5: ציוד שהוחזר מהקיבוץ starts collapsed, a ➕ adds one clean row', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await page.getByTestId('vc-step-3').click();
+
+  const toggle = page.getByTestId('vc-returned-toggle');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByTestId('vc-returned-add')).toHaveCount(0);
+
+  await toggle.click();
+  await page.getByTestId('vc-returned-add').click();
+  const row = page.getByTestId('vc-returned-row');
+  await expect(row).toHaveCount(1);
+
+  // ONE clean line at 360 px: the row never spills out of the sheet.
+  const sheet = await page.getByTestId('visit-chapters').boundingBox();
+  const box = await row.first().boundingBox();
+  expect(box!.width).toBeLessThanOrEqual(sheet!.width);
+  expect(box!.height).toBeLessThan(64);
+
+  await shot(page, ti, 'returned-items');
+  expectNoConsoleErrors(rec);
+});
+
+test('C6: the EMS link is never preselected, and picking one retires the reason chips', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await page.getByTestId('vc-step-5').click();
+
+  // Nothing is ticked on arrival — round 1 picked the first open task for him.
+  const picked = page.getByTestId('vc-tasks').locator('[aria-pressed="true"]');
+  await expect(picked).toHaveCount(0);
+
+  const rows = page.getByTestId('vc-tasks').locator('button[aria-pressed]');
+  const n = await rows.count();
+  if (n) {
+    await expect(page.getByTestId('vc-reasons')).toBeVisible();
+    await rows.first().click();
+    // Linking IS the reason, so the chips go away.
+    await expect(page.getByTestId('vc-reasons')).toHaveCount(0);
+    await rows.first().click();
+    await expect(page.getByTestId('vc-reasons')).toBeVisible();
+  } else {
+    // No open task here: the chips are the only answer, and they are asked for.
+    await expect(page.getByTestId('vc-reasons')).toBeVisible();
+  }
+
+  // אחר asks for its own words before it counts.
+  await page.getByTestId('vc-reason-other').click();
+  await expect(page.getByTestId('vc-reason-other-text')).toBeVisible();
+
+  await shot(page, ti, 'task-link');
+  expectNoConsoleErrors(rec);
+});
+
+test('C8: 🎙 sits at the TOP of the sheet, labelled ניסיוני, with its three tips', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+
+  const voice = page.getByTestId('vc-voice');
+  await expect(voice).toBeVisible();
+  await expect(voice).toContainText('ניסיוני');
+
+  // "at the TOP": above the stepper and above chapter 1's box.
+  const v = await voice.boundingBox();
+  const stepper = await page.getByTestId('vc-stepper').boundingBox();
+  expect(v!.y).toBeLessThan(stepper!.y);
+
+  await page.getByTestId('vc-voice-toggle').click();
+  await expect(voice.locator('li')).toHaveCount(3);
+  // Pasting text is a first-class path, not only recording.
+  await expect(page.getByTestId('vc-voice-analyse')).toBeDisabled();
+  await page.getByTestId('vc-voice-text').fill('הייתי בחוקוק, החלפתי מונה');
+  await expect(page.getByTestId('vc-voice-analyse')).toBeEnabled();
+
+  await shot(page, ti, 'voice-intake');
   expectNoConsoleErrors(rec);
 });

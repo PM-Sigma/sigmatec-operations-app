@@ -15,6 +15,8 @@
 // Goldens: app/src/lib/visitDraft.test.ts.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { visitReasonRequired, visitReasonValid } from './field';
+
 export type ChapterId = 1 | 2 | 3 | 4 | 5;
 
 export interface Chapter {
@@ -33,6 +35,9 @@ export const CHAPTERS: Chapter[] = [
 ];
 
 export interface DraftProduct { name: string; qty: number }
+
+/** A row of "🔧 ציוד שהוחזר מהקיבוץ" (QA round 2, C5). One clean line at 360 px. */
+export interface ReturnedItem { name: string; qty: number; note?: string }
 
 /**
  * What a chapters draft holds. It is the legacy `visit_drafts` payload (js/src/09-visits.js
@@ -60,6 +65,18 @@ export interface ChapterDraft {
   /** Set ONCE, by a successful שלח. Its presence is what makes a second שלח a no-op. */
   submittedId?: string;
   updated_at?: string;
+
+  // ── QA round 2, Package C ────────────────────────────────────────────────────────────
+  /** 🔧 what he took BACK from the kibbutz (C5). */
+  returned?: ReturnedItem[];
+  /** EMS tasks this summary is posted to as a comment (C6). Never preselected. */
+  emsTaskIds?: string[];
+  /** Internal tasks this summary closes (C6). */
+  internalTaskIds?: string[];
+  /** One of `VISIT_REASONS`, asked for only when nothing at all was linked (C6). */
+  reasonId?: string;
+  /** The free text of the `אחר` chip. */
+  reasonOther?: string;
 }
 
 export interface ChapterStatus extends Chapter {
@@ -125,19 +142,45 @@ export function prevChapter(d: ChapterDraft | null | undefined, from: number): C
 
 export interface SubmitVerdict { ok: boolean; reason?: string }
 
+/** The required things, in the order the sheet walks them. `key` is what the red mark hangs on. */
+export interface MissingField { key: string; chapter: ChapterId; reason: string }
+
+const hasHours = (d: ChapterDraft | null | undefined): boolean =>
+  !!d?.workday || parseFloat(String(d?.duration ?? '')) > 0;
+
 /**
- * May he press שלח? Two rules, and no others (§7p + §5):
- *   1. chapter 1 is required — a visit with no "מה עשיתי" is not a summary;
- *   2. the delivery-certificate gate, but ONLY when chapter 4 is part of this visit.
- * A draft that was already sent answers no, which is what makes a double-tap harmless.
+ * QA round 2 · C3: REQUIRED is exactly four things — מי ביקר · משך ותאריך · מה עשיתי ·
+ * איש קשר מלווה — plus C6's סיבת הביקור when the summary was attached to nothing at all.
+ * EVERYTHING else on this sheet is optional.
+ *
+ * What is NOT here any more: the delivery-certificate gate. C7 moved the certificate to
+ * AFTER the save (saving a visit with supplied products lands on the certificate screen),
+ * so a certificate can no longer stand between a technician and a filed summary.
+ *
+ * Returned in walking order, so the caller marks them all and scrolls to the first.
+ */
+export function missingFields(d: ChapterDraft | null | undefined): MissingField[] {
+  const out: MissingField[] = [];
+  if (!txt(d?.visitor)) out.push({ key: 'visitor', chapter: 5, reason: 'מי ביקר?' });
+  if (!txt(d?.summary)) out.push({ key: 'summary', chapter: 1, reason: 'כתוב מה עשית. בלי זה אין סיכום' });
+  if (!hasHours(d)) out.push({ key: 'hours', chapter: 5, reason: 'כמה זמן היית שם?' });
+  if (!txt(d?.date)) out.push({ key: 'date', chapter: 5, reason: 'באיזה תאריך היית שם?' });
+  if (!txt(d?.contact)) out.push({ key: 'contact', chapter: 5, reason: 'מי ליווה אותך בביקור?' });
+  if (visitReasonRequired({ emsTaskIds: d?.emsTaskIds, internalTaskIds: d?.internalTaskIds })
+    && !visitReasonValid(d?.reasonId, d?.reasonOther)) {
+    out.push({ key: 'reason', chapter: 5, reason: 'למה הגעת? בחר סיבה, או קשר משימה' });
+  }
+  return out;
+}
+
+/**
+ * May he press שלח? A draft that was already sent answers no, which is what makes a
+ * double-tap harmless; otherwise the first missing REQUIRED field speaks for itself.
  */
 export function canSubmit(d: ChapterDraft | null | undefined): SubmitVerdict {
   if (d?.submittedId) return { ok: false, reason: 'הסיכום כבר נשלח' };
-  if (!txt(d?.summary)) return { ok: false, reason: 'כתוב מה עשית — בלי זה אין סיכום' };
-  if (deliverApplies(d) && (d?.products || []).length > 0 && !d?.certIssued) {
-    return { ok: false, reason: 'סופק ציוד — קודם תעודת משלוח' };
-  }
-  return { ok: true };
+  const miss = missingFields(d);
+  return miss.length ? { ok: false, reason: miss[0].reason } : { ok: true };
 }
 
 /** Where he comes back to: the last chapter he was on, clamped to one that still applies. */

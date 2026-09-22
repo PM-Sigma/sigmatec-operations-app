@@ -186,6 +186,10 @@
     modal.dataset.kibbutz = pre.kibbutz || '';
     modal.dataset.source = pre.source || 'manual';
     modal.dataset.refId = pre.refId || '';
+    // QA round 2 · C7: the visit-summary flow issues WITHOUT printing — the certificate lands in
+    // the in-app overlay with שלח / הורד beside it. The manual and EMS paths keep the print
+    // window they have always had.
+    modal.dataset.noPrint = pre.noPrint ? '1' : '';
     modal.classList.add('open');
   }
   window.openDeliveryCert = openDeliveryCert;
@@ -222,10 +226,12 @@
     const cert = certCollect();
     if (!cert.items.length) { alert('אין פריטים בתעודה — הוסף לפחות פריט אחד.'); return; }
     if (!cert.customer.name) { alert('חסר שם לקוח.'); return; }
-    // open the window SYNCHRONOUSLY on the click (popup blockers), fill after the number arrives
-    const w = window.open('', '_blank');
-    if (!w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
-    w.document.write('<!doctype html><html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding-top:40vh;">⏳ מפיק תעודה…</body></html>');
+    // open the window SYNCHRONOUSLY on the click (popup blockers), fill after the number arrives.
+    // C7: not in the visit flow — there the certificate opens in the in-app overlay instead.
+    const noPrint = document.getElementById('certModal').dataset.noPrint === '1';
+    const w = noPrint ? null : window.open('', '_blank');
+    if (!noPrint && !w) { alert('הדפדפן חסם את חלון ההדפסה — אפשר חלונות קופצים לאתר.'); return; }
+    if (w) w.document.write('<!doctype html><html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding-top:40vh;">⏳ מפיק תעודה…</body></html>');
     if (typeof setBtnLoading === 'function') setBtnLoading(btn, true);
     try {
       cert.number = null; cert.id = null;
@@ -248,9 +254,14 @@
             body: JSON.stringify({ type: 'deliveryCertDoc', id: cert.id, docHtml: certDocHtml(cert) }) });
         } catch (e) { console.warn('cert snapshot for Drive archive failed (non-blocking)', e); }
       }
-      w.document.open();
-      w.document.write(certDocHtml(cert));
-      w.document.close();
+      if (w) {
+        w.document.open();
+        w.document.write(certDocHtml(cert));
+        w.document.close();
+      } else {
+        // no printing: the technician reads it on the phone and sends it from there.
+        try { certOverlayShow(certDocHtml(cert, { screen: true }), cert.id || null, ''); } catch (e) { console.warn('cert overlay', e); }
+      }
       // correction flow: the new cert is issued → auto-cancel the one it replaces (best-effort;
       // if the cancel fails the old cert stays active and can be cancelled from the certs tab)
       let cancelledOld = 0;
@@ -282,7 +293,9 @@
       }
       if (cert.number && typeof sigmaTrack === 'function') sigmaTrack('cert-issued', cert.number);   // 📈 שימוש (spec §7j)
       document.getElementById('certModal').classList.remove('open');
-      if (cert.id) { try { certSendOpen(cert.id); } catch (e) {} }   // natural next step in the field: send it
+      // natural next step in the field: send it. In the no-print flow the overlay is already up
+      // with 📤 שלח on it, so a second modal on top of it would only hide the certificate.
+      if (cert.id && !noPrint) { try { certSendOpen(cert.id); } catch (e) {} }
       const t = document.getElementById('toast');
       if (t) {
         t.textContent = cert.number
@@ -535,6 +548,28 @@
     return 'שלום, מצורפת תעודת משלוח מס\' ' + c.cert_number + ' מסיגמאטק עבור ' + ((c.customer || {}).name || c.kibbutz) +
       ' מתאריך ' + certFmtDate(c.cert_date) + '.\nלצפייה והדפסה: ' + certViewUrl(c.id);
   }
+  // Legacy mirror of app/src/lib/certSend.ts `certSendPlan` — held in lockstep by
+  // test-delivery-cert.mjs. Decides who can be emailed, who is ticked, and whether the panel
+  // has to offer "הוסף איש קשר" instead of a dead end (QA round 2 · C7).
+  function certIsEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v == null ? '' : v).trim()); }
+  function certWaNumber(v) { const d = String(v == null ? '' : v).replace(/\D/g, ''); return d.length >= 9 ? d : ''; }
+  function certSendPlan(contacts) {
+    const rows = (contacts || []).filter(function (c) { return !!c && c.active !== false; });
+    const emailable = rows.filter(function (c) { return certIsEmail(c.email); });
+    return {
+      emailable: emailable,
+      selected: emailable.map(function (c) { return String(c.email).trim(); }),
+      canEmail: emailable.length > 0,
+      needsContact: emailable.length === 0,
+      whatsapp: rows.filter(function (c) { return !!certWaNumber(c.phone); })
+    };
+  }
+  window.certSendPlan = certSendPlan;
+
+  /**
+   * 📤 THE send helper. Package E (the מלאי → תעודות משלוח tab) calls exactly this name with a
+   * cert id; the visit summary reaches it through certSendForVisit() below. One panel, one place.
+   */
   async function certSendOpen(certId) {
     const c = _certRows.find(x => x.id === certId);
     if (!c) return;
@@ -552,29 +587,84 @@
     try {
       if (typeof window._sbCertGet !== 'function') throw new Error('אין חיבור כרגע — בדוק רשת ונסה שוב');
       contacts = await window._sbCertGet('site_contacts?select=*&active=eq.true&kibbutz=eq.' + encodeURIComponent(c.kibbutz) + '&order=role,name');
-    } catch (e) { /* table missing / anon (viewer) / offline → manual row only */ }
+    } catch (e) { /* table missing / anon (viewer) / offline → the inline add-contact row */ }
+    const plan = certSendPlan(contacts);
     const text = certShareText(c);
-    const rows = contacts.map((p, i) => `
+    const rows = plan.emailable.map((p, i) => `
       <div style="display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid #f1f5f9;">
-        <input type="checkbox" class="cert-send-chk" data-i="${i}" ${p.email ? 'checked' : 'disabled'} style="min-width:22px;min-height:22px;">
+        <input type="checkbox" class="cert-send-chk" data-i="${i}" checked style="min-width:22px;min-height:22px;">
         <div style="flex:1;font-size:13px;">${certEsc(p.name)} <span style="color:#64748b;font-size:11px;">· ${CERT_ROLE_HE[p.role] || certEsc(p.role)}</span>
           <div style="font-size:11px;color:#94a3b8;direction:ltr;text-align:right;">${certEsc(p.email || '—')}</div></div>
-        ${p.phone ? `<a href="https://wa.me/${certEsc(String(p.phone).replace(/\D/g, ''))}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener" class="inv-btn small" style="background:#16a34a;text-decoration:none;min-height:40px;display:inline-flex;align-items:center;">💬</a>` : ''}
+        ${certWaNumber(p.phone) ? `<a href="https://wa.me/${certWaNumber(p.phone)}?text=${encodeURIComponent(text)}" target="_blank" rel="noopener" class="inv-btn small" style="background:#16a34a;text-decoration:none;min-height:40px;display:inline-flex;align-items:center;">💬</a>` : ''}
       </div>`).join('');
-    window._certSendCtx = { contacts: contacts, cert: c, text: text };
+    // The panel's context is the EMAILABLE list, so `data-i` and certEmailSelected() agree.
+    window._certSendCtx = { contacts: plan.emailable, cert: c, text: text, plan: plan };
+    // C7: nobody to email is not a dead end — the technician adds the contact right here and the
+    // row is saved to site_contacts, so the next certificate for this kibbutz already has it.
+    const addForm = `
+      <details ${plan.needsContact ? 'open' : ''} style="margin-top:6px;border:1px solid #e2e8f0;border-radius:8px;">
+        <summary style="cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px;">➕ הוסף איש קשר</summary>
+        <div style="padding:8px 10px 10px;display:flex;flex-direction:column;gap:6px;">
+          <input id="certNewContactName" class="sig-fi" placeholder="שם איש הקשר" style="min-height:40px;">
+          <input id="certNewContactEmail" class="sig-fi" type="email" inputmode="email" placeholder="כתובת מייל" style="min-height:40px;direction:ltr;text-align:right;">
+          <button type="button" class="btn btn-secondary" onclick="certAddContact(this)" style="min-height:40px;">שמור ושלח אליו</button>
+        </div>
+      </details>`;
     bd.innerHTML = `
       <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;">
         <h3>📤 שליחת תעודה ${c.cert_number} — ${certEsc(c.kibbutz)}</h3>
-        <div class="modal-sub">הנמען מקבל קישור צפייה — התעודה נפתחת אצלו בדיוק כפי שהופקה, עם כפתור הדפסה/PDF.</div>
-        <div style="max-height:38vh;overflow-y:auto;">${rows || '<div style="padding:12px;color:#92400e;background:#fef3c7;border-radius:6px;font-size:12px;">אין אנשי קשר שמורים לאתר הזה (או שאין חיבור מאומת) — אפשר להעתיק את הקישור ולשלוח ידנית.</div>'}</div>
+        <div class="modal-sub">הנמען מקבל קישור צפייה. התעודה נפתחת אצלו בדיוק כפי שהופקה, עם כפתור הדפסה/PDF.</div>
+        <div style="max-height:38vh;overflow-y:auto;">${rows}${addForm}</div>
         <div class="modal-actions">
           <button class="btn btn-secondary" onclick="document.getElementById('certSendModal').classList.remove('open')">סגור</button>
           <button class="btn btn-secondary" onclick="certCopyLink()">🔗 העתק קישור</button>
-          ${contacts.some(p => p.email) ? '<button class="btn btn-primary" onclick="certEmailSelected()">📧 מייל לנבחרים</button>' : ''}
+          ${plan.canEmail ? '<button class="btn btn-primary" onclick="certEmailSelected()">📧 מייל לנבחרים</button>' : ''}
         </div>
       </div>`;
     bd.classList.add('open');
   }
+
+  /** The inline "➕ הוסף איש קשר": stored on the site, then the certificate goes out to him. */
+  window.certAddContact = function (btn) {
+    const ctx = window._certSendCtx; if (!ctx) return;
+    const name = (document.getElementById('certNewContactName') || {}).value || '';
+    const email = (document.getElementById('certNewContactEmail') || {}).value || '';
+    if (!name.trim()) { alert('חסר שם איש הקשר.'); return; }
+    if (!certIsEmail(email)) { alert('כתובת המייל לא נראית תקינה.'); return; }
+    const row = { kibbutz: ctx.cert.kibbutz, name: name.trim(), email: email.trim(), active: true };
+    const done = function () {
+      // Send even if the row did not persist: the certificate is in his hand either way.
+      location.href = 'mailto:' + row.email + '?subject=' + encodeURIComponent('תעודת משלוח ' + ctx.cert.cert_number + ' — סיגמאטק התייעלות אנרגטית') + '&body=' + encodeURIComponent(ctx.text);
+    };
+    const tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
+    if (!tok || typeof SB_URL === 'undefined') { done(); return; }
+    if (typeof setBtnLoading === 'function') setBtnLoading(btn, true);
+    fetch(SB_URL + '/rest/v1/site_contacts', {
+      method: 'POST', headers: { apikey: SB_ANON, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify(row)
+    }).catch(function () { /* the send still happens */ })
+      .finally(function () { if (typeof setBtnLoading === 'function') setBtnLoading(btn, false); done(); });
+  };
+
+  /** The visit summary's two buttons — both resolve the visit's ACTIVE certificate first. */
+  function certRowForVisit(visitId) {
+    if (!visitId) return null;
+    return _certRows.find(x => x.ref_id === visitId && x.status !== 'cancelled') || null;
+  }
+  function certSendForVisit(visitId) {
+    const r = certRowForVisit(visitId);
+    if (!r) { alert('התעודה עדיין לא נרשמה. נסה שוב בעוד רגע.'); return; }
+    certSendOpen(r.id);
+  }
+  function certDownloadForVisit(visitId) {
+    const r = certRowForVisit(visitId);
+    if (!r) { alert('התעודה עדיין לא נרשמה. נסה שוב בעוד רגע.'); return; }
+    certView(r.id);
+  }
+  window.certRowForVisit = certRowForVisit;
+  window.certSendForVisit = certSendForVisit;
+  window.certDownloadForVisit = certDownloadForVisit;
+
   window.certSendOpen = certSendOpen;
   window.certCopyLink = function () {
     const ctx = window._certSendCtx; if (!ctx) return;

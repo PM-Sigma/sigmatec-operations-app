@@ -17,8 +17,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import {
-  AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, MapPin, Save, Search, Send, Sun,
-  Truck,
+  AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, Download, Loader2, MapPin, Mic,
+  Plus, Save, Search, Send, Square, Sun, Trash2, Truck, X,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
@@ -39,14 +39,19 @@ import { roleOf } from '@/lib/landing';
 import { todayISO, useVisitDraft } from '@/lib/visitDrafts';
 import {
   arrivalGroups, arrivalOrder, bulletForField, dm, fieldShouldPrompt, hasSomethingToDeliver,
-  hm, leaveChecklist, openItemsPrefill, openNudges, todayStops,
+  hm, leaveChecklist, openItemsPrefill, openNudges, sharedOwners, todayStops, visitReasonRequired,
+  visitReasonText, VISIT_REASONS,
   type ArrivalItem, type CheckinRow, type DraftRow, type FieldTask, type LeaveItem, type OrderRow,
   type VisitRow,
 } from '@/lib/field';
 import {
-  canSubmit, chapterState, draftAge, nextChapter, prevChapter, resumeChapter,
-  type ChapterDraft, type ChapterId,
+  canSubmit, chapterState, draftAge, missingFields, nextChapter, prevChapter, resumeChapter,
+  type ChapterDraft, type ChapterId, type ReturnedItem,
 } from '@/lib/visitDraft';
+import { pickableProducts, searchProducts } from '@/lib/productSearch';
+import { parseDayLog, readCatalog } from '@/lib/daylogChain';
+import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
+import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { runMutation } from '@/lib/pending';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
@@ -477,10 +482,23 @@ function chapterDraftHasContent(d: ChapterDraft): boolean {
     || (d.products || []).length || d.duration || d.workday);
 }
 
-const Field2 = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <label className="block">
-    <span className="mb-1 block text-[12.5px] font-bold text-muted-foreground">{label}</span>
-    {children}
+/**
+ * One labelled field. `required` prints the red star §C3 asks for, and `miss` is the IN-PLACE
+ * red mark the save puts on it — a frame plus the word חובה, right where the answer is missing,
+ * instead of a toast that says "חסרים פרטים" and leaves him hunting.
+ */
+const Field2 = ({ label, required, miss, children }: {
+  label: string; required?: boolean; miss?: boolean; children: React.ReactNode;
+}) => (
+  <label className="block" data-req={required ? '1' : undefined}>
+    <span className="mb-1 block text-[12.5px] font-bold text-muted-foreground">
+      {label}
+      {required && <span className="text-[color:var(--priority)]"> *</span>}
+      {miss && <span data-testid="vc-miss" className="font-extrabold text-[color:var(--priority)]"> · חובה</span>}
+    </span>
+    <div className={miss ? 'rounded-xl outline outline-2 outline-offset-2 outline-[color:var(--priority)]' : ''}>
+      {children}
+    </div>
   </label>
 );
 
@@ -488,6 +506,8 @@ const AREA =
   'min-h-[132px] w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground focus:border-[color:var(--brand-1)]';
 const LINE =
   'min-h-[44px] w-full rounded-xl border border-border bg-muted px-3 text-[15px] outline-none focus:border-[color:var(--brand-1)]';
+const CHIP_ON = 'border-transparent bg-brand-grad text-white';
+const CHIP_OFF = 'border-border bg-muted text-foreground';
 
 /** The quick hours chips — the same five the legacy form offers, spelled the same way. */
 const HOUR_CHIPS = [0.5, 1, 2, 3, 4];
@@ -509,7 +529,7 @@ function Stepper({ steps, current, onGo }: {
             aria-current={on ? 'step' : undefined}
             onClick={() => onGo(s.id)}
             className={'flex min-h-[34px] flex-none items-center gap-1.5 rounded-full border px-2.5 text-[12.5px] font-bold transition-colors ' +
-              (on ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted text-muted-foreground')}
+              (on ? CHIP_ON : 'border-border bg-muted text-muted-foreground')}
           >
             {s.done && !on && <Check className="h-3.5 w-3.5" />}
             <span>{s.title}</span>
@@ -519,6 +539,349 @@ function Stepper({ steps, current, onGo }: {
     </div>
   );
 }
+
+// ───────────────────── C4 · מוצרים נוספים, searched by keyword ─────────────────────
+//
+// The old field was a `<datalist>` matching a PREFIX of the exact catalog spelling, so "לנדיס"
+// and "360" found nothing and the product was typed as free text, where the stock ledger never
+// sees it. The rule is `@/lib/productSearch`; this is only its surface: one hit is offered as
+// one chip, several are offered as several, and nothing at all still lets him write free text.
+
+function ProductSearch({ catalog, onPick, freeText, onFreeText }: {
+  catalog: string[];
+  onPick: (name: string) => void;
+  freeText: string;
+  onFreeText: (v: string) => void;
+}) {
+  const [q, setQ] = React.useState('');
+  const res = React.useMemo(() => searchProducts(q, catalog), [q, catalog]);
+  const typed = q.trim();
+  const take = (name: string) => { onPick(name); setQ(''); };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Field2 label="מוצרים נוספים">
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            data-testid="vc-product-search"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && res.picked) { e.preventDefault(); take(res.picked); } }}
+            placeholder="לנדיס, 360, em133…"
+            aria-label="חפש מוצר בקטלוג"
+            className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+          />
+          {!!q && (
+            <button type="button" aria-label="נקה חיפוש" onClick={() => setQ('')} className="shrink-0 text-muted-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </Field2>
+
+      {!!typed && !!res.hits.length && (
+        <div className="flex flex-wrap gap-1.5" data-testid="vc-product-hits">
+          {res.hits.map(name => (
+            <button
+              key={name}
+              type="button"
+              data-product-hit={name}
+              onClick={() => take(name)}
+              className={'min-h-[38px] flex-none rounded-xl border px-3 text-[13.5px] font-bold ' +
+                (res.picked === name ? CHIP_ON : CHIP_OFF)}
+            >
+              <bdi>{name}</bdi>
+            </button>
+          ))}
+          {res.needsPick && (
+            <span className="w-full text-[12px] font-semibold text-muted-foreground">
+              יש כמה כאלה. בחר איזה מהם.
+            </span>
+          )}
+        </div>
+      )}
+
+      {typed.length >= 2 && !res.hits.length && (
+        <button
+          type="button"
+          data-testid="vc-product-freetext"
+          onClick={() => { onFreeText(freeText ? freeText + ', ' + typed : typed); setQ(''); }}
+          className="min-h-[42px] rounded-xl border border-dashed border-border bg-transparent px-3 text-[13.5px] font-bold text-muted-foreground"
+        >
+          זה לא בקטלוג. רשום כטקסט: <bdi>{typed}</bdi>
+        </button>
+      )}
+
+      {!!freeText && (
+        <Field2 label="משהו אחר שהשארת">
+          <input
+            data-testid="vc-products-other"
+            value={freeText}
+            onChange={e => onFreeText(e.target.value)}
+            placeholder="כבל, מתאם…"
+            className={LINE}
+          />
+        </Field2>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────── C5 · 🔧 ציוד שהוחזר מהקיבוץ ─────────────────────
+// Collapsed by default (it is the rare case), a ➕ adds a row, and a row is ONE clean line at
+// 360 px: name takes what is left, quantity is 56 px, the bin is 36 px. Nothing clips.
+
+function ReturnedItems({ rows, onChange }: {
+  rows: ReturnedItem[]; onChange: (rows: ReturnedItem[]) => void;
+}) {
+  const [open, setOpen] = React.useState(rows.length > 0);
+  const patch = (i: number, p: Partial<ReturnedItem>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  return (
+    <div className="rounded-xl border border-border bg-muted/40">
+      <button
+        type="button"
+        data-testid="vc-returned-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen(v => !v)}
+        className="flex min-h-[44px] w-full items-center gap-2 px-3 text-[13.5px] font-bold"
+      >
+        <span className="flex-1 text-start">🔧 ציוד שהוחזר מהקיבוץ</span>
+        {!!rows.length && <span className="rounded-full bg-brand-grad px-2 py-px text-[11px] text-white">{rows.length}</span>}
+        <ChevronDown className={'h-4 w-4 text-muted-foreground transition-transform ' + (open ? 'rotate-180' : '')} />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-1.5 px-3 pb-3">
+          <p className="text-[12px] text-muted-foreground">פריטים שלקחת בחזרה. בניהול המלאי תחליט מה תקין ומה תקול.</p>
+          {rows.map((r, i) => (
+            <div key={i} data-testid="vc-returned-row" className="flex items-center gap-1.5">
+              <input
+                value={r.name}
+                onChange={e => patch(i, { name: e.target.value })}
+                placeholder="מה הוחזר"
+                aria-label={'פריט שהוחזר ' + (i + 1)}
+                className="h-[42px] min-w-0 flex-1 rounded-xl border border-border bg-background px-2.5 text-[14px] outline-none"
+              />
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={r.qty || ''}
+                onChange={e => patch(i, { qty: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                aria-label={'כמות שהוחזרה ' + (i + 1)}
+                className="h-[42px] w-[56px] flex-none rounded-xl border border-border bg-background text-center text-[14px] outline-none"
+              />
+              <button
+                type="button"
+                aria-label={'הסר פריט שהוחזר ' + (i + 1)}
+                onClick={() => onChange(rows.filter((_, j) => j !== i))}
+                className="grid h-[42px] w-[36px] flex-none place-items-center rounded-xl border border-border text-muted-foreground"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            data-testid="vc-returned-add"
+            onClick={() => { setOpen(true); onChange([...rows, { name: '', qty: 1 }]); }}
+            className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-dashed border-border text-[13.5px] font-bold text-muted-foreground"
+          >
+            <Plus className="h-4 w-4" /> הוסף פריט
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────── C8 · 🎙 הקלט סיכום ביקור (ניסיוני) ─────────────────────
+//
+// The SAME chain יומן היום runs (`@/lib/daylogChain`): dictate or paste, one `parse-daylog`
+// call, and the answer drops into the fields — every one of which stays editable, because the
+// model drafts and the person signs. No new provider, no second cost path.
+
+const VOICE_TIPS = [
+  'דבר קרוב לטלפון, משפט אחד על כל דבר שעשית.',
+  'תגיד את שם הקיבוץ, את המוצרים ואת הכמויות בקול.',
+  'אפשר גם להדביק טקסט מווטסאפ במקום להקליט.',
+];
+
+function VoiceIntake({ kibbutz, busy, onFill }: {
+  kibbutz: string;
+  busy: boolean;
+  onFill: (v: DayLogVisit, rawLen: number) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [text, setText] = React.useState('');
+  const [listening, setListening] = React.useState(false);
+  const [working, setWorking] = React.useState(false);
+  const live = React.useRef<{ stop: () => void } | null>(null);
+  const rec = React.useRef<RecordSession | null>(null);
+
+  const append = (chunk: string) => {
+    const t = String(chunk || '').trim();
+    if (!t) return;
+    setText(prev => (prev ? prev.replace(/\s+$/, '') + ' ' + t : t));
+  };
+
+  const startVoice = async () => {
+    const caps = speechCaps();
+    setListening(true);
+    if (caps.speechRecognition && !caps.forceOffLive) {
+      live.current = startLive({
+        onFinal: append,
+        onInterim: () => { /* the interim guess is noise in a summary */ },
+        onError: () => { setListening(false); live.current = null; toast.error('ההקלטה נכשלה. אפשר להקליד'); },
+        onEnd: () => { setListening(false); live.current = null; },
+      });
+      if (live.current) return;
+    }
+    if (!caps.mediaRecorder) { setListening(false); toast.error('הדפדפן הזה לא תומך בהקלטה. אפשר להקליד'); return; }
+    rec.current = await startRecording({
+      onError: () => { setListening(false); rec.current = null; toast.error('אין הרשאה למיקרופון. אפשר להקליד'); },
+    });
+    if (!rec.current) setListening(false);
+  };
+
+  const stopVoice = async () => {
+    setListening(false);
+    if (live.current) { live.current.stop(); live.current = null; return; }
+    const session = rec.current;
+    rec.current = null;
+    if (!session) return;
+    setWorking(true);
+    try {
+      const audio = await session.stop();
+      if (audio) append((await uploadAndTranscribe(audio)).text);
+    } catch (e: any) {
+      toast.error(String(e?.message || 'התמלול נכשל. אפשר להקליד'));
+    } finally { setWorking(false); }
+  };
+
+  /**
+   * Analyse. The chain answers with DAYS, so the visit for THIS kibbutz is preferred and the
+   * first one is the fallback — never a silent merge of two kibbutzim into one summary.
+   */
+  const analyse = async () => {
+    const raw = text.trim();
+    if (!raw) { toast.error('אין מה לנתח. תקליט או תדביק טקסט'); return; }
+    setWorking(true);
+    try {
+      const catalog = readCatalog();
+      const res = normalizeDayLog(await parseDayLog(raw, catalog), catalog);
+      const v = res.visits.find(x => x.kibbutz === kibbutz) || res.visits[0];
+      if (!v) { toast.error('לא הצלחתי להוציא מזה סיכום. אפשר לכתוב ידנית'); return; }
+      onFill(v, raw.length);
+      toast.success('מילאתי מה שהבנתי. תעבור על הכל.');
+      setOpen(false);
+    } catch (e: any) {
+      if (String(e?.message) !== 'CANCELLED') toast.error(String(e?.message || 'הניתוח נכשל'));
+    } finally { setWorking(false); }
+  };
+
+  return (
+    <div className="mx-4 mb-2 rounded-xl border border-border bg-muted/40" data-testid="vc-voice">
+      <button
+        type="button"
+        data-testid="vc-voice-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen(v => !v)}
+        className="flex min-h-[44px] w-full items-center gap-2 px-3 text-[13.5px] font-bold"
+      >
+        <Mic className="h-4 w-4 text-[color:var(--brand-1)]" />
+        <span className="flex-1 text-start">🎙 הקלט סיכום ביקור</span>
+        <span className="rounded-full border border-border px-2 py-px text-[10.5px] font-bold text-muted-foreground">ניסיוני</span>
+        <ChevronDown className={'h-4 w-4 text-muted-foreground transition-transform ' + (open ? 'rotate-180' : '')} />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-2 px-3 pb-3">
+          <ul className="list-inside list-disc text-[12px] leading-[1.6] text-muted-foreground">
+            {VOICE_TIPS.map(t => <li key={t}>{t}</li>)}
+          </ul>
+          <textarea
+            data-testid="vc-voice-text"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="מה שתקליט יופיע כאן, ואפשר גם להדביק טקסט."
+            className="min-h-[92px] w-full rounded-xl border border-border bg-background px-3 py-2.5 text-[14.5px] leading-[1.55] outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-testid="vc-voice-mic"
+              disabled={busy || working}
+              onClick={() => (listening ? void stopVoice() : void startVoice())}
+              className={'flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-xl border text-[14px] font-extrabold disabled:opacity-50 ' +
+                (listening ? 'border-transparent bg-[color:var(--priority)] text-white' : CHIP_OFF)}
+            >
+              {listening ? <><Square className="h-4 w-4" /> עצור</> : <><Mic className="h-4 w-4" /> הקלט</>}
+            </button>
+            <button
+              type="button"
+              data-testid="vc-voice-analyse"
+              disabled={working || !text.trim()}
+              onClick={() => void analyse()}
+              className="flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-grad text-[14px] font-extrabold text-white disabled:opacity-50"
+            >
+              {working ? <><Loader2 className="h-4 w-4 animate-spin" /> מנתח…</> : 'מלא את הסיכום'}
+            </button>
+          </div>
+          <p className="text-[11.5px] text-muted-foreground">
+            כל שדה נשאר לעריכה. מה שתתקן נשמר ומשפר את הפעם הבאה.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────── C6 · לאיזו משימה זה שייך ─────────────────────
+//
+// NEVER preselected (round 1 picked the first open task for him, and a wrong task got the
+// comment). The kibbutz's open EMS tasks and the open internal tasks of everyone in
+// `sharedOwners(me)` are one multi-select list; the summary is posted as a comment to EVERY
+// selected EMS task, and every selected internal task is marked done. Selecting NOTHING is a
+// legitimate answer — and then סיבת הביקור is required instead.
+
+interface InternalRow { id: string; title: string; owner?: string | null; kibbutz?: string | null; done?: boolean }
+
+function PickRow({ on, title, sub, onToggle, testid }: {
+  on: boolean; title: string; sub?: string; onToggle: () => void; testid: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testid}
+      aria-pressed={on}
+      onClick={onToggle}
+      className="flex min-h-[48px] w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2 text-start"
+    >
+      <span
+        aria-hidden
+        className={'grid h-[20px] w-[20px] shrink-0 place-items-center rounded-[6px] border-2 ' +
+          (on ? 'border-transparent bg-brand-grad text-white' : 'border-border')}
+      >
+        {on && <Check className="h-3 w-3" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14px] font-semibold">{title}</span>
+        {sub && <span className="block truncate text-[11.5px] text-muted-foreground">{sub}</span>}
+      </span>
+    </button>
+  );
+}
+async function fetchInternalOpen(owners: string[]): Promise<InternalRow[]> {
+  if (!owners.length) return [];
+  try {
+    const sb = await getSupabase();
+    const { data, error } = await sb.from('internal_tasks').select('*').eq('done', false);
+    if (error) return [];
+    return ((data || []) as InternalRow[]).filter(r => owners.includes(String(r.owner || '')));
+  } catch { return []; }
+}
+
+const OPEN_EMS = ['done', 'cancelled', 'canceled', 'closed'];
 
 function VisitChapters({ me, today }: { me: string; today: string }) {
   const reduce = useReducedMotion();
@@ -530,11 +893,36 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const [resumedAt, setResumedAt] = React.useState('');
   const [certNum, setCertNum] = React.useState(0);
   const [sending, setSending] = React.useState(false);
+  /** C3: which REQUIRED fields the last שלח found missing — the in-place red marks. */
+  const [miss, setMiss] = React.useState<string[]>([]);
+  /** C7: the visit is filed; this sheet is now the certificate screen for it. */
+  const [sentVisitId, setSentVisitId] = React.useState('');
   /** The id this sheet already filed. A second שלח on it does nothing at all. */
   const sentRef = React.useRef('');
 
   // The same query key the briefing uses, so this costs no extra request.
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: open });
+
+  // C6: אביאם sees ניתאי's open internal tasks and vice versa — `sharedOwners` is the rule.
+  const owners = React.useMemo(() => sharedOwners(me), [me]);
+  const internalQ = useQuery({
+    queryKey: ['internalOpen', owners.join('|')],
+    queryFn: () => fetchInternalOpen(owners),
+    enabled: open,
+  });
+
+  /** The kibbutz's OPEN EMS tasks. Read off the same cache the briefing reads. */
+  const emsTasks = React.useMemo<CardEmsTask[]>(() => {
+    if (!open || !kibbutz) return [];
+    let raw: CardEmsTask[] = [];
+    try { raw = (sigma?.emsCacheTasksForKibbutz?.(kibbutz) as CardEmsTask[]) || []; } catch { raw = []; }
+    return raw.filter(t => !OPEN_EMS.includes(String(t.status || '').toLowerCase()));
+  }, [open, kibbutz]);
+
+  const internalTasks = React.useMemo<InternalRow[]>(
+    () => ((internalQ.data || []) as InternalRow[]).filter(r => !r.kibbutz || r.kibbutz === kibbutz),
+    [internalQ.data, kibbutz],
+  );
 
   // Chapter 4 exists only when there IS something to hand over: an open customer order for
   // this kibbutz, or equipment he ticked in chapter 3 (§7p, "🚚 only when").
@@ -544,16 +932,14 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     { payload: { items: (d.products || []).map(p => ({ qty: p.qty })) } } as unknown as DraftRow,
   ), [kibbutz, ordersQ.data, d.products]);
 
-  /** Everything the pure rules judge: what he typed, plus the two facts only the app knows. */
+  /** Everything the pure rules judge: what he typed, plus the facts only the app knows. */
   const model = React.useMemo<ChapterDraft>(
-    () => ({ ...d, kibbutz, visitor: me, date: today, deliver, certIssued: certNum > 0 }),
+    () => ({ ...d, kibbutz, visitor: me, date: d.date || today, deliver, certIssued: certNum > 0 }),
     [d, kibbutz, me, today, deliver, certNum],
   );
   const steps = React.useMemo(() => chapterState(model), [model]);
   const verdict = React.useMemo(() => canSubmit(model), [model]);
-  // The hours are the form's own rule, not §7p's: `saveVisitFromData` refuses a visit with no
-  // duration, so the sheet says so BEFORE the round trip instead of after it.
-  const hasHours = !!d.workday || (parseFloat(String(d.duration || '')) > 0);
+  const needReason = visitReasonRequired({ emsTaskIds: d.emsTaskIds, internalTaskIds: d.internalTaskIds });
 
   // Refs, so the autosave and the openers never read a stale render.
   const ref = React.useRef({ model, draftId, chapter, kibbutz });
@@ -570,30 +956,35 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     } catch (e) { console.warn('[visit-chapters] draft', e); }
   }, [me, today]);
 
-  // Autosave, 800 ms after the last change — the same rhythm the legacy form uses, so the two
-  // halves of the app feel like one (spec §5.1c).
+  // Autosave, 800 ms after the last change — the same rhythm the legacy form uses.
   React.useEffect(() => {
-    if (!open) return;
+    if (!open || sentVisitId) return;
     const t = setTimeout(() => persist(), 800);
     return () => clearTimeout(t);
-  }, [open, d, chapter, deliver, persist]);
+  }, [open, d, chapter, deliver, persist, sentVisitId]);
 
-  // A certificate is issued in a LEGACY modal that announces nothing, so chapter 4 asks —
-  // only while it is the chapter on screen, and only until the answer is yes.
+  // A certificate is issued in a LEGACY modal that announces nothing, so the certificate
+  // screen asks — only while it is on screen, and only until the answer is yes.
   React.useEffect(() => {
-    if (!open || chapter !== 4 || !draftId || certNum) return;
+    const vid = sentVisitId || draftId;
+    if (!open || (chapter !== 4 && !sentVisitId) || !vid || certNum) return;
     let live = true;
     const ask = () => {
-      Promise.resolve(sigma.certIssuedForVisit?.(draftId) ?? 0)
+      Promise.resolve(sigma.certIssuedForVisit?.(vid) ?? 0)
         .then(n => { if (live && n) setCertNum(Number(n) || 0); })
         .catch(() => { /* no pass, no table — the gate stays closed, which is the safe way */ });
     };
     ask();
     const t = setInterval(ask, 3000);
     return () => { live = false; clearInterval(t); };
-  }, [open, chapter, draftId, certNum]);
+  }, [open, chapter, draftId, certNum, sentVisitId]);
 
-  const set = React.useCallback((patch: Partial<ChapterDraft>) => setD(p => ({ ...p, ...patch })), []);
+  const set = React.useCallback((patch: Partial<ChapterDraft>) => {
+    setD(p => ({ ...p, ...patch }));
+    setMiss(m => (m.length ? m.filter(k => !(k in patch) && !(k === 'hours' && ('duration' in patch || 'workday' in patch))
+      && !(k === 'reason' && ('reasonId' in patch || 'reasonOther' in patch))
+      && !(k === 'reason' && ('emsTaskIds' in patch || 'internalTaskIds' in patch))) : m));
+  }, []);
 
   /** Open on this kibbutz, resuming whatever is already stored for (me, kibbutz, today). */
   const openOn = React.useCallback((name: string, opts: VisitChaptersOpen = {}) => {
@@ -606,10 +997,13 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       ...stored,
       // The briefing's unticked leftovers pre-fill chapter 2 — but never over his own words.
       openItems: String(stored.openItems || '').trim() || opts.openItems || '',
+      date: String(stored.date || '') || today,
     };
     setKibbutz(k);
     setD(next);
     setCertNum(0);
+    setMiss([]);
+    setSentVisitId('');
     sentRef.current = '';
     let id = String(row?.id || '');
     if (!id) { try { id = String(sigma.visitDraftId?.() || ''); } catch { id = ''; } }
@@ -637,23 +1031,48 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     track('visit-chapters-save', ref.current.kibbutz);
   }, [persist]);
 
+  /** C8: what the analysis filled. Every field stays editable; nothing is saved behind him. */
+  const fillFromVoice = React.useCallback((v: DayLogVisit) => {
+    const products = (v.items || []).filter(i => i.resolved).map(i => ({ name: i.product, qty: Number(i.qty) || 1 }));
+    const loose = (v.items || []).filter(i => !i.resolved).map(i => i.product).join(', ');
+    set({
+      summary: v.summary || '',
+      openItems: v.open_items || '',
+      date: v.date || today,
+      workday: !!v.workday,
+      duration: v.workday ? '' : (v.duration_hours ? String(v.duration_hours) : ''),
+      products,
+      productsOther: loose,
+      emsTaskIds: (v.task_matches || []).map(m => String(m.task_id)),
+    });
+    setChapter(1);
+  }, [set, today]);
+
   /** שלח — chapter 5 only, and the only thing here that creates anything. */
   const send = React.useCallback(async () => {
     const cur = ref.current;
     if (sentRef.current && sentRef.current === cur.draftId) return;     // idempotent by id
+    const gaps = missingFields(cur.model);
+    if (gaps.length) {
+      setMiss(gaps.map(g => g.key));
+      setChapter(gaps[0].chapter);                                      // scroll to the first miss
+      toast.error(gaps[0].reason);
+      return;
+    }
     const v = canSubmit(cur.model);
     if (!v.ok) { toast.error(v.reason || 'לא ניתן לשלוח'); return; }
-    if (!hasHours) { toast.error('כמה זמן היית שם?'); return; }
     // Claimed BEFORE the round trip: a double-tap on a phone arrives long before the answer.
     sentRef.current = cur.draftId;
     setSending(true);
+    const emsIds = cur.model.emsTaskIds || [];
+    const internalIds = cur.model.internalTaskIds || [];
     try {
       const res = await runMutation(
         Promise.resolve(sigma.saveVisitFromData?.({
           id: cur.draftId,
           kibbutz: cur.kibbutz,
           visitor: me,
-          date: today,
+          date: cur.model.date || today,
           duration: cur.model.duration || '',
           workday: !!cur.model.workday,
           summary: cur.model.summary || '',
@@ -661,6 +1080,13 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
           products: cur.model.products || [],
           productsOther: cur.model.productsOther || '',
           contact: cur.model.contact || '',
+          returned: cur.model.returned || [],
+          // C6: the column may not exist yet (db/visits_reason.sql is not applied) — the legacy
+          // writer drops unknown keys rather than failing, so a missing column costs a reason.
+          reason: needReason ? visitReasonText(cur.model.reasonId, cur.model.reasonOther) : '',
+          emsTaskId: emsIds[0] || '',
+          // C7: the certificate comes AFTER the save on this sheet, so the pre-save gate is off.
+          certAfter: true,
         }) ?? Promise.resolve({ ok: false, error: 'שמירת ביקור אינה זמינה' })),
         {
           loading: 'שומר את הסיכום…',
@@ -670,10 +1096,35 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         },
       );
       if (res && (res as any).ok) {
+        const visitId = String((res as any).id || cur.draftId);
         try { sigma.visitDraftDiscard?.(cur.draftId); } catch { /* it is filed; the draft is noise */ }
-        set({ submittedId: String((res as any).id || cur.draftId) });
+        set({ submittedId: visitId });
         track('visit-chapters-send', cur.kibbutz);
-        setOpen(false);
+
+        // C6: the summary is posted as a comment to EVERY selected EMS task (the first one is
+        // already carried by `emsTaskId`; the rest go through the same queueing writer).
+        const body = (cur.model.summary || '').trim();
+        for (const id of emsIds.slice(1)) {
+          try { sigma.emsWrite?.({ kind: 'comment', taskId: id, message: '📍 סיכום ביקור ' + cur.kibbutz + '\n' + body }); }
+          catch (e) { console.warn('[visit-chapters] ems comment', e); }
+        }
+        // … and every selected internal task is marked done.
+        if (internalIds.length) {
+          try {
+            const sb = await getSupabase();
+            await Promise.all(internalIds.map(id =>
+              sbWrite(() => sb.from('internal_tasks').update({ done: true }).eq('id', id).select('id').single() as any)));
+          } catch (e) { console.warn('[visit-chapters] internal done', e); }
+        }
+
+        // C7: equipment was supplied → this sheet becomes the certificate screen instead of
+        // closing. Nothing is printed; the certificate opens in the app with שלח / הורד on it.
+        if ((cur.model.products || []).length) {
+          setSentVisitId(visitId);
+          setChapter(4);
+        } else {
+          setOpen(false);
+        }
       } else {
         sentRef.current = '';                                   // it did not happen — let him retry
         toast.error(String((res as any)?.error || 'השליחה נכשלה'));
@@ -681,7 +1132,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     } catch {
       sentRef.current = '';
     } finally { setSending(false); }
-  }, [hasHours, me, today, set]);
+  }, [me, today, set, needReason]);
 
   // §7p: a sheet holding his words never closes by accident. "לשמור" IS שמור וסגור, and
   // "לבטל" only closes — the draft is never thrown away here (§7p: never auto-delete).
@@ -697,18 +1148,31 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     try { return (sigma.poolStock?.() as Record<string, number>) || {}; } catch { return {}; }
   }, [open]);
   const stockNames = React.useMemo(
-    () => Object.keys(stock).filter(n => (stock[n] || 0) > 0).sort((a, b) => a.localeCompare(b, 'he')),
+    // C4: SIM rows are hidden from the pickable list (hidden, never deleted).
+    () => pickableProducts(Object.keys(stock).filter(n => (stock[n] || 0) > 0)).sort((a, b) => a.localeCompare(b, 'he')),
     [stock],
   );
+  /** The whole catalog the keyword search runs over — the pool first, the catalog behind it. */
+  const catalog = React.useMemo(() => {
+    let names: string[] = [];
+    try { names = (sigma.productNames?.() as string[]) || []; } catch { names = []; }
+    return pickableProducts([...stockNames, ...names.filter(n => !stockNames.includes(n))]);
+  }, [stockNames, open]);
+
   const qtyOf = (name: string) => (d.products || []).find(p => p.name === name)?.qty || 0;
   const setQty = (name: string, qty: number) => {
     const rest = (d.products || []).filter(p => p.name !== name);
     set({ products: qty > 0 ? [...rest, { name, qty }] : rest });
   };
+  const toggleId = (key: 'emsTaskIds' | 'internalTaskIds', id: string) => {
+    const cur = d[key] || [];
+    set({ [key]: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] } as Partial<ChapterDraft>);
+  };
 
   const age = draftAge({ ...d, updated_at: resumedAt });
   const dur = reduce ? 0 : 0.22;                                // §7p: a chapter turn is ≤250 ms
   const last = chapter === 5;
+  const has = (k: string) => miss.includes(k);
 
   return (
     <Sheet open={open} onOpenChange={guard.onOpenChange(v => { if (!v) guard.ask(); })}>
@@ -716,31 +1180,37 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         side="bottom"
         data-testid="visit-chapters"
         data-chapter={chapter}
+        data-sent={sentVisitId ? '1' : undefined}
         className="max-h-[94svh] overflow-hidden p-0 pt-2.5"
         {...guard.contentProps}
       >
         <SheetTitle className="px-4 text-[20px] font-extrabold tracking-[-.01em]">
-          סיכום ביקור · {kibbutz}
+          {sentVisitId ? 'תעודת משלוח · ' : 'סיכום ביקור · '}{kibbutz}
         </SheetTitle>
         <SheetDescription className="px-4 pb-2 pt-0.5 text-[12.5px] text-muted-foreground">
-          {age.label
-            ? <span data-testid="vc-draft-chip">{age.label}{age.note ? ' · ' + age.note : ''}</span>
-            : 'פרק אחד בכל פעם. אפשר לשמור ולצאת בכל שלב.'}
+          {sentVisitId
+            ? 'הסיכום נשמר. נשאר להפיק את התעודה ולשלוח אותה.'
+            : age.label
+              ? <span data-testid="vc-draft-chip">{age.label}{age.note ? ' · ' + age.note : ''}</span>
+              : 'פרק אחד בכל פעם. אפשר לשמור ולצאת בכל שלב.'}
         </SheetDescription>
 
-        <Stepper steps={steps} current={chapter} onGo={setChapter} />
+        {/* C8 — at the TOP of the sheet, and only while there is still a summary to fill. */}
+        {!sentVisitId && <VoiceIntake kibbutz={kibbutz} busy={sending} onFill={fillFromVoice} />}
+
+        {!sentVisitId && <Stepper steps={steps} current={chapter} onGo={setChapter} />}
 
         <div className="min-h-0 max-h-[60svh] overflow-y-auto px-4 pb-4">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={chapter}
+              key={sentVisitId ? 'sent' : chapter}
               initial={{ opacity: 0, x: reduce ? 0 : -14 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: reduce ? 0 : 14 }}
               transition={{ duration: dur, ease: 'easeOut' }}
             >
-              {chapter === 1 && (
-                <Field2 label="מה עשיתי">
+              {chapter === 1 && !sentVisitId && (
+                <Field2 label="מה עשיתי" required miss={has('summary')}>
                   <textarea
                     data-testid="vc-summary"
                     autoFocus
@@ -752,7 +1222,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                 </Field2>
               )}
 
-              {chapter === 2 && (
+              {chapter === 2 && !sentVisitId && (
                 <Field2 label="מה נשאר לי פתוח">
                   <textarea
                     data-testid="vc-open-items"
@@ -764,18 +1234,18 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                 </Field2>
               )}
 
-              {chapter === 3 && (
+              {chapter === 3 && !sentVisitId && (
                 <div className="flex flex-col gap-3">
                   {!stockNames.length && (
                     <p className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
-                      אין כרגע מלאי זמין. אם השארת משהו — תכתוב את זה למטה.
+                      אין כרגע מלאי זמין. אם השארת משהו — תחפש אותו למטה או תכתוב אותו.
                     </p>
                   )}
                   {stockNames.map(name => {
                     const q = qtyOf(name);
                     return (
                       <div key={name} data-product={name} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-                        <span className="min-w-0 flex-1 text-[14px] font-semibold">{name}</span>
+                        <span className="min-w-0 flex-1 text-[14px] font-semibold"><bdi>{name}</bdi></span>
                         <span className="flex-none text-[11px] text-muted-foreground">במלאי <bdi>{stock[name]}</bdi></span>
                         <input
                           type="number"
@@ -790,24 +1260,24 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                       </div>
                     );
                   })}
-                  <Field2 label="משהו אחר שהשארת">
-                    <input
-                      data-testid="vc-products-other"
-                      value={d.productsOther || ''}
-                      onChange={e => set({ productsOther: e.target.value })}
-                      placeholder="כבל, מתאם…"
-                      className={LINE}
-                    />
-                  </Field2>
+
+                  <ProductSearch
+                    catalog={catalog}
+                    onPick={name => setQty(name, Math.max(1, qtyOf(name) + 1))}
+                    freeText={d.productsOther || ''}
+                    onFreeText={v => set({ productsOther: v })}
+                  />
+
+                  <ReturnedItems rows={d.returned || []} onChange={rows => set({ returned: rows })} />
                 </div>
               )}
 
-              {chapter === 4 && (
+              {(chapter === 4 || sentVisitId) && (
                 <div className="flex flex-col gap-3">
                   <p className="text-[13.5px] leading-[1.6] text-muted-foreground">
                     {certNum
-                      ? 'התעודה הופקה. אפשר להמשיך.'
-                      : 'השארת ציוד — צריך תעודת משלוח לפני שהסיכום נשלח.'}
+                      ? 'התעודה הופקה. אפשר לשלוח אותה לאיש הקשר או להוריד אותה.'
+                      : 'השארת ציוד בקיבוץ. הפק תעודת משלוח כדי שתישאר רשומה.'}
                   </p>
                   {!!certNum && (
                     <div className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[14px] font-bold" data-testid="vc-cert-ok">
@@ -818,25 +1288,47 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     type="button"
                     data-testid="vc-cert"
                     onClick={() => {
-                      persist();
+                      if (!sentVisitId) persist();
                       try {
                         sigma.openDeliveryCert?.({
-                          kibbutz, date: today, contact: d.contact || '',
+                          kibbutz, date: d.date || today, contact: d.contact || '',
                           items: (d.products || []).map(p => ({ name: p.name, qty: p.qty })),
-                          source: 'visit', refId: draftId,
+                          source: 'visit', refId: sentVisitId || draftId,
+                          // C7: no printing — the certificate opens inside the app.
+                          noPrint: true,
                         });
                       } catch (e) { console.warn('[visit-chapters] cert', e); }
                     }}
                     className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-foreground text-[15px] font-extrabold text-background"
                   >
-                    <Truck className="h-5 w-5" /> {certNum ? 'תעודה נוספת' : 'הפק תעודת משלוח'}
+                    <Truck className="h-5 w-5" /> {certNum ? 'תעודה נוספת' : 'הפק תעודה'}
                   </button>
+                  {!!certNum && (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        data-testid="vc-cert-send"
+                        onClick={() => { try { (window as any).certSendForVisit?.(sentVisitId || draftId); } catch (e) { console.warn('[visit-chapters] send', e); } }}
+                        className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-grad text-[14px] font-extrabold text-white"
+                      >
+                        <Send className="h-4 w-4" /> שלח במייל לאיש קשר
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="vc-cert-download"
+                        onClick={() => { try { (window as any).certDownloadForVisit?.(sentVisitId || draftId); } catch (e) { console.warn('[visit-chapters] download', e); } }}
+                        className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted text-[14px] font-extrabold"
+                      >
+                        <Download className="h-4 w-4" /> הורד PDF
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {chapter === 5 && (
+              {chapter === 5 && !sentVisitId && (
                 <div className="flex flex-col gap-3">
-                  <Field2 label="כמה זמן היית שם">
+                  <Field2 label="כמה זמן היית שם" required miss={has('hours')}>
                     <div className="flex flex-wrap gap-1.5">
                       {HOUR_CHIPS.map(h => {
                         const on = !d.workday && parseFloat(String(d.duration || '')) === h;
@@ -846,8 +1338,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                             type="button"
                             data-testid={'vc-hours-' + h}
                             onClick={() => set({ workday: false, duration: on ? '' : String(h) })}
-                            className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' +
-                              (on ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted')}
+                            className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' + (on ? CHIP_ON : CHIP_OFF)}
                           >
                             <bdi>{h}</bdi> ש׳
                           </button>
@@ -857,30 +1348,117 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                         type="button"
                         data-testid="vc-workday"
                         onClick={() => set({ workday: !d.workday, duration: '' })}
-                        className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' +
-                          (d.workday ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted')}
+                        className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' + (d.workday ? CHIP_ON : CHIP_OFF)}
                       >
                         יום שלם
                       </button>
+                      {/* C1: the manual box shows an EXAMPLE, not a label. */}
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0.25}
+                        step={0.25}
+                        data-testid="vc-hours-manual"
+                        disabled={!!d.workday}
+                        value={d.workday ? '' : (HOUR_CHIPS.includes(parseFloat(String(d.duration || ''))) ? '' : (d.duration || ''))}
+                        onChange={e => set({ workday: false, duration: e.target.value })}
+                        placeholder="1.5"
+                        aria-label="שעות, הזנה ידנית"
+                        className="h-[40px] w-[74px] flex-none rounded-xl border border-border bg-muted text-center text-[14px] outline-none disabled:opacity-45"
+                      />
                     </div>
                   </Field2>
-                  <Field2 label="עם מי דיברת">
+
+                  <Field2 label="תאריך הביקור" required miss={has('date')}>
+                    <input
+                      type="date"
+                      data-testid="vc-date"
+                      value={d.date || today}
+                      onChange={e => set({ date: e.target.value })}
+                      className={LINE}
+                    />
+                  </Field2>
+
+                  <Field2 label="איש קשר מלווה" required miss={has('contact')}>
                     <input
                       data-testid="vc-contact"
                       value={d.contact || ''}
                       onChange={e => set({ contact: e.target.value })}
-                      placeholder="שם איש הקשר בקיבוץ"
+                      placeholder="מי ליווה אותך בקיבוץ"
                       className={LINE}
                     />
                   </Field2>
+
+                  {/* C6 — never preselected. */}
+                  <div className="flex flex-col gap-1.5" data-testid="vc-tasks">
+                    <span className="text-[12.5px] font-bold text-muted-foreground">לאיזו משימה זה שייך</span>
+                    {!emsTasks.length && !internalTasks.length && (
+                      <p className="rounded-xl border border-border bg-muted px-3 py-2 text-[12.5px] text-muted-foreground">
+                        אין כאן משימות פתוחות. תגיד למה הגעת.
+                      </p>
+                    )}
+                    {emsTasks.map(t => (
+                      <PickRow
+                        key={String(t.id)}
+                        testid={'vc-ems-' + t.id}
+                        on={(d.emsTaskIds || []).includes(String(t.id))}
+                        title={String(t.title)}
+                        sub={'EMS · ' + statusLabel(t.status)}
+                        onToggle={() => toggleId('emsTaskIds', String(t.id))}
+                      />
+                    ))}
+                    {internalTasks.map(t => (
+                      <PickRow
+                        key={t.id}
+                        testid={'vc-internal-' + t.id}
+                        on={(d.internalTaskIds || []).includes(t.id)}
+                        title={t.title}
+                        sub={'🔒 פנימי' + (t.owner && t.owner !== me ? ' · ' + t.owner : '')}
+                        onToggle={() => toggleId('internalTaskIds', t.id)}
+                      />
+                    ))}
+                    {!!(d.emsTaskIds || []).length && (
+                      <p className="text-[11.5px] text-muted-foreground">הסיכום ייכתב כתגובה לכל משימה שסימנת.</p>
+                    )}
+                  </div>
+
+                  {/* … and when nothing was linked, the reason is required instead. */}
+                  {needReason && (
+                    <Field2 label="סיבת הביקור" required miss={has('reason')}>
+                      <div className="flex flex-col gap-1.5" data-testid="vc-reasons">
+                        <div className="flex flex-wrap gap-1.5">
+                          {VISIT_REASONS.map(r => {
+                            const on = d.reasonId === r.id;
+                            return (
+                              <button
+                                key={r.id}
+                                type="button"
+                                data-testid={'vc-reason-' + r.id}
+                                aria-pressed={on}
+                                onClick={() => set({ reasonId: on ? '' : r.id })}
+                                className={'min-h-[38px] flex-none rounded-xl border px-3 text-[13px] font-bold ' + (on ? CHIP_ON : CHIP_OFF)}
+                              >
+                                {r.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {d.reasonId === 'other' && (
+                          <input
+                            data-testid="vc-reason-other-text"
+                            value={d.reasonOther || ''}
+                            onChange={e => set({ reasonOther: e.target.value })}
+                            placeholder="אז למה הגעת?"
+                            className={LINE}
+                          />
+                        )}
+                      </div>
+                    </Field2>
+                  )}
+
                   {!verdict.ok && (
                     <p data-testid="vc-blocked" className="rounded-xl border-s-[3px] border-[color:var(--sigma-warn)] bg-[color:var(--sigma-warn)]/10 px-3 py-2 text-[13px] font-semibold">
                       {verdict.reason}
-                    </p>
-                  )}
-                  {verdict.ok && !hasHours && (
-                    <p data-testid="vc-blocked" className="rounded-xl border-s-[3px] border-[color:var(--sigma-warn)] bg-[color:var(--sigma-warn)]/10 px-3 py-2 text-[13px] font-semibold">
-                      כמה זמן היית שם?
                     </p>
                   )}
                 </div>
@@ -891,43 +1469,56 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
         {/* The two buttons of §7p, on every chapter — plus שלח on the last one, and nowhere else. */}
         <div className="flex gap-2 border-t border-border bg-background px-3 pb-5 pt-2.5">
-          {chapter !== 1 && (
+          {sentVisitId ? (
             <button
               type="button"
-              data-testid="vc-back"
-              onClick={() => setChapter(c => prevChapter(model, c))}
-              className="min-h-[52px] flex-none rounded-xl border border-border px-3 text-[14px] font-bold text-muted-foreground"
+              data-testid="vc-done"
+              onClick={() => setOpen(false)}
+              className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted text-[15px] font-extrabold"
             >
-              חזרה
+              סיימתי
             </button>
-          )}
-          <button
-            type="button"
-            data-testid="vc-save-close"
-            onClick={saveAndClose}
-            className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted text-[15px] font-extrabold"
-          >
-            <Save className="h-[18px] w-[18px]" /> שמור וסגור
-          </button>
-          {last ? (
-            <ShimmerButton
-              onClick={() => void send()}
-              data-testid="vc-send"
-              disabled={sending || !verdict.ok || !hasHours}
-              background="var(--brand-grad)"
-              className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50"
-            >
-              <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
-            </ShimmerButton>
           ) : (
-            <ShimmerButton
-              onClick={() => setChapter(c => nextChapter(model, c))}
-              data-testid="vc-next"
-              background="var(--brand-grad)"
-              className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white"
-            >
-              המשך
-            </ShimmerButton>
+            <>
+              {chapter !== 1 && (
+                <button
+                  type="button"
+                  data-testid="vc-back"
+                  onClick={() => setChapter(c => prevChapter(model, c))}
+                  className="min-h-[52px] flex-none rounded-xl border border-border px-3 text-[14px] font-bold text-muted-foreground"
+                >
+                  חזרה
+                </button>
+              )}
+              <button
+                type="button"
+                data-testid="vc-save-close"
+                onClick={saveAndClose}
+                className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted text-[15px] font-extrabold"
+              >
+                <Save className="h-[18px] w-[18px]" /> שמור וסגור
+              </button>
+              {last ? (
+                <ShimmerButton
+                  onClick={() => void send()}
+                  data-testid="vc-send"
+                  disabled={sending}
+                  background="var(--brand-grad)"
+                  className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50"
+                >
+                  <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
+                </ShimmerButton>
+              ) : (
+                <ShimmerButton
+                  onClick={() => setChapter(c => nextChapter(model, c))}
+                  data-testid="vc-next"
+                  background="var(--brand-grad)"
+                  className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white"
+                >
+                  המשך
+                </ShimmerButton>
+              )}
+            </>
           )}
         </div>
         {guard.prompt}
