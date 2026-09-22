@@ -134,11 +134,11 @@ test('home cards: "ℹ️ מקרא צבעים והסבר הלחצנים" is gone
   expectNoConsoleErrors(rec);
 });
 
-test('home cards: "המשימות הפנימיות שלי" is a fixed, collapsible strip above the bottom bar (Package O §4)', async ({ page }, ti) => {
-  const { rec, viewport } = await boot(page, ti);
+test('home cards: the floating "המשימות הפנימיות שלי" strip is gone (round 4, Package X)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
 
-  // Add an internal task with no owner picked — it defaults to whoever adds it (עידן here),
-  // so it lands in his own "היום שלי" strip.
+  // Adding an internal task with no owner picked lands it on whoever adds it (עידן here) —
+  // the row that used to raise the floating strip on every page.
   const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
   await card.getByTestId('add-internal-task').click();
   const sheet = page.getByTestId('internal-task-sheet');
@@ -146,35 +146,11 @@ test('home cards: "המשימות הפנימיות שלי" is a fixed, collapsib
   await sheet.getByRole('button', { name: 'הוסף משימה' }).click();
   await expect(sheet).toHaveCount(0);
 
-  const strip = page.locator('#sigma-my-tasks .my-tasks-strip');
-  await expect(strip).toBeVisible();
-  // Collapsed by default (עידן 22.9: the open list sat on top of every page's scroll) — one
-  // line with the count, and the page reserves room under itself for it.
-  await expect(strip).toContainText('1 משימות פנימיות שלי');
-  await expect(strip.getByText('לבדוק את הגנרטור')).toHaveCount(0);
-  await expect(page.locator('body')).toHaveClass(/has-my-tasks/);
-  await strip.locator('.my-tasks-toggle').click();
-  await expect(strip).toContainText('לבדוק את הגנרטור');
-
-  if (viewport === 'mobile-390') {
-    // fixed above the bottom bar, not buried at the bottom of the page flow
-    await expect(strip).toHaveCSS('position', 'fixed');
-    const stripBox = await strip.boundingBox();
-    const navBox = await page.locator('#sigma-nav nav').boundingBox();
-    // "above the bottom bar": the strip starts higher up the screen than the nav does.
-    expect(stripBox && navBox && stripBox.y < navBox.y).toBeTruthy();
-  }
-
-  // collapsed = one line "🔒 N משימות פנימיות שלי", and it survives a reload (per-device state)
-  await strip.getByRole('button', { name: 'המשימות הפנימיות שלי' }).click();
-  await expect(strip).toContainText('1 משימות פנימיות שלי');
-  await expect(strip.getByText('לבדוק את הגנרטור')).toHaveCount(0);
-  await shot(page, ti, 'collapsed');
-
-  await page.reload();
-  const stripAfterReload = page.locator('#sigma-my-tasks .my-tasks-strip');
-  await expect(stripAfterReload).toContainText('1 משימות פנימיות שלי');
-  await expect(stripAfterReload.getByText('לבדוק את הגנרטור')).toHaveCount(0);
+  // No strip, nothing pinned above the bottom bar, and no page padding reserved for it.
+  await expect(page.locator('.my-tasks-strip')).toHaveCount(0);
+  await expect(page.locator('body')).not.toHaveClass(/has-my-tasks/);
+  // The work is still one tap away, from the header button next to the bell.
+  await expect(page.getByTestId('header-my-tasks')).toBeVisible();
 
   expectNoConsoleErrors(rec);
 });

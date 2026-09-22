@@ -5,7 +5,7 @@
 // as the place identity and settings live; the legacy chips that still have no React home
 // (ישיבה, פוטנציאליים, סטטיסטיקה) stay where they are and are untouched.
 import * as React from 'react';
-import { ArrowLeft, Plus, Search } from 'lucide-react';
+import { ArrowLeft, ListTodo, Plus, Search } from 'lucide-react';
 import { UserChip } from '@/components/UserChip';
 import { mount } from '@/islands';
 import { useCurrentUser } from '@/bridge';
@@ -15,6 +15,43 @@ import { canManageKibbutzim } from '@/lib/kibbutzim';
 import { primaryAdd, primaryAddLabel, primaryAddOpensForm } from '@/lib/primaryAdd';
 import { openCommandBar, runAdd } from '@/islands/CommandBar';
 import { track } from '@/lib/track';
+import { MY_TASKS_TITLE, myTasksLabel } from '@/lib/myTasks';
+import { useMyTasksCount } from '@/lib/myTasksBadge';
+
+// ✅ המשימות שלי (round 4, Package X) — the button that replaced the floating strip. It sits
+// next to the bell because both answer the same question ("what needs me?"), and it carries
+// the open count. The RAW event, not an import of the island: the sheet is a lazy chunk and
+// main.tsx loads it on the first tap, exactly as ⋯ עוד's rows are loaded.
+const MY_TASKS_OPEN_EVENT = 'sigma-open-my-tasks';
+
+function MyTasksButton({ me }: { me: string }) {
+  const count = useMyTasksCount(me);
+  if (!me) return null;
+  return (
+    <button
+      type="button"
+      data-testid="header-my-tasks"
+      aria-label={myTasksLabel(count)}
+      title={MY_TASKS_TITLE}
+      onClick={() => {
+        track('my-tasks-open', 'header');
+        try { window.dispatchEvent(new CustomEvent(MY_TASKS_OPEN_EVENT)); } catch { /* no DOM */ }
+      }}
+      className="relative inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
+    >
+      <ListTodo className="h-[18px] w-[18px]" aria-hidden />
+      {count > 0 ? (
+        <span
+          data-testid="header-my-tasks-badge"
+          className="absolute -top-1 min-w-[18px] rounded-full bg-[color:var(--brand-2)] px-1 text-center text-[10px] font-bold leading-[18px] text-white"
+          style={{ insetInlineStart: '-4px' }}
+        >
+          <bdi>{count}</bdi>
+        </span>
+      ) : null}
+    </button>
+  );
+}
 
 function HeaderActionsPanel() {
   const { name: user, role, isViewer } = useCurrentUser();
@@ -28,6 +65,9 @@ function HeaderActionsPanel() {
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* ✅ המשימות שלי — right next to the bell, on every screen size. */}
+      <MyTasksButton me={user} />
+
       {/* Desktop only: the phone has the sticky search pill + the bottom nav. */}
       <button
         type="button"

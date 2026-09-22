@@ -40,7 +40,7 @@ import {
   reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey,
   missingInView, visibleDows, visitsOn, weekDays, weekView, workWeekLabel, ymd,
   type AbsenceKind, type AbsenceRow, type CalCell, type CalEmsTask, type CalItem,
-  type CalWeek, type OfficeEvent, type RouteRow, type VisitRow,
+  type CalWeek, type CalInternalTask, type OfficeEvent, type RouteRow, type VisitRow,
 } from '@/lib/calendar';
 import type { AttRow } from '@/lib/attendance';
 import { dueText, isOverdue, priorityLabel, statusLabel } from '@/lib/emsTasks';
@@ -49,6 +49,8 @@ import {
   groupTasks, hasActiveFilters, LIST_TITLE, shareText, siteOptions, sortTasks, waLink,
   type CompanyRow, type ListTask, type TaskFilters,
 } from '@/lib/taskList';
+import { internalForGroups } from '@/lib/myTasks';
+import { dueLabel, isOverdueInternal, type InternalTaskRow } from '@/lib/internalTasks';
 
 type ViewMode = 'week' | 'month' | 'list';
 
@@ -658,6 +660,44 @@ function ScheduleSheet({
   );
 }
 
+/**
+ * Every OPEN 🔒 internal task, read once for the whole calendar (round 4, Package X). Three
+ * surfaces share it: the חברה block at the top of רשימה, the 🔒 rows inside each kibbutz block,
+ * and the grid layer that puts a dated row on its due day. One query, not three.
+ */
+function useOpenInternalTasks() {
+  return useQuery({
+    queryKey: ['cal', 'internal-tasks'],
+    queryFn: async (): Promise<InternalTaskRow[]> => {
+      try {
+        const sb = await getSupabase();
+        const { data, error } = await sb.from('internal_tasks')
+          .select('id,title,kibbutz,done,owner,due_date').eq('done', false);
+        if (error) throw error;
+        return (data || []) as InternalTaskRow[];
+      } catch { return []; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** One 🔒 row inside a kibbutz block of רשימה. Read only here: ✓ lives in המשימות שלי. */
+function ListInternalRow({ row }: { row: InternalTaskRow }) {
+  const due = dueLabel(row);
+  const late = isOverdueInternal(row);
+  return (
+    <article className="ucal-ltask ucal-ltask-internal" data-internal={row.id}>
+      <span className="ucal-ltask-main">
+        <strong className="ucal-ltask-title">🔒 <bdi>{row.title}</bdi></strong>
+        <span className="ucal-ltask-meta">
+          {due ? <span className="ucal-badge">{(late ? '⏰ ' : '📅 ') + due}</span> : null}
+          {row.owner ? <span className="ucal-who"><bdi>{row.owner}</bdi></span> : null}
+        </span>
+      </span>
+    </article>
+  );
+}
+
 // ───────────────────────────── רשימה — the third view (spec §7g) ─────────────────────────────
 
 /**
@@ -697,22 +737,20 @@ function TaskListView({
   // 🔒 "חברה" — internal tasks with no kibbutz. Until the one-shot migration has run, the
   // retired home block's three lists stand in for them (§7m R3); `companyItems` prefers a real
   // row the moment one exists, so the same item can never show twice.
-  const company = useQuery({
-    queryKey: ['cal', 'company-tasks'],
-    queryFn: async (): Promise<CompanyRow[]> => {
-      try {
-        const sb = await getSupabase();
-        const { data, error } = await sb.from('internal_tasks')
-          .select('id,title,kibbutz,done,owner').is('kibbutz', null).eq('done', false);
-        if (error) throw error;
-        return (data || []) as CompanyRow[];
-      } catch { return []; }
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const internalQ = useOpenInternalTasks();
   const companyRows = React.useMemo(
-    () => companyItems(company.data || [], (() => { try { return sigma.companyTasks?.() || null; } catch { return null; } })()),
-    [company.data, tick],
+    () => companyItems(
+      (internalQ.data || []).filter(r => !String(r.kibbutz || '').trim()) as CompanyRow[],
+      (() => { try { return sigma.companyTasks?.() || null; } catch { return null; } })(),
+    ),
+    [internalQ.data, tick],
+  );
+
+  // 🔒 the person's own internal rows, shown INSIDE the kibbutz blocks next to his EMS work
+  // (round 4, Package X). "כולל של אחרים" widens this list exactly as it widens the EMS one.
+  const mineInternal = React.useMemo(
+    () => (internalQ.data || []).filter(r => !filters.mine || !me || String(r.owner || '').trim() === me),
+    [internalQ.data, filters.mine, me],
   );
 
   const shown = React.useMemo(
@@ -720,6 +758,12 @@ function TaskListView({
     [all, filters, me, tick],
   );
   const groups = React.useMemo(() => groupTasks(shown, now), [shown]);
+  // The 🔒 rows split across those blocks, plus the kibbutzim that have ONLY 🔒 work and
+  // would otherwise be missing from the screen (pure: lib/myTasks.ts `internalForGroups`).
+  const { byKibbutz: internalBy, extra: internalOnly } = React.useMemo(
+    () => internalForGroups(groups, mineInternal),
+    [groups, mineInternal],
+  );
   const sites = React.useMemo(() => siteOptions(all), [all]);
   const openCount = React.useMemo(
     () => filterTasks(all, { ...DEFAULT_FILTERS, mine: false }, { me, now }).length,
@@ -826,7 +870,7 @@ function TaskListView({
       ) : null}
 
       {/* ── the work, by kibbutz ──────────────────────────────────────────── */}
-      {!groups.length ? (
+      {!groups.length && !internalOnly.length ? (
         <div className="ucal-list-empty" data-testid="cal-list-empty">
           <p className="text-[14px] font-semibold">{hasActiveFilters(filters) ? EMPTY_FILTERED : EMPTY_LIST}</p>
           {filters.mine && !hasActiveFilters(filters) && openCount ? (
@@ -880,6 +924,19 @@ function TaskListView({
               </article>
             );
           })}
+          {(internalBy[g.kibbutz] || []).map(r => <ListInternalRow key={'i:' + r.id} row={r} />)}
+        </section>
+      ))}
+
+      {/* kibbutzim whose only open work is 🔒 — they get a block of their own, after the rest */}
+      {internalOnly.map(name => (
+        <section className="ucal-lgroup" data-group={name} key={'io:' + name}>
+          <div className="ucal-lgroup-head">
+            <button type="button" className="ucal-lgroup-name" data-open-card={name} onClick={() => onOpenCard(name)}>
+              🏘️ <bdi>{name}</bdi>
+            </button>
+          </div>
+          {(internalBy[name] || []).map(r => <ListInternalRow key={'i:' + r.id} row={r} />)}
         </section>
       ))}
     </div>
@@ -1058,12 +1115,18 @@ function CalendarIsland() {
     try { return (sigma.loadAllVisitsCombined?.() || []) as VisitRow[]; } catch { return []; }
   }, [tick]);
 
+  // 🔒 internal tasks are a layer of the grid too (round 4, Package X): a row with a due date
+  // is a thing that happens on a day, and it belongs on the same page as everything else that
+  // does. Same query the list view reads.
+  const internalTasks = useOpenInternalTasks();
+
   const items = React.useMemo(() => calendarItems({
     events: events.data || [],
     visits,
     emsTasks: (() => { try { return (sigma.emsCacheData?.()?.tasks || []) as CalEmsTask[]; } catch { return []; } })(),
+    internalTasks: (internalTasks.data || []) as CalInternalTask[],
     absences: absences.data || [],
-  }, { me }), [events.data, absences.data, visits, me, tick]);
+  }, { me }), [events.data, absences.data, internalTasks.data, visits, me, tick]);
 
   /** Every kibbutz the day panel's search may place — the EMS cache is the one roster here. */
   const kibbutzNames = React.useMemo(() => {

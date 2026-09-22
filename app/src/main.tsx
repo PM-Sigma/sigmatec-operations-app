@@ -118,13 +118,14 @@ function boot() {
       .catch(e => console.warn('[sigma] card home island failed — legacy cards stay', e));
   }
 
-  // 🔒 "היום שלי" internal tasks (Task 26): fills the #sigma-my-tasks placeholder §7l left
-  // empty (renamed from #sigma-pm-today, Package O §4 — now a fixed strip above the bottom
-  // bar). Its own lazy chunk — most roles never see a row here and pay nothing for it.
+  // ✅ המשימות שלי (round 4, Package X) — the sheet that replaced the floating 🔒 strip. It
+  // fills the same #sigma-my-tasks placeholder, and it is NOT deferred: the header button and
+  // the ⋯ row both open it, and a first tap that does nothing is the bug Package X is fixing.
+  // Its `registerMoreItem` also has to run before the sheet is listed.
   if (document.getElementById('sigma-my-tasks')) {
-    import('@/islands/PmToday')
-      .then(m => m.mountPmToday())
-      .catch(e => console.warn('[sigma] pm-today island failed', e));
+    import('@/islands/MyTasks')
+      .then(m => m.mountMyTasks())
+      .catch(e => console.warn('[sigma] my-tasks island failed', e));
   }
 
   // 📍 The field day (Task 5): the arrival sheet + briefing (#sigma-field) and the "היום"

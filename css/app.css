@@ -2070,25 +2070,3 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
   .sigma-crash button.p { background: var(--priority); color: #fff; border-color: transparent; }
   @media (min-width: 768px) { .sigma-crash { inset-inline: auto 24px; max-width: 420px; bottom: 24px; } }
 
-  /* ── "🔒 המשימות הפנימיות שלי" strip — fixed above the bottom bar on EVERY module
-       (Package O §4, 22.9 round 3). Same offset pattern as .sigma-crash above (76px): clears
-       both the React #sigma-nav (phone) and the legacy .page-nav (phone override) heights,
-       plus the safe-area inset. Collapsed state is per-device (localStorage), not CSS. ── */
-  .my-tasks-strip {
-    position: fixed; inset-inline: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 940;
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 6px 12px; box-shadow: var(--shadow-md);
-  }
-  .my-tasks-strip ul { max-height: 40vh; overflow-y: auto; margin-top: 4px; }
-  /* room under the page for the collapsed strip (one line) so it never hides the last card */
-  body.sigma-nav-ready.has-my-tasks { padding-bottom: calc(84px + 48px); }
-  .my-tasks-toggle {
-    display: flex; align-items: center; justify-content: space-between; width: 100%;
-    background: none; border: none; font: inherit; color: inherit; padding: 4px 0; cursor: pointer;
-  }
-  .my-tasks-caret { font-size: 10px; color: var(--text-light); }
-  @media (min-width: 769px) {
-    /* Desktop has no fixed bottom bar (`.page-nav` sits in normal flow at the top) — the
-       strip does not need to float over anything, so it collapses back into the flow. */
-    .my-tasks-strip { position: static; inset-inline: auto; bottom: auto; margin: 0 0 16px; max-width: 420px; }
-  }

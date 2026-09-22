@@ -22,6 +22,7 @@ Ground rules: as `2026-09-22-phone-qa-round-2-design.md` (source-only commits, o
 - למחוק: הפס הצף (`MyInternalTasks` + `.my-tasks-strip` CSS + `body.has-my-tasks` + `#sigma-my-tasks` mount → ה-placeholder נשאר ריק או נמחק
   מ-index.html + `PmToday.tsx`). לעדכן `home-cards.spec` (הבדיקה של הפס), `internal-tasks.spec`, `InternalTasks.test`.
 - ספק: `qa/playwright/tests/my-tasks.spec.ts` (כותרת → גיליון → קבוצות → ✓ → היומן מציג).
+- ✅ בוצע (Opus). **נקודות הכניסה:** `openMyTasks()` ב-`app/src/islands/MyTasks.tsx` הוא השער היחיד — קוראים לו כפתור ✅ ב-`HeaderActions` (עם badge מ-`lib/myTasksBadge.ts`), שורת `my-tasks` ב-⋯ עוד, האירוע הגולמי `sigma-open-my-tasks` ו-`window.sigmaOpenMyTasks` (דיפ-לינק/לגאסי); האזור האישי כשיגיע = שורה אחת שקוראת לאותה פונקציה. הכללים טהורים ב-`app/src/lib/myTasks.ts`, שכבת `internal` ביומן ב-`app/src/lib/calendar.ts`.
 
 ## Package Y — עריכת קיבוץ ללא שרשרת EMS + שגיאה על אתר לא מקושר (Sonnet)
 עידן: "להעיף את השרשרת בדיקה מול ה-EMS. אני רוצה לקבל שגיאה אם יש אתר שלא מחובר ל-EMS — זה הדבר הכי לא תקין במערכת."

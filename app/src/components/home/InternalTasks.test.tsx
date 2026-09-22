@@ -66,7 +66,7 @@ vi.mock('@/lib/supabase', () => {
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 vi.mock('@/lib/query', () => ({ queryClient: qc }));
 
-const { InternalTasksSection, InternalTasksPanel, TaskAdders, MyInternalTasks, createInternalTask } = await import('./InternalTasks');
+const { InternalTasksSection, InternalTasksPanel, TaskAdders, createInternalTask } = await import('./InternalTasks');
 
 function withClient(node: React.ReactNode) {
   return <QueryClientProvider client={qc}>{node}</QueryClientProvider>;
@@ -165,20 +165,6 @@ describe('createInternalTask', () => {
   });
 });
 
-describe('MyInternalTasks', () => {
-  it('no open rows for this person → renders nothing', async () => {
-    rows.push(row({ owner: 'עמיחי' }));
-    const { container } = render(withClient(<MyInternalTasks person="עידן" canAct={true} />));
-    await waitFor(() => expect(container.firstChild).toBeNull());
-  });
-
-  it('shows the person\'s own open rows, including company-wide (kibbutz null)', async () => {
-    rows.push(row({ id: 'a', owner: 'עידן', kibbutz: null, title: 'לעדכן את המחירון' }));
-    render(withClient(<MyInternalTasks person="עידן" canAct={true} />));
-    // Collapsed by default (22.9): the count shows, the list opens on the toggle.
-    await waitFor(() => expect(screen.getByTestId('my-tasks-strip')).toBeTruthy());
-    expect(document.body.classList.contains('has-my-tasks')).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: /משימות פנימיות שלי/ }));
-    await waitFor(() => expect(screen.getByText('לעדכן את המחירון')).toBeTruthy());
-  });
-});
+// The floating "המשימות הפנימיות שלי" strip was retired in round 4 (Package X) — a person's
+// own rows now live in islands/MyTasks.tsx next to his EMS work, and are golden-tested by
+// lib/myTasks.test.ts + qa/playwright/tests/my-tasks.spec.ts.

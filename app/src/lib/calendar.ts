@@ -16,7 +16,7 @@ import { isHolidayEve, missingDaysFor, type AttRow, type Holiday } from './atten
 // ───────────────────────────── types ─────────────────────────────
 
 /** The three real layers + the soft absence band. */
-export type Layer = 'event' | 'visit' | 'ems' | 'absence';
+export type Layer = 'event' | 'visit' | 'ems' | 'internal' | 'absence';
 
 export type AbsenceKind = 'vacation' | 'reserve' | 'event';
 
@@ -52,6 +52,21 @@ export interface CalEmsTask {
   expectedCompletionDate?: string | null;
   site?: { id?: string; name?: string } | null;
   assignee?: { firstName?: string; lastName?: string } | null;
+}
+
+/**
+ * One 🔒 internal task, as the calendar needs it (round 4, Package X). Only the parts the
+ * grid reads — the full row lives in lib/internalTasks.ts, which this module deliberately
+ * does not import: `calendar.ts` describes its own inputs, the way `CalEmsTask` does.
+ */
+export interface CalInternalTask {
+  id: string;
+  title?: string;
+  owner?: string | null;
+  kibbutz?: string | null;
+  done?: boolean;
+  /** ISO date, or null. No date = no place on a calendar. */
+  due_date?: string | null;
 }
 
 export interface AbsenceRow {
@@ -92,6 +107,7 @@ export interface CalendarSources {
   events?: OfficeEvent[];
   visits?: VisitRow[];
   emsTasks?: CalEmsTask[];
+  internalTasks?: CalInternalTask[];
   absences?: AbsenceRow[];
 }
 
@@ -109,6 +125,7 @@ export const LAYER_LABELS: Record<Layer, string> = {
   event: '📅 אירועי משרד',
   visit: '📍 ביקורים',
   ems: '📋 משימות EMS',
+  internal: '🔒 משימות פנימיות',
   absence: '🌴 היעדרויות',
 };
 
@@ -421,7 +438,7 @@ export function weekView(anchor: string, holidays: Holiday[] = [], today = ymd(n
 /** Tasks in these statuses are finished — they never take up a day. Mirrors EMS_CLOSED. */
 const CLOSED = ['done', 'rejected', 'not_relevant', 'cancelled'];
 
-const LAYER_ORDER: Record<Layer, number> = { absence: 0, event: 1, visit: 2, ems: 3 };
+const LAYER_ORDER: Record<Layer, number> = { absence: 0, event: 1, visit: 2, ems: 3, internal: 4 };
 
 function personName(a: CalEmsTask['assignee']): string | null {
   if (!a) return null;
@@ -500,6 +517,25 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
         taskId: t.id,
       });
     }
+  }
+
+  // 🔒 internal tasks (round 4, Package X). They are NOT hidden by "הסתר משימות EMS": that
+  // toggle is about the EMS queue, and a person who hides it is not asking to lose his own
+  // follow-ups. An open row with a due date is a thing that happens on a day, so it gets one.
+  for (const r of src.internalTasks || []) {
+    const date = toKey(r.due_date);
+    if (!date || r.done) continue;
+    const who = (r.owner || '').trim() || null;
+    out.push({
+      key: 'internal:' + r.id,
+      date,
+      layer: 'internal',
+      icon: '🔒',
+      title: r.title || 'משימה פנימית',
+      kibbutz: (r.kibbutz || '').trim() || null,
+      person: who,
+      mine: isMine(who, me),
+    });
   }
 
   for (const a of src.absences || []) {

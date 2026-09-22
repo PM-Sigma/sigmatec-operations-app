@@ -148,6 +148,25 @@ describe('calendarItems', () => {
     expect(hidden.filter(i => i.layer === 'visit')).toHaveLength(2);
   });
 
+  it('places a 🔒 internal task on its due day, and leaves the dateless and the finished off (Package X)', () => {
+    const internalTasks = [
+      { id: 'i1', title: 'לעדכן את המחירון', owner: 'אביאם', kibbutz: null, done: false, due_date: '2026-09-08' },
+      { id: 'i2', title: 'בלי תאריך', owner: 'אביאם', kibbutz: 'דפנה', done: false, due_date: null },
+      { id: 'i3', title: 'כבר בוצע', owner: 'אביאם', kibbutz: 'דפנה', done: true, due_date: '2026-09-08' },
+      { id: 'i4', title: 'של מישהו אחר', owner: 'ניתאי', kibbutz: 'דפנה', done: false, due_date: '2026-09-09' },
+    ];
+    const withInternal = calendarItems({ internalTasks }, { me: 'אביאם' });
+    expect(withInternal.map(i => i.key)).toEqual(['internal:i1', 'internal:i4']);
+    const first = withInternal[0];
+    expect(first.date).toBe('2026-09-08');
+    expect(first.icon).toBe('🔒');
+    expect(first.kibbutz).toBeNull();
+    expect(first.mine).toBe(true);
+    expect(withInternal[1].mine).toBe(false);
+    // "הסתר משימות EMS" is about the EMS queue; it never takes a person's own follow-ups away.
+    expect(calendarItems({ internalTasks }, { me: 'אביאם', hideEms: true })).toHaveLength(2);
+  });
+
   it('exposes a Meet link only where Google gave one', () => {
     expect(items.find(i => i.key === 'event:ev1')!.meetLink).toBe('https://meet.google.com/abc-defg-hij');
     expect(items.find(i => i.key === 'event:ev2')!.meetLink).toBeUndefined();

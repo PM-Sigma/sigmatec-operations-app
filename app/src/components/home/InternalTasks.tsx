@@ -5,8 +5,11 @@
 //     no promote, no input: "no internal-task actions outside the card";
 //   · the kibbutz MODAL (islands/InternalModal.tsx) carries the actions — done, promote to
 //     EMS, and the ➕ that opens the form (InternalTaskSheet) with owner · due · priority · kind.
-// ONE module-scope bus listener for `internal-tasks-changed`, so 54 cards + "היום שלי"
+// ONE module-scope bus listener for `internal-tasks-changed`, so 54 cards + המשימות שלי
 // invalidate together; every write funnels through the pure decisions in lib/internalTasks.ts.
+//
+// Round 4, Package X: the third surface, the floating "המשימות הפנימיות שלי" strip, is gone.
+// A person's own rows now live in islands/MyTasks.tsx next to his EMS work.
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -14,7 +17,7 @@ import { sigma, sigmaBus, useCurrentUser } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
 import {
-  canWriteInternal, countBadge, dueLabel, isOverdueInternal, myOpen, openFor, priorityLabelOf,
+  canWriteInternal, countBadge, dueLabel, isOverdueInternal, openFor, priorityLabelOf,
   promoteToEms, toggleDone, type InternalTaskExtra, type InternalTaskRow,
 } from '@/lib/internalTasks';
 
@@ -238,68 +241,6 @@ export function InternalTasksPanel({ kibbutz, canAct }: { kibbutz: string; canAc
           <InternalTaskSheet kibbutz={kibbutz} open={open} onOpenChange={setOpen} />
         </React.Suspense>
       )}
-    </div>
-  );
-}
-
-const MY_TASKS_COLLAPSED_KEY = 'sigma_my_tasks_collapsed_v1';
-
-/** Per-device collapsed state for the "המשימות הפנימיות שלי" strip (Package O §4, 22.9 round 3). */
-function readMyTasksCollapsed(): boolean {
-  // Collapsed by default (עידן 22.9: the open list sat on top of every page's scroll); the
-  // person opens it on purpose and the choice is remembered on the device.
-  try { return localStorage.getItem(MY_TASKS_COLLAPSED_KEY) !== '0'; } catch { return true; }
-}
-function writeMyTasksCollapsed(v: boolean): void {
-  try { localStorage.setItem(MY_TASKS_COLLAPSED_KEY, v ? '1' : '0'); } catch { /* private mode */ }
-}
-
-/**
- * "היום שלי" — the person's own open 🔒 rows, company-wide and at every kibbutz. Mounted
- * standalone into `#sigma-my-tasks` (index.html, renamed from `#sigma-pm-today` in Package O
- * §4) — no kibbutz context, so no ⬆ promote here.
- *
- * A fixed, collapsible strip above the bottom bar on EVERY module (css/app.css
- * `.my-tasks-strip`), not only the kibbutz page — collapsed state is remembered per device.
- * Renders nothing (not even collapsed) when the person has no open rows of his own.
- */
-export function MyInternalTasks({ person, canAct }: { person: string; canAct: boolean }) {
-  const { data, isLoading } = useInternalTasks();
-  const [collapsed, setCollapsed] = React.useState(readMyTasksCollapsed);
-  const rows = myOpen(data, person);
-  const shown = !(isLoading && !data) && rows.length > 0;
-  // The strip floats above the bottom bar, so the page needs room under its last card —
-  // otherwise the strip covers the end of every list (עידן 22.9). css/app.css `.has-my-tasks`.
-  React.useEffect(() => {
-    document.body.classList.toggle('has-my-tasks', shown);
-    return () => { document.body.classList.remove('has-my-tasks'); };
-  }, [shown]);
-  if (!shown) return null;
-  const toggle = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    writeMyTasksCollapsed(next);
-  };
-  return (
-    <div className="my-tasks-strip" data-testid="my-tasks-strip">
-      <button
-        type="button"
-        className="my-tasks-toggle"
-        onClick={toggle}
-        aria-expanded={!collapsed}
-      >
-        <span className="flex items-center gap-1.5">
-          <span aria-hidden>🔒</span>
-          <span className="text-[12px] font-bold text-muted-foreground">
-            {collapsed ? <><bdi>{rows.length}</bdi> משימות פנימיות שלי</> : 'המשימות הפנימיות שלי'}
-          </span>
-          {!collapsed && (
-            <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground"><bdi>{rows.length}</bdi></span>
-          )}
-        </span>
-        <span aria-hidden className="my-tasks-caret">{collapsed ? '▲' : '▼'}</span>
-      </button>
-      {!collapsed && <ul>{rows.map(r => <InternalRow key={r.id} row={r} kibbutz={r.kibbutz ?? null} canAct={canAct} />)}</ul>}
     </div>
   );
 }

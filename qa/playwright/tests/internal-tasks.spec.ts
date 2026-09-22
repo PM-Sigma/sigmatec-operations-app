@@ -44,9 +44,15 @@ test('internal tasks: ➕ on the card → form → read-only row on the card →
   await expect(cardRow.locator('button')).toHaveCount(0);
   await shot(page, ti, 'card-row');
 
-  // ── it appears under "היום שלי" for its OWNER (ניתאי), so not for עידן here
-  // (Package O §4, 22.9 round 3: the strip moved from #sigma-pm-today to #sigma-my-tasks)
-  await expect(page.locator('#sigma-my-tasks').getByText('לבדוק את שער החשמל')).toHaveCount(0);
+  // ── it belongs to its OWNER (ניתאי), so it is not in עידן's "המשימות שלי" (round 4,
+  // Package X: the floating strip is gone; the sheet is what lists a person's own work).
+  await expect(page.locator('.my-tasks-strip')).toHaveCount(0);
+  await page.getByTestId('header-my-tasks').click();
+  const mine = page.getByTestId('my-tasks');
+  await expect(mine).toBeVisible();
+  await expect(mine.getByText('לבדוק את שער החשמל')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(mine).toHaveCount(0);
 
   // ── inside the kibbutz card: the panel with the actions
   await card.locator('.kibbutz-name').click();
