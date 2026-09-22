@@ -49,7 +49,7 @@ import {
   canSubmit, chapterState, draftAge, missingFields, nextChapter, prevChapter, resumeChapter,
   type ChapterDraft, type ChapterId, type ReturnedItem,
 } from '@/lib/visitDraft';
-import { pickableProducts, searchProducts } from '@/lib/productSearch';
+import { pickableProducts, productGroups, searchProducts } from '@/lib/productSearch';
 import { parseDayLog, readCatalog } from '@/lib/daylogChain';
 import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
 import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
@@ -592,6 +592,100 @@ function Stepper({ steps, current, onGo }: {
 
 // ───────────────────── C4 · מוצרים נוספים, searched by keyword ─────────────────────
 //
+// ── ציוד שסופק: the 3-column tile grid (QA round 3, J2) ──────────────────────────────────
+//
+// Parity with the legacy form (`renderProductsForVisitor` + `tileTap` in js/src/09-visits.js),
+// which round 1 built only there: products are grouped by category ('מונים' first), each group
+// is a 3-column grid of tiles in a-b-c order, one tap sets qty 1 and opens −/+/🗑 ON the tile
+// for ~3 s, and after that the tile falls back to the quiet name + count.
+
+const TILE_EDIT_MS = 3000;
+
+function ProductTiles({ groups, stock, qtyOf, setQty }: {
+  groups: Array<{ category: string; names: string[] }>;
+  stock: Record<string, number>;
+  qtyOf: (name: string) => number;
+  setQty: (name: string, qty: number) => void;
+}) {
+  const [editing, setEditing] = React.useState<string | null>(null);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The stepper closes itself, and the timer never outlives the sheet.
+  const hold = React.useCallback((name: string | null) => {
+    if (timer.current) clearTimeout(timer.current);
+    setEditing(name);
+    if (name) timer.current = setTimeout(() => setEditing(null), TILE_EDIT_MS);
+  }, []);
+  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const tap = (name: string) => {
+    // First tap picks ONE. A tap on an already-picked tile only re-opens the stepper, so a
+    // thumb landing twice never silently doubles the quantity.
+    if (qtyOf(name) < 1) setQty(name, 1);
+    hold(editing === name ? null : name);
+  };
+  const step = (name: string, d: number) => {
+    const max = stock[name] ?? Infinity;
+    const next = Math.max(0, Math.min(qtyOf(name) + d, max));
+    setQty(name, next);
+    hold(next > 0 ? name : null);
+  };
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="vc-tiles">
+      {groups.map(g => (
+        <div key={g.category}>
+          <div className="mb-1.5 text-[12px] font-bold text-muted-foreground" data-tile-head={g.category}>
+            {g.category}
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {g.names.map(name => {
+              const q = qtyOf(name);
+              const out = (stock[name] || 0) === 0 && q === 0;
+              const open = editing === name;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  data-product={name}
+                  data-qty={q || undefined}
+                  data-editing={open ? '1' : undefined}
+                  onClick={() => tap(name)}
+                  className={
+                    'relative flex min-h-[64px] flex-col justify-center gap-0.5 rounded-xl border px-1.5 py-2 text-center '
+                    + (q > 0 ? 'border-[color:var(--brand-1)] bg-primary/10 ' : 'border-border bg-card ')
+                    + (out ? 'opacity-55 ' : '')
+                  }
+                >
+                  <span className="line-clamp-2 text-[12.5px] font-bold leading-[1.25]"><bdi>{name}</bdi></span>
+                  {open ? (
+                    <span className="mt-0.5 flex items-center justify-center gap-1" onClick={e => e.stopPropagation()}>
+                      <span role="button" aria-label={'פחות: ' + name} data-step="-"
+                            onClick={() => step(name, -1)}
+                            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-border bg-muted text-[15px] font-bold">−</span>
+                      <bdi className="min-w-[16px] text-[13px] font-extrabold">{q}</bdi>
+                      <span role="button" aria-label={'עוד: ' + name} data-step="+"
+                            onClick={() => step(name, 1)}
+                            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-border bg-muted text-[15px] font-bold">+</span>
+                      <span role="button" aria-label={'הסר: ' + name} data-step="del"
+                            onClick={() => { setQty(name, 0); hold(null); }}
+                            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-border bg-muted text-[13px]">🗑</span>
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">
+                      {q > 0 ? <b className="text-[12.5px] text-foreground"><bdi>{q}</bdi></b> : <>במלאי <bdi>{stock[name] || 0}</bdi></>}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // The old field was a `<datalist>` matching a PREFIX of the exact catalog spelling, so "לנדיס"
 // and "360" found nothing and the product was typed as free text, where the stock ledger never
 // sees it. The rule is `@/lib/productSearch`; this is only its surface: one hit is offered as
@@ -1209,6 +1303,21 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     return pickableProducts([...stockNames, ...names.filter(n => !stockNames.includes(n))]);
   }, [stockNames, open]);
 
+  /** name → catalog category, for the tile grid's headings (J2). */
+  const categoryOf = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    try {
+      (sigma.products?.() || []).forEach((p: any) => {
+        if (p && p.name) map[String(p.name)] = String(p.category || '').trim();
+      });
+    } catch { /* no catalog reachable — everything lands under אחר */ }
+    return (name: string) => map[name] || '';
+  }, [open]);
+  const tileGroups = React.useMemo(
+    () => productGroups(stockNames, categoryOf),
+    [stockNames, categoryOf],
+  );
+
   const qtyOf = (name: string) => (d.products || []).find(p => p.name === name)?.qty || 0;
   const setQty = (name: string, qty: number) => {
     const rest = (d.products || []).filter(p => p.name !== name);
@@ -1291,25 +1400,9 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                       אין כרגע מלאי זמין. אם השארת משהו, תחפש אותו למטה או תכתוב אותו.
                     </p>
                   )}
-                  {stockNames.map(name => {
-                    const q = qtyOf(name);
-                    return (
-                      <div key={name} data-product={name} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-                        <span className="min-w-0 flex-1 text-[14px] font-semibold"><bdi>{name}</bdi></span>
-                        <span className="flex-none text-[11px] text-muted-foreground">במלאי <bdi>{stock[name]}</bdi></span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={stock[name]}
-                          value={q || ''}
-                          onChange={e => setQty(name, Math.max(0, Math.min(parseInt(e.target.value, 10) || 0, stock[name] || 0)))}
-                          aria-label={'כמות: ' + name}
-                          className="h-[40px] w-[64px] flex-none rounded-lg border border-border bg-muted text-center text-[15px] outline-none"
-                        />
-                      </div>
-                    );
-                  })}
+                  {!!tileGroups.length && (
+                    <ProductTiles groups={tileGroups} stock={stock} qtyOf={qtyOf} setQty={setQty} />
+                  )}
 
                   <ProductSearch
                     catalog={catalog}

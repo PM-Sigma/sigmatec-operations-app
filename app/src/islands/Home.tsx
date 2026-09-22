@@ -63,6 +63,7 @@ function HomeIsland() {
   const [editRow, setEditRow] = React.useState<KibbutzRow | null>(null);
   const [highlight, setHighlight] = React.useState<string | null>(null);
   const [prefillName, setPrefillName] = React.useState('');
+  const [prefillParent, setPrefillParent] = React.useState('');
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['kibbutzim'],
@@ -140,8 +141,13 @@ function HomeIsland() {
     return () => { document.body.classList.remove('sigma-home-ready'); };
   }, []);
 
-  const openCreate = React.useCallback(() => { setEditRow(null); setPrefillName(''); setSheetOpen(true); }, []);
-  const openEdit = React.useCallback((r: KibbutzRow) => { setEditRow(r); setPrefillName(''); setSheetOpen(true); }, []);
+  const openCreate = React.useCallback(() => { setEditRow(null); setPrefillName(''); setPrefillParent(''); setSheetOpen(true); }, []);
+  const openEdit = React.useCallback((r: KibbutzRow) => { setEditRow(r); setPrefillName(''); setPrefillParent(''); setSheetOpen(true); }, []);
+  // ➕ תת-אתר from inside ✏️ פרטי קיבוץ (D2): the same sheet re-opens in create mode, in
+  // ↳ תת-אתר kind, with this kibbutz already picked as the parent.
+  const openSubsite = React.useCallback((parentName: string) => {
+    setEditRow(null); setPrefillName(''); setPrefillParent(parentName); setSheetOpen(true);
+  }, []);
 
   // "➕ קיבוץ" in the ⋯ עוד sheet — the phone has no room for a header button.
   React.useEffect(() => {
@@ -160,6 +166,7 @@ function HomeIsland() {
         const existing = rows.find(r => r.name === name) || null;
         setEditRow(existing);
         setPrefillName(existing ? '' : (name || ''));
+        setPrefillParent('');
         setSheetOpen(true);
       },
     };
@@ -256,6 +263,8 @@ function HomeIsland() {
           onOpenChange={setSheetOpen}
           row={editRow}
           prefillName={prefillName}
+          prefillParent={prefillParent}
+          onAddSubsite={openSubsite}
           allRows={rows}
           user={user}
           onSaved={r => {

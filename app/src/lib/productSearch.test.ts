@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALIASES, MISSPELLINGS, isSimProduct, misspellingsFor, normalizeTerm,
-  pickableProducts, searchProducts,
+  pickableProducts, productGroups, searchProducts,
 } from './productSearch';
 
 /** The live Sheet catalog (js/src/09-visits.js PRODUCT_LIST) plus the בקר 504 row. */
@@ -155,5 +155,34 @@ describe('the escape hatches', () => {
   it('an empty catalog is an answer, not a crash', () => {
     expect(searchProducts('לנדיס', []).hits).toEqual([]);
     expect(searchProducts('לנדיס', null).hits).toEqual([]);
+  });
+});
+
+// ───────────── the tile grid inside ציוד שסופק (QA round 3, J2) ─────────────
+
+describe('productGroups', () => {
+  const catOf = (n: string) => ({
+    'מונה E570': 'מונים', 'מונה EM133': 'מונים',
+    'בקר 504': 'בקרים', 'אנטנה': 'תקשורת',
+  } as Record<string, string>)[n] || '';
+
+  it('מונים comes first, אחר last, the rest alphabetical he', () => {
+    const g = productGroups(['אנטנה', 'כבל', 'בקר 504', 'מונה E570'], catOf);
+    expect(g.map(x => x.category)).toEqual(['מונים', 'בקרים', 'תקשורת', 'אחר']);
+  });
+
+  it('a product with no category lands under אחר', () => {
+    const g = productGroups(['כבל'], catOf);
+    expect(g).toEqual([{ category: 'אחר', names: ['כבל'] }]);
+  });
+
+  it('names inside a group are a-b-c (he), not input order', () => {
+    const g = productGroups(['מונה EM133', 'מונה E570'], () => 'מונים');
+    expect(g[0].names).toEqual(['מונה E570', 'מונה EM133']);
+  });
+
+  it('nothing in, nothing out', () => {
+    expect(productGroups([], catOf)).toEqual([]);
+    expect(productGroups(null, catOf)).toEqual([]);
   });
 });

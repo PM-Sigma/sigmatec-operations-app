@@ -109,3 +109,58 @@ test('kibbutz sheet: עידן may change the energy types', async ({ page }, ti)
 
   expectNoConsoleErrors(rec);
 });
+
+// ───────────── QA round 3 (D2): קוד לקוח · תתי-אתרים · קטגוריה ─────────────
+
+test('kibbutz sheet: קוד לקוח, תתי-אתרים and the one קטגוריה group', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  // יגור is the fixture kibbutz that HAS a sub-site (יגור — רפת) and a code in the legacy map.
+  await page.locator('#sigma-home .kibbutz[data-name="יגור"] .kibbutz-name').click();
+  await page.locator('#modalSub .modal-edit-kibbutz').click();
+  await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
+
+  // קוד לקוח — prefilled from the row, or from the legacy CUSTOMER_CODES map while the
+  // column is not applied yet. It is editable, and digits only.
+  const code = page.locator('#kibCode');
+  await expect(code).toBeVisible();
+  await expect(code).toHaveValue('940');
+  await code.fill('');
+  await code.type('12a3');
+  await expect(code).toHaveValue('123');
+
+  // קטגוריה — מדור and 🤝 שיווקי under ONE heading, not two loose controls.
+  await expect(page.getByText('קטגוריה', { exact: true })).toBeVisible();
+  const cat = page.locator('#kibCategory');
+  await expect(cat.getByRole('radio', { name: '✅ פעיל' })).toHaveAttribute('data-state', 'on');
+  await expect(cat.getByText('🤝 בתהליך שיווקי')).toBeVisible();
+
+  // תתי-אתרים — the rows filed under this kibbutz, and a ➕ that re-opens the sheet in
+  // sub-site mode with יגור already picked as the parent.
+  await expect(page.locator('#kibSubsites [data-subsite="יגור — רפת"]')).toBeVisible();
+  await shot(page, ti, 'details');
+
+  await page.getByTestId('kib-add-subsite').click();
+  await expect(page.getByRole('heading', { name: '➕ קיבוץ חדש' })).toBeVisible();
+  await expect(page.getByRole('radio', { name: '↳ תת-אתר של קיבוץ קיים' })).toHaveAttribute('data-state', 'on');
+  await expect(page.locator('#kibParent')).toHaveValue('יגור');
+  await expect(page.locator('#kibName')).toHaveValue('');
+
+  expectNoConsoleErrors(rec);
+});
+
+test('kibbutz sheet: a kibbutz with no sub-sites says so, and the code may be left empty', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] .kibbutz-name').click();
+  await page.locator('#modalSub .modal-edit-kibbutz').click();
+  await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
+
+  await expect(page.locator('#kibSubsites')).toContainText('אין תתי-אתרים');
+  // כפר עזה is not in the legacy map → the field starts empty, which is allowed
+  await expect(page.locator('#kibCode')).toHaveValue('');
+  // 🤝 שיווקי is on for this fixture row, and it lives inside the קטגוריה group
+  await expect(page.locator('#kibCategory #kibMkt')).toHaveAttribute('data-state', 'checked');
+
+  expectNoConsoleErrors(rec);
+});

@@ -1164,6 +1164,15 @@
   .card-ems-task .ems-badge { flex-shrink:0;white-space:nowrap;margin-right:0;font-size:10px;padding:2px 6px; }
   .card-ems-task.overdue .t-title { color:#b91c1c; }
 
+  /* Inside the kibbutz card (QA round 3, D4): the row is READ, not scanned, so it stacks —
+     title row, the full description, 👤/📅, and the priority/type bubbles at the bottom-left. */
+  .modal-ems-task { display:block; }
+  .modal-ems-task .t-head { display:flex;align-items:center;gap:7px; }
+  .modal-ems-task .t-desc { margin-top:5px;font-size:12.5px;line-height:1.55;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere; }
+  .modal-ems-task .t-meta { display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:5px;font-size:11.5px;color:var(--muted);font-weight:600; }
+  .modal-ems-task .t-bubbles { display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;justify-content:flex-end; } /* RTL: end = the LEFT edge */
+  .modal-ems-task .t-bubbles .ems-badge { font-size:10px;padding:2px 7px; }
+
 
 
   /* Day type — the mockup's `.seg` geometry (44 px targets, gradient BORDER when chosen, no

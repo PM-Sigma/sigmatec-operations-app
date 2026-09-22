@@ -17,19 +17,27 @@ import { sigma } from '@/bridge';
 import { sbWrite } from '@/lib/supabase';
 import { emsChainRun } from '@/lib/emsChain';
 import {
-  ENERGY_LABEL, ENERGY_LOCK_TITLE, canEditEnergy, emsChainPlan, emsChainReduce,
-  energyOf, kibbutzimSaveBody, labelOf, regionOrder, sectionOf, validateKibbutz,
+  ENERGY_LABEL, ENERGY_LOCK_TITLE, canEditEnergy, customerCodeOf, emsChainPlan, emsChainReduce,
+  energyOf, isMissingCustomerCodeColumn, kibbutzimSaveBody, labelOf, regionOrder, sectionOf,
+  subsitesOf, validateKibbutz, withoutCustomerCode,
   type ChainInput, type ChainStep, type Energy, type KibbutzRow, type Section,
 } from '@/lib/kibbutzim';
 
 const ENERGIES: Energy[] = ['electric', 'water', 'gas'];
+
+/** The hard-coded CUSTOMER_CODES map in the legacy bundle — the fallback for a row with no
+ *  `customer_code` of its own (db/kibbutzim_code.sql not applied, or a code never typed). */
+function legacyCode(name: string): string {
+  try { return String((window as any).customerCodeFor?.(name) || ''); } catch { return ''; }
+}
 
 const fieldLabel = 'mb-1 mt-2.5 block text-xs font-bold text-muted-foreground';
 const fieldBox =
   'w-full min-h-[48px] rounded-xl border border-border bg-muted px-3 py-2.5 text-base outline-none focus:border-[color:var(--brand-1)]';
 
 export function KibbutzSheet({
-  open, onOpenChange, row, allRows, user, onSaved, onArchived, prefillName,
+  open, onOpenChange, row, allRows, user, onSaved, onArchived, prefillName, prefillParent,
+  onAddSubsite,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -37,6 +45,10 @@ export function KibbutzSheet({
   row: KibbutzRow | null;
   /** Create mode only: the name to start from (the import preview's "צור קיבוץ"). */
   prefillName?: string;
+  /** Create mode only: open straight in ↳ תת-אתר mode with this kibbutz as the parent (D2). */
+  prefillParent?: string;
+  /** ➕ next to תתי-אתרים — the host re-opens this sheet in sub-site mode with the parent preset. */
+  onAddSubsite?: (parentName: string) => void;
   allRows: KibbutzRow[];
   user: string;
   onSaved: (row: KibbutzRow) => void;
@@ -51,6 +63,7 @@ export function KibbutzSheet({
   const [section, setSection] = React.useState<Section>('new');
   const [region, setRegion] = React.useState('');
   const [energy, setEnergy] = React.useState<Energy[]>(['electric']);
+  const [code, setCode] = React.useState('');
   const [marketing, setMarketing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [running, setRunning] = React.useState(false);
@@ -62,15 +75,23 @@ export function KibbutzSheet({
   // Reset the form every time the sheet opens, so a previous edit can never bleed into a create.
   React.useEffect(() => {
     if (!open) return;
-    setKind(row?.kind === 'subsite' ? 'subsite' : 'kibbutz');
+    setKind(row?.kind === 'subsite' || (!row && prefillParent) ? 'subsite' : 'kibbutz');
     setName(row?.name || prefillName || '');
-    setParent(row?.parent || '');
+    setParent(row?.parent || (!row ? (prefillParent || '') : ''));
+    setCode(customerCodeOf(row, row ? legacyCode(row.name) : ''));
     setSection(row ? sectionOf(row) : 'new');
     setRegion(row?.region || '');
     setEnergy(row ? energyOf(row) : ['electric']);
     setMarketing(!!row?.marketing);
     setSteps([]); setChain(null); setAllowUnlinked(false); setConfirmArchive(false); setSaving(false);
-  }, [open, row, prefillName]);
+  }, [open, row, prefillName, prefillParent]);
+
+  // The sub-sites filed under THIS kibbutz (D2). Edit mode only: a kibbutz that does not
+  // exist yet cannot have any.
+  const subsites = React.useMemo(
+    () => (row && row.kind !== 'subsite' ? subsitesOf(allRows, row.name) : []),
+    [allRows, row],
+  );
 
   const parents = React.useMemo(
     () => allRows.filter(r => !r.archived_at && r.kind !== 'subsite' && r.name !== row?.name)
@@ -140,6 +161,7 @@ export function KibbutzSheet({
       parent: kind === 'subsite' ? parent : null,
       ems_site_ids: reduced?.ems_site_ids?.length ? reduced.ems_site_ids : row?.ems_site_ids,
       ems_params: reduced?.ems_params || row?.ems_params,
+      customer_code: code.trim() === '' ? null : (Number(code.trim()) as number),
       created_by: row?.created_by || user,
     };
     const v = validateKibbutz(draft, allRows);
@@ -160,9 +182,19 @@ export function KibbutzSheet({
       // Editing is an UPDATE BY ID, never an upsert on `name`: renaming a kibbutz through an
       // on_conflict=name upsert would insert a second row (new name) or trip the primary key.
       const isCreate = !row?.id;
-      const data = await sbWrite<KibbutzRow>(sb => (row?.id
-        ? sb.from('kibbutzim').update(body).eq('id', row.id).select().single()
-        : sb.from('kibbutzim').insert(body).select().single()) as any);
+      const write = (b: Record<string, unknown>) => sbWrite<KibbutzRow>(sb => (row?.id
+        ? sb.from('kibbutzim').update(b).eq('id', row.id).select().single()
+        : sb.from('kibbutzim').insert(b).select().single()) as any);
+      // db/kibbutzim_code.sql may not be applied on this database yet — a PGRST204 about
+      // `customer_code` is a missing migration, not a bad save, so retry without the key.
+      let data: KibbutzRow | null = null;
+      try {
+        data = await write(body);
+      } catch (e) {
+        if (!isMissingCustomerCodeColumn(e)) throw e;
+        data = await write(withoutCustomerCode(body));
+        toast.warning('קוד הלקוח לא נשמר. חסרה העמודה customer_code בבסיס הנתונים');
+      }
       // 🆕 לקוח חדש — spawn the onboarding checklist (Task 27, spec §4). Best-effort: a
       // template hiccup must never block the kibbutz itself from being created.
       if (isCreate && section === 'new') {
@@ -252,6 +284,19 @@ export function KibbutzSheet({
           autoComplete="off"
         />
 
+        {/* קוד לקוח (D2) — the internal customer number, editable at last. Optional: a brand
+            new customer gets his number later, and an empty field clears a wrong one. */}
+        <label className={fieldLabel} htmlFor="kibCode">קוד לקוח</label>
+        <input
+          id="kibCode"
+          className={fieldBox}
+          value={code}
+          inputMode="numeric"
+          onChange={e => setCode(e.target.value.replace(/[^0-9]/g, ''))}
+          placeholder="לדוגמה 966. אפשר להשאיר ריק"
+          autoComplete="off"
+        />
+
         {!isSub && (
           <>
             {/* An איזור is required (spec §2) — the cards are GROUPED by it, so skipping the
@@ -263,12 +308,6 @@ export function KibbutzSheet({
                    onChange={e => setRegion(e.target.value)} placeholder="בחר איזור" autoComplete="off" />
             <datalist id="kibRegions">{regions.map(r => <option key={r} value={r} />)}</datalist>
 
-            <label className={fieldLabel}>מדור</label>
-            <ToggleGroup type="single" value={section} onValueChange={v => v && setSection(v as Section)}
-                         className="grid grid-cols-2 gap-2">
-              <ToggleGroupItem value="new" className="h-auto min-h-[48px] rounded-xl border border-border bg-muted font-bold data-[state=on]:border-[color:var(--brand-1)] data-[state=on]:bg-primary/10">🆕 לקוח חדש</ToggleGroupItem>
-              <ToggleGroupItem value="active" className="h-auto min-h-[48px] rounded-xl border border-border bg-muted font-bold data-[state=on]:border-[color:var(--brand-1)] data-[state=on]:bg-primary/10">✅ פעיל</ToggleGroupItem>
-            </ToggleGroup>
           </>
         )}
         {isSub && parentRow && (
@@ -302,10 +341,55 @@ export function KibbutzSheet({
           })}
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
-          <Switch id="kibMkt" checked={marketing} onCheckedChange={setMarketing} />
-          <label htmlFor="kibMkt" className="text-sm font-semibold">🤝 בתהליך שיווקי</label>
+
+        {/* קטגוריה (D2) — מדור and 🤝 שיווקי are one question ("what kind of customer is this"),
+            so they sit under one heading instead of two unrelated controls. */}
+        <label className={fieldLabel}>קטגוריה</label>
+        <div id="kibCategory" className="rounded-xl border border-border bg-muted/50 p-2.5">
+          {!isSub && (
+            <ToggleGroup type="single" value={section} onValueChange={v => v && setSection(v as Section)}
+                         className="grid grid-cols-2 gap-2">
+              <ToggleGroupItem value="new" className="h-auto min-h-[48px] rounded-xl border border-border bg-muted font-bold data-[state=on]:border-[color:var(--brand-1)] data-[state=on]:bg-primary/10">🆕 לקוח חדש</ToggleGroupItem>
+              <ToggleGroupItem value="active" className="h-auto min-h-[48px] rounded-xl border border-border bg-muted font-bold data-[state=on]:border-[color:var(--brand-1)] data-[state=on]:bg-primary/10">✅ פעיל</ToggleGroupItem>
+            </ToggleGroup>
+          )}
+          <div className={'flex items-center gap-2' + (isSub ? '' : ' mt-2.5')}>
+            <Switch id="kibMkt" checked={marketing} onCheckedChange={setMarketing} />
+            <label htmlFor="kibMkt" className="text-sm font-semibold">🤝 בתהליך שיווקי</label>
+          </div>
         </div>
+
+        {/* תתי-אתרים (D2) — every row filed under this kibbutz, and a ➕ that opens this same
+            sheet in sub-site mode with the parent already picked. */}
+        {editing && !isSub && (
+          <>
+            <div className="mb-1 mt-2.5 flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-muted-foreground">
+                תתי-אתרים{subsites.length ? ' · ' + subsites.length : ''}
+              </span>
+              {!!onAddSubsite && (
+                <button
+                  type="button"
+                  data-testid="kib-add-subsite"
+                  onClick={() => onAddSubsite(row!.name)}
+                  className="min-h-[36px] rounded-xl border border-border bg-muted px-3 text-[13px] font-semibold"
+                >
+                  ➕ תת-אתר
+                </button>
+              )}
+            </div>
+            <div id="kibSubsites" className="flex flex-col gap-1.5">
+              {subsites.length
+                ? subsites.map(sub => (
+                    <div key={sub.name} data-subsite={sub.name}
+                         className="flex min-h-[40px] items-center gap-2 rounded-xl border border-border bg-card px-3 text-[13.5px] font-semibold">
+                      <span>↳</span><bdi className="min-w-0 flex-1 truncate">{labelOf(sub)}</bdi>
+                    </div>
+                  ))
+                : <p className="text-xs text-muted-foreground">אין תתי-אתרים. ➕ מוסיף אחד תחת הקיבוץ הזה.</p>}
+            </div>
+          </>
+        )}
 
         <div className="mt-3 flex items-center justify-between gap-2">
           <span className="text-xs font-bold text-muted-foreground">

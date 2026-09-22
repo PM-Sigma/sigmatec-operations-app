@@ -16,6 +16,8 @@ export interface KibbutzRow {
   region?: string | null;
   kind?: Kind | null;
   parent?: string | null;
+  /** קוד לקוח — the internal customer number (db/kibbutzim_code.sql). */
+  customer_code?: number | null;
   ems_params?: EmsParams | null;
   ems_site_ids?: string[] | null;
   archived_at?: string | null;
@@ -65,6 +67,30 @@ export const energyText = (row: KibbutzRow): string =>
 export const sectionOf = (row: KibbutzRow): Section => (row?.section === 'new' ? 'new' : 'active');
 
 export const isSubsite = (row: KibbutzRow): boolean => row?.kind === 'subsite' && !!row.parent;
+
+// ───────────────────────────── קוד לקוח (QA round 3, D2) ─────────────────────────────
+
+/**
+ * The code shown in ✏️ פרטי קיבוץ. The ROW wins: `customer_code` is the editable truth
+ * (db/kibbutzim_code.sql). The hard-coded `CUSTOMER_CODES` map in js/src/01-data.js stays
+ * only as the fallback for a row that has no code yet (or a client talking to a database
+ * where the column was not applied), which the caller passes in as `fallback`.
+ */
+export function customerCodeOf(row: KibbutzRow | null | undefined, fallback?: number | string | null): string {
+  const own = row?.customer_code;
+  if (own !== null && own !== undefined && String(own).trim() !== '') return String(own);
+  return fallback === null || fallback === undefined ? '' : String(fallback).trim();
+}
+
+/** The sub-site rows filed under `name`, alphabetical he. Pure — the sheet only renders it. */
+export function subsitesOf(rows: KibbutzRow[] | null | undefined, name: string): KibbutzRow[] {
+  const parent = String(name || '').trim();
+  if (!parent) return [];
+  return (rows || [])
+    .filter(r => r && !r.archived_at && r.kind === 'subsite' && String(r.parent || '').trim() === parent)
+    .slice()
+    .sort((a, b) => labelOf(a).localeCompare(labelOf(b), 'he'));
+}
 
 // ───────────────────────────── grouping ─────────────────────────────
 
@@ -213,6 +239,24 @@ export function validateKibbutz(row: KibbutzRow, allRows: KibbutzRow[] = []): Va
   if (!energy.length) errors.push('יש לבחור לפחות סוג אנרגיה אחד');
   else out.energy = energy;
 
+  // קוד לקוח is OPTIONAL (a brand-new customer has no number yet) but when it is typed it is
+  // a whole positive number, and it may not collide with another live kibbutz's code — two
+  // rows sharing a code is exactly the ambiguity the map used to make impossible.
+  const rawCode = row?.customer_code;
+  if (rawCode === null || rawCode === undefined || String(rawCode).trim() === '') {
+    out.customer_code = null;
+  } else {
+    const code = Number(String(rawCode).trim());
+    if (!Number.isInteger(code) || code <= 0) errors.push('קוד לקוח חייב להיות מספר שלם חיובי');
+    else {
+      out.customer_code = code;
+      const codeClash = (allRows || []).find(r =>
+        r && !r.archived_at && Number(r.customer_code) === code
+        && !(row.id && r.id === row.id) && r.name !== name);
+      if (codeClash) errors.push('קוד הלקוח הזה כבר משויך ל' + labelOf(codeClash));
+    }
+  }
+
   if (isSubsite(out) || out.kind === 'subsite') {
     out.kind = 'subsite';
     const parent = (allRows || []).find(r => r && r.name === out.parent && !r.archived_at);
@@ -254,6 +298,9 @@ export function kibbutzimSaveBody(row: KibbutzRow, user: string): Record<string,
     kind: row.kind === 'subsite' ? 'subsite' : 'kibbutz',
     parent: row.kind === 'subsite' ? (row.parent || null) : null,
   };
+  // A row with no code sends an explicit null, so clearing a wrong code actually clears it.
+  body.customer_code = row.customer_code === null || row.customer_code === undefined
+    ? null : Number(row.customer_code);
   if (row.id) body.id = row.id;
   if (row.ems_site_ids) body.ems_site_ids = row.ems_site_ids;
   if (row.ems_params) body.ems_params = row.ems_params;
@@ -425,4 +472,27 @@ export function emsChainReduce(input: ChainInput, now = new Date().toISOString()
     warnings,
     steps,
   };
+}
+
+// ───────────────────────── tolerating a database without the column ─────────────────────────
+
+/**
+ * `db/kibbutzim_code.sql` may not have been applied yet on the database this client is
+ * talking to. PostgREST answers such a write with PGRST204 ("Could not find the
+ * 'customer_code' column") — that is a MISSING MIGRATION, not a bad save, so the sheet
+ * retries the same body without the key instead of showing the person an error he cannot act on.
+ */
+export function isMissingCustomerCodeColumn(err: unknown): boolean {
+  const e = err as any;
+  const code = String(e?.code || '');
+  const msg = String(e?.message || e || '');
+  if (!/customer_code/.test(msg)) return false;
+  return code === 'PGRST204' || code === '42703' || /could not find|does not exist/i.test(msg);
+}
+
+/** The same save body minus `customer_code` — what the retry above sends. */
+export function withoutCustomerCode(body: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...body };
+  delete out.customer_code;
+  return out;
 }

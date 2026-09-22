@@ -468,6 +468,58 @@
   // Open the EMS create-task modal from a kibbutz card, pre-selecting the matching site.
   // Update-tab EMS section (below status): show the open EMS task(s) to act on, or a
   // "create new" button. Both lead to the EMS login when not connected.
+  // ── the EMS section INSIDE the kibbutz card (QA round 3, D4) ──────────────────────
+  //
+  // PURE row builder: one open EMS task -> the HTML of its row. Inside the card the person is
+  // reading, not scanning, so the row carries the whole story: title, status, the FULL
+  // description (no clamp), 👤 who and 📅 when, and it closes with two small bubbles at the
+  // bottom-left: priority and type. No DOM, no globals. Every label map and the escaper come
+  // in as arguments, which is what lets test-modal-ems.mjs pin it against plain objects.
+  function emsModalTaskRow(t, L, esc) {
+    var task = t || {};
+    var lab = L || {};
+    var e = esc || function (v) { return String(v == null ? '' : v); };
+    var status = lab.status || {};
+    var priority = lab.priority || {};
+    var type = lab.type || {};
+    var dot = lab.dot || {};
+
+    var a = task.assignee || null;
+    var who = a ? [a.firstName || '', a.lastName || ''].join(' ').trim() : '';
+    var due = emsModalDueText(task.expectedCompletionDate);
+
+    var meta = '';
+    if (who) meta += '<span class="t-who">👤 ' + e(who) + '</span>';
+    if (due) meta += '<span class="t-due">📅 ' + e(due) + '</span>';
+
+    var bubbles =
+      '<span class="ems-badge priority-' + e(task.priority || '') + '">' +
+        e(priority[task.priority] || task.priority || '') + '</span>' +
+      '<span class="ems-badge type-' + e(task.type || '') + '">' +
+        e(type[task.type] || task.type || '') + '</span>';
+
+    return '<div class="card-ems-task modal-ems-task status-' + e(task.status || '') + '"' +
+      ' data-task="' + e(task.id || '') + '"' +
+      ' onclick="emsModalTaskClick(&#39;' + e(task.id || '') + '&#39;)" style="cursor:pointer;margin:4px 0;">' +
+      '<div class="t-head">' +
+        '<span class="t-dot" style="background:' + (dot[task.priority] || '#94a3b8') + '"></span>' +
+        '<span class="t-title">' + e(task.title || '') + '</span>' +
+        '<span class="ems-badge status-' + e(task.status || '') + '">' +
+          e(status[task.status] || task.status || '') + '</span>' +
+      '</div>' +
+      (task.description ? '<div class="t-desc">' + e(task.description) + '</div>' : '') +
+      (meta ? '<div class="t-meta">' + meta + '</div>' : '') +
+      '<div class="t-bubbles">' + bubbles + '</div>' +
+      '</div>';
+  }
+  // d.M of an ISO date, the same short form the card widget uses (app/src/lib/emsTasks.ts).
+  function emsModalDueText(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.getDate() + '.' + (d.getMonth() + 1);
+  }
+
   function prepModalEmsSection(name) {
     const box = document.getElementById('modalEmsSection');
     if (!box) return;
@@ -487,7 +539,8 @@
     if (tasks.length) {
       let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">' +
               '<div style="font-size:13px;font-weight:800;color:var(--accent-fg);">📋 משימת EMS פתוחה, לחץ לעדכון/תגובה:</div>' + newBubble + '</div>';
-      tasks.forEach(t => { h += '<div class="card-ems-task status-' + t.status + '" onclick="emsModalTaskClick(\'' + t.id + '\')" style="cursor:pointer;margin:4px 0;"><span class="t-dot" style="background:' + (EMS_PRIORITY_DOT[t.priority] || '#94a3b8') + '"></span><span class="t-title">' + emsEsc(t.title) + '</span><span class="ems-badge status-' + t.status + '">' + (EMS_STATUS[t.status] || t.status) + '</span></div>'; });
+      const labels = { status: EMS_STATUS, priority: EMS_PRIORITY, type: EMS_TYPE, dot: EMS_PRIORITY_DOT };
+      tasks.forEach(t => { h += emsModalTaskRow(t, labels, emsEsc); });
       box.innerHTML = h;
     } else {
       box.innerHTML = newBtnFull;

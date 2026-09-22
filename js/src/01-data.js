@@ -125,7 +125,19 @@
   // cards has no use for an internal number, and "⚠️ אין קוד" was a warning about a fact he
   // cannot act on. It lives in the kibbutz modal's header, next to the name, as a muted
   // <bdi> — see `paintModalCode()` below, called by openEditModal.
-  window.customerCodeFor = function (name) { return CUSTOMER_CODES[name] || ''; };
+  // QA round 3 (D2): the code is EDITABLE in ✏️ פרטי קיבוץ, so the `kibbutzim` row wins and
+  // the map above is only the fallback for a row that has no code yet (or a client talking to
+  // a database where db/kibbutzim_code.sql was never applied).
+  window.customerCodeFor = function (name) {
+    var rows = (typeof window !== 'undefined' && window.KIBBUTZIM) || [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r && r.name === name && r.customer_code !== null && r.customer_code !== undefined && r.customer_code !== '') {
+        return String(r.customer_code);
+      }
+    }
+    return CUSTOMER_CODES[name] || '';
+  };
 
   // Kept as a NO-OP: sigma.decorateCards() and the legacy passes both call it by name, and a
   // missing function would take the whole decorating pass down with it.
