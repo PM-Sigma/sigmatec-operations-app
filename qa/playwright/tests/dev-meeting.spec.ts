@@ -119,6 +119,24 @@ test('dev meeting: accepting a proposal moves the card with the existing action,
   expectNoConsoleErrors(rec);
 });
 
+test('dev meeting: fits the phone width and the stopwatch starts on demand', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { storage: EMS });
+  await openDevMeeting(page);
+
+  const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflowX).toBeLessThanOrEqual(1);
+
+  await expect(page.getByTestId('dev-timer')).toHaveText('00:00');
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('dev-timer')).toHaveText('00:00');
+  await page.getByTestId('dev-timer-toggle').click();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('dev-timer')).not.toHaveText('00:00');
+
+  await shot(page, ti, 'phone-fit');
+  expectNoConsoleErrors(rec);
+});
+
 test('dev meeting: a viewer never gets the screen', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה', storage: EMS, ready: '' });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-dev-presenter')));
