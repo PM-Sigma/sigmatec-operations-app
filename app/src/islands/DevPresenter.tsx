@@ -21,7 +21,7 @@ import * as React from 'react';
 import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Pause, Play, X } from 'lucide-react';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
@@ -219,7 +219,9 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
   const [idx, setIdx] = React.useState(0);
   // F14 ①: the session row, the clock and the event log are ONE hook now, shared with
   // ▶ מצב ישיבה (islands/Presenter) — the two screens ran identical copies of all three.
-  const { session, seconds, log, endSession } = useMeetingRun('dev', me, today);
+  const {
+    session, seconds, running, start: startClock, pause: pauseClock, log, endSession,
+  } = useMeetingRun('dev', me, today);
   const logged = React.useRef<string>('');
 
   const walk = prep.walk;
@@ -297,12 +299,21 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
       dir="rtl"
       className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-background p-4 sm:p-8"
     >
-      <header className="flex flex-wrap items-center gap-3 border-b border-border pb-3">
-        <span data-testid="dev-timer" className="text-[22px] font-extrabold tabular-nums text-foreground">
+      <header className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border pb-3">
+        <button
+          type="button"
+          data-testid="dev-timer-toggle"
+          onClick={() => (running ? pauseClock() : startClock())}
+          aria-label={running ? 'עצירת השעון' : 'הפעלת השעון'}
+          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+        >
+          {running ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
+        </button>
+        <span data-testid="dev-timer" className="text-[20px] font-extrabold tabular-nums text-foreground">
           <bdi>{clockText(seconds)}</bdi>
         </span>
         {phase === 'walk' && (
-          <span data-testid="dev-counter" className="text-[15px] font-extrabold text-muted-foreground">
+          <span data-testid="dev-counter" className="text-[14px] font-extrabold text-muted-foreground">
             <bdi>{n ? Math.min(idx + 1, n) : 0} / {n}</bdi>
           </span>
         )}
@@ -312,7 +323,7 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
           data-testid="dev-exit"
           onClick={() => void finish()}
           aria-label="סגירה"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border text-foreground"
+          className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-border text-foreground"
         >
           <X size={18} aria-hidden />
         </button>

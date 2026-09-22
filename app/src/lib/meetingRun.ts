@@ -16,6 +16,12 @@ export interface MeetingRun {
   session: MeetingSessionRow | null;
   /** Seconds since the meeting started, ticking. */
   seconds: number;
+  /** Whether the visible clock is ticking. Starts false: the row opens for logging, the clock does not. */
+  running: boolean;
+  /** Start (or resume) the visible clock. */
+  start: () => void;
+  /** Pause the visible clock; `seconds` freezes where it is. */
+  pause: () => void;
   /** Append one event. A no-op without a session id. */
   log: (kind: MeetingEventKind, payload?: Record<string, unknown>) => Promise<void>;
   /** Stamp `ended_at`. Safe to call with no session. */
@@ -30,6 +36,13 @@ export interface MeetingRun {
 export function useMeetingRun(kind: string, host: string | null, today: string): MeetingRun {
   const [session, setSession] = React.useState<MeetingSessionRow | null>(null);
   const [seconds, setSeconds] = React.useState(0);
+  // The clock is separate from the session: the row opens on mount for logging (per the "the
+  // meeting runs even if nothing can be written" rule), but the visible stopwatch only ticks
+  // once the person presses start, and freezes on pause. `runningSinceRef` holds the wall-clock
+  // moment the current run started; `baseRef` holds seconds already accumulated before that.
+  const [running, setRunning] = React.useState(false);
+  const runningSinceRef = React.useRef<Date | null>(null);
+  const baseRef = React.useRef(0);
 
   // Opened once, on mount.
   React.useEffect(() => {
@@ -49,10 +62,28 @@ export function useMeetingRun(kind: string, host: string | null, today: string):
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
-    const t = window.setInterval(() => setSeconds(tSec(session?.started_at, new Date())), 1000);
-    setSeconds(tSec(session?.started_at, new Date()));
+    if (!running) return;
+    const tick = () => {
+      const since = runningSinceRef.current;
+      setSeconds(baseRef.current + (since ? tSec(since.toISOString(), new Date()) : 0));
+    };
+    tick();
+    const t = window.setInterval(tick, 1000);
     return () => window.clearInterval(t);
-  }, [session?.started_at]);
+  }, [running]);
+
+  const start = React.useCallback(() => {
+    if (runningSinceRef.current) return; // already running
+    runningSinceRef.current = new Date();
+    setRunning(true);
+  }, []);
+
+  const pause = React.useCallback(() => {
+    const since = runningSinceRef.current;
+    if (since) baseRef.current += tSec(since.toISOString(), new Date());
+    runningSinceRef.current = null;
+    setRunning(false);
+  }, []);
 
   const log = React.useCallback(async (k: MeetingEventKind, payload: Record<string, unknown> = {}) => {
     if (!session?.id) return;
@@ -72,5 +103,51 @@ export function useMeetingRun(kind: string, host: string | null, today: string):
     } catch { /* the screen closes either way */ }
   }, [session]);
 
-  return { session, seconds, log, endSession };
+  return { session, seconds, running, start, pause, log, endSession };
+}
+
+// ───────────────────────── since the previous meeting ─────────────────────────
+
+/** A task shape common to EMS and internal tasks, reduced to what "since last meeting" needs. */
+export interface SinceLastTask {
+  id: string;
+  title: string;
+  /** ISO timestamp the task was opened/created. */
+  openedAt: string;
+  /** ISO timestamp the task was closed, or null/undefined while still open. */
+  closedAt?: string | null;
+}
+
+export interface SinceLastMeeting {
+  /** Opened after the previous meeting and still open. */
+  openedSince: SinceLastTask[];
+  /** Opened after the previous meeting and since closed. */
+  closedSince: SinceLastTask[];
+}
+
+const EMPTY_SINCE_LAST: SinceLastMeeting = { openedSince: [], closedSince: [] };
+
+/**
+ * Pure split of "what happened since the previous meeting" for one kibbutz's tasks:
+ * everything opened strictly after `previousMeetingDate` (an ISO date/timestamp), split into
+ * still-open vs. since-closed. `null` `previousMeetingDate` (no prior session) returns nothing,
+ * since there is no boundary to compare against.
+ */
+export function sinceLastMeeting(
+  tasks: SinceLastTask[] | null | undefined,
+  previousMeetingDate: string | null | undefined,
+): SinceLastMeeting {
+  if (!previousMeetingDate) return EMPTY_SINCE_LAST;
+  const boundary = new Date(previousMeetingDate).getTime();
+  if (Number.isNaN(boundary)) return EMPTY_SINCE_LAST;
+  const openedSince: SinceLastTask[] = [];
+  const closedSince: SinceLastTask[] = [];
+  for (const t of tasks || []) {
+    if (!t?.openedAt) continue;
+    const opened = new Date(t.openedAt).getTime();
+    if (Number.isNaN(opened) || opened <= boundary) continue;
+    if (t.closedAt) closedSince.push(t);
+    else openedSince.push(t);
+  }
+  return { openedSince, closedSince };
 }

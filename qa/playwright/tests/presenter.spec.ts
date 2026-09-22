@@ -157,6 +157,45 @@ test('presenter: ✏️ writes the line onto the kibbutz card while the meeting 
   await expectNoConsoleErrors(rec);
 });
 
+test('presenter: fits the phone width, the stopwatch starts on demand, and the arrows name their neighbour', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  const screen = await openPresenter(page);
+
+  // ── item 1: no horizontal overflow at 390px ──────────────────────────────────────────
+  const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflowX).toBeLessThanOrEqual(1);
+
+  // ── item 4: the clock does not run until the person starts it ───────────────────────
+  await expect(page.getByTestId('presenter-timer')).toHaveText('00:00');
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('presenter-timer')).toHaveText('00:00');
+  await page.getByTestId('presenter-timer-toggle').click();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('presenter-timer')).not.toHaveText('00:00');
+  await page.getByTestId('presenter-timer-toggle').click();   // pause
+  const paused = await page.getByTestId('presenter-timer').textContent();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('presenter-timer')).toHaveText(paused || '');
+
+  // ── item 3: big prev/next arrows show the neighbour's name (started on שדה אליהו — first,
+  //    so ◀ has no previous; ▶ names the next kibbutz) ─────────────────────────────────
+  await expect(page.getByTestId('presenter-next')).toBeVisible();
+  await expect(page.getByTestId('presenter-prev')).toBeVisible();
+  await page.keyboard.press('ArrowLeft');   // moves forward (RTL board order)
+  await expect(page.getByTestId('presenter-prev')).toContainText(FIRST);
+
+  // ── item 2: the open EMS tasks render as text, not just a count ─────────────────────
+  await expect(page.getByTestId('presenter-strip-field')).toContainText('משימות EMS פתוחות');
+
+  await shot(page, ti, 'phone-fit');
+
+  await page.keyboard.press('Escape');
+  await page.getByTestId('presenter-exit-yes').click();
+  await expect(screen).toHaveCount(0);
+
+  await expectNoConsoleErrors(rec);
+});
+
 test('presenter: a viewer is never offered the screen', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
 
