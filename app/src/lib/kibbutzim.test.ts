@@ -338,4 +338,29 @@ describe('draftsAtTop — home order (QA round 2, Package A §4)', () => {
     expect(top.map(r => r.name)).toEqual(['א', 'ב']);
     expect(rest).toEqual([]);
   });
+
+  it('a running/paused work timer pulls its kibbutz to the top too, even without a draft', () => {
+    const rows = [
+      row({ name: 'אפיקים' }),
+      row({ name: 'חוקוק' }),
+      row({ name: 'יגור' }),
+    ];
+    const { top, rest } = draftsAtTop(rows, () => false, 'חוקוק');
+    expect(top.map(r => r.name)).toEqual(['חוקוק']);
+    expect(rest.map(r => r.name)).toEqual(['אפיקים', 'יגור']);
+  });
+
+  it('a timer kibbutz already pulled up by an open draft is not duplicated', () => {
+    const rows = [row({ name: 'אפיקים' }), row({ name: 'חוקוק' })];
+    const { top, rest } = draftsAtTop(rows, n => n === 'אפיקים', 'אפיקים');
+    expect(top.map(r => r.name)).toEqual(['אפיקים']);
+    expect(rest.map(r => r.name)).toEqual(['חוקוק']);
+  });
+
+  it('null activeTimerKibbutz (default) behaves exactly as before', () => {
+    const rows = [row({ name: 'א' }), row({ name: 'ב' })];
+    const { top, rest } = draftsAtTop(rows, () => false);
+    expect(top).toEqual([]);
+    expect(rest.map(r => r.name)).toEqual(['א', 'ב']);
+  });
 });

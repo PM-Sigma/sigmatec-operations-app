@@ -110,18 +110,24 @@ export function groupBySection(rows: KibbutzRow[] | null | undefined): Record<Se
 
 /**
  * A kibbutz with an open visit draft (or an in-progress EMS-task creation — the caller's
- * `hasOpenWork` decides what counts) sorts to the TOP of the home list, ahead of the normal
- * region grouping. Pure and order-preserving within each bucket, so the goldens can assert it
- * without touching React or the bridge: the caller (Home.tsx) supplies `hasOpenWork` from
- * `useVisitDraft`/whatever else has an open-work signal for that kibbutz.
+ * `hasOpenWork` decides what counts) OR a running/paused ▶/■ work timer sorts to the TOP of the
+ * home list, ahead of the normal region grouping. Pure and order-preserving within each bucket,
+ * so the goldens can assert it without touching React or the bridge: the caller (Home.tsx)
+ * supplies `hasOpenWork` from `useVisitDraft`/whatever else has an open-work signal for that
+ * kibbutz, and `activeTimerKibbutz` from `loadRunning(user)` (עידן 22.9 — the top section is
+ * about visible open work on the card, not EMS-task drafts).
  */
 export function draftsAtTop(
   rows: KibbutzRow[],
   hasOpenWork: (name: string) => boolean,
+  activeTimerKibbutz: string | null = null,
 ): { top: KibbutzRow[]; rest: KibbutzRow[] } {
   const top: KibbutzRow[] = [];
   const rest: KibbutzRow[] = [];
-  (rows || []).forEach(r => { (r && hasOpenWork(r.name) ? top : rest).push(r); });
+  (rows || []).forEach(r => {
+    const timerHere = !!activeTimerKibbutz && !!r && r.name === activeTimerKibbutz;
+    ((r && hasOpenWork(r.name)) || timerHere ? top : rest).push(r);
+  });
   return { top, rest };
 }
 
