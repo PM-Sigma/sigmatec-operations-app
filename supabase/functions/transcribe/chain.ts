@@ -129,6 +129,9 @@ async function post(
  */
 export async function transcribeChain(
   audio: Blob, filename: string, env: ChainEnv, deps: ChainDeps,
+  /** OpenAI-style vocabulary hint (app/src/lib/speech.ts `buildWhisperPrompt`) — forwarded to
+   * BOTH backends as-is, since both `/v1/audio/transcriptions` endpoints accept `prompt`. */
+  prompt?: string,
 ): Promise<ChainResult> {
   const now = deps.now || (() => Date.now());
   const plan = enginePlan(env);
@@ -141,6 +144,7 @@ export async function transcribeChain(
     form.append('model', engine === 'self' ? SELF_MODEL : GROQ_MODEL);
     form.append('language', 'he');
     form.append('response_format', 'json');
+    if (prompt) form.append('prompt', prompt);
     const t0 = now();
     try {
       const answer = await post(

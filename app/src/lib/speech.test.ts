@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  audioExt, audioObjectPath, forceOffLive, parseRecognitionEvent, pickAudioMime, speechCaps,
+  audioExt, audioObjectPath, buildWhisperPrompt, forceOffLive, parseRecognitionEvent,
+  pickAudioMime, speechCaps, WHISPER_DOMAIN_WORDS,
   type RecognitionEventLike,
 } from './speech';
 
@@ -59,57 +60,90 @@ describe('audioExt / audioObjectPath', () => {
   });
 });
 
-describe('parseRecognitionEvent — interim REPLACES, final APPENDS (round 2, Package D item 2)', () => {
-  // Reproduces the reported bug: "זו זו זו בדיקה" — a live transcript that kept growing with
-  // repeated words because a stale interim segment from an earlier event lingered instead of
-  // being replaced by the current one. This sequence mirrors real continuous-recognition
-  // events: the interim guess is re-sent whole on every tick (not just the new word), and a
-  // browser occasionally re-announces an already-finalised result at the START of a later
-  // event's `results` array while still giving the correct `resultIndex` for what is NEW.
-  it('never lets an old interim survive into a newer event — only the CURRENT interim shows', () => {
-    // Tick 1: "זו" is still being recognised.
+describe('parseRecognitionEvent — full session rebuild, never a delta (round 3, Android S24)', () => {
+  // Desktop-style sequence: resultIndex is trusted-looking but we ignore it entirely and
+  // still land on the right thing, because we rebuild from index 0 every time.
+  it('rebuilds interim as it revises, and finalises once — desktop-style events', () => {
     let e = event(0, [result('זו', false)]);
-    expect(parseRecognitionEvent(e)).toEqual({ finals: [], interim: 'זו' });
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: '', interimText: 'זו' });
 
-    // Tick 2: recognition revised its guess to "זו זו" (still interim) — replaces, not appends.
     e = event(0, [result('זו זו', false)]);
-    expect(parseRecognitionEvent(e)).toEqual({ finals: [], interim: 'זו זו' });
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: '', interimText: 'זו זו' });
 
-    // Tick 3: "זו" finalises (index 0 changed → resultIndex 0); a NEW interim ("בדיקה")
-    // starts right after it in the same event. The caller must see exactly one final chunk
-    // and one fresh interim — never the old interim text glued onto it.
     e = event(0, [result('זו', true), result('בדיקה', false)]);
-    expect(parseRecognitionEvent(e)).toEqual({ finals: ['זו'], interim: 'בדיקה' });
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: 'זו', interimText: 'בדיקה' });
 
-    // Tick 4: "בדיקה" finalises too — only index 1 changed, so resultIndex is 1 and the
-    // already-reported "זו" at index 0 is never re-walked. Simulating the assembling caller
-    // (append-on-final, replace-on-interim, exactly like the island does) must land on
-    // "זו בדיקה" — never the duplicated "זו זו זו בדיקה זו בדיקה" the bug report described.
     e = event(1, [result('זו', true), result('בדיקה', true)]);
-    expect(parseRecognitionEvent(e)).toEqual({ finals: ['בדיקה'], interim: '' });
-
-    let text = '';
-    let interim = '';
-    const append = (t: string) => { text = (text ? text + ' ' : '') + t; };
-    for (const ev of [
-      event(0, [result('זו', false)]),
-      event(0, [result('זו זו', false)]),
-      event(0, [result('זו', true), result('בדיקה', false)]),
-      event(1, [result('זו', true), result('בדיקה', true)]),
-    ]) {
-      const { finals, interim: i } = parseRecognitionEvent(ev);
-      for (const f of finals) append(f);
-      interim = i;
-    }
-    expect(text).toBe('זו בדיקה');
-    expect(interim).toBe('');
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: 'זו בדיקה', interimText: '' });
   });
 
-  it('never re-emits an already-finalised result as a later final (no double-append)', () => {
-    const e1 = event(0, [result('בדיקה ראשונה', true)]);
-    const e2 = event(1, [result('בדיקה ראשונה', true), result('עוד משפט', true)]); // resultIndex=1 → only the NEW one
-    expect(parseRecognitionEvent(e1).finals).toEqual(['בדיקה ראשונה']);
-    expect(parseRecognitionEvent(e2).finals).toEqual(['עוד משפט']);
+  // The actual bug report (round 3, עידן's Galaxy S24, Android Chrome): "הייתי היום בגבת
+  // וסיפקתי שלושה מוני לנדיס" came back as "אני אני הייתי אני הייתי היום אני הייתי היום…".
+  // `results` grows monotonically and Android re-announces the SAME finalised results as
+  // `isFinal:true` again on later events, with `resultIndex` sitting at 0 throughout — the
+  // opposite of "the first result this event changed". A caller that appended each event's
+  // finals (as the old resultIndex-trusting code did) would duplicate every word; rebuilding
+  // from scratch every time must not.
+  it('never duplicates when Android re-announces the whole utterance with resultIndex stuck at 0', () => {
+    const words = ['הייתי', 'היום', 'בגבת', 'וסיפקתי', 'שלושה', 'מוני', 'לנדיס'];
+    let last = { finalText: '', interimText: '' };
+    for (let n = 1; n <= words.length; n++) {
+      // Android replays every already-finalised word as isFinal:true again, on EVERY event,
+      // resultIndex always 0 — exactly the malformed sequence from the field report.
+      const results = words.slice(0, n).map(w => result(w, true));
+      const e = event(0, results);
+      last = parseRecognitionEvent(e);
+      // Rebuilding from scratch is naturally idempotent: this event's answer is always the
+      // sentence-so-far exactly once, never the sentence-so-far duplicated.
+      expect(last.finalText).toBe(words.slice(0, n).join(' '));
+    }
+    expect(last.finalText).toBe('הייתי היום בגבת וסיפקתי שלושה מוני לנדיס');
+    expect(last.interimText).toBe('');
+
+    // The SAME final event fired twice in a row (a real Android quirk — two onresult calls for
+    // one settled utterance) must still answer identically, not doubled.
+    const finalEvent = event(0, words.map(w => result(w, true)));
+    expect(parseRecognitionEvent(finalEvent).finalText).toBe(parseRecognitionEvent(finalEvent).finalText);
+    expect(parseRecognitionEvent(finalEvent).finalText).toBe('הייתי היום בגבת וסיפקתי שלושה מוני לנדיס');
+  });
+
+  it('caller REPLACES its session text with finalText — never appends — so a session-scoped prefix stays intact', () => {
+    const prefix = 'טקסט שהוקלד קודם.';
+    const apply = (sessionFinal: string) => (prefix + ' ' + sessionFinal).trim();
+    let e = event(0, [result('הייתי', true)]);
+    expect(apply(parseRecognitionEvent(e).finalText)).toBe('טקסט שהוקלד קודם. הייתי');
+    e = event(0, [result('הייתי', true), result('היום', true)]);
+    expect(apply(parseRecognitionEvent(e).finalText)).toBe('טקסט שהוקלד קודם. הייתי היום');
+  });
+});
+
+describe('buildWhisperPrompt — vocabulary hint for the two Whisper backends', () => {
+  it('puts the current visit kibbutz first, other names next, fixed domain words last', () => {
+    const p = buildWhisperPrompt('גבת', ['דפנה', 'גבת', 'חוקוק']);
+    expect(p.startsWith('גבת, ')).toBe(true);
+    expect(p).toContain('דפנה');
+    expect(p).toContain('חוקוק');
+    for (const w of WHISPER_DOMAIN_WORDS) expect(p).toContain(w);
+    expect(p.endsWith(WHISPER_DOMAIN_WORDS[WHISPER_DOMAIN_WORDS.length - 1])).toBe(true);
+  });
+
+  it('works with no kibbutz (general feedback) — names then the fixed words', () => {
+    const p = buildWhisperPrompt('', ['דפנה', 'חוקוק']);
+    expect(p.startsWith('דפנה')).toBe(true);
+    expect(p).toContain('לנדיס');
+  });
+
+  it('never exceeds the 800-char cap and always keeps the fixed words when it must trim', () => {
+    const manyNames = Array.from({ length: 200 }, (_, i) => 'קיבוץ' + i);
+    const p = buildWhisperPrompt('גבת', manyNames);
+    expect(p.length).toBeLessThanOrEqual(800);
+    for (const w of WHISPER_DOMAIN_WORDS) expect(p).toContain(w);
+    expect(p.startsWith('גבת, ')).toBe(true);
+  });
+
+  it('dedupes and ignores blanks', () => {
+    const p = buildWhisperPrompt('גבת', ['גבת', '', '  ', 'גבת']);
+    expect(p.split(', ').filter(s => s === 'גבת').length).toBe(1);
   });
 });
 

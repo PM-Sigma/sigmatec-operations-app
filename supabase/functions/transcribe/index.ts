@@ -90,6 +90,10 @@ Deno.serve(async (req: Request) => {
   if (!validAudioPath(path)) return json({ error: "bad path" }, 400);
 
   const audioSec = Number.isFinite(+body.audio_sec) ? Math.max(0, Math.round(+body.audio_sec)) : null;
+  // Vocabulary hint (app/src/lib/speech.ts `buildWhisperPrompt`) — free text from the client,
+  // capped defensively here too (the client already caps at 800) before it goes anywhere near
+  // an upstream request body.
+  const prompt = typeof body.prompt === 'string' ? body.prompt.slice(0, 800) : undefined;
 
   // one log row per attempt — the ⚙️ health panel (spec §7i) reads engine/ms/ok from here.
   // Never fatal: a missing table must not cost the user their transcription.
@@ -114,7 +118,7 @@ Deno.serve(async (req: Request) => {
 
   const t0 = Date.now();
   try {
-    const r = await transcribeChain(blob, path, env, { fetch });
+    const r = await transcribeChain(blob, path, env, { fetch }, prompt);
     await log(r.engine, r.ms, true);
     // Retention (spec §7i): the recording is deleted the moment we have the text; a FAILED
     // one stays for the 7-day retry window that db/feedback.sql documents.

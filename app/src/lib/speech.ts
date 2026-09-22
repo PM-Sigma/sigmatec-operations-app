@@ -58,9 +58,15 @@ function uuid(): string {
 // ───────────────────────────── live recognition ─────────────────────────────
 
 export interface LiveHandlers {
-  /** A finalised chunk — append it to the textarea. */
+  /**
+   * The finalised transcript for THIS SESSION SO FAR — REPLACES whatever the caller has shown
+   * from this session, it never appends. (Round 3, Android S24: `resultIndex` cannot be
+   * trusted — see `parseRecognitionEvent`.) The caller is responsible for keeping whatever
+   * text existed BEFORE this live session started (a session-scoped prefix) and gluing this
+   * value onto it.
+   */
   onFinal: (text: string) => void;
-  /** The in-flight guess — shown greyed, replaced on every event. */
+  /** The in-flight guess for this session — shown greyed, replaced on every event. */
   onInterim: (text: string) => void;
   /** 'not-allowed' / 'service-not-allowed' = denied; anything else = failed. */
   onError: (kind: 'denied' | 'failed', detail: string) => void;
@@ -76,28 +82,46 @@ export interface RecognitionResultLike { isFinal: boolean; 0: { transcript: stri
 export interface RecognitionEventLike { resultIndex: number; results: ArrayLike<RecognitionResultLike> }
 
 /**
- * Pure: turn one `onresult` event into the finalised chunks (in order) and the CURRENT
- * interim guess. `resultIndex` is the first result this event changed — everything before it
- * was already reported by an earlier event and must not be re-emitted, which is what makes
- * this a REPLACE for interim rather than an append (round 2, Package D item 2: the live
- * transcript used to duplicate — "זו זו זו בדיקה" — because a stale interim segment from a
- * previous event lingered instead of being replaced by this one).
+ * Pure: turn one `onresult` event into the FULL finalised transcript for this session so far
+ * (`finalText`) and the CURRENT interim guess (`interimText`).
+ *
+ * Round 2 (desktop Chrome) trusted `resultIndex` — the first result index this event changed —
+ * to avoid re-walking already-reported results. Round 3 (עידן's Galaxy S24, Android Chrome)
+ * showed that assumption is desktop-only: with `continuous=true`, Android re-delivers the
+ * WHOLE utterance on every tick, sometimes marking results `isFinal:true` repeatedly, and
+ * `resultIndex` often just sits at 0. Trusting it there is exactly how "אני הייתי אני הייתי
+ * היום…" happened — every re-announced final got appended again on top of the last.
+ *
+ * The fix: never trust `resultIndex`, and never APPEND. `e.results` is the browser's own
+ * cumulative state for this recognition session (index 0..n, growing over time) — so
+ * rebuilding `finalText`/`interimText` from index 0 on EVERY event, unconditionally, is
+ * naturally idempotent: the same finalised result at the same index contributes to the output
+ * exactly once no matter how many events re-announce it, and a duplicate re-announcement
+ * simply rebuilds the identical string instead of a longer one. The caller then REPLACES
+ * (never appends) whatever it is showing for this session with the rebuilt value.
  */
-export function parseRecognitionEvent(e: RecognitionEventLike): { finals: string[]; interim: string } {
+export function parseRecognitionEvent(e: RecognitionEventLike): { finalText: string; interimText: string } {
   const finals: string[] = [];
-  let interim = '';
-  for (let i = e.resultIndex; i < e.results.length; i++) {
+  const interims: string[] = [];
+  for (let i = 0; i < e.results.length; i++) {
     const r = e.results[i];
-    const txt = String(r[0]?.transcript || '');
-    if (r.isFinal) finals.push(txt.trim());
-    else interim += txt;             // still ONE event's worth — never carried over from the last
+    const txt = String(r[0]?.transcript || '').trim();
+    if (!txt) continue;
+    if (r.isFinal) finals.push(txt); else interims.push(txt);
   }
-  return { finals, interim: interim.trim() };
+  return { finalText: finals.join(' ').trim(), interimText: interims.join(' ').trim() };
 }
 
 /**
  * Start live he-IL recognition. Returns null when the API is absent, so the caller can fall
  * through to `startRecording` without duplicating the capability check.
+ *
+ * Stays `continuous=true` rather than switching to `continuous=false` + auto-restart-on-`onend`
+ * (the other Android-proof option considered for this fix): a restart tears the recognizer down
+ * and re-opens the mic, which on Android leaves an audible gap and has been observed to drop the
+ * first word or two of the next phrase — worse for a dictated visit summary than any duplication
+ * risk, and unnecessary now that `parseRecognitionEvent` rebuilds the whole session transcript
+ * on every event instead of trusting deltas.
  */
 export function startLive(h: LiveHandlers): LiveSession | null {
   const w = window as any;
@@ -109,11 +133,11 @@ export function startLive(h: LiveHandlers): LiveSession | null {
   rec.continuous = true;
   rec.interimResults = true;
   rec.onresult = (e: any) => {
-    const { finals, interim } = parseRecognitionEvent(e);
-    // Finals append (each ONCE, in order); interim REPLACES whatever was showing — never both
-    // acting on the same chunk, which is exactly how the duplication happened before.
-    for (const f of finals) if (f) h.onFinal(f);
-    h.onInterim(interim);
+    const { finalText, interimText } = parseRecognitionEvent(e);
+    // Both REPLACE this session's contribution — never append — so a re-announced final
+    // (Android) or a revised interim (any browser) never duplicates onto what is shown.
+    h.onFinal(finalText);
+    h.onInterim(interimText);
   };
   rec.onerror = (e: any) => {
     const err = String(e?.error || '');
@@ -218,6 +242,46 @@ export async function startRecording(h: RecordHandlers): Promise<RecordSession |
   };
 }
 
+// ───────────────────────────── whisper vocabulary hint ─────────────────────────────
+
+/** Product/domain words Whisper otherwise mishears ("בגבעת" for גבת, "להנדיס" for לנדיס). */
+export const WHISPER_DOMAIN_WORDS = [
+  'לנדיס', 'Landis+Gyr', 'מונה', 'מונים', 'תלת-פאזי', 'משנה זרם', 'בקר', 'ריכוז', 'קורא',
+  'גנרטור', 'צריבה', 'EMS', 'סיגמטק', 'תעודת משלוח', 'אספקה',
+];
+
+const WHISPER_PROMPT_CAP = 800;
+
+/**
+ * Build the OpenAI-style `prompt` sent to both Whisper backends to bias vocabulary (§transcribe
+ * bug 2, עידן's S24: "בגבעת" instead of "גבת", "להנדיס" instead of "לנדיס"). Whisper only
+ * weighs roughly its last 224 tokens of the prompt, so the fixed product/domain words go
+ * LAST (always kept in full) and the current visit's kibbutz goes FIRST (most specific, and
+ * short enough that it never gets truncated either); only the free-form `names` list — every
+ * other kibbutz, which can be long — gets trimmed to fit the cap.
+ */
+export function buildWhisperPrompt(
+  kibbutz: string | undefined | null,
+  names: string[],
+  words: string[] = WHISPER_DOMAIN_WORDS,
+): string {
+  const uniq = (arr: string[]) => Array.from(new Set((arr || []).map(s => String(s || '').trim()).filter(Boolean)));
+  const k = String(kibbutz || '').trim();
+  const otherNames = uniq(names).filter(n => n !== k);
+  const wordsPart = uniq(words).join(', ');
+
+  const fixedLen = (k ? k.length + 2 : 0) + (wordsPart ? wordsPart.length + 2 : 0);
+  const budget = Math.max(0, WHISPER_PROMPT_CAP - fixedLen);
+  let namesPart = '';
+  for (const n of otherNames) {
+    const next = namesPart ? namesPart + ', ' + n : n;
+    if (next.length > budget) break;
+    namesPart = next;
+  }
+
+  return [k, namesPart, wordsPart].filter(Boolean).join(', ').slice(0, WHISPER_PROMPT_CAP);
+}
+
 export interface TranscribeResult {
   text: string; engine: string; ms: number; path: string;
   /** "fast + refine" (spec §7i): when `engine==='self'`, the fast pass answers refined:false
@@ -249,6 +313,8 @@ function transcribeBearer(): string {
  */
 export async function uploadAndTranscribe(
   audio: { blob: Blob; mime: string; ms: number },
+  /** Vocabulary hint (`buildWhisperPrompt`) — omitted/empty just means no bias. */
+  hint?: string,
 ): Promise<TranscribeResult> {
   // The function is EMS-gated (it downloads with the service role and spends Groq credit), and
   // the bucket only accepts the EMS-minted pass anyway — so fail here with something the user
@@ -276,7 +342,10 @@ export async function uploadAndTranscribe(
     r = await fetch(SB_URL + '/functions/v1/transcribe', {
       method: 'POST', signal: ac.signal,
       headers: { apikey: SB_ANON, Authorization: 'Bearer ' + bearer, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: ems, path, audio_sec: Math.round(audio.ms / 1000) }),
+      body: JSON.stringify({
+        token: ems, path, audio_sec: Math.round(audio.ms / 1000),
+        ...(hint ? { prompt: hint } : {}),
+      }),
     });
   } catch (e: any) {
     throw new Error(ac.signal.aborted ? 'התמלול לקח יותר מדי זמן. נסה שוב' : 'תקלת רשת בתמלול');
