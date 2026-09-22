@@ -641,7 +641,7 @@
     const vw = typeof isViewer === 'function' && isViewer();
     const nb = document.getElementById('invCertsNew'); if (nb) nb.style.display = vw ? 'none' : '';
     if (!rows.length) { root.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;">אין תעודות בטווח/בחיפוש</div>'; return; }
-    root.innerHTML = '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>מס\'</th><th>תאריך</th><th>לקוח</th><th>פריטים</th><th>מקור</th><th>הופק ע"י</th><th>חתימה</th><th style="text-align:left;">פעולות</th></tr></thead><tbody>' +
+    root.innerHTML = '<div class="scroll-x"><table class="inv-table"><thead><tr><th>מס\'</th><th>תאריך</th><th>לקוח</th><th>פריטים</th><th>מקור</th><th>הופק ע"י</th><th>חתימה</th><th style="text-align:left;">פעולות</th></tr></thead><tbody>' +
       rows.map(c => {
         const cancelled = c.status === 'cancelled';
         const idArg = certEsc(String(c.id)).replace(/'/g, '');

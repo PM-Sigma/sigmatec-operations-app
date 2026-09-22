@@ -2,10 +2,7 @@
 // the hour gate and the idempotency tag"). Israel is UTC+3 in September, UTC+2 in January —
 // both are exercised, because the digest windows are the one thing DST can silently break.
 import { describe, expect, it } from 'vitest';
-import {
-  alertArrow, alertText, alertTarget, canSeeAlerts, digestBody, digestTag, digestTitle,
-  digestWindow, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow,
-} from './alerts';
+import { alertArrow, alertText, alertTarget, canSeeAlerts, digestBody, digestTag, digestTitle, digestWindow, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, POOL } from './alerts';
 
 const mov = (o: Partial<AlertRow> = {}): AlertRow => ({
   id: 'a1', kind: 'movement', product: 'מונה E360CT', qty: 3,
@@ -62,6 +59,45 @@ describe('seen + who gets a bell', () => {
     for (const p of ['עידן', 'עמיחי', 'אביאם', 'ניתאי']) expect(canSeeAlerts(p, false)).toBe(true);
     expect(canSeeAlerts('עידן', true)).toBe(false);
     expect(canSeeAlerts('מתניה', false)).toBe(false);
+  });
+});
+
+describe('groupAlerts (22.9, G1 — one visit = one line)', () => {
+  const t = (mm: string) => `2026-09-22T${mm}:00.000Z`;   // 14:02 Israel = 11:02Z in September
+  const move = (o: Partial<AlertRow>): AlertRow => ({
+    kind: 'movement', product: 'x', qty: 1, from_location: POOL, to_location: 'גבים', reason: 'visit_supply',
+    ref_id: 'v1', actor: 'אביאם', created_at: t('11:02'), seen_by: [], ...o,
+  });
+  it('rows of one visit collapse to one group whose title counts them', () => {
+    const rows = [move({ id: 'a', product: 'מונה E360CT', qty: 3 }), move({ id: 'b', product: 'סים 1NCE', qty: 2, created_at: t('11:03') })];
+    const g = groupAlerts(rows, 'עידן');
+    expect(g).toHaveLength(1);
+    expect(g[0].rows.map(r => r.id)).toEqual(['b', 'a']);            // newest first inside
+    expect(g[0].title).toBe('↘ סיכום ביקור גבים · 2 פריטים · אביאם · 14:03');
+    expect(g[0].seen).toBe(false);
+  });
+  it('a lone row keeps its own line; a different visit or day is another group; newest group first', () => {
+    const rows = [
+      move({ id: 'a' }),
+      move({ id: 'b', ref_id: 'v2', created_at: t('12:00') }),
+      move({ id: 'c', created_at: '2026-09-21T11:02:00.000Z' }),
+    ];
+    const g = groupAlerts(rows, 'עידן');
+    expect(g.map(x => x.rows[0].id)).toEqual(['b', 'a', 'c']);
+    expect(g[1].title).toBe(alertText(rows[0]));
+  });
+  it('low-stock rows of a day are one line; seen = every row seen', () => {
+    const rows: AlertRow[] = [
+      { id: 'l1', kind: 'low_stock', product: 'סים', qty: 4, created_at: t('11:02'), seen_by: ['עידן'] },
+      { id: 'l2', kind: 'low_stock', product: 'בקר', qty: 1, created_at: t('11:05'), seen_by: [] },
+    ];
+    const g = groupAlerts(rows, 'עידן');
+    expect(g).toHaveLength(1);
+    expect(g[0].title).toBe('⚠️ מלאי נמוך · 2 פריטים · 14:05');
+    expect(g[0].seen).toBe(false);
+    expect(groupAlerts(rows, 'עידן').every(x => x.seen)).toBe(false);
+    rows[1].seen_by = ['עידן'];
+    expect(groupAlerts(rows, 'עידן')[0].seen).toBe(true);
   });
 });
 

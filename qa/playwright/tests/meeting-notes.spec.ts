@@ -42,7 +42,7 @@ test('meeting notes: latest bullets, עוד disclosure, היסטוריה collaps
   expectNoConsoleErrors(rec);
 });
 
-test('meeting notes: a card with one meeting has no היסטוריה, an empty one says so', async ({ page }, ti) => {
+test('meeting notes: a card with one meeting has no היסטוריה, an empty one shows nothing', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
   // גבת has exactly one meeting with one bullet → no "עוד", no "היסטוריה"
@@ -51,9 +51,9 @@ test('meeting notes: a card with one meeting has no היסטוריה, an empty o
   await expect(gvat.locator('.card-notes-more')).toHaveCount(0);
   await expect(gvat.locator('.card-notes-history')).toHaveCount(0);
 
-  // דגניה has none → the empty line, so the card never reflows when notes land
+  // דגניה has none → nothing at all (22.9, D4: "אין סיכום ישיבה" is not a thing to show)
   const dganya = page.locator('#sigma-home .kibbutz[data-name="דגניה"] .card-notes');
-  await expect(dganya.locator('.card-notes-empty')).toHaveText('אין סיכום ישיבה עדיין');
+  await expect(dganya.locator('.card-notes-empty')).toHaveCount(0);
 
   expectNoConsoleErrors(rec);
 });

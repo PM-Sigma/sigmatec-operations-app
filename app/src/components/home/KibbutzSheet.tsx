@@ -93,7 +93,7 @@ export function KibbutzSheet({
   const runChain = React.useCallback(async () => {
     const target = name.trim();
     if (!target) { toast.error('הזן שם קודם'); return; }
-    if (!sigma.isEmsConnected()) toast.warning('אין חיבור ל-EMS — הבדיקה תסתמך על מה שזמין');
+    if (!sigma.isEmsConnected()) toast.warning('אין חיבור ל-EMS. הבדיקה תסתמך על מה שזמין');
     setRunning(true);
     const plan = emsChainPlan(target, kind === 'subsite' ? parentRow : null, allRows);
     setSteps(plan);
@@ -150,7 +150,7 @@ export function KibbutzSheet({
     // must not slip through as if it had passed.
     if (kind === 'subsite' && !allowUnlinked && !(reduced && reduced.canSave)) {
       toast.error(reduced
-        ? 'לא נמצא אתר ב-EMS — סמן "שמור בלי קישור" כדי לשמור בכל זאת'
+        ? 'לא נמצא אתר ב-EMS. סמן "שמור בלי קישור" כדי לשמור בכל זאת'
         : 'הרץ "בדוק מול EMS" לפני שמירת תת-אתר, או סמן "שמור בלי קישור"');
       return;
     }

@@ -168,13 +168,13 @@ describe('the progress strip', () => {
   });
 
   it('the field team is told what is LEFT; everyone else how far it has got (עידן 21:50)', () => {
-    expect(burnStripText(p, 'field')).toBe('🔥 צריבות — נותרו 3 ב-2 קיבוצים');
-    expect(burnStripText(p, 'other')).toBe('🔥 צריבות — בוצעו 3 מתוך 6 · 50%');
+    expect(burnStripText(p, 'field')).toBe('🔥 צריבות · נותרו 3 ב-2 קיבוצים');
+    expect(burnStripText(p, 'other')).toBe('🔥 צריבות · בוצעו 3 מתוך 6 · 50%');
   });
 
   it('one kibbutz left reads קיבוץ, not קיבוצים', () => {
     const one = burnProgress([ROWS[0], ROWS[1], ROWS[3]]);
-    expect(burnStripText(one, 'field')).toBe('🔥 צריבות — נותרו 1 ב-1 קיבוץ');
+    expect(burnStripText(one, 'field')).toBe('🔥 צריבות · נותרו 1 ב-1 קיבוץ');
   });
 
   it('HIDE AT ZERO: nothing left → empty text, for both roles', () => {

@@ -48,10 +48,14 @@ test('kibbutz sheet: create mode, both kinds, איזור required', async ({ pag
   expectNoConsoleErrors(rec);
 });
 
-test('kibbutz sheet: edit mode opens with the row and offers ארכוב', async ({ page }, ti) => {
+test('kibbutz sheet: edit mode opens from inside the card (עידן only, 22.9) with the row and offers ארכוב', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] button[title="פרטי קיבוץ"]').click();
+  // 22.9 (D2/D10): no ✏️ on the home card; it sits beside the name INSIDE the kibbutz card.
+  await expect(page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] button[title="פרטי קיבוץ"]')).toHaveCount(0);
+  await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] .kibbutz-name').click();
+  await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
+  await page.locator('#modalSub .modal-edit-kibbutz').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.locator('#kibName')).toHaveValue('כפר עזה');
@@ -73,7 +77,10 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
   // עמיחי IS a kibbutz admin (KIBBUTZ_ADMINS) but energy types are עידן's alone (§7b).
   const { rec } = await boot(page, ti, { who: 'עמיחי' });
 
-  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] button[title="פרטי קיבוץ"]').click();
+  // 22.9: the ✏️ inside the card is עידן's alone; עמיחי still reaches the sheet through the one api
+  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
+  await expect(page.locator('#modalSub .modal-edit-kibbutz')).toHaveCount(0);
+  await page.evaluate(() => (window as any).sigmaHome.openSheet('חוקוק'));
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.getByText('רק עידן משנה סוגי אנרגיה')).toBeVisible();
@@ -91,7 +98,8 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
 test('kibbutz sheet: עידן may change the energy types', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] button[title="פרטי קיבוץ"]').click();
+  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
+  await page.locator('#modalSub .modal-edit-kibbutz').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.getByText('רק עידן משנה סוגי אנרגיה')).toHaveCount(0);

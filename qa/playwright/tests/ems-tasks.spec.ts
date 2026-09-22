@@ -29,32 +29,17 @@ test('ems tasks: open tasks render per card, closed ones do not', async ({ page 
   expectNoConsoleErrors(rec);
 });
 
-test('ems tasks: the phone clamps long descriptions behind עוד, the desktop does not', async ({ page }, ti) => {
-  const { rec, viewport } = await boot(page, ti);
+test('ems tasks: the home card is a summary — no description on it at either size (22.9, D3)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
 
-  const row = page.locator('#sigma-home .kibbutz[data-name="יגור"] .card-ems-tasks .t-desc').first();
-  await expect(row).toBeVisible();
-  const more = page.locator('#sigma-home .kibbutz[data-name="יגור"] .card-ems-tasks')
-    .getByRole('button', { name: 'עוד', exact: true }).first();
-
-  if (viewport === 'mobile-390') {
-    // clamped to two lines, with the per-task disclosure (§7k #2)
-    await expect(row).toHaveClass(/line-clamp-2/);
-    await expect(more).toBeVisible();
-    await more.click();
-    await expect(row).not.toHaveClass(/line-clamp-2/);
-    // …and it toggles back, labelled "פחות"
-    const less = page.locator('#sigma-home .kibbutz[data-name="יגור"] .card-ems-tasks')
-      .getByRole('button', { name: 'פחות', exact: true }).first();
-    await expect(less).toBeVisible();
-    await less.click();
-    await expect(row).toHaveClass(/line-clamp-2/);
-    await shot(page, ti, 'clamped');
-  } else {
-    // §7k #2: the desktop card never clamps, so there is nothing to disclose
-    await expect(row).not.toHaveClass(/line-clamp-2/);
-    await expect(more).toHaveCount(0);
-  }
+  const widget = page.locator('#sigma-home .kibbutz[data-name="יגור"] .card-ems-tasks');
+  await expect(widget).toBeVisible();
+  // the row carries the title, the status, who and when — the description is read inside the card
+  await expect(widget.locator('.t-desc')).toHaveCount(0);
+  await expect(widget.getByRole('button', { name: 'עוד', exact: true })).toHaveCount(0);
+  await expect(widget.locator('.card-ems-task').first()).toBeVisible();
+  await shot(page, ti, 'compact');
 
   expectNoConsoleErrors(rec);
 });
+

@@ -78,7 +78,7 @@
       '<div class="push-head"><h2 class="push-title">🔔 לוג התראות Push</h2>' +
       '</div>' +
       tiles +
-      '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr>' +
+      '<div class="scroll-x"><table class="inv-table"><thead><tr>' +
       '<th>זמן</th><th>סוג</th><th>הזמנה</th><th>נמען</th><th>סטטוס</th><th>מבצע</th>' +
       '</tr></thead><tbody>' + body + '</tbody></table></div>' +
       '<div class="push-foot">מציג ' + rows.length + ' התראות אחרונות · שורה לכל נמען</div></div>';

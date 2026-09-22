@@ -343,7 +343,7 @@ function SettingsPanel() {
             </select>
           </Row>
 
-          <Row label="תיאור משימות בכרטיס" hint="בטלפון — שורתיים או הטקסט המלא">
+          <Row label="תיאור משימות בכרטיס" hint="בטלפון: שורתיים או הטקסט המלא">
             <Choice<CardDesc>
               ariaLabel="תיאור משימות בכרטיס"
               value={settings.card_desc}

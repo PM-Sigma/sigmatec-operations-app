@@ -85,6 +85,71 @@
   //   - the ONE company pool as the source (inventory spec §1 — no personal bags)
   //   - actual current stock in it (computed from MOVEMENTS)
   //   - + items from the visit being edited (so edit flow shows what was already supplied)
+  // ── איש קשר מלווה — chips from `site_contacts`, a free name is added to them (J5) ──────────
+  var _visitContacts = [];
+  async function visitContactsRender(kibbutz) {
+    var wrap = document.getElementById('visitContactChips'); if (!wrap) return;
+    wrap.innerHTML = '';
+    _visitContacts = [];
+    if (!kibbutz || typeof window._sbCertGet !== 'function') return;
+    try {
+      var rows = await window._sbCertGet('site_contacts?select=name,role&active=eq.true&kibbutz=eq.' + encodeURIComponent(kibbutz) + '&order=name');
+      _visitContacts = (rows || []).map(function (r) { return String(r.name || '').trim(); }).filter(Boolean);
+    } catch (e) { _visitContacts = []; }
+    visitContactChipsPaint();
+  }
+  function visitContactChipsPaint() {
+    var wrap = document.getElementById('visitContactChips'); if (!wrap) return;
+    var cur = (document.getElementById('visitContact') || {}).value || '';
+    wrap.innerHTML = _visitContacts.map(function (n) {
+      return '<button type="button" class="sig-chip' + (n === cur.trim() ? ' on' : '') + '" onclick="visitContactPick(\'' + jsArgEsc(n) + '\')">' + attrEsc(n) + '</button>';
+    }).join('');
+  }
+  function visitContactPick(name) {
+    var el = document.getElementById('visitContact'); if (!el) return;
+    el.value = (el.value.trim() === name) ? '' : name;
+    visitContactChipsPaint(); visitDraftTouch();
+    var box = el.closest('.sig-frm'); if (box) box.classList.remove('sig-req-miss');
+  }
+  function visitContactTyped() { visitContactChipsPaint(); }
+  function visitContactPersist(kibbutz, name) {
+    if (!kibbutz || !name || _visitContacts.indexOf(name) !== -1) return;
+    var tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
+    if (!tok || typeof SB_URL === 'undefined') return;
+    fetch(SB_URL + '/rest/v1/site_contacts', {
+      method: 'POST', headers: { apikey: SB_ANON, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ kibbutz: kibbutz, name: name, active: true })
+    }).then(function () { _visitContacts.push(name); }).catch(function () { /* next time */ });
+  }
+  window.visitContactsRender = visitContactsRender;
+  window.visitContactPick = visitContactPick;
+  window.visitContactTyped = visitContactTyped;
+
+  // ── מוצרים נוספים — the catalog as suggestions; a name not in it can be added to it (J4) ──
+  function visitCatalogNames() {
+    return (typeof getActiveProducts === 'function' ? getActiveProducts() : []).map(function (p) { return p.name; });
+  }
+  function visitOtherProductChanged(v) {
+    var list = document.getElementById('visitCatalogList');
+    if (list && !list.children.length) list.innerHTML = visitCatalogNames().map(function (n) { return '<option value="' + attrEsc(n) + '">'; }).join('');
+    var btn = document.getElementById('visitAddToCatalog'); if (!btn) return;
+    var t = String(v || '').trim();
+    var known = visitCatalogNames().some(function (n) { return n.toLowerCase() === t.toLowerCase(); });
+    btn.style.display = (t.length >= 2 && !known && typeof invNewProduct === 'function') ? '' : 'none';
+  }
+  function visitAddOtherToCatalog() {
+    var t = (document.getElementById('visitProductsOther').value || '').trim(); if (!t) return;
+    invNewProduct();
+    var nm = document.getElementById('invProductName'); if (nm) nm.value = t;
+  }
+  window.visitOtherProductChanged = visitOtherProductChanged;
+  window.visitAddOtherToCatalog = visitAddOtherToCatalog;
+
+  // ── ציוד שסופק — a GRID of tiles by category (עידן 22.9, J2) ──────────────────────────────
+  // A tap picks the product (qty 1) and shows −/+/🗑 on the tile; a few seconds later the tile
+  // settles to name + quantity, and another tap brings the controls back. The hidden
+  // `.prod-chk` / `.prod-qty` contract is UNCHANGED: saveVisit() and the cert gate read those.
+  var _tileTimers = {};
   function renderProductsForVisitor() {
     const wrap = document.getElementById('visitProducts');
     if (!wrap) return;
@@ -118,42 +183,73 @@
     Object.keys(editingProducts).forEach(p => itemNames.add(p));
 
     if (itemNames.size === 0) {
-      wrap.innerHTML = `<div class="sig-pl-empty">⚠️ ב-${source} אין כרגע מלאי. השתמש ב"מוצרים שאינם בקטלוג" למטה.</div>`;
+      wrap.innerHTML = `<div class="sig-pl-empty">⚠️ ב-${source} אין כרגע מלאי. השתמש ב"מוצרים נוספים" למטה.</div>`;
       return;
     }
 
-    const sorted = Array.from(itemNames).sort((a, b) => a.localeCompare(b, 'he'));
-    // The row anatomy is the mockup's `.pi` (checkbox · name + stock sub-line · stepper).
-    // `.prod-chk` / `.prod-qty` and their data-attributes are UNCHANGED — saveVisit() and the
-    // cert gate read exactly these, so this is a re-skin and nothing more.
-    wrap.innerHTML = sorted.map(p => {
+    // Category per product from the catalog; unknown → 'אחר'. 'מונים' first, then by name.
+    const catOf = {};
+    (typeof getActiveProducts === 'function' ? getActiveProducts() : []).forEach(p => { catOf[p.name] = String(p.category || '').trim(); });
+    const groups = {};
+    Array.from(itemNames).forEach(p => { const c = catOf[p] || 'אחר'; (groups[c] = groups[c] || []).push(p); });
+    const cats = Object.keys(groups).sort((a, b) => (a === 'מונים' ? -1 : b === 'מונים' ? 1 : a === 'אחר' ? 1 : b === 'אחר' ? -1 : a.localeCompare(b, 'he')));
+
+    const tile = p => {
       const available  = sourceStock[p] || 0;
       const usedInVisit = editingProducts[p] || 0;
       const maxAllowed = available + usedInVisit;
       const on = usedInVisit > 0;
       const qtyValue = on ? usedInVisit : '';
       const out = available === 0 && !on;
-      // audit C #7: `"`→`&quot;` alone is not enough for the onclick arguments — the browser
-      // DECODES the entity before parsing the JS, so a `"` in a product name still broke out
-      // of `stepProductQty('…')`. `esc` is the plain-attribute form (it round-trips through
-      // dataset), `arg` is the handler-argument form. Both live in js/src/00-bridge.js.
       const esc = attrEsc(p);
       const arg = jsArgEsc(p);
       return `
-        <div class="sig-pi ${on ? 'on' : ''} ${out ? 'out' : ''}" data-row="${esc}">
+        <div class="sig-tile ${on ? 'on' : ''} ${out ? 'out' : ''}" data-row="${esc}" onclick="tileTap(event, '${arg}')">
           <input type="checkbox" class="prod-chk" data-product="${esc}" ${on ? 'checked' : ''} onchange="toggleProductQty(this)" hidden>
-          <button type="button" class="cb" aria-label="בחר ${esc}" onclick="toggleProductRow(this)">✓</button>
-          <span class="nm">${esc}<span class="sub">במלאי: <bdi>${available}</bdi>${out ? ' · אין מלאי' : ''}</span></span>
-          <div class="sig-step">
+          <span class="nm">${esc}</span>
+          <span class="sub">במלאי <bdi>${available}</bdi>${out ? ' · אין' : ''}</span>
+          <span class="qty-badge"><bdi>${qtyValue}</bdi></span>
+          <div class="sig-step" onclick="event.stopPropagation()">
             <button type="button" aria-label="פחות" onclick="stepProductQty('${arg}', -1)">−</button>
-            <input type="number" class="prod-qty" data-product="${esc}" data-max="${maxAllowed}" min="1" max="${maxAllowed}" step="1" value="${qtyValue}" ${on ? '' : 'disabled'} oninput="visitDraftTouch()">
+            <input type="number" class="prod-qty" data-product="${esc}" data-max="${maxAllowed}" min="1" max="${maxAllowed}" step="1" value="${qtyValue}" ${on ? '' : 'disabled'} oninput="visitDraftTouch();tileSync('${arg}')">
             <button type="button" aria-label="עוד" onclick="stepProductQty('${arg}', 1)">+</button>
+            <button type="button" class="bin" aria-label="הסר" onclick="tileRemove('${arg}')">🗑</button>
           </div>
-        </div>
-      `;
+        </div>`;
+    };
+    wrap.innerHTML = cats.map(c => {
+      const names = groups[c].slice().sort((a, b) => a.localeCompare(b, 'he'));
+      return (cats.length > 1 || c !== 'אחר' ? '<div class="sig-grid-head">' + attrEsc(c) + '</div>' : '') +
+        '<div class="sig-grid">' + names.map(tile).join('') + '</div>';
     }).join('');
     paintVisitCertStatus();
   }
+  function tileFor(product) { return document.querySelector('.sig-tile[data-row="' + String(product).replace(/"/g, '\\"') + '"]'); }
+  function tileEdit(product, on) {
+    const t = tileFor(product); if (!t) return;
+    t.classList.toggle('editing', !!on);
+    clearTimeout(_tileTimers[product]);
+    if (on) _tileTimers[product] = setTimeout(() => t.classList.remove('editing'), 3500);
+  }
+  function tileSync(product) {
+    const t = tileFor(product); if (!t) return;
+    const q = t.querySelector('.prod-qty'); const b = t.querySelector('.qty-badge bdi');
+    if (b) b.textContent = q && !q.disabled ? (q.value || '') : '';
+  }
+  function tileTap(e, product) {
+    const t = tileFor(product); if (!t) return;
+    const chk = t.querySelector('.prod-chk');
+    if (!chk.checked) { chk.checked = true; toggleProductQty(chk); }
+    tileEdit(product, !t.classList.contains('editing'));
+    tileSync(product);
+  }
+  function tileRemove(product) {
+    const t = tileFor(product); if (!t) return;
+    const chk = t.querySelector('.prod-chk');
+    if (chk.checked) { chk.checked = false; toggleProductQty(chk); }
+    tileEdit(product, false); tileSync(product); visitDraftTouch();
+  }
+  window.tileTap = tileTap; window.tileRemove = tileRemove; window.tileSync = tileSync;
 
   /** The visible checkbox square. Flips the real (hidden) `.prod-chk`, which owns the state. */
   function toggleProductRow(btn) {
@@ -180,6 +276,7 @@
     if (chk && !chk.checked) { chk.checked = true; toggleProductQty(chk); }
     qty.value = String(n);
     visitDraftTouch();
+    tileSync(product); tileEdit(product, true);
   }
   window.toggleProductRow = toggleProductRow;
   window.stepProductQty = stepProductQty;
@@ -195,8 +292,9 @@
       qtyInput.disabled = true;
       qtyInput.value = '';
     }
-    const row = chk.closest && chk.closest('.sig-pi');
+    const row = chk.closest && (chk.closest('.sig-pi') || chk.closest('.sig-tile'));
     if (row) row.classList.toggle('on', chk.checked);
+    if (row && row.classList.contains('sig-tile')) tileSync(product);
     paintVisitCertStatus();
     visitDraftTouch();
   }
@@ -810,17 +908,42 @@
     window.addEventListener('pagehide', function () { visitDraftFlush(); });
   }
 
+  // ── required fields say so IN PLACE (עידן 22.9, J6): a red star is already on the label;
+  // a miss puts a thin red frame + a blink on the field's block and scrolls to the FIRST one.
+  function visitRequireMiss(ids) {
+    var first = null;
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      var box = el && ((typeof el.closest === 'function' && el.closest('.sig-frm')) || el.parentElement);
+      if (!box || !box.classList) return;
+      box.classList.add('sig-req-miss');
+      if (!first) first = box;
+    });
+    if (first) { try { first.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* a bare DOM */ } }
+  }
+  // Typing into a marked block clears the mark. (Guarded: test-inventory-pool.mjs evaluates
+  // this module against a bare `document` stub.)
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    var _reqClear = function (e) { var t = e.target; var box = t && t.closest && t.closest('.sig-req-miss'); if (box) box.classList.remove('sig-req-miss'); };
+    document.addEventListener('input', _reqClear, true);
+    document.addEventListener('change', _reqClear, true);
+  }
+
   async function saveVisit(btn) {
     const workday = !!(document.getElementById('visitWorkday') && document.getElementById('visitWorkday').checked);
     // Work day = either/or with hours: stored as the ~8h equivalent so hour-stats stay correct.
     const duration = workday ? WORKDAY_HOURS : parseFloat(document.getElementById('visitDuration').value);
     const visitor = document.getElementById('visitor').value;
-    if (!visitor) { alert('נא לבחור מי ביקר'); return; }
+    const missing = [];
+    if (!visitor) missing.push('visitor');
     // The date must be picked explicitly. This used to fall back to "today" further down, which
     // silently stamped the wrong day on any visit reported after the fact — the mis-dated visits we
     // then had no way to fix. Refuse instead of guessing.
-    if (!document.getElementById('visitDate').value) { alert('נא לבחור את תאריך הביקור'); return; }
-    if (!workday && (isNaN(duration) || duration <= 0)) { alert('נא להזין משך ביקור בשעות, או לסמן "יום עבודה מלא"'); return; }
+    if (!document.getElementById('visitDate').value) missing.push('visitDate');
+    if (!workday && (isNaN(duration) || duration <= 0)) missing.push('visitDuration');
+    // איש קשר מלווה is required (עידן 22.9, J5 — "כרגע אני רוצה לחנך").
+    if (!document.getElementById('visitContact').value.trim()) missing.push('visitContact');
+    if (missing.length) { visitRequireMiss(missing); sigmaError('חסרים פרטים בשדות המסומנים'); return; }
     const emsIntent = readVisitEmsIntent();   // EMS status is mandatory when an open task exists
     if (emsIntent === false) return;          // validation failed → stay in the form
     if (currentKibbutz) localStorage.setItem('last_visit_kibbutz', currentKibbutz); // for the quick-visit FAB default
@@ -856,6 +979,9 @@
         }
       }
     }
+
+    // A contact nobody knew yet is kept for next time (J5). Best effort, never blocks the save.
+    try { visitContactPersist(currentKibbutz, document.getElementById('visitContact').value.trim()); } catch (e) { /* offline */ }
 
     const dateInput = document.getElementById('visitDate').value;   // guaranteed non-empty (validated above)
     const visitDate = new Date(dateInput + 'T12:00:00').toISOString();

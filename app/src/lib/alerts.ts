@@ -114,6 +114,79 @@ export function isSeen(row: AlertRow, user: string): boolean {
   return (row.seen_by ?? []).indexOf(String(user ?? '')) !== -1;
 }
 
+// ───────────────────────────── groups (22.9, G1) ─────────────────────────────
+// One visit summary that moved three products is ONE thing to read, not three lines; the
+// low-stock rows of one day are one line. Rows are grouped by what caused them and the
+// Israel-local day they happened on; the group's clock is its latest row's.
+
+export interface AlertGroup {
+  key: string;
+  kind: AlertKind;
+  rows: AlertRow[];
+  /** The one line the bell shows for the group. */
+  title: string;
+  /** Latest `created_at` in the group — the sort key. */
+  at: string;
+  /** Every row in the group is seen by this person. */
+  seen: boolean;
+}
+
+/** The location that is NOT the pool — the kibbutz, the supplier, the recount. */
+function counterpart(row: AlertRow): string {
+  const from = String(row.from_location ?? ''), to = String(row.to_location ?? '');
+  if (to && to !== POOL) return to;
+  if (from && from !== POOL) return from;
+  return to || from || '';
+}
+
+export function groupKey(row: AlertRow): string {
+  const day = row.created_at ? israelParts(row.created_at).date : '';
+  if (row.kind === 'low_stock') return `low|${day}`;
+  const cause = String(row.ref_id ?? '').trim() || `${String(row.reason ?? '')}|${String(row.actor ?? '')}|${counterpart(row)}`;
+  return `${String(row.kind)}|${String(row.reason ?? '')}|${cause}|${day}`;
+}
+
+/** `סיכום ביקור גבים · 3 פריטים · אביאם · 14:02` — a single row keeps its own line. */
+export function groupTitle(rows: AlertRow[]): string {
+  if (rows.length === 1) return alertText(rows[0]);
+  const head = rows[0];
+  const when = head.created_at ? israelClock(head.created_at) : '';
+  if (head.kind === 'low_stock') {
+    const parts = [`⚠️ מלאי נמוך · ${rows.length} פריטים`];
+    if (when) parts.push(when);
+    return parts.join(' · ');
+  }
+  const reason = REASON_TEXT[String(head.reason ?? '')] || 'תנועות מלאי';
+  const where = counterpart(head);
+  const parts = [`${alertArrow(head)} ${reason}${where ? ' ' + where : ''}`, `${rows.length} פריטים`];
+  if (head.actor) parts.push(String(head.actor));
+  if (when) parts.push(when);
+  return parts.join(' · ');
+}
+
+/** Rows (any order) → groups, newest first. */
+export function groupAlerts(rows: AlertRow[], user: string): AlertGroup[] {
+  const by = new Map<string, AlertRow[]>();
+  for (const r of rows || []) {
+    const k = groupKey(r);
+    const list = by.get(k);
+    if (list) list.push(r); else by.set(k, [r]);
+  }
+  const out: AlertGroup[] = [];
+  by.forEach((list, key) => {
+    list.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+    out.push({
+      key,
+      kind: list[0].kind,
+      rows: list,
+      title: groupTitle(list),
+      at: String(list[0].created_at ?? ''),
+      seen: list.every(r => isSeen(r, user)),
+    });
+  });
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+
 /** The badge on the bell: how many rows this person has not marked seen. */
 export function unseenCount(rows: AlertRow[], user: string): number {
   return rows.filter(r => !isSeen(r, user)).length;

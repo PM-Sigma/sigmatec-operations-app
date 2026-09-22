@@ -979,7 +979,7 @@
     /* ---- the phone BOARD (spec §7d): the columns become a horizontal snap-scroll, one column
        ≈ 88 vw, so a thumb swipe lands square on the next column instead of half a column. The
        rail already sits above them (.dev-board is column-reverse) as a wrapping chip row. ---- */
-    .dev-board-grid { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; overflow-y: visible;
+    .dev-board-grid { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; overflow-y: visible; scroll-snap-type: x mandatory; mask-image: linear-gradient(to left, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%); -webkit-mask-image: linear-gradient(to left, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
       gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
     .dev-board-grid > .dev-stage { flex: 0 0 88vw; max-width: 88vw; scroll-snap-align: center; margin-bottom: 0; }
@@ -1998,3 +1998,56 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
 
   /* ✏️ פרטי קיבוץ inside the card (22.9) */
   .modal-edit-kibbutz { border: 1px solid var(--border); background: var(--card); border-radius: 8px; min-width: 30px; min-height: 28px; margin-inline-start: 6px; cursor: pointer; font-size: 13px; vertical-align: middle; }
+
+  /* ── ציוד שסופק as a tile grid (22.9, J2) ── */
+  .sig-grid-head { font-size: 12px; font-weight: 800; color: var(--text-light); margin: 8px 0 4px; }
+  .sig-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .sig-tile { position: relative; min-height: 64px; padding: 8px 8px 6px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); text-align: left; direction: rtl; cursor: pointer; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+  .sig-tile .nm { font-weight: 700; font-size: 12.5px; line-height: 1.25; word-break: break-word; }
+  .sig-tile .sub { font-size: 10.5px; color: var(--text-light); }
+  .sig-tile.out { opacity: .55; }
+  .sig-tile.on { border-color: transparent; background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--brand-2); }
+  .sig-tile .qty-badge { position: absolute; top: 6px; inset-inline-end: 6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
+    background: var(--brand-grad); color: #fff; font-weight: 800; font-size: 12px; display: none; align-items: center; justify-content: center; }
+  .sig-tile.on:not(.editing) .qty-badge { display: inline-flex; }
+  .sig-tile .sig-step { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; gap: 0; background: var(--card); border: 0; border-radius: 12px; }
+  .sig-tile.editing .sig-step { display: flex; }
+  .sig-tile .sig-step button { width: 30%; height: 100%; font-size: 20px; }
+  .sig-tile .sig-step input { width: 40%; height: 100%; font-size: 16px; }
+  .sig-tile .sig-step .bin { background: var(--priority-light); color: var(--priority); font-size: 15px; }
+
+  /* ── a required block that was skipped (22.9, J6) ── */
+  .sig-req-miss { outline: 1.5px solid var(--priority); outline-offset: 4px; border-radius: 12px; animation: reqBlink .9s ease-in-out 3; }
+  @keyframes reqBlink { 0%, 100% { outline-color: var(--priority); } 50% { outline-color: transparent; } }
+  .sig-req-miss > .sig-fl::after { content: ' — חובה'; color: var(--priority); font-weight: 800; font-size: 12px; }
+
+  /* ── contact chips (22.9, J5) ── */
+  .sig-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+  .sig-chips:empty { display: none; }
+  .sig-chip { min-height: 34px; padding: 0 12px; border-radius: 17px; border: 1px solid var(--border); background: var(--card); color: var(--text);
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .sig-chip.on { background: var(--text); color: var(--card); border-color: transparent; }
+
+  /* ── the card's last-visit line, red when a visit was owed (22.9, D5) ── */
+  .card-last-visit.late { color: var(--priority); font-weight: 800; }
+
+  /* ── the header on a phone is ONE row (22.9, B3) ── */
+  @media (max-width: 768px) {
+    .header { padding: 8px 12px; border-radius: 12px; }
+    .header-top { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 8px; }
+    .header h1 { font-size: 17px; white-space: nowrap; }
+    .header-meta { flex-wrap: nowrap; justify-content: flex-end; gap: 6px; min-width: 0; }
+    .header-date { display: none; }
+  }
+  /* sideways scroll hints on the containers that already scroll */
+  #attendanceTable, .dev-board-grid { scrollbar-width: thin; }
+
+  /* ── "משהו נשבר" — the crash card (22.9, K4) ── */
+  .sigma-crash { position: fixed; inset-inline: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 3000; background: var(--card);
+    color: var(--text); border: 1px solid var(--priority); border-radius: 14px; padding: 12px 14px; box-shadow: var(--shadow-md); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .sigma-crash b { flex: 1 1 100%; font-size: 14px; }
+  .sigma-crash .msg { flex: 1 1 100%; font-size: 12px; color: var(--text-light); white-space: pre-wrap; word-break: break-word; max-height: 3.2em; overflow: hidden; }
+  .sigma-crash button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); font: inherit; font-weight: 700; cursor: pointer; }
+  .sigma-crash button.p { background: var(--priority); color: #fff; border-color: transparent; }
+  @media (min-width: 768px) { .sigma-crash { inset-inline: auto 24px; max-width: 420px; bottom: 24px; } }

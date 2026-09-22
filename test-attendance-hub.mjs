@@ -42,7 +42,9 @@ check('openEditModal clears the visit date instead of stamping today', () => {
   assert.ok(!/visitDate'\)\.value =\s*\n?\s*today\.getFullYear/.test(f), 'the today-default must be gone');
 });
 check('saveVisit REFUSES an empty date (no silent "today" fallback)', () => {
-  assert.ok(/if \(!document\.getElementById\('visitDate'\)\.value\) \{ alert\('נא לבחור את תאריך הביקור'\); return; \}/.test(visits),
+  // 22.9 (J6): the refusal is IN PLACE — the field is marked and scrolled to — not an alert().
+  assert.ok(/if \(!document\.getElementById\('visitDate'\)\.value\) missing\.push\('visitDate'\);/.test(visits)
+    && /if \(missing\.length\) \{ visitRequireMiss\(missing\); sigmaError\([^)]*\); return; \}/.test(visits),
     'an empty date must be rejected up front');
   assert.ok(!/dateInput \? new Date\(dateInput \+ 'T12:00:00'\)\.toISOString\(\) : new Date\(\)\.toISOString\(\)/.test(visits),
     'the silent today-fallback must be gone — it is what mis-dated visits in the first place');
@@ -54,7 +56,9 @@ check('the date validation runs BEFORE any save work begins', () => {
     'validate before showing the saving state / collecting products');
 });
 check('the label tells the user to pick a date (date inputs have no placeholder)', () => {
-  assert.ok(/<label[^>]*for="visitDate"[^>]*>[^<]*בחר תאריך[^<]*<\/label>/.test(html), 'label should carry the בחר תאריך hint');
+  // 22.9 (J1): one heading "משך ותאריך הביקור" over both inputs; the date input names itself.
+  assert.ok(/<label class="sig-fl">משך ותאריך הביקור/.test(html), 'the one heading over duration + date');
+  assert.ok(/<input type="date" id="visitDate"[^>]*aria-label="תאריך הביקור"/.test(html), 'the date input carries its own name');
 });
 check('the FAB path still injects its explicitly chosen date AFTER the clear', () => {
   const init = R('js/src/02-init-attendance.js');

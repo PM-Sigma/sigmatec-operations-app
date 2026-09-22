@@ -5,17 +5,15 @@
 // The rules themselves are goldens (app/src/lib/burns.test.ts + components/home/Burns.test.tsx).
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
 
-test('card: 🔥 נותרו X/Y on the kibbutz with work left, nothing on the finished one', async ({ page }, ti) => {
+test('card: no 🔥 chip on the home card any more (22.9, D1) — the summary lives inside the card', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   const hukok = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
   await expect(hukok).toBeVisible({ timeout: 15_000 });
-  const chip = hukok.getByTestId('burn-chip');
-  await expect(chip).toBeVisible({ timeout: 15_000 });
-  await expect(chip).toHaveText('🔥 נותרו 2/3');
-
-  // HIDE AT ZERO, on the same screen: יגור's meters are all burned, so it carries no chip.
+  await expect(hukok.getByTestId('burn-chip')).toHaveCount(0);
   await expect(page.locator('#sigma-home .kibbutz[data-name="יגור"] [data-testid="burn-chip"]')).toHaveCount(0);
+  // the strip above the cards still carries the project's progress
+  await expect(page.getByTestId('burns-strip')).toBeVisible({ timeout: 15_000 });
 
   await expectRtl(page);
   await shot(page, ti, 'card-chip');
@@ -30,6 +28,9 @@ test('card modal: the 🔥 צריבות section lists this kibbutz only', async 
   await expect(panel).toBeVisible({ timeout: 15_000 });
   await expect(panel.getByTestId('burns-panel-count')).toHaveText('נותרו 2/3');
   await expect(panel.getByText('פרויקט זמני')).toHaveCount(0);   // 22.9: the label is gone
+  // 22.9 (D1): the section is a summary row until tapped
+  await expect(panel.getByTestId('burn-row')).toHaveCount(0);
+  await panel.getByTestId('burns-panel-toggle').click();
 
   // not-done first (CT before PP), the burned one last — the order burnsForSite fixes
   const rows = panel.getByTestId('burn-row');
@@ -50,6 +51,7 @@ test('card modal: the viewer reads the meters and is offered no button at all', 
   await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
   const panel = page.getByTestId('burns-panel');
   await expect(panel).toBeVisible({ timeout: 15_000 });
+  await panel.getByTestId('burns-panel-toggle').click();
   await expect(panel.getByTestId('burn-row')).toHaveCount(3);
   await expect(panel.getByTestId('burn-toggle')).toHaveCount(0);
   await expect(panel.locator('input[type="checkbox"]')).toHaveCount(0);

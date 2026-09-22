@@ -97,8 +97,9 @@ test('home cards: a team member sees the actions but not the admin affordances',
 
   const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
   await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toBeVisible();
-  await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toBeVisible();
-  // אביאם is not in KIBBUTZ_ADMINS (עידן · עמיחי)
+  await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toHaveCount(0);   // 22.9: inside the visit only
+  await expect(card.getByTestId('add-internal-task')).toBeVisible();
+  // אביאם is not in KIBBUTZ_ADMINS (עידן · עמיחי) — and since 22.9 nobody has a ✏️ on the home card
   await expect(card.locator('button[title="פרטי קיבוץ"]')).toHaveCount(0);
 
   expectNoConsoleErrors(rec);

@@ -180,7 +180,7 @@ test('feedback voice: a 502 from transcribe keeps the recording, says so, and �
   // ── the line, and the recording still held
   const strip = page.getByTestId('transcribe-retry');
   await expect(strip).toBeVisible({ timeout: 10_000 });
-  await expect(strip).toContainText('התמלול לא זמין כרגע — נסה שוב מאוחר יותר');
+  await expect(strip).toContainText('התמלול לא זמין כרגע. נסה שוב מאוחר יותר');
   await expect(strip).toContainText('ההקלטה נשמרה');
   await expect(box, 'the typed text was lost on a transcription failure').toHaveValue('כתבתי את זה ביד');
   await shot(page, ti, 'transcribe-unavailable');

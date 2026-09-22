@@ -281,11 +281,8 @@ test('pattern 4 (legacy): setBtnLoading keeps the label and refuses the second t
   expectNoConsoleErrors(rec);
 });
 
-test('F9: queued EMS writes are visible in the header and listed on a tap', async ({ page }, ti) => {
+test('F9 → 22.9 (B6): the queue chip is GONE from the header — the queue drains on its own', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'עידן' });
-
-  const chip = page.locator('#emsQueueChip');
-  await expect(chip).toBeHidden();                   // nothing queued → nothing to say
 
   await page.evaluate(() => {
     const w = window as any;
@@ -296,24 +293,20 @@ test('F9: queued EMS writes are visible in the header and listed on a tap', asyn
     ];
     w.emsQueueChipRender();
   });
-
-  await expect(chip).toBeVisible();
-  await expect(chip).toHaveText(/2 פעולות ממתינות לחיבור/);
-  await chip.click();
+  // Nothing in the header says "פעולות ממתינות" any more (עידן: the sync is in the background).
+  await expect(page.locator('#emsQueueChip')).toHaveCount(0);
+  await expect(page.locator('.header')).not.toContainText('ממתינות לחיבור');
+  // …the queue itself is intact and still listable for a debugging session.
+  await page.evaluate(() => (window as any).emsQueueChipOpen());
   await expect(page.getByTestId('ems-queue-list')).toBeVisible();
   await expect(page.getByTestId('ems-queue-list')).toContainText('בתור');
-  await page.getByRole('button', { name: 'סגור' }).click();
-
-  // …and it clears the moment the queue does.
-  await page.evaluate(() => {
-    const w = window as any;
-    w.SHEET_DATA.emsQueue = [];
-    w.emsQueueChipRender();
-  });
-  await expect(chip).toBeHidden();
+  // …and, like every dialog since 22.9 (A1), a dialog built at runtime gets the ✕ too.
+  await page.locator('#emsQueueModal').getByTestId('modal-x').click();
+  await expect(page.locator('#emsQueueModal')).toBeHidden();
 
   expectNoConsoleErrors(rec);
 });
+
 
 test('F5: a Supabase write is not open-ended — a hung PostgREST ends in a Hebrew message', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });

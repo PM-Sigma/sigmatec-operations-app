@@ -58,15 +58,15 @@ export function emitFeedbackChanged(detail?: Record<string, unknown>): void {
 
 // ───────────────────────── the opener (no shared global) ─────────────────────────
 
-let opener: ((kind?: FeedbackKind) => void) | null = null;
+let opener: ((kind?: FeedbackKind, prefill?: string) => void) | null = null;
 
 /** The window event the command bar / `runAdd('feedback')` dispatch to open this sheet. */
 export const FEEDBACK_OPEN_EVENT = 'sigma-open-feedback';
 
 /** Open the feedback sheet from anywhere in the React bundle. */
-export function openFeedback(kind?: FeedbackKind): void {
-  if (opener) opener(kind);
-  else toast.error('תיבת הרעיונות עוד לא נטענה — רענן את העמוד');
+export function openFeedback(kind?: FeedbackKind, prefill?: string): void {
+  if (opener) opener(kind, prefill);
+  else toast.error('תיבת הרעיונות עוד לא נטענה. רענן את העמוד');
 }
 
 // ───────────────────────────── the write ─────────────────────────────
@@ -182,9 +182,12 @@ function FeedbackSheet() {
   const machine = React.useRef(voiceIdle());
 
   React.useEffect(() => {
-    const open = (k?: FeedbackKind) => {
+    const open = (k?: FeedbackKind, prefill?: string) => {
       if (!canSubmitFeedback(role || sigma?.getRole?.() || '')) { toast.error('יש להתחבר כדי לשלוח'); return; }
       if (k) setKind(k);
+      // The crash card (js/src/00-guard.js sigmaCrash) hands the error + the last actions in as
+      // the bug's text; a box the person already typed into is never overwritten.
+      if (prefill) setText(prev => (prev.trim() ? prev : prefill));
       setOpen(true);
     };
     opener = open;
@@ -192,7 +195,10 @@ function FeedbackSheet() {
     // importing this module (app/src/islands/CommandBar.tsx dispatches 'sigma-open-feedback'),
     // so without this listener both of those did nothing at all. Caught by the Playwright
     // backfill, Task 22.
-    const onEvent = () => open();
+    const onEvent = (e: Event) => {
+      const d = (e as CustomEvent).detail as { kind?: FeedbackKind; text?: string } | undefined;
+      open(d?.kind, d?.text);
+    };
     window.addEventListener(FEEDBACK_OPEN_EVENT, onEvent as EventListener);
     return () => {
       window.removeEventListener(FEEDBACK_OPEN_EVENT, onEvent as EventListener);
@@ -207,11 +213,11 @@ function FeedbackSheet() {
   };
 
   const NOTICE: Record<string, string> = {
-    unsupported: 'הדפדפן הזה לא תומך בהקלטה — אפשר להקליד',
-    denied: 'אין הרשאה למיקרופון — אפשר להקליד',
-    failed: 'ההקלטה נכשלה — אפשר להקליד או לנסות שוב',
+    unsupported: 'הדפדפן הזה לא תומך בהקלטה. אפשר להקליד',
+    denied: 'אין הרשאה למיקרופון. אפשר להקליד',
+    failed: 'ההקלטה נכשלה. אפשר להקליד או לנסות שוב',
     cap: 'ההקלטה נעצרה אחרי ' + Math.round(RECORD_CAP_MS / 60_000) + ' דקות',
-    'mic-timeout': 'המיקרופון לא נפתח — נסה שוב או הקלד',
+    'mic-timeout': 'המיקרופון לא נפתח. נסה שוב או הקלד',
   };
 
   // ── ONE dispatch for every voice transition (fix round 1) ───────────────────
@@ -254,7 +260,7 @@ function FeedbackSheet() {
       case 'switch-to-record':
         stopLive();
         setInterim('');
-        toast.info('לא נשמע כלום — מקשיב שוב, עוד רגע');
+        toast.info('לא נשמע כלום. מקשיב שוב, עוד רגע');
         startRecordLeg();
         break;
 
@@ -415,7 +421,7 @@ function FeedbackSheet() {
       await sendFeedback(feedbackRow({ kind, text, anon, user, audioPath }));
       // The KIND only — never the text, and never who sent it when it was anonymous.
       track('feedback-sent', kind);   // 📈 שימוש (spec §7j)
-      toast.success(anon ? 'נשלח אנונימית — תודה!' : 'נשלח לעידן ולעמיחי — תודה!');
+      toast.success(anon ? 'נשלח אנונימית. תודה!' : 'נשלח לעידן ולעמיחי. תודה!');
       setOpen(false); reset();
     } catch (e: any) {
       // Rule 3 (F5/F10): Hebrew, with נסה שוב — and the text stays in the box to retry with.

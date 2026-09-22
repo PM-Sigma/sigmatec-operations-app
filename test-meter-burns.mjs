@@ -79,25 +79,32 @@ assert.equal(B.xs('שורה1\nשורה2‏'), 'שורה1 שורה2');
 
 // --- Excel spec: one row per meter, grouped by site (groupKeys = site index) ---
 const spec = B.xlsxSpec(rows, gens);
-assert.equal(spec.sheet, 'צריבות');
-assert.deepEqual(spec.columns.map(c => c.header), ['קיבוץ', 'גנרטור', 'סוג', 'מס\' מונה', 'כתובת', 'מערכות מקושרות', 'יחס CT', 'מונה אב', 'סטטוס', 'נצרב ע"י', 'תאריך צריבה', 'הערה']);
-assert.equal(spec.rows.length, 5);
-assert.equal(spec.rows[0][0], 'אור הנר', 'sorted by site group order (most pending first, then name)');
-assert.deepEqual(spec.groupKeys.slice(0, 2), [0, 0], 'both אור הנר rows share a band');
-const issueRow = spec.rows.find(r => r[3] === '22222222');
-assert.equal(issueRow[8], 'בעיה'); assert.equal(issueRow[11], 'אין גישה');
-const ctBurned = spec.rows.find(r => r[3] === '11111111');
-assert.equal(ctBurned[8], 'נצרב · ממתין לשיבוץ גנרטור', 'burned with no generator says so (22.9, I2)');
-assert.equal(genRow0 = spec.rows.find(r => r[3] === '59965612')[8], 'נצרב', 'burned + generator = plain נצרב');
+// 22.9 (I5): one sheet per kibbutz, the columns עידן asked for, every meter of the kibbutz
+assert.deepEqual(spec.columns.map(c => c.header), ["מס' מונה", 'סוג מונה', 'כתובת', 'שם המערכת', 'גנרטור', 'סטטוס', 'נצרב ע"י', 'תאריך צריבה', 'הערה']);
+assert.deepEqual(spec.sheets.map(sh => sh.sheet), ['אור הנר', 'מעוז חיים'], 'a sheet per kibbutz, in the site-group order');
+assert.equal(spec.sheets[1].rows.length, 3, 'every meter of the kibbutz is on its sheet');
+assert.equal(spec.rows.length, 5, 'the flat list still carries every row');
+const issueRow = spec.rows.find(r => r[0] === '22222222');
+assert.equal(issueRow[5], 'בעיה'); assert.equal(issueRow[8], 'אין גישה');
+const ctBurned = spec.rows.find(r => r[0] === '11111111');
+assert.equal(ctBurned[5], 'נצרב · ממתין לשיבוץ גנרטור', 'burned with no generator says so (22.9, I2)');
+assert.equal(ctBurned[1], 'משנה זרם ×40', 'the kind in words, without the icon');
+const genRow = spec.rows.find(r => r[0] === '59965612');
+assert.equal(genRow[5], 'נצרב', 'burned + generator = plain נצרב');
+assert.equal(genRow[4], 'גנרטור רפת');
 assert.equal(B.kindLabel(rows[0]), '🔁 משנה זרם ×50'); assert.equal(B.kindLabel(rows[1]), '⚡ תלת-פאזי'); assert.equal(B.kindLabel(rows[3]), '⚡ חד-פאזי', 'SP is single-phase (22.9, I4)');
-var genRow0; const genRow = spec.rows.find(r => r[3] === '59965612');
-assert.equal(genRow[1], 'גנרטור רפת');
+// I3: the EMS task a problem opens carries the meter, the address, the system and the generator
+const task = B.issueTask(rows[1], 'המונה לא נצרב', gens[0]);
+assert.equal(task.title, 'תקלה במונה 59965612 · סולארי דיר');
+assert.ok(task.description.startsWith('המונה לא נצרב\nמונה: 59965612\nסוג: תלת-פאזי\nכתובת: סולארי דיר'), task.description);
+assert.ok(task.description.includes('גנרטור: גנרטור רפת'), task.description);
+assert.equal(task.kibbutz, 'אור הנר'); assert.equal(task.type, 'fixing_fault');
 
 // Excel export sanitizes free text (RTL marks / newlines) in the note column
 const dirtyRows = rows.map(r => r.meter_id === 'd' ? Object.assign({}, r, { note: 'שורה1\nשורה2‏' }) : r);
 const dirtySpec = B.xlsxSpec(dirtyRows, gens);
-const dirtyRow = dirtySpec.rows.find(r => r[3] === '22222222');
-assert.equal(dirtyRow[11], 'שורה1 שורה2');
+const dirtyRow = dirtySpec.rows.find(r => r[0] === '22222222');
+assert.equal(dirtyRow[8], 'שורה1 שורה2');
 
 // --- generators helper summary ---
 const gs = B.genSummary(gens.concat([{ id: 'g2', site: 'אור הנר', name: 'גנרטור לול', device_serial: null }]), rows);

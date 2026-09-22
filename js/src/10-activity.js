@@ -549,6 +549,8 @@
     if (wdReset) { wdReset.checked = false; toggleVisitWorkday(); }
     document.getElementById('visitor').value = '';
     if (typeof prepVisitEmsBlock === 'function') prepVisitEmsBlock(name);   // Phase 2: in-form EMS update
+    if (typeof visitContactsRender === 'function') visitContactsRender(name);   // 22.9 J5: the kibbutz's contacts as chips
+    if (typeof visitOtherProductChanged === 'function') visitOtherProductChanged('');   // 22.9 J4: the catalog as suggestions
     if (typeof prepModalEmsSection === 'function') prepModalEmsSection(name);   // update tab: open task / create-new below status
     // Date starts EMPTY on purpose — a pre-filled "today" was silently accepted when the visit was
     // actually on another day, which is the main source of mis-dated visits. saveVisit now refuses to
@@ -583,18 +585,53 @@
   });
 
   // "ביקור אחרון" line on each card (latest visit from VISITS). Always rendered; prominent in meeting mode.
+  // LASTVISIT-PURE-START
+  /**
+   * The one line under a card (עידן 22.9, D5). `visit` = the kibbutz's latest visit (or null),
+   * `tasks` = its OPEN EMS tasks. When a task's due day has passed and no visit came after it,
+   * the line shows the DUE date in red with "ללא סיכום ביקור!" — a visit was owed and nobody
+   * wrote one. Otherwise the visit date. Day granularity: due today is not late.
+   */
+  function lastVisitLine(visit, tasks, now) {
+    var CLOSED = { done: 1, rejected: 1, not_relevant: 1, cancelled: 1 };
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var dayOf = function (str) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(str || ''));
+      if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+      var d = new Date(str); return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+    var fmt = function (d) { return d.getDate() + '.' + (d.getMonth() + 1) + '.' + String(d.getFullYear()).slice(2); };
+    var visitDay = visit && visit.date ? dayOf(visit.date) : null;
+    var oldestDue = null;
+    (tasks || []).forEach(function (t) {
+      if (!t || CLOSED[t.status]) return;
+      var due = dayOf(t.expectedCompletionDate);
+      if (!due || !(due < today)) return;
+      if (!oldestDue || due < oldestDue) oldestDue = due;
+    });
+    if (oldestDue && (!visitDay || visitDay < oldestDue)) {
+      return { text: '⏰ ביקור אחרון · ' + fmt(oldestDue) + ' · ללא סיכום ביקור!', late: true };
+    }
+    if (visitDay) return { text: '📍 ביקור אחרון · ' + fmt(visitDay), late: false };
+    return null;
+  }
+  // LASTVISIT-PURE-END
+  window.lastVisitLine = lastVisitLine;
+
   function applyCardLastVisit() {
     const visits = (window.SHEET_DATA && window.SHEET_DATA.visits) || [];
     const latest = {};
     visits.forEach(v => { if (!v.kibbutz || !v.date) return; if (!latest[v.kibbutz] || new Date(v.date) > new Date(latest[v.kibbutz].date)) latest[v.kibbutz] = v; });
+    const now = new Date();
     document.querySelectorAll('.kibbutz[data-name]').forEach(card => {
       card.querySelectorAll('.card-last-visit').forEach(e => e.remove());
-      const v = latest[card.dataset.name];
-      if (!v) return;
-      const d = new Date(v.date).toLocaleDateString('he-IL');
+      const name = card.dataset.name;
+      const tasks = (typeof emsCacheTasksForKibbutz === 'function') ? emsCacheTasksForKibbutz(name) : [];
+      const line = lastVisitLine(latest[name] || null, tasks, now);
+      if (!line) return;
       const el = document.createElement('div');
-      el.className = 'card-last-visit excel-injected';
-      el.textContent = '📍 ביקור אחרון: ' + d + (v.visitor ? ' · ' + v.visitor : '');   // date + who only (the full summary lives on the visit record, not on the card/status)
+      el.className = 'card-last-visit excel-injected' + (line.late ? ' late' : '');
+      el.textContent = line.text;
       card.appendChild(el);
     });
   }

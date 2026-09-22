@@ -92,6 +92,25 @@ export function burnStateLabel(r: BurnRow): string {
   return r.generator_id ? '✅ נצרב' : '✅ נצרב · ממתין לשיבוץ גנרטור';
 }
 
+/**
+ * The EMS fault task a reported problem opens (22.9, I3): the problem, the meter, its kind, its
+ * address, its system and its generator — everything the office needs. Mirrors
+ * `B.issueTask` in js/src/24-meter-burns.js.
+ */
+export function burnIssueTask(r: BurnRow, note: string, gen?: GeneratorRow | null): {
+  kibbutz: string; title: string; description: string; type: string; priority: string;
+} {
+  const kind = burnKindLabel(r).replace(/^[^\s]+\s/, '');
+  const lines = [note, 'מונה: ' + r.serial, 'סוג: ' + kind];
+  if (r.address) lines.push('כתובת: ' + r.address);
+  if (r.solar_names) lines.push('מערכת: ' + r.solar_names);
+  if (gen?.name) lines.push('גנרטור: ' + gen.name + (gen.device_serial ? ' (' + gen.device_serial + ')' : ''));
+  return {
+    kibbutz: r.site, title: 'תקלה במונה ' + r.serial + (r.address ? ' · ' + r.address : ''),
+    description: lines.join('\n'), type: 'fixing_fault', priority: 'high',
+  };
+}
+
 /** The kind in words a technician uses (I4): PP = תלת-פאזי, CT = משנה זרם (with its ratio). */
 export function burnKindLabel(r: BurnRow): string {
   if (isCT(r)) return '🔁 משנה זרם' + (r.ct_ratio && Number(r.ct_ratio) !== 1 ? ' ×' + Number(r.ct_ratio) : '');
@@ -206,9 +225,9 @@ export const burnSitesWithPending = (rows: BurnRow[] | null | undefined): string
 export function burnStripText(p: BurnProgress, role: 'field' | 'other'): string {
   if (!p.total || p.remaining <= 0) return '';
   if (role === 'field') {
-    return `🔥 צריבות — נותרו ${p.remaining} ב-${p.sitesLeft} ${p.sitesLeft === 1 ? 'קיבוץ' : 'קיבוצים'}`;
+    return `🔥 צריבות · נותרו ${p.remaining} ב-${p.sitesLeft} ${p.sitesLeft === 1 ? 'קיבוץ' : 'קיבוצים'}`;
   }
-  return `🔥 צריבות — בוצעו ${p.done} מתוך ${p.total} · ${p.pct}%`;
+  return `🔥 צריבות · בוצעו ${p.done} מתוך ${p.total} · ${p.pct}%`;
 }
 
 // ───────────────────────── the briefing rows ─────────────────────────

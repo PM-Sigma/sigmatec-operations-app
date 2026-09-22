@@ -29,7 +29,7 @@
      simply skips the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="modulepreload" href="ui/sigma.js?v=muck2o57">
+<link rel="modulepreload" href="ui/sigma.js?v=muclafgo">
 <!-- critical:start — generated from css/critical.css by build.mjs; do NOT hand-edit. src-sha256:4da873b1ce4a6e0a -->
 <style>*{box-sizing:border-box;margin:0;padding:0}:root{--primary: #1b2a4a;--primary-hover: #25395f;--accent: #2f6fed;--accent-soft: #eef3fe;--success: #0e9f6e;--success-light: #e7f6f0;--warning: #c87f0a;--warning-light: #fdf4e3;--danger: #7c5cdb;--danger-light: #f2eefb;--priority: #d64545;--priority-light: #fcecec;--gray-light: #f1f4f8;--bg: #f4f6f9;--card: #ffffff;--text: #1f2937;--text-light: #5c6572;--border: #e3e8ef;--radius: 10px;--shadow-sm: 0 1px 2px rgba(16,24,40,.05);--shadow-md: 0 4px 12px rgba(16,24,40,.08);--brand-1: #06C2CB;--brand-2: #1ABE63;--brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));--surface-2: #eef2f7;--radius-lg: 14px;--font: "Assistant", "Segoe UI", system-ui, sans-serif;--on-brand: #ffffff}:root[data-theme=dark]{--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f;--shadow-sm: 0 1px 2px rgba(0,0,0,.5);--shadow-md: 0 4px 12px rgba(0,0,0,.55)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f}}body{font-family:var(--font);font-size:15px;background:var(--bg);color:var(--text);min-height:100vh;padding:12px 16px;line-height:1.5;-webkit-font-smoothing:antialiased}@media(min-width:768px){body{padding:24px}}.container{max-width:none;margin:0 auto}.header{background:var(--bg);color:var(--text);padding:10px 2px 8px;margin-bottom:8px;position:sticky;top:0;z-index:5;min-height:56px}.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:44px}.header h1{font-size:21px;font-weight:800;letter-spacing:-.01em}.header .subtitle{font-size:11px;font-weight:500;color:var(--text-light);margin-top:3px}.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.page-nav{display:flex;gap:8px;margin-bottom:16px;background:var(--card);padding:8px;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 3px #0000000a;min-height:60px}.page-nav button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--text-light);border:none;padding:10px 16px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;min-height:44px}.page-nav button.active{background:var(--primary);color:#fff}.page-nav .nav-icon{font-size:15px;line-height:1}.section{background:var(--card);border-radius:12px;margin-bottom:16px;border:1px solid var(--border);overflow:hidden}.section-header{padding:16px 24px;background:var(--gray-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3;min-height:60px}.section-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}.section-body{padding:16px 24px 24px}.kibbutz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start;grid-auto-flow:dense}.kibbutz{padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm);position:relative;cursor:pointer;border-right-width:3px;min-height:120px}#sigma-home{min-height:100vh}body.sigma-home-fallback #sigma-home{min-height:0}#sigma-nav:not(:empty){min-height:64px}.company-tasks{min-height:120px}#userBadge,#emsBubble{display:none}#sigma-header-actions{min-height:40px}.filter-bar{padding:0;margin:0;border:0;background:none;min-height:0}.filter-bar>.search-input,.filter-bar>.filter-chip{display:none}#grid-new,#grid-active{display:none}:root[data-gate=pick] #loginModal{display:flex}</style>
 <!-- critical:end -->
@@ -40,11 +40,11 @@
      the inlined critical block above stays because it is what paints if either 404s. -->
 <!-- css/app.min.css is GENERATED from css/app.css by build.mjs (26 kB → 14 kB gzipped on a
      render-blocking request); css/app.css stays the hand-written source of truth. -->
-<link rel="stylesheet" href="css/app.min.css?v=muck2o57">
+<link rel="stylesheet" href="css/app.min.css?v=muclafgo">
 <!-- ui/sigma.css loads at NORMAL priority. It was tried as a `media="print"` swap: 8 kB
      gzipped off the critical path, against the risk of an island painting unstyled if the
      swap lands after it mounts. Not a trade worth making for 8 kB. -->
-<link rel="stylesheet" href="ui/sigma.css?v=muck2o57">
+<link rel="stylesheet" href="ui/sigma.css?v=muclafgo">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -175,7 +175,7 @@
   <div class="modal-backdrop" id="attEditModal" style="z-index:1100;">
     <div class="modal" onclick="event.stopPropagation()" style="max-width:430px;">
       <h3>✏️ עריכת דיווח נוכחות</h3>
-      <div class="modal-sub">שנה תאריך או סוג יום ושמור. הדיווח המקורי יתעדכן — לא ייווצר דיווח נוסף.</div>
+      <div class="modal-sub">שנה תאריך או סוג יום ושמור. הדיווח המקורי יתעדכן ולא ייווצר דיווח נוסף.</div>
       <div id="attEditWho" style="margin-top:10px;padding:6px 10px;background:#f0f9ff;border-right:3px solid #2563eb;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;"></div>
 
       <label for="attEditDate" style="margin-top:12px;">📅 תאריך:</label>
@@ -323,7 +323,7 @@
   <details class="legend-collapsible">
     <summary>ℹ️ מקרא צבעים והסבר הלחצנים</summary>
     <div class="legend">
-      <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>הושלם — עלה לאוויר</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>הושלם, עלה לאוויר</div>
       <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>על המסלול</div>
       <div class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>דורש פיתוח</div>
       <div class="legend-item" style="font-weight:600;color:var(--primary);">💬 לחץ על קיבוץ לשליחת הערה</div>
@@ -332,7 +332,7 @@
 
   <div class="footer">
     Sigmatec Operations
-    <span title="גרסת בנייה — עולה בכל העלאת גרסה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-22·2.05</bdi></span>
+    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-22·2.09</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -363,8 +363,8 @@
           <label style="margin:0;font-size:12px;">עד: <input type="date" id="invCertsTo" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
           <input type="text" id="invCertsSearch" placeholder="🔍 קיבוץ / לקוח / מס' תעודה" style="flex:1;min-width:160px;" oninput="invRenderCerts(true)">
           <button class="inv-btn small" onclick="invRenderCerts(true)">🔄 רענן</button>
-          <button class="inv-btn small" style="background:#0e7490;" onclick="certMonthlyFromTab()" title="טבלת סיכום לפי קיבוץ — מה נופק, כמויות לפי פריט">📄 סיכום חודשי</button>
-          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertsFromTab()" title="כל התעודות בטווח — שורה לכל פריט">📗 Excel</button>
+          <button class="inv-btn small" style="background:#0e7490;" onclick="certMonthlyFromTab()" title="טבלת סיכום לפי קיבוץ: מה נופק וכמה מכל פריט">📄 סיכום חודשי</button>
+          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertsFromTab()" title="כל התעודות בטווח, שורה לכל פריט">📗 Excel</button>
           <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertSummaryFromTab()" title="סיכום כמויות לפי קיבוץ ופריט">📗 סיכום Excel</button>
         </div>
         <div id="invCertsList"></div>
@@ -393,20 +393,20 @@
       </div>
 
       <div class="inv-card" style="margin-top:16px;background:#f8fafc;">
-        <h3 style="font-size:14px;">📐 זרימת הזמנה — מהיצירה עד הסיום</h3>
+        <h3 style="font-size:14px;">📐 זרימת הזמנה, מהיצירה עד הסיום</h3>
         <div class="order-flow">
           <div class="order-flow-step"><span class="of-num">1</span><div><strong>יצירה</strong><br><span style="color:#dc2626;">🔴 ממתין להזמנה</span><br><small>פותחים הזמנה + פריטים</small></div></div>
           <div class="order-flow-arrow">←</div>
           <div class="order-flow-step"><span class="of-num">2</span><div><strong>הוזמן מהספק</strong><br><span style="color:#2563eb;">🔵 בדרך</span><br><small>הזמנה אושרה אצל ספק</small></div></div>
           <div class="order-flow-arrow">←</div>
-          <div class="order-flow-step"><span class="of-num">3</span><div><strong>הגיע נמל</strong><br><span style="color:#eab308;">🟡 בנמל</span><br><small>(אופציונלי — ייבוא)</small></div></div>
+          <div class="order-flow-step"><span class="of-num">3</span><div><strong>הגיע נמל</strong><br><span style="color:#eab308;">🟡 בנמל</span><br><small>(לא חובה)</small></div></div>
           <div class="order-flow-arrow">←</div>
           <div class="order-flow-step"><span class="of-num">4</span><div><strong>סופק למשרד</strong><br><span style="color:#db2777;">🌸 הגיעה (טרם חולקה)</span><br><small>סטטוס = "סופקה" + לא הוקצה</small></div></div>
           <div class="order-flow-arrow">←</div>
           <div class="order-flow-step"><span class="of-num">5</span><div><strong>חולק למיקומים</strong><br><span style="color:#10b981;">🟢 סופקה וחולקה</span><br><small>נוצרות תנועות מלאי</small></div></div>
         </div>
         <div style="margin-top:10px;padding:8px 10px;background:var(--tint-warn);border-inline-start:3px solid var(--warning);border-radius:4px;font-size:12px;">
-          🟠 <strong>תקוע</strong> = מצב חריג בכל שלב (משלוח עוכב, ספק לא עונה, וכו') — סמן ידנית
+          🟠 <strong>תקוע</strong> = מצב חריג בכל שלב (משלוח עוכב, ספק לא עונה). מסמנים ידנית
         </div>
       </div>
     </div>
@@ -484,7 +484,7 @@
     </div>
     <div id="attendanceSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
     <div id="attMissingRow" style="display:none;margin:-6px 0 16px;"></div>
-    <div id="attendanceTable"></div>
+    <div id="attendanceTable" class="scroll-x"></div>
     </div><!-- /attendanceLegacy -->
   </div><!-- /attendance-view -->
 
@@ -731,7 +731,7 @@
           <option value="חברה">חברה</option>
         </select>
 
-        <label class="sig-fl">משך הביקור <span class="hint">· שעות או יום שלם</span> <span style="color:var(--priority);">*</span></label>
+        <label class="sig-fl">משך ותאריך הביקור <span style="color:var(--priority);">*</span></label>
         <div class="sig-seg" id="visitDurationChips">
           <button type="button" data-hours="1" onclick="setVisitHours(1)">1</button>
           <button type="button" data-hours="2" onclick="setVisitHours(2)">2</button>
@@ -742,15 +742,9 @@
         </div>
         <!-- The exact-hours input stays (0.25 steps) and `visitWorkday` stays a checkbox:
              both are what saveVisit() reads, and the chips above only write into them. -->
-        <div style="display:flex;gap:8px;align-items:flex-end;">
-          <div style="flex:1;">
-            <label class="sig-fl" for="visitDuration" style="margin-bottom:6px;">שעות מדויקות</label>
-            <input type="number" id="visitDuration" class="sig-fi" min="0.25" step="0.25" placeholder="1.5" oninput="syncVisitDurationChips()">
-          </div>
-          <div style="flex:1;">
-            <label class="sig-fl" for="visitDate" style="margin-bottom:6px;">תאריך הביקור — בחר תאריך</label>
-            <input type="date" id="visitDate" class="sig-fi">
-          </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+          <input type="number" id="visitDuration" class="sig-fi" style="flex:1;" min="0.25" step="0.25" placeholder="הזנה ידנית" aria-label="שעות, הזנה ידנית" oninput="syncVisitDurationChips()">
+          <input type="date" id="visitDate" class="sig-fi" style="flex:1;" aria-label="תאריך הביקור">
         </div>
         <label style="display:none;"><input type="checkbox" id="visitWorkday" onchange="toggleVisitWorkday()"></label>
 
@@ -762,8 +756,12 @@
              to "🚚 הפק תעודה ← שמור" the moment a product is checked. -->
         <div id="visitCertStatus"></div>
 
-        <label class="sig-fl" for="visitProductsOther">מוצרים שאינם בקטלוג</label>
-        <input type="text" id="visitProductsOther" class="sig-fi" placeholder="מוצרים נוספים, אופציונלי">
+        <label class="sig-fl" for="visitProductsOther">מוצרים נוספים</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="visitProductsOther" class="sig-fi" style="flex:1;" list="visitCatalogList" placeholder="חפש בקטלוג או כתוב מוצר" oninput="visitOtherProductChanged(this.value)">
+          <datalist id="visitCatalogList"></datalist>
+          <button type="button" id="visitAddToCatalog" class="sig-btn s" style="display:none;flex:none;min-height:40px;" onclick="visitAddOtherToCatalog()">➕ לקטלוג</button>
+        </div>
 
         <details style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;">
           <summary style="cursor:pointer;padding:10px 12px;font-weight:700;font-size:13.5px;">🔧 ציוד שהוחזר מהקיבוץ</summary>
@@ -796,11 +794,12 @@
           <span id="visitEmsConnNote" style="display:none;"></span>
         </div>
         <div id="visitEmsNewBlock" style="display:none;">
-          <button type="button" class="sig-btn s" style="width:100%;" onclick="createEmsTaskFromVisit()">➕ אין משימת EMS פתוחה — צור משימה חדשה</button>
+          <button type="button" class="sig-btn s" style="width:100%;" onclick="createEmsTaskFromVisit()">➕ פתח משימה חדשה ב-EMS</button>
         </div>
 
-        <label class="sig-fl" for="visitContact">איש קשר בקיבוץ</label>
-        <input type="text" id="visitContact" class="sig-fi" placeholder="מי ליווה אותך">
+        <label class="sig-fl" for="visitContact">איש קשר מלווה <span style="color:var(--priority);">*</span></label>
+        <div id="visitContactChips" class="sig-chips"></div>
+        <input type="text" id="visitContact" class="sig-fi" placeholder="מי ליווה אותך" autocomplete="off" oninput="visitContactTyped(this.value)">
 
         <div class="sig-actions" style="margin-top:4px;">
           <button class="sig-btn s" onclick="modalDismiss('modalBackdrop')" style="flex:0 0 auto;padding:0 16px;">ביטול</button>
@@ -834,7 +833,7 @@
 
     <!-- Recording -->
     <div id="voiceRecordStage">
-      <div class="modal-sub">דבר חופשי — מה קרה בביקור, ואילו פריטים/כמויות נדרשו.</div>
+      <div class="modal-sub">דבר חופשי: מה קרה בביקור ואילו פריטים וכמויות נדרשו.</div>
       <div id="voiceTimer" style="font-size:34px;font-weight:800;color:#1b2a4a;margin:18px 0;font-variant-numeric:tabular-nums;">00:00</div>
       <button id="voiceRecBtn" onclick="toggleVoiceRecording()" style="background:#dc2626;color:white;border:none;border-radius:50%;width:84px;height:84px;font-size:34px;cursor:pointer;box-shadow:0 6px 18px rgba(220,38,38,0.4);">🎤</button>
       <div id="voiceHint" style="font-size:12px;color:#64748b;margin-top:12px;">לחץ כדי להתחיל להקליט</div>
@@ -845,7 +844,7 @@
     <div id="voiceProcessStage" style="display:none;">
       <div class="voice-spinner" style="margin:18px auto 12px;"></div>
       <div style="font-weight:700;color:#1b2a4a;">🧠 מתמלל ומנתח את ההקלטה...</div>
-      <div style="font-size:12px;color:#94a3b8;margin-top:4px;">אנא המתן — אל תסגור את החלון</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px;">רגע, אל תסגור את החלון</div>
       <div style="background:#e2e8f0;border-radius:10px;height:10px;margin:16px 0 6px;overflow:hidden;">
         <div id="voiceBar" style="background:#7c3aed;height:100%;width:0%;transition:width .3s;"></div>
       </div>
@@ -887,7 +886,7 @@
 
     <!-- Step 2: confirm -->
     <div id="intakeStep2" style="display:none;">
-      <div class="modal-sub">בדוק שהכמויות נכונות. שורות מודגשות = לא זוהתה כמות ודאית — מלא ידנית.</div>
+      <div class="modal-sub">בדוק שהכמויות נכונות. בשורות המודגשות הכמות לא זוהתה, מלא אותה ידנית.</div>
       <div id="intakeGrid" style="margin:10px 0;"></div>
       <div id="intakeUnmatched"></div>
       <button class="inv-btn small" onclick="intakeAddRow()" style="margin-top:6px;">+ הוסף פריט</button>
@@ -916,7 +915,7 @@
 <!-- Soft Login Modal -->
 <div class="modal-backdrop" id="loginModal" style="z-index:1000;">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:420px;">
-    <h3>👋 ברוך הבא — מי אתה?</h3>
+    <h3>👋 מי אתה?</h3>
     <div class="modal-sub">בחר את שמך, ולאחר מכן הזן קוד גישה.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
       <button class="btn btn-primary login-btn" id="loginBtnIdan" onclick="setLoggedInUser('עידן')">עידן</button>
@@ -970,7 +969,7 @@
 
     <div id="invOrderSupplierWrap">
       <label for="invOrderSupplier">🏪 ספק:</label>
-      <input type="text" id="invOrderSupplier" list="supplierList" placeholder="שם הספק — בחר מהרשימה או הקלד חדש">
+      <input type="text" id="invOrderSupplier" list="supplierList" placeholder="שם הספק: בחר מהרשימה או הקלד חדש">
       <datalist id="supplierList"></datalist>
     </div>
 
@@ -988,7 +987,7 @@
         <option value="אביאם">אביאם</option>
         <option value="ניתאי">ניתאי</option>
         <option value="עמיחי">עמיחי</option>
-        <option value="ספק ישיר">🏭 ספק ישיר — לא יורד מהמלאי</option>
+        <option value="ספק ישיר">🏭 ספק ישיר (לא מהמלאי)</option>
       </select>
     </div>
 
@@ -997,15 +996,15 @@
 
     <!-- Raw customer requirement → parsed into items (AI when available, local fallback otherwise) -->
     <div id="invOrderRawWrap" style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
-      <label for="invOrderRaw" style="margin-top:0;">📥 הדבק מייל / וואטסאפ — וה-AI יהפוך לרשימת פריטים:</label>
+      <label for="invOrderRaw" style="margin-top:0;">📥 הדבק מייל או וואטסאפ ונבנה מהם רשימת פריטים:</label>
       <textarea id="invOrderRaw" placeholder="הדבק כאן את הטקסט כפי שהתקבל (מייל / וואטסאפ)... ואז לחץ 'נתח לפריטים'" style="min-height:64px;"></textarea>
       <button class="inv-btn" style="width:100%;background:#7c3aed;color:#fff;border:1px solid #7c3aed;margin-top:6px;font-weight:700;" onclick="orderParseRaw(this)">🪄 נתח לפריטים (AI)</button>
-      <div style="font-size:11px;color:#7c3aed;margin-top:4px;">המערכת לומדת מכל הזמנה — ככל שמשתמשים, הזיהוי משתפר. אפשר תמיד לערוך/להוסיף שורות ידנית למטה.</div>
+      <div style="font-size:11px;color:#7c3aed;margin-top:4px;">אפשר לערוך ולהוסיף שורות ידנית למטה.</div>
     </div>
 
     <label style="display:flex;align-items:center;">📦 פריטים בהזמנה:&nbsp;&nbsp;&nbsp;<span id="invParseSource"></span></label>
     <div id="invOrderItems" style="background:#f9fafb;padding:10px;border-radius:8px;margin-bottom:10px;">
-      <div style="text-align:center;color:#94a3b8;padding:8px;font-style:italic;">אין פריטים — לחץ "➕ הוסף שורה" או הדבק טקסט למעלה</div>
+      <div style="text-align:center;color:#94a3b8;padding:8px;font-style:italic;">אין פריטים. לחץ "➕ הוסף שורה" או הדבק טקסט למעלה</div>
     </div>
     <button class="inv-btn" style="width:100%;background:#eef3fe;color:#1d4ed8;border:1px dashed #93c5fd;font-weight:700;padding:11px;font-size:15px;margin-bottom:4px;" onclick="invAddItemRow()">➕ הוסף שורה</button>
 
@@ -1022,7 +1021,7 @@
         <option value="delivered">🟢 סופקה</option>
       </select>
     </div>
-    <div id="invOrderNewStatusNote" style="display:none;background:#f3e8ff;border-right:3px solid #7c3aed;border-radius:6px;padding:8px 10px;font-size:12px;color:#5b21b6;font-weight:600;">📊 הזמנה חדשה נפתחת כ"🟣 ממתינה לאישור". עדכון סטטוס לאחר אישור — בעריכה או בכפתורי הפעולה.</div>
+    <div id="invOrderNewStatusNote" style="display:none;background:#f3e8ff;border-right:3px solid #7c3aed;border-radius:6px;padding:8px 10px;font-size:12px;color:#5b21b6;font-weight:600;">הזמנה חדשה נפתחת כ"🟣 ממתינה לאישור". אחרי האישור מעדכנים סטטוס בעריכה או בכפתורי הפעולה.</div>
 
     <!-- 🎯 חלוקת המלאי removed (inventory spec §4): a supplier delivery is one line and it
          lands in the company pool. `orders.distribution` is kept as a column for old rows. -->
@@ -1108,7 +1107,7 @@
     </label>
 
     <div id="invProductDisplayNameRow" style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;">
-      <label for="invProductDisplayName" style="color:#94a3b8;font-weight:500;">ניהולי · חד-פעמי — שם לדוחות (עידן בלבד)</label>
+      <label for="invProductDisplayName" style="color:#94a3b8;font-weight:500;">ניהולי · חד-פעמי · שם לדוחות (עידן בלבד)</label>
       <input type="text" id="invProductDisplayName" placeholder="ריק = השם הטכני">
     </div>
 
@@ -1127,7 +1126,7 @@
   <div class="modal" onclick="event.stopPropagation()" style="max-width:500px;">
     <h3>🚚 תעודות משלוח וייצוא</h3>
     <div class="modal-sub">בחר טווח תאריכים (ואופציונלית עובד), ואז הפק תעודה / דוח תעודות / ייצוא Excel.<br>
-      <span style="color:#64748b;">דוח הנוכחות עצמו — כולל הביקורים — מופק בכפתור 📄 PDF שבעמוד נוכחות.</span></div>
+      <span style="color:#64748b;">דוח הנוכחות, כולל הביקורים, מופק בכפתור 📄 PDF בעמוד נוכחות.</span></div>
 
     <label for="visitsReportVisitor">👤 מבקר (אופציונלי):</label>
     <select id="visitsReportVisitor">
@@ -1210,7 +1209,7 @@
     </div>
     <button onclick="gateViewerToggle()" style="background:none;border:none;color:#64748b;font-size:12px;font-family:inherit;cursor:pointer;margin-top:14px;text-decoration:underline;">👁 כניסה לצפייה בלבד (הפקת דוחות)</button>
     <div id="gateViewerBox" style="display:none;margin-top:10px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
-      <div style="font-size:12px;color:#475569;margin-bottom:8px;">גישה לצפייה והפקת דוחות בלבד — ללא יכולת עריכה. הזן קוד צפייה:</div>
+      <div style="font-size:12px;color:#475569;margin-bottom:8px;">צפייה והפקת דוחות בלבד, ללא עריכה. הזן קוד צפייה:</div>
       <input type="password" id="gateViewerPin" inputmode="numeric" placeholder="קוד צפייה"
         style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;font-family:inherit;letter-spacing:3px;text-align:center;box-sizing:border-box;"
         onkeydown="if(event.key==='Enter')gateViewerLogin(this.nextElementSibling)">
@@ -1253,7 +1252,7 @@
 <div id="sigma-refresh"></div>
 <div id="sigma-toaster"></div>
 <div id="sigma-nav"></div>
-<script defer src="js/app.js?v=muck2o57"></script>
+<script defer src="js/app.js?v=muclafgo"></script>
 <script>
 // The islands are FETCHED early (rel=modulepreload in <head>) but EXECUTED after the first
 // paint (task 22b). As a plain deferred module they ran in the same turn as the legacy bundle,
@@ -1265,7 +1264,7 @@
   function go() {
     var s = document.createElement('script');
     s.type = 'module';
-    s.src = 'ui/sigma.js?v=muck2o57';
+    s.src = 'ui/sigma.js?v=muclafgo';
     document.body.appendChild(s);
   }
   function afterPaint() {

@@ -49,7 +49,14 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   // would open. The team test below asserts the labelled נוכחות row for אביאם.
   // משימות · משימות EMS · עובדים retired in Task 14 (§7m R1/R2/R5): the first two are 🗓️ יומן's
   // רשימה view and the third is gone, so the sheet no longer offers a row that opens nothing.
-  for (const label of ['יומן', 'מלאי', 'הגדרות', 'יומן היום']) {
+  // 22.9 (F4): מלאי is a tab on the bar, so the sheet does not list it again.
+  for (const label of ['יומן', 'הגדרות', 'יומן היום']) {
+    await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
+  }
+  for (const label of ['מלאי']) {
+    await expect(sheet.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+  }
+  for (const label of [] as string[]) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
   for (const gone of ['משימות', 'משימות EMS', 'עובדים']) {
@@ -66,8 +73,8 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   await shot(page, ti, 'more-sheet');
 
   // A row navigates and closes the sheet.
-  await sheet.getByRole('button', { name: 'מלאי', exact: true }).click();
-  await expect(page.locator('#inventory-view')).toBeVisible();
+  await sheet.getByRole('button', { name: 'יומן', exact: true }).click();
+  await expect(page.locator('#calendar-view')).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   expectNoConsoleErrors(rec);

@@ -81,25 +81,38 @@
     if (B.isCT(r)) return '🔁 משנה זרם' + (r.ct_ratio && Number(r.ct_ratio) !== 1 ? ' ×' + Number(r.ct_ratio) : '');
     return String(r.meter_type || '') === 'E360SP' ? '⚡ חד-פאזי' : '⚡ תלת-פאזי';
   };
+  // The EMS fault task a reported problem opens (עידן 22.9, I3): the problem, the meter, its
+  // address, its system and its generator — everything the person in the office needs.
+  B.issueTask = function (r, note, gen) {
+    var lines = [note, 'מונה: ' + B.xs(r.serial), 'סוג: ' + B.kindLabel(r).replace(/^[^\s]+\s/, '')];
+    if (r.address) lines.push('כתובת: ' + B.xs(r.address));
+    if (r.solar_names) lines.push('מערכת: ' + B.xs(r.solar_names));
+    if (gen && gen.name) lines.push('גנרטור: ' + B.xs(gen.name) + (gen.device_serial ? ' (' + B.xs(gen.device_serial) + ')' : ''));
+    return { kibbutz: r.site, title: 'תקלה במונה ' + B.xs(r.serial) + (r.address ? ' · ' + B.xs(r.address) : ''), description: lines.join('\n'), type: 'fixing_fault', priority: 'high' };
+  };
+  // Excel (עידן 22.9, I5): ONE SHEET PER KIBBUTZ, every meter of it, with the columns he asked
+  // for — meter, kind, address, system, generator, status — and a note. `rows` is the flat
+  // list too, so the existing single-sheet readers (and the "nothing to export" check) work.
   B.xlsxSpec = function (rows, gens) {
     var byId = {}; (gens || []).forEach(function (g) { byId[g.id] = g; });
     var columns = [
-      { header: 'קיבוץ', type: 's', width: 16 }, { header: 'גנרטור', type: 's', width: 14 }, { header: 'סוג', type: 's', width: 9 },
-      { header: "מס' מונה", type: 's', width: 12 }, { header: 'כתובת', type: 's', width: 26 }, { header: 'מערכות מקושרות', type: 's', width: 26 },
-      { header: 'יחס CT', type: 'n', width: 8 }, { header: 'מונה אב', type: 's', width: 12 }, { header: 'סטטוס', type: 's', width: 18 },
+      { header: "מס' מונה", type: 's', width: 12 }, { header: 'סוג מונה', type: 's', width: 14 },
+      { header: 'כתובת', type: 's', width: 26 }, { header: 'שם המערכת', type: 's', width: 26 },
+      { header: 'גנרטור', type: 's', width: 14 }, { header: 'סטטוס', type: 's', width: 24 },
       { header: 'נצרב ע"י', type: 's', width: 10 }, { header: 'תאריך צריבה', type: 'd', width: 12 }, { header: 'הערה', type: 's', width: 24 }
     ];
-    var out = [], keys = [];
+    var toRow = function (r) {
+      var gen = byId[r.generator_id];
+      return [B.xs(r.serial), B.kindLabel(r).replace(/^[^\s]+\s/, ''), B.xs(r.address), B.xs(r.solar_names), B.xs(gen ? gen.name : ''), B.stateLabel(r),
+              B.xs(r.burned_by), r.burned_at ? (function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); })(new Date(r.burned_at)) : null, B.xs(r.note)];
+    };
+    var sheets = [], all = [], keys = [];
     B.groupBySite(rows).forEach(function (g, gi) {
-      g.rows.forEach(function (r) {
-        var gen = byId[r.generator_id];
-        out.push([B.xs(r.site), B.xs(gen ? gen.name : ''), B.xs(r.meter_type), B.xs(r.serial), B.xs(r.address), B.xs(r.solar_names),
-                  r.ct_ratio != null ? Number(r.ct_ratio) : null, B.xs(r.parent_serial), B.stateLabel(r),
-                  B.xs(r.burned_by), r.burned_at ? (function (d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); })(new Date(r.burned_at)) : null, B.xs(r.note)]);
-        keys.push(gi);
-      });
+      var sorted = B.sortRows(g.rows);
+      sheets.push({ sheet: g.site || 'ללא קיבוץ', columns: columns, rows: sorted.map(toRow), groupKeys: sorted.map(function (r) { return B.rowState(r); }) });
+      sorted.forEach(function (r) { all.push(toRow(r)); keys.push(gi); });
     });
-    return { sheet: 'צריבות', columns: columns, rows: out, groupKeys: keys };
+    return { sheet: 'צריבות', sheets: sheets, columns: columns, rows: all, groupKeys: keys };
   };
   B.genSummary = function (gens, rows) {
     var cnt = {}; (rows || []).forEach(function (r) { if (r.generator_id) cnt[r.generator_id] = (cnt[r.generator_id] || 0) + 1; });
@@ -393,7 +406,18 @@
       else emsToast('לא נשמרה בעיה ריקה');
       return;
     }
-    burnSafe(function () { return burnPatchRow(id, B.issuePatch(note, burnNow())); });
+    var openEms = typeof isEmsConnected === 'function' && isEmsConnected() && typeof createTask === 'function'
+      && confirm('לפתוח גם תקלה ב-EMS על המונה הזה?');
+    burnSafe(async function () {
+      await burnPatchRow(id, B.issuePatch(note, burnNow()));
+      if (!openEms) return;
+      var gen = burnState.gens.find(function (g) { return g.id === r.generator_id; });
+      var res = await createTask(B.issueTask(r, note, gen));
+      if (res && res.error) { emsToast('⚠️ הבעיה נרשמה, אבל המשימה ב-EMS לא נפתחה: ' + res.error); return; }
+      var tid = res && (res.id || (res.data && res.data.id));
+      if (tid) { try { await burnPatchRow(id, { ems_task_id: String(tid) }); } catch (e) { /* older schema — the task exists anyway */ } }
+      emsToast('נפתחה תקלה ב-EMS');
+    });
   }
   function burnBurnSelected() {
     var filtered = B.filterRows(burnState.rows || [], burnState.f, burnState.gens);
@@ -498,7 +522,7 @@
     var m = document.getElementById('burnCardModal'), c = document.getElementById('burnCardContent');
     var list = B.genSummary(burnState.gens, burnState.rows || []);
     c.innerHTML = '<h3 style="margin:0 0 8px;">⚡ גנרטורים (' + list.length + ')</h3><p class="burn-muted" style="margin:0 0 8px;">מספר מונה/בקר של הגנרטור — נשמר ביציאה מהשדה.</p>' +
-      (list.length ? '<div style="overflow-x:auto;"><table class="inv-table"><thead><tr><th>קיבוץ</th><th>שם</th><th>מונה/בקר</th><th>מונים</th></tr></thead><tbody>' +
+      (list.length ? '<div class="scroll-x"><table class="inv-table"><thead><tr><th>קיבוץ</th><th>שם</th><th>מונה/בקר</th><th>מונים</th></tr></thead><tbody>' +
       list.map(function (g) { return '<tr><td>' + burnEsc(g.site) + '</td><td>' + burnEsc(g.name) + '</td><td><input class="burn-search" style="min-height:34px;padding:4px 8px;width:130px;" value="' + burnEsc(g.device_serial) + '" onblur="burnGenSaveSerial(\'' + burnAttr(g.id) + '\', this.value)"></td><td>' + g.count + '</td></tr>'; }).join('') +
       '</tbody></table></div>' : '<div class="dev-empty">עדיין לא נוצרו גנרטורים — שבץ מונה מהרשימה כדי ליצור.</div>');
     m.classList.add('open');

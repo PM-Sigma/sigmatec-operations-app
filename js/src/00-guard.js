@@ -297,6 +297,71 @@
     if (typeof showPage === 'function') showPage(p || 'kibbutz', { fromHistory: true });
   });
 
+  // ── sideways scroll: a fade at the far edge says there is more (B5) ────────────────────
+  function scrollXPaint(el) {
+    var max = el.scrollWidth - el.clientWidth;
+    var x = Math.abs(el.scrollLeft);
+    el.classList.toggle('at-start', max <= 1 || x < 2);
+    el.classList.toggle('at-end', max <= 1 || x >= max - 2);
+  }
+  function scrollXPaintAll() { var all = document.querySelectorAll('.scroll-x'); for (var i = 0; i < all.length; i++) scrollXPaint(all[i]); }
+  window.scrollXPaintAll = scrollXPaintAll;
+  document.addEventListener('scroll', function (e) {
+    var t = e.target; if (t && t.classList && t.classList.contains('scroll-x')) scrollXPaint(t);
+  }, true);
+  window.addEventListener('resize', scrollXPaintAll, { passive: true });
+  try {
+    new MutationObserver(function () { if (window.requestAnimationFrame) requestAnimationFrame(scrollXPaintAll); else scrollXPaintAll(); })
+      .observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) { /* no observer — the fade stays symmetric */ }
+
+  // ── "משהו נשבר" (22.9, K4): an uncaught error shows a card with a one-tap bug report ──
+  // The report carries the error, the page and the last actions (window.__sigmaTrail, kept by
+  // the bridge) into 📣 רעיון / באג as a prefilled bug. Throttled: one card a minute.
+  var _crashAt = 0;
+  function sigmaCrash(err, where) {
+    try {
+      var now = Date.now(); if (now - _crashAt < 60000) return; _crashAt = now;
+      var msg = String((err && (err.stack || err.message)) || err || 'שגיאה לא ידועה').split('\n').slice(0, 3).join('\n').slice(0, 400);
+      var old = document.getElementById('sigmaCrash'); if (old) old.remove();
+      var box = document.createElement('div');
+      box.id = 'sigmaCrash'; box.className = 'sigma-crash'; box.setAttribute('role', 'alert'); box.setAttribute('data-testid', 'crash-card');
+      var b = document.createElement('b'); b.textContent = 'משהו נשבר' + (where ? ' ב' + where : '');
+      var m = document.createElement('div'); m.className = 'msg'; m.textContent = msg;
+      var report = document.createElement('button'); report.type = 'button'; report.className = 'p'; report.textContent = 'דווח על הבאג';
+      var reload = document.createElement('button'); reload.type = 'button'; reload.textContent = 'טען מחדש';
+      var close = document.createElement('button'); close.type = 'button'; close.textContent = 'סגור'; close.setAttribute('aria-label', 'סגור');
+      report.addEventListener('click', function () {
+        var trail = (window.__sigmaTrail || []).slice(-20).map(function (t) { return t.at.slice(11, 19) + ' ' + t.action + (t.target ? ' · ' + t.target : '') + (t.page ? ' [' + t.page + ']' : ''); }).join('\n');
+        var text = 'הדף לא עבד' + (where ? ' (' + where + ')' : '') + '\n\nשגיאה:\n' + msg + '\n\nעמוד: ' + (window._currentPage || '') + ' · גרסה ' + (document.querySelector('.footer bdi') || {}).textContent
+          + '\n\nהפעולות האחרונות:\n' + (trail || '—');
+        window.dispatchEvent(new CustomEvent('sigma-open-feedback', { detail: { kind: 'bug', text: text } }));
+        box.remove();
+      });
+      reload.addEventListener('click', function () { location.reload(); });
+      close.addEventListener('click', function () { box.remove(); });
+      box.appendChild(b); box.appendChild(m); box.appendChild(report); box.appendChild(reload); box.appendChild(close);
+      document.body.appendChild(box);
+    } catch (e) { /* the crash card must never crash */ }
+  }
+  window.sigmaCrash = sigmaCrash;
+  window.addEventListener('error', function (e) {
+    // A failed <script>/<img> load fires `error` too, with no `error` object and no message worth
+    // a card; the version watcher already handles a stale bundle.
+    if (!e || (!e.error && !e.message)) return;
+    if (e.message && /ResizeObserver loop|Script error\.?$/.test(e.message)) return;
+    sigmaCrash(e.error || e.message);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e && e.reason;
+    if (!r) return;
+    // Network blips are toasted by the code that made the request; a card for every one of
+    // them would cry wolf on a roof with no signal.
+    if (r && r.name === 'AbortError') return;
+    if (/Failed to fetch|NetworkError|Load failed|401|תם הזמן/.test(String(r && (r.message || r)))) return;
+    sigmaCrash(r);
+  });
+
   // ── the header slides away while reading, back on the first scroll up (B1) ────────────
   // Same manners as a browser's address bar. It stays put near the top of the page and while
   // a dialog is open (the page under a dialog does not scroll).

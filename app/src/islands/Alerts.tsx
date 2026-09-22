@@ -1,18 +1,23 @@
-// 🔔 התראות מלאי — #sigma-alerts (inventory spec §5.1).
+// 🔔 התראות מלאי — #sigma-alerts (inventory spec §5.1, reshaped 22.9 — עידן, G1).
 //
 // The bell in the header. Everything that moves in the pool raises a row in the database
 // (db/inventory_pool.sql's trigger), so this island never has to be told about a change by the
 // code that caused it: it reads `inventory_alerts`, newest first, and listens on the realtime
-// channel. The badge counts what THIS person has not marked seen.
+// channel.
 //
-// Tapping a row opens the thing that happened — the visit, the order, the product — never a
+// 22.9: the rows are GROUPED — one visit summary that moved three products is one line, not
+// three; the low-stock rows of a day are one line. What was read drops off the list (a toggle
+// brings it back), and the badge counts the unread GROUPS, so five products in one visit are
+// one thing to look at, not five.
+//
+// Tapping a group opens the thing that happened — the visit, the order, the product — never a
 // screen about the alert itself. An alert is a pointer, not a place.
 //
-// The rules (the line's words, the arrow, where a row leads, who has a bell at all) are pure
-// and golden-tested in app/src/lib/alerts.ts, which the Edge Function shares byte for byte.
+// The rules (the words, the grouping, where a row leads, who has a bell at all) are pure and
+// golden-tested in app/src/lib/alerts.ts, which the Edge Function shares byte for byte.
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, ChevronDown } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -23,7 +28,7 @@ import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  alertTarget, alertText, canSeeAlerts, isSeen, unseenCount, type AlertRow,
+  alertTarget, alertText, canSeeAlerts, groupAlerts, isSeen, type AlertGroup, type AlertRow,
 } from '@/lib/alerts';
 
 export const ALERTS_OPEN_EVENT = 'sigma-open-alerts';
@@ -40,16 +45,16 @@ export function openAlerts(): void {
   try { window.dispatchEvent(new CustomEvent(ALERTS_OPEN_EVENT)); } catch { /* no DOM */ }
 }
 
-/** The rows the bell lists — the last 50, newest first. */
+/** The rows the bell lists — the last 80, newest first (groups need a little more room). */
 async function fetchAlerts(): Promise<AlertRow[]> {
   const sb = await getSupabase();
   const { data } = await sb.from('inventory_alerts')
     .select('id,kind,product,qty,from_location,to_location,reason,ref_id,actor,created_at,seen_by')
-    .order('created_at', { ascending: false }).limit(50);
+    .order('created_at', { ascending: false }).limit(80);
   return (data ?? []) as AlertRow[];
 }
 
-/** Open what the row is about (§5.1). A recount has no screen of its own — the מלאי page is it. */
+/** Open what the group is about (§5.1). A recount has no screen of its own — the מלאי page is it. */
 function openSource(row: AlertRow): void {
   const t = alertTarget(row);
   try {
@@ -58,37 +63,74 @@ function openSource(row: AlertRow): void {
   } catch { /* legacy not up */ }
 }
 
-function AlertsList({ rows, user, onSeen }: { rows: AlertRow[]; user: string; onSeen: (row: AlertRow) => void }) {
-  if (!rows.length) {
-    return <p className="py-6 text-center text-[13px] text-muted-foreground">אין תנועות מלאי</p>;
-  }
+function GroupRow({ g, user, onSeen }: { g: AlertGroup; user: string; onSeen: (g: AlertGroup) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const many = g.rows.length > 1;
   return (
-    <ul className="mt-1" data-testid="alerts-list">
-      {rows.map(row => {
-        const seen = isSeen(row, user);
-        return (
-          <li key={String(row.id)} className="flex items-center gap-2 border-b border-border py-2.5 last:border-b-0">
-            <button
-              type="button"
-              onClick={() => { track('alert-open', String(row.kind)); onSeen(row); openSource(row); }}
-              className={`flex-1 text-start text-[13px] leading-snug ${seen ? 'text-muted-foreground' : 'font-bold text-foreground'}`}
-            >
-              <bdi>{alertText(row)}</bdi>
-            </button>
-            {!seen && (
-              <button
-                type="button"
-                aria-label="סמן כנקרא"
-                onClick={() => onSeen(row)}
-                className="min-h-8 flex-none rounded-[10px] border border-border px-2 text-[12px] text-muted-foreground"
-              >
-                <Check className="size-4" />
-              </button>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <li data-testid="alert-group" data-count={g.rows.length} className="border-b border-border py-2.5 last:border-b-0">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => { track('alert-open', String(g.kind)); onSeen(g); openSource(g.rows[0]); }}
+          className={`flex-1 text-start text-[13px] leading-snug ${g.seen ? 'text-muted-foreground' : 'font-bold text-foreground'}`}
+        >
+          <bdi>{g.title}</bdi>
+        </button>
+        {many && (
+          <button
+            type="button"
+            aria-label={open ? 'סגור פירוט' : 'פירוט'}
+            aria-expanded={open}
+            onClick={() => setOpen(o => !o)}
+            className="min-h-8 flex-none rounded-[10px] border border-border px-2 text-[12px] text-muted-foreground"
+          >
+            <ChevronDown className={'size-4 transition-transform ' + (open ? 'rotate-180' : '')} />
+          </button>
+        )}
+        {!g.seen && (
+          <button
+            type="button"
+            aria-label="סמן כנקרא"
+            onClick={() => onSeen(g)}
+            className="min-h-8 flex-none rounded-[10px] border border-border px-2 text-[12px] text-muted-foreground"
+          >
+            <Check className="size-4" />
+          </button>
+        )}
+      </div>
+      {many && open && (
+        <ul className="mt-1.5 flex flex-col gap-1 ps-3 text-[12px] text-muted-foreground">
+          {g.rows.map(r => <li key={String(r.id)}><bdi>{alertText(r)}</bdi></li>)}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function AlertsList({ groups, user, onSeen }: { groups: AlertGroup[]; user: string; onSeen: (g: AlertGroup) => void }) {
+  const [showSeen, setShowSeen] = React.useState(false);
+  const unread = groups.filter(g => !g.seen);
+  const read = groups.filter(g => g.seen);
+  const shown = showSeen ? groups : unread;
+  return (
+    <div data-testid="alerts-list">
+      {!shown.length && (
+        <p className="py-6 text-center text-[13px] text-muted-foreground">
+          {groups.length ? 'הכול נקרא' : 'אין תנועות מלאי'}
+        </p>
+      )}
+      {!!shown.length && <ul className="mt-1">{shown.map(g => <GroupRow key={g.key} g={g} user={user} onSeen={onSeen} />)}</ul>}
+      {!!read.length && (
+        <button
+          type="button"
+          onClick={() => setShowSeen(s => !s)}
+          data-testid="alerts-toggle-seen"
+          className="mt-3 w-full rounded-xl border border-border py-2 text-[12.5px] font-semibold text-muted-foreground"
+        >
+          {showSeen ? 'הסתר מה שנקרא' : `הצג מה שנקרא (${read.length})`}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -100,6 +142,7 @@ function AlertsBell() {
 
   const q = useQuery({ queryKey: ['inventoryAlerts'], queryFn: fetchAlerts, enabled: allowed });
   const rows = React.useMemo(() => q.data ?? [], [q.data]);
+  const groups = React.useMemo(() => groupAlerts(rows, user), [rows, user]);
 
   React.useEffect(() => {
     const onOpen = () => { pendingOpen = false; setOpen(true); };
@@ -132,22 +175,25 @@ function AlertsBell() {
     return () => { cancelled = true; try { channel?.unsubscribe?.(); } catch { /* already gone */ } };
   }, [allowed, qc]);
 
-  const markSeen = React.useCallback(async (row: AlertRow) => {
-    if (!row.id || isSeen(row, user)) return;
-    const next = [...(row.seen_by ?? []), user];
+  /** Mark a whole group seen — every row in it, optimistically, then the RPC per row. */
+  const markSeen = React.useCallback(async (g: AlertGroup) => {
+    const todo = g.rows.filter(r => r.id && !isSeen(r, user));
+    if (!todo.length) return;
+    const ids = new Set(todo.map(r => r.id));
     qc.setQueryData(['inventoryAlerts'], (old: AlertRow[] | undefined) =>
-      (old ?? []).map(r => (r.id === row.id ? { ...r, seen_by: next } : r)));
-    try {
-      // Through the RPC, not a table UPDATE: `inventory_alerts` is an audit trail and has no
-      // client UPDATE or DELETE policy any more (audit C #3, db/rls_2_00_lockdown.sql).
-      // `alert_mark_seen` is SECURITY DEFINER and touches seen_at/seen_by and nothing else.
-      await sbWrite(sb => sb.rpc('alert_mark_seen', { p_id: row.id as string, p_person: user }) as any);
-    } catch { /* the optimistic row stands; the next fetch corrects it */ }
+      (old ?? []).map(r => (ids.has(r.id) ? { ...r, seen_by: [...(r.seen_by ?? []), user] } : r)));
+    for (const row of todo) {
+      try {
+        // Through the RPC, not a table UPDATE: `inventory_alerts` is an audit trail and has no
+        // client UPDATE or DELETE policy any more (audit C #3, db/rls_2_00_lockdown.sql).
+        await sbWrite(sb => sb.rpc('alert_mark_seen', { p_id: row.id as string, p_person: user }) as any);
+      } catch { /* the optimistic row stands; the next fetch corrects it */ }
+    }
   }, [qc, user]);
 
   if (!allowed) return null;
 
-  const unseen = unseenCount(rows, user);
+  const unseen = groups.filter(g => !g.seen).length;
   return (
     <>
       <button
@@ -176,7 +222,7 @@ function AlertsBell() {
           </SheetHeader>
           {q.isLoading
             ? <div className="space-y-2 py-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
-            : <AlertsList rows={rows} user={user} onSeen={markSeen} />}
+            : <AlertsList groups={groups} user={user} onSeen={markSeen} />}
         </SheetContent>
       </Sheet>
     </>

@@ -13,6 +13,9 @@
 // invalidating the shared key + emitting `burns-changed`, which is what makes the chip, the
 // modal section, the briefing and the strip agree without knowing about each other
 // (docs/integration-map.md). The full table (js/src/24-meter-burns.js) listens too.
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -23,7 +26,7 @@ import { queryClient } from '@/lib/query';
 import { roleOf } from '@/lib/landing';
 import { track } from '@/lib/track';
 import {
-  burnChip, burnKindLabel, burnStateLabel, burnCounts, burnProgress, burnStripText, burnVisual,
+  burnChip, burnIssueTask, burnKindLabel, burnStateLabel, burnCounts, burnProgress, burnStripText, burnVisual,
   burnWarnings, burnedPatch, burnsForSite, burnSitesWithPending, canSeeBurns, canWriteBurns,
   clearIssuePatch, generatorPatch, generatorsForSite, issuePatch, unburnedPatch,
   type BurnRow, type GeneratorRow,
@@ -105,8 +108,10 @@ export async function markBurned(meterIds: string[], user: string): Promise<void
 export async function markUnburned(meterIds: string[]): Promise<void> {
   await patchMeters(meterIds, unburnedPatch(nowISO()) as unknown as Record<string, unknown>);
 }
-export async function markIssue(meterId: string, note: string): Promise<void> {
-  await patchMeters([meterId], (note ? issuePatch(note, nowISO()) : clearIssuePatch(nowISO())) as unknown as Record<string, unknown>);
+export async function markIssue(meterId: string, note: string, emsTaskId?: string): Promise<void> {
+  const patch = (note ? issuePatch(note, nowISO()) : clearIssuePatch(nowISO())) as unknown as Record<string, unknown>;
+  if (emsTaskId) patch.ems_task_id = emsTaskId;   // db/meter_burns_ems_task.sql — the caller tolerates an older schema
+  await patchMeters([meterId], patch);
 }
 export async function assignGenerator(meterIds: string[], generatorId: string | null): Promise<void> {
   await patchMeters(meterIds, generatorPatch(generatorId, nowISO()) as unknown as Record<string, unknown>);
@@ -255,6 +260,10 @@ export function BurnsPanel({ kibbutz }: { kibbutz: string }) {
   const { data: gens } = useBurnGenerators(canSee);
   const [sel, setSel] = React.useState<Record<string, boolean>>({});
   const [busy, setBusy] = React.useState(false);
+  // A reported problem opens the problem sheet (עידן 22.9, I3), which can also open an EMS
+  // fault task with the meter's details on it. Declared with the other hooks — before the
+  // early returns below.
+  const [issueFor, setIssueFor] = React.useState<BurnRow | null>(null);
 
   const rows = React.useMemo(() => burnsForSite(data, kibbutz), [data, kibbutz]);
   const counts = React.useMemo(() => burnCounts(rows), [rows]);
@@ -283,11 +292,7 @@ export function BurnsPanel({ kibbutz }: { kibbutz: string }) {
     void run(() => markBurned([r.meter_id], user), '✅ ' + r.serial + ' סומן כנצרב');
   };
 
-  const issueOne = (r: BurnRow) => {
-    const note = prompt('מה הבעיה במונה ' + r.serial + '?', r.note || '');
-    if (note === null) return;
-    void run(() => markIssue(r.meter_id, note.trim()), note.trim() ? 'הבעיה נרשמה' : 'הבעיה נוקתה');
-  };
+  const issueOne = (r: BurnRow) => setIssueFor(r);
 
   const burnSelected = () => {
     if (!selectedIds.length) return;
@@ -308,17 +313,23 @@ export function BurnsPanel({ kibbutz }: { kibbutz: string }) {
     }, trimmed ? '⚡ שובצו תחת ' + trimmed : 'השיבוץ הוסר');
   };
 
+  // Collapsed by default (עידן 22.9, D1): the summary row is what the card shows; the meter
+  // list opens on a tap.
   return (
-    <div className="mb-3" data-testid="burns-panel">
-      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-        <h4 className="flex-1 text-[14px] font-bold">
-          <Flame className="me-1 inline h-3.5 w-3.5 text-[color:var(--sigma-warn-ink)]" />
-          צריבות · {kibbutz}
-        </h4>
-        <span data-testid="burns-panel-count" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-          {counts.pending + counts.issue ? `נותרו ${counts.pending + counts.issue}/${counts.total}` : `הושלם · ${counts.total}`}
-        </span>
-      </div>
+    <Collapsible className="mb-3" data-testid="burns-panel">
+      <CollapsibleTrigger asChild>
+        <button type="button" data-testid="burns-panel-toggle" className="group mb-1.5 flex w-full items-center gap-1.5 text-start">
+          <h4 className="flex-1 text-[14px] font-bold">
+            <Flame className="me-1 inline h-3.5 w-3.5 text-[color:var(--sigma-warn-ink)]" />
+            צריבות
+          </h4>
+          <span data-testid="burns-panel-count" className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+            {counts.pending + counts.issue ? `נותרו ${counts.pending + counts.issue}/${counts.total}` : `הושלם · ${counts.total}`}
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
 
       {canWrite && !!selectedIds.length && (
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-muted px-2.5 py-1.5 text-[12px] font-semibold">
@@ -354,7 +365,73 @@ export function BurnsPanel({ kibbutz }: { kibbutz: string }) {
       >
         כל הצריבות, הדוח והגנרטורים ›
       </button>
-    </div>
+      </CollapsibleContent>
+      {issueFor && (
+        <BurnIssueSheet
+          row={issueFor}
+          gen={issueFor.generator_id ? genById.get(issueFor.generator_id) : undefined}
+          onClose={() => setIssueFor(null)}
+          onSave={async (note, openEms) => {
+            const r = issueFor;
+            setIssueFor(null);
+            await run(async () => {
+              await markIssue(r.meter_id, note);
+              if (!openEms || !note) return;
+              const res = (await sigma.createTask(burnIssueTask(r, note, r.generator_id ? genById.get(r.generator_id) : undefined))) as any;
+              if (res && res.error) throw new Error('הבעיה נרשמה, אבל המשימה ב-EMS לא נפתחה: ' + res.error);
+              const tid = res && (res.id || res.data?.id);
+              if (tid) { try { await markIssue(r.meter_id, note, String(tid)); } catch { /* older schema */ } }
+            }, note ? (openEms ? 'הבעיה נרשמה ונפתחה תקלה ב-EMS' : 'הבעיה נרשמה') : 'הבעיה נוקתה');
+          }}
+        />
+      )}
+    </Collapsible>
+  );
+}
+
+/**
+ * The problem sheet (22.9, I3): what is wrong, and whether to open an EMS fault task with the
+ * meter, its address, its system and its generator already written in.
+ */
+function BurnIssueSheet({ row, gen, onClose, onSave }: {
+  row: BurnRow; gen?: GeneratorRow; onClose: () => void; onSave: (note: string, openEms: boolean) => Promise<void>;
+}) {
+  const [note, setNote] = React.useState(row.note || '');
+  const connected = (() => { try { return !!sigma.isEmsConnected?.(); } catch { return false; } })();
+  const [openEms, setOpenEms] = React.useState(connected);
+  const [busy, setBusy] = React.useState(false);
+  return (
+    <Sheet open onOpenChange={o => { if (!o) onClose(); }}>
+      <SheetContent side="bottom" className="max-h-[85svh] overflow-y-auto p-4 pb-7" data-testid="burn-issue-sheet">
+        <SheetHeader className="text-start">
+          <SheetTitle className="text-[18px] font-extrabold">בעיה במונה <bdi>{row.serial}</bdi></SheetTitle>
+          <SheetDescription>{[burnKindLabel(row), row.address, row.solar_names].filter(Boolean).join(' · ')}</SheetDescription>
+        </SheetHeader>
+        <textarea
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          placeholder="מה הבעיה?"
+          rows={3}
+          className="mt-3 w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-base outline-none focus:border-[color:var(--brand-1)]"
+        />
+        <label className="mt-3 flex items-center gap-2 text-[14px] font-semibold">
+          <input type="checkbox" className="h-5 w-5" checked={openEms} disabled={!connected} onChange={e => setOpenEms(e.target.checked)} />
+          לפתוח תקלה ב-EMS{connected ? '' : ' · דורש חיבור ל-EMS'}
+        </label>
+        {openEms && connected && (
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            המשימה תכלול את המונה, הכתובת, המערכת{gen ? ' והגנרטור ' + gen.name : ''}.
+          </p>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onSave(note.trim(), openEms && connected); } finally { setBusy(false); } }}
+                  className="min-h-[48px] flex-1 rounded-2xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-60">
+            {note.trim() ? 'שמור בעיה' : (row.status === 'issue' ? 'נקה את הבעיה' : 'שמור')}
+          </button>
+          <button type="button" onClick={onClose} className="min-h-[48px] rounded-2xl border border-border px-4 text-[15px] font-semibold">ביטול</button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

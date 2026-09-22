@@ -2,7 +2,7 @@
 // `transcribe` cannot answer (the self server unreachable AND the Groq fallback silent, i.e. a
 // 502 or a timeout), the person gets ONE Hebrew line and a ↻ that re-sends the SAME recording:
 //
-//   · the line is "התמלול לא זמין כרגע — נסה שוב מאוחר יותר" — no toast, because a toast
+//   · the line is "התמלול לא זמין כרגע. נסה שוב מאוחר יותר" — no toast, because a toast
 //     disappears and with it the only sign that the speech still exists;
 //   · whatever was TYPED is never touched — not on failure, not on retry;
 //   · the held recording survives until a transcription succeeds or the person discards it.
@@ -16,7 +16,7 @@ import { boot, expect, expectNoConsoleErrors, shot, test, SB_ORIGIN } from './_h
 
 const TYPED = 'כתבתי את זה ביד לפני שהקלטתי';
 const LANDED = 'הטקסט שהגיע בניסיון השני';
-const UNAVAILABLE = 'התמלול לא זמין כרגע — נסה שוב מאוחר יותר';
+const UNAVAILABLE = 'התמלול לא זמין כרגע. נסה שוב מאוחר יותר';
 
 /** Fake MediaRecorder + a mic that "just works" — the islands only need SOME audio to upload. */
 async function stubRecorder(page: any) {

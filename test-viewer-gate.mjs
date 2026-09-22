@@ -159,7 +159,7 @@ if (ctx) {
   await check('too many attempts: the 429 sentence is shown as-is, nothing stored', async () => {
     const c = runGate();
     const { err } = viewerEls(c);
-    const MSG = 'יותר מדי ניסיונות — נסה שוב בעוד 15 דקות';
+    const MSG = 'יותר מדי ניסיונות. נסה שוב בעוד 15 דקות';
     c.setReply({ status: 429, body: { error: MSG, retryAfterMinutes: 15 } });
     viewerEls(c).pin.value = CODE;
     await c.window_.gateViewerLogin();

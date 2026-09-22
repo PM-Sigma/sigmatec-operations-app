@@ -80,20 +80,23 @@ test('visit form (legacy fallback): checking a supplied product raises the 🚚 
     w.renderProductsForVisitor();
   }, source);
 
-  const row = page.locator('#visitProducts .sig-pi').first();
-  await expect(row).toBeVisible();
+  // 22.9 (J2): the products are a grid of tiles; a tap on a tile picks it (qty 1) and shows −/+/🗑.
+  const tile = page.locator('#visitProducts .sig-tile').first();
+  await expect(tile).toBeVisible();
   // nothing supplied yet → no certificate line at all (the gate only applies to equipment)
   await expect(page.locator('#visitCertStatus')).toBeEmpty();
 
-  await row.getByRole('button', { name: /בחר/ }).click();
-  // …checked: the quantity opens at 1 and the 🚚 line appears as the unmet gate
+  await tile.locator('.nm').click();
+  // …picked: the quantity opens at 1 and the 🚚 line appears as the unmet gate
   await expect(page.locator('#visitProducts .prod-qty').first()).toHaveValue('1');
+  await expect(tile).toHaveClass(/on/);
   await expect(page.locator('#visitCertStatus')).toContainText('טרם הופקה תעודת משלוח');
   await expect(page.locator('#visitCertStatus').getByRole('button', { name: '🚚 הפק' })).toBeVisible();
   await shot(page, ti, 'cert-gate');
 
-  // un-checking it takes the gate away again — it is a statement about the visit, not a mode
-  await row.getByRole('button', { name: /בחר/ }).click();
+  // 🗑 takes the gate away again — it is a statement about the visit, not a mode
+  await tile.getByRole('button', { name: 'הסר' }).click();
+  await expect(tile).not.toHaveClass(/on/);
   await expect(page.locator('#visitCertStatus')).toBeEmpty();
 
   expectNoConsoleErrors(rec);

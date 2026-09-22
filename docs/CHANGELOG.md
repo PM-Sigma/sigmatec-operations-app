@@ -7,6 +7,74 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.08] 2026-09-22 — the phone QA round: עידן's 50 notes from the Galaxy S24, catalogued and fixed
+
+**Why:** עידן tested the live app from his phone (22.9) and sent ~50 notes across every module.
+Spec/catalog with per-item code locations and sibling bugs:
+`docs/superpowers/specs/2026-09-22-phone-qa-round-design.md`. Two features (E1 timer rework, E2
+hours page) and the data restore (D13) are recorded there and NOT built in this round.
+
+**Navigation (P0).** Every legacy dialog gets a ✕ (`00-guard.js modalEnsureClose`; on a phone the
+dialog fills the backdrop, so the backdrop tap that closed it had nothing to land on — 🔥 צריבות'
+meter card and generator picker were dead ends). Android Back closes the open dialog/sheet first,
+then goes back a page (`showPage` pushes history; `popstate` in the guard). Inner pages (צריבות ·
+התראות · פיתוח) carry a → חזרה row; the last page survives a background discard (sessionStorage).
+The header slides away on scroll-down and returns on scroll-up. Pull-to-refresh no longer fires
+from inside a sheet, a dialog or a scrolled box (`pullAllowedFrom`). Long press on the bottom bar
+opens the ⋯ sheet.
+
+**Return from background (A4).** `sw.js`: navigations and `?v=`-stamped shell files paint from the
+cache and revalidate behind (network-first on a slow link was the loading screen); cache keys carry
+the build stamp so a new index.html is never paired with an old bundle. `19-version-check`: a
+hidden tab is never "idle", so it is never reloaded under a returning user — the banner offers it.
+
+**Removed by ruling.** מצב ישיבה (the search-field boost — after 2.00 it only enlarged the search
+box; ▶ מצב ישיבה the presenter stays); the ⏳ queue chip; every 🔄 button (EMS sync = 15 min in
+the background, pull-to-refresh is the one manual refresh); 🚚 תעודה from the bar and the card (a
+certificate is made inside the visit summary); 🗓 ישיבות from the card; ✏️ פרטי קיבוץ from the home
+card (inside the kibbutz card now, עידן only); 🌙 from the header (⚙️ הגדרות); the ⋯ sheet lists
+only what the bar does not; "עבור למלאי"/"עבור ליומן" header buttons; the 🔥 chip on the home card;
+"פרויקט זמני"; "אין סיכום ישיבה עדיין"; two system-talk sentences in the visit form.
+
+**Cards.** EMS rows compact on the home card (title · status · 👤 · 📅; description inside).
+🔒 internal tasks: read-only on the card, actions + ➕ inside the card (new `InternalModal` island);
+`InternalTaskSheet` with owner (roster) · due date (may stay empty) · priority · kind —
+`db/internal_tasks_fields.sql` (NOT applied; the client falls back to the old shape). Two bubbles
+under the tasks: ➕ משימת EMS / ➕ משימה פנימית — the only task actions on the card. The last-visit
+line: "📍 ביקור אחרון · d.m.yy", or in red "⏰ ביקור אחרון · <due> · ללא סיכום ביקור!" when an open
+EMS task's due date passed with no visit after it (`lastVisitLine`, `test-last-visit-line.mjs`).
+Modal tabs renamed מצב הקיבוץ / ביקורים. 🔥 צריבות inside the card is collapsed until tapped.
+
+**🔔 התראות.** Grouped (`groupAlerts`): one visit = one line ("↘ סיכום ביקור גבים · 3 פריטים ·
+אביאם · 14:02", expandable), the day's low-stock rows = one line; what was read drops off (a toggle
+brings it back); the badge counts unread groups. `push-send/alerts.ts` copy synced.
+
+**🔥 צריבות.** Status words: נצרב / נצרב · ממתין לשיבוץ גנרטור (`burned-ct` stays a colour). Kinds in
+words: ⚡ תלת-פאזי / 🔁 משנה זרם ×N. A row tap opens its details. A reported problem can open an EMS
+fault task carrying meter · kind · address · system · generator (`burnIssueTask` / `B.issueTask`;
+`db/meter_burns_ems_task.sql`, NOT applied, client tolerant). Excel: one sheet per kibbutz with
+מס' מונה · סוג · כתובת · שם המערכת · גנרטור · סטטוס (`xlSpecToWorkbook` learned `spec.sheets`).
+
+**סיכום ביקור.** One heading "משך ותאריך הביקור" (placeholder הזנה ידנית); products as a 3-column
+tile grid by category (tap = qty 1 + −/+/🗑 for ~3 s, then name + count); מוצרים נוספים with the
+catalog as suggestions and a ➕ לקטלוג for a new name; איש קשר מלווה REQUIRED, picked from
+`site_contacts` chips or typed (a new name is kept for next time); a skipped required block gets a
+thin red frame + blink and the page scrolls to the first one instead of an alert().
+
+**Misc.** App name Sigmatec Operations (manifest, title, brand); orders list defaults to open ones;
+sideways-scroll fade hint (`.scroll-x`) on every table that scrolls; header is one row on a phone;
+the user chip folds to an initial on a phone; filter chips fit one row at 360 px; a crash card
+("משהו נשבר · דווח על הבאג") on uncaught errors and crashed islands, prefilling 📣 רעיון / באג with
+the error, the page and the last 20 actions (`window.__sigmaTrail`).
+
+**Copy (humanizer) + design (impeccable).** 41 UI strings de-dashed / de-system-talked; the rest and
+the detector's 117 pre-existing warnings are listed with a plan in
+`docs/reports/2026-09-22-copy-sweep.md`.
+
+**Tests.** Legacy runners + vitest green. Playwright phone + desktop light: every spec that pinned
+the replaced behaviour was updated; the calendar helper learned that a reload now resumes the last
+page. Built on `feat/phone-qa-round` (worktree off `origin/main` 25aa1a5).
+
 ## [2.03] 2026-09-20 — Task 35: no data before an EMS pass + a second boot-time TDZ
 
 **Why:** task-33b's live verification (score 21 PASS / 1 FAIL) found that after the legacy-table

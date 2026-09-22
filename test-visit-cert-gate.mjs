@@ -25,6 +25,7 @@ const els = {};
   'lastVisitContent', 'editLastVisitBtn', 'visitsHistoryWrap', 'visitProducts'].forEach(id => { els[id] = mkEl(); });
 els.visitDuration.value = '2'; els.visitor.value = 'אביאם'; els.visitDate.value = '2026-07-15';
 els.visitSummary.value = 'סיכום בדיקה'; els.visitSource.value = 'משרד';
+els.visitContact.value = 'גפן';   // 22.9 (J5): איש קשר מלווה is required — the gate under test comes after it
 
 let checkedProds = [];
 const document_ = {
@@ -45,7 +46,7 @@ function load() {
     'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
     'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
-    'visitReturnedItems', 'renderReturnedItems',
+    'visitReturnedItems', 'renderReturnedItems', 'sigmaError',
     src + '\nreturn { saveVisit, visitDraftId };'
   );
   return fn(
@@ -53,7 +54,7 @@ function load() {
     (btn, on) => btnStates.push(on),
     async () => certReturn, () => '', () => {}, () => {}, () => {},
     'שדה אליהו', ['אביאם'], 'תקול', 'חברה', () => ({}), () => {}, () => {},
-    [], () => {}
+    [], () => {}, m => alerts.push(m)
   );
 }
 

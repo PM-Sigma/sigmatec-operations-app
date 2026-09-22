@@ -213,7 +213,7 @@
   }
   // soft banding palette — each source record (visit/cert) keeps ONE color for all its rows
   const XL_GROUP_FILLS = ['FFFFFF', 'E8F0FE', 'FDF4E3', 'E9F7EC', 'F3E8FD', 'FDE8EC'];
-  function xlSpecToWorkbook(XLSX, spec) {
+  function xlSheetFor(XLSX, spec) {
     // An empty range used to write a header-only sheet with nothing under it, while the
     // printed report for the SAME range says "אין תעודות בטווח הזה" — the reader could not
     // tell an empty range from a broken export (audit B · F-23). One row, first cell.
@@ -244,13 +244,25 @@
     }
     ws['!cols'] = spec.columns.map(c => ({ wch: c.width || 12 }));
     ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: body.length, c: spec.columns.length - 1 } }) };
+    return ws;
+  }
+  /** One spec → one sheet; `spec.sheets` (22.9: 🔥 צריבות per kibbutz) → one sheet each. */
+  function xlSpecToWorkbook(XLSX, spec) {
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, spec.sheet.slice(0, 31));
+    const sheets = spec.sheets && spec.sheets.length ? spec.sheets : [spec];
+    const used = {};
+    sheets.forEach(sh => {
+      let name = String(sh.sheet || 'גיליון').replace(/[\\/?*\[\]:]/g, ' ').slice(0, 31) || 'גיליון';
+      while (used[name]) name = name.slice(0, 28) + ' ' + (++used[name]);
+      used[name] = 1;
+      XLSX.utils.book_append_sheet(wb, xlSheetFor(XLSX, sh), name);
+    });
     wb.Workbook = { Views: [{ RTL: true }] };
     return wb;
   }
   function xlDownload(spec, filename) {
-    if (!spec.rows.length) { alert('אין נתונים לייצוא בטווח שנבחר'); return Promise.resolve(false); }
+    const total = spec.sheets ? spec.sheets.reduce((n, sh) => n + sh.rows.length, 0) : spec.rows.length;
+    if (!total) { alert('אין נתונים לייצוא בטווח שנבחר'); return Promise.resolve(false); }
     return xlLib().then(XLSX => {
       XLSX.writeFile(xlSpecToWorkbook(XLSX, spec), filename, { cellDates: true });
       return true;

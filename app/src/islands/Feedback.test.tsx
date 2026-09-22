@@ -250,7 +250,7 @@ describe('Feedback sheet — the voice ladder', () => {
     fireEvent.click(screen.getByLabelText('עצור הקלטה'));
 
     expect(await screen.findByTestId('transcribe-retry')).toBeTruthy();
-    expect(screen.getByText('התמלול לא זמין כרגע — נסה שוב מאוחר יותר')).toBeTruthy();
+    expect(screen.getByText('התמלול לא זמין כרגע. נסה שוב מאוחר יותר')).toBeTruthy();
     expect(screen.queryByText('ההקלטה נכשלה')).toBeNull();
     expect(screen.getAllByText('נסה שוב')).toHaveLength(1);
 
@@ -269,7 +269,7 @@ describe('Feedback sheet — the voice ladder', () => {
     render(<Feedback />);
     act(() => openFeedback());
     fireEvent.click(screen.getByLabelText('הקלט'));
-    expect(sonner.error).toHaveBeenCalledWith('הדפדפן הזה לא תומך בהקלטה — אפשר להקליד');
+    expect(sonner.error).toHaveBeenCalledWith('הדפדפן הזה לא תומך בהקלטה. אפשר להקליד');
     expect(speech.startRecording).not.toHaveBeenCalled();
   });
 });
@@ -341,7 +341,7 @@ describe('Feedback sheet — one microphone, always', () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });   // MIC_START_TIMEOUT_MS
 
-    expect(sonner.error).toHaveBeenCalledWith('המיקרופון לא נפתח — נסה שוב או הקלד');
+    expect(sonner.error).toHaveBeenCalledWith('המיקרופון לא נפתח. נסה שוב או הקלד');
     expect(screen.getByText('ההקלטה נכשלה')).toBeTruthy();
     expect(screen.getByText('נסה שוב')).toBeTruthy();
 

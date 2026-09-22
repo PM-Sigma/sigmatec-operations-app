@@ -287,7 +287,7 @@
       .filter(p => kibbutzLocations.some(kib => ((stock[kib] && stock[kib][p]) || 0) !== 0))
       .sort((a,b) => a.localeCompare(b, 'he'));
 
-    let html = '<div style="overflow-x:auto;"><table class="matrix-table"><thead><tr><th>קיבוץ</th>';
+    let html = '<div class="scroll-x"><table class="matrix-table"><thead><tr><th>קיבוץ</th>';
     productList.forEach(p => { html += `<th>${p}</th>`; });
     html += '<th>סה"כ</th></tr></thead><tbody>';
     kibbutzLocations.sort((a,b) => a.localeCompare(b, 'he')).forEach(kib => {

@@ -2,7 +2,7 @@
 // 18.9 — no 'complaint').
 // Covers: the sheet opens from the command bar and from ⋯ עוד, the two kinds and the
 // anonymous switch, and — the point of this spec — the MIC-REFUSED path: this harness grants
-// no permissions, so pressing 🎙 must land on "אין הרשאה למיקרופון — אפשר להקליד" and leave
+// no permissions, so pressing 🎙 must land on "אין הרשאה למיקרופון. אפשר להקליד" and leave
 // the person typing, never on a dead button or a hot recorder.
 import { boot, expect, expectNoConsoleErrors, shot, test } from './_helpers';
 
@@ -55,7 +55,7 @@ test('feedback: a microphone that cannot record ends in the failed state, still 
   // The inline state says so, with a retry — never a dead button and never a hot recorder.
   await expect(page.getByText('ההקלטה נכשלה', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'נסה שוב' })).toBeVisible();
-  await expect(page.getByText('ההקלטה נכשלה — אפשר להקליד')).toBeVisible();   // the toast
+  await expect(page.getByText('ההקלטה נכשלה. אפשר להקליד')).toBeVisible();   // the toast
   // …and the box is still the way in: typing works and the send button is live
   await expect(box).toBeEditable();
   await box.fill('אין לי מיקרופון, כותב ידנית');
@@ -88,7 +88,7 @@ test('feedback: a REFUSED microphone gets the permission wording', async ({ page
   await openSheet(page);
   await page.getByRole('button', { name: 'הקלט' }).click();
 
-  await expect(page.getByText('אין הרשאה למיקרופון — אפשר להקליד')).toBeVisible();
+  await expect(page.getByText('אין הרשאה למיקרופון. אפשר להקליד')).toBeVisible();
   await expect(page.getByPlaceholder('מה קרה / מה היה עוזר לך?')).toBeEditable();
   await shot(page, ti, 'mic-denied');
 

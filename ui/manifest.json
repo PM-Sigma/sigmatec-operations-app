@@ -9,6 +9,7 @@
   "./ui/sigma-check.js",
   "./ui/sigma-chevron-down.js",
   "./ui/sigma-chevron-right.js",
+  "./ui/sigma-collapsible.js",
   "./ui/sigma-command.js",
   "./ui/sigma-CommandBar.js",
   "./ui/sigma-DayLog.js",

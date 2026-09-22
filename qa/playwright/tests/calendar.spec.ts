@@ -17,7 +17,9 @@ async function openCalendar(page: Page): Promise<void> {
   // Let boot FINISH first. The first-screen-per-role pass (§7l) runs at the very end of
   // boot and navigates; a showPage that arrives before it is undone a moment later. After a
   // reload (which skips `boot()`'s own wait) this is the difference between green and flaky.
-  await page.waitForSelector('#sigma-home .kibbutz', { timeout: 30_000 });
+  // `attached`, not visible: since 22.9 (A7) a reload RESUMES the last page, so after the
+  // reload below the cards are rendered under a hidden #kibbutz-view while the calendar shows.
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
   // The poll keeps CALLING showPage until the grid is on screen, rather than calling it
   // once and then waiting: the first-screen-per-role pass (§7l) runs late in boot and can
   // navigate away from underneath a single early call.

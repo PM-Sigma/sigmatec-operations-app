@@ -17,7 +17,7 @@ export const THROTTLE_WINDOW_MS = 15 * 60_000;
 export const THROTTLE_FAIL_DELAY_MS = 300;
 
 /** What the person reads when the address is refused. One sentence, and what to do next. */
-export const THROTTLE_MESSAGE = 'יותר מדי ניסיונות — נסה שוב בעוד 15 דקות';
+export const THROTTLE_MESSAGE = 'יותר מדי ניסיונות. נסה שוב בעוד 15 דקות';
 
 /**
  * The caller's address: the FIRST hop of `X-Forwarded-For`. The later hops are the proxies and

@@ -14,7 +14,7 @@
 import { RefreshCw } from 'lucide-react';
 
 /** The one line. Deliberately the same text in both islands — it is the same situation. */
-export const TRANSCRIBE_UNAVAILABLE = 'התמלול לא זמין כרגע — נסה שוב מאוחר יותר';
+export const TRANSCRIBE_UNAVAILABLE = 'התמלול לא זמין כרגע. נסה שוב מאוחר יותר';
 
 export function TranscribeRetry({
   seconds, busy, onRetry, onDiscard,

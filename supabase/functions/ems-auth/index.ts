@@ -39,7 +39,7 @@ const THROTTLE_MAX_FAILURES = 5;
 const THROTTLE_WINDOW_MS = 15 * 60_000;
 /** A constant pause on every failure: the same cost per guess, and no timing hint. */
 const THROTTLE_FAIL_DELAY_MS = 300;
-const THROTTLE_MESSAGE = "יותר מדי ניסיונות — נסה שוב בעוד 15 דקות";
+const THROTTLE_MESSAGE = "יותר מדי ניסיונות. נסה שוב בעוד 15 דקות";
 
 /** The caller's address: the FIRST hop of x-forwarded-for (the later hops are forgeable). */
 function firstHop(xff: string | null): string {

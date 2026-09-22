@@ -126,6 +126,8 @@ describe('the card chip', () => {
 describe('the card-modal section', () => {
   it('lists this kibbutz only, not-done first, and counts what is left', async () => {
     wrap(<BurnsPanel kibbutz="אור הנר" />);
+    // 22.9 (D1): the section is a summary row until tapped
+    fireEvent.click(await screen.findByTestId('burns-panel-toggle'));
     const list = await screen.findAllByTestId('burn-row');
     expect(list.map(el => el.getAttribute('data-meter'))).toEqual(['a1', 'a2']);
     expect(screen.getByTestId('burns-panel-count').textContent).toBe('נותרו 1/2');
@@ -140,6 +142,7 @@ describe('the card-modal section', () => {
 
   it('✅ נצרב writes the patch for that meter, and nothing EMS-owned', async () => {
     wrap(<BurnsPanel kibbutz="אור הנר" />);
+    fireEvent.click(await screen.findByTestId('burns-panel-toggle'));
     const buttons = await screen.findAllByTestId('burn-toggle');
     fireEvent.click(buttons[0]);
     await waitFor(() => expect(writes.updates).toHaveLength(1));
@@ -154,6 +157,7 @@ describe('the card-modal section', () => {
   it('VIEWER REGRESSION: he sees every meter and not one button or checkbox', async () => {
     who.name = 'צופה'; who.role = 'viewer'; who.isViewer = true;
     wrap(<BurnsPanel kibbutz="אור הנר" />);
+    fireEvent.click(await screen.findByTestId('burns-panel-toggle'));
     expect((await screen.findAllByTestId('burn-row'))).toHaveLength(2);
     expect(screen.queryAllByTestId('burn-toggle')).toHaveLength(0);
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
@@ -171,14 +175,14 @@ describe('the landing strip', () => {
   it('the field team is told what is left', async () => {
     wrap(<BurnsStrip />);
     const strip = await screen.findByTestId('burns-strip');
-    expect(strip.textContent).toContain('צריבות — נותרו 1 ב-1 קיבוץ');
+    expect(strip.textContent).toContain('צריבות · נותרו 1 ב-1 קיבוץ');
   });
 
   it('עמיחי is told how far the project has got (עידן 18.9 21:50)', async () => {
     who.name = 'עמיחי';
     wrap(<BurnsStrip />);
     const strip = await screen.findByTestId('burns-strip');
-    expect(strip.textContent).toContain('צריבות — בוצעו 2 מתוך 3 · 67%');
+    expect(strip.textContent).toContain('צריבות · בוצעו 2 מתוך 3 · 67%');
   });
 
   it('HIDE AT ZERO — nothing left, no strip', async () => {

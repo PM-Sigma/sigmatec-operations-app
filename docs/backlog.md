@@ -45,6 +45,14 @@ extended, `VERSION` → 2.01, docs checkpointed). Full detail: `docs/CHANGELOG.m
 
 # Backlog & status
 
+🟡 IN PROGRESS — **phone QA round (22.9)**: rounds 1–2 built on `feat/phone-qa-round` (2.08), see
+[spec](superpowers/specs/2026-09-22-phone-qa-round-design.md). Left open from the catalog: **E1** timer rework
+(pause/resume, manual start, auto-stop 2 h + push), **E2** hours page for עידן/עמיחי/מתניה (+ viewer, PDF/Excel,
+change log), **D13** data restore to 18.9 18:00 (a data decision — needs עידן), **D6** card-crash hunt (QA session),
+**K2** the remaining ~180 dashed strings (report). Two migrations to apply by a human: `db/internal_tasks_fields.sql`,
+`db/meter_burns_ems_task.sql` (the client tolerates their absence). QA session (סשן B) runs the full gate set next.
+
+
 _Update this file as things move. Session-by-session history lives in claude-mem._
 _Full current snapshot: [INDEX.md](INDEX.md) → 🚦 Current state. Build: **1.67 on main** (2026-08-24, live)._
 

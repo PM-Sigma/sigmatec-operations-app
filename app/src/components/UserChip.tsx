@@ -78,7 +78,7 @@ export function UserChip({ className }: { className?: string }) {
             icon={User}
             label="האזור האישי"
             hint="בקרוב"
-            onClick={() => pick(() => sigma.toast('האזור האישי — בקרוב'), 'personal')}
+            onClick={() => pick(() => sigma.toast('האזור האישי, בקרוב'), 'personal')}
           />
           <span className="my-1 border-t border-border" />
           {/* There is no EMS PAGE any more (§7m R2). Connected → the one way out is ניתוק;

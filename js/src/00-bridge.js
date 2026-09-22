@@ -153,19 +153,24 @@
   // (review fix round 1): a search miss is recorded as "results:0,len:<n>", never the query.
   // The slice below is a backstop, not a licence — pass an id or a name, never user input.
   window.__sigmaTrack = window.__sigmaTrack || [];
-  var TRACK_CAP = 200, TRACK_TARGET = 40;
+  // The last 30 actions, kept for the crash card's bug report (22.9, K4). Separate from the
+  // upload queue above, which the React side drains — this one is never emptied.
+  window.__sigmaTrail = window.__sigmaTrail || [];
+  var TRACK_CAP = 200, TRACK_TARGET = 40, TRAIL_CAP = 30;
   window.sigmaTrack = function (action, target, page) {
     try {
       if (!action) return;
       var q = window.__sigmaTrack;
       if (q.length >= TRACK_CAP) q.shift();          // a tab with no React bundle must not grow forever
-      q.push({
+      var row = {
         person: (typeof getCurrentUser === 'function' && getCurrentUser()) || null,
         page: page || window._currentPage || null,
         action: String(action),
         target: (target === null || target === undefined) ? null : String(target).slice(0, TRACK_TARGET),
         at: new Date().toISOString()
-      });
+      };
+      q.push(row);
+      var tr = window.__sigmaTrail; if (tr.length >= TRAIL_CAP) tr.shift(); tr.push(row);
     } catch (e) { /* tracking never affects the caller */ }
   };
 
