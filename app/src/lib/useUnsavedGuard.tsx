@@ -27,10 +27,13 @@
 import * as React from 'react';
 
 export const UNSAVED_TITLE = 'יש שינויים שלא נשמרו';
-export const UNSAVED_BODY = 'יש שינויים שלא נשמרו — לשמור / לבטל / להמשיך לערוך';
-export const UNSAVED_SAVE = 'לשמור';
-export const UNSAVED_DISCARD = 'לבטל';
-export const UNSAVED_KEEP = 'להמשיך לערוך';
+// Round 2, Package B item 2: the phone's Back on a dirty sheet asks the SAME three things,
+// in the person's words. The humanizer forbids " — " in new UI strings, so the body is a
+// sentence. The legacy twin in js/src/00-guard.js carries the identical copy.
+export const UNSAVED_BODY = 'אפשר לשמור טיוטה, לצאת בלי לשמור, או להמשיך לערוך.';
+export const UNSAVED_SAVE = 'שמור טיוטה';
+export const UNSAVED_DISCARD = 'לצאת בלי לשמור';
+export const UNSAVED_KEEP = 'להמשיך';
 
 export interface UnsavedGuardOptions {
   /** Is there anything worth keeping right now? Called on every dismiss attempt. */

@@ -93,8 +93,8 @@
   //
   //   modalGuard('emsTaskModal', isDirtyFn, { onSave, onDiscard, block })
   //
-  // A dirty modal does not close — it asks "יש שינויים שלא נשמרו — לשמור / לבטל /
-  // להמשיך לערוך". A clean one closes exactly as it always did.
+  // A dirty modal does not close — it asks "יש שינויים שלא נשמרו": שמור טיוטה · לצאת בלי
+  // לשמור · להמשיך. A clean one closes exactly as it always did.
   // ═══════════════════════════════════════════════════════════════════════════
   var MODAL_GUARDS = Object.create(null);
 
@@ -141,7 +141,10 @@
 
   // ── the three-way prompt (§7p copy, shared with app/src/lib/useUnsavedGuard.tsx) ────────
   var UNSAVED_TITLE = 'יש שינויים שלא נשמרו';
-  var UNSAVED_BODY = 'יש שינויים שלא נשמרו — לשמור / לבטל / להמשיך לערוך';
+  var UNSAVED_BODY = 'אפשר לשמור טיוטה, לצאת בלי לשמור, או להמשיך לערוך.';
+  var UNSAVED_SAVE = 'שמור טיוטה';
+  var UNSAVED_DISCARD = 'לצאת בלי לשמור';
+  var UNSAVED_KEEP = 'להמשיך';
 
   function modalPromptClose() {
     var p = document.getElementById('sigmaUnsavedPrompt');
@@ -186,18 +189,18 @@
     };
 
     // "לשמור" is the modal's own save path: an explicit `onSave`, or the form's primary
-    // button. A modal with neither gets only "להמשיך לערוך" / "לבטל" — never a button that
+    // button. A modal with neither gets only "להמשיך" / "לצאת בלי לשמור" — never a button that
     // pretends to save and does nothing.
     var primary = host && host.querySelector('.modal-actions .btn-primary, .modal-actions .sig-btn.p');
     var save = g.onSave || (primary ? function () { primary.click(); } : null);
     if (save) {
-      acts.appendChild(mk('לשמור', 'btn btn-primary', 'unsaved-save', function () {
+      acts.appendChild(mk(UNSAVED_SAVE, 'btn btn-primary', 'unsaved-save', function () {
         modalPromptClose();
         try { save(); } catch (e) { sigmaError(e && e.message); }
       }));
     }
-    acts.appendChild(mk('להמשיך לערוך', 'btn btn-secondary', 'unsaved-keep', function () { modalPromptClose(); }));
-    acts.appendChild(mk('לבטל', 'btn btn-secondary', 'unsaved-discard', function () {
+    acts.appendChild(mk(UNSAVED_KEEP, 'btn btn-secondary', 'unsaved-keep', function () { modalPromptClose(); }));
+    acts.appendChild(mk(UNSAVED_DISCARD, 'btn btn-secondary', 'unsaved-discard', function () {
       modalPromptClose();
       try { if (g.onDiscard) g.onDiscard(); } catch (e) { /* closing anyway */ }
       modalForceClose(id);
@@ -233,7 +236,7 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (document.getElementById('sigmaUnsavedPrompt')) { modalPromptClose(); return; }  // Esc = "להמשיך לערוך"
+    if (document.getElementById('sigmaUnsavedPrompt')) { modalPromptClose(); return; }  // Esc = "להמשיך"
     var top = topmostDismissible();
     if (top) modalDismiss(top.id);               // one layer per Esc, always
   });
@@ -280,21 +283,131 @@
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'], childList: true, subtree: true });
   } catch (e) { /* no MutationObserver — the static dialogs already have their ✕ */ }
 
-  // ── the phone's Back button closes what is open, then goes back a page (A3/A7) ─────────
-  // showPage() (02-init-attendance.js) pushes one history entry per page switch. Back with a
-  // dialog open closes the dialog and re-arms the entry, so the page under it stays put; Back
-  // with nothing open pops to the previous page instead of leaving the app.
+  // ── the phone's Back button (round 2, Package B items 1–3) ────────────────────────────
+  // showPage() (02-init-attendance.js) pushes one history entry per page switch, on top of a
+  // SENTINEL entry seeded at boot. So Back has four possible answers, and exactly one pure
+  // function decides which — `backAction`, mirrored by test-back-button.mjs:
+  //
+  //   dialog open + holds typed input  → 'ask-unsaved'   the §7p question
+  //   dialog open, untouched           → 'close-dialog'  round-1 behaviour
+  //   nothing open, inner page left    → 'prev-page'     round-1 behaviour
+  //   nothing open, at the sentinel    → 'confirm-exit'  "לצאת מהאפליקציה?" (item 1)
+  //
+  // `historyDepth` is how many of the app's OWN entries are left under the one Back just
+  // popped: 0 means the pop landed on the sentinel, i.e. the next Back would leave the app.
+  // Keeping it a parameter (rather than reading `history` inside) is what makes the rule
+  // testable in node without a DOM.
+  /**
+   * @param {{openDialog?:boolean, dirty?:boolean, historyDepth?:number, page?:string}} s
+   * @returns {'ask-unsaved'|'close-dialog'|'prev-page'|'confirm-exit'}
+   */
+  function backAction(s) {
+    s = s || {};
+    if (s.openDialog) return s.dirty ? 'ask-unsaved' : 'close-dialog';
+    var depth = typeof s.historyDepth === 'number' ? s.historyDepth : 0;
+    if (depth > 0) return 'prev-page';
+    return 'confirm-exit';
+  }
+  window.backAction = backAction;
+
+  // ── "לצאת מהאפליקציה?" (item 1) ────────────────────────────────────────────────────────
+  // A phone Back on 🏘 קיבוצים used to drop the person out of the PWA without a word, mid
+  // draft. Now the sentinel pop re-arms the history entry and asks. [יציאה] goes back TWICE
+  // (past the re-pushed entry and past the sentinel), which is the only way out of a page
+  // the app itself pushed.
+  var EXIT_TITLE = 'לצאת מהאפליקציה?';
+  var EXIT_HOME = 'חזרה לדף הבית';
+  var EXIT_LEAVE = 'יציאה';
+
+  function exitPromptClose() {
+    var p = document.getElementById('sigmaExitPrompt');
+    if (p && p.parentNode) p.parentNode.removeChild(p);
+  }
+  window.exitPromptClose = exitPromptClose;
+
+  function exitPrompt() {
+    if (document.getElementById('sigmaExitPrompt')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'sigmaExitPrompt';
+    wrap.className = 'modal-backdrop open';
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.setAttribute('aria-label', EXIT_TITLE);
+    wrap.setAttribute('data-testid', 'exit-confirm');
+    wrap.style.zIndex = '2000';
+
+    var box = document.createElement('div');
+    box.className = 'modal';
+    box.style.maxWidth = '340px';
+    var h = document.createElement('h3');
+    h.textContent = EXIT_TITLE;
+    var acts = document.createElement('div');
+    acts.className = 'modal-actions';
+    acts.style.flexDirection = 'column';
+
+    var mk = function (text, cls, testid, onClick) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = cls;
+      b.textContent = text;
+      b.setAttribute('data-testid', testid);
+      b.style.width = '100%';
+      b.addEventListener('click', onClick);
+      return b;
+    };
+    acts.appendChild(mk(EXIT_HOME, 'btn btn-primary', 'exit-home', function () {
+      exitPromptClose();
+      if (typeof showPage === 'function') showPage('kibbutz', { fromHistory: true });
+    }));
+    acts.appendChild(mk(EXIT_LEAVE, 'btn btn-secondary', 'exit-leave', function () {
+      exitPromptClose();
+      // -2: the entry this dialog re-pushed, then the sentinel. Anything less lands back
+      // inside the app and the dialog would just ask again.
+      try { history.go(-2); } catch (e) { try { history.back(); history.back(); } catch (e2) { /* */ } }
+    }));
+
+    box.appendChild(h);
+    box.appendChild(acts);
+    wrap.appendChild(box);
+    document.body.appendChild(wrap);
+  }
+  window.exitPrompt = exitPrompt;
+
+  // Re-arm one entry so the app still owns a Back target after this pop.
+  function backRearm() {
+    try { history.pushState({ sigmaPage: window._currentPage || 'kibbutz' }, ''); } catch (e) { /* file:// */ }
+  }
+
   window.addEventListener('popstate', function (e) {
+    // The exit question is itself dismissible by Back: answering it with Back means "stay".
+    if (document.getElementById('sigmaExitPrompt')) { exitPromptClose(); backRearm(); return; }
+    // So is the §7p question (Back = "להמשיך", same as Esc).
+    if (document.getElementById('sigmaUnsavedPrompt')) { modalPromptClose(); backRearm(); return; }
+
     var top = topmostDismissible();
     var sheet = document.querySelector('[data-sigma-portal] [role="dialog"][data-state="open"]');
-    if (top || sheet) {
-      if (top) modalDismiss(top.id);
-      else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      try { history.pushState({ sigmaPage: window._currentPage || 'kibbutz' }, ''); } catch (err) { /* */ }
+    var st = e.state || {};
+    var act = backAction({
+      openDialog: !!(top || sheet),
+      dirty: !!(top && modalIsDirty(top.id)),
+      historyDepth: st.sigmaExit ? 0 : 1,
+      page: st.sigmaPage || window._currentPage || 'kibbutz',
+    });
+
+    if (act === 'ask-unsaved') {
+      // modalDismiss sees the dirty flag and raises the §7p prompt itself; the page under it
+      // must not move, so the entry is re-armed either way.
+      modalDismiss(top.id);
+      backRearm();
       return;
     }
-    var p = e.state && e.state.sigmaPage;
-    if (typeof showPage === 'function') showPage(p || 'kibbutz', { fromHistory: true });
+    if (act === 'close-dialog') {
+      if (top) modalDismiss(top.id);
+      else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      backRearm();
+      return;
+    }
+    if (act === 'confirm-exit') { backRearm(); exitPrompt(); return; }
+    if (typeof showPage === 'function') showPage(st.sigmaPage || 'kibbutz', { fromHistory: true });
   });
 
   // ── sideways scroll: a fade at the far edge says there is more (B5) ────────────────────
