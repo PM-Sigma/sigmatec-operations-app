@@ -16,7 +16,7 @@
 //
 // Every DECISION is pure and lives in app/src/lib/calendar.ts (goldens: calendar.test.ts).
 import * as React from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, Reorder, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Video } from 'lucide-react';
@@ -35,10 +35,11 @@ import {
   abilities, ABSENCE_LABELS, addDays, byDate, calendarItems, canPlanDay, dayLetters, dayWhen,
   dueByKibbutz, EMPTY_DAY, gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, monthView,
   reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey,
-  visibleDows, visitsOn, weekDays, weekView, workWeekLabel, ymd,
+  missingInView, visibleDows, visitsOn, weekDays, weekView, workWeekLabel, ymd,
   type AbsenceKind, type AbsenceRow, type CalCell, type CalEmsTask, type CalItem,
   type CalWeek, type OfficeEvent, type RouteRow, type VisitRow,
 } from '@/lib/calendar';
+import type { AttRow } from '@/lib/attendance';
 import { dueText, isOverdue, priorityLabel, statusLabel } from '@/lib/emsTasks';
 import {
   companyItems, COMPANY_GROUP, DEFAULT_FILTERS, EMPTY_FILTERED, EMPTY_LIST, filterTasks,
@@ -106,6 +107,20 @@ async function readAbsences(from: string, to: string): Promise<AbsenceRow[]> {
   } catch { return []; }
 }
 
+/**
+ * The person's attendance rows for ONE month, off the legacy snapshot — the same reader (and
+ * the same query key) the נוכחות island uses, so the two screens share one cache and can
+ * never disagree about what is missing. `null` while SHEET_DATA is still in flight, which is
+ * what lets the query poll instead of caching "this month has nothing".
+ */
+function readAttRows(person: string, year: number, month: number): AttRow[] | null {
+  if (!person) return null;
+  try {
+    if (!(window as any).SHEET_DATA) return null;
+    return (sigma.attRows?.(person, year, month) || []) as AttRow[];
+  } catch { return null; }
+}
+
 async function readPlan(person: string, date: string): Promise<string[]> {
   if (!person) return [];
   try {
@@ -171,10 +186,12 @@ function WeekNumbers({ week }: { week: number }) {
  * Adding to a day now happens INSIDE the day, where the day is already open.
  */
 function DayCellBox({
-  cell, items, selected, onOpen, onlyMine,
+  cell, items, selected, onOpen, onlyMine, missing,
 }: {
   cell: CalCell; items: CalItem[]; selected: boolean;
   onOpen: (d: string) => void; onlyMine: boolean;
+  /** A past work day with no attendance row — red ring + dot (round 2, F-4 · G). */
+  missing?: boolean;
 }) {
   const shown = items.slice(0, 3);
   const extra = items.length - shown.length;
@@ -184,6 +201,7 @@ function DayCellBox({
       className={'ucal-cell' + (cell.inMonth ? '' : ' ucal-out') + (selected ? ' ucal-sel' : '')}
       data-date={cell.date}
       data-state={state}
+      data-missing={missing ? '1' : undefined}
     >
       <div className="ucal-cell-head">
         <button
@@ -191,10 +209,13 @@ function DayCellBox({
           className="ucal-daynum"
           data-day={cell.date}
           onClick={() => onOpen(cell.date)}
-          aria-label={heDate(cell.date)}
+          aria-label={heDate(cell.date) + (missing ? ' · לא דווחה נוכחות' : '')}
         >
           {cell.day}
           {cell.holiday ? <span className="ucal-holidot" data-testid="cal-holiday" title={cell.holiday.name} /> : null}
+          {missing ? (
+            <span className="ucal-missdot" data-testid="cal-missing" title="לא דווחה נוכחות" aria-hidden />
+          ) : null}
         </button>
       </div>
       <button type="button" className="ucal-cell-body" onClick={() => onOpen(cell.date)} tabIndex={-1} aria-hidden>
@@ -206,11 +227,13 @@ function DayCellBox({
 }
 
 function Grid({
-  weeks, index, selected, onOpen, onlyMine, mode, workWeek,
+  weeks, index, selected, onOpen, onlyMine, mode, workWeek, missing,
 }: {
   weeks: CalWeek[]; index: Record<string, CalItem[]>; selected: string;
   onOpen: (d: string) => void;
   onlyMine: boolean; mode: 'week' | 'month'; workWeek: boolean;
+  /** The person's unreported past days — painted red (round 2, F-4 · G). */
+  missing: Set<string>;
 }) {
   const cols = visibleDows(mode, workWeek).length;
   return (
@@ -234,6 +257,7 @@ function Grid({
               selected={c.date === selected}
               onOpen={onOpen}
               onlyMine={onlyMine}
+              missing={missing.has(c.date)}
             />
           ))}
         </React.Fragment>
@@ -1060,6 +1084,48 @@ function CalendarIsland() {
     ? 'שבוע ' + weeks[0].week + ' · ' + heShort(weeks[0].days[0].date) + '–' + heShort(weeks[0].days[6].date)
     : HE_MONTHS[m - 1] + ' ' + y;
 
+  // ── the days he never reported, in red (round 2, F-4 · G) ──────────────
+  //
+  // A red cell is a NUDGE, not a verdict: it only ever shows the signed-in person's own
+  // gaps (the calendar has no person switch — that lives on נוכחות), only on days already
+  // past, and it goes away the moment the day is filled in. The months are read with the
+  // נוכחות island's own key, so filing a day there repaints the calendar too.
+  const viewMonths = React.useMemo(() => {
+    const out = new Set<string>();
+    for (const w of weeks) for (const c of w.days) out.add(c.date.slice(0, 7));
+    return Array.from(out).sort();
+  }, [weeks.map(w => w.days[0].date).join('|')]);
+
+  const attMonths = useQueries({
+    queries: viewMonths.map(ym => {
+      const [ry, rm] = ym.split('-').map(Number);
+      return {
+        queryKey: ['attRows', me, ry, rm],
+        queryFn: () => readAttRows(me, ry, rm)
+          ?? ((qc.getQueryData(['attRows', me, ry, rm]) as AttRow[] | null | undefined) ?? null),
+        enabled: !!me,
+        // SHEET_DATA lands a beat after boot and announces nothing — poll until it does.
+        refetchInterval: (q: any) => (q.state.data ? false : 1500),
+      };
+    }),
+  });
+
+  const attByMonth = React.useMemo(() => {
+    const map = new Map<string, AttRow[] | null>();
+    viewMonths.forEach((ym, i) => { map.set(ym, (attMonths[i]?.data as AttRow[] | null) ?? null); });
+    return map;
+  }, [viewMonths.join('|'), attMonths.map(q => (q.data ? (q.data as AttRow[]).length : -1)).join('|')]);
+
+  const missing = React.useMemo(
+    () => missingInView(
+      me,
+      weeks,
+      (_p, ry, rm) => attByMonth.get(ry + '-' + String(rm).padStart(2, '0')) ?? null,
+      holidays.data || [],
+    ),
+    [me, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
+  );
+
   // ── the day's route ────────────────────────────────────────────────────
   const openDate = sheetDay || selected;
   const dayItems = openDate ? (index[openDate] || []) : [];
@@ -1279,8 +1345,16 @@ function CalendarIsland() {
               onlyMine={onlyMine}
               mode={view === 'week' ? 'week' : 'month'}
               workWeek={workWeek}
+              missing={missing}
             />
           )}
+          {/* The legend appears only when there is something to explain — a permanent line
+              saying "red = missing" on a clean month is noise. */}
+          {!loading && missing.size ? (
+            <p className="ucal-legend" data-testid="cal-missing-legend">
+              <span className="ucal-missdot" aria-hidden /> ימים באדום — לא דווחה נוכחות
+            </p>
+          ) : null}
         </div>
 
         {/* desktop: the day panel stays open while browsing days */}

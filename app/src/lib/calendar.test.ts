@@ -11,7 +11,7 @@ import {
   weekView, ymd,
   type AbsenceRow, type CalEmsTask, type OfficeEvent, type VisitRow,
   canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
-  workWeekLabel,
+  workWeekLabel, missingInView,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -435,5 +435,60 @@ describe('the route ignores EMS due dates (G4)', () => {
     expect(rows.map(r => r.kibbutz)).toEqual(['גבת', 'דגניה', 'חוקוק']);
     expect(rows.map(r => r.header)).toEqual(['first', 'middle', 'last']);
     expect(rows.map(r => r.count)).toEqual([0, 1, 0]);
+  });
+});
+
+// ───────────── the red cells: days he never reported (round 2, F-4 · G) ─────────────
+//
+// September 2026: the 1st is a Tuesday, the 12th/13th/21st are holidays nobody had to work,
+// and "today" is Tuesday 22.9. Reported: the 1st and the 2nd. So the gaps are every other
+// Sun–Thu from the 3rd up to YESTERDAY — the 21st is a holiday, so it is never one.
+describe('missing attendance days on the grid (F-4 · G)', () => {
+  const ROWS = [
+    { date: '2026-09-01', type: 'field' },
+    { date: '2026-09-02', type: 'office' },
+  ] as any[];
+  const TODAY = new Date(2026, 8, 22);
+  const rowsFor = (_p: string, y: number, m: number) => (y === 2026 && m === 9 ? ROWS : []);
+
+  it('marks every past work day with no row, and nothing else', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    const missing = missingInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY);
+    expect(Array.from(missing).sort()).toEqual([
+      '2026-09-03', '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09', '2026-09-10',
+      '2026-09-14', '2026-09-15', '2026-09-16', '2026-09-17', '2026-09-20',
+    ]);
+  });
+
+  it('never today, never the future, never Fri/Sat, never a holiday off', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    const missing = missingInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY);
+    expect(missing.has('2026-09-22')).toBe(false);          // today
+    expect(missing.has('2026-09-23')).toBe(false);          // the future
+    expect(missing.has('2026-09-04')).toBe(false);          // Friday
+    expect(missing.has('2026-09-05')).toBe(false);          // Saturday
+    expect(missing.has('2026-09-21')).toBe(false);          // יום כיפור
+    expect(missing.has('2026-09-01')).toBe(false);          // reported
+  });
+
+  it('a dimmed lead day from the previous month is never red', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    const missing = missingInView('אביאם', weeks, (_p, _y, _m) => [], HOLIDAYS as unknown as Holiday[], TODAY);
+    expect(missing.has('2026-08-30')).toBe(false);
+    expect(missing.has('2026-08-31')).toBe(false);
+  });
+
+  it('a week row that straddles two months asks BOTH months', () => {
+    // The display week of 30.8–5.9.2026: Sunday 30.8 and Monday 31.8 belong to August, and
+    // in the WEEK view every cell is the view's own — so both are asked and both count.
+    const week = weekView('2026-09-02', HOLIDAYS as unknown as Holiday[], '2026-09-22');
+    const missing = missingInView('אביאם', [week], (_p, y, m) => (y === 2026 && m === 9 ? ROWS : []), HOLIDAYS as unknown as Holiday[], TODAY);
+    expect(Array.from(missing).sort()).toEqual(['2026-08-30', '2026-08-31', '2026-09-03']);
+  });
+
+  it('no person, or a month whose snapshot has not landed, paints nothing', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    expect(missingInView('', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
+    expect(missingInView('אביאם', weeks, () => null, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
   });
 });
