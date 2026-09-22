@@ -28,10 +28,15 @@ import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  alertTarget, alertText, canSeeAlerts, groupAlerts, isSeen, markRowsSeen, unmarkRowsSeen,
+  alertTarget, alertText, canSeeAlerts, canSeeEmsUnlinkedAlert, emsUnlinkedGroup, groupAlerts,
+  isSeen, markRowsSeen, unmarkRowsSeen,
   type AlertGroup, type AlertRow,
 } from '@/lib/alerts';
+import { fetchKibbutzRows } from '@/lib/kibbutzRows';
+import { isUnlinked, labelOf, type KibbutzRow } from '@/lib/kibbutzim';
 import { toastFailure } from '@/lib/pending';
+
+const fetchKibbutzim = () => fetchKibbutzRows<KibbutzRow>();   // the SAME reader Home/Presenter use
 
 export const ALERTS_OPEN_EVENT = 'sigma-open-alerts';
 
@@ -58,6 +63,9 @@ async function fetchAlerts(): Promise<AlertRow[]> {
 
 /** Open what the group is about (§5.1). A recount has no screen of its own — the מלאי page is it. */
 function openSource(row: AlertRow): void {
+  // אתר לא מקושר ל-EMS has no "order" or "visit" behind it — the thing to open is the kibbutz
+  // itself, on the home page where its card (and the ⚠️ chip) lives.
+  if (row.kind === 'ems_unlinked') { try { sigma.showPage?.('kibbutz'); } catch { /* legacy not up */ } return; }
   const t = alertTarget(row);
   try {
     if (t.kind === 'order' && t.id) { sigma.openOrder?.(t.id); return; }
@@ -89,7 +97,9 @@ function GroupRow({ g, user, onSeen }: { g: AlertGroup; user: string; onSeen: (g
             <ChevronDown className={'size-4 transition-transform ' + (open ? 'rotate-180' : '')} />
           </button>
         )}
-        {!g.seen && (
+        {/* אתר לא מקושר ל-EMS is a standing state, not an event — it has nothing to "mark
+            read"; it clears itself the moment the site is actually linked. */}
+        {!g.seen && g.kind !== 'ems_unlinked' && (
           <button
             type="button"
             aria-label="סמן כנקרא"
@@ -144,7 +154,21 @@ function AlertsBell() {
 
   const q = useQuery({ queryKey: ['inventoryAlerts'], queryFn: fetchAlerts, enabled: allowed });
   const rows = React.useMemo(() => q.data ?? [], [q.data]);
-  const groups = React.useMemo(() => groupAlerts(rows, user), [rows, user]);
+
+  // אתרים לא מקושרים ל-EMS (Package Y) — עידן/עמיחי only, derived from the SAME `kibbutzim`
+  // rows Home/Presenter already query (['kibbutzim'], shared cache — no extra request here).
+  const seeUnlinked = canSeeEmsUnlinkedAlert(user);
+  const kibbutzimQ = useQuery({ queryKey: ['kibbutzim'], queryFn: fetchKibbutzim, enabled: allowed && seeUnlinked });
+  const unlinkedNames = React.useMemo(
+    () => (kibbutzimQ.data ?? []).filter(isUnlinked).map(labelOf),
+    [kibbutzimQ.data],
+  );
+
+  const groups = React.useMemo(() => {
+    const inv = groupAlerts(rows, user);
+    const unlinked = seeUnlinked ? emsUnlinkedGroup(unlinkedNames) : null;
+    return unlinked ? [unlinked, ...inv] : inv;
+  }, [rows, user, seeUnlinked, unlinkedNames]);
 
   React.useEffect(() => {
     const onOpen = () => { pendingOpen = false; setOpen(true); };

@@ -36,25 +36,36 @@ const daysAgo = (n: number) => {
   return d.toISOString().slice(0, 10);
 };
 
+// `ems_site_ids` (Package Y, 22.9): every fixture kibbutz is LINKED by default, so existing
+// specs (alert counts, card chips) see no change. Specs that need an UNLINKED row (the new
+// alerts.spec / kibbutz-sheet.spec coverage) override the `kibbutzim` route themselves rather
+// than changing this shared baseline.
 export const KIBBUTZIM = [
   // ── active · גליל וגולן
   { id: 'k1', name: 'חוקוק', display_name: null, section: 'active', region: 'גליל וגולן',
-    energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null },
+    energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
+    ems_site_ids: ['ems-k1'] },
   { id: 'k2', name: 'דגניה', display_name: null, section: 'active', region: 'גליל וגולן',
-    energy: ['electric', 'water'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null },
+    energy: ['electric', 'water'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
+    ems_site_ids: ['ems-k2'] },
   // ── active · העמקים (one of them a sub-site of יגור)
   { id: 'k3', name: 'יגור', display_name: null, section: 'active', region: 'העמקים',
-    energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null },
+    energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
+    ems_site_ids: ['ems-k3'] },
   { id: 'k4', name: 'יגור — רפת', display_name: null, section: 'active', region: 'העמקים',
-    energy: ['water'], kind: 'subsite', parent: 'יגור', marketing: false, archived_at: null },
+    energy: ['water'], kind: 'subsite', parent: 'יגור', marketing: false, archived_at: null,
+    ems_site_ids: ['ems-k4'] },
   // ── active · דרום — gas, and the one marketing row
   { id: 'k5', name: 'כפר עזה', display_name: null, section: 'active', region: 'דרום, עוטף עזה והנגב',
-    energy: ['gas'], kind: 'kibbutz', parent: null, marketing: true, archived_at: null },
+    energy: ['gas'], kind: 'kibbutz', parent: null, marketing: true, archived_at: null,
+    ems_site_ids: ['ems-k5'] },
   // ── new customers (their own section)
   { id: 'k6', name: 'גבת', display_name: null, section: 'new', region: 'העמקים',
-    energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null },
+    energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
+    ems_site_ids: ['ems-k6'] },
   { id: 'k7', name: 'שדה אליהו', display_name: null, section: 'new', region: 'גליל וגולן',
-    energy: ['electric', 'gas'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null },
+    energy: ['electric', 'gas'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
+    ems_site_ids: ['ems-k7'] },
 ];
 
 /** Four meetings on חוקוק → a latest block plus a "היסטוריה (3)" disclosure on that card. */

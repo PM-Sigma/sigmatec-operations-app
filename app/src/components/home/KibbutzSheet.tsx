@@ -1,26 +1,27 @@
 // ➕ קיבוץ חדש / ✏️ פרטי קיבוץ (spec §7b). One bottom sheet, two modes:
 //   🏘 קיבוץ חדש (לקוח חדש)   — name · section · region · energy · 🤝
-//   ↳ תת-אתר של קיבוץ קיים    — parent picker; section + region are INHERITED (hidden), and
-//                               the 5-step EMS verification chain runs against the typed name.
+//   ↳ תת-אתר של קיבוץ קיים    — parent picker; section + region are INHERITED (hidden).
+// 22.9, QA round 4 Package Y (עידן): the 5-step EMS verification chain is GONE. The sheet
+// writes the row exactly as typed; `ems_site_ids` is shown read-only ("✓ מקושר" / "⚠️ לא
+// מקושר") and never derived here — see app/src/lib/kibbutzim.ts `isUnlinked` for where the
+// missing-link error actually lives (card chip, alerts bell, health.ts).
 // Energy chips are עידן's alone (spec §7b); for everyone else they render disabled and the
-// save body drops the `energy` key entirely, so the server keeps whatever it had.
+// save body drops the `energy` key entirely, so the server keeps whatever it had. Energy is a
+// multi-select (עידן, Package Y): a site can carry more than one energy type at once.
 import * as React from 'react';
 import { toast } from 'sonner';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { EmsChain } from '@/components/home/EmsChain';
 import { spawnOnboardingForNewKibbutz } from '@/components/home/OnboardingProgress';
-import { sigma } from '@/bridge';
 import { sbWrite } from '@/lib/supabase';
-import { emsChainRun } from '@/lib/emsChain';
 import {
-  ENERGY_LABEL, ENERGY_LOCK_TITLE, canEditEnergy, customerCodeOf, emsChainPlan, emsChainReduce,
-  energyOf, isMissingCustomerCodeColumn, kibbutzimSaveBody, labelOf, regionOrder, sectionOf,
-  subsitesOf, validateKibbutz, withoutCustomerCode,
-  type ChainInput, type ChainStep, type Energy, type KibbutzRow, type Section,
+  ENERGY_LABEL, ENERGY_LOCK_TITLE, canEditEnergy, customerCodeOf, emsLinkedLabel,
+  energyOf, isMissingCustomerCodeColumn, isUnlinked, kibbutzimSaveBody, labelOf, regionOrder,
+  sectionOf, subsitesOf, validateKibbutz, withoutCustomerCode,
+  type Energy, type KibbutzRow, type Section,
 } from '@/lib/kibbutzim';
 
 const ENERGIES: Energy[] = ['electric', 'water', 'gas'];
@@ -66,10 +67,6 @@ export function KibbutzSheet({
   const [code, setCode] = React.useState('');
   const [marketing, setMarketing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [running, setRunning] = React.useState(false);
-  const [steps, setSteps] = React.useState<ChainStep[]>([]);
-  const [chain, setChain] = React.useState<ChainInput | null>(null);
-  const [allowUnlinked, setAllowUnlinked] = React.useState(false);
   const [confirmArchive, setConfirmArchive] = React.useState(false);
   // Archiving is TYPE-TO-CONFIRM (22.9): two kibbutzim were archived by accident when the
   // confirm button rendered under the finger that had just tapped 🗄. A second tap can never
@@ -87,7 +84,7 @@ export function KibbutzSheet({
     setRegion(row?.region || '');
     setEnergy(row ? energyOf(row) : ['electric']);
     setMarketing(!!row?.marketing);
-    setSteps([]); setChain(null); setAllowUnlinked(false); setConfirmArchive(false); setSaving(false);
+    setConfirmArchive(false); setSaving(false);
     setArchiveTyped('');
   }, [open, row, prefillName, prefillParent]);
 
@@ -111,44 +108,13 @@ export function KibbutzSheet({
     return Array.from(seen);
   }, [allRows]);
 
-  const reduced = React.useMemo(
-    () => (chain ? emsChainReduce({ ...chain, allowUnlinked }) : null),
-    [chain, allowUnlinked],
-  );
-
-  const runChain = React.useCallback(async () => {
-    const target = name.trim();
-    if (!target) { toast.error('הזן שם קודם'); return; }
-    if (!sigma.isEmsConnected()) toast.warning('אין חיבור ל-EMS. הבדיקה תסתמך על מה שזמין');
-    setRunning(true);
-    const plan = emsChainPlan(target, kind === 'subsite' ? parentRow : null, allRows);
-    setSteps(plan);
-    try {
-      const res = await emsChainRun(target, kind === 'subsite' ? parentRow : null, allRows, partial => {
-        setSteps(emsChainReduce({ ...partial, allowUnlinked }).steps);
-      });
-      setChain(res);
-      setSteps(emsChainReduce({ ...res, allowUnlinked }).steps);
-    } catch (e: any) {
-      toast.error('בדיקת EMS נכשלה: ' + (e?.message || e));
-    } finally {
-      setRunning(false);
-    }
-  }, [name, kind, parentRow, allRows, allowUnlinked]);
-
-  // Sub-site mode runs the chain as soon as there is a name + parent (spec §7b: "runs when
-  // the name is typed"), debounced so every keystroke does not hit EMS.
-  React.useEffect(() => {
-    if (!open || kind !== 'subsite' || !name.trim() || !parentRow) return;
-    const t = setTimeout(() => { void runChain(); }, 700);
-    return () => clearTimeout(t);
-    // runChain is intentionally out of the deps: it changes on every keystroke via `name`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, kind, name, parent]);
-
-  const toggleEnergy = (e: Energy) => {
+  // The chain used to force at least one energy type ON via the meter counts it found; with
+  // it gone the toggle must never empty out entirely, so the last chip standing refuses to
+  // turn itself off (a kibbutz always has some energy).
+  const onEnergyChange = (vals: string[]) => {
     if (!mayEditEnergy) return;
-    setEnergy(cur => (cur.indexOf(e) === -1 ? [...ENERGIES.filter(x => cur.indexOf(x) !== -1 || x === e)] : cur.filter(x => x !== e)));
+    if (!vals.length) return;
+    setEnergy(ENERGIES.filter(e => vals.indexOf(e) !== -1));
   };
 
   async function save() {
@@ -158,29 +124,19 @@ export function KibbutzSheet({
       display_name: row?.display_name ?? null,
       section,
       region,
-      // Chain-derived energy wins for a sub-site (spec §7b: "for non-עידן this proposal is
-      // what gets saved"); עידן's manual pick wins when he touched the chips.
-      energy: mayEditEnergy ? energy : (reduced?.energy || energy),
+      energy: mayEditEnergy ? energy : (row?.energy || energy),
       marketing,
       kind,
       parent: kind === 'subsite' ? parent : null,
-      ems_site_ids: reduced?.ems_site_ids?.length ? reduced.ems_site_ids : row?.ems_site_ids,
-      ems_params: reduced?.ems_params || row?.ems_params,
+      // No chain any more (Package Y) — the row is written exactly as it already stood.
+      // `ems_site_ids` is edited elsewhere (or not at all); this sheet never touches it.
+      ems_site_ids: row?.ems_site_ids,
+      ems_params: row?.ems_params,
       customer_code: code.trim() === '' ? null : (Number(code.trim()) as number),
       created_by: row?.created_by || user,
     };
     const v = validateKibbutz(draft, allRows);
     if (!v.ok) { toast.error(v.errors[0]); return; }
-    // A sub-site exists to be linked to an EMS site. Saving one is allowed only when the
-    // chain actually ran and found the site, or when the user explicitly said "unlinked" —
-    // `reduced === null` (the chain never ran, e.g. the name was pasted and saved at once)
-    // must not slip through as if it had passed.
-    if (kind === 'subsite' && !allowUnlinked && !(reduced && reduced.canSave)) {
-      toast.error(reduced
-        ? 'לא נמצא אתר ב-EMS. סמן "שמור בלי קישור" כדי לשמור בכל זאת'
-        : 'הרץ "בדוק מול EMS" לפני שמירת תת-אתר, או סמן "שמור בלי קישור"');
-      return;
-    }
     setSaving(true);
     try {
       const body = kibbutzimSaveBody(v.row, user);
@@ -328,26 +284,27 @@ export function KibbutzSheet({
         <label className={fieldLabel}>
           סוגי אנרגיה{!mayEditEnergy && <span className="font-medium"> · {ENERGY_LOCK_TITLE}</span>}
         </label>
-        <div className="flex flex-wrap gap-1.5">
-          {ENERGIES.map(e => {
-            const on = energy.indexOf(e) !== -1;
-            return (
-              <button
-                key={e}
-                type="button"
-                disabled={!mayEditEnergy}
-                title={mayEditEnergy ? undefined : ENERGY_LOCK_TITLE}
-                onClick={() => toggleEnergy(e)}
-                className={
-                  'min-h-[40px] rounded-full border px-3 text-[13px] font-semibold disabled:opacity-50 ' +
-                  (on ? 'border-transparent bg-foreground text-background' : 'border-border bg-card text-muted-foreground')
-                }
-              >
-                {ENERGY_LABEL[e]}
-              </button>
-            );
-          })}
-        </div>
+        <ToggleGroup
+          type="multiple"
+          value={energy}
+          onValueChange={onEnergyChange}
+          disabled={!mayEditEnergy}
+          className="flex flex-wrap justify-start gap-1.5"
+        >
+          {ENERGIES.map(e => (
+            <ToggleGroupItem
+              key={e}
+              value={e}
+              title={mayEditEnergy ? undefined : ENERGY_LOCK_TITLE}
+              className={
+                'min-h-[40px] rounded-full border border-border bg-card px-3 text-[13px] font-semibold text-muted-foreground ' +
+                'disabled:opacity-50 data-[state=on]:border-transparent data-[state=on]:bg-foreground data-[state=on]:text-background'
+              }
+            >
+              {ENERGY_LABEL[e]}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
 
 
         {/* קטגוריה (D2) — מדור and 🤝 שיווקי are one question ("what kind of customer is this"),
@@ -399,26 +356,22 @@ export function KibbutzSheet({
           </>
         )}
 
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <span className="text-xs font-bold text-muted-foreground">
-            שרשרת בדיקה מול EMS{isSub ? ' · רצה אוטומטית' : ''}
-          </span>
-          <button
-            type="button"
-            onClick={() => void runChain()}
-            disabled={running}
-            className="flex min-h-[40px] items-center gap-1.5 rounded-xl border border-border bg-muted px-3 text-[13px] font-semibold disabled:opacity-50"
+        {/* No chain any more (22.9, Package Y — עידן: "להעיף את השרשרת בדיקה מול ה-EMS").
+            `ems_site_ids` is read-only here; the real error lives on the card, in the bell and
+            in מצב הקיבוץ (kibbutzim.ts isUnlinked). Create mode has no row yet, so nothing to
+            show — the status appears once the kibbutz is saved and reopened for edit. */}
+        {editing && (
+          <div
+            data-testid="kib-ems-link"
+            className={
+              'mt-3 flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-[13px] font-semibold ' +
+              (isUnlinked(row!)
+                ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                : 'border-border bg-muted text-muted-foreground')
+            }
           >
-            {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            בדוק מול EMS
-          </button>
-        </div>
-        <EmsChain steps={steps} running={running} />
-
-        {(isSub || !!reduced) && !(reduced && reduced.ems_site_ids.length) && (
-          <div className="mt-1 flex items-center gap-2 rounded-xl border border-border bg-muted px-2.5 py-2 text-xs">
-            <Switch id="kibUnlinked" checked={allowUnlinked} onCheckedChange={setAllowUnlinked} />
-            <label htmlFor="kibUnlinked">שמור בלי קישור. הכרטיס יסומן ⚠️ עד שיקושר</label>
+            <span>אתר EMS</span>
+            <span>{emsLinkedLabel(row)}</span>
           </div>
         )}
 

@@ -309,25 +309,11 @@ export function kibbutzimSaveBody(row: KibbutzRow, user: string): Record<string,
   return body;
 }
 
-// ───────────────────────────── EMS verification chain ─────────────────────────────
-
-export type ChainStepId = 'site' | 'meters' | 'tasks' | 'contacts' | 'parent';
-export type ChainState = 'pending' | 'ok' | 'warn' | 'bad' | 'skipped';
-
-export interface ChainStep {
-  id: ChainStepId;
-  label: string;
-  state: ChainState;
-  value: string;
-}
-
-export const CHAIN_LABELS: Record<ChainStepId, string> = {
-  site: 'אתר ב-EMS',
-  meters: 'מונים',
-  tasks: 'משימות פתוחות',
-  contacts: 'אנשי קשר',
-  parent: 'קיבוץ-אב',
-};
+// ───────────────────────────── EMS link status ─────────────────────────────
+// The 5-step verification chain is gone (22.9, QA round 4 Package Y — עידן: "להעיף את
+// השרשרת בדיקה מול ה-EMS"). The sheet saves the row as typed; `ems_site_ids` is whatever the
+// row already carries, shown read-only. What matters is a clear error when a live site has
+// none — see `isUnlinked` below and app/src/lib/alerts.ts / health.ts for where that surfaces.
 
 export interface EmsParams {
   site: { id: string; name: string };
@@ -337,141 +323,19 @@ export interface EmsParams {
   checkedAt: string;
 }
 
-export interface ChainInput {
-  site?: { found: boolean; id?: string; name?: string };
-  meters?: { skipped?: boolean; counts?: Record<string, number> };
-  tasks?: { skipped?: boolean; count?: number; titles?: string[] };
-  contacts?: { skipped?: boolean; contacts?: Array<{ name?: string; phone?: string }> };
-  parent?: { row?: KibbutzRow | null; duplicateOf?: string | null };
-  /** The user ticked "שמור בלי קישור" — a site-less sub-site may still be saved. */
-  allowUnlinked?: boolean;
+/** `✓ מקושר` vs `⚠️ לא מקושר` — the read-only line the sheet shows in place of the old chain. */
+export function emsLinkedLabel(row: KibbutzRow | null): string {
+  return row && row.ems_site_ids && row.ems_site_ids.length ? '✓ מקושר' : '⚠️ לא מקושר';
 }
-
-export interface ChainResult {
-  ems_site_ids: string[];
-  energy: Energy[];
-  ems_params: EmsParams | null;
-  canSave: boolean;
-  warnings: string[];
-  steps: ChainStep[];
-}
-
-/** The ordered step list for a run. The "קיבוץ-אב" step only exists for a sub-site. */
-export function emsChainPlan(
-  _name: string,
-  parentRow: KibbutzRow | null | undefined,
-  _allRows: KibbutzRow[] = [],
-): ChainStep[] {
-  const ids: ChainStepId[] = ['site', 'meters', 'tasks', 'contacts'];
-  if (parentRow) ids.push('parent');
-  return ids.map(id => ({ id, label: CHAIN_LABELS[id], state: 'pending' as ChainState, value: '' }));
-}
-
-// EMS energy_type_code → our energy key.
-const METER_ENERGY: Record<string, Energy> = { 1: 'electric', 2: 'water', 3: 'gas' };
-const ENERGY_SORT: Energy[] = ['electric', 'water', 'gas'];
 
 /**
- * Chain results → what actually gets saved. Pure: every async detail is resolved by
- * emsChainRun before it reaches here, so the decision table is fully golden-tested.
+ * The thing עידן called "הכי לא תקין במערכת": a live (non-archived) kibbutz or sub-site with
+ * no EMS site at all. Used by the card chip, the alerts bell and health.ts — one rule, three
+ * places it shows up.
  */
-export function emsChainReduce(input: ChainInput, now = new Date().toISOString()): ChainResult {
-  const warnings: string[] = [];
-  const steps: ChainStep[] = [];
-  const site = input.site;
-  const found = !!(site && site.found && site.id);
-
-  steps.push({
-    id: 'site',
-    label: CHAIN_LABELS.site,
-    state: found ? 'ok' : 'bad',
-    value: found ? `${site!.name || ''} · נמצא`.trim() : 'לא נמצא',
-  });
-  if (!found) warnings.push('לא נמצא אתר ב-EMS');
-
-  // Step 1 is the gate: with no site there is nothing to count, so the rest is reported
-  // as skipped rather than failed (spec §7b: "nothing else runs").
-  const skipRest = !found;
-
-  const counts = (input.meters && input.meters.counts) || {};
-  const meters = { electric: 0, water: 0, gas: 0, total: 0 };
-  Object.keys(counts).forEach(code => {
-    const key = METER_ENERGY[String(code)];
-    const n = Number(counts[code]) || 0;
-    if (key) { meters[key] += n; meters.total += n; }
-  });
-  const metersSkipped = skipRest || !!(input.meters && input.meters.skipped) || !input.meters;
-  let energy = ENERGY_SORT.filter(e => meters[e] > 0);
-  if (!energy.length) energy = ['electric'];                 // the safe default (spec §7b)
-  if (metersSkipped) {
-    if (!skipRest) warnings.push('לא ניתן לספור מונים');
-    energy = ['electric'];
-  }
-  steps.push({
-    id: 'meters',
-    label: CHAIN_LABELS.meters,
-    state: skipRest ? 'skipped' : metersSkipped ? 'warn' : 'ok',
-    value: skipRest ? 'לא נבדק'
-      : metersSkipped ? 'לא ניתן לספור מונים, ברירת מחדל ⚡ חשמל'
-      : ENERGY_SORT.filter(e => meters[e] > 0).map(e => `${meters[e]} ${ENERGY_LABEL[e]}`).join(' · '),
-  });
-
-  const tasks = input.tasks;
-  const tasksSkipped = skipRest || !tasks || !!tasks.skipped;
-  const openTasks = tasksSkipped ? 0 : Number(tasks!.count) || 0;
-  steps.push({
-    id: 'tasks',
-    label: CHAIN_LABELS.tasks,
-    state: skipRest ? 'skipped' : tasksSkipped ? 'warn' : 'ok',
-    value: skipRest ? 'לא נבדק'
-      : tasksSkipped ? 'לא ניתן לקרוא משימות'
-      : `${openTasks}${(tasks!.titles || []).length ? ' · ' + (tasks!.titles || []).join(', ') : ''}`,
-  });
-  if (!skipRest && tasksSkipped) warnings.push('לא ניתן לקרוא משימות');
-
-  const contacts = (input.contacts && input.contacts.contacts) || [];
-  const contactsSkipped = skipRest || !input.contacts || !!input.contacts.skipped;
-  steps.push({
-    id: 'contacts',
-    label: CHAIN_LABELS.contacts,
-    state: skipRest ? 'skipped' : contactsSkipped ? 'warn' : contacts.length ? 'ok' : 'warn',
-    value: skipRest ? 'לא נבדק'
-      : contactsSkipped ? 'לא ניתן לקרוא אנשי קשר'
-      : contacts.length ? contacts.map(c => c.name || c.phone || '—').join(', ')
-      : 'אין רשומות, להוסיף אחר כך',
-  });
-  if (!skipRest && !contactsSkipped && !contacts.length) warnings.push('אין אנשי קשר');
-
-  if (input.parent) {
-    const p = input.parent.row;
-    const dup = input.parent.duplicateOf;
-    const parentOk = !!p && !p.archived_at;
-    if (!parentOk) warnings.push('קיבוץ-אב לא נמצא');
-    if (dup) warnings.push('האתר כבר מקושר ל-' + dup);
-    steps.push({
-      id: 'parent',
-      label: CHAIN_LABELS.parent,
-      state: !parentOk ? 'bad' : dup ? 'warn' : 'ok',
-      value: !parentOk ? 'לא נמצא'
-        : dup ? 'האתר כבר מקושר ל-' + dup
-        : `${labelOf(p!)} · ${sectionOf(p!) === 'new' ? 'חדש' : 'פעיל'}${p!.region ? ' · ' + p!.region : ''} (יורש מדור ואיזור)`,
-    });
-  }
-
-  return {
-    ems_site_ids: found ? [site!.id!] : [],
-    energy,
-    ems_params: found ? {
-      site: { id: site!.id!, name: site!.name || '' },
-      meters,
-      openTasks,
-      contacts,
-      checkedAt: now,
-    } : null,
-    canSave: found || !!input.allowUnlinked,
-    warnings,
-    steps,
-  };
+export function isUnlinked(row: KibbutzRow): boolean {
+  if (!row || row.archived_at) return false;
+  return !(row.ems_site_ids && row.ems_site_ids.length);
 }
 
 // ───────────────────────── tolerating a database without the column ─────────────────────────

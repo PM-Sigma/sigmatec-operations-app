@@ -7,6 +7,7 @@
 //
 // The words and the sorting are goldens (app/src/lib/alerts.test.ts, orderStrip.test.ts).
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test, SB_ORIGIN } from './_helpers';
+import { FIXTURES } from './_fixtures';
 
 async function rows(page: any, table: string): Promise<any[]> {
   return await page.evaluate(async ([origin, t]: string[]) => {
@@ -145,6 +146,56 @@ test('אביאם cannot set a red line', async ({ page }, ti) => {
   await openInventory(page);
   await expect(page.getByTestId('order-strip')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('minqty-open')).toHaveCount(0);
+  await expectNoConsoleErrors(rec);
+});
+
+// ───────────── QA round 4 Package Y (22.9): אתרים לא מקושרים ל-EMS ─────────────
+// עידן: "אני רוצה לקבל שגיאה אם יש אתר שלא מחובר ל-EMS — זה הדבר הכי לא תקין במערכת." Built
+// from the `kibbutzim` rows themselves (not a new table): every fixture kibbutz ships LINKED,
+// so these two tests override the route with one unlinked row instead of touching the shared
+// baseline every other alerts test relies on.
+test('a kibbutz with no ems_site_ids raises a group at the top of the bell (עידן)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  // Registered after boot's own fixtures route, so it wins (same pattern as the failed-mark-seen test).
+  // Home already fetched ['kibbutzim'] once during boot and the bell shares that cache, so the
+  // override needs a reload to actually be seen rather than serving the pre-boot answer.
+  await page.route('**/rest/v1/kibbutzim*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(FIXTURES.kibbutzim.map((k: any) => (k.name === 'שדה אליהו' ? { ...k, ems_site_ids: [] } : k))),
+  }));
+  await page.reload();
+  await expect(page.getByTestId('alerts-bell')).toBeVisible({ timeout: 15_000 });
+
+  await page.getByTestId('alerts-bell').click();
+  const list = page.getByTestId('alerts-list');
+  await expect(list).toBeVisible({ timeout: 15_000 });
+  await expect(list).toContainText('שדה אליהו לא מקושר ל-EMS');
+  // it has no "סמן כנקרא" — a standing fact, not an event to dismiss.
+  const group = list.getByTestId('alert-group').filter({ hasText: 'שדה אליהו' });
+  await expect(group.getByLabel('סמן כנקרא')).toHaveCount(0);
+
+  await shot(page, ti, 'ems-unlinked');
+  await expectNoConsoleErrors(rec);
+});
+
+test('אביאם and ניתאי never see the אתרים לא מקושרים group, even though they have a bell', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+
+  await page.route('**/rest/v1/kibbutzim*', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(FIXTURES.kibbutzim.map((k: any) => (k.name === 'שדה אליהו' ? { ...k, ems_site_ids: [] } : k))),
+  }));
+  await page.reload();
+  await expect(page.getByTestId('alerts-bell')).toBeVisible({ timeout: 15_000 });
+
+  await page.getByTestId('alerts-bell').click();
+  const list = page.getByTestId('alerts-list');
+  await expect(list).toBeVisible({ timeout: 15_000 });
+  await expect(list).not.toContainText('לא מקושר ל-EMS');
+
   await expectNoConsoleErrors(rec);
 });
 

@@ -11,10 +11,15 @@ import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { sigma, useCurrentUser } from '@/bridge';
 import {
-  HEALTH_CONFIG_DRAFT, NO_DATA, SIGNAL_LABELS, canSeeHealth, type Band, type Health,
+  HEALTH_CONFIG_DRAFT, NO_DATA, SIGNAL_LABELS, canSeeHealth, emsUnlinkedHealthNote,
+  type Band, type Health,
 } from '@/lib/health';
 import { loadHealth, sourceFor, type EmsDeps } from '@/lib/healthSources';
 import { emsGateway } from '@/lib/ems/gateway';
+import { fetchKibbutzRows } from '@/lib/kibbutzRows';
+import type { KibbutzRow } from '@/lib/kibbutzim';
+
+const fetchKibbutzim = () => fetchKibbutzRows<KibbutzRow>();   // the SAME reader Home/Presenter use
 
 export const HEALTH_QUERY_KEY = 'kibbutzHealth';
 
@@ -96,6 +101,15 @@ export function HealthStrip({ kibbutz }: { kibbutz: string }) {
   const allowed = canSeeHealth(name, role);
   const { data } = useKibbutzHealth(allowed ? kibbutz : '');
 
+  // The EMS-link note (Package Y): shares the same ['kibbutzim'] query Home/Presenter already
+  // run, so this never costs a second request — just a lookup by name in the cached rows.
+  const kibbutzimQ = useQuery({ queryKey: ['kibbutzim'], queryFn: fetchKibbutzim, enabled: allowed && !!kibbutz });
+  const row = React.useMemo(
+    () => (kibbutzimQ.data ?? []).find(r => r.name === kibbutz) || null,
+    [kibbutzimQ.data, kibbutz],
+  );
+  const unlinkedNote = emsUnlinkedHealthNote(row);
+
   if (!kibbutz || !allowed) return null;
   const health = data || null;
 
@@ -143,6 +157,17 @@ export function HealthStrip({ kibbutz }: { kibbutz: string }) {
           ? bandWord(health.band)
           : NO_DATA}
       </div>
+
+      {/* A fixed line, not a fifth dot (spec Package Y — עידן: "הדבר הכי לא תקין במערכת" gets
+          said plainly, not folded into an averaged score). */}
+      {unlinkedNote && (
+        <div
+          data-testid="health-ems-unlinked"
+          className="mt-2 rounded-lg bg-destructive/10 px-2.5 py-1.5 text-[12.5px] font-semibold text-destructive"
+        >
+          {unlinkedNote}
+        </div>
+      )}
     </div>
   );
 }

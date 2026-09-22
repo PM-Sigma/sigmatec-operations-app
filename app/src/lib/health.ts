@@ -241,3 +241,16 @@ export function canSeeHealth(user: string | null | undefined, role: string | nul
   if (r === 'viewer') return true;
   return HEALTH_PEOPLE.includes(String(user || '').trim());
 }
+
+// ───────────────────────────── EMS link (22.9, QA round 4 Package Y) ─────────────────────────────
+
+/** `⚠️ לא מקושר ל-EMS` — a fixed line under the strip, not a fifth scored signal: unlike the
+ *  four signals above this is a yes/no fact with no scale, and it must never be folded into
+ *  the weighted average (a 0–3 score here would fabricate precision that does not exist). */
+export const EMS_UNLINKED_NOTE = '⚠️ לא מקושר ל-EMS';
+
+/** `null` when the site IS linked (or the row is unknown) — nothing to say, no line to show. */
+export function emsUnlinkedHealthNote(row: { ems_site_ids?: string[] | null } | null | undefined): string | null {
+  if (!row) return null;
+  return row.ems_site_ids && row.ems_site_ids.length ? null : EMS_UNLINKED_NOTE;
+}
