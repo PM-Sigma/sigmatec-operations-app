@@ -223,7 +223,7 @@ test('kibbutz sheet: no EMS chain — a sub-site saves straight away, no gate', 
 test('kibbutz sheet: אתר EMS is read-only — ✓ מקושר / ⚠️ לא מקושר, no verify button', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  // חוקוק ships linked in the fixture (ems_site_ids: ['ems-k1']).
+  // חוקוק ships linked in the fixture (ems_site_ids: the real mock site UUID).
   await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
   await page.locator('#modalTitle .modal-edit-kibbutz').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();

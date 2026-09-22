@@ -1,6 +1,6 @@
 # סבב 4 — עידן, ערב 22.9.2026 (אחרי 2.21)
 
-STATUS: 🟡 OPEN — planned by Fable, executed by Opus/Sonnet agents in worktrees off `main` 84d7026 (2.21).
+STATUS: ✅ SHIPPED (2.22, 22.9 night) — X, Y, Z merged; data merges applied.
 Ground rules: as `2026-09-22-phone-qa-round-2-design.md` (source-only commits, own files, tests green, humanizer copy).
 
 ## נתונים (בוצע ב-Supabase, 22.9 21:20, Fable)

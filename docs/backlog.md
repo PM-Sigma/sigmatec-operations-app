@@ -55,6 +55,8 @@ unclearable alerts, the stuck order status and the invisible 🎙 panel are all 
 2.21 (same evening): icon reverted to the Σ gear image, my-tasks strip collapsed, kibbutzim ↔ EMS sites linked,
 visit form in one scroll (ruling), Android speech duplication + Whisper vocabulary prompt. Open: Whisper accuracy
 check by עידן after the prompt; פזגז (3 gas meters) has no card on purpose — decide if it needs one.
+2.22 (round 4): המשימות שלי sheet, no EMS chain in kibbutz edit + unlinked error, last-visit ✏️/🚚 regression fixed,
+arrival date. Open: graphify run; personal area spec; certificate list in the card (עידן to decide).
 
 🟡 IN PROGRESS — **phone QA round (22.9)**: rounds 1–2 built on `feat/phone-qa-round` (2.08), see
 [spec](superpowers/specs/2026-09-22-phone-qa-round-design.md). Round 3 built E1 (timer sheet: pause/resume, retime, people/tags while running, 2 h auto-stop + local notification)

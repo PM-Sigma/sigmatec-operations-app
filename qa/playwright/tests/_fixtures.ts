@@ -44,28 +44,28 @@ export const KIBBUTZIM = [
   // ── active · גליל וגולן
   { id: 'k1', name: 'חוקוק', display_name: null, section: 'active', region: 'גליל וגולן',
     energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
-    ems_site_ids: ['ems-k1'] },
+    ems_site_ids: ['d1bdff7a-82c2-46d1-92f1-96ab0679911e'] },
   { id: 'k2', name: 'דגניה', display_name: null, section: 'active', region: 'גליל וגולן',
     energy: ['electric', 'water'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
-    ems_site_ids: ['ems-k2'] },
+    ems_site_ids: ['cc079fe9-5f00-4a3d-a654-707207d831db'] },
   // ── active · העמקים (one of them a sub-site of יגור)
   { id: 'k3', name: 'יגור', display_name: null, section: 'active', region: 'העמקים',
     energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
-    ems_site_ids: ['ems-k3'] },
+    ems_site_ids: ['ebb4306f-d289-422a-b3cb-ce3e8ee68bdc'] },
   { id: 'k4', name: 'יגור — רפת', display_name: null, section: 'active', region: 'העמקים',
     energy: ['water'], kind: 'subsite', parent: 'יגור', marketing: false, archived_at: null,
-    ems_site_ids: ['ems-k4'] },
+    ems_site_ids: ['ebb4306f-d289-422a-b3cb-ce3e8ee68bdc'] },
   // ── active · דרום — gas, and the one marketing row
   { id: 'k5', name: 'כפר עזה', display_name: null, section: 'active', region: 'דרום, עוטף עזה והנגב',
     energy: ['gas'], kind: 'kibbutz', parent: null, marketing: true, archived_at: null,
-    ems_site_ids: ['ems-k5'] },
+    ems_site_ids: ['d1ed862f-a03a-4a43-8c22-1f19028a1b68'] },
   // ── new customers (their own section)
   { id: 'k6', name: 'גבת', display_name: null, section: 'new', region: 'העמקים',
     energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
-    ems_site_ids: ['ems-k6'] },
+    ems_site_ids: ['ed86a5b9-ae41-4317-942e-f42b0ba44aba'] },
   { id: 'k7', name: 'שדה אליהו', display_name: null, section: 'new', region: 'גליל וגולן',
     energy: ['electric', 'gas'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
-    ems_site_ids: ['ems-k7'] },
+    ems_site_ids: ['3f91ccf9-67ae-4420-bf30-b7ea57ad16b2', '14a28537-15a6-4860-8a57-410d9cbf738c'] },
 ];
 
 /** Four meetings on חוקוק → a latest block plus a "היסטוריה (3)" disclosure on that card. */

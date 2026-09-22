@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.22] 2026-09-22 night — round 4: המשימות שלי, kibbutz edit without the EMS chain, card regressions, visit date
+
+- **המשימות שלי (X):** the floating 🔒 strip is gone from every page. A full sheet (✅ `ListTodo`, not a lock) lists the
+  person's open EMS tasks AND internal tasks grouped by kibbutz (חברה first). Entry points: the ✅ button next to the bell
+  in the header (badge = open count), the ⋯ עוד row, `sigma-open-my-tasks`. Internal tasks also appear in the calendar
+  (רשימה rows and the month/week grid on their due day). Personal area: one more call to `openMyTasks()` when it exists.
+- **Kibbutz edit (Y):** the EMS lookup chain is removed; the sheet saves the row as typed and shows the EMS link read-only
+  (✓ מקושר / ⚠️ לא מקושר). An unlinked site is an ERROR: bell group "אתרים לא מקושרים ל-EMS" for עידן/עמיחי, health note, the
+  red chip on the card. Energy types are a real multi-select.
+- **Card regressions (Z):** the last-visit ✏️/🚚 and the visit history hid behind a 31-day window in `renderLastVisit` while
+  round 2's card line advertised the visit at any age. Window removed; the מצב הקיבוץ tab carries ✏️/🚚 too. Card audited
+  against the 17.9 card spec: everything else present; 🚚/🗓 card actions were removed by round-1 rulings, not lost.
+- **Visit date (Z):** the arrival sheet asks the date (default today) above the kibbutz list; it flows into the draft and
+  `visits.date`.
+- **Data (Fable):** אור הנר גז + אור הנר חשמל → one אור הנר (חשמל · גז · מים, code 915); עין המפרץ + מים.
+
 ## [2.21] 2026-09-22 late — עידן's evening re-test: icon, strip, EMS site list, visit form in one scroll, speech fixes
 
 - **Icon (2.20):** back to the Σ artwork — עידן's own Gemini image (Σ in a green gear with the module glyphs),

@@ -66,7 +66,13 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-22 late (**2.21 — rounds 2–3 + עידן's evening re-test shipped to `main`**).
+## 🚦 Current state — last: 2026-09-22 night (**2.22 — rounds 2–4 shipped to `main`**).
+
+2.22 (round 4, `2026-09-22-phone-qa-round-4-design.md`): המשימות שלי sheet (EMS + internal, by kibbutz; header ✅, ⋯ עוד,
+calendar) replaces the floating strip; kibbutz edit without the EMS chain + unlinked-site error; last-visit ✏️/🚚 and history
+restored (31-day window removed); arrival date; אור הנר merged with 3 energies. **Open:** graphify the repo (עידן asked);
+personal area (not modeled); per-kibbutz certificate list in the card (never specced, עידן to decide).
+
 
 2.21 (evening re-test): Σ gear icon from עידן's image, my-tasks strip collapsed with page room, kibbutzim linked to the
 EMS `sites` table (+5 sub-site rows), visit summary as ONE scroll (ruling: no chapters/steps), Android live-transcript
