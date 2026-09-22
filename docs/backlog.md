@@ -48,7 +48,7 @@ extended, `VERSION` → 2.01, docs checkpointed). Full detail: `docs/CHANGELOG.m
 🟡 IN PROGRESS — **phone QA round (22.9)**: rounds 1–2 built on `feat/phone-qa-round` (2.08), see
 [spec](superpowers/specs/2026-09-22-phone-qa-round-design.md). Round 3 built E1 (timer sheet: pause/resume, retime, people/tags while running, 2 h auto-stop + local notification)
 and E2 (⏱ שעות מול לקוחות page: filters, edit/add/delete for עידן+עמיחי, PDF/Excel, DB change log). Left open:
-**E1-push** (a server push for a phone closed the whole 2 h), **D13** data restore to 18.9 18:00 (a data decision — needs עידן), **D6** card-crash hunt (QA session),
+**E1-push** (a server push for a phone closed the whole 2 h), **D12 — FOUND + FIXED (data):** דפנה's row had `archived_at = 2026-09-22 08:46` — the ✏️ on the home card led to 🗄 ארכב, which is why the card vanished; unarchived and set `section='active'` (עידן: "not in לקוחות חדשים"). **D13 — finding:** every `tasks.status` is empty since 17.9 14:xx (the 2.00 migration); the 18.9 18:00 state already had them empty, so a rollback to 18.9 restores nothing — only a Supabase backup from before 17.9 14:00 would, and that is עידן's call in the Supabase dashboard. The 8 `section='new'` rows are the 2.00 seed (אלומות, גבת, דגניה, דגניה ב, חוקוק, יגור, עין דור + דפנה now active); which 3 should stay "new" needs עידן's list. **D13** data restore (a data decision — needs עידן), **D6** card-crash hunt (QA session),
 **K2** the remaining ~180 dashed strings (report). Three migrations to apply by a human: `db/internal_tasks_fields.sql`,
 `db/meter_burns_ems_task.sql`, `db/work_sessions_log.sql` (the last one is REQUIRED for edits on the hours page) (the client tolerates their absence). QA session (סשן B) runs the full gate set next.
 
