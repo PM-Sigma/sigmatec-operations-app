@@ -388,6 +388,51 @@ function assigneeName(t: FieldTask): string {
   return a ? [a.firstName, a.lastName].filter(Boolean).join(' ').trim() : '';
 }
 
+/**
+ * The tasks a briefing lists (round 2 · G4). EVERY open task of the kibbutz — a due date is
+ * an EMS bookkeeping field, not a statement about what is waiting at the gate, and a
+ * technician standing there needs the whole of it. Closed work is the only thing dropped.
+ */
+export const BRIEF_CLOSED = ['done', 'rejected', 'not_relevant', 'cancelled'];
+
+export function briefingTasks(tasks: FieldTask[] | null | undefined): FieldTask[] {
+  return (tasks || []).filter(t => !!t && BRIEF_CLOSED.indexOf(String(t.status || '')) === -1);
+}
+
+/** The 🔥 rows of a checklist — the collapsed category's contents (round 2 · G6). */
+export function burnRowsOf(items: LeaveItem[] | null | undefined): LeaveItem[] {
+  return (items || []).filter(x => x && x.kind === 'burn');
+}
+
+/** …and its one summary line, so the category says what it holds while it is still shut. */
+export function burnSummary(items: LeaveItem[] | null | undefined, checked: Record<string, boolean> = {}): string {
+  const rows = burnRowsOf(items);
+  if (!rows.length) return '';
+  const left = rows.filter(x => !checked[x.id]).length;
+  if (!left) return 'הכל נצרב כאן';
+  return left === 1 ? 'מונה אחד ממתין לצריבה' : left + ' מונים ממתינים לצריבה';
+}
+
+/**
+ * Round 2 · G6 — today's briefing opens ON THE FIRST ENTRY OF THE DAY, once. It needs a
+ * route to open on (the first stop), and the latch is the last date it was shown: a reload
+ * at noon does not re-open it, and tomorrow morning it opens again.
+ *
+ * Returns the kibbutz to open, or '' for "not now".
+ */
+export function briefingAutoOpen(i: {
+  today: string;
+  stops: string[] | null | undefined;
+  lastShown?: string | null;
+  isViewer?: boolean;
+}): string {
+  if (i.isViewer) return '';
+  if (!i.today) return '';
+  if (String(i.lastShown || '') === i.today) return '';
+  const first = (i.stops || []).map(s => String(s || '').trim()).filter(Boolean)[0];
+  return first || '';
+}
+
 /** The unchecked rows, as the one block of text the visit form's "מה נשאר לי פתוח" starts from. */
 export function openItemsPrefill(items: LeaveItem[], checked: Record<string, boolean>): string {
   // `burn` rows are DELIBERATELY left out (Task 23): an unburned meter is not lost — it is a

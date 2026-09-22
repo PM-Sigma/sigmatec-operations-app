@@ -38,7 +38,8 @@ import { useMeetingNotes } from '@/components/home/MeetingNotes';
 import { roleOf } from '@/lib/landing';
 import { todayISO, useVisitDraft } from '@/lib/visitDrafts';
 import {
-  arrivalGroups, arrivalOrder, bulletForField, dm, fieldShouldPrompt, hasSomethingToDeliver,
+  arrivalGroups, arrivalOrder, briefingAutoOpen, briefingTasks, bulletForField, burnRowsOf,
+  burnSummary, dm, fieldShouldPrompt, hasSomethingToDeliver,
   hm, leaveChecklist, openItemsPrefill, openNudges, todayStops,
   type ArrivalItem, type CheckinRow, type DraftRow, type FieldTask, type LeaveItem, type OrderRow,
   type VisitRow,
@@ -57,6 +58,8 @@ export const CHECKIN_CREATED = 'checkin-created';
 export const CHECKIN_KEY = 'checkin_today';
 /** The day he said he is not out in the field. */
 export const NO_FIELD_KEY = 'field_no_visit_v1';
+/** Round 2 · G6 — the date today's briefing was already opened on. One per day, no more. */
+export const BRIEF_SHOWN_KEY = 'brief_shown_v1';
 /** Is the "היום" strip folded? His choice, remembered (§7k #11). */
 export const TODAY_FOLDED_KEY = 'sigma_today_folded_v1';
 /**
@@ -318,6 +321,71 @@ const Panel = ({ children }: { children: React.ReactNode }) => (
   <div className="rounded-[14px] border border-border bg-card p-3">{children}</div>
 );
 
+/**
+ * ══════ ROUND 2 · PACKAGE G — BRIEFING REGION (start) ══════
+ * Everything between this marker and the one below belongs to Package G (calendar +
+ * briefing). Package C owns the visit FORM further down the same file.
+ *
+ * G6 — one checklist row, so the open list and the collapsed 🔥 category render identically.
+ */
+function LeaveRow({ item, on, onToggle }: { item: LeaveItem; on: boolean; onToggle: (id: string) => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => onToggle(item.id)}
+      data-leave-item={item.id}
+      className="flex min-h-[52px] w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 text-start"
+    >
+      <span
+        aria-hidden
+        className={'grid h-[22px] w-[22px] shrink-0 place-items-center rounded-[7px] border-2 ' +
+          (on ? 'border-transparent bg-brand-grad text-white' : 'border-border')}
+      >
+        {on && <Check className="h-3.5 w-3.5" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={'block text-[14.5px] font-semibold ' + (on ? 'text-muted-foreground line-through' : '')}>{item.text}</span>
+        <span className="block text-[12px] font-medium text-muted-foreground">{item.sub}</span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * G6 — 🔥 צריבות is a CATEGORY, collapsed, with a summary line. Thirty meter serials are a
+ * project, not a checklist: they pushed the kibbutz's own work off the screen. The line says
+ * how many are left, so it is still answerable without opening it.
+ */
+function BurnCategory({
+  items, checked, onToggle,
+}: { items: LeaveItem[]; checked: Record<string, boolean>; onToggle: (id: string) => void }) {
+  const [open, setOpen] = React.useState(false);
+  if (!items.length) return null;
+  return (
+    <section className="mt-2 rounded-xl border border-border bg-card" data-testid="brief-burns">
+      <button
+        type="button"
+        aria-expanded={open}
+        data-testid="brief-burns-toggle"
+        onClick={() => setOpen(v => !v)}
+        className="flex min-h-[48px] w-full items-center gap-2 px-3 py-2 text-start"
+      >
+        <span className="text-[14.5px] font-bold">🔥 צריבות</span>
+        <span className="text-[12px] font-medium text-muted-foreground" data-testid="brief-burns-summary">
+          {burnSummary(items, checked)}
+        </span>
+        <ChevronDown className={'ms-auto h-4 w-4 text-muted-foreground transition-transform ' + (open ? 'rotate-180' : '')} />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-1.5 px-2 pb-2">
+          {items.map(item => <LeaveRow key={item.id} item={item} on={!!checked[item.id]} onToggle={onToggle} />)}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Briefing({
   kibbutz, checkinAt, tasks, notes, prevVisit, checklist, checked, onToggle, canDeliver, onVisit, onCert,
 }: {
@@ -335,6 +403,9 @@ function Briefing({
 }) {
   const mineIds = new Set(checklist.filter(x => x.kind === 'task' && x.mine).map(x => x.id.slice(5)));
   const openCount = checklist.filter(x => !checked[x.id]).length;
+  // G6 — the 🔥 rows leave the flat list and become their own collapsed category.
+  const burnItems = burnRowsOf(checklist);
+  const plainItems = checklist.filter(x => x.kind !== 'burn');
   const latest = notes[0];
 
   return (
@@ -375,32 +446,9 @@ function Briefing({
         {!!checklist.length && (
           <BriefSection title={<><Check className="h-3.5 w-3.5" /> לפני שיוצאים</>} badge={openCount + ' פתוחים'}>
             <div className="flex flex-col gap-1.5">
-              {checklist.map(item => {
-                const on = !!checked[item.id];
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => onToggle(item.id)}
-                    data-leave-item={item.id}
-                    className="flex min-h-[52px] w-full items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5 text-start"
-                  >
-                    <span
-                      aria-hidden
-                      className={'grid h-[22px] w-[22px] shrink-0 place-items-center rounded-[7px] border-2 ' +
-                        (on ? 'border-transparent bg-brand-grad text-white' : 'border-border')}
-                    >
-                      {on && <Check className="h-3.5 w-3.5" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={'block text-[14.5px] font-semibold ' + (on ? 'text-muted-foreground line-through' : '')}>{item.text}</span>
-                      <span className="block text-[12px] font-medium text-muted-foreground">{item.sub}</span>
-                    </span>
-                  </button>
-                );
-              })}
+              {plainItems.map(item => <LeaveRow key={item.id} item={item} on={!!checked[item.id]} onToggle={onToggle} />)}
             </div>
+            <BurnCategory items={burnItems} checked={checked} onToggle={onToggle} />
           </BriefSection>
         )}
 
@@ -451,6 +499,8 @@ function Briefing({
     </div>
   );
 }
+
+// ══════ ROUND 2 · PACKAGE G — BRIEFING REGION (end) ══════
 
 // ─────────────────── the visit summary, in chapters (§7p) ───────────────────
 //
@@ -1097,6 +1147,28 @@ function FieldIsland() {
     return () => { (sigma as any).onLanding = prev; };
   }, [personRole, autoOpenOnce]);
 
+  // ══════ ROUND 2 · PACKAGE G — today's briefing opens itself, once ══════
+  // G6: the first time he opens the app on a day he has a route for, the briefing for the
+  // first stop is what he sees. The latch is the DATE, so a reload at noon does not re-open
+  // it and tomorrow morning it opens again.
+  React.useEffect(() => {
+    if (mode !== 'closed') return;
+    if ((window as any)._fieldPromptShown) return;         // the harness / an explicit opt-out
+    const kibbutz = briefingAutoOpen({
+      today,
+      stops: plan,
+      lastShown: readStr(BRIEF_SHOWN_KEY),
+      isViewer: sigmaRole === 'viewer' || personRole !== 'field',
+    });
+    if (!kibbutz) return;
+    try { localStorage.setItem(BRIEF_SHOWN_KEY, today); } catch { /* private mode */ }
+    setPicked(kibbutz);
+    setChecked({});
+    setMode('briefing');
+    track('field-brief-auto', kibbutz);
+  }, [mode, plan, today, sigmaRole, personRole]);
+  // ══════ ROUND 2 · PACKAGE G (end of the auto-open block) ══════
+
   // ---- 🔥 צריבות rows (Task 23) --------------------------------------------
   // SNAPSHOT per briefing, on purpose: ticking one writes ✅ נצרב, the query invalidates and
   // `burnLeaveItems` stops returning that meter — the row would vanish from under his finger
@@ -1136,7 +1208,8 @@ function FieldIsland() {
     if (!picked) return null;
     let raw: CardEmsTask[] = [];
     try { raw = (sigma?.emsCacheTasksForKibbutz?.(picked) as CardEmsTask[]) || []; } catch { raw = []; }
-    const tasks = sortTasksForCard(raw, me);
+    // Round 2 · G4: EVERY open task of this kibbutz, whatever EMS says its due date is.
+    const tasks = sortTasksForCard(briefingTasks(raw as unknown as FieldTask[]) as unknown as CardEmsTask[], me);
     // §5.1b clean: only bullets meant for the field (untagged = everyone), latest meeting first.
     const groups = notesForKibbutz((notesQ.data || []) as NoteRow[], picked);
     const notes = (groups[0]?.bullets || []).filter((n: NoteRow) => bulletForField((n as any).audience) && !n.done_at);
@@ -1336,6 +1409,21 @@ function TodayIsland() {
 
       {!folded && (
         <>
+          {/* ══════ ROUND 2 · PACKAGE G — today's briefing as a row (G6) ══════
+              Same shape as the 🔥 burns strip: one line, one tap, always in the same place. */}
+          {!!stops.length && (
+            <button
+              type="button"
+              data-testid="today-brief-row"
+              onClick={() => (window as any).sigmaField?.openBriefing?.(stops[0].name)}
+              className="mt-2 flex w-full items-center gap-2 rounded-[10px] border border-border bg-muted px-2.5 py-2 text-[13px] font-semibold"
+            >
+              <MapPin className="h-4 w-4 shrink-0 text-[color:var(--brand-1)]" />
+              <span className="min-w-0 flex-1 text-start">הבריפינג של היום · <bdi>{stops[0].name}</bdi></span>
+              <span className="text-[11px] font-bold text-muted-foreground">פתח</span>
+            </button>
+          )}
+          {/* ══════ ROUND 2 · PACKAGE G (end) ══════ */}
           {!!stops.length && (
             <div className="mt-2 flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
               {stops.map(s => (

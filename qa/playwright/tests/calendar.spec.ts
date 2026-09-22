@@ -95,8 +95,9 @@ test('calendar: the week view is what a phone gets, and it remembers the choice'
 
   await page.locator('[data-view="week"]').click();
   await expect(page.getByTestId('cal-label')).toHaveText(/שבוע \d+/);
-  // Seven day cells and one week number — a week, not a month.
-  await expect(page.locator('.ucal-cell')).toHaveCount(7);
+  // FIVE day cells and one week number (round 2 · G1): א–ה is the week a technician plans,
+  // and only a full month ever paints Fri/Sat.
+  await expect(page.locator('.ucal-cell')).toHaveCount(5);
   await expect(page.getByTestId('cal-weekno')).toHaveCount(1);
 
   await shot(page, ti, 'week');
@@ -110,22 +111,107 @@ test('calendar: the week view is what a phone gets, and it remembers the choice'
   expectNoConsoleErrors(rec);
 });
 
-test('calendar: "הסתר משימות EMS" hides that layer and nothing else', async ({ page }, ti) => {
+test('calendar: א–ה is the default month, and one button gives the full one back (G1)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await openCalendar(page);
 
-  const emsChips = page.locator('.ucal-chip[data-layer="ems"]');
-  expect(await emsChips.count(), 'the sandbox has EMS tasks with due dates').toBeGreaterThan(0);
+  // Five columns, and the toggle offers the OTHER state — never the one already on screen.
+  const grid = page.getByTestId('cal-grid');
+  await expect(grid).toHaveAttribute('data-cols', '5');
+  await expect(page.locator('.ucal-dow')).toHaveCount(5);
+  const toggle = page.getByTestId('cal-work-week');
+  await expect(toggle).toHaveText('חודש מלא');
 
-  await page.getByTestId('cal-hide-ems').click();
-  await expect(emsChips).toHaveCount(0);
-  // The grid itself is still there — only one layer went away.
-  await expect(page.getByTestId('cal-grid')).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('cal_hide_ems_v1'))).toBe('1');
+  await toggle.click();
+  await expect(grid).toHaveAttribute('data-cols', '7');
+  await expect(page.locator('.ucal-dow')).toHaveCount(7);
+  await expect(toggle).toHaveText('שבוע עבודה');
+  expect(await page.evaluate(() => localStorage.getItem('cal_work_week_v1'))).toBe('0');
 
-  await page.getByTestId('cal-hide-ems').click();
-  expect(await emsChips.count()).toBeGreaterThan(0);
+  await toggle.click();
+  await expect(grid).toHaveAttribute('data-cols', '5');
 
+  // …and the ➕ that used to sit in every cell is gone from the grid entirely.
+  await expect(page.locator('.ucal-add')).toHaveCount(0);
+
+  await shot(page, ti, 'work-week');
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar: the three views are separate, selectable targets (G5)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+
+  const picker = page.locator('.ucal-switch');
+  await expect(picker).toHaveClass(/ucal-switch-split/);
+  // חודש · שבוע · רשימה, in that order, each one a real box of its own.
+  const boxes = await Promise.all(['month', 'week', 'list']
+    .map(v => picker.locator(`[data-view="${v}"]`).boundingBox()));
+  for (const b of boxes) expect(b!.width).toBeGreaterThan(40);
+  // In RTL the first one sits furthest right; no two of them overlap.
+  expect(boxes[0]!.x).toBeGreaterThan(boxes[1]!.x);
+  expect(boxes[1]!.x).toBeGreaterThan(boxes[2]!.x);
+  expect(boxes[1]!.x + boxes[1]!.width).toBeLessThanOrEqual(boxes[0]!.x + 1);
+
+  for (const v of ['week', 'list', 'month']) {
+    await picker.locator(`[data-view="${v}"]`).click();
+    await expect(picker.locator(`[data-view="${v}"]`)).toHaveAttribute('aria-pressed', 'true');
+  }
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar: a past day shows what was filed, and offers nothing to plan (G3)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+
+  // A day that is over and is certainly on the month now on screen: the 1st. (On the 1st
+  // itself there is no such day in this month, and the test says so by skipping.)
+  const past = await page.evaluate(() => {
+    const d = new Date();
+    if (d.getDate() === 1) return '';
+    const p = (v: number) => String(v).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-01';
+  });
+  if (!past) { expectNoConsoleErrors(rec); return; }
+  const cell = page.locator(`[data-day="${past}"]`);
+  if (!(await cell.count())) { expectNoConsoleErrors(rec); return; }   // a weekend is not painted
+
+  await cell.click();
+  const body = dayBody(page);
+  await expect(body).toBeVisible();
+  await expect(body).toHaveAttribute('data-when', 'past');
+  // Read-only: no route, no ➕, no בריפינג, nothing to drag.
+  await expect(body.locator('[data-place]')).toHaveCount(0);
+  await expect(body.getByTestId('cal-place-search')).toHaveCount(0);
+  await expect(body.getByTestId('cal-day-add')).toHaveCount(0);
+  await expect(body.locator('[data-brief]')).toHaveCount(0);
+
+  await shot(page, ti, 'past-day');
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar: a future day takes a kibbutz by SEARCH into its route (G4)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+  const day = await calDay(page);
+  await page.locator(`[data-day="${day}"]`).click();
+  const body = dayBody(page);
+  await expect(body).toBeVisible();
+  await expect(body).toHaveAttribute('data-when', 'future');
+
+  const written = () => page.waitForResponse(
+    r => r.url().includes('/rest/v1/day_plans') && r.request().method() !== 'GET',
+    { timeout: 15_000 },
+  );
+
+  await body.getByTestId('cal-place-input').fill('חוקוק');
+  const saved = written();
+  await body.locator('[data-place-hit="חוקוק"]').click();
+  await saved;
+  // …and it is a STOP, although EMS has nothing due there that day.
+  await expect(body.locator('[data-stop="חוקוק"]')).toBeVisible();
+
+  await shot(page, ti, 'place-search');
   expectNoConsoleErrors(rec);
 });
 
@@ -203,7 +289,9 @@ test('calendar: ➕ → search a kibbutz → select tasks → the שבץ counts 
     return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
   }, day);
 
-  await page.locator(`[data-add="${target}"]`).click();
+  // Round 2 · G1: the ➕ left the grid — a day is opened, and added to from inside.
+  await page.locator(`[data-day="${target}"]`).click();
+  await dayBody(page).getByTestId('cal-day-add').click();
   await page.getByTestId('cal-add-schedule').click();
   await expect(page.getByTestId('cal-schedule')).toBeVisible();
 
@@ -230,7 +318,8 @@ test('calendar: 🌴 a range is entered from the same ➕', async ({ page }, ti)
   await openCalendar(page);
   const day = await calDay(page);
 
-  await page.locator(`[data-add="${day}"]`).click();
+  await page.locator(`[data-day="${day}"]`).click();
+  await dayBody(page).getByTestId('cal-day-add').click();
   await page.getByTestId('cal-add-absence').click();
   await expect(page.getByTestId('cal-absence')).toBeVisible();
 

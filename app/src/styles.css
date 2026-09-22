@@ -280,9 +280,13 @@
    puts it. It is 26 px wide, muted, and never interactive: the same treatment the day
    letters on top get. */
 .ucal-grid {
+  /* Round 2 · G2 — the week number is a 14 px MARGIN, not a column of the calendar: the
+     grid gets the whole width, and the number sits at the very edge of it. */
+  --ucal-weekno-w: 14px;
   display: grid;
-  grid-template-columns: 26px repeat(7, minmax(0, 1fr));
+  grid-template-columns: var(--ucal-weekno-w) repeat(7, minmax(0, 1fr));
   gap: 3px;
+  width: 100%;
 }
 .ucal-dow,
 .ucal-weekno {
@@ -293,8 +297,14 @@
   padding: 2px 0;
   align-self: center;
 }
-.ucal-weekno { font-variant-numeric: tabular-nums; opacity: .7; }
-.ucal-weekno-head { opacity: .5; }
+.ucal-weekno {
+  font-variant-numeric: tabular-nums;
+  opacity: .55;
+  font-size: 9px;
+  padding: 0;
+  line-height: 1;
+}
+.ucal-weekno-head { opacity: .35; }
 
 .ucal-cell {
   display: flex;
@@ -408,9 +418,37 @@
 .ucal-empty { font-size: 12px; color: hsl(var(--muted-foreground)); }
 .ucal-stop-actions { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
 .ucal-unplaced { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.ucal-day-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ucal-day-head .ucal-day-title { margin: 0; margin-inline-end: auto; }
+/* Round 2 · G3 — a past day, read only. */
+.ucal-past { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.ucal-past-visit { border: 1px solid hsl(var(--border)); border-radius: 12px; padding: 10px; background: hsl(var(--card)); }
+.ucal-past-text { margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; white-space: pre-line; }
+.ucal-past-open {
+  margin: 8px 0 0;
+  border-inline-start: 3px solid var(--sigma-warn);
+  background: color-mix(in srgb, var(--sigma-warn) 10%, transparent);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.ucal-past-open b { display: block; font-size: 12px; color: var(--sigma-warn-ink); }
+.ucal-past-open span { white-space: pre-line; }
+/* Round 2 · G4 — put a kibbutz in the day's route by searching for it. */
+.ucal-place { margin-top: 10px; }
+.ucal-place-hits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
 /* ── controls ──────────────────────────────────────────────────────────── */
 .ucal-switch { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: hsl(var(--muted)); }
+/* Round 2 · G5 — חודש · שבוע · רשימה read as three separate targets, not one striped bar. */
+.ucal-switch-split { gap: 6px; padding: 3px; }
+.ucal-switch-split .ucal-switch-btn {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  min-width: 62px;
+  min-height: 36px;
+}
+.ucal-switch-split .ucal-switch-on { border-color: var(--brand-1); color: hsl(var(--foreground)); box-shadow: inset 0 0 0 1px var(--brand-1); }
 .ucal-switch-btn {
   min-height: 30px;
   padding: 0 11px;

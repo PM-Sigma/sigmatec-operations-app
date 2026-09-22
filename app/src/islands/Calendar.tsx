@@ -32,12 +32,12 @@ import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import type { Holiday } from '@/lib/attendance';
 import {
-  abilities, ABSENCE_LABELS, addDays, byDate, calendarItems, dueByKibbutz, EMPTY_DAY,
-  groupByKibbutz, HE_DAY_LETTERS, HE_MONTHS, heDate, heShort, monthView, reorder,
-  ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey,
-  weekDays, weekView, ymd,
+  abilities, ABSENCE_LABELS, addDays, byDate, calendarItems, canPlanDay, dayLetters, dayWhen,
+  dueByKibbutz, EMPTY_DAY, gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, monthView,
+  reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey,
+  visibleDows, visitsOn, weekDays, weekView, workWeekLabel, ymd,
   type AbsenceKind, type AbsenceRow, type CalCell, type CalEmsTask, type CalItem,
-  type CalWeek, type OfficeEvent, type RouteRow,
+  type CalWeek, type OfficeEvent, type RouteRow, type VisitRow,
 } from '@/lib/calendar';
 import { dueText, isOverdue, priorityLabel, statusLabel } from '@/lib/emsTasks';
 import {
@@ -49,8 +49,9 @@ import {
 type ViewMode = 'week' | 'month' | 'list';
 
 const VIEW_KEY = 'cal_view_v1';
-const HIDE_EMS_KEY = 'cal_hide_ems_v1';
 const ONLY_MINE_KEY = 'cal_only_mine_v1';
+/** Round 2 · G1 — א–ה is the DEFAULT, so an unset flag reads as "on". */
+const WORK_WEEK_KEY = 'cal_work_week_v1';
 
 function readFlag(key: string, fallback = false): boolean {
   try { const v = localStorage.getItem(key); return v == null ? fallback : v === '1'; }
@@ -164,11 +165,16 @@ function WeekNumbers({ week }: { week: number }) {
   );
 }
 
+/**
+ * Round 2 · G1: the ➕ that used to sit in every cell is GONE. It was a 20 px target on a
+ * 44 px box that opened a sheet nobody asked for, and it stole the taps meant for the day.
+ * Adding to a day now happens INSIDE the day, where the day is already open.
+ */
 function DayCellBox({
-  cell, items, selected, onOpen, onAdd, canAdd, onlyMine,
+  cell, items, selected, onOpen, onlyMine,
 }: {
   cell: CalCell; items: CalItem[]; selected: boolean;
-  onOpen: (d: string) => void; onAdd: (d: string) => void; canAdd: boolean; onlyMine: boolean;
+  onOpen: (d: string) => void; onlyMine: boolean;
 }) {
   const shown = items.slice(0, 3);
   const extra = items.length - shown.length;
@@ -190,17 +196,6 @@ function DayCellBox({
           {cell.day}
           {cell.holiday ? <span className="ucal-holidot" data-testid="cal-holiday" title={cell.holiday.name} /> : null}
         </button>
-        {canAdd ? (
-          <button
-            type="button"
-            className="ucal-add"
-            data-add={cell.date}
-            aria-label={'הוספה ל' + heShort(cell.date)}
-            onClick={e => { e.stopPropagation(); onAdd(cell.date); }}
-          >
-            <Plus size={12} aria-hidden />
-          </button>
-        ) : null}
       </div>
       <button type="button" className="ucal-cell-body" onClick={() => onOpen(cell.date)} tabIndex={-1} aria-hidden>
         {shown.map(i => <Chip key={i.key} item={i} dim={onlyMine && !i.mine} />)}
@@ -211,29 +206,33 @@ function DayCellBox({
 }
 
 function Grid({
-  weeks, index, selected, onOpen, onAdd, canAdd, onlyMine, mode,
+  weeks, index, selected, onOpen, onlyMine, mode, workWeek,
 }: {
   weeks: CalWeek[]; index: Record<string, CalItem[]>; selected: string;
-  onOpen: (d: string) => void; onAdd: (d: string) => void; canAdd: boolean;
-  onlyMine: boolean; mode: ViewMode;
+  onOpen: (d: string) => void;
+  onlyMine: boolean; mode: 'week' | 'month'; workWeek: boolean;
 }) {
+  const cols = visibleDows(mode, workWeek).length;
   return (
-    <div className={'ucal-grid' + (mode === 'week' ? ' ucal-grid-week' : '')} data-testid="cal-grid">
-      {/* The header row: the (empty) week column first — right in RTL — then Sunday→Saturday. */}
+    <div
+      className={'ucal-grid' + (mode === 'week' ? ' ucal-grid-week' : '')}
+      data-testid="cal-grid"
+      data-cols={cols}
+      style={{ gridTemplateColumns: 'var(--ucal-weekno-w) repeat(' + cols + ', minmax(0, 1fr))' }}
+    >
+      {/* The header row: the (empty) week column first — right in RTL — then the day letters. */}
       <div className="ucal-weekno ucal-weekno-head" aria-hidden>#</div>
-      {HE_DAY_LETTERS.map(l => <div key={l} className="ucal-dow" aria-hidden>{l}</div>)}
+      {dayLetters(mode, workWeek).map(l => <div key={l} className="ucal-dow" aria-hidden>{l}</div>)}
       {weeks.map(w => (
         <React.Fragment key={w.days[0].date}>
           <WeekNumbers week={w.week} />
-          {w.days.map(c => (
+          {gridDays(w, mode, workWeek).map(c => (
             <DayCellBox
               key={c.date}
               cell={c}
               items={index[c.date] || []}
               selected={c.date === selected}
               onOpen={onOpen}
-              onAdd={onAdd}
-              canAdd={canAdd}
               onlyMine={onlyMine}
             />
           ))}
@@ -361,28 +360,126 @@ function RoutePlan({
 
 // ───────────────────────────── the day panel ─────────────────────────────
 
+/**
+ * Round 2 · G3 — a day that is over. It shows what was FILED (the visit summary, read only)
+ * and offers nothing to plan: no route, no "הוסף למסלול", no briefing. A briefing for
+ * yesterday is a lie about a drive that already happened.
+ */
+function PastDay({ date, items, visits }: { date: string; items: CalItem[]; visits: VisitRow[] }) {
+  const filed = visitsOn(visits, date);
+  return (
+    <div className="ucal-day" data-testid="cal-day" data-when="past">
+      <h3 className="ucal-day-title"><bdi>{heDate(date)}</bdi></h3>
+      {filed.length ? (
+        <div className="ucal-past" data-testid="cal-past-visits">
+          {filed.map((v, n) => (
+            <article className="ucal-past-visit" key={(v.id || '') + n} data-past-visit={v.kibbutz || ''}>
+              <div className="ucal-stop-head">
+                <strong className="ucal-stop-name"><bdi>📍 {v.kibbutz || 'ביקור'}</bdi></strong>
+                {v.visitor ? <span className="ucal-who"><bdi>{v.visitor}</bdi></span> : null}
+              </div>
+              {v.summary ? <p className="ucal-past-text">{v.summary}</p> : null}
+              {v.open_items ? (
+                <p className="ucal-past-open"><b>נשאר פתוח</b><span>{v.open_items}</span></p>
+              ) : null}
+              {!v.summary && !v.open_items ? <p className="ucal-empty">הביקור נרשם בלי טקסט</p> : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+      {!filed.length && !items.length ? <p className="text-[13px] text-muted-foreground">{EMPTY_DAY}</p> : null}
+      {items.length ? (
+        <div className="ucal-loose">
+          {items.map(i => <div key={i.key} className="ucal-stop-row"><Chip item={i} dim={false} /></div>)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Round 2 · G4 — search a kibbutz and put it in the day's route. Future days only. */
+function PlaceSearch({ names, placed, onPlace }: { names: string[]; placed: string[]; onPlace: (k: string) => void }) {
+  const [q, setQ] = React.useState('');
+  const taken = new Set(placed);
+  const hits = React.useMemo(() => {
+    const term = q.trim();
+    if (!term) return [] as string[];
+    return names.filter(n => !taken.has(n) && n.includes(term)).slice(0, 8);
+  }, [q, names, placed.join('|')]);
+  return (
+    <div className="ucal-place" data-testid="cal-place-search">
+      <input
+        className="ucal-input"
+        type="search"
+        data-testid="cal-place-input"
+        placeholder="🔍 חיפוש קיבוץ להוספה למסלול"
+        value={q}
+        onChange={e => setQ(e.target.value)}
+      />
+      {q.trim() && !hits.length ? <p className="ucal-empty">אין קיבוץ בשם הזה</p> : null}
+      {hits.length ? (
+        <div className="ucal-place-hits">
+          {hits.map(n => (
+            <button key={n} type="button" className="ucal-mini" data-place-hit={n} onClick={() => { onPlace(n); setQ(''); }}>
+              ➕ <bdi>{n}</bdi>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DayBody({
-  date, items, rows, canReorder, onMove, onPlace, onBriefing, onCheckin,
+  date, items, rows, canReorder, onMove, onPlace, onBriefing, onCheckin, onAdd, canAdd, visits, kibbutzim,
 }: {
   date: string; items: CalItem[]; rows: RouteRow[]; canReorder: boolean;
   onMove: (f: number, t: number) => void; onPlace: (k: string) => void;
   onBriefing: (k: string) => void; onCheckin: (k: string) => void;
+  onAdd: (d: string) => void; canAdd: boolean;
+  visits: VisitRow[]; kibbutzim: string[];
 }) {
   const today = ymd(new Date());
+  if (!canPlanDay(date, today)) return <PastDay date={date} items={items} visits={visits} />;
   // Office events and company-wide absences: real context for the day, but not a stop on
   // anyone's route — `groupByKibbutz` parks them in the one bucket marked `real: false`.
   const loose = groupByKibbutz(items).filter(g => !g.real).flatMap(g => g.items);
-  if (!items.length) {
+  const header = (
+    <div className="ucal-day-head">
+      <h3 className="ucal-day-title"><bdi>{heDate(date)}</bdi></h3>
+      {/* Round 2 · G6 — a day with a route opens its briefing from the day itself, not only
+          from a stop: that is the thing he wants the evening before. */}
+      {rows.some(r => r.index >= 0) ? (
+        <button
+          type="button"
+          className="ucal-mini"
+          data-testid="cal-day-brief"
+          onClick={() => onBriefing(rows.filter(r => r.index >= 0)[0].kibbutz)}
+        >
+          📍 בריפינג
+        </button>
+      ) : null}
+      {canAdd ? (
+        <button type="button" className="ucal-mini" data-add={date} data-testid="cal-day-add" onClick={() => onAdd(date)}>
+          <Plus size={13} aria-hidden /> הוספה ליום
+        </button>
+      ) : null}
+    </div>
+  );
+  // A day with nothing ON it can still be PLANNED — that is the whole point of a future day
+  // (round 2 · G4), so the search stays even when the day is empty.
+  if (!items.length && !rows.length) {
     return (
-      <div className="ucal-day" data-testid="cal-day">
-        <h3 className="ucal-day-title"><bdi>{heDate(date)}</bdi></h3>
+      <div className="ucal-day" data-testid="cal-day" data-when={dayWhen(date, today)}>
+        {header}
         <p className="text-[13px] text-muted-foreground">{EMPTY_DAY}</p>
+        {canReorder ? <PlaceSearch names={kibbutzim} placed={rows.map(r => r.kibbutz)} onPlace={onPlace} /> : null}
       </div>
     );
   }
   return (
-    <div className="ucal-day" data-testid="cal-day">
-      <h3 className="ucal-day-title"><bdi>{heDate(date)}</bdi></h3>
+    <div className="ucal-day" data-testid="cal-day" data-when={dayWhen(date, today)}>
+      {header}
       {loose.length ? (
         <div className="ucal-loose" data-testid="cal-loose">
           {loose.map(i => (
@@ -403,6 +500,7 @@ function DayBody({
         onCheckin={onCheckin}
         isToday={date === today}
       />
+      {canReorder ? <PlaceSearch names={kibbutzim} placed={rows.map(r => r.kibbutz)} onPlace={onPlace} /> : null}
     </div>
   );
 }
@@ -897,8 +995,8 @@ function CalendarIsland() {
   const today = ymd(new Date());
   const [view, setView] = React.useState<ViewMode>(readView);
   const [anchor, setAnchor] = React.useState(today);
-  const [hideEms, setHideEms] = React.useState(() => readFlag(HIDE_EMS_KEY));
   const [onlyMine, setOnlyMine] = React.useState(() => readFlag(ONLY_MINE_KEY, false));
+  const [workWeek, setWorkWeek] = React.useState(() => readFlag(WORK_WEEK_KEY, true));
   const [selected, setSelected] = React.useState('');
   const [sheetDay, setSheetDay] = React.useState('');
   const [addDay, setAddDay] = React.useState('');
@@ -927,12 +1025,30 @@ function CalendarIsland() {
     staleTime: 60 * 1000,
   });
 
+  // The visits are read here rather than inside `calendarItems` too, because a PAST day
+  // shows the summary text itself (round 2 · G3) and the CalItem carries only a title.
+  const visits = React.useMemo<VisitRow[]>(() => {
+    try { return (sigma.loadAllVisitsCombined?.() || []) as VisitRow[]; } catch { return []; }
+  }, [tick]);
+
   const items = React.useMemo(() => calendarItems({
     events: events.data || [],
-    visits: (() => { try { return sigma.loadAllVisitsCombined?.() || []; } catch { return []; } })(),
+    visits,
     emsTasks: (() => { try { return (sigma.emsCacheData?.()?.tasks || []) as CalEmsTask[]; } catch { return []; } })(),
     absences: absences.data || [],
-  }, { hideEms, me }), [events.data, absences.data, hideEms, me, tick]);
+  }, { me }), [events.data, absences.data, visits, me, tick]);
+
+  /** Every kibbutz the day panel's search may place — the EMS cache is the one roster here. */
+  const kibbutzNames = React.useMemo(() => {
+    const names = new Set<string>();
+    try {
+      for (const t of (sigma.emsCacheData?.()?.tasks || []) as CalEmsTask[]) {
+        if (t.site && t.site.name) names.add(t.site.name);
+      }
+    } catch { /* no cache yet */ }
+    for (const v of visits) if (v.kibbutz) names.add(v.kibbutz);
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'he'));
+  }, [visits, tick]);
 
   const index = React.useMemo(() => byDate(items), [items]);
 
@@ -1088,8 +1204,9 @@ function CalendarIsland() {
       </header>
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="ucal-switch" role="group" aria-label="תצוגה">
-          {([['week', 'שבוע'], ['month', 'חודש'], ['list', 'רשימה']] as Array<[ViewMode, string]>).map(([v, lbl]) => (
+        {/* Round 2 · G5 — the three views, each its own separated target. */}
+        <div className="ucal-switch ucal-switch-split" role="group" aria-label="תצוגה">
+          {([['month', 'חודש'], ['week', 'שבוע'], ['list', 'רשימה']] as Array<[ViewMode, string]>).map(([v, lbl]) => (
             <button
               key={v}
               type="button"
@@ -1109,14 +1226,23 @@ function CalendarIsland() {
         {/* The two layer toggles belong to the GRIDS; רשימה has its own filter bar. */}
         {view !== 'list' ? (
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-1.5 text-[12.5px] font-semibold">
-              <Switch
-                checked={hideEms}
-                data-testid="cal-hide-ems"
-                onCheckedChange={v => { setHideEms(v); writeFlag(HIDE_EMS_KEY, v); track('calendar-hide-ems', v ? '1' : '0'); }}
-              />
-              הסתר משימות EMS
-            </label>
+            {/* Round 2 · G1 — the label is the DESTINATION, never the current state. */}
+            {view === 'month' ? (
+              <button
+                type="button"
+                className="ucal-mini"
+                data-testid="cal-work-week"
+                data-work-week={workWeek ? '1' : '0'}
+                onClick={() => {
+                  const next = !workWeek;
+                  setWorkWeek(next);
+                  writeFlag(WORK_WEEK_KEY, next);
+                  track('calendar-work-week', next ? '1' : '0');
+                }}
+              >
+                {workWeekLabel(workWeek)}
+              </button>
+            ) : null}
             {!can.seesEveryone ? (
               <label className="flex items-center gap-1.5 text-[12.5px] font-semibold">
                 <Switch
@@ -1150,10 +1276,9 @@ function CalendarIsland() {
               index={index}
               selected={selected}
               onOpen={openDay}
-              onAdd={d => setAddDay(d)}
-              canAdd={can.canAdd}
               onlyMine={onlyMine}
               mode={view === 'week' ? 'week' : 'month'}
+              workWeek={workWeek}
             />
           )}
         </div>
@@ -1171,6 +1296,10 @@ function CalendarIsland() {
                 onPlace={placeStop}
                 onBriefing={openBriefing}
                 onCheckin={k => sigma.openVisitQuick?.(k)}
+                onAdd={d => setAddDay(d)}
+                canAdd={can.canAdd}
+                visits={visits}
+                kibbutzim={kibbutzNames}
               />
             ) : (
               <p className="text-[13px] text-muted-foreground">בוחרים יום בלוח כדי לראות מה יש בו.</p>
@@ -1203,6 +1332,10 @@ function CalendarIsland() {
                   onPlace={placeStop}
                   onBriefing={openBriefing}
                   onCheckin={k => sigma.openVisitQuick?.(k)}
+                  onAdd={d => setAddDay(d)}
+                  canAdd={can.canAdd}
+                  visits={visits}
+                  kibbutzim={kibbutzNames}
                 />
               </motion.div>
             ) : null}

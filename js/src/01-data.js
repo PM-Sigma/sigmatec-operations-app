@@ -240,12 +240,19 @@
     }
     // 🕎 first Monday = חג, first Thursday = סגירת חברה. Served to the app through the same
     // _sbGet('company_holidays…') call production uses.
-    // ---- 🗓️ mock calendar day (Task 13) ----
+    // ---- 🗓️ mock calendar day (Task 13 · moved forward in round 2 · G3) ----
     // The unified calendar needs ONE day with TWO kibbutzim on it, or there is no route to
-    // reorder and no grouping to look at. Anchored to the first TUESDAY of the month for the
-    // same reason the attendance fixture is anchored: the shape is identical whatever month
-    // the suite runs in, and it never lands on a weekend.
-    var _calDay = mockYmd(mockFirstDow(2));
+    // reorder and no grouping to look at. It is the NEXT TUESDAY, never the first one of the
+    // month: since round 2 a past day is read-only (no route, no briefing, no ➕), so a
+    // fixture anchored in the past would be describing a screen nobody can act on. Tuesday
+    // keeps it off the weekend, which the work-week grid does not paint at all.
+    function mockNextDow(dow) {
+      var x = new Date();
+      x.setHours(12, 0, 0, 0);
+      do { x.setDate(x.getDate() + 1); } while (x.getDay() !== dow);
+      return x;
+    }
+    var _calDay = mockYmd(mockNextDow(2));
     M.tasks.push(
       // Deliberately NOT יגור: qa/playwright/tests/ems-tasks.spec.ts asserts that card's
       // open count, and a fixture for one screen must not move the numbers on another.
