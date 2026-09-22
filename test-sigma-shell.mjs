@@ -86,7 +86,9 @@ console.log('\n[4] build output is wired into the page');
   // hairline that came with the same round stayed in lazy chunks, which is why the number
   // moved by half a kilobyte and not by ten. The ceiling exists to catch a chunk LEAKING into
   // the boot path (TanStack, an island); it is checked right below by the tests that matter.
-  check('bundle under the 302 kB ceiling', size < 302 * 1024, Math.round(size / 1024) + ' kB');
+  // 303 kB (22.9, QA round 3): +287 bytes measured — the ⋯ עוד sheet gained the ✉️ הודעה לעובד
+  // row (Package O removed the Ctrl+K actions group) and the header chip shows a first name.
+  check('bundle under the 303 kB ceiling', size < 303 * 1024, Math.round(size / 1024) + ' kB');
 }
 
 console.log(failures ? `\nFAIL — ${failures} check(s)` : '\nPASS — sigma shell contracts hold');
