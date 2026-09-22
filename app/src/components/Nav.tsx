@@ -1,11 +1,14 @@
 import * as React from 'react';
-import { BarChart3, Home, MapPin, MessageSquarePlus, Package, type LucideIcon } from 'lucide-react';
+import {
+  BarChart3, CalendarDays, Home, MapPin, Package, UserCheck, type LucideIcon,
+} from 'lucide-react';
 import { MoreSheet } from '@/components/MoreSheet';
 import { type SigmaRole as RegistryRole } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import { useCurrentPage } from '@/lib/currentPage';
 import { canShowPage } from '@/lib/canShowPage';
 import { track } from '@/lib/track';
+import { navTabsFor, roleOf, type NavTabId } from '@/lib/landing';
 
 function TabButton({
   icon: Icon, label, onClick, active = false,
@@ -40,9 +43,11 @@ export const LONG_PRESS_MS = 450;
  * its slot went to 📣 רעיון / באג. A long press anywhere on the bar opens the ⋯ sheet.
  */
 export function Nav() {
-  const { role, isViewer } = useCurrentUser();
+  const { name: user, role, isViewer } = useCurrentUser();
   const page = useCurrentPage();
   const [moreSignal, setMoreSignal] = React.useState(0);
+  const personRole = roleOf(user, role);
+  const tabs = navTabsFor(personRole, user);
 
   // css/app.css hides the legacy `.page-nav` and `#visitFab` on phones only while this class is
   // present. If ui/sigma.js never loads, the class never lands and the phone keeps the old nav.
@@ -69,11 +74,6 @@ export function Nav() {
     document.getElementById('viewerReportsHub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const openFeedback = () => {
-    track('feedback-open', 'nav');
-    window.dispatchEvent(new CustomEvent('sigma-open-feedback'));
-  };
-
   // Long press → the ⋯ sheet, the way a phone's quick-settings drawer opens on a pull (A6).
   const pressTimer = React.useRef<number | null>(null);
   const clearPress = () => { if (pressTimer.current != null) { clearTimeout(pressTimer.current); pressTimer.current = null; } };
@@ -95,38 +95,55 @@ export function Nav() {
       className="sigma-root fixed inset-x-0 bottom-0 z-40 select-none border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,.06)] md:hidden"
     >
       <div className="mx-auto flex max-w-lg items-stretch gap-1 px-1.5">
-        <TabButton icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />
-
         {isViewer ? (
-          <TabButton icon={BarChart3} label="דוחות" onClick={scrollToReports} />
-        ) : (
           <>
-            <TabButton icon={MessageSquarePlus} label="רעיון / באג" onClick={openFeedback} />
-
-            {/* center raised primary action — the brand gradient's one appearance in the nav */}
-            <div className="relative flex w-[72px] shrink-0 justify-center">
-              <button
-                type="button"
-                onClick={openVisitOrArrival}
-                aria-label="תיעוד ביקור"
-                // 46 px, radius 14, pulled 16 px up — the mockup's `.nav a.big i`. A circle
-                // read as a third-party FAB dropped onto the bar; this reads as part of it.
-                className="absolute -top-4 flex h-[46px] w-[46px] flex-col items-center justify-center rounded-[14px] bg-brand-grad text-white shadow-[0_8px_18px_rgba(26,190,99,.35)] transition-transform active:scale-95"
-              >
-                <MapPin className="h-6 w-6" />
-              </button>
-              <span className="mt-auto pb-1.5 text-[11px] font-medium text-muted-foreground">ביקור</span>
-            </div>
-
-            {/* The same gate showPage() enforces and the legacy desktop nav obeys — an
-                unpermitted page is not offered at all (audit A · A3: מתניה's מלאי tab
-                bounced her back to קיבוצים). */}
-            {canShowPage('inventory')
-              && <TabButton icon={Package} label="מלאי" active={page === 'inventory'} onClick={() => sigma.showPage('inventory')} />}
+            <TabButton icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />
+            <TabButton icon={BarChart3} label="דוחות" onClick={scrollToReports} />
           </>
+        ) : (
+          tabs.map((id: NavTabId) => {
+            switch (id) {
+              case 'kibbutz':
+                return <TabButton key={id} icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />;
+              case 'attendance':
+                // §3, A5: נוכחות must not read as יומן — a distinct icon, not CalendarDays twice.
+                return <TabButton key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance'} onClick={() => sigma.showPage('attendance')} />;
+              case 'calendar':
+                // 22.9: 🗓 יומן took the "רעיון / באג" slot — feedback now lives in ⋯ עוד only.
+                return <TabButton key={id} icon={CalendarDays} label="יומן" active={page === 'calendar'} onClick={() => sigma.showPage('calendar')} />;
+              case 'inventory':
+                // The same gate showPage() enforces and the legacy desktop nav obeys — an
+                // unpermitted page is not offered at all (audit A · A3: מתניה's מלאי tab
+                // bounced her back to קיבוצים).
+                return canShowPage('inventory')
+                  ? <TabButton key={id} icon={Package} label="מלאי" active={page === 'inventory'} onClick={() => sigma.showPage('inventory')} />
+                  : null;
+              case 'visit':
+                return (
+                  // center raised primary action — the brand gradient's one appearance in the nav
+                  <div key={id} className="relative flex w-[72px] shrink-0 justify-center">
+                    <button
+                      type="button"
+                      onClick={openVisitOrArrival}
+                      aria-label="תיעוד ביקור"
+                      // 46 px, radius 14, pulled 16 px up — the mockup's `.nav a.big i`. A circle
+                      // read as a third-party FAB dropped onto the bar; this reads as part of it.
+                      className="absolute -top-4 flex h-[46px] w-[46px] flex-col items-center justify-center rounded-[14px] bg-brand-grad text-white shadow-[0_8px_18px_rgba(26,190,99,.35)] transition-transform active:scale-95"
+                    >
+                      <MapPin className="h-6 w-6" />
+                    </button>
+                    <span className="mt-auto pb-1.5 text-[11px] font-medium text-muted-foreground">ביקור</span>
+                  </div>
+                );
+              case 'more':
+                return null;   // MoreSheet renders once, below
+              default:
+                return null;
+            }
+          })
         )}
 
-        <MoreSheet role={registryRole} openSignal={moreSignal} />
+        <MoreSheet role={registryRole} openSignal={moreSignal} user={user} />
       </div>
     </nav>
   );

@@ -19,7 +19,7 @@ import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
-import { CalendarDays, ChevronLeft, ChevronRight, FileSpreadsheet, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText, UserCheck } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -319,7 +319,7 @@ function AttendanceIsland() {
       {/* ── header: who, which month, and the two reports ───────────────────── */}
       <header className="mb-2.5 flex flex-wrap items-center gap-2">
         <h2 className="flex items-center gap-1.5 text-[17px] font-extrabold">
-          <CalendarDays className="h-[18px] w-[18px] text-[color:var(--brand-1)]" />
+          <UserCheck className="h-[18px] w-[18px] text-[color:var(--brand-1)]" />
           נוכחות — <bdi>{person || me}</bdi>
         </h2>
 

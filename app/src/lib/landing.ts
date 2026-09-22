@@ -122,3 +122,36 @@ export function applyLanding(settings?: Pick<UserSettings, 'landing'> | null): L
   try { (sigma as any)?.onLanding?.(target, role); } catch { /* the hook is optional (Task 5) */ }
   return target;
 }
+
+// ───────────────────────────── bottom nav tab order (phone QA round 2, package A §3) ─────────────────────────────
+
+/**
+ * The bar's five slots for a non-viewer, phone only. Two people-shaped exceptions
+ * (אביאם · ניתאי — the field leads who chase everyone else's נוכחות) get their own order;
+ * everyone else gets the default. Pure function of (role, user) so it is one golden test —
+ * Nav.tsx just renders whatever comes back, in order.
+ */
+export type NavTabId = 'attendance' | 'kibbutz' | 'calendar' | 'visit' | 'inventory' | 'more';
+
+const FIELD_LEAD_NAMES = ['אביאם', 'ניתאי'];
+
+/** True for the two people whose bar swaps מלאי for נוכחות (and drops קיבוצים to the end). */
+export function isFieldLead(user: string): boolean {
+  return FIELD_LEAD_NAMES.indexOf(String(user || '').trim()) !== -1;
+}
+
+/**
+ * `role` is accepted (not just `user`) so the function reads the same way every other §7l
+ * rule does — even though today only the name decides. The viewer bar (קיבוצים · דוחות · עוד)
+ * is a different shape entirely and stays hardcoded in Nav.tsx.
+ */
+export function navTabsFor(role: PersonRole, user: string): NavTabId[] {
+  void role;
+  if (isFieldLead(user)) return ['attendance', 'calendar', 'visit', 'kibbutz', 'more'];
+  return ['kibbutz', 'calendar', 'visit', 'inventory', 'more'];
+}
+
+/** Whether the ⋯ עוד sheet should put מלאי as the FIRST row (field leads only — F4/A3). */
+export function moreLeadsWithInventory(user: string): boolean {
+  return isFieldLead(user);
+}

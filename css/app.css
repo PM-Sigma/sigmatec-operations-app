@@ -1688,15 +1688,21 @@ input, select, textarea {
 :root[data-theme="dark"] td { border-color: var(--border); }
 
 /* ---- brand polish: the Σ mark and the header ---- */
-.brand { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 800; }
+/* 22.9 QA round 2, Package A §1: the title used to clip on a phone and the bell overlapped
+   it. `.brand-wrap` is the Σ mark + the two-line title as one cluster (Σ pinned to the
+   top-right corner in RTL — it is simply the first child); `.brand` stacks "Sigmatec" over
+   "Operations" instead of one long nowrap line, so nothing needs to shrink or truncate. */
+.brand-wrap { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.brand { display: flex; flex-direction: column; gap: 0; font-size: 17px; font-weight: 800; line-height: 1.15; min-width: 0; }
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
   width: 34px; height: 34px; border-radius: 10px;
   background: var(--brand-grad); color: var(--on-brand);
   font-size: 20px; font-weight: 800; line-height: 1;
   box-shadow: 0 4px 12px rgba(6, 194, 203, .35);
 }
-.brand-name { letter-spacing: -0.2px; }
+.brand-name { letter-spacing: -0.2px; display: block; }
 
 /* ---- skeleton shimmer for legacy lists that paint before their data lands ---- */
 .sigma-skel {
@@ -2032,12 +2038,15 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
   /* ── the card's last-visit line, red when a visit was owed (22.9, D5) ── */
   .card-last-visit.late { color: var(--priority); font-weight: 800; }
 
-  /* ── the header on a phone is ONE row (22.9, B3) ── */
+  /* ── the header on a phone is ONE row, title + Σ never overlapping the bell/user cluster
+       (22.9, B3; QA round 2 Package A §1: the title used to clip and the bell sat on top of
+       it — the title now wraps to two short lines instead of fighting for width). ── */
   @media (max-width: 768px) {
     .header { padding: 8px 12px; border-radius: 12px; }
-    .header-top { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 8px; }
-    .header h1 { font-size: 17px; white-space: nowrap; }
-    .header-meta { flex-wrap: nowrap; justify-content: flex-end; gap: 6px; min-width: 0; }
+    .header-top { flex-direction: row; flex-wrap: nowrap; align-items: flex-start; gap: 8px; }
+    .brand-wrap { flex: 1 1 auto; min-width: 0; }
+    .header h1.brand { font-size: 14px; white-space: normal; }
+    .header-meta { flex: 0 0 auto; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: 6px; min-width: 0; }
     .header-date { display: none; }
   }
   /* sideways scroll hints on the containers that already scroll */

@@ -3,7 +3,7 @@
 // agree, so the goldens are deliberately duplicated rather than shared.
 import { describe, it, expect } from 'vitest';
 import {
-  groupBySection, filterRows, countRows, matchesQuery,
+  groupBySection, filterRows, countRows, matchesQuery, draftsAtTop,
   validateKibbutz, kibbutzimSaveBody, canEditEnergy, canManageKibbutzim, cardActionsFor,
   emsChainPlan, emsChainReduce, energyText, REGION_ORDER,
   type KibbutzRow,
@@ -308,5 +308,34 @@ describe('REGION_ORDER (spec §2 — the regions the table actually holds)', () 
     for (const gone of ['גליל תחתון', 'עמק הירדן', 'שער הנגב', 'נגב', 'יהודה ושומרון', 'בקעת בית שאן']) {
       expect(REGION_ORDER).not.toContain(gone);
     }
+  });
+});
+
+describe('draftsAtTop — home order (QA round 2, Package A §4)', () => {
+  it('pulls rows with open work to the top, preserving order within each bucket', () => {
+    const rows = [
+      row({ name: 'אפיקים' }),
+      row({ name: 'חוקוק' }),
+      row({ name: 'יגור' }),
+      row({ name: 'דפנה' }),
+    ];
+    const open = new Set(['יגור', 'אפיקים']);
+    const { top, rest } = draftsAtTop(rows, n => open.has(n));
+    expect(top.map(r => r.name)).toEqual(['אפיקים', 'יגור']);
+    expect(rest.map(r => r.name)).toEqual(['חוקוק', 'דפנה']);
+  });
+
+  it('no open work → everything stays in rest, in order', () => {
+    const rows = [row({ name: 'א' }), row({ name: 'ב' })];
+    const { top, rest } = draftsAtTop(rows, () => false);
+    expect(top).toEqual([]);
+    expect(rest.map(r => r.name)).toEqual(['א', 'ב']);
+  });
+
+  it('everything open → everything lands in top, nothing in rest', () => {
+    const rows = [row({ name: 'א' }), row({ name: 'ב' })];
+    const { top, rest } = draftsAtTop(rows, () => true);
+    expect(top.map(r => r.name)).toEqual(['א', 'ב']);
+    expect(rest).toEqual([]);
   });
 });

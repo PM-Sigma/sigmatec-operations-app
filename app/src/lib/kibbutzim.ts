@@ -106,6 +106,25 @@ export function groupBySection(rows: KibbutzRow[] | null | undefined): Record<Se
   return out;
 }
 
+// ───────────────────────────── home ordering (QA round 2, Package A §4) ─────────────────────────────
+
+/**
+ * A kibbutz with an open visit draft (or an in-progress EMS-task creation — the caller's
+ * `hasOpenWork` decides what counts) sorts to the TOP of the home list, ahead of the normal
+ * region grouping. Pure and order-preserving within each bucket, so the goldens can assert it
+ * without touching React or the bridge: the caller (Home.tsx) supplies `hasOpenWork` from
+ * `useVisitDraft`/whatever else has an open-work signal for that kibbutz.
+ */
+export function draftsAtTop(
+  rows: KibbutzRow[],
+  hasOpenWork: (name: string) => boolean,
+): { top: KibbutzRow[]; rest: KibbutzRow[] } {
+  const top: KibbutzRow[] = [];
+  const rest: KibbutzRow[] = [];
+  (rows || []).forEach(r => { (r && hasOpenWork(r.name) ? top : rest).push(r); });
+  return { top, rest };
+}
+
 // ───────────────────────────── filters ─────────────────────────────
 
 export type CardFilter = 'all' | 'new' | 'active' | 'marketing';

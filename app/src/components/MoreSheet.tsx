@@ -9,7 +9,7 @@ import * as React from 'react';
 import {
   CalendarDays, CheckSquare, ClipboardList, Code2, Download, FileDown, FileText, Home, Inbox,
   Clock, MapPin, MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck,
-  Users, Bell, type LucideIcon,
+  UserCheck, Users, Bell, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { UserChip } from '@/components/UserChip';
@@ -19,6 +19,7 @@ import {
 import { sigma, type SigmaPage } from '@/bridge';
 import { track } from '@/lib/track';
 import { canShowPage } from '@/lib/canShowPage';
+import { moreLeadsWithInventory } from '@/lib/landing';
 
 export const MORE_ICONS: Record<string, LucideIcon> = {
   Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell, Clock,
@@ -40,9 +41,12 @@ const APP_ORDER = ['settings', 'field-journal', 'feedback'];
  */
 const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; group?: 'admin' }> = [
   { page: 'calendar', label: 'יומן', icon: CalendarDays },
-  { page: 'attendance', label: 'נוכחות', icon: CalendarDays },
+  // נוכחות must not look like יומן (A5 / Package A §5): a distinct icon.
+  { page: 'attendance', label: 'נוכחות', icon: UserCheck },
   { page: 'hours', label: 'שעות מול לקוחות', icon: Clock },
-  // מלאי is a tab on the bar itself (F4, עידן 22.9): the sheet lists only what the bar does not.
+  // מלאי is a tab on the bar for most roles (F4, עידן 22.9) — but for אביאם/ניתאי, whose bar
+  // swaps מלאי for נוכחות, it moves here instead and leads the list (Package A §3).
+  { page: 'inventory', label: 'מלאי', icon: Package },
   { page: 'pushlog', label: 'התראות', icon: Bell, group: 'admin' },
   { page: 'dev', label: 'פיתוח', icon: Code2, group: 'admin' },
 ];
@@ -78,14 +82,19 @@ function SheetRow({
   );
 }
 
-export function MoreSheet({ role, openSignal = 0 }: { role: RegistryRole; openSignal?: number }) {
+export function MoreSheet({ role, openSignal = 0, user = '' }: { role: RegistryRole; openSignal?: number; user?: string }) {
   const [open, setOpen] = React.useState(false);
   // A long press on the bar (Nav.tsx) bumps `openSignal`; every bump opens the sheet.
   React.useEffect(() => { if (openSignal > 0) setOpen(true); }, [openSignal]);
   const [, bump] = React.useReducer((n: number) => n + 1, 0);
   React.useEffect(() => onMoreItemsChanged(bump), []);
 
-  const pages = MORE_PAGES.filter(p => canShowPage(p.page));
+  // מלאי is a bar tab for everyone except אביאם/ניתאי (whose bar has נוכחות instead) — for
+  // them, and only them, it is listed here, first (Package A §3).
+  const leadsWithInventory = moreLeadsWithInventory(user);
+  const pages = MORE_PAGES
+    .filter(p => p.page !== 'inventory' || leadsWithInventory)
+    .filter(p => canShowPage(p.page));
   const extras = listMoreItems(role);
   const go = (fn: () => void) => { setOpen(false); fn(); };
 
@@ -94,7 +103,12 @@ export function MoreSheet({ role, openSignal = 0 }: { role: RegistryRole; openSi
     return i === -1 ? APP_ORDER.length : i;
   };
   const block = (g: 'app' | 'admin') => ({
-    pages: role === 'viewer' ? [] : pages.filter(p => (p.group || 'app') === g),
+    pages: role === 'viewer' ? [] : pages
+      .filter(p => (p.group || 'app') === g)
+      .slice()
+      .sort((a, b) => (g === 'app' && leadsWithInventory)
+        ? (a.page === 'inventory' ? -1 : b.page === 'inventory' ? 1 : 0)
+        : 0),
     items: extras
       .filter((i: MoreItem) => (i.group || 'app') === g)
       .slice()

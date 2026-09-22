@@ -2,7 +2,9 @@
 // is the function that decides what someone sees the second he opens the app, so every row of
 // §7l's table is asserted literally.
 import { describe, expect, it } from 'vitest';
-import { defaultLanding, landingFor, landingFromSetting, roleOf } from '@/lib/landing';
+import {
+  defaultLanding, landingFor, landingFromSetting, moreLeadsWithInventory, navTabsFor, roleOf,
+} from '@/lib/landing';
 import { DEFAULT_SETTINGS } from '@/lib/settings';
 
 describe('roleOf', () => {
@@ -89,5 +91,25 @@ describe('landingFor', () => {
       expect(typeof t.page).toBe('string');
       expect(t.page.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('navTabsFor — bottom bar order (phone QA round 2, package A §3)', () => {
+  it('אביאם and ניתאי get נוכחות · יומן · ביקור · קיבוצים · עוד', () => {
+    expect(navTabsFor('field', 'אביאם')).toEqual(['attendance', 'calendar', 'visit', 'kibbutz', 'more']);
+    expect(navTabsFor('field', 'ניתאי')).toEqual(['attendance', 'calendar', 'visit', 'kibbutz', 'more']);
+  });
+
+  it('every other role gets קיבוצים · יומן · ביקור · מלאי · עוד', () => {
+    expect(navTabsFor('pm', 'עידן')).toEqual(['kibbutz', 'calendar', 'visit', 'inventory', 'more']);
+    expect(navTabsFor('ceo', 'עמיחי')).toEqual(['kibbutz', 'calendar', 'visit', 'inventory', 'more']);
+    expect(navTabsFor('dev', 'מתניה')).toEqual(['kibbutz', 'calendar', 'visit', 'inventory', 'more']);
+    expect(navTabsFor('field', 'מישהו חדש')).toEqual(['kibbutz', 'calendar', 'visit', 'inventory', 'more']);
+  });
+
+  it('moreLeadsWithInventory matches the same two names', () => {
+    expect(moreLeadsWithInventory('אביאם')).toBe(true);
+    expect(moreLeadsWithInventory('ניתאי')).toBe(true);
+    expect(moreLeadsWithInventory('עידן')).toBe(false);
   });
 });

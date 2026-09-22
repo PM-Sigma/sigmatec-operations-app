@@ -16,10 +16,12 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
 
   if (viewport === 'mobile-390') {
     await expect(nav).toBeVisible();
-    // field roles: קיבוצים · רעיון / באג · [ביקור] · מלאי · עוד (22.9: 🚚 תעודה left the bar)
-    for (const label of ['קיבוצים', 'רעיון / באג', 'מלאי', 'עוד']) {
+    // other roles (עידן here): קיבוצים · יומן · [ביקור] · מלאי · עוד — 22.9 QA round 2 Package A
+    // §3: 🗓 יומן took the "רעיון / באג" slot, feedback moved into ⋯ עוד only.
+    for (const label of ['קיבוצים', 'יומן', 'מלאי', 'עוד']) {
       await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
+    await expect(nav.getByRole('button', { name: 'רעיון / באג', exact: true })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: 'תיעוד ביקור' })).toBeVisible();
     // the tab you are on is announced, not only coloured
     await expect(nav.getByRole('button', { name: 'קיבוצים', exact: true })).toHaveAttribute('aria-current', 'page');
@@ -31,6 +33,29 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
   }
 
   await shot(page, ti);
+  expectNoConsoleErrors(rec);
+});
+
+test('shell: אביאם/ניתאי get נוכחות · יומן · [ביקור] · קיבוצים · עוד, מלאי moves into ⋯', async ({ page }, ti) => {
+  const { rec, viewport } = await boot(page, ti, { who: 'אביאם' });
+  test.skip(viewport !== 'mobile-390', 'the bar order is a phone concern');
+
+  const nav = page.locator('#sigma-nav nav[aria-label="ניווט ראשי"]');
+  await expect(nav).toBeVisible();
+  // The raised 📍 button carries its label via `aria-label`, not visible text (an icon-only
+  // button), so its accessible NAME is asserted instead of allInnerTexts() for that one slot.
+  const order = ['נוכחות', 'יומן', 'תיעוד ביקור', 'קיבוצים', 'עוד'];
+  const names = await nav.getByRole('button').evaluateAll(
+    els => els.map(el => el.getAttribute('aria-label') || el.textContent || ''),
+  );
+  order.forEach((label, i) => expect(names[i]).toContain(label));
+  await expect(nav.getByRole('button', { name: 'מלאי', exact: true })).toHaveCount(0);
+
+  // מלאי moved into ⋯ עוד and leads the everyday block there (Package A §3).
+  await nav.getByRole('button', { name: 'עוד', exact: true }).click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet.getByRole('button', { name: 'מלאי', exact: true })).toBeVisible();
+
   expectNoConsoleErrors(rec);
 });
 

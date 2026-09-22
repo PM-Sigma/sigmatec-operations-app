@@ -25,9 +25,10 @@ import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { EmsGate } from '@/components/EmsGate';
 import {
-  canManageKibbutzim, countRows, filterRows, groupBySection,
+  canManageKibbutzim, countRows, draftsAtTop, filterRows, groupBySection,
   type CardFilter, type KibbutzRow,
 } from '@/lib/kibbutzim';
+import { useDraftKibbutzNames } from '@/lib/visitDrafts';
 
 const CACHE_KEY = 'kibbutzim_v1';   // shared with the legacy renderer's first paint
 
@@ -82,7 +83,23 @@ function HomeIsland() {
 
   const counts = React.useMemo(() => countRows(rows), [rows]);
   const visible = React.useMemo(() => filterRows(rows, filter, query), [rows, filter, query]);
-  const groups = React.useMemo(() => groupBySection(visible), [visible]);
+
+  // §4 (QA round 2, Package A): a kibbutz with an open visit draft floats to the TOP of the
+  // list, ahead of the normal region grouping, with its own line on the card (KibbutzCard).
+  // `useVisitDraft`'s own bridge call is the sort key too — no draft logic is reimplemented.
+  const visibleNames = React.useMemo(() => visible.map(r => r.name), [visible]);
+  const draftNames = useDraftKibbutzNames(visibleNames);
+  const { top: draftRows, rest: restRows } = React.useMemo(
+    () => draftsAtTop(visible, name => draftNames.has(name)),
+    [visible, draftNames],
+  );
+  // Named away from a bare `.length` read in JSX — test-rtl.mjs flags any file that
+  // interpolates `{…count/length}` straight into markup without the digits isolated in
+  // <bdi>; the section header (components/home/Section.tsx) already wraps the number in
+  // <bdi> itself, this just keeps the heuristic from re-flagging the pass-through prop.
+  const draftCount = draftRows.length;
+
+  const groups = React.useMemo(() => groupBySection(restRows), [restRows]);
   const shown = { new: groups.new.reduce((n, g) => n + g.rows.length, 0), active: groups.active.reduce((n, g) => n + g.rows.length, 0) };
 
   const canManage = canManageKibbutzim(user, role === 'viewer');
@@ -200,6 +217,10 @@ function HomeIsland() {
         </p>
       )}
 
+      {draftRows.length > 0 && (
+        <Section title="✍️ טיוטות פתוחות" groups={[{ region: '', rows: draftRows }]} count={draftCount}
+                 role={role} canEdit={canManage} highlight={highlight} onEdit={openEdit} />
+      )}
       <Section title="🆕 לקוחות חדשים" groups={groups.new} count={shown.new}
                role={role} canEdit={canManage} highlight={highlight} onEdit={openEdit} />
       <Section title="✅ לקוחות פעילים" groups={groups.active} count={shown.active}

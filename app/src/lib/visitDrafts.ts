@@ -53,6 +53,32 @@ export function draftTimeLabel(updatedAt: string | null | undefined): string {
   return `${p(t.getHours())}:${p(t.getMinutes())}`;
 }
 
+/**
+ * The names, among `kibbutzim`, that have an open visit draft for the current person TODAY
+ * (spec §5.1c / QA round 2 Package A §4 — the home list sorts these to the top). Same source
+ * as `useVisitDraft`, just asked once per name instead of one hook per card.
+ */
+export function useDraftKibbutzNames(kibbutzim: string[]): Set<string> {
+  const key = kibbutzim.join('');
+  const read = React.useCallback((): Set<string> => {
+    const out = new Set<string>();
+    try {
+      const me = sigma?.getCurrentUser?.() || '';
+      const today = todayISO();
+      kibbutzim.forEach(name => {
+        try { if (sigma?.visitDraftFor?.(name, me, today)) out.add(name); } catch { /* no bridge */ }
+      });
+    } catch { /* no bridge */ }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  const [names, setNames] = React.useState<Set<string>>(read);
+  React.useEffect(() => { setNames(read()); }, [read]);
+  useSigmaEvent('visit-draft-changed', () => setNames(read()));
+  useSigmaEvent('visit-saved', () => setNames(read()));
+  return names;
+}
+
 /** Ask the legacy module for this kibbutz's draft; re-asked whenever one is written. */
 export function useVisitDraft(kibbutz: string): VisitDraft | null {
   const read = React.useCallback((): VisitDraft | null => {

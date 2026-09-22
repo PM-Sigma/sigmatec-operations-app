@@ -76,7 +76,7 @@ export function KibbutzCard({
         )}
         {draft && (
           <span className="tag-draft rounded-full bg-[color:var(--brand-1)]/15 px-2 py-0.5 text-[11px] font-semibold text-foreground">
-            ✍️ סיכום ביקור בהתהוות
+            ✍️ יש טיוטה פתוחה של סיכום ביקור
           </span>
         )}
         {/* 🔥 צריבות left the home card (עידן 22.9, D1): the summary lives inside the kibbutz

@@ -41,12 +41,18 @@ function HeaderActionsPanel() {
       </button>
 
       {/* §7k.2: rendered ONLY when the page has something to add, and the label always says
-          what it does — never a bare plus. */}
+          what it does — never a bare plus. ➕ קיבוץ (add === 'kibbutz') is desktop-only: the
+          phone header has no room for it and the row is already in ⋯ עוד (Home.tsx registers
+          it there for canManage) — Package A §2. Every other add action keeps showing on the
+          phone too. */}
       {addLabel && (
         <button
           type="button"
           onClick={() => { track('primary-add', add); runAdd(add); }}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-brand-grad px-3 text-[13px] font-bold text-white transition-transform active:scale-[.97]"
+          className={
+            'items-center gap-1.5 rounded-xl bg-brand-grad px-3 text-[13px] font-bold text-white transition-transform active:scale-[.97] min-h-[40px] '
+            + (add === 'kibbutz' ? 'hidden md:inline-flex' : 'inline-flex')
+          }
         >
           {addCreates
             ? <Plus className="h-4 w-4" />
