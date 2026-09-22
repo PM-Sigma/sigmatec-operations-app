@@ -2,7 +2,7 @@
 // the hour gate and the idempotency tag"). Israel is UTC+3 in September, UTC+2 in January —
 // both are exercised, because the digest windows are the one thing DST can silently break.
 import { describe, expect, it } from 'vitest';
-import { alertArrow, alertText, alertTarget, canSeeAlerts, digestBody, digestTag, digestTitle, digestWindow, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, POOL } from './alerts';
+import { alertArrow, alertText, alertTarget, canSeeAlerts, digestBody, digestTag, digestTitle, digestWindow, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, markRowsSeen, unmarkRowsSeen, POOL } from './alerts';
 
 const mov = (o: Partial<AlertRow> = {}): AlertRow => ({
   id: 'a1', kind: 'movement', product: 'מונה E360CT', qty: 3,
@@ -176,4 +176,33 @@ describe('lowStockRows (§5, decision I3)', () => {
     expect(lowStockRows({ 'מונה E360CT': 10 }, products).map(r => r.product)).toEqual(['סים 1NCE']));
   it('the per-product daily tag', () =>
     expect(lowStockTag('סים 1NCE', '2026-09-19')).toBe('inv-low-2026-09-19-סים 1NCE'));
+});
+
+describe('markRowsSeen / unmarkRowsSeen (round 3, Q)', () => {
+  const rows: AlertRow[] = [
+    mov({ id: 'a1', seen_by: [] }),
+    mov({ id: 'a2', seen_by: ['עמיחי'] }),
+    mov({ id: 'a3', seen_by: [] }),
+  ];
+
+  it('adds the reader to exactly the rows asked for, keeping the others', () => {
+    const out = markRowsSeen(rows, ['a1', 'a2'], 'עידן');
+    expect(out[0].seen_by).toEqual(['עידן']);
+    expect(out[1].seen_by).toEqual(['עמיחי', 'עידן']);
+    expect(out[2].seen_by).toEqual([]);
+    expect(rows[0].seen_by).toEqual([]);           // the input is not mutated
+  });
+
+  it('never doubles a reader already there', () => {
+    const once = markRowsSeen(rows, ['a1'], 'עידן');
+    expect(markRowsSeen(once, ['a1'], 'עידן')[0].seen_by).toEqual(['עידן']);
+  });
+
+  it('undoing a failed write puts the row back, and only that reader', () => {
+    const optimistic = markRowsSeen(rows, ['a1', 'a2'], 'עידן');
+    const back = unmarkRowsSeen(optimistic, ['a1', 'a2'], 'עידן');
+    expect(back[0].seen_by).toEqual([]);
+    expect(back[1].seen_by).toEqual(['עמיחי']);
+    expect(isSeen(back[0], 'עידן')).toBe(false);
+  });
 });

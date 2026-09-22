@@ -114,6 +114,31 @@ export function isSeen(row: AlertRow, user: string): boolean {
   return (row.seen_by ?? []).indexOf(String(user ?? '')) !== -1;
 }
 
+/**
+ * The optimistic half of "סמן כנקרא" (round 3, Q): the rows the bell holds, with `user` added
+ * to `seen_by` of exactly `ids`. Pure, so the island never hand-rolls the same map twice.
+ */
+export function markRowsSeen(rows: AlertRow[], ids: Iterable<string>, user: string): AlertRow[] {
+  const set = new Set<string>(Array.from(ids, id => String(id)));
+  const who = String(user ?? '');
+  return (rows ?? []).map(r => (set.has(String(r.id)) && !isSeen(r, who)
+    ? { ...r, seen_by: [...(r.seen_by ?? []), who] }
+    : r));
+}
+
+/**
+ * The undo of the above. The RPC can fail (a stale pass, a missing migration), and a row that
+ * only LOOKS read is the whole bug this package exists for: what did not reach the database is
+ * put back, and the person is told.
+ */
+export function unmarkRowsSeen(rows: AlertRow[], ids: Iterable<string>, user: string): AlertRow[] {
+  const set = new Set<string>(Array.from(ids, id => String(id)));
+  const who = String(user ?? '');
+  return (rows ?? []).map(r => (set.has(String(r.id))
+    ? { ...r, seen_by: (r.seen_by ?? []).filter(n => String(n) !== who) }
+    : r));
+}
+
 // ───────────────────────────── groups (22.9, G1) ─────────────────────────────
 // One visit summary that moved three products is ONE thing to read, not three lines; the
 // low-stock rows of one day are one line. Rows are grouped by what caused them and the

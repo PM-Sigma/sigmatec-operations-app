@@ -139,6 +139,9 @@ create policy ia_insert on public.inventory_alerts
 -- Marking one seen is the ONE client write, and it must not be able to rewrite the alert
 -- itself. A column-limited update policy does not exist in Postgres, so the write goes
 -- through this SECURITY DEFINER RPC and the table keeps no client UPDATE policy at all.
+-- `seen_at` is part of this write, and the table was created without it (inventory_pool.sql).
+alter table public.inventory_alerts add column if not exists seen_at timestamptz;
+
 create or replace function public.alert_mark_seen(p_id text, p_person text)
 returns void
 language plpgsql
@@ -146,13 +149,19 @@ security definer
 set search_path = public
 as $$
 begin
+  if p_person is null or btrim(p_person) = '' then
+    raise exception 'alert_mark_seen: p_person is required';
+  end if;
   update public.inventory_alerts
      set seen_at = now(),
          seen_by = (
            select array_agg(distinct x)
-           from unnest(coalesce(seen_by, array[]::text[]) || array[p_person]) as x
+           from unnest(coalesce(seen_by, array[]::text[]) || array[btrim(p_person)]) as x
          )
-   where id = p_id;
+   -- `id` is uuid and `p_id` is a text VARIABLE: without this cast the statement never plans
+   -- (42883) and nothing was ever marked read. Round 3 Q; db/alert_mark_seen_fix.sql re-applies
+   -- this to a database where 2.00 already ran.
+   where id = p_id::uuid;
 end;
 $$;
 revoke all on function public.alert_mark_seen(text, text) from public;

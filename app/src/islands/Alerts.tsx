@@ -28,8 +28,10 @@ import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  alertTarget, alertText, canSeeAlerts, groupAlerts, isSeen, type AlertGroup, type AlertRow,
+  alertTarget, alertText, canSeeAlerts, groupAlerts, isSeen, markRowsSeen, unmarkRowsSeen,
+  type AlertGroup, type AlertRow,
 } from '@/lib/alerts';
+import { toastFailure } from '@/lib/pending';
 
 export const ALERTS_OPEN_EVENT = 'sigma-open-alerts';
 
@@ -175,21 +177,46 @@ function AlertsBell() {
     return () => { cancelled = true; try { channel?.unsubscribe?.(); } catch { /* already gone */ } };
   }, [allowed, qc]);
 
-  /** Mark a whole group seen — every row in it, optimistically, then the RPC per row. */
+  /**
+   * Mark a whole group seen — every row in it, optimistically, then the RPC per row.
+   *
+   * Round 3, Q: a failed RPC used to be swallowed here. The optimistic row stayed crossed out
+   * until the next refetch and then came back unread, which is exactly what עידן saw five
+   * times over (the server function itself was broken — db/alert_mark_seen_fix.sql). A write
+   * that did not reach the database now undoes its own optimistic row and says so, so the bell
+   * never again shows a "read" that is not stored.
+   */
   const markSeen = React.useCallback(async (g: AlertGroup) => {
     const todo = g.rows.filter(r => r.id && !isSeen(r, user));
     if (!todo.length) return;
-    const ids = new Set(todo.map(r => r.id));
-    qc.setQueryData(['inventoryAlerts'], (old: AlertRow[] | undefined) =>
-      (old ?? []).map(r => (ids.has(r.id) ? { ...r, seen_by: [...(r.seen_by ?? []), user] } : r)));
+    const ids = todo.map(r => String(r.id));
+    qc.setQueryData(['inventoryAlerts'], (old: AlertRow[] | undefined) => markRowsSeen(old ?? [], ids, user));
+
+    const failed: string[] = [];
+    let lastErr: unknown = null;
     for (const row of todo) {
       try {
         // Through the RPC, not a table UPDATE: `inventory_alerts` is an audit trail and has no
         // client UPDATE or DELETE policy any more (audit C #3, db/rls_2_00_lockdown.sql).
-        await sbWrite(sb => sb.rpc('alert_mark_seen', { p_id: row.id as string, p_person: user }) as any);
-      } catch { /* the optimistic row stands; the next fetch corrects it */ }
+        // `p_person` is the SAME string `isSeen` compares against — the bridge pass carries no
+        // name claim, so this client-side name is the only identity the row can hold.
+        await sbWrite(sb => sb.rpc('alert_mark_seen', { p_id: String(row.id), p_person: user }) as any);
+      } catch (e) {
+        failed.push(String(row.id));
+        lastErr = e;
+      }
     }
+    if (failed.length) {
+      qc.setQueryData(['inventoryAlerts'], (old: AlertRow[] | undefined) => unmarkRowsSeen(old ?? [], failed, user));
+      toastFailure(lastErr, () => { void markSeenRef.current?.(g); }, 'סימון ההתראה כנקראה לא נשמר. נסה שוב');
+      return;
+    }
+    // Only now, when the server really holds it: re-read, so what the list shows is what the
+    // database says and a reload agrees with the screen.
+    qc.invalidateQueries({ queryKey: ['inventoryAlerts'] });
   }, [qc, user]);
+  const markSeenRef = React.useRef(markSeen);
+  markSeenRef.current = markSeen;
 
   if (!allowed) return null;
 
