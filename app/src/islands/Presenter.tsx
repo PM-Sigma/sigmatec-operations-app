@@ -17,7 +17,7 @@ import * as React from 'react';
 import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, MapPin, Pencil, Video, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Pause, Pencil, Play, Video, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { mount } from '@/islands';
 import { fetchKibbutzRows } from '@/lib/kibbutzRows';
@@ -26,9 +26,13 @@ import { registerMoreItem } from '@/lib/registry';
 import { INTERNAL_TASKS_WRITABLE } from '@/lib/caps';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
+import { useInternalTasks } from '@/components/home/InternalTasks';
+import { openFor as internalOpenFor } from '@/lib/internalTasks';
+import { sinceLastMeeting, type SinceLastTask } from '@/lib/meetingRun';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { emitNotesChanged, NOTES_QUERY_KEY } from '@/components/home/MeetingNotes';
 import { energyText, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
+import type { EmsTask } from '@/bridge';
 import {
   chipDate, MEETING_PEOPLE, notesForKibbutz, taskFromBullet,
   type MeetingKind, type NoteRow,
@@ -75,6 +79,19 @@ async function fetchNotes(): Promise<NoteRow[]> {
   return (data || []) as NoteRow[];
 }
 
+/** The date of the previous `meeting_sessions` row of this kind, before today. Feeds "מאז
+ *  הישיבה הקודמת" (item 5) — null when there is none (first meeting of this kind, or a fetch
+ *  failure; the section then renders nothing rather than guessing a boundary). */
+async function fetchPreviousMeetingDate(kind: string, today: string): Promise<string | null> {
+  try {
+    const sb = await getSupabase();
+    const { data, error } = await sb.from('meeting_sessions')
+      .select('date').eq('kind', kind).lt('date', today).order('date', { ascending: false }).limit(1);
+    if (error) throw error;
+    return (data && data[0] && (data[0] as { date?: string }).date) || null;
+  } catch { return null; }
+}
+
 /** Today's office events — the SAME query the calendar island holds, so the 🎥 link is one fetch. */
 async function fetchEvents(from: string, to: string): Promise<Array<{ title?: string; hangoutLink?: string | null }>> {
   try { return (await sigma.calFetchEvents?.({ from, to })) || []; }
@@ -105,20 +122,23 @@ interface StripItem { label: string; value: string }
  * fetch. עידן's point is that they disagree: a kibbutz can be calm on one and loud on the
  * other, and the meeting should see both at once.
  */
-function useStrips(row: KibbutzRow | null, notes: NoteRow[]): { admin: StripItem[]; field: StripItem[] } {
+function useStrips(row: KibbutzRow | null, notes: NoteRow[]): {
+  admin: StripItem[]; field: StripItem[]; openTasks: string[]; emsTasks: EmsTask[];
+} {
   const [tick, setTick] = React.useState(0);
   useSigmaEvent('ems-cache-synced', () => setTick(t => t + 1));
   useSigmaEvent('visit-saved', () => setTick(t => t + 1));
 
   return React.useMemo(() => {
-    if (!row) return { admin: [], field: [] };
+    if (!row) return { admin: [], field: [], openTasks: [], emsTasks: [] };
     const name = row.name;
     const month = ymd().slice(0, 7);
 
-    const tasks = (() => {
-      try { return (sigma.emsCacheTasksForKibbutz?.(name) as Array<Record<string, unknown>>) || []; }
+    const tasks: EmsTask[] = (() => {
+      try { return sigma.emsCacheTasksForKibbutz?.(name) || []; }
       catch { return []; }
     })();
+    const openTasks = tasks.map(t => String(t?.title || '').trim()).filter(Boolean);
     const visits = (() => {
       try { return (sigma.loadAllVisitsCombined?.() || []) as Array<{ kibbutz?: string; date?: string }>; }
       catch { return []; }
@@ -132,7 +152,6 @@ function useStrips(row: KibbutzRow | null, notes: NoteRow[]): { admin: StripItem
     return {
       admin: [
         { label: 'מדור', value: sectionOf(row) === 'new' ? '🆕 לקוח חדש' : '✅ פעיל' },
-        { label: 'איזור', value: String(row.region || '—') },
         { label: 'פתוחים מישיבות', value: String(openBullets) },
         { label: 'נסקר לאחרונה', value: lastSeen ? chipDate(lastSeen) : '—' },
       ],
@@ -142,6 +161,8 @@ function useStrips(row: KibbutzRow | null, notes: NoteRow[]): { admin: StripItem
         { label: 'ביקורים החודש', value: String(visitsThisMonth) },
         { label: 'מונים', value: String(row.ems_params?.meters?.total ?? '—') },
       ],
+      openTasks,
+      emsTasks: tasks,
     };
   }, [row, notes, tick]);
 }
@@ -185,6 +206,32 @@ function Strip({ title, items, testid }: { title: string; items: StripItem[]; te
           </React.Fragment>
         ))}
       </dl>
+    </div>
+  );
+}
+
+/**
+ * "ניהולי"/region as small chip-style tags rather than a titled headline box (item 3). No new
+ * backend logic: this reads the same `row.region`/`row.name` the card already shows, and no
+ * update path for region data is wired anywhere client-side today, so the chip is read-only for
+ * now — the edit affordance the spec allows for (§Package H item 3) is left to a follow-up once
+ * an existing kibbutz-update function surfaces one (checked `app/src/lib/kibbutzim.ts` /
+ * `kibbutzRows.ts`: no client-side region-update function exists there to reuse without adding
+ * new backend logic, which the ground rules forbid).
+ */
+function RegionChips({ row }: { row: KibbutzRow | null }) {
+  if (!row) return null;
+  const chips = [String(row.region || '—'), sectionOf(row) === 'new' ? '🆕 לקוח חדש' : '✅ פעיל'];
+  return (
+    <div data-testid="presenter-region-chips" className="flex flex-wrap gap-1.5">
+      {chips.map((c, i) => (
+        <span
+          key={i}
+          className="inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-2.5 text-[12px] font-bold text-foreground"
+        >
+          <bdi>{c}</bdi>
+        </span>
+      ))}
     </div>
   );
 }
@@ -349,9 +396,16 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const rows = React.useMemo(() => presenterOrder(kibbutzim.data || []), [kibbutzim.data]);
   const notes = notesQ.data || [];
   const meeting = React.useMemo(() => todaysMeeting(eventsQ.data || []), [eventsQ.data]);
+  const internalTasksQ = useInternalTasks();
 
   const [idx, setIdx] = React.useState(0);
-  const { session, seconds, log, endSession } = useMeetingRun(meeting?.kind || 'company', me, today);   // F14 ①
+  const { session, seconds, running, start, pause, log, endSession } =
+    useMeetingRun(meeting?.kind || 'company', me, today);   // F14 ①
+
+  const prevMeetingQ = useQuery({
+    queryKey: ['presenter-prev-meeting', meeting?.kind || 'company', today],
+    queryFn: () => fetchPreviousMeetingDate(meeting?.kind || 'company', today),
+  });
   const [draft, setDraft] = React.useState('');
   const [liveOpen, setLiveOpen] = React.useState(false);
   const [exitOpen, setExitOpen] = React.useState(false);
@@ -366,6 +420,25 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const lastMeeting = groups.find(g => g.meeting_date < today) || null;
   const carry = React.useMemo(
     () => (current ? carryOverLine(notes, current.name, today) : null), [notes, current, today]);
+
+  // "מאז הישיבה הקודמת" (item 5): internal tasks carry a real `created_at`/`done` and feed the
+  // pure `sinceLastMeeting` split directly. The EMS cache row the bridge exposes here
+  // (`sigma.emsCacheTasksForKibbutz`, see `EmsTask` in `bridge.ts`) has no opened/closed
+  // timestamp — only `id`/`title`/`status` — so EMS tasks cannot be placed on a timeline without
+  // inventing a date; they stay out of this section rather than being guessed (still shown, as
+  // a plain open-tasks list, in `presenter-open-tasks`). No "closed at" instant exists on the
+  // internal-task row either, so a done task is treated as closed exactly at read-time — enough
+  // to place it after the boundary, not to date the closure itself.
+  const sinceLast = React.useMemo(() => {
+    if (!current) return { openedSince: [], closedSince: [] };
+    const now = new Date().toISOString();
+    const internalRows = internalOpenFor(internalTasksQ.data, current.name)
+      .concat((internalTasksQ.data || []).filter(r => r.kibbutz === current.name && r.done));
+    const internalAsTasks: SinceLastTask[] = internalRows
+      .filter(r => r.created_at)
+      .map(r => ({ id: r.id, title: r.title, openedAt: r.created_at as string, closedAt: r.done ? now : null }));
+    return sinceLastMeeting(internalAsTasks, prevMeetingQ.data);
+  }, [current, internalTasksQ.data, prevMeetingQ.data]);
 
   // Every arrival at a kibbutz is a segment boundary. Keyed so StrictMode's double render
   // cannot log the same arrival twice.
@@ -461,15 +534,24 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-background p-4 sm:p-8"
     >
       {/* ── header: clock · counter · carry-over · 🎥 ─────────────────────── */}
-      <header className="flex flex-wrap items-center gap-3 border-b border-border pb-3">
-        <span data-testid="presenter-timer" className="text-[22px] font-extrabold tabular-nums text-foreground">
+      <header className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border pb-3">
+        <button
+          type="button"
+          data-testid="presenter-timer-toggle"
+          onClick={() => (running ? pause() : start())}
+          aria-label={running ? 'עצירת השעון' : 'הפעלת השעון'}
+          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+        >
+          {running ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
+        </button>
+        <span data-testid="presenter-timer" className="text-[20px] font-extrabold tabular-nums text-foreground">
           <bdi>{clockText(seconds)}</bdi>
         </span>
-        <span data-testid="presenter-counter" className="text-[15px] font-extrabold text-muted-foreground">
+        <span data-testid="presenter-counter" className="text-[14px] font-extrabold text-muted-foreground">
           <bdi>{n ? Math.min(idx + 1, n) : 0} / {n}</bdi>
         </span>
         {carry && (
-          <span data-testid="presenter-carry" className="text-[15px] font-bold text-[color:var(--warning)]">
+          <span data-testid="presenter-carry" className="min-w-0 truncate text-[14px] font-bold text-[color:var(--warning)]">
             {carry}
           </span>
         )}
@@ -480,7 +562,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
             target="_blank"
             rel="noopener noreferrer"
             data-testid="presenter-meet"
-            className="inline-flex min-h-9 items-center gap-1 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
+            className="inline-flex min-h-9 flex-none items-center gap-1 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
           >
             <Video size={15} aria-hidden /> Meet
           </a>
@@ -490,7 +572,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
           data-testid="presenter-exit"
           onClick={() => setExitOpen(true)}
           aria-label="סגירה"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border text-foreground"
+          className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-border text-foreground"
         >
           <X size={18} aria-hidden />
         </button>
@@ -502,10 +584,10 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
           <p className="text-[17px] text-muted-foreground">אין קיבוצים להצגה</p>
         ) : (
           <>
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               <h1
                 data-testid="presenter-kibbutz"
-                className="text-[34px] font-extrabold leading-tight text-foreground sm:text-[48px]"
+                className="min-w-0 truncate text-[30px] font-extrabold leading-tight text-foreground sm:text-[48px]"
               >
                 <bdi>{labelOf(current)}</bdi>
               </h1>
@@ -514,17 +596,46 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
                 data-testid="presenter-edit"
                 onClick={() => setLiveOpen(true)}
                 aria-label="הוספת שורה"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-foreground"
+                className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-border text-foreground"
               >
                 <Pencil size={18} aria-hidden />
               </button>
             </div>
+
+            <RegionChips row={current} />
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Strip title="ניהולי" items={strips.admin} testid="presenter-strip-admin" />
               <Strip title="שטח ומערכת" items={strips.field} testid="presenter-strip-field" />
               <Strip title="מצב" items={extra} testid="presenter-strip-extra" />
             </div>
+
+            {!!strips.openTasks.length && (
+              <section data-testid="presenter-open-tasks">
+                <h2 className="mb-1.5 text-[13px] font-extrabold text-muted-foreground">משימות EMS פתוחות</h2>
+                <ul className="flex flex-col gap-1">
+                  {strips.openTasks.map((title, i) => (
+                    <li key={i} className="min-w-0 truncate text-[15px] text-foreground"><bdi>{title}</bdi></li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {(sinceLast.openedSince.length > 0 || sinceLast.closedSince.length > 0) && (
+              <section data-testid="presenter-since-last" className="text-[14px]">
+                <h2 className="mb-1 text-[13px] font-extrabold text-muted-foreground">מאז הישיבה הקודמת</h2>
+                {sinceLast.openedSince.length > 0 && (
+                  <p className="text-foreground">
+                    נפתחו ועדיין פתוחות: <bdi>{sinceLast.openedSince.map(t => t.title).join(' · ')}</bdi>
+                  </p>
+                )}
+                {sinceLast.closedSince.length > 0 && (
+                  <p className="text-muted-foreground">
+                    נפתחו ונסגרו: <bdi>{sinceLast.closedSince.map(t => t.title).join(' · ')}</bdi>
+                  </p>
+                )}
+              </section>
+            )}
 
             <section data-testid="presenter-bullets" className="flex-1">
               {lastMeeting ? (
@@ -559,41 +670,54 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         )}
       </main>
 
-      {/* ── the always-visible quick note ─────────────────────────────────── */}
-      <footer className="sticky bottom-0 flex items-center gap-2 border-t border-border bg-background pt-3">
-        <button
-          type="button"
-          onClick={() => move(-1)}
-          aria-label="הקודם"
-          className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-border text-foreground"
-        >
-          <ChevronRight size={20} aria-hidden />
-        </button>
-        <input
-          ref={noteRef}
-          data-testid="presenter-quicknote"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          placeholder="שורה אחת, אם בא לך"
-          aria-label="שורה אחת, אם בא לך"
-          className="min-h-11 flex-1 rounded-xl border border-border bg-muted px-3 text-[15px] text-foreground outline-none focus:border-[color:var(--brand-1)]"
-        />
-        <button
-          type="button"
-          data-testid="presenter-marker"
-          onClick={marker}
-          className="inline-flex min-h-11 flex-none items-center gap-1 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
-        >
-          <MapPin size={16} aria-hidden /> סמן רגע
-        </button>
-        <button
-          type="button"
-          onClick={() => move(1)}
-          aria-label="הבא"
-          className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-border text-foreground"
-        >
-          <ChevronLeft size={20} aria-hidden />
-        </button>
+      {/* ── nav: big prev/next arrows with the neighbour's name, then the always-visible
+             quick note edge-to-edge below it ──────────────────────────────────────────── */}
+      <footer className="sticky bottom-0 flex flex-col gap-2 border-t border-border bg-background pt-3">
+        <div className="grid w-full grid-cols-2 gap-2">
+          <button
+            type="button"
+            data-testid="presenter-prev"
+            onClick={() => move(-1)}
+            aria-label="הקודם"
+            className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
+          >
+            <ChevronRight size={26} aria-hidden />
+            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+              <bdi>{rows[idx - 1] ? labelOf(rows[idx - 1]) : ''}</bdi>
+            </span>
+          </button>
+          <button
+            type="button"
+            data-testid="presenter-next"
+            onClick={() => move(1)}
+            aria-label="הבא"
+            className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
+          >
+            <ChevronLeft size={26} aria-hidden />
+            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+              <bdi>{rows[idx + 1] ? labelOf(rows[idx + 1]) : ''}</bdi>
+            </span>
+          </button>
+        </div>
+        <div className="flex w-full min-w-0 items-center gap-2">
+          <input
+            ref={noteRef}
+            data-testid="presenter-quicknote"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            placeholder="שורה אחת, אם בא לך"
+            aria-label="שורה אחת, אם בא לך"
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-muted px-3 text-[15px] text-foreground outline-none focus:border-[color:var(--brand-1)]"
+          />
+          <button
+            type="button"
+            data-testid="presenter-marker"
+            onClick={marker}
+            className="inline-flex min-h-11 flex-none items-center gap-1 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
+          >
+            <MapPin size={16} aria-hidden /> סמן רגע
+          </button>
+        </div>
       </footer>
 
       <LiveSheet
