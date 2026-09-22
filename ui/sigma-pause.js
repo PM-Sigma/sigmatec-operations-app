@@ -3,4 +3,4 @@ import{c as e}from"./sigma.js?v=mucubf7h";/**
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
- */const t=[["rect",{width:"18",height:"18",x:"3",y:"3",rx:"2",key:"afitv7"}]],o=e("Square",t);export{o as S};
+ */const t=[["rect",{x:"14",y:"4",width:"4",height:"16",rx:"1",key:"zuxfzm"}],["rect",{x:"6",y:"4",width:"4",height:"16",rx:"1",key:"1okwgv"}]],o=e("Pause",t);export{o as P};
