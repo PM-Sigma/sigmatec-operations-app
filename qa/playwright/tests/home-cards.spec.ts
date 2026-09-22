@@ -92,6 +92,26 @@ test('home cards: viewer gets no action row at all', async ({ page }, ti) => {
   expectNoConsoleErrors(rec);
 });
 
+test('home cards: a running work timer floats its kibbutz to the top section', async ({ page }, ti) => {
+  // עידן, spec addendum 22.9: the TOP section is not only visit drafts — a running/paused
+  // ▶/■ work timer means he is mid-visit too, whether or not he typed a draft. Seed a running
+  // session on יגור (which has no visit draft in the fixtures) and expect it pinned to the
+  // top, with the section title switching to mention the timer.
+  const running = { person: 'עידן', kibbutz: 'יגור', started_at: new Date().toISOString() };
+  const { rec } = await boot(page, ti, { storage: { sigma_clockify_running_v1: JSON.stringify({ עידן: running }) } });
+
+  const top = page.locator('#sigma-home').getByRole('heading', { name: '✍️ טיוטות ושעון פעיל' });
+  await expect(top).toBeVisible();
+
+  // the card itself sits inside the top section, and its own ▶/■ chip already shows "running".
+  const topSection = top.locator('xpath=ancestor::section');
+  await expect(topSection.locator('.kibbutz[data-name="יגור"]')).toBeVisible();
+  await expect(topSection.locator('.kibbutz[data-name="יגור"]').getByTestId('work-timer-stop')).toBeVisible();
+
+  await shot(page, ti, 'timer-at-top');
+  expectNoConsoleErrors(rec);
+});
+
 test('home cards: a team member sees the actions but not the admin affordances', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 

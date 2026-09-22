@@ -29,6 +29,7 @@ import {
   type CardFilter, type KibbutzRow,
 } from '@/lib/kibbutzim';
 import { useDraftKibbutzNames } from '@/lib/visitDrafts';
+import { loadRunning } from '@/lib/clockify';
 
 const CACHE_KEY = 'kibbutzim_v1';   // shared with the legacy renderer's first paint
 
@@ -89,15 +90,34 @@ function HomeIsland() {
   // `useVisitDraft`'s own bridge call is the sort key too — no draft logic is reimplemented.
   const visibleNames = React.useMemo(() => visible.map(r => r.name), [visible]);
   const draftNames = useDraftKibbutzNames(visibleNames);
+
+  // A running/paused ▶/■ work timer ALSO floats its kibbutz to the top (עידן 22.9): the person
+  // is mid-visit whether or not a draft was ever typed. `loadRunning` is a plain localStorage
+  // read, so it is re-read on the events that can change it — the timer sheets' own
+  // `work-session-saved` bus announce, a `storage` event from another tab, and a cheap 5 s
+  // poll to catch a start/stop click inside THIS tab's own WorkTimer instance (which writes
+  // storage directly and does not itself broadcast on the bus).
+  const [activeTimerKibbutz, setActiveTimerKibbutz] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const refresh = () => setActiveTimerKibbutz(loadRunning(user)?.kibbutz || null);
+    refresh();
+    const id = setInterval(refresh, 5000);
+    window.addEventListener('storage', refresh);
+    return () => { clearInterval(id); window.removeEventListener('storage', refresh); };
+  }, [user]);
+  useSigmaEvent('work-session-saved', () => setActiveTimerKibbutz(loadRunning(user)?.kibbutz || null));
+
   const { top: draftRows, rest: restRows } = React.useMemo(
-    () => draftsAtTop(visible, name => draftNames.has(name)),
-    [visible, draftNames],
+    () => draftsAtTop(visible, name => draftNames.has(name), activeTimerKibbutz),
+    [visible, draftNames, activeTimerKibbutz],
   );
   // Named away from a bare `.length` read in JSX — test-rtl.mjs flags any file that
   // interpolates `{…count/length}` straight into markup without the digits isolated in
   // <bdi>; the section header (components/home/Section.tsx) already wraps the number in
   // <bdi> itself, this just keeps the heuristic from re-flagging the pass-through prop.
   const draftCount = draftRows.length;
+  const topHasTimer = !!activeTimerKibbutz && draftRows.some(r => r.name === activeTimerKibbutz);
+  const topTitle = topHasTimer ? '✍️ טיוטות ושעון פעיל' : '✍️ טיוטות פתוחות';
 
   const groups = React.useMemo(() => groupBySection(restRows), [restRows]);
   const shown = { new: groups.new.reduce((n, g) => n + g.rows.length, 0), active: groups.active.reduce((n, g) => n + g.rows.length, 0) };
@@ -218,7 +238,7 @@ function HomeIsland() {
       )}
 
       {draftRows.length > 0 && (
-        <Section title="✍️ טיוטות פתוחות" groups={[{ region: '', rows: draftRows }]} count={draftCount}
+        <Section title={topTitle} groups={[{ region: '', rows: draftRows }]} count={draftCount}
                  role={role} canEdit={canManage} highlight={highlight} onEdit={openEdit} />
       )}
       <Section title="🆕 לקוחות חדשים" groups={groups.new} count={shown.new}
