@@ -11,7 +11,7 @@
 // only ever an input; nothing here hands one back. That is what keeps a day from sliding by
 // one when a phone is on a different timezone from the office calendar.
 
-import type { Holiday } from './attendance';
+import { isHolidayEve, type Holiday } from './attendance';
 
 // ───────────────────────────── types ─────────────────────────────
 
@@ -234,6 +234,8 @@ export interface CalCell {
   inMonth: boolean;
   today: boolean;
   holiday: Holiday | null;
+  /** ערב חג — worked, reported, and marked on the grid like the attendance screen (F-5). */
+  eve: boolean;
 }
 
 export interface CalWeek {
@@ -249,6 +251,9 @@ export interface MonthView {
   label: string;
   weeks: CalWeek[];
 }
+
+/** Re-exported so the calendar's cell render asks the SAME question the attendance screen does. */
+export { isHolidayEve, missingDaysFor } from './attendance';
 
 function holidayMap(holidays: Holiday[] | undefined): Record<string, Holiday> {
   const out: Record<string, Holiday> = {};
@@ -279,6 +284,7 @@ export function monthView(year: number, month: number, holidays: Holiday[] = [],
         inMonth: cursor.getMonth() === month - 1,
         today: key === today,
         holiday: hol[key] || null,
+        eve: isHolidayEve(hol[key]),
       });
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -305,6 +311,7 @@ export function weekView(anchor: string, holidays: Holiday[] = [], today = ymd(n
       inMonth: true,
       today: key === today,
       holiday: hol[key] || null,
+      eve: isHolidayEve(hol[key]),
     } as CalCell;
   });
   return { week: weekNumber(days[1].date), days };

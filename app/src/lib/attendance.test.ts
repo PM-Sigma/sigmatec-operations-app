@@ -6,8 +6,9 @@
 // grid's cells, which days are "missing", and the three KPIs.
 import { describe, expect, it } from 'vitest';
 import {
-  cellsOf, dayLabel, holidayNote, isRequiredDay, kpis, missingByPerson, missingDays, monthGrid,
-  type AttRow, type Holiday,
+  canEditAttendance, canSwitchPerson, cellsOf, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText,
+  holidayNote, isRequiredDay, kpis, missingByPerson, missingDays, missingDaysFor, monthGrid,
+  withVisitDays, type AttRow, type Holiday,
 } from './attendance';
 
 // ───────────────────────────── the September 2026 fixture ─────────────────────────────
@@ -243,5 +244,141 @@ describe('missingByPerson (עידן 20.9 #2 — the overview strip)', () => {
   it('skips blanks and tolerates an empty roster', () => {
     expect(missingByPerson([], () => [], holidays, today)).toEqual([]);
     expect(missingByPerson(['', 'אביאם'], () => [], holidays, today, 2026, 9).map(r => r.person)).toEqual(['אביאם']);
+  });
+});
+
+// ───────────── round 2 · F-2: a saved summary IS a יום שטח, and it MOVES ─────────────
+
+describe('withVisitDays', () => {
+  const manual: AttRow[] = [
+    row('2026-09-01', 'office'),
+    row('2026-09-02', 'wfh'),
+  ];
+  const visit = (date: string, extra: Record<string, unknown> = {}) =>
+    ({ id: 'v' + date, visitor: 'אביאם', date, kibbutz: 'דפנה', workday: true, ...extra });
+
+  it('a saved summary becomes a field day nobody had to file', () => {
+    const out = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
+    const d3 = out.find(r => r.date === '2026-09-03')!;
+    expect(d3.type).toBe('field');
+    expect(d3.source).toBe('visit');
+    expect(d3.kibbutz).toBe('דפנה');
+    expect(d3.hours).toBe(8);
+  });
+
+  it('editing the visit date MOVES the day, and the old date goes back to missing', () => {
+    const before = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
+    const after = withVisitDays(before, [visit('2026-09-07')], 'אביאם');
+    expect(after.map(r => r.date)).not.toContain('2026-09-03');
+    expect(after.find(r => r.date === '2026-09-07')!.type).toBe('field');
+    expect(missingDays(after, HOLIDAYS, AFTER, 2026, 9)).toContain('2026-09-03');
+  });
+
+  it('unless another summary covers the old date', () => {
+    const out = withVisitDays(manual, [visit('2026-09-03', { id: 'other' }), visit('2026-09-07')], 'אביאם');
+    expect(out.filter(r => r.type === 'field').map(r => r.date)).toEqual(['2026-09-03', '2026-09-07']);
+    expect(missingDays(out, HOLIDAYS, AFTER, 2026, 9)).not.toContain('2026-09-03');
+  });
+
+  it('or a manual row was filed there', () => {
+    const before = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
+    const withManual = withVisitDays([...before, row('2026-09-03', 'office')], [visit('2026-09-07')], 'אביאם');
+    expect(withManual.find(r => r.date === '2026-09-03')!.type).toBe('office');
+  });
+
+  it('never duplicates a date: two visits on one day are ONE row, and it is idempotent', () => {
+    const visits = [visit('2026-09-03'), visit('2026-09-03', { id: 'v2', kibbutz: 'חוקוק', workday: false, duration: 2 })];
+    const once = withVisitDays(manual, visits, 'אביאם');
+    const twice = withVisitDays(once, visits, 'אביאם');
+    expect(once.filter(r => r.date === '2026-09-03')).toHaveLength(1);
+    expect(once.find(r => r.date === '2026-09-03')!.kibbutz).toBe('דפנה, חוקוק');
+    expect(once.find(r => r.date === '2026-09-03')!.hours).toBe(10);
+    expect(twice).toEqual(once);
+  });
+
+  it('the summary wins over a manual row on the same date', () => {
+    const out = withVisitDays([row('2026-09-03', 'office')], [visit('2026-09-03')], 'אביאם');
+    expect(out.find(r => r.date === '2026-09-03')!.type).toBe('field');
+  });
+
+  it('a visit of another person is not your day', () => {
+    const out = withVisitDays(manual, [visit('2026-09-03', { visitor: 'ניתאי' })], 'אביאם');
+    expect(out.map(r => r.date)).not.toContain('2026-09-03');
+  });
+
+  it('keeps the manual month untouched', () => {
+    const out = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
+    expect(out.map(r => r.date)).toEqual(['2026-09-01', '2026-09-02', '2026-09-03']);
+  });
+});
+
+// ───────────── round 2 · F-5: ערב חג — required, and מהבית by default ─────────────
+
+describe('ערב חג', () => {
+  const EVES: Holiday[] = [...HOLIDAYS,
+    { date: '2026-09-20', name: 'ערב יום כיפור', kind: 'holiday_eve', required: true }];
+
+  it('is a required work day, unlike the חג itself', () => {
+    expect(isRequiredDay('2026-09-20', EVES)).toBe(true);    // ערב יום כיפור, a Sunday
+    expect(isRequiredDay('2026-09-21', EVES)).toBe(false);   // יום כיפור itself
+  });
+
+  it('an empty one is missing, and the grid marks it', () => {
+    const grid = monthGrid(2026, 9, [], EVES, AFTER);
+    const cell = grid.cells.find(c => c.date === '2026-09-20')!;
+    expect(cell.eve).toBe(true);
+    expect(cell.state).toBe('missing');
+    expect(missingDays([], EVES, AFTER, 2026, 9)).toContain('2026-09-20');
+  });
+
+  it('invites the default rather than calling itself optional', () => {
+    const eve = EVES.find(h => h.kind === 'holiday_eve')!;
+    expect(holidayNote(eve)).toContain('מהבית');
+    expect(holidayNote(eve)).not.toContain('אופציונלית');
+    expect(EVE_DEFAULT_TYPE).toBe('wfh');
+    expect(eveCountdownText(3)).toContain('3');
+  });
+
+  it('a plain חג cell is not an ערב חג', () => {
+    const grid = monthGrid(2026, 9, [], EVES, AFTER);
+    expect(grid.cells.find(c => c.date === '2026-09-21')!.eve).toBe(false);
+  });
+});
+
+// ───────────── round 2 · F-4: missingDaysFor, for the calendar ─────────────
+
+describe('missingDaysFor', () => {
+  const rowsFor = (person: string) => (person === 'אביאם' ? [row('2026-09-01', 'office')] : null);
+
+  it('answers one person one month, by month string or pair', () => {
+    const a = missingDaysFor('אביאם', '2026-09', rowsFor, HOLIDAYS, AFTER);
+    const b = missingDaysFor('אביאם', { year: 2026, month: 9 }, rowsFor, HOLIDAYS, AFTER);
+    expect(a).toEqual(b);
+    expect(a).not.toContain('2026-09-01');
+    expect(a).toContain('2026-09-02');
+    expect(a).not.toContain('2026-09-21');       // יום כיפור is never owed
+  });
+
+  it('an unloaded month paints nothing, rather than painting everything red', () => {
+    expect(missingDaysFor('ניתאי', '2026-09', rowsFor, HOLIDAYS, AFTER)).toEqual([]);
+  });
+});
+
+// ───────────── round 2 · F-6: אביאם sees ניתאי, and only sees ─────────────
+
+describe('who may look and who may write', () => {
+  it('the two field workers see each other', () => {
+    expect(canSwitchPerson('אביאם')).toBe(true);
+    expect(canSwitchPerson('ניתאי')).toBe(true);
+    expect(canSwitchPerson('עמיחי')).toBe(true);
+    expect(canSwitchPerson('עידן', { isIdan: true })).toBe(true);
+    expect(canSwitchPerson('מתניה')).toBe(false);
+  });
+  it('but only עידן and עמיחי write the day of someone else', () => {
+    expect(canEditAttendance('אביאם', 'אביאם')).toBe(true);
+    expect(canEditAttendance('אביאם', 'ניתאי')).toBe(false);
+    expect(canEditAttendance('עמיחי', 'ניתאי')).toBe(true);
+    expect(canEditAttendance('עידן', 'ניתאי', { isIdan: true })).toBe(true);
+    expect(canEditAttendance('צפייה', 'צפייה', { isViewer: true })).toBe(false);
   });
 });
