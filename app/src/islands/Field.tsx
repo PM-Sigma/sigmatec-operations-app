@@ -46,7 +46,7 @@ import {
   type VisitRow,
 } from '@/lib/field';
 import {
-  canSubmit, chapterState, draftAge, missingFields, nextChapter, prevChapter, resumeChapter,
+  CHAPTERS, canSubmit, draftAge, missingFields,
   type ChapterDraft, type ChapterId, type ReturnedItem,
 } from '@/lib/visitDraft';
 import { pickableProducts, productGroups, searchProducts } from '@/lib/productSearch';
@@ -510,10 +510,14 @@ function Briefing({
 // ─────────────────── the visit summary, in chapters (§7p) ───────────────────
 //
 // The old summary was one long form with one save at the end, so an interruption — and in
-// the field there is always one — cost the whole thing. Here it is five short chapters, each
-// with its own **שמור וסגור** (the draft is written, the sheet closes, and NOTHING else
-// happens: no visit, no stock movement, no certificate, no EMS comment) and **המשך**.
-// **שלח** lives in chapter 5 alone and is the only thing that creates the visit.
+// the field there is always one — cost the whole thing. §7p cut it into five short chapters.
+// Ruling 22.9 evening (עידן): "את סיכום הביקור אני לא רוצה בהמשכים אני רוצה בגלילה" — so the
+// chapters are no longer turned one at a time. They are STACKED, in order, in one scrolling
+// sheet: 🎙 at the top, then מה עשיתי down to שליחה, and a chapter that is not part of this
+// visit (🚚 with nothing to hand over) is simply not there.
+//
+// **שמור וסגור** is still the whole draft and nothing else (no visit, no stock movement, no
+// certificate, no EMS comment); **שלח** sits at the bottom and is the only thing that files.
 //
 // Every rule is pure and lives in app/src/lib/visitDraft.ts (goldens: visitDraft.test.ts).
 // The draft itself is the LEGACY store (js/src/09-visits.js): same table, same mirror, same
@@ -537,10 +541,10 @@ function chapterDraftHasContent(d: ChapterDraft): boolean {
  * red mark the save puts on it — a frame plus the word חובה, right where the answer is missing,
  * instead of a toast that says "חסרים פרטים" and leaves him hunting.
  */
-const Field2 = ({ label, required, miss, children }: {
-  label: string; required?: boolean; miss?: boolean; children: React.ReactNode;
+const Field2 = ({ label, name, required, miss, children }: {
+  label: string; name?: string; required?: boolean; miss?: boolean; children: React.ReactNode;
 }) => (
-  <label className="block" data-req={required ? '1' : undefined}>
+  <label className="block scroll-mt-4" id={name ? 'vc-field-' + name : undefined} data-req={required ? '1' : undefined}>
     <span className="mb-1 block text-[12.5px] font-bold text-muted-foreground">
       {label}
       {required && <span className="text-[color:var(--priority)]"> *</span>}
@@ -562,33 +566,29 @@ const CHIP_OFF = 'border-border bg-muted text-foreground';
 /** The quick hours chips — the same five the legacy form offers, spelled the same way. */
 const HOUR_CHIPS = [0.5, 1, 2, 3, 4];
 
-function Stepper({ steps, current, onGo }: {
-  steps: ReturnType<typeof chapterState>; current: ChapterId; onGo: (id: ChapterId) => void;
-}) {
-  const shown = steps.filter(s => s.applies);
-  return (
-    <div className="flex gap-1.5 overflow-x-auto px-4 pb-2 [scrollbar-width:none]" data-testid="vc-stepper">
-      {shown.map(s => {
-        const on = s.id === current;
-        return (
-          <button
-            key={s.id}
-            type="button"
-            data-testid={'vc-step-' + s.id}
-            data-current={on ? '1' : undefined}
-            aria-current={on ? 'step' : undefined}
-            onClick={() => onGo(s.id)}
-            className={'flex min-h-[34px] flex-none items-center gap-1.5 rounded-full border px-2.5 text-[12.5px] font-bold transition-colors ' +
-              (on ? CHIP_ON : 'border-border bg-muted text-muted-foreground')}
-          >
-            {s.done && !on && <Check className="h-3.5 w-3.5" />}
-            <span>{s.title}</span>
-          </button>
-        );
-      })}
+/**
+ * One chapter of the scrolling summary. There is no stepper any more: every chapter is on
+ * screen, under its own heading, in §7p's order. `name` is the anchor a failed שלח scrolls
+ * to, and `miss` prints the same in-place red mark `Field2` does.
+ */
+const Chapter = ({ id, name, required, miss, children }: {
+  id: ChapterId; name?: string; required?: boolean; miss?: boolean; children: React.ReactNode;
+}) => (
+  <section
+    id={name ? 'vc-field-' + name : undefined}
+    data-testid={'vc-chapter-' + id}
+    className="scroll-mt-4"
+  >
+    <h3 className="mb-1.5 text-[15px] font-extrabold">
+      {CHAPTERS.find(c => c.id === id)?.title}
+      {required && <span className="text-[color:var(--priority)]"> *</span>}
+      {miss && <span data-testid="vc-miss" className="text-[color:var(--priority)]"> · חובה</span>}
+    </h3>
+    <div className={miss ? 'rounded-xl outline outline-2 outline-offset-2 outline-[color:var(--priority)]' : ''}>
+      {children}
     </div>
-  );
-}
+  </section>
+);
 
 // ───────────────────── C4 · מוצרים נוספים, searched by keyword ─────────────────────
 //
@@ -1028,11 +1028,11 @@ async function fetchInternalOpen(owners: string[]): Promise<InternalRow[]> {
 const OPEN_EMS = ['done', 'cancelled', 'canceled', 'closed'];
 
 function VisitChapters({ me, today }: { me: string; today: string }) {
-  const reduce = useReducedMotion();
   const [open, setOpen] = React.useState(false);
   const [kibbutz, setKibbutz] = React.useState('');
   const [draftId, setDraftId] = React.useState('');
-  const [chapter, setChapter] = React.useState<ChapterId>(1);
+  /** A chapter an opener asked to land on (🚚 → תעודת משלוח). Scrolled to, then forgotten. */
+  const [jump, setJump] = React.useState<ChapterId | 0>(0);
   const [d, setD] = React.useState<ChapterDraft>({});
   const [resumedAt, setResumedAt] = React.useState('');
   const [certNum, setCertNum] = React.useState(0);
@@ -1081,19 +1081,18 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     () => ({ ...d, kibbutz, visitor: me, date: d.date || today, deliver, certIssued: certNum > 0 }),
     [d, kibbutz, me, today, deliver, certNum],
   );
-  const steps = React.useMemo(() => chapterState(model), [model]);
   const verdict = React.useMemo(() => canSubmit(model), [model]);
   const needReason = visitReasonRequired({ emsTaskIds: d.emsTaskIds, internalTaskIds: d.internalTaskIds });
 
   // Refs, so the autosave and the openers never read a stale render.
-  const ref = React.useRef({ model, draftId, chapter, kibbutz });
-  ref.current = { model, draftId, chapter, kibbutz };
+  const ref = React.useRef({ model, draftId, kibbutz });
+  ref.current = { model, draftId, kibbutz };
 
   /** Write the draft NOW. The one persistence path — autosave and שמור וסגור share it. */
   const persist = React.useCallback((patch: Partial<ChapterDraft> = {}) => {
     const cur = ref.current;
     if (!cur.kibbutz) return;
-    const payload = { ...cur.model, ...patch, chapter: cur.chapter } as Record<string, unknown>;
+    const payload = { ...cur.model, ...patch } as Record<string, unknown>;
     if (!chapterDraftHasContent(payload as ChapterDraft)) return;   // an untouched sheet leaves nothing
     try {
       sigma.visitDraftPut?.({ id: cur.draftId, person: me, kibbutz: cur.kibbutz, date: today, payload });
@@ -1105,13 +1104,13 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     if (!open || sentVisitId) return;
     const t = setTimeout(() => persist(), 800);
     return () => clearTimeout(t);
-  }, [open, d, chapter, deliver, persist, sentVisitId]);
+  }, [open, d, deliver, persist, sentVisitId]);
 
   // A certificate is issued in a LEGACY modal that announces nothing, so the certificate
   // screen asks — only while it is on screen, and only until the answer is yes.
   React.useEffect(() => {
     const vid = sentVisitId || draftId;
-    if (!open || (chapter !== 4 && !sentVisitId) || !vid || certNum) return;
+    if (!open || (!deliver && !sentVisitId) || !vid || certNum) return;
     let live = true;
     const ask = () => {
       Promise.resolve(sigma.certIssuedForVisit?.(vid) ?? 0)
@@ -1121,7 +1120,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     ask();
     const t = setInterval(ask, 3000);
     return () => { live = false; clearInterval(t); };
-  }, [open, chapter, draftId, certNum, sentVisitId]);
+  }, [open, deliver, draftId, certNum, sentVisitId]);
 
   const set = React.useCallback((patch: Partial<ChapterDraft>) => {
     setD(p => ({ ...p, ...patch }));
@@ -1129,6 +1128,21 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       && !(k === 'reason' && ('reasonId' in patch || 'reasonOther' in patch))
       && !(k === 'reason' && ('emsTaskIds' in patch || 'internalTaskIds' in patch))) : m));
   }, []);
+
+  /** Put something under his eyes inside the sheet. The page behind it never moves. */
+  const scrollTo = React.useCallback((sel: string) => {
+    window.requestAnimationFrame(() => {
+      try { document.querySelector(sel)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      catch { /* nothing to scroll to is not a failure */ }
+    });
+  }, []);
+
+  // 🚚 asked for the certificate chapter: it is on the page already, so we just go to it.
+  React.useEffect(() => {
+    if (!open || !jump) return;
+    const t = setTimeout(() => { scrollTo('[data-testid="vc-chapter-' + jump + '"]'); setJump(0); }, 250);
+    return () => clearTimeout(t);
+  }, [open, jump, deliver, scrollTo]);
 
   /** Open on this kibbutz, resuming whatever is already stored for (me, kibbutz, today). */
   const openOn = React.useCallback((name: string, opts: VisitChaptersOpen = {}) => {
@@ -1152,7 +1166,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     let id = String(row?.id || '');
     if (!id) { try { id = String(sigma.visitDraftId?.() || ''); } catch { id = ''; } }
     setDraftId(id || 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
-    setChapter(opts.chapter ?? resumeChapter(next));
+    setJump(opts.chapter ?? 0);
     setResumedAt(String(row?.updated_at || ''));
     setOpen(true);
     track('visit-chapters-open', k);
@@ -1189,7 +1203,6 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       productsOther: loose,
       emsTaskIds: (v.task_matches || []).map(m => String(m.task_id)),
     });
-    setChapter(1);
   }, [set, today]);
 
   /** שלח — chapter 5 only, and the only thing here that creates anything. */
@@ -1199,7 +1212,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     const gaps = missingFields(cur.model);
     if (gaps.length) {
       setMiss(gaps.map(g => g.key));
-      setChapter(gaps[0].chapter);                                      // scroll to the first miss
+      scrollTo('#vc-field-' + gaps[0].key);                             // straight to the first miss
       toast.error(gaps[0].reason);
       return;
     }
@@ -1265,7 +1278,6 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         // closing. Nothing is printed; the certificate opens in the app with שלח / הורד on it.
         if ((cur.model.products || []).length) {
           setSentVisitId(visitId);
-          setChapter(4);
         } else {
           setOpen(false);
         }
@@ -1276,7 +1288,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     } catch {
       sentRef.current = '';
     } finally { setSending(false); }
-  }, [me, today, set, needReason]);
+  }, [me, today, set, needReason, scrollTo]);
 
   // §7p: a sheet holding his words never closes by accident. "לשמור" IS שמור וסגור, and
   // "לבטל" only closes — the draft is never thrown away here (§7p: never auto-delete).
@@ -1329,8 +1341,6 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   };
 
   const age = draftAge({ ...d, updated_at: resumedAt });
-  const dur = reduce ? 0 : 0.22;                                // §7p: a chapter turn is ≤250 ms
-  const last = chapter === 5;
   const has = (k: string) => miss.includes(k);
 
   return (
@@ -1338,9 +1348,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       <SheetContent
         side="bottom"
         data-testid="visit-chapters"
-        data-chapter={chapter}
         data-sent={sentVisitId ? '1' : undefined}
-        className="max-h-[94svh] overflow-hidden p-0 pt-2.5"
+        className="flex max-h-[94svh] flex-col overflow-hidden p-0 pt-2.5"
         {...guard.contentProps}
       >
         <SheetTitle className="px-4 text-[20px] font-extrabold tracking-[-.01em]">
@@ -1351,49 +1360,92 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
             ? 'הסיכום נשמר. נשאר להפיק את התעודה ולשלוח אותה.'
             : age.label
               ? <span data-testid="vc-draft-chip">{age.label}{age.note ? ' · ' + age.note : ''}</span>
-              : 'פרק אחד בכל פעם. אפשר לשמור ולצאת בכל שלב.'}
+              : 'הכול כאן, בגלילה אחת. אפשר לשמור ולצאת בכל רגע.'}
         </SheetDescription>
 
         {/* C8 — at the TOP of the sheet, and only while there is still a summary to fill. */}
         {!sentVisitId && <VoiceIntake kibbutz={kibbutz} busy={sending} onFill={fillFromVoice} />}
 
-        {!sentVisitId && <Stepper steps={steps} current={chapter} onGo={setChapter} />}
+        {/* Ruling 22.9 evening: one scrolling form. Every chapter is here, in §7p's order. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4" data-testid="vc-scroll">
+          {sentVisitId ? (
+            <Chapter id={4}>
+              <div className="flex flex-col gap-3">
+                <p className="text-[13.5px] leading-[1.6] text-muted-foreground">
+                  {certNum
+                    ? 'התעודה הופקה. אפשר לשלוח אותה לאיש הקשר או להוריד אותה.'
+                    : 'השארת ציוד בקיבוץ. הפק תעודת משלוח כדי שתישאר רשומה.'}
+                </p>
+                {!!certNum && (
+                  <div className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[14px] font-bold" data-testid="vc-cert-ok">
+                    ✅ תעודה <bdi>{certNum}</bdi> נופקה
+                  </div>
+                )}
+                <button
+                  type="button"
+                  data-testid="vc-cert"
+                  onClick={() => {
+                    if (!sentVisitId) persist();
+                    try {
+                      sigma.openDeliveryCert?.({
+                        kibbutz, date: d.date || today, contact: d.contact || '',
+                        items: (d.products || []).map(p => ({ name: p.name, qty: p.qty })),
+                        source: 'visit', refId: sentVisitId || draftId,
+                        // C7: no printing — the certificate opens inside the app.
+                        noPrint: true,
+                      });
+                    } catch (e) { console.warn('[visit-chapters] cert', e); }
+                  }}
+                  className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-foreground text-[15px] font-extrabold text-background"
+                >
+                  <Truck className="h-5 w-5" /> {certNum ? 'תעודה נוספת' : 'הפק תעודה'}
+                </button>
+                {!!certNum && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      data-testid="vc-cert-send"
+                      onClick={() => { try { (window as any).certSendForVisit?.(sentVisitId || draftId); } catch (e) { console.warn('[visit-chapters] send', e); } }}
+                      className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-grad text-[14px] font-extrabold text-white"
+                    >
+                      <Send className="h-4 w-4" /> שלח במייל לאיש קשר
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="vc-cert-download"
+                      onClick={() => { try { (window as any).certDownloadForVisit?.(sentVisitId || draftId); } catch (e) { console.warn('[visit-chapters] download', e); } }}
+                      className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted text-[14px] font-extrabold"
+                    >
+                      <Download className="h-4 w-4" /> הורד PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+            </Chapter>
+          ) : (
+            <>
+              <Chapter id={1} name="summary" required miss={has('summary')}>
+                <textarea
+                  data-testid="vc-summary"
+                  autoFocus
+                  value={d.summary || ''}
+                  onChange={e => set({ summary: e.target.value })}
+                  placeholder="הוחלף המונה הראשי, נבדקה תקשורת…"
+                  className={AREA}
+                />
+              </Chapter>
 
-        <div className="min-h-0 max-h-[60svh] overflow-y-auto px-4 pb-4">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={sentVisitId ? 'sent' : chapter}
-              initial={{ opacity: 0, x: reduce ? 0 : -14 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: reduce ? 0 : 14 }}
-              transition={{ duration: dur, ease: 'easeOut' }}
-            >
-              {chapter === 1 && !sentVisitId && (
-                <Field2 label="מה עשיתי" required miss={has('summary')}>
-                  <textarea
-                    data-testid="vc-summary"
-                    autoFocus
-                    value={d.summary || ''}
-                    onChange={e => set({ summary: e.target.value })}
-                    placeholder="הוחלף המונה הראשי, נבדקה תקשורת…"
-                    className={AREA}
-                  />
-                </Field2>
-              )}
+              <Chapter id={2}>
+                <textarea
+                  data-testid="vc-open-items"
+                  value={d.openItems || ''}
+                  onChange={e => set({ openItems: e.target.value })}
+                  placeholder="חסר בקר לחלקה הדרומית, להביא בביקור הבא"
+                  className={AREA}
+                />
+              </Chapter>
 
-              {chapter === 2 && !sentVisitId && (
-                <Field2 label="מה נשאר לי פתוח">
-                  <textarea
-                    data-testid="vc-open-items"
-                    value={d.openItems || ''}
-                    onChange={e => set({ openItems: e.target.value })}
-                    placeholder="חסר בקר לחלקה הדרומית, להביא בביקור הבא"
-                    className={AREA}
-                  />
-                </Field2>
-              )}
-
-              {chapter === 3 && !sentVisitId && (
+              <Chapter id={3}>
                 <div className="flex flex-col gap-3">
                   {!stockNames.length && (
                     <p className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
@@ -1413,9 +1465,11 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
                   <ReturnedItems rows={d.returned || []} onChange={rows => set({ returned: rows })} />
                 </div>
-              )}
+              </Chapter>
 
-              {(chapter === 4 || sentVisitId) && (
+              {/* 🚚 is here only when there is something to hand over (§7p). */}
+              {deliver && (
+                <Chapter id={4}>
                 <div className="flex flex-col gap-3">
                   <p className="text-[13.5px] leading-[1.6] text-muted-foreground">
                     {certNum
@@ -1467,11 +1521,12 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     </div>
                   )}
                 </div>
+                </Chapter>
               )}
 
-              {chapter === 5 && !sentVisitId && (
+              <Chapter id={5}>
                 <div className="flex flex-col gap-3">
-                  <Field2 label="כמה זמן היית שם" required miss={has('hours')}>
+                  <Field2 label="כמה זמן היית שם" name="hours" required miss={has('hours')}>
                     <div className="flex flex-wrap gap-1.5">
                       {HOUR_CHIPS.map(h => {
                         const on = !d.workday && parseFloat(String(d.duration || '')) === h;
@@ -1512,7 +1567,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     </div>
                   </Field2>
 
-                  <Field2 label="תאריך הביקור" required miss={has('date')}>
+                  <Field2 label="תאריך הביקור" name="date" required miss={has('date')}>
                     <input
                       type="date"
                       data-testid="vc-date"
@@ -1522,7 +1577,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     />
                   </Field2>
 
-                  <Field2 label="איש קשר מלווה" required miss={has('contact')}>
+                  <Field2 label="איש קשר מלווה" name="contact" required miss={has('contact')}>
                     <input
                       data-testid="vc-contact"
                       value={d.contact || ''}
@@ -1567,7 +1622,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
                   {/* … and when nothing was linked, the reason is required instead. */}
                   {needReason && (
-                    <Field2 label="סיבת הביקור" required miss={has('reason')}>
+                    <Field2 label="סיבת הביקור" name="reason" required miss={has('reason')}>
                       <div className="flex flex-col gap-1.5" data-testid="vc-reasons">
                         <div className="flex flex-wrap gap-1.5">
                           {VISIT_REASONS.map(r => {
@@ -1605,12 +1660,12 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     </p>
                   )}
                 </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
+              </Chapter>
+            </>
+          )}
         </div>
 
-        {/* The two buttons of §7p, on every chapter — plus שלח on the last one, and nowhere else. */}
+        {/* Two buttons under the whole form: keep it for later, or file it now. */}
         <div className="flex gap-2 border-t border-border bg-background px-3 pb-5 pt-2.5">
           {sentVisitId ? (
             <button
@@ -1623,16 +1678,6 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
             </button>
           ) : (
             <>
-              {chapter !== 1 && (
-                <button
-                  type="button"
-                  data-testid="vc-back"
-                  onClick={() => setChapter(c => prevChapter(model, c))}
-                  className="min-h-[52px] flex-none rounded-xl border border-border px-3 text-[14px] font-bold text-muted-foreground"
-                >
-                  חזרה
-                </button>
-              )}
               <button
                 type="button"
                 data-testid="vc-save-close"
@@ -1641,26 +1686,15 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
               >
                 <Save className="h-[18px] w-[18px]" /> שמור וסגור
               </button>
-              {last ? (
-                <ShimmerButton
-                  onClick={() => void send()}
-                  data-testid="vc-send"
-                  disabled={sending}
-                  background="var(--brand-grad)"
-                  className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50"
-                >
-                  <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
-                </ShimmerButton>
-              ) : (
-                <ShimmerButton
-                  onClick={() => setChapter(c => nextChapter(model, c))}
-                  data-testid="vc-next"
-                  background="var(--brand-grad)"
-                  className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white"
-                >
-                  המשך
-                </ShimmerButton>
-              )}
+              <ShimmerButton
+                onClick={() => void send()}
+                data-testid="vc-send"
+                disabled={sending}
+                background="var(--brand-grad)"
+                className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50"
+              >
+                <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
+              </ShimmerButton>
             </>
           )}
         </div>

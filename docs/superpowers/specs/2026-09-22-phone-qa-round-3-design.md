@@ -106,10 +106,22 @@ chapters sheet at all:
    sheet opens (never `#modalBackdrop`), picks חוקוק, opens the briefing's 📍, and asserts `vc-voice` is
    visible above `vc-stepper`. Phone-only (the FAB is `md:hidden`); desktop parity is covered by the
    existing C8 test plus the card/briefing paths, which were never role-gated.
+   (Package V below: that assertion is now "above `vc-chapter-1`" — the stepper no longer exists.)
 
 Test results: `npm test` — 1400 vitest + 51 legacy runners, all green. Playwright
 `--project=mobile-390-light --project=desktop-1440-light visit-chapters visit-form` — 31 passed, 1 skipped
 (desktop variant of the new עידן case, correctly skipped: the FAB it exercises doesn't exist on desktop).
+
+## Package V — סיכום ביקור בגלילה (ruling 22.9 evening)
+**Ruling (עידן):** "את סיכום הביקור אני לא רוצה בהמשכים אני רוצה בגלילה" — the chapters sheet
+(`app/src/islands/Field.tsx`) is now ONE scrolling form: all five §7p chapters stacked in order under their
+own headings (🎙 `vc-voice` on top, `vc-chapter-1` … `vc-chapter-5`, שלח at the bottom), the 🚚 chapter simply
+absent when there is nothing to hand over. The stepper, המשך and חזרה are gone (`vc-stepper`, `vc-step-N`,
+`vc-next`, `vc-back`, `data-chapter`, and with them `nextChapter` / `prevChapter` / `resumeChapter` and the
+stored `chapter` on the draft). שמור וסגור, the five-field validation with the in-place `vc-miss` marks (שלח
+now scrolls to `#vc-field-<key>`), the tile grid, C4 search, C5 returned equipment, C6 EMS link and C7
+certificate are unchanged. Legacy form untouched. Specs: `visit-chapters.spec.ts`, `visit-form.spec.ts`,
+`field.spec.ts`, `app/src/lib/visitDraft.test.ts`.
 
 ## Not changed by ruling
 - Red missing-report days: shown in the calendar for the signed-in person only (already so). Kept.

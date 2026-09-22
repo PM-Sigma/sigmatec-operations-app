@@ -3,14 +3,13 @@
 //
 // A summary used to be one long form with one save at the end, so a technician who was
 // interrupted — and in the field he always is — either finished it in one sitting or lost
-// the lot. §7p breaks it into five short chapters, each with its own **שמור וסגור**, and
-// keeps **שלח** for the last one alone. Nothing here writes: this file only answers the
-// four questions the sheet asks —
+// the lot. §7p breaks it into five short chapters with one **שמור וסגור** over all of them,
+// and keeps **שלח** for the bottom. Ruling 22.9 evening: the chapters are not a stepper any
+// more, they are one scrolling form. Nothing here writes: this file answers three questions —
 //
 //   · which chapters are even part of THIS visit (4 only when there is something to deliver),
-//   · where does המשך / חזרה go from here,
 //   · may he press שלח yet, and why not,
-//   · which chapter does he come back to, and how old is what he left.
+//   · how old is the draft he left.
 //
 // Goldens: app/src/lib/visitDraft.test.ts.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -25,7 +24,7 @@ export interface Chapter {
   title: string;
 }
 
-/** The five of §7p, in order. */
+/** The five of §7p, in the order they are stacked in the sheet. */
 export const CHAPTERS: Chapter[] = [
   { id: 1, title: 'מה עשיתי' },
   { id: 2, title: 'מה נשאר לי פתוח' },
@@ -60,8 +59,6 @@ export interface ChapterDraft {
   deliver?: boolean;
   /** A delivery certificate is already linked to this (pre-minted) visit id. */
   certIssued?: boolean;
-  /** The last chapter he was on — what he comes back to. */
-  chapter?: number;
   /** Set ONCE, by a successful שלח. Its presence is what makes a second שלח a no-op. */
   submittedId?: string;
   updated_at?: string;
@@ -82,7 +79,7 @@ export interface ChapterDraft {
 export interface ChapterStatus extends Chapter {
   /** Is this chapter part of THIS visit at all? Only 4 is ever false. */
   applies: boolean;
-  /** Does it hold something? Drives the stepper's tick, never a gate. */
+  /** Does it hold something? A hint for the reader, never a gate. */
   done: boolean;
 }
 
@@ -101,8 +98,8 @@ export function chapterState(d: ChapterDraft | null | undefined): ChapterStatus[
     2: !!txt(d?.openItems),
     3: products.length > 0 || !!txt(d?.productsOther),
     4: !!d?.certIssued,
-    // שליחה is never "done" in the stepper: it is done when the visit exists, and then the
-    // sheet is gone. A tick here would say "sent" about something that was not.
+    // שליחה is never "done": it is done when the visit exists, and then the sheet is gone.
+    // A tick here would say "sent" about something that was not.
     5: false,
   };
   return CHAPTERS.map(c => ({
@@ -110,34 +107,6 @@ export function chapterState(d: ChapterDraft | null | undefined): ChapterStatus[
     applies: c.id === 4 ? deliverApplies(d) : true,
     done: done[c.id],
   }));
-}
-
-/** The chapters this visit actually walks through, in order. */
-function applying(d: ChapterDraft | null | undefined): ChapterId[] {
-  return chapterState(d).filter(c => c.applies).map(c => c.id);
-}
-
-function step(d: ChapterDraft | null | undefined, from: number, dir: 1 | -1): ChapterId {
-  const ids = applying(d);
-  const i = ids.indexOf(from as ChapterId);
-  if (i === -1) {
-    // An id that is not in the list (a stored 4 with nothing to deliver, or plain nonsense)
-    // is placed by VALUE rather than rejected, so המשך always has somewhere to go: the
-    // nearest applying chapter in the direction he asked for, or the end he is already at.
-    const ahead = dir === 1 ? ids.find(x => x > from) : [...ids].reverse().find(x => x < from);
-    return ahead ?? (dir === 1 ? ids[ids.length - 1] : ids[0]);
-  }
-  return ids[Math.min(Math.max(i + dir, 0), ids.length - 1)];
-}
-
-/** המשך. The last chapter returns itself — a stepper never wraps. */
-export function nextChapter(d: ChapterDraft | null | undefined, from: number): ChapterId {
-  return step(d, from, 1);
-}
-
-/** חזרה. The first chapter returns itself. */
-export function prevChapter(d: ChapterDraft | null | undefined, from: number): ChapterId {
-  return step(d, from, -1);
 }
 
 export interface SubmitVerdict { ok: boolean; reason?: string }
@@ -181,18 +150,6 @@ export function canSubmit(d: ChapterDraft | null | undefined): SubmitVerdict {
   if (d?.submittedId) return { ok: false, reason: 'הסיכום כבר נשלח' };
   const miss = missingFields(d);
   return miss.length ? { ok: false, reason: miss[0].reason } : { ok: true };
-}
-
-/** Where he comes back to: the last chapter he was on, clamped to one that still applies. */
-export function resumeChapter(d: ChapterDraft | null | undefined): ChapterId {
-  const ids = applying(d);
-  const want = Number(d?.chapter);
-  if (!want || !isFinite(want)) return ids[0];
-  if (ids.includes(want as ChapterId)) return want as ChapterId;
-  // A remembered 4 with nothing left to deliver falls BACK, not forward: he should see the
-  // chapter he last had something in, not be pushed at שלח he did not ask for.
-  const before = ids.filter(x => x < want);
-  return (before.length ? before[before.length - 1] : ids[0]);
 }
 
 export interface DraftAge {
