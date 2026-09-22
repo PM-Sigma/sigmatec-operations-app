@@ -52,4 +52,24 @@ assert.ok(!('items' in r) && !('kibbutz' in r), 'requirement link update must no
 r = reqUpdateRow({ id: 'req_1', status: 'fulfilled' });
 assert.deepEqual(Object.keys(r), ['status']);
 
+// P3: the status <select>'s per-type visibility rule (mirrors invSetOrderType in js/src/07-orders.js).
+// The reported bug: a customer order's status picker was "stuck" — every option was hidden, because
+// the select had no `supplied` option at all (the ONLY status customer orders use) while every
+// supplier-pipeline status was hidden for isCust. Fixed by adding the option and hiding it back the
+// other way for supplier orders.
+const ORDER_STATUS_OPTIONS = ['pending', 'in_transit', 'stuck', 'at_port', 'delivered', 'supplied'];
+function visibleStatusOptions(isCust) {
+  const suppOnly = { pending: 1, in_transit: 1, stuck: 1, at_port: 1, arrived: 1, delivered: 1 };
+  const custOnly = { supplied: 1 };
+  return ORDER_STATUS_OPTIONS.filter(v => !((isCust && suppOnly[v]) || (!isCust && custOnly[v])));
+}
+
+let vis = visibleStatusOptions(true);
+assert.ok(vis.length > 0, 'a customer order must have at least one selectable status (was stuck at zero)');
+assert.deepEqual(vis, ['supplied'], 'customer orders show only supplied');
+
+vis = visibleStatusOptions(false);
+assert.ok(vis.includes('pending') && vis.includes('delivered'), 'supplier orders keep the supplier pipeline');
+assert.ok(!vis.includes('supplied'), 'supplier orders never show the customer-only supplied status');
+
 console.log('✅ test-order-patch: all assertions passed');

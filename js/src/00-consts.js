@@ -57,4 +57,4 @@
   // from 20-delivery-cert.js
   let _certReissueOf = null;
   let _certRows = [];   // last fetched list (reprint works off this cache)
-  
+

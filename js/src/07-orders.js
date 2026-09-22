@@ -762,11 +762,26 @@
     var aw = document.getElementById('invOrderAssigneeWrap'); if (aw) aw.style.display = (isCust && typeof getCurrentUser === 'function' && ['עידן', 'עמיחי'].indexOf(getCurrentUser()) !== -1) ? '' : 'none';
     var rw = document.getElementById('invOrderRawWrap'); if (rw) rw.style.display = (!window.invEditingOrderId) ? '' : 'none';   // AI text box on every new order (ספק + לקוח)
     // customer orders never enter the supplier pipeline — hide those statuses in the edit picker
-    // (otherwise setting 'delivered' would post INBOUND pool stock for goods that left)
+    // (otherwise setting 'delivered' would post INBOUND pool stock for goods that left).
+    // P3 bug: 'supplied' (the ONLY status customer orders actually use) had no <option> at all, so
+    // hiding every supplier status left a customer order's picker with zero visible/enabled options
+    // — "stuck", could never be changed. Fixed by adding the option (index.html) and hiding it back
+    // the other way for supplier orders, which never use it.
     var st = document.getElementById('invOrderStatus');
     if (st) {
       var suppOnly = { pending: 1, in_transit: 1, stuck: 1, at_port: 1, arrived: 1, delivered: 1 };
-      Array.prototype.forEach.call(st.options, function (op) { var h = isCust && !!suppOnly[op.value]; op.hidden = h; op.disabled = h; });
+      var custOnly = { supplied: 1 };
+      Array.prototype.forEach.call(st.options, function (op) {
+        var h = (isCust && !!suppOnly[op.value]) || (!isCust && !!custOnly[op.value]);
+        op.hidden = h; op.disabled = h;
+      });
+      // if the currently-selected option just became hidden (e.g. order type toggled), fall back
+      // to the first visible option instead of leaving the select showing a disabled value
+      var cur = st.options[st.selectedIndex];
+      if (cur && cur.disabled) {
+        var firstVisible = Array.prototype.find.call(st.options, function (op) { return !op.disabled; });
+        if (firstVisible) st.value = firstVisible.value;
+      }
     }
   };
   // אחראי picker changed → re-run the field toggle (shows the supplier field for ספק ישיר)
@@ -807,6 +822,7 @@
     invSetOrderType('supplier');   // default; controls supplier/kibbutz/raw-box visibility
     renderOrderItems();
     invToggleDistribution();
+    var apBtnNew = document.getElementById('invOrderApproveBtn'); if (apBtnNew) apBtnNew.style.display = 'none';   // nothing to approve yet
     document.getElementById('invOrderModal').classList.add('open');
   }
 
@@ -836,8 +852,22 @@
     invSetOrderType(orderType(o));
     renderOrderItems();
     invToggleDistribution();
+    // P4: allow approving straight from the edit form — same rule as the row's quick "✅ אשר" action
+    // (אביאם/ניתאי on a customer order, עמיחי on anything, אביאם on a supplier order ≤10 items).
+    var apBtn = document.getElementById('invOrderApproveBtn');
+    if (apBtn) apBtn.style.display = (o.status === 'pending_approval' && canApproveThisOrder(o)) ? '' : 'none';
     document.getElementById('invOrderModal').classList.add('open');
   }
+
+  // Approve button inside the edit form — delegates to the same approveOrder() the row's quick
+  // action uses, then closes the edit modal so the (now updated) list underneath is visible.
+  function invApproveFromEdit(btn) {
+    var id = window.invEditingOrderId;
+    if (!id) return;
+    approveOrder(id, btn);
+    modalDismiss('invOrderModal');
+  }
+  window.invApproveFromEdit = invApproveFromEdit;
 
   function renderOrderItems() {
     const wrap = document.getElementById('invOrderItems');

@@ -739,11 +739,32 @@
     if (!fromEl.value) { const d = new Date(); fromEl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }   // default: current month
     const from = fromEl.value || '2000-01-01';
     const to = document.getElementById('invCertsTo').value || '2099-12-31';
-    root.innerHTML = '<div style="padding:16px;color:#94a3b8;">⏳ טוען תעודות…</div>';
+    const fetchKey = from + '|' + to;
+    // renderInventory() is also called on every 15s home-data poll and on every window resize
+    // crossing the mobile/desktop breakpoint, so this ran (and repainted the whole table, losing
+    // scroll position) on a timer even when nothing changed ("רענונים כל הזמן" — item P1). Only
+    // show the loading placeholder / wipe the DOM on a first load or an actual filter change;
+    // a background refetch that comes back identical to what's on screen is a silent no-op below.
+    // kept on window (not a module-local) so an isolated eval of this file — e.g. the vitest/tap
+    // harness that loads only this module's source — never throws a ReferenceError on first read.
+    const isFreshQuery = fetchKey !== window._certsFetchKey;
+    if (isFreshQuery) root.innerHTML = '<div style="padding:16px;color:#94a3b8;">⏳ טוען תעודות…</div>';
+    let fetched;
     try {
-      _certRows = await window._sbCertGet('delivery_certs?select=*&cert_date=gte.' + from + '&cert_date=lte.' + to + '&order=cert_number.desc');
+      fetched = await window._sbCertGet('delivery_certs?select=*&cert_date=gte.' + from + '&cert_date=lte.' + to + '&order=cert_number.desc');
     } catch (e) { root.innerHTML = '<div style="padding:16px;color:#dc2626;">שגיאה בטעינה: ' + certEsc(e.message) + '</div>'; return; }
-    const q = (document.getElementById('invCertsSearch').value || '').trim();
+    const fetchedJSON = JSON.stringify(fetched);
+    const searchVal = (document.getElementById('invCertsSearch').value || '').trim();
+    // data + filters unchanged since the last paint → skip the repaint entirely (render once per
+    // data change, per spec). A force call (range/search change, cert action) always repaints.
+    if (!force && !isFreshQuery && fetchedJSON === window._certsRawJSON && root.dataset.certsSearch === searchVal) {
+      return;
+    }
+    window._certsRawJSON = fetchedJSON;
+    window._certsFetchKey = fetchKey;
+    _certRows = fetched;
+    root.dataset.certsSearch = searchVal;
+    const q = searchVal;
     const rows = q ? _certRows.filter(c => (c.kibbutz || '').includes(q) || ((c.customer || {}).name || '').includes(q) || String(c.cert_number).includes(q)) : _certRows;
     const srcLabel = { visit: '📍 ביקור', order: '🧾 הזמנה', ems: '🔧 משימת EMS', manual: '✍️ ידני' };
     const vw = typeof isViewer === 'function' && isViewer();
