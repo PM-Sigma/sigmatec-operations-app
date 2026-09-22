@@ -100,7 +100,7 @@ test('landing strip: what is left for the field team, and a tap filters the card
 
   const strip = page.getByTestId('burns-strip');
   await expect(strip).toBeVisible({ timeout: 15_000 });
-  await expect(strip).toContainText('צריבות — נותרו 2 ב-1 קיבוץ');
+  await expect(strip).toContainText('צריבות · נותרו 2 ב-1 קיבוץ');
 
   await strip.getByTestId('burns-strip-filter').click();
   await expect(page.locator('#sigma-home .kibbutz[data-name="יגור"]')).toHaveClass(/burn-filtered-out/);
@@ -119,7 +119,7 @@ test('landing strip: עמיחי is shown PROGRESS, not a to-do list (עידן 18
 
   const strip = page.getByTestId('burns-strip');
   await expect(strip).toBeVisible({ timeout: 15_000 });
-  await expect(strip).toContainText('צריבות — בוצעו 3 מתוך 5 · 60%');
+  await expect(strip).toContainText('צריבות · בוצעו 3 מתוך 5 · 60%');
 
   expectNoConsoleErrors(rec);
 });
