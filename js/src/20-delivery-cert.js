@@ -621,6 +621,17 @@
   }
   window.certSetRange = certSetRange;
 
+  // Chip matrix (sig-tile/sig-grid, round-2 item E2): single-select, "הכל" is the fallback —
+  // tapping the already-active chip deselects it and returns to "הכל" instead of leaving no filter.
+  // uses window._certRangeInited so this file also works when evaluated in isolation (tests)
+  function certRangeTap(range) {
+    const active = document.querySelector('#inv-section-certs .btn-quick-date[data-range="' + range + '"]');
+    window._certRangeInited = true;
+    if (range !== 'all' && active && active.classList.contains('active')) { certSetRange('all'); return; }
+    certSetRange(range);
+  }
+  window.certRangeTap = certRangeTap;
+
   async function invRenderCerts(force) {
     const root = document.getElementById('invCertsList');
     const section = document.getElementById('inv-section-certs');
@@ -628,6 +639,13 @@
     if (!section.classList.contains('active') && !force) return;   // don't hit Supabase for a hidden tab
     if (typeof window._sbCertGet !== 'function') { root.innerHTML = '<div style="padding:16px;color:#94a3b8;">לא זמין במצב הדגמה</div>'; return; }
     const fromEl = document.getElementById('invCertsFrom');
+    // first-ever render, nothing picked yet → the "הכל" chip is already shown active in the
+    // markup; make the actual query match it instead of silently defaulting to the current month.
+    if (!fromEl.value && !document.getElementById('invCertsTo').value && !window._certRangeInited) {
+      window._certRangeInited = true;
+      certSetRange('all');
+      return;
+    }
     if (!fromEl.value) { const d = new Date(); fromEl.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01'; }   // default: current month
     const from = fromEl.value || '2000-01-01';
     const to = document.getElementById('invCertsTo').value || '2099-12-31';
@@ -657,6 +675,7 @@
           <button class="inv-btn small" onclick="certView('${idArg}')" title="תצוגה מקדימה — בלי להוריד; הדפסה מתוך התצוגה">👁 הצג</button>
           ${c.drive_url ? `<a class="inv-btn small" style="background:#f59e0b;text-decoration:none;display:inline-block;" href="${certEsc(c.drive_url)}" target="_blank" rel="noopener" title="עותק ה-PDF בדרייב">📁</a>` : ''}
           ${vw ? '' : `<button class="inv-btn small" style="background:#16a34a;" onclick="certSendOpen('${idArg}')" title="שליחה במייל / וואטסאפ לאנשי הקשר של האתר">📤</button>`}
+          ${(!vw && typeof window.certSendByEmail === 'function') ? `<button class="inv-btn small" style="background:#0369a1;" onclick="certSendByEmail('${idArg}')" title="שליחה מהירה במייל לאיש הקשר האחרון">✉️</button>` : ''}
           ${(cancelled || vw) ? '' : `<button class="inv-btn small" style="background:#0e7490;" onclick="certReissue('${idArg}')" title="פתח לעריכה, הפק תעודה חדשה ובטל את זו אוטומטית">📝 הפק מתוקנת</button>
           <button class="inv-btn small" style="background:#dc2626;" onclick="certCancel('${idArg}', this)">🚫 בטל</button>`}
         </td>
