@@ -255,16 +255,46 @@
 }
 .att-icon-btn:hover { background: hsl(var(--secondary)); }
 
+/* F-1: a missing day is a BUTTON, and it has to look like one at arm's length — a bigger
+   target, a solid ring and a ＋ that says "tap me to file this day". */
 .att-chip-missing {
-  min-height: 32px;
-  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 13px;
   border-radius: 999px;
   border: 1px dashed var(--att-missing-ink);
   background: var(--att-missing-bg);
   color: var(--att-missing-ink);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
+  transition: transform .15s ease, background-color .15s ease;
 }
+.att-chip-missing:hover { background: hsl(var(--secondary)); }
+.att-chip-missing:active { transform: scale(.97); }
+.att-chip-plus { font-size: 13px; line-height: 1; opacity: .8; }
+
+/* F-3: the two monthly reports — icon AND label, one tap wide enough for a thumb. */
+.att-report-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: background-color .15s ease;
+}
+.att-report-btn:hover { background: hsl(var(--secondary)); }
+
+/* F-5: ערב חג — a work day, so it is never violet-muted like a חג; it just says so. */
+.att-cell[data-eve="1"] { border-style: solid; border-color: var(--att-holiday-ink); }
+
 .att-badge-holiday {
   border-radius: 999px;
   padding: 2px 8px;

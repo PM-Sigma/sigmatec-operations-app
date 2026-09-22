@@ -133,11 +133,90 @@ test('attendance: whoever may look at everyone gets the person toggle', async ({
   expectNoConsoleErrors(rec);
 });
 
-test('attendance: the field worker sees only his own month', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+test('attendance: אביאם sees the month of ניתאי, and may only look at it', async ({ page }, ti) => {
+  // Round 2 (F-6): אביאם asked to see ניתאי's month so he can tell him to fill it in. The
+  // toggle is therefore his too — and the day panel on ניתאי's month says צפייה בלבד.
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
   await openAttendance(page);
-  await expect(page.locator('[data-person]')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: /נוכחות — ניתאי/ })).toBeVisible();
+
+  await expect(page.locator('[data-person="ניתאי"]')).toBeVisible();
+  await page.locator('[data-person="ניתאי"]').click();
+  await expect(page.getByRole('heading', { name: /נוכחות/ })).toContainText('ניתאי');
+
+  const empty = page.locator('[data-date][data-state="missing"], [data-date][data-state="future"]').first();
+  await empty.click();
+  const editor = page.locator('[data-testid="att-sheet"]:visible, [data-testid="att-panel"]:visible').first();
+  await expect(editor.getByTestId('att-readonly')).toBeVisible();
+  await expect(editor.locator('[data-daytype="office"]')).toHaveCount(0);
+
+  await shot(page, ti, 'read-only');
+  expectNoConsoleErrors(rec);
+});
+
+// ── round 2 · F-1 + F-3: the gaps are obviously tappable, the reports are labelled ──────
+
+test('attendance: a missing day is a real tap target, and the reports carry a label', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openAttendance(page);
+
+  const pdf = page.getByTestId('att-pdf');
+  const excel = page.getByTestId('att-excel');
+  await expect(pdf).toContainText('PDF');
+  await expect(excel).toContainText('Excel');
+  // icon AND label — a bare glyph is what the phone QA could not read
+  await expect(pdf.locator('svg')).toBeVisible();
+  await expect(excel.locator('svg')).toBeVisible();
+
+  const chip = page.getByTestId('att-missing').locator('[data-missing]').first();
+  if (await chip.count()) {
+    const box = await chip.boundingBox();
+    expect(box!.height, 'a missing-day chip must be a thumb-sized button').toBeGreaterThanOrEqual(36);
+    await expect(chip).toContainText('＋');
+  }
+
+  expectNoConsoleErrors(rec);
+});
+
+// ── round 2 · F-5: ערב חג — required, and מהבית unless the person says otherwise ────────
+
+test('attendance: an ערב חג offers מהבית on a countdown that can be stopped', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openAttendance(page);
+
+  // A weekday in the SECOND week — the fixture's holiday, closure, visit and two manual days
+  // all sit in the first one. Pushed onto the same list the production fetch fills.
+  const eve = await page.evaluate(() => {
+    const d = new Date();
+    const x = new Date(d.getFullYear(), d.getMonth(), 1);
+    while (x.getDay() !== 2) x.setDate(x.getDate() + 1);
+    x.setDate(x.getDate() + 7);
+    const p = (v: number) => String(v).padStart(2, '0');
+    const key = x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
+    const w = window as any;
+    w.SHEET_DATA.holidays = (w.SHEET_DATA.holidays || [])
+      .filter((h: any) => h.date !== key)
+      .concat([{ date: key, name: 'ערב חג לדוגמה', kind: 'holiday_eve', required: true }]);
+    w.sigmaEmit?.('holidays-loaded', { count: w.SHEET_DATA.holidays.length });
+    return key;
+  });
+
+  const cell = page.locator(`[data-date="${eve}"]`);
+  await expect(cell).toHaveAttribute('data-eve', '1');
+  // it is a WORK day — never violet-muted like a חג, and never skipped by the gaps
+  await expect(cell).not.toHaveAttribute('data-state', 'holiday');
+
+  await cell.click();
+  const editor = page.locator('[data-testid="att-sheet"]:visible, [data-testid="att-panel"]:visible').first();
+  const countdown = editor.getByTestId('att-eve-countdown');
+  await expect(countdown).toBeVisible();
+  await expect(countdown).toContainText('מהבית');
+
+  await editor.getByTestId('att-eve-cancel').click();
+  await expect(countdown).toHaveCount(0);
+  // …and the person picks whatever he likes instead
+  await expect(editor.locator('[data-daytype="office"]').first()).toBeVisible();
+
+  await shot(page, ti, 'eve');
   expectNoConsoleErrors(rec);
 });
 

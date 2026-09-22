@@ -29,9 +29,10 @@ import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  cellsOf, dayChip, dayLabel, DAY_ORDER, dm, HE_DAY_LETTERS, holidayNote, holidayShort,
-  kpis as computeKpis, missingByPerson, missingDays, monthGrid, ymd,
-  type AttRow, type DayCell, type DayType, type Holiday,
+  canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER, dm,
+  EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
+  holidayShort, kpis as computeKpis, missingByPerson, missingDays, monthGrid, withVisitDays, ymd,
+  type AttRow, type DayCell, type DayType, type Holiday, type VisitLike,
 } from '@/lib/attendance';
 
 // ───────────────────────────── data ─────────────────────────────
@@ -46,6 +47,27 @@ function readRows(person: string, year: number, month: number): AttRow[] | null 
   try {
     if (!(window as any).SHEET_DATA) return null;
     return (sigma.attRows?.(person, year, month) || []) as AttRow[];
+  } catch { return null; }
+}
+
+/**
+ * The visit summaries of the month, straight off the same snapshot. The legacy merge already
+ * folds them into `attRows`; reading them HERE as well is what lets `withVisitDays` re-derive
+ * the field days from the visits themselves, so an edited visit date moves the day instead
+ * of leaving the old one behind (round 2, F-2). The merge is idempotent — no duplicate rows.
+ */
+function readVisits(person: string, year: number, month: number): VisitLike[] | null {
+  if (!person) return null;
+  try {
+    const data = (window as any).SHEET_DATA;
+    if (!data) return null;
+    const prefix = year + '-' + String(month).padStart(2, '0');
+    return ((data.visits || []) as any[])
+      .filter(v => v && v.visitor === person && String(v.date || '').slice(0, 7) === prefix
+        || (v && v.visitor === person && new Date(v.date).getFullYear() === year
+            && new Date(v.date).getMonth() + 1 === month))
+      .map(v => ({ id: v.id, visitor: v.visitor, date: v.date, kibbutz: v.kibbutz,
+        duration: v.duration, workday: !!v.workday })) as VisitLike[];
   } catch { return null; }
 }
 
@@ -120,6 +142,7 @@ function MonthGridView({
             role="gridcell"
             data-date={c.date}
             data-state={c.state}
+            data-eve={c.eve ? '1' : undefined}
             aria-current={c.today ? 'date' : undefined}
             aria-selected={selected === c.date}
             aria-label={dayChip(c.date) + (c.holiday ? ' · ' + c.holiday.name : '')}
@@ -127,7 +150,7 @@ function MonthGridView({
             className={'att-cell ' + (CELL_CLASS[c.state] || '') + (selected === c.date ? ' att-cell-sel' : '')}
           >
             <span className="text-[13px] font-bold tabular-nums">{c.day}</span>
-            {c.holiday && !c.holiday.required && (
+            {c.holiday && (!c.holiday.required || c.eve) && (
               <span className="att-cell-tag">{c.onHoliday ? '🕎' : holidayShort(c.holiday)}</span>
             )}
             {!c.holiday && c.row?.kibbutz && <span className="att-cell-tag">{c.row.kibbutz}</span>}
@@ -140,12 +163,32 @@ function MonthGridView({
 
 /** The editor for one day — the body of the phone sheet AND of the desktop panel. */
 function DayEditor({
-  cell, busy, onSave,
-}: { cell: DayCell; busy: boolean; onSave: (type: DayType, note: string) => void }) {
+  cell, busy, canEdit = true, onSave,
+}: { cell: DayCell; busy: boolean; canEdit?: boolean; onSave: (type: DayType, note: string) => void }) {
   const fromVisit = cell.row?.source === 'visit';
   const [note, setNote] = React.useState(cell.row?.note || '');
   const [pending, setPending] = React.useState<DayType | null>(null);
   React.useEffect(() => { setNote(cell.row?.note || ''); setPending(null); }, [cell.date, cell.row?.note]);
+
+  // ── ערב חג: the default files itself unless the person stops it (F-5) ────────────
+  // A day people mostly spend at home should not cost a tap. Opening an empty ערב חג starts
+  // a four-second countdown that saves 🏠 מהבית; touching ANYTHING — another type, the
+  // ביטול button — cancels it, and שמירה just files it sooner.
+  const eveCandidate = cell.eve && !cell.row && canEdit && !fromVisit;
+  const [evePaused, setEvePaused] = React.useState(false);
+  const [secs, setSecs] = React.useState(EVE_COUNTDOWN_MS / 1000);
+  React.useEffect(() => { setEvePaused(false); setSecs(EVE_COUNTDOWN_MS / 1000); }, [cell.date]);
+  React.useEffect(() => {
+    if (!eveCandidate || evePaused || pending || busy) return;
+    const started = Date.now();
+    const tick = window.setInterval(() => {
+      const n = Math.ceil((EVE_COUNTDOWN_MS - (Date.now() - started)) / 1000);
+      setSecs(n > 0 ? n : 0);
+    }, 250);
+    const fire = window.setTimeout(() => onSave(EVE_DEFAULT_TYPE, ''), EVE_COUNTDOWN_MS);
+    return () => { window.clearInterval(tick); window.clearTimeout(fire); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eveCandidate, evePaused, pending, busy, cell.date]);
 
   const current = (pending || cell.row?.type || null) as DayType | null;
   const needsNote = current === 'other';
@@ -161,6 +204,21 @@ function DayEditor({
       {/* A חג is an invitation, never a demand (spec §6: positive, no system-talk). */}
       {!!invite && <p data-testid="att-holiday-note" className="text-[12.5px] text-muted-foreground">{invite}</p>}
 
+      {/* the ערב חג countdown, and the one tap that stops it */}
+      {eveCandidate && !evePaused && !pending && (
+        <div data-testid="att-eve-countdown" className="flex items-center gap-2 rounded-[12px] border border-border bg-muted px-3 py-2">
+          <span className="text-[13px] font-bold tabular-nums">{eveCountdownText(secs)}</span>
+          <button
+            type="button"
+            data-testid="att-eve-cancel"
+            onClick={() => setEvePaused(true)}
+            className="ms-auto min-h-8 rounded-full border border-border bg-background px-3 text-[12.5px] font-bold"
+          >
+            ביטול
+          </button>
+        </div>
+      )}
+
       {fromVisit ? (
         <div className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
           <div className="font-bold">{dayLabel('field')}</div>
@@ -169,9 +227,14 @@ function DayEditor({
             {cell.row?.hours ? " · " + cell.row.hours + "ש'" : ''}
           </div>
         </div>
+      ) : !canEdit ? (
+        <div data-testid="att-readonly" className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
+          <div className="font-bold">{cell.row ? dayLabel(cell.row.type) : 'אין דיווח ליום הזה'}</div>
+          <div className="mt-0.5 text-muted-foreground">צפייה בלבד. אפשר להזכיר לו למלא.</div>
+        </div>
       ) : (
         <>
-          <DayTypeRow value={current} onPick={t => setPending(t)} busy={busy} />
+          <DayTypeRow value={current} onPick={t => { setEvePaused(true); setPending(t); }} busy={busy} />
           {needsNote && (
             <input
               value={note}
@@ -217,9 +280,12 @@ function AttendanceIsland() {
   // עידן, עמיחי (CEO) and the viewer may look at someone else's month; a field worker sees
   // his own. This mirrors js/src/11-search-login.js `canSeeAttendance`, whose own comment
   // says "עידן/עמיחי (CEO) see all via person-toggle" — עמיחי was missing from this half.
-  const canSwitch = (() => {
-    try { return !!sigma.isIdan?.() || !!sigma.isViewer?.() || me === 'עמיחי'; } catch { return me === 'עמיחי'; }
+  // Round 2 (F-6): אביאם asked to SEE ניתאי's month so he can tell him to fill it in — so
+  // the switch got wider and the WRITE did not. Both questions are goldens in lib/attendance.
+  const flags = (() => {
+    try { return { isIdan: !!sigma.isIdan?.(), isViewer: !!sigma.isViewer?.() }; } catch { return {}; }
   })();
+  const canSwitch = canSwitchPerson(me, flags);
   const people: string[] = (() => { try { return sigma.ATT_PEOPLE || []; } catch { return []; } })();
 
   React.useEffect(() => { if (!person && me) setPerson(me); }, [me, person]);
@@ -237,10 +303,19 @@ function AttendanceIsland() {
     // SHEET_DATA lands a moment after boot and announces nothing. Poll ONLY until it does.
     refetchInterval: q => (q.state.data ? false : 1500),
   });
+  const visitsQ = useQuery({
+    queryKey: ['attVisits', person, ym.y, ym.m],
+    queryFn: () => readVisits(person, ym.y, ym.m)
+      ?? ((qc.getQueryData(['attVisits', person, ym.y, ym.m]) as VisitLike[] | null | undefined) ?? null),
+    enabled: !!person,
+    refetchInterval: q => (q.state.data ? false : 1500),
+  });
   const holidaysQ = useQuery({ queryKey: ['holidays'], queryFn: readHolidays, staleTime: 6 * 3600_000 });
 
   const refresh = React.useCallback(() => {
     void qc.invalidateQueries({ queryKey: ['attRows'] });
+    // …and the visits with them: a summary saved (or its date corrected) is an attendance day.
+    void qc.invalidateQueries({ queryKey: ['attVisits'] });
   }, [qc]);
   useSigmaEvent('attendance-saved', refresh);
   useSigmaEvent('visit-saved', refresh);
@@ -252,7 +327,13 @@ function AttendanceIsland() {
   useSigmaEvent('holidays-loaded', () => { void qc.invalidateQueries({ queryKey: ['holidays'] }); });
   useSigmaEvent('user-changed', () => { try { setPerson(sigma.attPerson?.() || ''); } catch { /* legacy gone */ } });
 
-  const rows = (rowsQ.data || []) as AttRow[];
+  // F-2: the month, with every saved summary folded in as an automatic יום שטח. The legacy
+  // merge already does this; re-deriving it from the visits is what makes an EDITED visit
+  // date move the day (the old date goes back to missing) instead of leaving a ghost row.
+  const rows = React.useMemo(
+    () => withVisitDays((rowsQ.data || []) as AttRow[], (visitsQ.data || []) as VisitLike[], person),
+    [rowsQ.data, visitsQ.data, person]);
+  const canEdit = canEditAttendance(me, person, flags);
   const holidays = (holidaysQ.data || []) as Holiday[];
   const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today), [ym, rows, holidays, today]);
   const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m), [rows, holidays, today, ym]);
@@ -350,11 +431,26 @@ function AttendanceIsland() {
           <button type="button" aria-label="חודש הבא" onClick={() => shiftMonth(1)} className="att-icon-btn">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }} className="att-icon-btn" aria-label="הורדת דוח PDF">
+          {/* F-3: two bare icons said nothing. Icon AND label, both tappable at 360 px. */}
+          <button
+            type="button"
+            data-testid="att-pdf"
+            onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }}
+            className="att-report-btn"
+            aria-label="הורדת דוח נוכחות PDF"
+          >
             <FileText className="h-4 w-4" />
+            <span>PDF</span>
           </button>
-          <button type="button" onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }} className="att-icon-btn" aria-label="הורדת דוח Excel">
+          <button
+            type="button"
+            data-testid="att-excel"
+            onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }}
+            className="att-report-btn"
+            aria-label="הורדת דוח נוכחות Excel"
+          >
             <FileSpreadsheet className="h-4 w-4" />
+            <span>Excel</span>
           </button>
         </div>
       </header>
@@ -378,7 +474,8 @@ function AttendanceIsland() {
                 </span>
               )}
             </div>
-            {missing.length ? (
+            {missing.length ? (<>
+              <p className="mb-1.5 text-[12px] text-muted-foreground">אפשר ללחוץ על יום ולתעד אותו.</p>
               <div className="flex flex-wrap gap-1.5">
                 {cellsOf(grid, 'missing').filter(c => c.date < todayKey).map(c => (
                   <button
@@ -386,13 +483,15 @@ function AttendanceIsland() {
                     type="button"
                     data-missing={c.date}
                     onClick={() => openDay(c)}
+                    aria-label={'תיעוד ' + dayChip(c.date)}
                     className="att-chip-missing"
                   >
+                    <span aria-hidden className="att-chip-plus">＋</span>
                     <bdi>{dayChip(c.date)}</bdi>
                   </button>
                 ))}
               </div>
-            ) : (
+            </>) : (
               <p className="text-[12.5px] text-muted-foreground">
                 כל ימי העבודה בחודש מתועדים{kpis.onHoliday ? ` · 🕎 ${kpis.onHoliday} ימי עבודה בחג` : ''}
               </p>
@@ -435,7 +534,11 @@ function AttendanceIsland() {
               {todayCell.holiday && !todayCell.holiday.required && (
                 <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
               )}
-              {todayCell.row?.source === 'visit' ? (
+              {!canEdit ? (
+                <p className="text-[13px] text-muted-foreground">
+                  {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
+                </p>
+              ) : todayCell.row?.source === 'visit' ? (
                 <p className="text-[13px] text-muted-foreground">
                   נרשם מסיכום הביקור{todayCell.row.kibbutz ? ' · ' + todayCell.row.kibbutz : ''}
                 </p>
@@ -472,6 +575,7 @@ function AttendanceIsland() {
               <DayEditor
                 cell={selectedCell}
                 busy={save.isPending}
+                canEdit={canEdit}
                 onSave={(t, note) => save.mutate({ date: selectedCell.date, type: t, note })}
               />
             ) : (
@@ -500,6 +604,7 @@ function AttendanceIsland() {
                 <DayEditor
                   cell={openCell}
                   busy={save.isPending}
+                  canEdit={canEdit}
                   onSave={(t, note) => save.mutate({ date: openCell.date, type: t, note })}
                 />
               </motion.div>

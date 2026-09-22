@@ -12,7 +12,7 @@
 
 export type DayType = 'field' | 'office' | 'wfh' | 'reserve' | 'vacation' | 'off' | 'other';
 
-export type HolidayKind = 'holiday' | 'chol_hamoed' | 'company_closure';
+export type HolidayKind = 'holiday' | 'chol_hamoed' | 'company_closure' | 'holiday_eve';
 
 export interface Holiday {
   /** 'YYYY-MM-DD' */
@@ -24,6 +24,21 @@ export interface Holiday {
 }
 
 /** One day of a person's month, already merged (a day with two visits is ONE row). */
+/**
+ * One visit summary, as the legacy snapshot (`SHEET_DATA.visits`) carries it. Only the four
+ * fields the attendance rule needs are typed; everything else on a visit is none of its
+ * business.
+ */
+export interface VisitLike {
+  id?: string;
+  visitor?: string;
+  /** 'YYYY-MM-DD' or anything Date-ish — the date the person says the visit happened on. */
+  date?: unknown;
+  kibbutz?: string;
+  duration?: number | string;
+  workday?: boolean;
+}
+
 export interface AttRow {
   /** 'YYYY-MM-DD' */
   date: string;
@@ -57,6 +72,8 @@ export interface DayCell {
   today: boolean;
   /** A filled day that falls on a non-required holiday → the 🕎 marker in the reports. */
   onHoliday: boolean;
+  /** ערב חג — a work day that needs a report, with מהבית as its default (round 2, F-5). */
+  eve: boolean;
 }
 
 export interface MonthGrid {
@@ -111,13 +128,38 @@ export function dayLabel(type: DayType | string): string {
  * leaving it empty either.
  */
 export function holidayNote(h: Holiday | null | undefined): string {
+  if (isHolidayEve(h)) return h!.name + ' · ברירת המחדל היא ' + DAY_LABELS[EVE_DEFAULT_TYPE];
   if (!h || h.required) return '';
   return h.name + ' — הזנה אופציונלית';
+}
+
+// ───────────────────────────── ערבי חג (round 2, F-5) ─────────────────────────────
+//
+// An ערב חג is the opposite of a חג: people DO work, most of them from home, and the day is
+// still required — the report is what tells עידן who was where. So the rule is two lines and
+// no more: the kind marks the day, the default type is מהבית, and the screen offers to file
+// that default after a short countdown the person can always stop.
+
+/** The one type an ערב חג fills itself with unless the person says otherwise. */
+export const EVE_DEFAULT_TYPE: DayType = 'wfh';
+
+/** How long the day sheet waits before saving that default (ms). */
+export const EVE_COUNTDOWN_MS = 4000;
+
+export function isHolidayEve(h: Holiday | null | undefined): boolean {
+  return !!h && h.kind === 'holiday_eve';
+}
+
+/** The countdown line, second by second. `secs` is whole seconds, floored at 0. */
+export function eveCountdownText(secs: number): string {
+  const n = Math.max(0, Math.round(secs));
+  return 'נשמר ' + DAY_LABELS[EVE_DEFAULT_TYPE] + ' בעוד ' + n + '…';
 }
 
 /** The short label a grid cell shows under the number. */
 export function holidayShort(h: Holiday | null | undefined): string {
   if (!h) return '';
+  if (h.kind === 'holiday_eve') return 'ערב חג';
   if (h.kind === 'company_closure') return 'סגירה';
   if (h.kind === 'chol_hamoed') return 'חוה״מ';
   return 'חג';
@@ -224,7 +266,8 @@ export function monthGrid(
     else if (date > todayKey) state = 'future';
     else state = 'missing';
 
-    cells.push({ date, day: d, dow, weekend, holiday, required, row, state, today: isToday, onHoliday });
+    cells.push({ date, day: d, dow, weekend, holiday, required, row, state, today: isToday, onHoliday,
+      eve: isHolidayEve(holiday) });
   }
 
   const lead = cells.length ? cells[0].dow : 0;
@@ -322,4 +365,154 @@ export function missingByPerson(
     .map((r, i) => ({ r, i }))
     .sort((a, b) => Number(b.r.known) - Number(a.r.known) || b.r.count - a.r.count || a.i - b.i)
     .map(x => x.r);
+}
+
+// ───────────────── a saved visit IS a יום שטח (round 2, F-2) ─────────────────
+//
+// THE RULE: a visit summary someone saved is that person's attendance for that date. Nobody
+// files a יום שטח by hand after writing a summary, and nobody should have to — and when the
+// visit's date is corrected, the field day MOVES with it: the new date becomes a field day,
+// the old one goes back to being whatever it was without the visit (missing, unless a manual
+// row or another summary covers it).
+//
+// It is written as a DERIVATION, not as a write: the field days are computed from the visit
+// list every time, so an edited date needs nothing to be undone. The legacy snapshot already
+// merges visits into the month (js/src/04-attendance-daily.js attRowsFor); this function is
+// the same merge as a pure rule, and it is idempotent — running it over rows that already
+// carry the visit days changes nothing and NEVER duplicates a date.
+
+/** Hours a workday visit is worth when it carries no duration (the legacy WORKDAY_HOURS). */
+export const WORKDAY_HOURS = 8;
+
+/** The visits of one person, by date: 'YYYY-MM-DD' → the visits saved for that day. */
+export function visitsByDate(
+  visits: VisitLike[] | null | undefined,
+  person?: string,
+): Map<string, VisitLike[]> {
+  const out = new Map<string, VisitLike[]>();
+  for (const v of visits || []) {
+    if (!v) continue;
+    if (person && v.visitor && v.visitor !== person) continue;
+    const date = toYmd(v.date);
+    if (!date) continue;
+    const list = out.get(date);
+    if (list) list.push(v); else out.set(date, [v]);
+  }
+  return out;
+}
+
+/** The field day a date's visits add up to: kibbutzim joined, hours summed. */
+export function visitDayRow(date: string, dayVisits: VisitLike[]): AttRow {
+  const kibbutzim = Array.from(new Set(dayVisits.map(v => (v.kibbutz || '').trim()).filter(Boolean)));
+  const hours = dayVisits.reduce(
+    (s, v) => s + (v.workday ? WORKDAY_HOURS : (Number(v.duration) || 0)), 0);
+  return {
+    date,
+    type: 'field',
+    kibbutz: kibbutzim.join(', '),
+    hours: Math.round(hours * 100) / 100,
+    source: 'visit',
+  };
+}
+
+/**
+ * The person's month with every saved summary folded in as an automatic יום שטח.
+ *
+ * One row per date, always: a date that has a visit is a field day sourced `visit` (it wins
+ * over a manual row — the summary is the stronger evidence), a date that has none keeps
+ * whatever the person filed by hand. Sorted by date.
+ */
+export function withVisitDays(
+  rows: AttRow[] | null | undefined,
+  visits: VisitLike[] | null | undefined,
+  person?: string,
+): AttRow[] {
+  const byDate = new Map<string, AttRow>();
+  for (const r of rows || []) {
+    const date = toYmd(r?.date);
+    if (!date) continue;
+    // A row the legacy merge already derived from a visit is dropped here and rebuilt below
+    // from the visits themselves — that is what makes an edited visit date move the day
+    // instead of leaving a ghost behind.
+    if (r.source === 'visit') continue;
+    byDate.set(date, { ...r, date });
+  }
+  for (const [date, dayVisits] of visitsByDate(visits, person)) {
+    byDate.set(date, visitDayRow(date, dayVisits));
+  }
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+// ───────────────── the month's gaps, for whoever asks (round 2, F-4) ─────────────────
+
+/** How a caller hands over a month: 'YYYY-MM', or the pair. */
+export type MonthRef = string | { year: number; month: number };
+
+export function monthRef(m: MonthRef, today: Date = new Date()): { year: number; month: number } {
+  if (typeof m === 'string') {
+    const mm = /^(\d{4})-(\d{2})/.exec(m);
+    if (mm) return { year: Number(mm[1]), month: Number(mm[2]) };
+    return { year: today.getFullYear(), month: today.getMonth() + 1 };
+  }
+  return { year: m.year, month: m.month };
+}
+
+/**
+ * The missing days of ONE person in ONE month — the question the calendar asks so it can
+ * paint those cells red (Package G owns the cell; this owns the answer, so the two screens
+ * can never disagree).
+ *
+ * `rowsFor` defaults to the legacy snapshot reader on the bridge, which is what makes the
+ * call site a one-liner: `missingDaysFor('ניתאי', '2026-09')`. It answers `[]` when the
+ * snapshot is not there yet — "nothing to paint", never "nothing missing" — and a caller
+ * that wants to tell the two apart passes its own reader.
+ */
+export function missingDaysFor(
+  person: string,
+  month: MonthRef,
+  rowsFor?: (person: string, year: number, month: number) => AttRow[] | null | undefined,
+  holidays?: Holiday[] | null,
+  today: Date = new Date(),
+): string[] {
+  const { year, month: m } = monthRef(month, today);
+  const read = rowsFor || defaultRowsFor;
+  const rows = read(person, year, m);
+  if (!rows) return [];
+  const hol = holidays ?? defaultHolidays();
+  return missingDays(rows, hol, today, year, m);
+}
+
+function bridge(): any {
+  try { return (globalThis as any).sigma || null; } catch { return null; }
+}
+
+function defaultRowsFor(person: string, year: number, month: number): AttRow[] | null {
+  try { return (bridge()?.attRows?.(person, year, month) || null) as AttRow[] | null; } catch { return null; }
+}
+
+function defaultHolidays(): Holiday[] {
+  try { return (bridge()?.attHolidays?.() || []) as Holiday[]; } catch { return []; }
+}
+
+// ───────────────── who may look, who may write (round 2, F-6) ─────────────────
+//
+// אביאם asked to SEE ניתאי's month so he can tell him to fill it in; he is not asking to
+// fill it in for him. So the two questions are answered separately: switching person is
+// wide, editing someone else's day is not.
+
+export interface AttViewerFlags {
+  isIdan?: boolean;
+  isViewer?: boolean;
+}
+
+/** The two field workers see each other (read), and so do עידן · עמיחי · צפייה. */
+export function canSwitchPerson(user: string, flags: AttViewerFlags = {}): boolean {
+  return !!flags.isIdan || !!flags.isViewer || user === 'עמיחי'
+    || user === 'אביאם' || user === 'ניתאי';
+}
+
+/** Writing a day: your own month always; someone else's only for עידן and עמיחי. */
+export function canEditAttendance(user: string, person: string, flags: AttViewerFlags = {}): boolean {
+  if (!person || person === user) return !flags.isViewer;
+  return !!flags.isIdan || user === 'עמיחי';
 }
