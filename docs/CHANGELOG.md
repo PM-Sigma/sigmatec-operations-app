@@ -7,6 +7,27 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.21] 2026-09-22 late — עידן's evening re-test: icon, strip, EMS site list, visit form in one scroll, speech fixes
+
+- **Icon (2.20):** back to the Σ artwork — עידן's own Gemini image (Σ in a green gear with the module glyphs),
+  `icons/sigma-gear-source.jpg` → 192/512 via `scripts/make-icons.py`; the framed "תפעול" icon and the maskable
+  variant are gone.
+- **"המשימות הפנימיות שלי" strip (2.20):** it floated over every page's scroll. Collapsed by default (one line),
+  and `body.has-my-tasks` reserves the room under the page so the last card is never covered.
+- **Kibbutz list = EMS (2.20, data):** every `kibbutzim` row now carries its EMS site id from the production
+  `sites` table (58 sites; Test Site/Wilson excluded), and the five EMS sub-sites are sub-site rows under their
+  kibbutz (שדה אליהו - חקלאות, גשר השלום - מעוז חיים, שלוחות ספק חיצוני, שער הגולן מחוץ למחלק, מכללת ספיר - פנימי).
+  The code's `KIBBUTZ_SITE_MAP` is now only the offline fallback. PG memory `sites-lookup.md` completed.
+- **Visit summary in one scroll (ruling):** the chapters sheet no longer steps; all chapters are stacked under
+  their headings, 🎙 on top, שלח at the bottom scrolls to the first missing field. Stepper/next/back removed. V.
+- **Live transcript duplicated on Android** ("אני אני הייתי אני הייתי היום…"): Android Chrome re-delivers the whole
+  utterance every event; the transcript is now rebuilt from all results and REPLACES the session's text, in both
+  the 🎙 panel and the feedback box. W.
+- **Whisper vocabulary:** the record→transcribe path sends a `prompt` (the visit's kibbutz first, all kibbutz
+  names, then the product words: לנדיס, מונה, תלת-פאזי, משנה זרם, בקר…) to both Whisper backends; `transcribe`
+  redeployed. W.
+- Dialog/select z-index above sheets; boot ceiling 303 kB (2.18 follow-ups).
+
 ## [2.18] 2026-09-22 night — phone QA round 3 (packages N–S) + the four audit gaps (T, U)
 
 Planned by Fable (`docs/superpowers/specs/2026-09-22-phone-qa-round-3-design.md`), built by eight Opus/Sonnet agents

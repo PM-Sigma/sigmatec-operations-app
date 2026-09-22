@@ -66,7 +66,12 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-22 night (**2.18 — phone QA rounds 2 + 3 shipped to `main`; every note from 22.9 has a test-plan row**).
+## 🚦 Current state — last: 2026-09-22 late (**2.21 — rounds 2–3 + עידן's evening re-test shipped to `main`**).
+
+2.21 (evening re-test): Σ gear icon from עידן's image, my-tasks strip collapsed with page room, kibbutzim linked to the
+EMS `sites` table (+5 sub-site rows), visit summary as ONE scroll (ruling: no chapters/steps), Android live-transcript
+duplication fixed, Whisper gets a domain-vocabulary prompt (`transcribe` redeployed). Details: CHANGELOG [2.21].
+
 
 Round 1 (2.08–2.11) went to production at noon; round 2 (עידן's second phone batch) was planned by Fable in
 `docs/superpowers/specs/2026-09-22-phone-qa-round-2-design.md`, built by nine parallel Opus/Sonnet agents in
