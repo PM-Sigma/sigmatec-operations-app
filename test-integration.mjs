@@ -185,7 +185,11 @@ ok(a.fns.unknownMode.length === 0,
     // Task 10 (inventory spec §5.2): the DATABASE calls `inventoryAlert` — the movements
     // trigger, over pg_net — and pg_cron calls `inventoryDigest` hourly. No browser sends
     // either, by design: a client must not be able to make two people's phones buzz.
-    'inventoryAlert', 'inventoryDigest']);
+    'inventoryAlert', 'inventoryDigest',
+    // ⏱ 22.9: pg_cron calls `timerStale` every five minutes (db/cron_timer_5min.sql). No
+    // browser sends it — the whole point is that the reminder about a clock left running
+    // reaches the phone with no screen open anywhere.
+    'timerStale']);
   const stranded = a.fns.pushServerOnly.filter(m => !CRON_ONLY.has(m));
   ok(stranded.length === 0,
     'push-send implements modes nothing sends and that are not cron-only: ' + stranded.join(', '));

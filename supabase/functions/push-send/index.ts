@@ -15,6 +15,8 @@
 //                             capped at one per product per day.
 //   inventoryDigest         : { mode:'inventoryDigest', force? }        -> 12:00/17:00 digest -> amichai
 //                             AUTH: X-Cron-Key; hourly cron, gate on Israel 12/17, tag inv-digest-<date>-<hh>
+//   timerStale              : { mode:'timerStale' }                            → "the ▶ clock has run 2 h and nobody stopped it"
+//                             AUTH: X-Cron-Key header (pg_cron, db/cron_timer_5min.sql) OR a valid EMS login
 //   visitCron               : { mode:'visitCron' }                             → "2 h after the check-in, no summary yet"
 //                             AUTH: X-Cron-Key header (pg_cron, db/cron_visit_15min.sql) OR a valid EMS login
 //                             AUTH: X-Cron-Key header (pg_cron) OR a valid EMS login; only עידן may force
@@ -46,6 +48,11 @@ import {
 import {
   digestBody as invDigestBody, digestTitle, digestWindow, israelParts, lowStockTag, type AlertRow,
 } from "./alerts.ts";
+// ⏱ the running ▶ clock (עידן 22.9). Fourth copy-and-pin module: app/src/lib/clockify.ts is the
+// original, this is a BYTE-IDENTICAL copy, and test-timer-push.mjs fails the build on any drift.
+// The two-hour arithmetic the phone does and the one this cron does must be ONE function, or
+// the screen and the notification would disagree about when two hours have passed.
+import { timerNudgeFor, timerStaleSelect, type TimerRow } from "./clockify.ts";
 
 const APP = "/sigmatec-operations-app/";   // GitHub Pages base path (openWindow target)
 const CORS = {
@@ -381,6 +388,60 @@ Deno.serve(async (req: Request) => {
     const meta = { event: "gapReminder", order_id: null, where_txt: person, qty: count, actor: body.actor == null ? null : String(body.actor), title, body: bodyTxt };
     const r = await sendTo([person], payload, meta);
     return json({ ok: true, delivered: r.delivered, pruned: r.pruned });
+  }
+
+  // ---- ⏱ the 2 h "עדכן את השעון" reminder (עידן 22.9) ---------------------------------
+  // THE reason this mode exists: the in-app auto-stop only fires while a screen is open, so a
+  // phone left in a pocket heard nothing. The row is opened at ▶ (WorkTimer.tsx) precisely so
+  // this job can find it. pg_cron hits this every five minutes (db/cron_timer_5min.sql) and
+  // everything it decides is `timerStaleSelect` in ./clockify.ts — a pure function with
+  // goldens (app/src/lib/clockify.test.ts).
+  if (body.mode === "timerStale") {
+    // AUTH, exactly like visitCron: pg_cron's shared secret, or a live EMS login. The PUBLIC
+    // anon key alone must never be able to make someone's phone buzz.
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    const byCron = !!secret && !!cronKey && cronKey === secret;
+    if (!byCron && !(await emsValid(String(body.token || "")))) {
+      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
+    }
+
+    // 21:00–06:30 Israel: the same quiet hours the visit nudge keeps (§7k ג). Answered BEFORE
+    // the read and WITHOUT stamping anything — the clock is still running, so the row is
+    // simply picked up again at 06:30.
+    if (inQuietHours(Date.now())) return json({ ok: true, results: [], skipped: "quiet hours" });
+
+    // A clock older than a day is not a forgotten timer, it is an abandoned one; nudging
+    // about it days later helps nobody. Same shape as visitCron's 14 h window.
+    const windowStart = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { data: rows } = await sb.from("work_sessions").select("*")
+      .is("ended_at", null).is("reminded_at", null)
+      .gte("started_at", windowStart).order("started_at");
+    const open = (rows ?? []) as TimerRow[];
+    if (!open.length) return json({ ok: true, results: [] });
+
+    const picks = timerStaleSelect(open, Date.now());
+    const results: any[] = [];
+    for (const pick of picks) {
+      const { title, body: bodyTxt } = timerNudgeFor(pick.kibbutz, pick.started_at);
+      // One tap opens the card's timer sheet with the kibbutz already in it (js/src/22-push.js
+      // `pushact === 'timer'` → the WorkTimer's own sheet).
+      const url = APP + "?pushact=timer&kibbutz=" + encodeURIComponent(pick.kibbutz);
+      const payload = JSON.stringify({
+        title, body: bodyTxt, tag: "timer-" + pick.id, requireInteraction: true, url,
+        actions: [{ action: "timer", title: "⏱ פתח את השעון" }],
+        data: { sid: pick.id, actUrls: { timer: url } },
+      });
+      const meta = {
+        event: "timerStale", order_id: null, where_txt: pick.kibbutz, qty: 1, actor: null, title, body: bodyTxt,
+      };
+      const r = await sendTo([pick.person], payload, meta);
+      // Stamped whatever the delivery said: a person with no subscription must not be
+      // re-selected every five minutes for the rest of the day.
+      await sb.from("work_sessions").update({ reminded_at: new Date().toISOString() }).eq("id", pick.id);
+      results.push({ id: pick.id, kibbutz: pick.kibbutz, person: pick.person, delivered: r.delivered });
+    }
+    return json({ ok: true, results });
   }
 
   // ---- 📍 the 2 h visit-summary reminder (spec §5.2, guards §7k ג) --------------------

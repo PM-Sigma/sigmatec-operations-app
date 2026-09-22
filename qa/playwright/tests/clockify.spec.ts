@@ -23,6 +23,15 @@ test('עידן: ▶ → reload → still running → ■ → attendee + 2 tags �
   await expect(start).toBeVisible({ timeout: 15_000 });
   await start.click();
   await expect(card(page, 'חוקוק').getByTestId('work-timer-stop')).toBeVisible();
+
+  // ⏱ 22.9 — THE server-push contract, and only a real browser can show it: the row exists
+  // the moment ▶ is pressed, still OPEN. That row is what lets Supabase push "עדכן את השעון"
+  // to a phone that is never taken out of a pocket; nothing else in this flow can.
+  await expect.poll(async () => (await savedSessions(page)).length, { timeout: 15_000 }).toBe(1);
+  const open = (await savedSessions(page))[0];
+  expect(open.ended_at).toBeNull();
+  expect(open.person).toBe('עידן');
+  expect(open.kibbutz).toBe('חוקוק');
   await shot(page, ti, 'running');
 
   // THE reload: the timer is derived from `started_at` in storage, so it comes back running.
@@ -57,8 +66,11 @@ test('עידן: ▶ → reload → still running → ■ → attendee + 2 tags �
   await sheet.getByTestId('work-timer-confirm').click();
   await expect(sheet).toBeHidden({ timeout: 15_000 });
 
+  // …and ■ CLOSED that same row rather than adding a second one.
   const rows = await savedSessions(page);
   expect(rows).toHaveLength(1);
+  expect(rows[0].id).toBe(open.id);
+  expect(rows[0].ended_at).toBeTruthy();
   expect(rows[0].person).toBe('עידן');
   expect(rows[0].kibbutz).toBe('חוקוק');
   expect(rows[0].attendees).toEqual(['גפן']);
@@ -79,5 +91,26 @@ test('a technician never gets ▶', async ({ page }, ti) => {
   await expect(page.getByTestId('work-timer-start')).toHaveCount(0);
   await expect(page.getByTestId('work-timer-stop')).toHaveCount(0);
   await shot(page, ti, 'hidden-for-field');
+  expectNoConsoleErrors(rec);
+});
+
+test('🗑 עצור ומחק leaves no open row behind — nothing to nudge about', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  const start = card(page, 'חוקוק').getByTestId('work-timer-start');
+  await expect(start).toBeVisible({ timeout: 15_000 });
+  await start.click();
+  await expect.poll(async () => (await savedSessions(page)).length, { timeout: 15_000 }).toBe(1);
+
+  await card(page, 'חוקוק').getByTestId('work-timer-stop').click();
+  const edit = page.getByTestId('work-timer-edit');
+  await expect(edit).toBeVisible({ timeout: 15_000 });
+  await edit.getByTestId('work-timer-drop').click();
+  await edit.getByTestId('work-timer-drop-yes').click();
+
+  // An open row nobody ever closes would be nudged by the cron for a session he threw away.
+  await expect.poll(async () => (await savedSessions(page)).length, { timeout: 15_000 }).toBe(0);
+  await expect(card(page, 'חוקוק').getByTestId('work-timer-start')).toBeVisible();
+  await shot(page, ti, 'after-drop');
   expectNoConsoleErrors(rec);
 });
