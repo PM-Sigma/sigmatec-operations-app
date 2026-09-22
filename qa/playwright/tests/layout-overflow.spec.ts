@@ -115,6 +115,12 @@ test('A3 — the tab IS offered to someone the gate allows', async ({ page }, ti
 
   const nav = page.locator('#sigma-nav nav[aria-label="ניווט ראשי"]');
   expect(await page.evaluate(() => (window as any).sigma.canShowPage('inventory'))).toBe(true);
-  await expect(nav.getByRole('button', { name: 'מלאי', exact: true })).toBeVisible();
+  // 22.9 round 2 (Package A): for אביאם/ניתאי the bar is נוכחות · יומן · 📍 · קיבוצים · עוד, and
+  // מלאי is the FIRST row of ⋯ — offered, just not on the bar.
+  await expect(nav.getByRole('button', { name: 'מלאי', exact: true })).toHaveCount(0);
+  await expect(nav.getByRole('button', { name: 'נוכחות', exact: true })).toBeVisible();
+  await nav.getByRole('button', { name: 'עוד', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'מלאי', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
   expectNoConsoleErrors(rec);
 });

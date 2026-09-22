@@ -7,6 +7,55 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.12] 2026-09-22 — phone QA round 2: nine packages, planned by Fable, built by Opus/Sonnet agents
+
+**Why:** עידן's second batch of phone notes (22.9 15:15) plus the data ruling on which kibbutzim are "new".
+Catalog + packages: `docs/superpowers/specs/2026-09-22-phone-qa-round-2-design.md`. Item-by-item test plan:
+`docs/reports/2026-09-22-round-2-test-plan.md`.
+
+**Data (applied in Supabase).** `section='new'` only for דגניה ב · עין דור · ניר עציון; דפנה unarchived and active.
+Migrations applied: `internal_tasks_fields`, `meter_burns_ems_task`, `work_sessions_log`, `visits_reason`,
+`company_holidays_eves`.
+
+**A shell.** Two-line title, Σ in the corner, no overlap at 360 px; ➕ קיבוץ off the phone header (⋯ only); bottom bar
+= קיבוצים · יומן · 📍 · מלאי · עוד, and for אביאם/ניתאי נוכחות · יומן · 📍 · קיבוצים · עוד with מלאי leading ⋯
+(`navTabsFor`); "✍️ טיוטות פתוחות" section on top of the home (`draftsAtTop`); נוכחות icon `UserCheck`.
+
+**B Back.** A history sentinel so Back from the cards asks "לצאת מהאפליקציה?" [חזרה לדף הבית] [יציאה]; Back on a
+dirty dialog asks שמור טיוטה / לצאת בלי לשמור / להמשיך; tap-outside never navigates (`backAction`,
+`test-back-button.mjs`).
+
+**C visit summary + certificate** (the chapters sheet first, legacy mirrored). Placeholder 1.5; מלאי מקור gone;
+required = מי ביקר · משך ותאריך · מה עשיתי · איש קשר (in-place marks); `productSearch.ts` with aliases and misspellings,
+E360 → CT/PP/SP follow-up, SIMs hidden; returned equipment collapsed with ➕ and clean rows; EMS link never preselected,
+multi-select of open EMS + shared internal tasks (אביאם↔ניתאי), comment to every selected task, internal → done,
+otherwise a required סיבת הביקור → `visits.reason`; saving with products lands on the certificate screen: הפק (no print)
+→ שלח במייל לאיש קשר / הורד PDF, reachable again later, edits → שמור עדכונים; 🚚 back at the bottom; 🎙 experimental
+recording/paste that fills the form through the day-log chain (`daylogChain.ts`, corrections recorded).
+
+**D feedback.** Draft survives close/reload (root cause: teardown on first mount); live speech no longer duplicates
+(`parseRecognitionEvent`), one 🎤 דיבור לטקסט button, level meter gone; RTL Switch thumb fixed app-wide; copy fixed.
+
+**E inventory certificates.** Tab after מלאי בקיבוצים; chip-matrix quick filters with "הכל" default; 📄 סיכום תקופתי +
+📗 Excel on the current filter; ✉️ sends through `certSendOpen`.
+
+**F attendance.** Missing days as tappable pills; `withVisitDays` derives a יום שטח from every visit summary and
+follows a date edit; labelled Excel/PDF; ערבי חג (`holiday_eve`, 8 dates) required with a 4-second default-save
+countdown (🏠 מהבית) and cancel; אביאם and ניתאי read each other's month.
+
+**G calendar + briefing.** No grid +; work week default with "חודש מלא"/"שבוע עבודה" toggle; tiny edge week numbers;
+past days show their visit summaries read-only; future days take a kibbutz into the route and the briefing lists ALL
+its open tasks (due dates ignored); "הסתר משימות EMS" removed; picker חודש · שבוע · רשימה separated; 🔥 collapsed
+category; briefing on tap of a routed future day; today's briefing on first entry + a row above attendance.
+
+**H meeting screens.** Phone-fit, ✕ closes, EMS + internal tasks as text, region chips, edge-to-edge footer, big
+arrows with prev/next names, manual stopwatch, "מאז הישיבה הקודמת" (internal tasks; EMS tasks lack open timestamps).
+
+**I docs.** `docs/usage/` — five how-to guides with screenshots for the brag skill.
+
+**Open:** red missing days on the calendar grid (F exports `missingDaysFor`, G's cell not yet wired); an in-progress
+EMS-task-creation sort key has no state to read; server push for the 2 h timer while the phone is closed.
+
 ## [2.08] 2026-09-22 — the phone QA round: עידן's 50 notes from the Galaxy S24, catalogued and fixed
 
 **Why:** עידן tested the live app from his phone (22.9) and sent ~50 notes across every module.

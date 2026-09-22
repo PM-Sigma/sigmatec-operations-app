@@ -1,6 +1,6 @@
 # סבב תיקונים 2 — QA מהטלפון (22.9.2026, אחר הצהריים)
 
-STATUS: 🟡 OPEN — planned by Fable; executed by Opus/Sonnet agents in parallel worktrees; final test plan + QA by Fable.
+STATUS: ✅ SHIPPED (2.12, 22.9 evening) — all nine packages merged; open items listed in `docs/reports/2026-09-22-round-2-test-plan.md`.
 Base: `origin/main` ad4cfcd (2.11, כל סבב 1 בפרודקשן). Data ruling applied 22.9 15:30: `section='new'` only for
 דגניה ב · עין דור · ניר עציון; every other kibbutz is `active`.
 

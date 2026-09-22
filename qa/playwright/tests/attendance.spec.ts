@@ -200,6 +200,9 @@ test('attendance: an ערב חג offers מהבית on a countdown that can be st
     return key;
   });
 
+  // Stretch the countdown for the harness: under four parallel workers the 4 s were over before
+  // the ביטול tap landed on the desktop project. The rule itself stays 4 s in production.
+  await page.evaluate(() => { (window as any).__sigmaEveCountdownMs = 60_000; });
   const cell = page.locator(`[data-date="${eve}"]`);
   await expect(cell).toHaveAttribute('data-eve', '1');
   // it is a WORK day — never violet-muted like a חג, and never skipped by the gaps
