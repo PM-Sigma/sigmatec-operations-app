@@ -155,3 +155,17 @@ test('shell: the user-chip menu and the ⚙️ הגדרות island', async ({ pa
 
   expectNoConsoleErrors(rec);
 });
+
+test('shell: the user chip shows the first name on the phone, not just the initial', async ({ page }, ti) => {
+  const { rec, viewport } = await boot(page, ti);
+  test.skip(viewport !== 'mobile-390', 'Package O §1 — the phone used to shrink to "ע"');
+
+  await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click();
+  const chip = page.getByRole('button', { name: /עידן/ }).first();
+  await expect(chip).toBeVisible();
+  // The whole first name, not the single-letter initial the phone chip used to fall back to.
+  await expect(chip).toHaveText(/עידן/);
+  await expect(chip).not.toHaveText(/^ע$/);
+
+  expectNoConsoleErrors(rec);
+});

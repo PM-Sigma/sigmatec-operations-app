@@ -64,8 +64,10 @@ export function UserChip({ className }: { className?: string }) {
           aria-hidden
           className={cn('h-2 w-2 shrink-0 rounded-full', connected ? 'bg-brand-2' : 'bg-muted-foreground')}
         />
-        <span className="hidden sm:inline">{name || 'לא מחובר'}</span>
-        <span className="sm:hidden font-bold" aria-label={name || 'לא מחובר'}>{(name || '?').slice(0, 1)}</span>
+        {/* Package O §1 (22.9, round 3): the phone showed only the initial ("ע") — show the
+            first name ("עידן") instead, same as desktop. `name` is already a first name
+            (עידן, ניתאי, …), but split defensively in case it ever carries a surname. */}
+        <span>{(name || 'לא מחובר').split(' ')[0]}</span>
       </button>
 
       {open && (

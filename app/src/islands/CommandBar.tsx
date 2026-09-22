@@ -1,9 +1,10 @@
 // Ctrl+K — one input, one list, keyboard first (spec §7k.1, decision #12).
 //
 // Sources merged and ranked by `lib/commands.ts`: kibbutzim (from the same localStorage cache
-// the cards paint from, so the bar works offline), open EMS tasks (the shared cache), the
-// pages the person may actually open, and the actions `primaryAdd` + the ⋯ registry already
-// model — the bar can never offer something the header or the sheet would refuse.
+// the cards paint from, so the bar works offline), open EMS tasks (the shared cache), and the
+// pages the person may actually open — the bar can never offer something the header or the
+// sheet would refuse. Package O §3 (22.9, round 3) removed the "פעולות" group entirely; every
+// action it used to run is still reachable from its own surface (header ➕, ⋯ עוד, ● user chip).
 //
 // Opened by Ctrl/Cmd+K, by the desktop header search, and by the phone search field
 // (`sigma.openCommandBar()`). Every open and every pick is tracked (§7j) so a source nobody
@@ -15,11 +16,9 @@ import {
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { mount } from '@/islands';
 import { track } from '@/lib/track';
-import { openSettings } from '@/lib/settings';
 import { sigma, useCurrentUser, useSigmaEvent, type SigmaPage } from '@/bridge';
 import { roleOf } from '@/lib/landing';
-import { canManageKibbutzim, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
-import { primaryAdd, primaryAddLabel } from '@/lib/primaryAdd';
+import { labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
 import { EmsGate } from '@/components/EmsGate';
 import {
   KIND_HEADING, pushRecent, rankCommands, rankedRows, readRecents, type Command,
@@ -107,12 +106,6 @@ const PAGES: Array<{ page: SigmaPage; label: string }> = [
   { page: 'pushlog', label: 'התראות' },
 ];
 
-/** Open 🗓️ יומן on a given view — the island reads the same key on mount. */
-function openCalendarView(view: 'week' | 'month' | 'list'): void {
-  try { localStorage.setItem('cal_view_v1', view); } catch { /* private mode */ }
-  sigma.showPage('calendar');
-}
-
 function readKibbutzim(): KibbutzRow[] {
   // The same cache key the card home writes (`kibbutzim_v1`) — no query, no network, so the
   // bar opens instantly and still works on a phone with no signal.
@@ -126,48 +119,13 @@ function readKibbutzim(): KibbutzRow[] {
 
 function buildCommands(user: string, isViewer: boolean): Command[] {
   const out: Command[] = [];
-  const page = (() => { try { return ((window as any)._currentPage || 'kibbutz') as SigmaPage; } catch { return 'kibbutz' as SigmaPage; } })();
-  const role = roleOf(user, (() => { try { return sigma?.getRole?.() || ''; } catch { return ''; } })());
   const canShow = canShowPage;
-  const canUseEms = () => { try { return !!sigma.canUseEms?.(); } catch { return false; } };
+  void isViewer; // kept in the signature: callers pass it, and role-gating still applies to kibbutzim/tasks/pages
 
-  // ---- actions (the `>` prefix) ----
-  const add = primaryAdd(page, role, { canManageKibbutzim: canManageKibbutzim(user, isViewer) });
-  const addLabel = primaryAddLabel(add);
-  if (addLabel) out.push({ id: 'add:' + add, label: addLabel, kind: 'action', run: () => runAdd(add) });
-
-  if (canManageKibbutzim(user, isViewer)) {
-    out.push({ id: 'action:new-kibbutz', label: '➕ קיבוץ', kind: 'action', run: () => runAdd('kibbutz') });
-    out.push({ id: 'action:import', label: '📥 ייבוא סיכום ישיבה', kind: 'action',
-      run: () => window.dispatchEvent(new CustomEvent('sigma-open-import')) });
-  }
-  if (!isViewer) {
-    out.push({ id: 'action:visit', label: '📍 סיכום ביקור', kind: 'action', run: () => sigma.openVisitQuick() });
-    out.push({ id: 'action:cert', label: '🚚 תעודת משלוח', kind: 'action', run: () => sigma.openDeliveryCert({}) });
-    out.push({ id: 'action:stock', label: '🔢 דיווח שינוי במלאי', kind: 'action', run: () => sigma.showPage('inventory') });
-    // The list the retired משימות page used to be (§7m R1) — by the name people type.
-    out.push({ id: 'action:mytasks', label: '✅ המשימות שלי', keywords: 'משימות רשימה יומן',
-      kind: 'action', run: () => openCalendarView('list') });
-  }
-  // Ruling 3 (19.9): the retired EMS page's two header buttons become Ctrl+K actions. A
-  // kibbutz-less ➕ has no card to start from, which is exactly what a command bar is for.
-  //
-  // Gated on `canUseEms()` — the gate that page itself carried — and NOT on the broader
-  // "any non-viewer": retiring a screen must not hand anyone a capability they never had.
-  if (canUseEms()) {
-    out.push({ id: 'action:ems-task', label: '➕ משימה חדשה ב-EMS', keywords: 'EMS task משימה',
-      kind: 'action', run: () => { void sigma.emsCreateTask?.(''); } });
-    out.push({ id: 'action:ems-disconnect', label: '🔌 ניתוק EMS', keywords: 'logout disconnect התנתק',
-      kind: 'action', run: () => sigma.emsDisconnect?.() });
-  }
-  // Ruling 4 (19.9): the עובדים page retired with its compose box; the messaging did not.
-  if (canManageKibbutzim(user, isViewer)) {
-    out.push({ id: 'action:message', label: '✉️ הודעה לעובד', keywords: 'message הודעה',
-      kind: 'action', run: () => window.dispatchEvent(new CustomEvent(MESSAGE_EVENT)) });
-  }
-  out.push({ id: 'action:settings', label: '⚙️ הגדרות', kind: 'action', run: openSettings });
-  out.push({ id: 'action:feedback', label: '📣 רעיון / באג', kind: 'action',
-    run: () => window.dispatchEvent(new CustomEvent('sigma-open-feedback')) });
+  // Package O §3 (22.9, round 3): the "פעולות" group is removed entirely — קיבוצים · משימות ·
+  // מסכים are the whole bar now. Every action it used to offer (➕ קיבוץ, סיכום ביקור, תעודת
+  // משלוח, הגדרות, רעיון/באג, …) stays reachable from its own surface (the header ➕, the ⋯ עוד
+  // sheet, the ● user-chip menu) — nothing here was the only way in.
 
   // ---- kibbutzim ----
   for (const row of readKibbutzim()) {
@@ -307,7 +265,7 @@ function CommandBarPanel() {
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder="חיפוש: קיבוץ · משימה · מסך · פעולה"
+            placeholder="חיפוש: קיבוץ · משימה · מסך"
           />
           <CommandList className="max-h-[60vh]">
             <CommandEmpty>לא נמצא כלום</CommandEmpty>

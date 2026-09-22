@@ -45,7 +45,8 @@ test('internal tasks: ➕ on the card → form → read-only row on the card →
   await shot(page, ti, 'card-row');
 
   // ── it appears under "היום שלי" for its OWNER (ניתאי), so not for עידן here
-  await expect(page.locator('#sigma-pm-today').getByText('לבדוק את שער החשמל')).toHaveCount(0);
+  // (Package O §4, 22.9 round 3: the strip moved from #sigma-pm-today to #sigma-my-tasks)
+  await expect(page.locator('#sigma-my-tasks').getByText('לבדוק את שער החשמל')).toHaveCount(0);
 
   // ── inside the kibbutz card: the panel with the actions
   await card.locator('.kibbutz-name').click();

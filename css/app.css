@@ -281,13 +281,8 @@
   .kibbutz.hidden { display: none; }
   .comment-hint { font-size: 10px; color: var(--primary); margin-top: 6px; text-align: center; opacity: 0; transition: opacity 0.2s; }
   .kibbutz:hover .comment-hint { opacity: 0.7; }
-  .legend {
-    display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 20px;
-    background: var(--card); border-radius: 10px; margin-bottom: 20px;
-    border: 1px solid var(--border); font-size: 13px;
-  }
-  .legend-item { display: flex; align-items: center; gap: 6px; }
-  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+  /* .legend / .legend-item / .legend-dot / .legend-collapsible removed (Package O §2, 22.9
+     round 3): the "ℹ️ מקרא צבעים" block is gone from index.html, nothing else uses these. */
   .empty-state { text-align: center; color: var(--text-light); padding: 24px; font-size: 14px; font-style: italic; }
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none;
@@ -1106,10 +1101,6 @@
   .status-arrived      { background: #fce7f3; color: #9d174d; }
   .status-delivered    { background: #d1fae5; color: #065f46; }
   .btn-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-left: 4px; }
-  /* Collapsible legend at bottom of page */
-  .legend-collapsible { background: var(--card); border-radius: 10px; padding: 8px 14px; margin: 18px 0; border: 1px solid var(--border); }
-  .legend-collapsible summary { cursor: pointer; font-weight: 700; color: var(--text-light); padding: 4px 0; }
-  .legend-collapsible .legend { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
 
   /* Global search results dropdown */
   .global-search-results { position: absolute; top: 100%; right: 0; left: 0; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); max-height: 60vh; overflow-y: auto; z-index: 50; margin-top: 4px; }
@@ -1398,7 +1389,6 @@
     .section-body { padding: 12px 12px 16px; }
     .section-header { padding: 12px 14px; }
     .global-search-results { max-height: 50vh; }
-    .legend { gap: 10px; font-size: 12px; }
   }
   @media (max-width: 480px) {
     .kibbutz-grid { grid-template-columns: 1fr; }
@@ -1536,7 +1526,6 @@ body.user-viewer #invProductsList button { display: none !important; }
    two in his nav. */
 body.user-viewer.sigma-nav-ready .page-nav { display: none; }
 /* @end */
-body.user-viewer .legend-collapsible { display: none !important; }
 
 /* ===== Bottom nav (React island #sigma-nav) takes over on phones =====
    Gated on `body.sigma-nav-ready`, which Nav adds only AFTER it mounts: if ui/sigma.js fails
@@ -2068,3 +2057,24 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
   .sigma-crash button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); font: inherit; font-weight: 700; cursor: pointer; }
   .sigma-crash button.p { background: var(--priority); color: #fff; border-color: transparent; }
   @media (min-width: 768px) { .sigma-crash { inset-inline: auto 24px; max-width: 420px; bottom: 24px; } }
+
+  /* ── "🔒 המשימות הפנימיות שלי" strip — fixed above the bottom bar on EVERY module
+       (Package O §4, 22.9 round 3). Same offset pattern as .sigma-crash above (76px): clears
+       both the React #sigma-nav (phone) and the legacy .page-nav (phone override) heights,
+       plus the safe-area inset. Collapsed state is per-device (localStorage), not CSS. ── */
+  .my-tasks-strip {
+    position: fixed; inset-inline: 12px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 940;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 6px 12px; box-shadow: var(--shadow-md);
+  }
+  .my-tasks-strip ul { max-height: 40vh; overflow-y: auto; margin-top: 4px; }
+  .my-tasks-toggle {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    background: none; border: none; font: inherit; color: inherit; padding: 4px 0; cursor: pointer;
+  }
+  .my-tasks-caret { font-size: 10px; color: var(--text-light); }
+  @media (min-width: 769px) {
+    /* Desktop has no fixed bottom bar (`.page-nav` sits in normal flow at the top) — the
+       strip does not need to float over anything, so it collapses back into the flow. */
+    .my-tasks-strip { position: static; inset-inline: auto; bottom: auto; margin: 0 0 16px; max-width: 420px; }
+  }

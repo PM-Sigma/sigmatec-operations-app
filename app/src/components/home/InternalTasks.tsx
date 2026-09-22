@@ -242,20 +242,56 @@ export function InternalTasksPanel({ kibbutz, canAct }: { kibbutz: string; canAc
   );
 }
 
-/** "היום שלי" — the person's own open 🔒 rows, company-wide and at every kibbutz. Mounted
- *  standalone into `#sigma-pm-today` (index.html) — no kibbutz context, so no ⬆ promote here. */
+const MY_TASKS_COLLAPSED_KEY = 'sigma_my_tasks_collapsed_v1';
+
+/** Per-device collapsed state for the "המשימות הפנימיות שלי" strip (Package O §4, 22.9 round 3). */
+function readMyTasksCollapsed(): boolean {
+  try { return localStorage.getItem(MY_TASKS_COLLAPSED_KEY) === '1'; } catch { return false; }
+}
+function writeMyTasksCollapsed(v: boolean): void {
+  try { localStorage.setItem(MY_TASKS_COLLAPSED_KEY, v ? '1' : '0'); } catch { /* private mode */ }
+}
+
+/**
+ * "היום שלי" — the person's own open 🔒 rows, company-wide and at every kibbutz. Mounted
+ * standalone into `#sigma-my-tasks` (index.html, renamed from `#sigma-pm-today` in Package O
+ * §4) — no kibbutz context, so no ⬆ promote here.
+ *
+ * A fixed, collapsible strip above the bottom bar on EVERY module (css/app.css
+ * `.my-tasks-strip`), not only the kibbutz page — collapsed state is remembered per device.
+ * Renders nothing (not even collapsed) when the person has no open rows of his own.
+ */
 export function MyInternalTasks({ person, canAct }: { person: string; canAct: boolean }) {
   const { data, isLoading } = useInternalTasks();
+  const [collapsed, setCollapsed] = React.useState(readMyTasksCollapsed);
   if (isLoading && !data) return null;
   const rows = myOpen(data, person);
   if (!rows.length) return null;
+  const toggle = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    writeMyTasksCollapsed(next);
+  };
   return (
-    <div className="my-internal-tasks">
-      <div className="mb-1 flex items-center gap-1.5">
-        <span className="text-[12px] font-bold text-muted-foreground">🔒 המשימות הפנימיות שלי</span>
-        <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground"><bdi>{rows.length}</bdi></span>
-      </div>
-      <ul>{rows.map(r => <InternalRow key={r.id} row={r} kibbutz={r.kibbutz ?? null} canAct={canAct} />)}</ul>
+    <div className="my-tasks-strip" data-testid="my-tasks-strip">
+      <button
+        type="button"
+        className="my-tasks-toggle"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+      >
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden>🔒</span>
+          <span className="text-[12px] font-bold text-muted-foreground">
+            {collapsed ? <><bdi>{rows.length}</bdi> משימות פנימיות שלי</> : 'המשימות הפנימיות שלי'}
+          </span>
+          {!collapsed && (
+            <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground"><bdi>{rows.length}</bdi></span>
+          )}
+        </span>
+        <span aria-hidden className="my-tasks-caret">{collapsed ? '▲' : '▼'}</span>
+      </button>
+      {!collapsed && <ul>{rows.map(r => <InternalRow key={r.id} row={r} kibbutz={r.kibbutz ?? null} canAct={canAct} />)}</ul>}
     </div>
   );
 }

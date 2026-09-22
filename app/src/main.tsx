@@ -118,9 +118,10 @@ function boot() {
       .catch(e => console.warn('[sigma] card home island failed — legacy cards stay', e));
   }
 
-  // 🔒 "היום שלי" internal tasks (Task 26): fills the #sigma-pm-today placeholder §7l left
-  // empty. Its own lazy chunk — most roles never see a row here and pay nothing for it.
-  if (document.getElementById('sigma-pm-today')) {
+  // 🔒 "היום שלי" internal tasks (Task 26): fills the #sigma-my-tasks placeholder §7l left
+  // empty (renamed from #sigma-pm-today, Package O §4 — now a fixed strip above the bottom
+  // bar). Its own lazy chunk — most roles never see a row here and pay nothing for it.
+  if (document.getElementById('sigma-my-tasks')) {
     import('@/islands/PmToday')
       .then(m => m.mountPmToday())
       .catch(e => console.warn('[sigma] pm-today island failed', e));

@@ -124,3 +124,51 @@ test('home cards: a team member sees the actions but not the admin affordances',
 
   expectNoConsoleErrors(rec);
 });
+
+test('home cards: "ℹ️ מקרא צבעים והסבר הלחצנים" is gone (Package O §2)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  await expect(page.getByText('מקרא צבעים והסבר הלחצנים')).toHaveCount(0);
+  await expect(page.locator('.legend-collapsible')).toHaveCount(0);
+
+  expectNoConsoleErrors(rec);
+});
+
+test('home cards: "המשימות הפנימיות שלי" is a fixed, collapsible strip above the bottom bar (Package O §4)', async ({ page }, ti) => {
+  const { rec, viewport } = await boot(page, ti);
+
+  // Add an internal task with no owner picked — it defaults to whoever adds it (עידן here),
+  // so it lands in his own "היום שלי" strip.
+  const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await card.getByTestId('add-internal-task').click();
+  const sheet = page.getByTestId('internal-task-sheet');
+  await sheet.locator('#itTitle').fill('לבדוק את הגנרטור');
+  await sheet.getByRole('button', { name: 'הוסף משימה' }).click();
+  await expect(sheet).toHaveCount(0);
+
+  const strip = page.locator('#sigma-my-tasks .my-tasks-strip');
+  await expect(strip).toBeVisible();
+  await expect(strip).toContainText('לבדוק את הגנרטור');
+
+  if (viewport === 'mobile-390') {
+    // fixed above the bottom bar, not buried at the bottom of the page flow
+    await expect(strip).toHaveCSS('position', 'fixed');
+    const stripBox = await strip.boundingBox();
+    const navBox = await page.locator('#sigma-nav nav').boundingBox();
+    // "above the bottom bar": the strip starts higher up the screen than the nav does.
+    expect(stripBox && navBox && stripBox.y < navBox.y).toBeTruthy();
+  }
+
+  // collapsed = one line "🔒 N משימות פנימיות שלי", and it survives a reload (per-device state)
+  await strip.getByRole('button', { name: 'המשימות הפנימיות שלי' }).click();
+  await expect(strip).toContainText('1 משימות פנימיות שלי');
+  await expect(strip.getByText('לבדוק את הגנרטור')).toHaveCount(0);
+  await shot(page, ti, 'collapsed');
+
+  await page.reload();
+  const stripAfterReload = page.locator('#sigma-my-tasks .my-tasks-strip');
+  await expect(stripAfterReload).toContainText('1 משימות פנימיות שלי');
+  await expect(stripAfterReload.getByText('לבדוק את הגנרטור')).toHaveCount(0);
+
+  expectNoConsoleErrors(rec);
+});

@@ -325,15 +325,7 @@
     </div>
   </div>
 
-  <details class="legend-collapsible">
-    <summary>ℹ️ מקרא צבעים והסבר הלחצנים</summary>
-    <div class="legend">
-      <div class="legend-item"><span class="legend-dot" style="background:#10b981"></span>הושלם, עלה לאוויר</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span>על המסלול</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>דורש פיתוח</div>
-      <div class="legend-item" style="font-weight:600;color:var(--primary);">💬 לחץ על קיבוץ לשליחת הערה</div>
-    </div>
-  </details>
+  <!-- "ℹ️ מקרא צבעים והסבר הלחצנים" removed entirely (Package O §2, 22.9 round 3, עידן: clutter). -->
 
   <div class="footer">
     Sigmatec Operations
@@ -1255,10 +1247,9 @@
      "📝 עבור על הסיכום" hand-off, so its chunk costs nothing on any other screen. -->
 <div id="sigma-meeting-review"></div>
 <div id="sigma-command"></div>
-<!-- §7l landings that are not built yet: עידן's "היום שלי" card set (Tasks 15/16) and עמיחי's
-     "סקירה" screen. They are mounted EMPTY on purpose — those tasks render into them without
-     touching the landing rule, and both roles land on 🏘 קיבוצים until then. -->
-<div id="sigma-pm-today"></div>
+<!-- §7l landings that are not built yet: עמיחי's "סקירה" screen. Mounted EMPTY on purpose —
+     that task renders into it without touching the landing rule, and he lands on 🏘 קיבוצים
+     until then. -->
 <div id="sigma-ceo"></div>
 <!-- 🔑 spec §7n: one re-login sheet for the whole app, mounted on every page -->
 <div id="sigma-relogin"></div>
@@ -1266,6 +1257,10 @@
      listeners live on `document`, so this single mount serves every page. -->
 <div id="sigma-refresh"></div>
 <div id="sigma-toaster"></div>
+<!-- 🔒 "המשימות הפנימיות שלי" — a fixed, collapsible strip above the bottom bar on EVERY
+     module (Package O §4, 22.9 round 3; renamed from #sigma-pm-today). Placed right before
+     the nav so it reads next to it in source even though both are position:fixed. -->
+<div id="sigma-my-tasks"></div>
 <div id="sigma-nav"></div>
 <script defer src="js/app.js?v=mucupoh7"></script>
 <script>
