@@ -46,6 +46,49 @@ Ground rules: as `2026-09-22-phone-qa-round-2-design.md` (source-only commits, o
 3. **תאריך הביקור**: גיליון ההגעה (`Field.tsx` mode `arrival`) — לפני רשימת הקיבוצים שדה תאריך (`<input type="date">`, ברירת מחדל היום,
    `data-testid="arrival-date"`), נשמר ל-`ChapterDraft.date` ונכתב ל-`visits.date`. הטופס הישן כבר יש לו `visitDate`. golden ב-`visitDraft.test`.
 
+### Z · דוח רגרסיה — למה ✏️ / 🚚 נעלמו (בוצע, Opus, worktree `r6/pkg-Z`)
+
+**שחזור:** Playwright כעידן על חוקוק. עם הביקור שב-mock (2.9, בתוך החודש) — `#lastVisitBox` מוצג והכפתורים שם.
+עם ביקור בן 62 יום (`SHEET_DATA.visits` מוזרע מחדש) — `getComputedStyle(#lastVisitBox).display === 'none'`,
+`currentKibbutzVisits.length === 0`, וגם `#editLastVisitBox` שבטאב מצב הקיבוץ נעלם. זה הבאג.
+
+**שורש:** `js/src/09-visits.js renderLastVisit` סינן לחלון של **31 יום אחורה** (`monthAgo`) לפני שהוא מחליט מה להציג.
+קיבוץ שביקרו בו לפני חודשיים → `allForKibbutz = []` → `box.style.display = 'none'` → אין ✏️, אין 🚚, ואין
+"📚 ביקורים קודמים" (וגם `editLastVisit()` הפך לno-op שקט). החלון עצמו עתיק (קדום ל-`0164c92`); מה שנשבר ב-22.9
+הוא סבב 2, קומיט **`068cc63`**, שהוסיף לכרטיס את שורת "📍 ביקור אחרון · <תאריך>" (`lastVisitLine` ב-`10-activity.js`)
+בלי שום חלון. מאז הכרטיס מבטיח סיכום שהמודל שלו מסרב לפתוח — בדיוק "דוח סיכום שכבר היה" שעידן דיווח עליו.
+החשודים שבמפרט נבדקו ונפסלו: `#legacyVoiceHandoff` (`934743f`) הוא תוספת בלבד, `#modalTitle` (N) לא נוגע,
+`.sig-frm` לא מסתיר, ו-`ems_site_ids` / שינוי שם לא נוגעים — הסינון הוא לפי `v.kibbutz` בלבד.
+
+**תיקון:** הוסר החלון לגמרי, סיכום שקיים ניתן לעריכה בכל גיל. בנוסף, הכרטיס נפתח על טאב **מצב הקיבוץ**,
+והקופסה ששם הייתה "לקריאה בלבד" — היא מקבלת את אותם שני כפתורים (`editLastVisitEditBtn` → `editLastVisitFromStatus()`
+שעובר לטאב ביקורים וממלא את הטופס, `editLastVisitCertBtn` → `certFromVisit`), כי שם עידן מחפש אותם.
+`editLastVisit()` כבר לא שותק כשאין ביקור. בדיקות: `visit-form.spec.ts`, שני מקרים.
+
+### Z · סעיף 2 — מה המפרט מ-17.9 מציג והכרטיס לא
+
+נבדק במודל של חוקוק כעידן (Playwright, 390 + 1440), מול `2026-09-17-kibbutz-cards-redesign-design.md` §3.3 / §4 / §5:
+
+| סעיף במפרט | בכרטיס היום | הכרעה |
+|---|---|---|
+| בולטים מסיכומי ישיבות + היסטוריה (§3.3) | ✅ `#sigma-modal-meetings` | — |
+| משימות EMS במלואן (§4) | ✅ `#modalEmsSection` (ב-mock אין משימות פתוחות; `ems-tasks.spec` ירוק) | — |
+| 🔥 צריבות | ✅ `#sigma-burns-modal` | — |
+| 🔒 משימות פנימיות | ✅ `#sigma-internal-modal` | — |
+| מצב הקיבוץ (health) | ✅ `#sigma-health-modal` | — |
+| דוח ביקור אחרון + ✏️/🚚 | ❌ נעלם לכל ביקור מעל 31 יום | **רגרסיה, תוקנה** (סעיף 1) |
+| היסטוריית ביקורים (`visitsHistoryWrap`, עד 3 קודמים) | ❌ נעלמה מאותה סיבה | **רגרסיה, תוקנה** |
+| 🚚 תעודת משלוח כפעולה על הכרטיס (§3.3) | אינו | **הוסר בהחלטה**: סבב 1, D7/F1 (לא במסך הראשי; רק בסיכום ביקור) |
+| 🗓 ישיבות כפעולה על הכרטיס + שמות הטאבים (§3.3) | אינו; הטאבים היום מצב הקיבוץ / ביקורים | **הוסר בהחלטה**: סבב 1, D8 |
+| רשימת תעודות שהופקו לקיבוץ | אינה בכרטיס; חיה במלאי → 🚚 תעודות משלוח | מעולם לא הייתה בכרטיס במפרט, לא רגרסיה. להחלטת עידן אם רוצים אותה שם |
+
+### Z · סעיף 3 — תאריך בגיליון ההגעה
+
+`Field.tsx` mode `arrival`: שדה `<input type="date" data-testid="arrival-date">` מעל רשימת הקיבוצים, ברירת המחדל היום,
+נוסע ב-`VisitChaptersOpen.date` אל הטיוטה ומשם ל-`visits.date`. הכלל הוא פונקציה טהורה `openingVisitDate(stored, picked, today)`
+(`app/src/lib/visitDraft.ts`, golden ב-`visitDraft.test.ts`): מה שכבר נכתב בטיוטה מנצח, אחריו התאריך שנבחר בהגעה, ורק אז השעון.
+בדיקה: `field.spec.ts` — השדה מעל הרשימה, בחירת אתמול → `vc-date` נפתח על אתמול.
+
 ## Not in this round
 - אזור אישי (לא ממודל) — X מתעד בלבד.
 - graphify של הריפו — שאלה של עידן; מוצע להריץ אחרי הסבב על `docs/` + `app/src/lib` + `js/src`.

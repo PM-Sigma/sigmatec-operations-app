@@ -176,3 +176,17 @@ export function draftAge(d: ChapterDraft | null | undefined, now: Date = new Dat
     note: stale ? 'עדיין רלוונטי?' : '',
   };
 }
+
+/**
+ * Round 4 · Package Z, item 3. Which day a chapters draft opens on, given what is already
+ * stored for it, the day picked on the arrival sheet, and today. Three rules, in order:
+ * what he already typed wins (a resumed draft is never re-dated behind his back), then the
+ * day he picked when he said where he arrived, and only then the clock.
+ */
+export function openingVisitDate(
+  stored: string | null | undefined,
+  picked: string | null | undefined,
+  today: string,
+): string {
+  return String(stored || '').trim() || String(picked || '').trim() || today;
+}

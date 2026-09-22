@@ -46,7 +46,7 @@ import {
   type VisitRow,
 } from '@/lib/field';
 import {
-  CHAPTERS, canSubmit, draftAge, missingFields,
+  CHAPTERS, canSubmit, draftAge, missingFields, openingVisitDate,
   type ChapterDraft, type ChapterId, type ReturnedItem,
 } from '@/lib/visitDraft';
 import { pickableProducts, productGroups, searchProducts } from '@/lib/productSearch';
@@ -213,7 +213,7 @@ function ArrivalRow({ item, onPick }: { item: ArrivalItem; onPick: (name: string
 }
 
 function Arrival({
-  items, loading, query, onQuery, onPick, onSkip, onStraightToVisit,
+  items, loading, query, onQuery, onPick, onSkip, onStraightToVisit, date, onDate,
 }: {
   items: ArrivalItem[];
   loading: boolean;
@@ -222,6 +222,8 @@ function Arrival({
   onPick: (name: string) => void;
   onSkip: () => void;
   onStraightToVisit: () => void;
+  date: string;
+  onDate: (d: string) => void;
 }) {
   const groups = React.useMemo(() => arrivalGroups(items), [items]);
   return (
@@ -230,6 +232,21 @@ function Arrival({
       <SheetDescription className="mb-3 mt-1 text-[13px] text-muted-foreground">
         נכין לך את כל מה שקורה שם: משימות, סיכום הישיבה וביקור קודם.
       </SheetDescription>
+
+      {/* Round 4 · Package Z, item 3: עידן — "היה פעם בחירת תאריכים ואז גישה לקיבוץ".
+          The day comes first, because a summary typed at night belongs to the day of the
+          visit. It rides into the chapters draft and from there into `visits.date`. */}
+      <label className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2.5">
+        <span className="shrink-0 text-[13px] font-bold text-muted-foreground">תאריך הביקור</span>
+        <input
+          type="date"
+          value={date}
+          data-testid="arrival-date"
+          onChange={e => onDate(e.target.value)}
+          aria-label="תאריך הביקור"
+          className="min-w-0 flex-1 bg-transparent text-start text-[15px] font-semibold text-foreground outline-none"
+        />
+      </label>
 
       <div className="mb-1.5 flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2.5">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -524,7 +541,16 @@ function Briefing({
 // (person, kibbutz, date) key, so a chapters draft and a form draft are one kind of thing.
 
 /** What the opener may ask for. */
-export interface VisitChaptersOpen { chapter?: ChapterId; openItems?: string }
+export interface VisitChaptersOpen {
+  chapter?: ChapterId;
+  openItems?: string;
+  /**
+   * Round 4 · Package Z, item 3: the day the visit HAPPENED, picked on the arrival sheet.
+   * A visit written up in the evening, or the next morning, is the normal case — so the day
+   * is asked before the kibbutz list, not guessed from the clock at write-up time.
+   */
+  date?: string;
+}
 
 /** The global the other islands (the strip's nudge, gaps, the push deep link) call. */
 export const VISIT_CHAPTERS_API = 'sigmaVisitChapters';
@@ -1177,7 +1203,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       ...stored,
       // The briefing's unticked leftovers pre-fill chapter 2 — but never over his own words.
       openItems: String(stored.openItems || '').trim() || opts.openItems || '',
-      date: String(stored.date || '') || today,
+      date: openingVisitDate(stored.date, opts.date, today),
     };
     setKibbutz(k);
     setD(next);
@@ -1830,7 +1856,17 @@ function FieldIsland() {
     isViewer: sigmaRole === 'viewer',
   }), [me, today, sigmaRole]);
 
-  const openArrival = React.useCallback(() => { setQuery(''); setMode('arrival'); track('field-arrival-open'); }, []);
+  /** The day the visit happened (item 3). Reset to today every time the sheet opens. */
+  const [arrivalDate, setArrivalDate] = React.useState(today);
+  const arrivalDateRef = React.useRef(arrivalDate);
+  arrivalDateRef.current = arrivalDate;
+
+  const openArrival = React.useCallback(() => {
+    setQuery('');
+    setArrivalDate(today);
+    setMode('arrival');
+    track('field-arrival-open');
+  }, [today]);
 
   /**
    * The sheet may only ARRIVE UNINVITED once A DAY — `arrival_dismissed_<date>`, so a reload
@@ -1994,7 +2030,7 @@ function FieldIsland() {
     const text = openItemsPrefill(brief.checklist, checked);
     track('field-brief-visit', picked);
     setMode('closed');
-    if (openVisitChapters(picked, { openItems: text })) return;
+    if (openVisitChapters(picked, { openItems: text, date: arrivalDateRef.current })) return;
     try { sigma.prefillOpenItems?.(picked, text); } catch (e) { console.warn('[field] prefill', e); }
     sigma.openVisitQuick(picked);
   };
@@ -2003,7 +2039,7 @@ function FieldIsland() {
   const openCert = () => {
     track('field-brief-cert', picked);
     setMode('closed');
-    if (openVisitChapters(picked, { chapter: 4 })) return;
+    if (openVisitChapters(picked, { chapter: 4, date: arrivalDateRef.current })) return;
     // Fallback: the legacy form first, the certificate once it is on screen, so the cert
     // links to the visit rather than to nothing.
     const once = () => {
@@ -2062,6 +2098,8 @@ function FieldIsland() {
                 onQuery={setQuery}
                 onPick={pick}
                 onSkip={skipToday}
+                date={arrivalDate}
+                onDate={setArrivalDate}
                 onStraightToVisit={() => { setMode('closed'); sigma.openVisitQuick(); }}
               />
             </motion.div>

@@ -622,9 +622,18 @@
 
     <div class="tab-content active" id="tab-meetings">
       <!-- Read-only last visit report — shown above the status so the visit is NOT typed into status -->
-      <div id="editLastVisitBox" style="background:#ecfdf5;border-right:3px solid #10b981;padding:10px 12px;border-radius:6px;margin-bottom:14px;font-size:12px;color:#065f46;display:none;white-space:pre-line;line-height:1.5;">
-        <div style="font-weight:700;margin-bottom:4px;">📍 דוח ביקור אחרון (לקריאה בלבד):</div>
-        <div id="editLastVisitContent"></div>
+      <!-- Round 4 · Package Z: the card opens on THIS tab, so this is where עידן looks for the
+           last summary. It used to be a read-only block, and the ✏️ / 🚚 actions sat one tab away in
+           ביקורים — which is why he reported them as gone. Same two buttons, same handlers, here. -->
+      <div id="editLastVisitBox" style="background:var(--success-light);border-inline-start:3px solid var(--success);padding:10px 12px;border-radius:6px;margin-bottom:14px;font-size:12px;color:#065f46;display:none;line-height:1.5;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
+          <div style="font-weight:700;">📍 דוח ביקור אחרון</div>
+          <div style="display:flex;gap:6px;">
+            <button type="button" id="editLastVisitCertBtn" class="sig-btn s" onclick="certFromVisit(this.dataset.visitId)" style="min-height:32px;padding:0 10px;font-size:12px;display:none;">🚚 תעודה</button>
+            <button type="button" id="editLastVisitEditBtn" class="sig-btn s" onclick="editLastVisitFromStatus()" style="min-height:32px;padding:0 10px;font-size:12px;display:none;">✏️ ערוך</button>
+          </div>
+        </div>
+        <div id="editLastVisitContent" style="white-space:pre-line;"></div>
       </div>
       <div id="modalEmsSection" style="display:none;margin:0 0 14px;"></div>
       <!-- ponytail: "סוג לקוח" kept as a hidden input so existing type data survives a save. -->
