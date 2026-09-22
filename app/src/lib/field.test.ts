@@ -8,6 +8,7 @@ import {
   leaveChecklist, nudgeFor, openItemsPrefill, openNudges, pushactParse, RECOUNT_NUDGES,
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   ATT_MORNING_HH, attendanceCronRuns, EOD_DEFAULT_HH, eodHourFor,
+  sharedOwners, VISIT_REASONS, visitReasonRequired, visitReasonText, visitReasonValid,
   type CheckinRow, type FieldTask,
 } from './field';
 import { burnLeaveItems } from './burns';
@@ -541,5 +542,59 @@ describe('briefingAutoOpen (G6)', () => {
   });
   it('a viewer is never interrupted', () => {
     expect(briefingAutoOpen({ ...base, lastShown: null, isViewer: true })).toBe('');
+  });
+});
+
+// ───────────── the visit summary's EMS link + סיבת הביקור (QA round 2, C6) ─────────────
+
+describe('sharedOwners', () => {
+  it('the two field people cover for each other, and the reader comes first', () => {
+    expect(sharedOwners('אביאם')).toEqual(['אביאם', 'ניתאי']);
+    expect(sharedOwners('ניתאי')).toEqual(['ניתאי', 'אביאם']);
+  });
+
+  it('everyone else sees their own and nobody elses', () => {
+    expect(sharedOwners('עידן')).toEqual(['עידן']);
+    expect(sharedOwners('עמיחי')).toEqual(['עמיחי']);
+  });
+
+  it('nobody signed in is an empty list, never a crash', () => {
+    expect(sharedOwners('')).toEqual([]);
+    expect(sharedOwners(null)).toEqual([]);
+    expect(sharedOwners(undefined)).toEqual([]);
+    expect(sharedOwners('  ')).toEqual([]);
+  });
+});
+
+describe('סיבת הביקור', () => {
+  it('there are exactly five, and only the last one is free text', () => {
+    expect(VISIT_REASONS).toHaveLength(5);
+    expect(VISIT_REASONS.filter(r => r.free).map(r => r.id)).toEqual(['other']);
+    expect(VISIT_REASONS[0].id).toBe('called');
+  });
+
+  it('linking anything at all IS the reason — the chips are only asked for when nothing is', () => {
+    expect(visitReasonRequired({})).toBe(true);
+    expect(visitReasonRequired({ emsTaskIds: [], internalTaskIds: [] })).toBe(true);
+    expect(visitReasonRequired({ emsTaskIds: ['T-1'] })).toBe(false);
+    expect(visitReasonRequired({ internalTaskIds: ['i-1'] })).toBe(false);
+  });
+
+  it('a fixed chip stores its own words', () => {
+    expect(visitReasonText('fault', '')).toBe('תקלה');
+    expect(visitReasonValid('planned', '')).toBe(true);
+  });
+
+  it('אחר is answered only once something is typed into it', () => {
+    expect(visitReasonValid('other', '')).toBe(false);
+    expect(visitReasonValid('other', '   ')).toBe(false);
+    expect(visitReasonValid('other', 'הייתי באזור')).toBe(true);
+    expect(visitReasonText('other', ' הייתי באזור ')).toBe('הייתי באזור');
+  });
+
+  it('no chip picked is never valid', () => {
+    expect(visitReasonValid('', '')).toBe(false);
+    expect(visitReasonValid(null, 'טקסט')).toBe(false);
+    expect(visitReasonText('nonsense', 'x')).toBe('');
   });
 });

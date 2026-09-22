@@ -124,7 +124,7 @@ test('visit form (legacy fallback): a draft autosaves and is offered back after 
 
   // ── the card says so too, before any reload (§5.1c: an open draft is visible state)
   await page.locator('#modalBackdrop .modal-close, #modalBackdrop').first().press('Escape');
-  await expect(page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .tag-draft')).toContainText('סיכום ביקור בהתהוות');
+  await expect(page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .tag-draft')).toContainText('יש טיוטה פתוחה של סיכום ביקור');
 
   // ── a FULL reload: the draft survives in localStorage and the form offers to resume
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -168,5 +168,27 @@ test('visit form (legacy fallback): "התחל מחדש" clears the form and drop
   const left = await page.evaluate(k => localStorage.getItem(k), DRAFT_KEY);
   expect(left === null || left === '{}').toBeTruthy();
 
+  expectNoConsoleErrors(rec);
+});
+
+// ───────────────── QA round 2, Package C — the legacy mirrors ─────────────────
+
+test('legacy form: C1 · C2 · C7 — the hours example, no מלאי מקור, the 🚚 button is back', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openLegacyFormDirect(page, 'חוקוק');
+
+  // C1: the manual box shows an EXAMPLE, not the word "הזנה ידנית".
+  await expect(page.locator('#visitDuration')).toHaveAttribute('placeholder', '1.5');
+
+  // C2: everything is חברה now, so the picker is not a question any more.
+  await expect(page.locator('#visitSource')).toBeHidden();
+  await expect(page.locator('#visitFieldForm')).not.toContainText('מלאי מקור');
+  await expect(page.locator('#visitSource')).toHaveValue('חברה');
+
+  // C7: the 🚚 button at the bottom of the summary is back, with nothing ticked.
+  await expect(page.locator('#visitCertBtn')).toBeVisible();
+  await expect(page.locator('#visitCertBtn')).toContainText('תעודת משלוח');
+
+  await shot(page, ti, 'legacy-c1-c2-c7');
   expectNoConsoleErrors(rec);
 });

@@ -869,3 +869,55 @@ export function pushactParse(search: string): PushAct | null {
   const c = q.get('cid'); if (c) out.cid = c;
   return out;
 }
+
+// ─────────────── the visit summary's EMS link + סיבת הביקור (QA round 2, C6) ───────────────
+
+/**
+ * Whose open internal tasks a person may see — and therefore close — from the visit summary.
+ *
+ * עידן, 22.9: the two field people cover for each other, so אביאם must see ניתאי's open tasks
+ * and ניתאי must see אביאם's. Everyone else sees their own and nobody else's. `me` is always
+ * first, because the list is rendered in this order and his own tasks are what he came for.
+ */
+export function sharedOwners(user: string | null | undefined): string[] {
+  const me = String(user || '').trim();
+  if (!me) return [];
+  if (!FIELD_PEOPLE.includes(me)) return [me];
+  return [me, ...FIELD_PEOPLE.filter(p => p !== me)];
+}
+
+export interface VisitReason { id: string; label: string; free?: boolean }
+
+/**
+ * Why he was there, when the visit is not attached to any task. The five of §C6, in the order
+ * they are shown; `אחר` carries a free-text box and is the only one that needs more typing.
+ */
+export const VISIT_REASONS: VisitReason[] = [
+  { id: 'called', label: 'הלקוח התקשר וביקש להגיע' },
+  { id: 'supply', label: 'אספקת מוצרים בלבד' },
+  { id: 'fault', label: 'תקלה' },
+  { id: 'planned', label: 'ביקור מתוכנן' },
+  { id: 'other', label: 'אחר', free: true },
+];
+
+/** A reason is required exactly when nothing at all was linked. Linking IS the reason. */
+export function visitReasonRequired(linked: {
+  emsTaskIds?: ReadonlyArray<string> | null;
+  internalTaskIds?: ReadonlyArray<string> | null;
+}): boolean {
+  return !((linked?.emsTaskIds || []).length || (linked?.internalTaskIds || []).length);
+}
+
+/** The sentence stored on `visits.reason` — empty when the answer is not complete yet. */
+export function visitReasonText(reasonId: string | null | undefined, other: string | null | undefined): string {
+  const r = VISIT_REASONS.find(x => x.id === String(reasonId || ''));
+  if (!r) return '';
+  if (!r.free) return r.label;
+  const t = String(other || '').trim();
+  return t ? t : '';
+}
+
+/** Is the reason answered? Only asked when `visitReasonRequired` said so. */
+export function visitReasonValid(reasonId: string | null | undefined, other: string | null | undefined): boolean {
+  return !!visitReasonText(reasonId, other);
+}

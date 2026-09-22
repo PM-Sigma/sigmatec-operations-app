@@ -998,6 +998,57 @@ if (mod) {
   });
 }
 
+// ---- 15. QA round 2 · C7 — the send helper, the plan mirror and the no-print flow ----
+// The DECISION is a vitest golden (app/src/lib/certSend.ts + certSend.test.ts). What is checked
+// HERE is that the legacy half says the same thing, that the one exported send helper Package E
+// calls is present under its agreed name, and that the visit flow can issue without printing.
+{
+  const src = fs.readFileSync(new URL('./js/src/20-delivery-cert.js', import.meta.url), 'utf8');
+
+  check('certSendOpen is exported under exactly that name (Package E calls it)',
+    () => assert.ok(/window\.certSendOpen = certSendOpen;/.test(src)));
+  check('the visit-side helpers resolve a cert from the visit id',
+    () => assert.ok(/window\.certSendForVisit = certSendForVisit;/.test(src)
+      && /window\.certDownloadForVisit = certDownloadForVisit;/.test(src)));
+  check('the inline "add a contact" path exists, so an empty site is not a dead end',
+    () => assert.ok(/window\.certAddContact = function/.test(src) && /site_contacts/.test(src)));
+  check('C7: openDeliveryCert carries noPrint, and issueDeliveryCert honours it',
+    () => assert.ok(/dataset\.noPrint = pre\.noPrint/.test(src)
+      && /const noPrint = document\.getElementById\('certModal'\)\.dataset\.noPrint === '1';/.test(src)
+      && /const w = noPrint \? null : window\.open/.test(src)));
+  check('… and with no print window the certificate opens in the in-app overlay instead',
+    () => assert.ok(/certOverlayShow\(certDocHtml\(cert, \{ screen: true \}\), cert\.id \|\| null, ''\)/.test(src)));
+
+  // The legacy mirror of app/src/lib/certSend.ts `certSendPlan`, evaluated for real.
+  const plan = new Function(
+    src.slice(src.indexOf('function certIsEmail'), src.indexOf('window.certSendPlan')) +
+    ' return certSendPlan;')();
+  const rows = [
+    { name: 'יוסי', email: 'yossi@k.co.il', phone: '050-123-4567', active: true },
+    { name: 'רונית', email: '', phone: '0521234567', active: true },
+    { name: 'ותיק', email: 'old@k.co.il', active: false },
+  ];
+  check('certSendPlan (legacy) === certSendPlan (TS): only the active, emailable contact is ticked',
+    () => {
+      const p1 = plan(rows);
+      assert.deepEqual(p1.selected, ['yossi@k.co.il']);
+      assert.equal(p1.canEmail, true);
+      assert.equal(p1.needsContact, false);
+      assert.deepEqual(p1.whatsapp.map(c => c.name), ['יוסי', 'רונית']);
+    });
+  check('certSendPlan (legacy): nobody emailable → needsContact, exactly like the TS rule',
+    () => {
+      for (const v of [[], null, undefined, [{ name: 'רונית', phone: '0521234567' }]]) {
+        const p2 = plan(v);
+        assert.equal(p2.needsContact, true, JSON.stringify(v));
+        assert.equal(p2.canEmail, false);
+        assert.deepEqual(p2.selected, []);
+      }
+    });
+  check('certSendPlan (legacy): a missing active flag means active',
+    () => assert.equal(plan([{ name: 'ותיק', email: 'v@k.co.il' }]).canEmail, true));
+}
+
 // Execute all queued async checks in order, then report.
 for (const fn of pending) { await fn(); }
 

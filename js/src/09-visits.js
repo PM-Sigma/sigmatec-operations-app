@@ -943,6 +943,10 @@
     if (!workday && (isNaN(duration) || duration <= 0)) missing.push('visitDuration');
     // איש קשר מלווה is required (עידן 22.9, J5 — "כרגע אני רוצה לחנך").
     if (!document.getElementById('visitContact').value.trim()) missing.push('visitContact');
+    // QA round 2 · C3: the four REQUIRED fields are מי ביקר · משך ותאריך · מה עשיתי · איש קשר.
+    // Everything else on this form is optional, and a summary with no "מה עשיתי" is not one.
+    var _sum = document.getElementById('visitSummary');
+    if (_sum && !_sum.value.trim()) missing.push('visitSummary');
     if (missing.length) { visitRequireMiss(missing); sigmaError('חסרים פרטים בשדות המסומנים'); return; }
     const emsIntent = readVisitEmsIntent();   // EMS status is mandatory when an open task exists
     if (emsIntent === false) return;          // validation failed → stay in the form
@@ -1179,9 +1183,12 @@
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return { ok: false, error: 'חסר תאריך הביקור' };
     if (!workday && !(duration > 0)) return { ok: false, error: 'חסר משך הביקור בשעות' };
 
-    // The cert rule, unchanged: equipment supplied → an issued certificate linked to this visit.
+    // The cert rule. QA round 2 · C7 moved the certificate AFTER the save for the visit-summary
+    // sheet — it lands on the certificate screen the moment the visit is filed — so a caller may
+    // opt out with `certAfter: true`. Every other caller (📝 יומן היום, the legacy form) keeps the
+    // gate exactly as it was: equipment supplied → an issued certificate linked to this visit.
     const id = String(d.id || '') || ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
-    if (products.length) {
+    if (products.length && !d.certAfter) {
       const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(id) : 0;
       if (!certNum) return { ok: false, error: 'סופק ציוד — נדרשת תעודת משלוח לפני שמירת הסיכום', needsCert: true, visitId: id };
     }
@@ -1194,8 +1201,13 @@
       contact: String(d.contact || '').trim(),
       products: products,
       productsOther: String(d.productsOther || '').trim(),
-      returnedItems: [],
+      // C5: 🔧 ציוד שהוחזר מהקיבוץ travels with the visit (the returns tab reads it).
+      returnedItems: (d.returned || d.returnedItems || [])
+        .map(function (r) { return { name: String((r && r.name) || '').trim(), qty: parseInt(r && r.qty, 10) || 1, note: String((r && r.note) || '') }; })
+        .filter(function (r) { return !!r.name; }),
       summary: String(d.summary || '').trim(),
+      // C6: why he was there, when the summary was linked to nothing at all.
+      reason: String(d.reason || '').trim(),
       openItems: String(d.openItems || '').trim(),
       workday: workday
     };
@@ -1206,7 +1218,8 @@
     const reqBody = {
       type: 'visit', kibbutz: visit.kibbutz, date: visit.date, visitor: visit.visitor, duration: visit.duration,
       contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
-      returnedItems: [], summary: visit.summary, openItems: visit.openItems, workday: visit.workday,
+      returnedItems: visit.returnedItems, summary: visit.summary, openItems: visit.openItems,
+      workday: visit.workday, reason: visit.reason,
       id: id, isNew: true
     };
     if (d.emsTaskId) reqBody.emsTaskId = String(d.emsTaskId);

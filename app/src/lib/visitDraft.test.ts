@@ -3,13 +3,18 @@
 // summary, whether שלח is allowed, and how old the thing he is resuming is.
 import { describe, expect, it } from 'vitest';
 import {
-  CHAPTERS, canSubmit, chapterState, draftAge, nextChapter, prevChapter, resumeChapter,
-  type ChapterDraft,
+  CHAPTERS, canSubmit, chapterState, draftAge, missingFields, nextChapter, prevChapter,
+  resumeChapter, type ChapterDraft,
 } from '@/lib/visitDraft';
 
 const d = (over: Partial<ChapterDraft> = {}): ChapterDraft => ({
   kibbutz: 'חוקוק', visitor: 'אביאם', date: '2026-09-19', summary: '', openItems: '',
   products: [], productsOther: '', ...over,
+});
+
+/** A draft that satisfies every REQUIRED field of C3 + C6 — the "otherwise fine" baseline. */
+const full = (over: Partial<ChapterDraft> = {}): ChapterDraft => d({
+  summary: 'בדקתי תקשורת', duration: '2', contact: 'יוסי', reasonId: 'fault', ...over,
 });
 
 describe('CHAPTERS', () => {
@@ -78,39 +83,69 @@ describe('nextChapter / prevChapter', () => {
   });
 });
 
-describe('canSubmit', () => {
+describe('canSubmit — the REQUIRED four, plus the reason (QA round 2, C3 + C6)', () => {
+  it('a draft with all four and a reason goes through', () => {
+    expect(canSubmit(full())).toEqual({ ok: true });
+  });
+
   it('refuses without "מה עשיתי" — that is the whole point of the summary', () => {
-    const r = canSubmit(d());
+    const r = canSubmit(full({ summary: '' }));
     expect(r.ok).toBe(false);
-    expect(r.reason).toBe('כתוב מה עשית — בלי זה אין סיכום');
+    expect(r.reason).toBe('כתוב מה עשית. בלי זה אין סיכום');
   });
 
-  it('a summary alone is enough when nothing was handed over', () => {
-    expect(canSubmit(d({ summary: 'בדקתי תקשורת' }))).toEqual({ ok: true });
+  it('refuses without hours, and a יום שלם counts as hours', () => {
+    expect(canSubmit(full({ duration: '' })).reason).toBe('כמה זמן היית שם?');
+    expect(canSubmit(full({ duration: '', workday: true }))).toEqual({ ok: true });
+    expect(canSubmit(full({ duration: '0' })).reason).toBe('כמה זמן היית שם?');
   });
 
-  it('equipment handed over and no certificate → refused, with the next step named', () => {
-    const r = canSubmit(d({ summary: 'הבאתי בקר', deliver: true, products: [{ name: 'אנטנה', qty: 2 }] }));
-    expect(r.ok).toBe(false);
-    expect(r.reason).toBe('סופק ציוד — קודם תעודת משלוח');
+  it('refuses without a date, a visitor or an איש קשר מלווה', () => {
+    expect(canSubmit(full({ date: '' })).reason).toBe('באיזה תאריך היית שם?');
+    expect(canSubmit(full({ visitor: '' })).reason).toBe('מי ביקר?');
+    expect(canSubmit(full({ contact: '  ' })).reason).toBe('מי ליווה אותך בביקור?');
   });
 
-  it('with the certificate issued it goes through', () => {
-    expect(canSubmit(d({
-      summary: 'הבאתי בקר', deliver: true, certIssued: true, products: [{ name: 'אנטנה', qty: 2 }],
-    }))).toEqual({ ok: true });
+  it('a linked task IS the reason, so the chips are not asked for', () => {
+    expect(canSubmit(full({ reasonId: '', emsTaskIds: ['T-1'] }))).toEqual({ ok: true });
+    expect(canSubmit(full({ reasonId: '', internalTaskIds: ['i-1'] }))).toEqual({ ok: true });
+    expect(canSubmit(full({ reasonId: '' })).reason).toBe('למה הגעת? בחר סיבה, או קשר משימה');
   });
 
-  it('products with nothing to deliver (chapter 4 does not apply) never raise the cert gate', () => {
-    // `deliver` false = §7p's "only when there is something to deliver": the chapter is not
-    // in the flow, so it cannot be the thing standing between him and שלח.
-    expect(canSubmit(d({ summary: 'כן', products: [{ name: 'אנטנה', qty: 1 }] }))).toEqual({ ok: true });
+  it('אחר needs its text before it counts as an answer', () => {
+    expect(canSubmit(full({ reasonId: 'other', reasonOther: '' })).ok).toBe(false);
+    expect(canSubmit(full({ reasonId: 'other', reasonOther: 'קפצתי בדרך' }))).toEqual({ ok: true });
+  });
+
+  it('C7: supplied equipment NO LONGER blocks שלח — the certificate comes after the save', () => {
+    const supplied = full({ deliver: true, products: [{ name: 'אנטנה', qty: 2 }], certIssued: false });
+    expect(canSubmit(supplied)).toEqual({ ok: true });
+  });
+
+  it('everything else on the sheet stays optional', () => {
+    expect(canSubmit(full({ openItems: '', productsOther: '', returned: [] }))).toEqual({ ok: true });
   });
 
   it('already sent → nothing more to send (the second שלח is a no-op)', () => {
-    const r = canSubmit(d({ summary: 'כן', submittedId: 'v_1' }));
+    const r = canSubmit(full({ submittedId: 'v_1' }));
     expect(r.ok).toBe(false);
     expect(r.reason).toBe('הסיכום כבר נשלח');
+  });
+});
+
+describe('missingFields', () => {
+  it('names every miss in walking order, so all of them can be marked at once', () => {
+    expect(missingFields(d()).map(m => m.key)).toEqual(['summary', 'hours', 'contact', 'reason']);
+  });
+
+  it('carries the chapter each miss lives on, so the sheet can scroll to the first', () => {
+    const miss = missingFields(d());
+    expect(miss[0]).toEqual({ key: 'summary', chapter: 1, reason: 'כתוב מה עשית. בלי זה אין סיכום' });
+    expect(miss.every(m => m.chapter === 1 || m.chapter === 5)).toBe(true);
+  });
+
+  it('is empty for a complete draft', () => {
+    expect(missingFields(full())).toEqual([]);
   });
 });
 
