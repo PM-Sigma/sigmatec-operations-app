@@ -24,6 +24,7 @@ import {
   KIND_HEADING, pushRecent, rankCommands, rankedRows, readRecents, type Command,
 } from '@/lib/commands';
 import { canShowPage } from '@/lib/canShowPage';
+import { registerMoreItem } from '@/lib/registry';
 
 const OPEN_EVENT = 'sigma-open-command-bar';
 const MESSAGE_EVENT = 'sigma-open-message';
@@ -305,5 +306,15 @@ function CommandBarRoot() {
 }
 
 export function mountCommandBar(): boolean {
+  // Package O removed the "פעולות" group from Ctrl+K, which was the only way to reach ✉️ הודעה
+  // לעובד. It now lives in the ⋯ עוד sheet for every writer (viewers cannot message).
+  registerMoreItem({
+    id: 'staff-message',
+    label: '✉️ הודעה לעובד',
+    icon: 'Mail',
+    group: 'app',
+    visible: () => { try { return !sigma.isViewer?.() && !!sigma.getCurrentUser?.(); } catch { return false; } },
+    onSelect: () => { try { window.dispatchEvent(new CustomEvent(MESSAGE_EVENT)); } catch { /* no DOM */ } },
+  });
   return mount('sigma-command', CommandBarRoot);
 }

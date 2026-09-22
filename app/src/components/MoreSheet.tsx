@@ -9,7 +9,7 @@ import * as React from 'react';
 import {
   CalendarDays, CheckSquare, ClipboardList, Code2, Download, FileDown, FileText, Home, Inbox,
   Clock, MapPin, MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck,
-  UserCheck, Users, Bell, type LucideIcon,
+  UserCheck, Users, Bell, Mail, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { UserChip } from '@/components/UserChip';
@@ -24,7 +24,7 @@ import { moreLeadsWithInventory } from '@/lib/landing';
 export const MORE_ICONS: Record<string, LucideIcon> = {
   Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell, Clock,
   Settings, MessageSquarePlus, Download, FileDown, Inbox, TrendingUp, Notebook, FileText,
-  MoreHorizontal,
+  MoreHorizontal, Mail,
 };
 
 /**
@@ -32,7 +32,7 @@ export const MORE_ICONS: Record<string, LucideIcon> = {
  * happened to mount in — which changes with lazy chunks. Registered rows are sorted by this
  * list (anything unlisted keeps its registration order, after the listed ones).
  */
-const APP_ORDER = ['settings', 'field-journal', 'feedback'];
+const APP_ORDER = ['settings', 'field-journal', 'staff-message', 'feedback'];
 
 /**
  * Legacy pages reachable from the sheet, in the order §7k #3 lists them. משימות · 📋 EMS ·
