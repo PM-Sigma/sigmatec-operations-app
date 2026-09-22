@@ -16,6 +16,7 @@ const { mockSigma, inserted, sonner, speech, caps } = vi.hoisted(() => ({
     startLive: vi.fn(),
     startRecording: vi.fn(),
     uploadAndTranscribe: vi.fn(),
+    pollRefineStatus: vi.fn(),
   },
   caps: { speechRecognition: false, mediaRecorder: true, forceOffLive: false },
 }));
@@ -64,6 +65,8 @@ vi.mock('@/lib/speech', () => ({
   startLive: speech.startLive,
   startRecording: speech.startRecording,
   uploadAndTranscribe: speech.uploadAndTranscribe,
+  pollRefineStatus: speech.pollRefineStatus,
+  buildWhisperPrompt: (kibbutz: string, names: string[]) => [kibbutz, ...names].filter(Boolean).join(', '),
 }));
 
 const { Feedback, openFeedback } = await import('./Feedback');

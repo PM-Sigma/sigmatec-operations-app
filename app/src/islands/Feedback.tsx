@@ -31,7 +31,7 @@ import {
   type FeedbackKind, type FeedbackRow, type RefineFieldState, type VoiceEvent, type VoicePhase,
 } from '@/lib/feedback';
 import {
-  speechCaps, startLive, startRecording, uploadAndTranscribe, pollRefineStatus,
+  buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, pollRefineStatus,
   type RecordSession,
 } from '@/lib/speech';
 import { TranscribeRetry } from '@/components/TranscribeRetry';
@@ -173,6 +173,10 @@ function FeedbackSheet() {
   // value captured in a closure is exactly how the double-start bug happened. `phase` state is
   // only a mirror for rendering.
   const machine = React.useRef(voiceIdle());
+  // What was in the box before THIS live session started — `onFinal` now hands back the whole
+  // session's transcript on every event (round 3, Android duplication fix), so it REPLACES
+  // rather than appends; this prefix is what it glues that onto.
+  const liveSessionPrefix = React.useRef('');
 
   React.useEffect(() => {
     const open = (k?: FeedbackKind, prefill?: string) => {
@@ -260,6 +264,7 @@ function FeedbackSheet() {
 
       case 'start-live':
         setInterim('');
+        liveSessionPrefix.current = textRef.current;
         startLiveLeg();
         break;
 
@@ -292,7 +297,15 @@ function FeedbackSheet() {
   // ── the legs the actions drive. None of them decides a phase. ───────────────
   const startLiveLeg = () => {
     const session = startLive({
-      onFinal: t => { dispatch('live-result'); append(t); setInterim(''); },
+      // `t` is the WHOLE session transcript so far (round 3) — replace, glued onto the
+      // untouched prefix, never appended chunk-by-chunk (that is how "אני אני הייתי…" happened
+      // on Android, which re-delivers already-finalised results as new final events).
+      onFinal: t => {
+        dispatch('live-result');
+        const prefix = liveSessionPrefix.current.replace(/\s+$/, '');
+        setText(t ? (prefix ? prefix + ' ' + t : t) : prefix);
+        setInterim('');
+      },
       onInterim: t => { if (t) dispatch('live-result'); setInterim(t); },
       onError: kindOfError => dispatch(kindOfError === 'denied' ? 'live-denied' : 'live-failed'),
       onEnd: () => { live.current = null; dispatch('live-end'); },
@@ -325,7 +338,10 @@ function FeedbackSheet() {
   const transcribeAudio = async (audio: { blob: Blob; mime: string; ms: number }) => {
     setTranscribing(true);
     try {
-      const r = await uploadAndTranscribe(audio);
+      // No kibbutz context here (general feedback, not a visit) — still biases the fixed
+      // domain words and every kibbutz name, just without one preferred first.
+      const names = (() => { try { return sigma?.kibbutzNames?.() || []; } catch { return []; } })();
+      const r = await uploadAndTranscribe(audio, buildWhisperPrompt('', names));
       // A fresh recording resets "did the user touch this?" — the text the recording itself
       // added is not a hand-edit, so the refine chip stays eligible for THIS transcript.
       fieldState.current = 'untouched';

@@ -52,7 +52,7 @@ import {
 import { pickableProducts, productGroups, searchProducts } from '@/lib/productSearch';
 import { parseDayLog, readCatalog } from '@/lib/daylogChain';
 import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
-import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
+import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { runMutation } from '@/lib/pending';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
@@ -862,6 +862,11 @@ function VoiceIntake({ kibbutz, busy, onFill }: {
   const [working, setWorking] = React.useState(false);
   const live = React.useRef<{ stop: () => void } | null>(null);
   const rec = React.useRef<RecordSession | null>(null);
+  // What was in the box BEFORE the current live session started — kept exactly as typed, so a
+  // live update (which replaces the SESSION'S OWN contribution, never appends) can glue its
+  // rebuilt transcript back onto it. `liveFinal` is that session's finalised text so far.
+  const sessionPrefix = React.useRef('');
+  const liveFinal = React.useRef('');
 
   const append = (chunk: string) => {
     const t = String(chunk || '').trim();
@@ -869,13 +874,26 @@ function VoiceIntake({ kibbutz, busy, onFill }: {
     setText(prev => (prev ? prev.replace(/\s+$/, '') + ' ' + t : t));
   };
 
+  // REPLACES the box with prefix + sessionText (never appends) — this is what fixes the
+  // Android duplication bug (round 3, עידן's S24): `startLive` now hands back the whole
+  // session transcript on every event instead of a delta, so gluing it on top of the
+  // untouched prefix is the only thing that must happen here.
+  const applyLive = (sessionText: string) => {
+    const prefix = sessionPrefix.current.replace(/\s+$/, '');
+    setText(sessionText ? (prefix ? prefix + ' ' + sessionText : sessionText) : prefix);
+  };
+
   const startVoice = async () => {
     const caps = speechCaps();
     setListening(true);
     if (caps.speechRecognition && !caps.forceOffLive) {
+      sessionPrefix.current = text;
+      liveFinal.current = '';
       live.current = startLive({
-        onFinal: append,
-        onInterim: () => { /* the interim guess is noise in a summary */ },
+        onFinal: full => { liveFinal.current = full; applyLive(full); },
+        // Shown live too now (round 3) — replaced on every event, glued after whatever is
+        // already finalised THIS session, same as the box shows while typing.
+        onInterim: interim => applyLive(interim ? (liveFinal.current ? liveFinal.current + ' ' + interim : interim) : liveFinal.current),
         onError: () => { setListening(false); live.current = null; toast.error('ההקלטה נכשלה. אפשר להקליד'); },
         onEnd: () => { setListening(false); live.current = null; },
       });
@@ -897,7 +915,11 @@ function VoiceIntake({ kibbutz, busy, onFill }: {
     setWorking(true);
     try {
       const audio = await session.stop();
-      if (audio) append((await uploadAndTranscribe(audio)).text);
+      if (audio) {
+        const names = (() => { try { return sigma.kibbutzNames?.() || []; } catch { return []; } })();
+        const hint = buildWhisperPrompt(kibbutz, names);
+        append((await uploadAndTranscribe(audio, hint)).text);
+      }
     } catch (e: any) {
       toast.error(String(e?.message || 'התמלול נכשל. אפשר להקליד'));
     } finally { setWorking(false); }
