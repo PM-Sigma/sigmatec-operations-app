@@ -1,10 +1,9 @@
 // The chapters ruling (spec §7p), pinned. Every branch here decides something a technician
-// standing in a cowshed can feel: which chapter he lands on, whether 🚚 is even part of his
-// summary, whether שלח is allowed, and how old the thing he is resuming is.
+// standing in a cowshed can feel: whether 🚚 is even part of his summary, whether שלח is
+// allowed, and how old the thing he is resuming is.
 import { describe, expect, it } from 'vitest';
 import {
-  CHAPTERS, canSubmit, chapterState, draftAge, missingFields, nextChapter, prevChapter,
-  resumeChapter, type ChapterDraft,
+  CHAPTERS, canSubmit, chapterState, draftAge, missingFields, type ChapterDraft,
 } from '@/lib/visitDraft';
 
 const d = (over: Partial<ChapterDraft> = {}): ChapterDraft => ({
@@ -18,7 +17,7 @@ const full = (over: Partial<ChapterDraft> = {}): ChapterDraft => d({
 });
 
 describe('CHAPTERS', () => {
-  it('is the five of §7p, in order, in Hebrew', () => {
+  it('is the five of §7p, in the order they are stacked, in Hebrew', () => {
     expect(CHAPTERS.map(c => c.id)).toEqual([1, 2, 3, 4, 5]);
     expect(CHAPTERS.map(c => c.title)).toEqual([
       'מה עשיתי', 'מה נשאר לי פתוח', 'מוצרים/מלאי', 'תעודת משלוח', 'שליחה',
@@ -55,31 +54,6 @@ describe('chapterState', () => {
   it('chapter 4 counts as done only when a certificate was actually issued', () => {
     expect(chapterState(d({ deliver: true })).find(c => c.id === 4)!.done).toBe(false);
     expect(chapterState(d({ deliver: true, certIssued: true })).find(c => c.id === 4)!.done).toBe(true);
-  });
-});
-
-describe('nextChapter / prevChapter', () => {
-  it('walks past a chapter that does not apply', () => {
-    expect(nextChapter(d(), 3)).toBe(5);
-    expect(prevChapter(d(), 5)).toBe(3);
-  });
-
-  it('stops at both ends instead of wrapping', () => {
-    expect(nextChapter(d(), 5)).toBe(5);
-    expect(prevChapter(d(), 1)).toBe(1);
-  });
-
-  it('includes 4 when there is something to deliver', () => {
-    expect(nextChapter(d({ deliver: true }), 3)).toBe(4);
-    expect(prevChapter(d({ deliver: true }), 5)).toBe(4);
-  });
-
-  it('an out-of-range chapter is clamped, never thrown', () => {
-    expect(nextChapter(d(), 0 as never)).toBe(1);
-    expect(prevChapter(d(), 9 as never)).toBe(5);
-    // 4 with nothing to deliver is not in the flow: it resolves to its neighbours.
-    expect(nextChapter(d(), 4)).toBe(5);
-    expect(prevChapter(d(), 4)).toBe(3);
   });
 });
 
@@ -146,27 +120,6 @@ describe('missingFields', () => {
 
   it('is empty for a complete draft', () => {
     expect(missingFields(full())).toEqual([]);
-  });
-});
-
-describe('resumeChapter', () => {
-  it('a draft nobody has walked yet opens at the beginning', () => {
-    expect(resumeChapter(d())).toBe(1);
-    expect(resumeChapter(null)).toBe(1);
-  });
-
-  it('comes back to the last chapter he was on', () => {
-    expect(resumeChapter(d({ chapter: 3 }))).toBe(3);
-  });
-
-  it('a remembered chapter that no longer applies falls back to one that does', () => {
-    expect(resumeChapter(d({ chapter: 4 }))).toBe(3);
-    expect(resumeChapter(d({ chapter: 4, deliver: true }))).toBe(4);
-  });
-
-  it('nonsense in the stored chapter is clamped, never thrown', () => {
-    expect(resumeChapter(d({ chapter: 99 as never }))).toBe(5);
-    expect(resumeChapter(d({ chapter: -2 as never }))).toBe(1);
   });
 });
 

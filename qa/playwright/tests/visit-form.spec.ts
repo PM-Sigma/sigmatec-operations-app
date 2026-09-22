@@ -12,13 +12,13 @@ import { boot, expect, expectNoConsoleErrors, shot, test } from './_helpers';
 
 const DRAFT_KEY = 'visitDrafts_v2';
 
-/** 📍 סיכום ביקור on a card → the §7p chapters sheet, at chapter 1, for that kibbutz. */
+/** 📍 סיכום ביקור on a card → the §7p chapters sheet, scrolling, for that kibbutz. */
 async function openFromCard(page: any, kibbutz: string) {
   await page.locator(`#sigma-home .kibbutz[data-name="${kibbutz}"]`)
     .getByRole('button', { name: 'סיכום ביקור' }).click();
   const chapters = page.getByTestId('visit-chapters');
   await expect(chapters).toBeVisible({ timeout: 10_000 });
-  await expect(chapters).toHaveAttribute('data-chapter', '1');
+  await expect(page.getByTestId('vc-chapter-1')).toBeVisible();
   await expect(chapters).toContainText(kibbutz);
 }
 

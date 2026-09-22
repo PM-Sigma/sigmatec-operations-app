@@ -1,11 +1,13 @@
-// The visit summary in chapters (spec §7p, Task 32).
+// The visit summary in chapters (spec §7p, Task 32) — one SCROLLING form since the ruling of
+// 22.9 evening: "את סיכום הביקור אני לא רוצה בהמשכים אני רוצה בגלילה". Every chapter is on
+// screen at once, so there is no stepper, no המשך and no חזרה.
 //
 // What only a real browser can answer: that **שמור וסגור** really saves WITHOUT submitting —
-// no visit, no movement, no certificate — that re-opening the kibbutz comes back to the
-// chapter he left with the "טיוטה מ-HH:MM" chip on it, that **שלח** in chapter 5 creates
-// exactly ONE visit however many times it is pressed, that chapter 4 only exists when there
-// is something to hand over, and that a stray backdrop tap on a half-typed summary asks
-// instead of throwing it away. The rules themselves are goldens (app/src/lib/visitDraft.test.ts).
+// no visit, no movement, no certificate — that re-opening the kibbutz brings back everything
+// he typed with the "טיוטה מ-HH:MM" chip on it, that **שלח** at the bottom creates exactly ONE
+// visit however many times it is pressed, that the 🚚 chapter only exists when there is
+// something to hand over, and that a stray backdrop tap on a half-typed summary asks instead
+// of throwing it away. The rules themselves are goldens (app/src/lib/visitDraft.test.ts).
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test, type Recorder } from './_helpers';
 
 const DRAFT_KEY = 'visitDrafts_v2';
@@ -43,6 +45,16 @@ const posted = (page: any, type?: string) => page.evaluate((t: string) => {
   return t ? all.filter(p => p && p.type === t) : all;
 }, type || '') as Promise<any[]>;
 
+/**
+ * Is `a` above `b` on screen? Read in ONE layout pass inside the page: the sheet slides up
+ * when it opens, so two separate boundingBox() calls can straddle the animation and compare
+ * two different moments.
+ */
+const above = (page: any, a: string, b: string) => page.evaluate(([x, y]: string[]) => {
+  const top = (t: string) => document.querySelector('[data-testid="' + t + '"]')!.getBoundingClientRect().top;
+  return top(x) < top(y);
+}, [a, b]) as Promise<boolean>;
+
 /** The field path into the summary: the briefing's 📍, which is where §5 puts it. */
 async function openChapters(page: any, kibbutz: string) {
   await page.evaluate((k: string) => (window as any).sigmaField?.openBriefing?.(k), kibbutz);
@@ -69,29 +81,32 @@ test('chapters: שמור וסגור saves the draft and submits nothing', async 
 
   const sheet = page.getByTestId('visit-chapters');
   await expect(sheet).toBeVisible({ timeout: 10_000 });
-  await expect(sheet).toHaveAttribute('data-chapter', '1');
-  await expect(page.getByTestId('vc-step-1')).toHaveAttribute('data-current', '1');
+  // Every chapter is already on the page, in order. Nothing has to be turned.
+  await expect(page.getByTestId('vc-chapter-1')).toBeVisible();
+  await expect(page.getByTestId('vc-chapter-2')).toBeVisible();
+  await expect(page.getByTestId('vc-chapter-5')).toBeVisible();
   // 🚚 is not part of this visit — nothing is open to hand over (§7p).
-  await expect(page.getByTestId('vc-step-4')).toHaveCount(0);
+  await expect(page.getByTestId('vc-chapter-4')).toHaveCount(0);
+  // … and the stepper it replaced is gone for good.
+  await expect(page.getByTestId('vc-stepper')).toHaveCount(0);
+  await expect(page.getByTestId('vc-next')).toHaveCount(0);
+  await expect(page.getByTestId('vc-back')).toHaveCount(0);
 
   await expectRtl(page);
-  await shot(page, ti, 'chapter-1');
+  await shot(page, ti, 'scrolling-form');
 
   await page.getByTestId('vc-summary').fill('הוחלף המונה הראשי במחלבה ונבדקה תקשורת');
-  await page.getByTestId('vc-next').click();
-  await expect(sheet).toHaveAttribute('data-chapter', '2');
 
   await page.getByTestId('vc-save-close').click();
   await expect(sheet).toBeHidden();
 
-  // ── the draft is there, with the chapter on it …
+  // ── the draft is there …
   await expect.poll(() => draftRows(page), { timeout: 10_000 }).not.toHaveLength(0);
   const rows = await draftRows(page);
   expect(rows).toHaveLength(1);
   expect(rows[0].kibbutz).toBe('חוקוק');
   expect(rows[0].person).toBe('אביאם');
   expect(rows[0].payload.summary).toContain('הוחלף המונה הראשי');
-  expect(rows[0].payload.chapter).toBe(2);
 
   // … and NOTHING was submitted: no visit row, no request of any kind to the sheet.
   expect(await localVisits(page)).toHaveLength(0);
@@ -102,7 +117,7 @@ test('chapters: שמור וסגור saves the draft and submits nothing', async 
   expectNoConsoleErrors(rec);
 });
 
-test('chapters: re-opening comes back to the chapter he left, with the טיוטה chip', async ({ page }, ti) => {
+test('chapters: re-opening brings back everything he typed, with the טיוטה chip', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
   await recordSheet(page);
 
@@ -110,7 +125,6 @@ test('chapters: re-opening comes back to the chapter he left, with the טיוט�
   await page.locator('[data-kibbutz="חוקוק"]').click();
   await page.getByTestId('brief-visit').click();
   await page.getByTestId('vc-summary').fill('בדקתי תקשורת בשלושה מונים');
-  await page.getByTestId('vc-next').click();
   await page.getByTestId('vc-open-items').fill('חסר בקר לחלקה הדרומית');
   await page.getByTestId('vc-save-close').click();
   await expect(page.getByTestId('visit-chapters')).toBeHidden();
@@ -118,18 +132,16 @@ test('chapters: re-opening comes back to the chapter he left, with the טיוט�
 
   // ── back in, from the kibbutz itself
   await openChapters(page, 'חוקוק');
-  await expect(page.getByTestId('visit-chapters')).toHaveAttribute('data-chapter', '2');
   await expect(page.getByTestId('vc-draft-chip')).toContainText('טיוטה מ-');
+  // Both chapters are on the page, and both hold what he left in them.
   await expect(page.getByTestId('vc-open-items')).toHaveValue('חסר בקר לחלקה הדרומית');
-  // chapter 1 is walked past, not lost
-  await page.getByTestId('vc-step-1').click();
   await expect(page.getByTestId('vc-summary')).toHaveValue('בדקתי תקשורת בשלושה מונים');
 
   await shot(page, ti, 'resumed');
   expectNoConsoleErrors(rec);
 });
 
-test('chapters: שלח in chapter 5 files exactly one visit, however often it is pressed', async ({ page }, ti) => {
+test('chapters: שלח at the bottom files exactly one visit, however often it is pressed', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
   await recordSheet(page);
 
@@ -139,10 +151,9 @@ test('chapters: שלח in chapter 5 files exactly one visit, however often it is
 
   const sheet = page.getByTestId('visit-chapters');
   await page.getByTestId('vc-summary').fill('הוחלף מונה ונבדקה תקשורת');
-  await page.getByTestId('vc-next').click();                       // 2
-  await page.getByTestId('vc-next').click();                       // 3
-  await page.getByTestId('vc-next').click();                       // 5 — 4 does not apply
-  await expect(sheet).toHaveAttribute('data-chapter', '5');
+  // שליחה is simply further down the same form, and 🚚 is not on it at all.
+  await expect(page.getByTestId('vc-chapter-5')).toBeVisible();
+  await expect(page.getByTestId('vc-chapter-4')).toHaveCount(0);
 
   // QA round 2 · C3 + C6: REQUIRED is מי ביקר · משך ותאריך · מה עשיתי · איש קשר מלווה, plus a
   // סיבת הביקור when nothing was linked. A שלח that is short of one says so IN PLACE and does
@@ -158,7 +169,7 @@ test('chapters: שלח in chapter 5 files exactly one visit, however often it is
   await expect(page.getByTestId('vc-reasons')).toBeVisible();
   await page.getByTestId('vc-reason-fault').click();
   await expect(page.getByTestId('vc-blocked')).toHaveCount(0);
-  await shot(page, ti, 'chapter-5');
+  await shot(page, ti, 'ready-to-send');
 
   // Pressed twice, as a thumb on a phone does.
   await page.getByTestId('vc-send').dblclick();
@@ -197,18 +208,15 @@ test('chapters: C7 — supplied equipment no longer blocks שלח; the save LAND
 
   const sheet = page.getByTestId('visit-chapters');
   await page.getByTestId('vc-summary').fill('הבאתי מונה חדש והתקנתי');
-  await expect(page.getByTestId('vc-step-4')).toHaveCount(0);      // nothing to deliver yet
+  await expect(page.getByTestId('vc-chapter-4')).toHaveCount(0);   // nothing to deliver yet
 
-  await page.getByTestId('vc-step-3').click();
-  await expect(sheet).toHaveAttribute('data-chapter', '3');
   // J2: the chapter is a tile grid now — one tap on the tile is the quantity 1.
   await page.getByTestId('vc-tiles').locator('button[data-product="מונה Landis+Gyr E360PP"]').click();
 
-  // 🚚 is now part of this visit …
-  await expect(page.getByTestId('vc-step-4')).toBeVisible();
+  // 🚚 appears in the form, in its place between מוצרים and שליחה …
+  await expect(page.getByTestId('vc-chapter-4')).toBeVisible();
 
   // … but it is no longer a gate: C7 puts the certificate AFTER the save.
-  await page.getByTestId('vc-step-5').click();
   await page.getByTestId('vc-hours-2').click();
   await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
   await page.getByTestId('vc-reason-supply').click();
@@ -273,7 +281,6 @@ test('C4: מוצרים נוספים is a keyword search — "לנדיס" offers 
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
   await page.locator('[data-kibbutz="חוקוק"]').click();
   await page.getByTestId('brief-visit').click();
-  await page.getByTestId('vc-step-3').click();
 
   // A word nobody could prefix-match: the old datalist answered nothing here.
   await page.getByTestId('vc-product-search').fill('לנדיס');
@@ -303,7 +310,6 @@ test('C5: ציוד שהוחזר מהקיבוץ starts collapsed, a ➕ adds one 
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
   await page.locator('[data-kibbutz="חוקוק"]').click();
   await page.getByTestId('brief-visit').click();
-  await page.getByTestId('vc-step-3').click();
 
   const toggle = page.getByTestId('vc-returned-toggle');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -330,7 +336,6 @@ test('C6: the EMS link is never preselected, and picking one retires the reason 
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
   await page.locator('[data-kibbutz="חוקוק"]').click();
   await page.getByTestId('brief-visit').click();
-  await page.getByTestId('vc-step-5').click();
 
   // Nothing is ticked on arrival — round 1 picked the first open task for him.
   const picked = page.getByTestId('vc-tasks').locator('[aria-pressed="true"]');
@@ -369,10 +374,8 @@ test('C8: 🎙 sits at the TOP of the sheet, labelled ניסיוני, with its t
   await expect(voice).toBeVisible();
   await expect(voice).toContainText('ניסיוני');
 
-  // "at the TOP": above the stepper and above chapter 1's box.
-  const v = await voice.boundingBox();
-  const stepper = await page.getByTestId('vc-stepper').boundingBox();
-  expect(v!.y).toBeLessThan(stepper!.y);
+  // "at the TOP": above the first chapter of the scrolling form.
+  expect(await above(page, 'vc-voice', 'vc-chapter-1')).toBe(true);
 
   await page.getByTestId('vc-voice-toggle').click();
   await expect(voice.locator('li')).toHaveCount(3);
@@ -415,10 +418,8 @@ test('C8 (round 3 · S): עידן (not FIELD_PEOPLE) reaches the 🎙 panel from
   await expect(voice).toBeVisible();
   await expect(voice).toContainText('ניסיוני');
 
-  // Same placement rule as C8 above: above the stepper, i.e. above chapter 1's fields.
-  const v = await voice.boundingBox();
-  const stepper = await page.getByTestId('vc-stepper').boundingBox();
-  expect(v!.y).toBeLessThan(stepper!.y);
+  // Same placement rule as C8 above: above chapter 1's own fields.
+  expect(await above(page, 'vc-voice', 'vc-chapter-1')).toBe(true);
 
   await shot(page, ti, 'idan-voice-intake');
   expectNoConsoleErrors(rec);
@@ -430,7 +431,6 @@ test('visit chapters: ציוד שסופק is the 3-column tile grid, same as the
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
   await page.locator('[data-kibbutz="חוקוק"]').click();
   await page.getByTestId('brief-visit').click();
-  await page.getByTestId('vc-step-3').click();
 
   // Round 1 built the tile grid only in the LEGACY form; the chapters sheet is what the team
   // uses, so it must read the same: a category heading, then a 3-column grid of tiles.

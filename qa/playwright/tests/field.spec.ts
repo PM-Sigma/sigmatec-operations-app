@@ -40,12 +40,12 @@ test('arrival → briefing: the same sheet morphs, and 📍 opens the summary pr
   await expect(page.getByRole('heading', { name: 'חוקוק', exact: true })).toBeVisible();
   await shot(page, ti, 'briefing');
 
-  // 📍 סיכום ביקור → the §7p chapters sheet, on חוקוק, at chapter 1. The briefing is gone:
-  // one surface hands over to the next, it does not stack on top of it.
+  // 📍 סיכום ביקור → the §7p chapters sheet, on חוקוק, scrolling, with מה עשיתי at the top.
+  // The briefing is gone: one surface hands over to the next, it does not stack on top of it.
   await page.getByTestId('brief-visit').click();
   const chapters = page.getByTestId('visit-chapters');
   await expect(chapters).toBeVisible({ timeout: 10_000 });
-  await expect(chapters).toHaveAttribute('data-chapter', '1');
+  await expect(page.getByTestId('vc-chapter-1')).toBeVisible();
   await expect(chapters).toContainText('חוקוק');
   await expect(page.locator('[data-mode="briefing"]')).toHaveCount(0);
 
