@@ -6,6 +6,7 @@ import {
   groupBySection, filterRows, countRows, matchesQuery, draftsAtTop,
   validateKibbutz, kibbutzimSaveBody, canEditEnergy, canManageKibbutzim, cardActionsFor,
   emsChainPlan, emsChainReduce, energyText, REGION_ORDER,
+  customerCodeOf, subsitesOf, isMissingCustomerCodeColumn, withoutCustomerCode,
   type KibbutzRow,
 } from './kibbutzim';
 
@@ -362,5 +363,130 @@ describe('draftsAtTop — home order (QA round 2, Package A §4)', () => {
     const { top, rest } = draftsAtTop(rows, () => false);
     expect(top).toEqual([]);
     expect(rest.map(r => r.name)).toEqual(['א', 'ב']);
+  });
+});
+
+// ───────────── QA round 3 (D2): קוד לקוח · תתי-אתרים · קטגוריה ─────────────
+
+describe('customerCodeOf', () => {
+  it('the row column wins over the legacy CUSTOMER_CODES fallback', () => {
+    expect(customerCodeOf(row({ name: 'חוקוק', customer_code: 1234 }), 966)).toBe('1234');
+  });
+
+  it('falls back to the map only when the row has no code of its own', () => {
+    expect(customerCodeOf(row({ name: 'חוקוק' }), 966)).toBe('966');
+    expect(customerCodeOf(row({ name: 'חוקוק', customer_code: null }), 966)).toBe('966');
+  });
+
+  it('is empty when neither side has one, and never renders "0" from a missing row', () => {
+    expect(customerCodeOf(row({ name: 'חוקוק' }))).toBe('');
+    expect(customerCodeOf(null, '')).toBe('');
+  });
+
+  it('a real zero-ish code is still a code, not a blank', () => {
+    expect(customerCodeOf(row({ name: 'x', customer_code: 0 }), 966)).toBe('0');
+  });
+});
+
+describe('subsitesOf', () => {
+  const rows = [
+    row({ name: 'חוקוק' }),
+    row({ name: 'חוקוק צפון', kind: 'subsite', parent: 'חוקוק' }),
+    row({ name: 'חוקוק אלון', kind: 'subsite', parent: 'חוקוק' }),
+    row({ name: 'חוקוק ישן', kind: 'subsite', parent: 'חוקוק', archived_at: '2026-01-01' }),
+    row({ name: 'גבים', kind: 'subsite', parent: 'אפיקים' }),
+  ];
+
+  it('lists only the live sub-sites of that kibbutz, alphabetical he', () => {
+    expect(subsitesOf(rows, 'חוקוק').map(r => r.name)).toEqual(['חוקוק אלון', 'חוקוק צפון']);
+  });
+
+  it('an archived sub-site is not listed', () => {
+    expect(subsitesOf(rows, 'חוקוק').map(r => r.name)).not.toContain('חוקוק ישן');
+  });
+
+  it('a kibbutz with none, and a missing name, both give []', () => {
+    expect(subsitesOf(rows, 'יגור')).toEqual([]);
+    expect(subsitesOf(rows, '')).toEqual([]);
+    expect(subsitesOf(null, 'חוקוק')).toEqual([]);
+  });
+});
+
+describe('validateKibbutz · customer_code', () => {
+  it('is optional — an empty code saves as null', () => {
+    const v = validateKibbutz(row({ name: 'חדש', customer_code: null }), []);
+    expect(v.ok).toBe(true);
+    expect(v.row.customer_code).toBeNull();
+  });
+
+  it('a typed code is normalized to a number', () => {
+    const v = validateKibbutz(row({ name: 'חדש', customer_code: '966' as any }), []);
+    expect(v.ok).toBe(true);
+    expect(v.row.customer_code).toBe(966);
+  });
+
+  it('rejects a non-integer or a negative code', () => {
+    expect(validateKibbutz(row({ name: 'א', customer_code: 'אבג' as any }), []).errors)
+      .toContain('קוד לקוח חייב להיות מספר שלם חיובי');
+    expect(validateKibbutz(row({ name: 'א', customer_code: -3 }), []).ok).toBe(false);
+  });
+
+  it('rejects a code another live kibbutz already holds', () => {
+    const all = [row({ name: 'חוקוק', id: 'a', customer_code: 966 })];
+    const v = validateKibbutz(row({ name: 'יגור', id: 'b', customer_code: 966 }), all);
+    expect(v.ok).toBe(false);
+    expect(v.errors[0]).toContain('כבר משויך');
+  });
+
+  it('keeping your OWN code is not a clash', () => {
+    const all = [row({ name: 'חוקוק', id: 'a', customer_code: 966 })];
+    expect(validateKibbutz(row({ name: 'חוקוק', id: 'a', customer_code: 966 }), all).ok).toBe(true);
+  });
+
+  it('an ARCHIVED row does not hold a code hostage', () => {
+    const all = [row({ name: 'ישן', id: 'a', customer_code: 966, archived_at: '2026-01-01' })];
+    expect(validateKibbutz(row({ name: 'חדש', id: 'b', customer_code: 966 }), all).ok).toBe(true);
+  });
+});
+
+describe('kibbutzimSaveBody · customer_code', () => {
+  it('sends the code as a number', () => {
+    const body = kibbutzimSaveBody(validateKibbutz(row({ name: 'חוקוק', customer_code: '966' as any }), []).row, 'עידן');
+    expect(body.customer_code).toBe(966);
+  });
+
+  it('sends an explicit null when there is no code, so a wrong one can be cleared', () => {
+    const body = kibbutzimSaveBody(validateKibbutz(row({ name: 'חוקוק' }), []).row, 'עמיחי');
+    expect('customer_code' in body).toBe(true);
+    expect(body.customer_code).toBeNull();
+  });
+
+  it('the code is NOT an עידן-only field — עמיחי saves it too (unlike energy)', () => {
+    const body = kibbutzimSaveBody(validateKibbutz(row({ name: 'ח', customer_code: 12 }), []).row, 'עמיחי');
+    expect(body.customer_code).toBe(12);
+    expect('energy' in body).toBe(false);
+  });
+});
+
+describe('tolerating a database without customer_code', () => {
+  it('recognizes the PostgREST "no such column" answer', () => {
+    expect(isMissingCustomerCodeColumn(
+      { code: 'PGRST204', message: "Could not find the 'customer_code' column of 'kibbutzim'" })).toBe(true);
+    expect(isMissingCustomerCodeColumn(
+      { code: '42703', message: 'column "customer_code" does not exist' })).toBe(true);
+  });
+
+  it('does NOT swallow an unrelated failure', () => {
+    expect(isMissingCustomerCodeColumn({ code: '23505', message: 'duplicate key value' })).toBe(false);
+    expect(isMissingCustomerCodeColumn(new Error('Failed to fetch'))).toBe(false);
+    expect(isMissingCustomerCodeColumn({ code: 'PGRST204', message: "no 'region' column" })).toBe(false);
+  });
+
+  it('the retry body is the same body minus the one key', () => {
+    const body = kibbutzimSaveBody(validateKibbutz(row({ name: 'ח', customer_code: 5 }), []).row, 'עידן');
+    const retry = withoutCustomerCode(body);
+    expect('customer_code' in retry).toBe(false);
+    expect(retry.name).toBe('ח');
+    expect(body.customer_code).toBe(5);   // the original is not mutated
   });
 });

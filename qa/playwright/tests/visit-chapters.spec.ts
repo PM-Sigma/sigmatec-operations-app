@@ -201,7 +201,8 @@ test('chapters: C7 — supplied equipment no longer blocks שלח; the save LAND
 
   await page.getByTestId('vc-step-3').click();
   await expect(sheet).toHaveAttribute('data-chapter', '3');
-  await page.getByLabel('כמות: מונה Landis+Gyr E360PP').fill('1');
+  // J2: the chapter is a tile grid now — one tap on the tile is the quantity 1.
+  await page.getByTestId('vc-tiles').locator('button[data-product="מונה Landis+Gyr E360PP"]').click();
 
   // 🚚 is now part of this visit …
   await expect(page.getByTestId('vc-step-4')).toBeVisible();
@@ -281,7 +282,8 @@ test('C4: מוצרים נוספים is a keyword search — "לנדיס" offers 
   await expect(hits.locator('[data-product-hit]')).toHaveCount(2);
 
   await hits.locator('[data-product-hit="מונה Landis+Gyr E360SP"]').click();
-  await expect(page.getByLabel('כמות: מונה Landis+Gyr E360SP')).toHaveValue('1');
+  await expect(page.getByTestId('vc-tiles').locator('button[data-product="מונה Landis+Gyr E360SP"]'))
+    .toHaveAttribute('data-qty', '1');
   // The search box empties itself, ready for the next product.
   await expect(page.getByTestId('vc-product-search')).toHaveValue('');
 
@@ -419,5 +421,36 @@ test('C8 (round 3 · S): עידן (not FIELD_PEOPLE) reaches the 🎙 panel from
   expect(v!.y).toBeLessThan(stepper!.y);
 
   await shot(page, ti, 'idan-voice-intake');
+  expectNoConsoleErrors(rec);
+});
+
+test('visit chapters: ציוד שסופק is the 3-column tile grid, same as the legacy form (22.9, J2)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await page.getByTestId('vc-step-3').click();
+
+  // Round 1 built the tile grid only in the LEGACY form; the chapters sheet is what the team
+  // uses, so it must read the same: a category heading, then a 3-column grid of tiles.
+  const grid = page.getByTestId('vc-tiles');
+  await expect(grid).toBeVisible();
+  await expect(grid.locator('[data-tile-head]').first()).toBeVisible();
+  const tiles = grid.locator('button[data-product]');
+  await expect(tiles.first()).toBeVisible();
+
+  // one tap = qty 1, with −/+/🗑 opening ON the tile
+  const tile = tiles.first();
+  await tile.click();
+  await expect(tile).toHaveAttribute('data-qty', '1');
+  await expect(tile).toHaveAttribute('data-editing', '1');
+  await tile.locator('[data-step="+"]').click();
+  await expect(tile).toHaveAttribute('data-qty', '2');
+  // 🗑 takes it off entirely
+  await tile.locator('[data-step="del"]').click();
+  await expect(tile).not.toHaveAttribute('data-qty', /\d/);
+
+  await shot(page, ti, 'tiles');
   expectNoConsoleErrors(rec);
 });

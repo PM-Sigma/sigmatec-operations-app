@@ -191,3 +191,34 @@ export function searchProducts(
 
   return { query: raw, hits, picked: hits.length === 1 ? hits[0] : null, needsPick: hits.length > 1, family };
 }
+
+// ───────────────── the tile grid inside "ציוד שסופק" (QA round 3, J2) ─────────────────
+
+export interface ProductGroup { category: string; names: string[] }
+
+/**
+ * Products → the category groups the chapters sheet renders as 3-column tiles, mirroring the
+ * legacy `renderProductsForVisitor` (js/src/09-visits.js) so both forms read the same:
+ *   • 'מונים' first — it is what a technician leaves behind most of the time;
+ *   • 'אחר' (and anything with no category) last;
+ *   • every other category between them, alphabetical he;
+ *   • inside a group the names are a-b-c (he), which is what "a-b-c order" in the note means.
+ * Pure: the caller hands in the category of each name, so no catalog lookup happens here.
+ */
+export function productGroups(
+  names: ReadonlyArray<string> | null | undefined,
+  categoryOf: (name: string) => string,
+): ProductGroup[] {
+  const groups: Record<string, string[]> = {};
+  (names || []).forEach(n => {
+    const c = String(categoryOf(n) || '').trim() || 'אחר';
+    (groups[c] = groups[c] || []).push(n);
+  });
+  const rank = (c: string) => (c === 'מונים' ? 0 : c === 'אחר' ? 2 : 1);
+  return Object.keys(groups)
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, 'he'))
+    .map(category => ({
+      category,
+      names: groups[category].slice().sort((a, b) => a.localeCompare(b, 'he')),
+    }));
+}
