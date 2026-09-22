@@ -39,6 +39,7 @@ export const PAGE_LABEL: Record<string, string> = {
   staff: 'עובדים',
   dev: 'פיתוח',
   pushlog: 'התראות',
+  hours: 'שעות',
 };
 
 export const PAGE_KEYS: string[] = Object.keys(PAGE_LABEL);

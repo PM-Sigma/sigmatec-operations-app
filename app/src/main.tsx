@@ -231,6 +231,22 @@ function boot() {
   // calendar chunk pulls TanStack, supabase-js and Motion's Reorder in, and almost every
   // session starts on the cards. A failed chunk simply leaves the legacy month grid on
   // screen — working, just not redesigned.
+  // ⏱ שעות מול לקוחות (22.9, E2) — loaded when the page first opens, like נוכחות and יומן.
+  const hoursView = document.getElementById('hours-view');
+  if (hoursView && document.getElementById('sigma-hours')) {
+    const loadHours = () => import('@/islands/Hours')
+      .then(m => m.mountHours())
+      .catch(e => console.warn('[sigma] hours island failed', e));
+    if (hoursView.style.display !== 'none') void loadHours();
+    else {
+      const obs = new MutationObserver(() => {
+        if (hoursView.style.display === 'none') return;
+        obs.disconnect();
+        void loadHours();
+      });
+      obs.observe(hoursView, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
   const calView = document.getElementById('calendar-view');
   if (calView && document.getElementById('sigma-calendar')) {
     const loadCalendar = () => import('@/islands/Calendar')

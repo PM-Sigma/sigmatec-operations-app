@@ -32,8 +32,16 @@ test('עידן: ▶ → reload → still running → ■ → attendee + 2 tags �
   await expect(stop).toBeVisible({ timeout: 15_000 });
   await expect(card(page, 'חוקוק').getByTestId('work-timer-elapsed')).toHaveText(/\d\d:\d\d/);
 
-  // ■ → the stop sheet: the kibbutz's contacts and the LIVE tag vocabulary
+  // 22.9 (E1): a tap on the running clock opens ITS sheet first (pause · retime · people · tags);
+  // "סגור שעות" hands over to the stop sheet.
   await stop.click();
+  const edit = page.getByTestId('work-timer-edit');
+  await expect(edit).toBeVisible({ timeout: 15_000 });
+  await expect(edit.getByTestId('work-timer-edit-elapsed')).toHaveText(/\d\d:\d\d/);
+  await edit.getByTestId('work-timer-pause').click();          // ⏸ freezes the clock…
+  await expect(edit.getByText('מושהה')).toBeVisible();
+  await edit.getByTestId('work-timer-pause').click();          // …and ▶ resumes it
+  await edit.getByTestId('work-timer-finish').click();
   const sheet = page.getByTestId('work-timer-sheet');
   await expect(sheet).toBeVisible({ timeout: 15_000 });
   await expect(sheet.getByTestId('attendee-גפן')).toBeVisible();

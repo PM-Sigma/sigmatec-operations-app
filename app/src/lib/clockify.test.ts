@@ -5,7 +5,7 @@
 // sent to Clockify, and what the tag cache does when the API blinks.
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  canTrackTime, elapsed, entryPayload, formatElapsed, loadRunning, projectIdFor, saveRunning,
+  AUTO_STOP_MS, autoStop, autoStopDue, canTrackTime, elapsed, elapsedFor, endedAtFor, entryPayload, formatElapsed, loadRunning, pauseSession, projectIdFor, resumeSession, saveRunning, tagsMatching,
   clearRunning, startBlockedBy, tagIdsFor, tagsCached, TAGS_KEY, RUNNING_KEY,
 } from './clockify';
 
@@ -210,5 +210,43 @@ describe('the running session: persisted, one per person', () => {
     expect(loadRunning('עידן')).toBeNull();
     expect(loadRunning('מתניה')?.kibbutz).toBe('גפן');
     expect(localStorage.getItem(RUNNING_KEY)).toBeTruthy();
+  });
+});
+
+
+describe('22.9 (E1) — pauses, the auto-stop, the tag search', () => {
+  const t0 = Date.parse('2026-09-22T08:00:00.000Z');
+  const base = { person: 'עידן', kibbutz: 'חוקוק', started_at: new Date(t0).toISOString() };
+  it('a pause freezes the clock and a resume banks it', () => {
+    const p = pauseSession(base, t0 + 600_000);                 // paused at 10:00 of work
+    expect(elapsedFor(p, t0 + 1_800_000)).toBe(600);            // 20 minutes later: still 10:00
+    const r = resumeSession(p, t0 + 1_800_000);                 // resumed after a 20-minute pause
+    expect(r.paused_at).toBeUndefined();
+    expect(r.paused_ms).toBe(1_200_000);
+    expect(elapsedFor(r, t0 + 2_400_000)).toBe(1200);           // 40 min in, 20 worked
+    expect(endedAtFor(r, t0 + 2_400_000)).toBe(new Date(t0 + 1_200_000).toISOString());   // start + 20 min WORKED
+  });
+  it('the auto-stop fires at 2 h of WORK, once, and never while paused', () => {
+    expect(autoStopDue(base, t0 + AUTO_STOP_MS - 1000)).toBe(false);
+    expect(autoStopDue(base, t0 + AUTO_STOP_MS)).toBe(true);
+    const stopped = autoStop(base);
+    expect(stopped.paused_at).toBe(new Date(t0 + AUTO_STOP_MS).toISOString());
+    expect(autoStopDue(stopped, t0 + AUTO_STOP_MS + 60_000)).toBe(false);
+    expect(elapsedFor(stopped, t0 + AUTO_STOP_MS + 3_600_000)).toBe(7200);
+    const withPause = resumeSession(pauseSession(base, t0 + 600_000), t0 + 1_800_000);
+    expect(autoStopDue(withPause, t0 + AUTO_STOP_MS + 1_199_000)).toBe(false);
+    expect(autoStopDue(withPause, t0 + AUTO_STOP_MS + 1_200_000)).toBe(true);
+  });
+  it('a stored session without the new fields still reads (backwards compatible)', () => {
+    saveRunning(base);
+    const back = loadRunning('עידן')!;
+    expect(elapsedFor(back, t0 + 45_000)).toBe(45);
+    expect(autoStopDue(back, t0 + 45_000)).toBe(false);
+  });
+  it('tagsMatching narrows by substring, case-insensitively', () => {
+    const tags = [{ id: '1', name: 'הדרכה על המערכת' }, { id: '2', name: 'טיפול בתקלות' }, { id: '3', name: 'Billing' }];
+    expect(tagsMatching(tags, '').length).toBe(3);
+    expect(tagsMatching(tags, 'תקל').map(t => t.id)).toEqual(['2']);
+    expect(tagsMatching(tags, 'bill').map(t => t.id)).toEqual(['3']);
   });
 });

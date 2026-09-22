@@ -8,7 +8,7 @@ import { sigmaBus } from '@/bridge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
-import { elapsed, entryPayload, formatElapsed, tagsCached, type ClockifyTag, type RunningSession, type SessionDraft } from '@/lib/clockify';
+import { elapsedFor, endedAtFor, entryPayload, formatElapsed, tagsCached, type ClockifyTag, type RunningSession, type SessionDraft } from '@/lib/clockify';
 import { clockifyCall, fetchContacts, fetchProjects, type Contact } from '@/components/home/workTimerApi';
 import { WORK_SESSION_SAVED } from '@/components/home/workTimerEvents';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
@@ -20,10 +20,11 @@ export default function StopSheet({
 }: { running: RunningSession; onClose: () => void; onSaved: () => void }) {
   const [contacts, setContacts] = React.useState<Contact[]>([]);
   const [tags, setTags] = React.useState<ClockifyTag[]>([]);
-  const [pickedPeople, setPickedPeople] = React.useState<string[]>([]);
-  const [pickedTags, setPickedTags] = React.useState<string[]>([]);
+  // 22.9 (E1): whatever was filled while the clock ran comes in already picked.
+  const [pickedPeople, setPickedPeople] = React.useState<string[]>(running.attendees || []);
+  const [pickedTags, setPickedTags] = React.useState<string[]>(running.tags || []);
   const [newContact, setNewContact] = React.useState('');
-  const [note, setNote] = React.useState('');
+  const [note, setNote] = React.useState(running.note || '');
   const [billable, setBillable] = React.useState(false);   // default OFF (spec §8b)
   const [saving, setSaving] = React.useState(false);
   // F12 / pattern 4: הוסף inserts into `site_contacts` and had no pending state at all.
@@ -31,7 +32,11 @@ export default function StopSheet({
 
   React.useEffect(() => {
     let live = true;
-    void fetchContacts(running.kibbutz).then(c => { if (live) setContacts(c); });
+    void fetchContacts(running.kibbutz).then(c => {
+      if (!live) return;
+      const extra = (running.attendees || []).filter(n => !c.some(x => x.name === n)).map(n => ({ name: n }));
+      setContacts([...c, ...extra]);
+    });
     // The vocabulary is theirs and is read live (cached an hour; a failed fetch keeps the
     // stale list rather than emptying the picker).
     void tagsCached(() => clockifyCall({ action: 'tags', person: running.person }).then(d => (d.tags || []) as ClockifyTag[]))
@@ -67,7 +72,8 @@ export default function StopSheet({
       person: running.person,
       kibbutz: running.kibbutz,
       started_at: running.started_at,
-      ended_at: new Date().toISOString(),
+      // start + the seconds actually worked: a paused stretch is never billed (E1)
+      ended_at: endedAtFor(running),
       tags: pickedTags,
       attendees: pickedPeople,
       billable,
@@ -119,7 +125,7 @@ export default function StopSheet({
       <SheetContent side="bottom" data-testid="work-timer-sheet" className="max-h-[88svh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader className="text-start">
           <SheetTitle className="text-base">סגירת שעות — {running.kibbutz}</SheetTitle>
-          <SheetDescription>{formatElapsed(elapsed(running.started_at))} · מי השתתף, על מה, והאם זה לחיוב</SheetDescription>
+          <SheetDescription>{formatElapsed(elapsedFor(running))} · מי השתתף, על מה, והאם זה לחיוב</SheetDescription>
         </SheetHeader>
 
         <div className="space-y-4 px-4 pb-4" onClick={e => e.stopPropagation()}>

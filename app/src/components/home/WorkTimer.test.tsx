@@ -75,8 +75,11 @@ const startTimer = async () => {
   await act(async () => { fireEvent.click(screen.getByTestId('work-timer-start')); });
 };
 
+// 22.9 (E1): the running clock opens ITS sheet first; "סגור שעות" hands over to the stop sheet.
 const openSheet = async () => {
   await act(async () => { fireEvent.click(screen.getByTestId('work-timer-stop')); });
+  await waitFor(() => expect(screen.getByTestId('work-timer-edit')).toBeTruthy());
+  await act(async () => { fireEvent.click(screen.getByTestId('work-timer-finish')); });
   await waitFor(() => expect(screen.getByTestId('work-timer-sheet')).toBeTruthy());
 };
 

@@ -8,7 +8,7 @@
 import * as React from 'react';
 import {
   CalendarDays, CheckSquare, ClipboardList, Code2, Download, FileDown, FileText, Home, Inbox,
-  MapPin, MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck,
+  Clock, MapPin, MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck,
   Users, Bell, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -21,7 +21,7 @@ import { track } from '@/lib/track';
 import { canShowPage } from '@/lib/canShowPage';
 
 export const MORE_ICONS: Record<string, LucideIcon> = {
-  Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell,
+  Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell, Clock,
   Settings, MessageSquarePlus, Download, FileDown, Inbox, TrendingUp, Notebook, FileText,
   MoreHorizontal,
 };
@@ -41,6 +41,7 @@ const APP_ORDER = ['settings', 'field-journal', 'feedback'];
 const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; group?: 'admin' }> = [
   { page: 'calendar', label: 'יומן', icon: CalendarDays },
   { page: 'attendance', label: 'נוכחות', icon: CalendarDays },
+  { page: 'hours', label: 'שעות מול לקוחות', icon: Clock },
   // מלאי is a tab on the bar itself (F4, עידן 22.9): the sheet lists only what the bar does not.
   { page: 'pushlog', label: 'התראות', icon: Bell, group: 'admin' },
   { page: 'dev', label: 'פיתוח', icon: Code2, group: 'admin' },

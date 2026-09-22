@@ -11,7 +11,7 @@ export type SigmaRole = 'idan' | 'team' | 'viewer' | '';
 // nav tab — reached from the landing strip, the card-modal section and ⋯ עוד only — and it
 // disappears with the rest of the project when BURNS_PROJECT_ACTIVE goes false.
 export type SigmaPage =
-  | 'kibbutz' | 'inventory' | 'attendance' | 'calendar' | 'dev' | 'pushlog' | 'burns';
+  | 'kibbutz' | 'inventory' | 'attendance' | 'calendar' | 'dev' | 'pushlog' | 'burns' | 'hours';
 
 export interface EmsTask {
   id: string;

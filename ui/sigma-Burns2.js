@@ -1,4 +1,4 @@
-import{c as oe,u as de,q as le,r as c,j as n,y as I,t as k,s as M,S as ue,g as ce,h as me,i as fe,k as xe,e as T}from"./sigma.js?v=muclafgo";import{C as be,a as pe,b as he}from"./sigma-collapsible.js?v=muclafgo";import{u as U}from"./sigma-useQuery.js?v=muclafgo";import{g as E,s as $}from"./sigma-supabase.js?v=muclafgo";import{q as F}from"./sigma-query.js?v=muclafgo";import{C as ge}from"./sigma-chevron-down.js?v=muclafgo";/**
+import{c as oe,u as de,q as le,r as c,j as n,y as I,t as k,s as M,S as ue,g as ce,h as me,i as fe,k as xe,e as T}from"./sigma.js?v=muclos24";import{C as be,a as pe,b as he}from"./sigma-collapsible.js?v=muclos24";import{u as U}from"./sigma-useQuery.js?v=muclos24";import{g as E,s as $}from"./sigma-supabase.js?v=muclos24";import{q as F}from"./sigma-query.js?v=muclos24";import{C as ge}from"./sigma-chevron-down.js?v=muclos24";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

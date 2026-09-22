@@ -15,12 +15,71 @@ export const RUNNING_KEY = 'sigma_clockify_running_v1';
 export interface ClockifyTag { id: string; name: string }
 export interface ClockifyProject { id: string; name: string; billable?: boolean }
 
-/** A timer that is ticking right now. All it needs to survive a reload is these three fields. */
+/** A timer that is ticking right now. All it needs to survive a reload is the first three
+ *  fields; the rest arrived on 22.9 (עידן, E1) and are optional. */
 export interface RunningSession {
   person: string;
   kibbutz: string;
   /** ISO — the ONLY source of the elapsed time, so a reload never restarts the clock. */
   started_at: string;
+  /** ISO while paused; absent while running. */
+  paused_at?: string;
+  /** Milliseconds spent paused so far (closed pauses only). */
+  paused_ms?: number;
+  /** Filled while the clock runs (the running-timer sheet); the stop sheet starts from them. */
+  attendees?: string[];
+  tags?: string[];
+  note?: string;
+  /** Set once the 2 h auto-stop fired, so it fires once. */
+  auto_stopped?: boolean;
+}
+
+/** A clock left open this long is paused by itself and the person is told (עידן 22.9, E1). */
+export const AUTO_STOP_MS = 2 * 60 * 60_000;
+
+/** Seconds actually worked: since the start, minus the closed pauses, minus the open one. */
+export function elapsedFor(s: RunningSession, now: number = Date.now()): number {
+  const t = Date.parse(s.started_at);
+  if (!Number.isFinite(t)) return 0;
+  const end = s.paused_at && Number.isFinite(Date.parse(s.paused_at)) ? Date.parse(s.paused_at) : now;
+  return Math.max(0, Math.floor((end - t - (s.paused_ms || 0)) / 1000));
+}
+
+export function pauseSession(s: RunningSession, now: number = Date.now()): RunningSession {
+  if (s.paused_at) return s;
+  return { ...s, paused_at: new Date(now).toISOString() };
+}
+
+export function resumeSession(s: RunningSession, now: number = Date.now()): RunningSession {
+  if (!s.paused_at) return s;
+  const p = Date.parse(s.paused_at);
+  const add = Number.isFinite(p) ? Math.max(0, now - p) : 0;
+  const { paused_at: _drop, ...rest } = s;
+  return { ...rest, paused_ms: (s.paused_ms || 0) + add };
+}
+
+/** Has the clock worked AUTO_STOP_MS without being stopped? (paused clocks never fire) */
+export function autoStopDue(s: RunningSession, now: number = Date.now()): boolean {
+  if (s.paused_at || s.auto_stopped) return false;
+  return elapsedFor(s, now) * 1000 >= AUTO_STOP_MS;
+}
+
+/** The pause that the auto-stop applies: paused at exactly start + 2 h of work, flagged. */
+export function autoStop(s: RunningSession): RunningSession {
+  const t = Date.parse(s.started_at) + (s.paused_ms || 0) + AUTO_STOP_MS;
+  return { ...s, paused_at: new Date(t).toISOString(), auto_stopped: true };
+}
+
+/** The end of a session for the row: start + the seconds worked, so pauses are not billed. */
+export function endedAtFor(s: RunningSession, now: number = Date.now()): string {
+  return new Date(Date.parse(s.started_at) + elapsedFor(s, now) * 1000).toISOString();
+}
+
+/** Tags whose name contains the query (case-insensitive); all of them for an empty query. */
+export function tagsMatching(tags: ClockifyTag[], query: string): ClockifyTag[] {
+  const q = String(query ?? '').trim().toLowerCase();
+  if (!q) return tags || [];
+  return (tags || []).filter(t => String(t.name).toLowerCase().includes(q));
 }
 
 /** What the stop sheet hands to the writer. Mirrors the `work_sessions` row. */

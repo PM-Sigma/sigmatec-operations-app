@@ -67,6 +67,19 @@ the user chip folds to an initial on a phone; filter chips fit one row at 360 px
 ("משהו נשבר · דווח על הבאג") on uncaught errors and crashed islands, prefilling 📣 רעיון / באג with
 the error, the page and the last 20 actions (`window.__sigmaTrail`).
 
+**⏱ שעות (round 3 — E1 + E2).** The running clock on a card opens its own sheet: ⏸ pause / ▶
+resume (paused stretches are never billed: `elapsedFor`, `endedAtFor`), the start time to correct
+by hand, the contact and the tags while it runs (search narrows the live vocabulary; one match is
+pre-picked; Enter adds a new one), "שמור והמשך", ■ סגור שעות → the stop sheet prefilled, 🗑 עצור
+ומחק. After 2 h of work the clock pauses by itself (`autoStop`, once) and the person is told —
+toast + a system notification when allowed, whose tap opens the sheet. NOT built: a server push
+for a phone that is closed the whole time (the tick catches up on return). New page **⏱ שעות
+מול לקוחות** (`hours`, island `Hours.tsx`, ⋯ row + the viewer's reports hub): every
+`work_sessions` row with month/person/kibbutz filters and totals; עידן and עמיחי edit, add
+manually and delete; 📄 PDF (print window) / 📗 Excel of what is on screen; every change is
+logged by a database trigger — `db/work_sessions_log.sql` (NOT applied; it also grants the two
+editors update/insert/delete on other people's rows, without which edits fail RLS).
+
 **Copy (humanizer) + design (impeccable).** 41 UI strings de-dashed / de-system-talked; the rest and
 the detector's 117 pre-existing warnings are listed with a plan in
 `docs/reports/2026-09-22-copy-sweep.md`.

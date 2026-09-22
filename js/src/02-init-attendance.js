@@ -74,7 +74,8 @@
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי (admin) + מתניה + אליה — canSeeDevTasks(), js/src/18-dev-tasks.js
     if (page === 'pushlog' && !(typeof isIdan === 'function' && isIdan())) page = 'kibbutz'; // התראות — עידן only
-    if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz'; // 🔥 צריבות — אביאם/ניתאי/עידן/עמיחי write · viewer read · hidden from מתניה/אליה · everyone once BURNS_PROJECT_ACTIVE is false
+    if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz';
+    if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer // 🔥 צריבות — אביאם/ניתאי/עידן/עמיחי write · viewer read · hidden from מתניה/אליה · everyone once BURNS_PROJECT_ACTIVE is false
     if (window._currentPage && window._currentPage !== page) window._prevPage = window._currentPage;
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
     // One history entry per page switch, so the phone's Back returns to the previous page
@@ -90,6 +91,7 @@
     var _dv = document.getElementById('dev-view'); if (_dv) _dv.style.display = page === 'dev' ? '' : 'none';
     var _pl = document.getElementById('pushlog-view'); if (_pl) _pl.style.display = page === 'pushlog' ? '' : 'none';
     var _bv = document.getElementById('burns-view'); if (_bv) _bv.style.display = page === 'burns' ? '' : 'none';
+    var _hv = document.getElementById('hours-view'); if (_hv) _hv.style.display = page === 'hours' ? '' : 'none';
     document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
@@ -98,7 +100,7 @@
     if (page === 'pushlog' && typeof renderPushLog === 'function') renderPushLog();
     if (page === 'burns' && typeof renderBurns === 'function') renderBurns();
     // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
-    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view' }[page];
+    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view' }[page];
     var _pe = _pv && document.getElementById(_pv);
     if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
     const fab = document.getElementById('visitFab');

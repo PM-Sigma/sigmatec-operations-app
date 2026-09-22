@@ -95,6 +95,7 @@ export function primaryAdd(page: AddPage, role: PersonRole, context: AddContext 
     case 'dev':
     case 'pushlog':
     case 'burns':
+    case 'hours':     // ⏱ the page has its own הוספה ידנית button
     default:
       return 'none';
   }

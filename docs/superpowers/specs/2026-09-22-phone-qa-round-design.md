@@ -1,6 +1,6 @@
 # סבב תיקונים — בדיקת אפליקציה מהטלפון (Galaxy S24) · 22.9.2026
 
-STATUS: 🟡 OPEN — rounds 1–2 BUILT (2.08) on `feat/phone-qa-round`; open: E1, E2 (P3 features), D13 (data decision), K2 remainder (see `docs/reports/2026-09-22-copy-sweep.md`). Resume: read this file + CHANGELOG [2.08]; the two `db/*.sql` migrations are unapplied.
+STATUS: 🟡 OPEN — rounds 1–3 BUILT (2.11) on `feat/phone-qa-round`; open: E1-push (server push while the phone is closed), D13 (data decision), K2 remainder (see `docs/reports/2026-09-22-copy-sweep.md`). Resume: read this file + CHANGELOG [2.08]; the two `db/*.sql` migrations are unapplied.
 
 מקור: הערות עידן מבדיקה בטלפון, 22.9. הקטלוג מסודר לפי תחומים; לכל פריט: מזהה, ההערה כפי שנמסרה,
 מיקום בקוד, מקומות-אחים עם אותו באג, והחלטת ביצוע. כללי עבודה: humanizer לכל טקסט/כותרת,

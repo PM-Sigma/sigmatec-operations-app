@@ -260,6 +260,7 @@
     wb.Workbook = { Views: [{ RTL: true }] };
     return wb;
   }
+  window.xlDownload = xlDownload;   // ⏱ Hours.tsx exports through the same builder
   function xlDownload(spec, filename) {
     const total = spec.sheets ? spec.sheets.reduce((n, sh) => n + sh.rows.length, 0) : spec.rows.length;
     if (!total) { alert('אין נתונים לייצוא בטווח שנבחר'); return Promise.resolve(false); }

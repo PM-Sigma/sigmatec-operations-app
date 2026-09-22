@@ -218,6 +218,12 @@
         // 🔥 צריבות (Task 23) — a temporary project page: the same audience gate the
         // chip, the section and the strip use, and false for everyone once the project ends.
         case 'burns':      return !!call('burnCanSee', [], false);
+        // ⏱ שעות מול לקוחות (22.9, E2): עידן · עמיחי · מתניה, and the viewer reads it.
+        case 'hours': {
+          if (call('isViewer', [], false)) return true;
+          var _u = call('getCurrentUser', [], '');
+          return ['עידן', 'עמיחי', 'מתניה'].indexOf(_u) !== -1;
+        }
         // 'ems' / 'mytasks' / 'staff' are retired (§7m R1/R2/R5) — they fall through to false,
         // so a stale deep link or a remembered landing lands on 🏘 קיבוצים instead of nowhere.
         default: return false;

@@ -66,7 +66,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-22 (**2.08 on `feat/phone-qa-round` — עידן's phone QA round, rounds 1–2 built; QA session next**).
+## 🚦 Current state — last: 2026-09-22 (**2.08 on `feat/phone-qa-round` — עידן's phone QA round, rounds 1–3 built; QA session next**).
 
 עידן tested from his Galaxy S24 and sent ~50 notes; all of them are catalogued by domain with code
 locations in `docs/superpowers/specs/2026-09-22-phone-qa-round-design.md`, and everything but the
@@ -76,9 +76,11 @@ queue chip, every 🔄, 🚚 on the bar/card, 🗓 on the card and the home-card
 🔒 tasks have owner/due/priority/kind with actions inside the card; alerts are grouped; burns have
 the right words, a per-kibbutz Excel and an EMS-task-from-a-problem; the visit form has the tile
 grid, a required contact and in-place validation; a crash card reports bugs with the last actions.
-Two migrations wait for a human (`db/internal_tasks_fields.sql`, `db/meter_burns_ems_task.sql`).
+Round 3 added the running-timer sheet (pause · retime · 2 h auto-stop) and the ⏱ שעות מול לקוחות page.
+Three migrations wait for a human (`db/internal_tasks_fields.sql`, `db/meter_burns_ems_task.sql`,
+`db/work_sessions_log.sql` — required for edits on the hours page).
 Full detail: `docs/CHANGELOG.md` [2.08]. **Next:** merge to `dev`, QA session (סשן B — בקר Opus)
-runs `npm run qa` + phone scenarios (every dialog closes, background→foreground), then E1/E2.
+runs `npm run qa` + phone scenarios (every dialog closes, background→foreground); then D13 with עידן.
 
 ## 🚦 Current state — last: 2026-09-20 (**2.02 is LIVE on `main`; 2.03 pushed to `dev` — Task 35: no data before an EMS pass + a second boot-time TDZ, fixed**).
 
