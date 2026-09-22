@@ -148,6 +148,12 @@ test('home cards: "המשימות הפנימיות שלי" is a fixed, collapsib
 
   const strip = page.locator('#sigma-my-tasks .my-tasks-strip');
   await expect(strip).toBeVisible();
+  // Collapsed by default (עידן 22.9: the open list sat on top of every page's scroll) — one
+  // line with the count, and the page reserves room under itself for it.
+  await expect(strip).toContainText('1 משימות פנימיות שלי');
+  await expect(strip.getByText('לבדוק את הגנרטור')).toHaveCount(0);
+  await expect(page.locator('body')).toHaveClass(/has-my-tasks/);
+  await strip.locator('.my-tasks-toggle').click();
   await expect(strip).toContainText('לבדוק את הגנרטור');
 
   if (viewport === 'mobile-390') {
