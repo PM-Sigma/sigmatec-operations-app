@@ -85,6 +85,10 @@ test('briefing: the pending meters arrive as "לפני שיוצאים" rows', as
   const brief = page.locator('[data-mode="briefing"]');
   await expect(brief).toBeVisible();
   await expect(brief.getByText('לפני שיוצאים')).toBeVisible();
+  // Round 2 · G6: 🔥 is a COLLAPSED category now — the line counts what is left, and the
+  // rows themselves are one tap away rather than thirty lines down the checklist.
+  await expect(brief.getByTestId('brief-burns-summary')).toContainText('2 מונים ממתינים לצריבה');
+  await brief.getByTestId('brief-burns-toggle').click();
   // one row per meter that is still open — the burned one is not offered
   await expect(brief.locator('[data-leave-item="burn:mb1"]')).toBeVisible();
   await expect(brief.locator('[data-leave-item="burn:mb2"]')).toBeVisible();

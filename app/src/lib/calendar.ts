@@ -40,6 +40,9 @@ export interface VisitRow {
   visitor?: string;
   kibbutz?: string;
   workday?: boolean;
+  /** Round 2 · G3 — a past day SHOWS its summary, read only. */
+  summary?: string | null;
+  open_items?: string | null;
 }
 
 export interface CalEmsTask {
@@ -138,6 +141,60 @@ export const EMPTY_DAY = 'אין מה שמתוכנן ליום הזה';
 export const NO_KIBBUTZ = 'ללא קיבוץ';
 
 export const HE_DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+
+/** א–ה. The default week (round 2 · G1): Fri/Sat are shown by the full month only. */
+export const HE_WORK_DAY_LETTERS = HE_DAY_LETTERS.slice(0, 5);
+
+/**
+ * The toggle SAYS WHERE IT GOES, not where it is: with א–ה on screen the button offers
+ * "חודש מלא", and from the full month it offers the way back. A button labelled with the
+ * state it is already in is the single most common way a toggle is misread.
+ */
+export function workWeekLabel(workWeek: boolean): string {
+  return workWeek ? 'חודש מלא' : 'שבוע עבודה';
+}
+
+/**
+ * Which weekday columns a view paints. Only a MONTH with the work week turned off shows
+ * Fri/Sat — a week view is the working week, always, because that is the week a technician
+ * plans. Sunday = 0.
+ */
+export function visibleDows(view: 'week' | 'month', workWeek: boolean): number[] {
+  return view === 'month' && !workWeek ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4];
+}
+
+/** The day letters that head the grid, for the same pair of inputs. */
+export function dayLetters(view: 'week' | 'month', workWeek: boolean): string[] {
+  return visibleDows(view, workWeek).map(d => HE_DAY_LETTERS[d]);
+}
+
+/** One week row, narrowed to the columns `visibleDows` allows. */
+export function gridDays(week: CalWeek, view: 'week' | 'month', workWeek: boolean): CalCell[] {
+  const keep = visibleDows(view, workWeek);
+  return week.days.filter(d => keep.indexOf(d.dow) !== -1);
+}
+
+export type DayWhen = 'past' | 'today' | 'future';
+
+/** Past · today · future — the one place the calendar decides what a day may still become. */
+export function dayWhen(date: string, today: string): DayWhen {
+  if (!date) return 'future';
+  if (date < today) return 'past';
+  return date === today ? 'today' : 'future';
+}
+
+/**
+ * Round 2 · G3: a day that is over cannot be planned. No route editing, no "הוסף למסלול",
+ * no briefing — it shows what happened, and that is all it has left to say.
+ */
+export function canPlanDay(date: string, today: string): boolean {
+  return dayWhen(date, today) !== 'past';
+}
+
+/** The visit summaries filed on a past day, read-only (round 2 · G3). */
+export function visitsOn(visits: VisitRow[] | null | undefined, date: string): VisitRow[] {
+  return (visits || []).filter(v => v && toKey(v.date) === date);
+}
 
 export const HE_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט',
   'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];

@@ -10,6 +10,8 @@ import {
   routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey, weekDays, weekNumber,
   weekView, ymd,
   type AbsenceRow, type CalEmsTask, type OfficeEvent, type VisitRow,
+  canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
+  workWeekLabel,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -365,5 +367,73 @@ describe('abilities', () => {
   });
   it('עידן too', () => {
     expect(abilities('idan', 'עידן').canAbsentOthers).toBe(true);
+  });
+});
+
+// ───────────── round 2 · package G — the work-week grid and the day's tense ─────────────
+
+describe('the work week (G1)', () => {
+  it('א–ה is five columns; only a full MONTH shows Fri/Sat', () => {
+    expect(visibleDows('month', true)).toEqual([0, 1, 2, 3, 4]);
+    expect(visibleDows('month', false)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    // A week view is the WORKING week, always — the toggle is a month affair.
+    expect(visibleDows('week', true)).toEqual([0, 1, 2, 3, 4]);
+    expect(visibleDows('week', false)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('the day letters follow the columns', () => {
+    expect(dayLetters('month', true)).toEqual(['א', 'ב', 'ג', 'ד', 'ה']);
+    expect(dayLetters('month', false)).toEqual(['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']);
+  });
+
+  it('the toggle says WHERE IT GOES, not where it is', () => {
+    expect(workWeekLabel(true)).toBe('חודש מלא');
+    expect(workWeekLabel(false)).toBe('שבוע עבודה');
+  });
+
+  it('a week row is narrowed to the visible columns, in order', () => {
+    const week = monthViewR2(2026, 9).weeks[1];
+    const five = gridDays(week, 'month', true);
+    expect(five).toHaveLength(5);
+    expect(five.map(d => d.dow)).toEqual([0, 1, 2, 3, 4]);
+    expect(gridDays(week, 'month', false)).toHaveLength(7);
+    // Nothing is re-ordered — the same cells, minus two.
+    expect(five.map(d => d.date)).toEqual(week.days.slice(0, 5).map(d => d.date));
+  });
+});
+
+describe('past · today · future (G3)', () => {
+  it('names the tense of a day', () => {
+    expect(dayWhen('2026-09-21', '2026-09-22')).toBe('past');
+    expect(dayWhen('2026-09-22', '2026-09-22')).toBe('today');
+    expect(dayWhen('2026-09-23', '2026-09-22')).toBe('future');
+  });
+  it('a day that is over cannot be planned — today still can', () => {
+    expect(canPlanDay('2026-09-21', '2026-09-22')).toBe(false);
+    expect(canPlanDay('2026-09-22', '2026-09-22')).toBe(true);
+    expect(canPlanDay('2026-09-23', '2026-09-22')).toBe(true);
+  });
+  it('a past day shows the summaries filed ON it, and nothing from its neighbours', () => {
+    const visits = [
+      { id: 'a', date: '2026-09-21', kibbutz: 'גבת', summary: 'הוחלף מונה' },
+      { id: 'b', date: '2026-09-22', kibbutz: 'דגניה', summary: 'ביקור' },
+      { id: 'c', date: '2026-09-21T08:00:00', kibbutz: 'חוקוק', summary: 'עוד ביקור' },
+    ];
+    expect(visitsOn(visits, '2026-09-21').map(v => v.kibbutz)).toEqual(['גבת', 'חוקוק']);
+    expect(visitsOn([], '2026-09-21')).toEqual([]);
+  });
+});
+
+describe('the route ignores EMS due dates (G4)', () => {
+  it('a kibbutz placed by hand is a stop even when nothing is DUE there that day', () => {
+    const rows = routeWithHeaders(['גבת'], {});
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ kibbutz: 'גבת', header: 'first', index: 0, count: 0, taskIds: [] });
+  });
+  it('…and the order he saved is the order he gets, due dates or not', () => {
+    const rows = routeWithHeaders(['גבת', 'דגניה', 'חוקוק'], { דגניה: ['t1'] });
+    expect(rows.map(r => r.kibbutz)).toEqual(['גבת', 'דגניה', 'חוקוק']);
+    expect(rows.map(r => r.header)).toEqual(['first', 'middle', 'last']);
+    expect(rows.map(r => r.count)).toEqual([0, 1, 0]);
   });
 });

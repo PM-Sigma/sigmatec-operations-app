@@ -87,3 +87,41 @@ test('היום: the strip is not there for anyone but the field team', async ({ 
   await expect(page.getByTestId('today-strip')).toHaveCount(0);
   expectNoConsoleErrors(rec);
 });
+
+// ───────────── round 2 · package G — the briefing ─────────────
+
+test('briefing: 🔥 צריבות is a collapsed category with a line that counts (G6)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await expect(page.locator('[data-mode="briefing"]')).toBeVisible();
+
+  const burns = page.getByTestId('brief-burns');
+  if (!(await burns.count())) { expectNoConsoleErrors(rec); return; }   // no pending meters here
+
+  // Shut, and saying what it holds — the meter rows are NOT in the flat list.
+  await expect(page.getByTestId('brief-burns-toggle')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByTestId('brief-burns-summary')).toContainText(/צריבה|נצרב/);
+  await expect(burns.locator('[data-leave-item]')).toHaveCount(0);
+
+  await page.getByTestId('brief-burns-toggle').click();
+  await expect(page.getByTestId('brief-burns-toggle')).toHaveAttribute('aria-expanded', 'true');
+  expect(await burns.locator('[data-leave-item]').count()).toBeGreaterThan(0);
+
+  await shot(page, ti, 'briefing-burns');
+  expectNoConsoleErrors(rec);
+});
+
+test('היום: the day’s briefing is a row of its own, above the stops (G6)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', checkins: true });
+
+  const row = page.getByTestId('today-brief-row');
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row).toContainText('הבריפינג של היום');
+
+  await row.click();
+  await expect(page.locator('[data-mode="briefing"]')).toBeVisible();
+
+  expectNoConsoleErrors(rec);
+});

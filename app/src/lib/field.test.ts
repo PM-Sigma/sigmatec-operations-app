@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   arrivalGroups, arrivalOrder, audienceFor, bulletForField, capBlocked, capFor, DAYLOG_NUDGES,
   dm, fieldShouldPrompt, hasSomethingToDeliver, hashIdx, inQuietHours, israelAt, israelParts,
+  briefingAutoOpen, briefingTasks, burnRowsOf, burnSummary,
   leaveChecklist, nudgeFor, openItemsPrefill, openNudges, pushactParse, RECOUNT_NUDGES,
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   ATT_MORNING_HH, attendanceCronRuns, EOD_DEFAULT_HH, eodHourFor,
@@ -483,5 +484,62 @@ describe('attendanceCronRuns', () => {
       .toEqual([{ person: 'אביאם', kind: 'morning' }]);
     expect(attendanceCronRuns(19, ['אביאם'], { אביאם: 9 }))
       .toEqual([{ person: 'אביאם', kind: 'evening' }]);
+  });
+});
+
+// ───────────── round 2 · package G — the briefing ─────────────
+
+describe('briefingTasks (G4)', () => {
+  const rows = [
+    { id: '1', title: 'בלי תאריך' },
+    { id: '2', title: 'לעוד חודשיים', expectedCompletionDate: '2027-01-01' },
+    { id: '3', title: 'באיחור', expectedCompletionDate: '2020-01-01' },
+    { id: '4', title: 'נסגרה', status: 'done' },
+    { id: '5', title: 'נדחתה', status: 'rejected' },
+  ] as FieldTask[];
+
+  it('every OPEN task of the kibbutz, whatever EMS calls its due date', () => {
+    expect(briefingTasks(rows).map(t => t.id)).toEqual(['1', '2', '3']);
+  });
+  it('nothing in, nothing out', () => {
+    expect(briefingTasks(null)).toEqual([]);
+    expect(briefingTasks([])).toEqual([]);
+  });
+});
+
+describe('🔥 as a collapsed category (G6)', () => {
+  const items = [
+    { id: 'task:1', text: 'משימה', sub: '', kind: 'task' as const },
+    { id: 'burn:a', text: 'מונה 1', sub: '', kind: 'burn' as const },
+    { id: 'burn:b', text: 'מונה 2', sub: '', kind: 'burn' as const },
+  ];
+  it('the 🔥 rows are their own category', () => {
+    expect(burnRowsOf(items).map(x => x.id)).toEqual(['burn:a', 'burn:b']);
+  });
+  it('the summary line counts what is still OPEN', () => {
+    expect(burnSummary(items)).toBe('2 מונים ממתינים לצריבה');
+    expect(burnSummary(items, { 'burn:a': true })).toBe('מונה אחד ממתין לצריבה');
+    expect(burnSummary(items, { 'burn:a': true, 'burn:b': true })).toBe('הכל נצרב כאן');
+  });
+  it('no 🔥 rows, no category and no line', () => {
+    expect(burnSummary([{ id: 'task:1', text: 'x', sub: '', kind: 'task' }])).toBe('');
+  });
+});
+
+describe('briefingAutoOpen (G6)', () => {
+  const base = { today: '2026-09-22', stops: ['גבת', 'דגניה'] };
+  it('opens the first stop on the first entry of the day', () => {
+    expect(briefingAutoOpen({ ...base, lastShown: null })).toBe('גבת');
+    expect(briefingAutoOpen({ ...base, lastShown: '2026-09-21' })).toBe('גבת');
+  });
+  it('…and only once — a reload later the same day opens nothing', () => {
+    expect(briefingAutoOpen({ ...base, lastShown: '2026-09-22' })).toBe('');
+  });
+  it('no route, no briefing', () => {
+    expect(briefingAutoOpen({ today: '2026-09-22', stops: [], lastShown: null })).toBe('');
+    expect(briefingAutoOpen({ today: '2026-09-22', stops: ['  '], lastShown: null })).toBe('');
+  });
+  it('a viewer is never interrupted', () => {
+    expect(briefingAutoOpen({ ...base, lastShown: null, isViewer: true })).toBe('');
   });
 });
