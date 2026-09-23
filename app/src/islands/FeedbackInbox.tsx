@@ -24,6 +24,7 @@ import {
 } from '@/lib/feedback';
 import { FEEDBACK_QUERY_KEY } from '@/islands/Feedback';
 import { EmsGate } from '@/components/EmsGate';
+import { sessionLost } from '@/lib/session';
 
 export interface FeedbackItem {
   id: string;
@@ -69,7 +70,7 @@ function emsToken(): string {
 
 async function ghCall(payload: Record<string, unknown>): Promise<any> {
   const token = emsToken();
-  if (!token) throw new Error('יש להתחבר ל-EMS כדי לכתוב ללוח הפיתוח');
+  if (!token) throw sessionLost('gh-no-token');
   const r = await fetch(SB_URL + '/functions/v1/github', {
     method: 'POST',
     headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },

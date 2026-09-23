@@ -325,7 +325,7 @@ export interface EmsParams {
 
 /** `✓ מקושר` vs `⚠️ לא מקושר` — the read-only line the sheet shows in place of the old chain. */
 export function emsLinkedLabel(row: KibbutzRow | null): string {
-  return row && row.ems_site_ids && row.ems_site_ids.length ? '✓ מקושר' : '⚠️ לא מקושר';
+  return row && siteIdsOf(row).length ? '✓ מקושר' : '⚠️ לא מקושר';
 }
 
 /**
@@ -335,7 +335,18 @@ export function emsLinkedLabel(row: KibbutzRow | null): string {
  */
 export function isUnlinked(row: KibbutzRow): boolean {
   if (!row || row.archived_at) return false;
-  return !(row.ems_site_ids && row.ems_site_ids.length);
+  return !siteIdsOf(row).length;
+}
+
+/**
+ * The row's EMS site ids, cleaned. Mirrors js/src/01-data.js `emsIdsUnlinked` (the card chip):
+ * a JSON-string column and blank entries are tolerated the same way on both sides, so the card
+ * and the bell can never disagree (spec 2026-09-23 ems-session §4).
+ */
+export function siteIdsOf(row: KibbutzRow): string[] {
+  let ids: unknown = row?.ems_site_ids;
+  if (typeof ids === 'string') { try { ids = JSON.parse(ids); } catch { ids = ids ? [ids] : []; } }
+  return Array.isArray(ids) ? (ids as unknown[]).filter(Boolean).map(String) : [];
 }
 
 // ───────────────────────── tolerating a database without the column ─────────────────────────

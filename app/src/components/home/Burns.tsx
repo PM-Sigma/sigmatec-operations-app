@@ -416,7 +416,7 @@ function BurnIssueSheet({ row, gen, onClose, onSave }: {
         />
         <label className="mt-3 flex items-center gap-2 text-[14px] font-semibold">
           <input type="checkbox" className="h-5 w-5" checked={openEms} disabled={!connected} onChange={e => setOpenEms(e.target.checked)} />
-          לפתוח תקלה ב-EMS{connected ? '' : ' · דורש חיבור ל-EMS'}
+          לפתוח תקלה ב-EMS
         </label>
         {openEms && connected && (
           <p className="mt-1 text-[12px] text-muted-foreground">

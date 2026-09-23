@@ -247,7 +247,7 @@
 
   async function devFetchTasks(state) {
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
-    if (!tok) throw new Error('יש להתחבר ל-EMS כדי לראות משימות פיתוח');
+    if (!tok) throw new Error((typeof window.sigmaSessionLost === 'function' ? window.sigmaSessionLost('dev-no-token') : 'ההתחברות פגה. צריך להתחבר מחדש'));
     // client-side timeout so a cold/slow function never hangs the page on an endless spinner
     var ac = new AbortController();
     var to = setTimeout(function () { ac.abort(); }, 20000);
@@ -698,7 +698,7 @@
     if (!window._devLogLoaded) { window._devLogLoaded = true; devLoadStatusLog().then(function () { devPaint(); }); }
 
     if (!tok) {   // no connection → show the cache (if any), otherwise ask to connect
-      if (!hasCache) el.innerHTML = '<div class="dev-wrap"><div class="dev-error">יש להתחבר ל-EMS כדי לטעון משימות פיתוח. <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks(true)">🔄 נסה שוב</button></div></div>';
+      if (!hasCache) el.innerHTML = '<div class="dev-wrap"><div class="dev-error">ההתחברות פגה. <button class="inv-btn small" style="margin-right:8px;" onclick="renderDevTasks(true)">🔄 נסה שוב</button></div></div>';
       return;
     }
     if (!willFetch) return;   // already synced this session → reuse cache, no fetch
@@ -897,7 +897,7 @@
   // the same 20 s budget as the read — `fetchWithTimeout` lives in js/src/00-guard.js.
   async function devWriteField(mode, numbers, value) {
     var tok = (typeof getEmsToken === 'function') ? getEmsToken() : '';
-    if (!tok) throw new Error('יש להתחבר ל-EMS');
+    if (!tok) throw new Error((typeof window.sigmaSessionLost === 'function' ? window.sigmaSessionLost('dev-no-token') : 'ההתחברות פגה. צריך להתחבר מחדש'));
     var body = { token: tok, mode: mode, numbers: numbers };
     if (mode === 'setStatus') body.status = value; else body.priority = value;
     var r = await fetchWithTimeout(SB_URL + '/functions/v1/github', {

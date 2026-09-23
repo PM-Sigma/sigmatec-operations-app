@@ -141,3 +141,45 @@ describe('re-mint timer math', () => {
     expect(shouldRemintNow(null, now)).toBe(true);
   });
 });
+
+// ───────── spec 2026-09-23 ems-session: the freeze rule (goldens) ─────────
+import { expiryDecision, shouldFreeze, type ExpiryInput } from './session';
+
+describe('expiryDecision — when the app freezes', () => {
+  const NOW = 1_800_000_000_000;
+  const base: ExpiryInput = {
+    role: 'field', mock: false, everSignedIn: true, emsTokenLive: true,
+    passExp: NOW + 60_000, now: NOW,
+  };
+  const cases: Array<[string, Partial<ExpiryInput>, string]> = [
+    ['live EMS + live pass', {}, 'ok'],
+    ['pass lapsed, EMS still live → renew silently', { passExp: NOW - 1 }, 'remint'],
+    ['no pass at all, EMS live → renew', { passExp: 0 }, 'remint'],
+    ['EMS session gone → freeze', { emsTokenLive: false }, 'freeze'],
+    ['EMS gone and pass lapsed → freeze', { emsTokenLive: false, passExp: 0 }, 'freeze'],
+    ['never signed in → the login gate owns it', { everSignedIn: false, emsTokenLive: false }, 'ok'],
+    ['mint in flight (cold boot) → wait', { emsTokenLive: false, passPending: true }, 'ok'],
+    ['mock mode never freezes', { mock: true, emsTokenLive: false }, 'ok'],
+    ['public cert link never freezes', { certView: true, emsTokenLive: false }, 'ok'],
+    ['viewer is unchanged (PIN, no EMS)', { role: 'viewer', emsTokenLive: false }, 'ok'],
+    ['401 with EMS live → one re-mint', { status: 401 }, 'remint'],
+    ['401 with EMS gone → freeze', { status: 401, emsTokenLive: false }, 'freeze'],
+    ['401 42501 is a permission answer, not an expiry', { status: 401, code: '42501', emsTokenLive: false }, 'ok'],
+    ['403 PGRST301 (JWT expired) → freeze', { status: 403, code: 'PGRST301', emsTokenLive: false }, 'freeze'],
+    ['plain 403 is "not allowed", not an expiry', { status: 403, emsTokenLive: false }, 'ok'],
+    ['200 is fine', { status: 200, emsTokenLive: false }, 'ok'],
+  ];
+  for (const [name, patch, want] of cases) {
+    it(name, () => expect(expiryDecision({ ...base, ...patch })).toBe(want));
+  }
+});
+
+describe('shouldFreeze — the gate state for staff vs the viewer', () => {
+  it('expired staff freezes', () => {
+    for (const role of ['idan', 'field', 'pm', 'dev', 'ceo']) expect(shouldFreeze('expired', role)).toBe(true);
+  });
+  it('the viewer never freezes (keeps the PIN card)', () => expect(shouldFreeze('expired', 'viewer')).toBe(false));
+  it('open / mock / pending / locked never freeze', () => {
+    for (const s of ['open', 'mock', 'pending', 'locked'] as const) expect(shouldFreeze(s, 'idan')).toBe(false);
+  });
+});

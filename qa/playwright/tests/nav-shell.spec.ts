@@ -135,8 +135,9 @@ test('shell: the user-chip menu and the ⚙️ הגדרות island', async ({ pa
   const menu = page.getByRole('menu');
   await expect(menu.getByRole('menuitem', { name: 'הגדרות' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'האזור האישי' })).toBeVisible();
-  // not connected to EMS in mock mode → the row offers the action that changes that
-  await expect(menu.getByRole('menuitem', { name: 'התחבר ל-EMS' })).toBeVisible();
+  // spec 2026-09-23 ems-session: staff are signed in WITH EMS, so the menu never offers a
+  // connect / disconnect row (not even in mock mode, where there is no EMS token)
+  await expect(menu.getByRole('menuitem', { name: /EMS/ })).toHaveCount(0);
   await expect(menu.getByRole('menuitem', { name: 'החלפת משתמש' })).toBeVisible();
   await shot(page, ti, 'user-menu');
 

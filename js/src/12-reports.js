@@ -70,10 +70,10 @@
     const wrap = document.createElement('div');
     wrap.id = 'emsReloginModal';
     wrap.className = 'modal-backdrop open';   // shared modal system → inherits animation + mobile sizing
-    wrap.style.zIndex = '100001';
+    wrap.style.zIndex = '2147483000';
     wrap.innerHTML = '<div class="modal" style="max-width:360px;text-align:center;">' +
-      '<div style="font-size:34px;">🔌</div>' +
-      '<h3 style="margin:8px 0 6px;color:#b91c1c;">החיבור ל-EMS נותק</h3>' +
+      '<div style="font-size:34px;">🔑</div>' +
+      '<h3 style="margin:8px 0 6px;color:#b91c1c;">נדרשת התחברות מחדש</h3>' +
       '<div style="font-size:14px;color:#475569;margin-bottom:16px;line-height:1.6;">יש להתחבר מחדש כדי להמשיך. לאחר ההתחברות תוחזר לדף שבו היית.</div>' +
       '<button id="emsReloginBtn" type="button" style="background:#2563eb;color:#fff;border:none;border-radius:8px;padding:11px 22px;font-weight:800;font-size:14px;cursor:pointer;width:100%;">🔑 התחבר מחדש</button>' +
       '</div>';

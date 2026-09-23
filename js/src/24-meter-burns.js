@@ -189,7 +189,7 @@
   function burnAttr(s) { return burnEsc(s).replace(/'/g, "\\'"); }
   function burnHdr(write) {
     var tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
-    if (write && !tok) throw new Error('אין חיבור מאומת. התחבר ל-EMS מחדש ואז נסה שוב');
+    if (write && !tok) throw new Error((typeof window.sigmaSessionLost === 'function' ? window.sigmaSessionLost('burns-no-token') : 'ההתחברות פגה. צריך להתחבר מחדש'));
     return { apikey: SB_ANON, Authorization: 'Bearer ' + (tok || SB_ANON), 'Content-Type': 'application/json' };
   }
   async function burnWriteHdr() {   // mint the Supabase pass on demand (EMS-tab login reloads without one) instead of failing "not connected"
@@ -259,7 +259,7 @@
   async function burnRefreshFromEmsRun(manual) {
     if (!burnCanWrite() || burnState.syncing) return;
     if (window.__MOCK) { if (manual) emsToast('🧪 סביבת בדיקה, רענון מה-EMS מושבת'); return; }
-    if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { if (manual) emsToast('⚠️ אין חיבור ל-EMS. התחבר ואז נסה שוב'); return; }
+    if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { if (manual && typeof window.sigmaSessionLost === 'function') window.sigmaSessionLost('burns-no-token'); return; }
     burnState.syncing = true; burnRepaint();
     try {
       var both = await Promise.all([burnEmsAll('/meters?roleCodes=20,21,22,23,24'), burnEmsAll('/solars')]);
@@ -477,7 +477,7 @@
   async function burnGenSearchEmsRun() {
     var q = (document.getElementById('burnGenSerial').value || '').trim(), out = document.getElementById('burnGenHits');
     if (!q) { emsToast('הקלד מספר מונה לחיפוש'); return; }
-    if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { emsToast('⚠️ אין חיבור ל-EMS'); return; }
+    if (!(typeof isEmsConnected === 'function' && isEmsConnected())) { if (typeof window.sigmaSessionLost === 'function') window.sigmaSessionLost('burns-no-token'); return; }
     out.textContent = '⏳ מחפש ב-EMS…';
     try {
       var res = await emsApi('/meters?search=' + encodeURIComponent(q) + '&take=5');

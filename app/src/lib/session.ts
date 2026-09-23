@@ -191,3 +191,83 @@ export function beginReLogin(): void {
   if (typeof fn === 'function') { fn(); return; }
   try { (window as any).sigma?.toast?.('פתח את המסך מחדש כדי להתחבר'); } catch { /* no bridge */ }
 }
+
+// ───────────────────────── the freeze rule (spec 2026-09-23 ems-session) ─────────────────────────
+// עידן, 23.9: every user except the viewer signs in WITH his EMS user and the app is connected
+// from then on. There is no "connect to EMS" step anywhere. When the connection lapses the app
+// freezes behind ONE blocking re-login and continues where the person was afterwards.
+
+/** The one sentence a surface shows when a call failed because the session lapsed. */
+export const SESSION_LOST_MSG = 'ההתחברות פגה. צריך להתחבר מחדש';
+
+export interface ExpiryInput {
+  role: string;
+  /** `?login=0` on a host allowed to mock, or a public cert link: never freeze. */
+  mock: boolean;
+  certView?: boolean;
+  /** A completed sign-in is remembered on the device (separates "expired" from "never"). */
+  everSignedIn: boolean;
+  /** The EMS session token is present (a pass can be re-minted from it). */
+  emsTokenLive: boolean;
+  /** Supabase bridge pass expiry, epoch ms (0 = none). */
+  passExp: number;
+  /** The pass mint is in flight — a cold boot, not an expiry. */
+  passPending?: boolean;
+  now: number;
+  /** When deciding about a response: its HTTP status and PostgREST code. */
+  status?: number;
+  code?: string;
+}
+
+export type ExpiryDecision = 'ok' | 'remint' | 'freeze';
+
+/**
+ * Pure: is the session still good, renewable without the person, or gone (freeze the app)?
+ * The viewer is out of scope (PIN entry, no EMS user) and never freezes here.
+ */
+export function expiryDecision(i: ExpiryInput): ExpiryDecision {
+  if (i.mock || i.certView) return 'ok';
+  if (String(i.role || '') === 'viewer') return 'ok';
+  if (i.passPending) return 'ok';
+  if (i.status !== undefined) {
+    const expired = i.status === 401 ? i.code !== '42501' : (i.status === 403 && i.code === 'PGRST301');
+    if (!expired) return 'ok';
+    return i.emsTokenLive ? 'remint' : 'freeze';
+  }
+  if (!i.everSignedIn) return 'ok';            // never signed in: the login gate owns it
+  if (!i.emsTokenLive) return 'freeze';        // the EMS session is gone: nothing to renew from
+  if (!i.passExp || i.passExp <= i.now) return 'remint';
+  return 'ok';
+}
+
+/** The gate says "expired" for a staff user → the app freezes (no per-surface sign-in card). */
+export function shouldFreeze(state: GateState, role: string): boolean {
+  return state === 'expired' && String(role || '') !== 'viewer';
+}
+
+/** Read the live inputs and decide. Browser-only. */
+export function liveExpiryDecision(): ExpiryDecision {
+  const s = (window as any).sigma;
+  let role = '';
+  let emsTokenLive = false;
+  let passExp = 0;
+  try { role = String(localStorage.getItem('dashboard_role_v1') || s?.getCurrentRole?.() || ''); } catch { /* none */ }
+  try { emsTokenLive = !!s?.emsToken?.(); } catch { /* none */ }
+  try { passExp = Number(s?.sbPass?.()?.exp || (window as any)._sbTokenExp || 0); } catch { /* none */ }
+  return expiryDecision({
+    role,
+    mock: mockModeAllowed(location.hostname, location.search),
+    certView: !!(window as any)._certViewMode,
+    everSignedIn: everSignedIn(),
+    emsTokenLive,
+    passExp,
+    passPending: !!(window as any)._sbPassPending,
+    now: Date.now(),
+  });
+}
+
+/** A surface found no session: freeze the app (one sheet) and hand back the sentence to show. */
+export function sessionLost(reason = 'no-session'): Error {
+  if (!mockModeAllowed(location.hostname, location.search)) notifySessionExpired(reason);
+  return Object.assign(new Error(SESSION_LOST_MSG), { sessionLost: true });
+}

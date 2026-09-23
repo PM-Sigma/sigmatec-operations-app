@@ -291,7 +291,7 @@ export interface TranscribeResult {
 
 export interface RefinePollResult { text: string; status: 'refining' | 'done' | 'failed'; refined: boolean; secondsRemaining?: number }
 
-export const EMS_LOGIN_REQUIRED_VOICE = 'יש להתחבר ל-EMS כדי לתמלל הקלטה. אפשר להקליד';
+export const EMS_LOGIN_REQUIRED_VOICE = 'ההתחברות פגה, אי אפשר לתמלל עכשיו. אפשר להקליד';
 
 /**
  * The bearer the `transcribe` function is called with: the EMS-derived Supabase pass when

@@ -118,9 +118,10 @@ test('no sign-in → no data, just the one step to take', async ({ page }, testI
   });
   await page.goto('/index.html?sb=0', { waitUntil: 'domcontentloaded' });
 
-  const card = page.locator('#sigma-home [data-sigma-login-required]');
-  await expect(card).toHaveCount(1, { timeout: 20_000 });
-  await expect(card).toContainText('להתחבר');
+  // spec 2026-09-23 ems-session: a staff user whose session is gone gets NO per-surface
+  // "connect" card — the app freezes behind the one blocking re-login.
+  await expect(page.locator('[data-sigma-relogin]')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator('#sigma-home [data-sigma-login-required]')).toHaveCount(0);
   // the cards themselves are NOT on screen
   await expect(page.locator('#sigma-home .kibbutz')).toHaveCount(0);
   await shot(page, testInfo, 'locked');

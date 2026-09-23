@@ -15,7 +15,7 @@ export interface LoginRequiredProps {
   className?: string;
 }
 
-export const LOGIN_REQUIRED_TITLE = 'כדי לראות את זה צריך להתחבר ל-EMS';
+export const LOGIN_REQUIRED_TITLE = 'כדי לראות את זה צריך להתחבר';
 
 export function LoginRequired({ note, className }: LoginRequiredProps) {
   return (

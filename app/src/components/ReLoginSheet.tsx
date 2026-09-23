@@ -11,11 +11,35 @@ import { KeyRound } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { mount } from '@/islands';
-import { SESSION_EXPIRED, beginReLogin } from '@/lib/session';
+import { SESSION_EXPIRED, beginReLogin, liveExpiryDecision, notifySessionExpired } from '@/lib/session';
 
 export const RELOGIN_TITLE = 'נדרשת התחברות מחדש';
 export const RELOGIN_BODY = 'התחבר שוב ותחזור בדיוק לאותו מקום, עם מה שהתחלת לכתוב.';
 export const RELOGIN_CTA = 'התחבר מחדש';
+
+/** The sign-in gate is already on screen (the person pressed the button) — do not cover it. */
+function loginGateUp(): boolean {
+  try {
+    const g = document.getElementById('emsLoginGate');
+    return !!g && getComputedStyle(g).display !== 'none';
+  } catch { return false; }
+}
+
+/**
+ * The expiry watcher (spec 2026-09-23 ems-session §3): a 401 is not the only way a session
+ * dies — the EMS cap or a pass that lapsed while the phone slept is found here, on focus, on
+ * return to the tab and once a minute, and freezes the app through the same funnel.
+ */
+export async function checkSession(reason = 'watch'): Promise<void> {
+  if (loginGateUp()) return;
+  let d = liveExpiryDecision();
+  if (d === 'remint') {
+    try { await (window as any).sigma?.remintOnce?.(); } catch { /* fall through */ }
+    d = liveExpiryDecision();
+    if (d === 'remint') return;            // a mint that did not land yet is not an expiry
+  }
+  if (d === 'freeze') notifySessionExpired('pass-' + reason);
+}
 
 /** A cert link opened by a customer is not a session — a recipient must never see a sign-in. */
 function isPublicCertView(): boolean {
@@ -53,7 +77,16 @@ export function ReLoginSheet() {
     // The legacy re-login path (js/src/12-reports.js `emsRequireLogin`) calls this directly,
     // so a 401 on a legacy page opens THIS sheet instead of the old modal.
     (window as any).sigmaOpenReLogin = onExpired;
+    (window as any).sigmaCheckSession = checkSession;
+    const onFocus = () => { void checkSession('focus'); };
+    const onVis = () => { if (document.visibilityState === 'visible') void checkSession('visible'); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
+    const tick = setInterval(() => { void checkSession('tick'); }, 60_000);
     return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
+      clearInterval(tick);
       bus?.removeEventListener(SESSION_EXPIRED, onExpired);
       if ((window as any).sigmaOpenReLogin === onExpired) delete (window as any).sigmaOpenReLogin;
     };
@@ -72,7 +105,10 @@ export function ReLoginSheet() {
         onEscapeKeyDown={e => e.preventDefault()}
         onPointerDownOutside={e => e.preventDefault()}
         onInteractOutside={e => e.preventDefault()}
-        className="flex h-[88vh] max-h-[88vh] flex-col justify-center gap-6 overflow-y-auto"
+        // Full screen and above every overlay (legacy modals sit at 1000–1160, sheets at 1200):
+        // nothing behind it can be reached until the person signs in again. What is behind it
+        // stays mounted, so a half-typed form is still there afterwards.
+        className="!inset-0 !z-[2147483000] flex h-[100dvh] max-h-none flex-col justify-center gap-6 overflow-y-auto rounded-none"
       >
         <SheetHeader className="items-center text-center">
           <span

@@ -200,21 +200,15 @@
       var _at = parseInt(localStorage.getItem('ems_token_at_v1') || '0', 10);
       on = !!_t && _at > 0 && (Date.now() - _at) < 12 * 60 * 60 * 1000;   // matches the relaxed EMS_MAX_SESSION_MS (keep alive on-page)
     } catch (e) {}
-    b.textContent = on ? '🟢 מחובר ל-EMS' : '🔴 אין חיבור ל-EMS';
-    b.style.background = on ? '#dcfce7' : '#fee2e2';
-    b.style.borderColor = on ? '#16a34a' : '#dc2626';
-    b.style.color = on ? '#15803d' : '#991b1b';
-    b.title = on ? 'מחובר ל-EMS · לחץ לפתיחת המערכת' : 'אין חיבור ל-EMS. לחץ להתחברות למערכת';
-    // Connected → open the external EMS system (the <a href>). Disconnected → the ONE sign-in
-    // surface (spec §7n): the re-login sheet, falling back to #emsLoginGate. This chip is the
-    // only EMS entry point on a page where ui/sigma.js never loaded (index.html keeps it for
-    // exactly that case), so it must never dead-end — and `preventDefault()` below means the
-    // <a href> cannot rescue it either. It used to open #ems-view's login panel; that page and
-    // that panel are retired (§7m R2, ruling 3).
+    // Spec 2026-09-23 ems-session: staff are signed in WITH EMS, so this chip is only a link
+    // to the EMS system — never a connection status and never a "connect" button. A lapsed
+    // session freezes the app through the one re-login (js/src/00-bridge.js).
+    b.textContent = '↗ EMS';
+    b.style.background = ''; b.style.borderColor = ''; b.style.color = '';
+    b.title = 'פתיחת מערכת EMS';
     b.onclick = on ? null : function (e) {
       e.preventDefault();
-      if (typeof window.sigmaBeginReLogin === 'function') window.sigmaBeginReLogin();
-      else if (typeof emsRequireLogin === 'function') emsRequireLogin();
+      if (typeof window.sigmaSessionLost === 'function') window.sigmaSessionLost('ems-link');
     };
   }
   window.updateEmsBubble = updateEmsBubble;

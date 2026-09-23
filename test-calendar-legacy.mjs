@@ -138,8 +138,8 @@ assert.ok(!SW.includes('stats.html'), "sw.js's SHELL must not precache the retir
   // where ui/sigma.js never loaded, so while disconnected it must reach the sign-in surface.
   const LOGIN = readFileSync(new URL('./js/src/11-search-login.js', import.meta.url), 'utf8');
   const bubble = LOGIN.slice(LOGIN.indexOf('function updateEmsBubble'));
-  assert.ok(/sigmaBeginReLogin|emsRequireLogin/.test(bubble),
-    '#emsBubble must open the sign-in surface when disconnected, not a retired page');
+  assert.ok(/sigmaSessionLost|sigmaBeginReLogin|emsRequireLogin/.test(bubble),
+    '#emsBubble must freeze into the one re-login when disconnected, not a retired page');
 }
 
 // ─────────────────── the harness ───────────────────

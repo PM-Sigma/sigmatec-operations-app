@@ -210,6 +210,12 @@ describe('isUnlinked', () => {
     expect(isUnlinked(row({ name: 'x', ems_site_ids: [], archived_at: '2026-01-01' }))).toBe(false);
   });
 
+  it('same rule as the legacy card chip (01-data.js emsIdsUnlinked): blanks and a JSON string', () => {
+    expect(isUnlinked(row({ name: 'x', ems_site_ids: [''] as any }))).toBe(true);
+    expect(isUnlinked(row({ name: 'x', ems_site_ids: '["S1"]' as any }))).toBe(false);
+    expect(isUnlinked(row({ name: 'x', ems_site_ids: '[]' as any }))).toBe(true);
+  });
+
   it('a sub-site follows the same rule as a kibbutz', () => {
     expect(isUnlinked(row({ name: 'x', kind: 'subsite', parent: 'y', ems_site_ids: [] }))).toBe(true);
   });

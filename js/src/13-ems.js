@@ -199,11 +199,11 @@
     box.className = 'modal';
     box.style.maxWidth = '420px';
     var h = document.createElement('h3');
-    h.textContent = '⏳ ' + items.length + ' פעולות ממתינות לחיבור';
+    h.textContent = '⏳ ' + items.length + ' פעולות ממתינות לשליחה';
     var sub = document.createElement('div');
     sub.className = 'modal-sub';
     sub.textContent = items.length
-      ? 'הפעולות נשמרו ויישלחו ל-EMS בהתחברות הבאה, אין מה לעשות.'
+      ? 'הפעולות נשמרו ויישלחו ל-EMS בעוד רגע, אין מה לעשות.'
       : 'הכל נשלח. אין פעולות ממתינות.';
     var list = document.createElement('div');
     list.setAttribute('data-testid', 'ems-queue-list');
@@ -381,13 +381,14 @@
   // from here and from `sigma.decorateCards()` (js/src/00-bridge.js). `EMS_PRIORITY_DOT` stays
   // — the legacy kibbutz-modal task list (js/src/14-calendar.js) still renders with it.
   const EMS_PRIORITY_DOT = { urgent: '#dc2626', high: '#ea580c', normal: '#64748b', low: '#94a3b8' };
-  // ⚠️ indicator: mark every kibbutz card whose name has no confident EMS site. Runs regardless of
-  // cache-sync state (it needs no EMS connection), so field users offline still see the warning.
+  // ⚠️ indicator (DATA, not a connection): mark every kibbutz card whose `kibbutzim` row has an
+  // empty `ems_site_ids` — the same rule as the bell group (app/src/lib/alerts.ts
+  // `emsUnlinkedGroup` over lib/kibbutzim.ts `isUnlinked`).
   function applyCardSiteWarnings() {
     document.querySelectorAll('.kibbutz[data-name]').forEach(card => {
       card.querySelectorAll('.card-no-site').forEach(e => e.remove());   // clear stale
       const nm = card.dataset.name;
-      if (typeof kibbutzHasSite === 'function' && kibbutzHasSite(nm)) return;
+      if (!(typeof kibbutzIsUnlinked === 'function' && kibbutzIsUnlinked(nm))) return;
       const chip = document.createElement('div');
       chip.className = 'card-no-site';
       chip.innerHTML = '⚠️ לא מקושר ל-EMS';
@@ -403,7 +404,7 @@
     if (isEmsConnected()) { openEmsTask(id); return; }
     const t = emsCacheData().tasks.find(x => x.id === id);
     const modal = document.getElementById('emsDetailModal');
-    if (!t || !modal) { alert('המשימה אינה בנתונים המקומיים. התחבר ל-EMS לצפייה מלאה.'); return; }
+    if (!t || !modal) { emsToast('המשימה עוד לא נטענה. נסה שוב בעוד רגע'); return; }
     window._emsCurrentTask = t;
     const site = t.site && t.site.name ? t.site.name : '—';
     const due  = t.expectedCompletionDate ? new Date(t.expectedCompletionDate).toLocaleDateString('he-IL') : '—';
@@ -417,7 +418,7 @@
         '<span class="ems-badge priority-' + t.priority + '">' + (EMS_PRIORITY[t.priority] || t.priority) + '</span>' +
       '</div>' +
       '<div style="font-size:13px;color:#475569;line-height:1.9;">🏢 אתר: ' + emsEsc(site) + '<br>📅 יעד: ' + due + '</div>' +
-      '<div style="margin-top:12px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:12px;color:#9a3412;">🔌 תצוגה מהמטמון המקומי. התחבר ל-EMS (טאב 📋 EMS משימות) כדי לראות תגובות, לעדכן סטטוס ולהגיב.</div>';
+      '<div style="margin-top:12px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:12px;color:#9a3412;">תצוגה מהמטמון המקומי. התגובות והעדכונים ייטענו כשהחיבור יחזור.</div>';
     modal.classList.add('open');
   }
 

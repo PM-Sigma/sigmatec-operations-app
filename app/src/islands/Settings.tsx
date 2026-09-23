@@ -180,14 +180,12 @@ function PersonalArea({ user, role, onClose }: { user: string; role: string; onC
   const ROLE_HE: Record<string, string> = {
     field: 'שטח', pm: 'ניהול מוצר', dev: 'פיתוח', ceo: 'הנהלה', viewer: 'צפייה',
   };
-  const connected = (() => { try { return !!sigma.isEmsConnected?.(); } catch { return false; } })();
 
   return (
     <div className="mt-2 rounded-xl border border-border bg-muted/40 p-3" data-testid="settings-personal">
       <div className="text-[14px] font-extrabold text-foreground">{user || 'לא מחובר'}</div>
       <div className="mt-0.5 text-[12px] text-muted-foreground">
         {ROLE_HE[role] || role}
-        {' · '}{connected ? 'מחובר ל-EMS' : 'לא מחובר ל-EMS'}
         {devices !== null && ' · ' + (devices ? devices + ' מכשירים מקבלים התראות' : 'אין מכשיר שמקבל התראות')}
       </div>
       <button

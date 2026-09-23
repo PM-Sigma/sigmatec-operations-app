@@ -764,7 +764,7 @@
             b.__authRetried = true;
             try { window._sbToken = null; window._sbTokenExp = 0; if (await window._sbBridge()) return await run(); } catch (_) {}
             if (typeof emsRequireLogin === 'function') { try { emsRequireLogin(); } catch (_) {} }
-            throw new Error('יש להתחבר מחדש ל-EMS כדי לשמור (פג תוקף החיבור).');
+            throw new Error('השמירה לא עברה. ההתחברות פגה, צריך להתחבר מחדש');
           }
           console.error('[supabase] write failed: ' + ((b && b.type) || 'task'), e); throw e;
         });
@@ -858,6 +858,23 @@
     for (const k in KIBBUTZ_SITE_MAP) { if (k.replace(/\s+/g, ' ').trim() === n) return KIBBUTZ_SITE_MAP[k]; }
     return [];
   }
+
+  // The ⚠️ לא מקושר ל-EMS rule (spec 2026-09-23 ems-session §4): a kibbutz is LINKED iff its
+  // `kibbutzim` row carries a non-empty `ems_site_ids`. The same rule as app/src/lib/kibbutzim.ts
+  // `isUnlinked`, which feeds the bell group — so the card chip and the bell always agree.
+  // No row (model not loaded / not a kibbutz row) or an archived row → no warning.
+  function emsIdsUnlinked(row) {
+    if (!row || row.archived_at) return false;
+    var ids = row.ems_site_ids;
+    if (typeof ids === 'string') { try { ids = JSON.parse(ids); } catch (e) { ids = ids ? [ids] : []; } }
+    return !(Array.isArray(ids) && ids.filter(Boolean).length);
+  }
+  function kibbutzIsUnlinked(name) {
+    try { return emsIdsUnlinked((typeof kibbutzByName === 'function') ? kibbutzByName(name) : null); }
+    catch (e) { return false; }
+  }
+  window.emsIdsUnlinked = emsIdsUnlinked;
+  window.kibbutzIsUnlinked = kibbutzIsUnlinked;
 
   // sheet rows 12/13 still carry the old split names → fold onto the unified card.
   // declaration order matters: row 12 (חשמל) wins as the save target.

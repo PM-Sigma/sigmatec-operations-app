@@ -123,6 +123,20 @@
     return true;
   };
 
+  // A legacy surface found no EMS session where it needs one (spec 2026-09-23 ems-session):
+  // there is no "connect to EMS" step any more — staff are signed in WITH EMS — so a missing
+  // token means the session lapsed. Freeze the app through the one funnel and return the one
+  // sentence a caller may show inline. Mock mode (?login=0 on a dev host) never freezes.
+  window.SIGMA_SESSION_LOST_MSG = 'ההתחברות פגה. צריך להתחבר מחדש';
+  window.sigmaSessionLost = function (reason) {
+    try {
+      var h = String(location.hostname || '').toLowerCase();
+      var mockHost = h === 'localhost' || h === '127.0.0.1' || /\.localhost$/.test(h) || /(^|\.)githack\.com$/.test(h);
+      if (!(location.search.indexOf('login=0') !== -1 && mockHost)) window.sigmaSessionExpired(reason || 'no-session');
+    } catch (e) {}
+    return window.SIGMA_SESSION_LOST_MSG;
+  };
+
   // Hand over to the sign-in, keeping the place the person was in: the page, the scroll
   // position and the draft the visit form has already saved. The gate restores both after a
   // successful sign-in (js/src/15-login-gate.js).

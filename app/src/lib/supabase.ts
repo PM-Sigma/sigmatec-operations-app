@@ -81,7 +81,7 @@ export async function sessionAwareFetch(input: any, init?: any): Promise<Respons
 
   // ONLY an expired/rejected pass is an expiry (review fix 3): `42501` and `403` mean "you are
   // signed in and this is not allowed", which the write path already reports as its own
-  // "יש להתחבר ל-EMS כדי לשמור" / permission message — a sign-in sheet would be nonsense there.
+  // "the save did not go through" / permission message — a sign-in sheet would be nonsense there.
   const expired = res.status === 401 ? code !== '42501' : code === 'PGRST301';
   if (!expired) return res;
 
@@ -149,7 +149,7 @@ export function isWriteBlocked(e: unknown): boolean {
   return isAuthError(e) || isSilentRlsNoop(e);
 }
 
-export const EMS_LOGIN_REQUIRED = 'יש להתחבר ל-EMS כדי לשמור';
+export const EMS_LOGIN_REQUIRED = 'השמירה לא עברה. ההתחברות פגה, צריך להתחבר מחדש';
 
 /**
  * Run a write with the legacy retry contract: mint the pass first, one FORCED re-mint if the

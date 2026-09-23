@@ -107,7 +107,7 @@ describe('📈 שימוש island', () => {
   it('turns the RLS refusal into Hebrew instead of a Postgres string', async () => {
     const { usageError } = await import('./Usage');
     expect(usageError({ message: 'permission denied for function usage_report' }))
-      .toBe('יש להתחבר ל-EMS כדי לראות נתוני שימוש (הנתונים מוגבלים לעידן).');
+      .toBe('ההתחברות פגה. צריך להתחבר מחדש');
     expect(usageError({ message: 'boom' })).toBe('boom');
   });
 

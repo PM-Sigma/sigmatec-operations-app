@@ -27,6 +27,7 @@ import {
 } from '@/lib/usage';
 import { usageNarrative } from '@/lib/usageNarrative';
 import { EmsGate } from '@/components/EmsGate';
+import { SESSION_LOST_MSG } from '@/lib/session';
 
 export const USAGE_QUERY_KEY = ['usage', 30] as const;
 const DAYS = 30;
@@ -46,7 +47,7 @@ export function canSeeUsage(): boolean {
 export function usageError(e: unknown): string {
   const msg = String((e as any)?.message ?? e ?? '');
   if (/permission denied|42501|401|JWT|row-level security/i.test(msg)) {
-    return 'יש להתחבר ל-EMS כדי לראות נתוני שימוש (הנתונים מוגבלים לעידן).';
+    return SESSION_LOST_MSG;
   }
   return msg || 'לא ניתן לטעון את נתוני השימוש.';
 }

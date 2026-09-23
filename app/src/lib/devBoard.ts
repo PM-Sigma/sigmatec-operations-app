@@ -7,6 +7,7 @@
 // `setStatus` — the existing "העבר לספרינט הקרוב" action. This module never creates an issue.
 import { SB_ANON, SB_URL } from './supabase';
 import { sigma } from '@/bridge';
+import { sessionLost } from '@/lib/session';
 import { SPRINT_STATUS_TARGET, type DevCard } from './sprintPrep';
 
 /** The shared key. One entry per board state, so the walk and the prep card are one fetch. */
@@ -19,7 +20,7 @@ function emsToken(): string {
 
 export async function ghCall(payload: Record<string, unknown>): Promise<any> {
   const token = emsToken();
-  if (!token) throw new Error('יש להתחבר ל-EMS כדי לפתוח את לוח הפיתוח');
+  if (!token) throw sessionLost('gh-no-token');
   const r = await fetch(SB_URL + '/functions/v1/github', {
     method: 'POST',
     headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },

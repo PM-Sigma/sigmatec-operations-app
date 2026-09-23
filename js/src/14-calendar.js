@@ -177,7 +177,7 @@
   async function calAddEvent(ev) {
     var e = ev || {};
     var token = (typeof getEmsToken === 'function' && getEmsToken()) || '';
-    if (!token) return { error: 'יש להתחבר ל-EMS כדי להוסיף אירוע' };
+    if (!token) return { error: (typeof window.sigmaSessionLost === 'function' ? window.sigmaSessionLost('cal-no-token') : 'ההתחברות פגה. צריך להתחבר מחדש') };
     try {
       var res = await fetch(CAL_SB_URL + '/functions/v1/calendar', {
         method: 'POST',
@@ -258,7 +258,7 @@
       const head = document.getElementById('visitEmsHead');   // clear message about which task is being updated
       if (head) head.textContent = tasks.length > 1 ? '🔗 בחר את משימת ה-EMS לעדכון מהביקור:' : '🔗 הביקור יעדכן את משימת ה-EMS: «' + tasks[0].title + '»';
       const note = document.getElementById('visitEmsConnNote');
-      if (note) note.textContent = isEmsConnected() ? '' : ' (לא מחובר, יישלח בהתחברות הבאה)';
+      if (note) note.textContent = isEmsConnected() ? '' : ' (יישלח בעוד רגע)';
       block.style.display = '';
     } else if (newBlock && typeof canUseEms === 'function' && canUseEms()) {
       newBlock.style.display = '';   // no open task → offer to create one
@@ -451,7 +451,7 @@
   }
 
   async function emsCreateTaskModal(prefilledSiteId) {
-    if (!isEmsConnected()) { alert('נא להתחבר ל-EMS תחילה'); return; }
+    if (!isEmsConnected()) { if (typeof window.sigmaSessionLost === 'function') window.sigmaSessionLost('cal-no-token'); return; }
     _emsEditingId = null;
     document.getElementById('emsTaskModalTitle').textContent = '📋 משימה חדשה ב-EMS';
     document.getElementById('emsTaskSaveBtn').textContent    = '💾 צור משימה';

@@ -6,7 +6,7 @@
 // the EMS row states a state and offers the one action that changes it.
 import * as React from 'react';
 import { useClickAway } from '@/lib/useClickAway';
-import { LogIn, Plug, Settings, User, UserCog } from 'lucide-react';
+import { Settings, User, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sigma, useCurrentUser, useEmsConnected } from '@/bridge';
 import { openSettings } from '@/lib/settings';
@@ -83,13 +83,8 @@ export function UserChip({ className }: { className?: string }) {
             onClick={() => pick(() => sigma.toast('האזור האישי, בקרוב'), 'personal')}
           />
           <span className="my-1 border-t border-border" />
-          {/* There is no EMS PAGE any more (§7m R2). Connected → the one way out is ניתוק;
-              disconnected → the one way in is the sign-in gate (§7n), never a second panel. */}
-          {connected ? (
-            <MenuRow icon={Plug} label="מחובר ל-EMS · ניתוק" onClick={() => pick(() => sigma.emsDisconnect?.(), 'ems-disconnect')} />
-          ) : (
-            <MenuRow icon={LogIn} label="התחבר ל-EMS" onClick={() => pick(() => sigma.beginReLogin?.(), 'ems-connect')} />
-          )}
+          {/* No EMS connect/disconnect row (עידן, 23.9): staff are signed in WITH EMS, so the app
+              is connected by definition; a lapse freezes the app behind the one re-login. */}
           <MenuRow icon={UserCog} label="החלפת משתמש" onClick={() => pick(() => sigma.changeUser(), 'change-user')} />
         </span>
       )}
