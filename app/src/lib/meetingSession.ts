@@ -182,6 +182,11 @@ export function eventRow(
   return row;
 }
 
+/** `'12:04 · גבים · לבדוק שוב'` — the clock, the kibbutz when present, the note when present. */
+export function momentLine(e: MeetingEventRow): string {
+  return [clockText(e.t_sec), e.kibbutz, e.hint].filter(Boolean).join(' · ');
+}
+
 // ───────────────────────────── roles ─────────────────────────────
 
 /**

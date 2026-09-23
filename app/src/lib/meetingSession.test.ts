@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import type { KibbutzRow } from './kibbutzim';
 import type { MeetingGroup, NoteRow } from './meetingNotes';
 import {
-  canPresent, carryOverLine, eventRow, isRealMeeting, nextIndex, presenterOrder,
+  canPresent, carryOverLine, eventRow, isRealMeeting, momentLine, nextIndex, presenterOrder,
   previousMeetingDate, tSec,
 } from './meetingSession';
 
@@ -317,5 +317,26 @@ describe('previousMeetingDate', () => {
 
   it('no sessions at all → null', () => {
     expect(previousMeetingDate([], {}, new Set(), '2026-09-23', 'company')).toBe(null);
+  });
+});
+
+// ───────────────────────────── momentLine ("סמן רגע", M-L4) ─────────────────────────────
+
+describe('momentLine', () => {
+  it('time · kibbutz · note, when both are given', () => {
+    expect(momentLine({ session_id: 's', t_sec: 724, kind: 'marker', kibbutz: 'גבים', hint: 'לבדוק שוב' }))
+      .toBe('12:04 · גבים · לבדוק שוב');
+  });
+
+  it('just the time with no kibbutz and no note', () => {
+    expect(momentLine({ session_id: 's', t_sec: 724, kind: 'marker' })).toBe('12:04');
+  });
+
+  it('time · kibbutz alone, when there is no note', () => {
+    expect(momentLine({ session_id: 's', t_sec: 60, kind: 'marker', kibbutz: 'חוקוק' })).toBe('01:00 · חוקוק');
+  });
+
+  it('time · note alone, when there is no kibbutz', () => {
+    expect(momentLine({ session_id: 's', t_sec: 5, kind: 'marker', hint: 'רעיון' })).toBe('00:05 · רעיון');
   });
 });
