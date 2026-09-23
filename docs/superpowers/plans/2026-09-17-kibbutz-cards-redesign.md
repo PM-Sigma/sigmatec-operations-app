@@ -8,6 +8,8 @@
 
 **Tech Stack:** **REVISION 2 (17.9, עידן's library list):** new surfaces are **React islands** — `app/` = Vite + React 18 + TypeScript + Tailwind 3 + shadcn/ui + Motion + Sonner + TanStack Query + supabase-js + Magic UI / Aceternity components (copied in), Lucide icons; built to committed `ui/sigma.js|css`. Legacy vanilla modules stay and are reached via `window.sigma` (spec §7c). Backend: Supabase (Postgres, RLS, pg_cron, Edge Functions on Deno), Web Push, Web Speech API, Groq Whisper. Pure logic in `app/src/lib/*.ts` tested with vitest; legacy `test-*.mjs` runners stay.
 
+**Status of the planned legacy files (23.9):** `js/src/25-meeting-notes.js`, `26-theme.js`, `27-field.js`, `28-feedback.js` were NEVER created. REVISION 2 moved each of them to React (`app/src/lib/meetingNotes.ts` + `MeetingNotes.tsx`, `lib/theme.ts`, `islands/Field.tsx` + `lib/field.ts`, `islands/Feedback.tsx`). Read the file tables below as superseded.
+
 **Spec:** `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md` (APPROVED 17.9.26). Mockup: https://claude.ai/artifact/URG8xSZMq1SiWk2u3pWRnP
 
 ## Global Constraints

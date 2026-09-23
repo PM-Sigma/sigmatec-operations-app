@@ -146,10 +146,10 @@ duplicate `digestBody` import — hotfixed + gated with `deno check`), and every
 `ReferenceError` and silently serving a three-month-old Apps Script snapshot (fixed by `js/src/00-consts.js`, pinned
 by `test-concat-order.mjs` + `boot-console.spec.ts`). On top of that, עידן's live-feedback list: the region moved
 **inside** the card, attendance opens with the **חסר לך** strip, and an unreachable Whisper server now shows one line
-+ ↻ that re-sends the same held recording (`TranscribeRetry.tsx`). **⚠️ One thing waits for a human:**
-`db/rls_legacy_lockdown.sql` — the twelve legacy tables still answer the public anon key until it is applied in the
-SQL editor.
-**Next:** apply `db/rls_legacy_lockdown.sql`; re-run the Task 33 verification against 2.02; Task 35 (OSS tooling —
++ ↻ that re-sends the same held recording (`TranscribeRetry.tsx`). ~~**⚠️ One thing waits for a human:** `db/rls_legacy_lockdown.sql`~~ — stale (checked 23.9): live, anon is already
+blocked on the legacy tables. What is still open is the view-only role on write policies (`db/rls_viewer_readonly.sql`,
+written, not applied — see `docs/backlog.md`).
+**Next (at the time):** ~~apply `db/rls_legacy_lockdown.sql`~~ (no longer needed, see above); re-run the Task 33 verification against 2.02; Task 35 (OSS tooling —
 axe-core in Playwright, visual-regression snapshots, Docker/ZAP) — note the home server is Whisper ONLY (ruling עידן
 20.9), so no monitoring lives on it.
 
@@ -257,7 +257,7 @@ Spec: superpowers/specs/2026-08-02-attendance-edit-design.md.
 `renderMyTasks()` resolves a `who` from `#myTasksPerson` and filters all three task sources on it (EMS
 assignee, kibbutz-owner, status/expectedTask "- name" lines). The picker **auto-selects the logged-in
 user**, so everyone still lands on their own tasks by default; heading flips to "המשימות של &lt;name&gt;" for
-others. No new data exposure (the report buttons already covered any person). test-mytasks-filter.mjs
+others. No new data exposure (the report buttons already covered any person). test-mytasks-filter.mjs (deleted since, Task 14)
 → 14 green; full suite 16/16; verified live in-browser (default, switch, empty state, clean console).
 
 **✅ 1.57 — עידן can open other people's נוכחות tab.** `canSeeAttendance()` had עידן explicitly removed;

@@ -7,6 +7,8 @@ Scope: `C:\Users\idann\Projects\SigmatecOps-wt-cards` (branch `feat/kibbutz-card
 `#my-tasks-view`, `#staff-view`, `#calendar-view`, EMS task modal). Cross-referenced against `app/src/**` (the
 React islands actually built so far) and `css/app.css`.
 
+**Update 23.9:** `stats.html` has since been deleted from the repo and from the `sw.js` precache list; the R6 rows below are historical.
+
 **Note on scope:** `kibbutz-stats.html` (R6) does not exist anywhere in this worktree (`find . -iname
 "kibbutz-stats.html"` → no match; also absent from `sw.js`'s `SHELL` precache list). It may exist only on
 `main`/`dev` outside this worktree — R6's row below is written from the spec's description of it, not from a

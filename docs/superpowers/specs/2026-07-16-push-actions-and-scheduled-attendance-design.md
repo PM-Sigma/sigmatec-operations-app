@@ -7,6 +7,8 @@ STATUS: 🟡 DEPLOYED to backend + merged to dev — BLOCKED on VAPID secrets, t
 - 🔴 BLOCKER (unchanged since 1.48): VAPID_PUBLIC/PRIVATE/SUBJECT secrets are NOT set in the push-send
   Edge Function → every send returns 503 "VAPID secrets not set". NOTHING pushes until עידן sets them.
 - ⏳ then: Android smoke (order supplier one-tap + customer approveOpen + view; attendance 19:00/09:00) → dev→main.
+Note (23.9): the planned separate Edge Function `attendance-cron` was never created. The scheduler shipped as the
+`attendanceCron` mode inside `push-send` (see the status lines above); read `attendance-cron` below as that mode.
 Date: 2026-07-16.
 Delivered: push-send rewrite (action buttons + `approveOrder` one-tap + `attendanceCron` scheduler,
 lazy-VAPID init retained) · sw.js multi-action + one-tap approve POST · 22-push.js deep-link handler ·

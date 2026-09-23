@@ -140,5 +140,11 @@ for (const id of ['sigma-home', 'sigma-today', 'sigma-burns', 'viewerReportsHub'
   ok(inside.has(id), `#${id} belongs to the card home and must live inside #kibbutz-view`);
 }
 
+// the inventory tabs keep the order עידן asked for (phone QA round 2, E1):
+// הזמנות · מלאי בקיבוצים · תעודות משלוח · then the rest
+const invTabs = [...html.matchAll(/data-inv-tab="(\w+)"/g)].map(m => m[1]);
+ok(invTabs.slice(0, 3).join(',') === 'orders,kibbutz,certs',
+  `inventory tab order must start הזמנות · מלאי בקיבוצים · תעודות משלוח, got ${invTabs.join(', ')}`);
+
 console.log(`test-html-structure: ${checks} checks passed (${views.length} page views, `
   + `${CHROME.length} chrome nodes, ${byId.size} ids).`);

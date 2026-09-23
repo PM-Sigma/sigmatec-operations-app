@@ -1,6 +1,7 @@
 # Company process in the app — meetings, internal tasks, PM workspace, hours, dev sprints — design spec
 
-STATUS: 🟡 BRAINSTORM → DRAFT (עידן 18.9.26, chat). Not planned into tasks yet. Read with
+STATUS: 🟡 BRAINSTORM → DRAFT (עידן 18.9.26, chat). Not planned into tasks yet. `gmail-intake` below is PLANNED ONLY: no such Edge Function exists, and the 2.0 SRS
+keeps it out of scope (not approved). Read with
 `2026-09-17-kibbutz-cards-redesign-design.md` (the app redesign) and `2026-09-17-unified-inventory-design.md`.
 
 ## 0. עידן's answers that shape this (18.9)
