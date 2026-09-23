@@ -39,6 +39,13 @@ export interface VisitLike {
   workday?: boolean;
 }
 
+/**
+ * Where a row came from. 'manual' = someone typed it · 'calendar' = generated from a
+ * calendar_absences range · 'visit_auto' = written by package V when a visit was saved ·
+ * 'visit' = the pre-V derived row the legacy merge builds (retired by A-L5).
+ */
+export type AttSource = 'manual' | 'calendar' | 'visit_auto' | 'visit';
+
 export interface AttRow {
   /** 'YYYY-MM-DD' */
   date: string;
@@ -46,8 +53,8 @@ export interface AttRow {
   kibbutz?: string;
   hours?: number;
   note?: string;
-  /** Where the row came from — a visit summary or a manual entry. */
-  source?: 'visit' | 'manual' | 'calendar';
+  /** Where the row came from. Missing = treated as 'manual' (SOURCE_RANK). */
+  source?: AttSource;
 }
 
 /**
@@ -99,15 +106,15 @@ export interface Kpis {
 
 // ───────────────────────────── copy ─────────────────────────────
 
-/** The same seven labels the legacy day-type buttons carry (js/src/04-attendance-daily.js). */
+/** The seven day-type labels (round 5 · A5: words, no emoji — lucide icons carry the glyph). */
 export const DAY_LABELS: Record<DayType, string> = {
-  field: '🌾 יום שטח',
-  office: '🏢 משרד',
-  wfh: '🏠 מהבית',
-  reserve: '🪖 מילואים',
-  vacation: '🌴 חופש',
-  off: '🚫 לא בעבודה',
-  other: '➕ אחר',
+  field: 'יום שטח',
+  office: 'משרד',
+  wfh: 'מהבית',
+  reserve: 'מילואים',
+  vacation: 'חופש',
+  off: 'לא בעבודה',
+  other: 'אחר',
 };
 
 /** The order the one-tap row offers them in — the common ones first. */
@@ -200,7 +207,33 @@ export function dm(date: string): string {
 }
 
 export function dayChip(date: string): string {
-  return 'יום ' + HE_DAY_LETTERS[dowOf(date)] + ' · ' + dm(date);
+  return 'יום ' + HE_DAY_LETTERS[dowOf(date)] + '׳ · ' + dm(date);
+}
+
+/** The toast after a save — the verb of the action, the day, and a plain holiday mark. */
+export function savedToast(type: DayType, date: string, holiday: Holiday | null): string {
+  return 'נשמר · ' + dayLabel(type) + ' · ' + dm(date) + (holiday && !holiday.required ? ' · יום חג' : '');
+}
+
+export interface MissingBlock {
+  /** Only for a person who files (אביאם / ניתאי). */
+  show: boolean;
+  title: string;
+  count: number;
+  days: Array<{ date: string; label: string; aria: string }>;
+  /** What the block says when nothing is missing. */
+  empty: string;
+}
+
+export function missingBlock(person: string, me: string, missing: string[], onHoliday = 0): MissingBlock {
+  const tail = onHoliday === 1 ? ' · יום עבודה אחד בחג' : onHoliday > 1 ? ' · ' + onHoliday + ' ימי עבודה בחג' : '';
+  return {
+    show: mustFile(person),
+    title: person === me ? 'חסר לך' : 'חסר ל' + person,
+    count: (missing || []).length,
+    days: (missing || []).map(date => ({ date, label: dayChip(date), aria: 'תיעוד ' + dayChip(date) })),
+    empty: 'כל ימי העבודה בחודש מתועדים' + tail + '.',
+  };
 }
 
 // ───────────────────────────── holidays ─────────────────────────────
@@ -367,7 +400,142 @@ export function missingByPerson(
     .map(x => x.r);
 }
 
+// ───────────────── who files, and which row wins a day (round 5 · A4) ─────────────────
+
+/** The two people who file attendance (spec §7f). The ONE list — calendar.ts reuses it. */
+export const ATT_FILERS: readonly string[] = ['אביאם', 'ניתאי'];
+
+export function mustFile(person: string): boolean {
+  return !!person && ATT_FILERS.indexOf(person) !== -1;
+}
+
+const SOURCE_RANK: Record<AttSource, number> = { manual: 0, calendar: 1, visit_auto: 2, visit: 3 };
+
+function rankOf(r: AttRow): number {
+  const s = (r.source || 'manual') as AttSource;
+  return SOURCE_RANK[s] ?? 0;
+}
+
+/**
+ * One row per day, the strongest source winning (round 5 rule 5: manual rows win). V writes
+ * one row per day already (contract V2); this is the reader's guard against a stale snapshot
+ * that still has two.
+ */
+export function mergeByDay(rows: AttRow[] | null | undefined): AttRow[] {
+  const byDate = new Map<string, AttRow>();
+  for (const r of rows || []) {
+    const date = toYmd(r?.date);
+    if (!date) continue;
+    const cur = byDate.get(date);
+    if (!cur || rankOf(r) < rankOf(cur)) byDate.set(date, { ...r, date });
+  }
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
+// ───────────────────── tiles and the cell look (round 5 · A2, A3) ─────────────────────
+
+export type TileKey = 'field' | 'office' | 'missing';
+
+export interface AttTile { key: TileKey; label: string; value: number; role: 'ok' | 'info' | 'danger' }
+
+/** StatTiles on top of the month. The missing tile exists only for someone who files. */
+export function attTiles(k: Kpis, person: string): AttTile[] {
+  const out: AttTile[] = [
+    { key: 'field', label: 'ימי שטח', value: k.field, role: 'ok' },
+    { key: 'office', label: 'משרד ובית', value: k.office, role: 'info' },
+  ];
+  if (mustFile(person)) out.push({ key: 'missing', label: 'ימים חסרים', value: k.missing, role: 'danger' });
+  return out;
+}
+
+export function toggleTile(cur: TileKey | null, t: TileKey): TileKey | null {
+  return cur === t ? null : t;
+}
+
+/** The DayCell states the grid uses (components/ui/day-cell.tsx). */
+export type AttCellState = 'default' | 'selected' | 'holiday' | 'eve' | 'field' | 'office' | 'away' | 'missing';
+
+export interface AttCellLook {
+  state: AttCellState;
+  /** Today is a ring ON TOP of the state. */
+  today: boolean;
+  label: string;
+}
+
+const TILE_OF: Partial<Record<AttCellState, TileKey>> = { field: 'field', office: 'office', missing: 'missing' };
+
+/**
+ * What a cell looks like, once. From what he did (monthGrid's `state`) → missing only for a
+ * filer → purple for a holiday or an eve with nothing on it → a selected tile keeps its own
+ * category and turns the rest plain, except purple, which is context and always stays.
+ */
+export function attCellLook(c: DayCell, o: { person: string; tile: TileKey | null; selected: boolean }): AttCellLook {
+  const filer = mustFile(o.person);
+  let base: AttCellState = 'default';
+  if (c.state === 'field' || c.state === 'office' || c.state === 'away') base = c.state;
+  else if (c.state === 'missing') base = filer ? 'missing' : (c.eve ? 'eve' : 'default');
+  else if (c.state === 'holiday') base = 'holiday';
+  else if (c.eve && !c.row) base = 'eve';
+
+  let state: AttCellState = base;
+  if (o.selected) state = 'selected';
+  else if (o.tile && base !== 'holiday' && base !== 'eve' && TILE_OF[base] !== o.tile) state = 'default';
+
+  const facts = [dayChip(c.date)];
+  if (c.holiday) facts.push(c.holiday.name);
+  if (c.row) facts.push(dayLabel(c.row.type));
+  else if (base === 'missing') facts.push('לא דווחה נוכחות');
+  return { state, today: c.today, label: facts.join(' · ') };
+}
+
+export type AttLegendKey = 'holiday' | 'eve' | 'field' | 'office' | 'away' | 'missing';
+
+export function attLegend(person: string): Array<{ key: AttLegendKey; label: string }> {
+  const out: Array<{ key: AttLegendKey; label: string }> = [
+    { key: 'holiday', label: 'חג' },
+    { key: 'eve', label: 'ערב חג' },
+    { key: 'field', label: 'יום שטח' },
+    { key: 'office', label: 'משרד ובית' },
+    { key: 'away', label: 'חופש, מילואים ואחר' },
+  ];
+  if (mustFile(person)) out.push({ key: 'missing', label: 'לא דווחה נוכחות' });
+  return out;
+}
+
+// ───────────────────── where a row came from (round 5 · A4) ─────────────────────
+
+export type RowOrigin = 'none' | 'manual' | 'calendar' | 'auto';
+
+export function rowOrigin(row: AttRow | null): RowOrigin {
+  if (!row) return 'none';
+  if (row.source === 'visit_auto' || row.source === 'visit') return 'auto';
+  if (row.source === 'calendar') return 'calendar';
+  return 'manual';
+}
+
+export function originLine(row: AttRow | null): string {
+  const o = rowOrigin(row);
+  if (o === 'calendar') return 'נרשם מהיומן';
+  if (o !== 'auto') return '';
+  const parts = ['נרשם אוטומטית מסיכום הביקור'];
+  if (row!.kibbutz) parts.push(row!.kibbutz);
+  if (row!.hours) parts.push(row!.hours + ' ש׳');
+  return parts.join(' · ');
+}
+
+/**
+ * May the day editor offer to change this day? Yes for everything except the pre-V derived
+ * row: today's legacy merge always shows the visit over a manual row, so a change there would
+ * save and then vanish. After V8 no 'visit' rows exist and this is always true.
+ */
+export function canOverride(row: AttRow | null): boolean {
+  return !row || row.source !== 'visit';
+}
+
 // ───────────────── a saved visit IS a יום שטח (round 2, F-2) ─────────────────
+//
+// Round 5: a real row wins; package V writes visit days as `visit_auto` rows, and A-L5
+// retires this derivation.
 //
 // THE RULE: a visit summary someone saved is that person's attendance for that date. Nobody
 // files a יום שטח by hand after writing a summary, and nobody should have to — and when the
@@ -427,18 +595,13 @@ export function withVisitDays(
   visits: VisitLike[] | null | undefined,
   person?: string,
 ): AttRow[] {
-  const byDate = new Map<string, AttRow>();
-  for (const r of rows || []) {
-    const date = toYmd(r?.date);
-    if (!date) continue;
-    // A row the legacy merge already derived from a visit is dropped here and rebuilt below
-    // from the visits themselves — that is what makes an edited visit date move the day
-    // instead of leaving a ghost behind.
-    if (r.source === 'visit') continue;
-    byDate.set(date, { ...r, date });
-  }
+  // The legacy merge's derived rows are dropped and rebuilt from the visits (an edited visit
+  // date must move the day). Every REAL row (manual / calendar / visit_auto) is kept and wins:
+  // round 5 rule 5 — a visit never silently overwrites a day someone filed.
+  const real = mergeByDay((rows || []).filter(r => r && r.source !== 'visit'));
+  const byDate = new Map(real.map(r => [r.date, r] as [string, AttRow]));
   for (const [date, dayVisits] of visitsByDate(visits, person)) {
-    byDate.set(date, visitDayRow(date, dayVisits));
+    if (!byDate.has(date)) byDate.set(date, visitDayRow(date, dayVisits));
   }
   return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
