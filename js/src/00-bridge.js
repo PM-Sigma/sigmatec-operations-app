@@ -327,6 +327,10 @@
         call('openEditModal', [card]);
         if (tab) call('switchTab', [tab]);
       },
+      // ➕ משימת EMS for a kibbutz (round 5, K-L4) — no modal in between.
+      createEmsTaskFor: function (kibbutz) {
+        return Promise.resolve(call('createEmsTaskForKibbutz', [kibbutz])).catch(function (e) { console.warn('[sigma] ems create', e); });
+      },
       // Re-run every legacy pass that decorates a card, after React replaced the card DOM.
       // All of them are idempotent (each clears its own nodes first) and all are optional —
       // a module that is not in the bundle simply skips.

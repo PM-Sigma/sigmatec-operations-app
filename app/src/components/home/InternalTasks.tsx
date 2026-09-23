@@ -187,20 +187,14 @@ export function InternalTasksSection({ kibbutz }: { kibbutz: string; canAct?: bo
 
 /**
  * The two bubbles under the card's tasks (22.9, D3): the ONLY actions the home card offers
- * on tasks. ➕ משימת EMS opens the kibbutz modal and the EMS task form on top of it;
- * ➕ משימה פנימית opens the internal form right here.
+ * on tasks. ➕ משימת EMS asks the bridge for a task on this kibbutz, no modal in between
+ * (round 5, K-L4); ➕ משימה פנימית opens the internal form right here.
  */
 export function TaskAdders({ kibbutz }: { kibbutz: string }) {
   const { isViewer } = useCurrentUser();
   const [open, setOpen] = React.useState(false);
   if (!canWriteInternal(isViewer)) return null;
-  const addEms = () => {
-    try {
-      sigma.openKibbutzModal?.(kibbutz, 'meetings');
-      const w = window as any;
-      if (typeof w.createEmsTaskForKibbutz === 'function') setTimeout(() => { void w.createEmsTaskForKibbutz(); }, 60);
-    } catch { /* legacy not up */ }
-  };
+  const addEms = () => { void sigma.createEmsTaskFor?.(kibbutz); };
   const cls = 'inline-flex min-h-[32px] items-center gap-1 rounded-full border border-dashed border-border bg-card px-2.5 text-[12px] font-semibold text-muted-foreground active:scale-[.97]';
   return (
     <div className="mt-2 flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>

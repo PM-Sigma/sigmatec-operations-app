@@ -61,5 +61,13 @@ function load({ detail = null, placeholder = false, cards = [] } = {}) {
   assert.deepEqual(calls, []);
   assert.deepEqual(window._kibbutzDoorQueue, { name: 'חוקוק', tab: 'visits' });
 }
+// D6 createEmsTaskFor hands the NAME to createEmsTaskForKibbutz (no reliance on the modal's currentKibbutz)
+await (async () => {
+  const got = [];
+  const { sigma, window } = load();
+  window.createEmsTaskForKibbutz = n => { got.push(n); return Promise.resolve(); };
+  await sigma.createEmsTaskFor('יגור');
+  assert.deepEqual(got, ['יגור']);
+})();
 
-console.log('test-kibbutz-door: 5 groups passed');
+console.log('test-kibbutz-door: 6 groups passed');

@@ -30,6 +30,7 @@ vi.mock('@/bridge', () => ({
   sigma: {
     createTask: (row: any) => { created.push(row); return Promise.resolve({ sent: true, id: 'T-' + created.length }); },
     openKibbutzModal: vi.fn(),
+    createEmsTaskFor: vi.fn().mockResolvedValue(undefined),
   },
   sigmaBus: bus,
   useCurrentUser: () => ({ name: state.user, role: state.viewer ? 'viewer' : 'idan', isViewer: state.viewer }),
@@ -110,6 +111,14 @@ describe('TaskAdders (the two bubbles under the card)', () => {
     state.viewer = true;
     const { container } = render(withClient(<TaskAdders kibbutz="דפנה" />));
     expect(container.firstChild).toBeNull();
+  });
+
+  it('➕ משימת EMS asks the bridge for a task on THIS kibbutz and opens no modal', async () => {
+    const { sigma } = await import('@/bridge');
+    render(withClient(<TaskAdders kibbutz="חוקוק" />));
+    fireEvent.click(screen.getByTestId('add-ems-task'));
+    expect(sigma.createEmsTaskFor).toHaveBeenCalledWith('חוקוק');
+    expect(sigma.openKibbutzModal).not.toHaveBeenCalled();
   });
 });
 
