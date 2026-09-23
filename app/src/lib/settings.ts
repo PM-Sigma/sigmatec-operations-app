@@ -1,31 +1,37 @@
 // ⚙️ הגדרות — the per-person settings the UI reads at runtime (spec §7h, §7k #2, §7l).
 //
-// Task 4 ships only the four settings the redesign itself needs (מסך פתיחה · תיאור משימות
-// בכרטיס · פונט · מצב תצוגה); Task 15 extends both the table and the island. The row lives in
-// `user_settings` (db/user_settings.sql), keyed by the person's name — the app's only identity
-// — with a localStorage MIRROR so the first paint never waits for the network and a field
-// phone with no signal still honours the person's choices.
+// The row lives in `user_settings` (db/user_settings.sql), keyed by the person's name — the
+// app's only identity — with a localStorage MIRROR so the first paint never waits for the
+// network and a field phone with no signal still honours the person's choices.
 //
 // Reads are merged onto the defaults, never trusted whole: a row written by an older (or
 // newer) build can be missing keys or carry values this build does not know.
+//
+// round 5 G-L5: the font picker is GONE (DS review §4 "Unnecessary") — Assistant is locked,
+// every FONT_* export is deleted rather than deprecated, so nothing can quietly resurrect it.
 import { useSyncExternalStore } from 'react';
 import { applyTheme, storedTheme, type ThemeChoice } from '@/lib/theme';
 
 /** Landing views a person can be sent to. `auto` = whatever the role default says (§7l). */
 export type Landing = 'auto' | 'kibbutz' | 'dev' | 'reports' | 'attendance' | 'calendar' | 'inventory';
 export type CardDesc = 'short' | 'full';
-export type FontChoice = 'Assistant' | 'Rubik' | 'Noto Sans Hebrew' | 'Heebo';
 
 export interface UserSettings {
   landing: Landing;
   /** 'short' clamps a task description to 2 lines on the phone; 'full' never clamps (§7k #2). */
   card_desc: CardDesc;
-  font: FontChoice;
   theme: ThemeChoice;
-  /** Task 15 (end-of-day nudge hour). Carried through so a Task-4 write never drops it. */
+  /** Task 15 (end-of-day nudge hour). Carried through so a write never drops it. */
   eod_hour: number | null;
   /** Round 5 · C2 — אביאם only: also show ניתאי's tasks in the calendar blocks. */
   cal_peer_tasks: boolean;
+  /**
+   * אביאם's ⚙️ toggle — "לראות גם את המשימות של ניתאי" (round 5 grill round 2). Honoured for
+   * אביאם only (`partnerTasksOwner`); anyone else's row carrying `true` (edited by hand, or a
+   * shared device) is simply ignored. Package C reads `partnerTasksOwner` for the calendar
+   * blocks.
+   */
+  show_partner_tasks: boolean;
   /**
    * When these settings were last CHANGED BY THIS PERSON. It is the tie-breaker between a
    * device and the row: newest wins (review fix 6). An ISO string, or '' for "never touched",
@@ -51,26 +57,19 @@ export function openSettings(): void {
 export const DEFAULT_SETTINGS: UserSettings = {
   landing: 'auto',
   card_desc: 'short',
-  font: 'Assistant',
   theme: 'system',
   eod_hour: null,
   cal_peer_tasks: false,
+  show_partner_tasks: false,
   updated_at: '',
 };
 
 const LANDINGS: Landing[] = ['auto', 'kibbutz', 'dev', 'reports', 'attendance', 'calendar', 'inventory'];
-export const FONTS: FontChoice[] = ['Assistant', 'Rubik', 'Noto Sans Hebrew', 'Heebo'];
-
-/** The CSS stack for a face — always with the system fallback, so a blocked webfont still reads. */
-export function fontStack(font: FontChoice | string | null | undefined): string {
-  const name = FONTS.includes(font as FontChoice) ? (font as FontChoice) : DEFAULT_SETTINGS.font;
-  return `'${name}', 'Segoe UI', system-ui, sans-serif`;
-}
 
 /**
  * Pure: an unknown / partial / hostile row merged onto the defaults. Every field is validated
- * on its own so ONE bad value (an old landing name, a font that was renamed) cannot throw the
- * person back to every default.
+ * on its own so ONE bad value (an old landing name, a stray type) cannot throw the person back
+ * to every default.
  */
 export function mergeSettings(patch: Partial<UserSettings> | Record<string, unknown> | null | undefined,
                               base: UserSettings = DEFAULT_SETTINGS): UserSettings {
@@ -79,12 +78,50 @@ export function mergeSettings(patch: Partial<UserSettings> | Record<string, unkn
   return {
     landing: LANDINGS.includes(p.landing as Landing) ? (p.landing as Landing) : base.landing,
     card_desc: p.card_desc === 'full' || p.card_desc === 'short' ? p.card_desc : base.card_desc,
-    font: FONTS.includes(p.font as FontChoice) ? (p.font as FontChoice) : base.font,
     theme: p.theme === 'light' || p.theme === 'dark' || p.theme === 'system' ? p.theme : base.theme,
     eod_hour: p.eod_hour === null ? null : Number.isInteger(eod) && eod >= 0 && eod <= 23 ? eod : base.eod_hour,
     cal_peer_tasks: typeof p.cal_peer_tasks === 'boolean' ? p.cal_peer_tasks : base.cal_peer_tasks,
+    show_partner_tasks: p.show_partner_tasks !== undefined ? !!p.show_partner_tasks : base.show_partner_tasks,
     updated_at: typeof p.updated_at === 'string' ? p.updated_at : base.updated_at,
   };
+}
+
+/** אביאם only — the round 5 grill round 2 ruling. */
+export function canSetPartnerTasks(user: string): boolean {
+  return String(user ?? '').trim() === 'אביאם';
+}
+
+/**
+ * ניתאי when אביאם switched the setting on, null otherwise — including for anyone who is not
+ * אביאם, even if their own row somehow carries `show_partner_tasks: true` (a shared device, a
+ * hand-edited row). Package C reads this to decide whose tasks the calendar blocks also show.
+ */
+export function partnerTasksOwner(user: string, s: Pick<UserSettings, 'show_partner_tasks'>): string | null {
+  return canSetPartnerTasks(user) && s.show_partner_tasks ? 'ניתאי' : null;
+}
+
+/** The landing options a person may pick, in the order they read (moved out of Settings.tsx
+ *  round 5 G-L5; G-U1 wires it into the sub-sheet). */
+const LANDING_OPTIONS: Array<{ value: Landing; label: string }> = [
+  { value: 'auto', label: 'לפי התפקיד שלי' },
+  { value: 'kibbutz', label: '🏘 קיבוצים' },
+  { value: 'calendar', label: '🗓 יומן' },
+  { value: 'attendance', label: '📅 נוכחות' },
+  { value: 'inventory', label: '📦 מלאי' },
+  { value: 'dev', label: '💻 פיתוח' },
+  { value: 'reports', label: '📊 דוחות' },
+];
+
+/**
+ * The landing choices THIS person may actually pick: `auto` always, `reports` for the viewer
+ * alone (#viewerReportsHub is display:none for everyone else), every other page gated by
+ * `canShow` (`sigma.canShowPage`). `user` is carried for a future per-person exception; today
+ * the rule does not need it.
+ */
+export function landingChoices(user: string, isViewer: boolean, canShow: (page: string) => boolean):
+  Array<{ value: Landing; label: string }> {
+  void user;
+  return LANDING_OPTIONS.filter(o => o.value === 'auto' || (o.value === 'reports' ? isViewer : canShow(o.value)));
 }
 
 /**
@@ -143,51 +180,13 @@ export function getSettings(): UserSettings {
 }
 
 /**
- * Apply the parts of the settings that are pure presentation. The FONT only: the theme is
+ * Apply the parts of the settings that are pure presentation. Nothing today: the theme is
  * already on the document by the time this runs (the <head> snippet set it before the first
- * paint), and re-applying it here is what used to clobber an explicit choice.
+ * paint, re-applying it here is what used to clobber an explicit choice), and the font picker
+ * is gone (round 5 G-L5 — Assistant is locked, set once in index.html's <head>). Kept as a
+ * named hook so a future presentation-only setting has one call site to land in.
  */
-export function applySettings(s: UserSettings): void {
-  try { document.documentElement.style.setProperty('--font', fontStack(s.font)); } catch { /* no DOM */ }
-  ensureFontLink(s.font);
-}
-
-/**
- * The Google-Fonts stylesheet a face needs. `null` = it is already in index.html's <head>.
- *
- * Task 22b: all four faces used to be linked in the <head> — three extra render-blocking
- * stylesheets (and their woff2) on every boot, for a setting almost nobody changes. Only the
- * default face, Assistant, is linked now; the other three arrive when somebody picks one.
- */
-export function fontHref(font: FontChoice | string | null | undefined): string | null {
-  const HREF: Record<string, string | null> = {
-    Assistant: null,
-    Rubik: 'https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap',
-    'Noto Sans Hebrew': 'https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap',
-    Heebo: 'https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap',
-  };
-  return HREF[String(font)] ?? null;
-}
-
-/**
- * Inject a face's stylesheet once. Idempotent (keyed by `data-sigma-font`), so re-applying the
- * same settings — every boot, every remote merge — never adds a second <link>. `display=swap`
- * here, unlike the boot face: the person just chose this face and it is what they are waiting
- * for, so a late swap is the desired outcome and not a layout shift nobody asked for.
- */
-export function ensureFontLink(font: FontChoice | string | null | undefined): void {
-  const href = fontHref(font);
-  if (!href) return;
-  try {
-    const key = String(font);
-    if (document.head.querySelector('link[data-sigma-font="' + key + '"]')) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = href;
-    link.dataset.sigmaFont = key;
-    document.head.appendChild(link);
-  } catch { /* no DOM */ }
-}
+export function applySettings(_s: UserSettings): void { /* no-op today; see comment above */ }
 
 function notify(): void { listeners.forEach(fn => { try { fn(); } catch { /* a bad listener never blocks the rest */ } }); }
 
@@ -262,10 +261,10 @@ export async function saveSettings(person: string, patch: Partial<UserSettings>)
     person,
     landing: next.landing,
     card_desc: next.card_desc,
-    font: next.font,
     theme: next.theme,
     eod_hour: next.eod_hour,
     cal_peer_tasks: next.cal_peer_tasks,
+    show_partner_tasks: next.show_partner_tasks,
     // The person's OWN stamp, not "now": `pickNewer` compares this against the other device's,
     // and a fresh "now" on every push would make the last device to boot always win.
     updated_at: next.updated_at || new Date().toISOString(),

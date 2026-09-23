@@ -23,34 +23,6 @@ const mirror = (page: any) => page.evaluate((k: string) => {
   try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch { return {}; }
 }, SETTINGS_KEY);
 
-test('settings: a font change reaches the page, and survives a reload', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'אביאם' });
-
-  const dlg = await openSettings(page);
-  await expect(dlg.getByRole('radiogroup', { name: 'פונט' })).toBeVisible();
-
-  const before = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--font'));
-  expect(before).toContain('Assistant');
-
-  await dlg.getByRole('radio', { name: 'Heebo' }).click();
-  await expect(dlg.getByRole('radio', { name: 'Heebo' })).toHaveAttribute('aria-checked', 'true');
-  // The token is what every surface reads — legacy pages included.
-  await expect.poll(async () =>
-    page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--font')),
-  ).toContain('Heebo');
-  expect((await mirror(page)).font).toBe('Heebo');
-
-  await shot(page, ti);
-
-  // …and it is still his font on the next visit, although the row write was refused.
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect.poll(async () =>
-    page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--font')),
-  ).toContain('Heebo');
-
-  expectNoConsoleErrors(rec);
-});
-
 test('settings: the theme choice is the one on the document, and it persists', async ({ page }, ti) => {
   const { rec, theme } = await boot(page, ti, { who: 'אביאם' });
   const other = theme === 'dark' ? 'light' : 'dark';
@@ -93,7 +65,7 @@ test('settings: the end-of-day hour is a field-team row, and it sticks', async (
 test('settings: nobody outside the field team is offered an end-of-day hour', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'עידן' });
   const dlg = await openSettings(page);
-  await expect(dlg.getByRole('radiogroup', { name: 'פונט' })).toBeVisible();
+  await expect(dlg.getByRole('radiogroup', { name: 'תיאור משימות בכרטיס' })).toBeVisible();
   await expect(dlg.getByRole('radiogroup', { name: 'תזכורת סוף יום' })).toHaveCount(0);
   expectNoConsoleErrors(rec);
 });
