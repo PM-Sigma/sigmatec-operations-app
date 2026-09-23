@@ -3,7 +3,7 @@
 // surfaces are built on, asserted here so the components stay rendering shells.
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  BURN_VISUAL_LABEL, burnChip, burnCounts, burnLeaveItems, burnOpenWork, burnProgress,
+  BURN_VISUAL_LABEL, burnChip, burnCounts, burnLeaveItems, burnOpenWork, burnProgress, burnProjectLine,
   burnSitesWithPending, burnStripText, burnVisual, burnWarnings, burnedPatch, burnsForSite,
   burnsProjectActive, canSeeBurns, canWriteBurns, clearIssuePatch, generatorPatch,
   generatorsForSite, issuePatch, unburnedPatch, type BurnRow,
@@ -189,6 +189,27 @@ describe('the progress strip', () => {
     const p2 = burnProgress([...ROWS, row({ meter_id: 'x', site: '  ' })]);
     expect(p2.sites.map(s => s.site)).not.toContain('');
     expect(p2.total).toBe(6);
+  });
+});
+
+describe('burnProjectLine (עידן, QA קיבוצים 1 + grill round 2): X = meters burned, Y = all meters', () => {
+  const rows = [
+    { id: 'a', site: 'יגור', status: 'burned' }, { id: 'b', site: 'יגור', status: 'pending' },
+    { id: 'c', site: 'חוקוק', status: 'burned' }, { id: 'd', site: 'חוקוק', status: 'issue' },
+  ] as any;
+  it('one line, same text for every role', () => {
+    expect(burnProjectLine(burnProgress(rows))).toEqual({
+      title: 'פרויקט צריבות מונים', progress: 'בוצעו 2 מתוך 4', link: 'לפירוט',
+    });
+  });
+  it('still shown when everything is burned (the project flag, not the count, removes it)', () => {
+    const done = rows.map((r: any) => ({ ...r, status: 'burned' }));
+    expect(burnProjectLine(burnProgress(done))?.progress).toBe('בוצעו 4 מתוך 4');
+  });
+  it('no meters → nothing', () => expect(burnProjectLine(burnProgress([]))).toBeNull());
+  it('no emoji, no "!"', () => {
+    const l = burnProjectLine(burnProgress(rows))!;
+    expect(/[\u{1F300}-\u{1FAFF}!]/u.test(l.title + l.progress + l.link)).toBe(false);
   });
 });
 

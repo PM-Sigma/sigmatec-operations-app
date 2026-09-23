@@ -553,8 +553,8 @@
     openEmsTask(id);   // full live detail + comments + status change
   }
 
-  async function createEmsTaskForKibbutz() {
-    const name = currentKibbutz;
+  async function createEmsTaskForKibbutz(nameArg) {
+    const name = nameArg || currentKibbutz;
     // main 1.67 site integrity: a kibbutz with no EMS site cannot open a task there at all,
     // so the hard block comes BEFORE the sign-in surface — signing in would not help.
     if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {

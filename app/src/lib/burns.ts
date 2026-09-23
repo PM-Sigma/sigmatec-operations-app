@@ -230,6 +230,14 @@ export function burnStripText(p: BurnProgress, role: 'field' | 'other'): string 
   return `🔥 צריבות · בוצעו ${p.done} מתוך ${p.total} · ${p.pct}%`;
 }
 
+export interface BurnProjectLine { title: 'פרויקט צריבות מונים'; progress: string; link: 'לפירוט' }
+
+/** The home strip (round 5 K1): one row, one tap to the burns page. No per-role variant, no filter. */
+export function burnProjectLine(p: BurnProgress): BurnProjectLine | null {
+  if (!p.total) return null;
+  return { title: 'פרויקט צריבות מונים', progress: `בוצעו ${p.done} מתוך ${p.total}`, link: 'לפירוט' };
+}
+
 // ───────────────────────── the briefing rows ─────────────────────────
 
 /** Mirrors `LeaveItem` in lib/field.ts, plus the meter the row writes back to. */
