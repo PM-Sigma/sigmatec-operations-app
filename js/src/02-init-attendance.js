@@ -72,7 +72,7 @@
     if (RETIRED_PAGES[page]) page = 'kibbutz';
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
-    if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי (admin) + מתניה + אליה — canSeeDevTasks(), js/src/18-dev-tasks.js
+    if (page === 'dev' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('dev'))) page = 'kibbutz'; // עידן + עמיחי (admin) + מתניה + אליה — D-L5: gate moved into canShowPage('dev'), 00-bridge.js
     if (page === 'pushlog' && !(typeof isIdan === 'function' && isIdan())) page = 'kibbutz'; // התראות — עידן only
     if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz';
     if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer // 🔥 צריבות — אביאם/ניתאי/עידן/עמיחי write · viewer read · hidden from מתניה/אליה · everyone once BURNS_PROJECT_ACTIVE is false
