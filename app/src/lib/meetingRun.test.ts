@@ -9,7 +9,10 @@ import { sinceLastMeeting, useMeetingRun, type SinceLastTask } from './meetingRu
 
 afterEach(cleanup);
 
-const { inserted } = vi.hoisted(() => ({ inserted: [] as Array<{ table: string; row: any }> }));
+const { inserted, updated } = vi.hoisted(() => ({
+  inserted: [] as Array<{ table: string; row: any }>,
+  updated: [] as Array<{ table: string; row: any; id: string }>,
+}));
 
 vi.mock('./supabase', () => {
   const table = (name: string) => ({
@@ -17,6 +20,12 @@ vi.mock('./supabase', () => {
       inserted.push({ table: name, row });
       return { select: () => ({ single: async () => ({ data: { id: name + '-' + inserted.length, ...row }, error: null }) }) };
     },
+    update: (row: any) => ({
+      eq: (_col: string, id: string) => {
+        updated.push({ table: name, row, id });
+        return { select: () => ({ single: async () => ({ data: { id }, error: null }) }) };
+      },
+    }),
   });
   return {
     getSupabase: async () => ({ from: table }),
@@ -28,7 +37,7 @@ vi.mock('./supabase', () => {
   };
 });
 
-beforeEach(() => { inserted.length = 0; });
+beforeEach(() => { inserted.length = 0; updated.length = 0; });
 
 const t = (id: string, openedAt: string, closedAt?: string | null): SinceLastTask => ({
   id, title: `task ${id}`, openedAt, closedAt: closedAt ?? null,
@@ -112,5 +121,49 @@ describe('useMeetingRun — no session row until the meeting actually does somet
       await result.current.log('marker');
     });
     expect(inserted.filter(i => i.table === 'meeting_sessions')).toHaveLength(1);
+  });
+});
+
+// ───────────────────────────── mark() / noteMark() ("סמן רגע", M-L4) ─────────────────────────────
+
+describe('mark / noteMark', () => {
+  it('mark() before start() creates the session, then logs a marker at t_sec 0, returning its id', async () => {
+    const { result } = renderHook(() => useMeetingRun('company', 'עידן', '2026-09-23'));
+    let out!: { id: string; t_sec: number };
+    await act(async () => { out = await result.current.mark('גבים'); });
+    expect(inserted.filter(i => i.table === 'meeting_sessions')).toHaveLength(1);
+    const events = inserted.filter(i => i.table === 'meeting_events');
+    expect(events).toHaveLength(1);
+    expect(events[0].row).toMatchObject({ kind: 'marker', kibbutz: 'גבים', t_sec: 0 });
+    expect(out.t_sec).toBe(0);
+    expect(out.id).toEqual(expect.stringContaining('meeting_events-'));
+  });
+
+  it('mark(null) logs no kibbutz', async () => {
+    const { result } = renderHook(() => useMeetingRun('company', 'עידן', '2026-09-23'));
+    await act(async () => { await result.current.mark(null); });
+    const events = inserted.filter(i => i.table === 'meeting_events');
+    expect(events[0].row).not.toHaveProperty('kibbutz');
+  });
+
+  it('noteMark() updates the event\'s hint, trimmed and collapsed to one line', async () => {
+    const { result } = renderHook(() => useMeetingRun('company', 'עידן', '2026-09-23'));
+    let out!: { id: string; t_sec: number };
+    await act(async () => { out = await result.current.mark('גבים'); });
+    await act(async () => { await result.current.noteMark(out.id, '  לבדוק שוב \n את המונה  '); });
+    expect(updated).toHaveLength(1);
+    expect(updated[0]).toMatchObject({ table: 'meeting_events', id: out.id, row: { hint: 'לבדוק שוב את המונה' } });
+  });
+
+  it('noteMark() cuts a note longer than 120 characters', async () => {
+    const { result } = renderHook(() => useMeetingRun('company', 'עידן', '2026-09-23'));
+    await act(async () => { await result.current.noteMark('some-id', 'א'.repeat(200)); });
+    expect(updated[0].row.hint).toHaveLength(120);
+  });
+
+  it('noteMark() with no id is a no-op', async () => {
+    const { result } = renderHook(() => useMeetingRun('company', 'עידן', '2026-09-23'));
+    await act(async () => { await result.current.noteMark('', 'note'); });
+    expect(updated).toHaveLength(0);
   });
 });

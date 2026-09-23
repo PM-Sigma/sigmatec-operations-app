@@ -31,8 +31,19 @@ export interface MeetingRun {
   pause: () => void;
   /** Append one event. A no-op without a session id. */
   log: (kind: MeetingEventKind, payload?: Record<string, unknown>) => Promise<void>;
+  /** "סמן רגע" (M-L4): logs a `marker` at once — the moment is the tap, not a later save — and
+   *  hands back the new event's id (for `noteMark`) and its clock offset (for `momentLine`). */
+  mark: (kibbutz: string | null) => Promise<{ id: string; t_sec: number }>;
+  /** Attach an optional one-line note to a marker after the fact (the "סמן רגע" sheet's save). */
+  noteMark: (id: string, note: string) => Promise<void>;
   /** Stamp `ended_at`. Safe to call with no session. */
   endSession: () => Promise<void>;
+}
+
+/** Collapse newlines (and any run of whitespace) to a single space and cut at 120 — a moment's
+ *  note stays one short line. */
+function clampNote(note: string): string {
+  return String(note || '').replace(/\s+/g, ' ').trim().slice(0, 120);
 }
 
 /**
@@ -108,6 +119,27 @@ export function useMeetingRun(kind: string, host: string | null, today: string):
     } catch { /* the meeting matters more than its log */ }
   }, [ensureSession]);
 
+  const mark = React.useCallback(async (kibbutz: string | null): Promise<{ id: string; t_sec: number }> => {
+    const s = await ensureSession();
+    const row = eventRow(s.id || '', s.started_at, 'marker', { kibbutz: kibbutz || undefined }, new Date());
+    try {
+      const sb = await getSupabase();
+      const saved = await sbWrite(() => sb.from('meeting_events').insert(row).select('id').single());
+      const id = (saved as { id?: string } | null)?.id || '';
+      return { id, t_sec: row.t_sec };
+    } catch {
+      return { id: '', t_sec: row.t_sec };
+    }
+  }, [ensureSession]);
+
+  const noteMark = React.useCallback(async (id: string, note: string): Promise<void> => {
+    if (!id) return;
+    try {
+      const sb = await getSupabase();
+      await sbWrite(() => sb.from('meeting_events').update({ hint: clampNote(note) }).eq('id', id).select('id').single());
+    } catch { /* the meeting matters more than its log */ }
+  }, []);
+
   const endSession = React.useCallback(async () => {
     if (!session?.id) return;
     try {
@@ -117,7 +149,7 @@ export function useMeetingRun(kind: string, host: string | null, today: string):
     } catch { /* the screen closes either way */ }
   }, [session]);
 
-  return { session, seconds, running, start, pause, log, endSession };
+  return { session, seconds, running, start, pause, log, mark, noteMark, endSession };
 }
 
 // ───────────────────────── since the previous meeting ─────────────────────────

@@ -189,8 +189,8 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `inventory_alerts` | db/alert_mark_seen_fix.sql | app/src/islands/Alerts.tsx:58<br>supabase/functions/push-send/index.ts:666 |
 | `kibbutz_meeting_notes` | db/kibbutz_meeting_notes.sql | app/src/components/home/MeetingNotes.tsx:30<br>app/src/components/home/MeetingNotes.tsx:69<br>app/src/components/home/MeetingNotes.tsx:96<br>…+6 |
 | `kibbutzim` | db/kibbutzim.sql | app/src/components/home/KibbutzSheet.tsx:147<br>app/src/components/home/KibbutzSheet.tsx:148<br>app/src/components/home/KibbutzSheet.tsx:181<br>…+3 |
-| `meeting_events` | db/meeting_events.sql | app/src/lib/meetingRun.ts:107<br>app/src/lib/meetingSession.ts:287 |
-| `meeting_sessions` | db/meeting_sessions.sql | app/src/islands/Presenter.tsx:88<br>app/src/lib/meetingRun.ts:63<br>app/src/lib/meetingRun.ts:115<br>…+1 |
+| `meeting_events` | db/meeting_events.sql | app/src/lib/meetingRun.ts:118<br>app/src/lib/meetingRun.ts:127<br>app/src/lib/meetingRun.ts:139<br>…+1 |
+| `meeting_sessions` | db/meeting_sessions.sql | app/src/islands/Presenter.tsx:88<br>app/src/lib/meetingRun.ts:74<br>app/src/lib/meetingRun.ts:147<br>…+1 |
 | `meter_burns` | db/meter_burns.sql | app/src/components/home/Burns.tsx:42<br>app/src/components/home/Burns.tsx:98 |
 | `movements` | db/rls_legacy_lockdown.sql | app/src/islands/StockChange.tsx:146 |
 | `onboarding_steps` | db/onboarding_steps.sql | app/src/components/home/OnboardingProgress.tsx:24<br>app/src/components/home/OnboardingProgress.tsx:57<br>app/src/components/home/OnboardingProgress.tsx:73 |
