@@ -6,9 +6,10 @@
 // grid's cells, which days are "missing", and the three KPIs.
 import { describe, expect, it } from 'vitest';
 import {
-  ATT_FILERS, canEditAttendance, canSwitchPerson, cellsOf, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText,
-  holidayNote, isRequiredDay, kpis, mergeByDay, missingByPerson, missingDays, missingDaysFor, monthGrid,
-  mustFile, reportedDaysFor, withVisitDays, type AttRow, type Holiday,
+  ATT_FILERS, canEditAttendance, canSwitchPerson, cellsOf, DAY_LABELS, dayChip, dayLabel,
+  EVE_DEFAULT_TYPE, eveCountdownText, holidayNote, isRequiredDay, kpis, mergeByDay, missingBlock,
+  missingByPerson, missingDays, missingDaysFor, monthGrid, mustFile, reportedDaysFor, savedToast,
+  withVisitDays, type AttRow, type Holiday,
 } from './attendance';
 
 // ───────────────────────────── the September 2026 fixture ─────────────────────────────
@@ -199,8 +200,9 @@ describe('kpis', () => {
 
 describe('copy', () => {
   it('day types read the way the buttons do', () => {
-    expect(dayLabel('field')).toBe('🌾 יום שטח');
-    expect(dayLabel('office')).toBe('🏢 משרד');
+    // round 5: no emoji, geresh
+    expect(dayLabel('field')).toBe('יום שטח');
+    expect(dayLabel('office')).toBe('משרד');
   });
   it('a holiday note invites, never scolds', () => {
     expect(holidayNote({ date: '2026-09-21', name: 'יום כיפור', kind: 'holiday', required: false }))
@@ -208,6 +210,52 @@ describe('copy', () => {
     expect(holidayNote({ date: '2026-09-28', name: 'חול המועד סוכות', kind: 'company_closure', required: false }))
       .toBe('חול המועד סוכות: הזנה אופציונלית');
     expect(holidayNote(null)).toBe('');
+  });
+});
+
+describe('round 5 · A5 — copy', () => {
+  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+  it('day labels are words', () => {
+    expect(DAY_LABELS).toEqual({
+      field: 'יום שטח', office: 'משרד', wfh: 'מהבית', reserve: 'מילואים', vacation: 'חופש', off: 'לא בעבודה', other: 'אחר',
+    });
+    for (const s of Object.values(DAY_LABELS)) expect(s).not.toMatch(EMOJI);
+  });
+  it('a day letter carries its geresh', () => {
+    expect(dayChip('2026-09-01')).toBe('יום ג׳ · 1.9');
+  });
+  it('the save toast says what was saved, and marks a holiday without a sermon', () => {
+    const HOL = { date: '2026-09-21', name: 'יום כיפור', kind: 'holiday', required: false } as Holiday;
+    expect(savedToast('office', '2026-09-03', null)).toBe('נשמר · משרד · 3.9');
+    expect(savedToast('field', '2026-09-21', HOL)).toBe('נשמר · יום שטח · 21.9 · יום חג');
+  });
+  it('eve copy has no emoji either', () => {
+    expect(holidayNote({ date: '2026-09-20', name: 'ערב יום כיפור', kind: 'holiday_eve', required: true })).not.toMatch(EMOJI);
+    expect(eveCountdownText(3)).not.toMatch(EMOJI);
+  });
+});
+
+describe('round 5 · A1 — the "חסר לך" block', () => {
+  it('for the person himself', () => {
+    expect(missingBlock('אביאם', 'אביאם', ['2026-09-01', '2026-09-03'])).toEqual({
+      show: true, title: 'חסר לך', count: 2,
+      days: [
+        { date: '2026-09-01', label: 'יום ג׳ · 1.9', aria: 'תיעוד יום ג׳ · 1.9' },
+        { date: '2026-09-03', label: 'יום ה׳ · 3.9', aria: 'תיעוד יום ה׳ · 3.9' },
+      ],
+      empty: 'כל ימי העבודה בחודש מתועדים.',
+    });
+  });
+  it('someone else looking names the person', () => {
+    expect(missingBlock('ניתאי', 'עידן', []).title).toBe('חסר לניתאי');
+  });
+  it('a complete month says so, counting work on a holiday', () => {
+    expect(missingBlock('אביאם', 'אביאם', [], 1).empty).toBe('כל ימי העבודה בחודש מתועדים · יום עבודה אחד בחג.');
+    expect(missingBlock('אביאם', 'אביאם', [], 2).empty).toBe('כל ימי העבודה בחודש מתועדים · 2 ימי עבודה בחג.');
+  });
+  it('nobody is chased who doesn’t file', () => {
+    expect(missingBlock('עידן', 'עידן', ['2026-09-01']).show).toBe(false);
+    expect(missingBlock('מתניה', 'מתניה', []).show).toBe(false);
   });
 });
 
