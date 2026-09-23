@@ -3,7 +3,7 @@
 // allowed, and how old the thing he is resuming is.
 import { describe, expect, it } from 'vitest';
 import {
-  CHAPTERS, canSubmit, chapterState, draftAge, missingFields, openingVisitDate,
+  CHAPTERS, canSubmit, chapterState, draftAge, draftHasInput, exitDecision, missingFields, openingVisitDate,
   type ChapterDraft,
 } from '@/lib/visitDraft';
 
@@ -169,4 +169,35 @@ describe('openingVisitDate', () => {
     expect(openingVisitDate('', '', '2026-09-22')).toBe('2026-09-22');
     expect(openingVisitDate('   ', '  ', '2026-09-22')).toBe('2026-09-22');
   });
+});
+
+describe('draftHasInput (grill round 2 rule 1)', () => {
+  it('defaults alone are not input', () => {
+    expect(draftHasInput({ date: '2026-09-10', visitor: 'אביאם', duration: '2', workday: true, deliver: false })).toBe(false);
+  });
+  it.each([
+    ['summary', { summary: 'x' }], ['openItems', { openItems: 'x' }], ['productsOther', { productsOther: 'x' }],
+    ['contact', { contact: 'רוני' }], ['products', { products: [{ name: 'מונה', qty: 1 }] }],
+    ['returned', { returned: [{ name: 'מונה', qty: 1 }] }], ['ems', { emsTaskIds: ['t1'] }],
+    ['internal', { internalTaskIds: ['i1'] }], ['reason', { reasonId: 'maint' }],
+  ] as const)('%s counts', (_n, over) => expect(draftHasInput(over as any)).toBe(true));
+  it('whitespace is not input', () => expect(draftHasInput({ summary: '   ', contact: ' ' })).toBe(false));
+});
+
+describe('exitDecision (grill round 2 rules 2-4)', () => {
+  it('ביטול always deletes', () => {
+    expect(exitDecision('cancel', true, false)).toBe('discardAndClose');
+    expect(exitDecision('cancel', false, false)).toBe('discardAndClose');
+  });
+  it('scrim/top: ask only with input', () => {
+    expect(exitDecision('scrim', true, false)).toBe('ask');
+    expect(exitDecision('top', true, false)).toBe('ask');
+    expect(exitDecision('scrim', false, false)).toBe('close');
+  });
+  it('back/app closed: keep only real input', () => {
+    expect(exitDecision('back', true, false)).toBe('keepAndClose');
+    expect(exitDecision('appClose', true, false)).toBe('keepAndClose');
+    expect(exitDecision('back', false, false)).toBe('discardAndClose');
+  });
+  it('after a send there is nothing to keep', () => expect(exitDecision('sent', true, false)).toBe('close'));
 });
