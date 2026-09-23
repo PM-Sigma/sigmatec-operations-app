@@ -1,12 +1,15 @@
-// מצב ישיבה — the pure core (company-process spec §1.2 + §1.2b). No React, no DOM, no
-// network, so every decision the presenter screen makes is covered by goldens
-// (meetingSession.test.ts) and the island stays a rendering shell.
+// מצב ישיבה — the pure core (company-process spec §1.2 + §1.2b). Almost entirely no React, no
+// DOM, no network, so every decision the presenter screen makes is covered by goldens
+// (meetingSession.test.ts) and the island stays a rendering shell. The one exception is
+// `fetchPreviousMeetingDate` at the bottom (package M, D1): it reads `meeting_sessions` /
+// `meeting_events` / `kibbutz_meeting_notes` and hands the pure `previousMeetingDate` its rows.
 //
 // The one rule that shapes this file: the navigation log is a TIMELINE, not a record of the
 // meeting. Its rows are offsets from the session's start, because §1.3 lines them up against
 // the recording to split the transcript per kibbutz. Anything that has to survive the meeting
 // (a task, a decision, a bullet) is written by the ✏️ live quick-note to the tables that
 // already own it — never here.
+import { getSupabase } from './supabase';
 import { groupBySection, sectionOf, type KibbutzRow } from './kibbutzim';
 import { notesForKibbutz, type MeetingGroup, type NoteRow } from './meetingNotes';
 
@@ -179,6 +182,11 @@ export function eventRow(
   return row;
 }
 
+/** `'12:04 · גבים · לבדוק שוב'` — the clock, the kibbutz when present, the note when present. */
+export function momentLine(e: MeetingEventRow): string {
+  return [clockText(e.t_sec), e.kibbutz, e.hint].filter(Boolean).join(' · ');
+}
+
 // ───────────────────────────── roles ─────────────────────────────
 
 /**
@@ -215,4 +223,83 @@ export const LIVE_CHIPS: LiveChip[] = [
  */
 export function liveChips(caps: { internalTasks?: boolean } = {}): LiveChip[] {
   return LIVE_CHIPS.filter(c => c.id !== 'internal' || !!caps.internalTasks);
+}
+
+// ───────────────────────────── D1: a real previous meeting ─────────────────────────────
+
+/**
+ * A session counts as an actual meeting — not an accidental tap that opened and closed the
+ * screen — when it ran at least 10 minutes, or logged at least one 🔖 marker / 🅿️ parking
+ * event, or has meeting notes filed under its date. A still-running session (`ended_at` null)
+ * only counts via the marker/parking/notes routes; there is no duration yet to judge by.
+ */
+export function isRealMeeting(
+  s: { started_at: string; ended_at: string | null },
+  eventKinds: string[],
+  hasNotesThatDay: boolean,
+): boolean {
+  if (hasNotesThatDay) return true;
+  if ((eventKinds || []).some(k => k === 'marker' || k === 'parking')) return true;
+  if (!s.ended_at) return false;
+  const minutes = (new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 60000;
+  return minutes >= 10;
+}
+
+/**
+ * The most recent REAL previous session's date, or `null` when there is none — the boundary
+ * `windowStartFor` (meetingTimeline.ts) builds the timeline window from. `sessions` is already
+ * narrowed to `date < today`; this only applies the kind filter and the `isRealMeeting` rule,
+ * so a Tuesday accidental open (D1) never becomes "the previous meeting".
+ */
+export function previousMeetingDate(
+  sessions: MeetingSessionRow[] | null | undefined,
+  eventsBySession: Record<string, string[]>,
+  noteDates: Set<string>,
+  today: string,
+  kind: 'company' | 'dev',
+): string | null {
+  const real = (sessions || [])
+    .filter(s => s.kind === kind && s.date < today)
+    .filter(s => isRealMeeting(
+      { started_at: s.started_at || '', ended_at: s.ended_at ?? null },
+      eventsBySession[s.id || ''] || [],
+      noteDates.has(s.date),
+    ))
+    .map(s => s.date)
+    .sort();
+  return real.length ? real[real.length - 1] : null;
+}
+
+/**
+ * The live read behind `previousMeetingDate`: the last 20 sessions of `kind` before `today`,
+ * their events (for the marker/parking check) and the meeting-note dates in that same range
+ * (for the notes-filed-that-day check). Never throws — no previous meeting is a safe default,
+ * same as every other read in this file's "the meeting matters more than its bookkeeping" rule.
+ */
+export async function fetchPreviousMeetingDate(kind: 'company' | 'dev', today: string): Promise<string | null> {
+  try {
+    const sb = await getSupabase();
+    const { data: sessionsData, error } = await sb.from('meeting_sessions')
+      .select('id,date,kind,started_at,ended_at')
+      .eq('kind', kind).lt('date', today).order('date', { ascending: false }).limit(20);
+    if (error) throw error;
+    const sessions = (sessionsData || []) as MeetingSessionRow[];
+    if (!sessions.length) return null;
+
+    const ids = sessions.map(s => s.id).filter(Boolean) as string[];
+    const eventsBySession: Record<string, string[]> = {};
+    if (ids.length) {
+      const { data: events } = await sb.from('meeting_events').select('session_id,kind').in('session_id', ids);
+      for (const e of (events || []) as Array<{ session_id: string; kind: string }>) {
+        (eventsBySession[e.session_id] ||= []).push(e.kind);
+      }
+    }
+
+    const oldest = sessions[sessions.length - 1].date;
+    const { data: notes } = await sb.from('kibbutz_meeting_notes')
+      .select('meeting_date').gte('meeting_date', oldest).lt('meeting_date', today);
+    const noteDates = new Set(((notes || []) as Array<{ meeting_date: string }>).map(n => n.meeting_date));
+
+    return previousMeetingDate(sessions, eventsBySession, noteDates, today, kind);
+  } catch { return null; }
 }

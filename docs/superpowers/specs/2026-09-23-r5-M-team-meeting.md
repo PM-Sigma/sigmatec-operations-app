@@ -1,6 +1,6 @@
 # Package M: Team meeting — spec and implementation plan
 
-STATUS: 🟡 OPEN — planned 23.9, NOT built. Resume: run the L tasks now. The U tasks start after the designer's PASS on the M mock screens and after DS (`r9/DS`, c6eed19) and S are on `origin/main`.
+STATUS: 🟡 OPEN — L done 23.9 (branch `r9/M-L`, 7 commits on top of `origin/main` 7dacbfa: M-L2, M-L1, M-L3, M-L4, a Presenter.tsx fallout fix, M-L5, M-L6, M-L7 — 8 commits total). NOT merged, NOT pushed. Resume: the U tasks (M-U1, M-U2) start after the designer's PASS on the M mock screens and after DS (`r9/DS`, c6eed19) and S are on `origin/main`. One known cross-package gap from M-L2's D1 fix: `DevPresenter.tsx`'s arrival-log effect (D-owned) still gates on `session?.id` before calling `log()`, which now deadlocks since the session is created lazily BY `log()` — 4 `DevPresenter.test.tsx` cases fail until D applies the same fix M made to `Presenter.tsx`'s own arrival effect (see that commit).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -134,7 +134,7 @@ export function timelineFor(i: TimelineInput, windowStart: string): { items: Tim
 export function windowStartFor(mode: 'since' | '30d', previousMeeting: string | null, now: Date): string;
 ```
 
-- [ ] **Step 1: Write the failing goldens.**
+- [x] **Step 1: Write the failing goldens.**
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -191,10 +191,10 @@ describe('windowStartFor', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure.** `cd app && node node_modules/vitest/vitest.mjs run src/lib/meetingTimeline.test.ts` → FAIL (module not found).
-- [ ] **Step 3: Implement.** Rules: EMS tasks whose `status` is in `EMS_CLOSED` are dropped. `isClosingComment` = `/^נסגר בישיבת צוות /.test(message)`. `emsLatestChange` = max of (createdAt → 'created'), (newest non-closing comment → 'comment', `by` = author) and (updatedAt → 'updated', only when it's more than 2 min after both the others). Israel noon for date-only values via `israelAt(ref, 12)` from `lib/field.ts`. The window start is the Israel midnight of the date, via `israelAt(date, 0)`. Visits: `visitors` array when present, else `visitor`; the key uses the first visitor. Items with `at < windowStart` are dropped, except open EMS tasks, which go to `olderOpen` (open question 2). Sort `at` descending, ties by `key`.
-- [ ] **Step 4: Run to verify pass.**
-- [ ] **Step 5: Commit.** `git add app/src/lib/meetingTimeline.* && git commit -m "feat(meeting): pure per-kibbutz timeline (EMS at latest change, internal at open, notes at meeting, visits at visit)"`
+- [x] **Step 2: Run to verify failure.** `cd app && node node_modules/vitest/vitest.mjs run src/lib/meetingTimeline.test.ts` → FAIL (module not found).
+- [x] **Step 3: Implement.** Rules: EMS tasks whose `status` is in `EMS_CLOSED` are dropped. `isClosingComment` = `/^נסגר בישיבת צוות /.test(message)`. `emsLatestChange` = max of (createdAt → 'created'), (newest non-closing comment → 'comment', `by` = author) and (updatedAt → 'updated', only when it's more than 2 min after both the others). Israel noon for date-only values via `israelAt(ref, 12)` from `lib/field.ts`. The window start is the Israel midnight of the date, via `israelAt(date, 0)`. Visits: `visitors` array when present, else `visitor`; the key uses the first visitor. Items with `at < windowStart` are dropped, except open EMS tasks, which go to `olderOpen` (open question 2). Sort `at` descending, ties by `key`.
+- [x] **Step 4: Run to verify pass.**
+- [x] **Step 5: Commit.** `git add app/src/lib/meetingTimeline.* && git commit -m "feat(meeting): pure per-kibbutz timeline (EMS at latest change, internal at open, notes at meeting, visits at visit)"`
 
 **Acceptance:** goldens pass. Every rule in M-R2 has a named case.
 
@@ -209,7 +209,7 @@ describe('windowStartFor', () => {
   - `previousMeetingDate(sessions: MeetingSessionRow[], eventsBySession: Record<string, string[]>, noteDates: Set<string>, today: string, kind: 'company' | 'dev'): string | null`
   - `fetchPreviousMeetingDate(kind, today): Promise<string | null>` (moved from `Presenter.tsx:85-93` into `meetingSession.ts`, now using the rule above; D may import it)
 
-- [ ] **Step 1: Failing tests.**
+- [x] **Step 1: Failing tests.**
 
 ```ts
 import { isRealMeeting, previousMeetingDate } from './meetingSession';
@@ -236,10 +236,10 @@ it('today never counts; the other kind never counts', () => {
 
 `meetingRun.test.ts` (with the existing supabase mock): mounting the hook inserts nothing; `start()` inserts once; `log('marker')` before `start()` inserts the session first, then the event with `t_sec` 0; the same holds for `kind: 'dev'`.
 
-- [ ] **Step 2: Run, verify FAIL.**
-- [ ] **Step 3: Implement.** In `useMeetingRun`, move the insert from the mount effect into `ensureSession()`, memoised with a ref-held promise so concurrent calls insert once. `fetchPreviousMeetingDate` selects the last 20 sessions of the kind with `date < today` plus their events (`meeting_events.select('session_id,kind').in('session_id', ids)`) and the note dates in that range (`kibbutz_meeting_notes.select('meeting_date')`), then applies `previousMeetingDate`.
-- [ ] **Step 4: Run, verify PASS** (including `DevPresenter.test.tsx` unchanged).
-- [ ] **Step 5: Commit.** `git commit -m "fix(meeting): no session row on open; the previous meeting must be a real one"`
+- [x] **Step 2: Run, verify FAIL.**
+- [x] **Step 3: Implement.** In `useMeetingRun`, move the insert from the mount effect into `ensureSession()`, memoised with a ref-held promise so concurrent calls insert once. `fetchPreviousMeetingDate` selects the last 20 sessions of the kind with `date < today` plus their events (`meeting_events.select('session_id,kind').in('session_id', ids)`) and the note dates in that range (`kibbutz_meeting_notes.select('meeting_date')`), then applies `previousMeetingDate`.
+- [x] **Step 4: Run, verify PASS** (including `DevPresenter.test.tsx` unchanged).
+- [x] **Step 5: Commit.** `git commit -m "fix(meeting): no session row on open; the previous meeting must be a real one"`
 
 **Acceptance:** opening and closing meeting mode writes nothing; the window boundary ignores sub-10-minute empty sessions.
 
@@ -265,7 +265,7 @@ export function createCloseQueue(deps: {
 export async function sendClose(p: PendingClose): Promise<{ sent: boolean; queued?: boolean; error?: string; skipped?: 'already-closed' }>;
 ```
 
-- [ ] **Step 1: Failing tests** (fake timers; `send` a `vi.fn`).
+- [x] **Step 1: Failing tests** (fake timers; `send` a `vi.fn`).
 
 ```ts
 import { vi, it, expect } from 'vitest';
@@ -312,10 +312,10 @@ it('re-scheduling the same task replaces it (clicked בוצע, then בוטל)', 
 
 `sendClose` tests (gateway and bridge mocked): it re-reads the task, and if the status is already in `EMS_CLOSED` it returns `{ sent: false, skipped: 'already-closed' }` and writes nothing. Otherwise it writes `{ kind: 'comment', taskId, message: closeComment(...) }`, then `{ kind: 'status', taskId, status }`, in that order (the `pushVisitToEms` order, `14-calendar.js:294-297`). A `queued` result from either write returns `queued: true`. An `error` from the comment write stops before the status write.
 
-- [ ] **Step 2: Run, verify FAIL.**
-- [ ] **Step 3: Implement.** `createCloseQueue` keeps a `Map<taskId, { p, timer }>`. `schedule` clears any timer for the same id and sets a new `setTimeout(delayMs)`, and returns the undo (clear + delete). `flush` clears every timer and awaits each `send` sequentially. The Presenter (M-U2) calls `flush()` on `pagehide`, on `visibilitychange` to hidden, on kibbutz change and on exit.
-- [ ] **Step 4: Run, verify PASS.**
-- [ ] **Step 5: Commit.** `git commit -m "feat(meeting): one-click EMS close — comment + status, 5 s deferred commit with undo, flush on leave"`
+- [x] **Step 2: Run, verify FAIL.**
+- [x] **Step 3: Implement.** `createCloseQueue` keeps a `Map<taskId, { p, timer }>`. `schedule` clears any timer for the same id and sets a new `setTimeout(delayMs)`, and returns the undo (clear + delete). `flush` clears every timer and awaits each `send` sequentially. The Presenter (M-U2) calls `flush()` on `pagehide`, on `visibilitychange` to hidden, on kibbutz change and on exit.
+- [x] **Step 4: Run, verify PASS.**
+- [x] **Step 5: Commit.** `git commit -m "feat(meeting): one-click EMS close — comment + status, 5 s deferred commit with undo, flush on leave"`
 
 **Acceptance:** nothing is sent to EMS before 5 s unless the screen is left; an undo inside 5 s leaves EMS untouched (no comment to clean up).
 
@@ -329,21 +329,21 @@ it('re-scheduling the same task replaces it (clicked בוצע, then בוטל)', 
   - `MeetingRun.noteMark(id: string, note: string): Promise<void>` (UPDATE `meeting_events.hint`, trimmed, max 120 chars, one line)
   - `momentLine(e: MeetingEventRow): string` → `'12:04 · גבים · לבדוק שוב את המונה'` (the `clockText` time, the kibbutz when present, the note when present)
 
-- [ ] **Step 1: Failing tests.** `momentLine({ t_sec: 724, kind: 'marker', kibbutz: 'גבים', hint: 'לבדוק שוב' })` → `'12:04 · גבים · לבדוק שוב'`; with no kibbutz and no hint → `'12:04'`. `noteMark` collapses newlines to spaces and cuts at 120. `mark()` before `start()` creates the session (reuses M-L2).
-- [ ] **Step 2: Run, verify FAIL.**
-- [ ] **Step 3: Implement.** `noteMark` = `supabase.from('meeting_events').update({ hint }).eq('id', id)`. The existing `marker()` in `Presenter.tsx:458` switches to `mark()` in M-U2.
-- [ ] **Step 4: Run, verify PASS.**
-- [ ] **Step 5: Commit.** `git commit -m "feat(meeting): סמן רגע — a marker at the meeting clock with an optional one-line note"`
+- [x] **Step 1: Failing tests.** `momentLine({ t_sec: 724, kind: 'marker', kibbutz: 'גבים', hint: 'לבדוק שוב' })` → `'12:04 · גבים · לבדוק שוב'`; with no kibbutz and no hint → `'12:04'`. `noteMark` collapses newlines to spaces and cuts at 120. `mark()` before `start()` creates the session (reuses M-L2).
+- [x] **Step 2: Run, verify FAIL.**
+- [x] **Step 3: Implement.** `noteMark` = `supabase.from('meeting_events').update({ hint }).eq('id', id)`. The existing `marker()` in `Presenter.tsx:458` switches to `mark()` in M-U2.
+- [x] **Step 4: Run, verify PASS.**
+- [x] **Step 5: Commit.** `git commit -m "feat(meeting): סמן רגע — a marker at the meeting clock with an optional one-line note"`
 
 ### Task M-L5: The 🔒 פנימי live chip opens an internal task (D2)
 
 **Files:** Modify `app/src/islands/Presenter.tsx:286-305` (the `LiveSheet` submit only), `app/src/islands/Presenter.test.tsx`
 
-- [ ] **Step 1: Failing test** in `Presenter.test.tsx`: submitting the live sheet with chip `internal`, text "להזמין כבל" and owner ניתאי calls `createInternalTask({ kibbutz, title: 'להזמין כבל', owner: 'ניתאי', created_by: <me> })` once, and does **not** insert into `kibbutz_meeting_notes`. The 📝 / החלטה / רעיון chips still insert notes (existing tests).
-- [ ] **Step 2: Run, verify FAIL.**
-- [ ] **Step 3: Implement** a third branch: `else if (chip === 'internal') { await createInternalTask({...}); toast.success('נפתחה משימה פנימית'); }` using `createInternalTask` from `components/home/InternalTasks.tsx:76` (read-only import).
-- [ ] **Step 4: Run, verify PASS.**
-- [ ] **Step 5: Commit.** `git commit -m "fix(meeting): 🔒 פנימי opens an internal task, not a note"`
+- [x] **Step 1: Failing test** in `Presenter.test.tsx`: submitting the live sheet with chip `internal`, text "להזמין כבל" and owner ניתאי calls `createInternalTask({ kibbutz, title: 'להזמין כבל', owner: 'ניתאי', created_by: <me> })` once, and does **not** insert into `kibbutz_meeting_notes`. The 📝 / החלטה / רעיון chips still insert notes (existing tests).
+- [x] **Step 2: Run, verify FAIL.**
+- [x] **Step 3: Implement** a third branch: `else if (chip === 'internal') { await createInternalTask({...}); toast.success('נפתחה משימה פנימית'); }` using `createInternalTask` from `components/home/InternalTasks.tsx:76` (read-only import).
+- [x] **Step 4: Run, verify PASS.**
+- [x] **Step 5: Commit.** `git commit -m "fix(meeting): 🔒 פנימי opens an internal task, not a note"`
 
 ### Task M-L6: Status blocks: burns and onboarding (`meetingStatus.ts`)
 
@@ -363,11 +363,11 @@ export function statusBlocks(i: { kibbutz: string; burns: BurnRow[]; burnsVisibl
   emsOpen: number; internalOpen: number; now: Date }): StatusBlocks;
 ```
 
-- [ ] **Step 1: Failing tests.** Burns null when the project is off, when there are no rows for the kibbutz, or when `burnsVisible` is false. Burns text `'נותרו 4 מתוך 12'`, and when all are burned `'הכול נצרב'` (not null: in a meeting "done" is news). Onboarding null with no steps. `{ label: '5/9', next: 'חיבור מונים ל-EMS', waitingDays: 6, done: false }` when the next step is `waiting` since 6 days; `done: true, next: null` when complete.
-- [ ] **Step 2: Run, verify FAIL.**
-- [ ] **Step 3: Implement** on top of the existing helpers. `burnChip`'s own text ("🔥 נותרו X/Y") isn't reused, because of the emoji rule; the numbers are.
-- [ ] **Step 4: Run, verify PASS.**
-- [ ] **Step 5: Commit.** `git commit -m "feat(meeting): burns + onboarding status blocks for meeting mode"`
+- [x] **Step 1: Failing tests.** Burns null when the project is off, when there are no rows for the kibbutz, or when `burnsVisible` is false. Burns text `'נותרו 4 מתוך 12'`, and when all are burned `'הכול נצרב'` (not null: in a meeting "done" is news). Onboarding null with no steps. `{ label: '5/9', next: 'חיבור מונים ל-EMS', waitingDays: 6, done: false }` when the next step is `waiting` since 6 days; `done: true, next: null` when complete.
+- [x] **Step 2: Run, verify FAIL.**
+- [x] **Step 3: Implement** on top of the existing helpers. `burnChip`'s own text ("🔥 נותרו X/Y") isn't reused, because of the emoji rule; the numbers are.
+- [x] **Step 4: Run, verify PASS.**
+- [x] **Step 5: Commit.** `git commit -m "feat(meeting): burns + onboarding status blocks for meeting mode"`
 
 ### Task M-L7: The data hook (`useMeetingTimeline`)
 
@@ -377,11 +377,11 @@ export function statusBlocks(i: { kibbutz: string; burns: BurnRow[]; burnsVisibl
 - Consumes: `emsGateway().listOpenTasks({ siteId, statuses: OPEN_STATUSES, take: 100 })`, `listComments(taskId)`; `useInternalTasks()`; the notes query (`NOTES_QUERY_KEY`); `sigma.loadAllVisitsCombined()`; the kibbutzim row's `ems_site_ids: string[]` (`lib/kibbutzim.ts:22`; a kibbutz can span several EMS sites, so the hook calls `listOpenTasks` once per id and merges by task id); M-L1 `timelineFor`, `windowStartFor`; M-L2 `fetchPreviousMeetingDate`.
 - Produces: `useMeetingTimeline(kibbutz: string, mode: 'since' | '30d'): { items: TimelineItem[]; olderOpen: TimelineItem[]; previousMeeting: string | null; isLoading: boolean; isError: boolean; refetch(): void; emsLive: boolean }`
 
-- [ ] **Step 1: Failing test** (gateway mocked): a kibbutz with two `ems_site_ids` merges both task lists without duplicates; a kibbutz with none shows no EMS items and no error; comments are fetched only for the open tasks of the kibbutz on screen, at most 4 at a time; switching kibbutz cancels nothing, and prefetching the next kibbutz starts after the current one resolves; with EMS disconnected, `emsLive` is false and the timeline still shows internal / notes / visits, plus the cached open-task titles in `olderOpen` without dates (reason omitted).
-- [ ] **Step 2: Run, verify FAIL.**
-- [ ] **Step 3: Implement** with TanStack Query keys `['meeting-ems', ...ems_site_ids]` (staleTime 60 s) and `['meeting-comments', taskId]` (staleTime 5 min); fall back to `sigma.emsCacheTasksForKibbutz(name)` when the gateway isn't connected.
-- [ ] **Step 4: Run, verify PASS.**
-- [ ] **Step 5: Commit.** `git commit -m "feat(meeting): timeline data hook — live EMS dates via the gateway, cache fallback offline"`
+- [x] **Step 1: Failing test** (gateway mocked): a kibbutz with two `ems_site_ids` merges both task lists without duplicates; a kibbutz with none shows no EMS items and no error; comments are fetched only for the open tasks of the kibbutz on screen, at most 4 at a time; switching kibbutz cancels nothing, and prefetching the next kibbutz starts after the current one resolves; with EMS disconnected, `emsLive` is false and the timeline still shows internal / notes / visits, plus the cached open-task titles in `olderOpen` without dates (reason omitted).
+- [x] **Step 2: Run, verify FAIL.**
+- [x] **Step 3: Implement** with TanStack Query keys `['meeting-ems', ...ems_site_ids]` (staleTime 60 s) and `['meeting-comments', taskId]` (staleTime 5 min); fall back to `sigma.emsCacheTasksForKibbutz(name)` when the gateway isn't connected.
+- [x] **Step 4: Run, verify PASS.**
+- [x] **Step 5: Commit.** `git commit -m "feat(meeting): timeline data hook — live EMS dates via the gateway, cache fallback offline"`
 
 ### Task M-U1: The meeting screen on the design system
 

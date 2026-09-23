@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 29 legacy modules, 137 island sources and 10 edge functions.
+Generated from 29 legacy modules, 141 island sources and 10 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
@@ -44,7 +44,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsAddComment` | js/src/00-bridge.js:440 | *(own logic)* | app/src/islands/DayLog.tsx:338 |
 | `sigma.emsApi` | js/src/00-bridge.js:284 | `emsApi` → js/src/12-reports.js:123 | app/src/lib/ems/adapters/rest.ts:125 |
 | `sigma.emsCacheData` | js/src/00-bridge.js:286 | `emsCacheData` → js/src/13-ems.js:19 | app/src/islands/Calendar.tsx:572<br>app/src/islands/Calendar.tsx:743<br>app/src/islands/Calendar.tsx:1135<br>app/src/islands/Calendar.tsx:1144<br>…+5 |
-| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:299 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/islands/Field.tsx:175<br>app/src/islands/Field.tsx:1110<br>app/src/islands/Field.tsx:1996<br>…+1 |
+| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:299 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/islands/Field.tsx:175<br>app/src/islands/Field.tsx:1110<br>app/src/islands/Field.tsx:1996<br>…+2 |
 | `sigma.emsCreateTask` | js/src/00-bridge.js:589 | `emsCreateTaskModal` → js/src/14-calendar.js:453 | **—** |
 | `sigma.emsDisconnect` | js/src/00-bridge.js:590 | `emsDisconnect` → js/src/12-reports.js:94 | **—** |
 | `sigma.emsLabels` | js/src/00-bridge.js:303 | `emsLabels` → js/src/14-calendar.js:431 | app/src/lib/emsTasks.ts:24 |
@@ -54,10 +54,10 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsSiteIdForKibbutz` | js/src/00-bridge.js:304 | `emsSiteIdForKibbutz` → js/src/14-calendar.js:375 | app/src/islands/MeetingReview.tsx:224 |
 | `sigma.emsSync` | js/src/00-bridge.js:292 | *(own logic)* | app/src/lib/query.ts:105 |
 | `sigma.emsToken` | js/src/00-bridge.js:313 | `getEmsToken` → js/src/00-consts.js:38 | app/src/components/home/workTimerApi.ts:9<br>app/src/islands/Feedback.tsx:86<br>app/src/islands/FeedbackInbox.tsx:68<br>app/src/lib/daylogChain.ts:39<br>…+2 |
-| `sigma.emsWrite` | js/src/00-bridge.js:345 | `emsWriteOrQueue` → js/src/13-ems.js:293 | **—** |
+| `sigma.emsWrite` | js/src/00-bridge.js:345 | `emsWriteOrQueue` → js/src/13-ems.js:293 | app/src/lib/meetingClose.ts:83 |
 | `sigma.ensurePass` | js/src/00-bridge.js:499 | *(own logic)* | **—** |
 | `sigma.gapNag` | js/src/00-bridge.js:548 | `gapNag` → js/src/22-push.js:309 | app/src/islands/Gaps.tsx:200 |
-| `sigma.getCurrentUser` | js/src/00-bridge.js:249 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:379<br>app/src/islands/Burns.tsx:70<br>app/src/islands/CommandBar.tsx:316<br>app/src/islands/DayLog.tsx:483<br>…+8 |
+| `sigma.getCurrentUser` | js/src/00-bridge.js:249 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:379<br>app/src/islands/Burns.tsx:70<br>app/src/islands/CommandBar.tsx:316<br>app/src/islands/DayLog.tsx:483<br>…+9 |
 | `sigma.getEmsSites` | js/src/00-bridge.js:305 | `getEmsSites` → js/src/14-calendar.js:364 | app/src/components/home/HealthStrip.tsx:29<br>app/src/lib/ems/adapters/rest.ts:130 |
 | `sigma.getLastVisit` | js/src/00-bridge.js:407 | *(own logic)* | app/src/islands/Field.tsx:2003 |
 | `sigma.getRole` | js/src/00-bridge.js:250 | *(own logic)* | app/src/bridge.ts:380<br>app/src/islands/Feedback.tsx:183<br>app/src/islands/Feedback.tsx:666<br>app/src/lib/landing.ts:111 |
@@ -68,7 +68,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.isViewer` | js/src/00-bridge.js:251 | `isViewer` → js/src/11-search-login.js:128 | app/src/islands/Attendance.tsx:289<br>app/src/islands/Burns.tsx:70<br>app/src/islands/CommandBar.tsx:316<br>app/src/islands/DevPresenter.tsx:483<br>…+10 |
 | `sigma.kibbutzHasSite` | js/src/00-bridge.js:306 | *(own logic)* | **—** |
 | `sigma.kibbutzNames` | js/src/00-bridge.js:273 | *(own logic)* | app/src/islands/Feedback.tsx:343<br>app/src/islands/Field.tsx:945<br>app/src/lib/daylogChain.ts:23 |
-| `sigma.loadAllVisitsCombined` | js/src/00-bridge.js:487 | `loadAllVisitsCombined` → js/src/09-visits.js:73 | app/src/islands/Calendar.tsx:1124<br>app/src/islands/Field.tsx:161<br>app/src/islands/Gaps.tsx:87<br>app/src/islands/Presenter.tsx:143 |
+| `sigma.loadAllVisitsCombined` | js/src/00-bridge.js:487 | `loadAllVisitsCombined` → js/src/09-visits.js:73 | app/src/islands/Calendar.tsx:1124<br>app/src/islands/Field.tsx:161<br>app/src/islands/Gaps.tsx:87<br>app/src/islands/presenter/useMeetingTimeline.ts:113<br>…+1 |
 | `sigma.markOrderDelivered` | js/src/00-bridge.js:424 | `quickOrderStatus` → js/src/07-orders.js:661 | **—** |
 | `sigma.onLanding` | app/src/islands/Field.tsx:1926 *(island)* | *(island-provided)* | **—** |
 | `sigma.openActivity` | js/src/00-bridge.js:592 | `openActivityModal` → js/src/10-activity.js:6 | app/src/islands/Calendar.tsx:852 |
@@ -106,7 +106,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.visitDraftId` | js/src/00-bridge.js:482 | `visitDraftId` → js/src/09-visits.js:20 | app/src/islands/Field.tsx:1215 |
 | `sigma.visitDraftPut` | js/src/00-bridge.js:479 | `visitDraftPut` → js/src/09-visits.js:909 | app/src/islands/Field.tsx:1146 |
 
-Bridge entries no island calls today (legacy-side or reserved): `beginReLogin`, `calAddEvent`, `canSeeAttendance`, `canUseEms`, `certFromVisit`, `emsCreateTask`, `emsDisconnect`, `emsPatchTask`, `emsWrite`, `ensurePass`, `kibbutzHasSite`, `markOrderDelivered`, `passPending`, `remintOnce`, `sbAuthPass`, `sessionExpired`.
+Bridge entries no island calls today (legacy-side or reserved): `beginReLogin`, `calAddEvent`, `canSeeAttendance`, `canUseEms`, `certFromVisit`, `emsCreateTask`, `emsDisconnect`, `emsPatchTask`, `ensurePass`, `kibbutzHasSite`, `markOrderDelivered`, `passPending`, `remintOnce`, `sbAuthPass`, `sessionExpired`.
 
 ## (b) Bus — `window.sigmaBus`: source → event → consumers
 
@@ -165,7 +165,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-modal-meetings` | :645 | app/src/main.tsx:144 |
 | `#sigma-my-tasks` | :1284 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:125 |
 | `#sigma-nav` | :1285 | app/src/main.tsx:81 |
-| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:811<br>app/src/main.tsx:416 |
+| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:819<br>app/src/main.tsx:416 |
 | `#sigma-refresh` | :1279 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:97 |
 | `#sigma-relogin` | :1276 | app/src/components/ReLoginSheet.tsx:143 |
 | `#sigma-settings` | :1257 | app/src/islands/Settings.tsx:404<br>app/src/main.tsx:293 |
@@ -187,10 +187,10 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `generators` | db/meter_burns.sql | app/src/components/home/Burns.tsx:49<br>app/src/components/home/Burns.tsx:126 |
 | `internal_tasks` | db/internal_tasks.sql | app/src/components/home/InternalTasks.tsx:29<br>app/src/components/home/InternalTasks.tsx:68<br>app/src/components/home/InternalTasks.tsx:71<br>…+6 |
 | `inventory_alerts` | db/alert_mark_seen_fix.sql | app/src/islands/Alerts.tsx:58<br>supabase/functions/push-send/index.ts:666 |
-| `kibbutz_meeting_notes` | db/kibbutz_meeting_notes.sql | app/src/components/home/MeetingNotes.tsx:30<br>app/src/components/home/MeetingNotes.tsx:69<br>app/src/components/home/MeetingNotes.tsx:96<br>…+5 |
+| `kibbutz_meeting_notes` | db/kibbutz_meeting_notes.sql | app/src/components/home/MeetingNotes.tsx:30<br>app/src/components/home/MeetingNotes.tsx:69<br>app/src/components/home/MeetingNotes.tsx:96<br>…+7 |
 | `kibbutzim` | db/kibbutzim.sql | app/src/components/home/KibbutzSheet.tsx:147<br>app/src/components/home/KibbutzSheet.tsx:148<br>app/src/components/home/KibbutzSheet.tsx:181<br>…+3 |
-| `meeting_events` | db/meeting_events.sql | app/src/lib/meetingRun.ts:93 |
-| `meeting_sessions` | db/meeting_sessions.sql | app/src/islands/Presenter.tsx:88<br>app/src/lib/meetingRun.ts:55<br>app/src/lib/meetingRun.ts:101 |
+| `meeting_events` | db/meeting_events.sql | app/src/lib/meetingRun.ts:118<br>app/src/lib/meetingRun.ts:127<br>app/src/lib/meetingRun.ts:139<br>…+1 |
+| `meeting_sessions` | db/meeting_sessions.sql | app/src/islands/Presenter.tsx:88<br>app/src/lib/meetingRun.ts:74<br>app/src/lib/meetingRun.ts:147<br>…+1 |
 | `meter_burns` | db/meter_burns.sql | app/src/components/home/Burns.tsx:42<br>app/src/components/home/Burns.tsx:98 |
 | `movements` | db/rls_legacy_lockdown.sql | app/src/islands/StockChange.tsx:146 |
 | `onboarding_steps` | db/onboarding_steps.sql | app/src/components/home/OnboardingProgress.tsx:24<br>app/src/components/home/OnboardingProgress.tsx:57<br>app/src/components/home/OnboardingProgress.tsx:73 |
@@ -261,7 +261,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:383 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:207 |
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:155 |
-| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:814 |
+| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:822 |
 | `presenter` | `Presentation` | app/src/main.tsx:440 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:406 |
 | `staff-message` | `Mail` | app/src/islands/CommandBar.tsx:311 |

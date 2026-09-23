@@ -18,6 +18,15 @@
 -- sits behind the EMS gate), writes need the `authenticated` pass js/src/01-data.js mints
 -- from the EMS session.
 --
+-- D1 (package M, 23.9): the row is written LAZILY now — `useMeetingRun` (app/src/lib/
+-- meetingRun.ts) no longer inserts on mount, only on the first `start()` or `log()`. Opening
+-- the screen and immediately leaving used to plant a row here that "the previous meeting"
+-- (`previousMeetingDate`, app/src/lib/meetingSession.ts) then read as a real prior session,
+-- silently resetting every timeline window to that accidental day. A row existing here is no
+-- longer proof of a real meeting on its own — see `isRealMeeting`: at least 10 minutes between
+-- `started_at`/`ended_at`, OR a `meeting_events` row of kind `marker`/`parking`, OR
+-- `kibbutz_meeting_notes` filed under this `date`.
+--
 -- Apply with the other db/*.sql migrations (Supabase SQL editor / CLI).
 -- ══════════════════════════════════════════════════════════════════════════════
 create table if not exists meeting_sessions (
