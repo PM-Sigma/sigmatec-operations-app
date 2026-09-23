@@ -69,3 +69,33 @@ describe('go', () => {
     expect(sigma.showPage).toHaveBeenCalledWith('calendar');
   });
 });
+
+describe('go with View Transitions', () => {
+  it('runs showPage exactly once inside the transition and marks the kind', () => {
+    (document as any).startViewTransition = vi.fn((cb: () => void) => { cb(); return {}; });
+    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    go('hours', 'drill');
+    expect(sigma.showPage).toHaveBeenCalledTimes(1);
+    expect(document.documentElement.dataset.nav).toBe('drill');
+  });
+  it('a throwing startViewTransition still shows the page once', () => {
+    (document as any).startViewTransition = vi.fn(() => { throw new Error('InvalidStateError'); });
+    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    go('calendar');
+    expect(sigma.showPage).toHaveBeenCalledTimes(1);
+  });
+  it('a transition that calls back AND throws does not show the page twice', () => {
+    (document as any).startViewTransition = vi.fn((cb: () => void) => { cb(); throw new Error('late'); });
+    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    go('calendar');
+    expect(sigma.showPage).toHaveBeenCalledTimes(1);
+  });
+  it('reduced motion cuts instantly, with no transition', () => {
+    const vt = vi.fn();
+    (document as any).startViewTransition = vt;
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    go('calendar');
+    expect(vt).not.toHaveBeenCalled();
+    expect(sigma.showPage).toHaveBeenCalledOnce();
+  });
+});
