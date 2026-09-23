@@ -88,17 +88,18 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
 |---|---|
 | 0 · Freeze | 3% |
 | 1 · Cleanup + graph cleanup + inventory breakpoint + local backup | 8% |
-| 2 · Design system + consultant review | 12% |
+| 2 · Design system + consultant review | 10% |
 | S · Shell | 6% |
-| K · Kibbutz card + React KibbutzDetail | 10% |
+| K · Kibbutz card + React KibbutzDetail | 9% |
 | V · Visit summary + attendance rules | 14% |
-| C · Calendar | 8% |
-| I · Inventory rewrite | 14% |
+| C · Calendar | 7% |
+| I · Inventory rewrite | 12% |
 | A · Attendance | 5% |
 | G · Settings + burns + push log | 6% |
 | M · Team meeting | 6% |
 | D · Dev meeting | 4% |
 | X · Security + push copy + Ctrl+K removal | 4% |
+| R · Every other screen | 6% |
 | **Total** | **100%** |
 
 ## Design ownership (עידן 23.9)
@@ -205,9 +206,10 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
 | **G · Settings + burns + push log** | Settings 9, burns 10 (title "צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק", Excel/generators in one row), React rewrite of the burns page (`24-meter-burns.js`) and the push log (`23-push-log.js`) | `Settings.tsx`, `main.tsx:397` ("יומן היום · ניסיוני" tag), new Burns/PushLog pages |
 | **M · Team meeting** | 11: small blocks; a timeline of EMS tasks by open date, internal tasks by open date, meeting notes by meeting date, visit reports; a compact timer; "סמן רגע"; the "since the previous meeting" line removed; burns + onboarding status shown | `Presenter.tsx`, `meetingRun.ts`, `meeting_events` |
 | **X · Security + push copy + Ctrl+K removal** | Apply `db/rls_viewer_readonly.sql`, add a per-person claim in `ems-auth`, limit messages and work_sessions to the person, rewrite the 14 push texts (no-ai-slop), remove the CommandBar | `db/`, `supabase/functions/ems-auth`, `app/src/lib/field.ts` + push-send mirror, `CommandBar.tsx`, `main.tsx` |
+| **R · Every other screen** | Everything not in another package gets the full design-system pass, laid out again on the building blocks, with animation to spec and the designer's PASS: ⏱ Hours, 📋 Gaps, 📊 Usage, המשימות שלי, 🔔 alerts, the idea/bug box and its inbox, holidays, יומן היום (tagged ניסיוני), the home inventory strip, stock report, onboarding, the home top section (drafts/timer), the timer sheets | `Hours.tsx`, `Gaps.tsx`, `Usage.tsx`, `MyTasks.tsx`, `Alerts.tsx`, `Feedback*.tsx`, `Holidays.tsx`, `DayLog.tsx`, `InventoryStrip.tsx`, `StockChange.tsx`, `OnboardingProgress.tsx`, `Home.tsx`, `WorkTimer*.tsx` |
 | **D · Dev meeting** | 12: grouping by GitHub parent issue → priority, filters, "new this week" block; React rewrite of the dev board (`18-dev-tasks.js`) | `DevPresenter.tsx`, `devBoard.ts`, `sprintPrep.ts`, `supabase/functions/github` (sub-issues) |
 
-Order: S → K and V (V depends on K's modal) → the rest in parallel.
+Order: S → K and V (V depends on K's modal) → the rest in parallel. **Rule: by the end of the round, `no-overlap-allow.json` and `qa/impeccable-baseline.json` are empty/zero, so no screen can be left out.** Foldables (Galaxy Fold, Apple's foldable) come after this round as their own package.
 Each package:
 - runs `ops_graph.py file/table` before it touches anything;
 - writes its own spec;
