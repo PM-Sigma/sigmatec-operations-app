@@ -21,10 +21,10 @@ const DialogPortal = ({ children, ...props }: React.ComponentProps<typeof Dialog
 
 const DialogClose = DialogPrimitive.Close
 
-// z-[1210] — matches the --z-dialog token in styles.css (kept as a literal: dialog.tsx is in
-// the BOOT chunk, under a hard byte ceiling, test-sigma-shell.mjs). A dialog can open from
-// INSIDE a sheet (⚙️ הגדרות and ✉️ הודעה from ⋯ עוד), and sheets are z-[1200] since 22.9
-// (sheet.tsx). Select popovers sit at 1220. Still under the JS overlays (100001).
+// z-[1210] — matches the --z-dialog token (kept literal here: this file is in the BOOT chunk,
+// under a hard byte ceiling, test-sigma-shell.mjs). A dialog can open from INSIDE a sheet
+// (⚙️ הגדרות and ✉️ הודעה from ⋯ עוד), and sheets are z-[1200] since 22.9 (sheet.tsx). Select
+// popovers sit at 1220. Still under the JS overlays (100001).
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -32,13 +32,17 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-[1210] bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      // s-anim-dialog: animation-duration/timing-function per data-state (styles.css) — plain
+      // CSS instead of a Tailwind arbitrary-value chain (this file is in the BOOT chunk).
+      "s-anim-dialog fixed inset-0 z-[var(--s-z-dialog)] bg-black/[.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
   />
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+
+const DialogHideCloseContext = React.createContext(false)
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
@@ -52,41 +56,41 @@ const DialogContent = React.forwardRef<
         // rtl-ok: `left-[50%]` + `translate-x-[-50%]` is SYMMETRIC centring — the same result
         // in either direction — and there is no logical-property equivalent for a fixed
         // centred layer. It is not a start/end decision.
-        "fixed left-[50%] top-[50%] z-[1210] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        // Same reserved-strip fix as sheet.tsx: the close button gets its own top band instead
-        // of floating over whatever a caller's own DialogHeader/DialogTitle puts at the top.
-        !hideClose && "pt-14",
+        // Opacity + scale(.97) only, NO slide (sign-off P1-6 — the shadcn default's
+        // slide-from-corner-while-centering was removed): base in, fast out.
+        "s-anim-dialog fixed left-[50%] top-[50%] z-[var(--s-z-dialog)] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
         className
       )}
       {...props}
     >
-      {children}
-      {!hideClose && (
-        <DialogPrimitive.Close
-          className="absolute flex h-12 w-12 items-center justify-center rounded-full opacity-70 hover:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none"
-          style={{ insetInlineEnd: 8, insetBlockStart: 8 }}
-        >
-          <X className="h-5 w-5" />
-          <span className="sr-only">סגירה</span>
-        </DialogPrimitive.Close>
-      )}
+      <DialogHideCloseContext.Provider value={hideClose}>{children}</DialogHideCloseContext.Provider>
     </DialogPrimitive.Content>
   </DialogPortal>
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+// Grid `1fr auto`: [title, 2-line clamp | Close, 48px] — sign-off P1-5, same fix as
+// SheetHeader. Was an absolutely positioned ✕ over a reserved 56px strip.
 const DialogHeader = ({
   className,
+  children,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col space-y-1.5 text-center sm:text-start",
-      className
-    )}
-    {...props}
-  />
-)
+}: React.HTMLAttributes<HTMLDivElement>) => {
+  const hideClose = React.useContext(DialogHideCloseContext)
+  return (
+    <div className={cn("grid grid-cols-[1fr_auto] items-start gap-2", className)} {...props}>
+      <div className="flex min-w-0 flex-col gap-1.5 text-start">{children}</div>
+      {!hideClose && (
+        <DialogPrimitive.Close
+          className="s-hit -m-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-full opacity-70 hover:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none"
+        >
+          <X className="h-5 w-5" />
+          <span className="sr-only">סגירה</span>
+        </DialogPrimitive.Close>
+      )}
+    </div>
+  )
+}
 DialogHeader.displayName = "DialogHeader"
 
 const DialogFooter = ({

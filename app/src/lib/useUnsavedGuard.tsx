@@ -151,7 +151,7 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
                 type="button"
                 data-testid="unsaved-keep"
                 onClick={() => setAsking(false)}
-                className="min-h-[44px] w-full rounded-xl bg-brand-grad text-[15px] font-bold text-white"
+                className="min-h-[44px] w-full rounded-xl s-brand text-[15px] font-bold"
               >
                 {variant === 'visitEdit' ? VISIT_PROMPT_STAY_EDIT : VISIT_PROMPT_STAY_NEW}
               </button>
@@ -176,7 +176,7 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
                   data-testid="unsaved-save"
                   disabled={saving}
                   onClick={() => void doSave()}
-                  className="min-h-[44px] w-full rounded-xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-xl s-brand text-[15px] font-bold disabled:opacity-50"
                 >
                   {UNSAVED_SAVE}
                 </button>

@@ -25,13 +25,19 @@ const SheetPortal = ({ children, ...props }: React.ComponentProps<typeof SheetPr
 // *underneath* them — it looked like the button "did nothing", while the sheet was live and
 // tappable the moment the legacy modal closed. That is how two kibbutzim got archived by
 // accident on 22.9. Still below the JS-built overlays (100001) and the toaster (100002).
+// The number is the literal --s-z-sheet value (styles.css/tokens.css); read from the var()
+// itself, not hardcoded — sign-off P1-6.
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-[1200] bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      // Scrim 0 → 0.48 (design-review.md §2 Sheet), not bg-black/80 — sign-off P1-6.
+      // s-anim-sheet: animation-duration/timing-function per data-state (styles.css) — a plain
+      // CSS class instead of a Tailwind arbitrary-value chain, since this file is in the BOOT
+      // chunk under a byte ceiling and styles.css doesn't count against it.
+      "s-anim-sheet fixed inset-0 z-[var(--s-z-sheet)] bg-black/[.48] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -40,22 +46,17 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
-// z-[1200] — matches the --z-sheet token in styles.css (kept as a literal here: this file is in
-// the BOOT chunk, under a hard byte ceiling, test-sigma-shell.mjs). Every sheet here can be
-// opened from INSIDE a legacy overlay (.modal-backdrop is z-index:1000, the EMS task modal
-// 1160). At z-50 the sheet opened *underneath* them — it looked like the button "did nothing",
-// while the sheet was live and tappable the moment the legacy modal closed. That is how two
-// kibbutzim got archived by accident on 22.9. Still below the JS overlays (100001) / toaster (100002).
 const sheetVariants = cva(
-  "fixed z-[1200] gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+  "s-anim-sheet fixed z-[var(--s-z-sheet)] gap-4 bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out",
   {
     variants: {
       side: {
         top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
-        // 26 px top radius + a grab handle (the mockup's `.sheet` / `.sheet .grab`): the handle
-        // is what tells a thumb this panel is draggable-looking and dismissible.
+        // Top radius from --s-radius-sheet (24px — was a hardcoded 26px, sign-off P1-6) + a
+        // grab handle (the mockup's `.sheet` / `.sheet .grab`): the handle is what tells a
+        // thumb this panel is draggable-looking and dismissible.
         bottom:
-          "inset-x-0 bottom-0 rounded-t-[26px] border-t pt-2.5 before:absolute before:inset-x-0 before:top-2.5 before:mx-auto before:h-1 before:w-10 before:rounded before:bg-border before:content-[''] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+          "inset-x-0 bottom-0 rounded-t-[var(--s-radius-sheet)] border-t pt-2.5 before:absolute before:inset-x-0 before:top-2.5 before:mx-auto before:h-1 before:w-10 before:rounded before:bg-border before:content-[''] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // rtl-ok (both lines): `side="left"` / `side="right"` MEAN a physical side — that is
         // what the caller is asking for. This app only ever uses `side="bottom"` (the ⋯ sheet
         // and the kibbutz sheet), so neither variant is on screen; they are kept so the
@@ -71,13 +72,19 @@ const sheetVariants = cva(
   }
 )
 
+/**
+ * §7p / F13: a BLOCKING gate (the 401 re-login sheet) must not offer a way out. Hiding the X is
+ * half of it; the caller also preventDefaults `onEscapeKeyDown`/`onInteractOutside`. Shared via
+ * context (not a prop threaded through every caller) because `SheetHeader` is the thing that
+ * now RENDERS the close button (sign-off P1-5 — it's a grid cell next to the title, not an
+ * absolutely-positioned overlay), and touching all ~24 callers to pass it down is exactly the
+ * "beyond what the primitive change forces" this pass avoids.
+ */
+const SheetHideCloseContext = React.createContext(false)
+
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
-  /**
-   * §7p / F13: a BLOCKING gate (the 401 re-login sheet) must not offer a way out. Hiding the
-   * X is half of it; the caller also preventDefaults `onEscapeKeyDown`/`onInteractOutside`.
-   */
   hideClose?: boolean
 }
 
@@ -89,46 +96,38 @@ const SheetContent = React.forwardRef<
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
-      className={cn(
-        sheetVariants({ side }),
-        // Design-system spec — "nothing absolute over the title": reserving a 56px strip for
-        // the close button (rather than floating it over whatever a caller's own SheetHeader
-        // puts at the top) is what stops it overlapping the title (audit §1.4 — it covered
-        // "+ הוספה ליום" in calendar-day-future and the title in settings/more-sheet/alerts-bell).
-        // Every existing caller keeps working unchanged: this only adds top space, nothing moves.
-        !hideClose && "pt-14",
-        hideClose && "before:hidden",
-        className,
-      )}
+      className={cn(sheetVariants({ side }), hideClose && "before:hidden", className)}
       {...props}
     >
-      {children}
-      {!hideClose && (
-        <SheetPrimitive.Close
-          className="absolute flex h-12 w-12 items-center justify-center rounded-full opacity-70 hover:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none"
-          style={{ insetInlineEnd: 8, insetBlockStart: 8 }}
-        >
-          <X className="h-5 w-5" />
-          <span className="sr-only">סגירה</span>
-        </SheetPrimitive.Close>
-      )}
+      <SheetHideCloseContext.Provider value={hideClose}>{children}</SheetHideCloseContext.Provider>
     </SheetPrimitive.Content>
   </SheetPortal>
 ))
 SheetContent.displayName = SheetPrimitive.Content.displayName
 
+// Grid `1fr auto`: [title, 2-line clamp | Close, 48px] — sign-off P1-5. Was an absolutely
+// positioned ✕ over a reserved 56px strip; now the close button is an ordinary grid cell next
+// to the title, so nothing overlaps and no extra row is spent on it.
 const SheetHeader = ({
   className,
+  children,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      "flex flex-col space-y-2 text-center sm:text-start",
-      className
-    )}
-    {...props}
-  />
-)
+}: React.HTMLAttributes<HTMLDivElement>) => {
+  const hideClose = React.useContext(SheetHideCloseContext)
+  return (
+    <div className={cn("grid grid-cols-[1fr_auto] items-start gap-2", className)} {...props}>
+      <div className="flex min-w-0 flex-col gap-1 text-start">{children}</div>
+      {!hideClose && (
+        <SheetPrimitive.Close
+          className="s-hit -m-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-full opacity-70 hover:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none"
+        >
+          <X className="h-5 w-5" />
+          <span className="sr-only">סגירה</span>
+        </SheetPrimitive.Close>
+      )}
+    </div>
+  )
+}
 SheetHeader.displayName = "SheetHeader"
 
 const SheetFooter = ({

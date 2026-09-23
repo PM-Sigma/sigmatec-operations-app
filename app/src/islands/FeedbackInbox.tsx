@@ -163,7 +163,7 @@ function Row({
             onClick={() => onStatus(item.id, s)}
             disabled={item.status === s}
             className={'min-h-[32px] rounded-lg border px-2 text-[12px] font-bold '
-              + (item.status === s ? 'border-transparent bg-brand-grad text-white' : 'border-border hover:bg-muted')}
+              + (item.status === s ? 'border-transparent s-brand' : 'border-border hover:bg-muted')}
           >
             {STATUS_LABEL[s]}
           </button>
@@ -184,7 +184,7 @@ function Row({
           </p>
           <div className="flex gap-1.5">
             <button type="button" onClick={() => void create()} disabled={busy || !parent}
-                    className="min-h-[36px] flex-1 rounded-xl bg-brand-grad text-[13px] font-bold text-white disabled:opacity-40">
+                    className="min-h-[36px] flex-1 rounded-xl s-brand text-[13px] font-bold disabled:opacity-40">
               {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'צור כרטיס ב-Backlog'}
             </button>
             <button type="button" onClick={() => setOpenCard(false)}

@@ -188,7 +188,7 @@ function ChipRow({ line, onPick }: { line: ReviewLine; onPick: (c: Chip) => void
           className={
             'min-h-8 rounded-full border px-2.5 text-[12px] font-extrabold ' +
             (line.chip === c.id
-              ? 'border-transparent bg-brand-grad text-white'
+              ? 'border-transparent s-brand'
               : 'border-border bg-card text-muted-foreground')
           }
         >
@@ -280,7 +280,7 @@ function TaskModal({
             // the button waits for the lookup and stays off when it finds nothing.
             disabled={site !== 'yes'}
             onClick={() => { onSave({ title, description, assigneeName: assignee, priority }); onClose(); }}
-            className="min-h-[48px] flex-1 rounded-xl bg-brand-grad px-4 text-sm font-bold text-white disabled:opacity-50"
+            className="min-h-[48px] flex-1 rounded-xl s-brand px-4 text-sm font-bold disabled:opacity-50"
           >
             שמור לטיוטה
           </button>
@@ -599,7 +599,7 @@ function ReviewSheet() {
                   data-testid="review-commit"
                   disabled={busy || !summary}
                   onClick={() => void commit()}
-                  className="min-h-[48px] flex-1 rounded-xl bg-brand-grad px-4 text-sm font-bold text-white disabled:opacity-40"
+                  className="min-h-[48px] flex-1 rounded-xl s-brand px-4 text-sm font-bold disabled:opacity-40"
                 >
                   {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : summaryLabel(summary!)}
                 </button>

@@ -117,7 +117,7 @@ function HoursSheet({ row, kibbutzim, onClose, onSaved }: {
         </label>
         <div className="mt-4 flex gap-2">
           <button type="button" data-testid="hours-save" disabled={saving} onClick={() => void save()}
-                  className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-60">
+                  className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl s-brand text-[15px] font-bold disabled:opacity-60">
             {saving && <Loader2 className="h-4 w-4 animate-spin" />} שמור
           </button>
           <button type="button" onClick={onClose} className="min-h-[48px] rounded-2xl border border-border px-4 text-[15px] font-semibold">ביטול</button>
@@ -193,7 +193,7 @@ function HoursPage() {
           <button type="button" onClick={exportPdf} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl border border-border bg-card px-2.5 text-[13px] font-semibold"><FileText className="h-4 w-4" /> PDF</button>
           <button type="button" onClick={exportXlsx} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl border border-border bg-card px-2.5 text-[13px] font-semibold"><FileDown className="h-4 w-4" /> Excel</button>
           {editor && (
-            <button type="button" data-testid="hours-add" onClick={() => setEditing('new')} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl bg-brand-grad px-2.5 text-[13px] font-bold text-white"><Plus className="h-4 w-4" /> הוספה ידנית</button>
+            <button type="button" data-testid="hours-add" onClick={() => setEditing('new')} className="inline-flex min-h-[40px] items-center gap-1 rounded-xl s-brand px-2.5 text-[13px] font-bold"><Plus className="h-4 w-4" /> הוספה ידנית</button>
           )}
         </span>
       </div>

@@ -334,7 +334,7 @@ function LiveSheet({
               className={
                 'min-h-9 rounded-full border px-3 text-[13px] font-extrabold ' +
                 (chip === c.id
-                  ? 'border-transparent bg-brand-grad text-white'
+                  ? 'border-transparent s-brand'
                   : 'border-border bg-card text-foreground')
               }
             >
@@ -360,7 +360,7 @@ function LiveSheet({
             data-testid="live-submit"
             onClick={() => void submit()}
             disabled={busy || !text.trim()}
-            className="min-h-11 rounded-xl bg-brand-grad px-5 text-[15px] font-extrabold text-white disabled:opacity-50"
+            className="min-h-11 rounded-xl s-brand px-5 text-[15px] font-extrabold disabled:opacity-50"
           >
             הזן
           </button>
@@ -741,7 +741,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
               type="button"
               data-testid="presenter-exit-yes"
               onClick={() => void finish()}
-              className="min-h-11 flex-1 rounded-xl bg-brand-grad px-4 text-[15px] font-extrabold text-white"
+              className="min-h-11 flex-1 rounded-xl s-brand px-4 text-[15px] font-extrabold"
             >
               יציאה
             </button>

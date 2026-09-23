@@ -142,7 +142,7 @@ export function Nav() {
                       aria-label="תיעוד ביקור"
                       // 46 px, radius 14, pulled 16 px up — the mockup's `.nav a.big i`. A circle
                       // read as a third-party FAB dropped onto the bar; this reads as part of it.
-                      className="absolute -top-4 flex h-[46px] w-[46px] flex-col items-center justify-center rounded-[14px] bg-brand-grad text-white shadow-[0_8px_18px_rgba(26,190,99,.35)] transition-transform active:scale-95"
+                      className="absolute -top-4 flex h-[46px] w-[46px] flex-col items-center justify-center rounded-[14px] s-brand shadow-[0_8px_18px_rgba(26,190,99,.35)] transition-transform active:scale-95"
                     >
                       <MapPin className="h-6 w-6" />
                     </button>

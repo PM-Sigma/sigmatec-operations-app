@@ -1,38 +1,61 @@
 import { cn } from '@/lib/utils';
 
-export type DayCellState =
-  | 'default' | 'today' | 'selected' | 'holiday' | 'eve'
-  | 'field' | 'office' | 'away' | 'missing' | 'outside';
+/** The one fill a cell can carry as its own background (design-review.md §2 "DayCell"). Not
+    `eve` or `missing` — those are DOT markers on top of whatever fill (or none) applies, and
+    not `selected` — that overrides fill entirely (ink fill + surface text) at the call site. */
+export type DayCellFill = 'none' | 'holiday' | 'field' | 'office' | 'away';
 
-const FILL: Partial<Record<DayCellState, string>> = {
+const FILL_CLS: Record<DayCellFill, string> = {
+  none: 'bg-transparent',
   holiday: 'bg-[var(--holiday-fill)] text-[var(--holiday-ink)]',
-  eve: 'bg-[var(--holiday-fill)] text-[var(--holiday-ink)]',
   field: 'bg-[var(--ok-fill)] text-[var(--ok-ink)]',
   office: 'bg-[var(--info-fill)] text-[var(--info-ink)]',
   away: 'bg-[var(--neutral-fill)] text-[var(--neutral-ink)]',
-  selected: 'bg-[var(--sigma-ink)] text-[hsl(var(--card))]',
 };
 
 /**
- * DayCell — design-system spec §2 "Components → DayCell". Square, min 44px, number top-start.
+ * DayCell — design-system spec §2 "Components → DayCell". Square, min 44px, number 14/600 at
+ * the top-start.
+ *
+ * `fill` / `today` / `selected` are independent (sign-off P1-8): a single `state` enum couldn't
+ * express "today AND field" or "selected AND holiday" at once, which a real month needs (today
+ * can land on any state, and tapping a holiday still selects it). `today` is a ring, `selected`
+ * is an ink fill that overrides `fill`, and either can combine with any `fill`.
  *
  * "missing" is PAST WORKDAYS ONLY for people who must file, and round-5's ruling (2026-09-23
  * design-system-design.md, "עידן's rulings") narrows it further: only אביאם/ניתאי ever get the
  * red missing-dot — everyone else (עידן included) sees field-green and holiday-purple only.
  * That gate is the CALLER's job (Attendance/Calendar decide who is a daily filer); this
- * component just draws whatever `state` it's handed — never a red border (spec: "No red border").
+ * component just draws whatever it's handed — never a red BORDER (spec: "No red border"), a dot
+ * plus the day number itself in danger-ink instead.
  */
 export function DayCell({
   day,
-  state = 'default',
+  fill = 'none',
+  today,
+  selected,
+  eve,
+  missing,
   eventCount,
+  outside,
+  label,
   onClick,
   className,
 }: {
   day: number;
-  state?: DayCellState;
+  fill?: DayCellFill;
+  today?: boolean;
+  selected?: boolean;
+  /** A holiday ink dot, no fill — the day before a holiday, still a work day. */
+  eve?: boolean;
+  /** Dot + the day number in danger-ink (spec: "6px danger dot + danger ink number"). */
+  missing?: boolean;
   /** Shown as "•N" (spec §2 DayCell: "dots with a count at 390"). */
   eventCount?: number;
+  outside?: boolean;
+  /** Required — a DayCell has no other accessible name (sign-off P1-8), e.g. "יום שלישי,
+      1 בספטמבר · לא דווחה נוכחות". */
+  label: string;
   onClick?: () => void;
   className?: string;
 }) {
@@ -40,23 +63,28 @@ export function DayCell({
     <button
       type="button"
       onClick={onClick}
-      data-state={state}
+      aria-label={label}
+      aria-pressed={selected || undefined}
+      data-fill={fill}
+      data-today={today ? '' : undefined}
       // The one named exception to the 48×48 floor (design-review.md 360-430 update): seven
       // columns only fit 45px cells at the 360 width floor.
       data-min-tap="44"
       className={cn(
         'relative flex aspect-square min-h-11 w-full flex-col items-start justify-start rounded-[var(--r-sm)] p-1',
-        FILL[state] ?? 'bg-transparent',
-        state === 'outside' && 'opacity-40',
-        state === 'today' && 'ring-2 ring-[var(--sigma-ink)]',
+        selected ? 'bg-[var(--sigma-ink)] text-[hsl(var(--card))]' : FILL_CLS[fill],
+        outside && 'opacity-40',
+        today && 'ring-2 ring-[var(--sigma-ink)]',
         className,
       )}
     >
-      <span className="text-[length:var(--fs-caption)] font-semibold tabular-nums"><bdi>{day}</bdi></span>
-      {state === 'eve' && (
+      <span className={cn('text-sm font-semibold tabular-nums', missing && !selected && 'text-[var(--danger-ink)]')}>
+        <bdi>{day}</bdi>
+      </span>
+      {eve && (
         <span aria-hidden className="absolute h-1.5 w-1.5 rounded-full bg-[var(--holiday-ink)]" style={{ insetBlockStart: 4, insetInlineEnd: 4 }} />
       )}
-      {state === 'missing' && (
+      {missing && (
         <span aria-hidden className="absolute h-1.5 w-1.5 rounded-full bg-[var(--danger-ink)]" style={{ insetBlockStart: 4, insetInlineEnd: 4 }} />
       )}
       {!!eventCount && (

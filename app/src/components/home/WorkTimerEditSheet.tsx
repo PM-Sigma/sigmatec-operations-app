@@ -178,7 +178,7 @@ export default function WorkTimerEditSheet({
             <div className="mt-1.5 flex max-h-[24vh] flex-wrap gap-1.5 overflow-y-auto">
               {shown.slice(0, 30).map(t => (
                 <button key={t.id} type="button" onClick={() => { if (!picked.includes(t.name)) setPicked(p => [...p, t.name]); setTagQuery(''); }}
-                        className={'rounded-full border px-2.5 py-1 text-[12px] ' + (shown.length === 1 ? 'border-transparent bg-brand-grad font-semibold text-white' : 'border-border bg-muted')}>
+                        className={'rounded-full border px-2.5 py-1 text-[12px] ' + (shown.length === 1 ? 'border-transparent s-brand font-semibold' : 'border-border bg-muted')}>
                   {t.name}
                 </button>
               ))}
@@ -196,7 +196,7 @@ export default function WorkTimerEditSheet({
           <button type="button" data-testid="work-timer-save-continue" onClick={saveAndContinue}
                   className="min-h-[46px] rounded-xl bg-primary/15 text-[14px] font-bold">שמור והמשך</button>
           <button type="button" data-testid="work-timer-finish" onClick={() => { saveAndContinue(); onStop(); }}
-                  className="inline-flex min-h-[46px] items-center justify-center gap-1.5 rounded-xl bg-brand-grad text-[14px] font-bold text-white">
+                  className="inline-flex min-h-[46px] items-center justify-center gap-1.5 rounded-xl s-brand text-[14px] font-bold">
             <Square className="h-4 w-4" /> סגור שעות
           </button>
         </div>

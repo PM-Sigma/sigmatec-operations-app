@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 // Styling isolation (spec §7c): no preflight (the legacy css/app.css owns the page), and every
 // utility is scoped by `important: '.sigma-root'` so island styles never leak into legacy markup
@@ -6,6 +7,11 @@ import type { Config } from 'tailwindcss';
 export default {
   darkMode: ['class'],
   important: '.sigma-root',
+  // Designer sign-off P1-2: Tailwind v3's `hover:` applies after a tap on Android and sticks
+  // until the next tap (no real :hover event to clear it) — `hoverOnlyWhenSupported` scopes
+  // every `hover:` utility to `@media (hover: hover)`, so a touch device never gets a stuck
+  // hover state.
+  future: { hoverOnlyWhenSupported: true },
   // `container` is a COMPONENT class, not a utility, so Tailwind emits it WITHOUT the
   // `important: '.sigma-root'` prefix — i.e. unscoped, into the legacy page. The legacy shell's
   // own `<div class="container">` (index.html) then picked up Tailwind's `max-width: 1280px`
@@ -75,5 +81,27 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    // Designer sign-off P1-1 / P1-3: two hand-written utilities, added as REAL Tailwind
+    // utilities (not plain CSS classes in styles.css) so they stack with variants exactly like
+    // any built-in (`data-[state=on]:s-brand`, `hover:s-hit` if a caller ever needs it).
+    plugin(({ addUtilities }) => {
+      addUtilities({
+        // The brand gradient fill ALWAYS pairs with the on-brand ink, never white (audit
+        // §1.12). One utility instead of `bg-brand-grad text-white` at every call site, so the
+        // pairing can't drift apart again — test-design-tokens.mjs gates the old pair at 0.
+        '.s-brand': { backgroundImage: 'var(--s-brand-grad)', color: 'var(--s-on-brand)' },
+        // Expands the TAP target to 48×48 without growing the visual box (design-review.md:
+        // "at least 48×48, using hit-slop if the visual is 32"). A transparent ::before
+        // centred on the element, sized to the larger of 100%/48px on each axis.
+        '.s-hit': { position: 'relative' },
+        '.s-hit::before': {
+          content: '""', position: 'absolute',
+          top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          width: 'max(100%, 48px)', height: 'max(100%, 48px)',
+        },
+      });
+    }),
+  ],
 } satisfies Config;

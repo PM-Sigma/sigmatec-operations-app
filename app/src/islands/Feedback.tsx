@@ -527,7 +527,7 @@ function FeedbackSheet() {
               value={k}
               aria-label={KIND_LABEL[k]}
               className="min-h-[56px] rounded-xl border border-border bg-muted text-[15px] font-bold
-                         data-[state=on]:border-transparent data-[state=on]:bg-brand-grad data-[state=on]:text-white"
+                         data-[state=on]:border-transparent data-[state=on]:s-brand"
             >
               {KIND_LABEL[k]}
             </ToggleGroupItem>
@@ -633,7 +633,7 @@ function FeedbackSheet() {
           onClick={() => void send()}
           disabled={sending || busy}
           aria-busy={sending || undefined}
-          className="mt-3 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-40"
+          className="mt-3 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl s-brand text-[15px] font-bold disabled:opacity-40"
         >
           {sending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
           שלח

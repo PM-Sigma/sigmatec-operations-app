@@ -136,7 +136,7 @@ function PrepScreen({
           type="button"
           data-testid="dev-start"
           onClick={onStart}
-          className="min-h-11 rounded-xl bg-brand-grad px-5 text-[15px] font-extrabold text-white"
+          className="min-h-11 rounded-xl s-brand px-5 text-[15px] font-extrabold"
         >
           התחל ישיבה
         </button>

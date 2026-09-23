@@ -80,7 +80,7 @@ export function HeaderActionsPanel() {
           type="button"
           onClick={() => { track('primary-add', add); runAdd(add); }}
           className={
-            'items-center gap-1.5 rounded-xl bg-brand-grad px-3 text-[13px] font-bold text-white transition-transform active:scale-[.97] min-h-[40px] '
+            'items-center gap-1.5 rounded-xl s-brand px-3 text-[13px] font-bold transition-transform active:scale-[.97] min-h-[40px] '
             + (add === 'kibbutz' ? 'hidden md:inline-flex' : 'inline-flex')
           }
         >

@@ -418,7 +418,10 @@
         '<span class="ems-badge priority-' + t.priority + '">' + (EMS_PRIORITY[t.priority] || t.priority) + '</span>' +
       '</div>' +
       '<div style="font-size:13px;color:#475569;line-height:1.9;">🏢 אתר: ' + emsEsc(site) + '<br>📅 יעד: ' + due + '</div>' +
-      '<div style="margin-top:12px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:12px;color:#9a3412;">תצוגה מהמטמון המקומי. התגובות והעדכונים ייטענו כשהחיבור יחזור.</div>';
+      // Sign-off P1-13: this used to be a hardcoded cream/orange inline style that never
+      // re-themed in dark mode (#9a3412 on the dark card measured 2.4:1) — the shared warn
+      // role tokens (css/app.css :root, aliased onto tokens.css) flip with the theme instead.
+      '<div style="margin-top:12px;padding:10px;background:var(--warn-fill);border:1px solid var(--warn-ink);border-radius:8px;font-size:12px;color:var(--warn-ink);">תצוגה מהמטמון המקומי. התגובות והעדכונים ייטענו כשהחיבור יחזור.</div>';
     modal.classList.add('open');
   }
 

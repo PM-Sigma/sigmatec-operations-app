@@ -119,7 +119,7 @@ function GapRow({ gap, onAct }: { gap: Gap; onAct: (g: Gap) => void }) {
       <button
         type="button"
         onClick={() => onAct(gap)}
-        className="min-h-9 flex-none rounded-[10px] bg-brand-grad px-3 text-[12px] font-extrabold text-white"
+        className="min-h-9 flex-none rounded-[10px] s-brand px-3 text-[12px] font-extrabold"
       >
         {gap.actionLabel}
       </button>

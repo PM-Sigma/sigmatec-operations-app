@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tag } from '@/components/ui/chip';
 
@@ -18,6 +18,10 @@ const TITLE_INK = {
  * container, not the viewport... Page, SectionBlock and Sheet set container-type: inline-size")
  * — a SectionBlock inside a narrower desktop panel gets to lay its own children out by ITS
  * width, not the viewport's, once a later package adds container-query rules for that content.
+ *
+ * Title is 16/700 (`--fs-body`, bold) — NOT `--fs-title-sm` (18, sign-off P1-11): the type
+ * steps are page title 20 → section title 16/700 → row title 16/600, and title-sm belongs to
+ * the sheet header only.
  */
 export function SectionBlock({
   title,
@@ -32,7 +36,7 @@ export function SectionBlock({
   title: React.ReactNode;
   titleRole?: keyof typeof TITLE_INK;
   count?: number;
-  /** The optional trailing "הכול ›" link. */
+  /** The optional trailing "הכול" link (a lucide ChevronLeft, not a "›" glyph — same as ListRow). */
   action?: { label: string; onClick: () => void };
   collapsible?: boolean;
   defaultOpen?: boolean;
@@ -40,7 +44,6 @@ export function SectionBlock({
   className?: string;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
-  const showBody = !collapsible || open;
   return (
     <section
       className={cn(
@@ -55,9 +58,9 @@ export function SectionBlock({
             type="button"
             onClick={() => setOpen(o => !o)}
             aria-expanded={open}
-            className="flex min-w-0 flex-1 items-center gap-2 text-start"
+            className="s-hit flex min-w-0 flex-1 items-center gap-2 text-start"
           >
-            <span className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-title-sm)] font-bold', TITLE_INK[titleRole])}>
+            <span className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-body)] font-bold', TITLE_INK[titleRole])}>
               {title}
             </span>
             {count != null && <Tag role="neutral"><bdi>{count}</bdi></Tag>}
@@ -69,19 +72,39 @@ export function SectionBlock({
           </button>
         ) : (
           <>
-            <h2 className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-title-sm)] font-bold', TITLE_INK[titleRole])}>
+            <h2 className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-body)] font-bold', TITLE_INK[titleRole])}>
               {title}
             </h2>
             {count != null && <Tag role="neutral"><bdi>{count}</bdi></Tag>}
           </>
         )}
         {action && (
-          <button type="button" onClick={action.onClick} className="shrink-0 text-sm font-semibold text-[var(--sigma-ink)]">
-            {action.label} ›
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="s-hit flex shrink-0 items-center gap-0.5 text-sm font-semibold text-[var(--sigma-ink)]"
+          >
+            {action.label}
+            <ChevronLeft aria-hidden className="h-4 w-4" />
           </button>
         )}
       </header>
-      {showBody && <div className="-mx-4 divide-y divide-border">{children}</div>}
+      {/* grid-template-rows 0fr→1fr at `base` (sign-off P1-11) — the standard CSS-only
+          collapse animation: the row track itself grows/shrinks, so content never needs a
+          measured pixel height, and `overflow:hidden` clips the collapsed state. Non-collapsible
+          sections render the same grid at a fixed 1fr, so this is the only body markup either way. */}
+      <div
+        className="grid transition-[grid-template-rows]"
+        style={{
+          gridTemplateRows: !collapsible || open ? '1fr' : '0fr',
+          transitionDuration: 'var(--s-motion-base)',
+          transitionTimingFunction: 'var(--s-ease-standard)',
+        }}
+      >
+        <div className="overflow-hidden">
+          <div className="-mx-4 divide-y divide-border">{children}</div>
+        </div>
+      </div>
     </section>
   );
 }

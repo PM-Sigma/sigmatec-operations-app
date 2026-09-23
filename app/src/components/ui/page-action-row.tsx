@@ -28,7 +28,7 @@ export function PageActionRow({
           type="button"
           onClick={onBack}
           aria-label="חזרה"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-secondary active:scale-[.97]"
+          className="s-hit flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-secondary active:scale-[.97]"
         >
           {/* ChevronRight, unmirrored: dir="rtl" means "back" already points right. */}
           <ChevronRight aria-hidden className="h-5 w-5" />

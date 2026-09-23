@@ -149,7 +149,7 @@ function MeterRow({
             data-testid="burn-toggle"
             onClick={onToggleBurn}
             className={'min-h-[40px] rounded-lg px-2.5 text-[12px] font-bold ' +
-              (burned ? 'border border-border text-muted-foreground' : 'bg-brand-grad text-white')}
+              (burned ? 'border border-border text-muted-foreground' : 's-brand')}
           >
             {burned ? '↩ בטל' : '✅ נצרב'}
           </button>
@@ -253,7 +253,7 @@ export function BurnsPanel({ kibbutz }: { kibbutz: string }) {
         <div className="mb-1.5 flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-muted px-2.5 py-1.5 text-[12px] font-semibold">
           <span className="flex-1">{selectedIds.length} נבחרו</span>
           <button type="button" disabled={busy} onClick={burnSelected}
-                  className="min-h-[36px] rounded-lg bg-brand-grad px-2.5 text-[12px] font-bold text-white">✅ סמן כנצרבו</button>
+                  className="min-h-[36px] rounded-lg s-brand px-2.5 text-[12px] font-bold">✅ סמן כנצרבו</button>
           <button type="button" disabled={busy} onClick={assignSelected}
                   className="min-h-[36px] rounded-lg border border-border px-2.5 text-[12px] font-bold">⚡ שבץ לגנרטור</button>
           <button type="button" onClick={() => setSel({})}
@@ -343,7 +343,7 @@ function BurnIssueSheet({ row, gen, onClose, onSave }: {
         )}
         <div className="mt-4 flex gap-2">
           <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onSave(note.trim(), openEms && connected); } finally { setBusy(false); } }}
-                  className="min-h-[48px] flex-1 rounded-2xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-60">
+                  className="min-h-[48px] flex-1 rounded-2xl s-brand text-[15px] font-bold disabled:opacity-60">
             {note.trim() ? 'שמור בעיה' : (row.status === 'issue' ? 'נקה את הבעיה' : 'שמור')}
           </button>
           <button type="button" onClick={onClose} className="min-h-[48px] rounded-2xl border border-border px-4 text-[15px] font-semibold">ביטול</button>

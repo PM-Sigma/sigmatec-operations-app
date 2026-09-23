@@ -133,7 +133,7 @@ function HolidaysIsland() {
             <button
               type="submit" data-testid="holiday-add" disabled={add.isPending || !date || !name.trim()}
               aria-busy={add.isPending || undefined}
-              className="inline-flex min-h-10 flex-none items-center justify-center gap-1.5 rounded-[10px] bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+              className="inline-flex min-h-10 flex-none items-center justify-center gap-1.5 rounded-[10px] s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
             >
               {add.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               הוספה

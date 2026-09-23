@@ -68,7 +68,7 @@ function Choice<T extends string>({
             onClick={() => onChange(o.value)}
             className={
               'inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[13px] font-semibold transition-colors ' +
-              (on ? 'bg-brand-grad text-white' : 'border border-border bg-card text-foreground hover:bg-muted')
+              (on ? 's-brand' : 'border border-border bg-card text-foreground hover:bg-muted')
             }
           >
             {o.icon}
@@ -107,7 +107,7 @@ function InstallRow() {
         data-testid="settings-install"
         disabled={installed}
         onClick={() => { track('settings-install'); void sigma.appInstall?.(); }}
-        className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-xl bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+        className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-xl s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
       >
         <Smartphone className="h-4 w-4" />
         {installed ? 'מותקנת' : can ? 'התקן כאפליקציה' : 'איך מתקינים'}
@@ -148,7 +148,7 @@ function NotificationsRow() {
             data-testid="settings-push-enable"
             disabled={state === 'unsupported' || state === 'ios-needs-install'}
             onClick={() => void enable()}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
           >
             <Bell className="h-4 w-4" /> הפעל התראות
           </button>
@@ -269,7 +269,7 @@ function OnboardingTemplateRow({ user }: { user: string }) {
         type="button"
         disabled={saving}
         onClick={() => void save()}
-        className="mt-2 inline-flex min-h-[40px] w-fit items-center gap-1.5 rounded-xl bg-brand-grad px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+        className="mt-2 inline-flex min-h-[40px] w-fit items-center gap-1.5 rounded-xl s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
       >
         שמור תבנית
       </button>

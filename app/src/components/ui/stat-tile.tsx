@@ -34,15 +34,19 @@ export function StatTile({
   className?: string;
 }) {
   const filterable = !!onClick;
+  // A non-filtering tile is a `div`, not a disabled button (sign-off P1-9): a screen reader
+  // announces `disabled` as "unavailable", which is wrong for a tile that is simply not
+  // interactive by design. The filter variant gets a real focus-visible ring, since it's the
+  // one that's actually reachable by keyboard.
+  const Comp = filterable ? 'button' : 'div';
   return (
-    <button
-      type="button"
-      disabled={!filterable}
+    <Comp
+      type={filterable ? 'button' : undefined}
       aria-pressed={filterable ? !!selected : undefined}
       onClick={onClick}
       className={cn(
         'flex min-w-0 flex-col items-center gap-1 rounded-[var(--r-lg)] bg-card px-3 py-4',
-        filterable && 'cursor-pointer transition-colors',
+        filterable && 'cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sigma-ink)] focus-visible:ring-offset-2',
         filterable && selected && role && ['ring-2', ROLE_RING[role]],
         !filterable && 'cursor-default',
         className,
@@ -54,7 +58,7 @@ export function StatTile({
         <bdi>{value}</bdi>
       </span>
       <span className="truncate text-[length:var(--fs-body-sm)] text-muted-foreground">{label}</span>
-    </button>
+    </Comp>
   );
 }
 

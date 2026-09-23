@@ -20,7 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText, UserCheck } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isGateOpen, useEmsGate } from '@/lib/session';
@@ -115,7 +115,7 @@ function DayTypeRow({ value, onPick, busy }: { value: DayType | null; onPick: (t
           onClick={() => onPick(t)}
           className={'min-h-9 rounded-full border px-3 text-[12.5px] font-semibold transition-colors duration-150 disabled:opacity-60 '
             + (value === t
-              ? 'border-transparent bg-brand-grad text-white'
+              ? 'border-transparent s-brand'
               : 'border-border bg-muted text-foreground hover:bg-secondary')}
         >
           {dayLabel(t)}
@@ -253,7 +253,7 @@ function DayEditor({
             data-testid="att-save"
             disabled={busy || !current || (needsNote && !note.trim())}
             onClick={() => current && onSave(current, note)}
-            className="min-h-11 w-full rounded-[12px] bg-brand-grad text-[14px] font-extrabold text-white disabled:opacity-50"
+            className="min-h-11 w-full rounded-[12px] s-brand text-[14px] font-extrabold disabled:opacity-50"
           >
             {busy ? 'שומר…' : cell.row ? 'עדכון היום' : 'שמירה'}
           </button>
@@ -426,7 +426,7 @@ function AttendanceIsland() {
                 aria-pressed={p === person}
                 onClick={() => { setPerson(p); track('attendance-person'); }}
                 className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
-                  + (p === person ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted')}
+                  + (p === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
               >
                 <bdi>{p}</bdi>
               </button>
@@ -524,7 +524,7 @@ function AttendanceIsland() {
                     aria-pressed={t.person === person}
                     onClick={() => { setPerson(t.person); track('attendance-person'); }}
                     className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
-                      + (t.person === person ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-muted')}
+                      + (t.person === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
                   >
                     <bdi>{t.person}</bdi>
                     {' · '}
@@ -602,8 +602,10 @@ function AttendanceIsland() {
           there is no draft to lose and the predicate is honestly false. */}
       <Sheet open={!!open} onOpenChange={o => { if (!o) attGuard.ask(); }}>
         <SheetContent side="bottom" data-testid="att-sheet" className="max-h-[80svh] overflow-y-auto lg:hidden" {...attGuard.contentProps}>
-          <SheetTitle className="sr-only">{openCell ? dayChip(openCell.date) : 'יום'}</SheetTitle>
-          <SheetDescription className="sr-only">עריכת סוג היום.</SheetDescription>
+          <SheetHeader className="mb-2">
+            <SheetTitle className="sr-only">{openCell ? dayChip(openCell.date) : 'יום'}</SheetTitle>
+            <SheetDescription className="sr-only">עריכת סוג היום.</SheetDescription>
+          </SheetHeader>
           <AnimatePresence mode="wait" initial={false}>
             {openCell && (
               <motion.div

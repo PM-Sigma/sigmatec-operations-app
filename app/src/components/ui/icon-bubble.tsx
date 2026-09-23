@@ -43,6 +43,7 @@ export function IconBubble({
         'hover:bg-secondary active:scale-[.97]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sigma-ink)] focus-visible:ring-offset-2',
         'data-[active]:bg-secondary data-[active]:text-foreground',
+        size < 48 && 's-hit',
         className,
       )}
       style={{ width: size, height: size, transitionTimingFunction: 'var(--s-ease-standard)' }}
@@ -51,9 +52,13 @@ export function IconBubble({
       {(badgeText || showDot) && (
         <span
           aria-hidden="true"
+          // Fixed #B91C1C in BOTH themes, not var(--danger-ink) (sign-off P1-4): the dark-mode
+          // ink (#F87171) is tuned as TEXT on a dark surface, and white-on-it is only 2.77:1 —
+          // the same "ink vs fill" mistake styles.css's own --primary/--accent comment documents.
+          // 20px pill, 12px/700 text (was 18px / 10px), same 4px overhang.
           className={cn(
-            'absolute inline-flex items-center justify-center rounded-full bg-[var(--danger-ink)] font-bold text-white',
-            showDot ? 'h-2.5 w-2.5' : 'h-[18px] min-w-[18px] px-1 text-[10px] leading-none',
+            'absolute inline-flex items-center justify-center rounded-full bg-[#B91C1C] font-bold text-white',
+            showDot ? 'h-2.5 w-2.5' : 'h-5 min-w-5 px-1 text-xs leading-none',
           )}
           style={{ insetBlockStart: -4, insetInlineEnd: -4 }}
         >

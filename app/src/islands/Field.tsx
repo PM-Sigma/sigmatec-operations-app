@@ -20,7 +20,7 @@ import {
   AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, Download, Loader2, MapPin, Mic,
   Plus, Save, Search, Send, Square, Sun, Trash2, Truck, X,
 } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShimmerButton } from '@/components/ui/shimmer-button';
@@ -206,7 +206,7 @@ function ArrivalRow({ item, onPick }: { item: ArrivalItem; onPick: (name: string
         {item.why && <span className="mt-0.5 block truncate text-[12px] font-medium text-muted-foreground">{item.why}</span>}
       </span>
       {item.count > 0 && (
-        <span className="shrink-0 rounded-full bg-brand-grad px-2.5 py-[3px] text-[12px] font-bold text-white">
+        <span className="shrink-0 rounded-full s-brand px-2.5 py-[3px] text-[12px] font-bold">
           {item.count}
         </span>
       )}
@@ -364,7 +364,7 @@ function LeaveRow({ item, on, onToggle }: { item: LeaveItem; on: boolean; onTogg
       <span
         aria-hidden
         className={'grid h-[22px] w-[22px] shrink-0 place-items-center rounded-[7px] border-2 ' +
-          (on ? 'border-transparent bg-brand-grad text-white' : 'border-border')}
+          (on ? 'border-transparent s-brand' : 'border-border')}
       >
         {on && <Check className="h-3.5 w-3.5" />}
       </span>
@@ -436,7 +436,7 @@ function Briefing({
     <div className="flex max-h-[inherit] flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto pb-[104px]">
         {/* the one brand-gradient touchpoint on this screen (§6) */}
-        <div className="rounded-b-[28px] bg-brand-grad px-4 pb-[18px] pt-3 text-white">
+        <div className="rounded-b-[28px] s-brand px-4 pb-[18px] pt-3">
           <div className="text-[12px] font-semibold opacity-85">📍 הגעת ל־</div>
           <h2 className="text-[26px] font-extrabold tracking-[-.01em]">{kibbutz}</h2>
           <div className="mt-2.5 flex flex-wrap gap-2">
@@ -589,7 +589,7 @@ const AREA =
   'min-h-[132px] w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-[15px] leading-[1.6] outline-none placeholder:text-muted-foreground focus:border-[color:var(--brand-1)]';
 const LINE =
   'min-h-[44px] w-full rounded-xl border border-border bg-muted px-3 text-[15px] outline-none focus:border-[color:var(--brand-1)]';
-const CHIP_ON = 'border-transparent bg-brand-grad text-white';
+const CHIP_ON = 'border-transparent s-brand';
 const CHIP_OFF = 'border-border bg-muted text-foreground';
 
 /** The quick hours chips — the same five the legacy form offers, spelled the same way. */
@@ -820,7 +820,7 @@ function ReturnedItems({ rows, onChange }: {
         className="flex min-h-[44px] w-full items-center gap-2 px-3 text-[13.5px] font-bold"
       >
         <span className="flex-1 text-start">🔧 ציוד שהוחזר מהקיבוץ</span>
-        {!!rows.length && <span className="rounded-full bg-brand-grad px-2 py-px text-[11px] text-white">{rows.length}</span>}
+        {!!rows.length && <span className="rounded-full s-brand px-2 py-px text-[11px]">{rows.length}</span>}
         <ChevronDown className={'h-4 w-4 text-muted-foreground transition-transform ' + (open ? 'rotate-180' : '')} />
       </button>
       {open && (
@@ -1017,7 +1017,7 @@ function VoiceIntake({ kibbutz, busy, onFill }: {
               data-testid="vc-voice-analyse"
               disabled={working || !text.trim()}
               onClick={() => void analyse()}
-              className="flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-grad text-[14px] font-extrabold text-white disabled:opacity-50"
+              className="flex min-h-[46px] flex-1 items-center justify-center gap-1.5 rounded-xl s-brand text-[14px] font-extrabold disabled:opacity-50"
             >
               {working ? <><Loader2 className="h-4 w-4 animate-spin" /> מנתח…</> : 'מלא את הסיכום'}
             </button>
@@ -1055,7 +1055,7 @@ function PickRow({ on, title, sub, onToggle, testid }: {
       <span
         aria-hidden
         className={'grid h-[20px] w-[20px] shrink-0 place-items-center rounded-[6px] border-2 ' +
-          (on ? 'border-transparent bg-brand-grad text-white' : 'border-border')}
+          (on ? 'border-transparent s-brand' : 'border-border')}
       >
         {on && <Check className="h-3 w-3" />}
       </span>
@@ -1460,16 +1460,18 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         className="flex max-h-[94svh] flex-col overflow-hidden p-0 pt-2.5"
         {...guard.contentProps}
       >
-        <SheetTitle className="px-4 text-[20px] font-extrabold tracking-[-.01em]">
-          {sentVisitId ? 'תעודת משלוח · ' : 'סיכום ביקור · '}{kibbutz}
-        </SheetTitle>
-        <SheetDescription className="px-4 pb-2 pt-0.5 text-[12.5px] text-muted-foreground">
-          {sentVisitId
-            ? 'הסיכום נשמר. נשאר להפיק את התעודה ולשלוח אותה.'
-            : age.label
-              ? <span data-testid="vc-draft-chip">{age.label}{age.note ? ' · ' + age.note : ''}</span>
-              : 'הכול כאן, בגלילה אחת. אפשר לשמור ולצאת בכל רגע.'}
-        </SheetDescription>
+        <SheetHeader className="px-4">
+          <SheetTitle className="text-[20px] font-extrabold tracking-[-.01em]">
+            {sentVisitId ? 'תעודת משלוח · ' : 'סיכום ביקור · '}{kibbutz}
+          </SheetTitle>
+          <SheetDescription className="pb-2 pt-0.5 text-[12.5px] text-muted-foreground">
+            {sentVisitId
+              ? 'הסיכום נשמר. נשאר להפיק את התעודה ולשלוח אותה.'
+              : age.label
+                ? <span data-testid="vc-draft-chip">{age.label}{age.note ? ' · ' + age.note : ''}</span>
+                : 'הכול כאן, בגלילה אחת. אפשר לשמור ולצאת בכל רגע.'}
+          </SheetDescription>
+        </SheetHeader>
 
         {/* C8 — at the TOP of the sheet, and only while there is still a summary to fill. */}
         {!sentVisitId && <VoiceIntake kibbutz={kibbutz} busy={sending} onFill={fillFromVoice} />}
@@ -1514,7 +1516,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                       type="button"
                       data-testid="vc-cert-send"
                       onClick={() => { try { (window as any).certSendForVisit?.(sentVisitId || draftId); } catch (e) { console.warn('[visit-chapters] send', e); } }}
-                      className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-grad text-[14px] font-extrabold text-white"
+                      className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl s-brand text-[14px] font-extrabold"
                     >
                       <Send className="h-4 w-4" /> שלח במייל לאיש קשר
                     </button>
@@ -1614,7 +1616,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                         type="button"
                         data-testid="vc-cert-send"
                         onClick={() => { try { (window as any).certSendForVisit?.(sentVisitId || draftId); } catch (e) { console.warn('[visit-chapters] send', e); } }}
-                        className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand-grad text-[14px] font-extrabold text-white"
+                        className="flex min-h-[48px] flex-1 items-center justify-center gap-1.5 rounded-xl s-brand text-[14px] font-extrabold"
                       >
                         <Send className="h-4 w-4" /> שלח במייל לאיש קשר
                       </button>
@@ -2141,6 +2143,13 @@ function FieldIsland() {
         // never unmounts and the morph reads as one screen changing its mind.
         className="max-h-[92svh] overflow-hidden p-0 pt-2.5"
       >
+        {/* No visible title for this sheet (Arrival/briefing content starts immediately) — an
+            sr-only SheetTitle still gives it an accessible name, and the header row it sits in
+            collapses to the close button's own height (48px) since the title takes no visual
+            space. Ordinary flow, not absolute — sign-off P1-5. */}
+        <SheetHeader className="px-2 pb-0">
+          <SheetTitle className="sr-only">{mode === 'arrival' ? 'הגעה' : 'תדרוך היום'}</SheetTitle>
+        </SheetHeader>
         <AnimatePresence mode="wait" initial={false}>
           {mode === 'arrival' ? (
             <motion.div
@@ -2285,7 +2294,7 @@ function TodayIsland() {
                   className={'flex flex-none items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1.5 text-[12.5px] font-semibold ' +
                     (s.done ? 'opacity-55 line-through' : '')}
                 >
-                  <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-brand-grad text-[11px] text-white">{s.n}</span>
+                  <span className="grid h-[18px] w-[18px] place-items-center rounded-full s-brand text-[11px]">{s.n}</span>
                   <span>{s.name}{s.note ? ' · ' + s.note : ''}</span>
                 </button>
               ))}
@@ -2306,7 +2315,7 @@ function TodayIsland() {
                   // §7p: the nudge lands on the chapter he left, with the טיוטה chip on it.
                   if (!openVisitChapters(n.kibbutz)) sigma.openVisitQuick(n.kibbutz);
                 }}
-                className="min-h-8 flex-none rounded-lg bg-brand-grad px-2.5 text-[12px] font-bold text-white"
+                className="min-h-8 flex-none rounded-lg s-brand px-2.5 text-[12px] font-bold"
               >
                 סיכום ביקור
               </button>

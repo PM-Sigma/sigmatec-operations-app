@@ -231,7 +231,7 @@ function HomeIsland() {
           <button
             type="button"
             onClick={openCreate}
-            className="hidden min-h-[44px] shrink-0 items-center gap-1.5 self-start rounded-xl bg-brand-grad px-3 text-sm font-bold text-white sm:flex"
+            className="hidden min-h-[44px] shrink-0 items-center gap-1.5 self-start rounded-xl s-brand px-3 text-sm font-bold sm:flex"
           >
             <Plus className="h-4 w-4" /> קיבוץ חדש
           </button>

@@ -33,7 +33,7 @@ function ModalMeetingsPanel() {
           <button
             type="button"
             onClick={() => openImportSheet()}
-            className="min-h-[36px] rounded-xl bg-brand-grad px-3 text-[12px] font-bold text-white"
+            className="min-h-[36px] rounded-xl s-brand px-3 text-[12px] font-bold"
           >
             📥 ייבוא סיכום ישיבה
           </button>

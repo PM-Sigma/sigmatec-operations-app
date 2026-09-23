@@ -51,7 +51,7 @@ export function FilterChip({ selected, count, children, onClick, className }: {
       aria-pressed={!!selected}
       onClick={onClick}
       className={cn(
-        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--r-pill)] px-3 text-sm font-semibold',
+        'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--r-pill)] px-3 text-sm font-semibold s-hit',
         'transition-colors duration-[var(--s-motion-fast)] active:scale-[.97]',
         selected
           ? 'bg-[var(--sigma-ink)] text-[hsl(var(--card))]'

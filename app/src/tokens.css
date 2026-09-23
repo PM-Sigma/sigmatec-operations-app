@@ -69,25 +69,29 @@
   --s-header-h: 56px; --s-nav-h: 56px; --s-fab-h: 56px; --s-sheet-footer-h: 0px;
 
   /* ---- fluid layout, 360→430 (tools-and-motion.md §2.0) ----
-     S: 0 at 360px, 1 at 430px, clamped either side — a pure NUMBER (the length numerator is
-     divided by a length denominator), reusable everywhere a fluid value is needed. Distances
-     elsewhere in the app stay fixed px (never vw) so motion feels the same at every width;
-     only the handful of values this section lists are fluid. */
-  --s-t: clamp(0, calc((100vw - 360px) / 70px), 1);
-  --s-gutter: clamp(16px, calc(16px + var(--s-t) * 4px), 20px);
-  --s-space-section-gap: clamp(12px, calc(12px + var(--s-t) * 4px), 16px);
+     Multiply form ONLY — NOT `calc((100vw - 360px) / 70px)` (sign-off P1-7): dividing a length
+     by a length is CSS typed arithmetic, which Chromium 153 accepts but older Samsung
+     Internet/iOS Safari/Firefox don't — there `--s-t` computes invalid, the gutter collapses to
+     0 and titles fall back to the inherited size. `(100vw - 360px) * COEFFICIENT` is plain
+     length-times-number, which every engine has always supported. Coefficients are the growth
+     ÷ 70 (the 360→430 range) computed once: gutter/section-gap 4px÷70, title-sm 1px÷70,
+     title 2px÷70, stat 4px÷70. Distances elsewhere in the app stay fixed px (never vw) so
+     motion feels the same at every width; only the handful of values below are fluid. */
+  --s-gutter: clamp(16px, calc(16px + (100vw - 360px) * 0.05714), 20px);
+  --s-space-section-gap: clamp(12px, calc(12px + (100vw - 360px) * 0.05714), 16px);
 
   /* ---- type — design-review.md §2 "Type: Assistant". Body/body-sm/caption are FIXED rem (they
      never scale with the viewport — only Android's OS font-size setting moves them); only the
-     three DISPLAY roles (title-sm, title, stat) are fluid. */
+     three DISPLAY roles (title-sm, title, stat) are fluid. The rem endpoints are exact; the
+     calc()'s middle term mixes rem + a px-equivalent length, which `calc()` allows freely. */
   --s-fs-caption: 0.75rem;  --s-lh-caption: 1rem;    --s-fw-caption: 600;
   --s-fs-body-sm: 0.875rem; --s-lh-body-sm: 1.25rem; --s-fw-body-sm: 400;
   --s-fs-body: 1rem;        --s-lh-body: 1.5rem;     --s-fw-body: 400;
-  --s-fs-title-sm: clamp(1.125rem, calc(1.125rem + var(--s-t) * 0.0625rem), 1.1875rem);
+  --s-fs-title-sm: clamp(1.125rem, calc(1.125rem + (100vw - 360px) * 0.01429), 1.1875rem);
   --s-lh-title-sm: 1.625rem; --s-fw-title-sm: 700;
-  --s-fs-title: clamp(1.25rem, calc(1.25rem + var(--s-t) * 0.125rem), 1.375rem);
+  --s-fs-title: clamp(1.25rem, calc(1.25rem + (100vw - 360px) * 0.02857), 1.375rem);
   --s-lh-title: 1.75rem; --s-fw-title: 700;
-  --s-fs-stat: clamp(1.75rem, calc(1.75rem + var(--s-t) * 0.25rem), 2rem);
+  --s-fs-stat: clamp(1.75rem, calc(1.75rem + (100vw - 360px) * 0.05714), 2rem);
   --s-lh-stat: 2rem; --s-fw-stat: 800;
 }
 

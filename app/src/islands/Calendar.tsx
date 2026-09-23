@@ -23,7 +23,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Video,
   CalendarDays, ClipboardList, Lock, MapPin, PartyPopper, Shield, TreePalm,
 } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -607,12 +607,14 @@ function ScheduleSheet({
   return (
     <Sheet open={open} onOpenChange={o => { if (!o) schedGuard.ask(); }}>
       <SheetContent side="bottom" data-testid="cal-schedule" className="max-h-[86svh] overflow-y-auto" {...schedGuard.contentProps}>
-        <SheetTitle>שיבוץ משימות EMS{when ? ' ל' + heShort(when) : ''}</SheetTitle>
-        <SheetDescription className="text-[12.5px]">
-          {date
-            ? 'בוחרים קיבוץ, מסמנים מה עושים באותו יום, והתאריך ב-EMS מתעדכן.'
-            : 'בוחרים יום למשימה, והתאריך ב-EMS מתעדכן.'}
-        </SheetDescription>
+        <SheetHeader className="mb-2">
+          <SheetTitle>שיבוץ משימות EMS{when ? ' ל' + heShort(when) : ''}</SheetTitle>
+          <SheetDescription className="text-[12.5px]">
+            {date
+              ? 'בוחרים קיבוץ, מסמנים מה עושים באותו יום, והתאריך ב-EMS מתעדכן.'
+              : 'בוחרים יום למשימה, והתאריך ב-EMS מתעדכן.'}
+          </SheetDescription>
+        </SheetHeader>
         {/* Opened from a רשימה row there is no day yet, so the day is the first thing asked. */}
         {!date ? (
           <label className="mt-3 block text-[12.5px] font-semibold">
@@ -994,8 +996,10 @@ function AbsenceSheet({
   return (
     <Sheet open={open} onOpenChange={o => { if (!o) absGuard.ask(); }}>
       <SheetContent side="bottom" data-testid="cal-absence" className="max-h-[86svh] overflow-y-auto" {...absGuard.contentProps}>
-        <SheetTitle>יום לא רגיל</SheetTitle>
-        <SheetDescription className="text-[12.5px]">חופש, מילואים או אירוע, וכולם יראו את זה ביומן.</SheetDescription>
+        <SheetHeader className="mb-2">
+          <SheetTitle>יום לא רגיל</SheetTitle>
+          <SheetDescription className="text-[12.5px]">חופש, מילואים או אירוע, וכולם יראו את זה ביומן.</SheetDescription>
+        </SheetHeader>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {(['vacation', 'reserve', 'event'] as AbsenceKind[]).map(k => (
             <button
@@ -1069,8 +1073,10 @@ function AddSheet({
   return (
     <Sheet open={open} onOpenChange={o => { if (!o) onClose(); }}>
       <SheetContent side="bottom" data-testid="cal-add" className="max-h-[60svh]">
-        <SheetTitle><bdi>{heDate(date)}</bdi></SheetTitle>
-        <SheetDescription className="text-[12.5px]">מה מוסיפים ליום הזה?</SheetDescription>
+        <SheetHeader className="mb-2">
+          <SheetTitle><bdi>{heDate(date)}</bdi></SheetTitle>
+          <SheetDescription className="text-[12.5px]">מה מוסיפים ליום הזה?</SheetDescription>
+        </SheetHeader>
         <div className="mt-3 grid gap-2">
           <button type="button" className="ucal-row" data-testid="cal-add-schedule" onClick={onSchedule}>
             📋 שיבוץ משימות EMS
@@ -1487,8 +1493,10 @@ function CalendarIsland() {
       {/* phone: the same day, as a bottom sheet */}
       <Sheet open={!!sheetDay} onOpenChange={o => { if (!o) setSheetDay(''); }}>
         <SheetContent side="bottom" data-testid="cal-sheet" className="max-h-[84svh] overflow-y-auto lg:hidden">
-          <SheetTitle className="sr-only">{sheetDay ? heDate(sheetDay) : 'יום'}</SheetTitle>
-          <SheetDescription className="sr-only">פירוט היום לפי קיבוץ.</SheetDescription>
+          <SheetHeader className="mb-2">
+            <SheetTitle className="sr-only">{sheetDay ? heDate(sheetDay) : 'יום'}</SheetTitle>
+            <SheetDescription className="sr-only">פירוט היום לפי קיבוץ.</SheetDescription>
+          </SheetHeader>
           <AnimatePresence mode="wait" initial={false}>
             {sheetDay ? (
               <motion.div

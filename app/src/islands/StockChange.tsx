@@ -173,7 +173,7 @@ function StockChangeSheet() {
       data-testid={testId}
       onClick={onClick}
       className={'min-h-[48px] flex-1 rounded-xl border px-3 text-[14px] font-bold '
-        + (on ? 'border-transparent bg-brand-grad text-white' : 'border-border bg-card text-foreground')}
+        + (on ? 'border-transparent s-brand' : 'border-border bg-card text-foreground')}
     >
       {children}
     </button>
@@ -291,7 +291,7 @@ function StockChangeSheet() {
             onClick={() => void submit()}
             data-testid="sc-submit"
             disabled={saving}
-            className="min-h-[48px] w-full rounded-xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-40"
+            className="min-h-[48px] w-full rounded-xl s-brand text-[15px] font-bold disabled:opacity-40"
           >
             {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" />
               : source === 'visit' ? 'פתח סיכום ביקור'

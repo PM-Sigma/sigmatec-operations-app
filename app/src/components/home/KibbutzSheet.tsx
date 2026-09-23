@@ -379,7 +379,7 @@ export function KibbutzSheet({
           type="button"
           onClick={() => void save()}
           disabled={saving}
-          className="mt-4 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl bg-brand-grad text-base font-bold text-white disabled:opacity-60"
+          className="mt-4 flex min-h-[56px] w-full items-center justify-center gap-2 rounded-2xl s-brand text-base font-bold disabled:opacity-60"
         >
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSub ? 'שמור תת-אתר' : 'שמור קיבוץ'}

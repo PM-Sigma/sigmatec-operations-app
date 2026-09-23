@@ -301,7 +301,7 @@ function ImportSheet() {
                 type="button"
                 disabled={!md.trim() || !date}
                 onClick={() => setPreview(true)}
-                className="min-h-[44px] rounded-xl bg-brand-grad px-4 text-sm font-bold text-white disabled:opacity-40"
+                className="min-h-[44px] rounded-xl s-brand px-4 text-sm font-bold disabled:opacity-40"
               >
                 תצוגה מקדימה
               </button>
@@ -337,7 +337,7 @@ function ImportSheet() {
                 type="button"
                 disabled={saving || !total}
                 onClick={() => void save()}
-                className="min-h-[48px] flex-1 rounded-xl bg-brand-grad px-4 text-sm font-bold text-white disabled:opacity-40"
+                className="min-h-[48px] flex-1 rounded-xl s-brand px-4 text-sm font-bold disabled:opacity-40"
               >
                 {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : `שמור ${total} בולטים`}
               </button>
