@@ -9,6 +9,7 @@
 // Everything in this file is PURE. The island reads, this decides, vitest pins it
 // (gaps.test.ts, the §7h fixture week).
 import { isRequiredDay, missingDays, toYmd, type AttRow, type Holiday } from '@/lib/attendance';
+import { visitorsOf } from '@/lib/field';
 
 export type GapKind = 'visit' | 'attendance' | 'task';
 
@@ -133,7 +134,7 @@ function visitGaps(person: string, src: GapSources, range: GapRange): Gap[] {
 
   const done = new Set<string>();
   for (const v of src.visits || []) {
-    if (String(v.visitor || '') !== person) continue;
+    if (!visitorsOf(v).includes(person)) continue;
     const d = toYmd(v.date);
     if (d) done.add(d + '|' + String(v.kibbutz || '').trim());
   }

@@ -39,7 +39,7 @@ import { usageDigestAuth } from "./usageDigest.ts";
 // daily cap, which words go out — is one of these pure functions, tested in field.test.ts.
 import {
   attendanceCronRuns, capBlocked, CAP_EXEMPT_EVENTS, gapNudgeFor, inQuietHours, israelAt,
-  nudgeFor, visitCronSelect,
+  nudgeFor, visitCronSelect, visitorsOf,
   type CheckinRow, type DraftRow, type VisitRow,
 } from "./field.ts";
 // Inventory alerts (inventory spec 5). Third copy-and-pin module: app/src/lib/alerts.ts is the
@@ -117,7 +117,7 @@ async function haveDates(person: string, y: number, m: number): Promise<Set<stri
   const have = new Set<string>();
   const [att, vis] = await Promise.all([
     sb.from("attendance").select("date").eq("person", person).gte("date", lo).lt("date", hi),
-    sb.from("visits").select("date").eq("visitor", person).gte("date", lo).lt("date", hi),
+    sb.from("visits").select("date").eq("visitor", person).gte("date", lo).lt("date", hi), // visitor-ok: haveDates drops this query in V-L6, once the attendance backfill (V-L1) is live
   ]);
   for (const r of (att.data ?? [])) if ((r as any).date) have.add(String((r as any).date).slice(0, 10));
   for (const r of (vis.data ?? [])) if ((r as any).date) have.add(String((r as any).date).slice(0, 10));
@@ -471,14 +471,17 @@ Deno.serve(async (req: Request) => {
     // Two days of visits and drafts: a check-in can be 14 h old, which crosses midnight.
     const fromDay = new Date(Date.now() - 2 * 86400 * 1000).toISOString().slice(0, 10);
     const [vis, dr, sent] = await Promise.all([
-      sb.from("visits").select("visitor,kibbutz,date").in("visitor", people).gte("date", fromDay),
+      // round 5 V13/V21: מי ביקר is multi-select (visitorsOf), so a single-column IN filter on the visitor
+      // column would miss a visit where the checked-in person is the SECOND name. Filter in code instead.
+      sb.from("visits").select("visitor,kibbutz,date").gte("date", fromDay),
       sb.from("visit_drafts").select("id,person,kibbutz,date").in("person", people).gte("date", fromDay),
       sentTodayCounts(people),
     ]);
+    const visitsForPeople = ((vis.data ?? []) as VisitRow[]).filter(r => visitorsOf(r as any).some(p => people.includes(p)));
 
     const plan = visitCronSelect({
       checkins,
-      visits: (vis.data ?? []) as VisitRow[],
+      visits: visitsForPeople,
       drafts: (dr.data ?? []) as DraftRow[],
       sentToday: sent.total,
       sentTodayVisit: sent.visit,

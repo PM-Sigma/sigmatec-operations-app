@@ -1,3 +1,19 @@
+  // Round 5 V13: `visits.visitor` holds one name or a ', '-joined list. Read it ONLY through
+  // these two (mirrors app/src/lib/field.ts visitorsOf/joinVisitors byte-for-logic; the two are
+  // pinned against each other by test-visitor-equality.mjs).
+  // VISITORS-PURE-START
+  function visitorsOf(v) {
+    var raw = typeof v === 'string' ? v : String((v && v.visitor) || '');
+    return raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function joinVisitors(names) {
+    var out = [];
+    (names || []).forEach(function (s) { s = String(s || '').trim(); if (s && out.indexOf(s) === -1) out.push(s); });
+    return out.join(', ');
+  }
+  // VISITORS-PURE-END
+  window.visitorsOf = visitorsOf; window.joinVisitors = joinVisitors;
+
 // Spec §7n ruling (task-33b FAIL-2 / task-35): the header must never show a data date or
   // counters before an EMS pass exists. Before login the legacy tables answer an anon read
   // with `200 []` (RLS-filtered, not 401 — see 01-data.js readSnapshot below), so there is no
@@ -582,6 +598,27 @@
     window._sbCertGet = sbGet;   // read-only handle for the delivery-cert module (kibbutz_details + cert reports)
     window._sbGet = sbGet;       // read-only handle for the kibbutzim card list (js/src/24-kibbutzim.js)
 
+    // Round 5 V20 (binding, replaces "equipment locked before the breakpoint"): a pre-breakpoint visit's
+    // original supply is no longer in the live `movements` ledger (archived, folded into opening_balance).
+    // db/archive_pre_breakpoint_rpc.sql's SECURITY DEFINER RPC is the one narrow read into the archive;
+    // saveVisitFromData (09-visits.js) calls this for the OLD quantities of an archived visit's edit, so the
+    // delta it posts never double-counts against the opening balance. Never throws: a failed/missing RPC
+    // (not applied yet) returns null, and the caller falls back to the visit's own filed products.
+    async function archiveVisitProducts(visitId) {
+      try {
+        await sbEnsure();
+        const r = await realFetch(SB_URL + '/rest/v1/rpc/archive_visit_products', {
+          method: 'POST', headers: baseH(), body: JSON.stringify({ p_visit_id: String(visitId || '') })
+        });
+        if (!r.ok) return null;
+        const rows = await r.json();
+        const out = {};
+        (rows || []).forEach(row => { if (row && row.product) out[row.product] = parseFloat(row.qty) || 0; });
+        return out;
+      } catch (e) { return null; }
+    }
+    window.archiveVisitProducts = archiveVisitProducts;
+
     // ---- READ: assemble the exact snapshot shape the app already consumes ----
     async function readSnapshot() {
       const q = ['tasks?select=*&order=seq', 'visits?select=*', 'products?select=*', 'orders?select=*', 'movements?select=*', 'requirements?select=*', 'returns?select=*', 'attendance?select=*', 'settings?select=*', 'potentials?select=*', 'regions?select=*', 'ems_cache?select=*&id=eq.1', 'ems_queue?select=*&order=id'];
@@ -920,7 +957,7 @@
     const isTest = s => /TEST_CLAUDE|CLEANUP - test/i.test(String(s || ''));
     if (Array.isArray(data.requirements)) data.requirements = data.requirements.filter(r => !(isTest(r.contactName) || isTest(r.notes)));
     if (Array.isArray(data.orders))       data.orders       = data.orders.filter(o => !isTest(o.supplier) && !isTest(o.notes));
-    if (Array.isArray(data.visits))       data.visits       = data.visits.filter(v => v.visitor !== 'TEST' && !/^\[נמחק/.test(String(v.summary || '')));
+    if (Array.isArray(data.visits))       data.visits       = data.visits.filter(v => visitorsOf(v).indexOf('TEST') === -1 && !/^\[נמחק/.test(String(v.summary || '')));
   }
 
   async function fetchSheetData() {

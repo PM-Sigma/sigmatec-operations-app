@@ -16,13 +16,19 @@ function check(name, fn) {
 
 // The module wraps its logic in IIFEs and exposes the pure helpers on `window`.
 // Recipient gating + VAPID now live server-side (supabase/functions/push-send), not in the client.
+// visitorsOf (js/src/01-data.js, round 5 V13): 22-push.js uses it bare, relying on the shared bundle
+// scope build.mjs concatenates into; injected here since this harness evaluates 22-push.js alone.
+const visitorsOf = v => {
+  const raw = typeof v === 'string' ? v : String((v && v.visitor) || '');
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+};
 function loadModule() {
   const win = {};
   const fn = new Function('window', 'document', 'localStorage', 'navigator', 'fetch', 'setTimeout',
-    'getCurrentUser', 'isViewer', 'isIdan', 'attPerson', 'confirm', 'alert', src);
+    'getCurrentUser', 'isViewer', 'isIdan', 'attPerson', 'confirm', 'alert', 'visitorsOf', src);
   fn(win, { getElementById: () => null, createElement: () => ({ style: {} }), body: { appendChild() {} } },
     { getItem: () => null, setItem() {} }, { userAgent: 'test' }, async () => ({ ok: true }), () => {},
-    () => '', () => false, () => false, () => '', () => false, () => {});
+    () => '', () => false, () => false, () => '', () => false, () => {}, visitorsOf);
   return win;   // { attMissingDays, attReminderText, ... } as exposed on window
 }
 const M = loadModule();

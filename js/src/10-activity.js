@@ -234,7 +234,7 @@
     const filtered = uniq.filter(v => {
       const d = new Date(v.date).getTime();
       if (d < from || d > to) return false;
-      if (visitor && v.visitor !== visitor) return false;
+      if (visitor && visitorsOf(v).indexOf(visitor) === -1) return false;
       return true;
     }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 

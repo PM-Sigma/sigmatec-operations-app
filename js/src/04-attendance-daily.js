@@ -122,7 +122,7 @@
       .map(function (a) { return { date: new Date(a.date), type: a.dayType, kibbutz: '', duration: 0, note: a.note || '' }; })
       .filter(function (a) { return !isNaN(a.date) && inMonth(a.date); });
     var fieldRows = (data.visits || [])
-      .filter(function (v) { return v.visitor === who; })
+      .filter(function (v) { return visitorsOf(v).indexOf(who) !== -1; })
       .map(function (v) {
         return { date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0,
                  summary: v.summary || '', id: v.id || '', workday: !!v.workday };
@@ -224,7 +224,7 @@
 
     // Field days from VISITS (carry the summary so it can be expanded under the row)
     const fieldRows = ((window.SHEET_DATA && window.SHEET_DATA.visits) || [])
-      .filter(v => v.visitor === who)
+      .filter(v => visitorsOf(v).indexOf(who) !== -1)
       // contact/products carried so the monthly PDF can stand in for the retired visits report
       .map(v => ({ date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0, summary: v.summary || '', id: v.id || '', workday: !!v.workday, contact: v.contact || '', products: v.products || [], productsOther: v.productsOther || '' }))
       .filter(v => v.date.getFullYear() === year && v.date.getMonth() === month);
@@ -426,7 +426,7 @@
     const all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : ((window.SHEET_DATA || {}).visits || []);
     const v = all.find(x => String(x.id) === String(visitId));
     if (!v) { alert('דוח הביקור לא נמצא. רענן את הדף ונסה שוב'); return; }
-    if (!canEditAttendanceOf(v.visitor)) { alert('אין לך הרשאה לערוך את הביקור של ' + (v.visitor || '—')); return; }
+    if (!visitorsOf(v).some(canEditAttendanceOf)) { alert('אין לך הרשאה לערוך את הביקור של ' + (v.visitor || '—')); return; }
     const card = document.querySelector('.kibbutz[data-name="' + String(v.kibbutz || '').replace(/"/g, '\\"') + '"]');
     if (!card) { alert('הקיבוץ "' + (v.kibbutz || '—') + '" לא נמצא בכרטיסים, לא ניתן לפתוח את הביקור מכאן'); return; }
     if (typeof openEditModal !== 'function' || typeof editVisit !== 'function') { alert('טופס הביקור לא זמין'); return; }

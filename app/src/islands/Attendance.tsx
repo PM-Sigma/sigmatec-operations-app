@@ -28,6 +28,7 @@ import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
+import { visitorsOf } from '@/lib/field';
 import {
   canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
@@ -63,8 +64,8 @@ function readVisits(person: string, year: number, month: number): VisitLike[] | 
     if (!data) return null;
     const prefix = year + '-' + String(month).padStart(2, '0');
     return ((data.visits || []) as any[])
-      .filter(v => v && v.visitor === person && String(v.date || '').slice(0, 7) === prefix
-        || (v && v.visitor === person && new Date(v.date).getFullYear() === year
+      .filter(v => v && visitorsOf(v).includes(person) && String(v.date || '').slice(0, 7) === prefix
+        || (v && visitorsOf(v).includes(person) && new Date(v.date).getFullYear() === year
             && new Date(v.date).getMonth() + 1 === month))
       .map(v => ({ id: v.id, visitor: v.visitor, date: v.date, kibbutz: v.kibbutz,
         duration: v.duration, workday: !!v.workday })) as VisitLike[];

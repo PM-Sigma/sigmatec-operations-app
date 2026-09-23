@@ -160,7 +160,9 @@ check('openVisitFromAttendance resolves the visit GLOBALLY, not just the open ki
 });
 check('openVisitFromAttendance enforces the same permission rule as attendance edits', () => {
   const f = lift(att, 'openVisitFromAttendance');
-  assert.ok(/canEditAttendanceOf\(v\.visitor\)/.test(f), 'must gate on the visit OWNER');
+  // round 5 V13: מי ביקר is multi-select, so the gate must pass if the caller may edit ANY of the
+  // visit's visitors, not just a single v.visitor === equality (visitorsOf, V-L2 sweep).
+  assert.ok(/visitorsOf\(v\)\.some\(canEditAttendanceOf\)/.test(f), 'must gate on every visit OWNER');
 });
 check('openVisitFromAttendance fails safely on a missing visit or missing kibbutz card', () => {
   const f = lift(att, 'openVisitFromAttendance');

@@ -132,7 +132,7 @@
   function personMissingDays(person) {
     const ymd = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     const logged = new Set();
-    (window.SHEET_DATA?.visits || []).filter(v => v.visitor === person)
+    (window.SHEET_DATA?.visits || []).filter(v => visitorsOf(v).indexOf(person) !== -1)
       .forEach(v => { if (v.date) logged.add(ymd(new Date(v.date))); });
     (window.SHEET_DATA?.attendance || []).filter(a => a.person === person)
       .forEach(a => { if (a.date) logged.add(ymd(new Date(a.date))); });

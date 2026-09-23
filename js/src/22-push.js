@@ -202,7 +202,7 @@
     const have = {};
     (attendance || []).forEach(a => { if (a.person === person && a.date) have[String(a.date).slice(0, 10)] = 1; });
     (visits || []).forEach(v => {
-      if (v.visitor !== person || !v.date) return;
+      if (visitorsOf(v).indexOf(person) === -1 || !v.date) return;
       const d = new Date(v.date);
       if (!isNaN(d)) have[d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')] = 1;
     });

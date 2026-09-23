@@ -280,7 +280,7 @@
       const key = v.id || (v.kibbutz + '|' + v.date + '|' + v.visitor);
       if (seen[key]) return false; seen[key] = 1;
       const d = new Date(v.date).getTime();
-      return d >= from && d <= to && (!visitor || v.visitor === visitor);
+      return d >= from && d <= to && (!visitor || visitorsOf(v).indexOf(visitor) !== -1);
     }).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }
   function xlExportVisits(visitor, from, to) {

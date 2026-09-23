@@ -38,6 +38,24 @@ export interface VisitRow {
   items?: Array<{ product?: string; qty?: number | string }> | null;
 }
 
+// ───────────────────────────── מי ביקר (round 5 V13) ─────────────────────────────
+
+/** `visits.visitor` holds one name or a `', '`-joined list. Read it ONLY through visitorsOf(). */
+export const VISITOR_SEP = ', ';
+
+/** A visit's visitors, trimmed, stray/doubled separators and blanks dropped. */
+export function visitorsOf(v: { visitor?: string | null } | string | null | undefined): string[] {
+  const raw = typeof v === 'string' ? v : String(v?.visitor ?? '');
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/** The inverse: names → the stored string, deduped, order kept (the first is who filed). */
+export function joinVisitors(names: ReadonlyArray<string>): string {
+  const out: string[] = [];
+  for (const n of names || []) { const s = String(n || '').trim(); if (s && !out.includes(s)) out.push(s); }
+  return out.join(VISITOR_SEP);
+}
+
 export interface DraftRow {
   id: string;
   person: string;
@@ -190,7 +208,7 @@ export function arrivalOrder(i: ArrivalInput): ArrivalItem[] {
 
   const lastVisit = new Map<string, string>();
   for (const v of i.visits || []) {
-    if (!v || !v.kibbutz || (i.me && v.visitor !== i.me)) continue;
+    if (!v || !v.kibbutz || (i.me && !visitorsOf(v).includes(i.me))) continue;
     const d = String(v.date || '').slice(0, 10);
     if (!d) continue;
     const prev = lastVisit.get(v.kibbutz);
@@ -484,7 +502,7 @@ export function todayStops(i: TodayInput): TodayStop[] {
   const mine = (i.checkins || []).filter(c => c && c.person === i.me && israelParts(c.checked_in_at).date === i.today);
   const filed = new Set(
     (i.visits || [])
-      .filter(v => v && v.visitor === i.me && String(v.date || '').slice(0, 10) === i.today)
+      .filter(v => v && visitorsOf(v).includes(i.me) && String(v.date || '').slice(0, 10) === i.today)
       .map(v => String(v.kibbutz)),
   );
   const order: string[] = [];
@@ -516,7 +534,7 @@ export function openNudges(i: {
     const at = new Date(c.checked_in_at).getTime();
     if (isNaN(at) || now - at < 2 * 3600_000 || now - at > 14 * 3600_000) continue;
     const day = israelParts(c.checked_in_at).date;
-    const filed = (i.visits || []).some(v => v && v.visitor === c.person && v.kibbutz === c.kibbutz
+    const filed = (i.visits || []).some(v => v && visitorsOf(v).includes(c.person) && v.kibbutz === c.kibbutz
       && String(v.date || '').slice(0, 10) === day);
     if (filed) continue;
     const hasDraft = (i.drafts || []).some(d => d && d.person === c.person && d.kibbutz === c.kibbutz && d.date === day);
@@ -830,7 +848,7 @@ export function visitCronSelect(i: CronInput): CronPlan {
     if (isNaN(at) || now - at > 14 * 3600_000) { drop('too old'); continue; }
 
     const day = israelParts(c.checked_in_at).date;
-    const filed = (i.visits || []).some(v => v && v.visitor === c.person && v.kibbutz === c.kibbutz
+    const filed = (i.visits || []).some(v => v && visitorsOf(v).includes(c.person) && v.kibbutz === c.kibbutz
       && String(v.date || '').slice(0, 10) === day);
     // Asked BEFORE the clock: a filed visit settles the row whatever the hour is.
     if (filed) { drop('visit exists'); settle.push({ id: c.id, reason: 'visit exists' }); continue; }
