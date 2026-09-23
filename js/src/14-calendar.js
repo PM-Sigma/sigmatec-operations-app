@@ -369,19 +369,23 @@
   }
   // Normalize a Hebrew site/kibbutz name for matching (collapse whitespace, trim).
   function emsNormName(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); }
-  // Map a kibbutz name → EMS site id. EXACT normalized-name match against live /sites first
-  // (self-heals EMS renames); offline / no live match → the curated KIBBUTZ_SITE_MAP. Returns ''
-  // when there is no confident site — callers must treat '' as "not linked" (no fuzzy guessing).
+  // Map a kibbutz name → EMS site id. עידן's ruling (round 5): a kibbutz is LINKED iff its
+  // `kibbutzim` row's ems_site_ids is non-empty — kibbutzSiteIds() already prefers that row
+  // over the curated KIBBUTZ_SITE_MAP, and THAT wins over a live /sites name match every time
+  // (a renamed live site must never silently swap which kibbutz it points at). A live match is
+  // the fallback, tried only when the row has no ids at all. Returns '' when there is no
+  // confident site — callers must treat '' as "not linked" (no fuzzy guessing).
   async function emsSiteIdForKibbutz(name) {
     const target = emsNormName(name);
     if (!target) return '';
+    const mapped = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
+    if (mapped.length) return mapped[0];
     try {
       const sites = await getEmsSites();
       const hit = sites.find(s => emsNormName(s.name) === target);
       if (hit) return hit.id;
-    } catch (e) { /* offline / API down → fall through to the curated map */ }
-    const mapped = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
-    return mapped.length ? mapped[0] : '';
+    } catch (e) { /* offline / API down → nothing more to try */ }
+    return '';
   }
   // The live /sites list, cached by getEmsSites (module-local _emsSites). Exposed for kibbutzHasSite/tests.
   function emsSitesCached() { return _emsSites; }

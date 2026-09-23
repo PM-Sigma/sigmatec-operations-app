@@ -49,6 +49,13 @@ check('no match anywhere → empty string', async () => {
   const m = load(SITES, {});
   assert.strictEqual(await m.emsSiteIdForKibbutz('קיבוץ דמיוני'), '');
 });
+check('the row (kibbutzSiteIds) wins over a live name match when both exist', async () => {
+  // עידן's ruling (round 5): a kibbutz is LINKED iff its row's ems_site_ids is non-empty — that
+  // wins over a live /sites name match every time, so a renamed live site can never silently
+  // swap which kibbutz it points at. SITES has a live 'שלוחות' match too; the row must still win.
+  const m = load(SITES, { 'שלוחות': ['ROW_WINS'] });
+  assert.strictEqual(await m.emsSiteIdForKibbutz('שלוחות'), 'ROW_WINS');
+});
 
 // kibbutzHasSite (Task 2)
 check('kibbutzHasSite: true when in the map (offline)', async () => {
