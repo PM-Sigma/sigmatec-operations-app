@@ -35,6 +35,12 @@ export interface DevCard {
   pos?: number;
   /** Issue comments, when the caller has them. Absent is normal, never an error. */
   comments?: DevComment[];
+  /**
+   * The card's ancestor chain, nearest parent first, up to 4 levels — as the `github` Edge
+   * Function's read mode now returns it (D-L1). Absent/empty means no parent (or the function
+   * hasn't been redeployed yet); `devMeeting.ts` groups those under "ללא אפיון".
+   */
+  parentChain?: Array<{ number: number; title: string; state: 'OPEN' | 'CLOSED' }>;
 }
 
 export interface DevComment {

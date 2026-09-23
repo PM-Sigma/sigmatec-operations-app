@@ -143,7 +143,7 @@ function PrepScreen({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <PrepList testid="dev-nospec" title="ללא אפיון" cards={prep.cardsWithoutSpec} empty="הכל מאופיין" />
+        <PrepList testid="dev-nospec" title="בלי תיאור" cards={prep.cardsWithoutSpec} empty="הכל מאופיין" />
         <PrepList testid="dev-blocked" title="תקוע מעל שבוע" cards={prep.blocked} empty="שום דבר לא תקוע" />
       </div>
 
