@@ -1,0 +1,17 @@
+app/src/islands/Alerts.tsx
+app/src/islands/Attendance.tsx
+app/src/islands/Calendar.tsx
+app/src/islands/DayLog.tsx
+app/src/islands/DevPresenter.tsx
+app/src/islands/FeedbackInbox.test.tsx
+app/src/islands/FeedbackInbox.tsx
+app/src/islands/HeaderActions.tsx
+app/src/islands/Home.tsx
+app/src/islands/InternalModal.tsx
+app/src/islands/MeetingReview.test.tsx
+app/src/islands/ModalMeetings.tsx
+app/src/islands/MyTasks.tsx
+app/src/islands/Presenter.tsx
+app/src/islands/Settings.tsx
+app/src/islands/StockChange.tsx
+app/src/islands/Usage.test.tsx

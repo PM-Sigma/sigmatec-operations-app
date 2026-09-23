@@ -7,6 +7,22 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [docs] 2026-09-23 — 🗺️ OPS GRAPH: queryable knowledge graph of the whole app (`docs/ops-graph/`)
+Docs/tooling only — no app code, no version bump. A graphify knowledge graph over 446 files at 2.23
+(`js/src`, `app/src`, `supabase/functions`, `db/`, tests, specs, docs): **4,714 nodes / 12,523 edges /
+157 communities**, queryable with `python docs/ops-graph/ops_graph.py`. Why: "which module writes this
+table / what guards this role / which spec explains this" no longer needs a codebase-wide read.
+
+How it was built: 24 Sonnet agents extracted semantics with shared node ids (`file:`, `fn:<name>@<path>`,
+`table:`, `policy:`, `ext:`), mandatory line citations and a ban on flattening two-hop calls; a
+deterministic AST pass parsed 378 code files; `fix_graph.py` folds the two layers together and mines
+cross-layer edges from source (130 client→table, 20 client→edge-function, 210 test→module, 1,138
+docs→code, 147 inline-`onclick` calls). An Opus audit found edges accurate but 90 of 112 auto-generated
+gap items false and the React app missing entirely; its 12 rule fixes were applied and `app/src` was
+extracted. The final broken list was verified by hand against the repo and, for security, against the live DB; it is stored locally, not in this public repo.
+
+Findings (not fixed here — they need decisions): RLS / access-control issues (details kept out of the public repo), 24 modules with no test, schema drift (live tables with no `db/` migration), and stale docs (legacy-lockdown note, `17-staff.js`, `test-mytasks-filter.mjs`). Refresh after merges: `python docs/ops-graph/rebuild.py` (~35s).
+
 ## [2.22] 2026-09-22 night — round 4: המשימות שלי, kibbutz edit without the EMS chain, card regressions, visit date
 
 - **המשימות שלי (X):** the floating 🔒 strip is gone from every page. A full sheet (✅ `ListTodo`, not a lock) lists the

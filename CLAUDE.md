@@ -7,6 +7,36 @@ Read **`docs/INDEX.md`** first — it's the memory index, and its **🚦 Current
 exactly where we left off. Then `docs/backlog.md` (blocker/pending) and `docs/CHANGELOG.md` (recent
 changes). Load other `docs/*` only as the task needs. Full session history is in claude-mem (`mem-search`).
 
+## OPS GRAPH — the map of this app. Ask it before grepping.
+
+**`docs/ops-graph/`** is a queryable knowledge graph of the whole app at 2.23: **4,714 nodes / 12,523
+edges** over 446 files — legacy `js/src`, the React app `app/src`, every edge function, every
+`db/*.sql` table and RLS policy, all test suites, specs and docs — and how they connect. It answers
+"what touches what" without reading the codebase.
+
+```bash
+python docs/ops-graph/ops_graph.py explain "emsQueueFlush"      # what it is + everything it touches
+python docs/ops-graph/ops_graph.py table delivery_certs         # who reads/writes it + its RLS policies
+python docs/ops-graph/ops_graph.py file 20-delivery-cert.js     # what a module contains and connects to
+python docs/ops-graph/ops_graph.py path "isViewer" "xlExportVisits"
+python docs/ops-graph/ops_graph.py query "how does push routing work"
+```
+
+**Reach for it when:** orienting in unfamiliar code (`explain` / `query` before opening files);
+before changing a module or table (`file` / `table` = blast radius); "which spec explains X"
+(1,138 docs→code edges, `rationale_for` edges); "what is broken" → the human-verified list is
+`<project>/תוצרים/2026-09-23 — ממצאי OPS GRAPH/BROKEN.md` (local only — kept out of this public repo); the raw auto-scan is `graphify-out/GRAPH_GAPS.md` (has false positives).
+**Never commit security findings or audits into this repo — it is PUBLIC.**
+
+**Keep it true:** after merging a feature run `python docs/ops-graph/rebuild.py` (~35s, no LLM —
+re-parses all code, re-applies the cached semantic extraction, re-runs the gap scan). New or
+changed *docs/specs* need their Sonnet extraction chunk re-run — see `docs/ops-graph/README.md`.
+
+**Trust, but check the citation.** Every edge is `EXTRACTED` / `INFERRED` / `AMBIGUOUS` and carries
+`source_file:line`. Two Opus audits (local, beside BROKEN.md) found no invented entities;
+known limits: nodes tagged `status: not_on_disk` are planned/retired code, and
+`appsscript/*.gs`, `css/`, `qa/playwright/` are **not** in the graph.
+
 ## Workflow — keep this true
 - Edit `js/src/*.js` → run `node build.mjs` (concatenates → `js/app.js` + version stamp) → commit.
   **Never edit `js/app.js` directly.**

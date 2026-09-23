@@ -1,0 +1,12 @@
+docs/INDEX.md
+docs/calendar-setup.md
+docs/click-map.md
+docs/data-and-security.md
+docs/integration-map.md
+docs/reports/2026-09-18-ux-review.md
+docs/testing-methodology.md
+docs/usage/יומן-גוגל.md
+docs/usage/סיכום-ביקור.md
+docs/usage/תעודת-משלוח.md
+docs/ux-loading-patterns.md
+docs/vision-budget.md

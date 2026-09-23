@@ -1,0 +1,7 @@
+docs/HANDOFF-QA-phone-round.md
+docs/HANDOFF-עידן.md
+docs/RECOMMENDATIONS-he.md
+docs/SRS-סיגמה-2.0.md
+docs/architecture.md
+docs/ems-session.md
+docs/integration-map.annotations.md

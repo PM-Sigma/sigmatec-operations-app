@@ -1,0 +1,8 @@
+CLAUDE.md
+README.md
+UPCOMING.md
+build.mjs
+index.html
+maintenance.html
+package.json
+sw.js

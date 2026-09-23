@@ -1,0 +1,11 @@
+docs/CHANGELOG.md
+docs/backlog.md
+docs/ems-cache-refresh.md
+docs/modules.md
+docs/operations.md
+docs/reports/2026-09-22-copy-sweep.md
+docs/reports/2026-09-22-round-2-test-plan.md
+docs/usage/דיווח-רעיון-באג.md
+docs/usage/שיבוץ-ביומן.md
+docs/whisper-glossary.md
+docs/whisper-server.md

@@ -1,0 +1,7 @@
+js/src/00-bridge.js
+js/src/00-consts.js
+js/src/01-data.js
+js/src/02-init-attendance.js
+js/src/04-attendance-daily.js
+js/src/05-meeting-returns.js
+js/src/06-products.js

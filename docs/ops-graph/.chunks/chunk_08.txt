@@ -1,0 +1,13 @@
+docs/superpowers/plans/2026-07-19-kibbutz-site-integrity.md
+docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md
+docs/superpowers/specs/2026-07-16-attendance-push-reminder-design.md
+docs/superpowers/specs/2026-07-16-dropship-orders-design.md
+docs/superpowers/specs/2026-07-16-push-actions-and-scheduled-attendance-design.md
+docs/superpowers/specs/2026-07-16-push-log-table-design.md
+docs/superpowers/specs/2026-07-16-viewer-excel-exports-design.md
+docs/superpowers/specs/2026-07-16-web-push-notifications-design.md
+docs/superpowers/specs/2026-08-02-attendance-hub-design.md
+docs/superpowers/specs/2026-09-18-company-process-design.md
+docs/superpowers/specs/2026-09-22-phone-qa-round-2-design.md
+docs/superpowers/specs/2026-09-22-phone-qa-round-4-design.md
+superpowers/specs/2026-09-06-meter-burn-tracker-design.md

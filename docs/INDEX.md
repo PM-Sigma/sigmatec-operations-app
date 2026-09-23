@@ -42,6 +42,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 
 | File | When to read it |
 |------|-----------------|
+| **[ops-graph/](ops-graph/README.md)** | **OPS GRAPH — queryable map of the whole app (4,714 nodes / 12,523 edges, 2.23).** Ask it "what touches what" before grepping: `python docs/ops-graph/ops_graph.py explain <thing>`. Verified defects: local BROKEN.md (not in the public repo). |
 | [architecture.md](architecture.md) | How it fits together: PWA ↔ Supabase ↔ Apps Script ↔ EMS. Start here. |
 | [modules.md](modules.md) | What every `js/src/*.js` module does + its functions. |
 | [data-and-security.md](data-and-security.md) | Supabase tables, data layer, RLS, the auth bridge, key rotation, Apps Script security. |
@@ -66,7 +67,13 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-22 night (**2.22 — rounds 2–4 shipped to `main`**).
+## 🚦 Current state — last: 2026-09-23 (**OPS GRAPH built on 2.23 — `feat/ops-graph`, docs-only, not merged**).
+
+**🗺️ `docs/ops-graph/` is new: ask it before grepping** (`python docs/ops-graph/ops_graph.py explain <thing>`).
+Built from `origin/main` 5e23a30 (2.23 round 4) by 24 Sonnet extraction agents + AST, audited by Opus, broken
+list verified against the repo **and the live DB**. It opened findings that need עידן's decision, incl. **RLS/access-control findings** — details deliberately kept out of this public repo, in `<project>/תוצרים/2026-09-23 — ממצאי OPS GRAPH/BROKEN.md` (local only). Summary: [backlog.md](backlog.md) → "Opened by the OPS GRAPH". App code unchanged; the 2.22 state below still holds.
+
+## 🚦 Previous — 2026-09-22 night (**2.22 — rounds 2–4 shipped to `main`**).
 
 2.22 (round 4, `2026-09-22-phone-qa-round-4-design.md`): המשימות שלי sheet (EMS + internal, by kibbutz; header ✅, ⋯ עוד,
 calendar) replaces the floating strip; kibbutz edit without the EMS chain + unlinked-site error; last-visit ✏️/🚚 and history

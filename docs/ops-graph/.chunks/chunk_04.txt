@@ -1,0 +1,7 @@
+js/src/20-delivery-cert-logo.js
+js/src/20-delivery-cert.js
+js/src/21-excel-export.js
+js/src/22-push.js
+js/src/23-push-log.js
+js/src/24-kibbutzim.js
+js/src/24-meter-burns.js

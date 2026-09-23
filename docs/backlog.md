@@ -1,3 +1,12 @@
+🔴 OPENED BY THE OPS GRAPH (2026-09-23) — verified against the repo + live DB, needs עידן's decision.
+Detail + evidence: `<project>/תוצרים/2026-09-23 — ממצאי OPS GRAPH/BROKEN.md` (local only — kept out of this public repo).
+1. **🔴 RLS / access control** — three live-DB findings on write policies and roles (P1). Details in the
+   local file only; do not paste them into this public repo.
+4. **Schema drift** — `messages`, `auth_attempts` exist live with no `create table` in `db/`.
+5. **24 modules with no test** — incl. permission logic `canShowPage.ts`, `caps.ts`, and `KibbutzCard.tsx`.
+6. **Stale docs** — "legacy lockdown not applied" (live: anon already blocked), `17-staff.js` (retired),
+   `test-mytasks-filter.mjs` (missing), `stats.html` (deleted).
+
 ✅ DONE (2026-09-20, Task 34) — **סיגמה 2.02**, the post-go-live fix round. The boot TDZ that was
 silently serving a three-month-old snapshot on the live site (task-33 FAIL-2) + the two gates that
 catch its whole class (`test-concat-order.mjs`, `qa/playwright/tests/boot-console.spec.ts`); the

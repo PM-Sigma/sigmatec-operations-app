@@ -1,0 +1,17 @@
+supabase/functions/_shared/ai.ts
+supabase/functions/_shared/http.ts
+supabase/functions/calendar/index.ts
+supabase/functions/clockify/index.ts
+supabase/functions/ems-auth/index.ts
+supabase/functions/github/index.ts
+supabase/functions/parse-daylog/index.ts
+supabase/functions/parse-daylog/prompt.md
+supabase/functions/parse-order/index.ts
+supabase/functions/push-send/alerts.ts
+supabase/functions/push-send/clockify.ts
+supabase/functions/push-send/field.ts
+supabase/functions/push-send/index.ts
+supabase/functions/push-send/usageDigest.ts
+supabase/functions/push-send/usageNarrative.ts
+supabase/functions/transcribe/chain.ts
+supabase/functions/transcribe/index.ts
