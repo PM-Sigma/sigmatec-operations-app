@@ -7,7 +7,8 @@ import { describe, it, expect } from 'vitest';
 import type { KibbutzRow } from './kibbutzim';
 import type { MeetingGroup, NoteRow } from './meetingNotes';
 import {
-  canPresent, carryOverLine, eventRow, nextIndex, presenterOrder, tSec,
+  canPresent, carryOverLine, eventRow, isRealMeeting, nextIndex, presenterOrder,
+  previousMeetingDate, tSec,
 } from './meetingSession';
 
 // ───────────────────────────── fixtures ─────────────────────────────
@@ -263,5 +264,58 @@ describe('canPresent', () => {
 
   it('treats missing role information as "no"', () => {
     expect(canPresent(undefined as unknown as boolean, undefined as unknown as boolean)).toBe(false);
+  });
+});
+
+// ───────────────────────────── isRealMeeting / previousMeetingDate (D1) ─────────────────────────────
+
+describe('isRealMeeting', () => {
+  const s = (min: number) => ({
+    started_at: '2026-09-16T07:00:00Z',
+    ended_at: new Date(Date.parse('2026-09-16T07:00:00Z') + min * 60e3).toISOString(),
+  });
+
+  it('10 minutes, or one note/marker/parking, or notes that day', () => {
+    expect(isRealMeeting(s(3), ['kibbutz', 'kibbutz'], false)).toBe(false);
+    expect(isRealMeeting(s(12), [], false)).toBe(true);
+    expect(isRealMeeting(s(3), ['marker'], false)).toBe(true);
+    expect(isRealMeeting({ started_at: '2026-09-16T07:00:00Z', ended_at: null }, [], true)).toBe(true);
+  });
+
+  it('a still-open session with no notes and no marker/parking is not (yet) a real meeting', () => {
+    expect(isRealMeeting({ started_at: '2026-09-16T07:00:00Z', ended_at: null }, ['kibbutz'], false)).toBe(false);
+  });
+
+  it('parking alone also counts, same as a marker', () => {
+    expect(isRealMeeting(s(1), ['parking'], false)).toBe(true);
+  });
+});
+
+describe('previousMeetingDate', () => {
+  it('an accidental open on a Tuesday does not move the window', () => {
+    const sessions = [
+      { id: 'a', date: '2026-09-22', kind: 'company', started_at: '2026-09-22T12:00:00Z', ended_at: '2026-09-22T12:01:00Z' },
+      { id: 'b', date: '2026-09-16', kind: 'company', started_at: '2026-09-16T07:00:00Z', ended_at: '2026-09-16T08:10:00Z' },
+    ] as any;
+    expect(previousMeetingDate(sessions, { a: ['kibbutz'] }, new Set(), '2026-09-23', 'company')).toBe('2026-09-16');
+  });
+
+  it('today never counts; the other kind never counts', () => {
+    const sessions = [
+      { id: 'c', date: '2026-09-23', kind: 'company', started_at: '2026-09-23T07:00:00Z', ended_at: '2026-09-23T08:00:00Z' },
+      { id: 'd', date: '2026-09-20', kind: 'dev', started_at: '2026-09-20T07:00:00Z', ended_at: '2026-09-20T08:00:00Z' },
+    ] as any;
+    expect(previousMeetingDate(sessions, {}, new Set(), '2026-09-23', 'company')).toBe(null);
+  });
+
+  it('a short session redeemed by notes filed that day still counts', () => {
+    const sessions = [
+      { id: 'e', date: '2026-09-18', kind: 'company', started_at: '2026-09-18T07:00:00Z', ended_at: '2026-09-18T07:02:00Z' },
+    ] as any;
+    expect(previousMeetingDate(sessions, {}, new Set(['2026-09-18']), '2026-09-23', 'company')).toBe('2026-09-18');
+  });
+
+  it('no sessions at all → null', () => {
+    expect(previousMeetingDate([], {}, new Set(), '2026-09-23', 'company')).toBe(null);
   });
 });
