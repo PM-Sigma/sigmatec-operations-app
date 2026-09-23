@@ -229,9 +229,16 @@
         case 'pushlog':    return !!call('isIdan', [], false);
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';
         case 'kibbutz': case 'calendar': return true;
-        // 🔥 צריבות (Task 23) — a temporary project page: the same audience gate the
-        // chip, the section and the strip use, and false for everyone once the project ends.
-        case 'burns':      return !!call('burnCanSee', [], false);
+        // 🔥 צריבות (Task 23; gate moved off 24-meter-burns.js in round 5 G-L4) — a temporary
+        // project page: the same audience app/src/lib/burns.ts BURN_WRITERS/BURN_HIDDEN use,
+        // and false for everyone once BURNS_PROJECT_ACTIVE (js/src/00-consts.js) goes false.
+        case 'burns': {
+          if (window.BURNS_PROJECT_ACTIVE === false) return false;
+          if (call('isViewer', [], false)) return true;
+          var _b = call('getCurrentUser', [], '');
+          if (['מתניה', 'אליה'].indexOf(_b) !== -1) return false;            // BURN_HIDDEN (burns.ts)
+          return ['אביאם', 'ניתאי', 'עידן', 'עמיחי'].indexOf(_b) !== -1;     // BURN_WRITERS (burns.ts)
+        }
         // ⏱ שעות מול לקוחות (22.9, E2): עידן · עמיחי · מתניה, and the viewer reads it.
         case 'hours': {
           if (call('isViewer', [], false)) return true;

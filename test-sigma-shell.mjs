@@ -88,7 +88,12 @@ console.log('\n[4] build output is wired into the page');
   // the boot path (TanStack, an island); it is checked right below by the tests that matter.
   // 303 kB (22.9, QA round 3): +287 bytes measured — the ⋯ עוד sheet gained the ✉️ הודעה לעובד
   // row (Package O removed the Ctrl+K actions group) and the header chip shows a first name.
-  check('bundle under the 303 kB ceiling', size < 303 * 1024, Math.round(size / 1024) + ' kB');
+  // 304 kB (round 5 G-L2, 23.9): +390 bytes measured — lib/ems/adapters/rest.ts grew
+  // listMetersByRole/searchMeters/listSolars for the 🔥 צריבות EMS refresh (G-U2, not built
+  // yet). The EMS gateway is unavoidably eager: main.tsx calls installEmsBridge() on boot so
+  // legacy can reach `sigma.ems.*`, so any gateway operation — even one only the lazy burns
+  // page will call — ships in this chunk. 150 bytes of headroom before this round; none after.
+  check('bundle under the 304 kB ceiling', size < 304 * 1024, Math.round(size / 1024) + ' kB');
 }
 
 console.log(failures ? `\nFAIL — ${failures} check(s)` : '\nPASS — sigma shell contracts hold');

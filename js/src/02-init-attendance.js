@@ -73,9 +73,10 @@
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(typeof canSeeDevTasks === 'function' && canSeeDevTasks())) page = 'kibbutz'; // עידן + עמיחי (admin) + מתניה + אליה — canSeeDevTasks(), js/src/18-dev-tasks.js
-    if (page === 'pushlog' && !(typeof isIdan === 'function' && isIdan())) page = 'kibbutz'; // התראות — עידן only
-    if (page === 'burns' && !(typeof burnCanSee === 'function' && burnCanSee())) page = 'kibbutz';
-    if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer // 🔥 צריבות — אביאם/ניתאי/עידן/עמיחי write · viewer read · hidden from מתניה/אליה · everyone once BURNS_PROJECT_ACTIVE is false
+    // pushlog (התראות — עידן only) and burns (round 5 G-L4: gate moved to 00-bridge.js
+    // canShowPage, off the retiring 24-meter-burns.js) both read the ONE bridge gate now.
+    if ((page === 'pushlog' || page === 'burns') && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage(page))) page = 'kibbutz';
+    if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer
     if (window._currentPage && window._currentPage !== page) window._prevPage = window._currentPage;
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
     // One history entry per page switch, so the phone's Back returns to the previous page

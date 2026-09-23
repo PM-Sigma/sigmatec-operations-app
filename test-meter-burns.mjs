@@ -146,28 +146,38 @@ assert.deepEqual(B.emsHitLines([{ serialNumber: 555, address: 'גנרטור רפ
   [{ serial: '555', label: '555 · גנרטור רפת · אור הנר · Landis E360PP' }]);
 assert.deepEqual(B.emsHitLines([{ serialNumber: '7' }]), [{ serial: '7', label: '7 · —' }]);
 
-// --- Task 23: the ONE audience and the ONE removal flag, shared with the React surfaces ---
-// The legacy table and the four React surfaces (card chip, card-modal section, briefing rows,
-// landing strip) must answer "who sees this?" identically — two lists that can drift is how a
-// צופה ends up with a ✅ נצרב button on one screen and not on another.
+// --- Task 23 / round 5 G-L4: the ONE audience and the ONE removal flag, shared with React ---
+// The router gate moved OFF this file's own burnCanSee() into js/src/00-bridge.js's
+// canShowPage('burns') (G-L4) and the kill flag's declaration into js/src/00-consts.js. The
+// legacy table above still opens today — it keeps its own internal burnCanSee/BURN_WRITERS
+// until G-U4 deletes the file — but the contract that matters now (what the ROUTER and the
+// React surfaces agree on) is 00-bridge.js vs app/src/lib/burns.ts, so that is what is pinned
+// here; two lists that can drift is how a צופה ends up with a ✅ נצרב button on one screen and
+// not on another.
+const bridge = fs.readFileSync(new URL('./js/src/00-bridge.js', import.meta.url), 'utf8');
+const consts = fs.readFileSync(new URL('./js/src/00-consts.js', import.meta.url), 'utf8');
 const ts = fs.readFileSync(new URL('./app/src/lib/burns.ts', import.meta.url), 'utf8');
 const listOf = (text, name) => {
   const m = new RegExp(name + "\\s*(?::[^=]*)?=\\s*\\[([^\\]]*)\\]").exec(text);
   assert.ok(m, 'could not find ' + name);
   return m[1].split(',').map(x => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
 };
-const legacyBlock = /\/\/ BURN-AUDIENCE-START([\s\S]*?)\/\/ BURN-AUDIENCE-END/.exec(src);
-assert.ok(legacyBlock, 'BURN-AUDIENCE-START/END markers must exist in js/src/24-meter-burns.js');
-assert.deepEqual(listOf(legacyBlock[1], 'BURN_WRITERS'), listOf(ts, 'BURN_WRITERS'),
-  'the write audience must be identical in the legacy table and app/src/lib/burns.ts');
-assert.deepEqual(listOf(legacyBlock[1], 'BURN_HIDDEN'), listOf(ts, 'BURN_HIDDEN'),
-  'the hidden list must be identical in the legacy table and app/src/lib/burns.ts');
-assert.deepEqual(listOf(src, 'BURN_WRITERS'), ['אביאם', 'ניתאי', 'עידן', 'עמיחי'], 'the spec audience (עידן 18.9)');
-assert.deepEqual(listOf(src, 'BURN_HIDDEN'), ['מתניה', 'אליה']);
-assert.ok(/window\.BURNS_PROJECT_ACTIVE\s*=\s*true/.test(src), 'the removal flag must be declared and ON');
-assert.ok(/BURNS_PROJECT_ACTIVE\s*!==\s*false/.test(src) && /BURNS_PROJECT_ACTIVE\s*!==\s*false/.test(ts),
-  'both halves must read the flag the same way (absent = active)');
-assert.ok(/function burnCanSee\(\)[\s\S]{0,240}if \(!burnsActive\(\)\) return false;/.test(src),
-  'burnCanSee must be false the moment the project flag is off');
+/** The array literal immediately before a `// <marker>` comment — how 00-bridge.js's inline
+ *  `canShowPage('burns')` case spells BURN_WRITERS/BURN_HIDDEN (no named consts there). */
+const arrBeforeComment = (text, marker) => {
+  const m = new RegExp('\\[([^\\]]*)\\][^\\n]*' + marker).exec(text);
+  assert.ok(m, 'could not find the array before // ' + marker + ' in 00-bridge.js');
+  return m[1].split(',').map(x => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+};
+assert.deepEqual(arrBeforeComment(bridge, 'BURN_WRITERS'), listOf(ts, 'BURN_WRITERS'),
+  "the write audience must be identical in 00-bridge.js canShowPage('burns') and app/src/lib/burns.ts");
+assert.deepEqual(arrBeforeComment(bridge, 'BURN_HIDDEN'), listOf(ts, 'BURN_HIDDEN'),
+  "the hidden list must be identical in 00-bridge.js canShowPage('burns') and app/src/lib/burns.ts");
+assert.deepEqual(listOf(ts, 'BURN_WRITERS'), ['אביאם', 'ניתאי', 'עידן', 'עמיחי'], 'the spec audience (עידן 18.9)');
+assert.deepEqual(listOf(ts, 'BURN_HIDDEN'), ['מתניה', 'אליה']);
+assert.ok(/window\.BURNS_PROJECT_ACTIVE\s*=\s*true/.test(consts), 'the removal flag must be declared and ON, in 00-consts.js');
+assert.ok(/BURNS_PROJECT_ACTIVE\s*!==\s*false/.test(ts), 'app/src/lib/burns.ts must read the flag as absent-is-active');
+assert.ok(/case 'burns':[\s\S]{0,300}if \(window\.BURNS_PROJECT_ACTIVE === false\) return false;/.test(bridge),
+  "canShowPage('burns') must be false the moment the project flag is off");
 
 console.log('✅ test-meter-burns: state/search/filter/group/sort/patch/excel/genSummary/emsRefresh + the Task 23 audience/flag verified');
