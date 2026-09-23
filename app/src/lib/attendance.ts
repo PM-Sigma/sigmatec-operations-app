@@ -106,15 +106,15 @@ export interface Kpis {
 
 // ───────────────────────────── copy ─────────────────────────────
 
-/** The same seven labels the legacy day-type buttons carry (js/src/04-attendance-daily.js). */
+/** The seven day-type labels (round 5 · A5: words, no emoji — lucide icons carry the glyph). */
 export const DAY_LABELS: Record<DayType, string> = {
-  field: '🌾 יום שטח',
-  office: '🏢 משרד',
-  wfh: '🏠 מהבית',
-  reserve: '🪖 מילואים',
-  vacation: '🌴 חופש',
-  off: '🚫 לא בעבודה',
-  other: '➕ אחר',
+  field: 'יום שטח',
+  office: 'משרד',
+  wfh: 'מהבית',
+  reserve: 'מילואים',
+  vacation: 'חופש',
+  off: 'לא בעבודה',
+  other: 'אחר',
 };
 
 /** The order the one-tap row offers them in — the common ones first. */
@@ -207,7 +207,33 @@ export function dm(date: string): string {
 }
 
 export function dayChip(date: string): string {
-  return 'יום ' + HE_DAY_LETTERS[dowOf(date)] + ' · ' + dm(date);
+  return 'יום ' + HE_DAY_LETTERS[dowOf(date)] + '׳ · ' + dm(date);
+}
+
+/** The toast after a save — the verb of the action, the day, and a plain holiday mark. */
+export function savedToast(type: DayType, date: string, holiday: Holiday | null): string {
+  return 'נשמר · ' + dayLabel(type) + ' · ' + dm(date) + (holiday && !holiday.required ? ' · יום חג' : '');
+}
+
+export interface MissingBlock {
+  /** Only for a person who files (אביאם / ניתאי). */
+  show: boolean;
+  title: string;
+  count: number;
+  days: Array<{ date: string; label: string; aria: string }>;
+  /** What the block says when nothing is missing. */
+  empty: string;
+}
+
+export function missingBlock(person: string, me: string, missing: string[], onHoliday = 0): MissingBlock {
+  const tail = onHoliday === 1 ? ' · יום עבודה אחד בחג' : onHoliday > 1 ? ' · ' + onHoliday + ' ימי עבודה בחג' : '';
+  return {
+    show: mustFile(person),
+    title: person === me ? 'חסר לך' : 'חסר ל' + person,
+    count: (missing || []).length,
+    days: (missing || []).map(date => ({ date, label: dayChip(date), aria: 'תיעוד ' + dayChip(date) })),
+    empty: 'כל ימי העבודה בחודש מתועדים' + tail + '.',
+  };
 }
 
 // ───────────────────────────── holidays ─────────────────────────────
