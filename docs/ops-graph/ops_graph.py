@@ -53,16 +53,27 @@ def find(term, limit=5):
     return [n for _, n in scored[:limit]]
 
 
+def node_flag(nid):
+    st = G.nodes[nid].get("status")
+    if st == "not_on_disk":
+        return " [NOT ON DISK: planned/retired]"
+    if st == "retiring":
+        grp = G.nodes[nid].get("retiring_group", "")
+        return f" [RETIRING: {grp}]" if grp else " [RETIRING]"
+    return ""
+
+
 def show_edges(n, limit=40):
     rows = []
     for v in G.neighbors(n):
         e = G.edges[n, v]
-        rows.append((e.get("relation", "?"), lab(v), e.get("confidence", ""), src(v)))
-    rows.sort()
-    for r, l, c, s in rows[:limit]:
+        # bug fixed 2026-09-23: this used to check the LAST `v` from this loop, not
+        # the row being printed, so the not_on_disk flag applied to the wrong edge.
+        rows.append((e.get("relation", "?"), lab(v), e.get("confidence", ""), src(v), v))
+    rows.sort(key=lambda r: r[:4])
+    for r, l, c, s, v in rows[:limit]:
         flag = "" if c == "EXTRACTED" else f" [{c}]"
-        if G.nodes[v].get("status") == "not_on_disk":
-            flag += " [NOT ON DISK: planned/retired]"
+        flag += node_flag(v)
         print(f"    --{r}--> {l}{flag}   ({s})")
     if len(rows) > limit:
         print(f"    ... {len(rows) - limit} more")
@@ -73,7 +84,7 @@ def cmd_explain(term):
     if not hits:
         return print(f"nothing matching {term!r}")
     n = hits[0]
-    print(f"NODE: {lab(n)}")
+    print(f"NODE: {lab(n)}{node_flag(n)}")
     print(f"  source: {src(n) or 'n/a'}")
     print(f"  degree: {G.degree(n)}   community: {G.nodes[n].get('community', '?')}")
     print("  connections:")
@@ -118,11 +129,17 @@ def cmd_query(question):
 
 
 def cmd_table(name):
-    nid = f"table:{name.lower().lstrip('table:')}"
+    name = name.lower()
+    # bug fixed 2026-09-23: .lstrip("table:") strips any of those CHARACTERS from
+    # the left, not the literal prefix - "tasks" became "table:sks". Strip the
+    # literal prefix instead.
+    if name.startswith("table:"):
+        name = name[len("table:"):]
+    nid = f"table:{name}"
     if nid not in G:
         return print(f"no table node {nid!r}. known: " +
                      ", ".join(sorted(lab(n) for n in G if str(n).startswith("table:"))))
-    print(f"TABLE {lab(nid)}")
+    print(f"TABLE {lab(nid)}{node_flag(nid)}")
     show_edges(nid, 60)
 
 
@@ -131,7 +148,7 @@ def cmd_file(name):
     if not hits:
         return print(f"no file node for {name!r}")
     n = hits[0]
-    print(f"FILE {lab(n)}  ({src(n)})  degree {G.degree(n)}")
+    print(f"FILE {lab(n)}{node_flag(n)}  ({src(n)})  degree {G.degree(n)}")
     show_edges(n, 80)
 
 

@@ -36,6 +36,8 @@ Paths above are relative to this folder; from the repo root prefix them with `do
 | *(local)* `BROKEN.md` | **what's broken — human-verified** (repo + live DB). Kept out of this PUBLIC repo in `<project>/תוצרים/…ממצאי OPS GRAPH/`. |
 | `graphify-out/GRAPH_GAPS.md` | raw auto-generated gap scan (input to BROKEN.md; contains false positives) |
 | `graphify-out/.graphify_chunk_*.json` | raw per-agent extraction (provenance) |
+| `graphify-out/RETIREMENT_MAP.md` | round 5 Phase 1 cleanup audit — every retiring node + what still depends on it |
+| `retiring_nodes.json` | round 5 Phase 1 removal targets; drives the `[RETIRING: …]` tags above |
 | `ops_graph.py` | the query tool |
 | `fix_graph.py` | repair pass applied after the audit |
 | `label_and_render.py` | clustering, labelling, report + HTML rendering |
@@ -71,6 +73,15 @@ which table it writes, which spec explains it) comes from Sonnet chunks. After a
    older chunks' nodes/edges for that file are dropped, so knowledge is replaced, not piled up.
 
 Last semantic sync: **2.25 (`19fcb84`)** — chunks 25–27 re-extracted the 39 files changed since 2.23.
+
+## Round 5 Phase 1 cleanup — retiring nodes
+
+`retiring_nodes.json` (committed) lists the round 5 Phase 1 removal targets (Sheet/Apps Script
+path, `maintenance.html`, Ctrl+K, legacy visit form/kibbutz modal, legacy inventory pages,
+`tasks`/`settings`/`ems_cache`/`ems_queue`). `fix_graph.py` tags matching nodes `status: retiring`
+on every rebuild, and `ops_graph.py` prints `[RETIRING: <target>]` next to them and their edges.
+The full node lists + inbound-dependency audit (what must migrate before each one is deleted) are
+in `graphify-out/RETIREMENT_MAP.md`.
 
 ## Honesty
 

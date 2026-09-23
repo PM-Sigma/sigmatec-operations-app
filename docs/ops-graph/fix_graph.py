@@ -180,6 +180,39 @@ for nid, n in nodes.items():
         planned += 1
 log.append(f"nodes naming files not on disk, tagged planned: {planned}")
 
+# (E2) Round-5 Phase-1 cleanup targets (retiring_nodes.json, committed) - tag matching
+# nodes status=retiring so ops_graph.py flags them and nobody builds new code against
+# something about to be deleted. Unlike (E) this doesn't depend on the file being gone
+# yet - it's a planned removal, sourced from docs/superpowers/specs/2026-09-23-round-5-design.md
+# Phase 1. See graphify-out/RETIREMENT_MAP.md for the full audit this was built from.
+retiring_conf_path = Path("retiring_nodes.json")
+retiring = 0
+if retiring_conf_path.exists():
+    retiring_conf = json.loads(retiring_conf_path.read_text(encoding="utf-8"))
+    for key, g in retiring_conf.items():
+        if key == "_meta":
+            continue
+        explicit_ids = set(g.get("ids", []))
+        prefixes = g.get("file_prefix", [])
+        target_ids = set(explicit_ids)
+        if prefixes:
+            for nid, n in nodes.items():
+                # ext:/table: nodes are shared, persistent resources - never auto-sweep
+                # them in by file prefix, only an explicit id retires one.
+                if (nid.startswith("ext:") or nid.startswith("table:")) and nid not in explicit_ids:
+                    continue
+                sf = (n.get("source_file") or "").replace("\\", "/")
+                if any(sf == p or sf.startswith(p) for p in prefixes):
+                    target_ids.add(nid)
+        for nid in target_ids:
+            n = nodes.get(nid)
+            if n is None or n.get("status") == "not_on_disk":
+                continue
+            n["status"] = "retiring"
+            n["retiring_group"] = g.get("label", key)
+            retiring += 1
+log.append(f"nodes tagged retiring (round 5 Phase 1, retiring_nodes.json): {retiring}")
+
 # (H) One id per external service. Agents spelled EMS four ways.
 EXT_ALIAS = {
     "ext:ems": "ext:sigmatec_ems", "ext:ems_api": "ext:sigmatec_ems",
