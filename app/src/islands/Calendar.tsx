@@ -38,7 +38,7 @@ import {
   abilities, ABSENCE_LABELS, addDays, byDate, calendarItems, canPlanDay, dayLetters, dayWhen,
   dueByKibbutz, EMPTY_DAY, gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, monthView,
   reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey,
-  missingInView, visibleDows, visitsOn, weekDays, weekView, workWeekLabel, ymd,
+  missingInView, reportedInView, visibleDows, visitsOn, weekDays, weekView, workWeekLabel, ymd,
   type AbsenceKind, type AbsenceRow, type CalCell, type CalEmsTask, type CalItem,
   type CalWeek, type CalInternalTask, type OfficeEvent, type RouteRow, type VisitRow,
 } from '@/lib/calendar';
@@ -191,12 +191,14 @@ function WeekNumbers({ week }: { week: number }) {
  * Adding to a day now happens INSIDE the day, where the day is already open.
  */
 function DayCellBox({
-  cell, items, selected, onOpen, onlyMine, missing,
+  cell, items, selected, onOpen, onlyMine, missing, reported,
 }: {
   cell: CalCell; items: CalItem[]; selected: boolean;
   onOpen: (d: string) => void; onlyMine: boolean;
   /** A past work day with no attendance row — red ring + dot (round 2, F-4 · G). */
   missing?: boolean;
+  /** A day with a filed attendance report — green ring + dot (round 5 · B). */
+  reported?: boolean;
 }) {
   const shown = items.slice(0, 3);
   const extra = items.length - shown.length;
@@ -207,6 +209,7 @@ function DayCellBox({
       data-date={cell.date}
       data-state={state}
       data-missing={missing ? '1' : undefined}
+      data-reported={reported ? '1' : undefined}
     >
       <div className="ucal-cell-head">
         <button
@@ -214,12 +217,15 @@ function DayCellBox({
           className="ucal-daynum"
           data-day={cell.date}
           onClick={() => onOpen(cell.date)}
-          aria-label={heDate(cell.date) + (missing ? ' · לא דווחה נוכחות' : '')}
+          aria-label={heDate(cell.date) + (missing ? ' · לא דווחה נוכחות' : '') + (reported ? ' · דווחה נוכחות' : '')}
         >
           {cell.day}
           {cell.holiday ? <span className="ucal-holidot" data-testid="cal-holiday" title={cell.holiday.name} /> : null}
           {missing ? (
             <span className="ucal-missdot" data-testid="cal-missing" title="לא דווחה נוכחות" aria-hidden />
+          ) : null}
+          {!missing && reported ? (
+            <span className="ucal-repdot" data-testid="cal-reported" title="דווחה נוכחות" aria-hidden />
           ) : null}
         </button>
       </div>
@@ -232,13 +238,15 @@ function DayCellBox({
 }
 
 function Grid({
-  weeks, index, selected, onOpen, onlyMine, mode, workWeek, missing,
+  weeks, index, selected, onOpen, onlyMine, mode, workWeek, missing, reported,
 }: {
   weeks: CalWeek[]; index: Record<string, CalItem[]>; selected: string;
   onOpen: (d: string) => void;
   onlyMine: boolean; mode: 'week' | 'month'; workWeek: boolean;
   /** The person's unreported past days — painted red (round 2, F-4 · G). */
   missing: Set<string>;
+  /** The person's already-filed days — painted green (round 5 · B). */
+  reported: Set<string>;
 }) {
   const cols = visibleDows(mode, workWeek).length;
   return (
@@ -263,6 +271,7 @@ function Grid({
               onOpen={onOpen}
               onlyMine={onlyMine}
               missing={missing.has(c.date)}
+              reported={reported.has(c.date)}
             />
           ))}
         </React.Fragment>
@@ -1192,6 +1201,19 @@ function CalendarIsland() {
     [me, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
   );
 
+  // ── the days he already reported, in green (round 5 · B) ───────────────
+  // Same scope as `missing`: the signed-in person only, read off the same נוכחות snapshot so
+  // filing a day repaints both colours at once and they can never disagree.
+  const reported = React.useMemo(
+    () => reportedInView(
+      me,
+      weeks,
+      (_p, ry, rm) => attByMonth.get(ry + '-' + String(rm).padStart(2, '0')) ?? null,
+      holidays.data || [],
+    ),
+    [me, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
+  );
+
   // ── the day's route ────────────────────────────────────────────────────
   const openDate = sheetDay || selected;
   const dayItems = openDate ? (index[openDate] || []) : [];
@@ -1412,13 +1434,15 @@ function CalendarIsland() {
               mode={view === 'week' ? 'week' : 'month'}
               workWeek={workWeek}
               missing={missing}
+              reported={reported}
             />
           )}
           {/* The legend appears only when there is something to explain — a permanent line
               saying "red = missing" on a clean month is noise. */}
-          {!loading && missing.size ? (
+          {!loading && (missing.size || reported.size) ? (
             <p className="ucal-legend" data-testid="cal-missing-legend">
-              <span className="ucal-missdot" aria-hidden /> ימים באדום — לא דווחה נוכחות
+              {reported.size ? <span><span className="ucal-repdot" aria-hidden /> ימים בירוק · דווחה נוכחות</span> : null}
+              {missing.size ? <span><span className="ucal-missdot" aria-hidden /> ימים באדום — לא דווחה נוכחות</span> : null}
             </p>
           ) : null}
         </div>

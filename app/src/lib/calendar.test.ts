@@ -11,7 +11,7 @@ import {
   weekView, ymd,
   type AbsenceRow, type CalEmsTask, type OfficeEvent, type VisitRow,
   canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
-  workWeekLabel, missingInView,
+  workWeekLabel, missingInView, reportedInView,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -509,5 +509,43 @@ describe('missing attendance days on the grid (F-4 · G)', () => {
     const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
     expect(missingInView('', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
     expect(missingInView('אביאם', weeks, () => null, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
+  });
+});
+
+// ───────────── the green cells: days he already reported (round 5 · B) ─────────────
+
+describe('reported attendance days on the grid (round 5 · B)', () => {
+  const ROWS = [
+    { date: '2026-09-01', type: 'field' },
+    { date: '2026-09-02', type: 'office' },
+  ] as any[];
+  const TODAY = new Date(2026, 8, 22);
+  const rowsFor = (_p: string, y: number, m: number) => (y === 2026 && m === 9 ? ROWS : []);
+
+  it('marks exactly the reported days, and nothing else', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    const reported = reportedInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY);
+    expect(Array.from(reported).sort()).toEqual(['2026-09-01', '2026-09-02']);
+  });
+
+  it('never disagrees with the red set — a reported day is never also missing', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    const reported = reportedInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY);
+    const missing = missingInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY);
+    for (const d of reported) expect(missing.has(d)).toBe(false);
+  });
+
+  it('a dimmed lead day from the previous month is never green', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    const reported = reportedInView('אביאם', weeks, (_p, _y, _m) => [
+      { date: '2026-08-30', type: 'office' },
+    ] as any[], HOLIDAYS as unknown as Holiday[], TODAY);
+    expect(reported.has('2026-08-30')).toBe(false);
+  });
+
+  it('no person, or a month whose snapshot has not landed, paints nothing', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
+    expect(reportedInView('', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
+    expect(reportedInView('אביאם', weeks, () => null, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
   });
 });

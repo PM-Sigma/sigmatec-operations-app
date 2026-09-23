@@ -393,15 +393,33 @@
   border-radius: 999px;
   background: var(--priority);
 }
+/* A day with a filed attendance report (round 5 · B): a green ring + a green dot, the same
+   "not colour alone" treatment as the red missing marker, reusing the נוכחות screen's own
+   field-day green (--att-field-ink) so the two screens read as one palette. Never painted
+   together with the red ring — `missingDaysFor` already excludes anything reported. */
+.ucal-cell[data-reported='1'] {
+  box-shadow: inset 0 0 0 2px var(--att-field-ink);
+  background: color-mix(in srgb, var(--att-field-ink) 10%, hsl(var(--muted)));
+}
+.ucal-cell[data-reported='1'].ucal-sel { box-shadow: inset 0 0 0 2px var(--att-field-ink), 0 0 0 2px var(--brand-2); }
+.ucal-repdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--att-field-ink);
+}
 .ucal-legend {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   margin-top: 6px;
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--priority);
 }
+.ucal-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.ucal-legend > span:has(.ucal-missdot) { color: var(--priority); }
+.ucal-legend > span:has(.ucal-repdot) { color: var(--att-field-ink); }
 
 .ucal-add {
   display: grid;

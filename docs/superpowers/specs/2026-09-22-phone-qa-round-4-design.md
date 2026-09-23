@@ -89,6 +89,26 @@ Ground rules: as `2026-09-22-phone-qa-round-2-design.md` (source-only commits, o
 (`app/src/lib/visitDraft.ts`, golden ב-`visitDraft.test.ts`): מה שכבר נכתב בטיוטה מנצח, אחריו התאריך שנבחר בהגעה, ורק אז השעון.
 בדיקה: `field.spec.ts` — השדה מעל הרשימה, בחירת אתמול → `vc-date` נפתח על אתמול.
 
+## סבב 5 · B — חגים וצבעי יומן
+
+**שורש הבעיה 1 — חגים/ערבי חג/חוה"מ נעלמו:** `db/rls_2_00_lockdown.sql` (22.9 19:31) נעל את `company_holidays`
+ל-`select ... to authenticated` (במקום `using(true)` הציבורי). קריאה שיוצאת לפני שה-pass של הגשר EMS→Supabase
+מוטבע (`window._sbToken`) חוזרת `200` עם מערך **ריק** — לא `401` — כי RLS פשוט משמיט שורות לתפקיד שלא רשום במדיניות;
+זה לא עובר דרך משפך "הפג תוקף" הרגיל. `attLoadHolidays()` (`js/src/04-attendance-daily.js`) שינן את ההבטחה הזאת
+לצמיתות ב-`window.attHolidaysLoaded` — פעם אחת ריק, ריק לכל הסשן, גם אחרי שה-pass כן מוטבע. תוקן: הקריאה מחכה
+ל-`sbEnsurePass()` לפני השליפה, ותוצאה ריקה בזמן ש-`window._sbPassPending` עדיין `true` לא ננעלת — הניסיון הבא
+(לרוב כשנוכחות/יומן נפתחים שוב) שולף מחדש.
+
+**שורש הבעיה 2 — אין ירוק ביומן:** `missingInView` (round 2, F-4·G) הוסיפה אדום ליום עבודה שלא דווח, אבל לא היה
+מקביל חיובי. נוסף `reportedDaysFor` (`app/src/lib/attendance.ts`) — מראה `monthGrid` לימים עם שורה (שטח/משרד/אחר) —
+ו-`reportedInView` (`app/src/lib/calendar.ts`), אותה צורה בדיוק כמו `missingInView` (שואל כל חודש שהרשת נוגעת בו,
+חותך למה שעל המסך). `Calendar.tsx` מצייר `data-reported="1"` + נקודה ירוקה (`--att-field-ink`, אותו ירוק כמו נוכחות)
+לצד `data-missing`, לחודש ולשבוע כאחד, לאדם המחובר בלבד (ליומן אין מתג אדם) — בדיוק כמו האדום. יום לא יכול להיות גם
+אדום וגם ירוק בו-זמנית (`missingDaysFor` כבר מוציא כל מה שדווח).
+
+בדיקות: `attendance.test.ts` (`reportedDaysFor`), `calendar.test.ts` (`reportedInView`, כולל בדיקה מפורשת שהסט הירוק
+והאדום אף פעם לא חופפים).
+
 ## Not in this round
 - אזור אישי (לא ממודל) — X מתעד בלבד.
 - graphify של הריפו — שאלה של עידן; מוצע להריץ אחרי הסבב על `docs/` + `app/src/lib` + `js/src`.
