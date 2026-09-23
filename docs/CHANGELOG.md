@@ -23,6 +23,21 @@ extracted. The final broken list was verified by hand against the repo and, for 
 
 Findings (not fixed here — they need decisions): RLS / access-control issues (details kept out of the public repo), 24 modules with no test, schema drift (live tables with no `db/` migration), and stale docs (legacy-lockdown note, `17-staff.js`, `test-mytasks-filter.mjs`). Refresh after merges: `python docs/ops-graph/rebuild.py` (~35s).
 
+## [2.25] 2026-09-23 — OPS GRAPH audit: visit-summary chain, holidays, calendar green/red, QA coverage
+
+- **Visit summary does the whole chain on both save paths** (`2026-09-23-visit-summary-chain-design.md`): the chapters sheet
+  never commented on the FIRST picked EMS task; re-saving double-deducted stock, duplicated the visit and the returns; new
+  contacts were not saved; open items never reached the next briefing (loader dropped `open_items`). All fixed through one
+  pipeline (`saveVisitFromData`), idempotent on edit. Attendance is derived from visits by design (`withVisitDays`).
+  `test-visit-summary-chain.mjs` (25 checks).
+- **Holidays / eves / חול המועד vanished** in attendance and the calendar: read before the session pass and the empty result was
+  memoized for the session. Now waits for the pass and never caches an empty pre-pass read.
+- **Calendar green** for days with a filed report, next to the red missing days (self only).
+- **QA coverage audit** of all 143 notes from 22.9: `docs/reports/2026-09-23-qa-coverage-audit.md` (123 ✅, 4 🟡, 0 ❌, 10 ↪).
+  Inventory tab order fixed. New tests for page gating, caps, my-tasks badge, kibbutz sheet, header actions. Stale docs fixed.
+  Schema records for two tables that existed only live.
+- **Access hardening prepared, not applied:** `db/rls_viewer_readonly.sql` (waits for עידן).
+
 ## [2.22] 2026-09-22 night — round 4: המשימות שלי, kibbutz edit without the EMS chain, card regressions, visit date
 
 - **המשימות שלי (X):** the floating 🔒 strip is gone from every page. A full sheet (✅ `ListTodo`, not a lock) lists the
