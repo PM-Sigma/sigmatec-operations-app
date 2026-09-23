@@ -129,6 +129,7 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
   - An EMS task's "latest change" is EMS's `updatedAt`.
   - The dev meeting keeps 4 priority levels.
   - "ללא אפיון" means only "no parent issue" (the sprint-prep list is renamed).
+- **Decisions log:** every decision taken without עידן goes into `docs/reports/2026-09-23-r5-decisions-log.md` (when · package · decision · why · how to change it). It is shown to עידן at the end, next to the progress table.
 - **At the end of the round:** everything ships to the frozen app, and then work stops for עידן's phone QA before the unfreeze.
 
 ## Design ownership (עידן 23.9)
