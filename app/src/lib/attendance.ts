@@ -39,6 +39,13 @@ export interface VisitLike {
   workday?: boolean;
 }
 
+/**
+ * Where a row came from. 'manual' = someone typed it · 'calendar' = generated from a
+ * calendar_absences range · 'visit_auto' = written by package V when a visit was saved ·
+ * 'visit' = the pre-V derived row the legacy merge builds (retired by A-L5).
+ */
+export type AttSource = 'manual' | 'calendar' | 'visit_auto' | 'visit';
+
 export interface AttRow {
   /** 'YYYY-MM-DD' */
   date: string;
@@ -46,8 +53,8 @@ export interface AttRow {
   kibbutz?: string;
   hours?: number;
   note?: string;
-  /** Where the row came from — a visit summary or a manual entry. */
-  source?: 'visit' | 'manual' | 'calendar';
+  /** Where the row came from. Missing = treated as 'manual' (SOURCE_RANK). */
+  source?: AttSource;
 }
 
 /**
@@ -367,7 +374,42 @@ export function missingByPerson(
     .map(x => x.r);
 }
 
+// ───────────────── who files, and which row wins a day (round 5 · A4) ─────────────────
+
+/** The two people who file attendance (spec §7f). The ONE list — calendar.ts reuses it. */
+export const ATT_FILERS: readonly string[] = ['אביאם', 'ניתאי'];
+
+export function mustFile(person: string): boolean {
+  return !!person && ATT_FILERS.indexOf(person) !== -1;
+}
+
+const SOURCE_RANK: Record<AttSource, number> = { manual: 0, calendar: 1, visit_auto: 2, visit: 3 };
+
+function rankOf(r: AttRow): number {
+  const s = (r.source || 'manual') as AttSource;
+  return SOURCE_RANK[s] ?? 0;
+}
+
+/**
+ * One row per day, the strongest source winning (round 5 rule 5: manual rows win). V writes
+ * one row per day already (contract V2); this is the reader's guard against a stale snapshot
+ * that still has two.
+ */
+export function mergeByDay(rows: AttRow[] | null | undefined): AttRow[] {
+  const byDate = new Map<string, AttRow>();
+  for (const r of rows || []) {
+    const date = toYmd(r?.date);
+    if (!date) continue;
+    const cur = byDate.get(date);
+    if (!cur || rankOf(r) < rankOf(cur)) byDate.set(date, { ...r, date });
+  }
+  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
 // ───────────────── a saved visit IS a יום שטח (round 2, F-2) ─────────────────
+//
+// Round 5: a real row wins; package V writes visit days as `visit_auto` rows, and A-L5
+// retires this derivation.
 //
 // THE RULE: a visit summary someone saved is that person's attendance for that date. Nobody
 // files a יום שטח by hand after writing a summary, and nobody should have to — and when the
@@ -427,18 +469,13 @@ export function withVisitDays(
   visits: VisitLike[] | null | undefined,
   person?: string,
 ): AttRow[] {
-  const byDate = new Map<string, AttRow>();
-  for (const r of rows || []) {
-    const date = toYmd(r?.date);
-    if (!date) continue;
-    // A row the legacy merge already derived from a visit is dropped here and rebuilt below
-    // from the visits themselves — that is what makes an edited visit date move the day
-    // instead of leaving a ghost behind.
-    if (r.source === 'visit') continue;
-    byDate.set(date, { ...r, date });
-  }
+  // The legacy merge's derived rows are dropped and rebuilt from the visits (an edited visit
+  // date must move the day). Every REAL row (manual / calendar / visit_auto) is kept and wins:
+  // round 5 rule 5 — a visit never silently overwrites a day someone filed.
+  const real = mergeByDay((rows || []).filter(r => r && r.source !== 'visit'));
+  const byDate = new Map(real.map(r => [r.date, r] as [string, AttRow]));
   for (const [date, dayVisits] of visitsByDate(visits, person)) {
-    byDate.set(date, visitDayRow(date, dayVisits));
+    if (!byDate.has(date)) byDate.set(date, visitDayRow(date, dayVisits));
   }
   return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }

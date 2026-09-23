@@ -6,9 +6,9 @@
 // grid's cells, which days are "missing", and the three KPIs.
 import { describe, expect, it } from 'vitest';
 import {
-  canEditAttendance, canSwitchPerson, cellsOf, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText,
-  holidayNote, isRequiredDay, kpis, missingByPerson, missingDays, missingDaysFor, monthGrid,
-  reportedDaysFor, withVisitDays, type AttRow, type Holiday,
+  ATT_FILERS, canEditAttendance, canSwitchPerson, cellsOf, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText,
+  holidayNote, isRequiredDay, kpis, mergeByDay, missingByPerson, missingDays, missingDaysFor, monthGrid,
+  mustFile, reportedDaysFor, withVisitDays, type AttRow, type Holiday,
 } from './attendance';
 
 // ───────────────────────────── the September 2026 fixture ─────────────────────────────
@@ -30,6 +30,10 @@ const HOLIDAYS: Holiday[] = [
 
 const row = (date: string, type: AttRow['type'], extra: Partial<AttRow> = {}): AttRow =>
   ({ date, type, ...extra });
+
+/** A visit summary fixture, shared by the withVisitDays describes. */
+const visitFixture = (date: string, extra: Record<string, unknown> = {}) =>
+  ({ id: 'v' + date, visitor: 'אביאם', date, kibbutz: 'דפנה', workday: true, ...extra });
 
 /** A month that is fully behind us, so "missing" covers all of it. */
 const AFTER = new Date(2026, 9, 15);   // 15.10.2026
@@ -247,6 +251,36 @@ describe('missingByPerson (עידן 20.9 #2 — the overview strip)', () => {
   });
 });
 
+// ───────────── round 5 · A4: who files, and which row wins a day ─────────────
+
+describe('round 5 · A4 — who files, and which row wins a day', () => {
+  it('only אביאם and ניתאי file attendance', () => {
+    expect(ATT_FILERS).toEqual(['אביאם', 'ניתאי']);
+    expect(mustFile('אביאם')).toBe(true);
+    expect(mustFile('ניתאי')).toBe(true);
+    expect(mustFile('עידן')).toBe(false);
+    expect(mustFile('')).toBe(false);
+  });
+  it('one row per day: manual beats calendar beats visit_auto; unknown source counts as manual', () => {
+    const out = mergeByDay([
+      { date: '2026-09-03', type: 'field', source: 'visit_auto' },
+      { date: '2026-09-03T12:00:00.000Z', type: 'office', source: 'manual' },
+      { date: '2026-09-07', type: 'vacation', source: 'calendar' },
+      { date: '2026-09-07', type: 'field', source: 'visit_auto' },
+      { date: '2026-09-08', type: 'wfh' },
+      { date: '2026-09-08', type: 'field', source: 'visit_auto' },
+      { date: '', type: 'office' },
+    ]);
+    expect(out.map(r => [r.date, r.type])).toEqual([
+      ['2026-09-03', 'office'], ['2026-09-07', 'vacation'], ['2026-09-08', 'wfh'],
+    ]);
+  });
+  it('a visit_auto row is a real row: a derived visit day never overrides it or duplicates it', () => {
+    const out = withVisitDays([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }], [visitFixture('2026-09-03')], 'אביאם');
+    expect(out).toEqual([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }]);
+  });
+});
+
 // ───────────── round 2 · F-2: a saved summary IS a יום שטח, and it MOVES ─────────────
 
 describe('withVisitDays', () => {
@@ -296,9 +330,10 @@ describe('withVisitDays', () => {
     expect(twice).toEqual(once);
   });
 
-  it('the summary wins over a manual row on the same date', () => {
+  it('a manual row on the same date wins over the summary', () => {
+    // round 5 rule 5: manual rows win over visits (the visit writer asks before changing a manual day)
     const out = withVisitDays([row('2026-09-03', 'office')], [visit('2026-09-03')], 'אביאם');
-    expect(out.find(r => r.date === '2026-09-03')!.type).toBe('field');
+    expect(out).toEqual([{ ...row('2026-09-03', 'office'), date: '2026-09-03' }]);
   });
 
   it('a visit of another person is not your day', () => {
