@@ -1,0 +1,8 @@
+project_id = "wwqfcajnxinaxmobrgol"
+
+# backup-export is called by the local Windows backup task (PowerShell), not the browser — it has
+# no Supabase Auth session, so it can't carry a JWT. Its own x-backup-key header IS the auth (see
+# supabase/functions/backup-export/index.ts). Every other function keeps its existing (dashboard)
+# verify_jwt setting; this file doesn't touch them.
+[functions.backup-export]
+verify_jwt = false
