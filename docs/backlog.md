@@ -1,3 +1,5 @@
+🟡 IN PROGRESS (2026-09-23) — סבב 5: freeze + cleanup + design system + full rewrite of legacy pages + עידן's phone QA list. Spec `docs/superpowers/specs/2026-09-23-round-5-design.md`.
+
 🟡 WAITING (2026-09-23) — עידן: apply `db/rls_viewer_readonly.sql`; choose restore source for `tasks.status` (Supabase backup before 17.9 14:00, or the 22.6 Sheet); `kibbutz_meeting_notes` has 0 rows.
 
 🔴 OPENED BY THE OPS GRAPH (2026-09-23) — verified against the repo + live DB, needs עידן's decision.
