@@ -88,7 +88,7 @@ for (const mode of ['mock', 'supabase'] as const) {
     }
     // The header itself rendered a real date, not the "טוען…" placeholder.
     const header = (await page.locator('#lastUpdated').innerText()).trim();
-    expect(header, 'the header never rendered a date').toMatch(/📅 עודכן: \d{1,2}\.\d{1,2}\.\d{4}/);
+    expect(header, 'the header never rendered a date').toMatch(/עודכן: \d{1,2}\.\d{1,2}\.\d{4}/);
 
     await shot(page, testInfo, mode);
   });
@@ -125,7 +125,7 @@ test('cold boot pre-login shows no date and no counters — supabase', async ({ 
   // was never really authorized.
   const header = (await page.locator('#lastUpdated').innerText()).trim();
   expect(header, 'the header must not show a data date before an EMS pass exists').not.toMatch(/עודכן/);
-  expect(header, 'the pre-login header must be the neutral placeholder').toBe('📅 —');
+  expect(header, 'the pre-login header must be the neutral placeholder').toBe('—');
 
   // No stale counters either — the potentials side-list must render empty, not "0" derived
   // from an anon read that silently came back RLS-filtered.

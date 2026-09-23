@@ -5,15 +5,18 @@
   // like a frozen live snapshot (task-33b: "📅 עודכן: 11.6.2026" for two days). There is no
   // fallback date any more — no pass, no date, period.
   function renderLastUpdated(isoStr) {
+    const connected = (typeof isEmsConnected === 'function' && isEmsConnected()) || !window._useSupabase;
+    const iso = connected && isoStr ? isoStr : null;
+    if (connected && !isoStr && window.__sigmaLastUpdated) return;   // keep the last real pass
+    window.__sigmaLastUpdated = iso;
+    try { window.dispatchEvent(new CustomEvent('sigma-last-updated', { detail: iso })); } catch (e) {}
     const el = document.getElementById('lastUpdated');
     if (!el) return;
-    const connected = (typeof isEmsConnected === 'function' && isEmsConnected()) || !window._useSupabase;
-    if (!connected) { el.textContent = '📅 —'; return; }
+    if (!connected) { el.textContent = '—'; return; }
     if (!isoStr) return;   // connected but no snapshot yet — keep the "טוען…" placeholder
-    const d = new Date(isoStr);
-    const date = d.toLocaleDateString('he-IL');
-    const time = d.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
-    el.textContent = '📅 עודכן: ' + date + ' · ' + time;
+    const date = new Date(isoStr).toLocaleDateString('he-IL');
+    const time = new Date(isoStr).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+    el.textContent = 'עודכן: ' + date + ' · ' + time;
   }
   renderLastUpdated();
 
@@ -952,16 +955,9 @@
     }
   }
 
-  function setSourceIndicator(state) {
-    const el = document.getElementById('lastUpdated');
-    if (!el) return;
-    const existing = el.querySelector('.data-source-pill');
-    if (existing) existing.remove();
-    const pill = document.createElement('span');
-    pill.className = 'data-source-pill' + (state === 'offline' ? ' offline' : '');
-    pill.textContent = state === 'offline' ? '⚠️ מקור: גיבוי' : '🔄 חי מהגיליון';
-    el.appendChild(pill);
-  }
+  // The Google Sheet data path retired in Phase 1; there is no "live from the sheet" state
+  // left to show. Kept as a no-op so its callers keep working (round 5, L7).
+  function setSourceIndicator(state) {}
 
   // Parse the task field which can contain step=N | note=... | cat=X | type=X
   function parseTaskField(taskStr) {
