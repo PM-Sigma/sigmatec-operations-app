@@ -1,1 +1,1 @@
-import{g as i}from"./sigma-supabase.js?v=mudwu3jg";async function s(){const a=await i(),{data:r,error:t}=await a.from("kibbutzim").select("*").is("archived_at",null);if(t)throw t;return r||[]}export{s as f};
+import{g as i}from"./sigma-supabase.js?v=mudxkqkj";async function s(){const a=await i(),{data:r,error:t}=await a.from("kibbutzim").select("*").is("archived_at",null);if(t)throw t;return r||[]}export{s as f};
