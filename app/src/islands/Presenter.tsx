@@ -26,7 +26,7 @@ import { registerMoreItem } from '@/lib/registry';
 import { INTERNAL_TASKS_WRITABLE } from '@/lib/caps';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
-import { useInternalTasks } from '@/components/home/InternalTasks';
+import { createInternalTask, useInternalTasks } from '@/components/home/InternalTasks';
 import { openFor as internalOpenFor } from '@/lib/internalTasks';
 import { sinceLastMeeting, type SinceLastTask } from '@/lib/meetingRun';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
@@ -290,6 +290,12 @@ function LiveSheet({
         if (res && res.error) throw new Error(String(res.error));
         toast.success(res && res.id ? 'נפתחה משימה' : 'המשימה תיפתח כשתהיה רשת');
         track('presenter-live', 'ems');
+      } else if (chip === 'internal') {
+        // D2: 🔒 opens an internal_tasks row, not a kibbutz_meeting_notes bullet — the previous
+        // wiring fell through to the `else` below and silently mis-filed it as a note.
+        await createInternalTask(body, kibbutz, owner || null, sigma.getCurrentUser?.() || '');
+        toast.success('נפתחה משימה פנימית');
+        track('presenter-live', 'internal');
       } else {
         const sb = await getSupabase();
         await sbWrite(() => sb.from('kibbutz_meeting_notes').insert({
