@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 29 legacy modules, 139 island sources and 10 edge functions.
+Generated from 29 legacy modules, 140 island sources and 10 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
