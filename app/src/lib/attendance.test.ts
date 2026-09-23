@@ -6,10 +6,11 @@
 // grid's cells, which days are "missing", and the three KPIs.
 import { describe, expect, it } from 'vitest';
 import {
-  attCellLook, attLegend, ATT_FILERS, attTiles, canEditAttendance, canSwitchPerson, cellsOf,
-  DAY_LABELS, dayChip, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText, holidayNote, isRequiredDay,
-  kpis, mergeByDay, missingBlock, missingByPerson, missingDays, missingDaysFor, monthGrid, mustFile,
-  reportedDaysFor, savedToast, toggleTile, withVisitDays, type AttRow, type Holiday, type TileKey,
+  attCellLook, attLegend, ATT_FILERS, attTiles, canEditAttendance, canOverride, canSwitchPerson,
+  cellsOf, DAY_LABELS, dayChip, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText, holidayNote,
+  isRequiredDay, kpis, mergeByDay, missingBlock, missingByPerson, missingDays, missingDaysFor,
+  monthGrid, mustFile, originLine, reportedDaysFor, rowOrigin, savedToast, toggleTile, withVisitDays,
+  type AttRow, type Holiday, type TileKey,
 } from './attendance';
 
 // ───────────────────────────── the September 2026 fixture ─────────────────────────────
@@ -543,5 +544,31 @@ describe('who may look and who may write', () => {
     expect(canEditAttendance('עמיחי', 'ניתאי')).toBe(true);
     expect(canEditAttendance('עידן', 'ניתאי', { isIdan: true })).toBe(true);
     expect(canEditAttendance('צפייה', 'צפייה', { isViewer: true })).toBe(false);
+  });
+});
+
+// ───────────── round 5 · A4: where a day came from ─────────────
+
+describe('round 5 · A4 — where a day came from', () => {
+  it('origin by source', () => {
+    expect(rowOrigin(null)).toBe('none');
+    expect(rowOrigin({ date: '2026-09-01', type: 'office' })).toBe('manual');
+    expect(rowOrigin({ date: '2026-09-01', type: 'vacation', source: 'calendar' })).toBe('calendar');
+    expect(rowOrigin({ date: '2026-09-01', type: 'field', source: 'visit_auto' })).toBe('auto');
+    expect(rowOrigin({ date: '2026-09-01', type: 'field', source: 'visit' })).toBe('auto');
+  });
+  it('the line under an automatic day', () => {
+    expect(originLine({ date: '2026-09-01', type: 'field', source: 'visit_auto', kibbutz: 'יגור', hours: 4 }))
+      .toBe('נרשם אוטומטית מסיכום הביקור · יגור · 4 ש׳');
+    expect(originLine({ date: '2026-09-01', type: 'field', source: 'visit_auto' })).toBe('נרשם אוטומטית מסיכום הביקור');
+    expect(originLine({ date: '2026-09-03', type: 'vacation', source: 'calendar' })).toBe('נרשם מהיומן');
+    expect(originLine({ date: '2026-09-02', type: 'office' })).toBe('');
+  });
+  it('a V-written or calendar day can be changed; the pre-V derived day cannot (the legacy merge would hide the change)', () => {
+    expect(canOverride({ date: 'x', type: 'field', source: 'visit_auto' })).toBe(true);
+    expect(canOverride({ date: 'x', type: 'vacation', source: 'calendar' })).toBe(true);
+    expect(canOverride({ date: 'x', type: 'office', source: 'manual' })).toBe(true);
+    expect(canOverride({ date: 'x', type: 'field', source: 'visit' })).toBe(false);
+    expect(canOverride(null)).toBe(true);
   });
 });
