@@ -33,5 +33,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // 15 s: with a dozen parallel build agents on this machine, render tests hit the 5 s default (round 5).
+    testTimeout: 15000,
   },
 } as any);
