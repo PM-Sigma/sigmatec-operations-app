@@ -163,9 +163,9 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 - `setupInstall()` — IIFE; captures `beforeinstallprompt`, hides when standalone
 - `window.appInstall()` — trigger native install (iOS → manual Share-sheet)
 
-### `17-staff.js` — Staff management (עידן + עמיחי only): per-employee load/usage analytics + leave-a-message
-- `canManageStaff()` — gate: `isIdan()` or `getCurrentUser()==='עמיחי'`
-- staff analytics from `SHEET_DATA`; `staffSendMessage()` etc. via the Supabase `messages` table (REST)
+### ~~`17-staff.js`~~ — RETIRED (spec §7m R5). The file no longer exists.
+- The עובדים page went with it. `canManageStaff()` now lives in `js/src/00-bridge.js`; messaging moved to
+  `js/src/17-messages.js` (see below).
 
 ### `18-dev-tasks.js` — 🧑‍💻 Dev page (פיתוח): GitHub Projects-v2 board + tree + writes + offline cache + day-stamps
 Deliberately LEGACY VANILLA (spec §7d / Task 11): one self-contained module with working DnD — it took the new

@@ -26,7 +26,7 @@ Ground rules: as `2026-09-22-phone-qa-round-2-design.md` (source-only commits, o
 
 ## Package Y — עריכת קיבוץ ללא שרשרת EMS + שגיאה על אתר לא מקושר (Sonnet)
 עידן: "להעיף את השרשרת בדיקה מול ה-EMS. אני רוצה לקבל שגיאה אם יש אתר שלא מחובר ל-EMS — זה הדבר הכי לא תקין במערכת."
-- `KibbutzSheet.tsx`: להסיר את שלבי ה-chain (`emsChain.ts`: `steps`, `setChain`, `allowUnlinked`, הודעות "מחפש אתר…"). השמירה
+- `app/src/components/home/KibbutzSheet.tsx`: להסיר את שלבי ה-chain (`emsChain.ts`: `steps`, `setChain`, `allowUnlinked`, הודעות "מחפש אתר…"). השמירה
   כותבת את השורה כפי שהיא. שדה `ems_site_ids` נשאר (מוצג read-only כ-"אתר EMS: ✓ מקושר / ⚠️ לא מקושר").
 - שגיאה: קיבוץ (kind=kibbutz או subsite, לא מארכב) עם `ems_site_ids = {}` → (1) בכרטיס: פס אדום "⚠️ לא מקושר ל-EMS" (קיים chip ב-`13-ems.js:393`
   — לוודא שהוא מוצג גם בכרטיס React `KibbutzCard`), (2) בהתראות (`Alerts.tsx`/`alerts.ts`): קבוצת "אתרים לא מקושרים ל-EMS" לעידן/עמיחי,

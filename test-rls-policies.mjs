@@ -7,13 +7,17 @@
 // through four "lockdown" migrations. Nothing in the repo could see it, because the mistake
 // is an ABSENCE. This file is the reader that notices.
 //
-// Three contracts over db/*.sql, evaluated in FILE ORDER with the lockdowns applied last, the
+// Six contracts over db/*.sql, evaluated in FILE ORDER with the lockdowns applied last, the
 // way the migrations are actually run:
 //   1. no table outside the deliberate allowlist ends up with a SELECT policy granted to
 //      `public` or `anon`
 //   2. no table gets a write grant to `anon` at all
 //   3. the audit-trail tables (inventory_alerts, stock_recounts) end up with no client
 //      UPDATE or DELETE policy
+//   4. the twelve legacy tables are governed and closed
+//   5. `messages` is recorded in db/ and refuses the view-only session
+//   6. every client write policy is paired with a restrictive policy that refuses the
+//      view-only session (VIEWER_WRITE_OK lists the deliberate exceptions)
 //
 //   node test-rls-policies.mjs
 import assert from 'node:assert';
@@ -43,6 +47,7 @@ const LOCKDOWN_LAST = [
   'rls_certs_checkins_lockdown.sql',
   'rls_2_00_lockdown.sql',
   'rls_legacy_lockdown.sql',
+  'rls_viewer_readonly.sql',
 ];
 
 /**
@@ -101,7 +106,11 @@ for (const f of ordered) {
     const roles = to
       ? to[1].split(',').map(s => s.trim().replace(/"/g, '').toLowerCase()).filter(Boolean)
       : ['public'];
-    policies(t).set(e.name.replace(/"/g, ''), { cmd, roles, where: `${f}` });
+    const restrictive = /\bas\s+restrictive\b/i.test(body);
+    // the view-only gate: a restrictive policy whose predicate refuses the `viewer` claim
+    const viewerGate = restrictive && /auth\.jwt\(\)\s*->>\s*'viewer'/i.test(body)
+      && /is\s+distinct\s+from\s+'true'/i.test(body);
+    policies(t).set(e.name.replace(/"/g, ''), { cmd, roles, where: `${f}`, restrictive, viewerGate });
   }
 }
 
@@ -192,6 +201,44 @@ const alertsIsland = readFileSync(
 ok(/rpc\('alert_mark_seen'/.test(alertsIsland),
   'app/src/islands/Alerts.tsx must mark an alert seen through the alert_mark_seen RPC — a '
   + 'direct .from(\'inventory_alerts\').update() has no policy to run under any more');
+
+// ── (5) messages is governed by the repo ─────────────────────────────────────
+// It lived only in the live database; a table the sweep cannot see is a table it cannot judge.
+ok(files.includes('messages.sql'), 'db/messages.sql is missing — the messages table must be recorded in the repo');
+ok(/alter\s+table\s+public\.messages\s+enable\s+row\s+level\s+security/i.test(readFileSync(join(DB, 'messages.sql'), 'utf8')),
+  'db/messages.sql must enable row level security');
+ok(state.has('messages'), 'no db/*.sql file defines a policy for messages');
+ok([...state.get('messages').values()].some(p => p.viewerGate && p.cmd === 'all'),
+  'messages must carry a restrictive policy that refuses the view-only session for every command');
+
+// ── (6) every client write refuses the view-only session ─────────────────────
+// The view-only role is enforced in the UI; this makes the DATABASE agree. For every table with a
+// permissive write policy for `authenticated`, each write command it opens must also be covered by a
+// restrictive policy that refuses the viewer claim. Exempt tables need a reason, here.
+const VIEWER_WRITE_OK = new Map([
+  ['feedback', 'the viewer is allowed exactly this one write (spec §7 Part F)'],
+  ['storage.objects', 'only the feedback-audio bucket insert — the voice half of the same feedback write'],
+  ['usage_events','usage tracking every session sends; no business data'],
+]);
+const WRITE_CMDS = ['insert', 'update', 'delete'];
+const viewerHoles = [];
+for (const [table, ps] of state) {
+  if (VIEWER_WRITE_OK.has(table)) continue;
+  const all = [...ps.values()];
+  const opened = new Set();
+  for (const p of all) {
+    if (p.restrictive || !p.roles.includes('authenticated')) continue;
+    if (p.cmd === 'all') WRITE_CMDS.forEach(c => opened.add(c));
+    else if (WRITE_CMDS.includes(p.cmd)) opened.add(p.cmd);
+  }
+  for (const c of opened) {
+    if (!all.some(p => p.viewerGate && (p.cmd === c || p.cmd === 'all'))) viewerHoles.push(`${table} — ${c}`);
+  }
+}
+ok(viewerHoles.length === 0,
+  'these writes are open to the view-only session at the database level (add restrictive policies '
+  + 'to db/rls_viewer_readonly.sql, or list the table in VIEWER_WRITE_OK with a reason):\n    '
+  + viewerHoles.join('\n    '));
 
 console.log(`test-rls-policies: ${checks} checks passed over ${ordered.length} db/*.sql files, `
   + `${state.size} tables, ${[...state.values()].reduce((n, m) => n + m.size, 0)} live policies.`);

@@ -53,7 +53,7 @@ function MyTasksButton({ me }: { me: string }) {
   );
 }
 
-function HeaderActionsPanel() {
+export function HeaderActionsPanel() {
   const { name: user, role, isViewer } = useCurrentUser();
   const page = useCurrentPage();
   const personRole = roleOf(user, role);

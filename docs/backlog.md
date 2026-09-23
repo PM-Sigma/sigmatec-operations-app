@@ -1,11 +1,14 @@
 🔴 OPENED BY THE OPS GRAPH (2026-09-23) — verified against the repo + live DB, needs עידן's decision.
 Detail + evidence: `<project>/תוצרים/2026-09-23 — ממצאי OPS GRAPH/BROKEN.md` (local only — kept out of this public repo).
-1. **🔴 RLS / access control** — three live-DB findings on write policies and roles (P1). Details in the
-   local file only; do not paste them into this public repo.
-4. **Schema drift** — `messages`, `auth_attempts` exist live with no `create table` in `db/`.
-5. **24 modules with no test** — incl. permission logic `canShowPage.ts`, `caps.ts`, and `KibbutzCard.tsx`.
-6. **Stale docs** — "legacy lockdown not applied" (live: anon already blocked), `17-staff.js` (retired),
-   `test-mytasks-filter.mjs` (missing), `stats.html` (deleted).
+1. **🔴 RLS / access control** — write policies do not distinguish the view-only role (P1). A fix is WRITTEN,
+   NOT APPLIED: `db/rls_viewer_readonly.sql` (restrictive policies; waits for עידן). A follow-up needs a trusted
+   per-person claim in the ems-auth pass (TODO in the migration header). Details stay in the local file.
+4. ✅ **Schema drift** — `db/messages.sql`, `db/auth_attempts.sql` now record the live tables (23.9).
+5. 🟡 **Modules with no test** — permission logic now covered (`test-can-show-page.mjs` role matrix,
+   `canShowPage.test.ts`, `caps.test.ts`) plus `myTasksBadge`, `KibbutzSheet`, `HeaderActions` (23.9). The rest open.
+6. ✅ **Stale docs** — fixed 23.9 (lockdown note, `17-staff.js`, `test-mytasks-filter.mjs`, `stats.html`, planned files).
+7. `maintenance.html` — leftover of the 2.00 upgrade window ("closed until 21.9"); nothing links to it. Delete (HANDOFF-עידן §A says so).
+QA coverage of every 22.9 note: `docs/reports/2026-09-23-qa-coverage-audit.md` (0 ❌, 4 🟡 listed there).
 
 ✅ DONE (2026-09-20, Task 34) — **סיגמה 2.02**, the post-go-live fix round. The boot TDZ that was
 silently serving a three-month-old snapshot on the live site (task-33 FAIL-2) + the two gates that
@@ -16,7 +19,10 @@ duplicate `digestBody` import that stopped `push-send` booting (FAIL-1) + its tw
 עידן/עמיחי/viewer, and a held recording with ↻ when transcription is unavailable. Full detail:
 `docs/CHANGELOG.md` [2.02]. Built on `feat/kibbutz-cards-redesign`, **not pushed**.
 
-🟡 PENDING — **`db/rls_legacy_lockdown.sql` is written but NOT APPLIED.** The twelve
+↪ SUPERSEDED (checked 23.9 against the live DB) — the twelve legacy tables no longer answer the anon key: RLS is on and
+no anon policy exists. The remaining open item is the view-only role on write policies (see item 1 above and
+`db/rls_viewer_readonly.sql`, not applied). Original note, kept for history:
+~~**`db/rls_legacy_lockdown.sql` is written but NOT APPLIED.**~~ The twelve
 Apps-Script-era tables (`attendance, ems_cache, ems_queue, movements, orders, potentials,
 products, regions, requirements, returns, settings, tasks`) still answer the public anon key.
 עידן ruled 20.9: close them. A human applies this one in the SQL editor, after
@@ -116,7 +122,7 @@ field day as משרד still needs a visit created).
 ## ✅ DONE — "המשימות שלי" per-אחראי view filter (shipped 1.58)
 The top-row אחראי picker now filters the displayed task list too (was report-buttons-only), and
 **defaults to the logged-in user** so everyone opens on their own tasks. Heading switches to
-"המשימות של &lt;name&gt;" for others. `test-mytasks-filter.mjs` → 14 green; full suite 16/16; verified live.
+"המשימות של &lt;name&gt;" for others. `test-mytasks-filter.mjs` → 14 green (runner deleted since, with the page, in Task 14); full suite 16/16; verified live.
 
 ## ✅ DONE — עידן can open others' נוכחות (shipped 1.57)
 `canSeeAttendance()` had עידן explicitly excluded; re-added via `isIdan()` so the pre-existing
