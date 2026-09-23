@@ -502,6 +502,36 @@ export function attLegend(person: string): Array<{ key: AttLegendKey; label: str
   return out;
 }
 
+// ───────────────────── where a row came from (round 5 · A4) ─────────────────────
+
+export type RowOrigin = 'none' | 'manual' | 'calendar' | 'auto';
+
+export function rowOrigin(row: AttRow | null): RowOrigin {
+  if (!row) return 'none';
+  if (row.source === 'visit_auto' || row.source === 'visit') return 'auto';
+  if (row.source === 'calendar') return 'calendar';
+  return 'manual';
+}
+
+export function originLine(row: AttRow | null): string {
+  const o = rowOrigin(row);
+  if (o === 'calendar') return 'נרשם מהיומן';
+  if (o !== 'auto') return '';
+  const parts = ['נרשם אוטומטית מסיכום הביקור'];
+  if (row!.kibbutz) parts.push(row!.kibbutz);
+  if (row!.hours) parts.push(row!.hours + ' ש׳');
+  return parts.join(' · ');
+}
+
+/**
+ * May the day editor offer to change this day? Yes for everything except the pre-V derived
+ * row: today's legacy merge always shows the visit over a manual row, so a change there would
+ * save and then vanish. After V8 no 'visit' rows exist and this is always true.
+ */
+export function canOverride(row: AttRow | null): boolean {
+  return !row || row.source !== 'visit';
+}
+
 // ───────────────── a saved visit IS a יום שטח (round 2, F-2) ─────────────────
 //
 // Round 5: a real row wins; package V writes visit days as `visit_auto` rows, and A-L5
