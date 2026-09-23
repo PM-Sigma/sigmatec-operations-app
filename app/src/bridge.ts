@@ -114,8 +114,12 @@ export interface Sigma {
   emsSync?(force?: boolean): Promise<boolean>;
   /** The raw EMS bearer — only for the `github` Edge Function, which gates on a valid EMS login. */
   emsToken?(): string;
-  /** Open the legacy kibbutz modal for a card, optionally on a given tab ('meetings' | 'visit'). */
-  openKibbutzModal(name: string, tab?: string): void;
+  // ── package K ──
+  /** The one door to a kibbutz: KibbutzDetail (tab 'status' | 'visits'; legacy 'meetings' | 'visit' accepted). */
+  openKibbutzModal(name: string, tab?: 'status' | 'visits' | 'meetings' | 'visit'): void;
+  /** ➕ משימת EMS for a kibbutz without opening any modal (K-L4). */
+  createEmsTaskFor?(kibbutz: string): Promise<void>;
+  // ── end package K ──
   /** Re-run the legacy card-decorating passes after React re-rendered the cards. */
   decorateCards?(): void;
 

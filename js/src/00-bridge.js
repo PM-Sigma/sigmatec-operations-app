@@ -313,12 +313,16 @@
       emsToken: function () { return call('getEmsToken', [], '') || ''; },
 
       // ---- kibbutz cards ----------------------------------------------------
-      // The modal is opened from the CARD element (openEditModal reads data-name off it), so
-      // React hands us a name and we find the card the legacy way. Works for a React card and
-      // a legacy one alike — both are `.kibbutz[data-name]`.
+      // ONE door to a kibbutz (round 5, package K). React KibbutzDetail when it is mounted; a queued open while its
+      // lazy chunk is still landing; the legacy modal only in the pre-K-U1 era. Found by NAME equality, never by a
+      // CSS selector: names carry quotes and dashes.
       openKibbutzModal: function (name, tab) {
-        var sel = (window.CSS && CSS.escape) ? CSS.escape(name) : String(name).replace(/"/g, '\\"');
-        var card = document.querySelector('.kibbutz[data-name="' + sel + '"]');
+        var key = (tab === 'visit' || tab === 'visits') ? 'visits' : 'status';
+        var api = window.sigmaKibbutzDetail;
+        if (api && typeof api.open === 'function') { api.open(name, key); return; }
+        if (document.getElementById('sigma-kibbutz-detail')) { window._kibbutzDoorQueue = { name: name, tab: key }; return; }
+        var card = Array.prototype.find.call(document.querySelectorAll('.kibbutz[data-name]'),
+          function (c) { return c.dataset && c.dataset.name === name; });
         if (!card) { console.warn('[sigma] no card for', name); return; }
         call('openEditModal', [card]);
         if (tab) call('switchTab', [tab]);
