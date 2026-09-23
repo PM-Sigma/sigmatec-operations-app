@@ -20,6 +20,9 @@ export type Layer = 'event' | 'visit' | 'ems' | 'internal' | 'absence';
 
 export type AbsenceKind = 'vacation' | 'reserve' | 'event';
 
+/** Round 5 · C4 — one attendee of a Google event, as the sheet's "who" reads them. */
+export interface EventAttendee { name?: string; email?: string; self?: boolean; declined?: boolean }
+
 /** One office event as the `calendar` edge function returns it. */
 export interface OfficeEvent {
   id: string;
@@ -32,6 +35,8 @@ export interface OfficeEvent {
   description?: string;
   /** Google's Meet link. Absent → no 🎥 button is rendered, ever. */
   hangoutLink?: string | null;
+  attendees?: EventAttendee[];
+  organizer?: { name?: string; email?: string } | null;
 }
 
 export interface VisitRow {
@@ -99,6 +104,8 @@ export interface CalItem {
   taskId?: string;
   /** Present on an office event that really has conference data. */
   meetLink?: string;
+  /** Present on an office event — what the detail sheet looks it up by. */
+  eventId?: string;
   /** Present on an absence item. */
   kind?: AbsenceKind;
 }
@@ -521,6 +528,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       person: null,
       // An office event is everybody's: it is never dimmed by "רק שלי".
       mine: true,
+      eventId: String(e.id || ''),
       ...(e.hangoutLink ? { meetLink: String(e.hangoutLink) } : {}),
     });
   }
@@ -934,6 +942,79 @@ export function pickBlock(block: KibbutzBlock, ticked: string[], date: string, s
 /** Nothing to write: the stop is already there and nothing new was ticked. */
 export function isNoopPick(p: BlockPick): boolean {
   return !p.addedStop && p.count === 0;
+}
+
+// ───────────────────────────── the event detail sheet (round 5 · C4) ─────────────────────────────
+
+/** 'יום ה׳ · 24.9' — the one short day format the sheets use (design system: d.m). */
+export function dayShort(key: string): string {
+  const d = parseYmd(key);
+  if (isNaN(d.getTime())) return key;
+  return 'יום ' + HE_DAY_LETTERS[d.getDay()] + '׳ · ' + heShort(key);
+}
+
+function hhmm(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : p2(d.getHours()) + ':' + p2(d.getMinutes());
+}
+
+/** Google descriptions are HTML. The sheet shows the words, never the tags. */
+export function plainText(html: string | null | undefined): string {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li)>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')                       // last, so "&amp;lt;" stays "&lt;"
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 2000);
+}
+
+export function eventWhen(e: OfficeEvent): string {
+  const start = toKey(e.start);
+  if (!start) return '';
+  const allDay = !!e.allDay || /^\d{4}-\d{2}-\d{2}$/.test(String(e.start || ''));
+  if (allDay) {
+    // Google's all-day `end` is EXCLUSIVE: a one-day event on the 24th ends on the 25th.
+    const endIncl = e.end ? addDays(toKey(e.end), -1) : start;
+    const range = endIncl > start ? dayShort(start) + ' עד ' + dayShort(endIncl) : dayShort(start);
+    return range + ' · כל היום';
+  }
+  const from = hhmm(String(e.start));
+  const to = e.end ? hhmm(String(e.end)) : '';
+  return dayShort(start) + ' · ' + from + (to ? '–' + to : '');
+}
+
+export interface EventDetail {
+  title: string;
+  when: string;
+  description: string;
+  location: string;
+  who: string[];
+  meetLink: string | null;
+}
+
+export function eventDetail(e: OfficeEvent): EventDetail {
+  const who: string[] = [];
+  const add = (p: { name?: string; email?: string } | null | undefined) => {
+    if (!p) return;
+    const label = String(p.name || '').trim() || String(p.email || '').split('@')[0].trim();
+    if (label && who.indexOf(label) === -1) who.push(label);
+  };
+  add(e.organizer);
+  for (const a of e.attendees || []) if (a && !a.declined) add(a);
+  return {
+    title: String(e.title || '').trim() || 'אירוע',
+    when: eventWhen(e),
+    description: plainText(e.description),
+    location: String(e.location || '').trim(),
+    who,
+    meetLink: e.hangoutLink ? String(e.hangoutLink) : null,
+  };
 }
 
 // ───────────────────────────── absences ─────────────────────────────

@@ -13,6 +13,7 @@ import {
   canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
   workWeekLabel, missingInView, reportedInView, showWeekNumbers, weekAria,
   planBlocks, pickBlock, isNoopPick, type KibbutzBlock, type CalInternalTask,
+  dayShort, plainText, eventWhen, eventDetail,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -400,6 +401,51 @@ describe('round 5 · C1 — picking a block plans the stop AND dates the ticked 
   });
   it('a messy saved route is cleaned, never duplicated', () => {
     expect(pickBlock(block, [], DAY, [' גבת ', 'גבת', '']).stops).toEqual(['גבת', 'יגור']);
+  });
+});
+
+describe('round 5 · C4 — one detail sheet for a Google event', () => {
+  const at = (h: number, m = 0) => new Date(2026, 8, 24, h, m).toISOString();   // local, TZ-proof
+
+  it('a timed event: day and hours', () => {
+    expect(eventWhen({ id: 'a', title: 'x', start: at(10), end: at(11, 30) })).toBe('יום ה׳ · 24.9 · 10:00–11:30');
+  });
+  it('a one-day all-day event is one day — Google’s end date is exclusive', () => {
+    expect(eventWhen({ id: 'b', title: 'x', start: '2026-09-24', end: '2026-09-25', allDay: true })).toBe('יום ה׳ · 24.9 · כל היום');
+  });
+  it('a multi-day all-day event says where it ends', () => {
+    expect(eventWhen({ id: 'c', title: 'x', start: '2026-09-24', end: '2026-09-27', allDay: true }))
+      .toBe('יום ה׳ · 24.9 עד יום ש׳ · 26.9 · כל היום');
+  });
+  it('HTML and entities in a description become plain text', () => {
+    expect(plainText('<b>סדר יום</b><br>1. מונים &amp; בקרים<br/><a href="https://x">קישור</a>&nbsp;'))
+      .toBe('סדר יום\n1. מונים & בקרים\nקישור');
+    expect(plainText(null)).toBe('');
+  });
+  it('who: organizer and attendees by name, declined left out, no duplicates', () => {
+    const d = eventDetail({
+      id: 'd', title: 'ישיבת צוות', start: at(9), end: at(10), location: 'משרד',
+      description: 'שורה', hangoutLink: 'https://meet.google.com/abc',
+      organizer: { name: 'עמיחי', email: 'amichai@x.com' },
+      attendees: [
+        { name: 'עמיחי', email: 'amichai@x.com' },
+        { email: 'aviam@x.com' },
+        { name: 'ניתאי', email: 'nitai@x.com', declined: true },
+      ],
+    });
+    expect(d).toEqual({
+      title: 'ישיבת צוות', when: 'יום ה׳ · 24.9 · 09:00–10:00', description: 'שורה', location: 'משרד',
+      who: ['עמיחי', 'aviam'], meetLink: 'https://meet.google.com/abc',
+    });
+  });
+  it('missing fields are empty, never "undefined"', () => {
+    expect(eventDetail({ id: 'e', title: '', start: '2026-09-24' })).toEqual({
+      title: 'אירוע', when: 'יום ה׳ · 24.9 · כל היום', description: '', location: '', who: [], meetLink: null,
+    });
+  });
+  it('an event item carries the id the sheet looks it up by', () => {
+    const items = calendarItems({ events: [{ id: 'ev9', title: 'כנס', start: '2026-09-24' }] });
+    expect(items[0].eventId).toBe('ev9');
   });
 });
 

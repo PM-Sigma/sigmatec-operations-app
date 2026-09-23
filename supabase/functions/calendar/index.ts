@@ -17,6 +17,8 @@
 //   APP_ORIGIN     — allowed origin (default: https://pm-sigma.github.io)
 //   EMS_API_BASE   — (already set) https://api.sigmatec-ems.com
 
+import { mapGoogleEvent } from "./map.ts";
+
 const cors = (origin: string) => ({
   "Access-Control-Allow-Origin": origin,
   "Access-Control-Allow-Headers": "authorization, content-type, apikey",
@@ -108,19 +110,9 @@ Deno.serve(async (req) => {
         encodeURIComponent(timeMin) + "&timeMax=" + encodeURIComponent(timeMax)), { headers: auth });
       const d = await r.json();
       if (!r.ok) return json({ error: "calendar list failed", detail: d.error && d.error.message }, 502, ORIGIN);
-      const calendar = (d.items || []).map((ev: any) => ({
-        id: ev.id, title: ev.summary || "(ללא כותרת)",
-        start: (ev.start && (ev.start.dateTime || ev.start.date)) || null,
-        end: (ev.end && (ev.end.dateTime || ev.end.date)) || null,
-        allDay: !!(ev.start && ev.start.date), location: ev.location || "", description: ev.description || "",
-        // 🎥 The Meet link (spec §7f). `hangoutLink` is the simple field; a newer event only
-        // carries it inside conferenceData. NULL when the event has no conference at all —
-        // the client renders the button only when this is a real link, never a dead one.
-        hangoutLink: ev.hangoutLink
-          || (ev.conferenceData && Array.isArray(ev.conferenceData.entryPoints)
-            && (ev.conferenceData.entryPoints.find((p: any) => p && p.entryPointType === "video") || {}).uri)
-          || null,
-      }));
+      // 🎥 The Meet link (spec §7f), plus round 5 · C4's attendees + organizer for the event
+      // detail sheet — all in one pure mapper so calendarEventMap.test.ts can pin it.
+      const calendar = (d.items || []).map(mapGoogleEvent);
       return json({ calendar }, 200, ORIGIN);
     }
 
