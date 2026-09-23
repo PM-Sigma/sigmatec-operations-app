@@ -522,7 +522,7 @@ const IGNORED_CONSOLE = [
   /net::ERR_FAILED/i,
   /ERR_ABORTED/i,
   // The 401 the write routes return on purpose (the islands report it in the UI as the
-  // "יש להתחבר ל-EMS כדי לשמור" hint, which is what the specs assert).
+  // "ההתחברות פגה" save hint, which is what the specs assert).
   /row-level security/i,
   /Failed to load resource/i,
   // manifest / icons are not served differently under http-server on some Windows setups

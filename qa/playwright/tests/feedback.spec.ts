@@ -37,7 +37,7 @@ test('feedback: the sheet, its two kinds and the anonymous switch', async ({ pag
   // The write is refused in mock mode (no EMS pass → RLS), and it says so instead of
   // pretending it was sent.
   await page.getByRole('button', { name: 'שלח', exact: true }).click();
-  await expect(page.getByText(/יש להתחבר ל-EMS כדי לשמור|נכשלה/)).toBeVisible();
+  await expect(page.getByText(/ההתחברות פגה|נכשלה/)).toBeVisible();
 
   expectNoConsoleErrors(rec);
 });

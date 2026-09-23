@@ -43,7 +43,7 @@ test('kibbutz sheet: create mode, both kinds, איזור required', async ({ pag
   // mock mode), which is the "יש להתחבר" path — never a silent success.
   await page.locator('#kibRegion').fill('גליל וגולן');
   await page.getByRole('button', { name: 'שמור קיבוץ' }).click();
-  await expect(page.getByText(/שמירה נכשלה|יש להתחבר ל-EMS כדי לשמור/)).toBeVisible();
+  await expect(page.getByText(/שמירה נכשלה|ההתחברות פגה/)).toBeVisible();
 
   expectNoConsoleErrors(rec);
 });
@@ -215,7 +215,7 @@ test('kibbutz sheet: no EMS chain — a sub-site saves straight away, no gate', 
   // saving hits the write endpoint directly — no chain step stands in the way. The harness
   // answers 401 (no EMS pass in mock mode); that IS the write being attempted.
   await page.getByRole('button', { name: 'שמור תת-אתר' }).click();
-  await expect(page.getByText(/שמירה נכשלה|יש להתחבר ל-EMS כדי לשמור/)).toBeVisible();
+  await expect(page.getByText(/שמירה נכשלה|ההתחברות פגה/)).toBeVisible();
 
   await expectNoConsoleErrors(rec);
 });

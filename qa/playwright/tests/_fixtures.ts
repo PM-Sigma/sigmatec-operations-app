@@ -4,7 +4,7 @@
 // the LEGACY bundle to its in-page mock), so `_helpers.ts` intercepts every request to the
 // Supabase origin and answers from here. That is what makes the suite hermetic, offline and
 // incapable of writing to production: non-GET requests are answered 401, which is exactly the
-// state the islands show their "יש להתחבר ל-EMS כדי לשמור" hint for.
+// state the islands show their "ההתחברות פגה" save hint for.
 //
 // The rows are chosen to exercise the UI, not to mirror production:
 //   * two sections (new + active) and three regions → the section headers AND the region
