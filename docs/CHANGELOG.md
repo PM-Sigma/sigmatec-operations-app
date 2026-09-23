@@ -23,6 +23,12 @@ extracted. The final broken list was verified by hand against the repo and, for 
 
 Findings (not fixed here — they need decisions): RLS / access-control issues (details kept out of the public repo), 24 modules with no test, schema drift (live tables with no `db/` migration), and stale docs (legacy-lockdown note, `17-staff.js`, `test-mytasks-filter.mjs`). Refresh after merges: `python docs/ops-graph/rebuild.py` (~35s).
 
+## [2.28] 2026-09-23 — round 5 Phase 0: upgrade freeze
+
+- Only עידן and עמיחי get in; every other user and the view-only PIN see "המערכת בשדרוג · נעדכן כשהיא חוזרת." with a
+  single "התנתק". Customer certificate links and mock mode stay open. One switch: `UPGRADE_FREEZE` in `00-consts.js`.
+  Tests: `test-upgrade-freeze.mjs`, `upgrade-freeze.spec.ts`. Spec: `2026-09-23-round-5-design.md`.
+
 ## [2.25] 2026-09-23 — OPS GRAPH audit: visit-summary chain, holidays, calendar green/red, QA coverage
 
 - **Visit summary does the whole chain on both save paths** (`2026-09-23-visit-summary-chain-design.md`): the chapters sheet
