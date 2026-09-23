@@ -114,6 +114,7 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
   - **Issued delivery certificates stay exactly as they are**, lines included.
 - **Dead inventory paths are dropped:** the intake window, "import open requirements", reprint, cert from an order or EMS task, the duplicate ✉️ button, the stale flow diagram.
 - **Hours are per person:** מתניה sees only his own; עידן and עמיחי see all.
+- **GitHub dev board (X-L8, approved):** only עידן, עמיחי and מתניה can write (open an issue, update a card). Reading stays open to staff. The check lives in our `github` function only; nothing changes in GitHub.
 
 ## Design ownership (עידן 23.9)
 - **The external designer (the independent consultant agent) owns design and motion for the whole app.**
