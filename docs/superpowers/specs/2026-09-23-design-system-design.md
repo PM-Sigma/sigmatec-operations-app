@@ -7,6 +7,9 @@ STATUS: 🟡 OPEN, approved by עידן 23.9. Source: the independent consultant
 - Missing-day red: only אביאם and ניתאי. Others see green and purple only.
 - Burns title: the full sentence "צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק" as the title, wrapping to two lines.
 - "חזרה" buttons stay, next to Σ-home and the phone's Back.
+- Week numbers in חודש מלא: a small label beside each week row, not a column (fits at 360). Hidden in חודש עבודה.
+- Copy: gender-neutral button labels (שמירה, שליחה, סגירה…), no "!", and no emoji in UI text (lucide icons instead). Enforced by `test-copy-rules.mjs`.
+- Tools and motion: `תוצרים/2026-09-23 — ייעוץ עיצוב/tools-and-motion.md` is binding. Phones 360–430; foldables in a later package.
 - Freeze text: as shipped in 2.28 ("המערכת בשדרוג · נעדכן כשהיא חוזרת.").
 
 ---
