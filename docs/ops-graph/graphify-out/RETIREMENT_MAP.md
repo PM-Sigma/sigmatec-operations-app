@@ -32,7 +32,7 @@ they're structural, not a cross-boundary dependency.
 | Google Sheet / Apps Script data path | 8 | 5 (+10 direct call sites below — graph blind spot) | 5 | 0 |
 | `maintenance.html` | 1 | 1 | 0 | 0 |
 | Ctrl+K `CommandBar.tsx` | 10 | 5 | 6 | 0 |
-| Legacy visit form (09-visits.js UI + index.html) | 54 | 33 | 3 | 1 |
+| Legacy visit form (09-visits.js UI + index.html) | 53 | 32 | 2 | 1 |
 | Legacy kibbutz modal (index.html:613-852 + openEditModal) | 4 | 4 | 0 | 0 |
 | Legacy inventory: `06-products.js`/`07-orders.js`/`08-inventory.js` | 109 | 94 | 36 | 3 |
 | Legacy inventory: `20-delivery-cert.js` UI parts | 30 | 28 | 0 | 0 |
@@ -40,15 +40,16 @@ they're structural, not a cross-boundary dependency.
 | `23-push-log.js` legacy page | 6 | 2 | 7 | 0 |
 | `18-dev-tasks.js` legacy page | 52 | 12 | 11 | 1 |
 | Tables: `tasks`, `settings`, `ems_cache`, `ems_queue` | 4 | 59 | 4 | 0 |
-| **Total** | **329** | **256** (+10) | **88** | **9** |
+| **Total** | **328** | **255** (+10) | **87** | **9** |
 
 ## Findings that need a decision before Phase 1 deletes anything
 
-1. **`saveVisitFromData()` (kept pipeline) calls `visitContactEnsure()` (tagged retiring)** —
-   `js/src/09-visits.js:L1333`. The spec says "the contact picker moves into the new sheet" but the
-   surviving save pipeline still calls the old contact-ensure helper directly. Either keep
-   `visitContactEnsure()` as a shared helper (rename out of the "legacy form" bucket) or give
-   `saveVisitFromData()` a replacement before the old function is deleted.
+1. **RESOLVED (Opus audit 23.9): `visitContactEnsure()` is NOT retiring.** The kept pipeline
+   `saveVisitFromData()` calls it (`js/src/09-visits.js:L1333`), and it is self-contained (reads/
+   inserts `site_contacts` directly, no dependency on the legacy form's `_visitContacts` chips).
+   It was removed from `retiring_nodes.json` and from the counts below; it stays a shared helper.
+   The rest of the contact picker (`visitContactsRender/ChipsPaint/Pick/Typed/Persist`) is legacy
+   form UI and still retires.
 2. **`getActiveProducts()`, `computeStock()`, `poolStockMap()`, `productCategoryMap()`,
    `orderType()`, `orderKibbutz()`** (all defined in the fully-retiring `06-products.js`/
    `07-orders.js`/`08-inventory.js`) are called from files that are **not** part of this round's
@@ -180,7 +181,7 @@ path doesn't route through any of the above before deleting `01-data.js`'s inter
 (none)
 
 
-## Legacy visit form (09-visits.js UI + index.html markup)  (54 nodes)
+## Legacy visit form (09-visits.js UI + index.html markup)  (53 nodes)
 
 - `concept:tab_visit@index.html` — modal tab: ביקורים (visit form)  (index.html:L679)
 - `concept:aviam_day_type_selector@index.html` — aviamDayTypeSelector — Aviam-only day-type toggle group  (index.html:L736)
@@ -190,7 +191,6 @@ path doesn't route through any of the above before deleting `01-data.js`'s inter
 - `src_09_visits_visitcontactpick` — visitContactPick()  (js/src/09-visits.js:L108)
 - `src_09_visits_visitcontacttyped` — visitContactTyped()  (js/src/09-visits.js:L114)
 - `src_09_visits_visitcontactpersist` — visitContactPersist()  (js/src/09-visits.js:L115)
-- `src_09_visits_visitcontactensure` — visitContactEnsure()  (js/src/09-visits.js:L127)
 - `src_09_visits_visitotherproductchanged` — visitOtherProductChanged()  (js/src/09-visits.js:L155)
 - `src_09_visits_visitaddothertocatalog` — visitAddOtherToCatalog()  (js/src/09-visits.js:L163)
 - `src_09_visits_renderproductsforvisitor` — renderProductsForVisitor()  (js/src/09-visits.js:L176)
@@ -237,7 +237,7 @@ path doesn't route through any of the above before deleting `01-data.js`'s inter
 - `src_09_visits_visitdraftput` — visitDraftPut()  (js/src/09-visits.js:L907)
 - `src_09_visits_savevisit` — saveVisit()  (js/src/09-visits.js:L993)
 
-### Code dependencies from code NOT being retired — migrate before deleting (33)
+### Code dependencies from code NOT being retired — migrate before deleting (32)
 
 - `index.html` --calls--> `editLastVisitFromStatus()`  [EXTRACTED]  (index.html:L633)
 - `index.html` --calls--> `visitDraftRestore()`  [EXTRACTED]  (index.html:L691)
@@ -252,7 +252,7 @@ path doesn't route through any of the above before deleting `01-data.js`'s inter
 - `index.html` --calls--> `visitAddOtherToCatalog()`  [EXTRACTED]  (index.html:L787)
 - `index.html` --calls--> `visitContactTyped()`  [EXTRACTED]  (index.html:L826)
 - `index.html` --calls--> `saveVisit()`  [EXTRACTED]  (index.html:L832)
-- `00-bridge.js` --calls--> `stepProductQty()`  [EXTRACTED]  (js/src/00-bridge.js:L38)
+- `00-bridge.js` --calls--> `stepProductQty()`  [EXTRACTED]  (js/src/00-bridge.js:L38) — **false positive (audit 23.9): L38 is a doc comment example, not a call**
 - `sigma.visitDraftFor` --calls--> `visitDraftFor()`  [EXTRACTED]  (js/src/00-bridge.js:L460)
 - `sigma.visitDraftDiscard` --calls--> `visitDraftDiscard()`  [EXTRACTED]  (js/src/00-bridge.js:L461)
 - `sigma.visitDraftPut` --calls--> `visitDraftPut()`  [EXTRACTED]  (js/src/00-bridge.js:L465)
@@ -263,7 +263,6 @@ path doesn't route through any of the above before deleting `01-data.js`'s inter
 - `switchTab()` --calls--> `visitDraftFlush()`  [INFERRED]  (js/src/02-init-attendance.js:L28)
 - `openVisitFromAttendance()` --calls--> `editVisit()`  [INFERRED]  (js/src/04-attendance-daily.js:L435)
 - `09-visits.js` --calls--> `visitContactPick()`  [EXTRACTED]  (js/src/09-visits.js:L105)
-- `saveVisitFromData()` --calls--> `visitContactEnsure()`  [EXTRACTED]  (js/src/09-visits.js:L1333)
 - `09-visits.js` --calls--> `tileTap()`  [EXTRACTED]  (js/src/09-visits.js:L230)
 - `09-visits.js` --calls--> `toggleProductQty()`  [EXTRACTED]  (js/src/09-visits.js:L231)
 - `09-visits.js` --calls--> `stepProductQty()`  [EXTRACTED]  (js/src/09-visits.js:L236)
@@ -277,7 +276,6 @@ path doesn't route through any of the above before deleting `01-data.js`'s inter
 
 - `2026-08-02-attendance-hub-design.md` --documents--> `editVisit()`  [EXTRACTED]  (docs/superpowers/specs/2026-08-02-attendance-hub-design.md:L19,61-64)
 - `2026-08-02-attendance-hub-design.md` --documents--> `saveVisit()`  [EXTRACTED]  (docs/superpowers/specs/2026-08-02-attendance-hub-design.md:L19,93-97)
-- `[SHIPPED] Visit summary chain: attendance/stock/EMS/contacts/open-items/returns from one save` --documents--> `visitContactEnsure()`  [EXTRACTED]  (docs/superpowers/specs/2026-09-23-visit-summary-chain-design.md:L57)
 
 ### Weak/inferred mentions (low confidence, informational) (1)
 

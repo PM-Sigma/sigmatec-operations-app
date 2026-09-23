@@ -27,7 +27,7 @@
       "src_09_visits_setvisitworkday", "src_09_visits_syncvisitdurationchips",
       "src_09_visits_visitcontactsrender", "src_09_visits_visitcontactchipspaint",
       "src_09_visits_visitcontactpick", "src_09_visits_visitcontacttyped",
-      "src_09_visits_visitcontactpersist", "src_09_visits_visitcontactensure",
+      "src_09_visits_visitcontactpersist",
       "src_09_visits_visitotherproductchanged", "src_09_visits_visitaddothertocatalog",
       "src_09_visits_renderproductsforvisitor", "src_09_visits_tilefor", "src_09_visits_tileedit",
       "src_09_visits_tilesync", "src_09_visits_tiletap", "src_09_visits_tileremove",
