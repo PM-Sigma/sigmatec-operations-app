@@ -29,10 +29,10 @@ import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER, dm,
+  canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
-  holidayShort, kpis as computeKpis, missingByPerson, missingDays, monthGrid, withVisitDays, ymd,
-  type AttRow, type DayCell, type DayType, type Holiday, type VisitLike,
+  holidayShort, kpis as computeKpis, missingByPerson, missingDays, monthGrid, savedToast,
+  withVisitDays, ymd, type AttRow, type DayCell, type DayType, type Holiday, type VisitLike,
 } from '@/lib/attendance';
 
 // ───────────────────────────── data ─────────────────────────────
@@ -371,8 +371,7 @@ function AttendanceIsland() {
     onSuccess: (_d, v) => {
       track('attendance-save', v.type);
       const cell = grid.cells.find(c => c.date === v.date);
-      toast.success('נשמר · ' + dayLabel(v.type) + ' · ' + dm(v.date)
-        + (cell?.holiday && !cell.holiday.required ? ' 🕎 (יום חג, נרשם בכל זאת)' : ''));
+      toast.success(savedToast(v.type, v.date, cell?.holiday || null));
       setOpen('');
       refresh();
     },
