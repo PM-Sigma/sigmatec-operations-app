@@ -23,6 +23,23 @@ extracted. The final broken list was verified by hand against the repo and, for 
 
 Findings (not fixed here — they need decisions): RLS / access-control issues (details kept out of the public repo), 24 modules with no test, schema drift (live tables with no `db/` migration), and stale docs (legacy-lockdown note, `17-staff.js`, `test-mytasks-filter.mjs`). Refresh after merges: `python docs/ops-graph/rebuild.py` (~35s).
 
+## [2.29] 2026-09-23 — round 5 Phase 1: cleanup, inventory breakpoint, backups
+
+- **Google Sheet data path retired:** writes go only through the Supabase router (`WRITE_ROUTER_URL` is an internal key,
+  not an endpoint); `?sb=0` no longer falls back to a live Sheet in production (it still boots fixtures on localhost).
+  Removed `appsscript/*.gs`, `db/import_from_appsscript.mjs`, `maintenance.html`. The Apps Script EMS proxy stays
+  (reports, order parsing, transcription).
+- **SIM:** no auto-add to orders, no SIM low-stock alert; the 2 SIM items are archived (data).
+- **Inventory breakpoint (data):** 159 movements archived to `archive.movements_pre_breakpoint`, replaced by 81
+  opening-balance rows; stock per item per location verified identical inside the transaction. Equipment of visits
+  dated before the breakpoint becomes read-only (Package V).
+- **Drafts:** the 3 visit drafts deleted; client draft key bumped to v3. Push log older than 30 days deleted (127 rows).
+- **Backups:** nightly Supabase snapshot (14 days) + nightly local JSON export via the key-guarded `backup-export`
+  function to `C:\Users\idann\Backups\Sigmatec Operations\` (14 days).
+- **Graph:** retiring-node tags (`retiring_nodes.json`, `RETIREMENT_MAP.md`); two `ops_graph.py` bugs fixed; the tables
+  tasks/settings/ems_cache/ems_queue are live and not retiring.
+- **Rule (עידן):** never modify another repo (ModbusClient, sigmatec-ems, …) unless asked.
+
 ## [2.28] 2026-09-23 — round 5 Phase 0: upgrade freeze
 
 - Only עידן and עמיחי get in; every other user and the view-only PIN see "המערכת בשדרוג · נעדכן כשהיא חוזרת." with a
