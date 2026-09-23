@@ -60,12 +60,13 @@ check('the label tells the user to pick a date (date inputs have no placeholder)
   assert.ok(/<label class="sig-fl">משך ותאריך הביקור/.test(html), 'the one heading over duration + date');
   assert.ok(/<input type="date" id="visitDate"[^>]*aria-label="תאריך הביקור"/.test(html), 'the date input carries its own name');
 });
-check('the FAB path still injects its explicitly chosen date AFTER the clear', () => {
+check('the FAB path hands its explicitly chosen date to the ONE door (round 5 V-L4b)', () => {
+  // The legacy openEditModal(card) + manual visitDate patch is gone: visitQuickGo's field branch
+  // now forwards straight to sigma.openVisitEditor, date included in the opts object.
   const init = R('js/src/02-init-attendance.js');
-  const openIdx = init.indexOf('openEditModal(card)');
-  const setIdx = init.indexOf("getElementById('visitDate'); if (vd) vd.value = dateVal");
-  assert.ok(openIdx !== -1 && setIdx !== -1 && setIdx > openIdx,
-    'the quick-FAB must set its date after openEditModal clears it, or the wizard date is lost');
+  const f = lift(init, 'visitQuickGo');
+  assert.ok(/sigma\.openVisitEditor\(\{ kibbutz: name, date: dateVal \}\)/.test(f),
+    'the quick-FAB field branch must forward kibbutz + date to sigma.openVisitEditor');
 });
 
 console.log('\n— visit ↔ EMS link is persisted —');
@@ -153,10 +154,9 @@ check('each visit line in the detail has its own edit control', () => {
 check('openVisitFromAttendance resolves the visit GLOBALLY, not just the open kibbutz', () => {
   const f = lift(att, 'openVisitFromAttendance');
   assert.ok(/loadAllVisitsCombined/.test(f), 'must look the visit up across all visits');
-  assert.ok(/openEditModal\(card\)/.test(f) && /editVisit\(String\(visitId\)\)/.test(f),
-    'must open the kibbutz card (fills currentKibbutzVisits) before handing to editVisit');
-  assert.ok(f.indexOf('openEditModal(card)') < f.indexOf('editVisit(String(visitId))'),
-    'editVisit reads currentKibbutzVisits, so the card must be opened first');
+  // round 5 V-L4b: the ONE door, sigma.openVisitEditor — never the legacy card/modal flow.
+  assert.ok(/sigma\.openVisitEditor\(\{ kibbutz: v\.kibbutz, visitId: String\(visitId\), mode: 'edit' \}\)/.test(f),
+    'must hand off to sigma.openVisitEditor in edit mode');
 });
 check('openVisitFromAttendance enforces the same permission rule as attendance edits', () => {
   const f = lift(att, 'openVisitFromAttendance');
@@ -164,10 +164,11 @@ check('openVisitFromAttendance enforces the same permission rule as attendance e
   // visit's visitors, not just a single v.visitor === equality (visitorsOf, V-L2 sweep).
   assert.ok(/visitorsOf\(v\)\.some\(canEditAttendanceOf\)/.test(f), 'must gate on every visit OWNER');
 });
-check('openVisitFromAttendance fails safely on a missing visit or missing kibbutz card', () => {
+check('openVisitFromAttendance fails safely on a missing visit or an unavailable editor', () => {
   const f = lift(att, 'openVisitFromAttendance');
   assert.ok(/if \(!v\) \{ alert/.test(f), 'unknown visit must alert, not throw');
-  assert.ok(/if \(!card\) \{ alert/.test(f), 'missing kibbutz card must alert, not throw');
+  assert.ok(/if \(!window\.sigma \|\| typeof window\.sigma\.openVisitEditor !== 'function'\) \{ alert/.test(f),
+    'a missing bridge must alert, not throw');
 });
 check('saving a visit patches the snapshot so נוכחות shows the new date immediately', () => {
   assert.ok(/SHEET_DATA\.visits\.find\(x => String\(x\.id\) === String\(savedId\)\)/.test(visits));

@@ -347,7 +347,10 @@
     try {
       if (act === 'approve' && oid && typeof approveOrder === 'function') { approveOrder(oid); }
       else if (act === 'order' && typeof showPage === 'function') { showPage('inventory'); }
-      else if (act === 'fillToday') { if (typeof showPage === 'function') showPage('attendance'); if (typeof openVisitQuick === 'function') openVisitQuick(); }
+      // Round 5 (V4: the attendance picker is gone from the visit flow) — a non-field day is filed
+      // on the attendance page itself now, so fillToday only gets him there; it no longer opens a
+      // visit picker.
+      else if (act === 'fillToday') { if (typeof showPage === 'function') showPage('attendance'); }
       else if (act === 'fillMissing') { if (typeof showPage === 'function') showPage('attendance'); }
       // 📋 פתח את הרשימה — the gaps nudge (spec §7h). The panel is the settings island's,
       // and it opens over whatever page the app landed on.
@@ -356,20 +359,12 @@
         else window.dispatchEvent(new CustomEvent('sigma-open-gaps'));
       }
       // ✍️ כתוב סיכום — the 2 h visit nudge (spec §5.2). One tap = the summary with the
-      // kibbutz already in it. §7p: that is the CHAPTERS sheet, resumed on the chapter he
-      // left; it is a lazy React chunk, so we wait a moment for it before falling back to
-      // the legacy form (which is still the right answer on a desk browser).
+      // kibbutz already in it. Round 5 V-L4b: sigma.openVisitEditor is the one door into the
+      // sheet and owns its own retry loop while the Field chunk is not up yet — never the
+      // legacy form.
       else if (act === 'visit') {
         if (typeof showPage === 'function') showPage('kibbutz');
-        var vTries = 0;
-        var vOpen = function () {
-          var ch = window.sigmaVisitChapters;
-          if (ch && typeof ch.open === 'function' && kibbutz) { ch.open(kibbutz); return; }
-          if (++vTries < 12) { setTimeout(vOpen, 250); return; }
-          if (window.sigma && typeof window.sigma.openVisitQuick === 'function') window.sigma.openVisitQuick(kibbutz);
-          else if (typeof openVisitQuick === 'function') openVisitQuick();
-        };
-        vOpen();
+        if (window.sigma && typeof window.sigma.openVisitEditor === 'function' && kibbutz) window.sigma.openVisitEditor({ kibbutz: kibbutz });
       }
       // ⏱ פתח את השעון — the 2 h timer nudge (עידן 22.9). One tap = the running clock's own
       // sheet on that kibbutz's card. The card is a React island rendered into the kibbutz

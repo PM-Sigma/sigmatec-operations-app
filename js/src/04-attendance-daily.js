@@ -454,20 +454,15 @@
 
   // ---- Open a field day's VISIT report for editing, straight from the נוכחות page ----
   // נוכחות is the hub: a field row is derived from a visit, so fixing the visit (usually its date)
-  // is what corrects the attendance report. editVisit() reads window.currentKibbutzVisits, which is
-  // only populated for the OPEN kibbutz card — so we resolve the visit globally, open its kibbutz
-  // card (that fills currentKibbutzVisits via renderLastVisit), then hand over to the normal editor.
+  // is what corrects the attendance report. Round 5 V-L4b: resolved globally (not just the open
+  // kibbutz card) and handed straight to sigma.openVisitEditor — never the legacy modal.
   function openVisitFromAttendance(visitId) {
     const all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : ((window.SHEET_DATA || {}).visits || []);
     const v = all.find(x => String(x.id) === String(visitId));
     if (!v) { alert('דוח הביקור לא נמצא. רענן את הדף ונסה שוב'); return; }
     if (!visitorsOf(v).some(canEditAttendanceOf)) { alert('אין לך הרשאה לערוך את הביקור של ' + (v.visitor || '—')); return; }
-    const card = document.querySelector('.kibbutz[data-name="' + String(v.kibbutz || '').replace(/"/g, '\\"') + '"]');
-    if (!card) { alert('הקיבוץ "' + (v.kibbutz || '—') + '" לא נמצא בכרטיסים, לא ניתן לפתוח את הביקור מכאן'); return; }
-    if (typeof openEditModal !== 'function' || typeof editVisit !== 'function') { alert('טופס הביקור לא זמין'); return; }
-    openEditModal(card);                 // fills currentKibbutzVisits + clears the (now default-less) date
-    if (typeof switchTab === 'function') switchTab('visit');
-    editVisit(String(visitId));           // prefills the form with THIS visit, incl. its real date
+    if (!window.sigma || typeof window.sigma.openVisitEditor !== 'function') { alert('טופס הביקור לא זמין'); return; }
+    window.sigma.openVisitEditor({ kibbutz: v.kibbutz, visitId: String(visitId), mode: 'edit' });
   }
 
   // yyyy-mm-dd from LOCAL date parts — toISOString() would shift the day across a timezone offset.

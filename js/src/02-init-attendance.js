@@ -240,7 +240,13 @@
     fab.addEventListener('pointercancel', end);
     // open on a real tap only; a drag sets moved=true → suppress (covers mouse click + keyboard Enter)
     fab.removeAttribute('onclick');
-    fab.addEventListener('click', function () { if (!moved) openVisitQuick(); moved = false; });
+    // Round 5 V-L4b: the FAB's new home is the arrival picker (sigmaField.openManual), never the
+    // legacy #visitQuickModal (the modal itself is package S's; V-U3 deletes it once nothing calls it).
+    fab.addEventListener('click', function () {
+      if (moved) { moved = false; return; }
+      if (window.sigmaField && typeof window.sigmaField.openManual === 'function') window.sigmaField.openManual();
+      else openVisitQuick();
+    });
     window.addEventListener('resize', function () { var r = fab.getBoundingClientRect(); place(r.left, r.top); });   // keep on-screen after rotate/resize
   }
   // js/app.js is loaded with `defer` (task 22b), so readyState is already 'interactive' when
@@ -308,18 +314,14 @@
       return;
     }
 
-    // Field day (or non-attendance user) → open the visit form for the chosen kibbutz
+    // Field day (or non-attendance user) → round 5 V-L4b: the ONE door, sigma.openVisitEditor,
+    // never the legacy modal/form.
     const name = document.getElementById('visitQuickKibbutz').value;
     if (!name) { alert('נא לבחור קיבוץ'); return; }
-    const card = document.querySelector('.kibbutz[data-name="' + name + '"]');
-    if (!card) { alert('קיבוץ לא נמצא'); return; }
     modalForceClose('visitQuickModal');
-    openEditModal(card);
-    switchTab('visit');
-    const visitorSel = document.getElementById('visitor');
-    if (visitorSel && me) { visitorSel.value = me; if (typeof onVisitorChange === 'function') onVisitorChange(me); }
-    if (isAtt && typeof setAviamDayType === 'function') setAviamDayType('field');
-    const vd = document.getElementById('visitDate'); if (vd) vd.value = dateVal;
+    if (window.sigma && typeof window.sigma.openVisitEditor === 'function') {
+      window.sigma.openVisitEditor({ kibbutz: name, date: dateVal });
+    }
   }
 
   function invShowTab(tab) {

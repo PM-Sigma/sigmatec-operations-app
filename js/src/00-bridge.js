@@ -394,34 +394,29 @@
       },
 
       // ---- visits + delivery certificates ------------------------------------
-      // With a kibbutz in hand this is ONE TAP: the visit form opens straight away with that
-      // kibbutz, no picker in between (spec §3.3 — "סיכום ביקור כבר מלחיצה על קיבוץ"). That
-      // also means switchTab('visit') — and with it the `visit-form-open` event the 🚚 quick
-      // action waits for — fires now, instead of only after the user confirms a picker.
-      // No name (the FAB) or no card for that name → the normal picker.
+      // Round 5 V-L4b: the ONE door into a visit summary, anywhere in the app — new, edit or cert.
+      // Never opens the legacy form. The Field chunk is a lazy React island, so this retries for
+      // 3 s (12 x 250 ms, the pattern 22-push.js's pushact=visit fallback used) before it gives up
+      // with a toast, instead of ever falling back to #modalBackdrop.
+      openVisitEditor: function (opts) {
+        opts = opts || {};
+        if (!opts.kibbutz) return false;
+        var tries = 0;
+        var go = function () {
+          var ch = window.sigmaVisitChapters;
+          if (ch && typeof ch.open === 'function') { ch.open(opts.kibbutz, opts); return; }
+          if (++tries < 12) { setTimeout(go, 250); return; }
+          if (window.sigma && typeof window.sigma.toast === 'function') window.sigma.toast('סיכום הביקור עוד נטען. אפשר לנסות שוב בעוד רגע.');
+        };
+        go();
+        return true;
+      },
+      // Every legacy caller of the old picker/form lands here now (spec blast-radius table):
+      // a kibbutz in hand → straight into the sheet; the FAB (no name) → the arrival picker.
       openVisitQuick: function (kibbutz) {
-        if (kibbutz) {
-          var esc = (window.CSS && CSS.escape) ? CSS.escape(kibbutz) : String(kibbutz).replace(/"/g, '\\"');
-          var card = document.querySelector('.kibbutz[data-name="' + esc + '"]');
-          if (card && typeof window.openEditModal === 'function') {
-            call('openEditModal', [card]);
-            call('switchTab', ['visit']);
-            var me = call('getCurrentUser', [], '');
-            var visitorSel = document.getElementById('visitor');
-            if (visitorSel && me) {
-              visitorSel.value = me;
-              if (typeof window.onVisitorChange === 'function') window.onVisitorChange(me);
-            }
-            try { localStorage.setItem('last_visit_kibbutz', kibbutz); } catch (e) { /* private mode */ }
-            return;
-          }
-        }
-        var r = call('openVisitQuick');
-        if (kibbutz) {
-          var sel = document.getElementById('visitQuickKibbutz');
-          if (sel) sel.value = kibbutz;
-        }
-        return r;
+        return kibbutz
+          ? window.sigma.openVisitEditor({ kibbutz: kibbutz })
+          : !!(window.sigmaField && window.sigmaField.openManual && window.sigmaField.openManual());
       },
       // The snapshot rows are camelCase (`openItems`); the briefing's VisitRow reads the table's
       // `open_items`. Hand both, or "נשאר פתוח מהביקור הקודם" never reaches the next visit.
@@ -509,6 +504,12 @@
       openDeliveryCert: function (pre) { return call('openDeliveryCert', [pre || {}]); },
       certFromVisitForm: function () { return call('certFromVisitForm'); },
       certFromVisit: function (visitId) { return call('certFromVisit', [visitId]); },
+
+      // Round 5 V-L4b: SHEET_DATA.returns as is — visitToChapters (app/src/lib/visitEdit.ts) reads
+      // a filed visit's own returned-equipment rows by visitId when the sheet opens in edit/cert mode.
+      visitReturnsRaw: function () {
+        try { return (window.SHEET_DATA && window.SHEET_DATA.returns) || []; } catch (e) { return []; }
+      },
 
       // ---- round 5 package V: apply the attendance plan a visit save produced ----------
       // app/src/lib/visitSave.ts builds the AttOp[] (app/src/lib/visitAttendance.ts planVisitAttendance);

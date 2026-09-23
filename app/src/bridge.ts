@@ -192,6 +192,14 @@ export interface Sigma {
   attApply?(ops: AttOp[]): Promise<{ ok: boolean; failed: number }>;
   /** `SHEET_DATA.attendance` as is, `source` included — the day's existing rows planVisitAttendance reads. */
   attRowsRaw?(): AttRow[];
+  /** `SHEET_DATA.returns` as is — visitToChapters reads a filed visit's own returns by visitId. */
+  visitReturnsRaw?(): Array<{ visitId: string; product: string; qty: number }>;
+  /**
+   * `openVisitEditor` (V-L4b): the one door into the sheet from anywhere legacy — new, edit or
+   * cert. Retries for 3 s while the Field chunk is not up yet (the `pushact=visit` pattern,
+   * js/src/22-push.js), then toasts instead of ever falling back to the legacy form.
+   */
+  openVisitEditor?(opts: { kibbutz: string; visitId?: string; mode?: 'new' | 'edit' | 'cert'; date?: string }): boolean;
 
   toast(msg: string, opts?: Record<string, unknown>): void;
 

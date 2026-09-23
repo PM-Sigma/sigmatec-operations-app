@@ -443,14 +443,14 @@
     box.style.display = 'block';
   }
 
+  // Round 5 V-L4b: editVisit/editLastVisit/editLastVisitFromStatus are one-line forwards into the
+  // ONE door, sigma.openVisitEditor (never the legacy form/modal below, which V-U3 deletes).
   function editLastVisit() {
-    if (!(window.currentKibbutzVisits || []).length) {
-      alert('אין ביקור שמור לקיבוץ הזה, אז אין מה לערוך. מלא סיכום ביקור חדש בטופס שמתחת.');
-      return;
-    }
-    const last = window.currentKibbutzVisits[0];
-    if (!last.id) { alert('הביקור הזה נשמר ללא ID, לא ניתן לערוך. נסה שוב אחרי שהדף סונכרן.'); return; }
-    editVisit(last.id);
+    var all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : [];
+    var mine = all.filter(function (v) { return v && v.kibbutz === window.currentKibbutz; })
+      .sort(function (a, b) { return String((b && b.date) || '').localeCompare(String((a && a.date) || '')); });
+    if (!mine.length) { alert('אין ביקור שמור לקיבוץ הזה, אז אין מה לערוך. מלא סיכום ביקור חדש.'); return; }
+    editVisit(mine[0].id);
   }
 
   /**
@@ -465,7 +465,6 @@
    * so it moves there first — otherwise the tap fills fields nobody can see.
    */
   function editLastVisitFromStatus() {
-    if (typeof switchTab === 'function') switchTab('visit');
     editLastVisit();
   }
   window.editLastVisitFromStatus = editLastVisitFromStatus;
@@ -486,31 +485,9 @@
   window.legacyVoiceIntakeHandoff = legacyVoiceIntakeHandoff;
 
   function editVisit(visitId) {
-    const visit = window.currentKibbutzVisits.find(v => v.id === visitId);
-    if (!visit) return;
-    // Mark editing FIRST so renderProductsForVisitor can include the visit's items
-    window.editingVisitId = visitId;
-    // Pre-fill form with this visit's data
-    document.getElementById('visitSummary').value = visit.summary || '';
-    const oi = document.getElementById('visitOpenItems');
-    if (oi) oi.value = visit.openItems || visit.open_items || '';
-    document.getElementById('visitProductsOther').value = visit.productsOther || '';
-    document.getElementById('visitContact').value = visit.contact || '';
-    document.getElementById('visitDuration').value = visit.workday ? '' : (visit.duration || '');
-    const wdEl = document.getElementById('visitWorkday');
-    if (wdEl) { wdEl.checked = !!visit.workday; toggleVisitWorkday(); }
-    syncVisitDurationChips();
-    document.getElementById('visitor').value = visit.visitor || '';
-    const d = visit.date ? new Date(visit.date) : new Date();
-    document.getElementById('visitDate').value =
-      d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    // Restore returned items from visit (if any)
-    visitReturnedItems = Array.isArray(visit.returnedItems) ? visit.returnedItems.slice() : [];
-    renderReturnedItems();
-    // Set source (auto by visitor) and re-render product list dynamically
-    onVisitorChange(visit.visitor || '');
-    switchTab('visit');
-    paintVisitCertStatus();
+    var all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : [];
+    var v = all.find(function (x) { return x && x.id === visitId; });
+    if (v && window.sigma) window.sigma.openVisitEditor({ kibbutz: v.kibbutz, visitId: visitId, mode: 'edit' });
   }
 
 

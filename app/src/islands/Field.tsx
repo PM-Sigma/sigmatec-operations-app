@@ -55,6 +55,7 @@ import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
 import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 // Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
 import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
+import { visitEditLocked, visitToChapters, type VisitRowLike } from '@/lib/visitEdit';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
 
@@ -551,6 +552,10 @@ export interface VisitChaptersOpen {
    * is asked before the kibbutz list, not guessed from the clock at write-up time.
    */
   date?: string;
+  /** Round 5 V-L4b: load a FILED visit instead of resuming a draft. */
+  visitId?: string;
+  /** 'new' (default) | 'edit' (loads visitId) | 'cert' (loads visitId, jumps to the cert screen). */
+  mode?: 'new' | 'edit' | 'cert';
 }
 
 /** The global the other islands (the strip's nudge, gaps, the push deep link) call. */
@@ -1092,6 +1097,12 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const [sentVisitId, setSentVisitId] = React.useState('');
   /** The id this sheet already filed. A second שלח on it does nothing at all. */
   const sentRef = React.useRef('');
+  // Round 5 V-L4b: `sigma.openVisitEditor({..., mode:'edit'|'cert'})` loaded a FILED visit rather
+  // than a resumed draft. `editing` turns persist() into a no-op (legacy behaviour: an edit writes
+  // no draft, 09-visits.js:705-706) and is what V-U1 reads to render the sheet's edit-mode chrome.
+  const [editing, setEditing] = React.useState(false);
+  /** Round 5 V20: the whole visit is past the edit-lock (app/src/lib/editLock.ts) — read-only. */
+  const [editLocked, setEditLocked] = React.useState(false);
 
   // The same query key the briefing uses, so this costs no extra request.
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: open });
@@ -1137,13 +1148,14 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const needReason = visitReasonRequired({ emsTaskIds: d.emsTaskIds, internalTaskIds: d.internalTaskIds });
 
   // Refs, so the autosave and the openers never read a stale render.
-  const ref = React.useRef({ model, draftId, kibbutz });
-  ref.current = { model, draftId, kibbutz };
+  const ref = React.useRef({ model, draftId, kibbutz, editing });
+  ref.current = { model, draftId, kibbutz, editing };
 
-  /** Write the draft NOW. The one persistence path — autosave and שמור וסגור share it. */
+  /** Write the draft NOW. The one persistence path — autosave and שמור וסגור share it. Editing a
+   *  filed visit (V-L4b) writes NO draft — legacy behaviour, 09-visits.js:705-706. */
   const persist = React.useCallback((patch: Partial<ChapterDraft> = {}) => {
     const cur = ref.current;
-    if (!cur.kibbutz) return;
+    if (!cur.kibbutz || cur.editing) return;
     const payload = { ...cur.model, ...patch } as Record<string, unknown>;
     if (!chapterDraftHasContent(payload as ChapterDraft)) return;   // an untouched sheet leaves nothing
     try {
@@ -1200,6 +1212,34 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const openOn = React.useCallback((name: string, opts: VisitChaptersOpen = {}) => {
     const k = String(name || '').trim();
     if (!k) return;
+
+    // Round 5 V-L4b: `edit`/`cert` load the FILED visit instead of resuming a draft (visitToChapters,
+    // app/src/lib/visitEdit.ts). While editing, `persist` writes no draft (legacy behaviour kept,
+    // 09-visits.js:705-706) — an edit's unsaved changes are covered by the close-prompt only.
+    if (opts.visitId && (opts.mode === 'edit' || opts.mode === 'cert')) {
+      const all = (sigma.loadAllVisitsCombined?.() as VisitRow[]) || [];
+      const v = all.find(x => String((x as { id?: string }).id) === opts.visitId);
+      if (!v) { toast.error('הביקור לא נמצא'); return; }
+      const returns = (sigma.visitReturnsRaw?.() as Array<{ visitId: string; product: string; qty: number }>) || [];
+      const draft = visitToChapters(v as unknown as VisitRowLike, returns, VISIT_REASONS);
+      setKibbutz(k);
+      setD(draft as unknown as ChapterDraft);
+      setCertNum(0);
+      setMiss([]);
+      setSentVisitId(opts.mode === 'cert' ? opts.visitId : '');
+      sentRef.current = '';
+      setDraftId(opts.visitId);
+      setJump(opts.mode === 'cert' ? 4 : (opts.chapter ?? 0));
+      setResumedAt('');
+      setEditing(true);
+      setEditLocked(visitEditLocked({ date: (v as { date?: string }).date || '' }));
+      setOpen(true);
+      track('visit-chapters-open', k);
+      return;
+    }
+
+    setEditing(false);
+    setEditLocked(false);
     let row: { id?: string; updated_at?: string; payload?: Record<string, unknown> } | null = null;
     try { row = (sigma.visitDraftFor?.(k, me, today) as any) || null; } catch { row = null; }
     const stored = (row?.payload || {}) as ChapterDraft;
