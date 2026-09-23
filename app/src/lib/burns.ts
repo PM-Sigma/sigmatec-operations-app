@@ -301,3 +301,167 @@ export function burnWarnings(r: BurnRow): string[] {
   if (isCT(r) && (!r.ct_ratio || Number(r.ct_ratio) === 1)) w.push('🔴 יחס CT חסר ב-EMS');
   return w;
 }
+
+// ───────────────────────── the full table (G-L1: ported from 24-meter-burns.js) ─────────────────────────
+//
+// The table page's own filter / sort / group / xlsx rules, line-for-line translated from the
+// legacy PURE block (24-meter-burns.js:15-155) so `burnsParity.test.ts` can pin them against the
+// unchanged legacy file before it is deleted (G-U4).
+
+export interface BurnFilter { site?: string; status?: 'all' | 'pending' | 'burned' | 'issue'; kind?: 'all' | 'CT' | 'PP'; q?: string }
+export interface BurnSiteGroup { site: string; rows: BurnRow[]; total: number; pending: number; burned: number; issue: number; ct: number; pp: number }
+export interface XlsxColumn { header: string; type: 's' | 'd'; width: number }
+export interface XlsxSheet { sheet: string; columns: XlsxColumn[]; rows: unknown[][]; groupKeys: string[] }
+export interface XlsxSpec { sheet: string; sheets: XlsxSheet[]; columns: XlsxColumn[]; rows: unknown[][]; groupKeys: number[] }
+
+/** The legacy `B.xs`: strip bidi marks, collapse newlines, trim. */
+export function burnStripMarks(v: unknown): string {
+  return String(v == null ? '' : v).replace(/[‎‏‪-‮]/g, '').replace(/\r?\n/g, ' ').trim();
+}
+
+const norm = (s: unknown) => String(s == null ? '' : s).toLowerCase().replace(/\s+/g, ' ').trim();
+const STATE_ORDER: Record<string, number> = { pending: 0, issue: 1, burned: 2 };
+
+export function burnMatches(r: BurnRow, q: string, gens: GeneratorRow[] = []): boolean {
+  const nq = norm(q); if (!nq) return true;
+  const gen = gens.find(g => g.id === r.generator_id);
+  return norm([r.site, r.serial, r.address, r.solar_names, gen && gen.name].join(' ')).includes(nq);
+}
+
+export function filterBurnRows(rows: BurnRow[], f: BurnFilter = {}, gens: GeneratorRow[] = []): BurnRow[] {
+  return rows.filter(r => {
+    if (f.site && r.site !== f.site) return false;
+    if (f.status && f.status !== 'all' && r.status !== f.status) return false;
+    if (f.kind === 'CT' && !isCT(r)) return false;
+    if (f.kind === 'PP' && isCT(r)) return false;
+    return burnMatches(r, f.q || '', gens);
+  });
+}
+
+export function sortBurnRows(rows: BurnRow[]): BurnRow[] {
+  return rows.slice().sort((a, b) =>
+    ((STATE_ORDER[String(a.status || 'pending')] || 0) - (STATE_ORDER[String(b.status || 'pending')] || 0))
+    || ((isCT(a) ? 0 : 1) - (isCT(b) ? 0 : 1))
+    || String(a.serial).localeCompare(String(b.serial)));
+}
+
+export function groupBurnsBySite(rows: BurnRow[]): BurnSiteGroup[] {
+  const by: Record<string, BurnSiteGroup> = {};
+  for (const r of rows) {
+    const k = r.site ?? '';
+    const g = by[k] ??= { site: k, rows: [], total: 0, pending: 0, burned: 0, issue: 0, ct: 0, pp: 0 };
+    g.rows.push(r); g.total++;
+    if (r.status === 'pending' || r.status === 'burned' || r.status === 'issue') (g as any)[r.status]++;
+    if (isCT(r)) g.ct++; else g.pp++;
+  }
+  return Object.values(by).map(g => ({ ...g, rows: sortBurnRows(g.rows) }))
+    .sort((a, b) => (b.pending - a.pending) || a.site.localeCompare(b.site, 'he'));
+}
+
+/** Rows of ONE site, grouped by generator (unassigned last), each group's rows already sorted. */
+export function groupBurnsByGenerator(rows: BurnRow[], gens: GeneratorRow[]): Array<{ gen: GeneratorRow | null; rows: BurnRow[] }> {
+  const byId: Record<string, GeneratorRow> = {};
+  for (const g of gens || []) byId[g.id] = g;
+  const groups: Record<string, { gen: GeneratorRow | null; rows: BurnRow[] }> = {};
+  const order: string[] = [];
+  for (const r of sortBurnRows(rows)) {
+    const key = r.generator_id && byId[r.generator_id] ? r.generator_id : '';
+    if (!groups[key]) { groups[key] = { gen: key ? byId[key] : null, rows: [] }; order.push(key); }
+    groups[key].rows.push(r);
+  }
+  return order
+    .sort((a, b) => ((a === '' ? 1 : 0) - (b === '' ? 1 : 0)) || byId[a].name.localeCompare(byId[b].name, 'he'))
+    .map(k => groups[k]);
+}
+
+const xlsxColumns: XlsxColumn[] = [
+  { header: "מס' מונה", type: 's', width: 12 }, { header: 'סוג מונה', type: 's', width: 14 },
+  { header: 'כתובת', type: 's', width: 26 }, { header: 'שם המערכת', type: 's', width: 26 },
+  { header: 'גנרטור', type: 's', width: 14 }, { header: 'סטטוס', type: 's', width: 24 },
+  { header: 'נצרב ע"י', type: 's', width: 10 }, { header: 'תאריך צריבה', type: 'd', width: 12 }, { header: 'הערה', type: 's', width: 24 },
+];
+
+function xlsxRow(r: BurnRow, byId: Record<string, GeneratorRow>): unknown[] {
+  const gen = r.generator_id ? byId[r.generator_id] : undefined;
+  return [
+    burnStripMarks(r.serial), burnKindLabel(r).replace(/^[^\s]+\s/, ''), burnStripMarks(r.address), burnStripMarks(r.solar_names),
+    burnStripMarks(gen ? gen.name : ''), burnStateLabel(r).replace(/^[^\s]+\s/, ''), burnStripMarks(r.burned_by),
+    r.burned_at ? (d => new Date(d.getFullYear(), d.getMonth(), d.getDate()))(new Date(r.burned_at)) : null,
+    burnStripMarks(r.note),
+  ];
+}
+
+/** One sheet per kibbutz, every meter of it — the shape `xlDownload` expects (`lib/hours.ts:134`). */
+export function burnXlsxSpec(rows: BurnRow[], gens: GeneratorRow[]): XlsxSpec {
+  const byId: Record<string, GeneratorRow> = {};
+  for (const g of gens || []) byId[g.id] = g;
+  const sheets: XlsxSheet[] = [];
+  const all: unknown[][] = [];
+  const keys: number[] = [];
+  groupBurnsBySite(rows).forEach((g, gi) => {
+    const sorted = sortBurnRows(g.rows);
+    sheets.push({ sheet: g.site || 'ללא קיבוץ', columns: xlsxColumns, rows: sorted.map(r => xlsxRow(r, byId)), groupKeys: sorted.map(burnVisual) });
+    for (const r of sorted) { all.push(xlsxRow(r, byId)); keys.push(gi); }
+  });
+  return { sheet: 'צריבות', sheets, columns: xlsxColumns, rows: all, groupKeys: keys };
+}
+
+/** One row per generator — kibbutz, name, its serial, how many meters point at it. */
+export function burnGenSummary(gens: GeneratorRow[], rows: BurnRow[]): Array<{ id: string; site: string; name: string; device_serial: string; count: number }> {
+  const cnt: Record<string, number> = {};
+  for (const r of rows || []) if (r.generator_id) cnt[r.generator_id] = (cnt[r.generator_id] || 0) + 1;
+  return (gens || []).map(g => ({ id: g.id, site: g.site, name: g.name, device_serial: g.device_serial || '', count: cnt[g.id] || 0 }))
+    .sort((a, b) => a.site.localeCompare(b.site, 'he') || a.name.localeCompare(b.name, 'he'));
+}
+
+// ── EMS live refresh (spec §7): raw EMS /meters + /solars payloads → the EMS-owned columns ──
+
+/** `meter_types.key` looks like 'landis_e360pp' (or name 'Landis E360PP') → 'E360PP' | null. */
+export function emsMeterType(m: any): 'E360PP' | 'E360SP' | 'E360CT' | null {
+  const k = String((m && m.type && (m.type.key || m.type.name)) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const x = /E360(PP|SP|CT)/.exec(k);
+  return x ? ('E360' + x[1]) as 'E360PP' | 'E360SP' | 'E360CT' : null;
+}
+
+/** Meter id → 'שם · שם' (deduped, he-sorted), from `solar.solarMeters[].meter.id`. */
+export function emsSolarNames(solars: any[]): Record<string, string> {
+  const by: Record<string, string[]> = {};
+  for (const s of solars || []) {
+    for (const sm of (s && s.solarMeters) || []) {
+      const id = sm && sm.meter && sm.meter.id;
+      if (!id || !s.name) continue;
+      (by[id] = by[id] || []).push(String(s.name).trim());
+    }
+  }
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(by)) {
+    out[k] = by[k].filter((v, i, a) => v && a.indexOf(v) === i).sort((a, b) => a.localeCompare(b, 'he')).join(' · ');
+  }
+  return out;
+}
+
+export function emsToBurnRows(meters: any[], solars: any[]): { rows: Array<Partial<BurnRow> & { site_id?: string | null; role_code?: number | null }>; skipped: number } {
+  const names = emsSolarNames(solars);
+  const rows: Array<Partial<BurnRow> & { site_id?: string | null; role_code?: number | null }> = [];
+  let skipped = 0;
+  for (const m of meters || []) {
+    const t = emsMeterType(m);
+    if (!t || !m.id || !m.serialNumber || !(m.site && m.site.name)) { skipped++; continue; }
+    rows.push({
+      meter_id: m.id, serial: String(m.serialNumber), site: String(m.site.name).trim(), site_id: m.site.id || null, meter_type: t,
+      address: m.address || null, role_code: m.role && m.role.code != null ? Number(m.role.code) : null,
+      ct_ratio: m.currentMultiplier != null ? Number(m.currentMultiplier) : null,
+      parent_serial: m.parent && m.parent.serialNumber ? String(m.parent.serialNumber) : null,
+      solar_names: names[m.id] || null,
+    });
+  }
+  return { rows, skipped };
+}
+
+/** EMS `/meters?search=` hits → `[{serial, label}]` for the generator picker. */
+export function emsHitLines(items: any[]): Array<{ serial: string; label: string }> {
+  return (Array.isArray(items) ? items : []).filter(m => m && m.serialNumber).map(m => ({
+    serial: String(m.serialNumber),
+    label: String(m.serialNumber) + ' · ' + (m.address || '—') + (m.site && m.site.name ? ' · ' + m.site.name : '') + (m.type && m.type.name ? ' · ' + m.type.name : ''),
+  }));
+}
