@@ -1289,7 +1289,10 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
           // C6: the column may not exist yet (db/visits_reason.sql is not applied) — the legacy
           // writer drops unknown keys rather than failing, so a missing column costs a reason.
           reason: needReason ? visitReasonText(cur.model.reasonId, cur.model.reasonOther) : '',
-          emsTaskId: emsIds[0] || '',
+          // C6: every selected EMS task gets the summary as a comment, posted by the legacy
+          // pipeline (pushVisitToEms, the form's own writer), so there is one chain, not two.
+          emsTaskIds: emsIds,
+          emsComment: true,
           // C7: the certificate comes AFTER the save on this sheet, so the pre-save gate is off.
           certAfter: true,
         }) ?? Promise.resolve({ ok: false, error: 'שמירת ביקור אינה זמינה' })),
@@ -1306,14 +1309,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         set({ submittedId: visitId });
         track('visit-chapters-send', cur.kibbutz);
 
-        // C6: the summary is posted as a comment to EVERY selected EMS task (the first one is
-        // already carried by `emsTaskId`; the rest go through the same queueing writer).
-        const body = (cur.model.summary || '').trim();
-        for (const id of emsIds.slice(1)) {
-          try { sigma.emsWrite?.({ kind: 'comment', taskId: id, message: '📍 סיכום ביקור ' + cur.kibbutz + '\n' + body }); }
-          catch (e) { console.warn('[visit-chapters] ems comment', e); }
-        }
-        // … and every selected internal task is marked done.
+        // The EMS comments went out inside saveVisitFromData (`emsComment` above). Every selected
+        // internal task is marked done here.
         if (internalIds.length) {
           try {
             const sb = await getSupabase();

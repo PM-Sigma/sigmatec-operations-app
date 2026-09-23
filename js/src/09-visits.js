@@ -121,6 +121,29 @@
       body: JSON.stringify({ kibbutz: kibbutz, name: name, active: true })
     }).then(function () { _visitContacts.push(name); }).catch(function () { /* next time */ });
   }
+  // The chapters sheet / day log have no chip list of their own loaded here (`_visitContacts`
+  // belongs to the legacy form's kibbutz), so ask the table first and add only a new name.
+  // Best effort: an unreadable list means "don't risk a duplicate", never a blocked save.
+  async function visitContactEnsure(kibbutz, name) {
+    kibbutz = String(kibbutz || '').trim(); name = String(name || '').trim();
+    if (!kibbutz || !name) return false;
+    var tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
+    if (!tok || typeof SB_URL === 'undefined' || typeof window._sbCertGet !== 'function') return false;
+    var known;
+    try {
+      known = ((await window._sbCertGet('site_contacts?select=name&kibbutz=eq.' + encodeURIComponent(kibbutz))) || [])
+        .map(function (r) { return String((r && r.name) || '').trim(); });
+    } catch (e) { return false; }
+    if (known.indexOf(name) !== -1) return false;
+    try {
+      await fetch(SB_URL + '/rest/v1/site_contacts', {
+        method: 'POST', headers: { apikey: SB_ANON, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+        body: JSON.stringify({ kibbutz: kibbutz, name: name, active: true })
+      });
+      return true;
+    } catch (e) { return false; }
+  }
+  window.visitContactEnsure = visitContactEnsure;
   window.visitContactsRender = visitContactsRender;
   window.visitContactPick = visitContactPick;
   window.visitContactTyped = visitContactTyped;
@@ -1096,7 +1119,7 @@
           const sv = window.SHEET_DATA.visits.find(x => String(x.id) === String(savedId));
           const patch = { kibbutz: visit.kibbutz, date: visit.date, visitor: visit.visitor, duration: visit.duration,
                           contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
-                          summary: visit.summary, workday: visit.workday };
+                          summary: visit.summary, openItems: visit.openItems, workday: visit.workday };
           if (sv) Object.assign(sv, patch);
           else window.SHEET_DATA.visits.push(Object.assign({ id: String(savedId), emsTaskId: reqBody.emsTaskId || '' }, patch));
           if (reqBody.emsTaskId && sv) sv.emsTaskId = reqBody.emsTaskId;
@@ -1226,7 +1249,12 @@
     // opt out with `certAfter: true`. Every other caller (📝 יומן היום, the legacy form) keeps the
     // gate exactly as it was: equipment supplied → an issued certificate linked to this visit.
     const id = String(d.id || '') || ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
-    if (products.length && !d.certAfter) {
+    // Idempotency (visit-summary chain spec 23.9): an id that is ALREADY a filed visit is an
+    // edit or a retry, never a second visit. Stock then moves by the delta only, returns are not
+    // re-inserted, and a linked EMS task gets the "what changed" note instead of a second summary.
+    const prior = ((window.SHEET_DATA && window.SHEET_DATA.visits) || []).find(v => v && String(v.id) === id) || null;
+    const isEdit = !!prior;
+    if (products.length && !d.certAfter && !isEdit) {
       const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(id) : 0;
       if (!certNum) return { ok: false, error: 'סופק ציוד, נדרשת תעודת משלוח לפני שמירת הסיכום', needsCert: true, visitId: id };
     }
@@ -1258,9 +1286,18 @@
       contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
       returnedItems: visit.returnedItems, summary: visit.summary, openItems: visit.openItems,
       workday: visit.workday, reason: visit.reason,
-      id: id, isNew: true
+      id: id, isNew: !isEdit
     };
-    if (d.emsTaskId) reqBody.emsTaskId = String(d.emsTaskId);
+    // Returns are rows of their own (writeVisit inserts them) — sending them again on an edit or a
+    // retry would book the same returned meter twice.
+    if (isEdit) reqBody.returnedItems = [];
+    // Every EMS task this summary reports on. `emsTaskIds` is the chapters sheet's multi-select
+    // (round 2 · C6); `emsTaskId` alone is the day log's single match. The first is the visit's link.
+    const emsIds = [];
+    [].concat(d.emsTaskIds || [], d.emsTaskId ? [d.emsTaskId] : []).forEach(function (t) {
+      const s = String(t || '').trim(); if (s && emsIds.indexOf(s) === -1) emsIds.push(s);
+    });
+    if (emsIds.length) reqBody.emsTaskId = emsIds[0];
 
     let res;
     try {
@@ -1276,18 +1313,24 @@
     try { saveAllVisits(loadAllVisits()); } catch (e) {}
     const savedId = res.id || id;
 
-    // Keep the in-memory snapshot honest immediately — the cards and the נוכחות report read it
-    // long before refreshData() lands.
+    // Keep the in-memory snapshot honest immediately — the cards, the נוכחות report (field days
+    // are DERIVED from these rows, attendance.ts withVisitDays) and the next briefing's "נשאר
+    // פתוח" read it long before refreshData() lands. An edit patches its row in place.
+    const priorSnap = prior ? JSON.parse(JSON.stringify(prior)) : null;
     try {
       if (window.SHEET_DATA && Array.isArray(window.SHEET_DATA.visits)) {
-        window.SHEET_DATA.visits.push({
-          id: String(savedId), emsTaskId: reqBody.emsTaskId || '',
+        const patch = {
           kibbutz: visit.kibbutz, date: visit.date, visitor: visit.visitor, duration: visit.duration,
           contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
-          summary: visit.summary, workday: visit.workday
-        });
+          summary: visit.summary, openItems: visit.openItems, reason: visit.reason, workday: visit.workday
+        };
+        if (prior) { Object.assign(prior, patch); if (reqBody.emsTaskId) prior.emsTaskId = reqBody.emsTaskId; }
+        else window.SHEET_DATA.visits.push(Object.assign({ id: String(savedId), emsTaskId: reqBody.emsTaskId || '' }, patch));
       }
     } catch (e) {}
+
+    // איש קשר מלווה who is new to this kibbutz joins its contacts (round 1 · J5), like the form.
+    if (visit.contact) { try { visitContactEnsure(kibbutz, visit.contact); } catch (e) { /* offline */ } }
 
     // Stock: the supply leaves the ONE company pool — the same default `onVisitorChange` puts in
     // the form's מלאי מקור picker (inventory spec §1).
@@ -1297,16 +1340,44 @@
     // stock out of a personal bag that stopped existing in §1, and the quantity simply vanished
     // from poolStock(). There is one source, and the client does not get to name it.
     const source = POOL_LOCATION;
-    const moves = products.map(p => fetch(SHEET_API, {
+    // New visit → the full supply. Edit / retry → only the delta against what was filed, so
+    // saving the same visit twice never takes the meters off the pool twice.
+    const oldMap = {}, newMap = {};
+    ((priorSnap && priorSnap.products) || []).forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
+    products.forEach(p => { newMap[p.name] = (newMap[p.name] || 0) + p.qty; });
+    const moves = [];
+    const move = (product, from, to, qty, why) => moves.push(fetch(SHEET_API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'movement', product: p.name, fromLocation: source, toLocation: kibbutz, quantity: p.qty, reason: 'visit_supply', refId: savedId, createdBy: visitor })
+      body: JSON.stringify({ type: 'movement', product: product, fromLocation: from, toLocation: to, quantity: qty, reason: why, refId: savedId, createdBy: visitor })
     }).catch(e => console.warn('Movement failed:', e)));
-    if (moves.length) { try { await Promise.all(moves); } catch (e) {} }
+    new Set([...Object.keys(oldMap), ...Object.keys(newMap)]).forEach(name => {
+      const delta = (newMap[name] || 0) - (oldMap[name] || 0);
+      if (delta > 0) move(name, source, kibbutz, delta, isEdit ? 'visit_supply_edit' : 'visit_supply');
+      else if (delta < 0) move(name, kibbutz, source, -delta, 'visit_supply_edit');
+    });
+    if (moves.length) {
+      try { await Promise.all(moves); } catch (e) {}
+      if (typeof sigmaEmit === 'function') sigmaEmit('stock-changed', { source: 'visit', kibbutz: kibbutz });
+    }
     setTimeout(refreshData, 1500);
+
+    // EMS (round 2 · C6): the summary is a COMMENT on every selected task — the same writer the
+    // legacy form uses (pushVisitToEms → emsWriteOrQueue, so no connection means "sent later").
+    // Only on `emsComment`: the day log posts its own per-task sentence and must not get two.
+    // On an edit, the task the visit was already reporting on gets the "what changed" note.
+    if (d.emsComment) {
+      try {
+        const linked = String((priorSnap && priorSnap.emsTaskId) || '');
+        if (isEdit && linked && typeof pushVisitEditToEms === 'function') pushVisitEditToEms(linked, priorSnap, visit);
+        if (visit.summary && typeof pushVisitToEms === 'function') {
+          emsIds.filter(t => !(isEdit && t === linked)).forEach(t => { pushVisitToEms(kibbutz, visit, { taskId: t }); });
+        }
+      } catch (e) { console.warn('EMS visit push failed', e); }
+    }
 
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-saved', { kibbutz: visit.kibbutz });
     if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz, 'daylog');
-    return { ok: true, id: String(savedId) };
+    return { ok: true, id: String(savedId), edited: isEdit };
   }
   window.saveVisitFromData = saveVisitFromData;
 

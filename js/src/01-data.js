@@ -581,7 +581,7 @@
         tasks: tasks.map(t => ({ row: t.seq, code: t.code == null ? null : numish(t.code), region: t.region || '', migrated: t.migrated || '', name: t.name || '', status: t.status || '', expectedTask: t.expected_task || '', owners: String(t.owners || '').split(/[,\n\/]/).map(s => s.trim()).filter(Boolean), task: t.task || '', lastCheckup: t.last_checkup || '', editor: t.editor || '', lastModified: t.last_modified ? String(t.last_modified) : '' })),
         potentials: potentials.map(p => ({ serial: (p.serial === '' || p.serial == null) ? '' : numish(p.serial), region: p.region || '', name: p.name || '' })),
         regions: regionsObj,
-        visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', createdAt: v.created_at || '', workday: !!v.workday, emsTaskId: v.ems_task_id || '' })),
+        visits: visits.map(v => ({ id: String(v.id), kibbutz: v.kibbutz || '', date: v.date || '', visitor: v.visitor || '', duration: parseFloat(v.duration) || 0, contact: v.contact || '', products: v.products || [], productsOther: v.products_other || '', summary: v.summary || '', openItems: v.open_items || '', reason: v.reason || '', createdAt: v.created_at || '', workday: !!v.workday, emsTaskId: v.ems_task_id || '' })),
         products: products.map(p => ({ id: String(p.id), name: p.name || '', category: p.category || '', active: !!p.active, createdAt: p.created_at ? String(p.created_at) : '', createdBy: p.created_by || '' })),
         orders: orders.map(o => ({ id: String(o.id), createdAt: o.created_at || '', createdBy: o.created_by || '', supplier: o.supplier || '', status: o.status || 'pending', items: o.items || [], expectedDate: o.expected_date || '', notes: o.notes || '', deliveredAt: o.delivered_at || '', distribution: o.distribution || {}, orderType: o.order_type || '', kibbutz: o.kibbutz || '', assignee: o.assignee || '', lastUpdated: o.last_updated ? String(o.last_updated) : '' })),
         movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
@@ -611,7 +611,15 @@
       // omits the key entirely, so the upsert-merge keeps whatever task the visit was already tied to
       // instead of blanking it (same partial-safe reasoning as created_at above).
       if (b.emsTaskId !== undefined) row.ems_task_id = b.emsTaskId || '';
-      await sbUpsert('visits', 'id', row);
+      // סיבת הביקור (round 2 · C6). db/visits_reason.sql may not be applied yet: a missing column
+      // (42703 / PGRST204) retries without it — it costs the reason, never the visit.
+      if (b.reason) row.reason = String(b.reason);
+      try { await sbUpsert('visits', 'id', row); }
+      catch (e) {
+        if (!row.reason || !/42703|PGRST204|reason/.test(String(e && e.message))) throw e;
+        delete row.reason;
+        await sbUpsert('visits', 'id', row);
+      }
       if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
         const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: it.toStock ? 'restocked' : 'open' }));
         if (rows.length) await sbInsert('returns', rows);

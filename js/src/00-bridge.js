@@ -388,7 +388,13 @@
         }
         return r;
       },
-      getLastVisit: function (kibbutz) { return call('getLastVisit', [kibbutz], null); },
+      // The snapshot rows are camelCase (`openItems`); the briefing's VisitRow reads the table's
+      // `open_items`. Hand both, or "נשאר פתוח מהביקור הקודם" never reaches the next visit.
+      getLastVisit: function (kibbutz) {
+        var v = call('getLastVisit', [kibbutz], null);
+        if (!v) return v;
+        return Object.assign({}, v, { open_items: v.open_items || v.openItems || '' });
+      },
 
       // ---- 📦 מלאי אחוד (inventory spec §1, §4b) ---------------------------------
       // The ONE pool, as `{product: qty}` — the same map js/src/08-inventory.js renders. The

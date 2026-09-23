@@ -454,3 +454,41 @@ test('visit chapters: ציוד שסופק is the 3-column tile grid, same as the
   await shot(page, ti, 'tiles');
   expectNoConsoleErrors(rec);
 });
+
+// Visit-summary chain (spec 2026-09-23): the ONE EMS task he picked gets the summary as a
+// comment. Before the fix the chapters sheet stored the link and posted a comment only to the
+// SECOND and later tasks, so the usual single pick reached EMS as nothing at all.
+test('chain: a picked EMS task gets the summary as a comment, exactly once', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.emsCacheTasksForKibbutz = (k: string) => (k === 'חוקוק' ? [{ id: 'T-77', title: 'בדיקת תקשורת', status: 'open' }] : []);
+  });
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  const sheet = page.getByTestId('visit-chapters');
+  await expect(sheet).toBeVisible();
+
+  await page.getByTestId('vc-summary').fill('הוחלף מונה ונבדקה תקשורת');
+  await page.getByTestId('vc-hours-2').click();
+  await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
+  await page.getByTestId('vc-ems-T-77').click();
+  await expect(page.getByTestId('vc-reasons')).toHaveCount(0);
+  await page.getByTestId('vc-send').dblclick();
+  await expect(sheet).toBeHidden({ timeout: 15_000 });
+
+  const visits = await posted(page, 'visit');
+  expect(visits).toHaveLength(1);
+  expect(visits[0].emsTaskId, 'the visit remembers its task').toBe('T-77');
+  // No EMS login in mock mode → the comment goes to the queue (sent at the next connect).
+  await expect.poll(async () => (await posted(page, 'emsQueueAdd'))
+    .filter(q => q.item && q.item.kind === 'comment' && q.item.taskId === 'T-77').length, { timeout: 10_000 }).toBe(1);
+  const [q] = (await posted(page, 'emsQueueAdd')).filter(x => x.item.taskId === 'T-77');
+  expect(q.item.message).toContain('הוחלף מונה');
+  expect(q.item.message).toContain('יוסי מהמחלבה');
+
+  expectNoConsoleErrors(rec);
+});
