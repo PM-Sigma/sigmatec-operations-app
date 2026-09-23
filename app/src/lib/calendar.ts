@@ -786,8 +786,154 @@ export function scheduleTasksPlan(tasks: CalEmsTask[], date: string): SchedulePl
     patches,
     undo,
     count,
-    message: count === 1 ? 'משימה אחת נקבעה ל' + heShort(date) : count + ' משימות נקבעו ל' + heShort(date),
+    message: count === 1 ? 'משימה אחת נקבעה ל-' + heShort(date) : count + ' משימות נקבעו ל-' + heShort(date),
   };
+}
+
+// ───────────────────────────── kibbutz blocks (round 5 · C1) ─────────────────────────────
+//
+// A future day offers the person's open work grouped by the place he'd drive to. Picking a
+// block does BOTH things the ruling asks for: the kibbutz becomes a planned stop that day,
+// and the tasks he ticked in it get that date. One tap, one undo.
+
+export interface BlockTask {
+  /** 'ems:<id>' | 'internal:<id>' — an EMS id and an internal uuid may never collide in a Set. */
+  key: string;
+  id: string;
+  kind: 'ems' | 'internal';
+  title: string;
+  owner: string | null;
+  /** 'YYYY-MM-DD' or '' for no date. */
+  due: string;
+  onThisDay: boolean;
+  overdue: boolean;
+}
+
+export interface KibbutzBlock { kibbutz: string; placed: boolean; tasks: BlockTask[] }
+
+export interface BlockInput {
+  date: string;
+  today: string;
+  /** From `taskOwners` — whose tasks fill the blocks. */
+  owners: string[];
+  emsTasks?: CalEmsTask[];
+  internalTasks?: CalInternalTask[];
+  /** The day's saved route (`stopsOrder(day_plans.stops)`). */
+  stops?: string[];
+}
+
+function cleanStops(stops: string[] | null | undefined): string[] {
+  const out: string[] = [];
+  for (const s of stops || []) {
+    const name = String(s || '').trim();
+    if (name && out.indexOf(name) === -1) out.push(name);
+  }
+  return out;
+}
+
+function ownedByAny(name: string | null, owners: string[]): boolean {
+  return owners.some(o => isMine(name, o));
+}
+
+export function planBlocks(i: BlockInput): KibbutzBlock[] {
+  if (!canPlanDay(i.date, i.today) || !i.owners.length) return [];
+  const map = new Map<string, BlockTask[]>();
+  const add = (kibbutz: string, t: BlockTask) => {
+    const list = map.get(kibbutz);
+    if (list) list.push(t); else map.set(kibbutz, [t]);
+  };
+  const task = (kind: 'ems' | 'internal', id: string, title: string, owner: string | null, due: string): BlockTask => ({
+    key: kind + ':' + id, id, kind, title, owner, due,
+    onThisDay: due === i.date,
+    overdue: !!due && due < i.today,
+  });
+
+  for (const t of i.emsTasks || []) {
+    if (!t || !t.id) continue;
+    if (t.status && CLOSED.indexOf(t.status) !== -1) continue;
+    const kibbutz = String((t.site && t.site.name) || '').trim();
+    const who = personName(t.assignee);
+    if (!kibbutz || !ownedByAny(who, i.owners)) continue;
+    add(kibbutz, task('ems', t.id, t.title || 'משימה', who, toKey(t.expectedCompletionDate)));
+  }
+  for (const r of i.internalTasks || []) {
+    if (!r || !r.id || r.done) continue;
+    const kibbutz = String(r.kibbutz || '').trim();
+    const who = String(r.owner || '').trim() || null;
+    if (!kibbutz || !ownedByAny(who, i.owners)) continue;
+    add(kibbutz, task('internal', r.id, r.title || 'משימה פנימית', who, toKey(r.due_date)));
+  }
+
+  const stops = cleanStops(i.stops);
+  for (const s of stops) if (!map.has(s)) map.set(s, []);
+  const byDebt = (a: BlockTask, b: BlockTask) =>
+    Number(b.overdue) - Number(a.overdue)
+    || (a.due || '9999-99-99').localeCompare(b.due || '9999-99-99')
+    || a.title.localeCompare(b.title, 'he');
+  const blocks: KibbutzBlock[] = [];
+  for (const [kibbutz, tasks] of map) {
+    blocks.push({ kibbutz, placed: stops.indexOf(kibbutz) !== -1, tasks: tasks.sort(byDebt) });
+  }
+  blocks.sort((a, b) => {
+    if (a.placed !== b.placed) return a.placed ? -1 : 1;
+    if (a.placed) return stops.indexOf(a.kibbutz) - stops.indexOf(b.kibbutz);
+    return a.kibbutz.localeCompare(b.kibbutz, 'he');
+  });
+  return blocks;
+}
+
+export interface InternalDuePatch { id: string; due_date: string | null }
+
+export interface BlockPick {
+  kibbutz: string;
+  stopsBefore: string[];
+  stops: string[];
+  addedStop: boolean;
+  /** The EMS ids this pick puts on the day — they join the stop's `task_ids` snapshot. */
+  emsTaskIds: string[];
+  ems: SchedulePlan;
+  internal: { patches: InternalDuePatch[]; undo: InternalDuePatch[] };
+  count: number;
+  message: string;
+}
+
+export function pickBlock(block: KibbutzBlock, ticked: string[], date: string, stops: string[]): BlockPick {
+  const before = cleanStops(stops);
+  const addedStop = before.indexOf(block.kibbutz) === -1;
+  const next = addedStop ? before.concat([block.kibbutz]) : before.slice();
+  const want = new Set(ticked || []);
+  const chosen = block.tasks.filter(t => want.has(t.key) && !t.onThisDay);
+  const emsChosen = chosen.filter(t => t.kind === 'ems');
+  const ems = scheduleTasksPlan(
+    emsChosen.map(t => ({ id: t.id, expectedCompletionDate: t.due ? dueAt(t.due) : null })),
+    date,
+  );
+  const internalChosen = chosen.filter(t => t.kind === 'internal');
+  const internal = {
+    patches: internalChosen.map(t => ({ id: t.id, due_date: date })),
+    undo: internalChosen.map(t => ({ id: t.id, due_date: t.due || null })),
+  };
+  const count = ems.count + internal.patches.length;
+  const d = heShort(date);
+  const parts: string[] = [];
+  if (addedStop) parts.push(block.kibbutz + ' נוסף ל-' + d);
+  if (count) parts.push(count === 1 ? 'משימה אחת נקבעה ל-' + d : count + ' משימות נקבעו ל-' + d);
+  return {
+    kibbutz: block.kibbutz,
+    stopsBefore: before,
+    stops: next,
+    addedStop,
+    emsTaskIds: emsChosen.map(t => t.id),
+    ems,
+    internal,
+    count,
+    message: parts.join(' · '),
+  };
+}
+
+/** Nothing to write: the stop is already there and nothing new was ticked. */
+export function isNoopPick(p: BlockPick): boolean {
+  return !p.addedStop && p.count === 0;
 }
 
 // ───────────────────────────── absences ─────────────────────────────

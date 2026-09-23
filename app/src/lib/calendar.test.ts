@@ -12,6 +12,7 @@ import {
   type AbsenceRow, type CalEmsTask, type OfficeEvent, type VisitRow,
   canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
   workWeekLabel, missingInView, reportedInView, showWeekNumbers, weekAria,
+  planBlocks, pickBlock, isNoopPick, type KibbutzBlock, type CalInternalTask,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -291,7 +292,7 @@ describe('scheduleTasksPlan', () => {
       // a task that had no date goes back to having none
       { id: 't4', body: { expectedCompletionDate: null } },
     ]);
-    expect(plan.message).toBe('2 משימות נקבעו ל15.9');
+    expect(plan.message).toBe('2 משימות נקבעו ל-15.9');
   });
 
   it('skips a task already due that day', () => {
@@ -301,11 +302,104 @@ describe('scheduleTasksPlan', () => {
   });
 
   it('counts one in the singular', () => {
-    expect(scheduleTasksPlan([TASKS[3]], '2026-09-15').message).toBe('משימה אחת נקבעה ל15.9');
+    expect(scheduleTasksPlan([TASKS[3]], '2026-09-15').message).toBe('משימה אחת נקבעה ל-15.9');
   });
 
   it('writes the due date at midday so no timezone moves it a day', () => {
     expect(dueAt('2026-09-15')).toBe(new Date('2026-09-15T12:00:00').toISOString());
+  });
+});
+
+// ───────────────────────────── kibbutz blocks (round 5 · C1) ─────────────────────────────
+
+describe('round 5 · C1 — kibbutz blocks on a future day', () => {
+  const DAY = '2026-09-24';
+  const TODAY = '2026-09-23';
+  const ems: CalEmsTask[] = [
+    { id: 'e1', title: 'בדיקת מונים', status: 'new', expectedCompletionDate: null, site: { name: 'יגור' }, assignee: { firstName: 'אביאם', lastName: 'כהן' } },
+    { id: 'e2', title: 'החלפת בקר', status: 'in_progress', expectedCompletionDate: '2026-09-20T12:00:00.000Z', site: { name: 'יגור' }, assignee: { firstName: 'אביאם' } },
+    { id: 'e3', title: 'כבר ביום', status: 'new', expectedCompletionDate: new Date(2026, 8, 24, 12).toISOString(), site: { name: 'חוקוק' }, assignee: { firstName: 'אביאם' } },
+    { id: 'e4', title: 'של ניתאי', status: 'new', expectedCompletionDate: null, site: { name: 'דגניה' }, assignee: { firstName: 'ניתאי' } },
+    { id: 'e5', title: 'סגורה', status: 'done', expectedCompletionDate: null, site: { name: 'יגור' }, assignee: { firstName: 'אביאם' } },
+    { id: 'e6', title: 'בלי קיבוץ', status: 'new', expectedCompletionDate: null, site: null, assignee: { firstName: 'אביאם' } },
+  ];
+  const internal: CalInternalTask[] = [
+    { id: 'i1', title: 'להחזיר מונה', owner: 'אביאם', kibbutz: 'יגור', done: false, due_date: null },
+    { id: 'i2', title: 'פנימית בלי קיבוץ', owner: 'אביאם', kibbutz: '', done: false, due_date: null },
+    { id: 'i3', title: 'פנימית סגורה', owner: 'אביאם', kibbutz: 'יגור', done: true, due_date: null },
+  ];
+
+  it('one block per kibbutz with the person’s open tasks; overdue first', () => {
+    const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם'], emsTasks: ems, internalTasks: internal });
+    expect(blocks.map(b => b.kibbutz)).toEqual(['חוקוק', 'יגור']);
+    const yagur = blocks.find(b => b.kibbutz === 'יגור')!;
+    expect(yagur.tasks.map(t => t.key)).toEqual(['ems:e2', 'ems:e1', 'internal:i1']);
+    expect(yagur.tasks[0]).toMatchObject({ overdue: true, due: '2026-09-20', onThisDay: false });
+    expect(blocks.find(b => b.kibbutz === 'חוקוק')!.tasks[0]).toMatchObject({ key: 'ems:e3', onThisDay: true });
+  });
+  it('the peer’s tasks join only when asked for, with their owner on them', () => {
+    const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם', 'ניתאי'], emsTasks: ems });
+    expect(blocks.find(b => b.kibbutz === 'דגניה')!.tasks[0]).toMatchObject({ key: 'ems:e4', owner: 'ניתאי' });
+  });
+  it('stops already on the route come first, in route order, even with no tasks', () => {
+    const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם'], emsTasks: ems, stops: ['יגור', 'גבת'] });
+    expect(blocks.map(b => [b.kibbutz, b.placed])).toEqual([['יגור', true], ['גבת', true], ['חוקוק', false]]);
+    expect(blocks[1].tasks).toEqual([]);
+  });
+  it('a past day has no blocks', () => {
+    expect(planBlocks({ date: '2026-09-22', today: TODAY, owners: ['אביאם'], emsTasks: ems })).toEqual([]);
+  });
+  it('no owners → no blocks', () => {
+    expect(planBlocks({ date: DAY, today: TODAY, owners: [], emsTasks: ems })).toEqual([]);
+  });
+});
+
+describe('round 5 · C1 — picking a block plans the stop AND dates the ticked tasks', () => {
+  const DAY = '2026-09-24';
+  const block: KibbutzBlock = {
+    kibbutz: 'יגור', placed: false, tasks: [
+      { key: 'ems:e1', id: 'e1', kind: 'ems', title: 'בדיקת מונים', owner: 'אביאם', due: '', onThisDay: false, overdue: false },
+      { key: 'ems:e2', id: 'e2', kind: 'ems', title: 'החלפת בקר', owner: 'אביאם', due: '2026-09-20', onThisDay: false, overdue: true },
+      { key: 'internal:i1', id: 'i1', kind: 'internal', title: 'להחזיר מונה', owner: 'אביאם', due: '', onThisDay: false, overdue: false },
+      { key: 'ems:e3', id: 'e3', kind: 'ems', title: 'כבר ביום', owner: 'אביאם', due: DAY, onThisDay: true, overdue: false },
+    ],
+  };
+
+  it('adds the stop at the end of the route and dates exactly the ticked tasks', () => {
+    const p = pickBlock(block, ['ems:e1', 'ems:e2', 'internal:i1'], DAY, ['גבת']);
+    expect(p.stopsBefore).toEqual(['גבת']);
+    expect(p.stops).toEqual(['גבת', 'יגור']);
+    expect(p.addedStop).toBe(true);
+    expect(p.emsTaskIds).toEqual(['e1', 'e2']);
+    expect(p.ems.patches).toEqual([
+      { id: 'e1', body: { expectedCompletionDate: dueAt(DAY) } },
+      { id: 'e2', body: { expectedCompletionDate: dueAt(DAY) } },
+    ]);
+    expect(p.ems.undo).toEqual([
+      { id: 'e1', body: { expectedCompletionDate: null } },
+      { id: 'e2', body: { expectedCompletionDate: dueAt('2026-09-20') } },
+    ]);
+    expect(p.internal).toEqual({ patches: [{ id: 'i1', due_date: DAY }], undo: [{ id: 'i1', due_date: null }] });
+    expect(p.count).toBe(3);
+    expect(p.message).toBe('יגור נוסף ל-24.9 · 3 משימות נקבעו ל-24.9');
+  });
+  it('a task already on the day is not re-written', () => {
+    const p = pickBlock(block, ['ems:e3'], DAY, []);
+    expect(p.ems.patches).toEqual([]);
+    expect(p.count).toBe(0);
+    expect(p.message).toBe('יגור נוסף ל-24.9');
+  });
+  it('a block already in the route with nothing ticked is a no-op', () => {
+    const p = pickBlock({ ...block, placed: true }, [], DAY, ['יגור']);
+    expect(p.addedStop).toBe(false);
+    expect(p.stops).toEqual(['יגור']);
+    expect(isNoopPick(p)).toBe(true);
+  });
+  it('one task reads as one', () => {
+    expect(pickBlock({ ...block, placed: true }, ['ems:e1'], DAY, ['יגור']).message).toBe('משימה אחת נקבעה ל-24.9');
+  });
+  it('a messy saved route is cleaned, never duplicated', () => {
+    expect(pickBlock(block, [], DAY, [' גבת ', 'גבת', '']).stops).toEqual(['גבת', 'יגור']);
   });
 });
 
