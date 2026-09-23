@@ -432,6 +432,76 @@ export function mergeByDay(rows: AttRow[] | null | undefined): AttRow[] {
   return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
 
+// ───────────────────── tiles and the cell look (round 5 · A2, A3) ─────────────────────
+
+export type TileKey = 'field' | 'office' | 'missing';
+
+export interface AttTile { key: TileKey; label: string; value: number; role: 'ok' | 'info' | 'danger' }
+
+/** StatTiles on top of the month. The missing tile exists only for someone who files. */
+export function attTiles(k: Kpis, person: string): AttTile[] {
+  const out: AttTile[] = [
+    { key: 'field', label: 'ימי שטח', value: k.field, role: 'ok' },
+    { key: 'office', label: 'משרד ובית', value: k.office, role: 'info' },
+  ];
+  if (mustFile(person)) out.push({ key: 'missing', label: 'ימים חסרים', value: k.missing, role: 'danger' });
+  return out;
+}
+
+export function toggleTile(cur: TileKey | null, t: TileKey): TileKey | null {
+  return cur === t ? null : t;
+}
+
+/** The DayCell states the grid uses (components/ui/day-cell.tsx). */
+export type AttCellState = 'default' | 'selected' | 'holiday' | 'eve' | 'field' | 'office' | 'away' | 'missing';
+
+export interface AttCellLook {
+  state: AttCellState;
+  /** Today is a ring ON TOP of the state. */
+  today: boolean;
+  label: string;
+}
+
+const TILE_OF: Partial<Record<AttCellState, TileKey>> = { field: 'field', office: 'office', missing: 'missing' };
+
+/**
+ * What a cell looks like, once. From what he did (monthGrid's `state`) → missing only for a
+ * filer → purple for a holiday or an eve with nothing on it → a selected tile keeps its own
+ * category and turns the rest plain, except purple, which is context and always stays.
+ */
+export function attCellLook(c: DayCell, o: { person: string; tile: TileKey | null; selected: boolean }): AttCellLook {
+  const filer = mustFile(o.person);
+  let base: AttCellState = 'default';
+  if (c.state === 'field' || c.state === 'office' || c.state === 'away') base = c.state;
+  else if (c.state === 'missing') base = filer ? 'missing' : (c.eve ? 'eve' : 'default');
+  else if (c.state === 'holiday') base = 'holiday';
+  else if (c.eve && !c.row) base = 'eve';
+
+  let state: AttCellState = base;
+  if (o.selected) state = 'selected';
+  else if (o.tile && base !== 'holiday' && base !== 'eve' && TILE_OF[base] !== o.tile) state = 'default';
+
+  const facts = [dayChip(c.date)];
+  if (c.holiday) facts.push(c.holiday.name);
+  if (c.row) facts.push(dayLabel(c.row.type));
+  else if (base === 'missing') facts.push('לא דווחה נוכחות');
+  return { state, today: c.today, label: facts.join(' · ') };
+}
+
+export type AttLegendKey = 'holiday' | 'eve' | 'field' | 'office' | 'away' | 'missing';
+
+export function attLegend(person: string): Array<{ key: AttLegendKey; label: string }> {
+  const out: Array<{ key: AttLegendKey; label: string }> = [
+    { key: 'holiday', label: 'חג' },
+    { key: 'eve', label: 'ערב חג' },
+    { key: 'field', label: 'יום שטח' },
+    { key: 'office', label: 'משרד ובית' },
+    { key: 'away', label: 'חופש, מילואים ואחר' },
+  ];
+  if (mustFile(person)) out.push({ key: 'missing', label: 'לא דווחה נוכחות' });
+  return out;
+}
+
 // ───────────────── a saved visit IS a יום שטח (round 2, F-2) ─────────────────
 //
 // Round 5: a real row wins; package V writes visit days as `visit_auto` rows, and A-L5
