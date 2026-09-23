@@ -14,3 +14,7 @@
 | 7 | 23.9 | 1 · גיבוי | גיבוי מקומי דרך פונקציה עם מפתח, קובץ JSON יומי (לא pg_dump) | אין סיסמת DB במחשב | — |
 | 8 | 23.9 | 2 · מערכת עיצוב | פריטים שכשלו ב-360 ש-main כבר נכשל בהם נרשמים ברשימה ממופה לחבילות, והרשימה חייבת להתרוקן עד סוף הסבב | חוב קיים, לא רגרסיה | — |
 | 9 | 23.9 | פעולות שטח | הספק נכתב ונדחה לאחרי הסבב | תלוי במערכת העיצוב; עידן אישר את העיתוי | — |
+| 10 | 23.9 | DOC | Documentation modelled on EMS (generated schema + knowledge layer + map); retired docs move to docs/history; a new test fails if a retired path comes back | So the graph relies on one source with no duplicates | The spec `2026-09-23-r5-DOC-documentation.md` |
+| 11 | 23.9 | DOC | **Waiting for עידן:** proposed addition to CLAUDE.md, "every feature updates its module doc". Not applied. | CLAUDE.md is his file | Approve or reject at the end |
+| 12 | 23.9 | A | The builder was allowed to change one line in `Attendance.tsx` (the saved message) during its logic stage | The audit required it as the acceptance step of A-L2 | — |
+| 13 | 23.9 | K | K committed generated files against the rules; they are rebuilt at merge | So they don't conflict | — |
