@@ -6,99 +6,171 @@
   },
   "sheet_appsscript": {
     "label": "Google Sheet / Apps Script data path",
-    "file_prefix": ["appsscript/", "db/import_from_appsscript.mjs"],
-    "ids": ["ext:google_apps_script_backend"]
+    "file_prefix": [
+      "appsscript/",
+      "db/import_from_appsscript.mjs"
+    ],
+    "ids": [
+      "ext:google_apps_script_backend"
+    ]
   },
   "maintenance_html": {
     "label": "maintenance.html",
-    "file_prefix": ["maintenance.html"],
+    "file_prefix": [
+      "maintenance.html"
+    ],
     "ids": []
   },
   "commandbar": {
     "label": "Ctrl+K CommandBar.tsx",
-    "file_prefix": ["app/src/islands/CommandBar.tsx"],
+    "file_prefix": [
+      "app/src/islands/CommandBar.tsx"
+    ],
     "ids": []
   },
   "legacy_visit_form": {
     "label": "Legacy visit form (09-visits.js UI + index.html markup)",
     "file_prefix": [],
     "ids": [
-      "src_09_visits_visitdraftid", "src_09_visits_togglevisitworkday", "src_09_visits_setvisithours",
-      "src_09_visits_setvisitworkday", "src_09_visits_syncvisitdurationchips",
-      "src_09_visits_visitcontactsrender", "src_09_visits_visitcontactchipspaint",
-      "src_09_visits_visitcontactpick", "src_09_visits_visitcontacttyped",
+      "src_09_visits_visitdraftid",
+      "src_09_visits_togglevisitworkday",
+      "src_09_visits_setvisithours",
+      "src_09_visits_setvisitworkday",
+      "src_09_visits_syncvisitdurationchips",
+      "src_09_visits_visitcontactsrender",
+      "src_09_visits_visitcontactchipspaint",
+      "src_09_visits_visitcontactpick",
+      "src_09_visits_visitcontacttyped",
       "src_09_visits_visitcontactpersist",
-      "src_09_visits_visitotherproductchanged", "src_09_visits_visitaddothertocatalog",
-      "src_09_visits_renderproductsforvisitor", "src_09_visits_tilefor", "src_09_visits_tileedit",
-      "src_09_visits_tilesync", "src_09_visits_tiletap", "src_09_visits_tileremove",
-      "src_09_visits_toggleproductrow", "src_09_visits_stepproductqty", "src_09_visits_toggleproductqty",
-      "src_09_visits_editlastvisit", "src_09_visits_editlastvisitfromstatus",
-      "src_09_visits_legacyvoiceintakehandoff", "src_09_visits_editvisit",
-      "src_09_visits_drafttoday", "src_09_visits_draftperson", "src_09_visits_visitdraftpayload",
-      "src_09_visits_visitdrafthascontent", "src_09_visits_draftkey", "src_09_visits_draftmirrorall",
-      "src_09_visits_draftmirrorsave", "src_09_visits_draftmirrorput",
-      "src_09_visits_draftmirrordeletebyid", "src_09_visits_draftmirrorlist",
-      "src_09_visits_draftmergerows", "src_09_visits_visitdraftssync", "src_09_visits_visitdraftsave",
-      "src_09_visits_visitdrafttouch", "src_09_visits_visitdraftflush", "src_09_visits_visitdraftfor",
-      "src_09_visits_visitdraftsforperson", "src_09_visits_visitdraftdiscard",
-      "src_09_visits_visitdraftrestore", "src_09_visits_visitdraftprompthide", "src_09_visits_drafttime",
-      "src_09_visits_visitdraftpromptshow", "src_09_visits_visitdraftput", "src_09_visits_savevisit",
-      "concept:tab_visit@index.html", "concept:visit_field_form@index.html",
-      "concept:visit_simple_form@index.html", "concept:aviam_day_type_selector@index.html"
+      "src_09_visits_visitotherproductchanged",
+      "src_09_visits_visitaddothertocatalog",
+      "src_09_visits_renderproductsforvisitor",
+      "src_09_visits_tilefor",
+      "src_09_visits_tileedit",
+      "src_09_visits_tilesync",
+      "src_09_visits_tiletap",
+      "src_09_visits_tileremove",
+      "src_09_visits_toggleproductrow",
+      "src_09_visits_stepproductqty",
+      "src_09_visits_toggleproductqty",
+      "src_09_visits_editlastvisit",
+      "src_09_visits_editlastvisitfromstatus",
+      "src_09_visits_legacyvoiceintakehandoff",
+      "src_09_visits_editvisit",
+      "src_09_visits_drafttoday",
+      "src_09_visits_draftperson",
+      "src_09_visits_visitdraftpayload",
+      "src_09_visits_visitdrafthascontent",
+      "src_09_visits_draftkey",
+      "src_09_visits_draftmirrorall",
+      "src_09_visits_draftmirrorsave",
+      "src_09_visits_draftmirrorput",
+      "src_09_visits_draftmirrordeletebyid",
+      "src_09_visits_draftmirrorlist",
+      "src_09_visits_draftmergerows",
+      "src_09_visits_visitdraftssync",
+      "src_09_visits_visitdraftsave",
+      "src_09_visits_visitdrafttouch",
+      "src_09_visits_visitdraftflush",
+      "src_09_visits_visitdraftfor",
+      "src_09_visits_visitdraftsforperson",
+      "src_09_visits_visitdraftdiscard",
+      "src_09_visits_visitdraftrestore",
+      "src_09_visits_visitdraftprompthide",
+      "src_09_visits_drafttime",
+      "src_09_visits_visitdraftpromptshow",
+      "src_09_visits_visitdraftput",
+      "src_09_visits_savevisit",
+      "concept:tab_visit@index.html",
+      "concept:visit_field_form@index.html",
+      "concept:visit_simple_form@index.html",
+      "concept:aviam_day_type_selector@index.html"
     ]
   },
   "legacy_kibbutz_modal": {
     "label": "Legacy kibbutz modal (index.html:613-852 + 10-activity.js openEditModal)",
     "file_prefix": [],
     "ids": [
-      "concept:modal_backdrop_kibbutz@index.html", "concept:tab_meetings@index.html",
-      "concept:edit_last_visit_box@index.html", "src_10_activity_openeditmodal"
+      "concept:modal_backdrop_kibbutz@index.html",
+      "concept:tab_meetings@index.html",
+      "concept:edit_last_visit_box@index.html",
+      "src_10_activity_openeditmodal"
     ]
   },
   "legacy_inventory_06_07_08": {
     "label": "Legacy inventory pages: 06-products.js, 07-orders.js, 08-inventory.js",
-    "file_prefix": ["js/src/06-products.js", "js/src/07-orders.js", "js/src/08-inventory.js"],
+    "file_prefix": [
+      "js/src/06-products.js",
+      "js/src/07-orders.js",
+      "js/src/08-inventory.js"
+    ],
     "ids": []
   },
   "legacy_inventory_20_ui": {
     "label": "Legacy inventory: 20-delivery-cert.js UI parts (pipeline + customer ?cert= view kept)",
     "file_prefix": [],
     "ids": [
-      "src_20_delivery_cert_certensuremodal", "src_20_delivery_cert_certadditemrow",
-      "src_20_delivery_cert_certsigstatuspaint", "src_20_delivery_cert_certsignopen",
-      "src_20_delivery_cert_opendeliverycert", "src_20_delivery_cert_invrendercerts",
-      "src_20_delivery_cert_certreprint", "src_20_delivery_cert_certreissue",
-      "src_20_delivery_cert_certcancel", "src_20_delivery_cert_certsendopen",
-      "fn:certAddContact@js/src/20-delivery-cert.js", "src_20_delivery_cert_certrowforvisit",
-      "src_20_delivery_cert_certsendforvisit", "src_20_delivery_cert_certdownloadforvisit",
-      "src_20_delivery_cert_certsetrange", "src_20_delivery_cert_certrangetap",
-      "src_20_delivery_cert_openvisitcertpicker", "src_20_delivery_cert_certrangereport",
-      "src_20_delivery_cert_certgroupname", "src_20_delivery_cert_certreportlabel",
-      "src_20_delivery_cert_certrangereportrange", "src_20_delivery_cert_certmonthlyfromtab",
-      "src_20_delivery_cert_certfromvisitform", "src_20_delivery_cert_certpreviewdraft",
-      "src_20_delivery_cert_certoverlayshow", "src_20_delivery_cert_certsharetext",
-      "src_20_delivery_cert_certsendplan", "src_20_delivery_cert_certisemail",
-      "src_20_delivery_cert_certwanumber", "src_20_delivery_cert_dotoast"
+      "src_20_delivery_cert_certensuremodal",
+      "src_20_delivery_cert_certadditemrow",
+      "src_20_delivery_cert_certsigstatuspaint",
+      "src_20_delivery_cert_certsignopen",
+      "src_20_delivery_cert_opendeliverycert",
+      "src_20_delivery_cert_invrendercerts",
+      "src_20_delivery_cert_certreprint",
+      "src_20_delivery_cert_certreissue",
+      "src_20_delivery_cert_certcancel",
+      "src_20_delivery_cert_certsendopen",
+      "fn:certAddContact@js/src/20-delivery-cert.js",
+      "src_20_delivery_cert_certrowforvisit",
+      "src_20_delivery_cert_certsendforvisit",
+      "src_20_delivery_cert_certdownloadforvisit",
+      "src_20_delivery_cert_certsetrange",
+      "src_20_delivery_cert_certrangetap",
+      "src_20_delivery_cert_openvisitcertpicker",
+      "src_20_delivery_cert_certrangereport",
+      "src_20_delivery_cert_certgroupname",
+      "src_20_delivery_cert_certreportlabel",
+      "src_20_delivery_cert_certrangereportrange",
+      "src_20_delivery_cert_certmonthlyfromtab",
+      "src_20_delivery_cert_certfromvisitform",
+      "src_20_delivery_cert_certpreviewdraft",
+      "src_20_delivery_cert_certoverlayshow",
+      "src_20_delivery_cert_certsharetext",
+      "src_20_delivery_cert_certsendplan",
+      "src_20_delivery_cert_certisemail",
+      "src_20_delivery_cert_certwanumber",
+      "src_20_delivery_cert_dotoast"
     ]
   },
   "meter_burns_page": {
     "label": "24-meter-burns.js legacy page",
-    "file_prefix": ["js/src/24-meter-burns.js"],
+    "file_prefix": [
+      "js/src/24-meter-burns.js"
+    ],
     "ids": []
   },
   "push_log_page": {
     "label": "23-push-log.js legacy page",
-    "file_prefix": ["js/src/23-push-log.js"],
+    "file_prefix": [
+      "js/src/23-push-log.js"
+    ],
     "ids": []
   },
   "dev_tasks_page": {
     "label": "18-dev-tasks.js legacy page",
-    "file_prefix": ["js/src/18-dev-tasks.js"],
+    "file_prefix": [
+      "js/src/18-dev-tasks.js"
+    ],
     "ids": []
   },
   "tables": {
     "label": "Retired tables: tasks, settings, ems_cache, ems_queue",
     "file_prefix": [],
-    "ids": ["table:tasks", "table:settings", "table:ems_cache", "table:ems_queue"]
+    "ids": [
+      "table:tasks",
+      "table:settings",
+      "table:ems_cache",
+      "table:ems_queue"
+    ]
   }
 }
