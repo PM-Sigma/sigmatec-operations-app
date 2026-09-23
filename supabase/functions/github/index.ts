@@ -12,6 +12,7 @@
 //   EMS_API_BASE — (already set) https://api.sigmatec-ems.com
 //   APP_ORIGIN   — allowed origin (default https://pm-sigma.github.io)
 import { cors, emsValid, fetchT, json } from "../_shared/http.ts";
+import { chainOf } from "./lineage.js";
 
 // Projects-v2 fields (Priority/Status/type/sprint) live on the PROJECT, not the issue — only the
 // GraphQL API exposes them. Returns { issueNumber: {priority,status,type,sprint} }. GRACEFUL: any
@@ -54,18 +55,24 @@ async function fetchProjectFields(token: string, owner: string, num: number): Pr
   return out;
 }
 
-// Sub-issue hierarchy (GitHub native sub-issues): each issue's parent. Only GraphQL exposes `parent`
-// reliably (the REST issue payload often omits it). Returns { childNumber: parentNumber }. GRACEFUL:
-// any failure → {} so the tree just falls back to a flat/topic grouping.
-async function fetchParentLinks(token: string, owner: string, name: string): Promise<Record<number, number>> {
-  const out: Record<number, number> = {};
-  const q = `query($owner:String!,$name:String!,$after:String){ repository(owner:$owner,name:$name){ issues(first:100, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ number parent { number } } } } }`;
+/** One ancestor as `chainOf` returns it: nearest parent first. */
+type ParentChainLink = { number: number; title: string; state: "OPEN" | "CLOSED" };
+
+// Sub-issue hierarchy (GitHub native sub-issues): each issue's FULL parent chain (up to 4 levels,
+// nearest first), with title + state, via `chainOf` (lineage.js — shared, cycle-safe). Only GraphQL
+// exposes `parent` reliably (the REST issue payload often omits it), and the nested field needs the
+// `sub_issues` feature header (gqlCall already sends it; this call didn't). Returns
+// { childNumber: ParentChainLink[] }. GRACEFUL: any failure → {} so every card lands in "ללא אפיון"
+// with the page still working.
+async function fetchParentLinks(token: string, owner: string, name: string): Promise<Record<number, ParentChainLink[]>> {
+  const out: Record<number, ParentChainLink[]> = {};
+  const q = `query($owner:String!,$name:String!,$after:String){ repository(owner:$owner,name:$name){ issues(first:100, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ number parent { number title state parent { number title state parent { number title state parent { number title state } } } } } } } }`;
   let after: string | null = null;
   try {
     for (let p = 0; p < 10; p++) {
       const r = await fetchT("https://api.github.com/graphql", {
         method: "POST",
-        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", "User-Agent": "sigmatec-ops" },
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json", "User-Agent": "sigmatec-ops", "GraphQL-Features": "sub_issues" },
         body: JSON.stringify({ query: q, variables: { owner, name, after } }),
       }, 12000);
       if (!r.ok) break;
@@ -73,7 +80,7 @@ async function fetchParentLinks(token: string, owner: string, name: string): Pro
       const issues = d?.data?.repository?.issues;
       if (!issues) break;
       for (const node of (issues.nodes || [])) {
-        if (node?.number && node?.parent?.number) out[node.number] = node.parent.number;
+        if (node?.number) out[node.number] = chainOf(node);
       }
       if (!issues.pageInfo?.hasNextPage) break;
       after = issues.pageInfo.endCursor;
@@ -448,10 +455,16 @@ Deno.serve(async (req) => {
       if (typeof f.pos === "number") t.pos = f.pos;   // board order
     }
 
-    // merge sub-issue parent linkage (GitHub native sub-issues) → t.parent (graceful if unavailable)
+    // merge sub-issue parent linkage (GitHub native sub-issues) → t.parentChain (nearest first, up
+    // to 4 levels, titles included) + t.parent (nearest parent's number, kept for old clients).
+    // Graceful if unavailable: chains default to [] and every card lands in "ללא אפיון".
     const [ghOwner, ghName] = GH_REPO.split("/");
-    const links = await fetchParentLinks(GH_TOKEN, ghOwner, ghName);
-    for (const t of tasks) { const p = links[t.number]; if (p) t.parent = p; }
+    const chains = await fetchParentLinks(GH_TOKEN, ghOwner, ghName);
+    for (const t of tasks) {
+      const chain = chains[t.number] || [];
+      (t as any).parentChain = chain;
+      if (chain.length) t.parent = chain[0].number;
+    }
 
     // …and the comments, only for a caller that asked for them (▶ ישיבת פיתוח).
     if (body.comments) {
