@@ -24,6 +24,8 @@ export interface UserSettings {
   theme: ThemeChoice;
   /** Task 15 (end-of-day nudge hour). Carried through so a Task-4 write never drops it. */
   eod_hour: number | null;
+  /** Round 5 · C2 — אביאם only: also show ניתאי's tasks in the calendar blocks. */
+  cal_peer_tasks: boolean;
   /**
    * When these settings were last CHANGED BY THIS PERSON. It is the tie-breaker between a
    * device and the row: newest wins (review fix 6). An ISO string, or '' for "never touched",
@@ -52,6 +54,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   font: 'Assistant',
   theme: 'system',
   eod_hour: null,
+  cal_peer_tasks: false,
   updated_at: '',
 };
 
@@ -79,6 +82,7 @@ export function mergeSettings(patch: Partial<UserSettings> | Record<string, unkn
     font: FONTS.includes(p.font as FontChoice) ? (p.font as FontChoice) : base.font,
     theme: p.theme === 'light' || p.theme === 'dark' || p.theme === 'system' ? p.theme : base.theme,
     eod_hour: p.eod_hour === null ? null : Number.isInteger(eod) && eod >= 0 && eod <= 23 ? eod : base.eod_hour,
+    cal_peer_tasks: typeof p.cal_peer_tasks === 'boolean' ? p.cal_peer_tasks : base.cal_peer_tasks,
     updated_at: typeof p.updated_at === 'string' ? p.updated_at : base.updated_at,
   };
 }
@@ -261,6 +265,7 @@ export async function saveSettings(person: string, patch: Partial<UserSettings>)
     font: next.font,
     theme: next.theme,
     eod_hour: next.eod_hour,
+    cal_peer_tasks: next.cal_peer_tasks,
     // The person's OWN stamp, not "now": `pickNewer` compares this against the other device's,
     // and a fresh "now" on every push would make the last device to boot always win.
     updated_at: next.updated_at || new Date().toISOString(),

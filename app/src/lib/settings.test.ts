@@ -157,6 +157,15 @@ describe('pickNewer — newest wins between this device and the row (review fix 
   });
 });
 
+describe('round 5 \u00b7 C2 \u2014 cal_peer_tasks', () => {
+  it('defaults to off and survives a merge', () => {
+    expect(DEFAULT_SETTINGS.cal_peer_tasks).toBe(false);
+    expect(mergeSettings({ cal_peer_tasks: true }).cal_peer_tasks).toBe(true);
+    expect(mergeSettings({ cal_peer_tasks: 'yes' as unknown as boolean }).cal_peer_tasks).toBe(false);
+    expect(mergeSettings({}, { ...DEFAULT_SETTINGS, cal_peer_tasks: true }).cal_peer_tasks).toBe(true);
+  });
+});
+
 describe('setSettingsLocal stamps the person\u2019s own choices', () => {
   beforeEach(() => { _resetSettings(); localStorage.clear(); });
 
