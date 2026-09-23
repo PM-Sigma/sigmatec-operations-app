@@ -1,3 +1,5 @@
+🟡 WAITING (2026-09-23) — עידן: apply `db/rls_viewer_readonly.sql`; choose restore source for `tasks.status` (Supabase backup before 17.9 14:00, or the 22.6 Sheet); `kibbutz_meeting_notes` has 0 rows.
+
 🔴 OPENED BY THE OPS GRAPH (2026-09-23) — verified against the repo + live DB, needs עידן's decision.
 Detail + evidence: `<project>/תוצרים/2026-09-23 — ממצאי OPS GRAPH/BROKEN.md` (local only — kept out of this public repo).
 1. **🔴 RLS / access control** — write policies do not distinguish the view-only role (P1). A fix is WRITTEN,

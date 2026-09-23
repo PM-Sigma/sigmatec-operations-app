@@ -67,7 +67,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-23 (**OPS GRAPH built on 2.23 — `feat/ops-graph`, docs-only, not merged**).
+## 🚦 Current state — last: 2026-09-23 (**2.25 — OPS GRAPH audit shipped: visit-summary chain, holidays, calendar colors, QA coverage audit**).
+
+**Waiting on עידן:** apply `db/rls_viewer_readonly.sql`; restore source for `tasks.status` (wiped 23.8 + 17.9): Supabase backup before 17.9 14:00 or the 22.6 Sheet; `kibbutz_meeting_notes` has 0 rows.
 
 **🗺️ `docs/ops-graph/` is new: ask it before grepping** (`python docs/ops-graph/ops_graph.py explain <thing>`).
 Built from `origin/main` 5e23a30 (2.23 round 4) by 24 Sonnet extraction agents + AST, audited by Opus, broken
