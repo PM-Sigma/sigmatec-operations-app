@@ -348,3 +348,16 @@ system, with ModbusClient already fixed and the goldens already frozen.
 `סטטוס מונה` · `החלפת מונה` / `מונה חדש` / `עריכת מונה` (these write to EMS and need their own spec) ·
 `תיקון היסטוריה` / `לוגי Dialer` (customer 999 only). EMS also exposes DLMS relay and Chint valve operations, which
 are **control** actions. They stay out of this page unless עידן rules otherwise, in a spec of their own.
+
+
+## עידן's rulings (23.9, after the spec)
+- **Binding rule: never change another repo.** Nothing is ever modified in ModbusClient, sigmatec-ems or any other repo that עידן did not explicitly ask to change. They are **used only**, never patched, and no PRs are opened. The scaling bugs found in ModbusClient are handled on OUR side:
+  - the app-side scaling module applies a per-model correction table, with a version check;
+  - they are documented for the owners, and nothing is fixed in their code.
+- **Manual entry: any IP.**
+  1. The read runs against the IP typed.
+  2. In the background, the page shows a table of every EMS meter with that IP: kibbutz · meter · address.
+  3. If a channel/address is also entered, it checks that a matching meter exists in EMS. If none exists, the user sees a clear notice.
+  - **Open technical point:** ModbusClient is only reachable from EMS's network. With no change allowed to EMS, a read of an arbitrary IP is possible only through the EMS endpoint's existing parameter override. That is the behaviour flagged above as a security issue. Decide with עידן before building.
+- **Access:** all staff.
+- **Multi-circuit meters:** one card per circuit on the device.
