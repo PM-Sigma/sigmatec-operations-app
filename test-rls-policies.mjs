@@ -48,6 +48,7 @@ const LOCKDOWN_LAST = [
   'rls_2_00_lockdown.sql',
   'rls_legacy_lockdown.sql',
   'rls_viewer_readonly.sql',
+  'rls_person_scoped.sql',
 ];
 
 /**
@@ -110,7 +111,7 @@ for (const f of ordered) {
     // the view-only gate: a restrictive policy whose predicate refuses the `viewer` claim
     const viewerGate = restrictive && /auth\.jwt\(\)\s*->>\s*'viewer'/i.test(body)
       && /is\s+distinct\s+from\s+'true'/i.test(body);
-    policies(t).set(e.name.replace(/"/g, ''), { cmd, roles, where: `${f}`, restrictive, viewerGate });
+    policies(t).set(e.name.replace(/"/g, ''), { cmd, roles, where: `${f}`, restrictive, viewerGate, body });
   }
 }
 
@@ -239,6 +240,27 @@ ok(viewerHoles.length === 0,
   'these writes are open to the view-only session at the database level (add restrictive policies '
   + 'to db/rls_viewer_readonly.sql, or list the table in VIEWER_WRITE_OK with a reason):\n    '
   + viewerHoles.join('\n    '));
+
+// ── (7) messages are the person's own (X-L2) ─────────────────────────────────
+// Written in db/rls_person_scoped.sql, NOT applied yet (that is X-L3, after עידן's "כן"). The
+// permissive messages_auth_all policy must be gone and replaced by sender/recipient policies;
+// the viewer's restrictive all-commands gate (contract 5/6) is untouched.
+const permissive = t => [...policies(t)].map(([name, p]) => ({ name, ...p })).filter(p => !p.restrictive);
+const msg = permissive('messages');
+ok(!msg.some(p => p.name === 'messages_auth_all'), 'the permissive messages policy is gone');
+ok(msg.some(p => p.cmd === 'select' && /\(auth\.jwt\(\) ->> 'name'\) = to_person/.test(p.body)), 'read: recipient only');
+ok(msg.some(p => p.cmd === 'insert' && /from_person = \(auth\.jwt\(\) ->> 'name'\)/.test(p.body)), 'send: as yourself only');
+ok(msg.some(p => p.cmd === 'update' && /to_person/.test(p.body)), 'mark read: recipient only');
+ok(!msg.some(p => p.cmd === 'delete' || p.cmd === 'all'), 'no client delete, no catch-all');
+
+// ── (8) work_sessions — own rows; עידן/עמיחי all; the viewer reads (X-L2) ────
+const ws = permissive('work_sessions');
+const sel = ws.filter(p => p.cmd === 'select').map(p => p.body).join(' OR ');
+ok(/person = \(auth\.jwt\(\) ->> 'name'\)/.test(sel), 'select: own rows');
+ok(/'viewer'/.test(sel), 'select: the viewer reads (Hours stays as today)');
+ok(/'עידן', 'עמיחי'/.test(sel), 'select: the Hours admins read all');
+ok(!ws.some(p => p.cmd !== 'select' && /using \( ?true ?\)|with check \( ?true ?\)/.test(p.body)), 'no write policy is `true` any more');
+ok(!ws.some(p => /coalesce\(auth\.jwt\(\) ->> 'name', ?person\)/.test(p.body)), 'the tautology is gone');
 
 console.log(`test-rls-policies: ${checks} checks passed over ${ordered.length} db/*.sql files, `
   + `${state.size} tables, ${[...state.values()].reduce((n, m) => n + m.size, 0)} live policies.`);

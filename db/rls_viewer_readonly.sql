@@ -17,14 +17,10 @@
 --   `viewer: true` (sub = 'viewer'). Staff passes carry no such claim, so `is distinct from 'true'` is
 --   true for them and for any pass minted before this change.
 --
--- TODO (needs a separate, small ems-auth change — NOT done here):
---   Staff passes carry no `name` claim. Policies that compare `auth.jwt() ->> 'name'` therefore cannot
---   tell one staff member from another (the own-row and admin-only checks on work_sessions reduce to
---   "any signed-in staff"). To scope messages to sender/recipient and to make the work_sessions admin
---   gate real, ems-auth must add a trusted `name` claim (mapped server-side from the verified EMS user,
---   never from the request body). After that: replace messages_auth_all with sender/recipient policies,
---   and drop or narrow the broad work_sessions insert/update/delete policies so the admin policies bite.
---   Doing that before the claim exists would lock every staff member out of those tables.
+-- DONE (X-L1 / X-L2): the `name` claim now exists (supabase/functions/ems-auth mints it from
+-- db/staff_identities.sql), and db/rls_person_scoped.sql replaces messages_auth_all with
+-- sender/recipient policies and narrows work_sessions' own-row policies for real. See that
+-- file for its STATUS and the order it must apply in (after this file, via X-L3).
 --
 -- Verify after applying (as the view-only session): any insert/update/delete on a table below → RLS
 -- error; select still works (except messages); feedback insert still works.
