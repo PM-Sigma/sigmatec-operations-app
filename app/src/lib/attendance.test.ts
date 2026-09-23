@@ -6,10 +6,10 @@
 // grid's cells, which days are "missing", and the three KPIs.
 import { describe, expect, it } from 'vitest';
 import {
-  ATT_FILERS, canEditAttendance, canSwitchPerson, cellsOf, DAY_LABELS, dayChip, dayLabel,
-  EVE_DEFAULT_TYPE, eveCountdownText, holidayNote, isRequiredDay, kpis, mergeByDay, missingBlock,
-  missingByPerson, missingDays, missingDaysFor, monthGrid, mustFile, reportedDaysFor, savedToast,
-  withVisitDays, type AttRow, type Holiday,
+  attCellLook, attLegend, ATT_FILERS, attTiles, canEditAttendance, canSwitchPerson, cellsOf,
+  DAY_LABELS, dayChip, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText, holidayNote, isRequiredDay,
+  kpis, mergeByDay, missingBlock, missingByPerson, missingDays, missingDaysFor, monthGrid, mustFile,
+  reportedDaysFor, savedToast, toggleTile, withVisitDays, type AttRow, type Holiday, type TileKey,
 } from './attendance';
 
 // ───────────────────────────── the September 2026 fixture ─────────────────────────────
@@ -458,6 +458,72 @@ describe('reportedDaysFor', () => {
 
   it('an unloaded month paints nothing', () => {
     expect(reportedDaysFor('ניתאי', '2026-09', rowsFor, HOLIDAYS, AFTER)).toEqual([]);
+  });
+});
+
+// ───────────── round 5 · A2, A3: tiles and the cell look ─────────────
+// Dates: 1.9.2026 is a Tuesday, 7.9 a Monday, 16.9 a Wednesday, 21.9 a Monday, 23.9 a Wednesday.
+
+describe('round 5 · A3 — tiles', () => {
+  const K = { field: 4, office: 6, away: 1, days: 11, missing: 3, onHoliday: 0, hours: 30 };
+  it('a filer gets three tiles, anyone else two', () => {
+    expect(attTiles(K, 'אביאם')).toEqual([
+      { key: 'field', label: 'ימי שטח', value: 4, role: 'ok' },
+      { key: 'office', label: 'משרד ובית', value: 6, role: 'info' },
+      { key: 'missing', label: 'ימים חסרים', value: 3, role: 'danger' },
+    ]);
+    expect(attTiles(K, 'מתניה').map(t => t.key)).toEqual(['field', 'office']);
+  });
+  it('a second tap clears; another tile switches', () => {
+    expect(toggleTile(null, 'field')).toBe('field');
+    expect(toggleTile('field', 'field')).toBe(null);
+    expect(toggleTile('field', 'office')).toBe('office');
+  });
+});
+
+describe('round 5 · A2 — one look per cell', () => {
+  const HOL: Holiday = { date: '2026-09-21', name: 'יום כיפור', kind: 'holiday', required: false };
+  const EVE: Holiday = { date: '2026-09-16', name: 'ערב סוכות', kind: 'holiday_eve', required: true };
+  const EVE_FUT: Holiday = { date: '2026-09-29', name: 'ערב שמחת תורה', kind: 'holiday_eve', required: true };
+  const rows: AttRow[] = [
+    { date: '2026-09-01', type: 'field', source: 'visit_auto' },
+    { date: '2026-09-02', type: 'office' },
+    { date: '2026-09-03', type: 'vacation', source: 'calendar' },
+  ];
+  const today = new Date(2026, 8, 23, 12);
+  const g = monthGrid(2026, 9, rows, [HOL, EVE, EVE_FUT], today);
+  const at = (d: string) => g.cells.find(c => c.date === d)!;
+  const look = (d: string, o: Partial<{ person: string; tile: TileKey | null; selected: boolean }> = {}) =>
+    attCellLook(at(d), { person: 'אביאם', tile: null, selected: false, ...o });
+
+  it('filed days by type; holiday purple; a future eve purple', () => {
+    expect(look('2026-09-01').state).toBe('field');
+    expect(look('2026-09-02').state).toBe('office');
+    expect(look('2026-09-03').state).toBe('away');
+    expect(look('2026-09-21')).toMatchObject({ state: 'holiday', label: 'יום ב׳ · 21.9 · יום כיפור' });
+    expect(look('2026-09-29').state).toBe('eve');
+  });
+  it('a missing past workday is red for a filer, plain for anyone else', () => {
+    expect(look('2026-09-07')).toMatchObject({ state: 'missing', label: 'יום ב׳ · 7.9 · לא דווחה נוכחות' });
+    expect(look('2026-09-07', { person: 'מתניה' }).state).toBe('default');
+  });
+  it('a past eve with no row is missing for a filer, and keeps its name', () => {
+    expect(look('2026-09-16')).toMatchObject({ state: 'missing', label: 'יום ד׳ · 16.9 · ערב סוכות · לא דווחה נוכחות' });
+  });
+  it('a tile colors only its own category; holidays and eves stay purple', () => {
+    expect(look('2026-09-01', { tile: 'office' }).state).toBe('default');
+    expect(look('2026-09-02', { tile: 'office' }).state).toBe('office');
+    expect(look('2026-09-07', { tile: 'field' }).state).toBe('default');
+    expect(look('2026-09-21', { tile: 'field' }).state).toBe('holiday');
+    expect(look('2026-09-29', { tile: 'missing' }).state).toBe('eve');
+  });
+  it('selected wins; today is a ring on top', () => {
+    expect(look('2026-09-01', { selected: true }).state).toBe('selected');
+    expect(look('2026-09-23')).toMatchObject({ today: true });
+  });
+  it('the legend shows red only for a filer', () => {
+    expect(attLegend('מתניה').map(i => i.key)).toEqual(['holiday', 'eve', 'field', 'office', 'away']);
+    expect(attLegend('ניתאי').map(i => i.key)).toEqual(['holiday', 'eve', 'field', 'office', 'away', 'missing']);
   });
 });
 
