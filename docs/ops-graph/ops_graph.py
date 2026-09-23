@@ -61,6 +61,8 @@ def show_edges(n, limit=40):
     rows.sort()
     for r, l, c, s in rows[:limit]:
         flag = "" if c == "EXTRACTED" else f" [{c}]"
+        if G.nodes[v].get("status") == "not_on_disk":
+            flag += " [NOT ON DISK: planned/retired]"
         print(f"    --{r}--> {l}{flag}   ({s})")
     if len(rows) > limit:
         print(f"    ... {len(rows) - limit} more")
