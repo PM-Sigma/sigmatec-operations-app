@@ -1,8 +1,8 @@
-// The ONE context-aware header ➕ (spec §7k.2, decision #13 — "accepted with care: must be
-// fully modeled and never ambiguous").
+// The ONE context-aware page action (spec §7k.2, decision #13 — "accepted with care: must be
+// fully modeled and never ambiguous"; round 5 S-12 moved the labels to noun form, no emoji).
 //
 // Two rules make it safe:
-//  1. the button's LABEL always says what it does ("➕ קיבוץ", "➕ שבץ ליום", "➕ דיווח מלאי") —
+//  1. the button's LABEL always says what it does ("קיבוץ חדש", "מעבר ליומן", "דיווח מלאי") —
 //     never a bare plus, because a plus whose meaning depends on the screen is a trap;
 //  2. when a page has nothing to add, the button is NOT RENDERED. No purposeless buttons.
 //
@@ -46,13 +46,12 @@ export const ADD_OPENS_FORM: Record<Exclude<AddAction, 'none'>, boolean> = {
 };
 
 export const ADD_LABEL: Record<Exclude<AddAction, 'none'>, string> = {
-  kibbutz: '➕ קיבוץ',
-  visit: '➕ סיכום ביקור',
-  feedback: '➕ רעיון / באג',
-  // Navigation, and the words say so — never "➕ דיווח מלאי" on a button that just changes page.
-  schedule: 'עבור ליומן',
-  event: 'עבור ליומן',
-  stockChange: '➕ דיווח מלאי',
+  kibbutz: 'קיבוץ חדש',
+  visit: 'סיכום ביקור',
+  feedback: 'רעיון או באג',
+  schedule: 'מעבר ליומן',
+  event: 'מעבר ליומן',
+  stockChange: 'דיווח מלאי',
 };
 
 /** The label for the header button; `null` when nothing should be rendered. */

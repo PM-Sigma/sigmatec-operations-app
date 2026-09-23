@@ -14,7 +14,7 @@ const { st } = vi.hoisted(() => ({ st: { name: 'עידן', role: 'idan', isViewe
 vi.mock('@/bridge', () => ({ useCurrentUser: () => ({ name: st.name, role: st.role, isViewer: st.isViewer }) }));
 vi.mock('@/lib/currentPage', () => ({ useCurrentPage: () => st.page }));
 vi.mock('@/lib/myTasksBadge', () => ({ useMyTasksCount: () => st.count }));
-vi.mock('@/islands/CommandBar', () => ({ openCommandBar: vi.fn(), runAdd: vi.fn() }));
+vi.mock('@/lib/runAdd', () => ({ runAdd: vi.fn() }));
 vi.mock('@/lib/track', () => ({ track: vi.fn() }));
 vi.mock('@/components/UserChip', () => ({ UserChip: () => <span data-testid="user-chip" /> }));
 vi.mock('@/islands', () => ({ mount: () => true }));
@@ -45,18 +45,18 @@ describe('HeaderActions', () => {
     expect(screen.queryByTestId('header-my-tasks')).toBeNull();
   });
 
-  it('➕ קיבוץ is hidden on the phone (it lives in ⋯ עוד there)', () => {
+  it('"קיבוץ חדש" is hidden on the phone (it lives in ⋯ עוד there)', () => {
     render(<HeaderActionsPanel />);
-    const btn = screen.getByText('קיבוץ').closest('button')!;
+    const btn = screen.getByText('קיבוץ חדש').closest('button')!;
     expect(btn.className).toMatch(/\bhidden\b/);
     expect(btn.className).toMatch(/md:inline-flex/);
   });
 
-  it('the viewer gets feedback as his only ➕, shown on every size', () => {
+  it('the viewer gets feedback as his only page action, shown on every size', () => {
     Object.assign(st, { name: 'צופה', role: 'viewer', isViewer: true });
     render(<HeaderActionsPanel />);
-    expect(screen.queryByText('קיבוץ')).toBeNull();
-    const btn = screen.getByText('רעיון / באג').closest('button')!;
+    expect(screen.queryByText('קיבוץ חדש')).toBeNull();
+    const btn = screen.getByText('רעיון או באג').closest('button')!;
     expect(btn.className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });
 });

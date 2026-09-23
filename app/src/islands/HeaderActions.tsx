@@ -1,11 +1,12 @@
-// The header's right-hand cluster (spec §6 header, §7k #12 search, §7k.2 the one ➕):
-//   🔍 חיפוש (desktop — opens Ctrl+K) · the context ➕ · ● user chip (🌙 moved into ⚙️ הגדרות, 22.9)
+// The header's right-hand cluster (spec §6 header, §7k.2 the one page action; round 5 L1 moved
+// `runAdd` out of the command bar and dropped the Ctrl+K button — S-11).
+//   the context page action · ● user chip (🌙 moved into ⚙️ הגדרות, 22.9)
 //
 // It replaces the legacy strip of six grey chips (👤 …, 🟢 EMS, 🔓 ישיבה, 🏘️ פוטנציאליים, …)
 // as the place identity and settings live; the legacy chips that still have no React home
 // (ישיבה, פוטנציאליים, סטטיסטיקה) stay where they are and are untouched.
 import * as React from 'react';
-import { ArrowLeft, ListTodo, Plus, Search } from 'lucide-react';
+import { ArrowLeft, ListTodo, Plus } from 'lucide-react';
 import { UserChip } from '@/components/UserChip';
 import { mount } from '@/islands';
 import { useCurrentUser } from '@/bridge';
@@ -13,7 +14,7 @@ import { useCurrentPage } from '@/lib/currentPage';
 import { roleOf } from '@/lib/landing';
 import { canManageKibbutzim } from '@/lib/kibbutzim';
 import { primaryAdd, primaryAddLabel, primaryAddOpensForm } from '@/lib/primaryAdd';
-import { openCommandBar, runAdd } from '@/islands/CommandBar';
+import { runAdd } from '@/lib/runAdd';
 import { track } from '@/lib/track';
 import { MY_TASKS_TITLE, myTasksLabel } from '@/lib/myTasks';
 import { useMyTasksCount } from '@/lib/myTasksBadge';
@@ -68,23 +69,12 @@ export function HeaderActionsPanel() {
       {/* ✅ המשימות שלי — right next to the bell, on every screen size. */}
       <MyTasksButton me={user} />
 
-      {/* Desktop only: the phone has the sticky search pill + the bottom nav. */}
-      <button
-        type="button"
-        onClick={() => { track('search-open', 'header'); openCommandBar(); }}
-        className="hidden min-h-[40px] items-center gap-2 rounded-xl border border-border bg-card px-3 text-[13px] text-muted-foreground transition-colors hover:bg-muted md:inline-flex"
-        title="חיפוש ופעולות · Ctrl+K"
-      >
-        <Search className="h-4 w-4" />
-        <span>חיפוש</span>
-        <kbd className="rounded border border-border px-1 text-[10px] font-semibold"><bdi>Ctrl K</bdi></kbd>
-      </button>
-
-      {/* §7k.2: rendered ONLY when the page has something to add, and the label always says
-          what it does — never a bare plus. ➕ קיבוץ (add === 'kibbutz') is desktop-only: the
-          phone header has no room for it and the row is already in ⋯ עוד (Home.tsx registers
-          it there for canManage) — Package A §2. Every other add action keeps showing on the
-          phone too. */}
+      {/* §7k.2 / S-11: the 🔍 חיפוש · Ctrl+K button is gone (round 5, package X removes the
+          command bar itself). rendered ONLY when the page has something to add, and the label
+          always says what it does — never a bare plus. "קיבוץ חדש" (add === 'kibbutz') is
+          desktop-only: the phone header has no room for it and the row is already in ⋯ עוד
+          (Home.tsx registers it there for canManage) — Package A §2. Every other add action
+          keeps showing on the phone too. */}
       {addLabel && (
         <button
           type="button"
@@ -98,8 +88,7 @@ export function HeaderActionsPanel() {
             ? <Plus className="h-4 w-4" />
             /* ArrowLeft points to the INLINE START inside this RTL container, i.e. forward */
             : <ArrowLeft className="h-4 w-4" />}
-          {/* the label carries its own ➕ glyph for the command bar — strip it here */}
-          <span>{addLabel.replace(/^➕\s*/, '')}</span>
+          <span>{addLabel}</span>
         </button>
       )}
 

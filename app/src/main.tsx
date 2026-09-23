@@ -276,16 +276,17 @@ function boot() {
       .then(m => m.mountUsage())
       .catch(e => console.warn('[sigma] usage island failed', e)));
   }
-  // Ctrl+K (§7k.1) and the header cluster (§6, §7k.2). The header island imports the command
-  // bar's opener, so they share one chunk; both are lazy, and the legacy header chips stay in
-  // place if the chunk never lands.
-  if (document.getElementById('sigma-command') || document.getElementById('sigma-header-actions')) {
-    Promise.all([import('@/islands/CommandBar'), import('@/islands/HeaderActions')])
-      .then(([cmd, header]) => {
-        cmd.mountCommandBar();
-        if (header.mountHeaderActions()) document.body.classList.add('sigma-header-ready');
-      })
-      .catch(e => console.warn('[sigma] command bar / header island failed', e));
+  // The header cluster (§6). Lazy; the legacy header chips stay if the chunk never lands.
+  if (document.getElementById('sigma-header-actions')) {
+    import('@/islands/HeaderActions')
+      .then(m => { if (m.mountHeaderActions()) document.body.classList.add('sigma-header-ready'); })
+      .catch(e => console.warn('[sigma] header', e));
+  }
+  // Ctrl+K — package X deletes this block together with CommandBar.tsx.
+  if (document.getElementById('sigma-command')) {
+    import('@/islands/CommandBar')
+      .then(m => m.mountCommandBar())
+      .catch(e => console.warn('[sigma] cmdk', e));
   }
 
   // ⚙️ הגדרות (§7h) — a lazy chunk like every other panel, but its row in the ⋯ sheet and the

@@ -73,3 +73,19 @@ describe('primaryAddLabel', () => {
     }
   });
 });
+
+describe('ADD_LABEL copy rules', () => {
+  it('has no emoji, no "!" and no masculine imperative', () => {
+    for (const label of Object.values(ADD_LABEL)) {
+      expect(label).not.toMatch(/\p{Extended_Pictographic}/u);
+      expect(label).not.toMatch(/!/);
+      expect(label).not.toMatch(/(?<![א-ת])(שמור|שלח|סגור|בטל|מחק|ערוך|הוסף|בחר|אשר|פתח|העלה|עבור)(?![א-ת])/);
+    }
+  });
+  it('pins the exact labels', () => {
+    expect(ADD_LABEL).toEqual({
+      kibbutz: 'קיבוץ חדש', visit: 'סיכום ביקור', feedback: 'רעיון או באג',
+      schedule: 'מעבר ליומן', event: 'מעבר ליומן', stockChange: 'דיווח מלאי',
+    });
+  });
+});
