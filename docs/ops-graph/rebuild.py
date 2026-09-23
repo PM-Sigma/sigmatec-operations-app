@@ -113,8 +113,9 @@ def main():
     }, ensure_ascii=False), encoding="utf-8")
     print(f"merged: {len(merged)} nodes, {len(all_edges)} edges")
 
-    # 4. repair -> cluster/label/render -> gaps
-    for step in ("fix_graph.py", "label_and_render.py", "find_gaps.py"):
+    # 4. docs/system/** -> graph edges (deterministic, DOC-0 spec §8.2) -> repair ->
+    #    cluster/label/render -> gaps
+    for step in ("doc_links.py", "fix_graph.py", "label_and_render.py", "find_gaps.py"):
         print(f"\n--- {step}")
         if subprocess.run([sys.executable, str(HERE / step)], cwd=HERE).returncode:
             sys.exit(f"{step} failed")

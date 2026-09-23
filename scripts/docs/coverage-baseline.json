@@ -1,0 +1,7 @@
+{
+  "_comment": "Ratchet for test-docs.mjs coverage checks (spec §9.1). Each number is the MAXIMUM allowed gap today — test-docs.mjs fails only if the live gap is BIGGER than this (a regression), never for a gap that already existed. DOC-1 lowers these numbers as it writes docs; at DOC-1 exit every one of them is 0. Regenerate honestly with `node scripts/docs/test-docs.mjs --write-baseline` after intentionally writing docs — never to silence a real regression.",
+  "missing_table_docs": 0,
+  "missing_edge_function_docs": 9,
+  "unclaimed_partition_files": 332,
+  "retired_paths_still_present": 19
+}

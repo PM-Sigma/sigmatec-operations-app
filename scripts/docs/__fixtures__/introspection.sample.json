@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-09-23T00:00:00.000Z",
+  "schemas": ["public", "private", "archive", "backup"],
+  "tables": [
+    { "schema": "public", "name": "categories", "kind": "r", "rls_enabled": true, "rls_forced": false, "comment": "Product categories." },
+    { "schema": "public", "name": "widgets", "kind": "r", "rls_enabled": true, "rls_forced": false, "comment": null }
+  ],
+  "columns": [
+    { "schema": "public", "table": "categories", "name": "id", "position": 1, "type": "uuid", "udt": "uuid", "nullable": false, "default": "gen_random_uuid()", "comment": null },
+    { "schema": "public", "table": "categories", "name": "name", "position": 2, "type": "text", "udt": "text", "nullable": false, "default": null, "comment": null },
+    { "schema": "public", "table": "widgets", "name": "id", "position": 1, "type": "uuid", "udt": "uuid", "nullable": false, "default": "gen_random_uuid()", "comment": null },
+    { "schema": "public", "table": "widgets", "name": "category_id", "position": 2, "type": "uuid", "udt": "uuid", "nullable": true, "default": null, "comment": null },
+    { "schema": "public", "table": "widgets", "name": "name", "position": 3, "type": "text", "udt": "text", "nullable": false, "default": null, "comment": "Display name shown on the card." },
+    { "schema": "public", "table": "widgets", "name": "qty", "position": 4, "type": "numeric", "udt": "numeric", "nullable": false, "default": "0", "comment": null }
+  ],
+  "constraints": [
+    { "schema": "public", "table": "categories", "name": "categories_pkey", "type": "PRIMARY KEY", "columns": ["id"], "fk_schema": null, "fk_table": null, "fk_columns": null },
+    { "schema": "public", "table": "widgets", "name": "widgets_pkey", "type": "PRIMARY KEY", "columns": ["id"], "fk_schema": null, "fk_table": null, "fk_columns": null },
+    { "schema": "public", "table": "widgets", "name": "widgets_category_id_fkey", "type": "FOREIGN KEY", "columns": ["category_id"], "fk_schema": "public", "fk_table": "categories", "fk_columns": ["id"] }
+  ],
+  "indexes": [
+    { "schema": "public", "table": "widgets", "name": "widgets_pkey", "definition": "CREATE UNIQUE INDEX widgets_pkey ON public.widgets USING btree (id)" },
+    { "schema": "public", "table": "widgets", "name": "widgets_category_id_idx", "definition": "CREATE INDEX widgets_category_id_idx ON public.widgets USING btree (category_id)" }
+  ],
+  "policies": [
+    { "schema": "public", "table": "widgets", "name": "widgets_read", "permissive": "PERMISSIVE", "roles": ["authenticated"], "command": "SELECT", "using": "true", "with_check": null }
+  ],
+  "functions": [
+    { "schema": "public", "name": "widgets_touch_updated_at", "args": "", "returns": "trigger", "security_definer": false, "config": null, "language": "plpgsql" }
+  ],
+  "function_grants": [
+    { "schema": "public", "name": "widgets_touch_updated_at", "grantee": "authenticated", "privilege": "EXECUTE" }
+  ],
+  "triggers": [
+    { "schema": "public", "table": "widgets", "name": "widgets_set_updated_at", "timing": "BEFORE", "event": "UPDATE", "action": "EXECUTE FUNCTION widgets_touch_updated_at()" }
+  ],
+  "cron_jobs": [
+    { "jobid": 1, "jobname": "widgets-nightly-digest", "schedule": "0 3 * * *", "active": true, "target": "widgets_touch_updated_at" }
+  ]
+}
