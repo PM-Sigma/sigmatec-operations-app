@@ -93,7 +93,7 @@
     if (!person) return Promise.reject(new Error('חסר עובד'));
     if (dayType === 'other' && !note) return Promise.reject(new Error('נא לפרט מה היה ביום (אחר)'));
     var isoDate = new Date(dateVal + 'T12:00:00').toISOString();
-    return fetch(SHEET_API, {
+    return fetch(WRITE_ROUTER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'attendance', person: person, dayType: dayType, note: note, date: isoDate })
@@ -490,7 +490,7 @@
     if (dayType === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
     setBtnLoading(btn, true, 'שומר…');
     const isoDate = new Date(dateVal + 'T12:00:00').toISOString();   // noon anchor: a TZ offset can't roll the day back
-    fetch(SHEET_API, {
+    fetch(WRITE_ROUTER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       // id → UPDATE (upsert-by-id). person is the ORIGINAL owner: an edit must never reassign whose day

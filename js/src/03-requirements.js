@@ -135,7 +135,7 @@
 
     setBtnLoading(btn, true);
     try {
-      const res = await fetch(SHEET_API, {
+      const res = await fetch(WRITE_ROUTER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body)
@@ -175,7 +175,7 @@
     if (!checkEditPermission()) return;
     setBtnLoading(btn, true);
     try {
-      const res = await fetch(SHEET_API, {
+      const res = await fetch(WRITE_ROUTER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'requirement', id: id, status: newStatus })

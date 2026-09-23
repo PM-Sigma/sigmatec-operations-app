@@ -84,7 +84,7 @@ function loadLegacyEms() {
     emsLinkIds: legacyLinkIds,
     emsEsc: s => String(s),
     openEmsTask: () => {},
-    SHEET_API: 'https://sheet.test/api',
+    WRITE_ROUTER_URL: 'https://sheet.test/api',
     EMS_STATUS: LEGACY_STATUS,
     EMS_PRIORITY: { normal: 'רגילה' },
     EMS_CLOSED: LEGACY_CLOSED,

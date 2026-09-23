@@ -10,17 +10,18 @@
 // of throwing it away. The rules themselves are goldens (app/src/lib/visitDraft.test.ts).
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test, type Recorder } from './_helpers';
 
-const DRAFT_KEY = 'visitDrafts_v2';
+const DRAFT_KEY = 'visitDrafts_v3';
 const VISITS_KEY = 'kibbutzVisits_v1';
 
 /**
- * Every POST the app makes to the Apps Script endpoint, recorded IN THE PAGE.
+ * Every POST the app makes through the internal write-router, recorded IN THE PAGE.
  *
- * It has to be in the page: `?sb=0` mock mode wraps `window.fetch` and answers SHEET_API
- * itself (js/src/01-data.js), so those requests never reach the network and a Playwright
- * route would never see them. Wrapping fetch from the outside puts the recorder in front of
- * the mock, which is what makes "exactly one visit, movements once" an assertion about real
- * calls rather than about the UI's own optimism.
+ * It has to be in the page: `?sb=0` mock mode wraps `window.fetch` and answers
+ * WRITE_ROUTER_URL itself (js/src/01-data.js — round 5 Phase 1: this is an internal dispatch
+ * key now, not the retired Google Sheet endpoint), so those requests never reach the network
+ * and a Playwright route would never see them. Wrapping fetch from the outside puts the
+ * recorder in front of the mock, which is what makes "exactly one visit, movements once" an
+ * assertion about real calls rather than about the UI's own optimism.
  */
 async function recordSheet(page: any): Promise<void> {
   await page.evaluate(() => {
@@ -30,7 +31,7 @@ async function recordSheet(page: any): Promise<void> {
     const real = w.fetch.bind(w);
     w.fetch = function (url: any, opts: any) {
       try {
-        if (typeof url === 'string' && url.indexOf('https://script.google.com/') === 0 && opts && opts.body) {
+        if (typeof url === 'string' && url.indexOf('sigma:write-router') === 0 && opts && opts.body) {
           w.__qaPosted.push(JSON.parse(opts.body));
         }
       } catch { /* not ours to parse */ }

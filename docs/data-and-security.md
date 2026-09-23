@@ -3,13 +3,18 @@
 ## Supabase
 
 - **Project ref:** `wwqfcajnxinaxmobrgol` · **URL:** `https://wwqfcajnxinaxmobrgol.supabase.co`
-- **Data layer:** `01-data.js` routes all reads/writes. `USE_SUPABASE` (default ON; `?sb=0`
-  → mock). The router monkey-patches `window.fetch`; `ems/transcribe/parseRequest` POSTs
-  stay on Apps Script. Helpers `sbGet/sbUpsert/sbInsert/sbDelete` use `baseH()` — a
-  **dynamic auth header**: the authenticated bridge token if active & unexpired, else `SB_ANON`.
+- **Data layer:** `01-data.js` routes all reads/writes. `USE_SUPABASE` is always ON in
+  production; `?sb=0` only drops to the local mock fixtures, and only on a `localhost`/`file://`
+  host (round 5 Phase 1, 23.9: the Google Sheet data path is retired — see `docs/ops-graph/
+  graphify-out/RETIREMENT_MAP.md`). The router monkey-patches `window.fetch`, matching on the
+  internal `WRITE_ROUTER_URL` dispatch key (not a live endpoint); `ems/transcribe/parseRequest`
+  POSTs are the one thing that still go to a real Apps Script deployment, over the separate
+  `EMS_PROXY_URL` (the live EMS proxy — intentionally kept, "hybrid"). Helpers
+  `sbGet/sbUpsert/sbInsert/sbDelete` use `baseH()` — a **dynamic auth header**: the
+  authenticated bridge token if active & unexpired, else `SB_ANON`.
 - **Snapshot:** `readSnapshot()` assembles the app snapshot from ~13 tables (snake_case →
   camelCase, numeric coercion via `numish()`, `tasks.seq` exposed as `row`). Dates stored as
-  **text ISO strings** for byte-parity with the old Sheets snapshot.
+  **text ISO strings** for byte-parity with the retired Sheets snapshot.
 
 ### Tables (17)
 
@@ -33,8 +38,9 @@
 | `meter_burns` | 🔥 צריבות: one row per Landis E360 generation meter (EMS snapshot cols + status/burned_by/burned_at/generator_id/note). Anon read; authenticated insert+update (insert added 7.9.26 so the tab can upsert the EMS-owned columns live from the EMS; tracking columns are app-owned). |
 | `generators` | 🔥 צריבות: generators per site (`unique(site,name)`, `device_serial`). Anon read, auth insert/update. |
 
-DB helper scripts in `db/`: `supabase_schema.sql` (schema + RLS), `import_from_appsscript.mjs`
-(one-time migration), `verify_read_parity.mjs` (parity check), `rls_staged.sql` (lockdown steps),
+DB helper scripts in `db/`: `supabase_schema.sql` (schema + RLS), `verify_read_parity.mjs`
+(the original Sheet↔Supabase cutover parity check — historical, round 5 Phase 1 retired the
+Sheet it compared against), `rls_staged.sql` (lockdown steps),
 `parse_corrections.sql` (📦 inventory learning table), `dev_status_log.sql` (🧑‍💻 dev day-stamps table),
 `meter_burns.sql` (🔥 צריבות schema + RLS) + `gen_meter_burns_seed.mjs` (generates the seed from the EMS export CSV).
 
@@ -84,8 +90,9 @@ DB helper scripts in `db/`: `supabase_schema.sql` (schema + RLS), `import_from_a
 ### Apps Script security (honest assessment — *not* 100%)
 
 - **Deployment:** "Execute as me · Anyone with the link." The `/exec` URL is **embedded in
-  the public bundle** (`SHEET_API`) → obscurity provides **no** protection; assume anyone can
-  call it.
+  the public bundle** (`EMS_PROXY_URL` — round 5 Phase 1: the same deployment used to also back
+  the Sheet data path via `SHEET_API`/`WRITE_ROUTER_URL`, now retired; only the live EMS proxy +
+  AI calls still reach it) → obscurity provides **no** protection; assume anyone can call it.
 - **EMS proxy:** low-risk — domain-locked to `*.sigmatec-ems.com` (no SSRF elsewhere) and uses
   the **caller's own EMS token** (no token → EMS rejects).
 - **Calendar (Option B):** the read/add endpoints run as the office account and are
@@ -159,7 +166,8 @@ apply order (dependency order matters, listed there).
   bridge mint first and sends the pass (`js/src/01-data.js:512`), the viewer mints the same pass,
   the sign-in itself uses the `ems-auth` edge function, and the `?cert=` share link uses the
   SECURITY DEFINER `cert_by_id(uuid)` RPC. What changes is the posture: a browser with no session
-  now gets 401 and falls back to Apps Script instead of quietly being served the data.
+  now gets 401 (funnelled to the re-login sheet) instead of quietly being served the data — there
+  is no Sheet/Apps Script fallback to land on any more (round 5 Phase 1).
   `test-rls-policies.mjs` carries a `LEGACY_TABLES` roster, so a table with no policy file is now
   a **failure** rather than a silence — the blind spot itself is what the new contract tests.
 

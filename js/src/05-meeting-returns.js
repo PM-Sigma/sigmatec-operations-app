@@ -145,9 +145,9 @@
     }
     try {
       const by = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-      await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'movement', product: r.product, fromLocation: from, toLocation: loc, quantity: qty, reason: 'return_restock', refId: retId, createdBy: by }) });
-      await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'return', id: retId, status: 'restocked' }) });
       if (r) r.status = 'restocked';
       const t = document.getElementById('toast'); t.textContent = '✅ הוחזר למלאי (' + loc + ')';
@@ -163,7 +163,7 @@
     // button read as dead and invited a second tap.
     return runOnce(btn, 'מסמן…', async function () {
       try {
-      await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'return', id: retId, status: 'defective' }) });
       const r = ((window.SHEET_DATA && window.SHEET_DATA.returns) || []).find(x => x.id === retId);
       if (r) r.status = 'defective';

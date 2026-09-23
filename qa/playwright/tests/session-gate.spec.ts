@@ -17,7 +17,7 @@ const DRAFT = {
 
 test('an expired session raises ONE sheet and keeps the page + the draft', async ({ page }, testInfo) => {
   const { rec } = await boot(page, testInfo, {
-    storage: { visitDrafts_v2: JSON.stringify(DRAFT) },
+    storage: { visitDrafts_v3: JSON.stringify(DRAFT) },
   });
   await expectRtl(page);
 
@@ -64,7 +64,7 @@ test('an expired session raises ONE sheet and keeps the page + the draft', async
   const kept = await page.evaluate(() => ({
     page: sessionStorage.getItem('ems_return_page_v1'),
     scroll: Number(sessionStorage.getItem('ems_return_scroll_v1') || '0'),
-    draft: !!localStorage.getItem('visitDrafts_v2'),
+    draft: !!localStorage.getItem('visitDrafts_v3'),
   }));
   expect(kept.page).toBe('inventory');
   expect(kept.scroll, 'the scroll position is kept for the return trip').toBe(scrolled);
@@ -82,7 +82,7 @@ test('after signing in again the person lands back on the same page', async ({ p
     localStorage.setItem('dashboard_auth_v4', 'ok');
     localStorage.setItem('ems_token_v1', 'mock-ems-token');
     localStorage.setItem('ems_token_at_v1', String(Date.now()));
-    localStorage.setItem('visitDrafts_v2', JSON.stringify({
+    localStorage.setItem('visitDrafts_v3', JSON.stringify({
       'עידן|גבים|2026-09-18': {
         id: 'draft-task21', person: 'עידן', kibbutz: 'גבים', date: '2026-09-18',
         updated_at: '2026-09-18T14:02:00.000Z', payload: { summary: 'לא נשלח עדיין' },
@@ -101,7 +101,7 @@ test('after signing in again the person lands back on the same page', async ({ p
   await expect
     .poll(() => page.evaluate(() => (window as any)._currentPage), { timeout: 15_000 })
     .toBe('inventory');
-  const draft = await page.evaluate(() => localStorage.getItem('visitDrafts_v2'));
+  const draft = await page.evaluate(() => localStorage.getItem('visitDrafts_v3'));
   expect(draft, 'the draft is still there after the round trip').toContain('draft-task21');
 });
 

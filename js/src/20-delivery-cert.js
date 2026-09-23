@@ -236,7 +236,7 @@
     try {
       cert.number = null; cert.id = null;
       try {
-        const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        const r = await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'deliveryCert', cert: cert, createdBy: (typeof getCurrentUser === 'function' && getCurrentUser()) || '' }) });
         const res = await r.json();
         if (res && res.ok) { cert.number = res.certNumber; cert.id = res.id || null; }
@@ -250,7 +250,7 @@
       // and the cert simply isn't archived; everything else works.
       if (cert.id && cert.number) {
         try {
-          await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ type: 'deliveryCertDoc', id: cert.id, docHtml: certDocHtml(cert) }) });
         } catch (e) { console.warn('cert snapshot for Drive archive failed (non-blocking)', e); }
       }
@@ -268,7 +268,7 @@
       if (cert.number && _certReissueOf) {
         const prevRow = _certRows.find(x => x.id === _certReissueOf.id);
         try {
-          await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ type: 'deliveryCertCancel', id: _certReissueOf.id, replacedBy: cert.number }) });
           cancelledOld = _certReissueOf.certNumber;
           // the new cert may target the same visit and already re-populated the map above —
@@ -834,7 +834,7 @@
     if (!confirm('לבטל את תעודת משלוח ' + c.cert_number + '?\nהתעודה תישאר ברישום כמבוטלת (לא נמחקת) ולא תיספר בדוחות.')) return;
     return runOnce(btn, 'מבטל…', async function () {
       try {
-        await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'deliveryCertCancel', id: c.id }) });
         if (c.ref_id && window._certIssuedFor && window._certIssuedFor[c.ref_id]) delete window._certIssuedFor[c.ref_id];
         invRenderCerts(true);

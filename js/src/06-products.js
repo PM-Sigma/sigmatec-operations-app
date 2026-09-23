@@ -112,7 +112,7 @@
   // now says so in Hebrew with a retry instead of resolving into silence.
   function invToggleProductActive(id, makeActive, btn) {
     return runOnce(btn, makeActive ? 'מפעיל…' : 'משבית…', function () {
-      return fetch(SHEET_API, {
+      return fetch(WRITE_ROUTER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'product', id: id, active: makeActive })
@@ -140,7 +140,7 @@
     }
     if (window.invEditingProductId) body.id = window.invEditingProductId;
     setBtnLoading(btn, true);
-    fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+    fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
       .then(r => r.json())
       .then(res => {
         if (res.ok) {

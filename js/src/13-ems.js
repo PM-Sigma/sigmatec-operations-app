@@ -83,7 +83,7 @@
     const syncedBy = localStorage.getItem('dashboard_user_v1') || '';
     // ponytail: last-writer-wins snapshot — a slow sync could overwrite a fresher one.
     // Self-heals on the next connect/sync. Upgrade path: send fetch-start ts, server keeps newer.
-    await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, ver: EMS_CACHE_VER, tasks: slim }) });
     if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy, ver: EMS_CACHE_VER };
     emsBgStamp(Date.now());            // a sync from ANY path resets the background throttle
@@ -236,7 +236,7 @@
   // Enqueue a write to perform on the next connect. item = {kind:'comment'|'status', taskId, message?, status?, meta?}
   async function emsQueueAdd(item) {
     try {
-      const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      const r = await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'emsQueueAdd', item: item }) });
       let id = null; try { const b = await r.json(); id = b && b.id; } catch (e) {}
       // reflect in memory immediately so a same-session flush sees the item with its server id
@@ -347,7 +347,7 @@
     }
     if (doneIds.length) {
       try {
-        const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        const r = await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'emsQueueClear', ids: doneIds }) });
         const body = await r.json().catch(() => null);
         if (body && body.ok) _emsDropFlushed(doneIds);   // confirmed cleared → release the guard ids

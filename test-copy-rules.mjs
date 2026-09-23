@@ -50,7 +50,7 @@ function stripComments(body) {
 }
 
 // ── rule 1: no system talk ────────────────────────────────────────────────────
-// `API` is deliberately NOT here: it lives in identifiers (SHEET_API, emsApi) far more often
+// `API` is deliberately NOT here: it lives in identifiers (WRITE_ROUTER_URL, emsApi) far more often
 // than in copy, and the spec's own contract sentence lists the words that matter.
 const SYSTEM_TALK = [
   ['Supabase', /Supabase/i],

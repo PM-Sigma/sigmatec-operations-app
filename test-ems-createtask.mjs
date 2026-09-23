@@ -75,7 +75,7 @@ function loadModule({ connected = true, api = async () => ({}), sheet } = {}) {
     emsUserName: u => (u.firstName || '') + ' ' + (u.lastName || ''),
     emsSiteIdForKibbutz: async () => 'site-from-lookup',
     emsEsc: s => String(s),
-    SHEET_API: 'https://sheet.test/api',
+    WRITE_ROUTER_URL: 'https://sheet.test/api',
     EMS_STATUS: { pending: 'ממתין', in_progress: 'בטיפול', completed: 'הושלם' },
     EMS_CLOSED: ['completed'],
   };

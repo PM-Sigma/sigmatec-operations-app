@@ -108,7 +108,7 @@
     // "Unexpected token '<'" at the user.
     const ac = new AbortController(); const tt = setTimeout(() => ac.abort(), 20000);
     try {
-      const res = await fetch(SHEET_API, {
+      const res = await fetch(EMS_PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'ems', base, path, method, token, payload }),

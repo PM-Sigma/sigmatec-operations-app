@@ -43,7 +43,7 @@ const fetch_ = (u, o) => { if (o && o.body) { try { fetchBodies.push(JSON.parse(
 
 function load() {
   const fn = new Function(
-    'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
+    'window', 'document', 'localStorage', 'fetch', 'alert', 'WRITE_ROUTER_URL', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
     'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
     'visitReturnedItems', 'renderReturnedItems', 'sigmaError',

@@ -8,7 +8,7 @@ const CONNECT_COPY = /התחבר ל-EMS|חבר ל-EMS|להתחבר ל-EMS|התח
 test('the pass expires mid-session → one blocking re-login, the draft survives', async ({ page }, testInfo) => {
   await boot(page, testInfo, {
     storage: {
-      visitDrafts_v2: JSON.stringify({
+      visitDrafts_v3: JSON.stringify({
         'עידן|גבים|2026-09-23': {
           id: 'draft-ems-session', person: 'עידן', kibbutz: 'גבים', date: '2026-09-23',
           updated_at: '2026-09-23T09:41:00.000Z', payload: { summary: 'חצי סיכום' },
@@ -61,7 +61,7 @@ test('the pass expires mid-session → one blocking re-login, the draft survives
 
   // What was typed is still there underneath, and the saved draft too.
   await expect(page.locator('#unsaved-probe')).toHaveValue('טקסט שלא נשמר');
-  expect(await page.evaluate(() => localStorage.getItem('visitDrafts_v2'))).toContain('draft-ems-session');
+  expect(await page.evaluate(() => localStorage.getItem('visitDrafts_v3'))).toContain('draft-ems-session');
 
   // The only way out is the sign-in, which remembers the place.
   await sheet.getByRole('button', { name: /התחבר מחדש/ }).click();

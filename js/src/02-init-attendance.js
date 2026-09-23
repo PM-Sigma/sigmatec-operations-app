@@ -287,7 +287,7 @@
       if (type === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
       // F12: the המשך button is the pending state for the sheet write behind it.
       setBtnLoading(btn, true, 'שומר…');
-      fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'attendance', person: me, dayType: type, note, date: isoDate }) })
         .then(r => r.json()).then(res => {
           if (res && res.ok) {

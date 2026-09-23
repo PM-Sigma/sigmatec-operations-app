@@ -51,9 +51,11 @@ test('מלאי נמוך is a tappable filter', async ({ page }, ti) => {
 
   await expect(page.getByTestId('inv-pool')).toContainText('בקר 504');
   await page.locator('[data-kpi="low"]').click();
-  // סים 1NCE is 4 in the pool, under its red line; the בקר is not a red-line item at all.
-  await expect(page.getByTestId('inv-pool')).toContainText('סים 1NCE');
+  // מונה PM135 is 2 in the pool, under its red line (min 5); the בקר is not a red-line item at
+  // all, and SIM has no red line any more (round 5 Phase 1, עידן 23.9).
+  await expect(page.getByTestId('inv-pool')).toContainText('מונה PM135');
   await expect(page.getByTestId('inv-pool')).not.toContainText('בקר 504');
+  await expect(page.getByTestId('inv-pool')).not.toContainText('סים 1NCE');
   await shot(page, ti, 'low-filter');
   await expectNoConsoleErrors(rec);
 });

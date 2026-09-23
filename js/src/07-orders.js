@@ -20,7 +20,7 @@
     // PURS controller (ASIC meters) / ROBUSTEL (SATEC meters)
     'purs':'purs',
     'בקר':'בקר', 'בקרים':'בקר', 'robustel':'robustel',
-    'רובסטל':'robustel', 'סים':'סים', 'סימים':'סים', 'sim':'סים'
+    'רובסטל':'robustel'
     // NOTE: removed generic 'מונה'/'מונים' — they matched EVERY meter (all names contain "מונה").
     // A generic "מונה לנדיס" with no variant becomes an E360PP default in parseLocalToItems().
   };
@@ -73,7 +73,7 @@
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '🧠 מנתח עם AI...'; }
     try {
-      const res = await fetch(SHEET_API, {
+      const res = await fetch(EMS_PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'parseRequest', text: raw, catalog: getActiveProducts().map(p => p.name) })
@@ -100,10 +100,11 @@
   const INTAKE_STOP = ['מונה', 'מונים'];
 
   // Customer-order accessory MODEL (pure counts; unit-tested in test-autoadd.mjs):
-  //   • Landis meter (E360*/E570) — built-in comm → 1 SIM directly. No controller / antenna / power-supply.
+  //   • Landis meter (E360*/E570) — built-in comm, no controller needed.
   //   • Any OTHER meter (Satec, Carlo, …) — needs 1 controller each (type is a user choice).
-  //   • Every controller (added + explicitly-ordered) → 1 SIM + 1 antenna + 1 power-supply (type is a user choice).
-  //   • SIM total = Landis meters + all controllers. Antenna = controllers. Power-supply = controllers.
+  //   • Every controller (added + explicitly-ordered) → 1 antenna + 1 power-supply (type is a user choice).
+  //   • Antenna = controllers. Power-supply = controllers.
+  //   round 5 Phase 1: SIM is retired — no longer auto-added or counted here (עידן 23.9).
   // Returns counts only; the conversational flow (finalizeCustomerAccessories) asks the choices and adds rows.
   function accessoryPlan(items) {
     var sumQty = function (pred) { return items.filter(function (it) { return pred(it.name); }).reduce(function (s, it) { return s + (parseInt(it.qty) || 0); }, 0); };
@@ -120,7 +121,6 @@
       nonLandisMeterQty: nonLandisMeterQty,
       controllersToAdd: controllersToAdd,
       totalControllers: totalControllers,
-      simQty: landisQty + totalControllers,
       antennaQty: totalControllers,
       psQty: totalControllers,
     };
@@ -212,7 +212,7 @@
         if (/em133/.test(_nk) && /משנז/.test(_nk)) items.splice(_kk, 1);
       }
     }
-    // NOTE: accessory auto-add (controllers/SIM/antenna) is applied centrally in orderParseRaw AFTER parsing,
+    // NOTE: accessory auto-add (controllers/antenna) is applied centrally in orderParseRaw AFTER parsing,
     // so it runs identically for the AI path and this offline path. Keep this matcher to pure parsing.
     const seen = new Set();
     return items.filter(it => { if (seen.has(it.name)) return false; seen.add(it.name); return true; });
@@ -279,7 +279,7 @@
     if (!items.length) { alert('אין פריטים. הוסף לפחות פריט אחד'); return; }
     setBtnLoading(btn, true);
     const createdBy = getCurrentUser() || '';
-    const post = body => fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
+    const post = body => fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) }).then(r => r.json());
     try {
       // 1) customer requirement (open) — keeps per-kibbutz attribution + the raw request
       const reqRes = await post({ type: 'requirement', kibbutz, contactName: contact, items, status: 'open', createdBy, notes: '📥 נקלט מבקשת לקוח:\n' + raw });
@@ -390,7 +390,7 @@
       });
       const catalog = getActiveProducts().map(p => p.name);
       const cleanMime = (mimeType || 'audio/webm').split(';')[0];
-      const res = await fetch(SHEET_API, {
+      const res = await fetch(EMS_PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'transcribe', audioBase64: base64, mimeType: cleanMime, catalog })
@@ -504,7 +504,7 @@
     if (!confirm('לאשר הזמנת ספק? תעבור ל"ממתין להזמנה".')) return;
     setBtnLoading(btn, true);
     try {
-      const res = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'pending' }) });
+      const res = await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'pending' }) });
       const data = await res.json();
       if (data.ok) { orderNotifMarkSeen([o.id]); if (typeof sigmaTrack === 'function') sigmaTrack('order-approved', o.id);   // 📈 שימוש (spec §7j)
         if (typeof pushNotify === 'function') pushNotify('approved', o.id, getCurrentUser()); const t = document.getElementById('toast'); t.textContent = '✅ הזמנת הספק אושרה'; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2000); setTimeout(refreshData, 800); }
@@ -523,9 +523,9 @@
       if (!confirm('לאשר אספקה ישירה מהספק' + (o.supplier ? ' (' + o.supplier + ')' : '') + '?\nלא יירד מהמלאי ולא תיפתח משימת EMS, ההזמנה תסומן "סופק ללקוח".')) return;
       setBtnLoading(btn, true);
       try {
-        await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
+        await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
         var linkedD = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
-        await Promise.all(linkedD.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
+        await Promise.all(linkedD.map(function (r) { return fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
         orderNotifMarkSeen([o.id]);
         if (typeof sigmaTrack === 'function') sigmaTrack('order-approved', o.id);   // 📈 שימוש (spec §7j)
         if (typeof pushNotify === 'function') pushNotify('approved', o.id, me);
@@ -557,7 +557,7 @@
       // double-click is still covered by the disabled button; server-side unique refId if it ever bites.
       var alreadyMoved = (window.SHEET_DATA && window.SHEET_DATA.movements || []).some(function (m) { return m.refId === o.id && m.reason === 'customer_supply'; });
       if (!alreadyMoved) await Promise.all(items.map(function (it) {
-        return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        return fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'movement', product: it.name, fromLocation: POOL_LOCATION, toLocation: kibbutz, quantity: it.qty, reason: 'customer_supply', refId: o.id, createdBy: me }) });
       }));
       // 2) EMS "אספקת ציוד" task — live if connected, else queued for the next connect (field staff rarely connect)
@@ -569,9 +569,9 @@
         if (emsRes && emsRes.sent && typeof emsAfterWrite === 'function') { try { await emsAfterWrite(); } catch (e2) {} }
       }
       // 3) close the order row + the linked requirement
-      await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
+      await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'order', id: o.id, status: 'supplied' }) });
       var linked = (window.SHEET_DATA && window.SHEET_DATA.requirements || []).filter(function (r) { return r.linkedOrderId === o.id && r.status !== 'fulfilled'; });
-      await Promise.all(linked.map(function (r) { return fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
+      await Promise.all(linked.map(function (r) { return fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'requirement', id: r.id, status: 'fulfilled' }) }).catch(function () {}); }));
       orderNotifMarkSeen([o.id]);   // the approver shouldn't be notified about the order they just approved
       if (typeof pushNotify === 'function') pushNotify('approved', o.id, me);
       const t = document.getElementById('toast');
@@ -662,7 +662,7 @@
     if (!checkEditPermission()) return;
     setBtnLoading(btn, true);
     try {
-      const res = await fetch(SHEET_API, {
+      const res = await fetch(WRITE_ROUTER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({ type: 'order', id: orderId, status: newStatus })
@@ -1012,11 +1012,9 @@
       }
       pushAuto(chosen, plan.controllersToAdd);
     }
-    // 2) SIM (Partner default) — Landis meters + all controllers
-    pushAuto(catalog.find(function (n) { return /סים|\bsim\b/i.test(n) && !/cellcom/i.test(n); }), plan.simQty);
-    // 3) antenna — per controller
+    // 2) antenna — per controller (round 5 Phase 1: SIM is retired, no longer auto-added here)
     pushAuto(catalog.find(function (n) { return /אנטנה|antenna/i.test(n); }), plan.antennaQty);
-    // 4) power supply (type chosen) — per controller
+    // 3) power supply (type chosen) — per controller
     if (plan.psQty > 0) {
       const psOpts = catalog.filter(function (n) { return /ספק כוח/.test(n); });
       let chosen = psOpts[0];
@@ -1174,7 +1172,7 @@
     if (!invOrderItems.length) { alert('לא נותרו פריטים בהזמנה.'); renderOrderItems(); invToggleDistribution(); return; }
     // Create the approved new products so they enter inventory management.
     for (const nm of _toCatalog) {
-      try { await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'product', name: nm, category: '', active: true }) }); } catch (e) { /* non-blocking */ }
+      try { await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'product', name: nm, category: '', active: true }) }); } catch (e) { /* non-blocking */ }
     }
     setBtnLoading(btn, true);
     let status = document.getElementById('invOrderStatus').value;
@@ -1204,7 +1202,7 @@
     if (otype === 'customer' && _asgVal) body.assignee = _asgVal;
 
     try {
-      const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+      const r = await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
       const res = await r.json();
       if (!res.ok) { alert('שגיאה: ' + JSON.stringify(res)); return; }
 
@@ -1217,7 +1215,7 @@
       if (rawReq) {
         try {
           const learnItems = invOrderItems.filter(it => !it.auto && it.name).map(i => ({ name: i.name, qty: i.qty }));
-          if (learnItems.length) fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          if (learnItems.length) fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ type: 'parseCorrection', rawText: rawReq, items: learnItems, createdBy: createdBy }) });
         } catch (e) { /* non-blocking */ }
       }
@@ -1233,7 +1231,7 @@
           .some(function (m) { return m.refId === _refId && m.reason === 'order_delivery'; });
         if (!_already) await Promise.all(invOrderItems
           .filter(it => it.name && (parseInt(it.qty) || 0) > 0)
-          .map(it => fetch(SHEET_API, {
+          .map(it => fetch(WRITE_ROUTER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
@@ -1248,7 +1246,7 @@
 
       // ----- Requirement ↔ order linkage (closes the customer-request chain) -----
       const orderId = res.id || window.invEditingOrderId;
-      const reqPost = (id, fields) => fetch(SHEET_API, {
+      const reqPost = (id, fields) => fetch(WRITE_ROUTER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(Object.assign({ type: 'requirement', id }, fields))

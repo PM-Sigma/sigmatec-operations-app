@@ -102,10 +102,10 @@ console.log('\n[1] 08-inventory.js: computeStock / poolStockMap / lowStockReport
       mv({ product: 'מונה Landis+Gyr E360PP', toLocation: 'אביאם', quantity: 400 }),
       mv({ product: 'סים 1NCE', toLocation: POOL, quantity: 4 }),
     ]);
-    const { meters, sims } = M.lowStockReport();
-    assert.equal(meters.length, 1, 'the meter type is below its line in the pool');
-    assert.equal(meters[0].total, 3, 'a bag nobody swept yet does not count as stock');
-    assert.deepEqual(sims.map(s => [s.type, s.qty, s.person]), [['סים 1NCE', 4, POOL]]);
+    const report = M.lowStockReport();
+    assert.equal(report.meters.length, 1, 'the meter type is below its line in the pool');
+    assert.equal(report.meters[0].total, 3, 'a bag nobody swept yet does not count as stock');
+    assert.ok(!('sims' in report), 'round 5 Phase 1: SIM is retired — no low-stock report for it any more');
   });
 
   check('the transfer form and the free adjust are gone, and דווח שינוי replaced them', () => {
@@ -130,7 +130,7 @@ console.log('\n[2] 09-visits.js: saveVisitFromData supplies from חברה');
     return Promise.resolve({ json: async () => ({ ok: true, id: 'V1' }) });
   };
   const mod = new Function(
-    'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
+    'window', 'document', 'localStorage', 'fetch', 'alert', 'WRITE_ROUTER_URL', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
     'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock',
     'switchTab', 'onVisitorChange', 'visitReturnedItems', 'renderReturnedItems', 'sigmaEmit',
@@ -289,7 +289,7 @@ console.log('\n[5] the golden ledger: returns and the day-log source');
   };
   const mod5 = new Function(
     'window', 'document', 'localStorage', 'fetch', 'alert', 'confirm', 'setTimeout',
-    'SHEET_API', 'POOL_LOCATION', 'checkEditPermission', 'getCurrentUser', 'refreshData',
+    'WRITE_ROUTER_URL', 'POOL_LOCATION', 'checkEditPermission', 'getCurrentUser', 'refreshData',
     'updateMeetingBadge', 'renderKibbutzCards', 'applyFilters',
     src5 + '\nreturn { returnToStock };',
   )(

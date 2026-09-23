@@ -40,9 +40,8 @@
     { label: 'מונה E570',   match: 'E570',  min: 10 },
     { label: 'מונה PM135',  match: 'PM135',  min: 5  },
   ];
-  // SIMs used to be checked per holder, against that person's own bag. There are no bags any
-  // more (§1), so one company-wide red line per SIM type, like the meters.
-  const SIM_MIN = 15;
+  // round 5 Phase 1: SIM is retired (items archived, no low-stock alert — עידן 23.9). SIM_MIN
+  // and the per-type sims[] report are gone; meters keep their own company-wide red line.
 
   function lowStockReport() {
     // Company-wide means THE POOL now — what a kibbutz already holds is not our shortage.
@@ -55,18 +54,13 @@
       });
       return { label: rule.label, match: rule.match, total, min: rule.min, found };
     }).filter(m => m.found && m.total < m.min);
-    // SIMs — one line per type, against the pool.
-    const sims = [];
-    Object.entries(companyTotal).forEach(([p, q]) => {
-      if (p.indexOf('סים') === 0 && q < SIM_MIN) sims.push({ person: POOL_LOCATION, type: p, qty: q, min: SIM_MIN });
-    });
-    return { meters, sims };
+    return { meters };
   }
 
   // Renders the red-line alert: a "company task" line for the company-wide meter shortages
   // (visible to all), plus a main-page banner whose content depends on who's logged in.
   function renderLowStockAlert() {
-    const { meters, sims } = lowStockReport();
+    const { meters } = lowStockReport();
     const me = getCurrentUser();
 
     // (1) company-task lines — meters are company-wide. SKIP for אביאם/עמיחי: they already get
@@ -89,7 +83,6 @@
     const lines = [];
     if (me === 'אביאם' || me === 'עמיחי') {
       meters.forEach(m => lines.push(`${m.label}: נותרו ${m.total} (קו אדום ${m.min})`));
-      sims.forEach(s => lines.push(`${s.type}: נותרו ${s.qty} (קו אדום ${s.min})`));
     }
 
     const view = document.getElementById('kibbutz-view');
@@ -177,9 +170,8 @@
     const pool = poolStockMap();
     const _lsr = lowStockReport();
     const _lowMeterMatches = _lsr.meters.map(m => m.match);
-    const lowSimTypes = new Set(_lsr.sims.map(s => s.type));
     const isLow = name =>
-      (name.indexOf('מונה') === 0 && _lowMeterMatches.some(mm => name.indexOf(mm) !== -1)) || lowSimTypes.has(name);
+      name.indexOf('מונה') === 0 && _lowMeterMatches.some(mm => name.indexOf(mm) !== -1);
 
     const catMap = productCategoryMap();
     let names = sortByCategoryThenName(Object.keys(pool), catMap);

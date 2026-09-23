@@ -100,7 +100,7 @@ const emitted = [];
 
 function load(kibbutz) {
   const fn = new Function(
-    'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'setBtnLoading',
+    'window', 'document', 'localStorage', 'fetch', 'alert', 'WRITE_ROUTER_URL', 'setBtnLoading',
     'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'refreshData', 'closeModal',
     'currentKibbutz', 'STOCK_HOLDERS', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
     'visitReturnedItems', 'renderReturnedItems', 'setTimeout', 'clearTimeout', 'getCurrentUser', 'sigmaEmit',

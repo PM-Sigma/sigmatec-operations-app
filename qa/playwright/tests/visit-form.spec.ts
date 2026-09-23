@@ -10,7 +10,7 @@
 // no longer reaches it on the happy path.
 import { boot, expect, expectNoConsoleErrors, shot, test } from './_helpers';
 
-const DRAFT_KEY = 'visitDrafts_v2';
+const DRAFT_KEY = 'visitDrafts_v3';
 
 /** 📍 סיכום ביקור on a card → the §7p chapters sheet, scrolling, for that kibbutz. */
 async function openFromCard(page: any, kibbutz: string) {

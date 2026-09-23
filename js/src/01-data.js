@@ -152,19 +152,26 @@
   });
 
   // ========================================
-  // Google Sheets integration
+  // Write-router dispatch (round 5 Phase 1 — the Google Sheet data path is retired)
   // ========================================
-
-  const SHEET_API = 'https://script.google.com/macros/s/AKfycbwUZTz-T9zoK3GnPNqwaJIKpJFTv3MGmYy_rfEYV8nz95kJJRx8s4VUN_-bMco2qTci/exec'; // v5.9 deployment (returns status + attendance note + visit workday)
+  // WRITE_ROUTER_URL is NOT a live endpoint. It is the internal dispatch key every data
+  // writer/reader below still calls `fetch()` with (Supabase router below matches on it and
+  // never lets the string leave the browser) — kept as a single well-known constant so the
+  // ~40 call sites across js/src didn't need a structural rewrite to drop the Google Sheet.
+  // EMS_PROXY_URL is the one REAL endpoint still in use: the live EMS proxy + AI (ems /
+  // transcribe / parseRequest) intentionally stay on the deployed Apps Script (hybrid,
+  // round 5 Phase 1 decision — see docs/ops-graph/graphify-out/RETIREMENT_MAP.md finding #3).
+  const WRITE_ROUTER_URL = 'sigma:write-router';
+  const EMS_PROXY_URL = 'https://script.google.com/macros/s/AKfycbwUZTz-T9zoK3GnPNqwaJIKpJFTv3MGmYy_rfEYV8nz95kJJRx8s4VUN_-bMco2qTci/exec'; // v5.9 deployment (returns status + attendance note + visit workday)
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🧪 MOCK MODE — local sandbox (Phase 0). ACTIVE ONLY on file:// / localhost /
   // 127.0.0.1 (host-gated, see below — there is NO ?mock= query path on purpose).
   // On gist.githack.com it is completely INERT (real backends used), so this block
   // is safe to keep in the deployed file.
-  // It wraps window.fetch and intercepts EVERY fetch(SHEET_API, …) — that single
-  // endpoint carries the Google-Sheet read/writes AND the EMS proxy — returning
-  // in-memory fixtures. Nothing leaves the browser; production is never touched.
+  // It wraps window.fetch and intercepts EVERY fetch(WRITE_ROUTER_URL, …) or
+  // fetch(EMS_PROXY_URL, …) — the internal write-router dispatch AND the live EMS proxy —
+  // returning in-memory fixtures. Nothing leaves the browser; production is never touched.
   // ═══════════════════════════════════════════════════════════════════════════
   // Mock is allowed ONLY on a local host (file:// or localhost / 127.0.0.1). On the
   // public gist host it is ALWAYS off — so a forwarded "?mock=1" link can NEVER turn
@@ -298,6 +305,9 @@
         { id: 'p-1', name: 'מונה Landis+Gyr E360PP', category: 'מונה', active: true },
         { id: 'p-2', name: 'בקר 504', category: 'בקר', active: true },
         { id: 'p-3', name: 'סים 1NCE', category: 'סים', active: true },
+        // round 5 Phase 1 (עידן 23.9): SIM has no low-stock red line any more — this meter is what
+        // the מלאי נמוך filter test now exercises (p-3/סים 1NCE stays for the plain recount test).
+        { id: 'p-4', name: 'מונה PM135', category: 'מונה', active: true },
       ];
     }
     function mockMovements() {
@@ -306,6 +316,7 @@
         { id: 'mov-2', date: addDays(-10), product: 'בקר 504', fromLocation: 'ספק', toLocation: 'חברה', quantity: 12, reason: 'order_delivery', refId: 'ord-1', createdBy: 'עידן' },
         { id: 'mov-3', date: addDays(-4),  product: 'מונה Landis+Gyr E360PP', fromLocation: 'חברה', toLocation: 'חוקוק', quantity: 3, reason: 'visit_supply', refId: 'vis-אביאם', createdBy: 'אביאם' },
         { id: 'mov-4', date: addDays(-2),  product: 'סים 1NCE', fromLocation: 'ספק', toLocation: 'חברה', quantity: 4, reason: 'order_delivery', refId: 'ord-2', createdBy: 'עמיחי' },
+        { id: 'mov-5', date: addDays(-1),  product: 'מונה PM135', fromLocation: 'ספק', toLocation: 'חברה', quantity: 2, reason: 'order_delivery', refId: 'ord-2', createdBy: 'עמיחי' },
       ];
     }
     function mockOrders() {
@@ -426,7 +437,7 @@
       return ok({ message: 'mock: unhandled ' + method + ' ' + p }, 404);
     }
 
-    // ---- single entry point: anything POSTed/GETed to SHEET_API ----
+    // ---- single entry point: anything POSTed/GETed to WRITE_ROUTER_URL or EMS_PROXY_URL ----
     function mockResponse(url, opts) {
       const method = (opts && opts.method ? opts.method : 'GET').toUpperCase();
       let body = null;
@@ -457,7 +468,7 @@
 
     const realFetch = window.fetch.bind(window);
     window.fetch = function (url, opts) {
-      if (typeof url === 'string' && url.indexOf(SHEET_API) === 0) {
+      if (typeof url === 'string' && (url.indexOf(WRITE_ROUTER_URL) === 0 || url.indexOf(EMS_PROXY_URL) === 0)) {
         return Promise.resolve(mockResponse(url, opts));
       }
       return realFetch(url, opts);
@@ -479,17 +490,18 @@
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🟢 SUPABASE ROUTING LAYER — migration cutover switch (build ·28).
-  // USE_SUPABASE=false → identical to today (all SHEET_API traffic → Apps Script).
   // USE_SUPABASE=true  → reads + data-writes go to Supabase; ONLY the live EMS proxy
   // and AI (ems / transcribe / parseRequest) stay on Apps Script (hybrid).
-  // Flip this ONE flag to cut over; flip back to roll back. Read+write parity was
-  // validated against the Apps Script snapshot before shipping (db/verify_read_parity.mjs).
+  // Read+write parity was validated against the Apps Script snapshot before shipping
+  // (db/verify_read_parity.mjs).
   // SB_ANON is the public anon key — safe in the browser (RLS is enabled on every table).
   // ═══════════════════════════════════════════════════════════════════════════
   // CUTOVER (build ·29): Supabase is the default backend for EVERYONE.
-  // Escape hatch: append ?sb=0 to the URL → falls back to Apps Script/Sheets (per-user, no redeploy).
-  // Full rollback = set this back to `location.search.indexOf('sb=1') !== -1` (default off) + redeploy.
-  const USE_SUPABASE = location.search.indexOf('sb=0') === -1;
+  // round 5 Phase 1: the Google Sheet / Apps Script data path is retired — `?sb=0` no longer
+  // falls back to a live Sheet in production (WRITE_ROUTER_URL isn't a real endpoint anymore).
+  // On a MOCK_MODE host (localhost/file://) `?sb=0` still boots the local fixtures below,
+  // which is what the Playwright suite relies on.
+  const USE_SUPABASE = MOCK_MODE ? (location.search.indexOf('sb=0') === -1) : true;
   // Read via `window.` (task-35): the §7n gate above (renderLastUpdated/renderPotentials) is
   // evaluated on every call, including the very first one at eval time, before this line has
   // run — a plain `const` reference there would be the exact TDZ class task-33 FAIL-2 already
@@ -707,7 +719,7 @@
     const respond = (payload) => ({ ok: true, status: 200, headers: { get: () => 'application/json' }, clone: function () { return this; }, json: async () => payload, text: async () => JSON.stringify(payload) });
 
     window.fetch = function (url, opts) {
-      if (typeof url === 'string' && url.indexOf(SHEET_API) === 0) {
+      if (typeof url === 'string' && url.indexOf(WRITE_ROUTER_URL) === 0) {
         const method = (opts && opts.method ? opts.method : 'GET').toUpperCase();
         // No Apps-Script fallback on a failed read (task-35): the legacy tables are
         // `authenticated`-only now, so a pre-login/anon read never throws here — it resolves
@@ -911,7 +923,7 @@
 
   async function fetchSheetData() {
     try {
-      const r = await fetch(SHEET_API + '?v=' + Date.now());
+      const r = await fetch(WRITE_ROUTER_URL + '?v=' + Date.now());
       const data = await r.json();
       stripTestData(data);   // drop leftover Claude test rows (TEST_CLAUDE / visitor=TEST) from every view
       window.SHEET_DATA = data;

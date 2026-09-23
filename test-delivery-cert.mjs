@@ -141,7 +141,7 @@ const isViewer_ = () => viewerReturn;
 function runModule(overrides) {
   overrides = overrides || {};
   const fn = new Function(
-    'window', 'document', 'fetch', 'SHEET_API', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
+    'window', 'document', 'fetch', 'WRITE_ROUTER_URL', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
     // fix round 3: the shared helpers from js/src/00-guard.js (runOnce = the ONE pending-state
     // wrapper, sigmaError = the ONE failure surface). Passed through transparently here.
     'runOnce', 'sigmaError',

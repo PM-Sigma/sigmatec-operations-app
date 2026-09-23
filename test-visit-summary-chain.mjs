@@ -44,7 +44,7 @@ const fetch_ = (u, o) => {
 };
 
 const fn = new Function(
-  'window', 'document', 'localStorage', 'fetch', 'alert', 'SHEET_API', 'SB_URL', 'SB_ANON', 'setBtnLoading',
+  'window', 'document', 'localStorage', 'fetch', 'alert', 'WRITE_ROUTER_URL', 'SB_URL', 'SB_ANON', 'setBtnLoading',
   'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'pushVisitEditToEms', 'refreshData', 'closeModal',
   'currentKibbutz', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
   'visitReturnedItems', 'renderReturnedItems', 'sigmaEmit', 'sigmaTrack', 'setTimeout',

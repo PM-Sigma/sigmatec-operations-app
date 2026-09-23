@@ -530,8 +530,10 @@
   // test-visit-cert-gate.mjs inside a function scope with a fixed set of stubs, and an
   // unguarded global would turn a re-skin into a broken save path.
   // ═══════════════════════════════════════════════════════════════════════════
-  // v2 = a MAP keyed by (person, kibbutz, date); v1 was one slot and is migrated on read.
-  const DRAFT_MIRROR_KEY = 'visitDrafts_v2';
+  // v3 = round 5 Phase 1 key bump (docs/superpowers/specs/2026-09-23-round-5-design.md, Phase 1): a
+  // stale local v2 draft is simply ignored, never migrated forward. v2 = a MAP keyed by
+  // (person, kibbutz, date); v1 was one slot and is migrated on read.
+  const DRAFT_MIRROR_KEY = 'visitDrafts_v3';
   const DRAFT_DEBOUNCE_MS = 800;
   let visitDraftTimer = null;
 
@@ -714,9 +716,9 @@
     };
     draftMirrorPut(row);
     // Best effort to the shared table — a failure is invisible, because the mirror already has it.
-    if (typeof SHEET_API === 'string' && typeof fetch === 'function') {
+    if (typeof WRITE_ROUTER_URL === 'string' && typeof fetch === 'function') {
       try {
-        fetch(SHEET_API, {
+        fetch(WRITE_ROUTER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'visitDraft', draft: row })
@@ -770,9 +772,9 @@
       || window._visitDraftId;
     const row = target ? draftMirrorDeleteById(target) : null;
     if (visitDraftTimer) { clearTimeout(visitDraftTimer); visitDraftTimer = null; }
-    if (target && typeof SHEET_API === 'string' && typeof fetch === 'function') {
+    if (target && typeof WRITE_ROUTER_URL === 'string' && typeof fetch === 'function') {
       try {
-        fetch(SHEET_API, {
+        fetch(WRITE_ROUTER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'visitDraftDelete', id: target })
@@ -916,9 +918,9 @@
       updated_at: new Date().toISOString()
     };
     draftMirrorPut(out);
-    if (typeof SHEET_API === 'string' && typeof fetch === 'function') {
+    if (typeof WRITE_ROUTER_URL === 'string' && typeof fetch === 'function') {
       try {
-        fetch(SHEET_API, {
+        fetch(WRITE_ROUTER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ type: 'visitDraft', draft: out })
@@ -1103,7 +1105,7 @@
     // update comment. Only sent when a task was actually chosen — otherwise the key is omitted and
     // writeVisit's upsert-merge preserves the visit's existing link (see 01-data.js).
     if (emsIntent && emsIntent.taskId) reqBody.emsTaskId = emsIntent.taskId;
-    fetch(SHEET_API, {
+    fetch(WRITE_ROUTER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(reqBody)
@@ -1138,7 +1140,7 @@
         const movementPromises = [];
         const postMovement = (product, from, to, qty, reason) => {
           if (!product || qty <= 0) return;
-          movementPromises.push(fetch(SHEET_API, {
+          movementPromises.push(fetch(WRITE_ROUTER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ type: 'movement', product, fromLocation: from, toLocation: to, quantity: qty, reason, refId, createdBy: visitor })
@@ -1301,7 +1303,7 @@
 
     let res;
     try {
-      const r = await fetch(SHEET_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(reqBody) });
+      const r = await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(reqBody) });
       res = await r.json();
     } catch (e) {
       console.warn('Visit save failed (kept locally):', e);
@@ -1346,7 +1348,7 @@
     ((priorSnap && priorSnap.products) || []).forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
     products.forEach(p => { newMap[p.name] = (newMap[p.name] || 0) + p.qty; });
     const moves = [];
-    const move = (product, from, to, qty, why) => moves.push(fetch(SHEET_API, {
+    const move = (product, from, to, qty, why) => moves.push(fetch(WRITE_ROUTER_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ type: 'movement', product: product, fromLocation: from, toLocation: to, quantity: qty, reason: why, refId: savedId, createdBy: visitor })
     }).catch(e => console.warn('Movement failed:', e)));
@@ -1394,7 +1396,7 @@
       : visitLine;
 
     try {
-      await fetch(SHEET_API, {
+      await fetch(WRITE_ROUTER_URL, {
         method: 'POST',
         headers: {'Content-Type': 'text/plain;charset=utf-8'},
         body: JSON.stringify({
