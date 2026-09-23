@@ -181,7 +181,7 @@
     if (!el) {
       el = document.createElement('div');
       el.id = 'upgradeFreezeGate';
-      el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0f766e 0%,#15803d 100%);display:flex;align-items:center;justify-content:center;padding:24px;color:#fff;text-align:center;';
+      el.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:linear-gradient(160deg,#0f766e 0%,#15803d 100%);display:flex;align-items:center;justify-content:center;padding:24px;color:#fff;text-align:center;';
       el.innerHTML =
         '<div>' +
           '<div style="font-size:22px;font-weight:800;margin-bottom:10px;">המערכת בשדרוג</div>' +
