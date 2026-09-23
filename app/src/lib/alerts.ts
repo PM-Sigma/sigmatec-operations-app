@@ -332,17 +332,19 @@ export function digestTitle(rows: AlertRow[], hh: number): string {
 }
 
 /**
- * The body (§5.2): one line per movement, then the shortages.
+ * The body (§5.2): one line per movement, then the shortages. X-L6: no emoji in a push body —
+ * the ↗ / ↘ arrows stay (they're typography, not decoration), the ⚠️ that opens the bell's own
+ * `alertText`/`groupTitle` line does not.
  *   `↗ +20 בקר 504 (ספק → חברה, קבלת הזמנה)`
  *   `↘ −3 מונה E360CT → גבים (אביאם, סיכום ביקור)`
- *   `⚠️ מלאי נמוך: סים 1NCE 4 יח׳`
+ *   `מלאי נמוך: סים 1NCE 4 יח׳`
  * Capped at 8 lines plus a "+N נוספות" tail — a push body nobody can read is not a report.
  */
 export function digestBody(rows: AlertRow[], max = 8): string {
   const lines: string[] = [];
   for (const r of rows) {
     const product = String(r.product ?? '').trim();
-    if (r.kind === 'low_stock') { lines.push(`⚠️ מלאי נמוך: ${product} ${num(r.qty)} יח׳`); continue; }
+    if (r.kind === 'low_stock') { lines.push(`מלאי נמוך: ${product} ${num(r.qty)} יח׳`); continue; }
     const reason = REASON_TEXT[String(r.reason ?? '')] || '';
     const who = String(r.actor ?? '').trim();
     const tail = [who, reason].filter(Boolean).join(', ');

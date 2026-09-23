@@ -132,8 +132,8 @@ describe('usageNarrative', () => {
 
 describe('digestBody', () => {
   it('is the first three sentences plus the pointer to the page', () => {
-    expect(digestBody(['א.', 'ב.', 'ג.', 'ד.'])).toBe('א. ב. ג. עוד ב-📈 שימוש');
-    expect(digestBody([])).toBe('עוד ב-📈 שימוש');
+    expect(digestBody(['א.', 'ב.', 'ג.', 'ד.'])).toBe('א. ב. ג. ההמשך בעמוד שימוש.');
+    expect(digestBody([])).toBe('ההמשך בעמוד שימוש.');
   });
 });
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   arrivalGroups, arrivalOrder, audienceFor, bulletForField, capBlocked, capFor, DAYLOG_NUDGES,
   dm, fieldShouldPrompt, hasSomethingToDeliver, hashIdx, inQuietHours, israelAt, israelParts,
-  briefingAutoOpen, briefingTasks, burnRowsOf, burnSummary,
+  briefingAutoOpen, briefingTasks, burnRowsOf, burnSummary, GAP_NUDGES, DRAFT_NUDGE,
   leaveChecklist, nudgeFor, openItemsPrefill, openNudges, pushactParse, RECOUNT_NUDGES,
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   ATT_MORNING_HH, attendanceCronRuns, EOD_DEFAULT_HH, eodHourFor,
@@ -211,7 +211,7 @@ describe('the in-app nudge banner (§7k #4)', () => {
   it('appears two hours after a check-in with no visit', () => {
     const out = openNudges({ me: 'אביאם', checkins: [c], visits: [], now });
     expect(out).toHaveLength(1);
-    expect(out[0].text).toBe('גבים — עוד לא סיכמת את הביקור (שעתיים)');
+    expect(out[0].text).toBe('גבים · עוד לא סיכמת את הביקור');
   });
   it('not before two hours, not once the visit is filed, not when dismissed', () => {
     expect(openNudges({ me: 'אביאם', checkins: [c], visits: [], now: new Date('2026-09-17T11:00:00+03:00') })).toEqual([]);
@@ -223,7 +223,7 @@ describe('the in-app nudge banner (§7k #4)', () => {
       me: 'אביאם', checkins: [c], visits: [], now,
       drafts: [{ id: 'd', person: 'אביאם', kibbutz: 'גבים', date: '2026-09-17' }],
     });
-    expect(out[0].text).toBe('יש לך טיוטה פתוחה על גבים — עוד דקה וזה סגור');
+    expect(out[0].text).toBe('התחלת לכתוב על גבים. עוד דקה והסיכום נשלח.');
   });
 });
 
@@ -251,7 +251,7 @@ describe('the copy pool (§5.2 + §7k ג)', () => {
   it('every {kibbutz} is substituted and the title is always prefixed', () => {
     for (let n = 0; n < VISIT_NUDGES.length; n++) {
       const { title, body } = nudgeFor('id-' + n, 'גבים');
-      expect(title.startsWith('📍 גבים — ')).toBe(true);
+      expect(title.startsWith('📍 גבים · ')).toBe(true);
       expect(body).not.toContain('{kibbutz}');
     }
   });
@@ -264,8 +264,19 @@ describe('the copy pool (§5.2 + §7k ג)', () => {
     }
   });
 
+  // X-L6: no-ai-slop applied to every push string — no "!", no em dash, no emoji in a body.
+  it('no-ai-slop: no "!", no em dash, no emoji in any nudge body', () => {
+    const emoji = /\p{Extended_Pictographic}/u;
+    for (const n of [...VISIT_NUDGES, ...DAYLOG_NUDGES, ...GAP_NUDGES, ...RECOUNT_NUDGES, DRAFT_NUDGE]) {
+      expect(n.b).not.toContain('!');
+      expect(n.b).not.toContain('—');
+      expect(n.b).not.toMatch(emoji);
+      expect(n.t).not.toMatch(emoji);
+    }
+  });
+
   it('a draft gets its own line', () => {
-    expect(nudgeFor('anything', 'גבים', true).body).toBe('יש לך טיוטה פתוחה על גבים — עוד דקה וזה סגור ✍️');
+    expect(nudgeFor('anything', 'גבים', true).body).toBe('התחלת לכתוב על גבים. עוד דקה והסיכום נשלח.');
   });
 });
 

@@ -161,16 +161,15 @@ export function israelHHMM(iso: string): string {
 }
 
 /**
- * The words the phone shows. Deliberately the same sentence the in-app toast uses ("עדכן את
- * השעון של …"), so the notification and the screen are one voice, and the body says since
- * when — the one fact he needs before deciding to close it or keep going.
+ * The words the phone shows (X-L6: approved copy). The body says since when — the one fact he
+ * needs before deciding to close it or keep going.
  */
 export function timerNudgeFor(kibbutz: string, startedAt: string): { title: string; body: string } {
   const where = String(kibbutz || '').trim();
   const since = israelHHMM(startedAt);
   return {
-    title: 'עדכן את השעון של ' + (where || 'הקיבוץ'),
-    body: since ? ('רץ מאז ' + since + ' — סגור אותו או המשך') : 'רץ כבר שעתיים — סגור אותו או המשך',
+    title: '⏱ השעון של ' + (where || 'הקיבוץ') + ' עדיין רץ',
+    body: since ? ('רץ מאז ' + since + '. אפשר לעצור אותו או להמשיך.') : 'רץ כבר שעתיים. אפשר לעצור אותו או להמשיך.',
   };
 }
 

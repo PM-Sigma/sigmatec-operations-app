@@ -309,16 +309,16 @@ describe('timerNudgeFor', () => {
   it('says which clock and since when, in Israel time', () => {
     // 05:00 UTC on a summer day = 08:00 in Israel
     const n = timerNudgeFor('חוקוק', '2026-09-22T05:00:00.000Z');
-    expect(n.title).toBe('עדכן את השעון של חוקוק');
-    expect(n.body).toBe('רץ מאז 08:00 — סגור אותו או המשך');
+    expect(n.title).toBe('⏱ השעון של חוקוק עדיין רץ');
+    expect(n.body).toBe('רץ מאז 08:00. אפשר לעצור אותו או להמשיך.');
   });
   it('winter time is Israel time too (UTC+2), not a fixed offset', () => {
     expect(israelHHMM('2026-01-15T05:00:00.000Z')).toBe('07:00');
   });
   it('an unusable start or kibbutz still produces a sentence a person can act on', () => {
     const n = timerNudgeFor('', 'not a date');
-    expect(n.title).toBe('עדכן את השעון של הקיבוץ');
-    expect(n.body).toBe('רץ כבר שעתיים — סגור אותו או המשך');
+    expect(n.title).toBe('⏱ השעון של הקיבוץ עדיין רץ');
+    expect(n.body).toBe('רץ כבר שעתיים. אפשר לעצור אותו או להמשיך.');
     expect(israelHHMM('not a date')).toBe('');
   });
 });

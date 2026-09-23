@@ -222,7 +222,7 @@
   // notification payload preview (kept in sync with the fn's fixed text — used for the confirm UI)
   function attReminderText(person, dates) {
     const fmt = dates.map(d => { const m = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? (+m[2]) + '.' + (+m[1]) : ''; }).filter(Boolean);
-    return 'נא לעדכן נוכחות לימים: ' + fmt.join(', ');
+    return 'חסרה נוכחות בימים: ' + fmt.join(', ');
   }
   window.attReminderText = attReminderText;   // exposed for test-attendance-push.mjs
 

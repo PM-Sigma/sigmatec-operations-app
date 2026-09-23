@@ -201,10 +201,10 @@ export function usageNarrative(
   return out;
 }
 
-/** The push body: the three most valuable sentences + where the rest lives. */
+/** The push body: the three most valuable sentences + where the rest lives (X-L6 copy). */
 export function digestBody(sentences: string[]): string {
   const head = (sentences || []).slice(0, 3).join(' ');
-  return (head ? head + ' ' : '') + 'עוד ב-📈 שימוש';
+  return (head ? head + ' ' : '') + 'ההמשך בעמוד שימוש.';
 }
 
 /** ISO week tag `usage-<yyyy>-w<ww>` — the push_log idempotency key for one weekly digest. */

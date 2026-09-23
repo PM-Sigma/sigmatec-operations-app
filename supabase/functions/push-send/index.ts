@@ -269,19 +269,19 @@ function orderPayload(event: string, order: any, actor: string) {
   const title = event === "pending" ? "🔔 הזמנה ממתינה לאישור" : "✅ הזמנה אושרה";
   const bodyTxt = event === "pending"
     ? `${where} · ${qty(order)} פריטים${order.created_by ? " · מאת " + order.created_by : ""}`
-    : `${where} · ${qty(order)} פריטים${actor ? " · אושר ע״י " + actor : ""}`;
+    : `${where} · ${qty(order)} פריטים${actor ? " · אושרה ע״י " + actor : ""}`;
   const viewUrl = APP + "?pushact=order&oid=" + id + "#inventory";
   let actions: any[] = [];
   const actUrls: Record<string, string> = { view: viewUrl, order: viewUrl };
   if (event === "pending") {
     if (isCust) {
-      actions = [{ action: "approveOpen", title: "✅ אשר" }, { action: "view", title: "👁️ צפה" }];
+      actions = [{ action: "approveOpen", title: "אישור" }, { action: "view", title: "צפייה" }];
       actUrls.approveOpen = APP + "?pushact=approve&oid=" + id + "#inventory";
     } else {
-      actions = [{ action: "approve", title: "✅ אשר עכשיו" }, { action: "view", title: "👁️ צפה" }];
+      actions = [{ action: "approve", title: "אישור עכשיו" }, { action: "view", title: "צפייה" }];
     }
   } else {
-    actions = [{ action: "view", title: "👁️ צפה" }];
+    actions = [{ action: "view", title: "צפייה" }];
   }
   const payload = JSON.stringify({
     title, body: bodyTxt, tag: event + ":" + id, url: viewUrl,
@@ -333,14 +333,14 @@ Deno.serve(async (req: Request) => {
       else dates = priorMissing(have, t, off);
       if (!dates.length) { results.push({ person, kind, none: true }); continue; }
       const fmt = dates.map((d) => { const mm = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return mm ? `${+mm[2]}.${+mm[1]}` : ""; }).filter(Boolean);
-      const title = kind === "evening" ? "📅 עדכן נוכחות להיום" : "📅 חסרה נוכחות — " + person;
-      const bodyTxt = kind === "evening" ? "לא עודכנה נוכחות להיום. נא למלא." : "ימים חסרים: " + fmt.join(", ");
+      const title = kind === "evening" ? "📅 נוכחות להיום" : "📅 חסרה נוכחות · " + person;
+      const bodyTxt = kind === "evening" ? "עוד לא מילאת נוכחות להיום." : "ימים חסרים: " + fmt.join(", ");
       const act = kind === "evening" ? "fillToday" : "fillMissing";
       const fillUrl = APP + "?pushact=" + act + "#attendance";
       const payload = JSON.stringify({
         title, body: bodyTxt, tag: "att-" + kind + "-" + person + "-" + t.date,
         requireInteraction: true, url: fillUrl,
-        actions: [{ action: act, title: "✍️ מלא נוכחות" }],
+        actions: [{ action: act, title: "מילוי נוכחות" }],
         data: { actUrls: { [act]: fillUrl } },
       });
       const meta = { event: "attendanceCron", order_id: null, where_txt: kind, qty: dates.length, actor: null, title, body: bodyTxt };
@@ -382,7 +382,7 @@ Deno.serve(async (req: Request) => {
     const url = APP + "?pushact=gaps#kibbutz";
     const payload = JSON.stringify({
       title, body: bodyTxt, tag: "gaps-" + person + "-" + t.date, requireInteraction: false, url,
-      actions: [{ action: "gaps", title: "📋 פתח את הרשימה" }],
+      actions: [{ action: "gaps", title: "פתיחת הרשימה" }],
       data: { actUrls: { gaps: url } },
     });
     const meta = { event: "gapReminder", order_id: null, where_txt: person, qty: count, actor: body.actor == null ? null : String(body.actor), title, body: bodyTxt };
@@ -429,7 +429,7 @@ Deno.serve(async (req: Request) => {
       const url = APP + "?pushact=timer&kibbutz=" + encodeURIComponent(pick.kibbutz);
       const payload = JSON.stringify({
         title, body: bodyTxt, tag: "timer-" + pick.id, requireInteraction: true, url,
-        actions: [{ action: "timer", title: "⏱ פתח את השעון" }],
+        actions: [{ action: "timer", title: "פתיחת השעון" }],
         data: { sid: pick.id, actUrls: { timer: url } },
       });
       const meta = {
@@ -504,7 +504,7 @@ Deno.serve(async (req: Request) => {
       const dismissUrl = APP + "?pushact=visitDismiss&cid=" + pick.id;
       const payload = JSON.stringify({
         title, body: bodyTxt, tag: "visit-" + pick.id, requireInteraction: true, url,
-        actions: [{ action: "visit", title: "✍️ כתוב סיכום" }, { action: "visitDismiss", title: "🙈 לא היום" }],
+        actions: [{ action: "visit", title: "כתיבת סיכום" }, { action: "visitDismiss", title: "לא היום" }],
         data: { cid: pick.id, actUrls: { visit: url, visitDismiss: dismissUrl } },
       });
       const meta = {
@@ -575,7 +575,7 @@ Deno.serve(async (req: Request) => {
     const openUrl = APP + "#usage";
     const payload = JSON.stringify({
       title, body: bodyTxt, tag, url: openUrl,
-      actions: [{ action: "usage", title: "📈 פתח שימוש" }],
+      actions: [{ action: "usage", title: "פתיחת שימוש" }],
       data: { actUrls: { usage: openUrl } },
     });
     const meta = {
@@ -619,7 +619,7 @@ Deno.serve(async (req: Request) => {
     const openUrl = APP + "#inventory";
     const payload = JSON.stringify({
       title, body: bodyTxt, tag, url: openUrl,
-      actions: [{ action: "inventory", title: "📦 פתח מלאי" }],
+      actions: [{ action: "inventory", title: "פתיחת המלאי" }],
       data: { actUrls: { inventory: openUrl } },
     });
     const meta = {
@@ -682,7 +682,7 @@ Deno.serve(async (req: Request) => {
     const openUrl = APP + "#inventory";
     const payload = JSON.stringify({
       title, body: bodyTxt, tag: win.tag, url: openUrl,
-      actions: [{ action: "inventory", title: "📦 פתח מלאי" }],
+      actions: [{ action: "inventory", title: "פתיחת המלאי" }],
       data: { actUrls: { inventory: openUrl } },
     });
     const meta = {
@@ -721,16 +721,16 @@ Deno.serve(async (req: Request) => {
     }
     const kind = String(body.kind || "");
     const titles: Record<string, string> = {
-      idea: "💡 רעיון חדש", bug: "🐞 באג / שיפור חדש",
+      idea: "💡 רעיון חדש", bug: "🐞 באג או שיפור חדש",
     };
     if (!titles[kind]) return json({ error: "bad kind" }, 400);
     const preview = String(body.preview || "").replace(/\s+/g, " ").trim().slice(0, 80);
     const title = titles[kind];
-    const bodyTxt = preview || "ללא טקסט";
+    const bodyTxt = preview || "בלי טקסט";
     const openUrl = APP + "?pushact=feedback#feedback-inbox";
     const payload = JSON.stringify({
       title, body: bodyTxt, tag: "feedback-" + kind + "-" + Date.now(), url: openUrl,
-      actions: [{ action: "feedback", title: "📥 פתח תיבה" }],
+      actions: [{ action: "feedback", title: "פתיחת התיבה" }],
       data: { actUrls: { feedback: openUrl } },
     });
     const meta = { event: "feedbackNew", order_id: null, where_txt: kind, qty: 1, actor: null, title, body: bodyTxt };
@@ -752,13 +752,13 @@ Deno.serve(async (req: Request) => {
     const dates: string[] = Array.isArray(body.dates) ? body.dates.slice(0, 31).map(String) : [];
     const fmt = dates.map((d) => { const m = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? `${+m[2]}.${+m[1]}` : null; }).filter(Boolean);
     if (!fmt.length) return json({ error: "bad dates" }, 400);
-    const title = "📅 חסרה נוכחות — " + person;
-    const bodyTxt = "נא לעדכן נוכחות לימים: " + fmt.join(", ");
+    const title = "📅 חסרה נוכחות · " + person;
+    const bodyTxt = "חסרה נוכחות בימים: " + fmt.join(", ");
     const fillUrl = APP + "?pushact=fillMissing#attendance";
     const payload = JSON.stringify({
       title, body: bodyTxt, tag: "att-reminder-" + person + "-" + dates[0].slice(0, 7),
       requireInteraction: true, url: fillUrl,
-      actions: [{ action: "fillMissing", title: "✍️ מלא נוכחות" }],
+      actions: [{ action: "fillMissing", title: "מילוי נוכחות" }],
       data: { actUrls: { fillMissing: fillUrl } },
     });
     const meta = { event: "attendanceReminder", order_id: null, where_txt: person, qty: fmt.length, actor: null, title, body: bodyTxt };

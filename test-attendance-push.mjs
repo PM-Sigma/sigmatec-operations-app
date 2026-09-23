@@ -126,7 +126,7 @@ check('the list defaults to SHEET_DATA.holidays when the caller passes none', ()
 
 console.log('== reminder text ==');
 check('text formats dates d.M', () => {
-  assert.strictEqual(M.attReminderText('אביאם', ['2026-07-03', '2026-07-08']), 'נא לעדכן נוכחות לימים: 3.7, 8.7');
+  assert.strictEqual(M.attReminderText('אביאם', ['2026-07-03', '2026-07-08']), 'חסרה נוכחות בימים: 3.7, 8.7');
 });
 // Recipient allowlist + VAPID decoding are now enforced server-side (push-send: APPROVE_GROUP 403 gate,
 // webpush VAPID). Not reachable from this pure client test — covered by the edge function instead.

@@ -40,7 +40,7 @@ console.log('\n[2] push-send mode visitCron');
   check('rows the planner calls finished are settled, not re-scanned',
     /const settled = plan\.settle\.map\(\(x\) => x\.id\);/.test(fn));
   check('the words come from the rotating pool', /nudgeFor\(pick\.id, pick\.kibbutz, pick\.hasDraft\)/.test(fn));
-  check('both notification actions are offered', /"✍️ כתוב סיכום"/.test(fn) && /"🙈 לא היום"/.test(fn));
+  check('both notification actions are offered', /"כתיבת סיכום"/.test(fn) && /"לא היום"/.test(fn));
   check('push_log gets the kibbutz as where_txt', /event: "visitCron", order_id: null, where_txt: pick\.kibbutz/.test(fn));
 }
 
@@ -160,6 +160,23 @@ console.log('\n[7] the copy rules (spec, before §7i)');
   check('nobody is told who else sees his data', whoSees.length === 0, whoSees.join(' | '));
   const threat = strings.filter((s) => /לא נספר|חובה לסכם|אחרת/.test(s));
   check('the nudges never threaten', threat.length === 0, threat.join(' | '));
+}
+
+console.log('\n[8] X-L6: no-ai-slop over every push string in push-send/index.ts');
+{
+  const raw = read('./supabase/functions/push-send/index.ts');
+  const strip = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const src = strip(raw);
+  const literals = (src.match(/"[^"\n]*[א-ת][^"\n]*"/g) || []).map((s) => s.slice(1, -1));
+  check('there are strings to check at all', literals.length > 20, String(literals.length));
+  check('no "!" in any push string', literals.every((s) => !s.includes('!')),
+    literals.filter((s) => s.includes('!')).join(' | '));
+  check('no em dash — the title separator is · (grill: no-ai-slop, no em dash)',
+    literals.every((s) => !s.includes('—')), literals.filter((s) => s.includes('—')).join(' | '));
+  const actionTitles = [...raw.matchAll(/action:\s*"\w+",\s*title:\s*"([^"]*)"/g)].map((m) => m[1]);
+  const emoji = /\p{Extended_Pictographic}/u;
+  check('no emoji in any action button title', actionTitles.every((t) => !emoji.test(t)),
+    actionTitles.filter((t) => emoji.test(t)).join(' | '));
 }
 
 console.log('\n' + '─'.repeat(60));
