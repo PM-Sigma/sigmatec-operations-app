@@ -57,7 +57,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsWrite` | js/src/00-bridge.js:345 | `emsWriteOrQueue` → js/src/13-ems.js:293 | app/src/lib/meetingClose.ts:83 |
 | `sigma.ensurePass` | js/src/00-bridge.js:499 | *(own logic)* | **—** |
 | `sigma.gapNag` | js/src/00-bridge.js:548 | `gapNag` → js/src/22-push.js:309 | app/src/islands/Gaps.tsx:200 |
-| `sigma.getCurrentUser` | js/src/00-bridge.js:249 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:379<br>app/src/islands/Burns.tsx:70<br>app/src/islands/CommandBar.tsx:316<br>app/src/islands/DayLog.tsx:483<br>…+8 |
+| `sigma.getCurrentUser` | js/src/00-bridge.js:249 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:379<br>app/src/islands/Burns.tsx:70<br>app/src/islands/CommandBar.tsx:316<br>app/src/islands/DayLog.tsx:483<br>…+9 |
 | `sigma.getEmsSites` | js/src/00-bridge.js:305 | `getEmsSites` → js/src/14-calendar.js:364 | app/src/components/home/HealthStrip.tsx:29<br>app/src/lib/ems/adapters/rest.ts:130 |
 | `sigma.getLastVisit` | js/src/00-bridge.js:407 | *(own logic)* | app/src/islands/Field.tsx:2003 |
 | `sigma.getRole` | js/src/00-bridge.js:250 | *(own logic)* | app/src/bridge.ts:380<br>app/src/islands/Feedback.tsx:183<br>app/src/islands/Feedback.tsx:666<br>app/src/lib/landing.ts:111 |
@@ -165,7 +165,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-modal-meetings` | :645 | app/src/main.tsx:144 |
 | `#sigma-my-tasks` | :1284 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:125 |
 | `#sigma-nav` | :1285 | app/src/main.tsx:81 |
-| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:811<br>app/src/main.tsx:416 |
+| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:819<br>app/src/main.tsx:416 |
 | `#sigma-refresh` | :1279 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:97 |
 | `#sigma-relogin` | :1276 | app/src/components/ReLoginSheet.tsx:143 |
 | `#sigma-settings` | :1257 | app/src/islands/Settings.tsx:404<br>app/src/main.tsx:293 |
@@ -261,7 +261,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:383 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:207 |
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:155 |
-| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:814 |
+| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:822 |
 | `presenter` | `Presentation` | app/src/main.tsx:440 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:406 |
 | `staff-message` | `Mail` | app/src/islands/CommandBar.tsx:311 |

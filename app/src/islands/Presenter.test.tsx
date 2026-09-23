@@ -300,6 +300,21 @@ describe('✏️ live quick-note', () => {
     expect(created).toHaveLength(0);                             // no EMS task for a 📝
   });
 
+  it('🔒 opens an internal task, not a note (D2)', async () => {
+    await openSheet();
+    fireEvent.change(screen.getByTestId('live-text'), { target: { value: 'להזמין כבל' } });
+    fireEvent.change(screen.getByTestId('live-owner'), { target: { value: 'ניתאי' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('live-chip-internal')); });
+    await act(async () => { fireEvent.click(screen.getByTestId('live-submit')); });
+
+    await waitFor(() => expect(inserted.some(i => i.table === 'internal_tasks')).toBe(true));
+    const row = inserted.find(i => i.table === 'internal_tasks')!.row;
+    expect(row).toMatchObject({ title: 'להזמין כבל', kibbutz: 'דפנה', owner: 'ניתאי', created_by: 'עידן' });
+    // …and nothing was written to the bullets table for a 🔒
+    expect(inserted.some(i => i.table === 'kibbutz_meeting_notes')).toBe(false);
+    expect(created).toHaveLength(0);                             // no EMS task for a 🔒
+  });
+
   it('an empty line cannot be submitted', async () => {
     await openSheet();
     expect((screen.getByTestId('live-submit') as HTMLButtonElement).disabled).toBe(true);
