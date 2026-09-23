@@ -58,3 +58,17 @@
   let _certReissueOf = null;
   let _certRows = [];   // last fetched list (reprint works off this cache)
 
+  // ── Upgrade freeze (round 5, Phase 0) — closes the app to everyone but the allow-list while
+  // the rewrite runs. Lifting the freeze is one commit: flip UPGRADE_FREEZE to false.
+  const UPGRADE_FREEZE = true;
+  const UPGRADE_ALLOW = ['עידן', 'עמיחי'];
+  // Pure decision, no DOM/localStorage (golden: test-upgrade-freeze.mjs). The exemptions
+  // (cert link, mock mode) win over everything, then the viewer PIN is always frozen, then
+  // the allow-list decides everyone else.
+  function upgradeFreezeDecision(name, isViewer, isCertView, isMock, allowList) {
+    if (isCertView || isMock) return false;
+    if (isViewer) return true;
+    return (allowList || []).indexOf(name) === -1;
+  }
+  window.upgradeFreezeDecision = upgradeFreezeDecision;
+

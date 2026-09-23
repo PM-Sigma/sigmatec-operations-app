@@ -148,6 +148,60 @@
   }
   window.sbRemintOnce = sbRemintOnce;
 
+  // ── Upgrade freeze — the DOM half of upgradeFreezeDecision (js/src/00-consts.js). Reads the
+  // just-resolved session and blocks with a full-screen island above every overlay (z-index
+  // above the login gate itself). The URL is checked directly, not window._certViewMode: that
+  // flag is set by js/src/20-delivery-cert.js, which concatenates AFTER this file, so it isn't
+  // set yet the first time this runs at boot. `?freeze=1` forces the check under mock mode
+  // (?sb=0), so the Playwright spec can drive it without a real EMS/viewer login.
+  function upgradeFrozen() {
+    if (typeof UPGRADE_FREEZE === 'undefined' || !UPGRADE_FREEZE) return false;
+    const name = (typeof getCurrentUser === 'function') ? getCurrentUser() : '';
+    if (!name) return false;   // nothing resolved yet — not our call to make
+    const isCertView = /[?&]cert=[0-9a-f-]{36}/i.test(location.search);
+    const forceTest = location.search.indexOf('freeze=1') !== -1;
+    const isMock = (typeof USE_SUPABASE !== 'undefined' && !USE_SUPABASE) && !forceTest;
+    const isViewer = (typeof getRole === 'function') && getRole() === 'viewer';
+    return upgradeFreezeDecision(name, isViewer, isCertView, isMock, (typeof UPGRADE_ALLOW !== 'undefined') ? UPGRADE_ALLOW : []);
+  }
+  window.upgradeFrozen = upgradeFrozen;
+  // Logout that works whichever login mode is active — plain PIN mode never defines
+  // window.gateLogout (that only happens inside setupEmsLoginGate, below, which is skipped
+  // entirely when LOGIN_FLAG is off), so the freeze screen cannot rely on it.
+  function upgradeFreezeLogout() {
+    try {
+      if (typeof LOGIN_FLAG !== 'undefined' && LOGIN_FLAG && typeof gateLogout === 'function') { gateLogout(); return; }
+      localStorage.removeItem(USER_KEY); localStorage.removeItem(AUTH_KEY); localStorage.removeItem(ROLE_KEY);
+      if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');
+      location.reload();
+    } catch (e) { location.reload(); }
+  }
+  function showUpgradeFreeze() {
+    let el = document.getElementById('upgradeFreezeGate');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'upgradeFreezeGate';
+      el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0f766e 0%,#15803d 100%);display:flex;align-items:center;justify-content:center;padding:24px;color:#fff;text-align:center;';
+      el.innerHTML =
+        '<div>' +
+          '<div style="font-size:22px;font-weight:800;margin-bottom:10px;">המערכת בשדרוג</div>' +
+          '<div style="font-size:15px;opacity:.9;margin-bottom:22px;">נעדכן כשהיא חוזרת.</div>' +
+          '<a href="#" id="upgradeFreezeLogout" style="color:#fff;opacity:.85;font-size:13px;text-decoration:underline;">התנתק</a>' +
+        '</div>';
+      document.body.appendChild(el);
+      el.querySelector('#upgradeFreezeLogout').onclick = e => { e.preventDefault(); upgradeFreezeLogout(); };
+    }
+    el.style.display = 'flex';
+  }
+  window.showUpgradeFreeze = showUpgradeFreeze;
+
+  // Runs before the LOGIN_FLAG gate below: a stored identity can be frozen whether the person
+  // is on the EMS flow or the host-gated PIN fallback (`?login=0`, dev/test only — the freeze
+  // must not care which login mode is active). `?freeze=1` (honored only under `?sb=0` mock
+  // mode — see upgradeFrozen) is the hook qa/playwright/tests/upgrade-freeze.spec.ts drives,
+  // since mock mode is otherwise exempt so the rest of the suite is unaffected.
+  if (typeof isAuthed === 'function' && isAuthed() && upgradeFrozen()) showUpgradeFreeze();
+
   (function setupEmsLoginGate() {
     if (typeof LOGIN_FLAG === 'undefined' || !LOGIN_FLAG) return;
     const gate = document.getElementById('emsLoginGate');
@@ -155,6 +209,9 @@
     const hide = () => { if (gate) gate.style.display = 'none'; };
     if (typeof isAuthed === 'function' ? !isAuthed() : true) {
       show();
+    } else if (upgradeFrozen()) {
+      // already shown by the unconditional check above — skip the EMS-flow side effects
+      // (pass mint, queued-write flush, re-login nag) rather than duplicate the screen.
     } else if (typeof getEmsToken === 'function' && getEmsToken()) {
       // A returning session (spec §7m G2): mint the pass, then run the two things that used to
       // fire only from the retired EMS page — the queued-writes flush + cache sync, and the
@@ -212,6 +269,7 @@
           localStorage.setItem(ROLE_KEY, person === 'עידן' ? 'idan' : 'team');
           if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
           if (typeof updateUserBadge === 'function') updateUserBadge();
+          if (upgradeFrozen()) { showUpgradeFreeze(); return; }
           if (typeof refreshData === 'function') refreshData();
         }
       } catch (e) { /* leave the cached name as-is */ }
@@ -236,6 +294,7 @@
       if (typeof sigmaEmit === 'function') sigmaEmit('user-changed');   // → React islands (bridge)
       if (typeof updateUserBadge === 'function') updateUserBadge();
       hide();
+      if (upgradeFrozen()) { showUpgradeFreeze(); return; }
       try { await gateBounded(sbBridge(), 10000, null); } catch (e) {}   // get the Supabase pass before loading data
       // flush queued writes + sync BEFORE the refresh — bounded, see gateBounded above
       try { if (typeof emsOnConnected === 'function') await gateBounded(emsOnConnected(true), 10000, null); } catch (e) {}
