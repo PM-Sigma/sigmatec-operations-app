@@ -37,7 +37,19 @@
 
   function attLoadHolidays() {
     if (window.attHolidaysLoaded) return window.attHolidaysLoaded;
+    // company_holidays is `to authenticated` only since db/rls_2_00_lockdown.sql (22.9): a
+    // read that goes out before the EMS→Supabase pass has minted comes back 200 with an EMPTY
+    // array (RLS silently drops the rows for a role the policy does not name — it is not a
+    // 401, so the usual "session lapsed" funnel never fires and nothing throws). Memoizing
+    // THAT forever is why holidays/eves/חול המועד "disappeared": once cached empty, no later
+    // call ever tried again for the rest of the session. So: wait for the pass first when one
+    // is mintable, and — belt and braces — never lock in an empty result; only a real list (or
+    // a session that was never going to authenticate, e.g. ?sb=0/no EMS token) gets memoized.
     window.attHolidaysLoaded = Promise.resolve()
+      .then(function () {
+        return (typeof window.sbEnsurePass === 'function') ? window.sbEnsurePass() : true;
+      })
+      .catch(function () { return false; })
       .then(function () {
         if (typeof window._sbGet !== 'function') return [];
         return window._sbGet('company_holidays?select=date,name,kind,required&order=date');
@@ -48,12 +60,17 @@
         }).filter(function (h) { return h.date; });
         window.SHEET_DATA = window.SHEET_DATA || {};
         window.SHEET_DATA.holidays = list;
+        // An empty list while a pass is still pending (or never came) is "try again next
+        // time", not "there are no holidays" — drop the memo so the next attLoadHolidays()
+        // call (e.g. the calendar opening after נוכחות already warmed the pass) re-fetches.
+        if (!list.length && window._sbPassPending) window.attHolidaysLoaded = null;
         try { if (window.sigmaEmit) window.sigmaEmit('holidays-loaded', { count: list.length }); } catch (e) {}
         return list;
       })
       .catch(function () {
         window.SHEET_DATA = window.SHEET_DATA || {};
         window.SHEET_DATA.holidays = window.SHEET_DATA.holidays || [];
+        window.attHolidaysLoaded = null;
         return [];
       });
     return window.attHolidaysLoaded;

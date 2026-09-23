@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canEditAttendance, canSwitchPerson, cellsOf, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText,
   holidayNote, isRequiredDay, kpis, missingByPerson, missingDays, missingDaysFor, monthGrid,
-  withVisitDays, type AttRow, type Holiday,
+  reportedDaysFor, withVisitDays, type AttRow, type Holiday,
 } from './attendance';
 
 // ───────────────────────────── the September 2026 fixture ─────────────────────────────
@@ -361,6 +361,20 @@ describe('missingDaysFor', () => {
 
   it('an unloaded month paints nothing, rather than painting everything red', () => {
     expect(missingDaysFor('ניתאי', '2026-09', rowsFor, HOLIDAYS, AFTER)).toEqual([]);
+  });
+});
+
+// ───────────── round 5 · B: reportedDaysFor, the green mirror ─────────────
+
+describe('reportedDaysFor', () => {
+  const rowsFor = (person: string) => (person === 'אביאם' ? [row('2026-09-01', 'office'), row('2026-09-02', 'field')] : null);
+
+  it('answers the days that already have a row, including a future one', () => {
+    expect(reportedDaysFor('אביאם', '2026-09', rowsFor, HOLIDAYS, AFTER)).toEqual(['2026-09-01', '2026-09-02']);
+  });
+
+  it('an unloaded month paints nothing', () => {
+    expect(reportedDaysFor('ניתאי', '2026-09', rowsFor, HOLIDAYS, AFTER)).toEqual([]);
   });
 });
 

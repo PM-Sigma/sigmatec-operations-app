@@ -11,7 +11,7 @@
 // only ever an input; nothing here hands one back. That is what keeps a day from sliding by
 // one when a phone is on a different timezone from the office calendar.
 
-import { isHolidayEve, missingDaysFor, type AttRow, type Holiday } from './attendance';
+import { isHolidayEve, missingDaysFor, reportedDaysFor, type AttRow, type Holiday } from './attendance';
 
 // ───────────────────────────── types ─────────────────────────────
 
@@ -327,7 +327,7 @@ export interface MonthView {
 }
 
 /** Re-exported so the calendar's cell render asks the SAME question the attendance screen does. */
-export { isHolidayEve, missingDaysFor } from './attendance';
+export { isHolidayEve, missingDaysFor, reportedDaysFor } from './attendance';
 
 function holidayMap(holidays: Holiday[] | undefined): Record<string, Holiday> {
   const out: Record<string, Holiday> = {};
@@ -408,6 +408,39 @@ export function missingInView(
   }
   for (const ym of months) {
     for (const date of missingDaysFor(person, ym, rowsFor, holidays ?? [], today)) {
+      if (onScreen.has(date)) out.add(date);
+    }
+  }
+  return out;
+}
+
+/**
+ * The days ON THIS GRID that the person already reported — the green cells (round 5 · B),
+ * the positive mirror of `missingInView`. Same "ask each month once, intersect with what is
+ * on screen" shape, same signed-in-person-only scope (the calendar has no person switch).
+ * A day can be both a labelled holiday/eve AND green (he chose to file it anyway); it is
+ * never both green and red — `missingDaysFor` already excludes anything reported.
+ */
+export function reportedInView(
+  person: string,
+  weeks: CalWeek[],
+  rowsFor: (person: string, year: number, month: number) => AttRow[] | null | undefined,
+  holidays?: Holiday[] | null,
+  today: Date = new Date(),
+): Set<string> {
+  const out = new Set<string>();
+  if (!person) return out;
+  const onScreen = new Set<string>();
+  const months = new Set<string>();
+  for (const w of weeks || []) {
+    for (const c of w.days || []) {
+      if (!c.inMonth) continue;
+      onScreen.add(c.date);
+      months.add(c.date.slice(0, 7));
+    }
+  }
+  for (const ym of months) {
+    for (const date of reportedDaysFor(person, ym, rowsFor, holidays ?? [], today)) {
       if (onScreen.has(date)) out.add(date);
     }
   }

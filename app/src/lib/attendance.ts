@@ -482,6 +482,28 @@ export function missingDaysFor(
   return missingDays(rows, hol, today, year, m);
 }
 
+/**
+ * The days of ONE person in ONE month that already have an attendance report — the calendar's
+ * green cells (round 5 · B), the mirror of `missingDaysFor`. Any row at all counts (שטח/משרד/אחר),
+ * including a future-dated one someone filed ahead of time; `[]` when the snapshot is not there
+ * yet, same "nothing to paint" convention as `missingDaysFor`.
+ */
+export function reportedDaysFor(
+  person: string,
+  month: MonthRef,
+  rowsFor?: (person: string, year: number, month: number) => AttRow[] | null | undefined,
+  holidays?: Holiday[] | null,
+  today: Date = new Date(),
+): string[] {
+  const { year, month: m } = monthRef(month, today);
+  const read = rowsFor || defaultRowsFor;
+  const rows = read(person, year, m);
+  if (!rows) return [];
+  const hol = holidays ?? defaultHolidays();
+  const grid = monthGrid(year, m, rows, hol, today);
+  return grid.cells.filter(c => c.state === 'field' || c.state === 'office' || c.state === 'away').map(c => c.date);
+}
+
 function bridge(): any {
   try { return (globalThis as any).sigma || null; } catch { return null; }
 }
