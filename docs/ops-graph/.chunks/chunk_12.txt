@@ -5,9 +5,3 @@ docs/SRS-סיגמה-2.0.md
 docs/architecture.md
 docs/ems-session.md
 docs/integration-map.annotations.md
-docs/reports/2026-09-18-adoption-strategy.md
-docs/reports/2026-09-18-retirement-coverage.md
-docs/team.md
-docs/usage/README.md
-docs/usage/תיעוד-נוכחות.md
-docs/whisper-glossary.txt

@@ -40,3 +40,6 @@ qa/reports/*
 
 # minified legacy bundle sourcemap (devtools only; js/app.js IS committed)
 js/app.js.map
+
+# graphify AST cache — must never be committed (holds absolute local paths)
+/graphify-out/

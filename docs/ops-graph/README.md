@@ -58,6 +58,20 @@ file lists are recoverable from `graphify-out/.graphify_chunk_*.json` (`source_f
 Each chunk's file list is in `.chunks/chunk_NN.txt`. A local model (Ollama `qwen3:8b`, CPU-only here) was
 benchmarked for this and rejected: ~7.7 tok/s output and it returned the schema placeholder on an 88-line file.
 
+### Re-syncing after a release (changed files' meaning, not just structure)
+
+`rebuild.py` re-parses code structure, but the semantic layer (what a function *does*,
+which table it writes, which spec explains it) comes from Sonnet chunks. After a release:
+
+1. `git diff --name-status <last-synced-commit> HEAD` over the corpus paths.
+2. Write the changed/added files to a new manifest `.chunks/chunk_NN.txt` (next free NN).
+3. Run one Sonnet extraction agent per ~13 files with the same prompt as the other chunks,
+   writing `graphify-out/.graphify_chunk_NN.json`.
+4. `python docs/ops-graph/rebuild.py` — the **newest chunk that lists a file owns it**;
+   older chunks' nodes/edges for that file are dropped, so knowledge is replaced, not piled up.
+
+Last semantic sync: **2.25 (`19fcb84`)** — chunks 25–27 re-extracted the 39 files changed since 2.23.
+
 ## Honesty
 
 Every edge is tagged `EXTRACTED` (explicit in source), `INFERRED`, or `AMBIGUOUS`.

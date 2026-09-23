@@ -1,0 +1,12 @@
+app/src/components/home/KibbutzSheet.test.tsx
+app/src/islands/Calendar.tsx
+app/src/islands/Field.tsx
+app/src/islands/HeaderActions.test.tsx
+app/src/islands/HeaderActions.tsx
+app/src/lib/attendance.test.ts
+app/src/lib/attendance.ts
+app/src/lib/calendar.test.ts
+app/src/lib/calendar.ts
+app/src/lib/canShowPage.test.ts
+app/src/lib/caps.test.ts
+app/src/lib/myTasksBadge.test.tsx

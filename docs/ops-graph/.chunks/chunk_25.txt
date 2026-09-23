@@ -1,0 +1,13 @@
+db/auth_attempts.sql
+db/messages.sql
+db/rls_viewer_readonly.sql
+index.html
+js/src/00-bridge.js
+js/src/01-data.js
+js/src/04-attendance-daily.js
+js/src/09-visits.js
+sw.js
+test-can-show-page.mjs
+test-html-structure.mjs
+test-rls-policies.mjs
+test-visit-summary-chain.mjs
