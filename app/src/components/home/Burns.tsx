@@ -9,75 +9,31 @@
 // The briefing's "לפני שיוצאים" rows (surface 4) are built by lib/burns.ts and rendered by
 // islands/Field.tsx, which calls `markBurned` from here when one is ticked.
 //
-// Every write goes through `sbWrite` (so a lapsed pass is re-minted once) and ends by
-// invalidating the shared key + emitting `burns-changed`, which is what makes the chip, the
-// modal section, the briefing and the strip agree without knowing about each other
-// (docs/integration-map.md). The full table (js/src/24-meter-burns.js) listens too.
+// The query/write plumbing (fetchBurns, useBurns, markBurned, unburnWithUndo, the EMS
+// refresh…) lives in lib/burnsData.ts (G-L2) and is re-exported here so every existing import
+// of it FROM this file keeps resolving — a pure move, no render change (round 5 package G).
+export {
+  BURNS_QUERY_KEY, GENERATORS_QUERY_KEY, BURNS_CHANGED, fetchBurns, useBurns, useBurnGenerators,
+  emitBurnsChanged, markBurned, markUnburned, markIssue, assignGenerator, ensureGenerator,
+} from '@/lib/burnsData';
+
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Flame } from 'lucide-react';
-import { sigma, sigmaBus, useCurrentUser } from '@/bridge';
-import { getSupabase, sbWrite } from '@/lib/supabase';
-import { queryClient } from '@/lib/query';
+import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { track } from '@/lib/track';
 import {
   burnChip, burnIssueTask, burnKindLabel, burnStateLabel, burnCounts, burnProgress, burnStripText, burnVisual,
-  burnWarnings, burnedPatch, burnsForSite, burnSitesWithPending, canSeeBurns, canWriteBurns,
-  clearIssuePatch, generatorPatch, generatorsForSite, issuePatch, unburnedPatch,
+  burnWarnings, burnsForSite, burnSitesWithPending, canSeeBurns, canWriteBurns, generatorsForSite,
   type BurnRow, type GeneratorRow,
 } from '@/lib/burns';
-
-export const BURNS_QUERY_KEY = ['meterBurns'] as const;
-export const GENERATORS_QUERY_KEY = ['burnGenerators'] as const;
-/** The bus event every burns write emits (docs/integration-map.md). */
-export const BURNS_CHANGED = 'burns-changed' as const;
-
-export async function fetchBurns(): Promise<BurnRow[]> {
-  const sb = await getSupabase();
-  const { data, error } = await sb.from('meter_burns').select('*').order('site').order('serial');
-  if (error) throw error;
-  return (data || []) as BurnRow[];
-}
-
-async function fetchGenerators(): Promise<GeneratorRow[]> {
-  const sb = await getSupabase();
-  const { data, error } = await sb.from('generators').select('*').order('site').order('name');
-  if (error) throw error;
-  return (data || []) as GeneratorRow[];
-}
-
-// One listener per PAGE, at module scope — a listener per component would mean one per card.
-let listening = false;
-function listenForBurnChanges(): void {
-  if (listening || !sigmaBus) return;
-  listening = true;
-  sigmaBus.addEventListener(BURNS_CHANGED, () => {
-    void queryClient.invalidateQueries({ queryKey: BURNS_QUERY_KEY });
-    void queryClient.invalidateQueries({ queryKey: GENERATORS_QUERY_KEY });
-  });
-}
-
-export function emitBurnsChanged(detail?: Record<string, unknown>): void {
-  try { sigmaBus?.dispatchEvent(new CustomEvent(BURNS_CHANGED, { detail })); } catch { /* no bus */ }
-}
-
-/**
- * The rows, shared by every surface. `enabled` is the gate: someone who may not see the
- * project never issues the query at all, so the temporary table costs a dev phone nothing.
- */
-export function useBurns(enabled = true) {
-  React.useEffect(listenForBurnChanges, []);
-  return useQuery({ queryKey: BURNS_QUERY_KEY, queryFn: fetchBurns, enabled });
-}
-
-export function useBurnGenerators(enabled = true) {
-  return useQuery({ queryKey: GENERATORS_QUERY_KEY, queryFn: fetchGenerators, enabled });
-}
+import {
+  assignGenerator, ensureGenerator, markBurned, markIssue, markUnburned, useBurnGenerators, useBurns,
+} from '@/lib/burnsData';
 
 /** "May I see / write צריבות?" — the one place the components ask. */
 export function useBurnAccess(): { user: string; canSee: boolean; canWrite: boolean; role: string } {
@@ -88,44 +44,6 @@ export function useBurnAccess(): { user: string; canSee: boolean; canWrite: bool
     canSee: canSeeBurns(user, isViewer),
     canWrite: canWriteBurns(user, isViewer),
   };
-}
-
-// ───────────────────────────── writes ─────────────────────────────
-
-async function patchMeters(ids: string[], patch: Record<string, unknown>): Promise<void> {
-  if (!ids.length) return;
-  const sb = await getSupabase();
-  await sbWrite(() => sb.from('meter_burns').update(patch).in('meter_id', ids).select('meter_id') as any);
-  emitBurnsChanged({ meters: ids.length });
-}
-
-const nowISO = () => new Date().toISOString();
-
-/** ✅ נצרב — also the write the briefing's checklist row performs when it is ticked. */
-export async function markBurned(meterIds: string[], user: string): Promise<void> {
-  await patchMeters(meterIds, burnedPatch(user, nowISO()) as unknown as Record<string, unknown>);
-}
-export async function markUnburned(meterIds: string[]): Promise<void> {
-  await patchMeters(meterIds, unburnedPatch(nowISO()) as unknown as Record<string, unknown>);
-}
-export async function markIssue(meterId: string, note: string, emsTaskId?: string): Promise<void> {
-  const patch = (note ? issuePatch(note, nowISO()) : clearIssuePatch(nowISO())) as unknown as Record<string, unknown>;
-  if (emsTaskId) patch.ems_task_id = emsTaskId;   // db/meter_burns_ems_task.sql — the caller tolerates an older schema
-  await patchMeters([meterId], patch);
-}
-export async function assignGenerator(meterIds: string[], generatorId: string | null): Promise<void> {
-  await patchMeters(meterIds, generatorPatch(generatorId, nowISO()) as unknown as Record<string, unknown>);
-}
-
-/** Pick an existing generator of this kibbutz by name, or create it. Never crosses a site. */
-export async function ensureGenerator(site: string, name: string, gens: GeneratorRow[], user: string): Promise<GeneratorRow> {
-  const hit = generatorsForSite(gens, site).find(g => g.name === name);
-  if (hit) return hit;
-  const sb = await getSupabase();
-  const row = await sbWrite<GeneratorRow>(() =>
-    sb.from('generators').upsert({ site, name, created_by: user }, { onConflict: 'site,name' }).select('*').single() as any);
-  emitBurnsChanged({ generator: name });
-  return (row || { id: '', site, name }) as GeneratorRow;
 }
 
 // ───────────────────── 1. the card chip ─────────────────────

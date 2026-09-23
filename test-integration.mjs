@@ -252,8 +252,9 @@ const PROPAGATION = [
   ['attendance-saved', ['js/src/04-attendance-daily.js'], ['app/src/islands/Attendance.tsx']],
   // the 🕎 list landed → the island's six-hour cache must not keep an empty list
   ['holidays-loaded', ['js/src/04-attendance-daily.js'], ['app/src/islands/Attendance.tsx']],
-  // a 🔥 burn was marked → the chip, the modal section, the strip, and the legacy table
-  ['burns-changed', ['app/src/components/home/Burns.tsx'], ['js/src/24-meter-burns.js']],
+  // a 🔥 burn was marked → the chip, the modal section, the strip, and the legacy table.
+  // The emit call moved to lib/burnsData.ts in round 5 G-L2 (Burns.tsx now re-exports it).
+  ['burns-changed', ['app/src/lib/burnsData.ts'], ['js/src/24-meter-burns.js']],
   // a feedback was sent or triaged → the 📣 inbox
   ['feedback-changed', ['app/src/islands/Feedback.tsx'], ['app/src/islands/FeedbackInbox.tsx']],
 ];

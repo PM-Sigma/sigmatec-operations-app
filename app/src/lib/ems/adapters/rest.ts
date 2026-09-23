@@ -98,6 +98,12 @@ export const URLS = {
   task: (id: string) => '/employee-tasks/' + id,
   comments: (id: string) => '/employee-tasks/' + id + '/comments',
   users: () => '/users?roles=admin&statuses=active&take=200&sortBy=firstName&sortOrder=ASC',
+  // 🔥 צריבות (G-L2) — the exact query shape `burnEmsAll` sent (js/src/24-meter-burns.js:239-251):
+  // 'take=200&page=N', N starting at 1. `page` here is the gateway's own 0-indexed page.
+  metersByRole: (roleCodes: number[], page: number, take = 200) =>
+    '/meters?roleCodes=' + roleCodes.join(',') + '&take=' + take + '&page=' + (page + 1),
+  meterSearch: (q: string, take = 5) => '/meters?search=' + encodeURIComponent(q) + '&take=' + take,
+  solars: () => '/solars',
 };
 
 /** What the REST transport can do. The three `false`s are operations the EMS REST API
@@ -146,6 +152,16 @@ export function restAdapter(t: RestTransport = bridgeTransport()): EmsGateway {
     async getMeter(id) {
       const one = unwrapOne(await t.emsApi(URLS.meter(id)));
       return one && one.id != null ? mapMeter(one) : null;
+    },
+    // 🔥 צריבות (G-L2) — raw rows out, mapped by lib/burns.ts, not the app-owned EmsMeter shape.
+    async listMetersByRole(roleCodes, page, take) {
+      return unwrapList(await t.emsApi(URLS.metersByRole(roleCodes, page, take)));
+    },
+    async searchMeters(q, take) {
+      return unwrapList(await t.emsApi(URLS.meterSearch(q, take)));
+    },
+    async listSolars() {
+      return unwrapList(await t.emsApi(URLS.solars()));
     },
 
     async listOpenTasks(q) { return unwrapList(await t.emsApi(URLS.tasks(q))).map(mapTask); },

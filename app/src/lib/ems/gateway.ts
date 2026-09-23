@@ -22,6 +22,14 @@ export interface EmsGateway {
   listSites(): Promise<EmsSite[]>;
   listMeters(siteId: string, opts?: { take?: number }): Promise<EmsMeter[]>;
   getMeter(id: string): Promise<EmsMeter | null>;
+  /** One page of generation meters by EMS role code (🔥 צריבות, G-L2) — raw EMS rows, mapped
+   *  by `lib/burns.ts` `emsToBurnRows` rather than the app-owned `EmsMeter` shape. */
+  listMetersByRole(roleCodes: number[], page: number, take: number): Promise<any[]>;
+  /** EMS `/meters?search=` for the generator picker (🔥 צריבות) — raw rows, mapped by
+   *  `lib/burns.ts` `emsHitLines`. */
+  searchMeters(q: string, take: number): Promise<any[]>;
+  /** Raw solar systems, for `lib/burns.ts` `emsSolarNames` / `emsToBurnRows`. */
+  listSolars(): Promise<any[]>;
 
   listOpenTasks(q?: ListTasksQuery): Promise<EmsTask[]>;
   getTask(id: string): Promise<EmsTask | null>;
