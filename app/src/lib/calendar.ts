@@ -112,8 +112,6 @@ export interface CalendarSources {
 }
 
 export interface CalendarOptions {
-  /** "הסתר משימות EMS" — remembered per device. */
-  hideEms?: boolean;
   /** "רק שלי" — keep only the viewer's own items. */
   onlyMine?: boolean;
   me?: string;
@@ -168,7 +166,19 @@ export const HE_WORK_DAY_LETTERS = HE_DAY_LETTERS.slice(0, 5);
  * state it is already in is the single most common way a toggle is misread.
  */
 export function workWeekLabel(workWeek: boolean): string {
-  return workWeek ? 'חודש מלא' : 'שבוע עבודה';
+  return workWeek ? 'חודש מלא' : 'חודש עבודה';
+}
+
+/**
+ * Round 5 · C6 (עידן 23.9): week numbers are a small label beside each row of חודש מלא, and
+ * hidden in חודש עבודה. The week VIEW already says "שבוע N" in its title, so it never needs them.
+ */
+export function showWeekNumbers(view: 'week' | 'month', workWeek: boolean): boolean {
+  return view === 'month' && !workWeek;
+}
+
+export function weekAria(week: number): string {
+  return 'שבוע ' + week;
 }
 
 /**
@@ -490,10 +500,9 @@ function isMine(person: string | null, me: string): boolean {
  * THE one place the calendar's contents are decided. Everything downstream (the grid chips,
  * the day panel, the week rows, the route) reads this list and nothing else.
  *
- * `hideEms` DROPS the EMS layer. `onlyMine` does NOT drop anything — it marks: the island
- * dims what is not yours, because "the office event I am not in" still has to be on the
- * calendar or the day looks free when it is not. Callers that really want a filtered list
- * use `.filter(i => i.mine)`.
+ * `onlyMine` does NOT drop anything — it marks: the island dims what is not yours, because
+ * "the office event I am not in" still has to be on the calendar or the day looks free when
+ * it is not. Callers that really want a filtered list use `.filter(i => i.mine)`.
  */
 export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}): CalItem[] {
   const me = opts.me || '';
@@ -532,24 +541,22 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
     });
   }
 
-  if (!opts.hideEms) {
-    for (const t of src.emsTasks || []) {
-      const date = toKey(t.expectedCompletionDate);
-      if (!date) continue;                                          // no due date → no place on a calendar
-      if (t.status && CLOSED.indexOf(t.status) !== -1) continue;    // finished work is not a plan
-      const who = personName(t.assignee);
-      out.push({
-        key: 'ems:' + t.id,
-        date,
-        layer: 'ems',
-        icon: '📋',
-        title: t.title || 'משימה',
-        kibbutz: (t.site && t.site.name) || null,
-        person: who,
-        mine: isMine(who, me),
-        taskId: t.id,
-      });
-    }
+  for (const t of src.emsTasks || []) {
+    const date = toKey(t.expectedCompletionDate);
+    if (!date) continue;                                          // no due date → no place on a calendar
+    if (t.status && CLOSED.indexOf(t.status) !== -1) continue;    // finished work is not a plan
+    const who = personName(t.assignee);
+    out.push({
+      key: 'ems:' + t.id,
+      date,
+      layer: 'ems',
+      icon: '📋',
+      title: t.title || 'משימה',
+      kibbutz: (t.site && t.site.name) || null,
+      person: who,
+      mine: isMine(who, me),
+      taskId: t.id,
+    });
   }
 
   // 🔒 internal tasks (round 4, Package X). They are NOT hidden by "הסתר משימות EMS": that

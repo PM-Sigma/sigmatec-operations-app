@@ -11,7 +11,7 @@ import {
   weekView, ymd,
   type AbsenceRow, type CalEmsTask, type OfficeEvent, type VisitRow,
   canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
-  workWeekLabel, missingInView, reportedInView,
+  workWeekLabel, missingInView, reportedInView, showWeekNumbers, weekAria,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -142,12 +142,6 @@ describe('calendarItems', () => {
     expect(mine).not.toContain('ems:t2');      // ניתאי's
   });
 
-  it('hideEms removes the EMS layer and nothing else', () => {
-    const hidden = calendarItems({ events: EVENTS, visits: VISITS, emsTasks: TASKS }, { hideEms: true });
-    expect(hidden.some(i => i.layer === 'ems')).toBe(false);
-    expect(hidden.filter(i => i.layer === 'visit')).toHaveLength(2);
-  });
-
   it('places a 🔒 internal task on its due day, and leaves the dateless and the finished off (Package X)', () => {
     const internalTasks = [
       { id: 'i1', title: 'לעדכן את המחירון', owner: 'אביאם', kibbutz: null, done: false, due_date: '2026-09-08' },
@@ -164,7 +158,7 @@ describe('calendarItems', () => {
     expect(first.mine).toBe(true);
     expect(withInternal[1].mine).toBe(false);
     // "הסתר משימות EMS" is about the EMS queue; it never takes a person's own follow-ups away.
-    expect(calendarItems({ internalTasks }, { me: 'אביאם', hideEms: true })).toHaveLength(2);
+    expect(calendarItems({ internalTasks }, { me: 'אביאם' })).toHaveLength(2);
   });
 
   it('exposes a Meet link only where Google gave one', () => {
@@ -407,7 +401,7 @@ describe('the work week (G1)', () => {
 
   it('the toggle says WHERE IT GOES, not where it is', () => {
     expect(workWeekLabel(true)).toBe('חודש מלא');
-    expect(workWeekLabel(false)).toBe('שבוע עבודה');
+    expect(workWeekLabel(false)).toBe('חודש עבודה');
   });
 
   it('a week row is narrowed to the visible columns, in order', () => {
@@ -418,6 +412,22 @@ describe('the work week (G1)', () => {
     expect(gridDays(week, 'month', false)).toHaveLength(7);
     // Nothing is re-ordered — the same cells, minus two.
     expect(five.map(d => d.date)).toEqual(week.days.slice(0, 5).map(d => d.date));
+  });
+});
+
+describe('round 5 · C6 — חודש עבודה / חודש מלא', () => {
+  it('the button names where it goes', () => {
+    expect(workWeekLabel(true)).toBe('חודש מלא');     // on the work month → offers the full one
+    expect(workWeekLabel(false)).toBe('חודש עבודה');  // on the full month → offers the way back
+  });
+  it('week numbers are shown in חודש מלא only', () => {
+    expect(showWeekNumbers('month', false)).toBe(true);
+    expect(showWeekNumbers('month', true)).toBe(false);
+    expect(showWeekNumbers('week', false)).toBe(false);
+    expect(showWeekNumbers('week', true)).toBe(false);
+  });
+  it('a week label reads as a word for a screen reader', () => {
+    expect(weekAria(38)).toBe('שבוע 38');
   });
 });
 
