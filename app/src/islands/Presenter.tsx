@@ -441,14 +441,16 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   }, [current, internalTasksQ.data, prevMeetingQ.data]);
 
   // Every arrival at a kibbutz is a segment boundary. Keyed so StrictMode's double render
-  // cannot log the same arrival twice.
+  // cannot log the same arrival twice. D1 (M-L2): the session row is now lazy — log() itself
+  // creates it on first use — so this no longer waits on `session?.id` existing first; gating
+  // on it would deadlock (nothing else ever creates the session on its own).
   React.useEffect(() => {
-    if (!session?.id || !current) return;
-    const key = session.id + '|' + idx + '|' + current.name;
+    if (!current) return;
+    const key = idx + '|' + current.name;
     if (logged.current === key) return;
     logged.current = key;
     void log('kibbutz', { kibbutz: current.name });
-  }, [session?.id, idx, current?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [idx, current?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── actions ────────────────────────────────────────────────────────────
   const move = React.useCallback((dir: number) => {
