@@ -1256,6 +1256,16 @@
     // re-inserted, and a linked EMS task gets the "what changed" note instead of a second summary.
     const prior = ((window.SHEET_DATA && window.SHEET_DATA.visits) || []).find(v => v && String(v.id) === id) || null;
     const isEdit = !!prior;
+
+    // Round 5, grill round 5 answers (binding): everything dated August 2026 or earlier is read-only; a record
+    // locks on the 10th of the month after it (app/src/lib/editLock.ts; mirrored here as visitEditLocked,
+    // 00-consts.js; enforced again by db/visit_edit_lock_trigger.sql). Blocked before any network call — an
+    // edit AND a new entry backdated into a locked month are both refused, exactly like the DB trigger's
+    // coalesce(new.date, old.date) check.
+    if (typeof visitEditLocked === 'function' && (visitEditLocked(dateStr) || (isEdit && visitEditLocked(String((prior && prior.date) || ''))))) {
+      return { ok: false, error: 'הביקור נעול לעריכה — התאריך כבר לא ניתן לשינוי', locked: true };
+    }
+
     if (products.length && !d.certAfter && !isEdit) {
       const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(id) : 0;
       if (!certNum) return { ok: false, error: 'סופק ציוד, נדרשת תעודת משלוח לפני שמירת הסיכום', needsCert: true, visitId: id };
@@ -1344,8 +1354,25 @@
     const source = POOL_LOCATION;
     // New visit → the full supply. Edit / retry → only the delta against what was filed, so
     // saving the same visit twice never takes the meters off the pool twice.
+    //
+    // Round 5 V20 (grill round 5, replaces "equipment locked before the breakpoint"): a visit dated before the
+    // inventory breakpoint had its ORIGINAL supply movement archived (2.29, archive.movements_pre_breakpoint) —
+    // the live ledger no longer has it. priorSnap.products (the visit's own filed row) is the fallback and the
+    // normal source; for an archived visit the GROUND TRUTH is archive_visit_products() (db/archive_pre_breakpoint_rpc.sql,
+    // SECURITY DEFINER — the archive schema is not otherwise reachable from the client). Sourcing "old" from
+    // anywhere that returns nothing for an archived visit (a live-ledger lookup by refId, for instance) would
+    // post the visit's WHOLE new quantity as if it were an addition on top of the opening balance — the
+    // double-deduct this RPC exists to prevent (app/src/lib/visitEdit.ts equipmentDelta, golden D2). Never blocks
+    // the save: an RPC failure (not applied yet, or genuinely offline) falls back to priorSnap.products.
+    let priorProductsForDelta = (priorSnap && priorSnap.products) || [];
+    if (isEdit && typeof visitIsArchived === 'function' && visitIsArchived(priorSnap) && typeof archiveVisitProducts === 'function') {
+      try {
+        const archived = await archiveVisitProducts(id);
+        if (archived != null) priorProductsForDelta = Object.keys(archived).map(name => ({ name: name, qty: archived[name] }));
+      } catch (e) { /* fall back to priorSnap.products */ }
+    }
     const oldMap = {}, newMap = {};
-    ((priorSnap && priorSnap.products) || []).forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
+    priorProductsForDelta.forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
     products.forEach(p => { newMap[p.name] = (newMap[p.name] || 0) + p.qty; });
     const moves = [];
     const move = (product, from, to, qty, why) => moves.push(fetch(WRITE_ROUTER_URL, {
@@ -1378,8 +1405,10 @@
     }
 
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-saved', { kibbutz: visit.kibbutz });
-    if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz, 'daylog');
-    return { ok: true, id: String(savedId), edited: isEdit };
+    // V23 (visit-summary chain audit fix): the chapters sheet sends `via: 'chapters'`; every other caller
+    // (📝 יומן היום, a future caller) keeps today's 'daylog' label by omitting it.
+    if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz, d.via || 'daylog');
+    return { ok: true, id: String(savedId), edited: isEdit, archived: isEdit && typeof visitIsArchived === 'function' && visitIsArchived(priorSnap) };
   }
   window.saveVisitFromData = saveVisitFromData;
 

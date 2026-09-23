@@ -30,7 +30,8 @@ const document_ = { getElementById: () => mkEl(), querySelectorAll: () => [], qu
 const storage = {};
 const localStorage_ = { getItem: k => storage[k] ?? null, setItem(k, v) { storage[k] = v; }, removeItem(k) { delete storage[k]; } };
 
-let posts = [], sbPosts = [], emsFull = [], emsEdit = [], emitted = [], contactsKnown = [];
+let posts = [], sbPosts = [], emsFull = [], emsEdit = [], emitted = [], contactsKnown = [], tracked = [], archiveCalls = [];
+let archiveResult = null;   // set per-test: what db/archive_pre_breakpoint_rpc.sql would return
 const window_ = {
   SHEET_DATA: { visits: [] }, currentKibbutzVisits: [],
   _sbToken: 'tok', _sbTokenExp: Date.now() + 3600e3,
@@ -43,11 +44,36 @@ const fetch_ = (u, o) => {
   return Promise.resolve({ json: async () => ({ ok: true, id: b.id || 'SRV_ID' }) });
 };
 
+// Round 5 V20 (grill round 5, binding): the general edit lock + the archive-aware stock diff. Real
+// implementations, mirroring js/src/00-consts.js / app/src/lib/visitEdit.ts exactly (not stubs), so this
+// harness exercises the same rules production runs, not a pass-through.
+const ROUND5_LOCK_FLOOR = '2026-09-01';
+const INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47.625Z';
+function visitEditableUntil(dateStr) {
+  const ymd = String(dateStr || '').slice(0, 10);
+  const y = parseInt(ymd.slice(0, 4), 10), m = parseInt(ymd.slice(5, 7), 10);
+  const ny = m >= 12 ? y + 1 : y, nm = m >= 12 ? 1 : m + 1;
+  return ny + '-' + String(nm).padStart(2, '0') + '-10';
+}
+function visitEditLocked(dateStr, todayStr) {
+  const d = String(dateStr || '').slice(0, 10);
+  const today = String(todayStr || new Date().toISOString()).slice(0, 10);
+  if (d < ROUND5_LOCK_FLOOR) return true;
+  return today > visitEditableUntil(d);
+}
+function visitIsArchived(v) {
+  const day = String((v && v.date) || '').slice(0, 10);
+  const createdAt = String((v && (v.createdAt || v.created_at)) || '');
+  return (!!day && day < '2026-09-23') || (!!createdAt && createdAt < INVENTORY_BREAKPOINT_AT);
+}
+const archiveVisitProducts = async (visitId) => { archiveCalls.push(visitId); return archiveResult; };
+
 const fn = new Function(
   'window', 'document', 'localStorage', 'fetch', 'alert', 'WRITE_ROUTER_URL', 'SB_URL', 'SB_ANON', 'setBtnLoading',
   'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'pushVisitEditToEms', 'refreshData', 'closeModal',
   'currentKibbutz', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
   'visitReturnedItems', 'renderReturnedItems', 'sigmaEmit', 'sigmaTrack', 'setTimeout',
+  'visitEditLocked', 'visitIsArchived', 'archiveVisitProducts', 'INVENTORY_BREAKPOINT_AT',
   visitsSrc + '\nreturn { saveVisitFromData };',
 );
 const mod = fn(
@@ -55,10 +81,12 @@ const mod = fn(
   async () => 0, () => '', (k, v, intent) => emsFull.push({ k, taskId: intent.taskId, summary: v.summary }),
   (taskId, prev, next) => emsEdit.push({ taskId, from: prev.date, to: next.date }), () => {}, () => {},
   'חוקוק', 'תקול', 'חברה', () => ({}), () => {}, () => {},
-  [], () => {}, (name, detail) => emitted.push({ name, detail }), () => {}, () => 0,
+  [], () => {}, (name, detail) => emitted.push({ name, detail }),
+  (name, kibbutz, via) => tracked.push({ name, kibbutz, via }), () => 0,
+  visitEditLocked, visitIsArchived, archiveVisitProducts, INVENTORY_BREAKPOINT_AT,
 );
 const tick = () => new Promise(r => setImmediate(r));
-const reset = () => { posts = []; sbPosts = []; emsFull = []; emsEdit = []; emitted = []; };
+const reset = () => { posts = []; sbPosts = []; emsFull = []; emsEdit = []; emitted = []; tracked = []; archiveCalls = []; archiveResult = null; };
 const visitPosts = () => posts.filter(p => p.type === 'visit');
 const moves = () => posts.filter(p => p.type === 'movement');
 
@@ -166,6 +194,63 @@ check('the chapters sheet sends every task to the ONE pipeline and posts no comm
   assert.ok(/emsTaskIds: emsIds,/.test(fieldSrc));
   assert.ok(/emsComment: true/.test(fieldSrc));
   assert.ok(!/kind: 'comment'/.test(fieldSrc));
+});
+
+console.log('\n[7] round 5 V20: edit lock + archive-aware stock diff + via tracking (replaces the original ' +
+  '"equipment locked before the breakpoint" rule — grill round 5, binding)');
+reset();
+window_.SHEET_DATA.visits.push({
+  id: 'v_aug', kibbutz: 'חוקוק', date: '2026-08-15T12:00:00.000Z', visitor: 'אביאם',
+  products: [{ name: 'E360', qty: 2 }], summary: 'ישן', createdAt: '2026-08-15T12:05:00.000Z',
+});
+const rLocked = await mod.saveVisitFromData({ ...chapters, id: 'v_aug', date: '2026-08-16', products: [{ name: 'E360', qty: 9 }] });
+check('L9 an edit of a locked visit (August 2026) is refused before any write', () => {
+  assert.equal(rLocked.ok, false);
+  assert.equal(rLocked.locked, true);
+  assert.equal(posts.length, 0, 'no visit/movement POST at all');
+  assert.equal(sbPosts.length, 0);
+});
+
+reset();
+window_.SHEET_DATA.visits.push({
+  id: 'v_pre', kibbutz: 'חוקוק', date: '2026-09-20T12:00:00.000Z', visitor: 'אביאם',
+  products: [{ name: 'E360', qty: 2 }], summary: 'ישן', createdAt: '2026-09-20T08:00:00.000Z',
+});
+archiveResult = { E360: 2 };   // what archive_visit_products('v_pre') returns: the visit's true original qty
+const r10 = await mod.saveVisitFromData({ ...chapters, id: 'v_pre', date: '2026-09-20', products: [{ name: 'E360', qty: 5 }] });
+await tick();
+check('L10 a pre-breakpoint (archived) September visit stays editable, equipment included', () => {
+  assert.equal(r10.ok, true);
+  assert.equal(r10.edited, true);
+  assert.equal(r10.archived, true, 'flagged as an archived-ledger edit');
+});
+check('L10b the delta is computed against the ARCHIVE result (2), not against 0: +3, never +5', () => {
+  assert.deepEqual(archiveCalls, ['v_pre'], 'archive_visit_products was called for this visit id');
+  assert.deepEqual(moves().map(m => [m.product, m.fromLocation, m.toLocation, m.quantity, m.reason]),
+    [['E360', 'חברה', 'חוקוק', 3, 'visit_supply_edit']],
+    'a live-ledger (or blank) old-quantity source would wrongly post +5, double-deducting against the opening balance');
+});
+
+reset();
+window_.SHEET_DATA.visits.push({ id: 'v_live', kibbutz: 'חוקוק', date: '2026-09-24T12:00:00.000Z', visitor: 'אביאם', products: [{ name: 'E360', qty: 2 }], summary: 'חדש' });
+await mod.saveVisitFromData({ ...chapters, id: 'v_live', date: '2026-09-24', products: [{ name: 'E360', qty: 3 }] });
+check('L10c a POST-breakpoint edit never consults the archive', () => assert.deepEqual(archiveCalls, []));
+
+reset();
+const r11 = await mod.saveVisitFromData({ ...chapters, id: 'vd_2', via: 'chapters' });
+check('L11 the sheet\'s via label reaches sigmaTrack; other callers keep the daylog default', () => {
+  assert.equal(r11.ok, true);
+  assert.deepEqual(tracked.map(t => t.via), ['chapters']);
+});
+reset();
+await mod.saveVisitFromData({ ...chapters, id: 'vd_3' });   // no `via` — the day log / any other caller
+check('L11b no via → the daylog default, unchanged', () => assert.deepEqual(tracked.map(t => t.via), ['daylog']));
+
+check('L12 INVENTORY_BREAKPOINT_AT is the same literal in 00-consts.js and visitEdit.ts', () => {
+  const consts = read('js/src/00-consts.js');
+  const visitEdit = read('app/src/lib/visitEdit.ts');
+  assert.match(consts, /INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47\.625Z'/);
+  assert.match(visitEdit, /INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47\.625Z'/);
 });
 
 console.log(failures ? `\n${failures} FAILED` : '\nall passed');
