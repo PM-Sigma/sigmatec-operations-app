@@ -224,6 +224,24 @@ export function canSeeAlerts(user: string, isViewer: boolean): boolean {
   return ['עידן', 'עמיחי', 'אביאם', 'ניתאי'].indexOf(String(user ?? '').trim()) !== -1;
 }
 
+// ───────────── X-L4: visit-summary rows in the bell go only to מי ביקר (grill round 4) ─────────────
+
+/**
+ * A `visit_supply` row (the bell line for a visit summary's stock movements) is visible only to
+ * the people who visited — read literally, that means עמיחי too, unless he visited (grill round
+ * 4, open question 2's default). Every other kind/reason is unaffected. `visitorsByVisit` maps
+ * a visit id (`row.ref_id`) to its visitors; a visit the caller hasn't loaded yet falls back to
+ * the row's own `actor` so a slow join never hides a row from the person who caused it.
+ */
+export function visitSupplyVisibleTo(row: AlertRow, user: string, visitorsByVisit: Record<string, string[]>): boolean {
+  if (String(row.reason ?? '') !== 'visit_supply') return true;
+  const id = String(row.ref_id ?? '').trim();
+  const visitors = id ? (visitorsByVisit[id] || []) : [];
+  const who = String(user ?? '');
+  if (!visitors.length) return String(row.actor ?? '') === who;
+  return visitors.indexOf(who) !== -1;
+}
+
 // ───────────────────────────── EMS-unlinked sites (22.9, QA round 4 Package Y) ─────────────────────────────
 // עידן: "אני רוצה לקבל שגיאה אם יש אתר שלא מחובר ל-EMS — זה הדבר הכי לא תקין במערכת." Not a
 // database table: the group is built straight from the `kibbutzim` rows the bell already has

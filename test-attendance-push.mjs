@@ -172,5 +172,18 @@ check('red row: bell for viewer, none for team; ✅ after send', async () => {
   assert.ok(t.win.attMissingRowHtml('2026-07-05').includes('חסרה נוכחות'), 'red row still informative');
 });
 
+// X-L4 / F5: attendanceReminder had NO auth check at all — anyone who knew the URL could buzz
+// אביאם / ניתאי / עמיחי with made-up dates. Pinned so it can never quietly regress.
+check('attendanceReminder is guarded server-side, and the caller sends a token', () => {
+  const idxPath = path.join(__dirname, 'supabase/functions/push-send/index.ts');
+  const idx = fs.readFileSync(idxPath, 'utf8');
+  const at = idx.indexOf('body.mode === "attendanceReminder"');
+  assert.ok(at !== -1, 'attendanceReminder mode is still in push-send/index.ts');
+  const next = idx.indexOf('body.mode ===', at + 5);
+  const block = idx.slice(at, next === -1 ? idx.length : next);
+  assert.match(block, /emsValid/, 'the attendanceReminder block must call emsValid, like gapReminder does');
+  assert.match(src, /mode:\s*'attendanceReminder'[\s\S]{0,80}token:\s*tok/, "22-push.js's caller must send a token");
+});
+
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);

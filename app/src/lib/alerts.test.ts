@@ -2,7 +2,7 @@
 // the hour gate and the idempotency tag"). Israel is UTC+3 in September, UTC+2 in January —
 // both are exercised, because the digest windows are the one thing DST can silently break.
 import { describe, expect, it } from 'vitest';
-import { alertArrow, alertText, alertTarget, canSeeAlerts, canSeeEmsUnlinkedAlert, digestBody, digestTag, digestTitle, digestWindow, emsUnlinkedGroup, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, markRowsSeen, unmarkRowsSeen, POOL } from './alerts';
+import { alertArrow, alertText, alertTarget, canSeeAlerts, canSeeEmsUnlinkedAlert, digestBody, digestTag, digestTitle, digestWindow, emsUnlinkedGroup, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, markRowsSeen, unmarkRowsSeen, POOL, visitSupplyVisibleTo } from './alerts';
 
 const mov = (o: Partial<AlertRow> = {}): AlertRow => ({
   id: 'a1', kind: 'movement', product: 'מונה E360CT', qty: 3,
@@ -59,6 +59,25 @@ describe('seen + who gets a bell', () => {
     for (const p of ['עידן', 'עמיחי', 'אביאם', 'ניתאי']) expect(canSeeAlerts(p, false)).toBe(true);
     expect(canSeeAlerts('עידן', true)).toBe(false);
     expect(canSeeAlerts('מתניה', false)).toBe(false);
+  });
+});
+
+// ───────────── X-L4: visit-summary rows in the bell go only to מי ביקר ─────────────
+describe('visitSupplyVisibleTo (grill round 4, open question 2 — default: literal)', () => {
+  const row = mov({ id: 'v1a', ref_id: 'v1', reason: 'visit_supply' });
+  it('visible to a visitor of v1, hidden from everyone else — עמיחי included', () => {
+    const visitorsByVisit = { v1: ['אביאם'] };
+    expect(visitSupplyVisibleTo(row, 'אביאם', visitorsByVisit)).toBe(true);
+    expect(visitSupplyVisibleTo(row, 'עידן', visitorsByVisit)).toBe(false);
+    expect(visitSupplyVisibleTo(row, 'עמיחי', visitorsByVisit)).toBe(false);
+  });
+  it('a min_qty / recount row is visible to everyone, as before', () => {
+    const recount = mov({ reason: 'recount', ref_id: 'rc-1' });
+    const low = { kind: 'low_stock', product: 'x', qty: 1 } as AlertRow;
+    for (const p of ['עידן', 'עמיחי', 'אביאם', 'ניתאי']) {
+      expect(visitSupplyVisibleTo(recount, p, {})).toBe(true);
+      expect(visitSupplyVisibleTo(low, p, {})).toBe(true);
+    }
   });
 });
 

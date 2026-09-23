@@ -39,7 +39,7 @@ import { usageDigestAuth } from "./usageDigest.ts";
 // daily cap, which words go out — is one of these pure functions, tested in field.test.ts.
 import {
   attendanceCronRuns, capBlocked, CAP_EXEMPT_EVENTS, gapNudgeFor, inQuietHours, israelAt,
-  nudgeFor, visitCronSelect, visitorsOf,
+  nudgeFor, visitCronSelect,
   type CheckinRow, type DraftRow, type VisitRow,
 } from "./field.ts";
 // Inventory alerts (inventory spec 5). Third copy-and-pin module: app/src/lib/alerts.ts is the
@@ -471,17 +471,20 @@ Deno.serve(async (req: Request) => {
     // Two days of visits and drafts: a check-in can be 14 h old, which crosses midnight.
     const fromDay = new Date(Date.now() - 2 * 86400 * 1000).toISOString().slice(0, 10);
     const [vis, dr, sent] = await Promise.all([
-      // round 5 V13/V21: מי ביקר is multi-select (visitorsOf), so a single-column IN filter on the visitor
-      // column would miss a visit where the checked-in person is the SECOND name. Filter in code instead.
+      // round 5 V13/V21: מי ביקר is multi-select (visitorsOf), so a single-column IN filter on the
+      // visitor OR the person column would miss both a co-visitor listed second (audit fix, Opus
+      // 24.9: a filter keyed to `people` also missed a visit filed under a NAME NOT in `people` —
+      // e.g. עידן checks in alone, מתניה already filed the visit — which is exactly the
+      // non-field-worker settlement `checkinSettledByVisits` decides). Fetch by date only; every
+      // per-checkin kibbutz/day/visitor decision happens once, inside checkinSettledByVisits.
       sb.from("visits").select("visitor,kibbutz,date").gte("date", fromDay),
       sb.from("visit_drafts").select("id,person,kibbutz,date").in("person", people).gte("date", fromDay),
       sentTodayCounts(people),
     ]);
-    const visitsForPeople = ((vis.data ?? []) as VisitRow[]).filter(r => visitorsOf(r as any).some(p => people.includes(p)));
 
     const plan = visitCronSelect({
       checkins,
-      visits: visitsForPeople,
+      visits: (vis.data ?? []) as VisitRow[],
       drafts: (dr.data ?? []) as DraftRow[],
       sentToday: sent.total,
       sentTodayVisit: sent.visit,
@@ -736,6 +739,14 @@ Deno.serve(async (req: Request) => {
 
   // ---- attendance reminder (manual viewer nudge; scheduled job uses attendance-cron) ----
   if (body.mode === "attendanceReminder") {
+    // AUTH (X-L4, F5): this mode had NONE — anyone who knew the URL could buzz אביאם / ניתאי /
+    // עמיחי with made-up dates. Same guard gapReminder already uses.
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    const byCron = !!secret && !!cronKey && cronKey === secret;
+    if (!byCron && !(await emsValid(String(body.token || "")))) {
+      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
+    }
     const person = String(body.person || "");
     if (!APPROVE_GROUP.includes(person)) return json({ error: "recipient not allowed" }, 403);
     const dates: string[] = Array.isArray(body.dates) ? body.dates.slice(0, 31).map(String) : [];

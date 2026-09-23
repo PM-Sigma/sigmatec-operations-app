@@ -29,9 +29,10 @@ import { track } from '@/lib/track';
 import { useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
   canSeeAlerts, canSeeEmsUnlinkedAlert, emsUnlinkedGroup, groupAlerts,
-  isSeen, markRowsSeen, unmarkRowsSeen,
+  isSeen, markRowsSeen, unmarkRowsSeen, visitSupplyVisibleTo,
   type AlertGroup, type AlertRow,
 } from '@/lib/alerts';
+import { visitorsOf } from '@/lib/field';
 import { fetchKibbutzRows } from '@/lib/kibbutzRows';
 import { isUnlinked, labelOf, type KibbutzRow } from '@/lib/kibbutzim';
 import { toastFailure } from '@/lib/pending';
@@ -62,6 +63,23 @@ async function fetchAlerts(): Promise<AlertRow[]> {
   return (data ?? []) as AlertRow[];
 }
 
+/**
+ * X-L4: who visited, for the `visit_supply` rows currently on screen — so the bell can apply
+ * `visitSupplyVisibleTo` (grill round 4: מי ביקר only). Only `visitor` is selected: the
+ * `visitors` multi-select column belongs to package V and may not exist yet, and `visitorsOf`
+ * reads the legacy single-name shape just as well.
+ */
+async function fetchVisitVisitors(ids: string[]): Promise<Record<string, string[]>> {
+  if (!ids.length) return {};
+  const sb = await getSupabase();
+  const { data } = await sb.from('visits').select('id,visitor').in('id', ids);
+  const out: Record<string, string[]> = {};
+  for (const row of (data ?? []) as Array<{ id: string; visitor?: string | null }>) {
+    out[String(row.id)] = visitorsOf(row);
+  }
+  return out;
+}
+
 function AlertsBell() {
   const { name: user, isViewer } = useCurrentUser();
   const [open, setOpen] = React.useState(() => { const o = pendingOpen; pendingOpen = false; return o; });
@@ -80,11 +98,25 @@ function AlertsBell() {
     [kibbutzimQ.data],
   );
 
+  // X-L4: מי ביקר only — a visit_supply row's visibility depends on that visit's visitors, so
+  // the visits currently on screen (and only those) are looked up.
+  const visitSupplyIds = React.useMemo(
+    () => Array.from(new Set(rows.filter(r => r.reason === 'visit_supply' && r.ref_id).map(r => String(r.ref_id)))).sort(),
+    [rows],
+  );
+  const visitorsQ = useQuery({
+    queryKey: ['visit-visitors', visitSupplyIds.join(',')],
+    queryFn: () => fetchVisitVisitors(visitSupplyIds),
+    enabled: allowed && visitSupplyIds.length > 0,
+  });
+  const visitorsByVisit = React.useMemo(() => visitorsQ.data ?? {}, [visitorsQ.data]);
+
   const groups = React.useMemo(() => {
-    const inv = groupAlerts(rows, user);
+    const visible = rows.filter(r => visitSupplyVisibleTo(r, user, visitorsByVisit));
+    const inv = groupAlerts(visible, user);
     const unlinked = seeUnlinked ? emsUnlinkedGroup(unlinkedNames) : null;
     return unlinked ? [unlinked, ...inv] : inv;
-  }, [rows, user, seeUnlinked, unlinkedNames]);
+  }, [rows, user, seeUnlinked, unlinkedNames, visitorsByVisit]);
 
   React.useEffect(() => {
     const onOpen = () => { pendingOpen = false; setOpen(true); };

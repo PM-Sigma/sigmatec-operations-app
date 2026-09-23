@@ -9,8 +9,8 @@ import {
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   ATT_MORNING_HH, attendanceCronRuns, EOD_DEFAULT_HH, eodHourFor,
   sharedOwners, VISIT_REASONS, visitReasonRequired, visitReasonText, visitReasonValid,
-  joinVisitors, visitorsOf,
-  type CheckinRow, type FieldTask,
+  joinVisitors, visitorsOf, checkinSettledByVisits, draftReminderTo,
+  type CheckinRow, type FieldTask, type VisitRow,
 } from './field';
 import { burnLeaveItems } from './burns';
 
@@ -396,6 +396,34 @@ describe('visitCronSelect', () => {
   it('a draft does not stop the nudge — it changes its words (§5.1c)', () => {
     const plan = run([mk()], { drafts: [{ id: 'd', person: 'אביאם', kibbutz: 'גבים', date: '2026-09-17' }] });
     expect(plan.remind[0].hasDraft).toBe(true);
+  });
+});
+
+// ───────────── X-L4: visit-summary alerts go only to the people who visited ─────────────
+// `visitorsOf` itself is V13's own (its goldens are below, "round 5 V13"); this only pins the
+// two functions X-L4 added on top of it.
+describe('checkinSettledByVisits / draftReminderTo (X-L4)', () => {
+  const ci = (person: string) => ({ person, kibbutz: 'גבים', checked_in_at: '2026-09-23T06:00:00Z' });
+  const v = (o: Partial<VisitRow> & Record<string, unknown> = {}): VisitRow => ({ kibbutz: 'גבים', date: '2026-09-23', ...o });
+
+  it('עידן checks in, the visit is ניתאי\'s → עידן is not reminded', () =>
+    expect(checkinSettledByVisits(ci('עידן'), [v({ visitor: 'ניתאי' })])).toBe(true));
+
+  it('two visitors, one check-in: settled once saved', () =>
+    expect(checkinSettledByVisits(ci('אביאם'), [v({ visitor: 'אביאם, ניתאי' })])).toBe(true));
+
+  it('a field worker is still reminded when only someone else filed', () =>
+    expect(checkinSettledByVisits(ci('ניתאי'), [v({ visitor: 'אביאם' })])).toBe(false));
+
+  it('another day or another kibbutz never settles', () => {
+    expect(checkinSettledByVisits(ci('עידן'), [v({ visitor: 'ניתאי', date: '2026-09-22' })])).toBe(false);
+    expect(checkinSettledByVisits(ci('עידן'), [v({ visitor: 'ניתאי', kibbutz: 'חוקוק' })])).toBe(false);
+  });
+
+  it('a draft for someone else\'s visit reminds nobody', () => {
+    expect(draftReminderTo({ person: 'עמיחי', visitors: ['ניתאי'] })).toEqual([]);
+    expect(draftReminderTo({ person: 'ניתאי', visitors: ['ניתאי', 'אביאם'] })).toEqual(['ניתאי']);
+    expect(draftReminderTo({ person: 'אביאם', visitors: [] })).toEqual(['אביאם']);
   });
 });
 

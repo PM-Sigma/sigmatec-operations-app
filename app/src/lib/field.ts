@@ -533,10 +533,8 @@ export function openNudges(i: {
     if (!c || c.person !== i.me || c.dismissed) continue;
     const at = new Date(c.checked_in_at).getTime();
     if (isNaN(at) || now - at < 2 * 3600_000 || now - at > 14 * 3600_000) continue;
+    if (checkinSettledByVisits(c, i.visits || [])) continue;
     const day = israelParts(c.checked_in_at).date;
-    const filed = (i.visits || []).some(v => v && visitorsOf(v).includes(c.person) && v.kibbutz === c.kibbutz
-      && String(v.date || '').slice(0, 10) === day);
-    if (filed) continue;
     const hasDraft = (i.drafts || []).some(d => d && d.person === c.person && d.kibbutz === c.kibbutz && d.date === day);
     out.push({
       checkinId: c.id,
@@ -652,6 +650,37 @@ export function nudgeFor(checkinId: string, kibbutz: string, hasDraft = false): 
     title: `📍 ${kibbutz} — ${n.t}`,
     body: n.b.replace(/\{kibbutz\}/g, kibbutz),
   };
+}
+
+// ─────────── X-L4: visit-summary alerts go only to the people who visited (grill round 4) ───────────
+// `visitorsOf` itself is V13's (above) — `visits.visitor` is the one stored column, a
+// `', '`-joined list read only through it. Nothing here re-parses `.visitor` directly.
+
+/**
+ * Is this check-in settled by a filed visit? True when a visit at the SAME kibbutz, the SAME
+ * Israel day, lists `c.person` among its visitors (`visitorsOf`) — or when any visit at all
+ * exists there that day and `c.person` is not a field worker, so an office check-in (עידן,
+ * עמיחי…) never keeps waiting on a visit that was never going to be in his name.
+ */
+export function checkinSettledByVisits(
+  c: { person: string; kibbutz: string; checked_in_at: string },
+  visits: VisitRow[],
+): boolean {
+  const day = israelParts(c.checked_in_at).date;
+  const here = (visits || []).filter(v => v && v.kibbutz === c.kibbutz && String(v.date || '').slice(0, 10) === day);
+  if (!here.length) return false;
+  if (here.some(v => visitorsOf(v).indexOf(c.person) !== -1)) return true;
+  return FIELD_PEOPLE.indexOf(c.person) === -1;
+}
+
+/**
+ * Who a reminder about a draft/visit is for: nobody but the person himself, and only while the
+ * visit's own visitor list (once chosen) still includes him. An empty list means nobody has
+ * narrowed it yet, so the default stays "remind him about his own check-in".
+ */
+export function draftReminderTo(d: { person: string; visitors: string[] }): string[] {
+  const visitors = d.visitors || [];
+  return (!visitors.length || visitors.indexOf(d.person) !== -1) ? [d.person] : [];
 }
 
 // ───────────────────────── the reminder's decision (spec §5.2 + §7k ג) ─────────────────────────
@@ -848,8 +877,7 @@ export function visitCronSelect(i: CronInput): CronPlan {
     if (isNaN(at) || now - at > 14 * 3600_000) { drop('too old'); continue; }
 
     const day = israelParts(c.checked_in_at).date;
-    const filed = (i.visits || []).some(v => v && visitorsOf(v).includes(c.person) && v.kibbutz === c.kibbutz
-      && String(v.date || '').slice(0, 10) === day);
+    const filed = checkinSettledByVisits(c, i.visits || []);
     // Asked BEFORE the clock: a filed visit settles the row whatever the hour is.
     if (filed) { drop('visit exists'); settle.push({ id: c.id, reason: 'visit exists' }); continue; }
 

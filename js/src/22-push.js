@@ -281,10 +281,13 @@
     try { localStorage.setItem(attNagKey(person, ym), JSON.stringify(sel)); } catch (e) {}
     if (typeof renderAttendanceReport === 'function') { try { renderAttendanceReport(); } catch (e) {} }
     try {
+      // X-L4/F5: attendanceReminder now requires the same proof gapReminder does (a cron key or
+      // a live EMS login) — send the caller's own token, same as gapNag below.
+      const tok = (typeof getEmsToken === 'function' && getEmsToken()) || (window.EMS_TOKEN || '');
       const r = await fetchWithTimeout(SB_URL + '/functions/v1/push-send', {
         method: 'POST',
         headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'attendanceReminder', person: person, dates: sel })
+        body: JSON.stringify({ mode: 'attendanceReminder', person: person, dates: sel, token: tok })
       }, 20000);
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || r.status);
