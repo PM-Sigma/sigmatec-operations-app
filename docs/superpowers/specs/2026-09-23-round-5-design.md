@@ -116,6 +116,21 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
 - **Hours are per person:** מתניה sees only his own; עידן and עמיחי see all.
 - **GitHub dev board (X-L8, approved):** only עידן, עמיחי and מתניה can write (open an issue, update a card). Reading stays open to staff. The check lives in our `github` function only; nothing changes in GitHub.
 
+## Standing authority while עידן is away (23.9 night)
+- **Production changes:** Fable applies DB migrations and deploys functions **after** the change passes both the Opus audit and the tests. A backup comes first, each change has a rollback, and each is logged in the CHANGELOG. The freeze stays on throughout. The changes covered: viewer read-only, per-person policies (ems-auth first, then ≥180 min), attendance source and backfill, the past-data lock trigger, the delete function, `cal_peer_tasks`, and deploys of ems-auth, push-send, github and calendar.
+- **Push texts:** the no-ai-slop rewrite (the X spec's table) is applied. עידן reviews it later, and nobody receives pushes while the app is frozen.
+- **Inventory delete now:** only the empty item. The SIM items stay archived and are not deleted.
+- **All planner defaults are accepted:**
+  - The header does not hide on scroll.
+  - The login screens stay light DOM, restyled.
+  - The ➕ adders move into the open card's section titles.
+  - "ייבוא סיכום ישיבה" goes into ⚙️ until meeting mode takes it.
+  - Office and home days are filed only on the attendance page.
+  - An EMS task's "latest change" is EMS's `updatedAt`.
+  - The dev meeting keeps 4 priority levels.
+  - "ללא אפיון" means only "no parent issue" (the sprint-prep list is renamed).
+- **At the end of the round:** everything ships to the frozen app, and then work stops for עידן's phone QA before the unfreeze.
+
 ## Design ownership (עידן 23.9)
 - **The external designer (the independent consultant agent) owns design and motion for the whole app.**
   - It picks one tool per purpose after running the real tools: impeccable CLI, humanizer, frontend-design, dataviz.
