@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CLOSED_CARD_SECTIONS, OPEN_CARD_SECTIONS, detailTabKey, fmtDay, lastVisitLine, lastVisitReport, latestVisitFor,
+  visitsForKibbutz,
 } from './kibbutzDetail';
 
 const now = new Date(2026, 8, 22);   // 22.9.2026
@@ -75,6 +76,18 @@ describe('latestVisitFor', () => {
     ];
     expect(latestVisitFor(rows, 'חוקוק')?.id).toBe('v2');
     expect(latestVisitFor(rows, 'אין כזה')).toBeNull();
+  });
+});
+
+describe('visitsForKibbutz (review fix: latestVisitFor = visitsForKibbutz(v,k)[0] ?? null)', () => {
+  it('that kibbutz, dated, newest first', () => {
+    const rows = [
+      visit,
+      { ...visit, id: 'v2', date: '2026-09-18T09:00:00.000Z' },
+      { ...visit, id: 'v3', kibbutz: 'יגור', date: '2026-09-21T09:00:00.000Z' },
+      { ...visit, id: 'v4', date: '' },
+    ];
+    expect(visitsForKibbutz(rows, 'חוקוק').map(v => v.id)).toEqual(['v2', 'v1']);
   });
 });
 

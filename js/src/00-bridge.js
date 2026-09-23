@@ -325,10 +325,14 @@
           function (c) { return c.dataset && c.dataset.name === name; });
         if (!card) { console.warn('[sigma] no card for', name); return; }
         call('openEditModal', [card]);
-        if (tab) call('switchTab', [tab]);
+        // Map the DOOR's tab vocabulary back to the legacy one — a caller may already speak
+        // 'status'/'visits' (K-U1 or a test) even in the pre-K-U1 era.
+        if (tab) call('switchTab', [key === 'visits' ? 'visit' : 'meetings']);
       },
-      // ➕ משימת EMS for a kibbutz (round 5, K-L4) — no modal in between.
+      // ➕ משימת EMS for a kibbutz (round 5, K-L4) — no modal in between. The viewer writes
+      // nothing (review fix, round 5): never reaches createEmsTaskForKibbutz for that role.
       createEmsTaskFor: function (kibbutz) {
+        if (call('isViewer', [], false)) return Promise.resolve();
         return Promise.resolve(call('createEmsTaskForKibbutz', [kibbutz])).catch(function (e) { console.warn('[sigma] ems create', e); });
       },
       // Re-run every legacy pass that decorates a card, after React replaced the card DOM.

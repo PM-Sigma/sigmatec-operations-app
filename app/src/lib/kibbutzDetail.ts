@@ -38,13 +38,15 @@ export function fmtDay(d: Date, now: Date): string {
   return d.getFullYear() === now.getFullYear() ? base : base + '.' + String(d.getFullYear()).slice(2);
 }
 
+/** A kibbutz's visits, newest first (ISO dates sort lexically). Shared with `lib/kibbutzVisits.ts`
+ * (K-L5), which re-exports it — the one place either K or V asks for "which visits, in order". */
+export function visitsForKibbutz(visits: VisitRow[], kibbutz: string): VisitRow[] {
+  return (visits || []).filter(v => v && v.kibbutz === kibbutz && v.date)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
 export function latestVisitFor(visits: VisitRow[], kibbutz: string): VisitRow | null {
-  let best: VisitRow | null = null;
-  for (const v of visits || []) {
-    if (!v || v.kibbutz !== kibbutz || !v.date) continue;
-    if (!best || new Date(v.date) > new Date(best.date)) best = v;
-  }
-  return best;
+  return visitsForKibbutz(visits, kibbutz)[0] ?? null;
 }
 
 export interface LastVisitLine { label: 'ביקור אחרון'; date: string; late: boolean; note?: 'ללא סיכום ביקור' }

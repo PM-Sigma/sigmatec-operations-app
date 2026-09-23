@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-// K-L5: one read of a kibbutz's visits, newest first, re-reading on `visit-saved`. `sigma`/
-// `sigmaBus` are consts bound once when `@/bridge` first evaluates (bridge.ts:303-304) — real
-// tests of anything reading them mock the module (see myTasksBadge.test.tsx), never poke
-// `window.sigma` after import, which a bound const would never see.
+// K-L5: one read of a kibbutz's visits, newest first, re-reading on `visit-saved` (via the
+// shared `useSigmaEvent`, bridge.ts:363). `sigma`/`sigmaBus` are consts bound once when
+// `@/bridge` first evaluates (bridge.ts:303-304) — real tests of anything reading them mock
+// the module (see myTasksBadge.test.tsx / EmsTasks.test.tsx), never poke `window.sigma` after
+// import, which a bound const would never see.
+import * as React from 'react';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,6 +20,13 @@ const { st, bus } = vi.hoisted(() => ({ st: { data: [] as any[] }, bus: new Even
 vi.mock('@/bridge', () => ({
   sigma: { loadAllVisitsCombined: () => st.data },
   sigmaBus: bus,
+  useSigmaEvent: (name: string, handler: (e: any) => void) => {
+    React.useEffect(() => {
+      const fn = (e: Event) => handler(e as CustomEvent);
+      bus.addEventListener(name, fn);
+      return () => bus.removeEventListener(name, fn);
+    }, [name, handler]);
+  },
 }));
 
 const { useKibbutzVisits, visitsForKibbutz } = await import('./kibbutzVisits');
