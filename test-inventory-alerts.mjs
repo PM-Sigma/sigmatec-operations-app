@@ -103,7 +103,9 @@ console.log('\n[6] the islands are wired');
   check('the bell is gated by the pure rule, not by a literal role list',
     /canSeeAlerts\(user, isViewer\)/.test(island));
   check('the min_qty editor is gated the same way', /canSetMinQty\(user, isViewer\)/.test(island));
-  check('a row opens the thing that happened', /alertTarget\(/.test(read('./app/src/islands/Alerts.tsx')));
+  // openSource/alertTarget moved into components/alerts/AlertsPanel.tsx with the list body
+  // it belongs to (round 5, package S task L7) — the frame in Alerts.tsx just renders it.
+  check('a row opens the thing that happened', /alertTarget\(/.test(read('./app/src/components/alerts/AlertsPanel.tsx')));
 
   const lib = read('./app/src/lib/alerts.ts');
   // Quoted strings and single-line JSX text only — a multi-line match would swallow code.
