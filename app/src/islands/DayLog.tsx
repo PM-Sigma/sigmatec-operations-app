@@ -24,6 +24,8 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { TranscribeRetry } from '@/components/TranscribeRetry';
 import { parseDayLog, readCatalog, recordCorrection, today } from '@/lib/daylogChain';
+// Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
+import { saveVisit } from '@/lib/visitSave';
 
 /**
  * A PRECONDITION failure (no EMS session) is not a service outage: retrying it fails the same
@@ -327,9 +329,11 @@ function DayLogSheet() {
       const v = result.visits[i];
       if (!cardReady(v)) { marks[i] = { ok: false, note: 'בחר קיבוץ כדי לשמור את הכרטיס' }; continue; }
       const payload = visitPayload(v, me, today());
-      const res = await (sigma.saveVisitFromData?.({ ...payload, emsTaskId: v.task_matches[0]?.task_id })
-        ?? Promise.resolve({ ok: false, error: 'שמירת ביקור אינה זמינה' }));
-      if (!res?.ok) { marks[i] = { ok: false, note: String(res?.error || 'השמירה נכשלה') }; continue; }
+      // Round 5 V14-V17: the save is followed by the attendance rules for אביאם/ניתאי (rule 1);
+      // `asks` (rule 2 conflicts) are ignored here on purpose — a manual row always wins, and a
+      // batch of day-log cards is no place for a per-card prompt.
+      const res = await saveVisit({ ...payload, emsTaskId: v.task_matches[0]?.task_id } as any, { me });
+      if (!res.ok) { marks[i] = { ok: false, note: res.error || 'השמירה נכשלה' }; continue; }
       ok++;
       marks[i] = { ok: true, note: '' };
       // The matched tasks get עידן's sentence, one comment each. A failure here is reported but

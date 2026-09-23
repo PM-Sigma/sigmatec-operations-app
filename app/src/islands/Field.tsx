@@ -40,7 +40,7 @@ import { todayISO, useVisitDraft } from '@/lib/visitDrafts';
 import {
   arrivalGroups, arrivalOrder, briefingAutoOpen, briefingTasks, bulletForField, burnRowsOf,
   burnSummary, dm, fieldShouldPrompt, hasSomethingToDeliver,
-  hm, leaveChecklist, openItemsPrefill, openNudges, sharedOwners, todayStops,
+  hm, joinVisitors, leaveChecklist, openItemsPrefill, openNudges, sharedOwners, todayStops,
   visitReasonRequired, visitReasonText, VISIT_REASONS,
   type ArrivalItem, type CheckinRow, type DraftRow, type FieldTask, type LeaveItem, type OrderRow,
   type VisitRow,
@@ -53,7 +53,8 @@ import { pickableProducts, productGroups, searchProducts } from '@/lib/productSe
 import { parseDayLog, readCatalog } from '@/lib/daylogChain';
 import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
 import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
-import { runMutation } from '@/lib/pending';
+// Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
+import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
 
@@ -1126,7 +1127,10 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
   /** Everything the pure rules judge: what he typed, plus the facts only the app knows. */
   const model = React.useMemo<ChapterDraft>(
-    () => ({ ...d, kibbutz, visitor: me, date: d.date || today, deliver, certIssued: certNum > 0 }),
+    () => ({
+      ...d, kibbutz, visitor: joinVisitors(d.visitors?.length ? d.visitors : [me]), date: d.date || today,
+      deliver, certIssued: certNum > 0,
+    }),
     [d, kibbutz, me, today, deliver, certNum],
   );
   const verdict = React.useMemo(() => canSubmit(model), [model]);
@@ -1272,42 +1276,49 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     const emsIds = cur.model.emsTaskIds || [];
     const internalIds = cur.model.internalTaskIds || [];
     try {
-      const res = await runMutation(
-        Promise.resolve(sigma.saveVisitFromData?.({
-          id: cur.draftId,
-          kibbutz: cur.kibbutz,
-          visitor: me,
-          date: cur.model.date || today,
-          duration: cur.model.duration || '',
-          workday: !!cur.model.workday,
-          summary: cur.model.summary || '',
-          openItems: cur.model.openItems || '',
-          products: cur.model.products || [],
-          productsOther: cur.model.productsOther || '',
-          contact: cur.model.contact || '',
-          returned: cur.model.returned || [],
-          // C6: the column may not exist yet (db/visits_reason.sql is not applied) — the legacy
-          // writer drops unknown keys rather than failing, so a missing column costs a reason.
-          reason: needReason ? visitReasonText(cur.model.reasonId, cur.model.reasonOther) : '',
-          // C6: every selected EMS task gets the summary as a comment, posted by the legacy
-          // pipeline (pushVisitToEms, the form's own writer), so there is one chain, not two.
-          emsTaskIds: emsIds,
-          emsComment: true,
-          // C7: the certificate comes AFTER the save on this sheet, so the pre-save gate is off.
-          certAfter: true,
-        }) ?? Promise.resolve({ ok: false, error: 'שמירת ביקור אינה זמינה' })),
-        {
-          loading: 'שומר את הסיכום…',
-          success: 'הסיכום נשלח 🎉',
-          error: 'השליחה נכשלה',
-          retry: () => { sentRef.current = ''; void send(); },
-        },
-      );
-      if (res && (res as any).ok) {
-        const visitId = String((res as any).id || cur.draftId);
+      // Round 5 V14-V17, V23: one orchestrator (app/src/lib/visitSave.ts) — saveVisitFromData
+      // THEN, only if it succeeded, the attendance plan the save implies. Fixes the "success toast
+      // on a failed save" bug: saveVisitFromData never rejects, so the OLD runMutation(toast.promise)
+      // here showed 'success' unconditionally; now the toast is chosen from res.ok explicitly.
+      const res = await saveVisit({
+        id: cur.draftId,
+        kibbutz: cur.kibbutz,
+        visitor: joinVisitors(cur.model.visitors?.length ? cur.model.visitors : [me]),
+        date: cur.model.date || today,
+        duration: cur.model.duration || '',
+        workday: !!cur.model.workday,
+        summary: cur.model.summary || '',
+        openItems: cur.model.openItems || '',
+        products: cur.model.products || [],
+        productsOther: cur.model.productsOther || '',
+        contact: cur.model.contact || '',
+        returned: cur.model.returned || [],
+        // C6: the column may not exist yet (db/visits_reason.sql is not applied) — the legacy
+        // writer drops unknown keys rather than failing, so a missing column costs a reason.
+        reason: needReason ? visitReasonText(cur.model.reasonId, cur.model.reasonOther) : '',
+        // C6: every selected EMS task gets the summary as a comment, posted by the legacy
+        // pipeline (pushVisitToEms, the form's own writer), so there is one chain, not two.
+        emsTaskIds: emsIds,
+        emsComment: true,
+        // C7: the certificate comes AFTER the save on this sheet, so the pre-save gate is off.
+        certAfter: true,
+        via: 'chapters',
+      }, { me });
+      if (res.ok) {
+        const visitId = res.id;
+        try { navigator.vibrate?.(10); } catch { /* not every browser has it */ }
         try { sigma.visitDraftDiscard?.(cur.draftId); } catch { /* it is filed; the draft is noise */ }
         set({ submittedId: visitId });
         track('visit-chapters-send', cur.kibbutz);
+        toast.success(res.toast);
+        // Rule 2 conflict ("הוזן X, לשנות לשטח?") and rule 3 "needs entry" popups — the plain
+        // toast wiring V-L5 owns; V-U1 restyles both onto the design-system Sheet/ConfirmSheet.
+        for (const ask of res.asks) {
+          toast(conflictQuestion(ask), {
+            action: { label: 'שינוי לשטח', onClick: () => { void sigma.attApply?.(resolveConflict(ask, true)); } },
+          });
+        }
+        for (const popup of res.popups) toast(popup);
 
         // The EMS comments went out inside saveVisitFromData (`emsComment` above). Every selected
         // internal task is marked done here.
@@ -1328,10 +1339,11 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         }
       } else {
         sentRef.current = '';                                   // it did not happen — let him retry
-        toast.error(String((res as any)?.error || 'השליחה נכשלה'));
+        toast.error(res.error || 'השליחה נכשלה');
       }
     } catch {
       sentRef.current = '';
+      toast.error('השליחה נכשלה');
     } finally { setSending(false); }
   }, [me, today, set, needReason, scrollTo]);
 

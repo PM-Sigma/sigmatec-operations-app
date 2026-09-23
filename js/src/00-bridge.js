@@ -510,6 +510,18 @@
       certFromVisitForm: function () { return call('certFromVisitForm'); },
       certFromVisit: function (visitId) { return call('certFromVisit', [visitId]); },
 
+      // ---- round 5 package V: apply the attendance plan a visit save produced ----------
+      // app/src/lib/visitSave.ts builds the AttOp[] (app/src/lib/visitAttendance.ts planVisitAttendance);
+      // this only carries it to the one legacy writer (js/src/04-attendance-daily.js attApplyOps).
+      attApply: function (ops) {
+        return Promise.resolve(call('attApplyOps', [ops], { ok: false, failed: (ops || []).length }));
+      },
+      // SHEET_DATA.attendance as is (source included once the loader maps it) — visitSave.ts's
+      // planVisitAttendance reads the day's existing rows from here before deciding what to write.
+      attRowsRaw: function () {
+        try { return (window.SHEET_DATA && window.SHEET_DATA.attendance) || []; } catch (e) { return []; }
+      },
+
       // ---- session (spec §7n) -----------------------------------------------
       // One funnel for every 401 and one way to hand over to the sign-in. Islands call these
       // through app/src/lib/session.ts; nothing else may open a login surface.

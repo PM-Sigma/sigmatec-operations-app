@@ -110,6 +110,41 @@
   }
   window.attSaveRow = attSaveRow;
 
+  // Round 5 V14-V16: apply the attendance plan a visit save produced (app/src/lib/visitAttendance.ts
+  // planVisitAttendance, orchestrated by app/src/lib/visitSave.ts). Upsert keeps the id (a visit_auto
+  // row has a deterministic one, autoRowId), so a re-save of the same visit never adds a second row.
+  function attApplyOps(ops) {
+    var list = ops || [];
+    var post = function (body) {
+      return fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json(); }).then(function (res) { return !!(res && res.ok); }).catch(function () { return false; });
+    };
+    var att = (window.SHEET_DATA && (window.SHEET_DATA.attendance = window.SHEET_DATA.attendance || [])) || [];
+    return Promise.all(list.map(function (op) {
+      if (op.kind === 'delete') {
+        return post({ type: 'attendanceDelete', id: op.id }).then(function (ok) {
+          if (ok) { var i = att.findIndex(function (r) { return r.id === op.id; }); if (i >= 0) att.splice(i, 1); }
+          return ok;
+        });
+      }
+      var r = op.row || {};
+      return post({ type: 'attendance', id: r.id, person: r.person, dayType: r.dayType, note: r.note || '', date: r.date, source: r.source })
+        .then(function (ok) {
+          if (ok) {
+            var i = att.findIndex(function (x) { return x.id === r.id; });
+            var row = { id: r.id, person: r.person, dayType: r.dayType, note: r.note || '', date: r.date, source: r.source || 'manual' };
+            if (i >= 0) att[i] = row; else att.push(row);
+          }
+          return ok;
+        });
+    })).then(function (res) {
+      try { if (list.length && window.sigmaEmit) window.sigmaEmit('attendance-saved', { source: 'visit' }); } catch (e) {}
+      var failed = res.filter(function (x) { return !x; }).length;
+      return { ok: failed === 0, failed: failed };
+    });
+  }
+  window.attApplyOps = attApplyOps;
+
   // The month a person actually has, merged one-row-per-day — the same merge the table and
   // the exports use, handed to the island as plain ISO rows. `month` is 0-based here (the
   // legacy convention); the island converts once, at the bridge.
