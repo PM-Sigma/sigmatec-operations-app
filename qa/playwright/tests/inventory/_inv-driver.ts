@@ -86,11 +86,26 @@ export const DELTAS = {
  * seeds the real-Supabase-backed stores (harmless and unused under sb=0; it's what the certs
  * boot path below, and a future react driver, read instead).
  */
-export async function bootInv(page: Page, ti: TestInfo, who: Who, d: InvDriver) {
-  await page.addInitScript(sheet => { (window as any).__MOCK_EXTRA = sheet; }, toSheet(INVENTORY));
-  const booted = await boot(page, ti, { who, inventory: true } as any);
-  await recordLegacyWrites(page);
+export async function bootInv(page: Page, ti: TestInfo, who: Who, d: InvDriver, opts: { query?: string; nudges?: boolean; ready?: string } = {}) {
+  // Registered BEFORE navigation: a push deep link (F21) can fire a confirm() before boot()'s
+  // own wait resolves, and an unhandled dialog is auto-DISMISSED (not accepted) by Playwright.
   page.on('dialog', x => x.accept());
+  await page.addInitScript(([sheet, suppress]) => {
+    (window as any).__MOCK_EXTRA = sheet;
+    // עמיחי's floating ">10 items" nudge and the approved-order notice are Task 20 (nudges.spec.ts)
+    // territory, not this driver's — every other spec presets the once-per-session latch off.
+    if (suppress) { (window as any)._amichaiApprovalShown = true; (window as any)._orderNotifShown = true; }
+  }, [toSheet(INVENTORY), opts.nudges !== true] as const);
+  const booted = await boot(page, ti, { who, inventory: true, query: opts.query, ready: opts.ready } as any);
+  // Registered AFTER boot() (so it wins over installRoutes's broad /rest+functions catch-all —
+  // Playwright tries the LAST-registered matching handler first): the AI parser (parse-order) is
+  // never deployed in this harness, and falling through the generic /functions/v1/ 401 catch-all
+  // also fires emsRequireLogin() on the way (js/src/07-orders.js parseRawToItems, its
+  // `r.status===401` branch), popping the app-wide ReLoginSheet and blocking every click after
+  // it. 503 ("not deployed") is what a real undeployed function returns, and falls back to the
+  // local parser without that side effect.
+  await page.route('**/functions/v1/parse-order', route => route.fulfill({ status: 503, body: '' }));
+  await recordLegacyWrites(page);
   return booted;
 }
 

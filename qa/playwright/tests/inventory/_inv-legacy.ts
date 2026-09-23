@@ -11,6 +11,22 @@ async function fill(page: Page, sel: string, value: string) {
   await page.locator(sel).fill(value);
 }
 
+/**
+ * `invOrderItems` (js/src/07-orders.js) is a top-level `let` in the concatenated bundle: reachable
+ * by bare identifier from any same-realm script (page.evaluate included), but NOT as a `window`
+ * property — and `window.invOrderItems` is actively wrong, since `<div id="invOrderItems">`
+ * (the items wrapper) is DOM-id-reflected onto `window` under that exact name. String-eval'd so
+ * TypeScript never "helpfully" rewrites the bare identifier into a `window.` property access.
+ */
+async function setItems(page: Page, items: Array<{ name: string; qty: number }>) {
+  await page.evaluate(
+    'invOrderItems = ' + JSON.stringify(items) + '; renderOrderItems(); invToggleDistribution();',
+  );
+}
+async function readItems(page: Page): Promise<Array<{ name: string; qty: number }>> {
+  return page.evaluate('(invOrderItems || []).map(function (it) { return { name: it.name, qty: it.qty }; })') as any;
+}
+
 /** cert number (shown, possibly struck through if cancelled) → its uuid, read off the row's
  * own action buttons (`onclick="certView('<id>')"` etc — the registry carries no data-id). */
 async function certIdByNumber(page: Page, n: number): Promise<string> {
@@ -87,7 +103,9 @@ export const legacyDriver: InvDriver = {
     await page.waitForTimeout(300);   // the approval writes settle before the caller reads the ledger
   },
   async quick(page, id) {
-    await row(page, id).locator('button[onclick^="quickOrderStatus("]').click();
+    // NOT :not([title]) by accident — the 🟠 "סמן כתקוע" button also matches the
+    // quickOrderStatus( prefix (it calls the same function with a different status).
+    await row(page, id).locator('button[onclick^="quickOrderStatus("]:not([title])').click();
     await page.waitForTimeout(300);
   },
   async stuck(page, id) {
@@ -103,13 +121,11 @@ export const legacyDriver: InvDriver = {
     if (o.type === 'customer' && o.kibbutz) await page.locator('#invOrderKibbutz').selectOption({ label: o.kibbutz }).catch(() => page.locator('#invOrderKibbutz').selectOption(o.kibbutz));
     if (o.createdBy) await page.locator('#invOrderCreatedBy').selectOption(o.createdBy);
     if (o.raw) await fill(page, '#invOrderRaw', o.raw);
-    // clear the auto-seeded first row, then set exactly the requested items directly — the
-    // items editor is a plain module-local array + a render call, no form round-trip needed.
-    await page.evaluate(items => {
-      (window as any).invOrderItems = items.map((it: any) => ({ name: it.name, qty: it.qty }));
-      (window as any).renderOrderItems();
-      (window as any).invToggleDistribution();
-    }, o.items);
+    // clear the auto-seeded first row, then set exactly the requested items directly. `invOrderItems`
+    // is a top-level `let` in the concatenated bundle — NOT a window property (a DOM element with
+    // id="invOrderItems" IS window.invOrderItems, which is a trap) — reach it by bare identifier,
+    // which resolves through the page's shared script-scope like any other same-realm script does.
+    await setItems(page, o.items);
     await page.locator('#invOrderModal button[onclick="invSaveOrder(this)"]').click();
     await page.locator('#invOrderModal.open').waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
   },
@@ -117,17 +133,24 @@ export const legacyDriver: InvDriver = {
   async parseRaw(page, raw, answers) {
     await fill(page, '#invOrderRaw', raw);
     let ai = 0;
-    const clickAnswers = async () => {
-      while (await page.locator('#orderQModal.open').count()) {
+    // Each askChoice() in the chain (ambiguous Satec → controller → power supply) opens the SAME
+    // modal in turn, awaited sequentially by the app — so this must WAIT for each one to appear
+    // rather than checking `.count()` once (which races the async orderParseRaw() click handler
+    // and, seeing nothing open yet, would exit before the first question ever renders).
+    const answerEach = async () => {
+      for (;;) {
+        const opened = await page.locator('#orderQModal.open').waitFor({ state: 'visible', timeout: 4_000 })
+          .then(() => true).catch(() => false);
+        if (!opened) return;
         const opts = page.locator('#orderQOptions button');
         const wantLabel = answers[ai++];
         const target = wantLabel ? opts.filter({ hasText: wantLabel }).first() : opts.first();
         await target.click();
-        await page.waitForTimeout(50);
+        await page.locator('#orderQModal.open').waitFor({ state: 'hidden', timeout: 4_000 }).catch(() => {});
       }
     };
-    await Promise.all([clickAnswers(), page.locator('#invOrderModal button[onclick="orderParseRaw(this)"]').click()]);
-    return page.evaluate(() => ((window as any).invOrderItems || []).map((it: any) => ({ name: it.name, qty: it.qty })));
+    await Promise.all([answerEach(), page.locator('#invOrderModal button[onclick="orderParseRaw(this)"]').click()]);
+    return readItems(page);
   },
 
   async editOrder(page, id, patch) {

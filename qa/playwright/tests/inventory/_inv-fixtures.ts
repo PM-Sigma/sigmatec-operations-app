@@ -63,11 +63,23 @@ export interface Inventory {
   site_contacts: InvContactRow[];
 }
 
+// p-1..p-4 are UNCHANGED from js/src/01-data.js mockProducts() — the pool arithmetic (37/12/4/2)
+// is pinned to exactly these four. p-5..p-9 are ADDITIONS, named exactly like the authentic
+// catalog (js/src/09-visits.js PRODUCT_LIST, "confirmed 2026-06-24"): they carry no movements
+// (net 0, invisible in the pool/CSV) and exist only so the order text-parser and the customer
+// accessory flow (F03/F04, and later L4's parser goldens) have a real non-Landis meter, two
+// controllers and two power-supply options to choose between.
 const PRODUCTS: InvProductRow[] = [
   { id: 'p-1', name: 'מונה Landis+Gyr E360PP', category: 'מונה', active: true, min_qty: 15 },
   { id: 'p-2', name: 'בקר 504', category: 'בקר', active: true, min_qty: null },
   { id: 'p-3', name: 'סים 1NCE', category: 'סים', active: true, min_qty: null },
   { id: 'p-4', name: 'מונה PM135', category: 'מונה', active: true, min_qty: 5 },
+  { id: 'p-5', name: 'Satec EM133', category: 'מונה', active: true, min_qty: null },
+  { id: 'p-6', name: 'Robustel Controller', category: 'בקר', active: true, min_qty: null },
+  { id: 'p-7', name: 'PUSR Controller', category: 'בקר', active: true, min_qty: null },
+  { id: 'p-8', name: 'אנטנה', category: 'אנטנה', active: true, min_qty: null },
+  { id: 'p-9', name: 'ספק כוח פס-דין', category: 'ספק כוח', active: true, min_qty: null },
+  { id: 'p-10', name: 'ספק כוח שקע', category: 'ספק כוח', active: true, min_qty: null },
 ];
 
 // The pool-affecting rows are UNCHANGED from js/src/01-data.js mockMovements()/mockOrders() —
