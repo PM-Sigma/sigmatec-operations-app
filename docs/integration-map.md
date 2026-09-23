@@ -16,8 +16,8 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 |---|---|---|---|
 | `sigma.appInstall` | js/src/00-bridge.js:540 | `appInstall` → js/src/16-install.js:34 | app/src/islands/Settings.tsx:109 |
 | `sigma.ATT_PEOPLE` | js/src/00-bridge.js:256 | *(own logic)* | app/src/islands/Attendance.tsx:292<br>app/src/islands/Calendar.tsx:973<br>app/src/islands/DayLog.tsx:73<br>app/src/islands/Gaps.tsx:63<br>…+1 |
-| `sigma.attExportExcel` | js/src/00-bridge.js:531 | `xlExportAttendanceCurrent` → js/src/21-excel-export.js:295 | app/src/islands/Attendance.tsx:460 |
-| `sigma.attExportPdf` | js/src/00-bridge.js:530 | `downloadAttendancePDF` → js/src/04-attendance-daily.js:530 | app/src/islands/Attendance.tsx:450 |
+| `sigma.attExportExcel` | js/src/00-bridge.js:531 | `xlExportAttendanceCurrent` → js/src/21-excel-export.js:295 | app/src/islands/Attendance.tsx:459 |
+| `sigma.attExportPdf` | js/src/00-bridge.js:530 | `downloadAttendancePDF` → js/src/04-attendance-daily.js:530 | app/src/islands/Attendance.tsx:449 |
 | `sigma.attHolidays` | js/src/00-bridge.js:523 | `attHolidays` → js/src/04-attendance-daily.js:35 | app/src/islands/Attendance.tsx:77<br>app/src/islands/Calendar.tsx:95<br>app/src/islands/Gaps.tsx:93 |
 | `sigma.attHolidaysLoad` | js/src/00-bridge.js:524 | `attLoadHolidays` → js/src/04-attendance-daily.js:38 | app/src/islands/Attendance.tsx:76<br>app/src/islands/Calendar.tsx:95<br>app/src/islands/Holidays.tsx:57 |
 | `sigma.attPerson` | js/src/00-bridge.js:526 | `attPerson` → js/src/11-search-login.js:170 | app/src/islands/Attendance.tsx:276<br>app/src/islands/Attendance.tsx:331 |
@@ -141,7 +141,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | placeholder | index.html | mounted at |
 |---|---|---|
 | `#sigma-alerts` | :221 | app/src/islands/Alerts.tsx:292<br>app/src/main.tsx:190 |
-| `#sigma-attendance` | :465 | app/src/islands/Attendance.tsx:643<br>app/src/main.tsx:218 |
+| `#sigma-attendance` | :465 | app/src/islands/Attendance.tsx:642<br>app/src/main.tsx:218 |
 | `#sigma-burns` | :295 | app/src/islands/Burns.tsx:87<br>app/src/main.tsx:153 |
 | `#sigma-burns-modal` | :651 | app/src/main.tsx:153 |
 | `#sigma-calendar` | :550 | app/src/islands/Calendar.tsx:1559<br>app/src/main.tsx:253 |
