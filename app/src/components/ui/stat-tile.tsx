@@ -57,3 +57,14 @@ export function StatTile({
     </button>
   );
 }
+
+/**
+ * StatTileGrid — the container StatTile expects around it (design-review.md §2 "StatTile": "2
+ * per row at 390, 4 from 768 up"; tools-and-motion.md §2.0: "StatTile goes 2 per row under
+ * 480px, 3 at 480+, 4 at 640+"). Reacts to ITS OWN width via a native CSS container query
+ * (`.s-stat-grid` in styles.css) — no plugin, no JS — not the viewport, so it holds inside a
+ * narrower desktop panel too.
+ */
+export function StatTileGrid({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn('s-stat-grid', className)}>{children}</div>;
+}

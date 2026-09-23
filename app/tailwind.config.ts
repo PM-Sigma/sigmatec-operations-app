@@ -32,11 +32,31 @@ export default {
         accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
         popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
         card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+        // The round-5 design-system roles (app/src/tokens.css --s-*), mapped into Tailwind
+        // (עידן 23.9: "one tokens.css… mapped into Tailwind"). Additive only — every existing
+        // `bg-[var(--ok-fill)]`-style arbitrary-value class still works via the --ok-fill alias;
+        // this just gives new code a named utility (`bg-s-ok-fill`, `text-s-ok-ink`) instead.
+        's-ok': { ink: 'var(--s-ok-ink)', fill: 'var(--s-ok-fill)' },
+        's-warn': { ink: 'var(--s-warn-ink)', fill: 'var(--s-warn-fill)' },
+        's-danger': { ink: 'var(--s-danger-ink)', fill: 'var(--s-danger-fill)' },
+        's-info': { ink: 'var(--s-info-ink)', fill: 'var(--s-info-fill)' },
+        's-holiday': { ink: 'var(--s-holiday-ink)', fill: 'var(--s-holiday-fill)' },
+        's-neutral': { ink: 'var(--s-neutral-ink)', fill: 'var(--s-neutral-fill)' },
+        's-ink': 'var(--s-ink)', 's-on-brand': 'var(--s-on-brand)',
+        's-bg': 'var(--s-bg)', 's-surface': 'var(--s-surface)', 's-surface-2': 'var(--s-surface-2)',
+        's-border': 'var(--s-border)', 's-text': 'var(--s-text)', 's-text-2': 'var(--s-text-2)',
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        's-sm': 'var(--s-radius-sm)', 's-md': 'var(--s-radius-md)', 's-lg': 'var(--s-radius-lg)',
+        's-sheet': 'var(--s-radius-sheet)', 's-pill': 'var(--s-radius-pill)',
+      },
+      spacing: {
+        's-4': 'var(--s-space-4)', 's-8': 'var(--s-space-8)', 's-12': 'var(--s-space-12)',
+        's-16': 'var(--s-space-16)', 's-24': 'var(--s-space-24)', 's-32': 'var(--s-space-32)', 's-48': 'var(--s-space-48)',
+        's-gutter': 'var(--s-gutter)',
       },
       backgroundImage: {
         'brand-grad': 'linear-gradient(135deg, var(--brand-1), var(--brand-2))',

@@ -1,0 +1,122 @@
+/* ============================================================================================
+   tokens.css — the ONE source of truth for the round-5 design system (עידן 23.9: "one tokens.css
+   on :root with an --s- prefix, mapped into Tailwind"; design-review.md §2 + tools-and-motion.md
+   §2.0–2.1). Unscoped `:root`, not `.sigma-root` — the --s- prefix is what makes that SAFE: none
+   of these names collide with the legacy token names (--primary, --card, --border, --accent,
+   --radius) that forced everything else in this file onto `.sigma-root` (see the note at the top
+   of styles.css). Because it's unscoped, BOTH css/app.css (the legacy pages) and the islands read
+   the exact same values — css/app.css's own token names now alias var(--s-*) instead of
+   repeating the hex (see the comment block there), so nothing downstream had to change.
+
+   This file is imported first thing in styles.css and compiles into ui/sigma.css, which every
+   page already loads unconditionally (test-theme.mjs pins that). test-theme.mjs's "no legacy
+   token name on :root" guard only lists the 5 colliding names above; none of them are here. */
+
+:root {
+  /* ---- color roles (light) — design-review.md §2 "Color roles" ---- */
+  --s-bg: #F3F6F8;
+  --s-surface: #FFFFFF;
+  --s-surface-2: #EAF0F3;
+  --s-border: #DCE3E8;
+  --s-text: #16202A;
+  --s-text-2: #55626E;
+  --s-brand-1: #06C2CB;
+  --s-brand-2: #1ABE63;
+  --s-brand-grad: linear-gradient(135deg, var(--s-brand-1), var(--s-brand-2));
+  /* Text on the brand fill — dark ink, not white (audit: white measured 2.2-2.4:1). */
+  --s-on-brand: #062B2C;
+  --s-ink: #076E70;
+  --s-ok-ink: #166534;      --s-ok-fill: #DCFCE7;
+  --s-warn-ink: #8A5A00;    --s-warn-fill: #FDF1D8;
+  --s-danger-ink: #B91C1C;  --s-danger-fill: #FEE2E2;
+  --s-info-ink: #1E40AF;    --s-info-fill: #DBEAFE;
+  --s-holiday-ink: #5B21B6; --s-holiday-fill: #EDE9FE;
+  --s-neutral-ink: #475569; --s-neutral-fill: #E2E8F0;
+
+  /* ---- space / radius / elevation / z — design-review.md §2 "Space, radius, elevation, z" ---- */
+  --s-space-4: 4px; --s-space-8: 8px; --s-space-12: 12px; --s-space-16: 16px;
+  --s-space-24: 24px; --s-space-32: 32px; --s-space-48: 48px;
+  --s-radius-sm: 8px; --s-radius-md: 12px; --s-radius-lg: 20px; --s-radius-sheet: 24px; --s-radius-pill: 999px;
+  --s-e1: 0 1px 2px rgb(16 24 40 / .06);
+  --s-e2: 0 8px 32px rgb(16 24 40 / .18);
+  /* z ladder (tokens only). The low end (content…fab) is the spec's clean order; the popup end
+     keeps the numbers sheet.tsx/dialog.tsx have run at since 22.9 — ABOVE the legacy
+     .modal-backdrop (1000) / EMS task modal (1160) and BELOW the JS-built overlays (100001) /
+     toaster (100002). Collapsing the whole ladder onto the spec's clean 0–60 numbers is the
+     z-index-war fix and belongs to package S (shell), once the legacy overlays it outranks are
+     gone — renumbering early would put a sheet back UNDER a legacy modal it must stay above. */
+  --s-z-content: 0; --s-z-sticky: 10; --s-z-header: 20; --s-z-nav: 30; --s-z-fab: 31;
+  --s-z-scrim: 1190; --s-z-sheet: 1200; --s-z-dialog: 1210; --s-z-select: 1220; --s-z-confirm: 1215;
+  --s-z-toast: 100002; --s-z-gate: 100010;
+
+  /* ---- motion — tools-and-motion.md §2.1, the 11 named tokens verbatim ---- */
+  --s-motion-press: 90ms;
+  --s-motion-fast: 140ms;
+  --s-motion-base: 200ms;
+  --s-motion-enter: 280ms;
+  --s-motion-exit: 180ms;
+  --s-stagger: 30ms;
+  --s-ease-out: cubic-bezier(.16,1,.3,1);
+  --s-ease-in: cubic-bezier(.4,0,1,1);
+  --s-ease-standard: cubic-bezier(.2,0,0,1);
+  --s-shift-sm: 6px;
+  --s-shift-md: 16px;
+  /* SPRING_SETTLE (drag release) is a JS constant for lib/motion.ts, not a CSS token — out of
+     scope for this pass (no drag interactions built yet). */
+
+  /* ---- fixed chrome heights (spec §3 rule 3) — placeholders until package S wires the real
+     per-element ResizeObserver measurement in ---- */
+  --s-header-h: 56px; --s-nav-h: 56px; --s-fab-h: 56px; --s-sheet-footer-h: 0px;
+
+  /* ---- fluid layout, 360→430 (tools-and-motion.md §2.0) ----
+     S: 0 at 360px, 1 at 430px, clamped either side — a pure NUMBER (the length numerator is
+     divided by a length denominator), reusable everywhere a fluid value is needed. Distances
+     elsewhere in the app stay fixed px (never vw) so motion feels the same at every width;
+     only the handful of values this section lists are fluid. */
+  --s-t: clamp(0, calc((100vw - 360px) / 70px), 1);
+  --s-gutter: clamp(16px, calc(16px + var(--s-t) * 4px), 20px);
+  --s-space-section-gap: clamp(12px, calc(12px + var(--s-t) * 4px), 16px);
+
+  /* ---- type — design-review.md §2 "Type: Assistant". Body/body-sm/caption are FIXED rem (they
+     never scale with the viewport — only Android's OS font-size setting moves them); only the
+     three DISPLAY roles (title-sm, title, stat) are fluid. */
+  --s-fs-caption: 0.75rem;  --s-lh-caption: 1rem;    --s-fw-caption: 600;
+  --s-fs-body-sm: 0.875rem; --s-lh-body-sm: 1.25rem; --s-fw-body-sm: 400;
+  --s-fs-body: 1rem;        --s-lh-body: 1.5rem;     --s-fw-body: 400;
+  --s-fs-title-sm: clamp(1.125rem, calc(1.125rem + var(--s-t) * 0.0625rem), 1.1875rem);
+  --s-lh-title-sm: 1.625rem; --s-fw-title-sm: 700;
+  --s-fs-title: clamp(1.25rem, calc(1.25rem + var(--s-t) * 0.125rem), 1.375rem);
+  --s-lh-title: 1.75rem; --s-fw-title: 700;
+  --s-fs-stat: clamp(1.75rem, calc(1.75rem + var(--s-t) * 0.25rem), 2rem);
+  --s-lh-stat: 2rem; --s-fw-stat: 800;
+}
+
+:root[data-theme="dark"] {
+  /* ---- color roles (dark) ---- */
+  --s-bg: #0E1316;
+  --s-surface: #161C20;
+  --s-surface-2: #1C2429;
+  --s-border: #2A343B;
+  --s-text: #E6EDF2;
+  --s-text-2: #A3B1BD;
+  /* Same on-brand ink and brand-1/2 as light — the gradient itself never flips (design-review.md
+     §2: "brand-1/brand-2 same"), so the text on it doesn't either. */
+  --s-on-brand: #062B2C;
+  --s-ink: #3FD6DD;
+  --s-ok-ink: #4ADE80;      --s-ok-fill: #12301F;
+  --s-warn-ink: #F0B44C;    --s-warn-fill: #33270F;
+  --s-danger-ink: #F87171;  --s-danger-fill: #3A1618;
+  --s-info-ink: #8FB4FF;    --s-info-fill: #172440;
+  --s-holiday-ink: #C4B5FD; --s-holiday-fill: #2A1F47;
+  --s-neutral-ink: #A3B1BD; --s-neutral-fill: #1C2429;
+  /* dark: the border carries elevation, not a shadow (design-review.md §2 "Elevation"). */
+  --s-e1: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* tools-and-motion.md §2.4: shift/stagger collapse to 0 — a list entrance or a drill-in
+     becomes an opacity-only cut. Durations are handled per-component (styles.css's existing
+     `*{transition-duration:.01ms!important}` block), not here, so opacity/color feedback stays
+     legible at var(--s-motion-fast) instead of being silently zeroed too. */
+  :root { --s-shift-sm: 0px; --s-shift-md: 0px; --s-stagger: 0ms; }
+}

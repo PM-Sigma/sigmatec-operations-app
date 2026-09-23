@@ -1,3 +1,4 @@
+@import './tokens.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,79 +19,64 @@
    test-theme.mjs pins it: no :root block in ui/sigma.css may set one of those names. */
 .sigma-root,
 [data-sigma-portal] {
-  --brand-1: #06C2CB;
-  --brand-2: #1ABE63;
-  --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  --brand-1: var(--s-brand-1);
+  --brand-2: var(--s-brand-2);
+  --brand-grad: var(--s-brand-grad);
   /* The one warning tone the islands use (⚠️ chain rows, the 🆕 section's card edge). The
      legacy --warning is amber-on-white only and has no dark value, so the islands carry
-     their own pair rather than hard-coding amber-500/600 utilities. */
+     their own pair rather than hard-coding amber-500/600 utilities. Not one of tokens.css's
+     roles (a distinct older pair, kept as-is rather than folded into --warn-ink/fill and
+     risking a visual change nobody asked for in this pass). */
   --sigma-warn: #c87f0a;
-  /* The same two accents as INK on a light surface. The fills above are 4.5:1 against nothing:
-     --sigma-warn on the muted chip measured 2.76:1 and the brand cyan 1.73:1 (a11y gate), and
-     a chip has no room for 24 px of text. Fills stay, text uses these. */
   --sigma-warn-ink: #8a5a00;
-  --sigma-ink: #076e70;
+  /* = --s-ink (the design-system "ink" role: accent text, icons, focus). */
+  --sigma-ink: var(--s-ink);
 
-  /* ===== Design system roles (round 5 phase 2)
-     docs/superpowers/specs/2026-09-23-design-system-design.md §2. Text on the brand fill is
-     THIS ink, not white (audit §1.12: white on the gradient measured 2.2–2.4:1) — see the
-     --primary-foreground / --accent-foreground overrides below, which is where it actually
-     lands on a Button. */
-  --on-brand: #062B2C;
-  --ok-ink: #166534;      --ok-fill: #DCFCE7;
-  --warn-ink: #8A5A00;    --warn-fill: #FDF1D8;
-  --danger-ink: #B91C1C;  --danger-fill: #FEE2E2;
-  --info-ink: #1E40AF;    --info-fill: #DBEAFE;
-  --holiday-ink: #5B21B6; --holiday-fill: #EDE9FE;
-  --neutral-ink: #475569; --neutral-fill: #E2E8F0;
+  /* ===== Design system roles (round 5 phase 2) — ALIASES onto tokens.css's --s- names.
+     docs/superpowers/specs/2026-09-23-design-system-design.md §2 + the delivered
+     tools-and-motion.md / design-review.md. tokens.css is the one source of truth (unscoped
+     :root, read by both the islands and css/app.css); these old names stay so nothing that
+     already reads var(--ok-ink) etc. had to change — "keep the old names as aliases" (עידן
+     23.9). Text on the brand fill is --on-brand, not white (audit §1.12: white measured
+     2.2–2.4:1) — see the --primary-foreground / --accent-foreground overrides below, which is
+     where it actually lands on a Button. */
+  --on-brand: var(--s-on-brand);
+  --ok-ink: var(--s-ok-ink);           --ok-fill: var(--s-ok-fill);
+  --warn-ink: var(--s-warn-ink);       --warn-fill: var(--s-warn-fill);
+  --danger-ink: var(--s-danger-ink);   --danger-fill: var(--s-danger-fill);
+  --info-ink: var(--s-info-ink);       --info-fill: var(--s-info-fill);
+  --holiday-ink: var(--s-holiday-ink); --holiday-fill: var(--s-holiday-fill);
+  --neutral-ink: var(--s-neutral-ink); --neutral-fill: var(--s-neutral-fill);
 
-  /* Type scale — Assistant 400/600/700/800 (spec §2 "Type"). Numbers use tabular-nums at the
-     call site (`.sigma-num`), not here — a token can't turn on a font-feature by itself. */
-  --fs-caption: 12px;  --lh-caption: 16px;  --fw-caption: 600;
-  --fs-body-sm: 14px;  --lh-body-sm: 20px;  --fw-body-sm: 400;
-  --fs-body: 16px;     --lh-body: 24px;     --fw-body: 400;
-  --fs-title-sm: 18px; --lh-title-sm: 26px; --fw-title-sm: 700;
-  --fs-title: 20px;    --lh-title: 28px;    --fw-title: 700;
-  --fs-stat: 28px;     --lh-stat: 32px;     --fw-stat: 800;
+  /* Type scale — now FLUID for title-sm/title/stat (tools-and-motion.md §2.0), fixed rem for
+     body/body-sm/caption. Numbers use tabular-nums at the call site (`.sigma-num`), not here —
+     a token can't turn on a font-feature by itself. */
+  --fs-caption: var(--s-fs-caption);   --lh-caption: var(--s-lh-caption);   --fw-caption: var(--s-fw-caption);
+  --fs-body-sm: var(--s-fs-body-sm);   --lh-body-sm: var(--s-lh-body-sm);   --fw-body-sm: var(--s-fw-body-sm);
+  --fs-body: var(--s-fs-body);         --lh-body: var(--s-lh-body);         --fw-body: var(--s-fw-body);
+  --fs-title-sm: var(--s-fs-title-sm); --lh-title-sm: var(--s-lh-title-sm); --fw-title-sm: var(--s-fw-title-sm);
+  --fs-title: var(--s-fs-title);       --lh-title: var(--s-lh-title);       --fw-title: var(--s-fw-title);
+  --fs-stat: var(--s-fs-stat);         --lh-stat: var(--s-lh-stat);         --fw-stat: var(--s-fw-stat);
 
-  /* Spacing (4-based), radius, elevation (spec §2 "Space, radius, elevation, z"). */
-  --sp-4: 4px; --sp-8: 8px; --sp-12: 12px; --sp-16: 16px; --sp-24: 24px; --sp-32: 32px; --sp-48: 48px;
-  --page-gutter: var(--sp-16);
-  --r-sm: 8px; --r-md: 12px; --r-lg: 20px; --r-sheet: 24px; --r-pill: 999px;
-  --e1: 0 1px 2px rgb(16 24 40 / .06);
-  --e2: 0 8px 32px rgb(16 24 40 / .18);
+  /* Spacing (4-based), radius, elevation. --page-gutter is now FLUID (16→20px, 360→430). */
+  --sp-4: var(--s-space-4); --sp-8: var(--s-space-8); --sp-12: var(--s-space-12); --sp-16: var(--s-space-16);
+  --sp-24: var(--s-space-24); --sp-32: var(--s-space-32); --sp-48: var(--s-space-48);
+  --page-gutter: var(--s-gutter);
+  --r-sm: var(--s-radius-sm); --r-md: var(--s-radius-md); --r-lg: var(--s-radius-lg);
+  --r-sheet: var(--s-radius-sheet); --r-pill: var(--s-radius-pill);
+  --e1: var(--s-e1);
+  --e2: var(--s-e2);
 
-  /* z ladder — tokens only. The low end (content…fab) is the spec's clean order; the popup end
-     keeps sheet.tsx/dialog.tsx's current safe numbers (1200/1210/1220), which sit ABOVE the
-     legacy modals (1000/1160) and BELOW the JS-built overlays (100001) and the toaster
-     (100002) on purpose (see the comments in those two files) — collapsing the whole stack
-     onto the spec's 0–60 numbers is the z-index-war fix and belongs to package S. */
-  --z-content: 0; --z-sticky: 10; --z-header: 20; --z-nav: 30; --z-fab: 31;
-  --z-scrim: 1190; --z-sheet: 1200; --z-dialog: 1210; --z-select: 1220; --z-confirm: 1215;
-  --z-toast: 100002; --z-gate: 100010;
+  /* z ladder — tokens only, aliased from tokens.css (see the reasoning there for why the popup
+     end keeps today's numbers instead of the spec's clean 0–60 ladder). */
+  --z-content: var(--s-z-content); --z-sticky: var(--s-z-sticky); --z-header: var(--s-z-header);
+  --z-nav: var(--s-z-nav); --z-fab: var(--s-z-fab); --z-scrim: var(--s-z-scrim); --z-sheet: var(--s-z-sheet);
+  --z-dialog: var(--s-z-dialog); --z-select: var(--s-z-select); --z-confirm: var(--s-z-confirm);
+  --z-toast: var(--s-z-toast); --z-gate: var(--s-z-gate);
 
-  /* Motion — the external design consultant's delivered spec (`תוצרים/2026-09-23 — ייעוץ
-     עיצוב/tools-and-motion.md` §2.1), the 11 named tokens, verbatim. Every press/collapse/
-     enter/exit in app/src reads one of these — never a bare ms literal — so a future motion
-     revision is a one-line change here. SPRING_SETTLE (drag release) is a JS constant for
-     `lib/motion.ts`, not a CSS token — out of scope for this pass (no drag interactions yet). */
-  --s-motion-press: 90ms;
-  --s-motion-fast: 140ms;
-  --s-motion-base: 200ms;
-  --s-motion-enter: 280ms;
-  --s-motion-exit: 180ms;
-  --s-stagger: 30ms;
-  --s-ease-out: cubic-bezier(.16,1,.3,1);
-  --s-ease-in: cubic-bezier(.4,0,1,1);
-  --s-ease-standard: cubic-bezier(.2,0,0,1);
-  --s-shift-sm: 6px;
-  --s-shift-md: 16px;
-
-  /* Fixed-chrome heights (spec §3 rule 3: "the header, nav, FAB and sheet footer publish
-     --header-h/--nav-h/--fab-h/--sheet-footer-h"). Placeholder defaults for anything that reads
-     them now (Toast below); the real per-element ResizeObserver wiring — so these track the
-     ACTUAL rendered height instead of a guess — is package S (shell). */
-  --header-h: 56px; --nav-h: 56px; --fab-h: 56px; --sheet-footer-h: 0px;
+  /* Fixed-chrome heights (spec §3 rule 3) — placeholders until package S wires the real
+     per-element ResizeObserver measurement. */
+  --header-h: var(--s-header-h); --nav-h: var(--s-nav-h); --fab-h: var(--s-fab-h); --sheet-footer-h: var(--s-sheet-footer-h);
 
   /* 📅 נוכחות (spec §7e) — one fill + one ink per day state, so a month reads at a glance:
      green = יום שטח · blue = משרד/מהבית · slate = חופש/מילואים · red = חסר ·
@@ -159,15 +145,10 @@
   --ring: 178 94% 41%;
   --sigma-warn: #f0b24a;
   --sigma-warn-ink: #f0b24a;
-  --sigma-ink: #3FD6DD;
-  --on-brand: #062B2C;
-  --ok-ink: #4ADE80;      --ok-fill: #12301F;
-  --warn-ink: #F0B44C;    --warn-fill: #33270F;
-  --danger-ink: #F87171;  --danger-fill: #3A1618;
-  --info-ink: #8FB4FF;    --info-fill: #172440;
-  --holiday-ink: #C4B5FD; --holiday-fill: #2A1F47;
-  --neutral-ink: #A3B1BD; --neutral-fill: #1C2429;
-  --e1: none; /* dark: the border carries elevation, not a shadow (spec §2 "Elevation") */
+  /* --sigma-ink, --on-brand, --ok-ink/fill … --neutral-ink/fill and --e1 are NOT re-declared
+     here on purpose: they're aliases onto var(--s-*) now (see the light block above), and
+     tokens.css's own :root[data-theme="dark"] block already flips every --s-* value they point
+     to. Re-declaring the alias here would just repeat the same var(--s-*) reference. */
   /* Dark: the fills drop to a tint of the same hue and the ink becomes the bright one, so
      the month keeps its shape without five glowing blocks. */
   --att-field-bg: #0c3b2c;   --att-field-ink: #6ee7b7;
@@ -824,4 +805,33 @@
   .ucal-filters .ucal-input { flex: 1 1 calc(50% - 3px); min-width: 0; }
   .ucal-ltask-actions { flex: 1 1 100%; }
   .ucal-ltask-actions .ucal-mini { flex: 1; justify-content: center; }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   round 5 phase 2 — container-query grids (tools-and-motion.md §2.0). Native CSS
+   `@container`, no plugin, no JS: each grid reacts to ITS OWN width, not the viewport, so it
+   holds inside a narrower desktop panel too. `.sigma-root` still scopes them (Tailwind's
+   `important` selector), consistent with everything else in this file.
+   ═════════════════════════════════════════════════════════════════════════════ */
+.sigma-root .s-stat-grid {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-space-8);
+}
+@container (min-width: 480px) {
+  .sigma-root .s-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container (min-width: 640px) {
+  .sigma-root .s-stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* DayCell's grid (design-review.md §2 "DayCell": events show as dots below 768, labelled Tags
+   from 768 up). Container-ready now; the label/dot switch itself lands with package C's
+   Calendar.tsx rewrite, which is what actually renders an event as either shape. */
+.sigma-root .s-day-grid {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
 }

@@ -13,6 +13,11 @@ const TITLE_INK = {
  * SectionBlock — the one full-width, edge-aligned block every screen composes from (design-system
  * spec §2 "Components → SectionBlock"). Replaces the ad-hoc "card inside a card inside a card"
  * nesting audit §1.8 flagged: children are `ListRow`s with dividers, not more cards.
+ *
+ * `container-type: inline-size` (tools-and-motion.md §2.0: "Component layout reacts to its
+ * container, not the viewport... Page, SectionBlock and Sheet set container-type: inline-size")
+ * — a SectionBlock inside a narrower desktop panel gets to lay its own children out by ITS
+ * width, not the viewport's, once a later package adds container-query rules for that content.
  */
 export function SectionBlock({
   title,
@@ -42,7 +47,7 @@ export function SectionBlock({
         'w-full rounded-[var(--r-lg)] bg-card p-4',
         className,
       )}
-      style={{ boxShadow: 'var(--e1)' }}
+      style={{ boxShadow: 'var(--e1)', containerType: 'inline-size' }}
     >
       <header className="mb-2 flex items-center gap-2">
         {collapsible ? (

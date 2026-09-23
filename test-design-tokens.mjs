@@ -1,11 +1,12 @@
 // Golden test for the round-5 design system (spec docs/superpowers/specs/2026-09-23-design-
-// system-design.md §2 "Color roles"): every ink/fill role pair — and text/text-2 on the page
-// background — clears WCAG AA 4.5:1 for body text, in BOTH themes, in BOTH places the tokens
-// are declared (the legacy css/app.css and the React islands' app/src/styles.css).
+// system-design.md §2 "Color roles", design-review.md §2): every ink/fill role pair — and
+// text/text-2 on the page background — clears WCAG AA 4.5:1 for body text, in BOTH themes.
 //
-// This reads the hex literals straight out of the two files (not a hardcoded copy of the spec
-// table), so a value that drifts from what actually ships fails here instead of only showing up
-// as a screenshot someone has to notice.
+// app/src/tokens.css is the ONE source of truth (עידן 23.9: "one tokens.css on :root with an
+// --s- prefix"). This reads the hex literals straight out of THAT file, not a hardcoded copy of
+// the spec table, so a value that drifts from what actually ships fails here. css/app.css and
+// app/src/styles.css no longer hold their own literals for these roles — they alias var(--s-*)
+// — so this file also asserts that alias chain hasn't quietly reverted to a hardcoded duplicate.
 //   node test-design-tokens.mjs
 import assert from 'node:assert';
 import fs from 'node:fs';
@@ -42,82 +43,71 @@ function tokenIn(block, name) {
 function blockOf(css, selectorRe) {
   const m = selectorRe.exec(css);
   assert.ok(m, 'block not found: ' + selectorRe);
-  // From the match to the first closing brace at the same nesting depth (these token blocks
-  // never nest a rule inside themselves).
   const start = m.index + m[0].length;
   const end = css.indexOf('\n}', start);
   return css.slice(start, end);
 }
 
-/** The ink/fill role pairs every surface in §2's table must satisfy. Hex tokens only — the
-    shadcn HSL-channel tokens (--foreground/--background in styles.css) are a different shape
-    and are checked separately, by the HSL-triple route (see --primary-foreground below). */
+const tokensCss = read('app/src/tokens.css');
+const sLight = blockOf(tokensCss, /^:root\s*\{/m);
+const sDark = blockOf(tokensCss, /:root\[data-theme="dark"\]\s*\{/);
+
+/** The ink/fill role pairs every surface in §2's table must satisfy. */
 const FILL_PAIRS = [
-  ['ok-ink', 'ok-fill'], ['warn-ink', 'warn-fill'], ['danger-ink', 'danger-fill'],
-  ['info-ink', 'info-fill'], ['holiday-ink', 'holiday-fill'], ['neutral-ink', 'neutral-fill'],
+  ['s-ok-ink', 's-ok-fill'], ['s-warn-ink', 's-warn-fill'], ['s-danger-ink', 's-danger-fill'],
+  ['s-info-ink', 's-info-fill'], ['s-holiday-ink', 's-holiday-fill'], ['s-neutral-ink', 's-neutral-fill'],
 ];
 
-function checkSurface(label, lightBlock, darkBlock, names, pairs = FILL_PAIRS) {
-  for (const theme of ['light', 'dark']) {
-    const block = theme === 'light' ? lightBlock : darkBlock;
-    for (const [inkName, fillName] of pairs) {
-      check(`${label} ${theme}: ${inkName}/${fillName} clears 4.5:1`, () => {
-        const ink = tokenIn(block, names[inkName] ?? inkName);
-        const fill = tokenIn(block, names[fillName] ?? fillName);
-        const r = ratio(ink, fill);
-        assert.ok(r >= 4.5, `${ink} on ${fill} = ${r.toFixed(2)}:1, need 4.5:1`);
-      });
-    }
+for (const theme of ['light', 'dark']) {
+  const block = theme === 'light' ? sLight : sDark;
+  for (const [inkName, fillName] of FILL_PAIRS) {
+    check(`tokens.css ${theme}: ${inkName}/${fillName} clears 4.5:1`, () => {
+      const ink = tokenIn(block, inkName);
+      const fill = tokenIn(block, fillName);
+      const r = ratio(ink, fill);
+      assert.ok(r >= 4.5, `${ink} on ${fill} = ${r.toFixed(2)}:1, need 4.5:1`);
+    });
   }
-}
-
-// ── css/app.css (legacy) — role names: text/text-light, bg, ok=success/success-light, etc. ──
-{
-  const css = read('css/app.css');
-  const light = blockOf(css, /:root\s*\{\s*\n\s*\/\* Design system/);
-  const dark = blockOf(css, /:root\[data-theme="dark"\]\s*\{/);
-  const names = {
-    'ok-ink': 'success', 'ok-fill': 'success-light',
-    'warn-ink': 'warning', 'warn-fill': 'warning-light',
-    'danger-ink': 'danger', 'danger-fill': 'danger-light',
-    'info-ink': 'info', 'info-fill': 'info-light',
-    'holiday-ink': 'holiday', 'holiday-fill': 'holiday-light',
-    'neutral-ink': 'neutral', 'neutral-fill': 'neutral-light',
-  };
-  checkSurface('css/app.css', light, dark, names);
-
-  checkSurface('css/app.css', light, dark, { text: 'text', 'text-2': 'text-light' },
-    [['text', 'bg'], ['text-2', 'bg']]);
-
-  check('css/app.css: --on-brand text clears 4.5:1 on both brand-1 and brand-2', () => {
-    const brandBlock = blockOf(css, /:root\s*\{[\s\S]*?(?=--brand-1:)/);
-    const onBrand = tokenIn(brandBlock, 'on-brand');
-    for (const [name, hex] of [['brand-1', tokenIn(brandBlock, 'brand-1')], ['brand-2', tokenIn(brandBlock, 'brand-2')]]) {
-      const r = ratio(onBrand, hex);
-      assert.ok(r >= 4.5, `on-brand ${onBrand} on ${name} ${hex} = ${r.toFixed(2)}:1, need 4.5:1`);
+  check(`tokens.css ${theme}: text/text-2 clear 4.5:1 on bg`, () => {
+    const bg = tokenIn(block, 's-bg');
+    for (const t of ['s-text', 's-text-2']) {
+      const r = ratio(tokenIn(block, t), bg);
+      assert.ok(r >= 4.5, `${t} on bg = ${r.toFixed(2)}:1, need 4.5:1`);
     }
   });
 }
 
-// ── app/src/styles.css (islands) — role names match the spec's own vocabulary. ──
+check('tokens.css: --s-on-brand text clears 4.5:1 on both --s-brand-1 and --s-brand-2', () => {
+  const onBrand = tokenIn(sLight, 's-on-brand');
+  for (const b of ['s-brand-1', 's-brand-2']) {
+    const r = ratio(onBrand, tokenIn(sLight, b));
+    assert.ok(r >= 4.5, `on-brand on ${b} = ${r.toFixed(2)}:1, need 4.5:1`);
+  }
+});
+
+// ── alias integrity: css/app.css and app/src/styles.css must not have quietly reverted to a
+// hardcoded hex for a role tokens.css already owns (that's exactly how the mid-pass regression
+// this file's history documents happened — a value drifted in one place, not the other). ──
+const ROLE_ALIASES = [
+  'ok-ink', 'ok-fill', 'warn-ink', 'warn-fill', 'danger-ink', 'danger-fill',
+  'info-ink', 'info-fill', 'holiday-ink', 'holiday-fill', 'neutral-ink', 'neutral-fill',
+];
+function assertAliased(label, css, name) {
+  check(`${label}: --${name} is aliased to var(--s-${name})`, () => {
+    const m = new RegExp('--' + name + ':\\s*([^;]+);').exec(css);
+    assert.ok(m, `--${name} not found in ${label}`);
+    assert.match(m[1].trim(), new RegExp('^var\\(--s-' + name + '\\)$'),
+      `--${name} is "${m[1].trim()}", expected var(--s-${name})`);
+  });
+}
+
 {
   const css = read('app/src/styles.css');
   const light = blockOf(css, /\.sigma-root,\n\[data-sigma-portal\]\s*\{/);
-  const dark = blockOf(css, /:root\[data-theme='dark'\] \.sigma-root,/);
-  checkSurface('app/src/styles.css', light, dark, {});
-
-  check('app/src/styles.css: on-brand text clears 4.5:1 on both brand-1 and brand-2 (light)', () => {
-    const onBrand = tokenIn(light, 'on-brand');
-    const brand1 = tokenIn(light, 'brand-1');
-    const brand2 = tokenIn(light, 'brand-2');
-    for (const [name, hex] of [['brand-1', brand1], ['brand-2', brand2]]) {
-      const r = ratio(onBrand, hex);
-      assert.ok(r >= 4.5, `on-brand ${onBrand} on ${name} ${hex} = ${r.toFixed(2)}:1, need 4.5:1`);
-    }
-  });
+  for (const name of ROLE_ALIASES) assertAliased('app/src/styles.css (light)', light, name);
 
   check('app/src/styles.css: --primary-foreground is the on-brand ink, not white, in both themes', () => {
-    // audit §1.12 — white on the brand fill measured 2.2–2.4:1.
+    const dark = blockOf(css, /:root\[data-theme='dark'\] \.sigma-root,/);
     const fgLight = /--primary-foreground:\s*([\d.]+ [\d.]+% [\d.]+%);/.exec(light);
     assert.ok(fgLight, '--primary-foreground missing in the light block');
     assert.ok(!/^0 0% 100%$/.test(fgLight[1].trim()), '--primary-foreground is still white');
@@ -127,7 +117,33 @@ function checkSurface(label, lightBlock, darkBlock, names, pairs = FILL_PAIRS) {
   });
 }
 
+{
+  const css = read('css/app.css');
+  const light = blockOf(css, /:root\s*\{\s*\n\s*\/\* Design system/);
+  const names = {
+    'ok-ink': 'success', 'ok-fill': 'success-light',
+    'warn-ink': 'warning', 'warn-fill': 'warning-light',
+    'danger-ink': 'danger', 'danger-fill': 'danger-light',
+    'info-ink': 'info', 'info-fill': 'info-light',
+    'holiday-ink': 'holiday', 'holiday-fill': 'holiday-light',
+    'neutral-ink': 'neutral', 'neutral-fill': 'neutral-light',
+  };
+  for (const [role, legacyName] of Object.entries(names)) {
+    check(`css/app.css: --${legacyName} is aliased to var(--s-${role})`, () => {
+      const m = new RegExp('--' + legacyName + ':\\s*([^;]+);').exec(light);
+      assert.ok(m, `--${legacyName} not found`);
+      assert.match(m[1].trim(), new RegExp('^var\\(--s-' + role + '\\)$'),
+        `--${legacyName} is "${m[1].trim()}", expected var(--s-${role})`);
+    });
+  }
+  check('css/app.css: --on-brand is aliased to var(--s-on-brand)', () => {
+    const brandBlock = blockOf(css, /:root\s*\{[\s\S]*?(?=--brand-1:)/);
+    const m = /--on-brand:\s*([^;]+);/.exec(brandBlock);
+    assert.match(m[1].trim(), /^var\(--s-on-brand\)$/);
+  });
+}
+
 console.log(failures === 0
-  ? '\nPASS — every design-system ink/fill pair clears 4.5:1 in both themes, in both stylesheets'
+  ? '\nPASS — every design-system ink/fill pair clears 4.5:1 (tokens.css), and both consumers still alias it'
   : '\nFAIL — ' + failures + ' check(s) failed');
 process.exit(failures === 0 ? 0 : 1);

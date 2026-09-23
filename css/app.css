@@ -1,30 +1,35 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    /* Design system (round 5 phase 2, spec docs/superpowers/specs/2026-09-23-design-system-design.md
-       §2 "Color roles"). One ink teal replaces the navy --primary and the blue --accent (audit
-       §1.1 "two primary colors"); --danger and --priority converge on the one danger red, so
-       purple is free to mean holiday and nothing else (audit §1.2). */
-    --primary: #076E70;
-    --primary-hover: #065c5e;
-    --accent: #076E70;
+    /* Design system (round 5 phase 2). These are now ALIASES onto app/src/tokens.css's --s-
+       names — the one source of truth (עידן 23.9: "one tokens.css on :root with an --s- prefix,
+       mapped into Tailwind... legacy CSS reads the same variables"). tokens.css compiles into
+       ui/sigma.css, which this page always loads (test-theme.mjs pins it), and both stylesheets
+       target the SAME :root element, so the alias resolves regardless of load order. Kept as
+       aliases, not deleted, so nothing already reading var(--primary) etc. had to change. One
+       ink teal replaces the navy --primary and the blue --accent (audit §1.1 "two primary
+       colors"); --danger and --priority converge on the one danger red, so purple is free to
+       mean holiday and nothing else (audit §1.2). */
+    --primary: var(--s-ink);
+    --primary-hover: #065c5e; /* not a role alias: the legacy hover-darken step, see below */
+    --accent: var(--s-ink);
     --accent-soft: #E1F3F3;
-    --success: #166534;
-    --success-light: #DCFCE7;
-    --warning: #8A5A00;
-    --warning-light: #FDF1D8;
-    --danger: #B91C1C;
-    --danger-light: #FEE2E2;
-    --priority: #B91C1C;
-    --priority-light: #FEE2E2;
+    --success: var(--s-ok-ink);
+    --success-light: var(--s-ok-fill);
+    --warning: var(--s-warn-ink);
+    --warning-light: var(--s-warn-fill);
+    --danger: var(--s-danger-ink);
+    --danger-light: var(--s-danger-fill);
+    --priority: var(--s-danger-ink);
+    --priority-light: var(--s-danger-fill);
     /* New roles the legacy pages had no name for (spec §2): info (חדשה/משרד), holiday (חג/eve
        — audit §"missing": eves were computed and never painted), neutral (חופש/ממתין). */
-    --info: #1E40AF;
-    --info-light: #DBEAFE;
-    --holiday: #5B21B6;
-    --holiday-light: #EDE9FE;
-    --neutral: #475569;
-    --neutral-light: #E2E8F0;
-    --ink: #076E70;
+    --info: var(--s-info-ink);
+    --info-light: var(--s-info-fill);
+    --holiday: var(--s-holiday-ink);
+    --holiday-light: var(--s-holiday-fill);
+    --neutral: var(--s-neutral-ink);
+    --neutral-light: var(--s-neutral-fill);
+    --ink: var(--s-ink);
     --gray-light: #f1f4f8;
     --bg: #f4f6f9;
     --card: #ffffff;
@@ -36,41 +41,31 @@
     --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
 
     /* Spacing (4-based), radius scale, elevation and the z ladder (spec §2 "Space, radius,
-       elevation, z"). Exposed here so the legacy pages can adopt them before they are rewritten;
-       nothing in css/app.css reads them yet. */
-    --sp-4: 4px; --sp-8: 8px; --sp-12: 12px; --sp-16: 16px; --sp-24: 24px; --sp-32: 32px; --sp-48: 48px;
-    --r-sm: 8px; --r-md: 12px; --r-lg: 20px; --r-sheet: 24px; --r-pill: 999px;
-    --e1: 0 1px 2px rgb(16 24 40 / .06);
-    --e2: 0 8px 32px rgb(16 24 40 / .18);
-    /* The low end (content…fab) is the spec's clean ladder. The popup end keeps today's numbers
-       — sheet.tsx/dialog.tsx have run at 1200/1210 since 22.9 specifically to stay ABOVE the
-       legacy .modal-backdrop (1000) / EMS task modal (1160) and BELOW the JS-built overlays
-       (100001) and the toaster (100002); renumbering those away from a safe value is the
-       z-index-war fix and belongs to package S (shell), not this token-only pass. */
-    --z-content: 0; --z-sticky: 10; --z-header: 20; --z-nav: 30; --z-fab: 31;
-    --z-scrim: 1190; --z-sheet: 1200; --z-dialog: 1210; --z-select: 1220; --z-confirm: 1215;
-    --z-toast: 100002; --z-gate: 100010;
-    /* Motion — see the matching comment in app/src/styles.css (tools-and-motion.md §2.1, the
-       11 named tokens verbatim). */
-    --s-motion-press: 90ms;
-    --s-motion-fast: 140ms;
-    --s-motion-base: 200ms;
-    --s-motion-enter: 280ms;
-    --s-motion-exit: 180ms;
-    --s-stagger: 30ms;
-    --s-ease-out: cubic-bezier(.16,1,.3,1);
-    --s-ease-in: cubic-bezier(.4,0,1,1);
-    --s-ease-standard: cubic-bezier(.2,0,0,1);
-    --s-shift-sm: 6px;
-    --s-shift-md: 16px;
+       elevation, z") — aliased onto tokens.css. Exposed here so the legacy pages can adopt them
+       before they are rewritten; nothing in css/app.css reads them yet. */
+    --sp-4: var(--s-space-4); --sp-8: var(--s-space-8); --sp-12: var(--s-space-12);
+    --sp-16: var(--s-space-16); --sp-24: var(--s-space-24); --sp-32: var(--s-space-32); --sp-48: var(--s-space-48);
+    --r-sm: var(--s-radius-sm); --r-md: var(--s-radius-md); --r-lg: var(--s-radius-lg);
+    --r-sheet: var(--s-radius-sheet); --r-pill: var(--s-radius-pill);
+    --e1: var(--s-e1);
+    --e2: var(--s-e2);
+    --z-content: var(--s-z-content); --z-sticky: var(--s-z-sticky); --z-header: var(--s-z-header);
+    --z-nav: var(--s-z-nav); --z-fab: var(--s-z-fab); --z-scrim: var(--s-z-scrim); --z-sheet: var(--s-z-sheet);
+    --z-dialog: var(--s-z-dialog); --z-select: var(--s-z-select); --z-confirm: var(--s-z-confirm);
+    --z-toast: var(--s-z-toast); --z-gate: var(--s-z-gate);
+    /* Motion: the --s-motion, --s-ease, --s-shift and --s-stagger token families used to be
+       declared here too — removed, tokens.css (same :root element) is now the only place that
+       sets them. (A literal "star-slash" inside a comment closes it early — same gotcha
+       test-copy-rules.mjs's own header warns about for HTML comments — so this note spells the
+       token families out instead of using the `--s-motion-*` wildcard shorthand.) */
   }
 
   /* Brand tokens (spec §6) — the company Σ gradient. Used sparingly: wordmark, active tab,
      primary buttons, loaders. Shared with the React islands (app/src/styles.css). */
   :root {
-    --brand-1: #06C2CB;
-    --brand-2: #1ABE63;
-    --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+    --brand-1: var(--s-brand-1);
+    --brand-2: var(--s-brand-2);
+    --brand-grad: var(--s-brand-grad);
     --surface-2: #eef2f7;
     --radius-lg: 14px;
     /* Body face (spec §6). Locked to Assistant — round 5 G-L5 deleted the ⚙️ הגדרות font
@@ -81,7 +76,7 @@
        not white: audit §1.12 measured white on this fill at 2.2–2.4:1 ("שלח", "התחל ישיבה",
        the Excel button, the Σ brand-mark). #062B2C is 6.9:1 on brand-1 and 6.2:1 on brand-2.
        Same value in both themes — the gradient itself never flips. */
-    --on-brand: #062B2C;
+    --on-brand: var(--s-on-brand);
     /* Dev-board stage colors (spec §7d). The dev page is the ONE page where color carries
        meaning per column, so each live Projects-v2 column owns a token: the column's left rule,
        its count pill, its rail dot, the card's status pill and every stacked-bar slice all read
@@ -122,25 +117,28 @@
        (white on #3FD6DD / #35b8be = 1.8:1 / 2.4:1). These stay a dark-enough teal for white
        text in BOTH themes — a saturated accent doesn't need to invert the way page surfaces
        do — while hover darkens a touch further, same direction as the light block above. */
+    /* --primary/--accent/--primary-hover stay literal, NOT aliased to var(--s-ink) — tokens.css
+       has no "fill-safe accent" token for dark mode, only --s-ink (bright, text-only). See the
+       comment above: aliasing these to --s-ink is exactly the regression impeccable caught. */
     --primary: #0A7A7C;
     --primary-hover: #076E70;
     --accent: #0A7A7C;
-    --success: #4ADE80;
-    --success-light: #12301F;
-    --warning: #F0B44C;
-    --warning-light: #33270F;
-    --danger: #F87171;
-    --danger-light: #3A1618;
-    --priority: #F87171;
-    --priority-light: #3A1618;
-    --info: #8FB4FF;
-    --info-light: #172440;
-    --holiday: #C4B5FD;
-    --holiday-light: #2A1F47;
-    --neutral: #A3B1BD;
-    --neutral-light: #1C2429;
-    --ink: #3FD6DD;
-    --e1: none; /* dark: the border carries elevation, not a shadow (spec §2 "Elevation") */
+    --success: var(--s-ok-ink);
+    --success-light: var(--s-ok-fill);
+    --warning: var(--s-warn-ink);
+    --warning-light: var(--s-warn-fill);
+    --danger: var(--s-danger-ink);
+    --danger-light: var(--s-danger-fill);
+    --priority: var(--s-danger-ink);
+    --priority-light: var(--s-danger-fill);
+    --info: var(--s-info-ink);
+    --info-light: var(--s-info-fill);
+    --holiday: var(--s-holiday-ink);
+    --holiday-light: var(--s-holiday-fill);
+    --neutral: var(--s-neutral-ink);
+    --neutral-light: var(--s-neutral-fill);
+    --ink: var(--s-ink);
+    --e1: var(--s-e1);
     /* Dev-board stage colors, dark variants (spec §7d): lifted so each one still reads as pill
        text on --card and keeps the same hue identity on the stacked bars. */
     --stage-fields:    #38bdf8;
@@ -1678,25 +1676,30 @@ body.sigma-home-fallback .section:has(#grid-active) { display: block; }
     --accent-soft: #14262f;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
+    /* Not aliased to var(--s-ink) — see the explicit dark block above ("regression impeccable
+       caught"). Also NOTE: tokens.css's dark colors only key off `[data-theme="dark"]`, not this
+       OS-preference query; that's fine in practice because the boot snippet in index.html
+       always sets the explicit attribute before first paint (even for someone who never
+       touched the toggle), so `--s-*` is already dark by the time this block would matter. */
     --primary: #0A7A7C;
     --primary-hover: #076E70;
     --accent: #0A7A7C;
-    --success: #4ADE80;
-    --success-light: #12301F;
-    --warning: #F0B44C;
-    --warning-light: #33270F;
-    --danger: #F87171;
-    --danger-light: #3A1618;
-    --priority: #F87171;
-    --priority-light: #3A1618;
-    --info: #8FB4FF;
-    --info-light: #172440;
-    --holiday: #C4B5FD;
-    --holiday-light: #2A1F47;
-    --neutral: #A3B1BD;
-    --neutral-light: #1C2429;
-    --ink: #3FD6DD;
-    --e1: none;
+    --success: var(--s-ok-ink);
+    --success-light: var(--s-ok-fill);
+    --warning: var(--s-warn-ink);
+    --warning-light: var(--s-warn-fill);
+    --danger: var(--s-danger-ink);
+    --danger-light: var(--s-danger-fill);
+    --priority: var(--s-danger-ink);
+    --priority-light: var(--s-danger-fill);
+    --info: var(--s-info-ink);
+    --info-light: var(--s-info-fill);
+    --holiday: var(--s-holiday-ink);
+    --holiday-light: var(--s-holiday-fill);
+    --neutral: var(--s-neutral-ink);
+    --neutral-light: var(--s-neutral-fill);
+    --ink: var(--s-ink);
+    --e1: var(--s-e1);
     --stage-fields:    #38bdf8;
     --stage-backlog:   #9aa8b8;
     --stage-scope:     #f0a94b;
