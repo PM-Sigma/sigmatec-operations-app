@@ -398,6 +398,7 @@ function boot() {
       label: 'יומן היום',
       icon: 'Notebook',
       group: 'app',
+      tag: 'ניסיוני',
       visible: () => {
         try {
           const s = (window as any).sigma;

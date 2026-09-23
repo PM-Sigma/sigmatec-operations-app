@@ -148,7 +148,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-ceo` | :1274 | **—** |
 | `#sigma-command` | :1270 | app/src/islands/CommandBar.tsx:319<br>app/src/main.tsx:282 |
 | `#sigma-daylog` | :1260 | app/src/islands/DayLog.tsx:474<br>app/src/main.tsx:371 |
-| `#sigma-dev-presenter` | :1266 | app/src/islands/DevPresenter.tsx:472<br>app/src/main.tsx:460 |
+| `#sigma-dev-presenter` | :1266 | app/src/islands/DevPresenter.tsx:472<br>app/src/main.tsx:461 |
 | `#sigma-feedback` | :1251 | app/src/islands/Feedback.tsx:658<br>app/src/main.tsx:175 |
 | `#sigma-feedback-inbox` | :1252 | app/src/islands/FeedbackInbox.tsx:332<br>app/src/main.tsx:202 |
 | `#sigma-field` | :1250 | app/src/islands/Field.tsx:2268<br>app/src/main.tsx:135 |
@@ -158,17 +158,17 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-holidays` | :1254 | app/src/islands/Holidays.tsx:154<br>app/src/main.tsx:267 |
 | `#sigma-home` | :298 | app/src/islands/Home.tsx:302<br>app/src/main.tsx:115 |
 | `#sigma-hours` | :591 | app/src/islands/Hours.tsx:262<br>app/src/main.tsx:238 |
-| `#sigma-import` | :1256 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:501 |
+| `#sigma-import` | :1256 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:502 |
 | `#sigma-internal-modal` | :654 | app/src/main.tsx:163 |
 | `#sigma-inventory-strip` | :414 | app/src/islands/InventoryStrip.tsx:209<br>app/src/main.tsx:197 |
 | `#sigma-meeting-review` | :1269 | app/src/islands/MeetingReview.tsx:646 |
 | `#sigma-modal-meetings` | :645 | app/src/main.tsx:144 |
 | `#sigma-my-tasks` | :1284 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:125 |
 | `#sigma-nav` | :1285 | app/src/main.tsx:81 |
-| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:811<br>app/src/main.tsx:416 |
+| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:811<br>app/src/main.tsx:417 |
 | `#sigma-refresh` | :1279 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:97 |
 | `#sigma-relogin` | :1276 | app/src/components/ReLoginSheet.tsx:143 |
-| `#sigma-settings` | :1257 | app/src/islands/Settings.tsx:404<br>app/src/main.tsx:293 |
+| `#sigma-settings` | :1257 | app/src/islands/Settings.tsx:395<br>app/src/main.tsx:293 |
 | `#sigma-stock-change` | :1261 | app/src/islands/StockChange.tsx:318<br>app/src/main.tsx:183 |
 | `#sigma-toaster` | :1280 | app/src/main.tsx:80 |
 | `#sigma-today` | :292 | app/src/islands/Field.tsx:2269<br>app/src/main.tsx:135 |
@@ -203,7 +203,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `stock_recounts` | db/stock_recounts.sql | app/src/islands/StockChange.tsx:142 |
 | `transcribe_log` | db/feedback.sql | supabase/functions/transcribe/index.ts:102 |
 | `usage_events` | db/usage_events.sql | app/src/lib/track.ts:193<br>supabase/functions/push-send/index.ts:557 |
-| `user_settings` | db/user_settings.sql | app/src/lib/settings.ts:233<br>app/src/lib/settings.ts:257<br>supabase/functions/push-send/index.ts:157 |
+| `user_settings` | db/user_settings.sql | app/src/lib/settings.ts:232<br>app/src/lib/settings.ts:256<br>supabase/functions/push-send/index.ts:157 |
 | `visit_drafts` | db/visit_drafts.sql | supabase/functions/push-send/index.ts:475 |
 | `visits` | db/supabase_schema.sql | supabase/functions/push-send/index.ts:120<br>supabase/functions/push-send/index.ts:474 |
 | `work_sessions` | db/work_sessions.sql | app/src/components/home/workTimerApi.ts:62<br>app/src/components/home/workTimerApi.ts:73<br>app/src/components/home/workTimerApi.ts:82<br>…+8 |
@@ -247,10 +247,10 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 
 | id | icon | registered at |
 |---|---|---|
-| `(dynamic)` | `—` | app/src/lib/registry.ts:38 |
+| `(dynamic)` | `—` | app/src/lib/registry.ts:43 |
 | `burns-table` | `Flame` | app/src/islands/Burns.tsx:64 |
 | `dev-presenter` | `GitPullRequest` | app/src/islands/DevPresenter.tsx:475 |
-| `dev-presenter` | `GitPullRequest` | app/src/main.tsx:484 |
+| `dev-presenter` | `GitPullRequest` | app/src/main.tsx:485 |
 | `feedback` | `MessageSquarePlus` | app/src/islands/Feedback.tsx:660 |
 | `feedback-inbox` | `Inbox` | app/src/islands/FeedbackInbox.tsx:334 |
 | `field-journal` | `Notebook` | app/src/islands/DayLog.tsx:477 |
@@ -262,8 +262,8 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:207 |
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:155 |
 | `presenter` | `Presentation` | app/src/islands/Presenter.tsx:814 |
-| `presenter` | `Presentation` | app/src/main.tsx:440 |
-| `settings` | `Settings` | app/src/islands/Settings.tsx:406 |
+| `presenter` | `Presentation` | app/src/main.tsx:441 |
+| `settings` | `Settings` | app/src/islands/Settings.tsx:397 |
 | `staff-message` | `Mail` | app/src/islands/CommandBar.tsx:311 |
 | `stock-change` | `Package` | app/src/islands/StockChange.tsx:320 |
 | `usage` | `TrendingUp` | app/src/islands/Usage.tsx:332 |
