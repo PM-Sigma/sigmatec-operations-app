@@ -102,10 +102,12 @@ export function groupByDomain(cards: DevCard[]): DomainGroup[] {
 
   return Array.from(buckets.values())
     .sort((a, b) => {
+      // "ללא אפיון" (no domain) ALWAYS sorts last — never just as an equal-count tiebreak.
+      if (!a.domain && b.domain) return 1;
+      if (a.domain && !b.domain) return -1;
+      if (!a.domain && !b.domain) return 0;
       if (b.cards.length !== a.cards.length) return b.cards.length - a.cards.length;
-      if (!a.domain) return 1;
-      if (!b.domain) return -1;
-      return a.domain.title.localeCompare(b.domain.title, 'he');
+      return a.domain!.title.localeCompare(b.domain!.title, 'he');
     })
     .map(g => ({ domain: g.domain, count: g.cards.length, tiers: tiersOf(g.cards) }));
 }

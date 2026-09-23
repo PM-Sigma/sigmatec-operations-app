@@ -8,6 +8,7 @@
 import { SB_ANON, SB_URL } from './supabase';
 import { sigma } from '@/bridge';
 import { sessionLost } from '@/lib/session';
+import { canShowPage } from './canShowPage';
 import { SPRINT_STATUS_TARGET, stageOf, type DevCard, type DevStage } from './sprintPrep';
 
 /** The shared key. One entry per board state, so the walk and the prep card are one fetch. */
@@ -91,10 +92,13 @@ export async function releaseReview(cards: DevCard[]): Promise<{ updated: number
   return setStatus(numbers, STAGE_TARGET.committed);
 }
 
-/** Who may open 💻 פיתוח: the developers, or an admin (עידן/עמיחי via canManageStaff). */
-export function canSeeDevBoard(user: string | null | undefined, isAdmin: boolean): boolean {
-  const me = String(user || '').trim();
-  return me === 'מתניה' || me === 'אליה' || !!isAdmin;
+/**
+ * Who may open 💻 פיתוח. A pure forward to `canShowPage('dev')` — the ONE source of truth
+ * (00-bridge.js `canShowPage`, D-L5) — never a second copy of the מתניה/אליה/admin rule, which
+ * is exactly how the audience for the page and the audience for this data layer could drift.
+ */
+export function canSeeDevBoard(): boolean {
+  return canShowPage('dev');
 }
 
 /** Who may drag a card / use "העברה לשלב" — עידן only, as today. */

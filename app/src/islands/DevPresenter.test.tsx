@@ -107,8 +107,13 @@ describe('the 📋 prep card', () => {
     expect(screen.getByTestId('dev-proposed').textContent).toContain('#21');
   });
 
-  it('a dev session is opened for the meeting', async () => {
+  it('a dev session is opened once the walk starts — never just from viewing prep (D1, lazy)', async () => {
     await openScreen();
+    // Merely opening the screen on the prep card must NOT plant a session row — that eager
+    // insert is exactly the bug D1 (M-L2) removed: an accidental tap on a day would otherwise
+    // quietly reset every timeline window to that day.
+    expect(inserted.some(i => i.table === 'meeting_sessions')).toBe(false);
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-start')); });
     await waitFor(() => expect(inserted.some(i => i.table === 'meeting_sessions' && i.row.kind === 'dev')).toBe(true));
   });
 

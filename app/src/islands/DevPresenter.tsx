@@ -228,13 +228,16 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
   const current = walk[Math.min(idx, Math.max(walk.length - 1, 0))] || null;
 
   // Every arrival at a card is a segment boundary. Keyed so StrictMode cannot log it twice.
+  // M-L2: the session row is now lazy — log() itself creates it on first use — so this no
+  // longer waits on `session?.id` existing first; gating on it deadlocks (nothing else ever
+  // creates the session on its own). Same fix as Presenter.tsx (c04309d).
   React.useEffect(() => {
-    if (!session?.id || phase !== 'walk' || !current) return;
-    const key = session.id + '|' + idx + '|' + current.number;
+    if (phase !== 'walk' || !current) return;
+    const key = phase + '|' + idx + '|' + current.number;
     if (logged.current === key) return;
     logged.current = key;
     void log('issue', { issue_number: current.number, hint: current.title });
-  }, [session?.id, phase, idx, current?.number]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phase, idx, current?.number]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Into the walk. The board is re-read FIRST, so a card accepted on the prep card is already

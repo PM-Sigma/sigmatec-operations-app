@@ -39,3 +39,32 @@ it('#33 has no status → backlog, and its 🔴 label → high', () => {
   const c = (board as any[]).find(x => x.number === 33);
   expect(stageOf(c)).toBe('backlog'); expect(priorityTier(c)).toBe('high');
 });
+it('#40 (no priority text, no labels) is tier none inside "ללא אפיון"', () => {
+  const none = groupByDomain(board as any).find(d => d.domain === null)!;
+  const c40 = (board as any[]).find(x => x.number === 40);
+  expect(none.tiers).toEqual([{ tier: 'none', cards: [c40] }]);
+});
+
+// audit fix: "ללא אפיון" must sort last ALWAYS, not only as an equal-count tiebreak.
+it('the no-parent group sorts last even when it is the LARGEST', () => {
+  const cards = [
+    { number: 1, title: 'a', status: 'Backlog', parentChain: [] },
+    { number: 2, title: 'b', status: 'Backlog', parentChain: [] },
+    { number: 3, title: 'c', status: 'Backlog', parentChain: [] },
+    { number: 4, title: 'd', status: 'Backlog', parentChain: [{ number: 9, title: 'תחום', state: 'OPEN' }] },
+  ] as any;
+  const g = groupByDomain(cards);
+  expect(g.map(d => d.domain?.title ?? 'ללא אפיון')).toEqual(['תחום', 'ללא אפיון']);
+  expect(g.map(d => d.count)).toEqual([1, 3]);
+});
+
+// audit fix: a card with `parent` but no `parentChain` (the function-not-yet-redeployed / old
+// client shape) resolves its domain through the fallback path — `parent` looked up in the list.
+it('a card with parent but no parentChain resolves the domain via the fallback path', () => {
+  const cards = [
+    { number: 9, title: 'תחום', status: 'Main Fields' },
+    { number: 5, title: 'child', status: 'Backlog', parent: 9 },
+  ] as any;
+  const g = groupByDomain(cards);
+  expect(g).toEqual([{ domain: { number: 9, title: 'תחום' }, count: 1, tiers: [{ tier: 'none', cards: [cards[1]] }] }]);
+});

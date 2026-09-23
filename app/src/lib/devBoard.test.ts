@@ -6,9 +6,13 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 vi.mock('@/bridge', () => ({ sigma: { emsToken: () => 'ems-tok' } }));
 vi.mock('@/lib/session', () => ({ sessionLost: (tag: string) => new Error('session-lost:' + tag) }));
 
+const { pageGate } = vi.hoisted(() => ({ pageGate: { dev: false } }));
+vi.mock('./canShowPage', () => ({ canShowPage: (page: string) => page === 'dev' && pageGate.dev }));
+
 const calls: any[] = [];
 beforeEach(() => {
   calls.length = 0;
+  pageGate.dev = false;
   (globalThis as any).fetch = vi.fn(async (_url: any, init: any) => {
     const body = JSON.parse(init.body);
     calls.push(body);
@@ -60,12 +64,14 @@ describe('STAGE_TARGET', () => {
 });
 
 describe('canSeeDevBoard', () => {
-  it.each([
-    ['מתניה', false, true], ['אליה', false, true],
-    ['עידן', true, true], ['עמיחי', true, true],
-    ['אביאם', false, false], ['ניתאי', false, false], ['צופה', false, false],
-  ])('%s (admin=%s) → %s', (user, isAdmin, expected) => {
-    expect(canSeeDevBoard(user as string, isAdmin as boolean)).toBe(expected);
+  // audit fix: this must NOT re-implement the מתניה/אליה/admin rule — it is a pure forward to
+  // canShowPage('dev'), the ONE source of truth (00-bridge.js canShowPage), so the two can never
+  // drift apart the way a second hardcoded copy would.
+  it('delegates to canShowPage(\'dev\') and nothing else', () => {
+    pageGate.dev = true;
+    expect(canSeeDevBoard()).toBe(true);
+    pageGate.dev = false;
+    expect(canSeeDevBoard()).toBe(false);
   });
 });
 
