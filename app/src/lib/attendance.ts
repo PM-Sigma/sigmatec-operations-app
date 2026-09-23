@@ -462,24 +462,25 @@ export interface AttCellLook {
   label: string;
 }
 
-const TILE_OF: Partial<Record<AttCellState, TileKey>> = { field: 'field', office: 'office', missing: 'missing' };
-
 /**
  * What a cell looks like, once. From what he did (monthGrid's `state`) → missing only for a
- * filer → purple for a holiday or an eve with nothing on it → a selected tile keeps its own
- * category and turns the rest plain, except purple, which is context and always stays.
+ * filer, purple for anyone else with a holiday attached (a required holiday/closure is still
+ * holiday context, even though it counts as a work day) → purple for a holiday or an eve with
+ * nothing on it, past or future → a selected tile keeps its own category and turns the rest
+ * plain, except purple, which is context and always stays.
  */
 export function attCellLook(c: DayCell, o: { person: string; tile: TileKey | null; selected: boolean }): AttCellLook {
   const filer = mustFile(o.person);
   let base: AttCellState = 'default';
   if (c.state === 'field' || c.state === 'office' || c.state === 'away') base = c.state;
-  else if (c.state === 'missing') base = filer ? 'missing' : (c.eve ? 'eve' : 'default');
+  else if (c.state === 'missing') base = filer ? 'missing' : c.eve ? 'eve' : c.holiday ? 'holiday' : 'default';
   else if (c.state === 'holiday') base = 'holiday';
+  else if (c.state === 'future' && c.holiday) base = c.eve ? 'eve' : 'holiday';
   else if (c.eve && !c.row) base = 'eve';
 
   let state: AttCellState = base;
   if (o.selected) state = 'selected';
-  else if (o.tile && base !== 'holiday' && base !== 'eve' && TILE_OF[base] !== o.tile) state = 'default';
+  else if (o.tile && base !== 'holiday' && base !== 'eve' && base !== o.tile) state = 'default';
 
   const facts = [dayChip(c.date)];
   if (c.holiday) facts.push(c.holiday.name);
@@ -597,13 +598,11 @@ export function withVisitDays(
 ): AttRow[] {
   // The legacy merge's derived rows are dropped and rebuilt from the visits (an edited visit
   // date must move the day). Every REAL row (manual / calendar / visit_auto) is kept and wins:
-  // round 5 rule 5 — a visit never silently overwrites a day someone filed.
-  const real = mergeByDay((rows || []).filter(r => r && r.source !== 'visit'));
-  const byDate = new Map(real.map(r => [r.date, r] as [string, AttRow]));
-  for (const [date, dayVisits] of visitsByDate(visits, person)) {
-    if (!byDate.has(date)) byDate.set(date, visitDayRow(date, dayVisits));
-  }
-  return Array.from(byDate.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  // round 5 rule 5 — a visit never silently overwrites a day someone filed. mergeByDay's own
+  // source ranking does the winning: a derived row is always sourced 'visit', the weakest rank.
+  const real = (rows || []).filter(r => r && r.source !== 'visit');
+  const derived = Array.from(visitsByDate(visits, person), ([date, dayVisits]) => visitDayRow(date, dayVisits));
+  return mergeByDay([...real, ...derived]);
 }
 
 // ───────────────── the month's gaps, for whoever asks (round 2, F-4) ─────────────────

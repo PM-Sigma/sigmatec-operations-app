@@ -88,19 +88,50 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
 |---|---|
 | 0 · Freeze | 3% |
 | 1 · Cleanup + graph cleanup + inventory breakpoint + local backup | 8% |
-| 2 · Design system + consultant review | 10% |
+| 2 · Design system + consultant review | 9% |
 | S · Shell | 6% |
 | K · Kibbutz card + React KibbutzDetail | 9% |
-| V · Visit summary + attendance rules | 14% |
+| V · Visit summary + attendance rules | 13% |
 | C · Calendar | 7% |
-| I · Inventory rewrite | 12% |
+| I · Inventory rewrite | 11% |
 | A · Attendance | 5% |
 | G · Settings + burns + push log | 6% |
 | M · Team meeting | 6% |
 | D · Dev meeting | 4% |
 | X · Security + push copy + Ctrl+K removal | 4% |
-| R · Every other screen | 6% |
+| R · Every other screen | 5% |
+| DOC · Full system documentation + graph re-sync | 4% |
 | **Total** | **100%** |
+
+## Grill round 5 answers (עידן 23.9 evening), binding for I, V, K
+- **Edit lock for past data.** Everything dated **August 2026 or earlier is read-only** everywhere (visits, attendance, inventory, certificates, orders). September onward stays editable.
+  - **A visit summary locks on the 10th of the following month** (a September visit locks on 10.10).
+  - Rule as one pure function: `editableUntil(date) = 10th of next month`, `locked = today > editableUntil || date < 2026-09-01`. The app enforces it; a DB trigger enforces it too.
+- **Consequence for the inventory breakpoint:**
+  - September visits dated before the breakpoint (1–23.9) stay editable, including equipment. Their original movements are in `archive.movements_pre_breakpoint`.
+  - When one of them changes equipment, the stock difference is computed against the archived movement, so stock never double-deducts. This replaces the earlier "equipment locked before the breakpoint" rule.
+- **Item delete:**
+  - A removed item is deleted completely: the item, its movements, recounts, alerts, returns, and its lines in visits, requirements and AI examples. Orders left empty are deleted.
+  - **Issued delivery certificates stay exactly as they are**, lines included.
+- **Dead inventory paths are dropped:** the intake window, "import open requirements", reprint, cert from an order or EMS task, the duplicate ✉️ button, the stale flow diagram.
+- **Hours are per person:** מתניה sees only his own; עידן and עמיחי see all.
+- **GitHub dev board (X-L8, approved):** only עידן, עמיחי and מתניה can write (open an issue, update a card). Reading stays open to staff. The check lives in our `github` function only; nothing changes in GitHub.
+
+## Standing authority while עידן is away (23.9 night)
+- **Production changes:** Fable applies DB migrations and deploys functions **after** the change passes both the Opus audit and the tests. A backup comes first, each change has a rollback, and each is logged in the CHANGELOG. The freeze stays on throughout. The changes covered: viewer read-only, per-person policies (ems-auth first, then ≥180 min), attendance source and backfill, the past-data lock trigger, the delete function, `cal_peer_tasks`, and deploys of ems-auth, push-send, github and calendar.
+- **Push texts:** the no-ai-slop rewrite (the X spec's table) is applied. עידן reviews it later, and nobody receives pushes while the app is frozen.
+- **Inventory delete now:** only the empty item. The SIM items stay archived and are not deleted.
+- **All planner defaults are accepted:**
+  - The header does not hide on scroll.
+  - The login screens stay light DOM, restyled.
+  - The ➕ adders move into the open card's section titles.
+  - "ייבוא סיכום ישיבה" goes into ⚙️ until meeting mode takes it.
+  - Office and home days are filed only on the attendance page.
+  - An EMS task's "latest change" is EMS's `updatedAt`.
+  - The dev meeting keeps 4 priority levels.
+  - "ללא אפיון" means only "no parent issue" (the sprint-prep list is renamed).
+- **Decisions log:** every decision taken without עידן goes into `docs/reports/2026-09-23-r5-decisions-log.md` (when · package · decision · why · how to change it). It is shown to עידן at the end, next to the progress table.
+- **At the end of the round:** everything ships to the frozen app, and then work stops for עידן's phone QA before the unfreeze.
 
 ## Design ownership (עידן 23.9)
 - **The external designer (the independent consultant agent) owns design and motion for the whole app.**
@@ -205,6 +236,7 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
 | **A · Attendance** | Attendance 8 (the "חסר לך" block redone, holidays purple + missing red in the mini calendar, clickable tiles that color the calendar) | `Attendance.tsx`, `attendance.ts`, `styles.css` |
 | **G · Settings + burns + push log** | Settings 9, burns 10 (title "צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק", Excel/generators in one row), React rewrite of the burns page (`24-meter-burns.js`) and the push log (`23-push-log.js`) | `Settings.tsx`, `main.tsx:397` ("יומן היום · ניסיוני" tag), new Burns/PushLog pages |
 | **M · Team meeting** | 11: small blocks; a timeline of EMS tasks by open date, internal tasks by open date, meeting notes by meeting date, visit reports; a compact timer; "סמן רגע"; the "since the previous meeting" line removed; burns + onboarding status shown | `Presenter.tsx`, `meetingRun.ts`, `meeting_events` |
+| **DOC · Full documentation (last phase)** | Full system docs modelled on EMS's docs structure, so the OPS GRAPH learns from them: specs per module, schema per table (generated from the live DB + RLS), edge functions, cross-module flows, roles, alerts matrix, design system, runbook. After it: Sonnet re-runs the graph extraction and Opus audits it. | spec `2026-09-23-r5-DOC-documentation.md` |
 | **X · Security + push copy + Ctrl+K removal** | Apply `db/rls_viewer_readonly.sql`, add a per-person claim in `ems-auth`, limit messages and work_sessions to the person, rewrite the 14 push texts (no-ai-slop), remove the CommandBar | `db/`, `supabase/functions/ems-auth`, `app/src/lib/field.ts` + push-send mirror, `CommandBar.tsx`, `main.tsx` |
 | **R · Every other screen** | Everything not in another package gets the full design-system pass, laid out again on the building blocks, with animation to spec and the designer's PASS: ⏱ Hours, 📋 Gaps, 📊 Usage, המשימות שלי, 🔔 alerts, the idea/bug box and its inbox, holidays, יומן היום (tagged ניסיוני), the home inventory strip, stock report, onboarding, the home top section (drafts/timer), the timer sheets | `Hours.tsx`, `Gaps.tsx`, `Usage.tsx`, `MyTasks.tsx`, `Alerts.tsx`, `Feedback*.tsx`, `Holidays.tsx`, `DayLog.tsx`, `InventoryStrip.tsx`, `StockChange.tsx`, `OnboardingProgress.tsx`, `Home.tsx`, `WorkTimer*.tsx` |
 | **D · Dev meeting** | 12: grouping by GitHub parent issue → priority, filters, "new this week" block; React rewrite of the dev board (`18-dev-tasks.js`) | `DevPresenter.tsx`, `devBoard.ts`, `sprintPrep.ts`, `supabase/functions/github` (sub-issues) |

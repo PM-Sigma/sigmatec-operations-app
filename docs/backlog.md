@@ -1,3 +1,5 @@
+🔝 PRIORITY (עידן 23.9): usage goes to **round 5 development + documentation until the system is live**. Everything else waits, and after go-live עידן picks the next item from the weekly usage check. That covers: the field-ops Modbus page, foldables, the Whisper meeting scribe, the Apps Script proxy migration.
+
 🚫 RULE (עידן 23.9): never modify another repo (ModbusClient, sigmatec-ems, …) unless עידן explicitly asks. Use only.
 
 🟡 IN PROGRESS (2026-09-23) — סבב 5: freeze + cleanup + design system + full rewrite of legacy pages + עידן's phone QA list. Spec `docs/superpowers/specs/2026-09-23-round-5-design.md`.

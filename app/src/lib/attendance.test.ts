@@ -34,7 +34,7 @@ const row = (date: string, type: AttRow['type'], extra: Partial<AttRow> = {}): A
   ({ date, type, ...extra });
 
 /** A visit summary fixture, shared by the withVisitDays describes. */
-const visitFixture = (date: string, extra: Record<string, unknown> = {}) =>
+const visit = (date: string, extra: Record<string, unknown> = {}) =>
   ({ id: 'v' + date, visitor: 'אביאם', date, kibbutz: 'דפנה', workday: true, ...extra });
 
 /** A month that is fully behind us, so "missing" covers all of it. */
@@ -230,6 +230,10 @@ describe('round 5 · A5 — copy', () => {
     expect(savedToast('office', '2026-09-03', null)).toBe('נשמר · משרד · 3.9');
     expect(savedToast('field', '2026-09-21', HOL)).toBe('נשמר · יום שטח · 21.9 · יום חג');
   });
+  it('no · יום חג suffix for an eve — it is a required day, not an optional one', () => {
+    const EVE = { date: '2026-09-20', name: 'ערב יום כיפור', kind: 'holiday_eve', required: true } as Holiday;
+    expect(savedToast('wfh', '2026-09-20', EVE)).toBe('נשמר · מהבית · 20.9');
+  });
   it('eve copy has no emoji either', () => {
     expect(holidayNote({ date: '2026-09-20', name: 'ערב יום כיפור', kind: 'holiday_eve', required: true })).not.toMatch(EMOJI);
     expect(eveCountdownText(3)).not.toMatch(EMOJI);
@@ -325,7 +329,7 @@ describe('round 5 · A4 — who files, and which row wins a day', () => {
     ]);
   });
   it('a visit_auto row is a real row: a derived visit day never overrides it or duplicates it', () => {
-    const out = withVisitDays([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }], [visitFixture('2026-09-03')], 'אביאם');
+    const out = withVisitDays([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }], [visit('2026-09-03')], 'אביאם');
     expect(out).toEqual([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }]);
   });
 });
@@ -337,8 +341,6 @@ describe('withVisitDays', () => {
     row('2026-09-01', 'office'),
     row('2026-09-02', 'wfh'),
   ];
-  const visit = (date: string, extra: Record<string, unknown> = {}) =>
-    ({ id: 'v' + date, visitor: 'אביאם', date, kibbutz: 'דפנה', workday: true, ...extra });
 
   it('a saved summary becomes a field day nobody had to file', () => {
     const out = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
@@ -486,13 +488,18 @@ describe('round 5 · A2 — one look per cell', () => {
   const HOL: Holiday = { date: '2026-09-21', name: 'יום כיפור', kind: 'holiday', required: false };
   const EVE: Holiday = { date: '2026-09-16', name: 'ערב סוכות', kind: 'holiday_eve', required: true };
   const EVE_FUT: Holiday = { date: '2026-09-29', name: 'ערב שמחת תורה', kind: 'holiday_eve', required: true };
+  // A required closure: still holiday CONTEXT (purple) for a non-filer, but a normal work day
+  // (red when empty) for a filer — the bug round 5 flags in attCellLook.
+  const REQ_HOL: Holiday = { date: '2026-09-08', name: 'חוה״מ עבודה', kind: 'company_closure', required: true };
+  // Same, but in the future — the grid state is 'future', not 'missing', so it needs its own branch.
+  const FUT_REQ_HOL: Holiday = { date: '2026-09-30', name: 'חוה״מ עבודה', kind: 'company_closure', required: true };
   const rows: AttRow[] = [
     { date: '2026-09-01', type: 'field', source: 'visit_auto' },
     { date: '2026-09-02', type: 'office' },
     { date: '2026-09-03', type: 'vacation', source: 'calendar' },
   ];
   const today = new Date(2026, 8, 23, 12);
-  const g = monthGrid(2026, 9, rows, [HOL, EVE, EVE_FUT], today);
+  const g = monthGrid(2026, 9, rows, [HOL, EVE, EVE_FUT, REQ_HOL, FUT_REQ_HOL], today);
   const at = (d: string) => g.cells.find(c => c.date === d)!;
   const look = (d: string, o: Partial<{ person: string; tile: TileKey | null; selected: boolean }> = {}) =>
     attCellLook(at(d), { person: 'אביאם', tile: null, selected: false, ...o });
@@ -510,6 +517,25 @@ describe('round 5 · A2 — one look per cell', () => {
   });
   it('a past eve with no row is missing for a filer, and keeps its name', () => {
     expect(look('2026-09-16')).toMatchObject({ state: 'missing', label: 'יום ד׳ · 16.9 · ערב סוכות · לא דווחה נוכחות' });
+  });
+  it('a past eve with no row is purple, not plain, for anyone else', () => {
+    expect(look('2026-09-16', { person: 'מתניה' }).state).toBe('eve');
+  });
+  it('a required closure is a normal work day for a filer (red when empty), purple context for anyone else', () => {
+    expect(look('2026-09-08').state).toBe('missing');
+    expect(look('2026-09-08', { person: 'מתניה' }).state).toBe('holiday');
+  });
+  it('a future required closure is purple context too — it is never "missing" yet', () => {
+    expect(look('2026-09-30').state).toBe('holiday');
+  });
+  it('a weekend stays plain even for a filer — no violet Saturday, no red', () => {
+    expect(look('2026-09-05').state).toBe('default');   // Saturday
+  });
+  it('a worked holiday shows the work, not the holiday state', () => {
+    const g2 = monthGrid(2026, 9, [{ date: '2026-09-21', type: 'field' }], [HOL], today);
+    const c = g2.cells.find(x => x.date === '2026-09-21')!;
+    const l = attCellLook(c, { person: 'אביאם', tile: null, selected: false });
+    expect(l).toMatchObject({ state: 'field', label: 'יום ב׳ · 21.9 · יום כיפור · יום שטח' });
   });
   it('a tile colors only its own category; holidays and eves stay purple', () => {
     expect(look('2026-09-01', { tile: 'office' }).state).toBe('default');
