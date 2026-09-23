@@ -20,6 +20,7 @@
 // count failed viewer attempts in `auth_attempts` (see the rate limit below).
 // Optional:  EMS_API_BASE (defaults to https://api.sigmatec-ems.com).
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
+import { resolveName } from "./identity.js";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -100,6 +101,61 @@ async function clearAttempts(ip: string): Promise<void> {
   } catch { /* the person is in; a stale row expires with the window anyway */ }
 }
 
+// ───────────────────── X-L1: the trusted per-person name claim ─────────────────────
+// staff_identities is service-role-only (db/staff_identities.sql) — no client, however
+// privileged, can read or write it. The claim it produces is the ONLY thing that lets a
+// person-scoped policy (db/rls_person_scoped.sql, applied only after X-L3) tell one member of
+// staff from another.
+function identitiesApi() {
+  const url = Deno.env.get("SUPABASE_URL") || "";
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!url || !key) return null;
+  return {
+    base: url.replace(/\/$/, "") + "/rest/v1/staff_identities",
+    headers: { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json" },
+  };
+}
+
+/** The stored name for this EMS user id, or null (no row yet, or the table can't be reached). */
+async function lookupIdentity(sub: string): Promise<string | null> {
+  const api = identitiesApi();
+  if (!api) return null;
+  try {
+    const r = await fetch(`${api.base}?select=name&ems_user_id=eq.${encodeURIComponent(sub)}`, { headers: api.headers });
+    if (!r.ok) return null;
+    const rows = await r.json().catch(() => []);
+    return Array.isArray(rows) && rows[0]?.name ? String(rows[0].name) : null;
+  } catch { return null; }
+}
+
+/** Learn a name once, so the next sign-in never has to ask EMS /users again. Best-effort. */
+async function learnIdentity(sub: string, name: string, email: string | null): Promise<void> {
+  const api = identitiesApi();
+  if (!api) return;
+  try {
+    await fetch(`${api.base}?on_conflict=ems_user_id`, {
+      method: "POST",
+      headers: { ...api.headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ ems_user_id: sub, name, email }),
+    });
+  } catch { /* learning is best-effort; the claim for THIS sign-in is unaffected */ }
+}
+
+/**
+ * The EMS `/v1/users` roster, read with the SIGNED-IN person's own token. Not every account has
+ * admin rights there — a 403 just means "nothing learned this time", never a sign-in failure.
+ */
+async function emsUserEmail(emsToken: string, emsBase: string, sub: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${emsBase}/v1/users?take=200`, { headers: { Authorization: `Bearer ${emsToken}` } });
+    if (!r.ok) return null;
+    const list = await r.json().catch(() => []);
+    const rows = Array.isArray(list) ? list : (Array.isArray((list as { data?: unknown[] })?.data) ? (list as { data: unknown[] }).data : []);
+    const me = (rows as Array<Record<string, unknown>>).find((u) => String(u?.id ?? u?.userId ?? "") === sub);
+    return me?.email ? String(me.email) : null;
+  } catch { return null; }
+}
+
 async function signingKey(secret: string) {
   return await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(secret),
@@ -139,7 +195,12 @@ Deno.serve(async (req) => {
     );
     // `expiresIn` (seconds) lets the client hold the pass for as long as it is really valid
     // instead of guessing; an older client that ignores it keeps working unchanged.
-    return json({ token, expiresIn: TTL_SECONDS });
+    // `name`, when minted, rides along in the body too — so the client can compare it with
+    // getCurrentUser() and log a mismatch instead of silently trusting whichever one it likes.
+    return json({
+      token, expiresIn: TTL_SECONDS,
+      ...(typeof extra.name === "string" ? { name: extra.name } : {}),
+    });
   };
 
   try {
@@ -201,6 +262,20 @@ Deno.serve(async (req) => {
       sub = String(p.id || p.sub || p.userId || "ems-user");
     } catch { /* keep default */ }
 
+    // 2b) The trusted name claim (X-L1). staff_identities is looked up first; a person not yet
+    // in it is learned once from the EMS /users roster (using the CALLER's own token — no
+    // elevated EMS access is asked for). Neither lookup can ever fail the sign-in: no name is a
+    // valid outcome (a new hire, or an EMS account with no admin rights on /users), it just
+    // means the person-scoped policies (X-L2/X-L3) cannot yet tell this person apart from
+    // another, exactly like today.
+    let name: string | null = await lookupIdentity(sub);
+    if (!name) {
+      const email = await emsUserEmail(emsToken, EMS_API_BASE, sub);
+      name = resolveName(null, email);
+      if (name) await learnIdentity(sub, name, email);
+      else console.warn("[ems-auth] identity-missing", { sub });
+    }
+
     // 3) Mint a Supabase-compatible JWT (role=authenticated), valid 180 min.
     //
     // Was 60 min. Spec §7n ("session length >= 3 h"): a field day is a sequence of short
@@ -208,7 +283,7 @@ Deno.serve(async (req) => {
     // lunch hit a write it could not make. The client still re-mints every 50 min while the
     // EMS session lives (js/src/15-login-gate.js) and still caps the whole session at 12 h —
     // this only removes the cliff a sleeping tab used to fall off.
-    return await mintPass(sub);
+    return await mintPass(sub, name ? { name } : {});
   } catch (e) {
     return json({ error: String((e as Error)?.message || e) }, 500);
   }
