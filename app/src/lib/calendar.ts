@@ -11,7 +11,12 @@
 // only ever an input; nothing here hands one back. That is what keeps a day from sliding by
 // one when a phone is on a different timezone from the office calendar.
 
-import { isHolidayEve, missingDaysFor, reportedDaysFor, type AttRow, type Holiday } from './attendance';
+// Round 5 · C2: ATT_FILERS / mustFile land with A-L1 (docs/superpowers/specs/2026-09-23-r5-A-attendance.md
+// §4 — the canonical contract). TODO(A-L1): remove this note once A-L1 is on origin/main and this
+// branch has rebased onto it — the import below already matches the shipped shape.
+import {
+  ATT_FILERS, isHolidayEve, missingDaysFor, mustFile, reportedDaysFor, type AttRow, type Holiday,
+} from './attendance';
 
 // ───────────────────────────── types ─────────────────────────────
 
@@ -417,7 +422,9 @@ export function missingInView(
   today: Date = new Date(),
 ): Set<string> {
   const out = new Set<string>();
-  if (!person) return out;
+  // Round 5 (design-system ruling): red is only for the people who must file — אביאם and
+  // ניתאי. עידן's own calendar used to be 16 red days out of 22 (design review §1.10).
+  if (!person || !mustFile(person)) return out;
   const onScreen = new Set<string>();
   const months = new Set<string>();
   for (const w of weeks || []) {
@@ -1138,8 +1145,8 @@ export function absenceDays(a: AbsenceRow, holidays?: Holiday[]): string[] {
   return out;
 }
 
-/** Only these two have attendance rows to generate (spec §7f). */
-export const ATTENDANCE_PEOPLE = ['אביאם', 'ניתאי'];
+/** Only these two have attendance rows to generate (spec §7f). One list, owned by attendance.ts. */
+export const ATTENDANCE_PEOPLE: readonly string[] = ATT_FILERS;
 
 export interface GeneratedAttRow {
   person: string;
@@ -1198,4 +1205,58 @@ export function abilities(role: string, me: string): CalendarAbilities {
   }
   const admin = role === 'idan' || me === 'עידן' || me === 'עמיחי';
   return { canAdd: true, canReorder: true, canAbsentOthers: admin, seesEveryone: admin };
+}
+
+// ───────────────────────────── whose calendar (round 5 · C2) ─────────────────────────────
+
+/**
+ * The people the calendar may be shown for, the default first. עידן/עמיחי see their own
+ * calendar or a field person's (that is how they plan somebody else's day); a field person
+ * sees his own; the viewer has no calendar of its own and starts on the field team.
+ */
+export function calendarPeople(role: string, me: string, team: readonly string[] = ATT_FILERS): string[] {
+  if (role === 'viewer') return team.slice();
+  if (!me) return [];
+  if (!abilities(role, me).seesEveryone) return [me];
+  const out = [me];
+  for (const p of team) if (p && out.indexOf(p) === -1) out.push(p);
+  return out;
+}
+
+/** May `me` put stops and dates on `person`'s day? */
+export function canPlanFor(me: string, person: string, can: CalendarAbilities): boolean {
+  if (!can.canReorder || !person) return false;
+  return person === me || can.seesEveryone;
+}
+
+/** Round 5 grill 2: אביאם only may also see ניתאי's tasks in his blocks. */
+export const PEER_TASKS: Readonly<Record<string, string>> = { 'אביאם': 'ניתאי' };
+
+export function canTogglePeerTasks(me: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PEER_TASKS, me);
+}
+
+/**
+ * Whose open tasks fill the blocks. Always the person whose calendar is shown; plus the peer
+ * only when that person is the signed-in one AND he turned the setting on. אביאם's setting
+ * never leaks into עידן's view of אביאם's calendar.
+ */
+export function taskOwners(person: string, me: string, peerOn: boolean): string[] {
+  if (!person) return [];
+  const peer = PEER_TASKS[me];
+  return person === me && peerOn && peer ? [person, peer] : [person];
+}
+
+export type LegendKey = 'holiday' | 'eve' | 'reported' | 'missing';
+export interface LegendItem { key: LegendKey; label: string }
+
+/** The legend always shows (design system, DayCell); red joins it only for a filer. */
+export function legendItems(person: string): LegendItem[] {
+  const out: LegendItem[] = [
+    { key: 'holiday', label: 'חג' },
+    { key: 'eve', label: 'ערב חג' },
+    { key: 'reported', label: 'דווחה נוכחות' },
+  ];
+  if (mustFile(person)) out.push({ key: 'missing', label: 'לא דווחה נוכחות' });
+  return out;
 }

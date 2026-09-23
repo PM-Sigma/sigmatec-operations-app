@@ -16,6 +16,7 @@ import {
   plainText, eventWhen, eventDetail,
   visitPeople, durationLabel, visitRead, dayListing, calCellLook, type CalCell,
   LAYER_LABELS, ABSENCE_LABELS, EMPTY_DAY,
+  calendarPeople, canPlanFor, canTogglePeerTasks, taskOwners, legendItems,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -598,6 +599,65 @@ describe('abilities', () => {
   });
   it('עידן too', () => {
     expect(abilities('idan', 'עידן').canAbsentOthers).toBe(true);
+  });
+});
+
+describe('round 5 · C2 — whose calendar', () => {
+  const ADMIN = abilities('idan', 'עידן');
+  const FIELD = abilities('team', 'אביאם');
+  const VIEWER = abilities('viewer', 'צפייה');
+  const TEAM = ['אביאם', 'ניתאי'];
+
+  it('עידן and עמיחי may show their own calendar or a field person’s; the default is their own', () => {
+    expect(calendarPeople('idan', 'עידן', TEAM)).toEqual(['עידן', 'אביאם', 'ניתאי']);
+    expect(calendarPeople('team', 'עמיחי', TEAM)).toEqual(['עמיחי', 'אביאם', 'ניתאי']);
+  });
+  it('a field person sees only his own calendar', () => {
+    expect(calendarPeople('team', 'אביאם', TEAM)).toEqual(['אביאם']);
+  });
+  it('the viewer has no calendar of its own — it starts on the field team', () => {
+    expect(calendarPeople('viewer', 'צפייה', TEAM)).toEqual(['אביאם', 'ניתאי']);
+  });
+  it('nobody signed in → nothing to show', () => {
+    expect(calendarPeople('team', '', TEAM)).toEqual([]);
+  });
+  it('planning: your own day always, someone else’s only for עידן/עמיחי, never for the viewer', () => {
+    expect(canPlanFor('אביאם', 'אביאם', FIELD)).toBe(true);
+    expect(canPlanFor('אביאם', 'ניתאי', FIELD)).toBe(false);
+    expect(canPlanFor('עידן', 'אביאם', ADMIN)).toBe(true);
+    expect(canPlanFor('צפייה', 'אביאם', VIEWER)).toBe(false);
+    expect(canPlanFor('עידן', '', ADMIN)).toBe(false);
+  });
+});
+
+describe('round 5 · C2 — אביאם can add ניתאי’s tasks to his blocks', () => {
+  it('only אביאם has the setting', () => {
+    expect(canTogglePeerTasks('אביאם')).toBe(true);
+    expect(canTogglePeerTasks('ניתאי')).toBe(false);
+    expect(canTogglePeerTasks('עידן')).toBe(false);
+  });
+  it('the blocks follow the person whose calendar is shown', () => {
+    expect(taskOwners('אביאם', 'אביאם', false)).toEqual(['אביאם']);
+    expect(taskOwners('אביאם', 'אביאם', true)).toEqual(['אביאם', 'ניתאי']);
+    // עידן looking at אביאם's calendar sees אביאם's tasks — אביאם's own setting is his, not עידן's
+    expect(taskOwners('אביאם', 'עידן', true)).toEqual(['אביאם']);
+    expect(taskOwners('ניתאי', 'ניתאי', true)).toEqual(['ניתאי']);
+    expect(taskOwners('', 'אביאם', true)).toEqual([]);
+  });
+});
+
+describe('round 5 · C5 — red only for the people who file', () => {
+  it('missingInView is empty for a calendar person who doesn’t file attendance', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-23').weeks;
+    const rowsFor = () => [];                           // nothing filed at all
+    const TODAY = new Date(2026, 8, 23, 12);
+    expect(missingInView('עידן', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
+    expect(missingInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBeGreaterThan(0);
+  });
+  it('the legend always shows purple and green, and red only for a filer', () => {
+    expect(legendItems('עידן').map(i => i.key)).toEqual(['holiday', 'eve', 'reported']);
+    expect(legendItems('ניתאי').map(i => i.key)).toEqual(['holiday', 'eve', 'reported', 'missing']);
+    expect(legendItems('ניתאי').map(i => i.label)).toEqual(['חג', 'ערב חג', 'דווחה נוכחות', 'לא דווחה נוכחות']);
   });
 });
 
