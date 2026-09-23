@@ -97,7 +97,7 @@ export interface CalItem {
   /** 'YYYY-MM-DD' */
   date: string;
   layer: Layer;
-  icon: string;
+  icon: CalIcon;
   title: string;
   kibbutz: string | null;
   /** Who it belongs to (visitor / assignee / the absent person). null = everyone. */
@@ -130,32 +130,35 @@ export interface CalendarOptions {
 
 // ───────────────────────────── copy ─────────────────────────────
 
+/** Round 5 · C7 — an icon NAME, never an emoji. The island maps this to a lucide component. */
+export type CalIcon = 'calendar' | 'map-pin' | 'clipboard' | 'lock' | 'palm' | 'shield' | 'party';
+
 export const LAYER_LABELS: Record<Layer, string> = {
-  event: '📅 אירועי משרד',
-  visit: '📍 ביקורים',
-  ems: '📋 משימות EMS',
-  internal: '🔒 משימות פנימיות',
-  absence: '🌴 היעדרויות',
+  event: 'אירועי משרד',
+  visit: 'ביקורים',
+  ems: 'משימות EMS',
+  internal: 'משימות פנימיות',
+  absence: 'היעדרויות',
 };
 
 export const ABSENCE_LABELS: Record<AbsenceKind, string> = {
-  vacation: '🌴 חופש',
-  reserve: '🪖 מילואים',
-  event: '🎉 אירוע',
+  vacation: 'חופש',
+  reserve: 'מילואים',
+  event: 'אירוע',
 };
 
-export const ABSENCE_ICONS: Record<AbsenceKind, string> = {
-  vacation: '🌴',
-  reserve: '🪖',
-  event: '🎉',
+export const ABSENCE_ICON: Record<AbsenceKind, CalIcon> = {
+  vacation: 'palm',
+  reserve: 'shield',
+  event: 'party',
 };
 
 /** The route headers, derived from position — never typed by anyone (spec §7f). */
 export const ROUTE_HEADERS = {
-  first: '🌅 תחילת יום',
-  middle: '➡️ בהמשך',
-  last: '🌇 אחרון להיום',
-  unplaced: '📥 לא משובץ',
+  first: 'תחילת יום',
+  middle: 'בהמשך',
+  last: 'אחרון להיום',
+  unplaced: 'לא משובץ',
 } as const;
 
 export type RouteHeader = keyof typeof ROUTE_HEADERS;
@@ -526,7 +529,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       key: 'event:' + (e.id || date + ':' + e.title),
       date,
       layer: 'event',
-      icon: '📅',
+      icon: 'calendar',
       title: e.title || 'אירוע',
       kibbutz: null,
       person: null,
@@ -546,7 +549,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       key: 'visit:' + (v.id || date + ':' + (v.kibbutz || '')),
       date,
       layer: 'visit',
-      icon: '📍',
+      icon: 'map-pin',
       title: (v.kibbutz || '') + (v.workday ? ' · יום עבודה' : ''),
       kibbutz: v.kibbutz || null,
       person: who,
@@ -563,7 +566,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       key: 'ems:' + t.id,
       date,
       layer: 'ems',
-      icon: '📋',
+      icon: 'clipboard',
       title: t.title || 'משימה',
       kibbutz: (t.site && t.site.name) || null,
       person: who,
@@ -583,7 +586,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       key: 'internal:' + r.id,
       date,
       layer: 'internal',
-      icon: '🔒',
+      icon: 'lock',
       title: r.title || 'משימה פנימית',
       kibbutz: (r.kibbutz || '').trim() || null,
       person: who,
@@ -597,7 +600,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
         key: 'absence:' + a.id + ':' + date,
         date,
         layer: 'absence',
-        icon: ABSENCE_ICONS[a.kind] || '🌴',
+        icon: ABSENCE_ICON[a.kind] || 'palm',
         title: ABSENCE_LABELS[a.kind] + (a.person ? ' · ' + a.person : ' · כל החברה') + (a.note ? ' · ' + a.note : ''),
         kibbutz: null,
         person: a.person,

@@ -13,8 +13,9 @@ import {
   canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
   workWeekLabel, missingInView, reportedInView, showWeekNumbers, weekAria,
   planBlocks, pickBlock, isNoopPick, type KibbutzBlock, type CalInternalTask,
-  dayShort, plainText, eventWhen, eventDetail,
+  plainText, eventWhen, eventDetail,
   visitPeople, durationLabel, visitRead, dayListing, calCellLook, type CalCell,
+  LAYER_LABELS, ABSENCE_LABELS, EMPTY_DAY,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -156,7 +157,7 @@ describe('calendarItems', () => {
     expect(withInternal.map(i => i.key)).toEqual(['internal:i1', 'internal:i4']);
     const first = withInternal[0];
     expect(first.date).toBe('2026-09-08');
-    expect(first.icon).toBe('🔒');
+    expect(first.icon).toBe('lock');
     expect(first.kibbutz).toBeNull();
     expect(first.mine).toBe(true);
     expect(withInternal[1].mine).toBe(false);
@@ -507,6 +508,25 @@ describe('round 5 · C5 — one look per cell', () => {
   });
 });
 
+describe('round 5 · C7 — no emoji in the calendar’s strings', () => {
+  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+  it('labels, headers and item titles are words; icons are names', () => {
+    const all = [
+      ...Object.values(LAYER_LABELS), ...Object.values(ABSENCE_LABELS), ...Object.values(ROUTE_HEADERS), EMPTY_DAY,
+    ];
+    for (const s of all) expect(s).not.toMatch(EMOJI);
+    const items = calendarItems({
+      events: EVENTS, visits: VISITS, emsTasks: TASKS,
+      absences: [{ id: 'a', person: 'אביאם', kind: 'reserve', start_date: '2026-09-15', end_date: '2026-09-15' }],
+    });
+    for (const i of items) { expect(i.title).not.toMatch(EMOJI); expect(i.icon).toMatch(/^[a-z-]+$/); }
+    expect(items.find(i => i.layer === 'absence')).toMatchObject({ icon: 'shield', title: 'מילואים · אביאם' });
+  });
+  it('the route headers', () => {
+    expect(ROUTE_HEADERS).toEqual({ first: 'תחילת יום', middle: 'בהמשך', last: 'אחרון להיום', unplaced: 'לא משובץ' });
+  });
+});
+
 // ───────────────────────────── absences ─────────────────────────────
 
 describe('absences', () => {
@@ -528,7 +548,7 @@ describe('absences', () => {
   it('מילואים files as reserve', () => {
     const reserve: AbsenceRow = { ...vacation, kind: 'reserve', end_date: '2026-09-10', note: '' };
     expect(absenceAttendance(reserve, HOLIDAYS as Holiday[])[0].dayType).toBe('reserve');
-    expect(absenceAttendance(reserve, HOLIDAYS as Holiday[])[0].note).toBe('🪖 מילואים');
+    expect(absenceAttendance(reserve, HOLIDAYS as Holiday[])[0].note).toBe('מילואים');
   });
 
   it('a manual row always wins', () => {

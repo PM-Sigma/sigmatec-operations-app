@@ -19,7 +19,10 @@ import * as React from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, Reorder, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Video } from 'lucide-react';
+import {
+  ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Video,
+  CalendarDays, ClipboardList, Lock, MapPin, PartyPopper, Shield, TreePalm,
+} from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -145,14 +148,22 @@ const LAYER_CLASS: Record<string, string> = {
   absence: 'ucal-chip-absence',
 };
 
+// Round 5 · C7 (calendar.ts CalIcon is a name, not an emoji): the pre-redesign chip still needs
+// a real icon, so the name maps here until C-U1 rewrites this island on the design system.
+const ICON = {
+  calendar: CalendarDays, 'map-pin': MapPin, clipboard: ClipboardList, lock: Lock,
+  palm: TreePalm, shield: Shield, party: PartyPopper,
+} as const;
+
 function Chip({ item, dim }: { item: CalItem; dim: boolean }) {
+  const Icon = ICON[item.icon];
   return (
     <span
       className={'ucal-chip ' + (LAYER_CLASS[item.layer] || '') + (dim ? ' ucal-dim' : '')}
       data-layer={item.layer}
       title={item.title}
     >
-      <bdi>{item.icon} {item.title}</bdi>
+      <bdi>{Icon ? <Icon size={13} aria-hidden /> : null} {item.title}</bdi>
     </span>
   );
 }
