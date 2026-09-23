@@ -176,6 +176,14 @@ git merge-base --is-ancestor origin/dev origin/main && echo "already merged" || 
 
 ---
 
+## G. Round 5 — package V (visit editor + attendance rules): SQL to apply, in order
+
+- [ ] **1. `db/attendance_source.sql`** — מוסיף `attendance.source` (manual/visit_auto/calendar) + אינדקס ייחודי.
+  הרץ ואז הדבק כאן את פלט ה-Verify (2 שאילתות).
+- [ ] **2. `db/attendance_visit_backfill.sql`** — **רק אחרי** #1. מילוי חד-פעמי של שורות נוכחות שטח
+  מביקורים קיימים של אביאם/ניתאי, בלי לגעת בשורות ידניות. הדבק כאן את פלט ה-Verify (3 שאילתות; #2 חייב
+  להיות 0).
+
 ## F. החלטות פתוחות (מחכות לך)
 
 - [ ] ספי בריאות קיבוץ (`kibbutz_health`) — פגישה מתוכננת שלישי 22.9. רק "פניות ללא מענה" מבוסס
