@@ -20,7 +20,7 @@ export function fmtDay(d: Date, now: Date = new Date()): string {
   const diff = Math.round((day(now) - day(d)) / 86_400_000);
   if (diff === 0) return 'היום';
   if (diff === 1) return 'אתמול';
-  if (diff > 1 && diff < 6) return `יום ${DAYS[d.getDay()]}`;
+  if (diff > 1 && diff <= 6) return `יום ${DAYS[d.getDay()]}`;
   const dm = `${d.getDate()}.${d.getMonth() + 1}`;
   return d.getFullYear() === now.getFullYear() ? dm : `${dm}.${String(d.getFullYear()).slice(2)}`;
 }

@@ -17,7 +17,8 @@ describe('format (tools-and-motion §3.2)', () => {
     expect(fmtDay(new Date(2026, 8, 23, 1), NOW)).toBe('היום');
     expect(fmtDay(new Date(2026, 8, 22), NOW)).toBe('אתמול');
     expect(fmtDay(new Date(2026, 8, 18), NOW)).toBe('יום ו׳');
-    expect(fmtDay(new Date(2026, 8, 17), NOW)).toBe('17.9');
+    expect(fmtDay(new Date(2026, 8, 17), NOW)).toBe('יום ה׳');
+    expect(fmtDay(new Date(2026, 8, 16), NOW)).toBe('16.9');
     expect(fmtDay(new Date(2025, 11, 31), NOW)).toBe('31.12.25');
     expect(fmtDay(new Date(2026, 8, 25), NOW)).toBe('25.9');   // future: plain d.m
   });

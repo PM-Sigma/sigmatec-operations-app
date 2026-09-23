@@ -19,7 +19,7 @@ function openSource(row: AlertRow): void {
   } catch { /* legacy not up */ }
 }
 
-export function GroupRow({ g, user, onSeen }: { g: AlertGroup; user: string; onSeen: (g: AlertGroup) => void }) {
+function GroupRow({ g, user, onSeen }: { g: AlertGroup; user: string; onSeen: (g: AlertGroup) => void }) {
   const [open, setOpen] = React.useState(false);
   const many = g.rows.length > 1;
   return (

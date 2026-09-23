@@ -41,6 +41,10 @@ describe('goHome (Σ)', () => {
     state.landing = 'calendar';
     expect(goHome().page).toBe('calendar');
   });
+  it('the viewer default lands on the reports hub scroll target', () => {
+    state.user = 'צפייה'; state.role = 'viewer';
+    expect(goHome().scrollTo).toBe('viewerReportsHub');
+  });
   it('a gated stored landing falls back to the role default, then קיבוצים', () => {
     state.user = 'מתניה'; state.landing = 'inventory'; state.gated = new Set(['inventory', 'dev']);
     expect(goHome().page).toBe('kibbutz');

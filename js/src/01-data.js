@@ -14,9 +14,8 @@
     if (!el) return;
     if (!connected) { el.textContent = '—'; return; }
     if (!isoStr) return;   // connected but no snapshot yet — keep the "טוען…" placeholder
-    const date = new Date(isoStr).toLocaleDateString('he-IL');
-    const time = new Date(isoStr).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
-    el.textContent = 'עודכן: ' + date + ' · ' + time;
+    const d = new Date(isoStr);
+    el.textContent = 'עודכן: ' + d.toLocaleDateString('he-IL') + ' · ' + d.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
   }
   renderLastUpdated();
 

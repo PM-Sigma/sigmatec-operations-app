@@ -66,6 +66,13 @@ export function Nav() {
    * `sigma.openVisitQuick()`, the legacy form, which has no voice panel. `openManual` opens
    * the same arrival → briefing → chapters route unconditionally; the legacy form stays the
    * true fallback for a browser with no React island mounted.
+   *
+   * Round 5, L1: the same logic now also lives in lib/runAdd's `openVisit` (the page-action
+   * row's `visit` add). Kept duplicated here rather than imported — `runAdd.ts` shares a
+   * module with the `runAdd()` switch that HeaderActions' lazy chunk needs, and Nav.tsx is a
+   * BOOT file: importing `openVisit` from it pulled that whole switch into the eager bundle
+   * and broke the 303 KB boot ceiling (test-sigma-shell.mjs). Revisit once `openVisit` has
+   * its own tree-shakeable module, or once U1 rewrites this button.
    */
   const openVisitOrArrival = () => {
     try {
