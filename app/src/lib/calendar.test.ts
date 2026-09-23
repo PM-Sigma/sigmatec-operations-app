@@ -360,12 +360,15 @@ describe('round 5 · C1 — kibbutz blocks on a future day', () => {
 
 describe('round 5 · C1 — picking a block plans the stop AND dates the ticked tasks', () => {
   const DAY = '2026-09-24';
+  // Deliberately NOT midday — proves undo writes the raw value back byte for byte instead of
+  // re-deriving it from the date through dueAt (audit fix; local so it's TZ-proof).
+  const E2_RAW = new Date(2026, 8, 20, 8, 15).toISOString();
   const block: KibbutzBlock = {
     kibbutz: 'יגור', placed: false, tasks: [
-      { key: 'ems:e1', id: 'e1', kind: 'ems', title: 'בדיקת מונים', owner: 'אביאם', due: '', onThisDay: false, overdue: false },
-      { key: 'ems:e2', id: 'e2', kind: 'ems', title: 'החלפת בקר', owner: 'אביאם', due: '2026-09-20', onThisDay: false, overdue: true },
-      { key: 'internal:i1', id: 'i1', kind: 'internal', title: 'להחזיר מונה', owner: 'אביאם', due: '', onThisDay: false, overdue: false },
-      { key: 'ems:e3', id: 'e3', kind: 'ems', title: 'כבר ביום', owner: 'אביאם', due: DAY, onThisDay: true, overdue: false },
+      { key: 'ems:e1', id: 'e1', kind: 'ems', title: 'בדיקת מונים', owner: 'אביאם', due: '', dueRaw: null, onThisDay: false, overdue: false },
+      { key: 'ems:e2', id: 'e2', kind: 'ems', title: 'החלפת בקר', owner: 'אביאם', due: '2026-09-20', dueRaw: E2_RAW, onThisDay: false, overdue: true },
+      { key: 'internal:i1', id: 'i1', kind: 'internal', title: 'להחזיר מונה', owner: 'אביאם', due: '', dueRaw: null, onThisDay: false, overdue: false },
+      { key: 'ems:e3', id: 'e3', kind: 'ems', title: 'כבר ביום', owner: 'אביאם', due: DAY, dueRaw: dueAt(DAY), onThisDay: true, overdue: false },
     ],
   };
 
@@ -381,7 +384,7 @@ describe('round 5 · C1 — picking a block plans the stop AND dates the ticked 
     ]);
     expect(p.ems.undo).toEqual([
       { id: 'e1', body: { expectedCompletionDate: null } },
-      { id: 'e2', body: { expectedCompletionDate: dueAt('2026-09-20') } },
+      { id: 'e2', body: { expectedCompletionDate: E2_RAW } },   // exact — not dueAt('2026-09-20')
     ]);
     expect(p.internal).toEqual({ patches: [{ id: 'i1', due_date: DAY }], undo: [{ id: 'i1', due_date: null }] });
     expect(p.count).toBe(3);

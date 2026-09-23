@@ -11,9 +11,6 @@
 // only ever an input; nothing here hands one back. That is what keeps a day from sliding by
 // one when a phone is on a different timezone from the office calendar.
 
-// Round 5 · C2: ATT_FILERS / mustFile land with A-L1 (docs/superpowers/specs/2026-09-23-r5-A-attendance.md
-// §4 — the canonical contract). TODO(A-L1): remove this note once A-L1 is on origin/main and this
-// branch has rebased onto it — the import below already matches the shipped shape.
 import {
   ATT_FILERS, isHolidayEve, missingDaysFor, mustFile, reportedDaysFor, type AttRow, type Holiday,
 } from './attendance';
@@ -828,6 +825,12 @@ export interface BlockTask {
   owner: string | null;
   /** 'YYYY-MM-DD' or '' for no date. */
   due: string;
+  /**
+   * The UNTOUCHED original value (`expectedCompletionDate` / `due_date`) — `due` is only its
+   * date key. `pickBlock`'s undo writes this back byte for byte, so a task whose real time
+   * wasn't midday (audit fix) comes back exactly as it was, not re-derived through `dueAt`.
+   */
+  dueRaw: string | null;
   onThisDay: boolean;
   overdue: boolean;
 }
@@ -846,12 +849,7 @@ export interface BlockInput {
 }
 
 function cleanStops(stops: string[] | null | undefined): string[] {
-  const out: string[] = [];
-  for (const s of stops || []) {
-    const name = String(s || '').trim();
-    if (name && out.indexOf(name) === -1) out.push(name);
-  }
-  return out;
+  return [...new Set((stops || []).map(s => String(s || '').trim()).filter(Boolean))];
 }
 
 function ownedByAny(name: string | null, owners: string[]): boolean {
@@ -865,8 +863,11 @@ export function planBlocks(i: BlockInput): KibbutzBlock[] {
     const list = map.get(kibbutz);
     if (list) list.push(t); else map.set(kibbutz, [t]);
   };
-  const task = (kind: 'ems' | 'internal', id: string, title: string, owner: string | null, due: string): BlockTask => ({
-    key: kind + ':' + id, id, kind, title, owner, due,
+  const task = (
+    kind: 'ems' | 'internal', id: string, title: string, owner: string | null,
+    due: string, dueRaw: string | null,
+  ): BlockTask => ({
+    key: kind + ':' + id, id, kind, title, owner, due, dueRaw,
     onThisDay: due === i.date,
     overdue: !!due && due < i.today,
   });
@@ -877,14 +878,14 @@ export function planBlocks(i: BlockInput): KibbutzBlock[] {
     const kibbutz = String((t.site && t.site.name) || '').trim();
     const who = personName(t.assignee);
     if (!kibbutz || !ownedByAny(who, i.owners)) continue;
-    add(kibbutz, task('ems', t.id, t.title || 'משימה', who, toKey(t.expectedCompletionDate)));
+    add(kibbutz, task('ems', t.id, t.title || 'משימה', who, toKey(t.expectedCompletionDate), t.expectedCompletionDate ?? null));
   }
   for (const r of i.internalTasks || []) {
     if (!r || !r.id || r.done) continue;
     const kibbutz = String(r.kibbutz || '').trim();
     const who = String(r.owner || '').trim() || null;
     if (!kibbutz || !ownedByAny(who, i.owners)) continue;
-    add(kibbutz, task('internal', r.id, r.title || 'משימה פנימית', who, toKey(r.due_date)));
+    add(kibbutz, task('internal', r.id, r.title || 'משימה פנימית', who, toKey(r.due_date), r.due_date ?? null));
   }
 
   const stops = cleanStops(i.stops);
@@ -928,13 +929,18 @@ export function pickBlock(block: KibbutzBlock, ticked: string[], date: string, s
   const chosen = block.tasks.filter(t => want.has(t.key) && !t.onThisDay);
   const emsChosen = chosen.filter(t => t.kind === 'ems');
   const ems = scheduleTasksPlan(
-    emsChosen.map(t => ({ id: t.id, expectedCompletionDate: t.due ? dueAt(t.due) : null })),
+    emsChosen.map(t => ({ id: t.id, expectedCompletionDate: t.dueRaw })),
     date,
   );
+  // Audit fix: scheduleTasksPlan's own undo re-derives from the DATE only (`dueAt(current)`),
+  // which bakes the time to midday even when the raw value carried a different one. Every
+  // chosen task gets a patch above (none are skipped — `onThisDay` was already filtered out),
+  // so overwrite undo with the untouched raw value, byte for byte.
+  ems.undo = emsChosen.map(t => ({ id: t.id, body: { expectedCompletionDate: t.dueRaw } }));
   const internalChosen = chosen.filter(t => t.kind === 'internal');
   const internal = {
     patches: internalChosen.map(t => ({ id: t.id, due_date: date })),
-    undo: internalChosen.map(t => ({ id: t.id, due_date: t.due || null })),
+    undo: internalChosen.map(t => ({ id: t.id, due_date: t.dueRaw })),
   };
   const count = ems.count + internal.patches.length;
   const d = heShort(date);
@@ -1036,9 +1042,7 @@ export function eventDetail(e: OfficeEvent): EventDetail {
 
 export function visitPeople(v: VisitRow): string[] {
   const list = Array.isArray(v.visitors) && v.visitors.length ? v.visitors : (v.visitor ? [v.visitor] : []);
-  const out: string[] = [];
-  for (const p of list) { const n = String(p || '').trim(); if (n && out.indexOf(n) === -1) out.push(n); }
-  return out;
+  return [...new Set(list.map(p => String(p || '').trim()).filter(Boolean))];
 }
 
 export function durationLabel(v: VisitRow): string {
@@ -1169,14 +1173,14 @@ export function absenceAttendance(
   existing: Array<{ person?: string; date: string; source?: string }> = [],
 ): GeneratedAttRow[] {
   if (a.kind === 'event') return [];
-  const people = a.person ? [a.person] : ATTENDANCE_PEOPLE.slice();
+  const people = a.person ? [a.person] : ATT_FILERS.slice();
   const manual = new Set(
     existing.filter(r => r.source !== 'calendar').map(r => (r.person || '') + '|' + toKey(r.date)),
   );
   const dayType = a.kind === 'reserve' ? 'reserve' : 'vacation';
   const out: GeneratedAttRow[] = [];
   for (const person of people) {
-    if (ATTENDANCE_PEOPLE.indexOf(person) === -1) continue;   // nobody else files attendance
+    if (ATT_FILERS.indexOf(person) === -1) continue;   // nobody else files attendance
     for (const date of absenceDays(a, holidays)) {
       if (manual.has(person + '|' + date)) continue;
       out.push({ person, date, dayType, source: 'calendar', note: a.note || ABSENCE_LABELS[a.kind] });

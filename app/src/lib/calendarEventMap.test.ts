@@ -15,12 +15,16 @@ describe('the calendar edge function’s list mapper', () => {
     expect(out).toEqual({
       id: 'g1', title: 'ישיבה', start: '2026-09-24T10:00:00+03:00', end: '2026-09-24T11:00:00+03:00',
       allDay: false, location: 'משרד', description: 'x', hangoutLink: 'https://meet.google.com/abc',
-      organizer: { name: 'עמיחי', email: 'a@x.com' },
+      // Audit fix: no raw email ever leaves the function — every EMS role, viewer included, can
+      // read this response. The label is the display name, or the part before '@' when Google
+      // gave none.
+      organizer: { name: 'עמיחי' },
       attendees: [
-        { name: 'אביאם', email: 'b@x.com', self: true, declined: false },
-        { name: '', email: 'c@x.com', self: false, declined: true },
+        { name: 'אביאם', self: true, declined: false },
+        { name: 'c', self: false, declined: true },
       ],
     });
+    expect(JSON.stringify(out)).not.toMatch(/@x\.com/);
   });
   it('an event with no title, no attendees and an all-day date', () => {
     const out = mapGoogleEvent({ id: 'g2', start: { date: '2026-09-24' }, end: { date: '2026-09-25' } });
