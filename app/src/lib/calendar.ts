@@ -48,6 +48,10 @@ export interface VisitRow {
   /** Round 2 · G3 — a past day SHOWS its summary, read only. */
   summary?: string | null;
   open_items?: string | null;
+  /** Round 5 · V6 — everyone in "מי ביקר". `visitor` stays the first one for legacy readers. */
+  visitors?: string[];
+  /** Hours, as the snapshot carries them (a number or a numeric string). */
+  duration?: number | string;
 }
 
 export interface CalEmsTask {
@@ -536,7 +540,8 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
   for (const v of src.visits || []) {
     const date = toKey(v.date);
     if (!date) continue;
-    const who = v.visitor || null;
+    const people = visitPeople(v);
+    const who = people[0] || null;
     out.push({
       key: 'visit:' + (v.id || date + ':' + (v.kibbutz || '')),
       date,
@@ -545,7 +550,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       title: (v.kibbutz || '') + (v.workday ? ' · יום עבודה' : ''),
       kibbutz: v.kibbutz || null,
       person: who,
-      mine: isMine(who, me),
+      mine: people.some(p => isMine(p, me)),
     });
   }
 
@@ -1015,6 +1020,87 @@ export function eventDetail(e: OfficeEvent): EventDetail {
     who,
     meetLink: e.hangoutLink ? String(e.hangoutLink) : null,
   };
+}
+
+// ───────────────────────────── a visit, read only (round 5 · C3) ─────────────────────────────
+
+export function visitPeople(v: VisitRow): string[] {
+  const list = Array.isArray(v.visitors) && v.visitors.length ? v.visitors : (v.visitor ? [v.visitor] : []);
+  const out: string[] = [];
+  for (const p of list) { const n = String(p || '').trim(); if (n && out.indexOf(n) === -1) out.push(n); }
+  return out;
+}
+
+export function durationLabel(v: VisitRow): string {
+  if (v.workday) return 'יום עבודה';
+  const h = Number(v.duration);
+  if (!isFinite(h) || h <= 0) return '';
+  return (Math.round(h * 100) / 100) + ' ש׳';
+}
+
+export interface VisitRead {
+  id: string;
+  kibbutz: string;
+  when: string;
+  people: string;
+  duration: string;
+  summary: string;
+  openItems: string;
+}
+
+export function visitRead(v: VisitRow): VisitRead {
+  return {
+    id: String(v.id || ''),
+    kibbutz: String(v.kibbutz || '').trim() || 'ביקור',
+    when: dayShort(toKey(v.date)),
+    people: visitPeople(v).join(', '),
+    duration: durationLabel(v),
+    summary: String(v.summary || '').trim(),
+    openItems: String(v.open_items || '').trim(),
+  };
+}
+
+/**
+ * What a day lists: its visit summaries as rows of their own, and everything else. The
+ * visit-layer items are NOT listed a second time (the "small pins under it" the ruling drops).
+ */
+export function dayListing(date: string, items: CalItem[], visits: VisitRow[]): { visits: VisitRow[]; others: CalItem[] } {
+  return {
+    visits: visitsOn(visits, date),
+    others: (items || []).filter(i => i.date === date && i.layer !== 'visit'),
+  };
+}
+
+// ───────────────────────────── one look per cell (round 5 · C5) ─────────────────────────────
+
+/** The DayCell states the calendar uses (components/ui/day-cell.tsx). */
+export type CalCellState = 'default' | 'selected' | 'holiday' | 'eve' | 'field' | 'missing' | 'outside';
+
+export interface CalCellLook {
+  state: CalCellState;
+  /** Today is a ring ON TOP of the state, never a state of its own (a filed today stays green). */
+  today: boolean;
+  /** The cell's aria-label: the day, then the holiday or the attendance fact. */
+  label: string;
+}
+
+/**
+ * The precedence, once: outside → selected → missing → filed (green) → eve → holiday → plain.
+ * `missing` already comes gated from `missingInView` (filers only, past workdays only).
+ */
+export function calCellLook(cell: CalCell, o: { selected: boolean; missing: boolean; reported: boolean }): CalCellLook {
+  let state: CalCellState = 'default';
+  if (!cell.inMonth) state = 'outside';
+  else if (o.selected) state = 'selected';
+  else if (o.missing) state = 'missing';
+  else if (o.reported) state = 'field';
+  else if (cell.eve) state = 'eve';
+  else if (cell.holiday) state = 'holiday';
+  const facts = [dayShort(cell.date)];
+  if (cell.holiday) facts.push(cell.holiday.name);
+  if (o.missing) facts.push('לא דווחה נוכחות');
+  else if (o.reported) facts.push('דווחה נוכחות');
+  return { state, today: !!cell.today, label: facts.join(' · ') };
 }
 
 // ───────────────────────────── absences ─────────────────────────────

@@ -14,6 +14,7 @@ import {
   workWeekLabel, missingInView, reportedInView, showWeekNumbers, weekAria,
   planBlocks, pickBlock, isNoopPick, type KibbutzBlock, type CalInternalTask,
   dayShort, plainText, eventWhen, eventDetail,
+  visitPeople, durationLabel, visitRead, dayListing, calCellLook, type CalCell,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -446,6 +447,63 @@ describe('round 5 · C4 — one detail sheet for a Google event', () => {
   it('an event item carries the id the sheet looks it up by', () => {
     const items = calendarItems({ events: [{ id: 'ev9', title: 'כנס', start: '2026-09-24' }] });
     expect(items[0].eventId).toBe('ev9');
+  });
+});
+
+describe('round 5 · C3 — a visit opens a compact read view', () => {
+  const v: VisitRow = {
+    id: 'v7', date: '2026-09-22T09:00:00+03:00', kibbutz: 'יגור', visitor: 'אביאם',
+    visitors: ['אביאם', 'ניתאי'], duration: 4, summary: 'הוחלף בקר', open_items: 'להחזיר מונה',
+  };
+  it('everyone who was there, from the multi-select; falls back to the single visitor', () => {
+    expect(visitPeople(v)).toEqual(['אביאם', 'ניתאי']);
+    expect(visitPeople({ date: '2026-09-22', visitor: 'ניתאי' })).toEqual(['ניתאי']);
+    expect(visitPeople({ date: '2026-09-22' })).toEqual([]);
+  });
+  it('the duration reads the way people say it', () => {
+    expect(durationLabel(v)).toBe('4 ש׳');
+    expect(durationLabel({ date: 'x', duration: '2.5' })).toBe('2.5 ש׳');
+    expect(durationLabel({ date: 'x', workday: true })).toBe('יום עבודה');
+    expect(durationLabel({ date: 'x' })).toBe('');
+  });
+  it('the read model', () => {
+    expect(visitRead(v)).toEqual({
+      id: 'v7', kibbutz: 'יגור', when: 'יום ג׳ · 22.9', people: 'אביאם, ניתאי', duration: '4 ש׳',
+      summary: 'הוחלף בקר', openItems: 'להחזיר מונה',
+    });
+  });
+  it('a visit is "mine" for every person in מי ביקר', () => {
+    const [item] = calendarItems({ visits: [v] }, { me: 'ניתאי' });
+    expect(item.mine).toBe(true);
+  });
+  it('no small pins under a visit: the visit layer items are not listed again', () => {
+    const items = calendarItems({ visits: [v], events: [{ id: 'e', title: 'ישיבה', start: '2026-09-22' }] });
+    const day = dayListing('2026-09-22', itemsOn(items, '2026-09-22'), [v]);
+    expect(day.visits.map(x => x.id)).toEqual(['v7']);
+    expect(day.others.map(i => i.layer)).toEqual(['event']);
+  });
+});
+
+describe('round 5 · C5 — one look per cell', () => {
+  const cell = (over: Partial<CalCell> = {}): CalCell => ({
+    date: '2026-09-22', day: 22, dow: 2, weekend: false, inMonth: true, today: false, holiday: null, eve: false, ...over,
+  });
+  const HOL = { date: '2026-09-21', name: 'יום כיפור', kind: 'holiday', required: false } as Holiday;
+  const EVE = { date: '2026-09-20', name: 'ערב יום כיפור', kind: 'holiday_eve', required: true } as Holiday;
+  const none = { selected: false, missing: false, reported: false };
+
+  it('purple for a holiday and for an eve, and the name goes into the label', () => {
+    expect(calCellLook(cell({ holiday: HOL }), none)).toEqual({ state: 'holiday', today: false, label: 'יום ג׳ · 22.9 · יום כיפור' });
+    expect(calCellLook(cell({ holiday: EVE, eve: true }), none).state).toBe('eve');
+  });
+  it('green for a filed day, even on a holiday; red only when the caller says missing', () => {
+    expect(calCellLook(cell({ holiday: HOL }), { ...none, reported: true }).state).toBe('field');
+    expect(calCellLook(cell(), { ...none, missing: true })).toEqual({ state: 'missing', today: false, label: 'יום ג׳ · 22.9 · לא דווחה נוכחות' });
+  });
+  it('selected wins, a lead/trail filler is dimmed, today is a ring on top of any state', () => {
+    expect(calCellLook(cell(), { ...none, selected: true, reported: true }).state).toBe('selected');
+    expect(calCellLook(cell({ inMonth: false }), { ...none, reported: true }).state).toBe('outside');
+    expect(calCellLook(cell({ today: true }), { ...none, reported: true })).toMatchObject({ state: 'field', today: true });
   });
 });
 
