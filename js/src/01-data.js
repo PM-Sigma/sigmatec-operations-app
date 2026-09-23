@@ -374,7 +374,10 @@
         attendance: mockAttendance(), visits: mockVisits(), holidays: window.MOCK_HOLIDAYS.slice(),
         // Phase 1/2 surfaces (shared EMS snapshot + queue, served from the Sheet):
         emsCache: M.cacheStore || { syncedAt: '', syncedBy: '', tasks: [] },
-        emsQueue: M.queue
+        emsQueue: M.queue,
+        // 🧪 inventory flow suite (package I): a spec may replace orders/products/movements/
+        // requirements/returns before boot, via page.addInitScript. Localhost mock only.
+        ...(window.__MOCK_EXTRA || {})
       };
     }
 

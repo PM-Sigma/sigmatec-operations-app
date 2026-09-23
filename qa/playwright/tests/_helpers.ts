@@ -19,6 +19,12 @@ import { mkdir } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { FIXTURES } from './_fixtures';
+// 📦 package I (inventory rewrite): opts.inventory seeds real Supabase-backed stores for
+// products/orders/movements/requirements/returns/delivery_certs/kibbutz_details/site_contacts
+// from the ONE inventory fixture set (qa/playwright/tests/inventory/_inv-fixtures.ts), so a spec
+// booted with `sb=1` (the only mode where js/src/20-delivery-cert.js's _sbCertGet works — sb=0
+// serves window.SHEET_DATA from an entirely separate in-page mock) sees consistent numbers.
+import { INVENTORY } from './inventory/_inv-fixtures';
 
 export const SB_ORIGIN = 'https://wwqfcajnxinaxmobrgol.supabase.co';
 
@@ -59,7 +65,7 @@ function tableOf(url: string): string {
  * which is the real state of a mock-mode session (no EMS pass → RLS would refuse it) and is
  * what makes the islands show their login hint instead of pretending a save happened.
  */
-export async function installRoutes(page: Page, opts: { checkins?: boolean } = {}): Promise<void> {
+export async function installRoutes(page: Page, opts: { checkins?: boolean; inventory?: boolean } = {}): Promise<void> {
   /**
    * 🗺️ day_plans — the ONE table in this harness that is a real store rather than a fixture.
    * The calendar's route (spec §7f) is only meaningful if a reorder STICKS: the spec drags a
@@ -119,7 +125,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
    * the `stock_recounts` row and its `חברה → ספירה` movement exist, with the counted
    * quantity and the note on them.
    */
-  const movements: Array<Record<string, unknown>> = [];
+  const movements: Array<Record<string, unknown>> = opts.inventory ? INVENTORY.movements.map(m => ({ ...m })) : [];
   const stockRecounts: Array<Record<string, unknown>> = [];
   /**
    * 🔔 inventory_alerts + the catalog's red lines (Task 10, inventory spec §5). The bell is
@@ -134,15 +140,28 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
     { id: 'ia-3', kind: 'movement', product: 'בקר 504', qty: 12, from_location: 'ספק', to_location: 'חברה',
       reason: 'order_delivery', ref_id: 'ord-1', actor: 'עמיחי', created_at: '2026-09-19T09:00:00Z', seen_by: ['עמיחי'] },
   ];
-  const products: Array<Record<string, any>> = [
+  const products: Array<Record<string, any>> = opts.inventory ? INVENTORY.products.map(p => ({ ...p })) : [
     { id: 'p-1', name: 'מונה Landis+Gyr E360PP', min_qty: 15, active: true },
     { id: 'p-2', name: 'בקר 504', min_qty: null, active: true },
     { id: 'p-3', name: 'סים 1NCE', min_qty: 15, active: true },
   ];
-  const siteContacts: Array<Record<string, unknown>> = [
+  const siteContacts: Array<Record<string, unknown>> = opts.inventory ? INVENTORY.site_contacts.map(c => ({ ...c })) : [
     { id: 'sc-1', kibbutz: 'חוקוק', name: 'גפן', role: 'manager', active: true },
     { id: 'sc-2', kibbutz: 'חוקוק', name: 'רבקה', role: 'billing', active: true },
   ];
+  // 📦 package I — orders/requirements/returns/delivery_certs/kibbutz_details/parse_corrections
+  // are real GET/POST/PATCH stores only when a spec asks for them; every other spec's `default:`
+  // empty-array behaviour is unchanged (these tables were never in the switch before).
+  const invOrders: Array<Record<string, any>> = opts.inventory ? INVENTORY.orders.map(o => ({ ...o })) : [];
+  const invRequirements: Array<Record<string, any>> = opts.inventory ? INVENTORY.requirements.map(r => ({ ...r })) : [];
+  const invReturns: Array<Record<string, any>> = opts.inventory ? INVENTORY.returns.map(r => ({ ...r })) : [];
+  const invCerts: Array<Record<string, any>> = opts.inventory ? INVENTORY.delivery_certs.map(c => ({ ...c })) : [];
+  const invDetails: Array<Record<string, any>> = opts.inventory ? INVENTORY.kibbutz_details.map(d => ({ ...d })) : [];
+  const invParseCorrections: Array<Record<string, any>> = [];
+  const eqParam = (url: string, key: string) => {
+    const v = new URL(url).searchParams.get(key);
+    return v ? decodeURIComponent(v.replace(/^eq\./, '')) : '';
+  };
   /**
    * 💻 the dev board (Task 30) — a real store for the same reason: ▶ ישיבת פיתוח is only
    * meaningful if accepting a proposal MOVES the card, so `setStatus` is applied here and the
@@ -239,6 +258,14 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
     // make (audit C #3): the table is an audit trail with no client UPDATE/DELETE policy, so
     // 🔔 "סמן כנקרא" goes through this SECURITY DEFINER RPC. Applied to the live store so a
     // spec can assert the row really carries the reader afterwards.
+    // `cert_by_id(p_id)` — the SECURITY DEFINER read behind the public `?cert=` route and
+    // certFetchRow's primary path (js/src/20-delivery-cert.js). A SETOF function: an array back.
+    if (url.includes('/rest/v1/rpc/cert_by_id')) {
+      let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+      const hit = invCerts.find(c => String(c.id) === String(body?.p_id));
+      return route.fulfill(json(hit ? [hit] : []));
+    }
+
     if (url.includes('/rest/v1/rpc/alert_mark_seen')) {
       let body: any = {};
       try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
@@ -358,6 +385,86 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
         const hit = store.find(r => String(r[key]) === want);
         if (hit) Object.assign(hit, body);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
+      // 📦 package I — W.product (js/src/01-data.js) always upserts by id, even for a toggle:
+      // `invToggleProductActive` sends only `{type:'product',id,active}`, and the FULL ROW
+      // W.product builds from it (name:'',category:'',…) is what actually reaches the wire —
+      // this is the P13 bug (the toggle blanks name/category), kept honest on purpose.
+      if (tableOf(url) === 'products' && method === 'POST') {
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = Array.isArray(body) ? body : [body];
+        for (const r of rows) {
+          const hit = products.find(p => String(p.id) === String(r.id));
+          if (hit) Object.assign(hit, r); else products.push({ ...r });
+        }
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      // orders — insert (POST, upsert-by-id, a fresh id already minted client-side) or edit
+      // (PATCH by id — quick action / approve / the edit sheet's save all go through this).
+      if (tableOf(url) === 'orders' && method === 'POST') {
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = Array.isArray(body) ? body : [body];
+        for (const r of rows) {
+          const hit = invOrders.find(o => String(o.id) === String(r.id));
+          if (hit) Object.assign(hit, r); else invOrders.push({ ...r });
+        }
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'orders' && method === 'PATCH') {
+        const id = eqParam(url, 'id');
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = invOrders.find(o => String(o.id) === id);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
+      // requirements — same insert/edit shape as orders.
+      if (tableOf(url) === 'requirements' && method === 'POST') {
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = Array.isArray(body) ? body : [body];
+        for (const r of rows) {
+          const hit = invRequirements.find(x => String(x.id) === String(r.id));
+          if (hit) Object.assign(hit, r); else invRequirements.push({ ...r });
+        }
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      if (tableOf(url) === 'requirements' && method === 'PATCH') {
+        const id = eqParam(url, 'id');
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = invRequirements.find(x => String(x.id) === id);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
+      // returns — always an upsert-by-id (returnToStock / markReturnDefective send {id,status}).
+      if (tableOf(url) === 'returns' && method === 'POST') {
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = Array.isArray(body) ? body : [body];
+        for (const r of rows) {
+          const hit = invReturns.find(x => String(x.id) === String(r.id));
+          if (hit) Object.assign(hit, r); else invReturns.push({ ...r });
+        }
+        return route.fulfill(json(shape(rows, accept), 201));
+      }
+      // delivery_certs — POST (no on_conflict) is a plain insert; the server assigns cert_number.
+      // PATCH by id is the cancel / doc_html-snapshot write.
+      if (tableOf(url) === 'delivery_certs' && method === 'POST') {
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const next = 1 + invCerts.reduce((m, c) => Math.max(m, Number(c.cert_number) || 0), 1000);
+        const row = { id: 'cert-' + (invCerts.length + 1) + '-' + Date.now(), cert_number: next, status: 'active', replaced_by: 0, ...body };
+        invCerts.push(row);
+        return route.fulfill(json(shape([row], accept), 201));
+      }
+      if (tableOf(url) === 'delivery_certs' && method === 'PATCH') {
+        const id = eqParam(url, 'id');
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = invCerts.find(x => String(x.id) === id);
+        if (hit) Object.assign(hit, body);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
+      if (tableOf(url) === 'parse_corrections' && method === 'POST') {
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'pc-' + (invParseCorrections.length + i + 1), ...r }));
+        invParseCorrections.push(...rows);
+        return route.fulfill(json(shape(rows, accept), 201));
       }
       // 📦 movements / stock_recounts (Task 8) — the 🔢 recount writes both, in that order.
       if ((tableOf(url) === 'movements' || tableOf(url) === 'stock_recounts') && method === 'POST') {
@@ -489,7 +596,32 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean } = {
       case 'site_contacts': {
         const q = new URL(url).searchParams;
         const k = decodeURIComponent((q.get('kibbutz') || '').replace(/^eq\./, ''));
-        return route.fulfill(json(shape(k ? siteContacts.filter(c => c.kibbutz === k) : siteContacts, accept)));
+        const active = q.get('active');
+        let rows = k ? siteContacts.filter(c => c.kibbutz === k) : siteContacts;
+        if (active === 'eq.true') rows = rows.filter(c => c.active !== false);
+        return route.fulfill(json(shape(rows, accept)));
+      }
+      // 📦 package I (inventory rewrite) — real stores, seeded from qa/playwright/tests/
+      // inventory/_inv-fixtures.ts only when a spec passes installRoutes(page,{inventory:true}).
+      case 'orders': return route.fulfill(json(shape(invOrders, accept)));
+      case 'requirements': return route.fulfill(json(shape(invRequirements, accept)));
+      case 'returns': return route.fulfill(json(shape(invReturns, accept)));
+      case 'parse_corrections': return route.fulfill(json(shape(invParseCorrections, accept)));
+      case 'kibbutz_details': return route.fulfill(json(shape(invDetails, accept)));
+      case 'delivery_certs': {
+        const q = new URL(url).searchParams;
+        const id = eqParam(url, 'id');
+        let rows = id ? invCerts.filter(c => String(c.id) === id) : invCerts.slice();
+        // PostgREST repeats the key for a two-sided range: cert_date=gte.X&cert_date=lte.Y.
+        const bounds = q.getAll('cert_date');
+        for (const b of bounds) {
+          if (b.startsWith('gte.')) { const v = b.slice(4); rows = rows.filter(c => String(c.cert_date) >= v); }
+          if (b.startsWith('lte.')) { const v = b.slice(4); rows = rows.filter(c => String(c.cert_date) <= v); }
+        }
+        if ((q.get('order') || '').indexOf('cert_number.desc') !== -1) {
+          rows = rows.slice().sort((a, b2) => Number(b2.cert_number || 0) - Number(a.cert_number || 0));
+        }
+        return route.fulfill(json(shape(rows, accept)));
       }
       case 'onboarding_templates': return route.fulfill(json(shape([onboardingTemplate], accept)));
       case 'onboarding_steps': return route.fulfill(json(shape(onboardingSteps, accept)));
@@ -569,6 +701,8 @@ export interface BootOptions {
   ready?: string;
   /** Serve today's field check-in fixture (spec §5.1) instead of an empty list. */
   checkins?: boolean;
+  /** 📦 package I — seed the inventory stores (see installRoutes). */
+  inventory?: boolean;
   /**
    * Let the arrival sheet open by itself. It is latched off for every other spec the way the
    * push and attendance prompts are — a full-screen sheet on an unrelated screen is harness
@@ -585,7 +719,7 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
   const viewport = (testInfo.project.metadata as any).viewport as string;
 
   const rec = watchConsole(page);
-  await installRoutes(page, { checkins: opts.checkins });
+  await installRoutes(page, { checkins: opts.checkins, inventory: opts.inventory });
 
   const seed: Record<string, string> = {
     dashboard_user_v1: who,

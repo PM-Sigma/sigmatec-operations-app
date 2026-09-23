@@ -155,3 +155,7 @@ export const FIXTURES: Fixtures = {
   kibbutzim: KIBBUTZIM, notes: NOTES, usage: USAGE_EVENTS, checkins: CHECKINS,
   burns: METER_BURNS, generators: GENERATORS,
 };
+
+// 📦 package I (inventory rewrite): the one inventory fixture set, re-exported here so a spec
+// can `import { INVENTORY } from './_fixtures'` like every other fixture in this file.
+export { INVENTORY } from './inventory/_inv-fixtures';
