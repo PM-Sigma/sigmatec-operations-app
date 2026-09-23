@@ -40,6 +40,12 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
+// z-[1200] — matches the --z-sheet token in styles.css (kept as a literal here: this file is in
+// the BOOT chunk, under a hard byte ceiling, test-sigma-shell.mjs). Every sheet here can be
+// opened from INSIDE a legacy overlay (.modal-backdrop is z-index:1000, the EMS task modal
+// 1160). At z-50 the sheet opened *underneath* them — it looked like the button "did nothing",
+// while the sheet was live and tappable the moment the legacy modal closed. That is how two
+// kibbutzim got archived by accident on 22.9. Still below the JS overlays (100001) / toaster (100002).
 const sheetVariants = cva(
   "fixed z-[1200] gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
   {
@@ -83,14 +89,29 @@ const SheetContent = React.forwardRef<
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
-      className={cn(sheetVariants({ side }), hideClose && "before:hidden", className)}
+      className={cn(
+        sheetVariants({ side }),
+        // Design-system spec — "nothing absolute over the title": reserving a 56px strip for
+        // the close button (rather than floating it over whatever a caller's own SheetHeader
+        // puts at the top) is what stops it overlapping the title (audit §1.4 — it covered
+        // "+ הוספה ליום" in calendar-day-future and the title in settings/more-sheet/alerts-bell).
+        // Every existing caller keeps working unchanged: this only adds top space, nothing moves.
+        !hideClose && "pt-14",
+        hideClose && "before:hidden",
+        className,
+      )}
       {...props}
     >
       {children}
-      {!hideClose && <SheetPrimitive.Close className="absolute end-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </SheetPrimitive.Close>}
+      {!hideClose && (
+        <SheetPrimitive.Close
+          className="absolute flex h-12 w-12 items-center justify-center rounded-full opacity-70 hover:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none"
+          style={{ insetInlineEnd: 8, insetBlockStart: 8 }}
+        >
+          <X className="h-5 w-5" />
+          <span className="sr-only">סגירה</span>
+        </SheetPrimitive.Close>
+      )}
     </SheetPrimitive.Content>
   </SheetPortal>
 ))
@@ -130,7 +151,9 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold text-foreground", className)}
+    // title-sm (spec §2 Type: 18/700) — text-lg is already 18px, so this stays plain utilities
+    // (sheet.tsx is in the BOOT chunk, under a byte ceiling; no need for the var()-length form).
+    className={cn("line-clamp-2 text-lg font-bold text-foreground", className)}
     {...props}
   />
 ))

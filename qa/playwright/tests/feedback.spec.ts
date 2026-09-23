@@ -106,7 +106,11 @@ test('feedback: closing the sheet does not lose the text — a draft survives a 
   await box.fill('לא לאבד את זה כשסוגרים את התיבה');
 
   // The X close button — no confirmation dialog is expected here, and no crash card either.
-  await page.locator('button:has-text("Close")').click();
+  // Labelled "סגירה" (design system round 5, spec 2026-09-23-design-system-design.md), not the
+  // old shadcn default "Close". Scoped to the sheet's own `role="dialog"` — several legacy
+  // modals elsewhere on the page (hidden, but still in the DOM) use the same Hebrew label on
+  // their own close buttons.
+  await page.getByRole('dialog').getByRole('button', { name: 'סגירה' }).click();
   await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeHidden();
   await expect(page.getByTestId('crash-card')).toHaveCount(0);
 

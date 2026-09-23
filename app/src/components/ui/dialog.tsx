@@ -21,8 +21,10 @@ const DialogPortal = ({ children, ...props }: React.ComponentProps<typeof Dialog
 
 const DialogClose = DialogPrimitive.Close
 
-// z-[1210]: a dialog can open from INSIDE a sheet (⚙️ הגדרות and ✉️ הודעה from ⋯ עוד), and sheets
-// are z-[1200] since 22.9 (sheet.tsx). Select popovers sit at 1220. Still under the JS overlays (100001).
+// z-[1210] — matches the --z-dialog token in styles.css (kept as a literal: dialog.tsx is in
+// the BOOT chunk, under a hard byte ceiling, test-sigma-shell.mjs). A dialog can open from
+// INSIDE a sheet (⚙️ הגדרות and ✉️ הודעה from ⋯ עוד), and sheets are z-[1200] since 22.9
+// (sheet.tsx). Select popovers sit at 1220. Still under the JS overlays (100001).
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -51,15 +53,23 @@ const DialogContent = React.forwardRef<
         // in either direction — and there is no logical-property equivalent for a fixed
         // centred layer. It is not a start/end decision.
         "fixed left-[50%] top-[50%] z-[1210] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        // Same reserved-strip fix as sheet.tsx: the close button gets its own top band instead
+        // of floating over whatever a caller's own DialogHeader/DialogTitle puts at the top.
+        !hideClose && "pt-14",
         className
       )}
       {...props}
     >
       {children}
-      {!hideClose && <DialogPrimitive.Close className="absolute end-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>}
+      {!hideClose && (
+        <DialogPrimitive.Close
+          className="absolute flex h-12 w-12 items-center justify-center rounded-full opacity-70 hover:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none"
+          style={{ insetInlineEnd: 8, insetBlockStart: 8 }}
+        >
+          <X className="h-5 w-5" />
+          <span className="sr-only">סגירה</span>
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
 ))
@@ -99,10 +109,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
-      className
-    )}
+    className={cn("line-clamp-2 text-lg font-bold", className)}
     {...props}
   />
 ))

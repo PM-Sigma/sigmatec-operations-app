@@ -73,6 +73,15 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, colorScheme: 'dark' },
       metadata: { viewport: 'mobile-390', theme: 'dark' },
     },
+    // 360×780 (Galaxy S24, the smallest phone in the round-5 QA range — עידן 23.9): a real
+    // touch/DPR profile, not the Desktop-Chrome base the other mobile projects use, since 360
+    // is now the primary phone target and a false-negative from an untouched/1x emulation would
+    // hide the exact overlap bugs this width exists to catch.
+    {
+      name: 'mobile-360-light',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 780 }, colorScheme: 'light', deviceScaleFactor: 3, hasTouch: true, isMobile: true },
+      metadata: { viewport: 'mobile-360', theme: 'light' },
+    },
   ],
 
   webServer: {

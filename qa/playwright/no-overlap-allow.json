@@ -1,0 +1,9 @@
+{
+  "home": "legacy kibbutz-card grid — package K rewrites KibbutzCard/KibbutzDetail onto SectionBlock/ListRow",
+  "calendar": "legacy .ucal-* grid — package C rewrites Calendar.tsx onto DayCell/SegmentedControl",
+  "inventory": "legacy inv-* markup — package I is the full React rewrite (06/07/08/20 + inventory index.html)",
+  "attendance": "legacy att-* grid + native <select> report pickers — package A rewrites onto DayCell/StatTile",
+  "burns": "legacy burn-* cards, native <select> segmented control — package G rewrites the burns page",
+  "more-sheet": "MoreSheet.tsx predates BubbleButton — package S (shell) rewrites the row/chip controls",
+  "settings-sheet": "Settings.tsx native <select>/number steppers — package G rewrites onto design-system inputs"
+}

@@ -1,0 +1,6 @@
+{
+  "_comment": "Ratchet baseline for the round-5 copy rules (tools-and-motion.md §1 'Copy', עידן's ruling 23.9): no '!' in system copy, no emoji in chrome (lucide instead), noun-form buttons (שמירה not שמור). These counts are the PRE-EXISTING app as of the design-system foundation pass — not fixed here on purpose ('don't sweep the whole app's copy now — each page package converts its own strings' — עידן 23.9). The gate only stops the count rising; each page package that rewrites a screen lowers its own numbers as it goes.",
+  "no-bang": 7,
+  "no-emoji-in-chrome": 454,
+  "imperative-buttons": 115
+}

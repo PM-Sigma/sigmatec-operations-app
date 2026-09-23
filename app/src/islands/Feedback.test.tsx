@@ -386,8 +386,9 @@ describe('the draft (round 2, Package D item 1)', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(600); });
 
     // Close via the X — no confirmation is expected (the draft survives regardless), and this
-    // must never throw (the reported crash).
-    const closeBtn = screen.getByText('Close').closest('button')!;
+    // must never throw (the reported crash). Sheet's close button is labelled "סגירה" (design
+    // system round 5, spec 2026-09-23-design-system-design.md), not the old "Close".
+    const closeBtn = screen.getByText('סגירה').closest('button')!;
     expect(() => fireEvent.click(closeBtn)).not.toThrow();
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     vi.useRealTimers();

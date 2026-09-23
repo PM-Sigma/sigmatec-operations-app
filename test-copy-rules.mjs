@@ -171,6 +171,40 @@ check('rule 1 still BITES — the four words added after F-14 match real sentenc
   mustNot.forEach(t => assert.ok(!fires(t), 'false positive: ' + t));
 });
 
+// ── round 5 phase 2: the designer's copy rules (tools-and-motion.md §1 "Copy"), עידן's ruling
+// 23.9 — as a RATCHET, not a sweep. The app has plenty of pre-existing "!", emoji-as-icon and
+// imperative-form buttons; fixing all of it now is each page package's job as it rewrites that
+// page, not this token/component pass. This only stops the count climbing back up, the same
+// shape test-impeccable.mjs uses. ──────────────────────────────────────────────────────────
+const COPY_BASELINE_PATH = path.join(__dirname, 'qa', 'copy-rules-baseline.json');
+const copyBaseline = JSON.parse(fs.readFileSync(COPY_BASELINE_PATH, 'utf8'));
+
+/** Masculine-imperative button verbs the noun form replaces (שמור→שמירה, שלח→שליחה…). Matched
+    as a whole word so it doesn't fire on "לשמור" or "ששלח". */
+const IMPERATIVE_BUTTON_VERBS = /(?<![א-ת])(שמור|שלח|סגור|בטל|מחק|ערוך|הוסף|בחר|אשר|פתח|העלה)(?![א-ת])/;
+/** Any of the emoji this app uses as an icon-substitute (audit: "🆕 · 🔴 · ⚠️ · 📋 · ⏰" and
+    friends) — a broad emoji-range match, not a fixed list, since the point is "any emoji in
+    chrome", not a specific set. Surrogate-pair aware. */
+const EMOJI = /\p{Extended_Pictographic}/u;
+
+function ratchet(name, files, re) {
+  const hits = [];
+  for (const f of files) {
+    for (const { line, text } of copyStrings(f)) {
+      if (re.test(text)) hits.push(`${f}:${line} ${text.trim().slice(0, 90)}`);
+    }
+  }
+  const was = copyBaseline[name] ?? 0;
+  check(`copy ratchet — ${name} (${hits.length}, baseline ${was})`, () => {
+    assert.ok(hits.length <= was,
+      `${name} rose from ${was} to ${hits.length}:\n    ` + hits.slice(0, 20).join('\n    '));
+  });
+}
+
+ratchet('no-bang', NEW_UI, /!/);
+ratchet('no-emoji-in-chrome', NEW_UI, EMOJI);
+ratchet('imperative-buttons', NEW_UI, IMPERATIVE_BUTTON_VERBS);
+
 check('the sweep is actually looking at copy (not passing on an empty scan)', () => {
   assert.ok(NEW_UI.length > 20, 'expected the island sources + index.html, found ' + NEW_UI.length);
   assert.ok(LEGACY.length > 20, 'expected the legacy modules, found ' + LEGACY.length);
