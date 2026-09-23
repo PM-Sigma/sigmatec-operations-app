@@ -173,9 +173,11 @@ export const legacyDriver: InvDriver = {
       const cells = await rowLoc.first().locator('td').allInnerTexts();
       return cells[col] === undefined ? null : parseFloat(cells[col]) || 0;
     }
-    // mobile accordion
+    // mobile accordion — a closed <details> hides its content (the UA stylesheet), so
+    // innerText() on anything inside returns '' until it's opened.
     const card = matrix.locator('details.inv-loc-card').filter({ hasText: kibbutz });
     if (await card.count() === 0) return null;
+    await card.first().evaluate(el => { (el as HTMLDetailsElement).open = true; });
     const line = card.locator('.item-row', { hasText: product });
     if (await line.count() === 0) return null;
     const txt = await line.first().locator('.qty').innerText();
