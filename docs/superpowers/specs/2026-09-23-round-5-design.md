@@ -101,6 +101,14 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
 | X · Security + push copy + Ctrl+K removal | 4% |
 | **Total** | **100%** |
 
+## Design ownership (עידן 23.9)
+- **The external designer (the independent consultant agent) owns design and motion for the whole app.**
+  - It picks one tool per purpose after running the real tools: impeccable CLI, humanizer, frontend-design, dataviz.
+  - It writes the motion spec (exact tokens) and the prestige details, in `תוצרים/2026-09-23 — ייעוץ עיצוב/tools-and-motion.md`.
+- **Extra gate for every package:**
+  - The designer's PASS, given on screenshots at 390 light and dark plus the impeccable output. Without it the package doesn't merge.
+  - `test-impeccable.mjs`: the count may never rise above `qa/impeccable-baseline.json`, and it ends the round at 0.
+
 ## How the work runs (עידן's rules)
 - **Roles:**
   - Sonnet agents write the code.
