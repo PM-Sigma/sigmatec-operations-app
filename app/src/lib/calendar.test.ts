@@ -11,7 +11,12 @@ import {
   weekView, ymd,
   type AbsenceRow, type CalEmsTask, type OfficeEvent, type VisitRow,
   canPlanDay, dayLetters, dayWhen, gridDays, monthView as monthViewR2, visibleDows, visitsOn,
-  workWeekLabel, missingInView, reportedInView,
+  workWeekLabel, missingInView, reportedInView, showWeekNumbers, weekAria,
+  planBlocks, pickBlock, isNoopPick, type KibbutzBlock, type CalInternalTask,
+  plainText, eventWhen, eventDetail,
+  visitPeople, durationLabel, visitRead, dayListing, calCellLook, type CalCell,
+  LAYER_LABELS, ABSENCE_LABELS, EMPTY_DAY,
+  calendarPeople, canPlanFor, canTogglePeerTasks, taskOwners, legendItems,
 } from './calendar';
 
 // ───────────────────────────── fixture ─────────────────────────────
@@ -142,12 +147,6 @@ describe('calendarItems', () => {
     expect(mine).not.toContain('ems:t2');      // ניתאי's
   });
 
-  it('hideEms removes the EMS layer and nothing else', () => {
-    const hidden = calendarItems({ events: EVENTS, visits: VISITS, emsTasks: TASKS }, { hideEms: true });
-    expect(hidden.some(i => i.layer === 'ems')).toBe(false);
-    expect(hidden.filter(i => i.layer === 'visit')).toHaveLength(2);
-  });
-
   it('places a 🔒 internal task on its due day, and leaves the dateless and the finished off (Package X)', () => {
     const internalTasks = [
       { id: 'i1', title: 'לעדכן את המחירון', owner: 'אביאם', kibbutz: null, done: false, due_date: '2026-09-08' },
@@ -159,12 +158,12 @@ describe('calendarItems', () => {
     expect(withInternal.map(i => i.key)).toEqual(['internal:i1', 'internal:i4']);
     const first = withInternal[0];
     expect(first.date).toBe('2026-09-08');
-    expect(first.icon).toBe('🔒');
+    expect(first.icon).toBe('lock');
     expect(first.kibbutz).toBeNull();
     expect(first.mine).toBe(true);
     expect(withInternal[1].mine).toBe(false);
     // "הסתר משימות EMS" is about the EMS queue; it never takes a person's own follow-ups away.
-    expect(calendarItems({ internalTasks }, { me: 'אביאם', hideEms: true })).toHaveLength(2);
+    expect(calendarItems({ internalTasks }, { me: 'אביאם' })).toHaveLength(2);
   });
 
   it('exposes a Meet link only where Google gave one', () => {
@@ -297,7 +296,7 @@ describe('scheduleTasksPlan', () => {
       // a task that had no date goes back to having none
       { id: 't4', body: { expectedCompletionDate: null } },
     ]);
-    expect(plan.message).toBe('2 משימות נקבעו ל15.9');
+    expect(plan.message).toBe('2 משימות נקבעו ל-15.9');
   });
 
   it('skips a task already due that day', () => {
@@ -307,11 +306,228 @@ describe('scheduleTasksPlan', () => {
   });
 
   it('counts one in the singular', () => {
-    expect(scheduleTasksPlan([TASKS[3]], '2026-09-15').message).toBe('משימה אחת נקבעה ל15.9');
+    expect(scheduleTasksPlan([TASKS[3]], '2026-09-15').message).toBe('משימה אחת נקבעה ל-15.9');
   });
 
   it('writes the due date at midday so no timezone moves it a day', () => {
     expect(dueAt('2026-09-15')).toBe(new Date('2026-09-15T12:00:00').toISOString());
+  });
+});
+
+// ───────────────────────────── kibbutz blocks (round 5 · C1) ─────────────────────────────
+
+describe('round 5 · C1 — kibbutz blocks on a future day', () => {
+  const DAY = '2026-09-24';
+  const TODAY = '2026-09-23';
+  const ems: CalEmsTask[] = [
+    { id: 'e1', title: 'בדיקת מונים', status: 'new', expectedCompletionDate: null, site: { name: 'יגור' }, assignee: { firstName: 'אביאם', lastName: 'כהן' } },
+    { id: 'e2', title: 'החלפת בקר', status: 'in_progress', expectedCompletionDate: '2026-09-20T12:00:00.000Z', site: { name: 'יגור' }, assignee: { firstName: 'אביאם' } },
+    { id: 'e3', title: 'כבר ביום', status: 'new', expectedCompletionDate: new Date(2026, 8, 24, 12).toISOString(), site: { name: 'חוקוק' }, assignee: { firstName: 'אביאם' } },
+    { id: 'e4', title: 'של ניתאי', status: 'new', expectedCompletionDate: null, site: { name: 'דגניה' }, assignee: { firstName: 'ניתאי' } },
+    { id: 'e5', title: 'סגורה', status: 'done', expectedCompletionDate: null, site: { name: 'יגור' }, assignee: { firstName: 'אביאם' } },
+    { id: 'e6', title: 'בלי קיבוץ', status: 'new', expectedCompletionDate: null, site: null, assignee: { firstName: 'אביאם' } },
+  ];
+  const internal: CalInternalTask[] = [
+    { id: 'i1', title: 'להחזיר מונה', owner: 'אביאם', kibbutz: 'יגור', done: false, due_date: null },
+    { id: 'i2', title: 'פנימית בלי קיבוץ', owner: 'אביאם', kibbutz: '', done: false, due_date: null },
+    { id: 'i3', title: 'פנימית סגורה', owner: 'אביאם', kibbutz: 'יגור', done: true, due_date: null },
+  ];
+
+  it('one block per kibbutz with the person’s open tasks; overdue first', () => {
+    const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם'], emsTasks: ems, internalTasks: internal });
+    expect(blocks.map(b => b.kibbutz)).toEqual(['חוקוק', 'יגור']);
+    const yagur = blocks.find(b => b.kibbutz === 'יגור')!;
+    expect(yagur.tasks.map(t => t.key)).toEqual(['ems:e2', 'ems:e1', 'internal:i1']);
+    expect(yagur.tasks[0]).toMatchObject({ overdue: true, due: '2026-09-20', onThisDay: false });
+    expect(blocks.find(b => b.kibbutz === 'חוקוק')!.tasks[0]).toMatchObject({ key: 'ems:e3', onThisDay: true });
+  });
+  it('the peer’s tasks join only when asked for, with their owner on them', () => {
+    const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם', 'ניתאי'], emsTasks: ems });
+    expect(blocks.find(b => b.kibbutz === 'דגניה')!.tasks[0]).toMatchObject({ key: 'ems:e4', owner: 'ניתאי' });
+  });
+  it('stops already on the route come first, in route order, even with no tasks', () => {
+    const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם'], emsTasks: ems, stops: ['יגור', 'גבת'] });
+    expect(blocks.map(b => [b.kibbutz, b.placed])).toEqual([['יגור', true], ['גבת', true], ['חוקוק', false]]);
+    expect(blocks[1].tasks).toEqual([]);
+  });
+  it('a past day has no blocks', () => {
+    expect(planBlocks({ date: '2026-09-22', today: TODAY, owners: ['אביאם'], emsTasks: ems })).toEqual([]);
+  });
+  it('no owners → no blocks', () => {
+    expect(planBlocks({ date: DAY, today: TODAY, owners: [], emsTasks: ems })).toEqual([]);
+  });
+});
+
+describe('round 5 · C1 — picking a block plans the stop AND dates the ticked tasks', () => {
+  const DAY = '2026-09-24';
+  // Deliberately NOT midday — proves undo writes the raw value back byte for byte instead of
+  // re-deriving it from the date through dueAt (audit fix; local so it's TZ-proof).
+  const E2_RAW = new Date(2026, 8, 20, 8, 15).toISOString();
+  const block: KibbutzBlock = {
+    kibbutz: 'יגור', placed: false, tasks: [
+      { key: 'ems:e1', id: 'e1', kind: 'ems', title: 'בדיקת מונים', owner: 'אביאם', due: '', dueRaw: null, onThisDay: false, overdue: false },
+      { key: 'ems:e2', id: 'e2', kind: 'ems', title: 'החלפת בקר', owner: 'אביאם', due: '2026-09-20', dueRaw: E2_RAW, onThisDay: false, overdue: true },
+      { key: 'internal:i1', id: 'i1', kind: 'internal', title: 'להחזיר מונה', owner: 'אביאם', due: '', dueRaw: null, onThisDay: false, overdue: false },
+      { key: 'ems:e3', id: 'e3', kind: 'ems', title: 'כבר ביום', owner: 'אביאם', due: DAY, dueRaw: dueAt(DAY), onThisDay: true, overdue: false },
+    ],
+  };
+
+  it('adds the stop at the end of the route and dates exactly the ticked tasks', () => {
+    const p = pickBlock(block, ['ems:e1', 'ems:e2', 'internal:i1'], DAY, ['גבת']);
+    expect(p.stopsBefore).toEqual(['גבת']);
+    expect(p.stops).toEqual(['גבת', 'יגור']);
+    expect(p.addedStop).toBe(true);
+    expect(p.emsTaskIds).toEqual(['e1', 'e2']);
+    expect(p.ems.patches).toEqual([
+      { id: 'e1', body: { expectedCompletionDate: dueAt(DAY) } },
+      { id: 'e2', body: { expectedCompletionDate: dueAt(DAY) } },
+    ]);
+    expect(p.ems.undo).toEqual([
+      { id: 'e1', body: { expectedCompletionDate: null } },
+      { id: 'e2', body: { expectedCompletionDate: E2_RAW } },   // exact — not dueAt('2026-09-20')
+    ]);
+    expect(p.internal).toEqual({ patches: [{ id: 'i1', due_date: DAY }], undo: [{ id: 'i1', due_date: null }] });
+    expect(p.count).toBe(3);
+    expect(p.message).toBe('יגור נוסף ל-24.9 · 3 משימות נקבעו ל-24.9');
+  });
+  it('a task already on the day is not re-written', () => {
+    const p = pickBlock(block, ['ems:e3'], DAY, []);
+    expect(p.ems.patches).toEqual([]);
+    expect(p.count).toBe(0);
+    expect(p.message).toBe('יגור נוסף ל-24.9');
+  });
+  it('a block already in the route with nothing ticked is a no-op', () => {
+    const p = pickBlock({ ...block, placed: true }, [], DAY, ['יגור']);
+    expect(p.addedStop).toBe(false);
+    expect(p.stops).toEqual(['יגור']);
+    expect(isNoopPick(p)).toBe(true);
+  });
+  it('one task reads as one', () => {
+    expect(pickBlock({ ...block, placed: true }, ['ems:e1'], DAY, ['יגור']).message).toBe('משימה אחת נקבעה ל-24.9');
+  });
+  it('a messy saved route is cleaned, never duplicated', () => {
+    expect(pickBlock(block, [], DAY, [' גבת ', 'גבת', '']).stops).toEqual(['גבת', 'יגור']);
+  });
+});
+
+describe('round 5 · C4 — one detail sheet for a Google event', () => {
+  const at = (h: number, m = 0) => new Date(2026, 8, 24, h, m).toISOString();   // local, TZ-proof
+
+  it('a timed event: day and hours', () => {
+    expect(eventWhen({ id: 'a', title: 'x', start: at(10), end: at(11, 30) })).toBe('יום ה׳ · 24.9 · 10:00–11:30');
+  });
+  it('a one-day all-day event is one day — Google’s end date is exclusive', () => {
+    expect(eventWhen({ id: 'b', title: 'x', start: '2026-09-24', end: '2026-09-25', allDay: true })).toBe('יום ה׳ · 24.9 · כל היום');
+  });
+  it('a multi-day all-day event says where it ends', () => {
+    expect(eventWhen({ id: 'c', title: 'x', start: '2026-09-24', end: '2026-09-27', allDay: true }))
+      .toBe('יום ה׳ · 24.9 עד יום ש׳ · 26.9 · כל היום');
+  });
+  it('HTML and entities in a description become plain text', () => {
+    expect(plainText('<b>סדר יום</b><br>1. מונים &amp; בקרים<br/><a href="https://x">קישור</a>&nbsp;'))
+      .toBe('סדר יום\n1. מונים & בקרים\nקישור');
+    expect(plainText(null)).toBe('');
+  });
+  it('who: organizer and attendees by name, declined left out, no duplicates', () => {
+    const d = eventDetail({
+      id: 'd', title: 'ישיבת צוות', start: at(9), end: at(10), location: 'משרד',
+      description: 'שורה', hangoutLink: 'https://meet.google.com/abc',
+      organizer: { name: 'עמיחי', email: 'amichai@x.com' },
+      attendees: [
+        { name: 'עמיחי', email: 'amichai@x.com' },
+        { email: 'aviam@x.com' },
+        { name: 'ניתאי', email: 'nitai@x.com', declined: true },
+      ],
+    });
+    expect(d).toEqual({
+      title: 'ישיבת צוות', when: 'יום ה׳ · 24.9 · 09:00–10:00', description: 'שורה', location: 'משרד',
+      who: ['עמיחי', 'aviam'], meetLink: 'https://meet.google.com/abc',
+    });
+  });
+  it('missing fields are empty, never "undefined"', () => {
+    expect(eventDetail({ id: 'e', title: '', start: '2026-09-24' })).toEqual({
+      title: 'אירוע', when: 'יום ה׳ · 24.9 · כל היום', description: '', location: '', who: [], meetLink: null,
+    });
+  });
+  it('an event item carries the id the sheet looks it up by', () => {
+    const items = calendarItems({ events: [{ id: 'ev9', title: 'כנס', start: '2026-09-24' }] });
+    expect(items[0].eventId).toBe('ev9');
+  });
+});
+
+describe('round 5 · C3 — a visit opens a compact read view', () => {
+  const v: VisitRow = {
+    id: 'v7', date: '2026-09-22T09:00:00+03:00', kibbutz: 'יגור', visitor: 'אביאם',
+    visitors: ['אביאם', 'ניתאי'], duration: 4, summary: 'הוחלף בקר', open_items: 'להחזיר מונה',
+  };
+  it('everyone who was there, from the multi-select; falls back to the single visitor', () => {
+    expect(visitPeople(v)).toEqual(['אביאם', 'ניתאי']);
+    expect(visitPeople({ date: '2026-09-22', visitor: 'ניתאי' })).toEqual(['ניתאי']);
+    expect(visitPeople({ date: '2026-09-22' })).toEqual([]);
+  });
+  it('the duration reads the way people say it', () => {
+    expect(durationLabel(v)).toBe('4 ש׳');
+    expect(durationLabel({ date: 'x', duration: '2.5' })).toBe('2.5 ש׳');
+    expect(durationLabel({ date: 'x', workday: true })).toBe('יום עבודה');
+    expect(durationLabel({ date: 'x' })).toBe('');
+  });
+  it('the read model', () => {
+    expect(visitRead(v)).toEqual({
+      id: 'v7', kibbutz: 'יגור', when: 'יום ג׳ · 22.9', people: 'אביאם, ניתאי', duration: '4 ש׳',
+      summary: 'הוחלף בקר', openItems: 'להחזיר מונה',
+    });
+  });
+  it('a visit is "mine" for every person in מי ביקר', () => {
+    const [item] = calendarItems({ visits: [v] }, { me: 'ניתאי' });
+    expect(item.mine).toBe(true);
+  });
+  it('no small pins under a visit: the visit layer items are not listed again', () => {
+    const items = calendarItems({ visits: [v], events: [{ id: 'e', title: 'ישיבה', start: '2026-09-22' }] });
+    const day = dayListing('2026-09-22', itemsOn(items, '2026-09-22'), [v]);
+    expect(day.visits.map(x => x.id)).toEqual(['v7']);
+    expect(day.others.map(i => i.layer)).toEqual(['event']);
+  });
+});
+
+describe('round 5 · C5 — one look per cell', () => {
+  const cell = (over: Partial<CalCell> = {}): CalCell => ({
+    date: '2026-09-22', day: 22, dow: 2, weekend: false, inMonth: true, today: false, holiday: null, eve: false, ...over,
+  });
+  const HOL = { date: '2026-09-21', name: 'יום כיפור', kind: 'holiday', required: false } as Holiday;
+  const EVE = { date: '2026-09-20', name: 'ערב יום כיפור', kind: 'holiday_eve', required: true } as Holiday;
+  const none = { selected: false, missing: false, reported: false };
+
+  it('purple for a holiday and for an eve, and the name goes into the label', () => {
+    expect(calCellLook(cell({ holiday: HOL }), none)).toEqual({ state: 'holiday', today: false, label: 'יום ג׳ · 22.9 · יום כיפור' });
+    expect(calCellLook(cell({ holiday: EVE, eve: true }), none).state).toBe('eve');
+  });
+  it('green for a filed day, even on a holiday; red only when the caller says missing', () => {
+    expect(calCellLook(cell({ holiday: HOL }), { ...none, reported: true }).state).toBe('field');
+    expect(calCellLook(cell(), { ...none, missing: true })).toEqual({ state: 'missing', today: false, label: 'יום ג׳ · 22.9 · לא דווחה נוכחות' });
+  });
+  it('selected wins, a lead/trail filler is dimmed, today is a ring on top of any state', () => {
+    expect(calCellLook(cell(), { ...none, selected: true, reported: true }).state).toBe('selected');
+    expect(calCellLook(cell({ inMonth: false }), { ...none, reported: true }).state).toBe('outside');
+    expect(calCellLook(cell({ today: true }), { ...none, reported: true })).toMatchObject({ state: 'field', today: true });
+  });
+});
+
+describe('round 5 · C7 — no emoji in the calendar’s strings', () => {
+  const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}]/u;
+  it('labels, headers and item titles are words; icons are names', () => {
+    const all = [
+      ...Object.values(LAYER_LABELS), ...Object.values(ABSENCE_LABELS), ...Object.values(ROUTE_HEADERS), EMPTY_DAY,
+    ];
+    for (const s of all) expect(s).not.toMatch(EMOJI);
+    const items = calendarItems({
+      events: EVENTS, visits: VISITS, emsTasks: TASKS,
+      absences: [{ id: 'a', person: 'אביאם', kind: 'reserve', start_date: '2026-09-15', end_date: '2026-09-15' }],
+    });
+    for (const i of items) { expect(i.title).not.toMatch(EMOJI); expect(i.icon).toMatch(/^[a-z-]+$/); }
+    expect(items.find(i => i.layer === 'absence')).toMatchObject({ icon: 'shield', title: 'מילואים · אביאם' });
+  });
+  it('the route headers', () => {
+    expect(ROUTE_HEADERS).toEqual({ first: 'תחילת יום', middle: 'בהמשך', last: 'אחרון להיום', unplaced: 'לא משובץ' });
   });
 });
 
@@ -336,7 +552,7 @@ describe('absences', () => {
   it('מילואים files as reserve', () => {
     const reserve: AbsenceRow = { ...vacation, kind: 'reserve', end_date: '2026-09-10', note: '' };
     expect(absenceAttendance(reserve, HOLIDAYS as Holiday[])[0].dayType).toBe('reserve');
-    expect(absenceAttendance(reserve, HOLIDAYS as Holiday[])[0].note).toBe('🪖 מילואים');
+    expect(absenceAttendance(reserve, HOLIDAYS as Holiday[])[0].note).toBe('מילואים');
   });
 
   it('a manual row always wins', () => {
@@ -389,6 +605,65 @@ describe('abilities', () => {
   });
 });
 
+describe('round 5 · C2 — whose calendar', () => {
+  const ADMIN = abilities('idan', 'עידן');
+  const FIELD = abilities('team', 'אביאם');
+  const VIEWER = abilities('viewer', 'צפייה');
+  const TEAM = ['אביאם', 'ניתאי'];
+
+  it('עידן and עמיחי may show their own calendar or a field person’s; the default is their own', () => {
+    expect(calendarPeople('idan', 'עידן', TEAM)).toEqual(['עידן', 'אביאם', 'ניתאי']);
+    expect(calendarPeople('team', 'עמיחי', TEAM)).toEqual(['עמיחי', 'אביאם', 'ניתאי']);
+  });
+  it('a field person sees only his own calendar', () => {
+    expect(calendarPeople('team', 'אביאם', TEAM)).toEqual(['אביאם']);
+  });
+  it('the viewer has no calendar of its own — it starts on the field team', () => {
+    expect(calendarPeople('viewer', 'צפייה', TEAM)).toEqual(['אביאם', 'ניתאי']);
+  });
+  it('nobody signed in → nothing to show', () => {
+    expect(calendarPeople('team', '', TEAM)).toEqual([]);
+  });
+  it('planning: your own day always, someone else’s only for עידן/עמיחי, never for the viewer', () => {
+    expect(canPlanFor('אביאם', 'אביאם', FIELD)).toBe(true);
+    expect(canPlanFor('אביאם', 'ניתאי', FIELD)).toBe(false);
+    expect(canPlanFor('עידן', 'אביאם', ADMIN)).toBe(true);
+    expect(canPlanFor('צפייה', 'אביאם', VIEWER)).toBe(false);
+    expect(canPlanFor('עידן', '', ADMIN)).toBe(false);
+  });
+});
+
+describe('round 5 · C2 — אביאם can add ניתאי’s tasks to his blocks', () => {
+  it('only אביאם has the setting', () => {
+    expect(canTogglePeerTasks('אביאם')).toBe(true);
+    expect(canTogglePeerTasks('ניתאי')).toBe(false);
+    expect(canTogglePeerTasks('עידן')).toBe(false);
+  });
+  it('the blocks follow the person whose calendar is shown', () => {
+    expect(taskOwners('אביאם', 'אביאם', false)).toEqual(['אביאם']);
+    expect(taskOwners('אביאם', 'אביאם', true)).toEqual(['אביאם', 'ניתאי']);
+    // עידן looking at אביאם's calendar sees אביאם's tasks — אביאם's own setting is his, not עידן's
+    expect(taskOwners('אביאם', 'עידן', true)).toEqual(['אביאם']);
+    expect(taskOwners('ניתאי', 'ניתאי', true)).toEqual(['ניתאי']);
+    expect(taskOwners('', 'אביאם', true)).toEqual([]);
+  });
+});
+
+describe('round 5 · C5 — red only for the people who file', () => {
+  it('missingInView is empty for a calendar person who doesn’t file attendance', () => {
+    const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-23').weeks;
+    const rowsFor = () => [];                           // nothing filed at all
+    const TODAY = new Date(2026, 8, 23, 12);
+    expect(missingInView('עידן', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
+    expect(missingInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBeGreaterThan(0);
+  });
+  it('the legend always shows purple and green, and red only for a filer', () => {
+    expect(legendItems('עידן').map(i => i.key)).toEqual(['holiday', 'eve', 'reported']);
+    expect(legendItems('ניתאי').map(i => i.key)).toEqual(['holiday', 'eve', 'reported', 'missing']);
+    expect(legendItems('ניתאי').map(i => i.label)).toEqual(['חג', 'ערב חג', 'דווחה נוכחות', 'לא דווחה נוכחות']);
+  });
+});
+
 // ───────────── round 2 · package G — the work-week grid and the day's tense ─────────────
 
 describe('the work week (G1)', () => {
@@ -407,7 +682,7 @@ describe('the work week (G1)', () => {
 
   it('the toggle says WHERE IT GOES, not where it is', () => {
     expect(workWeekLabel(true)).toBe('חודש מלא');
-    expect(workWeekLabel(false)).toBe('שבוע עבודה');
+    expect(workWeekLabel(false)).toBe('חודש עבודה');
   });
 
   it('a week row is narrowed to the visible columns, in order', () => {
@@ -418,6 +693,22 @@ describe('the work week (G1)', () => {
     expect(gridDays(week, 'month', false)).toHaveLength(7);
     // Nothing is re-ordered — the same cells, minus two.
     expect(five.map(d => d.date)).toEqual(week.days.slice(0, 5).map(d => d.date));
+  });
+});
+
+describe('round 5 · C6 — חודש עבודה / חודש מלא', () => {
+  it('the button names where it goes', () => {
+    expect(workWeekLabel(true)).toBe('חודש מלא');     // on the work month → offers the full one
+    expect(workWeekLabel(false)).toBe('חודש עבודה');  // on the full month → offers the way back
+  });
+  it('week numbers are shown in חודש מלא only', () => {
+    expect(showWeekNumbers('month', false)).toBe(true);
+    expect(showWeekNumbers('month', true)).toBe(false);
+    expect(showWeekNumbers('week', false)).toBe(false);
+    expect(showWeekNumbers('week', true)).toBe(false);
+  });
+  it('a week label reads as a word for a screen reader', () => {
+    expect(weekAria(38)).toBe('שבוע 38');
   });
 });
 

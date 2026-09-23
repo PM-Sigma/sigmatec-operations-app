@@ -11,7 +11,9 @@
 // only ever an input; nothing here hands one back. That is what keeps a day from sliding by
 // one when a phone is on a different timezone from the office calendar.
 
-import { isHolidayEve, missingDaysFor, reportedDaysFor, type AttRow, type Holiday } from './attendance';
+import {
+  ATT_FILERS, isHolidayEve, missingDaysFor, mustFile, reportedDaysFor, type AttRow, type Holiday,
+} from './attendance';
 
 // ───────────────────────────── types ─────────────────────────────
 
@@ -19,6 +21,9 @@ import { isHolidayEve, missingDaysFor, reportedDaysFor, type AttRow, type Holida
 export type Layer = 'event' | 'visit' | 'ems' | 'internal' | 'absence';
 
 export type AbsenceKind = 'vacation' | 'reserve' | 'event';
+
+/** Round 5 · C4 — one attendee of a Google event, as the sheet's "who" reads them. */
+export interface EventAttendee { name?: string; email?: string; self?: boolean; declined?: boolean }
 
 /** One office event as the `calendar` edge function returns it. */
 export interface OfficeEvent {
@@ -32,6 +37,8 @@ export interface OfficeEvent {
   description?: string;
   /** Google's Meet link. Absent → no 🎥 button is rendered, ever. */
   hangoutLink?: string | null;
+  attendees?: EventAttendee[];
+  organizer?: { name?: string; email?: string } | null;
 }
 
 export interface VisitRow {
@@ -43,6 +50,10 @@ export interface VisitRow {
   /** Round 2 · G3 — a past day SHOWS its summary, read only. */
   summary?: string | null;
   open_items?: string | null;
+  /** Round 5 · V6 — everyone in "מי ביקר". `visitor` stays the first one for legacy readers. */
+  visitors?: string[];
+  /** Hours, as the snapshot carries them (a number or a numeric string). */
+  duration?: number | string;
 }
 
 export interface CalEmsTask {
@@ -88,7 +99,7 @@ export interface CalItem {
   /** 'YYYY-MM-DD' */
   date: string;
   layer: Layer;
-  icon: string;
+  icon: CalIcon;
   title: string;
   kibbutz: string | null;
   /** Who it belongs to (visitor / assignee / the absent person). null = everyone. */
@@ -99,6 +110,8 @@ export interface CalItem {
   taskId?: string;
   /** Present on an office event that really has conference data. */
   meetLink?: string;
+  /** Present on an office event — what the detail sheet looks it up by. */
+  eventId?: string;
   /** Present on an absence item. */
   kind?: AbsenceKind;
 }
@@ -112,8 +125,6 @@ export interface CalendarSources {
 }
 
 export interface CalendarOptions {
-  /** "הסתר משימות EMS" — remembered per device. */
-  hideEms?: boolean;
   /** "רק שלי" — keep only the viewer's own items. */
   onlyMine?: boolean;
   me?: string;
@@ -121,32 +132,35 @@ export interface CalendarOptions {
 
 // ───────────────────────────── copy ─────────────────────────────
 
+/** Round 5 · C7 — an icon NAME, never an emoji. The island maps this to a lucide component. */
+export type CalIcon = 'calendar' | 'map-pin' | 'clipboard' | 'lock' | 'palm' | 'shield' | 'party';
+
 export const LAYER_LABELS: Record<Layer, string> = {
-  event: '📅 אירועי משרד',
-  visit: '📍 ביקורים',
-  ems: '📋 משימות EMS',
-  internal: '🔒 משימות פנימיות',
-  absence: '🌴 היעדרויות',
+  event: 'אירועי משרד',
+  visit: 'ביקורים',
+  ems: 'משימות EMS',
+  internal: 'משימות פנימיות',
+  absence: 'היעדרויות',
 };
 
 export const ABSENCE_LABELS: Record<AbsenceKind, string> = {
-  vacation: '🌴 חופש',
-  reserve: '🪖 מילואים',
-  event: '🎉 אירוע',
+  vacation: 'חופש',
+  reserve: 'מילואים',
+  event: 'אירוע',
 };
 
-export const ABSENCE_ICONS: Record<AbsenceKind, string> = {
-  vacation: '🌴',
-  reserve: '🪖',
-  event: '🎉',
+export const ABSENCE_ICON: Record<AbsenceKind, CalIcon> = {
+  vacation: 'palm',
+  reserve: 'shield',
+  event: 'party',
 };
 
 /** The route headers, derived from position — never typed by anyone (spec §7f). */
 export const ROUTE_HEADERS = {
-  first: '🌅 תחילת יום',
-  middle: '➡️ בהמשך',
-  last: '🌇 אחרון להיום',
-  unplaced: '📥 לא משובץ',
+  first: 'תחילת יום',
+  middle: 'בהמשך',
+  last: 'אחרון להיום',
+  unplaced: 'לא משובץ',
 } as const;
 
 export type RouteHeader = keyof typeof ROUTE_HEADERS;
@@ -168,7 +182,19 @@ export const HE_WORK_DAY_LETTERS = HE_DAY_LETTERS.slice(0, 5);
  * state it is already in is the single most common way a toggle is misread.
  */
 export function workWeekLabel(workWeek: boolean): string {
-  return workWeek ? 'חודש מלא' : 'שבוע עבודה';
+  return workWeek ? 'חודש מלא' : 'חודש עבודה';
+}
+
+/**
+ * Round 5 · C6 (עידן 23.9): week numbers are a small label beside each row of חודש מלא, and
+ * hidden in חודש עבודה. The week VIEW already says "שבוע N" in its title, so it never needs them.
+ */
+export function showWeekNumbers(view: 'week' | 'month', workWeek: boolean): boolean {
+  return view === 'month' && !workWeek;
+}
+
+export function weekAria(week: number): string {
+  return 'שבוע ' + week;
 }
 
 /**
@@ -393,7 +419,9 @@ export function missingInView(
   today: Date = new Date(),
 ): Set<string> {
   const out = new Set<string>();
-  if (!person) return out;
+  // Round 5 (design-system ruling): red is only for the people who must file — אביאם and
+  // ניתאי. עידן's own calendar used to be 16 red days out of 22 (design review §1.10).
+  if (!person || !mustFile(person)) return out;
   const onScreen = new Set<string>();
   const months = new Set<string>();
   for (const w of weeks || []) {
@@ -490,10 +518,9 @@ function isMine(person: string | null, me: string): boolean {
  * THE one place the calendar's contents are decided. Everything downstream (the grid chips,
  * the day panel, the week rows, the route) reads this list and nothing else.
  *
- * `hideEms` DROPS the EMS layer. `onlyMine` does NOT drop anything — it marks: the island
- * dims what is not yours, because "the office event I am not in" still has to be on the
- * calendar or the day looks free when it is not. Callers that really want a filtered list
- * use `.filter(i => i.mine)`.
+ * `onlyMine` does NOT drop anything — it marks: the island dims what is not yours, because
+ * "the office event I am not in" still has to be on the calendar or the day looks free when
+ * it is not. Callers that really want a filtered list use `.filter(i => i.mine)`.
  */
 export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}): CalItem[] {
   const me = opts.me || '';
@@ -506,12 +533,13 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       key: 'event:' + (e.id || date + ':' + e.title),
       date,
       layer: 'event',
-      icon: '📅',
+      icon: 'calendar',
       title: e.title || 'אירוע',
       kibbutz: null,
       person: null,
       // An office event is everybody's: it is never dimmed by "רק שלי".
       mine: true,
+      eventId: String(e.id || ''),
       ...(e.hangoutLink ? { meetLink: String(e.hangoutLink) } : {}),
     });
   }
@@ -519,37 +547,36 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
   for (const v of src.visits || []) {
     const date = toKey(v.date);
     if (!date) continue;
-    const who = v.visitor || null;
+    const people = visitPeople(v);
+    const who = people[0] || null;
     out.push({
       key: 'visit:' + (v.id || date + ':' + (v.kibbutz || '')),
       date,
       layer: 'visit',
-      icon: '📍',
+      icon: 'map-pin',
       title: (v.kibbutz || '') + (v.workday ? ' · יום עבודה' : ''),
       kibbutz: v.kibbutz || null,
       person: who,
-      mine: isMine(who, me),
+      mine: people.some(p => isMine(p, me)),
     });
   }
 
-  if (!opts.hideEms) {
-    for (const t of src.emsTasks || []) {
-      const date = toKey(t.expectedCompletionDate);
-      if (!date) continue;                                          // no due date → no place on a calendar
-      if (t.status && CLOSED.indexOf(t.status) !== -1) continue;    // finished work is not a plan
-      const who = personName(t.assignee);
-      out.push({
-        key: 'ems:' + t.id,
-        date,
-        layer: 'ems',
-        icon: '📋',
-        title: t.title || 'משימה',
-        kibbutz: (t.site && t.site.name) || null,
-        person: who,
-        mine: isMine(who, me),
-        taskId: t.id,
-      });
-    }
+  for (const t of src.emsTasks || []) {
+    const date = toKey(t.expectedCompletionDate);
+    if (!date) continue;                                          // no due date → no place on a calendar
+    if (t.status && CLOSED.indexOf(t.status) !== -1) continue;    // finished work is not a plan
+    const who = personName(t.assignee);
+    out.push({
+      key: 'ems:' + t.id,
+      date,
+      layer: 'ems',
+      icon: 'clipboard',
+      title: t.title || 'משימה',
+      kibbutz: (t.site && t.site.name) || null,
+      person: who,
+      mine: isMine(who, me),
+      taskId: t.id,
+    });
   }
 
   // 🔒 internal tasks (round 4, Package X). They are NOT hidden by "הסתר משימות EMS": that
@@ -563,7 +590,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
       key: 'internal:' + r.id,
       date,
       layer: 'internal',
-      icon: '🔒',
+      icon: 'lock',
       title: r.title || 'משימה פנימית',
       kibbutz: (r.kibbutz || '').trim() || null,
       person: who,
@@ -577,7 +604,7 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
         key: 'absence:' + a.id + ':' + date,
         date,
         layer: 'absence',
-        icon: ABSENCE_ICONS[a.kind] || '🌴',
+        icon: ABSENCE_ICON[a.kind] || 'palm',
         title: ABSENCE_LABELS[a.kind] + (a.person ? ' · ' + a.person : ' · כל החברה') + (a.note ? ' · ' + a.note : ''),
         kibbutz: null,
         person: a.person,
@@ -779,8 +806,315 @@ export function scheduleTasksPlan(tasks: CalEmsTask[], date: string): SchedulePl
     patches,
     undo,
     count,
-    message: count === 1 ? 'משימה אחת נקבעה ל' + heShort(date) : count + ' משימות נקבעו ל' + heShort(date),
+    message: count === 1 ? 'משימה אחת נקבעה ל-' + heShort(date) : count + ' משימות נקבעו ל-' + heShort(date),
   };
+}
+
+// ───────────────────────────── kibbutz blocks (round 5 · C1) ─────────────────────────────
+//
+// A future day offers the person's open work grouped by the place he'd drive to. Picking a
+// block does BOTH things the ruling asks for: the kibbutz becomes a planned stop that day,
+// and the tasks he ticked in it get that date. One tap, one undo.
+
+export interface BlockTask {
+  /** 'ems:<id>' | 'internal:<id>' — an EMS id and an internal uuid may never collide in a Set. */
+  key: string;
+  id: string;
+  kind: 'ems' | 'internal';
+  title: string;
+  owner: string | null;
+  /** 'YYYY-MM-DD' or '' for no date. */
+  due: string;
+  /**
+   * The UNTOUCHED original value (`expectedCompletionDate` / `due_date`) — `due` is only its
+   * date key. `pickBlock`'s undo writes this back byte for byte, so a task whose real time
+   * wasn't midday (audit fix) comes back exactly as it was, not re-derived through `dueAt`.
+   */
+  dueRaw: string | null;
+  onThisDay: boolean;
+  overdue: boolean;
+}
+
+export interface KibbutzBlock { kibbutz: string; placed: boolean; tasks: BlockTask[] }
+
+export interface BlockInput {
+  date: string;
+  today: string;
+  /** From `taskOwners` — whose tasks fill the blocks. */
+  owners: string[];
+  emsTasks?: CalEmsTask[];
+  internalTasks?: CalInternalTask[];
+  /** The day's saved route (`stopsOrder(day_plans.stops)`). */
+  stops?: string[];
+}
+
+function cleanStops(stops: string[] | null | undefined): string[] {
+  return [...new Set((stops || []).map(s => String(s || '').trim()).filter(Boolean))];
+}
+
+function ownedByAny(name: string | null, owners: string[]): boolean {
+  return owners.some(o => isMine(name, o));
+}
+
+export function planBlocks(i: BlockInput): KibbutzBlock[] {
+  if (!canPlanDay(i.date, i.today) || !i.owners.length) return [];
+  const map = new Map<string, BlockTask[]>();
+  const add = (kibbutz: string, t: BlockTask) => {
+    const list = map.get(kibbutz);
+    if (list) list.push(t); else map.set(kibbutz, [t]);
+  };
+  const task = (
+    kind: 'ems' | 'internal', id: string, title: string, owner: string | null,
+    due: string, dueRaw: string | null,
+  ): BlockTask => ({
+    key: kind + ':' + id, id, kind, title, owner, due, dueRaw,
+    onThisDay: due === i.date,
+    overdue: !!due && due < i.today,
+  });
+
+  for (const t of i.emsTasks || []) {
+    if (!t || !t.id) continue;
+    if (t.status && CLOSED.indexOf(t.status) !== -1) continue;
+    const kibbutz = String((t.site && t.site.name) || '').trim();
+    const who = personName(t.assignee);
+    if (!kibbutz || !ownedByAny(who, i.owners)) continue;
+    add(kibbutz, task('ems', t.id, t.title || 'משימה', who, toKey(t.expectedCompletionDate), t.expectedCompletionDate ?? null));
+  }
+  for (const r of i.internalTasks || []) {
+    if (!r || !r.id || r.done) continue;
+    const kibbutz = String(r.kibbutz || '').trim();
+    const who = String(r.owner || '').trim() || null;
+    if (!kibbutz || !ownedByAny(who, i.owners)) continue;
+    add(kibbutz, task('internal', r.id, r.title || 'משימה פנימית', who, toKey(r.due_date), r.due_date ?? null));
+  }
+
+  const stops = cleanStops(i.stops);
+  for (const s of stops) if (!map.has(s)) map.set(s, []);
+  const byDebt = (a: BlockTask, b: BlockTask) =>
+    Number(b.overdue) - Number(a.overdue)
+    || (a.due || '9999-99-99').localeCompare(b.due || '9999-99-99')
+    || a.title.localeCompare(b.title, 'he');
+  const blocks: KibbutzBlock[] = [];
+  for (const [kibbutz, tasks] of map) {
+    blocks.push({ kibbutz, placed: stops.indexOf(kibbutz) !== -1, tasks: tasks.sort(byDebt) });
+  }
+  blocks.sort((a, b) => {
+    if (a.placed !== b.placed) return a.placed ? -1 : 1;
+    if (a.placed) return stops.indexOf(a.kibbutz) - stops.indexOf(b.kibbutz);
+    return a.kibbutz.localeCompare(b.kibbutz, 'he');
+  });
+  return blocks;
+}
+
+export interface InternalDuePatch { id: string; due_date: string | null }
+
+export interface BlockPick {
+  kibbutz: string;
+  stopsBefore: string[];
+  stops: string[];
+  addedStop: boolean;
+  /** The EMS ids this pick puts on the day — they join the stop's `task_ids` snapshot. */
+  emsTaskIds: string[];
+  ems: SchedulePlan;
+  internal: { patches: InternalDuePatch[]; undo: InternalDuePatch[] };
+  count: number;
+  message: string;
+}
+
+export function pickBlock(block: KibbutzBlock, ticked: string[], date: string, stops: string[]): BlockPick {
+  const before = cleanStops(stops);
+  const addedStop = before.indexOf(block.kibbutz) === -1;
+  const next = addedStop ? before.concat([block.kibbutz]) : before.slice();
+  const want = new Set(ticked || []);
+  const chosen = block.tasks.filter(t => want.has(t.key) && !t.onThisDay);
+  const emsChosen = chosen.filter(t => t.kind === 'ems');
+  const ems = scheduleTasksPlan(
+    emsChosen.map(t => ({ id: t.id, expectedCompletionDate: t.dueRaw })),
+    date,
+  );
+  // Audit fix: scheduleTasksPlan's own undo re-derives from the DATE only (`dueAt(current)`),
+  // which bakes the time to midday even when the raw value carried a different one. Every
+  // chosen task gets a patch above (none are skipped — `onThisDay` was already filtered out),
+  // so overwrite undo with the untouched raw value, byte for byte.
+  ems.undo = emsChosen.map(t => ({ id: t.id, body: { expectedCompletionDate: t.dueRaw } }));
+  const internalChosen = chosen.filter(t => t.kind === 'internal');
+  const internal = {
+    patches: internalChosen.map(t => ({ id: t.id, due_date: date })),
+    undo: internalChosen.map(t => ({ id: t.id, due_date: t.dueRaw })),
+  };
+  const count = ems.count + internal.patches.length;
+  const d = heShort(date);
+  const parts: string[] = [];
+  if (addedStop) parts.push(block.kibbutz + ' נוסף ל-' + d);
+  if (count) parts.push(count === 1 ? 'משימה אחת נקבעה ל-' + d : count + ' משימות נקבעו ל-' + d);
+  return {
+    kibbutz: block.kibbutz,
+    stopsBefore: before,
+    stops: next,
+    addedStop,
+    emsTaskIds: emsChosen.map(t => t.id),
+    ems,
+    internal,
+    count,
+    message: parts.join(' · '),
+  };
+}
+
+/** Nothing to write: the stop is already there and nothing new was ticked. */
+export function isNoopPick(p: BlockPick): boolean {
+  return !p.addedStop && p.count === 0;
+}
+
+// ───────────────────────────── the event detail sheet (round 5 · C4) ─────────────────────────────
+
+/** 'יום ה׳ · 24.9' — the one short day format the sheets use (design system: d.m). */
+export function dayShort(key: string): string {
+  const d = parseYmd(key);
+  if (isNaN(d.getTime())) return key;
+  return 'יום ' + HE_DAY_LETTERS[d.getDay()] + '׳ · ' + heShort(key);
+}
+
+function hhmm(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '' : p2(d.getHours()) + ':' + p2(d.getMinutes());
+}
+
+/** Google descriptions are HTML. The sheet shows the words, never the tags. */
+export function plainText(html: string | null | undefined): string {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li)>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')                       // last, so "&amp;lt;" stays "&lt;"
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 2000);
+}
+
+export function eventWhen(e: OfficeEvent): string {
+  const start = toKey(e.start);
+  if (!start) return '';
+  const allDay = !!e.allDay || /^\d{4}-\d{2}-\d{2}$/.test(String(e.start || ''));
+  if (allDay) {
+    // Google's all-day `end` is EXCLUSIVE: a one-day event on the 24th ends on the 25th.
+    const endIncl = e.end ? addDays(toKey(e.end), -1) : start;
+    const range = endIncl > start ? dayShort(start) + ' עד ' + dayShort(endIncl) : dayShort(start);
+    return range + ' · כל היום';
+  }
+  const from = hhmm(String(e.start));
+  const to = e.end ? hhmm(String(e.end)) : '';
+  return dayShort(start) + ' · ' + from + (to ? '–' + to : '');
+}
+
+export interface EventDetail {
+  title: string;
+  when: string;
+  description: string;
+  location: string;
+  who: string[];
+  meetLink: string | null;
+}
+
+export function eventDetail(e: OfficeEvent): EventDetail {
+  const who: string[] = [];
+  const add = (p: { name?: string; email?: string } | null | undefined) => {
+    if (!p) return;
+    const label = String(p.name || '').trim() || String(p.email || '').split('@')[0].trim();
+    if (label && who.indexOf(label) === -1) who.push(label);
+  };
+  add(e.organizer);
+  for (const a of e.attendees || []) if (a && !a.declined) add(a);
+  return {
+    title: String(e.title || '').trim() || 'אירוע',
+    when: eventWhen(e),
+    description: plainText(e.description),
+    location: String(e.location || '').trim(),
+    who,
+    meetLink: e.hangoutLink ? String(e.hangoutLink) : null,
+  };
+}
+
+// ───────────────────────────── a visit, read only (round 5 · C3) ─────────────────────────────
+
+export function visitPeople(v: VisitRow): string[] {
+  const list = Array.isArray(v.visitors) && v.visitors.length ? v.visitors : (v.visitor ? [v.visitor] : []);
+  return [...new Set(list.map(p => String(p || '').trim()).filter(Boolean))];
+}
+
+export function durationLabel(v: VisitRow): string {
+  if (v.workday) return 'יום עבודה';
+  const h = Number(v.duration);
+  if (!isFinite(h) || h <= 0) return '';
+  return (Math.round(h * 100) / 100) + ' ש׳';
+}
+
+export interface VisitRead {
+  id: string;
+  kibbutz: string;
+  when: string;
+  people: string;
+  duration: string;
+  summary: string;
+  openItems: string;
+}
+
+export function visitRead(v: VisitRow): VisitRead {
+  return {
+    id: String(v.id || ''),
+    kibbutz: String(v.kibbutz || '').trim() || 'ביקור',
+    when: dayShort(toKey(v.date)),
+    people: visitPeople(v).join(', '),
+    duration: durationLabel(v),
+    summary: String(v.summary || '').trim(),
+    openItems: String(v.open_items || '').trim(),
+  };
+}
+
+/**
+ * What a day lists: its visit summaries as rows of their own, and everything else. The
+ * visit-layer items are NOT listed a second time (the "small pins under it" the ruling drops).
+ */
+export function dayListing(date: string, items: CalItem[], visits: VisitRow[]): { visits: VisitRow[]; others: CalItem[] } {
+  return {
+    visits: visitsOn(visits, date),
+    others: (items || []).filter(i => i.date === date && i.layer !== 'visit'),
+  };
+}
+
+// ───────────────────────────── one look per cell (round 5 · C5) ─────────────────────────────
+
+/** The DayCell states the calendar uses (components/ui/day-cell.tsx). */
+export type CalCellState = 'default' | 'selected' | 'holiday' | 'eve' | 'field' | 'missing' | 'outside';
+
+export interface CalCellLook {
+  state: CalCellState;
+  /** Today is a ring ON TOP of the state, never a state of its own (a filed today stays green). */
+  today: boolean;
+  /** The cell's aria-label: the day, then the holiday or the attendance fact. */
+  label: string;
+}
+
+/**
+ * The precedence, once: outside → selected → missing → filed (green) → eve → holiday → plain.
+ * `missing` already comes gated from `missingInView` (filers only, past workdays only).
+ */
+export function calCellLook(cell: CalCell, o: { selected: boolean; missing: boolean; reported: boolean }): CalCellLook {
+  let state: CalCellState = 'default';
+  if (!cell.inMonth) state = 'outside';
+  else if (o.selected) state = 'selected';
+  else if (o.missing) state = 'missing';
+  else if (o.reported) state = 'field';
+  else if (cell.eve) state = 'eve';
+  else if (cell.holiday) state = 'holiday';
+  const facts = [dayShort(cell.date)];
+  if (cell.holiday) facts.push(cell.holiday.name);
+  if (o.missing) facts.push('לא דווחה נוכחות');
+  else if (o.reported) facts.push('דווחה נוכחות');
+  return { state, today: !!cell.today, label: facts.join(' · ') };
 }
 
 // ───────────────────────────── absences ─────────────────────────────
@@ -815,8 +1149,8 @@ export function absenceDays(a: AbsenceRow, holidays?: Holiday[]): string[] {
   return out;
 }
 
-/** Only these two have attendance rows to generate (spec §7f). */
-export const ATTENDANCE_PEOPLE = ['אביאם', 'ניתאי'];
+/** Only these two have attendance rows to generate (spec §7f). One list, owned by attendance.ts. */
+export const ATTENDANCE_PEOPLE: readonly string[] = ATT_FILERS;
 
 export interface GeneratedAttRow {
   person: string;
@@ -839,14 +1173,14 @@ export function absenceAttendance(
   existing: Array<{ person?: string; date: string; source?: string }> = [],
 ): GeneratedAttRow[] {
   if (a.kind === 'event') return [];
-  const people = a.person ? [a.person] : ATTENDANCE_PEOPLE.slice();
+  const people = a.person ? [a.person] : ATT_FILERS.slice();
   const manual = new Set(
     existing.filter(r => r.source !== 'calendar').map(r => (r.person || '') + '|' + toKey(r.date)),
   );
   const dayType = a.kind === 'reserve' ? 'reserve' : 'vacation';
   const out: GeneratedAttRow[] = [];
   for (const person of people) {
-    if (ATTENDANCE_PEOPLE.indexOf(person) === -1) continue;   // nobody else files attendance
+    if (ATT_FILERS.indexOf(person) === -1) continue;   // nobody else files attendance
     for (const date of absenceDays(a, holidays)) {
       if (manual.has(person + '|' + date)) continue;
       out.push({ person, date, dayType, source: 'calendar', note: a.note || ABSENCE_LABELS[a.kind] });
@@ -875,4 +1209,58 @@ export function abilities(role: string, me: string): CalendarAbilities {
   }
   const admin = role === 'idan' || me === 'עידן' || me === 'עמיחי';
   return { canAdd: true, canReorder: true, canAbsentOthers: admin, seesEveryone: admin };
+}
+
+// ───────────────────────────── whose calendar (round 5 · C2) ─────────────────────────────
+
+/**
+ * The people the calendar may be shown for, the default first. עידן/עמיחי see their own
+ * calendar or a field person's (that is how they plan somebody else's day); a field person
+ * sees his own; the viewer has no calendar of its own and starts on the field team.
+ */
+export function calendarPeople(role: string, me: string, team: readonly string[] = ATT_FILERS): string[] {
+  if (role === 'viewer') return team.slice();
+  if (!me) return [];
+  if (!abilities(role, me).seesEveryone) return [me];
+  const out = [me];
+  for (const p of team) if (p && out.indexOf(p) === -1) out.push(p);
+  return out;
+}
+
+/** May `me` put stops and dates on `person`'s day? */
+export function canPlanFor(me: string, person: string, can: CalendarAbilities): boolean {
+  if (!can.canReorder || !person) return false;
+  return person === me || can.seesEveryone;
+}
+
+/** Round 5 grill 2: אביאם only may also see ניתאי's tasks in his blocks. */
+export const PEER_TASKS: Readonly<Record<string, string>> = { 'אביאם': 'ניתאי' };
+
+export function canTogglePeerTasks(me: string): boolean {
+  return Object.prototype.hasOwnProperty.call(PEER_TASKS, me);
+}
+
+/**
+ * Whose open tasks fill the blocks. Always the person whose calendar is shown; plus the peer
+ * only when that person is the signed-in one AND he turned the setting on. אביאם's setting
+ * never leaks into עידן's view of אביאם's calendar.
+ */
+export function taskOwners(person: string, me: string, peerOn: boolean): string[] {
+  if (!person) return [];
+  const peer = PEER_TASKS[me];
+  return person === me && peerOn && peer ? [person, peer] : [person];
+}
+
+export type LegendKey = 'holiday' | 'eve' | 'reported' | 'missing';
+export interface LegendItem { key: LegendKey; label: string }
+
+/** The legend always shows (design system, DayCell); red joins it only for a filer. */
+export function legendItems(person: string): LegendItem[] {
+  const out: LegendItem[] = [
+    { key: 'holiday', label: 'חג' },
+    { key: 'eve', label: 'ערב חג' },
+    { key: 'reported', label: 'דווחה נוכחות' },
+  ];
+  if (mustFile(person)) out.push({ key: 'missing', label: 'לא דווחה נוכחות' });
+  return out;
 }

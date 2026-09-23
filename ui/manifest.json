@@ -39,6 +39,7 @@
   "./ui/sigma-kibbutzim.js",
   "./ui/sigma-kibbutzRows.js",
   "./ui/sigma-list-todo.js",
+  "./ui/sigma-lock.js",
   "./ui/sigma-MeetingNotes.js",
   "./ui/sigma-meetingNotes2.js",
   "./ui/sigma-MeetingReview.js",
