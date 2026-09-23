@@ -102,6 +102,19 @@ Mobile is the delivery target for everyone. Desktop is only for עידן for now
 | R · Every other screen | 6% |
 | **Total** | **100%** |
 
+## Grill round 5 answers (עידן 23.9 evening), binding for I, V, K
+- **Edit lock for past data.** Everything dated **August 2026 or earlier is read-only** everywhere (visits, attendance, inventory, certificates, orders). September onward stays editable.
+  - **A visit summary locks on the 10th of the following month** (a September visit locks on 10.10).
+  - Rule as one pure function: `editableUntil(date) = 10th of next month`, `locked = today > editableUntil || date < 2026-09-01`. The app enforces it; a DB trigger enforces it too.
+- **Consequence for the inventory breakpoint:**
+  - September visits dated before the breakpoint (1–23.9) stay editable, including equipment. Their original movements are in `archive.movements_pre_breakpoint`.
+  - When one of them changes equipment, the stock difference is computed against the archived movement, so stock never double-deducts. This replaces the earlier "equipment locked before the breakpoint" rule.
+- **Item delete:**
+  - A removed item is deleted completely: the item, its movements, recounts, alerts, returns, and its lines in visits, requirements and AI examples. Orders left empty are deleted.
+  - **Issued delivery certificates stay exactly as they are**, lines included.
+- **Dead inventory paths are dropped:** the intake window, "import open requirements", reprint, cert from an order or EMS task, the duplicate ✉️ button, the stale flow diagram.
+- **Hours are per person:** מתניה sees only his own; עידן and עמיחי see all.
+
 ## Design ownership (עידן 23.9)
 - **The external designer (the independent consultant agent) owns design and motion for the whole app.**
   - It picks one tool per purpose after running the real tools: impeccable CLI, humanizer, frontend-design, dataviz.
