@@ -46,6 +46,23 @@ function SigmaToaster() {
   return <Toaster richColors position="top-center" dir="rtl" closeButton />;
 }
 
+/**
+ * Shared by every "load this island's chunk the first time its legacy view is shown" mount
+ * block below (נוכחות, יומן, ⏱ שעות, 🔥 צריבות, 🔔 יומן התראות) — one MutationObserver
+ * implementation instead of five copies of it in the boot chunk (round 5 G-U3 tightened the
+ * 304 kB ceiling; this dedup is what buys the headroom back for everyone, not only G's own
+ * new push-log block).
+ */
+function loadOnShow(view: HTMLElement, load: () => void): void {
+  if (view.style.display !== 'none') { load(); return; }
+  const obs = new MutationObserver(() => {
+    if (view.style.display === 'none') return;
+    obs.disconnect();
+    load();
+  });
+  obs.observe(view, { attributes: true, attributeFilter: ['style'] });
+}
+
 function boot() {
   // Same two-copies-of-the-entry problem as in islands.tsx `mount`, but here the cost is
   // higher than duplicate DOM: a second evaluation brings a SECOND TanStack queryClient and
@@ -215,18 +232,9 @@ function boot() {
   // immediate check.
   const attView = document.getElementById('attendance-view');
   if (attView && document.getElementById('sigma-attendance')) {
-    const loadAttendance = () => import('@/islands/Attendance')
+    loadOnShow(attView, () => void import('@/islands/Attendance')
       .then(m => m.mountAttendance())
-      .catch(e => console.warn('[sigma] attendance island failed — legacy report stays', e));
-    if (attView.style.display !== 'none') void loadAttendance();
-    else {
-      const obs = new MutationObserver(() => {
-        if (attView.style.display === 'none') return;
-        obs.disconnect();
-        void loadAttendance();
-      });
-      obs.observe(attView, { attributes: true, attributeFilter: ['style'] });
-    }
+      .catch(e => console.warn('[sigma] attendance island failed — legacy report stays', e)));
   }
   // 🗓️ יומן (Task 13). Same page-open trigger as נוכחות, and for the same reason: the
   // calendar chunk pulls TanStack, supabase-js and Motion's Reorder in, and almost every
@@ -235,67 +243,31 @@ function boot() {
   // ⏱ שעות מול לקוחות (22.9, E2) — loaded when the page first opens, like נוכחות and יומן.
   const hoursView = document.getElementById('hours-view');
   if (hoursView && document.getElementById('sigma-hours')) {
-    const loadHours = () => import('@/islands/Hours')
+    loadOnShow(hoursView, () => void import('@/islands/Hours')
       .then(m => m.mountHours())
-      .catch(e => console.warn('[sigma] hours island failed', e));
-    if (hoursView.style.display !== 'none') void loadHours();
-    else {
-      const obs = new MutationObserver(() => {
-        if (hoursView.style.display === 'none') return;
-        obs.disconnect();
-        void loadHours();
-      });
-      obs.observe(hoursView, { attributes: true, attributeFilter: ['style'] });
-    }
+      .catch(e => console.warn('[sigma] hours island failed', e)));
   }
   // 🔥 צריבות (round 5 G-U2) — same page-open trigger as ⏱ שעות: the chunk pulls TanStack and
   // supabase-js, and the page is reached only from ⋯ or the home strip, never on first paint.
   const burnsView = document.getElementById('burns-view');
   if (burnsView && document.getElementById('sigma-burns-page')) {
-    const loadBurnsPage = () => import('@/islands/BurnsPage')
+    loadOnShow(burnsView, () => void import('@/islands/BurnsPage')
       .then(m => m.mountBurnsPage())
-      .catch(e => console.warn('[sigma] burns page island failed', e));
-    if (burnsView.style.display !== 'none') void loadBurnsPage();
-    else {
-      const obs = new MutationObserver(() => {
-        if (burnsView.style.display === 'none') return;
-        obs.disconnect();
-        void loadBurnsPage();
-      });
-      obs.observe(burnsView, { attributes: true, attributeFilter: ['style'] });
-    }
+      .catch(e => console.warn('[sigma] burns page island failed', e)));
   }
   // 🔔 יומן התראות (round 5 G-U3) — same page-open trigger as ⏱ שעות / 🔥 צריבות: reached only
   // from ⋯, never on first paint, and its chunk pulls TanStack behind it.
   const pushlogView = document.getElementById('pushlog-view');
   if (pushlogView && document.getElementById('sigma-pushlog')) {
-    const loadPushLog = () => import('@/islands/PushLog')
+    loadOnShow(pushlogView, () => void import('@/islands/PushLog')
       .then(m => m.mountPushLog())
-      .catch(e => console.warn('[sigma] push log island failed', e));
-    if (pushlogView.style.display !== 'none') void loadPushLog();
-    else {
-      const obs = new MutationObserver(() => {
-        if (pushlogView.style.display === 'none') return;
-        obs.disconnect();
-        void loadPushLog();
-      });
-      obs.observe(pushlogView, { attributes: true, attributeFilter: ['style'] });
-    }
+      .catch(e => console.warn('[sigma] push log island failed', e)));
   }
   const calView = document.getElementById('calendar-view');
   if (calView && document.getElementById('sigma-calendar')) {
-    const loadCalendar = () => import('@/islands/Calendar')
+    loadOnShow(calView, () => void import('@/islands/Calendar')
       .then(m => m.mountCalendar())
-      .catch(e => console.warn('[sigma] calendar island failed — legacy grid stays', e));
-    if (calView.style.display !== 'none') void loadCalendar();
-    else {
-      const obs = new MutationObserver(() => {
-        if (calView.style.display === 'none') return;
-        obs.disconnect();
-        void loadCalendar();
-      });
-      obs.observe(calView, { attributes: true, attributeFilter: ['style'] });
-    }
+      .catch(e => console.warn('[sigma] calendar island failed — legacy grid stays', e)));
   }
   if (document.getElementById('sigma-holidays')) {
     import('@/islands/Holidays')

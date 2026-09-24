@@ -124,7 +124,7 @@ function PushLogInner() {
                     title={`${line.what}${line.where ? ' · ' + line.where : ''}`}
                     meta={
                       <>
-                        <span>{line.who} · {line.when}{' · '}
+                        <span>{line.who} · <bdi>{line.when}</bdi>{' · '}
                           <Tag role={line.status.role as any}>{line.status.label}</Tag>
                         </span>
                         {r.status === 'failed' && line.error && (
@@ -151,7 +151,7 @@ function PushLogInner() {
               <div className="flex flex-col gap-3 px-1 py-2 text-[length:var(--fs-body)]">
                 <div><span className="text-muted-foreground">כותרת: </span>{openRow.title || line.what}</div>
                 <div><span className="text-muted-foreground">נמען: </span>{line.who}</div>
-                <div><span className="text-muted-foreground">זמן: </span>{line.when}</div>
+                <div><span className="text-muted-foreground">זמן: </span><bdi>{line.when}</bdi></div>
                 <div><span className="text-muted-foreground">סטטוס: </span><Tag role={line.status.role as any}>{line.status.label}</Tag></div>
                 {line.actor && <div><span className="text-muted-foreground">מבצע: </span>{line.actor}</div>}
                 {line.error && (

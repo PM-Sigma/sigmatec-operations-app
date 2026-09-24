@@ -65,7 +65,7 @@ export function AssignSheet({
       <SheetContent side="bottom" dir="rtl" className="max-h-[85svh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>שיבוץ לגנרטור</SheetTitle>
-          <SheetDescription>{site} · {meterIds.length} מוני ייצור נבחרו</SheetDescription>
+          <SheetDescription>{site} · <bdi>{meterIds.length}</bdi> מוני ייצור נבחרו</SheetDescription>
         </SheetHeader>
 
         {!creating ? (
