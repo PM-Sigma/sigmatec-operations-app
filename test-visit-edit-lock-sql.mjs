@@ -18,6 +18,14 @@ assert.ok(!/drop table|truncate/i.test(code(sql)), 'the migration deletes nothin
 assert.match(sql, /-- Verify/);
 assert.match(sql, /-- ROLLBACK/);
 
+// Opus audit fixes, pinned so they cannot regress:
+assert.match(code(sql), /nullif\(left\(old\.date, 10\), ''\)::date/i, 'an empty date string must not crash the cast to date');
+assert.match(code(sql), /nullif\(left\(new\.date, 10\), ''\)::date/i);
+assert.match(code(sql), /if v_new_date is not null and public\.visit_edit_locked\(v_new_date\)/i,
+  'the NEW date must be checked (an August visit must not be smuggled into an open month by editing its date)');
+assert.match(code(sql), /if tg_op = 'UPDATE' and v_old_date is not null and public\.visit_edit_locked\(v_old_date\)/i,
+  'the OLD date must ALSO be checked on an UPDATE — checking only NEW.date let a locked record be edited via its date field');
+
 // the SQL's Verify block states the same 4 cases the TS goldens check (app/src/lib/editLock.test.ts E1, L1-L3);
 // this only pins the SQL text, since node cannot import the .ts module without a loader (repo convention:
 // see test-daylog.mjs, test-ems-labels.mjs, which also assert on the source text rather than importing it).

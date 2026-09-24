@@ -93,4 +93,18 @@ describe('rule 3: the date moves', () => {
     const p = planVisitAttendance({ before, after: before, rows: [auto10], visits: [before] });
     expect(p).toEqual({ ops: [], asks: [], notices: [], autoDays: [] });
   });
+  it('G7b the date can move BACKWARDS too — same delete + popup, direction does not matter', () => {
+    const backBefore = V('v1', '2026-09-12', 'אביאם');
+    const backAfter = V('v1', '2026-09-10', 'אביאם');
+    const auto12 = R(autoRowId('אביאם', '2026-09-12'), 'אביאם', '2026-09-12', 'field', 'visit_auto');
+    const p = planVisitAttendance({ before: backBefore, after: backAfter, rows: [auto12], visits: [backAfter] });
+    expect(p.ops).toContainEqual({ kind: 'delete', id: auto12.id });
+    expect(p.notices).toEqual([{ kind: 'needsEntry', person: 'אביאם', ymd: '2026-09-12' }]);
+  });
+  it('G11 a visit with no id (a draft, never saved) does not count as "another visit that day"', () => {
+    const noId = { id: '', date: '2026-09-10T09:00:00.000Z', visitor: 'אביאם' };
+    const p = planVisitAttendance({ before, after, rows: [auto10], visits: [after, noId] });
+    expect(p.ops).toContainEqual({ kind: 'delete', id: auto10.id });   // deleted, not kept alive by the id-less row
+    expect(p.notices).toEqual([{ kind: 'needsEntry', person: 'אביאם', ymd: '2026-09-10' }]);
+  });
 });

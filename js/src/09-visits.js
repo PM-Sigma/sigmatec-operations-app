@@ -1332,24 +1332,16 @@
     // New visit → the full supply. Edit / retry → only the delta against what was filed, so
     // saving the same visit twice never takes the meters off the pool twice.
     //
-    // Round 5 V20 (grill round 5, replaces "equipment locked before the breakpoint"): a visit dated before the
-    // inventory breakpoint had its ORIGINAL supply movement archived (2.29, archive.movements_pre_breakpoint) —
-    // the live ledger no longer has it. priorSnap.products (the visit's own filed row) is the fallback and the
-    // normal source; for an archived visit the GROUND TRUTH is archive_visit_products() (db/archive_pre_breakpoint_rpc.sql,
-    // SECURITY DEFINER — the archive schema is not otherwise reachable from the client). Sourcing "old" from
-    // anywhere that returns nothing for an archived visit (a live-ledger lookup by refId, for instance) would
-    // post the visit's WHOLE new quantity as if it were an addition on top of the opening balance — the
-    // double-deduct this RPC exists to prevent (app/src/lib/visitEdit.ts equipmentDelta, golden D2). Never blocks
-    // the save: an RPC failure (not applied yet, or genuinely offline) falls back to priorSnap.products.
-    let priorProductsForDelta = (priorSnap && priorSnap.products) || [];
-    if (isEdit && typeof visitIsArchived === 'function' && visitIsArchived(priorSnap) && typeof archiveVisitProducts === 'function') {
-      try {
-        const archived = await archiveVisitProducts(id);
-        if (archived != null) priorProductsForDelta = Object.keys(archived).map(name => ({ name: name, qty: archived[name] }));
-      } catch (e) { /* fall back to priorSnap.products */ }
-    }
+    // Round 5 V20: priorSnap.products (the visit's own filed row) is the OLD-quantity source, edited
+    // once or many times, before or after the inventory breakpoint — it is never touched by the
+    // movement archival (2.29), so it is always accurate. (Opus audit: an earlier version of this
+    // diffed a pre-breakpoint edit against an archive.movements_pre_breakpoint RPC instead, reasoning
+    // the live ledger no longer had the visit's original movement. That RPC always netted to 0 for
+    // real archived data — every visit_supply there runs a personal bag → kibbutz, never from חברה —
+    // so it silently double-posted the whole new quantity as a fresh addition. Removed entirely;
+    // db/archive_pre_breakpoint_rpc.sql is deleted and the archive schema is not read from here.)
     const oldMap = {}, newMap = {};
-    priorProductsForDelta.forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
+    ((priorSnap && priorSnap.products) || []).forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
     products.forEach(p => { newMap[p.name] = (newMap[p.name] || 0) + p.qty; });
     const moves = [];
     const move = (product, from, to, qty, why) => moves.push(fetch(WRITE_ROUTER_URL, {
@@ -1385,7 +1377,7 @@
     // V23 (visit-summary chain audit fix): the chapters sheet sends `via: 'chapters'`; every other caller
     // (📝 יומן היום, a future caller) keeps today's 'daylog' label by omitting it.
     if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz, d.via || 'daylog');
-    return { ok: true, id: String(savedId), edited: isEdit, archived: isEdit && typeof visitIsArchived === 'function' && visitIsArchived(priorSnap) };
+    return { ok: true, id: String(savedId), edited: isEdit };
   }
   window.saveVisitFromData = saveVisitFromData;
 

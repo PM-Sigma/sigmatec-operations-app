@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  INVENTORY_BREAKPOINT_AT, equipmentDelta, equipmentDeltaSource, isArchivedVisit, qtyMap, visitEditLocked,
+  INVENTORY_BREAKPOINT_AT, equipmentDelta, qtyMap, visitEditLocked,
   visitToChapters,
 } from './visitEdit';
 import { VISIT_REASONS } from './field';
@@ -8,20 +8,6 @@ import { VISIT_REASONS } from './field';
 describe('INVENTORY_BREAKPOINT_AT', () => {
   it('the constant matches the js/src/00-consts.js mirror literal', () =>
     expect(INVENTORY_BREAKPOINT_AT).toBe('2026-09-23T14:05:47.625Z'));
-});
-
-describe('isArchivedVisit (round 5, replaces "equipment locked before the breakpoint")', () => {
-  it('A1 dated before 23.9 → archived (its original supply is in archive.movements_pre_breakpoint)', () =>
-    expect(isArchivedVisit({ date: '2026-09-22T09:00:00.000Z' })).toBe(true));
-  it('A2 dated 23.9, filed before T → archived', () =>
-    expect(isArchivedVisit({ date: '2026-09-23T09:00:00.000Z', createdAt: '2026-09-23T10:00:00.000Z' })).toBe(true));
-  it('A3 dated 23.9, filed after T → not archived (live ledger has it)', () =>
-    expect(isArchivedVisit({ date: '2026-09-23T09:00:00.000Z', createdAt: '2026-09-23T15:00:00.000Z' })).toBe(false));
-  it('A4 dated after → not archived', () => expect(isArchivedVisit({ date: '2026-09-24T09:00:00.000Z' })).toBe(false));
-  it('A5 equipmentDeltaSource follows isArchivedVisit', () => {
-    expect(equipmentDeltaSource({ date: '2026-09-10T09:00:00.000Z' })).toBe('archive');
-    expect(equipmentDeltaSource({ date: '2026-09-24T09:00:00.000Z' })).toBe('live');
-  });
 });
 
 describe('visitEditLocked (the general round-5 edit lock, unaffected by the breakpoint)', () => {
@@ -34,19 +20,22 @@ describe('visitEditLocked (the general round-5 edit lock, unaffected by the brea
     expect(visitEditLocked({ date: '2026-09-05' }, '2026-10-11')).toBe(true));
 });
 
-describe('equipmentDelta (no double-deduct against the archived/opening-balance ledger)', () => {
+describe('equipmentDelta (priorSnap.products is ALWAYS the old-quantity source, archived or not)', () => {
   it('D1 a normal (live) edit: delta is new - old', () => {
     expect(equipmentDelta(qtyMap([{ name: 'E360', qty: 2 }]), [{ name: 'E360', qty: 5 }]))
       .toEqual([{ product: 'E360', delta: 3 }]);
   });
-  it('D2 the bug this replaces: sourcing "old" from live movements (which archived it) would return {} for an ' +
-    'archived visit, double-posting the whole new quantity. Sourcing it from archive_visit_products() instead ' +
-    '(here: the same {E360: 2} the visit originally filed) gives the correct, non-doubling delta.', () => {
-    const wrongOld: Record<string, number> = {};                 // what a live-movements-by-ref_id lookup would give
-    const archiveOld = { E360: 2 };                               // what archive_visit_products() actually gives
+  it('D2 the bug this replaces: an archive/movements diff nets to 0 for real pre-breakpoint data (personal ' +
+    'bag → kibbutz, never from חברה), so "old" from the archive is wrongly {} and the whole new quantity is ' +
+    'double-posted. priorSnap.products (here: {E360: 2}, the visit\'s own filed row, untouched by the archival) ' +
+    'is used unconditionally instead and gives the correct, non-doubling delta — same result, edited once or twice.', () => {
+    const wrongOld: Record<string, number> = {};                 // what a from/to-location archive diff wrongly gives
+    const priorSnapProducts = { E360: 2 };                        // the visit's own filed row — always correct
     const newProducts = [{ name: 'E360', qty: 5 }];
-    expect(equipmentDelta(wrongOld, newProducts)).toEqual([{ product: 'E360', delta: 5 }]);   // the bug
-    expect(equipmentDelta(archiveOld, newProducts)).toEqual([{ product: 'E360', delta: 3 }]); // the fix
+    expect(equipmentDelta(wrongOld, newProducts)).toEqual([{ product: 'E360', delta: 5 }]);         // the bug
+    expect(equipmentDelta(priorSnapProducts, newProducts)).toEqual([{ product: 'E360', delta: 3 }]); // the fix
+    // a second edit of the same (now-updated) visit moves only the new delta, never re-posts the first one
+    expect(equipmentDelta(qtyMap(newProducts), [{ name: 'E360', qty: 5 }])).toEqual([]);
   });
   it('D3 a product dropped entirely → a negative delta (a return)', () => {
     expect(equipmentDelta({ 'מונה': 2, כבל: 1 }, [{ name: 'מונה', qty: 2 }]))

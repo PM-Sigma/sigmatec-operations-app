@@ -186,18 +186,18 @@ describe('draftHasInput (grill round 2 rule 1)', () => {
 
 describe('exitDecision (grill round 2 rules 2-4)', () => {
   it('ביטול always deletes', () => {
-    expect(exitDecision('cancel', true, false)).toBe('discardAndClose');
-    expect(exitDecision('cancel', false, false)).toBe('discardAndClose');
+    expect(exitDecision('cancel', true)).toBe('discardAndClose');
+    expect(exitDecision('cancel', false)).toBe('discardAndClose');
   });
   it('scrim/top: ask only with input', () => {
-    expect(exitDecision('scrim', true, false)).toBe('ask');
-    expect(exitDecision('top', true, false)).toBe('ask');
-    expect(exitDecision('scrim', false, false)).toBe('close');
+    expect(exitDecision('scrim', true)).toBe('ask');
+    expect(exitDecision('top', true)).toBe('ask');
+    expect(exitDecision('scrim', false)).toBe('close');
   });
   it('back/app closed: keep only real input', () => {
-    expect(exitDecision('back', true, false)).toBe('keepAndClose');
-    expect(exitDecision('appClose', true, false)).toBe('keepAndClose');
-    expect(exitDecision('back', false, false)).toBe('discardAndClose');
+    expect(exitDecision('back', true)).toBe('keepAndClose');
+    expect(exitDecision('appClose', true)).toBe('keepAndClose');
+    expect(exitDecision('back', false)).toBe('discardAndClose');
   });
-  it('after a send there is nothing to keep', () => expect(exitDecision('sent', true, false)).toBe('close'));
+  it('after a send there is nothing to keep', () => expect(exitDecision('sent', true)).toBe('close'));
 });

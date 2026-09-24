@@ -57,7 +57,9 @@ export function planVisitAttendance(i: { before: VisitLite | null; after: VisitL
     const d0 = ymdOf(i.before.date);
     for (const p of filers(i.before)) {
       if (d0 === day && now.includes(p)) continue;                         // still covered by this visit
-      const other = (i.visits || []).some(v => v && v.id !== i.after.id && ymdOf(v.date) === d0 && visitorsOf(v).includes(p));
+      // Opus audit: only a REAL visit counts as "another visit that day" — a row with no id (a
+      // draft that never saved, a malformed entry) must not keep a filer's auto row alive.
+      const other = (i.visits || []).some(v => v && v.id && v.id !== i.after.id && ymdOf(v.date) === d0 && visitorsOf(v).includes(p));
       if (other) continue;                                                 // rule 3a
       const auto = rowsOf(p, d0).find(isAuto);
       if (auto) {                                                          // rule 3b

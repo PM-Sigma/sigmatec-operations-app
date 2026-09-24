@@ -26,18 +26,37 @@ $$;
 create or replace function public.enforce_visit_edit_lock() returns trigger
 language plpgsql as $$
 declare
-  v_date date;
+  v_old_date date;
+  v_new_date date;
+  v_hint text := 'August 2026 and earlier, or a record past the 10th of the month after it, is read-only (round 5).';
 begin
-  -- INSERT/UPDATE: the row's OWN date decides (a backdated insert into a locked month is blocked too).
-  -- DELETE: only OLD exists.
-  v_date := left(coalesce(new.date, old.date), 10)::date;
-  if public.visit_edit_locked(v_date) then
-    raise exception 'visit % is locked for editing: dated %, editable until %',
-      coalesce(new.id, old.id), v_date, public.visit_editable_until(v_date)
-      using errcode = '22023', hint = 'August 2026 and earlier, or a record past the 10th of the month after it, is read-only (round 5).';
-  end if;
+  -- nullif(...,'') first: an empty date string cast straight to `date` raises its own error
+  -- (invalid input syntax), which would mask the real lock error with a confusing one.
+  v_old_date := nullif(left(old.date, 10), '')::date;
   if tg_op = 'DELETE' then
+    if v_old_date is not null and public.visit_edit_locked(v_old_date) then
+      raise exception 'visit % is locked for editing: dated %, editable until %',
+        old.id, v_old_date, public.visit_editable_until(v_old_date)
+        using errcode = '22023', hint = v_hint;
+    end if;
     return old;
+  end if;
+
+  v_new_date := nullif(left(new.date, 10), '')::date;
+  -- INSERT/UPDATE: BOTH dates must be unlocked. Opus audit: checking only NEW.date (or
+  -- coalesce(new.date, old.date), which resolves to NEW.date whenever it is present) let an
+  -- August visit be smuggled into an open month just by changing its date field — the OLD date
+  -- alone decided nothing was wrong with editing a permanently-locked record. Also blocks the
+  -- opposite: backdating a currently-open visit into a locked month.
+  if v_new_date is not null and public.visit_edit_locked(v_new_date) then
+    raise exception 'visit % is locked for editing: dated %, editable until %',
+      coalesce(new.id, old.id), v_new_date, public.visit_editable_until(v_new_date)
+      using errcode = '22023', hint = v_hint;
+  end if;
+  if tg_op = 'UPDATE' and v_old_date is not null and public.visit_edit_locked(v_old_date) then
+    raise exception 'visit % is locked for editing: dated %, editable until %',
+      coalesce(new.id, old.id), v_old_date, public.visit_editable_until(v_old_date)
+      using errcode = '22023', hint = v_hint;
   end if;
   return new;
 end;

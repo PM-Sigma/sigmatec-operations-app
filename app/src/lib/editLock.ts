@@ -4,17 +4,24 @@
 // month (a September record locks on 10.10). One pure rule, used by every editor and mirrored by a
 // DB trigger (db/visit_edit_lock_trigger.sql) so a stale or crafted client call can't bypass it.
 //
-// Pure: no React, no DOM, no network, no imports. Dates are `yyyy-mm-dd` or an ISO string/Date; only
-// the first 10 characters are read (the app's `left(date, 10)` convention).
+// Pure: no React, no DOM, no network, no imports. Dates are `yyyy-mm-dd` or an ISO string/Date; a
+// string reads only its first 10 characters (the app's `left(date, 10)` convention); a Date is
+// converted through Asia/Jerusalem (Opus audit: "today" must agree with the SQL trigger's
+// `at time zone 'Asia/Jerusalem'`, or the two sides of the lock disagree for the hours UTC and
+// Israel time are on different calendar days — e.g. 00:00-03:00 Israel time when the runtime's
+// own default timezone is UTC, which is what a server/CI process usually runs as).
 
 /** Everything dated before this is locked outright, regardless of the 10th-of-next-month rule. */
 export const ROUND5_LOCK_FLOOR = '2026-09-01';
 
 const pad2 = (n: number): string => String(n).padStart(2, '0');
 
-/** First 10 chars of an ISO string, or a `yyyy-mm-dd` built from a Date's LOCAL day (matches the rest of the app). */
+const israelYmd = (d: Date): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+
+/** First 10 chars of an ISO string, or a `yyyy-mm-dd` from a Date's Asia/Jerusalem calendar day. */
 export function ymd(d: string | Date): string {
-  if (d instanceof Date) return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  if (d instanceof Date) return israelYmd(d);
   return String(d || '').slice(0, 10);
 }
 

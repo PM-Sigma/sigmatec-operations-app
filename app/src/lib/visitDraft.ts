@@ -214,12 +214,12 @@ export type ExitKind = 'scrim' | 'top' | 'cancel' | 'back' | 'appClose' | 'sent'
 
 /**
  * "Drafts rules 2-4" (grill round 2): what leaving the sheet does, by how he left and whether
- * anything real was typed. `editing` does not change the verdict (an edit's draft question uses
- * different button copy, decided by the U layer) — it is here for that caller to read alongside
- * the verdict, not consumed by this decision.
+ * anything real was typed. Editing a filed visit asks with different button copy (decided by the
+ * U layer / useUnsavedGuard's `variant`, not by this function — trimmed per the Opus audit: the
+ * decision never branched on it).
  */
 export function exitDecision(
-  kind: ExitKind, hasInput: boolean, _editing: boolean,
+  kind: ExitKind, hasInput: boolean,
 ): 'close' | 'ask' | 'discardAndClose' | 'keepAndClose' {
   if (kind === 'sent') return 'close';                                     // rule: nothing left to keep
   if (kind === 'cancel') return 'discardAndClose';                         // rule 3: ביטול always deletes

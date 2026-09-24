@@ -2,9 +2,8 @@
 // log call — saveVisitFromData (the pipeline) THEN the attendance plan it implies (rules 1-3,
 // app/src/lib/visitAttendance.ts), applied ONLY when the save itself succeeded (S4: an offline save
 // must run no attendance op and show no success toast).
-import { visitorsOf } from './field';
 import {
-  AUTO_PEOPLE, DAY_LABEL_PLAIN, planVisitAttendance, resolveConflict,
+  DAY_LABEL_PLAIN, planVisitAttendance, resolveConflict,
   type AttAsk, type AttOp, type AttPlan, type AttRow, type VisitLite,
 } from './visitAttendance';
 import { sigma } from '@/bridge';
@@ -20,7 +19,6 @@ export interface SaveDeps {
   rows: () => AttRow[];
   apply: (ops: AttOp[]) => Promise<{ ok: boolean; failed: number }>;
   me: string;
-  now?: () => Date;
 }
 
 const defaultDeps: SaveDeps = {
@@ -33,7 +31,7 @@ const defaultDeps: SaveDeps = {
 
 export type SaveResult =
   | { ok: false; error: string; needsCert?: boolean; locked?: boolean }
-  | { ok: true; id: string; edited: boolean; equipmentLocked?: boolean; plan: AttPlan; toast: string; popups: string[]; asks: AttAsk[] };
+  | { ok: true; id: string; edited: boolean; plan: AttPlan; toast: string; popups: string[]; asks: AttAsk[]; attendanceOk: boolean };
 
 const dm = (ymd: string): string => {
   const [, m, d] = String(ymd || '').split('-');
@@ -45,7 +43,7 @@ const dm = (ymd: string): string => {
  * the visit's own day, so the toast names it once; a popup names the person only when it is not
  * the saver (a second filer's day was cleared by this save).
  */
-export function saveMessages(plan: AttPlan, now: Date, saver: string): { toast: string; popups: string[] } {
+export function saveMessages(plan: AttPlan, saver: string): { toast: string; popups: string[] } {
   const toast = plan.autoDays.length ? `הסיכום נשמר · הוזנה נוכחות שטח אוטומטית ל-${dm(plan.autoDays[0].ymd)}` : 'הסיכום נשמר';
   const seen = new Set<string>();
   const popups: string[] = [];
@@ -71,7 +69,6 @@ export function conflictQuestion(ask: AttAsk): string {
  */
 export async function saveVisit(input: VisitInput, deps: Partial<SaveDeps> = {}): Promise<SaveResult> {
   const d: SaveDeps = { ...defaultDeps, ...deps };
-  const now = (d.now ?? (() => new Date()))();
 
   const allVisits = d.visits();
   const beforeLive = input.id ? allVisits.find(v => v && v.id === input.id) ?? null : null;
@@ -85,15 +82,24 @@ export async function saveVisit(input: VisitInput, deps: Partial<SaveDeps> = {})
   const id = String(res.id ?? input.id ?? '');
   const after: VisitLite = { id, date: String(input.date || ''), visitor: String(input.visitor || '') };
 
-  const filers = AUTO_PEOPLE.some(p => visitorsOf(after).includes(p)) || (before ? AUTO_PEOPLE.some(p => visitorsOf(before).includes(p)) : false);
-  let plan: AttPlan = { ops: [], asks: [], notices: [], autoDays: [] };
-  if (filers) {
-    plan = planVisitAttendance({ before, after, rows: d.rows(), visits: allVisits });
-    if (plan.ops.length) await d.apply(plan.ops);
+  // planVisitAttendance is already a no-op (empty ops/asks/notices) when neither before nor after
+  // involves a filer — no need to pre-check that here (it would just repeat the same filtering).
+  const plan = planVisitAttendance({ before, after, rows: d.rows(), visits: allVisits });
+
+  // Honour the write: an attendance op that failed must not be reported as if it had succeeded —
+  // the visit itself is still `ok` (it saved), but the auto-filed toast and the "needs entry"
+  // popups are about attendance rows that, in this branch, were never actually written.
+  let attendanceOk = true;
+  if (plan.ops.length) {
+    const applied = await d.apply(plan.ops);
+    attendanceOk = applied.ok;
+  }
+  if (!attendanceOk) {
+    return { ok: true, id, edited: !!res.edited, plan, asks: plan.asks, toast: 'הסיכום נשמר', popups: [], attendanceOk: false };
   }
 
-  const { toast, popups } = saveMessages(plan, now, d.me);
-  return { ok: true, id, edited: !!res.edited, equipmentLocked: (res as { archived?: boolean }).archived, plan, toast, popups, asks: plan.asks };
+  const { toast, popups } = saveMessages(plan, d.me);
+  return { ok: true, id, edited: !!res.edited, plan, toast, popups, asks: plan.asks, attendanceOk: true };
 }
 
 export { resolveConflict };

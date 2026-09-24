@@ -561,12 +561,9 @@ export interface VisitChaptersOpen {
 /** The global the other islands (the strip's nudge, gaps, the push deep link) call. */
 export const VISIT_CHAPTERS_API = 'sigmaVisitChapters';
 
-/** Is there anything in here worth keeping? Decides whether a stray tap is allowed to close. */
-function chapterDraftHasContent(d: ChapterDraft): boolean {
-  return !!(String(d.summary || '').trim() || String(d.openItems || '').trim()
-    || String(d.productsOther || '').trim() || String(d.contact || '').trim()
-    || (d.products || []).length || d.duration || d.workday);
-}
+// "Is there anything in here worth keeping?" is app/src/lib/visitDraft.ts draftHasInput now
+// (round 5 V-L7) — the old chapterDraftHasContent (counted the duration/workday defaults as
+// content) is gone; both the autosave gate and the unsaved-guard read draftHasInput.
 
 /**
  * One labelled field. `required` prints the red star §C3 asks for, and `miss` is the IN-PLACE
@@ -1157,7 +1154,9 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     const cur = ref.current;
     if (!cur.kibbutz || cur.editing) return;
     const payload = { ...cur.model, ...patch } as Record<string, unknown>;
-    if (!chapterDraftHasContent(payload as ChapterDraft)) return;   // an untouched sheet leaves nothing
+    // Round 5 V-L7 (grill round 2 "Drafts rule 1"): draftHasInput, not chapterDraftHasContent — a
+    // sheet holding only defaults (date, visitor(s), duration chip, workday chip) is not a draft.
+    if (!draftHasInput(payload as ChapterDraft)) return;
     try {
       sigma.visitDraftPut?.({ id: cur.draftId, person: me, kibbutz: cur.kibbutz, date: today, payload });
     } catch (e) { console.warn('[visit-chapters] draft', e); }
@@ -1350,7 +1349,10 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         try { sigma.visitDraftDiscard?.(cur.draftId); } catch { /* it is filed; the draft is noise */ }
         set({ submittedId: visitId });
         track('visit-chapters-send', cur.kibbutz);
-        toast.success(res.toast);
+        // Opus audit: honour the attendance write's own result — it is a SEPARATE call from the
+        // visit save, and it can fail on its own (the visit is still filed either way).
+        if (res.attendanceOk) toast.success(res.toast);
+        else toast.error('הסיכום נשמר, אך עדכון הנוכחות נכשל');
         // Rule 2 conflict ("הוזן X, לשנות לשטח?") and rule 3 "needs entry" popups — the plain
         // toast wiring V-L5 owns; V-U1 restyles both onto the design-system Sheet/ConfirmSheet.
         for (const ask of res.asks) {
