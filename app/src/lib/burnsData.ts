@@ -136,6 +136,18 @@ const PAGE = 200;
 const MAX_PAGES = 25;
 const ROLES = [20, 21, 22, 23, 24];
 
+/** Walk pages of up to `PAGE` items (`fetchPage(0)`, `fetchPage(1)`, …) until a short page or
+ *  `MAX_PAGES`, exactly what the legacy `burnEmsAll` did for both `/meters` and `/solars`. */
+async function pageAll(fetchPage: (page: number) => Promise<any[]>): Promise<any[]> {
+  const out: any[] = [];
+  for (let p = 0; p < MAX_PAGES; p++) {
+    const page = await fetchPage(p);
+    out.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function refreshBurnsFromEms(
   { now = Date.now(), force = false }: { now?: number; force?: boolean } = {},
 ): Promise<{ ran: boolean; upserted: number; skipped: number }> {
@@ -147,17 +159,17 @@ export async function refreshBurnsFromEms(
   if (!force && last && now - last < TWELVE_H) return { ran: false, upserted: 0, skipped: 0 };
 
   const gw = emsGateway();
-  const meters: any[] = [];
-  for (let p = 0; p < MAX_PAGES; p++) {
-    const page = await gw.listMetersByRole(ROLES, p, PAGE);
-    meters.push(...page);
-    if (page.length < PAGE) break;
-  }
-  const { rows, skipped } = emsToBurnRows(meters, await gw.listSolars());
-  if (rows.length) {
-    const sb = await getSupabase();
-    await sbWrite(() => sb.from('meter_burns').upsert(rows, { onConflict: 'meter_id' }).select('meter_id') as any);
-  }
+  const [meters, solars] = await Promise.all([
+    pageAll(p => gw.listMetersByRole(ROLES, p, PAGE)),
+    pageAll(p => gw.listSolars(p, PAGE)),
+  ]);
+  const { rows, skipped } = emsToBurnRows(meters, solars);
+  // Never stamp a sync (and never upsert) on an empty answer — an EMS hiccup that returns
+  // nothing must not look like "0 meters left to burn", and must be retried on the next open
+  // rather than waiting out the full 12 h (mirrors the legacy `burnRefreshFromEmsRun` throw).
+  if (!rows.length) throw new Error('ה-EMS החזיר 0 מוני ייצור E360, לא עודכן דבר');
+  const sb = await getSupabase();
+  await sbWrite(() => sb.from('meter_burns').upsert(rows, { onConflict: 'meter_id' }).select('meter_id') as any);
   try { localStorage.setItem(SYNC_KEY, String(now)); } catch { /* ignore */ }
   emitBurnsChanged({ source: 'ems' });
   return { ran: true, upserted: rows.length, skipped };

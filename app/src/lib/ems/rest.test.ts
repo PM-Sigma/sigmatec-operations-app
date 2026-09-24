@@ -61,7 +61,8 @@ describe('URLS — the exact strings the pre-gateway call sites sent', () => {
   it('/meters?search — the burns generator-picker lookup, encoded', () =>
     expect(URLS.meterSearch('68 36', 5)).toBe('/meters?search=68%2036&take=5'));
 
-  it('/solars', () => expect(URLS.solars()).toBe('/solars'));
+  it('/solars — paged like the meters (audit fix: an unpaged fetch truncated silently)', () =>
+    expect(URLS.solars(2, 200)).toBe('/solars?take=200&page=3'));
 });
 
 describe('unwrapping', () => {

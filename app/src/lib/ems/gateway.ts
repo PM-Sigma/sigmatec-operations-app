@@ -28,8 +28,10 @@ export interface EmsGateway {
   /** EMS `/meters?search=` for the generator picker (🔥 צריבות) — raw rows, mapped by
    *  `lib/burns.ts` `emsHitLines`. */
   searchMeters(q: string, take: number): Promise<any[]>;
-  /** Raw solar systems, for `lib/burns.ts` `emsSolarNames` / `emsToBurnRows`. */
-  listSolars(): Promise<any[]>;
+  /** One page of raw solar systems, for `lib/burns.ts` `emsSolarNames` / `emsToBurnRows` —
+   *  paged exactly like `listMetersByRole` (audit fix, round 5 G: an unpaged fetch silently
+   *  truncated and overwrote good `solar_names` data with a partial list). */
+  listSolars(page: number, take: number): Promise<any[]>;
 
   listOpenTasks(q?: ListTasksQuery): Promise<EmsTask[]>;
   getTask(id: string): Promise<EmsTask | null>;

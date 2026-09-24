@@ -36,6 +36,7 @@ function lineMatching(text, re) {
 const login = src('11-search-login.js');
 const bridge = src('00-bridge.js');
 const dev = src('18-dev-tasks.js');
+const consts = src('00-consts.js');
 
 const program = [
   "var USER_KEY = 'dashboard_user_v1';",
@@ -45,8 +46,9 @@ const program = [
   fnSource(login, 'isIdan'), fnSource(login, 'isViewer'), fnSource(login, 'canSeeAttendance'),
   fnSource(bridge, 'canManageStaff'),
   fnSource(dev, 'canSeeDevTasks'),
-  // the removal flag lives in 00-consts.js now (G-L4); the default here just mirrors it
-  'window.BURNS_PROJECT_ACTIVE = true;',
+  // the removal flag's REAL declaration (G-L4) — lifted from 00-consts.js, not retyped, so a
+  // change to its default there is a change here too.
+  lineMatching(consts, /window\.BURNS_PROJECT_ACTIVE\s*=/),
   // the bridge's private `call` helper, exactly as canShowPage uses it
   "var call = function (name, args, fallback) { var f = { canSeeAttendance: canSeeAttendance, canSeeDevTasks: canSeeDevTasks, isIdan: isIdan, getCurrentUser: getCurrentUser, isViewer: isViewer }[name]; return f ? f.apply(null, args || []) : fallback; };",
   fnSource(bridge, 'canShowPage'),
@@ -104,9 +106,14 @@ try {
   assert.equal(gateFor('עידן', 'idan', { burnsActive: false })('burns'), false, 'flag off → nobody, now read from 00-consts');
   console.log('  ok - burns flag off refuses עידן too (00-consts, not the retiring file)');
 } catch (e) { failures++; console.log(`  FAIL - ${e.message}`); }
+// A SECOND `window.BURNS_PROJECT_ACTIVE = true` in the retiring file would silently override
+// an operator's `false` in 00-consts.js on every load — the ONE-flag promise broken by exactly
+// the file this task moved the declaration off of. This is the check that would have caught it.
 try {
-  assert.ok(!/src\('24-meter-burns\.js'\)/.test(fs.readFileSync(path.join(root, 'test-can-show-page.mjs'), 'utf8')), 'no longer loads the retiring file');
-  console.log('  ok - this runner no longer loads 24-meter-burns.js');
+  const burnsCode = src('24-meter-burns.js').split('\n').filter(l => !l.trim().startsWith('//'));
+  assert.ok(!burnsCode.some(l => /window\.BURNS_PROJECT_ACTIVE\s*=\s*(true|false)\s*;/.test(l)),
+    '24-meter-burns.js must not redeclare the flag — 00-consts.js is the only place it is set');
+  console.log('  ok - the removal flag is declared in exactly one place (00-consts.js)');
 } catch (e) { failures++; console.log(`  FAIL - ${e.message}`); }
 
 // An unknown page is never open.

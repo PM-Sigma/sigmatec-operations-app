@@ -103,7 +103,10 @@ export const URLS = {
   metersByRole: (roleCodes: number[], page: number, take = 200) =>
     '/meters?roleCodes=' + roleCodes.join(',') + '&take=' + take + '&page=' + (page + 1),
   meterSearch: (q: string, take = 5) => '/meters?search=' + encodeURIComponent(q) + '&take=' + take,
-  solars: () => '/solars',
+  // Paged exactly like metersByRole (audit fix, round 5 G): an unpaged /solars silently
+  // truncates at the EMS's own page cap, and a truncated solar list would OVERWRITE good
+  // `solar_names` data on the next refresh with a partial one — worse than not refreshing.
+  solars: (page: number, take = 200) => '/solars?take=' + take + '&page=' + (page + 1),
 };
 
 /** What the REST transport can do. The three `false`s are operations the EMS REST API
@@ -160,8 +163,8 @@ export function restAdapter(t: RestTransport = bridgeTransport()): EmsGateway {
     async searchMeters(q, take) {
       return unwrapList(await t.emsApi(URLS.meterSearch(q, take)));
     },
-    async listSolars() {
-      return unwrapList(await t.emsApi(URLS.solars()));
+    async listSolars(page, take) {
+      return unwrapList(await t.emsApi(URLS.solars(page, take)));
     },
 
     async listOpenTasks(q) { return unwrapList(await t.emsApi(URLS.tasks(q))).map(mapTask); },

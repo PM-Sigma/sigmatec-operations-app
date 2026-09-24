@@ -38,7 +38,7 @@ vi.mock('@/lib/supabase', () => {
 });
 
 const listMetersByRole = vi.fn();
-const listSolars = vi.fn(async () => []);
+const listSolars = vi.fn(async (): Promise<any[]> => []);
 const searchMeters = vi.fn();
 vi.mock('@/lib/ems/gateway', () => ({ emsGateway: () => ({ listMetersByRole, listSolars, searchMeters }) }));
 
@@ -49,6 +49,7 @@ beforeEach(() => {
   writes.calls.length = 0;
   upserts.calls.length = 0;
   listMetersByRole.mockReset();
+  listSolars.mockClear();               // keep the `async () => []` default; only forget calls
   searchMeters.mockReset();
 });
 
@@ -66,18 +67,40 @@ describe('refreshBurnsFromEms', () => {
     expect(upserts.calls[0].rows.length).toBe(201);
   });
 
+  // audit fix (round 5 G): /solars must page exactly like /meters — an unpaged fetch silently
+  // truncates and the truncated result then OVERWRITES good solar_names data on upsert.
+  it('pages the solars too, not just the meters', async () => {
+    listMetersByRole.mockResolvedValueOnce([{ id: 'm1', serialNumber: 1, site: { name: 'גבים' }, type: { key: 'landis_e360pp' } }]);
+    listSolars
+      .mockResolvedValueOnce(Array.from({ length: 200 }, (_, i) => ({ name: 'S' + i, solarMeters: [{ meter: { id: 'm1' } }] })))
+      .mockResolvedValueOnce([{ name: 'S200', solarMeters: [{ meter: { id: 'm1' } }] }]);
+    await refreshBurnsFromEms({ force: true, now: 1 });
+    expect(listSolars).toHaveBeenCalledTimes(2);
+    expect(listSolars).toHaveBeenCalledWith(0, 200);
+    expect(listSolars).toHaveBeenCalledWith(1, 200);
+  });
+
   it('skips inside 12 h, runs again after', async () => {
     localStorage.setItem('burn_ems_synced_v1', String(1_000));
     expect((await refreshBurnsFromEms({ now: 1_000 + 11 * 3600e3 })).ran).toBe(false);
     expect(listMetersByRole).not.toHaveBeenCalled();
-    listMetersByRole.mockResolvedValueOnce([]);
+    listMetersByRole.mockResolvedValueOnce([{ id: 'm1', serialNumber: 1, site: { name: 'גבים' }, type: { key: 'landis_e360pp' } }]);
     expect((await refreshBurnsFromEms({ now: 1_000 + 13 * 3600e3 })).ran).toBe(true);
   });
 
   it('stops at 25 pages', async () => {
     listMetersByRole.mockResolvedValue(Array.from({ length: 200 }, (_, i) => ({ id: 'p' + i })));
-    await refreshBurnsFromEms({ force: true, now: 5 });
+    await expect(refreshBurnsFromEms({ force: true, now: 5 })).rejects.toThrow();
     expect(listMetersByRole).toHaveBeenCalledTimes(25);
+  });
+
+  // audit fix (round 5 G): a 0-row answer must never look like "nothing left to burn" — no
+  // upsert, no sync stamp, so the next open retries instead of waiting out the full 12 h.
+  it('throws and never stamps the sync key when the EMS returns nothing usable', async () => {
+    listMetersByRole.mockResolvedValueOnce([]);
+    await expect(refreshBurnsFromEms({ force: true, now: 9_000 })).rejects.toThrow('0 מוני ייצור');
+    expect(localStorage.getItem('burn_ems_synced_v1')).toBeNull();
+    expect(upserts.calls.length).toBe(0);
   });
 });
 
