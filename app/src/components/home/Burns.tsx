@@ -27,8 +27,8 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { track } from '@/lib/track';
 import {
-  burnChip, burnIssueTask, burnKindLabel, burnStateLabel, burnCounts, burnProgress, burnStripText, burnVisual,
-  burnWarnings, burnsForSite, burnSitesWithPending, canSeeBurns, canWriteBurns, generatorsForSite,
+  burnIssueTask, burnKindLabel, burnStateLabel, burnCounts, burnProgress, burnProjectLine, burnVisual,
+  burnWarnings, burnsForSite, canSeeBurns, canWriteBurns, generatorsForSite,
   type BurnRow, type GeneratorRow,
 } from '@/lib/burns';
 import {
@@ -46,36 +46,8 @@ export function useBurnAccess(): { user: string; canSee: boolean; canWrite: bool
   };
 }
 
-// ───────────────────── 1. the card chip ─────────────────────
-
-/**
- * `🔥 נותרו X/Y` on the kibbutz card. Rendered only while X > 0 — a temporary project must
- * disappear from a card it has finished with, not leave a stale "0/30" behind (plan point 1).
- * Tapping it opens the card modal's צריבות section, which is where the meters are.
- */
-export function BurnChip({ kibbutz }: { kibbutz: string }) {
-  const { canSee } = useBurnAccess();
-  const { data } = useBurns(canSee);
-  const chip = canSee ? burnChip(data, kibbutz) : null;
-  if (!chip) return null;
-  return (
-    <button
-      type="button"
-      data-testid="burn-chip"
-      data-burn-remaining={chip.remaining}
-      title="צריבות שנותרו בקיבוץ הזה"
-      onClick={e => { e.stopPropagation(); track('burn-chip-open', kibbutz); openBurnsFor(kibbutz); }}
-      className="tag-burn rounded-full bg-[color:var(--sigma-warn)]/15 px-2 py-0.5 text-[11px] font-semibold text-[color:var(--sigma-warn-ink)]"
-    >
-      {chip.text}
-    </button>
-  );
-}
-
-/** Open the kibbutz modal on the card whose צריבות someone wants to see. */
-function openBurnsFor(kibbutz: string): void {
-  try { sigma.openKibbutzModal?.(kibbutz, 'meetings'); } catch { /* the legacy modal is not there */ }
-}
+// BurnChip (the card's `🔥 נותרו X/Y`) is removed (round 5, K2/K-U4 — "burns never on a
+// kibbutz card, closed or open"). It was already dead: nothing rendered it on KibbutzCard.
 
 // ───────────────────── 2. the card-modal section ─────────────────────
 
@@ -362,62 +334,30 @@ export function openBurnsTable(): void {
 // ───────────────────── 3. the landing strip ─────────────────────
 
 /**
- * `🔥 צריבות — נותרו N ב-M קיבוצים` above the cards for the field team, and the same strip
- * as a PROGRESS summary for everyone else (עידן 18.9 21:50 — it is not only a field surface).
- * Hidden at N = 0, hidden for anyone outside the project's audience, and hidden entirely
- * when the project flag is off.
- *
- * Tapping it filters the cards to the kibbutzim that still have pending burns; tapping the
- * ⋯ link opens the full table.
+ * "פרויקט צריבות מונים · בוצעו X מתוך Y · לפירוט ›" — ONE row above the cards (round 5, K1;
+ * QA קיבוצים 1; grill round 2 "Burns strip = home"). No per-role text, no card filter: the
+ * whole row is the button, and it always opens the burns page (openBurnsTable). Hidden for
+ * anyone outside the project's audience, and hidden entirely once there is nothing to burn.
  */
 export function BurnsStrip() {
-  const { canSee, role } = useBurnAccess();
+  const { canSee } = useBurnAccess();
   const { data } = useBurns(canSee);
-  const [filtered, setFiltered] = React.useState(false);
   const progress = React.useMemo(() => burnProgress(data), [data]);
-  const text = canSee ? burnStripText(progress, role === 'field' ? 'field' : 'other') : '';
-
-  // The filter is applied to the LEGACY card DOM (which React owns but legacy decorates), the
-  // same way the home island's own chips hide cards: a `data-burn-filter` attribute on <body>
-  // plus a class on the cards that are out of scope. Undone on unmount and on a second tap,
-  // so nobody can get stuck looking at four cards.
-  const apply = React.useCallback((on: boolean) => {
-    const names = new Set(burnSitesWithPending(data));
-    document.querySelectorAll<HTMLElement>('.kibbutz[data-name]').forEach(card => {
-      const off = on && !names.has(String(card.dataset.name || '').trim());
-      card.classList.toggle('burn-filtered-out', off);
-    });
-    document.body.classList.toggle('burn-filter-on', on);
-  }, [data]);
-
-  React.useEffect(() => { if (filtered) apply(true); }, [filtered, apply]);
-  React.useEffect(() => () => apply(false), [apply]);
-
-  if (!text) return null;
+  const line = canSee ? burnProjectLine(progress) : null;
+  if (!line) return null;
 
   return (
-    <div data-testid="burns-strip" className="mb-2.5 flex items-center gap-2 rounded-[14px] border border-border bg-card px-3 py-2.5">
-      <button
-        type="button"
-        data-testid="burns-strip-filter"
-        aria-pressed={filtered}
-        onClick={() => { const next = !filtered; setFiltered(next); apply(next); track(next ? 'burn-filter-on' : 'burn-filter-off'); }}
-        className="flex min-h-[40px] flex-1 items-center gap-2 text-start text-[14px] font-bold"
-      >
-        <Flame className="h-4 w-4 shrink-0 text-[color:var(--sigma-warn-ink)]" />
-        <span className="flex-1">{text.replace(/^🔥\s*/, '')}</span>
-        {filtered && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">מסונן</span>}
-      </button>
-      <span aria-hidden className="h-6 w-px bg-border" />
-      <div className="flex-none">
-        <div className="h-1.5 w-[72px] overflow-hidden rounded-full bg-muted">
-          <i data-testid="burns-strip-bar" style={{ width: progress.pct + '%' }} className="block h-full bg-brand-grad" />
-        </div>
-        <button type="button" onClick={openBurnsTable}
-                className="mt-1 block w-full text-[11px] font-bold text-muted-foreground underline underline-offset-2">
-          הכול ›
-        </button>
-      </div>
-    </div>
+    <button
+      type="button"
+      data-testid="burns-strip"
+      onClick={openBurnsTable}
+      className="mb-2.5 flex min-h-[52px] w-full items-center gap-2.5 rounded-[14px] border border-border bg-card px-3 py-2.5 text-start"
+    >
+      <Flame aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--sigma-warn-ink)]" />
+      <span className="min-w-0 flex-1 truncate text-[14px] font-bold">
+        {line.title} · <bdi>{line.progress}</bdi>
+      </span>
+      <span className="shrink-0 text-[12.5px] font-bold text-muted-foreground">{line.link} ›</span>
+    </button>
   );
 }
