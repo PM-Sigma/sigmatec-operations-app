@@ -66,6 +66,10 @@ export const KIBBUTZIM = [
   { id: 'k7', name: 'שדה אליהו', display_name: null, section: 'new', region: 'גליל וגולן',
     energy: ['electric', 'gas'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
     ems_site_ids: ['3f91ccf9-67ae-4420-bf30-b7ea57ad16b2', '14a28537-15a6-4860-8a57-410d9cbf738c'] },
+  // round 5 V-U2: a long-named kibbutz, for the ביקורים tab's draft-row clamp coverage.
+  { id: 'k8', name: 'כפר גלעדי', display_name: null, section: 'active', region: 'העמקים',
+    energy: ['electric'], kind: 'kibbutz', parent: null, marketing: false, archived_at: null,
+    ems_site_ids: ['a2c6a0a0-2b4a-4a1a-9a0a-7a1a2a3a4a5a'] },
 ];
 
 /** Four meetings on חוקוק → a latest block plus a "היסטוריה (3)" disclosure on that card. */
