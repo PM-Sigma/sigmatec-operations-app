@@ -48,6 +48,7 @@ const StockTab = React.lazy(() => import('./InventoryStock').then(m => ({ defaul
 const KibbutzTab = React.lazy(() => import('./InventoryKibbutzim').then(m => ({ default: m.InventoryKibbutzimTab })));
 const ReturnsTab = React.lazy(() => import('./InventoryReturns').then(m => ({ default: m.InventoryReturnsTab })));
 const CertsTab = React.lazy(() => import('./InventoryCerts').then(m => ({ default: m.InventoryCertsTab })));
+const ProductsTab = React.lazy(() => import('./InventoryProducts').then(m => ({ default: m.InventoryProductsTab })));
 
 // Tabs U3–U6 build (stock/kibbutz/certs/returns/products): until each task ships its own lazy
 // child, its tab renders an empty, testid'd placeholder — never the acceptance shape, but enough
@@ -58,17 +59,13 @@ function Placeholder({ id }: { id: string }) {
   // tab (products, until U6) once other tabs stopped being empty placeholders themselves.
   return <div data-testid={`inv-panel-${id}-placeholder`} className="min-h-[1px]" />;
 }
-function placeholderTab(id: string): React.ComponentType {
-  return () => <Placeholder id={id} />;
-}
-
 const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   orders: OrdersTab,
   stock: StockTab,
   certs: CertsTab,
   kibbutz: KibbutzTab,
   returns: ReturnsTab,
-  products: placeholderTab('products'),
+  products: ProductsTab,
 };
 
 function invReactNow(): boolean {

@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 29 legacy modules, 187 island sources and 10 edge functions.
+Generated from 29 legacy modules, 189 island sources and 10 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
@@ -170,7 +170,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-hours` | :596 | app/src/islands/Hours.tsx:263<br>app/src/main.tsx:252 |
 | `#sigma-import` | :1261 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:534 |
 | `#sigma-internal-modal` | :659 | app/src/main.tsx:162 |
-| `#sigma-inventory` | :340 | app/src/islands/Inventory.tsx:172<br>app/src/main.tsx:211 |
+| `#sigma-inventory` | :340 | app/src/islands/Inventory.tsx:169<br>app/src/main.tsx:211 |
 | `#sigma-inventory-strip` | :418 | app/src/islands/InventoryStrip.tsx:211<br>app/src/main.tsx:204 |
 | `#sigma-meeting-review` | :1278 | app/src/islands/MeetingReview.tsx:646 |
 | `#sigma-message` | :1282 | app/src/islands/MessageSheet.tsx:113<br>app/src/main.tsx:301 |

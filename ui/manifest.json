@@ -43,6 +43,7 @@
   "./ui/sigma-InventoryCerts.js",
   "./ui/sigma-InventoryKibbutzim.js",
   "./ui/sigma-InventoryOrders.js",
+  "./ui/sigma-InventoryProducts.js",
   "./ui/sigma-InventoryReturns.js",
   "./ui/sigma-InventoryStock.js",
   "./ui/sigma-InventoryStrip.js",
