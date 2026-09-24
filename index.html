@@ -591,14 +591,9 @@
   <div id="sigma-hours"></div>
 </div>
 <div id="burns-view" style="display:none;padding:16px 0;">
-  <div class="page-head"><button type="button" class="page-back" onclick="pageBack()"><span aria-hidden="true">→</span> חזרה</button><h2>צריבות</h2></div>
-  <div id="burnsContent">טוען...</div>
-</div>
-<div class="modal-backdrop" id="burnCardModal" style="z-index:1150;">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;"><div id="burnCardContent"></div></div>
-</div>
-<div class="modal-backdrop" id="burnAssignModal" style="z-index:1160;">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px;"><div id="burnAssignContent"></div></div>
+  <!-- React island (app/src/islands/BurnsPage.tsx, round 5 G-U2) — PageActionRow is the page
+       head now, mounted when the page first opens like ⏱ שעות. -->
+  <div id="sigma-burns-page"></div>
 </div>
 
 <!-- EMS Task Detail Modal (status change, comments, calendar) -->

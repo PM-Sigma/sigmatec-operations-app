@@ -127,3 +127,45 @@ test('landing strip: עמיחי is shown PROGRESS, not a to-do list (עידן 18
 
   expectNoConsoleErrors(rec);
 });
+
+// ───────────────────────── the full table (round 5 G-U2) ─────────────────────────
+
+test('table: no prompt()/confirm() anywhere on the page (G-R4)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  page.on('dialog', d => { throw new Error('unexpected native dialog: ' + d.message()); });
+
+  await page.evaluate(() => (window as any).showPage('burns'));
+  const view = page.locator('#sigma-burns-page');
+  await expect(view.getByText('צריבות: מוני ייצור E360')).toBeVisible({ timeout: 15_000 });
+
+  await expectRtl(page);
+  await shot(page, ti, 'table-default');
+  expectNoConsoleErrors(rec);
+});
+
+test('table: search "287" then Enter opens the single meter it matches', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await page.evaluate(() => (window as any).showPage('burns'));
+  const view = page.locator('#sigma-burns-page');
+  await expect(view.getByText('צריבות: מוני ייצור E360')).toBeVisible({ timeout: 15_000 });
+  // wait for the fixture rows (not just the shell) before typing a search
+  await expect(view.getByText('68369287')).toBeVisible({ timeout: 15_000 });
+
+  await view.getByLabel('חיפוש').fill('287');
+  // Let the filtered list settle to the one match before Enter.
+  await expect(view.getByText('59965612')).toHaveCount(0);
+  await view.getByLabel('חיפוש').press('Enter');
+  await expect(page.getByRole('dialog').filter({ hasText: '68369287' })).toBeVisible();
+
+  expectNoConsoleErrors(rec);
+});
+
+test('table: the viewer reads every kibbutz’s meters with no write control', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'צפייה' });
+  await page.evaluate(() => (window as any).showPage('burns'));
+  const view = page.locator('#sigma-burns-page');
+  await expect(view.getByText('צריבות: מוני ייצור E360')).toBeVisible({ timeout: 15_000 });
+  await expect(view.getByLabel('גנרטורים')).toHaveCount(0);
+
+  expectNoConsoleErrors(rec);
+});

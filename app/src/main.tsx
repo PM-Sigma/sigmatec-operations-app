@@ -248,6 +248,23 @@ function boot() {
       obs.observe(hoursView, { attributes: true, attributeFilter: ['style'] });
     }
   }
+  // 🔥 צריבות (round 5 G-U2) — same page-open trigger as ⏱ שעות: the chunk pulls TanStack and
+  // supabase-js, and the page is reached only from ⋯ or the home strip, never on first paint.
+  const burnsView = document.getElementById('burns-view');
+  if (burnsView && document.getElementById('sigma-burns-page')) {
+    const loadBurnsPage = () => import('@/islands/BurnsPage')
+      .then(m => m.mountBurnsPage())
+      .catch(e => console.warn('[sigma] burns page island failed', e));
+    if (burnsView.style.display !== 'none') void loadBurnsPage();
+    else {
+      const obs = new MutationObserver(() => {
+        if (burnsView.style.display === 'none') return;
+        obs.disconnect();
+        void loadBurnsPage();
+      });
+      obs.observe(burnsView, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
   const calView = document.getElementById('calendar-view');
   if (calView && document.getElementById('sigma-calendar')) {
     const loadCalendar = () => import('@/islands/Calendar')
