@@ -34,14 +34,19 @@
 -- consumed value, so this can never run inside a plain local transaction test against a shared
 -- sequence without leaving a gap — a branch is disposable, main is not).
 --
--- AUDIT FIX (r5, "does a full delete override the visit_edit_lock trigger?" — question open for
--- עידן; default ruling until he answers): NO override. A visit dated ≤31.8.2026, or past the
--- 10th of the month after it (db/visit_edit_lock_trigger.sql), is read-only everywhere, including
--- here. Writing its `products` line would fire that trigger and abort the WHOLE delete
--- transaction (movements/orders/etc. already deleted, then a rollback) — so a locked visit's line
--- is simply left alone: not trimmed, not deleted, the item's name stays in it. The preview lists
--- such visits separately as "kept (locked)" so the confirmation screen is honest about what will
--- and will not be touched.
+-- RULING (עידן, 24.9 — supersedes the r5 "no override" default): a full item delete DOES override
+-- visit_edit_lock, but ONLY for that one item's equipment line, and ONLY for this one RPC. A
+-- visit dated ≤31.8.2026, or past the 10th of the month after it (db/visit_edit_lock_trigger.sql),
+-- still cannot have its summary, open_items or any other field touched by anyone — that stays
+-- absolutely locked. The mechanism: this function sets a transaction-local GUC
+-- (`set_config('app.inventory_delete', p_name, true)`) naming the item being deleted;
+-- enforce_visit_edit_lock() (db/visit_edit_lock_trigger.sql) lets an UPDATE through on a locked
+-- visit ONLY when that GUC is set AND every column except `products` is byte-for-byte unchanged
+-- AND the new `products` equals the old `products` with exactly that item's lines removed —
+-- otherwise the trigger raises exactly as before. No other code path can set that GUC, so this
+-- override cannot be reached by a normal client edit, a stale client or a bug elsewhere. The
+-- preview no longer splits visits into "trimmed" vs "kept (locked)": every matching visit is
+-- trimmed, `visits_trimmed` counts all of them, and there is no `visits_kept_locked`.
 --
 -- AUDIT FIX: EXECUTE on the delete itself (not the preview) is revoked from `authenticated`/
 -- `anon` — only the service role may call `inventory_delete_product`. A full, cascading delete is
@@ -92,8 +97,7 @@ begin
   r as (select x.id, bool_and(public.inventory_line_name(e) = p_name) as only_this
         from requirements x cross join lateral jsonb_array_elements(coalesce(x.items, '[]'::jsonb)) e
         group by x.id having bool_or(public.inventory_line_name(e) = p_name)),
-  vi as (select distinct x.id,
-           coalesce(public.visit_edit_locked(nullif(left(x.date, 10), '')::date), false) as locked
+  vi as (select distinct x.id
          from visits x cross join lateral jsonb_array_elements(coalesce(x.products, '[]'::jsonb)) e
          where public.inventory_line_name(e) = p_name),
   pc as (select distinct x.id from parse_corrections x cross join lateral jsonb_array_elements(coalesce(x.items, '[]'::jsonb)) e
@@ -107,8 +111,7 @@ begin
     -- informational only (see the `c` CTE's comment) — never deleted, never trimmed.
     'certs_referencing', (select coalesce(jsonb_agg(cert_number order by cert_number), '[]'::jsonb) from c),
     'certs_referencing_active', (select coalesce(jsonb_agg(cert_number order by cert_number), '[]'::jsonb) from c where status <> 'cancelled'),
-    'visits_trimmed', (select count(*) from vi where not locked),
-    'visits_kept_locked', (select coalesce(jsonb_agg(id order by id), '[]'::jsonb) from vi where locked),
+    'visits_trimmed', (select count(*) from vi),
     'requirements_deleted', (select count(*) from r where only_this),
     'requirements_trimmed', (select count(*) from r where not only_this),
     'returns', (select count(*) from returns where product = p_name),
@@ -158,17 +161,20 @@ begin
 
   -- visits: the equipment LINE is removed; summary/open_items (the text the visit is really
   -- remembered by) are untouched. A visit row is never deleted, even if products empties out.
-  -- AUDIT FIX: a LOCKED visit (visit_edit_lock trigger — August 2026 or earlier, or past the 10th
-  -- of next month) is skipped entirely, not written to at all: writing it would fire the trigger
-  -- and abort this whole transaction. Default ruling (question open for עידן): no override — the
-  -- item's line simply stays in the locked visit, reported by the preview as "kept (locked)".
+  -- RULING (עידן, 24.9): this DOES override visit_edit_lock for a locked visit's `products`
+  -- column only — set_config below is what the trigger checks (see the file header and
+  -- db/visit_edit_lock_trigger.sql). Every other field of a locked visit stays untouchable: the
+  -- trigger itself re-verifies that only `products` changed and that the new value is exactly
+  -- the old value minus this item's lines, so this UPDATE cannot smuggle any other change through
+  -- even if the WHERE/SET above were ever edited to do more.
+  perform set_config('app.inventory_delete', p_name, true);
   update visits x set products = (
       select coalesce(jsonb_agg(e order by i), '[]'::jsonb)
       from jsonb_array_elements(x.products) with ordinality t(e, i)
       where public.inventory_line_name(e) is distinct from p_name
     )
-    where exists (select 1 from jsonb_array_elements(coalesce(x.products, '[]'::jsonb)) e where public.inventory_line_name(e) = p_name)
-      and not coalesce(public.visit_edit_locked(nullif(left(x.date, 10), '')::date), false);
+    where exists (select 1 from jsonb_array_elements(coalesce(x.products, '[]'::jsonb)) e where public.inventory_line_name(e) = p_name);
+  perform set_config('app.inventory_delete', '', true);
 
   delete from parse_corrections x
     where exists (select 1 from jsonb_array_elements(coalesce(x.items, '[]'::jsonb)) e where public.inventory_line_name(e) = p_name)

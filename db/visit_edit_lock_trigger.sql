@@ -23,6 +23,43 @@ language sql stable as $$
   select d < date '2026-09-01' or (at at time zone 'Asia/Jerusalem')::date > public.visit_editable_until(d);
 $$;
 
+-- Mirrors public.inventory_line_name(jsonb) (db/inventory_delete_product.sql) without depending
+-- on that file's load order: an equipment line is either a bare string or an {name,...} object.
+create or replace function public.visit_product_line_name(e jsonb) returns text
+language sql immutable as $$
+  select case when jsonb_typeof(e) = 'string' then e #>> '{}' else e ->> 'name' end
+$$;
+
+-- RULING (עידן, 24.9): a full inventory item delete (public.inventory_delete_product,
+-- db/inventory_delete_product.sql) DOES override this lock for a locked visit's equipment lines
+-- ONLY — nothing else about a locked visit ever becomes editable. inventory_delete_product sets
+-- the transaction-local GUC `app.inventory_delete` to the item's name before it writes `products`;
+-- this function allows THAT ONE UPDATE through when, and only when, ALL of:
+--   1. the GUC is set (non-empty) — no other code path sets it, so an ordinary client edit,
+--      a stale client, or a bug elsewhere can never reach this branch;
+--   2. every column except `products` is byte-for-byte unchanged (old row minus 'products' =
+--      new row minus 'products', compared as jsonb so column order/type never matters);
+--   3. the new `products` equals the old `products` with exactly the named item's lines removed
+--      (and nothing else reordered, added, or changed).
+-- Any UPDATE that fails any of these three still hits the ordinary lock error below.
+create or replace function public.visit_inventory_delete_override(old_row public.visits, new_row public.visits)
+returns boolean language plpgsql stable as $$
+declare
+  v_item text := nullif(current_setting('app.inventory_delete', true), '');
+  v_expected jsonb;
+begin
+  if v_item is null then
+    return false;
+  end if;
+  if (to_jsonb(old_row) - 'products') is distinct from (to_jsonb(new_row) - 'products') then
+    return false;
+  end if;
+  select coalesce(jsonb_agg(e order by i), '[]'::jsonb) into v_expected
+    from jsonb_array_elements(coalesce(old_row.products, '[]'::jsonb)) with ordinality t(e, i)
+    where public.visit_product_line_name(e) is distinct from v_item;
+  return new_row.products = v_expected;
+end $$;
+
 create or replace function public.enforce_visit_edit_lock() returns trigger
 language plpgsql as $$
 declare
@@ -30,6 +67,10 @@ declare
   v_new_date date;
   v_hint text := 'August 2026 and earlier, or a record past the 10th of the month after it, is read-only (round 5).';
 begin
+  if tg_op = 'UPDATE' and public.visit_inventory_delete_override(old, new) then
+    return new;
+  end if;
+
   -- nullif(...,'') first: an empty date string cast straight to `date` raises its own error
   -- (invalid input syntax), which would mask the real lock error with a confusing one.
   v_old_date := nullif(left(old.date, 10), '')::date;
@@ -80,5 +121,7 @@ commit;
 -- ROLLBACK
 -- drop trigger if exists visit_edit_lock on public.visits;
 -- drop function if exists public.enforce_visit_edit_lock();
+-- drop function if exists public.visit_inventory_delete_override(public.visits, public.visits);
+-- drop function if exists public.visit_product_line_name(jsonb);
 -- drop function if exists public.visit_edit_locked(date, timestamptz);
 -- drop function if exists public.visit_editable_until(date);

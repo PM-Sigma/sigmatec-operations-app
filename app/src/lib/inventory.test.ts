@@ -483,17 +483,16 @@ describe('deleteSummaryLines (D1-D5, binding update: issued certs stay exactly a
     });
     expect(lines).toEqual([{ text: '2 תעודות מזכירות פריט זה — לא ישתנו (תעודה שהופקה היא רשומה סופית)', danger: false }]);
   });
-  it('AUDIT FIX: a locked visit is reported as kept, not counted with the trimmed ones', () => {
+  it('RULING (24.9): a locked visit is trimmed like any other — no separate "kept" line', () => {
     const lines = deleteSummaryLines({
       product: 'x', exists: 1, movements: 0, orders_deleted: [], orders_trimmed: [],
       certs_referencing: [], certs_referencing_active: [],
-      visits_trimmed: 1, visits_kept_locked: ['v-aug1', 'v-aug2'],
+      visits_trimmed: 3,
       requirements_trimmed: 0, requirements_deleted: 0,
       returns: 0, recounts: 0, alerts: 0, parse_examples: 0, fingerprint: 'x',
     });
     expect(lines).toEqual([
-      { text: 'שורה בביקור אחד (הסיכום נשאר)', danger: false },
-      { text: '2 ביקורים נעולים לעריכה — נשארים כמו שהם', danger: false },
+      { text: 'שורות ב-3 ביקורים (הסיכומים נשארים)', danger: false },
     ]);
   });
   it('everything zero → no lines at all', () => {

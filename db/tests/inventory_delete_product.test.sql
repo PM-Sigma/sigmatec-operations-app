@@ -32,9 +32,10 @@ insert into delivery_certs(kibbutz, items, status) values
   ('t', '[{"name":"__DEL__","qty":1}]', 'active'),
   ('t', '[{"name":"__KEEP__","qty":1},{"name":"__DEL__","qty":2}]', 'active');
 insert into visits(id, kibbutz, date, visitor, products, summary) values ('t-v1', 't', '2026-09-23', 't', '[{"name":"__DEL__","qty":2},"__KEEP__"]', 'סיכום נשאר');
--- AUDIT FIX: an August visit is LOCKED (visit_edit_lock_trigger.sql) — the delete must skip it
--- entirely (no line trim, no error, no abort of the whole transaction) and report it as kept.
-insert into visits(id, kibbutz, date, visitor, products, summary) values ('t-v2', 't', '2026-08-15', 't', '["__DEL__"]', 'סיכום ננעל');
+-- RULING (עידן, 24.9): an August visit is LOCKED (visit_edit_lock_trigger.sql), but the delete
+-- overrides the lock for this one item's line — the row is trimmed like any other, while its
+-- summary and every other field must stay byte-for-byte unchanged.
+insert into visits(id, kibbutz, date, visitor, products, summary, open_items) values ('t-v2', 't', '2026-08-15', 't', '["__DEL__","__KEEP__"]', 'סיכום ננעל', 'פריט פתוח');
 insert into requirements(id, kibbutz, items, status) values ('t-req1', 't', '[{"name":"__DEL__","qty":1}]', 'open');
 insert into parse_corrections(id, raw_text, items) values ('t-pc1', 'ת', '[{"name":"__DEL__","qty":1}]');
 
@@ -51,8 +52,7 @@ begin
   assert v -> 'orders_deleted' = '["t-o1"]'::jsonb, 'orders_deleted ' || (v -> 'orders_deleted')::text;
   assert v -> 'orders_trimmed' = '["t-o2"]'::jsonb, 'orders_trimmed';
   assert v -> 'certs_referencing' = jsonb_build_array(cert_only_del, cert_mixed), 'certs_referencing ' || (v -> 'certs_referencing')::text;
-  assert (v ->> 'visits_trimmed')::int = 1, 'visits_trimmed';
-  assert v -> 'visits_kept_locked' = '["t-v2"]'::jsonb, 'visits_kept_locked ' || (v -> 'visits_kept_locked')::text;
+  assert (v ->> 'visits_trimmed')::int = 2, 'visits_trimmed (both t-v1 and the locked t-v2)';
   assert (v ->> 'requirements_deleted')::int = 1, 'requirements_deleted (t-req1 is ONLY __DEL__)';
   assert (v ->> 'returns')::int = 1, 'returns';
   assert (v ->> 'recounts')::int = 1, 'recounts';
@@ -92,9 +92,20 @@ begin
   assert (select products from visits where id = 't-v1') = '["__KEEP__"]'::jsonb, 'visit line trimmed';
   assert (select summary from visits where id = 't-v1') = 'סיכום נשאר', 'visit summary kept';
 
-  -- the locked visit: untouched (line NOT trimmed, row NOT deleted) and the delete did not abort.
-  assert (select products from visits where id = 't-v2') = '["__DEL__"]'::jsonb, 'locked visit line kept as-is';
-  assert (select summary from visits where id = 't-v2') = 'סיכום ננעל', 'locked visit summary kept';
+  -- the locked visit: the override trims ONLY the item's line; every other field (summary,
+  -- open_items, date, ...) stays byte-for-byte unchanged, and the delete did not abort.
+  assert (select products from visits where id = 't-v2') = '["__KEEP__"]'::jsonb, 'locked visit line trimmed';
+  assert (select summary from visits where id = 't-v2') = 'סיכום ננעל', 'locked visit summary untouched';
+  assert (select open_items from visits where id = 't-v2') = 'פריט פתוח', 'locked visit open_items untouched';
+
+  -- direct proof the lock still holds for everything else: editing a locked visit's summary
+  -- OUTSIDE the delete RPC (no app.inventory_delete GUC set) must still raise.
+  begin
+    update visits set summary = 'ניסיון עריכה אסור' where id = 't-v2';
+    raise exception 'locked visit summary edit was accepted';
+  exception when sqlstate '22023' then
+    null;
+  end;
 end $$;
 
 rollback;
