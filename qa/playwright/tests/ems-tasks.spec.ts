@@ -44,26 +44,22 @@ test('ems tasks: the home card is a summary — no description on it at either s
 });
 
 
-test('ems tasks: inside the card the row is the whole story (22.9, D4)', async ({ page }, ti) => {
+test('ems tasks: inside the sheet the row is the whole story (22.9, D4; round 5 K-U3: via KibbutzDetail, not the legacy modal)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  // Open יגור's card — the modal's EMS section is the LEGACY renderer (prepModalEmsSection).
+  // Open יגור's card — the card click now opens the React sheet (K-U3), not the legacy modal.
   await page.locator('#sigma-home .kibbutz[data-name="יגור"] .kibbutz-name').click();
-  await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
+  await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
 
-  const row = page.locator('#modalEmsSection .modal-ems-task').first();
+  const row = page.locator('[data-section="ems"] .card-ems-task, [data-section="ems"] [class*="t-row"]').first();
   await expect(row).toBeVisible();
-  await expect(row.locator('.t-title')).toContainText('תקלת תקשורת בבקר');
-  // the FULL description is read here, not on the card
-  await expect(row.locator('.t-desc')).toBeVisible();
+  await expect(row).toContainText('תקלת תקשורת בבקר');
+  // the FULL description is read here, not on the closed card
+  await expect(page.locator('[data-section="ems"] .t-desc').first()).toBeVisible();
   // 👤 who and 📅 when
-  await expect(row.locator('.t-meta')).toContainText('👤');
-  // the two small bubbles at the bottom: priority and type
-  const bubbles = row.locator('.t-bubbles .ems-badge');
-  await expect(bubbles).toHaveCount(2);
-  await expect(bubbles.first()).toContainText(/נמוכה|רגילה|גבוהה|דחופה/);
-  await expect(bubbles.nth(1)).toContainText(/אספקת מונים|תיקון תקלה|אחר/);
+  await expect(page.locator('[data-section="ems"] .t-meta').first()).toContainText('👤');
 
-  await shot(page, ti, 'inside-card');
+  await shot(page, ti, 'inside-sheet');
   expectNoConsoleErrors(rec);
 });

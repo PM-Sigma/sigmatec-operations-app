@@ -605,11 +605,18 @@
 
   // Cards are re-rendered from the `kibbutzim` table on every refresh, so the click
   // handler is DELEGATED instead of bound per card (a bound handler would die on re-render).
+  // Round 5, K-U3: routed through the ONE door (sigma.openKibbutzModal) instead of the legacy
+  // opener — KibbutzCard.tsx's own onClick already does this for a React card, so this listener
+  // now only matters for a card painted by the legacy fallback (React chunk failed to load).
   document.addEventListener('click', (e) => {
     const card = e.target && e.target.closest && e.target.closest('.kibbutz[data-name]');
     if (!card) return;
     e.stopPropagation();
-    openEditModal(card);
+    if (window.sigma && typeof window.sigma.openKibbutzModal === 'function') {
+      window.sigma.openKibbutzModal(card.dataset.name);
+    } else {
+      openEditModal(card);
+    }
   });
 
   // "ביקור אחרון" line on each card (latest visit from VISITS). Always rendered; prominent in meeting mode.
@@ -727,8 +734,8 @@
       enrichCardsWithSheet(snap);
       renderPotentials(snap);
       injectCustomerCodes();
-      applyCardLastVisit();
-      reorderCards();
+      // applyCardLastVisit / reorderCards dropped (round 5, K-U3) — see 24-kibbutzim.js's
+      // kibbutzimDecorate for why: the React card owns its own last-visit line and order now.
     }
 
     if (data) {
