@@ -26,7 +26,6 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
@@ -38,13 +37,18 @@ import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { openVisitChapters } from '@/islands/Field';
 import type { Holiday } from '@/lib/attendance';
 import {
-  abilities, ABSENCE_LABELS, addDays, byDate, calendarItems, canPlanDay, dayLetters, dayWhen,
-  dueByKibbutz, EMPTY_DAY, gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, monthView,
-  reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey,
-  missingInView, reportedInView, visibleDows, visitsOn, weekDays, weekView, workWeekLabel, ymd,
-  type AbsenceKind, type AbsenceRow, type CalCell, type CalEmsTask, type CalItem,
-  type CalWeek, type CalInternalTask, type OfficeEvent, type RouteRow, type VisitRow,
+  abilities, ABSENCE_LABELS, addDays, byDate, calCellLook, calendarItems, calendarPeople,
+  canPlanDay, canPlanFor, dayLetters, dayWhen, dueByKibbutz, EMPTY_DAY,
+  gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, isNoopPick, legendItems, monthView,
+  pickBlock, planBlocks, reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, showWeekNumbers,
+  stopsPayload, taskOwners, toKey, missingInView, reportedInView, visibleDows,
+  visitsOn, weekAria, weekDays, weekView, workWeekLabel, ymd,
+  type AbsenceKind, type AbsenceRow, type BlockPick, type CalEmsTask, type CalItem,
+  type CalWeek, type CalInternalTask, type KibbutzBlock, type OfficeEvent, type RouteRow, type VisitRow,
 } from '@/lib/calendar';
+import { applyBlockPick, readPlan, undoBlockPick, type PlanGuard } from '@/lib/calendarData';
+import { useSettings } from '@/lib/settings';
+import { DayCell, type DayCellFill } from '@/components/ui/day-cell';
 import type { AttRow } from '@/lib/attendance';
 import { dueText, isOverdue, priorityLabel, statusLabel } from '@/lib/emsTasks';
 import {
@@ -58,7 +62,6 @@ import { dueLabel, isOverdueInternal, type InternalTaskRow } from '@/lib/interna
 type ViewMode = 'week' | 'month' | 'list';
 
 const VIEW_KEY = 'cal_view_v1';
-const ONLY_MINE_KEY = 'cal_only_mine_v1';
 /** Round 2 · G1 — א–ה is the DEFAULT, so an unset flag reads as "on". */
 const WORK_WEEK_KEY = 'cal_work_week_v1';
 
@@ -129,15 +132,7 @@ function readAttRows(person: string, year: number, month: number): AttRow[] | nu
   } catch { return null; }
 }
 
-async function readPlan(person: string, date: string): Promise<string[]> {
-  if (!person) return [];
-  try {
-    const sb = await getSupabase();
-    const { data } = await sb.from('day_plans').select('stops')
-      .eq('person', person).eq('date', date).maybeSingle();
-    return stopsOrder((data as any)?.stops);
-  } catch { return []; }
-}
+// readPlan/upsertPlan now live in calendarData.ts (round 5 · C-L4) — imported above.
 
 // ───────────────────────────── small pieces ─────────────────────────────
 
@@ -185,107 +180,83 @@ function MeetButton({ href }: { href: string }) {
 }
 
 /**
- * The narrow week-number column. FIRST in the DOM, which in RTL puts it on the right —
- * exactly where the spec asks for it, and with the same muted treatment as the day letters.
+ * Round 5 · C6/C7 — the grid on the design system: one `DayCell` per day, wrapped in a legacy-
+ * compatible box (`data-date`/`data-day`/`.ucal-cell`) so the arrival/briefing bridges and the
+ * older Playwright specs that still look a day up by date keep working. Week numbers are no
+ * longer a column: `showWeekNumbers` decides whether a small caption sits beside each row, and
+ * `weekAria` gives it a real screen-reader name ("שבוע 38"), never a bare digit.
  */
-function WeekNumbers({ week }: { week: number }) {
-  return (
-    <div className="ucal-weekno" data-testid="cal-weekno" data-week={week} aria-hidden>
-      {week}
-    </div>
-  );
-}
-
-/**
- * Round 2 · G1: the ➕ that used to sit in every cell is GONE. It was a 20 px target on a
- * 44 px box that opened a sheet nobody asked for, and it stole the taps meant for the day.
- * Adding to a day now happens INSIDE the day, where the day is already open.
- */
-function DayCellBox({
-  cell, items, selected, onOpen, onlyMine, missing, reported,
-}: {
-  cell: CalCell; items: CalItem[]; selected: boolean;
-  onOpen: (d: string) => void; onlyMine: boolean;
-  /** A past work day with no attendance row — red ring + dot (round 2, F-4 · G). */
-  missing?: boolean;
-  /** A day with a filed attendance report — green ring + dot (round 5 · B). */
-  reported?: boolean;
-}) {
-  const shown = items.slice(0, 3);
-  const extra = items.length - shown.length;
-  const state = cell.today ? 'today' : cell.holiday ? 'holiday' : cell.weekend ? 'weekend' : 'day';
-  return (
-    <div
-      className={'ucal-cell' + (cell.inMonth ? '' : ' ucal-out') + (selected ? ' ucal-sel' : '')}
-      data-date={cell.date}
-      data-state={state}
-      data-missing={missing ? '1' : undefined}
-      data-reported={reported ? '1' : undefined}
-    >
-      <div className="ucal-cell-head">
-        <button
-          type="button"
-          className="ucal-daynum"
-          data-day={cell.date}
-          onClick={() => onOpen(cell.date)}
-          aria-label={heDate(cell.date) + (missing ? ' · לא דווחה נוכחות' : '') + (reported ? ' · דווחה נוכחות' : '')}
-        >
-          {cell.day}
-          {cell.holiday ? <span className="ucal-holidot" data-testid="cal-holiday" title={cell.holiday.name} /> : null}
-          {missing ? (
-            <span className="ucal-missdot" data-testid="cal-missing" title="לא דווחה נוכחות" aria-hidden />
-          ) : null}
-          {!missing && reported ? (
-            <span className="ucal-repdot" data-testid="cal-reported" title="דווחה נוכחות" aria-hidden />
-          ) : null}
-        </button>
-      </div>
-      <button type="button" className="ucal-cell-body" onClick={() => onOpen(cell.date)} tabIndex={-1} aria-hidden>
-        {shown.map(i => <Chip key={i.key} item={i} dim={onlyMine && !i.mine} />)}
-        {extra > 0 ? <span className="ucal-more">+{extra} נוספים</span> : null}
-      </button>
-    </div>
-  );
-}
-
 function Grid({
-  weeks, index, selected, onOpen, onlyMine, mode, workWeek, missing, reported,
+  weeks, index, selected, onOpen, mode, workWeek, missing, reported,
 }: {
   weeks: CalWeek[]; index: Record<string, CalItem[]>; selected: string;
   onOpen: (d: string) => void;
-  onlyMine: boolean; mode: 'week' | 'month'; workWeek: boolean;
-  /** The person's unreported past days — painted red (round 2, F-4 · G). */
+  mode: 'week' | 'month'; workWeek: boolean;
+  /** The calendar person's unreported past days — painted red, filers only (round 5 · C5). */
   missing: Set<string>;
-  /** The person's already-filed days — painted green (round 5 · B). */
+  /** The calendar person's already-filed days — painted green (round 5 · B). */
   reported: Set<string>;
 }) {
   const cols = visibleDows(mode, workWeek).length;
+  const labels = showWeekNumbers(mode, workWeek);
   return (
     <div
       className={'ucal-grid' + (mode === 'week' ? ' ucal-grid-week' : '')}
       data-testid="cal-grid"
       data-cols={cols}
-      style={{ gridTemplateColumns: 'var(--ucal-weekno-w) repeat(' + cols + ', minmax(0, 1fr))' }}
+      // Round 5 · C-U1: the DayCell grid shows a bare "•N" dot, not the old inline chip list —
+      // openCalendar() in calendar.spec.ts polls this instead of `.ucal-chip` to know the EMS/
+      // visits layers actually landed before it opens a day.
+      data-loaded={Object.values(index).some(a => a.length) ? '1' : '0'}
+      style={{ ['--ucal-cols' as any]: cols }}
     >
-      {/* The header row: the (empty) week column first — right in RTL — then the day letters. */}
-      <div className="ucal-weekno ucal-weekno-head" aria-hidden>#</div>
-      {dayLetters(mode, workWeek).map(l => <div key={l} className="ucal-dow" aria-hidden>{l}</div>)}
+      <div className="ucal-dows" aria-hidden>
+        {dayLetters(mode, workWeek).map(l => <span key={l} className="ucal-dow">{l}</span>)}
+      </div>
       {weeks.map(w => (
-        <React.Fragment key={w.days[0].date}>
-          <WeekNumbers week={w.week} />
-          {gridDays(w, mode, workWeek).map(c => (
-            <DayCellBox
-              key={c.date}
-              cell={c}
-              items={index[c.date] || []}
-              selected={c.date === selected}
-              onOpen={onOpen}
-              onlyMine={onlyMine}
-              missing={missing.has(c.date)}
-              reported={reported.has(c.date)}
-            />
-          ))}
-        </React.Fragment>
+        <div className="ucal-week" data-week-row key={w.days[0].date}>
+          {labels ? (
+            <span className="ucal-weeklabel" data-testid="cal-weeklabel" aria-label={weekAria(w.week)}>
+              <bdi>{w.week}</bdi>
+            </span>
+          ) : null}
+          <div className="ucal-week-days">
+            {gridDays(w, mode, workWeek).map(c => {
+              const look = calCellLook(c, {
+                selected: c.date === selected,
+                missing: missing.has(c.date),
+                reported: reported.has(c.date),
+              });
+              const n = (index[c.date] || []).length;
+              const fill: DayCellFill = look.state === 'field' ? 'field' : look.state === 'holiday' ? 'holiday' : 'none';
+              return (
+                <div
+                  key={c.date}
+                  className={'ucal-cell' + (!c.inMonth ? ' ucal-out' : '') + (c.date === selected ? ' ucal-sel' : '')}
+                  data-date={c.date}
+                  data-day={c.date}
+                  data-state={look.state}
+                  data-today={look.today ? '1' : undefined}
+                  data-missing={look.state === 'missing' ? '1' : undefined}
+                  data-reported={look.state === 'field' ? '1' : undefined}
+                >
+                  <DayCell
+                    day={c.day}
+                    fill={fill}
+                    today={look.today}
+                    selected={c.date === selected}
+                    eve={look.state === 'eve'}
+                    missing={look.state === 'missing'}
+                    eventCount={n || undefined}
+                    outside={!c.inMonth}
+                    label={look.label}
+                    onClick={() => onOpen(c.date)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -479,14 +450,71 @@ function PlaceSearch({ names, placed, onPlace }: { names: string[]; placed: stri
   );
 }
 
-function DayBody({
-  date, items, rows, canReorder, onMove, onPlace, onBriefing, onCheckin, onAdd, canAdd, visits, kibbutzim,
+/**
+ * Round 5 · C1 — one kibbutz's open work for the day, with a single pick that BOTH plans the
+ * stop and dates whatever got ticked. The button previews `pickBlock` on every keystroke so it
+ * is disabled exactly when the pick would write nothing (Review Focus #3).
+ */
+function Block({
+  b, date, stops, onPick, busy, canPlan, peer,
 }: {
-  date: string; items: CalItem[]; rows: RouteRow[]; canReorder: boolean;
+  b: KibbutzBlock; date: string; stops: string[];
+  onPick: (b: KibbutzBlock, ticked: string[]) => void; busy: boolean; canPlan: boolean; peer: boolean;
+}) {
+  const [ticked, setTicked] = React.useState<string[]>([]);
+  React.useEffect(() => { setTicked([]); }, [date, b.kibbutz]);
+  const preview = pickBlock(b, ticked, date, stops);
+  return (
+    <div className="ucal-block" data-block={b.kibbutz}>
+      <div className="ucal-block-head">
+        <strong><bdi>{b.kibbutz}</bdi></strong>
+        {b.placed ? <span className="ucal-badge">במסלול</span> : null}
+      </div>
+      {b.tasks.length ? b.tasks.map(t => (
+        <label className="ucal-block-task" key={t.key}>
+          <input
+            type="checkbox"
+            data-block-task={t.key}
+            disabled={!canPlan || t.onThisDay}
+            checked={t.onThisDay || ticked.indexOf(t.key) !== -1}
+            onChange={e => setTicked(s => (e.target.checked ? s.concat([t.key]) : s.filter(k => k !== t.key)))}
+          />
+          <span>
+            <bdi>{t.title}</bdi>
+            <span className="ucal-block-meta">
+              {t.onThisDay ? 'כבר ביום הזה' : t.overdue ? 'באיחור' : t.due ? <bdi>{heShort(t.due)}</bdi> : null}
+              {peer && t.owner ? <bdi> · {t.owner}</bdi> : null}
+            </span>
+          </span>
+        </label>
+      )) : <p className="ucal-empty">אין כאן משימות פתוחות</p>}
+      {canPlan ? (
+        <button
+          type="button" className="ucal-mini" data-block-pick={b.kibbutz}
+          disabled={busy || isNoopPick(preview)} onClick={() => onPick(b, ticked)}
+        >
+          {b.placed ? 'קביעת המשימות ליום' : 'הוספה ליום'}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function DayBody({
+  date, items, rows, stops, canReorder, onMove, onPlace, onBriefing, onCheckin, onAdd, canAdd, visits, kibbutzim,
+  blocks, onPick, blockBusy, peer,
+}: {
+  date: string; items: CalItem[]; rows: RouteRow[];
+  /** The day's SAVED route order (round 5 · C1) — not derived from `rows`, which also lists
+      unplaced 📥 kibbutzim that `pickBlock` must never see as if they were on the route. */
+  stops: string[];
+  canReorder: boolean;
   onMove: (f: number, t: number) => void; onPlace: (k: string) => void;
   onBriefing: (k: string) => void; onCheckin: (k: string) => void;
   onAdd: (d: string) => void; canAdd: boolean;
   visits: VisitRow[]; kibbutzim: string[];
+  /** Round 5 · C1 — the kibbutz blocks for THIS day (already `planBlocks(...)`, empty on a past day). */
+  blocks: KibbutzBlock[]; onPick: (b: KibbutzBlock, ticked: string[]) => void; blockBusy: boolean; peer: boolean;
 }) {
   const today = ymd(new Date());
   if (!canPlanDay(date, today)) return <PastDay date={date} items={items} visits={visits} />;
@@ -515,13 +543,22 @@ function DayBody({
       ) : null}
     </div>
   );
+  // Round 5 · C1 — the kibbutz blocks, one per place with open work (or already on the route).
+  const blocksSection = blocks.length ? (
+    <div className="ucal-blocks" data-testid="cal-blocks">
+      {blocks.map(b => (
+        <Block key={b.kibbutz} b={b} date={date} stops={stops} onPick={onPick} busy={blockBusy} canPlan={canReorder} peer={peer} />
+      ))}
+    </div>
+  ) : null;
   // A day with nothing ON it can still be PLANNED — that is the whole point of a future day
   // (round 2 · G4), so the search stays even when the day is empty.
   if (!items.length && !rows.length) {
     return (
       <div className="ucal-day" data-testid="cal-day" data-when={dayWhen(date, today)}>
         {header}
-        <p className="text-[13px] text-muted-foreground">{EMPTY_DAY}</p>
+        {!blocksSection ? <p className="text-[13px] text-muted-foreground">{EMPTY_DAY}</p> : null}
+        {blocksSection}
         {canReorder ? <PlaceSearch names={kibbutzim} placed={rows.map(r => r.kibbutz)} onPlace={onPlace} /> : null}
       </div>
     );
@@ -549,6 +586,7 @@ function DayBody({
         onCheckin={onCheckin}
         isToday={date === today}
       />
+      {blocksSection}
       {canReorder ? <PlaceSearch names={kibbutzim} placed={rows.map(r => r.kibbutz)} onPlace={onPlace} /> : null}
     </div>
   );
@@ -1105,8 +1143,17 @@ function CalendarIsland() {
   const today = ymd(new Date());
   const [view, setView] = React.useState<ViewMode>(readView);
   const [anchor, setAnchor] = React.useState(today);
-  const [onlyMine, setOnlyMine] = React.useState(() => readFlag(ONLY_MINE_KEY, false));
   const [workWeek, setWorkWeek] = React.useState(() => readFlag(WORK_WEEK_KEY, true));
+
+  // ── whose calendar (round 5 · C2) ───────────────────────────────────────
+  // עידן/עמיחי may show — and plan — a field person's day; a field person sees only his own.
+  const people = React.useMemo(() => calendarPeople(role, me), [role, me]);
+  const [person, setPerson] = React.useState(() => people[0] || me);
+  React.useEffect(() => {
+    if (people.length && people.indexOf(person) === -1) setPerson(people[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people.join('|')]);
+  const canPlan = canPlanFor(me, person, can);
   const [selected, setSelected] = React.useState('');
   const [sheetDay, setSheetDay] = React.useState('');
   const [addDay, setAddDay] = React.useState('');
@@ -1176,12 +1223,11 @@ function CalendarIsland() {
     ? 'שבוע ' + weeks[0].week + ' · ' + heShort(weeks[0].days[0].date) + '–' + heShort(weeks[0].days[6].date)
     : HE_MONTHS[m - 1] + ' ' + y;
 
-  // ── the days he never reported, in red (round 2, F-4 · G) ──────────────
+  // ── the days that calendar person never reported, in red (round 2, F-4 · G) ────────────
   //
-  // A red cell is a NUDGE, not a verdict: it only ever shows the signed-in person's own
-  // gaps (the calendar has no person switch — that lives on נוכחות), only on days already
-  // past, and it goes away the moment the day is filled in. The months are read with the
-  // נוכחות island's own key, so filing a day there repaints the calendar too.
+  // A red cell is a NUDGE, not a verdict: it shows the person WHOSE CALENDAR IS OPEN (round 5
+  // · C2 lets עידן/עמיחי show a field person's calendar), only on days already past, red only
+  // for those who file (round 5 · C5), and it goes away the moment the day is filled in.
   const viewMonths = React.useMemo(() => {
     const out = new Set<string>();
     for (const w of weeks) for (const c of w.days) out.add(c.date.slice(0, 7));
@@ -1192,10 +1238,10 @@ function CalendarIsland() {
     queries: viewMonths.map(ym => {
       const [ry, rm] = ym.split('-').map(Number);
       return {
-        queryKey: ['attRows', me, ry, rm],
-        queryFn: () => readAttRows(me, ry, rm)
-          ?? ((qc.getQueryData(['attRows', me, ry, rm]) as AttRow[] | null | undefined) ?? null),
-        enabled: !!me,
+        queryKey: ['attRows', person, ry, rm],
+        queryFn: () => readAttRows(person, ry, rm)
+          ?? ((qc.getQueryData(['attRows', person, ry, rm]) as AttRow[] | null | undefined) ?? null),
+        enabled: !!person,
         // SHEET_DATA lands a beat after boot and announces nothing — poll until it does.
         refetchInterval: (q: any) => (q.state.data ? false : 1500),
       };
@@ -1210,25 +1256,25 @@ function CalendarIsland() {
 
   const missing = React.useMemo(
     () => missingInView(
-      me,
+      person,
       weeks,
       (_p, ry, rm) => attByMonth.get(ry + '-' + String(rm).padStart(2, '0')) ?? null,
       holidays.data || [],
     ),
-    [me, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
+    [person, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
   );
 
-  // ── the days he already reported, in green (round 5 · B) ───────────────
-  // Same scope as `missing`: the signed-in person only, read off the same נוכחות snapshot so
+  // ── the days that calendar person already reported, in green (round 5 · B) ────────────
+  // Same scope as `missing`: the same calendar person, read off the same נוכחות snapshot so
   // filing a day repaints both colours at once and they can never disagree.
   const reported = React.useMemo(
     () => reportedInView(
-      me,
+      person,
       weeks,
       (_p, ry, rm) => attByMonth.get(ry + '-' + String(rm).padStart(2, '0')) ?? null,
       holidays.data || [],
     ),
-    [me, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
+    [person, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
   );
 
   // ── the day's route ────────────────────────────────────────────────────
@@ -1236,9 +1282,9 @@ function CalendarIsland() {
   const dayItems = openDate ? (index[openDate] || []) : [];
   const due = React.useMemo(() => dueByKibbutz(dayItems), [dayItems]);
   const plan = useQuery({
-    queryKey: ['cal', 'plan', me, openDate],
-    queryFn: () => readPlan(me, openDate),
-    enabled: !!me && !!openDate,
+    queryKey: ['cal', 'plan', person, openDate],
+    queryFn: () => readPlan(person, openDate),
+    enabled: !!person && !!openDate,
     // ALWAYS fresh, against the 60 s default. The route is shared state — he reorders it
     // here and the arrival sheet reads the same row (§5.1) — and the query cache is
     // PERSISTED to localStorage, so the default would serve yesterday's order (or the empty
@@ -1247,19 +1293,21 @@ function CalendarIsland() {
     refetchOnMount: 'always',
   });
   const [draft, setDraft] = React.useState<string[] | null>(null);
-  React.useEffect(() => { setDraft(null); }, [openDate]);
+  React.useEffect(() => { setDraft(null); }, [openDate, person]);
   const order = draft ?? (plan.data || []);
   const rows = React.useMemo(() => routeWithHeaders(order, due), [order, due]);
 
+  const planGuard: PlanGuard = { me, today, can };
+
   const savePlan = useMutation({
     mutationFn: async (next: string[]) => sbWrite(async sb => sb.from('day_plans')
-      .upsert({ person: me, date: openDate, stops: stopsPayload(next, due), updated_at: new Date().toISOString() },
+      .upsert({ person, date: openDate, stops: stopsPayload(next, due), updated_at: new Date().toISOString() },
         { onConflict: 'person,date' })
       .select('stops').maybeSingle()),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['cal', 'plan', me, openDate] });
+      qc.invalidateQueries({ queryKey: ['cal', 'plan', person, openDate] });
       // The arrival sheet reads the same row (spec §5.1) — tell it without a reload.
-      try { (window as any).sigmaEmit?.('dayplan-changed', { person: me, date: openDate }); } catch { /* no bus */ }
+      try { (window as any).sigmaEmit?.('dayplan-changed', { person, date: openDate }); } catch { /* no bus */ }
       track('calendar-route-saved', openDate);
     },
     onError: (e: any) => toast.error(String(e?.message || 'השמירה לא עברה')),
@@ -1281,6 +1329,47 @@ function CalendarIsland() {
     setDraft(next);
     savePlan.mutate(next);
   }
+
+  // ── kibbutz blocks (round 5 · C1/C2) ────────────────────────────────────
+  // "Whose tasks fill the blocks" — the calendar person's, plus אביאם's peer (ניתאי) only
+  // when he turned the setting on and he is the one looking at his own calendar.
+  const settings = useSettings();
+  const owners = React.useMemo(
+    () => taskOwners(person, me, settings.cal_peer_tasks),
+    [person, me, settings.cal_peer_tasks],
+  );
+  const blocks = React.useMemo(() => planBlocks({
+    date: openDate,
+    today,
+    owners,
+    emsTasks: (() => { try { return (sigma.emsCacheData?.()?.tasks || []) as CalEmsTask[]; } catch { return []; } })(),
+    internalTasks: (internalTasks.data || []) as CalInternalTask[],
+    stops: order,
+  }), [openDate, today, owners.join('|'), internalTasks.data, order.join('|'), tick]);
+
+  const pick = useMutation({
+    mutationFn: async (p: BlockPick) => ({ p, res: await applyBlockPick(p, person, openDate, due, planGuard) }),
+    onSuccess: ({ p, res }) => {
+      setDraft(p.stops);
+      setTick(t => t + 1);
+      qc.invalidateQueries({ queryKey: ['cal', 'plan', person, openDate] });
+      qc.invalidateQueries({ queryKey: ['cal', 'internal-tasks'] });
+      const failed = res.failed.length ? ' · ' + res.failed.length + ' לא עודכנו' : '';
+      toast(p.message + failed, {
+        duration: 5000,
+        action: {
+          label: 'ביטול',
+          onClick: () => {
+            void undoBlockPick(p, person, openDate, due, planGuard)
+              .then(() => { setDraft(p.stopsBefore); setTick(t => t + 1); })
+              .catch(() => toast.error('הביטול לא עבר'));
+          },
+        },
+      });
+      track('calendar-block-pick', String(p.count));
+    },
+    onError: (e: any) => toast.error(String(e?.message || 'השמירה לא עברה')),
+  });
 
   // ── the EMS scheduler ──────────────────────────────────────────────────
   const schedule = useMutation({
@@ -1346,6 +1435,14 @@ function CalendarIsland() {
     if (window.matchMedia && window.matchMedia('(max-width: 1023px)').matches) setSheetDay(date);
     track('calendar-day-open', date);
   }
+
+  // A small test/deep-link hook (round 5 · C-U2) — jumps straight to a day without clicking
+  // through months, the way `MOCK_CAL_DAY` already lets Playwright find the sandbox's day.
+  React.useEffect(() => {
+    (window as any).sigmaCalendarOpenDay = openDay;
+    return () => { delete (window as any).sigmaCalendarOpenDay; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loading = holidays.isLoading && events.isLoading;
 
@@ -1414,19 +1511,28 @@ function CalendarIsland() {
                 {workWeekLabel(workWeek)}
               </button>
             ) : null}
-            {!can.seesEveryone ? (
-              <label className="flex items-center gap-1.5 text-[12.5px] font-semibold">
-                <Switch
-                  checked={onlyMine}
-                  data-testid="cal-only-mine"
-                  onCheckedChange={v => { setOnlyMine(v); writeFlag(ONLY_MINE_KEY, v); }}
-                />
-                רק שלי
-              </label>
-            ) : null}
           </div>
         ) : null}
       </div>
+
+      {/* Round 5 · C2 — whose calendar. Field people never see this; עידן/עמיחי can show (and
+          plan) a field person's day too. */}
+      {people.length > 1 ? (
+        <div className="mb-2 ucal-person-switch ucal-switch-split" data-testid="cal-person" role="radiogroup" aria-label="של מי היומן">
+          {people.map(p => (
+            <button
+              key={p}
+              type="button"
+              role="radio"
+              aria-checked={person === p}
+              className={'ucal-switch-btn' + (person === p ? ' ucal-switch-on' : '')}
+              onClick={() => { setPerson(p); track('calendar-person'); }}
+            >
+              <bdi>{p}</bdi>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {view === 'list' ? (
         <TaskListView
@@ -1447,20 +1553,23 @@ function CalendarIsland() {
               index={index}
               selected={selected}
               onOpen={openDay}
-              onlyMine={onlyMine}
               mode={view === 'week' ? 'week' : 'month'}
               workWeek={workWeek}
               missing={missing}
               reported={reported}
             />
           )}
-          {/* The legend appears only when there is something to explain — a permanent line
-              saying "red = missing" on a clean month is noise. */}
-          {!loading && (missing.size || reported.size) ? (
-            <p className="ucal-legend" data-testid="cal-missing-legend">
-              {reported.size ? <span><span className="ucal-repdot" aria-hidden /> ימים בירוק · דווחה נוכחות</span> : null}
-              {missing.size ? <span><span className="ucal-missdot" aria-hidden /> ימים באדום — לא דווחה נוכחות</span> : null}
-            </p>
+          {/* Round 5 · C5 — the legend always shows (design-system DayCell rulings), red joins
+              it only for a filer (אביאם/ניתאי). */}
+          {!loading ? (
+            <ul className="ucal-legend" data-testid="cal-legend">
+              {legendItems(person).map(i => (
+                <li key={i.key} data-legend={i.key}>
+                  <span className={'ucal-swatch ucal-swatch-' + i.key} aria-hidden />
+                  {i.label}
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
 
@@ -1472,15 +1581,20 @@ function CalendarIsland() {
                 date={selected}
                 items={dayItems}
                 rows={rows}
-                canReorder={can.canReorder}
+                stops={order}
+                canReorder={canPlan}
                 onMove={move}
                 onPlace={placeStop}
                 onBriefing={openBriefing}
                 onCheckin={k => { if (!openVisitChapters(k)) sigma.openVisitQuick?.(k); }}
                 onAdd={d => setAddDay(d)}
-                canAdd={can.canAdd}
+                canAdd={canPlan}
                 visits={visits}
                 kibbutzim={kibbutzNames}
+                blocks={blocks}
+                onPick={(b, ticked) => pick.mutate(pickBlock(b, ticked, openDate, order))}
+                blockBusy={pick.isPending}
+                peer={owners.length > 1}
               />
             ) : (
               <p className="text-[13px] text-muted-foreground">בוחרים יום בלוח כדי לראות מה יש בו.</p>
@@ -1510,15 +1624,20 @@ function CalendarIsland() {
                   date={sheetDay}
                   items={dayItems}
                   rows={rows}
-                  canReorder={can.canReorder}
+                  stops={order}
+                  canReorder={canPlan}
                   onMove={move}
                   onPlace={placeStop}
                   onBriefing={openBriefing}
                   onCheckin={k => { if (!openVisitChapters(k)) sigma.openVisitQuick?.(k); }}
                   onAdd={d => setAddDay(d)}
-                  canAdd={can.canAdd}
+                  canAdd={canPlan}
                   visits={visits}
                   kibbutzim={kibbutzNames}
+                  blocks={blocks}
+                  onPick={(b, ticked) => pick.mutate(pickBlock(b, ticked, openDate, order))}
+                  blockBusy={pick.isPending}
+                  peer={owners.length > 1}
                 />
               </motion.div>
             ) : null}

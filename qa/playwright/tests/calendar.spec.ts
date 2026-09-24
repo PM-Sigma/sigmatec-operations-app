@@ -35,7 +35,9 @@ async function openCalendar(page: Page): Promise<void> {
   // …and wait for the layers to have LANDED. The legacy EMS cache and the visits arrive
   // asynchronously, so a grid that is on screen is not yet a grid with a day in it — a day
   // tapped before they land opens an empty day, which is a true rendering of a false state.
-  await expect(page.locator('.ucal-chip').first()).toBeVisible({ timeout: 20_000 });
+  // Round 5 · C-U1: the DayCell grid shows a bare "•N" dot, not the old inline chip list, so
+  // `data-loaded` on the grid (Calendar.tsx) is what this now polls instead of `.ucal-chip`.
+  await expect(page.locator('[data-testid="cal-grid"][data-loaded="1"]')).toBeVisible({ timeout: 20_000 });
 }
 
 /**
@@ -74,20 +76,28 @@ test('calendar: the island owns the screen and the legacy grid steps aside', asy
   expectNoConsoleErrors(rec);
 });
 
-test('calendar: the week numbers are a column on the RIGHT', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'עידן' });
+test('calendar r5: חודש עבודה hides week labels, חודש מלא shows one per week row', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
   await openCalendar(page);
 
-  const cells = page.getByTestId('cal-weekno');
-  expect(await cells.count(), 'one week number per row').toBeGreaterThanOrEqual(5);
+  const toggle = page.getByTestId('cal-work-week');
+  await expect(toggle).toHaveText('חודש מלא');
+  // א–ה is the default (G1) — no week labels either, until חודש מלא asks for them.
+  await expect(page.getByTestId('cal-weeklabel')).toHaveCount(0);
 
-  // "On the right" is a measurement, not a class name: the week cell of a row must start
-  // further right than the first day cell of that same row.
-  const weekBox = (await cells.nth(1).boundingBox())!;
+  await toggle.click();
+  await expect(toggle).toHaveText('חודש עבודה');
+  const rows = await page.locator('[data-testid="cal-grid"] [data-week-row]').count();
+  expect(rows).toBeGreaterThanOrEqual(5);
+  await expect(page.getByTestId('cal-weeklabel')).toHaveCount(rows);
+  // A word for a screen reader, never a bare digit.
+  await expect(page.getByTestId('cal-weeklabel').first()).toHaveAttribute('aria-label', /^שבוע \d+$/);
+
+  // "On the right" is a measurement, not a class name: the label sits further right than the
+  // first day cell of its own row (RTL: first in the DOM reads as rightmost).
+  const labelBox = (await page.getByTestId('cal-weeklabel').first().boundingBox())!;
   const firstDay = (await page.locator('.ucal-cell').first().boundingBox())!;
-  expect(weekBox.x, 'the week column sits to the right of the days').toBeGreaterThan(firstDay.x);
-  // …and it is narrow and muted, not a day column.
-  expect(weekBox.width).toBeLessThan(firstDay.width);
+  expect(labelBox.x, 'the week label sits to the right of the days').toBeGreaterThan(firstDay.x);
 
   expectNoConsoleErrors(rec);
 });
@@ -98,10 +108,10 @@ test('calendar: the week view is what a phone gets, and it remembers the choice'
 
   await page.locator('[data-view="week"]').click();
   await expect(page.getByTestId('cal-label')).toHaveText(/שבוע \d+/);
-  // FIVE day cells and one week number (round 2 · G1): א–ה is the week a technician plans,
-  // and only a full month ever paints Fri/Sat.
+  // FIVE day cells, no week label (round 2 · G1 + round 5 · C6): א–ה is the week a
+  // technician plans, and the week VIEW already says "שבוע N" in its own title.
   await expect(page.locator('.ucal-cell')).toHaveCount(5);
-  await expect(page.getByTestId('cal-weekno')).toHaveCount(1);
+  await expect(page.getByTestId('cal-weeklabel')).toHaveCount(0);
 
   await shot(page, ti, 'week');
 
@@ -505,7 +515,6 @@ test('calendar: a day he never reported is RED on the grid, with a legend (F-4 �
   if (!expected.gaps.length) {
     // Early in a month there can genuinely be nothing behind him — then nothing is red.
     await expect(marked).toHaveCount(0);
-    await expect(page.getByTestId('cal-missing-legend')).toHaveCount(0);
     expectNoConsoleErrors(rec);
     return;
   }
@@ -516,10 +525,104 @@ test('calendar: a day he never reported is RED on the grid, with a legend (F-4 �
     { timeout: 20_000 }).toBe(expected.gaps.slice().sort().join(','));
   await expect(page.locator(`.ucal-cell[data-date="${expected.today}"]`)).not.toHaveAttribute('data-missing', '1');
 
-  // The marker is a real red dot, not colour on the background alone.
-  await expect(page.locator(`.ucal-cell[data-date="${expected.gaps[0]}"] [data-testid="cal-missing"]`)).toBeAttached();
-  await expect(page.getByTestId('cal-missing-legend')).toBeVisible();
+  // The marker is a real red dot on the DayCell itself (design system: dot + danger-ink
+  // number, never a red border) — round 5 · C5, the legend always shows and red joins it for
+  // a filer.
+  await expect(page.locator(`.ucal-cell[data-date="${expected.gaps[0]}"]`)).toHaveAttribute('data-state', 'missing');
+  await expect(page.getByTestId('cal-legend').locator('[data-legend="missing"]')).toBeVisible();
 
   await shot(page, ti, 'missing-days');
+  expectNoConsoleErrors(rec);
+});
+
+// ───────────────────────────── round 5 · C-U1: whose calendar, the legend ─────────────────
+
+test('calendar r5: no red for עידן; the legend always shows purple and green', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  await expect(page.locator('[data-testid="cal-grid"] [data-state="missing"]')).toHaveCount(0);
+  await expect(page.getByTestId('cal-legend').locator('[data-legend]')).toHaveText(['חג', 'ערב חג', 'דווחה נוכחות']);
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar r5: עידן switches to אביאם and sees the missing-day legend', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  await page.getByTestId('cal-person').getByRole('radio', { name: 'אביאם' }).click();
+  await expect(page.getByTestId('cal-legend').locator('[data-legend="missing"]')).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar r5: a field person has no person picker', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+  await openCalendar(page);
+  await expect(page.getByTestId('cal-person')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});
+
+// ───────────────────────────── round 5 · C-U2: kibbutz blocks ─────────────────────────────
+
+/** The day after the sandbox's two-kibbutz fixture — task-cal-1 (גבת) is already overdue there. */
+async function calNextDay(page: Page): Promise<string> {
+  return page.evaluate(d => {
+    const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + 1);
+    const p = (v: number) => String(v).padStart(2, '0');
+    return x.getFullYear() + '-' + p(x.getMonth() + 1) + '-' + p(x.getDate());
+  }, await calDay(page));
+}
+
+test('calendar r5 · C1: picking a block plans the stop and dates the ticked task', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+  const next = await calNextDay(page);
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), next);
+
+  const block = dayBody(page).locator('[data-block="גבת"]');
+  await expect(block).toBeVisible();
+  await block.locator('[data-block-task="ems:task-cal-1"]').check();
+  const written = page.waitForResponse(r => r.url().includes('/rest/v1/day_plans') && r.request().method() !== 'GET');
+  await block.locator('[data-block-pick="גבת"]').click();
+  await written;
+  await expect(page.getByText(/גבת נוסף ל-.* · משימה אחת נקבעה ל-/)).toBeVisible();
+  await expect(dayBody(page).locator('[data-stop="גבת"]')).toBeVisible();
+
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar r5 · C2: עידן plans אביאם’s day, and it lands on אביאם’s route, not his own', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  await page.getByTestId('cal-person').getByRole('radio', { name: 'אביאם' }).click();
+  const day = await calDay(page);
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
+
+  const written = page.waitForResponse(r => r.url().includes('/rest/v1/day_plans') && r.request().method() !== 'GET');
+  await dayBody(page).locator('[data-block-pick="דגניה"]').click();
+  await written;
+  // Placed on the route (not just a candidate stop under 📥) — any kibbutz with an open EMS
+  // task that day shows as an unplaced `[data-stop]` row regardless of whose calendar is
+  // open, so "on the route" means a header other than "unplaced".
+  await expect(dayBody(page).locator('[data-stop="דגניה"]:not([data-header="unplaced"])')).toBeVisible();
+
+  // The mobile day sheet must close before the person switcher underneath it is reachable.
+  await page.keyboard.press('Escape');
+  await page.getByTestId('cal-person').getByRole('radio', { name: 'עידן' }).click();
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
+  await expect(dayBody(page).locator('[data-stop="דגניה"]:not([data-header="unplaced"])')).toHaveCount(0);
+
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar r5 · C1: a block already on the route with nothing new ticked cannot be picked again', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+  const day = await calDay(page);
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
+
+  const written = page.waitForResponse(r => r.url().includes('/rest/v1/day_plans') && r.request().method() !== 'GET');
+  await dayBody(page).locator('[data-place="גבת"]').click();
+  await written;
+  await expect(dayBody(page).locator('[data-block-pick="גבת"]')).toBeDisabled();
+
   expectNoConsoleErrors(rec);
 });
