@@ -38,8 +38,8 @@ import {
   type MeetingKind, type NoteRow,
 } from '@/lib/meetingNotes';
 import {
-  canPresent, carryOverLine, clockText, liveChips, nextIndex, presenterOrder,
-  type LiveChipId, type MeetingSessionRow,
+  canPresent, carryOverLine, clockText, fetchPreviousMeetingDate, liveChips, nextIndex,
+  presenterOrder, type LiveChipId, type MeetingSessionRow,
 } from '@/lib/meetingSession';
 
 export const PRESENTER_OPEN_EVENT = 'sigma-open-presenter';
@@ -77,19 +77,6 @@ async function fetchNotes(): Promise<NoteRow[]> {
     .select('id,kibbutz,meeting_date,meeting_kind,seq,text,owners,ems_task_id,done_at');
   if (error) throw error;
   return (data || []) as NoteRow[];
-}
-
-/** The date of the previous `meeting_sessions` row of this kind, before today. Feeds "מאז
- *  הישיבה הקודמת" (item 5) — null when there is none (first meeting of this kind, or a fetch
- *  failure; the section then renders nothing rather than guessing a boundary). */
-async function fetchPreviousMeetingDate(kind: string, today: string): Promise<string | null> {
-  try {
-    const sb = await getSupabase();
-    const { data, error } = await sb.from('meeting_sessions')
-      .select('date').eq('kind', kind).lt('date', today).order('date', { ascending: false }).limit(1);
-    if (error) throw error;
-    return (data && data[0] && (data[0] as { date?: string }).date) || null;
-  } catch { return null; }
 }
 
 /** Today's office events — the SAME query the calendar island holds, so the 🎥 link is one fetch. */
@@ -446,17 +433,23 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     return sinceLastMeeting(internalAsTasks, prevMeetingQ.data);
   }, [current, internalTasksQ.data, prevMeetingQ.data]);
 
-  // Every arrival at a kibbutz is a segment boundary. Keyed so StrictMode's double render
-  // cannot log the same arrival twice. D1 (M-L2): the session row is now lazy — log() itself
-  // creates it on first use — so this no longer waits on `session?.id` existing first; gating
-  // on it would deadlock (nothing else ever creates the session on its own).
+  // Every arrival at a kibbutz is a segment boundary — but ONLY once the meeting is actually
+  // running (the clock started) or a session already exists for some other reason (a mark, a
+  // live chip). Gating on `running || session?.id` — rather than `session?.id` alone (D1's
+  // original bug) or not gating at all (this file's OWN first attempt at the D1 fix, which
+  // silently reintroduced an eager insert: opening the screen always arrives at kibbutz #1,
+  // so an unconditional log() on mount recreated exactly the bug D1 was meant to remove) — is
+  // what makes merely opening and closing מצב ישיבה write nothing (Presenter.test.tsx: "open,
+  // then close, writes nothing"), while pressing play still logs the kibbutz already on screen.
+  // Keyed on idx + name (not session.id, which isn't set yet the instant `running` flips) so
+  // StrictMode's double render cannot log the same arrival twice.
   React.useEffect(() => {
-    if (!current) return;
+    if (!current || (!running && !session?.id)) return;
     const key = idx + '|' + current.name;
     if (logged.current === key) return;
     logged.current = key;
     void log('kibbutz', { kibbutz: current.name });
-  }, [idx, current?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [running, session?.id, idx, current?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── actions ────────────────────────────────────────────────────────────
   const move = React.useCallback((dir: number) => {

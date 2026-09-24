@@ -90,9 +90,18 @@ async function openScreen() {
   render(<Presenter />);
   await act(async () => { openPresenter(); });
   await screen.findByTestId('presenter');
-  // the session row and the first `kibbutz` event settle one microtask later
-  await waitFor(() => expect(inserted.some(i => i.table === 'meeting_sessions')).toBe(true));
   await screen.findByTestId('presenter-kibbutz');
+  // D1: merely opening writes NOTHING — no session row, no events — until the meeting
+  // actually does something (start, mark, park, a note, the live sheet). See the dedicated
+  // "writes nothing" test below; this is just a sanity check that the harness itself is not
+  // accidentally relying on an eager insert.
+  expect(inserted).toHaveLength(0);
+}
+
+/** Starts the visible clock — the one thing besides mark/park/note/live that creates the
+ *  session row and starts logging kibbutz arrivals as segment boundaries. */
+async function startClock() {
+  await act(async () => { fireEvent.click(screen.getByTestId('presenter-timer-toggle')); });
 }
 
 const key = (k: string, target: Element | Document = document.body) =>
@@ -137,10 +146,24 @@ describe('presenter screen', () => {
     expect(meet.getAttribute('target')).toBe('_blank');
   });
 
-  it('logs every arrival as the segment boundary it is — once per kibbutz', async () => {
+  it('logs every arrival as the segment boundary it is — once per kibbutz — but only once running', async () => {
     await openScreen();
+    expect(events()).toHaveLength(0);                           // not running yet: nothing logged
+    await startClock();
     await waitFor(() => expect(events().filter(e => e.kind === 'kibbutz')).toHaveLength(1));
     expect(events()[0]).toMatchObject({ kind: 'kibbutz', kibbutz: 'דפנה' });
+    await key('ArrowLeft');
+    await waitFor(() => expect(events().filter(e => e.kind === 'kibbutz')).toHaveLength(2));
+    expect(events()[1]).toMatchObject({ kind: 'kibbutz', kibbutz: 'אלון' });
+  });
+
+  it('D1: opening the screen and closing it again writes NOTHING — no session, no events', async () => {
+    await openScreen();
+    await key('Escape');
+    await act(async () => { fireEvent.click(await screen.findByTestId('presenter-exit-yes')); });
+    await waitFor(() => expect(screen.queryByTestId('presenter')).toBeNull());
+    expect(inserted).toHaveLength(0);
+    expect(updated).toHaveLength(0);
   });
 });
 
@@ -214,8 +237,10 @@ describe('keys', () => {
     expect(await screen.findByTestId('presenter-exit-sheet')).toBeTruthy();
   });
 
-  it('leaving is confirmed, and closes the session instead of abandoning it', async () => {
+  it('leaving is confirmed, and closes the session instead of abandoning it (once one exists)', async () => {
     await openScreen();
+    await startClock();                                          // a session now exists
+    await waitFor(() => expect(inserted.some(i => i.table === 'meeting_sessions')).toBe(true));
     await key('Escape');
     await act(async () => { fireEvent.click(await screen.findByTestId('presenter-exit-yes')); });
     await waitFor(() => expect(updated.some(u => u.table === 'meeting_sessions' && u.row.ended_at)).toBe(true));
