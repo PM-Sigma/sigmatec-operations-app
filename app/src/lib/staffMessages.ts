@@ -8,7 +8,7 @@ export const MESSAGE_MAX = 500;
 
 /** Every person who can sign in, minus the viewer and minus the sender himself. */
 export function recipientsFor(me: string): string[] {
-  return APP_PEOPLE.filter(p => p !== me && p !== VIEWER_NAME);
+  return APP_PEOPLE.filter(p => p !== me && (p as string) !== VIEWER_NAME);
 }
 
 /** What the compose sheet must satisfy before "שליחה" is live; `[]` = fine. */

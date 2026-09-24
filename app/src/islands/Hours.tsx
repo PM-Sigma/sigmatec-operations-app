@@ -200,7 +200,7 @@ function HoursPage() {
       </div>
 
       <div className="mb-2 text-[13px] text-muted-foreground" data-testid="hours-total">
-        {shown.length} רשומות · סה"כ <b className="text-foreground">{fmtDuration(t.all)}</b> שעות
+        {shown.length} רשומות · סה"כ <b className="text-foreground">{fmtDuration(t.all)}</b>
         {Object.keys(t.byPerson).length > 1 && ' · ' + Object.entries(t.byPerson).map(([p, m]) => p + ' ' + fmtDuration(m)).join(' · ')}
       </div>
 
