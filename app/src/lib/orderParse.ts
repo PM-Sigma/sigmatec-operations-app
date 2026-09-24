@@ -75,7 +75,7 @@ export function parseLocalToItems(raw: string, catalog: ReadonlyArray<string>): 
     }
   }
   const _genericMeterAsk = /לנדיס/.test(norm) ||
-    (/מונ/.test(norm) && !/סאטק|satec|133|קרלו|carlo|pm135|e341|חד פאזי|חד פזי/.test(norm));
+    (/מונ/.test(norm) && /סאטק|satec|133|קרלו|carlo|pm135|e341|חד פאזי|חד פזי/.test(norm) === false);
   if (_genericMeterAsk && !items.some(it => /E360PP|E360SP|E570|EM133|PM135|E341/i.test(it.name))) {
     const def = catalog.find(n => /E360PP/i.test(n));
     if (def) {
@@ -188,7 +188,7 @@ export function ambiguousSatecQuestion(
   raw: string, items: ReadonlyArray<CountItem>, catalog: ReadonlyArray<string>, pool: Record<string, number>,
 ): Question | null {
   const norm = intakeNormalize(raw);
-  if (!/סאטק|satec/.test(norm)) return null;
+  if (/סאטק|satec/.test(norm) === false) return null;
   if (/133|135|em133|pm135|שנאי|מקביל|רגיל|תלת|חד/.test(norm)) return null;
   const satecItem = items.find(it => /satec|em133|pm135/i.test(it.name));
   if (!satecItem) return null;

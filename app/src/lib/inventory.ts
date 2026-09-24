@@ -622,7 +622,7 @@ export function orderSavePlan(draft: OrderDraft, ctx: SaveCtx): SavePlan {
   if (unknown.length) errors.push('פריטים שלא בקטלוג: ' + unknown.join(', ') + '. אפשר להסיר אותם מההזמנה');
   if (!draft.items.length) errors.unshift('צריך לפחות פריט אחד');
   const unresolvedChoice = draft.items.find(it => !it.name && it.choose && it.choose.length);
-  if (unresolvedChoice) errors.unshift(`יש שורת ספק כוח בלי סוג. בחירה: ${unresolvedChoice.choose!.join(' או ')}`);
+  if (unresolvedChoice) errors.unshift(`יש שורת ספק כוח בלי סוג. בחירה: ${(unresolvedChoice.choose ?? []).join(' או ')}`);
   if (!draft.createdBy) errors.push('חסר מי יצר את ההזמנה');
   if (draft.orderType === 'customer' && !draft.id && !draft.kibbutz) errors.push('חסר קיבוץ להזמנת לקוח');
 
