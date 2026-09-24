@@ -4,13 +4,19 @@
 import * as React from 'react';
 import type { StatusBlocks as StatusBlocksData } from '@/lib/meetingStatus';
 
-function Tile({ label, value, testid }: { label: string; value: React.ReactNode; testid: string }) {
+function Tile({
+  label, value, testid, full,
+}: { label: string; value: React.ReactNode; testid: string; full?: boolean }) {
   return (
     <div
       data-testid={testid}
-      className="flex min-w-0 flex-col gap-0.5 rounded-[var(--r-sm)] bg-secondary px-3 py-2"
+      className={
+        'flex min-w-0 flex-col gap-0.5 rounded-[var(--r-sm)] bg-secondary px-3 py-2' + (full ? ' col-span-2' : '')
+      }
     >
-      <span className="truncate text-[length:var(--fs-body-sm)] text-muted-foreground">{label}</span>
+      {/* No `truncate` on the label (designer round-5: "פנימיות פת…" clipped mid-word at
+          360px) — short labels fit on one line as-is, and the rare long one just wraps. */}
+      <span className="text-[length:var(--fs-body-sm)] text-muted-foreground">{label}</span>
       <span className="line-clamp-2 text-[length:var(--fs-body)] font-bold text-foreground"><bdi>{value}</bdi></span>
     </div>
   );
@@ -20,12 +26,14 @@ export function StatusBlocksRow({ blocks }: { blocks: StatusBlocksData }) {
   return (
     // `grid-cols-2` (not a flex row): at 360px four flex-1 tiles squeezed to fit one line and
     // truncated their own numbers — a grid gives each tile a real half-width column and wraps
-    // to a second row instead of clipping "נותרו 2 מתוך 3" to "נותרו 2 …".
+    // to a second row. Burns/onboarding get the FULL row (`full`): their values are naturally
+    // longer ("נותרו 2 מתוך 3", "5/9 · חיבור מונים ל-EMS · ממתין 6 ימים") and still clipped at
+    // half-width even with `line-clamp-2` (designer round-5 items 3).
     <div data-testid="presenter-status-blocks" className="grid grid-cols-2 gap-2">
       <Tile label="EMS פתוחות" value={blocks.emsOpen} testid="presenter-status-ems" />
       <Tile label="פנימיות פתוחות" value={blocks.internalOpen} testid="presenter-status-internal" />
       {blocks.burns && (
-        <Tile label="צריבות" value={blocks.burns.text} testid="presenter-status-burns" />
+        <Tile label="צריבות" value={blocks.burns.text} testid="presenter-status-burns" full />
       )}
       {blocks.onboarding && (
         <Tile
@@ -38,6 +46,7 @@ export function StatusBlocksRow({ blocks }: { blocks: StatusBlocksData }) {
                 : blocks.onboarding.label
           }
           testid="presenter-status-onboarding"
+          full
         />
       )}
     </div>

@@ -17,10 +17,11 @@ import * as React from 'react';
 import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bookmark, ChevronLeft, ChevronRight, Pause, Pencil, Play, Video, X } from 'lucide-react';
+import { Bookmark, ChevronLeft, ChevronRight, MoreHorizontal, Pause, Pencil, Play, Video, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SectionBlock } from '@/components/ui/section-block';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { BubbleButton } from '@/components/ui/bubble-button';
 import { mount } from '@/islands';
 import { fetchKibbutzRows } from '@/lib/kibbutzRows';
 import { SigmaProviders } from '@/lib/query';
@@ -41,7 +42,7 @@ import {
   type MeetingKind, type NoteRow,
 } from '@/lib/meetingNotes';
 import {
-  canPresent, carryOverLine, clockText, liveChips, momentLine, nextIndex,
+  canPresent, clockText, liveChips, momentLine, nextIndex,
   presenterOrder, type LiveChipId, type MeetingSessionRow,
 } from '@/lib/meetingSession';
 import { dm } from '@/lib/field';
@@ -409,6 +410,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = React.useState('');
   const [liveOpen, setLiveOpen] = React.useState(false);
   const [exitOpen, setExitOpen] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
   const noteRef = React.useRef<HTMLInputElement | null>(null);
   const logged = React.useRef<string>('');
 
@@ -418,9 +420,6 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const groups = React.useMemo(
     () => (current ? notesForKibbutz(notes, current.name) : []), [notes, current]);
   const lastMeeting = groups.find(g => g.meeting_date < today) || null;
-  const carry = React.useMemo(
-    () => (current ? carryOverLine(notes, current.name, today) : null), [notes, current, today]);
-
   // ── M-R1/M-R2: one per-kibbutz timeline of everything since the previous meeting ──────────
   const [windowMode, setWindowMode] = React.useState<'since' | '30d'>('since');
   const timeline = useMeetingTimeline(current?.name || '', windowMode);
@@ -447,19 +446,27 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const canClose = canCloseInMeeting(me, isViewer);
   const [pendingTaskIds, setPendingTaskIds] = React.useState<Record<string, CloseStatus>>({});
   const [queuedTaskIds, setQueuedTaskIds] = React.useState<Set<string>>(new Set());
+  // The one toast per taskId that offers "ביטול" — kept so a settle (timer OR an early flush)
+  // can dismiss it instead of leaving it on screen with a dead undo button (Opus round-5 audit,
+  // item 1: "undo lies after flush"), and so the settle path never shows a SECOND toast for the
+  // same click (item 5: the success toast was showing twice — once on click, once on settle).
+  const closeToastIds = React.useRef<Record<string, string | number>>({});
   const closeQueueRef = React.useRef<ReturnType<typeof createCloseQueue> | null>(null);
   if (!closeQueueRef.current) {
     closeQueueRef.current = createCloseQueue({
       send: sendClose,
       onSettled: (p, r) => {
         setPendingTaskIds(prev => { const n = { ...prev }; delete n[p.taskId]; return n; });
+        const toastId = closeToastIds.current[p.taskId];
+        if (toastId != null) { toast.dismiss(toastId); delete closeToastIds.current[p.taskId]; }
         if (r.skipped === 'already-closed') {
-          toast.error('המשימה כבר נסגרה');
+          toast.error('המשימה כבר נסגרה', { position: 'bottom-center' });
         } else if (r.error) {
-          toast.error('לא הצלחתי, נסה שוב');
+          toast.error('לא הצלחתי, נסה שוב', { position: 'bottom-center' });
         } else {
+          // No second success toast here (Opus item 5) — the click's own toast already said so,
+          // and dismissing it above is confirmation enough that the undo window closed.
           if (r.queued) setQueuedTaskIds(prev => new Set(prev).add(p.taskId));
-          toast.success(p.status === 'done' ? 'המשימה סומנה כבוצעה' : 'המשימה סומנה כבוטלה');
           timeline.refetch();
         }
       },
@@ -473,16 +480,19 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     const undo = closeQueue.schedule(p);
     setPendingTaskIds(prev => ({ ...prev, [taskId]: status }));
     try { navigator.vibrate?.(10); } catch { /* not every browser */ }
-    toast.success(status === 'done' ? 'המשימה סומנה כבוצעה' : 'המשימה סומנה כבוטלה', {
+    const toastId = toast.success(status === 'done' ? 'המשימה סומנה כבוצעה' : 'המשימה סומנה כבוטלה', {
       duration: 5000,
+      position: 'bottom-center',   // designer round-5: a top toast covered the header
       action: {
         label: 'ביטול',
         onClick: () => {
-          undo();
-          setPendingTaskIds(prev => { const n = { ...prev }; delete n[taskId]; return n; });
+          // `undo()` reports whether it actually cancelled anything — a click that loses the
+          // race against a flush (screen closing, kibbutz change) must NOT pretend it worked.
+          if (undo()) setPendingTaskIds(prev => { const n = { ...prev }; delete n[taskId]; return n; });
         },
       },
     });
+    closeToastIds.current[taskId] = toastId;
   }, [canClose, closeQueue, me]);
 
   // Flush on the app closing during the 5 s undo (review focus #1): pagehide, tab hidden, and —
@@ -506,11 +516,17 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
 
   const doMark = React.useCallback(async (openSheet: boolean) => {
     const kib = current?.name || undefined;
-    const { id, t_sec } = await mark(kib || null);
-    track('presenter-marker');
-    setMoments(prev => [...prev, { id, t_sec, kibbutz: kib }]);
-    if (openSheet) { markPendingId.current = id; setMarkOpen(true); }
-    else { toast.success('סומן'); }
+    try {
+      const { id, t_sec } = await mark(kib || null);
+      track('presenter-marker');
+      setMoments(prev => [...prev, { id, t_sec, kibbutz: kib }]);
+      if (openSheet) { markPendingId.current = id; setMarkOpen(true); }
+      else { toast.success('סומן', { position: 'bottom-center' }); }
+    } catch {
+      // the meeting matters more than the marker (same rule meetingRun.ts's own log() follows) —
+      // but silently swallowing it here would leave the room thinking a moment WAS recorded.
+      toast.error('לא הצלחתי לסמן, נסה שוב', { position: 'bottom-center' });
+    }
   }, [mark, current?.name]);
 
   const onSaveMomentNote = React.useCallback((note: string) => {
@@ -619,40 +635,11 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
       dir="rtl"
       className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-background p-4 sm:p-8"
     >
-      {/* ── header: clock · counter · carry-over · 🎥 ─────────────────────── */}
-      <header className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border pb-3">
-        <button
-          type="button"
-          data-testid="presenter-timer-toggle"
-          onClick={() => (running ? pause() : start())}
-          aria-label={running ? 'עצירת השעון' : 'הפעלת השעון'}
-          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-border text-foreground"
-        >
-          {running ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
-        </button>
-        <span data-testid="presenter-timer" className="text-[20px] font-extrabold tabular-nums text-foreground">
-          <bdi>{clockText(seconds)}</bdi>
-        </span>
-        <span data-testid="presenter-counter" className="text-[14px] font-extrabold text-muted-foreground">
-          <bdi>{n ? Math.min(idx + 1, n) : 0} / {n}</bdi>
-        </span>
-        {carry && (
-          <span data-testid="presenter-carry" className="min-w-0 truncate text-[14px] font-bold text-[color:var(--warning)]">
-            {carry}
-          </span>
-        )}
-        <span className="flex-1" />
-        {meeting?.meetLink && (
-          <a
-            href={meeting.meetLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid="presenter-meet"
-            className="inline-flex min-h-9 flex-none items-center gap-1 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
-          >
-            <Video size={15} aria-hidden /> Meet
-          </a>
-        )}
+      {/* ── header (sticky, M-U1): X · timer · counter · play — one compact row. The Meet link
+             moves behind ⋯ (designer round-5: "מהישיבה הקודמת" next to the timer is gone —
+             עידן asked, and the timeline already covers it). Sticky so it survives the now much
+             taller scrollable content underneath it. */}
+      <header className="sticky top-0 z-10 flex min-w-0 flex-none items-center gap-2 border-b border-border bg-background pb-3">
         <button
           type="button"
           data-testid="presenter-exit"
@@ -662,13 +649,55 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         >
           <X size={18} aria-hidden />
         </button>
+        <button
+          type="button"
+          data-testid="presenter-timer-toggle"
+          onClick={() => (running ? pause() : start())}
+          aria-label={running ? 'עצירת השעון' : 'הפעלת השעון'}
+          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+        >
+          {running ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
+        </button>
+        <span data-testid="presenter-timer" className="text-[18px] font-extrabold tabular-nums text-foreground">
+          <bdi>{clockText(seconds)}</bdi>
+        </span>
+        <span data-testid="presenter-counter" className="text-[14px] font-extrabold text-muted-foreground">
+          <bdi>{n ? Math.min(idx + 1, n) : 0} / {n}</bdi>
+        </span>
+        <span className="flex-1" />
+        {meeting?.meetLink && (
+          <div className="relative flex-none">
+            <button
+              type="button"
+              data-testid="presenter-more"
+              onClick={() => setMoreOpen(v => !v)}
+              aria-label="עוד"
+              aria-expanded={moreOpen}
+              className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+            >
+              <MoreHorizontal size={18} aria-hidden />
+            </button>
+            {moreOpen && (
+              <a
+                href={meeting.meetLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="presenter-meet"
+                onClick={() => setMoreOpen(false)}
+                className="absolute end-0 top-11 z-10 inline-flex min-h-9 flex-none items-center gap-1 whitespace-nowrap rounded-xl border border-border bg-card px-3 text-[13px] font-extrabold text-foreground shadow-[var(--e1)]"
+              >
+                <Video size={15} aria-hidden /> Meet
+              </a>
+            )}
+          </div>
+        )}
       </header>
 
       {/* ── the kibbutz ──────────────────────────────────────────────────── */}
       {/* pb-28: the footer is `sticky bottom-0` and reserves no space of its own in the flow —
           without this the scrollable dialog lets its own content (now much taller with the
           timeline) scroll UNDER the footer instead of stopping above it. */}
-      <main className="flex flex-1 flex-col gap-4 py-5 pb-28">
+      <main className="flex flex-1 flex-col gap-4 py-5 pb-36">
         {!current ? (
           <p className="text-[17px] text-muted-foreground">אין קיבוצים להצגה</p>
         ) : (
@@ -798,14 +827,16 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
             aria-label="שורה אחת, אם בא לך"
             className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-muted px-3 text-[15px] text-foreground outline-none focus:border-[color:var(--brand-1)]"
           />
-          <button
-            type="button"
+          <BubbleButton
+            variant="neutral"
+            size="md"
+            icon={<Bookmark size={16} aria-hidden />}
             data-testid="presenter-marker"
             onClick={() => void doMark(true)}
-            className="inline-flex min-h-11 flex-none items-center gap-1 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
+            className="flex-none"
           >
-            <Bookmark size={16} aria-hidden /> סמן רגע
-          </button>
+            סמן רגע
+          </BubbleButton>
         </div>
       </footer>
 

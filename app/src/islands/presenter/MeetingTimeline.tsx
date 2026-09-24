@@ -6,6 +6,7 @@ import { CheckCircle2, ClipboardList, Lock, MapPin, NotebookPen, XCircle } from 
 import { SectionBlock } from '@/components/ui/section-block';
 import { ListRow } from '@/components/ui/list-row';
 import { EmptyState } from '@/components/ui/empty-state';
+import { BubbleButton } from '@/components/ui/bubble-button';
 import { fmtDay } from '@/lib/format';
 import type { CloseStatus } from '@/lib/meetingClose';
 import type { TimelineItem } from '@/lib/meetingTimeline';
@@ -40,27 +41,29 @@ function CloseBubbles({
 }) {
   if (!item.taskId) return null;
   return (
-    <div className="mt-1 flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-      <button
-        type="button"
+    <div className="mt-1 flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
+      <BubbleButton
+        variant="tonal"
+        size="sm"
+        icon={<CheckCircle2 size={15} aria-hidden />}
         data-testid={`presenter-close-done-${item.taskId}`}
         aria-label="סמן כבוצע"
         aria-pressed={pendingStatus === 'done'}
         onClick={() => onClose(item.taskId!, 'done')}
-        className="inline-flex h-8 items-center gap-1 rounded-[var(--r-pill)] bg-[var(--ink-tint)] px-2.5 text-[13px] font-bold text-[var(--sigma-ink)]"
       >
-        <CheckCircle2 size={15} aria-hidden /> בוצע
-      </button>
-      <button
-        type="button"
+        בוצע
+      </BubbleButton>
+      <BubbleButton
+        variant="neutral"
+        size="sm"
+        icon={<XCircle size={15} aria-hidden />}
         data-testid={`presenter-close-cancel-${item.taskId}`}
         aria-label="סמן כבוטל"
         aria-pressed={pendingStatus === 'cancelled'}
         onClick={() => onClose(item.taskId!, 'cancelled')}
-        className="inline-flex h-8 items-center gap-1 rounded-[var(--r-pill)] bg-secondary px-2.5 text-[13px] font-bold text-foreground"
       >
-        <XCircle size={15} aria-hidden /> בוטל
-      </button>
+        בוטל
+      </BubbleButton>
       {queued && (
         <span className="text-[12px] font-bold text-muted-foreground">יישלח כשתחזור הרשת</span>
       )}
@@ -91,7 +94,7 @@ export function MeetingTimeline({
           <div className="px-4">
             <EmptyState
               icon={<ClipboardList size={28} aria-hidden />}
-              title="אין שינויים מאז הישיבה הקודמת"
+              title="אין שינויים בחלון הזה"
               hint={onToggle30d ? 'אפשר לבדוק 30 יום אחורה' : undefined}
               action={onToggle30d ? { label: '30 יום', onClick: onToggle30d } : undefined}
             />

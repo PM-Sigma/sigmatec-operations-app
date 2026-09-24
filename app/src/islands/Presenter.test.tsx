@@ -146,12 +146,14 @@ describe('presenter screen', () => {
     // The note appears on the timeline AND, collapsed, in "מהישיבה של …" (M-R9: every existing
     // feature keeps working) — at least one instance is what matters here.
     expect(screen.getAllByText('להשלים החלפת מונה ראשי').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('presenter-carry').textContent).toBe('מהישיבה הקודמת: 2 פתוחים');
   });
 
-  it('M-R6: removes the "מאז הישיבה הקודמת" block — the timeline replaces it', async () => {
+  it('M-R6 + designer round-5: no "מאז הישיבה הקודמת" ANYWHERE on screen — not the removed ' +
+    'block, not the header carry line (עידן asked) — the timeline says what changed', async () => {
     await openScreen();
+    expect(screen.queryByTestId('presenter-carry')).toBeNull();
     expect(screen.queryByText('מאז הישיבה הקודמת')).toBeNull();
+    expect(screen.getByTestId('presenter').textContent).not.toContain('מאז הישיבה הקודמת');
   });
 
   it('M-U1: shows the timeline section and the window toggle', async () => {
@@ -165,8 +167,12 @@ describe('presenter screen', () => {
     expect(screen.queryByTestId('presenter-strip-extra')).toBeNull();
   });
 
-  it('shows the 🎥 link of today\'s meeting, and only opens it in a new tab', async () => {
+  it('shows the 🎥 link of today\'s meeting behind ⋯, and only opens it in a new tab', async () => {
     await openScreen();
+    // designer round-5: the Meet link moves behind the header's ⋯ (M-U1 layout) — hidden until
+    // tapped, so it isn't fighting the timer/counter for the one compact row.
+    expect(screen.queryByTestId('presenter-meet')).toBeNull();
+    await act(async () => { fireEvent.click(screen.getByTestId('presenter-more')); });
     const meet = await screen.findByTestId('presenter-meet');
     expect(meet.getAttribute('href')).toBe('https://meet.google.com/abc-defg-hij');
     expect(meet.getAttribute('target')).toBe('_blank');

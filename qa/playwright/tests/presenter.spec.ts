@@ -64,9 +64,9 @@ test('presenter: the keys walk the board, mark a moment and write one line', asy
   await page.keyboard.press('j');
   await expect(page.getByTestId('presenter-kibbutz')).toHaveText('חוקוק');
 
-  // ── חוקוק has three open bullets from its last meeting: the header says so, and they are
-  //    on screen, big, with their owners.
-  await expect(page.getByTestId('presenter-carry')).toHaveText('מהישיבה הקודמת: 3 פתוחים');
+  // ── חוקוק's open bullets from its last meeting are on screen (collapsed, designer round-5:
+  //    the header carry line is gone — עידן asked; the timeline says what changed instead).
+  await expect(page.getByTestId('presenter-carry')).toHaveCount(0);
   await expect(page.getByTestId('presenter-bullets')).toContainText('להשלים החלפת מונה ראשי במחלבה');
   await expect(page.getByTestId('presenter-strip-admin')).toBeVisible();
   await expect(page.getByTestId('presenter-strip-field')).toBeVisible();
@@ -200,9 +200,10 @@ test('presenter: the timeline replaces "מאז הישיבה הקודמת", and t
   const { rec } = await boot(page, ti);
   const screen = await openPresenter(page);
 
-  // M-R6: the old "מאז הישיבה הקודמת" HEADING is gone (the empty-state hint may still say
-  // "אין שינויים מאז הישיבה הקודמת" — review focus #5 — which is a different, exact string).
-  await expect(page.getByText('מאז הישיבה הקודמת', { exact: true })).toHaveCount(0);
+  // M-R6 + designer round-5: "מאז הישיבה הקודמת" is gone everywhere — the removed block, the
+  // header carry line, AND the empty-state wording (עידן asked for all three).
+  await expect(page.getByText('מאז הישיבה הקודמת')).toHaveCount(0);
+  await expect(page.getByTestId('presenter-carry')).toHaveCount(0);
 
   // M-U1: the timeline section + status blocks + window toggle are on screen
   await expect(page.getByRole('heading', { name: 'מה קרה' })).toBeVisible();
@@ -210,6 +211,64 @@ test('presenter: the timeline replaces "מאז הישיבה הקודמת", and t
   await expect(page.getByText('30 יום')).toBeVisible();
 
   await shot(page, ti, 'timeline');
+
+  await page.keyboard.press('Escape');
+  await page.getByTestId('presenter-exit-yes').click();
+  await expect(screen).toHaveCount(0);
+
+  await expectNoConsoleErrors(rec);
+});
+
+test('presenter: one-click close offers a 5 s undo toast, and it really cancels or really commits', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  const screen = await openPresenter(page);
+
+  // The harness's mock mode has no live EMS session, so the timeline falls back to the shared
+  // EMS cache — this seeds it with one open task for FIRST so the close bubbles have something
+  // to act on. No real network write happens either way in mock mode; this proves the UI's own
+  // undo-window contract (M-R8 / Opus round-5 items 1+5), not a specific EMS call.
+  await page.evaluate((kibbutz: string) => {
+    (window as any).sigma.emsCacheTasksForKibbutz = (name: string) =>
+      name === kibbutz ? [{ id: 'e2e-close-1', title: 'בדיקת סגירה', status: 'open' }] : [];
+  }, FIRST);
+
+  // Force the timeline's cache-fallback memo to re-read the (now patched) function: it only
+  // recomputes when the kibbutz on screen changes.
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('presenter-kibbutz')).toHaveText(FIRST);
+
+  // A cache-fallback task has no date, so it lands in "משימות פתוחות ותיקות" — collapsed by
+  // default; open it before its close bubbles are clickable.
+  await page.getByText('משימות פתוחות ותיקות').click();
+
+  const done = page.getByTestId('presenter-close-done-e2e-close-1');
+  await expect(done).toBeVisible();
+  await done.scrollIntoViewIfNeeded();
+  await done.click();
+
+  // The one live toast's own "ביטול" action — scoped to sonner's own markup (`[data-button]`
+  // inside `[data-sonner-toast]`), since the legacy bundle's hidden modals also carry buttons
+  // labelled "ביטול" elsewhere in the DOM.
+  const undoBtn = page.locator('[data-sonner-toast] [data-button]', { hasText: 'ביטול' });
+
+  // Undo, inside the window: the button disappears immediately, ONE toast only (Opus item 5).
+  // `dispatchEvent` rather than `.click()`: sonner's own toast-stacking transform can place the
+  // toast partly outside Playwright's notion of "in viewport" at some breakpoints even though
+  // it is genuinely visible and clickable on a real device — this test is about the undo
+  // CONTRACT (one toast, cancels for real), not sonner's own positioning math.
+  await expect(undoBtn).toBeVisible();
+  await shot(page, ti, 'close-undo-toast');
+  await undoBtn.dispatchEvent('click');
+  await page.waitForTimeout(5500);
+  await expect(page.getByTestId('presenter-close-done-e2e-close-1')).toBeVisible();   // still open
+
+  // Left alone this time: the undo window closes on its own once the 5 s pass
+  const cancel = page.getByTestId('presenter-close-cancel-e2e-close-1');
+  await cancel.click();
+  await expect(undoBtn).toBeVisible();
+  await page.waitForTimeout(5500);
+  await expect(undoBtn).toHaveCount(0);
 
   await page.keyboard.press('Escape');
   await page.getByTestId('presenter-exit-yes').click();
