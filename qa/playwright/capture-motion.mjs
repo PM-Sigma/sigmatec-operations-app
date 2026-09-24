@@ -1,7 +1,9 @@
-// Sign-off motion evidence (verdict E5): short Playwright-recorded videos of a sheet's
+// Sign-off motion evidence (verdict E5): short Playwright-recorded videos of the ⋯ עוד sheet's
+// (MoreSheet.tsx, a real Radix Sheet — not the legacy kibbutz modal the first attempt recorded)
 // open/close at 360px, once with normal motion and once with `prefers-reduced-motion`
-// emulated — proving the reduced-motion rule (styles.css's media query, sign-off P1-12) only
-// zeroes the SLIDE/shift, not the opacity fade, per design-review.md §2.4.
+// emulated — proving the reduced-motion rule (styles.css's media query, sign-off P1-12 + the
+// designer confirm round's item 12 fix) only zeroes the SLIDE/shift, not the opacity fade, per
+// design-review.md §2.4.
 //
 //   node qa/playwright/capture-motion.mjs <output-dir>
 import { chromium } from '@playwright/test';
@@ -60,11 +62,13 @@ async function record(browser, { reducedMotion, name }) {
   });
 
   await page.goto(`http://127.0.0.1:${PORT}/index.html?login=0&sb=0`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.kibbutz', { timeout: 30_000 }).catch(() => {});
+  await page.waitForSelector('#sigma-nav', { timeout: 30_000 }).catch(() => {});
   await page.waitForTimeout(1000);
 
-  // Open the kibbutz card sheet (slide-up from bottom — the clearest motion demo)…
-  await page.locator('.kibbutz').first().click({ force: true });
+  // The ⋯ עוד sheet (MoreSheet.tsx) — a real Radix Sheet primitive (designer confirm round,
+  // E5: both prior recordings showed the LEGACY kibbutz modal instead, since `.kibbutz` opens
+  // that, not the new Sheet component whose motion this package actually defines).
+  await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click({ force: true });
   await page.waitForTimeout(900);
   // …and close it, so the recording shows both the enter and the exit transition.
   await page.keyboard.press('Escape').catch(() => {});

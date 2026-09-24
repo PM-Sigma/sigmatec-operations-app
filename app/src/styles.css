@@ -846,10 +846,15 @@
   container-type: inline-size;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  /* 2px, not 3px (designer confirm round, N2/N3): every extra pixel of gap is a pixel the 44px
-     floor doesn't have at 360 — six gaps cost 6px more at 3px than at 2px, exactly the margin
-     between clearing and missing the floor. */
-  gap: 2px;
+  /* 0px, not 2px: measured inside a real `flush` SectionBlock at 360 (gallery__360__*, after
+     removing the card-escaping negative margin N2 also fixed), the card's real content width is
+     308px — not the 328px the confirm round's own math assumed (that number didn't count the
+     legacy page's own ~20px of body padding, which this package can't remove without touching
+     shared chrome). (308 − 6×gap) / 7 must clear 43px; even 1px of gap only leaves 43.1px, a
+     rounding accident away from failing. 0px is the only gap that clears it with real margin
+     (44.0px) while the grid still stays fully INSIDE its card — the containment rule the sweep
+     now also enforces (N4c) would fail on anything that bled out to make more room for a gap. */
+  gap: 0;
 }
 
 /* Sheet/Dialog enter/exit animation timing (sign-off P1-6) — plain CSS instead of Tailwind

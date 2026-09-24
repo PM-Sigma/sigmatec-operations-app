@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { boot, expect, expectNoConsoleErrors, test, type Who } from './_helpers';
-import { NIGHTLY_WIDTHS, PHONE_WIDTHS, scanA11y, scanOverlap } from './_overlap';
+import { NIGHTLY_WIDTHS, PHONE_WIDTHS, scanA11y, scanNavSafeArea, scanOverlap } from './_overlap';
 
 const ALLOW_PATH = path.resolve(__dirname, '..', 'no-overlap-allow.json');
 const ALLOW: Record<string, string> = JSON.parse(fs.readFileSync(ALLOW_PATH, 'utf8'));
@@ -104,6 +104,14 @@ test.describe('no-overlap sweep', () => {
         await scanA11y(page, `${screen.label} @ ${viewport}/${theme} (axe)`, { root: screen.root }),
       ];
 
+      // Fixed-nav safe area (designer confirm round, N4b) — scrolls to the bottom itself, so it
+      // runs before the PHONE_WIDTHS resize loop below and the scroll position is reset after,
+      // not left contaminating those measurements.
+      if (viewport.startsWith('mobile')) {
+        reports.push(await scanNavSafeArea(page, `${screen.label} @ ${viewport}/${theme} (nav safe area)`));
+        await page.evaluate(() => { (document.scrollingElement || document.documentElement).scrollTop = 0; });
+      }
+
       // The full phone-width range, from one canonical project only (see the file header).
       if (ti.project.name === 'mobile-390-light') {
         for (const w of PHONE_WIDTHS) {
@@ -125,12 +133,20 @@ test.describe('no-overlap sweep', () => {
       const allowed = ALLOW[screen.label];
       for (const r of reports) {
         if (r.violations.length === 0) continue;
-        const msg = `${r.label}:\n    ` + r.violations.join('\n    ');
+        // rule 1 (horizontal scroll) is never waivable, allow-listed screen or not (designer
+        // confirm round, N4a) — split it out and fail on it regardless.
+        const rule1 = r.violations.filter(v => v.startsWith('[rule1]'));
+        const rest = r.violations.filter(v => !v.startsWith('[rule1]'));
+        if (rule1.length) {
+          expect(rule1, `${r.label}:\n    ` + rule1.join('\n    ')).toEqual([]);
+        }
+        if (rest.length === 0) continue;
+        const msg = `${r.label}:\n    ` + rest.join('\n    ');
         if (allowed) {
           // eslint-disable-next-line no-console
           console.log(`[no-overlap] KNOWN-FAILING (${allowed}) — ${msg}`);
         } else {
-          expect(r.violations, msg).toEqual([]);
+          expect(rest, msg).toEqual([]);
         }
       }
 

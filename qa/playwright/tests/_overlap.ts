@@ -4,7 +4,9 @@
 // legacy DOM and on a React island, and needs nothing the app doesn't already expose.
 //
 // What it checks, on whatever is currently rendered:
-//   1. the page never scrolls sideways (`scrollingElement.scrollWidth <= innerWidth + 1`);
+//   1. the page never scrolls sideways (`scrollingElement.scrollWidth <= innerWidth + 1`) — the
+//      one rule no-overlap.spec.ts never lets an allow-list entry waive (designer confirm round,
+//      N4a: a page scrolling sideways is real, whatever else about the screen is known-broken);
 //   2. no text-bearing LEAF element overflows its box (`scrollWidth > clientWidth + 1`), unless
 //      it (or an ancestor) carries `data-truncate` — the escape hatch `<Text>` sets;
 //   3. every visible interactive element clears a 48×48 hit area (design-review.md's 360–430
@@ -13,7 +15,9 @@
 //      hit-slop making up the rest);
 //   4. no two visible interactive/text boxes intersect by more than 2px on both axes —
 //      ancestor/descendant pairs (a label wrapping its input, an icon inside its own button)
-//      are not a collision and are skipped.
+//      are not a collision and are skipped;
+//   5. an interactive element inside a `<section>` card (SectionBlock) stays inside that card's
+//      own box (designer confirm round, N4c) — how DayCell bled past its card went uncaught.
 // `.sr-only` content is ignored throughout (noise the audit itself flagged: "the 'Close' and
 // the h2 clientWidth=1 hits are that kind of noise").
 import path from 'node:path';
@@ -75,10 +79,12 @@ export async function scanOverlap(page: Page, label: string, opts: { root?: stri
       return { ok: !isNoise(el), r };
     };
 
-    // 1. no horizontal page scroll
+    // 1. no horizontal page scroll — always checked against the WHOLE document regardless of
+    // `root` (a scoped scan still can't tolerate the page itself scrolling sideways), and
+    // prefixed "[rule1]" so no-overlap.spec.ts can refuse to let an allow-list entry waive it.
     const scroller = document.scrollingElement || document.documentElement;
     if (scroller.scrollWidth > window.innerWidth + 1) {
-      out.push(`page scrolls sideways: scrollWidth ${scroller.scrollWidth} > innerWidth ${window.innerWidth}`);
+      out.push(`[rule1] page scrolls sideways: scrollWidth ${scroller.scrollWidth} > innerWidth ${window.innerWidth}`);
     }
 
     // 2. text overflow on leaf elements
@@ -131,8 +137,66 @@ export async function scanOverlap(page: Page, label: string, opts: { root?: stri
         }
       }
     }
+
+    // 5. card containment (designer confirm round, N4c): an interactive element inside a
+    // SectionBlock (`<section>`) must stay inside that section's own box. This is scoped to
+    // `<section>` specifically — the one card wrapper the new primitives actually use — rather
+    // than every div styled like a card, so it can't misfire on legacy markup this package never
+    // touched.
+    for (const { el, r } of boxes) {
+      const card = el.closest('section');
+      if (!card) continue;
+      const cr = (card as HTMLElement).getBoundingClientRect();
+      const EPS = 1;
+      if (r.left < cr.left - EPS || r.right > cr.right + EPS || r.top < cr.top - EPS || r.bottom > cr.bottom + EPS) {
+        out.push(`escapes its card: ${describe(el)} at (${Math.round(r.left)},${Math.round(r.top)})-(${Math.round(r.right)},${Math.round(r.bottom)}) outside section (${Math.round(cr.left)},${Math.round(cr.top)})-(${Math.round(cr.right)},${Math.round(cr.bottom)})`);
+      }
+    }
     return out;
   }, { rootSel: opts.root || '' });
+  return { label, violations };
+}
+
+/**
+ * Fixed-nav safe area (designer confirm round, N4b): scrolls the page all the way down, then
+ * checks that no normal-flow interactive element (the nav's OWN children are exempt) overlaps
+ * the fixed bottom nav's box — covering both "the last content ends above the nav" and "nothing
+ * interactive sits under the FAB" in one check, since the FAB is itself one of the nav's
+ * children and this checks the nav's whole bounding box. Rule 4's own pairwise check
+ * deliberately skips nav-crossing pairs (a fixed nav legitimately sits over whatever scrolls
+ * under it mid-scroll) — this is the targeted replacement for the ONE position that actually
+ * matters: fully scrolled to the end, where nothing should still be hidden behind it.
+ */
+export async function scanNavSafeArea(page: Page, label: string): Promise<OverlapReport> {
+  const violations = await page.evaluate(() => {
+    const out: string[] = [];
+    const nav = document.querySelector('#sigma-nav') as HTMLElement | null;
+    if (!nav) return out;
+    const scroller = document.scrollingElement || document.documentElement;
+    scroller.scrollTop = scroller.scrollHeight;
+    const navRect = nav.getBoundingClientRect();
+    if (navRect.width === 0 || navRect.height === 0) return out; // desktop: nav hidden (md:hidden)
+
+    const isNoise = (el: Element) => !!el.closest('.sr-only, [aria-hidden="true"]');
+    const SEL = 'button, a[href], input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])';
+    for (const el of Array.from(document.querySelectorAll(SEL))) {
+      if (el.closest('#sigma-nav')) continue; // the nav's own tabs/FAB live inside it
+      if (isNoise(el)) continue;
+      const he = el as HTMLElement;
+      const r = he.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      const cs = getComputedStyle(he);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || parseFloat(cs.opacity) === 0) continue;
+      const ix = Math.min(r.right, navRect.right) - Math.max(r.left, navRect.left);
+      const iy = Math.min(r.bottom, navRect.bottom) - Math.max(r.top, navRect.top);
+      if (ix > 2 && iy > 2) {
+        const tag = el.tagName.toLowerCase();
+        const name = el.getAttribute('aria-label') || he.innerText?.trim().slice(0, 24) || '';
+        out.push(`content under the fixed nav after scrolling to the bottom: ${tag}${name ? `"${name}"` : ''}`);
+      }
+    }
+    return out;
+  });
   return { label, violations };
 }
 

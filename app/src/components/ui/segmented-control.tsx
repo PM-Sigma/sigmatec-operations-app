@@ -26,17 +26,18 @@ export function SegmentedControl<T extends string>({
   const refs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const selectedIndex = Math.max(0, options.findIndex(o => o.value === value));
 
-  // The thumb's box is measured from the selected button's real, rendered `offsetLeft`/
-  // `offsetWidth` (designer confirm round, N3) — not a `calc()` formula guessing the padding and
-  // gap math, which drifted 2px per step because it never accounted for the 2px gap between
-  // segments. `offsetLeft` is a PHYSICAL pixel value regardless of `dir` (browsers report it in
-  // LTR terms even inside an RTL container), so positioning the thumb with a physical `left`
-  // needs no RTL sign-flip either.
-  const [thumbBox, setThumbBox] = React.useState<{ left: number; width: number } | null>(null);
+  // rtl-ok (the whole thumbBox mechanism): measured from the selected button's real, rendered
+  // `offsetLeft`/`offsetWidth` (designer confirm round, N3) — not a `calc()` formula guessing the
+  // padding and gap math, which drifted 2px per step because it never accounted for the 2px gap
+  // between segments. `offsetLeft` is a PHYSICAL pixel value regardless of `dir` (browsers report
+  // it in LTR terms even inside an RTL container), so positioning the thumb with a physical
+  // `left` needs no RTL sign-flip either — genuinely physical by design, not a missed logical
+  // property.
+  const [thumbBox, setThumbBox] = React.useState<{ left: number; width: number } | null>(null); // rtl-ok
   React.useLayoutEffect(() => {
     const measure = () => {
       const btn = refs.current[selectedIndex];
-      if (btn) setThumbBox({ left: btn.offsetLeft, width: btn.offsetWidth });
+      if (btn) setThumbBox({ left: btn.offsetLeft, width: btn.offsetWidth }); // rtl-ok
     };
     measure();
     window.addEventListener('resize', measure);
@@ -76,7 +77,7 @@ export function SegmentedControl<T extends string>({
         aria-hidden
         className="absolute inset-y-0.5 rounded-[calc(var(--r-md)-2px)] bg-card transition-[left,width]"
         style={{
-          left: thumbBox ? `${thumbBox.left}px` : '2px',
+          left: thumbBox ? `${thumbBox.left}px` : '2px', // rtl-ok (offsetLeft is physical, see the comment above)
           width: thumbBox ? `${thumbBox.width}px` : `calc((100% - 4px) / ${options.length})`,
           transitionDuration: 'var(--s-motion-base)',
           transitionTimingFunction: 'var(--s-ease-standard)',
