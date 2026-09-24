@@ -1,7 +1,12 @@
 # Package I · Inventory rewrite (06 · 07 · 08 + the UI of 20): spec and implementation plan
 
-STATUS: 🟡 OPEN, NOT built. Planning only (23.9.26, branch `r9/plan-PD`). Resume: start with Task L1a. The L tasks
-can start now. The U tasks wait for the gate in §3.4 (Phase 2 components merged and PASSed, and package S merged).
+STATUS: 🟡 OPEN — U1-U7 and U9 built on branch `r9/I-U` (worktree `SigmatecOps-r9-I-U`); `INV_REACT = true`
+(js/src/00-consts.js). U8 (designer sign-off) skipped by request — that's עידן's call. U10 (delete the legacy
+06/07/08/20 inventory UI) is **NOT started**: it deletes ~2,800 lines of live production code (06-products.js,
+07-orders.js, 08-inventory.js, most of 20-delivery-cert.js, index.html markup, guard/consts/init-attendance
+branches) and needs its own careful pass — the "moved verbatim" blocks, the compat-shim file, the full
+Playwright suite on both drivers, and the graph/docs rebuild in task U10's step list. Resume: start with U10 step 1
+(write `js/src/06-inventory.js`) exactly as spec'd below.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: use superpowers:subagent-driven-development (recommended) or
 > superpowers:executing-plans to implement this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking.
