@@ -41,7 +41,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.changeUser` | js/src/00-bridge.js:265 | `changeUser` → js/src/11-search-login.js:222 | app/src/components/UserChip.tsx:88 |
 | `sigma.companyTasks` | js/src/00-bridge.js:639 | *(own logic)* | app/src/islands/Calendar.tsx:766 |
 | `sigma.contactPhone` | js/src/00-bridge.js:636 | `contactPhone` → js/src/12-reports.js:18 | app/src/islands/Calendar.tsx:813 |
-| `sigma.createEmsTaskFor` | js/src/00-bridge.js:344 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:120<br>app/src/components/home/InternalTasks.tsx:197 |
+| `sigma.createEmsTaskFor` | js/src/00-bridge.js:344 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:120<br>app/src/components/home/InternalTasks.tsx:197<br>app/src/components/kibbutz/StatusTab.tsx:35 |
 | `sigma.createTask` | js/src/00-bridge.js:361 | `emsWriteOrQueue` → js/src/13-ems.js:293 | app/src/components/home/Burns.tsx:298<br>app/src/components/home/InternalTasks.tsx:86<br>app/src/components/home/MeetingNotes.tsx:112<br>app/src/islands/MeetingReview.test.tsx:328<br>…+2 |
 | `sigma.decorateCards` | js/src/00-bridge.js:351 | *(own logic)* | app/src/islands/Home.tsx:132 |
 | `sigma.ems` | app/src/lib/ems/gateway.ts:80 *(island)* | *(island-provided)* | **—** |
@@ -49,7 +49,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsAfterWrite` | js/src/00-bridge.js:447 | `emsAfterWrite` → js/src/14-calendar.js:634 | app/src/lib/inventoryApi.ts:231<br>app/src/lib/inventoryApi.ts:411 |
 | `sigma.emsApi` | js/src/00-bridge.js:294 | `emsApi` → js/src/12-reports.js:124 | app/src/lib/ems/adapters/rest.ts:134 |
 | `sigma.emsCacheData` | js/src/00-bridge.js:296 | `emsCacheData` → js/src/13-ems.js:19 | app/src/islands/Calendar.tsx:583<br>app/src/islands/Calendar.tsx:756<br>app/src/islands/Calendar.tsx:1152<br>app/src/islands/Calendar.tsx:1161<br>…+4 |
-| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:309 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/islands/Field.tsx:177<br>app/src/islands/Field.tsx:1124<br>app/src/islands/Field.tsx:2067<br>…+2 |
+| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:309 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/components/kibbutz/StatusTab.tsx:21<br>app/src/islands/Field.tsx:177<br>app/src/islands/Field.tsx:1124<br>…+3 |
 | `sigma.emsCreateTask` | js/src/00-bridge.js:632 | `emsCreateTaskModal` → js/src/14-calendar.js:457 | **—** |
 | `sigma.emsDisconnect` | js/src/00-bridge.js:633 | `emsDisconnect` → js/src/12-reports.js:95 | **—** |
 | `sigma.emsLabels` | js/src/00-bridge.js:313 | `emsLabels` → js/src/14-calendar.js:435 | app/src/lib/emsTasks.ts:24 |
@@ -81,7 +81,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:319 | `openKibbutzEmsTask` → js/src/13-ems.js:403 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:66<br>app/src/components/home/EmsTasks.tsx:67<br>app/src/components/home/MeetingNotes.tsx:166<br>…+5 |
 | `sigma.openKibbutzModal` | js/src/00-bridge.js:329 | *(own logic)* | app/src/components/home/Burns.tsx:77<br>app/src/components/home/InternalTasks.test.tsx:121<br>app/src/islands/Calendar.tsx:1340<br>app/src/islands/Calendar.tsx:1435<br>…+1 |
 | `sigma.openOrder` | js/src/00-bridge.js:440 | `invEditOrder` → js/src/07-orders.js:829 | app/src/components/alerts/AlertsPanel.tsx:17<br>app/src/islands/InventoryStrip.tsx:87<br>app/src/islands/StockChange.tsx:133 |
-| `sigma.openVisitEditor` | js/src/00-bridge.js:402 | *(own logic)* | **—** |
+| `sigma.openVisitEditor` | js/src/00-bridge.js:402 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:68<br>app/src/components/kibbutz/StatusTab.tsx:69 |
 | `sigma.openVisitQuick` | js/src/00-bridge.js:417 | *(own logic)* | app/src/components/home/CardActions.tsx:27<br>app/src/components/Nav.tsx:83<br>app/src/islands/Calendar.tsx:1479<br>app/src/islands/Calendar.tsx:1517<br>…+9 |
 | `sigma.openVisitsReport` | js/src/00-bridge.js:634 | `openVisitsToolsModal` → js/src/09-visits.js:1418 | app/src/islands/Calendar.tsx:864 |
 | `sigma.orders` | js/src/00-bridge.js:439 | *(own logic)* | app/src/islands/InventoryStrip.tsx:40<br>app/src/islands/StockChange.tsx:91 |
@@ -116,7 +116,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.xlExportKibbutz` | js/src/00-bridge.js:450 | `xlExportKibbutzXlsx` → js/src/21-excel-export.js:325 | **—** |
 | `sigma.xlExportStock` | js/src/00-bridge.js:449 | `xlExportStockXlsx` → js/src/21-excel-export.js:322 | **—** |
 
-Bridge entries no island calls today (legacy-side or reserved): `beginReLogin`, `calAddEvent`, `canExportExcel`, `canSeeAttendance`, `canUseEms`, `certFromVisit`, `emsCreateTask`, `emsDisconnect`, `emsPatchTask`, `ensurePass`, `kibbutzHasSite`, `markOrderDelivered`, `openVisitEditor`, `passPending`, `remintOnce`, `sbAuthPass`, `sessionExpired`, `xlExportCerts`, `xlExportKibbutz`, `xlExportStock`.
+Bridge entries no island calls today (legacy-side or reserved): `beginReLogin`, `calAddEvent`, `canExportExcel`, `canSeeAttendance`, `canUseEms`, `certFromVisit`, `emsCreateTask`, `emsDisconnect`, `emsPatchTask`, `ensurePass`, `kibbutzHasSite`, `markOrderDelivered`, `passPending`, `remintOnce`, `sbAuthPass`, `sessionExpired`, `xlExportCerts`, `xlExportKibbutz`, `xlExportStock`.
 
 ## (b) Bus — `window.sigmaBus`: source → event → consumers
 
