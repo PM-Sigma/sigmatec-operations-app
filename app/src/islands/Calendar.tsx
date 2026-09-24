@@ -22,11 +22,16 @@ import { toast } from 'sonner';
 import {
   ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, Video,
   CalendarDays, ClipboardList, Lock, MapPin, PartyPopper, Shield, TreePalm,
+  Pencil, Truck, AlignRight, Users,
 } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ListRow } from '@/components/ui/list-row';
+import { SectionBlock } from '@/components/ui/section-block';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { isLocked } from '@/lib/editLock';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
@@ -38,11 +43,11 @@ import { openVisitChapters } from '@/islands/Field';
 import type { Holiday } from '@/lib/attendance';
 import {
   abilities, ABSENCE_LABELS, addDays, byDate, calCellLook, calendarItems, calendarPeople,
-  canPlanDay, canPlanFor, dayLetters, dayWhen, dueByKibbutz, EMPTY_DAY,
+  canPlanDay, canPlanFor, dayLetters, dayListing, dayWhen, dueByKibbutz, EMPTY_DAY, eventDetail,
   gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, isNoopPick, legendItems, monthView,
   pickBlock, planBlocks, reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, showWeekNumbers,
-  stopsPayload, taskOwners, toKey, missingInView, reportedInView, visibleDows,
-  visitsOn, weekAria, weekDays, weekView, workWeekLabel, ymd,
+  stopsPayload, taskOwners, toKey, missingInView, reportedInView, visibleDows, visitRead,
+  weekAria, weekDays, weekView, workWeekLabel, ymd,
   type AbsenceKind, type AbsenceRow, type BlockPick, type CalEmsTask, type CalItem,
   type CalWeek, type CalInternalTask, type KibbutzBlock, type OfficeEvent, type RouteRow, type VisitRow,
 } from '@/lib/calendar';
@@ -163,19 +168,115 @@ function Chip({ item, dim }: { item: CalItem; dim: boolean }) {
   );
 }
 
-/** 🎥 — rendered ONLY when Google really gave a conference link (spec §7f). */
-function MeetButton({ href }: { href: string }) {
+/**
+ * Round 5 · C-U3 — one visit summary is one ListRow, not a chip buried under a kibbutz stop.
+ * Tapping it opens the compact read view (`VisitSheet`); no "small pins" render anywhere else
+ * for the same visit (Review Focus / dayListing splits it out for exactly this reason).
+ */
+function VisitRows({ visits, onOpen }: { visits: VisitRow[]; onOpen: (v: VisitRow) => void }) {
+  if (!visits.length) return null;
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      data-testid="cal-meet"
-      className="ucal-meet"
-      onClick={() => track('calendar-meet-open')}
-    >
-      <Video size={13} aria-hidden /> הצטרף ל-Meet
-    </a>
+    <div className="ucal-visits" data-testid="cal-visits">
+      {visits.map(v => {
+        const r = visitRead(v);
+        const meta = [r.people, r.duration].filter(Boolean).join(' · ');
+        return (
+          <ListRow
+            key={r.id || v.kibbutz}
+            data-visit-row={r.id}
+            leading={<MapPin size={16} aria-hidden />}
+            title={<bdi>{r.kibbutz}</bdi>}
+            meta={meta ? <bdi>{meta}</bdi> : undefined}
+            onClick={() => onOpen(v)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Round 5 · C-U3 — the visit read view: title/when/people/duration, the summary text, נשאר
+ * פתוח when there is one, and ✏️/🚚 only while the visit's DATE is still editable (the global
+ * round-5 edit lock, `isLocked` — `canEditVisit` isn't on `main` yet, so the gate is the plain
+ * date rule everyone else already uses).
+ */
+function VisitSheet({ visit, onClose }: { visit: VisitRow | null; onClose: () => void }) {
+  const r = visit ? visitRead(visit) : null;
+  const canEdit = !!visit && !isLocked(visit.date);
+  return (
+    <Sheet open={!!visit} onOpenChange={o => { if (!o) onClose(); }}>
+      <SheetContent side="bottom" data-testid="cal-visit-sheet" className="max-h-[84svh] overflow-y-auto">
+        <SheetHeader className="mb-2">
+          <SheetTitle><bdi>{r?.kibbutz}</bdi></SheetTitle>
+          <SheetDescription>
+            <bdi>{r?.when}</bdi>
+            {r?.people ? <> · <bdi>{r.people}</bdi></> : null}
+            {r?.duration ? <> · <bdi>{r.duration}</bdi></> : null}
+          </SheetDescription>
+        </SheetHeader>
+        {r?.summary ? <p className="ucal-visit-text">{r.summary}</p> : <p className="ucal-empty">הביקור נרשם בלי טקסט</p>}
+        {r?.openItems ? (
+          <SectionBlock title="נשאר פתוח"><p className="ucal-visit-text">{r.openItems}</p></SectionBlock>
+        ) : null}
+        {canEdit ? (
+          <SheetFooter>
+            <BubbleButton
+              variant="primary" size="lg" data-testid="cal-visit-edit"
+              onClick={() => { onClose(); openVisitChapters(visit!.kibbutz || '', { visitId: visit!.id, mode: 'edit' }); }}
+            >
+              <Pencil aria-hidden /> עריכה
+            </BubbleButton>
+            <BubbleButton
+              variant="neutral" size="lg" data-testid="cal-visit-cert"
+              onClick={() => { onClose(); openVisitChapters(visit!.kibbutz || '', { visitId: visit!.id, mode: 'cert' }); }}
+            >
+              <Truck aria-hidden /> תעודה
+            </BubbleButton>
+          </SheetFooter>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * Round 5 · C-U3 — ONE generic detail sheet for every office-calendar (INFORMATION) event: no
+ * per-field guessing, `eventDetail` decides what is worth showing and this only renders it.
+ * Empty fields are hidden outright rather than shown blank (spec §6, no system-talk).
+ */
+function EventSheet({ event, onClose }: { event: OfficeEvent | null; onClose: () => void }) {
+  const d = event ? eventDetail(event) : null;
+  return (
+    <Sheet open={!!event} onOpenChange={o => { if (!o) onClose(); }}>
+      <SheetContent side="bottom" data-testid="cal-event-sheet" className="max-h-[84svh] overflow-y-auto">
+        <SheetHeader className="mb-2">
+          <SheetTitle><bdi>{d?.title}</bdi></SheetTitle>
+          <SheetDescription><bdi>{d?.when}</bdi></SheetDescription>
+        </SheetHeader>
+        {d?.location ? (
+          <p className="ucal-visit-text"><MapPin size={14} aria-hidden /> <bdi>{d.location}</bdi></p>
+        ) : null}
+        {d?.description ? (
+          <p className="ucal-visit-text"><AlignRight size={14} aria-hidden /> <span>{d.description}</span></p>
+        ) : null}
+        {d?.who.length ? (
+          <p className="ucal-visit-text"><Users size={14} aria-hidden /> <bdi>{d.who.join(', ')}</bdi></p>
+        ) : null}
+        {d?.meetLink ? (
+          <a
+            href={d.meetLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="cal-meet"
+            className="ucal-meet"
+            onClick={() => track('calendar-meet-open')}
+          >
+            <Video size={13} aria-hidden /> הצטרפות ל-Meet
+          </a>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -385,32 +486,40 @@ function RoutePlan({
  * and offers nothing to plan: no route, no "הוסף למסלול", no briefing. A briefing for
  * yesterday is a lie about a drive that already happened.
  */
-function PastDay({ date, items, visits }: { date: string; items: CalItem[]; visits: VisitRow[] }) {
-  const filed = visitsOn(visits, date);
+function PastDay({
+  date, items, visits, onVisitOpen, onEventOpen,
+}: {
+  date: string; items: CalItem[]; visits: VisitRow[];
+  onVisitOpen: (v: VisitRow) => void; onEventOpen: (eventId: string) => void;
+}) {
+  // Round 5 · C-U3 — one listing, past AND future: the visit is its own ListRow (no chip
+  // rendered a second time under the day), everything else stays a restyled row.
+  const listing = dayListing(date, items, visits);
   return (
     <div className="ucal-day" data-testid="cal-day" data-when="past">
       <h3 className="ucal-day-title"><bdi>{heDate(date)}</bdi></h3>
-      {filed.length ? (
-        <div className="ucal-past" data-testid="cal-past-visits">
-          {filed.map((v, n) => (
-            <article className="ucal-past-visit" key={(v.id || '') + n} data-past-visit={v.kibbutz || ''}>
-              <div className="ucal-stop-head">
-                <strong className="ucal-stop-name"><bdi>📍 {v.kibbutz || 'ביקור'}</bdi></strong>
-                {v.visitor ? <span className="ucal-who"><bdi>{v.visitor}</bdi></span> : null}
-              </div>
-              {v.summary ? <p className="ucal-past-text">{v.summary}</p> : null}
-              {v.open_items ? (
-                <p className="ucal-past-open"><b>נשאר פתוח</b><span>{v.open_items}</span></p>
-              ) : null}
-              {!v.summary && !v.open_items ? <p className="ucal-empty">הביקור נרשם בלי טקסט</p> : null}
-            </article>
-          ))}
-        </div>
+      <VisitRows visits={listing.visits} onOpen={onVisitOpen} />
+      {!listing.visits.length && !listing.others.length ? (
+        <p className="text-[13px] text-muted-foreground">{EMPTY_DAY}</p>
       ) : null}
-      {!filed.length && !items.length ? <p className="text-[13px] text-muted-foreground">{EMPTY_DAY}</p> : null}
-      {items.length ? (
+      {listing.others.length ? (
         <div className="ucal-loose">
-          {items.map(i => <div key={i.key} className="ucal-stop-row"><Chip item={i} dim={false} /></div>)}
+          {listing.others.map(i => (
+            <div key={i.key} className="ucal-stop-row">
+              {i.layer === 'event' && i.eventId ? (
+                <button
+                  type="button"
+                  data-event-row={i.eventId}
+                  className="ucal-event-row"
+                  onClick={() => onEventOpen(i.eventId!)}
+                >
+                  <Chip item={i} dim={false} />
+                </button>
+              ) : (
+                <Chip item={i} dim={false} />
+              )}
+            </div>
+          ))}
         </div>
       ) : null}
     </div>
@@ -502,7 +611,7 @@ function Block({
 
 function DayBody({
   date, items, rows, stops, canReorder, onMove, onPlace, onBriefing, onCheckin, onAdd, canAdd, visits, kibbutzim,
-  blocks, onPick, blockBusy, peer,
+  blocks, onPick, blockBusy, peer, onVisitOpen, onEventOpen,
 }: {
   date: string; items: CalItem[]; rows: RouteRow[];
   /** The day's SAVED route order (round 5 · C1) — not derived from `rows`, which also lists
@@ -515,12 +624,19 @@ function DayBody({
   visits: VisitRow[]; kibbutzim: string[];
   /** Round 5 · C1 — the kibbutz blocks for THIS day (already `planBlocks(...)`, empty on a past day). */
   blocks: KibbutzBlock[]; onPick: (b: KibbutzBlock, ticked: string[]) => void; blockBusy: boolean; peer: boolean;
+  onVisitOpen: (v: VisitRow) => void; onEventOpen: (eventId: string) => void;
 }) {
   const today = ymd(new Date());
-  if (!canPlanDay(date, today)) return <PastDay date={date} items={items} visits={visits} />;
+  if (!canPlanDay(date, today)) {
+    return <PastDay date={date} items={items} visits={visits} onVisitOpen={onVisitOpen} onEventOpen={onEventOpen} />;
+  }
+  // Round 5 · C-U3 — the visit summaries are their own ListRows (dayListing), never a second
+  // time as a chip under a kibbutz stop: `others` is what everything below actually sees.
+  const listing = dayListing(date, items, visits);
+  const others = listing.others;
   // Office events and company-wide absences: real context for the day, but not a stop on
   // anyone's route — `groupByKibbutz` parks them in the one bucket marked `real: false`.
-  const loose = groupByKibbutz(items).filter(g => !g.real).flatMap(g => g.items);
+  const loose = groupByKibbutz(others).filter(g => !g.real).flatMap(g => g.items);
   const header = (
     <div className="ucal-day-head">
       <h3 className="ucal-day-title"><bdi>{heDate(date)}</bdi></h3>
@@ -553,10 +669,11 @@ function DayBody({
   ) : null;
   // A day with nothing ON it can still be PLANNED — that is the whole point of a future day
   // (round 2 · G4), so the search stays even when the day is empty.
-  if (!items.length && !rows.length) {
+  if (!others.length && !rows.length && !listing.visits.length) {
     return (
       <div className="ucal-day" data-testid="cal-day" data-when={dayWhen(date, today)}>
         {header}
+        <VisitRows visits={listing.visits} onOpen={onVisitOpen} />
         {!blocksSection ? <p className="text-[13px] text-muted-foreground">{EMPTY_DAY}</p> : null}
         {blocksSection}
         {canReorder ? <PlaceSearch names={kibbutzim} placed={rows.map(r => r.kibbutz)} onPlace={onPlace} /> : null}
@@ -566,19 +683,30 @@ function DayBody({
   return (
     <div className="ucal-day" data-testid="cal-day" data-when={dayWhen(date, today)}>
       {header}
+      <VisitRows visits={listing.visits} onOpen={onVisitOpen} />
       {loose.length ? (
         <div className="ucal-loose" data-testid="cal-loose">
           {loose.map(i => (
             <div key={i.key} className="ucal-stop-row">
-              <Chip item={i} dim={false} />
-              {i.meetLink ? <MeetButton href={i.meetLink} /> : null}
+              {i.layer === 'event' && i.eventId ? (
+                <button
+                  type="button"
+                  data-event-row={i.eventId}
+                  className="ucal-event-row"
+                  onClick={() => onEventOpen(i.eventId!)}
+                >
+                  <Chip item={i} dim={false} />
+                </button>
+              ) : (
+                <Chip item={i} dim={false} />
+              )}
             </div>
           ))}
         </div>
       ) : null}
       <RoutePlan
         rows={rows}
-        items={items}
+        items={others}
         canReorder={canReorder}
         onMove={onMove}
         onPlace={onPlace}
@@ -1196,6 +1324,11 @@ function CalendarIsland() {
   const [selected, setSelected] = React.useState('');
   const [sheetDay, setSheetDay] = React.useState('');
   const [addDay, setAddDay] = React.useState('');
+  // Round 5 · C-U3 — one visit sheet, one event sheet for the whole island (desktop panel AND
+  // phone bottom sheet both call into the same state, so only one ever mounts at a time and a
+  // close leaves no overlay behind — Radix unmounts the portal with `open={false}`).
+  const [openVisit, setOpenVisit] = React.useState<VisitRow | null>(null);
+  const [openEventId, setOpenEventId] = React.useState('');
   const [scheduleDay, setScheduleDay] = React.useState('');
   const [absenceDay, setAbsenceDay] = React.useState('');
   // 📅 שבץ from a רשימה row: the TASK is known and the day is not — the opposite of the day
@@ -1634,6 +1767,8 @@ function CalendarIsland() {
                 onPick={(b, ticked) => pick.mutate(pickBlock(b, ticked, openDate, order))}
                 blockBusy={pick.isPending}
                 peer={owners.length > 1}
+                onVisitOpen={setOpenVisit}
+                onEventOpen={setOpenEventId}
               />
             ) : (
               <p className="text-[13px] text-muted-foreground">בוחרים יום בלוח כדי לראות מה יש בו.</p>
@@ -1677,12 +1812,20 @@ function CalendarIsland() {
                   onPick={(b, ticked) => pick.mutate(pickBlock(b, ticked, openDate, order))}
                   blockBusy={pick.isPending}
                   peer={owners.length > 1}
+                  onVisitOpen={setOpenVisit}
+                  onEventOpen={setOpenEventId}
                 />
               </motion.div>
             ) : null}
           </AnimatePresence>
         </SheetContent>
       </Sheet>
+
+      <VisitSheet visit={openVisit} onClose={() => setOpenVisit(null)} />
+      <EventSheet
+        event={openEventId ? (events.data || []).find(e => String(e.id) === openEventId) || null : null}
+        onClose={() => setOpenEventId('')}
+      />
 
       <AddSheet
         date={addDay}

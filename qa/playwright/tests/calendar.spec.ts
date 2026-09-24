@@ -650,3 +650,47 @@ test('calendar r5 · C4: רשימה has one filter bubble; the selects live in a
 
   expectNoConsoleErrors(rec);
 });
+
+// ───────────────────────────── round 5 · C-U3: visit read view + event detail sheet ────────
+
+test('calendar r5 · C3: a visit opens a read view with edit and cert, and no pins under it', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+  const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם').date).slice(0, 10));
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), visitDay);
+  await expect(dayBody(page).locator('[data-layer="visit"]')).toHaveCount(0);
+  await dayBody(page).locator('[data-visit-row="vis-אביאם"]').click();
+  const sheet = page.getByTestId('cal-visit-sheet');
+  await expect(sheet).toContainText('חוקוק');
+  await expect(sheet).toContainText('ביקור לדוגמה');
+  await expect(sheet.getByTestId('cal-visit-edit')).toBeVisible();
+  await expect(sheet.getByTestId('cal-visit-cert')).toBeVisible();
+  await sheet.getByTestId('cal-visit-edit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible();
+
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar r5 · C4: an office event opens one detail sheet', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  const day = await calDay(page);
+  await page.evaluate(d => {
+    (window as any).calFetchEvents = async () => [{
+      id: 'ev-r5', title: 'ישיבת צוות', start: d + 'T09:00:00', end: d + 'T10:00:00', location: 'משרד',
+      description: 'סדר יום<br>מונים &amp; בקרים', attendees: [{ name: 'אביאם' }, { name: 'ניתאי', declined: true }],
+      organizer: { name: 'עמיחי' }, hangoutLink: null,
+    }];
+  }, day);
+  await openCalendar(page);
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
+  await dayBody(page).locator('[data-event-row="ev-r5"]').click();
+  const sheet = page.getByTestId('cal-event-sheet');
+  await expect(sheet).toContainText('ישיבת צוות');
+  await expect(sheet).toContainText('09:00–10:00');
+  await expect(sheet).toContainText('מונים & בקרים');
+  await expect(sheet).toContainText('עמיחי, אביאם');
+  await expect(sheet).not.toContainText('ניתאי');
+  await expect(sheet).not.toContainText('<br>');
+
+  expectNoConsoleErrors(rec);
+});

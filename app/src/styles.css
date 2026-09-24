@@ -530,6 +530,32 @@
 .ucal-place { margin-top: 10px; }
 .ucal-place-hits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
+/* Round 5 · C-U3 — the visit summaries, as ListRows, and the visit/event sheets' body text. */
+.ucal-visits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  overflow: hidden;
+}
+.ucal-visits > *:not(:last-child) { border-bottom: 1px solid hsl(var(--border)); }
+.ucal-visit-text { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; white-space: pre-line; display: flex; gap: 6px; align-items: flex-start; }
+/* An office-event row opens the generic detail sheet — same tap target floor as every other
+   control here (round 5 · C-U no-overlap sweep), no data-hit-slop: the box itself is ≥44px. */
+.ucal-event-row {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 2px 2px;
+  border-radius: 9px;
+  background: transparent;
+  text-align: start;
+}
+.ucal-event-row:hover { background: hsl(var(--secondary)); }
+
 /* ── controls ──────────────────────────────────────────────────────────── */
 .ucal-switch,
 .ucal-person-switch { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: hsl(var(--muted)); flex-wrap: wrap; }
