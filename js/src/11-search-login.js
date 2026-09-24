@@ -180,7 +180,7 @@
     const pb = document.getElementById('potentialsBtn');
     if (pb) pb.style.display = (isIdan() || getCurrentUser() === 'עמיחי') ? '' : 'none';
     const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי (admin) + מתניה + אליה
-    if (dev) dev.style.display = (typeof canSeeDevTasks === 'function' && canSeeDevTasks()) ? '' : 'none';
+    if (dev) dev.style.display = (window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('dev')) ? '' : 'none';   // D-L5: gate moved into canShowPage('dev'), 00-bridge.js
     const plog = document.getElementById('navPushLog');    // התראות (push log) — עידן only
     if (plog) plog.style.display = isIdan() ? '' : 'none';
     // 📗 Excel export buttons — עידן + viewer only (canExportExcel in 21-excel-export.js)

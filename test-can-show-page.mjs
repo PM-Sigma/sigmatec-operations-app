@@ -4,8 +4,9 @@
 // app/src/lib/canShowPage.ts only forwards to the bridge, so the permission RULE lives in the
 // legacy bundle. This runner lifts the REAL functions out of the sources (never re-typed here):
 // the bridge's canShowPage + canManageStaff, the login helpers (getCurrentUser / getRole /
-// isIdan / isViewer / canSeeAttendance), canSeeDevTasks and the burns audience, evaluates them
-// together over a fake localStorage, and asserts the full identity × page matrix.
+// isIdan / isViewer / canSeeAttendance), and the burns audience, evaluates them together over a
+// fake localStorage, and asserts the full identity × page matrix. D-L5: the 'dev' case no longer
+// reads 18-dev-tasks.js (canSeeDevTasks) — the gate is now inline in canShowPage itself.
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -33,7 +34,6 @@ function lineMatching(text, re) {
 
 const login = src('11-search-login.js');
 const bridge = src('00-bridge.js');
-const dev = src('18-dev-tasks.js');
 const burns = src('24-meter-burns.js');
 const burnAudience = /\/\/ BURN-AUDIENCE-START([\s\S]*?)\/\/ BURN-AUDIENCE-END/.exec(burns)[1];
 
@@ -44,12 +44,11 @@ const program = [
   fnSource(login, 'getCurrentUser'), fnSource(login, 'getRole'),
   fnSource(login, 'isIdan'), fnSource(login, 'isViewer'), fnSource(login, 'canSeeAttendance'),
   fnSource(bridge, 'canManageStaff'),
-  fnSource(dev, 'canSeeDevTasks'),
   'window.BURNS_PROJECT_ACTIVE = true;',
   fnSource(burns, 'burnsActive'), burnAudience,
   fnSource(burns, 'burnUser'), fnSource(burns, 'burnIsViewer'), fnSource(burns, 'burnCanSee'),
   // the bridge's private `call` helper, exactly as canShowPage uses it
-  "var call = function (name, args, fallback) { var f = { canSeeAttendance: canSeeAttendance, canSeeDevTasks: canSeeDevTasks, isIdan: isIdan, getCurrentUser: getCurrentUser, burnCanSee: burnCanSee, isViewer: isViewer }[name]; return f ? f.apply(null, args || []) : fallback; };",
+  "var call = function (name, args, fallback) { var f = { canSeeAttendance: canSeeAttendance, canManageStaff: canManageStaff, isIdan: isIdan, getCurrentUser: getCurrentUser, burnCanSee: burnCanSee, isViewer: isViewer }[name]; return f ? f.apply(null, args || []) : fallback; };",
   fnSource(bridge, 'canShowPage'),
   'return canShowPage;',
 ].join('\n');
@@ -102,6 +101,12 @@ console.log('  ok - burns closed for all when BURNS_PROJECT_ACTIVE = false');
 // An unknown page is never open.
 try { assert.strictEqual(gateFor('עידן', 'idan')('nope'), false); console.log('  ok - unknown page refused'); }
 catch { failures++; console.log('  FAIL - unknown page must be refused'); }
+
+// D-L5: this runner itself no longer reads the retiring file.
+try {
+  assert.ok(!/src\('18-dev-tasks\.js'\)/.test(fs.readFileSync(path.join(root, 'test-can-show-page.mjs'), 'utf8')));
+  console.log('  ok - this runner no longer sources 18-dev-tasks.js');
+} catch { failures++; console.log('  FAIL - this runner must not source 18-dev-tasks.js any more'); }
 
 if (failures) { console.log(`\n${failures} failure(s)`); process.exit(1); }
 console.log('\nall can-show-page checks passed');

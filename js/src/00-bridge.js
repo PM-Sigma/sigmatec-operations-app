@@ -225,7 +225,9 @@
     function canShowPage(page) {
       switch (page) {
         case 'attendance': return !!call('canSeeAttendance', [], false);
-        case 'dev':        return !!call('canSeeDevTasks', [], false);
+        // D-L5: inline (was canSeeDevTasks() in the retiring js/src/18-dev-tasks.js) — עידן +
+        // עמיחי (admin, via canManageStaff) + מתניה + אליה (the two developers).
+        case 'dev': { var _d = call('getCurrentUser', [], ''); return _d === 'מתניה' || _d === 'אליה' || !!call('canManageStaff', [], false); }
         case 'pushlog':    return !!call('isIdan', [], false);
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';
         case 'kibbutz': case 'calendar': return true;

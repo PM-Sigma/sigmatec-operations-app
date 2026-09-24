@@ -8,7 +8,8 @@
 import { SB_ANON, SB_URL } from './supabase';
 import { sigma } from '@/bridge';
 import { sessionLost } from '@/lib/session';
-import { SPRINT_STATUS_TARGET, type DevCard } from './sprintPrep';
+import { canShowPage } from './canShowPage';
+import { SPRINT_STATUS_TARGET, stageOf, type DevCard, type DevStage } from './sprintPrep';
 
 /** The shared key. One entry per board state, so the walk and the prep card are one fetch. */
 export const DEV_BOARD_QUERY_KEY = (state: 'open' | 'all' = 'open') => ['gh', 'board', state] as const;
@@ -58,4 +59,49 @@ export async function moveToSprint(numbers: number[]): Promise<{ updated: number
   const d = await ghCall({ mode: 'setStatus', numbers: ns, status: SPRINT_STATUS_TARGET });
   if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
   return { updated: (d.updated || []) as number[] };
+}
+
+/** The Status the board's "העברה לשלב" action targets per column — port of DEV_STAGE_TARGET. */
+export const STAGE_TARGET: Record<DevStage, string> = {
+  fields: 'Main Fields', backlog: 'Backlog', scope: 'Scope Refinement',
+  ready: 'Sprint Ready', prog: 'In Progress', review: 'In Review', committed: 'Committed',
+};
+
+/** Move cards to a target Status (the sheet's "העברה לשלב", and the selection footer's push). */
+export async function setStatus(numbers: number[], target: string): Promise<{ updated: number[] }> {
+  const ns = (numbers || []).map(Number).filter(Number.isFinite);
+  if (!ns.length) return { updated: [] };
+  const d = await ghCall({ mode: 'setStatus', numbers: ns, status: target });
+  if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
+  return { updated: (d.updated || []) as number[] };
+}
+
+/** Set (or clear, with an empty string) the Priority field for the selected cards. */
+export async function setPriority(numbers: number[], p: string): Promise<{ updated: number[] }> {
+  const ns = (numbers || []).map(Number).filter(Number.isFinite);
+  if (!ns.length) return { updated: [] };
+  const d = await ghCall({ mode: 'setPriority', numbers: ns, priority: p });
+  if (!d || !('updated' in d)) throw new Error('צריך לפרוס מחדש את פונקציית github (אין עדיין כתיבה)');
+  return { updated: (d.updated || []) as number[] };
+}
+
+/** "🚀 עלתה גרסה" — every card currently in review (שלבי בדיקות) moves to Committed. */
+export async function releaseReview(cards: DevCard[]): Promise<{ updated: number[] }> {
+  const numbers = (cards || []).filter(c => stageOf(c) === 'review').map(c => Number(c.number));
+  if (!numbers.length) return { updated: [] };
+  return setStatus(numbers, STAGE_TARGET.committed);
+}
+
+/**
+ * Who may open 💻 פיתוח. A pure forward to `canShowPage('dev')` — the ONE source of truth
+ * (00-bridge.js `canShowPage`, D-L5) — never a second copy of the מתניה/אליה/admin rule, which
+ * is exactly how the audience for the page and the audience for this data layer could drift.
+ */
+export function canSeeDevBoard(): boolean {
+  return canShowPage('dev');
+}
+
+/** Who may drag a card / use "העברה לשלב" — עידן only, as today. */
+export function canDragOrMove(user: string | null | undefined): boolean {
+  return String(user || '').trim() === 'עידן';
 }
