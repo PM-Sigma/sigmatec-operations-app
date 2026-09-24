@@ -1,3 +1,5 @@
+⏸ PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).
+
 🔝 PRIORITY (עידן 23.9): usage goes to **round 5 development + documentation until the system is live**. Everything else waits, and after go-live עידן picks the next item from the weekly usage check. That covers: the field-ops Modbus page, foldables, the Whisper meeting scribe, the Apps Script proxy migration.
 
 🚫 RULE (עידן 23.9): never modify another repo (ModbusClient, sigmatec-ems, …) unless עידן explicitly asks. Use only.

@@ -1,5 +1,5 @@
 # סבב 5: freeze, cleanup, one design system, and עידן's full phone QA list
-nSTATUS: 🟡 OPEN — approved by עידן 23.9. Phase 0 (freeze) in progress. Resume: follow the phases in order; each package gate in "Grill round 3".
+nSTATUS: ⏸ PAUSED 24.9.2026 at ~52% — resume steps in `docs/superpowers/r5-PAUSE-STATE.md`.
 
 ## Context
 עידן tested the whole app on the phone after 2.27. His feedback: the app looks like a legacy system with a new layer on top, elements overlap, and he has had to repeat requirements. He is willing to accept a delay for a fully uniform app that is easy to fix and upgrade. He asked for: (1) freeze the app for everyone except him and עמיחי *now*, (2) cleanup of unused history and data, (3) this QA list fixed, (4) a grill before starting, (5) an independent design consultant, (6) a split into sub-tasks, all checked against the OPS GRAPH and QA tests.

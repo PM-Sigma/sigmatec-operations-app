@@ -68,7 +68,10 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-23 (**2.25 — OPS GRAPH audit shipped: visit-summary chain, holidays, calendar colors, QA coverage audit**).
+## 🚦 Current state — last: 2026-09-24 (**round 5 PAUSED at ~52% — resume from `docs/superpowers/r5-PAUSE-STATE.md`**).
+
+Freeze is on (only עידן/עמיחי). Logic of 9 packages merged + V/C/D production steps applied; design system, X, I, R open on their branches with exact next steps in the pause file.
+
 
 **Waiting on עידן:** apply `db/rls_viewer_readonly.sql`; restore source for `tasks.status` (wiped 23.8 + 17.9): Supabase backup before 17.9 14:00 or the 22.6 Sheet; `kibbutz_meeting_notes` has 0 rows.
 
