@@ -36,4 +36,38 @@ const seed = fs.readFileSync('scripts/seed-staff-identities.mjs', 'utf8');
 assert.match(seed, /`\$\{EMS_API_BASE\}\/v1\/users\?statuses=active&take=200`/,
   'the seed must query every ACTIVE user, not only roles=admin (lockout risk)');
 
+// Audit fix (Opus 24.9): mapping by firstName across EVERY EMS user meant a customer contact
+// named עידן or מתניה would earn a staff row. Restricted to @sigmatec-energy.com accounts, and
+// aborts (prints nothing) if a roster name ever maps to more than one EMS id.
+const { isStaffEmail, nameFor, rowsFrom } = await import('./scripts/seed-staff-identities.mjs');
+
+assert.equal(isStaffEmail('idan@sigmatec-energy.com'), true);
+assert.equal(isStaffEmail('IDAN@SIGMATEC-ENERGY.COM'), true, 'case-insensitive');
+assert.equal(isStaffEmail('customer@kibbutz-hukok.co.il'), false);
+assert.equal(isStaffEmail(''), false);
+assert.equal(isStaffEmail(null), false);
+
+assert.equal(nameFor({ firstName: 'עידן', email: 'pm@sigmatec-energy.com' }), 'עידן', 'a real staff account still resolves');
+assert.equal(nameFor({ firstName: 'עידן', email: 'idan@kibbutz-hukok.co.il' }), null,
+  'a CUSTOMER contact named עידן must never resolve, however the name matches');
+assert.equal(nameFor({ firstName: 'מתניה', email: 'someone@gmail.com' }), null, 'no non-company email resolves, ever');
+
+assert.deepEqual(rowsFrom([
+  { id: 'u1', firstName: 'עידן', email: 'pm@sigmatec-energy.com' },
+  { id: 'u2', firstName: 'עמיחי', email: 'amichai@sigmatec-energy.com' },
+]).rows, [
+  { ems_user_id: 'u1', name: 'עידן', email: 'pm@sigmatec-energy.com' },
+  { ems_user_id: 'u2', name: 'עמיחי', email: 'amichai@sigmatec-energy.com' },
+]);
+{
+  // Two different EMS ids both resolving to "עידן" — the exact ambiguity that must abort.
+  const r = rowsFrom([
+    { id: 'u1', firstName: 'עידן', email: 'pm@sigmatec-energy.com' },
+    { id: 'u9', firstName: 'עידן', email: 'idan2@sigmatec-energy.com' },
+  ]);
+  assert.equal(r.ok, false, 'a name mapping to two ids must abort, not pick one');
+  assert.equal(r.ambiguous[0][0], 'עידן');
+  assert.deepEqual([...r.ambiguous[0][1]].sort(), ['u1', 'u9']);
+}
+
 console.log('ems-auth claims OK');

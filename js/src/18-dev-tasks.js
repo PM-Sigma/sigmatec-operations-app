@@ -900,9 +900,13 @@
     if (!tok) throw new Error((typeof window.sigmaSessionLost === 'function' ? window.sigmaSessionLost('dev-no-token') : 'ההתחברות פגה. צריך להתחבר מחדש'));
     var body = { token: tok, mode: mode, numbers: numbers };
     if (mode === 'setStatus') body.status = value; else body.priority = value;
+    // X-L8 audit fix: setStatus/setPriority are write modes, gated by WHO the caller is — the
+    // anon key alone now 403s. Send the same Supabase-minted pass every authenticated table
+    // read already uses (window.sigma.sbPass(); app/src/lib/devBoard.ts's ghCall mirrors this).
+    var pass = (typeof window.sigma !== 'undefined' && typeof window.sigma.sbPass === 'function' && window.sigma.sbPass()) || null;
     var r = await fetchWithTimeout(SB_URL + '/functions/v1/github', {
       method: 'POST',
-      headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+      headers: { apikey: SB_ANON, Authorization: 'Bearer ' + ((pass && pass.token) || SB_ANON), 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     }, 20000);
     var d = await r.json().catch(function () { return {}; });

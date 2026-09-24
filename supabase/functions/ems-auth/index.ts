@@ -21,6 +21,7 @@
 // claim (`staff_identities`, X-L1) and log a miss (`usage_events`, "identity-missing").
 // Optional:  EMS_API_BASE (defaults to https://api.sigmatec-ems.com).
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
+import { timingSafeEqual } from "../_shared/http.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -216,11 +217,7 @@ Deno.serve(async (req) => {
 
       const pin = String((body as { pin?: string }).pin || "");
       // Length-independent compare, so a wrong code cannot be measured character by character.
-      const a = new TextEncoder().encode(pin);
-      const b = new TextEncoder().encode(VIEWER_PIN);
-      let diff = a.length === b.length ? 0 : 1;
-      for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
-      if (diff !== 0) {
+      if (!timingSafeEqual(pin, VIEWER_PIN)) {
         await recordFailure(ip);
         await sleep(THROTTLE_FAIL_DELAY_MS);
         return json({ error: "קוד צפייה שגוי" }, 401);

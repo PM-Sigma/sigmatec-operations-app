@@ -71,9 +71,13 @@ function emsToken(): string {
 async function ghCall(payload: Record<string, unknown>): Promise<any> {
   const token = emsToken();
   if (!token) throw sessionLost('gh-no-token');
+  // X-L8 audit fix: createIssue is a write mode, gated by WHO the caller is — the anon key
+  // alone now 403s. Send the same Supabase-minted pass every authenticated table read already
+  // uses (sigma.sbPass(); app/src/lib/devBoard.ts's ghCall is the same pattern).
+  const pass = (() => { try { return sigma?.sbPass?.()?.token || ''; } catch { return ''; } })();
   const r = await fetch(SB_URL + '/functions/v1/github', {
     method: 'POST',
-    headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+    headers: { apikey: SB_ANON, Authorization: 'Bearer ' + (pass || SB_ANON), 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, ...payload }),
   });
   const d = await r.json().catch(() => ({}));

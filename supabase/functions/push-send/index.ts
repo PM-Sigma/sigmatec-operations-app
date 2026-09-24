@@ -60,7 +60,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-import { emsValid as emsValidAt } from "../_shared/http.ts";
+import { emsValid as emsValidAt, timingSafeEqual } from "../_shared/http.ts";
 
 // The EMS-login gate, the same check `github`/`calendar`/`transcribe` apply. Used by the modes
 // a BROWSER calls directly with a user's own token (feedbackNew); the order/attendance modes keep
@@ -75,7 +75,7 @@ const emsValid = (token: string) =>
 async function requireCronOrEms(req: Request, token: string): Promise<{ ok: true; byCron: boolean } | { ok: false; status: number; error: string }> {
   const cronKey = req.headers.get("x-cron-key");
   const secret = Deno.env.get("CRON_SECRET");
-  const byCron = !!secret && !!cronKey && cronKey === secret;
+  const byCron = !!secret && !!cronKey && timingSafeEqual(cronKey, secret);
   if (!byCron && !(await emsValid(token))) {
     return { ok: false, status: 401, error: "unauthorized: cron key or valid EMS login required" };
   }
@@ -600,7 +600,7 @@ Deno.serve(async (req: Request) => {
   if (body.mode === "inventoryAlert") {
     const cronKey = req.headers.get("x-cron-key");
     const secret = Deno.env.get("CRON_SECRET");
-    if (!secret || !cronKey || cronKey !== secret) {
+    if (!secret || !cronKey || !timingSafeEqual(cronKey, secret)) {
       return json({ error: "unauthorized: cron key required" }, 401);
     }
     const product = String(body.product || "").trim();

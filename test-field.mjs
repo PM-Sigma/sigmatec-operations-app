@@ -41,13 +41,18 @@ console.log('\n[2] push-send mode visitCron');
     /const settled = plan\.settle\.map\(\(x\) => x\.id\);/.test(fn));
   check('the words come from the rotating pool', /nudgeFor\(pick\.id, pick\.kibbutz, pick\.hasDraft\)/.test(fn));
   check('both notification actions are offered', /"כתיבת סיכום"/.test(fn) && /"לא היום"/.test(fn));
-  // Audit fix (Opus, 24.9): visits must be fetched by KIBBUTZ, not by matching the legacy
-  // `visitor` column to the checked-in people — the earlier `.in("visitor", people)` never
-  // fetched a visit filed under a co-visitor's name, so checkinSettledByVisits could never see
-  // it and kept reminding a settled person (עידן for a visit ניתאי filed, or vice versa).
-  check('visits are selected by kibbutz, so a co-visitor\'s visit is still found',
-    /\.from\("visits"\)\.select\([^)]*\)\.in\("kibbutz", kibbutzim\)/.test(fn));
+  // Audit fix (Opus, 24.9, two rounds): visits must not be pre-filtered by NAME at all — the
+  // first `.in("visitor", people)` never fetched a visit filed under a co-visitor's name, and a
+  // second attempt keyed to a `people`/`kibbutzim` allow-list still missed a visit filed by
+  // someone who never checked in (e.g. עידן checks in alone, מתניה already filed the visit —
+  // exactly the non-field-worker settlement checkinSettledByVisits decides). Every per-checkin
+  // kibbutz/day/visitor decision happens once, inside checkinSettledByVisits — the query itself
+  // only narrows by date.
+  check('visits are selected by date only, not by a visitor/people/kibbutz allow-list',
+    /\.from\("visits"\)\.select\([^)]*\)\.gte\("date", fromDay\)/.test(fn));
   check('the old visitor-name filter on visits is gone', !/\.from\("visits"\)[^;]*\.in\("visitor", people\)/.test(fn));
+  check('no allow-list filter (people/kibbutzim) narrows the visits query either',
+    !/\.from\("visits"\)[^;]*\.in\("kibbutz", kibbutzim\)/.test(fn));
   check('push_log gets the kibbutz as where_txt', /event: "visitCron", order_id: null, where_txt: pick\.kibbutz/.test(fn));
 }
 

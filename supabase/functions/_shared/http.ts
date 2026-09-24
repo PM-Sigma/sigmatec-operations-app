@@ -39,3 +39,17 @@ export async function emsValid(base: string, token: string): Promise<boolean> {
 
 /** The one place the allowed origin is decided. */
 export const appOrigin = () => Deno.env.get("APP_ORIGIN") || "https://pm-sigma.github.io";
+
+/**
+ * Length-independent string compare, so a wrong secret cannot be measured character by
+ * character (a timing side-channel — a naive `===` returns faster the earlier the strings
+ * diverge). Originally ems-auth's VIEWER_PIN check only; audit fix (Opus 24.9) extends it to
+ * every cron-key comparison in push-send, which used a plain `===` until now.
+ */
+export function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  let diff = ea.length === eb.length ? 0 : 1;
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  return diff === 0;
+}

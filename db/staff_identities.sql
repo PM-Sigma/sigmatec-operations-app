@@ -3,14 +3,16 @@
 -- STATUS: WRITTEN, NOT APPLIED. Production side effect — waits for עידן's explicit "כן"
 -- (X-L3, which also runs the one-time seed and deploys ems-auth). Additive only.
 --
--- Why: the EMS bridge pass never carried a trusted `name` claim, so every policy that reads
--- `auth.jwt() ->> 'name'` was unenforceable (rls_2_00_lockdown.sql's work_sessions comment says
--- so in plain words). This table is the one place `ems-auth` looks up "who is this EMS id" —
--- service role only, no client policy, so nothing but the edge function itself can read or
--- write it. A staff member's OWN pass never carries more trust than this table gives it.
+-- Why: the EMS bridge pass never carried a trusted `name` claim, so a policy reading
+-- `auth.jwt() ->> 'name'` had nothing to compare against a real person (see
+-- rls_2_00_lockdown.sql's work_sessions comment). This table is the one place `ems-auth` looks
+-- up "who is this EMS id" — service role only, no client policy, so nothing but the edge
+-- function itself can read or write it.
 --
--- Populated by scripts/seed-staff-identities.mjs (a one-time run with עידן's EMS admin token)
--- and learned once per new hire by ems-auth itself (index.ts, X-L1 step 3).
+-- Populated by scripts/seed-staff-identities.mjs (a one-time run with עידן's EMS token,
+-- restricted to @sigmatec-energy.com accounts). ems-auth looks the row up at sign-in and does
+-- not learn or guess a name on its own — a person the seed misses simply signs in name-less
+-- until the seed is re-run (logged as `identity-missing` in usage_events).
 
 create table if not exists public.staff_identities (
   ems_user_id text primary key,

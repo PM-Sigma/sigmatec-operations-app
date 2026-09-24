@@ -13,10 +13,10 @@
 --                  keep reading/writing everyone's, unchanged; the viewer reads every row,
 --                  same as today (hours.ts:22-30) — Hours must not go blank for him.
 --
--- Why not sooner: db/rls_2_00_lockdown.sql's work_sessions comment already says the honest
--- thing — `person = coalesce(auth.jwt() ->> 'name', person)` is `person = person` with no
--- `name` claim in the pass, i.e. permits everything while reading as an ownership rule. This
--- file is what replaces that tautology with the real thing, now that the claim exists.
+-- Why not sooner: db/rls_2_00_lockdown.sql's work_sessions comment already names the gap —
+-- `person = coalesce(auth.jwt() ->> 'name', person)` compared a column to itself while the
+-- pass carried no `name` claim to compare it against. This file replaces that placeholder with
+-- a real ownership check, now that the claim exists.
 
 -- messages: the recipient reads and marks read; you send only as yourself.
 -- Every create is preceded by its own `drop policy if exists` (audit fix, Opus 24.9) so this

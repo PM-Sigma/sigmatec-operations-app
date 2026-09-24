@@ -359,8 +359,12 @@ async function requireWriter(req: Request): Promise<{ error: string; status: num
   const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("EMS_BRIDGE_SECRET") || "";
   if (!pass || !secret) return { error: "unauthorized: missing pass", status: 401 };
   try {
-    const payload = await verify(pass, await signingKey(secret));
-    const name = typeof (payload as Record<string, unknown>)?.name === "string" ? (payload as { name: string }).name : null;
+    const payload = await verify(pass, await signingKey(secret)) as Record<string, unknown>;
+    // The signature alone proves "signed with this project's secret" — it does not prove WHICH
+    // of this project's minters signed it. Checking `iss` too pins it to ems-auth specifically,
+    // the one place that ever puts a roster `name` in a claim it controls.
+    if (payload?.iss !== "ems-bridge") return { error: "unauthorized: invalid pass", status: 401 };
+    const name = typeof payload?.name === "string" ? payload.name as string : null;
     if (!canWrite(name)) return { error: "forbidden", status: 403 };
     return null;
   } catch {
