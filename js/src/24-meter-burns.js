@@ -165,7 +165,12 @@
   // kibbutz-card chip, the card-modal section, the briefing rows and the landing strip (the
   // React half reads the same global through app/src/lib/burns.ts `burnsProjectActive`).
   // The DATA stays in `meter_burns` for the report.
-  window.BURNS_PROJECT_ACTIVE = true;
+  //
+  // round 5 G-L4: the DECLARATION moved to js/src/00-consts.js (file 00, so canShowPage('burns')
+  // in 00-bridge.js sees it regardless of load order). It must NOT be redeclared here: this file
+  // (24) concatenates AFTER 00-consts.js, so a second `window.BURNS_PROJECT_ACTIVE = true` here
+  // would silently override an operator's `false` on every load — turning "ONE flag" into a
+  // kill switch that does not actually kill anything. Read it, never (re)write it.
   function burnsActive() { return window.BURNS_PROJECT_ACTIVE !== false; }
 
   // THE AUDIENCE (spec §5 צפייה, restored by עידן 18.9): write = אביאם/ניתאי/עידן/עמיחי,

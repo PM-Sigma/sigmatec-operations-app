@@ -22,6 +22,16 @@ export interface EmsGateway {
   listSites(): Promise<EmsSite[]>;
   listMeters(siteId: string, opts?: { take?: number }): Promise<EmsMeter[]>;
   getMeter(id: string): Promise<EmsMeter | null>;
+  /** One page of generation meters by EMS role code (🔥 צריבות, G-L2) — raw EMS rows, mapped
+   *  by `lib/burns.ts` `emsToBurnRows` rather than the app-owned `EmsMeter` shape. */
+  listMetersByRole(roleCodes: number[], page: number, take: number): Promise<any[]>;
+  /** EMS `/meters?search=` for the generator picker (🔥 צריבות) — raw rows, mapped by
+   *  `lib/burns.ts` `emsHitLines`. */
+  searchMeters(q: string, take: number): Promise<any[]>;
+  /** One page of raw solar systems, for `lib/burns.ts` `emsSolarNames` / `emsToBurnRows` —
+   *  paged exactly like `listMetersByRole` (audit fix, round 5 G: an unpaged fetch silently
+   *  truncated and overwrote good `solar_names` data with a partial list). */
+  listSolars(page: number, take: number): Promise<any[]>;
 
   listOpenTasks(q?: ListTasksQuery): Promise<EmsTask[]>;
   getTask(id: string): Promise<EmsTask | null>;

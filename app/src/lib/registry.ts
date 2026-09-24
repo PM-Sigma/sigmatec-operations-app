@@ -30,6 +30,11 @@ export interface MoreItem {
    * changeUser(). A predicate is evaluated live, so it can never be stale.
    */
   visible?: () => boolean;
+  /**
+   * A short neutral label next to the row (round 5 G-L6), e.g. "ניסיוני" on "יומן היום" while
+   * the feature is still being tried out. S renders it as a `Tag` in MoreSheet; unset = none.
+   */
+  tag?: string;
 }
 
 const items: MoreItem[] = [];

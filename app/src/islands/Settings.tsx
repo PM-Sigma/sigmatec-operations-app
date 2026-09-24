@@ -15,8 +15,8 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { canShowPage } from '@/lib/canShowPage';
 import {
-  FONTS, loadSettings, openSettings, saveSettings, SETTINGS_OPEN_EVENT, useSettings,
-  type CardDesc, type FontChoice, type Landing, type UserSettings,
+  loadSettings, openSettings, saveSettings, SETTINGS_OPEN_EVENT, useSettings,
+  type CardDesc, type Landing, type UserSettings,
 } from '@/lib/settings';
 import type { ThemeChoice } from '@/lib/theme';
 import { EmsGate } from '@/components/EmsGate';
@@ -347,15 +347,6 @@ function SettingsPanel() {
               value={settings.card_desc}
               onChange={v => set({ card_desc: v }, v)}
               options={[{ value: 'short', label: 'מקוצר' }, { value: 'full', label: 'מלא' }]}
-            />
-          </Row>
-
-          <Row label="פונט">
-            <Choice<FontChoice>
-              ariaLabel="פונט"
-              value={settings.font}
-              onChange={v => set({ font: v }, v)}
-              options={FONTS.map(f => ({ value: f, label: f }))}
             />
           </Row>
 

@@ -32,8 +32,9 @@
     --brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));
     --surface-2: #eef2f7;
     --radius-lg: 14px;
-    /* Body face (spec §6: Assistant, Rubik the approved alternative). ⚙️ הגדרות writes this
-       token on <html> per person, so one declaration re-types the whole app. */
+    /* Body face (spec §6). Locked to Assistant — round 5 G-L5 deleted the ⚙️ הגדרות font
+       picker (DS review §4 "Unnecessary"), so this is the one declaration and nothing
+       rewrites it per person any more. */
     --font: 'Assistant', 'Segoe UI', system-ui, sans-serif;
     /* Text ON the brand gradient. White in both themes — the gradient itself never flips
        (spec §6: "brand gradient unchanged, it reads well on dark"). */

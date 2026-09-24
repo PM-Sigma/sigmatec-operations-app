@@ -6,7 +6,8 @@ import {
   BURN_VISUAL_LABEL, burnChip, burnCounts, burnLeaveItems, burnOpenWork, burnProgress, burnProjectLine,
   burnSitesWithPending, burnStripText, burnVisual, burnWarnings, burnedPatch, burnsForSite,
   burnsProjectActive, canSeeBurns, canWriteBurns, clearIssuePatch, generatorPatch,
-  generatorsForSite, issuePatch, unburnedPatch, type BurnRow,
+  generatorsForSite, issuePatch, unburnedPatch, groupBurnsByGenerator, burnXlsxSpec,
+  type BurnRow,
 } from '@/lib/burns';
 
 const row = (o: Partial<BurnRow> & { meter_id: string; site: string }): BurnRow => ({
@@ -280,5 +281,16 @@ describe('generators', () => {
     expect(generatorsForSite(gens, 'אור הנר').map(g => g.id)).toEqual(['g1', 'g2']);
     expect(generatorsForSite(gens, 'דפנה')).toEqual([]);
     expect(generatorsForSite(null, 'אור הנר')).toEqual([]);
+  });
+});
+
+describe('groupBurnsByGenerator — a dangling generator_id (G-L1 review focus #1)', () => {
+  it('a dangling generator id groups under "no generator", last', () => {
+    const g = groupBurnsByGenerator([{ meter_id: 'x', serial: '1', site: 'גבים', meter_type: 'E360PP', status: 'pending', generator_id: 'gone' } as any], []);
+    expect(g).toEqual([{ gen: null, rows: [expect.objectContaining({ meter_id: 'x' })] }]);
+  });
+  it('a row with no site lands in "ללא קיבוץ" in Excel', () => {
+    const x = burnXlsxSpec([{ meter_id: 'y', serial: '2', site: null, meter_type: 'E360PP', status: 'pending' } as any], []);
+    expect(x.sheets.map(s => s.sheet)).toEqual(['ללא קיבוץ']);
   });
 });

@@ -7,8 +7,8 @@
 //  · the dark tokens exist twice (explicit `[data-theme="dark"]` AND the OS media query) so
 //    someone who never touched the toggle still gets dark, while an explicit light wins;
 //  · the theme boot snippet runs in <head> before the first paint (no white flash);
-//  · the body face comes from --font (the ⚙️ הגדרות font setting writes that one token) and
-//    every font the setting offers is actually loaded;
+//  · the body face comes from --font, always 'Assistant' (round 5 G-L5 deleted the font
+//    picker — DS review §4 "Unnecessary" — so nothing may resurrect the other three faces);
 //  · the layout numbers the spec fixes: body padding 12/16, container without a max-width,
 //    the 300px card grid.
 import assert from 'node:assert';
@@ -113,18 +113,17 @@ check('body types from --font, and --font has a value', () => {
   assert.ok(/--font:\s*'Assistant'/.test(css), '--font does not default to Assistant');
 });
 
-check('every font the ⚙️ setting offers is loadable — eagerly or on demand', () => {
-  // Task 22b: three of the four faces left the <head>. Linking all four was three extra
-  // render-blocking stylesheets on every boot for a setting almost nobody touches, so only the
-  // BODY face is eager and the rest are injected by app/src/lib/settings.ts the moment someone
-  // picks one. The contract is unchanged — a face the setting offers must still be loadable.
+check('the font picker is gone (round 5 G-L5, DS review §4) — Assistant is locked', () => {
+  // Task 22b linked only the body face eagerly and injected the other three on demand; round 5
+  // G-L5 went further and deleted the picker outright, so the contract flips: the ONLY face is
+  // Assistant, and the machinery for the other three must not quietly come back.
   assert.ok(html.includes('family=Assistant'), 'the body face is not loaded in <head>');
   const settings = fs.readFileSync(path.join(__dirname, 'app/src/lib/settings.ts'), 'utf8');
-  for (const f of ['Rubik', 'Noto+Sans+Hebrew', 'Heebo']) {
-    assert.ok(html.includes('family=' + f) || settings.includes('family=' + f),
-      f + ' is offered in הגדרות but neither linked in <head> nor injectable by applySettings()');
+  for (const sym of ['FONTS', 'fontStack', 'fontHref', 'ensureFontLink']) {
+    assert.ok(!new RegExp('\\b' + sym + '\\b').test(settings), sym + ' still referenced in settings.ts — the font picker must be fully removed');
   }
-  assert.ok(/export function ensureFontLink/.test(settings), 'no lazy font injector at all');
+  assert.ok(!/family=Rubik|family=Noto\+Sans\+Hebrew|family=Heebo/.test(settings),
+    'a Google-Fonts URL for a removed face still lingers in settings.ts');
 });
 
 // Task 22b: the first screen's CSS is inlined into <head>, so a missing or empty block is the

@@ -72,3 +72,11 @@
   }
   window.upgradeFreezeDecision = upgradeFreezeDecision;
 
+  // 🔥 צריבות kill switch (round 5 G-L4 — moved from js/src/24-meter-burns.js, which owned it
+  // until the page was still a stand-alone file). `false` hides every surface — the chip, the
+  // modal section, the briefing rows, the strip and the full table — while the data stays in
+  // `meter_burns` for the report. app/src/lib/burns.ts `burnsProjectActive()` reads the same
+  // global. Read here, early (file 00), so canShowPage('burns') in 00-bridge.js sees it
+  // regardless of load order.
+  window.BURNS_PROJECT_ACTIVE = true;
+

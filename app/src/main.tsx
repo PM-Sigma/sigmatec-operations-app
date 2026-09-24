@@ -8,7 +8,7 @@ import { Nav } from '@/components/Nav';
 import { mountReLoginSheet } from '@/components/ReLoginSheet';
 import { mount } from '@/islands';
 import { applyTheme, storedTheme } from '@/lib/theme';
-import { applySettings, getSettings, loadSettings, openSettings } from '@/lib/settings';
+import { getSettings, loadSettings, openSettings } from '@/lib/settings';
 import { applyLanding } from '@/lib/landing';
 import { registerMoreItem } from '@/lib/registry';
 import { startTracking } from '@/lib/track';
@@ -58,9 +58,6 @@ function boot() {
   // Re-apply the stored theme through the full path (the <head> snippet only set the class
   // before first paint; this also syncs theme-color and announces 'theme-changed').
   applyTheme(storedTheme() ?? 'system');
-  // …then the person's own choices, from the localStorage mirror: the font token lands before
-  // the first island paints, so nothing re-types after the fact.
-  applySettings(getSettings());
 
   // 📈 שימוש (spec §7j): install the flush loop BEFORE the first mount, so the mount
   // events themselves are buffered. Nothing here touches Supabase until the first flush.
@@ -398,6 +395,7 @@ function boot() {
       label: 'יומן היום',
       icon: 'Notebook',
       group: 'app',
+      tag: 'ניסיוני',
       visible: () => {
         try {
           const s = (window as any).sigma;

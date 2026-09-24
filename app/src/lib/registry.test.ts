@@ -100,4 +100,15 @@ describe('⋯ sheet grouping and attention badges (§7k #3)', () => {
     expect(items.find(i => i.id === 'imp')?.group).toBe('admin');
     expect(items.find(i => i.id === 'set')?.group).toBe('app');
   });
+
+  // round 5 G-L6: the ⋯ "יומן היום" row carries a "ניסיוני" tag; S renders it in MoreSheet.
+  it('an item may carry a tag, which travels through the list untouched', () => {
+    registerMoreItem({ id: 't', label: 'x', icon: 'Notebook', onSelect: () => {}, tag: 'ניסיוני' });
+    expect(listMoreItems('team').find(i => i.id === 't')!.tag).toBe('ניסיוני');
+  });
+
+  it('an item with no tag simply has none', () => {
+    registerMoreItem(item('untagged'));
+    expect(listMoreItems('team').find(i => i.id === 'untagged')!.tag).toBeUndefined();
+  });
 });

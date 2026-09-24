@@ -4,9 +4,11 @@
 // database can never corrupt the person's session.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  cardDescClamp, DEFAULT_SETTINGS, fontStack, mergeSettings, setSettingsLocal, getSettings,
-  _resetSettings, SETTINGS_KEY, pickNewer, fontHref, ensureFontLink, FONTS, type UserSettings,
+  cardDescClamp, DEFAULT_SETTINGS, landingChoices, mergeSettings,
+  setSettingsLocal, getSettings, _resetSettings, SETTINGS_KEY, pickNewer,
+  type UserSettings,
 } from '@/lib/settings';
+import * as S from '@/lib/settings';
 
 describe('mergeSettings', () => {
   it('an empty / missing row is the defaults', () => {
@@ -15,10 +17,9 @@ describe('mergeSettings', () => {
   });
 
   it('keeps the valid fields and falls back per field, never wholesale', () => {
-    const m = mergeSettings({ landing: 'dev', font: 'nope', card_desc: 'full', theme: 'zzz' });
+    const m = mergeSettings({ landing: 'dev', card_desc: 'full', theme: 'zzz' });
     expect(m.landing).toBe('dev');
     expect(m.card_desc).toBe('full');
-    expect(m.font).toBe('Assistant');       // unknown face → the default, not a broken stack
     expect(m.theme).toBe('system');         // unknown theme → system
   });
 
@@ -36,7 +37,7 @@ describe('mergeSettings', () => {
 
   it('merges onto a base, not onto the defaults, when one is given', () => {
     const base = mergeSettings({ landing: 'dev', card_desc: 'full' });
-    expect(mergeSettings({ font: 'Rubik' }, base)).toEqual({ ...base, font: 'Rubik' });
+    expect(mergeSettings({ eod_hour: 18 }, base)).toEqual({ ...base, eod_hour: 18 });
   });
 });
 
@@ -51,43 +52,39 @@ describe('cardDescClamp (§7k #2)', () => {
   });
 });
 
-describe('fontStack', () => {
-  it('always ends in a system fallback', () => {
-    expect(fontStack('Rubik')).toBe("'Rubik', 'Segoe UI', system-ui, sans-serif");
+// DS review §4 "Unnecessary" (round 5 G-L5): the font picker goes, Assistant is locked.
+describe('font machinery is gone, Assistant is locked', () => {
+  it('no font export survives', () => {
+    expect((S as any).FONTS).toBeUndefined();
+    expect((S as any).fontStack).toBeUndefined();
+    expect((S as any).fontHref).toBeUndefined();
+    expect((S as any).ensureFontLink).toBeUndefined();
   });
-  it('an unknown face falls back to Assistant', () => {
-    expect(fontStack('Comic Sans')).toContain("'Assistant'");
-    expect(fontStack(null)).toContain("'Assistant'");
+  it('a row carrying a font field does not resurrect one', () => {
+    expect('font' in mergeSettings({ font: 'Rubik' } as any)).toBe(false);
+    expect('font' in DEFAULT_SETTINGS).toBe(false);
   });
 });
 
-// Task 22b: only Assistant is linked in index.html's <head> (three render-blocking font
-// stylesheets left the boot path). The other three faces MUST therefore arrive on demand —
-// a face with no stylesheet is a setting that silently does nothing.
-describe('fontHref / ensureFontLink (the lazy faces)', () => {
-  beforeEach(() => { document.head.innerHTML = ''; });
+// round 5 grill round 2's אביאם/ניתאי peer-tasks setting is package C's `cal_peer_tasks` +
+// `canTogglePeerTasks` (app/src/lib/calendar.ts) — G does not duplicate it.
 
-  it('Assistant needs no link (it ships in the <head>), every other face has one', () => {
-    expect(fontHref('Assistant')).toBeNull();
-    for (const f of FONTS.filter(f => f !== 'Assistant')) {
-      expect(fontHref(f)).toContain('fonts.googleapis.com');
-      expect(fontHref(f)).toContain('display=swap');
-    }
-    expect(fontHref('Comic Sans')).toBeNull();
+describe('landingChoices — extracted from Settings.tsx (round 5 G-L5)', () => {
+  const all = () => true;
+
+  it('follows the page gates; reports is the viewer\'s alone', () => {
+    expect(landingChoices(false, all).map(c => c.value))
+      .toEqual(['auto', 'kibbutz', 'calendar', 'attendance', 'inventory', 'dev']);
+    expect(landingChoices(true, all).map(c => c.value)).toContain('reports');
+    expect(landingChoices(false, all).map(c => c.value)).not.toContain('reports');
   });
 
-  it('injects the face once, however often the settings are re-applied', () => {
-    ensureFontLink('Rubik');
-    ensureFontLink('Rubik');
-    expect(document.head.querySelectorAll('link[data-sigma-font="Rubik"]').length).toBe(1);
-    ensureFontLink('Heebo');
-    expect(document.head.querySelectorAll('link[data-sigma-font]').length).toBe(2);
+  it('a page the gate refuses is not offered', () => {
+    expect(landingChoices(false, p => p !== 'inventory').map(c => c.value)).not.toContain('inventory');
   });
 
-  it('choosing a face through the store is what injects it', () => {
-    _resetSettings(); localStorage.clear(); document.head.innerHTML = '';
-    setSettingsLocal({ font: 'Noto Sans Hebrew' });
-    expect(document.head.querySelector('link[data-sigma-font="Noto Sans Hebrew"]')).not.toBeNull();
+  it('auto is always first and always offered', () => {
+    expect(landingChoices(false, () => false)[0].value).toBe('auto');
   });
 });
 
@@ -99,13 +96,8 @@ describe('the live store', () => {
     expect(getSettings().card_desc).toBe('full');
     expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!).card_desc).toBe('full');
     // a second patch must not reset the first
-    setSettingsLocal({ font: 'Heebo' });
-    expect(getSettings()).toMatchObject({ card_desc: 'full', font: 'Heebo' });
-  });
-
-  it('the font choice lands on the --font token (one declaration re-types the app)', () => {
-    setSettingsLocal({ font: 'Rubik' });
-    expect(document.documentElement.style.getPropertyValue('--font')).toContain('Rubik');
+    setSettingsLocal({ eod_hour: 18 });
+    expect(getSettings()).toMatchObject({ card_desc: 'full', eod_hour: 18 });
   });
 
   it('a corrupt mirror reads as the defaults instead of throwing', () => {
@@ -147,13 +139,13 @@ describe('pickNewer — newest wins between this device and the row (review fix 
   });
 
   it('no row at all changes nothing', () => {
-    const local = at('2026-09-18T12:00:00.000Z', { font: 'Rubik' });
+    const local = at('2026-09-18T12:00:00.000Z', { card_desc: 'full' });
     expect(pickNewer(local, null)).toEqual({ settings: local, push: false });
   });
 
   it('the winning row still goes through the per-field validation', () => {
-    const r = pickNewer(at('2026-01-01'), { font: 'Wingdings', updated_at: '2026-09-18' } as any);
-    expect(r.settings.font).toBe('Assistant');
+    const r = pickNewer(at('2026-01-01'), { landing: 'nope', updated_at: '2026-09-18' } as any);
+    expect(r.settings.landing).toBe('auto');
   });
 });
 
@@ -175,7 +167,7 @@ describe('setSettingsLocal stamps the person\u2019s own choices', () => {
     expect(s.updated_at >= before).toBe(true);
   });
 
-  it('a patch that came FROM the row keeps the row\u2019s timestamp', () => {
+  it('a patch that came FROM the row keeps the row’s timestamp', () => {
     const s = setSettingsLocal({ card_desc: 'full', updated_at: '2020-01-01T00:00:00.000Z' }, { stamp: false });
     expect(s.updated_at).toBe('2020-01-01T00:00:00.000Z');
   });

@@ -4,9 +4,9 @@
 // app/src/lib/canShowPage.ts only forwards to the bridge, so the permission RULE lives in the
 // legacy bundle. This runner lifts the REAL functions out of the sources (never re-typed here):
 // the bridge's canShowPage + canManageStaff, the login helpers (getCurrentUser / getRole /
-// isIdan / isViewer / canSeeAttendance), and the burns audience, evaluates them together over a
-// fake localStorage, and asserts the full identity × page matrix. D-L5: the 'dev' case no longer
-// reads 18-dev-tasks.js (canSeeDevTasks) — the gate is now inline in canShowPage itself.
+// isIdan / isViewer / canSeeAttendance), evaluates them together over a fake localStorage, and
+// asserts the full identity × page matrix. D-L5: 'dev' is inline in canShowPage (no 18-dev-tasks.js);
+// G-L4: 'burns' is inline too (no 24-meter-burns.js) — both gates come from 00-bridge.js alone.
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,8 +34,7 @@ function lineMatching(text, re) {
 
 const login = src('11-search-login.js');
 const bridge = src('00-bridge.js');
-const burns = src('24-meter-burns.js');
-const burnAudience = /\/\/ BURN-AUDIENCE-START([\s\S]*?)\/\/ BURN-AUDIENCE-END/.exec(burns)[1];
+const consts = src('00-consts.js');
 
 const program = [
   "var USER_KEY = 'dashboard_user_v1';",
@@ -44,11 +43,10 @@ const program = [
   fnSource(login, 'getCurrentUser'), fnSource(login, 'getRole'),
   fnSource(login, 'isIdan'), fnSource(login, 'isViewer'), fnSource(login, 'canSeeAttendance'),
   fnSource(bridge, 'canManageStaff'),
-  'window.BURNS_PROJECT_ACTIVE = true;',
-  fnSource(burns, 'burnsActive'), burnAudience,
-  fnSource(burns, 'burnUser'), fnSource(burns, 'burnIsViewer'), fnSource(burns, 'burnCanSee'),
+  // the removal flag's REAL declaration (G-L4) — lifted from 00-consts.js, not retyped.
+  lineMatching(consts, /window\.BURNS_PROJECT_ACTIVE\s*=/),
   // the bridge's private `call` helper, exactly as canShowPage uses it
-  "var call = function (name, args, fallback) { var f = { canSeeAttendance: canSeeAttendance, canManageStaff: canManageStaff, isIdan: isIdan, getCurrentUser: getCurrentUser, burnCanSee: burnCanSee, isViewer: isViewer }[name]; return f ? f.apply(null, args || []) : fallback; };",
+  "var call = function (name, args, fallback) { var f = { canSeeAttendance: canSeeAttendance, canManageStaff: canManageStaff, isIdan: isIdan, getCurrentUser: getCurrentUser, isViewer: isViewer }[name]; return f ? f.apply(null, args || []) : fallback; };",
   fnSource(bridge, 'canShowPage'),
   'return canShowPage;',
 ].join('\n');
@@ -97,6 +95,22 @@ for (const who of Object.keys(MATRIX)) {
   catch { failures++; console.log(`  FAIL - burns must close for ${who} when the project ends`); }
 }
 console.log('  ok - burns closed for all when BURNS_PROJECT_ACTIVE = false');
+
+// G-L4: the flag now lives in 00-consts.js, and the gate is read from 00-bridge.js alone — no
+// separate burns file loaded by this runner or referenced by canShowPage any more.
+try {
+  assert.equal(gateFor('עידן', 'idan', { burnsActive: false })('burns'), false, 'flag off → nobody, now read from 00-consts');
+  console.log('  ok - burns flag off refuses עידן too (00-consts, not the retiring file)');
+} catch (e) { failures++; console.log(`  FAIL - ${e.message}`); }
+// A SECOND `window.BURNS_PROJECT_ACTIVE = true` in the retiring file would silently override
+// an operator's `false` in 00-consts.js on every load — the ONE-flag promise broken by exactly
+// the file this task moved the declaration off of. This is the check that would have caught it.
+try {
+  const burnsCode = src('24-meter-burns.js').split('\n').filter(l => !l.trim().startsWith('//'));
+  assert.ok(!burnsCode.some(l => /window\.BURNS_PROJECT_ACTIVE\s*=\s*(true|false)\s*;/.test(l)),
+    '24-meter-burns.js must not redeclare the flag — 00-consts.js is the only place it is set');
+  console.log('  ok - the removal flag is declared in exactly one place (00-consts.js)');
+} catch (e) { failures++; console.log(`  FAIL - ${e.message}`); }
 
 // An unknown page is never open.
 try { assert.strictEqual(gateFor('עידן', 'idan')('nope'), false); console.log('  ok - unknown page refused'); }

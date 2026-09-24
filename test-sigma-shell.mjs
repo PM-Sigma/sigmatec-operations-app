@@ -88,6 +88,13 @@ console.log('\n[4] build output is wired into the page');
   // the boot path (TanStack, an island); it is checked right below by the tests that matter.
   // 303 kB (22.9, QA round 3): +287 bytes measured — the ⋯ עוד sheet gained the ✉️ הודעה לעובד
   // row (Package O removed the Ctrl+K actions group) and the header chip shows a first name.
+  // Round 5 package G (23.9) touched this twice and nets BELOW 303 kB: G-L2 added
+  // lib/ems/adapters/rest.ts's listMetersByRole/searchMeters/listSolars (+390 bytes — the EMS
+  // gateway is unavoidably eager, main.tsx's installEmsBridge() mirrors it onto sigma.ems on
+  // boot, so even an operation only the lazy burns page will call ships here) and briefly blew
+  // the ceiling with none of the old 150-byte headroom left; G-L5 then deleted the font picker
+  // (FONTS/fontStack/fontHref/ensureFontLink, all boot-eager through lib/settings.ts) for a
+  // bigger saving, so the ceiling stayed at 303 kB after all.
   check('bundle under the 303 kB ceiling', size < 303 * 1024, Math.round(size / 1024) + ' kB');
 }
 

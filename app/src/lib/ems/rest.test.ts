@@ -52,6 +52,17 @@ describe('URLS — the exact strings the pre-gateway call sites sent', () => {
   // was js/src/14-calendar.js getEmsUsers()
   it('/users — the legacy admin filter, unchanged', () =>
     expect(URLS.users()).toBe('/users?roles=admin&statuses=active&take=200&sortBy=firstName&sortOrder=ASC'));
+
+  // 🔥 צריבות (G-L2) — was js/src/24-meter-burns.js burnEmsAll(): 'take=200&page=N', N from 1.
+  // The gateway's own `page` param is 0-indexed (refreshBurnsFromEms loops from 0).
+  it('/meters?roleCodes — the burns EMS-refresh page, 1-indexed on the wire', () =>
+    expect(URLS.metersByRole([20, 21], 2, 200)).toBe('/meters?roleCodes=20,21&take=200&page=3'));
+
+  it('/meters?search — the burns generator-picker lookup, encoded', () =>
+    expect(URLS.meterSearch('68 36', 5)).toBe('/meters?search=68%2036&take=5'));
+
+  it('/solars — paged like the meters (audit fix: an unpaged fetch truncated silently)', () =>
+    expect(URLS.solars(2, 200)).toBe('/solars?take=200&page=3'));
 });
 
 describe('unwrapping', () => {
