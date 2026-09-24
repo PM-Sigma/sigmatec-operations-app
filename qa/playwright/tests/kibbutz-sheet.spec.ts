@@ -4,9 +4,10 @@
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
 
 const openCreate = async (page: any) => {
-  // Desktop has the header "קיבוץ חדש" button; the phone reaches the same sheet through the
-  // ⋯ עוד row that Home registers. `sigmaHome.openSheet()` is the ONE api both go through
-  // (Home.tsx), so driving it directly tests the sheet on both viewports.
+  // Round 5 (S-5): "קיבוץ חדש" moved out of the header into PageBar (#sigma-page-bar), desktop
+  // only; the phone still reaches the same sheet through the ⋯ עוד row that Home registers.
+  // `sigmaHome.openSheet()` is the ONE api both go through (Home.tsx), so driving it directly
+  // tests the sheet on both viewports without depending on which chrome surface owns the door.
   await page.evaluate(() => (window as any).sigmaHome.openSheet());
   await expect(page.getByRole('heading', { name: '➕ קיבוץ חדש' })).toBeVisible();
 };

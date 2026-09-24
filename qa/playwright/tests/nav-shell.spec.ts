@@ -123,29 +123,29 @@ test('shell: a team member gets no ניהול block', async ({ page }, ti) => {
   expectNoConsoleErrors(rec);
 });
 
-test('shell: the user-chip menu and the ⚙️ הגדרות island', async ({ page }, ti) => {
-  const { rec, viewport } = await boot(page, ti);
+test('shell: the ⚙️ gear bubble opens GearSheet (identity/role, settings, feedback, האזור האישי, user switch)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
 
-  // The chip is in the header on the desktop and inside the ⋯ sheet on the phone.
-  if (viewport === 'mobile-390') {
-    await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click();
-  }
-  const chip = page.getByRole('button', { name: /עידן/ }).first();
-  await expect(chip).toBeVisible();
-  await expect(chip).toHaveAttribute('aria-haspopup', 'menu');
+  // Round 5, U1–U2 (designer must-fix "no absolute positioning in the header"): the name chip
+  // is gone from the header cluster — ⚙️ is an icon-only bubble that opens a real Sheet, not a
+  // position:absolute dropdown.
+  const gear = page.locator('#sigma-header-actions').getByRole('button', { name: 'הגדרות' });
+  await expect(gear).toBeVisible();
 
-  await chip.click();
-  const menu = page.getByRole('menu');
-  await expect(menu.getByRole('menuitem', { name: 'הגדרות' })).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: 'האזור האישי' })).toBeVisible();
-  // spec 2026-09-23 ems-session: staff are signed in WITH EMS, so the menu never offers a
+  await gear.click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet).toContainText('עידן');
+  await expect(sheet.getByRole('button', { name: 'הגדרות' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'האזור האישי' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'רעיון או באג' })).toBeVisible();
+  // spec 2026-09-23 ems-session: staff are signed in WITH EMS, so the sheet never offers a
   // connect / disconnect row (not even in mock mode, where there is no EMS token)
-  await expect(menu.getByRole('menuitem', { name: /EMS/ })).toHaveCount(0);
-  await expect(menu.getByRole('menuitem', { name: 'החלפת משתמש' })).toBeVisible();
-  await shot(page, ti, 'user-menu');
+  await expect(sheet.getByRole('button', { name: /EMS/ })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'החלפת משתמש' })).toBeVisible();
+  await shot(page, ti, 'gear-sheet');
 
   // ⚙️ הגדרות — the island, with the four settings Task 4 ships
-  await menu.getByRole('menuitem', { name: 'הגדרות' }).click();
+  await sheet.getByRole('button', { name: 'הגדרות' }).click();
   const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
   await expect(dlg.getByRole('combobox', { name: 'מסך פתיחה' })).toBeVisible();
   await expect(dlg.getByRole('radiogroup', { name: 'תיאור משימות בכרטיס' })).toBeVisible();

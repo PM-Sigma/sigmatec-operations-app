@@ -195,20 +195,26 @@ function AlertsBell() {
   const unseen = groups.filter(g => !g.seen).length;
   return (
     <>
+      {/* Round 5 (designer must-fix "all four header actions identical 44×44 chips, same
+          radius, 8px gaps"): the SAME 48px ghost-circle IconBubble shape as ✅/⚙️, not its own
+          bordered square — badge capped at "9+" (S-1) and anchored to ITS OWN bubble box
+          (the one place absolute is allowed, DS spec §3 rule 2), not the old physical -left. */}
       <button
         type="button"
         data-testid="alerts-bell"
         aria-label={unseen ? `התראות מלאי (${unseen})` : 'התראות מלאי'}
         onClick={() => { track('alerts-open'); setOpen(true); }}
-        className="relative inline-flex min-h-9 min-w-9 items-center justify-center rounded-[10px] border border-border bg-card"
+        className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-secondary active:scale-[.97]"
       >
-        <Bell className="size-[18px] text-foreground" />
+        <Bell className="h-5 w-5" strokeWidth={1.75} />
         {unseen > 0 && (
           <span
             data-testid="alerts-badge"
-            className="absolute -top-1.5 -left-1.5 min-w-[18px] rounded-full bg-[var(--priority)] px-1 text-[11px] font-extrabold leading-[18px] text-white"
+            aria-hidden="true"
+            className="absolute inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#B91C1C] px-1 text-xs font-bold leading-none text-white"
+            style={{ insetBlockStart: -4, insetInlineEnd: -4 }}
           >
-            <bdi>{unseen > 99 ? '99+' : unseen}</bdi>
+            <bdi>{unseen > 9 ? '9+' : unseen}</bdi>
           </span>
         )}
       </button>

@@ -61,9 +61,9 @@ function Badge({ n }: { n: number }) {
 }
 
 function SheetRow({
-  icon: Icon, label, badge = 0, muted = false, onClick,
+  icon: Icon, label, badge = 0, tag, muted = false, onClick,
 }: {
-  icon: LucideIcon; label: string; badge?: number; muted?: boolean; onClick: () => void;
+  icon: LucideIcon; label: string; badge?: number; tag?: string; muted?: boolean; onClick: () => void;
 }) {
   return (
     <button
@@ -77,6 +77,7 @@ function SheetRow({
     >
       <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
       <span>{label}</span>
+      {tag && <span className="ms-auto text-xs">{tag}</span>}
       <Badge n={badge} />
     </button>
   );
@@ -134,8 +135,7 @@ export function MoreSheet({
           <button
             type="button"
             aria-label="עוד"
-            data-testid="desktop-more-trigger"
-            className="relative hidden min-h-[40px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted md:inline-flex"
+            className="relative hidden h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted md:inline-flex"
           >
             <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
             <span>עוד</span>
@@ -164,7 +164,6 @@ export function MoreSheet({
         <SheetHeader className="mb-2 text-start">
           <SheetTitle className="text-base">עוד</SheetTitle>
         </SheetHeader>
-
         <div className="mb-3"><UserChip /></div>
 
         <ul className="flex flex-col gap-0.5">
@@ -179,6 +178,7 @@ export function MoreSheet({
                 icon={MORE_ICONS[item.icon] ?? MoreHorizontal}
                 label={item.label}
                 badge={itemBadge(item)}
+                tag={item.tag}
                 onClick={() => go(item.onSelect)}
               />
             </li>

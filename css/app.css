@@ -1779,6 +1779,13 @@ input, select, textarea {
   background: var(--brand-grad); color: var(--on-brand);
   font-size: 20px; font-weight: 800; line-height: 1;
   box-shadow: 0 4px 12px rgba(6, 194, 203, .35);
+  /* Round 5: brand-mark IS the home button (designer: "one Σ only") — a <button> now, reset
+     to look exactly as the old <span> did, with a 44px real tap target via ::before. */
+  border: 0; padding: 0; cursor: pointer; position: relative; font-family: inherit;
+}
+.brand-mark::before {
+  content: ''; position: absolute; inset-inline-start: 50%; inset-block-start: 50%;
+  transform: translate(-50%, -50%); width: max(100%, 44px); height: max(100%, 44px);
 }
 .brand-name { letter-spacing: -0.2px; display: block; }
 
@@ -1808,16 +1815,20 @@ input, select, textarea {
    would be two ways to do the same thing. Without the island they stay — the page must never
    be left with no way to switch user or reach EMS. */
 body.sigma-header-ready #userBadge,
-body.sigma-header-ready #emsBubble { display: none !important; }
+body.sigma-header-ready #emsBubble,
+body.sigma-header-ready #installBtn { display: none !important; }
 body.sigma-header-ready .header-meta { align-items: center; }
 /* …and they start HIDDEN, because the swap itself was the page's biggest layout shift: the
    island mounting removed a 46 px row of chips and then added its own, moving the whole page
    twice (CLS 0.33 on the Lighthouse gate). The safety net is kept, just inverted — the
    watchdog at the end of index.html adds `sigma-header-fallback` if the island has not mounted,
-   and then the legacy chips come back exactly as before. */
-#userBadge, #emsBubble { display: none; }
+   and then the legacy chips come back exactly as before. Round 5 (designer must-fix: "התקן
+   אפליקציה" is not its own row any more): #installBtn joins the same fallback-only gate — the
+   real path is GearSheet's install row (U2), fed by the same window.appInstall/canInstall. */
+#userBadge, #emsBubble, #installBtn { display: none; }
 body.sigma-header-fallback #userBadge,
-body.sigma-header-fallback #emsBubble { display: inline-flex !important; }
+body.sigma-header-fallback #emsBubble,
+body.sigma-header-fallback #installBtn { display: inline-flex !important; }
 /* the island's own row, reserved BEFORE it paints so its content lands in existing space */
 #sigma-header-actions { min-height: 40px; }
 body.sigma-header-fallback #sigma-header-actions { min-height: 0; }

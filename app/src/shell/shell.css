@@ -1,0 +1,16 @@
+/* Shell chrome heights (round 5, U5, S-8). Fixed chrome PUBLISHES its own height as a token —
+   the numbers mirror the hardcoded ones this replaces (css/app.css `body.sigma-header-ready`
+   84px nav pad, `.header{min-height:56px}`, the raised visit FAB's 46px circle) so nothing
+   visually shifts; later work can read these instead of re-guessing the numbers. */
+:root {
+  --header-h: 56px;
+  --nav-h: calc(84px + env(safe-area-inset-bottom, 0px));
+  --fab-h: 46px;
+}
+
+/* S-13: toast bottom-center, above the nav — moved to CSS (not a JS `offset` prop) so it costs
+   nothing against the boot chunk's byte ceiling. Desktop has no fixed nav, so it only applies
+   under the phone breakpoint. */
+@media (max-width: 767px) {
+  [data-sonner-toaster] { bottom: calc(var(--nav-h) + 12px) !important; }
+}

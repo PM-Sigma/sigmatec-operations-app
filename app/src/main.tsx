@@ -42,8 +42,9 @@ function whenIdle(fn: () => void): void {
   else setTimeout(fn, 200);
 }
 
+// S-13: bottom center, above the nav — not top-center, which sat over the header.
 function SigmaToaster() {
-  return <Toaster richColors position="top-center" dir="rtl" closeButton />;
+  return <Toaster richColors position="bottom-center" dir="rtl" closeButton />;
 }
 
 function boot() {
