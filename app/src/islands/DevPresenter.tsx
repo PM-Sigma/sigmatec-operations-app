@@ -1,19 +1,18 @@
-// ▶ ישיבת פיתוח — #sigma-dev-presenter (company-process spec §7, master spec §7d).
+// ▶ ישיבת פיתוח — #sigma-dev-presenter (company-process spec §7, master spec §7d, D-U2).
 //
 // A SEPARATE island from ▶ מצב ישיבה (Presenter.tsx), not a `mode` prop on it. The two screens
 // share their shell — the timer, the counter, the key map, the session row and the event log —
 // and that shell is already extracted into lib/meetingSession.ts, which is exactly what this
 // file imports. What is NOT shared is everything below the header: the company meeting walks
 // kibbutz ROWS and renders two state strips, a bullet history and a ✏️ sheet that writes to
-// kibbutz_meeting_notes; the dev meeting walks GitHub CARDS across three board columns and
-// writes to the board. Threading a `mode` prop through Presenter.tsx would have branched its
-// data source, its strips, its body, its sheet and its footer — five forks in one 721-line
-// file, for two screens that only agree on their frame. Two islands, one shared pure core.
+// kibbutz_meeting_notes; the dev meeting walks GitHub CARDS grouped by domain → priority
+// (lib/devMeeting.ts, D-L2) and marks them locally (lib/devMarks.ts, D-L3).
 //
-// The board is read through the SAME github Edge Function the 💻 לוח פיתוח page uses, under the
-// one shared react-query key in lib/devBoard.ts — one fetch for the walk and the prep card.
-// The only write is the EXISTING "העבר לספרינט הקרוב" action; nothing here creates a ticket
-// (Git Ticket System: every card is a child under a Main Fields parent).
+// D-U2: the walk is grouped by domain (parent issue) instead of by board column, "חדש השבוע"
+// is its own screen, and the per-card action is a LOCAL mark — sprint / clarify / defer — that
+// never reaches GitHub. The prep card's per-row accept is the SAME local mark ("לספרינט"), not
+// `moveToSprint`: nothing in this file writes to the board any more. The one still-real write
+// (the person actually drags a card to the sprint) happens on 💻 לוח פיתוח, not here.
 //
 // Copy rule (master spec §6): Hebrew on screen, no app mechanics explained, nothing about who
 // else can see what.
@@ -21,18 +20,27 @@ import * as React from 'react';
 import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, MapPin, Pause, Play, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, MapPin, Pause, Play, SlidersHorizontal, X } from 'lucide-react';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
 import { track } from '@/lib/track';
+import { FilterChip } from '@/components/ui/chip';
 import { sigma, useCurrentUser } from '@/bridge';
-import { DEV_BOARD_QUERY_KEY, fetchDevBoard, moveToSprint } from '@/lib/devBoard';
+import { DEV_BOARD_QUERY_KEY, fetchDevBoard } from '@/lib/devBoard';
 import {
   canRunDevMeeting, devPrep, parseTitle, stageOf, STAGE_LABEL,
   type DevCard, type DevComment, type DevPrep,
 } from '@/lib/sprintPrep';
+import {
+  applyDevFilters, groupByDomain, newThisWeek, priorityTier, PRIO_LABEL, type DevFilters, type DomainGroup,
+} from '@/lib/devMeeting';
+import {
+  loadMarks, marksSummary, marksText, pruneOldMarks, setMark, MARK_LABEL,
+  type DevMark, type MarkEntry,
+} from '@/lib/devMarks';
 import { clockText, nextIndex } from '@/lib/meetingSession';
+import { FiltersSheet, activeFilterCount } from '@/islands/dev/FiltersSheet';
 
 export const DEV_PRESENTER_OPEN_EVENT = 'sigma-open-dev-presenter';
 
@@ -82,6 +90,23 @@ function commentsOf(cards: DevCard[]): DevComment[] {
   return (cards || []).flatMap(c => (c.comments || []).map(m => ({ ...m, issue_number: m.issue_number ?? c.number })));
 }
 
+/** The walk, flattened out of `groupByDomain` in order (domain → tier → board order). */
+function flattenWalk(groups: DomainGroup[]): DevCard[] {
+  return groups.flatMap(g => g.tiers.flatMap(t => t.cards));
+}
+
+/** Index of `card.number` inside its domain group, for the ←/→ "jump to next domain" step. */
+function domainStarts(groups: DomainGroup[]): number[] {
+  const starts: number[] = [];
+  let i = 0;
+  for (const g of groups) {
+    const n = g.tiers.reduce((s, t) => s + t.cards.length, 0);
+    if (n > 0) starts.push(i);
+    i += n;
+  }
+  return starts;
+}
+
 // ───────────────────────────── the 📋 prep card ─────────────────────────────
 
 function PrepList({
@@ -106,24 +131,11 @@ function PrepList({
 }
 
 function PrepScreen({
-  prep, cards, onStart,
-}: { prep: DevPrep; cards: DevCard[]; onStart: () => void }) {
-  const [busy, setBusy] = React.useState<number | null>(null);
-  const [done, setDone] = React.useState<number[]>([]);
-
-  async function accept(n: number) {
-    if (busy !== null) return;
-    setBusy(n);
-    try {
-      await moveToSprint([n]);
-      setDone(d => (d.includes(n) ? d : [...d, n]));
-      track('dev-meeting-accept');
-      toast.success('הועבר לספרינט הקרוב');
-    } catch (e) {
-      toast.error((e as Error)?.message || 'לא הצלחתי, נסה שוב');
-    } finally { setBusy(null); }
-  }
-
+  prep, cards, marks, onMark, onStart,
+}: {
+  prep: DevPrep; cards: DevCard[]; marks: Record<number, MarkEntry>;
+  onMark: (number: number, mark: DevMark) => void; onStart: () => void;
+}) {
   return (
     <div data-testid="dev-prep" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -166,29 +178,152 @@ function PrepScreen({
         <h3 className="mb-1.5 text-[13px] font-extrabold text-muted-foreground">הצעה לספרינט הקרוב</h3>
         {prep.sprint.length ? (
           <ul className="flex flex-col gap-2">
-            {prep.sprint.map(e => (
-              <li key={e.issue_number} data-testid={'dev-proposed-' + e.issue_number} className="flex items-center gap-2">
-                <span className="flex-1 text-[15px] text-foreground">
-                  <bdi>#{e.issue_number} · {parseTitle(e.title).desc || e.title}</bdi>
-                  <span className="ms-2 text-[13px] text-muted-foreground"><bdi>{e.parent} · {e.why}</bdi></span>
-                </span>
-                <button
-                  type="button"
-                  data-testid={'dev-accept-' + e.issue_number}
-                  disabled={busy !== null || done.includes(e.issue_number)}
-                  onClick={() => void accept(e.issue_number)}
-                  className="min-h-9 flex-none rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground disabled:opacity-50"
-                >
-                  {done.includes(e.issue_number) ? 'הועבר' : 'העבר לספרינט הקרוב'}
-                </button>
-              </li>
-            ))}
+            {prep.sprint.map(e => {
+              const marked = marks[e.issue_number]?.mark === 'sprint';
+              return (
+                <li key={e.issue_number} data-testid={'dev-proposed-' + e.issue_number} className="flex items-center gap-2">
+                  <span className="flex-1 text-[15px] text-foreground">
+                    <bdi>#{e.issue_number} · {parseTitle(e.title).desc || e.title}</bdi>
+                    <span className="ms-2 text-[13px] text-muted-foreground"><bdi>{e.parent} · {e.why}</bdi></span>
+                  </span>
+                  <button
+                    type="button"
+                    data-testid={'dev-accept-' + e.issue_number}
+                    disabled={marked}
+                    onClick={() => onMark(e.issue_number, 'sprint')}
+                    className="min-h-9 flex-none rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground disabled:opacity-50"
+                  >
+                    {marked ? 'הועבר' : 'העבר לספרינט הקרוב'}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-[15px] text-muted-foreground">אין מועמדים</p>
         )}
         <p className="sr-only">{cards.length} כרטיסים</p>
       </section>
+    </div>
+  );
+}
+
+// ───────────────────────────── חדש השבוע ─────────────────────────────
+
+function NewThisWeekScreen({ cards, onStart }: { cards: DevCard[]; onStart: () => void }) {
+  return (
+    <div data-testid="dev-new-week" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[22px] font-extrabold text-foreground">חדש השבוע</h2>
+        <span className="flex-1" />
+        <button
+          type="button"
+          data-testid="dev-new-week-start"
+          onClick={onStart}
+          className="min-h-11 rounded-xl s-brand px-5 text-[15px] font-extrabold"
+        >
+          המשך לסבב
+        </button>
+      </div>
+      {cards.length ? (
+        <ul className="flex flex-col gap-1.5">
+          {cards.map(c => (
+            <li key={c.number} data-testid={'dev-new-week-' + c.number} className="rounded-2xl border border-border bg-card/70 p-3 text-[15px] text-foreground">
+              <bdi>#{c.number} · {parseTitle(c.title).desc || c.title}</bdi>
+              <div className="mt-1 text-[13px] text-muted-foreground"><bdi>{STAGE_LABEL[stageOf(c)]}</bdi></div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[15px] text-muted-foreground">אין כרטיסים חדשים השבוע</p>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────── the mark bar ─────────────────────────────
+
+const MARKS: DevMark[] = ['sprint', 'clarify', 'defer'];
+
+function MarkBar({ current, note, onMark, onNote }: {
+  current: DevMark | undefined; note: string; onMark: (m: DevMark) => void; onNote: (v: string) => void;
+}) {
+  const [showNote, setShowNote] = React.useState(false);
+  return (
+    <div data-testid="dev-mark-bar" className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-1.5">
+        {MARKS.map(m => (
+          <FilterChip key={m} selected={current === m} onClick={() => onMark(m)}>
+            {MARK_LABEL[m]}
+          </FilterChip>
+        ))}
+        <FilterChip selected={showNote} onClick={() => setShowNote(v => !v)}>הערה</FilterChip>
+      </div>
+      {showNote && (
+        <input
+          type="text"
+          data-testid="dev-mark-note"
+          aria-label="הערה"
+          value={note}
+          onChange={e => onNote(e.target.value)}
+          placeholder="הערה קצרה…"
+          className="min-h-10 w-full rounded-xl border border-border bg-card px-3 text-[14px] outline-none focus:border-[color:var(--brand-1)]"
+        />
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────── summary ─────────────────────────────
+
+function SummaryScreen({ marks, cards, today, onFinish }: {
+  marks: Record<number, MarkEntry>; cards: DevCard[]; today: string; onFinish: () => void;
+}) {
+  const summary = React.useMemo(() => marksSummary(marks, cards), [marks, cards]);
+  const copy = React.useCallback(() => {
+    try { void navigator.clipboard?.writeText(marksText(summary, today)); } catch { /* no clipboard */ }
+    toast.success('הועתק');
+    track('dev-meeting-copy-summary');
+  }, [summary, today]);
+
+  return (
+    <div data-testid="dev-summary" className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[22px] font-extrabold text-foreground">סיכום ישיבה</h2>
+        <span className="flex-1" />
+        <button
+          type="button"
+          data-testid="dev-summary-copy"
+          onClick={copy}
+          className="inline-flex min-h-10 flex-none items-center gap-1.5 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
+        >
+          <Copy size={16} aria-hidden /> העתקה
+        </button>
+        <button
+          type="button"
+          data-testid="dev-summary-finish"
+          onClick={onFinish}
+          className="min-h-11 flex-none rounded-xl s-brand px-5 text-[15px] font-extrabold"
+        >
+          סיום
+        </button>
+      </div>
+      {summary.length ? (
+        summary.map(g => (
+          <section key={g.mark} data-testid={'dev-summary-' + g.mark} className="rounded-2xl border border-border bg-card/70 p-3">
+            <h3 className="mb-1.5 text-[13px] font-extrabold text-muted-foreground">{g.label}</h3>
+            <ul className="flex flex-col gap-1">
+              {g.rows.map(r => (
+                <li key={r.number} className="text-[15px] text-foreground">
+                  <bdi>#{r.number} · {r.title}{r.note ? ' — ' + r.note : ''}</bdi>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      ) : (
+        <p className="text-[15px] text-muted-foreground">לא סומן כלום בישיבה הזו</p>
+      )}
     </div>
   );
 }
@@ -215,8 +350,20 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
     [cards, redKibbutzim],
   );
 
-  const [phase, setPhase] = React.useState<'prep' | 'walk'>('prep');
+  // Local marks — D-L3, never sent to GitHub. Keyed by the meeting DATE, so a reopen the same
+  // day sees the same marks; pruned once per mount so old days don't pile up.
+  const [marks, setMarks] = React.useState<Record<number, MarkEntry>>(() => loadMarks(today));
+  React.useEffect(() => { pruneOldMarks(today); }, [today]);
+  const mark = React.useCallback((number: number, m: DevMark, note?: string) => {
+    setMarks(setMark(today, { number, mark: m, note, at: new Date().toISOString() } as MarkEntry));
+  }, [today]);
+
+  const [phase, setPhase] = React.useState<'prep' | 'new' | 'walk' | 'summary'>('prep');
   const [idx, setIdx] = React.useState(0);
+  const [filters, setFilters] = React.useState<DevFilters>({});
+  const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [note, setNote] = React.useState('');
+
   // F14 ①: the session row, the clock and the event log are ONE hook now, shared with
   // ▶ מצב ישיבה (islands/Presenter) — the two screens ran identical copies of all three.
   const {
@@ -224,36 +371,77 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
   } = useMeetingRun('dev', me, today);
   const logged = React.useRef<string>('');
 
-  const walk = prep.walk;
+  // groupByDomain resolves each card's domain by looking its `parent` number up in the list it
+  // is given — so it needs the FULL board (parents included) to resolve anything, never the
+  // already-filtered rows (which have every Main Fields parent stripped out already, same fix
+  // as DevBoard.tsx 1e7e0906). The filter is applied AFTER grouping: keep only the qualifying
+  // issue numbers inside each tier, then drop tiers/domains left with nothing in them.
+  const filteredCards = React.useMemo(() => applyDevFilters(cards, filters, Date.now()), [cards, filters]);
+  const groups = React.useMemo(() => {
+    const keep = new Set(filteredCards.map(c => c.number));
+    return groupByDomain(cards)
+      .map(g => ({
+        ...g,
+        tiers: g.tiers
+          .map(t => ({ ...t, cards: t.cards.filter(c => keep.has(c.number)) }))
+          .filter(t => t.cards.length > 0),
+      }))
+      .filter(g => g.tiers.length > 0)
+      .map(g => ({ ...g, count: g.tiers.reduce((n, t) => n + t.cards.length, 0) }));
+  }, [cards, filteredCards]);
+  const walk = React.useMemo(() => flattenWalk(groups), [groups]);
+  const starts = React.useMemo(() => domainStarts(groups), [groups]);
+  const newWeek = React.useMemo(() => newThisWeek(cards, Date.now()), [cards]);
+
   const current = walk[Math.min(idx, Math.max(walk.length - 1, 0))] || null;
+  const currentDomain = React.useMemo(() => {
+    let acc = 0;
+    for (const g of groups) {
+      const n = g.tiers.reduce((s, t) => s + t.cards.length, 0);
+      if (n > 0 && idx < acc + n) return g;
+      acc += n;
+    }
+    return null;
+  }, [groups, idx]);
 
   // Every arrival at a card is a segment boundary. Keyed so StrictMode cannot log it twice.
-  // M-L2: the session row is now lazy — log() itself creates it on first use — so this no
-  // longer waits on `session?.id` existing first; gating on it deadlocks (nothing else ever
-  // creates the session on its own). Same fix as Presenter.tsx (c04309d).
   React.useEffect(() => {
     if (phase !== 'walk' || !current) return;
     const key = phase + '|' + idx + '|' + current.number;
     if (logged.current === key) return;
     logged.current = key;
+    setNote(marks[current.number]?.note || '');
     void log('issue', { issue_number: current.number, hint: current.title });
   }, [phase, idx, current?.number]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /**
-   * Into the walk. The board is re-read FIRST, so a card accepted on the prep card is already
-   * in ספרינט הקרוב when the room gets there — the accepted move is not refetched at the
-   * moment it happens, because a list that reshuffles under the cursor mid-meeting is worse
-   * than a list that settles once, on the way in.
-   */
-  const start = React.useCallback(async () => {
+  /** Prep → חדש השבוע. The board is re-read first, so a local mark is already reflected. */
+  const toNewWeek = React.useCallback(async () => {
     try { await board.refetch(); } catch { /* the walk runs on what we already have */ }
-    setPhase('walk');
+    setPhase('new');
     track('dev-meeting-start');
   }, [board]);
+
+  const toWalk = React.useCallback(() => {
+    setIdx(0);
+    setPhase('walk');
+  }, []);
 
   const move = React.useCallback((dir: number) => {
     setIdx(i => nextIndex(i, walk.length, dir));
   }, [walk.length]);
+
+  /** ←/→ jump to the first card of the next/previous domain. */
+  const moveDomain = React.useCallback((dir: number) => {
+    setIdx(i => {
+      if (!starts.length) return i;
+      if (dir > 0) {
+        const next = starts.find(s => s > i);
+        return next !== undefined ? next : i;
+      }
+      const prevCandidates = starts.filter(s => s < i);
+      return prevCandidates.length ? prevCandidates[prevCandidates.length - 1] : starts[0];
+    });
+  }, [starts]);
 
   const marker = React.useCallback(() => {
     if (!current) return;
@@ -261,6 +449,19 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
     track('dev-meeting-marker');
     toast.success('📌 סומן');
   }, [log, current]);
+
+  const setCurrentMark = React.useCallback((m: DevMark) => {
+    if (!current) return;
+    mark(current.number, m, note || undefined);
+    track('dev-meeting-mark:' + m);
+  }, [current, mark, note]);
+
+  const setCurrentNote = React.useCallback((v: string) => {
+    setNote(v);
+    if (current) mark(current.number, marks[current.number]?.mark || 'clarify', v || undefined);
+  }, [current, mark, marks]);
+
+  const toSummary = React.useCallback(() => setPhase('summary'), []);
 
   const finish = React.useCallback(async () => {
     await endSession();
@@ -277,21 +478,29 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
       if (phase !== 'walk') return;
       switch (e.key) {
         // RTL: the board runs right → left, so ← is forward and → is back.
-        case 'ArrowLeft': e.preventDefault(); move(1); break;
-        case 'ArrowRight': e.preventDefault(); move(-1); break;
+        case 'ArrowLeft': e.preventDefault(); moveDomain(1); break;
+        case 'ArrowRight': e.preventDefault(); moveDomain(-1); break;
         case 'j': case 'J': case 'י': e.preventDefault(); move(1); break;
         case 'k': case 'K': case 'ל': e.preventDefault(); move(-1); break;
         case ' ': e.preventDefault(); marker(); break;   // 📌 — the screen does not move
+        case '1': e.preventDefault(); setCurrentMark('sprint'); break;
+        case '2': e.preventDefault(); setCurrentMark('clarify'); break;
+        case '3': e.preventDefault(); setCurrentMark('defer'); break;
         default: break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, move, marker, finish]);
+  }, [phase, move, moveDomain, marker, setCurrentMark, finish]);
 
   const n = walk.length;
   const cardComments = (current?.comments || []);
   const cardQuestions = prep.questions.filter(q => Number(q.issue_number) === Number(current?.number));
+  const assignees = React.useMemo(
+    () => Array.from(new Set(cards.map(c => c.assignee).filter(Boolean))) as string[],
+    [cards],
+  );
+  const fCount = activeFilterCount(filters);
 
   return (
     <div
@@ -321,6 +530,25 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
           </span>
         )}
         <span className="flex-1" />
+        {phase === 'walk' && (
+          <button
+            type="button"
+            data-testid="dev-filters-open"
+            onClick={() => setFiltersOpen(true)}
+            aria-label="סינון"
+            className="relative inline-flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+          >
+            <SlidersHorizontal size={16} aria-hidden />
+            {fCount > 0 && (
+              <span
+                data-testid="dev-filters-badge"
+                className="pointer-events-none absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--sigma-ink)] px-1 text-[10px] font-bold text-[hsl(var(--card))]"
+              >
+                <bdi>{fCount}</bdi>
+              </span>
+            )}
+          </button>
+        )}
         <button
           type="button"
           data-testid="dev-exit"
@@ -340,17 +568,27 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
             <bdi>{(board.error as Error)?.message || 'לא הצלחתי לטעון את הלוח'}</bdi>
           </p>
         ) : phase === 'prep' ? (
-          <PrepScreen prep={prep} cards={cards} onStart={() => void start()} />
+          <PrepScreen prep={prep} cards={cards} marks={marks} onMark={mark} onStart={() => void toNewWeek()} />
+        ) : phase === 'new' ? (
+          <NewThisWeekScreen cards={newWeek} onStart={toWalk} />
+        ) : phase === 'summary' ? (
+          <SummaryScreen marks={marks} cards={cards} today={today} onFinish={() => void finish()} />
         ) : !current ? (
           <p data-testid="dev-empty" className="text-[17px] text-muted-foreground">אין כרטיסים להצגה</p>
         ) : (
           <>
-            <div data-testid="dev-column" className="text-[13px] font-extrabold text-muted-foreground">
-              {STAGE_LABEL[stageOf(current)]}
+            <div data-testid="dev-domain" className="text-[13px] font-extrabold text-muted-foreground">
+              <bdi>{currentDomain?.domain?.title || 'ללא אפיון'}</bdi>
+            </div>
+            <div data-testid="dev-column" className="text-[12px] font-bold text-muted-foreground">
+              {STAGE_LABEL[stageOf(current)]} · {PRIO_LABEL[priorityTier(current)]}
             </div>
             <h1 data-testid="dev-card-title" className="text-[28px] font-extrabold leading-tight text-foreground sm:text-[40px]">
               <bdi>{current.title}</bdi>
             </h1>
+            {current.assignee && (
+              <div data-testid="dev-card-assignee" className="text-[14px] text-muted-foreground"><bdi>{current.assignee}</bdi></div>
+            )}
 
             <section data-testid="dev-card-body" className="rounded-2xl border border-border bg-card/70 p-3">
               <p className="whitespace-pre-wrap text-[17px] leading-snug text-foreground">
@@ -385,6 +623,13 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
                 <p className="text-[15px] text-muted-foreground">אין שאלות פתוחות</p>
               )}
             </section>
+
+            <MarkBar
+              current={marks[current.number]?.mark}
+              note={note}
+              onMark={setCurrentMark}
+              onNote={setCurrentNote}
+            />
           </>
         )}
       </main>
@@ -409,7 +654,18 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
           >
             <MapPin size={16} aria-hidden /> סמן רגע
           </button>
-          <span className="flex-1" />
+          {idx >= n - 1 ? (
+            <button
+              type="button"
+              data-testid="dev-to-summary"
+              onClick={toSummary}
+              className="min-h-11 flex-none rounded-xl s-brand px-4 text-[13px] font-extrabold"
+            >
+              לסיכום
+            </button>
+          ) : (
+            <span className="flex-1" />
+          )}
           <button
             type="button"
             data-testid="dev-next"
@@ -421,6 +677,14 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
           </button>
         </footer>
       )}
+
+      <FiltersSheet
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        assignees={assignees}
+        onApply={f => { setFilters(f); setIdx(0); }}
+      />
     </div>
   );
 }

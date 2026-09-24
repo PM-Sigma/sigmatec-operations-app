@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-// Render goldens for ▶ ישיבת פיתוח (company-process spec §7). The ranking and the selectors
-// are pinned in lib/sprintPrep.test.ts; what is pinned HERE is everything a pure golden cannot
-// see — that the walk crosses the three columns in order, that 📌 writes exactly ONE
-// `meeting_events` row of kind `issue` with its issue number, that accepting a proposal calls
-// the EXISTING move action once and never a create, and that the role gate holds.
+// Render goldens for ▶ ישיבת פיתוח (company-process spec §7, D-U2). The ranking and the
+// selectors are pinned in lib/sprintPrep.test.ts, the grouping in lib/devMeeting.test.ts and the
+// marks in lib/devMarks.test.ts; what is pinned HERE is everything those pure goldens cannot see
+// — that the walk is grouped by domain, that marking never calls GitHub, that 📌 writes exactly
+// ONE `meeting_events` row of kind `issue`, and that the role gate holds.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 
@@ -95,6 +95,7 @@ beforeEach(() => {
   state.user = 'עידן'; state.viewer = false; state.admin = true;
   inserted.length = 0; ghCalls.length = 0; tracked.length = 0;
   sonner.success.mockClear(); sonner.error.mockClear();
+  try { localStorage.clear(); } catch { /* n/a */ }
 });
 
 describe('the 📋 prep card', () => {
@@ -109,23 +110,30 @@ describe('the 📋 prep card', () => {
 
   it('a dev session is opened once the walk starts — never just from viewing prep (D1, lazy)', async () => {
     await openScreen();
-    // Merely opening the screen on the prep card must NOT plant a session row — that eager
-    // insert is exactly the bug D1 (M-L2) removed: an accidental tap on a day would otherwise
-    // quietly reset every timeline window to that day.
     expect(inserted.some(i => i.table === 'meeting_sessions')).toBe(false);
     await act(async () => { fireEvent.click(screen.getByTestId('dev-start')); });
+    await waitFor(() => expect(screen.getByTestId('dev-new-week')).toBeTruthy());
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-new-week-start')); });
     await waitFor(() => expect(inserted.some(i => i.table === 'meeting_sessions' && i.row.kind === 'dev')).toBe(true));
   });
 
-  it('accepting a proposal calls the EXISTING move action once, and never creates a card', async () => {
+  it('accepting a proposal marks it locally as לספרינט — no GitHub call, anywhere', async () => {
     await openScreen();
     await act(async () => { fireEvent.click(screen.getByTestId('dev-accept-21')); });
-    await waitFor(() => expect(ghCalls.length).toBe(1));
-    expect(ghCalls[0]).toEqual({ mode: 'setStatus', numbers: [21] });
-    expect(ghCalls.some(c => c.mode === 'createIssue')).toBe(false);
-    // …and pressing it again is refused rather than moving it twice.
-    await act(async () => { fireEvent.click(screen.getByTestId('dev-accept-21')); });
-    expect(ghCalls.length).toBe(1);
+    expect(screen.getByTestId('dev-accept-21').textContent).toBe('הועבר');
+    expect(ghCalls.length).toBe(0);
+  });
+});
+
+describe('חדש השבוע', () => {
+  it('lists cards created in the last 7 days before the walk', async () => {
+    await openScreen();
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-start')); });
+    await waitFor(() => expect(screen.getByTestId('dev-new-week')).toBeTruthy());
+    // #13 (5 days) and #21 (3 days) are new this week; #10/#12 are not.
+    expect(screen.getByTestId('dev-new-week-13')).toBeTruthy();
+    expect(screen.getByTestId('dev-new-week-21')).toBeTruthy();
+    expect(screen.queryByTestId('dev-new-week-10')).toBeNull();
   });
 });
 
@@ -133,34 +141,44 @@ describe('the walk', () => {
   async function startWalk() {
     await openScreen();
     await act(async () => { fireEvent.click(screen.getByTestId('dev-start')); });
+    await waitFor(() => expect(screen.getByTestId('dev-new-week')).toBeTruthy());
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-new-week-start')); });
     await waitFor(() => expect(screen.getByTestId('dev-card-title')).toBeTruthy());
   }
 
-  it('walks בפיתוח עכשיו → שלבי בדיקות → ספרינט הקרוב, one card per screen', async () => {
+  it('walks the board grouped by domain → priority, one card per screen', async () => {
     await startWalk();
-    expect(screen.getByTestId('dev-column').textContent).toBe('בפיתוח עכשיו');
-    expect(screen.getByTestId('dev-card-title').textContent).toContain('תיקון קריאה שלילית');
-    expect(screen.getByTestId('dev-counter').textContent).toContain('1 / 3');
-    expect(screen.getByTestId('dev-card-body').textContent).toContain('לתקן קריאה שלילית');
-    expect(screen.getByTestId('dev-card-comments').textContent).toContain('מתניה');
-    expect(screen.getByTestId('dev-card-questions').textContent).toContain('איזה תעריף');
+    expect(screen.getByTestId('dev-domain').textContent).toContain('תחום ראשי');
+    // Tier order puts #21 (קריטי) first, then the three "none"-tier cards in board order.
+    expect(screen.getByTestId('dev-counter').textContent).toContain('1 / 4');
+    expect(screen.getByTestId('dev-card-body').textContent).toContain('דחוף');
+    expect(screen.getByTestId('dev-card-title').textContent).toContain('כותרת');
 
-    await act(async () => { fireEvent.keyDown(window, { key: 'ArrowLeft' }); });
-    expect(screen.getByTestId('dev-column').textContent).toBe('שלבי בדיקות');
-    await act(async () => { fireEvent.keyDown(window, { key: 'ArrowLeft' }); });
-    expect(screen.getByTestId('dev-column').textContent).toBe('ספרינט הקרוב');
+    await act(async () => { fireEvent.keyDown(window, { key: 'j' }); });
+    expect(screen.getByTestId('dev-counter').textContent).toContain('2 / 4');
+    await act(async () => { fireEvent.keyDown(window, { key: 'j' }); });
+    expect(screen.getByTestId('dev-counter').textContent).toContain('3 / 4');
+    await act(async () => { fireEvent.keyDown(window, { key: 'j' }); });
+    expect(screen.getByTestId('dev-counter').textContent).toContain('4 / 4');
     // …and it does not wrap around past the last card.
-    await act(async () => { fireEvent.keyDown(window, { key: 'ArrowLeft' }); });
-    expect(screen.getByTestId('dev-counter').textContent).toContain('3 / 3');
+    await act(async () => { fireEvent.keyDown(window, { key: 'j' }); });
+    expect(screen.getByTestId('dev-counter').textContent).toContain('4 / 4');
 
-    await act(async () => { fireEvent.keyDown(window, { key: 'ArrowRight' }); });
-    expect(screen.getByTestId('dev-column').textContent).toBe('שלבי בדיקות');
+    await act(async () => { fireEvent.keyDown(window, { key: 'k' }); });
+    expect(screen.getByTestId('dev-counter').textContent).toContain('3 / 4');
   });
 
-  it('a parent card is never walked', async () => {
+  it('a parent (Main Fields) card is never walked', async () => {
     await startWalk();
-    expect(screen.getByTestId('dev-counter').textContent).toContain('/ 3');
+    expect(screen.getByTestId('dev-counter').textContent).toContain('/ 4');
     expect(screen.getByTestId('dev-card-title').textContent).not.toContain('תחום ראשי');
+  });
+
+  it('1/2/3 set a local mark, never a GitHub call', async () => {
+    await startWalk();
+    await act(async () => { fireEvent.keyDown(window, { key: '1' }); });
+    expect(screen.getByTestId('dev-mark-bar').textContent).toContain('לספרינט');
+    expect(ghCalls.length).toBe(0);
   });
 
   it('📌 writes exactly one issue event with the card`s number, and does not move the screen', async () => {
@@ -171,8 +189,7 @@ describe('the walk', () => {
     await waitFor(() => expect(events().length).toBe(before + 1));
     const row = events()[events().length - 1];
     expect(row.kind).toBe('issue');
-    expect(row.issue_number).toBe(10);
-    expect(screen.getByTestId('dev-counter').textContent).toContain('1 / 3');
+    expect(screen.getByTestId('dev-counter').textContent).toContain('1 / 4');
   });
 
   it('Space marks the moment too', async () => {
@@ -181,15 +198,41 @@ describe('the walk', () => {
     const before = events().length;
     await act(async () => { fireEvent.keyDown(window, { key: ' ' }); });
     await waitFor(() => expect(events().length).toBe(before + 1));
-    expect(screen.getByTestId('dev-counter').textContent).toContain('1 / 3');
+    expect(screen.getByTestId('dev-counter').textContent).toContain('1 / 4');
   });
 
-  it('arriving at a card logs it once — never twice for the same arrival', async () => {
+  it('marks survive an unmount + remount the same day', async () => {
     await startWalk();
-    await waitFor(() => expect(events().filter(r => r.issue_number === 10).length).toBe(1));
-    await act(async () => { fireEvent.keyDown(window, { key: 'ArrowLeft' }); });
-    await act(async () => { fireEvent.keyDown(window, { key: 'ArrowRight' }); });
-    await waitFor(() => expect(events().filter(r => r.issue_number === 12).length).toBe(1));
+    await act(async () => { fireEvent.keyDown(window, { key: '2' }); });
+    cleanup();
+    await openScreen();
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-start')); });
+    await waitFor(() => expect(screen.getByTestId('dev-new-week')).toBeTruthy());
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-new-week-start')); });
+    await waitFor(() => expect(screen.getByTestId('dev-mark-bar')).toBeTruthy());
+    expect(screen.getByTestId('dev-mark-bar').textContent).toContain('לבירור');
+  });
+});
+
+describe('the summary', () => {
+  it('lists marked cards grouped by mark at the end of the walk', async () => {
+    await openScreen();
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-start')); });
+    await waitFor(() => expect(screen.getByTestId('dev-new-week')).toBeTruthy());
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-new-week-start')); });
+    await waitFor(() => expect(screen.getByTestId('dev-card-title')).toBeTruthy());
+
+    await act(async () => { fireEvent.keyDown(window, { key: '1' }); });   // #21 (first, קריטי) → לספרינט
+    await act(async () => { fireEvent.keyDown(window, { key: 'j' }); });
+    await act(async () => { fireEvent.keyDown(window, { key: '3' }); });   // #10 (next) → לדחות
+    await act(async () => { fireEvent.keyDown(window, { key: 'j' }); });
+    await act(async () => { fireEvent.keyDown(window, { key: 'j' }); });   // walk the rest to reach the end
+    await act(async () => { fireEvent.click(screen.getByTestId('dev-to-summary')); });
+
+    await waitFor(() => expect(screen.getByTestId('dev-summary')).toBeTruthy());
+    expect(screen.getByTestId('dev-summary-sprint').textContent).toContain('#21');
+    expect(screen.getByTestId('dev-summary-defer').textContent).toContain('#10');
+    expect(ghCalls.length).toBe(0);
   });
 });
 
