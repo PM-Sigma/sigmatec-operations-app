@@ -61,6 +61,12 @@
   }
 
   // Login-time popup: show the current user their unread messages, once per session.
+  //
+  // round 5, L4: once `StaffMessages.tsx` (U13) is up it sets `window.__sigmaStaffMessagesReady`
+  // and listens for `sigma-staff-unread` — this function then hands it the rows instead of
+  // building the DOM popup itself, and the island decides how to show them and when to call
+  // `staffMarkRead`. Until that chunk lands (or if it fails to), the legacy popup is still the
+  // fallback: a failed lazy import must never leave unread messages unseen.
   async function staffCheckMessages() {
     if (window._msgsChecked || window._msgsChecking) return;
     window._msgsChecking = true;
@@ -71,6 +77,12 @@
     try { msgs = await staffFetchMessages(me, true); } catch (e) { return; }
     if (!msgs || !msgs.length) return;
     window._msgsChecked = true;
+
+    if (window.__sigmaStaffMessagesReady) {
+      try { window.dispatchEvent(new CustomEvent('sigma-staff-unread', { detail: { messages: msgs } })); } catch (e) { /* no DOM */ }
+      return;
+    }
+
     var _ex = document.getElementById('msgPopup'); if (_ex) _ex.remove();
     const ids = msgs.map(m => m.id);
     const ov = document.createElement('div');
@@ -91,6 +103,7 @@
   window.staffSendMessage = staffSendMessage;
   window.staffSendMessageUI = staffSendMessageUI;
   window.staffCheckMessages = staffCheckMessages;
+  window.staffFetchMessages = staffFetchMessages;
   window.staffMarkRead = staffMarkRead;
   // returning sessions (identity already stored): check shortly after the snapshot loads.
   setTimeout(function () { try { staffCheckMessages(); } catch (e) {} }, 2500);
