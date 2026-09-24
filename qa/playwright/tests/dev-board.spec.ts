@@ -5,7 +5,7 @@
 // domains view really groups by parent → priority with "ללא אפיון" last, the filters sheet
 // really narrows the list and can be cleared, the card sheet opens from a row tap, and none of
 // it fires a native `dialog` event (a stray `confirm()`/`alert()` from a legacy code path).
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, shotAtWidth, skipKnownMobile360, test } from './_helpers';
 import type { Page } from '@playwright/test';
 
 test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
@@ -28,20 +28,28 @@ async function openDevBoard(page: Page): Promise<void> {
 test('dev board: domains view groups by parent, opens a card, filters, and clears', async ({ page }, ti) => {
   const dialogs: string[] = [];
   page.on('dialog', d => { dialogs.push(d.message()); void d.dismiss(); });
+  // designer round-2: capture the 360/1440 matrix plus 412 (the phone width the matrix has no
+  // dedicated project for) — reuse the mobile-390 boot rather than add a project just for this.
+  const is390 = (ti.project.metadata as any).viewport === 'mobile-390';
 
   const { rec } = await boot(page, ti, { storage: EMS });
   await openDevBoard(page);
   await expectRtl(page);
 
-  // ── domains view: at least one real domain and "ללא אפיון" hidden behind no card with no parent
+  // ── domains view: a real domain, "ללא אפיון" last (the fixture seeds one card with no parent)
   await expect(page.getByTestId('dev-grouped-list')).toBeVisible();
+  await expect(page.getByTestId('dev-domain-none')).toBeVisible();
   await shot(page, ti, 'domains');
+  if (is390) await shotAtWidth(page, ti, 412, 'domains');
 
   // ── open a card sheet from the domains view
   await page.getByTestId('dev-card-row-21').click();
   await expect(page.getByTestId('dev-card-sheet')).toBeVisible();
   await expect(page.getByTestId('dev-card-sheet')).toContainText('כותרת עמוד');
+  // priority is wrapping FilterChips now (D-U review round 2), gated to the writer roster
+  await expect(page.getByTestId('dev-priority-chips')).toBeVisible();
   await shot(page, ti, 'card-sheet');
+  if (is390) await shotAtWidth(page, ti, 412, 'card-sheet');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('dev-card-sheet')).toBeHidden();
 
@@ -49,6 +57,7 @@ test('dev board: domains view groups by parent, opens a card, filters, and clear
   await page.getByTestId('dev-filters-open').click();
   await expect(page.getByTestId('dev-filters-sheet')).toBeVisible();
   await shot(page, ti, 'filters-sheet');
+  if (is390) await shotAtWidth(page, ti, 412, 'filters-sheet');
   await page.getByRole('button', { name: 'קריטי' }).click();
   await page.getByTestId('dev-filters-apply').click();
   await expect(page.getByTestId('dev-filters-badge')).toHaveText('1');
@@ -64,6 +73,7 @@ test('dev board: domains view groups by parent, opens a card, filters, and clear
 });
 
 test('dev board: שלבים view lists the same cards by stage', async ({ page }, ti) => {
+  const is390 = (ti.project.metadata as any).viewport === 'mobile-390';
   const { rec } = await boot(page, ti, { storage: EMS });
   await openDevBoard(page);
 
@@ -71,6 +81,7 @@ test('dev board: שלבים view lists the same cards by stage', async ({ page }
   await expect(page.getByTestId('dev-stage-list')).toBeVisible();
   await expect(page.getByTestId('dev-card-row-21')).toBeVisible();
   await shot(page, ti, 'stages');
+  if (is390) await shotAtWidth(page, ti, 412, 'stages');
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflowX).toBeLessThanOrEqual(1);

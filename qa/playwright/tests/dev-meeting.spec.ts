@@ -5,7 +5,7 @@
 // חדש השבוע screen and the walk are built from ONE board fetch; the walk is grouped by domain;
 // marking a card (1/2/3, or the mark bar) never fires a GitHub write; 📌 writes a real
 // `meeting_events` row; and the end-of-meeting summary lists what was marked.
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, shotAtWidth, test } from './_helpers';
 
 /** The github function is EMS-gated, so the meeting needs a connected session. */
 const EMS = { ems_token_v1: 'qa-ems-token', ems_token_at_v1: String(Date.now()) };
@@ -50,6 +50,7 @@ async function toWalk(page: any) {
 }
 
 test('dev meeting: prep card → חדש השבוע → the domain walk → 📌 → mark a card locally', async ({ page }, ti) => {
+  const is390 = (ti.project.metadata as any).viewport === 'mobile-390';
   const { rec } = await boot(page, ti, { storage: EMS });
   const gh = watchGithub(page);
   const sent = watchWrites(page);
@@ -77,12 +78,21 @@ test('dev meeting: prep card → חדש השבוע → the domain walk → 📌 
   await page.getByTestId('dev-start').click();
   await expect(page.getByTestId('dev-new-week')).toBeVisible();
   await shot(page, ti, 'new-week');
+  if (is390) await shotAtWidth(page, ti, 412, 'new-week');
   await page.getByTestId('dev-new-week-start').click();
 
   // ── the walk: grouped by domain, one card per screen
   await expect(page.getByTestId('dev-domain')).toBeVisible();
   await expect(page.getByTestId('dev-card-title')).toBeVisible();
   await shot(page, ti, 'walk');
+  if (is390) await shotAtWidth(page, ti, 412, 'walk');
+
+  // ── the stopwatch running (designer round-2: capture the presenter with the timer live)
+  await page.getByTestId('dev-timer-toggle').click();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('dev-timer')).not.toHaveText('00:00');
+  await shot(page, ti, 'timer-running');
+  if (is390) await shotAtWidth(page, ti, 412, 'timer-running');
 
   // ── 📌 writes ONE issue event for the card on screen, and the screen does not move
   const before = sent.filter(s => s.table === 'meeting_events').length;
@@ -100,29 +110,35 @@ test('dev meeting: prep card → חדש השבוע → the domain walk → 📌 
 });
 
 test('dev meeting: walk two domains with the keys and finish at the summary', async ({ page }, ti) => {
+  const is390 = (ti.project.metadata as any).viewport === 'mobile-390';
   const { rec } = await boot(page, ti, { storage: EMS });
   await openDevMeeting(page);
   await toWalk(page);
 
-  // Tier order puts #21 (קריטי) first, then the "none"-tier cards in board order (10, 12, 13, 22).
-  await page.keyboard.press('1');   // #21 → לספרינט
-  await page.keyboard.press('j');   // next card (#10)
+  // Tier order puts #21 (קריטי) first, then the "none"-tier cards in board order
+  // (10, 12, 13, 22, 31) in domain 1, then the real second domain — #40 has no parent
+  // ("ללא אפיון") — 7 cards total.
+  await page.keyboard.press('1');   // #21 (domain 1) → לספרינט
+  await page.keyboard.press('j');   // next card (#10, still domain 1)
   await page.keyboard.press('3');   // #10 → לדחות
-  // ←/→ move by DOMAIN — with a single domain in this fixture, → ("previous domain") jumps back
-  // to this domain's own first card (the coarse control, same idea as a track-back key), which
-  // is exactly why it is exercised here rather than assumed to be a no-op.
+  // ←/→ move by DOMAIN — → jumps FORWARD to the next domain's first card (#40, "ללא אפיון").
   await page.keyboard.press('ArrowLeft');
-  await expect(page.getByTestId('dev-counter')).toContainText('2 / 5');
+  await expect(page.getByTestId('dev-counter')).toContainText('7 / 7');
+  await expect(page.getByTestId('dev-domain')).toContainText('ללא אפיון');
+  // ← from the last (and only other) domain jumps BACK to domain 1's own first card (#21).
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByTestId('dev-counter')).toContainText('1 / 5');
+  await expect(page.getByTestId('dev-counter')).toContainText('1 / 7');
   await page.keyboard.press('j');   // #10
   await page.keyboard.press('j');   // #12
   await page.keyboard.press('j');   // #13
-  await page.keyboard.press('j');   // #22 — the last card, so "לסיכום" appears in the footer
+  await page.keyboard.press('j');   // #22
+  await page.keyboard.press('j');   // #31
+  await page.keyboard.press('j');   // #40 — the last card, so "לסיכום" appears in the footer
 
   await page.getByTestId('dev-to-summary').click();
   await expect(page.getByTestId('dev-summary')).toBeVisible();
   await shot(page, ti, 'summary');
+  if (is390) await shotAtWidth(page, ti, 412, 'summary');
   await expect(page.getByTestId('dev-summary-sprint')).toContainText('#21');
   await expect(page.getByTestId('dev-summary-defer')).toContainText('#10');
 

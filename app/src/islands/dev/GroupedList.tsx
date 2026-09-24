@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { SectionBlock } from '@/components/ui/section-block';
 import { ListRow } from '@/components/ui/list-row';
-import { directParentLabel, PRIO_LABEL, type DomainGroup } from '@/lib/devMeeting';
+import { directParentLabel, domainTitle, PRIO_LABEL, type DomainGroup } from '@/lib/devMeeting';
 import { STAGE_LABEL, stageOf, type DevCard } from '@/lib/sprintPrep';
 
 /** `d.m` — no leading zeros, the format the meeting summary already uses. */
@@ -68,7 +68,7 @@ function TierGroup({ tier, onOpen, ...sel }: { tier: DomainGroup['tiers'][number
 }
 
 export function DomainSection({ group, onOpen, ...sel }: { group: DomainGroup; onOpen: (c: DevCard) => void } & SelectProps) {
-  const title = group.domain?.title ?? 'ללא אפיון';
+  const title = group.domain ? domainTitle(group.domain.title) : 'ללא אפיון';
   return (
     <div data-testid={'dev-domain-' + (group.domain?.number ?? 'none')}>
       <SectionBlock title={<bdi>{title}</bdi>} count={group.count}>

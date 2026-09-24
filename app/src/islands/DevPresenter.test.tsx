@@ -148,7 +148,7 @@ describe('the walk', () => {
 
   it('walks the board grouped by domain → priority, one card per screen', async () => {
     await startWalk();
-    expect(screen.getByTestId('dev-domain').textContent).toContain('תחום ראשי');
+    expect(screen.getByTestId('dev-domain').textContent).toContain('קיבוצים');
     // Tier order puts #21 (קריטי) first, then the three "none"-tier cards in board order.
     expect(screen.getByTestId('dev-counter').textContent).toContain('1 / 4');
     expect(screen.getByTestId('dev-card-body').textContent).toContain('דחוף');

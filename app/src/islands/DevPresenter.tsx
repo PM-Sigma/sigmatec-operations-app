@@ -26,6 +26,7 @@ import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
 import { track } from '@/lib/track';
 import { FilterChip } from '@/components/ui/chip';
+import { BubbleButton } from '@/components/ui/bubble-button';
 import { sigma, useCurrentUser } from '@/bridge';
 import { DEV_BOARD_QUERY_KEY, fetchDevBoard } from '@/lib/devBoard';
 import {
@@ -33,7 +34,7 @@ import {
   type DevCard, type DevComment, type DevPrep,
 } from '@/lib/sprintPrep';
 import {
-  applyDevFilters, groupByDomain, newThisWeek, priorityTier, PRIO_LABEL, type DevFilters, type DomainGroup,
+  applyDevFilters, domainTitle, groupByDomain, newThisWeek, priorityTier, PRIO_LABEL, type DevFilters, type DomainGroup,
 } from '@/lib/devMeeting';
 import {
   loadMarks, marksSummary, marksText, pruneOldMarks, setMark, MARK_LABEL,
@@ -144,14 +145,9 @@ function PrepScreen({
           <bdi>{prep.burndown.done}/{prep.burndown.total} · {prep.burndown.pct}%</bdi>
         </span>
         <span className="flex-1" />
-        <button
-          type="button"
-          data-testid="dev-start"
-          onClick={onStart}
-          className="min-h-11 rounded-xl s-brand px-5 text-[15px] font-extrabold"
-        >
+        <BubbleButton type="button" variant="primary" size="lg" className="w-auto min-h-11 px-5" data-testid="dev-start" onClick={onStart}>
           התחל ישיבה
-        </button>
+        </BubbleButton>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -216,14 +212,9 @@ function NewThisWeekScreen({ cards, onStart }: { cards: DevCard[]; onStart: () =
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-[22px] font-extrabold text-foreground">חדש השבוע</h2>
         <span className="flex-1" />
-        <button
-          type="button"
-          data-testid="dev-new-week-start"
-          onClick={onStart}
-          className="min-h-11 rounded-xl s-brand px-5 text-[15px] font-extrabold"
-        >
+        <BubbleButton type="button" variant="primary" size="lg" className="w-auto min-h-11 px-5" data-testid="dev-new-week-start" onClick={onStart}>
           המשך לסבב
-        </button>
+        </BubbleButton>
       </div>
       {cards.length ? (
         <ul className="flex flex-col gap-1.5">
@@ -299,19 +290,14 @@ function SummaryScreen({ marks, cards, today, onFinish }: {
         >
           <Copy size={16} aria-hidden /> העתקה
         </button>
-        <button
-          type="button"
-          data-testid="dev-summary-finish"
-          onClick={onFinish}
-          className="min-h-11 flex-none rounded-xl s-brand px-5 text-[15px] font-extrabold"
-        >
+        <BubbleButton type="button" variant="primary" size="lg" className="w-auto min-h-11 flex-none px-5" data-testid="dev-summary-finish" onClick={onFinish}>
           סיום
-        </button>
+        </BubbleButton>
       </div>
       {summary.length ? (
         summary.map(g => (
           <section key={g.mark} data-testid={'dev-summary-' + g.mark} className="rounded-2xl border border-border bg-card/70 p-3">
-            <h3 className="mb-1.5 text-[13px] font-extrabold text-muted-foreground">{g.label}</h3>
+            <h3 className="mb-1.5 text-[13px] font-extrabold text-muted-foreground">{g.label} · {g.rows.length}</h3>
             <ul className="flex flex-col gap-1">
               {g.rows.map(r => (
                 <li key={r.number} className="text-[15px] text-foreground">
@@ -578,7 +564,7 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
         ) : (
           <>
             <div data-testid="dev-domain" className="text-[13px] font-extrabold text-muted-foreground">
-              <bdi>{currentDomain?.domain?.title || 'ללא אפיון'}</bdi>
+              <bdi>{currentDomain?.domain ? domainTitle(currentDomain.domain.title) : 'ללא אפיון'}</bdi>
             </div>
             <div data-testid="dev-column" className="text-[12px] font-bold text-muted-foreground">
               {STAGE_LABEL[stageOf(current)]} · {PRIO_LABEL[priorityTier(current)]}
@@ -655,14 +641,9 @@ function DevPresenterOverlay({ onClose }: { onClose: () => void }) {
             <MapPin size={16} aria-hidden /> סמן רגע
           </button>
           {idx >= n - 1 ? (
-            <button
-              type="button"
-              data-testid="dev-to-summary"
-              onClick={toSummary}
-              className="min-h-11 flex-none rounded-xl s-brand px-4 text-[13px] font-extrabold"
-            >
+            <BubbleButton type="button" variant="primary" className="w-auto min-h-11 flex-none px-4" data-testid="dev-to-summary" onClick={toSummary}>
               לסיכום
-            </button>
+            </BubbleButton>
           ) : (
             <span className="flex-1" />
           )}
