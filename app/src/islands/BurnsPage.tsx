@@ -6,7 +6,7 @@
 // nothing at all for anyone `canSeeBurns` refuses (מתניה/אליה, or the flag off).
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Cpu, FileSpreadsheet, Flame, Repeat, Search, Zap } from 'lucide-react';
+import { Check, Cpu, FileSpreadsheet, Flame, Repeat, Search, Zap } from 'lucide-react';
 import { PageActionRow } from '@/components/ui/page-action-row';
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { SectionBlock } from '@/components/ui/section-block';
@@ -228,57 +228,58 @@ function BurnsPageInner() {
                   )}
                   {g.rows.map(r => {
                     const isSel = selected.has(r.meter_id);
+                    const rowTap = () => { if (selectMode) toggleSelected(r.meter_id); else setMeterSheetId(r.meter_id); };
                     return (
+                      // No `onClick` on ListRow itself: canWrite rows need a SECOND real
+                      // control (the 🔥 toggle below) alongside the row's own tap target, and
+                      // ListRow always renders as one <button> once it gets an onClick — a
+                      // second interactive element inside that button is axe's
+                      // nested-interactive violation regardless of whether it is a real
+                      // <button> or a role="button" span (both are "interactive" to axe). The
+                      // row is a plain <div> here; "title" carries its own real <button> so the
+                      // row keeps ONE tap target for opening/selecting, and 🔥 is a true SIBLING
+                      // button, never a descendant of it.
                       <ListRow
                         key={r.meter_id}
                         leading={
                           selectMode
                             ? (
-                              <input
-                                type="checkbox"
-                                checked={isSel}
-                                onChange={() => toggleSelected(r.meter_id)}
-                                aria-label={'בחירת מונה ' + r.serial}
-                                className="h-5 w-5"
-                              />
+                              // Presentational only — the title button (below) already toggles
+                              // selection, so this is not a second control, just its indicator.
+                              <span
+                                aria-hidden="true"
+                                className={'flex h-5 w-5 items-center justify-center rounded-[4px] border ' +
+                                  (isSel ? 's-brand border-transparent' : 'border-border')}
+                              >
+                                {isSel && <Check className="h-3.5 w-3.5" aria-hidden />}
+                              </span>
                             )
                             : isCT(r) ? <Repeat className="h-5 w-5 text-muted-foreground" aria-hidden /> : <Zap className="h-5 w-5 text-muted-foreground" aria-hidden />
                         }
-                        title={<bdi>{r.serial}</bdi>}
+                        title={
+                          <button type="button" onClick={rowTap} className="block w-full text-start">
+                            <bdi>{r.serial}</bdi>
+                          </button>
+                        }
                         meta={[r.address, burnKindLabel(r).replace(/^[^\s]+\s/, ''), burnStateLabel(r).replace(/^[^\s]+\s/, '')].filter(Boolean).join(' · ')}
                         trailing={
                           canWrite && !selectMode
                             ? (
-                              // A <span role="button">, not a nested <button>: the whole ListRow
-                              // is itself a <button> (it opens MeterSheet on tap), and a <button>
-                              // inside a <button> is invalid HTML that some browsers mis-handle.
-                              <span
-                                role="button"
-                                tabIndex={0}
+                              <button
+                                type="button"
                                 aria-label={r.status === 'burned' ? 'ביטול צריבה' : 'סימון כנצרב'}
-                                data-hit-slop
+                                data-hit-slop="true"
                                 className="s-hit flex h-8 w-8 items-center justify-center rounded-full border border-border"
-                                onClick={ev => {
-                                  ev.stopPropagation();
-                                  if (r.status === 'burned') void doUnburn([r]);
-                                  else void markBurned([r.meter_id], user).catch((e: any) => toast.error(e?.message || 'השמירה נכשלה'));
-                                }}
-                                onKeyDown={ev => {
-                                  if (ev.key !== 'Enter' && ev.key !== ' ') return;
-                                  ev.preventDefault(); ev.stopPropagation();
+                                onClick={() => {
                                   if (r.status === 'burned') void doUnburn([r]);
                                   else void markBurned([r.meter_id], user).catch((e: any) => toast.error(e?.message || 'השמירה נכשלה'));
                                 }}
                               >
                                 <Flame className={'h-4 w-4 ' + (r.status === 'burned' ? 'text-[var(--ok-ink)]' : 'text-muted-foreground')} aria-hidden />
-                              </span>
+                              </button>
                             )
                             : undefined
                         }
-                        onClick={() => {
-                          if (selectMode) { toggleSelected(r.meter_id); return; }
-                          setMeterSheetId(r.meter_id);
-                        }}
                       />
                     );
                   })}

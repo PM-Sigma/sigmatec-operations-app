@@ -68,6 +68,7 @@ const SCREENS: Screen[] = [
   { label: 'inventory', open: p => openPage(p, 'inventory', 'inventory-view') },
   { label: 'attendance', who: 'אביאם', open: p => openPage(p, 'attendance', 'attendance-view') },
   { label: 'burns', open: p => openPage(p, 'burns', 'burns-view') },
+  { label: 'pushlog', open: p => openPage(p, 'pushlog', 'pushlog-view') },
   {
     label: 'more-sheet', onlyViewport: 'mobile',
     open: async p => openMoreSheet(p),

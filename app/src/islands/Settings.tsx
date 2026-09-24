@@ -287,11 +287,17 @@ function OnboardingTemplateRow({ user }: { user: string }) {
                   <input
                     value={s.label}
                     onChange={e => setLabel(i, e.target.value)}
-                    className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-[13px]"
+                    aria-label={'תווית שלב ' + (i + 1)}
+                    className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-2 text-[13px]"
+                    style={{ minHeight: 48 }}
                   />
                   <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
                     ממתין למייל
-                    <Switch checked={!!s.waits} onCheckedChange={v => setWaits(i, v)} aria-label={'ממתין למייל: ' + s.label} />
+                    {/* The DS Switch is a fixed 24×44 visual — under the 48×48 tap-target floor
+                        wherever it renders alone rather than inside a full-height ListRow.
+                        data-hit-slop is the documented escape hatch (_overlap.ts) for exactly
+                        this: a visual under the floor, with slop making up the difference. */}
+                    <Switch checked={!!s.waits} onCheckedChange={v => setWaits(i, v)} aria-label={'ממתין למייל: ' + s.label} data-hit-slop="true" />
                   </span>
                   {/* Reorder — a BubbleButton pair, not the legacy ▲▼ text steppers the DS
                       review flagged (G-R7): same up/down move, a real icon button each. */}
