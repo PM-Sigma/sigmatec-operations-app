@@ -101,8 +101,19 @@ check('no physical-direction property in css/critical.css', () => {
 });
 
 // ── 2. every island source ────────────────────────────────────────────────────
+// app/src/lib/certDoc.ts (package I, task L5) is the one deliberate exception: certDocHtml /
+// certRangeReportHtml build a STANDALONE printed document (an A4 page, `document.write`/iframe
+// srcdoc'd into its OWN <html dir="rtl">) that is never part of the app's own DOM and never
+// inherits or affects its bidi rendering — it is a byte-identical port of js/src/20-delivery-
+// cert.js's certDocHtml, which lives entirely OUTSIDE app/src and was therefore never subject to
+// this rule either. A printed cert's watermark/signature-line/circle positions are fixed points
+// on paper, not reading-order-relative UI, and marking each of the ~15 physical declarations
+// individually (this check's normal escape hatch) would mean inserting a CSS comment mid-template
+// on every one — bytes the customer's already-signed document does not have today. Annotating
+// the FILE here, once, keeps that document unchanged and keeps the reason visible in review.
+const RTL_EXEMPT_FILES = ['app/src/lib/certDoc.ts'];
 check('no physical-direction property anywhere in app/src', () => {
-  const bad = walk('app/src').flatMap(f => offenders(f, read(f)));
+  const bad = walk('app/src').filter(f => !RTL_EXEMPT_FILES.includes(f)).flatMap(f => offenders(f, read(f)));
   assert.deepEqual(bad, [], 'physical directions:\n    ' + bad.join('\n    '));
 });
 

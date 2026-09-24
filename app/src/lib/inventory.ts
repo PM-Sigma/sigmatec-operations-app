@@ -15,8 +15,11 @@
 // in their own vanilla code; test-inventory-pool.mjs evaluates THOSE against the same goldens,
 // so the two halves cannot drift apart silently.
 //
-// Split out for size only (task L4) — this is still the ONE import path (`export *`):
+// Split out for size only (tasks L4/L5) — this is still the ONE import path (`export *`):
 export * from './orderParse';
+export * from './certDoc';
+export * from './certSend';
+export { productLabel, reportWiringOk, reportPreview, canEditDisplayName } from './productLabel';
 
 /** The one internal stock location. Everything the company holds is here. */
 export const POOL = 'חברה';
