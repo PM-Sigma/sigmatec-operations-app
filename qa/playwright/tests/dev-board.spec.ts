@@ -48,6 +48,7 @@ test('dev board: domains view groups by parent, opens a card, filters, and clear
   // ── filter by קריטי (card #21's priority in the fixture) and clear it
   await page.getByTestId('dev-filters-open').click();
   await expect(page.getByTestId('dev-filters-sheet')).toBeVisible();
+  await shot(page, ti, 'filters-sheet');
   await page.getByRole('button', { name: 'קריטי' }).click();
   await page.getByTestId('dev-filters-apply').click();
   await expect(page.getByTestId('dev-filters-badge')).toHaveText('1');
@@ -69,6 +70,7 @@ test('dev board: שלבים view lists the same cards by stage', async ({ page }
   await page.getByRole('radio', { name: 'שלבים' }).click();
   await expect(page.getByTestId('dev-stage-list')).toBeVisible();
   await expect(page.getByTestId('dev-card-row-21')).toBeVisible();
+  await shot(page, ti, 'stages');
 
   const overflowX = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflowX).toBeLessThanOrEqual(1);

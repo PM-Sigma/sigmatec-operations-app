@@ -104,17 +104,27 @@ test('dev meeting: walk two domains with the keys and finish at the summary', as
   await openDevMeeting(page);
   await toWalk(page);
 
-  await page.keyboard.press('1');   // mark the current card לספרינט
-  await page.keyboard.press('j');   // next card
-  await page.keyboard.press('3');   // mark it לדחות
-  await page.keyboard.press('ArrowLeft');  // jump to the next domain (a no-op with one domain in the fixture)
+  // Tier order puts #21 (קריטי) first, then the "none"-tier cards in board order (10, 12, 13, 22).
+  await page.keyboard.press('1');   // #21 → לספרינט
+  await page.keyboard.press('j');   // next card (#10)
+  await page.keyboard.press('3');   // #10 → לדחות
+  // ←/→ move by DOMAIN — with a single domain in this fixture, → ("previous domain") jumps back
+  // to this domain's own first card (the coarse control, same idea as a track-back key), which
+  // is exactly why it is exercised here rather than assumed to be a no-op.
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByTestId('dev-counter')).toContainText('2 / 5');
   await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('dev-counter')).toContainText('1 / 5');
+  await page.keyboard.press('j');   // #10
+  await page.keyboard.press('j');   // #12
+  await page.keyboard.press('j');   // #13
+  await page.keyboard.press('j');   // #22 — the last card, so "לסיכום" appears in the footer
 
   await page.getByTestId('dev-to-summary').click();
   await expect(page.getByTestId('dev-summary')).toBeVisible();
   await shot(page, ti, 'summary');
   await expect(page.getByTestId('dev-summary-sprint')).toContainText('#21');
-  await expect(page.getByTestId('dev-summary-defer')).toContainText('#12');
+  await expect(page.getByTestId('dev-summary-defer')).toContainText('#10');
 
   await page.getByTestId('dev-summary-finish').click();
   await expect(page.getByTestId('dev-presenter')).toBeHidden();
