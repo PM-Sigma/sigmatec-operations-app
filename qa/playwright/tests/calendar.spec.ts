@@ -499,6 +499,11 @@ test('calendar: רשימה for a field user is HIS work — no "כולל של א
 });
 
 test('calendar: a day he never reported is RED on the grid, with a legend (F-4 · G)', async ({ page }, ti) => {
+  // Pin the clock to a WEEKDAY (Tuesday): the test's own "expected" computation excludes
+  // today/Fri/Sat, so if the real today ever landed on Friday/Saturday the default
+  // חודש עבודה view hides that cell entirely and `.ucal-cell[data-date=today]` is never
+  // found — a test bug, not a product bug (a real 2026-09-25 run caught this).
+  await page.clock.install({ time: new Date(2026, 8, 22, 9, 0, 0) });
   // אביאם, because the sandbox gives him a month with days in it — the office/wfh fixture
   // rows plus whatever his visits add. The gaps are whatever is left.
   const { rec } = await boot(page, ti, { who: 'אביאם' });
