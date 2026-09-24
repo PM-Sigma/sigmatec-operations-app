@@ -30,6 +30,7 @@ export function SectionBlock({
   action,
   collapsible,
   defaultOpen = true,
+  flush,
   children,
   className,
 }: {
@@ -40,6 +41,15 @@ export function SectionBlock({
   action?: { label: string; onClick: () => void };
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /**
+   * The body gets NO horizontal padding at all — for content (a grid, a single wide control)
+   * that needs every spare pixel of the card's real width, not the usual `-mx-4`-cancelled
+   * full-bleed-INSIDE-a-padded-card trick every other body uses (designer confirm round, N2:
+   * DayCell's demo used to bleed PAST the card into the page's own gutter to make up the
+   * difference, clipping day 7 at the card edge — this gives it that width honestly instead,
+   * by removing the card's own padding rather than escaping it). The title keeps its 16px.
+   */
+  flush?: boolean;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -47,12 +57,13 @@ export function SectionBlock({
   return (
     <section
       className={cn(
-        'w-full rounded-[var(--r-lg)] bg-card p-4',
+        'w-full rounded-[var(--r-lg)] bg-card py-4',
+        flush ? 'px-0' : 'px-4',
         className,
       )}
       style={{ boxShadow: 'var(--e1)', containerType: 'inline-size' }}
     >
-      <header className="mb-2 flex items-center gap-2">
+      <header className={cn('mb-2 flex items-center gap-2', flush && 'px-4')}>
         {collapsible ? (
           <button
             type="button"
@@ -110,7 +121,7 @@ export function SectionBlock({
         }}
       >
         <div className="overflow-hidden">
-          <div className="-mx-4 divide-y divide-border">{children}</div>
+          {flush ? children : <div className="-mx-4 divide-y divide-border">{children}</div>}
         </div>
       </div>
     </section>

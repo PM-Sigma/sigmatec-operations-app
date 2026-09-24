@@ -84,15 +84,17 @@ export function DayCell({
         className,
       )}
     >
-      <span className={cn('text-sm font-semibold tabular-nums', missing && !selected && 'text-[var(--danger-ink)]')}>
-        <bdi>{day}</bdi>
+      {/* The dot sits INLINE right after the number, in the same flex row — not absolute at the
+          cell's own top-inline-end corner (designer confirm round, N2). At a 2px grid gap that
+          corner sits close enough to the NEXT cell's top-start number that the dot read as
+          belonging to the next day, not this one. */}
+      <span className="flex items-center gap-1">
+        <span className={cn('text-sm font-semibold tabular-nums', missing && !selected && 'text-[var(--danger-ink)]')}>
+          <bdi>{day}</bdi>
+        </span>
+        {eve && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--holiday-ink)]" />}
+        {missing && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--danger-ink)]" />}
       </span>
-      {eve && (
-        <span aria-hidden className="absolute h-1.5 w-1.5 rounded-full bg-[var(--holiday-ink)]" style={{ insetBlockStart: 4, insetInlineEnd: 4 }} />
-      )}
-      {missing && (
-        <span aria-hidden className="absolute h-1.5 w-1.5 rounded-full bg-[var(--danger-ink)]" style={{ insetBlockStart: 4, insetInlineEnd: 4 }} />
-      )}
       {!!eventCount && (
         <span className="mt-auto self-end text-[length:var(--fs-caption)] tabular-nums text-muted-foreground">
           •<bdi>{eventCount}</bdi>

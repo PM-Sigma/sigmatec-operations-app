@@ -26,6 +26,24 @@ export function SegmentedControl<T extends string>({
   const refs = React.useRef<Array<HTMLButtonElement | null>>([]);
   const selectedIndex = Math.max(0, options.findIndex(o => o.value === value));
 
+  // The thumb's box is measured from the selected button's real, rendered `offsetLeft`/
+  // `offsetWidth` (designer confirm round, N3) — not a `calc()` formula guessing the padding and
+  // gap math, which drifted 2px per step because it never accounted for the 2px gap between
+  // segments. `offsetLeft` is a PHYSICAL pixel value regardless of `dir` (browsers report it in
+  // LTR terms even inside an RTL container), so positioning the thumb with a physical `left`
+  // needs no RTL sign-flip either.
+  const [thumbBox, setThumbBox] = React.useState<{ left: number; width: number } | null>(null);
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const btn = refs.current[selectedIndex];
+      if (btn) setThumbBox({ left: btn.offsetLeft, width: btn.offsetWidth });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIndex, options.length]);
+
   const move = (from: number, delta: number) => {
     const next = (from + delta + options.length) % options.length;
     onChange(options[next].value);
@@ -43,19 +61,23 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       role="radiogroup"
-      className={cn('relative inline-flex h-10 items-center gap-0.5 rounded-[var(--r-md)] bg-secondary p-0.5', className)}
+      // `flex w-full`, not `inline-flex` (designer confirm round, N3): shrink-to-fit sized the
+      // whole control to its OWN content, so "רשימה" (the longest label) truncated even in a
+      // section with plenty of spare width — the container itself never used that width. `w-full`
+      // fills the section, then `flex-1` on each segment (already there) distributes it evenly.
+      className={cn('relative flex h-10 w-full items-center gap-0.5 rounded-[var(--r-md)] bg-secondary p-0.5', className)}
     >
-      {/* The sliding thumb — one element, translateX at `base`/`ease-standard` (spec §2.2.6),
-          not a per-button background swap. Equal-width segments (flex-1 below) make the math
-          exact: width 1/N, offset index/N. Negative sign because this is always RTL: increasing
-          index moves visually LEFT, not right. */}
+      {/* The sliding thumb — one element, `left`/`width` at `base`/`ease-standard` (spec
+          §2.2.6), measured from the selected button's real offsetLeft/offsetWidth rather than a
+          calc() formula (N3: the old `translateX(i * -100%)` ignored the 2px gaps between
+          segments and drifted 2px further off with every step). `offsetLeft` is a PHYSICAL
+          value regardless of `dir`, so a physical `left` needs no RTL sign-flip either. */}
       <span
         aria-hidden
-        className="absolute inset-y-0.5 rounded-[calc(var(--r-md)-2px)] bg-card transition-transform"
+        className="absolute inset-y-0.5 rounded-[calc(var(--r-md)-2px)] bg-card transition-[left,width]"
         style={{
-          insetInlineStart: '2px',
-          width: `calc((100% - 4px) / ${options.length})`,
-          transform: `translateX(calc(${selectedIndex} * -100%))`,
+          left: thumbBox ? `${thumbBox.left}px` : '2px',
+          width: thumbBox ? `${thumbBox.width}px` : `calc((100% - 4px) / ${options.length})`,
           transitionDuration: 'var(--s-motion-base)',
           transitionTimingFunction: 'var(--s-ease-standard)',
           boxShadow: 'var(--e1)',

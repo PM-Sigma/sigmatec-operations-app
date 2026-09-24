@@ -31,6 +31,13 @@
   --sigma-warn-ink: #8a5a00;
   /* = --s-ink (the design-system "ink" role: accent text, icons, focus). */
   --sigma-ink: var(--s-ink);
+  /* N1 (designer confirm round): a Tailwind opacity MODIFIER (`/10`) can't apply to a bare
+     `var()` in Tailwind v3 — `bg-[var(--sigma-ink)]/10` compiles to nothing, so BubbleButton's
+     `tonal` variant and EmptyState's CTA rendered with no fill at all (gallery__* showed plain
+     teal text). Pre-mix the tint IN CSS instead, so the class list only ever needs a plain
+     arbitrary-value background with no modifier attached to it. */
+  --ink-tint: color-mix(in srgb, var(--sigma-ink) 10%, transparent);
+  --ink-tint-hover: color-mix(in srgb, var(--sigma-ink) 15%, transparent);
 
   /* ===== Design system roles (round 5 phase 2) — ALIASES onto tokens.css's --s- names.
      docs/superpowers/specs/2026-09-23-design-system-design.md §2 + the delivered
@@ -190,6 +197,19 @@
      at full speed and duration. */
   .sigma-root, [data-sigma-portal] { --s-shift-sm: 0px; --s-shift-md: 0px; --s-stagger: 0ms; }
   .sigma-root .sigma-skel, [data-sigma-portal] .sigma-skel { animation: none; }
+  /* Sheet/Dialog's slide-in/slide-out utilities (tailwindcss-animate, sheet.tsx/dialog.tsx) are
+     NOT tied to the shift tokens at all — they are a separate mechanism (Tailwind's own enter
+     and exit translate variables, read by the shared enter/exit keyframes), so zeroing the
+     shift tokens above never touched them: the sheet kept sliding under reduced motion (designer
+     confirm round, item 12 — section 2.4 says a sheet appears by OPACITY only). The "important"
+     flag below is needed because a Tailwind utility with this project's sigma-root specificity
+     strategy would otherwise outrank a plain sigma-root override. */
+  .sigma-root, [data-sigma-portal] {
+    --tw-enter-translate-x: 0px !important;
+    --tw-enter-translate-y: 0px !important;
+    --tw-exit-translate-x: 0px !important;
+    --tw-exit-translate-y: 0px !important;
+  }
 }
 
 /* A newly created / edited card gets a brief brand-gradient hairline (spec §6: "new/edited
@@ -826,7 +846,10 @@
   container-type: inline-size;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 3px;
+  /* 2px, not 3px (designer confirm round, N2/N3): every extra pixel of gap is a pixel the 44px
+     floor doesn't have at 360 — six gaps cost 6px more at 3px than at 2px, exactly the margin
+     between clearing and missing the floor. */
+  gap: 2px;
 }
 
 /* Sheet/Dialog enter/exit animation timing (sign-off P1-6) — plain CSS instead of Tailwind
@@ -855,5 +878,10 @@
   opacity: 0.7;
 }
 [data-sigma-portal] .s-close-btn:hover { background: hsl(var(--secondary)); opacity: 1; }
-[data-sigma-portal] .s-close-btn:focus { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+/* :focus-visible, not :focus (designer confirm round, item 5): Radix programmatically focuses
+   the close button on every sheet/dialog open (its default open-focus target), so a plain
+   :focus rule drew the ring on every single open, tap or keyboard, with no way to tell them
+   apart — visible in settings__360__* as a teal ring nobody asked for. :focus-visible keeps the
+   ring for real keyboard focus and skips it for the programmatic one. */
+[data-sigma-portal] .s-close-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
 [data-sigma-portal] .s-close-btn:disabled { pointer-events: none; }

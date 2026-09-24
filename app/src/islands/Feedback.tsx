@@ -605,8 +605,13 @@ function FeedbackSheet() {
             onClick={micTap}
             disabled={busy}
             aria-label={voiceActive ? 'עצור הקלטה' : 'הקלט'}
-            className={'flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg text-[14px] font-bold text-white disabled:opacity-50 '
-              + (voiceActive ? 'bg-destructive' : 'bg-brand-grad')}
+            // The base string can't carry a flat `text-white` (designer confirm round, item 1):
+            // built via string concat rather than one static className, the original brand-grad
+            // codemod (round 2) never matched this dynamic pattern. destructive's own foreground
+            // is white-safe; the brand fill needs --s-on-brand, same as everywhere else — s-brand
+            // carries both the fill and that ink together.
+            className={'flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg text-[14px] font-bold disabled:opacity-50 '
+              + (voiceActive ? 'bg-destructive text-destructive-foreground' : 's-brand')}
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               : voiceActive ? <Square className="h-4 w-4" aria-hidden /> : <Mic className="h-4 w-4" aria-hidden />}

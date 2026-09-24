@@ -28,7 +28,10 @@ const SIZE_CLS = {
 
 const VARIANT_CLS = {
   primary: 's-brand shadow-none hover:brightness-105 hover:text-[var(--s-on-brand)]',
-  tonal: 'bg-[var(--sigma-ink)]/10 text-[var(--sigma-ink)] hover:bg-[var(--sigma-ink)]/15 hover:text-[var(--sigma-ink)]',
+  // bg-[var(--ink-tint)], not bg-[var(--sigma-ink)]/10 (designer confirm round, N1): Tailwind v3
+  // can't apply an opacity MODIFIER to a bare var() — that class compiled to nothing, so tonal
+  // rendered with no fill at all. --ink-tint/--ink-tint-hover (styles.css) pre-mix the tint.
+  tonal: 'bg-[var(--ink-tint)] text-[var(--sigma-ink)] hover:bg-[var(--ink-tint-hover)] hover:text-[var(--sigma-ink)]',
   neutral: 'bg-secondary text-foreground hover:bg-secondary/80 hover:text-foreground',
   danger: 'bg-[var(--danger-fill)] text-[var(--danger-ink)] hover:brightness-95 hover:text-[var(--danger-ink)]',
   icon: 'bg-secondary text-foreground rounded-full aspect-square px-0 hover:bg-secondary/80 hover:text-foreground',

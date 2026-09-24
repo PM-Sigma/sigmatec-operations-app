@@ -504,7 +504,12 @@ function Briefing({
           data-testid="brief-visit"
           // The brand gradient token, not a near-miss of it (audit B · F-15).
           background="var(--brand-grad)"
-          className="pointer-events-auto min-h-[58px] flex-1 rounded-xl text-[16px] font-extrabold text-white shadow-[0_10px_24px_color-mix(in_srgb,var(--brand-1)_45%,transparent)]"
+          // text-[var(--s-on-brand)], not text-white (designer confirm round, item 1): white on
+          // the brand fill measured 2.4:1 — the same white-on-gradient bug the s-brand utility
+          // exists to prevent everywhere else. ShimmerButton sets `background` via inline style
+          // (not the Tailwind bg- utility s-brand packages), so it can't use that class directly
+          // and needs the ink half of the pairing spelled out here instead.
+          className="pointer-events-auto min-h-[58px] flex-1 rounded-xl text-[16px] font-extrabold text-[var(--s-on-brand)] shadow-[0_10px_24px_color-mix(in_srgb,var(--brand-1)_45%,transparent)]"
         >
           <MapPin className="h-[22px] w-[22px]" /> סיכום ביקור
         </ShimmerButton>
@@ -1801,7 +1806,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                 data-testid="vc-send"
                 disabled={sending}
                 background="var(--brand-grad)"
-                className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50"
+                // text-[var(--s-on-brand)], not text-white — see the "סיכום ביקור" CTA above.
+                className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-[var(--s-on-brand)] disabled:opacity-50"
               >
                 <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
               </ShimmerButton>

@@ -44,7 +44,10 @@ function MyTasksButton({ me }: { me: string }) {
       {count > 0 ? (
         <span
           data-testid="header-my-tasks-badge"
-          className="absolute -top-1 min-w-[18px] rounded-full bg-[color:var(--brand-2)] px-1 text-center text-[10px] font-bold leading-[18px] text-white"
+          // text-[var(--s-on-brand)], not text-white (designer confirm round, item 1): white on
+          // --brand-2 measured 2.4:1. --s-on-brand is verified (test-design-tokens.mjs) to clear
+          // 4.5:1 on both brand-1 and brand-2.
+          className="absolute -top-1 min-w-[18px] rounded-full bg-[color:var(--brand-2)] px-1 text-center text-[10px] font-bold leading-[18px] text-[var(--s-on-brand)]"
           style={{ insetInlineStart: '-4px' }}
         >
           <bdi>{count}</bdi>

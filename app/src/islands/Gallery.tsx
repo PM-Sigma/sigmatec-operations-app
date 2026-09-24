@@ -125,17 +125,13 @@ function Gallery() {
         </div>
       </SectionBlock>
 
-      <SectionBlock title="DayCell">
-        {/* No horizontal px-4 here (unlike the other demos): SectionBlock's body already gives
-            children the section's full width, and DayCell needs every spare pixel to clear its
-            44px floor at 360 — the double gutter (an outer px-4 stacked on the section's own
-            padding) was exactly what pushed real cells down to ~37px (Opus audit round 4).
-            `-mx-[var(--page-gutter)]` bleeds past the page's OWN outer gutter too: a real month
-            grid is a full-bleed block on its own page, not nested inside a card's padding — the
-            364px this gallery card sits in was never the budget the 44px-floor comment (day-
-            cell.tsx: "seven columns only fit 45px cells at 360") was written against, only the
-            single page-gutter was. Without this the cells land at ~41px — still under. */}
-        <div className="-mx-[var(--page-gutter)] py-2">
+      {/* `flush` (designer confirm round, N2): the previous fix bled the grid PAST the card into
+          the page's own gutter with a negative margin, which is why day 7 was clipped at the
+          card edge in gallery__* — a section can't escape its own overflow that way. `flush`
+          removes the card's OWN horizontal padding instead, honestly, so the grid gets real
+          width from inside its card rather than by bleeding past it. */}
+      <SectionBlock title="DayCell" flush>
+        <div className="py-2">
           <div className="s-day-grid">
             <DayCell day={1} label="יום א׳, 1 בספטמבר" />
             <DayCell day={2} label="יום ב׳, 2 בספטמבר · היום" today />

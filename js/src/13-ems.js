@@ -418,10 +418,14 @@
         '<span class="ems-badge priority-' + t.priority + '">' + (EMS_PRIORITY[t.priority] || t.priority) + '</span>' +
       '</div>' +
       '<div style="font-size:13px;color:#475569;line-height:1.9;">🏢 אתר: ' + emsEsc(site) + '<br>📅 יעד: ' + due + '</div>' +
-      // Sign-off P1-13: this used to be a hardcoded cream/orange inline style that never
-      // re-themed in dark mode (#9a3412 on the dark card measured 2.4:1) — the shared warn
-      // role tokens (css/app.css :root, aliased onto tokens.css) flip with the theme instead.
-      '<div style="margin-top:12px;padding:10px;background:var(--warn-fill);border:1px solid var(--warn-ink);border-radius:8px;font-size:12px;color:var(--warn-ink);">תצוגה מהמטמון המקומי. התגובות והעדכונים ייטענו כשהחיבור יחזור.</div>';
+      // Sign-off P1-13, fixed for real in the designer confirm round: this used to be a
+      // hardcoded cream/orange inline style that never re-themed in dark mode (#9a3412 on the
+      // dark card measured 2.4:1). The FIRST fix pointed at var(--warn-fill)/var(--warn-ink) —
+      // aliases that only exist inside .sigma-root/[data-sigma-portal] (styles.css) — but this
+      // modal is legacy DOM, rendered outside both, so the box got no fill and no ink at all.
+      // --s-warn-fill/--s-warn-ink (tokens.css) are the real source, declared on the UNSCOPED
+      // :root, so they resolve here exactly the same as everywhere else.
+      '<div style="margin-top:12px;padding:10px;background:var(--s-warn-fill);border:1px solid var(--s-warn-ink);border-radius:8px;font-size:12px;color:var(--s-warn-ink);">תצוגה מהמטמון המקומי. התגובות והעדכונים ייטענו כשהחיבור יחזור.</div>';
     modal.classList.add('open');
   }
 

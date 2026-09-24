@@ -240,7 +240,45 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
+// ── no white text on the brand gradient, anywhere (designer confirm round, item 1 gate) ──────
+// The brand fill's ink is --s-on-brand (a dark teal, spec §2 audit "white measured 2.2–2.4:1"),
+// never white — but the round-2 codemod that fixed the first ~50 sites only matched ONE static
+// className string containing both `bg-brand-grad` and `text-white`; it missed a `background=`
+// PROP (ShimmerButton) and a className built by STRING CONCATENATION across a ternary
+// (Feedback.tsx's mic button), both confirm-round finds. This scans whole JSX opening tags
+// (everything between `<Name` and the next `>`, so a multi-line tag or a concatenated
+// className is still read as one unit) for a brand-fill marker and `text-white` together.
+// `s-brand` is exempt — that utility already sets the correct ink itself.
+function walkTsx(dir, out = []) {
+  for (const e of fs.readdirSync(path.join(__dirname, dir), { withFileTypes: true })) {
+    const rel = dir + '/' + e.name;
+    if (e.isDirectory()) walkTsx(rel, out);
+    else if (/\.tsx$/.test(e.name) && !/\.test\.tsx$/.test(e.name)) out.push(rel);
+  }
+  return out;
+}
+const BRAND_FILL = /\bbg-brand-grad\b|bg-\[color:var\(--brand-[12]\)\]|background=["']var\(--(?:s-)?brand-grad\)["']|\btext-\[color:var\(--brand-[12]\)\]/;
+const WHITE_TEXT = /\btext-white\b/;
+{
+  const offenders = [];
+  for (const f of walkTsx('app/src')) {
+    // Strip JSX/line comments first: an explanatory comment saying "not text-white" (like this
+    // very check's own commit) would otherwise read as a violation of itself.
+    const body = read(f).replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\/[^\n]*/g, '');
+    const tags = body.match(/<[A-Za-z][\w.]*\b[\s\S]*?>/g) || [];
+    for (const tag of tags) {
+      if (tag.includes('s-brand')) continue;
+      if (BRAND_FILL.test(tag) && WHITE_TEXT.test(tag)) {
+        offenders.push(f + ': ' + tag.replace(/\s+/g, ' ').slice(0, 100));
+      }
+    }
+  }
+  check('no white text on the brand gradient anywhere in app/src', () => {
+    assert.deepEqual(offenders, [], 'white-on-brand found:\n  ' + offenders.join('\n  '));
+  });
+}
+
 console.log(failures === 0
-  ? '\nPASS — every design-system ink/fill pair clears 4.5:1 (tokens.css), both consumers still alias it, and every real legacy fill/ink selector resolves to a passing pair in both themes'
+  ? '\nPASS — every design-system ink/fill pair clears 4.5:1 (tokens.css), both consumers still alias it, every real legacy fill/ink selector resolves to a passing pair in both themes, and no brand-gradient fill carries white text'
   : '\nFAIL — ' + failures + ' check(s) failed');
 process.exit(failures === 0 ? 0 : 1);
