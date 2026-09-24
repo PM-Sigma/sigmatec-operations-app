@@ -19,7 +19,7 @@ import { defineConfig, devices } from '@playwright/test';
 // single-threaded python http.server, and `reuseExistingServer` would hand the suite that
 // server, which drops island-chunk requests under four parallel workers. The QA suite owns
 // its own port so a dev server being up (or not) can never change the result.
-const PORT = 8124;
+const PORT = 8150;
 
 export default defineConfig({
   testDir: './tests',

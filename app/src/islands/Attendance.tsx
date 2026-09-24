@@ -25,7 +25,10 @@ import { PageActionRow } from '@/components/ui/page-action-row';
 import { IconBubble } from '@/components/ui/icon-bubble';
 import { SectionBlock } from '@/components/ui/section-block';
 import { ListRow } from '@/components/ui/list-row';
-import { Tag } from '@/components/ui/chip';
+import { FilterChip, Tag } from '@/components/ui/chip';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
+import { DayCell as DayCellUI, type DayCellFill } from '@/components/ui/day-cell';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isGateOpen, useEmsGate } from '@/lib/session';
@@ -34,10 +37,11 @@ import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  canEditAttendance, canSwitchPerson, dayChip, dayLabel, DAY_ORDER,
+  attCellLook, attLegend, attTiles, canEditAttendance, canOverride, canSwitchPerson, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
-  holidayShort, kpis as computeKpis, mergeByDay, missingBlock, missingByPerson, missingDays, monthGrid, savedToast,
-  ymd, type AttRow, type DayCell, type DayType, type Holiday,
+  kpis as computeKpis, mergeByDay, missingBlock, missingByPerson, missingDays, monthGrid, originLine, rowOrigin, savedToast,
+  toggleTile, ymd,
+  type AttRow, type AttCellState, type DayCell, type DayType, type Holiday, type TileKey,
 } from '@/lib/attendance';
 
 // ───────────────────────────── data ─────────────────────────────
@@ -64,88 +68,72 @@ async function readHolidays(): Promise<Holiday[]> {
 
 // ───────────────────────────── small pieces ─────────────────────────────
 
-/** The cell's colour, as a class pair. The STATE is decided in lib/attendance.ts. */
-const CELL_CLASS: Record<string, string> = {
-  field: 'att-cell-field',
-  office: 'att-cell-office',
-  away: 'att-cell-away',
-  missing: 'att-cell-missing',
-  weekend: 'att-cell-weekend',
-  holiday: 'att-cell-holiday',
-  today: 'att-cell-today',
-  future: 'att-cell-future',
+/** attCellLook's AttCellState → the DayCell props it actually is (A-U3). `selected` and
+    `today` are independent flags on DayCell; `holiday`/`eve`/`missing` collapse from the one
+    look state attCellLook already resolved (tile filter, filer gate, holiday/eve purple —
+    all decided in lib/attendance.ts, never here). */
+const CELL_FILL: Partial<Record<AttCellState, DayCellFill>> = {
+  holiday: 'holiday', field: 'field', office: 'office', away: 'away',
 };
 
-function Kpi({ label, value, tone }: { label: string; value: number; tone: 'field' | 'office' | 'missing' }) {
-  return (
-    <div className={'att-kpi att-kpi-' + tone} data-testid={'att-kpi-' + tone}>
-      <div className="text-[19px] font-extrabold leading-none tabular-nums">{value}</div>
-      <div className="mt-1 text-[11.5px] font-semibold opacity-80">{label}</div>
-    </div>
-  );
-}
+/** attLegend's keys → the same swatch colors the grid itself draws (A-U3). */
+const LEGEND_DOT: Record<string, string> = {
+  holiday: 'bg-[var(--holiday-ink)]', eve: 'bg-[var(--holiday-ink)]', field: 'bg-[var(--ok-ink)]',
+  office: 'bg-[var(--info-ink)]', away: 'bg-[var(--neutral-ink)]', missing: 'bg-[var(--danger-ink)]',
+};
 
 function DayTypeRow({ value, onPick, busy }: { value: DayType | null; onPick: (t: DayType) => void; busy: boolean }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="סוג היום">
+      {/* FilterChip forwards none of its own props to the DOM — a wrapper span carries the
+          data-daytype test hook (A-U4, same pattern as ListRow/StatTile before). */}
       {DAY_ORDER.map(t => (
-        <button
-          key={t}
-          type="button"
-          disabled={busy}
-          data-daytype={t}
-          aria-pressed={value === t}
-          onClick={() => onPick(t)}
-          className={'min-h-9 rounded-full border px-3 text-[12.5px] font-semibold transition-colors duration-150 disabled:opacity-60 '
-            + (value === t
-              ? 'border-transparent s-brand'
-              : 'border-border bg-muted text-foreground hover:bg-secondary')}
-        >
-          {dayLabel(t)}
-        </button>
+        <span key={t} data-daytype={t}>
+          <FilterChip selected={value === t} onClick={() => !busy && onPick(t)}>
+            {dayLabel(t)}
+          </FilterChip>
+        </span>
       ))}
     </div>
   );
 }
 
+/** A-U3: the design-system DayCell grid, its look decided by attCellLook (A-L3) — a tile
+    colors only its own category; holiday/eve purple is context and always stays; missing is
+    red only for a filer (mustFile). `data-state` keeps monthGrid's own semantic state too
+    (holiday/eve/weekend/…) — DayCell's `data-fill` only covers the fills it draws, and
+    Holidays.tsx / other readers still key off the state monthGrid computed. */
 function MonthGridView({
-  grid, onPick, selected,
-}: { grid: ReturnType<typeof monthGrid>; onPick: (c: DayCell) => void; selected: string }) {
+  grid, onPick, selected, person, tile,
+}: { grid: ReturnType<typeof monthGrid>; onPick: (c: DayCell) => void; selected: string; person: string; tile: TileKey | null }) {
   return (
     <div data-testid="att-grid" className="att-grid" role="grid" aria-label={'לוח ' + grid.label}>
       {HE_DAY_LETTERS.map((l, i) => (
         <div key={'h' + i} aria-hidden className="pb-1 text-center text-[11px] font-bold text-muted-foreground">{l}</div>
       ))}
-      {grid.weeks.flat().map((c, i) =>
-        c === null ? (
-          <div key={'b' + i} aria-hidden />
-        ) : (
-          <button
+      {grid.weeks.flat().map((c, i) => {
+        if (c === null) return <div key={'b' + i} aria-hidden />;
+        const isSelected = selected === c.date;
+        const look = attCellLook(c, { person, tile, selected: isSelected });
+        return (
+          <DayCellUI
             key={c.date}
-            type="button"
+            day={c.day}
             role="gridcell"
             data-date={c.date}
             data-state={c.state}
-            // A-U3 (minimal): data-att-state carries monthGrid's semantic state under its
-            // eventual name (full DayCell/attCellLook cell-look migration is a later A-U3
-            // pass — data-state keeps its current meaning until then, so nothing else that
-            // reads it today breaks).
             data-att-state={c.state}
             data-eve={c.eve ? '1' : undefined}
-            aria-current={c.today ? 'date' : undefined}
-            aria-selected={selected === c.date}
-            aria-label={dayChip(c.date) + (c.holiday ? ' · ' + c.holiday.name : '')}
+            fill={CELL_FILL[look.state] || 'none'}
+            eve={look.state === 'eve'}
+            missing={look.state === 'missing'}
+            selected={look.state === 'selected'}
+            today={look.today}
+            label={look.label}
             onClick={() => onPick(c)}
-            className={'att-cell ' + (CELL_CLASS[c.state] || '') + (selected === c.date ? ' att-cell-sel' : '')}
-          >
-            <span className="text-[13px] font-bold tabular-nums">{c.day}</span>
-            {c.holiday && (!c.holiday.required || c.eve) && (
-              <span className="att-cell-tag">{c.onHoliday ? '🕎' : holidayShort(c.holiday)}</span>
-            )}
-            {!c.holiday && c.row?.kibbutz && <span className="att-cell-tag">{c.row.kibbutz}</span>}
-          </button>
-        ),
-      )}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -185,11 +173,19 @@ function DayEditor({
   const needsNote = current === 'other';
   const invite = holidayNote(cell.holiday);
 
+  // A-U4 (A4): an automatic/calendar day says where it came from instead of opening straight
+  // to the chips — "שינוי" reveals them. A manual day (or once revealed) shows the chips as
+  // before. `revealed` resets whenever the sheet moves to a different day.
+  const origin = rowOrigin(cell.row || null);
+  const showOrigin = canEdit && origin !== 'manual' && origin !== 'none' && canOverride(cell.row || null);
+  const [revealed, setRevealed] = React.useState(false);
+  React.useEffect(() => { setRevealed(false); }, [cell.date]);
+
   return (
     <div className="space-y-3">
       <div className="flex items-baseline gap-2">
         <span className="text-[15px] font-extrabold"><bdi>{dayChip(cell.date)}</bdi></span>
-        {cell.holiday && <span className="att-badge-holiday">🕎 {cell.holiday.name}</span>}
+        {cell.holiday && <Tag role="holiday">{cell.holiday.name}</Tag>}
       </div>
 
       {/* A חג is an invitation, never a demand (spec §6: positive, no system-talk). */}
@@ -199,25 +195,27 @@ function DayEditor({
       {eveCandidate && !evePaused && !pending && (
         <div data-testid="att-eve-countdown" className="flex items-center gap-2 rounded-[12px] border border-border bg-muted px-3 py-2">
           <span className="text-[13px] font-bold tabular-nums">{eveCountdownText(secs)}</span>
-          <button
-            type="button"
-            data-testid="att-eve-cancel"
-            onClick={() => setEvePaused(true)}
-            className="ms-auto min-h-8 rounded-full border border-border bg-background px-3 text-[12.5px] font-bold"
-          >
+          <BubbleButton variant="neutral" size="sm" className="ms-auto" data-testid="att-eve-cancel" onClick={() => setEvePaused(true)}>
             ביטול
-          </button>
+          </BubbleButton>
         </div>
       )}
 
       {!canEdit ? (
         <div data-testid="att-readonly" className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
           <div className="font-bold">{cell.row ? dayLabel(cell.row.type) : 'אין דיווח ליום הזה'}</div>
-          <div className="mt-0.5 text-muted-foreground">צפייה בלבד. אפשר להזכיר לו למלא.</div>
+          <div className="mt-0.5 text-muted-foreground">צפייה בלבד.</div>
+        </div>
+      ) : showOrigin && !revealed ? (
+        <div className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
+          <div className="text-muted-foreground">{originLine(cell.row || null)}</div>
+          <BubbleButton variant="tonal" size="sm" className="mt-2" onClick={() => setRevealed(true)}>
+            שינוי
+          </BubbleButton>
         </div>
       ) : (
         <>
-          <DayTypeRow value={current} onPick={t => { setEvePaused(true); setPending(t); }} busy={busy} />
+          <DayTypeRow value={current} onPick={t => { setEvePaused(true); setPending(t); setRevealed(true); }} busy={busy} />
           {needsNote && (
             <input
               value={note}
@@ -227,15 +225,15 @@ function DayEditor({
               className="h-10 w-full rounded-[10px] border border-border bg-background px-3 text-[13.5px] outline-none focus:border-[color:var(--brand-1)]"
             />
           )}
-          <button
-            type="button"
+          <BubbleButton
+            variant="primary"
+            size="lg"
             data-testid="att-save"
             disabled={busy || !current || (needsNote && !note.trim())}
             onClick={() => current && onSave(current, note)}
-            className="min-h-11 w-full rounded-[12px] s-brand text-[14px] font-extrabold disabled:opacity-50"
           >
-            {busy ? 'שומר…' : cell.row ? 'עדכון היום' : 'שמירה'}
-          </button>
+            {busy ? 'שומר…' : cell.row ? 'עדכון' : 'שמירה'}
+          </BubbleButton>
         </>
       )}
     </div>
@@ -258,6 +256,10 @@ function AttendanceIsland() {
   const [ym, setYm] = React.useState(() => ({ y: today.getFullYear(), m: today.getMonth() + 1 }));
   const [open, setOpen] = React.useState('');            // the date the phone sheet is on
   const [selected, setSelected] = React.useState(todayKey);   // the date the desktop panel shows
+  // A-U3 (A3): the selected StatTile filter. Survives a month change, resets on person change
+  // (Review Focus #3 — the count updates, the filter keeps working).
+  const [tile, setTile] = React.useState<TileKey | null>(null);
+  React.useEffect(() => { setTile(null); }, [person]);
   const attGuard = useUnsavedGuard({ dirty: () => false, onClose: () => setOpen('') });
 
   // עידן, עמיחי (CEO) and the viewer may look at someone else's month; a field worker sees
@@ -501,18 +503,37 @@ function AttendanceIsland() {
             </div>
           )}
 
-          {/* ── three numbers, no scrolling ───────────────────────────────────── */}
-          <section className="grid grid-cols-3 gap-2">
-            <Kpi label="ימי שטח" value={kpis.field} tone="field" />
-            <Kpi label="משרד ובית" value={kpis.office} tone="office" />
-            <Kpi label="ימים חסרים" value={kpis.missing} tone="missing" />
-          </section>
+          {/* ── the tiles: tap one to color only its category on the month (A-L3, A3) ── */}
+          <StatTileGrid>
+            {/* StatTile doesn't forward its own props to the DOM yet — a wrapper span carries
+                the att-kpi-<key> test hook (§9-style gap, same as ListRow before its own
+                pass-through landed). */}
+            {attTiles(kpis, person).map(t => (
+              <span key={t.key} data-testid={'att-kpi-' + t.key} className="contents">
+                <StatTile
+                  value={t.value}
+                  label={t.label}
+                  role={t.role}
+                  selected={tile === t.key}
+                  onClick={() => { setTile(cur => toggleTile(cur, t.key)); track('attendance-tile', t.key); }}
+                />
+              </span>
+            ))}
+          </StatTileGrid>
 
           {/* ── the month ─────────────────────────────────────────────────────── */}
           <section className="rounded-[14px] border border-border bg-card p-2.5">
             {rowsQ.data === null || rowsQ.isLoading
               ? <Skeleton className="h-[236px] w-full rounded-[10px]" />
-              : <MonthGridView grid={grid} onPick={openDay} selected={selected} />}
+              : <MonthGridView grid={grid} onPick={openDay} selected={selected} person={person} tile={tile} />}
+            <ul data-testid="att-legend" className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+              {attLegend(person).map(item => (
+                <li key={item.key} data-legend={item.key} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + LEGEND_DOT[item.key]} />
+                  {item.label}
+                </li>
+              ))}
+            </ul>
           </section>
 
         </div>
@@ -539,8 +560,10 @@ function AttendanceIsland() {
           there is no draft to lose and the predicate is honestly false. */}
       <Sheet open={!!open} onOpenChange={o => { if (!o) attGuard.ask(); }}>
         <SheetContent side="bottom" data-testid="att-sheet" className="max-h-[80svh] overflow-y-auto lg:hidden" {...attGuard.contentProps}>
+          {/* A-U4: a visible title (dayChip), not sr-only — the design-system Sheet header
+              already renders the ✕ "סגירה" close button as a grid cell beside it. */}
           <SheetHeader className="mb-2">
-            <SheetTitle className="sr-only">{openCell ? dayChip(openCell.date) : 'יום'}</SheetTitle>
+            <SheetTitle><bdi>{openCell ? dayChip(openCell.date) : 'יום'}</bdi></SheetTitle>
             <SheetDescription className="sr-only">עריכת סוג היום.</SheetDescription>
           </SheetHeader>
           <AnimatePresence mode="wait" initial={false}>
