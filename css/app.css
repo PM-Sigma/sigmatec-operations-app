@@ -2050,13 +2050,22 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
 
   /* ── the header on a phone is ONE row, title + Σ never overlapping the bell/user cluster
        (22.9, B3; QA round 2 Package A §1: the title used to clip and the bell sat on top of
-       it — the title now wraps to two short lines instead of fighting for width). ── */
+       it — the title now wraps to two short lines instead of fighting for width).
+       P0 (24.9, S merge regression): .header-meta used to be a small fixed set (bell + user
+       chip) so `flex: 0 0 auto; flex-wrap: nowrap` was safe — its natural width never came
+       close to the viewport. Round 5 L1 added a real page-action BUTTON (e.g. "דיווח מלאי",
+       "סיכום ביקור") into #sigma-header-actions inside this cluster; nowrap + no-shrink then
+       forced the whole row past the viewport (measured 403px content at 360–430px, i.e. a
+       fixed ~73px page-level horizontal scroll on every phone, on every page whose page
+       action renders). Fix: let the cluster SHRINK and WRAP its own children onto a second
+       line inside the (already auto-height) header instead of overflowing the page. ── */
   @media (max-width: 768px) {
     .header { padding: 8px 12px; border-radius: 12px; }
     .header-top { flex-direction: row; flex-wrap: nowrap; align-items: flex-start; gap: 8px; }
     .brand-wrap { flex: 1 1 auto; min-width: 0; }
     .header h1.brand { font-size: 14px; white-space: normal; }
-    .header-meta { flex: 0 0 auto; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: 6px; min-width: 0; }
+    .header-meta { flex: 1 1 auto; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+    #sigma-header-actions { min-width: 0; max-width: 100%; }
     .header-date { display: none; }
   }
   /* sideways scroll hints on the containers that already scroll */
