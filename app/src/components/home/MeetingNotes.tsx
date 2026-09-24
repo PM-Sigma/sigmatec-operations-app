@@ -205,12 +205,13 @@ function NoteBullet({
         // Always rendered now (designer round 10): a bullet with no date and no owners used to
         // skip the meta line entirely, so rows in the same list had different heights. A
         // missing owner shows "—" instead of just vanishing.
+        // No "—" placeholder (designer round 11, reversing round 10): a missing date/owner
+        // just renders nothing — but the span keeps a min-h so every row is still the same
+        // height whether or not it has anything to show here.
         meta={
-          <span className="inline-flex flex-wrap items-center gap-1">
+          <span className="inline-flex min-h-[18px] flex-wrap items-center gap-1">
             {dateBadge}
-            {(row.owners || []).length > 0
-              ? (row.owners || []).map(o => <OwnerChip key={o} name={o} />)
-              : <OwnerChip name="—" />}
+            {(row.owners || []).map(o => <OwnerChip key={o} name={o} />)}
           </span>
         }
         trailing={
