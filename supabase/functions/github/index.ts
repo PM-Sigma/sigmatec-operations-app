@@ -84,7 +84,7 @@ async function fetchParentLinks(token: string, owner: string, name: string): Pro
       const issues = d?.data?.repository?.issues;
       if (!issues) break;
       for (const node of (issues.nodes || [])) {
-        if (node?.number) out[node.number] = chainOf(node);
+        if (node?.number) out[node.number] = chainOf(node) as ParentChainLink[];
       }
       if (!issues.pageInfo?.hasNextPage) break;
       after = issues.pageInfo.endCursor;
