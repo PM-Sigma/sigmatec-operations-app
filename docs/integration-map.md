@@ -62,15 +62,15 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsWrite` | js/src/00-bridge.js:367 | `emsWriteOrQueue` → js/src/13-ems.js:293 | app/src/lib/inventoryApi.test.ts:192<br>app/src/lib/inventoryApi.test.ts:285<br>app/src/lib/inventoryApi.ts:229<br>app/src/lib/inventoryApi.ts:407 |
 | `sigma.ensurePass` | js/src/00-bridge.js:542 | *(own logic)* | **—** |
 | `sigma.gapNag` | js/src/00-bridge.js:591 | `gapNag` → js/src/22-push.js:337 | app/src/islands/Gaps.tsx:205 |
-| `sigma.getCurrentUser` | js/src/00-bridge.js:259 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:401<br>app/src/islands/Burns.tsx:70<br>app/src/islands/DayLog.tsx:487<br>app/src/islands/DevPresenter.tsx:749<br>…+10 |
+| `sigma.getCurrentUser` | js/src/00-bridge.js:259 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:401<br>app/src/islands/Burns.tsx:70<br>app/src/islands/DayLog.tsx:487<br>app/src/islands/DevPresenter.tsx:730<br>…+10 |
 | `sigma.getEmsSites` | js/src/00-bridge.js:315 | `getEmsSites` → js/src/14-calendar.js:364 | app/src/components/home/HealthStrip.tsx:29<br>app/src/lib/ems/adapters/rest.ts:139 |
 | `sigma.getLastVisit` | js/src/00-bridge.js:424 | *(own logic)* | app/src/islands/Field.tsx:2074 |
 | `sigma.getRole` | js/src/00-bridge.js:260 | *(own logic)* | app/src/bridge.ts:402<br>app/src/islands/Feedback.tsx:183<br>app/src/islands/Feedback.tsx:671<br>app/src/lib/landing.ts:111<br>…+1 |
-| `sigma.isAdmin` | js/src/00-bridge.js:264 | `canManageStaff` → js/src/00-bridge.js:63 | app/src/components/home/EmsTasks.tsx:154<br>app/src/islands/DevPresenter.tsx:728<br>app/src/islands/FeedbackInbox.tsx:49<br>app/src/islands/FeedbackInbox.tsx:208<br>…+10 |
+| `sigma.isAdmin` | js/src/00-bridge.js:264 | `canManageStaff` → js/src/00-bridge.js:63 | app/src/components/home/EmsTasks.tsx:154<br>app/src/islands/DevPresenter.tsx:709<br>app/src/islands/FeedbackInbox.tsx:49<br>app/src/islands/FeedbackInbox.tsx:208<br>…+10 |
 | `sigma.isEmsConnected` | js/src/00-bridge.js:295 | `isEmsConnected` → js/src/00-consts.js:42 | app/src/components/home/Burns.tsx:318<br>app/src/lib/ems/adapters/rest.ts:136 |
 | `sigma.isIdan` | js/src/00-bridge.js:262 | `isIdan` → js/src/11-search-login.js:126 | app/src/islands/Attendance.tsx:280<br>app/src/islands/DayLog.tsx:74<br>app/src/islands/Gaps.tsx:68<br>app/src/islands/Usage.tsx:39 |
 | `sigma.isInstalled` | js/src/00-bridge.js:581 | `isInstalled` → js/src/16-install.js:27 | app/src/islands/Settings.tsx:101 |
-| `sigma.isViewer` | js/src/00-bridge.js:261 | `isViewer` → js/src/11-search-login.js:128 | app/src/islands/Attendance.tsx:280<br>app/src/islands/Burns.tsx:70<br>app/src/islands/DevPresenter.tsx:750<br>app/src/islands/FeedbackInbox.tsx:49<br>…+10 |
+| `sigma.isViewer` | js/src/00-bridge.js:261 | `isViewer` → js/src/11-search-login.js:128 | app/src/islands/Attendance.tsx:280<br>app/src/islands/Burns.tsx:70<br>app/src/islands/DevPresenter.tsx:731<br>app/src/islands/FeedbackInbox.tsx:49<br>…+10 |
 | `sigma.kibbutzHasSite` | js/src/00-bridge.js:316 | *(own logic)* | **—** |
 | `sigma.kibbutzNames` | js/src/00-bridge.js:283 | *(own logic)* | app/src/islands/Feedback.tsx:343<br>app/src/islands/Field.tsx:953<br>app/src/lib/daylogChain.ts:23 |
 | `sigma.loadAllVisitsCombined` | js/src/00-bridge.js:512 | `loadAllVisitsCombined` → js/src/09-visits.js:73 | app/src/islands/Calendar.tsx:1141<br>app/src/islands/Field.tsx:163<br>app/src/islands/Field.tsx:1224<br>app/src/islands/Gaps.tsx:90<br>…+4 |
@@ -158,7 +158,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-ceo` | :1273 | **—** |
 | `#sigma-daylog` | :1256 | app/src/islands/DayLog.tsx:478<br>app/src/main.tsx:408 |
 | `#sigma-dev-board` | :571 | app/src/islands/DevBoard.tsx:314<br>app/src/main.tsx:272 |
-| `#sigma-dev-presenter` | :1262 | app/src/islands/DevPresenter.tsx:739<br>app/src/main.tsx:498 |
+| `#sigma-dev-presenter` | :1262 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:498 |
 | `#sigma-feedback` | :1247 | app/src/islands/Feedback.tsx:663<br>app/src/main.tsx:174 |
 | `#sigma-feedback-inbox` | :1248 | app/src/islands/FeedbackInbox.tsx:336<br>app/src/main.tsx:201 |
 | `#sigma-field` | :1246 | app/src/islands/Field.tsx:2346<br>app/src/main.tsx:134 |
@@ -266,7 +266,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 |---|---|---|
 | `(dynamic)` | `—` | app/src/lib/registry.ts:43 |
 | `burns-table` | `Flame` | app/src/islands/Burns.tsx:64 |
-| `dev-presenter` | `GitPullRequest` | app/src/islands/DevPresenter.tsx:742 |
+| `dev-presenter` | `GitPullRequest` | app/src/islands/DevPresenter.tsx:723 |
 | `dev-presenter` | `GitPullRequest` | app/src/main.tsx:522 |
 | `feedback` | `MessageSquarePlus` | app/src/islands/Feedback.tsx:665 |
 | `feedback-inbox` | `Inbox` | app/src/islands/FeedbackInbox.tsx:338 |
