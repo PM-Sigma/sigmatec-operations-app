@@ -32,7 +32,16 @@ export interface OrderLike {
 
 export type NoteLevel = 'late' | 'action' | 'waiting' | 'transit' | 'done';
 
-export interface StripNote { icon: string; text: string; level: NoteLevel }
+/** The tag role the note's chip carries (round 5 design system). */
+export type NoteRole = 'danger' | 'ok' | 'info' | 'neutral' | 'warn';
+
+export interface StripNote {
+  /** A lucide icon NAME (round 5, L1) — never a glyph to print directly. */
+  icon: 'TriangleAlert' | 'CircleCheck' | 'PackageCheck' | 'Truck' | 'Link' | 'Hourglass';
+  role: NoteRole;
+  text: string;
+  level: NoteLevel;
+}
 
 export interface StripRow {
   id: string;
@@ -92,33 +101,33 @@ export function orderQty(o: OrderLike): number {
  */
 export function orderNote(o: OrderLike, today: string, catalog: string[] = []): StripNote {
   const bad = unknownItem(o, catalog);
-  if (bad) return { icon: '⚠️', text: `פריט לא בקטלוג: ${bad}`, level: 'late' };
+  if (bad) return { icon: 'TriangleAlert', role: 'danger', text: `פריט לא בקטלוג: ${bad}`, level: 'late' };
 
   const stage = orderStage(o);
   const expected = ymd(o.expectedDate || o.expected_date);
   const created = ymd(o.createdAt || o.created_at);
 
-  if (stage === 3) return { icon: '✅', text: 'סופק', level: 'done' };
+  if (stage === 3) return { icon: 'CircleCheck', role: 'ok', text: 'סופק', level: 'done' };
 
   if (stage === 2) {
-    return { icon: '📦', text: 'הגיע. לסמן סופק כדי שייכנס למלאי', level: 'action' };
+    return { icon: 'PackageCheck', role: 'info', text: 'הגיע. לסמן סופק כדי שייכנס למלאי', level: 'action' };
   }
 
   if (stage === 1) {
     if (expected && daysBetween(expected, today) > 0) {
-      return { icon: '⚠️', text: `באיחור ${daysBetween(expected, today)} ימים מהתאריך הצפוי`, level: 'late' };
+      return { icon: 'TriangleAlert', role: 'danger', text: `באיחור ${daysBetween(expected, today)} ימים מהתאריך הצפוי`, level: 'late' };
     }
-    if (expected) return { icon: '🚚', text: `הוזמן, צפוי ${heDate(expected)}`, level: 'transit' };
-    return { icon: '🚚', text: 'הוזמן', level: 'transit' };
+    if (expected) return { icon: 'Truck', role: 'info', text: `הוזמן, צפוי ${heDate(expected)}`, level: 'transit' };
+    return { icon: 'Truck', role: 'info', text: 'הוזמן', level: 'transit' };
   }
 
   // stage 0 — waiting for an approval. Whose, and for how long.
   if (orderKind(o) === 'customer' && s(o.emsTaskId || o.orders_ems_task_id)) {
-    return { icon: '🔗', text: 'לקוח: משימת EMS פתוחה', level: 'waiting' };
+    return { icon: 'Link', role: 'neutral', text: 'לקוח: משימת EMS פתוחה', level: 'waiting' };
   }
   const days = created ? daysBetween(created, today) : 0;
   const who = orderKind(o) === 'customer' ? 'ממתין לאישור' : 'ממתין לאישור עמיחי';
-  return { icon: '⏳', text: days > 0 ? `${who} ${days} ימים` : who, level: 'waiting' };
+  return { icon: 'Hourglass', role: 'warn', text: days > 0 ? `${who} ${days} ימים` : who, level: 'waiting' };
 }
 
 /** `24.9` — the way a date is said out loud here. */

@@ -140,7 +140,7 @@ describe('Feedback sheet — the form', () => {
     render(<Feedback />);
     act(() => openFeedback());
     fireEvent.click(screen.getByText('שלח'));
-    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith('כתוב או הקלט משהו'));
+    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith('יש לכתוב או להקליט משהו'));
     expect(inserted).toHaveLength(0);
   });
 

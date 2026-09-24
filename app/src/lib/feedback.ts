@@ -14,10 +14,17 @@ export type FeedbackStatus = 'new' | 'seen' | 'done';
 
 export const KINDS: FeedbackKind[] = ['idea', 'bug'];
 
-/** The toggle labels — two buckets only (עידן's ruling, 18.9). */
+/** The toggle labels — two buckets only (עידן's ruling, 18.9). Noun form, no emoji (round 5,
+ * L1); the icon that used to live in the string is `KIND_ICON` below. */
 export const KIND_LABEL: Record<FeedbackKind, string> = {
-  idea: '💡 רעיון',
-  bug: '🐞 באג / שיפור',
+  idea: 'רעיון',
+  bug: 'באג או שיפור',
+};
+
+/** The lucide icon each kind's `SegmentedControl` option carries (round 5, L1). */
+export const KIND_ICON: Record<FeedbackKind, 'Lightbulb' | 'Bug'> = {
+  idea: 'Lightbulb',
+  bug: 'Bug',
 };
 
 /** Push title per kind (push-send mode `feedbackNew` builds the same strings server-side). */
@@ -59,8 +66,8 @@ export const DEFAULT_MODULE = 'אפליקציית תפעול';
 
 export function feedbackValidate(d: { kind: string; text: string }): string[] {
   const errs: string[] = [];
-  if (!KINDS.includes(d.kind as FeedbackKind)) errs.push('בחר סוג: רעיון / באג');
-  if (String(d.text ?? '').trim().length < FEEDBACK_MIN) errs.push('כתוב או הקלט משהו');
+  if (!KINDS.includes(d.kind as FeedbackKind)) errs.push('יש לבחור: רעיון או באג');
+  if (String(d.text ?? '').trim().length < FEEDBACK_MIN) errs.push('יש לכתוב או להקליט משהו');
   return errs;
 }
 

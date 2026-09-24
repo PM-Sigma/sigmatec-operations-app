@@ -92,7 +92,9 @@ function OrdersStrip() {
                 {row.title} <span className="text-[12px] font-normal text-muted-foreground"><bdi>{row.qty}</bdi> פריטים</span>
               </span>
               <span className={`text-[12px] ${LEVEL_CLASS[row.note.level] ?? ''}`}>
-                {row.note.icon} {row.note.text}
+                {/* row.note.icon is now a lucide icon NAME (round 5, L1), not a glyph to print;
+                    the icon itself is rendered in U9, once InventoryStrip is on the design system. */}
+                {row.note.text}
               </span>
             </button>
           </li>

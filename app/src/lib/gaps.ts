@@ -29,10 +29,31 @@ export interface Gap {
   text: string;
   action: GapAction;
   actionLabel: string;
+  /** The lucide icon the row's action bubble carries (round 5: noun-form labels, no emoji). */
+  actionIcon: 'MapPin' | 'CalendarDays' | 'ExternalLink';
 }
 
 /** A stop on a planned route (`day_plans`), as the island hands it over. */
 export interface DayPlanStop { person?: string; date?: string; kibbutz?: string }
+
+/**
+ * One `day_plans` row exactly as the table stores it (`db/day_plans.sql`): a `(person, date)`
+ * pair with a `stops` jsonb array, `[{ kibbutz, task_ids }, …]` — there is NO `kibbutz` column
+ * on the row itself. A query that asks the table for `person,date,kibbutz` (the bug this
+ * replaces) gets `kibbutz: undefined` back on every row, silently.
+ */
+export interface DayPlanRow { person?: string; date?: string; stops?: Array<{ kibbutz?: string }> | null }
+
+/** One `DayPlanStop` per stop in every row's `stops` array — what `visitGaps` actually wants. */
+export function flattenDayPlans(rows: DayPlanRow[] | null | undefined): DayPlanStop[] {
+  const out: DayPlanStop[] = [];
+  for (const r of rows || []) {
+    for (const stop of r?.stops || []) {
+      out.push({ person: r.person, date: r.date, kibbutz: stop?.kibbutz });
+    }
+  }
+  return out;
+}
 
 /** The bits of an EMS task a gap cares about. */
 export interface GapTask {
@@ -150,7 +171,8 @@ function visitGaps(person: string, src: GapSources, range: GapRange): Gap[] {
       kibbutz: w.kibbutz,
       text: `היית ב${w.kibbutz} ב-${DM(w.date)} ואין סיכום ביקור`,
       action: 'visit',
-      actionLabel: '📍 סיכום ביקור',
+      actionLabel: 'סיכום ביקור',
+      actionIcon: 'MapPin',
     });
   }
   return out;
@@ -184,7 +206,8 @@ function attendanceGaps(person: string, src: GapSources, range: GapRange): Gap[]
       date,
       text: `אין נוכחות ל-${DM(date)}`,
       action: 'attendance' as const,
-      actionLabel: '📅 מלא נוכחות',
+      actionLabel: 'מילוי נוכחות',
+      actionIcon: 'CalendarDays' as const,
     }));
 }
 
@@ -209,7 +232,8 @@ function taskGaps(person: string, src: GapSources, range: GapRange): Gap[] {
       taskId: t.id,
       text: `${String(t.title || 'משימה').trim()}${where ? ': ' + where : ''} · תאריך היעד עבר (${DM(date)})`,
       action: 'task',
-      actionLabel: '🔗 פתח משימה',
+      actionLabel: 'פתיחת המשימה',
+      actionIcon: 'ExternalLink',
     });
   }
   return out;
@@ -253,7 +277,7 @@ export function gapCounts(gaps: Gap[]): { total: number; visit: number; attendan
  */
 export function gapsSummary(gaps: Gap[]): string {
   const n = gaps.length;
-  if (!n) return 'הכל סגור, אין פערים פתוחים 🎉';
+  if (!n) return 'הכול סגור. אין פערים פתוחים.';
   if (n === 1) return 'נשאר פריט אחד לסגור';
   if (n <= 3) return `סוגרים את ה-${n} האלה, והחודש נקי`;
   return `${n} פריטים מחכים לסגירה`;

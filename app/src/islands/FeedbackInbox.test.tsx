@@ -123,7 +123,7 @@ describe('inbox rows', () => {
     act(() => openFeedbackInbox());
     expect(await screen.findByText('אנונימי')).toBeTruthy();
     expect(screen.getByText('רעיון נחמד')).toBeTruthy();
-    expect(screen.getByText('💡 רעיון')).toBeTruthy();
+    expect(screen.getByText('רעיון', { selector: 'span' })).toBeTruthy();
   });
 
   it('flips a status', async () => {

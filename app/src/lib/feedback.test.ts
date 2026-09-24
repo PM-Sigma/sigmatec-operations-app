@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  FEEDBACK_MIN, KIND_LABEL, KIND_PUSH_TITLE, LIVE_NO_RESULT_MS, RECORD_CAP_MS,
+  FEEDBACK_MIN, KIND_ICON, KIND_LABEL, KIND_PUSH_TITLE, LIVE_NO_RESULT_MS, RECORD_CAP_MS,
   canSeeFeedbackInbox, canSubmitFeedback, feedbackDraftPayload, feedbackDraftWorthSaving,
   feedbackPreview, feedbackRow, feedbackValidate,
   issueBody, issueTitle, parseFeedbackDraft, speechLadder, type FeedbackKind,
@@ -12,8 +12,8 @@ describe('feedbackValidate', () => {
   });
 
   it('rejects text shorter than the minimum, after trimming', () => {
-    expect(feedbackValidate({ kind: 'idea', text: '   ' })).toEqual(['כתוב או הקלט משהו']);
-    expect(feedbackValidate({ kind: 'bug', text: ' אב ' })).toEqual(['כתוב או הקלט משהו']);
+    expect(feedbackValidate({ kind: 'idea', text: '   ' })).toEqual(['יש לכתוב או להקליט משהו']);
+    expect(feedbackValidate({ kind: 'bug', text: ' אב ' })).toEqual(['יש לכתוב או להקליט משהו']);
     expect(FEEDBACK_MIN).toBe(3);
   });
 
@@ -22,19 +22,20 @@ describe('feedbackValidate', () => {
   });
 
   it('rejects an unknown kind', () => {
-    expect(feedbackValidate({ kind: 'praise', text: 'נהדר, עובד מצוין' })).toEqual(['בחר סוג: רעיון / באג']);
+    expect(feedbackValidate({ kind: 'praise', text: 'נהדר, עובד מצוין' })).toEqual(['יש לבחור: רעיון או באג']);
   });
 
   it('reports both errors at once', () => {
     expect(feedbackValidate({ kind: '', text: '' })).toEqual([
-      'בחר סוג: רעיון / באג',
-      'כתוב או הקלט משהו',
+      'יש לבחור: רעיון או באג',
+      'יש לכתוב או להקליט משהו',
     ]);
   });
 
   it('knows the two kinds and their Hebrew labels (עידן ruling, 18.9: no complaint)', () => {
     expect(Object.keys(KIND_LABEL)).toEqual(['idea', 'bug']);
-    expect(KIND_LABEL.bug).toBe('🐞 באג / שיפור');
+    expect(KIND_LABEL).toEqual({ idea: 'רעיון', bug: 'באג או שיפור' });
+    expect(KIND_ICON).toEqual({ idea: 'Lightbulb', bug: 'Bug' });
     expect(KIND_PUSH_TITLE).toEqual({
       idea: '💡 רעיון חדש', bug: '🐞 באג / שיפור חדש',
     });
@@ -164,7 +165,7 @@ describe('issueBody', () => {
     expect(b).toContain('שורה 1\nשורה 2');
     expect(b).toContain('אביאם');
     expect(b).toContain('18.9.26');
-    expect(b).toContain('🐞 באג / שיפור');
+    expect(b).toContain('באג או שיפור');
   });
 
   it('says אנונימי when there is no author', () => {

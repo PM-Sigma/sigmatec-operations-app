@@ -33,7 +33,7 @@ describe('stockChangePlan — §4b', () => {
     const plan = stockChangePlan({ ...base, direction: 'increase', source: 'order' });
     expect(plan.requires).toBe('order');
     expect(plan.movements).toEqual([]);
-    expect(plan.errors).toEqual(['בחר הזמנת ספק פתוחה']);
+    expect(plan.errors).toEqual(['יש לבחור הזמנת ספק פתוחה']);
   });
 
   it('decrease via visit routes to the visit form and writes nothing', () => {
@@ -75,7 +75,7 @@ describe('stockChangePlan — §4b', () => {
   it('refuses the impossible direction/source pairs, and the empty sheet', () => {
     expect(stockChangePlan({ ...base, direction: 'decrease', source: 'order' }).errors).toEqual(['הזמנה מעלה מלאי, לא מורידה']);
     expect(stockChangePlan({ ...base, direction: 'increase', source: 'visit' }).errors).toEqual(['ביקור מוריד מלאי, לא מעלה']);
-    expect(stockChangePlan({}).errors).toEqual(['בחר פריט', 'בחר אם המלאי ירד או עלה', 'בחר מה קרה']);
+    expect(stockChangePlan({}).errors).toEqual(['יש לבחור פריט', 'יש לבחור אם המלאי ירד או עלה', 'יש לבחור מה קרה']);
     expect(stockChangePlan(null).movements).toEqual([]);
   });
 });

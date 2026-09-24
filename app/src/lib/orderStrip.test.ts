@@ -28,33 +28,50 @@ describe('orderStage — the four decisive dots (§4a)', () => {
 });
 
 describe('orderNote — one computed note per state (§4a)', () => {
-  it('⏳ waiting for עמיחי, with the age', () =>
-    expect(orderNote(ord(), TODAY, CATALOG)).toEqual({ icon: '⏳', text: 'ממתין לאישור עמיחי 3 ימים', level: 'waiting' }));
+  it('waiting for עמיחי, with the age', () =>
+    expect(orderNote(ord(), TODAY, CATALOG)).toEqual({ icon: 'Hourglass', role: 'warn', text: 'ממתין לאישור עמיחי 3 ימים', level: 'waiting' }));
 
-  it('🚚 ordered, with the expected date', () =>
+  it('ordered, with the expected date', () =>
     expect(orderNote(ord({ status: 'הוזמן', expectedDate: '2026-09-24' }), TODAY, CATALOG))
-      .toEqual({ icon: '🚚', text: 'הוזמן, צפוי 24.9', level: 'transit' }));
+      .toEqual({ icon: 'Truck', role: 'info', text: 'הוזמן, צפוי 24.9', level: 'transit' }));
 
-  it('⚠️ late against the expected date', () =>
+  it('late against the expected date', () =>
     expect(orderNote(ord({ status: 'הוזמן', expectedDate: '2026-09-14' }), TODAY, CATALOG))
-      .toEqual({ icon: '⚠️', text: 'באיחור 5 ימים מהתאריך הצפוי', level: 'late' }));
+      .toEqual({ icon: 'TriangleAlert', role: 'danger', text: 'באיחור 5 ימים מהתאריך הצפוי', level: 'late' }));
 
-  it('📦 arrived — someone has to mark it supplied', () =>
+  it('arrived — someone has to mark it supplied', () =>
     expect(orderNote(ord({ status: 'הגיעה' }), TODAY, CATALOG))
-      .toEqual({ icon: '📦', text: 'הגיע. לסמן סופק כדי שייכנס למלאי', level: 'action' }));
+      .toEqual({ icon: 'PackageCheck', role: 'info', text: 'הגיע. לסמן סופק כדי שייכנס למלאי', level: 'action' }));
 
-  it('🔗 a customer order with an open EMS task', () =>
+  it('a customer order with an open EMS task', () =>
     expect(orderNote(ord({ orderType: 'customer', kibbutz: 'גבים', emsTaskId: 't-1' }), TODAY, CATALOG))
-      .toEqual({ icon: '🔗', text: 'לקוח: משימת EMS פתוחה', level: 'waiting' }));
+      .toEqual({ icon: 'Link', role: 'neutral', text: 'לקוח: משימת EMS פתוחה', level: 'waiting' }));
 
-  it('⚠️ an item nobody stocks beats every other note', () =>
+  it('an item nobody stocks beats every other note', () =>
     expect(orderNote(ord({ status: 'הוזמן', expectedDate: '2026-09-01', items: [{ name: 'בקר 999', qty: 1 }] }), TODAY, CATALOG))
-      .toEqual({ icon: '⚠️', text: 'פריט לא בקטלוג: בקר 999', level: 'late' }));
+      .toEqual({ icon: 'TriangleAlert', role: 'danger', text: 'פריט לא בקטלוג: בקר 999', level: 'late' }));
 
   it('no catalog loaded → no catalog complaint', () =>
-    expect(orderNote(ord({ items: [{ name: 'בקר 999', qty: 1 }] }), TODAY, []).icon).toBe('⏳'));
+    expect(orderNote(ord({ items: [{ name: 'בקר 999', qty: 1 }] }), TODAY, []).icon).toBe('Hourglass'));
 
   it('counts the items', () => expect(orderQty(ord({ items: [{ qty: 2 }, { qty: '3' }] }))).toBe(5));
+
+  it('notes carry a lucide icon and a tag role, never an emoji', () => {
+    const today = TODAY;
+    const cases = [
+      { status: 'סופקה' }, { status: 'הגיעה' },
+      { status: 'הוזמן', expectedDate: '2026-09-20' }, { status: 'הוזמן', expectedDate: '2026-09-30' },
+      { status: 'ממתין לאישור', createdAt: '2026-09-16' },
+    ];
+    for (const o of cases) {
+      const n = orderNote(ord(o as Partial<OrderLike>), today, CATALOG);
+      expect(n.icon).toMatch(/^[A-Z][A-Za-z]+$/);
+      expect(['danger', 'ok', 'info', 'neutral', 'warn']).toContain(n.role);
+      expect(n.text).not.toMatch(/\p{Extended_Pictographic}|!/u);
+    }
+    expect(orderNote(ord({ status: 'הוזמן', expectedDate: '2026-09-14' }), today, CATALOG))
+      .toMatchObject({ icon: 'TriangleAlert', role: 'danger' });
+  });
 });
 
 describe('orderStripRows — urgency order (§4a)', () => {

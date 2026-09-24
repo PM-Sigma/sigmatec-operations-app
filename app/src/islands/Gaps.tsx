@@ -23,8 +23,8 @@ import { track } from '@/lib/track';
 import { sigma, sigmaBus, useCurrentUser } from '@/bridge';
 import { ymd, type AttRow, type Holiday } from '@/lib/attendance';
 import {
-  defaultRange, gapsFor, gapsSummary, nudgeable, shiftDays,
-  type Gap, type GapSources, type GapTask,
+  defaultRange, flattenDayPlans, gapsFor, gapsSummary, nudgeable, shiftDays,
+  type DayPlanRow, type Gap, type GapSources, type GapTask,
 } from '@/lib/gaps';
 
 export const GAPS_OPEN_EVENT = 'sigma-open-gaps';
@@ -77,7 +77,10 @@ async function fetchSources(people: string[], from: string, today: string): Prom
   const [checkins, plans] = await Promise.all([
     sb.from('field_checkins').select('person,kibbutz,checked_in_at,dismissed')
       .in('person', people).gte('checked_in_at', from).limit(500),
-    sb.from('day_plans').select('person,date,kibbutz').in('person', people)
+    // `day_plans` has no `kibbutz` column — the route is `stops: [{ kibbutz, task_ids }, …]`
+    // per (person, date) row (db/day_plans.sql). Asking for `kibbutz` directly silently came
+    // back `undefined` on every row, so every planned stop was invisible to the gaps list.
+    sb.from('day_plans').select('person,date,stops').in('person', people)
       .gte('date', from).lt('date', today).limit(500),
   ]);
 
@@ -92,6 +95,8 @@ async function fetchSources(people: string[], from: string, today: string): Prom
   let holidays: Holiday[] = [];
   try { holidays = (sigma.attHolidays?.() || []) as Holiday[]; } catch { /* none loaded */ }
 
+  const dayPlans = flattenDayPlans((plans.data || []) as DayPlanRow[]);
+
   const out: Record<string, GapSources> = {};
   for (const person of people) {
     // Attendance is per person and per month, and the window straddles two of them.
@@ -102,7 +107,7 @@ async function fetchSources(people: string[], from: string, today: string): Prom
     }
     out[person] = {
       checkins: (checkins.data || []) as GapSources['checkins'],
-      dayPlans: (plans.data || []) as GapSources['dayPlans'],
+      dayPlans,
       visits,
       tasks,
       attendance: att,

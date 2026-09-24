@@ -71,13 +71,13 @@ export function stockChangePlan(input: StockChangeInput | null | undefined): Sto
   const none: StockChangePlan = { movements: [], requires: null, errors };
 
   const product = String(input?.product ?? '').trim();
-  if (!product) errors.push('בחר פריט');
+  if (!product) errors.push('יש לבחור פריט');
 
   const direction = input?.direction;
-  if (direction !== 'decrease' && direction !== 'increase') errors.push('בחר אם המלאי ירד או עלה');
+  if (direction !== 'decrease' && direction !== 'increase') errors.push('יש לבחור אם המלאי ירד או עלה');
 
   const source = input?.source;
-  if (source !== 'visit' && source !== 'order' && source !== 'recount') errors.push('בחר מה קרה');
+  if (source !== 'visit' && source !== 'order' && source !== 'recount') errors.push('יש לבחור מה קרה');
   else if (direction === 'decrease' && source === 'order') errors.push('הזמנה מעלה מלאי, לא מורידה');
   else if (direction === 'increase' && source === 'visit') errors.push('ביקור מוריד מלאי, לא מעלה');
 
@@ -89,7 +89,7 @@ export function stockChangePlan(input: StockChangeInput | null | undefined): Sto
   }
   if (source === 'order') {
     if (!String(input?.orderId ?? '').trim()) {
-      return { movements: [], requires: 'order', errors: ['בחר הזמנת ספק פתוחה'] };
+      return { movements: [], requires: 'order', errors: ['יש לבחור הזמנת ספק פתוחה'] };
     }
     return { movements: [], requires: 'order', errors };
   }

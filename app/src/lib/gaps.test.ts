@@ -2,7 +2,7 @@
 // and one without, one overdue task, one holiday → exactly two gaps, in date order").
 import { describe, expect, it } from 'vitest';
 import {
-  defaultRange, gapCounts, gapsFor, gapsSummary, isAssignedTo, NUDGE_MIN_AGE_DAYS,
+  defaultRange, flattenDayPlans, gapCounts, gapsFor, gapsSummary, isAssignedTo, NUDGE_MIN_AGE_DAYS,
   nudgeable, shiftDays, type GapSources,
 } from '@/lib/gaps';
 import { GAP_NUDGES, gapNudgeFor } from '@/lib/field';
@@ -86,6 +86,17 @@ describe('gapsFor — the §7h fixture week', () => {
 
   it('counts by kind', () => {
     expect(gapCounts(gaps)).toEqual({ total: 2, visit: 1, attendance: 0, task: 1 });
+  });
+
+  it('every action label is a noun, emoji-free, with a lucide icon (round 5, L1)', () => {
+    const EMO = /\p{Extended_Pictographic}/u;
+    const IMP = /(?<![א-ת])(שמור|שלח|סגור|בטל|מחק|ערוך|הוסף|בחר|אשר|פתח|העלה|מלא)(?![א-ת])/;
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const g of gaps) {
+      expect(g.actionLabel).not.toMatch(EMO);
+      expect(g.actionLabel).not.toMatch(IMP);
+      expect(['MapPin', 'CalendarDays', 'ExternalLink']).toContain(g.actionIcon);
+    }
   });
 });
 
@@ -172,6 +183,39 @@ describe('gapsFor — the rules one at a time', () => {
   });
 });
 
+describe('flattenDayPlans — the day_plans bug (C planner, 23.9)', () => {
+  // `day_plans` (db/day_plans.sql) has no `kibbutz` column — a row is `(person, date, stops)`
+  // where `stops` is `[{ kibbutz, task_ids }, …]`. `Gaps.tsx` used to `select('person,date,kibbutz')`
+  // straight off the table, which silently came back `kibbutz: undefined` on every row, so a
+  // planned stop with no visit summary never showed up as a gap. This pins the fix.
+  it('turns each row\'s stops into one flat DayPlanStop per stop', () => {
+    const rows = [
+      { person: 'אביאם', date: '2026-09-07', stops: [{ kibbutz: 'רביבים' }, { kibbutz: 'גבים' }] },
+      { person: 'ניתאי', date: '2026-09-08', stops: [{ kibbutz: 'יטבתה' }] },
+    ];
+    expect(flattenDayPlans(rows)).toEqual([
+      { person: 'אביאם', date: '2026-09-07', kibbutz: 'רביבים' },
+      { person: 'אביאם', date: '2026-09-07', kibbutz: 'גבים' },
+      { person: 'ניתאי', date: '2026-09-08', kibbutz: 'יטבתה' },
+    ]);
+  });
+
+  it('survives a day with no stops, or no rows at all', () => {
+    expect(flattenDayPlans([{ person: 'אביאם', date: '2026-09-07', stops: [] }])).toEqual([]);
+    expect(flattenDayPlans([{ person: 'אביאם', date: '2026-09-07' }])).toEqual([]);
+    expect(flattenDayPlans(null)).toEqual([]);
+    expect(flattenDayPlans(undefined)).toEqual([]);
+  });
+
+  it('a flattened stop feeds gapsFor exactly like the old (buggy) shape claimed to', () => {
+    const src: GapSources = {
+      attendance: Array.from({ length: 10 }, (_, i) => ({ date: `2026-09-${String(i + 1).padStart(2, '0')}`, type: 'office' as const })),
+      dayPlans: flattenDayPlans([{ person: 'אביאם', date: '2026-09-07', stops: [{ kibbutz: 'רביבים' }] }]),
+    };
+    expect(gapsFor('אביאם', src, { from: '2026-09-04', today: '2026-09-11' }).map(g => g.kibbutz)).toEqual(['רביבים']);
+  });
+});
+
 describe('isAssignedTo', () => {
   const t = (first?: string, last?: string) => ({ id: 'x', assignee: first ? { firstName: first, lastName: last } : null });
   it('matches the EMS full name against the app first name', () => {
@@ -219,7 +263,7 @@ describe('the copy (§7h rules)', () => {
   });
 
   it('speaks to him about his own next step', () => {
-    expect(gapsSummary([])).toContain('הכל סגור');
+    expect(gapsSummary([])).toBe('הכול סגור. אין פערים פתוחים.');
     expect(gapsSummary(gaps.slice(0, 1))).toBe('נשאר פריט אחד לסגור');
   });
 });
