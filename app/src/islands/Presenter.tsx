@@ -17,8 +17,10 @@ import * as React from 'react';
 import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, MapPin, Pause, Pencil, Play, Video, X } from 'lucide-react';
+import { Bookmark, ChevronLeft, ChevronRight, Pause, Pencil, Play, Video, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { SectionBlock } from '@/components/ui/section-block';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { mount } from '@/islands';
 import { fetchKibbutzRows } from '@/lib/kibbutzRows';
 import { SigmaProviders } from '@/lib/query';
@@ -28,7 +30,8 @@ import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { createInternalTask, useInternalTasks } from '@/components/home/InternalTasks';
 import { openFor as internalOpenFor } from '@/lib/internalTasks';
-import { sinceLastMeeting, type SinceLastTask } from '@/lib/meetingRun';
+import { useBurnAccess, useBurns } from '@/components/home/Burns';
+import { stepsForKibbutz as onboardingStepsForKibbutz, useOnboardingSteps } from '@/components/home/OnboardingProgress';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { emitNotesChanged, NOTES_QUERY_KEY } from '@/components/home/MeetingNotes';
 import { energyText, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
@@ -38,9 +41,17 @@ import {
   type MeetingKind, type NoteRow,
 } from '@/lib/meetingNotes';
 import {
-  canPresent, carryOverLine, clockText, fetchPreviousMeetingDate, liveChips, nextIndex,
+  canPresent, carryOverLine, clockText, liveChips, momentLine, nextIndex,
   presenterOrder, type LiveChipId, type MeetingSessionRow,
 } from '@/lib/meetingSession';
+import { dm } from '@/lib/field';
+import { canCloseInMeeting, createCloseQueue, sendClose, type CloseStatus, type PendingClose } from '@/lib/meetingClose';
+import { statusBlocks } from '@/lib/meetingStatus';
+import { useMeetingTimeline } from './presenter/useMeetingTimeline';
+import { MeetingTimeline } from './presenter/MeetingTimeline';
+import { StatusBlocksRow } from './presenter/StatusBlocks';
+import { MomentSheet } from './presenter/MomentSheet';
+import { MomentsList } from './presenter/MomentsList';
 
 export const PRESENTER_OPEN_EVENT = 'sigma-open-presenter';
 
@@ -374,7 +385,7 @@ function LiveSheet({
 
 function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
-  const { name: me } = useCurrentUser();
+  const { name: me, isViewer } = useCurrentUser();
   const today = ymd();
 
   const kibbutzim = useQuery({ queryKey: ['kibbutzim'], queryFn: fetchKibbutzim });
@@ -392,13 +403,9 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const internalTasksQ = useInternalTasks();
 
   const [idx, setIdx] = React.useState(0);
-  const { session, seconds, running, start, pause, log, endSession } =
+  const { session, seconds, running, start, pause, log, mark, noteMark, endSession } =
     useMeetingRun(meeting?.kind || 'company', me, today);   // F14 ①
 
-  const prevMeetingQ = useQuery({
-    queryKey: ['presenter-prev-meeting', meeting?.kind || 'company', today],
-    queryFn: () => fetchPreviousMeetingDate(meeting?.kind || 'company', today),
-  });
   const [draft, setDraft] = React.useState('');
   const [liveOpen, setLiveOpen] = React.useState(false);
   const [exitOpen, setExitOpen] = React.useState(false);
@@ -414,24 +421,107 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const carry = React.useMemo(
     () => (current ? carryOverLine(notes, current.name, today) : null), [notes, current, today]);
 
-  // "מאז הישיבה הקודמת" (item 5): internal tasks carry a real `created_at`/`done` and feed the
-  // pure `sinceLastMeeting` split directly. The EMS cache row the bridge exposes here
-  // (`sigma.emsCacheTasksForKibbutz`, see `EmsTask` in `bridge.ts`) has no opened/closed
-  // timestamp — only `id`/`title`/`status` — so EMS tasks cannot be placed on a timeline without
-  // inventing a date; they stay out of this section rather than being guessed (still shown, as
-  // a plain open-tasks list, in `presenter-open-tasks`). No "closed at" instant exists on the
-  // internal-task row either, so a done task is treated as closed exactly at read-time — enough
-  // to place it after the boundary, not to date the closure itself.
-  const sinceLast = React.useMemo(() => {
-    if (!current) return { openedSince: [], closedSince: [] };
-    const now = new Date().toISOString();
-    const internalRows = internalOpenFor(internalTasksQ.data, current.name)
-      .concat((internalTasksQ.data || []).filter(r => r.kibbutz === current.name && r.done));
-    const internalAsTasks: SinceLastTask[] = internalRows
-      .filter(r => r.created_at)
-      .map(r => ({ id: r.id, title: r.title, openedAt: r.created_at as string, closedAt: r.done ? now : null }));
-    return sinceLastMeeting(internalAsTasks, prevMeetingQ.data);
-  }, [current, internalTasksQ.data, prevMeetingQ.data]);
+  // ── M-R1/M-R2: one per-kibbutz timeline of everything since the previous meeting ──────────
+  const [windowMode, setWindowMode] = React.useState<'since' | '30d'>('since');
+  const timeline = useMeetingTimeline(current?.name || '', windowMode);
+  const emsOpenCount = timeline.items.filter(i => i.kind === 'ems').length + timeline.olderOpen.length;
+
+  // ── M-R7: burns + onboarding status blocks, no longer on the card ─────────────────────────
+  const { canSee: burnsVisible } = useBurnAccess();
+  const burnsQ = useBurns(burnsVisible);
+  const onboardingQ = useOnboardingSteps();
+  const blocks = React.useMemo(() => {
+    if (!current) return null;
+    return statusBlocks({
+      kibbutz: current.name,
+      burns: burnsQ.data || [],
+      burnsVisible,
+      steps: onboardingStepsForKibbutz(onboardingQ.data, current.name),
+      emsOpen: emsOpenCount,
+      internalOpen: internalOpenFor(internalTasksQ.data, current.name).length,
+      now: new Date(),
+    });
+  }, [current, burnsQ.data, burnsVisible, onboardingQ.data, emsOpenCount, internalTasksQ.data]);
+
+  // ── M-R8: one-click EMS close, 5 s deferred commit with undo ───────────────────────────────
+  const canClose = canCloseInMeeting(me, isViewer);
+  const [pendingTaskIds, setPendingTaskIds] = React.useState<Record<string, CloseStatus>>({});
+  const [queuedTaskIds, setQueuedTaskIds] = React.useState<Set<string>>(new Set());
+  const closeQueueRef = React.useRef<ReturnType<typeof createCloseQueue> | null>(null);
+  if (!closeQueueRef.current) {
+    closeQueueRef.current = createCloseQueue({
+      send: sendClose,
+      onSettled: (p, r) => {
+        setPendingTaskIds(prev => { const n = { ...prev }; delete n[p.taskId]; return n; });
+        if (r.skipped === 'already-closed') {
+          toast.error('המשימה כבר נסגרה');
+        } else if (r.error) {
+          toast.error('לא הצלחתי, נסה שוב');
+        } else {
+          if (r.queued) setQueuedTaskIds(prev => new Set(prev).add(p.taskId));
+          toast.success(p.status === 'done' ? 'המשימה סומנה כבוצעה' : 'המשימה סומנה כבוטלה');
+          timeline.refetch();
+        }
+      },
+    });
+  }
+  const closeQueue = closeQueueRef.current;
+
+  const onCloseTask = React.useCallback((taskId: string, status: CloseStatus) => {
+    if (!canClose) return;
+    const p: PendingClose = { taskId, status, by: me, at: new Date() };
+    const undo = closeQueue.schedule(p);
+    setPendingTaskIds(prev => ({ ...prev, [taskId]: status }));
+    try { navigator.vibrate?.(10); } catch { /* not every browser */ }
+    toast.success(status === 'done' ? 'המשימה סומנה כבוצעה' : 'המשימה סומנה כבוטלה', {
+      duration: 5000,
+      action: {
+        label: 'ביטול',
+        onClick: () => {
+          undo();
+          setPendingTaskIds(prev => { const n = { ...prev }; delete n[taskId]; return n; });
+        },
+      },
+    });
+  }, [canClose, closeQueue, me]);
+
+  // Flush on the app closing during the 5 s undo (review focus #1): pagehide, tab hidden, and —
+  // via the effect's own cleanup — on leaving the kibbutz on screen or unmounting on exit.
+  React.useEffect(() => {
+    const flush = () => { void closeQueue.flush(); };
+    window.addEventListener('pagehide', flush);
+    const onVis = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [closeQueue]);
+  React.useEffect(() => () => { void closeQueue.flush(); }, [closeQueue, idx]);
+
+  // ── M-R5: "סמן רגע" — the tap marks at once, the sheet only offers an optional note ────────
+  const [moments, setMoments] = React.useState<Array<{ id: string; t_sec: number; kibbutz?: string; hint?: string }>>([]);
+  const [markOpen, setMarkOpen] = React.useState(false);
+  const markPendingId = React.useRef<string>('');
+
+  const doMark = React.useCallback(async (openSheet: boolean) => {
+    const kib = current?.name || undefined;
+    const { id, t_sec } = await mark(kib || null);
+    track('presenter-marker');
+    setMoments(prev => [...prev, { id, t_sec, kibbutz: kib }]);
+    if (openSheet) { markPendingId.current = id; setMarkOpen(true); }
+    else { toast.success('סומן'); }
+  }, [mark, current?.name]);
+
+  const onSaveMomentNote = React.useCallback((note: string) => {
+    const id = markPendingId.current;
+    if (!id) return;
+    void noteMark(id, note);
+    setMoments(prev => prev.map(m => (m.id === id ? { ...m, hint: note } : m)));
+  }, [noteMark]);
+
+  const momentLines = React.useMemo(
+    () => moments.map(m => momentLine(m as any)), [moments]);
 
   // Every arrival at a kibbutz is a segment boundary — but ONLY once the meeting is actually
   // running (the clock started) or a session already exists for some other reason (a mark, a
@@ -456,12 +546,6 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     setIdx(i => nextIndex(i, rows.length, dir));
   }, [rows.length]);
 
-  const marker = React.useCallback(() => {
-    void log('marker', { kibbutz: current?.name });
-    track('presenter-marker');
-    toast.success('📌 סומן');
-  }, [log, current?.name]);
-
   const park = React.useCallback(() => {
     void log('parking', { kibbutz: current?.name });
     track('presenter-parking');
@@ -478,11 +562,12 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   }, [draft, log, current?.name]);
 
   const finish = React.useCallback(async () => {
+    await closeQueue.flush();
     await endSession();
     track('presenter-close');
     void qc.invalidateQueries({ queryKey: NOTES_QUERY_KEY });
     onClose();
-  }, [endSession, qc, onClose]);
+  }, [closeQueue, endSession, qc, onClose]);
 
   // ── keys ───────────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -513,7 +598,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         case 'ArrowRight': e.preventDefault(); move(-1); break;
         case 'j': case 'J': case 'י': e.preventDefault(); move(1); break;
         case 'k': case 'K': case 'ל': e.preventDefault(); move(-1); break;
-        case ' ': e.preventDefault(); marker(); break;          // 📌 — the screen does not move
+        case ' ': e.preventDefault(); void doMark(false); break;   // סמן רגע, bare — the screen does not move
         case 'p': case 'P': case 'פ': e.preventDefault(); park(); break;   // …nor here (§1.2)
         case 'n': case 'N': case 'מ': e.preventDefault(); noteRef.current?.focus(); break;
         default: break;
@@ -521,7 +606,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [liveOpen, exitOpen, move, marker, park, saveNote]);
+  }, [liveOpen, exitOpen, move, doMark, park, saveNote]);
 
   const n = rows.length;
 
@@ -580,7 +665,10 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
       </header>
 
       {/* ── the kibbutz ──────────────────────────────────────────────────── */}
-      <main className="flex flex-1 flex-col gap-4 py-5">
+      {/* pb-28: the footer is `sticky bottom-0` and reserves no space of its own in the flow —
+          without this the scrollable dialog lets its own content (now much taller with the
+          timeline) scroll UNDER the footer instead of stopping above it. */}
+      <main className="flex flex-1 flex-col gap-4 py-5 pb-28">
         {!current ? (
           <p className="text-[17px] text-muted-foreground">אין קיבוצים להצגה</p>
         ) : (
@@ -611,45 +699,45 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
               <Strip title="מצב" items={extra} testid="presenter-strip-extra" />
             </div>
 
-            {!!strips.openTasks.length && (
-              <section data-testid="presenter-open-tasks">
-                <h2 className="mb-1.5 text-[13px] font-extrabold text-muted-foreground">משימות EMS פתוחות</h2>
-                <ul className="flex flex-col gap-1">
-                  {strips.openTasks.map((title, i) => (
-                    <li key={i} className="min-w-0 truncate text-[15px] text-foreground"><bdi>{title}</bdi></li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            {blocks && <StatusBlocksRow blocks={blocks} />}
 
-            {(sinceLast.openedSince.length > 0 || sinceLast.closedSince.length > 0) && (
-              <section data-testid="presenter-since-last" className="text-[14px]">
-                <h2 className="mb-1 text-[13px] font-extrabold text-muted-foreground">מאז הישיבה הקודמת</h2>
-                {sinceLast.openedSince.length > 0 && (
-                  <p className="text-foreground">
-                    נפתחו ועדיין פתוחות: <bdi>{sinceLast.openedSince.map(t => t.title).join(' · ')}</bdi>
-                  </p>
-                )}
-                {sinceLast.closedSince.length > 0 && (
-                  <p className="text-muted-foreground">
-                    נפתחו ונסגרו: <bdi>{sinceLast.closedSince.map(t => t.title).join(' · ')}</bdi>
-                  </p>
-                )}
-              </section>
-            )}
+            <SegmentedControl
+              value={timeline.previousMeeting ? windowMode : '30d'}
+              onChange={setWindowMode}
+              options={
+                timeline.previousMeeting
+                  ? [
+                      { value: 'since' as const, label: `מאז ${dm(timeline.previousMeeting)}` },
+                      { value: '30d' as const, label: '30 יום' },
+                    ]
+                  : [{ value: '30d' as const, label: '30 יום' }]
+              }
+            />
 
-            <section data-testid="presenter-bullets" className="flex-1">
-              {lastMeeting ? (
-                <>
-                  <h2 className="mb-1.5 text-[13px] font-extrabold text-muted-foreground">
-                    <bdi>מהישיבה של {chipDate(lastMeeting.meeting_date)} · {ageText(lastMeeting.meeting_date, today)}</bdi>
-                  </h2>
+            <MeetingTimeline
+              items={timeline.items}
+              olderOpen={timeline.olderOpen}
+              now={new Date()}
+              canClose={canClose}
+              onClose={onCloseTask}
+              pendingTaskIds={pendingTaskIds}
+              queuedTaskIds={queuedTaskIds}
+              onToggle30d={timeline.previousMeeting && windowMode === 'since' ? () => setWindowMode('30d') : undefined}
+            />
+
+            <SectionBlock
+              title={lastMeeting ? `מהישיבה של ${chipDate(lastMeeting.meeting_date)} · ${ageText(lastMeeting.meeting_date, today)}` : 'מהישיבה הקודמת'}
+              collapsible
+              defaultOpen={false}
+            >
+              <div data-testid="presenter-bullets" className="px-4 py-2">
+                {lastMeeting ? (
                   <ul className="flex flex-col gap-1.5">
                     {lastMeeting.bullets.map(b => (
                       <li
                         key={b.id || b.seq}
                         className={
-                          'text-[17px] leading-snug sm:text-[20px] ' +
+                          'text-[15px] leading-snug ' +
                           (b.done_at ? 'text-muted-foreground line-through' : 'text-foreground')
                         }
                       >
@@ -662,11 +750,11 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
                       </li>
                     ))}
                   </ul>
-                </>
-              ) : (
-                <p className="text-[17px] text-muted-foreground">אין בולטים קודמים</p>
-              )}
-            </section>
+                ) : (
+                  <p className="text-[15px] text-muted-foreground">אין בולטים קודמים</p>
+                )}
+              </div>
+            </SectionBlock>
           </>
         )}
       </main>
@@ -713,10 +801,10 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             data-testid="presenter-marker"
-            onClick={marker}
+            onClick={() => void doMark(true)}
             className="inline-flex min-h-11 flex-none items-center gap-1 rounded-xl border border-border px-3 text-[13px] font-extrabold text-foreground"
           >
-            <MapPin size={16} aria-hidden /> סמן רגע
+            <Bookmark size={16} aria-hidden /> סמן רגע
           </button>
         </div>
       </footer>
@@ -730,12 +818,15 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         onDone={() => void qc.invalidateQueries({ queryKey: NOTES_QUERY_KEY })}
       />
 
+      <MomentSheet open={markOpen} onOpenChange={setMarkOpen} onSave={onSaveMomentNote} />
+
       <Sheet open={exitOpen} onOpenChange={setExitOpen}>
         <SheetContent side="bottom" data-testid="presenter-exit-sheet">
           <SheetHeader className="text-start">
             <SheetTitle className="text-base">לצאת ממצב ישיבה?</SheetTitle>
             <SheetDescription>מה שנרשם נשאר בכרטיסים</SheetDescription>
           </SheetHeader>
+          <MomentsList lines={momentLines} />
           <div className="mt-3 flex gap-2">
             <button
               type="button"

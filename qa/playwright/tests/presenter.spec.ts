@@ -196,6 +196,49 @@ test('presenter: fits the phone width, the stopwatch starts on demand, and the a
   await expectNoConsoleErrors(rec);
 });
 
+test('presenter: the timeline replaces "מאז הישיבה הקודמת", and the 30-day toggle is there', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  const screen = await openPresenter(page);
+
+  // M-R6: the old "מאז הישיבה הקודמת" HEADING is gone (the empty-state hint may still say
+  // "אין שינויים מאז הישיבה הקודמת" — review focus #5 — which is a different, exact string).
+  await expect(page.getByText('מאז הישיבה הקודמת', { exact: true })).toHaveCount(0);
+
+  // M-U1: the timeline section + status blocks + window toggle are on screen
+  await expect(page.getByRole('heading', { name: 'מה קרה' })).toBeVisible();
+  await expect(page.getByTestId('presenter-status-blocks')).toBeVisible();
+  await expect(page.getByText('30 יום')).toBeVisible();
+
+  await shot(page, ti, 'timeline');
+
+  await page.keyboard.press('Escape');
+  await page.getByTestId('presenter-exit-yes').click();
+  await expect(screen).toHaveCount(0);
+
+  await expectNoConsoleErrors(rec);
+});
+
+test('presenter: סמן רגע opens the note sheet and the note lands on the moments list at exit', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  const screen = await openPresenter(page);
+
+  await page.getByTestId('presenter-marker').click();
+  const sheet = page.getByTestId('presenter-moment-sheet');
+  await expect(sheet).toBeVisible();
+  await page.getByTestId('presenter-moment-note').fill('לבדוק שוב את המונה');
+  await shot(page, ti, 'moment');
+  await page.getByTestId('presenter-moment-save').click();
+  await expect(sheet).toHaveCount(0);
+
+  await page.keyboard.press('Escape');
+  const exitSheet = page.getByTestId('presenter-exit-sheet');
+  await expect(exitSheet).toContainText('לבדוק שוב את המונה');
+  await page.getByTestId('presenter-exit-yes').click();
+  await expect(screen).toHaveCount(0);
+
+  await expectNoConsoleErrors(rec);
+});
+
 test('presenter: a viewer is never offered the screen', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
 
