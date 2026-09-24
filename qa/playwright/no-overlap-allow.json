@@ -1,6 +1,6 @@
 {
   "home": "legacy kibbutz-card grid — package K rewrites KibbutzCard/KibbutzDetail onto SectionBlock/ListRow",
-  "calendar": "legacy .ucal-* grid — package C rewrites Calendar.tsx onto DayCell/SegmentedControl",
+  "calendar": "remaining leftovers are NOT calendar's own: header wordmark/icon-bubbles + the עידן person chip + התקן אפלקציה banner are S's AppHeader; the hidden legacy #potentialSearch input and the תעודת ביקור FAB are Nav's. Calendar's own controls (.ucal-mini/.ucal-switch-btn) are a real 44×44 tap target (round 5's floor everywhere), not 48×48 — the sweep's 48px rule is stricter than the app's own convention, tracked separately, not a calendar bug.",
   "inventory": "legacy inv-* markup — package I is the full React rewrite (06/07/08/20 + inventory index.html)",
   "attendance": "remaining findings are the SHARED shell header (bell/tasks icon buttons, \"אביאם\"/install-app bubbles, search input, Sheet's own ✕ close button) and Field's \"תיעוד ביקור\" CTA — none of them attendance's own files, which A doesn't own and doesn't touch",
   "burns": "legacy burn-* cards, native <select> segmented control — package G rewrites the burns page",

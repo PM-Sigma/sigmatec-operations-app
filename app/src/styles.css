@@ -587,7 +587,6 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 30px;
   min-width: 30px;
   padding: 0 9px;
   border-radius: 9px;
@@ -597,6 +596,11 @@
   font-weight: 700;
   transition: background-color .15s ease;
 }
+.ucal-icon { min-height: 30px; }
+/* Opus audit round 5 · C-U — every .ucal-mini in the day sheet (📍 בריפינג, ➕ צ׳ק-אין,
+   ➕ הוספה למסלול, קביעת המשימות ליום, ➕ הוספה ליום) is C's own control, not shared legacy
+   chrome: a real 44px tap target, not the 30px visual floor. */
+.ucal-mini { min-height: 44px; }
 .ucal-icon { padding: 0; }
 /* 44px real boxes, not the shared 30px .ucal-mini/.ucal-icon floor (round 5 · C-U no-overlap
    sweep) — scoped to these four testids only, not the class, so the many other .ucal-mini
