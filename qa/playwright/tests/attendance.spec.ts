@@ -304,7 +304,8 @@ test('attendance r5 · A-L5: a saved visit shows as an automatic field day from 
   const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם').date).slice(0, 10));
   const row = await page.evaluate(d => ((window as any).SHEET_DATA.attendance || []).find((a: any) => a.person === 'אביאם' && String(a.date).slice(0, 10) === d), visitDay);
   expect(row && row.source).toBe('visit_auto');
-  // A-U3 has not landed data-att-state yet; the day carries today's data-state="field".
+  // A-U3: the cell carries data-att-state (monthGrid's semantic state) alongside data-state.
+  await expect(page.locator(`[data-date="${visitDay}"]`)).toHaveAttribute('data-att-state', 'field');
   await expect(page.locator(`[data-date="${visitDay}"]`)).toHaveAttribute('data-state', 'field');
 
   expectNoConsoleErrors(rec);

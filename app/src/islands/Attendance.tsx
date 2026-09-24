@@ -126,6 +126,11 @@ function MonthGridView({
             role="gridcell"
             data-date={c.date}
             data-state={c.state}
+            // A-U3 (minimal): data-att-state carries monthGrid's semantic state under its
+            // eventual name (full DayCell/attCellLook cell-look migration is a later A-U3
+            // pass — data-state keeps its current meaning until then, so nothing else that
+            // reads it today breaks).
+            data-att-state={c.state}
             data-eve={c.eve ? '1' : undefined}
             aria-current={c.today ? 'date' : undefined}
             aria-selected={selected === c.date}
