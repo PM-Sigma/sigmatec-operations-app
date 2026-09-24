@@ -74,7 +74,17 @@ export function InventoryOrdersTab() {
     <div className="flex flex-col gap-3">
       <PageActionRow
         title="הזמנות"
-        actions={<button type="button" data-testid="inv-new-order" onClick={openNew} className="min-h-[36px] rounded-full bg-[var(--sigma-ink)] px-3 text-[13px] font-bold text-[hsl(var(--card))]">+ הזמנה חדשה</button>}
+        actions={
+          <button
+            type="button"
+            data-testid="inv-new-order"
+            data-hit-slop
+            onClick={openNew}
+            className="s-hit min-h-[36px] rounded-full bg-[var(--sigma-ink)] px-3 text-[13px] font-bold text-[hsl(var(--card))]"
+          >
+            + הזמנה חדשה
+          </button>
+        }
       />
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {FILTERS.map(f => (

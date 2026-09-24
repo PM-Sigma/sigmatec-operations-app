@@ -15,7 +15,7 @@ import {
   orderFormFields, newItemRow, editStatusOptions, canApproveThisOrder, approvalPlan, poolStock,
   ORDER_STATUS_LABEL, type DraftItem, type OrderDraft, type OrderLike, type Ctx,
 } from '@/lib/inventory';
-import { accessoryQuestions, ambiguousSatecQuestion, type Question } from '@/lib/orderParse';
+import { accessoryQuestions, accessoryPlan, ambiguousSatecQuestion, type Question } from '@/lib/orderParse';
 
 export interface OrderSheetProps {
   open: boolean;
@@ -63,6 +63,15 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
     [data],
   );
 
+  // A new order opens with ONE empty item row already there (ItemRow + הוספת שורה — the row is
+  // the unit the editor works in, so it starts with one rather than an empty list).
+  React.useEffect(() => {
+    if (open && !order && catalog.length) {
+      setDraft(d => (d.items.length === 0 ? { ...d, items: [newItemRow(catalog)] } : d));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, order, catalog.length]);
+
   const fields = orderFormFields(draft.orderType, draft.assignee, user.name, isNew);
   const unknownNames = React.useMemo(
     () => [...new Set(draft.items.filter(it => it.name && !catalog.includes(it.name)).map(it => it.name))],
@@ -75,6 +84,27 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
   const addRow = () => setDraft(d => ({ ...d, items: [...d.items, newItemRow(catalog)] }));
   const removeUnknown = () => setDraft(d => ({ ...d, items: d.items.filter(it => !it.name || catalog.includes(it.name)) }));
 
+  // The parse pipeline runs in two ORDERED phases (F03: "ambiguous-Satec question, THEN
+  // accessory questions") — the satec question resolves the base meter LINE first (its answer
+  // changes which item name accessoryPlan sees), so accessory questions are only ever computed
+  // from the ALREADY-resolved item list, never the raw parse output. `satecItems` holds that
+  // in-flight list between doParse() and answerQuestion() resolving it.
+  const [satecQuestion, setSatecQuestion] = React.useState<Question | null>(null);
+  const [satecItems, setSatecItems] = React.useState<DraftItem[]>([]);
+
+  function finishAccessoryPhase(items: DraftItem[]) {
+    const pool = poolStock(data?.movements || []);
+    const plan = accessoryPlan(items);
+    // Antenna: one per controller, always silent (askChoice never fires for it — legacy
+    // finalizeCustomerAccessories auto-adds it, it just never asks which one).
+    const withAntenna = plan.totalControllers > 0 && catalog.includes('אנטנה')
+      ? [...items, { name: 'אנטנה', qty: plan.antennaQty, auto: true } as DraftItem]
+      : items;
+    setDraft(d => ({ ...d, items: [...d.items, ...withAntenna] }));
+    const qs = accessoryQuestions(items, catalog, pool);
+    if (qs.length) { setQuestions(qs); setStep('questions'); } else { setStep('form'); }
+  }
+
   async function doParse() {
     const raw = draft.raw?.trim();
     if (!raw) return;
@@ -82,16 +112,18 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
     try {
       const res = await parseOrderText(raw, draft.orderType, catalog);
       const newItems: DraftItem[] = res.items.map(it => ({ name: it.name, qty: it.qty }));
-      setDraft(d => ({ ...d, items: [...d.items, ...newItems] }));
       toast(res.source === 'local' ? 'נותח מקומית, בלי AI' : 'נותח ע״י AI');
 
-      // The customer accessory + ambiguous-satec questions (orderParse.ts, L4) — a pushed STEP,
-      // never a second dialog.
       const pool = poolStock(data?.movements || []);
-      const qs = [...accessoryQuestions(newItems, catalog, pool)];
       const satecQ = ambiguousSatecQuestion(raw, newItems, catalog, pool);
-      if (satecQ) qs.push(satecQ);
-      if (qs.length) { setQuestions(qs); setStep('questions'); }
+      if (satecQ) {
+        setSatecQuestion(satecQ);
+        setSatecItems(newItems);
+        setQuestions([satecQ]);
+        setStep('questions');
+      } else {
+        finishAccessoryPhase(newItems);
+      }
     } catch (e: any) {
       toast.error(e?.message || 'הניתוח נכשל');
     } finally {
@@ -100,21 +132,21 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
   }
 
   function answerQuestion(q: Question, opt: { label: string; value: string; hint: string }) {
-    if (q.apply === 'satec') {
-      // Replace the ambiguous satec line's name with the chosen model.
-      setDraft(d => ({
-        ...d,
-        items: d.items.map(it => (/satec|em133|pm135/i.test(it.name) ? { ...it, name: opt.value } : it)),
-      }));
-    } else {
-      setDraft(d => ({ ...d, items: [...d.items, { name: opt.value, qty: q.qty, auto: true }] }));
+    if (q === satecQuestion) {
+      // Resolve the ambiguous base line, THEN move to the accessory phase over the resolved list.
+      const resolved = satecItems.map(it => (/satec|em133|pm135/i.test(it.name) ? { ...it, name: opt.value } : it));
+      setSatecQuestion(null);
+      setSatecItems([]);
+      finishAccessoryPhase(resolved);
+      return;
     }
-    setQuestions(qs => qs.filter(x => x !== q));
+    setDraft(d => ({ ...d, items: [...d.items, { name: opt.value, qty: q.qty, auto: true }] }));
+    setQuestions(qs => {
+      const next = qs.filter(x => x !== q);
+      if (next.length === 0) setStep('form');
+      return next;
+    });
   }
-
-  React.useEffect(() => {
-    if (step === 'questions' && questions.length === 0) setStep('form');
-  }, [step, questions]);
 
   async function submit() {
     if (!data) return;

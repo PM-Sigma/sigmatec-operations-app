@@ -120,13 +120,21 @@ function InventoryPage() {
       <PageActionRow title="מלאי" />
       <Tabs value={tab} onValueChange={v => setTab(normalizeTab(v))}>
         <div ref={tabsListRef} className="-mx-1 overflow-x-auto px-1">
-          <TabsList className="inline-flex h-auto w-max gap-1 bg-transparent p-0">
+          <TabsList
+            data-hit-slop
+            className="inline-flex h-auto w-max gap-1 bg-transparent p-0"
+          >
             {INV_TABS.map(t => (
               <TabsTrigger
                 key={t.id}
                 value={t.id}
                 data-testid={`inv-tab-${t.id}`}
-                className="whitespace-nowrap rounded-full border border-transparent px-3 py-2 text-[13px] font-bold data-[state=active]:border-[var(--border)] data-[state=active]:bg-[var(--surface-2)]"
+                // data-hit-slop + s-hit: the 36px visual pill is deliberate (a scrollable tab
+                // strip that fit six labels at 32px≈16px labels), `.s-hit` grows the real hit
+                // area to 48 (see chip.tsx's FilterChip for why the overlap sweep needs the
+                // attribute too).
+                data-hit-slop
+                className="s-hit whitespace-nowrap rounded-full border border-transparent px-3 py-2 text-[13px] font-bold data-[state=active]:border-[var(--border)] data-[state=active]:bg-[var(--surface-2)]"
               >
                 {t.label}
               </TabsTrigger>

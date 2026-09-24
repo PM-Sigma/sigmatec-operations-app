@@ -45,10 +45,13 @@ test('F02 a new supplier order saves pending_approval and pushes', async ({ page
 test('F03 customer order + offline parse ("2 סאטק"): ambiguous-Satec question, then accessory questions', async ({ page }, ti) => {
   await bootInv(page, ti, 'עידן', d);   // bootInv stubs parse-order 503 — see its own comment
   await d.openTab(page, 'orders');
-  await page.evaluate(() => (window as any).invNewOrder());
-  await page.locator('#invOrderModal.open').waitFor({ state: 'visible' });
-  await page.locator('.inv-ordtype-btn[data-t="customer"]').click();
-  await page.locator('#invOrderKibbutz').selectOption({ label: 'חוקוק' }).catch(() => page.locator('#invOrderKibbutz').selectOption('חוקוק'));
+  if (d.name === 'legacy') {
+    await page.evaluate(() => (window as any).invNewOrder());
+    await page.locator('#invOrderModal.open').waitFor({ state: 'visible' });
+    await page.locator('.inv-ordtype-btn[data-t="customer"]').click();
+    await page.locator('#invOrderKibbutz').selectOption({ label: 'חוקוק' }).catch(() => page.locator('#invOrderKibbutz').selectOption('חוקוק'));
+  }
+  // react: d.parseRaw() opens the sheet itself (inv-new-order → os-type-customer → os-kibbutz).
   const items = await d.parseRaw(page, '2 סאטק', ['PM135', 'Robustel', 'שקע']);
   // the ambiguous-Satec resolver rewrote the base line to whichever the test picked (PM135),
   // and the accessory step added exactly one controller + one antenna + one power supply.
@@ -126,42 +129,53 @@ test('F07 drop-ship approval (ord-d) writes no movement and no EMS task', async 
   expect(l).toContainEqual(expect.objectContaining({ table: 'orders', match: 'ord-d', row: { status: 'supplied' } }));
 });
 
-test('F08 quick action on ord-3 (arrived→delivered) posts NO stock today — ' + DELTAS.O4, async ({ page }, ti) => {
+test('F08 quick action on ord-3 (arrived→delivered) posts NO stock on legacy — ' + DELTAS.O4, async ({ page }, ti) => {
   await bootInv(page, ti, 'עמיחי', d);
   await d.openTab(page, 'orders');
   await d.quick(page, 'ord-3');
   const l = await ledger(page);
-  expect(mov(l)).toEqual([]);
+  if (d.name === 'react') {
+    // O4: the named fix — quick arrived→delivered now posts the one ספק → חברה line per item.
+    expect(mov(l).map(r => r.row)).toEqual([
+      { product: 'מונה Landis+Gyr E360PP', from_location: 'ספק', to_location: 'חברה', quantity: 20, reason: 'order_delivery', ref_id: 'ord-3', created_by: 'עמיחי' },
+    ]);
+  } else {
+    expect(mov(l)).toEqual([]);
+  }
   expect(l).toContainEqual(expect.objectContaining({ table: 'orders', match: 'ord-3', row: { status: 'delivered' } }));
 });
 
-test('F09 the edit-sheet delivery guard reads a snapshot the mock never updates: two saves post twice', async ({ page }, ti) => {
+test('F09 the edit-sheet delivery guard reads a snapshot the mock never updates: two saves post twice on legacy — ' + DELTAS.O18a + ' fixes it on react', async ({ page }, ti) => {
   await bootInv(page, ti, 'עמיחי', d);
   await d.openTab(page, 'orders');
   await d.editOrder(page, 'ord-3', { status: 'delivered' });
   await page.waitForTimeout(1700);   // let the post-save refreshData() cycle run
   await d.editOrder(page, 'ord-3', null);
   const m = mov(await ledger(page));
-  expect(m).toHaveLength(2);
+  // legacy: the edit sheet's own delivery guard reads a stale snapshot, so the second save (an
+  // unchanged re-open of the now-"delivered" order) posts order_delivery a SECOND time. react
+  // (O18a): orderSavePlan only calls it delivery on a REAL transition, and saveOrder itself also
+  // checks alreadyPosted before sending it — never a second post.
+  expect(m).toHaveLength(d.name === 'react' ? 1 : 2);
   for (const row of m) expect(row.row).toMatchObject({ product: 'מונה Landis+Gyr E360PP', from_location: 'ספק', to_location: 'חברה', quantity: 20, reason: 'order_delivery', ref_id: 'ord-3' });
 });
 
-test('F09b ' + DELTAS.O18a + ' is a bug today: opening ord-3 shows "delivered", saving unchanged delivers it', async ({ page }, ti) => {
+test('F09b ' + DELTAS.O18a + ' — legacy: opening ord-3 shows "delivered", saving unchanged re-delivers it; react does not', async ({ page }, ti) => {
   await bootInv(page, ti, 'עמיחי', d);
   await d.openTab(page, 'orders');
   await d.editOrder(page, 'ord-3', null);
   const m = mov(await ledger(page));
-  expect(m).toHaveLength(1);
-  expect(m[0].row).toMatchObject({ reason: 'order_delivery', ref_id: 'ord-3' });
+  expect(m).toHaveLength(d.name === 'react' ? 0 : 1);
+  if (m.length) expect(m[0].row).toMatchObject({ reason: 'order_delivery', ref_id: 'ord-3' });
 });
 
-test('F09c ' + DELTAS.O18b + ' is a bug today: no matching <option>, status is written empty', async ({ page }, ti) => {
+test('F09c ' + DELTAS.O18b + ' — legacy: no matching <option>, status is written empty; react keeps pending_approval', async ({ page }, ti) => {
   await bootInv(page, ti, 'עידן', d);
   await d.openTab(page, 'orders');
   await d.editOrder(page, 'ord-s-small', null);
   const l = await ledger(page);
   const patch = l.find(r => r.table === 'orders' && r.match === 'ord-s-small');
-  expect(patch?.row.status).toBe('');
+  expect(patch?.row.status).toBe(d.name === 'react' ? 'pending_approval' : '');
 });
 
 test('F21 a push deep link (?pushact=approve&oid=…) reaches and runs approveOrder', async ({ page }, ti) => {

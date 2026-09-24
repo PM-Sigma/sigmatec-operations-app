@@ -51,6 +51,8 @@ interface Screen {
   ready?: string;
   /** Scope the sweep to this subtree instead of the whole document (see `root` on gallery). */
   root?: string;
+  /** Extra localStorage entries to seed before boot (e.g. the INV_REACT override). */
+  storage?: Record<string, string>;
 }
 
 const SCREENS: Screen[] = [
@@ -66,6 +68,14 @@ const SCREENS: Screen[] = [
   { label: 'gallery', query: 'gallery=1', ready: '[data-testid="gallery-root"]', root: '[data-testid="gallery-root"]', open: async () => {} },
   { label: 'calendar', open: p => openPage(p, 'calendar', 'calendar-view') },
   { label: 'inventory', open: p => openPage(p, 'inventory', 'inventory-view') },
+  // Package I (task U1/U2): the react rewrite, behind the flag — NOT in no-overlap-allow.json,
+  // same reasoning as 'gallery': this is the new primitives' own screen, so it has to pass on
+  // its own merits. Scoped to the island root; the orders tab is the only one built so far
+  // (U3-U6 add their own tabs' coverage when they ship).
+  {
+    label: 'inventory-react', storage: { 'sigma-inv-react': '1' }, root: '#sigma-inventory',
+    open: p => openPage(p, 'inventory', 'inventory-view'),
+  },
   { label: 'attendance', who: 'אביאם', open: p => openPage(p, 'attendance', 'attendance-view') },
   { label: 'burns', open: p => openPage(p, 'burns', 'burns-view') },
   {
@@ -88,7 +98,7 @@ const SCREENS: Screen[] = [
 test.describe('no-overlap sweep', () => {
   for (const screen of SCREENS) {
     test(`no-overlap: ${screen.label}`, async ({ page }, ti) => {
-      const { rec, viewport } = await boot(page, ti, { who: screen.who ?? 'עידן', query: screen.query, ready: screen.ready });
+      const { rec, viewport } = await boot(page, ti, { who: screen.who ?? 'עידן', query: screen.query, ready: screen.ready, storage: screen.storage });
       if (screen.onlyViewport === 'mobile') test.skip(!viewport.startsWith('mobile'), `${screen.label} is a phone-only surface`);
       if (screen.onlyViewport === 'desktop') test.skip(!viewport.startsWith('desktop'), `${screen.label} is a desktop-only surface`);
       (page as any)._sigmaViewport = viewport;
