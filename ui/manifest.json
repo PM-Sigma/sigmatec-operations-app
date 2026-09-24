@@ -21,6 +21,7 @@
   "./ui/sigma-FeedbackInbox.js",
   "./ui/sigma-Field.js",
   "./ui/sigma-field2.js",
+  "./ui/sigma-Gallery.js",
   "./ui/sigma-Gaps.js",
   "./ui/sigma-HeaderActions.js",
   "./ui/sigma-Health.js",
