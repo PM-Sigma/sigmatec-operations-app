@@ -42,9 +42,23 @@ const byTable = (rows) => {
   return m;
 };
 
-const nullFK = (c) => !c.fk_table;
-const fkLink = (c, i) => nullFK(c) ? '' :
-  ` → [${c.fk_table}](${c.fk_schema}.${c.fk_table}.md)`;
+// Canonical graph node id for a table: bare name for `public` (matches fix_graph.py's own
+// dedup — `table:visits`, never `table:public.visits`, which would just be a second, unmerged
+// node for the same table), schema-qualified for anything else (`table:private.push_config`).
+export const tableDocId = (schema, name) => `table:${schema === 'public' ? name : `${schema}.${name}`}`;
+
+// §10/§9.2: refuse to render anything the introspection JSON should never have carried — a cron
+// command body (it carries Authorization headers) or a function body. introspect.sql never
+// selects these, but this is the last line of defense if a hand-edited or differently-sourced
+// JSON ever does.
+export function assertNoForbiddenData(data) {
+  for (const c of data.cron_jobs || []) {
+    if ('command' in c) throw new Error(`refusing to render: cron job "${c.jobname}" carries a command body (§10 forbids this — introspect.sql must never select cron.job.command)`);
+  }
+  for (const fn of data.functions || []) {
+    if ('prosrc' in fn || 'body' in fn || 'source' in fn) throw new Error(`refusing to render: function "${fn.schema}.${fn.name}" carries a body (§10 forbids this — introspect.sql must never select pg_proc.prosrc)`);
+  }
+}
 
 function renderColumns(cols, constraints, purposes, tableKey) {
   const fkByCol = new Map();
@@ -85,7 +99,7 @@ function renderRelations(constraints, allConstraints, schema, table) {
   return L.join('\n');
 }
 
-function renderRLS(tableRow, policies) {
+function renderRLS(tableRow, policies, policiesPulled) {
   const L = [];
   L.push(tableRow.rls_enabled
     ? `Enabled${tableRow.rls_forced ? ', forced' : ', not forced'}.`
@@ -97,6 +111,12 @@ function renderRLS(tableRow, policies) {
     for (const p of policies) {
       L.push(`| \`${p.name}\` | ${p.command} | ${(p.roles || []).join(', ')} | ${p.permissive} | ${p.using ? `\`${p.using}\`` : '—'} | ${p.with_check ? `\`${p.with_check}\`` : '—'} |`);
     }
+  } else if (policiesPulled === false) {
+    // An empty array here means "we don't have the data", not "there are no policies" — saying
+    // the latter when it isn't known would be a false, misleading security claim in a public
+    // repo. Distinguished from a real, complete pull's genuine zero via `policies_pulled` on the
+    // introspection JSON (see generate()).
+    L.push('', '*(policies not yet generated — requires a live `pg_policies` pull via `introspect.sql`)*');
   } else {
     L.push('', 'No policies defined.');
   }
@@ -127,26 +147,37 @@ function findMigrations(schema, table) {
   return out;
 }
 
+// Every FILE that reads/writes this table (deduped; no cap here — capping raw call-site hits
+// before dedup could drop a real file entirely if it happens to sort after 8 OTHER call sites
+// to the same table in files we already deduped away, which is exactly what an unrelated edit
+// elsewhere in the repo would have then flipped silently). The renderer caps the final file list.
 function findUsage(table) {
   try {
     // Lazy require so a fixture run (fake table names, temp out-dir) never pays for or depends
     // on the full repo scan unless the table is real.
     const im = require(path.join(ROOT, 'scripts/integration-map.mjs'));
-    return im.tablesUsed?.().filter((h) => h.name === table).slice(0, 8) || [];
+    return im.tablesUsed?.().filter((h) => h.name === table) || [];
   } catch {
     return [];
   }
 }
 
-export function renderTablePage(tr, { columns, constraints, indexes, policies, triggers, allConstraints, functionsByKey, purposes, generatedAt }) {
+export function renderTablePage(tr, { columns, constraints, indexes, policies, triggers, allConstraints, functionsByKey, purposes, generatedAt, policiesPulled }) {
   const key = `${tr.schema}.${tr.name}`;
   const migrations = findMigrations(tr.schema, tr.name);
-  const usage = [];
-  try { for (const h of findUsage(tr.name)) usage.push(`${h.file}:${h.line}`); } catch { /* best-effort */ }
+  // Paths only, deduped — never `:line`. A line number here means an UNRELATED edit anywhere in
+  // that file (nothing to do with this table) shifts it, so `gen-schema.mjs --check` would flag
+  // every schema page whose users so much as reformatted a comment. The page still says WHICH
+  // file reads/writes the table; where in it is `integration-map.md`'s job, which line-tracks by
+  // design and is regenerated on every build.
+  let usage = [];
+  try { usage = [...new Set(findUsage(tr.name).map((h) => h.file))].sort(); } catch { /* best-effort */ }
+  const usageTotal = usage.length;
+  usage = usage.slice(0, 8);
 
   const fm = [
     '---',
-    `doc_id: table:${key}`,
+    `doc_id: ${tableDocId(tr.schema, tr.name)}`,
     'doc_type: table',
     `title: ${tr.name} (table)`,
     'generated: true',
@@ -173,13 +204,15 @@ export function renderTablePage(tr, { columns, constraints, indexes, policies, t
     renderRelations(constraints, allConstraints, tr.schema, tr.name),
     '',
     '## RLS',
-    renderRLS(tr, policies),
+    renderRLS(tr, policies, policiesPulled),
     '',
     '## Triggers',
     renderTriggers(triggers, functionsByKey),
     '',
     '## Used by',
-    usage.length ? usage.map((u) => `- ${u}`).join('\n') : '*none found*',
+    usage.length
+      ? usage.map((u) => `- \`${u}\``).join('\n') + (usageTotal > usage.length ? `\n- …+${usageTotal - usage.length} more` : '')
+      : '*none found*',
     '',
     '## Migrations',
     migrations.length ? migrations.map((m) => `- \`${m}\``).join('\n') : '*none found*',
@@ -191,18 +224,22 @@ export function renderTablePage(tr, { columns, constraints, indexes, policies, t
     '',
     '---',
     `*Generated by \`scripts/docs/gen-schema.mjs\` from \`_introspection.json\` (${generatedAt}). Do not hand-edit.*`,
-    '',
   ].join('\n');
 
-  return fm + body;
+  return fm + '<!-- GENERATED:schema -->\n' + body + '\n<!-- /GENERATED:schema -->\n';
 }
 
+// _functions.md / _triggers-and-cron.md / README.md are NOT tables — front-matter `doc_type:
+// generated` (the generated.md template) and a `generated:` doc_id keeps them out of the
+// `table:` id space entirely, so they never collide or merge with a real table node in the graph.
 export function renderFunctions(functions, grants, generatedAt) {
   const grantsByFn = byTable(grants.map((g) => ({ schema: g.schema, table: g.name, ...g })));
-  const L = [
-    '---', 'doc_id: table:_functions', 'doc_type: table', 'title: Functions',
+  const fm = [
+    '---', 'doc_id: generated:functions', 'doc_type: generated', 'title: Functions',
     'generated: true', 'generator: scripts/docs/gen-schema.mjs', `introspected_at: ${generatedAt}`,
     'introspection_commit: null', '---', '',
+  ].join('\n');
+  const L = [
     '# Functions', '',
     '> Signature and flags only — never the function body. See `introspect.sql`.', '',
   ];
@@ -216,14 +253,16 @@ export function renderFunctions(functions, grants, generatedAt) {
     L.push(`- grants: ${grantees.length ? grantees.join(', ') : '*none listed*'}`);
     L.push('');
   }
-  return L.join('\n');
+  return fm + '<!-- GENERATED:body -->\n' + L.join('\n') + '<!-- /GENERATED:body -->\n';
 }
 
 export function renderTriggersAndCron(triggers, cronJobs, generatedAt) {
-  const L = [
-    '---', 'doc_id: table:_triggers-and-cron', 'doc_type: table', 'title: Triggers and cron jobs',
+  const fm = [
+    '---', 'doc_id: generated:triggers-and-cron', 'doc_type: generated', 'title: Triggers and cron jobs',
     'generated: true', 'generator: scripts/docs/gen-schema.mjs', `introspected_at: ${generatedAt}`,
     'introspection_commit: null', '---', '',
+  ].join('\n');
+  const L = [
     '# Triggers and cron jobs', '',
     '## Triggers', '',
     '| Table | Trigger | Timing | Event | Action |', '|---|---|---|---|---|',
@@ -232,18 +271,19 @@ export function renderTriggersAndCron(triggers, cronJobs, generatedAt) {
   L.push('', '## Cron jobs', '', '> Target function only — the command body never leaves the DB (§10).', '');
   L.push('| Job | Schedule | Active | Target |', '|---|---|---|---|');
   for (const c of cronJobs) L.push(`| \`${c.jobname}\` | \`${c.schedule}\` | ${c.active ? 'yes' : 'no'} | ${c.target ? `\`${c.target}\`` : '*unparsed*'} |`);
-  L.push('');
-  return L.join('\n');
+  return fm + '<!-- GENERATED:body -->\n' + L.join('\n') + '\n<!-- /GENERATED:body -->\n';
 }
 
 export function renderReadme(data, purposes) {
   const tables = data.tables;
   const byModule = tables.map((t) => `${t.schema}.${t.name}`).sort();
   const undeclared = tables.filter((t) => !findMigrations(t.schema, t.name).length);
-  const L = [
-    '---', 'doc_id: system:schema-readme', 'doc_type: table', 'title: Schema',
+  const fm = [
+    '---', 'doc_id: generated:schema-readme', 'doc_type: generated', 'title: Schema',
     'generated: true', 'generator: scripts/docs/gen-schema.mjs', `introspected_at: ${data.generated_at}`,
     'introspection_commit: null', '---', '',
+  ].join('\n');
+  const L = [
     '# Schema', '',
     `${tables.length} tables/views across ${data.schemas.length} schemas, introspected ${data.generated_at}.`, '',
     '## Tables', '',
@@ -258,13 +298,13 @@ export function renderReadme(data, purposes) {
       ? `${undeclared.length} table(s) live but not declared in any \`db/*.sql\` by name: ` +
         undeclared.map((t) => `\`${t.schema}.${t.name}\``).join(', ') + '.'
       : 'No drift: every live table is declared in `db/*.sql`.',
-    '',
   ];
-  return L.join('\n');
+  return fm + '<!-- GENERATED:body -->\n' + L.join('\n') + '\n<!-- /GENERATED:body -->\n';
 }
 
 export function generate({ inPath = DEFAULT_IN, outDir = DEFAULT_OUT } = {}) {
   const data = JSON.parse(fs.readFileSync(inPath, 'utf8'));
+  assertNoForbiddenData(data);
   const purposes = fs.existsSync(PURPOSES) ? parsePurposes(fs.readFileSync(PURPOSES, 'utf8')) : {};
   const cols = byTable(data.columns);
   const cons = byTable(data.constraints);
@@ -272,6 +312,9 @@ export function generate({ inPath = DEFAULT_IN, outDir = DEFAULT_OUT } = {}) {
   const pol = byTable(data.policies);
   const trg = byTable(data.triggers);
   const fnByKey = new Map(data.functions.map((f) => [`${f.name}`, f]));
+  // Absent (older JSON, or the fixture) defaults to true: a real, complete `introspect.sql` pull
+  // where a table genuinely has zero policies. Only an explicit `false` means "not pulled yet".
+  const policiesPulled = data.policies_pulled !== false;
 
   const files = new Map();
   for (const tr of data.tables) {
@@ -286,6 +329,7 @@ export function generate({ inPath = DEFAULT_IN, outDir = DEFAULT_OUT } = {}) {
       functionsByKey: fnByKey,
       purposes,
       generatedAt: data.generated_at,
+      policiesPulled,
     }));
   }
   files.set('_functions.md', renderFunctions(data.functions, data.function_grants, data.generated_at));

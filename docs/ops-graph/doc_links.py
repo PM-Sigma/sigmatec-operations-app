@@ -29,9 +29,9 @@ What it adds to `.graphify_extract.json` (in place):
   - retired docs are handled in fix_graph.py itself (§8.2 point 4: a `document` node whose
     source_file is under docs/ and gone from disk is dropped there, not here).
 """
-import glob
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -41,76 +41,20 @@ SYSTEM_DIR = ROOT / "docs" / "system"
 EXTRACT_PATH = HERE / ".graphify_extract.json"
 
 
-# ---------------------------------------------------------------- tiny front-matter parser
-# Same subset as scripts/docs/matter.mjs (the JS side): scalars, null, inline [a, b] arrays,
-# block "- item" arrays, one level of inline { k: v } objects. Not a YAML library on purpose -
-# this repo's front-matter never needs more than this, and a stdlib-only regex reader means
-# doc_links.py runs with no extra install in the rebuild pipeline (label_and_render.py's own
-# networkx dependency is already the exception, not the rule).
-def _scalar(s):
-    t = s.strip()
-    if t in ("", "null", "~"):
-        return None
-    if t == "true":
-        return True
-    if t == "false":
-        return False
-    if re.fullmatch(r"-?\d+", t):
-        return int(t)
-    if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'":
-        return t[1:-1]
-    return t
+def load_docs():
+    """Every docs/system/**/*.md doc's front-matter + body, as {path, data, body} dicts.
 
-
-def parse_front_matter(text):
-    if not text.startswith("---"):
-        return {}, text
-    end = text.find("\n---", 3)
-    if end == -1:
-        return {}, text
-    fm_end = text.find("\n", end + 1) + 1 or len(text)
-    fm_text = text[3:end]
-    body = text[fm_end:]
-    lines = fm_text.split("\n")
-    data = {}
-    i = 0
-    while i < len(lines):
-        m = re.match(r"^([A-Za-z_]\w*):\s*(.*)$", lines[i])
-        if not m:
-            i += 1
-            continue
-        key, rest = m.group(1), m.group(2)
-        if rest.strip() == "":
-            items, j = [], i + 1
-            while j < len(lines) and re.match(r"^\s*-\s?", lines[j]):
-                items.append(_scalar(re.sub(r"^\s*-\s?", "", lines[j])))
-                j += 1
-            data[key] = items
-            i = j
-            continue
-        rest_s = rest.strip()
-        if rest_s.startswith("["):
-            inner = rest_s[1:-1].strip()
-            data[key] = [_scalar(x) for x in inner.split(",")] if inner else []
-        elif rest_s.startswith("{"):
-            inner = rest_s[1:-1].strip()
-            obj = {}
-            if inner:
-                for part in inner.split(","):
-                    if ":" in part:
-                        k, v = part.split(":", 1)
-                        obj[k.strip()] = _scalar(v)
-            data[key] = obj
-        else:
-            data[key] = _scalar(rest)
-        i += 1
-    return data, body
-
-
-def list_docs():
-    if not SYSTEM_DIR.exists():
-        return []
-    return sorted(p for p in SYSTEM_DIR.rglob("*.md") if "_templates" not in p.parts)
+    Parsed by scripts/docs/dump-front-matter.mjs (Node), not a second Python parser here - the
+    grammar (scalars, null, inline arrays/objects, block lists) lives in ONE place,
+    scripts/docs/matter.mjs, so it cannot quietly drift between the JS and Python sides of the
+    docs tooling (ponytail: don't hand-roll the same small parser twice)."""
+    r = subprocess.run(
+        ["node", str(ROOT / "scripts" / "docs" / "dump-front-matter.mjs")],
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
+    )
+    if r.returncode != 0:
+        sys.exit(f"dump-front-matter.mjs failed:\n{r.stderr}")
+    return json.loads(r.stdout)
 
 
 def declared_symbol(abs_path, symbol):
@@ -144,20 +88,19 @@ def main():
     if intro_path.exists():
         introspection = json.loads(intro_path.read_text(encoding="utf-8"))
 
-    docs = list_docs()
+    docs = load_docs()
     n_doc_nodes = n_owns = n_rw = n_ref = n_groups = n_anchor = n_unresolved = n_table_src = n_policy = 0
 
-    for doc_path in docs:
-        rel = doc_path.relative_to(ROOT).as_posix()
-        raw = doc_path.read_text(encoding="utf-8", errors="ignore")
-        data, body = parse_front_matter(raw)
+    for doc in docs:
+        rel = doc["path"]
+        data, body = doc["data"], doc["body"]
         doc_id = data.get("doc_id")
         if not doc_id:
             continue  # malformed front-matter - test-docs.mjs already fails the build on this
 
         file_id = f"file:{rel}"
         if file_id not in nodes:
-            nodes[file_id] = {"id": file_id, "label": doc_path.name, "file_type": "document",
+            nodes[file_id] = {"id": file_id, "label": rel.rsplit("/", 1)[-1], "file_type": "document",
                                "source_file": rel, "source_location": None}
         if doc_id not in nodes:
             nodes[doc_id] = {"id": doc_id, "label": data.get("title") or doc_id, "file_type": "document",

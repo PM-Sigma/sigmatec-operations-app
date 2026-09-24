@@ -1,13 +1,13 @@
 ---
-doc_id: table:_triggers-and-cron
-doc_type: table
+doc_id: generated:triggers-and-cron
+doc_type: generated
 title: Triggers and cron jobs
 generated: true
 generator: scripts/docs/gen-schema.mjs
 introspected_at: 2026-09-23T00:00:00Z
 introspection_commit: null
 ---
-
+<!-- GENERATED:body -->
 # Triggers and cron jobs
 
 ## Triggers
@@ -21,3 +21,4 @@ introspection_commit: null
 
 | Job | Schedule | Active | Target |
 |---|---|---|---|
+<!-- /GENERATED:body -->

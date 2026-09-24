@@ -2,11 +2,12 @@
 // test` (spec §6: "npm run docs:check ... wired into scripts/test-all.mjs"). Picked up
 // automatically by test-all.mjs's `test-*.mjs` sweep.
 //
-// gen-schema.mjs and gen-edge-functions.mjs are pure JS over committed JSON/source, so they
-// always run. gen-module-inventory.mjs needs the OPS GRAPH (`graph.json`, a gitignored BUILT
-// artifact from `python docs/ops-graph/rebuild.py`) — its own --check mode already skips (not
-// fails) when that file isn't there, so this never forces a Python dependency onto plain `npm
-// test`, only checks it when the graph happens to be built.
+// gen-schema.mjs, gen-edge-functions.mjs, gen-roles.mjs, gen-design.mjs and gen-map.mjs are pure
+// JS over committed JSON/source, so they always run. gen-module-inventory.mjs needs the OPS
+// GRAPH (`graph.json`, a gitignored BUILT artifact from `python docs/ops-graph/rebuild.py`) —
+// its own --check mode already skips (not fails) when that file isn't there, so this never
+// forces a Python dependency onto plain `npm test`, only checks it when the graph is built.
+// gen-roles.mjs/gen-map.mjs skip the same way when their target doc hasn't been written yet.
 import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,7 +16,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)));
 const run = (script) => spawnSync(process.execPath, [resolve(root, 'scripts/docs', script), '--check'], { cwd: root, stdio: 'inherit' });
 
 let failed = null;
-for (const script of ['gen-schema.mjs', 'gen-edge-functions.mjs', 'gen-module-inventory.mjs']) {
+for (const script of ['gen-schema.mjs', 'gen-edge-functions.mjs', 'gen-module-inventory.mjs', 'gen-roles.mjs', 'gen-design.mjs', 'gen-map.mjs']) {
   const r = run(script);
   if (r.status !== 0) { failed = script; break; }
 }

@@ -23,17 +23,11 @@ function loadGraph(graphPath) {
   return { nodes, links };
 }
 
-/** Glob → RegExp, just enough for the `code:` front-matter globs (`app/src/lib/visitDraft*.ts`,
- * `app/src/islands/Field.tsx`, `supabase/functions/push-send/**`) — no dependency for this. */
-function globToRe(glob) {
-  const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*');
-  return new RegExp(`^${esc}$`);
-}
-
+// `code:` front-matter globs (`app/src/lib/visitDraft*.ts`, `supabase/functions/push-send/**`)
+// matched with the stdlib (`path.matchesGlob`, Node >=22.5) — no hand-rolled glob-to-regex here.
 export function matchOwned(codeGlobs, files) {
-  const res = (codeGlobs || []).map(globToRe);
-  return files.filter((f) => res.some((r) => r.test(f)));
+  const globs = codeGlobs || [];
+  return files.filter((f) => globs.some((g) => path.matchesGlob(f, g)));
 }
 
 /** For each owned file: the `file:<path>` node's outgoing `contains`/`groups` symbols, the

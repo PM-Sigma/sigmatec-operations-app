@@ -11,6 +11,9 @@ import { setBlock, getBlock, seedFromTemplate } from './scripts/docs/gen-blocks.
 import { extractModes, extractSecrets, extractTables, extractOutboundHosts, authForMode } from './scripts/docs/gen-edge-functions.mjs';
 import { matchOwned, buildInventory, renderInventoryBlock, renderTestsBlock, generateOne as genInventoryOne } from './scripts/docs/gen-module-inventory.mjs';
 import { reportForDoc } from './scripts/docs/stale.mjs';
+import { parseTokens } from './scripts/docs/gen-design.mjs';
+import { extractPeople, extractCaps, extractPageRules } from './scripts/docs/gen-roles.mjs';
+import { renderTable, renderNotYetCovered } from './scripts/docs/gen-map.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -107,7 +110,7 @@ test('authForMode: cron / EMS / both / neither, scanned from the branch line', (
     '}',
   ];
   assert.equal(authForMode(lines, 1), 'cron (`CRON_SECRET`) or EMS login (`emsValid`)');
-  assert.equal(authForMode(['if (x) { doStuff(); }'], 1), '*(no guard found near this branch — verify by hand)*');
+  assert.equal(authForMode(['if (x) { doStuff(); }'], 1), '*(auth pattern not recognized by this generator near this branch)*');
 });
 
 // ── gen-module-inventory.mjs ──
@@ -176,6 +179,60 @@ test('reportForDoc: git diff empty → current, non-empty → stale with the cha
 
 test('reportForDoc: unresolvable baseline commit → unknown, not silently current', () => {
   assert.equal(reportForDoc({ last_validated: { commit: 'deadbeef' }, code: ['x'] }, () => null).status, 'unknown (bad baseline commit)');
+});
+
+// ── gen-design.mjs ──
+test('parseTokens: light vs dark blocks, first-write-wins per name', () => {
+  const css = `:root { --a: 1; --b: 2; }\n.dark .x { --a: 9; }\n`;
+  const { light, dark } = parseTokens(css);
+  assert.equal(light.get('a'), '1');
+  assert.equal(light.get('b'), '2');
+  assert.equal(dark.get('a'), '9');
+  assert.equal(dark.has('b'), false);
+});
+
+// ── gen-roles.mjs ──
+test('extractPeople: APP_PEOPLE array + VIEWER_NAME, in source order', () => {
+  const src = `export const APP_PEOPLE = ['a', 'b', 'c'] as const;\nexport const VIEWER_NAME = 'v';\n`;
+  const { people, viewer } = extractPeople(src);
+  assert.deepEqual(people, ['a', 'b', 'c']);
+  assert.equal(viewer, 'v');
+});
+
+test('extractCaps: exported UPPER_CASE const flags', () => {
+  const src = `export const FOO_ENABLED = true;\nconst notExported = false;\n`;
+  assert.deepEqual(extractCaps(src), [{ name: 'FOO_ENABLED', value: 'true' }]);
+});
+
+test('extractPageRules: delegate calls, literal names, viewer flag, everyone/nobody', () => {
+  const src = `
+    function canShowPage(page) {
+      switch (page) {
+        case 'a': return !!call('isAdmin', [], false);
+        case 'b': case 'c': return true;
+        case 'd': { if (call('isViewer', [], false)) return true; var u = call('getCurrentUser', [], ''); return ['אביאם'].indexOf(u) !== -1; }
+        default: return false;
+      }
+    }
+    window.sigma = {
+  `;
+  const rules = extractPageRules(src);
+  const byPage = {};
+  for (const r of rules) for (const p of r.pages) byPage[p] = r.rule;
+  assert.match(byPage.a, /isAdmin/);
+  assert.equal(byPage.b, 'everyone');
+  assert.equal(byPage.c, 'everyone');
+  assert.match(byPage.d, /isViewer/);
+  assert.match(byPage.d, /אביאם/);
+});
+
+// ── gen-map.mjs ──
+test('renderNotYetCovered: prints the coverage gap counts, doubleClaimed only when nonzero', () => {
+  const clean = renderNotYetCovered({ missingTables: 2, missingFns: 1, unclaimed: ['a', 'b'], doubleClaimed: [] });
+  assert.ok(clean.includes('**2** live table'));
+  assert.ok(!clean.includes('claimed by more than one'));
+  const dup = renderNotYetCovered({ missingTables: 0, missingFns: 0, unclaimed: [], doubleClaimed: ['x'] });
+  assert.ok(dup.includes('claimed by more than one'));
 });
 
 console.log(`\nPASS — ${n} checks.`);

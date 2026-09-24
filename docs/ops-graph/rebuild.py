@@ -23,6 +23,12 @@ HERE = Path(__file__).parent
 # reads the variable at import time. The corpus root is the repo root, so without this a
 # stray graphify-out/ (absolute local paths inside) lands at the root and gets committed.
 os.environ["GRAPHIFY_OUT"] = str((HERE / "graphify-out").resolve())
+# The repo has grown past graphify's default 5000-node HTML-viz ceiling (round 5 + DOC-0's own
+# docs/system nodes) — label_and_render.py's to_html() would raise ValueError and fail the WHOLE
+# rebuild over an interactive-preview limit, not the graph data itself. Raise it generously
+# instead of disabling the viz; graph.json (what ops_graph.py and doc_links.py's next run read)
+# is unaffected either way.
+os.environ.setdefault("GRAPHIFY_VIZ_NODE_LIMIT", "20000")
 
 
 def main():

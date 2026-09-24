@@ -48,7 +48,12 @@ export function authForMode(lines, startLine, window = 12) {
   if (hasCron && hasEms) return 'cron (`CRON_SECRET`) or EMS login (`emsValid`)';
   if (hasCron) return 'cron (`CRON_SECRET`)';
   if (hasEms) return 'EMS login (`emsValid`)';
-  return '*(no guard found near this branch — verify by hand)*';
+  // Neutral, on purpose (§10, no evaluative security findings in a public repo): this states a
+  // LIMITATION OF THE SCANNER (it only recognizes these two literal patterns), never a claim
+  // about the endpoint's actual auth — that a pattern wasn't found here is not evidence there
+  // is none; a different guard (a signature check, a shared secret compared some other way) is
+  // just as possible and this generator has no way to tell.
+  return '*(auth pattern not recognized by this generator near this branch)*';
 }
 
 export function extractSecrets(text) {

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import { generate, parsePurposes, ROOT } from './scripts/docs/gen-schema.mjs';
+import { generate, parsePurposes, assertNoForbiddenData, tableDocId } from './scripts/docs/gen-schema.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.join(HERE, 'scripts/docs/__fixtures__/introspection.sample.json');
@@ -42,5 +42,17 @@ assert.equal(parsed.widgets, 'the physical stock catalogue');
 assert.equal(parsed['widgets.qty'], 'on-hand count');
 assert.equal(Object.keys(parsed).length, 2);
 
+// tableDocId: bare name for public (matches fix_graph.py's own canonical id), schema-qualified
+// otherwise — a mismatch here means a duplicate, unmerged `table:` node in the OPS GRAPH.
+assert.equal(tableDocId('public', 'visits'), 'table:visits');
+assert.equal(tableDocId('private', 'push_config'), 'table:private.push_config');
+
+// assertNoForbiddenData: §10/§9.2 — refuse a cron command body or a function body outright.
+assert.throws(() => assertNoForbiddenData({ cron_jobs: [{ jobname: 'x', command: 'select net.http_post(...)' }] }),
+  /refusing to render.*cron job "x"/);
+assert.throws(() => assertNoForbiddenData({ functions: [{ schema: 'public', name: 'f', prosrc: 'begin end' }] }),
+  /refusing to render.*function "public\.f"/);
+assert.doesNotThrow(() => assertNoForbiddenData({ cron_jobs: [{ jobname: 'x', schedule: '* * * * *' }], functions: [{ schema: 'public', name: 'f' }] }));
+
 if (failures) { console.error(`${failures} golden mismatch(es)`); process.exit(1); }
-console.log(`PASS — ${files.size} generated schema files match golden, parsePurposes ok.`);
+console.log(`PASS — ${files.size} generated schema files match golden, parsePurposes/tableDocId/assertNoForbiddenData ok.`);

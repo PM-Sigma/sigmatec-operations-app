@@ -118,19 +118,22 @@ function partitionFiles() {
   return out;
 }
 
-function globToRe(glob) {
-  const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*');
-  return new RegExp(`^${esc}$`);
+// A doc that's still a raw, unfilled template (nobody replaced its REPLACE_ME placeholders) does
+// not count as coverage — otherwise `cp _templates/table.md schema/public.foo.md` would satisfy
+// the ratchet with zero real content. Real generated pages never contain this token (it's the
+// templates' own marker, substituted out by seedFromTemplate/gen-schema.mjs).
+function isRealDoc(absPath) {
+  return fs.existsSync(absPath) && !fs.readFileSync(absPath, 'utf8').includes('REPLACE_ME');
 }
 
 export function computeCoverage(docs, introspection) {
-  const moduleDocs = docs.filter((p) => matter(fs.readFileSync(p, 'utf8')).data.doc_type === 'module');
+  const moduleDocs = docs.filter((p) => matter(fs.readFileSync(p, 'utf8')).data.doc_type === 'module' && isRealDoc(p));
   const files = partitionFiles();
   const claims = new Map(files.map((f) => [f, []]));
   for (const p of moduleDocs) {
     const { data } = matter(fs.readFileSync(p, 'utf8'));
-    const res = (data.code || []).map(globToRe);
-    for (const f of files) if (res.some((r) => r.test(f))) claims.get(f).push(data.doc_id);
+    const globs = data.code || [];
+    for (const f of files) if (globs.some((g) => path.matchesGlob(f, g))) claims.get(f).push(data.doc_id);
   }
   const unclaimed = files.filter((f) => claims.get(f).length === 0);
   const doubleClaimed = files.filter((f) => claims.get(f).length > 1);
@@ -138,7 +141,7 @@ export function computeCoverage(docs, introspection) {
   let missingTables = 0;
   if (introspection) {
     for (const t of introspection.tables) {
-      if (!fs.existsSync(path.join(SYSTEM_DIR, 'schema', `${t.schema}.${t.name}.md`))) missingTables++;
+      if (!isRealDoc(path.join(SYSTEM_DIR, 'schema', `${t.schema}.${t.name}.md`))) missingTables++;
     }
   }
   let missingFns = 0;
@@ -146,7 +149,7 @@ export function computeCoverage(docs, introspection) {
   if (fs.existsSync(fnDir)) {
     for (const d of fs.readdirSync(fnDir, { withFileTypes: true })) {
       if (!d.isDirectory() || d.name === '_shared') continue;
-      if (!fs.existsSync(path.join(SYSTEM_DIR, 'edge-functions', `${d.name}.md`))) missingFns++;
+      if (!isRealDoc(path.join(SYSTEM_DIR, 'edge-functions', `${d.name}.md`))) missingFns++;
     }
   }
   const retiredPresent = RETIRED_PATHS.filter((p) => fs.existsSync(path.join(ROOT, p)));
@@ -181,8 +184,16 @@ function main() {
   }
 
   const baseline = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8'));
+  // A TRUE ratchet: it must move only one way. `actual > allowed` is a regression (fatal, as
+  // always). `actual < allowed` means real progress landed but nobody lowered the committed
+  // baseline to match — also fatal, because an un-lowered baseline is exactly how a ratchet
+  // silently stops ratcheting (the gap could grow right back up to the old, too-generous number
+  // without ever tripping this check again). Either way the fix is the same: run
+  // `node test-docs.mjs --write-baseline`, review the (only-downward) diff, and commit it.
   const ratchet = (name, actual, allowed, detail) => {
     if (actual > allowed) fail(`RATCHET REGRESSION — ${name}: ${actual} > baseline ${allowed}${detail ? `\n  ${detail}` : ''}`);
+    else if (actual < allowed) fail(`RATCHET BASELINE STALE — ${name}: ${actual} < baseline ${allowed} — ` +
+      `progress landed but the baseline wasn't lowered to match. Run \`node test-docs.mjs --write-baseline\` and commit it.`);
   };
   ratchet('missing_table_docs', cov.missingTables, baseline.missing_table_docs);
   ratchet('missing_edge_function_docs', cov.missingFns, baseline.missing_edge_function_docs);
