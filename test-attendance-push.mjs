@@ -42,19 +42,25 @@ check('empty month → all weekdays up to yesterday', () => {
   assert.deepStrictEqual(out, ['2026-07-01', '2026-07-02', '2026-07-05', '2026-07-06', '2026-07-07',
     '2026-07-08', '2026-07-09', '2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15']);
 });
-check('attendance + visits both count as presence', () => {
+check('round 5 rule 5: covered = has an ATTENDANCE row; a visit day with none is still missing', () => {
   const att = [
     { person: 'אביאם', date: '2026-07-01', dayType: 'office' },
     { person: 'אביאם', date: '2026-07-02T00:00:00', dayType: 'vacation' },   // timestamp-ish date
     { person: 'ניתאי', date: '2026-07-05', dayType: 'office' },              // other person — ignored
   ];
   const visits = [
-    { visitor: 'אביאם', date: '2026-07-05' },
+    { visitor: 'אביאם', date: '2026-07-05' },              // no attendance row backing it → still missing
     { visitor: 'אביאם', date: '2026-07-06T14:30:00' },
     { visitor: 'ניתאי', date: '2026-07-07' },
   ];
   const out = M.attMissingDays(att, visits, 'אביאם', 2026, 6, TODAY);
-  assert.deepStrictEqual(out, ['2026-07-07', '2026-07-08', '2026-07-09', '2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15']);
+  assert.deepStrictEqual(out, ['2026-07-05', '2026-07-06', '2026-07-07', '2026-07-08', '2026-07-09', '2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15']);
+});
+check('a visit_auto row counts exactly like a manual one (the visits argument stays but is ignored)', () => {
+  const att = [{ person: 'אביאם', date: '2026-07-05', dayType: 'field', source: 'visit_auto' }];
+  const visits = [{ visitor: 'אביאם', date: '2026-07-05' }];
+  const out = M.attMissingDays(att, visits, 'אביאם', 2026, 6, TODAY);
+  assert.ok(!out.includes('2026-07-05'));
 });
 check('weekend never missing (Fri 3.7 / Sat 4.7 absent from output)', () => {
   const out = M.attMissingDays([], [], 'אביאם', 2026, 6, TODAY);

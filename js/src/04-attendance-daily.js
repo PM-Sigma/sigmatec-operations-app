@@ -145,24 +145,59 @@
   }
   window.attApplyOps = attApplyOps;
 
+  // Round 5 rule 5 (readers switch to the rows, manual wins): which of two attendance rows on the
+  // SAME day wins, defensively (V2: a write always keeps one row per day; this is only the guard
+  // against a stale snapshot that still has two). Mirrors attendance.ts SOURCE_RANK.
+  var ATT_SOURCE_RANK = { manual: 0, calendar: 1, visit_auto: 2, visit: 3 };
+  function attSourceRank(s) { return ATT_SOURCE_RANK.hasOwnProperty(s) ? ATT_SOURCE_RANK[s] : 0; }
+
   // The month a person actually has, merged one-row-per-day — the same merge the table and
   // the exports use, handed to the island as plain ISO rows. `month` is 0-based here (the
   // legacy convention); the island converts once, at the bridge.
+  //
+  // Round 5 rule 5: for a FILER (ATT_PEOPLE) the day's TYPE comes ONLY from attendance rows —
+  // a visit no longer invents a field day on its own. A visit still attaches as DETAIL (kibbutz,
+  // hours, the visits[] list) to whichever day an attendance row already calls 'field' (manual or
+  // visit_auto). For anyone else, unchanged: their visits still derive a field day by themselves.
   function attRowsFor(person, year, month) {
     var who = person || (typeof attPerson === 'function' ? attPerson() : '');
     var data = window.SHEET_DATA || {};
     var inMonth = function (d) { return d.getFullYear() === year && d.getMonth() === month; };
-    var attRows = (data.attendance || [])
+    var isFiler = (typeof ATT_PEOPLE !== 'undefined' ? ATT_PEOPLE : ['אביאם', 'ניתאי']).indexOf(who) !== -1;
+    var ymdKey = function (d) { return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); };
+
+    var attRowsAll = (data.attendance || [])
       .filter(function (a) { return a.person === who; })
-      .map(function (a) { return { date: new Date(a.date), type: a.dayType, kibbutz: '', duration: 0, note: a.note || '' }; })
+      .map(function (a) { return { date: new Date(a.date), type: a.dayType, kibbutz: '', duration: 0, note: a.note || '', source: a.source || 'manual', isAttendanceRow: true }; })
       .filter(function (a) { return !isNaN(a.date) && inMonth(a.date); });
-    var fieldRows = (data.visits || [])
+    // Defensive dedupe (contract V2): one row per day, the strongest source wins.
+    var attRows = isFiler ? (function () {
+      var byDay = {};
+      attRowsAll.forEach(function (a) {
+        var k = ymdKey(a.date);
+        if (!byDay[k] || attSourceRank(a.source) < attSourceRank(byDay[k].source)) byDay[k] = a;
+      });
+      return Object.keys(byDay).map(function (k) { return byDay[k]; });
+    })() : attRowsAll;
+
+    var visitsOfPerson = (data.visits || [])
       .filter(function (v) { return visitorsOf(v).indexOf(who) !== -1; })
       .map(function (v) {
-        return { date: new Date(v.date), type: 'field', kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0,
+        return { date: new Date(v.date), kibbutz: v.kibbutz || '', duration: parseFloat(v.duration) || 0,
                  summary: v.summary || '', id: v.id || '', workday: !!v.workday };
       })
       .filter(function (v) { return !isNaN(v.date) && inMonth(v.date); });
+
+    var fieldRows;
+    if (isFiler) {
+      var fieldYmds = {};
+      attRows.forEach(function (a) { if (a.type === 'field') fieldYmds[ymdKey(a.date)] = true; });
+      fieldRows = visitsOfPerson.filter(function (v) { return fieldYmds[ymdKey(v.date)]; })
+        .map(function (v) { return Object.assign({ type: 'field' }, v); });
+    } else {
+      fieldRows = visitsOfPerson.map(function (v) { return Object.assign({ type: 'field' }, v); });
+    }
+
     return mergeAttendanceByDate(attRows.concat(fieldRows)).map(function (r) {
       var d = r.date;
       return {
@@ -171,7 +206,7 @@
         kibbutz: r.kibbutz || '',
         hours: r.duration || 0,
         note: r.note || '',
-        source: r.type === 'field' ? 'visit' : 'manual',
+        source: r.source || (r.type === 'field' ? 'visit' : 'manual'),
         visits: r.visits || []
       };
     });
@@ -401,16 +436,23 @@
         const kibbutzim = [...new Set(d.fields.map(f => f.kibbutz).filter(Boolean))];
         const workdays = d.fields.filter(f => f.workday).length;
         const hourHours = d.fields.filter(f => !f.workday).reduce((s, f) => s + (f.duration || 0), 0);
+        // Round 5 rule 5: a filer's field day carries the REAL attendance row's source (manual or
+        // visit_auto); a non-filer's field day is still purely visit-derived, unchanged ('visit').
+        const attSourced = d.fields.find(f => f.isAttendanceRow);
+        // The placeholder attendance-row entry (isAttendanceRow, no real visit behind it) must
+        // never show up as a blank line in the visits[] detail list — only genuine visits do.
+        const realVisits = d.fields.filter(f => !f.isAttendanceRow);
         return {
           date: d.date, type: 'field',
           kibbutz: kibbutzim.join(', '),
           workdays: workdays,
           hourHours: hourHours,
           duration: hourHours + workdays * WORKDAY_HOURS,   // ≈ total hours (work day ≈ 8h)
+          source: attSourced ? attSourced.source : 'visit',
           // visitId carried so a field day can be opened for editing from נוכחות (openVisitFromAttendance).
           // NOTE: the row itself still gets NO `id` — that field means "an attendance-table row" and drives
           // the attendance editor. A field day is a VISIT and takes the visit editor instead.
-          visits: d.fields.map(f => ({ kibbutz: f.kibbutz, summary: f.summary, duration: f.duration, workday: f.workday, visitId: f.id || '',
+          visits: realVisits.map(f => ({ kibbutz: f.kibbutz, summary: f.summary, duration: f.duration, workday: f.workday, visitId: f.id || '',
                                        contact: f.contact || '', products: f.products || [], productsOther: f.productsOther || '' })),
           note: ''
         };
@@ -418,7 +460,7 @@
       // id carried so the row gets an ✏️ (field rows above deliberately have none — they're VISITS,
       // edited through the visit form). Only others[0] is shown/editable, as before.
       const o = d.others[0];
-      return { date: d.date, type: o.type, kibbutz: '', duration: 0, visits: [], note: o.note || '', id: o.id };
+      return { date: d.date, type: o.type, kibbutz: '', duration: 0, visits: [], note: o.note || '', id: o.id, source: o.source || 'manual' };
     }).sort((a, b) => a.date - b.date);
   }
 

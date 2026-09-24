@@ -313,8 +313,12 @@
     function mockAttendance() {
       var out = [];
       ['אביאם', 'ניתאי'].forEach(function (who) {
-        out.push({ id: 'att-' + who + '-1', person: who, dayType: 'office', note: '', date: new Date(mockYmd(mockFirstDow(0)) + 'T12:00:00').toISOString() });
-        out.push({ id: 'att-' + who + '-2', person: who, dayType: 'wfh', note: '', date: new Date(mockYmd(mockFirstDow(2)) + 'T12:00:00').toISOString() });
+        out.push({ id: 'att-' + who + '-1', person: who, dayType: 'office', note: '', date: new Date(mockYmd(mockFirstDow(0)) + 'T12:00:00').toISOString(), source: 'manual' });
+        out.push({ id: 'att-' + who + '-2', person: who, dayType: 'wfh', note: '', date: new Date(mockYmd(mockFirstDow(2)) + 'T12:00:00').toISOString(), source: 'manual' });
+        // Round 5 V8 (rule 5): a filer's visit day carries a real visit_auto row now — every mock
+        // visit below (mockVisits) has one, matching the id attRowsFor/autoRowId would produce.
+        var vday = mockYmd(mockFirstDow(3));
+        out.push({ id: 'att_v_' + vday.replace(/-/g, '') + '_' + who, person: who, dayType: 'field', note: '', date: new Date(vday + 'T12:00:00').toISOString(), source: 'visit_auto' });
       });
       return out;
     }

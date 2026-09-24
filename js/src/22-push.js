@@ -197,15 +197,14 @@
   }
   window.attNotRequired = attNotRequired;
 
+  // Round 5 rule 5 (readers switch to the rows): covered = has an ATTENDANCE row (any source —
+  // manual, calendar or visit_auto). `visits` stays in the signature (every caller still passes
+  // it) but is no longer read: a visit day with no matching row is missing, same as any other day,
+  // until the visit save writes the visit_auto row (or the backfill did, for existing visits).
   function attMissingDays(attendance, visits, person, year, month, today, holidays) {
     const off = attNotRequired(holidays);
     const have = {};
     (attendance || []).forEach(a => { if (a.person === person && a.date) have[String(a.date).slice(0, 10)] = 1; });
-    (visits || []).forEach(v => {
-      if (visitorsOf(v).indexOf(person) === -1 || !v.date) return;
-      const d = new Date(v.date);
-      if (!isNaN(d)) have[d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')] = 1;
-    });
     const out = [];
     const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());   // strip time
     for (let day = 1; day <= 31; day++) {

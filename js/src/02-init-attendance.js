@@ -129,11 +129,12 @@
   // up to yesterday, with NO visit AND NO attendance entry for the person → animated popup
   // next time THEY open the app. Pops for אביאם and ניתאי, each for their own missing days.
   const ATT_REMINDER_FLOOR = new Date(2026, 4, 31);   // 31.05.2026 inclusive
+  // Round 5 rule 5 (readers switch to the rows): covered = has an ATTENDANCE row. A visit no
+  // longer counts on its own — the visit save (or the one-time backfill) is what writes the
+  // visit_auto row that covers the day.
   function personMissingDays(person) {
     const ymd = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
     const logged = new Set();
-    (window.SHEET_DATA?.visits || []).filter(v => visitorsOf(v).indexOf(person) !== -1)
-      .forEach(v => { if (v.date) logged.add(ymd(new Date(v.date))); });
     (window.SHEET_DATA?.attendance || []).filter(a => a.person === person)
       .forEach(a => { if (a.date) logged.add(ymd(new Date(a.date))); });
     const today = new Date(); today.setHours(0, 0, 0, 0);

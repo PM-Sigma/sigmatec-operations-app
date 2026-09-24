@@ -110,17 +110,17 @@ function israelNow() {
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();   // 0=Sun … 6=Sat
   return { y, m, d, hh, date, dow };
 }
-// Set of 'YYYY-MM-DD' the person has an attendance OR visit record for, in the given month.
+// Round 5 rule 5 (readers switch to the rows) — V-L6, DATA-GATED (Gates §7): this must not reach
+// production until db/attendance_source.sql AND db/attendance_visit_backfill.sql (V-L1) are applied
+// and this function's deploy ships in the SAME release as the backfill — otherwise every existing
+// visit day of אביאם/ניתאי looks missing to this cron and it nags them for history that was never
+// theirs to log twice. Set of 'YYYY-MM-DD' the person has an ATTENDANCE record for, in the given month.
 async function haveDates(person: string, y: number, m: number): Promise<Set<string>> {
   const lo = `${y}-${String(m).padStart(2, "0")}-01`;
   const hi = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
   const have = new Set<string>();
-  const [att, vis] = await Promise.all([
-    sb.from("attendance").select("date").eq("person", person).gte("date", lo).lt("date", hi),
-    sb.from("visits").select("date").eq("visitor", person).gte("date", lo).lt("date", hi), // visitor-ok: haveDates drops this query in V-L6, once the attendance backfill (V-L1) is live
-  ]);
+  const att = await sb.from("attendance").select("date").eq("person", person).gte("date", lo).lt("date", hi);
   for (const r of (att.data ?? [])) if ((r as any).date) have.add(String((r as any).date).slice(0, 10));
-  for (const r of (vis.data ?? [])) if ((r as any).date) have.add(String((r as any).date).slice(0, 10));
   return have;
 }
 // 🕎 The dates in a month that DO NOT require attendance (spec §7e): Israeli public
