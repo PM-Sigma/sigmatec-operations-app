@@ -496,3 +496,50 @@ test('chain: a picked EMS task gets the summary as a comment, exactly once', asy
 
   expectNoConsoleErrors(rec);
 });
+
+test('sheet: מי ביקר is multi-select and saves both names', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+
+  const who = page.getByTestId('visit-visitors');
+  await expect(who.getByTestId('vc-visitor-אביאם')).toHaveAttribute('aria-pressed', 'true');
+  await who.getByTestId('vc-visitor-ניתאי').click();
+
+  await page.getByTestId('vc-summary').fill('הוחלף מונה');
+  await page.getByTestId('vc-hours-2').click();
+  await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
+  await page.getByTestId('vc-reason-fault').click();
+  await page.getByTestId('vc-send').click();
+  await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+
+  const visits = await posted(page, 'visit');
+  expect(visits[0]?.visitor).toBe('אביאם, ניתאי');
+  expectNoConsoleErrors(rec);
+});
+
+test('sheet: the kibbutz contacts are chips; a new name shows the "added to contacts" hint', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId('vc-summary').fill('בדיקה');
+  await page.getByTestId('vc-hours-2').click();
+  await page.getByTestId('vc-contact').fill('איש קשר חדש לגמרי');
+  await expect(page.getByText('יתווסף לאנשי הקשר של הקיבוץ')).toBeVisible();
+  await page.getByTestId('vc-reason-fault').click();
+  await page.getByTestId('vc-send').click();
+  await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+
+  const visits = await posted(page, 'visit');
+  expect(visits[0]?.contact).toBe('איש קשר חדש לגמרי');
+  expectNoConsoleErrors(rec);
+});

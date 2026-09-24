@@ -56,6 +56,8 @@ import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTra
 // Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
 import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
 import { visitEditLocked, visitToChapters, type VisitRowLike } from '@/lib/visitEdit';
+import { APP_PEOPLE } from '@/lib/people';
+import { contactChoices, useKibbutzContacts } from '@/lib/visitContacts';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
 
@@ -1109,6 +1111,9 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   // The same query key the briefing uses, so this costs no extra request.
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: open });
 
+  // V3: the kibbutz's contacts as chips ("איש קשר מלווה"), QA קיבוצים 8.
+  const contactsQ = useKibbutzContacts(kibbutz);
+
   // C6: אביאם sees ניתאי's open internal tasks and vice versa — `sharedOwners` is the rule.
   const owners = React.useMemo(() => sharedOwners(me), [me]);
   const internalQ = useQuery({
@@ -1539,6 +1544,30 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
             </Chapter>
           ) : (
             <>
+              <Field2 label="מי ביקר">
+                <div className="flex flex-wrap gap-1.5" data-testid="visit-visitors">
+                  {APP_PEOPLE.map(p => {
+                    const on = (d.visitors?.length ? d.visitors : [me]).includes(p);
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        data-testid={'vc-visitor-' + p}
+                        aria-pressed={on}
+                        onClick={() => {
+                          const cur = d.visitors?.length ? d.visitors : [me];
+                          const next = on ? cur.filter(x => x !== p) : [...cur, p];
+                          set({ visitors: next.length ? next : [me] });
+                        }}
+                        className={'min-h-[38px] flex-none rounded-xl border px-3 text-[13px] font-bold ' + (on ? CHIP_ON : CHIP_OFF)}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field2>
+
               <Chapter id={1} name="summary" required miss={has('summary')}>
                 <textarea
                   data-testid="vc-summary"
@@ -1693,13 +1722,40 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                   </Field2>
 
                   <Field2 label="איש קשר מלווה" name="contact" required miss={has('contact')}>
-                    <input
-                      data-testid="vc-contact"
-                      value={d.contact || ''}
-                      onChange={e => set({ contact: e.target.value })}
-                      placeholder="מי ליווה אותך בקיבוץ"
-                      className={LINE}
-                    />
+                    <div className="flex flex-col gap-1.5">
+                      {(() => {
+                        const { chips, isNew } = contactChoices(contactsQ.names, d.contact || '');
+                        return (
+                          <>
+                            {!!chips.length && (
+                              <div className="flex flex-wrap gap-1.5" data-testid="visit-contacts">
+                                {chips.map(c => (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => set({ contact: c })}
+                                    className={'min-h-[38px] flex-none rounded-xl border px-3 text-[13px] font-bold ' +
+                                      ((d.contact || '').trim() === c ? CHIP_ON : CHIP_OFF)}
+                                  >
+                                    {c}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            <input
+                              data-testid="vc-contact"
+                              value={d.contact || ''}
+                              onChange={e => set({ contact: e.target.value })}
+                              placeholder="מי ליווה אותך בקיבוץ"
+                              className={LINE}
+                            />
+                            {isNew && (
+                              <span className="text-[12px] text-muted-foreground">יתווסף לאנשי הקשר של הקיבוץ</span>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
                   </Field2>
 
                   {/* C6 — never preselected. */}
