@@ -152,3 +152,15 @@ test('settings: no sentence explains the app to the user, or who else sees him (
   expect(text).not.toMatch(/(עמיחי|עידן)[^.]{0,12}(ראה|רואה|יראה)/);
   expectNoConsoleErrors(rec);
 });
+
+// Designer round 5 review #7: a full-scroll capture of every section, not just the ones the
+// other tests happen to touch — אביאם sees the field-only rows (תזכורת סוף יום, המשימות שלי
+// partner-tasks switch) that עידן doesn't, so this is the fuller of the two role views.
+test('settings: full scroll — every section, one capture', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('תזכורת סוף יום')).toBeVisible();
+  await expectRtl(page);
+  await shot(page, ti, 'full-scroll', { fullPage: true });
+  expectNoConsoleErrors(rec);
+});

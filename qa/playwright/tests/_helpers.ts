@@ -816,7 +816,7 @@ export function expectNoConsoleErrors(rec: Recorder): void {
  * `suffix` adds a second shot of the same screen (e.g. a sheet open) as
  * `<viewport>-<theme>-<suffix>.png`.
  */
-export async function shot(page: Page, testInfo: TestInfo, suffix = ''): Promise<void> {
+export async function shot(page: Page, testInfo: TestInfo, suffix = '', opts: { fullPage?: boolean } = {}): Promise<void> {
   const spec = testInfo.file.replace(/\\/g, '/').split('/').pop()!.replace(/\.spec\.ts$/, '');
   const theme = (testInfo.project.metadata as any).theme as string;
   const viewport = (testInfo.project.metadata as any).viewport as string;
@@ -825,7 +825,7 @@ export async function shot(page: Page, testInfo: TestInfo, suffix = ''): Promise
     viewport + '-' + theme + (suffix ? '-' + suffix : '') + '.png',
   );
   await mkdir(dirname(file), { recursive: true });
-  await page.screenshot({ path: file, fullPage: false });
+  await page.screenshot({ path: file, fullPage: !!opts.fullPage });
 }
 
 // ── mobile-360-light known-failure ratchet (Opus audit round 4 item 3) ──────────────────────

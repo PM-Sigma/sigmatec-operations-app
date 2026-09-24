@@ -143,6 +143,26 @@ test('table: no prompt()/confirm() anywhere on the page (G-R4)', async ({ page }
   expectNoConsoleErrors(rec);
 });
 
+test('table: Excel export and גנרטורים sit in one action row (G-R2)', async ({ page }, ti) => {
+  // אביאם gets only the Excel bubble (not a generator manager) — עידן/עמיחי get both, and both
+  // sit in PageActionRow's own actions row, never a second row of their own.
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await page.evaluate(() => (window as any).showPage('burns'));
+  const view = page.locator('#sigma-burns-page');
+  await expect(view.getByText('צריבות: מוני ייצור E360')).toBeVisible({ timeout: 15_000 });
+
+  const exportBtn = view.getByLabel('ייצוא לאקסל');
+  const gensBtn = view.getByLabel('גנרטורים');
+  await expect(exportBtn).toBeVisible();
+  await expect(gensBtn).toBeVisible();
+  const exportBox = await exportBtn.boundingBox();
+  const gensBox = await gensBtn.boundingBox();
+  expect(exportBox && gensBox && Math.abs(exportBox.y - gensBox.y) < 4).toBe(true);
+
+  await shot(page, ti, 'action-bar');
+  expectNoConsoleErrors(rec);
+});
+
 test('table: search "287" then Enter opens the single meter it matches', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await page.evaluate(() => (window as any).showPage('burns'));
