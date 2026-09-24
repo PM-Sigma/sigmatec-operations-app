@@ -89,7 +89,9 @@ export const NOTES = [
 /** A handful of usage events so 📈 שימוש renders a populated report, not its empty state. */
 export const USAGE_EVENTS = (() => {
   const people = ['עידן', 'אביאם', 'ניתאי'];
-  const actions = ['visit-saved', 'command-open', 'more-sheet-open'];
+  // 'command-open' was Ctrl+K's own action key (removed round 5, X-L7) — 'primary-add' (the
+  // header ➕, still real) keeps this fixture's actions all currently-tracked ones.
+  const actions = ['visit-saved', 'primary-add', 'more-sheet-open'];
   const out: Array<Record<string, unknown>> = [];
   let i = 0;
   for (const person of people) {

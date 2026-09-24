@@ -38,7 +38,7 @@ check('the login screen offers exactly the roster, in the same order', () => {
   assert.deepStrictEqual(names, APP_PEOPLE);
 });
 
-check('STAFF_PEOPLE (Ctrl+K ✉️ recipients) covers everyone who can log in', () => {
+check('STAFF_PEOPLE (✉️ recipients, MessageSheet round 5) covers everyone who can log in', () => {
   // A4: אליה and אבצן were unreachable, and עמיחי was excluded by a code comment.
   assert.match(bridge, /window\.STAFF_PEOPLE = window\.APP_PEOPLE\.slice\(\);/,
     'STAFF_PEOPLE must be derived from APP_PEOPLE, not re-typed');

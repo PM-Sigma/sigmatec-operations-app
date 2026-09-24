@@ -212,10 +212,10 @@
         <h1 class="brand"><span class="brand-name">Sigmatec</span><span class="brand-name">Operations</span></h1>
       </div>
       <div class="header-meta">
-        <!-- React island: 🔍 חיפוש (Ctrl+K) · the context ➕ · 🌙 · ● user chip (spec §6, §7k.2).
-             `body.sigma-header-ready` hides the legacy 👤/🟢 EMS chips it replaces; if
-             ui/sigma.js never loads they stay, so the page is never left without a user
-             switcher or an EMS link. -->
+        <!-- React island: the context ➕ · 🌙 · ● user chip (spec §6, §7k.2). Ctrl+K search
+             removed round 5 (X-L7) — `body.sigma-header-ready` hides the legacy 👤/🟢 EMS chips
+             it replaces; if ui/sigma.js never loads they stay, so the page is never left
+             without a user switcher or an EMS link. -->
         <!-- React island: 🔔 התראות מלאי (inventory spec §5.1). Empty for the viewer and for
              anyone outside the four inventory actors — the island decides, not the markup. -->
         <div id="sigma-alerts"></div>
@@ -1267,7 +1267,10 @@
 <!-- 📝 ישיבה → סיכום (Task 25) — the review editor. Mounted on demand by the import sheet's
      "📝 עבור על הסיכום" hand-off, so its chunk costs nothing on any other screen. -->
 <div id="sigma-meeting-review"></div>
-<div id="sigma-command"></div>
+<!-- ✉️ הודעה לעובד (X-L7, round 5). Was Ctrl+K's dialog root; the bar itself is gone, this one
+     island stayed (F1 — it is the only UI to send a staff message) and now mounts lazily on the
+     first ⋯ עוד tap or `sigma-open-message`, not at boot. -->
+<div id="sigma-message"></div>
 <!-- §7l landings that are not built yet: עמיחי's "סקירה" screen. Mounted EMPTY on purpose —
      that task renders into it without touching the landing rule, and he lands on 🏘 קיבוצים
      until then. -->

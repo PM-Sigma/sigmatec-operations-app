@@ -304,14 +304,6 @@ export interface Sigma {
   readonly STAFF_PEOPLE?: string[];
 
   /**
-   * Ctrl+K (§7k.1). ASSIGNED BY React (islands/CommandBar.tsx), not by the legacy bridge —
-   * it is the one entry that travels the other way, so the legacy header search and the
-   * phone search field can open the merged list instead of carrying their own result UI.
-   * Optional: with no island mounted, the callers simply do nothing.
-   */
-  openCommandBar?(): void;
-
-  /**
    * The first screen per role (§7l) calls this hook once it has chosen, for every role.
    * Task 5 attaches the field arrival sheet to it — nothing in Task 4 assigns it.
    */
@@ -352,9 +344,10 @@ export type SigmaEvent =
   // js/src/00-bridge.js. Consumer: components/ReLoginSheet.tsx (docs/integration-map.md)
   | 'session-expired'
   // islands/Home.tsx wrote the kibbutz list to `window.KIBBUTZIM` + `localStorage.kibbutzim_v1`
-  // (Task 20). Neither store notifies anyone, so a reader that SNAPSHOTS them — Ctrl+K builds
-  // its source list once per open — needs telling when the list finally lands. Consumer:
-  // islands/CommandBar.tsx (docs/integration-map.md)
+  // (Task 20). Neither store notifies anyone, so a reader that SNAPSHOTS them needs telling
+  // when the list finally lands. No current consumer (round 5, X-L7: its one reader,
+  // islands/CommandBar.tsx, is deleted with Ctrl+K) — kept for the next one that snapshots
+  // the list on open, the way the bar used to.
   | 'kibbutzim-published'
   // ── added by the Task 18 sweep ───────────────────────────────────────────────
   // All four were already being emitted with the union never updated, so TypeScript could not

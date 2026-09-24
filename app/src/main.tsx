@@ -281,11 +281,28 @@ function boot() {
       .then(m => { if (m.mountHeaderActions()) document.body.classList.add('sigma-header-ready'); })
       .catch(e => console.warn('[sigma] header', e));
   }
-  // Ctrl+K — package X deletes this block together with CommandBar.tsx.
-  if (document.getElementById('sigma-command')) {
-    import('@/islands/CommandBar')
-      .then(m => m.mountCommandBar())
-      .catch(e => console.warn('[sigma] cmdk', e));
+  // ✉️ הודעה לעובד (X-L7, F1) — the one surface Ctrl+K's removal still owes a home. The row is
+  // registered now (cheap); the chunk loads only on the first tap or `sigma-open-message`.
+  if (document.getElementById('sigma-message')) {
+    let modulePromise: Promise<typeof import('@/islands/MessageSheet')> | null = null;
+    let mounted = false;
+    const open = (to?: string) => {
+      mounted = true;
+      (modulePromise ||= import('@/islands/MessageSheet')).then(m => { m.mountMessageSheet(); m.openMessageSheet(to); })
+        .catch(e => { mounted = false; modulePromise = null; console.warn('[sigma] message sheet failed', e); });
+    };
+    window.addEventListener('sigma-open-message', e => { if (!mounted) open((e as CustomEvent<{ to?: string }>).detail?.to); });
+    registerMoreItem({
+      id: 'staff-message',
+      label: '✉️ הודעה לעובד',
+      icon: 'Mail',
+      group: 'app',
+      visible: () => {
+        try { const s = (window as any).sigma; return !s?.isViewer?.() && !!s?.getCurrentUser?.(); }
+        catch { return false; }
+      },
+      onSelect: () => (mounted ? window.dispatchEvent(new CustomEvent('sigma-open-message')) : open()),
+    });
   }
 
   // ⚙️ הגדרות (§7h) — a lazy chunk like every other panel, but its row in the ⋯ sheet and the

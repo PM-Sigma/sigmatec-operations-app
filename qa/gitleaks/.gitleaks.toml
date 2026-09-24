@@ -59,8 +59,9 @@ Do not add anything here without that justification.
 
     # 3. FALSE POSITIVE of the default `generic-api-key` rule, which fires on any
     #    `<word>_KEY = '<string>'`. These are localStorage key NAMES (string identifiers, not
-    #    secret values): sigma_cmd_recents_v1 (app/src/lib/commands.ts),
-    #    sigma_landed_v1 (app/src/lib/landing.ts), and the rest of the sigma_*_v<n> family.
+    #    secret values): sigma_landed_v1 (app/src/lib/landing.ts), and the rest of the
+    #    sigma_*_v<n> family. (sigma_cmd_recents_v1, Ctrl+K's recents — commands.ts deleted
+    #    round 5, X-L7 — is cleared once in MessageSheet.tsx and written by nothing any more.)
     '''sigma_[a-z_]+_v\d+''',
 
     # 4. FALSE POSITIVE — a deliberately fake HMAC secret used as test input in the vitest

@@ -7,7 +7,8 @@
   // unread messages once per session, which is the half of this feature people actually notice.
   //
   // What changed: only WHERE a message is composed. The page's `#msgTo_<person>` inputs are
-  // gone; the compose is one Ctrl+K action (app/src/islands/CommandBar.tsx → `sigma.staffSendMessage`).
+  // gone; the compose is one ⋯ עוד row (app/src/islands/MessageSheet.tsx, round 5 X-L7 — moved
+  // out of Ctrl+K before it was deleted → `sigma.staffSendMessage`).
   // The four data functions and the popup below are byte-identical to what 17-staff.js shipped.
   // ═══════════════════════════════════════════════════════════════════════════
 

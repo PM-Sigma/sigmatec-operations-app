@@ -82,7 +82,8 @@
 
   // The people a message can be left for. Everyone who can log in is addressable — the old
   // list dropped אליה and אבצן entirely, and excluded עמיחי "because he is the CEO", which
-  // only meant nobody could ever message him. Read by ✉️ הודעה לעובד in Ctrl+K.
+  // only meant nobody could ever message him. Read by ✉️ הודעה לעובד (islands/MessageSheet.tsx,
+  // round 5 X-L7 — moved out of Ctrl+K before it was deleted).
   window.STAFF_PEOPLE = window.APP_PEOPLE.slice();
 
   window.sigmaBus = window.sigmaBus || new EventTarget();

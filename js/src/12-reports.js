@@ -89,8 +89,9 @@
   }
   window.emsRequireLogin = emsRequireLogin;
 
-  // ניתוק EMS — a Ctrl+K action since the EMS page retired (§7m R2, ruling 3). There is no
-  // page to re-render afterwards: the reload lands on the sign-in gate, which is the front door.
+  // ניתוק EMS — a bridge entry since the EMS page retired (§7m R2, ruling 3); Ctrl+K offered it
+  // until round 5 removed the bar (X-L7) — no UI surface calls it today. There is no page to
+  // re-render afterwards: the reload lands on the sign-in gate, which is the front door.
   function emsDisconnect() {
     if (!confirm('לנתק מה-EMS?')) return;
     clearEmsSession();

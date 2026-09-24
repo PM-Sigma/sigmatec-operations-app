@@ -50,12 +50,12 @@ test('A6 — no horizontal scroll at 390, with every sheet open', async ({ page 
   await page.keyboard.press('Escape');
   await page.waitForTimeout(250);
 
-  // Ctrl+K — the one sheet that is not reached through ⋯.
+  // Ctrl+K removed round 5 (X-L7): the shortcut now does nothing at all — no dialog, no
+  // listener left behind to catch it by accident.
   await page.keyboard.press('Control+k');
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await measure('Ctrl+K');
-  await page.keyboard.press('Escape');
   await page.waitForTimeout(250);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await measure('Ctrl+K (no-op)');
   await measure('after everything closed');
 
   expect(bad.join('\n    '), 'horizontal scroll at 390 px:\n    ' + bad.join('\n    ')).toBe('');

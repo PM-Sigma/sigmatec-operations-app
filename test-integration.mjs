@@ -11,7 +11,7 @@
 //
 //   node test-integration.mjs
 import assert from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { analyze, code, walk, ROOT } from './scripts/integration-map.mjs';
 
@@ -68,6 +68,7 @@ ok(a.bridge.undeclared.length === 0,
 const ANNOUNCE_ONLY = new Map([
   ['checkin-created', 'islands/Field.tsx invalidates [checkins] itself; the row is what starts the 2 h visitCron clock server-side'],
   ['work-session-saved', 'components/home/WorkTimer.tsx invalidates its own key; ▶/■ שעות has no second surface yet'],
+  ['kibbutzim-published', 'its one reader, islands/CommandBar.tsx, is deleted with Ctrl+K (round 5, X-L7); kept for the next surface that snapshots the list on open'],
 ]);
 
 {
@@ -128,16 +129,15 @@ ok(a.tables.undeclared.length === 0,
 
 // ════════════════════ (e) pages ════════════════════
 // The universe of pages is everything the UI can ask for: showPage() call sites, the ⋯ sheet's
-// MORE_PAGES, Ctrl+K's page commands, index.html's legacy nav, and canShowPage's own cases.
-// A page needs all three of: somewhere to render, a gate, and a way in.
+// MORE_PAGES, index.html's legacy nav, and canShowPage's own cases. Ctrl+K's page commands are
+// gone with it (round 5, X-L7). A page needs all three of: somewhere to render, a gate, and a
+// way in.
 {
   const moreSheet = code('app/src/components/MoreSheet.tsx');
-  const commandBar = code('app/src/islands/CommandBar.tsx');
   const indexHtml = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
   const uiPages = new Set([
     ...a.pages.names,
     ...[...moreSheet.matchAll(/\{\s*page:\s*'([\w-]+)'/g)].map(m => m[1]),
-    ...[...commandBar.matchAll(/\{\s*page:\s*'([\w-]+)'/g)].map(m => m[1]),
     ...[...indexHtml.matchAll(/data-page="([\w-]+)"/g)].map(m => m[1]),
     ...a.pages.gated,
   ]);
@@ -234,8 +234,8 @@ const PROPAGATION = [
   ['visit-saved', ['js/src/09-visits.js'], ['app/src/islands/Attendance.tsx']],
   // EMS cache synced → the cards' EMS block, the connection gate, the calendar's EMS layer
   ['ems-cache-synced', ['js/src/13-ems.js'], ['app/src/bridge.ts', 'app/src/components/home/EmsTasks.tsx']],
-  // kibbutz list published → Ctrl+K's snapshot of the picker source
-  ['kibbutzim-published', ['app/src/islands/Home.tsx'], ['app/src/islands/CommandBar.tsx']],
+  // kibbutz list published — no current consumer (round 5, X-L7: its one reader, Ctrl+K's
+  // CommandBar.tsx, is deleted); kept in the bus vocabulary for the next snapshot reader.
   // day plan reordered in the calendar → the arrival sheet and the "היום" strip
   ['dayplan-changed', ['app/src/islands/Calendar.tsx'], ['app/src/islands/Field.tsx']],
   // meeting notes imported / linked / done → the cards, the modal tab, the briefing
@@ -444,6 +444,29 @@ ok(a.ems.adapter.length > 0,
 // One re-login surface for the whole app (§7n): exactly one placeholder, one mount.
 ok(a.islands.placeholders.filter(p => p.name === 'sigma-relogin').length === 1,
   'index.html must have exactly one #sigma-relogin — two sheets would both answer a 401');
+
+// ════════════════════ Ctrl+K is gone (round 5, X-L7) ════════════════════
+{
+  ok(!existsSync(new URL('./app/src/islands/CommandBar.tsx', import.meta.url)),
+    'CommandBar.tsx must not exist');
+  ok(!existsSync(new URL('./app/src/lib/commands.ts', import.meta.url)),
+    'commands.ts must not exist');
+  const srcFilter = f => /\.(ts|tsx|js)$/.test(f);
+  const haystack = [
+    ...walk('app/src', srcFilter), ...walk('js/src', srcFilter),
+  ].map(f => code(f)).join('\n') + readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+  for (const dead of ['openCommandBar', 'sigma-open-command-bar']) {
+    ok(!haystack.includes(dead), `'${dead}' must not appear anywhere — Ctrl+K is deleted`);
+  }
+  ok(!/id=(["'])sigma-command\1/.test(haystack), "'sigma-command' (the old DOM id) must not appear");
+  ok(!/key\s*===\s*['"]k['"][\s\S]{0,80}(ctrlKey|metaKey)|(?:ctrlKey|metaKey)[\s\S]{0,80}key\s*===\s*['"]k['"]/i.test(haystack),
+    'no Ctrl/Cmd+K keydown listener may remain');
+  // What X-L7 keeps: cmdk itself, because Calendar.tsx still uses it.
+  ok(existsSync(new URL('./app/src/components/ui/command.tsx', import.meta.url)),
+    'components/ui/command.tsx must stay — Calendar.tsx uses it');
+  ok(code('app/src/islands/Calendar.tsx').includes("from '@/components/ui/command'"),
+    'Calendar.tsx must still import components/ui/command');
+}
 
 console.log(`✅ test-integration: ${checks} contracts green — bridge (${a.bridge.keys.size} entries, `
   + `${a.bridge.uses.length} call sites) · bus (${a.bus.eventNames.length} events) · `
