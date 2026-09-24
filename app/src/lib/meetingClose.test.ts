@@ -93,6 +93,27 @@ describe('createCloseQueue', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it('flush skips the re-read — the app may already be gone (Opus round-5 audit, item 2)', async () => {
+    vi.useFakeTimers();
+    const send = vi.fn(async () => ({ sent: true }));
+    const q = createCloseQueue({ send });
+    q.schedule({ taskId: 'a', status: 'done', by: 'עידן', at: new Date() });
+    await q.flush();
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ taskId: 'a' }), { skipReread: true });
+  });
+
+  it('undo returns false once it is too late (Opus round-5 audit, item 1: "undo lies after flush")', async () => {
+    vi.useFakeTimers();
+    const send = vi.fn(async () => ({ sent: true }));
+    const q = createCloseQueue({ send });
+    const undo = q.schedule({ taskId: 'a', status: 'done', by: 'עידן', at: new Date() });
+    expect(undo()).toBe(true);          // still pending — undo really cancelled it
+    expect(undo()).toBe(false);         // already gone — a second click cannot lie about it
+    const undo2 = q.schedule({ taskId: 'b', status: 'done', by: 'עידן', at: new Date() });
+    await q.flush();                    // committed early
+    expect(undo2()).toBe(false);        // too late — flush already sent it
+  });
+
   it('re-scheduling the same task replaces it (clicked בוצע, then בוטל)', async () => {
     vi.useFakeTimers();
     const send = vi.fn(async (_p: PendingClose) => ({ sent: true }));
@@ -202,5 +223,14 @@ describe('sendClose', () => {
     expect(calls.comment).toEqual([{ id: 'a', text: 'נסגר בישיבת צוות 23.9 · עידן' }]);
     expect(calls.status).toEqual([{ id: 'a', patch: { status: 'done' } }]);
     expect(r).toEqual({ sent: false, queued: true });
+  });
+
+  it('skipReread: never calls getTask, writes straight through (Opus round-5 audit, item 2)', async () => {
+    setEmsGateway(fakeGateway({ tasks: { a: { status: 'open' } } }));
+    const r = await sendClose(p(), { skipReread: true });
+    expect(calls.getTask).toEqual([]);
+    expect(calls.comment).toHaveLength(1);
+    expect(calls.status).toHaveLength(1);
+    expect(r).toEqual({ sent: true, queued: false });
   });
 });

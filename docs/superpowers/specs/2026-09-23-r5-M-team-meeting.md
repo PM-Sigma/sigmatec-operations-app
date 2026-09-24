@@ -91,7 +91,7 @@ STATUS: 🟡 OPEN — L done 23.9, Opus-audited and fixed 24.9 (branch `r9/M-L`,
 2. **EMS offline or the pass expired mid-meeting.** Expected: the close is queued (`emsWriteOrQueue` → `queued`), the row shows "יישלח כשתחזור הרשת", and undo is still possible inside the 5 s. → M-L3 step 1.
 3. **A comment that closed the task** (its text or timing matches a status change) must not count as "the latest change" of an open task. Expected: comments whose text starts with "נסגר בישיבת צוות" or that are the visit-summary close pattern are skipped. → M-L1 step 1.
 4. **Two people present at once** (עידן on desktop, עמיחי on the phone) and both click בוצע on the same task. Expected: the second click, after refetch, finds the task closed and shows "כבר נסגרה"; no second comment. → M-L3 step 1 (a guard re-reads the task status before sending).
-5. **A kibbutz with 0 items in the window.** Expected: EmptyState "אין שינויים מאז הישיבה הקודמת." with the "30 יום" toggle as its one action. → M-U1.
+5. **A kibbutz with 0 items in the window.** Expected: EmptyState "אין שינויים בחלון הזה." with the "30 יום" toggle as its one action. **Updated designer round-5 (עידן):** the phrase "מאז הישיבה הקודמת" is removed everywhere on this screen — both this empty-state line and the header's carry line — because the timeline itself already says what changed and when; repeating "since the previous meeting" next to the timer added nothing. → M-U1.
 
 ---
 
@@ -438,3 +438,4 @@ Layout (phone, top to bottom):
 3. **The lazy session touches D.** `DevPresenter` gets the same lazy insert. M-L2 tests the `dev` kind, and D's spec depends on it.
 4. **"Due date set" is approximated** by `updatedAt` (open question 1). If עידן wants the exact wording, C must log due-date writes. That's a new table plus a change in `Calendar.tsx`, outside M.
 5. **Two presenters.** The re-read guard in `sendClose` stops a double close. A comment already sent by the first presenter isn't duplicated, because the second sees the closed status first.
+6. **`CLOSERS` is a client-side convenience, not a permission system (Opus round-5 audit).** The list in `meetingClose.ts` decides who SEES the close bubbles; the actual write goes out under that person's own EMS session exactly like any other EMS action they take, so EMS's own permissions are the real gate. No server-side change was needed or made for this — a future name added to `CLOSERS` without matching EMS write access simply gets EMS's own `queued`/`error` result back through the existing undo/queue UI, same as any other write failure.
