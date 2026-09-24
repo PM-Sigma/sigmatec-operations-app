@@ -891,6 +891,23 @@
 [data-sigma-portal] .s-close-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
 [data-sigma-portal] .s-close-btn:disabled { pointer-events: none; }
 
+/* Designer fix (round-5 S-U pass, "'הכל ‹' link ≥44px tap target"): the `.s-hit` /
+   `[data-hit-slop]` pair is referenced all over (SectionBlock's trailing action, chip.tsx's
+   FilterChip, PageActionRow's back chevron…) as "grows the real hit area", but the rule that
+   actually does it was never written — those content-sized links/chevrons were tapping at their
+   visual (sub-44px) box the whole time. Same invisible-::before trick as `.brand-mark::before`:
+   the element keeps its small visual size, the hit target grows to 44px behind it. */
+[data-hit-slop] { position: relative; }
+[data-hit-slop]::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+}
+
 /* U6 residual: react-remove-scroll (every Radix Sheet/Dialog) locks BODY's overflow while
    one is open (its own injected `body[data-scroll-locked]{overflow:hidden!important}`), but
    this app's real scrolling element is <html> (no height cap on body) — so body's lock never

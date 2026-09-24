@@ -2107,6 +2107,13 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
     #sigma-header-actions { min-width: 0; max-width: 100%; }
     .header-date { display: none; }
   }
+  /* U8/designer (round-5 S-U pass): the stacked "Sigmatec" / "Operations" wordmark from round 2
+     was two lines even at 412 — the widest phone target — leaving the header visually heavier
+     than the Σ · 🔔 · ✅ · ⚙️ row it sits beside. Phones keep the Σ tile only (still the "מסך
+     הבית" home button); the full wordmark is a desktop-width affordance. */
+  @media (max-width: 430px) {
+    .header .brand-name { display: none; }
+  }
   /* sideways scroll hints on the containers that already scroll */
   #attendanceTable, .dev-board-grid { scrollbar-width: thin; }
 

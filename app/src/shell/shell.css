@@ -3,10 +3,57 @@
    84px nav pad, `.header{min-height:56px}`, the raised visit FAB's 46px circle) so nothing
    visually shifts; later work can read these instead of re-guessing the numbers. */
 :root {
-  --header-h: 56px;
+  --header-h: calc(56px + env(safe-area-inset-top, 0px));
   --nav-h: calc(84px + env(safe-area-inset-bottom, 0px));
   --fab-h: 46px;
 }
+
+/* U8 (S-17): page-change motion, DS tokens only — navigate.ts sets `data-nav` on <html> right
+   before calling `startViewTransition`; this is the ONLY place that decides what the transition
+   looks like. Fade-through between nav peers (opacity only, no slide — motion §2.2 #1), drill-in
+   for a 2nd-level page (a small inline shift plus fade — motion §2.2 #2), the reverse shift on
+   "back". `navigate.ts` already skips `startViewTransition` entirely under
+   prefers-reduced-motion, so no `@media` guard is needed here — if this CSS runs, motion is
+   wanted. The header and the nav bar are never part of the transition (motion §2.3): they live
+   outside #sigma-home in the DOM, so the browser's default root snapshot would still fade them
+   too — pin them out of the transition explicitly. */
+::view-transition-group(root) { animation-duration: var(--s-motion-base); animation-timing-function: var(--s-ease-standard); }
+#sigma-header-actions, #sigma-nav, .header { view-transition-name: none; }
+
+html[data-nav='peer'] ::view-transition-old(root),
+html[data-nav='peer'] ::view-transition-new(root) {
+  animation-duration: var(--s-motion-base);
+  animation-timing-function: var(--s-ease-standard);
+}
+
+html[data-nav='drill'] ::view-transition-old(root) {
+  animation: s-drill-out var(--s-motion-exit) var(--s-ease-in) both;
+}
+html[data-nav='drill'] ::view-transition-new(root) {
+  animation: s-drill-in var(--s-motion-enter) var(--s-ease-out) both;
+}
+html[data-nav='back'] ::view-transition-old(root) {
+  animation: s-drill-in var(--s-motion-exit) var(--s-ease-in) reverse both;
+}
+html[data-nav='back'] ::view-transition-new(root) {
+  animation: s-drill-out var(--s-motion-enter) var(--s-ease-out) reverse both;
+}
+
+@keyframes s-drill-in {
+  from { opacity: 0; transform: translateX(var(--s-shift-md)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes s-drill-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(calc(-1 * var(--s-shift-md))); }
+}
+
+/* U8 (S-18): device edges — the header pads for a notch/status-bar instead of drawing under it
+   (viewport-fit=cover in index.html makes env() resolve to something other than 0), and the
+   fixed nav pads the sides for a landscape notch. Logical properties only. */
+#sigma-header-actions,
+.header { padding-block-start: env(safe-area-inset-top, 0px); }
+#sigma-nav { padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px); }
 
 /* S-13: toast bottom-center, above the nav — moved to CSS (not a JS `offset` prop) so it costs
    nothing against the boot chunk's byte ceiling. Desktop has no fixed nav, so it only applies

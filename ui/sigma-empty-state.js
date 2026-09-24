@@ -1,4 +1,4 @@
-import{q as b,j as e,G as i,r as p}from"./sigma.js?v=mufoyl5i";import{C as u}from"./sigma-chevron-left.js?v=mufoyl5i";import{T as x}from"./sigma-chip.js?v=mufoyl5i";import{C as g}from"./sigma-chevron-down.js?v=mufoyl5i";import{B as y}from"./sigma-bubble-button.js?v=mufoyl5i";/**
+import{q as b,j as e,G as i,r as p}from"./sigma.js?v=mufrxmjb";import{C as u}from"./sigma-chevron-left.js?v=mufrxmjb";import{T as x}from"./sigma-chip.js?v=mufrxmjb";import{C as g}from"./sigma-chevron-down.js?v=mufrxmjb";import{B as y}from"./sigma-bubble-button.js?v=mufrxmjb";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.
