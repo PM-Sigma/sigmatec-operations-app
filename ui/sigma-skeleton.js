@@ -1,1 +1,1 @@
-import{j as t,G as n}from"./sigma.js?v=mufqom0z";function m({className:e,...s}){return t.jsx("div",{className:n("animate-pulse rounded-md bg-muted",e),...s})}export{m as S};
+import{j as t,I as n}from"./sigma.js?v=mufqweaz";function m({className:e,...s}){return t.jsx("div",{className:n("animate-pulse rounded-md bg-muted",e),...s})}export{m as S};

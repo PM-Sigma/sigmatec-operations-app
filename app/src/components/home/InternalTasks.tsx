@@ -223,7 +223,7 @@ export function InternalTasksPanel({ kibbutz, canAct }: { kibbutz: string; canAc
         <h4 className="flex-1 text-[14px] font-bold">🔒 משימות פנימיות</h4>
         {badge > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"><bdi>{badge}</bdi></span>}
         {canAct && (
-          <button type="button" onClick={() => setOpen(true)}
+          <button type="button" data-adder="internal" onClick={() => setOpen(true)}
                   className="min-h-[32px] rounded-full border border-border bg-card px-2.5 text-[12px] font-semibold">➕ משימה פנימית</button>
         )}
       </div>

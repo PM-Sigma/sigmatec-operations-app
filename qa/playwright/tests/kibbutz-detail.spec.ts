@@ -65,3 +65,39 @@ test('kibbutz detail: presenter strip is still published', async ({ page }, ti) 
   await boot(page, ti);
   await page.waitForFunction(() => typeof (window as any).sigma?.presenterStrip === 'function');
 });
+
+// ─────────────────── status tab (K-U2) ───────────────────
+
+test('status tab: the five sections in order, no burns', async ({ page }, ti) => {
+  await boot(page, ti, { who: 'עידן' });
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('יגור'));
+  const titles = await detail(page).locator('[data-section]').evaluateAll(
+    els => els.map(e => (e as HTMLElement).dataset.section));
+  expect(titles).toEqual(['ems', 'internal', 'lastVisitReport', 'meetings', 'status']);
+  await expect(detail(page).getByText(/צריבות/)).toHaveCount(0);
+});
+
+test('status tab: last visit ✏️ and 🚚 open the new visit sheet', async ({ page }, ti) => {
+  await boot(page, ti, { who: 'אביאם' });
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+  const section = detail(page).locator('[data-section="lastVisitReport"]');
+  const editBtn = section.getByRole('button', { name: 'עריכת הסיכום' });
+  if (await editBtn.count()) {
+    await editBtn.click();
+    await expect(page.locator('[data-testid="visit-chapters"]')).toBeVisible();
+    await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
+  } else {
+    await expect(section.getByText('עוד אין סיכום ביקור לקיבוץ הזה.')).toBeVisible();
+  }
+});
+
+test('status tab: role matrix for adders', async ({ page }, ti) => {
+  const cases: Array<[any, boolean]> = [['עידן', true], ['אביאם', true], ['צפייה', false]];
+  for (const [who, canAct] of cases) {
+    await boot(page, ti, { who });
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+    const adders = detail(page).locator('[data-adder]');
+    if (canAct) await expect(adders.first()).toBeVisible();
+    else await expect(adders).toHaveCount(0);
+  }
+});
