@@ -424,9 +424,15 @@
   color: hsl(var(--muted-foreground));
   padding-inline-end: 2px;
 }
-.ucal-week-days { display: grid; grid-template-columns: repeat(var(--ucal-cols, 7), minmax(0, 1fr)); gap: 2px; }
+/* Round 5 · C-U designer fix (25.9): a 2px grid GAP on 7 columns at the 360 floor was eating
+   into the column width the 44px tap-target math assumed (spec: "DayCell at 360 must be ≥44px:
+   full-width 7-col grid, gap 0, spacing via padding inside the cell"). gap:0 gives the grid the
+   full width; `.ucal-cell`'s own padding draws the same visual breathing room WITHOUT shrinking
+   any column's box (a Playwright assertion in calendar.spec.ts measures the DayCell bounding
+   box at 360 and fails under 44×44). */
+.ucal-week-days { display: grid; grid-template-columns: repeat(var(--ucal-cols, 7), minmax(0, 1fr)); gap: 0; }
 
-.ucal-cell { display: block; }
+.ucal-cell { display: block; padding: 1px; }
 .ucal-out { opacity: .7; }
 
 .ucal-legend {

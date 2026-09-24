@@ -76,6 +76,20 @@ test('calendar: the island owns the screen and the legacy grid steps aside', asy
   expectNoConsoleErrors(rec);
 });
 
+// Round 5 · C-U designer fix (25.9): "DayCell at 360 must be ≥44px" — a 2px grid gap on 7
+// columns had been eating into the column width the tap-target math assumed. Only meaningful
+// at the 360 floor itself (bigger viewports have slack to spare), so it skips elsewhere.
+test('calendar r5: a DayCell is ≥44×44 at the 360 width floor', async ({ page }, ti) => {
+  test.skip(page.viewportSize()?.width !== 360, '360-floor-only assertion');
+  await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  const cell = page.locator('[data-testid="cal-grid"] button[data-min-tap="44"]').first();
+  const box = await cell.boundingBox();
+  expect(box).toBeTruthy();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+});
+
 test('calendar r5: חודש עבודה hides week labels, חודש מלא shows one per week row', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await openCalendar(page);
