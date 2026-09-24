@@ -63,6 +63,7 @@
   "./ui/sigma-skeleton.js",
   "./ui/sigma-speech.js",
   "./ui/sigma-square.js",
+  "./ui/sigma-stat-tile.js",
   "./ui/sigma-StockChange.js",
   "./ui/sigma-sun.js",
   "./ui/sigma-supabase.js",
