@@ -7,9 +7,9 @@
 // inbox island's own registration.
 import * as React from 'react';
 import {
-  CalendarDays, CheckSquare, ClipboardList, Code2, Download, FileDown, FileText, Home, Inbox,
-  Clock, MapPin, MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck,
-  UserCheck, Users, Bell, Mail, type LucideIcon,
+  CalendarDays, ClipboardList, Code2, FileDown, Flame,
+  Home, Inbox, Clock, ListTodo, MapPin, MessageSquarePlus, MoreHorizontal, Notebook,
+  Package, Settings, TrendingUp, UserCheck, Bell, Mail, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { UserChip } from '@/components/UserChip';
@@ -22,9 +22,9 @@ import { canShowPage } from '@/lib/canShowPage';
 import { moreLeadsWithInventory } from '@/lib/landing';
 
 export const MORE_ICONS: Record<string, LucideIcon> = {
-  Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell, Clock,
-  Settings, MessageSquarePlus, Download, FileDown, Inbox, TrendingUp, Notebook, FileText,
-  MoreHorizontal, Mail,
+  Home, MapPin, Package, CalendarDays, ClipboardList, Code2,
+  Bell, Clock, Settings, MessageSquarePlus, FileDown, Inbox, TrendingUp, Notebook,
+  Flame, ListTodo, MoreHorizontal, Mail,
 };
 
 /**
@@ -160,7 +160,11 @@ export function MoreSheet({
       {/* No `rounded-t-*` here: the `side="bottom"` variant already carries the mockup's 26 px
             radius and the grab handle, and a class passed in WINS over the variant (caught in
             the browser smoke — the sheet was rendering at 16 px). */}
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto border-border bg-card pb-8">
+        {/* U6 residual fix: the sheet sits ABOVE the phone bar (z-index), but its own last rows
+            used to end inside the bar's pixel band — the same unsafe strip a phone's home
+            gesture indicator claims. pb reserves the nav's published height (0 on desktop,
+            where #sigma-nav is display:none and --nav-h is unset) instead of a flat 32px. */}
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto border-border bg-card pb-[calc(var(--nav-h,0px)+16px)]">
         <SheetHeader className="mb-2 text-start">
           <SheetTitle className="text-base">עוד</SheetTitle>
         </SheetHeader>

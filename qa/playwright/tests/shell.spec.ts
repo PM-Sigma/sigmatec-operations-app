@@ -109,6 +109,25 @@ test.describe('Desktop ⋯ עוד (S-9/S-10)', () => {
   });
 });
 
+test.describe('desktop nav (U6)', () => {
+  test('no legacy page-nav, no floating visit FAB on desktop', async ({ page }, ti) => {
+    test.skip(String(ti.project.metadata && (ti.project.metadata as any).viewport).indexOf('mobile') === 0, 'desktop only');
+    await boot(page, ti, { ready: '#sigma-desktop-nav nav' });
+    await expect(page.locator('.page-nav')).toHaveCount(0);
+    await expect(page.locator('#visitFab')).toHaveCount(0);
+  });
+
+  test('the top-tab row carries the same tabs as the phone bar, plus ביקור', async ({ page }, ti) => {
+    test.skip(String(ti.project.metadata && (ti.project.metadata as any).viewport).indexOf('mobile') === 0, 'desktop only');
+    await boot(page, ti, { ready: '#sigma-desktop-nav nav' });
+    const nav = page.locator('#sigma-desktop-nav nav[aria-label="ניווט ראשי"]');
+    for (const label of ['קיבוצים', 'יומן', 'מלאי']) {
+      await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
+    }
+    await expect(page.locator('#sigma-desktop-nav').getByRole('button', { name: 'תיעוד ביקור' })).toBeVisible();
+  });
+});
+
 test.describe('OfflineBanner (S-14)', () => {
   test('shows on the first render when navigator.onLine is already false', async ({ page }, ti) => {
     // Forcing navigator.onLine BEFORE any app script runs (an init script, not

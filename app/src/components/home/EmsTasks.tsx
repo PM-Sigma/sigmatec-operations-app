@@ -109,7 +109,7 @@ function EmsTaskRow({
       <div className="t-meta flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground [&>span]:rounded-md [&>span]:border [&>span]:border-border [&>span]:bg-card [&>span]:px-1.5 [&>span]:py-px">
         {meta.assigneeFirstName && <span>👤 {meta.assigneeFirstName}</span>}
         {meta.due && (
-          <span className={meta.overdue ? 'font-semibold text-destructive' : ''}>
+          <span className={meta.overdue ? 'font-semibold text-[color:var(--danger-ink)]' : ''}>
             {meta.overdue ? '⏰' : '📅'} <bdi>{meta.due}</bdi>
           </span>
         )}
@@ -161,7 +161,7 @@ export function EmsTasks({ kibbutz, variant = 'full' }: { kibbutz: string; varia
         <span>📋 משימות EMS</span>
         <span className="badge rounded-full bg-muted px-1.5 py-px text-[10px] font-semibold">{tasks.length} פתוחות</span>
         {isAdmin && orphans > 0 && (
-          <span className="badge-orphans rounded-full bg-[color:var(--sigma-warn)]/15 px-1.5 py-px text-[10px] font-bold text-[color:var(--sigma-warn)]">
+          <span className="badge-orphans rounded-full bg-[color:var(--sigma-warn)]/15 px-1.5 py-px text-[10px] font-bold text-[color:var(--sigma-warn-ink)]">
             ⚠️ <bdi>{orphans}</bdi> ללא אחראי
           </span>
         )}

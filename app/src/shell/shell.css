@@ -13,4 +13,9 @@
    under the phone breakpoint. */
 @media (max-width: 767px) {
   [data-sonner-toaster] { bottom: calc(var(--nav-h) + 12px) !important; }
+  /* U5/S-8: the scroll container pads by the fixed nav's PUBLISHED height, not a guessed
+     number — a device with a tall safe-area inset (the old fixed 84px never had) no longer
+     buries the last row of content under the bar. Moved out of css/app.css, which still
+     had the pre-token literal. */
+  body.sigma-nav-ready { padding-block-end: calc(var(--nav-h) + 16px); }
 }

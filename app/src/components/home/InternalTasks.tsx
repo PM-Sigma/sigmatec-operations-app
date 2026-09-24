@@ -105,7 +105,7 @@ function DueChip({ row }: { row: InternalTaskRow }) {
   if (!d) return null;
   const late = isOverdueInternal(row);
   return (
-    <span className={'rounded-md border border-border bg-card px-1.5 py-px text-[10px] ' + (late ? 'font-semibold text-destructive' : 'text-muted-foreground')}>
+    <span className={'rounded-md border border-border bg-card px-1.5 py-px text-[10px] ' + (late ? 'font-semibold text-[color:var(--danger-ink)]' : 'text-muted-foreground')}>
       {late ? '⏰' : '📅'} <bdi>{d}</bdi>
     </span>
   );

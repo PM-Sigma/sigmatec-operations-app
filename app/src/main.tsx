@@ -271,12 +271,18 @@ function boot() {
       .then(m => m.mountUsage())
       .catch(e => console.warn('[sigma] usage island failed', e)));
   }
-  // The header cluster (§6), the page-action row (S-5) and the offline banner (S-14). Each
-  // island replaces nothing if its chunk never lands — the legacy header/page-nav stay.
+  // The header cluster (§6), the desktop nav (U6), the page-action row (S-5) and the offline
+  // banner (S-14). Each is a placeholder div; a chunk that never lands leaves an empty gap
+  // instead of a broken page (the legacy .page-nav/#visitFab these replace are gone, U6).
   if (document.getElementById('sigma-header-actions')) {
     import('@/islands/HeaderActions')
       .then(m => { if (m.mountHeaderActions()) document.body.classList.add('sigma-header-ready'); })
       .catch(e => console.warn('[sigma] header', e));
+  }
+  // U6: the desktop top-tab row (≥768px) — lazy, mirrors the boot Nav's phone bar without
+  // costing the boot bundle anything.
+  if (document.getElementById('sigma-desktop-nav')) {
+    import('@/islands/DesktopNav').then(m => m.mountDesktopNav()).catch(e => console.warn('[sigma] desktop-nav', e));
   }
   if (document.getElementById('sigma-page-bar')) {
     import('@/shell/PageBar').then(m => m.mountPageBar()).catch(e => console.warn('[sigma] page-bar', e));

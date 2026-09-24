@@ -1,7 +1,7 @@
 // The app shell (spec §6 header, §7k #3 the ⋯ sheet, §7h הגדרות).
-// Covers: the bottom tab bar (phone only — `md:hidden`, the legacy .page-nav keeps the
-// desktop), the labelled ⋯ עוד sheet and its ניהול block, the ● user chip menu, and the
-// ⚙️ הגדרות island the menu opens.
+// Covers: the bottom tab bar (phone only — `md:hidden`; desktop gets #sigma-desktop-nav's
+// sticky top-tab row, U6), the labelled ⋯ עוד sheet and its ניהול block, the ● user chip
+// menu, and the ⚙️ הגדרות island the menu opens.
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test } from './_helpers';
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
@@ -17,7 +17,10 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
   // nav's phone-only hiding off (so a bundle that never loads keeps the old nav).
   await expect(page.locator('body')).toHaveClass(/sigma-nav-ready/);
 
-  if (viewport === 'mobile-390') {
+  // Every mobile project (390/360/412) is a phone concern — only desktop-1440 gets the
+  // top-tab row (U6: mobile-360/412 used to fall into the "else" desktop branch below, which
+  // asserted a desktop nav that never renders under 768px).
+  if (viewport.startsWith('mobile')) {
     await expect(nav).toBeVisible();
     // other roles (עידן here): קיבוצים · יומן · [ביקור] · מלאי · עוד — 22.9 QA round 2 Package A
     // §3: 🗓 יומן took the "רעיון / באג" slot, feedback moved into ⋯ עוד only.
@@ -28,11 +31,14 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
     await expect(nav.getByRole('button', { name: 'תיעוד ביקור' })).toBeVisible();
     // the tab you are on is announced, not only coloured
     await expect(nav.getByRole('button', { name: 'קיבוצים', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('.page-nav')).toBeHidden();
+    await expect(page.locator('.page-nav')).toHaveCount(0);
   } else {
     await expect(nav).toBeHidden();
-    await expect(page.locator('.page-nav')).toBeVisible();
-    await expect(page.locator('#navKibbutz')).toHaveClass(/active/);
+    await expect(page.locator('.page-nav')).toHaveCount(0);
+    await expect(page.locator('#visitFab')).toHaveCount(0);
+    const desktopNav = page.locator('#sigma-desktop-nav nav[aria-label="ניווט ראשי"]');
+    await expect(desktopNav).toBeVisible();
+    await expect(desktopNav.getByRole('button', { name: 'קיבוצים', exact: true })).toHaveAttribute('aria-current', 'page');
   }
 
   await shot(page, ti);
@@ -78,9 +84,14 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   // משימות · משימות EMS · עובדים retired in Task 14 (§7m R1/R2/R5): the first two are 🗓️ יומן's
   // רשימה view and the third is gone, so the sheet no longer offers a row that opens nothing.
   // 22.9 (F4): מלאי is a tab on the bar, so the sheet does not list it again.
-  for (const label of ['יומן', 'הגדרות', 'יומן היום']) {
+  for (const label of ['יומן', 'הגדרות']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
+  // U6: both field-journal registrations (main.tsx AND DayLog.tsx, packages G and R) now carry
+  // `tag: 'ניסיוני'` — a re-registration replaces the row, so the tag shows either way, and
+  // the row's accessible name is "יומן היום ניסיוני" now, not an exact "יומן היום".
+  await expect(sheet.getByRole('button', { name: /^יומן היום/ })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: /^יומן היום/ })).toContainText('ניסיוני');
   for (const label of ['מלאי']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toHaveCount(0);
   }

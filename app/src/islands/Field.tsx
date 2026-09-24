@@ -334,7 +334,7 @@ function TaskRow({ task, mine }: { task: CardEmsTask; mine: boolean }) {
         <p className="my-[3px] whitespace-pre-line text-[14px] leading-[1.55] text-muted-foreground">{task.description}</p>
       )}
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground [&>span]:rounded-md [&>span]:border [&>span]:border-border [&>span]:bg-card [&>span]:px-1.5 [&>span]:py-px">
-        {meta.due && <span className={meta.overdue ? 'font-semibold text-destructive' : ''}>{meta.overdue ? '⏰' : '📅'} <bdi>{meta.due}</bdi></span>}
+        {meta.due && <span className={meta.overdue ? 'font-semibold text-[color:var(--danger-ink)]' : ''}>{meta.overdue ? '⏰' : '📅'} <bdi>{meta.due}</bdi></span>}
         <span>{statusLabel(task.status)}</span>
       </div>
     </div>

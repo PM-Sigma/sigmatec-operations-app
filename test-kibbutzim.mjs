@@ -294,8 +294,11 @@ check('applyFilters reads data-section / data-marketing', () => {
 // ───────────────────────── CSS structural contract ─────────────────────────
 // A bulk selector/rule removal once swallowed a comment terminator here: the unterminated
 // /* ... */ ate the `@media (max-width: 768px) {` opener that follows it, so every phone-only
-// rule (fixed bottom nav, 2-column grid, body padding) leaked to the desktop layout while the
-// mobile modal/filter rules vanished. These three asserts are what would have caught it.
+// rule (the legacy fixed bottom nav, 2-column grid, body padding) leaked to the desktop
+// layout while the mobile modal/filter rules vanished. These two asserts are what would have
+// caught it. (The fixed bottom nav itself is the React island now, U6 — Nav.tsx's own
+// Tailwind classes, not a css/app.css rule — so the third, page-nav-specific assert that used
+// to live here has no analog left to check.)
 console.log('CSS structural contract:');
 const css = fs.readFileSync(path.join(__dirname, 'css/app.css'), 'utf8');
 check('every /* comment is terminated', () => {
@@ -312,19 +315,9 @@ check('braces balance (and never close below zero)', () => {
   assert.equal(min, 0, 'a stray "}" closes a block that was never opened');
   assert.equal(depth, 0, 'unbalanced braces: ' + depth + ' block(s) left open');
 });
-check('the phone-only block still opens before the fixed bottom nav', () => {
-  const m = /\.page-nav\s*\{\s*position:\s*fixed/.exec(css);
-  assert.ok(m, '.page-nav { position: fixed } rule not found');
-  const nav = m.index;
-  const mq = css.lastIndexOf('@media (max-width: 768px)', nav);
-  assert.notEqual(mq, -1, 'no "@media (max-width: 768px)" precedes the fixed bottom nav — it would apply at EVERY width');
-  // nothing may close that media query between its opener and the rule it must guard
-  let depth = 0;
-  for (let i = css.indexOf('{', mq); i < nav; i++) {
-    if (css[i] === '{') depth++;
-    else if (css[i] === '}') depth--;
-    assert.ok(depth > 0, 'the media query closes before .page-nav — the rule leaked out of it');
-  }
+check('the legacy .page-nav / #visitFab are gone from css/app.css (U6 — React owns the nav now)', () => {
+  assert.ok(!/\.page-nav\s*\{/.test(css), '.page-nav rule still in css/app.css');
+  assert.ok(!/#visitFab\s*\{/.test(css), '#visitFab rule still in css/app.css');
 });
 
 // ── region integrity (task-4 review fix 9) ──────────────────────────────────
