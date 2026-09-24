@@ -576,6 +576,12 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       // a ✅ נצרב is a PATCH, which the write branch above 401s like every other write.
       case 'meter_burns': return route.fulfill(json(shape(FIXTURES.burns, accept)));
       case 'generators': return route.fulfill(json(shape(FIXTURES.generators, accept)));
+      // 🔔 יומן התראות (G-U3) — 250 fixture rows, `limit` honoured like real PostgREST so the
+      // 200-row cap the page relies on has something real to prove against.
+      case 'push_log': {
+        const lim = Number(new URL(url).searchParams.get('limit') || '0') || FIXTURES.pushLog.length;
+        return route.fulfill(json(shape(FIXTURES.pushLog.slice(0, lim), accept)));
+      }
       // The saved route comes back for exactly the (person, date) the island asked for —
       // PostgREST filters look like `person=eq.<name>&date=eq.<day>`.
       case 'day_plans': {

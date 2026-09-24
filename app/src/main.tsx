@@ -265,6 +265,23 @@ function boot() {
       obs.observe(burnsView, { attributes: true, attributeFilter: ['style'] });
     }
   }
+  // 🔔 יומן התראות (round 5 G-U3) — same page-open trigger as ⏱ שעות / 🔥 צריבות: reached only
+  // from ⋯, never on first paint, and its chunk pulls TanStack behind it.
+  const pushlogView = document.getElementById('pushlog-view');
+  if (pushlogView && document.getElementById('sigma-pushlog')) {
+    const loadPushLog = () => import('@/islands/PushLog')
+      .then(m => m.mountPushLog())
+      .catch(e => console.warn('[sigma] push log island failed', e));
+    if (pushlogView.style.display !== 'none') void loadPushLog();
+    else {
+      const obs = new MutationObserver(() => {
+        if (pushlogView.style.display === 'none') return;
+        obs.disconnect();
+        void loadPushLog();
+      });
+      obs.observe(pushlogView, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
   const calView = document.getElementById('calendar-view');
   if (calView && document.getElementById('sigma-calendar')) {
     const loadCalendar = () => import('@/islands/Calendar')
