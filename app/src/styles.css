@@ -895,17 +895,20 @@
    `[data-hit-slop]` pair is referenced all over (SectionBlock's trailing action, chip.tsx's
    FilterChip, PageActionRow's back chevron…) as "grows the real hit area", but the rule that
    actually does it was never written — those content-sized links/chevrons were tapping at their
-   visual (sub-44px) box the whole time. Same invisible-::before trick as `.brand-mark::before`:
-   the element keeps its small visual size, the hit target grows to 44px behind it. */
-[data-hit-slop] { position: relative; }
-[data-hit-slop]::before {
-  content: '';
-  position: absolute;
-  inset-inline-start: 50%;
-  inset-block-start: 50%;
-  transform: translate(-50%, -50%);
-  width: max(100%, 44px);
-  height: max(100%, 44px);
+   visual (sub-44px) box the whole time.
+   Cross-package bug report (calendar, round-5 S-U): the first version of this rule grew an
+   invisible `::before` OVERLAY up to 44px with no knowledge of a neighbour's box — two
+   `[data-hit-slop]` controls placed closer together than their combined overhang (PlaceSearch,
+   block-pick, mobile-360) each intercepted the OTHER's pointer events. A real min box respects
+   normal layout instead: flex `gap` (the header cluster's 8px, a ListRow's own spacing) always
+   keeps siblings apart by at least the declared gap, so growing the box itself — not painting
+   an overlay past it — can never reach past a neighbour by more than the CSS the two rows
+   already agreed on. `min()` still caps the growth at exactly 44px (never smaller, never more,
+   same contract as the old `max(100%, 44px)` on width/height), just via the box model instead
+   of an absolutely positioned pseudo-element. */
+[data-hit-slop] {
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* U6 residual: react-remove-scroll (every Radix Sheet/Dialog) locks BODY's overflow while

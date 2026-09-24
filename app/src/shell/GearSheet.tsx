@@ -13,13 +13,10 @@ import { ListRow } from '@/components/ui/list-row';
 import { SectionBlock } from '@/components/ui/section-block';
 import { Tag } from '@/components/ui/chip';
 import { sigma, useCurrentUser, useEmsConnected } from '@/bridge';
-import { roleOf, type PersonRole } from '@/lib/landing';
+import { roleOf } from '@/lib/landing';
 import { openSettings } from '@/lib/settings';
 import { track } from '@/lib/track';
-
-const ROLE_LABEL: Record<PersonRole, string> = {
-  field: 'שטח', pm: 'ניהול מוצר', dev: 'פיתוח', ceo: 'הנהלה', viewer: 'צפייה',
-};
+import { ROLE_LABEL } from '@/shell/IdentityRow';
 
 export const GEAR_OPEN_EVENT = 'sigma-open-gear';
 

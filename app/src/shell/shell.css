@@ -66,3 +66,23 @@ html[data-nav='back'] ::view-transition-new(root) {
      had the pre-token literal. */
   body.sigma-nav-ready { padding-block-end: calc(var(--nav-h) + 16px); }
 }
+
+/* Designer re-review (S-U): the desktop ⋯ עוד opens the same `side="bottom"` Sheet the phone
+   uses — full-width, pinned to the viewport's bottom edge — which reads as a mobile sheet left
+   on screen by mistake on a mouse-and-keyboard session. ≥768 it becomes a centred dialog,
+   max-width 560. `!important` beats the animate-in library's own inline transform on the
+   Radix content node (composing with `md:-translate-x-1/2` would fight that transform instead
+   of replacing it); the slide-in/out keyframes still run (still `bottom`-sourced), they just
+   start and end at the centred position instead of off-screen. */
+@media (min-width: 768px) {
+  .s-more-desktop {
+    inset-inline: 0 !important;
+    inset-block-end: auto !important;
+    inset-block-start: 50% !important;
+    width: min(560px, calc(100vw - 32px)) !important;
+    margin-inline: auto !important;
+    border-radius: var(--s-radius-sheet) !important;
+    border: 1px solid hsl(var(--border));
+    transform: translateY(-50%) !important;
+  }
+}

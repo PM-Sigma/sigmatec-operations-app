@@ -128,6 +128,37 @@ test.describe('desktop nav (U6)', () => {
   });
 });
 
+test.describe('[data-hit-slop] tap-target growth (S-U, cross-package bug report from calendar)', () => {
+  // The FIRST version of `.s-hit`/`[data-hit-slop]` (styles.css) grew an invisible ::before
+  // OVERLAY up to 44px with no idea where a neighbour's own box was — two hit-slop controls
+  // closer together than their combined overhang (calendar's PlaceSearch/block-pick, mobile-360)
+  // each stole the other's clicks. The fix grows the REAL box (`min-width`/`min-height: 44px`)
+  // instead of painting past it, so normal flex `gap` — not a guess about the neighbour — is
+  // what keeps them apart. `/?gallery=1` (E2 sign-off) renders two adjacent chip.tsx FilterChip
+  // (both `data-hit-slop`, 32px visual, `gap-3` row) — a real case of exactly this pattern.
+  test('two adjacent FilterChips: boxes never overlap, and each click hits only its own chip', async ({ page }, ti) => {
+    await boot(page, ti, { query: 'gallery=1', ready: '[data-testid="gallery-root"]' });
+    const first = page.getByRole('button', { name: 'פעילים 5' });
+    const second = page.getByRole('button', { name: 'חדשים 0' });
+    await expect(first).toBeVisible();
+    await expect(second).toBeVisible();
+
+    const [b1, b2] = [await first.boundingBox(), await second.boundingBox()];
+    expect(b1 && b2).toBeTruthy();
+    // A real min-box grown by layout can never overlap a flex sibling — this is the structural
+    // guarantee an invisible overlay could not make. RTL row: `second` (source order) sits
+    // to the visual LEFT of `first`, so `first` starts at-or-after `second`'s right edge.
+    expect(b1!.x).toBeGreaterThanOrEqual(b2!.x + b2!.width);
+
+    // Clicking the second chip toggles only it, and leaves the first untouched — proof the
+    // click landed on its own control, not on an overlay reaching into the first chip's box.
+    const before = await first.getAttribute('aria-pressed');
+    await second.click();
+    await expect(second).toHaveAttribute('aria-pressed', 'true');
+    await expect(first).toHaveAttribute('aria-pressed', before!);
+  });
+});
+
 test.describe('OfflineBanner (S-14)', () => {
   test('shows on the first render when navigator.onLine is already false', async ({ page }, ti) => {
     // Forcing navigator.onLine BEFORE any app script runs (an init script, not

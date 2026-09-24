@@ -12,7 +12,9 @@ import {
   Package, Settings, TrendingUp, UserCheck, Bell, Mail, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { UserChip } from '@/components/UserChip';
+import { Tag } from '@/components/ui/chip';
+import { IdentityRow } from '@/shell/IdentityRow';
+import { useCurrentUser } from '@/bridge';
 import {
   itemBadge, listMoreItems, onMoreItemsChanged, type MoreItem, type SigmaRole as RegistryRole,
 } from '@/lib/registry';
@@ -77,7 +79,10 @@ function SheetRow({
     >
       <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
       <span>{label}</span>
-      {tag && <span className="ms-auto text-xs">{tag}</span>}
+      {/* Designer re-review: `tag` (e.g. "ניסיוני" on יומן היום) sits right next to the row's
+          own label as an ordinary Tag chip — `ms-auto` pinned it to the far end of the row,
+          reading as an unrelated floating label instead of a qualifier on this row's name. */}
+      {tag && <Tag role="neutral">{tag}</Tag>}
       <Badge n={badge} />
     </button>
   );
@@ -87,6 +92,7 @@ export function MoreSheet({
   role, openSignal = 0, user = '', variant = 'bar',
 }: { role: RegistryRole; openSignal?: number; user?: string; variant?: 'bar' | 'desktop' }) {
   const [open, setOpen] = React.useState(false);
+  const { name: currentUser, role: currentRole, isViewer: currentIsViewer } = useCurrentUser();
   // A long press on the bar (Nav.tsx) bumps `openSignal`; every bump opens the sheet.
   React.useEffect(() => { if (openSignal > 0) setOpen(true); }, [openSignal]);
   const [, bump] = React.useReducer((n: number) => n + 1, 0);
@@ -164,11 +170,16 @@ export function MoreSheet({
             used to end inside the bar's pixel band — the same unsafe strip a phone's home
             gesture indicator claims. pb reserves the nav's published height (0 on desktop,
             where #sigma-nav is display:none and --nav-h is unset) instead of a flat 32px. */}
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto border-border bg-card pb-[calc(var(--nav-h,0px)+16px)]">
+        {/* Designer re-review: on desktop (≥768) this is a centred dialog, max-width 560 — a
+            full-width bottom sheet reads as a mobile leftover on a mouse-and-keyboard session.
+            `.s-more-desktop` (shell.css) overrides the bottom-sheet position/transform with
+            plain CSS (not Tailwind's md: utilities) so it wins outright over the animate-in
+            library's own inline transform, instead of trying to compose with it. */}
+        <SheetContent side="bottom" className="s-more-desktop max-h-[85vh] overflow-y-auto border-border bg-card pb-[calc(var(--nav-h,0px)+16px)]">
         <SheetHeader className="mb-2 text-start">
           <SheetTitle className="text-base">עוד</SheetTitle>
         </SheetHeader>
-        <div className="mb-3"><UserChip /></div>
+        <IdentityRow name={currentUser} role={currentRole} isViewer={currentIsViewer} />
 
         <ul className="flex flex-col gap-0.5">
           {app.pages.map(({ page, label, icon }) => (

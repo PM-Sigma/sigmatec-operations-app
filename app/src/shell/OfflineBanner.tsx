@@ -10,20 +10,24 @@
 import * as React from 'react';
 import { WifiOff } from 'lucide-react';
 import { mount } from '@/islands';
-import { Tag } from '@/components/ui/chip';
 import { useOnline, OFFLINE_TEXT } from '@/lib/online';
 
 export function OfflineBanner() {
   const online = useOnline();
   if (online) return null;
+  // Designer re-review: a centred pill (Tag) read as a floating chip rather than a system
+  // banner, and its dot duplicated the WifiOff icon's own "no connection" meaning. A slim,
+  // full-width strip directly under the header — the same warn tokens, no dot, no pill shape —
+  // matches how the version-check "עלתה גרסה חדשה" bar/other system banners sit against the
+  // page instead of floating over it.
   return (
-    <div role="status" dir="rtl" className="flex justify-center px-4 py-2">
-      <Tag role="warn" dot className="h-9 gap-2 px-3 text-[13px] font-semibold">
-        <span className="inline-flex items-center gap-1.5">
-          <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
-          {OFFLINE_TEXT}
-        </span>
-      </Tag>
+    <div
+      role="status"
+      dir="rtl"
+      className="flex w-full items-center justify-center gap-1.5 bg-[var(--warn-fill)] px-4 py-1.5 text-[13px] font-semibold text-[var(--warn-ink)]"
+    >
+      <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
+      {OFFLINE_TEXT}
     </div>
   );
 }

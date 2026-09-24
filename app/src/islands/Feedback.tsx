@@ -664,7 +664,7 @@ export function mountFeedback(): boolean {
   if (!ok) return false;
   registerMoreItem({
     id: 'feedback',
-    label: '📣 רעיון / באג',
+    label: 'רעיון / באג',
     icon: 'MessageSquarePlus',
     // No `roles` on purpose: all three roles may submit (spec §7). The live predicate only
     // keeps it hidden before anyone has picked who they are.

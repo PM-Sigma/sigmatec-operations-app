@@ -102,7 +102,7 @@ export function mountMessageSheet(): boolean {
   // the ⋯ עוד sheet now, same id as before so MoreSheet's APP_ORDER keeps its place.
   registerMoreItem({
     id: 'staff-message',
-    label: '✉️ הודעה לעובד',
+    label: 'הודעה לעובד',
     icon: 'Mail',
     group: 'app',
     visible: () => { try { return !sigma.isViewer?.() && !!sigma.getCurrentUser?.(); } catch { return false; } },

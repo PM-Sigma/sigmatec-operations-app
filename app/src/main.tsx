@@ -303,7 +303,7 @@ function boot() {
     window.addEventListener('sigma-open-message', e => { if (!mounted) open((e as CustomEvent<{ to?: string }>).detail?.to); });
     registerMoreItem({
       id: 'staff-message',
-      label: '✉️ הודעה לעובד',
+      label: 'הודעה לעובד',
       icon: 'Mail',
       group: 'app',
       visible: () => {
