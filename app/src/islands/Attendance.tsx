@@ -34,7 +34,7 @@ import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER,
+  canEditAttendance, canSwitchPerson, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
   holidayShort, kpis as computeKpis, mergeByDay, missingBlock, missingByPerson, missingDays, monthGrid, savedToast,
   ymd, type AttRow, type DayCell, type DayType, type Holiday,
@@ -304,6 +304,7 @@ function AttendanceIsland() {
   const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today), [ym, rows, holidays, today]);
   const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m), [rows, holidays, today, ym]);
   const kpis = React.useMemo(() => computeKpis(rows, missing, holidays), [rows, missing, holidays]);
+  const mb = React.useMemo(() => missingBlock(person, me, missing, kpis.onHoliday), [person, me, missing, kpis.onHoliday]);
   // עידן 20.9 #2 — whoever can switch person is here to CHASE the gaps, not to browse a
   // calendar, so they get the same question answered for the whole team at once. Read
   // straight off the legacy snapshot (the same source `readRows` uses for the open person),
@@ -421,95 +422,78 @@ function AttendanceIsland() {
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div className="space-y-3">
-          {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2) ──────────────
-              The screen used to open on the calendar and keep the gaps in a box underneath
-              it, so the one question a person comes here with — "what do I still owe?" —
-              was the last thing answered. It is now the first, and every chip is one tap
-              into that day's sheet. */}
-          <section data-testid="att-missing" className="rounded-[14px] border border-border bg-card p-3">
-            <div className="mb-1.5 flex items-baseline gap-2">
-              <span className="text-[13px] font-bold">{missing.length ? 'חסר לך' : 'החודש מלא, יפה!'}</span>
-              {missing.length > 0 && (
-                <span
-                  data-testid="att-missing-count"
-                  className="rounded-full bg-[color:var(--sigma-warn)]/15 px-2 py-0.5 text-[12px] font-extrabold"
-                >
-                  <bdi>{missing.length}</bdi>
-                </span>
+          {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2; A-U2, design-system
+              SectionBlock/ListRow). The screen used to open on the calendar and keep the
+              gaps in a box underneath it, so the one question a person comes here with —
+              "what do I still owe?" — was the last thing answered. It is now the first,
+              and every row is one tap into that day's sheet. */}
+          {mb.show && (
+          <div data-testid="att-missing">
+            <SectionBlock title={mb.title} titleRole={mb.count ? 'danger' : 'default'}>
+              {/* ListRow forwards none of its own props to the DOM — a wrapper div carries
+                  the data-missing test hook the rest of the screen (and its tests) key off. */}
+              {mb.count ? mb.days.map(d => (
+                <div key={d.date} data-missing={d.date} aria-label={d.aria}>
+                  <ListRow
+                    title={<bdi>{d.label}</bdi>}
+                    onClick={() => openDay(grid.cells.find(c => c.date === d.date)!)}
+                  />
+                </div>
+              )) : (
+                <p className="px-4 py-1 text-[12.5px] text-muted-foreground">{mb.empty}</p>
               )}
-            </div>
-            {missing.length ? (<>
-              <p className="mb-1.5 text-[12px] text-muted-foreground">אפשר ללחוץ על יום ולתעד אותו.</p>
-              <div className="flex flex-wrap gap-1.5">
-                {cellsOf(grid, 'missing').filter(c => c.date < todayKey).map(c => (
-                  <button
-                    key={c.date}
-                    type="button"
-                    data-missing={c.date}
-                    onClick={() => openDay(c)}
-                    aria-label={'תיעוד ' + dayChip(c.date)}
-                    className="att-chip-missing"
-                  >
-                    <span aria-hidden className="att-chip-plus">＋</span>
-                    <bdi>{dayChip(c.date)}</bdi>
-                  </button>
-                ))}
-              </div>
-            </>) : (
-              <p className="text-[12.5px] text-muted-foreground">
-                כל ימי העבודה בחודש מתועדים{kpis.onHoliday ? ` · 🕎 ${kpis.onHoliday} ימי עבודה בחג` : ''}
-              </p>
+            </SectionBlock>
+            {/* SectionBlock's own count Tag isn't wired to a stable test id — a plain span
+                carries att-missing-count instead of forking the component (§9 ask). */}
+            {mb.count > 0 && (
+              <span data-testid="att-missing-count" className="sr-only"><bdi>{mb.count}</bdi></span>
             )}
-          </section>
+          </div>
+          )}
 
           {/* ── …and for עידן / עמיחי / צפייה, the same question for everyone ──── */}
           {canSwitch && teamMissing.length > 1 && (
-            <section data-testid="att-missing-team" className="rounded-[14px] border border-border bg-card p-3">
-              <div className="mb-1.5 text-[13px] font-bold">חסר לצוות</div>
-              <div className="flex flex-wrap gap-1.5">
+            <div data-testid="att-missing-team">
+              <SectionBlock title="חסר לצוות">
                 {teamMissing.map(t => (
-                  <button
-                    key={t.person}
-                    type="button"
-                    data-person-missing={t.person}
-                    data-count={t.known ? String(t.count) : ''}
-                    aria-pressed={t.person === person}
-                    onClick={() => { setPerson(t.person); track('attendance-person'); }}
-                    className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
-                      + (t.person === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
-                  >
-                    <bdi>{t.person}</bdi>
-                    {' · '}
-                    <bdi>{t.known ? t.count : '—'}</bdi>
-                  </button>
+                  <div key={t.person} data-person-missing={t.person} data-count={t.known ? String(t.count) : ''} aria-pressed={t.person === person}>
+                    <ListRow
+                      title={<bdi>{t.person}</bdi>}
+                      meta={<bdi>{t.known ? t.count : '—'}</bdi>}
+                      onClick={() => { setPerson(t.person); track('attendance-person'); }}
+                    />
+                  </div>
                 ))}
-              </div>
-            </section>
+              </SectionBlock>
+            </div>
           )}
 
           {/* ── היום: the one thing this screen is for ───────────────────────── */}
           {todayCell && (
-            <section data-testid="att-today" className="rounded-[14px] border border-border bg-card p-3">
-              <div className="mb-2 flex items-baseline gap-2">
-                <span className="text-[14px] font-extrabold">היום</span>
-                <span className="text-[12.5px] text-muted-foreground"><bdi>{dayChip(todayKey)}</bdi></span>
-                {todayCell.row && <span className="ms-auto text-[12px] font-bold text-[color:var(--sigma-ink)]">✓ {dayLabel(todayCell.row.type)}</span>}
-              </div>
-              {todayCell.holiday && !todayCell.holiday.required && (
-                <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
-              )}
-              {!canEdit ? (
-                <p className="text-[13px] text-muted-foreground">
-                  {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
-                </p>
-              ) : (
-                <DayTypeRow
-                  value={(todayCell.row?.type as DayType) || null}
-                  busy={save.isPending}
-                  onPick={t => (t === 'other' ? openDay(todayCell) : save.mutate({ date: todayKey, type: t, note: '' }))}
-                />
-              )}
-            </section>
+            <div data-testid="att-today">
+              <SectionBlock title="היום" flush>
+                <div className="px-4 py-1">
+                  <div className="mb-2 flex items-baseline gap-2">
+                    <span className="text-[12.5px] text-muted-foreground"><bdi>{dayChip(todayKey)}</bdi></span>
+                    {todayCell.row && <Tag role="ok" className="ms-auto">{dayLabel(todayCell.row.type)}</Tag>}
+                  </div>
+                  {todayCell.holiday && !todayCell.holiday.required && (
+                    <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
+                  )}
+                  {!canEdit ? (
+                    <p className="text-[13px] text-muted-foreground">
+                      {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
+                    </p>
+                  ) : (
+                    <DayTypeRow
+                      value={(todayCell.row?.type as DayType) || null}
+                      busy={save.isPending}
+                      onPick={t => (t === 'other' ? openDay(todayCell) : save.mutate({ date: todayKey, type: t, note: '' }))}
+                    />
+                  )}
+                </div>
+              </SectionBlock>
+            </div>
           )}
 
           {/* ── three numbers, no scrolling ───────────────────────────────────── */}

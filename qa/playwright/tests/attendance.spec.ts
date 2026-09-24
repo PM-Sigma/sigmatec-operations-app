@@ -170,11 +170,13 @@ test('attendance: a missing day is a real tap target, and the reports carry a la
   await expect(pdf.locator('svg')).toBeVisible();
   await expect(excel.locator('svg')).toBeVisible();
 
-  const chip = page.getByTestId('att-missing').locator('[data-missing]').first();
-  if (await chip.count()) {
-    const box = await chip.boundingBox();
-    expect(box!.height, 'a missing-day chip must be a thumb-sized button').toBeGreaterThanOrEqual(36);
-    await expect(chip).toContainText('＋');
+  // A-U2: a missing day is now a design-system ListRow (min-h-14), with a trailing chevron
+  // rather than a bare "＋" glyph.
+  const row = page.getByTestId('att-missing').locator('[data-missing]').first();
+  if (await row.count()) {
+    const box = await row.boundingBox();
+    expect(box!.height, 'a missing-day row must be a thumb-sized tap target').toBeGreaterThanOrEqual(36);
+    await expect(row.locator('svg')).toBeVisible();
   }
 
   expectNoConsoleErrors(rec);
