@@ -27,6 +27,7 @@
   "./ui/sigma-Home.js",
   "./ui/sigma-Hours.js",
   "./ui/sigma-hours2.js",
+  "./ui/sigma-icon-bubble.js",
   "./ui/sigma-ImportNotes.js",
   "./ui/sigma-index.js",
   "./ui/sigma-InternalModal.js",

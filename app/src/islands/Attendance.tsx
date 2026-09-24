@@ -21,6 +21,11 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText, UserCheck } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PageActionRow } from '@/components/ui/page-action-row';
+import { IconBubble } from '@/components/ui/icon-bubble';
+import { SectionBlock } from '@/components/ui/section-block';
+import { ListRow } from '@/components/ui/list-row';
+import { Tag } from '@/components/ui/chip';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isGateOpen, useEmsGate } from '@/lib/session';
@@ -31,7 +36,7 @@ import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
   canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
-  holidayShort, kpis as computeKpis, mergeByDay, missingByPerson, missingDays, monthGrid, savedToast,
+  holidayShort, kpis as computeKpis, mergeByDay, missingBlock, missingByPerson, missingDays, monthGrid, savedToast,
   ymd, type AttRow, type DayCell, type DayType, type Holiday,
 } from '@/lib/attendance';
 
@@ -366,63 +371,53 @@ function AttendanceIsland() {
 
   return (
     <div className="att-root">
-      {/* ── header: who, which month, and the two reports ───────────────────── */}
-      <header className="mb-2.5 flex flex-wrap items-center gap-2">
-        <h2 className="flex items-center gap-1.5 text-[17px] font-extrabold">
-          <UserCheck className="h-[18px] w-[18px] text-[color:var(--brand-1)]" />
-          נוכחות: <bdi>{person || me}</bdi>
-        </h2>
+      {/* ── header: who, which month, and the two reports (A-U1, design-system PageActionRow) */}
+      <div className="mb-2.5">
+        <PageActionRow
+          title={<><UserCheck aria-hidden className="me-1.5 inline h-[18px] w-[18px] text-[color:var(--brand-1)]" />נוכחות · <bdi>{person || me}</bdi></>}
+          actions={<>
+            <span data-testid="att-pdf">
+              <IconBubble icon={<FileText aria-hidden className="h-4 w-4" />} label="הורדת דוח נוכחות PDF" size={40}
+                onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }} />
+            </span>
+            <span data-testid="att-excel">
+              <IconBubble icon={<FileSpreadsheet aria-hidden className="h-4 w-4" />} label="הורדת דוח נוכחות Excel" size={40}
+                onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }} />
+            </span>
+          </>}
+        />
 
-        {canSwitch && people.length > 1 && (
-          <div className="flex gap-1" role="group" aria-label="בחירת עובד">
-            {people.map(p => (
-              <button
-                key={p}
-                type="button"
-                data-person={p}
-                aria-pressed={p === person}
-                onClick={() => { setPerson(p); track('attendance-person'); }}
-                className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
-                  + (p === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
-              >
-                <bdi>{p}</bdi>
-              </button>
-            ))}
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          {/* The person switch (F-6): the design-system SegmentedControl only carries a
+              same-shaped value per option, with no room for the `data-person` hook the rest of
+              the screen (and its tests) key off — so this stays a plain, DS-token-styled radio
+              group until that pass-through exists (spec §9). */}
+          {canSwitch && people.length > 1 && (
+            <div data-testid="att-person" className="flex gap-1" role="group" aria-label="בחירת עובד">
+              {people.map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  data-person={p}
+                  aria-pressed={p === person}
+                  onClick={() => { setPerson(p); track('attendance-person'); }}
+                  className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
+                    + (p === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
+                >
+                  <bdi>{p}</bdi>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="ms-auto flex items-center gap-1">
+            {/* RTL: the "previous month" control sits on the right, so it points right. */}
+            <IconBubble icon={<ChevronRight aria-hidden className="h-4 w-4" />} label="חודש קודם" size={32} onClick={() => shiftMonth(-1)} />
+            <span data-testid="att-month" className="min-w-[104px] text-center text-[13.5px] font-bold">{grid.label}</span>
+            <IconBubble icon={<ChevronLeft aria-hidden className="h-4 w-4" />} label="חודש הבא" size={32} onClick={() => shiftMonth(1)} />
           </div>
-        )}
-
-        <div className="ms-auto flex items-center gap-1">
-          {/* RTL: the "previous month" control sits on the right, so it points right. */}
-          <button type="button" aria-label="חודש קודם" onClick={() => shiftMonth(-1)} className="att-icon-btn">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <span data-testid="att-month" className="min-w-[104px] text-center text-[13.5px] font-bold">{grid.label}</span>
-          <button type="button" aria-label="חודש הבא" onClick={() => shiftMonth(1)} className="att-icon-btn">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          {/* F-3: two bare icons said nothing. Icon AND label, both tappable at 360 px. */}
-          <button
-            type="button"
-            data-testid="att-pdf"
-            onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }}
-            className="att-report-btn"
-            aria-label="הורדת דוח נוכחות PDF"
-          >
-            <FileText className="h-4 w-4" />
-            <span>PDF</span>
-          </button>
-          <button
-            type="button"
-            data-testid="att-excel"
-            onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }}
-            className="att-report-btn"
-            aria-label="הורדת דוח נוכחות Excel"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Excel</span>
-          </button>
         </div>
-      </header>
+      </div>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div className="space-y-3">

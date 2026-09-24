@@ -164,9 +164,9 @@ test('attendance: a missing day is a real tap target, and the reports carry a la
 
   const pdf = page.getByTestId('att-pdf');
   const excel = page.getByTestId('att-excel');
-  await expect(pdf).toContainText('PDF');
-  await expect(excel).toContainText('Excel');
-  // icon AND label — a bare glyph is what the phone QA could not read
+  // A-U1: the report buttons are IconBubbles (icon + Hebrew aria-label, no visible text).
+  await expect(pdf.getByRole('button')).toHaveAttribute('aria-label', 'הורדת דוח נוכחות PDF');
+  await expect(excel.getByRole('button')).toHaveAttribute('aria-label', 'הורדת דוח נוכחות Excel');
   await expect(pdf.locator('svg')).toBeVisible();
   await expect(excel.locator('svg')).toBeVisible();
 
