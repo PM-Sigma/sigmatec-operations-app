@@ -95,7 +95,7 @@ export function DayCell({
         <span className={cn('text-sm font-semibold tabular-nums', missing && !selected && 'text-[var(--danger-ink)]')}>
           <bdi>{day}</bdi>
         </span>
-        {eve && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--holiday-ink)]" />}
+        {eve && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--holiday-eve-ink)]" />}
         {missing && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--danger-ink)]" />}
       </span>
       {!!eventCount && (

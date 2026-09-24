@@ -53,6 +53,7 @@
   --danger-ink: var(--s-danger-ink);   --danger-fill: var(--s-danger-fill);
   --info-ink: var(--s-info-ink);       --info-fill: var(--s-info-fill);
   --holiday-ink: var(--s-holiday-ink); --holiday-fill: var(--s-holiday-fill);
+  --holiday-eve-ink: var(--s-holiday-eve-ink);
   --neutral-ink: var(--s-neutral-ink); --neutral-fill: var(--s-neutral-fill);
 
   /* Type scale — now FLUID for title-sm/title/stat (tools-and-motion.md §2.0), fixed rem for
@@ -442,7 +443,7 @@
 .ucal-legend li { display: inline-flex; align-items: center; gap: 6px; }
 .ucal-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 999px; }
 .ucal-swatch-holiday  { background: var(--holiday-ink); }
-.ucal-swatch-eve      { background: var(--holiday-ink); opacity: .55; }
+.ucal-swatch-eve      { background: var(--holiday-eve-ink); }
 .ucal-swatch-reported { background: var(--ok-ink); }
 .ucal-swatch-missing  { background: var(--danger-ink); }
 .ucal-legend li[data-legend='missing'] { color: var(--danger-ink); }
