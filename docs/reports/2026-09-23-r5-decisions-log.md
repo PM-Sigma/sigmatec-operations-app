@@ -18,3 +18,8 @@
 | 11 | 23.9 | DOC | **Waiting for עידן:** proposed addition to CLAUDE.md, "every feature updates its module doc". Not applied. | CLAUDE.md is his file | Approve or reject at the end |
 | 12 | 23.9 | A | The builder was allowed to change one line in `Attendance.tsx` (the saved message) during its logic stage | The audit required it as the acceptance step of A-L2 | — |
 | 13 | 23.9 | K | K committed generated files against the rules; they are rebuilt at merge | So they don't conflict | — |
+| 14 | 24.9 | X | The stock digest to עמיחי keeps showing supply movements from visits, even though the bell hides them from him | It's an inventory summary, not a visit alert | Filter `inventoryDigest` in push-send |
+| 15 | 24.9 | X | Writing to the GitHub board (including opening an issue) for עידן, עמיחי and מתניה, per עידן's ruling; the spec had proposed issues for עידן/עמיחי only | עידן's ruling wins | gate.js roster |
+| 16 | 24.9 | G/C | The setting "אביאם sees ניתאי's tasks" is C's `cal_peer_tasks`; G's duplicate was removed | One field for one ruling | — |
+| 17 | 24.9 | 1 | The tables `backup.snapshots` and `archive.movements_pre_breakpoint` are without RLS; confirmed that anon has no permission on the schema or the table | Not reachable through the API; RLS would only add overhead | `alter table … enable row level security` |
+| 18 | 24.9 | Process | Agents resumed 6 at a time instead of 12 | The usage limit stopped everyone twice | Raise it back if the quota allows |
