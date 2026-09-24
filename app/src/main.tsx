@@ -213,6 +213,14 @@ function boot() {
       .then(m => m.mountInventory())
       .catch(e => console.warn('[sigma] inventory island failed', e));
   }
+  // 🔔 Inventory nudges (spec task U7): the עמיחי approval reminder + the approved-orders
+  // notice. Always-listening, next to the page island itself — a nudge can fire even when the
+  // מלאי page isn't open (the legacy functions call invReactOpen({kind:'nudges'}) from anywhere).
+  if (document.getElementById('sigma-inventory-nudges')) {
+    import('@/islands/InventoryNudges')
+      .then(m => m.mountInventoryNudges())
+      .catch(e => console.warn('[sigma] inventory-nudges island failed', e));
+  }
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())

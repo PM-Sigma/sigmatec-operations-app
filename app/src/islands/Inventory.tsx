@@ -74,7 +74,8 @@ function invReactNow(): boolean {
 
 function InventoryPage() {
   const qc = useQueryClient();
-  const queued = drainQueue();
+  const queuedRaw = drainQueue();
+  const queued = queuedRaw?.kind === 'nudges' ? null : queuedRaw;
   // Flag off (the default): render nothing and leave #inventoryLegacy exactly as it was — the
   // U1 acceptance rule ("with the flag off nothing changes"). A queued open (invReactOpen only
   // ever fires when invReact() was already true at call time) also counts as active, so a tap
@@ -95,8 +96,14 @@ function InventoryPage() {
   React.useEffect(() => {
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent)?.detail || {};
+      // 'nudges' (task U7) only asks InventoryNudges.tsx to re-check its Sheets — it must not
+      // force this page active on its own (a nudge can fire from any page).
+      if (detail.kind === 'nudges') return;
       setActive(true);
       if (detail.kind === 'tab') setTab(normalizeTab(detail.tab));
+      // O34-O38 (task U7): the bell/strip deep links and quick-status all target a specific
+      // order, which only ever lives on the orders tab.
+      if (['order', 'approve', 'status'].includes(detail.kind)) setTab('orders');
     };
     window.addEventListener(INV_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(INV_OPEN_EVENT, onOpen);

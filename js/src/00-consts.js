@@ -128,7 +128,7 @@
 
   // 📦 package I cutover switch. false = the legacy inventory UI; true = the React islands. QA may override per
   // device with localStorage 'sigma-inv-react' = '1' | '0'. Removed with the legacy code (U10).
-  const INV_REACT = false;
+  const INV_REACT = true;
   function invReact() {
     try { const o = localStorage.getItem('sigma-inv-react'); if (o === '1') return true; if (o === '0') return false; } catch (e) {}
     return INV_REACT;

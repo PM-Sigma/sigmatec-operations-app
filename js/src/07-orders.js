@@ -492,6 +492,7 @@
 
   // Route approval by type.
   async function approveOrder(orderId, btn) {
+    if (invReact()) { invReactOpen({ kind: 'approve', id: orderId }); return; }
     var o = (window.SHEET_DATA && window.SHEET_DATA.orders || []).find(function (x) { return x.id === orderId; });
     if (!o) { alert('הזמנה לא נמצאה'); return; }
     if (!canApproveThisOrder(o)) { alert('אין לך הרשאה לאשר הזמנה זו.\n' + approvalWaitingMsg(o)); return; }
@@ -584,6 +585,7 @@
 
   // עמיחי floating reminder — supplier orders >10 awaiting his approval (mirrors the attendance nudge).
   function maybeShowAmichaiApprovalReminder() {
+    if (invReact()) { invReactOpen({ kind: 'nudges' }); return; }
     if (getCurrentUser() !== 'עמיחי') return;
     if (window._amichaiApprovalShown) return;
     var pend = (window.SHEET_DATA && window.SHEET_DATA.orders || []).filter(function (o) { return o.status === 'pending_approval' && orderNeedsAmichai(o); });
@@ -616,6 +618,7 @@
   window.orderNotifMarkSeen = orderNotifMarkSeen;
 
   function maybeShowOrderNotifications() {
+    if (invReact()) { invReactOpen({ kind: 'nudges' }); return; }
     var me = getCurrentUser();
     if (ORDER_NOTIF_GROUP.indexOf(me) === -1) return;
     if (window._orderNotifShown) return;
@@ -659,6 +662,7 @@
   }
 
   async function quickOrderStatus(orderId, newStatus, btn) {
+    if (invReact()) { invReactOpen({ kind: 'status', id: orderId, status: newStatus }); return; }
     if (!checkEditPermission()) return;
     setBtnLoading(btn, true);
     try {
@@ -827,6 +831,7 @@
   }
 
   function invEditOrder(id) {
+    if (invReact()) { invReactOpen({ kind: 'order', id: id }); return; }
     if (!checkEditPermission()) return;
     const o = (window.SHEET_DATA.orders || []).find(x => x.id === id);
     if (!o) return;

@@ -15,6 +15,8 @@ import {
 } from '@/lib/inventory';
 import { OrderSheet } from './InventoryOrderSheet';
 
+const INV_OPEN_EVENT = 'sigma-inv-open';
+
 const FILTERS: Array<{ key: string; label: string }> = [
   { key: '', label: 'פתוחות' },
   { key: 'all', label: 'הכל' },
@@ -69,6 +71,29 @@ export function InventoryOrdersTab() {
       toast.error((e?.message || 'הפעולה נכשלה') + ' — נסה שוב');
     }
   }
+
+  // O34-O38 (task U7): the bell/strip/nudge deep links land here — 'order'/'approve' open the
+  // sheet on that order (its own approve-confirm step handles 'approve'), 'status' runs the
+  // write directly, exactly like the legacy quickOrderStatus().
+  React.useEffect(() => {
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail || ({} as any);
+      if (!['order', 'approve', 'status'].includes(detail.kind)) return;
+      const o = orders.find(x => String(x.id) === String(detail.id));
+      if (!o) return;
+      if (detail.kind === 'status') {
+        if (!data) return;
+        setOrderStatus(String(o.id), detail.status, data, user.name)
+          .then(() => toast.success('הסטטוס עודכן'))
+          .catch((e: any) => toast.error((e?.message || 'הפעולה נכשלה') + ' — נסה שוב'));
+        return;
+      }
+      openOrder(o);
+    };
+    window.addEventListener(INV_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(INV_OPEN_EVENT, onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, data, user.name]);
 
   return (
     <div className="flex flex-col gap-3">
