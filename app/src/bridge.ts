@@ -139,6 +139,13 @@ export interface Sigma {
   openOrder?(id: string): void;
   markOrderDelivered?(id: string): void;
   refreshData?(): void;
+  // 📦 package I — what the React inventory calls in legacy code it does not own (task L8).
+  pushNotify?(event: string, orderId: string, actor: string): void;
+  emsAfterWrite?(): Promise<void>;
+  canExportExcel?(): boolean;
+  xlExportStock?(): void;
+  xlExportKibbutz?(): void;
+  xlExportCerts?(from: string, to: string): void;
   /**
    * Visit drafts (spec §5.1c). js/src/09-visits.js owns the draft — the form, the debounce
    * and both stores — so React only ever ASKS. Any argument may be omitted to widen the

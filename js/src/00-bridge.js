@@ -442,6 +442,14 @@
       // Re-read the shared snapshot after a write, so the pool number is right immediately.
       refreshData: function () { return call('refreshData'); },
 
+      // 📦 package I — what the React inventory calls in legacy code it does not own.
+      pushNotify: function (ev, id, by) { return call('pushNotify', [ev, id, by]); },
+      emsAfterWrite: function () { return call('emsAfterWrite', [], Promise.resolve()); },
+      canExportExcel: function () { return !!call('canExportExcel', [], false); },
+      xlExportStock: function () { return call('xlExportStockXlsx'); },
+      xlExportKibbutz: function () { return call('xlExportKibbutzXlsx'); },
+      xlExportCerts: function (from, to) { return call('xlExportCerts', [from, to]); },
+
       // 📝 יומן היום (spec §7i) — one confirmed card → one visit record, without the form.
       // The legacy `saveVisitFromData` (js/src/09-visits.js) is the form's own save path with
       // the values handed in, so the delivery-cert gate, the stock movement and the
