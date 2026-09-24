@@ -1,6 +1,6 @@
 # Package M: Team meeting — spec and implementation plan
 
-STATUS: 🟡 OPEN — L done 23.9 (branch `r9/M-L`, 7 commits on top of `origin/main` 7dacbfa: M-L2, M-L1, M-L3, M-L4, a Presenter.tsx fallout fix, M-L5, M-L6, M-L7 — 8 commits total). NOT merged, NOT pushed. Resume: the U tasks (M-U1, M-U2) start after the designer's PASS on the M mock screens and after DS (`r9/DS`, c6eed19) and S are on `origin/main`. One known cross-package gap from M-L2's D1 fix: `DevPresenter.tsx`'s arrival-log effect (D-owned) still gates on `session?.id` before calling `log()`, which now deadlocks since the session is created lazily BY `log()` — 4 `DevPresenter.test.tsx` cases fail until D applies the same fix M made to `Presenter.tsx`'s own arrival effect (see that commit).
+STATUS: 🟡 OPEN — L done 23.9, Opus-audited and fixed 24.9 (branch `r9/M-L`, rebased onto `origin/main`). NOT merged, NOT pushed. Resume: the U tasks (M-U1, M-U2) start after the designer's PASS on the M mock screens and after DS (`r9/DS`, c6eed19) and S are on `origin/main`. The DevPresenter.tsx gap from M-L2's D1 fix (4 `DevPresenter.test.tsx` cases, same arrival-effect deadlock M's own `Presenter.tsx` had) is D-owned and D fixed it separately in `887f0a3` — not yet on `origin/main` as of 24.9.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -238,7 +238,7 @@ it('today never counts; the other kind never counts', () => {
 
 - [x] **Step 2: Run, verify FAIL.**
 - [x] **Step 3: Implement.** In `useMeetingRun`, move the insert from the mount effect into `ensureSession()`, memoised with a ref-held promise so concurrent calls insert once. `fetchPreviousMeetingDate` selects the last 20 sessions of the kind with `date < today` plus their events (`meeting_events.select('session_id,kind').in('session_id', ids)`) and the note dates in that range (`kibbutz_meeting_notes.select('meeting_date')`), then applies `previousMeetingDate`.
-- [x] **Step 4: Run, verify PASS** (including `DevPresenter.test.tsx` unchanged).
+- [x] **Step 4: Run, verify PASS.** ~~(including `DevPresenter.test.tsx` unchanged)~~ — **false, corrected 24.9 (Opus audit):** the lazy session DID break 4 `DevPresenter.test.tsx` cases (its arrival-log effect gated on `session?.id`, same shape of bug M's own `Presenter.tsx` had and fixed — see that commit). D fixed `DevPresenter.tsx` separately in `887f0a3`.
 - [x] **Step 5: Commit.** `git commit -m "fix(meeting): no session row on open; the previous meeting must be a real one"`
 
 **Acceptance:** opening and closing meeting mode writes nothing; the window boundary ignores sub-10-minute empty sessions.
