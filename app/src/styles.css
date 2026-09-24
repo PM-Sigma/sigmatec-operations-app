@@ -572,6 +572,13 @@
   transition: background-color .15s ease;
 }
 .ucal-icon { padding: 0; }
+/* 44px real boxes, not the shared 30px .ucal-mini/.ucal-icon floor (round 5 · C-U no-overlap
+   sweep) — scoped to these four testids only, not the class, so the many other .ucal-mini
+   buttons elsewhere on the day sheet keep their compact size. */
+[data-testid='cal-prev'], [data-testid='cal-next'], [data-testid='cal-today'], [data-testid='cal-work-week'] {
+  min-height: 44px;
+  min-width: 44px;
+}
 .ucal-mini:hover, .ucal-icon:hover { background: hsl(var(--secondary)); }
 .ucal-mini-on { background: var(--brand-1); color: #fff; border-color: transparent; }
 .ucal-meet {
