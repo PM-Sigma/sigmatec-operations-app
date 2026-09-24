@@ -17,11 +17,13 @@ test('feedback: the sheet, its two kinds and the anonymous switch', async ({ pag
   await openSheet(page);
   await expect(page.getByText('אפשר להקליד או לדבר')).toBeVisible();
 
-  for (const label of ['💡 רעיון', '🐞 באג / שיפור']) {
+  // round 5, L1: KIND_LABEL is emoji-free noun form now (feedback.ts) — the icon that used to
+  // live in the string is KIND_ICON, rendered by U6.
+  for (const label of ['רעיון', 'באג או שיפור']) {
     await expect(page.getByRole('radio', { name: label })).toBeVisible();
   }
-  await page.getByRole('radio', { name: '🐞 באג / שיפור' }).click();
-  await expect(page.getByRole('radio', { name: '🐞 באג / שיפור' })).toHaveAttribute('data-state', 'on');
+  await page.getByRole('radio', { name: 'באג או שיפור' }).click();
+  await expect(page.getByRole('radio', { name: 'באג או שיפור' })).toHaveAttribute('data-state', 'on');
 
   const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
   await expect(box).toBeVisible();

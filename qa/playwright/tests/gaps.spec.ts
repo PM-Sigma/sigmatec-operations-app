@@ -47,7 +47,9 @@ test('gaps: a field worker sees the visit he never summarised, with the button t
   await expect(list).toBeVisible();
   await expect(list.getByText(new RegExp('היית ב' + KIBBUTZ + '.*ואין סיכום ביקור'))).toBeVisible();
   // One action per row, and it is the one that closes THAT gap.
-  await expect(list.getByRole('button', { name: '📍 סיכום ביקור' }).first()).toBeVisible();
+  // round 5, L1: actionLabel is emoji-free noun form now ('MapPin' is the lucide actionIcon,
+  // rendered by U2 rather than as text — see gaps.ts).
+  await expect(list.getByRole('button', { name: 'סיכום ביקור' }).first()).toBeVisible();
 
   // He is looking at his own list: there is nobody here to nudge.
   await expect(page.getByTestId('gaps-everyone')).toHaveCount(0);
@@ -90,7 +92,7 @@ test('gaps: the viewer sees everyone too, and the row is never someone else’s 
 
   await openGaps(page);
   await expect(page.getByTestId('gaps-everyone')).toBeVisible();
-  await expect(page.getByRole('button', { name: '📍 סיכום ביקור' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'סיכום ביקור' })).toHaveCount(0);
 
   expectNoConsoleErrors(rec);
 });
