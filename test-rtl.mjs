@@ -125,8 +125,12 @@ check('the shadcn portals are scoped RTL too', () => {
 check('components that render a number/date/code isolate it in <bdi>', () => {
   // The rule is checked where it MATTERS: a component that interpolates a count, a date or a
   // code into a Hebrew sentence. The heuristic is deliberately narrow — a false positive here
-  // would train people to ignore the gate.
-  const NUMERIC_HINT = /\{(?:\w+\.)*(?:count|total|n|num|qty|hidden|orphans|len(?:gth)?|fresh)\}|chipDate\(|dueText\(|formatQty|formatDate/;
+  // would train people to ignore the gate. `(?<!\$)` excludes a `${...}` template-literal
+  // interpolation (e.g. SegmentedControl's `calc(${options.length})` thumb-width math, a CSS
+  // value string that never renders as Hebrew text at all) so only a bare JSX `{...}` child —
+  // an actual rendered number — trips it; a JSX `{\`...${n}...\`}` still matches on the OUTER
+  // brace, so real interpolated Hebrew sentences are unaffected.
+  const NUMERIC_HINT = /(?<!\$)\{(?:\w+\.)*(?:count|total|n|num|qty|hidden|orphans|len(?:gth)?|fresh)\}|chipDate\(|dueText\(|formatQty|formatDate/;
   const bad = [];
   for (const f of walk('app/src').filter(f => f.endsWith('.tsx') && !f.includes('.test.'))) {
     const body = read(f);

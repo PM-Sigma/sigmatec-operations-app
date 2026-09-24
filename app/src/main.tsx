@@ -109,10 +109,13 @@ function boot() {
   // The card home is a LAZY chunk (ui/sigma-Home.js): it drags in TanStack Query and
   // supabase-js, which no other island needs, so the boot bundle stays small. If the chunk
   // fails to load the legacy renderer (js/src/24-kibbutzim.js) still paints the cards.
+  // /?gallery=1 (mock-only, design-system sign-off E2) swaps in the primitives gallery instead
+  // — same mount point, same chrome, so no-overlap.spec.ts scans it like any other screen.
   if (document.getElementById('sigma-home')) {
-    import('@/islands/Home')
-      .then(m => m.mountHome())
-      .catch(e => console.warn('[sigma] card home island failed — legacy cards stay', e));
+    (new URLSearchParams(location.search).get('gallery') === '1'
+      ? import('@/islands/Gallery').then(m => m.mountGallery())
+      : import('@/islands/Home').then(m => m.mountHome())
+    ).catch(e => console.warn('[sigma] home/gallery island failed', e));
   }
 
   // ✅ המשימות שלי (round 4, Package X) — the sheet that replaced the floating 🔒 strip. It

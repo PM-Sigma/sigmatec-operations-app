@@ -37,6 +37,9 @@ export function IconBubble({
       aria-label={label}
       onClick={onClick}
       data-active={active ? '' : undefined}
+      // data-hit-slop: below 48 the box is genuinely smaller than its `.s-hit`-grown real hit
+      // area (see chip.tsx's FilterChip for why the overlap sweep needs the attribute too).
+      data-hit-slop={size < 48 || undefined}
       className={cn(
         'relative inline-flex shrink-0 items-center justify-center rounded-full',
         'text-foreground/80 transition-colors duration-[var(--s-motion-fast)]',

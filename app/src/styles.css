@@ -58,25 +58,16 @@
   --fs-title: var(--s-fs-title);       --lh-title: var(--s-lh-title);       --fw-title: var(--s-fw-title);
   --fs-stat: var(--s-fs-stat);         --lh-stat: var(--s-lh-stat);         --fw-stat: var(--s-fw-stat);
 
-  /* Spacing (4-based), radius, elevation. --page-gutter is now FLUID (16→20px, 360→430). */
-  --sp-4: var(--s-space-4); --sp-8: var(--s-space-8); --sp-12: var(--s-space-12); --sp-16: var(--s-space-16);
-  --sp-24: var(--s-space-24); --sp-32: var(--s-space-32); --sp-48: var(--s-space-48);
+  /* Spacing, radius, elevation. --page-gutter is now FLUID (16→20px, 360→430) — components
+     read the tokens.css z-index variables directly (sheet.tsx/dialog.tsx etc.), so the spacing,
+     z-index, fixed-chrome-height and elevation-2 aliases that used to live here were trimmed
+     (Opus audit round 4 item 5): nothing read them. A future package that actually needs one
+     adds it back at the point of use. (A literal star-slash inside a comment closes it early —
+     that gotcha is why this note spells the families out instead of a wildcard shorthand.) */
   --page-gutter: var(--s-gutter);
   --r-sm: var(--s-radius-sm); --r-md: var(--s-radius-md); --r-lg: var(--s-radius-lg);
   --r-sheet: var(--s-radius-sheet); --r-pill: var(--s-radius-pill);
   --e1: var(--s-e1);
-  --e2: var(--s-e2);
-
-  /* z ladder — tokens only, aliased from tokens.css (see the reasoning there for why the popup
-     end keeps today's numbers instead of the spec's clean 0–60 ladder). */
-  --z-content: var(--s-z-content); --z-sticky: var(--s-z-sticky); --z-header: var(--s-z-header);
-  --z-nav: var(--s-z-nav); --z-fab: var(--s-z-fab); --z-scrim: var(--s-z-scrim); --z-sheet: var(--s-z-sheet);
-  --z-dialog: var(--s-z-dialog); --z-select: var(--s-z-select); --z-confirm: var(--s-z-confirm);
-  --z-toast: var(--s-z-toast); --z-gate: var(--s-z-gate);
-
-  /* Fixed-chrome heights (spec §3 rule 3) — placeholders until package S wires the real
-     per-element ResizeObserver measurement. */
-  --header-h: var(--s-header-h); --nav-h: var(--s-nav-h); --fab-h: var(--s-fab-h); --sheet-footer-h: var(--s-sheet-footer-h);
 
   /* 📅 נוכחות (spec §7e) — one fill + one ink per day state, so a month reads at a glance:
      green = יום שטח · blue = משרד/מהבית · slate = חופש/מילואים · red = חסר ·
@@ -847,3 +838,22 @@
 [data-sigma-portal] .s-anim-sheet[data-state="closed"] { animation-duration: var(--s-motion-exit); animation-timing-function: var(--s-ease-in); }
 [data-sigma-portal] .s-anim-dialog[data-state="open"] { animation-duration: var(--s-motion-base); animation-timing-function: var(--s-ease-out); }
 [data-sigma-portal] .s-anim-dialog[data-state="closed"] { animation-duration: var(--s-motion-fast); animation-timing-function: var(--s-ease-in); }
+
+/* Sheet/Dialog ✕ close button (SheetHeader/DialogHeader, sign-off P1-5) — the identical 48px
+   Tailwind utility chain was duplicated verbatim in both boot-chunk files; one shared class
+   here (free — this file isn't shipped in ui/sigma.js) instead of paying for it twice. Already
+   48x48 (h-12 w-12), so it doesn't need the .s-hit hit-slop trick on top. */
+[data-sigma-portal] .s-close-btn {
+  margin: -0.25rem;
+  display: flex;
+  height: 3rem;
+  width: 3rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  opacity: 0.7;
+}
+[data-sigma-portal] .s-close-btn:hover { background: hsl(var(--secondary)); opacity: 1; }
+[data-sigma-portal] .s-close-btn:focus { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
+[data-sigma-portal] .s-close-btn:disabled { pointer-events: none; }

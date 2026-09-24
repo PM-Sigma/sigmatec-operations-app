@@ -28,6 +28,9 @@ export function PageActionRow({
           type="button"
           onClick={onBack}
           aria-label="חזרה"
+          // data-hit-slop: 40px visual, `.s-hit` grows the real hit area to 48 (see chip.tsx's
+          // FilterChip for why the overlap sweep needs the attribute too).
+          data-hit-slop
           className="s-hit flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-secondary active:scale-[.97]"
         >
           {/* ChevronRight, unmirrored: dir="rtl" means "back" already points right. */}

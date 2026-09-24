@@ -143,7 +143,104 @@ function assertAliased(label, css, name) {
   });
 }
 
+// ── real legacy fill/ink CONSUMER pairs (Opus audit, round 4 item 1) ──────────────────────
+// The checks above verify tokens.css's role pairs in the abstract. That is not the same as
+// verifying the SELECTORS that actually shipped the regression: an "ink" role (tuned bright for
+// TEXT on a dark surface) used as a solid FILL under white text (.toast, .urgent-flag,
+// .inv-btn.success/.danger, .sigma-crash button.p — dark mode flips --success/--danger brighter
+// and white-on-bright fails), or a hardcoded LIGHT-only text color paired with a fill that now
+// correctly flips per theme (.dev-error, .current-step-label(.complete), .ready-live-flag,
+// index.html's #editLastVisitBox). Read the actual rule text and resolve its var() chain to a
+// real hex per theme, so a future edit that points one of these selectors back at the wrong
+// token — even though both tokens individually still clear 4.5:1 in isolation — fails HERE.
+function parseVarMap(blockText) {
+  const map = {};
+  const re = /--([\w-]+):\s*([^;]+);/g;
+  let m;
+  while ((m = re.exec(blockText))) map[m[1]] = m[2].trim();
+  return map;
+}
+function normalizeHex(hex) {
+  const h = hex.replace('#', '');
+  if (h.length === 3) return '#' + [...h].map(c => c + c).join('').toLowerCase();
+  return ('#' + h).toLowerCase();
+}
+function resolveColor(value, map, seen = new Set()) {
+  value = value.trim();
+  if (/^white$/i.test(value)) return '#ffffff';
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)) return normalizeHex(value);
+  const vm = /^var\(\s*--([\w-]+)\s*\)$/.exec(value);
+  assert.ok(vm, `cannot resolve color value: "${value}"`);
+  const name = vm[1];
+  assert.ok(!seen.has(name), `circular var() reference at --${name}`);
+  const next = map[name];
+  assert.ok(next, `no definition found for --${name}`);
+  return resolveColor(next, map, new Set(seen).add(name));
+}
+function legacyVarMap(theme) {
+  const css = read('css/app.css');
+  // The dark :root block only redeclares what actually changes per theme (e.g. --success-solid
+  // is fixed on purpose — declared once). Anything it doesn't override still cascades from the
+  // light :root block declaring it, same as in the browser, so seed with light first.
+  const map = parseVarMap(blockOf(css, /:root\s*\{\s*\n\s*\/\* Design system/));
+  if (theme === 'dark') Object.assign(map, parseVarMap(blockOf(css, /:root\[data-theme="dark"\]\s*\{/)));
+  Object.assign(map, parseVarMap(theme === 'light' ? sLight : sDark)); // --s-* hex leaves
+  return map;
+}
+function ruleBody(css, re) {
+  const m = re.exec(css);
+  assert.ok(m, 'rule not found: ' + re);
+  return m[1];
+}
+function declValue(body, prop) {
+  const m = new RegExp(prop + ':\\s*([^;]+);').exec(body);
+  assert.ok(m, `${prop} not found in rule`);
+  return m[1].trim();
+}
+
+const appCss = read('css/app.css');
+const CSS_CONSUMERS = [
+  { label: '.toast', re: /\.toast\s*\{([^}]*)\}/ },
+  { label: '.urgent-flag', re: /\.urgent-flag\s*\{([^}]*)\}/ },
+  { label: '.inv-btn.success', re: /\.inv-btn\.success\s*\{([^}]*)\}/ },
+  { label: '.inv-btn.danger', re: /\.inv-btn\.danger\s*\{([^}]*)\}/ },
+  { label: '.sigma-crash button.p', re: /\.sigma-crash button\.p\s*\{([^}]*)\}/ },
+  { label: '.dev-error', re: /\.dev-error\s*\{([^}]*)\}/ },
+  { label: '.current-step-label', re: /\.current-step-label\s*\{([^}]*)\}/ },
+  { label: '.current-step-label.complete', re: /\.current-step-label\.complete\s*\{([^}]*)\}/ },
+  { label: '.ready-live-flag', re: /\.ready-live-flag\s*\{([^}]*)\}/ },
+];
+
+for (const theme of ['light', 'dark']) {
+  const map = legacyVarMap(theme);
+  for (const { label, re } of CSS_CONSUMERS) {
+    check(`css/app.css ${theme}: ${label} background/color clears 4.5:1`, () => {
+      const body = ruleBody(appCss, re);
+      const bg = resolveColor(declValue(body, 'background'), map);
+      const fg = resolveColor(declValue(body, 'color'), map);
+      const r = ratio(fg, bg);
+      assert.ok(r >= 4.5, `${fg} on ${bg} = ${r.toFixed(2)}:1, need 4.5:1`);
+    });
+  }
+}
+
+{
+  const html = read('index.html');
+  const m = /id="editLastVisitBox"[^>]*style="([^"]+)"/.exec(html);
+  assert.ok(m, '#editLastVisitBox not found in index.html');
+  const style = m[1];
+  for (const theme of ['light', 'dark']) {
+    check(`index.html ${theme}: #editLastVisitBox background/color clears 4.5:1`, () => {
+      const map = legacyVarMap(theme);
+      const bg = resolveColor(declValue(style, 'background'), map);
+      const fg = resolveColor(declValue(style, 'color'), map);
+      const r = ratio(fg, bg);
+      assert.ok(r >= 4.5, `${fg} on ${bg} = ${r.toFixed(2)}:1, need 4.5:1`);
+    });
+  }
+}
+
 console.log(failures === 0
-  ? '\nPASS — every design-system ink/fill pair clears 4.5:1 (tokens.css), and both consumers still alias it'
+  ? '\nPASS — every design-system ink/fill pair clears 4.5:1 (tokens.css), both consumers still alias it, and every real legacy fill/ink selector resolves to a passing pair in both themes'
   : '\nFAIL — ' + failures + ' check(s) failed');
 process.exit(failures === 0 ? 0 : 1);

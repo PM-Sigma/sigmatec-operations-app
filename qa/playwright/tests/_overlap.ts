@@ -33,9 +33,15 @@ const AXE_PATH = path.resolve(__dirname, '..', '..', '..', 'node_modules', 'axe-
  * serious or critical issues"); moderate/minor are logged but never block, the same way a
  * known-failing screen logs its overlap violations instead of failing on them.
  */
-export async function scanA11y(page: Page, label: string): Promise<OverlapReport> {
+export async function scanA11y(page: Page, label: string, opts: { root?: string } = {}): Promise<OverlapReport> {
   await page.addScriptTag({ path: AXE_PATH });
-  const results = await page.evaluate(() => (window as any).axe.run());
+  // Same scoping rationale as scanOverlap's `root`: the gallery screen should be judged on its
+  // OWN primitives, not on legacy header/nav/FAB chrome every other screen already carries (and
+  // already tracks via its own allow-list entry).
+  const results = await page.evaluate(rootSel => {
+    const ctx = rootSel ? document.querySelector(rootSel) : undefined;
+    return (window as any).axe.run(ctx || document);
+  }, opts.root || '');
   const blocking = (results.violations || []).filter((v: any) => v.impact === 'serious' || v.impact === 'critical');
   const violations = blocking.map((v: any) =>
     `axe ${v.impact} [${v.id}] ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'}): `
@@ -43,9 +49,16 @@ export async function scanA11y(page: Page, label: string): Promise<OverlapReport
   return { label, violations };
 }
 
-export async function scanOverlap(page: Page, label: string): Promise<OverlapReport> {
-  const violations = await page.evaluate(() => {
+export async function scanOverlap(page: Page, label: string, opts: { root?: string } = {}): Promise<OverlapReport> {
+  const violations = await page.evaluate(({ rootSel }) => {
     const out: string[] = [];
+    // `rootSel` (e.g. gallery's own `[data-testid="gallery-root"]`) scopes rules 2–4 to a
+    // subtree: the point of the /?gallery=1 screen is to prove the NEW primitives are clean on
+    // their own, without every OTHER screen's shared legacy header/nav/FAB chrome (its own
+    // pre-existing bugs — already tracked by every other screen's allow-list entry) leaking in
+    // and making a screen built entirely from this package's components impossible to pass
+    // without one too. Rule 1 (page-level horizontal scroll) always checks the whole document.
+    const root: ParentNode = rootSel ? (document.querySelector(rootSel) || document) : document;
 
     const describe = (el: Element) => {
       const tag = el.tagName.toLowerCase();
@@ -69,7 +82,7 @@ export async function scanOverlap(page: Page, label: string): Promise<OverlapRep
     }
 
     // 2. text overflow on leaf elements
-    for (const el of Array.from(document.querySelectorAll('body *'))) {
+    for (const el of Array.from(root.querySelectorAll('*'))) {
       if (el.children.length > 0) continue;
       const text = (el.textContent || '').trim();
       if (!text || isNoise(el)) continue;
@@ -83,7 +96,7 @@ export async function scanOverlap(page: Page, label: string): Promise<OverlapRep
     // 3 + 4. interactive elements — hit size, then pairwise overlap
     const SEL = 'button, a[href], input, select, textarea, [role="button"], [tabindex]:not([tabindex="-1"])';
     const boxes: Array<{ el: Element; r: DOMRect }> = [];
-    for (const el of Array.from(document.querySelectorAll(SEL))) {
+    for (const el of Array.from(root.querySelectorAll(SEL))) {
       const { ok, r } = isVisible(el);
       if (!ok) continue;
       boxes.push({ el, r });
@@ -96,10 +109,21 @@ export async function scanOverlap(page: Page, label: string): Promise<OverlapRep
         out.push(`tap target under ${floor}×${floor}: ${describe(el)} is ${Math.round(r.width)}×${Math.round(r.height)}`);
       }
     }
+    // A `position: fixed` persistent-chrome element (the bottom nav, #sigma-nav) is SUPPOSED to
+    // sit visually on top of whatever page content is currently scrolled underneath its band —
+    // that is what a fixed bottom nav is, on every phone OS, not a layout defect. Without a
+    // scroll simulation this sweep only ever samples scrollTop=0, so on any screen with enough
+    // content to exceed one viewport, some normal-flow element will coincidentally land in the
+    // nav's fixed y-band purely because of how tall the page happens to be up to that point —
+    // that says nothing about whether THAT element's own box collides with a sibling, which is
+    // what rule 4 exists to catch. Skip pairs that cross the fixed-chrome boundary; a pair fully
+    // inside the nav (its own tabs) still gets checked.
+    const inFixedChrome = (el: Element) => !!el.closest('#sigma-nav');
     for (let i = 0; i < boxes.length; i++) {
       for (let j = i + 1; j < boxes.length; j++) {
         const a = boxes[i], b = boxes[j];
         if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
+        if (inFixedChrome(a.el) !== inFixedChrome(b.el)) continue;
         const ix = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
         const iy = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
         if (ix > 2 && iy > 2) {
@@ -108,7 +132,7 @@ export async function scanOverlap(page: Page, label: string): Promise<OverlapRep
       }
     }
     return out;
-  });
+  }, { rootSel: opts.root || '' });
   return { label, violations };
 }
 

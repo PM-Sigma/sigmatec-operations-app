@@ -21,6 +21,14 @@
     --danger-light: var(--s-danger-fill);
     --priority: var(--s-danger-ink);
     --priority-light: var(--s-danger-fill);
+    /* Opus audit fix: a SOLID fill under white text (.toast, .inv-btn.success/.danger, the
+       urgent-flag badge, .sigma-crash's primary button) is a different job from --success/
+       --danger/--priority as TEXT — those are tuned bright for dark surfaces (--s-ok-ink dark
+       is #4ADE80), and white on a bright fill is unreadable. Fixed, not theme-varying (declared
+       once, here, on purpose — same shape as --primary/--accent above and the IconBubble badge,
+       icon-bubble.tsx). */
+    --success-solid: #166534;
+    --danger-solid: #B91C1C;
     /* New roles the legacy pages had no name for (spec §2): info (חדשה/משרד), holiday (חג/eve
        — audit §"missing": eves were computed and never painted), neutral (חופש/ממתין). */
     --info: var(--s-info-ink);
@@ -40,19 +48,16 @@
     --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
     --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
 
-    /* Spacing (4-based), radius scale, elevation and the z ladder (spec §2 "Space, radius,
-       elevation, z") — aliased onto tokens.css. Exposed here so the legacy pages can adopt them
-       before they are rewritten; nothing in css/app.css reads them yet. */
-    --sp-4: var(--s-space-4); --sp-8: var(--s-space-8); --sp-12: var(--s-space-12);
-    --sp-16: var(--s-space-16); --sp-24: var(--s-space-24); --sp-32: var(--s-space-32); --sp-48: var(--s-space-48);
+    /* Radius scale and elevation (spec §2 "Space, radius, elevation, z") — aliased onto
+       tokens.css, for legacy pages to adopt before they are rewritten. The spacing, z-index,
+       fixed-chrome-height and elevation-2 alias families were here too and were trimmed (Opus
+       audit round 4 item 5): nothing anywhere read them. A future package that actually needs
+       one adds it back at the point of use, verified live rather than carried speculatively.
+       (A literal star-slash inside a comment closes it early — that gotcha is why this note
+       spells the families out instead of a wildcard shorthand.) */
     --r-sm: var(--s-radius-sm); --r-md: var(--s-radius-md); --r-lg: var(--s-radius-lg);
     --r-sheet: var(--s-radius-sheet); --r-pill: var(--s-radius-pill);
     --e1: var(--s-e1);
-    --e2: var(--s-e2);
-    --z-content: var(--s-z-content); --z-sticky: var(--s-z-sticky); --z-header: var(--s-z-header);
-    --z-nav: var(--s-z-nav); --z-fab: var(--s-z-fab); --z-scrim: var(--s-z-scrim); --z-sheet: var(--s-z-sheet);
-    --z-dialog: var(--s-z-dialog); --z-select: var(--s-z-select); --z-confirm: var(--s-z-confirm);
-    --z-toast: var(--s-z-toast); --z-gate: var(--s-z-gate);
     /* Motion: the --s-motion, --s-ease, --s-shift and --s-stagger token families used to be
        declared here too — removed, tokens.css (same :root element) is now the only place that
        sets them. (A literal "star-slash" inside a comment closes it early — same gotcha
@@ -123,22 +128,12 @@
     --primary: #0A7A7C;
     --primary-hover: #076E70;
     --accent: #0A7A7C;
-    --success: var(--s-ok-ink);
-    --success-light: var(--s-ok-fill);
-    --warning: var(--s-warn-ink);
-    --warning-light: var(--s-warn-fill);
-    --danger: var(--s-danger-ink);
-    --danger-light: var(--s-danger-fill);
-    --priority: var(--s-danger-ink);
-    --priority-light: var(--s-danger-fill);
-    --info: var(--s-info-ink);
-    --info-light: var(--s-info-fill);
-    --holiday: var(--s-holiday-ink);
-    --holiday-light: var(--s-holiday-fill);
-    --neutral: var(--s-neutral-ink);
-    --neutral-light: var(--s-neutral-fill);
-    --ink: var(--s-ink);
-    --e1: var(--s-e1);
+    /* --success/--warning/--danger/--priority/--info/--holiday/--neutral/--ink/--e1 are NOT
+       redeclared here (Opus audit round 4 item 5, "duplicated dark alias blocks"): every one is
+       `var(--s-*)`, byte-for-byte the same expression as the light block above, and CSS custom
+       properties are late-bound — the light declaration already re-resolves against whichever
+       `--s-*` value is in scope for the CURRENT theme, so repeating it here changed nothing and
+       only had to be kept in sync by hand. */
     /* Dev-board stage colors, dark variants (spec §7d): lifted so each one still reads as pill
        text on --card and keeps the same hue identity on the stacked bars. */
     --stage-fields:    #38bdf8;
@@ -309,7 +304,7 @@
   .ready-live-flag {
     display: inline-block;
     background: var(--danger-light);
-    color: #6549b8;
+    color: var(--danger);
     font-size: 10px;
     font-weight: 700;
     padding: 3px 8px;
@@ -429,7 +424,7 @@
   .toast {
     position: fixed; bottom: 24px; left: 50%;
     transform: translateX(-50%) translateY(100px);
-    background: var(--success); color: white; padding: 12px 24px;
+    background: var(--success-solid); color: white; padding: 12px 24px;
     border-radius: 10px; box-shadow: 0 4px 20px rgba(16,185,129,0.3);
     transition: transform 0.3s; z-index: 100002;   /* above the JS-built overlays (100001) — a toast must never hide behind a modal */
   }
@@ -595,7 +590,7 @@
     position: absolute;
     top: -8px;
     right: -8px;
-    background: var(--priority);
+    background: var(--danger-solid);
     color: white;
     font-size: 9px;
     font-weight: 700;
@@ -605,7 +600,7 @@
   }
   .current-step-label {
     font-size: 11px;
-    color: #9a6508;
+    color: var(--warning);
     font-weight: 600;
     margin-top: 6px;
     padding: 4px 8px;
@@ -614,7 +609,7 @@
     border-right: 3px solid #d99c20;
   }
   .current-step-label.complete {
-    color: #0b7a55;
+    color: var(--success);
     background: var(--success-light);
     border-right-color: var(--success);
   }
@@ -757,7 +752,7 @@
   .dev-release-btn { margin-inline-start: auto; background: var(--card); color: var(--text-light); border: 1px dashed #cbd5e1; }
   .dev-release-btn:hover { color: var(--text-light); border-color: var(--text-light); }
   .dev-loading { padding: 30px; text-align: center; color: var(--text-light); }
-  .dev-error { background: var(--priority-light); border: 1px solid #e8b4b4; color: #991b1b; border-radius: var(--radius); padding: 14px; font-size: 14px; }
+  .dev-error { background: var(--priority-light); border: 1px solid #e8b4b4; color: var(--priority); border-radius: var(--radius); padding: 14px; font-size: 14px; }
   .dev-empty { padding: 28px; text-align: center; color: var(--text-light); font-size: 14px; }
 
   /* ===== HERO BAND — dark mission-control panel: live KPIs + load-by-topic bar (the focal element) ===== */
@@ -1153,10 +1148,10 @@
   .inv-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   .inv-btn { background: var(--primary); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: filter 0.15s; }
   .inv-btn:hover { background: var(--primary-hover); }
-  .inv-btn.success { background: var(--success); }
+  .inv-btn.success { background: var(--success-solid); color: #fff; }
   .inv-btn.success:hover { filter: brightness(1.1); }
   .inv-btn.warning { background: #d99c20; }
-  .inv-btn.danger { background: var(--priority); }
+  .inv-btn.danger { background: var(--danger-solid); color: #fff; }
   .inv-btn.small { padding: 4px 10px; font-size: 11px; }
   .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .inv-table th { text-align: right; padding: 8px 10px; background: var(--gray-light); font-weight: 700; color: var(--text-light); border-bottom: 2px solid var(--border); }
@@ -1684,22 +1679,10 @@ body.sigma-home-fallback .section:has(#grid-active) { display: block; }
     --primary: #0A7A7C;
     --primary-hover: #076E70;
     --accent: #0A7A7C;
-    --success: var(--s-ok-ink);
-    --success-light: var(--s-ok-fill);
-    --warning: var(--s-warn-ink);
-    --warning-light: var(--s-warn-fill);
-    --danger: var(--s-danger-ink);
-    --danger-light: var(--s-danger-fill);
-    --priority: var(--s-danger-ink);
-    --priority-light: var(--s-danger-fill);
-    --info: var(--s-info-ink);
-    --info-light: var(--s-info-fill);
-    --holiday: var(--s-holiday-ink);
-    --holiday-light: var(--s-holiday-fill);
-    --neutral: var(--s-neutral-ink);
-    --neutral-light: var(--s-neutral-fill);
-    --ink: var(--s-ink);
-    --e1: var(--s-e1);
+    /* --success/--warning/--danger/--priority/--info/--holiday/--neutral/--ink/--e1: same
+       redundant-copy removal as the explicit dark block above (Opus audit round 4 item 5) — the
+       light `:root` declaration already re-resolves each `var(--s-*)` against whichever value is
+       in scope. */
     --stage-fields:    #38bdf8;
     --stage-backlog:   #9aa8b8;
     --stage-scope:     #f0a94b;
@@ -2173,6 +2156,6 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
   .sigma-crash b { flex: 1 1 100%; font-size: 14px; }
   .sigma-crash .msg { flex: 1 1 100%; font-size: 12px; color: var(--text-light); white-space: pre-wrap; word-break: break-word; max-height: 3.2em; overflow: hidden; }
   .sigma-crash button { min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); font: inherit; font-weight: 700; cursor: pointer; }
-  .sigma-crash button.p { background: var(--priority); color: #fff; border-color: transparent; }
+  .sigma-crash button.p { background: var(--danger-solid); color: #fff; border-color: transparent; }
   @media (min-width: 768px) { .sigma-crash { inset-inline: auto 24px; max-width: 420px; bottom: 24px; } }
 

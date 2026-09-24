@@ -58,6 +58,10 @@ export function SectionBlock({
             type="button"
             onClick={() => setOpen(o => !o)}
             aria-expanded={open}
+            // data-hit-slop: the row's own height is well under 48 (text-body line height);
+            // `.s-hit` grows the real hit area (see chip.tsx's FilterChip for why the overlap
+            // sweep needs the attribute too).
+            data-hit-slop
             className="s-hit flex min-w-0 flex-1 items-center gap-2 text-start"
           >
             <span className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-body)] font-bold', TITLE_INK[titleRole])}>
@@ -82,6 +86,10 @@ export function SectionBlock({
           <button
             type="button"
             onClick={action.onClick}
+            // data-hit-slop: content-sized, well under 48 either axis; `.s-hit` grows the real
+            // hit area (see chip.tsx's FilterChip for why the overlap sweep needs the attribute
+            // too).
+            data-hit-slop
             className="s-hit flex shrink-0 items-center gap-0.5 text-sm font-semibold text-[var(--sigma-ink)]"
           >
             {action.label}

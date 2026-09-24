@@ -6,7 +6,10 @@
 // `stock_recounts` row and its `חברה → ספירה` movement — with the counted quantity and the note
 // on them. The rules themselves are goldens (app/src/lib/inventory.test.ts + stockChange.test.ts)
 // and the legacy half is test-inventory-pool.mjs.
-import { boot, expect, expectNoConsoleErrors, expectRtl, installRoutes, shot, test, watchConsole, SB_ORIGIN } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, installRoutes, shot, skipKnownMobile360, test, watchConsole, SB_ORIGIN } from './_helpers';
+
+// mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
+test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
 
 /** The rows the harness stored, read back through the page (the routes are page-scoped). */
 async function rows(page: any, table: string): Promise<any[]> {

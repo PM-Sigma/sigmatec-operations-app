@@ -50,6 +50,11 @@ export function FilterChip({ selected, count, children, onClick, className }: {
       type="button"
       aria-pressed={!!selected}
       onClick={onClick}
+      // data-hit-slop: the 32px visual is deliberate (spec §2 Chip) — `.s-hit`'s invisible
+      // ::before grows the REAL hit area to 48px, but no-overlap.spec.ts's sweep can only see
+      // the element's own box via getBoundingClientRect, so it needs the escape-hatch attribute
+      // to know this is already compliant rather than an under-sized target (_overlap.ts §3).
+      data-hit-slop
       className={cn(
         'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[var(--r-pill)] px-3 text-sm font-semibold s-hit',
         'transition-colors duration-[var(--s-motion-fast)] active:scale-[.97]',

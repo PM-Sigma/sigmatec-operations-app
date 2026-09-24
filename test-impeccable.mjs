@@ -62,19 +62,32 @@ const baselinePath = path.join(__dirname, 'qa', 'impeccable-baseline.json');
 const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
 
 console.log(`impeccable: ${total} findings (baseline ${baseline.total})`);
+// Per-rule ratchet (Opus audit round 4 item 5): a total-only gate lets one rule regress as long
+// as another rule improves MORE in the same run — the total-only check below would have waved
+// that through. Each rule's own count may not rise above its own baseline, independent of the
+// total.
 const rules = new Set([...Object.keys(byRule), ...Object.keys(baseline.byRule)]);
+const regressions = [];
 for (const rule of [...rules].sort()) {
   const now = byRule[rule] || 0;
   const was = baseline.byRule[rule] || 0;
   const delta = now - was;
   const flag = delta > 0 ? ' ▲ REGRESSION' : delta < 0 ? ' ▼ improved' : '';
   console.log(`  ${rule.padEnd(20)} ${now} (was ${was})${flag}`);
+  if (delta > 0) regressions.push(`${rule}: ${was} → ${now}`);
 }
 
+if (regressions.length) {
+  console.log(`\nFAIL — ${regressions.length} rule(s) rose above their own baseline even though `
+    + `the total may not have:\n  ` + regressions.join('\n  ') + `\n`
+    + `Fix the new findings, or if they are pre-existing debt outside this change's scope, `
+    + `update qa/impeccable-baseline.json with the reason.`);
+  process.exit(1);
+}
 if (total > baseline.total) {
   console.log(`\nFAIL — impeccable findings rose from ${baseline.total} to ${total}. `
     + `Fix the new findings, or if they are pre-existing debt outside this change's scope, `
     + `update qa/impeccable-baseline.json with the reason.`);
   process.exit(1);
 }
-console.log(`\nPASS — at or below the committed baseline (${baseline.total})`);
+console.log(`\nPASS — at or below the committed baseline (${baseline.total}), and no individual rule rose`);

@@ -28,6 +28,9 @@ app/dist
 qa/bin/
 # screenshots — one set per project per run
 qa/playwright/shots/
+# capture-signoff.mjs's own output — a one-off local capture for a designer sign-off round, not
+# suite output; regenerated per round, never committed (Opus audit round 4 item 5).
+qa/playwright/signoff-shots/
 # semgrep rule packs, lighthouse runs, zap + gitleaks output
 qa/**/.cache/
 # Playwright's own failure artifacts (traces)

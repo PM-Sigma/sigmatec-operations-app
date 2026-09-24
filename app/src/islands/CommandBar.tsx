@@ -13,7 +13,7 @@ import * as React from 'react';
 import {
   Command as CommandRoot, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from '@/components/ui/command';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { mount } from '@/islands';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent, type SigmaPage } from '@/bridge';
@@ -72,8 +72,10 @@ function MessageSheet() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-[420px]" dir="rtl" data-testid="cmd-message">
-        <DialogTitle>✉️ הודעה לעובד</DialogTitle>
-        <p className="text-[12.5px] text-muted-foreground">הוא יראה אותה בכניסה הבאה שלו.</p>
+        <DialogHeader>
+          <DialogTitle>✉️ הודעה לעובד</DialogTitle>
+          <p className="text-[12.5px] text-muted-foreground">הוא יראה אותה בכניסה הבאה שלו.</p>
+        </DialogHeader>
         <label className="block text-[12.5px] font-semibold">
           למי
           <select className="ucal-input" data-testid="cmd-message-to" value={to} onChange={e => setTo(e.target.value)}>
@@ -258,8 +260,16 @@ function CommandBarPanel() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-[560px] p-0" dir="rtl">
-        <DialogTitle className="sr-only">חיפוש ופעולות</DialogTitle>
+      {/* hideClose: a Ctrl+K command palette dismisses on Escape / an outside click, the
+          convention every palette like this one follows (VS Code, Slack, Linear) — none show a
+          close X. It also fixes a real regression the close button introduced (Opus audit round
+          4, command-bar.spec.ts): with a focusable button now the first tabbable element ahead
+          of CommandInput in DOM order, Radix's open-focus landed on IT instead of the search
+          box, breaking the "typing narrows the list" flow the moment the palette opens. */}
+      <DialogContent className="max-w-[560px] p-0" dir="rtl" hideClose>
+        <DialogHeader className="px-2 pt-2">
+          <DialogTitle className="sr-only">חיפוש ופעולות</DialogTitle>
+        </DialogHeader>
         {/* cmdk's own filtering is OFF — `rankCommands` is the ranking, and it is tested. */}
         <EmsGate>
         <CommandRoot shouldFilter={false} loop>

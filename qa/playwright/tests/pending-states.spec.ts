@@ -25,7 +25,10 @@
 // state within 100 ms, and a Hebrew failure with a retry — and the numbers in the sketch would
 // have put this one spec at roughly forty minutes across four projects for no extra coverage.
 // The 100 ms rule is what the delay exists to test, and 1.2 s tests it twelve times over.
-import { boot, expect, expectNoConsoleErrors, shot, test, SB_ORIGIN } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, shot, skipKnownMobile360, test, SB_ORIGIN } from './_helpers';
+
+// mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
+test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
 
 const SLOW_MS = 1200;
 

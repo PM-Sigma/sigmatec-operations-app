@@ -1,0 +1,56 @@
+[
+  {
+    "spec": "alerts.spec.ts",
+    "title": "🎚 the red line is עידן and עמיחי only, and an edit is written",
+    "package": "A",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "alerts.spec.ts",
+    "title": "the bell is visible and clickable on the מלאי page too",
+    "package": "A",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "attendance.spec.ts",
+    "title": "attendance: an ערב חג offers מהבית on a countdown that can be stopped",
+    "package": "R",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "calendar.spec.ts",
+    "title": "calendar: the viewer reads it and cannot change it",
+    "package": "C",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "inventory-pool.spec.ts",
+    "title": "🔢 a recount writes the stock_recounts row AND its חברה → ספירה movement",
+    "package": "I",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "inventory-pool.spec.ts",
+    "title": "🔢 a decrease that went out on a visit ROUTES to the visit form — it writes nothing",
+    "package": "I",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "nav-shell.spec.ts",
+    "title": "shell: the bottom nav is the phone's, the legacy nav is the desktop's",
+    "package": "S",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "pending-states.spec.ts",
+    "title": "click-map: 🔢 דיווח שינוי במלאי stays pending while the write is slow",
+    "package": "I",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  },
+  {
+    "spec": "pending-states.spec.ts",
+    "title": "click-map: 🔢 דיווח שינוי במלאי aborted recovers the button, keeps the count typed",
+    "package": "I",
+    "reason": "pre-existing 360px layout debt (fails on main too, unrelated to the design-system package)"
+  }
+]

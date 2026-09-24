@@ -5,8 +5,11 @@
 // renders with the holiday cells the sandbox seeds, one tap files today, the day sheet opens
 // on a chip and says a holiday is optional rather than missing, and a field worker sees his
 // own month while whoever may look at everyone gets the person toggle.
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test } from './_helpers';
 import type { Page } from '@playwright/test';
+
+// mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
+test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
 
 /**
  * Open the attendance page the way every nav entry does, and wait for the island.

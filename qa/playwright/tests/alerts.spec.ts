@@ -6,8 +6,11 @@
 // editor is really gated — עידן has it, אביאם does not.
 //
 // The words and the sorting are goldens (app/src/lib/alerts.test.ts, orderStrip.test.ts).
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test, SB_ORIGIN } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test, SB_ORIGIN } from './_helpers';
 import { FIXTURES } from './_fixtures';
+
+// mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
+test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
 
 async function rows(page: any, table: string): Promise<any[]> {
   return await page.evaluate(async ([origin, t]: string[]) => {

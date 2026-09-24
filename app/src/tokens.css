@@ -47,7 +47,13 @@
      gone — renumbering early would put a sheet back UNDER a legacy modal it must stay above. */
   --s-z-content: 0; --s-z-sticky: 10; --s-z-header: 20; --s-z-nav: 30; --s-z-fab: 31;
   --s-z-scrim: 1190; --s-z-sheet: 1200; --s-z-dialog: 1210; --s-z-select: 1220; --s-z-confirm: 1215;
-  --s-z-toast: 100002; --s-z-gate: 100010;
+  --s-z-toast: 100002;
+  /* 2147483000, not a smaller "above everything" placeholder: it must literally match
+     ReLoginSheet.tsx's own `!z-[2147483000]` (Opus audit round 4 item 5) — that component isn't
+     wired onto this var yet (auth/session, outside this package's tokens+ui-primitives scope),
+     so until it is, the token's job is to document the real number truthfully rather than a
+     value nothing actually uses. */
+  --s-z-gate: 2147483000;
 
   /* ---- motion — tools-and-motion.md §2.1, the 11 named tokens verbatim ---- */
   --s-motion-press: 90ms;

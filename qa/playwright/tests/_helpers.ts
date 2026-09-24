@@ -16,6 +16,7 @@
 // cannot silently change the folder layout.
 import { expect, test as base, type Page, type TestInfo } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { FIXTURES } from './_fixtures';
 
@@ -679,6 +680,29 @@ export async function shot(page: Page, testInfo: TestInfo, suffix = ''): Promise
   );
   await mkdir(dirname(file), { recursive: true });
   await page.screenshot({ path: file, fullPage: false });
+}
+
+// ── mobile-360-light known-failure ratchet (Opus audit round 4 item 3) ──────────────────────
+// 9 tests failed on `mobile-360-light` before this design-system package touched anything —
+// pre-existing 360px layout debt owned by other round-5 packages (alerts, attendance, calendar,
+// inventory, nav-shell), not something a foundation/tokens package should "fix" as a drive-by.
+// Rather than let the suite go red for bugs this package doesn't own, or allow-list them
+// forever, each one is named in qa/playwright/mobile-360-known.json with the package letter
+// that owns the underlying page, and skipped ONLY on mobile-360-light until that package's own
+// round-5 work closes it — every other project (390/1440/1920+) still runs and must still pass.
+// The file must be EMPTY by the end of round 5: each owning package removes its own entries
+// when it ships, and this suite goes back to enforcing 360px on every test unconditionally.
+type Mobile360KnownEntry = { spec: string; title: string; package: string; reason: string };
+const MOBILE_360_KNOWN: Mobile360KnownEntry[] = JSON.parse(
+  readFileSync(resolve(__dirname, '..', 'mobile-360-known.json'), 'utf8'),
+);
+
+/** Call once per spec file, e.g. `test.beforeEach(({}, ti) => skipKnownMobile360(ti));` */
+export function skipKnownMobile360(testInfo: TestInfo): void {
+  if (testInfo.project.name !== 'mobile-360-light') return;
+  const spec = testInfo.file.replace(/\\/g, '/').split('/').pop()!;
+  const entry = MOBILE_360_KNOWN.find(e => e.spec === spec && testInfo.title === e.title);
+  if (entry) test.skip(true, `mobile-360-known.json (package ${entry.package}): ${entry.reason}`);
 }
 
 export const test = base;

@@ -45,6 +45,9 @@ export const BubbleButton = React.forwardRef<HTMLButtonElement, BubbleButtonProp
     <Button
       ref={ref}
       variant="ghost"
+      // data-hit-slop: sm/md carry `.s-hit` (32/40px visual, 48px real hit area via an invisible
+      // ::before) — see chip.tsx's FilterChip for why the sweep needs the attribute too.
+      data-hit-slop={size !== 'lg' || undefined}
       className={cn(
         'relative rounded-[var(--r-pill)] font-bold transition-[transform,filter] active:scale-[.97]',
         'focus-visible:ring-[var(--sigma-ink)]',

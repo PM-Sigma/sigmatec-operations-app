@@ -73,13 +73,19 @@ export function SegmentedControl<T extends string>({
             tabIndex={i === selectedIndex ? 0 : -1}
             onClick={() => onChange(opt.value)}
             onKeyDown={e => onKeyDown(e, i)}
+            // data-hit-slop: the track is 40px tall minus padding; `.s-hit` grows the real hit
+            // area (see chip.tsx's FilterChip for why the overlap sweep needs the attribute too).
+            data-hit-slop
             className={cn(
               's-hit relative z-10 h-full min-w-0 flex-1 rounded-[calc(var(--r-md)-2px)] px-3 text-sm font-semibold transition-colors',
               selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
             )}
             style={{ transitionDuration: 'var(--s-motion-base)', transitionTimingFunction: 'var(--s-ease-standard)' }}
           >
-            <span className="block truncate">{opt.label}</span>
+            {/* data-truncate: CSS ellipsis clips visually but scrollWidth still reports the
+                full intrinsic text width — the sweep's escape hatch for exactly that (_overlap.ts
+                rule 2), same as every other truncating label in the app. */}
+            <span className="block truncate" data-truncate>{opt.label}</span>
           </button>
         );
       })}

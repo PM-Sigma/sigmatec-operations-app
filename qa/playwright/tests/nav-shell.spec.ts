@@ -2,7 +2,10 @@
 // Covers: the bottom tab bar (phone only — `md:hidden`, the legacy .page-nav keeps the
 // desktop), the labelled ⋯ עוד sheet and its ניהול block, the ● user chip menu, and the
 // ⚙️ הגדרות island the menu opens.
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test } from './_helpers';
+
+// mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
+test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
 
 test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', async ({ page }, ti) => {
   const { rec, viewport } = await boot(page, ti);

@@ -5,8 +5,11 @@
 // land on the RIGHT, the EMS layer disappears on a toggle, a day tap opens the day grouped
 // by kibbutz, a reorder survives a reload (the harness keeps a real day_plans store), ➕
 // searches a kibbutz and offers its tasks with a counted שבץ, and 🌴 opens a range.
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test } from './_helpers';
 import type { Page } from '@playwright/test';
+
+// mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
+test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
 
 /**
  * Open the calendar the way every nav entry does, and wait for the island. `showPage` is

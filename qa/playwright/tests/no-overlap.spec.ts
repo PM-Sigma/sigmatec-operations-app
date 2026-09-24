@@ -45,10 +45,25 @@ interface Screen {
   open: (page: Page) => Promise<void>;
   /** Skip entirely on this class of viewport (a phone-only sheet, a desktop-only layout). */
   onlyViewport?: 'mobile' | 'desktop';
+  /** Extra boot() query string (e.g. `gallery=1`). */
+  query?: string;
+  /** Wait for this selector instead of the default card-home marker. */
+  ready?: string;
+  /** Scope the sweep to this subtree instead of the whole document (see `root` on gallery). */
+  root?: string;
 }
 
 const SCREENS: Screen[] = [
   { label: 'home', open: async () => {} },
+  // /?gallery=1 (designer sign-off E2 / Opus audit round 4 item 4): every primitive, every
+  // documented state, on the real #sigma-home mount with the real header/nav chrome — and
+  // deliberately NOT in no-overlap-allow.json. Unlike every other screen here (foundation
+  // package, no page rewrites yet), this one is built entirely from the new primitives, so it
+  // must pass the sweep on its own merits, not on a warning-only allowance. Scoped to its own
+  // root: the header/nav/FAB chrome it shares with every other screen carries ITS OWN
+  // pre-existing bugs (why every other screen has an allow-list entry) — the point here is to
+  // prove the NEW primitives are clean, not to make this package fix all of that chrome too.
+  { label: 'gallery', query: 'gallery=1', ready: '[data-testid="gallery-root"]', root: '[data-testid="gallery-root"]', open: async () => {} },
   { label: 'calendar', open: p => openPage(p, 'calendar', 'calendar-view') },
   { label: 'inventory', open: p => openPage(p, 'inventory', 'inventory-view') },
   { label: 'attendance', who: 'אביאם', open: p => openPage(p, 'attendance', 'attendance-view') },
@@ -73,7 +88,7 @@ const SCREENS: Screen[] = [
 test.describe('no-overlap sweep', () => {
   for (const screen of SCREENS) {
     test(`no-overlap: ${screen.label}`, async ({ page }, ti) => {
-      const { rec, viewport } = await boot(page, ti, { who: screen.who ?? 'עידן' });
+      const { rec, viewport } = await boot(page, ti, { who: screen.who ?? 'עידן', query: screen.query, ready: screen.ready });
       if (screen.onlyViewport === 'mobile') test.skip(!viewport.startsWith('mobile'), `${screen.label} is a phone-only surface`);
       if (screen.onlyViewport === 'desktop') test.skip(!viewport.startsWith('desktop'), `${screen.label} is a desktop-only surface`);
       (page as any)._sigmaViewport = viewport;
@@ -82,11 +97,11 @@ test.describe('no-overlap sweep', () => {
 
       const theme = ti.project.metadata && (ti.project.metadata as any).theme;
       const reports = [
-        await scanOverlap(page, `${screen.label} @ ${viewport}/${theme}`),
+        await scanOverlap(page, `${screen.label} @ ${viewport}/${theme}`, { root: screen.root }),
         // axe-core (tools-and-motion.md §1 "Accessibility"): once per screen at its base
         // viewport, not at every resized width — a landmark/name/role issue doesn't change
         // with the viewport, so re-running it per width would just repeat the same finding.
-        await scanA11y(page, `${screen.label} @ ${viewport}/${theme} (axe)`),
+        await scanA11y(page, `${screen.label} @ ${viewport}/${theme} (axe)`, { root: screen.root }),
       ];
 
       // The full phone-width range, from one canonical project only (see the file header).
@@ -95,7 +110,7 @@ test.describe('no-overlap sweep', () => {
           if (w === 390) continue; // already scanned above, at the project's native size
           await page.setViewportSize({ width: w, height: 844 });
           await page.waitForTimeout(150);
-          reports.push(await scanOverlap(page, `${screen.label} @ ${w}/${theme}`));
+          reports.push(await scanOverlap(page, `${screen.label} @ ${w}/${theme}`, { root: screen.root }));
         }
       }
 
@@ -103,7 +118,7 @@ test.describe('no-overlap sweep', () => {
         for (const w of NIGHTLY_WIDTHS) {
           await page.setViewportSize({ width: w, height: 1080 });
           await page.waitForTimeout(150);
-          reports.push(await scanOverlap(page, `${screen.label} @ ${w}/${theme}`));
+          reports.push(await scanOverlap(page, `${screen.label} @ ${w}/${theme}`, { root: screen.root }));
         }
       }
 

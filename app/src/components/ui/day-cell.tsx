@@ -73,7 +73,13 @@ export function DayCell({
       className={cn(
         'relative flex aspect-square min-h-11 w-full flex-col items-start justify-start rounded-[var(--r-sm)] p-1',
         selected ? 'bg-[var(--sigma-ink)] text-[hsl(var(--card))]' : FILL_CLS[fill],
-        outside && 'opacity-40',
+        // A plain opacity reduction (the previous approach) dims the day NUMBER along with the
+        // cell, and CSS opacity multiplies straight through whatever contrast the text color
+        // already had against the card — at 40% that failed axe's color-contrast check (Opus
+        // audit round 4). `text-muted-foreground` instead: a color chosen to read as de-
+        // emphasized while still clearing 4.5:1 on its own (test-design-tokens.mjs's sibling
+        // math: muted-foreground on card is 6.3:1 light / 7.8:1 dark).
+        outside && !selected && 'text-muted-foreground',
         today && 'ring-2 ring-[var(--sigma-ink)]',
         className,
       )}
