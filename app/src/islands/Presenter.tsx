@@ -19,7 +19,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Bookmark, ChevronLeft, ChevronRight, MoreHorizontal, Pause, Pencil, Play, Video, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { SectionBlock } from '@/components/ui/section-block';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { BubbleButton } from '@/components/ui/bubble-button';
 import { mount } from '@/islands';
@@ -237,16 +236,6 @@ function RegionChips({ row }: { row: KibbutzRow | null }) {
 
 // ───────────────────────────── the ✏️ live sheet ─────────────────────────────
 
-/** How long ago a bullet's meeting was, in meetings' terms the room understands. */
-function ageText(iso: string, today: string): string {
-  const days = Math.round((new Date(today).getTime() - new Date(iso).getTime()) / 86400000);
-  if (!Number.isFinite(days) || days <= 0) return 'היום';
-  if (days === 1) return 'אתמול';
-  if (days < 14) return `לפני ${days} ימים`;
-  const weeks = Math.round(days / 7);
-  return `לפני ${weeks} שבועות`;
-}
-
 const CHIP_PREFIX: Partial<Record<LiveChipId, string>> = { decision: '🧭 ', idea: '💡 ' };
 
 function LiveSheet({
@@ -411,15 +400,30 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const [liveOpen, setLiveOpen] = React.useState(false);
   const [exitOpen, setExitOpen] = React.useState(false);
   const [moreOpen, setMoreOpen] = React.useState(false);
+
+  // The dock's REAL rendered height, not a guessed padding — a fixed pb drifts the moment the
+  // footer's own content changes height (designer round-6 item 3). `--dock-h` is set as a CSS
+  // var on the dialog root and `main` reads it back, so there is exactly one source of truth.
+  const footerRef = React.useRef<HTMLElement | null>(null);
+  const [dockH, setDockH] = React.useState(144);   // a sane first-paint fallback before measured
+  React.useLayoutEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const measure = () => setDockH(Math.ceil(el.getBoundingClientRect().height));
+    measure();
+    // jsdom (vitest) has no ResizeObserver — the fallback measurement above still runs once,
+    // which is all a golden render needs; a real browser gets the live remeasure.
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const noteRef = React.useRef<HTMLInputElement | null>(null);
   const logged = React.useRef<string>('');
 
   const current = rows[Math.min(idx, Math.max(rows.length - 1, 0))] || null;
   const strips = useStrips(current, notes);
   const extra = useExtraStrip(current);
-  const groups = React.useMemo(
-    () => (current ? notesForKibbutz(notes, current.name) : []), [notes, current]);
-  const lastMeeting = groups.find(g => g.meeting_date < today) || null;
   // ── M-R1/M-R2: one per-kibbutz timeline of everything since the previous meeting ──────────
   const [windowMode, setWindowMode] = React.useState<'since' | '30d'>('since');
   const timeline = useMeetingTimeline(current?.name || '', windowMode);
@@ -633,19 +637,22 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
       aria-modal="true"
       aria-label="מצב ישיבה"
       dir="rtl"
-      className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-background p-4 sm:p-8"
+      className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-background"
+      style={{ '--dock-h': dockH + 'px' } as React.CSSProperties}
     >
       {/* ── header (sticky, M-U1): X · timer · counter · play — one compact row. The Meet link
              moves behind ⋯ (designer round-5: "מהישיבה הקודמת" next to the timer is gone —
-             עידן asked, and the timeline already covers it). Sticky so it survives the now much
-             taller scrollable content underneath it. */}
-      <header className="sticky top-0 z-10 flex min-w-0 flex-none items-center gap-2 border-b border-border bg-background pb-3">
+             עידן asked, and the timeline already covers it). Edge-to-edge + its OWN top inset
+             (designer round-6: the outer container's p-4/sm:p-8 used to sit ABOVE this sticky
+             header, so that strip of the page showed whatever had scrolled to the very top
+             through it instead of the header's solid background). */}
+      <header className="sticky top-0 z-20 flex min-w-0 flex-none items-center gap-2 border-b border-border bg-background px-4 pb-3 pt-4 sm:px-8 sm:pt-8">
         <button
           type="button"
           data-testid="presenter-exit"
           onClick={() => setExitOpen(true)}
           aria-label="סגירה"
-          className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+          className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-border text-foreground outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-1)] focus-visible:ring-offset-2"
         >
           <X size={18} aria-hidden />
         </button>
@@ -654,7 +661,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
           data-testid="presenter-timer-toggle"
           onClick={() => (running ? pause() : start())}
           aria-label={running ? 'עצירת השעון' : 'הפעלת השעון'}
-          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-xl border border-border text-foreground outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-1)] focus-visible:ring-offset-2"
         >
           {running ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
         </button>
@@ -694,10 +701,13 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
       </header>
 
       {/* ── the kibbutz ──────────────────────────────────────────────────── */}
-      {/* pb-28: the footer is `sticky bottom-0` and reserves no space of its own in the flow —
-          without this the scrollable dialog lets its own content (now much taller with the
-          timeline) scroll UNDER the footer instead of stopping above it. */}
-      <main className="flex flex-1 flex-col gap-4 py-5 pb-36">
+      {/* `--dock-h` (measured off the real footer, see the ResizeObserver above) — the footer is
+          `sticky bottom-0` and reserves no space of its own in the flow, so without this the
+          scrollable dialog lets its content scroll UNDER it instead of stopping above it. A
+          GUESSED pb (round-5's pb-36) drifts the moment the footer's own height changes — e.g.
+          the Meet ⋯ row, a longer quick-note placeholder, or a locale with taller Hebrew line
+          height (designer round-6 item 3). */}
+      <main className="flex flex-1 flex-col gap-4 px-4 py-5 sm:px-8" style={{ paddingBottom: 'var(--dock-h)' }}>
         {!current ? (
           <p className="text-[17px] text-muted-foreground">אין קיבוצים להצגה</p>
         ) : (
@@ -754,43 +764,22 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
               onToggle30d={timeline.previousMeeting && windowMode === 'since' ? () => setWindowMode('30d') : undefined}
             />
 
-            <SectionBlock
-              title={lastMeeting ? `מהישיבה של ${chipDate(lastMeeting.meeting_date)} · ${ageText(lastMeeting.meeting_date, today)}` : 'מהישיבה הקודמת'}
-              collapsible
-              defaultOpen={false}
-            >
-              <div data-testid="presenter-bullets" className="px-4 py-2">
-                {lastMeeting ? (
-                  <ul className="flex flex-col gap-1.5">
-                    {lastMeeting.bullets.map(b => (
-                      <li
-                        key={b.id || b.seq}
-                        className={
-                          'text-[15px] leading-snug ' +
-                          (b.done_at ? 'text-muted-foreground line-through' : 'text-foreground')
-                        }
-                      >
-                        <bdi>{b.text}</bdi>
-                        {(b.owners || []).length ? (
-                          <span className="ms-2 text-[13px] text-muted-foreground">
-                            <bdi>{(b.owners || []).join(' · ')}</bdi>
-                          </span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-[15px] text-muted-foreground">אין בולטים קודמים</p>
-                )}
-              </div>
-            </SectionBlock>
+            {/* designer round-6: the collapsed "מהישיבה הקודמת" card is removed entirely — its
+                bullets are the exact same notes the timeline above already shows (kind 'note'),
+                so a second, collapsed copy of them added nothing. */}
           </>
         )}
       </main>
 
       {/* ── nav: big prev/next arrows with the neighbour's name, then the always-visible
              quick note edge-to-edge below it ──────────────────────────────────────────── */}
-      <footer className="sticky bottom-0 flex flex-col gap-2 border-t border-border bg-background pt-3">
+      {/* Edge-to-edge + its OWN bottom inset (designer round-6 item 4: the composer's right edge
+          looked clipped when the outer container's padding was removed for the header fix —
+          this restores that same inset directly on the footer, symmetric with header/main). */}
+      <footer
+        ref={footerRef}
+        className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-border bg-background px-4 pb-4 pt-3 sm:px-8 sm:pb-8"
+      >
         <div className="grid w-full grid-cols-2 gap-2">
           <button
             type="button"

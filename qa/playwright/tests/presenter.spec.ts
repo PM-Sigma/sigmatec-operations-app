@@ -11,8 +11,19 @@ import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_h
 /** The board's order for the fixtures: 🆕 שדה אליהו · גבת → ✅ דגניה · חוקוק · יגור … */
 const FIRST = 'שדה אליהו';
 
+/** The harness's own "🧪 DEV" sandbox notch (01-data.js) — real and useful in a browser, but
+ *  it has no selector of its own and just clutters every evidence screenshot in this file. */
+async function hideDevBadge(page: any) {
+  await page.evaluate(() => {
+    document.querySelectorAll('div').forEach(d => {
+      if (d.textContent === '🧪 DEV') (d as HTMLElement).style.display = 'none';
+    });
+  });
+}
+
 async function openPresenter(page: any) {
   await page.waitForSelector('#sigma-presenter', { state: 'attached' });
+  await hideDevBadge(page);
   await page.evaluate(() => (window as any).sigmaOpenPresenter?.()
     ?? window.dispatchEvent(new CustomEvent('sigma-open-presenter')));
   const screen = page.getByTestId('presenter');
@@ -64,10 +75,11 @@ test('presenter: the keys walk the board, mark a moment and write one line', asy
   await page.keyboard.press('j');
   await expect(page.getByTestId('presenter-kibbutz')).toHaveText('חוקוק');
 
-  // ── חוקוק's open bullets from its last meeting are on screen (collapsed, designer round-5:
-  //    the header carry line is gone — עידן asked; the timeline says what changed instead).
+  // ── חוקוק's open bullets from its last meeting are on the TIMELINE now, not a separate
+  //    collapsed card (designer round-5: the header carry line is gone; round-6: the collapsed
+  //    "מהישיבה הקודמת" card is gone too — the timeline is the one place that shows it).
   await expect(page.getByTestId('presenter-carry')).toHaveCount(0);
-  await expect(page.getByTestId('presenter-bullets')).toContainText('להשלים החלפת מונה ראשי במחלבה');
+  await expect(page.getByTestId('presenter')).toContainText('להשלים החלפת מונה ראשי במחלבה');
   await expect(page.getByTestId('presenter-strip-admin')).toBeVisible();
   await expect(page.getByTestId('presenter-strip-field')).toBeVisible();
   // Task 28 has not shipped — its strip is simply absent, not broken
@@ -258,6 +270,10 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
   // it is genuinely visible and clickable on a real device — this test is about the undo
   // CONTRACT (one toast, cancels for real), not sonner's own positioning math.
   await expect(undoBtn).toBeVisible();
+  // Sonner's own mount transition is ~400 ms; a screenshot taken mid-transition catches a
+  // half-opacity frame with its swipe-track pseudo-element showing (designer round-6 item 5:
+  // "stray bar/green circle") — wait for it to actually settle first.
+  await page.waitForTimeout(600);
   await shot(page, ti, 'close-undo-toast');
   await undoBtn.dispatchEvent('click');
   await page.waitForTimeout(5500);
