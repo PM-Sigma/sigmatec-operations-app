@@ -14,7 +14,7 @@ import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { InternalTasksSection, TaskAdders } from '@/components/home/InternalTasks';
 import { WorkTimer } from '@/components/home/WorkTimer';
-import { energyText, labelOf, sectionOf, isSubsite, NO_REGION_LABEL, type KibbutzRow } from '@/lib/kibbutzim';
+import { energyText, isUnlinked, labelOf, sectionOf, isSubsite, NO_REGION_LABEL, type KibbutzRow } from '@/lib/kibbutzim';
 import { lastVisitLine, latestVisitFor } from '@/lib/kibbutzDetail';
 import { useKibbutzVisits } from '@/lib/kibbutzVisits';
 
@@ -120,6 +120,13 @@ export function KibbutzCard({
         {row.marketing && (
           <span className="tag-marketing rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
             🤝 בתהליך שיווקי
+          </span>
+        )}
+        {/* לא מקושר ל-EMS (round 5, K9/K-U5) — the React port of the legacy
+            applyCardSiteWarnings chip (js/src/13-ems.js, deleted with this task). */}
+        {isUnlinked(row) && (
+          <span className="card-no-site rounded-full bg-[color:var(--sigma-warn)]/15 px-2 py-0.5 text-[11px] font-semibold text-[color:var(--sigma-warn-ink)]">
+            לא מקושר ל-EMS
           </span>
         )}
         {/* ✏️ פרטי קיבוץ moved inside the modal, עידן only (22.9, D2/D10) — js/src/10-activity.js

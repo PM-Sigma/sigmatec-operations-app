@@ -53,9 +53,9 @@ test('kibbutz sheet: edit mode opens from inside the card (עידן only, 22.9) 
 
   // 22.9 (D2/D10): no ✏️ on the home card; it sits beside the name INSIDE the kibbutz card.
   await expect(page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] button[title="פרטי קיבוץ"]')).toHaveCount(0);
-  await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] .kibbutz-name').click();
-  await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
-  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'כפר עזה');
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
+  await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.locator('#kibName')).toHaveValue('כפר עזה');
@@ -86,8 +86,8 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
   const { rec } = await boot(page, ti, { who: 'עמיחי' });
 
   // 22.9: the ✏️ inside the card is עידן's alone; עמיחי still reaches the sheet through the one api
-  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
-  await expect(page.locator('#modalTitle .modal-edit-kibbutz')).toHaveCount(0);
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
+  await expect(page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]')).toHaveCount(0);
   await page.evaluate(() => (window as any).sigmaHome.openSheet('חוקוק'));
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
@@ -106,8 +106,8 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
 test('kibbutz sheet: עידן may change the energy types', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
-  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
+  await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.getByText('רק עידן משנה סוגי אנרגיה')).toHaveCount(0);
@@ -121,9 +121,9 @@ test('kibbutz sheet: עידן may change the energy types', async ({ page }, ti)
 test('kibbutz sheet: ✏️ opens ABOVE the kibbutz modal (22.9 N1 — the accidental-archive path)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] .kibbutz-name').click();
-  await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
-  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'כפר עזה');
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
+  await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   // The sheet is the element the finger actually reaches: the legacy .modal-backdrop is
@@ -145,8 +145,8 @@ test('kibbutz sheet: קוד לקוח, תתי-אתרים and the one קטגורי
   const { rec } = await boot(page, ti);
 
   // יגור is the fixture kibbutz that HAS a sub-site (יגור — רפת) and a code in the legacy map.
-  await page.locator('#sigma-home .kibbutz[data-name="יגור"] .kibbutz-name').click();
-  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'יגור');
+  await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   // קוד לקוח — prefilled from the row, or from the legacy CUSTOMER_CODES map while the
@@ -181,8 +181,8 @@ test('kibbutz sheet: קוד לקוח, תתי-אתרים and the one קטגורי
 test('kibbutz sheet: a kibbutz with no sub-sites says so, and the code may be left empty', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  await page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] .kibbutz-name').click();
-  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'כפר עזה');
+  await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.locator('#kibSubsites')).toContainText('אין תתי-אתרים');
@@ -224,8 +224,8 @@ test('kibbutz sheet: אתר EMS is read-only — ✓ מקושר / ⚠️ לא מ
   const { rec } = await boot(page, ti);
 
   // חוקוק ships linked in the fixture (ems_site_ids: the real mock site UUID).
-  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
-  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
+  await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   const link = page.getByTestId('kib-ems-link');
@@ -238,8 +238,8 @@ test('kibbutz sheet: אתר EMS is read-only — ✓ מקושר / ⚠️ לא מ
 test('kibbutz sheet: סוגי אנרגיה is a real multi-select — more than one type at once', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);   // עידן — may edit energy
 
-  await page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .kibbutz-name').click();
-  await page.locator('#modalTitle .modal-edit-kibbutz').click();
+  await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
+  await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   // חוקוק starts ⚡ חשמל only (fixture). Turning on 💧 מים must not turn ⚡ off.

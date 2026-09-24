@@ -259,7 +259,7 @@ check('the re-login sheet is mounted on every page, not lazily', () => {
 });
 
 check('every island renders the gate instead of its content', () => {
-  for (const f of ['Home', 'ModalMeetings', 'Feedback', 'FeedbackInbox', 'Usage', 'ImportNotes', 'Settings', 'MessageSheet']) {
+  for (const f of ['Home', 'KibbutzDetail', 'Feedback', 'FeedbackInbox', 'Usage', 'ImportNotes', 'Settings', 'MessageSheet']) {
     const src = read('app/src/islands/' + f + '.tsx');
     assert.match(src, /<EmsGate>/, f + ' is not gated');
   }

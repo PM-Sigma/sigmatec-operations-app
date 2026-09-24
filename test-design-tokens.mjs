@@ -224,21 +224,9 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
-{
-  const html = read('index.html');
-  const m = /id="editLastVisitBox"[^>]*style="([^"]+)"/.exec(html);
-  assert.ok(m, '#editLastVisitBox not found in index.html');
-  const style = m[1];
-  for (const theme of ['light', 'dark']) {
-    check(`index.html ${theme}: #editLastVisitBox background/color clears 4.5:1`, () => {
-      const map = legacyVarMap(theme);
-      const bg = resolveColor(declValue(style, 'background'), map);
-      const fg = resolveColor(declValue(style, 'color'), map);
-      const r = ratio(fg, bg);
-      assert.ok(r >= 4.5, `${fg} on ${bg} = ${r.toFixed(2)}:1, need 4.5:1`);
-    });
-  }
-}
+// #editLastVisitBox's inline-style contrast check removed (round 5, K-U5): the element it
+// checked was #tab-meetings markup, retired with the legacy modal's מצב הקיבוץ tab — its
+// content (and its Tailwind classes, not inline styles) lives in StatusTab.tsx now (K-U2).
 
 // ── no white text on the brand gradient, anywhere (designer confirm round, item 1 gate) ──────
 // The brand fill's ink is --s-on-brand (a dark teal, spec §2 audit "white measured 2.2–2.4:1"),

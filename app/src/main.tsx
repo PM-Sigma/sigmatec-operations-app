@@ -144,37 +144,17 @@ function boot() {
       .then(m => m.mountKibbutzDetail())
       .catch(e => console.warn('[sigma] kibbutz detail island failed', e));
   }
-  // 🗓 Meeting notes (Task 2): the modal tab + the admin-only import sheet. Same lazy-chunk
-  // reasoning as the home island — both read data, and the modal tab is only ever opened
-  // from a card. They are separate roots so one failing never takes the other down.
-  if (document.getElementById('sigma-modal-meetings')) {
-    import('@/islands/ModalMeetings')
-      .then(m => m.mountModalMeetings())
-      .catch(e => console.warn('[sigma] meetings tab island failed', e));
-  }
-  // 🔥 צריבות (Task 23) — the temporary meter-burn project: the kibbutz-modal section and
-  // the landing progress strip. A lazy chunk like every data island, and one that simply
-  // renders nothing for anyone outside the project's audience or once BURNS_PROJECT_ACTIVE
-  // is false — at which point this block is the only line that has to be deleted.
-  if (document.getElementById('sigma-burns') || document.getElementById('sigma-burns-modal')) {
+  // ModalMeetings / InternalModal / Health islands removed (round 5, K-U5) — their jobs moved
+  // to KibbutzDetail's StatusTab (K-U2); the legacy #tab-meetings markup they mounted into is
+  // gone from index.html.
+  // 🔥 צריבות (Task 23) — the landing progress strip (K-U4: the kibbutz-modal section is
+  // gone). A lazy chunk like every data island, renders nothing outside the project's
+  // audience or once BURNS_PROJECT_ACTIVE is false — at which point this block is the only
+  // line that has to be deleted.
+  if (document.getElementById('sigma-burns')) {
     import('@/islands/Burns')
       .then(m => m.mountBurns())
       .catch(e => console.warn('[sigma] burns island failed', e));
-  }
-  // 🩺 מצב הקיבוץ (Task 28) — the DRAFT health strip in the kibbutz modal. Lazy like every
-  // data island, and it renders nothing for anyone outside the overview's audience. Its mount
-  // also publishes `sigma.presenterStrip` for ▶ מצב ישיבה; a chunk that never lands simply
-  // leaves that strip out.
-  // 🔒 משימות פנימיות in the kibbutz modal (22.9) — the rows with their actions and the ➕.
-  if (document.getElementById('sigma-internal-modal')) {
-    import('@/islands/InternalModal')
-      .then(m => m.mountInternalModal())
-      .catch(e => console.warn('[sigma] internal-tasks island failed', e));
-  }
-  if (document.getElementById('sigma-health-modal')) {
-    import('@/islands/Health')
-      .then(m => m.mountHealth())
-      .catch(e => console.warn('[sigma] health island failed', e));
   }
   // 📣 Feedback box (Task 6): the sheet for everyone, the admin inbox as its own root so a
   // failure in one never takes the other down. Both register their own ⋯ עוד entries.

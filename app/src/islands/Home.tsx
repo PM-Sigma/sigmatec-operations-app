@@ -125,15 +125,8 @@ function HomeIsland() {
 
   const canManage = canManageKibbutzim(user, role === 'viewer');
 
-  // ---- legacy decorators -------------------------------------------------
-  // Every re-render replaces cards, so the legacy passes have to re-attach. Debounced to
-  // one run per animation frame batch — the passes are idempotent but not free.
-  const decorate = React.useCallback(() => {
-    const t = setTimeout(() => { try { sigma.decorateCards?.(); } catch (e) { console.warn('[home] decorateCards', e); } }, 60);
-    return () => clearTimeout(t);
-  }, []);
-  React.useEffect(decorate, [visible, decorate]);
-  useSigmaEvent('ems-cache-synced', () => { decorate(); });
+  // sigma.decorateCards() removed (round 5, K-U5): every pass it ran (site warnings, last
+  // visit, card order) is now owned by KibbutzCard.tsx itself (K-U3).
 
   // The legacy renderer must not fight us for the grids.
   React.useEffect(() => {
