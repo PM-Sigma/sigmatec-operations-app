@@ -119,7 +119,23 @@ function DevBoardPage() {
 
   const now = Date.now();
   const filtered = React.useMemo(() => applyDevFilters(cards, filters, now), [cards, filters, now]); // eslint-disable-line react-hooks/exhaustive-deps
-  const groups = React.useMemo(() => groupByDomain(filtered), [filtered]);
+  // groupByDomain resolves each card's domain by looking its `parent` number up in the list it
+  // is given — so it needs the FULL board (parents included) to resolve anything, never the
+  // already-filtered rows (which have every Main Fields parent stripped out already). The
+  // filter is applied AFTER grouping instead: keep only the qualifying issue numbers inside
+  // each tier, then drop tiers/domains left with nothing in them.
+  const groups = React.useMemo(() => {
+    const keep = new Set(filtered.map(c => c.number));
+    return groupByDomain(cards)
+      .map(g => ({
+        ...g,
+        tiers: g.tiers
+          .map(t => ({ ...t, cards: t.cards.filter(c => keep.has(c.number)) }))
+          .filter(t => t.cards.length > 0),
+      }))
+      .filter(g => g.tiers.length > 0)
+      .map(g => ({ ...g, count: g.tiers.reduce((n, t) => n + t.cards.length, 0) }));
+  }, [cards, filtered]);
   const week = React.useMemo(() => newThisWeek(cards, now), [cards, now]); // eslint-disable-line react-hooks/exhaustive-deps
   const segments = React.useMemo(() => devFlowSegments(cards), [cards]);
   const assignees = React.useMemo(

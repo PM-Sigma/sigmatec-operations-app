@@ -1,4 +1,4 @@
-import{p as y,j as e,G as h,m as B,r as m,B as b,au as L,M as T}from"./sigma.js?v=mufus5oj";import{P as k,B as r,S as o,T as u,F as w,L as g,a as _,E}from"./sigma-section-block.js?v=mufus5oj";import"./sigma-chevron-right.js?v=mufus5oj";import"./sigma-check.js?v=mufus5oj";import"./sigma-chevron-down.js?v=mufus5oj";/**
+import{p as y,j as e,G as h,m as B,r as m,B as b,au as L,M as T}from"./sigma.js?v=mufxlhjr";import{P as k,B as r,S as o,T as u,F as w,L as g,a as _,E}from"./sigma-section-block.js?v=mufxlhjr";import"./sigma-chevron-right.js?v=mufxlhjr";import"./sigma-check.js?v=mufxlhjr";import"./sigma-chevron-down.js?v=mufxlhjr";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.
