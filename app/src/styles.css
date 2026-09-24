@@ -172,6 +172,24 @@
 .sigma-root *,
 .sigma-root *::before,
 .sigma-root *::after { box-sizing: border-box; }
+/* The ring-* utilities (`ring-2 ring-[var(--info-ink)]` etc.) compose a box-shadow entirely
+   out of --tw-ring-* custom properties (--tw-ring-inset, --tw-ring-offset-shadow, --tw-ring-
+   shadow, ...) that Tailwind's OWN preflight normally initializes on every element. Preflight
+   is off here (the comment above), so any unconditional (non-`focus-visible:`) ring — e.g.
+   StatTile's own selected-tile ring — computed box-shadow: none: an undefined custom property
+   in `var(--tw-ring-inset)` makes the whole declaration invalid at computed-value time, and the
+   cascade had already picked THIS declaration as the winner before that substitution happens,
+   so no other rule got a chance to fill in. Mirrors exactly what Tailwind's preflight sets. */
+.sigma-root *,
+.sigma-root *::before,
+.sigma-root *::after {
+  --tw-ring-inset: ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+}
 .sigma-root button,
 .sigma-root input,
 .sigma-root textarea,

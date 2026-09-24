@@ -151,7 +151,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | placeholder | index.html | mounted at |
 |---|---|---|
 | `#sigma-alerts` | :221 | app/src/islands/Alerts.tsx:240<br>app/src/main.tsx:189 |
-| `#sigma-attendance` | :465 | app/src/islands/Attendance.tsx:634<br>app/src/main.tsx:217 |
+| `#sigma-attendance` | :465 | app/src/islands/Attendance.tsx:644<br>app/src/main.tsx:217 |
 | `#sigma-burns` | :295 | app/src/islands/Burns.tsx:87<br>app/src/main.tsx:152 |
 | `#sigma-burns-modal` | :651 | app/src/main.tsx:152 |
 | `#sigma-calendar` | :550 | app/src/islands/Calendar.tsx:1578<br>app/src/main.tsx:252 |

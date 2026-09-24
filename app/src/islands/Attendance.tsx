@@ -549,6 +549,16 @@ function AttendanceIsland() {
             ))}
           </StatTileGrid>
 
+          {/* Designer review round: a selected tile must SAY it's filtering, not just tint —
+              the tile's own ring can be missed, especially once a person scrolls past it. */}
+          {tile && (
+            <div data-testid="att-tile-filter">
+              <FilterChip selected onClick={() => setTile(null)}>
+                {'מסונן: ' + (attTiles(kpis, person).find(t => t.key === tile)?.label || '') + ' ✕'}
+              </FilterChip>
+            </div>
+          )}
+
           {/* ── the month ─────────────────────────────────────────────────────── */}
           <section className="rounded-[14px] border border-border bg-card p-2.5">
             {rowsQ.data === null || rowsQ.isLoading
