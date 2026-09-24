@@ -12,6 +12,7 @@ import {
   amichaiPending, approvalPlan, canApproveThisOrder, canMarkStuck, distinctSuppliers,
   editStatusOptions, freshApprovedOrders, isDirectSupply, orderFormFields, orderKibbutz,
   orderSavePlan, orderStatusPlan, orderType, quickAction, restockPlan, approvalWaitingMsg,
+  deleteSummaryLines,
 } from './inventory';
 import goldens from './__fixtures__/inventory/legacy-goldens.json';
 import fx from './__fixtures__/inventory/ledgers.json';
@@ -438,5 +439,43 @@ describe('restockPlan (S18)', () => {
     ]);
     expect(restockPlan(r, { me: 'עידן', movements: [{ refId: 'ret-1', reason: 'return_restock' }] }).error).toBe('הפריט כבר הוחזר למלאי, לא נרשמה תנועה נוספת');
     expect(restockPlan({ ...r, kibbutz: '' }, { me: 'עידן', movements: [] }).error).toBe('לא ידוע מאיזה קיבוץ הוחזר הפריט, אי אפשר להחזיר למלאי');
+  });
+});
+
+// ───────────────────────── task L7: delete cascade summary (binding: certs untouched) ─────────────────────────
+describe('deleteSummaryLines (D1-D5, binding update: issued certs stay exactly as they are)', () => {
+  it('the confirmation screen text, zero counts omitted, Hebrew singular for 1', () => {
+    expect(deleteSummaryLines({
+      product: '__DEL__', exists: 1, movements: 3,
+      orders_deleted: ['ord-9'], orders_trimmed: ['ord-2'],
+      certs_referencing: [1050], certs_referencing_active: [1050],
+      visits_trimmed: 2, requirements_trimmed: 0, requirements_deleted: 0,
+      returns: 1, recounts: 0, alerts: 4, parse_examples: 0, fingerprint: 'x',
+    })).toEqual([
+      { text: '3 תנועות מלאי', danger: false },
+      { text: 'שורה בהזמנה אחת', danger: false },
+      { text: 'הזמנה ord-9 נמחקת כולה', danger: true },
+      { text: 'תעודה אחת מזכירה פריט זה — לא תשתנה (תעודה שהופקה היא רשומה סופית)', danger: false },
+      { text: 'שורות ב-2 ביקורים (הסיכומים נשארים)', danger: false },
+      { text: 'החזרה אחת', danger: false },
+      { text: '4 התראות', danger: false },
+    ]);
+  });
+  it('a cert that references the item is listed but never marked dangerous — it is never touched', () => {
+    const lines = deleteSummaryLines({
+      product: 'x', exists: 1, movements: 0, orders_deleted: [], orders_trimmed: [],
+      certs_referencing: [10, 11], certs_referencing_active: [10],
+      visits_trimmed: 0, requirements_trimmed: 0, requirements_deleted: 0,
+      returns: 0, recounts: 0, alerts: 0, parse_examples: 0, fingerprint: 'x',
+    });
+    expect(lines).toEqual([{ text: '2 תעודות מזכירות פריט זה — לא ישתנו (תעודה שהופקה היא רשומה סופית)', danger: false }]);
+  });
+  it('everything zero → no lines at all', () => {
+    expect(deleteSummaryLines({
+      product: 'x', exists: 1, movements: 0, orders_deleted: [], orders_trimmed: [],
+      certs_referencing: [], certs_referencing_active: [],
+      visits_trimmed: 0, requirements_trimmed: 0, requirements_deleted: 0,
+      returns: 0, recounts: 0, alerts: 0, parse_examples: 0, fingerprint: 'x',
+    })).toEqual([]);
   });
 });

@@ -727,3 +727,47 @@ export function restockPlan(r: ReturnLike, ctx: { me: string; movements: Readonl
     patch: { status: 'restocked' },
   };
 }
+
+// ───────────────────────────── §6 delete cascade (task L7) ─────────────────────────────
+// db/inventory_delete_product.sql is the source of truth for what actually gets deleted;
+// this is just the confirmation screen's text, over that RPC's preview shape. Binding ruling
+// (23.9 evening grill, for I/V/K): an item is deleted completely (movements/recounts/alerts/
+// returns/visit+requirement+AI-example lines; an emptied order is deleted too) — EXCEPT issued
+// delivery certificates, which stay exactly as they are, lines included. `certs_referencing` is
+// informational only: nothing is ever deleted or trimmed there.
+
+export interface DeletePreview {
+  product: string; exists: number; movements: number;
+  orders_deleted: string[]; orders_trimmed: string[];
+  certs_referencing: number[]; certs_referencing_active: number[];
+  visits_trimmed: number; requirements_deleted: number; requirements_trimmed: number;
+  returns: number; recounts: number; alerts: number; parse_examples: number;
+  fingerprint: string;
+}
+export interface DeleteSummaryLine { text: string; danger: boolean }
+
+const plural = (n: number, one: string, many: (n: number) => string) => (n === 1 ? one : many(n));
+
+/** deleteSummaryLines: what the ConfirmSheet lists before the toast/undo. Zero counts are
+ * omitted; Hebrew singular is used for exactly 1. */
+export function deleteSummaryLines(p: DeletePreview): DeleteSummaryLine[] {
+  const lines: DeleteSummaryLine[] = [];
+  if (p.movements) lines.push({ text: plural(p.movements, 'תנועת מלאי אחת', n => `${n} תנועות מלאי`), danger: false });
+  if (p.orders_trimmed.length) lines.push({ text: plural(p.orders_trimmed.length, 'שורה בהזמנה אחת', n => `שורות ב-${n} הזמנות`), danger: false });
+  for (const id of p.orders_deleted) lines.push({ text: `הזמנה ${id} נמחקת כולה`, danger: true });
+  if (p.certs_referencing.length) {
+    lines.push({
+      text: plural(p.certs_referencing.length, 'תעודה אחת מזכירה פריט זה — לא תשתנה (תעודה שהופקה היא רשומה סופית)',
+        n => `${n} תעודות מזכירות פריט זה — לא ישתנו (תעודה שהופקה היא רשומה סופית)`),
+      danger: false,
+    });
+  }
+  if (p.visits_trimmed) lines.push({ text: plural(p.visits_trimmed, 'שורה בביקור אחד (הסיכום נשאר)', n => `שורות ב-${n} ביקורים (הסיכומים נשארים)`), danger: false });
+  if (p.requirements_trimmed) lines.push({ text: plural(p.requirements_trimmed, 'שורה בדרישה אחת', n => `שורות ב-${n} דרישות`), danger: false });
+  if (p.requirements_deleted) lines.push({ text: plural(p.requirements_deleted, 'דרישה אחת נמחקת כולה', n => `${n} דרישות נמחקות כולן`), danger: true });
+  if (p.returns) lines.push({ text: plural(p.returns, 'החזרה אחת', n => `${n} החזרות`), danger: false });
+  if (p.recounts) lines.push({ text: plural(p.recounts, 'ספירה אחת', n => `${n} ספירות`), danger: false });
+  if (p.alerts) lines.push({ text: plural(p.alerts, 'התראה אחת', n => `${n} התראות`), danger: false });
+  if (p.parse_examples) lines.push({ text: plural(p.parse_examples, 'דוגמת ניתוח AI אחת', n => `${n} דוגמאות ניתוח AI`), danger: false });
+  return lines;
+}
