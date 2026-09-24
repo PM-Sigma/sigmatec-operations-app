@@ -357,29 +357,42 @@
     }
   }
   window.xlHubInit = xlHubInit;
-  function xlHubAttApply() {   // set person+month, render the (hidden) attendance report → rows ready
-    const person = document.getElementById('xlHubAttPerson').value;
-    const ym = (document.getElementById('xlHubAttMonth').value || '').match(/^(\d{4})-(\d{2})$/);
-    if (person) window._attPerson = person;
+  // round 5, L5: every xlHub* below now takes its arguments — the viewer reports island
+  // (U12) passes `presetRange`/`monthOf` (app/src/lib/viewerReports.ts) straight in. `undefined`
+  // (never called, or called with no args — the legacy hub's own buttons) still falls back to
+  // today's DOM read, so the existing onclick wiring keeps working unchanged.
+  function xlHubAttApply(person, month) {   // set person+month, render the (hidden) attendance report → rows ready
+    const p = person === undefined ? document.getElementById('xlHubAttPerson').value : person;
+    const mval = month === undefined ? document.getElementById('xlHubAttMonth').value : month;
+    const ym = (mval || '').match(/^(\d{4})-(\d{2})$/);
+    if (p) window._attPerson = p;
     if (ym) { window.attendanceViewYear = +ym[1]; window.attendanceViewMonth = +ym[2] - 1; }
     renderAttendanceReport();
   }
-  function xlHubAttPdf() { xlHubAttApply(); downloadAttendancePDF(); }
-  function xlHubAttXlsx() { xlHubAttApply(); xlExportAttendanceCurrent(); }
-  function xlHubVisitsPdf() {
-    openVisitsReportHTMLView('', document.getElementById('xlHubVisitsFrom').value, document.getElementById('xlHubVisitsTo').value);
+  function xlHubAttPdf(person, month) { xlHubAttApply(person, month); downloadAttendancePDF(); }
+  function xlHubAttXlsx(person, month) { xlHubAttApply(person, month); xlExportAttendanceCurrent(); }
+  function xlHubVisitsPdf(from, to) {
+    const f = from === undefined ? document.getElementById('xlHubVisitsFrom').value : from;
+    const t = to === undefined ? document.getElementById('xlHubVisitsTo').value : to;
+    openVisitsReportHTMLView('', f, t);
   }
-  function xlHubVisitsXlsx() {
-    xlExportVisits('', document.getElementById('xlHubVisitsFrom').value, document.getElementById('xlHubVisitsTo').value);
+  function xlHubVisitsXlsx(from, to) {
+    const f = from === undefined ? document.getElementById('xlHubVisitsFrom').value : from;
+    const t = to === undefined ? document.getElementById('xlHubVisitsTo').value : to;
+    xlExportVisits('', f, t);
   }
-  function xlHubCertsPdf() {
-    certRangeReportRange(document.getElementById('xlHubCertsFrom').value, document.getElementById('xlHubCertsTo').value);
+  function xlHubCertsPdf(from, to) {
+    const f = from === undefined ? document.getElementById('xlHubCertsFrom').value : from;
+    const t = to === undefined ? document.getElementById('xlHubCertsTo').value : to;
+    certRangeReportRange(f, t);
   }
-  function xlHubCertsXlsx() {
-    xlExportCerts(document.getElementById('xlHubCertsFrom').value, document.getElementById('xlHubCertsTo').value);
+  function xlHubCertsXlsx(from, to) {
+    const f = from === undefined ? document.getElementById('xlHubCertsFrom').value : from;
+    const t = to === undefined ? document.getElementById('xlHubCertsTo').value : to;
+    xlExportCerts(f, t);
   }
-  function xlHubSumPdf() { const r = xlMonthRange(document.getElementById('xlHubSumMonth').value); certRangeReportRange(r[0], r[1]); }
-  function xlHubSumXlsx() { const r = xlMonthRange(document.getElementById('xlHubSumMonth').value); xlExportCertSummary(r[0], r[1]); }
+  function xlHubSumPdf(month) { const r = xlMonthRange(month === undefined ? document.getElementById('xlHubSumMonth').value : month); certRangeReportRange(r[0], r[1]); }
+  function xlHubSumXlsx(month) { const r = xlMonthRange(month === undefined ? document.getElementById('xlHubSumMonth').value : month); xlExportCertSummary(r[0], r[1]); }
 
   // expose adapters used from HTML onclick
   window.canExportExcel = canExportExcel;
