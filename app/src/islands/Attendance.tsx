@@ -85,10 +85,12 @@ const LEGEND_DOT: Record<string, string> = {
 function DayTypeRow({ value, onPick, busy }: { value: DayType | null; onPick: (t: DayType) => void; busy: boolean }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="סוג היום">
-      {/* FilterChip forwards none of its own props to the DOM — a wrapper span carries the
-          data-daytype test hook (A-U4, same pattern as ListRow/StatTile before). */}
+      {/* FilterChip has neither a `disabled` prop nor its own prop pass-through — a wrapper
+          span carries both the data-daytype test hook and the busy state (visibly dimmed +
+          aria-disabled, review round item 4), and the guard against a stray click stays on
+          onClick since the chip itself can't be disabled. */}
       {DAY_ORDER.map(t => (
-        <span key={t} data-daytype={t}>
+        <span key={t} data-daytype={t} aria-disabled={busy || undefined} className={busy ? 'pointer-events-none opacity-50' : undefined}>
           <FilterChip selected={value === t} onClick={() => !busy && onPick(t)}>
             {dayLabel(t)}
           </FilterChip>
@@ -106,8 +108,11 @@ function DayTypeRow({ value, onPick, busy }: { value: DayType | null; onPick: (t
 function MonthGridView({
   grid, onPick, selected, person, tile,
 }: { grid: ReturnType<typeof monthGrid>; onPick: (c: DayCell) => void; selected: string; person: string; tile: TileKey | null }) {
+  // role="group", not "grid": a CSS grid of DayCell buttons isn't organized into ARIA "row"
+  // ancestors, and role="grid" without them is an axe aria-required-children/parent critical
+  // (review round item 3). Each cell already carries its own aria-label.
   return (
-    <div data-testid="att-grid" className="att-grid" role="grid" aria-label={'לוח ' + grid.label}>
+    <div data-testid="att-grid" className="att-grid" role="group" aria-label={'לוח ' + grid.label}>
       {HE_DAY_LETTERS.map((l, i) => (
         <div key={'h' + i} aria-hidden className="pb-1 text-center text-[11px] font-bold text-muted-foreground">{l}</div>
       ))}
@@ -119,7 +124,6 @@ function MonthGridView({
           <DayCellUI
             key={c.date}
             day={c.day}
-            role="gridcell"
             data-date={c.date}
             data-state={c.state}
             data-att-state={c.state}
@@ -262,6 +266,9 @@ function AttendanceIsland() {
   // (Review Focus #3 — the count updates, the filter keeps working).
   const [tile, setTile] = React.useState<TileKey | null>(null);
   React.useEffect(() => { setTile(null); }, [person]);
+  // Review round (designer 2): "חסר לך" shows the latest few days and expands on request.
+  const [showAllMissing, setShowAllMissing] = React.useState(false);
+  React.useEffect(() => { setShowAllMissing(false); }, [person, ym.y, ym.m]);
   const attGuard = useUnsavedGuard({ dirty: () => false, onClose: () => setOpen('') });
 
   // עידן, עמיחי (CEO) and the viewer may look at someone else's month; a field worker sees
@@ -398,24 +405,19 @@ function AttendanceIsland() {
         />
 
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          {/* The person switch (F-6): the design-system SegmentedControl only carries a
-              same-shaped value per option, with no room for the `data-person` hook the rest of
-              the screen (and its tests) key off — so this stays a plain, DS-token-styled radio
-              group until that pass-through exists (spec §9). */}
+          {/* The person switch (F-6), on FilterChip (A-U review round): FilterChip's 32px
+              visual carries `.s-hit`'s invisible ::before, growing the REAL tap target to 48
+              (data-hit-slop tells the sweep so) — the plain radio buttons this replaced were
+              a genuine 57×32/50×32 undersized target. FilterChip still forwards none of its
+              own props to the DOM, so data-person/aria-pressed stay on a wrapper span. */}
           {canSwitch && people.length > 1 && (
             <div data-testid="att-person" className="flex gap-1" role="group" aria-label="בחירת עובד">
               {people.map(p => (
-                <button
-                  key={p}
-                  type="button"
-                  data-person={p}
-                  aria-pressed={p === person}
-                  onClick={() => { setPerson(p); track('attendance-person'); }}
-                  className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
-                    + (p === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
-                >
-                  <bdi>{p}</bdi>
-                </button>
+                <span key={p} data-person={p}>
+                  <FilterChip selected={p === person} onClick={() => { setPerson(p); track('attendance-person'); }}>
+                    <bdi>{p}</bdi>
+                  </FilterChip>
+                </span>
               ))}
             </div>
           )}
@@ -438,25 +440,43 @@ function AttendanceIsland() {
               and every row is one tap into that day's sheet. */}
           {mb.show && (
           <div data-testid="att-missing">
-            <SectionBlock title={mb.title} titleRole={mb.count ? 'danger' : 'default'}>
-              {/* ListRow forwards none of its own props to the DOM — a wrapper div carries
-                  the data-missing test hook the rest of the screen (and its tests) key off. */}
-              {mb.count ? mb.days.map(d => (
-                <div key={d.date} data-missing={d.date} aria-label={d.aria}>
+            <SectionBlock
+              title={<>
+                {mb.title}
+                {/* SectionBlock's own count Tag isn't wired to a stable test id — a visible
+                    span alongside the title carries att-missing-count (§9 ask); the review
+                    round asked for the count IN the title, not hidden. */}
+                {mb.count > 0 && (
+                  <span data-testid="att-missing-count" className="ms-1.5 inline-flex">
+                    <Tag role="danger"><bdi>{mb.count}</bdi></Tag>
+                  </span>
+                )}
+              </>}
+              titleRole={mb.count ? 'danger' : 'default'}
+            >
+              {mb.count ? (<>
+                {/* Review round: the block ran too tall with a full month of gaps — show the
+                    latest few and let "עוד N ימים" expand the rest, same pattern a long list
+                    anywhere else in the app uses. */}
+                {(showAllMissing ? mb.days : mb.days.slice(-4)).map(d => (
                   <ListRow
+                    key={d.date}
+                    data-missing={d.date}
+                    aria-label={d.aria}
                     title={<bdi>{d.label}</bdi>}
                     onClick={() => openDay(grid.cells.find(c => c.date === d.date)!)}
                   />
-                </div>
-              )) : (
+                ))}
+                {!showAllMissing && mb.days.length > 4 && (
+                  <ListRow
+                    title={'עוד ' + (mb.days.length - 4) + ' ימים'}
+                    onClick={() => setShowAllMissing(true)}
+                  />
+                )}
+              </>) : (
                 <p className="px-4 py-1 text-[12.5px] text-muted-foreground">{mb.empty}</p>
               )}
             </SectionBlock>
-            {/* SectionBlock's own count Tag isn't wired to a stable test id — a plain span
-                carries att-missing-count instead of forking the component (§9 ask). */}
-            {mb.count > 0 && (
-              <span data-testid="att-missing-count" className="sr-only"><bdi>{mb.count}</bdi></span>
-            )}
           </div>
           )}
 
@@ -465,13 +485,15 @@ function AttendanceIsland() {
             <div data-testid="att-missing-team">
               <SectionBlock title="חסר לצוות">
                 {teamMissing.map(t => (
-                  <div key={t.person} data-person-missing={t.person} data-count={t.known ? String(t.count) : ''} aria-pressed={t.person === person}>
-                    <ListRow
-                      title={<bdi>{t.person}</bdi>}
-                      meta={<bdi>{t.known ? t.count : '—'}</bdi>}
-                      onClick={() => { setPerson(t.person); track('attendance-person'); }}
-                    />
-                  </div>
+                  <ListRow
+                    key={t.person}
+                    data-person-missing={t.person}
+                    data-count={t.known ? String(t.count) : ''}
+                    aria-pressed={t.person === person}
+                    title={<bdi>{t.person}</bdi>}
+                    meta={<bdi>{t.known ? t.count : '—'}</bdi>}
+                    onClick={() => { setPerson(t.person); track('attendance-person'); }}
+                  />
                 ))}
               </SectionBlock>
             </div>
@@ -509,14 +531,18 @@ function AttendanceIsland() {
           <StatTileGrid>
             {/* StatTile doesn't forward its own props to the DOM yet — a wrapper span carries
                 the att-kpi-<key> test hook (§9-style gap, same as ListRow before its own
-                pass-through landed). */}
-            {attTiles(kpis, person).map(t => (
+                pass-through landed). attTiles()'s own order stays field/office/missing (its
+                golden pins that) — only the RENDER order changes: missing leads and spans the
+                full row, so a filer's three tiles don't leave a lopsided lone third tile
+                (review round item 4). */}
+            {[...attTiles(kpis, person)].sort((a, b) => (a.key === 'missing' ? -1 : b.key === 'missing' ? 1 : 0)).map(t => (
               <span key={t.key} data-testid={'att-kpi-' + t.key} className="contents">
                 <StatTile
                   value={t.value}
                   label={t.label}
                   role={t.role}
                   selected={tile === t.key}
+                  className={t.key === 'missing' ? 'col-span-full' : undefined}
                   onClick={() => { setTile(cur => toggleTile(cur, t.key)); track('attendance-tile', t.key); }}
                 />
               </span>

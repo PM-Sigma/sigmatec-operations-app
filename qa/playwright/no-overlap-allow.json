@@ -2,7 +2,7 @@
   "home": "legacy kibbutz-card grid — package K rewrites KibbutzCard/KibbutzDetail onto SectionBlock/ListRow",
   "calendar": "legacy .ucal-* grid — package C rewrites Calendar.tsx onto DayCell/SegmentedControl",
   "inventory": "legacy inv-* markup — package I is the full React rewrite (06/07/08/20 + inventory index.html)",
-  "attendance": "grid/tiles/missing/today are on DayCell/StatTile/SectionBlock now (A-U1..3); DayTypeRow's day-type buttons (36px tall) are still A-U4's, not yet on FilterChip",
+  "attendance": "remaining findings are the SHARED shell header (bell/tasks icon buttons, \"אביאם\"/install-app bubbles, search input, Sheet's own ✕ close button) and Field's \"תיעוד ביקור\" CTA — none of them attendance's own files, which A doesn't own and doesn't touch",
   "burns": "legacy burn-* cards, native <select> segmented control — package G rewrites the burns page",
   "more-sheet": "MoreSheet.tsx predates BubbleButton — package S (shell) rewrites the row/chip controls",
   "settings-sheet": "Settings.tsx native <select>/number steppers — package G rewrites onto design-system inputs"

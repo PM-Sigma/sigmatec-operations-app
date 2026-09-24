@@ -505,7 +505,7 @@ export function originLine(row: AttRow | null): string {
   if (o !== 'auto') return '';
   const parts = ['נרשם אוטומטית מסיכום הביקור'];
   if (row!.kibbutz) parts.push(row!.kibbutz);
-  if (row!.hours) parts.push(row!.hours + ' ש׳');
+  if (row!.hours) parts.push(row!.hours + ' שעות');
   return parts.join(' · ');
 }
 

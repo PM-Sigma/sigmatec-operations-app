@@ -251,12 +251,15 @@ test('attendance: חסר לך comes before the calendar, and a chip opens the da
   );
   expect(before, 'the חסר לך strip must render BEFORE the month grid').toBe(true);
 
-  // ── the count, and a chip that opens that day's sheet
+  // ── the count, and a chip that opens that day's sheet. Review round: the block shows only
+  // the latest 4 days (an "עוד N ימים" row expands the rest), so att-missing-count — the
+  // TOTAL — may exceed the number of [data-missing] rows actually on screen.
   const chips = strip.locator('[data-missing]');
   const n = await chips.count();
   if (n > 0) {
     await expect(strip).toContainText('חסר לך');
-    await expect(page.getByTestId('att-missing-count')).toHaveText(String(n));
+    const total = Number(await page.getByTestId('att-missing-count').innerText());
+    expect(total, 'att-missing-count must be at least the rows on screen').toBeGreaterThanOrEqual(n);
     const date = await chips.first().getAttribute('data-missing');
     await chips.first().click();
     // The phone opens a sheet; the desktop moves its side panel. Both land on that date.
