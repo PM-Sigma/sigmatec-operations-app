@@ -9,6 +9,9 @@ import {
   activeProducts, csvText, isLowItem, kibbutzCsvRows, kibbutzCards, kibbutzMatrix, lowStockLines,
   lowStockReport, poolCsvRows, poolView, productCategoryMap, sortByCategoryThenName,
   sortByCategoryThenNameFixed,
+  amichaiPending, approvalPlan, canApproveThisOrder, canMarkStuck, distinctSuppliers,
+  editStatusOptions, freshApprovedOrders, isDirectSupply, orderFormFields, orderKibbutz,
+  orderSavePlan, orderStatusPlan, orderType, quickAction, restockPlan, approvalWaitingMsg,
 } from './inventory';
 import goldens from './__fixtures__/inventory/legacy-goldens.json';
 import fx from './__fixtures__/inventory/ledgers.json';
@@ -257,5 +260,183 @@ describe('kibbutzCards / kibbutzMatrix (S13)', () => {
     expect(m.products).toEqual(['בקר 504', 'E360CT']);
     expect(m.cells).toEqual([[3, 12], [0, 0]]);
     expect(m.totals).toEqual([15, 0]);
+  });
+});
+
+// ───────────────────────── task L3: the order machine ─────────────────────────
+const o = (x: Partial<{ id: string; status: string; items: Array<{ name: string; qty: number }>; orderType: string; kibbutz: string; assignee: string; notes: string; supplier: string; createdBy: string }>) =>
+  ({ id: 'o1', status: 'pending_approval', items: [{ name: 'בקר 504', qty: 4 }], ...x }) as any;
+
+describe('approval rights (O9) — 5 users × 4 kinds', () => {
+  const kinds = {
+    small: o({ orderType: 'supplier' }),
+    big: o({ orderType: 'supplier', items: [{ name: 'x', qty: 11 }] }),
+    cust: o({ orderType: 'customer', kibbutz: 'חוקוק' }),
+    drop: o({ orderType: 'customer', kibbutz: 'חוקוק', assignee: 'ספק ישיר' }),
+  };
+  const want: Record<string, Record<string, boolean>> = {
+    'עידן': { small: false, big: false, cust: false, drop: false },
+    'עמיחי': { small: true, big: true, cust: true, drop: true },
+    'אביאם': { small: true, big: false, cust: true, drop: true },
+    'ניתאי': { small: false, big: false, cust: true, drop: true },
+    'אבצן': { small: false, big: false, cust: false, drop: false },
+  };
+  for (const [me, row] of Object.entries(want)) {
+    for (const [k, ok] of Object.entries(row)) {
+      it(`${me} × ${k} → ${ok}`, () => expect(canApproveThisOrder((kinds as any)[k], me)).toBe(ok));
+    }
+  }
+  it('waiting texts', () => {
+    expect(approvalWaitingMsg(kinds.cust)).toBe('ממתין לאישור אביאם או ניתאי');
+    expect(approvalWaitingMsg(kinds.big)).toBe('מעל 10 פריטים, ממתין לאישור עמיחי');
+    expect(approvalWaitingMsg(kinds.small)).toBe('ממתין לאישור אביאם');
+  });
+});
+
+describe('orderType / orderKibbutz / isDirectSupply fallbacks (O6-O8)', () => {
+  it('notes mark a customer order', () => expect(orderType({ notes: 'בקשת לקוח: גבים' } as any)).toBe('customer'));
+  it('kibbutz from the field, then from notes, then from the linked requirement', () => {
+    expect(orderKibbutz({ id: 'a', kibbutz: 'חוקוק' } as any, [])).toBe('חוקוק');
+    expect(orderKibbutz({ id: 'a', notes: 'בקשת לקוח — גבים (דני)' } as any, [])).toBe('גבים');
+    expect(orderKibbutz({ id: 'a' } as any, [{ id: 'r', linkedOrderId: 'a', kibbutz: 'יגור' }])).toBe('יגור');
+  });
+  it('drop-ship needs BOTH customer type and the ספק ישיר assignee', () => {
+    expect(isDirectSupply(o({ orderType: 'customer', assignee: 'ספק ישיר' }))).toBe(true);
+    expect(isDirectSupply(o({ orderType: 'supplier', assignee: 'ספק ישיר' }))).toBe(false);
+  });
+});
+
+describe('quick actions + סימון כתקוע (O4, O5)', () => {
+  it('supplier chain', () => {
+    expect(['pending', 'in_transit', 'at_port', 'stuck', 'arrived', 'delivered'].map(s =>
+      quickAction(o({ orderType: 'supplier', status: s }))?.next ?? null),
+    ).toEqual(['in_transit', 'at_port', 'arrived', 'arrived', 'delivered', null]);
+  });
+  it('customer orders have no quick action', () => expect(quickAction(o({ orderType: 'customer', status: 'pending' }))).toBeNull());
+  it('stuck is offered except on delivered/supplied/stuck/pending_approval', () => {
+    expect(['pending', 'in_transit', 'at_port', 'arrived', 'delivered', 'supplied', 'stuck', 'pending_approval']
+      .map(s => canMarkStuck(o({ orderType: 'supplier', status: s })))).toEqual([true, true, true, true, false, false, false, false]);
+  });
+});
+
+describe('editStatusOptions (O18a/O18b fix)', () => {
+  it('no picker while pending_approval', () => expect(editStatusOptions(o({ status: 'pending_approval' }))).toEqual([]));
+  it('supplier keeps arrived as a real option (O18a)', () => expect(editStatusOptions(o({ orderType: 'supplier', status: 'arrived' }))).toContain('arrived'));
+  it('customer only ever offers supplied', () => expect(editStatusOptions(o({ orderType: 'customer', status: 'supplied' }))).toEqual(['supplied']));
+});
+
+describe('distinctSuppliers / orderFormFields', () => {
+  it('distinctSuppliers: unique, he-sorted', () => {
+    expect(distinctSuppliers([o({ supplier: 'לנדיס' }), o({ supplier: 'סאטק' }), o({ supplier: 'לנדיס' }), o({ supplier: '' })])).toEqual(['לנדיס', 'סאטק']);
+  });
+  it('orderFormFields: supplier field for a supplier order OR a customer drop-ship', () => {
+    expect(orderFormFields('supplier', undefined, 'עידן', true)).toMatchObject({ supplier: true, kibbutz: false });
+    expect(orderFormFields('customer', 'ספק ישיר', 'עידן', true)).toMatchObject({ supplier: true, kibbutz: true });
+    expect(orderFormFields('customer', undefined, 'עידן', true)).toMatchObject({ supplier: false, kibbutz: true, assignee: true });
+    expect(orderFormFields('customer', undefined, 'אביאם', true)).toMatchObject({ assignee: false });
+  });
+});
+
+describe('orderStatusPlan (D6 fix)', () => {
+  const ctx = (movements: any[] = []) => ({ me: 'עמיחי', movements, requirements: [{ id: 'r1', linkedOrderId: 'ord-3', status: 'in_progress' }] });
+  const arrived = o({ id: 'ord-3', orderType: 'supplier', status: 'arrived', items: [{ name: 'E360PP', qty: 20 }] });
+  it('posts delivery rows once and fulfils linked requirements', () => {
+    const p = orderStatusPlan(arrived, 'delivered', ctx());
+    expect(p.movements).toEqual([{ product: 'E360PP', fromLocation: 'ספק', toLocation: 'חברה', quantity: 20, reason: 'order_delivery', refId: 'ord-3', createdBy: 'עמיחי' }]);
+    expect(p.fulfil).toEqual(['r1']);
+  });
+  it('posts nothing when the ledger already has them', () => {
+    expect(orderStatusPlan(arrived, 'delivered', ctx([{ refId: 'ord-3', reason: 'order_delivery' }])).movements).toEqual([]);
+  });
+  it('non-delivery transitions post nothing', () => expect(orderStatusPlan(arrived, 'stuck', ctx()).movements).toEqual([]));
+  it('parseInt quantity like the legacy delivery (2.5 → 2)', () => {
+    expect(orderStatusPlan(o({ ...arrived, items: [{ name: 'X', qty: '2.5' as any }] }), 'delivered', ctx()).movements[0].quantity).toBe(2);
+  });
+  it('a customer order never delivers via this path (customer orders use approvalPlan, not orderStatusPlan)', () => {
+    expect(orderStatusPlan(o({ orderType: 'customer', status: 'supplied' }), 'delivered', ctx()).movements).toEqual([]);
+  });
+});
+
+describe('orderSavePlan (O16-O19, O27-O28, O18a/O18b fixed)', () => {
+  const base = { orderType: 'supplier' as const, supplier: 'לנדיס', createdBy: 'עמיחי', items: [{ name: 'בקר 504', qty: 3 }] };
+  const ctx = { catalog: ['בקר 504'], movements: [], requirements: [], me: 'עמיחי' };
+  it('a new order is always pending_approval and pushes', () => {
+    const p = orderSavePlan({ ...base, status: 'delivered' } as any, ctx);
+    expect([p.body.status, p.pushPending, p.delivery]).toEqual(['pending_approval', true, false]);
+  });
+  it('raw text goes into the notes and into a learn row of base items only', () => {
+    const p = orderSavePlan({ ...base, raw: '3 בקרים', items: [...base.items, { name: 'בקר 504', qty: 1, auto: true }] } as any, ctx);
+    expect(p.body.notes).toBe('📥 דרישת לקוח גולמית:\n3 בקרים');
+    expect(p.learn).toEqual({ rawText: '3 בקרים', items: [{ name: 'בקר 504', qty: 3 }] });
+  });
+  it('blocks non-catalog lines (O27 ruling: no add-to-catalog path)', () => {
+    const p = orderSavePlan({ ...base, items: [{ name: 'פריט חדש', qty: 1 }] } as any, ctx);
+    expect(p.unknown).toEqual(['פריט חדש']);
+    expect(p.errors[0]).toBe('פריטים שלא בקטלוג: פריט חדש. אפשר להסיר אותם מההזמנה');
+  });
+  it('O18b fix: editing a pending_approval order keeps its status', () => {
+    expect(orderSavePlan({ ...base, id: 'x', origStatus: 'pending_approval', status: '' } as any, ctx).body.status).toBe('pending_approval');
+  });
+  it('O18a fix: an arrived order saved unchanged stays arrived and posts nothing', () => {
+    const p = orderSavePlan({ ...base, id: 'x', origStatus: 'arrived', status: 'arrived' } as any, ctx);
+    expect([p.body.status, p.delivery]).toEqual(['arrived', false]);
+  });
+  it('editing to delivered for real DOES set delivery=true', () => {
+    const p = orderSavePlan({ ...base, id: 'x', origStatus: 'arrived', status: 'delivered' } as any, ctx);
+    expect([p.body.status, p.delivery]).toEqual(['delivered', true]);
+  });
+  it('errors match the legacy order', () => {
+    expect(orderSavePlan({ ...base, items: [] } as any, ctx).errors[0]).toBe('צריך לפחות פריט אחד');
+    expect(orderSavePlan({ ...base, items: [{ name: '', qty: 1, choose: ['ספק כוח פס-דין', 'ספק כוח שקע'] }] } as any, ctx).errors[0])
+      .toBe('יש שורת ספק כוח בלי סוג. בחירה: ספק כוח פס-דין או ספק כוח שקע');
+    expect(orderSavePlan({ ...base, createdBy: '' } as any, ctx).errors[0]).toBe('חסר מי יצר את ההזמנה');
+    expect(orderSavePlan({ ...base, orderType: 'customer', kibbutz: '' } as any, ctx).errors.at(-1)).toBe('חסר קיבוץ להזמנת לקוח');
+  });
+});
+
+describe('approvalPlan (O11-O13)', () => {
+  const ctx = { me: 'ניתאי', movements: [], requirements: [{ id: 'r1', linkedOrderId: 'c', status: 'in_progress' }], hasSite: (k: string) => k !== 'בלי-אתר' };
+  it('customer: movements, EMS text byte-exact, supplied, fulfil', () => {
+    const p = approvalPlan(o({ id: 'c', orderType: 'customer', kibbutz: 'חוקוק', items: [{ name: 'A', qty: 2 }] }), ctx);
+    expect(p.kind).toBe('customer');
+    expect(p.patch).toEqual({ status: 'supplied' });
+    expect(p.fulfil).toEqual(['r1']);
+    expect(p.ems).toEqual({ kind: 'createTask', kibbutz: 'חוקוק', title: 'אספקת ציוד: חוקוק', description: 'אספקת ציוד לחוקוק: אושר ע"י ניתאי\n• A ×2', assigneeName: 'ניתאי' });
+  });
+  it('the site gate blocks', () => {
+    expect(approvalPlan(o({ orderType: 'customer', kibbutz: 'בלי-אתר' }), ctx).error)
+      .toBe('לקיבוץ "בלי-אתר" אין אתר EMS מקושר. צריך לקשר או ליצור את האתר ב-EMS לפני אישור ההזמנה.');
+  });
+  it('drop-ship: no movement, no EMS', () => {
+    const p = approvalPlan(o({ id: 'c', orderType: 'customer', kibbutz: 'חוקוק', assignee: 'ספק ישיר' }), ctx);
+    expect([p.kind, p.movements, p.ems]).toEqual(['dropship', [], undefined]);
+  });
+  it('supplier → pending', () => expect(approvalPlan(o({ orderType: 'supplier' }), { ...ctx, me: 'אביאם' }).patch).toEqual({ status: 'pending' }));
+  it('no permission', () => expect(approvalPlan(o({ orderType: 'supplier' }), { ...ctx, me: 'עידן' }).error).toBe('אין הרשאה לאשר את ההזמנה הזו. ממתין לאישור אביאם'));
+});
+
+describe('notices (O14, O15)', () => {
+  it('first run seeds and shows nothing', () => expect(freshApprovedOrders([o({ id: 'a', status: 'pending' })], null, 'אביאם')).toEqual({ seed: ['a'], fresh: [] }));
+  it('fresh = approved, unseen, not mine', () => {
+    expect(freshApprovedOrders(
+      [o({ id: 'a', status: 'pending' }), o({ id: 'b', status: 'pending', createdBy: 'אביאם' }), o({ id: 'c' })],
+      [], 'אביאם',
+    ).fresh.map((x: any) => x.id)).toEqual(['a']);
+  });
+  it('amichaiPending lists only >10 supplier orders, only for עמיחי', () => {
+    const big = o({ orderType: 'supplier', items: [{ name: 'x', qty: 11 }] });
+    expect(amichaiPending([big, o({})], 'עמיחי')).toEqual([big]);
+    expect(amichaiPending([big], 'אביאם')).toEqual([]);
+  });
+});
+
+describe('restockPlan (S18)', () => {
+  it('kibbutz → חברה once', () => {
+    const r = { id: 'ret-1', kibbutz: 'חוקוק', product: 'A', qty: 1, status: 'open' };
+    expect(restockPlan(r, { me: 'עידן', movements: [] }).movements).toEqual([
+      { product: 'A', fromLocation: 'חוקוק', toLocation: 'חברה', quantity: 1, reason: 'return_restock', refId: 'ret-1', createdBy: 'עידן' },
+    ]);
+    expect(restockPlan(r, { me: 'עידן', movements: [{ refId: 'ret-1', reason: 'return_restock' }] }).error).toBe('הפריט כבר הוחזר למלאי, לא נרשמה תנועה נוספת');
+    expect(restockPlan({ ...r, kibbutz: '' }, { me: 'עידן', movements: [] }).error).toBe('לא ידוע מאיזה קיבוץ הוחזר הפריט, אי אפשר להחזיר למלאי');
   });
 });

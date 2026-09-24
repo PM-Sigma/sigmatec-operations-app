@@ -52,13 +52,28 @@ export function legacy08(movements, products, user = 'עמיחי') {
   };
 }
 
+/** Evaluate the CURRENT js/src/07-orders.js's parseLocalToItems for real (task L4). */
+export function legacy07Parse(text, catalog) {
+  const src = read('js/src/07-orders.js') + '\nreturn { parseLocalToItems };';
+  const fn = new Function('window', 'document', 'getActiveProducts', 'getCurrentUser', 'localStorage', src);
+  const api = fn(
+    { SHEET_DATA: { requirements: [] } }, { querySelectorAll: () => [] },
+    () => catalog.map(name => ({ name })), () => 'עמיחי', { getItem: () => null, setItem() {} },
+  );
+  return api.parseLocalToItems(text);
+}
+
 function main() {
   const { ledgers, products } = JSON.parse(read('app/src/lib/__fixtures__/inventory/ledgers.json'));
+  const corpus = JSON.parse(read('app/src/lib/__fixtures__/inventory/parse-corpus.json'));
   const out = {};
   for (const [name, rows] of Object.entries(ledgers)) out[name] = legacy08(rows, products, 'עמיחי');
+  out.parse = {};
+  for (const text of corpus.texts) out.parse[text] = legacy07Parse(text, corpus.catalog);
   out.recordedFrom = createHash('sha1').update(read('js/src/08-inventory.js')).digest('hex');
+  out.recordedFrom07 = createHash('sha1').update(read('js/src/07-orders.js')).digest('hex');
   writeFileSync(root + 'app/src/lib/__fixtures__/inventory/legacy-goldens.json', JSON.stringify(out, null, 2) + '\n');
-  console.log('recorded', Object.keys(out).length - 1, 'ledgers from the legacy 08-inventory.js (sha ' + out.recordedFrom.slice(0, 8) + ')');
+  console.log('recorded', Object.keys(ledgers).length, 'ledgers (08) +', corpus.texts.length, 'parse corpus texts (07)');
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) main();

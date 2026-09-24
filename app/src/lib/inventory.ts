@@ -14,6 +14,9 @@
 // The legacy modules (js/src/07-orders.js, 08-inventory.js, 09-visits.js) hold the same rules
 // in their own vanilla code; test-inventory-pool.mjs evaluates THOSE against the same goldens,
 // so the two halves cannot drift apart silently.
+//
+// Split out for size only (task L4) — this is still the ONE import path (`export *`):
+export * from './orderParse';
 
 /** The one internal stock location. Everything the company holds is here. */
 export const POOL = 'חברה';
@@ -434,3 +437,290 @@ export function kibbutzCsvRows(stock: Record<string, Record<string, number>>): A
 /** csvText(): invDownloadCSV's byte encoding — BOM + quoted, comma-joined, `"` doubled (S14). */
 export const csvText = (rows: ReadonlyArray<ReadonlyArray<string | number>>): string =>
   '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+// ───────────────────────────── §7 the order machine (task L3) ─────────────────────────────
+// Ported 1:1 from js/src/07-orders.js (getOrderQuickAction, orderType/orderKibbutz/
+// isDirectSupply/orderNeedsAmichai/canApproveThisOrder/approvalWaitingMsg, distinctSuppliers,
+// approveSupplierOrder/approveCustomerOrder, invSaveOrder) and 05-meeting-returns.js
+// (returnToStock). Copy is cleaned up per the round-5 copy gate; the RULES are the same, with
+// D6/O18a/O18b FIXED (each a named test against the old value, per §10 risk 11).
+
+export const ORDER_STATUS_LABEL: Record<string, string> = {
+  pending_approval: 'ממתינה לאישור',
+  pending: 'ממתין להזמנה',
+  in_transit: 'בדרך',
+  stuck: 'תקוע',
+  at_port: 'בנמל',
+  arrived: 'הגיעה',
+  delivered: 'סופקה',
+  supplied: 'סופק ללקוח',
+};
+export const CLOSED_STATUSES = ['delivered', 'supplied', 'cancelled', 'deleted'];
+
+export function orderType(o: Pick<OrderLike, 'orderType'> & { notes?: string } | null | undefined): 'customer' | 'supplier' {
+  return (o?.orderType as 'customer' | 'supplier') || (/בקשת לקוח/.test(o?.notes || '') ? 'customer' : 'supplier');
+}
+export function isDirectSupply(o: OrderLike & { notes?: string } | null | undefined): boolean {
+  return orderType(o) === 'customer' && String(o?.assignee ?? '') === 'ספק ישיר';
+}
+export function orderKibbutz(o: OrderLike | null | undefined, reqs: ReadonlyArray<ReqLike> | null | undefined): string {
+  if (o?.kibbutz) return o.kibbutz;
+  const m = /בקשת לקוח\s*[—-]\s*([^\n(]+)/.exec(String((o as any)?.notes || ''));
+  if (m) return m[1].trim();
+  const req = (reqs || []).find(r => r.linkedOrderId === o?.id && r.kibbutz);
+  return req?.kibbutz || '';
+}
+export function orderTotalQty(o: OrderLike | null | undefined): number {
+  return (o?.items || []).reduce((s, i) => s + (parseInt(String(i?.qty ?? ''), 10) || 0), 0);
+}
+export function orderNeedsAmichai(o: OrderLike & { notes?: string } | null | undefined): boolean {
+  return orderType(o) === 'supplier' && orderTotalQty(o) > 10;
+}
+export function canApproveThisOrder(o: OrderLike & { notes?: string } | null | undefined, me: string): boolean {
+  if (me === 'עמיחי') return true;
+  if (orderType(o) === 'customer') return me === 'אביאם' || me === 'ניתאי';
+  return orderTotalQty(o) <= 10 && me === 'אביאם';
+}
+export function approvalWaitingMsg(o: OrderLike & { notes?: string } | null | undefined): string {
+  if (orderType(o) === 'customer') return 'ממתין לאישור אביאם או ניתאי';
+  return orderNeedsAmichai(o) ? 'מעל 10 פריטים, ממתין לאישור עמיחי' : 'ממתין לאישור אביאם';
+}
+export const canApproveOrders = (me: string): boolean => me === 'אביאם' || me === 'עמיחי' || me === 'ניתאי';
+
+/** getOrderQuickAction (O4): the one-tap advance for a supplier order. Customer orders have none. */
+export function quickAction(o: OrderLike & { notes?: string } | null | undefined): { next: string; label: string } | null {
+  if (orderType(o) === 'customer') return null;
+  switch (o?.status) {
+    case 'pending': return { next: 'in_transit', label: 'הוזמן' };
+    case 'in_transit': return { next: 'at_port', label: 'בנמל' };
+    case 'at_port': return { next: 'arrived', label: 'התקבל' };
+    case 'stuck': return { next: 'arrived', label: 'התקבל' };
+    case 'arrived': return { next: 'delivered', label: 'נכנס למלאי' };
+    default: return null;
+  }
+}
+export function canMarkStuck(o: OrderLike & { notes?: string } | null | undefined): boolean {
+  if (orderType(o) === 'customer') return false;
+  const blocked = ['delivered', 'supplied', 'stuck', 'pending_approval'];
+  return !blocked.includes(String(o?.status ?? ''));
+}
+
+/** editStatusOptions: what the edit sheet's status picker offers. `[]` while pending_approval —
+ * O18b's fix is "no picker", not "a picker with a status that doesn't exist". */
+export function editStatusOptions(o: OrderLike & { notes?: string } | null | undefined): string[] {
+  if (o?.status === 'pending_approval') return [];
+  return orderType(o) === 'customer'
+    ? ['supplied']
+    : ['pending', 'in_transit', 'stuck', 'at_port', 'arrived', 'delivered'];
+}
+
+export function filterOrders(orders: ReadonlyArray<OrderLike> | null | undefined, filter: string): OrderLike[] {
+  const open = (orders || []).filter(o => o.status !== 'deleted');
+  if (filter === 'all') return open;
+  if (filter) return open.filter(o => o.status === filter);
+  return open.filter(o => !CLOSED_STATUSES.includes(String(o.status)));
+}
+
+export function distinctSuppliers(orders: ReadonlyArray<OrderLike> | null | undefined): string[] {
+  const seen = new Set<string>();
+  for (const o of orders || []) { const s = String(o.supplier ?? '').trim(); if (s) seen.add(s); }
+  return [...seen].sort((a, b) => a.localeCompare(b, 'he'));
+}
+
+export interface DraftItem { name: string; qty: number; auto?: boolean; choose?: string[]; label?: string }
+export function newItemRow(catalog: ReadonlyArray<string>): DraftItem {
+  return { name: catalog[0] || 'מונה 360PP', qty: 1 };
+}
+
+export function orderFormFields(
+  type: 'customer' | 'supplier', assignee: string | undefined, me: string, isNew: boolean,
+): { supplier: boolean; kibbutz: boolean; assignee: boolean; raw: boolean } {
+  const isCust = type === 'customer';
+  const isDirect = isCust && assignee === 'ספק ישיר';
+  return {
+    supplier: !isCust || isDirect,
+    kibbutz: isCust,
+    assignee: isCust && (me === 'עידן' || me === 'עמיחי'),
+    raw: isNew,
+  };
+}
+
+// ── approval ──
+
+export interface ReqLike { id: string; kibbutz?: string; linkedOrderId?: string; status?: string }
+export interface Ctx { me: string; movements: ReadonlyArray<Partial<Movement>>; requirements: ReadonlyArray<ReqLike>; hasSite?: (k: string) => boolean }
+export interface EmsTaskPlan { kind: 'createTask'; kibbutz: string; title: string; description: string; assigneeName: string }
+export interface ApprovalPlan {
+  kind: 'supplier' | 'dropship' | 'customer'; error?: string; confirm: string;
+  patch: { status: 'pending' | 'supplied' }; movements: Movement[]; ems?: EmsTaskPlan; fulfil: string[];
+}
+
+/** approvalPlan (O10-O13): what אישור/אישור ואספקה does, for every order kind. */
+export function approvalPlan(o: OrderLike & { notes?: string } | null | undefined, ctx: Ctx): ApprovalPlan {
+  if (!canApproveThisOrder(o, ctx.me)) {
+    return { kind: 'supplier', error: 'אין הרשאה לאשר את ההזמנה הזו. ' + approvalWaitingMsg(o), confirm: '', patch: { status: 'pending' }, movements: [], fulfil: [] };
+  }
+  if (orderType(o) === 'customer') {
+    if (isDirectSupply(o)) {
+      const fulfil = ctx.requirements.filter(r => r.linkedOrderId === o?.id && r.status !== 'fulfilled').map(r => r.id);
+      return {
+        kind: 'dropship',
+        confirm: 'לאשר אספקה ישירה מהספק' + (o?.supplier ? ' (' + o.supplier + ')' : '') + '?\nלא יירד מהמלאי ולא תיפתח משימת EMS, ההזמנה תסומן "סופק ללקוח".',
+        patch: { status: 'supplied' }, movements: [], fulfil,
+      };
+    }
+    const kibbutz = orderKibbutz(o, ctx.requirements);
+    if (!kibbutz) return { kind: 'customer', error: 'לא זוהה קיבוץ להזמנה, לא ניתן לאשר אספקת לקוח.', confirm: '', patch: { status: 'supplied' }, movements: [], fulfil: [] };
+    if (ctx.hasSite && !ctx.hasSite(kibbutz)) {
+      return { kind: 'customer', error: `לקיבוץ "${kibbutz}" אין אתר EMS מקושר. צריך לקשר או ליצור את האתר ב-EMS לפני אישור ההזמנה.`, confirm: '', patch: { status: 'supplied' }, movements: [], fulfil: [] };
+    }
+    const items = orderItems(o);
+    if (!items.length) return { kind: 'customer', error: 'אין פריטים בהזמנה.', confirm: '', patch: { status: 'supplied' }, movements: [], fulfil: [] };
+    const already = alreadyPosted(ctx.movements, String(o?.id ?? ''), 'customer_supply');
+    const movements = already ? [] : orderApprovalRows(o, ctx.me);
+    const responsible = o?.assignee || ctx.me;
+    // The EMS description lists the RAW (unmerged) lines, in order — byte-exact with 07:564.
+    const rawLines = (o?.items || []).filter(i => i?.name && (parseInt(String(i.qty ?? ''), 10) || 0) > 0);
+    const description = `אספקת ציוד ל${kibbutz}: אושר ע"י ${ctx.me}` + (o?.assignee ? ` · אחראי: ${o.assignee}` : '') +
+      '\n' + rawLines.map(i => `• ${i.name} ×${i.qty}`).join('\n');
+    const fulfil = ctx.requirements.filter(r => r.linkedOrderId === o?.id && r.status !== 'fulfilled').map(r => r.id);
+    return {
+      kind: 'customer',
+      confirm: `לאשר אספקת לקוח?\nירד ממלאי החברה → "${kibbutz}", ותיפתח משימת "אספקת ציוד" ב-EMS` + (o?.assignee ? ` באחריות ${o.assignee}` : '') + '.',
+      patch: { status: 'supplied' }, movements,
+      ems: { kind: 'createTask', kibbutz, title: 'אספקת ציוד: ' + kibbutz, description, assigneeName: responsible },
+      fulfil,
+    };
+  }
+  // supplier
+  return { kind: 'supplier', confirm: 'לאשר הזמנת ספק? תעבור ל"ממתין להזמנה".', patch: { status: 'pending' }, movements: [], fulfil: [] };
+}
+
+// ── save ──
+
+export interface OrderDraft {
+  id?: string; orderType: 'supplier' | 'customer'; supplier?: string; kibbutz?: string; assignee?: string;
+  expectedDate?: string; notes?: string; raw?: string; status?: string; origStatus?: string;
+  createdBy?: string; items: Array<DraftItem>; importedReqIds?: string[];
+}
+export interface SavePlan {
+  errors: string[]; unknown: string[]; body: Record<string, unknown>; delivery: boolean; fulfil: string[];
+  reqLinks: Array<{ id: string; status: string; linkedOrderId: string }>;
+  learn?: { rawText: string; items: Array<{ name: string; qty: number }> }; pushPending: boolean;
+}
+export interface SaveCtx { catalog: ReadonlyArray<string>; movements: ReadonlyArray<Partial<Movement>>; requirements: ReadonlyArray<ReqLike>; me: string }
+
+/** orderSavePlan (O16-O19, O27-O28; D6/O18a/O18b fixed): what 💾 שמור הזמנה does. */
+export function orderSavePlan(draft: OrderDraft, ctx: SaveCtx): SavePlan {
+  const errors: string[] = [];
+  // O27 (ruling: no add-to-catalog): a non-catalog line blocks save; the only recovery is
+  // removing it, never adding it.
+  const unknown = [...new Set(draft.items.filter(it => it.name && !ctx.catalog.includes(it.name)).map(it => it.name))];
+  if (unknown.length) errors.push('פריטים שלא בקטלוג: ' + unknown.join(', ') + '. אפשר להסיר אותם מההזמנה');
+  if (!draft.items.length) errors.unshift('צריך לפחות פריט אחד');
+  const unresolvedChoice = draft.items.find(it => !it.name && it.choose && it.choose.length);
+  if (unresolvedChoice) errors.unshift(`יש שורת ספק כוח בלי סוג. בחירה: ${unresolvedChoice.choose!.join(' או ')}`);
+  if (!draft.createdBy) errors.push('חסר מי יצר את ההזמנה');
+  if (draft.orderType === 'customer' && !draft.id && !draft.kibbutz) errors.push('חסר קיבוץ להזמנת לקוח');
+
+  // O18b fix: an existing pending_approval order keeps that status no matter what the picker
+  // shows (there is no matching option for it, so its "value" is not to be trusted).
+  const status = !draft.id
+    ? 'pending_approval'
+    : (draft.origStatus === 'pending_approval' ? 'pending_approval' : (draft.status || draft.origStatus || 'pending'));
+  // O18a fix: unchanged from arrived stays arrived — "delivered" only counts as a REAL
+  // transition, not the dropdown's stale display value.
+  const delivery = !!draft.id && status === 'delivered' && draft.origStatus !== 'delivered';
+
+  const baseItems = draft.items.filter(it => !it.auto && it.name).map(it => ({ name: it.name, qty: it.qty }));
+  let notes = (draft.notes || '').trim();
+  if (!draft.id && draft.raw) notes = (notes ? notes + '\n' : '') + '📥 דרישת לקוח גולמית:\n' + draft.raw;
+
+  const body: Record<string, unknown> = {
+    status, items: draft.items.filter(it => it.name).map(it => ({ name: it.name, qty: it.qty })),
+    supplier: draft.supplier || '', notes, createdBy: draft.createdBy, orderType: draft.orderType,
+  };
+  if (draft.orderType === 'customer' && draft.kibbutz) body.kibbutz = draft.kibbutz;
+  if (draft.assignee) body.assignee = draft.assignee;
+
+  const fulfil: string[] = [];
+  const reqLinks: SavePlan['reqLinks'] = [];
+  if (draft.importedReqIds?.length && (draft.id || true)) {
+    const reqStatus = status === 'delivered' ? 'fulfilled' : 'in_progress';
+    for (const rid of draft.importedReqIds) reqLinks.push({ id: rid, status: reqStatus, linkedOrderId: draft.id || '' });
+  }
+  if (delivery) {
+    for (const r of ctx.requirements) if (r.linkedOrderId === draft.id && r.status !== 'fulfilled') fulfil.push(r.id);
+  }
+
+  return {
+    errors, unknown, body, delivery, fulfil, reqLinks,
+    learn: draft.raw ? { rawText: draft.raw, items: baseItems } : undefined,
+    pushPending: !draft.id,
+  };
+}
+
+export interface StatusPlan { error?: string; patch: { status: string }; movements: Movement[]; fulfil: string[] }
+
+/** orderStatusPlan (D6 fix): quickAction()/quickOrderStatus's target behaviour — arrived→delivered
+ * posts the ONE ספק→חברה line per item (today's quickOrderStatus posts nothing at all). */
+export function orderStatusPlan(o: OrderLike & { notes?: string } | null | undefined, next: string, ctx: Ctx): StatusPlan {
+  const isDelivery = next === 'delivered' && orderType(o) !== 'customer';
+  if (!isDelivery) return { patch: { status: next }, movements: [], fulfil: [] };
+  const already = alreadyPosted(ctx.movements, String(o?.id ?? ''), 'order_delivery');
+  const items: Array<[string, number]> = [];
+  for (const it of o?.items || []) {
+    const name = String(it?.name ?? '').trim();
+    const q = parseInt(String(it?.qty ?? ''), 10) || 0;
+    if (!name || q <= 0) continue;
+    const hit = items.find(([n]) => n === name);
+    if (hit) hit[1] += q; else items.push([name, q]);
+  }
+  const movements: Movement[] = already ? [] : items.map(([product, quantity]) => ({
+    product, fromLocation: SUPPLIER_LOC, toLocation: POOL, quantity, reason: 'order_delivery',
+    refId: String(o?.id ?? ''), createdBy: ctx.me,
+  }));
+  const fulfil = ctx.requirements.filter(r => r.linkedOrderId === o?.id && r.status !== 'fulfilled').map(r => r.id);
+  return { patch: { status: next }, movements, fulfil };
+}
+
+// ── notices ──
+
+export function amichaiPending(orders: ReadonlyArray<OrderLike & { notes?: string }> | null | undefined, me: string): OrderLike[] {
+  if (me !== 'עמיחי') return [];
+  return (orders || []).filter(o => o.status === 'pending_approval' && orderNeedsAmichai(o));
+}
+
+export interface FreshApproved { seed: string[]; fresh: OrderLike[] }
+/** freshApprovedOrders (O15): first run seeds (never floods); afterwards, approved + unseen +
+ * not-mine is "fresh". */
+export function freshApprovedOrders(
+  orders: ReadonlyArray<OrderLike & { createdBy?: string }> | null | undefined,
+  seen: ReadonlyArray<string> | null, me: string,
+): FreshApproved {
+  const approved = (orders || []).filter(o => o.status && !['pending_approval', 'deleted'].includes(String(o.status)));
+  if (seen === null) return { seed: approved.map(o => String(o.id)), fresh: [] };
+  const fresh = approved.filter(o => !seen.includes(String(o.id)) && (o as any).createdBy !== me);
+  return { seed: [], fresh };
+}
+
+// ── returns (S18) ──
+
+export interface ReturnLike { id: string; kibbutz?: string; product: string; qty: number; status?: string }
+export interface RestockPlan { error?: string; movements: Movement[]; patch?: { status: 'restocked' } }
+
+/** restockPlan (S18): ✅ החזר למלאי — <kibbutz> → חברה, once (refId+reason guard, same as every
+ * other movement path). */
+export function restockPlan(r: ReturnLike, ctx: { me: string; movements: ReadonlyArray<Partial<Movement>> }): RestockPlan {
+  const qty = Number(r.qty) || 0;
+  if (qty <= 0) return { error: 'כמות לא תקינה', movements: [] };
+  const from = String(r.kibbutz ?? '').trim();
+  if (!from) return { error: 'לא ידוע מאיזה קיבוץ הוחזר הפריט, אי אפשר להחזיר למלאי', movements: [] };
+  if (alreadyPosted(ctx.movements, r.id, 'return_restock')) {
+    return { error: 'הפריט כבר הוחזר למלאי, לא נרשמה תנועה נוספת', movements: [] };
+  }
+  return {
+    movements: [{ product: r.product, fromLocation: from, toLocation: POOL, quantity: qty, reason: 'return_restock', refId: r.id, createdBy: ctx.me }],
+    patch: { status: 'restocked' },
+  };
+}

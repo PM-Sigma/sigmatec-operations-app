@@ -358,5 +358,112 @@
       ]
     ]
   },
-  "recordedFrom": "f17d12e0f5a25e5175fc21399ea60c4ed818d0d7"
+  "parse": {
+    "5 סאטק": [
+      {
+        "name": "Satec EM133",
+        "qty": 5,
+        "uncertain": false
+      }
+    ],
+    "3 משנז 400": [
+      {
+        "name": "משנ\"ז 400",
+        "qty": 3,
+        "uncertain": false
+      }
+    ],
+    "מונה לנדיס": [
+      {
+        "name": "מונה Landis+Gyr E360PP",
+        "qty": 1,
+        "uncertain": true
+      }
+    ],
+    "4 מונים תלת פזי\nמונה משנה זרם": [
+      {
+        "name": "Landis+Gyr E360CT",
+        "qty": 1,
+        "uncertain": true
+      },
+      {
+        "name": "מונה Landis+Gyr E360PP",
+        "qty": 4,
+        "uncertain": false
+      }
+    ],
+    "מונה סאטק 133 משנז": [
+      {
+        "name": "Satec EM133 משנ\"ז",
+        "qty": 1,
+        "uncertain": true
+      }
+    ],
+    "2 משנז 250": [
+      {
+        "name": "משנ\"ז 250",
+        "qty": 2,
+        "uncertain": false
+      }
+    ],
+    "סאטק משני זרם": [
+      {
+        "name": "Satec EM133",
+        "qty": 1,
+        "uncertain": true
+      }
+    ],
+    "EM133 משנז": [
+      {
+        "name": "Satec EM133 משנ\"ז",
+        "qty": 1,
+        "uncertain": true
+      }
+    ],
+    "3 מונים לפה ו-2 שם, סה\"כ 6 מונים": [
+      {
+        "name": "מונה Landis+Gyr E360PP",
+        "qty": 6,
+        "uncertain": false
+      }
+    ],
+    "שני מונים חד פאזי": [
+      {
+        "name": "מונה Landis+Gyr E360SP",
+        "qty": 2,
+        "uncertain": false
+      }
+    ],
+    "5 קרלו": [
+      {
+        "name": "Carlo Gavazzi E341",
+        "qty": 5,
+        "uncertain": false
+      }
+    ],
+    "2 בקרים רובסטל": [
+      {
+        "name": "Robustel Controller",
+        "qty": 2,
+        "uncertain": false
+      }
+    ],
+    "שלושה PM135": [
+      {
+        "name": "Satec PM135",
+        "qty": 3,
+        "uncertain": false
+      }
+    ],
+    "לנדיס ישיר לקו 7": [
+      {
+        "name": "מונה Landis+Gyr E360PP",
+        "qty": 1,
+        "uncertain": true
+      }
+    ],
+    "בקשה בלי פריטים": []
+  },
+  "recordedFrom": "f17d12e0f5a25e5175fc21399ea60c4ed818d0d7",
+  "recordedFrom07": "328423a3432c11c91de9e98c75389a2d7c50f4b4"
 }
