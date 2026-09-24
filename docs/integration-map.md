@@ -154,7 +154,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-attendance` | :465 | app/src/islands/Attendance.tsx:644<br>app/src/main.tsx:234 |
 | `#sigma-burns` | :295 | app/src/islands/Burns.tsx:87<br>app/src/main.tsx:169 |
 | `#sigma-burns-modal` | :647 | app/src/main.tsx:169 |
-| `#sigma-burns-page` | :597 | app/src/islands/BurnsPage.tsx:369<br>app/src/main.tsx:253 |
+| `#sigma-burns-page` | :597 | app/src/islands/BurnsPage.tsx:378<br>app/src/main.tsx:253 |
 | `#sigma-calendar` | :550 | app/src/islands/Calendar.tsx:1578<br>app/src/main.tsx:267 |
 | `#sigma-ceo` | :1273 | **—** |
 | `#sigma-daylog` | :1256 | app/src/islands/DayLog.tsx:478<br>app/src/main.tsx:394 |
@@ -180,7 +180,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-pushlog` | :586 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:261 |
 | `#sigma-refresh` | :1278 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:111 |
 | `#sigma-relogin` | :1275 | app/src/components/ReLoginSheet.tsx:143 |
-| `#sigma-settings` | :1253 | app/src/islands/Settings.tsx:477<br>app/src/main.tsx:316 |
+| `#sigma-settings` | :1253 | app/src/islands/Settings.tsx:485<br>app/src/main.tsx:316 |
 | `#sigma-stock-change` | :1257 | app/src/islands/StockChange.tsx:318<br>app/src/main.tsx:199 |
 | `#sigma-toaster` | :1279 | app/src/main.tsx:94 |
 | `#sigma-today` | :292 | app/src/islands/Field.tsx:2347<br>app/src/main.tsx:151 |
@@ -213,7 +213,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `orders` | db/orders_ems_task_id.sql | app/src/islands/Field.tsx:141<br>app/src/lib/inventoryApi.ts:51<br>app/src/lib/inventoryApi.ts:181<br>…+6 |
 | `parse_corrections` | db/parse_corrections.sql | app/src/lib/inventoryApi.ts:188 |
 | `products` | db/inventory_pool.sql | app/src/islands/InventoryStrip.tsx:113<br>app/src/islands/InventoryStrip.tsx:129<br>app/src/lib/inventoryApi.ts:50<br>…+2 |
-| `push_log` | db/push_log.sql | app/src/lib/pushLog.ts:80<br>supabase/functions/push-send/index.ts:216<br>supabase/functions/push-send/index.ts:271<br>…+4 |
+| `push_log` | db/push_log.sql | app/src/lib/pushLog.ts:82<br>supabase/functions/push-send/index.ts:216<br>supabase/functions/push-send/index.ts:271<br>…+4 |
 | `push_subscriptions` | db/push_subscriptions.sql | supabase/functions/push-send/index.ts:253<br>supabase/functions/push-send/index.ts:264 |
 | `requirements` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:53<br>app/src/lib/inventoryApi.ts:163<br>app/src/lib/inventoryApi.ts:202 |
 | `returns` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:54<br>app/src/lib/inventoryApi.ts:278<br>app/src/lib/inventoryApi.ts:284 |
@@ -281,7 +281,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:155 |
 | `presenter` | `Presentation` | app/src/islands/Presenter.tsx:815 |
 | `presenter` | `Presentation` | app/src/main.tsx:464 |
-| `settings` | `Settings` | app/src/islands/Settings.tsx:479 |
+| `settings` | `Settings` | app/src/islands/Settings.tsx:487 |
 | `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:103 |
 | `staff-message` | `Mail` | app/src/main.tsx:301 |
 | `stock-change` | `Package` | app/src/islands/StockChange.tsx:320 |
