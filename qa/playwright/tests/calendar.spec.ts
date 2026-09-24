@@ -423,8 +423,13 @@ test('calendar: the list carries the retired EMS page filters, and they narrow i
   await page.getByTestId('cal-list-clear').click();
   await expect.poll(() => page.locator('.ucal-ltask').count()).toBe(before);
 
-  // The site filter is built from the tasks themselves (was `emsPopulateSiteFilter`).
-  expect(await page.getByTestId('cal-list-site').locator('option').count()).toBeGreaterThan(1);
+  // The site filter is built from the tasks themselves (was `emsPopulateSiteFilter`), and
+  // round 5 · C-U4 moved the three selects off the page body into a "סינון" sheet.
+  await page.getByTestId('cal-list-filter-open').click();
+  const sheet = page.getByTestId('cal-list-filter-sheet');
+  await expect(sheet.getByTestId('cal-list-status')).toBeVisible();
+  await expect(sheet.getByTestId('cal-list-priority')).toBeVisible();
+  expect(await sheet.getByTestId('cal-list-site').locator('option').count()).toBeGreaterThan(1);
 
   expectNoConsoleErrors(rec);
 });
@@ -623,6 +628,25 @@ test('calendar r5 · C1: a block already on the route with nothing new ticked ca
   await dayBody(page).locator('[data-place="גבת"]').click();
   await written;
   await expect(dayBody(page).locator('[data-block-pick="גבת"]')).toBeDisabled();
+
+  expectNoConsoleErrors(rec);
+});
+
+// ───────────────────────────── round 5 · C-U4: רשימה filters in a sheet ───────────────────
+
+test('calendar r5 · C4: רשימה has one filter bubble; the selects live in a sheet', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  await page.locator('[data-view="list"]').click();
+  await expect(page.getByTestId('cal-list')).toBeVisible();
+  // No native <select> sits in the page body any more — only inside the sheet.
+  await expect(page.locator('[data-testid="cal-list"] > .ucal-filters select')).toHaveCount(0);
+
+  await page.getByTestId('cal-list-filter-open').click();
+  const sheet = page.getByTestId('cal-list-filter-sheet');
+  await expect(sheet.getByTestId('cal-list-status')).toBeVisible();
+  await expect(sheet.getByTestId('cal-list-priority')).toBeVisible();
+  await expect(sheet.getByTestId('cal-list-site')).toBeVisible();
 
   expectNoConsoleErrors(rec);
 });

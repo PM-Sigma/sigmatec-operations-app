@@ -5,6 +5,7 @@
   "./ui/sigma-Burns.js",
   "./ui/sigma-Burns2.js",
   "./ui/sigma-Calendar.js",
+  "./ui/sigma-calendar2.js",
   "./ui/sigma-caps.js",
   "./ui/sigma-check.js",
   "./ui/sigma-chevron-down.js",

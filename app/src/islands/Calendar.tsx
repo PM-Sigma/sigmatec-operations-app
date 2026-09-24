@@ -787,6 +787,7 @@ function TaskListView({
   const [filters, setFilters] = React.useState<TaskFilters>(() => ({ ...DEFAULT_FILTERS, mine: !canSeeOthers }));
   const [showCompany, setShowCompany] = React.useState(true);
   const [busy, setBusy] = React.useState('');
+  const [filterOpen, setFilterOpen] = React.useState(false);
   const now = new Date();
   const set = <K extends keyof TaskFilters>(k: K, v: TaskFilters[K]) => setFilters(f => ({ ...f, [k]: v }));
 
@@ -855,6 +856,11 @@ function TaskListView({
     track('list-share', 'whatsapp');
   }
 
+  // Round 5 · C-U4: the three selects move off the page body into a sheet — "סינון" is the
+  // one bubble, so the row never wraps at 360 (design-system rule: an action row holds at
+  // most 3 bubbles, a 4th goes behind ⋯).
+  const selectFilters = filters.status || filters.priority || filters.site;
+
   return (
     <div data-testid="cal-list">
       {/* ── the filters the retired EMS page carried ─────────────────────── */}
@@ -863,24 +869,13 @@ function TaskListView({
           className="ucal-input" data-testid="cal-list-search" type="search"
           placeholder="🔍 חיפוש משימה" value={filters.q} onChange={e => set('q', e.target.value)}
         />
-        <select className="ucal-input" data-testid="cal-list-status" value={filters.status} onChange={e => set('status', e.target.value)}>
-          <option value="">כל הסטטוסים</option>
-          <option value="new">🆕 חדשה</option>
-          <option value="in_progress">🔄 בטיפול</option>
-          <option value="waiting_for_client">⏳ ממתין ללקוח</option>
-          <option value="on_hold">⏸️ מוקפא</option>
-        </select>
-        <select className="ucal-input" data-testid="cal-list-priority" value={filters.priority} onChange={e => set('priority', e.target.value)}>
-          <option value="">כל העדיפויות</option>
-          <option value="urgent">🔴 דחופה</option>
-          <option value="high">🟠 גבוהה</option>
-          <option value="normal">🟡 רגילה</option>
-          <option value="low">🔵 נמוכה</option>
-        </select>
-        <select className="ucal-input" data-testid="cal-list-site" value={filters.site} onChange={e => set('site', e.target.value)}>
-          <option value="">כל הקיבוצים</option>
-          {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+        <button
+          type="button" data-testid="cal-list-filter-open"
+          className={'ucal-mini' + (selectFilters ? ' ucal-mini-on' : '')}
+          onClick={() => setFilterOpen(true)}
+        >
+          סינון{selectFilters ? ' · פעיל' : ''}
+        </button>
         <button
           type="button" data-testid="cal-list-overdue" aria-pressed={filters.overdue}
           className={'ucal-mini' + (filters.overdue ? ' ucal-mini-on' : '')}
@@ -904,6 +899,50 @@ function TaskListView({
           </div>
         </details>
       </div>
+
+      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+        <SheetContent side="bottom" data-testid="cal-list-filter-sheet">
+          <SheetHeader className="mb-2">
+            <SheetTitle>סינון</SheetTitle>
+            <SheetDescription className="sr-only">סטטוס, עדיפות וקיבוץ.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-2 space-y-2">
+            <label className="block text-[12.5px] font-semibold">
+              סטטוס
+              <select className="ucal-input" data-testid="cal-list-status" value={filters.status} onChange={e => set('status', e.target.value)}>
+                <option value="">כל הסטטוסים</option>
+                <option value="new">חדשה</option>
+                <option value="in_progress">בטיפול</option>
+                <option value="waiting_for_client">ממתין ללקוח</option>
+                <option value="on_hold">מוקפא</option>
+              </select>
+            </label>
+            <label className="block text-[12.5px] font-semibold">
+              עדיפות
+              <select className="ucal-input" data-testid="cal-list-priority" value={filters.priority} onChange={e => set('priority', e.target.value)}>
+                <option value="">כל העדיפויות</option>
+                <option value="urgent">דחופה</option>
+                <option value="high">גבוהה</option>
+                <option value="normal">רגילה</option>
+                <option value="low">נמוכה</option>
+              </select>
+            </label>
+            <label className="block text-[12.5px] font-semibold">
+              קיבוץ
+              <select className="ucal-input" data-testid="cal-list-site" value={filters.site} onChange={e => set('site', e.target.value)}>
+                <option value="">כל הקיבוצים</option>
+                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </label>
+            <button
+              type="button" className="ucal-mini mt-1" data-testid="cal-list-filter-clear"
+              onClick={() => { set('status', ''); set('priority', ''); set('site', ''); }}
+            >
+              ניקוי סינון
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* ── 🏢 חברה — collapsible, at the top (spec §7g) ──────────────────── */}
       {companyRows.length ? (
