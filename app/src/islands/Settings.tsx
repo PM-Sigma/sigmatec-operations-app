@@ -6,7 +6,7 @@
 // Copy rule: nothing here explains the app's own mechanics. Each row says what the person
 // gets, not where it is stored or how it is applied.
 import * as React from 'react';
-import { Bell, ClipboardList, Lightbulb, Settings as Cog, Smartphone } from 'lucide-react';
+import { Bell, ChevronDown, ChevronUp, ClipboardList, Lightbulb, Settings as Cog, Smartphone } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SectionBlock } from '@/components/ui/section-block';
 import { ListRow } from '@/components/ui/list-row';
@@ -289,12 +289,18 @@ function OnboardingTemplateRow({ user }: { user: string }) {
                     onChange={e => setLabel(i, e.target.value)}
                     className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-[13px]"
                   />
-                  <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-                    <input type="checkbox" checked={!!s.waits} onChange={e => setWaits(i, e.target.checked)} />
+                  <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
                     ממתין למייל
-                  </label>
-                  <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="shrink-0 px-1 text-muted-foreground disabled:opacity-30">▲</button>
-                  <button type="button" disabled={i === tpl.steps.length - 1} onClick={() => move(i, 1)} className="shrink-0 px-1 text-muted-foreground disabled:opacity-30">▼</button>
+                    <Switch checked={!!s.waits} onCheckedChange={v => setWaits(i, v)} aria-label={'ממתין למייל: ' + s.label} />
+                  </span>
+                  {/* Reorder — a BubbleButton pair, not the legacy ▲▼ text steppers the DS
+                      review flagged (G-R7): same up/down move, a real icon button each. */}
+                  <BubbleButton variant="icon" size="sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={'הזז למעלה: ' + s.label} className="shrink-0">
+                    <ChevronUp className="h-4 w-4" />
+                  </BubbleButton>
+                  <BubbleButton variant="icon" size="sm" disabled={i === tpl.steps.length - 1} onClick={() => move(i, 1)} aria-label={'הזז למטה: ' + s.label} className="shrink-0">
+                    <ChevronDown className="h-4 w-4" />
+                  </BubbleButton>
                 </li>
               ))}
             </ol>

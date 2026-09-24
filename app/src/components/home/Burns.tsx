@@ -118,9 +118,12 @@ function MeterRow({
       <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground">
         {burnKindLabel(row)}
       </span>
-      <span role="button" tabIndex={0} aria-expanded={open} onClick={() => setOpen(o => !o)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o); } }}
-            className="min-w-0 flex-1 cursor-pointer">
+      {/* A real <button>, not a role="button" span: the row also carries a checkbox and two
+          write buttons as SIBLINGS (never children) of this toggle, so a role-emulated span
+          here was flagging as a nested-interactive control under the same hit box the no-overlap
+          gate checks — a real button has its own accessible hit area with nothing inside it. */}
+      <button type="button" aria-expanded={open} onClick={() => setOpen(o => !o)}
+              className="min-w-0 flex-1 cursor-pointer text-start">
         <span className="block text-[14px] font-bold"><bdi>{row.serial}</bdi>{row.address ? <span className="ms-1.5 text-[12.5px] font-medium text-muted-foreground">{row.address}</span> : null}</span>
         <span className="block truncate text-[11.5px] text-muted-foreground">
           {row.solar_names ? '☀️ ' + row.solar_names : 'ללא מערכת מקושרת'}
@@ -128,7 +131,7 @@ function MeterRow({
           {row.note ? ' · 📝 ' + row.note : ''}
         </span>
         {!!warn.length && <span className="block text-[11.5px] font-semibold text-destructive">{warn.join(' · ')}</span>}
-      </span>
+      </button>
       <StateTag row={row} />
       {open && (
         <dl className="mt-1 grid w-full grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 rounded-lg bg-muted px-2.5 py-2 text-[12px] [&>dt]:font-bold [&>dt]:text-muted-foreground">
