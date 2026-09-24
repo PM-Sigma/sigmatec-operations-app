@@ -49,7 +49,7 @@ function EmsSection({ kibbutz, canAct, row }: { kibbutz: string; canAct: boolean
 function InternalSection({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
   return (
     <SectionBlock title="משימות פנימיות">
-      <InternalTasksPanel kibbutz={kibbutz} canAct={canAct} />
+      <InternalTasksPanel kibbutz={kibbutz} canAct={canAct} showTitle={false} />
     </SectionBlock>
   );
 }

@@ -55,7 +55,12 @@ export function FilterChips({
             // dark:bg-s-surface-2 — one step up from bg-card in dark mode (designer round 5):
             // the unselected chips sat on the same surface as the page card behind them and
             // read as flat/invisible against a dark background.
-            className="h-auto min-w-0 flex-1 justify-center whitespace-nowrap rounded-full border border-border bg-card px-1.5 py-1 text-[12px] font-semibold text-muted-foreground dark:bg-s-surface-2 data-[state=on]:border-transparent data-[state=on]:bg-foreground data-[state=on]:text-background"
+            // data-[state=on]:!bg-foreground / !text-background — `!` forced (designer round 6):
+            // the base shadcn Toggle already sets data-[state=on]:bg-accent/text-accent-foreground,
+            // and --accent in dark mode is a mid grey close to --accent-foreground, so the
+            // selected "הכל" chip read as grey-on-grey. `!` guarantees this pair wins regardless
+            // of Tailwind's generated rule order.
+            className="h-auto min-w-0 flex-1 justify-center whitespace-nowrap rounded-full border border-border bg-card px-1.5 py-1 text-[12px] font-semibold text-muted-foreground dark:bg-s-surface-2 data-[state=on]:border-transparent data-[state=on]:!bg-foreground data-[state=on]:!text-background"
           >
             {/* no `opacity-70`: it composited --muted-foreground down to 3.07:1 (a11y gate).
                 No count at all until the fetch lands — a "0" while data is still loading reads

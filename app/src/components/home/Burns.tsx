@@ -354,7 +354,9 @@ export function BurnsStrip() {
       className="mb-2.5 flex min-h-[52px] w-full items-center gap-2.5 rounded-[14px] border border-border bg-card px-3 py-2.5 text-start"
     >
       <Flame aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--sigma-warn-ink)]" />
-      <span className="min-w-0 flex-1 truncate text-[14px] font-bold">
+      {/* line-clamp-2, not truncate (designer round 6): a single-line ellipsis was cutting
+          "בוצעו 3 מתוך 5" down to "בוצעו 3 מתו…" at 360px — the count must always read whole. */}
+      <span className="line-clamp-2 min-w-0 flex-1 text-[14px] font-bold">
         {line.title} · <bdi>{line.progress}</bdi>
       </span>
       <span className="shrink-0 text-[12.5px] font-bold text-muted-foreground">{line.link} ›</span>

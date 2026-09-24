@@ -192,7 +192,10 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
       </span>
 
       {/* ➕ ⇄ 🔗 are ONE element as far as Motion is concerned (shared layoutId), so linking a
-          bullet morphs the button in place instead of swapping two icons (spec §7c). */}
+          bullet morphs the button in place instead of swapping two icons (spec §7c).
+          h-5 w-5 flex items-center justify-center (designer round 6): the glyph used to just
+          sit in text-flow padding, floating a few px off the bullet/text baseline at 412px —
+          a fixed square box centers it the same way every time, next to the bullet. */}
       <AnimatePresence initial={false} mode="popLayout">
         {linked ? (
           <motion.button
@@ -201,7 +204,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
             type="button"
             onClick={e => { e.stopPropagation(); openTask(); }}
             title={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
-            className={'note-act linked shrink-0 rounded-md px-1 text-[13px] leading-5 hover:bg-muted '
+            className={'note-act linked flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[13px] hover:bg-muted '
               + (pending ? 'note-act-pending opacity-60 ' : '')
               + (stale ? 'note-act-stale text-[color:var(--sigma-warn)] ' : '')}
           >
@@ -215,7 +218,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
             disabled={busy}
             onClick={e => { e.stopPropagation(); void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}
             title="פתח משימה ב-EMS"
-            className="note-act shrink-0 rounded-md px-1 text-[13px] leading-5 text-muted-foreground hover:bg-muted"
+            className="note-act flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[13px] text-muted-foreground hover:bg-muted"
           >
             ＋
           </motion.button>
@@ -229,7 +232,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
             onClick={e => { e.stopPropagation(); setMenu(v => !v); }}
             aria-expanded={menu}
             aria-label="עוד פעולות לבולט"
-            className="rounded-md px-1 text-[13px] leading-5 text-muted-foreground hover:bg-muted"
+            className="flex h-5 w-5 items-center justify-center rounded-md text-[13px] text-muted-foreground hover:bg-muted"
           >
             ⋯
           </button>

@@ -1,4 +1,4 @@
-import{i as x,s as i,r as u,a1 as d,u as k,a8 as g,$ as w,j as s,t as f,a9 as v,m as y}from"./sigma.js?v=mug1l7ok";import{t as E}from"./sigma-kibbutzim.js?v=mug1l7ok";import{e as j,M as C,j as L}from"./sigma-myTasks2.js?v=mug1l7ok";import{g as A}from"./sigma-supabase.js?v=mug1l7ok";import{P as M}from"./sigma-plus.js?v=mug1l7ok";import{L as _}from"./sigma-list-todo.js?v=mug1l7ok";import"./sigma-emsTasks.js?v=mug1l7ok";import"./sigma-internalTasks2.js?v=mug1l7ok";import"./sigma-meetingNotes2.js?v=mug1l7ok";/**
+import{i as x,s as i,r as u,a1 as d,u as k,a8 as g,$ as w,j as s,t as f,a9 as v,m as y}from"./sigma.js?v=mug2e87g";import{t as E}from"./sigma-kibbutzim.js?v=mug2e87g";import{e as j,M as C,j as L}from"./sigma-myTasks2.js?v=mug2e87g";import{g as A}from"./sigma-supabase.js?v=mug2e87g";import{P as M}from"./sigma-plus.js?v=mug2e87g";import{L as _}from"./sigma-list-todo.js?v=mug2e87g";import"./sigma-emsTasks.js?v=mug2e87g";import"./sigma-internalTasks2.js?v=mug2e87g";import"./sigma-meetingNotes2.js?v=mug2e87g";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.
