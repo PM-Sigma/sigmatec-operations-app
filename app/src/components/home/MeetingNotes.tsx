@@ -14,6 +14,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconBubble } from '@/components/ui/icon-bubble';
+import { ListRow } from '@/components/ui/list-row';
 import { sigma, sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
@@ -170,6 +171,12 @@ function NoteBullet({
     sigma.openKibbutzEmsTask(String(row.ems_task_id));
   };
 
+  // DS IconBubble, default 40px visual size — but the RENDERED box must clear 44×44 on its
+  // own (designer round 9: not via the .s-hit overlay), so min-w/min-h-[44px] floor it; a
+  // tinted fill (not the ghost ready-on-hover default) so it reads in both light and dark
+  // without a hover to reveal it.
+  const ACTION_CLS = 'min-w-[44px] min-h-[44px] bg-secondary dark:bg-s-surface-2';
+
   return (
     <motion.li
       data-id={row.id}
@@ -178,48 +185,46 @@ function NoteBullet({
       initial={reduce ? false : { opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, delay: reduce ? 0 : Math.min(index, 8) * 0.03 }}
-      className={
-        'note-bullet flex items-start gap-2 py-[5px] text-[14.5px] leading-[1.55] ' +
-        (done ? 'done opacity-50 line-through decoration-1 ' : '')
-      }
+      className={'note-bullet ' + (done ? 'done opacity-50 line-through decoration-1' : '')}
     >
-      <span aria-hidden className="mt-[3px] text-[10px] text-muted-foreground">•</span>
-      <span className="min-w-0 flex-1">
-        {/* `quiet` is derived, not stored: "ללא פערים" is still a row (the kibbutz WAS
-            reviewed) but it is not news, so it renders muted. */}
-        <span className={isQuiet(row.text) ? 'text-muted-foreground' : ''}>{row.text}</span>
-        {/* One meta line (designer round 8): the date badge (first bullet only), the owner
-            chips and the ➕/🔗/⋯ actions all sit inline together here, right after the text —
-            not a header floating above, and not a trailing group stretched to the row's far
-            edge with empty space in between. */}
-        {(dateBadge || (row.owners || []).length > 0 || canAct) && (
-          <span className="ms-1.5 mt-0.5 inline-flex flex-wrap items-center gap-1 align-middle">
+      {/* One real ListRow (designer round 9): title = the note text (clamp 2), meta = the
+          date chip (first bullet only) + owner chips, trailing = the actions — vertically
+          centred on the WHOLE row by ListRow itself, not squeezed into the meta line. */}
+      <ListRow
+        className="min-h-0 px-0 py-[5px]"
+        leading={<span aria-hidden className="text-[10px] text-muted-foreground">•</span>}
+        title={<span className={isQuiet(row.text) ? 'text-muted-foreground' : ''}>{row.text}</span>}
+        meta={(dateBadge || (row.owners || []).length > 0) ? (
+          <span className="inline-flex flex-wrap items-center gap-1">
             {dateBadge}
             {(row.owners || []).map(o => <OwnerChip key={o} name={o} />)}
+          </span>
+        ) : undefined}
+        trailing={
+          <span className="flex items-center gap-1">
             {linked ? (
               <IconBubble
-                size={32}
                 icon={pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
                 label={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
                 onClick={() => openTask()}
-                className={(pending ? 'opacity-60 ' : '') + (stale ? 'text-[color:var(--sigma-warn)] ' : '')}
+                className={ACTION_CLS + (pending ? ' opacity-60' : '') + (stale ? ' text-[color:var(--sigma-warn)]' : '')}
               />
             ) : canAct && !done ? (
               <IconBubble
-                size={32}
                 icon={<Plus className="h-4 w-4" />}
                 label="פתח משימה ב-EMS"
                 onClick={() => { if (!busy) void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}
+                className={ACTION_CLS}
               />
             ) : null}
             {canAct && (
               <span ref={menuRef} className="relative">
                 <IconBubble
-                  size={32}
                   icon={<MoreHorizontal className="h-4 w-4" />}
                   label="עוד פעולות לבולט"
                   active={menu}
                   onClick={() => setMenu(v => !v)}
+                  className={ACTION_CLS}
                 />
                 {menu && (
                   <span className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]">
@@ -236,8 +241,8 @@ function NoteBullet({
               </span>
             )}
           </span>
-        )}
-      </span>
+        }
+      />
     </motion.li>
   );
 }

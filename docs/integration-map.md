@@ -42,7 +42,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.companyTasks` | js/src/00-bridge.js:628 | *(own logic)* | app/src/islands/Calendar.tsx:766 |
 | `sigma.contactPhone` | js/src/00-bridge.js:625 | `contactPhone` → js/src/12-reports.js:18 | app/src/islands/Calendar.tsx:813 |
 | `sigma.createEmsTaskFor` | js/src/00-bridge.js:344 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:120<br>app/src/components/home/InternalTasks.tsx:197<br>app/src/components/kibbutz/StatusTab.tsx:36 |
-| `sigma.createTask` | js/src/00-bridge.js:350 | `emsWriteOrQueue` → js/src/13-ems.js:293 | app/src/components/home/Burns.tsx:270<br>app/src/components/home/InternalTasks.tsx:86<br>app/src/components/home/MeetingNotes.tsx:114<br>app/src/islands/MeetingReview.test.tsx:328<br>…+2 |
+| `sigma.createTask` | js/src/00-bridge.js:350 | `emsWriteOrQueue` → js/src/13-ems.js:293 | app/src/components/home/Burns.tsx:270<br>app/src/components/home/InternalTasks.tsx:86<br>app/src/components/home/MeetingNotes.tsx:115<br>app/src/islands/MeetingReview.test.tsx:328<br>…+2 |
 | `sigma.ems` | app/src/lib/ems/gateway.ts:80 *(island)* | *(island-provided)* | **—** |
 | `sigma.emsAddComment` | js/src/00-bridge.js:454 | *(own logic)* | app/src/islands/DayLog.tsx:342 |
 | `sigma.emsAfterWrite` | js/src/00-bridge.js:436 | `emsAfterWrite` → js/src/14-calendar.js:557 | app/src/lib/inventoryApi.ts:231<br>app/src/lib/inventoryApi.ts:411 |
@@ -77,7 +77,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.onLanding` | app/src/islands/Field.tsx:1997 *(island)* | *(island-provided)* | **—** |
 | `sigma.openActivity` | js/src/00-bridge.js:624 | `openActivityModal` → js/src/10-activity.js:6 | app/src/islands/Calendar.tsx:865 |
 | `sigma.openDeliveryCert` | js/src/00-bridge.js:502 | `openDeliveryCert` → js/src/20-delivery-cert.js:165 | app/src/islands/Field.tsx:1505<br>app/src/islands/Field.tsx:1605 |
-| `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:319 | `openKibbutzEmsTask` → js/src/13-ems.js:390 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:66<br>app/src/components/home/EmsTasks.tsx:67<br>app/src/components/home/MeetingNotes.tsx:170<br>…+5 |
+| `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:319 | `openKibbutzEmsTask` → js/src/13-ems.js:390 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:66<br>app/src/components/home/EmsTasks.tsx:67<br>app/src/components/home/MeetingNotes.tsx:171<br>…+5 |
 | `sigma.openKibbutzModal` | js/src/00-bridge.js:329 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:121<br>app/src/islands/Calendar.tsx:1340<br>app/src/islands/Calendar.tsx:1435<br>app/src/islands/MyTasks.tsx:129 |
 | `sigma.openOrder` | js/src/00-bridge.js:429 | `invEditOrder` → js/src/07-orders.js:829 | app/src/components/alerts/AlertsPanel.tsx:17<br>app/src/islands/InventoryStrip.tsx:87<br>app/src/islands/StockChange.tsx:133 |
 | `sigma.openVisitEditor` | js/src/00-bridge.js:391 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:69<br>app/src/components/kibbutz/StatusTab.tsx:70 |
@@ -129,12 +129,12 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `checkin-created` | app/src/islands/Field.tsx:1901 | **—** |
 | `dayplan-changed` | app/src/islands/Calendar.tsx:1262<br>app/src/lib/calendarData.ts:47 | app/src/islands/Field.tsx:1867<br>app/src/islands/Field.tsx:2227 |
 | `ems-cache-synced` | js/src/13-ems.js:90<br>js/src/14-calendar.js:564 | app/src/bridge.ts:419<br>app/src/components/home/EmsTasks.tsx:36<br>app/src/islands/Calendar.tsx:1123<br>app/src/islands/Field.tsx:188<br>app/src/islands/MyTasks.tsx:158<br>app/src/islands/Presenter.tsx:116<br>…+1 |
-| `ems-queue-flushed` | js/src/13-ems.js:358 | app/src/components/home/MeetingNotes.tsx:54 |
+| `ems-queue-flushed` | js/src/13-ems.js:358 | app/src/components/home/MeetingNotes.tsx:55 |
 | `feedback-changed` | app/src/islands/Feedback.tsx:57 | app/src/islands/FeedbackInbox.tsx:240 |
 | `holidays-loaded` | js/src/04-attendance-daily.js:67 | app/src/islands/Attendance.tsx:312 |
 | `internal-tasks-changed` | app/src/components/home/InternalTasks.tsx:49 | app/src/components/home/InternalTasks.tsx:38<br>app/src/lib/myTasksBadge.ts:42 |
 | `kibbutzim-published` | app/src/islands/Home.tsx:50 | **—** |
-| `notes-changed` | app/src/components/home/MeetingNotes.tsx:89 | app/src/components/home/MeetingNotes.tsx:48 |
+| `notes-changed` | app/src/components/home/MeetingNotes.tsx:90 | app/src/components/home/MeetingNotes.tsx:49 |
 | `onboarding-changed` | app/src/components/home/OnboardingProgress.tsx:44 | app/src/components/home/OnboardingProgress.tsx:33 |
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:421<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
 | `stock-changed` | js/src/07-orders.js:1244<br>js/src/09-visits.js:1154<br>js/src/09-visits.js:1358<br>app/src/islands/StockChange.tsx:152<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:129<br>app/src/islands/InventoryStrip.tsx:75<br>js/src/08-inventory.js:115 |
@@ -196,7 +196,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `internal_tasks` | db/internal_tasks.sql | app/src/components/home/InternalTasks.tsx:29<br>app/src/components/home/InternalTasks.tsx:68<br>app/src/components/home/InternalTasks.tsx:71<br>…+7 |
 | `inventory_alerts` | db/alert_mark_seen_fix.sql | app/src/islands/Alerts.tsx:60<br>supabase/functions/push-send/index.ts:666 |
 | `kibbutz_details` | db/delivery_certs.sql | app/src/lib/inventoryApi.ts:442 |
-| `kibbutz_meeting_notes` | db/kibbutz_meeting_notes.sql | app/src/components/home/MeetingNotes.tsx:32<br>app/src/components/home/MeetingNotes.tsx:71<br>app/src/components/home/MeetingNotes.tsx:98<br>…+7 |
+| `kibbutz_meeting_notes` | db/kibbutz_meeting_notes.sql | app/src/components/home/MeetingNotes.tsx:33<br>app/src/components/home/MeetingNotes.tsx:72<br>app/src/components/home/MeetingNotes.tsx:99<br>…+7 |
 | `kibbutzim` | db/kibbutzim.sql | app/src/components/home/KibbutzSheet.tsx:147<br>app/src/components/home/KibbutzSheet.tsx:148<br>app/src/components/home/KibbutzSheet.tsx:181<br>…+3 |
 | `meeting_events` | db/meeting_events.sql | app/src/lib/meetingRun.ts:118<br>app/src/lib/meetingRun.ts:127<br>app/src/lib/meetingRun.ts:139<br>…+1 |
 | `meeting_sessions` | db/meeting_sessions.sql | app/src/lib/meetingRun.ts:74<br>app/src/lib/meetingRun.ts:147<br>app/src/lib/meetingSession.ts:282 |
