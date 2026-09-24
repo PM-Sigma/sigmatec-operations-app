@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /** The one fill a cell can carry as its own background (design-review.md §2 "DayCell"). Not
@@ -41,7 +42,8 @@ export function DayCell({
   label,
   onClick,
   className,
-}: {
+  ...rest
+}: Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> & {
   day: number;
   fill?: DayCellFill;
   today?: boolean;
@@ -61,6 +63,7 @@ export function DayCell({
 }) {
   return (
     <button
+      {...rest}
       type="button"
       onClick={onClick}
       aria-label={label}
