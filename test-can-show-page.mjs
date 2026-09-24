@@ -102,14 +102,12 @@ try {
   assert.equal(gateFor('עידן', 'idan', { burnsActive: false })('burns'), false, 'flag off → nobody, now read from 00-consts');
   console.log('  ok - burns flag off refuses עידן too (00-consts, not the retiring file)');
 } catch (e) { failures++; console.log(`  FAIL - ${e.message}`); }
-// A SECOND `window.BURNS_PROJECT_ACTIVE = true` in the retiring file would silently override
-// an operator's `false` in 00-consts.js on every load — the ONE-flag promise broken by exactly
-// the file this task moved the declaration off of. This is the check that would have caught it.
+// G-U4: 24-meter-burns.js is retired outright (React owns the page now) — the flag has exactly
+// one declaration left, in 00-consts.js, with nothing else around to redeclare it.
 try {
-  const burnsCode = src('24-meter-burns.js').split('\n').filter(l => !l.trim().startsWith('//'));
-  assert.ok(!burnsCode.some(l => /window\.BURNS_PROJECT_ACTIVE\s*=\s*(true|false)\s*;/.test(l)),
-    '24-meter-burns.js must not redeclare the flag — 00-consts.js is the only place it is set');
-  console.log('  ok - the removal flag is declared in exactly one place (00-consts.js)');
+  assert.ok(!fs.existsSync(path.join(root, 'js/src', '24-meter-burns.js')),
+    '24-meter-burns.js is retired (round 5 G-U4) — the flag lives only in 00-consts.js now');
+  console.log('  ok - 24-meter-burns.js is gone; the removal flag is declared in exactly one place (00-consts.js)');
 } catch (e) { failures++; console.log(`  FAIL - ${e.message}`); }
 
 // An unknown page is never open.
@@ -121,6 +119,13 @@ try {
   assert.ok(!/src\('18-dev-tasks\.js'\)/.test(fs.readFileSync(path.join(root, 'test-can-show-page.mjs'), 'utf8')));
   console.log('  ok - this runner no longer sources 18-dev-tasks.js');
 } catch { failures++; console.log('  FAIL - this runner must not source 18-dev-tasks.js any more'); }
+
+// G-U4: same rule for the two round-5 files this runner used to source.
+try {
+  const self = fs.readFileSync(path.join(root, 'test-can-show-page.mjs'), 'utf8');
+  assert.ok(!/src\('24-meter-burns\.js'\)/.test(self) && !/src\('23-push-log\.js'\)/.test(self));
+  console.log('  ok - this runner no longer sources 24-meter-burns.js / 23-push-log.js');
+} catch { failures++; console.log('  FAIL - this runner must not source the retired burns/pushlog files any more'); }
 
 if (failures) { console.log(`\n${failures} failure(s)`); process.exit(1); }
 console.log('\nall can-show-page checks passed');
