@@ -125,7 +125,7 @@ test('calendar: א–ה is the default month, and one button gives the full one 
   await toggle.click();
   await expect(grid).toHaveAttribute('data-cols', '7');
   await expect(page.locator('.ucal-dow')).toHaveCount(7);
-  await expect(toggle).toHaveText('שבוע עבודה');
+  await expect(toggle).toHaveText('חודש עבודה');
   expect(await page.evaluate(() => localStorage.getItem('cal_work_week_v1'))).toBe('0');
 
   await toggle.click();
