@@ -7,12 +7,13 @@
 // emitting `notes-changed` on sigmaBus, which is what makes the card, the modal tab and the
 // import preview agree without any of them knowing the others exist (docs/integration-map.md).
 import * as React from 'react';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Link2, Loader2, MoreHorizontal, Plus } from 'lucide-react';
 import { useClickAway } from '@/lib/useClickAway';
 import { useQuery } from '@tanstack/react-query';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { IconBubble } from '@/components/ui/icon-bubble';
 import { sigma, sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
@@ -136,7 +137,9 @@ function OwnerChip({ name }: { name: string }) {
   );
 }
 
-function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; index: number }) {
+function NoteBullet({
+  row, canAct, index, dateBadge,
+}: { row: NoteRow; canAct: boolean; index: number; /** rendered inline in this bullet's meta line, only for the group's first bullet (designer round 8). */ dateBadge?: React.ReactNode }) {
   const reduce = useReducedMotion();
   const [menu, setMenu] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -185,77 +188,55 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
         {/* `quiet` is derived, not stored: "ללא פערים" is still a row (the kibbutz WAS
             reviewed) but it is not news, so it renders muted. */}
         <span className={isQuiet(row.text) ? 'text-muted-foreground' : ''}>{row.text}</span>
-        {(row.owners || []).length > 0 && (
-          <span className="ms-1.5 inline-flex flex-wrap gap-1 align-middle">
+        {/* One meta line (designer round 8): the date badge (first bullet only), the owner
+            chips and the ➕/🔗/⋯ actions all sit inline together here, right after the text —
+            not a header floating above, and not a trailing group stretched to the row's far
+            edge with empty space in between. */}
+        {(dateBadge || (row.owners || []).length > 0 || canAct) && (
+          <span className="ms-1.5 mt-0.5 inline-flex flex-wrap items-center gap-1 align-middle">
+            {dateBadge}
             {(row.owners || []).map(o => <OwnerChip key={o} name={o} />)}
+            {linked ? (
+              <IconBubble
+                size={32}
+                icon={pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                label={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
+                onClick={() => openTask()}
+                className={(pending ? 'opacity-60 ' : '') + (stale ? 'text-[color:var(--sigma-warn)] ' : '')}
+              />
+            ) : canAct && !done ? (
+              <IconBubble
+                size={32}
+                icon={<Plus className="h-4 w-4" />}
+                label="פתח משימה ב-EMS"
+                onClick={() => { if (!busy) void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}
+              />
+            ) : null}
+            {canAct && (
+              <span ref={menuRef} className="relative">
+                <IconBubble
+                  size={32}
+                  icon={<MoreHorizontal className="h-4 w-4" />}
+                  label="עוד פעולות לבולט"
+                  active={menu}
+                  onClick={() => setMenu(v => !v)}
+                />
+                {menu && (
+                  <span className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={e => { e.stopPropagation(); void act(() => setNoteDone(row.id!, !done), done ? 'הסימון בוטל' : 'סומן כטופל'); }}
+                      className="px-3 py-2 text-start hover:bg-muted"
+                    >
+                      {done ? '↩︎ בטל' : '✓ סמן כטופל'}
+                    </button>
+                  </span>
+                )}
+              </span>
+            )}
           </span>
         )}
-      </span>
-
-      {/* ONE trailing slot (designer round 7): the ➕/🔗 action and the ⋯ menu used to be two
-          independent flex children of the row, which could drift apart from the row's text and
-          from each other at 412px. Grouped into a single self-start flex container, they now
-          move as one unit, level with the row's first line — a ListRow-style trailing slot. */}
-      <span className="flex shrink-0 items-center gap-0.5 self-start">
-      {/* ➕ ⇄ 🔗 are ONE element as far as Motion is concerned (shared layoutId), so linking a
-          bullet morphs the button in place instead of swapping two icons (spec §7c).
-          h-5 w-5 flex items-center justify-center (designer round 6): the glyph used to just
-          sit in text-flow padding, floating a few px off the bullet/text baseline at 412px —
-          a fixed square box centers it the same way every time, next to the bullet. */}
-      <AnimatePresence initial={false} mode="popLayout">
-        {linked ? (
-          <motion.button
-            key="linked"
-            layoutId={reduce ? undefined : 'note-act-' + row.id}
-            type="button"
-            onClick={e => { e.stopPropagation(); openTask(); }}
-            title={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
-            className={'note-act linked flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[13px] hover:bg-muted '
-              + (pending ? 'note-act-pending opacity-60 ' : '')
-              + (stale ? 'note-act-stale text-[color:var(--sigma-warn)] ' : '')}
-          >
-            {pending ? '⏳' : '🔗'}
-          </motion.button>
-        ) : canAct && !done ? (
-          <motion.button
-            key="add"
-            layoutId={reduce ? undefined : 'note-act-' + row.id}
-            type="button"
-            disabled={busy}
-            onClick={e => { e.stopPropagation(); void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}
-            title="פתח משימה ב-EMS"
-            className="note-act flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[13px] text-muted-foreground hover:bg-muted"
-          >
-            ＋
-          </motion.button>
-        ) : null}
-      </AnimatePresence>
-
-      {canAct && (
-        <span ref={menuRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); setMenu(v => !v); }}
-            aria-expanded={menu}
-            aria-label="עוד פעולות לבולט"
-            className="flex h-5 w-5 items-center justify-center rounded-md text-[13px] text-muted-foreground hover:bg-muted"
-          >
-            ⋯
-          </button>
-          {menu && (
-            <span className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={e => { e.stopPropagation(); void act(() => setNoteDone(row.id!, !done), done ? 'הסימון בוטל' : 'סומן כטופל'); }}
-                className="px-3 py-2 text-start hover:bg-muted"
-              >
-                {done ? '↩︎ בטל' : '✓ סמן כטופל'}
-              </button>
-            </span>
-          )}
-        </span>
-      )}
       </span>
     </motion.li>
   );
@@ -263,24 +244,25 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
 
 function MeetingBlock({ group, canAct }: { group: MeetingGroup; canAct: boolean }) {
   const kindLabel = KIND_LABEL[group.meeting_kind as MeetingKind] || KIND_LABEL.company;
+  // The date badge rides in the FIRST bullet's own meta line now (designer round 8), not a
+  // standalone header above the list — py-1 + leading-none (not py-px) so the calendar icon
+  // has room and never clips at the chip's edge.
+  const dateBadge = (
+    <span
+      className="inline-flex items-center rounded-full bg-muted px-1.5 py-1 text-[10px] font-bold leading-none text-muted-foreground"
+      title={kindLabel}
+    >
+      <CalendarDays aria-hidden className="me-1 h-2.5 w-2.5 shrink-0" /><bdi>{chipDate(group.meeting_date)}</bdi>
+      {group.meeting_kind !== 'company' && <span className="ms-1">· {kindLabel}</span>}
+    </span>
+  );
   return (
     <div className="card-notes-meeting">
-      <div className="mb-0.5 flex items-center gap-1.5">
-        <span
-          className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground"
-          title={kindLabel}
-        >
-          <CalendarDays aria-hidden className="me-1 inline h-2.5 w-2.5" /><bdi>{chipDate(group.meeting_date)}</bdi>
-        </span>
-        {group.meeting_kind !== 'company' && (
-          <span className="text-[10px] font-semibold text-muted-foreground">{kindLabel}</span>
-        )}
-      </div>
       {/* Motion stagger instead of Magic UI's AnimatedList: that component cycles a feed of
           notifications, which is not what a fixed bullet list is (spec §6 motion budget). */}
       <ul>
         {group.bullets.map((b, i) => (
-          <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} />
+          <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} dateBadge={i === 0 ? dateBadge : undefined} />
         ))}
       </ul>
     </div>
@@ -324,13 +306,17 @@ export function MeetingTimeline({
           meeting for context, and one tap to the whole history. */}
       {collapsed && latest && (
         <>
-          <div className="mb-0.5 flex items-center gap-1.5">
-            <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
-              <CalendarDays aria-hidden className="me-1 inline h-2.5 w-2.5" /><bdi>{chipDate(latest.meeting_date)}</bdi>
-            </span>
-          </div>
           <ul>
-            {brief.shown.map((b, i) => <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} />)}
+            {brief.shown.map((b, i) => (
+              <NoteBullet
+                key={b.id || b.seq} row={b} canAct={canAct} index={i}
+                dateBadge={i === 0 ? (
+                  <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-1 text-[10px] font-bold leading-none text-muted-foreground">
+                    <CalendarDays aria-hidden className="me-1 h-2.5 w-2.5 shrink-0" /><bdi>{chipDate(latest.meeting_date)}</bdi>
+                  </span>
+                ) : undefined}
+              />
+            ))}
           </ul>
           <button
             type="button"

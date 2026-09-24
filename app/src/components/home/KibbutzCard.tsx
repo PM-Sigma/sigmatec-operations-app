@@ -92,6 +92,11 @@ export function KibbutzCard({
     >
       <div className="kibbutz-name-row flex flex-wrap items-center gap-2">
         <h4 className="kibbutz-name flex-1 text-[17px] font-bold leading-tight">{labelOf(row)}</h4>
+        {/* ▶/■ שעות pinned right after the name, shrink-0 (designer round 8): with the tag
+            row's own flex-wrap, a card with enough tags (כפר עזה: region+energy+draft+
+            marketing) pushed the timer button onto its own line at 360px. It stays in the
+            card's own action row now, never wrapped away from the name. */}
+        <WorkTimer kibbutz={row.name} />
         {/* Where this kibbutz is (עידן 20.9 #1). It used to be a label row between the
             cards, which read as clutter once there were three of them on one screen. Muted
             and unadorned, beside the energy badge: the two are the card's metadata row, and
@@ -114,9 +119,6 @@ export function KibbutzCard({
         )}
         {/* 🔥 צריבות left the home card (עידן 22.9, D1): the summary lives inside the kibbutz
             modal, collapsed until tapped. */}
-        {/* ▶/■ שעות (Task 29, spec §8b) — עידן and מתניה only; for everyone else the
-            component renders nothing at all, so the row is unchanged. */}
-        <WorkTimer kibbutz={row.name} />
         {row.marketing && (
           <span className="tag-marketing rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
             🤝 בתהליך שיווקי
