@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  canEditHours, canSeeHours, durationMin, filterHours, fmtDuration, hoursBody, hoursPrintHtml, hoursXlsxSpec,
-  monthsOf, peopleOf, totals, validateHours, type WorkSessionRow,
+  canEditHours, canSeeHours, durationMin, filterHours, fmtHoursCell, hoursBody, hoursByDay, hoursPrintHtml,
+  hoursTiles, hoursXlsxSpec, monthsOf, peopleOf, totals, validateHours, type WorkSessionRow,
 } from './hours';
 
 const row = (o: Partial<WorkSessionRow> = {}): WorkSessionRow => ({
@@ -23,7 +23,7 @@ describe('who', () => {
 describe('duration + filters', () => {
   it('whole minutes, never negative, 0 while running', () => {
     expect(durationMin(row())).toBe(125);
-    expect(fmtDuration(125)).toBe('2:05');
+    expect(fmtHoursCell(125)).toBe('2:05');
     expect(durationMin(row({ ended_at: null }))).toBe(0);
     expect(durationMin(row({ ended_at: '2026-09-22T07:00:00.000Z' }))).toBe(0);
   });
@@ -46,7 +46,7 @@ describe('a manual / edited row', () => {
   const draft = { person: 'עידן', kibbutz: 'חוקוק', started_at: '2026-09-22T08:00:00.000Z', ended_at: '2026-09-22T09:00:00.000Z', attendees: [], tags: ['הדרכה'], billable: true, note: 'שיחה' };
   it('validates the obvious', () => {
     expect(validateHours(draft)).toEqual([]);
-    expect(validateHours({ ...draft, person: '' })).toContain('בחר עובד');
+    expect(validateHours({ ...draft, person: '' })).toContain('יש לבחור עובד');
     expect(validateHours({ ...draft, ended_at: '2026-09-22T07:00:00.000Z' })).toContain('הסיום צריך להיות אחרי ההתחלה');
     expect(validateHours({ ...draft, ended_at: '2026-09-24T09:00:00.000Z' })[0]).toMatch(/24 שעות/);
   });
@@ -57,6 +57,35 @@ describe('a manual / edited row', () => {
       billable: true, note: 'שיחה',
     });
   });
+});
+
+describe('hours view model (round 5, L2)', () => {
+  const r = (id: string, started: string, ended: string, extra: Partial<WorkSessionRow> = {}) =>
+    ({ id, person: 'עידן', kibbutz: 'חוקוק', started_at: started, ended_at: ended, tags: [], attendees: [], billable: false, note: '', clockify_id: null, ...extra }) as WorkSessionRow;
+
+  const NOW = new Date(2026, 8, 23, 18);
+  const rows = [
+    r('a', new Date(2026, 8, 23, 9).toISOString(), new Date(2026, 8, 23, 11, 30).toISOString()),
+    r('b', new Date(2026, 8, 22, 8).toISOString(), new Date(2026, 8, 22, 9).toISOString(), { clockify_id: 'c1' }),
+    r('c', new Date(2026, 8, 23, 13).toISOString(), new Date(2026, 8, 23, 14).toISOString()),
+  ];
+
+  it('groups by local day, newest first, with the day label and total', () => {
+    const days = hoursByDay(rows, NOW);
+    expect(days.map(d => [d.label, d.minutes, d.rows.map(x => x.id)])).toEqual([
+      ['היום', 210, ['c', 'a']], ['אתמול', 60, ['b']],
+    ]);
+  });
+
+  it('tiles', () => {
+    expect(hoursTiles(rows)).toEqual([
+      { id: 'total', label: 'סה״כ שעות', value: '4 ש׳ 30 ד׳' },
+      { id: 'count', label: 'רשומות', value: '3' },
+      { id: 'unsent', label: 'לא נשלחו ל-Clockify', value: '2', role: 'warn' },
+    ]);
+  });
+
+  it('exports keep the h:mm cell', () => { expect(fmtHoursCell(270)).toBe('4:30'); });
 });
 
 describe('exports', () => {

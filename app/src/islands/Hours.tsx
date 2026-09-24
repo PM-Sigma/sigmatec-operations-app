@@ -17,8 +17,9 @@ import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { APP_PEOPLE } from '@/lib/people';
+import { fmtDuration } from '@/lib/format';
 import {
-  canEditHours, canSeeHours, durationMin, filterHours, fmtDuration, hoursBody, hoursPrintHtml, hoursXlsxSpec,
+  canEditHours, canSeeHours, durationMin, filterHours, hoursBody, hoursPrintHtml, hoursXlsxSpec,
   monthsOf, peopleOf, toLocalInput, totals, validateHours, type HoursDraft, type WorkSessionRow,
 } from '@/lib/hours';
 

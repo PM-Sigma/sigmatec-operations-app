@@ -1,6 +1,7 @@
 // ⏱ שעות עבודה מול לקוחות — the pure half of the hours page (עידן 22.9, E2).
 // Rows are `work_sessions`; this file decides who may edit, how a row reads, what a month
 // filter keeps, and the Excel/print shapes. No React, no network.
+import { fmtDay, fmtDuration, fmtNumber } from '@/lib/format';
 import { APP_PEOPLE } from './people';
 
 export interface WorkSessionRow {
@@ -37,8 +38,9 @@ export function durationMin(r: Pick<WorkSessionRow, 'started_at' | 'ended_at'>):
   return Math.round((b - a) / 60_000);
 }
 
-/** `2:05` — hours and minutes. */
-export function fmtDuration(min: number): string {
+/** `4:30` — hours and minutes, the Excel/print cell shape. On-screen durations use the
+ * shared `fmtDuration` (`@/lib/format`, "4 ש׳ 30 ד׳") instead (round 5, L2). */
+export function fmtHoursCell(min: number): string {
   const m = Math.max(0, Math.round(min));
   return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
 }
@@ -86,6 +88,48 @@ export function peopleOf(rows: WorkSessionRow[] | null | undefined): string[] {
   return ordered;
 }
 
+// ───────────────────────────── the day view (round 5, L2) ─────────────────────────────
+
+export interface HoursDay { date: string; label: string; minutes: number; rows: WorkSessionRow[] }
+
+const localYmd = (iso: string): string => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** Rows grouped by local calendar day, newest day first, each day newest row first. */
+export function hoursByDay(rows: WorkSessionRow[], now: Date = new Date()): HoursDay[] {
+  const by = new Map<string, WorkSessionRow[]>();
+  for (const r of rows) {
+    const k = localYmd(r.started_at);
+    const bucket = by.get(k);
+    if (bucket) bucket.push(r); else by.set(k, [r]);
+  }
+  return [...by.entries()]
+    .sort(([a], [b]) => (a < b ? 1 : -1))
+    .map(([date, rs]) => {
+      const sorted = rs.slice().sort((x, y) => (x.started_at < y.started_at ? 1 : -1));
+      const [y, m, d] = date.split('-').map(Number);
+      return {
+        date, label: fmtDay(new Date(y, m - 1, d), now),
+        minutes: sorted.reduce((n, r) => n + durationMin(r), 0),
+        rows: sorted,
+      };
+    });
+}
+
+export interface HoursTile { id: 'total' | 'count' | 'unsent'; label: string; value: string; role?: 'warn' }
+
+/** The summary strip above the list: total, record count, and how many still owe Clockify. */
+export function hoursTiles(rows: WorkSessionRow[]): HoursTile[] {
+  const unsent = rows.filter(r => !r.clockify_id).length;
+  return [
+    { id: 'total', label: 'סה״כ שעות', value: fmtDuration(totals(rows).all) },
+    { id: 'count', label: 'רשומות', value: fmtNumber(rows.length) },
+    { id: 'unsent', label: 'לא נשלחו ל-Clockify', value: fmtNumber(unsent), ...(unsent ? { role: 'warn' as const } : {}) },
+  ];
+}
+
 export interface HoursDraft {
   person: string;
   kibbutz: string;
@@ -100,7 +144,7 @@ export interface HoursDraft {
 /** What a manual or edited row must satisfy; `[]` = fine. */
 export function validateHours(d: HoursDraft): string[] {
   const errs: string[] = [];
-  if (!d.person) errs.push('בחר עובד');
+  if (!d.person) errs.push('יש לבחור עובד');
   const a = Date.parse(d.started_at), b = Date.parse(d.ended_at);
   if (!Number.isFinite(a)) errs.push('שעת התחלה חסרה');
   if (!Number.isFinite(b)) errs.push('שעת סיום חסרה');
@@ -159,14 +203,14 @@ export function hoursPrintHtml(rows: WorkSessionRow[], title: string): string {
   const t = totals(rows);
   const clock = (iso: string | null | undefined) => iso ? new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : '';
   const body = rows.map(r => `<tr><td>${new Date(r.started_at).toLocaleDateString('he-IL')}</td><td>${esc(r.person)}</td><td>${esc(r.kibbutz)}</td>`
-    + `<td>${clock(r.started_at)}–${clock(r.ended_at)}</td><td>${fmtDuration(durationMin(r))}</td><td>${esc((r.tags || []).join(', '))}</td>`
+    + `<td>${clock(r.started_at)}–${clock(r.ended_at)}</td><td>${fmtHoursCell(durationMin(r))}</td><td>${esc((r.tags || []).join(', '))}</td>`
     + `<td>${esc((r.attendees || []).join(', '))}</td><td>${r.billable ? '✓' : ''}</td><td>${esc(r.note)}</td></tr>`).join('');
-  const per = Object.entries(t.byPerson).map(([p, m]) => `${esc(p)}: ${fmtDuration(m)}`).join(' · ');
+  const per = Object.entries(t.byPerson).map(([p, m]) => `${esc(p)}: ${fmtHoursCell(m)}`).join(' · ');
   return `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>body{font-family:Assistant,Arial,sans-serif;padding:24px;color:#1f2937}h1{font-size:20px;margin:0 0 4px}.sub{color:#5c6572;font-size:13px;margin-bottom:14px}
 table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{border-bottom:1px solid #e3e8ef;padding:6px 8px;text-align:start;vertical-align:top}th{background:#f1f4f8}
 tfoot td{font-weight:800}@media print{body{padding:0}}</style></head><body>
-<h1>${esc(title)}</h1><div class="sub">${rows.length} רשומות · סה"כ ${fmtDuration(t.all)} שעות${per ? ' · ' + per : ''}</div>
+<h1>${esc(title)}</h1><div class="sub">${rows.length} רשומות · סה"כ ${fmtHoursCell(t.all)} שעות${per ? ' · ' + per : ''}</div>
 <table><thead><tr><th>תאריך</th><th>עובד</th><th>קיבוץ</th><th>שעות</th><th>משך</th><th>תגיות</th><th>משתתפים</th><th>לחיוב</th><th>הערה</th></tr></thead>
 <tbody>${body}</tbody></table>
 <script>window.onload=function(){setTimeout(function(){window.print()},150)}</script></body></html>`;
