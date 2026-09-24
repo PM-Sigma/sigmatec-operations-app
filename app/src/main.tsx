@@ -109,13 +109,12 @@ function boot() {
   // The card home is a LAZY chunk (ui/sigma-Home.js): it drags in TanStack Query and
   // supabase-js, which no other island needs, so the boot bundle stays small. If the chunk
   // fails to load the legacy renderer (js/src/24-kibbutzim.js) still paints the cards.
-  // /?gallery=1 (mock-only, design-system sign-off E2) swaps in the primitives gallery instead
-  // — same mount point, same chrome, so no-overlap.spec.ts scans it like any other screen.
+  // The /?gallery=1 branch (design-system sign-off E2) lives INSIDE Home.tsx's mountScreen, not
+  // here: every byte of "which screen" logic that sits in THIS boot file counts against the
+  // 303 KB ceiling, but the same logic one file over, in the already-lazy Home.tsx chunk, costs
+  // the boot bundle nothing at all.
   if (document.getElementById('sigma-home')) {
-    (new URLSearchParams(location.search).get('gallery') === '1'
-      ? import('@/islands/Gallery').then(m => m.mountGallery())
-      : import('@/islands/Home').then(m => m.mountHome())
-    ).catch(e => console.warn('[sigma] home/gallery island failed', e));
+    import('@/islands/Home').then(m => m.mountScreen()).catch(e => console.warn('[sigma] home', e));
   }
 
   // ✅ המשימות שלי (round 4, Package X) — the sheet that replaced the floating 🔒 strip. It

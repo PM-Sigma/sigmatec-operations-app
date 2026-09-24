@@ -166,6 +166,8 @@ function Gallery() {
   );
 }
 
-export function mountGallery(): boolean {
+// Named to match Home.tsx's `mountScreen` — see its comment (main.tsx dynamically imports
+// exactly one of the two modules and calls whichever loaded through one shared name).
+export function mountScreen(): boolean {
   return mount('sigma-home', Gallery);
 }

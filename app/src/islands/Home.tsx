@@ -297,7 +297,14 @@ export function Home() {
   );
 }
 
-/** Called from main.tsx's lazy import once #sigma-home is on the page. */
-export function mountHome(): boolean {
+/** Called from main.tsx's lazy import once #sigma-home is on the page. The /?gallery=1 branch
+    (design-system sign-off E2 — a mock-only screen showing every design-system primitive)
+    lives HERE, not in main.tsx: main.tsx is the eager boot chunk under a 303 KB ceiling, and
+    this file is already a lazy one, so a query-flag check that decides "mount the card home or
+    dynamically import Gallery.tsx instead" costs the boot bundle nothing either way. */
+export function mountScreen(): boolean | Promise<boolean> {
+  if (location.search.includes('gallery=1')) {
+    return import('@/islands/Gallery').then(m => m.mountScreen());
+  }
   return mount('sigma-home', Home);
 }
