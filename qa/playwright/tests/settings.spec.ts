@@ -98,6 +98,52 @@ test('settings: install, notifications and the personal area all say where they 
   expectNoConsoleErrors(rec);
 });
 
+// ───────────────────────── round 5 G-U1: onto the design system ─────────────────────────
+
+test('settings: no native <select> anywhere in the sheet (G-R7)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.locator('select')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: the landing sub-sheet replaces the select and persists across reload', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  let dlg = await openSettings(page);
+  await dlg.getByRole('button', { name: /^מסך פתיחה/ }).click();
+  await page.getByTestId('landing-options').getByText('🗓 יומן').click();
+  await expect(dlg.getByText('🗓 יומן')).toBeVisible();
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  dlg = await openSettings(page);
+  await expect(dlg.getByText('🗓 יומן')).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: the partner-tasks switch is offered to אביאם alone (G-R10)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('לראות גם את המשימות של ניתאי')).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: nobody but אביאם is offered the partner-tasks switch', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('לראות גם את המשימות של ניתאי')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: "רעיון או באג" opens the feedback sheet', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await dlg.getByText('רעיון או באג').click();
+  // "רעיונות" (plural) does not literally contain "רעיון" — a final-nun (ן) vs. a medial
+  // one (נ) are different characters — so the dialog is matched by "תיבת" instead.
+  await expect(page.getByRole('dialog', { name: /תיבת/ })).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
 test('settings: no sentence explains the app to the user, or who else sees him (§7h)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   const dlg = await openSettings(page);
