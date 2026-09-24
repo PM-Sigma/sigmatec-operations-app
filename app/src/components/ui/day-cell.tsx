@@ -38,6 +38,7 @@ export function DayCell({
   eve,
   missing,
   eventCount,
+  blocks,
   outside,
   label,
   onClick,
@@ -52,8 +53,14 @@ export function DayCell({
   eve?: boolean;
   /** Dot + the day number in danger-ink (spec: "6px danger dot + danger ink number"). */
   missing?: boolean;
-  /** Shown as "•N" (spec §2 DayCell: "dots with a count at 390"). */
+  /** Shown as "•N" (spec §2 DayCell: "dots with a count at 390") — the fallback for a day with
+      no `blocks` (past days, or a future day with nothing planned yet). */
   eventCount?: number;
+  /** Round 5 · C-U designer fix (25.9): a FUTURE day shows the kibbutz block itself, not just a
+      count — `planBlocks(...)` already names the kibbutz; a bare "1•" told the person nothing
+      they could act on before opening the day. Only the first block is named (cell is ~44px);
+      the rest fold into "+N". Takes over from `eventCount` when non-empty. */
+  blocks?: readonly { kibbutz: string }[];
   outside?: boolean;
   /** Required — a DayCell has no other accessible name (sign-off P1-8), e.g. "יום שלישי,
       1 בספטמבר · לא דווחה נוכחות". */
@@ -98,7 +105,21 @@ export function DayCell({
         {eve && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--holiday-eve-ink)]" />}
         {missing && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--danger-ink)]" />}
       </span>
-      {!!eventCount && (
+      {blocks && blocks.length ? (
+        <span className="mt-auto flex w-full items-center justify-end gap-0.5 overflow-hidden">
+          <span
+            className="max-w-full truncate rounded-[var(--r-sm)] bg-[var(--neutral-fill)] px-1 text-[length:var(--fs-caption)] leading-none text-[var(--neutral-ink)]"
+            title={blocks.map(b => b.kibbutz).join(', ')}
+          >
+            <bdi>{blocks[0].kibbutz}</bdi>
+          </span>
+          {blocks.length > 1 && (
+            <span className="shrink-0 text-[length:var(--fs-caption)] tabular-nums text-muted-foreground">
+              +<bdi>{blocks.length - 1}</bdi>
+            </span>
+          )}
+        </span>
+      ) : !!eventCount && (
         <span className="mt-auto self-end text-[length:var(--fs-caption)] tabular-nums text-muted-foreground">
           •<bdi>{eventCount}</bdi>
         </span>

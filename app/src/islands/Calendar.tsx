@@ -288,7 +288,7 @@ function EventSheet({ event, onClose }: { event: OfficeEvent | null; onClose: ()
  * `weekAria` gives it a real screen-reader name ("שבוע 38"), never a bare digit.
  */
 function Grid({
-  weeks, index, selected, onOpen, mode, workWeek, missing, reported,
+  weeks, index, selected, onOpen, mode, workWeek, missing, reported, blocksByDate,
 }: {
   weeks: CalWeek[]; index: Record<string, CalItem[]>; selected: string;
   onOpen: (d: string) => void;
@@ -297,6 +297,9 @@ function Grid({
   missing: Set<string>;
   /** The calendar person's already-filed days — painted green (round 5 · B). */
   reported: Set<string>;
+  /** Round 5 · C-U designer fix (25.9): future-day kibbutz blocks (`planBlocks`), by date —
+      the FUTURE-day cell shows the block itself, not just a count (spec §2 DayCell). */
+  blocksByDate: Record<string, KibbutzBlock[]>;
 }) {
   const cols = visibleDows(mode, workWeek).length;
   const labels = showWeekNumbers(mode, workWeek);
@@ -349,6 +352,7 @@ function Grid({
                     eve={look.state === 'eve'}
                     missing={look.state === 'missing'}
                     eventCount={n || undefined}
+                    blocks={blocksByDate[c.date]}
                     outside={!c.inMonth}
                     label={look.label}
                     onClick={() => onOpen(c.date)}
@@ -1312,6 +1316,7 @@ function CalendarIsland() {
   const dur = reduced ? 0 : 0.18;
 
   const today = ymd(new Date());
+  const settings = useSettings();
   const [view, setView] = React.useState<ViewMode>(readView);
   const [anchor, setAnchor] = React.useState(today);
   const [workWeek, setWorkWeek] = React.useState(() => readFlag(WORK_WEEK_KEY, true));
@@ -1514,7 +1519,6 @@ function CalendarIsland() {
   // ── kibbutz blocks (round 5 · C1/C2) ────────────────────────────────────
   // "Whose tasks fill the blocks" — the calendar person's, plus אביאם's peer (ניתאי) only
   // when he turned the setting on and he is the one looking at his own calendar.
-  const settings = useSettings();
   const owners = React.useMemo(
     () => taskOwners(person, me, settings.cal_peer_tasks),
     [person, me, settings.cal_peer_tasks],
@@ -1527,6 +1531,25 @@ function CalendarIsland() {
     internalTasks: (internalTasks.data || []) as CalInternalTask[],
     stops: order,
   }), [openDate, today, owners.join('|'), internalTasks.data, order.join('|'), tick]);
+
+  // ── future-day kibbutz blocks in the grid (round 5 · C-U designer fix, 25.9) ────────────
+  // Same `owners`/`planBlocks` as the day panel above (C1/C2) — every FUTURE day in view gets
+  // its own block set so the cell can name the kibbutz instead of a bare "•N" dot. No plan is
+  // fetched per grid day (that query only runs for the OPEN day), so `stops` is `[]` here: a
+  // future day with nothing placed yet still shows every open task's kibbutz, unplaced.
+  const blocksByDate = React.useMemo(() => {
+    const emsTasks = (() => { try { return (sigma.emsCacheData?.()?.tasks || []) as CalEmsTask[]; } catch { return []; } })();
+    const out: Record<string, KibbutzBlock[]> = {};
+    for (const w of weeks) for (const c of w.days) {
+      if (c.date <= today) continue;                                  // future days only
+      const bs = planBlocks({
+        date: c.date, today, owners, emsTasks,
+        internalTasks: (internalTasks.data || []) as CalInternalTask[], stops: [],
+      });
+      if (bs.length) out[c.date] = bs;
+    }
+    return out;
+  }, [weeks.map(w => w.days.map(c => c.date).join(',')).join('|'), today, owners.join('|'), internalTasks.data, tick]);
 
   const pick = useMutation({
     mutationFn: async (p: BlockPick) => ({ p, res: await applyBlockPick(p, person, openDate, due, planGuard) }),
@@ -1738,6 +1761,7 @@ function CalendarIsland() {
               workWeek={workWeek}
               missing={missing}
               reported={reported}
+              blocksByDate={blocksByDate}
             />
           )}
           {/* Round 5 · C5 — the legend always shows (design-system DayCell rulings), red joins
