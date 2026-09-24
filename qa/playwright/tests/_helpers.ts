@@ -468,6 +468,18 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         }
         return route.fulfill(json(shape(rows, accept), 201));
       }
+      // returns — the React driver (inventoryApi.ts restockReturn/markDefective) writes a
+      // targeted `.update({status}).eq('id', id)`, a PATCH by id — the legacy bundle's own
+      // returnToStock/markReturnDefective never do this (they always POST the whole row above),
+      // so this branch only fires under the react driver (task U5).
+      if (tableOf(url) === 'returns' && method === 'PATCH') {
+        const id = eqParam(url, 'id');
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = invReturns.find(x => String(x.id) === id);
+        if (hit) Object.assign(hit, body);
+        await recordInvWrite('returns', 'patch', body, id);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+      }
       // delivery_certs — POST (no on_conflict) is a plain insert; the server assigns cert_number.
       // PATCH by id is the cancel / doc_html-snapshot write.
       if (tableOf(url) === 'delivery_certs' && method === 'POST') {
