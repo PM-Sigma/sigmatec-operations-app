@@ -218,7 +218,7 @@ function HomeIsland() {
     <div className="pb-2">
       <div className="flex items-center gap-2">
         <div className="flex-1">
-          <FilterChips filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} counts={counts} />
+          <FilterChips filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} counts={data ? counts : null} />
         </div>
         {canManage && (
           <button

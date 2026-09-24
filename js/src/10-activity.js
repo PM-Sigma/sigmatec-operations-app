@@ -506,10 +506,11 @@
 
   // Round 5, K-U5: reduced to the visit-form reset. The status-tab plumbing (island
   // data-kibbutz stamps, the customer-code title, editorName/editEngagement, the read-only
-  // last-visit box, modalEmsSection) moved to KibbutzDetail/StatusTab (K-U1/K-U2) and is
-  // gone from here; this stub exists only because V's own callers (openVisitQuick,
-  // visitQuickGo, openVisitFromAttendance) still open the LEGACY visit form through it until
-  // V-L4b/V-U3 move them onto sigma.openVisitEditor.
+  // last-visit box, modalEmsSection) moved to KibbutzDetail/StatusTab (K-U1/K-U2) and is gone
+  // from here. V's own callers (openVisitQuick, visitQuickGo, openVisitFromAttendance) already
+  // moved OFF this and onto sigma.openVisitEditor (V-L4b, merged before this package started) —
+  // this function's only remaining caller is the delegated card-click handler below, and only
+  // in the pre-K-U1 era (before window.sigma.openKibbutzModal exists). V-U3 deletes it.
   function openEditModal(card) {
     const name = card.dataset.name;
     currentKibbutz = name;
