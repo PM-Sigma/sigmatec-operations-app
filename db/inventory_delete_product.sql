@@ -33,6 +33,27 @@
 -- (delivery_certs.cert_number is a sequence; a rolled-back transaction does not return a
 -- consumed value, so this can never run inside a plain local transaction test against a shared
 -- sequence without leaving a gap — a branch is disposable, main is not).
+--
+-- AUDIT FIX (r5, "does a full delete override the visit_edit_lock trigger?" — question open for
+-- עידן; default ruling until he answers): NO override. A visit dated ≤31.8.2026, or past the
+-- 10th of the month after it (db/visit_edit_lock_trigger.sql), is read-only everywhere, including
+-- here. Writing its `products` line would fire that trigger and abort the WHOLE delete
+-- transaction (movements/orders/etc. already deleted, then a rollback) — so a locked visit's line
+-- is simply left alone: not trimmed, not deleted, the item's name stays in it. The preview lists
+-- such visits separately as "kept (locked)" so the confirmation screen is honest about what will
+-- and will not be touched.
+--
+-- AUDIT FIX: EXECUTE on the delete itself (not the preview) is revoked from `authenticated`/
+-- `anon` — only the service role may call `inventory_delete_product`. A full, cascading delete is
+-- irreversible enough (delivery_certs aside) that it should never be one client-side RPC call
+-- away from anyone with a valid session; today's one real use (removing the empty P13 item) is
+-- run directly over SQL. `inventory_delete_preview` stays callable by `authenticated` so a future
+-- UI confirmation screen can still show the counts.
+--
+-- AUDIT FIX: take a backup first. Before ever running `inventory_delete_product` against a real
+-- database — branch or (once approved) production — call `backup.take_snapshot()` (or the
+-- project's equivalent pre-change snapshot) and keep the result until the delete is verified. A
+-- ROLLBACK section (drop of everything this file creates) sits at the bottom for a clean revert.
 
 create or replace function public.inventory_line_name(e jsonb) returns text
 language sql immutable as $$
@@ -71,7 +92,9 @@ begin
   r as (select x.id, bool_and(public.inventory_line_name(e) = p_name) as only_this
         from requirements x cross join lateral jsonb_array_elements(coalesce(x.items, '[]'::jsonb)) e
         group by x.id having bool_or(public.inventory_line_name(e) = p_name)),
-  vi as (select distinct x.id from visits x cross join lateral jsonb_array_elements(coalesce(x.products, '[]'::jsonb)) e
+  vi as (select distinct x.id,
+           coalesce(public.visit_edit_locked(nullif(left(x.date, 10), '')::date), false) as locked
+         from visits x cross join lateral jsonb_array_elements(coalesce(x.products, '[]'::jsonb)) e
          where public.inventory_line_name(e) = p_name),
   pc as (select distinct x.id from parse_corrections x cross join lateral jsonb_array_elements(coalesce(x.items, '[]'::jsonb)) e
          where public.inventory_line_name(e) = p_name)
@@ -84,7 +107,8 @@ begin
     -- informational only (see the `c` CTE's comment) — never deleted, never trimmed.
     'certs_referencing', (select coalesce(jsonb_agg(cert_number order by cert_number), '[]'::jsonb) from c),
     'certs_referencing_active', (select coalesce(jsonb_agg(cert_number order by cert_number), '[]'::jsonb) from c where status <> 'cancelled'),
-    'visits_trimmed', (select count(*) from vi),
+    'visits_trimmed', (select count(*) from vi where not locked),
+    'visits_kept_locked', (select coalesce(jsonb_agg(id order by id), '[]'::jsonb) from vi where locked),
     'requirements_deleted', (select count(*) from r where only_this),
     'requirements_trimmed', (select count(*) from r where not only_this),
     'returns', (select count(*) from returns where product = p_name),
@@ -134,12 +158,17 @@ begin
 
   -- visits: the equipment LINE is removed; summary/open_items (the text the visit is really
   -- remembered by) are untouched. A visit row is never deleted, even if products empties out.
+  -- AUDIT FIX: a LOCKED visit (visit_edit_lock trigger — August 2026 or earlier, or past the 10th
+  -- of next month) is skipped entirely, not written to at all: writing it would fire the trigger
+  -- and abort this whole transaction. Default ruling (question open for עידן): no override — the
+  -- item's line simply stays in the locked visit, reported by the preview as "kept (locked)".
   update visits x set products = (
       select coalesce(jsonb_agg(e order by i), '[]'::jsonb)
       from jsonb_array_elements(x.products) with ordinality t(e, i)
       where public.inventory_line_name(e) is distinct from p_name
     )
-    where exists (select 1 from jsonb_array_elements(coalesce(x.products, '[]'::jsonb)) e where public.inventory_line_name(e) = p_name);
+    where exists (select 1 from jsonb_array_elements(coalesce(x.products, '[]'::jsonb)) e where public.inventory_line_name(e) = p_name)
+      and not coalesce(public.visit_edit_locked(nullif(left(x.date, 10), '')::date), false);
 
   delete from parse_corrections x
     where exists (select 1 from jsonb_array_elements(coalesce(x.items, '[]'::jsonb)) e where public.inventory_line_name(e) = p_name)
@@ -158,4 +187,14 @@ end $$;
 revoke all on function public.inventory_delete_preview(text) from public, anon;
 revoke all on function public.inventory_delete_product(text, text) from public, anon;
 grant execute on function public.inventory_delete_preview(text) to authenticated;
-grant execute on function public.inventory_delete_product(text, text) to authenticated;
+-- AUDIT FIX: the delete itself is service-role only — NOT granted to `authenticated`. Today's one
+-- real use (removing the empty P13 item) is run directly over SQL/service role; no client session
+-- can trigger the full cascade.
+revoke execute on function public.inventory_delete_product(text, text) from authenticated;
+
+-- ROLLBACK (run to remove everything this file creates; never run against production without
+-- a fresh backup.take_snapshot() first):
+-- drop function if exists public.inventory_delete_product(text, text);
+-- drop function if exists public.inventory_delete_preview(text);
+-- drop function if exists public.inventory_delete_guard();
+-- drop function if exists public.inventory_line_name(jsonb);

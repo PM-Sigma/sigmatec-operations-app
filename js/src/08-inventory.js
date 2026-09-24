@@ -1,21 +1,8 @@
   // ========== STOCK (by location) ==========
+  // L6 (minimal): delegates to window.SigmaInv.stockByLocation (app/src/lib/inventory.ts) — one
+  // copy of the stock-by-location rule, instead of a second one kept in sync by hand.
   function computeStock() {
-    const movements = (window.SHEET_DATA && window.SHEET_DATA.movements) || [];
-    const stock = {}; // stock[location][product] = qty
-    movements.forEach(m => {
-      const qty = parseFloat(m.quantity) || 0;
-      const prod = m.product || '';
-      if (!prod) return;
-      if (m.fromLocation) {
-        if (!stock[m.fromLocation]) stock[m.fromLocation] = {};
-        stock[m.fromLocation][prod] = (stock[m.fromLocation][prod] || 0) - qty;
-      }
-      if (m.toLocation) {
-        if (!stock[m.toLocation]) stock[m.toLocation] = {};
-        stock[m.toLocation][prod] = (stock[m.toLocation][prod] || 0) + qty;
-      }
-    });
-    return stock;
+    return SigmaInv.stockByLocation((window.SHEET_DATA && window.SHEET_DATA.movements) || []);
   }
 
   // The ONE pool (inventory spec §1): `{product: qty}` at `חברה`. Mirrors

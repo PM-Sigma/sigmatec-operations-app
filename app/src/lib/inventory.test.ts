@@ -393,6 +393,19 @@ describe('orderSavePlan (O16-O19, O27-O28, O18a/O18b fixed)', () => {
     expect(orderSavePlan({ ...base, createdBy: '' } as any, ctx).errors[0]).toBe('חסר מי יצר את ההזמנה');
     expect(orderSavePlan({ ...base, orderType: 'customer', kibbutz: '' } as any, ctx).errors.at(-1)).toBe('חסר קיבוץ להזמנת לקוח');
   });
+  it('AUDIT FIX: expectedDate reaches the body (was dropped silently — never read from the draft)', () => {
+    const p = orderSavePlan({ ...base, expectedDate: '2026-10-05' } as any, ctx);
+    expect(p.body.expectedDate).toBe('2026-10-05');
+  });
+  it('AUDIT FIX: no expectedDate on the draft → the key stays absent (never forced to "")', () => {
+    const p = orderSavePlan(base as any, ctx);
+    expect('expectedDate' in p.body).toBe(false);
+  });
+  it('AUDIT FIX: delivered again while a delivery movement already exists locally does not re-post (save path, not just UI)', () => {
+    const dupCtx = { ...ctx, movements: [{ refId: 'x', reason: 'order_delivery' }] };
+    const p = orderSavePlan({ ...base, id: 'x', origStatus: 'arrived', status: 'delivered' } as any, dupCtx);
+    expect([p.body.status, p.delivery]).toEqual(['delivered', false]);
+  });
 });
 
 describe('approvalPlan (O11-O13)', () => {
@@ -469,6 +482,19 @@ describe('deleteSummaryLines (D1-D5, binding update: issued certs stay exactly a
       returns: 0, recounts: 0, alerts: 0, parse_examples: 0, fingerprint: 'x',
     });
     expect(lines).toEqual([{ text: '2 תעודות מזכירות פריט זה — לא ישתנו (תעודה שהופקה היא רשומה סופית)', danger: false }]);
+  });
+  it('AUDIT FIX: a locked visit is reported as kept, not counted with the trimmed ones', () => {
+    const lines = deleteSummaryLines({
+      product: 'x', exists: 1, movements: 0, orders_deleted: [], orders_trimmed: [],
+      certs_referencing: [], certs_referencing_active: [],
+      visits_trimmed: 1, visits_kept_locked: ['v-aug1', 'v-aug2'],
+      requirements_trimmed: 0, requirements_deleted: 0,
+      returns: 0, recounts: 0, alerts: 0, parse_examples: 0, fingerprint: 'x',
+    });
+    expect(lines).toEqual([
+      { text: 'שורה בביקור אחד (הסיכום נשאר)', danger: false },
+      { text: '2 ביקורים נעולים לעריכה — נשארים כמו שהם', danger: false },
+    ]);
   });
   it('everything zero → no lines at all', () => {
     expect(deleteSummaryLines({

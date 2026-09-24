@@ -80,6 +80,11 @@ const out = new URL('./js/app.js', import.meta.url);
 const files = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort();
 let bundle = '';
 for (const f of files) bundle += fs.readFileSync(new URL(f, dir), 'utf8');
+// 📦 package I (task L6, minimal): the inventory rules are ONE TypeScript file
+// (app/src/lib/inventory.ts). The legacy modules reach it as window.SigmaInv — compiled here,
+// prepended, minified with the rest. Not in ui/sigma.js, so the 303 kB boot ceiling is untouched.
+const { sigmaInvSource } = await import('./scripts/sigma-inv.mjs');
+bundle = sigmaInvSource() + '\n' + bundle;
 // MINIFY the legacy bundle (task 22b / Lighthouse gate): 661 kB of concatenated source, ~200 kB
 // of it whitespace, was "Minify JavaScript ~300 ms" + a chunk of "unused JavaScript" on every
 // boot. esbuild's TRANSFORM api is used on purpose (not `bundle`): it leaves TOP-LEVEL names

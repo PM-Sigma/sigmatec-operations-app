@@ -17,6 +17,9 @@
 // Run: node test-inventory-pool.mjs   (also in `npm test`)
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { loadSigmaInv } from './scripts/sigma-inv.mjs';
+
+const SigmaInv = loadSigmaInv();
 
 const read = p => readFileSync(new URL(p, import.meta.url), 'utf8');
 let failed = 0;
@@ -52,13 +55,13 @@ console.log('\n[1] 08-inventory.js: computeStock / poolStockMap / lowStockReport
     const fn = new Function(
       'window', 'document', 'POOL_LOCATION', 'INV_LOCATIONS', 'NON_KIBBUTZ_LOCATIONS',
       'getCurrentUser', 'isViewer', 'checkEditPermission', 'invLoadingPlaceholder',
-      'getActiveProducts', 'alert', 'setTimeout',
+      'getActiveProducts', 'alert', 'setTimeout', 'SigmaInv',
       src + '\nreturn { computeStock, poolStockMap, lowStockReport, invRenderStock, openStockChangeSheet };',
     );
     return fn(
       win, doc, POOL, [POOL], [POOL, 'ספירה', SUPPLIER, 'תקול', 'אביאם', 'ניתאי', 'משרד', 'עמיחי'],
       () => 'עמיחי', () => false, () => true, () => '',
-      () => win.SHEET_DATA.products, () => {}, () => 0,
+      () => win.SHEET_DATA.products, () => {}, () => 0, SigmaInv,
     );
   };
 

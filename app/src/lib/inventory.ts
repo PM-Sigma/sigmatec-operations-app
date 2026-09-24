@@ -633,7 +633,12 @@ export function orderSavePlan(draft: OrderDraft, ctx: SaveCtx): SavePlan {
     : (draft.origStatus === 'pending_approval' ? 'pending_approval' : (draft.status || draft.origStatus || 'pending'));
   // O18a fix: unchanged from arrived stays arrived — "delivered" only counts as a REAL
   // transition, not the dropdown's stale display value.
-  const delivery = !!draft.id && status === 'delivered' && draft.origStatus !== 'delivered';
+  // AUDIT FIX: orderStatusPlan already refuses to re-post order_delivery via alreadyPosted(); this
+  // plan didn't — a save that (re-)sends `status: 'delivered'` while a delivery movement for this
+  // order already exists in ctx.movements would have queued a SECOND one. The save path itself
+  // (not just the UI, which never shows the option once delivered) now makes the same check.
+  const delivery = !!draft.id && status === 'delivered' && draft.origStatus !== 'delivered'
+    && !alreadyPosted(ctx.movements, draft.id, 'order_delivery');
 
   const baseItems = draft.items.filter(it => !it.auto && it.name).map(it => ({ name: it.name, qty: it.qty }));
   let notes = (draft.notes || '').trim();
@@ -645,6 +650,10 @@ export function orderSavePlan(draft: OrderDraft, ctx: SaveCtx): SavePlan {
   };
   if (draft.orderType === 'customer' && draft.kibbutz) body.kibbutz = draft.kibbutz;
   if (draft.assignee) body.assignee = draft.assignee;
+  // AUDIT FIX: draft.expectedDate reached the OrderDraft type but never the plan's body, so it
+  // was silently dropped on every save — orderInsertRow/orderPatchRow map body.expectedDate →
+  // expected_date correctly, they just never received it.
+  if (draft.expectedDate !== undefined) body.expectedDate = draft.expectedDate;
 
   const fulfil: string[] = [];
   const reqLinks: SavePlan['reqLinks'] = [];
@@ -740,7 +749,8 @@ export interface DeletePreview {
   product: string; exists: number; movements: number;
   orders_deleted: string[]; orders_trimmed: string[];
   certs_referencing: number[]; certs_referencing_active: number[];
-  visits_trimmed: number; requirements_deleted: number; requirements_trimmed: number;
+  visits_trimmed: number; visits_kept_locked?: string[];
+  requirements_deleted: number; requirements_trimmed: number;
   returns: number; recounts: number; alerts: number; parse_examples: number;
   fingerprint: string;
 }
@@ -763,6 +773,7 @@ export function deleteSummaryLines(p: DeletePreview): DeleteSummaryLine[] {
     });
   }
   if (p.visits_trimmed) lines.push({ text: plural(p.visits_trimmed, 'שורה בביקור אחד (הסיכום נשאר)', n => `שורות ב-${n} ביקורים (הסיכומים נשארים)`), danger: false });
+  if (p.visits_kept_locked?.length) lines.push({ text: plural(p.visits_kept_locked.length, 'ביקור אחד נעול לעריכה — נשאר כמו שהוא', n => `${n} ביקורים נעולים לעריכה — נשארים כמו שהם`), danger: false });
   if (p.requirements_trimmed) lines.push({ text: plural(p.requirements_trimmed, 'שורה בדרישה אחת', n => `שורות ב-${n} דרישות`), danger: false });
   if (p.requirements_deleted) lines.push({ text: plural(p.requirements_deleted, 'דרישה אחת נמחקת כולה', n => `${n} דרישות נמחקות כולן`), danger: true });
   if (p.returns) lines.push({ text: plural(p.returns, 'החזרה אחת', n => `${n} החזרות`), danger: false });

@@ -332,93 +332,17 @@
   // ---- the printed document (brand colors from the Sigmatec logo: lime/teal/dark-teal on navy text) ----
   // ONE generator for print window, in-app preview and the public view link — preview ≡ output by construction.
   // opts.screen: no auto-print; instead a floating 🖨️ button (hidden in the actual printout via @media print).
+  // L6 (minimal): delegates to window.SigmaInv.certDocHtml (app/src/lib/certDoc.ts, re-exported
+  // from inventory.ts) — byte-identical to the body this replaces, parameterized on opts.logo
+  // (was the CERT_LOGO global) instead of a second copy of the printed document's markup.
   function certDocHtml(cert, opts) {
-    const num = cert.number ? String(cert.number) : 'טיוטה';
-    const rows = cert.items.map(i =>
-      `<tr><td>${certEsc(i.name)}</td><td class="qty">${i.qty}</td></tr>`).join('');
-    const totalQty = cert.items.reduce((s, i) => s + i.qty, 0);
-    const c = cert.customer;
-    return `<!doctype html>
-<html dir="rtl" lang="he"><head><meta charset="utf-8">
-<title>תעודת משלוח ${certEsc(num)}: ${certEsc(c.name)}</title>
-<style>
-  @page { size: A4; margin: 0; }
-  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  html, body { margin: 0; padding: 0; }
-  body { font-family: 'Assistant','Segoe UI',Arial,sans-serif; color: #1b2a4a; width: 210mm; height: 296mm; padding: 14mm 14mm 30mm; position: relative; overflow: hidden; }
-  .bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
-  .circ { position: absolute; border-radius: 50%; }
-  .ring { position: absolute; border-radius: 50%; background: none !important; }
-  .strip { position: absolute; left: 0; right: 0; background: linear-gradient(90deg, #175860 0%, #3fb4c4 45%, #a9c938 100%); }
-  .grad { background: linear-gradient(135deg, #2fb0c9 0%, #7fc93e 100%); }
-  .content { position: relative; z-index: 1; }
-  .logo { display: block; margin: 0 auto 4mm; width: 62mm; }
-  h1 { font-size: 24px; margin: 8mm 0 1mm; }
-  .computed { font-size: 11px; color: #64748b; margin-bottom: 8mm; }
-  .blocks { display: flex; justify-content: space-between; gap: 10mm; font-size: 12.5px; line-height: 1.8; }
-  .blocks b { font-size: 13.5px; }
-  table.items { width: 100%; border-collapse: collapse; margin-top: 10mm; font-size: 13px; }
-  table.items th { text-align: right; border-top: 2px solid #1b2a4a; border-bottom: 2px solid #1b2a4a; padding: 6px 4px; }
-  table.items td { padding: 8px 4px; border-bottom: 1px solid #e2e8f0; }
-  table.items .qty { width: 70px; text-align: center; }
-  .total { display: inline-block; margin-top: 6mm; background: #8fbe3f; color: #fff; font-weight: 700; font-size: 13px; padding: 6px 16px; border-radius: 2px; }
-  .notes { margin-top: 10mm; font-size: 12.5px; }
-  .notes b { display: block; margin-bottom: 1mm; }
-  .sig { position: absolute; bottom: 22mm; right: 14mm; left: 14mm; font-size: 13px; display: flex; gap: 18mm; }
-  .sig span { border-bottom: 1px solid #1b2a4a; min-width: 45mm; display: inline-block; padding: 0 2mm 2px; }
-  .foot { position: absolute; bottom: 8mm; right: 14mm; left: 14mm; font-size: 9.5px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 2mm; display: flex; justify-content: space-between; }
-</style></head><body>
-  <div class="bg">
-    <div class="strip" style="top:0;height:3.5mm;"></div>
-    <div class="strip" style="bottom:0;height:2mm;"></div>
-    <div class="ring" style="width:34mm;height:34mm;border:1.4mm solid #a9c938;top:9mm;left:7mm;opacity:.55;"></div>
-    <div class="circ grad" style="width:19mm;height:19mm;top:17mm;left:22mm;opacity:.92;"></div>
-    <div class="circ" style="width:6.5mm;height:6.5mm;background:#175860;top:37mm;left:15mm;"></div>
-    <div class="ring" style="width:11mm;height:11mm;border:1mm solid #3fb4c4;top:11mm;right:10mm;opacity:.5;"></div>
-    <div class="circ grad" style="width:8mm;height:8mm;bottom:16mm;left:10mm;opacity:.8;"></div>
-    <div class="ring" style="width:5.5mm;height:5.5mm;border:.8mm solid #a9c938;bottom:23mm;left:21mm;opacity:.7;"></div>
-  </div>
-  ${cert.cancelled ? '<div style="position:absolute;top:38%;left:0;right:0;text-align:center;transform:rotate(-16deg);font-size:58px;font-weight:900;color:rgba(220,38,38,.30);z-index:3;letter-spacing:10px;">מבוטלת</div>' : ''}
-  <div class="content">
-    <img class="logo" src="${CERT_LOGO}" alt="Sigmatec">
-    <h1>תעודת משלוח ${certEsc(num)}</h1>
-    <div class="computed">מסמך ממוחשב${cert.number ? '' : ': טיוטה (ללא מספר)'}${cert.cancelled ? ' · <b style="color:#dc2626;">תעודה מבוטלת' + (cert.replacedBy ? ', הוחלפה בתעודה מס\' ' + certEsc(cert.replacedBy) : '') + '</b>' : ''}</div>
-    <div class="blocks">
-      <div>
-        שם הלקוח: <b>${certEsc(c.name)}</b><br>
-        ${c.company_id ? 'ת.ז./ע.מ.: ' + certEsc(c.company_id) + '<br>' : ''}
-        ${c.address ? 'כתובת: ' + certEsc(c.address) + '<br>' : ''}
-        ${c.contact ? 'איש קשר: ' + certEsc(c.contact) + '<br>' : ''}
-        תאריך: ${certFmtDate(cert.date)}
-      </div>
-      <div style="text-align:left;">
-        <b>${certEsc(CERT_COMPANY.name)}</b><br>
-        ${certEsc(CERT_COMPANY.sub)}<br>
-        ${certEsc(CERT_COMPANY.reg)}<br>
-        כתובת: ${certEsc(CERT_COMPANY.address)}<br>
-        דוא"ל: ${certEsc(CERT_COMPANY.email)}<br>
-        אתר: ${certEsc(CERT_COMPANY.web)}
-      </div>
-    </div>
-    <table class="items">
-      <thead><tr><th>פירוט</th><th class="qty">כמות</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="total">סה"כ פריטים: ${totalQty}</div>
-    ${cert.notes ? '<div class="notes"><b>הערות</b>' + certEsc(cert.notes).replace(/\n/g, '<br>') + '</div>' : ''}
-  </div>
-  <div class="sig">
-    <div>שם המקבל: ${cert.recipient ? '<b>' + certEsc(cert.recipient) + '</b>' : '<span>&nbsp;</span>'}</div>
-    <div>חתימה: ${(cert.signature && /^data:image\//.test(cert.signature)) ? '<span style="border-bottom:1px solid #1b2a4a;"><img src="' + cert.signature + '" style="height:15mm;vertical-align:bottom;"></span>' : '<span>&nbsp;</span>'}</div>
-  </div>
-  <div class="foot">
-    <span>תעודת משלוח ${certEsc(num)} · הופקה באפליקציית התפעול של סיגמאטק${cert.refId ? ' · ' + certEsc(cert.source) + ':' + certEsc(cert.refId) : ''}</span>
-    <span>© ${new Date().getFullYear()} ${certEsc(CERT_COMPANY.name)}</span>
-  </div>
-  ${(opts && opts.screen)
-    ? '<button class="print-fab" onclick="window.print()" style="position:fixed;bottom:18px;left:18px;z-index:9;background:#1b2a4a;color:#fff;border:none;border-radius:12px;padding:14px 20px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);">🖨️ הדפס / שמור PDF</button><style>@media print { .print-fab { display:none; } }</style>'
-    : '<scr' + 'ipt>window.onload = function () { setTimeout(function () { window.print(); }, 250); };</scr' + 'ipt>'}
-</body></html>`;
+    // `${CERT_LOGO}` (not a bare reference): matches how this same cross-file read already
+    // appears elsewhere in this file (e.g. the public-view route below) — CERT_LOGO is a
+    // top-level const of the LATER file 20-delivery-cert-logo.js, and certDocHtml is only ever
+    // reached from user actions (issue/view/print a certificate) well after boot, never at
+    // eval-time — see test-concat-order.mjs's eval-time-only contract.
+    const logo = `${CERT_LOGO}`;
+    return SigmaInv.certDocHtml(cert, Object.assign({ logo }, opts || {}));
   }
 
   // ---- 🔗 public view route: ?cert=<uuid> renders the stored cert full-page (share-link target) ----

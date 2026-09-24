@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadSigmaInv } from '../../../scripts/sigma-inv.mjs';
 import {
   CERT_COMPANY, certDocHtml, certEsc, certFmtDate, certGroupName, certIssueErrors, certItemsForView,
   certPrefill, certRange, certRangeGroups, certRangeReportHtml, certReissuePrefill, certSearch,
@@ -23,9 +24,15 @@ function legacyCertDocHtml(cert: any, opts: { screen?: boolean } | undefined, lo
   class FixedDate extends RealDate {
     getFullYear() { return year; }
   }
-  const fn = new Function('CERT_LOGO', 'Date', 'window', src);
-  const certDocHtmlLegacy = fn(logo, FixedDate as any, {});
-  return certDocHtmlLegacy(cert, opts);
+  // L6 (minimal): 20-delivery-cert.js's certDocHtml now DELEGATES to window.SigmaInv.certDocHtml
+  // (this same certDoc.ts, compiled to an IIFE) — so `Date` mocking here no longer reaches the
+  // year in the footer (SigmaInv is its own closure, not part of this `new Function` scope);
+  // opts.year is passed explicitly instead, exactly like the real caller in 20-delivery-cert.js
+  // would if it needed a non-current year (it never does — `new Date().getFullYear()` is the
+  // legacy behaviour's own default, preserved as certDoc.ts's `opts.year ?? new Date().getFullYear()`).
+  const fn = new Function('CERT_LOGO', 'Date', 'window', 'SigmaInv', src);
+  const certDocHtmlLegacy = fn(logo, FixedDate as any, {}, loadSigmaInv());
+  return certDocHtmlLegacy(cert, Object.assign({ year }, opts || {}));
 }
 
 const LOGO = 'data:image/png;base64,TEST';
