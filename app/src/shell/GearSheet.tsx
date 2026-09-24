@@ -50,13 +50,23 @@ export function GearSheet() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto border-border bg-card pb-8">
-        <SheetHeader className="mb-1 flex-row items-center gap-3 text-start">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <SheetTitle className="text-base">{user || 'לא מחובר'}</SheetTitle>
-            <SheetDescription className="!mt-0 text-[13px]">{isViewer ? ROLE_LABEL.viewer : ROLE_LABEL[personRole]}</SheetDescription>
+        {/* Designer round 3: SheetHeader wraps its children in its OWN hard-coded flex-col div
+            (sheet.tsx) — passing Tags straight in as siblings of the title stretched them to
+            that column's full width (`align-items:stretch`), so "לא מחובר"/"סביבת בדיקה" read
+            as full-width buttons instead of small inline chips. One row, everything as ITS own
+            flex children, as the ONLY child of that column — the column still stretches, but
+            nothing inside a `flex items-center` row does. `items-center` on SheetHeader itself
+            (already here) also centres the ✕ against this whole row instead of top-aligning it
+            against just the first text line. */}
+        <SheetHeader className="mb-1 items-center gap-3 text-start">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <SheetTitle className="text-base">{user || 'לא מחובר'}</SheetTitle>
+              <SheetDescription className="!mt-0 text-[13px]">{isViewer ? ROLE_LABEL.viewer : ROLE_LABEL[personRole]}</SheetDescription>
+            </div>
+            <Tag role={connected ? 'ok' : 'neutral'} dot className="shrink-0">{connected ? 'מחובר ל-EMS' : 'לא מחובר'}</Tag>
+            {mock && <Tag role="info" className="shrink-0">סביבת בדיקה</Tag>}
           </div>
-          <Tag role={connected ? 'ok' : 'neutral'} dot>{connected ? 'מחובר ל-EMS' : 'לא מחובר'}</Tag>
-          {mock && <Tag role="info">סביבת בדיקה</Tag>}
         </SheetHeader>
 
         <SectionBlock title="">

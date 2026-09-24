@@ -1729,6 +1729,10 @@ input, select, textarea {
    "Operations" instead of one long nowrap line, so nothing needs to shrink or truncate. */
 .brand-wrap { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 .brand { display: flex; flex-direction: column; gap: 0; font-size: 17px; font-weight: 800; line-height: 1.15; min-width: 0; }
+/* Nice-to-have (designer round 3): one line at 1440+ — desktop has the width for it, so the
+   stacked two-line wordmark (round 2, still needed under 768 where it's tight) is only a
+   phone/tablet accommodation. */
+@media (min-width: 1024px) { .brand { flex-direction: row; gap: 5px; } }
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
   flex: 0 0 auto;

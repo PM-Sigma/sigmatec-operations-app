@@ -84,5 +84,16 @@ html[data-nav='back'] ::view-transition-new(root) {
     border-radius: var(--s-radius-sheet) !important;
     border: 1px solid hsl(var(--border));
     transform: translateY(-50%) !important;
+    /* Designer round 3: the list can run past max-h-85vh (everyday rows + the ⟨ ניהול ⟩ block);
+       it scrolled fine but LOOKED cut off — nothing hinted there was more below "ניהול". A
+       fixed content fade would fade the LAST real row even on a short list that never
+       overflows (a worse, misleading cue), so this is a visible scrollbar instead: it only
+       ever renders when the browser decides there IS overflow — an honest, conditional cue a
+       static mask can't give — just styled thin/always-on instead of the OS's auto-hide one. */
+    max-height: min(85vh, calc(100vh - 64px)) !important;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
+  .s-more-desktop::-webkit-scrollbar { width: 8px; }
+  .s-more-desktop::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
 }

@@ -118,7 +118,7 @@ const SheetHeader = ({
     <div className={cn("grid grid-cols-[1fr_auto] items-start gap-2", className)} {...props}>
       <div className="flex min-w-0 flex-col gap-1 text-start">{children}</div>
       {!hideClose && (
-        <SheetPrimitive.Close className="s-close-btn">
+        <SheetPrimitive.Close className="s-close-btn" data-hit-slop>
           <X className="h-5 w-5" />
           <span className="sr-only">סגירה</span>
         </SheetPrimitive.Close>

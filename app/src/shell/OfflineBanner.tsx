@@ -15,16 +15,16 @@ import { useOnline, OFFLINE_TEXT } from '@/lib/online';
 export function OfflineBanner() {
   const online = useOnline();
   if (online) return null;
-  // Designer re-review: a centred pill (Tag) read as a floating chip rather than a system
-  // banner, and its dot duplicated the WifiOff icon's own "no connection" meaning. A slim,
-  // full-width strip directly under the header — the same warn tokens, no dot, no pill shape —
-  // matches how the version-check "עלתה גרסה חדשה" bar/other system banners sit against the
-  // page instead of floating over it.
+  // Designer round 3: still boxed inside `body`'s own 12–24px padding (index.html), not truly
+  // edge-to-edge — the classic "break out of the padded container" trick (100vw + a negative
+  // margin sized off the viewport, not off any specific ancestor's padding value, so it holds
+  // at every breakpoint without duplicating body's own padding numbers here).
   return (
     <div
       role="status"
       dir="rtl"
-      className="flex w-full items-center justify-center gap-1.5 bg-[var(--warn-fill)] px-4 py-1.5 text-[13px] font-semibold text-[var(--warn-ink)]"
+      className="flex items-center justify-center gap-1.5 bg-[var(--warn-fill)] py-1.5 text-[13px] font-semibold text-[var(--warn-ink)]"
+      style={{ width: '100vw', marginInlineStart: 'calc(50% - 50vw)', marginInlineEnd: 'calc(50% - 50vw)' }}
     >
       <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
       {OFFLINE_TEXT}
