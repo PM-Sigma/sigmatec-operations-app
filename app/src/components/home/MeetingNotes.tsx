@@ -7,6 +7,7 @@
 // emitting `notes-changed` on sigmaBus, which is what makes the card, the modal tab and the
 // import preview agree without any of them knowing the others exist (docs/integration-map.md).
 import * as React from 'react';
+import { CalendarDays } from 'lucide-react';
 import { useClickAway } from '@/lib/useClickAway';
 import { useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -191,6 +192,11 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
         )}
       </span>
 
+      {/* ONE trailing slot (designer round 7): the ➕/🔗 action and the ⋯ menu used to be two
+          independent flex children of the row, which could drift apart from the row's text and
+          from each other at 412px. Grouped into a single self-start flex container, they now
+          move as one unit, level with the row's first line — a ListRow-style trailing slot. */}
+      <span className="flex shrink-0 items-center gap-0.5 self-start">
       {/* ➕ ⇄ 🔗 are ONE element as far as Motion is concerned (shared layoutId), so linking a
           bullet morphs the button in place instead of swapping two icons (spec §7c).
           h-5 w-5 flex items-center justify-center (designer round 6): the glyph used to just
@@ -250,6 +256,7 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
           )}
         </span>
       )}
+      </span>
     </motion.li>
   );
 }
@@ -263,7 +270,7 @@ function MeetingBlock({ group, canAct }: { group: MeetingGroup; canAct: boolean 
           className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground"
           title={kindLabel}
         >
-          🗓 <bdi>{chipDate(group.meeting_date)}</bdi>
+          <CalendarDays aria-hidden className="me-1 inline h-2.5 w-2.5" /><bdi>{chipDate(group.meeting_date)}</bdi>
         </span>
         {group.meeting_kind !== 'company' && (
           <span className="text-[10px] font-semibold text-muted-foreground">{kindLabel}</span>
@@ -319,7 +326,7 @@ export function MeetingTimeline({
         <>
           <div className="mb-0.5 flex items-center gap-1.5">
             <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
-              🗓 <bdi>{chipDate(latest.meeting_date)}</bdi>
+              <CalendarDays aria-hidden className="me-1 inline h-2.5 w-2.5" /><bdi>{chipDate(latest.meeting_date)}</bdi>
             </span>
           </div>
           <ul>

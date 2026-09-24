@@ -1,4 +1,4 @@
-import{i as a}from"./sigma.js?v=mug2e87g";/**
+import{i as a}from"./sigma.js?v=mug2tse1";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

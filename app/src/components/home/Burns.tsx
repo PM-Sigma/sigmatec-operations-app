@@ -357,7 +357,7 @@ export function BurnsStrip() {
       {/* line-clamp-2, not truncate (designer round 6): a single-line ellipsis was cutting
           "בוצעו 3 מתוך 5" down to "בוצעו 3 מתו…" at 360px — the count must always read whole. */}
       <span className="line-clamp-2 min-w-0 flex-1 text-[14px] font-bold">
-        {line.title} · <bdi>{line.progress}</bdi>
+        {line.title} · <bdi className="whitespace-nowrap">{line.progress}</bdi>
       </span>
       <span className="shrink-0 text-[12.5px] font-bold text-muted-foreground">{line.link} ›</span>
     </button>

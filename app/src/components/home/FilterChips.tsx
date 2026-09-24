@@ -38,6 +38,15 @@ export function FilterChips({
           className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-muted-foreground"
         />
       </label>
+      {/* overflow-x-auto + an edge mask (designer round 7, nice-to-have): a longer count/label
+          combo that ever pushes the row past the viewport scrolls instead of squeezing every
+          chip unreadable, and the mask fades the row at both edges so a partly-hidden chip
+          reads as "more this way" rather than a hard clip. Inert today (the four chips fit at
+          every width with flex-1), so it costs nothing when there is nothing to scroll. */}
+      <div
+        className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ WebkitMaskImage: 'linear-gradient(to left, transparent, black 12px, black calc(100% - 12px), transparent)', maskImage: 'linear-gradient(to left, transparent, black 12px, black calc(100% - 12px), transparent)' }}
+      >
       <ToggleGroup
         type="single"
         value={filter}
@@ -69,6 +78,7 @@ export function FilterChips({
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
+      </div>
     </div>
   );
 }
