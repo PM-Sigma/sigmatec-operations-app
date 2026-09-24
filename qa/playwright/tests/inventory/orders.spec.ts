@@ -179,3 +179,13 @@ test('F22 sigma.openOrder opens the edit sheet for that order', async ({ page },
   await page.locator('#invOrderModal.open').waitFor({ state: 'visible' });
   await expect(page.locator('#invOrderSupplier')).toHaveValue('לנדיס');
 });
+
+test('S19 tab order is the round-5 ruling order', async ({ page }, ti) => {
+  await bootInv(page, ti, 'עידן', d);
+  await d.openTab(page, 'orders');
+  expect(await d.tabOrder(page)).toEqual(
+    d.name === 'react'
+      ? ['הזמנות', 'מלאי חברה', 'תעודות משלוח', 'מלאי בקיבוצים', 'החזרות', 'פריטים']
+      : ['🧾 הזמנות', '🏘 מלאי בקיבוצים', '🚚 תעודות משלוח', '🏢 מלאי החברה', '🔧 החזרות', '📋 פריטים'],
+  );
+});

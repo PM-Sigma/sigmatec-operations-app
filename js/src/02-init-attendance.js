@@ -326,6 +326,7 @@
   }
 
   function invShowTab(tab) {
+    if (invReact()) { invReactOpen({ kind: 'tab', tab: tab }); return; }
     if (!document.getElementById('inv-section-' + tab)) tab = 'orders';   // removed tabs (e.g. requirements) → never land on a blank page
     document.querySelectorAll('.inv-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.invTab === tab));
     document.querySelectorAll('.inv-section').forEach(s => s.classList.toggle('active', s.id === 'inv-section-' + tab));
@@ -333,6 +334,11 @@
   }
 
   function renderInventory() {
+    if (invReact()) {
+      try { window.dispatchEvent(new CustomEvent('sigma-inventory-refresh')); } catch (e) {}
+      if (typeof renderLowStockAlert === 'function') renderLowStockAlert();
+      return;
+    }
     invRenderOrders();
     invRenderStock();
     invRenderKibbutzInventory();

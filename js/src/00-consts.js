@@ -126,3 +126,17 @@
   window.visitEditableUntil = visitEditableUntil;
   window.visitEditLocked = visitEditLocked;
 
+  // 📦 package I cutover switch. false = the legacy inventory UI; true = the React islands. QA may override per
+  // device with localStorage 'sigma-inv-react' = '1' | '0'. Removed with the legacy code (U10).
+  const INV_REACT = false;
+  function invReact() {
+    try { const o = localStorage.getItem('sigma-inv-react'); if (o === '1') return true; if (o === '0') return false; } catch (e) {}
+    return INV_REACT;
+  }
+  function invReactOpen(detail) {
+    (window.__sigmaInvQueue = window.__sigmaInvQueue || []).push(detail);
+    try { window.dispatchEvent(new CustomEvent('sigma-inv-open', { detail: detail })); } catch (e) {}
+  }
+  window.invReact = invReact;
+  window.invReactOpen = invReactOpen;
+

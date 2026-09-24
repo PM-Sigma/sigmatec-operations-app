@@ -198,6 +198,13 @@ function boot() {
       .then(m => m.mountInventoryStrip())
       .catch(e => console.warn('[sigma] inventory-strip island failed', e));
   }
+  // 📦 מלאי (inventory spec, package I): the page island. Lazy, next to StockChange/InventoryStrip
+  // — it renders nothing (and stays out of the boot chunk) until #sigma-inventory exists.
+  if (document.getElementById('sigma-inventory')) {
+    import('@/islands/Inventory')
+      .then(m => m.mountInventory())
+      .catch(e => console.warn('[sigma] inventory island failed', e));
+  }
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())

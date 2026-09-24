@@ -6,6 +6,7 @@ import { boot, installRoutes, watchConsole, type Who } from '../_helpers';
 import { INVENTORY, toSheet } from './_inv-fixtures';
 import { recordLegacyWrites } from './_inv-ledger';
 import { legacyDriver } from './_inv-legacy';
+import { reactDriver } from './_inv-react';
 
 export type InvTab = 'orders' | 'stock' | 'certs' | 'kibbutz' | 'returns' | 'products';
 export interface NewOrder {
@@ -60,9 +61,7 @@ export interface InvDriver {
 /** Which driver a spec runs against: `INV_DRIVER=react npx playwright test …` (default: legacy).
  * The react driver lands in task U1 (behind INV_REACT, gated — not built by package L). */
 export function driverFor(): InvDriver {
-  if (process.env.INV_DRIVER === 'react') {
-    throw new Error('INV_DRIVER=react: the react driver (_inv-react.ts) is a U1 task, not built yet.');
-  }
+  if (process.env.INV_DRIVER === 'react') return reactDriver;
   return legacyDriver;
 }
 
