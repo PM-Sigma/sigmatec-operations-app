@@ -275,11 +275,18 @@ function boot() {
       .then(m => m.mountUsage())
       .catch(e => console.warn('[sigma] usage island failed', e)));
   }
-  // The header cluster (§6). Lazy; the legacy header chips stay if the chunk never lands.
+  // The header cluster (§6), the page-action row (S-5) and the offline banner (S-14). Each
+  // island replaces nothing if its chunk never lands — the legacy header/page-nav stay.
   if (document.getElementById('sigma-header-actions')) {
     import('@/islands/HeaderActions')
       .then(m => { if (m.mountHeaderActions()) document.body.classList.add('sigma-header-ready'); })
       .catch(e => console.warn('[sigma] header', e));
+  }
+  if (document.getElementById('sigma-page-bar')) {
+    import('@/shell/PageBar').then(m => m.mountPageBar()).catch(e => console.warn('[sigma] page-bar', e));
+  }
+  if (document.getElementById('sigma-offline')) {
+    import('@/shell/OfflineBanner').then(m => m.mountOfflineBanner()).catch(e => console.warn('[sigma] offline', e));
   }
   // ✉️ הודעה לעובד (X-L7, F1) — the one surface Ctrl+K's removal still owes a home. The row is
   // registered now (cheap); the chunk loads only on the first tap or `sigma-open-message`.

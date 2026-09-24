@@ -82,7 +82,9 @@ function SheetRow({
   );
 }
 
-export function MoreSheet({ role, openSignal = 0, user = '' }: { role: RegistryRole; openSignal?: number; user?: string }) {
+export function MoreSheet({
+  role, openSignal = 0, user = '', variant = 'bar',
+}: { role: RegistryRole; openSignal?: number; user?: string; variant?: 'bar' | 'desktop' }) {
   const [open, setOpen] = React.useState(false);
   // A long press on the bar (Nav.tsx) bumps `openSignal`; every bump opens the sheet.
   React.useEffect(() => { if (openSignal > 0) setOpen(true); }, [openSignal]);
@@ -126,17 +128,34 @@ export function MoreSheet({ role, openSignal = 0, user = '' }: { role: RegistryR
       onOpenChange={o => { setOpen(o); if (o) track('more-sheet-open'); }}
     >
       <SheetTrigger asChild>
-        <button
-          type="button"
-          aria-label="עוד"
-          className="relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors active:scale-[.97] active:bg-muted"
-        >
-          <MoreHorizontal className="h-[22px] w-[22px]" />
-          <span>עוד</span>
-          {attention > 0 && (
-            <span aria-hidden className="absolute end-3 top-1 h-2 w-2 rounded-full bg-destructive" />
-          )}
-        </button>
+        {variant === 'desktop' ? (
+          // ⋯ עוד on desktop too (S-9/S-10): the DEV tab and meeting modes only live here now,
+          // so a mouse-and-keyboard session needs the same door a phone's long press opens.
+          <button
+            type="button"
+            aria-label="עוד"
+            data-testid="desktop-more-trigger"
+            className="relative hidden min-h-[40px] items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted md:inline-flex"
+          >
+            <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
+            <span>עוד</span>
+            {attention > 0 && (
+              <span aria-hidden className="absolute -top-0.5 h-2 w-2 rounded-full bg-destructive" style={{ insetInlineEnd: -2 }} />
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="עוד"
+            className="relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors active:scale-[.97] active:bg-muted"
+          >
+            <MoreHorizontal className="h-[22px] w-[22px]" />
+            <span>עוד</span>
+            {attention > 0 && (
+              <span aria-hidden className="absolute end-3 top-1 h-2 w-2 rounded-full bg-destructive" />
+            )}
+          </button>
+        )}
       </SheetTrigger>
       {/* No `rounded-t-*` here: the `side="bottom"` variant already carries the mockup's 26 px
             radius and the grab handle, and a class passed in WINS over the variant (caught in

@@ -82,6 +82,22 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 780 }, colorScheme: 'light', deviceScaleFactor: 3, hasTouch: true, isMobile: true },
       metadata: { viewport: 'mobile-360', theme: 'light' },
     },
+    // Round 5 (package S, U9 gate): 360 dark, and 412 (Pixel-class phone) both themes.
+    {
+      name: 'mobile-360-dark',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 780 }, colorScheme: 'dark', deviceScaleFactor: 3, hasTouch: true, isMobile: true },
+      metadata: { viewport: 'mobile-360', theme: 'dark' },
+    },
+    {
+      name: 'mobile-412-light',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 412, height: 915 }, colorScheme: 'light', deviceScaleFactor: 3.5, hasTouch: true, isMobile: true },
+      metadata: { viewport: 'mobile-412', theme: 'light' },
+    },
+    {
+      name: 'mobile-412-dark',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 412, height: 915 }, colorScheme: 'dark', deviceScaleFactor: 3.5, hasTouch: true, isMobile: true },
+      metadata: { viewport: 'mobile-412', theme: 'dark' },
+    },
   ],
 
   webServer: {
