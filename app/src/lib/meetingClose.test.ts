@@ -1,26 +1,25 @@
 // Goldens for one-click EMS close in the meeting (package M, M-R8): who may close, the exact
 // close-comment wording, the 5 s deferred-commit queue with undo, and the send path behind the
-// existing EMS gateway (review focus #1–#4). Every EMS call here is a fake — nothing in this
-// file, or reachable from it, ever calls real EMS.
+// TYPED EMS gateway (review focus #1–#4) — `emsGateway().addComment` / `.updateTask`, never
+// `sigma.emsWrite` directly (spec §7o: that's adapter-only). Every EMS call here is a fake —
+// nothing in this file, or reachable from it, ever calls real EMS.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-
-const { emsWriteCalls, emsWriteImpl } = vi.hoisted(() => ({
-  emsWriteCalls: [] as Array<Record<string, unknown>>,
-  emsWriteImpl: { fn: null as unknown as (item: Record<string, unknown>) => Promise<any> },
-}));
-
-vi.mock('@/bridge', () => ({
-  sigma: {
-    emsWrite: (item: Record<string, unknown>) => { emsWriteCalls.push(item); return emsWriteImpl.fn(item); },
-  },
-}));
-
 import { setEmsGateway, type EmsGateway } from '@/lib/ems/gateway';
 import {
   CLOSERS, canCloseInMeeting, closeComment, createCloseQueue, sendClose, type PendingClose,
 } from './meetingClose';
 
-function fakeGateway(tasks: Record<string, { status: string }>): EmsGateway {
+type WriteFn = (...args: any[]) => Promise<{ sent: boolean; queued?: boolean; error?: string }>;
+
+const calls = { comment: [] as any[], status: [] as any[], getTask: [] as string[] };
+
+function fakeGateway(opts: {
+  tasks?: Record<string, { status: string }>;
+  getTaskImpl?: (id: string) => Promise<{ status: string } | null>;
+  addComment?: WriteFn;
+  updateTask?: WriteFn;
+} = {}): EmsGateway {
+  const tasks = opts.tasks || {};
   return {
     transport: 'rest',
     capabilities: () => ({} as any),
@@ -29,11 +28,21 @@ function fakeGateway(tasks: Record<string, { status: string }>): EmsGateway {
     listMeters: async () => [],
     getMeter: async () => null,
     listOpenTasks: async () => [],
-    getTask: async (id: string) => (tasks[id] ? ({ id, status: tasks[id].status } as any) : null),
+    getTask: async (id: string) => {
+      calls.getTask.push(id);
+      if (opts.getTaskImpl) return opts.getTaskImpl(id) as any;
+      return tasks[id] ? ({ id, status: tasks[id].status } as any) : null;
+    },
     createTask: async () => ({ sent: true }),
-    updateTask: async () => ({ sent: true }),
+    updateTask: async (id: string, patch: any) => {
+      calls.status.push({ id, patch });
+      return (opts.updateTask ? opts.updateTask(id, patch) : { sent: true }) as any;
+    },
     listComments: async () => [],
-    addComment: async () => ({ sent: true }),
+    addComment: async (id: string, text: string) => {
+      calls.comment.push({ id, text });
+      return (opts.addComment ? opts.addComment(id, text) : { sent: true }) as any;
+    },
     listUsers: async () => [],
     listAlerts: async () => null,
     energyBalance: async () => null,
@@ -42,7 +51,7 @@ function fakeGateway(tasks: Record<string, { status: string }>): EmsGateway {
 }
 
 afterEach(() => { setEmsGateway(null); vi.useRealTimers(); });
-beforeEach(() => { emsWriteCalls.length = 0; emsWriteImpl.fn = async () => ({ sent: true }); });
+beforeEach(() => { calls.comment.length = 0; calls.status.length = 0; calls.getTask.length = 0; });
 
 // ───────────────────────────── canCloseInMeeting / closeComment ─────────────────────────────
 
@@ -124,53 +133,74 @@ describe('sendClose', () => {
   const p = (over: Partial<PendingClose> = {}): PendingClose =>
     ({ taskId: 'a', status: 'done', by: 'עידן', at: new Date('2026-09-23T10:00:00Z'), ...over });
 
-  it('re-reads the task; already-closed writes nothing', async () => {
-    setEmsGateway(fakeGateway({ a: { status: 'done' } }));
+  it('re-reads the task through the gateway; already-closed writes nothing', async () => {
+    setEmsGateway(fakeGateway({ tasks: { a: { status: 'done' } } }));
     const r = await sendClose(p());
     expect(r).toEqual({ sent: false, skipped: 'already-closed' });
-    expect(emsWriteCalls).toHaveLength(0);
+    expect(calls.comment).toHaveLength(0);
+    expect(calls.status).toHaveLength(0);
   });
 
-  it('writes the comment then the status, in that order', async () => {
-    setEmsGateway(fakeGateway({ a: { status: 'open' } }));
+  it('writes the comment then the status, through addComment/updateTask, in that order', async () => {
+    setEmsGateway(fakeGateway({ tasks: { a: { status: 'open' } } }));
     const r = await sendClose(p({ status: 'cancelled', by: 'עמיחי' }));
-    expect(emsWriteCalls).toEqual([
-      { kind: 'comment', taskId: 'a', message: 'נסגר בישיבת צוות 23.9 · עמיחי' },
-      { kind: 'status', taskId: 'a', status: 'cancelled' },
-    ]);
+    expect(calls.comment).toEqual([{ id: 'a', text: 'נסגר בישיבת צוות 23.9 · עמיחי' }]);
+    expect(calls.status).toEqual([{ id: 'a', patch: { status: 'cancelled' } }]);
     expect(r).toEqual({ sent: true, queued: false });
   });
 
   it('a queued write (offline) is reported as queued, both writes still attempted', async () => {
-    setEmsGateway(fakeGateway({ a: { status: 'open' } }));
-    emsWriteImpl.fn = async () => ({ sent: false, queued: true });
+    setEmsGateway(fakeGateway({
+      tasks: { a: { status: 'open' } },
+      addComment: async () => ({ sent: false, queued: true }),
+      updateTask: async () => ({ sent: false, queued: true }),
+    }));
     const r = await sendClose(p());
-    expect(emsWriteCalls).toHaveLength(2);
+    expect(calls.comment).toHaveLength(1);
+    expect(calls.status).toHaveLength(1);
     expect(r).toMatchObject({ queued: true });
   });
 
   it('an error from the comment write stops before the status write', async () => {
-    setEmsGateway(fakeGateway({ a: { status: 'open' } }));
-    emsWriteImpl.fn = async (item: Record<string, unknown>) =>
-      item.kind === 'comment' ? { sent: false, error: '(500) boom' } : { sent: true };
+    setEmsGateway(fakeGateway({
+      tasks: { a: { status: 'open' } },
+      addComment: async () => ({ sent: false, error: '(500) boom' }),
+    }));
     const r = await sendClose(p());
-    expect(emsWriteCalls).toHaveLength(1);
+    expect(calls.comment).toHaveLength(1);
+    expect(calls.status).toHaveLength(0);
     expect(r).toEqual({ sent: false, error: '(500) boom' });
   });
 
   it('a real API rejection on the status write is surfaced too', async () => {
-    setEmsGateway(fakeGateway({ a: { status: 'open' } }));
-    emsWriteImpl.fn = async (item: Record<string, unknown>) =>
-      item.kind === 'status' ? { sent: false, error: '(422) rejected' } : { sent: true };
+    setEmsGateway(fakeGateway({
+      tasks: { a: { status: 'open' } },
+      updateTask: async () => ({ sent: false, error: '(422) rejected' }),
+    }));
     const r = await sendClose(p());
-    expect(emsWriteCalls).toHaveLength(2);
+    expect(calls.comment).toHaveLength(1);
+    expect(calls.status).toHaveLength(1);
     expect(r).toEqual({ sent: false, error: '(422) rejected' });
   });
 
-  it('a task the gateway cannot find is written anyway (best effort)', async () => {
-    setEmsGateway(fakeGateway({}));
+  it('a task the gateway cannot find (null) is written anyway (best effort)', async () => {
+    setEmsGateway(fakeGateway({ tasks: {} }));
     const r = await sendClose(p({ taskId: 'unknown' }));
     expect(r).toEqual({ sent: true, queued: false });
-    expect(emsWriteCalls).toHaveLength(2);
+    expect(calls.comment).toHaveLength(1);
+    expect(calls.status).toHaveLength(1);
+  });
+
+  it('offline: getTask THROWS (network error, not "not found") — still queues both writes, never aborts', async () => {
+    setEmsGateway(fakeGateway({
+      getTaskImpl: async () => { throw new Error('network unreachable'); },
+      addComment: async () => ({ sent: false, queued: true }),
+      updateTask: async () => ({ sent: false, queued: true }),
+    }));
+    const r = await sendClose(p());
+    expect(calls.getTask).toEqual(['a']);
+    expect(calls.comment).toEqual([{ id: 'a', text: 'נסגר בישיבת צוות 23.9 · עידן' }]);
+    expect(calls.status).toEqual([{ id: 'a', patch: { status: 'done' } }]);
+    expect(r).toEqual({ sent: false, queued: true });
   });
 });

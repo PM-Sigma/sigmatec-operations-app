@@ -347,8 +347,11 @@ export function registryIcons() {
  * `app/src/lib/ems/adapters/*`. Anything else is either a legacy file still awaiting the
  * migration (ALLOWED below, with the reason) or a regression the contract test fails on.
  *
- * "Reaching the EMS" is `emsApi(` (the Apps-Script proxy) or a `fetch(` whose URL mentions
- * the EMS base — in the browser bundles and in the Deno edge functions alike.
+ * "Reaching the EMS" is `emsApi(` (the Apps-Script proxy), `emsWrite(` (the queue-aware write —
+ * a feature calls `emsGateway()`'s typed methods instead; package M's review round caught
+ * `meetingClose.ts` calling `sigma.emsWrite` directly and moved it onto `addComment`/`updateTask`)
+ * or a `fetch(` whose URL mentions the EMS base — in the browser bundles and in the Deno edge
+ * functions alike.
  */
 export const EMS_ADAPTER_DIR = 'app/src/lib/ems/adapters/';
 
@@ -379,7 +382,7 @@ export function emsCallSites() {
   const files = [...APP_FILES_ALL(), ...LEGACY_FILES(), ...FN_FILES()];
   // `/v1/audio/transcriptions` is ElevenLabs, not the EMS — the resource list keeps the
   // scan on EMS endpoints only.
-  const re = /(?:^|[^\w$.])emsApi\s*\(|emsProxyCall\s*\(|EMS_API_BASE|\/v1\/(?:employee-tasks|sites|meters|users|auth)/;
+  const re = /(?:^|[^\w$.])emsApi\s*\(|emsProxyCall\s*\(|emsWrite\s*\(|EMS_API_BASE|\/v1\/(?:employee-tasks|sites|meters|users|auth)/;
   const seen = new Set();
   const all = hits(files, re, { group: 0 })
     .map(h => ({ ...h, name: h.text.slice(0, 120) }))

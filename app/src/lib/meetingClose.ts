@@ -1,9 +1,11 @@
 // One-click EMS close from inside the meeting (package M, M-R8): who may close, the exact close
 // comment, and a 5 s deferred-commit queue so a click can still be undone before anything
-// reaches EMS. The send path goes through the SAME queue-aware write every other EMS write in
-// this app uses (`sigma.emsWrite`, `bridge.ts:91` → `emsWriteOrQueue`, `13-ems.js:293`) — no new
-// write path, no direct fetch, nothing here talks to EMS except through that one door.
-import { sigma } from '@/bridge';
+// reaches EMS. The send path goes through the typed gateway ONLY (`emsGateway().addComment` /
+// `.updateTask`) — never `sigma`'s queue-aware write method directly, which is adapter-only
+// (spec §7o; enforced by `test-integration.mjs`'s EMS-call-site contract, `emsCallSites()` in
+// scripts/integration-map.mjs). The gateway's REST adapter still goes through that same
+// queue-aware write underneath (`bridge.ts:91` → `emsWriteOrQueue`, `13-ems.js:293`) — no new
+// write path, just the typed door in front of it.
 import { emsGateway } from '@/lib/ems/gateway';
 import { EMS_CLOSED } from '@/lib/emsTasks';
 import { dm, israelParts } from '@/lib/field';
@@ -79,27 +81,26 @@ export function createCloseQueue(deps: {
   return { schedule, flush, pending };
 }
 
-async function write(item: Record<string, unknown>): Promise<SendResult> {
-  const res = await sigma.emsWrite?.(item);
-  return res || { sent: false, error: 'EMS write unavailable' };
-}
-
 /**
- * The actual send, behind the existing gateway and bridge (never called from a test with real
- * EMS reachable — see meetingClose.test.ts). Re-reads the task first: a second presenter's
- * click on an already-closed task is a no-op, not a duplicate comment (review focus #4). The
- * comment goes out before the status, same order `pushVisitToEms` uses (`14-calendar.js:294`);
- * a real rejection on the comment stops before the status write, so a task is never left with a
- * status change but no explanatory comment.
+ * The actual send, behind the typed gateway ONLY (never called from a test with real EMS
+ * reachable — see meetingClose.test.ts). Re-reads the task first: a second presenter's click on
+ * an already-closed task is a no-op, not a duplicate comment (review focus #4). `getTask` itself
+ * can throw when offline (a network error, not a "not found") — that must NOT abort the close;
+ * it falls through to the writes below exactly as a null/not-found task does, and `addComment` /
+ * `updateTask` queue it for the next connect (review focus #2). The comment goes out before the
+ * status, same order `pushVisitToEms` uses (`14-calendar.js:294`); a real rejection on the
+ * comment stops before the status write, so a task is never left with a status change but no
+ * explanatory comment.
  */
 export async function sendClose(p: PendingClose): Promise<SendResult> {
-  const task = await emsGateway().getTask(p.taskId);
+  let task: { status: string } | null = null;
+  try { task = await emsGateway().getTask(p.taskId); } catch { /* offline — proceed to the queued writes */ }
   if (task && EMS_CLOSED.includes(task.status)) return { sent: false, skipped: 'already-closed' };
 
-  const commentRes = await write({ kind: 'comment', taskId: p.taskId, message: closeComment(p.by, p.at) });
+  const commentRes = await emsGateway().addComment(p.taskId, closeComment(p.by, p.at));
   if (commentRes.error) return { sent: false, error: commentRes.error };
 
-  const statusRes = await write({ kind: 'status', taskId: p.taskId, status: p.status });
+  const statusRes = await emsGateway().updateTask(p.taskId, { status: p.status });
   if (statusRes.error) return { sent: false, error: statusRes.error };
 
   return { sent: !!(commentRes.sent && statusRes.sent), queued: !!(commentRes.queued || statusRes.queued) };
