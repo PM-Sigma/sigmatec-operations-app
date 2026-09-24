@@ -246,19 +246,22 @@ test('chapters: a backdrop tap on a half-typed summary asks instead of losing it
   await page.getByTestId('brief-visit').click();
   await page.getByTestId('vc-summary').fill('התחלתי לכתוב ואז קראו לי');
 
-  // The backdrop is Radix's overlay, outside the sheet — the tap §7p is about.
+  // Round 5 V-L7 (grill round 2 "Drafts rule 2"): a scrim tap on real input asks the ruling's own
+  // two-button question, not the generic three-button save/keep/discard prompt.
   await page.mouse.click(5, 5);
   await expect(page.getByTestId('unsaved-guard')).toBeVisible();
   await expect(page.getByTestId('visit-chapters')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'לבטל ולחזור אחר כך' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'להמשיך לסיים' })).toBeVisible();
 
-  // "להמשיך לערוך" leaves him exactly where he was, with his words.
-  await page.getByTestId('unsaved-keep').click();
+  // "להמשיך לסיים" leaves him exactly where he was, with his words.
+  await page.getByRole('button', { name: 'להמשיך לסיים' }).click();
   await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
   await expect(page.getByTestId('vc-summary')).toHaveValue('התחלתי לכתוב ואז קראו לי');
 
-  // "לשמור" is שמור וסגור: the draft is kept, nothing is filed.
+  // "לבטל ולחזור אחר כך" closes — the draft stays (autosave already wrote it; nothing is deleted).
   await page.mouse.click(5, 5);
-  await page.getByTestId('unsaved-save').click();
+  await page.getByRole('button', { name: 'לבטל ולחזור אחר כך' }).click();
   await expect(page.getByTestId('visit-chapters')).toBeHidden();
   await expect.poll(() => draftRows(page), { timeout: 10_000 }).toHaveLength(1);
   expect(await localVisits(page)).toHaveLength(0);

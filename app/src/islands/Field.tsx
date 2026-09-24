@@ -40,20 +40,22 @@ import { todayISO, useVisitDraft } from '@/lib/visitDrafts';
 import {
   arrivalGroups, arrivalOrder, briefingAutoOpen, briefingTasks, bulletForField, burnRowsOf,
   burnSummary, dm, fieldShouldPrompt, hasSomethingToDeliver,
-  hm, leaveChecklist, openItemsPrefill, openNudges, sharedOwners, todayStops,
+  hm, joinVisitors, leaveChecklist, openItemsPrefill, openNudges, sharedOwners, todayStops,
   visitReasonRequired, visitReasonText, VISIT_REASONS,
   type ArrivalItem, type CheckinRow, type DraftRow, type FieldTask, type LeaveItem, type OrderRow,
   type VisitRow,
 } from '@/lib/field';
 import {
-  CHAPTERS, canSubmit, draftAge, missingFields, openingVisitDate,
+  CHAPTERS, canSubmit, draftAge, draftHasInput, missingFields, openingVisitDate,
   type ChapterDraft, type ChapterId, type ReturnedItem,
 } from '@/lib/visitDraft';
 import { pickableProducts, productGroups, searchProducts } from '@/lib/productSearch';
 import { parseDayLog, readCatalog } from '@/lib/daylogChain';
 import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
 import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
-import { runMutation } from '@/lib/pending';
+// Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
+import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
+import { visitEditLocked, visitToChapters, type VisitRowLike } from '@/lib/visitEdit';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
 
@@ -550,17 +552,18 @@ export interface VisitChaptersOpen {
    * is asked before the kibbutz list, not guessed from the clock at write-up time.
    */
   date?: string;
+  /** Round 5 V-L4b: load a FILED visit instead of resuming a draft. */
+  visitId?: string;
+  /** 'new' (default) | 'edit' (loads visitId) | 'cert' (loads visitId, jumps to the cert screen). */
+  mode?: 'new' | 'edit' | 'cert';
 }
 
 /** The global the other islands (the strip's nudge, gaps, the push deep link) call. */
 export const VISIT_CHAPTERS_API = 'sigmaVisitChapters';
 
-/** Is there anything in here worth keeping? Decides whether a stray tap is allowed to close. */
-function chapterDraftHasContent(d: ChapterDraft): boolean {
-  return !!(String(d.summary || '').trim() || String(d.openItems || '').trim()
-    || String(d.productsOther || '').trim() || String(d.contact || '').trim()
-    || (d.products || []).length || d.duration || d.workday);
-}
+// "Is there anything in here worth keeping?" is app/src/lib/visitDraft.ts draftHasInput now
+// (round 5 V-L7) — the old chapterDraftHasContent (counted the duration/workday defaults as
+// content) is gone; both the autosave gate and the unsaved-guard read draftHasInput.
 
 /**
  * One labelled field. `required` prints the red star §C3 asks for, and `miss` is the IN-PLACE
@@ -1091,6 +1094,12 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const [sentVisitId, setSentVisitId] = React.useState('');
   /** The id this sheet already filed. A second שלח on it does nothing at all. */
   const sentRef = React.useRef('');
+  // Round 5 V-L4b: `sigma.openVisitEditor({..., mode:'edit'|'cert'})` loaded a FILED visit rather
+  // than a resumed draft. `editing` turns persist() into a no-op (legacy behaviour: an edit writes
+  // no draft, 09-visits.js:705-706) and is what V-U1 reads to render the sheet's edit-mode chrome.
+  const [editing, setEditing] = React.useState(false);
+  /** Round 5 V20: the whole visit is past the edit-lock (app/src/lib/editLock.ts) — read-only. */
+  const [editLocked, setEditLocked] = React.useState(false);
 
   // The same query key the briefing uses, so this costs no extra request.
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: open });
@@ -1126,22 +1135,28 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
   /** Everything the pure rules judge: what he typed, plus the facts only the app knows. */
   const model = React.useMemo<ChapterDraft>(
-    () => ({ ...d, kibbutz, visitor: me, date: d.date || today, deliver, certIssued: certNum > 0 }),
+    () => ({
+      ...d, kibbutz, visitor: joinVisitors(d.visitors?.length ? d.visitors : [me]), date: d.date || today,
+      deliver, certIssued: certNum > 0,
+    }),
     [d, kibbutz, me, today, deliver, certNum],
   );
   const verdict = React.useMemo(() => canSubmit(model), [model]);
   const needReason = visitReasonRequired({ emsTaskIds: d.emsTaskIds, internalTaskIds: d.internalTaskIds });
 
   // Refs, so the autosave and the openers never read a stale render.
-  const ref = React.useRef({ model, draftId, kibbutz });
-  ref.current = { model, draftId, kibbutz };
+  const ref = React.useRef({ model, draftId, kibbutz, editing });
+  ref.current = { model, draftId, kibbutz, editing };
 
-  /** Write the draft NOW. The one persistence path — autosave and שמור וסגור share it. */
+  /** Write the draft NOW. The one persistence path — autosave and שמור וסגור share it. Editing a
+   *  filed visit (V-L4b) writes NO draft — legacy behaviour, 09-visits.js:705-706. */
   const persist = React.useCallback((patch: Partial<ChapterDraft> = {}) => {
     const cur = ref.current;
-    if (!cur.kibbutz) return;
+    if (!cur.kibbutz || cur.editing) return;
     const payload = { ...cur.model, ...patch } as Record<string, unknown>;
-    if (!chapterDraftHasContent(payload as ChapterDraft)) return;   // an untouched sheet leaves nothing
+    // Round 5 V-L7 (grill round 2 "Drafts rule 1"): draftHasInput, not chapterDraftHasContent — a
+    // sheet holding only defaults (date, visitor(s), duration chip, workday chip) is not a draft.
+    if (!draftHasInput(payload as ChapterDraft)) return;
     try {
       sigma.visitDraftPut?.({ id: cur.draftId, person: me, kibbutz: cur.kibbutz, date: today, payload });
     } catch (e) { console.warn('[visit-chapters] draft', e); }
@@ -1196,6 +1211,34 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const openOn = React.useCallback((name: string, opts: VisitChaptersOpen = {}) => {
     const k = String(name || '').trim();
     if (!k) return;
+
+    // Round 5 V-L4b: `edit`/`cert` load the FILED visit instead of resuming a draft (visitToChapters,
+    // app/src/lib/visitEdit.ts). While editing, `persist` writes no draft (legacy behaviour kept,
+    // 09-visits.js:705-706) — an edit's unsaved changes are covered by the close-prompt only.
+    if (opts.visitId && (opts.mode === 'edit' || opts.mode === 'cert')) {
+      const all = (sigma.loadAllVisitsCombined?.() as VisitRow[]) || [];
+      const v = all.find(x => String((x as { id?: string }).id) === opts.visitId);
+      if (!v) { toast.error('הביקור לא נמצא'); return; }
+      const returns = (sigma.visitReturnsRaw?.() as Array<{ visitId: string; product: string; qty: number }>) || [];
+      const draft = visitToChapters(v as unknown as VisitRowLike, returns, VISIT_REASONS);
+      setKibbutz(k);
+      setD(draft as unknown as ChapterDraft);
+      setCertNum(0);
+      setMiss([]);
+      setSentVisitId(opts.mode === 'cert' ? opts.visitId : '');
+      sentRef.current = '';
+      setDraftId(opts.visitId);
+      setJump(opts.mode === 'cert' ? 4 : (opts.chapter ?? 0));
+      setResumedAt('');
+      setEditing(true);
+      setEditLocked(visitEditLocked({ date: (v as { date?: string }).date || '' }));
+      setOpen(true);
+      track('visit-chapters-open', k);
+      return;
+    }
+
+    setEditing(false);
+    setEditLocked(false);
     let row: { id?: string; updated_at?: string; payload?: Record<string, unknown> } | null = null;
     try { row = (sigma.visitDraftFor?.(k, me, today) as any) || null; } catch { row = null; }
     const stored = (row?.payload || {}) as ChapterDraft;
@@ -1272,42 +1315,52 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     const emsIds = cur.model.emsTaskIds || [];
     const internalIds = cur.model.internalTaskIds || [];
     try {
-      const res = await runMutation(
-        Promise.resolve(sigma.saveVisitFromData?.({
-          id: cur.draftId,
-          kibbutz: cur.kibbutz,
-          visitor: me,
-          date: cur.model.date || today,
-          duration: cur.model.duration || '',
-          workday: !!cur.model.workday,
-          summary: cur.model.summary || '',
-          openItems: cur.model.openItems || '',
-          products: cur.model.products || [],
-          productsOther: cur.model.productsOther || '',
-          contact: cur.model.contact || '',
-          returned: cur.model.returned || [],
-          // C6: the column may not exist yet (db/visits_reason.sql is not applied) — the legacy
-          // writer drops unknown keys rather than failing, so a missing column costs a reason.
-          reason: needReason ? visitReasonText(cur.model.reasonId, cur.model.reasonOther) : '',
-          // C6: every selected EMS task gets the summary as a comment, posted by the legacy
-          // pipeline (pushVisitToEms, the form's own writer), so there is one chain, not two.
-          emsTaskIds: emsIds,
-          emsComment: true,
-          // C7: the certificate comes AFTER the save on this sheet, so the pre-save gate is off.
-          certAfter: true,
-        }) ?? Promise.resolve({ ok: false, error: 'שמירת ביקור אינה זמינה' })),
-        {
-          loading: 'שומר את הסיכום…',
-          success: 'הסיכום נשלח 🎉',
-          error: 'השליחה נכשלה',
-          retry: () => { sentRef.current = ''; void send(); },
-        },
-      );
-      if (res && (res as any).ok) {
-        const visitId = String((res as any).id || cur.draftId);
+      // Round 5 V14-V17, V23: one orchestrator (app/src/lib/visitSave.ts) — saveVisitFromData
+      // THEN, only if it succeeded, the attendance plan the save implies. Fixes the "success toast
+      // on a failed save" bug: saveVisitFromData never rejects, so the OLD runMutation(toast.promise)
+      // here showed 'success' unconditionally; now the toast is chosen from res.ok explicitly.
+      const res = await saveVisit({
+        id: cur.draftId,
+        kibbutz: cur.kibbutz,
+        visitor: joinVisitors(cur.model.visitors?.length ? cur.model.visitors : [me]),
+        date: cur.model.date || today,
+        duration: cur.model.duration || '',
+        workday: !!cur.model.workday,
+        summary: cur.model.summary || '',
+        openItems: cur.model.openItems || '',
+        products: cur.model.products || [],
+        productsOther: cur.model.productsOther || '',
+        contact: cur.model.contact || '',
+        returned: cur.model.returned || [],
+        // C6: the column may not exist yet (db/visits_reason.sql is not applied) — the legacy
+        // writer drops unknown keys rather than failing, so a missing column costs a reason.
+        reason: needReason ? visitReasonText(cur.model.reasonId, cur.model.reasonOther) : '',
+        // C6: every selected EMS task gets the summary as a comment, posted by the legacy
+        // pipeline (pushVisitToEms, the form's own writer), so there is one chain, not two.
+        emsTaskIds: emsIds,
+        emsComment: true,
+        // C7: the certificate comes AFTER the save on this sheet, so the pre-save gate is off.
+        certAfter: true,
+        via: 'chapters',
+      }, { me });
+      if (res.ok) {
+        const visitId = res.id;
+        try { navigator.vibrate?.(10); } catch { /* not every browser has it */ }
         try { sigma.visitDraftDiscard?.(cur.draftId); } catch { /* it is filed; the draft is noise */ }
         set({ submittedId: visitId });
         track('visit-chapters-send', cur.kibbutz);
+        // Opus audit: honour the attendance write's own result — it is a SEPARATE call from the
+        // visit save, and it can fail on its own (the visit is still filed either way).
+        if (res.attendanceOk) toast.success(res.toast);
+        else toast.error('הסיכום נשמר, אך עדכון הנוכחות נכשל');
+        // Rule 2 conflict ("הוזן X, לשנות לשטח?") and rule 3 "needs entry" popups — the plain
+        // toast wiring V-L5 owns; V-U1 restyles both onto the design-system Sheet/ConfirmSheet.
+        for (const ask of res.asks) {
+          toast(conflictQuestion(ask), {
+            action: { label: 'שינוי לשטח', onClick: () => { void sigma.attApply?.(resolveConflict(ask, true)); } },
+          });
+        }
+        for (const popup of res.popups) toast(popup);
 
         // The EMS comments went out inside saveVisitFromData (`emsComment` above). Every selected
         // internal task is marked done here.
@@ -1328,20 +1381,30 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         }
       } else {
         sentRef.current = '';                                   // it did not happen — let him retry
-        toast.error(String((res as any)?.error || 'השליחה נכשלה'));
+        toast.error(res.error || 'השליחה נכשלה');
       }
     } catch {
       sentRef.current = '';
+      toast.error('השליחה נכשלה');
     } finally { setSending(false); }
   }, [me, today, set, needReason, scrollTo]);
 
   // §7p: a sheet holding his words never closes by accident. "לשמור" IS שמור וסגור, and
   // "לבטל" only closes — the draft is never thrown away here (§7p: never auto-delete).
+  //
+  // Round 5 V-L7 (grill round 2 "Drafts rule 1-2"): `dirty` reads draftHasInput, not
+  // chapterDraftHasContent — default-valued fields (date, visitor(s), duration chip, workday
+  // chip) no longer count as "something to lose" on their own. The scrim/Escape path (guard.ask,
+  // wired below) gets the ruling's own two-button copy via `variant`; editing a filed visit has
+  // no draft to keep, so it asks the 'visitEdit' pair instead. A dedicated מחק-טיוטה footer
+  // button and the ביטול-always-discards wiring (rule 3) are V-U1's — this pass only upgrades
+  // the existing scrim/Escape interaction onto the new rule and copy.
   const guard = useUnsavedGuard({
-    dirty: () => !sentRef.current && chapterDraftHasContent(ref.current.model),
+    dirty: () => !sentRef.current && draftHasInput(ref.current.model),
     onSave: saveAndClose,
     onDiscard: close,
     onClose: close,
+    variant: editing ? 'visitEdit' : 'visit',
   });
 
   const stock = React.useMemo<Record<string, number>>(() => {

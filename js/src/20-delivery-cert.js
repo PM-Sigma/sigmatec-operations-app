@@ -914,7 +914,7 @@
       const key = v.id || (v.kibbutz + '|' + v.date + '|' + v.visitor);
       if (seen.has(key)) return false; seen.add(key);
       const d = new Date(v.date).getTime();
-      return d >= fromT && d <= toT && (!who || v.visitor === who) && ((v.products || []).length || v.productsOther);
+      return d >= fromT && d <= toT && (!who || visitorsOf(v).indexOf(who) !== -1) && ((v.products || []).length || v.productsOther);
     }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     let bd = document.getElementById('certPickerModal');

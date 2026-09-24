@@ -443,14 +443,14 @@
     box.style.display = 'block';
   }
 
+  // Round 5 V-L4b: editVisit/editLastVisit/editLastVisitFromStatus are one-line forwards into the
+  // ONE door, sigma.openVisitEditor (never the legacy form/modal below, which V-U3 deletes).
   function editLastVisit() {
-    if (!(window.currentKibbutzVisits || []).length) {
-      alert('אין ביקור שמור לקיבוץ הזה, אז אין מה לערוך. מלא סיכום ביקור חדש בטופס שמתחת.');
-      return;
-    }
-    const last = window.currentKibbutzVisits[0];
-    if (!last.id) { alert('הביקור הזה נשמר ללא ID, לא ניתן לערוך. נסה שוב אחרי שהדף סונכרן.'); return; }
-    editVisit(last.id);
+    var all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : [];
+    var mine = all.filter(function (v) { return v && v.kibbutz === window.currentKibbutz; })
+      .sort(function (a, b) { return String((b && b.date) || '').localeCompare(String((a && a.date) || '')); });
+    if (!mine.length) { alert('אין ביקור שמור לקיבוץ הזה, אז אין מה לערוך. מלא סיכום ביקור חדש.'); return; }
+    editVisit(mine[0].id);
   }
 
   /**
@@ -465,7 +465,6 @@
    * so it moves there first — otherwise the tap fills fields nobody can see.
    */
   function editLastVisitFromStatus() {
-    if (typeof switchTab === 'function') switchTab('visit');
     editLastVisit();
   }
   window.editLastVisitFromStatus = editLastVisitFromStatus;
@@ -486,31 +485,9 @@
   window.legacyVoiceIntakeHandoff = legacyVoiceIntakeHandoff;
 
   function editVisit(visitId) {
-    const visit = window.currentKibbutzVisits.find(v => v.id === visitId);
-    if (!visit) return;
-    // Mark editing FIRST so renderProductsForVisitor can include the visit's items
-    window.editingVisitId = visitId;
-    // Pre-fill form with this visit's data
-    document.getElementById('visitSummary').value = visit.summary || '';
-    const oi = document.getElementById('visitOpenItems');
-    if (oi) oi.value = visit.openItems || visit.open_items || '';
-    document.getElementById('visitProductsOther').value = visit.productsOther || '';
-    document.getElementById('visitContact').value = visit.contact || '';
-    document.getElementById('visitDuration').value = visit.workday ? '' : (visit.duration || '');
-    const wdEl = document.getElementById('visitWorkday');
-    if (wdEl) { wdEl.checked = !!visit.workday; toggleVisitWorkday(); }
-    syncVisitDurationChips();
-    document.getElementById('visitor').value = visit.visitor || '';
-    const d = visit.date ? new Date(visit.date) : new Date();
-    document.getElementById('visitDate').value =
-      d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    // Restore returned items from visit (if any)
-    visitReturnedItems = Array.isArray(visit.returnedItems) ? visit.returnedItems.slice() : [];
-    renderReturnedItems();
-    // Set source (auto by visitor) and re-render product list dynamically
-    onVisitorChange(visit.visitor || '');
-    switchTab('visit');
-    paintVisitCertStatus();
+    var all = (typeof loadAllVisitsCombined === 'function') ? loadAllVisitsCombined() : [];
+    var v = all.find(function (x) { return x && x.id === visitId; });
+    if (v && window.sigma) window.sigma.openVisitEditor({ kibbutz: v.kibbutz, visitId: visitId, mode: 'edit' });
   }
 
 
@@ -1256,6 +1233,16 @@
     // re-inserted, and a linked EMS task gets the "what changed" note instead of a second summary.
     const prior = ((window.SHEET_DATA && window.SHEET_DATA.visits) || []).find(v => v && String(v.id) === id) || null;
     const isEdit = !!prior;
+
+    // Round 5, grill round 5 answers (binding): everything dated August 2026 or earlier is read-only; a record
+    // locks on the 10th of the month after it (app/src/lib/editLock.ts; mirrored here as visitEditLocked,
+    // 00-consts.js; enforced again by db/visit_edit_lock_trigger.sql). Blocked before any network call — an
+    // edit AND a new entry backdated into a locked month are both refused, exactly like the DB trigger's
+    // coalesce(new.date, old.date) check.
+    if (typeof visitEditLocked === 'function' && (visitEditLocked(dateStr) || (isEdit && visitEditLocked(String((prior && prior.date) || ''))))) {
+      return { ok: false, error: 'הביקור נעול לעריכה — התאריך כבר לא ניתן לשינוי', locked: true };
+    }
+
     if (products.length && !d.certAfter && !isEdit) {
       const certNum = (typeof certIssuedForVisit === 'function') ? await certIssuedForVisit(id) : 0;
       if (!certNum) return { ok: false, error: 'סופק ציוד, נדרשת תעודת משלוח לפני שמירת הסיכום', needsCert: true, visitId: id };
@@ -1344,6 +1331,15 @@
     const source = POOL_LOCATION;
     // New visit → the full supply. Edit / retry → only the delta against what was filed, so
     // saving the same visit twice never takes the meters off the pool twice.
+    //
+    // Round 5 V20: priorSnap.products (the visit's own filed row) is the OLD-quantity source, edited
+    // once or many times, before or after the inventory breakpoint — it is never touched by the
+    // movement archival (2.29), so it is always accurate. (Opus audit: an earlier version of this
+    // diffed a pre-breakpoint edit against an archive.movements_pre_breakpoint RPC instead, reasoning
+    // the live ledger no longer had the visit's original movement. That RPC always netted to 0 for
+    // real archived data — every visit_supply there runs a personal bag → kibbutz, never from חברה —
+    // so it silently double-posted the whole new quantity as a fresh addition. Removed entirely;
+    // db/archive_pre_breakpoint_rpc.sql is deleted and the archive schema is not read from here.)
     const oldMap = {}, newMap = {};
     ((priorSnap && priorSnap.products) || []).forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
     products.forEach(p => { newMap[p.name] = (newMap[p.name] || 0) + p.qty; });
@@ -1378,7 +1374,9 @@
     }
 
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-saved', { kibbutz: visit.kibbutz });
-    if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz, 'daylog');
+    // V23 (visit-summary chain audit fix): the chapters sheet sends `via: 'chapters'`; every other caller
+    // (📝 יומן היום, a future caller) keeps today's 'daylog' label by omitting it.
+    if (typeof sigmaTrack === 'function') sigmaTrack('visit-saved', visit.kibbutz, d.via || 'daylog');
     return { ok: true, id: String(savedId), edited: isEdit };
   }
   window.saveVisitFromData = saveVisitFromData;

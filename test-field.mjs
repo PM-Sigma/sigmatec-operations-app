@@ -72,7 +72,8 @@ console.log('\n[4] the deep links, on both sides');
   const push = read('./js/src/22-push.js');
   const fn = read('./supabase/functions/push-send/index.ts');
   const sw = read('./sw.js');
-  check('?pushact=visit opens the visit form with the kibbutz', /act === 'visit'/.test(push) && /openVisitQuick\(kibbutz\)/.test(push));
+  // Round 5 V-L4b: the ONE door, sigma.openVisitEditor (owns its own retry loop) — never the legacy form.
+  check('?pushact=visit opens the sheet with the kibbutz', /act === 'visit'/.test(push) && /sigma\.openVisitEditor\(\{ kibbutz: kibbutz \}\)/.test(push));
   check('?pushact=visitDismiss reaches the island', /act === 'visitDismiss'/.test(push) && /sigmaField\.dismiss\(cid\)/.test(push));
   check('the island is given time to load (lazy chunk)', /waitField/.test(push));
   check('a dismissal that never landed does NOT claim it did',

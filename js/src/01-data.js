@@ -1,3 +1,19 @@
+  // Round 5 V13: `visits.visitor` holds one name or a ', '-joined list. Read it ONLY through
+  // these two (mirrors app/src/lib/field.ts visitorsOf/joinVisitors byte-for-logic; the two are
+  // pinned against each other by test-visitor-equality.mjs).
+  // VISITORS-PURE-START
+  function visitorsOf(v) {
+    var raw = typeof v === 'string' ? v : String((v && v.visitor) || '');
+    return raw.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function joinVisitors(names) {
+    var out = [];
+    (names || []).forEach(function (s) { s = String(s || '').trim(); if (s && out.indexOf(s) === -1) out.push(s); });
+    return out.join(', ');
+  }
+  // VISITORS-PURE-END
+  window.visitorsOf = visitorsOf; window.joinVisitors = joinVisitors;
+
 // Spec §7n ruling (task-33b FAIL-2 / task-35): the header must never show a data date or
   // counters before an EMS pass exists. Before login the legacy tables answer an anon read
   // with `200 []` (RLS-filtered, not 401 — see 01-data.js readSnapshot below), so there is no
@@ -297,8 +313,12 @@
     function mockAttendance() {
       var out = [];
       ['אביאם', 'ניתאי'].forEach(function (who) {
-        out.push({ id: 'att-' + who + '-1', person: who, dayType: 'office', note: '', date: new Date(mockYmd(mockFirstDow(0)) + 'T12:00:00').toISOString() });
-        out.push({ id: 'att-' + who + '-2', person: who, dayType: 'wfh', note: '', date: new Date(mockYmd(mockFirstDow(2)) + 'T12:00:00').toISOString() });
+        out.push({ id: 'att-' + who + '-1', person: who, dayType: 'office', note: '', date: new Date(mockYmd(mockFirstDow(0)) + 'T12:00:00').toISOString(), source: 'manual' });
+        out.push({ id: 'att-' + who + '-2', person: who, dayType: 'wfh', note: '', date: new Date(mockYmd(mockFirstDow(2)) + 'T12:00:00').toISOString(), source: 'manual' });
+        // Round 5 V8 (rule 5): a filer's visit day carries a real visit_auto row now — every mock
+        // visit below (mockVisits) has one, matching the id attRowsFor/autoRowId would produce.
+        var vday = mockYmd(mockFirstDow(3));
+        out.push({ id: 'att_v_' + vday.replace(/-/g, '') + '_' + who, person: who, dayType: 'field', note: '', date: new Date(vday + 'T12:00:00').toISOString(), source: 'visit_auto' });
       });
       return out;
     }
@@ -601,7 +621,7 @@
         movements: movements.map(m => ({ id: String(m.id), date: m.date || '', product: m.product || '', fromLocation: m.from_location || '', toLocation: m.to_location || '', quantity: parseFloat(m.quantity) || 0, reason: m.reason || '', refId: m.ref_id || '', createdBy: m.created_by || '' })),
         requirements: requirements.map(r => ({ id: String(r.id), createdAt: r.created_at || '', createdBy: r.created_by || '', kibbutz: r.kibbutz || '', contactName: r.contact_name || '', items: r.items || [], notes: r.notes || '', status: r.status || 'open', linkedOrderId: r.linked_order_id || '', fulfilledAt: r.fulfilled_at || '', lastUpdated: r.last_updated ? String(r.last_updated) : '' })),
         returns: returns_.map(r => ({ id: String(r.id), visitId: r.visit_id || '', date: r.date || '', kibbutz: r.kibbutz || '', visitor: r.visitor || '', product: r.product || '', qty: parseInt(r.qty) || 0, reason: r.reason || '', status: r.status || 'open' })),
-        attendance: attendance.map(a => ({ id: String(a.id), date: a.date || '', person: a.person || '', dayType: a.day_type || '', note: a.note || '' })),
+        attendance: attendance.map(a => ({ id: String(a.id), date: a.date || '', person: a.person || '', dayType: a.day_type || '', note: a.note || '', source: a.source || 'manual' })),
         emsCache: { tasks: cache.tasks || [], syncedAt: cache.synced_at || '', syncedBy: cache.synced_by || '', ver: cache.ver || 1 },
         emsQueue: queueRows.map(qr => qr.payload)
       };
@@ -612,7 +632,9 @@
       product: b => { const id = b.id || genId('prod'); return ['products', 'id', { id, name: b.name || '', category: b.category || '', active: b.active !== false, created_at: b.createdAt || nowISO(), created_by: b.createdBy || '' }, id]; },
       // order + requirement are handled by writeOrder/writeRequirement (partial-safe) — not via this full-row table.
       movement: b => { const id = b.id || genId('mov'); return ['movements', 'id', { id, date: b.date || nowISO(), product: b.product || '', from_location: b.fromLocation || '', to_location: b.toLocation || '', quantity: b.quantity || 0, reason: b.reason || 'manual', ref_id: b.refId || '', created_by: b.createdBy || '' }, id]; },
-      attendance: b => { const id = b.id || genId('att'); return ['attendance', 'id', { id, date: b.date || nowISO(), person: b.person || '', day_type: b.dayType || '', note: b.note || '' }, id]; },
+      // Round 5 V19: `source` is written only when the caller sends one (attApplyOps, visit_auto rows),
+      // so a manual sigma.attSave keeps the DB default ('manual') instead of overwriting it with undefined.
+      attendance: b => { const id = b.id || genId('att'); return ['attendance', 'id', Object.assign({ id, date: b.date || nowISO(), person: b.person || '', day_type: b.dayType || '', note: b.note || '' }, b.source ? { source: b.source } : {}), id]; },
       setting: b => ['settings', 'key', { key: String(b.key || ''), value: b.value !== undefined ? b.value : null, updated_at: nowISO() }, b.key]
     };
 
@@ -757,6 +779,8 @@
           // missing cross-device copy, never lost typing.
           if (b.type === 'visitDraft') { const d = b.draft || {}; await sbUpsert('visit_drafts', 'id', { id: d.id, person: d.person || '', kibbutz: d.kibbutz || '', date: (d.date || nowISO()).slice(0, 10), payload: d.payload || {}, updated_at: d.updated_at || nowISO() }); return respond({ ok: true, id: d.id }); }
           if (b.type === 'visitDraftDelete') { await sbDelete('visit_drafts?id=eq.' + encodeURIComponent(b.id || '')); return respond({ ok: true }); }
+          // Round 5 V15-V16: a visit_auto attendance row's date moved off (attApplyOps, visitAttendance.ts rule 3b).
+          if (b.type === 'attendanceDelete') { await sbDelete('attendance?id=eq.' + encodeURIComponent(b.id || '')); return respond({ ok: true }); }
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
           if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '', ver: b.ver || 1 }); return respond({ ok: true, cached: (b.tasks || []).length }); }
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
@@ -920,7 +944,7 @@
     const isTest = s => /TEST_CLAUDE|CLEANUP - test/i.test(String(s || ''));
     if (Array.isArray(data.requirements)) data.requirements = data.requirements.filter(r => !(isTest(r.contactName) || isTest(r.notes)));
     if (Array.isArray(data.orders))       data.orders       = data.orders.filter(o => !isTest(o.supplier) && !isTest(o.notes));
-    if (Array.isArray(data.visits))       data.visits       = data.visits.filter(v => v.visitor !== 'TEST' && !/^\[נמחק/.test(String(v.summary || '')));
+    if (Array.isArray(data.visits))       data.visits       = data.visits.filter(v => visitorsOf(v).indexOf('TEST') === -1 && !/^\[נמחק/.test(String(v.summary || '')));
   }
 
   async function fetchSheetData() {

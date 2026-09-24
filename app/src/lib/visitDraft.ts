@@ -46,6 +46,8 @@ export interface ReturnedItem { name: string; qty: number; note?: string }
 export interface ChapterDraft {
   kibbutz?: string;
   visitor?: string;
+  /** Round 5 V13: מי ביקר is multi-select. Until V-U1 wires the chips this is always `[me]`. */
+  visitors?: string[];
   /** yyyy-mm-dd */
   date?: string;
   summary?: string;
@@ -189,4 +191,38 @@ export function openingVisitDate(
   today: string,
 ): string {
   return String(stored || '').trim() || String(picked || '').trim() || today;
+}
+
+// ───────────────────────────── round 5 V-L7: draft rules ─────────────────────────────
+// "Drafts rule 1" (grill round 2): default-valued fields (date, visitor(s), duration chip, workday
+// chip, deliver, certIssued) are NOT input — only something the sheet cannot guess counts.
+
+/** True the moment the draft holds something beyond its defaults. */
+export function draftHasInput(d: ChapterDraft | null | undefined): boolean {
+  return !!(
+    txt(d?.summary) || txt(d?.openItems) || txt(d?.productsOther) || txt(d?.contact)
+    || (d?.products?.length ?? 0) > 0
+    || (d?.returned?.length ?? 0) > 0
+    || (d?.emsTaskIds?.length ?? 0) > 0
+    || (d?.internalTaskIds?.length ?? 0) > 0
+    || !!d?.reasonId
+    || txt(d?.reasonOther)
+  );
+}
+
+export type ExitKind = 'scrim' | 'top' | 'cancel' | 'back' | 'appClose' | 'sent';
+
+/**
+ * "Drafts rules 2-4" (grill round 2): what leaving the sheet does, by how he left and whether
+ * anything real was typed. Editing a filed visit asks with different button copy (decided by the
+ * U layer / useUnsavedGuard's `variant`, not by this function — trimmed per the Opus audit: the
+ * decision never branched on it).
+ */
+export function exitDecision(
+  kind: ExitKind, hasInput: boolean,
+): 'close' | 'ask' | 'discardAndClose' | 'keepAndClose' {
+  if (kind === 'sent') return 'close';                                     // rule: nothing left to keep
+  if (kind === 'cancel') return 'discardAndClose';                         // rule 3: ביטול always deletes
+  if (kind === 'scrim' || kind === 'top') return hasInput ? 'ask' : 'close';   // rule 2
+  return hasInput ? 'keepAndClose' : 'discardAndClose';                    // rule 4: back / app closed
 }

@@ -1,6 +1,7 @@
 // Typed access to the legacy app (window.sigma, defined in js/src/00-bridge.js).
 // React NEVER touches any other global — every legacy call goes through here.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { AttOp, AttRow } from '@/lib/visitAttendance';
 
 export type SigmaRole = 'idan' | 'team' | 'viewer' | '';
 // The pages that still exist. `ems`, `mytasks` and `staff` were retired in Task 14 (§7m
@@ -168,7 +169,7 @@ export interface Sigma {
    * back as `{ ok:false, error }` so the other cards still save.
    */
   saveVisitFromData?(visit: Record<string, unknown>):
-    Promise<{ ok: boolean; id?: string; error?: string; needsCert?: boolean; visitId?: string }>;
+    Promise<{ ok: boolean; id?: string; error?: string; needsCert?: boolean; visitId?: string; edited?: boolean; locked?: boolean; archived?: boolean }>;
   /** Comment on an EMS task — queued when offline, so a comment written in the field survives. */
   emsAddComment?(taskId: string, text: string, meta?: Record<string, unknown>):
     Promise<{ ok: boolean; queued?: boolean; error?: string }>;
@@ -182,6 +183,23 @@ export interface Sigma {
   openDeliveryCert(pre?: Record<string, unknown>): void;
   certFromVisitForm(): void;
   certFromVisit(visitId: string): void;
+
+  // ── package V ──────────────────────────────────────────────────────────────────────────
+  // Round 5 V14-V17: apply the attendance plan app/src/lib/visitSave.ts computed from a visit
+  // save (app/src/lib/visitAttendance.ts planVisitAttendance) — the one legacy writer, attApplyOps
+  // (js/src/04-attendance-daily.js).
+  /** Runs every op (upsert/delete) against `attendance`; patches SHEET_DATA.attendance in place. */
+  attApply?(ops: AttOp[]): Promise<{ ok: boolean; failed: number }>;
+  /** `SHEET_DATA.attendance` as is, `source` included — the day's existing rows planVisitAttendance reads. */
+  attRowsRaw?(): AttRow[];
+  /** `SHEET_DATA.returns` as is — visitToChapters reads a filed visit's own returns by visitId. */
+  visitReturnsRaw?(): Array<{ visitId: string; product: string; qty: number }>;
+  /**
+   * `openVisitEditor` (V-L4b): the one door into the sheet from anywhere legacy — new, edit or
+   * cert. Retries for 3 s while the Field chunk is not up yet (the `pushact=visit` pattern,
+   * js/src/22-push.js), then toasts instead of ever falling back to the legacy form.
+   */
+  openVisitEditor?(opts: { kibbutz: string; visitId?: string; mode?: 'new' | 'edit' | 'cert'; date?: string }): boolean;
 
   toast(msg: string, opts?: Record<string, unknown>): void;
 

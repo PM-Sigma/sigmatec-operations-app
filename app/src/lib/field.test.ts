@@ -9,6 +9,7 @@ import {
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   ATT_MORNING_HH, attendanceCronRuns, EOD_DEFAULT_HH, eodHourFor,
   sharedOwners, VISIT_REASONS, visitReasonRequired, visitReasonText, visitReasonValid,
+  joinVisitors, visitorsOf,
   type CheckinRow, type FieldTask,
 } from './field';
 import { burnLeaveItems } from './burns';
@@ -597,4 +598,13 @@ describe('סיבת הביקור', () => {
     expect(visitReasonValid(null, 'טקסט')).toBe(false);
     expect(visitReasonText('nonsense', 'x')).toBe('');
   });
+});
+
+describe('visitorsOf / joinVisitors (round 5 V13: מי ביקר is multi-select)', () => {
+  it('P1 one name', () => expect(visitorsOf({ visitor: 'אביאם' })).toEqual(['אביאם']));
+  it('P2 a list', () => expect(visitorsOf({ visitor: 'אביאם, ניתאי' })).toEqual(['אביאם', 'ניתאי']));
+  it('P3 stray separators and spaces', () => expect(visitorsOf('  אביאם ,, ניתאי , ')).toEqual(['אביאם', 'ניתאי']));
+  it('P4 empty / missing', () => { expect(visitorsOf({})).toEqual([]); expect(visitorsOf(null)).toEqual([]); });
+  it('P5 join dedupes and keeps order', () => expect(joinVisitors(['אביאם', 'ניתאי', 'אביאם', ' '])).toBe('אביאם, ניתאי'));
+  it('P6 round trip', () => expect(visitorsOf(joinVisitors(['עמיחי', 'אביאם']))).toEqual(['עמיחי', 'אביאם']));
 });

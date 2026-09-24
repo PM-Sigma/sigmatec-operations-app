@@ -16,13 +16,19 @@ function check(name, fn) {
 
 // The module wraps its logic in IIFEs and exposes the pure helpers on `window`.
 // Recipient gating + VAPID now live server-side (supabase/functions/push-send), not in the client.
+// visitorsOf (js/src/01-data.js, round 5 V13): 22-push.js uses it bare, relying on the shared bundle
+// scope build.mjs concatenates into; injected here since this harness evaluates 22-push.js alone.
+const visitorsOf = v => {
+  const raw = typeof v === 'string' ? v : String((v && v.visitor) || '');
+  return raw.split(',').map(s => s.trim()).filter(Boolean);
+};
 function loadModule() {
   const win = {};
   const fn = new Function('window', 'document', 'localStorage', 'navigator', 'fetch', 'setTimeout',
-    'getCurrentUser', 'isViewer', 'isIdan', 'attPerson', 'confirm', 'alert', src);
+    'getCurrentUser', 'isViewer', 'isIdan', 'attPerson', 'confirm', 'alert', 'visitorsOf', src);
   fn(win, { getElementById: () => null, createElement: () => ({ style: {} }), body: { appendChild() {} } },
     { getItem: () => null, setItem() {} }, { userAgent: 'test' }, async () => ({ ok: true }), () => {},
-    () => '', () => false, () => false, () => '', () => false, () => {});
+    () => '', () => false, () => false, () => '', () => false, () => {}, visitorsOf);
   return win;   // { attMissingDays, attReminderText, ... } as exposed on window
 }
 const M = loadModule();
@@ -36,19 +42,25 @@ check('empty month → all weekdays up to yesterday', () => {
   assert.deepStrictEqual(out, ['2026-07-01', '2026-07-02', '2026-07-05', '2026-07-06', '2026-07-07',
     '2026-07-08', '2026-07-09', '2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15']);
 });
-check('attendance + visits both count as presence', () => {
+check('round 5 rule 5: covered = has an ATTENDANCE row; a visit day with none is still missing', () => {
   const att = [
     { person: 'אביאם', date: '2026-07-01', dayType: 'office' },
     { person: 'אביאם', date: '2026-07-02T00:00:00', dayType: 'vacation' },   // timestamp-ish date
     { person: 'ניתאי', date: '2026-07-05', dayType: 'office' },              // other person — ignored
   ];
   const visits = [
-    { visitor: 'אביאם', date: '2026-07-05' },
+    { visitor: 'אביאם', date: '2026-07-05' },              // no attendance row backing it → still missing
     { visitor: 'אביאם', date: '2026-07-06T14:30:00' },
     { visitor: 'ניתאי', date: '2026-07-07' },
   ];
   const out = M.attMissingDays(att, visits, 'אביאם', 2026, 6, TODAY);
-  assert.deepStrictEqual(out, ['2026-07-07', '2026-07-08', '2026-07-09', '2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15']);
+  assert.deepStrictEqual(out, ['2026-07-05', '2026-07-06', '2026-07-07', '2026-07-08', '2026-07-09', '2026-07-12', '2026-07-13', '2026-07-14', '2026-07-15']);
+});
+check('a visit_auto row counts exactly like a manual one (the visits argument stays but is ignored)', () => {
+  const att = [{ person: 'אביאם', date: '2026-07-05', dayType: 'field', source: 'visit_auto' }];
+  const visits = [{ visitor: 'אביאם', date: '2026-07-05' }];
+  const out = M.attMissingDays(att, visits, 'אביאם', 2026, 6, TODAY);
+  assert.ok(!out.includes('2026-07-05'));
 });
 check('weekend never missing (Fri 3.7 / Sat 4.7 absent from output)', () => {
   const out = M.attMissingDays([], [], 'אביאם', 2026, 6, TODAY);

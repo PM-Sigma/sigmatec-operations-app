@@ -80,3 +80,49 @@
   // regardless of load order.
   window.BURNS_PROJECT_ACTIVE = true;
 
+  // ── Round 5 package V: the inventory breakpoint + the edit lock ─────────────────────────
+  // 2.29 Phase 1: 159 movements archived to archive.movements_pre_breakpoint, replaced by 81
+  // opening_balance rows, at this instant. INVENTORY_BREAKPOINT_AT is kept for reference /
+  // future reporting; the equipment-edit delta itself no longer branches on it (Opus audit:
+  // the archive's movements go PERSONAL BAG → kibbutz, never from חברה, so a diff against it
+  // nets 0 and double-posts the new quantity — priorSnap.products, the visit's own filed row,
+  // already matches the archive exactly and is used unconditionally, archived or not).
+  const INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47.625Z';
+  window.INVENTORY_BREAKPOINT_AT = INVENTORY_BREAKPOINT_AT;
+
+  // Grill round 5 (binding, 23.9 evening), superseding the original "equipment locked before the
+  // breakpoint" rule: everything dated August 2026 or earlier is read-only everywhere; a record
+  // locks on the 10th of the month after it. Mirrors app/src/lib/editLock.ts editableUntil/isLocked
+  // exactly (test-visit-edit-lock-sql.mjs L12 style equality check pins the two against each other)
+  // and the DB trigger in db/visit_edit_lock_trigger.sql. Asia/Jerusalem, same as the SQL (Opus
+  // audit: a UTC "today" is wrong for hours after local midnight, e.g. 00:00-03:00 Israel time
+  // when UTC is still on the previous day during standard time, or the same day during DST).
+  const ROUND5_LOCK_FLOOR = '2026-09-01';
+  function israelYmd(d) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);   // en-CA = yyyy-mm-dd
+  }
+  // A bare yyyy-mm-dd is already a calendar day (a test's explicit "today", or a stored date) —
+  // used as is. An ISO instant or a Date is converted through Asia/Jerusalem, so "today" never
+  // lands on the wrong side of midnight for the hours UTC and Israel disagree on.
+  function toIsraelDay(input) {
+    if (input instanceof Date) return israelYmd(input);
+    var s = String(input || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var d = new Date(s);
+    return isNaN(d) ? s.slice(0, 10) : israelYmd(d);
+  }
+  function visitEditableUntil(dateStr) {
+    var ymd = String(dateStr || '').slice(0, 10);
+    var y = parseInt(ymd.slice(0, 4), 10), m = parseInt(ymd.slice(5, 7), 10);
+    var ny = m >= 12 ? y + 1 : y, nm = m >= 12 ? 1 : m + 1;
+    return ny + '-' + String(nm).padStart(2, '0') + '-10';
+  }
+  function visitEditLocked(dateStr, todayInput) {
+    var d = String(dateStr || '').slice(0, 10);
+    var today = todayInput ? toIsraelDay(todayInput) : israelYmd(new Date());
+    if (d < ROUND5_LOCK_FLOOR) return true;
+    return today > visitEditableUntil(d);
+  }
+  window.visitEditableUntil = visitEditableUntil;
+  window.visitEditLocked = visitEditLocked;
+

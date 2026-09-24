@@ -30,7 +30,7 @@ const document_ = { getElementById: () => mkEl(), querySelectorAll: () => [], qu
 const storage = {};
 const localStorage_ = { getItem: k => storage[k] ?? null, setItem(k, v) { storage[k] = v; }, removeItem(k) { delete storage[k]; } };
 
-let posts = [], sbPosts = [], emsFull = [], emsEdit = [], emitted = [], contactsKnown = [];
+let posts = [], sbPosts = [], emsFull = [], emsEdit = [], emitted = [], contactsKnown = [], tracked = [];
 const window_ = {
   SHEET_DATA: { visits: [] }, currentKibbutzVisits: [],
   _sbToken: 'tok', _sbTokenExp: Date.now() + 3600e3,
@@ -43,11 +43,41 @@ const fetch_ = (u, o) => {
   return Promise.resolve({ json: async () => ({ ok: true, id: b.id || 'SRV_ID' }) });
 };
 
+// Round 5 V20 (grill round 5, binding): the general edit lock. Real implementation, mirroring
+// js/src/00-consts.js exactly (not a stub), so this harness exercises the same rule production
+// runs, not a pass-through. The equipment-edit stock delta no longer branches on the breakpoint at
+// all (Opus audit — see visitEdit.ts): it always diffs against priorSnap.products.
+const ROUND5_LOCK_FLOOR = '2026-09-01';
+const INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47.625Z';
+function israelYmd(d) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+function visitEditableUntil(dateStr) {
+  const ymd = String(dateStr || '').slice(0, 10);
+  const y = parseInt(ymd.slice(0, 4), 10), m = parseInt(ymd.slice(5, 7), 10);
+  const ny = m >= 12 ? y + 1 : y, nm = m >= 12 ? 1 : m + 1;
+  return ny + '-' + String(nm).padStart(2, '0') + '-10';
+}
+function toIsraelDay(input) {
+  if (input instanceof Date) return israelYmd(input);
+  const s = String(input || '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  return isNaN(d) ? s.slice(0, 10) : israelYmd(d);
+}
+function visitEditLocked(dateStr, todayInput) {
+  const d = String(dateStr || '').slice(0, 10);
+  const today = todayInput ? toIsraelDay(todayInput) : israelYmd(new Date());
+  if (d < ROUND5_LOCK_FLOOR) return true;
+  return today > visitEditableUntil(d);
+}
+
 const fn = new Function(
   'window', 'document', 'localStorage', 'fetch', 'alert', 'WRITE_ROUTER_URL', 'SB_URL', 'SB_ANON', 'setBtnLoading',
   'certIssuedForVisit', 'readVisitEmsIntent', 'pushVisitToEms', 'pushVisitEditToEms', 'refreshData', 'closeModal',
   'currentKibbutz', 'DEFECTIVE_LOCATION', 'POOL_LOCATION', 'computeStock', 'switchTab', 'onVisitorChange',
   'visitReturnedItems', 'renderReturnedItems', 'sigmaEmit', 'sigmaTrack', 'setTimeout',
+  'visitEditLocked', 'INVENTORY_BREAKPOINT_AT',
   visitsSrc + '\nreturn { saveVisitFromData };',
 );
 const mod = fn(
@@ -55,10 +85,12 @@ const mod = fn(
   async () => 0, () => '', (k, v, intent) => emsFull.push({ k, taskId: intent.taskId, summary: v.summary }),
   (taskId, prev, next) => emsEdit.push({ taskId, from: prev.date, to: next.date }), () => {}, () => {},
   'חוקוק', 'תקול', 'חברה', () => ({}), () => {}, () => {},
-  [], () => {}, (name, detail) => emitted.push({ name, detail }), () => {}, () => 0,
+  [], () => {}, (name, detail) => emitted.push({ name, detail }),
+  (name, kibbutz, via) => tracked.push({ name, kibbutz, via }), () => 0,
+  visitEditLocked, INVENTORY_BREAKPOINT_AT,
 );
 const tick = () => new Promise(r => setImmediate(r));
-const reset = () => { posts = []; sbPosts = []; emsFull = []; emsEdit = []; emitted = []; };
+const reset = () => { posts = []; sbPosts = []; emsFull = []; emsEdit = []; emitted = []; tracked = []; };
 const visitPosts = () => posts.filter(p => p.type === 'visit');
 const moves = () => posts.filter(p => p.type === 'movement');
 
@@ -166,6 +198,69 @@ check('the chapters sheet sends every task to the ONE pipeline and posts no comm
   assert.ok(/emsTaskIds: emsIds,/.test(fieldSrc));
   assert.ok(/emsComment: true/.test(fieldSrc));
   assert.ok(!/kind: 'comment'/.test(fieldSrc));
+});
+
+console.log('\n[7] round 5 V20: edit lock + equipment-edit stock diff + via tracking (replaces the original ' +
+  '"equipment locked before the breakpoint" rule — grill round 5, binding)');
+reset();
+window_.SHEET_DATA.visits.push({
+  id: 'v_aug', kibbutz: 'חוקוק', date: '2026-08-15T12:00:00.000Z', visitor: 'אביאם',
+  products: [{ name: 'E360', qty: 2 }], summary: 'ישן', createdAt: '2026-08-15T12:05:00.000Z',
+});
+const rLocked = await mod.saveVisitFromData({ ...chapters, id: 'v_aug', date: '2026-08-16', products: [{ name: 'E360', qty: 9 }] });
+check('L9 an edit of a locked visit (August 2026) is refused before any write', () => {
+  assert.equal(rLocked.ok, false);
+  assert.equal(rLocked.locked, true);
+  assert.equal(posts.length, 0, 'no visit/movement POST at all');
+  assert.equal(sbPosts.length, 0);
+});
+
+reset();
+window_.SHEET_DATA.visits.push({
+  id: 'v_pre', kibbutz: 'חוקוק', date: '2026-09-20T12:00:00.000Z', visitor: 'אביאם',
+  products: [{ name: 'E360', qty: 2 }], summary: 'ישן', createdAt: '2026-09-20T08:00:00.000Z',
+});
+const r10 = await mod.saveVisitFromData({ ...chapters, id: 'v_pre', date: '2026-09-20', products: [{ name: 'E360', qty: 5 }] });
+await tick();
+check('L10 a pre-breakpoint September visit stays editable, equipment included', () => {
+  assert.equal(r10.ok, true);
+  assert.equal(r10.edited, true);
+});
+check('L10b the delta is the REAL difference against the visit\'s own filed row (2 → 5 = +3)', () => {
+  assert.deepEqual(moves().map(m => [m.product, m.fromLocation, m.toLocation, m.quantity, m.reason]),
+    [['E360', 'חברה', 'חוקוק', 3, 'visit_supply_edit']]);
+});
+
+// Opus audit golden: editing the SAME pre-breakpoint visit a SECOND time must move only the new
+// difference, never re-post the first edit's delta or the visit's whole current quantity. (The
+// archive-diff design this replaces always nets to 0 against real archived data — every
+// visit_supply there runs a personal bag → kibbutz, never from חברה — so every edit re-posted the
+// full quantity: a real production bug, real visit ids v_1788936358654_5i9hmx and
+// v_1788935530124_mnv4lx. priorSnap.products, unconditional now, cannot repeat that.)
+reset();
+const r10c = await mod.saveVisitFromData({ ...chapters, id: 'v_pre', date: '2026-09-20', products: [{ name: 'E360', qty: 8 }] });
+await tick();
+check('L10c editing the same pre-breakpoint visit TWICE moves only the real differences each time (5 → 8 = +3, not +6, not +8)', () => {
+  assert.equal(r10c.ok, true);
+  assert.deepEqual(moves().map(m => [m.product, m.fromLocation, m.toLocation, m.quantity, m.reason]),
+    [['E360', 'חברה', 'חוקוק', 3, 'visit_supply_edit']]);
+});
+
+reset();
+const r11 = await mod.saveVisitFromData({ ...chapters, id: 'vd_2', via: 'chapters' });
+check('L11 the sheet\'s via label reaches sigmaTrack; other callers keep the daylog default', () => {
+  assert.equal(r11.ok, true);
+  assert.deepEqual(tracked.map(t => t.via), ['chapters']);
+});
+reset();
+await mod.saveVisitFromData({ ...chapters, id: 'vd_3' });   // no `via` — the day log / any other caller
+check('L11b no via → the daylog default, unchanged', () => assert.deepEqual(tracked.map(t => t.via), ['daylog']));
+
+check('L12 INVENTORY_BREAKPOINT_AT is the same literal in 00-consts.js and visitEdit.ts', () => {
+  const consts = read('js/src/00-consts.js');
+  const visitEdit = read('app/src/lib/visitEdit.ts');
+  assert.match(consts, /INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47\.625Z'/);
+  assert.match(visitEdit, /INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47\.625Z'/);
 });
 
 console.log(failures ? `\n${failures} FAILED` : '\nall passed');

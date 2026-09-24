@@ -3,6 +3,7 @@
 // "is there one, and what does the person see because of it?".
 import * as React from 'react';
 import { sigma, useSigmaEvent } from '@/bridge';
+import { visitorsOf } from '@/lib/field';
 
 export interface VisitDraft {
   id: string;
@@ -38,7 +39,7 @@ export function draftState(
   filedVisits: Array<{ kibbutz?: string; visitor?: string; date?: string }> | null | undefined = [],
 ): DraftState {
   const sameDay = (d?: string) => !!d && String(d).slice(0, 10) === today;
-  const filed = (filedVisits || []).some(v => v && v.kibbutz === kibbutz && v.visitor === person && sameDay(v.date));
+  const filed = (filedVisits || []).some(v => v && v.kibbutz === kibbutz && visitorsOf(v).includes(person) && sameDay(v.date));
   if (filed) return 'filed';
   const has = (drafts || []).some(d => d && d.kibbutz === kibbutz && d.person === person && sameDay(d.date));
   return has ? 'draft' : 'none';

@@ -35,6 +35,16 @@ export const UNSAVED_SAVE = 'שמור טיוטה';
 export const UNSAVED_DISCARD = 'לצאת בלי לשמור';
 export const UNSAVED_KEEP = 'להמשיך';
 
+// Round 5 V-L7 (grill round 2, "Drafts rule 2"), exact copy, additive: every other caller keeps the
+// three-button save/keep/discard prompt above untouched — only `variant: 'visit'`/`'visitEdit'` switches
+// to these two. 'visit' (a new/resumed draft, autosaved already — leaving never loses it): "לבטל ולחזור
+// אחר כך" (leave, the draft stays) / "להמשיך לסיים" (stay). 'visitEdit' (editing a filed visit — there is
+// no draft to keep, per V-L4b): "לצאת בלי לשמור" (leave, the edit is dropped) / "להמשיך לערוך" (stay).
+export const VISIT_PROMPT_LEAVE_NEW = 'לבטל ולחזור אחר כך';
+export const VISIT_PROMPT_STAY_NEW = 'להמשיך לסיים';
+export const VISIT_PROMPT_LEAVE_EDIT = 'לצאת בלי לשמור';
+export const VISIT_PROMPT_STAY_EDIT = 'להמשיך לערוך';
+
 export interface UnsavedGuardOptions {
   /** Is there anything worth keeping right now? Called on every dismiss attempt. */
   dirty: () => boolean;
@@ -49,6 +59,8 @@ export interface UnsavedGuardOptions {
    * prompt is shown — there is nothing to decide, the person must sign in.
    */
   blocking?: boolean;
+  /** The visit sheet's own two-button prompt (see the constants above). Every other caller omits this. */
+  variant?: 'visit' | 'visitEdit';
 }
 
 export interface UnsavedGuard {
@@ -69,7 +81,7 @@ export interface UnsavedGuard {
 }
 
 export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
-  const { onSave } = opts;   // the rest is read through the ref below, so it is never stale
+  const { onSave, variant } = opts;   // the rest is read through the ref below, so it is never stale
   const [asking, setAsking] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
@@ -131,35 +143,62 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
     >
       <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 shadow-lg">
         <div className="text-[15px] font-extrabold text-foreground">{UNSAVED_TITLE}</div>
-        <p className="mt-1 text-[13px] text-muted-foreground">{UNSAVED_BODY}</p>
+        {!variant && <p className="mt-1 text-[13px] text-muted-foreground">{UNSAVED_BODY}</p>}
         <div className="mt-4 flex flex-col gap-2">
-          {onSave && (
-            <button
-              type="button"
-              data-testid="unsaved-save"
-              disabled={saving}
-              onClick={() => void doSave()}
-              className="min-h-[44px] w-full rounded-xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-50"
-            >
-              {UNSAVED_SAVE}
-            </button>
+          {variant ? (
+            <>
+              <button
+                type="button"
+                data-testid="unsaved-keep"
+                onClick={() => setAsking(false)}
+                className="min-h-[44px] w-full rounded-xl bg-brand-grad text-[15px] font-bold text-white"
+              >
+                {variant === 'visitEdit' ? VISIT_PROMPT_STAY_EDIT : VISIT_PROMPT_STAY_NEW}
+              </button>
+              <button
+                type="button"
+                data-testid="unsaved-discard"
+                // 'visit' (a new/resumed draft): "לבטל ולחזור אחר כך" means the draft survives, so
+                // this persists (onSave, e.g. saveAndClose) before closing — closing alone could
+                // race the 800 ms autosave debounce and lose the last few keystrokes. 'visitEdit'
+                // has no draft to persist: leaving just closes, per the ruling ("לצאת בלי לשמור").
+                onClick={variant === 'visitEdit' ? close : () => void doSave()}
+                className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted"
+              >
+                {variant === 'visitEdit' ? VISIT_PROMPT_LEAVE_EDIT : VISIT_PROMPT_LEAVE_NEW}
+              </button>
+            </>
+          ) : (
+            <>
+              {onSave && (
+                <button
+                  type="button"
+                  data-testid="unsaved-save"
+                  disabled={saving}
+                  onClick={() => void doSave()}
+                  className="min-h-[44px] w-full rounded-xl bg-brand-grad text-[15px] font-bold text-white disabled:opacity-50"
+                >
+                  {UNSAVED_SAVE}
+                </button>
+              )}
+              <button
+                type="button"
+                data-testid="unsaved-keep"
+                onClick={() => setAsking(false)}
+                className="min-h-[44px] w-full rounded-xl border border-border text-[15px] font-bold hover:bg-muted"
+              >
+                {UNSAVED_KEEP}
+              </button>
+              <button
+                type="button"
+                data-testid="unsaved-discard"
+                onClick={doDiscard}
+                className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-destructive hover:bg-destructive/10"
+              >
+                {UNSAVED_DISCARD}
+              </button>
+            </>
           )}
-          <button
-            type="button"
-            data-testid="unsaved-keep"
-            onClick={() => setAsking(false)}
-            className="min-h-[44px] w-full rounded-xl border border-border text-[15px] font-bold hover:bg-muted"
-          >
-            {UNSAVED_KEEP}
-          </button>
-          <button
-            type="button"
-            data-testid="unsaved-discard"
-            onClick={doDiscard}
-            className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-destructive hover:bg-destructive/10"
-          >
-            {UNSAVED_DISCARD}
-          </button>
         </div>
       </div>
     </div>

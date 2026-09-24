@@ -134,7 +134,34 @@ check('renderAttendanceReport keeps the attendance row id', () => {
     'the attendance→row mapping must carry id, else no row is ever editable');
 });
 check('mergeAttendanceByDate carries the id on the NON-field branch', () => {
-  assert.ok(/note: o\.note \|\| '', id: o\.id \}/.test(src), 'merged non-field row must keep o.id');
+  // Round 5 rule 5 added `source` right after `id` — the row still carries o.id, just not as the
+  // object's last key any more.
+  assert.ok(/note: o\.note \|\| '', id: o\.id, source: o\.source \|\| 'manual' \}/.test(src),
+    'merged non-field row must keep o.id and its source');
+});
+check('round 5 rule 5: a manual non-field row wins over a visit that day (one merged row, source carried)', () => {
+  const merge = new Function('WORKDAY_HOURS', lift('mergeAttendanceByDate') + '\nreturn mergeAttendanceByDate;')(8);
+  const day = new Date(2026, 8, 10, 12, 0, 0);
+  const out = merge([
+    { date: day, type: 'office', kibbutz: '', duration: 0, note: '', id: 'a1', source: 'manual', isAttendanceRow: true },
+  ]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].type, 'office');
+  assert.equal(out[0].id, 'a1');
+  assert.equal(out[0].source, 'manual');
+});
+check('round 5 rule 5: a field attendance row + a matching visit merge into ONE field row (visit_auto source, real detail)', () => {
+  const merge = new Function('WORKDAY_HOURS', lift('mergeAttendanceByDate') + '\nreturn mergeAttendanceByDate;')(8);
+  const day = new Date(2026, 8, 10, 12, 0, 0);
+  const out = merge([
+    { date: day, type: 'field', kibbutz: '', duration: 0, note: '', source: 'visit_auto', isAttendanceRow: true },
+    { date: day, type: 'field', kibbutz: 'חוקוק', duration: 4, workday: false, summary: 'ביקור', id: 'v1' },
+  ]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].type, 'field');
+  assert.equal(out[0].source, 'visit_auto');
+  assert.equal(out[0].kibbutz, 'חוקוק');
+  assert.deepEqual(out[0].visits.map(v => v.visitId), ['v1'], 'only the real visit — not the placeholder attendance row — appears in visits[]');
 });
 check('the FIELD branch carries NO attendance id (a field day is a VISIT, not an attendance row)', () => {
   const fieldBranch = src.slice(src.indexOf('if (d.fields.length)'), src.indexOf('const o = d.others[0]'));
