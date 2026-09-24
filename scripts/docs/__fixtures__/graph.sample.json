@@ -1,0 +1,15 @@
+{
+  "nodes": [
+    { "id": "file:app/src/islands/Field.tsx", "label": "Field.tsx", "file_type": "code", "source_file": "app/src/islands/Field.tsx" },
+    { "id": "fn:saveVisit@app/src/islands/Field.tsx", "label": "saveVisit()", "file_type": "code", "source_file": "app/src/islands/Field.tsx" },
+    { "id": "table:visits", "label": "visits (table)", "file_type": "code", "source_file": "db/supabase_schema.sql" },
+    { "id": "file:test-field.mjs", "label": "test-field.mjs", "file_type": "code", "source_file": "test-field.mjs" },
+    { "id": "file:app/src/islands/Home.tsx", "label": "Home.tsx", "file_type": "code", "source_file": "app/src/islands/Home.tsx" }
+  ],
+  "links": [
+    { "source": "file:app/src/islands/Field.tsx", "target": "fn:saveVisit@app/src/islands/Field.tsx", "relation": "contains" },
+    { "source": "file:app/src/islands/Field.tsx", "target": "table:visits", "relation": "reads_writes" },
+    { "source": "file:test-field.mjs", "target": "file:app/src/islands/Field.tsx", "relation": "tests" },
+    { "source": "file:app/src/islands/Home.tsx", "target": "file:app/src/islands/Field.tsx", "relation": "calls" }
+  ]
+}

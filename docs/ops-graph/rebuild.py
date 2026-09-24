@@ -23,6 +23,12 @@ HERE = Path(__file__).parent
 # reads the variable at import time. The corpus root is the repo root, so without this a
 # stray graphify-out/ (absolute local paths inside) lands at the root and gets committed.
 os.environ["GRAPHIFY_OUT"] = str((HERE / "graphify-out").resolve())
+# The repo has grown past graphify's default 5000-node HTML-viz ceiling (round 5 + DOC-0's own
+# docs/system nodes) — label_and_render.py's to_html() would raise ValueError and fail the WHOLE
+# rebuild over an interactive-preview limit, not the graph data itself. Raise it generously
+# instead of disabling the viz; graph.json (what ops_graph.py and doc_links.py's next run read)
+# is unaffected either way.
+os.environ.setdefault("GRAPHIFY_VIZ_NODE_LIMIT", "20000")
 
 
 def main():
@@ -113,8 +119,9 @@ def main():
     }, ensure_ascii=False), encoding="utf-8")
     print(f"merged: {len(merged)} nodes, {len(all_edges)} edges")
 
-    # 4. repair -> cluster/label/render -> gaps
-    for step in ("fix_graph.py", "label_and_render.py", "find_gaps.py"):
+    # 4. docs/system/** -> graph edges (deterministic, DOC-0 spec §8.2) -> repair ->
+    #    cluster/label/render -> gaps
+    for step in ("doc_links.py", "fix_graph.py", "label_and_render.py", "find_gaps.py"):
         print(f"\n--- {step}")
         if subprocess.run([sys.executable, str(HERE / step)], cwd=HERE).returncode:
             sys.exit(f"{step} failed")

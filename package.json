@@ -4,7 +4,10 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node scripts/test-all.mjs",
-    "qa": "node scripts/qa.mjs"
+    "qa": "node scripts/qa.mjs",
+    "docs": "node scripts/docs/gen-schema.mjs && node scripts/docs/gen-edge-functions.mjs && node scripts/docs/gen-module-inventory.mjs && node scripts/docs/gen-roles.mjs && node scripts/docs/gen-design.mjs && node scripts/docs/gen-map.mjs",
+    "docs:check": "node scripts/docs/gen-schema.mjs --check && node scripts/docs/gen-edge-functions.mjs --check && node scripts/docs/gen-module-inventory.mjs --check && node scripts/docs/gen-roles.mjs --check && node scripts/docs/gen-design.mjs --check && node scripts/docs/gen-map.mjs --check",
+    "docs:stale": "node scripts/docs/stale.mjs"
   },
   "devDependencies": {
     "@lhci/cli": "^0.15.1",

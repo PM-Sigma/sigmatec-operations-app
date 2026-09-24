@@ -167,18 +167,30 @@ log.append(f"convention ids folded onto AST: {conv_file} file:, {conv_fn} fn: "
 # (E) Nodes naming a file that is not on disk describe PLANNED or RETIRED code
 # (specs mention js/src/25-*.js, attendance-cron, gmail-intake...). Keep them, but
 # never let them pose as live modules.
-planned = 0
-for nid, n in nodes.items():
+#
+# EXCEPTION (DOC-0, spec docs/superpowers/specs/2026-09-23-r5-DOC-documentation.md §8.2): a
+# `document` node whose source_file is under docs/ and gone from disk is a RETIRED DOC - the
+# docs restructure `git mv`d or deleted it (architecture.md, modules.md, data-and-security.md,
+# ...; see the spec §7 retire list). Unlike planned/retired CODE, its old knowledge must not
+# linger tagged "planned" - drop the node outright so it stops posing as current or future doc.
+planned = dropped_docs = 0
+for nid, n in list(nodes.items()):
     path = None
     if nid.startswith("file:"):
         path = nid[5:]
     elif nid.startswith("fn:") and "@" in nid and nid not in alias:
         path = nid.partition("@")[2]
-    if path and not (ROOT / path).exists():
-        n["status"] = "not_on_disk"
-        n["file_type"] = "planned"
-        planned += 1
+    if not path or (ROOT / path).exists():
+        continue
+    if n.get("file_type") == "document" and path.replace("\\", "/").startswith("docs/"):
+        del nodes[nid]
+        dropped_docs += 1
+        continue
+    n["status"] = "not_on_disk"
+    n["file_type"] = "planned"
+    planned += 1
 log.append(f"nodes naming files not on disk, tagged planned: {planned}")
+log.append(f"retired doc nodes dropped (docs/ source_file gone from disk, not tagged planned): {dropped_docs}")
 
 # (E2) Round-5 Phase-1 cleanup targets (retiring_nodes.json, committed) - tag matching
 # nodes status=retiring so ops_graph.py flags them and nobody builds new code against
@@ -423,6 +435,9 @@ for sf, members in by_src.items():
     base = Path(sf).name
     if any(nodes[m].get("label") == base for m in members):
         continue
+    sfp = sf.replace("\\", "/")
+    if sfp.startswith("docs/") and not (ROOT / sfp).exists():
+        continue  # retired doc - do not resurrect a host node for it (DOC-0 rule, see (E) above)
     cid = f"file:{sf}"
     nodes[cid] = {"id": cid, "label": base, "file_type": "document",
                   "source_file": sf, "source_location": None}
@@ -674,6 +689,10 @@ log.append(f"orphans attached to their source file: {n_host}")
 # (L) A policy redefined across migrations kept the label of its FIRST definition,
 # so superseded "public read" text read as current. Labels state no permission;
 # they list every migration that defines the policy instead.
+#
+# doc_links.py (runs earlier, DOC-0 spec §8.2) already relabelled a policy from a LIVE
+# `pg_policies` pull when one exists, marking it `n["_live"] = True` - that beats a db/*.sql
+# first/last guess, so this pass skips those instead of stomping them.
 POLICY_DEF = re.compile(r"""create\s+policy\s+["']?([\w\- ]+?)["']?\s+on\s+(?:public\.)?["']?(\w+)""",
                         re.IGNORECASE)
 _pdefs = defaultdict(list)
@@ -682,7 +701,7 @@ for _p in sorted(ROOT.glob("db/*.sql")):
         _pdefs[pname.strip().lower()].append((_p.name, ptable.lower()))
 n_pol = 0
 for nid, n in nodes.items():
-    if nid.startswith("policy:"):
+    if nid.startswith("policy:") and not n.get("_live"):
         key = nid[7:].strip().lower()
         defs = _pdefs.get(key)
         if defs:
