@@ -55,8 +55,8 @@ test('dev meeting: prep card → three columns → 📌 → accept one card into
   await expect(page.getByTestId('dev-blocked')).toContainText('#10');
   await expect(page.getByTestId('dev-questions')).toContainText('איזה תעריף');
   await expect(page.getByTestId('dev-proposed')).toContainText('#21');
-  // …and a dev session was opened for the meeting
-  await expect.poll(() => sent.some(s => s.table === 'meeting_sessions' && s.body?.kind === 'dev')).toBe(true);
+  // round 5 M-L2: the prep screen alone opens NO session (the row is created only once the walk starts)
+  expect(sent.some(s => s.table === 'meeting_sessions' && s.body?.kind === 'dev')).toBe(false);
   // …from ONE board fetch, not two
   expect(gh.filter(c => !c.mode).length).toBe(1);
 

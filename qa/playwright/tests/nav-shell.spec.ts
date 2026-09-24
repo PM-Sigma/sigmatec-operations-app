@@ -146,7 +146,8 @@ test('shell: the user-chip menu and the ⚙️ הגדרות island', async ({ pa
   const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
   await expect(dlg.getByRole('combobox', { name: 'מסך פתיחה' })).toBeVisible();
   await expect(dlg.getByRole('radiogroup', { name: 'תיאור משימות בכרטיס' })).toBeVisible();
-  await expect(dlg.getByRole('radiogroup', { name: 'פונט' })).toBeVisible();
+  // round 5 G-L5: the font picker is gone
+  await expect(dlg.getByRole('radiogroup', { name: 'פונט' })).toHaveCount(0);
   await expect(dlg.getByRole('radiogroup', { name: 'מצב תצוגה' })).toBeVisible();
   await shot(page, ti, 'settings');
 
