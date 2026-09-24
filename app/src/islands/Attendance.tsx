@@ -28,12 +28,11 @@ import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
-import { visitorsOf } from '@/lib/field';
 import {
   canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
-  holidayShort, kpis as computeKpis, missingByPerson, missingDays, monthGrid, savedToast,
-  withVisitDays, ymd, type AttRow, type DayCell, type DayType, type Holiday, type VisitLike,
+  holidayShort, kpis as computeKpis, mergeByDay, missingByPerson, missingDays, monthGrid, savedToast,
+  ymd, type AttRow, type DayCell, type DayType, type Holiday,
 } from '@/lib/attendance';
 
 // ───────────────────────────── data ─────────────────────────────
@@ -48,27 +47,6 @@ function readRows(person: string, year: number, month: number): AttRow[] | null 
   try {
     if (!(window as any).SHEET_DATA) return null;
     return (sigma.attRows?.(person, year, month) || []) as AttRow[];
-  } catch { return null; }
-}
-
-/**
- * The visit summaries of the month, straight off the same snapshot. The legacy merge already
- * folds them into `attRows`; reading them HERE as well is what lets `withVisitDays` re-derive
- * the field days from the visits themselves, so an edited visit date moves the day instead
- * of leaving the old one behind (round 2, F-2). The merge is idempotent — no duplicate rows.
- */
-function readVisits(person: string, year: number, month: number): VisitLike[] | null {
-  if (!person) return null;
-  try {
-    const data = (window as any).SHEET_DATA;
-    if (!data) return null;
-    const prefix = year + '-' + String(month).padStart(2, '0');
-    return ((data.visits || []) as any[])
-      .filter(v => v && visitorsOf(v).includes(person) && String(v.date || '').slice(0, 7) === prefix
-        || (v && visitorsOf(v).includes(person) && new Date(v.date).getFullYear() === year
-            && new Date(v.date).getMonth() + 1 === month))
-      .map(v => ({ id: v.id, visitor: v.visitor, date: v.date, kibbutz: v.kibbutz,
-        duration: v.duration, workday: !!v.workday })) as VisitLike[];
   } catch { return null; }
 }
 
@@ -166,7 +144,6 @@ function MonthGridView({
 function DayEditor({
   cell, busy, canEdit = true, onSave,
 }: { cell: DayCell; busy: boolean; canEdit?: boolean; onSave: (type: DayType, note: string) => void }) {
-  const fromVisit = cell.row?.source === 'visit';
   const [note, setNote] = React.useState(cell.row?.note || '');
   const [pending, setPending] = React.useState<DayType | null>(null);
   React.useEffect(() => { setNote(cell.row?.note || ''); setPending(null); }, [cell.date, cell.row?.note]);
@@ -175,7 +152,7 @@ function DayEditor({
   // A day people mostly spend at home should not cost a tap. Opening an empty ערב חג starts
   // a four-second countdown that saves 🏠 מהבית; touching ANYTHING — another type, the
   // ביטול button — cancels it, and שמירה just files it sooner.
-  const eveCandidate = cell.eve && !cell.row && canEdit && !fromVisit;
+  const eveCandidate = cell.eve && !cell.row && canEdit;
   const [evePaused, setEvePaused] = React.useState(false);
   // `window.__sigmaEveCountdownMs` lets the QA harness stretch the 4 s (a loaded desktop run
   // took longer than that to reach the ביטול button); production never sets it.
@@ -223,15 +200,7 @@ function DayEditor({
         </div>
       )}
 
-      {fromVisit ? (
-        <div className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
-          <div className="font-bold">{dayLabel('field')}</div>
-          <div className="mt-0.5 text-muted-foreground">
-            נרשם מסיכום הביקור{cell.row?.kibbutz ? ' · ' + cell.row.kibbutz : ''}
-            {cell.row?.hours ? " · " + cell.row.hours + "ש'" : ''}
-          </div>
-        </div>
-      ) : !canEdit ? (
+      {!canEdit ? (
         <div data-testid="att-readonly" className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
           <div className="font-bold">{cell.row ? dayLabel(cell.row.type) : 'אין דיווח ליום הזה'}</div>
           <div className="mt-0.5 text-muted-foreground">צפייה בלבד. אפשר להזכיר לו למלא.</div>
@@ -307,19 +276,10 @@ function AttendanceIsland() {
     // SHEET_DATA lands a moment after boot and announces nothing. Poll ONLY until it does.
     refetchInterval: q => (q.state.data ? false : 1500),
   });
-  const visitsQ = useQuery({
-    queryKey: ['attVisits', person, ym.y, ym.m],
-    queryFn: () => readVisits(person, ym.y, ym.m)
-      ?? ((qc.getQueryData(['attVisits', person, ym.y, ym.m]) as VisitLike[] | null | undefined) ?? null),
-    enabled: !!person,
-    refetchInterval: q => (q.state.data ? false : 1500),
-  });
   const holidaysQ = useQuery({ queryKey: ['holidays'], queryFn: readHolidays, staleTime: 6 * 3600_000 });
 
   const refresh = React.useCallback(() => {
     void qc.invalidateQueries({ queryKey: ['attRows'] });
-    // …and the visits with them: a summary saved (or its date corrected) is an attendance day.
-    void qc.invalidateQueries({ queryKey: ['attVisits'] });
   }, [qc]);
   useSigmaEvent('attendance-saved', refresh);
   useSigmaEvent('visit-saved', refresh);
@@ -331,12 +291,9 @@ function AttendanceIsland() {
   useSigmaEvent('holidays-loaded', () => { void qc.invalidateQueries({ queryKey: ['holidays'] }); });
   useSigmaEvent('user-changed', () => { try { setPerson(sigma.attPerson?.() || ''); } catch { /* legacy gone */ } });
 
-  // F-2: the month, with every saved summary folded in as an automatic יום שטח. The legacy
-  // merge already does this; re-deriving it from the visits is what makes an EDITED visit
-  // date move the day (the old date goes back to missing) instead of leaving a ghost row.
-  const rows = React.useMemo(
-    () => withVisitDays((rowsQ.data || []) as AttRow[], (visitsQ.data || []) as VisitLike[], person),
-    [rowsQ.data, visitsQ.data, person]);
+  // round 5 · V8: the rows ARE the answer — package V writes every visit day as a visit_auto
+  // row, so nothing is derived from the visits any more.
+  const rows = React.useMemo(() => mergeByDay((rowsQ.data || []) as AttRow[]), [rowsQ.data]);
   const canEdit = canEditAttendance(me, person, flags);
   const holidays = (holidaysQ.data || []) as Holiday[];
   const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today), [ym, rows, holidays, today]);
@@ -549,10 +506,6 @@ function AttendanceIsland() {
               {!canEdit ? (
                 <p className="text-[13px] text-muted-foreground">
                   {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
-                </p>
-              ) : todayCell.row?.source === 'visit' ? (
-                <p className="text-[13px] text-muted-foreground">
-                  נרשם מסיכום הביקור{todayCell.row.kibbutz ? ' · ' + todayCell.row.kibbutz : ''}
                 </p>
               ) : (
                 <DayTypeRow

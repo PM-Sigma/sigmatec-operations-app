@@ -24,27 +24,12 @@ export interface Holiday {
 }
 
 /** One day of a person's month, already merged (a day with two visits is ONE row). */
-/**
- * One visit summary, as the legacy snapshot (`SHEET_DATA.visits`) carries it. Only the four
- * fields the attendance rule needs are typed; everything else on a visit is none of its
- * business.
- */
-export interface VisitLike {
-  id?: string;
-  visitor?: string;
-  /** 'YYYY-MM-DD' or anything Date-ish — the date the person says the visit happened on. */
-  date?: unknown;
-  kibbutz?: string;
-  duration?: number | string;
-  workday?: boolean;
-}
 
 /**
  * Where a row came from. 'manual' = someone typed it · 'calendar' = generated from a
- * calendar_absences range · 'visit_auto' = written by package V when a visit was saved ·
- * 'visit' = the pre-V derived row the legacy merge builds (retired by A-L5).
+ * calendar_absences range · 'visit_auto' = written by package V when a visit was saved.
  */
-export type AttSource = 'manual' | 'calendar' | 'visit_auto' | 'visit';
+export type AttSource = 'manual' | 'calendar' | 'visit_auto';
 
 export interface AttRow {
   /** 'YYYY-MM-DD' */
@@ -409,7 +394,7 @@ export function mustFile(person: string): boolean {
   return !!person && ATT_FILERS.indexOf(person) !== -1;
 }
 
-const SOURCE_RANK: Record<AttSource, number> = { manual: 0, calendar: 1, visit_auto: 2, visit: 3 };
+const SOURCE_RANK: Record<AttSource, number> = { manual: 0, calendar: 1, visit_auto: 2 };
 
 function rankOf(r: AttRow): number {
   const s = (r.source || 'manual') as AttSource;
@@ -509,7 +494,7 @@ export type RowOrigin = 'none' | 'manual' | 'calendar' | 'auto';
 
 export function rowOrigin(row: AttRow | null): RowOrigin {
   if (!row) return 'none';
-  if (row.source === 'visit_auto' || row.source === 'visit') return 'auto';
+  if (row.source === 'visit_auto') return 'auto';
   if (row.source === 'calendar') return 'calendar';
   return 'manual';
 }
@@ -525,84 +510,12 @@ export function originLine(row: AttRow | null): string {
 }
 
 /**
- * May the day editor offer to change this day? Yes for everything except the pre-V derived
- * row: today's legacy merge always shows the visit over a manual row, so a change there would
- * save and then vanish. After V8 no 'visit' rows exist and this is always true.
+ * May the day editor offer to change this day? Round 5 · A-L5: package V now writes every
+ * visit day as a real `visit_auto` row (no more derived-and-vanishing 'visit' rows), so every
+ * day may be changed.
  */
-export function canOverride(row: AttRow | null): boolean {
-  return !row || row.source !== 'visit';
-}
-
-// ───────────────── a saved visit IS a יום שטח (round 2, F-2) ─────────────────
-//
-// Round 5: a real row wins; package V writes visit days as `visit_auto` rows, and A-L5
-// retires this derivation.
-//
-// THE RULE: a visit summary someone saved is that person's attendance for that date. Nobody
-// files a יום שטח by hand after writing a summary, and nobody should have to — and when the
-// visit's date is corrected, the field day MOVES with it: the new date becomes a field day,
-// the old one goes back to being whatever it was without the visit (missing, unless a manual
-// row or another summary covers it).
-//
-// It is written as a DERIVATION, not as a write: the field days are computed from the visit
-// list every time, so an edited date needs nothing to be undone. The legacy snapshot already
-// merges visits into the month (js/src/04-attendance-daily.js attRowsFor); this function is
-// the same merge as a pure rule, and it is idempotent — running it over rows that already
-// carry the visit days changes nothing and NEVER duplicates a date.
-
-/** Hours a workday visit is worth when it carries no duration (the legacy WORKDAY_HOURS). */
-export const WORKDAY_HOURS = 8;
-
-/** The visits of one person, by date: 'YYYY-MM-DD' → the visits saved for that day. */
-export function visitsByDate(
-  visits: VisitLike[] | null | undefined,
-  person?: string,
-): Map<string, VisitLike[]> {
-  const out = new Map<string, VisitLike[]>();
-  for (const v of visits || []) {
-    if (!v) continue;
-    if (person && v.visitor && v.visitor !== person) continue;
-    const date = toYmd(v.date);
-    if (!date) continue;
-    const list = out.get(date);
-    if (list) list.push(v); else out.set(date, [v]);
-  }
-  return out;
-}
-
-/** The field day a date's visits add up to: kibbutzim joined, hours summed. */
-export function visitDayRow(date: string, dayVisits: VisitLike[]): AttRow {
-  const kibbutzim = Array.from(new Set(dayVisits.map(v => (v.kibbutz || '').trim()).filter(Boolean)));
-  const hours = dayVisits.reduce(
-    (s, v) => s + (v.workday ? WORKDAY_HOURS : (Number(v.duration) || 0)), 0);
-  return {
-    date,
-    type: 'field',
-    kibbutz: kibbutzim.join(', '),
-    hours: Math.round(hours * 100) / 100,
-    source: 'visit',
-  };
-}
-
-/**
- * The person's month with every saved summary folded in as an automatic יום שטח.
- *
- * One row per date, always: a date that has a visit is a field day sourced `visit` (it wins
- * over a manual row — the summary is the stronger evidence), a date that has none keeps
- * whatever the person filed by hand. Sorted by date.
- */
-export function withVisitDays(
-  rows: AttRow[] | null | undefined,
-  visits: VisitLike[] | null | undefined,
-  person?: string,
-): AttRow[] {
-  // The legacy merge's derived rows are dropped and rebuilt from the visits (an edited visit
-  // date must move the day). Every REAL row (manual / calendar / visit_auto) is kept and wins:
-  // round 5 rule 5 — a visit never silently overwrites a day someone filed. mergeByDay's own
-  // source ranking does the winning: a derived row is always sourced 'visit', the weakest rank.
-  const real = (rows || []).filter(r => r && r.source !== 'visit');
-  const derived = Array.from(visitsByDate(visits, person), ([date, dayVisits]) => visitDayRow(date, dayVisits));
-  return mergeByDay([...real, ...derived]);
+export function canOverride(_row: AttRow | null): boolean {
+  return true;
 }
 
 // ───────────────── the month's gaps, for whoever asks (round 2, F-4) ─────────────────

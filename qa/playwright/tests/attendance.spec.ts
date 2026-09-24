@@ -294,3 +294,16 @@ test('attendance: עידן gets the whole team\'s gaps, and a tap switches to th
   await shot(page, ti, 'missing-team');
   expectNoConsoleErrors(rec);
 });
+
+test('attendance r5 · A-L5: a saved visit shows as an automatic field day from the row V wrote', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openAttendance(page);
+
+  const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם').date).slice(0, 10));
+  const row = await page.evaluate(d => ((window as any).SHEET_DATA.attendance || []).find((a: any) => a.person === 'אביאם' && String(a.date).slice(0, 10) === d), visitDay);
+  expect(row && row.source).toBe('visit_auto');
+  // A-U3 has not landed data-att-state yet; the day carries today's data-state="field".
+  await expect(page.locator(`[data-date="${visitDay}"]`)).toHaveAttribute('data-state', 'field');
+
+  expectNoConsoleErrors(rec);
+});

@@ -9,7 +9,7 @@ import {
   attCellLook, attLegend, ATT_FILERS, attTiles, canEditAttendance, canOverride, canSwitchPerson,
   cellsOf, DAY_LABELS, dayChip, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText, holidayNote,
   isRequiredDay, kpis, mergeByDay, missingBlock, missingByPerson, missingDays, missingDaysFor,
-  monthGrid, mustFile, originLine, reportedDaysFor, rowOrigin, savedToast, toggleTile, withVisitDays,
+  monthGrid, mustFile, originLine, reportedDaysFor, rowOrigin, savedToast, toggleTile,
   type AttRow, type Holiday, type TileKey,
 } from './attendance';
 
@@ -32,10 +32,6 @@ const HOLIDAYS: Holiday[] = [
 
 const row = (date: string, type: AttRow['type'], extra: Partial<AttRow> = {}): AttRow =>
   ({ date, type, ...extra });
-
-/** A visit summary fixture, shared by the withVisitDays describes. */
-const visit = (date: string, extra: Record<string, unknown> = {}) =>
-  ({ id: 'v' + date, visitor: 'אביאם', date, kibbutz: 'דפנה', workday: true, ...extra });
 
 /** A month that is fully behind us, so "missing" covers all of it. */
 const AFTER = new Date(2026, 9, 15);   // 15.10.2026
@@ -100,7 +96,7 @@ describe('monthGrid', () => {
 
   it('filled days carry their row and their kind', () => {
     const rows = [
-      row('2026-09-01', 'field', { kibbutz: 'חוקוק', hours: 8, source: 'visit' }),
+      row('2026-09-01', 'field', { kibbutz: 'חוקוק', hours: 8, source: 'visit_auto' }),
       row('2026-09-02', 'office'),
       row('2026-09-03', 'wfh'),
       row('2026-09-06', 'vacation'),
@@ -328,73 +324,9 @@ describe('round 5 · A4 — who files, and which row wins a day', () => {
       ['2026-09-03', 'office'], ['2026-09-07', 'vacation'], ['2026-09-08', 'wfh'],
     ]);
   });
-  it('a visit_auto row is a real row: a derived visit day never overrides it or duplicates it', () => {
-    const out = withVisitDays([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }], [visit('2026-09-03')], 'אביאם');
+  it('a visit_auto row is a real row: mergeByDay never drops or duplicates it', () => {
+    const out = mergeByDay([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }]);
     expect(out).toEqual([{ date: '2026-09-03', type: 'field', source: 'visit_auto', kibbutz: 'יגור' }]);
-  });
-});
-
-// ───────────── round 2 · F-2: a saved summary IS a יום שטח, and it MOVES ─────────────
-
-describe('withVisitDays', () => {
-  const manual: AttRow[] = [
-    row('2026-09-01', 'office'),
-    row('2026-09-02', 'wfh'),
-  ];
-
-  it('a saved summary becomes a field day nobody had to file', () => {
-    const out = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
-    const d3 = out.find(r => r.date === '2026-09-03')!;
-    expect(d3.type).toBe('field');
-    expect(d3.source).toBe('visit');
-    expect(d3.kibbutz).toBe('דפנה');
-    expect(d3.hours).toBe(8);
-  });
-
-  it('editing the visit date MOVES the day, and the old date goes back to missing', () => {
-    const before = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
-    const after = withVisitDays(before, [visit('2026-09-07')], 'אביאם');
-    expect(after.map(r => r.date)).not.toContain('2026-09-03');
-    expect(after.find(r => r.date === '2026-09-07')!.type).toBe('field');
-    expect(missingDays(after, HOLIDAYS, AFTER, 2026, 9)).toContain('2026-09-03');
-  });
-
-  it('unless another summary covers the old date', () => {
-    const out = withVisitDays(manual, [visit('2026-09-03', { id: 'other' }), visit('2026-09-07')], 'אביאם');
-    expect(out.filter(r => r.type === 'field').map(r => r.date)).toEqual(['2026-09-03', '2026-09-07']);
-    expect(missingDays(out, HOLIDAYS, AFTER, 2026, 9)).not.toContain('2026-09-03');
-  });
-
-  it('or a manual row was filed there', () => {
-    const before = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
-    const withManual = withVisitDays([...before, row('2026-09-03', 'office')], [visit('2026-09-07')], 'אביאם');
-    expect(withManual.find(r => r.date === '2026-09-03')!.type).toBe('office');
-  });
-
-  it('never duplicates a date: two visits on one day are ONE row, and it is idempotent', () => {
-    const visits = [visit('2026-09-03'), visit('2026-09-03', { id: 'v2', kibbutz: 'חוקוק', workday: false, duration: 2 })];
-    const once = withVisitDays(manual, visits, 'אביאם');
-    const twice = withVisitDays(once, visits, 'אביאם');
-    expect(once.filter(r => r.date === '2026-09-03')).toHaveLength(1);
-    expect(once.find(r => r.date === '2026-09-03')!.kibbutz).toBe('דפנה, חוקוק');
-    expect(once.find(r => r.date === '2026-09-03')!.hours).toBe(10);
-    expect(twice).toEqual(once);
-  });
-
-  it('a manual row on the same date wins over the summary', () => {
-    // round 5 rule 5: manual rows win over visits (the visit writer asks before changing a manual day)
-    const out = withVisitDays([row('2026-09-03', 'office')], [visit('2026-09-03')], 'אביאם');
-    expect(out).toEqual([{ ...row('2026-09-03', 'office'), date: '2026-09-03' }]);
-  });
-
-  it('a visit of another person is not your day', () => {
-    const out = withVisitDays(manual, [visit('2026-09-03', { visitor: 'ניתאי' })], 'אביאם');
-    expect(out.map(r => r.date)).not.toContain('2026-09-03');
-  });
-
-  it('keeps the manual month untouched', () => {
-    const out = withVisitDays(manual, [visit('2026-09-03')], 'אביאם');
-    expect(out.map(r => r.date)).toEqual(['2026-09-01', '2026-09-02', '2026-09-03']);
   });
 });
 
@@ -581,7 +513,6 @@ describe('round 5 · A4 — where a day came from', () => {
     expect(rowOrigin({ date: '2026-09-01', type: 'office' })).toBe('manual');
     expect(rowOrigin({ date: '2026-09-01', type: 'vacation', source: 'calendar' })).toBe('calendar');
     expect(rowOrigin({ date: '2026-09-01', type: 'field', source: 'visit_auto' })).toBe('auto');
-    expect(rowOrigin({ date: '2026-09-01', type: 'field', source: 'visit' })).toBe('auto');
   });
   it('the line under an automatic day', () => {
     expect(originLine({ date: '2026-09-01', type: 'field', source: 'visit_auto', kibbutz: 'יגור', hours: 4 }))
@@ -590,11 +521,10 @@ describe('round 5 · A4 — where a day came from', () => {
     expect(originLine({ date: '2026-09-03', type: 'vacation', source: 'calendar' })).toBe('נרשם מהיומן');
     expect(originLine({ date: '2026-09-02', type: 'office' })).toBe('');
   });
-  it('a V-written or calendar day can be changed; the pre-V derived day cannot (the legacy merge would hide the change)', () => {
+  it('round 5 · A-L5: every day may be changed now that V writes real visit_auto rows', () => {
     expect(canOverride({ date: 'x', type: 'field', source: 'visit_auto' })).toBe(true);
     expect(canOverride({ date: 'x', type: 'vacation', source: 'calendar' })).toBe(true);
     expect(canOverride({ date: 'x', type: 'office', source: 'manual' })).toBe(true);
-    expect(canOverride({ date: 'x', type: 'field', source: 'visit' })).toBe(false);
     expect(canOverride(null)).toBe(true);
   });
 });
