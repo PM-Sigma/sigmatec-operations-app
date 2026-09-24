@@ -49,9 +49,10 @@ describe('PushLog', () => {
     expect(err.getAttribute('title')).toBeNull();
   });
 
-  it('an unrecognised event mode shows its raw name, never an empty cell', async () => {
+  it('an unrecognised event mode shows the neutral Hebrew fallback, never a raw key or an empty cell', async () => {
     render(<PushLog />);
-    await waitFor(() => expect(screen.getByText(/someUnknownMode/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('התראה אחרת')).toBeTruthy());
+    expect(screen.queryByText(/someUnknownMode/)).toBeNull();
   });
 
   it('anyone but עידן renders nothing', async () => {

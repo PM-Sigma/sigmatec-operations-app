@@ -6,7 +6,7 @@
 // Copy rule: nothing here explains the app's own mechanics. Each row says what the person
 // gets, not where it is stored or how it is applied.
 import * as React from 'react';
-import { Bell, ChevronDown, ChevronUp, ClipboardList, Lightbulb, Settings as Cog, Smartphone } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, ChevronUp, ClipboardList, Lightbulb, Settings as Cog, Smartphone } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SectionBlock } from '@/components/ui/section-block';
 import { ListRow } from '@/components/ui/list-row';
@@ -384,7 +384,7 @@ function SettingsPanel() {
                     options={[
                       { value: 'light', label: 'בהיר' },
                       { value: 'dark', label: 'כהה' },
-                      { value: 'system', label: 'לפי המכשיר' },
+                      { value: 'system', label: 'מכשיר' },
                     ]}
                   />
                 </ControlRow>
@@ -403,7 +403,15 @@ function SettingsPanel() {
                   title="מסך פתיחה"
                   meta={settings.landing === 'auto' ? 'המסך שנפתח כשאתה נכנס' : 'המסך שבחרת נפתח תמיד'}
                   onClick={() => setLandingOpen(true)}
-                  trailing={<span className="text-[13px] font-semibold text-foreground">{landingLabel}</span>}
+                  // Designer round 5 review #6: value + chevron, like every other row that opens
+                  // a sub-sheet — an explicit `trailing` replaces ListRow's own default chevron
+                  // entirely, so a value-only span (the earlier version) silently dropped it.
+                  trailing={
+                    <span className="flex items-center gap-1">
+                      <span className="text-[13px] font-semibold text-foreground">{landingLabel}</span>
+                      <ChevronLeft aria-hidden className="h-5 w-5" />
+                    </span>
+                  }
                 />
               </SectionBlock>
 

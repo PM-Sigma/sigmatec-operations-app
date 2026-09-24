@@ -6,7 +6,7 @@
 // nothing at all for anyone `canSeeBurns` refuses (מתניה/אליה, or the flag off).
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Check, Cpu, FileSpreadsheet, Flame, Repeat, Search, Zap } from 'lucide-react';
+import { Check, CheckSquare, Cpu, FileSpreadsheet, Flame, Repeat, Search, Zap } from 'lucide-react';
 import { PageActionRow } from '@/components/ui/page-action-row';
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { SectionBlock } from '@/components/ui/section-block';
@@ -173,6 +173,20 @@ function BurnsPageInner() {
                 <Cpu className="h-4 w-4" />
               </BubbleButton>
             )}
+            {canWrite && (
+              // Designer round 5 review #2: "בחירה" used to be a FilterChip in the filter row,
+              // where it wrapped alone onto its own line at 360px (5 chips, 4 fit). Moved into
+              // the action row next to Excel/גנרטורים — one more icon toggle, not a stray chip.
+              <BubbleButton
+                variant={selectMode ? 'primary' : 'icon'}
+                size="sm"
+                aria-label="בחירה"
+                aria-pressed={selectMode}
+                onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+              >
+                <CheckSquare className="h-4 w-4" />
+              </BubbleButton>
+            )}
           </>
         }
       />
@@ -192,7 +206,7 @@ function BurnsPageInner() {
           onKeyDown={e => { if (e.key === 'Enter') onSearchEnter(); }}
           placeholder="חיפוש לפי מספר מונה, כתובת או גנרטור"
           aria-label="חיפוש"
-          className="min-h-[44px] w-full rounded-xl border border-border bg-card py-2 pe-9 ps-3 text-[14px] text-foreground"
+          className="min-h-[44px] w-full rounded-xl border border-border bg-card py-2 ps-9 pe-3 text-[14px] text-foreground"
         />
       </label>
 
@@ -201,11 +215,6 @@ function BurnsPageInner() {
         <FilterChip selected={filter.kind === 'CT'} onClick={() => toggleKind('CT')}>משנה זרם</FilterChip>
         <FilterChip selected={filter.kind === 'PP'} onClick={() => toggleKind('PP')}>תלת-פאזי</FilterChip>
         <FilterChip selected={!!filter.site} onClick={() => setSiteSheetOpen(true)}>{filter.site || 'קיבוץ'}</FilterChip>
-        {canWrite && (
-          <FilterChip selected={selectMode} onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}>
-            בחירה
-          </FilterChip>
-        )}
       </div>
 
       {bySite.length === 0 ? (

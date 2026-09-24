@@ -32,12 +32,13 @@ test('table: 250 fixture rows never render past the 200-row cap', async ({ page 
   expectNoConsoleErrors(rec);
 });
 
-test('an unknown event mode shows its raw name, never an empty cell', async ({ page }, ti) => {
+test('an unknown event mode shows the neutral Hebrew fallback, never a raw key or an empty cell', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'עידן' });
   await page.evaluate(() => (window as any).showPage('pushlog'));
   const view = page.locator('#sigma-pushlog');
   await expect(view.getByText('יומן התראות')).toBeVisible({ timeout: 15_000 });
-  await expect(view.getByText('someFutureMode')).toBeVisible({ timeout: 15_000 });
+  await expect(view.getByText('התראה אחרת')).toBeVisible({ timeout: 15_000 });
+  await expect(view.getByText('someFutureMode')).toHaveCount(0);
 
   expectNoConsoleErrors(rec);
 });

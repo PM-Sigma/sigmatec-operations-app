@@ -29,7 +29,7 @@ describe('push log', () => {
   it('a line', () => expect(pushLogLine(rows[1] as any)).toEqual({
     when: '23.9 13:00', what: 'הזמנה ממתינה', where: 'לקיבוץ חוקוק · 3', who: 'עמיחי',
     status: { label: 'נכשלה', role: 'danger' }, error: '410 Gone', actor: 'אביאם' }));
-  it('an unknown mode shows its raw name, never empty', () => expect(pushLogLine(rows[2] as any).what).toBe('someNewMode'));
+  it('an unknown mode shows the neutral Hebrew fallback, never a raw key or empty', () => expect(pushLogLine(rows[2] as any).what).toBe('התראה אחרת'));
   it('עידן only', () => {
     expect(pushLogCanSee('עידן', true)).toBe(true);
     expect(pushLogCanSee('עמיחי', false)).toBe(false);
