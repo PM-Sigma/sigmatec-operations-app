@@ -40,4 +40,43 @@ if (fs.existsSync('app/src/lib/pushLog.ts')) {
   const g = fs.readFileSync('app/src/lib/pushLog.ts', 'utf8');
   for (const m of [...modes, 'pending', 'approved']) assert.match(g, new RegExp('\\b' + m + '\\s*:'), 'PUSH_EVENT_LABEL has ' + m);
 }
+
+// 7. audit fix (Opus 24.9): the conditional rows, the bell rows and the timer row are derived
+// from the SAME code the fixed-list rows already are (contract 2) — not read off by hand.
+const field = fs.readFileSync('app/src/lib/field.ts', 'utf8');
+const clockify = fs.readFileSync('app/src/lib/clockify.ts', 'utf8');
+const arr = (src, name) => JSON.parse(src.match(new RegExp(name + "\\s*(?::[^=]*)?=\\s*(\\[[^\\]]*\\])"))[1].replace(/'/g, '"'));
+const FIELD_PEOPLE = arr(field, 'FIELD_PEOPLE');
+const TIME_TRACKERS = arr(clockify, 'TIME_TRACKERS');
+// canSeeAlerts / canSeeEmsUnlinkedAlert are `['a','b',…].indexOf(user) !== -1` one-liners —
+// the roster array inside the function's own body is the one it reads.
+const rosterIn = (src, fnName) => {
+  const at = src.indexOf('function ' + fnName);
+  if (at === -1) throw new Error(fnName + ' not found in alerts.ts');
+  const body = src.slice(at, src.indexOf('\n}', at));
+  const m = body.match(/\[((?:'[^']*',?\s*)+)\]/);
+  return JSON.parse('[' + m[1].replace(/'/g, '"') + ']');
+};
+const BELL_ROSTER = rosterIn(alerts, 'canSeeAlerts');
+const UNLINKED_ROSTER = rosterIn(alerts, 'canSeeEmsUnlinkedAlert');
+
+// visitCron / openNudges (the banner): reminded only ever the field team who actually check in.
+for (const m of ['visitCron', 'openNudges']) {
+  if (!byKey[m]) continue;
+  PEOPLE.forEach((p, i) => assert.equal(byKey[m][2 + i].startsWith('✓'), FIELD_PEOPLE.includes(p), m + ' · ' + p));
+}
+// timerStale: only the people who actually run the ▶ clock (TIME_TRACKERS).
+if (byKey['timerStale']) {
+  PEOPLE.forEach((p, i) => assert.equal(byKey['timerStale'][2 + i].startsWith('✓'), TIME_TRACKERS.includes(p), 'timerStale · ' + p));
+}
+// the plain bell rows: every inventory actor, nobody else.
+for (const k of ['movement', 'low_stock']) {
+  if (!byKey[k]) continue;
+  PEOPLE.forEach((p, i) => assert.equal(byKey[k][2 + i].startsWith('✓'), BELL_ROSTER.includes(p), k + ' · ' + p));
+}
+// ems_unlinked: the narrower עידן/עמיחי-only roster.
+if (byKey['ems_unlinked']) {
+  PEOPLE.forEach((p, i) => assert.equal(byKey['ems_unlinked'][2 + i].startsWith('✓'), UNLINKED_ROSTER.includes(p), 'ems_unlinked · ' + p));
+}
+
 console.log('alerts matrix OK (' + body.length + ' rows)');

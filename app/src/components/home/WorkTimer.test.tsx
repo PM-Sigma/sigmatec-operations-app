@@ -95,9 +95,12 @@ const startTimer = async () => {
 // 22.9 (E1): the running clock opens ITS sheet first; "סגור שעות" hands over to the stop sheet.
 const openSheet = async () => {
   await act(async () => { fireEvent.click(screen.getByTestId('work-timer-stop')); });
-  await waitFor(() => expect(screen.getByTestId('work-timer-edit')).toBeTruthy());
+  // Audit fix (Opus 24.9): the default 1 s waitFor timeout flaked under load (a lazy sheet
+  // chunk can take longer than that to mount) — 5 s gives it real room without slowing a
+  // healthy run, since waitFor still resolves the moment the element appears.
+  await waitFor(() => expect(screen.getByTestId('work-timer-edit')).toBeTruthy(), { timeout: 5000 });
   await act(async () => { fireEvent.click(screen.getByTestId('work-timer-finish')); });
-  await waitFor(() => expect(screen.getByTestId('work-timer-sheet')).toBeTruthy());
+  await waitFor(() => expect(screen.getByTestId('work-timer-sheet')).toBeTruthy(), { timeout: 5000 });
 };
 
 /** The stop sheet's write: the one update that CLOSES the row (סגור שעות also saves the

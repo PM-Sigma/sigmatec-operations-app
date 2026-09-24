@@ -235,8 +235,12 @@
     try { return JSON.parse(localStorage.getItem(attNagKey(person, ym)) || '[]'); } catch (e) { return []; }
   }
   window.attNagSelected = attNagSelected;
+  // Audit fix (Opus 24.9): the viewer used to see this bell too, but attendanceReminder now
+  // requires a live EMS login (X-L4/F5) — and the viewer, by design, has no EMS account. His
+  // tap would always fail server-side, so the button that promised it is gone for him instead
+  // of a broken control (עידן has an EMS login; his own bell is unaffected).
   function attCanNag() {
-    return (typeof isViewer === 'function' && isViewer()) || (typeof isIdan === 'function' && isIdan());
+    return typeof isIdan === 'function' && isIdan();
   }
   window.attCanNag = attCanNag;
   // red <tr> for a missing weekday — same column layout as the report table (5 cells)

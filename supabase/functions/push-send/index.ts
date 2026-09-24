@@ -68,6 +68,20 @@ import { emsValid as emsValidAt } from "../_shared/http.ts";
 const emsValid = (token: string) =>
   emsValidAt(Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com", token);
 
+// The AUTH every scheduled mode shares (gapReminder / timerStale / visitCron / inventoryDigest /
+// attendanceReminder): pg_cron's shared secret, or a live EMS login — never the public anon key
+// alone. Ponytail: one helper instead of the same three lines copied into five modes.
+// `byCron` is handed back because one caller (inventoryDigest's `force`) still needs to know it.
+async function requireCronOrEms(req: Request, token: string): Promise<{ ok: true; byCron: boolean } | { ok: false; status: number; error: string }> {
+  const cronKey = req.headers.get("x-cron-key");
+  const secret = Deno.env.get("CRON_SECRET");
+  const byCron = !!secret && !!cronKey && cronKey === secret;
+  if (!byCron && !(await emsValid(token))) {
+    return { ok: false, status: 401, error: "unauthorized: cron key or valid EMS login required" };
+  }
+  return { ok: true, byCron };
+}
+
 const APPROVE_GROUP = ["אביאם", "ניתאי", "עמיחי"];
 // 📣 feedback box (spec §7 Part F) — the inbox owners, fixed server-side like every recipient list.
 const FEEDBACK_INBOX = ["עידן", "עמיחי"];
@@ -357,12 +371,8 @@ Deno.serve(async (req: Request) => {
   // WHO may be nudged, HOW OFTEN, and WITH WHICH WORDS — all three server-side, like every
   // other mode.
   if (body.mode === "gapReminder") {
-    const cronKey = req.headers.get("x-cron-key");
-    const secret = Deno.env.get("CRON_SECRET");
-    const byCron = !!secret && !!cronKey && cronKey === secret;
-    if (!byCron && !(await emsValid(String(body.token || "")))) {
-      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
-    }
+    const auth = await requireCronOrEms(req, String(body.token || ""));
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
     const person = String(body.person || "");
     // The field team only. A nudge is about a day in the field, and the recipient list is
     // fixed here so no caller can point it at somebody else.
@@ -397,14 +407,8 @@ Deno.serve(async (req: Request) => {
   // everything it decides is `timerStaleSelect` in ./clockify.ts — a pure function with
   // goldens (app/src/lib/clockify.test.ts).
   if (body.mode === "timerStale") {
-    // AUTH, exactly like visitCron: pg_cron's shared secret, or a live EMS login. The PUBLIC
-    // anon key alone must never be able to make someone's phone buzz.
-    const cronKey = req.headers.get("x-cron-key");
-    const secret = Deno.env.get("CRON_SECRET");
-    const byCron = !!secret && !!cronKey && cronKey === secret;
-    if (!byCron && !(await emsValid(String(body.token || "")))) {
-      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
-    }
+    const auth = await requireCronOrEms(req, String(body.token || ""));
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
 
     // 21:00–06:30 Israel: the same quiet hours the visit nudge keeps (§7k ג). Answered BEFORE
     // the read and WITHOUT stamping anything — the clock is still running, so the row is
@@ -450,14 +454,8 @@ Deno.serve(async (req: Request) => {
   // (app/src/lib/field.test.ts), so the rules can be read and changed in one place instead of
   // being spread through this handler.
   if (body.mode === "visitCron") {
-    // AUTH, like usageDigest: pg_cron's shared secret, or a live EMS login. The PUBLIC anon
-    // key alone must never be able to make two people's phones buzz.
-    const cronKey = req.headers.get("x-cron-key");
-    const secret = Deno.env.get("CRON_SECRET");
-    const byCron = !!secret && !!cronKey && cronKey === secret;
-    if (!byCron && !(await emsValid(String(body.token || "")))) {
-      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
-    }
+    const auth = await requireCronOrEms(req, String(body.token || ""));
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
 
     const nowIso = new Date().toISOString();
     const windowStart = new Date(Date.now() - 14 * 3600 * 1000).toISOString();
@@ -639,14 +637,10 @@ Deno.serve(async (req: Request) => {
   // An empty window sends NOTHING — a push that says "no movements" is a push that teaches
   // people to ignore the next one.
   if (body.mode === "inventoryDigest") {
-    const cronKey = req.headers.get("x-cron-key");
-    const secret = Deno.env.get("CRON_SECRET");
-    const byCron = !!secret && !!cronKey && cronKey === secret;
-    if (!byCron && !(await emsValid(String(body.token || "")))) {
-      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
-    }
+    const auth = await requireCronOrEms(req, String(body.token || ""));
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
     // Only עידן may force one off-schedule (the release smoke), and only with a live EMS login.
-    const forced = !!body.force && !byCron && String(body.actor || "") === "עידן";
+    const forced = !!body.force && !auth.byCron && String(body.actor || "") === "עידן";
     const forceRefused = !!body.force && !forced;
     if (forceRefused) return json({ error: "forbidden: force is עידן's alone" }, 403);
 
@@ -739,14 +733,9 @@ Deno.serve(async (req: Request) => {
 
   // ---- attendance reminder (manual viewer nudge; scheduled job uses attendance-cron) ----
   if (body.mode === "attendanceReminder") {
-    // AUTH (X-L4, F5): this mode had NONE — anyone who knew the URL could buzz אביאם / ניתאי /
-    // עמיחי with made-up dates. Same guard gapReminder already uses.
-    const cronKey = req.headers.get("x-cron-key");
-    const secret = Deno.env.get("CRON_SECRET");
-    const byCron = !!secret && !!cronKey && cronKey === secret;
-    if (!byCron && !(await emsValid(String(body.token || "")))) {
-      return json({ error: "unauthorized: cron key or valid EMS login required" }, 401);
-    }
+    // AUTH (X-L4, F5): brought in line with every other mode here.
+    const auth = await requireCronOrEms(req, String(body.token || ""));
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
     const person = String(body.person || "");
     if (!APPROVE_GROUP.includes(person)) return json({ error: "recipient not allowed" }, 403);
     const dates: string[] = Array.isArray(body.dates) ? body.dates.slice(0, 31).map(String) : [];

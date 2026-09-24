@@ -16,11 +16,11 @@
 //   JWT_SECRET  (Settings → JWT Keys → legacy secret)
 //   VIEWER_PIN  the view-only access code. Until it is set the viewer entry FAILS CLOSED with a
 //               message that says so — it never falls back to a code in the client.
-// Provided by the platform (no setup): SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, used ONLY to
-// count failed viewer attempts in `auth_attempts` (see the rate limit below).
+// Provided by the platform (no setup): SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, used to count
+// failed viewer attempts (`auth_attempts`, the rate limit below), look up the trusted `name`
+// claim (`staff_identities`, X-L1) and log a miss (`usage_events`, "identity-missing").
 // Optional:  EMS_API_BASE (defaults to https://api.sigmatec-ems.com).
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
-import { resolveName } from "./identity.js";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -50,15 +50,19 @@ function firstHop(xff: string | null): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function attemptsApi() {
+// One generic REST client for the service-role tables this function reads/writes
+// (auth_attempts, staff_identities, usage_events) — ponytail: three near-identical factories
+// collapsed into one, parameterised by table name.
+function restApi(table: string) {
   const url = Deno.env.get("SUPABASE_URL") || "";
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   if (!url || !key) return null;
   return {
-    base: url.replace(/\/$/, "") + "/rest/v1/auth_attempts",
+    base: url.replace(/\/$/, "") + "/rest/v1/" + table,
     headers: { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json" },
   };
 }
+const attemptsApi = () => restApi("auth_attempts");
 
 /**
  * How many failures this address has inside the window. A table that cannot be reached returns
@@ -106,17 +110,15 @@ async function clearAttempts(ip: string): Promise<void> {
 // privileged, can read or write it. The claim it produces is the ONLY thing that lets a
 // person-scoped policy (db/rls_person_scoped.sql, applied only after X-L3) tell one member of
 // staff from another.
-function identitiesApi() {
-  const url = Deno.env.get("SUPABASE_URL") || "";
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!url || !key) return null;
-  return {
-    base: url.replace(/\/$/, "") + "/rest/v1/staff_identities",
-    headers: { apikey: key, Authorization: "Bearer " + key, "Content-Type": "application/json" },
-  };
-}
+//
+// Audit fix (Opus 24.9): this used to also LEARN a name at sign-in time, calling out to the
+// EMS `/v1/users` roster with the caller's own token whenever staff_identities had no row yet.
+// That path is gone — scripts/seed-staff-identities.mjs now seeds every ACTIVE EMS user up
+// front (not only roles=admin, X-L3), so a real staff member is never missing here by the time
+// this runs. A missing row is now simply logged, not chased.
+const identitiesApi = () => restApi("staff_identities");
 
-/** The stored name for this EMS user id, or null (no row yet, or the table can't be reached). */
+/** The stored name for this EMS user id, or null (no row — the seed missed him — or the table can't be reached). */
 async function lookupIdentity(sub: string): Promise<string | null> {
   const api = identitiesApi();
   if (!api) return null;
@@ -128,32 +130,22 @@ async function lookupIdentity(sub: string): Promise<string | null> {
   } catch { return null; }
 }
 
-/** Learn a name once, so the next sign-in never has to ask EMS /users again. Best-effort. */
-async function learnIdentity(sub: string, name: string, email: string | null): Promise<void> {
-  const api = identitiesApi();
+/**
+ * A staff sign-in with no roster name (Review focus 1): the seed missed him, or his EMS id
+ * changed. Never fails the sign-in — it is a visibility row for עידן, best-effort like every
+ * other write here.
+ */
+async function logIdentityMissing(sub: string): Promise<void> {
+  console.warn("[ems-auth] identity-missing", { sub });
+  const api = restApi("usage_events");
   if (!api) return;
   try {
-    await fetch(`${api.base}?on_conflict=ems_user_id`, {
+    await fetch(api.base, {
       method: "POST",
-      headers: { ...api.headers, Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({ ems_user_id: sub, name, email }),
+      headers: { ...api.headers, Prefer: "return=minimal" },
+      body: JSON.stringify({ person: null, page: null, action: "identity-missing", target: sub.slice(0, 40) }),
     });
-  } catch { /* learning is best-effort; the claim for THIS sign-in is unaffected */ }
-}
-
-/**
- * The EMS `/v1/users` roster, read with the SIGNED-IN person's own token. Not every account has
- * admin rights there — a 403 just means "nothing learned this time", never a sign-in failure.
- */
-async function emsUserEmail(emsToken: string, emsBase: string, sub: string): Promise<string | null> {
-  try {
-    const r = await fetch(`${emsBase}/v1/users?take=200`, { headers: { Authorization: `Bearer ${emsToken}` } });
-    if (!r.ok) return null;
-    const list = await r.json().catch(() => []);
-    const rows = Array.isArray(list) ? list : (Array.isArray((list as { data?: unknown[] })?.data) ? (list as { data: unknown[] }).data : []);
-    const me = (rows as Array<Record<string, unknown>>).find((u) => String(u?.id ?? u?.userId ?? "") === sub);
-    return me?.email ? String(me.email) : null;
-  } catch { return null; }
+  } catch { /* the sign-in already succeeded; losing the visibility row is not worth failing on */ }
 }
 
 async function signingKey(secret: string) {
@@ -262,19 +254,13 @@ Deno.serve(async (req) => {
       sub = String(p.id || p.sub || p.userId || "ems-user");
     } catch { /* keep default */ }
 
-    // 2b) The trusted name claim (X-L1). staff_identities is looked up first; a person not yet
-    // in it is learned once from the EMS /users roster (using the CALLER's own token — no
-    // elevated EMS access is asked for). Neither lookup can ever fail the sign-in: no name is a
-    // valid outcome (a new hire, or an EMS account with no admin rights on /users), it just
-    // means the person-scoped policies (X-L2/X-L3) cannot yet tell this person apart from
-    // another, exactly like today.
-    let name: string | null = await lookupIdentity(sub);
-    if (!name) {
-      const email = await emsUserEmail(emsToken, EMS_API_BASE, sub);
-      name = resolveName(null, email);
-      if (name) await learnIdentity(sub, name, email);
-      else console.warn("[ems-auth] identity-missing", { sub });
-    }
+    // 2b) The trusted name claim (X-L1): a plain lookup, service-role only. The seed
+    // (scripts/seed-staff-identities.mjs, X-L3) covers every active EMS user up front, so a
+    // miss here never fails the sign-in — it just means the person-scoped policies (X-L2/X-L3)
+    // cannot yet tell this person apart from another, exactly like today, and it is logged so
+    // עידן can see it happening instead of a silent gap.
+    const name: string | null = await lookupIdentity(sub);
+    if (!name) await logIdentityMissing(sub);
 
     // 3) Mint a Supabase-compatible JWT (role=authenticated), valid 180 min.
     //

@@ -160,20 +160,24 @@ check('clicks accumulate into ONE payload (all days so far)', async () => {
   assert.strictEqual(sent[2].mode, 'attendanceReminder');
   assert.deepStrictEqual(win.attNagSelected('אביאם', '2026-07'), ['2026-07-05', '2026-07-08']);
 });
-check('red row: bell for viewer, none for team; ✅ after send', async () => {
-  const v = loadWithStore('viewer');
-  let html = v.win.attMissingRowHtml('2026-07-05');
-  assert.ok(html.includes('🔔') && html.includes('attNagDay'), 'viewer sees bell');
-  await v.win.attNagDay('2026-07-05');
-  html = v.win.attMissingRowHtml('2026-07-05');
+// Audit fix (Opus 24.9): the bell moved from "viewer" to "עידן" — attendanceReminder now
+// requires a live EMS login (X-L4/F5), which the viewer, by design, never has.
+check('red row: bell for עידן, none for the viewer or team; ✅ after send', async () => {
+  const i = loadWithStore('idan');
+  let html = i.win.attMissingRowHtml('2026-07-05');
+  assert.ok(html.includes('🔔') && html.includes('attNagDay'), 'עידן sees the bell');
+  await i.win.attNagDay('2026-07-05');
+  html = i.win.attMissingRowHtml('2026-07-05');
   assert.ok(html.includes('✅'), 'sent day shows check');
+  const v = loadWithStore('viewer');
+  assert.ok(!v.win.attMissingRowHtml('2026-07-05').includes('<button'), 'the viewer sees no bell (his tap would only 401)');
   const t = loadWithStore('team');
   assert.ok(!t.win.attMissingRowHtml('2026-07-05').includes('<button'), 'team sees no bell');
   assert.ok(t.win.attMissingRowHtml('2026-07-05').includes('חסרה נוכחות'), 'red row still informative');
 });
 
-// X-L4 / F5: attendanceReminder had NO auth check at all — anyone who knew the URL could buzz
-// אביאם / ניתאי / עמיחי with made-up dates. Pinned so it can never quietly regress.
+// X-L4 / F5: attendanceReminder is now guarded like every other mode here. Pinned so the check
+// can never quietly regress.
 check('attendanceReminder is guarded server-side, and the caller sends a token', () => {
   const idxPath = path.join(__dirname, 'supabase/functions/push-send/index.ts');
   const idx = fs.readFileSync(idxPath, 'utf8');
@@ -181,7 +185,11 @@ check('attendanceReminder is guarded server-side, and the caller sends a token',
   assert.ok(at !== -1, 'attendanceReminder mode is still in push-send/index.ts');
   const next = idx.indexOf('body.mode ===', at + 5);
   const block = idx.slice(at, next === -1 ? idx.length : next);
-  assert.match(block, /emsValid/, 'the attendanceReminder block must call emsValid, like gapReminder does');
+  // Ponytail (Opus 24.9): the cron-key-or-EMS check moved into one shared requireCronOrEms
+  // helper (used by gapReminder/timerStale/visitCron/inventoryDigest/attendanceReminder alike)
+  // instead of five copies of the same three lines.
+  assert.match(block, /requireCronOrEms/, 'the attendanceReminder block must call the shared cron-or-EMS guard, like gapReminder does');
+  assert.match(idx, /async function requireCronOrEms\([\s\S]{0,400}emsValid\(token\)/, 'the shared guard itself checks emsValid');
   assert.match(src, /mode:\s*'attendanceReminder'[\s\S]{0,80}token:\s*tok/, "22-push.js's caller must send a token");
 });
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // scripts/seed-staff-identities.mjs — X-L1, one-time seed for db/staff_identities.sql.
 //
-// Run BY HAND, once, when עידן pastes his EMS admin token for this one run (X-L3 step 3).
-// It never connects to Supabase and never writes to disk: it reads the EMS admin roster and
-// PRINTS the `insert … on conflict do update` SQL for עידן to review before it runs anywhere.
+// Run BY HAND, once, when עידן pastes an EMS token for this one run (X-L3 step 3).
+// It never connects to Supabase and never writes to disk: it reads every ACTIVE EMS user (not
+// only admins — a lockout risk is any active staff member with no row) and PRINTS the
+// `insert … on conflict do update` SQL for עידן to review before it runs anywhere.
 //
 //   EMS_TOKEN=<pasted token> node scripts/seed-staff-identities.mjs
 //
@@ -27,10 +28,16 @@ function nameFor(user) {
 }
 
 async function main() {
-  const url = `${EMS_API_BASE}/v1/users?roles=admin&statuses=active&take=200`;
+  // Audit fix (Opus 24.9): ALL active users, not only roles=admin — the lockout risk this
+  // seed exists to close is any ACTIVE staff member with no row, admin or not. ems-auth no
+  // longer learns a name at sign-in (that path is deleted), so a person this seed misses stays
+  // name-less until someone re-runs it — the roster filter (nameFor) is what keeps this safe
+  // even with the wider query: an EMS account that is not one of the seven roster names is
+  // simply never printed.
+  const url = `${EMS_API_BASE}/v1/users?statuses=active&take=200`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${TOKEN}` } });
   if (!res.ok) {
-    console.error(`EMS /v1/users returned ${res.status}. Needs an admin token.`);
+    console.error(`EMS /v1/users returned ${res.status}.`);
     process.exit(1);
   }
   const body = await res.json();

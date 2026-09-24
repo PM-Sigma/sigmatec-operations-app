@@ -23,4 +23,17 @@ assert.match(src, /mintPass\(sub,\s*name \? \{ name \} : \{\}\)/, 'the EMS path 
 assert.match(src, /mintPass\("viewer",\s*\{ viewer: true \}\)/, 'the viewer path stays name-less');
 assert.match(fs.readFileSync('db/staff_identities.sql', 'utf8'), /enable row level security/);
 
+// Audit fix (Opus 24.9): the learn-at-sign-in path (an EMS /users call with the caller's own
+// token) is deleted — the seed covers every active user up front — and a miss is LOGGED, not
+// silently swallowed or chased at sign-in time.
+assert.doesNotMatch(src, /emsUserEmail|learnIdentity/, 'the learn-at-sign-in path must be gone (the seed covers it)');
+assert.match(src, /logIdentityMissing\(sub\)/, 'a name-less sign-in is logged');
+assert.match(src, /action:\s*"identity-missing"/, 'the log row uses the fixed action key the spec names');
+assert.match(src, /restApi\("staff_identities"\)/, 'staff_identities lookup shares the generic REST helper (ponytail)');
+assert.match(src, /restApi\("auth_attempts"\)/, 'auth_attempts shares it too — one helper, not two near-identical ones');
+
+const seed = fs.readFileSync('scripts/seed-staff-identities.mjs', 'utf8');
+assert.match(seed, /`\$\{EMS_API_BASE\}\/v1\/users\?statuses=active&take=200`/,
+  'the seed must query every ACTIVE user, not only roles=admin (lockout risk)');
+
 console.log('ems-auth claims OK');
