@@ -121,9 +121,11 @@ describe('DevBoard', () => {
     await waitFor(() => expect(screen.getByTestId('dev-board-page')).toBeTruthy());
     fireEvent.click(screen.getByTestId('dev-card-row-12'));
     await waitFor(() => expect(screen.getByTestId('dev-card-sheet')).toBeTruthy());
-    fireEvent.click(screen.getByRole('radio', { name: 'גבוהה' }));
+    // D-U review round 2: priority is wrapping FilterChips now (aria-pressed), not a
+    // SegmentedControl (radio) — five tiers truncated in one equal-width row at 360px.
+    fireEvent.click(screen.getByRole('button', { name: 'גבוהה' }));
     await waitFor(() => expect(sonner.error).toHaveBeenCalled());
-    // reverted: the originally-selected tier (קריטי) is checked again
-    expect(screen.getByRole('radio', { name: 'קריטי' })).toHaveAttribute('aria-checked', 'true');
+    // reverted: the originally-selected tier (קריטי) is pressed again
+    expect(screen.getByRole('button', { name: 'קריטי' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

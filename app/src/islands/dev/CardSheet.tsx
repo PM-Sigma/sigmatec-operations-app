@@ -1,12 +1,15 @@
 // D-U1 — the card detail sheet: #, state, priority (a SegmentedControl of the 4 tiers + none,
-// optimistic with revert), stage ("העברה לשלב" → setStatus, עידן only, replacing drag), assignee,
+// optimistic with revert), stage ("העברה לשלב" → setStatus, replacing drag), assignee,
 // created / updated, day-stamps (stampsFor), body, "פתיחה ב-GitHub".
+// D-U review round 2 (Opus): priority was ungated, so anyone could open a write the server
+// would 401 for. Both controls now share the same `canMove` gate (canDragOrMove /
+// canWriteGithub, lib/devBoard.ts) — עידן/עמיחי/מתניה, the same roster the `github` Edge
+// Function's own gate.js enforces server-side.
 import * as React from 'react';
 import { toast } from 'sonner';
 import { ExternalLink } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { SegmentedControl } from '@/components/ui/segmented-control';
-import { Tag } from '@/components/ui/chip';
+import { Tag, FilterChip } from '@/components/ui/chip';
 import { setPriority as apiSetPriority, setStatus as apiSetStatus, STAGE_TARGET } from '@/lib/devBoard';
 import { PRIO_LABEL, priorityTier, type PrioTier } from '@/lib/devMeeting';
 import { STAGE_LABEL, stageOf, type DevCard, type DevStage } from '@/lib/sprintPrep';
@@ -77,7 +80,20 @@ export function CardSheet({ card, statusLog, canMove, onOpenChange, onChanged }:
         <div className="flex flex-col gap-4 py-3">
           <section>
             <p className="mb-1.5 text-[12px] font-bold text-muted-foreground">עדיפות</p>
-            <SegmentedControl options={TIER_OPTIONS} value={tier} onChange={v => void changeTier(v)} />
+            {canMove ? (
+              // Wrapping FilterChips, not a SegmentedControl — 5 tiers truncated
+              // ("גבו…"/"בינו…") in one equal-width row at 360px (designer round-2 finding);
+              // chips wrap onto a second row instead of shrinking text.
+              <div className="flex flex-wrap gap-1.5" data-testid="dev-priority-chips">
+                {TIER_OPTIONS.map(o => (
+                  <FilterChip key={o.value} selected={tier === o.value} onClick={() => void changeTier(o.value)}>
+                    {o.label}
+                  </FilterChip>
+                ))}
+              </div>
+            ) : (
+              <Tag role="neutral" data-testid="dev-priority-readonly">{PRIO_LABEL[tier]}</Tag>
+            )}
           </section>
 
           {canMove && (

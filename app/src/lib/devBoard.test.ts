@@ -20,7 +20,7 @@ beforeEach(() => {
   });
 });
 
-import { setStatus, setPriority, releaseReview, STAGE_TARGET, canSeeDevBoard, canDragOrMove } from './devBoard';
+import { setStatus, setPriority, releaseReview, STAGE_TARGET, canSeeDevBoard, canDragOrMove, canWriteGithub } from './devBoard';
 import type { DevCard } from './sprintPrep';
 
 describe('setStatus', () => {
@@ -75,10 +75,25 @@ describe('canSeeDevBoard', () => {
   });
 });
 
-describe('canDragOrMove', () => {
-  it('עידן only', () => {
+// D-U review round 2 (Opus): the write gate is the SAME roster the server's own gate.js
+// enforces (supabase/functions/github/gate.js WRITERS) — pinned here so the two lists can
+// never drift apart silently.
+describe('canWriteGithub / canDragOrMove — the github WRITERS roster', () => {
+  it('עידן, עמיחי, מתניה — matches supabase/functions/github/gate.js WRITERS', () => {
+    expect(canWriteGithub('עידן')).toBe(true);
+    expect(canWriteGithub('עמיחי')).toBe(true);
+    expect(canWriteGithub('מתניה')).toBe(true);
+    expect(canWriteGithub('אביאם')).toBe(false);
+    expect(canWriteGithub('צפייה')).toBe(false);
+    expect(canWriteGithub(null)).toBe(false);
+    expect(canWriteGithub(undefined)).toBe(false);
+    expect(canWriteGithub('  עידן  ')).toBe(true);
+  });
+
+  it('canDragOrMove is the same gate, not a second copy', () => {
     expect(canDragOrMove('עידן')).toBe(true);
-    expect(canDragOrMove('עמיחי')).toBe(false);
-    expect(canDragOrMove('מתניה')).toBe(false);
+    expect(canDragOrMove('עמיחי')).toBe(true);
+    expect(canDragOrMove('מתניה')).toBe(true);
+    expect(canDragOrMove('אביאם')).toBe(false);
   });
 });
