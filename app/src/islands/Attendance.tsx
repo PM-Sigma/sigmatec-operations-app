@@ -138,10 +138,12 @@ function MonthGridView({
   );
 }
 
-/** The editor for one day — the body of the phone sheet AND of the desktop panel. */
+/** The editor for one day — the body of the phone sheet AND of the desktop panel.
+    `showHeader` is false on the phone: the Sheet's own visible SheetTitle (A-U4) already
+    carries the date, and this header would just repeat it right underneath. */
 function DayEditor({
-  cell, busy, canEdit = true, onSave,
-}: { cell: DayCell; busy: boolean; canEdit?: boolean; onSave: (type: DayType, note: string) => void }) {
+  cell, busy, canEdit = true, showHeader = true, onSave,
+}: { cell: DayCell; busy: boolean; canEdit?: boolean; showHeader?: boolean; onSave: (type: DayType, note: string) => void }) {
   const [note, setNote] = React.useState(cell.row?.note || '');
   const [pending, setPending] = React.useState<DayType | null>(null);
   React.useEffect(() => { setNote(cell.row?.note || ''); setPending(null); }, [cell.date, cell.row?.note]);
@@ -184,7 +186,7 @@ function DayEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-baseline gap-2">
-        <span className="text-[15px] font-extrabold"><bdi>{dayChip(cell.date)}</bdi></span>
+        {showHeader && <span className="text-[15px] font-extrabold"><bdi>{dayChip(cell.date)}</bdi></span>}
         {cell.holiday && <Tag role="holiday">{cell.holiday.name}</Tag>}
       </div>
 
@@ -579,6 +581,7 @@ function AttendanceIsland() {
                   cell={openCell}
                   busy={save.isPending}
                   canEdit={canEdit}
+                  showHeader={false}
                   onSave={(t, note) => save.mutate({ date: openCell.date, type: t, note })}
                 />
               </motion.div>
