@@ -1,4 +1,4 @@
-import{p as E}from"./sigma.js?v=mug2y8cc";import{g as _,S as v,a as h}from"./sigma-supabase.js?v=mug2y8cc";/**
+import{p as E}from"./sigma.js?v=mug3ngy3";import{g as _,S as v,a as h}from"./sigma-supabase.js?v=mug3ngy3";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.
