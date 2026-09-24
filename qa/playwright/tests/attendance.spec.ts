@@ -313,3 +313,40 @@ test('attendance r5 · A-L5: a saved visit shows as an automatic field day from 
 
   expectNoConsoleErrors(rec);
 });
+
+// ── review round: a selected StatTile must be visibly ringed, not just tinted ───────────
+//
+// Two real bugs hid behind a passing eyeball check on this: (1) the ring lived in a `ring-2`
+// CLASS while the same element also carried an inline `style={{ boxShadow: 'var(--e1)' }}` —
+// an inline style always wins over any class, so the ring's box-shadow never had a chance;
+// (2) composing the ring INTO that inline box-shadow (`var(--e1), inset 0 0 0 2px ...`) still
+// broke in dark mode, because `--e1` is literally `none` there and `none` inside a comma
+// shadow LIST invalidates the whole declaration. Fixed with a separate `outline` (own-tools/ui/
+// stat-tile.tsx) — this test pins both the computed style and the "מסונן" filter chip so a
+// future refactor can't quietly reintroduce either failure mode.
+test('attendance r5: a selected tile is visibly ringed (not just tinted), and says it is filtering', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openAttendance(page);
+
+  const tile = page.getByTestId('att-kpi-office');
+  const btn = tile.locator('button');
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+
+  const style = await btn.evaluate(el => {
+    const cs = getComputedStyle(el);
+    return { boxShadow: cs.boxShadow, outline: cs.outline };
+  });
+  const visible = (v: string) => !!v && v !== 'none' && !/^rgba?\([^)]*,\s*0\)\s*(none)?$/.test(v);
+  expect(visible(style.boxShadow) || visible(style.outline), 'a selected tile must render a real box-shadow or outline, not just its tint: ' + JSON.stringify(style)).toBe(true);
+
+  // …and the active filter says so in words, with a way out.
+  const filterChip = page.getByTestId('att-tile-filter');
+  await expect(filterChip).toContainText('מסונן');
+  await expect(filterChip).toContainText('משרד ובית');
+  await filterChip.locator('button').click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  await expect(filterChip).toHaveCount(0);
+
+  expectNoConsoleErrors(rec);
+});
