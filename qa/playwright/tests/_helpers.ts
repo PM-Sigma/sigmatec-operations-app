@@ -612,6 +612,10 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         const q = new URL(url).searchParams;
         const id = eqParam(url, 'id');
         let rows = id ? invCerts.filter(c => String(c.id) === id) : invCerts.slice();
+        const refId = eqParam(url, 'ref_id');
+        if (refId) rows = rows.filter(c => String(c.ref_id || '') === refId);
+        const status = eqParam(url, 'status');
+        if (status) rows = rows.filter(c => String(c.status || '') === status);
         // PostgREST repeats the key for a two-sided range: cert_date=gte.X&cert_date=lte.Y.
         const bounds = q.getAll('cert_date');
         for (const b of bounds) {
@@ -621,6 +625,8 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         if ((q.get('order') || '').indexOf('cert_number.desc') !== -1) {
           rows = rows.slice().sort((a, b2) => Number(b2.cert_number || 0) - Number(a.cert_number || 0));
         }
+        const limit = q.get('limit');
+        if (limit) rows = rows.slice(0, Number(limit) || rows.length);
         return route.fulfill(json(shape(rows, accept)));
       }
       case 'onboarding_templates': return route.fulfill(json(shape([onboardingTemplate], accept)));

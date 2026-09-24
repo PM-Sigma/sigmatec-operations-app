@@ -244,8 +244,10 @@ export const legacyDriver: InvDriver = {
   async certRange(page, r) { await page.evaluate(range => (window as any).certRangeTap(range), r); await page.waitForTimeout(200); },
   async certSearch(page, q) { await fill(page, '#invCertsSearch', q); await page.waitForTimeout(200); },
   async certNumbers(page) {
+    // A cancelled row's cell also carries the replacement number ("1042 🚫 מבוטלת → 1043") —
+    // take the LEADING digit run only, not every digit in the cell.
     const cells = await page.locator('#invCertsList table tbody tr td:first-child').allInnerTexts();
-    return cells.map(c => parseInt(c.replace(/\D/g, ''), 10)).filter(n => !Number.isNaN(n));
+    return cells.map(c => parseInt((c.match(/^\s*(\d+)/) || [])[1] || '', 10)).filter(n => !Number.isNaN(n));
   },
   async certCancel(page, n) {
     const id = await certIdByNumber(page, n);

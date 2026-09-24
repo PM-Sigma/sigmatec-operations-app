@@ -2,7 +2,7 @@
 // Same specs, same assertions, two implementations — that is what proves the React rewrite
 // really does what the old screens do, not just what the plan says they do.
 import type { Page, TestInfo } from '@playwright/test';
-import { boot, installRoutes, type Who } from '../_helpers';
+import { boot, installRoutes, watchConsole, type Who } from '../_helpers';
 import { INVENTORY, toSheet } from './_inv-fixtures';
 import { recordLegacyWrites } from './_inv-ledger';
 import { legacyDriver } from './_inv-legacy';
@@ -86,7 +86,7 @@ export const DELTAS = {
  * seeds the real-Supabase-backed stores (harmless and unused under sb=0; it's what the certs
  * boot path below, and a future react driver, read instead).
  */
-export async function bootInv(page: Page, ti: TestInfo, who: Who, d: InvDriver, opts: { query?: string; nudges?: boolean; ready?: string } = {}) {
+export async function bootInv(page: Page, ti: TestInfo, who: Who, d: InvDriver, opts: { query?: string; nudges?: boolean; ready?: string; storage?: Record<string, string> } = {}) {
   // Registered BEFORE navigation: a push deep link (F21) can fire a confirm() before boot()'s
   // own wait resolves, and an unhandled dialog is auto-DISMISSED (not accepted) by Playwright.
   page.on('dialog', x => x.accept());
@@ -96,7 +96,7 @@ export async function bootInv(page: Page, ti: TestInfo, who: Who, d: InvDriver, 
     // territory, not this driver's — every other spec presets the once-per-session latch off.
     if (suppress) { (window as any)._amichaiApprovalShown = true; (window as any)._orderNotifShown = true; }
   }, [toSheet(INVENTORY), opts.nudges !== true] as const);
-  const booted = await boot(page, ti, { who, inventory: true, query: opts.query, ready: opts.ready } as any);
+  const booted = await boot(page, ti, { who, inventory: true, query: opts.query, ready: opts.ready, storage: opts.storage } as any);
   // Registered AFTER boot() (so it wins over installRoutes's broad /rest+functions catch-all —
   // Playwright tries the LAST-registered matching handler first): the AI parser (parse-order) is
   // never deployed in this harness, and falling through the generic /functions/v1/ 401 catch-all
@@ -118,7 +118,10 @@ export async function bootInv(page: Page, ti: TestInfo, who: Who, d: InvDriver, 
  * `login=0` still skips the EMS gate, so no PIN/EMS login flow gets in the way.
  */
 export async function bootInvCerts(page: Page, ti: TestInfo, who: Who) {
+  page.on('dialog', x => x.accept());
+  const rec = watchConsole(page);
   await installRoutes(page, { inventory: true });
+  await page.route('**/functions/v1/parse-order', route => route.fulfill({ status: 503, body: '' }));
   const role = who === 'צפייה' ? 'viewer' : (who === 'עידן' ? 'idan' : 'team');
   await page.addInitScript(entries => {
     try { for (const [k, v] of Object.entries(entries as Record<string, string>)) localStorage.setItem(k, v); } catch { /* private mode */ }
@@ -126,12 +129,9 @@ export async function bootInvCerts(page: Page, ti: TestInfo, who: Who) {
     (window as any)._attReminderShown = true;
     (window as any)._fieldPromptShown = true;
   }, { dashboard_user_v1: who, dashboard_role_v1: role, dashboard_auth_v4: 'ok', theme: 'light' });
-  const rec: string[] = [];
-  page.on('console', m => { if (m.type() === 'error') rec.push(m.text()); });
   await page.goto('/index.html?login=0&sb=1', { waitUntil: 'domcontentloaded' });
   await page.locator('#sigma-nav').waitFor({ state: 'attached' });
   await page.waitForSelector('#sigma-home .kibbutz', { timeout: 30_000 });
   await recordLegacyWrites(page);
-  page.on('dialog', x => x.accept());
   return { rec };
 }
