@@ -137,6 +137,13 @@ function boot() {
       .catch(e => console.warn('[sigma] field island failed', e));
   }
 
+  // 🏘 KibbutzDetail (round 5, package K): the open card. Lazy, so the boot chunk does not
+  // grow; the door (sigma.openKibbutzModal) queues an early tap until this lands (K-L3).
+  if (document.getElementById('sigma-kibbutz-detail')) {
+    import('@/islands/KibbutzDetail')
+      .then(m => m.mountKibbutzDetail())
+      .catch(e => console.warn('[sigma] kibbutz detail island failed', e));
+  }
   // 🗓 Meeting notes (Task 2): the modal tab + the admin-only import sheet. Same lazy-chunk
   // reasoning as the home island — both read data, and the modal tab is only ever opened
   // from a card. They are separate roots so one failing never takes the other down.
