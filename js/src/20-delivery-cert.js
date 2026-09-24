@@ -164,6 +164,9 @@
   // (_certReissueOf moved to js/src/00-consts.js — reached from an earlier file at boot)
   async function openDeliveryCert(pre) {
     pre = pre || {};
+    // package I, task U4: the React cert sheet (app/src/islands/InventoryCert.tsx) owns this
+    // when the flag is on — same event latch every other U-task shim uses.
+    if (typeof invReact === 'function' && invReact()) { invReactOpen({ kind: 'cert', pre: pre }); return; }
     certEnsureModal();
     _certSig = { name: '', data: '' };   // a new cert starts unsigned
     _certReissueOf = pre.reissueOf || null;
@@ -446,6 +449,7 @@
 
   // stored cert → overlay (registry 👁 button)
   function certView(id) {
+    if (typeof invReact === 'function' && invReact()) { invReactOpen({ kind: 'cert-view', id: id }); return; }
     const c = _certRows.find(x => x.id === id);
     if (!c) return;
     certOverlayShow(certDocHtml({
@@ -495,6 +499,7 @@
    * cert id; the visit summary reaches it through certSendForVisit() below. One panel, one place.
    */
   async function certSendOpen(certId) {
+    if (typeof invReact === 'function' && invReact()) { invReactOpen({ kind: 'cert-send', id: certId }); return; }
     const c = _certRows.find(x => x.id === certId);
     if (!c) return;
     let bd = document.getElementById('certSendModal');

@@ -76,6 +76,17 @@ const SCREENS: Screen[] = [
     label: 'inventory-react', storage: { 'sigma-inv-react': '1' }, root: '#sigma-inventory',
     open: p => openPage(p, 'inventory', 'inventory-view'),
   },
+  // U3/U5/U4: the stock/kibbutz/returns/certs tabs, same root and reasoning as 'inventory-react'
+  // above — each opens the page, then switches tabs (the react driver's own click sequence).
+  ...(['stock', 'kibbutz', 'returns', 'certs'] as const).map(tab => ({
+    label: `inventory-react-${tab}`, storage: { 'sigma-inv-react': '1' }, root: '#sigma-inventory',
+    open: async (p: Page) => {
+      await openPage(p, 'inventory', 'inventory-view');
+      await p.locator(`[data-testid="inv-tab-${tab}"]`).click();
+      await p.locator(`[data-testid="inv-panel-${tab}"]`).waitFor({ state: 'visible' });
+      await p.waitForTimeout(200);
+    },
+  })),
   { label: 'attendance', who: 'אביאם', open: p => openPage(p, 'attendance', 'attendance-view') },
   { label: 'burns', open: p => openPage(p, 'burns', 'burns-view') },
   {

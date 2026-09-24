@@ -9,9 +9,7 @@ const d = driverFor();
 
 test('F16 range/search filter the registry; cancel and reissue write the expected rows', async ({ page }, ti) => {
   await bootInvCerts(page, ti, 'עידן');
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="certs"]').click();
-  await expect(page.locator('#invCertsList')).toBeVisible();
+  await d.openTab(page, 'certs');
 
   await d.certRange(page, 'all');
   expect(await d.certNumbers(page)).toEqual([1042, 1041]);   // desc by cert_number
@@ -23,11 +21,13 @@ test('F16 range/search filter the registry; cancel and reissue write the expecte
   const viewText = await d.certViewText(page, 1041);
   expect(viewText).toContain('תעודת משלוח 1041');
   expect(viewText).toContain('מסמך ממוחשב');
-  await page.locator('#certViewOverlay').evaluate(el => { (el as HTMLElement).style.display = 'none'; });
+  if (d.name === 'react') await page.keyboard.press('Escape');
+  else await page.locator('#certViewOverlay').evaluate(el => { (el as HTMLElement).style.display = 'none'; });
 
   const sendRows = await d.certSendRows(page, 1041);
   expect(sendRows.join(' ')).toContain('דני');
-  await page.locator('#certSendModal').evaluate(el => el.classList.remove('open'));
+  if (d.name === 'react') await page.keyboard.press('Escape');
+  else await page.locator('#certSendModal').evaluate(el => el.classList.remove('open'));
 
   await d.certCancel(page, 1041);
   let l = await ledger(page);
@@ -47,30 +47,46 @@ test('F16 range/search filter the registry; cancel and reissue write the expecte
 
 test('F17 issuing from a visit (noPrint) opens the overlay and marks the visit\'s cert gate', async ({ page }, ti) => {
   await bootInvCerts(page, ti, 'עידן');
+  if (d.name === 'react') { try { await page.evaluate("localStorage.setItem('sigma-inv-react','1')"); } catch { /* ignore */ } }
   await page.evaluate(pre => (window as any).sigma.openDeliveryCert(pre), {
     kibbutz: 'חוקוק', items: [{ name: 'בקר 504', qty: 1 }], source: 'visit', refId: 'vis-new-visit', noPrint: true,
   });
-  await page.locator('#certModal.open').waitFor({ state: 'visible' });
-  page.once('dialog', dlg => dlg.accept());
-  await page.locator('#certModal button[onclick="issueDeliveryCert(this)"]').click();
-  await page.locator('#certViewOverlay').waitFor({ state: 'visible', timeout: 15_000 });
+  if (d.name === 'react') {
+    await page.locator('[data-testid="cert-sheet"]').waitFor({ state: 'visible' });
+    await page.locator('[data-testid="cert-issue"]').click();
+    await page.locator('[data-testid="cert-viewer"]').waitFor({ state: 'visible', timeout: 15_000 });
+  } else {
+    await page.locator('#certModal.open').waitFor({ state: 'visible' });
+    page.once('dialog', dlg => dlg.accept());
+    await page.locator('#certModal button[onclick="issueDeliveryCert(this)"]').click();
+    await page.locator('#certViewOverlay').waitFor({ state: 'visible', timeout: 15_000 });
+  }
   const num = await page.evaluate(id => (window as any).certIssuedForVisit(id), 'vis-new-visit');
   expect(num).toBeGreaterThan(1042);
 });
 
 test('F17b an insert that fails issues an unnumbered draft, never reaches the registry', async ({ page }, ti) => {
   await bootInvCerts(page, ti, 'עידן');
+  if (d.name === 'react') { try { await page.evaluate("localStorage.setItem('sigma-inv-react','1')"); } catch { /* ignore */ } }
   await page.route('**/rest/v1/delivery_certs**', route =>
     route.request().method() === 'POST' ? route.fulfill({ status: 500, body: '{}' }) : route.fallback());
   await page.evaluate(pre => (window as any).sigma.openDeliveryCert(pre), {
     kibbutz: 'חוקוק', items: [{ name: 'בקר 504', qty: 1 }], source: 'visit', refId: 'vis-fail', noPrint: true,
   });
-  await page.locator('#certModal.open').waitFor({ state: 'visible' });
-  await page.locator('#certModal button[onclick="issueDeliveryCert(this)"]').click();
-  // the ledger records the ATTEMPT (the client posts to sigma:write-router regardless of what
-  // the server does with it) — the real guarantee is what issueDeliveryCert does when that
-  // attempt comes back failed: no number, no registry entry, no doc-snapshot follow-up patch.
-  await expect(page.locator('#toast')).toContainText('טיוטה', { timeout: 10_000 });
+  if (d.name === 'react') {
+    await page.locator('[data-testid="cert-sheet"]').waitFor({ state: 'visible' });
+    await page.locator('[data-testid="cert-issue"]').click();
+    // issueCert() catches the insert failure and issues a numberless draft instead of throwing —
+    // the toast fires from the same handler either way (react's own success-toast copy).
+    await expect(page.getByText('הופקה כטיוטה')).toBeVisible({ timeout: 10_000 });
+  } else {
+    await page.locator('#certModal.open').waitFor({ state: 'visible' });
+    await page.locator('#certModal button[onclick="issueDeliveryCert(this)"]').click();
+    // the ledger records the ATTEMPT (the client posts to sigma:write-router regardless of what
+    // the server does with it) — the real guarantee is what issueDeliveryCert does when that
+    // attempt comes back failed: no number, no registry entry, no doc-snapshot follow-up patch.
+    await expect(page.locator('#toast')).toContainText('טיוטה', { timeout: 10_000 });
+  }
   const l = await ledger(page);
   expect(l.filter(r => r.table === 'delivery_certs' && r.op === 'patch' && (r.row as any).doc_html)).toEqual([]);
   const num = await page.evaluate(id => (window as any).certIssuedForVisit(id), 'vis-fail');
@@ -86,12 +102,18 @@ test('F18 ?cert=<uuid> renders the certificate full-page, no app shell', async (
 
 test('F19 the periodic report groups by kibbutz with totals', async ({ page }, ti) => {
   await bootInvCerts(page, ti, 'עידן');
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="certs"]').click();
-  await d.certRange(page, 'all');   // sets #invCertsFrom/To to 2000-01-01..2099-01-01 — real-clock safe
+  await d.openTab(page, 'certs');
+  await d.certRange(page, 'all');   // sets the from/to range to 2000-01-01..2099-01-01 — real-clock safe
   const [popup] = await Promise.all([
     page.waitForEvent('popup'),
-    page.evaluate(() => (window as any).certMonthlyFromTab()),
+    // legacy: certMonthlyFromTab() reads #invCertsFrom/To straight off the DOM (the legacy tab's
+    // own inputs). react: InventoryCerts.tsx's own ⋯ → "סיכום תקופתי" bubble calls the same
+    // certRangeReportRange(from,to) with its OWN state instead (task U4) — no shared DOM ids to
+    // read off, so the react path is driven through the bubble the tab actually renders.
+    d.name === 'react'
+      ? page.getByRole('button', { name: 'עוד', exact: true }).first().click()
+        .then(() => page.getByRole('button', { name: 'סיכום תקופתי', exact: true }).click())
+      : page.evaluate(() => (window as any).certMonthlyFromTab()),
   ]);
   await popup.waitForLoadState('domcontentloaded');
   const text = await popup.innerText('body');

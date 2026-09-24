@@ -2,7 +2,7 @@
 // kibbutz (kibbutzCards). Desktop (560px container query): a matrix Grid (kibbutzMatrix) with a
 // sticky first column. The rules live in app/src/lib/inventory.ts.
 import * as React from 'react';
-import { Warehouse } from 'lucide-react';
+import { MoreHorizontal, Warehouse } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageActionRow } from '@/components/ui/page-action-row';
 import { SectionBlock } from '@/components/ui/section-block';
@@ -42,9 +42,9 @@ export function InventoryKibbutzimTab() {
               data-hit-slop
               onClick={() => setMoreOpen(o => !o)}
               aria-label="עוד"
-              className="s-hit min-h-[40px] min-w-[40px] rounded-full text-[18px]"
+              className="s-hit flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full"
             >
-              ⋯
+              <MoreHorizontal className="h-5 w-5" aria-hidden />
             </button>
             {moreOpen && (
               <div className="absolute inset-inline-end-0 top-full z-10 min-w-[160px] rounded-xl border border-border bg-card p-1 shadow-lg">

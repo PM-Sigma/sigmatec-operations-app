@@ -47,12 +47,16 @@ const OrdersTab = React.lazy(() => import('./InventoryOrders').then(m => ({ defa
 const StockTab = React.lazy(() => import('./InventoryStock').then(m => ({ default: m.InventoryStockTab })));
 const KibbutzTab = React.lazy(() => import('./InventoryKibbutzim').then(m => ({ default: m.InventoryKibbutzimTab })));
 const ReturnsTab = React.lazy(() => import('./InventoryReturns').then(m => ({ default: m.InventoryReturnsTab })));
+const CertsTab = React.lazy(() => import('./InventoryCerts').then(m => ({ default: m.InventoryCertsTab })));
 
 // Tabs U3–U6 build (stock/kibbutz/certs/returns/products): until each task ships its own lazy
 // child, its tab renders an empty, testid'd placeholder — never the acceptance shape, but enough
 // for the tab strip itself (U1's job) to be testable on its own.
 function Placeholder({ id }: { id: string }) {
-  return <div data-testid={`inv-panel-${id}-placeholder`} />;
+  // A non-empty min-height, not a bare empty div: a zero-size element never counts as "visible"
+  // to Playwright's actionability check, which broke `openTab()` waits for every not-yet-built
+  // tab (products, until U6) once other tabs stopped being empty placeholders themselves.
+  return <div data-testid={`inv-panel-${id}-placeholder`} className="min-h-[1px]" />;
 }
 function placeholderTab(id: string): React.ComponentType {
   return () => <Placeholder id={id} />;
@@ -61,7 +65,7 @@ function placeholderTab(id: string): React.ComponentType {
 const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   orders: OrdersTab,
   stock: StockTab,
-  certs: placeholderTab('certs'),
+  certs: CertsTab,
   kibbutz: KibbutzTab,
   returns: ReturnsTab,
   products: placeholderTab('products'),

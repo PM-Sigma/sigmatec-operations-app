@@ -5,5 +5,6 @@
   "attendance": "legacy att-* grid + native <select> report pickers — package A rewrites onto DayCell/StatTile",
   "burns": "legacy burn-* cards, native <select> segmented control — package G rewrites the burns page",
   "more-sheet": "MoreSheet.tsx predates BubbleButton — package S (shell) rewrites the row/chip controls",
-  "settings-sheet": "Settings.tsx native <select>/number steppers — package G rewrites onto design-system inputs"
+  "settings-sheet": "Settings.tsx native <select>/number steppers — package G rewrites onto design-system inputs",
+  "inventory-react-stock": "the tap-target violations are InventoryStrip.tsx's own order-strip/min-qty buttons — read-only for package I (owned by R, task U3 embeds it unchanged per the spec)"
 }

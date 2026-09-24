@@ -3,7 +3,7 @@
 // this file is the shell: a StatTileGrid over poolView()'s three KPIs, the existing
 // InventoryStrip embedded unchanged, and a SectionBlock per category of ListRows.
 import * as React from 'react';
-import { Boxes } from 'lucide-react';
+import { Boxes, MoreHorizontal } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
 import { PageActionRow } from '@/components/ui/page-action-row';
@@ -50,9 +50,9 @@ export function InventoryStockTab() {
               data-hit-slop
               onClick={() => setMoreOpen(o => !o)}
               aria-label="עוד"
-              className="s-hit min-h-[40px] min-w-[40px] rounded-full text-[18px]"
+              className="s-hit flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full"
             >
-              ⋯
+              <MoreHorizontal className="h-5 w-5" aria-hidden />
             </button>
             {moreOpen && (
               <div className="absolute inset-inline-end-0 top-full z-10 min-w-[160px] rounded-xl border border-border bg-card p-1 shadow-lg">

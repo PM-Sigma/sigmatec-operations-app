@@ -217,11 +217,49 @@ export const reactDriver: InvDriver = {
   displayNameEditable: notBuilt('displayNameEditable (U6)'),
   wiringOk: notBuilt('wiringOk (U6)'),
 
-  certRange: notBuilt('certRange (U4)'),
-  certSearch: notBuilt('certSearch (U4)'),
-  certNumbers: notBuilt('certNumbers (U4)'),
-  certCancel: notBuilt('certCancel (U4)'),
-  certReissue: notBuilt('certReissue (U4)'),
-  certViewText: notBuilt('certViewText (U4)'),
-  certSendRows: notBuilt('certSendRows (U4)'),
+  async certRange(page, r) {
+    await page.locator(`[data-testid="inv-certs-range-${r}"] button`).click();
+  },
+  async certSearch(page, q) {
+    await page.locator('[data-testid="inv-certs-search"]').fill(q);
+  },
+  async certNumbers(page) {
+    const nodes = page.locator('[data-testid^="inv-cert-row-"]');
+    const count = await nodes.count();
+    const out: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const tid = await nodes.nth(i).getAttribute('data-testid');
+      const n = tid && parseInt(tid.replace('inv-cert-row-', ''), 10);
+      if (n) out.push(n);
+    }
+    return out;
+  },
+  async certCancel(page, n) {
+    await page.locator(`[data-testid="inv-cert-more-${n}"]`).click();
+    await page.locator(`[data-testid="inv-cert-cancel-${n}"]`).click();
+    await page.waitForTimeout(300);
+  },
+  async certReissue(page, n) {
+    await page.locator(`[data-testid="inv-cert-more-${n}"]`).click();
+    await page.locator(`[data-testid="inv-cert-reissue-${n}"]`).click();
+    await page.locator('[data-testid="cert-sheet"]').waitFor({ state: 'visible' });
+    await page.locator('[data-testid="cert-issue"]').click();
+    await page.locator('[data-testid="cert-viewer"]').waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {});
+  },
+  async certViewText(page, n) {
+    await page.locator(`[data-testid="inv-cert-more-${n}"]`).click();
+    await page.locator(`[data-testid="inv-cert-view-${n}"]`).click();
+    await page.locator('[data-testid="cert-viewer"]').waitFor({ state: 'visible' });
+    return (await page.locator('[data-testid="cert-viewer"] iframe').getAttribute('srcdoc')) || '';
+  },
+  async certSendRows(page, n) {
+    await page.locator(`[data-testid="inv-cert-more-${n}"]`).click();
+    await page.locator(`[data-testid="inv-cert-send-${n}"]`).click();
+    await page.locator('[data-testid="cert-send-panel"]').waitFor({ state: 'visible' });
+    const nodes = page.locator('[data-testid^="cert-send-row-"]');
+    const count = await nodes.count();
+    const out: string[] = [];
+    for (let i = 0; i < count; i++) out.push((await nodes.nth(i).innerText()).trim());
+    return out;
+  },
 };

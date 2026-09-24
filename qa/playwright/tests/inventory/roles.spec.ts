@@ -11,9 +11,12 @@ test('F23 viewer: all 6 tabs, no new-order / new-product write controls', async 
   await bootInv(page, ti, 'צפייה', d);
   expect((await d.tabOrder(page)).length).toBe(6);
   await d.openTab(page, 'orders');
-  expect(await page.locator('button:has-text("+ הזמנה חדשה")').isVisible()).toBe(false);
+  // :visible, not .first().isVisible() — the legacy markup stays in the DOM (display:none) under
+  // the react driver, so an unscoped text locator resolves to TWO buttons (a strict-mode
+  // violation on plain .isVisible()); count() over the :visible pseudo-class is driver-agnostic.
+  expect(await page.locator('button:has-text("+ הזמנה חדשה"):visible').count()).toBe(0);
   await d.openTab(page, 'products');
-  expect(await page.locator('button:has-text("+ פריט חדש")').isVisible()).toBe(false);
+  expect(await page.locator('button:has-text("+ פריט חדש"):visible').count()).toBe(0);
 });
 
 // F23b as a live sb=1 boot hits Phase 0's UPGRADE_FREEZE (js/src/00-consts.js: true today) —
@@ -42,7 +45,7 @@ test('F23c מתניה: showPage(\'inventory\') is coded to bounce to kibbutz', (
 test('F23d אבצן sees the page and can create an order, but cannot approve one', async ({ page }, ti) => {
   await bootInv(page, ti, 'אבצן' as any, d);
   await d.openTab(page, 'orders');
-  expect(await page.locator('button:has-text("+ הזמנה חדשה")').isVisible()).toBe(true);
+  expect(await page.locator('button:has-text("+ הזמנה חדשה"):visible').count()).toBeGreaterThan(0);
   for (const id of ['ord-s-small', 'ord-s-big', 'ord-c', 'ord-d']) {
     expect(await d.hasApprove(page, id)).toBe(false);
   }

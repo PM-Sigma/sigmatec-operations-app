@@ -184,6 +184,14 @@ function boot() {
       .then(m => m.mountStockChange())
       .catch(e => console.warn('[sigma] stock-change island failed', e));
   }
+  // 🚚 תעודת משלוח (inventory spec, package I, task U4) — always listening, like StockChange:
+  // a visit's "הפקת תעודה" and the legacy compat shims in 20-delivery-cert.js dispatch the raw
+  // open event before this chunk is guaranteed loaded.
+  if (document.getElementById('sigma-cert')) {
+    import('@/islands/InventoryCert')
+      .then(m => m.mountInventoryCert())
+      .catch(e => console.warn('[sigma] cert island failed', e));
+  }
   // 🔔 התראות מלאי (inventory spec §5.1) — the header bell. Not deferred: it carries the
   // unseen badge, and a badge that appears a second late is a badge nobody trusts.
   if (document.getElementById('sigma-alerts')) {

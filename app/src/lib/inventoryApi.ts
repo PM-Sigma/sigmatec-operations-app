@@ -357,6 +357,15 @@ export async function parseOrderText(
 
 // ───────────────────────────── certificates (task L5's plans, wired) ─────────────────────────────
 
+/** fetchCertById: for the always-listening cert island reached with only an id (a legacy
+ * `certView(id)`/`certSendOpen(id)` shim, called from OUTSIDE the CertsTab's own loaded rows). */
+export async function fetchCertById(id: string): Promise<CertRow | null> {
+  const sb = await getSupabase();
+  const { data, error } = await sb.from('delivery_certs').select('*').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as CertRow) || null;
+}
+
 export async function fetchCerts(from: string, to: string): Promise<CertRow[]> {
   const sb = await getSupabase();
   const { data, error } = await sb.from('delivery_certs').select('*')
