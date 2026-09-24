@@ -109,33 +109,43 @@ export function useMeetingTimeline(kibbutz: string, mode: 'since' | '30d'): UseM
     queryFn: () => fetchPreviousMeetingDate('company', today),
   });
 
-  let visits: VisitRow[] = [];
-  try { visits = (sigma.loadAllVisitsCombined?.() || []) as VisitRow[]; } catch { /* legacy bundle not loaded */ }
+  // A legacy synchronous cache read — re-derived only when the kibbutz on screen changes, so it
+  // doesn't defeat the `timeline` memo below on every unrelated re-render (a fresh array from
+  // `loadAllVisitsCombined()` would otherwise have a new identity each time).
+  const visits = React.useMemo<VisitRow[]>(() => {
+    try { return (sigma.loadAllVisitsCombined?.() || []) as VisitRow[]; } catch { return []; }
+  }, [kibbutz]);
 
   const windowStart = windowStartFor(mode, prevMeetingQ.data ?? null, new Date());
+
+  // Fall back to the shared cache not only offline/signed-out, but ALSO when EMS is connected
+  // and the live fetch itself failed — a flaky request shouldn't blank the timeline when the
+  // cache still has last-known titles to show.
+  const useCache = !emsLive || emsTasksQ.isError;
 
   const timeline = React.useMemo(() => {
     const input = {
       kibbutz,
-      emsTasks: emsLive ? emsTasks : [],
-      comments: emsLive ? (commentsQ.data || {}) : {},
+      emsTasks: useCache ? [] : emsTasks,
+      comments: useCache ? {} : (commentsQ.data || {}),
       internal: internalQ.data || [],
       notes: notesQ.data || [],
       visits,
     };
     return timelineFor(input, windowStart);
-  }, [kibbutz, emsLive, emsTasks, commentsQ.data, internalQ.data, notesQ.data, visits, windowStart]);
+  }, [kibbutz, useCache, emsTasks, commentsQ.data, internalQ.data, notesQ.data, visits, windowStart]);
 
-  // Offline/signed-out: the shared legacy cache has titles and statuses but no dates, so these
-  // never get a place ON the timeline — only in "משימות פתוחות ותיקות", undated, reason omitted.
-  const offlineOlderOpen = React.useMemo<TimelineItem[]>(() => {
-    if (emsLive) return [];
+  // Offline/signed-out/failed: the shared legacy cache has titles and statuses but no dates, so
+  // these never get a place ON the timeline — only in "משימות פתוחות ותיקות", undated, reason
+  // omitted.
+  const cacheOlderOpen = React.useMemo<TimelineItem[]>(() => {
+    if (!useCache) return [];
     let cached: Array<{ id: string; title: string; status: string }> = [];
     try { cached = (sigma.emsCacheTasksForKibbutz?.(kibbutz) || []) as typeof cached; } catch { cached = []; }
     return cached
       .filter(t => !EMS_CLOSED.includes(t.status))
       .map(t => ({ key: `ems:${t.id}`, kind: 'ems' as const, at: '', title: t.title, meta: '', taskId: t.id, status: t.status }));
-  }, [emsLive, kibbutz]);
+  }, [useCache, kibbutz]);
 
   const refetch = React.useCallback(() => {
     void kibbutzimQ.refetch();
@@ -147,10 +157,10 @@ export function useMeetingTimeline(kibbutz: string, mode: 'since' | '30d'): UseM
 
   return {
     items: timeline.items,
-    olderOpen: emsLive ? timeline.olderOpen : offlineOlderOpen,
+    olderOpen: useCache ? cacheOlderOpen : timeline.olderOpen,
     previousMeeting: prevMeetingQ.data ?? null,
     isLoading: kibbutzimQ.isLoading || internalQ.isLoading || notesQ.isLoading || (emsLive && emsTasksQ.isLoading),
-    isError: kibbutzimQ.isError || internalQ.isError || notesQ.isError || (emsLive && emsTasksQ.isError),
+    isError: kibbutzimQ.isError || internalQ.isError || notesQ.isError,
     refetch,
     emsLive,
   };

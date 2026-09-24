@@ -161,6 +161,21 @@ describe('useMeetingTimeline', () => {
     ]);
   });
 
+  it('EMS connected but the live fetch FAILS: falls back to the cache instead of going blank', async () => {
+    state.kibbutzim = [{ name: 'גבים', ems_site_ids: ['S1'] }];
+    state.cachedTasks = [{ id: 'cached-1', title: 'משימה ישנה', status: 'open' }];
+    setEmsGateway(fakeGateway({
+      listOpenTasks: async () => { throw new Error('EMS 503'); },
+    }));
+    const { result } = renderHook(() => useMeetingTimeline('גבים', '30d'), { wrapper: withClient });
+    await waitFor(() => expect(result.current.olderOpen.length).toBe(1));
+    expect(result.current.emsLive).toBe(true);               // still connected — just this fetch failed
+    expect(result.current.items.filter(i => i.kind === 'ems')).toEqual([]);
+    expect(result.current.olderOpen).toEqual([
+      { key: 'ems:cached-1', kind: 'ems', at: '', title: 'משימה ישנה', meta: '', taskId: 'cached-1', status: 'open' },
+    ]);
+  });
+
   it('switching kibbutz and back reuses the cache — no re-fetch within staleTime', async () => {
     state.kibbutzim = [
       { name: 'גבים', ems_site_ids: ['S1'] },
