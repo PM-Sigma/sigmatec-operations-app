@@ -175,7 +175,11 @@ function NoteBullet({
   // own (designer round 9: not via the .s-hit overlay), so min-w/min-h-[44px] floor it; a
   // tinted fill (not the ghost ready-on-hover default) so it reads in both light and dark
   // without a hover to reveal it.
-  const ACTION_CLS = 'min-w-[44px] min-h-[44px] bg-secondary dark:bg-s-surface-2';
+  // dark:bg-white/10, not dark:bg-s-surface-2 (designer round 10 — "raise the tint one
+  // surface step"): s-surface-2 sat too close to the card's own dark background to read as a
+  // filled bubble; a light overlay lifts it one visible step above the card regardless of
+  // which dark surface it sits on.
+  const ACTION_CLS = 'min-w-[44px] min-h-[44px] bg-secondary dark:bg-white/10';
 
   return (
     <motion.li
@@ -189,17 +193,26 @@ function NoteBullet({
     >
       {/* One real ListRow (designer round 9): title = the note text (clamp 2), meta = the
           date chip (first bullet only) + owner chips, trailing = the actions — vertically
-          centred on the WHOLE row by ListRow itself, not squeezed into the meta line. */}
+          centred on the WHOLE row by ListRow itself, not squeezed into the meta line.
+          px-4 is ListRow's OWN default — kept, not overridden (designer round 10): the
+          section's SectionBlock wraps every row in `-mx-4 divide-y`, which relies on each
+          row restoring that 16px with its own inline padding. Dropping it to px-0 last round
+          is what let the row (and the ⋯ bubble) spill past the card's real edge. */}
       <ListRow
-        className="min-h-0 px-0 py-[5px]"
+        className="min-h-0 py-[5px]"
         leading={<span aria-hidden className="text-[10px] text-muted-foreground">•</span>}
         title={<span className={isQuiet(row.text) ? 'text-muted-foreground' : ''}>{row.text}</span>}
-        meta={(dateBadge || (row.owners || []).length > 0) ? (
+        // Always rendered now (designer round 10): a bullet with no date and no owners used to
+        // skip the meta line entirely, so rows in the same list had different heights. A
+        // missing owner shows "—" instead of just vanishing.
+        meta={
           <span className="inline-flex flex-wrap items-center gap-1">
             {dateBadge}
-            {(row.owners || []).map(o => <OwnerChip key={o} name={o} />)}
+            {(row.owners || []).length > 0
+              ? (row.owners || []).map(o => <OwnerChip key={o} name={o} />)
+              : <OwnerChip name="—" />}
           </span>
-        ) : undefined}
+        }
         trailing={
           <span className="flex items-center gap-1">
             {linked ? (

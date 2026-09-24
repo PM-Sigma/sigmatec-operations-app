@@ -96,6 +96,18 @@ for (const width of [360, 412] as const) {
     if (textBox) expect(overlaps(plusBox!, textBox)).toBe(false);
 
     console.log(`[K-U9] ${width}px ➕ ${Math.round(plusBox!.width)}x${Math.round(plusBox!.height)} · ⋯ ${Math.round(moreBox!.width)}x${Math.round(moreBox!.height)}`);
+
+    // designer round 10: every row must stay INSIDE its card — SectionBlock wraps its rows in
+    // `-mx-4 divide-y`, and a row that drops its own compensating px-4 spills past the card's
+    // real edge (the ⋯ bubble got clipped at the left in round 6's evidence).
+    const cardBox = (await section.boundingBox())!;
+    const rowBoxes = await section.locator('.note-bullet').evaluateAll(
+      els => els.map(el => { const r = el.getBoundingClientRect(); return { x: r.x, width: r.width }; }));
+    for (const row of rowBoxes) {
+      expect(row.x).toBeGreaterThanOrEqual(cardBox.x - 0.5);
+      expect(row.x + row.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 0.5);
+    }
+
     expectNoConsoleErrors(rec);
   });
 }
