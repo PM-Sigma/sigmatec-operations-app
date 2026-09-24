@@ -33,10 +33,42 @@ export const reactDriver: InvDriver = {
     return out;
   },
 
-  poolQty: notBuilt('poolQty (U3)'),
-  kpi: notBuilt('kpi (U3)'),
-  tapKpi: notBuilt('tapKpi (U3)'),
-  poolNames: notBuilt('poolNames (U3)'),
+  async poolQty(page, product) {
+    const row = page.locator(`[data-testid="inv-pool-row-${product}"]`);
+    if (await row.count() === 0) return null;
+    const txt = await row.first().innerText();
+    const m = txt.match(/-?\d+(\.\d+)?\s*$/);
+    return m ? parseFloat(m[0]) : null;
+  },
+  async kpi(page, key) {
+    const testid = key === 'items' ? 'inv-kpi-items' : key === 'units' ? 'inv-kpi-units' : 'inv-kpi-low';
+    const txt = await page.locator(`[data-testid="${testid}"] bdi`).innerText();
+    return parseFloat(txt.replace(/[^\d.-]/g, ''));
+  },
+  async tapKpi(page, key) {
+    const testid = key === 'items' ? 'inv-kpi-items' : 'inv-kpi-low';
+    const btn = page.locator(`[data-testid="${testid}"] button`);
+    const before = await btn.getAttribute('aria-pressed');
+    await btn.click();
+    // StatTile toggles aria-pressed synchronously with the filter state — wait for the DOM to
+    // actually reflect it before the caller reads poolNames/poolQty, instead of racing the
+    // re-render (F10 regression: a read right after click saw the PRE-click, unfiltered list).
+    await page.waitForFunction(
+      ({ sel, prev }) => document.querySelector(sel)?.getAttribute('aria-pressed') !== prev,
+      { sel: `[data-testid="${testid}"] button`, prev: before },
+      { timeout: 5_000 },
+    ).catch(() => {});
+  },
+  async poolNames(page) {
+    const nodes = page.locator('[data-testid^="inv-pool-row-"]');
+    const count = await nodes.count();
+    const out: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const tid = await nodes.nth(i).getAttribute('data-testid');
+      if (tid) out.push(tid.replace('inv-pool-row-', ''));
+    }
+    return out;
+  },
 
   async setOrdersFilter(page, f) {
     await page.locator(`[data-testid="inv-orders-filter-${f || 'open'}"] button`).click();
@@ -133,11 +165,52 @@ export const reactDriver: InvDriver = {
     await page.locator('[data-testid="order-sheet"]').waitFor({ state: 'hidden', timeout: 15_000 }).catch(() => {});
   },
 
-  kibbutzQty: notBuilt('kibbutzQty (U3)'),
-  download: notBuilt('download (U3)'),
+  async kibbutzQty(page, kibbutz, product) {
+    // The same testid renders twice (the mobile accordion card AND the desktop matrix cell) —
+    // the container query (`.s-kib-view`, styles.css) shows only one at a time by width; pick
+    // whichever is actually visible instead of assuming which breakpoint the test runs at.
+    const visibleSel = `[data-testid="inv-kib-cell-${kibbutz}-${product}"]:visible`;
+    let visible = page.locator(visibleSel);
+    if (await visible.count() === 0) {
+      // Mobile: the card is collapsed by default — open it, same as the legacy driver's <details>.
+      const toggle = page.locator(`[data-testid="inv-kib-card-${kibbutz}"] button[aria-expanded]`);
+      if (await toggle.count() && (await toggle.first().getAttribute('aria-expanded')) === 'false') {
+        await toggle.first().click();
+      }
+      visible = page.locator(visibleSel);
+    }
+    if (await visible.count() === 0) return null;
+    const txt = await visible.first().innerText();
+    return parseFloat(txt.replace(/[^\d.-]/g, ''));
+  },
+  async download(page, which) {
+    void which; // both tabs' CSV button carries the same testid; the caller already opened the right tab
+    const moreBtn = page.locator('button[aria-label="עוד"]');
+    await moreBtn.first().click();
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('[data-testid="inv-export-csv"]').click(),
+    ]);
+    const stream = await dl.createReadStream();
+    const chunks: Buffer[] = [];
+    await new Promise<void>((resolve, reject) => {
+      stream!.on('data', c => chunks.push(c as Buffer));
+      stream!.on('end', () => resolve());
+      stream!.on('error', reject);
+    });
+    return Buffer.concat(chunks).toString('utf8');
+  },
 
-  restock: notBuilt('restock (U5)'),
-  defective: notBuilt('defective (U5)'),
+  async restock(page, returnId) {
+    await page.locator(`[data-testid="inv-return-restock-${returnId}"]`).click();
+    await page.locator('[data-testid="confirm-yes"]').click();
+    await page.locator('[data-testid="return-confirm-sheet"]').waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+  },
+  async defective(page, returnId) {
+    await page.locator(`[data-testid="inv-return-defective-${returnId}"]`).click();
+    await page.locator('[data-testid="confirm-yes"]').click();
+    await page.locator('[data-testid="return-confirm-sheet"]').waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
+  },
 
   saveProduct: notBuilt('saveProduct (U6)'),
   toggleProduct: notBuilt('toggleProduct (U6)'),

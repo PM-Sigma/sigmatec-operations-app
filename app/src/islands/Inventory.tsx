@@ -44,6 +44,9 @@ function drainQueue(): { kind: string; tab?: string } | null {
 }
 
 const OrdersTab = React.lazy(() => import('./InventoryOrders').then(m => ({ default: m.InventoryOrdersTab })));
+const StockTab = React.lazy(() => import('./InventoryStock').then(m => ({ default: m.InventoryStockTab })));
+const KibbutzTab = React.lazy(() => import('./InventoryKibbutzim').then(m => ({ default: m.InventoryKibbutzimTab })));
+const ReturnsTab = React.lazy(() => import('./InventoryReturns').then(m => ({ default: m.InventoryReturnsTab })));
 
 // Tabs U3–U6 build (stock/kibbutz/certs/returns/products): until each task ships its own lazy
 // child, its tab renders an empty, testid'd placeholder — never the acceptance shape, but enough
@@ -57,10 +60,10 @@ function placeholderTab(id: string): React.ComponentType {
 
 const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   orders: OrdersTab,
-  stock: placeholderTab('stock'),
+  stock: StockTab,
   certs: placeholderTab('certs'),
-  kibbutz: placeholderTab('kibbutz'),
-  returns: placeholderTab('returns'),
+  kibbutz: KibbutzTab,
+  returns: ReturnsTab,
   products: placeholderTab('products'),
 };
 

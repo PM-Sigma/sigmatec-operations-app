@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 29 legacy modules, 182 island sources and 10 edge functions.
+Generated from 29 legacy modules, 185 island sources and 10 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
@@ -30,7 +30,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.calAddEvent` | js/src/00-bridge.js:598 | `calAddEvent` → js/src/14-calendar.js:177 | **—** |
 | `sigma.calFetchEvents` | js/src/00-bridge.js:597 | `calFetchEvents` → js/src/14-calendar.js:150 | app/src/islands/Calendar.tsx:103<br>app/src/islands/Presenter.tsx:84 |
 | `sigma.calIslandMounted` | js/src/00-bridge.js:612 | *(own logic)* | app/src/islands/Calendar.tsx:1579 |
-| `sigma.canExportExcel` | js/src/00-bridge.js:448 | `canExportExcel` → js/src/21-excel-export.js:7 | **—** |
+| `sigma.canExportExcel` | js/src/00-bridge.js:448 | `canExportExcel` → js/src/21-excel-export.js:7 | app/src/islands/InventoryKibbutzim.tsx:31<br>app/src/islands/InventoryStock.tsx:40 |
 | `sigma.canInstall` | js/src/00-bridge.js:582 | `canInstall` → js/src/16-install.js:32 | app/src/islands/Settings.tsx:102 |
 | `sigma.canSeeAttendance` | js/src/00-bridge.js:571 | `canSeeAttendance` → js/src/11-search-login.js:168 | **—** |
 | `sigma.canShowPage` | js/src/00-bridge.js:272 | *(own logic)* | app/src/lib/canShowPage.ts:14 |
@@ -113,10 +113,10 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.visitDraftPut` | js/src/00-bridge.js:504 | `visitDraftPut` → js/src/09-visits.js:886 | app/src/islands/Field.tsx:1166 |
 | `sigma.visitReturnsRaw` | js/src/00-bridge.js:519 | *(own logic)* | app/src/islands/Field.tsx:1227 |
 | `sigma.xlExportCerts` | js/src/00-bridge.js:451 | `xlExportCerts` → js/src/21-excel-export.js:308 | **—** |
-| `sigma.xlExportKibbutz` | js/src/00-bridge.js:450 | `xlExportKibbutzXlsx` → js/src/21-excel-export.js:325 | **—** |
-| `sigma.xlExportStock` | js/src/00-bridge.js:449 | `xlExportStockXlsx` → js/src/21-excel-export.js:322 | **—** |
+| `sigma.xlExportKibbutz` | js/src/00-bridge.js:450 | `xlExportKibbutzXlsx` → js/src/21-excel-export.js:325 | app/src/islands/InventoryKibbutzim.tsx:63 |
+| `sigma.xlExportStock` | js/src/00-bridge.js:449 | `xlExportStockXlsx` → js/src/21-excel-export.js:322 | app/src/islands/InventoryStock.tsx:71 |
 
-Bridge entries no island calls today (legacy-side or reserved): `beginReLogin`, `calAddEvent`, `canExportExcel`, `canSeeAttendance`, `canUseEms`, `certFromVisit`, `emsCreateTask`, `emsDisconnect`, `emsPatchTask`, `ensurePass`, `kibbutzHasSite`, `markOrderDelivered`, `openVisitEditor`, `passPending`, `remintOnce`, `sbAuthPass`, `sessionExpired`, `xlExportCerts`, `xlExportKibbutz`, `xlExportStock`.
+Bridge entries no island calls today (legacy-side or reserved): `beginReLogin`, `calAddEvent`, `canSeeAttendance`, `canUseEms`, `certFromVisit`, `emsCreateTask`, `emsDisconnect`, `emsPatchTask`, `ensurePass`, `kibbutzHasSite`, `markOrderDelivered`, `openVisitEditor`, `passPending`, `remintOnce`, `sbAuthPass`, `sessionExpired`, `xlExportCerts`.
 
 ## (b) Bus — `window.sigmaBus`: source → event → consumers
 
@@ -169,7 +169,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-hours` | :596 | app/src/islands/Hours.tsx:263<br>app/src/main.tsx:244 |
 | `#sigma-import` | :1261 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:526 |
 | `#sigma-internal-modal` | :659 | app/src/main.tsx:162 |
-| `#sigma-inventory` | :340 | app/src/islands/Inventory.tsx:165<br>app/src/main.tsx:203 |
+| `#sigma-inventory` | :340 | app/src/islands/Inventory.tsx:168<br>app/src/main.tsx:203 |
 | `#sigma-inventory-strip` | :418 | app/src/islands/InventoryStrip.tsx:211<br>app/src/main.tsx:196 |
 | `#sigma-meeting-review` | :1274 | app/src/islands/MeetingReview.tsx:646 |
 | `#sigma-message` | :1278 | app/src/islands/MessageSheet.tsx:113<br>app/src/main.tsx:293 |

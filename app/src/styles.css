@@ -857,6 +857,14 @@
   gap: 0;
 }
 
+/* InventoryKibbutzim (task U3, S13): phone accordion under 560px, desktop matrix from 560 up —
+   reacts to the tab panel's own width via `.s-kib-view`'s own container-type, not the viewport. */
+.sigma-root .s-kib-matrix { display: none; }
+@container (min-width: 560px) {
+  .sigma-root .s-kib-cards { display: none; }
+  .sigma-root .s-kib-matrix { display: block; }
+}
+
 /* Sheet/Dialog enter/exit animation timing (sign-off P1-6) — plain CSS instead of Tailwind
    arbitrary-value chains (`data-[state=open]:duration-[var(--s-motion-enter)] …`): those are
    both files' longest single strings, and sheet.tsx/dialog.tsx sit in the BOOT chunk under a
