@@ -277,6 +277,74 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
   await expectNoConsoleErrors(rec);
 });
 
+test('presenter: a populated timeline shows all four kinds (EMS, internal, note, visit)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  const screen = await openPresenter(page);
+  const KIB = 'חוקוק';   // already has a fixture note (n1, 2 days ago) — the other three kinds
+                          // are test-only stubs added here, not production code, so the
+                          // designer can judge a real timeline instead of its empty state.
+
+  await page.evaluate((kibbutz: string) => {
+    const w = window as any;
+    w.sigma.isEmsConnected = () => true;
+    w.sigma.emsApi = async (path: string) => {
+      if (path.startsWith('/employee-tasks?')) {
+        return {
+          items: [{
+            id: 'fx-ems-1', title: 'לתאם ביקור טכנאי', status: 'open',
+            site: { id: 'd1bdff7a-82c2-46d1-92f1-96ab0679911e', name: kibbutz },
+            createdAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+            updatedAt: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+          }],
+        };
+      }
+      if (path.includes('/comments')) {
+        return { items: [{ id: 'c1', message: 'בדקתי, הכל תקין', author: 'אביאם', createdAt: new Date(Date.now() - 2 * 86_400_000).toISOString() }] };
+      }
+      return { items: [] };
+    };
+    w.sigma.loadAllVisitsCombined = () => [
+      { kibbutz, date: new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10), visitor: 'ניתאי' },
+    ];
+    w.sigmaBus?.dispatchEvent(new CustomEvent('ems-cache-synced'));
+  }, KIB);
+
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByTestId('presenter-kibbutz')).toHaveText(KIB);
+
+  // The fourth kind — an internal task — added live through the existing ✏️ 🔒 path.
+  await page.getByTestId('presenter-edit').click();
+  await page.getByTestId('live-text').fill('להזמין ציוד גיבוי');
+  await page.getByTestId('live-chip-internal').click();
+  await page.getByTestId('live-submit').click();
+  await expect(page.getByTestId('presenter-live')).toHaveCount(0);
+
+  // The window toggle's state is on screen too (no previous session logged in this harness,
+  // so "30 יום" is the only — and selected — option).
+  const scope = page.getByTestId('presenter');   // the home card behind repeats some of this text
+  await expect(scope.getByText('30 יום')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'מה קרה' })).toBeVisible();
+  await expect(scope.getByText('לתאם ביקור טכנאי')).toBeVisible();               // EMS
+  await expect(scope.getByText('להזמין ציוד גיבוי')).toBeVisible();              // internal
+  await expect(scope.getByText('להשלים החלפת מונה ראשי במחלבה').first()).toBeVisible();  // note (n1)
+  await expect(scope.getByText('ביקור · ניתאי')).toBeVisible();                  // visit
+
+  // Let the "נפתחה משימה פנימית" toast clear and bring the OLDEST of the four items (the visit,
+  // 3 days back — newest-first order) into frame, so the capture shows all four kinds at once
+  // instead of the heading plus whichever one happens to sit right under it.
+  await page.waitForTimeout(4200);
+  await scope.getByText('ביקור · ניתאי').scrollIntoViewIfNeeded();
+  await shot(page, ti, 'timeline-populated');
+
+  await page.keyboard.press('Escape');
+  await page.getByTestId('presenter-exit-yes').click();
+  await expect(screen).toHaveCount(0);
+
+  await expectNoConsoleErrors(rec);
+});
+
 test('presenter: סמן רגע opens the note sheet and the note lands on the moments list at exit', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
   const screen = await openPresenter(page);
