@@ -47,6 +47,33 @@ describe('timelineFor', () => {
   });
   it('empty input → empty lists, never throws', () =>
     expect(timelineFor({ kibbutz: 'x', emsTasks: [], comments: {}, internal: [], notes: [], visits: [] }, '2026-09-11T00:00:00Z')).toEqual({ items: [], olderOpen: [] }));
+
+  it('a company-wide internal task (kibbutz null) appears on NO kibbutz\'s timeline — exact match only', () => {
+    const companyWide = { ...input, internal: [{ ...input.internal[0], kibbutz: null }] };
+    expect(timelineFor(companyWide as any, '2026-09-11T00:00:00Z').items.some(i => i.kind === 'internal')).toBe(false);
+    const other = { ...companyWide, kibbutz: 'חוקוק' };
+    expect(timelineFor(other as any, '2026-09-11T00:00:00Z').items.some(i => i.kind === 'internal')).toBe(false);
+  });
+
+  it('a note with no kibbutz appears on NO kibbutz\'s timeline — exact match only', () => {
+    const noKibbutz = { ...input, notes: [{ ...input.notes[0], kibbutz: null }] };
+    expect(timelineFor(noKibbutz as any, '2026-09-11T00:00:00Z').items.some(i => i.kind === 'note')).toBe(false);
+    expect(timelineFor({ ...noKibbutz, kibbutz: 'חוקוק' } as any, '2026-09-11T00:00:00Z').items.some(i => i.kind === 'note')).toBe(false);
+  });
+
+  it('an EMS task with no dates at all lands in olderOpen, undated, reason omitted', () => {
+    const noDates = { ...input, emsTasks: [T({ id: 't4', createdAt: '', updatedAt: '' })], comments: {} };
+    const { items, olderOpen } = timelineFor(noDates as any, '2026-09-11T00:00:00Z');
+    expect(items.some(i => i.key === 'ems:t4')).toBe(false);
+    expect(olderOpen).toEqual([{ key: 'ems:t4', kind: 'ems', at: '', title: 'החלפת מונה', meta: '', taskId: 't4', status: 'open' }]);
+  });
+
+  it('an internal task with no created_at is dropped rather than guessed at', () => {
+    const noDate = { ...input, internal: [{ ...input.internal[0], created_at: null }] };
+    const { items, olderOpen } = timelineFor(noDate as any, '2026-09-11T00:00:00Z');
+    expect(items.some(i => i.kind === 'internal')).toBe(false);
+    expect(olderOpen.some(i => i.kind === 'internal')).toBe(false);
+  });
 });
 
 describe('windowStartFor', () => {

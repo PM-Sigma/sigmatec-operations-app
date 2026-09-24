@@ -95,6 +95,14 @@ export function timelineFor(i: TimelineInput, windowStart: string): { items: Tim
   for (const t of i.emsTasks || []) {
     if (EMS_CLOSED.includes(t.status)) continue;
     const change = emsLatestChange(t, (i.comments && i.comments[t.id]) || []);
+    // No usable date at all (createdAt/updatedAt both missing/empty) — same convention the data
+    // hook uses for the offline cache fallback: undated, no reason, straight to olderOpen rather
+    // than guessed at or silently dropped (a task with no dates is still an open task).
+    const hasDate = !!change.at && Number.isFinite(new Date(change.at).getTime());
+    if (!hasDate) {
+      olderOpen.push({ key: `ems:${t.id}`, kind: 'ems', at: '', title: t.title, meta: '', taskId: t.id, status: t.status });
+      continue;
+    }
     const item: TimelineItem = {
       key: `ems:${t.id}`, kind: 'ems', at: change.at, title: t.title, meta: emsMeta(change),
       reason: change.reason, taskId: t.id, status: t.status,
@@ -102,15 +110,19 @@ export function timelineFor(i: TimelineInput, windowStart: string): { items: Tim
     (inWindow(change.at) ? items : olderOpen).push(item);
   }
 
+  // Exact match only — a company-wide row (`kibbutz` null/undefined) belongs to no ONE
+  // kibbutz's timeline and must not appear on every one of them (it used to: a falsy
+  // `it.kibbutz` skipped the `!==` check below entirely, so company-wide rows leaked onto
+  // every kibbutz's screen).
   for (const it of i.internal || []) {
-    if (it.kibbutz && it.kibbutz !== i.kibbutz) continue;
+    if (it.kibbutz !== i.kibbutz) continue;
     const at = it.created_at || '';
     if (!at || !inWindow(at)) continue;
     items.push({ key: `internal:${it.id}`, kind: 'internal', at, title: it.title, meta: it.owner || '' });
   }
 
   for (const n of i.notes || []) {
-    if (n.kibbutz && n.kibbutz !== i.kibbutz) continue;
+    if (n.kibbutz !== i.kibbutz) continue;
     const at = noonOf(n.meeting_date);
     if (!inWindow(at)) continue;
     items.push({ key: `note:${n.id}`, kind: 'note', at, title: n.text, meta: (n.owners || []).join(', ') });
