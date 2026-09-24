@@ -1,6 +1,6 @@
 # Package D: Dev meeting + the dev board in React — spec and implementation plan
 
-STATUS: 🟡 OPEN — planned 23.9, NOT built. Resume: run the L tasks now. The U tasks start after the designer's PASS on the D mock screens and after DS (`r9/DS`, c6eed19), S and M-L2 are on `origin/main`.
+STATUS: 🟡 OPEN — D-U1 and D-U2 BUILT on `r9/D-U` (`a0b5b6dd`, `1e7e0906`, `ce4792c4`), tests green, not yet merged. D-U3 is gated on a designer PASS on both (`dev-board__360/412`, `dev-presenter__360/412/1440`, light+dark) which has not happened — resume there, not by re-implementing.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
