@@ -16,6 +16,7 @@ import { ListTodo, Settings } from 'lucide-react';
 import { IconBubble } from '@/components/ui/icon-bubble';
 import { MoreSheet } from '@/components/MoreSheet';
 import { GearSheet, openGearSheet } from '@/shell/GearSheet';
+import { AlertsBellSlot } from '@/islands/Alerts';
 import { type SigmaRole as RegistryRole } from '@/lib/registry';
 import { mount } from '@/islands';
 import { useCurrentUser } from '@/bridge';
@@ -63,6 +64,9 @@ export function HeaderActionsPanel() {
   // 360px (S-8).
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* 🔔 התראות — U4: on DS parts, in this cluster now (no separate #sigma-alerts mount). */}
+      <AlertsBellSlot />
+
       {/* ✅ המשימות שלי — right next to the bell, on every screen size. */}
       <MyTasksButton me={user} />
 

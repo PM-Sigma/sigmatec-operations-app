@@ -22,11 +22,14 @@ import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { mount } from '@/islands';
+import { IconBubble } from '@/components/ui/icon-bubble';
+import { EmptyState } from '@/components/ui/empty-state';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { useCurrentUser, useSigmaEvent } from '@/bridge';
+import { bellLabel } from '@/lib/shell';
+import { useFreshness } from '@/lib/freshness';
 import {
   canSeeAlerts, canSeeEmsUnlinkedAlert, emsUnlinkedGroup, groupAlerts,
   isSeen, markRowsSeen, unmarkRowsSeen, visitSupplyVisibleTo,
@@ -190,58 +193,59 @@ function AlertsBell() {
   const markSeenRef = React.useRef(markSeen);
   markSeenRef.current = markSeen;
 
-  if (!allowed) return null;
-
-  const unseen = groups.filter(g => !g.seen).length;
+  const unseen = allowed ? groups.filter(g => !g.seen).length : 0;
+  const freshness = useFreshness();
   return (
     <>
-      {/* Round 5 (designer must-fix "all four header actions identical 44×44 chips, same
-          radius, 8px gaps"): the SAME 48px ghost-circle IconBubble shape as ✅/⚙️, not its own
-          bordered square — badge capped at "9+" (S-1) and anchored to ITS OWN bubble box
-          (the one place absolute is allowed, DS spec §3 rule 2), not the old physical -left. */}
-      <button
-        type="button"
-        data-testid="alerts-bell"
-        aria-label={unseen ? `התראות מלאי (${unseen})` : 'התראות מלאי'}
-        onClick={() => { track('alerts-open'); setOpen(true); }}
-        className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-foreground/80 transition-colors hover:bg-secondary active:scale-[.97]"
-      >
-        <Bell className="h-5 w-5" strokeWidth={1.75} />
+      {/* Round 5 U4: the SAME 48px IconBubble shape as ✅/⚙️ (DS), not a hand-rolled button —
+          the bell renders for EVERY role (designer must-fix "all four header actions
+          identical"); a role outside `canSeeAlerts` gets an empty-state sheet instead of no
+          bell at all, so the row of four chips never has a hole in it. */}
+      <span data-testid="alerts-bell" title={bellLabel(unseen)} className="relative inline-flex">
+        <IconBubble
+          size={48}
+          icon={<Bell className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
+          badge={unseen || undefined}
+          label={bellLabel(unseen)}
+          className="text-foreground/80"
+          onClick={() => { track('alerts-open'); setOpen(true); }}
+        />
+        {/* Test hook only (IconBubble's badge is DS-owned and carries no testid): an
+            invisible twin over the same pixels so Playwright's existing `alerts-badge`
+            assertions keep working without touching app/src/components/ui/*. */}
         {unseen > 0 && (
-          <span
-            data-testid="alerts-badge"
-            aria-hidden="true"
-            className="absolute inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#B91C1C] px-1 text-xs font-bold leading-none text-white"
-            style={{ insetBlockStart: -4, insetInlineEnd: -4 }}
-          >
-            <bdi>{unseen > 9 ? '9+' : unseen}</bdi>
-          </span>
+          <bdi data-testid="alerts-badge" aria-hidden="true" className="sr-only">
+            {unseen > 9 ? '9+' : unseen}
+          </bdi>
         )}
-      </button>
+      </span>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>🔔 תנועות מלאי</SheetTitle>
-            <SheetDescription>מה זז במלאי החברה</SheetDescription>
+            <SheetTitle>התראות</SheetTitle>
+            {allowed
+              ? (freshness && <SheetDescription>{freshness}</SheetDescription>)
+              : <SheetDescription className="sr-only">מה זז במלאי החברה</SheetDescription>}
           </SheetHeader>
-          {q.isLoading
-            ? <div className="space-y-2 py-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
-            : <AlertsList groups={groups} user={user} onSeen={markSeen} />}
+          {!allowed
+            ? <EmptyState icon={<Bell />} title="עוד לא נשלחו התראות." />
+            : q.isLoading
+              ? <div className="space-y-2 py-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
+              : <AlertsList groups={groups} user={user} onSeen={markSeen} />}
         </SheetContent>
       </Sheet>
     </>
   );
 }
 
-export function Alerts() {
+/** The bell bubble + its sheet, self-contained (providers included) — the header mounts this
+ * directly instead of a separate `#sigma-alerts` island (U4; the old `mountAlerts`/`Alerts()`
+ * pair is retired). */
+export function AlertsBellSlot() {
   return (
     <SigmaProviders>
       <AlertsBell />
     </SigmaProviders>
   );
-}
-
-export function mountAlerts(): boolean {
-  return mount('sigma-alerts', Alerts);
 }

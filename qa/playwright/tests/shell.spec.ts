@@ -57,6 +57,24 @@ test.describe('GearSheet (U2)', () => {
   });
 });
 
+test.describe('bell (U4)', () => {
+  test('freshness line in the sheet', async ({ page }, ti) => {
+    await boot(page, ti, { ready: '[data-testid="alerts-bell"]' });
+    await page.evaluate(() => {
+      (window as any).__sigmaLastUpdated = new Date().toISOString();
+      window.dispatchEvent(new CustomEvent('sigma-last-updated', { detail: (window as any).__sigmaLastUpdated }));
+    });
+    await page.getByTestId('alerts-bell').click();
+    await expect(page.getByRole('dialog')).toContainText(/עודכן היום \d\d:\d\d/);
+  });
+
+  test('מתניה has a bell with an empty state', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'מתניה', ready: '[data-testid="alerts-bell"]' });
+    await page.getByTestId('alerts-bell').click();
+    await expect(page.getByRole('dialog')).toContainText('עוד לא נשלחו התראות.');
+  });
+});
+
 test.describe('PageBar (U3)', () => {
   // useCurrentPage (lib/currentPage.ts) only re-reads window._currentPage on a real click or
   // hashchange — a plain page.evaluate(showPage(...)) never fires either, so a genuine click

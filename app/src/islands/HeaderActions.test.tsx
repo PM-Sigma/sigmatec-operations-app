@@ -20,6 +20,9 @@ vi.mock('@/lib/track', () => ({ track: vi.fn() }));
 vi.mock('@/lib/settings', () => ({ openSettings: vi.fn() }));
 vi.mock('@/components/MoreSheet', () => ({ MoreSheet: () => <span data-testid="more-sheet" /> }));
 vi.mock('@/islands', () => ({ mount: () => true }));
+// Alerts.tsx pulls in react-query/supabase; U4 tests its own behaviour in shell.spec.ts /
+// alerts.spec.ts (Playwright) — here it is a stub so the header's own tests stay unit-level.
+vi.mock('@/islands/Alerts', () => ({ AlertsBellSlot: () => <span data-testid="alerts-bell-stub" /> }));
 
 import { HeaderActionsPanel } from '@/islands/HeaderActions';
 
