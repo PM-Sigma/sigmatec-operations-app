@@ -44,12 +44,42 @@
     await storeSubscription(sub);
   }
 
+  // round 5, L6: the "yes" handler's body, pulled out so both the legacy DOM button and the
+  // React sheet (PushPrompt.tsx, U13) call the exact same single-flight enable action (F8) —
+  // a double tap (button or sheet) must never run requestPermission()+subscribe() twice, and
+  // now there are two callers instead of one.
+  var pushEnableInFlight = null;
+  function sigmaPushEnable() {
+    if (pushEnableInFlight) return pushEnableInFlight;
+    pushEnableInFlight = (async function () {
+      try {
+        var perm = await Notification.requestPermission();
+        if (perm === 'granted') await subscribe();
+        else if (perm === 'denied') { window._pushPromptShown = false; showEnablePrompt('denied'); }   // they blocked it → show the manual-enable guidance
+      } catch (e) { console.warn('[push] enable failed', e); }
+    })();
+    pushEnableInFlight = pushEnableInFlight.finally(function () { pushEnableInFlight = null; });
+    return pushEnableInFlight;
+  }
+  window.sigmaPushEnable = sigmaPushEnable;
+
   // Firm enable-prompt — reappears EVERY session until notifications are actually enabled (no permanent
   // dismissal). 'default' = never decided → request permission on click; 'denied' = blocked earlier →
   // the browser won't re-prompt, so guide the user to re-enable it in site settings.
+  //
+  // round 5, L6: once `PushPrompt.tsx` (U13) is up it sets `window.__sigmaPushPromptReady` and
+  // listens for `sigma-push-prompt` — this raises that event instead of building the legacy
+  // DOM modal. Until that chunk lands (or if it fails to), the DOM modal below is still the
+  // fallback, unchanged.
   function showEnablePrompt(mode) {
     if (window._pushPromptShown || document.getElementById('pushEnableModal')) return;
     window._pushPromptShown = true;   // once per session; next login shows it again if still not enabled
+
+    if (window.__sigmaPushPromptReady) {
+      try { window.dispatchEvent(new CustomEvent('sigma-push-prompt', { detail: { mode: mode } })); } catch (e) { /* no DOM */ }
+      return;
+    }
+
     var blocked = mode === 'denied';
     var msg = blocked
       ? 'בעקבות העדכון האחרון נדרשות התראות, אך הן חסומות במכשיר זה. יש לאפשר אותן ידנית: לחצו על 🔒/⋮ בשורת הכתובת → הגדרות אתר → התראות → אפשר, ואז רעננו.'
@@ -70,17 +100,9 @@
     document.getElementById('pushEnableLater').onclick = function () { wrap.remove(); };   // session-only; reappears next login
     document.getElementById('pushEnableYes').onclick = function (ev) {
       if (blocked) { wrap.remove(); location.reload(); return; }
-      // F8: single-flight. This used to be a bare async onclick, so a double tap ran
-      // requestPermission()+subscribe() twice and registered the device twice.
+      // F8: single-flight, via sigmaPushEnable() above.
       var btn = ev && ev.currentTarget;
-      return runOnce(btn, 'מפעיל…', async function () {
-        try {
-          var perm = await Notification.requestPermission();
-          if (perm === 'granted') await subscribe();
-          else if (perm === 'denied') { window._pushPromptShown = false; showEnablePrompt('denied'); }   // they blocked it → show the manual-enable guidance
-        } catch (e) { console.warn('[push] enable failed', e); }
-        wrap.remove();
-      });
+      return runOnce(btn, 'מפעיל…', function () { return sigmaPushEnable().then(function () { wrap.remove(); }); });
     };
   }
 
