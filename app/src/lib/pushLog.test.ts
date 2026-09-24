@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { PUSH_EVENT_LABEL, pushLogTiles, pushLogLine, pushLogCanSee } from './pushLog';
 
 const rows = [
@@ -7,11 +9,21 @@ const rows = [
   { sent_at: '2026-09-22T06:00:00Z', event: 'someNewMode', status: 'expired', where_txt: null, qty: null, recipient: 'ניתאי', error: null, actor: null },
 ];
 
+/** The real mode list, lifted from the edge function itself (not retyped here) so a new mode
+ *  added to push-send without a PUSH_EVENT_LABEL entry fails THIS test instead of silently
+ *  showing a raw key on someone's phone. Two literal shapes carry an event name: an object
+ *  field (`event: "attendanceCron"`, the cron/digest modes) and a comparison (`event === "pending"`,
+ *  the order modes, whose value arrives on the request body). */
+function pushSendModes(): string[] {
+  const src = fs.readFileSync(path.resolve(__dirname, '../../../supabase/functions/push-send/index.ts'), 'utf8');
+  return [...new Set([...src.matchAll(/event\s*(?:===|:)\s*"([a-zA-Z]+)"/g)].map(m => m[1]))];
+}
+
 describe('push log', () => {
   it('names every mode push-send has today', () => {
-    for (const m of ['pending', 'approved', 'attendanceCron', 'attendanceReminder', 'gapReminder', 'timerStale', 'visitCron',
-                     'usageDigest', 'inventoryAlert', 'inventoryDigest', 'feedbackNew'])
-      expect(PUSH_EVENT_LABEL[m], m).toBeTruthy();
+    const modes = pushSendModes();
+    expect(modes.length).toBeGreaterThan(0);   // the extraction itself must find something
+    for (const m of modes) expect(PUSH_EVENT_LABEL[m], m).toBeTruthy();
   });
   it('tiles', () => expect(pushLogTiles(rows as any)).toEqual({ total: 3, sent: 1, failed: 1, expired: 1 }));
   it('a line', () => expect(pushLogLine(rows[1] as any)).toEqual({

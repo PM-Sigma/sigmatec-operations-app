@@ -19,14 +19,14 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- ONE face on the boot path: Assistant, the body face (spec §6). The other three faces
-     ⚙️ הגדרות → פונט offers (Rubik · Noto Sans Hebrew · Heebo) were three more render-blocking
-     stylesheets plus their woff2 for every person who never opened the setting; they are now
-     injected on demand by applySettings() in app/src/lib/settings.ts the moment a face is
-     actually chosen. display=optional, not swap: under the throttled mobile profile the swap
-     re-wrapped the Hebrew text and moved everything below it (Lighthouse "avoid large layout
-     shifts" — 0.21 of a 0.40 CLS). `optional` keeps the same typography on any warm cache and
-     simply skips the reflow on a cold one. -->
+<!-- THE ONLY face: Assistant, the body face (spec §6). ⚙️ הגדרות used to offer three more
+     (Rubik · Noto Sans Hebrew · Heebo), each a render-blocking stylesheet plus its woff2 for
+     every person who never opened the setting; round 5 G-L5 deleted the picker outright (DS
+     review §4 "Unnecessary") rather than keep loading faces nobody can choose any more.
+     display=optional, not swap: under the throttled mobile profile the swap re-wrapped the
+     Hebrew text and moved everything below it (Lighthouse "avoid large layout shifts" — 0.21
+     of a 0.40 CLS). `optional` keeps the same typography on any warm cache and simply skips
+     the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
 <link rel="modulepreload" href="ui/sigma.js?v=muek1bcz">
