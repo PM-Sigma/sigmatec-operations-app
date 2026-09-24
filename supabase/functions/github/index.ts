@@ -11,8 +11,12 @@
 //   GH_PROJECT_OWNER / GH_PROJECT_NUMBER — the Projects-v2 board (default: Sigmatec-Energy / 1).
 //   EMS_API_BASE — (already set) https://api.sigmatec-ems.com
 //   APP_ORIGIN   — allowed origin (default https://pm-sigma.github.io)
+//   JWT_SECRET / EMS_BRIDGE_SECRET — the same secret supabase/functions/ems-auth signs the
+//                 bridge pass with; verified here (X-L8) to gate the write modes by person.
+import { verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 import { cors, emsValid, fetchT, json } from "../_shared/http.ts";
 import { chainOf } from "./lineage.js";
+import { canWrite } from "./gate.js";
 
 // Projects-v2 fields (Priority/Status/type/sprint) live on the PROJECT, not the issue — only the
 // GraphQL API exposes them. Returns { issueNumber: {priority,status,type,sprint} }. GRACEFUL: any
@@ -332,6 +336,38 @@ async function createIssue(
   return { number: issue.number, url: issue.html_url, title: issue.title, parent: t.parent || null, status, warnings };
 }
 
+// ───────────────────── X-L8: the write gate ─────────────────────
+// setStatus / setPriority / createIssue used to need only a valid EMS login — any staff
+// account could move cards or open tickets. עידן's ruling (23.9): those three write modes are
+// עידן / עמיחי / מתניה only; reads (the default path, listParents) stay open to every EMS login,
+// unchanged. The name comes from the VERIFIED bridge pass (the same JWT ems-auth mints, signed
+// with this same secret) — never from anything the request body claims.
+async function signingKey(secret: string) {
+  return await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["verify"],
+  );
+}
+
+/**
+ * 403 for a verified-but-unlisted staff pass; 401 for a missing or invalid one. `null` means
+ * the caller may proceed.
+ */
+async function requireWriter(req: Request): Promise<{ error: string; status: number } | null> {
+  const auth = req.headers.get("authorization") || "";
+  const pass = auth.replace(/^Bearer\s+/i, "").trim();
+  const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("EMS_BRIDGE_SECRET") || "";
+  if (!pass || !secret) return { error: "unauthorized: missing pass", status: 401 };
+  try {
+    const payload = await verify(pass, await signingKey(secret));
+    const name = typeof (payload as Record<string, unknown>)?.name === "string" ? (payload as { name: string }).name : null;
+    if (!canWrite(name)) return { error: "forbidden", status: 403 };
+    return null;
+  } catch {
+    return { error: "unauthorized: invalid pass", status: 401 };
+  }
+}
+
 Deno.serve(async (req) => {
   const EMS_API_BASE = Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com";
   const GH_TOKEN = Deno.env.get("GH_TOKEN") || "";
@@ -356,6 +392,8 @@ Deno.serve(async (req) => {
 
   // WRITE: move selected issues to a target Status (e.g. "Ready" / "Committed"). EMS-gated; needs project write scope.
   if (body.mode === "setStatus") {
+    const gate = await requireWriter(req);
+    if (gate) return json({ error: gate.error }, gate.status, ORIGIN);
     const numbers = Array.isArray(body.numbers) ? body.numbers.map(Number).filter(Boolean) : [];
     const target = String(body.status || "").trim();
     if (!numbers.length || !target) return json({ error: "numbers[] and status are required" }, 400, ORIGIN);
@@ -369,6 +407,8 @@ Deno.serve(async (req) => {
 
   // WRITE: set the Priority field for selected issues (empty string → clear). EMS-gated; needs project write scope.
   if (body.mode === "setPriority") {
+    const gate = await requireWriter(req);
+    if (gate) return json({ error: gate.error }, gate.status, ORIGIN);
     const numbers = Array.isArray(body.numbers) ? body.numbers.map(Number).filter(Boolean) : [];
     if (!numbers.length) return json({ error: "numbers[] is required" }, 400, ORIGIN);
     const target = String(body.priority || "").trim();   // "" clears the priority
@@ -393,6 +433,8 @@ Deno.serve(async (req) => {
   // app/src/lib/feedback.ts (issueTitle/issueBody) so they are covered by goldens; the parent
   // is required unless the caller explicitly says there is none.
   if (body.mode === "createIssue") {
+    const gate = await requireWriter(req);
+    if (gate) return json({ error: gate.error }, gate.status, ORIGIN);
     const title = String(body.title || "").trim().slice(0, 240);
     if (!title) return json({ error: "title is required" }, 400, ORIGIN);
     const labels = Array.isArray(body.labels) ? body.labels.map(String).slice(0, 10) : [];

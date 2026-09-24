@@ -22,9 +22,19 @@ function emsToken(): string {
 export async function ghCall(payload: Record<string, unknown>): Promise<any> {
   const token = emsToken();
   if (!token) throw sessionLost('gh-no-token');
+  // X-L8: the write gate (setStatus / setPriority / createIssue) reads WHO from this pass —
+  // the same Supabase-minted JWT every authenticated table read already uses, verified
+  // server-side against JWT_SECRET, never from a body field a caller could set. A missing/
+  // stale pass still reaches the function (reads stay open to any EMS login); a write without
+  // one 401s there, same as any other authenticated call would.
+  const pass = (() => { try { return sigma?.sbPass?.()?.token || ''; } catch { return ''; } })();
   const r = await fetch(SB_URL + '/functions/v1/github', {
     method: 'POST',
-    headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
+    headers: {
+      apikey: SB_ANON,
+      Authorization: 'Bearer ' + (pass || SB_ANON),
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({ token, ...payload }),
   });
   const d = await r.json().catch(() => ({}));
