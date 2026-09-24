@@ -6,7 +6,12 @@ import {
   LEGACY_PERSON_LOCATIONS, NON_KIBBUTZ_LOCATIONS, POOL, RECOUNT_LOC, SUPPLIER_LOC,
   alreadyPosted, isDropShip, orderApprovalRows, orderDeliveryRows, poolMigrationRows, poolStock,
   receivableOrders, stockByLocation, visitMovementRows,
+  activeProducts, csvText, isLowItem, kibbutzCsvRows, kibbutzCards, kibbutzMatrix, lowStockLines,
+  lowStockReport, poolCsvRows, poolView, productCategoryMap, sortByCategoryThenName,
+  sortByCategoryThenNameFixed,
 } from './inventory';
+import goldens from './__fixtures__/inventory/legacy-goldens.json';
+import fx from './__fixtures__/inventory/ledgers.json';
 
 const mv = (o: Record<string, unknown>) => ({
   product: 'E360CT', fromLocation: '', toLocation: '', quantity: 0,
@@ -165,5 +170,92 @@ describe('receivableOrders', () => {
     ];
     expect(receivableOrders(orders).map(o => o.id)).toEqual(['b', 'a']);
     expect(receivableOrders(null)).toEqual([]);
+  });
+});
+
+// ───────────────────────── task L2: stock = today (goldens recorded from js/src/08-inventory.js) ─────────────────────────
+describe('stock/product/low-stock/kibbutz/CSV rules = today (legacy-goldens.json)', () => {
+  for (const [name, rows] of Object.entries(fx.ledgers)) {
+    const g = (goldens as any)[name];
+    it(name + ': stockByLocation', () => expect(stockByLocation(rows as any)).toEqual(g.stock));
+    it(name + ': poolStock', () => expect(poolStock(rows as any)).toEqual(g.pool));
+    it(name + ': lowStockReport', () => expect(lowStockReport(poolStock(rows as any))).toEqual(g.low));
+    it(name + ': category map + sort (the UNFIXED order — P15 is its own test below)', () => {
+      expect(productCategoryMap(fx.products as any)).toEqual(g.cat);
+      expect(sortByCategoryThenName(Object.keys(poolStock(rows as any)), productCategoryMap(fx.products as any))).toEqual(g.sorted);
+    });
+    it(name + ': CSV rows', () => {
+      expect(poolCsvRows(poolStock(rows as any))).toEqual(g.poolCsv);
+      expect(kibbutzCsvRows(stockByLocation(rows as any))).toEqual(g.kibbutzCsv);
+    });
+  }
+
+  it('csvText matches invDownloadCSV byte for byte', () => {
+    expect(csvText([['פריט', 'חברה'], ['a"b', 3]])).toBe('﻿"פריט","חברה"\n"a""b","3"');
+  });
+
+  it('lowStockLines: task line for others, banner for אביאם/עמיחי', () => {
+    const r = { meters: [{ label: 'מונה PM135', match: 'PM135', total: 2, min: 5, found: true }] };
+    expect(lowStockLines(r, 'עידן')).toEqual({
+      taskLines: ['🔴 מלאי המונים בחברה ירד מתחת לקו האדום, ישנם 2 מסוג "מונה PM135" (קו אדום: 5)'],
+      bannerLines: [],
+    });
+    expect(lowStockLines(r, 'אביאם')).toEqual({ taskLines: [], bannerLines: ['מונה PM135: נותרו 2 (קו אדום 5)'] });
+  });
+
+  it('activeProducts falls back to the built-in list only when the catalog is empty', () => {
+    expect(activeProducts([], ['X'])).toEqual([{ name: 'X', active: true, category: '' }]);
+    expect(activeProducts([{ name: 'A', active: false }], ['X'])).toEqual([]);
+    expect(activeProducts([{ name: 'A', active: true }], ['X'])).toEqual([{ name: 'A', active: true }]);
+  });
+
+  it('poolView: יחידות counts the shown rows, פריטים and מלאי נמוך count the whole pool', () => {
+    const pool = { 'מונה PM135': 2, 'בקר 504': 12 };
+    const catMap = { 'מונה PM135': 'מונה', 'בקר 504': 'בקר' };
+    const report = lowStockReport(pool);
+    const all = poolView(pool, catMap, report, '');
+    expect([all.productCount, all.totalUnits, all.lowCount]).toEqual([2, 14, 1]);
+    const low = poolView(pool, catMap, report, 'low');
+    expect([low.productCount, low.totalUnits, low.lowCount, low.names]).toEqual([2, 2, 1, ['מונה PM135']]);
+  });
+
+  it('P15 fix: משנ״ז (gershayim, the product-modal option value) sorts WITH משנ"ז (ASCII quote, the STOCK_CATEGORY_ORDER spelling) — today they split into two buckets', () => {
+    const names = ['משנ"ז 400', 'משנ״ז 250', 'בקר 504'];
+    const catMap = { 'משנ"ז 400': 'משנ"ז', 'משנ״ז 250': 'משנ״ז', 'בקר 504': 'בקר' };
+    // unfixed: משנ"ז (index 3) sorts before בקר (index 1)? no — בקר is index 1, משנ"ז index 3, so
+    // בקר first either way; the bug is that משנ״ז (gershayim) finds NO index (-1 → 999) and sorts
+    // AFTER both, instead of next to its ASCII sibling.
+    expect(sortByCategoryThenName(names, catMap)).toEqual(['בקר 504', 'משנ"ז 400', 'משנ״ז 250']);
+    expect(sortByCategoryThenNameFixed(names, catMap)).toEqual(['בקר 504', 'משנ״ז 250', 'משנ"ז 400']);
+    // the fix's real effect shows once the ASCII spelling ISN'T already first alphabetically:
+    const names2 = ['משנ״ז 250', 'משנ"ז 400'];
+    const catMap2 = { 'משנ״ז 250': 'משנ״ז', 'משנ"ז 400': 'משנ"ז' };
+    // unfixed: category index decides (משנ"ז=3 beats gershayim's unmatched 999) — ASCII first.
+    expect(sortByCategoryThenName(names2, catMap2)).toEqual(['משנ"ז 400', 'משנ״ז 250']);
+    // fixed: same bucket now, so Hebrew collation (ICU 'he', not a codepoint compare) decides —
+    // it puts the gershayim spelling first. The point isn't which one wins; it's that the two
+    // spellings sort NEXT TO each other instead of splitting into two buckets.
+    expect(sortByCategoryThenNameFixed(names2, catMap2)).toEqual(['משנ״ז 250', 'משנ"ז 400']);
+  });
+});
+
+describe('kibbutzCards / kibbutzMatrix (S13)', () => {
+  const stock = {
+    [POOL]: { 'E360CT': 1 },
+    'אביאם': { 'E360CT': 8, 'בקר 504': 0 },
+    'גבים': { 'E360CT': 12, 'בקר 504': 3 },
+    'יגור': { 'E360CT': 0 },
+  };
+  it('kibbutzCards: person-locations and the pool excluded; zero items dropped; an all-zero kibbutz dropped entirely', () => {
+    expect(kibbutzCards(stock)).toEqual([
+      { kibbutz: 'גבים', items: [['בקר 504', 3], ['E360CT', 12]], totalUnits: 15 },
+    ]);
+  });
+  it('kibbutzMatrix: every product non-zero SOMEWHERE, zero cells kept, totals per row', () => {
+    const m = kibbutzMatrix(stock);
+    expect(m.kibbutzim).toEqual(['גבים', 'יגור']);
+    expect(m.products).toEqual(['בקר 504', 'E360CT']);
+    expect(m.cells).toEqual([[3, 12], [0, 0]]);
+    expect(m.totals).toEqual([15, 0]);
   });
 });

@@ -1,0 +1,49 @@
+{
+  "ledgers": {
+    "mock": [
+      { "product": "מונה Landis+Gyr E360PP", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 40, "reason": "order_delivery", "refId": "ord-1", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 12, "reason": "order_delivery", "refId": "ord-1", "createdBy": "עידן" },
+      { "product": "מונה Landis+Gyr E360PP", "fromLocation": "חברה", "toLocation": "חוקוק", "quantity": 3, "reason": "visit_supply", "refId": "vis-אביאם", "createdBy": "אביאם" },
+      { "product": "סים 1NCE", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 4, "reason": "order_delivery", "refId": "ord-2", "createdBy": "עמיחי" },
+      { "product": "מונה PM135", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 2, "reason": "order_delivery", "refId": "ord-2", "createdBy": "עמיחי" }
+    ],
+    "reasons": [
+      { "product": "בקר 504", "fromLocation": "", "toLocation": "חברה", "quantity": 5, "reason": "opening_balance", "refId": "ob-1", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "חברה", "toLocation": "חוקוק", "quantity": 1, "reason": "visit_supply", "refId": "v-1", "createdBy": "אביאם" },
+      { "product": "בקר 504", "fromLocation": "חוקוק", "toLocation": "חברה", "quantity": 1, "reason": "visit_supply_edit", "refId": "v-1", "createdBy": "אביאם" },
+      { "product": "בקר 504", "fromLocation": "חברה", "toLocation": "דגניה", "quantity": 2, "reason": "customer_supply", "refId": "ord-c1", "createdBy": "ניתאי" },
+      { "product": "בקר 504", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 6, "reason": "order_delivery", "refId": "ord-d1", "createdBy": "עמיחי" },
+      { "product": "בקר 504", "fromLocation": "חברה", "toLocation": "ספירה", "quantity": 1, "reason": "recount", "refId": "rc-1", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "עמיחי", "toLocation": "חברה", "quantity": 3, "reason": "pool_migration", "refId": "2026-09-01", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "חוקוק", "toLocation": "חברה", "quantity": 1, "reason": "return_restock", "refId": "ret-1", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "", "toLocation": "", "quantity": 1, "reason": "manual", "refId": "m-1", "createdBy": "עידן" }
+    ],
+    "padded": [
+      { "product": " בקר 504", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 3, "reason": "order_delivery", "refId": "ord-p1", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 5, "reason": "order_delivery", "refId": "ord-p2", "createdBy": "עידן" }
+    ],
+    "blanks": [
+      { "product": "", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 9, "reason": "order_delivery", "refId": "ord-b1", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "", "toLocation": "", "quantity": 4, "reason": "manual", "refId": "", "createdBy": "" },
+      { "product": "מונה PM135", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 1, "reason": "order_delivery", "refId": "ord-b2", "createdBy": "עידן" }
+    ],
+    "negative": [
+      { "product": "מונה PM135", "fromLocation": "ספק", "toLocation": "חברה", "quantity": 3, "reason": "order_delivery", "refId": "ord-n1", "createdBy": "עידן" },
+      { "product": "מונה PM135", "fromLocation": "חברה", "toLocation": "חוקוק", "quantity": 5, "reason": "visit_supply", "refId": "v-n1", "createdBy": "אביאם" }
+    ],
+    "persons": [
+      { "product": "בקר 504", "fromLocation": "", "toLocation": "אביאם", "quantity": 8, "reason": "manual", "refId": "p-1", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "", "toLocation": "ניתאי", "quantity": 4, "reason": "manual", "refId": "p-2", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "", "toLocation": "משרד", "quantity": 2, "reason": "manual", "refId": "p-3", "createdBy": "עידן" },
+      { "product": "בקר 504", "fromLocation": "", "toLocation": "חוקוק", "quantity": 6, "reason": "visit_supply", "refId": "v-p1", "createdBy": "אביאם" }
+    ]
+  },
+  "products": [
+    { "id": "p-1", "name": "מונה Landis+Gyr E360PP", "category": "מונה", "active": true },
+    { "id": "p-2", "name": "בקר 504", "category": "בקר", "active": true },
+    { "id": "p-3", "name": "סים 1NCE", "category": "סים", "active": true },
+    { "id": "p-4", "name": "מונה PM135", "category": "מונה", "active": true },
+    { "id": "p-5", "name": "משנ״ז 250", "category": "משנ״ז", "active": true },
+    { "id": "p-6", "name": "משנ\"ז 400", "category": "משנ\"ז", "active": true }
+  ]
+}

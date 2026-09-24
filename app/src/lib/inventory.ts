@@ -68,8 +68,10 @@ const qty = (v: unknown): number => {
 export function poolStock(movements: ReadonlyArray<Partial<Movement>> | null | undefined): Record<string, number> {
   const out: Record<string, number> = {};
   for (const m of movements || []) {
-    const product = String(m?.product ?? '').trim();
-    if (!product) continue;
+    // S1 (aligned to js/src/08-inventory.js computeStock — it never trims): the KEY keeps
+    // whatever whitespace the row carries. A blank/whitespace-only name is still skipped.
+    const product = String(m?.product ?? '');
+    if (!product.trim()) continue;
     const q = qty(m?.quantity);
     if (m?.fromLocation === POOL) out[product] = (out[product] || 0) - q;
     if (m?.toLocation === POOL) out[product] = (out[product] || 0) + q;
@@ -88,8 +90,8 @@ export function stockByLocation(
     (out[loc] ||= {})[product] = (out[loc][product] || 0) + q;
   };
   for (const m of movements || []) {
-    const product = String(m?.product ?? '').trim();
-    if (!product) continue;
+    const product = String(m?.product ?? '');   // S1: untrimmed, aligned to legacy
+    if (!product.trim()) continue;
     const q = qty(m?.quantity);
     add(String(m?.fromLocation ?? ''), product, -q);
     add(String(m?.toLocation ?? ''), product, q);
@@ -245,3 +247,190 @@ export function receivableOrders(orders: ReadonlyArray<OrderLike> | null | undef
     .filter(o => !!o && RECEIVABLE_STATUSES.includes(String(o.status ?? '')) && orderItems(o).length > 0)
     .sort((a, b) => RECEIVABLE_STATUSES.indexOf(String(b.status)) - RECEIVABLE_STATUSES.indexOf(String(a.status)));
 }
+
+// ───────────────────────────── §5 products, low stock, the pool view (task L2) ─────────────────────────────
+// Ported 1:1 from js/src/06-products.js `getActiveProducts` and 08-inventory.js
+// `STOCK_CATEGORY_ORDER/productCategoryMap/sortByCategoryThenName/METER_RULES/lowStockReport/
+// renderLowStockAlert/invRenderStock`. Goldens recorded from THAT file, never re-recorded after
+// L6 (scripts/inventory-goldens-record.mjs, __fixtures__/inventory/legacy-goldens.json).
+
+export interface ProductRow {
+  id?: string; name: string; category?: string | null; active?: boolean | null;
+  display_name?: string | null; min_qty?: number | string | null; unit?: string | null;
+}
+
+/** getActiveProducts(): active catalog rows, or the built-in fallback list when the catalog is
+ * empty (P1). A blank catalog is the "nothing imported yet" state, not "nothing is active". */
+export function activeProducts(
+  products: ReadonlyArray<ProductRow> | null | undefined,
+  fallback: ReadonlyArray<string> = [],
+): ProductRow[] {
+  const all = products || [];
+  if (all.length === 0) return fallback.map(name => ({ name, active: true, category: '' }));
+  return all.filter(p => !!p && !!p.active);
+}
+
+export const STOCK_CATEGORY_ORDER = ['מונה', 'בקר', 'סים', 'משנ"ז', 'אנטנה', 'ספק כוח', 'כרטיס תקשורת'];
+// P15 fix: the product modal's category <option value> is גershayim (״, U+05F4) but this order
+// array spells the same category with an ASCII quote (", U+0022) — a category picked from the
+// modal never matched this list and sorted into the "unknown" (999) bucket. Both spellings key
+// to the same bucket here; the LEGACY GOLDEN (recorded from the unfixed code) is asserted
+// separately, so the fix is its own named test, not a silent change to what the goldens check.
+const catKey = (c: string) => c.replace(/״/g, '"');
+
+/** productCategoryMap(): name → category (default `אחר`), covering every product handed in. */
+export function productCategoryMap(products: ReadonlyArray<ProductRow> | null | undefined): Record<string, string> {
+  const m: Record<string, string> = {};
+  for (const p of products || []) if (p && p.name) m[p.name] = p.category || 'אחר';
+  return m;
+}
+
+/** sortByCategoryThenName(): STOCK_CATEGORY_ORDER first, then Hebrew collation within a category. */
+export function sortByCategoryThenName(names: ReadonlyArray<string>, catMap: Record<string, string>): string[] {
+  return names.slice().sort((a, b) => {
+    const ca = catMap[a] || 'אחר', cb = catMap[b] || 'אחר';
+    if (ca !== cb) {
+      const ia = STOCK_CATEGORY_ORDER.indexOf(ca), ib = STOCK_CATEGORY_ORDER.indexOf(cb);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || ca.localeCompare(cb, 'he');
+    }
+    return a.localeCompare(b, 'he');
+  });
+}
+
+/** sortByCategoryThenName with the P15 fix applied: משנ״ז and משנ"ז share one bucket. */
+export function sortByCategoryThenNameFixed(names: ReadonlyArray<string>, catMap: Record<string, string>): string[] {
+  return names.slice().sort((a, b) => {
+    const ca = catKey(catMap[a] || 'אחר'), cb = catKey(catMap[b] || 'אחר');
+    if (ca !== cb) {
+      const ia = STOCK_CATEGORY_ORDER.indexOf(ca), ib = STOCK_CATEGORY_ORDER.indexOf(cb);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib) || ca.localeCompare(cb, 'he');
+    }
+    return a.localeCompare(b, 'he');
+  });
+}
+
+/** Company-wide meter red lines (S3). SIM has none any more (round 5 Phase 1). */
+export const METER_RULES = [
+  { label: 'מונה Landis+Gyr E360PP', match: '360PP', min: 15 },
+  { label: 'מונה Landis+Gyr E360SP', match: '360SP', min: 15 },
+  { label: 'מונה E360CT', match: '360CT', min: 15 },
+  { label: 'מונה E570', match: 'E570', min: 10 },
+  { label: 'מונה PM135', match: 'PM135', min: 5 },
+] as const;
+export interface LowMeter { label: string; match: string; total: number; min: number; found: boolean }
+
+/** lowStockReport(): which meter rules are under their red line, company-wide (over the pool). */
+export function lowStockReport(pool: Record<string, number> | null | undefined): { meters: LowMeter[] } {
+  const meters = METER_RULES.map(rule => {
+    let total = 0, found = false;
+    for (const [p, q] of Object.entries(pool || {})) {
+      if (p.indexOf('מונה') === 0 && p.indexOf(rule.match) !== -1) { total += q; found = true; }
+    }
+    return { label: rule.label, match: rule.match, total, min: rule.min, found };
+  }).filter(m => m.found && m.total < m.min);
+  return { meters };
+}
+
+/** isLowItem(): is this product name one of the currently-low meter rules? */
+export const isLowItem = (name: string, report: { meters: LowMeter[] }): boolean =>
+  name.indexOf('מונה') === 0 && report.meters.some(m => name.indexOf(m.match) !== -1);
+
+/** lowStockLines() ports renderLowStockAlert's split: a red task-line for everyone except
+ * אביאם/עמיחי (who get the banner line instead — S4). */
+export function lowStockLines(report: { meters: LowMeter[] }, user: string): { taskLines: string[]; bannerLines: string[] } {
+  const orderers = user === 'אביאם' || user === 'עמיחי';
+  return {
+    taskLines: orderers ? [] : report.meters.map(m =>
+      `🔴 מלאי המונים בחברה ירד מתחת לקו האדום, ישנם ${m.total} מסוג "${m.label}" (קו אדום: ${m.min})`),
+    bannerLines: orderers ? report.meters.map(m => `${m.label}: נותרו ${m.total} (קו אדום ${m.min})`) : [],
+  };
+}
+
+export interface PoolViewRow { name: string; qty: number; low: boolean; negative: boolean }
+export interface PoolViewGroup { category: string; rows: PoolViewRow[] }
+export interface PoolView { productCount: number; totalUnits: number; lowCount: number; names: string[]; groups: PoolViewGroup[] }
+
+/** poolView(): S9/S11 — the pool list grouped by category, plus the three KPI numbers. פריטים
+ * במאגר and מלאי נמוך are over the WHOLE pool (they clear/set the filter); יחידות sums only the
+ * rows the current filter shows. */
+export function poolView(
+  pool: Record<string, number>, catMap: Record<string, string>,
+  report: { meters: LowMeter[] }, filter: '' | 'low',
+): PoolView {
+  let names = sortByCategoryThenName(Object.keys(pool), catMap);
+  if (filter === 'low') names = names.filter(n => isLowItem(n, report));
+  const groups: PoolViewGroup[] = [];
+  for (const n of names) {
+    const category = catMap[n] || 'אחר';
+    if (!groups.length || groups[groups.length - 1].category !== category) groups.push({ category, rows: [] });
+    groups[groups.length - 1].rows.push({ name: n, qty: pool[n], low: isLowItem(n, report), negative: pool[n] < 0 });
+  }
+  return {
+    productCount: Object.keys(pool).length,
+    totalUnits: names.reduce((s, n) => s + pool[n], 0),
+    lowCount: Object.keys(pool).filter(n => isLowItem(n, report)).length,
+    names, groups,
+  };
+}
+
+// ───────────────────────────── §6 kibbutz views + CSV (task L2) ─────────────────────────────
+
+/** Locations the "what was supplied to kibbutzim" view must never show (S13). */
+export const KIBBUTZ_EXCLUDED = [...NON_KIBBUTZ_LOCATIONS, ...LEGACY_PERSON_LOCATIONS];
+
+export const kibbutzLocations = (stock: Record<string, Record<string, number>>): string[] =>
+  Object.keys(stock).filter(l => l && !KIBBUTZ_EXCLUDED.includes(l)).sort((a, b) => a.localeCompare(b, 'he'));
+
+export interface KibbutzCard { kibbutz: string; items: Array<[string, number]>; totalUnits: number }
+
+/** kibbutzCards(): the phone accordion (S13) — non-zero items only, a kibbutz with nothing to
+ * show is dropped entirely (not an empty card). */
+export function kibbutzCards(stock: Record<string, Record<string, number>>): KibbutzCard[] {
+  return kibbutzLocations(stock)
+    .map(k => {
+      const items = Object.entries(stock[k] || {})
+        .filter(([, q]) => q !== 0)
+        .sort((a, b) => a[0].localeCompare(b[0], 'he')) as Array<[string, number]>;
+      return { kibbutz: k, items, totalUnits: items.reduce((s, [, q]) => s + q, 0) };
+    })
+    .filter(c => c.items.length > 0);
+}
+
+export interface KibbutzMatrix { kibbutzim: string[]; products: string[]; cells: number[][]; totals: number[] }
+
+/** kibbutzMatrix(): the desktop matrix (S13) — every product non-zero SOMEWHERE, zero cells kept. */
+export function kibbutzMatrix(stock: Record<string, Record<string, number>>): KibbutzMatrix {
+  const kibbutzim = kibbutzLocations(stock);
+  const all = new Set<string>();
+  kibbutzim.forEach(k => Object.keys(stock[k] || {}).forEach(p => all.add(p)));
+  const products = [...all]
+    .filter(p => kibbutzim.some(k => (stock[k]?.[p] || 0) !== 0))
+    .sort((a, b) => a.localeCompare(b, 'he'));
+  const cells = kibbutzim.map(k => products.map(p => stock[k]?.[p] || 0));
+  return { kibbutzim, products, cells, totals: cells.map(row => row.reduce((s, q) => s + q, 0)) };
+}
+
+/** poolCsvRows() = invExportStock's rows, before the CSV text encoding (S14). */
+export const poolCsvRows = (pool: Record<string, number>): Array<Array<string | number>> =>
+  [['פריט', POOL], ...Object.keys(pool).sort((a, b) => a.localeCompare(b, 'he')).map(p => [p, pool[p]])];
+
+/** kibbutzCsvRows() = invExportKibbutzInventory's rows — EVERY product non-zero somewhere,
+ * including a kibbutz's zero cell for it (unlike the matrix, which hides an all-zero column) —
+ * plus a per-row total (S15). */
+export function kibbutzCsvRows(stock: Record<string, Record<string, number>>): Array<Array<string | number>> {
+  const ks = kibbutzLocations(stock);
+  const all = new Set<string>();
+  ks.forEach(k => Object.keys(stock[k] || {}).forEach(p => all.add(p)));
+  const products = [...all].sort((a, b) => a.localeCompare(b, 'he'));
+  return [
+    ['קיבוץ', ...products, 'סה"כ'],
+    ...ks.map(k => {
+      const row = products.map(p => stock[k]?.[p] || 0);
+      return [k, ...row, row.reduce((s: number, q) => s + (q as number), 0)];
+    }),
+  ];
+}
+
+/** csvText(): invDownloadCSV's byte encoding — BOM + quoted, comma-joined, `"` doubled (S14). */
+export const csvText = (rows: ReadonlyArray<ReadonlyArray<string | number>>): string =>
+  '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
