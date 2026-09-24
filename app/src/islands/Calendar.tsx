@@ -602,7 +602,11 @@ function Block({
           type="button" className="ucal-mini" data-block-pick={b.kibbutz}
           disabled={busy || isNoopPick(preview)} onClick={() => onPick(b, ticked)}
         >
-          {b.placed ? 'קביעת המשימות ליום' : 'הוספה ליום'}
+          {/* Designer round · C-U: this button both places the stop AND dates the ticked tasks —
+              "הוספה ליום" duplicated the header's own ➕ button, which opens a DIFFERENT sheet
+              (schedule/absence/new-task). "הוספה למסלול" names what actually happens here,
+              matching the wording PlaceSearch/RoutePlan already use for placing a kibbutz. */}
+          {b.placed ? 'קביעת המשימות ליום' : 'הוספה למסלול'}
         </button>
       ) : null}
     </div>
@@ -1329,6 +1333,11 @@ function CalendarIsland() {
   // close leaves no overlay behind — Radix unmounts the portal with `open={false}`).
   const [openVisit, setOpenVisit] = React.useState<VisitRow | null>(null);
   const [openEventId, setOpenEventId] = React.useState('');
+  // Designer round: on the phone, the day itself is a Sheet (`cal-sheet`) — opening VisitSheet/
+  // EventSheet as a SECOND Radix dialog on top of it stacked two overlays and two ✕ buttons.
+  // One sheet at a time: close the day sheet the moment a visit/event sheet takes over.
+  const openVisitOne = React.useCallback((v: VisitRow) => { setSheetDay(''); setOpenVisit(v); }, []);
+  const openEventOne = React.useCallback((id: string) => { setSheetDay(''); setOpenEventId(id); }, []);
   const [scheduleDay, setScheduleDay] = React.useState('');
   const [absenceDay, setAbsenceDay] = React.useState('');
   // 📅 שבץ from a רשימה row: the TASK is known and the day is not — the opposite of the day
@@ -1767,8 +1776,8 @@ function CalendarIsland() {
                 onPick={(b, ticked) => pick.mutate(pickBlock(b, ticked, openDate, order))}
                 blockBusy={pick.isPending}
                 peer={owners.length > 1}
-                onVisitOpen={setOpenVisit}
-                onEventOpen={setOpenEventId}
+                onVisitOpen={openVisitOne}
+                onEventOpen={openEventOne}
               />
             ) : (
               <p className="text-[13px] text-muted-foreground">בוחרים יום בלוח כדי לראות מה יש בו.</p>
@@ -1812,8 +1821,8 @@ function CalendarIsland() {
                   onPick={(b, ticked) => pick.mutate(pickBlock(b, ticked, openDate, order))}
                   blockBusy={pick.isPending}
                   peer={owners.length > 1}
-                  onVisitOpen={setOpenVisit}
-                  onEventOpen={setOpenEventId}
+                  onVisitOpen={openVisitOne}
+                  onEventOpen={openEventOne}
                 />
               </motion.div>
             ) : null}
