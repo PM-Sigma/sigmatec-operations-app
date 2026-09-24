@@ -26,13 +26,6 @@ export interface UserSettings {
   /** Round 5 · C2 — אביאם only: also show ניתאי's tasks in the calendar blocks. */
   cal_peer_tasks: boolean;
   /**
-   * אביאם's ⚙️ toggle — "לראות גם את המשימות של ניתאי" (round 5 grill round 2). Honoured for
-   * אביאם only (`partnerTasksOwner`); anyone else's row carrying `true` (edited by hand, or a
-   * shared device) is simply ignored. Package C reads `partnerTasksOwner` for the calendar
-   * blocks.
-   */
-  show_partner_tasks: boolean;
-  /**
    * When these settings were last CHANGED BY THIS PERSON. It is the tie-breaker between a
    * device and the row: newest wins (review fix 6). An ISO string, or '' for "never touched",
    * which always loses to a real timestamp.
@@ -60,7 +53,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   theme: 'system',
   eod_hour: null,
   cal_peer_tasks: false,
-  show_partner_tasks: false,
   updated_at: '',
 };
 
@@ -81,23 +73,8 @@ export function mergeSettings(patch: Partial<UserSettings> | Record<string, unkn
     theme: p.theme === 'light' || p.theme === 'dark' || p.theme === 'system' ? p.theme : base.theme,
     eod_hour: p.eod_hour === null ? null : Number.isInteger(eod) && eod >= 0 && eod <= 23 ? eod : base.eod_hour,
     cal_peer_tasks: typeof p.cal_peer_tasks === 'boolean' ? p.cal_peer_tasks : base.cal_peer_tasks,
-    show_partner_tasks: p.show_partner_tasks !== undefined ? !!p.show_partner_tasks : base.show_partner_tasks,
     updated_at: typeof p.updated_at === 'string' ? p.updated_at : base.updated_at,
   };
-}
-
-/** אביאם only — the round 5 grill round 2 ruling. */
-export function canSetPartnerTasks(user: string): boolean {
-  return String(user ?? '').trim() === 'אביאם';
-}
-
-/**
- * ניתאי when אביאם switched the setting on, null otherwise — including for anyone who is not
- * אביאם, even if their own row somehow carries `show_partner_tasks: true` (a shared device, a
- * hand-edited row). Package C reads this to decide whose tasks the calendar blocks also show.
- */
-export function partnerTasksOwner(user: string, s: Pick<UserSettings, 'show_partner_tasks'>): string | null {
-  return canSetPartnerTasks(user) && s.show_partner_tasks ? 'ניתאי' : null;
 }
 
 /** The landing options a person may pick, in the order they read (moved out of Settings.tsx
@@ -115,12 +92,10 @@ const LANDING_OPTIONS: Array<{ value: Landing; label: string }> = [
 /**
  * The landing choices THIS person may actually pick: `auto` always, `reports` for the viewer
  * alone (#viewerReportsHub is display:none for everyone else), every other page gated by
- * `canShow` (`sigma.canShowPage`). `user` is carried for a future per-person exception; today
- * the rule does not need it.
+ * `canShow` (`sigma.canShowPage`).
  */
-export function landingChoices(user: string, isViewer: boolean, canShow: (page: string) => boolean):
+export function landingChoices(isViewer: boolean, canShow: (page: string) => boolean):
   Array<{ value: Landing; label: string }> {
-  void user;
   return LANDING_OPTIONS.filter(o => o.value === 'auto' || (o.value === 'reports' ? isViewer : canShow(o.value)));
 }
 
@@ -179,15 +154,6 @@ export function getSettings(): UserSettings {
   return current;
 }
 
-/**
- * Apply the parts of the settings that are pure presentation. Nothing today: the theme is
- * already on the document by the time this runs (the <head> snippet set it before the first
- * paint, re-applying it here is what used to clobber an explicit choice), and the font picker
- * is gone (round 5 G-L5 — Assistant is locked, set once in index.html's <head>). Kept as a
- * named hook so a future presentation-only setting has one call site to land in.
- */
-export function applySettings(_s: UserSettings): void { /* no-op today; see comment above */ }
-
 function notify(): void { listeners.forEach(fn => { try { fn(); } catch { /* a bad listener never blocks the rest */ } }); }
 
 /**
@@ -202,7 +168,6 @@ export function setSettingsLocal(patch: Partial<UserSettings>, opts: { stamp?: b
     : { ...patch, updated_at: new Date().toISOString() };
   current = mergeSettings(stamped as Record<string, unknown>, getSettings());
   writeMirror(current);
-  applySettings(current);
   // A theme is applied only when the person actually CHOSE one in this call — 'system' is
   // still the absence of a choice, and applyTheme() removes the stored key for it.
   if (patch.theme !== undefined) applyTheme(current.theme);
@@ -264,7 +229,6 @@ export async function saveSettings(person: string, patch: Partial<UserSettings>)
     theme: next.theme,
     eod_hour: next.eod_hour,
     cal_peer_tasks: next.cal_peer_tasks,
-    show_partner_tasks: next.show_partner_tasks,
     // The person's OWN stamp, not "now": `pickNewer` compares this against the other device's,
     // and a fresh "now" on every push would make the last device to boot always win.
     updated_at: next.updated_at || new Date().toISOString(),

@@ -4,8 +4,8 @@
 // database can never corrupt the person's session.
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  canSetPartnerTasks, cardDescClamp, DEFAULT_SETTINGS, landingChoices, mergeSettings,
-  setSettingsLocal, getSettings, _resetSettings, SETTINGS_KEY, partnerTasksOwner, pickNewer,
+  cardDescClamp, DEFAULT_SETTINGS, landingChoices, mergeSettings,
+  setSettingsLocal, getSettings, _resetSettings, SETTINGS_KEY, pickNewer,
   type UserSettings,
 } from '@/lib/settings';
 import * as S from '@/lib/settings';
@@ -39,13 +39,6 @@ describe('mergeSettings', () => {
     const base = mergeSettings({ landing: 'dev', card_desc: 'full' });
     expect(mergeSettings({ eod_hour: 18 }, base)).toEqual({ ...base, eod_hour: 18 });
   });
-
-  it('show_partner_tasks is coerced to a boolean, default false', () => {
-    expect(mergeSettings(null).show_partner_tasks).toBe(false);
-    expect(mergeSettings({ show_partner_tasks: true }).show_partner_tasks).toBe(true);
-    expect(mergeSettings({ show_partner_tasks: 'yes' } as any).show_partner_tasks).toBe(true);
-    expect(mergeSettings({ show_partner_tasks: 0 } as any).show_partner_tasks).toBe(false);
-  });
 });
 
 describe('cardDescClamp (§7k #2)', () => {
@@ -73,39 +66,25 @@ describe('font machinery is gone, Assistant is locked', () => {
   });
 });
 
-// round 5 grill round 2: אביאם only, "לראות גם את המשימות של ניתאי". Package C reads
-// partnerTasksOwner to decide whose tasks the calendar blocks also show.
-describe('partner tasks — אביאם only (round 5 grill round 2)', () => {
-  it('canSetPartnerTasks is true for אביאם alone', () => {
-    expect(canSetPartnerTasks('אביאם')).toBe(true);
-    for (const p of ['ניתאי', 'עידן', 'עמיחי', '']) expect(canSetPartnerTasks(p)).toBe(false);
-  });
-  it('partnerTasksOwner is ניתאי for אביאם with the setting on, null otherwise', () => {
-    expect(partnerTasksOwner('אביאם', { ...DEFAULT_SETTINGS, show_partner_tasks: true })).toBe('ניתאי');
-    expect(partnerTasksOwner('אביאם', DEFAULT_SETTINGS)).toBe(null);
-    expect(partnerTasksOwner('אביאם', { ...DEFAULT_SETTINGS, show_partner_tasks: false })).toBe(null);
-  });
-  it('a person who is not אביאם gets null even with the flag set by hand', () => {
-    expect(partnerTasksOwner('עידן', { ...DEFAULT_SETTINGS, show_partner_tasks: true })).toBe(null);
-  });
-});
+// round 5 grill round 2's אביאם/ניתאי peer-tasks setting is package C's `cal_peer_tasks` +
+// `canTogglePeerTasks` (app/src/lib/calendar.ts) — G does not duplicate it.
 
 describe('landingChoices — extracted from Settings.tsx (round 5 G-L5)', () => {
   const all = () => true;
 
   it('follows the page gates; reports is the viewer\'s alone', () => {
-    expect(landingChoices('עידן', false, all).map(c => c.value))
+    expect(landingChoices(false, all).map(c => c.value))
       .toEqual(['auto', 'kibbutz', 'calendar', 'attendance', 'inventory', 'dev']);
-    expect(landingChoices('', true, all).map(c => c.value)).toContain('reports');
-    expect(landingChoices('עידן', false, all).map(c => c.value)).not.toContain('reports');
+    expect(landingChoices(true, all).map(c => c.value)).toContain('reports');
+    expect(landingChoices(false, all).map(c => c.value)).not.toContain('reports');
   });
 
   it('a page the gate refuses is not offered', () => {
-    expect(landingChoices('מתניה', false, p => p !== 'inventory').map(c => c.value)).not.toContain('inventory');
+    expect(landingChoices(false, p => p !== 'inventory').map(c => c.value)).not.toContain('inventory');
   });
 
   it('auto is always first and always offered', () => {
-    expect(landingChoices('אבצן', false, () => false)[0].value).toBe('auto');
+    expect(landingChoices(false, () => false)[0].value).toBe('auto');
   });
 });
 
