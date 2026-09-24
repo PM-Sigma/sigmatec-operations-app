@@ -115,3 +115,56 @@ export function myTasksLabel(count: number): string {
 }
 
 export { COMPANY_GROUP, NO_SITE };
+
+// ───────────────────────────── row tags + the undo close (round 5, L3) ─────────────────────────────
+// The sheet's own ListRows: up to 3 status tags (a 4th and later collapse into "+N"), and a
+// closed row commits its write only after a 5 s undo window — closing must feel instant, but
+// a mis-tap must still be free to take back.
+
+export interface TaskTag { text: string; role: 'danger' | 'info' | 'warn' | 'neutral'; icon?: 'Clock' | 'CalendarDays' | 'Lock' }
+
+/** The tag row a task's ListRow carries. At most 3; a 4th+ collapses into one "+N" tag. */
+export function taskTags(t: {
+  status?: string; due?: string | null; late: boolean; priority?: string | null;
+  internal?: boolean; assignee?: string | null;
+}): TaskTag[] {
+  const all: TaskTag[] = [];
+  if (t.due) {
+    all.push(t.late
+      ? { text: `באיחור · ${t.due}`, role: 'danger', icon: 'Clock' }
+      : { text: t.due, role: 'neutral', icon: 'CalendarDays' });
+  }
+  if (t.priority === 'דחופה') all.push({ text: 'דחופה', role: 'danger' });
+  if (t.assignee === null || t.assignee === '') all.push({ text: 'ללא אחראי', role: 'warn' });
+  if (t.internal) all.push({ text: 'פנימית', role: 'neutral', icon: 'Lock' });
+  return all.length <= 3 ? all : [...all.slice(0, 2), { text: `+${all.length - 2}`, role: 'neutral' }];
+}
+
+/** How long a closed row stays undoable before its write actually commits. */
+export const UNDO_MS = 5000;
+
+/**
+ * Commit `commit` only once the undo window closes, unless `cancel()` was called first. The
+ * write never reaches the database while the row is still showing "ביטול" — that is the whole
+ * point of the undo window (spec §Review Focus 2).
+ */
+export function undoable<T>(commit: () => Promise<T>, ms: number = UNDO_MS): { cancel: () => boolean; done: Promise<T | null> } {
+  let settled = false;   // fired (committing) or cancelled — either way, no second move
+  let resolve!: (v: T | null) => void;
+  let reject!: (e: unknown) => void;
+  const done = new Promise<T | null>((res, rej) => { resolve = res; reject = rej; });
+  const timer = setTimeout(() => {
+    settled = true;
+    commit().then(resolve, reject);
+  }, ms);
+  return {
+    cancel: () => {
+      if (settled) return false;
+      settled = true;
+      clearTimeout(timer);
+      resolve(null);
+      return true;
+    },
+    done,
+  };
+}

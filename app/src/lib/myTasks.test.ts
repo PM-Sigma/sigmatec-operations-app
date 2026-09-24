@@ -2,8 +2,11 @@
 // work and his 🔒 internal work together, grouped by the place each belongs to.
 //
 // Same fixture day as taskList.test.ts: Thursday 17.9.2026.
-import { describe, expect, it } from 'vitest';
-import { internalForGroups, myEms, myInternal, myTaskGroups, myTasksCount, myTasksLabel, MY_TASKS_TITLE } from './myTasks';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  internalForGroups, myEms, myInternal, myTaskGroups, myTasksCount, myTasksLabel, MY_TASKS_TITLE,
+  taskTags, undoable, UNDO_MS,
+} from './myTasks';
 import { COMPANY_GROUP, NO_SITE, type ListTask } from './taskList';
 import type { InternalTaskRow } from './internalTasks';
 
@@ -109,5 +112,44 @@ describe('internalForGroups (the calendar list)', () => {
   it('drops finished rows and survives no input at all', () => {
     expect(internalForGroups([], ROWS).byKibbutz['דפנה'].map(r => r.id)).toEqual(['i5']);
     expect(internalForGroups([], null)).toEqual({ byKibbutz: {}, extra: [] });
+  });
+});
+
+describe('taskTags (round 5, L3)', () => {
+  it('late → danger with Clock, ≤3 then +N', () => {
+    const t = taskTags({ due: '20.9', late: true, priority: 'דחופה', assignee: null, internal: true });
+    expect(t[0]).toEqual({ text: 'באיחור · 20.9', role: 'danger', icon: 'Clock' });
+    expect(t.length).toBe(3);
+    expect(t[2]).toEqual({ text: '+2', role: 'neutral' });
+  });
+
+  it('no emoji anywhere', () => {
+    for (const x of taskTags({ due: '30.9', late: false, internal: true, assignee: 'עידן' })) {
+      expect(x.text).not.toMatch(/\p{Extended_Pictographic}/u);
+    }
+  });
+});
+
+describe('undoable (round 5, L3)', () => {
+  it('commits after the window', async () => {
+    vi.useFakeTimers();
+    const commit = vi.fn(async () => 'ok');
+    const u = undoable(commit);
+    vi.advanceTimersByTime(UNDO_MS);
+    await expect(u.done).resolves.toBe('ok');
+    expect(commit).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+
+  it('cancel inside the window never writes', async () => {
+    vi.useFakeTimers();
+    const commit = vi.fn(async () => 'ok');
+    const u = undoable(commit);
+    vi.advanceTimersByTime(UNDO_MS - 1);
+    expect(u.cancel()).toBe(true);
+    vi.advanceTimersByTime(10);
+    await expect(u.done).resolves.toBeNull();
+    expect(commit).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });
