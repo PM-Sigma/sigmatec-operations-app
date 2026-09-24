@@ -46,7 +46,7 @@ import {
   type VisitRow,
 } from '@/lib/field';
 import {
-  CHAPTERS, canSubmit, draftAge, missingFields, openingVisitDate,
+  CHAPTERS, canSubmit, draftAge, draftHasInput, missingFields, openingVisitDate,
   type ChapterDraft, type ChapterId, type ReturnedItem,
 } from '@/lib/visitDraft';
 import { pickableProducts, productGroups, searchProducts } from '@/lib/productSearch';
@@ -1389,11 +1389,20 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
   // §7p: a sheet holding his words never closes by accident. "לשמור" IS שמור וסגור, and
   // "לבטל" only closes — the draft is never thrown away here (§7p: never auto-delete).
+  //
+  // Round 5 V-L7 (grill round 2 "Drafts rule 1-2"): `dirty` reads draftHasInput, not
+  // chapterDraftHasContent — default-valued fields (date, visitor(s), duration chip, workday
+  // chip) no longer count as "something to lose" on their own. The scrim/Escape path (guard.ask,
+  // wired below) gets the ruling's own two-button copy via `variant`; editing a filed visit has
+  // no draft to keep, so it asks the 'visitEdit' pair instead. A dedicated מחק-טיוטה footer
+  // button and the ביטול-always-discards wiring (rule 3) are V-U1's — this pass only upgrades
+  // the existing scrim/Escape interaction onto the new rule and copy.
   const guard = useUnsavedGuard({
-    dirty: () => !sentRef.current && chapterDraftHasContent(ref.current.model),
+    dirty: () => !sentRef.current && draftHasInput(ref.current.model),
     onSave: saveAndClose,
     onDiscard: close,
     onClose: close,
+    variant: editing ? 'visitEdit' : 'visit',
   });
 
   const stock = React.useMemo<Record<string, number>>(() => {

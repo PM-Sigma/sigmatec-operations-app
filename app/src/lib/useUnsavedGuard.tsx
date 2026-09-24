@@ -158,7 +158,11 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
               <button
                 type="button"
                 data-testid="unsaved-discard"
-                onClick={close}
+                // 'visit' (a new/resumed draft): "לבטל ולחזור אחר כך" means the draft survives, so
+                // this persists (onSave, e.g. saveAndClose) before closing — closing alone could
+                // race the 800 ms autosave debounce and lose the last few keystrokes. 'visitEdit'
+                // has no draft to persist: leaving just closes, per the ruling ("לצאת בלי לשמור").
+                onClick={variant === 'visitEdit' ? close : () => void doSave()}
                 className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted"
               >
                 {variant === 'visitEdit' ? VISIT_PROMPT_LEAVE_EDIT : VISIT_PROMPT_LEAVE_NEW}
