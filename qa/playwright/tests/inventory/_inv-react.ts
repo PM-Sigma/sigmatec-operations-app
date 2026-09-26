@@ -193,7 +193,11 @@ export const reactDriver: InvDriver = {
   },
   async download(page, which) {
     void which; // both tabs' CSV button carries the same testid; the caller already opened the right tab
-    const moreBtn = page.locator('button[aria-label="עוד"]');
+    // `button[aria-label="עוד"]` alone also matches the bottom nav's own ⋯ tab (MoreSheet.tsx) —
+    // on mobile that tab renders BEFORE the page content in DOM order, so `.first()` opened the
+    // wrong sheet (no `inv-export-csv` in it) and the download never fired (F11). Scope to the
+    // currently-visible tab panel, which is the one holding this tab's own "עוד" export menu.
+    const moreBtn = page.locator('[data-testid^="inv-panel-"]:visible button[aria-label="עוד"]');
     await moreBtn.first().click();
     const [dl] = await Promise.all([
       page.waitForEvent('download'),

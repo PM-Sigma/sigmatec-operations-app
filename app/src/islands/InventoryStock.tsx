@@ -22,7 +22,12 @@ function downloadCsv(filename: string, text: string) {
   const a = document.createElement('a');
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // 1 s used to be plenty, but Playwright's own createReadStream() occasionally lost the
+  // race under a loaded CI machine (F11, qa/playwright/tests/inventory/stock.spec.ts) —
+  // the click had fired and the download started, but the blob was gone by the time the
+  // read actually happened. 30 s costs nothing (one Blob, freed on the next export or tab
+  // change anyway) and leaves the read all the room it needs.
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 export function InventoryStockTab() {

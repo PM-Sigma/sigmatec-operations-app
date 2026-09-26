@@ -69,6 +69,16 @@ function InventoryPage() {
   const qc = useQueryClient();
   const queuedRaw = drainQueue();
   const queued = queuedRaw?.kind === 'nudges' ? null : queuedRaw;
+  // F21: a push deep link (?pushact=approve&oid=…) calls window.invOpen() the moment
+  // js/src/22-push.js's own readiness poll resolves — which races this whole lazy-chunk chain
+  // (main.tsx's inventoryBoot import → this island → OrdersTab's own Suspense). The dispatched
+  // 'sigma-inv-open' event only reaches a listener that already exists, and OrdersTab has not
+  // mounted its own yet the first time this races; the queue drain above only reads the TAB, so
+  // an 'order'/'approve'/'status' detail queued before boot was silently dropped. Stash it where
+  // OrdersTab's own first-mount effect can still pick it up, however late it mounts.
+  if (queued && ['order', 'approve', 'status'].includes(queued.kind)) {
+    (window as any).__sigmaInvPendingDetail = queued;
+  }
   const [tab, setTab] = React.useState<string>(() => normalizeTab(queued?.tab ?? DEFAULT_TAB));
   const tabsListRef = React.useRef<HTMLDivElement>(null);
   useInventory(); // warms the one cache entry every tab reads

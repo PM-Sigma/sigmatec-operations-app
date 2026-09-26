@@ -107,6 +107,12 @@ export function InventoryOrdersTab() {
   React.useEffect(() => {
     const onOpen = (e: Event) => handleOpenDetail((e as CustomEvent)?.detail || {});
     window.addEventListener(INV_OPEN_EVENT, onOpen);
+    // F21: a push deep link's window.invOpen() can fire (and dispatch INV_OPEN_EVENT) before
+    // this effect ever ran — this tab is itself a lazy chunk one Suspense boundary behind the
+    // page island, so the very first race is the common case, not the edge case. Inventory.tsx
+    // stashes the queued detail there for exactly this: pick it up once, on mount.
+    const pending = (window as any).__sigmaInvPendingDetail;
+    if (pending) { (window as any).__sigmaInvPendingDetail = null; handleOpenDetail(pending); }
     return () => window.removeEventListener(INV_OPEN_EVENT, onOpen);
   }, [handleOpenDetail]);
 
