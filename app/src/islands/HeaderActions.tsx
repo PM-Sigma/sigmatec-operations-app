@@ -43,6 +43,7 @@ function MyTasksButton({ me }: { me: string }) {
         size={48}
         icon={<ListTodo className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
         badge={count || undefined}
+        badgeTestId="header-my-tasks-badge"
         label={myTasksLabel(count)}
         className="text-muted-foreground"
         onClick={() => {

@@ -55,8 +55,11 @@ test('viewer shell: the ⋯ sheet offers no pages and no ניהול', async ({ p
   // …but the everyday rows every role has are there, labelled
   await expect(sheet.getByRole('button', { name: 'הגדרות', exact: true })).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'רעיון / באג', exact: true })).toBeVisible();
-  // and the identity chip says who he is
-  await expect(sheet.getByRole('button', { name: /צפייה/ })).toBeVisible();
+  // and the identity row says who he is — a static read-only row (IdentityRow.tsx, S-U
+  // designer re-review), not a button: the gear/settings/switch-user actions moved to
+  // GearSheet's own rows so this sheet never nested a menu inside a menu.
+  // The viewer's name IS "צפייה" too (VIEWER_NAME), so IdentityRow shows it twice (name + role).
+  await expect(sheet.getByText('צפייה', { exact: true }).first()).toBeVisible();
 
   await shot(page, ti, 'more-sheet');
   expectNoConsoleErrors(rec);
