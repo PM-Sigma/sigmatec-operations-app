@@ -207,8 +207,13 @@ console.log('\n[3] 07-orders.js: approval leaves the pool, delivery lands in it'
     assert.ok(!block.includes("type: 'movement'"), 'a drop-ship now writes a movement');
   });
 
-  check('the visit form defaults to the pool as its source', () => {
-    assert.ok(src.includes('src.value = POOL_LOCATION;'));
+  // "the visit form defaults to the pool as its source" (the legacy #visitSource picker's
+  // onVisitorChange default) retired round 5 V-U3 with the legacy visit form and its dead
+  // onVisitorChange (07-orders.js) — the source is hardcoded server-side now, asserted below.
+  check('the visit save hardcodes the pool as its source (no client picker any more)', () => {
+    const visitsSrc = read('./js/src/09-visits.js');
+    assert.ok(visitsSrc.includes('const source = POOL_LOCATION;'));
+    assert.ok(!/function onVisitorChange/.test(src), 'the legacy visit-form visitor handler is gone');
   });
 
   check('the stock hint on an order item reads the pool', () => {

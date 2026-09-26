@@ -88,10 +88,18 @@ test.describe('V-U evidence captures', () => {
       const { theme } = await boot(page, ti, { who: 'אביאם' });
       await page.setViewportSize({ width: w, height: h });
       await page.waitForSelector('#sigma-home .kibbutz[data-name="חוקוק"]');
-      await page.evaluate(() => (window as any).sigma.visitDraftPut({
-        id: 'v_ev', person: 'אביאם', kibbutz: 'חוקוק',
-        date: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(), payload: { summary: 'x' },
-      }));
+      await page.evaluate(() => {
+        // useVisitDraft's todayISO() is the LOCAL date (getFullYear/getMonth/getDate), not the
+        // UTC one toISOString() gives — the two disagree near local midnight, which is why the
+        // draft the component looked for was never "today"'s.
+        const now = new Date();
+        const p = (n: number) => String(n).padStart(2, '0');
+        const local = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+        (window as any).sigma.visitDraftPut({
+          id: 'v_ev', person: 'אביאם', kibbutz: 'חוקוק',
+          date: local, updated_at: now.toISOString(), payload: { summary: 'x' },
+        });
+      });
       await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק', 'visits'));
       const detail = page.locator('[data-testid="kibbutz-detail"]');
       await expect(detail).toBeVisible({ timeout: 15_000 });
@@ -122,16 +130,20 @@ test.describe('V-U evidence captures', () => {
       const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
       await page.setViewportSize({ width: w, height: h });
       // an existing MANUAL office row for today, for אביאם — a field-day save that day must
-      // ask before overwriting it (rule 2), never overwrite silently.
-      const today = new Date().toISOString().slice(0, 10) + 'T09:00:00.000Z';
-      await page.evaluate((iso: string) => {
+      // ask before overwriting it (rule 2), never overwrite silently. LOCAL date, like
+      // Field.tsx's own todayISO() the visit's default date comes from (not toISOString()'s
+      // UTC one — see the draft-row test above for why that distinction matters here).
+      await page.evaluate(() => {
+        const now = new Date();
+        const p = (n: number) => String(n).padStart(2, '0');
+        const local = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
         const w = window as any;
         w.SHEET_DATA = w.SHEET_DATA || {};
         w.SHEET_DATA.attendance = [
           ...(w.SHEET_DATA.attendance || []),
-          { id: 'att-conflict-ev', person: 'אביאם', date: iso, dayType: 'office', source: 'manual' },
+          { id: 'att-conflict-ev', person: 'אביאם', date: local + 'T09:00:00.000Z', dayType: 'office', source: 'manual' },
         ];
-      }, today);
+      });
       await openArrivalVisit(page);
 
       await page.getByTestId('vc-summary').fill('נבדק מונה, הכול תקין');
