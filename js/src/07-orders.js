@@ -1116,24 +1116,12 @@
     }
   }
 
-  function onVisitorChange(visitor) {
-    const src = document.getElementById('visitSource');
-    if (!src) return;
-    src.value = POOL_LOCATION;   // one pool, one source (inventory spec §1)
-    if (typeof renderProductsForVisitor === 'function') renderProductsForVisitor();
-    // Aviam: show day type selector; reset to field day
-    const sel = document.getElementById('aviamDayTypeSelector');
-    if (sel) {
-      if (ATT_PEOPLE.indexOf(visitor) !== -1) {   // אביאם / ניתאי get the day-type selector
-        sel.style.display = '';
-        setAviamDayType(window.aviamDayType || 'field');
-      } else {
-        sel.style.display = 'none';
-        document.getElementById('visitFieldForm').style.display = '';
-        document.getElementById('visitSimpleForm').style.display = 'none';
-      }
-    }
-  }
+  // onVisitorChange (the legacy visit form's visitor-select handler — #visitSource,
+  // #aviamDayTypeSelector, #visitFieldForm, #visitSimpleForm) is gone: those elements no
+  // longer exist since the form was retired (round 5 V-U3), and its only caller
+  // (05-meeting-returns.js applyUserRestrictions, itself dead — nothing called it) went with
+  // it. The supply source is hardcoded server-side now (09-visits.js: `const source =
+  // POOL_LOCATION`); the day-type selector lives in the visit sheet (Field.tsx).
 
   // The per-person חלוקה step is RETIRED (inventory spec §4): a supplier delivery is one
   // line — the quantity received — and it lands in the pool, so there is nothing to divide and

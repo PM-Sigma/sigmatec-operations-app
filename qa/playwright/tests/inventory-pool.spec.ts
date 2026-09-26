@@ -118,17 +118,11 @@ test('🔢 a decrease that went out on a visit ROUTES to the visit form — it w
   await expectNoConsoleErrors(rec);
 });
 
-test('the visit form supplies from חברה and from nowhere else', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti);
-  await page.waitForSelector('#sigma-home .kibbutz');
-
-  const values = await page.evaluate(() => {
-    const sel = document.getElementById('visitSource') as HTMLSelectElement | null;
-    return sel ? Array.from(sel.options).map(o => o.value) : [];
-  });
-  expect(values).toEqual(['חברה']);
-  await expectNoConsoleErrors(rec);
-});
+// "the visit form supplies from חברה and from nowhere else" (the legacy #visitSource picker
+// only ever offered one option) retired round 5 V-U3 with the legacy visit form itself — the
+// element is gone, and there is nothing left to pick: the supply source is now hardcoded
+// server-side (`const source = POOL_LOCATION` in 09-visits.js's saveVisitFromData), asserted
+// by test-attendance-hub.mjs's "visit ↔ EMS link is persisted" / stock-pool coverage.
 
 // P1: the certificates tab used to repaint on every renderInventory() call — including the 15s
 // home-data poll and the resize-breakpoint re-render — even when the fetched rows were byte-identical

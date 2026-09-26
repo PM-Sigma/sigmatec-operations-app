@@ -147,7 +147,11 @@ test('shell: the user-chip menu and the ⚙️ הגדרות island', async ({ pa
   // ⚙️ הגדרות — the island, with the four settings Task 4 ships
   await menu.getByRole('menuitem', { name: 'הגדרות' }).click();
   const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
-  await expect(dlg.getByRole('combobox', { name: 'מסך פתיחה' })).toBeVisible();
+  // round 5 G-U (Settings rewrite): "מסך פתיחה" is a ListRow that pushes a sub-pane with a
+  // ListRow-button per choice — not a native <select> combobox any more.
+  await dlg.getByRole('button', { name: 'מסך פתיחה' }).click();
+  await expect(dlg.getByTestId('landing-options').getByRole('button')).not.toHaveCount(0);
+  await dlg.getByRole('button', { name: 'חזרה להגדרות' }).click();
   await expect(dlg.getByRole('radiogroup', { name: 'תיאור משימות בכרטיס' })).toBeVisible();
   // round 5 G-L5: the font picker is gone
   await expect(dlg.getByRole('radiogroup', { name: 'פונט' })).toHaveCount(0);

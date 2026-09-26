@@ -43,7 +43,8 @@ test('presenter: the keys walk the board, mark a moment and write one line', asy
 
   // ── the header is the whole state of the meeting: clock · X/N · what carried over
   await expect(page.getByTestId('presenter-timer')).toHaveText(/^\d{2}:\d{2}$/);
-  await expect(page.getByTestId('presenter-counter')).toContainText('1 / 7');
+  // 8 kibbutzim in the fixture since V-U2 added כפר גלעדי for the ביקורים draft-row clamp coverage.
+  await expect(page.getByTestId('presenter-counter')).toContainText('1 / 8');
   // round 5 M-L2: opening the mode alone writes NO session row (lazy — created when the meeting really runs)
   expect(sent.some(s => s.table === 'meeting_sessions')).toBe(false);
 

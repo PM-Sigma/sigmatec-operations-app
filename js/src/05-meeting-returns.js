@@ -6,42 +6,10 @@
     return true;
   }
 
-  // Lock editorName + visitor to the current user for everyone except Idan.
-  // Idan can pick any name from the dropdowns.
-  function applyUserRestrictions() {
-    const user = getCurrentUser();
-    const idan = isIdan();
-
-    const editorWrap   = document.getElementById('editorNameWrap');
-    const editorDisplay = document.getElementById('editorNameDisplay');
-    const visitorWrap   = document.getElementById('visitorFieldWrap');
-    const visitorDisplay = document.getElementById('visitorFieldDisplay');
-
-    if (idan) {
-      // Idan keeps free choice, but the fields DEFAULT to him (editable) so he
-      // isn't forced to pick himself every time.
-      if (editorWrap)   editorWrap.style.display   = 'none';   // [F] editor is always the logged-in user — never shown/picked
-      if (editorDisplay) editorDisplay.style.display = 'none';
-      if (visitorWrap)  visitorWrap.style.display   = '';
-      if (visitorDisplay) visitorDisplay.style.display = 'none';
-      const ed = document.getElementById('editorName');
-      if (ed) ed.value = user;
-      const vi = document.getElementById('visitor');
-      if (vi && !vi.value) { vi.value = user; onVisitorChange(user); }
-    } else {
-      if (editorWrap)   editorWrap.style.display   = 'none';
-      if (editorDisplay) editorDisplay.style.display = 'none';   // [F] no need to show who updates — always the logged-in user
-      document.getElementById('editorName').value = user;
-
-      if (visitorWrap)  visitorWrap.style.display   = 'none';
-      if (visitorDisplay) {
-        visitorDisplay.style.display = '';
-        visitorDisplay.textContent   = '👤 מי ביקר: ' + (user || '—');
-      }
-      document.getElementById('visitor').value = user;
-      onVisitorChange(user);
-    }
-  }
+  // applyUserRestrictions (locked editorName + visitor to the current user, legacy visit form)
+  // is gone — round 5 V-U3. It had zero remaining callers once the form's #editorNameWrap /
+  // #visitorFieldWrap / #editorName / #visitor elements were retired from index.html, and it
+  // was the only caller of onVisitorChange (07-orders.js), also removed.
 
   // Returns the standard "loading" placeholder if data not yet loaded; null otherwise
   function invLoadingPlaceholder() {
