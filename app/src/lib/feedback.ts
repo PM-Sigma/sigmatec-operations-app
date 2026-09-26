@@ -216,6 +216,9 @@ export interface SpeechCapsShape {
   mediaRecorder: boolean;
   /** `?speech=0` — the smoke override that simulates an iOS PWA on a desktop browser. */
   forceOffLive?: boolean;
+  /** `?speech=live` — force live Web Speech even though `record` is now the default whenever
+   * MediaRecorder exists (testing override, mirrors `forceOffLive`'s shape). */
+  forceLive?: boolean;
 }
 
 export interface VoiceLadderState {
@@ -231,14 +234,28 @@ export interface VoiceLadderState {
 }
 
 /**
- * Which voice path to use RIGHT NOW. Deliberately not platform detection (accepted UX rec #9):
- * a browser that claims Web Speech but never answers — Android on a weak signal, a locked-down
- * corporate Chrome — looks identical to iOS Safari after 3 silent seconds, and both deserve the
- * server path rather than a spinner.
+ * Which voice path to use RIGHT NOW.
+ *
+ * RECORD is the default on any device with `MediaRecorder` (round: Android S24 bug report) —
+ * `uploadAndTranscribe` sends ONE complete file to the self-hosted Whisper server (Groq as
+ * insurance) on stop, so there is nothing to glue together client-side. LIVE Web Speech is used
+ * only when `MediaRecorder` is missing (Safari ≤14-ish) — never as a first choice, because
+ * Android Chrome's `continuous=true` delivery of cumulative `isFinal` results made the live path
+ * itself the source of the duplicated-prefix bug (see `parseRecognitionEvent` in speech.ts,
+ * which is hardened as defense in depth but no longer carries the common case).
+ *
+ * `?speech=live` forces live back on for testing that path deliberately; `?speech=0` still
+ * forces the record path (kept for the existing iOS-PWA smoke).
  */
 export function speechLadder(state: VoiceLadderState, caps: SpeechCapsShape): VoicePath {
   const record = (): VoicePath => (caps.mediaRecorder ? 'record' : 'none');
   if (caps.forceOffLive) return record();
+  // `forceLive` only lifts the record-first DEFAULT (the next line) — it does not disable the
+  // safety net below it. A forced live session that gets denied, errors, or sits silent for
+  // `LIVE_NO_RESULT_MS` still falls back to the recorder exactly as it would unforced; the
+  // override exists purely to reach the live code path at all when testing, not to defeat the
+  // fallback that path itself depends on.
+  if (!caps.forceLive && caps.mediaRecorder) return record();
   if (!caps.speechRecognition) return record();
   if (state.deniedLive || state.liveFailed) return record();
   if (state.phase === 'listening'

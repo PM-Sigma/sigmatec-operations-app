@@ -18,14 +18,22 @@ export function forceOffLive(search: string): boolean {
   return new URLSearchParams(String(search || '')).get('speech') === '0';
 }
 
+/** `?speech=live` — force LIVE Web Speech even though `record` is now the default whenever
+ * MediaRecorder exists (testing override, added alongside the record-first default). */
+export function forceLive(search: string): boolean {
+  return new URLSearchParams(String(search || '')).get('speech') === 'live';
+}
+
 /** What this browser can do. `win` is injectable so the caps are testable. */
 export function speechCaps(win?: any, search?: string): SpeechCapsShape {
   const w = win ?? (typeof window !== 'undefined' ? window : undefined);
-  if (!w) return { speechRecognition: false, mediaRecorder: false, forceOffLive: false };
+  if (!w) return { speechRecognition: false, mediaRecorder: false, forceOffLive: false, forceLive: false };
+  const s = search ?? (typeof location !== 'undefined' ? location.search : '');
   return {
     speechRecognition: !!(w.SpeechRecognition || w.webkitSpeechRecognition),
     mediaRecorder: !!w.MediaRecorder,
-    forceOffLive: forceOffLive(search ?? (typeof location !== 'undefined' ? location.search : '')),
+    forceOffLive: forceOffLive(s),
+    forceLive: forceLive(s),
   };
 }
 
@@ -109,7 +117,39 @@ export function parseRecognitionEvent(e: RecognitionEventLike): { finalText: str
     if (!txt) continue;
     if (r.isFinal) finals.push(txt); else interims.push(txt);
   }
-  return { finalText: finals.join(' ').trim(), interimText: interims.join(' ').trim() };
+  return { finalText: collapseCumulativeFinals(finals).join(' ').trim(), interimText: interims.join(' ').trim() };
+}
+
+/**
+ * Defense in depth for the Android bug (round: עידן's Galaxy S24 real-world test): with
+ * `continuous=true`, Android Chrome has been seen delivering each final result as the
+ * CUMULATIVE phrase so far at a given index — "אני" then "אני רוצה" then "אני רוצה לבדוק" …,
+ * every one marked `isFinal:true` — rather than one final per index. Joining those verbatim
+ * glues every prefix onto the front of the sentence ("אני אני רוצה אני רוצה לבדוק …").
+ *
+ * `record` is now the DEFAULT path whenever MediaRecorder exists (see `speechLadder` in
+ * feedback.ts), so this only still matters on the few devices/tests that use live Web Speech.
+ * The rule: walk the finals in order, and drop any final that is a case-sensitive PREFIX of (or
+ * identical to) a LATER final — keep only the last, longest member of each growing chain. A
+ * normal desktop sequence of unrelated, distinct finals is unaffected (none is a prefix of the
+ * next) and still joins as before.
+ */
+function collapseCumulativeFinals(finals: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < finals.length; i++) {
+    const cur = finals[i];
+    // Is `cur` a prefix of (or equal to) any LATER final? If so, it's a stale cumulative
+    // snapshot of a phrase that keeps growing — skip it, the later one will be kept instead.
+    const supersededLater = finals.slice(i + 1).some(later => later.startsWith(cur));
+    if (supersededLater) continue;
+    // Is `cur` a prefix of (or equal to) something ALREADY kept? Same idea, other direction —
+    // guards a final that re-announces the head of a chain out of strict order.
+    if (out.some(kept => kept.startsWith(cur))) continue;
+    // `cur` may itself supersede earlier kept entries (it's a longer continuation of them) —
+    // those were already skipped above by the forward check, so nothing to drop here.
+    out.push(cur);
+  }
+  return out;
 }
 
 /**
