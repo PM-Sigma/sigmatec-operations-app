@@ -6,7 +6,7 @@
 // useless); and a line typed during the meeting is on the kibbutz card the moment he exits.
 //
 // The meeting tables are REAL stores in the harness (_helpers.ts), so the writes come back.
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test, writeRectSidecar } from './_helpers';
 
 /** The board's order for the fixtures: 🆕 שדה אליהו · גבת → ✅ דגניה · חוקוק · יגור … */
 const FIRST = 'שדה אליהו';
@@ -317,6 +317,11 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
       expect(toastGeo.toastLeft).toBeGreaterThanOrEqual(16);
       expect(toastGeo.toastRight).toBeLessThanOrEqual(toastGeo.vw - 16);
     }
+    // Stamp the exact measured rect right after it passed the assertion above, so the shot
+    // taken next can never be mistaken for evidence from a stale/pre-fix run.
+    await writeRectSidecar(page, ti, 'close-undo-toast', {
+      left: toastGeo.toastLeft, right: toastGeo.toastRight, bottom: toastGeo.toastBottom, vw: toastGeo.vw,
+    });
   }
 
   await shot(page, ti, 'close-undo-toast');

@@ -1,0 +1,1 @@
+left=16 right=344 bottom=632 vw=360
