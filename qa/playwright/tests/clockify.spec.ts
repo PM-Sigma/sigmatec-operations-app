@@ -109,7 +109,8 @@ test('🗑 עצור ומחק leaves no open row behind — nothing to nudge abou
   const edit = page.getByTestId('work-timer-edit');
   await expect(edit).toBeVisible({ timeout: 15_000 });
   await edit.getByTestId('work-timer-drop').click();
-  await edit.getByTestId('work-timer-drop-yes').click();
+  // the confirm renders in its own Sheet/portal (ConfirmSheet, U11), not inside `edit`.
+  await page.getByRole('button', { name: 'מחיקת התזמון' }).click();
 
   // An open row nobody ever closes would be nudged by the cron for a session he threw away.
   await expect.poll(async () => (await savedSessions(page)).length, { timeout: 15_000 }).toBe(0);

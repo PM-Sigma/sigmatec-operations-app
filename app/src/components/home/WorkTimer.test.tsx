@@ -262,7 +262,7 @@ describe('the open work_sessions row', () => {
     await act(async () => { fireEvent.click(screen.getByTestId('work-timer-stop')); });
     await waitFor(() => expect(screen.getByTestId('work-timer-edit')).toBeTruthy());
     await act(async () => { fireEvent.click(screen.getByTestId('work-timer-drop')); });
-    await act(async () => { fireEvent.click(screen.getByTestId('work-timer-drop-yes')); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'מחיקת התזמון' })); });
     await waitFor(() => expect(deleted).toHaveLength(1));
     expect(deleted[0]).toEqual({ table: 'work_sessions', id: 'ws-1' });
     expect(JSON.parse(localStorage.getItem(RUNNING_KEY) as string)['עידן']).toBeUndefined();
