@@ -200,7 +200,7 @@ export function GapsList({ person, onClose, nudge }: {
   return (
     <div data-testid="gaps-list" data-count={gaps.length} className="flex flex-col gap-3">
       {nudge && <div className="flex items-center justify-between px-1">
-        <span className="text-[13px] font-semibold text-muted-foreground">{gapsSummary(gaps)}</span>
+        <span className="text-[13px] font-semibold text-muted-foreground"><bdi>{gapsSummary(gaps)}</bdi></span>
         {nudge}
       </div>}
       {KIND_ORDER.map(kind => {
