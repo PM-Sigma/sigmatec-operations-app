@@ -11,7 +11,7 @@
 import { sigma } from '@/bridge';
 import type {
   CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsSite, EmsTask, EmsUser,
-  ListTasksQuery, TaskPatch, WriteResult,
+  ListTasksQuery, OfflineQueueItem, TaskPatch, WriteResult,
 } from '../types';
 import type { EmsGateway } from '../gateway';
 
@@ -125,6 +125,9 @@ export const REST_CAPABILITIES: EmsCapabilities = {
 export interface RestTransport {
   emsApi(path: string, options?: RequestInit): Promise<any>;
   emsWrite(item: Record<string, unknown>): Promise<WriteResult>;
+  /** Synchronous local-queue push (see `EmsGateway.queueOffline`) — never a Promise, never a
+   *  network call, so a caller inside pagehide can trust it finishes before the function returns. */
+  queueOffline(item: OfflineQueueItem): void;
   isConnected(): boolean;
   getSites(): Promise<Array<{ id: string; name: string }>>;
 }
@@ -133,6 +136,12 @@ function bridgeTransport(): RestTransport {
   return {
     emsApi: (path, options) => sigma.emsApi(path, options),
     emsWrite: (item) => (sigma as any).emsWrite(item),
+    // `sigma.emsQueueLocalPush` (js/src/13-ems.js `emsQueueLocalPush`) is a plain synchronous
+    // function — no fetch, no await — unlike `emsWrite`/`emsQueueAdd` above, which try a
+    // network round trip first. Best-effort try/catch: a caller that cannot await (pagehide)
+    // also cannot handle a thrown error usefully, and losing the chip re-render is preferable
+    // to losing the write itself.
+    queueOffline: (item) => { try { (sigma as any).emsQueueLocalPush?.(item); } catch { /* best effort */ } },
     isConnected: () => { try { return !!sigma.isEmsConnected(); } catch { return false; } },
     // `getEmsSites` is the legacy cached site list — the same one emsChain used, so the
     // gateway does not double the /sites traffic.
@@ -177,6 +186,8 @@ export function restAdapter(t: RestTransport = bridgeTransport()): EmsGateway {
 
     async listComments(taskId) { return unwrapList(await t.emsApi(URLS.comments(taskId))).map(mapComment); },
     addComment(taskId, text) { return t.emsWrite({ kind: 'comment', taskId, message: text }); },
+
+    queueOffline(item) { t.queueOffline(item); },
 
     async listUsers() { return unwrapList(await t.emsApi(URLS.users())).map(mapUser); },
 

@@ -42,12 +42,18 @@ export interface CloseQueue {
    *  no longer possible — the caller must not tell the person it worked when it didn't
    *  (Opus round-5 audit, M-U item 1: "undo lies after flush"). */
   schedule(p: PendingClose): () => boolean;
-  /** Commit everything still pending, right now (pagehide / leaving the kibbutz / exit). Skips
-   *  the "is it already closed" re-read (Opus round-5 audit, M-U item 2): the app may already be
-   *  gone by the time a real network round trip would resolve, so this writes the comment +
-   *  status straight through — `addComment`/`updateTask` queue themselves for the next connect
-   *  exactly as they would after a re-read, and the worst case (a task someone else already
-   *  closed) leaves one harmless extra "נסגר בישיבת צוות" comment, not a lost close. */
+  /**
+   * Commit everything still pending, right now (pagehide / leaving the kibbutz / exit) —
+   * SYNCHRONOUSLY. Opus round-6 audit (data-loss item): this used to `await send(...)`, the
+   * SAME network path a normal 5 s settle uses — on a real `pagehide` the tab can die before
+   * that promise ever resolves, and both the comment and the status write (and every OTHER
+   * still-pending close) are lost with it. `flush()` now pushes the comment + status as two
+   * independent entries straight into the existing EMS offline queue (13-ems.js's
+   * `emsQueueLocalPush`, drained on the next connect/load) before returning — no `await`
+   * anywhere in this function, so every entry is written before the calling code (or the page)
+   * can go away. The worst case (a task someone else already closed) replays one harmless extra
+   * "נסגר בישיבת צוות" comment, not a lost close. A normal (non-flush) settle is unaffected —
+   * it still goes out live through `send`/the typed gateway. */
   flush(): Promise<void>;
   /** What is still waiting to commit. */
   pending(): PendingClose[];
@@ -60,6 +66,9 @@ export interface CloseQueue {
  */
 export function createCloseQueue(deps: {
   send: (p: PendingClose, opts?: { skipReread?: boolean }) => Promise<SendResult>;
+  /** Synchronous, network-free enqueue — used ONLY by `flush()`. See `queueCloseOffline`
+   *  below (the real implementation, behind the typed gateway) and the note on `flush()`. */
+  queueOffline: (p: PendingClose) => void;
   delayMs?: number;
   onSettled?: (p: PendingClose, r: SendResult) => void;
 }): CloseQueue {
@@ -86,10 +95,23 @@ export function createCloseQueue(deps: {
     };
   }
 
-  async function flush(): Promise<void> {
+  // NOT `async` on purpose (Opus round-6 audit): an `async function` still returns a Promise
+  // and still lets its body suspend at an `await` — the whole point here is that the body
+  // below contains NONE, so every `queueOffline` call has already run, synchronously, by the
+  // time this function returns (verified by the unit test: 3 pending → 6 entries written
+  // "before any promise resolves"). `Promise.resolve()` at the end keeps the same `Promise<void>`
+  // signature the interface (and every existing caller's `await closeQueue.flush()`) expects.
+  function flush(): Promise<void> {
     const ids = [...queue.keys()];
-    for (const id of ids) { const e = queue.get(id); if (e) clearTimeout(e.timer); }
-    for (const id of ids) await commit(id, { skipReread: true });
+    for (const id of ids) {
+      const e = queue.get(id);
+      if (!e) continue;
+      clearTimeout(e.timer);
+      queue.delete(id);
+      deps.queueOffline(e.p);
+      deps.onSettled?.(e.p, { sent: false, queued: true });
+    }
+    return Promise.resolve();
   }
 
   function pending(): PendingClose[] {
@@ -110,6 +132,20 @@ export function createCloseQueue(deps: {
  * comment stops before the status write, so a task is never left with a status change but no
  * explanatory comment.
  */
+/**
+ * The real `queueOffline` dependency `createCloseQueue`'s `flush()` uses — behind the typed
+ * gateway ONLY (`emsGateway().queueOffline`, never `sigma.emsQueueLocalPush` directly), same
+ * rule as `sendClose` below. Pushes the comment and the status as TWO INDEPENDENT entries (not
+ * one combined item): `emsQueueFlush` (13-ems.js, drains on the next connect) replays each queue
+ * entry as its own EMS call, exactly how `sendClose` fires them as two separate gateway writes,
+ * so a queued close replays byte-identically to a live one.
+ */
+export function queueCloseOffline(p: PendingClose): void {
+  const gw = emsGateway();
+  gw.queueOffline({ kind: 'comment', taskId: p.taskId, message: closeComment(p.by, p.at) });
+  gw.queueOffline({ kind: 'status', taskId: p.taskId, status: p.status });
+}
+
 export async function sendClose(p: PendingClose, opts: { skipReread?: boolean } = {}): Promise<SendResult> {
   let task: { status: string } | null = null;
   if (!opts.skipReread) {

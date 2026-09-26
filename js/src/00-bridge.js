@@ -354,6 +354,12 @@
       // shorthand; both land in the one `emsWriteOrQueue`, so the queue semantics are
       // unchanged by the gateway.
       emsWrite: function (item) { return call('emsWriteOrQueue', [item || {}], Promise.resolve({ sent: false })); },
+      // Synchronous local-offline-queue push (Opus round-6 audit, M-U data-loss fix) — behind
+      // EmsGateway's `queueOffline` (app/src/lib/ems/adapters/rest.ts), reached ONLY from
+      // meetingClose.ts's `flush()` (pagehide/unload: no time to await `emsWrite`'s own network
+      // attempt). `call()` itself is synchronous; `emsQueueLocalPush` (13-ems.js) never awaits
+      // or touches the network, so this returns before the caller's function body continues.
+      emsQueueLocalPush: function (item) { call('emsQueueLocalPush', [item || {}]); },
 
       // `sigma.ems` — the typed EmsGateway (app/src/lib/ems/gateway.ts). NOT implemented here
       // on purpose: the React bundle INSTALLS the one instance on boot (installEmsBridge), so

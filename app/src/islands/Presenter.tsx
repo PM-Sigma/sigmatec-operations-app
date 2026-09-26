@@ -138,7 +138,10 @@ import {
   presenterOrder, type LiveChipId, type MeetingSessionRow,
 } from '@/lib/meetingSession';
 import { dm } from '@/lib/field';
-import { canCloseInMeeting, createCloseQueue, sendClose, type CloseStatus, type PendingClose } from '@/lib/meetingClose';
+import {
+  canCloseInMeeting, createCloseQueue, queueCloseOffline, sendClose,
+  type CloseStatus, type PendingClose,
+} from '@/lib/meetingClose';
 import { statusBlocks } from '@/lib/meetingStatus';
 import { useMeetingTimeline } from './presenter/useMeetingTimeline';
 import { MeetingTimeline } from './presenter/MeetingTimeline';
@@ -578,6 +581,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   if (!closeQueueRef.current) {
     closeQueueRef.current = createCloseQueue({
       send: sendClose,
+      queueOffline: queueCloseOffline,
       onSettled: (p, r) => {
         setPendingTaskIds(prev => { const n = { ...prev }; delete n[p.taskId]; return n; });
         clearUndoToast(p.taskId);
