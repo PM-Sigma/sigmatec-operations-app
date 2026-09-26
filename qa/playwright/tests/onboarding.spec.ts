@@ -12,12 +12,14 @@ const openSettings = async (page: any) => {
   return dlg;
 };
 
-test('onboarding: 🆕 card shows 0/9 → tap step → done → 1/9', async ({ page }, ti) => {
+// K11 (round 5, package K): onboarding moved OUT of the closed card — it renders only inside
+// the open card (KibbutzDetail's מצב הקיבוץ tab, StatusTab.tsx's "status" section).
+test('onboarding: 🆕 status tab shows 0/9 → tap step → done → 1/9', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
 
-  const card = page.locator('.kibbutz[data-name="גבת"]');
-  await expect(card).toBeVisible();
-  const strip = card.locator('[data-testid="onboarding-strip"]');
+  await expect(page.locator('.kibbutz[data-name="גבת"]')).toBeVisible();
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('גבת'));
+  const strip = page.locator('[data-testid="kibbutz-detail"] [data-testid="onboarding-strip"]');
   await expect(strip).toBeVisible();
   await expect(strip).toContainText('0/9');
   await shot(page, ti, 'card-0-9');
@@ -26,9 +28,11 @@ test('onboarding: 🆕 card shows 0/9 → tap step → done → 1/9', async ({ p
   await expect(strip).toContainText('1/9');
   await shot(page, ti, 'card-1-9');
 
-  // an active (✅) card never shows the strip at all
-  const activeCard = page.locator('.kibbutz[data-name="חוקוק"]');
-  await expect(activeCard.locator('[data-testid="onboarding-strip"]')).toHaveCount(0);
+  // an active (✅) kibbutz never shows the strip at all
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+  await expect(page.locator('[data-testid="kibbutz-detail"] [data-testid="onboarding-strip"]')).toHaveCount(0);
+  // and it never shows on the closed card either way (K11)
+  await expect(page.locator('.kibbutz[data-name="גבת"] [data-testid="onboarding-strip"]')).toHaveCount(0);
 
   await expectRtl(page);
   await expectNoConsoleErrors(rec);
@@ -36,8 +40,8 @@ test('onboarding: 🆕 card shows 0/9 → tap step → done → 1/9', async ({ p
 
 test('onboarding: a waits step goes to waiting before done', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
-  const card = page.locator('.kibbutz[data-name="שדה אליהו"]');
-  const strip = card.locator('[data-testid="onboarding-strip"]');
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('שדה אליהו'));
+  const strip = page.locator('[data-testid="kibbutz-detail"] [data-testid="onboarding-strip"]');
   await expect(strip).toBeVisible();
 
   // step 1 (ems_site, non-waits) → done; the new next step (customer_list, waits) starts

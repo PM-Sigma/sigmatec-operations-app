@@ -210,7 +210,9 @@ export function TaskAdders({ kibbutz }: { kibbutz: string }) {
 }
 
 /** The modal panel — rows with actions, and the ➕. Mounted by islands/InternalModal.tsx. */
-export function InternalTasksPanel({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
+export function InternalTasksPanel({
+  kibbutz, canAct, showTitle = true,
+}: { kibbutz: string; canAct: boolean; /** false inside StatusTab's SectionBlock — its own title already says "משימות פנימיות" (designer round 6: no duplicate label). */ showTitle?: boolean }) {
   const { data, isLoading } = useInternalTasks();
   const [open, setOpen] = React.useState(false);
   if (isLoading && !data) return null;
@@ -219,12 +221,14 @@ export function InternalTasksPanel({ kibbutz, canAct }: { kibbutz: string; canAc
   if (!badge && !canAct) return null;
   return (
     <div className="mb-3" data-testid="internal-panel">
-      <div className="mb-1 flex items-center gap-1.5">
-        <h4 className="flex-1 text-[14px] font-bold">🔒 משימות פנימיות</h4>
-        {badge > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"><bdi>{badge}</bdi></span>}
+      <div className="mb-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        {showTitle && <h4 className="flex-1 text-[14px] font-bold">🔒 משימות פנימיות</h4>}
+        {badge > 0 && <span className={'rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground' + (showTitle ? '' : ' flex-1')}><bdi>{badge}</bdi></span>}
         {canAct && (
-          <button type="button" onClick={() => setOpen(true)}
-                  className="min-h-[32px] rounded-full border border-border bg-card px-2.5 text-[12px] font-semibold">➕ משימה פנימית</button>
+          // whitespace-normal, not nowrap (designer round 6): "➕ משימה פנימית" clipped at the
+          // sheet's edge at 360/412 when the row had no room left to wrap it.
+          <button type="button" data-adder="internal" onClick={() => setOpen(true)}
+                  className="min-h-[32px] shrink-0 whitespace-normal rounded-full border border-border bg-card px-2.5 py-1 text-[12px] font-semibold leading-tight">➕ משימה פנימית</button>
         )}
       </div>
       {rows.length > 0

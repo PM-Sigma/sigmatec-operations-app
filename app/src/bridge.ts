@@ -120,9 +120,8 @@ export interface Sigma {
   openKibbutzModal(name: string, tab?: 'status' | 'visits' | 'meetings' | 'visit'): void;
   /** ➕ משימת EMS for a kibbutz without opening any modal (K-L4). */
   createEmsTaskFor?(kibbutz: string): Promise<void>;
+  // decorateCards removed (round 5, K-U5) — KibbutzCard.tsx owns its own decoration now (K-U3).
   // ── end package K ──
-  /** Re-run the legacy card-decorating passes after React re-rendered the cards. */
-  decorateCards?(): void;
 
   /** The EMS-minted Supabase write pass as it stands now (no minting), or null. */
   sbPass?(): { token: string; exp: number } | null;

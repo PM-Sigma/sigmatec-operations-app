@@ -1019,6 +1019,20 @@ export interface EventDetail {
   meetLink: string | null;
 }
 
+/**
+ * Round 5 · Opus audit — the sheet renders `meetLink` as a real `<a>` with `target="_blank"`,
+ * so a poisoned/garbage `hangoutLink` (whatever Google or a mock hands back) must not become a
+ * clickable href to an arbitrary origin. Only a real Meet room passes.
+ */
+export function isMeetLink(url: string | null | undefined): boolean {
+  const s = String(url || '').trim();
+  if (!s) return false;
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:' && u.hostname === 'meet.google.com';
+  } catch { return false; }
+}
+
 export function eventDetail(e: OfficeEvent): EventDetail {
   const who: string[] = [];
   const add = (p: { name?: string; email?: string } | null | undefined) => {
@@ -1034,7 +1048,7 @@ export function eventDetail(e: OfficeEvent): EventDetail {
     description: plainText(e.description),
     location: String(e.location || '').trim(),
     who,
-    meetLink: e.hangoutLink ? String(e.hangoutLink) : null,
+    meetLink: isMeetLink(e.hangoutLink) ? String(e.hangoutLink) : null,
   };
 }
 

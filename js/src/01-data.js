@@ -98,20 +98,11 @@
     });
   }
 
-  document.querySelectorAll('.kibbutz').forEach(card => {
-    card.addEventListener('click', (e) => {
-      e.stopPropagation();
-      currentKibbutz = card.dataset.name;
-      window.currentKibbutz = currentKibbutz;     // script-scope `let` → mirror for window readers
-      if (typeof prepModalEmsSection === 'function') prepModalEmsSection(currentKibbutz);   // open EMS task / create-new, below status
-      const _ct = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === currentKibbutz);
-      const _cu = lastUpdateText(_ct);
-      // §N2: the name is the title; the sub-line carries only the "last update" note.
-      document.getElementById('modalTitle').textContent = currentKibbutz;
-      document.getElementById('modalSub').textContent = _cu || '';
-      document.getElementById('modalBackdrop').classList.add('open');
-    });
-  });
+  // Dead opener removed (round 5, K-U5 Opus audit follow-up): bound at load time, before the
+  // React card home ever rendered a single `.kibbutz` element — `querySelectorAll('.kibbutz')`
+  // always matched zero elements, so this listener never fired. The real door is
+  // sigma.openKibbutzModal (js/src/00-bridge.js, K-L3), wired to the delegated click in
+  // js/src/10-activity.js.
 
   // Kept for the callers that close the visit modal AFTER a successful save (09-visits.js,
   // 04-attendance-daily.js): those must not be asked whether to keep a draft they just wrote.
@@ -307,6 +298,9 @@
     window.MOCK_CAL_DAY = _calDay;
 
     window.MOCK_HOLIDAYS = [
+      // Designer round 2 (25.9): a real ערב חג row — without one in the fixture, no capture
+      // could ever show it next to a real חג, so "both purple fills" couldn't even be checked.
+      { date: mockYmd(new Date(mockFirstDow(1).getTime() - 86400000)), name: 'ערב חג לדוגמה', kind: 'holiday_eve', required: true },
       { date: mockYmd(mockFirstDow(1)), name: 'חג לדוגמה', kind: 'holiday', required: false },
       { date: mockYmd(mockFirstDow(4)), name: 'חול המועד סוכות', kind: 'company_closure', required: false }
     ];

@@ -1,45 +1,24 @@
-// 🔥 צריבות — the two roots of the temporary meter-burn project (Task 23):
+// 🔥 צריבות — the temporary meter-burn project's one remaining root (round 5, K-U4):
 //
-//   #sigma-burns-modal  the "🔥 צריבות" section inside the kibbutz modal. Like the meetings
-//                       tab, ONE root serves every card: js/src/10-activity.js stamps
-//                       `data-kibbutz` on the slot and the island observes that attribute.
-//   #sigma-burns        the progress strip above the cards — work for the field team,
-//                       progress for everyone else (עידן 18.9 21:50).
+//   #sigma-burns        the progress strip above the cards — one row, "בוצעו X מתוך Y",
+//                       always opens the burns page (K1). Never on a kibbutz card, closed or
+//                       open (K2) — the kibbutz-modal section (#sigma-burns-modal /
+//                       BurnsModal / BurnsPanel) is retired with this task; the legacy DOM
+//                       node itself goes with K-U5's modal deletion.
 //
-// The card chip is rendered by KibbutzCard (components/home/Burns.tsx), and the briefing
-// rows by islands/Field.tsx. All four read the same ['meterBurns'] key.
+// The briefing's rows are built by lib/burns.ts and rendered by islands/Field.tsx. Both read
+// the same ['meterBurns'] key.
 //
 // Nothing here is a permanent part of the app: `BURNS_PROJECT_ACTIVE = false`
-// (js/src/24-meter-burns.js) makes every one of these render null while the data stays.
-import { BurnsPanel, BurnsStrip, openBurnsTable, useBurnAccess } from '@/components/home/Burns';
+// (js/src/24-meter-burns.js) makes it render null while the data stays.
+import { BurnsStrip, openBurnsTable } from '@/components/home/Burns';
 import { canSeeBurns } from '@/lib/burns';
 import { registerMoreItem } from '@/lib/registry';
 import { useEffect } from 'react';
 import { sigma } from '@/bridge';
-import { useModalKibbutz } from '@/lib/modalSlot';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
-import { EmsGate } from '@/components/EmsGate';
 import { isGateOpen, useEmsGate } from '@/lib/session';
-
-const SLOT_ID = 'sigma-burns-modal';
-
-function BurnsModalPanel() {
-  const kibbutz = useModalKibbutz(SLOT_ID);
-  const { canSee } = useBurnAccess();
-  if (!kibbutz || !canSee) return null;
-  return <BurnsPanel kibbutz={kibbutz} />;
-}
-
-export function BurnsModal() {
-  return (
-    <SigmaProviders>
-      <EmsGate>
-        <BurnsModalPanel />
-      </EmsGate>
-    </SigmaProviders>
-  );
-}
 
 function BurnsStripGated() {
   const gate = useEmsGate();
@@ -81,9 +60,7 @@ function BurnsLandingWithRow() {
   return <BurnsStripGated />;
 }
 
-/** Called from main.tsx's lazy import. Two roots, one chunk: they share the query cache. */
+/** Called from main.tsx's lazy import. */
 export function mountBurns(): boolean {
-  const a = mount(SLOT_ID, BurnsModal);
-  const b = mount('sigma-burns', BurnsLanding);
-  return a || b;
+  return mount('sigma-burns', BurnsLanding);
 }
