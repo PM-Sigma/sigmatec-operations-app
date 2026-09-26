@@ -7,6 +7,7 @@
 // lib/onboarding.ts.
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Hourglass } from 'lucide-react';
 import { toast } from 'sonner';
 import { sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
@@ -120,7 +121,7 @@ export function OnboardingProgress({ kibbutz, canAct }: { kibbutz: string; canAc
   return (
     <div className="card-onboarding mt-2.5 border-t border-dashed border-border pt-2" data-testid="onboarding-strip">
       <div className="mb-1 flex items-center gap-2 text-[12px]">
-        <span className="font-bold text-muted-foreground">🆕 קליטה</span>
+        <span className="font-bold text-muted-foreground">קליטה</span>
         <span className="onboarding-progress-label font-semibold text-foreground"><bdi>{progress.label}</bdi></span>
         <span className="text-muted-foreground">· <bdi>{days}</bdi> ימים בקליטה</span>
       </div>
@@ -137,15 +138,15 @@ export function OnboardingProgress({ kibbutz, canAct }: { kibbutz: string; canAc
         >
           {/* the ○/⏳ marker sits right beside its own label (designer round 7), not stranded
               at the row's far end by a justify-between spread. */}
-          <span className="shrink-0 text-[11px] text-muted-foreground">
-            {next.state === 'waiting' ? `⏳ ${waitAge(next, new Date())} ימים` : '○'}
+          <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-muted-foreground">
+            {next.state === 'waiting' ? <><Hourglass aria-hidden className="h-3 w-3" /> {waitAge(next, new Date())} ימים</> : '○'}
           </span>
           <span className="min-w-0 flex-1 truncate text-start">{next.label}</span>
         </button>
       )}
       {complete && (
         <div className="mt-1 rounded-md bg-[color:var(--sigma-warn)]/10 px-2 py-1 text-[12px] font-semibold text-foreground">
-          כל שלבי הקליטה הושלמו. להעביר לפעילים? (מתבצע בעריכת פרטי הקיבוץ ✏️)
+          כל שלבי הקליטה הושלמו. להעביר לפעילים? (מתבצע בעריכת פרטי הקיבוץ)
         </div>
       )}
     </div>

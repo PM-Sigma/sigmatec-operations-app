@@ -49,12 +49,12 @@ test('onboarding: a waits step goes to waiting before done', async ({ page }, ti
   await strip.locator('.onboarding-next-step').click();
   await expect(strip).toContainText('1/9');
   await expect(strip.locator('.onboarding-next-step')).toContainText('קבלת רשימת לקוחות');
-  await expect(strip.locator('.onboarding-next-step')).not.toContainText('⏳');
+  await expect(strip.locator('.onboarding-next-step svg.lucide-hourglass')).toHaveCount(0);
 
   // tapping it now sends it to waiting (not done) — the progress count does not move
   await strip.locator('.onboarding-next-step').click();
   await expect(strip).toContainText('1/9');
-  await expect(strip.locator('.onboarding-next-step')).toContainText('⏳');
+  await expect(strip.locator('.onboarding-next-step svg.lucide-hourglass')).toBeVisible();
 
   await expectNoConsoleErrors(rec);
 });

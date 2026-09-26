@@ -5,6 +5,7 @@ import * as React from 'react';
 import { AnimatePresence, useReducedMotion } from 'motion/react';
 import { KibbutzCard } from '@/components/home/KibbutzCard';
 import type { KibbutzRow, RegionGroup } from '@/lib/kibbutzim';
+import type { LucideIcon } from 'lucide-react';
 
 /** Animates from the previous value to `value` over ~350 ms (step-wise, reduced-motion safe). */
 export function NumberTicker({ value }: { value: number }) {
@@ -33,9 +34,11 @@ export function NumberTicker({ value }: { value: number }) {
 }
 
 export function Section({
-  title, groups, count, role, canEdit, highlight, onEdit,
+  title, icon: Icon, groups, count, role, canEdit, highlight, onEdit,
 }: {
   title: string;
+  /** A leading lucide icon (spec: PenLine on the drafts/timer section) — emoji stay out of titles. */
+  icon?: LucideIcon;
   groups: RegionGroup[];
   count: number;
   role: string;
@@ -47,6 +50,7 @@ export function Section({
   return (
     <section className="mb-1">
       <header className="mb-1.5 mt-3 flex items-center gap-2 px-0.5">
+        {Icon && <Icon aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />}
         <h3 className="text-sm font-bold text-muted-foreground">{title}</h3>
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
           <NumberTicker value={count} />
