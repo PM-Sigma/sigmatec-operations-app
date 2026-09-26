@@ -516,7 +516,7 @@ describe('round 5 · A4 — where a day came from', () => {
   });
   it('the line under an automatic day', () => {
     expect(originLine({ date: '2026-09-01', type: 'field', source: 'visit_auto', kibbutz: 'יגור', hours: 4 }))
-      .toBe('נרשם אוטומטית מסיכום הביקור · יגור · 4 ש׳');
+      .toBe('נרשם אוטומטית מסיכום הביקור · יגור · 4 שעות');
     expect(originLine({ date: '2026-09-01', type: 'field', source: 'visit_auto' })).toBe('נרשם אוטומטית מסיכום הביקור');
     expect(originLine({ date: '2026-09-03', type: 'vacation', source: 'calendar' })).toBe('נרשם מהיומן');
     expect(originLine({ date: '2026-09-02', type: 'office' })).toBe('');
