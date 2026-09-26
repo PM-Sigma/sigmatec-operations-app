@@ -85,6 +85,20 @@ test('presenter: the keys walk the board, mark a moment and write one line', asy
   // Task 28 has not shipped — its strip is simply absent, not broken
   await expect(page.getByTestId('presenter-strip-extra')).toHaveCount(0);
 
+  // designer round-4: the composer must never sit outside the viewport or bleed past its own
+  // parent on either RTL side — geometry, not a screenshot guess.
+  const composerBox = await page.evaluate(() => {
+    const input = document.querySelector('[data-testid="presenter-quicknote"]') as HTMLElement;
+    const row = input?.closest('footer') as HTMLElement;
+    const ir = input.getBoundingClientRect();
+    const rr = row.getBoundingClientRect();
+    return { vw: window.innerWidth, input: { left: ir.left, right: ir.right }, row: { left: rr.left, right: rr.right } };
+  });
+  expect(composerBox.input.left).toBeGreaterThanOrEqual(composerBox.row.left);
+  expect(composerBox.input.right).toBeLessThanOrEqual(composerBox.row.right);
+  expect(composerBox.row.left).toBeGreaterThanOrEqual(0);
+  expect(composerBox.row.right).toBeLessThanOrEqual(composerBox.vw);
+
   await shot(page, ti, 'kibbutz');
 
   // ── Space marks the moment WITHOUT moving the screen

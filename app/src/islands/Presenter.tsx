@@ -45,7 +45,17 @@ function ensurePresenterToastStyle(): void {
   if (document.getElementById(PRESENTER_TOAST_STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = PRESENTER_TOAST_STYLE_ID;
-  style.textContent = '[data-sonner-toaster]{bottom:var(--presenter-dock-offset,24px) !important;}';
+  style.textContent = [
+    '[data-sonner-toaster]{bottom:var(--presenter-dock-offset,24px) !important;}',
+    // round-6 round-4: the ✕ badge's own default transform (translate(35%,-35%), RTL) is
+    // Sonner's "peek past the corner" look by design — the designer wants it fully INSIDE the
+    // toast instead, so this drops the outward translate and nudges it in from the edge.
+    '[data-sonner-toast] [data-close-button]{transform:none !important;top:6px !important;inset-inline-end:6px !important;}',
+    // Sonner already centers x-position, so a centred composer (below) and a centred toast
+    // line up on the SAME axis at any width — the toast keeps its own native width rather than
+    // matching the composer's 720px cap pixel-for-pixel.
+    '@media (min-width:1024px){[data-sonner-toaster]{--width:720px !important;}}',
+  ].join('');
   document.head.appendChild(style);
 }
 import { Bookmark, ChevronLeft, ChevronRight, MoreHorizontal, Pause, Pencil, Play, Video, X } from 'lucide-react';
@@ -454,11 +464,12 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   // shared app-wide, so this reads a var on `<html>` + an injected stylesheet rule rather than
   // touching that shared component — package S is free to change the app's normal offset
   // without a merge fight here, and this rule only ever WINS while a bottom toast exists,
-  // never while there is none. Bottom-center toasts must clear the dock (12px breathing room
-  // above it) instead of landing under the composer at 1440 or below the fold on a short phone.
+  // never while there is none. Bottom-center toasts must clear the WHOLE dock (both footer rows)
+  // with real breathing room (round-4: a toast was still grazing the prev/next row on some
+  // phones with only 12px of margin) — 20px, not 12.
   React.useEffect(() => {
     ensurePresenterToastStyle();
-    document.documentElement.style.setProperty('--presenter-dock-offset', (dockH + 12) + 'px');
+    document.documentElement.style.setProperty('--presenter-dock-offset', (dockH + 20) + 'px');
     return () => { document.documentElement.style.removeProperty('--presenter-dock-offset'); };
   }, [dockH]);
 
@@ -825,52 +836,58 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         ref={footerRef}
         className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-border bg-background px-4 pb-4 pt-3 sm:px-8 sm:pb-8"
       >
-        <div className="grid w-full grid-cols-2 gap-2">
-          <button
-            type="button"
-            data-testid="presenter-prev"
-            onClick={() => move(-1)}
-            aria-label="הקודם"
-            className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
-          >
-            <ChevronRight size={26} aria-hidden />
-            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
-              <bdi>{rows[idx - 1] ? labelOf(rows[idx - 1]) : ''}</bdi>
-            </span>
-          </button>
-          <button
-            type="button"
-            data-testid="presenter-next"
-            onClick={() => move(1)}
-            aria-label="הבא"
-            className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
-          >
-            <ChevronLeft size={26} aria-hidden />
-            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
-              <bdi>{rows[idx + 1] ? labelOf(rows[idx + 1]) : ''}</bdi>
-            </span>
-          </button>
-        </div>
-        <div className="flex w-full min-w-0 items-center gap-2">
-          <input
-            ref={noteRef}
-            data-testid="presenter-quicknote"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            placeholder="שורה אחת, אם בא לך"
-            aria-label="שורה אחת, אם בא לך"
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-muted px-3 text-[15px] text-foreground outline-none focus:border-[color:var(--brand-1)]"
-          />
-          <BubbleButton
-            variant="neutral"
-            size="md"
-            icon={<Bookmark size={16} aria-hidden />}
-            data-testid="presenter-marker"
-            onClick={() => void doMark(true)}
-            className="flex-none"
-          >
-            סמן רגע
-          </BubbleButton>
+        {/* Capped + centred at wide desktop (round-6 round-4 nice: ~720px, not edge-to-edge at
+            1440) — everything below reads relative to THIS box, not the raw dialog width, which
+            is also why the toast (centred on the viewport) lines up with it: at any width where
+            the dialog fills the viewport, the viewport centre and this box's centre coincide. */}
+        <div className="mx-auto flex w-full max-w-[720px] flex-col gap-2">
+          <div className="grid w-full grid-cols-2 gap-2">
+            <button
+              type="button"
+              data-testid="presenter-prev"
+              onClick={() => move(-1)}
+              aria-label="הקודם"
+              className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
+            >
+              <ChevronRight size={26} aria-hidden />
+              <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+                <bdi>{rows[idx - 1] ? labelOf(rows[idx - 1]) : ''}</bdi>
+              </span>
+            </button>
+            <button
+              type="button"
+              data-testid="presenter-next"
+              onClick={() => move(1)}
+              aria-label="הבא"
+              className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
+            >
+              <ChevronLeft size={26} aria-hidden />
+              <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+                <bdi>{rows[idx + 1] ? labelOf(rows[idx + 1]) : ''}</bdi>
+              </span>
+            </button>
+          </div>
+          <div className="flex w-full min-w-0 items-center gap-2">
+            <input
+              ref={noteRef}
+              data-testid="presenter-quicknote"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              placeholder="שורה אחת, אם בא לך"
+              aria-label="שורה אחת, אם בא לך"
+              className="min-h-11 min-w-0 flex-1 basis-0 rounded-xl border border-border bg-muted px-3 text-[15px] text-foreground outline-none focus:border-[color:var(--brand-1)]"
+            />
+            <BubbleButton
+              variant="neutral"
+              size="md"
+              icon={<Bookmark size={16} aria-hidden />}
+              data-testid="presenter-marker"
+              onClick={() => void doMark(true)}
+              className="flex-none"
+            >
+              סמן רגע
+            </BubbleButton>
+          </div>
         </div>
       </footer>
 

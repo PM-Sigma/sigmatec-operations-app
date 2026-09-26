@@ -28,7 +28,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.attSave` | js/src/00-bridge.js:555 | *(own logic)* | app/src/islands/Attendance.tsx:328 |
 | `sigma.beginReLogin` | js/src/00-bridge.js:539 | *(own logic)* | **—** |
 | `sigma.calAddEvent` | js/src/00-bridge.js:598 | `calAddEvent` → js/src/14-calendar.js:177 | **—** |
-| `sigma.calFetchEvents` | js/src/00-bridge.js:597 | `calFetchEvents` → js/src/14-calendar.js:150 | app/src/islands/Calendar.tsx:103<br>app/src/islands/Presenter.tsx:126 |
+| `sigma.calFetchEvents` | js/src/00-bridge.js:597 | `calFetchEvents` → js/src/14-calendar.js:150 | app/src/islands/Calendar.tsx:103<br>app/src/islands/Presenter.tsx:136 |
 | `sigma.calIslandMounted` | js/src/00-bridge.js:612 | *(own logic)* | app/src/islands/Calendar.tsx:1579 |
 | `sigma.canExportExcel` | js/src/00-bridge.js:448 | `canExportExcel` → js/src/21-excel-export.js:7 | **—** |
 | `sigma.canInstall` | js/src/00-bridge.js:582 | `canInstall` → js/src/16-install.js:32 | app/src/islands/Settings.tsx:102 |
@@ -143,7 +143,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `user-changed` | js/src/11-search-login.js:229<br>js/src/11-search-login.js:250<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:421<br>app/src/islands/Attendance.tsx:292<br>app/src/islands/FeedbackInbox.tsx:233<br>app/src/islands/Field.tsx:167<br>app/src/islands/Usage.tsx:218<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:674<br>js/src/09-visits.js:705<br>js/src/09-visits.js:772<br>js/src/09-visits.js:907 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
 | `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:158<br>js/src/00-bridge.js:490<br>app/src/islands/Field.tsx:2119 |
-| `visit-saved` | js/src/09-visits.js:1183<br>js/src/09-visits.js:1376<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:285<br>app/src/islands/Calendar.tsx:1124<br>app/src/islands/Field.tsx:166<br>app/src/islands/Field.tsx:2234<br>app/src/islands/Presenter.tsx:159<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
+| `visit-saved` | js/src/09-visits.js:1183<br>js/src/09-visits.js:1376<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:285<br>app/src/islands/Calendar.tsx:1124<br>app/src/islands/Field.tsx:166<br>app/src/islands/Field.tsx:2234<br>app/src/islands/Presenter.tsx:169<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
 | `work-session-saved` | app/src/components/home/WorkTimerStopSheet.tsx:118 | app/src/islands/Home.tsx:109<br>app/src/islands/Hours.tsx:151 |
 
 ## (c) Islands — placeholder in `index.html` ↔ mount in `main.tsx`
@@ -175,7 +175,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-modal-meetings` | :645 | app/src/main.tsx:143 |
 | `#sigma-my-tasks` | :1287 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:124 |
 | `#sigma-nav` | :1288 | app/src/main.tsx:78 |
-| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:968<br>app/src/main.tsx:434 |
+| `#sigma-presenter` | :1263 | app/src/islands/Presenter.tsx:985<br>app/src/main.tsx:434 |
 | `#sigma-refresh` | :1282 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:94 |
 | `#sigma-relogin` | :1279 | app/src/components/ReLoginSheet.tsx:143 |
 | `#sigma-settings` | :1257 | app/src/islands/Settings.tsx:395<br>app/src/main.tsx:310 |
@@ -277,7 +277,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:383 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:207 |
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:155 |
-| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:971 |
+| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:988 |
 | `presenter` | `Presentation` | app/src/main.tsx:458 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:397 |
 | `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:103 |
