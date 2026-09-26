@@ -65,6 +65,10 @@ async function openCalendarVisitSheet(page: import('@playwright/test').Page) {
     return !!grid && grid.offsetParent !== null;
   }), { timeout: 20_000 }).toBe(true);
   await expect(page.locator('[data-testid="cal-grid"][data-loaded="1"]')).toBeVisible({ timeout: 20_000 });
+  // חודש מלא — the state the designer's report was actually about (week numbers only show
+  // here); default חודש עבודה never has a week-number gutter to check.
+  const workWeekBtn = page.getByRole('button', { name: /^חודש מלא$/ });
+  if (await workWeekBtn.count()) await workWeekBtn.click();
   const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם')?.date || '').slice(0, 10));
   // The real tap path, not the test bridge: tap the DayCell itself (opens the mobile day
   // SHEET), then the visit row inside it (closes the day sheet, opens the visit sheet) — the
@@ -111,6 +115,32 @@ async function assertEveryElementInViewport(page: import('@playwright/test').Pag
     return out.slice(0, 10);
   });
   expect(offenders, `element(s) spill outside the ${await page.evaluate(() => window.innerWidth)}px viewport:\n${offenders.join('\n')}`).toEqual([]);
+}
+
+/** Designer round 4 (26.9): every calendar header control and week-number label must sit
+    inside a real 16px page gutter on both sides at 360 — not just "not scrolling the page",
+    which a control flush at x≈0 still satisfies. `left` measured against a 16px allowance for
+    subpixel rounding, matching `assertNoOverflow`'s own +1 tolerance philosophy. */
+async function assertCalendarGutter(page: import('@playwright/test').Page, width: number) {
+  const rects = await page.evaluate(() => {
+    const sels = [
+      '[data-testid="cal-prev"]', '[data-testid="cal-next"]', '[data-testid="cal-today"]',
+      '[data-testid="cal-work-week"]', '[data-view="month"]', '[data-view="week"]', '[data-view="list"]',
+      '[data-testid="cal-weeklabel"]',
+    ];
+    const out: Array<{ sel: string; left: number; right: number }> = [];
+    for (const sel of sels) {
+      for (const el of Array.from(document.querySelectorAll(sel))) {
+        const r = (el as HTMLElement).getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        out.push({ sel, left: r.left, right: r.right });
+      }
+    }
+    return out;
+  });
+  const gutter = 16;
+  const bad = rects.filter(r => r.left < gutter - 1 || r.right > width - gutter + 1);
+  expect(bad, `header control(s)/week label(s) outside the [${gutter}, ${width - gutter}] gutter:\n${JSON.stringify(bad)}`).toEqual([]);
 }
 
 async function openInventory(page: import('@playwright/test').Page) {
@@ -164,6 +194,7 @@ for (const width of WIDTHS) {
         await openCalendarVisitSheet(page);
         await assertNoOverflow(page);
         await assertEveryElementInViewport(page);
+        await assertCalendarGutter(page, width);
       });
 
       test(`calendar list view (${width})`, async ({ page }, ti) => {

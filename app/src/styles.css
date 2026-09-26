@@ -401,6 +401,34 @@
   font-weight: 700;
 }
 
+/* Round 4 designer fix (26.9): css/app.css's legacy mobile rule (`body{padding:10px}`, out of
+   this package's scope) left every calendar header control and week-number gutter only 10px
+   from the viewport edge at ≤768px — 6px short of the design-system's 16px page gutter, which
+   read as "חודש עבודה clipped" and week numbers "cut at the right edge".
+   NEITHER a negative margin NOR a flat "add 6px" assumption survives contact with a real
+   Sheet: opening one flips body's OWN horizontal padding from 10px to 0px (some app-level
+   modal-open handling, not Radix's scroll-lock — caught live: `getComputedStyle(body).padding`
+   measured "10px 10px 84px" closed, "0px 0px 84px" open). A margin trick calibrated to cancel
+   10px then overshoots by 10px once body has none (documentElement.scrollWidth really hit 370
+   at a 360 viewport, and real mobile Chrome emulation grew the whole layout viewport to match,
+   shifting the shared bottom nav and every fixed sheet with it). A flat +6px calibrated the
+   same way instead comes up 10px SHORT once body has none. Full-bleed instead: pull #calendar-
+   view out to the true viewport width via `100vw` (never affected by body's own padding,
+   whatever it does) and give IT the one real 16px gutter. `!important` only because
+   `#calendar-view`'s own inline `padding:16px 0` (index.html) otherwise wins on padding-inline
+   over any external rule at equal origin. */
+@media (max-width: 768px) {
+  #calendar-view {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    width: 100vw;
+    margin-inline: -50vw;
+    padding-inline: 16px !important;
+    box-sizing: border-box;
+  }
+}
+
 /* ===== 🗓️ יומן — the unified calendar (spec §7f, round 5 · C-U1 on the design system) =====
    Week numbers are NO LONGER a column (round 5 ruling): each week is one ROW, and its number
    is a small caption INSIDE that row — first in the DOM, which in RTL sits on the right —
