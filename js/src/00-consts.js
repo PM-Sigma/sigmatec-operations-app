@@ -1,3 +1,16 @@
+  // Mirrors the live Sheet catalog names (confirmed 2026-06-24) so offline/mock mode matches
+  // production. Moved here from js/src/09-visits.js (U10): js/src/06-inventory.js's
+  // getActiveProducts reaches it, and a later file's const is a TDZ risk at boot.
+  const PRODUCT_LIST = [
+    'Satec EM133','Satec PM135','מונה Landis+Gyr E360PP','מונה Landis+Gyr E360SP','Landis+Gyr E360CT','Landis+Gyr E570',
+    'Robustel Controller','PUSR Controller',
+    'Partner Sim','Cellcom Sim',
+    'כרטיס תקשורת צרוב(E350)',
+    'אנטנה',
+    'ספק כוח פס-דין','ספק כוח שקע',
+    'משנ"ז 250','משנ"ז 400'
+  ];
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SESSION CONSTANTS — concatenated FIRST, and that is the whole point.
   //
@@ -126,17 +139,12 @@
   window.visitEditableUntil = visitEditableUntil;
   window.visitEditLocked = visitEditLocked;
 
-  // 📦 package I cutover switch. false = the legacy inventory UI; true = the React islands. QA may override per
-  // device with localStorage 'sigma-inv-react' = '1' | '0'. Removed with the legacy code (U10).
-  const INV_REACT = true;
-  function invReact() {
-    try { const o = localStorage.getItem('sigma-inv-react'); if (o === '1') return true; if (o === '0') return false; } catch (e) {}
-    return INV_REACT;
-  }
-  function invReactOpen(detail) {
+  // 📦 package I: the inventory screens are React-only now (U10 removed the legacy UI and the
+  // INV_REACT flag with it). invOpen (was invReactOpen, U1) is the one door every legacy trigger
+  // point still knocks on.
+  function invOpen(detail) {
     (window.__sigmaInvQueue = window.__sigmaInvQueue || []).push(detail);
     try { window.dispatchEvent(new CustomEvent('sigma-inv-open', { detail: detail })); } catch (e) {}
   }
-  window.invReact = invReact;
-  window.invReactOpen = invReactOpen;
+  window.invOpen = invOpen;
 
