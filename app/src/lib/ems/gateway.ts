@@ -7,7 +7,7 @@
 import { sigma } from '@/bridge';
 import type {
   CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsSite, EmsTask, EmsUser,
-  ListTasksQuery, TaskPatch, WriteResult,
+  ListTasksQuery, OfflineQueueItem, TaskPatch, WriteResult,
 } from './types';
 import { restAdapter } from './adapters/rest';
 
@@ -40,6 +40,16 @@ export interface EmsGateway {
 
   listComments(taskId: string): Promise<EmsComment[]>;
   addComment(taskId: string, text: string): Promise<WriteResult>;
+
+  /**
+   * Synchronous, network-free enqueue for a caller that CANNOT await (pagehide/unload — a
+   * `flush()` there races the tab actually dying, not just a slow network). Writes straight
+   * into the same offline queue `addComment`/`updateTask` themselves fall back to when
+   * disconnected, so a page reload drains it exactly like any other parked write. Used ONLY by
+   * `meetingClose.ts`'s `flush()` (Opus round-6 audit, M-U data-loss item); every other write
+   * goes through the normal async `addComment`/`updateTask` path above.
+   */
+  queueOffline(item: OfflineQueueItem): void;
 
   listUsers(): Promise<EmsUser[]>;
 

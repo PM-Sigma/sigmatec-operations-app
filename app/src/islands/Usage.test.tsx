@@ -67,6 +67,12 @@ describe('📈 שימוש island', () => {
     vi.resetModules();
   });
 
+  // Explicit timeout, not the 15s default: this is the file's heaviest render (KPI strip + heat
+  // table + top actions + narrative, four `findByText` waits chained), and it was seen timing
+  // out under a fully-loaded test-all run (many vitest workers + a concurrent build sharing the
+  // same CPU) while passing in isolation in ~3.5s — a real load-sensitivity, not a logic bug. A
+  // generous fixed ceiling keeps the test deterministic under contention without hiding an
+  // actual regression (a hung render still fails, just not on a hair-trigger).
   it('opens on the #usage deep link (the weekly push action) and renders the report', async () => {
     asUser('עידן', { idan: true });
     location.hash = '#usage';
@@ -92,7 +98,7 @@ describe('📈 שימוש island', () => {
     // the roster is always listed, so a person with no events is visible as such
     // twice on purpose: once as a heat-table row, once in "נראו לאחרונה"
     expect(screen.getAllByText('מתניה')).toHaveLength(2);
-  });
+  }, 30_000);
 
   it('renders no emoji anywhere in the sheet (round 5 R-U3: emoji out, lucide icons in)', async () => {
     asUser('עידן', { idan: true });

@@ -2,11 +2,13 @@
 // included: this is the one write surface a viewer has, and it is deliberate.
 //
 // Voice is a LADDER, not platform detection (app/src/lib/feedback.ts speechLadder):
-//   live    Web Speech API he-IL, transcript straight into the textarea, nothing uploaded
 //   record  MediaRecorder → private bucket `feedback-audio` → Edge Fn `transcribe` → text
-// The fallback is taken when Web Speech is missing, when the mic is refused, when recognition
-// errors — and when 3 s of listening produced nothing (Android on a weak signal looks exactly
-// like iOS Safari from here, and both are better served by the server path than by a spinner).
+//           THE DEFAULT whenever MediaRecorder exists (round: the Android S24 growing-prefix
+//           bug — Android Chrome's `continuous=true` live delivery is what caused it).
+//   live    Web Speech API he-IL, transcript straight into the textarea, nothing uploaded —
+//           used only when MediaRecorder is missing (or forced via `?speech=live`, testing).
+// A forced/only-option live leg still falls back to record on denial, an error, or 3 s of
+// silence (Android on a weak signal looks exactly like iOS Safari from here either way).
 import * as React from 'react';
 import { toast } from 'sonner';
 import { Loader2, Mic, Square } from 'lucide-react';
