@@ -420,8 +420,10 @@
 @media (max-width: 768px) {
   #calendar-view {
     position: relative;
-    left: 50%;
-    right: 50%;
+    /* Opus re-audit (26.9): the two physical inset longhands (each 50%) failed test-rtl.mjs's
+       scan regardless of the values being direction-symmetric. `inset-inline: 50%` is the
+       logical equivalent (sets both inline-axis insets to 50%, same effect). */
+    inset-inline: 50%;
     width: 100vw;
     margin-inline: -50vw;
     padding-inline: 16px !important;
