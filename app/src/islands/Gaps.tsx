@@ -11,10 +11,16 @@
 // mirror text about it.
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, CheckCircle2, ClipboardList } from 'lucide-react';
+import { Bell, CalendarDays, CheckCircle2, ClipboardList, ExternalLink, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SectionBlock } from '@/components/ui/section-block';
+import { SectionError } from '@/components/ui/section-error';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ListRow } from '@/components/ui/list-row';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
@@ -24,8 +30,15 @@ import { sigma, sigmaBus, useCurrentUser } from '@/bridge';
 import { ymd, type AttRow, type Holiday } from '@/lib/attendance';
 import {
   defaultRange, flattenDayPlans, gapsFor, gapsSummary, nudgeable, shiftDays,
-  type DayPlanRow, type Gap, type GapSources, type GapTask,
+  type DayPlanRow, type Gap, type GapKind, type GapSources, type GapTask,
 } from '@/lib/gaps';
+
+/** gap.actionIcon (lucide names, round 5 L1) → the actual component the row's bubble draws. */
+const ACTION_ICON = { MapPin, CalendarDays, ExternalLink } as const;
+
+/** The three SectionBlocks a triage list groups into (round 5 U2). */
+const KIND_TITLE: Record<GapKind, string> = { visit: 'סיכומי ביקור', attendance: 'נוכחות', task: 'משימות' };
+const KIND_ORDER: GapKind[] = ['visit', 'attendance', 'task'];
 
 export const GAPS_OPEN_EVENT = 'sigma-open-gaps';
 
@@ -117,23 +130,28 @@ async function fetchSources(people: string[], from: string, today: string): Prom
   return out;
 }
 
+/** One gap, as a ListRow whose meta line carries a tonal action bubble (round 5 U2: this is a
+    TRIAGE list — the row itself isn't the tap target, the bubble under it is). */
 function GapRow({ gap, onAct }: { gap: Gap; onAct: (g: Gap) => void }) {
+  const Icon = ACTION_ICON[gap.actionIcon];
   return (
-    <li className="flex items-center gap-2 border-b border-border py-2.5 last:border-b-0">
-      <span className="flex-1 text-[13px] leading-snug text-foreground">{gap.text}</span>
-      <button
-        type="button"
-        onClick={() => onAct(gap)}
-        className="min-h-9 flex-none rounded-[10px] s-brand px-3 text-[12px] font-extrabold"
-      >
-        {gap.actionLabel}
-      </button>
-    </li>
+    <ListRow
+      title={gap.text}
+      meta={
+        <BubbleButton variant="tonal" size="sm" className="mt-1.5" icon={<Icon aria-hidden className="h-3.5 w-3.5" />} onClick={() => onAct(gap)}>
+          {gap.actionLabel}
+        </BubbleButton>
+      }
+    />
   );
 }
 
-/** The list for ONE person, with its own actions. Exported so the settings panel can embed it. */
-export function GapsList({ person, onClose }: { person: string; onClose?: () => void }) {
+/** The list for ONE person, grouped into a SectionBlock per kind. Exported so the settings
+    panel can embed it. `nudge` renders an admin's "שליחת תזכורת" IconBubble on the block
+    header when supplied — hidden for the field worker's own list and for the viewer. */
+export function GapsList({ person, onClose, nudge }: {
+  person: string; onClose?: () => void; nudge?: React.ReactNode;
+}) {
   const today = ymd(new Date());
   const range = React.useMemo(() => defaultRange(today), [today]);
   const qc = useQueryClient();
@@ -173,26 +191,39 @@ export function GapsList({ person, onClose }: { person: string; onClose?: () => 
   }, [onClose]);
 
   if (q.isLoading) return <div className="flex flex-col gap-2 py-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>;
-  if (q.isError) return <p className="py-4 text-[13px] text-muted-foreground">הרשימה לא נטענה. נסה שוב בעוד רגע.</p>;
+  if (q.isError) return <SectionError text="לא הצלחנו לטעון את הפערים." onRetry={() => void qc.invalidateQueries({ queryKey: ['gaps'] })} />;
+
+  if (!gaps.length) {
+    return <EmptyState icon={<CheckCircle2 />} title="אין פערים פתוחים." />;
+  }
 
   return (
-    <div data-testid="gaps-list" data-count={gaps.length}>
-      <p className="flex items-center gap-1.5 py-2 text-[13px] font-semibold text-foreground">
-        {gaps.length === 0 && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-        {gapsSummary(gaps)}
-      </p>
-      <ul className="flex flex-col">
-        {gaps.map(g => <GapRow key={g.id} gap={g} onAct={act} />)}
-      </ul>
+    <div data-testid="gaps-list" data-count={gaps.length} className="flex flex-col gap-3">
+      {nudge && <div className="flex items-center justify-between px-1">
+        <span className="text-[13px] font-semibold text-muted-foreground">{gapsSummary(gaps)}</span>
+        {nudge}
+      </div>}
+      {KIND_ORDER.map(kind => {
+        const inKind = gaps.filter(g => g.kind === kind);
+        if (!inKind.length) return null;
+        return (
+          <SectionBlock key={kind} title={KIND_TITLE[kind]} count={inKind.length}>
+            {inKind.map(g => <GapRow key={g.id} gap={g} onAct={act} />)}
+          </SectionBlock>
+        );
+      })}
     </div>
   );
 }
 
-/** עמיחי / the viewer: one line per person, a count, and the 🔔. */
-function EveryoneList() {
+/** עמיחי / עידן / הצפייה: a per-person picker (≤4 field people, so SegmentedControl fits),
+    then the same GapsList kind-blocks for whoever is selected — with an admin-only nudge
+    IconBubble on the block header (round 5 U2). The viewer never nudges (§7h: he only reads). */
+function EveryoneList({ isViewer }: { isViewer: boolean }) {
   const today = ymd(new Date());
   const range = React.useMemo(() => defaultRange(today), [today]);
   const people = React.useMemo(fieldPeople, []);
+  const [person, setPerson] = React.useState(() => people[0] || '');
   const [sent, setSent] = React.useState<Record<string, boolean>>({});
 
   const q = useQuery({
@@ -200,44 +231,48 @@ function EveryoneList() {
     queryFn: () => fetchSources(people, range.from, range.today),
   });
 
-  const nag = async (person: string, count: number) => {
-    track('gap-nudge', person);
-    const ok = await sigma.gapNag?.(person, count);
-    setSent(s => ({ ...s, [person]: true }));
-    if (ok) toast.success('נשלחה תזכורת ל' + person);
+  const gapsByPerson = React.useMemo(() => {
+    const out: Record<string, Gap[]> = {};
+    for (const p of people) out[p] = q.data ? gapsFor(p, q.data[p] || {}, range) : [];
+    return out;
+  }, [q.data, people, range]);
+
+  const nag = async (p: string, count: number) => {
+    track('gap-nudge', p);
+    const ok = await sigma.gapNag?.(p, count);
+    setSent(s => ({ ...s, [p]: true }));
+    if (ok) toast.success('נשלחה תזכורת ל' + p);
   };
 
   if (q.isLoading) return <div className="flex flex-col gap-2 py-3">{people.map(p => <Skeleton key={p} className="h-12 w-full" />)}</div>;
 
+  const worth = nudgeable(gapsByPerson[person] || [], range.today).length;
+
   return (
-    <ul className="flex flex-col" data-testid="gaps-everyone">
-      {people.map(person => {
-        const gaps = q.data ? gapsFor(person, q.data[person] || {}, range) : [];
-        const worth = nudgeable(gaps, range.today).length;
-        return (
-          <li key={person} className="flex items-center gap-2 border-b border-border py-3 last:border-b-0" data-person={person}>
-            <div className="flex-1">
-              <div className="text-[14px] font-semibold text-foreground">{person}</div>
-              <div className="text-[12px] text-muted-foreground">
-                {gaps.length ? <><bdi>{gaps.length}</bdi> פריטים פתוחים</> : 'אין פערים פתוחים'}
-              </div>
-            </div>
-            {worth > 0 && (
-              <button
-                type="button"
-                data-testid={'gap-nudge-' + person}
-                onClick={() => void nag(person, gaps.length)}
-                disabled={!!sent[person]}
-                title={'שלח תזכורת ל' + person}
-                className="inline-flex min-h-9 flex-none items-center gap-1 rounded-[10px] border border-border bg-card px-3 text-[12px] font-extrabold text-foreground disabled:opacity-50"
-              >
-                <Bell className="h-4 w-4" /> תזכורת
-              </button>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+    <div data-testid="gaps-everyone" className="flex flex-col gap-3">
+      {people.length > 1 && (
+        <SegmentedControl
+          ariaLabel="בחירת עובד"
+          options={people.map(p => ({ value: p, label: p }))}
+          value={person}
+          onChange={setPerson}
+        />
+      )}
+      <GapsList
+        person={person}
+        nudge={!isViewer && worth > 0 ? (
+          <BubbleButton
+            data-testid={'gap-nudge-' + person}
+            variant="icon"
+            aria-label={'שליחת תזכורת ל' + person}
+            disabled={!!sent[person]}
+            onClick={() => void nag(person, gapsByPerson[person].length)}
+          >
+            <Bell aria-hidden className="h-4 w-4" />
+          </BubbleButton>
+        ) : undefined}
+      />
+    </div>
   );
 }
 
@@ -250,7 +285,7 @@ function GapsIsland() {
     if (pendingOpen) { pendingOpen = false; return true; }
     return false;
   });
-  const { name: user } = useCurrentUser();
+  const { name: user, isViewer } = useCurrentUser();
 
   React.useEffect(() => {
     if (open) track('gaps-open'); // covers the cold-open path (state already true on mount)
@@ -274,13 +309,13 @@ function GapsIsland() {
       <SheetContent side="bottom" data-testid="gaps-sheet" className="max-h-[88svh] overflow-y-auto">
         <SheetHeader className="text-start">
           <SheetTitle className="flex items-center gap-2 text-base">
-            <ClipboardList className="h-5 w-5" /> {everyone ? 'פערים פתוחים' : 'הפערים שלי'}
+            <ClipboardList aria-hidden className="h-5 w-5" /> פערים
           </SheetTitle>
           <SheetDescription>
-            {everyone ? 'שלושת השבועות האחרונים' : 'מה שנשאר לסגור מהשבועות האחרונים'}
+            {everyone ? 'שלושת השבועות האחרונים, לפי עובד' : 'מה שנשאר לסגור מהשבועות האחרונים'}
           </SheetDescription>
         </SheetHeader>
-        {everyone ? <EveryoneList /> : <GapsList person={user} onClose={() => setOpen(false)} />}
+        {everyone ? <EveryoneList isViewer={isViewer} /> : <GapsList person={user} onClose={() => setOpen(false)} />}
       </SheetContent>
     </Sheet>
   );

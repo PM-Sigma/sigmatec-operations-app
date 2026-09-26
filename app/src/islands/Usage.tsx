@@ -10,10 +10,14 @@
 // 30-day bar (shadcn Charts / Recharts — the app's first use of the chart library, spec §7j).
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Bell, Loader2 } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SectionBlock } from '@/components/ui/section-block';
+import { SectionError } from '@/components/ui/section-error';
+import { ListRow } from '@/components/ui/list-row';
+import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
@@ -56,7 +60,7 @@ let opener: (() => void) | null = null;
 
 export function openUsage(): void {
   if (!canSeeUsage()) { sigma?.toast?.('עמוד השימוש מוגבל לעידן'); return; }
-  if (opener) opener(); else sigma?.toast?.('העמוד עוד לא נטען. רענן');
+  if (opener) opener(); else sigma?.toast?.('העמוד עוד לא נטען. אפשר לרענן.');
 }
 
 // ───────────────────────── data ─────────────────────────
@@ -77,21 +81,16 @@ async function fetchUsage(actor: string): Promise<UsageEvent[]> {
 // ───────────────────────── pieces ─────────────────────────
 
 function Kpi({ report }: { report: UsageReport }) {
-  const cells: { value: string; label: string }[] = [
-    { value: String(report.kpi.actionsWeek), label: 'פעולות השבוע' },
-    { value: report.kpi.activePeople + '/' + report.kpi.people, label: 'משתמשים פעילים' },
-    { value: String(report.kpi.zeroPages), label: 'דפים ללא שימוש' },
-    { value: mmss(report.kpi.medianSeconds), label: 'דק׳ לפעולה ראשונה' },
+  const cells: { id: string; value: string; label: string }[] = [
+    { id: 'actions', value: String(report.kpi.actionsWeek), label: 'פעולות השבוע' },
+    { id: 'active', value: report.kpi.activePeople + '/' + report.kpi.people, label: 'משתמשים פעילים' },
+    { id: 'zero', value: String(report.kpi.zeroPages), label: 'דפים ללא שימוש' },
+    { id: 'median', value: mmss(report.kpi.medianSeconds), label: 'דק׳ לפעולה ראשונה' },
   ];
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {cells.map(c => (
-        <div key={c.label} className="rounded-xl border border-border bg-muted/50 p-2 text-center">
-          <b className="block text-lg font-extrabold leading-tight"><bdi>{c.value}</bdi></b>
-          <small className="text-[11px] text-muted-foreground">{c.label}</small>
-        </div>
-      ))}
-    </div>
+    <StatTileGrid>
+      {cells.map(c => <StatTile key={c.id} value={<bdi>{c.value}</bdi>} label={c.label} />)}
+    </StatTileGrid>
   );
 }
 
@@ -102,7 +101,7 @@ const HEAT_BG = ['bg-muted/40', 'bg-primary/15', 'bg-primary/35', 'bg-primary/60
 function HeatTable({ report }: { report: UsageReport }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full border-collapse text-center text-[12px]">
+      <table className="w-full border-collapse text-center text-[12px] tabular-nums">
         <thead>
           <tr className="bg-muted/60">
             <th className="sticky start-0 bg-muted/60 p-1.5 text-start font-bold">שם</th>
@@ -167,12 +166,10 @@ function Narrative({ events }: { events: UsageEvent[] }) {
   }, [events]);
 
   return (
-    <div className="rounded-xl border border-border bg-muted/40 p-2.5">
-      <b className="text-[13px]">🔔 התקציר השבועי (ראשון 08:00)</b>
-      <ul className="mt-1.5 list-disc space-y-1 ps-5 text-[12.5px] leading-snug">
-        {lines.map((l, i) => <li key={i}>{l}</li>)}
-      </ul>
-    </div>
+    <SectionBlock title={<><Bell aria-hidden className="me-1 inline h-4 w-4" /> השבוע</>} className="mt-0">
+      <p className="px-4 pb-1 text-[12px] text-muted-foreground">התקציר השבועי (ראשון 08:00)</p>
+      {lines.map((l, i) => <ListRow key={i} title={l} />)}
+    </SectionBlock>
   );
 }
 
@@ -194,7 +191,7 @@ function TopActions({ report }: { report: UsageReport }) {
 
 // ───────────────────────── the dialog ─────────────────────────
 
-function UsageDialog() {
+function UsageSheet() {
   const { name: actor } = useCurrentUser();
   const [open, setOpen] = React.useState(false);
   const allowed = canSeeUsage();
@@ -231,17 +228,23 @@ function UsageDialog() {
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       {/* The width keys off the VIEWPORT, not the document: the legacy page overflows
           horizontally on a phone, and `w-full` would inherit that wider width and push half
-          the dialog off screen (seen in the 375 px smoke). */}
-      <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-4xl overflow-y-auto" dir="rtl">
-        <DialogHeader>
-          <DialogTitle>📈 שימוש · 30 ימים אחרונים</DialogTitle>
-          <DialogDescription>
+          the sheet off screen (seen in the 375 px smoke). Desktop (1440) centers per the DS rule
+          via the `sm:` breakpoint below — the panel becomes a fixed-width centered sheet instead
+          of a full-width bottom sheet once there is room for one. */}
+      <SheetContent
+        side="bottom"
+        className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-4xl overflow-y-auto sm:inset-x-0 sm:mx-auto sm:mb-[5vh] sm:rounded-[var(--r-lg)]"
+        dir="rtl"
+      >
+        <SheetHeader>
+          <SheetTitle>שימוש · 30 ימים אחרונים</SheetTitle>
+          <SheetDescription>
             מי נכנס לאיזה עמוד וכמה, הפעולות המובילות, עמודים שלא נפתחו, ומה ייצא בתקציר של יום ראשון.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
       <EmsGate>
 
         {isLoading && (
@@ -252,11 +255,7 @@ function UsageDialog() {
           </div>
         )}
 
-        {!!error && (
-          <p className="rounded-xl border border-border bg-muted p-3 text-[13px] text-muted-foreground">
-            {usageError(error)}
-          </p>
-        )}
+        {!!error && <SectionError text={usageError(error)} />}
 
         {!isLoading && !error && (
           <div className="flex flex-col gap-3">
@@ -268,37 +267,30 @@ function UsageDialog() {
               </p>
             ) : (
               <>
-                <section>
-                  <h3 className="mb-1 text-[13px] font-bold">פעילות יומית · <bdi>30</bdi> ימים</h3>
-                  <PerDayChart report={report} />
-                </section>
+                <SectionBlock title={<>פעילות יומית · <bdi>30</bdi> ימים</>}>
+                  <div className="px-4"><PerDayChart report={report} /></div>
+                </SectionBlock>
 
-                <section>
-                  <h3 className="mb-1 text-[13px] font-bold">מפת חום: אדם × עמוד (כניסות)</h3>
-                  <HeatTable report={report} />
-                  {!!report.zeroPages.length && (
-                    <p className="mt-1 text-[11.5px] text-muted-foreground">
-                      עמודים שלא נפתחו כלל: {report.zeroPages.map(p => PAGE_LABEL[p] || p).join(' · ')}
-                    </p>
-                  )}
-                </section>
+                <SectionBlock title="מפת חום: אדם × עמוד (כניסות)">
+                  <div className="px-4">
+                    <HeatTable report={report} />
+                    {!!report.zeroPages.length && (
+                      <p className="mt-1 text-[11.5px] text-muted-foreground">
+                        עמודים שלא נפתחו כלל: {report.zeroPages.map(p => PAGE_LABEL[p] || p).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                </SectionBlock>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <section>
-                    <h3 className="mb-1 text-[13px] font-bold">פעולות מובילות · <bdi>7</bdi> ימים</h3>
-                    <TopActions report={report} />
-                  </section>
-                  <section>
-                    <h3 className="mb-1 text-[13px] font-bold">נראו לאחרונה</h3>
-                    <div className="flex flex-col gap-1 text-[12.5px]">
-                      {report.people.map(p => (
-                        <div key={p} className="flex items-center justify-between rounded-lg bg-muted/50 px-2 py-1">
-                          <span className="font-semibold">{p}</span>
-                          <bdi className="text-muted-foreground">{lastSeenLabel(report.lastSeen[p] || null)}</bdi>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
+                  <SectionBlock title={<>פעולות מובילות · <bdi>7</bdi> ימים</>}>
+                    <div className="px-4"><TopActions report={report} /></div>
+                  </SectionBlock>
+                  <SectionBlock title="נראו לאחרונה">
+                    {report.people.map(p => (
+                      <ListRow key={p} title={p} meta={<bdi>{lastSeenLabel(report.lastSeen[p] || null)}</bdi>} />
+                    ))}
+                  </SectionBlock>
                 </div>
 
                 <Narrative events={events} />
@@ -313,15 +305,15 @@ function UsageDialog() {
           </p>
         )}
       </EmsGate>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
 export function Usage() {
   return (
     <SigmaProviders>
-      <UsageDialog />
+      <UsageSheet />
     </SigmaProviders>
   );
 }
@@ -332,7 +324,7 @@ export function mountUsage(): boolean {
   registerMoreItem({
     id: 'usage',
     group: 'admin',
-    label: '📈 שימוש',
+    label: 'שימוש',
     icon: 'TrendingUp',
     roles: ['idan'],
     visible: canSeeUsage,

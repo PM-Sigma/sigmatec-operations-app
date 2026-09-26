@@ -41,7 +41,7 @@ test('gaps: a field worker sees the visit he never summarised, with the button t
   await seedOldCheckin(page, 'אביאם');
 
   const sheet = await openGaps(page);
-  await expect(sheet.getByRole('heading', { name: 'הפערים שלי' })).toBeVisible();
+  await expect(sheet.getByRole('heading', { name: 'פערים' })).toBeVisible();
 
   const list = page.getByTestId('gaps-list');
   await expect(list).toBeVisible();
@@ -65,14 +65,16 @@ test('gaps: עמיחי sees the list per person, with the 🔔', async ({ page }
   await seedOldCheckin(page, 'אביאם');
 
   const sheet = await openGaps(page);
-  await expect(sheet.getByRole('heading', { name: 'פערים פתוחים' })).toBeVisible();
+  await expect(sheet.getByRole('heading', { name: 'פערים' })).toBeVisible();
 
   const everyone = page.getByTestId('gaps-everyone');
   await expect(everyone).toBeVisible();
+  // round 5 U2: a per-person picker (SegmentedControl), not both lists at once.
   for (const person of ['אביאם', 'ניתאי']) {
-    await expect(everyone.locator(`[data-person="${person}"]`)).toBeVisible();
+    await expect(everyone.getByRole('radio', { name: person })).toBeVisible();
   }
-  // The nudge is offered only for someone who actually has something sitting open.
+  // The nudge is offered only for someone who actually has something sitting open — אביאם is
+  // the picker's default (first field person) and the one with the seeded gap.
   const bell = page.getByTestId('gap-nudge-אביאם');
   await expect(bell).toBeVisible();
 

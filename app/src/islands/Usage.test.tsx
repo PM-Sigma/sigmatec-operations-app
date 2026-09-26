@@ -73,18 +73,36 @@ describe('📈 שימוש island', () => {
     const { Usage } = await import('./Usage');
     render(<Usage />);
 
-    expect(await screen.findByText('📈 שימוש · 30 ימים אחרונים')).toBeInTheDocument();
+    // round 5 R-U3: `waitFor` instead of a bare `findByText` for the title too — the sheet's
+    // open state now flips inside the SAME `checkHash` effect that a plain mount/render can
+    // commit across more than one microtask turn under load, and `findByText`'s own polling
+    // starts from a fixed 50ms interval that occasionally lost the race against that on a busy
+    // CI runner (the filed "Usage.test.tsx deep-link timeout" flake). `waitFor` here retries on
+    // the SAME schedule but keeps retrying until its own (longer) default timeout instead of
+    // returning a single not-found promise, so a slow tick no longer fails the test outright.
+    await waitFor(() => expect(screen.getByText('שימוש · 30 ימים אחרונים')).toBeInTheDocument());
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('usage_report', { p_days: 30, p_actor: 'עידן' }));
 
     // KPI strip + heat table + top actions + narrative, all from aggregate()/usageNarrative()
-    expect(await screen.findByText('פעולות השבוע')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('פעולות השבוע')).toBeInTheDocument());
     expect(screen.getByText('מפת חום: אדם × עמוד (כניסות)')).toBeInTheDocument();
     expect(screen.getByText('סיכום ביקור נשמר')).toBeInTheDocument();
-    expect(screen.getByText('🔔 התקציר השבועי (ראשון 08:00)')).toBeInTheDocument();
+    expect(screen.getByText(/התקציר השבועי \(ראשון 08:00\)/)).toBeInTheDocument();
     expect(screen.getByText(/החיפוש בקיבוצים נכשל פעם אחת/)).toBeInTheDocument();
     // the roster is always listed, so a person with no events is visible as such
     // twice on purpose: once as a heat-table row, once in "נראו לאחרונה"
     expect(screen.getAllByText('מתניה')).toHaveLength(2);
+  });
+
+  it('renders no emoji anywhere in the sheet (round 5 R-U3: emoji out, lucide icons in)', async () => {
+    asUser('עידן', { idan: true });
+    location.hash = '#usage';
+    const { Usage } = await import('./Usage');
+    render(<Usage />);
+    await waitFor(() => expect(screen.getByText('שימוש · 30 ימים אחרונים')).toBeInTheDocument());
+    await waitFor(() => expect(rpc).toHaveBeenCalled());
+    const text = document.body.textContent || '';
+    expect(/\p{Extended_Pictographic}/u.test(text)).toBe(false);
   });
 
   it('never opens for anyone but עידן, and never asks the server', async () => {
@@ -100,7 +118,7 @@ describe('📈 שימוש island', () => {
     // doing. (Task 18 — flake filed from Task 29's review.)
     await act(async () => { await Promise.resolve(); });
     await act(async () => { await Promise.resolve(); });
-    expect(screen.queryByText('📈 שימוש · 30 ימים אחרונים')).not.toBeInTheDocument();
+    expect(screen.queryByText('שימוש · 30 ימים אחרונים')).not.toBeInTheDocument();
     expect(rpc).not.toHaveBeenCalled();
   });
 
@@ -121,6 +139,6 @@ describe('📈 שימוש island', () => {
     // No hand-tuned timeout: testing-library's default already retries until the suite's own
     // deadline, and a 3 s ceiling inside a 5 s test is what turned a slow render into a
     // confusing "element not found" instead of a clean timeout. (Task 18)
-    expect(await screen.findByText(/עוד לא נאספו נתוני שימוש/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/עוד לא נאספו נתוני שימוש/)).toBeInTheDocument());
   });
 });
