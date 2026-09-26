@@ -6,7 +6,7 @@
 // `stock_recounts` row and its `חברה → ספירה` movement — with the counted quantity and the note
 // on them. The rules themselves are goldens (app/src/lib/inventory.test.ts + stockChange.test.ts)
 // and the legacy half is test-inventory-pool.mjs.
-import { boot, expect, expectNoConsoleErrors, expectRtl, installRoutes, shot, skipKnownMobile360, test, watchConsole, SB_ORIGIN } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, installRoutes, selectRadix, shot, skipKnownMobile360, test, watchConsole, SB_ORIGIN } from './_helpers';
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
 test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
@@ -71,9 +71,9 @@ test('🔢 a recount writes the stock_recounts row AND its חברה → ספיר
   const sheet = page.getByTestId('stock-change-sheet');
   await expect(sheet).toBeVisible({ timeout: 15_000 });
 
-  await sheet.getByTestId('sc-product').selectOption('סים 1NCE');
-  await sheet.getByTestId('sc-dir-decrease').click();
-  await sheet.getByTestId('sc-src-recount').click();
+  await selectRadix(sheet, 'sc-product', 'סים 1NCE');
+  await sheet.getByRole('radio', { name: 'ירד' }).click();
+  await sheet.getByRole('radio', { name: 'ספירה מחדש' }).click();
   await sheet.getByTestId('sc-counted').fill('1');
   await sheet.getByTestId('sc-note').fill('נספר במחסן');
   await expectRtl(page);
@@ -107,9 +107,9 @@ test('🔢 a decrease that went out on a visit ROUTES to the visit form — it w
   await page.locator('#invReportChange').click();
   const sheet = page.getByTestId('stock-change-sheet');
   await expect(sheet).toBeVisible({ timeout: 15_000 });
-  await sheet.getByTestId('sc-product').selectOption('בקר 504');
-  await sheet.getByTestId('sc-dir-decrease').click();
-  await sheet.getByTestId('sc-src-visit').click();
+  await selectRadix(sheet, 'sc-product', 'בקר 504');
+  await sheet.getByRole('radio', { name: 'ירד' }).click();
+  await sheet.getByRole('radio', { name: 'סיכום ביקור' }).click();
   await sheet.getByTestId('sc-submit').click();
   await expect(sheet).toBeHidden({ timeout: 15_000 });
 

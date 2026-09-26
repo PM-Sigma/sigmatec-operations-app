@@ -3,19 +3,23 @@
 // The field team already writes the day somewhere: on paper, in WhatsApp, in their head on the
 // drive home. This is that same sentence, typed or spoken once, turned into the visit summaries
 // the company needs — and NOTHING is saved until the person has looked at every card and
-// pressed שמור הכל. The AI drafts; the person signs.
+// pressed שמירת הכול. The AI drafts; the person signs.
 //
 // Three things this screen refuses to do, on purpose:
 //   · invent a kibbutz — a name the catalog does not have opens a picker, never a guess;
 //   · save a card behind the person's back — every card is editable, and the button is explicit;
-//   · post an EMS comment he did not choose — every matched task is a chip he can remove with ✕.
+//   · post an EMS comment he did not choose — every matched task is a chip he can remove.
 import * as React from 'react';
-import { Check, Loader2, Mic, Square, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Link as LinkIcon, Loader2, Mic, Square, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
-import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { SectionBlock } from '@/components/ui/section-block';
+import { ListRow } from '@/components/ui/list-row';
+import { Tag } from '@/components/ui/chip';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { IconBubble } from '@/components/ui/icon-bubble';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
@@ -81,6 +85,57 @@ export { readCatalog };
 
 // ───────────────────────────── one card ─────────────────────────────
 
+/**
+ * A minimal listbox picker, not `components/ui/select.tsx` (round 5, N4): that component's
+ * `SelectContent` portals to `document.body` with no `.sigma-root` wrapper (unlike
+ * `sheet.tsx`'s own `SheetPortal`, which explicitly re-adds one — see its comment), and
+ * Tailwind's `important: '.sigma-root'` means a portalled node outside that ancestor gets NONE
+ * of its utility classes applied. Nested one level inside a Sheet (exactly this screen), the
+ * options render unstyled and unpositioned, sitting under the sheet's own overlay. Flagged to
+ * the designer/DS owner; until it's fixed, this card renders its own tiny listbox INLINE (no
+ * portal, so it inherits the sheet's `.sigma-root` scope for free) with the same
+ * button+listbox+option ARIA shape a real `ui/select` would have.
+ */
+function InlinePicker<T extends string>({ value, placeholder, options, onChange, testId, ariaLabel }: {
+  value?: T; placeholder: string; options: Array<{ value: T; label: string }>;
+  onChange: (v: T) => void; testId?: string; ariaLabel?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+  const current = options.find(o => o.value === value);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button" data-testid={testId} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        className="flex h-9 w-full items-center justify-between gap-1 rounded-[10px] border border-border bg-background px-2.5 text-[13.5px]"
+      >
+        <span className={'min-w-0 truncate ' + (current ? '' : 'text-muted-foreground')}>{current ? current.label : placeholder}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+      </button>
+      {open && (
+        <ul role="listbox" className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-[10px] border border-border bg-card p-1 text-[13.5px] shadow-md">
+          {options.map(o => (
+            <li
+              key={o.value} role="option" aria-selected={o.value === value}
+              className="cursor-default rounded-[8px] px-2 py-1.5 hover:bg-secondary"
+              onClick={() => { onChange(o.value); setOpen(false); }}
+            >
+              {o.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function VisitCard({ v, catalog, saved, onChange, onDrop }: {
   v: DayLogVisit;
   catalog: DayLogCatalog;
@@ -89,93 +144,92 @@ function VisitCard({ v, catalog, saved, onChange, onDrop }: {
   onDrop: () => void;
 }) {
   const needsPick = !v.kibbutzConfident;
+  const title = needsPick ? (
+    <InlinePicker
+      testId="daylog-kibbutz-pick"
+      ariaLabel="בחירת קיבוץ"
+      placeholder={'איזה קיבוץ: ' + (v.kibbutz || 'לא זוהה')}
+      value={catalog.kibbutzim.includes(v.kibbutz) ? v.kibbutz : undefined}
+      options={catalog.kibbutzim.map(k => ({ value: k, label: k }))}
+      onChange={val => onChange({ kibbutz: val, kibbutzConfident: !!val })}
+    />
+  ) : v.kibbutz;
+
   return (
-    <div
-      data-testid="daylog-card"
-      data-kibbutz={v.kibbutz}
-      className="rounded-xl border border-border bg-card p-3 space-y-2"
-      style={{ opacity: saved?.ok ? 0.6 : 1 }}
-    >
-      <div className="flex items-center gap-2">
-        {needsPick ? (
-          <select
-            aria-label="קיבוץ"
-            data-testid="daylog-kibbutz-pick"
-            className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm"
-            value={catalog.kibbutzim.includes(v.kibbutz) ? v.kibbutz : ''}
-            onChange={e => onChange({ kibbutz: e.target.value, kibbutzConfident: !!e.target.value })}
-          >
-            <option value="">איזה קיבוץ: {v.kibbutz || 'לא זוהה'}</option>
-            {catalog.kibbutzim.map(k => <option key={k} value={k}>{k}</option>)}
-          </select>
-        ) : (
-          <div className="flex-1 font-semibold">{v.kibbutz}</div>
-        )}
+    <div data-testid="daylog-card" data-kibbutz={v.kibbutz} style={{ opacity: saved?.ok ? 0.6 : 1 }}>
+    <SectionBlock title={title} flush>
+      <div className="flex items-center justify-end px-4 pb-2">
         {saved?.ok
-          ? <span className="text-xs text-emerald-600 flex items-center gap-1"><Check className="size-3" />נשמר</span>
+          ? <span className="flex items-center gap-1 text-xs text-emerald-600"><Check className="size-3" aria-hidden />נשמר</span>
           : (
-            <Button variant="ghost" size="icon" aria-label="הסר כרטיס" data-testid="daylog-drop" onClick={onDrop}>
-              <Trash2 className="size-4" />
-            </Button>
+            <span data-testid="daylog-drop">
+              <IconBubble size={32} icon={<X className="size-4" aria-hidden />} label="הסרת הכרטיס" onClick={onDrop} />
+            </span>
           )}
       </div>
+      <div className="space-y-2 px-4 pb-4">
+        <Textarea
+          aria-label="מה נעשה"
+          data-testid="daylog-summary"
+          rows={3}
+          value={v.summary}
+          placeholder="מה נעשה בביקור"
+          onChange={e => onChange({ summary: e.target.value })}
+        />
+        <Textarea
+          aria-label="מה נשאר פתוח"
+          data-testid="daylog-open"
+          rows={2}
+          value={v.open_items}
+          placeholder="מה נשאר פתוח"
+          onChange={e => onChange({ open_items: e.target.value })}
+        />
 
-      <Textarea
-        aria-label="מה נעשה"
-        data-testid="daylog-summary"
-        rows={3}
-        value={v.summary}
-        placeholder="מה נעשה בביקור"
-        onChange={e => onChange({ summary: e.target.value })}
-      />
-      <Textarea
-        aria-label="מה נשאר פתוח"
-        data-testid="daylog-open"
-        rows={2}
-        value={v.open_items}
-        placeholder="מה נשאר פתוח"
-        onChange={e => onChange({ open_items: e.target.value })}
-      />
-
-      {v.items.length > 0 && (
-        <div className="space-y-1">
-          {v.items.map((it, i) => (
-            <div key={`${it.product}-${i}`} className="flex items-center gap-2 text-sm">
-              {/* Product names are Latin codes ("Satec EM133", "Landis+Gyr E360PP") sitting in a
-                  Hebrew line — isolated, or the model number re-orders itself next to the qty. */}
-              <span className={it.resolved ? '' : 'text-muted-foreground line-through'}><bdi>{it.product}</bdi></span>
-              <input
-                type="number" min={1} aria-label={`כמות ${it.product}`}
-                className="w-16 rounded-md border border-border bg-background px-2 py-1"
-                value={it.qty}
-                onChange={e => {
-                  const qty = Math.max(1, parseInt(e.target.value, 10) || 1);
-                  onChange({ items: v.items.map((x, j) => (j === i ? { ...x, qty } : x)) });
-                }}
+        {v.items.length > 0 && (
+          <div className="-mx-4 divide-y divide-border">
+            {v.items.map((it, i) => (
+              <ListRow
+                key={`${it.product}-${i}`}
+                title={<span className={it.resolved ? '' : 'text-muted-foreground line-through'}><bdi>{it.product}</bdi></span>}
+                meta={!it.resolved ? 'לא בקטלוג, לא ייכנס למלאי' : undefined}
+                trailing={
+                  <input
+                    type="number" min={1} aria-label={`כמות ${it.product}`}
+                    className="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm"
+                    value={it.qty}
+                    onChange={e => {
+                      const qty = Math.max(1, parseInt(e.target.value, 10) || 1);
+                      onChange({ items: v.items.map((x, j) => (j === i ? { ...x, qty } : x)) });
+                    }}
+                  />
+                }
               />
-              {!it.resolved && <span className="text-xs text-muted-foreground">לא בקטלוג, לא ייכנס למלאי</span>}
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {v.task_matches.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {v.task_matches.map(m => (
-            <span key={m.task_id} data-testid="daylog-task-chip" className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
-              🔗 <bdi>{m.title || m.task_id}</bdi>
-              <button
-                type="button" aria-label={`בטל עדכון למשימה ${m.title || m.task_id}`}
-                onClick={() => onChange({ task_matches: v.task_matches.filter(x => x.task_id !== m.task_id) })}
-              >
-                <X className="size-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+        {v.task_matches.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {v.task_matches.map(m => (
+              <span key={m.task_id} data-testid="daylog-task-chip">
+                <Tag role="info" className="gap-1.5">
+                  <LinkIcon className="size-3" aria-hidden />
+                  <bdi>{m.title || m.task_id}</bdi>
+                  <button
+                    type="button" aria-label={`בטל עדכון למשימה ${m.title || m.task_id}`}
+                    onClick={() => onChange({ task_matches: v.task_matches.filter(x => x.task_id !== m.task_id) })}
+                  >
+                    <X className="size-3" aria-hidden />
+                  </button>
+                </Tag>
+              </span>
+            ))}
+          </div>
+        )}
 
-      {saved && !saved.ok && <div className="text-xs text-destructive" data-testid="daylog-card-error">{saved.note}</div>}
+        {saved && !saved.ok && <div className="text-xs text-destructive" data-testid="daylog-card-error">{saved.note}</div>}
+      </div>
+    </SectionBlock>
     </div>
   );
 }
@@ -346,7 +400,7 @@ function DayLogSheet() {
         // the comment was parked for the next sign-in. Reporting that as a plain success is
         // how somebody walks away believing the team already saw his update (Task 16 → 18).
         if (!r?.ok) toast.error(`העדכון למשימה "${m.title || m.task_id}" לא נשלח`);
-        else if (r.queued) toast(`🕒 העדכון למשימה "${m.title || m.task_id}" יישלח בהתחברות הבאה`);
+        else if (r.queued) toast(`העדכון למשימה "${m.title || m.task_id}" יישלח בהתחברות הבאה`);
       }
     }
     setSaved(marks);
@@ -374,7 +428,10 @@ function DayLogSheet() {
     <Sheet open={open} onOpenChange={guard.onOpenChange(setOpen)}>
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" data-testid="daylog-sheet" {...guard.contentProps}>
         <SheetHeader>
-          <SheetTitle>📝 יומן היום</SheetTitle>
+          <SheetTitle className="flex items-center gap-2">
+            יומן היום
+            <Tag role="neutral">ניסיוני</Tag>
+          </SheetTitle>
           <SheetDescription>ספר מה עשית היום, בכתיבה או בדיבור. תראה כרטיס לכל קיבוץ לפני שמשהו נשמר.</SheetDescription>
         </SheetHeader>
 
@@ -398,18 +455,23 @@ function DayLogSheet() {
           )}
 
           <div className="flex items-center gap-2">
-            <Button
-              type="button" variant={listening ? 'destructive' : 'secondary'}
-              data-testid="daylog-mic" aria-label={listening ? 'עצור הקלטה' : 'דבר'}
-              onClick={() => (listening ? void stopVoice() : void startVoice())}
-              disabled={busy && !listening}
+            <span data-testid="daylog-mic">
+              <IconBubble
+                size={40}
+                label={listening ? 'עצירה' : 'דיבור'}
+                icon={listening ? <Square className="size-4" aria-hidden /> : <Mic className="size-4" aria-hidden />}
+                active={listening}
+                onClick={() => { if (busy && !listening) return; listening ? void stopVoice() : void startVoice(); }}
+              />
+            </span>
+            <BubbleButton
+              type="button" variant="tonal" data-testid="daylog-analyse"
+              disabled={!text.trim() || busy} aria-busy={busy || undefined}
+              onClick={() => void analyse()}
             >
-              {listening ? <Square className="size-4" /> : <Mic className="size-4" />}
-              <span className="ms-1">{listening ? 'עצור' : 'דבר'}</span>
-            </Button>
-            <Button type="button" data-testid="daylog-analyse" loading={busy} onClick={() => void analyse()} disabled={!text.trim()}>
-              <span className="ms-1">נתח</span>
-            </Button>
+              {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
+              ניתוח
+            </BubbleButton>
           </div>
 
           {/* F19 / pattern 5: the long job says how long it has been running and offers a way
@@ -425,7 +487,7 @@ function DayLogSheet() {
                 onClick={cancelAnalyse}
                 className="ms-auto rounded-lg border border-border px-2 py-0.5 text-[12px] font-bold hover:bg-muted"
               >
-                בטל
+                ביטול
               </button>
             </div>
           )}
@@ -449,16 +511,24 @@ function DayLogSheet() {
                   {result.unmatched.map((u, i) => <div key={i} className="text-muted-foreground">{u}</div>)}
                 </div>
               )}
-
-              {result.visits.length > 0 && !allSaved && (
-                <Button type="button" className="w-full" data-testid="daylog-save-all" onClick={() => void saveAll()} disabled={saving}>
-                  {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-                  <span className="ms-1">שמור הכל</span>
-                </Button>
-              )}
             </div>
           )}
         </div>
+        {result && result.visits.length > 0 && !allSaved && (
+          <div className="sticky bottom-0 mt-3 flex gap-2 border-t border-border bg-background p-3">
+            <BubbleButton
+              type="button" variant="primary" size="lg" data-testid="daylog-save-all"
+              disabled={saving} aria-busy={saving || undefined}
+              onClick={() => void saveAll()}
+            >
+              {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
+              שמירת הכול
+            </BubbleButton>
+            <BubbleButton type="button" variant="neutral" onClick={() => guard.onOpenChange(setOpen)(false)}>
+              ביטול
+            </BubbleButton>
+          </div>
+        )}
         {guard.prompt}
       </SheetContent>
     </Sheet>
@@ -482,6 +552,7 @@ export function mountDayLog(opts?: { open?: boolean }): boolean {
     id: 'field-journal',
     label: 'יומן היום',
     icon: 'Notebook',
+    tag: 'ניסיוני',
     group: 'app',
     visible: () => {
       try { return canUseDayLog(sigma.getCurrentUser?.() || ''); } catch { return false; }
