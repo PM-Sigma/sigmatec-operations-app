@@ -18,10 +18,11 @@
 -- client delete policy on purpose, and this is the one audited path.
 --
 -- Client gate (D5): עידן only, checked here too — inventory_delete_guard() refuses the viewer
--- claim outright, and refuses everyone but עידן once package X adds a per-person `name` claim
--- to the JWT (today's tokens carry no such claim, so the check is a no-op until then — the
--- CLIENT'S own עידן-only gate is what actually holds the line meanwhile; see risk §10 #6 in the
--- round-5 inventory spec).
+-- claim outright, and (applied in production 26.9, once package X's per-person `name` claim
+-- landed on the JWT) refuses everyone but עידן, including a pass with no `name` claim at all.
+-- The CLIENT'S own עידן-only gate is the first line of defense, same as before; this is the
+-- server-side one that actually holds regardless of what the client sends (see risk §10 #6 in
+-- the round-5 inventory spec).
 --
 -- PRODUCTION APPLY WAITS FOR עידן's EXPLICIT "כן" (this file is written, never run against the
 -- live database from this worktree). The real-world rollout target right now is narrower than
