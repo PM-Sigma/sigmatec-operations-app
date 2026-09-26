@@ -39,11 +39,16 @@ function ensurePresenterToastStyle(): void {
     // box just made the (still ~358px) toast hug ITS right edge instead of the real centre —
     // the toast keeps its native width; only the toaster's OWN box (which the toast fills) is
     // centred on the composer.
-    '[data-sonner-toaster]{left:var(--presenter-toast-centre-x,50%) !important;right:auto !important;transform:translateX(-50%) !important;}',
+    // Only override centring at >=1024px (where the composer is capped+centred and no longer
+    // matches the viewport). Below that the composer IS the viewport (same 16px gutters Sonner's
+    // own mobile media query already uses), so its native left+right+width:100% centring already
+    // lines up — forcing our own left/transform there fought that mechanism and pushed the box
+    // (and the toast filling it) off the right edge at narrow widths (e.g. 360px).
+    '@media (min-width:1024px){[data-sonner-toaster]{left:var(--presenter-toast-centre-x,50%) !important;right:auto !important;transform:translateX(-50%) !important;}',
     // The toaster box itself IS correctly centred by the rule above, but a single toast inside
     // it is anchored to the box's END edge in RTL rather than centred within it — `left:0;
     // right:0` with no width makes it fill the (already-centred) box exactly instead.
-    '[data-sonner-toast]{left:0 !important;right:0 !important;}',
+    '[data-sonner-toast]{left:0 !important;right:0 !important;}}',
   ].join('');
   document.head.appendChild(style);
 }
@@ -535,6 +540,9 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const logged = React.useRef<string>('');
 
   const current = rows[Math.min(idx, Math.max(rows.length - 1, 0))] || null;
+  // designer round-6: show a neighbour label on BOTH nav arrows or NEITHER — never one lopsided
+  // (at a list boundary only one neighbour exists).
+  const navLabelsShown = !!rows[idx - 1] && !!rows[idx + 1];
   const strips = useStrips(current, notes);
   const extra = useExtraStrip(current);
   // ── M-R1/M-R2: one per-kibbutz timeline of everything since the previous meeting ──────────
@@ -887,6 +895,9 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
 
       {/* ── nav: big prev/next arrows with the neighbour's name, then the always-visible
              quick note edge-to-edge below it ──────────────────────────────────────────── */}
+      {/* designer round-6: show a label on BOTH arrows or NEITHER (never one lopsided) — at a
+          list boundary only one neighbour exists, and a single label there breaks the chevrons'
+          shared baseline. */}
       {/* Edge-to-edge + its OWN bottom inset (designer round-6 item 4: the composer's right edge
           looked clipped when the outer container's padding was removed for the header fix —
           this restores that same inset directly on the footer, symmetric with header/main). */}
@@ -911,8 +922,8 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
             className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
           >
             <ChevronRight size={26} aria-hidden />
-            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
-              <bdi>{rows[idx - 1] ? labelOf(rows[idx - 1]) : ''}</bdi>
+            <span className="h-4 min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+              {navLabelsShown ? <bdi>{labelOf(rows[idx - 1])}</bdi> : null}
             </span>
           </button>
           <button
@@ -923,8 +934,8 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
             className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
           >
             <ChevronLeft size={26} aria-hidden />
-            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
-              <bdi>{rows[idx + 1] ? labelOf(rows[idx + 1]) : ''}</bdi>
+            <span className="h-4 min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+              {navLabelsShown ? <bdi>{labelOf(rows[idx + 1])}</bdi> : null}
             </span>
           </button>
         </div>

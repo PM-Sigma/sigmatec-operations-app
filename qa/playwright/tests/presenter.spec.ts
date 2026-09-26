@@ -301,7 +301,8 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
     const f = footer.getBoundingClientRect();
     const n = navRow.getBoundingClientRect();
     return {
-      toastBottom: t.bottom, dockTop: f.top, navTop: n.top,
+      toastBottom: t.bottom, toastLeft: t.left, toastRight: t.right,
+      dockTop: f.top, navTop: n.top,
       toastCentre: (t.left + t.right) / 2, composerCentre: (f.left + f.right) / 2,
       vw: window.innerWidth,
     };
@@ -311,6 +312,10 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
     expect(toastGeo.toastBottom).toBeLessThanOrEqual(Math.min(toastGeo.dockTop, toastGeo.navTop) - 8);
     if (toastGeo.vw >= 1024) {
       expect(Math.abs(toastGeo.toastCentre - toastGeo.composerCentre)).toBeLessThanOrEqual(2);
+    } else {
+      // phones: the toast must never overflow the viewport's own edges (RTL end-anchoring bug).
+      expect(toastGeo.toastLeft).toBeGreaterThanOrEqual(16);
+      expect(toastGeo.toastRight).toBeLessThanOrEqual(toastGeo.vw - 16);
     }
   }
 
