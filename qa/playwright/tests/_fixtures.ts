@@ -29,6 +29,10 @@ export interface Fixtures {
    *  carries the chip and the other proves hide-at-zero on the same screen. */
   burns: Array<Record<string, unknown>>;
   generators: Array<Record<string, unknown>>;
+  /** 🔔 יומן התראות (G-U3): 250 rows so the spec can prove the 200-row cap holds, one failed
+   *  row with a readable error, and one unknown event key so the raw-name fallback has a
+   *  fixture to catch it. */
+  pushLog: Array<Record<string, unknown>>;
 }
 
 const daysAgo = (n: number) => {
@@ -151,9 +155,24 @@ export const METER_BURNS = [
 
 export const GENERATORS: Array<Record<string, unknown>> = [];
 
+const PUSH_LOG_MODES = ['visitCron', 'pending', 'approved', 'attendanceReminder', 'gapReminder', 'usageDigest'];
+export const PUSH_LOG: Array<Record<string, unknown>> = Array.from({ length: 250 }, (_, i) => {
+  const sent_at = new Date(Date.UTC(2026, 8, 23, 12) - i * 900_000).toISOString();
+  if (i === 0) {
+    return { sent_at, event: 'pending', status: 'failed', where_txt: 'לקיבוץ חוקוק', qty: 3,
+      recipient: 'עמיחי', error: '410 Gone — המנוי פג תוקף בטלפון של עמיחי, יש להתחבר מחדש', actor: 'אביאם', title: null };
+  }
+  if (i === 1) {
+    return { sent_at, event: 'someFutureMode', status: 'sent', where_txt: null, qty: null,
+      recipient: 'ניתאי', error: null, actor: null, title: null };
+  }
+  return { sent_at, event: PUSH_LOG_MODES[i % PUSH_LOG_MODES.length], status: i % 17 === 0 ? 'expired' : 'sent',
+    where_txt: 'גבים', qty: 1, recipient: ['עידן', 'עמיחי', 'אביאם', 'ניתאי'][i % 4], error: null, actor: null, title: null };
+});
+
 export const FIXTURES: Fixtures = {
   kibbutzim: KIBBUTZIM, notes: NOTES, usage: USAGE_EVENTS, checkins: CHECKINS,
-  burns: METER_BURNS, generators: GENERATORS,
+  burns: METER_BURNS, generators: GENERATORS, pushLog: PUSH_LOG,
 };
 
 // 📦 package I (inventory rewrite): the one inventory fixture set, re-exported here so a spec

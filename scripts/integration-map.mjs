@@ -363,7 +363,6 @@ export const EMS_LEGACY_ALLOWLIST = {
   'js/src/12-reports.js': 'the proxy ITSELF — emsApi()/emsProxyCall() are the REST transport the adapter calls',
   'js/src/13-ems.js': 'the offline queue + cache crawl (emsSendItem/emsSyncCache); replays queued OPERATIONS, so it moves with the queue, not before it',
   'js/src/14-calendar.js': 'the legacy EMS tab (create/patch/comments/sites/users/meter lookup) — a UI rewrite, not a call swap',
-  'js/src/24-meter-burns.js': 'the meter-burn sync + meter search; paginates with its own page loop',
   'js/src/15-login-gate.js': 'login / verify-otp / resend-otp — the auth operations; they run BEFORE there is a session for the gateway to use',
   'app/src/bridge.ts': 'the TYPE DECLARATION of the adapter transport (`emsApi(path: string…)`), not a call site',
   // Fix round 3 (F14 ⑥): the login probe the Deno functions share now lives in ONE file.
