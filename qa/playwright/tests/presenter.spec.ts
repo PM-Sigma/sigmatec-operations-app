@@ -310,17 +310,20 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
   expect(toastGeo).not.toBeNull();
   if (toastGeo) {
     expect(toastGeo.toastBottom).toBeLessThanOrEqual(Math.min(toastGeo.dockTop, toastGeo.navTop) - 8);
-    if (toastGeo.vw >= 1024) {
-      expect(Math.abs(toastGeo.toastCentre - toastGeo.composerCentre)).toBeLessThanOrEqual(2);
-    } else {
-      // phones: the toast must never overflow the viewport's own edges (RTL end-anchoring bug).
-      expect(toastGeo.toastLeft).toBeGreaterThanOrEqual(16);
-      expect(toastGeo.toastRight).toBeLessThanOrEqual(toastGeo.vw - 16);
-    }
+    // round-7 (עידן): a centred-BOX-but-off-centre-TOAST bug survived the >=1024-only check
+    // (measured composer-centre matched, but the toast's own width still wasn't symmetric
+    // inside it at 412px — 38px left vs 16px right). Assert the toast's own left/right gutters
+    // against the viewport directly, at every width, so "centred" can't pass on the box alone.
+    const leftGutter = toastGeo.toastLeft;
+    const rightGutter = toastGeo.vw - toastGeo.toastRight;
+    expect(leftGutter).toBeGreaterThanOrEqual(16);
+    expect(rightGutter).toBeGreaterThanOrEqual(16);
+    expect(Math.abs(leftGutter - rightGutter)).toBeLessThanOrEqual(2);
     // Stamp the exact measured rect right after it passed the assertion above, so the shot
     // taken next can never be mistaken for evidence from a stale/pre-fix run.
     await writeRectSidecar(page, ti, 'close-undo-toast', {
       left: toastGeo.toastLeft, right: toastGeo.toastRight, bottom: toastGeo.toastBottom, vw: toastGeo.vw,
+      leftGutter, rightGutter,
     });
   }
 

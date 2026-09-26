@@ -18,39 +18,36 @@ import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast as sonnerToast } from 'sonner';
 
-// Presenter-scoped toast offset (round-6): the `<Toaster>` (main.tsx) is ONE React component
-// that re-renders its own `[data-sonner-toaster]` `style` attribute on every toast add/remove —
-// a plain `el.style.setProperty(...)` from outside React gets silently wiped moments later. A
-// `bottom: … !important` rule in an actual stylesheet, reading a var only this file writes,
-// survives every Toaster re-render with no fight against React needed.
+// Presenter-scoped toast offset (round-6/7): the `<Toaster>` (main.tsx) is ONE React component
+// that re-renders its own `[data-sonner-toaster]`/`[data-sonner-toast]` `style` attributes on
+// every toast add/remove — a direct `el.style.setProperty(...)` from outside React (tried in
+// round 7) gets silently wiped by the next of those re-renders, since React owns the whole style
+// object and replaces it wholesale rather than merging in outside changes. Only a rule in an
+// actual stylesheet survives that. The catch found in round 7: at >600px Sonner's OWN CSS also
+// sets an explicit `width` on the toast, at the SAME specificity and `!important` as a plain
+// `[data-sonner-toast]` selector — whichever of the two rules is LATER in the cascade wins, and
+// re-appending this style tag (moving it to the end of <head>) right before every toast fires
+// keeps it last, every time, regardless of when main.tsx's <Toaster> re-injects its own.
 const PRESENTER_TOAST_STYLE_ID = 'presenter-toast-offset-style';
-function ensurePresenterToastStyle(): void {
-  if (document.getElementById(PRESENTER_TOAST_STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = PRESENTER_TOAST_STYLE_ID;
-  style.textContent = [
-    '[data-sonner-toaster]{bottom:var(--presenter-dock-offset,24px) !important;}',
-    // Sonner's own `left:50%; transform:translateX(-50%)` (x-position=center) is relative to
-    // the toaster's OWN containing block, which measured off the composer's true centre at
-    // 1440 by ~half the toast's width in practice. This reads a centre-X this file MEASURES
-    // off the real composer and forces it directly, so the two are correct by construction.
-    // Deliberately NOT forcing the toaster's own --width to 720px too: in RTL a single toast
-    // is anchored to the toaster's END edge (not centred inside it), so widening the toaster
-    // box just made the (still ~358px) toast hug ITS right edge instead of the real centre —
-    // the toast keeps its native width; only the toaster's OWN box (which the toast fills) is
-    // centred on the composer.
-    // Only override centring at >=1024px (where the composer is capped+centred and no longer
-    // matches the viewport). Below that the composer IS the viewport (same 16px gutters Sonner's
-    // own mobile media query already uses), so its native left+right+width:100% centring already
-    // lines up — forcing our own left/transform there fought that mechanism and pushed the box
-    // (and the toast filling it) off the right edge at narrow widths (e.g. 360px).
-    '@media (min-width:1024px){[data-sonner-toaster]{left:var(--presenter-toast-centre-x,50%) !important;right:auto !important;transform:translateX(-50%) !important;}',
-    // The toaster box itself IS correctly centred by the rule above, but a single toast inside
-    // it is anchored to the box's END edge in RTL rather than centred within it — `left:0;
-    // right:0` with no width makes it fill the (already-centred) box exactly instead.
-    '[data-sonner-toast]{left:0 !important;right:0 !important;}}',
-  ].join('');
-  document.head.appendChild(style);
+function applyPresenterToastStyle(): void {
+  let style = document.getElementById(PRESENTER_TOAST_STYLE_ID) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement('style');
+    style.id = PRESENTER_TOAST_STYLE_ID;
+    style.textContent = [
+      '[data-sonner-toaster]{bottom:var(--presenter-dock-offset,24px) !important;}',
+      // The presenter dialog fills the viewport at every width (the composer inside it is capped
+      // at 720px and centred only as decoration), so the viewport's own centre and the
+      // composer's centre are the same point by construction — no measured centre-x needed.
+      '[data-sonner-toaster]{left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(calc(100vw - 32px),720px) !important;}',
+      // The toaster box is centred and capped; a single RTL toast inside it still carries its
+      // own fixed `width` (Sonner's `--width` var) and hugs the box's END edge rather than
+      // filling it, so `width:100%` here (not just `left:0;right:0`) is what actually stretches
+      // it to fill the box symmetrically.
+      '[data-sonner-toast]{left:0 !important;right:0 !important;width:100% !important;}',
+    ].join('');
+  }
+  document.head.appendChild(style);   // (re-)appending an existing node MOVES it — keeps it last.
 }
 
 /**
@@ -77,24 +74,14 @@ function presenterToastClearance(footerEl: HTMLElement | null): number {
   return Math.max(vh - clearFrom + 8 + PRESENTER_TOAST_INTERNAL_GUTTER, 8);
 }
 
-/** The composer's own real horizontal centre (its `left + right`, halved) — px from the left
- *  edge of the viewport, matching what a `left:Npx` on a `position:fixed` element means. */
-function presenterToastCentreX(footerEl: HTMLElement | null): string {
-  if (!footerEl) return '50%';
-  const r = footerEl.getBoundingClientRect();
-  return ((r.left + r.right) / 2) + 'px';
-}
-
 /** The footer this session's toasts must clear — set by PresenterOverlay, read by the module-
  *  scope `toast` wrapper below, which has no component instance of its own to read a ref from. */
 let presenterFooterEl: HTMLElement | null = null;
 
 function applyPresenterToastOffset(): void {
-  ensurePresenterToastStyle();
+  applyPresenterToastStyle();
   document.documentElement.style.setProperty(
     '--presenter-dock-offset', presenterToastClearance(presenterFooterEl) + 'px');
-  document.documentElement.style.setProperty(
-    '--presenter-toast-centre-x', presenterToastCentreX(presenterFooterEl));
 }
 
 // Every toast this screen shows lands at bottom-center (round-5/6: the app's default top toast
@@ -532,7 +519,6 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     return () => {
       presenterFooterEl = null;
       document.documentElement.style.removeProperty('--presenter-dock-offset');
-      document.documentElement.style.removeProperty('--presenter-toast-centre-x');
     };
   }, [dockH]);
 
