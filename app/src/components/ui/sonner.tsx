@@ -22,6 +22,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme}
       dir="rtl"
       className="toaster group sigma-root"
+      // A modal Radix Sheet sets body{pointer-events:none}; the toaster inherits it, so hit-testing
+      // skips the toast and lands on the sheet overlay. Opt back in (Radix's own layers do the same).
+      style={{ pointerEvents: 'auto', ...props.style }}
       icons={{
         success: <CircleCheck className="h-4 w-4" />,
         info: <Info className="h-4 w-4" />,
