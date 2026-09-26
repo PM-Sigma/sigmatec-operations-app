@@ -50,7 +50,7 @@ test('ems tasks: inside the sheet the row is the whole story (22.9, D4; round 5 
   // Open יגור's card — the card click now opens the React sheet (K-U3), not the legacy modal.
   await page.locator('#sigma-home .kibbutz[data-name="יגור"] .kibbutz-name').click();
   await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
-  await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
+  await expect(page.locator('#modalBackdrop')).toHaveCount(0);
 
   const row = page.locator('[data-section="ems"] .card-ems-task, [data-section="ems"] [class*="t-row"]').first();
   await expect(row).toBeVisible();

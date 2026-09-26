@@ -5,14 +5,14 @@ import { boot, expect, expectNoConsoleErrors, test } from './_helpers';
 const detail = (page: any) => page.locator('[data-testid="kibbutz-detail"]');
 
 test('kibbutz detail: the door opens the React sheet on מצב הקיבוץ, not the legacy modal', async ({ page }, ti) => {
-  // The card's own onClick still calls the legacy opener until the closed card is rewired
-  // (K-U3/K-U5); this test exercises the door itself, which is K-U1's scope.
+  // Round 5, V-U3: the legacy modal (#modalBackdrop) is gone entirely — this test exercises
+  // the door itself, which is K-U1's scope.
   const { rec } = await boot(page, ti);
   await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
   await expect(detail(page)).toBeVisible();
   await expect(detail(page).getByRole('heading', { name: 'חוקוק' })).toBeVisible();
   await expect(detail(page).getByRole('radio', { name: 'מצב הקיבוץ' })).toBeChecked();
-  await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
+  await expect(page.locator('#modalBackdrop')).toHaveCount(0);
   await expectNoConsoleErrors(rec);
 });
 
@@ -90,10 +90,38 @@ test('status tab: last visit ✏️ and 🚚 open the new visit sheet', async ({
   if (await editBtn.count()) {
     await editBtn.click();
     await expect(page.locator('[data-testid="visit-chapters"]')).toBeVisible();
-    await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
   } else {
     await expect(section.getByText('עוד אין סיכום ביקור לקיבוץ הזה.')).toBeVisible();
   }
+});
+
+// Round 4 · Package Z, item 1 (ported from the retired visit-form.spec.ts, V-U3): the legacy
+// renderLastVisit kept only visits from the last 31 days, so a kibbutz last visited two months
+// ago showed NO ✏️/🚚/history at all, while the card itself went on advertising "📍 ביקור אחרון".
+// latestVisitFor (K-L1) is unbounded by date, so that regression cannot reappear here.
+test('status tab: a visit older than a month still offers ✏️/🚚 and its own history', async ({ page }, ti) => {
+  await boot(page, ti, { who: 'עידן' });
+  await page.waitForSelector('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await page.evaluate(() => {
+    const iso = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
+    (window as any).SHEET_DATA.visits = [
+      { id: 'z-old-1', kibbutz: 'חוקוק', visitor: 'אביאם', duration: 3, contact: 'יוסי',
+        summary: 'הוחלף המונה הראשי', products: [{ name: 'מונה Landis+Gyr E360PP', qty: 1 }], date: iso(62) },
+      { id: 'z-old-2', kibbutz: 'חוקוק', visitor: 'ניתאי', duration: 2, summary: 'בדיקת תקשורת',
+        products: [], date: iso(95) },
+    ];
+  });
+
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+  const section = detail(page).locator('[data-section="lastVisitReport"]');
+  await expect(section).toContainText('הוחלף המונה הראשי');
+  const editBtn = section.getByRole('button', { name: 'עריכת הסיכום' });
+  const certBtn = section.getByRole('button', { name: 'תעודת משלוח' });
+  await expect(editBtn).toBeVisible();
+  await expect(certBtn).toBeVisible();
+
+  await editBtn.click();
+  await expect(page.locator('[data-testid="visit-chapters"]')).toBeVisible();
 });
 
 test('status tab: role matrix for adders', async ({ page }, ti) => {

@@ -408,9 +408,9 @@ test('C8 (round 3 · S): עידן (not FIELD_PEOPLE) reaches the 🎙 panel from
 
   await page.getByRole('button', { name: 'תיעוד ביקור' }).click();
 
-  // He must land in the arrival picker (chapters route), never the legacy #modalBackdrop.
+  // He must land in the arrival picker (chapters route) — the legacy #modalBackdrop is gone.
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
+  await expect(page.locator('#modalBackdrop')).toHaveCount(0);
 
   await page.locator('[data-kibbutz="חוקוק"]').click();
   await page.getByTestId('brief-visit').click();
