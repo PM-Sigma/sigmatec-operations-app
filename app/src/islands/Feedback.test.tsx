@@ -209,7 +209,7 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
     expect(speech.startLive).not.toHaveBeenCalled();
   });

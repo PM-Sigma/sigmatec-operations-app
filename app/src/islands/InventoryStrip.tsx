@@ -83,7 +83,7 @@ function OrderRow({ row }: { row: StripRow }) {
     <ListRow
       data-order-row={row.id}
       onClick={() => { track('order-strip-open', row.id); try { sigma.openOrder?.(row.id); } catch { /* legacy not up */ } }}
-      title={<>{row.title} <span className="font-normal text-muted-foreground">{fmtUnit(row.qty, 'פריטים')}</span></>}
+      title={<>{row.title} <span className="font-normal text-muted-foreground"><bdi>{fmtUnit(row.qty, 'פריטים')}</bdi></span></>}
       meta={
         <>
           <Tag role={row.note.role} className="gap-1"><Icon className="h-3 w-3" aria-hidden />{row.note.text}</Tag>
@@ -157,7 +157,7 @@ function MinQtyRow({ p, mayEdit, saving, onSave }: {
             </BubbleButton>
           </span>
         ) : (
-          <span className="tabular-nums text-muted-foreground">{p.min_qty ?? '—'}</span>
+          <span className="tabular-nums text-muted-foreground"><bdi>{p.min_qty ?? '—'}</bdi></span>
         )
       }
     />
