@@ -647,17 +647,27 @@
   };
 
   /** The visit summary's two buttons — both resolve the visit's ACTIVE certificate first. */
-  function certRowForVisit(visitId) {
+  // _certRows was only filled by the retired legacy registry render (U10), so fall back to
+  // Supabase, and cache the row there since certSendOpen/certView look it up by id.
+  async function certRowForVisit(visitId) {
     if (!visitId) return null;
-    return _certRows.find(x => x.ref_id === visitId && x.status !== 'cancelled') || null;
+    const hit = _certRows.find(x => x.ref_id === visitId && x.status !== 'cancelled');
+    if (hit) return hit;
+    if (typeof window._sbCertGet !== 'function') return null;
+    try {
+      const rows = await window._sbCertGet('delivery_certs?select=*&ref_id=eq.' + encodeURIComponent(visitId) + '&status=eq.active&order=cert_number.desc&limit=1');
+      const r = (rows && rows[0]) || null;
+      if (r) _certRows.unshift(r);
+      return r;
+    } catch (e) { return null; }
   }
-  function certSendForVisit(visitId) {
-    const r = certRowForVisit(visitId);
+  async function certSendForVisit(visitId) {
+    const r = await certRowForVisit(visitId);
     if (!r) { alert('התעודה עדיין לא נרשמה. נסה שוב בעוד רגע.'); return; }
     certSendOpen(r.id);
   }
-  function certDownloadForVisit(visitId) {
-    const r = certRowForVisit(visitId);
+  async function certDownloadForVisit(visitId) {
+    const r = await certRowForVisit(visitId);
     if (!r) { alert('התעודה עדיין לא נרשמה. נסה שוב בעוד רגע.'); return; }
     certView(r.id);
   }

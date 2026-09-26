@@ -1049,6 +1049,28 @@ if (mod) {
     () => assert.equal(plan([{ name: 'ותיק', email: 'v@k.co.il' }]).canEmail, true));
 }
 
+// Regression: after U10 nothing fills _certRows, so the visit-summary buttons must fetch the
+// visit's active cert themselves (was: always "התעודה עדיין לא נרשמה").
+if (mod) await0(async () => {
+  const origGet = window_._sbCertGet;
+  const queries = [];
+  window_._sbCertGet = async (q) => { queries.push(q); return q.indexOf('ref_id=eq.v-cold') !== -1 ? [{ ...DELIVERY_CERT_ROWS[0], id: 'c-cold', ref_id: 'v-cold', status: 'active' }] : []; };
+  mod.setCertRows([]);
+  const before = alerts.length;
+  try {
+    const r = await window_.certRowForVisit('v-cold');
+    check('certRowForVisit fetches the active cert from Supabase when _certRows is empty', () => {
+      assert.equal(r && r.id, 'c-cold');
+      assert.ok(/delivery_certs\?.*ref_id=eq\.v-cold.*status=eq\.active/.test(queries[0]), queries[0]);
+      assert.ok(mod.getCertRows().some(x => x.id === 'c-cold'), 'row cached for certSendOpen/certView');
+    });
+    await window_.certDownloadForVisit('v-cold');
+    check('certDownloadForVisit on a cold cache does not alert "not registered"', () => assert.equal(alerts.length, before));
+    await window_.certSendForVisit('v-none');
+    check('certSendForVisit still alerts when the visit truly has no cert', () => assert.equal(alerts.length, before + 1));
+  } finally { window_._sbCertGet = origGet; }
+});
+
 // Execute all queued async checks in order, then report.
 for (const fn of pending) { await fn(); }
 
