@@ -29,7 +29,7 @@ import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
-import { sigma, sigmaBus, useCurrentUser, useSigmaEvent, type EmsTask } from '@/bridge';
+import { sigma, useCurrentUser, useSigmaEvent, type EmsTask } from '@/bridge';
 import { sortTasksForCard, statusLabel, taskMeta, type CardEmsTask } from '@/lib/emsTasks';
 import { burnLeaveItems } from '@/lib/burns';
 import { markBurned, useBurnAccess, useBurns } from '@/components/home/Burns';
@@ -2144,36 +2144,20 @@ function FieldIsland() {
    * 📍 סיכום ביקור → the chapters sheet (§7p), resuming wherever he left off. The unticked
    * rows travel with him as chapter 2's starting text — and only while chapter 2 is still
    * empty, so they can never overwrite what he already wrote.
-   *
-   * The legacy `prefillOpenItems` bridge stays wired for the desk path (the card's 📍, which
-   * still opens the full form), and the fallback below is what makes a browser with no
-   * chapters island still land somewhere sensible.
    */
   const openVisit = () => {
     if (!brief) return;
     const text = openItemsPrefill(brief.checklist, checked);
     track('field-brief-visit', picked);
     setMode('closed');
-    if (openVisitChapters(picked, { openItems: text, date: arrivalDateRef.current })) return;
-    try { sigma.prefillOpenItems?.(picked, text); } catch (e) { console.warn('[field] prefill', e); }
-    sigma.openVisitQuick(picked);
+    openVisitChapters(picked, { openItems: text, date: arrivalDateRef.current });
   };
 
   /** 🚚 — straight to chapter 4, where the certificate is issued against the draft's id. */
   const openCert = () => {
     track('field-brief-cert', picked);
     setMode('closed');
-    if (openVisitChapters(picked, { chapter: 4, date: arrivalDateRef.current })) return;
-    // Fallback: the legacy form first, the certificate once it is on screen, so the cert
-    // links to the visit rather than to nothing.
-    const once = () => {
-      sigmaBus.removeEventListener('visit-form-open', once);
-      clearTimeout(timer);
-      try { sigma.certFromVisitForm(); } catch (e) { console.warn('[field] cert', e); }
-    };
-    const timer = setTimeout(() => sigmaBus.removeEventListener('visit-form-open', once), 120_000);
-    sigmaBus.addEventListener('visit-form-open', once);
-    sigma.openVisitQuick(picked);
+    openVisitChapters(picked, { chapter: 4, date: arrivalDateRef.current });
   };
 
   const skipToday = () => {

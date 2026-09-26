@@ -263,5 +263,17 @@ check('L12 INVENTORY_BREAKPOINT_AT is the same literal in 00-consts.js and visit
   assert.match(visitEdit, /INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47\.625Z'/);
 });
 
+// V-U3 (retiring test-visit-cert-gate.mjs, the legacy saveVisit's own gate test): the same
+// delivery-cert rule, on the ONE pipeline left — equipment supplied, no certAfter opt-out,
+// nothing issued yet → refused before any write, cert-screen flagged for the caller.
+reset();
+const r13 = await mod.saveVisitFromData({ ...chapters, id: 'vd_needscert', certAfter: false });
+check('L13 new visit + products + no certAfter + no issued cert → needsCert, nothing filed', () => {
+  assert.equal(r13.ok, false);
+  assert.equal(r13.needsCert, true);
+  assert.equal(r13.visitId, 'vd_needscert');
+  assert.equal(visitPosts().length, 0, 'a blocked save must post nothing');
+});
+
 console.log(failures ? `\n${failures} FAILED` : '\nall passed');
 process.exit(failures ? 1 : 0);

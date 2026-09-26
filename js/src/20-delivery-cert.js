@@ -768,24 +768,9 @@
   window.certCancel = certCancel;
 
   // ---- prefill helpers (the trigger points) ----
-
-  // from the visit-summary FORM (before/without saving): current kibbutz + checked products
-  function certFromVisitForm() {
-    const items = [];
-    document.querySelectorAll('.prod-chk:checked').forEach(chk => {
-      const q = document.querySelector('.prod-qty[data-product="' + chk.dataset.product + '"]');
-      items.push({ name: chk.dataset.product, qty: parseInt(q && q.value) || 1 });
-    });
-    openDeliveryCert({
-      kibbutz: window.currentKibbutz || '',
-      date: (document.getElementById('visitDate') || {}).value || certToday(),
-      contact: (document.getElementById('visitContact') || {}).value || '',
-      items: items,
-      source: 'visit',
-      refId: window.editingVisitId || (typeof visitDraftId === 'function' ? visitDraftId() : '')
-    });
-  }
-  window.certFromVisitForm = certFromVisitForm;
+  // certFromVisitForm (the legacy visit form's own trigger) removed, round 5 V-U3 — the form
+  // is gone; the chapters sheet (Field.tsx) opens the cert screen through openDeliveryCert
+  // itself.
 
   // from a SAVED visit record (last-visit box / history rows / report picker)
   function certFromVisitObj(v) {

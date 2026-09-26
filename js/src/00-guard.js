@@ -539,10 +539,10 @@
   window.modalDirtyByFields = modalDirtyByFields;
 
   var GUARDED_INPUT_MODALS = [
-    'modalBackdrop',        // סיכום ביקור / כרטיס קיבוץ — autosaved to visit_drafts, and still not silently droppable
+    // round 5, V-U3: #modalBackdrop and #visitQuickModal are gone — the visit sheet
+    // (app/src/islands/Field.tsx VisitChapters) guards itself (useUnsavedGuard).
     'attEditModal',         // עדכון נוכחות
     'emsTaskModal',         // משימה חדשה ב-EMS
-    'visitQuickModal',      // ביקור מהיר
     'intakeModal',          // קליטת הזמנה
     'invOrderModal',        // הזמנה
     'invRequirementModal',  // דרישה

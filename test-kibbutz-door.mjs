@@ -35,36 +35,19 @@ function load({ detail = null, placeholder = false, cards = [] } = {}) {
   sigma.openKibbutzModal('חוקוק', 'visit');
   assert.deepEqual(opened, [['חוקוק', 'status'], ['חוקוק', 'status'], ['חוקוק', 'visits']]);
 }
-// D2 legacy era (no placeholder, no island) → legacy modal on the matching card
+// D2-D4 (round 5, V-U3): the pre-K-U1 legacy-modal fallback is gone — #sigma-kibbutz-detail is
+// always in the DOM now, so an island not yet landed always QUEUES the open, never touches a
+// card or the legacy modal, whatever the tab name or the kibbutz name.
 {
-  const { sigma, calls } = load({ cards: ['יגור', 'חוקוק'] });
+  const { sigma, calls, window } = load({ cards: ['יגור', 'חוקוק'] });
   sigma.openKibbutzModal('חוקוק', 'visit');
-  assert.deepEqual(calls, [['legacy', 'חוקוק'], ['tab', 'visit']]);
-}
-// D2b legacy era: the new tab names ('status'/'visits') are mapped BACK to the legacy
-// switchTab vocabulary ('meetings'/'visit') — a caller written against the new door contract
-// (K-U1 or later, or a test) must still land the legacy form on the right tab pre-K-U1.
-{
-  const { sigma, calls } = load({ cards: ['חוקוק'] });
-  sigma.openKibbutzModal('חוקוק', 'status');
-  assert.deepEqual(calls, [['legacy', 'חוקוק'], ['tab', 'meetings']]);
-}
-{
-  const { sigma, calls } = load({ cards: ['חוקוק'] });
-  sigma.openKibbutzModal('חוקוק', 'visits');
-  assert.deepEqual(calls, [['legacy', 'חוקוק'], ['tab', 'visit']]);
-}
-// D3 unknown kibbutz in the legacy era → no throw, nothing opened
-{
-  const { sigma, calls } = load({ cards: ['יגור'] });
-  sigma.openKibbutzModal('אין כזה');
   assert.deepEqual(calls, []);
+  assert.deepEqual(window._kibbutzDoorQueue, { name: 'חוקוק', tab: 'visits' });
 }
-// D4 a name a CSS selector would choke on
 {
-  const { sigma, calls } = load({ cards: ['יגור — רפת', 'בית "השיטה"'] });
+  const { sigma, window } = load({ cards: ['יגור — רפת', 'בית "השיטה"'] });
   sigma.openKibbutzModal('בית "השיטה"');
-  assert.deepEqual(calls[0], ['legacy', 'בית "השיטה"']);
+  assert.deepEqual(window._kibbutzDoorQueue, { name: 'בית "השיטה"', tab: 'status' });
 }
 // D5 placeholder present, chunk not landed yet → queued (last wins), never the legacy modal
 {

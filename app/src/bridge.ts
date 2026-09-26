@@ -179,15 +179,8 @@ export interface Sigma {
   /** Comment on an EMS task — queued when offline, so a comment written in the field survives. */
   emsAddComment?(taskId: string, text: string, meta?: Record<string, unknown>):
     Promise<{ ok: boolean; queued?: boolean; error?: string }>;
-  /**
-   * The briefing's "לפני שיוצאים" leftovers (spec §5.1b, Task 5). React hands over the text
-   * and the legacy form writes it into `#visitOpenItems` the moment the form is on screen —
-   * and only while that field is still empty, so it can never overwrite what he typed.
-   */
-  prefillOpenItems?(kibbutz: string, text: string): void;
   loadAllVisitsCombined(): any[];
   openDeliveryCert(pre?: Record<string, unknown>): void;
-  certFromVisitForm(): void;
   certFromVisit(visitId: string): void;
 
   // ── package V ──────────────────────────────────────────────────────────────────────────

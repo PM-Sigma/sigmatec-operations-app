@@ -504,51 +504,9 @@
   // retired with #tab-meetings. KibbutzDetail's header ✏️ (K-U1) calls window.sigmaHome
   // directly.
 
-  // Round 5, K-U5: reduced to the visit-form reset. The status-tab plumbing (island
-  // data-kibbutz stamps, the customer-code title, editorName/editEngagement, the read-only
-  // last-visit box, modalEmsSection) moved to KibbutzDetail/StatusTab (K-U1/K-U2) and is gone
-  // from here. V's own callers (openVisitQuick, visitQuickGo, openVisitFromAttendance) already
-  // moved OFF this and onto sigma.openVisitEditor (V-L4b, merged before this package started) —
-  // this function's only remaining caller is the delegated card-click handler below, and only
-  // in the pre-K-U1 era (before window.sigma.openKibbutzModal exists). V-U3 deletes it.
-  function openEditModal(card) {
-    const name = card.dataset.name;
-    currentKibbutz = name;
-    // `currentKibbutz` above is a script-scope `let`, so it never lands on `window` — yet
-    // certFromVisitForm (20-delivery-cert.js) and the `visit-form-open` event both read
-    // `window.currentKibbutz`. Mirror it, or a certificate opened from the visit form comes
-    // up with an empty kibbutz.
-    window.currentKibbutz = name;
-    const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
-    document.getElementById('modalTitle').innerHTML = String(name).replace(/</g, '&lt;');
-    document.getElementById('modalSub').innerHTML = '';
-    window.currentEditTask = task || null;
-    // Reset visit form
-    window.editingVisitId = null;
-    document.getElementById('visitSummary').value = '';
-    document.getElementById('visitProductsOther').value = '';
-    document.getElementById('visitContact').value = '';
-    document.getElementById('visitDuration').value = '';
-    const wdReset = document.getElementById('visitWorkday');
-    if (wdReset) { wdReset.checked = false; toggleVisitWorkday(); }
-    document.getElementById('visitor').value = '';
-    if (typeof prepVisitEmsBlock === 'function') prepVisitEmsBlock(name);   // Phase 2: in-form EMS update
-    if (typeof visitContactsRender === 'function') visitContactsRender(name);   // 22.9 J5: the kibbutz's contacts as chips
-    if (typeof visitOtherProductChanged === 'function') visitOtherProductChanged('');   // 22.9 J4: the catalog as suggestions
-    // Date starts EMPTY on purpose — a pre-filled "today" was silently accepted when the visit was
-    // actually on another day, which is the main source of mis-dated visits. saveVisit now refuses to
-    // save without an explicit pick, so the user must choose the real date.
-    document.getElementById('visitDate').value = '';
-    // Reset product list (visitor cleared → placeholder will show)
-    window.editingVisitId = null;
-    visitReturnedItems = [];
-    renderReturnedItems();
-    applyUserRestrictions();
-    renderProductsForVisitor();
-    renderLastVisit(name);
-    switchTab('visit');
-    document.getElementById('modalBackdrop').classList.add('open');
-  }
+  // openEditModal removed (round 5, V-U3): its whole job was resetting the legacy visit form
+  // and #modalBackdrop, both gone. window.sigma.openKibbutzModal (K-L3) is unconditional now,
+  // so the card-click delegate below never needed a fallback branch either.
 
   // Cards are re-rendered from the `kibbutzim` table on every refresh, so the click
   // handler is DELEGATED instead of bound per card (a bound handler would die on re-render).
@@ -559,11 +517,7 @@
     const card = e.target && e.target.closest && e.target.closest('.kibbutz[data-name]');
     if (!card) return;
     e.stopPropagation();
-    if (window.sigma && typeof window.sigma.openKibbutzModal === 'function') {
-      window.sigma.openKibbutzModal(card.dataset.name);
-    } else {
-      openEditModal(card);
-    }
+    if (window.sigma && typeof window.sigma.openKibbutzModal === 'function') window.sigma.openKibbutzModal(card.dataset.name);
   });
 
   // "ביקור אחרון" line on each card (latest visit from VISITS). Always rendered; prominent in meeting mode.

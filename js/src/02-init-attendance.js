@@ -163,42 +163,6 @@
     window._attReminderShown = true;
   }
 
-  // ===== Quick attendance/visit FAB =====
-  // אביאם/ניתאי get the full attendance flow: date → day type → (field only) kibbutz.
-  // Everyone else gets the plain "pick a kibbutz → visit form".
-  function openVisitQuick() {
-    const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-    const isAtt = ATT_PEOPLE.indexOf(me) !== -1;
-    const sel = document.getElementById('visitQuickKibbutz');
-    // From the MODEL, not the cards: the React island hides filtered-out cards, and this
-    // picker must still offer every kibbutz (kibbutzOptions falls back to the DOM itself).
-    const opts = (typeof kibbutzOptions === 'function') ? kibbutzOptions()
-      : Array.from(document.querySelectorAll('.kibbutz')).map(c => ({ value: c.dataset.name, label: c.dataset.name })).filter(o => o.value);
-    // §N3: an EMS site with no card in the app is still a place someone visits. Offer it,
-    // clearly marked, so nothing in EMS is unreachable from the quick-visit picker.
-    const sites = (typeof emsSitesCached === 'function' && emsSitesCached()) || [];
-    const norm = v => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
-    const have = {};
-    opts.forEach(o => { have[norm(o.value)] = 1; have[norm(o.label)] = 1; });
-    sites.forEach(st => {
-      const nm = norm(st && st.name);
-      if (!nm || have[nm]) return;
-      have[nm] = 1;
-      opts.push({ value: st.name, label: st.name + ' (אתר EMS ללא כרטיס)' });
-    });
-    const last = localStorage.getItem('last_visit_kibbutz') || '';
-    sel.innerHTML = '<option value="">-- בחר קיבוץ --</option>' +
-      opts.map(o => `<option value="${o.value}" ${o.value === last ? 'selected' : ''}>${o.label}</option>`).join('');
-    const dateEl = document.getElementById('vqDate'); if (dateEl) dateEl.value = todayYmd();
-    document.getElementById('vqTitle').textContent = isAtt ? '📋 תיעוד נוכחות' : '📍 תיעוד ביקור מהיר';
-    document.getElementById('vqSub').textContent = isAtt
-      ? 'בחר תאריך וסוג יום. ביום שטח גם תבחר קיבוץ ויפתח טופס ביקור.'
-      : 'בחר קיבוץ ונפתח לך ישר את טופס הביקור.';
-    document.getElementById('vqDayTypes').style.display = isAtt ? '' : 'none';
-    window._vqType = 'field';
-    vqSetType('field');
-    document.getElementById('visitQuickModal').classList.add('open');
-  }
   // Make the "תיעוד ביקור" FAB free-draggable; position persisted per device. A small move threshold keeps
   // a tap = open the form, a drag = reposition. ponytail: native pointer events, no library.
   function initVisitFabDrag() {
@@ -240,12 +204,12 @@
     fab.addEventListener('pointercancel', end);
     // open on a real tap only; a drag sets moved=true → suppress (covers mouse click + keyboard Enter)
     fab.removeAttribute('onclick');
-    // Round 5 V-L4b: the FAB's new home is the arrival picker (sigmaField.openManual), never the
-    // legacy #visitQuickModal (the modal itself is package S's; V-U3 deletes it once nothing calls it).
+    // Round 5 V-U3: the FAB's only home is the arrival picker (sigmaField.openManual) — the
+    // legacy #visitQuickModal it used to fall back to is gone.
     fab.addEventListener('click', function () {
       if (moved) { moved = false; return; }
       if (window.sigmaField && typeof window.sigmaField.openManual === 'function') window.sigmaField.openManual();
-      else openVisitQuick();
+      else if (window.sigma && typeof window.sigma.toast === 'function') window.sigma.toast('תיעוד ביקור עוד נטען. אפשר לנסות שוב בעוד רגע.');
     });
     window.addEventListener('resize', function () { var r = fab.getBoundingClientRect(); place(r.left, r.top); });   // keep on-screen after rotate/resize
   }
@@ -273,56 +237,6 @@
   }
   if (document.readyState !== 'loading') setTimeout(restorePage, 0);
   else document.addEventListener('DOMContentLoaded', restorePage);
-
-  function vqSetType(type) {
-    window._vqType = type;
-    document.querySelectorAll('.vq-dt').forEach(b => b.classList.toggle('active', b.dataset.type === type));
-    document.getElementById('vqOtherWrap').style.display = (type === 'other') ? '' : 'none';
-    document.getElementById('vqKibbutzWrap').style.display = (type === 'field') ? '' : 'none';   // kibbutz only for field days
-  }
-  function visitQuickGo(btn) {
-    const me = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-    const isAtt = ATT_PEOPLE.indexOf(me) !== -1;
-    const type = isAtt ? (window._vqType || 'field') : 'field';
-    const dateVal = document.getElementById('vqDate').value;
-    if (!dateVal) { alert('נא לבחור תאריך'); return; }
-    const isoDate = new Date(dateVal + 'T12:00:00').toISOString();
-
-    // אביאם/ניתאי, non-field day → save attendance directly (no kibbutz needed)
-    if (isAtt && type !== 'field') {
-      const note = (type === 'other') ? (document.getElementById('vqOther').value || '').trim() : '';
-      if (type === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
-      // F12: the המשך button is the pending state for the sheet write behind it.
-      setBtnLoading(btn, true, 'שומר…');
-      fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'attendance', person: me, dayType: type, note, date: isoDate }) })
-        .then(r => r.json()).then(res => {
-          if (res && res.ok) {
-            if (window.SHEET_DATA) {
-              window.SHEET_DATA.attendance = window.SHEET_DATA.attendance || [];
-              window.SHEET_DATA.attendance.push({ id: res.id, person: me, dayType: type, note, date: isoDate });
-            }
-            const t = document.getElementById('toast');
-            t.textContent = '✅ ' + ATT_LABELS[type] + (note ? ' (' + note + ')' : '') + ' נשמר';
-            t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500);
-            const av = document.getElementById('attendance-view');
-            if (av && av.style.display !== 'none') renderAttendanceReport();
-          } else { sigmaError('שגיאה בשמירה'); }
-        }).catch(() => sigmaError('שגיאה בשמירה'))
-        .finally(() => setBtnLoading(btn, false));
-      modalForceClose('visitQuickModal');
-      return;
-    }
-
-    // Field day (or non-attendance user) → round 5 V-L4b: the ONE door, sigma.openVisitEditor,
-    // never the legacy modal/form.
-    const name = document.getElementById('visitQuickKibbutz').value;
-    if (!name) { alert('נא לבחור קיבוץ'); return; }
-    modalForceClose('visitQuickModal');
-    if (window.sigma && typeof window.sigma.openVisitEditor === 'function') {
-      window.sigma.openVisitEditor({ kibbutz: name, date: dateVal });
-    }
-  }
 
   function invShowTab(tab) {
     if (!document.getElementById('inv-section-' + tab)) tab = 'orders';   // removed tabs (e.g. requirements) → never land on a blank page
