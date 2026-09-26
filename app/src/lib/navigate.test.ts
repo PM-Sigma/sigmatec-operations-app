@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock factories are hoisted above imports; state they close over goes through vi.hoisted()
 // (see runAdd.test.ts — a plain top-level const hits a TDZ ReferenceError under this vitest).
@@ -22,6 +22,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   state.user = 'עידן'; state.role = 'idan'; state.gated = new Set(); state.landing = 'auto';
   delete (document as any).startViewTransition;
+  // goHome() schedules a REAL setTimeout(80) for the scroll-into-view when the landing has a
+  // `scrollTo` target (the viewer cases below). Left real, that timer keeps running after the
+  // test (and its jsdom `document`) is torn down — the 2 unhandled "ReferenceError: document is
+  // not defined" errors that were failing the full test-all run. Fake timers make it
+  // deterministic: `afterEach` below flushes (or drops) it before the environment goes away,
+  // every time, instead of racing the runner's own timing.
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
 });
 
 describe('goHome (Σ)', () => {
