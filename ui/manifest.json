@@ -36,6 +36,7 @@
   "./ui/sigma-HeaderActions.js",
   "./ui/sigma-Holidays.js",
   "./ui/sigma-Home.js",
+  "./ui/sigma-hourglass.js",
   "./ui/sigma-Hours.js",
   "./ui/sigma-hours2.js",
   "./ui/sigma-icon-bubble.js",
