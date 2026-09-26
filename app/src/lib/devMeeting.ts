@@ -5,7 +5,7 @@
 // Domain = the card's TOP ancestor (`parentChain.at(-1)`, D-L1) — a card with no chain (or an
 // undeployed function) falls back to `parent` resolved against the card list; no match → null
 // ("ללא אפיון"). A Main Fields card (stageOf === 'fields') is a domain HEADER, never a row.
-import { stageOf, type DevCard } from './sprintPrep';
+import { parseTitle, stageOf, type DevCard } from './sprintPrep';
 
 export type PrioTier = 'crit' | 'high' | 'med' | 'low' | 'none';
 
@@ -51,6 +51,17 @@ function domainOf(c: DevCard, byNumber: Map<number, DevCard>): { number: number;
   }
   const p = byNumber.get(Number(c.parent));
   return p ? { number: Number(p.number), title: String(p.title || '') } : null;
+}
+
+/**
+ * The domain header text — the GitHub parent issue's title, cleaned the same way every card
+ * row title is (`parseTitle().module`): a Main Fields parent's raw title is encoded as
+ * "<domain> | — | תחום ראשי", and showing that verbatim reads as a placeholder rather than the
+ * issue's real name (designer round-2 finding, D-U review).
+ */
+export function domainTitle(title: string): string {
+  const p = parseTitle(title);
+  return p.module && p.module !== 'אחר' ? p.module : title;
 }
 
 /** The direct parent's title, shown as row meta only when it differs from the domain. */

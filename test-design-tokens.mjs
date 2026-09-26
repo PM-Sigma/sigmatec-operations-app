@@ -149,7 +149,7 @@ function assertAliased(label, css, name) {
 // TEXT on a dark surface) used as a solid FILL under white text (.toast, .urgent-flag,
 // .inv-btn.success/.danger, .sigma-crash button.p — dark mode flips --success/--danger brighter
 // and white-on-bright fails), or a hardcoded LIGHT-only text color paired with a fill that now
-// correctly flips per theme (.dev-error, .current-step-label(.complete), .ready-live-flag,
+// correctly flips per theme (.current-step-label(.complete), .ready-live-flag,
 // index.html's #editLastVisitBox). Read the actual rule text and resolve its var() chain to a
 // real hex per theme, so a future edit that points one of these selectors back at the wrong
 // token — even though both tokens individually still clear 4.5:1 in isolation — fails HERE.
@@ -205,7 +205,6 @@ const CSS_CONSUMERS = [
   { label: '.inv-btn.success', re: /\.inv-btn\.success\s*\{([^}]*)\}/ },
   { label: '.inv-btn.danger', re: /\.inv-btn\.danger\s*\{([^}]*)\}/ },
   { label: '.sigma-crash button.p', re: /\.sigma-crash button\.p\s*\{([^}]*)\}/ },
-  { label: '.dev-error', re: /\.dev-error\s*\{([^}]*)\}/ },
   { label: '.current-step-label', re: /\.current-step-label\s*\{([^}]*)\}/ },
   { label: '.current-step-label.complete', re: /\.current-step-label\.complete\s*\{([^}]*)\}/ },
   { label: '.ready-live-flag', re: /\.ready-live-flag\s*\{([^}]*)\}/ },

@@ -250,6 +250,26 @@ function boot() {
       obs.observe(calView, { attributes: true, attributeFilter: ['style'] });
     }
   }
+  // 💻 פיתוח (D-U1) — loaded when the page first opens, like נוכחות/יומן/שעות: the chunk pulls
+  // TanStack + supabase-js, and almost every session starts on the cards. `#dev-view` inner is
+  // now just `#sigma-dev-board` (D-U1 replaced the legacy `#devTasksContent` markup); a failed
+  // chunk leaves an empty page rather than a stale legacy board, since `18-dev-tasks.js` no
+  // longer ships into this view.
+  const devView = document.getElementById('dev-view');
+  if (devView && document.getElementById('sigma-dev-board')) {
+    const loadDevBoard = () => import('@/islands/DevBoard')
+      .then(m => m.mountDevBoard())
+      .catch(e => console.warn('[sigma] dev board island failed', e));
+    if (devView.style.display !== 'none') void loadDevBoard();
+    else {
+      const obs = new MutationObserver(() => {
+        if (devView.style.display === 'none') return;
+        obs.disconnect();
+        void loadDevBoard();
+      });
+      obs.observe(devView, { attributes: true, attributeFilter: ['style'] });
+    }
+  }
   if (document.getElementById('sigma-holidays')) {
     import('@/islands/Holidays')
       .then(m => m.mountHolidays())

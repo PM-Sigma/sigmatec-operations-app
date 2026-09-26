@@ -13,6 +13,7 @@ const openCreate = async (page: any) => {
 
 test('kibbutz sheet: create mode, both kinds, איזור required', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   await openCreate(page);
   await expectRtl(page);
@@ -50,6 +51,7 @@ test('kibbutz sheet: create mode, both kinds, איזור required', async ({ pag
 
 test('kibbutz sheet: edit mode opens from inside the card (עידן only, 22.9) with the row and offers ארכוב', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   // 22.9 (D2/D10): no ✏️ on the home card; it sits beside the name INSIDE the kibbutz card.
   await expect(page.locator('#sigma-home .kibbutz[data-name="כפר עזה"] button[title="פרטי קיבוץ"]')).toHaveCount(0);
@@ -84,6 +86,7 @@ test('kibbutz sheet: edit mode opens from inside the card (עידן only, 22.9) 
 test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not עידן', async ({ page }, ti) => {
   // עמיחי IS a kibbutz admin (KIBBUTZ_ADMINS) but energy types are עידן's alone (§7b).
   const { rec } = await boot(page, ti, { who: 'עמיחי' });
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   // 22.9: the ✏️ inside the card is עידן's alone; עמיחי still reaches the sheet through the one api
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
@@ -105,6 +108,7 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
 
 test('kibbutz sheet: עידן may change the energy types', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
   await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
@@ -120,7 +124,10 @@ test('kibbutz sheet: עידן may change the energy types', async ({ page }, ti)
 
 test('kibbutz sheet: ✏️ opens ABOVE the kibbutz modal (22.9 N1 — the accidental-archive path)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
-
+  // window.sigmaHome publishes late on a slow paint (Home.tsx's own effect); the header's ✏️
+  // toasts "עוד נטענים" instead of opening the sheet if it isn't there yet — wait for it first
+  // so the click always lands on the real path, not the not-ready fallback.
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'כפר עזה');
   await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
   await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
@@ -143,6 +150,7 @@ test('kibbutz sheet: ✏️ opens ABOVE the kibbutz modal (22.9 N1 — the accid
 
 test('kibbutz sheet: קוד לקוח, תתי-אתרים and the one קטגוריה group', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   // יגור is the fixture kibbutz that HAS a sub-site (יגור — רפת) and a code in the legacy map.
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'יגור');
@@ -180,6 +188,7 @@ test('kibbutz sheet: קוד לקוח, תתי-אתרים and the one קטגורי
 
 test('kibbutz sheet: a kibbutz with no sub-sites says so, and the code may be left empty', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'כפר עזה');
   await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
@@ -201,6 +210,7 @@ test('kibbutz sheet: a kibbutz with no sub-sites says so, and the code may be le
 
 test('kibbutz sheet: no EMS chain — a sub-site saves straight away, no gate', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   await openCreate(page);
   await page.getByRole('radio', { name: '↳ תת-אתר של קיבוץ קיים' }).click();
@@ -222,6 +232,7 @@ test('kibbutz sheet: no EMS chain — a sub-site saves straight away, no gate', 
 
 test('kibbutz sheet: אתר EMS is read-only — ✓ מקושר / ⚠️ לא מקושר, no verify button', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   // חוקוק ships linked in the fixture (ems_site_ids: the real mock site UUID).
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
@@ -237,6 +248,7 @@ test('kibbutz sheet: אתר EMS is read-only — ✓ מקושר / ⚠️ לא מ
 
 test('kibbutz sheet: סוגי אנרגיה is a real multi-select — more than one type at once', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);   // עידן — may edit energy
+  await page.waitForFunction(() => !!(window as any).sigmaHome?.openSheet, { timeout: 15_000 });
 
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
   await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();

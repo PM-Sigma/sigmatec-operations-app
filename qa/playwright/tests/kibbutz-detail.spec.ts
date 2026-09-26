@@ -82,6 +82,11 @@ test('status tab: last visit ✏️ and 🚚 open the new visit sheet', async ({
   await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
   const section = detail(page).locator('[data-section="lastVisitReport"]');
   const editBtn = section.getByRole('button', { name: 'עריכת הסיכום' });
+  const emptyText = section.getByText('עוד אין סיכום ביקור לקיבוץ הזה.');
+  // The section renders empty for one paint until useKibbutzVisits' data lands — waiting for
+  // EITHER outcome first (instead of reading editBtn.count() immediately) is what makes this
+  // race-free; reading the count before data lands always saw 0 and fell into the wrong branch.
+  await expect(editBtn.or(emptyText)).toBeVisible();
   if (await editBtn.count()) {
     await editBtn.click();
     await expect(page.locator('[data-testid="visit-chapters"]')).toBeVisible();

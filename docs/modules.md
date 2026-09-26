@@ -167,37 +167,12 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 - The עובדים page went with it. `canManageStaff()` now lives in `js/src/00-bridge.js`; messaging moved to
   `js/src/17-messages.js` (see below).
 
-### `18-dev-tasks.js` — 🧑‍💻 Dev page (פיתוח): GitHub Projects-v2 board + tree + writes + offline cache + day-stamps
-Deliberately LEGACY VANILLA (spec §7d / Task 11): one self-contained module with working DnD — it took the new
-styling tokens, not React.
-- `canSeeDevTasks()` — gate: מתניה / אליה / `canManageStaff()` (inlined names — runs during nav init)
-- `renderDevTasks(force)` — cache-first paint; heavy GitHub fetch **once per connection** (`force`=🔄); loads `dev_status_log`
-- `devBuild(tasks)` — tasks → `window._devData` + sub-issue hierarchy (`DEV_CHILDREN`)
-- `devPaint()` — render hero + flow strip + toolbar + (board | tree) + select bar from `_devData`+filter (no re-fetch)
-- **PURE builders** (exposed on `window` for `test-devboard.mjs`, nothing in the app calls them there):
-  - `devStage(t)` — Projects-v2 Status → one of the **seven live** columns (`DEV_STAGES`, pipeline order):
-    `fields` Main Fields · `backlog` · `scope` Scope Refinement · `ready` Sprint Ready · `prog` · `review` · `committed`
-  - `devBoardLayout(tasks, expanded)` → `{full:[{key,tasks}], rail:[{key,count,expanded}]}` — `DEV_FULL_KEYS`
-    (`ready`·`prog`·`review`·`backlog`) are always full columns; the rest are rail chips, a tap expands one in place
-  - `devTree(tasks,{hideDone,assignee,stage,q})` — root issue → nested sub-issues; parentless leaves go to **ללא נושא**;
-    `hideDone` drops done leaves and any root left with nothing live under it; each root carries a `bar`
-  - `devFlowSegments(tasks)` / `devPctSegments(counts)` — stacked-bar slices, integer `pct` summing to exactly 100
-- `renderDevBoard()` / `renderDevTree()` / `renderFlowStrip()` — paint only; `devTreeRowDesktop()` / `devTreeRowMobile()`
-- `devMobileCard(t)` — the task card (board columns at every width + mobile tree leaves)
-- `devStatus(t)` / `devPriority(t)` — column pill (Hebrew, `--stage-*` tinted) / priority chip; `devStamps(t)` — day-stamps
-- `devSetView(v)` (`board`|`tree`, remembered per device in `localStorage['dev_view']`, tree is the phone default) ·
-  `devToggleRail(key)` · `devToggleHideDone()` / `devSetAssignee(v)` / `devTreeAll(open)` / `devSetStageFilter(v)` ·
-  `devSetFilter(f)` (`prio`|`status`|`week`|`stage`|`topic`) / `devFilter(q)` / `devSetState(s)`
-- `devToggleSelMode()` / `devToggleSel()` / `devPushToReady()` — multi-select → **העבר לספרינט** (writes `Sprint Ready`)
-- `devReleaseVersion()` — **🚀 עלתה גרסה**: move all **In Review** → Committed (the board has no Done column since 8.9)
-- `devWriteStatus(numbers,target)` — POST `github` fn `mode:"setStatus"` (the write path); `DEV_STAGE_TARGET` holds the
-  seven live option names, so a drop on a full column **or on a rail chip** writes the right one
-- `devLoadStatusLog()` / `devLogStatuses(tasks)` — Supabase `dev_status_log` read/write (forward day-stamps)
-- `devSaveCache()` / `devLoadCache()` — `localStorage` ticket cache (`dev_tasks_cache_v1`, keyed open/all)
-- **Consts:** `DEV_STAGES`, `DEV_FULL_KEYS`, `DEV_DONE_KEYS`, `DEV_STAGE_TARGET`, `DEV_PRANK`, `DEV_TOPIC_COLORS`,
-  `DEV_CACHE_KEY`, `DEV_VIEW_KEY`, `DEV_GH` (icon). Exposes
-  `window._devData/_devView/_devExpanded/_devHideDone/_devAssignee/_devSel/_devStatusLog/_devFetched`.
-- **CSS:** `.dev-*` in `css/app.css`; stage colors are the `--stage-fields … --stage-committed` tokens (light + dark).
+### ~~`18-dev-tasks.js`~~ — RETIRED (D-U3, round 5 package D). The file no longer exists.
+- 💻 פיתוח is now `app/src/islands/DevBoard.tsx` (React, on the design system) + `app/src/islands/DevPresenter.tsx`
+  (the ▶ ישיבת פיתוח meeting) + `app/src/lib/devBoard.ts` (the one `github` Edge Function data path) +
+  `app/src/lib/devMeeting.ts` (domain grouping) + `app/src/lib/devMarks.ts` (local meeting marks) +
+  `app/src/lib/devFlow.ts` / `devStatusLog.ts` / `sprintPrep.ts`. `.dev-*` CSS and the global `--stage-*`
+  tokens are gone from `css/app.css` — the React page uses the validated Tag semantic palette instead.
 
 ### `19-version-check.js` — 📦 new-deploy watcher (other lane): polls the live `app.js?v=` stamp → refresh banner / auto-reload
 
