@@ -43,10 +43,10 @@ const EditSheet = React.lazy(() => import('@/components/home/WorkTimerEditSheet'
 
 /** The 2 h notice — a system notification when allowed, a toast always (עידן 22.9, E1). */
 function notifyAutoStop(kibbutz: string, onOpen: () => void) {
-  toast.warning('השעון של ' + kibbutz + ' נעצר אחרי שעתיים. עדכן אותו', { action: { label: 'פתח', onClick: onOpen }, duration: 20_000 });
+  toast.warning('השעון של ' + kibbutz + ' נעצר אחרי שעתיים. אפשר לעדכן אותו', { action: { label: 'פתיחה', onClick: onOpen }, duration: 20_000 });
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
-      const n = new Notification('עדכן את השעון של ' + kibbutz, { body: 'השעון נעצר אחרי שעתיים. פתח כדי לסגור או להמשיך.', tag: 'work-timer-' + kibbutz, dir: 'rtl', lang: 'he' });
+      const n = new Notification('אפשר לעדכן את השעון של ' + kibbutz, { body: 'השעון נעצר אחרי שעתיים. אפשר לפתוח כדי לסגור או להמשיך.', tag: 'work-timer-' + kibbutz, dir: 'rtl', lang: 'he' });
       n.onclick = () => { try { window.focus(); } catch { /* */ } onOpen(); n.close(); };
     }
   } catch { /* no notifications here */ }
@@ -116,7 +116,7 @@ export function WorkTimer({ kibbutz }: { kibbutz: string }) {
     const blocked = startBlockedBy(current, kibbutz);
     if (blocked) {
       // One running session per person: the second ▶ does not silently take over.
-      toast.info('כבר רץ טיימר על ' + blocked + '. עצור אותו קודם');
+      toast.info('כבר רץ טיימר על ' + blocked + '. יש לעצור אותו קודם');
       return;
     }
     const s: RunningSession = { person: user, kibbutz, started_at: new Date().toISOString() };
@@ -142,7 +142,7 @@ export function WorkTimer({ kibbutz }: { kibbutz: string }) {
       <button
         type="button"
         data-testid={mine ? 'work-timer-stop' : 'work-timer-start'}
-        title={mine ? 'עצור וסגור שעות' : 'התחל מדידת שעות'}
+        aria-label={mine ? 'עצירה וסגירת השעות' : 'התחלת מדידת שעות'}
         onClick={e => { e.stopPropagation(); if (mine) setEdit(true); else start(); }}
         className={
           'work-timer inline-flex min-h-[32px] items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ' +

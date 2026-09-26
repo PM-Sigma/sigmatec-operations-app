@@ -1,4 +1,4 @@
-import{i as D,r as U,a5 as b,k as T}from"./sigma.js?v=muix5ldb";import{u as x}from"./sigma-useQuery.js?v=muix5ldb";import{g as f,s as g}from"./sigma-supabase.js?v=muix5ldb";import{q as B}from"./sigma-query.js?v=muix5ldb";/**
+import{c as D,r as U,a4 as b,k as T}from"./sigma.js?v=muiv78sa";import{u as x}from"./sigma-useQuery.js?v=muiv78sa";import{g as f,s as g}from"./sigma-supabase.js?v=muiv78sa";import{q as B}from"./sigma-query.js?v=muiv78sa";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

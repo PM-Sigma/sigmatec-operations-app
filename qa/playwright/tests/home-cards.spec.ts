@@ -14,8 +14,8 @@ test('home cards: sections, region chips, filters, quick actions', async ({ page
   const home = page.locator('#sigma-home');
 
   // ── two sections, each with its own animated count
-  await expect(home.getByRole('heading', { name: '🆕 לקוחות חדשים' })).toBeVisible();
-  await expect(home.getByRole('heading', { name: '✅ לקוחות פעילים' })).toBeVisible();
+  await expect(home.getByRole('heading', { name: 'לקוחות חדשים' })).toBeVisible();
+  await expect(home.getByRole('heading', { name: 'לקוחות פעילים' })).toBeVisible();
 
   // ── every fixture kibbutz has a card, and the sub-site carries its parent chip
   await expect(home.locator('.kibbutz')).toHaveCount(7);
@@ -44,15 +44,15 @@ test('home cards: sections, region chips, filters, quick actions', async ({ page
   // ── filter chips. 🤝 שיווקי leaves exactly the one marketing row; the transition is a
   // crossfade, so the old cards must be GONE once it settles (an AnimatePresence leak used to
   // leave exited cards stranded in the DOM — see Section.tsx).
-  await home.getByRole('radio', { name: '🤝 שיווקי' }).click();
+  await home.getByRole('radio', { name: 'שיווקי' }).click();
   await expect(home.locator('.kibbutz')).toHaveCount(1);
   await expect(home.locator('.kibbutz[data-name="כפר עזה"]')).toBeVisible();
   await expect(home.locator('[data-region]:not(.kibbutz)')).toHaveCount(0);
   await shot(page, ti, 'filter-marketing');
 
-  await home.getByRole('radio', { name: '🆕 חדשים' }).click();
+  await home.getByRole('radio', { name: 'חדשים' }).click();
   await expect(home.locator('.kibbutz')).toHaveCount(2);
-  await expect(home.getByRole('heading', { name: '✅ לקוחות פעילים' })).toHaveCount(0);
+  await expect(home.getByRole('heading', { name: 'לקוחות פעילים' })).toHaveCount(0);
 
   await home.getByRole('radio', { name: 'הכל' }).click();
   await expect(home.locator('.kibbutz')).toHaveCount(7);
@@ -100,7 +100,7 @@ test('home cards: a running work timer floats its kibbutz to the top section', a
   const running = { person: 'עידן', kibbutz: 'יגור', started_at: new Date().toISOString() };
   const { rec } = await boot(page, ti, { storage: { sigma_clockify_running_v1: JSON.stringify({ עידן: running }) } });
 
-  const top = page.locator('#sigma-home').getByRole('heading', { name: '✍️ טיוטות ושעון פעיל' });
+  const top = page.locator('#sigma-home').getByRole('heading', { name: 'טיוטות ושעון פעיל' });
   await expect(top).toBeVisible();
 
   // the card itself sits inside the top section, and its own ▶/■ chip already shows "running".

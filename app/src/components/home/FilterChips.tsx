@@ -1,15 +1,15 @@
 // Filter chips + search (spec §2: "Filter chips: הכל · חדשים · פעילים · 🤝 שיווקי").
 // The chips are a shadcn ToggleGroup so the selected pill is a single controlled value;
 // counts are wrapped in <bdi> so a Hebrew label can never flip the digits (RTL gate, §6).
-import { Search } from 'lucide-react';
+import { Handshake, Search } from 'lucide-react';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { CardFilter, Counts } from '@/lib/kibbutzim';
 
-const CHIPS: Array<{ value: CardFilter; label: string; key: keyof Counts }> = [
+const CHIPS: Array<{ value: CardFilter; label: string; key: keyof Counts; icon?: typeof Handshake }> = [
   { value: 'all', label: 'הכל', key: 'all' },
-  { value: 'new', label: '🆕 חדשים', key: 'new' },
-  { value: 'active', label: '✅ פעילים', key: 'active' },
-  { value: 'marketing', label: '🤝 שיווקי', key: 'marketing' },
+  { value: 'new', label: 'חדשים', key: 'new' },
+  { value: 'active', label: 'פעילים', key: 'active' },
+  { value: 'marketing', label: 'שיווקי', key: 'marketing', icon: Handshake },
 ];
 
 export function FilterChips({
@@ -74,6 +74,7 @@ export function FilterChips({
             {/* no `opacity-70`: it composited --muted-foreground down to 3.07:1 (a11y gate).
                 No count at all until the fetch lands — a "0" while data is still loading reads
                 as "there is nothing here", not as "loading". */}
+            {c.icon && <c.icon aria-hidden className="h-3.5 w-3.5 shrink-0" />}
             {c.label}{counts && <> <bdi>{counts[c.key]}</bdi></>}
           </ToggleGroupItem>
         ))}

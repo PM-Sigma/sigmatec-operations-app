@@ -219,7 +219,7 @@ export default function StopSheet({
               type="button" data-testid="work-timer-confirm" disabled={saving} onClick={() => void confirm()}
               className="min-h-[44px] flex-1 rounded-xl bg-primary/15 text-[14px] font-bold disabled:opacity-60"
             >
-              {saving ? 'שומר…' : 'שמור שעות'}
+              {saving ? 'שומר…' : 'שמירת השעות'}
             </button>
             <button
               type="button" onClick={onClose}

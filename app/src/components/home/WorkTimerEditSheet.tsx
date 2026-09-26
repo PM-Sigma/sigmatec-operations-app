@@ -4,9 +4,10 @@
 // ways to end it: ■ close the hours (the stop sheet), or 🗑 stop and drop the session.
 // A LAZY chunk like the stop sheet: a card that never taps a running timer never loads it.
 import * as React from 'react';
-import { Loader2, Pause, Play, Plus, Square, Trash2 } from 'lucide-react';
+import { Pause, Play, Plus, Square, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { sbWrite } from '@/lib/supabase';
 import {
   AUTO_STOP_MS, elapsedFor, formatElapsed, pauseSession, resumeSession, saveRunning, tagsCached, tagsMatching,
@@ -36,7 +37,6 @@ export default function WorkTimerEditSheet({
   const [newContact, setNewContact] = React.useState('');
   const [tagQuery, setTagQuery] = React.useState('');
   const [start, setStart] = React.useState(() => toLocalInput(running.started_at));
-  const [busy, setBusy] = React.useState(false);
   const [confirmDrop, setConfirmDrop] = React.useState(false);
 
   React.useEffect(() => {
@@ -160,8 +160,8 @@ export default function WorkTimerEditSheet({
           {!!picked.length && (
             <div className="mb-1.5 flex flex-wrap gap-1.5">
               {picked.map(t => (
-                <button key={t} type="button" onClick={() => toggle(setPicked, t)} className="rounded-full border border-transparent bg-primary/15 px-2.5 py-1 text-[12px] font-semibold">
-                  {t} ✕
+                <button key={t} type="button" onClick={() => toggle(setPicked, t)} aria-label={'הסרת התגית ' + t} className="inline-flex items-center gap-1 rounded-full border border-transparent bg-primary/15 px-2.5 py-1 text-[12px] font-semibold">
+                  {t} <X className="h-3 w-3" aria-hidden />
                 </button>
               ))}
             </div>
@@ -194,26 +194,25 @@ export default function WorkTimerEditSheet({
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button type="button" data-testid="work-timer-save-continue" onClick={saveAndContinue}
-                  className="min-h-[46px] rounded-xl bg-primary/15 text-[14px] font-bold">שמור והמשך</button>
+                  className="min-h-[46px] rounded-xl bg-primary/15 text-[14px] font-bold">שמירה והמשך</button>
           <button type="button" data-testid="work-timer-finish" onClick={() => { saveAndContinue(); onStop(); }}
                   className="inline-flex min-h-[46px] items-center justify-center gap-1.5 rounded-xl s-brand text-[14px] font-bold">
-            <Square className="h-4 w-4" /> סגור שעות
+            <Square className="h-4 w-4" /> סגירת השעות
           </button>
         </div>
-        {confirmDrop ? (
-          <div className="mt-2 flex gap-2">
-            <button type="button" data-testid="work-timer-drop-yes" disabled={busy} onClick={() => { setBusy(true); onDrop(); }}
-                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1 rounded-xl bg-destructive text-[14px] font-bold text-destructive-foreground">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} כן, למחוק את התזמון
-            </button>
-            <button type="button" onClick={() => setConfirmDrop(false)} className="min-h-[44px] flex-1 rounded-xl border border-border text-[14px] font-semibold">ביטול</button>
-          </div>
-        ) : (
-          <button type="button" data-testid="work-timer-drop" onClick={() => setConfirmDrop(true)}
-                  className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-border text-[14px] font-semibold text-destructive">
-            <Trash2 className="h-4 w-4" /> עצור ומחק
-          </button>
-        )}
+        <button type="button" data-testid="work-timer-drop" onClick={() => setConfirmDrop(true)}
+                className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-border text-[14px] font-semibold text-destructive">
+          <Trash2 className="h-4 w-4" /> עצירה ומחיקה
+        </button>
+        <ConfirmSheet
+          open={confirmDrop}
+          onOpenChange={setConfirmDrop}
+          title="למחוק את התזמון?"
+          lines={[running.kibbutz, formatElapsed(secs)]}
+          confirmLabel="מחיקת התזמון"
+          danger
+          onConfirm={() => { onDrop(); }}
+        />
       </SheetContent>
     </Sheet>
   );

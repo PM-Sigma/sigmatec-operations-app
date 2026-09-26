@@ -13,6 +13,7 @@ import { fetchKibbutzRows } from '@/lib/kibbutzRows';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PenLine } from 'lucide-react';
 import { FilterChips } from '@/components/home/FilterChips';
 import { Section } from '@/components/home/Section';
 import { KibbutzSheet } from '@/components/home/KibbutzSheet';
@@ -117,7 +118,7 @@ function HomeIsland() {
   // <bdi> itself, this just keeps the heuristic from re-flagging the pass-through prop.
   const draftCount = draftRows.length;
   const topHasTimer = !!activeTimerKibbutz && draftRows.some(r => r.name === activeTimerKibbutz);
-  const topTitle = topHasTimer ? '✍️ טיוטות ושעון פעיל' : '✍️ טיוטות פתוחות';
+  const topTitle = topHasTimer ? 'טיוטות ושעון פעיל' : 'טיוטות פתוחות';
 
   const groups = React.useMemo(() => groupBySection(restRows), [restRows]);
   const shown = { new: groups.new.reduce((n, g) => n + g.rows.length, 0), active: groups.active.reduce((n, g) => n + g.rows.length, 0) };
@@ -227,12 +228,12 @@ function HomeIsland() {
       )}
 
       {draftRows.length > 0 && (
-        <Section title={topTitle} groups={[{ region: '', rows: draftRows }]} count={draftCount}
+        <Section title={topTitle} icon={PenLine} groups={[{ region: '', rows: draftRows }]} count={draftCount}
                  role={role} canEdit={canManage} highlight={highlight} onEdit={openEdit} />
       )}
-      <Section title="🆕 לקוחות חדשים" groups={groups.new} count={shown.new}
+      <Section title="לקוחות חדשים" groups={groups.new} count={shown.new}
                role={role} canEdit={canManage} highlight={highlight} onEdit={openEdit} />
-      <Section title="✅ לקוחות פעילים" groups={groups.active} count={shown.active}
+      <Section title="לקוחות פעילים" groups={groups.active} count={shown.active}
                role={role} canEdit={canManage} highlight={highlight} onEdit={openEdit} />
 
       {!visible.length && !!rows.length && (
