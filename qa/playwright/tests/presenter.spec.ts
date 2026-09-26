@@ -288,6 +288,32 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
   // half-opacity frame with its swipe-track pseudo-element showing (designer round-6 item 5:
   // "stray bar/green circle") — wait for it to actually settle first.
   await page.waitForTimeout(600);
+
+  // Round-6 final ruling item 3, asserted rather than eyeballed: the toast clears BOTH the dock
+  // and the prev/next nav row by ≥8px, and — at desktop widths, where the composer is capped
+  // and centred rather than edge-to-edge — the toast's own centre lines up with the composer's.
+  const toastGeo = await page.evaluate(() => {
+    const toast = document.querySelector('[data-sonner-toast]') as HTMLElement | null;
+    const footer = document.querySelector('footer') as HTMLElement | null;
+    const navRow = footer?.querySelector('[data-testid="presenter-prev"]')?.parentElement as HTMLElement | null;
+    if (!toast || !footer || !navRow) return null;
+    const t = toast.getBoundingClientRect();
+    const f = footer.getBoundingClientRect();
+    const n = navRow.getBoundingClientRect();
+    return {
+      toastBottom: t.bottom, dockTop: f.top, navTop: n.top,
+      toastCentre: (t.left + t.right) / 2, composerCentre: (f.left + f.right) / 2,
+      vw: window.innerWidth,
+    };
+  });
+  expect(toastGeo).not.toBeNull();
+  if (toastGeo) {
+    expect(toastGeo.toastBottom).toBeLessThanOrEqual(Math.min(toastGeo.dockTop, toastGeo.navTop) - 8);
+    if (toastGeo.vw >= 1024) {
+      expect(Math.abs(toastGeo.toastCentre - toastGeo.composerCentre)).toBeLessThanOrEqual(2);
+    }
+  }
+
   await shot(page, ti, 'close-undo-toast');
   await undoBtn.dispatchEvent('click');
   await page.waitForTimeout(5500);

@@ -18,28 +18,11 @@ import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast as sonnerToast } from 'sonner';
 
-// Every toast this screen shows lands at bottom-center (round-5/6: the app's default top toast
-// covered the compact header, and top-center collided with the sticky header regardless of
-// which action fired it — the close/undo toast wasn't the only offender). This is the ONE place
-// that decides that, so a future toast call here can't reintroduce a top one by omission.
-const toast = {
-  success: (msg: string, opts?: Parameters<typeof sonnerToast.success>[1]) =>
-    sonnerToast.success(msg, { position: 'bottom-center', ...opts }),
-  error: (msg: string, opts?: Parameters<typeof sonnerToast.error>[1]) =>
-    sonnerToast.error(msg, { position: 'bottom-center', ...opts }),
-  dismiss: (...args: Parameters<typeof sonnerToast.dismiss>) => sonnerToast.dismiss?.(...args),
-};
-
-// Presenter-scoped toast offset (round-6 item 1, fix-up): the `<Toaster>` (main.tsx) is ONE
-// React component that re-renders its own `[data-sonner-toaster]` `style` attribute (including
-// `--offset-bottom`/`--mobile-offset-bottom`) on every toast add/remove — a plain
-// `el.style.setProperty(...)` from outside React gets silently wiped the very next time it
-// re-renders, which is why the toast kept landing at Sonner's stock 24px/16px offset no matter
-// how often this file reapplied it. A `bottom: … !important` rule in an actual stylesheet beats
-// an element's own inline style, and reads a var on `<html>` that only THIS code ever touches —
-// so it survives every Toaster re-render, no fight with React needed. There can be more than
-// one `[data-sonner-toaster]` (Sonner keeps a separate one per active position); the ones NOT
-// using `bottom` positioning simply ignore this rule, so applying it to all of them is safe.
+// Presenter-scoped toast offset (round-6): the `<Toaster>` (main.tsx) is ONE React component
+// that re-renders its own `[data-sonner-toaster]` `style` attribute on every toast add/remove —
+// a plain `el.style.setProperty(...)` from outside React gets silently wiped moments later. A
+// `bottom: … !important` rule in an actual stylesheet, reading a var only this file writes,
+// survives every Toaster re-render with no fight against React needed.
 const PRESENTER_TOAST_STYLE_ID = 'presenter-toast-offset-style';
 function ensurePresenterToastStyle(): void {
   if (document.getElementById(PRESENTER_TOAST_STYLE_ID)) return;
@@ -47,17 +30,88 @@ function ensurePresenterToastStyle(): void {
   style.id = PRESENTER_TOAST_STYLE_ID;
   style.textContent = [
     '[data-sonner-toaster]{bottom:var(--presenter-dock-offset,24px) !important;}',
-    // round-6 round-4: the ✕ badge's own default transform (translate(35%,-35%), RTL) is
-    // Sonner's "peek past the corner" look by design — the designer wants it fully INSIDE the
-    // toast instead, so this drops the outward translate and nudges it in from the edge.
-    '[data-sonner-toast] [data-close-button]{transform:none !important;top:6px !important;inset-inline-end:6px !important;}',
-    // Sonner already centers x-position, so a centred composer (below) and a centred toast
-    // line up on the SAME axis at any width — the toast keeps its own native width rather than
-    // matching the composer's 720px cap pixel-for-pixel.
-    '@media (min-width:1024px){[data-sonner-toaster]{--width:720px !important;}}',
+    // Sonner's own `left:50%; transform:translateX(-50%)` (x-position=center) is relative to
+    // the toaster's OWN containing block, which measured off the composer's true centre at
+    // 1440 by ~half the toast's width in practice. This reads a centre-X this file MEASURES
+    // off the real composer and forces it directly, so the two are correct by construction.
+    // Deliberately NOT forcing the toaster's own --width to 720px too: in RTL a single toast
+    // is anchored to the toaster's END edge (not centred inside it), so widening the toaster
+    // box just made the (still ~358px) toast hug ITS right edge instead of the real centre —
+    // the toast keeps its native width; only the toaster's OWN box (which the toast fills) is
+    // centred on the composer.
+    '[data-sonner-toaster]{left:var(--presenter-toast-centre-x,50%) !important;right:auto !important;transform:translateX(-50%) !important;}',
+    // The toaster box itself IS correctly centred by the rule above, but a single toast inside
+    // it is anchored to the box's END edge in RTL rather than centred within it — `left:0;
+    // right:0` with no width makes it fill the (already-centred) box exactly instead.
+    '[data-sonner-toast]{left:0 !important;right:0 !important;}',
   ].join('');
   document.head.appendChild(style);
 }
+
+/**
+ * The real clearance a bottom toast needs right now: 8px above whichever of the dock's OWN top
+ * edge or the prev/next nav row's top edge is further from the bottom of the screen (round-6
+ * final ruling item 3 — "measure both, take max"). Read live off the DOM at the moment a toast
+ * is about to fire, not from a value memoised earlier, so a resize between renders can never
+ * leave it stale.
+ */
+// Sonner's `bottom: Npx` positions the TOASTER's own box that many px above the viewport
+// bottom, but the actual toast row inside it renders further down still — its internal gap +
+// gutter padding around a single toast, empirically ~44px on top of the offset itself,
+// consistent across every viewport width tested. `--presenter-dock-offset` has to compensate
+// for that or the toast still grazes the dock despite the "right" clearance number.
+const PRESENTER_TOAST_INTERNAL_GUTTER = 48;
+
+function presenterToastClearance(footerEl: HTMLElement | null): number {
+  const vh = window.innerHeight;
+  if (!footerEl) return 156;
+  const dockTop = footerEl.getBoundingClientRect().top;
+  const navRow = footerEl.querySelector('[data-testid="presenter-prev"]')?.parentElement as HTMLElement | null;
+  const navTop = navRow ? navRow.getBoundingClientRect().top : dockTop;
+  const clearFrom = Math.min(dockTop, navTop);   // the higher of the two edges (smaller y)
+  return Math.max(vh - clearFrom + 8 + PRESENTER_TOAST_INTERNAL_GUTTER, 8);
+}
+
+/** The composer's own real horizontal centre (its `left + right`, halved) — px from the left
+ *  edge of the viewport, matching what a `left:Npx` on a `position:fixed` element means. */
+function presenterToastCentreX(footerEl: HTMLElement | null): string {
+  if (!footerEl) return '50%';
+  const r = footerEl.getBoundingClientRect();
+  return ((r.left + r.right) / 2) + 'px';
+}
+
+/** The footer this session's toasts must clear — set by PresenterOverlay, read by the module-
+ *  scope `toast` wrapper below, which has no component instance of its own to read a ref from. */
+let presenterFooterEl: HTMLElement | null = null;
+
+function applyPresenterToastOffset(): void {
+  ensurePresenterToastStyle();
+  document.documentElement.style.setProperty(
+    '--presenter-dock-offset', presenterToastClearance(presenterFooterEl) + 'px');
+  document.documentElement.style.setProperty(
+    '--presenter-toast-centre-x', presenterToastCentreX(presenterFooterEl));
+}
+
+// Every toast this screen shows lands at bottom-center (round-5/6: the app's default top toast
+// covered the compact header, and top-center collided with the sticky header regardless of
+// which action fired it — the close/undo toast wasn't the only offender). This is the ONE place
+// that decides that, so a future toast call here can't reintroduce a top one by omission.
+// Round-6 design decision (final, עידן): no ✕ close badge on THESE toasts — they auto-dismiss,
+// and the undo toast already has its own "ביטול" action button. The clearance is re-measured
+// and re-applied right here too (not just on dockH change), since Sonner doesn't mount
+// `[data-sonner-toaster]` until the app's first-ever toast, which can be after the mount effect
+// already ran and found nothing.
+const toast = {
+  success: (msg: string, opts?: Parameters<typeof sonnerToast.success>[1]) => {
+    applyPresenterToastOffset();
+    return sonnerToast.success(msg, { position: 'bottom-center', closeButton: false, ...opts });
+  },
+  error: (msg: string, opts?: Parameters<typeof sonnerToast.error>[1]) => {
+    applyPresenterToastOffset();
+    return sonnerToast.error(msg, { position: 'bottom-center', closeButton: false, ...opts });
+  },
+  dismiss: (...args: Parameters<typeof sonnerToast.dismiss>) => sonnerToast.dismiss?.(...args),
+};
 import { Bookmark, ChevronLeft, ChevronRight, MoreHorizontal, Pause, Pencil, Play, Video, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -460,17 +514,21 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     return () => ro.disconnect();
   }, []);
 
-  // Presenter-scoped toast offset (round-6 item 1): the ONE global `<Toaster>` (main.tsx) is
-  // shared app-wide, so this reads a var on `<html>` + an injected stylesheet rule rather than
-  // touching that shared component — package S is free to change the app's normal offset
-  // without a merge fight here, and this rule only ever WINS while a bottom toast exists,
-  // never while there is none. Bottom-center toasts must clear the WHOLE dock (both footer rows)
-  // with real breathing room (round-4: a toast was still grazing the prev/next row on some
-  // phones with only 12px of margin) — 20px, not 12.
+  // Presenter-scoped toast offset: the ONE global `<Toaster>` (main.tsx) is shared app-wide, so
+  // this reads a var on `<html>` + an injected stylesheet rule rather than touching that shared
+  // component. `presenterToastClearance` measures the dock AND the nav row live and takes
+  // whichever needs more room (round-6 final ruling item 3) — re-applied on every dockH change
+  // AND right before every toast fires (`applyPresenterToastOffset` below), since Sonner doesn't
+  // mount `[data-sonner-toaster]` until the app's first-ever toast, which can be after this
+  // effect already ran and found nothing.
   React.useEffect(() => {
-    ensurePresenterToastStyle();
-    document.documentElement.style.setProperty('--presenter-dock-offset', (dockH + 20) + 'px');
-    return () => { document.documentElement.style.removeProperty('--presenter-dock-offset'); };
+    presenterFooterEl = footerRef.current;
+    applyPresenterToastOffset();
+    return () => {
+      presenterFooterEl = null;
+      document.documentElement.style.removeProperty('--presenter-dock-offset');
+      document.documentElement.style.removeProperty('--presenter-toast-centre-x');
+    };
   }, [dockH]);
 
   const noteRef = React.useRef<HTMLInputElement | null>(null);
@@ -832,62 +890,64 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
       {/* Edge-to-edge + its OWN bottom inset (designer round-6 item 4: the composer's right edge
           looked clipped when the outer container's padding was removed for the header fix —
           this restores that same inset directly on the footer, symmetric with header/main). */}
+      {/* Round-6 final design decision (עידן): the composer is a flat bottom DOCK — full-width
+          on the phone, border-top only, no rounded top corners at all (this removes the
+          "clipped corner" question entirely: a corner that never exists can't look cut off).
+          At ≥1024px it's capped at 720px and centred, and ONLY THERE does it get a radius —
+          "radius only if fully inside" the viewport, never flush against a real edge. The cap
+          is on THIS element (background included), not just its content, which is also why the
+          toast (centred on the viewport) lines up with it: at any width the dialog fills the
+          viewport, so the viewport centre and this box's centre coincide by construction. */}
       <footer
         ref={footerRef}
-        className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-border bg-background px-4 pb-4 pt-3 sm:px-8 sm:pb-8"
+        className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-border bg-background px-4 pb-4 pt-3 sm:px-8 sm:pb-8 lg:mx-auto lg:w-full lg:max-w-[720px] lg:rounded-t-2xl lg:border-x"
       >
-        {/* Capped + centred at wide desktop (round-6 round-4 nice: ~720px, not edge-to-edge at
-            1440) — everything below reads relative to THIS box, not the raw dialog width, which
-            is also why the toast (centred on the viewport) lines up with it: at any width where
-            the dialog fills the viewport, the viewport centre and this box's centre coincide. */}
-        <div className="mx-auto flex w-full max-w-[720px] flex-col gap-2">
-          <div className="grid w-full grid-cols-2 gap-2">
-            <button
-              type="button"
-              data-testid="presenter-prev"
-              onClick={() => move(-1)}
-              aria-label="הקודם"
-              className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
-            >
-              <ChevronRight size={26} aria-hidden />
-              <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
-                <bdi>{rows[idx - 1] ? labelOf(rows[idx - 1]) : ''}</bdi>
-              </span>
-            </button>
-            <button
-              type="button"
-              data-testid="presenter-next"
-              onClick={() => move(1)}
-              aria-label="הבא"
-              className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
-            >
-              <ChevronLeft size={26} aria-hidden />
-              <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
-                <bdi>{rows[idx + 1] ? labelOf(rows[idx + 1]) : ''}</bdi>
-              </span>
-            </button>
-          </div>
-          <div className="flex w-full min-w-0 items-center gap-2">
-            <input
-              ref={noteRef}
-              data-testid="presenter-quicknote"
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              placeholder="שורה אחת, אם בא לך"
-              aria-label="שורה אחת, אם בא לך"
-              className="min-h-11 min-w-0 flex-1 basis-0 rounded-xl border border-border bg-muted px-3 text-[15px] text-foreground outline-none focus:border-[color:var(--brand-1)]"
-            />
-            <BubbleButton
-              variant="neutral"
-              size="md"
-              icon={<Bookmark size={16} aria-hidden />}
-              data-testid="presenter-marker"
-              onClick={() => void doMark(true)}
-              className="flex-none"
-            >
-              סמן רגע
-            </BubbleButton>
-          </div>
+        <div className="grid w-full grid-cols-2 gap-2">
+          <button
+            type="button"
+            data-testid="presenter-prev"
+            onClick={() => move(-1)}
+            aria-label="הקודם"
+            className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
+          >
+            <ChevronRight size={26} aria-hidden />
+            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+              <bdi>{rows[idx - 1] ? labelOf(rows[idx - 1]) : ''}</bdi>
+            </span>
+          </button>
+          <button
+            type="button"
+            data-testid="presenter-next"
+            onClick={() => move(1)}
+            aria-label="הבא"
+            className="flex min-h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border text-foreground"
+          >
+            <ChevronLeft size={26} aria-hidden />
+            <span className="min-w-0 max-w-full truncate px-2 text-[12px] font-bold text-muted-foreground">
+              <bdi>{rows[idx + 1] ? labelOf(rows[idx + 1]) : ''}</bdi>
+            </span>
+          </button>
+        </div>
+        <div className="flex w-full min-w-0 items-center gap-2">
+          <input
+            ref={noteRef}
+            data-testid="presenter-quicknote"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            placeholder="שורה אחת, אם בא לך"
+            aria-label="שורה אחת, אם בא לך"
+            className="min-h-11 min-w-0 flex-1 basis-0 rounded-xl border border-border bg-muted px-3 text-[15px] text-foreground outline-none focus:border-[color:var(--brand-1)]"
+          />
+          <BubbleButton
+            variant="neutral"
+            size="md"
+            icon={<Bookmark size={16} aria-hidden />}
+            data-testid="presenter-marker"
+            onClick={() => void doMark(true)}
+            className="flex-none"
+          >
+            סמן רגע
+          </BubbleButton>
         </div>
       </footer>
 
