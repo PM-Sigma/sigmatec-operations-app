@@ -21,7 +21,8 @@ export function validateMessage(to: string, text: string): string[] {
   return errs;
 }
 
-/** The unread sheet's title — one message reads differently from "N messages". */
+/** The unread sheet's title — one message reads differently from "N messages" (designer round 2:
+    "יש לך 1 הודעות חדשות" is grammatically wrong for n=1 — "הודעה חדשה אחת" reads right). */
 export function unreadTitle(n: number): string {
-  return n === 1 ? 'הודעה חדשה' : `${n} הודעות חדשות`;
+  return n === 1 ? 'הודעה חדשה אחת' : `${n} הודעות חדשות`;
 }

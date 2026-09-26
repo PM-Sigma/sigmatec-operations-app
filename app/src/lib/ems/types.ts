@@ -74,6 +74,19 @@ export interface TaskPatch {
 export interface WriteResult { sent: boolean; id?: string | null; queued?: boolean; queueId?: string; error?: string }
 
 /**
+ * One item for `EmsGateway.queueOffline` — the exact shape 13-ems.js's own offline queue has
+ * always stored (`{kind, taskId, message?|status?}`), pushed straight in with no network and
+ * no re-shaping, so `emsQueueFlush`'s replay (13-ems.js, on the next connect) treats it exactly
+ * like an item `emsQueueAdd` parked locally on its own.
+ */
+export interface OfflineQueueItem {
+  kind: 'comment' | 'status';
+  taskId: string;
+  message?: string;
+  status?: string;
+}
+
+/**
  * Which operations the ACTIVE transport can actually perform. The UI asks before it draws a
  * button (§7o: "no purposeless buttons"). REST answers false for the three operations the EMS
  * REST API does not expose today; an MCP adapter will answer from the tool list it is given.

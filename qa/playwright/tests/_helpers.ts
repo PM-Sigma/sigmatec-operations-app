@@ -15,7 +15,7 @@
 // specifies — using the project metadata rather than the project name, so renaming a project
 // cannot silently change the folder layout.
 import { expect, test as base, type Page, type TestInfo } from '@playwright/test';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { FIXTURES } from './_fixtures';
@@ -841,6 +841,27 @@ export async function shot(page: Page, testInfo: TestInfo, suffix = '', opts: { 
   );
   await mkdir(dirname(file), { recursive: true });
   await page.screenshot({ path: file, fullPage: !!opts.fullPage });
+}
+
+/**
+ * Sidecar next to a `shot()` PNG recording the exact rect a geometry assertion just checked
+ * (e.g. `qa/playwright/shots/presenter/mobile-360-light-close-undo-toast.rect.txt`), so evidence
+ * from an older commit can never be mistaken for current — the numbers are stamped by the same
+ * run that took the screenshot, right after the assertion on them passed.
+ */
+export async function writeRectSidecar(
+  page: Page, testInfo: TestInfo, suffix: string, rect: Record<string, number>,
+): Promise<void> {
+  const spec = testInfo.file.replace(/\\/g, '/').split('/').pop()!.replace(/\.spec\.ts$/, '');
+  const theme = (testInfo.project.metadata as any).theme as string;
+  const viewport = (testInfo.project.metadata as any).viewport as string;
+  const file = resolve(
+    testInfo.config.rootDir, '..', 'shots', spec,
+    viewport + '-' + theme + '-' + suffix + '.rect.txt',
+  );
+  await mkdir(dirname(file), { recursive: true });
+  const body = Object.entries(rect).map(([k, v]) => `${k}=${Math.round(v)}`).join(' ');
+  await writeFile(file, body + '\n', 'utf8');
 }
 
 /**
