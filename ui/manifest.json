@@ -72,6 +72,7 @@
   "./ui/sigma-refresh-cw.js",
   "./ui/sigma-search.js",
   "./ui/sigma-section-block.js",
+  "./ui/sigma-section-error.js",
   "./ui/sigma-segmented-control.js",
   "./ui/sigma-Settings.js",
   "./ui/sigma-skeleton.js",
