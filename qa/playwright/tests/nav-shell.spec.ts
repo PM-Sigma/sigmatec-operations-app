@@ -103,11 +103,14 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   }
   // …and the management block is behind its own rule, for עידן
   await expect(sheet.getByText('ניהול', { exact: true })).toBeVisible();
-  for (const label of ['התראות', 'פיתוח', '📈 שימוש']) {
+  // S-U round 1: registerMoreItem labels dropped their baked-in emoji (the row already carries
+  // a lucide icon) — "📈 שימוש" → "שימוש".
+  for (const label of ['התראות', 'פיתוח', 'שימוש']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
-  // the identity chip is in the sheet on the phone (the header has no room for it)
-  await expect(sheet.getByRole('button', { name: /עידן/ })).toBeVisible();
+  // the identity chip is in the sheet on the phone (the header has no room for it) — S-U round 2:
+  // a static IdentityRow (avatar/name/role), not a button with its own dropdown menu.
+  await expect(sheet.getByText('עידן', { exact: true })).toBeVisible();
 
   await shot(page, ti, 'more-sheet');
 
@@ -172,12 +175,13 @@ test('shell: the ⚙️ gear bubble opens GearSheet (identity/role, settings, fe
   expectNoConsoleErrors(rec);
 });
 
-test('shell: the user chip shows the first name on the phone, not just the initial', async ({ page }, ti) => {
+test('shell: the identity row shows the first name on the phone, not just the initial', async ({ page }, ti) => {
   const { rec, viewport } = await boot(page, ti);
   test.skip(viewport !== 'mobile-390', 'Package O §1 — the phone used to shrink to "ע"');
 
   await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click();
-  const chip = page.getByRole('button', { name: /עידן/ }).first();
+  // S-U round 2: IdentityRow is a static row (avatar/name/role), not a button.
+  const chip = page.getByRole('dialog').getByText('עידן', { exact: true }).first();
   await expect(chip).toBeVisible();
   // The whole first name, not the single-letter initial the phone chip used to fall back to.
   await expect(chip).toHaveText(/עידן/);

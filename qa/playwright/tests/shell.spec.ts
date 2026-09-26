@@ -150,12 +150,14 @@ test.describe('[data-hit-slop] tap-target growth (S-U, cross-package bug report 
     // to the visual LEFT of `first`, so `first` starts at-or-after `second`'s right edge.
     expect(b1!.x).toBeGreaterThanOrEqual(b2!.x + b2!.width);
 
-    // Clicking the second chip toggles only it, and leaves the first untouched — proof the
-    // click landed on its own control, not on an overlay reaching into the first chip's box.
-    const before = await first.getAttribute('aria-pressed');
-    await second.click();
-    await expect(second).toHaveAttribute('aria-pressed', 'true');
-    await expect(first).toHaveAttribute('aria-pressed', before!);
+    // Clicking the first chip (Gallery's only wired-up toggle — the second is a static demo,
+    // `onClick={() => {}}`) flips only it, and leaves the second untouched — proof the click
+    // landed on its own control, not on an overlay reaching into the neighbour's box.
+    const beforeFirst = await first.getAttribute('aria-pressed');
+    const beforeSecond = await second.getAttribute('aria-pressed');
+    await first.click();
+    await expect(first).not.toHaveAttribute('aria-pressed', beforeFirst!);
+    await expect(second).toHaveAttribute('aria-pressed', beforeSecond!);
   });
 });
 

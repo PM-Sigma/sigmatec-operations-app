@@ -48,9 +48,13 @@ function DesktopNavBar() {
   return (
     <div
       dir="rtl"
-      className="sigma-root sticky z-[var(--z-sticky,10)] hidden items-center justify-between border-b border-border bg-card px-4 md:flex"
+      className="sigma-root sticky z-[var(--z-sticky,10)] hidden items-center border-b border-border bg-card px-4 md:flex"
       style={{ insetBlockStart: 'var(--header-h)', minHeight: 52 }}
     >
+      {/* Designer round 4: "ביקור" used to be a sibling of <nav> under `justify-between`, which
+          threw it to the FAR end of the whole bar — a lone pill with a big gap from every tab,
+          reading as loose/misplaced chrome. It is a nav item too (the primary action, same
+          bar), so it now lives INSIDE <nav>, last in reading order, at the tabs' own height. */}
       <nav aria-label="ניווט ראשי" className="flex items-center gap-1">
         {isViewer ? (
           <Tab icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => go('kibbutz', 'peer')} />
@@ -72,18 +76,19 @@ function DesktopNavBar() {
             }
           })
         )}
+        {!isViewer && (
+          <BubbleButton
+            variant="primary"
+            size="sm"
+            className="h-11"
+            icon={<MapPin className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
+            aria-label="תיעוד ביקור"
+            onClick={openVisit}
+          >
+            ביקור
+          </BubbleButton>
+        )}
       </nav>
-      {!isViewer && (
-        <BubbleButton
-          variant="primary"
-          size="sm"
-          icon={<MapPin className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
-          aria-label="תיעוד ביקור"
-          onClick={openVisit}
-        >
-          ביקור
-        </BubbleButton>
-      )}
     </div>
   );
 }

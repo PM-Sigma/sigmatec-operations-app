@@ -49,7 +49,7 @@ export function GearSheet() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto border-border bg-card pb-8">
+      <SheetContent side="bottom" className="s-gear-desktop max-h-[85vh] overflow-y-auto border-border bg-card pb-8">
         {/* Designer round 3: SheetHeader wraps its children in its OWN hard-coded flex-col div
             (sheet.tsx) — passing Tags straight in as siblings of the title stretched them to
             that column's full width (`align-items:stretch`), so "לא מחובר"/"סביבת בדיקה" read

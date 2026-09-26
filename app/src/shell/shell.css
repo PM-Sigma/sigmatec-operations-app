@@ -84,16 +84,31 @@ html[data-nav='back'] ::view-transition-new(root) {
     border-radius: var(--s-radius-sheet) !important;
     border: 1px solid hsl(var(--border));
     transform: translateY(-50%) !important;
-    /* Designer round 3: the list can run past max-h-85vh (everyday rows + the ⟨ ניהול ⟩ block);
-       it scrolled fine but LOOKED cut off — nothing hinted there was more below "ניהול". A
-       fixed content fade would fade the LAST real row even on a short list that never
-       overflows (a worse, misleading cue), so this is a visible scrollbar instead: it only
-       ever renders when the browser decides there IS overflow — an honest, conditional cue a
-       static mask can't give — just styled thin/always-on instead of the OS's auto-hide one. */
-    max-height: min(85vh, calc(100vh - 64px)) !important;
+    /* Designer round 4: 85vh still fit the WHOLE list on a 1440 screen often enough that the
+       list ended exactly at the "ניהול" section header with nothing visibly cut — the
+       thin-scrollbar cue from round 3 wasn't enough on its own (subtle, easy to miss in a
+       screenshot). A SHORTER, fixed cap makes the cut itself the cue: long enough for the
+       everyday rows to read as a normal list, short enough that a longer list (the admin block)
+       is deliberately clipped mid-row — a half-visible row is an unmistakable "more below"
+       signal no fade or scrollbar has to work to earn. Short lists just render smaller (no
+       scrolling needed, nothing to signal). */
+    max-height: min(60vh, 480px) !important;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
   .s-more-desktop::-webkit-scrollbar { width: 8px; }
   .s-more-desktop::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
+
+  /* Nice-to-have (designer round 3/4): GearSheet centred too, narrower (~480) than ⋯ עוד's 560
+     — it is identity + a handful of rows, not a list. */
+  .s-gear-desktop {
+    inset-inline: 0 !important;
+    inset-block-end: auto !important;
+    inset-block-start: 50% !important;
+    width: min(480px, calc(100vw - 32px)) !important;
+    margin-inline: auto !important;
+    border-radius: var(--s-radius-sheet) !important;
+    border: 1px solid hsl(var(--border));
+    transform: translateY(-50%) !important;
+  }
 }
