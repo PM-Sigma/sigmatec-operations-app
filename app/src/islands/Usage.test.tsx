@@ -67,13 +67,19 @@ describe('📈 שימוש island', () => {
     vi.resetModules();
   });
 
+  // Explicit timeout, not the 15s default: this is the file's heaviest render (KPI strip + heat
+  // table + top actions + narrative, four `findByText` waits chained), and it was seen timing
+  // out under a fully-loaded test-all run (many vitest workers + a concurrent build sharing the
+  // same CPU) while passing in isolation in ~3.5s — a real load-sensitivity, not a logic bug. A
+  // generous fixed ceiling keeps the test deterministic under contention without hiding an
+  // actual regression (a hung render still fails, just not on a hair-trigger).
   it('opens on the #usage deep link (the weekly push action) and renders the report', async () => {
     asUser('עידן', { idan: true });
     location.hash = '#usage';
     const { Usage } = await import('./Usage');
     render(<Usage />);
 
-    expect(await screen.findByText('📈 שימוש · 30 ימים אחרונים')).toBeInTheDocument();
+    expect(await screen.findByText('📈 שימוש · 30 ימים אחרונים', {}, { timeout: 8000 })).toBeInTheDocument();
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('usage_report', { p_days: 30, p_actor: 'עידן' }));
 
     // KPI strip + heat table + top actions + narrative, all from aggregate()/usageNarrative()
@@ -85,7 +91,7 @@ describe('📈 שימוש island', () => {
     // the roster is always listed, so a person with no events is visible as such
     // twice on purpose: once as a heat-table row, once in "נראו לאחרונה"
     expect(screen.getAllByText('מתניה')).toHaveLength(2);
-  });
+  }, 30_000);
 
   it('never opens for anyone but עידן, and never asks the server', async () => {
     asUser('ניתאי');
