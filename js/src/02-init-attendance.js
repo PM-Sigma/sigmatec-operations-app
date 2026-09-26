@@ -97,7 +97,6 @@
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
     if (page === 'calendar')   renderCompanyCalendar();
-    if (page === 'dev' && typeof renderDevTasks === 'function') renderDevTasks();
     if (page === 'pushlog' && typeof renderPushLog === 'function') renderPushLog();
     if (page === 'burns' && typeof renderBurns === 'function') renderBurns();
     // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)

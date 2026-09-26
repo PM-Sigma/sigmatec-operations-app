@@ -82,6 +82,11 @@ test('status tab: last visit ✏️ and 🚚 open the new visit sheet', async ({
   await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
   const section = detail(page).locator('[data-section="lastVisitReport"]');
   const editBtn = section.getByRole('button', { name: 'עריכת הסיכום' });
+  const emptyText = section.getByText('עוד אין סיכום ביקור לקיבוץ הזה.');
+  // The section renders empty for one paint until useKibbutzVisits' data lands — waiting for
+  // EITHER outcome first (instead of reading editBtn.count() immediately) is what makes this
+  // race-free; reading the count before data lands always saw 0 and fell into the wrong branch.
+  await expect(editBtn.or(emptyText)).toBeVisible();
   if (await editBtn.count()) {
     await editBtn.click();
     await expect(page.locator('[data-testid="visit-chapters"]')).toBeVisible();
@@ -135,12 +140,7 @@ test.describe('ביקורים', () => {
     await detail(page).getByTestId('visit-draft-row').getByRole('button', { name: 'מחיקת טיוטה' }).click();
     await expect(page.getByText('הטיוטה נמחקה')).toBeVisible();
     await expect(detail(page).getByTestId('visit-draft-row')).toHaveCount(0);
-    // dispatchEvent, not .click(): a real pointer click at this screen position is swallowed by
-    // the open Sheet's own overlay (confirmed by direct hit-testing — a pre-existing stacking
-    // gap between an open Sheet and a sonner toast's action, not introduced by V-U2 and outside
-    // its file ownership: app/src/components/ui/sheet.tsx + sonner.tsx. Flagged separately).
-    // The onClick handler itself is verified correct here.
-    await page.locator('[data-sonner-toast]').getByRole('button', { name: 'ביטול' }).dispatchEvent('click');
+    await page.locator('[data-sonner-toast]').getByRole('button', { name: 'ביטול' }).click();
     await expect(detail(page).getByTestId('visit-draft-row')).toBeVisible();
   });
 

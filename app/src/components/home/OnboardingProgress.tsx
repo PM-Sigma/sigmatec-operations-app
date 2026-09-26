@@ -132,13 +132,15 @@ export function OnboardingProgress({ kibbutz, canAct }: { kibbutz: string; canAc
           type="button"
           disabled={!canAct || !!busy}
           onClick={e => { e.stopPropagation(); void tap(next); }}
-          className="onboarding-next-step mt-1.5 flex w-full items-center justify-between rounded-md px-1 py-0.5 text-[12.5px] text-foreground hover:bg-muted disabled:opacity-60"
+          className="onboarding-next-step mt-1.5 flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-[12.5px] text-foreground hover:bg-muted disabled:opacity-60"
           title={waitAge(next, new Date()) != null ? `ממתין ${waitAge(next, new Date())} ימים` : undefined}
         >
-          <span>{next.label}</span>
-          <span className="text-[11px] text-muted-foreground">
+          {/* the ○/⏳ marker sits right beside its own label (designer round 7), not stranded
+              at the row's far end by a justify-between spread. */}
+          <span className="shrink-0 text-[11px] text-muted-foreground">
             {next.state === 'waiting' ? `⏳ ${waitAge(next, new Date())} ימים` : '○'}
           </span>
+          <span className="min-w-0 flex-1 truncate text-start">{next.label}</span>
         </button>
       )}
       {complete && (

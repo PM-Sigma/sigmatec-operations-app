@@ -1,11 +1,11 @@
-// ▶ ישיבת פיתוח (company-process spec §7) — the dev meeting, end to end.
+// ▶ ישיבת פיתוח (company-process spec §7, D-U2) — the dev meeting, end to end.
 //
 // What this proves that the unit tests cannot: the overlay really covers the app on a phone
-// and a desktop in both themes; the keys reach it through the real page; the 📋 prep card and
-// the walk are built from ONE board fetch; 📌 writes a real `meeting_events` row; and
-// accepting a proposal calls the EXISTING "העבר לספרינט הקרוב" action exactly once and never
-// creates a ticket (the harness refuses every other github mode, so a create would fail loud).
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
+// and a desktop in both themes; the keys reach it through the real page; the 📋 prep card, the
+// חדש השבוע screen and the walk are built from ONE board fetch; the walk is grouped by domain;
+// marking a card (1/2/3, or the mark bar) never fires a GitHub write; 📌 writes a real
+// `meeting_events` row; and the end-of-meeting summary lists what was marked.
+import { boot, expect, expectNoConsoleErrors, expectRtl, shot, shotAtWidth, test } from './_helpers';
 
 /** The github function is EMS-gated, so the meeting needs a connected session. */
 const EMS = { ems_token_v1: 'qa-ems-token', ems_token_at_v1: String(Date.now()) };
@@ -18,7 +18,7 @@ async function openDevMeeting(page: any) {
   await expect(page.getByTestId('dev-prep')).toBeVisible();
 }
 
-/** Every github call the page makes, so a spec can assert WHICH mode was used. */
+/** Every github call the page makes, so a spec can assert WHICH mode was used (none, for D-U2). */
 function watchGithub(page: any) {
   const calls: any[] = [];
   page.on('request', (r: any) => {
@@ -42,7 +42,15 @@ function watchWrites(page: any) {
   return sent;
 }
 
-test('dev meeting: prep card → three columns → 📌 → accept one card into the sprint', async ({ page }, ti) => {
+async function toWalk(page: any) {
+  await page.getByTestId('dev-start').click();
+  await expect(page.getByTestId('dev-new-week')).toBeVisible();
+  await page.getByTestId('dev-new-week-start').click();
+  await expect(page.getByTestId('dev-card-title')).toBeVisible();
+}
+
+test('dev meeting: prep card → חדש השבוע → the domain walk → 📌 → mark a card locally', async ({ page }, ti) => {
+  const is390 = (ti.project.metadata as any).viewport === 'mobile-390';
   const { rec } = await boot(page, ti, { storage: EMS });
   const gh = watchGithub(page);
   const sent = watchWrites(page);
@@ -55,34 +63,36 @@ test('dev meeting: prep card → three columns → 📌 → accept one card into
   await expect(page.getByTestId('dev-blocked')).toContainText('#10');
   await expect(page.getByTestId('dev-questions')).toContainText('איזה תעריף');
   await expect(page.getByTestId('dev-proposed')).toContainText('#21');
-  // round 5 M-L2: the prep screen alone opens NO session (the row is created only once the walk starts)
   expect(sent.some(s => s.table === 'meeting_sessions' && s.body?.kind === 'dev')).toBe(false);
-  // …from ONE board fetch, not two
   expect(gh.filter(c => !c.mode).length).toBe(1);
 
   await shot(page, ti);
   await expectRtl(page);
 
-  // ── the walk: בפיתוח עכשיו → שלבי בדיקות → ספרינט הקרוב, one card per screen
-  await page.getByTestId('dev-start').click();
-  await expect(page.getByTestId('dev-column')).toHaveText('בפיתוח עכשיו');
-  await expect(page.getByTestId('dev-card-title')).toContainText('תיקון קריאה שלילית');
-  await expect(page.getByTestId('dev-card-body')).toContainText('לתקן קריאה שלילית');
-  await expect(page.getByTestId('dev-card-comments')).toContainText('מתניה');
-  await expect(page.getByTestId('dev-card-questions')).toContainText('איזה תעריף');
-  await expect(page.getByTestId('dev-counter')).toContainText('1 / 3');
-  await shot(page, ti, 'walk');
+  // ── accepting a proposal is now a LOCAL mark — no GitHub write, ever
+  await page.getByTestId('dev-accept-21').click();
+  await expect(page.getByTestId('dev-accept-21')).toHaveText('הועבר');
+  expect(gh.some(c => c.mode)).toBe(false);
 
-  await page.keyboard.press('ArrowLeft');
-  await expect(page.getByTestId('dev-column')).toHaveText('שלבי בדיקות');
-  await page.keyboard.press('ArrowLeft');
-  await expect(page.getByTestId('dev-column')).toHaveText('ספרינט הקרוב');
-  await expect(page.getByTestId('dev-counter')).toContainText('3 / 3');
-  // …and it does not wrap back to the first card
-  await page.keyboard.press('ArrowLeft');
-  await expect(page.getByTestId('dev-counter')).toContainText('3 / 3');
-  await page.keyboard.press('ArrowRight');
-  await expect(page.getByTestId('dev-column')).toHaveText('שלבי בדיקות');
+  // ── חדש השבוע, its own screen before the walk
+  await page.getByTestId('dev-start').click();
+  await expect(page.getByTestId('dev-new-week')).toBeVisible();
+  await shot(page, ti, 'new-week');
+  if (is390) await shotAtWidth(page, ti, 412, 'new-week');
+  await page.getByTestId('dev-new-week-start').click();
+
+  // ── the walk: grouped by domain, one card per screen
+  await expect(page.getByTestId('dev-domain')).toBeVisible();
+  await expect(page.getByTestId('dev-card-title')).toBeVisible();
+  await shot(page, ti, 'walk');
+  if (is390) await shotAtWidth(page, ti, 412, 'walk');
+
+  // ── the stopwatch running (designer round-2: capture the presenter with the timer live)
+  await page.getByTestId('dev-timer-toggle').click();
+  await page.waitForTimeout(1200);
+  await expect(page.getByTestId('dev-timer')).not.toHaveText('00:00');
+  await shot(page, ti, 'timer-running');
+  if (is390) await shotAtWidth(page, ti, 412, 'timer-running');
 
   // ── 📌 writes ONE issue event for the card on screen, and the screen does not move
   const before = sent.filter(s => s.table === 'meeting_events').length;
@@ -90,31 +100,50 @@ test('dev meeting: prep card → three columns → 📌 → accept one card into
   await expect.poll(() => sent.filter(s => s.table === 'meeting_events').length).toBe(before + 1);
   const row = sent.filter(s => s.table === 'meeting_events').pop()!.body;
   expect(row.kind).toBe('issue');
-  expect(row.issue_number).toBe(12);
-  await expect(page.getByTestId('dev-counter')).toContainText('2 / 3');
+
+  // ── the mark bar sets a local mark — still no GitHub write
+  await page.keyboard.press('2');
+  await expect(page.getByTestId('dev-mark-bar')).toContainText('לבירור');
+  expect(gh.some(c => c.mode)).toBe(false);
 
   expectNoConsoleErrors(rec);
 });
 
-test('dev meeting: accepting a proposal moves the card with the existing action, and never creates one', async ({ page }, ti) => {
+test('dev meeting: walk two domains with the keys and finish at the summary', async ({ page }, ti) => {
+  const is390 = (ti.project.metadata as any).viewport === 'mobile-390';
   const { rec } = await boot(page, ti, { storage: EMS });
-  const gh = watchGithub(page);
-
   await openDevMeeting(page);
-  await expect(page.getByTestId('dev-proposed-21')).toBeVisible();
+  await toWalk(page);
 
-  await page.getByTestId('dev-accept-21').click();
-  await expect(page.getByTestId('dev-accept-21')).toHaveText('הועבר');
+  // Tier order puts #21 (קריטי) first, then the "none"-tier cards in board order
+  // (10, 12, 13, 22, 31) in domain 1, then the real second domain — #40 has no parent
+  // ("ללא אפיון") — 7 cards total.
+  await page.keyboard.press('1');   // #21 (domain 1) → לספרינט
+  await page.keyboard.press('j');   // next card (#10, still domain 1)
+  await page.keyboard.press('3');   // #10 → לדחות
+  // ←/→ move by DOMAIN — → jumps FORWARD to the next domain's first card (#40, "ללא אפיון").
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByTestId('dev-counter')).toContainText('7 / 7');
+  await expect(page.getByTestId('dev-domain')).toContainText('ללא אפיון');
+  // ← from the last (and only other) domain jumps BACK to domain 1's own first card (#21).
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('dev-counter')).toContainText('1 / 7');
+  await page.keyboard.press('j');   // #10
+  await page.keyboard.press('j');   // #12
+  await page.keyboard.press('j');   // #13
+  await page.keyboard.press('j');   // #22
+  await page.keyboard.press('j');   // #31
+  await page.keyboard.press('j');   // #40 — the last card, so "לסיכום" appears in the footer
 
-  const writes = gh.filter(c => c.mode);
-  expect(writes.length).toBe(1);
-  expect(writes[0].mode).toBe('setStatus');
-  expect(writes[0].numbers).toEqual([21]);
-  expect(gh.some(c => c.mode === 'createIssue')).toBe(false);
+  await page.getByTestId('dev-to-summary').click();
+  await expect(page.getByTestId('dev-summary')).toBeVisible();
+  await shot(page, ti, 'summary');
+  if (is390) await shotAtWidth(page, ti, 412, 'summary');
+  await expect(page.getByTestId('dev-summary-sprint')).toContainText('#21');
+  await expect(page.getByTestId('dev-summary-defer')).toContainText('#10');
 
-  // …and the board really moved: #21 is now walked as part of ספרינט הקרוב.
-  await page.getByTestId('dev-start').click();
-  await expect(page.getByTestId('dev-counter')).toContainText('/ 4');
+  await page.getByTestId('dev-summary-finish').click();
+  await expect(page.getByTestId('dev-presenter')).toBeHidden();
 
   expectNoConsoleErrors(rec);
 });

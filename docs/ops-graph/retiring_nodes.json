@@ -132,12 +132,5 @@
       "js/src/23-push-log.js"
     ],
     "ids": []
-  },
-  "dev_tasks_page": {
-    "label": "18-dev-tasks.js legacy page",
-    "file_prefix": [
-      "js/src/18-dev-tasks.js"
-    ],
-    "ids": []
   }
 }

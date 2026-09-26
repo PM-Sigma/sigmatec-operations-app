@@ -126,7 +126,15 @@ function KibbutzDetailIsland() {
 
   return (
     <Sheet open={open} onOpenChange={v => { if (!v) closeIt(); }}>
-      <SheetContent side="bottom" className="max-h-[90vh] p-0 pt-2.5">
+      <SheetContent
+        side="bottom"
+        className="max-h-[90vh] p-0 pt-2.5"
+        // Radix's default auto-focus lands on the first focusable element — the header's ✏️
+        // IconBubble — which drew a heavy focus ring on a button nobody asked to interact with
+        // (designer round 5). Focus the sheet's own container instead: still announced to a
+        // screen reader, no visible ring on an unrelated control.
+        onOpenAutoFocus={e => { e.preventDefault(); (e.currentTarget as HTMLElement).focus(); }}
+      >
         {name && <Body key={name} name={name} tab={tab} onTab={setTab} />}
       </SheetContent>
     </Sheet>

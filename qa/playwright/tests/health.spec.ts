@@ -49,8 +49,9 @@ test('a technician never sees the strip', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   await openCard(page, 'חוקוק');
-  // the modal itself is open — the meetings island inside it renders for everyone
-  await expect(page.locator('#modalBackdrop.open')).toBeVisible({ timeout: 15_000 });
+  // the sheet itself is open (round 5 K-U3: via KibbutzDetail, not the legacy modal) — the
+  // status tab renders for everyone, the health strip only for the health audience
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('health-strip')).toHaveCount(0);
 
   await shot(page, ti, 'hidden-for-field');

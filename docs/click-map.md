@@ -4,52 +4,59 @@
 Every clickable that reaches a backend, and whether its handler shows a pending state.
 Generated from source text (see `scripts/click-map.mjs` for the detectors).
 
-- clickables scanned: **294** (legacy 222, react 72)
-- with a backend call: **38**
-- **with a backend call and NO pending state: 0** ← the pending-states backlog
+- clickables scanned: **309** (legacy 215, react 94)
+- with a backend call: **45**
+- **with a backend call and NO pending state: 4** ← the pending-states backlog
 
 ## 1. Clickables with a backend call
 
 | # | surface | clickable (file:line) | handler | backend call | pending state |
 |---|---|---|---|---|---|
-| 1 | legacy | `index.html:168` | `visitQuickGo` | apps-script sheet | setBtnLoading |
-| 2 | legacy | `index.html:202` | `saveAttEdit` | apps-script sheet | setBtnLoading |
-| 3 | legacy | `index.html:229` | `changeUser` | bus user-changed | **none** |
-| 4 | legacy | `index.html:546` | `saveEmsTask` | EMS /employee-tasks, EMS /employee-tasks/ | setBtnLoading |
-| 5 | legacy | `index.html:616` | `switchTab` | bus visit-form-open | **none** |
-| 6 | legacy | `index.html:677` | `visitDraftDiscard` | apps-script sheet, bus visit-draft-changed | setBtnLoading |
-| 7 | legacy | `index.html:804` | `saveVisit` | apps-script sheet, bus stock-changed, bus visit-saved | setBtnLoading, saving/sending state |
-| 8 | legacy | `index.html:881` | `intakeParse` | apps-script sheet | disabled=true |
-| 9 | legacy | `index.html:893` | `intakeSave` | apps-script sheet | setBtnLoading |
-| 10 | legacy | `index.html:908` | `checkAuthCode` | bus user-changed | **none** |
-| 11 | legacy | `index.html:1041` | `invSaveOrder` | apps-script sheet, bus stock-changed | setBtnLoading, saving/sending state |
-| 12 | legacy | `index.html:1079` | `invSaveRequirement` | apps-script sheet | setBtnLoading |
-| 13 | legacy | `index.html:1114` | `invSaveProduct` | apps-script sheet | setBtnLoading |
-| 14 | legacy | `js/src/03-requirements.js:34` | `quickReqStatus` | apps-script sheet | setBtnLoading |
-| 15 | legacy | `js/src/05-meeting-returns.js:129` | `returnToStock` | apps-script sheet | saving/sending state |
-| 16 | legacy | `js/src/05-meeting-returns.js:130` | `markReturnDefective` | apps-script sheet | runOnce |
-| 17 | legacy | `js/src/06-products.js:37` | `invToggleProductActive` | apps-script sheet | runOnce |
-| 18 | legacy | `js/src/07-orders.js:714` | `quickOrderStatus` | apps-script sheet | setBtnLoading |
-| 19 | legacy | `js/src/14-calendar.js:720` | `changeEmsStatus` | EMS status, EMS write (queued when offline) | aria-busy, disabled=true, busy state |
-| 20 | legacy | `js/src/14-calendar.js:729` | `addEmsComment` | EMS /employee-tasks/ | runOnce |
-| 21 | legacy | `js/src/20-delivery-cert.js:72` | `issueDeliveryCert` | EMS write (queued when offline), apps-script sheet | setBtnLoading |
-| 22 | legacy | `js/src/20-delivery-cert.js:661` | `certCancel` | apps-script sheet | runOnce |
-| 23 | legacy | `js/src/22-push.js:251` | `attNagDay` | edge fn push-send, github mode:attendanceReminder | runOnce |
-| 24 | legacy | `js/src/23-push-log.js:41` | `renderPushLog` | supabase push_log | runOnce |
-| 25 | legacy | `js/src/24-meter-burns.js:338` | `burnRefreshFromEms` | supabase meter_burns | setBtnLoading |
-| 26 | legacy | `js/src/24-meter-burns.js:417` | `burnGenSearchEms` | EMS /meters?search= | runOnce |
-| 27 | react | `app/src/components/home/Burns.tsx:315` | `assignSelected` | supabase generators | disabled prop, busy state |
-| 28 | react | `app/src/components/home/InternalTasks.tsx:89` | `(inline)` | supabase internal_tasks | disabled prop, busy state |
-| 29 | react | `app/src/components/home/KibbutzSheet.tsx:335` | `(inline)` | supabase kibbutzim | disabled prop, saving/sending state, spinner |
-| 30 | react | `app/src/components/home/KibbutzSheet.tsx:346` | `(inline)` | supabase kibbutzim | disabled prop, saving/sending state, spinner |
-| 31 | react | `app/src/components/home/MeetingNotes.tsx:216` | `(inline)` | supabase kibbutz_meeting_notes | disabled prop, busy state |
-| 32 | react | `app/src/components/home/MeetingNotes.tsx:241` | `(inline)` | supabase kibbutz_meeting_notes | disabled prop, busy state |
-| 33 | react | `app/src/components/home/WorkTimerStopSheet.tsx:154` | `(inline)` | supabase site_contacts | aria-busy, disabled prop, busy state, spinner |
-| 34 | react | `app/src/components/home/WorkTimerStopSheet.tsx:203` | `(inline)` | supabase work_sessions | disabled prop, saving/sending state |
-| 35 | react | `app/src/islands/Holidays.tsx:120` | `(inline)` | mutation | aria-busy, isPending, disabled prop, isPending, busy state |
-| 36 | react | `app/src/islands/Presenter.tsx:321` | `(inline)` | supabase kibbutz_meeting_notes | disabled prop, busy state |
-| 37 | react | `app/src/islands/Settings.tsx:196` | `(inline)` | bus sigma-open-gaps | saving/sending state |
-| 38 | react | `app/src/islands/StockChange.tsx:291` | `(inline)` | supabase movements, supabase stock_recounts | disabled prop, saving/sending state, spinner |
+| 1 | legacy | `index.html:168` | `visitQuickGo` | supabase write-router | setBtnLoading |
+| 2 | legacy | `index.html:202` | `saveAttEdit` | supabase write-router | setBtnLoading |
+| 3 | legacy | `index.html:225` | `changeUser` | bus user-changed | **none** |
+| 4 | legacy | `index.html:541` | `saveEmsTask` | EMS /employee-tasks, EMS /employee-tasks/ | setBtnLoading |
+| 5 | legacy | `index.html:615` | `switchTab` | bus visit-form-open | **none** |
+| 6 | legacy | `index.html:688` | `visitDraftDiscard` | bus visit-draft-changed, supabase write-router | setBtnLoading |
+| 7 | legacy | `index.html:828` | `saveVisit` | bus stock-changed, bus visit-saved, supabase write-router | setBtnLoading, saving/sending state |
+| 8 | legacy | `index.html:905` | `intakeParse` | apps-script ems proxy | disabled=true |
+| 9 | legacy | `index.html:917` | `intakeSave` | supabase write-router | setBtnLoading |
+| 10 | legacy | `index.html:932` | `checkAuthCode` | bus user-changed | **none** |
+| 11 | legacy | `index.html:1067` | `invSaveOrder` | bus stock-changed, supabase write-router | setBtnLoading, saving/sending state |
+| 12 | legacy | `index.html:1105` | `invSaveRequirement` | supabase write-router | setBtnLoading |
+| 13 | legacy | `index.html:1140` | `invSaveProduct` | supabase write-router | setBtnLoading |
+| 14 | legacy | `js/src/00-guard.js:447` | `(inline listener)` | bus sigma-open-feedback | **none** |
+| 15 | legacy | `js/src/03-requirements.js:34` | `quickReqStatus` | supabase write-router | setBtnLoading |
+| 16 | legacy | `js/src/04-attendance-daily.js:406` | `openVisitFromAttendance` | github mode:edit | **none** |
+| 17 | legacy | `js/src/05-meeting-returns.js:105` | `returnToStock` | supabase write-router | saving/sending state |
+| 18 | legacy | `js/src/05-meeting-returns.js:106` | `markReturnDefective` | supabase write-router | runOnce |
+| 19 | legacy | `js/src/06-products.js:37` | `invToggleProductActive` | supabase write-router | runOnce |
+| 20 | legacy | `js/src/07-orders.js:716` | `quickOrderStatus` | supabase write-router | setBtnLoading |
+| 21 | legacy | `js/src/09-visits.js:438` | `editVisit` | github mode:edit | **none** |
+| 22 | legacy | `js/src/14-calendar.js:777` | `changeEmsStatus` | EMS status, EMS write (queued when offline) | aria-busy, disabled=true, busy state |
+| 23 | legacy | `js/src/14-calendar.js:786` | `addEmsComment` | EMS /employee-tasks/ | runOnce |
+| 24 | legacy | `js/src/20-delivery-cert.js:72` | `issueDeliveryCert` | EMS write (queued when offline), supabase write-router | setBtnLoading |
+| 25 | legacy | `js/src/20-delivery-cert.js:534` | `certAddContact` | supabase site_contacts | setBtnLoading |
+| 26 | legacy | `js/src/20-delivery-cert.js:715` | `certCancel` | supabase write-router | runOnce |
+| 27 | legacy | `js/src/22-push.js:276` | `attNagDay` | edge fn push-send, github mode:attendanceReminder | runOnce |
+| 28 | legacy | `js/src/23-push-log.js:41` | `renderPushLog` | supabase push_log | runOnce |
+| 29 | legacy | `js/src/24-meter-burns.js:451` | `burnGenSearchEms` | EMS /meters?search= | runOnce |
+| 30 | react | `app/src/components/home/InternalTasks.tsx:133` | `(inline)` | supabase internal_tasks | disabled prop, busy state |
+| 31 | react | `app/src/components/home/KibbutzSheet.tsx:380` | `(inline)` | supabase kibbutzim | disabled prop, saving/sending state, spinner |
+| 32 | react | `app/src/components/home/KibbutzSheet.tsx:403` | `(inline)` | supabase kibbutzim | disabled prop, saving/sending state |
+| 33 | react | `app/src/components/home/MeetingNotes.tsx:216` | `(inline)` | supabase kibbutz_meeting_notes | disabled prop, busy state |
+| 34 | react | `app/src/components/home/MeetingNotes.tsx:241` | `(inline)` | supabase kibbutz_meeting_notes | disabled prop, busy state |
+| 35 | react | `app/src/components/home/WorkTimerEditSheet.tsx:143` | `(inline)` | supabase site_contacts | **none** |
+| 36 | react | `app/src/components/home/WorkTimerEditSheet.tsx:152` | `(inline)` | supabase site_contacts | **none** |
+| 37 | react | `app/src/components/home/WorkTimerEditSheet.tsx:163` | `(inline)` | supabase site_contacts | disabled prop |
+| 38 | react | `app/src/components/home/WorkTimerStopSheet.tsx:170` | `(inline)` | supabase site_contacts | aria-busy, disabled prop, busy state, spinner |
+| 39 | react | `app/src/components/home/WorkTimerStopSheet.tsx:219` | `(inline)` | supabase work_sessions | disabled prop, saving/sending state |
+| 40 | react | `app/src/islands/Holidays.tsx:120` | `(inline)` | mutation | aria-busy, isPending, disabled prop, isPending, busy state |
+| 41 | react | `app/src/islands/Hours.tsx:120` | `(inline)` | supabase work_sessions | disabled prop, saving/sending state, spinner |
+| 42 | react | `app/src/islands/Hours.tsx:128` | `(inline)` | supabase work_sessions | disabled prop, saving/sending state |
+| 43 | react | `app/src/islands/Presenter.tsx:361` | `(inline)` | supabase kibbutz_meeting_notes | disabled prop, busy state |
+| 44 | react | `app/src/islands/Settings.tsx:194` | `(inline)` | bus sigma-open-gaps | saving/sending state |
+| 45 | react | `app/src/islands/StockChange.tsx:291` | `(inline)` | supabase movements, supabase stock_recounts | disabled prop, saving/sending state, spinner |
 
 ## 2. Gaps — backend call, no pending state
 
@@ -57,6 +64,10 @@ These are the rows `qa/playwright/tests/pending-states.spec.ts` must cover with 
 
 | # | surface | clickable (file:line) | handler | backend call | pending state |
 |---|---|---|---|---|---|
+| 1 | legacy | `js/src/04-attendance-daily.js:406` | `openVisitFromAttendance` | github mode:edit | **none** |
+| 2 | legacy | `js/src/09-visits.js:438` | `editVisit` | github mode:edit | **none** |
+| 3 | react | `app/src/components/home/WorkTimerEditSheet.tsx:143` | `(inline)` | supabase site_contacts | **none** |
+| 4 | react | `app/src/components/home/WorkTimerEditSheet.tsx:152` | `(inline)` | supabase site_contacts | **none** |
 
 ## 3. Clickables with a pending state but no detected backend call
 
@@ -72,251 +83,259 @@ Usually a handler that delegates through a bridge the detectors do not follow �
 | 6 | legacy | `index.html:167` | `modalDismiss` | — | **none** |
 | 7 | legacy | `index.html:187` | `attEditSetType` | — | **none** |
 | 8 | legacy | `index.html:201` | `closeAttEdit` | — | **none** |
-| 9 | legacy | `index.html:225` | `emsQueueChipOpen` | — | **none** |
-| 10 | legacy | `index.html:228` | `appInstall` | — | **none** |
-| 11 | legacy | `index.html:231` | `toggleMeetingMode` | — | **none** |
-| 12 | legacy | `index.html:232` | `(inline) document.getElementById('sidePanel').cla` | — | **none** |
-| 13 | legacy | `index.html:247` | `xlHubVisitsPdf` | — | **none** |
-| 14 | legacy | `index.html:248` | `xlHubVisitsXlsx` | — | **none** |
-| 15 | legacy | `index.html:254` | `xlHubAttPdf` | — | **none** |
-| 16 | legacy | `index.html:255` | `xlHubAttXlsx` | — | **none** |
-| 17 | legacy | `index.html:261` | `xlHubCertsPdf` | — | **none** |
-| 18 | legacy | `index.html:262` | `xlHubCertsXlsx` | — | **none** |
-| 19 | legacy | `index.html:267` | `xlHubSumPdf` | — | **none** |
-| 20 | legacy | `index.html:268` | `xlHubSumXlsx` | — | **none** |
-| 21 | legacy | `index.html:272` | `xlExportStockXlsx` | — | **none** |
-| 22 | legacy | `index.html:274` | `xlExportKibbutzXlsx` | — | **none** |
-| 23 | legacy | `index.html:282` | `setFilter` | — | **none** |
-| 24 | legacy | `index.html:300` | `toggleSection` | — | **none** |
-| 25 | legacy | `index.html:346` | `invShowTab` | — | **none** |
-| 26 | legacy | `index.html:358` | `certSetRange` | — | **none** |
-| 27 | legacy | `index.html:365` | `openDeliveryCert` | — | **none** |
-| 28 | legacy | `index.html:366` | `(inline) document.querySelectorAll('#inv-section-` | — | **none** |
-| 29 | legacy | `index.html:369` | `invRenderCerts` | — | **none** |
-| 30 | legacy | `index.html:370` | `certMonthlyFromTab` | — | **none** |
-| 31 | legacy | `index.html:371` | `xlExportCertsFromTab` | — | **none** |
-| 32 | legacy | `index.html:372` | `xlExportCertSummaryFromTab` | — | **none** |
-| 33 | legacy | `index.html:381` | `invNewOrder` | — | **none** |
-| 34 | legacy | `index.html:385` | `invRenderOrders` | — | **none** |
-| 35 | legacy | `index.html:426` | `invExportStock` | — | **none** |
-| 36 | legacy | `index.html:436` | `invExportKibbutzInventory` | — | **none** |
-| 37 | legacy | `index.html:459` | `invNewProduct` | — | **none** |
-| 38 | legacy | `index.html:478` | `changeAttendanceMonth` | — | **none** |
-| 39 | legacy | `index.html:481` | `downloadAttendancePDF` | — | **none** |
-| 40 | legacy | `index.html:482` | `xlExportAttendanceCurrent` | — | **none** |
-| 41 | legacy | `index.html:485` | `openVisitsToolsModal` | — | **none** |
-| 42 | legacy | `index.html:545` | `closeEmsModal` | — | **none** |
-| 43 | legacy | `index.html:560` | `changeCalMonth` | — | **none** |
-| 44 | legacy | `index.html:676` | `visitDraftRestore` | — | **none** |
-| 45 | legacy | `index.html:687` | `certFromVisit` | — | **none** |
-| 46 | legacy | `index.html:688` | `editLastVisit` | — | **none** |
-| 47 | legacy | `index.html:697` | `onVisitorChange` | — | **none** |
-| 48 | legacy | `index.html:714` | `setAviamDayType` | — | **none** |
-| 49 | legacy | `index.html:727` | `renderProductsForVisitor` | — | **none** |
-| 50 | legacy | `index.html:733` | `setVisitHours` | — | **none** |
-| 51 | legacy | `index.html:738` | `setVisitWorkday` | — | **none** |
-| 52 | legacy | `index.html:752` | `toggleVisitWorkday` | — | **none** |
-| 53 | legacy | `index.html:772` | `addReturnedItemRow` | — | **none** |
-| 54 | legacy | `index.html:778` | `openVoice` | — | **none** |
-| 55 | legacy | `index.html:796` | `createEmsTaskFromVisit` | — | **none** |
-| 56 | legacy | `index.html:818` | `saveAttendance` | — | setBtnLoading |
-| 57 | legacy | `index.html:836` | `toggleVoiceRecording` | — | **none** |
-| 58 | legacy | `index.html:838` | `closeVoice` | — | **none** |
-| 59 | legacy | `index.html:858` | `voiceRetry` | — | **none** |
-| 60 | legacy | `index.html:859` | `applyVoiceResult` | — | **none** |
-| 61 | legacy | `index.html:890` | `intakeAddRow` | — | **none** |
-| 62 | legacy | `index.html:892` | `intakeBackToStep1` | — | **none** |
-| 63 | legacy | `index.html:909` | `backToNamePicker` | — | **none** |
-| 64 | legacy | `index.html:919` | `setLoggedInUser` | — | **none** |
-| 65 | legacy | `index.html:940` | `renderActivity` | — | **none** |
-| 66 | legacy | `index.html:952` | `(inline) document.getElementById('activityModal')` | — | **none** |
-| 67 | legacy | `index.html:953` | `copyActivityReport` | — | **none** |
-| 68 | legacy | `index.html:964` | `invSetOrderType` | — | **none** |
-| 69 | legacy | `index.html:983` | `invAssigneeChanged` | — | **none** |
-| 70 | legacy | `index.html:999` | `orderParseRaw` | — | disabled=true |
-| 71 | legacy | `index.html:1007` | `invAddItemRow` | — | **none** |
-| 72 | legacy | `index.html:1014` | `invToggleDistribution` | — | **none** |
-| 73 | legacy | `index.html:1064` | `addRequirementItemRow` | — | **none** |
-| 74 | legacy | `index.html:1143` | `setReportRange` | — | **none** |
-| 75 | legacy | `index.html:1151` | `(inline) document.querySelectorAll('.btn-quick-da` | — | **none** |
-| 76 | legacy | `index.html:1157` | `openVisitCertPicker` | — | **none** |
-| 77 | legacy | `index.html:1158` | `certRangeReport` | — | **none** |
-| 78 | legacy | `index.html:1161` | `(inline) document.getElementById('visitsReportMod` | — | **none** |
-| 79 | legacy | `index.html:1162` | `xlExportVisitsFromModal` | — | **none** |
-| 80 | legacy | `index.html:1172` | `(inline) document.getElementById('sidePanel').cla` | — | **none** |
-| 81 | legacy | `index.html:1198` | `gateLogin` | — | **none** |
-| 82 | legacy | `index.html:1205` | `gateVerifyOtp` | — | **none** |
-| 83 | legacy | `index.html:1206` | `gateResendOtp` | — | **none** |
-| 84 | legacy | `index.html:1208` | `gateViewerToggle` | — | **none** |
-| 85 | legacy | `index.html:1214` | `gateViewerLogin` | — | runOnce |
-| 86 | legacy | `js/src/00-bridge.js:38` | `stepProductQty` | — | **none** |
-| 87 | legacy | `js/src/00-guard.js:90` | `if` | — | **none** |
-| 88 | legacy | `js/src/00-guard.js:184` | `(inline listener)` | — | **none** |
-| 89 | legacy | `js/src/00-guard.js:244` | `(inline listener)` | — | **none** |
-| 90 | legacy | `js/src/01-data.js:84` | `(inline listener)` | — | **none** |
-| 91 | legacy | `js/src/02-init-attendance.js:213` | `(inline listener)` | — | **none** |
-| 92 | legacy | `js/src/03-requirements.js:43` | `invEditRequirement` | — | **none** |
-| 93 | legacy | `js/src/03-requirements.js:70` | `(inline) reqItems[${idx}].name = this.value` | — | **none** |
-| 94 | legacy | `js/src/03-requirements.js:73` | `(inline) reqItems[${idx}].qty = parseInt(this.val` | — | **none** |
-| 95 | legacy | `js/src/03-requirements.js:74` | `(inline) reqItems.splice(${idx},1); renderReqItem` | — | **none** |
-| 96 | legacy | `js/src/04-attendance-daily.js:198` | `setAttPerson` | — | **none** |
-| 97 | legacy | `js/src/04-attendance-daily.js:292` | `toggleAttDetail` | — | **none** |
-| 98 | legacy | `js/src/04-attendance-daily.js:300` | `openAttEdit` | — | **none** |
-| 99 | legacy | `js/src/04-attendance-daily.js:305` | `(inline) ${act}` | — | **none** |
-| 100 | legacy | `js/src/04-attendance-daily.js:319` | `openVisitFromAttendance` | — | **none** |
-| 101 | legacy | `js/src/05-meeting-returns.js:93` | `(inline) visitReturnedItems[${idx}].name = this.v` | — | **none** |
-| 102 | legacy | `js/src/05-meeting-returns.js:96` | `(inline) visitReturnedItems[${idx}].qty = parseIn` | — | **none** |
-| 103 | legacy | `js/src/05-meeting-returns.js:97` | `(inline) visitReturnedItems[${idx}].reason = this` | — | **none** |
-| 104 | legacy | `js/src/05-meeting-returns.js:99` | `(inline) visitReturnedItems[${idx}].toStock = thi` | — | **none** |
-| 105 | legacy | `js/src/05-meeting-returns.js:101` | `(inline) visitReturnedItems.splice(${idx},1); ren` | — | **none** |
-| 106 | legacy | `js/src/06-products.js:36` | `invEditProduct` | — | **none** |
-| 107 | legacy | `js/src/07-orders.js:259` | `(inline) window.intakeItems[${i}].name=this.value` | — | **none** |
-| 108 | legacy | `js/src/07-orders.js:263` | `(inline) window.intakeItems[${i}].qty=parseInt(th` | — | **none** |
-| 109 | legacy | `js/src/07-orders.js:265` | `(inline) window.intakeItems.splice(${i},1); rende` | — | **none** |
-| 110 | legacy | `js/src/07-orders.js:723` | `approveOrder` | — | **none** |
-| 111 | legacy | `js/src/07-orders.js:731` | `(inline) this.classList.toggle('expanded')` | — | **none** |
-| 112 | legacy | `js/src/07-orders.js:734` | `invEditOrder` | — | saving/sending state |
-| 113 | legacy | `js/src/07-orders.js:855` | `invChooseProduct` | — | **none** |
-| 114 | legacy | `js/src/07-orders.js:856` | `(inline) invOrderItems[${idx}].qty = parseInt(thi` | — | **none** |
-| 115 | legacy | `js/src/07-orders.js:857` | `(inline) invOrderItems.splice(${idx}, 1); renderO` | — | **none** |
-| 116 | legacy | `js/src/07-orders.js:868` | `(inline) invOrderItems[${idx}].name = this.value` | — | **none** |
-| 117 | legacy | `js/src/07-orders.js:944` | `_orderQPick` | — | **none** |
-| 118 | legacy | `js/src/08-inventory.js:106` | `(inline) document.getElementById(\'lowStockBanner` | — | **none** |
-| 119 | legacy | `js/src/08-inventory.js:210` | `(inline listener)` | — | **none** |
-| 120 | legacy | `js/src/08-inventory.js:213` | `(inline listener)` | — | **none** |
-| 121 | legacy | `js/src/09-visits.js:144` | `toggleProductQty` | — | disabled=true |
-| 122 | legacy | `js/src/09-visits.js:145` | `toggleProductRow` | — | **none** |
-| 123 | legacy | `js/src/09-visits.js:148` | `stepProductQty` | — | **none** |
-| 124 | legacy | `js/src/09-visits.js:225` | `certFromVisitForm` | — | **none** |
-| 125 | legacy | `js/src/09-visits.js:313` | `certFromVisit` | — | **none** |
-| 126 | legacy | `js/src/09-visits.js:314` | `editVisit` | — | **none** |
-| 127 | legacy | `js/src/10-activity.js:433` | `print` | — | **none** |
-| 128 | legacy | `js/src/10-activity.js:434` | `downloadCSV` | — | **none** |
-| 129 | legacy | `js/src/10-activity.js:569` | `(inline listener)` | — | **none** |
-| 130 | legacy | `js/src/11-search-login.js:82` | `closeGlobalSearch` | — | **none** |
-| 131 | legacy | `js/src/11-search-login.js:6` | `(inline listener)` | — | **none** |
-| 132 | legacy | `js/src/13-ems.js:417` | `(inline) document.getElementById(\'emsDetailModal` | — | **none** |
-| 133 | legacy | `js/src/13-ems.js:229` | `(inline listener)` | — | **none** |
-| 134 | legacy | `js/src/14-calendar.js:77` | `calDayDetail` | — | **none** |
-| 135 | legacy | `js/src/14-calendar.js:253` | `onVisitEmsTaskChange` | — | **none** |
-| 136 | legacy | `js/src/14-calendar.js:485` | `createEmsTaskForKibbutz` | — | **none** |
-| 137 | legacy | `js/src/14-calendar.js:490` | `emsModalTaskClick` | — | **none** |
-| 138 | legacy | `js/src/14-calendar.js:709` | `(inline) document.getElementById('emsDetailModal'` | — | **none** |
-| 139 | legacy | `js/src/14-calendar.js:721` | `emsEditTask` | — | **none** |
-| 140 | legacy | `js/src/17-messages.js:84` | `(inline) document.getElementById('msgPopup').remo` | — | **none** |
-| 141 | legacy | `js/src/18-dev-tasks.js:77` | `(inline) event.stopPropagation()` | — | **none** |
-| 142 | legacy | `js/src/18-dev-tasks.js:78` | `devSetPriority` | — | disabled=true |
-| 143 | legacy | `js/src/18-dev-tasks.js:168` | `fn` | — | **none** |
-| 144 | legacy | `js/src/18-dev-tasks.js:197` | `(inline) ' + onclick + '` | — | **none** |
-| 145 | legacy | `js/src/18-dev-tasks.js:230` | `devSetFilter` | — | **none** |
-| 146 | legacy | `js/src/18-dev-tasks.js:239` | `renderDevTasks` | — | **none** |
-| 147 | legacy | `js/src/18-dev-tasks.js:313` | `devGitOpen` | — | **none** |
-| 148 | legacy | `js/src/18-dev-tasks.js:356` | `devToggleSel` | — | **none** |
-| 149 | legacy | `js/src/18-dev-tasks.js:578` | `devToggleRail` | — | **none** |
-| 150 | legacy | `js/src/18-dev-tasks.js:747` | `devToggleSelMode` | — | **none** |
-| 151 | legacy | `js/src/18-dev-tasks.js:749` | `devReleaseVersion` | — | disabled=true |
-| 152 | legacy | `js/src/18-dev-tasks.js:754` | `devSetView` | — | **none** |
-| 153 | legacy | `js/src/18-dev-tasks.js:758` | `devSetState` | — | **none** |
-| 154 | legacy | `js/src/18-dev-tasks.js:779` | `devPushToReady` | — | disabled=true |
-| 155 | legacy | `js/src/18-dev-tasks.js:876` | `devSetAssignee` | — | **none** |
-| 156 | legacy | `js/src/18-dev-tasks.js:882` | `devSetStageFilter` | — | **none** |
-| 157 | legacy | `js/src/18-dev-tasks.js:888` | `devToggleHideDone` | — | **none** |
-| 158 | legacy | `js/src/18-dev-tasks.js:890` | `devTreeAll` | — | **none** |
-| 159 | legacy | `js/src/20-delivery-cert.js:49` | `(inline) event.stopPropagation()` | — | **none** |
-| 160 | legacy | `js/src/20-delivery-cert.js:60` | `certSignOpen` | — | **none** |
-| 161 | legacy | `js/src/20-delivery-cert.js:65` | `certAddItemRow` | — | **none** |
-| 162 | legacy | `js/src/20-delivery-cert.js:70` | `(inline) document.getElementById('certModal').cla` | — | **none** |
-| 163 | legacy | `js/src/20-delivery-cert.js:71` | `certPreviewDraft` | — | **none** |
-| 164 | legacy | `js/src/20-delivery-cert.js:86` | `(inline) this.parentNode.remove()` | — | **none** |
-| 165 | legacy | `js/src/20-delivery-cert.js:98` | `certSignReset` | — | **none** |
-| 166 | legacy | `js/src/20-delivery-cert.js:119` | `(inline) document.getElementById('certSignModal')` | — | **none** |
-| 167 | legacy | `js/src/20-delivery-cert.js:120` | `certSignClear` | — | **none** |
-| 168 | legacy | `js/src/20-delivery-cert.js:121` | `certSignConfirm` | — | **none** |
-| 169 | legacy | `js/src/20-delivery-cert.js:406` | `print` | — | **none** |
-| 170 | legacy | `js/src/20-delivery-cert.js:478` | `(inline) document.getElementById('certViewOverlay` | — | **none** |
-| 171 | legacy | `js/src/20-delivery-cert.js:571` | `(inline) document.getElementById('certSendModal')` | — | **none** |
-| 172 | legacy | `js/src/20-delivery-cert.js:572` | `certCopyLink` | — | **none** |
-| 173 | legacy | `js/src/20-delivery-cert.js:573` | `certEmailSelected` | — | **none** |
-| 174 | legacy | `js/src/20-delivery-cert.js:657` | `certView` | — | **none** |
-| 175 | legacy | `js/src/20-delivery-cert.js:659` | `certSendOpen` | — | **none** |
-| 176 | legacy | `js/src/20-delivery-cert.js:660` | `certReissue` | — | **none** |
-| 177 | legacy | `js/src/20-delivery-cert.js:802` | `certPickVisit` | — | **none** |
-| 178 | legacy | `js/src/20-delivery-cert.js:810` | `(inline) document.getElementById('certPickerModal` | — | **none** |
-| 179 | legacy | `js/src/24-meter-burns.js:276` | `(inline) event.stopPropagation();burnSelect(\'' +` | — | **none** |
-| 180 | legacy | `js/src/24-meter-burns.js:277` | `(inline) event.stopPropagation();burnToggle(\'' +` | — | **none** |
-| 181 | legacy | `js/src/24-meter-burns.js:278` | `(inline) event.stopPropagation();burnIssue(\'' + ` | — | **none** |
-| 182 | legacy | `js/src/24-meter-burns.js:279` | `burnOpen` | — | **none** |
-| 183 | legacy | `js/src/24-meter-burns.js:297` | `burnToggleSite` | — | **none** |
-| 184 | legacy | `js/src/24-meter-burns.js:320` | `burnBurnSelected` | — | **none** |
-| 185 | legacy | `js/src/24-meter-burns.js:320` | `burnAssignSelected` | — | **none** |
-| 186 | legacy | `js/src/24-meter-burns.js:320` | `burnClearSel` | — | **none** |
-| 187 | legacy | `js/src/24-meter-burns.js:330` | `renderBurns` | — | **none** |
-| 188 | legacy | `js/src/24-meter-burns.js:333` | `burnSetFilter` | — | **none** |
-| 189 | legacy | `js/src/24-meter-burns.js:336` | `burnExportXlsx` | — | **none** |
-| 190 | legacy | `js/src/24-meter-burns.js:337` | `burnGensOpen` | — | **none** |
-| 191 | legacy | `js/src/24-meter-burns.js:419` | `burnAssignSave` | — | **none** |
-| 192 | legacy | `js/src/24-meter-burns.js:421` | `(inline) document.getElementById(\'burnAssignModa` | — | **none** |
-| 193 | legacy | `js/src/24-meter-burns.js:456` | `(inline) document.getElementById(\'burnGenSerial\` | — | **none** |
-| 194 | legacy | `js/src/24-meter-burns.js:480` | `burnToggle` | — | **none** |
-| 195 | legacy | `js/src/24-meter-burns.js:481` | `burnIssue` | — | **none** |
-| 196 | legacy | `js/src/24-meter-burns.js:482` | `(inline) document.getElementById(\'burnCardModal\` | — | **none** |
-| 197 | react | `app/src/components/home/Burns.tsx:222` | `onIssue` | — | busy state |
-| 198 | react | `app/src/components/home/Burns.tsx:313` | `burnSelected` | — | disabled prop, busy state |
-| 199 | react | `app/src/components/home/Burns.tsx:317` | `(inline)` | — | disabled prop, busy state |
-| 200 | react | `app/src/components/home/Burns.tsx:339` | `(inline)` | — | busy state |
-| 201 | react | `app/src/components/home/InternalTasks.tsx:110` | `(inline)` | — | disabled prop, busy state |
-| 202 | react | `app/src/components/home/InternalTasks.tsx:155` | `(inline)` | — | disabled prop |
-| 203 | react | `app/src/components/home/InternalTasks.tsx:167` | `(inline)` | — | disabled prop |
-| 204 | react | `app/src/components/home/KibbutzSheet.tsx:293` | `(inline)` | — | disabled prop |
-| 205 | react | `app/src/components/home/KibbutzSheet.tsx:316` | `(inline)` | — | disabled prop, spinner |
-| 206 | react | `app/src/components/home/KibbutzSheet.tsx:350` | `(inline)` | — | saving/sending state |
-| 207 | react | `app/src/components/home/MeetingNotes.tsx:202` | `(inline)` | — | disabled prop, busy state |
-| 208 | react | `app/src/components/home/MeetingNotes.tsx:229` | `(inline)` | — | disabled prop, busy state |
-| 209 | react | `app/src/components/home/OnboardingProgress.tsx:134` | `(inline)` | — | disabled prop, busy state |
-| 210 | react | `app/src/components/home/WorkTimerStopSheet.tsx:209` | `onClose` | — | saving/sending state |
-| 211 | react | `app/src/components/MoreSheet.tsx:67` | `onClick` | — | disabled prop |
-| 212 | react | `app/src/components/TranscribeRetry.tsx:42` | `onRetry` | — | disabled prop, busy state, spinner |
-| 213 | react | `app/src/components/TranscribeRetry.tsx:51` | `onDiscard` | — | busy state, spinner |
-| 214 | react | `app/src/islands/Attendance.tsx:92` | `(inline)` | — | disabled prop, busy state |
-| 215 | react | `app/src/islands/Attendance.tsx:126` | `(inline)` | — | busy state |
-| 216 | react | `app/src/islands/Attendance.tsx:188` | `(inline)` | — | disabled prop, busy state |
-| 217 | react | `app/src/islands/Calendar.tsx:286` | `(inline)` | — | disabled prop |
-| 218 | react | `app/src/islands/Calendar.tsx:290` | `(inline)` | — | disabled prop |
-| 219 | react | `app/src/islands/Calendar.tsx:524` | `(inline)` | — | disabled prop |
-| 220 | react | `app/src/islands/Calendar.tsx:749` | `(inline)` | — | disabled prop, busy state |
-| 221 | react | `app/src/islands/Calendar.tsx:752` | `(inline)` | — | disabled prop, busy state |
-| 222 | react | `app/src/islands/Calendar.tsx:844` | `(inline)` | — | disabled prop |
-| 223 | react | `app/src/islands/CommandBar.tsx:92` | `send` | — | disabled prop, busy state |
-| 224 | react | `app/src/islands/DayLog.tsx:230` | `(inline)` | — | busy state |
-| 225 | react | `app/src/islands/DayLog.tsx:463` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
-| 226 | react | `app/src/islands/DayLog.tsx:469` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
-| 227 | react | `app/src/islands/DayLog.tsx:513` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 228 | react | `app/src/islands/DevPresenter.tsx:179` | `(inline)` | — | disabled prop, busy state |
-| 229 | react | `app/src/islands/Feedback.tsx:486` | `micTap` | — | busy state |
-| 230 | react | `app/src/islands/Feedback.tsx:517` | `stopRefinePoll` | — | disabled prop, busy state, spinner |
-| 231 | react | `app/src/islands/Feedback.tsx:527` | `undoRefine` | — | disabled prop, busy state, spinner |
-| 232 | react | `app/src/islands/Feedback.tsx:536` | `micTap` | — | disabled prop, busy state, spinner |
-| 233 | react | `app/src/islands/Feedback.tsx:562` | `(inline)` | — | aria-busy, disabled prop, busy state, saving/sending state, spinner |
-| 234 | react | `app/src/islands/FeedbackInbox.tsx:162` | `(inline)` | — | Button loading, disabled prop |
-| 235 | react | `app/src/islands/FeedbackInbox.tsx:171` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
-| 236 | react | `app/src/islands/FeedbackInbox.tsx:185` | `(inline)` | — | disabled prop, busy state, spinner |
-| 237 | react | `app/src/islands/FeedbackInbox.tsx:189` | `(inline)` | — | busy state, spinner |
-| 238 | react | `app/src/islands/Field.tsx:898` | `(inline)` | — | disabled prop, saving/sending state |
-| 239 | react | `app/src/islands/Field.tsx:907` | `saveAndClose` | — | disabled prop, saving/sending state |
-| 240 | react | `app/src/islands/Field.tsx:914` | `(inline)` | — | disabled prop, saving/sending state |
-| 241 | react | `app/src/islands/Field.tsx:924` | `(inline)` | — | saving/sending state |
-| 242 | react | `app/src/islands/Gaps.tsx:224` | `(inline)` | — | disabled prop |
-| 243 | react | `app/src/islands/ImportNotes.tsx:303` | `(inline)` | — | disabled prop |
-| 244 | react | `app/src/islands/ImportNotes.tsx:339` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 245 | react | `app/src/islands/ImportNotes.tsx:348` | `(inline)` | — | disabled prop, saving/sending state, spinner |
-| 246 | react | `app/src/islands/MeetingReview.tsx:405` | `(inline)` | — | busy state |
-| 247 | react | `app/src/islands/MeetingReview.tsx:598` | `(inline)` | — | disabled prop, busy state, spinner |
-| 248 | react | `app/src/islands/MeetingReview.tsx:603` | `cancel` | — | busy state, spinner |
-| 249 | react | `app/src/islands/ModalMeetings.tsx:35` | `(inline)` | — | aria-busy, busy state, Skeleton |
-| 250 | react | `app/src/islands/ModalMeetings.tsx:44` | `(inline)` | — | aria-busy, busy state, Skeleton |
-| 251 | react | `app/src/islands/Settings.tsx:109` | `(inline)` | — | disabled prop |
-| 252 | react | `app/src/islands/Settings.tsx:150` | `(inline)` | — | disabled prop |
-| 253 | react | `app/src/islands/Settings.tsx:265` | `(inline)` | — | disabled prop, saving/sending state |
-| 254 | react | `app/src/islands/Settings.tsx:266` | `(inline)` | — | disabled prop, saving/sending state |
-| 255 | react | `app/src/islands/Settings.tsx:273` | `(inline)` | — | disabled prop, saving/sending state |
-| 256 | react | `app/src/lib/useUnsavedGuard.tsx:138` | `(inline)` | — | disabled prop, saving/sending state |
+| 9 | legacy | `index.html:224` | `appInstall` | — | **none** |
+| 10 | legacy | `index.html:241` | `xlHubVisitsPdf` | — | **none** |
+| 11 | legacy | `index.html:242` | `xlHubVisitsXlsx` | — | **none** |
+| 12 | legacy | `index.html:248` | `xlHubAttPdf` | — | **none** |
+| 13 | legacy | `index.html:249` | `xlHubAttXlsx` | — | **none** |
+| 14 | legacy | `index.html:255` | `xlHubCertsPdf` | — | **none** |
+| 15 | legacy | `index.html:256` | `xlHubCertsXlsx` | — | **none** |
+| 16 | legacy | `index.html:261` | `xlHubSumPdf` | — | **none** |
+| 17 | legacy | `index.html:262` | `xlHubSumXlsx` | — | **none** |
+| 18 | legacy | `index.html:270` | `xlExportStockXlsx` | — | **none** |
+| 19 | legacy | `index.html:272` | `xlExportKibbutzXlsx` | — | **none** |
+| 20 | legacy | `index.html:280` | `setFilter` | — | **none** |
+| 21 | legacy | `index.html:289` | `(inline) document.getElementById('sidePanel').cla` | — | **none** |
+| 22 | legacy | `index.html:301` | `toggleSection` | — | **none** |
+| 23 | legacy | `index.html:339` | `invShowTab` | — | **none** |
+| 24 | legacy | `index.html:351` | `certRangeTap` | — | **none** |
+| 25 | legacy | `index.html:358` | `(inline) document.querySelectorAll('#inv-section-` | — | **none** |
+| 26 | legacy | `index.html:362` | `openDeliveryCert` | — | **none** |
+| 27 | legacy | `index.html:364` | `invRenderCerts` | — | **none** |
+| 28 | legacy | `index.html:365` | `certMonthlyFromTab` | — | **none** |
+| 29 | legacy | `index.html:366` | `xlExportCertsFromTab` | — | **none** |
+| 30 | legacy | `index.html:375` | `invNewOrder` | — | **none** |
+| 31 | legacy | `index.html:379` | `invRenderOrders` | — | **none** |
+| 32 | legacy | `index.html:421` | `invExportStock` | — | **none** |
+| 33 | legacy | `index.html:431` | `invExportKibbutzInventory` | — | **none** |
+| 34 | legacy | `index.html:454` | `invNewProduct` | — | **none** |
+| 35 | legacy | `index.html:473` | `changeAttendanceMonth` | — | **none** |
+| 36 | legacy | `index.html:476` | `downloadAttendancePDF` | — | **none** |
+| 37 | legacy | `index.html:477` | `xlExportAttendanceCurrent` | — | **none** |
+| 38 | legacy | `index.html:480` | `openVisitsToolsModal` | — | **none** |
+| 39 | legacy | `index.html:540` | `closeEmsModal` | — | **none** |
+| 40 | legacy | `index.html:555` | `changeCalMonth` | — | **none** |
+| 41 | legacy | `index.html:580` | `pageBack` | — | **none** |
+| 42 | legacy | `index.html:628` | `certFromVisit` | — | **none** |
+| 43 | legacy | `index.html:629` | `editLastVisitFromStatus` | — | **none** |
+| 44 | legacy | `index.html:687` | `visitDraftRestore` | — | **none** |
+| 45 | legacy | `index.html:699` | `editLastVisit` | — | **none** |
+| 46 | legacy | `index.html:711` | `legacyVoiceIntakeHandoff` | — | **none** |
+| 47 | legacy | `index.html:718` | `onVisitorChange` | — | **none** |
+| 48 | legacy | `index.html:735` | `setAviamDayType` | — | **none** |
+| 49 | legacy | `index.html:756` | `setVisitHours` | — | **none** |
+| 50 | legacy | `index.html:761` | `setVisitWorkday` | — | **none** |
+| 51 | legacy | `index.html:769` | `toggleVisitWorkday` | — | **none** |
+| 52 | legacy | `index.html:783` | `visitAddOtherToCatalog` | — | **none** |
+| 53 | legacy | `index.html:793` | `addReturnedItemRow` | — | **none** |
+| 54 | legacy | `index.html:799` | `openVoice` | — | **none** |
+| 55 | legacy | `index.html:817` | `createEmsTaskFromVisit` | — | **none** |
+| 56 | legacy | `index.html:824` | `certFromVisitForm` | — | **none** |
+| 57 | legacy | `index.html:842` | `saveAttendance` | — | setBtnLoading |
+| 58 | legacy | `index.html:860` | `toggleVoiceRecording` | — | **none** |
+| 59 | legacy | `index.html:862` | `closeVoice` | — | **none** |
+| 60 | legacy | `index.html:882` | `voiceRetry` | — | **none** |
+| 61 | legacy | `index.html:883` | `applyVoiceResult` | — | **none** |
+| 62 | legacy | `index.html:914` | `intakeAddRow` | — | **none** |
+| 63 | legacy | `index.html:916` | `intakeBackToStep1` | — | **none** |
+| 64 | legacy | `index.html:933` | `backToNamePicker` | — | **none** |
+| 65 | legacy | `index.html:943` | `setLoggedInUser` | — | **none** |
+| 66 | legacy | `index.html:964` | `renderActivity` | — | **none** |
+| 67 | legacy | `index.html:976` | `(inline) document.getElementById('activityModal')` | — | **none** |
+| 68 | legacy | `index.html:977` | `copyActivityReport` | — | **none** |
+| 69 | legacy | `index.html:988` | `invSetOrderType` | — | **none** |
+| 70 | legacy | `index.html:1007` | `invAssigneeChanged` | — | **none** |
+| 71 | legacy | `index.html:1023` | `orderParseRaw` | — | disabled=true |
+| 72 | legacy | `index.html:1031` | `invAddItemRow` | — | **none** |
+| 73 | legacy | `index.html:1038` | `invToggleDistribution` | — | **none** |
+| 74 | legacy | `index.html:1066` | `invApproveFromEdit` | — | **none** |
+| 75 | legacy | `index.html:1090` | `addRequirementItemRow` | — | **none** |
+| 76 | legacy | `index.html:1169` | `setReportRange` | — | **none** |
+| 77 | legacy | `index.html:1177` | `(inline) document.querySelectorAll('.btn-quick-da` | — | **none** |
+| 78 | legacy | `index.html:1183` | `openVisitCertPicker` | — | **none** |
+| 79 | legacy | `index.html:1184` | `certRangeReport` | — | **none** |
+| 80 | legacy | `index.html:1187` | `(inline) document.getElementById('visitsReportMod` | — | **none** |
+| 81 | legacy | `index.html:1188` | `xlExportVisitsFromModal` | — | **none** |
+| 82 | legacy | `index.html:1198` | `(inline) document.getElementById('sidePanel').cla` | — | **none** |
+| 83 | legacy | `index.html:1224` | `gateLogin` | — | **none** |
+| 84 | legacy | `index.html:1231` | `gateVerifyOtp` | — | **none** |
+| 85 | legacy | `index.html:1232` | `gateResendOtp` | — | **none** |
+| 86 | legacy | `index.html:1234` | `gateViewerToggle` | — | **none** |
+| 87 | legacy | `index.html:1240` | `gateViewerLogin` | — | runOnce |
+| 88 | legacy | `js/src/00-bridge.js:38` | `stepProductQty` | — | **none** |
+| 89 | legacy | `js/src/00-guard.js:90` | `if` | — | **none** |
+| 90 | legacy | `js/src/00-guard.js:187` | `(inline listener)` | — | **none** |
+| 91 | legacy | `js/src/00-guard.js:260` | `(inline listener)` | — | **none** |
+| 92 | legacy | `js/src/00-guard.js:354` | `(inline listener)` | — | **none** |
+| 93 | legacy | `js/src/00-guard.js:454` | `(inline listener)` | — | **none** |
+| 94 | legacy | `js/src/00-guard.js:455` | `(inline listener)` | — | **none** |
+| 95 | legacy | `js/src/00-guard.js:495` | `(inline listener)` | — | **none** |
+| 96 | legacy | `js/src/01-data.js:102` | `(inline listener)` | — | **none** |
+| 97 | legacy | `js/src/02-init-attendance.js:245` | `(inline listener)` | — | **none** |
+| 98 | legacy | `js/src/03-requirements.js:43` | `invEditRequirement` | — | **none** |
+| 99 | legacy | `js/src/03-requirements.js:70` | `(inline) reqItems[${idx}].name = this.value` | — | **none** |
+| 100 | legacy | `js/src/03-requirements.js:73` | `(inline) reqItems[${idx}].qty = parseInt(this.val` | — | **none** |
+| 101 | legacy | `js/src/03-requirements.js:74` | `(inline) reqItems.splice(${idx},1); renderReqItem` | — | **none** |
+| 102 | legacy | `js/src/04-attendance-daily.js:285` | `setAttPerson` | — | **none** |
+| 103 | legacy | `js/src/04-attendance-daily.js:379` | `toggleAttDetail` | — | **none** |
+| 104 | legacy | `js/src/04-attendance-daily.js:387` | `openAttEdit` | — | **none** |
+| 105 | legacy | `js/src/04-attendance-daily.js:392` | `(inline) ${act}` | — | **none** |
+| 106 | legacy | `js/src/05-meeting-returns.js:69` | `(inline) visitReturnedItems[${idx}].name = this.v` | — | **none** |
+| 107 | legacy | `js/src/05-meeting-returns.js:72` | `(inline) visitReturnedItems[${idx}].qty = parseIn` | — | **none** |
+| 108 | legacy | `js/src/05-meeting-returns.js:73` | `(inline) visitReturnedItems[${idx}].reason = this` | — | **none** |
+| 109 | legacy | `js/src/05-meeting-returns.js:75` | `(inline) visitReturnedItems[${idx}].toStock = thi` | — | **none** |
+| 110 | legacy | `js/src/05-meeting-returns.js:77` | `(inline) visitReturnedItems.splice(${idx},1); ren` | — | **none** |
+| 111 | legacy | `js/src/06-products.js:36` | `invEditProduct` | — | **none** |
+| 112 | legacy | `js/src/07-orders.js:259` | `(inline) window.intakeItems[${i}].name=this.value` | — | **none** |
+| 113 | legacy | `js/src/07-orders.js:263` | `(inline) window.intakeItems[${i}].qty=parseInt(th` | — | **none** |
+| 114 | legacy | `js/src/07-orders.js:265` | `(inline) window.intakeItems.splice(${i},1); rende` | — | **none** |
+| 115 | legacy | `js/src/07-orders.js:725` | `approveOrder` | — | **none** |
+| 116 | legacy | `js/src/07-orders.js:733` | `(inline) this.classList.toggle('expanded')` | — | **none** |
+| 117 | legacy | `js/src/07-orders.js:736` | `invEditOrder` | — | saving/sending state |
+| 118 | legacy | `js/src/07-orders.js:887` | `invChooseProduct` | — | **none** |
+| 119 | legacy | `js/src/07-orders.js:888` | `(inline) invOrderItems[${idx}].qty = parseInt(thi` | — | **none** |
+| 120 | legacy | `js/src/07-orders.js:889` | `(inline) invOrderItems.splice(${idx}, 1); renderO` | — | **none** |
+| 121 | legacy | `js/src/07-orders.js:900` | `(inline) invOrderItems[${idx}].name = this.value` | — | **none** |
+| 122 | legacy | `js/src/07-orders.js:976` | `_orderQPick` | — | **none** |
+| 123 | legacy | `js/src/08-inventory.js:86` | `(inline) document.getElementById(\'lowStockBanner` | — | **none** |
+| 124 | legacy | `js/src/08-inventory.js:189` | `(inline listener)` | — | **none** |
+| 125 | legacy | `js/src/08-inventory.js:192` | `(inline listener)` | — | **none** |
+| 126 | legacy | `js/src/09-visits.js:105` | `visitContactPick` | — | **none** |
+| 127 | legacy | `js/src/09-visits.js:230` | `tileTap` | — | **none** |
+| 128 | legacy | `js/src/09-visits.js:231` | `toggleProductQty` | — | disabled=true |
+| 129 | legacy | `js/src/09-visits.js:235` | `(inline) event.stopPropagation()` | — | **none** |
+| 130 | legacy | `js/src/09-visits.js:236` | `stepProductQty` | — | **none** |
+| 131 | legacy | `js/src/09-visits.js:239` | `tileRemove` | — | **none** |
+| 132 | legacy | `js/src/09-visits.js:346` | `certFromVisitForm` | — | **none** |
+| 133 | legacy | `js/src/09-visits.js:437` | `certFromVisit` | — | **none** |
+| 134 | legacy | `js/src/10-activity.js:433` | `print` | — | **none** |
+| 135 | legacy | `js/src/10-activity.js:434` | `downloadCSV` | — | **none** |
+| 136 | legacy | `js/src/10-activity.js:546` | `openKibbutzDetails` | — | **none** |
+| 137 | legacy | `js/src/10-activity.js:608` | `(inline listener)` | — | **none** |
+| 138 | legacy | `js/src/11-search-login.js:82` | `closeGlobalSearch` | — | **none** |
+| 139 | legacy | `js/src/11-search-login.js:6` | `(inline listener)` | — | **none** |
+| 140 | legacy | `js/src/13-ems.js:414` | `(inline) document.getElementById(\'emsDetailModal` | — | **none** |
+| 141 | legacy | `js/src/13-ems.js:225` | `(inline listener)` | — | **none** |
+| 142 | legacy | `js/src/14-calendar.js:77` | `calDayDetail` | — | **none** |
+| 143 | legacy | `js/src/14-calendar.js:253` | `onVisitEmsTaskChange` | — | **none** |
+| 144 | legacy | `js/src/14-calendar.js:507` | `emsModalTaskClick` | — | **none** |
+| 145 | legacy | `js/src/14-calendar.js:541` | `createEmsTaskForKibbutz` | — | **none** |
+| 146 | legacy | `js/src/14-calendar.js:766` | `(inline) document.getElementById('emsDetailModal'` | — | **none** |
+| 147 | legacy | `js/src/14-calendar.js:778` | `emsEditTask` | — | **none** |
+| 148 | legacy | `js/src/17-messages.js:97` | `(inline) document.getElementById('msgPopup').remo` | — | **none** |
+| 149 | legacy | `js/src/20-delivery-cert.js:49` | `(inline) event.stopPropagation()` | — | **none** |
+| 150 | legacy | `js/src/20-delivery-cert.js:60` | `certSignOpen` | — | **none** |
+| 151 | legacy | `js/src/20-delivery-cert.js:65` | `certAddItemRow` | — | **none** |
+| 152 | legacy | `js/src/20-delivery-cert.js:70` | `(inline) document.getElementById('certModal').cla` | — | **none** |
+| 153 | legacy | `js/src/20-delivery-cert.js:71` | `certPreviewDraft` | — | **none** |
+| 154 | legacy | `js/src/20-delivery-cert.js:86` | `(inline) this.parentNode.remove()` | — | **none** |
+| 155 | legacy | `js/src/20-delivery-cert.js:98` | `certSignReset` | — | **none** |
+| 156 | legacy | `js/src/20-delivery-cert.js:119` | `(inline) document.getElementById('certSignModal')` | — | **none** |
+| 157 | legacy | `js/src/20-delivery-cert.js:120` | `certSignClear` | — | **none** |
+| 158 | legacy | `js/src/20-delivery-cert.js:121` | `certSignConfirm` | — | **none** |
+| 159 | legacy | `js/src/20-delivery-cert.js:415` | `(inline) document.getElementById('certViewOverlay` | — | **none** |
+| 160 | legacy | `js/src/20-delivery-cert.js:543` | `(inline) document.getElementById('certSendModal')` | — | **none** |
+| 161 | legacy | `js/src/20-delivery-cert.js:544` | `certCopyLink` | — | **none** |
+| 162 | legacy | `js/src/20-delivery-cert.js:545` | `certEmailSelected` | — | **none** |
+| 163 | legacy | `js/src/20-delivery-cert.js:710` | `certView` | — | **none** |
+| 164 | legacy | `js/src/20-delivery-cert.js:712` | `certSendOpen` | — | **none** |
+| 165 | legacy | `js/src/20-delivery-cert.js:713` | `(inline) (typeof window.certSendOpen === 'functio` | — | **none** |
+| 166 | legacy | `js/src/20-delivery-cert.js:714` | `certReissue` | — | **none** |
+| 167 | legacy | `js/src/20-delivery-cert.js:856` | `certPickVisit` | — | **none** |
+| 168 | legacy | `js/src/20-delivery-cert.js:864` | `(inline) document.getElementById('certPickerModal` | — | **none** |
+| 169 | legacy | `js/src/24-meter-burns.js:301` | `(inline) event.stopPropagation();burnSelect(\'' +` | — | **none** |
+| 170 | legacy | `js/src/24-meter-burns.js:302` | `(inline) event.stopPropagation();burnToggle(\'' +` | — | **none** |
+| 171 | legacy | `js/src/24-meter-burns.js:303` | `(inline) event.stopPropagation();burnIssue(\'' + ` | — | **none** |
+| 172 | legacy | `js/src/24-meter-burns.js:304` | `burnOpen` | — | **none** |
+| 173 | legacy | `js/src/24-meter-burns.js:322` | `burnToggleSite` | — | **none** |
+| 174 | legacy | `js/src/24-meter-burns.js:345` | `burnBurnSelected` | — | **none** |
+| 175 | legacy | `js/src/24-meter-burns.js:345` | `burnAssignSelected` | — | **none** |
+| 176 | legacy | `js/src/24-meter-burns.js:345` | `burnClearSel` | — | **none** |
+| 177 | legacy | `js/src/24-meter-burns.js:355` | `renderBurns` | — | **none** |
+| 178 | legacy | `js/src/24-meter-burns.js:358` | `burnSetFilter` | — | **none** |
+| 179 | legacy | `js/src/24-meter-burns.js:361` | `burnExportXlsx` | — | **none** |
+| 180 | legacy | `js/src/24-meter-burns.js:362` | `burnGensOpen` | — | **none** |
+| 181 | legacy | `js/src/24-meter-burns.js:453` | `burnAssignSave` | — | **none** |
+| 182 | legacy | `js/src/24-meter-burns.js:455` | `(inline) document.getElementById(\'burnAssignModa` | — | **none** |
+| 183 | legacy | `js/src/24-meter-burns.js:490` | `(inline) document.getElementById(\'burnGenSerial\` | — | **none** |
+| 184 | legacy | `js/src/24-meter-burns.js:514` | `burnToggle` | — | **none** |
+| 185 | legacy | `js/src/24-meter-burns.js:515` | `burnIssue` | — | **none** |
+| 186 | legacy | `js/src/24-meter-burns.js:516` | `(inline) document.getElementById(\'burnCardModal\` | — | **none** |
+| 187 | react | `app/src/components/home/Burns.tsx:159` | `onIssue` | — | busy state |
+| 188 | react | `app/src/components/home/Burns.tsx:255` | `burnSelected` | — | disabled prop, busy state |
+| 189 | react | `app/src/components/home/Burns.tsx:257` | `assignSelected` | — | disabled prop, busy state |
+| 190 | react | `app/src/components/home/Burns.tsx:259` | `(inline)` | — | disabled prop, busy state |
+| 191 | react | `app/src/components/home/Burns.tsx:281` | `(inline)` | — | busy state |
+| 192 | react | `app/src/components/home/Burns.tsx:345` | `(inline)` | — | disabled prop, busy state |
+| 193 | react | `app/src/components/home/InternalTasks.tsx:159` | `(inline)` | — | disabled prop, busy state |
+| 194 | react | `app/src/components/home/InternalTaskSheet.tsx:97` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 195 | react | `app/src/components/home/InternalTaskSheet.tsx:106` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 196 | react | `app/src/components/home/InternalTaskSheet.tsx:114` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 197 | react | `app/src/components/home/MeetingNotes.tsx:202` | `(inline)` | — | disabled prop, busy state |
+| 198 | react | `app/src/components/home/MeetingNotes.tsx:229` | `(inline)` | — | disabled prop, busy state |
+| 199 | react | `app/src/components/home/OnboardingProgress.tsx:134` | `(inline)` | — | disabled prop, busy state |
+| 200 | react | `app/src/components/home/WorkTimerEditSheet.tsx:173` | `addTagQuery` | — | disabled prop |
+| 201 | react | `app/src/components/home/WorkTimerEditSheet.tsx:196` | `saveAndContinue` | — | disabled prop, busy state, spinner |
+| 202 | react | `app/src/components/home/WorkTimerEditSheet.tsx:198` | `(inline)` | — | disabled prop, busy state, spinner |
+| 203 | react | `app/src/components/home/WorkTimerEditSheet.tsx:205` | `(inline)` | — | disabled prop, busy state, spinner |
+| 204 | react | `app/src/components/home/WorkTimerEditSheet.tsx:209` | `(inline)` | — | busy state, spinner |
+| 205 | react | `app/src/components/home/WorkTimerStopSheet.tsx:225` | `onClose` | — | saving/sending state |
+| 206 | react | `app/src/components/MoreSheet.tsx:71` | `onClick` | — | disabled prop |
+| 207 | react | `app/src/components/TranscribeRetry.tsx:42` | `onRetry` | — | disabled prop, busy state, spinner |
+| 208 | react | `app/src/components/TranscribeRetry.tsx:51` | `onDiscard` | — | busy state, spinner |
+| 209 | react | `app/src/islands/Attendance.tsx:94` | `(inline)` | — | disabled prop, busy state |
+| 210 | react | `app/src/islands/Attendance.tsx:137` | `(inline)` | — | busy state |
+| 211 | react | `app/src/islands/Attendance.tsx:218` | `(inline)` | — | disabled prop, busy state |
+| 212 | react | `app/src/islands/Attendance.tsx:239` | `(inline)` | — | disabled prop, busy state |
+| 213 | react | `app/src/islands/Attendance.tsx:546` | `(inline)` | — | Skeleton |
+| 214 | react | `app/src/islands/Attendance.tsx:556` | `(inline)` | — | Skeleton |
+| 215 | react | `app/src/islands/Calendar.tsx:334` | `(inline)` | — | disabled prop |
+| 216 | react | `app/src/islands/Calendar.tsx:338` | `(inline)` | — | disabled prop |
+| 217 | react | `app/src/islands/Calendar.tsx:673` | `(inline)` | — | disabled prop |
+| 218 | react | `app/src/islands/Calendar.tsx:940` | `(inline)` | — | disabled prop, busy state |
+| 219 | react | `app/src/islands/Calendar.tsx:943` | `(inline)` | — | disabled prop, busy state |
+| 220 | react | `app/src/islands/Calendar.tsx:1050` | `(inline)` | — | disabled prop |
+| 221 | react | `app/src/islands/DayLog.tsx:169` | `(inline)` | — | busy state |
+| 222 | react | `app/src/islands/DayLog.tsx:404` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
+| 223 | react | `app/src/islands/DayLog.tsx:410` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
+| 224 | react | `app/src/islands/DayLog.tsx:454` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 225 | react | `app/src/islands/dev/CardSheet.tsx:89` | `(inline)` | — | disabled prop, busy state |
+| 226 | react | `app/src/islands/dev/CardSheet.tsx:109` | `(inline)` | — | disabled prop, busy state |
+| 227 | react | `app/src/islands/DevPresenter.tsx:189` | `(inline)` | — | disabled prop |
+| 228 | react | `app/src/islands/Feedback.tsx:552` | `micTap` | — | busy state |
+| 229 | react | `app/src/islands/Feedback.tsx:583` | `stopRefinePoll` | — | spinner |
+| 230 | react | `app/src/islands/Feedback.tsx:593` | `undoRefine` | — | disabled prop, busy state |
+| 231 | react | `app/src/islands/Feedback.tsx:605` | `micTap` | — | disabled prop, busy state, spinner |
+| 232 | react | `app/src/islands/Feedback.tsx:638` | `(inline)` | — | aria-busy, disabled prop, busy state, saving/sending state, spinner |
+| 233 | react | `app/src/islands/FeedbackInbox.tsx:167` | `(inline)` | — | Button loading, disabled prop |
+| 234 | react | `app/src/islands/FeedbackInbox.tsx:176` | `(inline)` | — | Button loading, disabled prop, busy state, spinner |
+| 235 | react | `app/src/islands/FeedbackInbox.tsx:190` | `(inline)` | — | disabled prop, busy state, spinner |
+| 236 | react | `app/src/islands/FeedbackInbox.tsx:194` | `(inline)` | — | busy state, spinner |
+| 237 | react | `app/src/islands/Field.tsx:865` | `(inline)` | — | busy state |
+| 238 | react | `app/src/islands/Field.tsx:1014` | `(inline)` | — | disabled prop, busy state, spinner |
+| 239 | react | `app/src/islands/Field.tsx:1024` | `(inline)` | — | disabled prop, spinner |
+| 240 | react | `app/src/islands/Field.tsx:1663` | `(inline)` | — | disabled prop |
+| 241 | react | `app/src/islands/Field.tsx:1789` | `(inline)` | — | disabled prop, saving/sending state |
+| 242 | react | `app/src/islands/Field.tsx:1799` | `saveAndClose` | — | disabled prop, saving/sending state |
+| 243 | react | `app/src/islands/Field.tsx:1805` | `(inline)` | — | disabled prop, saving/sending state |
+| 244 | react | `app/src/islands/Gaps.tsx:229` | `(inline)` | — | disabled prop |
+| 245 | react | `app/src/islands/Hours.tsx:124` | `onClose` | — | disabled prop, saving/sending state, spinner |
+| 246 | react | `app/src/islands/Hours.tsx:129` | `(inline)` | — | disabled prop, saving/sending state |
+| 247 | react | `app/src/islands/ImportNotes.tsx:303` | `(inline)` | — | disabled prop |
+| 248 | react | `app/src/islands/ImportNotes.tsx:339` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 249 | react | `app/src/islands/ImportNotes.tsx:348` | `(inline)` | — | disabled prop, saving/sending state, spinner |
+| 250 | react | `app/src/islands/MeetingReview.tsx:282` | `(inline)` | — | disabled prop |
+| 251 | react | `app/src/islands/MeetingReview.tsx:408` | `(inline)` | — | busy state |
+| 252 | react | `app/src/islands/MeetingReview.tsx:601` | `(inline)` | — | disabled prop, busy state, spinner |
+| 253 | react | `app/src/islands/MeetingReview.tsx:606` | `cancel` | — | busy state, spinner |
+| 254 | react | `app/src/islands/MessageSheet.tsx:92` | `send` | — | disabled prop, busy state |
+| 255 | react | `app/src/islands/ModalMeetings.tsx:35` | `(inline)` | — | aria-busy, busy state, Skeleton |
+| 256 | react | `app/src/islands/ModalMeetings.tsx:44` | `(inline)` | — | aria-busy, busy state, Skeleton |
+| 257 | react | `app/src/islands/MyTasks.tsx:101` | `(inline)` | — | disabled prop, busy state |
+| 258 | react | `app/src/islands/Settings.tsx:109` | `(inline)` | — | disabled prop |
+| 259 | react | `app/src/islands/Settings.tsx:150` | `(inline)` | — | disabled prop |
+| 260 | react | `app/src/islands/Settings.tsx:263` | `(inline)` | — | disabled prop, saving/sending state |
+| 261 | react | `app/src/islands/Settings.tsx:264` | `(inline)` | — | disabled prop, saving/sending state |
+| 262 | react | `app/src/islands/Settings.tsx:271` | `(inline)` | — | disabled prop, saving/sending state |
+| 263 | react | `app/src/lib/useUnsavedGuard.tsx:165` | `(inline)` | — | disabled prop, saving/sending state |
+| 264 | react | `app/src/lib/useUnsavedGuard.tsx:178` | `(inline)` | — | disabled prop, saving/sending state |
