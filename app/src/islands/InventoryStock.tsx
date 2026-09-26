@@ -104,9 +104,9 @@ export function InventoryStockTab() {
         </span>
       </StatTileGrid>
 
-      {/* the orders strip + מינימום מלאי editor — unchanged (owned by R, embedded here). The
-          legacy #sigma-inventory-strip div lives inside #inventoryLegacy, which this page hides
-          on mount — so the component itself, not that placeholder, has to render here. */}
+      {/* the orders strip + מינימום מלאי editor — unchanged (owned by R), embedded here directly
+          (the legacy #inventoryLegacy page and its own #sigma-inventory-strip mount are gone,
+          U10; this was always the one real render). */}
       <InventoryStrip />
 
       {!user.isViewer && (

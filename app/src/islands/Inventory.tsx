@@ -1,10 +1,7 @@
-// 📦 מלאי — the package I page island (spec docs/superpowers/specs/2026-09-23-r5-I-inventory.md,
-// task U1). Behind INV_REACT (js/src/00-consts.js invReact()): flag off, this renders nothing
-// useful and the legacy #inventoryLegacy markup keeps working exactly as before. Flag on
-// (or localStorage 'sigma-inv-react'='1'), it hides the legacy markup and owns the page: the
-// ruled tab order (spec §1, DELTAS.S19), the flag, and a lazy child per tab. Each tab's own
-// screen lands in its own task (U2 orders, U3 stock/kibbutz, U4 certs, U5 returns, U6 products);
-// until then a tab renders an empty panel with its testid so the tab strip itself is testable.
+// 📦 מלאי — the page island (spec docs/superpowers/specs/2026-09-23-r5-I-inventory.md). The
+// legacy #inventoryLegacy tabbed UI and the INV_REACT flag were deleted in U10 — this island
+// owns the page unconditionally now: the ruled tab order (spec §1, DELTAS.S19) and a lazy
+// child per tab.
 import * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { PageActionRow } from '@/components/ui/page-action-row';
@@ -68,38 +65,22 @@ const TAB_COMPONENTS: Record<string, React.ComponentType> = {
   products: ProductsTab,
 };
 
-function invReactNow(): boolean {
-  try { return !!(window as any).invReact?.(); } catch { return false; }
-}
-
 function InventoryPage() {
   const qc = useQueryClient();
   const queuedRaw = drainQueue();
   const queued = queuedRaw?.kind === 'nudges' ? null : queuedRaw;
-  // Flag off (the default): render nothing and leave #inventoryLegacy exactly as it was — the
-  // U1 acceptance rule ("with the flag off nothing changes"). A queued open (invReactOpen only
-  // ever fires when invReact() was already true at call time) also counts as active, so a tap
-  // that raced the chunk load still lands on the react page instead of a blank one.
-  const [active, setActive] = React.useState<boolean>(() => invReactNow() || !!queued);
   const [tab, setTab] = React.useState<string>(() => normalizeTab(queued?.tab ?? DEFAULT_TAB));
   const tabsListRef = React.useRef<HTMLDivElement>(null);
   useInventory(); // warms the one cache entry every tab reads
 
-  React.useEffect(() => {
-    const legacy = document.getElementById('inventoryLegacy');
-    if (legacy) legacy.style.display = active ? 'none' : '';
-  }, [active]);
-
-  // invReactOpen() (js/src/00-consts.js) dispatches this on `window`, not sigmaBus — it fires
-  // from invShowTab() before this chunk is guaranteed loaded, and window is the one channel a
-  // plain <script> bundle and a lazy ESM chunk both always have.
+  // invOpen() (js/src/00-consts.js) dispatches this on `window`, not sigmaBus — it fires from
+  // invShowTab() / the legacy trigger points before this chunk is guaranteed loaded, and window
+  // is the one channel a plain <script> bundle and a lazy ESM chunk both always have.
   React.useEffect(() => {
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent)?.detail || {};
-      // 'nudges' (task U7) only asks InventoryNudges.tsx to re-check its Sheets — it must not
-      // force this page active on its own (a nudge can fire from any page).
+      // 'nudges' (task U7) only asks InventoryNudges.tsx to re-check its Sheets.
       if (detail.kind === 'nudges') return;
-      setActive(true);
       if (detail.kind === 'tab') setTab(normalizeTab(detail.tab));
       // O34-O38 (task U7): the bell/strip deep links and quick-status all target a specific
       // order, which only ever lives on the orders tab.
@@ -123,8 +104,6 @@ function InventoryPage() {
   }, [tab]);
 
   const ActiveTab = TAB_COMPONENTS[tab] || TAB_COMPONENTS[DEFAULT_TAB];
-
-  if (!active) return null;
 
   return (
     <div dir="rtl" className="flex min-w-0 flex-col gap-2">

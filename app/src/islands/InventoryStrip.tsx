@@ -21,7 +21,6 @@ import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
-import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
@@ -205,8 +204,4 @@ export function InventoryStrip() {
       <InventoryStripIsland />
     </SigmaProviders>
   );
-}
-
-export function mountInventoryStrip(): boolean {
-  return mount('sigma-inventory-strip', InventoryStrip);
 }

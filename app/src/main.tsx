@@ -199,14 +199,10 @@ function boot() {
       .then(m => m.mountAlerts())
       .catch(e => console.warn('[sigma] alerts island failed', e));
   }
-  // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5) — lives inside the 📦 מלאי page, so it
-  // loads with everything else on that page rather than on its own idle tick.
-  if (document.getElementById('sigma-inventory-strip')) {
-    import('@/islands/InventoryStrip')
-      .then(m => m.mountInventoryStrip())
-      .catch(e => console.warn('[sigma] inventory-strip island failed', e));
-  }
-  // 📦 מלאי (inventory spec, package I): the page island. Lazy, next to StockChange/InventoryStrip
+  // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5): embedded directly inside
+  // app/src/islands/InventoryStock.tsx's Stock tab now — the standalone #sigma-inventory-strip
+  // mount point was only ever a fallback for the (now-deleted, U10) legacy stock page.
+  // 📦 מלאי (inventory spec, package I): the page island. Lazy, next to StockChange
   // — it renders nothing (and stays out of the boot chunk) until #sigma-inventory exists.
   if (document.getElementById('sigma-inventory')) {
     import('@/islands/Inventory')
@@ -215,7 +211,7 @@ function boot() {
   }
   // 🔔 Inventory nudges (spec task U7): the עמיחי approval reminder + the approved-orders
   // notice. Always-listening, next to the page island itself — a nudge can fire even when the
-  // מלאי page isn't open (the legacy functions call invReactOpen({kind:'nudges'}) from anywhere).
+  // מלאי page isn't open (the legacy functions call invOpen({kind:'nudges'}) from anywhere).
   if (document.getElementById('sigma-inventory-nudges')) {
     import('@/islands/InventoryNudges')
       .then(m => m.mountInventoryNudges())
