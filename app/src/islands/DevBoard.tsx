@@ -311,5 +311,9 @@ export function DevBoard() {
 }
 
 export function mountDevBoard(): boolean {
+  // D-U3: one-time cleanup of the retired 18-dev-tasks.js's own keys — dead weight now that
+  // nothing reads them, and `dev_view` (a bare 'columns'/'domains' string) would otherwise be
+  // mistaken for this page's own `dev_view_v2` (an object) by anything scanning old keys.
+  try { localStorage.removeItem('dev_tasks_cache_v1'); localStorage.removeItem('dev_view'); } catch { /* private mode */ }
   return mount('sigma-dev-board', DevBoard);
 }

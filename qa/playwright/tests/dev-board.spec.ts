@@ -38,9 +38,21 @@ test('dev board: domains view groups by parent, opens a card, filters, and clear
 
   // ── domains view: a real domain, "ללא אפיון" last (the fixture seeds one card with no parent)
   await expect(page.getByTestId('dev-grouped-list')).toBeVisible();
-  await expect(page.getByTestId('dev-domain-none')).toBeVisible();
   await shot(page, ti, 'domains');
   if (is390) await shotAtWidth(page, ti, 412, 'domains');
+
+  // The "ללא אפיון" group sits AFTER the seeded domain (six cards) and is easy to miss in a
+  // screenshot cropped to the viewport (designer round-2: "didn't see it") — scroll it fully
+  // into view, assert its actual text (not just that the container exists in the DOM), and
+  // capture it on its own so the group is unambiguously visible in the evidence.
+  const noneGroup = page.getByTestId('dev-domain-none');
+  await noneGroup.scrollIntoViewIfNeeded();
+  await expect(noneGroup).toBeVisible();
+  await expect(noneGroup).toContainText('ללא אפיון');
+  await expect(noneGroup).toContainText('תקלה חד-פעמית בלי אב');   // the no-parent fixture card
+  await shot(page, ti, 'no-domain');
+  if (is390) await shotAtWidth(page, ti, 412, 'no-domain');
+  await page.evaluate(() => window.scrollTo(0, 0));
 
   // ── open a card sheet from the domains view
   await page.getByTestId('dev-card-row-21').click();

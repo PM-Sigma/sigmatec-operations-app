@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 29 legacy modules, 185 island sources and 10 edge functions.
+Generated from 28 legacy modules, 185 island sources and 10 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
@@ -157,7 +157,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-calendar` | :550 | app/src/islands/Calendar.tsx:1578<br>app/src/main.tsx:252 |
 | `#sigma-ceo` | :1273 | **—** |
 | `#sigma-daylog` | :1256 | app/src/islands/DayLog.tsx:478<br>app/src/main.tsx:408 |
-| `#sigma-dev-board` | :571 | app/src/islands/DevBoard.tsx:314<br>app/src/main.tsx:272 |
+| `#sigma-dev-board` | :571 | app/src/islands/DevBoard.tsx:318<br>app/src/main.tsx:272 |
 | `#sigma-dev-presenter` | :1262 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:498 |
 | `#sigma-feedback` | :1247 | app/src/islands/Feedback.tsx:663<br>app/src/main.tsx:174 |
 | `#sigma-feedback-inbox` | :1248 | app/src/islands/FeedbackInbox.tsx:336<br>app/src/main.tsx:201 |
@@ -248,7 +248,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `clockify` | `(default)` | *(no mode field)* | app/src/components/home/workTimerApi.ts:13 |
 | `ems-auth` | `(default)` | *(no mode field)* | js/src/15-login-gate.js:90 |
 | `ems-auth` | `viewer` | ✓ | js/src/15-login-gate.js:406 |
-| `github` | `(default)` | *(no mode field)* | js/src/18-dev-tasks.js:256<br>js/src/18-dev-tasks.js:907<br>app/src/islands/FeedbackInbox.tsx:78<br>app/src/lib/devBoard.ts:31 |
+| `github` | `(default)` | *(no mode field)* | app/src/islands/FeedbackInbox.tsx:78<br>app/src/lib/devBoard.ts:31 |
 | `parse-daylog` | `(default)` | *(no mode field)* | app/src/lib/daylogChain.ts:46 |
 | `parse-daylog` | `correction` | ✓ | app/src/lib/daylogChain.ts:75 |
 | `parse-order` | `(default)` | *(no mode field)* | js/src/07-orders.js:232<br>app/src/lib/inventoryApi.ts:340 |
@@ -695,7 +695,7 @@ written through the paths that already own it.
 | `devPrep(cards, opts)` → the one object | pure | the presenter walks `walk`; the 📋 prep card prints `burndown` / `cardsWithoutSpec` / `blocked` / `questions` / `sprint`. **One derivation, two surfaces** — there is no second data path and therefore no way for the screen and the prep sheet to disagree in front of the room. |
 | `proposeSprint` never proposes a parent | pure | the Git Ticket System's rule (every card is a CHILD under a Main Fields parent, title `[מודול] \| [תת-תחום] \| [תיאור]`) is **enforced** here, not trusted: `stageOf(card) === 'fields'` is filtered out before ranking, and a board of nothing but parents proposes nothing. |
 | `rankCard({ redKibbutzim })` ← `sigma.healthBands` ← `components/home/HealthStrip.tsx:healthBandsKnown` | island → bridge → island | Task 28's red signal, read the same one-way, null-safe way `sigma.presenterStrip` already is: no health chunk on the page → no map → **no bonus and no crash**. This screen has no import of that task. Pinned by a golden that `redKibbutzim: null` and `[]` both leave the score untouched. |
-| `app/src/lib/devBoard.ts` — `DEV_BOARD_QUERY_KEY('open')` · `fetchDevBoard` · `moveToSprint` | island → `github` Edge Function | the React side's ONE path to the dev board. The read is the function's **default mode** — the same call `js/src/18-dev-tasks.js` makes for 💻 לוח פיתוח — under one shared query key, so the walk and the prep card are one fetch. **No new Edge-Function action was added for this task.** |
+| `app/src/lib/devBoard.ts` — `DEV_BOARD_QUERY_KEY('open')` · `fetchDevBoard` · `moveToSprint` | island → `github` Edge Function | the React side's ONE path to the dev board. The read is the function's **default mode**, under one shared query key, so the walk, the prep card and 💻 לוח פיתוח (`islands/DevBoard.tsx`, D-U1/D-U3 — the legacy `18-dev-tasks.js` retired) are all one fetch. **No new Edge-Function action was added for this task.** |
 | `moveToSprint(numbers)` → `mode:'setStatus'`, `status:'Ready'` | island → edge function → GitHub Projects v2 | accepting a proposal uses the **EXISTING** "העבר לספרינט הקרוב" write and nothing else. The dev meeting **never creates a ticket**: the QA harness refuses every github mode but `setStatus`, so a create would fail loudly rather than quietly inventing a card. |
 | `islands/DevPresenter.tsx` — a SEPARATE island, not a `mode` prop on `Presenter.tsx` | decision | the two screens share their frame (timer, counter, key map, session row, event log) and that frame is already `lib/meetingSession.ts`, which this island imports. Below the header they share nothing: one walks kibbutz ROWS with two state strips, a bullet history and a ✏️ sheet writing to `kibbutz_meeting_notes`; the other walks GitHub CARDS across three board columns and writes to the board. A `mode` prop would have forked the data source, the strips, the body, the sheet and the footer — five branches in one 721-line file. |
 | `meeting_events` rows of kind `issue`, carrying `issue_number` | island → Postgres | the dev meeting's navigation log, on the SAME table and the same offsets §1.3 lines up against the recording. Arriving at a card logs it once (keyed against StrictMode); 📌 adds one more row for the card on screen and the screen does not move. |
