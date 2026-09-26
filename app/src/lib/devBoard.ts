@@ -111,7 +111,19 @@ export function canSeeDevBoard(): boolean {
   return canShowPage('dev');
 }
 
-/** Who may drag a card / use "העברה לשלב" — עידן only, as today. */
+/**
+ * Who may write to GitHub from the client — priority AND "העברה לשלב" (Opus finding, D-U review
+ * round 2, עידן's ruling). Same roster as `supabase/functions/github/gate.js` `WRITERS`
+ * (עידן/עמיחי/מתניה) — the server is the real enforcement (X-L8: the function has no role check
+ * of its own beyond that list), this is only the client-side UI gate so the wrong person never
+ * sees a control that would 401. A literal copy, not an import, because gate.js runs in Deno
+ * and this runs in the browser bundle; `devBoard.test.ts` pins the two lists against each other.
+ */
+export function canWriteGithub(user: string | null | undefined): boolean {
+  return ['עידן', 'עמיחי', 'מתניה'].includes(String(user || '').trim());
+}
+
+/** Who may drag a card / use "העברה לשלב" — same roster as every other GitHub write. */
 export function canDragOrMove(user: string | null | undefined): boolean {
-  return String(user || '').trim() === 'עידן';
+  return canWriteGithub(user);
 }

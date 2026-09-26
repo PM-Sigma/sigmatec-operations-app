@@ -441,6 +441,7 @@ function SettingsPanel() {
                         checked={!!settings.cal_peer_tasks}
                         onCheckedChange={v => set({ cal_peer_tasks: v }, 'cal_peer_tasks')}
                         aria-label="לראות גם את המשימות של ניתאי"
+                        data-testid="set-cal-peer"
                       />
                     }
                   />

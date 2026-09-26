@@ -184,5 +184,19 @@ test('settings: full scroll as עידן — includes the onboarding-template sec
   await expect(dlg.getByText('תבנית קליטת לקוח חדש')).toBeVisible();
   await expectRtl(page);
   await fullScrollShot(page, ti, dlg, 'full-scroll-idan');
+
+test('settings r5 · C2: only אביאם sees "לראות גם את המשימות של ניתאי"', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByTestId('set-cal-peer')).toBeVisible();
+  await dlg.getByTestId('set-cal-peer').click();
+  await expect.poll(async () => (await mirror(page)).cal_peer_tasks).toBe(true);
+  expectNoConsoleErrors(rec);
+});
+
+test('settings r5 · C2: ניתאי has no such row', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByTestId('set-cal-peer')).toHaveCount(0);
   expectNoConsoleErrors(rec);
 });

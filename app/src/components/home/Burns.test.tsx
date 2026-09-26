@@ -64,7 +64,7 @@ vi.mock('@/lib/query', () => ({
 }));
 
 const mod = await import('./Burns');
-const { BurnChip, BurnsPanel, BurnsStrip } = mod;
+const { BurnsPanel, BurnsStrip } = mod;
 
 const row = (o: Partial<BurnRow> & { meter_id: string; site: string }): BurnRow => ({
   serial: o.meter_id, meter_type: 'E360PP', status: 'pending', parent_serial: '900', ...o,
@@ -90,38 +90,8 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('the card chip', () => {
-  it('shows נותרו X/Y where there is work left', async () => {
-    wrap(<BurnChip kibbutz="אור הנר" />);
-    const chip = await screen.findByTestId('burn-chip');
-    expect(chip.textContent).toBe('🔥 נותרו 1/2');
-    expect(chip.getAttribute('data-burn-remaining')).toBe('1');
-  });
-
-  it('HIDE AT ZERO — a finished kibbutz gets no chip at all', async () => {
-    const { container } = wrap(<BurnChip kibbutz="מעוז חיים" />);
-    await waitFor(() => expect(screen.queryByTestId('burn-chip')).toBeNull());
-    expect(container.textContent).toBe('');
-  });
-
-  it('hidden from מתניה, whatever the data says', async () => {
-    who.name = 'מתניה';
-    wrap(<BurnChip kibbutz="אור הנר" />);
-    await waitFor(() => expect(screen.queryByTestId('burn-chip')).toBeNull());
-  });
-
-  it('a VIEWER sees it — reading the project is his, marking is not', async () => {
-    who.name = 'צופה'; who.role = 'viewer'; who.isViewer = true;
-    expect((await screen.findByTestId('burn-chip', {}, { container: wrap(<BurnChip kibbutz="אור הנר" />).container })).textContent)
-      .toBe('🔥 נותרו 1/2');
-  });
-
-  it('the flag takes it away', async () => {
-    (globalThis as any).BURNS_PROJECT_ACTIVE = false;
-    wrap(<BurnChip kibbutz="אור הנר" />);
-    await waitFor(() => expect(screen.queryByTestId('burn-chip')).toBeNull());
-  });
-});
+// The card chip (BurnChip) is removed (round 5, K2/K-U4) — burns never render on a kibbutz
+// card, closed or open.
 
 describe('the card-modal section', () => {
   it('lists this kibbutz only, not-done first, and counts what is left', async () => {
@@ -171,40 +141,41 @@ describe('the card-modal section', () => {
   });
 });
 
-describe('the landing strip', () => {
-  it('the field team is told what is left', async () => {
+describe('the landing strip (round 5, K1 — one row, same text for every role)', () => {
+  it('בוצעו X מתוך Y · לפירוט', async () => {
     wrap(<BurnsStrip />);
     const strip = await screen.findByTestId('burns-strip');
-    expect(strip.textContent).toContain('צריבות · נותרו 1 ב-1 קיבוץ');
+    expect(strip.textContent).toContain('פרויקט צריבות מונים');
+    expect(strip.textContent).toContain('בוצעו 2 מתוך 3');
+    expect(strip.textContent).toContain('לפירוט');
   });
 
-  it('עמיחי is told how far the project has got (עידן 18.9 21:50)', async () => {
+  it('and for עמיחי — no per-role text any more', async () => {
     who.name = 'עמיחי';
     wrap(<BurnsStrip />);
     const strip = await screen.findByTestId('burns-strip');
-    expect(strip.textContent).toContain('צריבות · בוצעו 2 מתוך 3 · 67%');
+    expect(strip.textContent).toContain('בוצעו 2 מתוך 3');
   });
 
-  it('HIDE AT ZERO — nothing left, no strip', async () => {
-    rows.current = [{ ...FIXTURE[2] }];
+  it('HIDE AT ZERO METERS — no meters at all, no strip', async () => {
+    rows.current = [];
     const { container } = wrap(<BurnsStrip />);
     await waitFor(() => expect(screen.queryByTestId('burns-strip')).toBeNull());
     expect(container.textContent).toBe('');
   });
 
-  it('tapping it filters the cards down to the kibbutzim that still have work', async () => {
-    document.body.innerHTML = '<div class="kibbutz" data-name="אור הנר"></div><div class="kibbutz" data-name="מעוז חיים"></div>';
-    const host = document.createElement('div');
-    document.body.appendChild(host);
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-    render(<QueryClientProvider client={qc}><BurnsStrip /></QueryClientProvider>, { container: host });
+  it('still shown when everything is burned — the project flag removes it, not the count', async () => {
+    rows.current = FIXTURE.map(r => ({ ...r, status: 'burned' }));
+    wrap(<BurnsStrip />);
+    const strip = await screen.findByTestId('burns-strip');
+    expect(strip.textContent).toContain('בוצעו 3 מתוך 3');
+  });
 
-    fireEvent.click(await screen.findByTestId('burns-strip-filter'));
-    await waitFor(() => expect(document.querySelector('.kibbutz[data-name="מעוז חיים"]')!.className).toContain('burn-filtered-out'));
-    expect(document.querySelector('.kibbutz[data-name="אור הנר"]')!.className).not.toContain('burn-filtered-out');
-
-    fireEvent.click(screen.getByTestId('burns-strip-filter'));            // a second tap releases it
-    await waitFor(() => expect(document.querySelector('.kibbutz[data-name="מעוז חיים"]')!.className).not.toContain('burn-filtered-out'));
+  it('a tap opens the burns page and filters nothing', async () => {
+    const { sigma } = await import('@/bridge');
+    wrap(<BurnsStrip />);
+    fireEvent.click(await screen.findByTestId('burns-strip'));
+    expect((sigma as any).showPage).toHaveBeenCalledWith('burns');
   });
 
   it('the flag takes the strip away too', async () => {

@@ -474,88 +474,11 @@
   // "create new" button. Both lead to the EMS login when not connected.
   // ── the EMS section INSIDE the kibbutz card (QA round 3, D4) ──────────────────────
   //
-  // PURE row builder: one open EMS task -> the HTML of its row. Inside the card the person is
-  // reading, not scanning, so the row carries the whole story: title, status, the FULL
-  // description (no clamp), 👤 who and 📅 when, and it closes with two small bubbles at the
-  // bottom-left: priority and type. No DOM, no globals. Every label map and the escaper come
-  // in as arguments, which is what lets test-modal-ems.mjs pin it against plain objects.
-  function emsModalTaskRow(t, L, esc) {
-    var task = t || {};
-    var lab = L || {};
-    var e = esc || function (v) { return String(v == null ? '' : v); };
-    var status = lab.status || {};
-    var priority = lab.priority || {};
-    var type = lab.type || {};
-    var dot = lab.dot || {};
-
-    var a = task.assignee || null;
-    var who = a ? [a.firstName || '', a.lastName || ''].join(' ').trim() : '';
-    var due = emsModalDueText(task.expectedCompletionDate);
-
-    var meta = '';
-    if (who) meta += '<span class="t-who">👤 ' + e(who) + '</span>';
-    if (due) meta += '<span class="t-due">📅 ' + e(due) + '</span>';
-
-    var bubbles =
-      '<span class="ems-badge priority-' + e(task.priority || '') + '">' +
-        e(priority[task.priority] || task.priority || '') + '</span>' +
-      '<span class="ems-badge type-' + e(task.type || '') + '">' +
-        e(type[task.type] || task.type || '') + '</span>';
-
-    return '<div class="card-ems-task modal-ems-task status-' + e(task.status || '') + '"' +
-      ' data-task="' + e(task.id || '') + '"' +
-      ' onclick="emsModalTaskClick(&#39;' + e(task.id || '') + '&#39;)" style="cursor:pointer;margin:4px 0;">' +
-      '<div class="t-head">' +
-        '<span class="t-dot" style="background:' + (dot[task.priority] || '#94a3b8') + '"></span>' +
-        '<span class="t-title">' + e(task.title || '') + '</span>' +
-        '<span class="ems-badge status-' + e(task.status || '') + '">' +
-          e(status[task.status] || task.status || '') + '</span>' +
-      '</div>' +
-      (task.description ? '<div class="t-desc">' + e(task.description) + '</div>' : '') +
-      (meta ? '<div class="t-meta">' + meta + '</div>' : '') +
-      '<div class="t-bubbles">' + bubbles + '</div>' +
-      '</div>';
-  }
-  // d.M of an ISO date, the same short form the card widget uses (app/src/lib/emsTasks.ts).
-  function emsModalDueText(iso) {
-    if (!iso) return '';
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return '';
-    return d.getDate() + '.' + (d.getMonth() + 1);
-  }
-
-  function prepModalEmsSection(name) {
-    const box = document.getElementById('modalEmsSection');
-    if (!box) return;
-    if (!(typeof canUseEms === 'function' && canUseEms())) { box.style.display = 'none'; box.innerHTML = ''; return; }
-    box.style.display = '';
-    if (typeof kibbutzHasSite === 'function' && !kibbutzHasSite(name)) {
-      box.innerHTML = '<div class="modal-ems-nosite" style="margin-top:6px;padding:9px 12px;background:#fef2f2;' +
-        'border:1px solid #fecaca;border-radius:8px;color:#b91c1c;font-size:13px;font-weight:700;">' +
-        '⚠️ לא מקושר ל-EMS. צור או קשר את האתר ב-EMS לפני פתיחת משימה.</div>';
-      return;
-    }
-    const ids = (typeof kibbutzSiteIds === 'function') ? kibbutzSiteIds(name) : [];
-    const tasks = ids.length ? emsCacheTasksForKibbutz(name) : [];
-    // Full-width button when there's NO open task; small side bubble when a task exists.
-    const newBtnFull = '<button type="button" onclick="createEmsTaskForKibbutz()" style="width:100%;margin-top:6px;background:var(--accent-soft);color:var(--accent-fg);border:1px dashed var(--accent);border-radius:8px;padding:9px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;">➕ פתח משימה חדשה ב-EMS</button>';
-    const newBubble = '<button type="button" onclick="createEmsTaskForKibbutz()" style="background:var(--accent-soft);color:var(--accent-fg);border:1px solid var(--accent);border-radius:14px;padding:4px 11px;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;">➕ משימה חדשה</button>';
-    if (tasks.length) {
-      let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">' +
-              '<div style="font-size:13px;font-weight:800;color:var(--accent-fg);">📋 משימת EMS פתוחה, לחץ לעדכון/תגובה:</div>' + newBubble + '</div>';
-      const labels = { status: EMS_STATUS, priority: EMS_PRIORITY, type: EMS_TYPE, dot: EMS_PRIORITY_DOT };
-      tasks.forEach(t => { h += emsModalTaskRow(t, labels, emsEsc); });
-      box.innerHTML = h;
-    } else {
-      box.innerHTML = newBtnFull;
-    }
-  }
-  function emsModalTaskClick(id) {
-    // Not connected → the ONE sign-in surface (spec §7n). The EMS page this used to jump to
-    // is retired (§7m R2), and openKibbutzEmsTask() below still shows the cached read-only view.
-    if (!isEmsConnected()) { emsRequireLogin(); return; }
-    openEmsTask(id);   // full live detail + comments + status change
-  }
+  // emsModalTaskRow / emsModalDueText / prepModalEmsSection / emsModalTaskClick removed
+  // (round 5, K-U5): the legacy EMS section inside the kibbutz modal's מצב הקיבוץ tab. Its
+  // job is StatusTab's EmsTasks(variant="full") now (K-U2), which already has its own
+  // coverage (EmsTasks.test.tsx); test-modal-ems.mjs (which pinned this builder) is deleted
+  // with this task.
 
   async function createEmsTaskForKibbutz(nameArg) {
     const name = nameArg || currentKibbutz;
@@ -639,13 +562,9 @@
     // that resync failed (matches the old applyCardEmsWidgets() call, which redrew unconditionally
     // too — from whatever the cache already held). A double-fire on the success path is harmless.
     if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: emsCacheData().tasks.length });
-    if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
-    if (typeof reorderCards === 'function') reorderCards();
-    // If the kibbutz modal is still open (task created from a card), refresh its EMS section.
-    const backdrop = document.getElementById('modalBackdrop');
-    if (backdrop && backdrop.classList.contains('open') && currentKibbutz && typeof prepModalEmsSection === 'function') {
-      prepModalEmsSection(currentKibbutz);
-    }
+    // Round 5, K-U5: no more legacy modal EMS section to refresh (React's EmsTasks already
+    // re-reads on 'ems-cache-synced' above), and no more applyCardSiteWarnings/reorderCards —
+    // the card renders its own unlinked tag and order now (K-U3).
   }
 
   async function saveEmsTask(btn) {

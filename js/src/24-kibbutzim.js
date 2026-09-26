@@ -196,8 +196,10 @@
       if (!window.SHEET_DATA) return;
       if (typeof enrichCardsWithSheet === 'function') enrichCardsWithSheet(window.SHEET_DATA);
       if (typeof injectCustomerCodes === 'function') injectCustomerCodes();
-      if (typeof applyCardLastVisit === 'function') applyCardLastVisit();
-      if (typeof reorderCards === 'function') reorderCards();
+      // applyCardLastVisit / reorderCards dropped (round 5, K-U3): the closed card now renders
+      // its own last-visit line in React (KibbutzCard.tsx's LastVisitRow) in the right order
+      // already, so the legacy DOM-append pass would only duplicate it. The functions stay
+      // defined (K-U5 deletes them) — nothing else still calls them.
     }
 
     function kibbutzimBoot() {

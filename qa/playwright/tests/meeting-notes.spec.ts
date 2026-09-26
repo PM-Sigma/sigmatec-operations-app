@@ -57,3 +57,57 @@ test('meeting notes: a card with one meeting has no היסטוריה, an empty o
 
   expectNoConsoleErrors(rec);
 });
+
+// Designer round 9: the ➕/⋯ actions must clear a real 44×44 hit target on the RENDERED
+// button box itself — not the `.s-hit` overlay, which only grows the invisible tap area
+// around a smaller visual box. Checked at both phone widths, inside the open sheet (the
+// section is StatusTab's, not the closed card's collapsed view).
+for (const width of [360, 412] as const) {
+  test(`meeting notes: ➕/⋯ actions clear 44×44 and never overlap, at ${width}px`, async ({ page }, ti) => {
+    const { rec } = await boot(page, ti, { who: 'עידן' });
+    await page.setViewportSize({ width, height: width === 360 ? 780 : 915 });
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+    const section = page.locator('[data-section="meetings"]');
+    await expect(section).toBeVisible();
+
+    const plus = section.getByRole('button', { name: 'פתח משימה ב-EMS' }).first();
+    const more = section.getByRole('button', { name: 'עוד פעולות לבולט' }).first();
+    await expect(plus).toBeVisible();
+    await expect(more).toBeVisible();
+
+    const plusBox = await plus.boundingBox();
+    const moreBox = await more.boundingBox();
+    expect(plusBox).toBeTruthy();
+    expect(moreBox).toBeTruthy();
+    expect(plusBox!.width).toBeGreaterThanOrEqual(44);
+    expect(plusBox!.height).toBeGreaterThanOrEqual(44);
+    expect(moreBox!.width).toBeGreaterThanOrEqual(44);
+    expect(moreBox!.height).toBeGreaterThanOrEqual(44);
+
+    // no overlap between the two actions themselves
+    const overlapX = plusBox!.x < moreBox!.x + moreBox!.width && moreBox!.x < plusBox!.x + plusBox!.width;
+    const overlapY = plusBox!.y < moreBox!.y + moreBox!.height && moreBox!.y < plusBox!.y + plusBox!.height;
+    expect(overlapX && overlapY).toBe(false);
+
+    // no overlap with the note text itself
+    const overlaps = (a: { x: number; y: number; width: number; height: number }, b: typeof a) =>
+      a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    const textBox = await section.locator('.note-bullet').first().locator('span').first().boundingBox();
+    if (textBox) expect(overlaps(plusBox!, textBox)).toBe(false);
+
+    console.log(`[K-U9] ${width}px ➕ ${Math.round(plusBox!.width)}x${Math.round(plusBox!.height)} · ⋯ ${Math.round(moreBox!.width)}x${Math.round(moreBox!.height)}`);
+
+    // designer round 10: every row must stay INSIDE its card — SectionBlock wraps its rows in
+    // `-mx-4 divide-y`, and a row that drops its own compensating px-4 spills past the card's
+    // real edge (the ⋯ bubble got clipped at the left in round 6's evidence).
+    const cardBox = (await section.boundingBox())!;
+    const rowBoxes = await section.locator('.note-bullet').evaluateAll(
+      els => els.map(el => { const r = el.getBoundingClientRect(); return { x: r.x, width: r.width }; }));
+    for (const row of rowBoxes) {
+      expect(row.x).toBeGreaterThanOrEqual(cardBox.x - 0.5);
+      expect(row.x + row.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 0.5);
+    }
+
+    expectNoConsoleErrors(rec);
+  });
+}

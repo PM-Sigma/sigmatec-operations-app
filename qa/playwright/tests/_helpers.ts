@@ -196,6 +196,21 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       parent: 1, pos: 5, labels: [], body: '## רקע\nחסר לוג.',
       createdAt: '2026-09-15T08:00:00Z', updatedAt: '2026-09-15T08:00:00Z',
     },
+    // D-U review round 2 (designer): a card seeded within the last week, so "חדש השבוע" has
+    // real content to capture — createdAt is RELATIVE to now (not a fixed date), so the fixture
+    // never goes stale.
+    {
+      number: 31, title: 'תשתית | ניטור | דשבורד שגיאות', status: 'Backlog', state: 'open',
+      parent: 1, pos: 6, labels: [], body: '## רקע\nעוד לא התחלנו.',
+      createdAt: new Date(Date.now() - 2 * 86400000).toISOString(), updatedAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    },
+    // …and one card with NO parent at all, so the domains view really shows a "ללא אפיון" group
+    // (D-L2: no chain, no matching parent number → null domain), not just the one seeded domain.
+    {
+      number: 40, title: 'תקלה חד-פעמית בלי אב', status: 'Backlog', state: 'open',
+      pos: 7, labels: [], body: 'כרטיס בודד, לא תחת אף תחום.',
+      createdAt: '2026-06-01T08:00:00Z', updatedAt: '2026-06-01T08:00:00Z',
+    },
   ];
   // Google Fonts: blocked so the suite runs with no network at all. The app declares a full
   // font stack, so the fallback face renders and layout assertions still hold.
@@ -826,6 +841,23 @@ export async function shot(page: Page, testInfo: TestInfo, suffix = '', opts: { 
   );
   await mkdir(dirname(file), { recursive: true });
   await page.screenshot({ path: file, fullPage: !!opts.fullPage });
+}
+
+/**
+ * A one-off capture at a WIDTH the project matrix doesn't have its own project for (412 —
+ * designer round-2 ask, "capture incl. 412"), reusing whichever mobile project is already
+ * booted rather than adding a 5th/6th project to the shared matrix just for evidence. Restores
+ * the project's own viewport afterwards so the rest of the test still runs at its real width.
+ */
+export async function shotAtWidth(page: Page, testInfo: TestInfo, width: number, suffix: string): Promise<void> {
+  const original = page.viewportSize();
+  await page.setViewportSize({ width, height: original?.height ?? 915 });
+  const spec = testInfo.file.replace(/\\/g, '/').split('/').pop()!.replace(/\.spec\.ts$/, '');
+  const theme = (testInfo.project.metadata as any).theme as string;
+  const file = resolve(testInfo.config.rootDir, '..', 'shots', spec, `mobile-${width}-${theme}-${suffix}.png`);
+  await mkdir(dirname(file), { recursive: true });
+  await page.screenshot({ path: file, fullPage: false });
+  if (original) await page.setViewportSize(original);
 }
 
 // ── mobile-360-light known-failure ratchet (Opus audit round 4 item 3) ──────────────────────

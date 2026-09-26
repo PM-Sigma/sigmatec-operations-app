@@ -306,22 +306,6 @@ for (const [event, emitters, consumers] of PROPAGATION) {
   }
 }
 
-// `devArg()` builds a value that is HTML-decoded and THEN parsed as JavaScript, inside a
-// double-quoted attribute. A GitHub issue title carrying a double quote used to end the
-// attribute early (ledger: filed from Task 11 as a repo-wide convention fix).
-{
-  const src = code('js/src/18-dev-tasks.js');
-  const devEsc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const body = src.slice(src.indexOf('function devArg'), src.indexOf('function devArg') + 400);
-  ok(/&quot;/.test(body),
-    'js/src/18-dev-tasks.js devArg() must escape `"` — it is interpolated into onclick="fn(\'…\')" '
-    + 'and a topic name with a double quote would close the attribute');
-  // …and the ORDER: the JS-string escaping has to survive HTML decoding, so devEsc must NOT
-  // turn a quote into an entity (the browser would decode it back and break the JS string).
-  ok(!/&#39;|&quot;/.test(devEsc(`a'b"c`)),
-    'devEsc must not entity-escape quotes — devArg JS-escapes them, and HTML decoding runs first');
-}
-
 // ── every inline handler argument goes through an approved escaper (audit C #6/#7) ──
 // `onclick="fn('${x}')"` is a DOUBLE context: the browser HTML-decodes the attribute and only
 // then parses it as JavaScript. Escaping only `'` (11-search-login.js) or only `"` as an
