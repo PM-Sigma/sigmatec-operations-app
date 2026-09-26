@@ -67,6 +67,11 @@ describe('📈 שימוש island', () => {
     vi.resetModules();
   });
 
+  // 20s, not the file's default 15s (round 5 packages D+I): this test was already brushing the
+  // 15s ceiling on main alone (~14.9s measured) before the D+I merge added the DevBoard and
+  // React-inventory islands to the same collect/transform pass — over the ceiling every run
+  // since, not a one-off flake. The KPI strip + heat table + narrative it renders are real work,
+  // not a fixed sleep, so the fix is headroom, not a smaller assertion.
   it('opens on the #usage deep link (the weekly push action) and renders the report', async () => {
     asUser('עידן', { idan: true });
     location.hash = '#usage';
@@ -85,7 +90,7 @@ describe('📈 שימוש island', () => {
     // the roster is always listed, so a person with no events is visible as such
     // twice on purpose: once as a heat-table row, once in "נראו לאחרונה"
     expect(screen.getAllByText('מתניה')).toHaveLength(2);
-  });
+  }, 20_000);
 
   it('never opens for anyone but עידן, and never asks the server', async () => {
     asUser('ניתאי');

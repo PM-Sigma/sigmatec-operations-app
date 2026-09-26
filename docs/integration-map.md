@@ -153,38 +153,39 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-alerts` | :198 | app/src/islands/Alerts.tsx:240<br>app/src/main.tsx:197 |
 | `#sigma-attendance` | :323 | app/src/islands/Attendance.tsx:644<br>app/src/main.tsx:236 |
 | `#sigma-burns` | :272 | app/src/islands/Burns.tsx:87<br>app/src/main.tsx:152 |
-| `#sigma-burns-modal` | :509 | app/src/main.tsx:152 |
+| `#sigma-burns-modal` | :505 | app/src/main.tsx:152 |
 | `#sigma-calendar` | :408 | app/src/islands/Calendar.tsx:1578<br>app/src/main.tsx:271 |
-| `#sigma-ceo` | :987 | **—** |
-| `#sigma-cert` | :967 | app/src/islands/InventoryCert.tsx:399<br>app/src/main.tsx:190 |
-| `#sigma-daylog` | :962 | app/src/islands/DayLog.tsx:478<br>app/src/main.tsx:427 |
-| `#sigma-dev-presenter` | :976 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:517 |
-| `#sigma-feedback` | :953 | app/src/islands/Feedback.tsx:663<br>app/src/main.tsx:174 |
-| `#sigma-feedback-inbox` | :954 | app/src/islands/FeedbackInbox.tsx:336<br>app/src/main.tsx:220 |
-| `#sigma-field` | :952 | app/src/islands/Field.tsx:2346<br>app/src/main.tsx:134 |
-| `#sigma-gaps` | :960 | app/src/islands/Gaps.tsx:295<br>app/src/main.tsx:373 |
+| `#sigma-ceo` | :983 | **—** |
+| `#sigma-cert` | :963 | app/src/islands/InventoryCert.tsx:399<br>app/src/main.tsx:190 |
+| `#sigma-daylog` | :958 | app/src/islands/DayLog.tsx:478<br>app/src/main.tsx:427 |
+| `#sigma-dev-board` | :429 | app/src/islands/DevBoard.tsx:318<br>app/src/main.tsx:291 |
+| `#sigma-dev-presenter` | :972 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:517 |
+| `#sigma-feedback` | :949 | app/src/islands/Feedback.tsx:663<br>app/src/main.tsx:174 |
+| `#sigma-feedback-inbox` | :950 | app/src/islands/FeedbackInbox.tsx:336<br>app/src/main.tsx:220 |
+| `#sigma-field` | :948 | app/src/islands/Field.tsx:2346<br>app/src/main.tsx:134 |
+| `#sigma-gaps` | :956 | app/src/islands/Gaps.tsx:295<br>app/src/main.tsx:373 |
 | `#sigma-header-actions` | :199 | app/src/islands/HeaderActions.tsx:104<br>app/src/main.tsx:318 |
-| `#sigma-health-modal` | :517 | app/src/main.tsx:167 |
-| `#sigma-holidays` | :956 | app/src/islands/Holidays.tsx:154<br>app/src/main.tsx:305 |
+| `#sigma-health-modal` | :513 | app/src/main.tsx:167 |
+| `#sigma-holidays` | :952 | app/src/islands/Holidays.tsx:154<br>app/src/main.tsx:305 |
 | `#sigma-home` | :275 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:309<br>app/src/main.tsx:116 |
-| `#sigma-hours` | :449 | app/src/islands/Hours.tsx:263<br>app/src/main.tsx:256 |
-| `#sigma-import` | :958 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:558 |
-| `#sigma-internal-modal` | :512 | app/src/main.tsx:162 |
+| `#sigma-hours` | :445 | app/src/islands/Hours.tsx:263<br>app/src/main.tsx:256 |
+| `#sigma-import` | :954 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:558 |
+| `#sigma-internal-modal` | :508 | app/src/main.tsx:162 |
 | `#sigma-inventory` | :316 | app/src/islands/Inventory.tsx:155<br>app/src/main.tsx:207 |
-| `#sigma-inventory-nudges` | :971 | app/src/islands/InventoryNudges.tsx:174<br>app/src/main.tsx:215 |
-| `#sigma-meeting-review` | :979 | app/src/islands/MeetingReview.tsx:646 |
-| `#sigma-message` | :983 | app/src/islands/MessageSheet.tsx:113<br>app/src/main.tsx:325 |
-| `#sigma-modal-meetings` | :503 | app/src/main.tsx:143 |
-| `#sigma-my-tasks` | :997 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:124 |
-| `#sigma-nav` | :998 | app/src/main.tsx:78 |
-| `#sigma-presenter` | :973 | app/src/islands/Presenter.tsx:812<br>app/src/main.tsx:473 |
-| `#sigma-refresh` | :992 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:94 |
-| `#sigma-relogin` | :989 | app/src/components/ReLoginSheet.tsx:143 |
-| `#sigma-settings` | :959 | app/src/islands/Settings.tsx:395<br>app/src/main.tsx:349 |
-| `#sigma-stock-change` | :963 | app/src/islands/StockChange.tsx:318<br>app/src/main.tsx:182 |
-| `#sigma-toaster` | :993 | app/src/main.tsx:77 |
+| `#sigma-inventory-nudges` | :967 | app/src/islands/InventoryNudges.tsx:174<br>app/src/main.tsx:215 |
+| `#sigma-meeting-review` | :975 | app/src/islands/MeetingReview.tsx:646 |
+| `#sigma-message` | :979 | app/src/islands/MessageSheet.tsx:113<br>app/src/main.tsx:325 |
+| `#sigma-modal-meetings` | :499 | app/src/main.tsx:143 |
+| `#sigma-my-tasks` | :993 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:124 |
+| `#sigma-nav` | :994 | app/src/main.tsx:78 |
+| `#sigma-presenter` | :969 | app/src/islands/Presenter.tsx:812<br>app/src/main.tsx:473 |
+| `#sigma-refresh` | :988 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:94 |
+| `#sigma-relogin` | :985 | app/src/components/ReLoginSheet.tsx:143 |
+| `#sigma-settings` | :955 | app/src/islands/Settings.tsx:395<br>app/src/main.tsx:349 |
+| `#sigma-stock-change` | :959 | app/src/islands/StockChange.tsx:318<br>app/src/main.tsx:182 |
+| `#sigma-toaster` | :989 | app/src/main.tsx:77 |
 | `#sigma-today` | :269 | app/src/islands/Field.tsx:2347<br>app/src/main.tsx:134 |
-| `#sigma-usage` | :957 | app/src/islands/Usage.tsx:330<br>app/src/main.tsx:312 |
+| `#sigma-usage` | :953 | app/src/islands/Usage.tsx:330<br>app/src/main.tsx:312 |
 
 ## (d) Supabase tables the client reads or writes
 
@@ -234,7 +235,7 @@ must contain all 35: `attendance`, `calendar_absences`, `company_holidays`, `day
 | page | view element | `canShowPage` | called from |
 |---|---|---|---|
 | `attendance` | `#attendance-view` (index.html:319) | ✓ | js/src/22-push.js:381<br>js/src/22-push.js:382<br>app/src/components/Nav.tsx:124 |
-| `burns` | `#burns-view` (index.html:451) | ✓ | app/src/components/home/Burns.tsx:359 |
+| `burns` | `#burns-view` (index.html:447) | ✓ | app/src/components/home/Burns.tsx:359 |
 | `calendar` | `#calendar-view` (index.html:404) | ✓ | app/src/components/Nav.tsx:127<br>app/src/lib/runAdd.ts:24 |
 | `inventory` | `#inventory-view` (index.html:314) | ✓ | js/src/11-search-login.js:116<br>js/src/22-push.js:377<br>app/src/components/Nav.tsx:133<br>app/src/lib/runAdd.ts:26 |
 | `kibbutz` | `#kibbutz-view` (index.html:208) | ✓ | js/src/00-guard.js:359<br>js/src/11-search-login.js:97<br>js/src/22-push.js:394<br>js/src/22-push.js:402<br>…+3 |
