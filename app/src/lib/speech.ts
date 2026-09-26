@@ -129,22 +129,43 @@ export function parseRecognitionEvent(e: RecognitionEventLike): { finalText: str
  *
  * `record` is now the DEFAULT path whenever MediaRecorder exists (see `speechLadder` in
  * feedback.ts), so this only still matters on the few devices/tests that use live Web Speech.
- * The rule: walk the finals in order, and drop any final that is a case-sensitive PREFIX of (or
+ * The rule: walk the finals in order, and drop any final that is a WORD-BOUNDARY prefix of (or
  * identical to) a LATER final — keep only the last, longest member of each growing chain. A
  * normal desktop sequence of unrelated, distinct finals is unaffected (none is a prefix of the
  * next) and still joins as before.
+ *
+ * Word boundary, not raw `String.startsWith`: a bare substring match would drop a genuine final
+ * "ok" the moment a later, UNRELATED "okay" arrived, since "okay".startsWith("ok") — the two are
+ * different words, not a growing phrase. `isWordPrefixOf` only treats `cur` as superseded when
+ * `later` continues it at a NON-word character (a space, a comma, end of string, …) — not when
+ * `later` continues the same word `cur` ends mid-way through (real Android finals often end
+ * right before a comma: "…לבדוק" then "…לבדוק, אני הייתי", so the boundary check must accept
+ * punctuation too, not just a literal space).
  */
+function isWordChar(ch: string | undefined): boolean {
+  return !!ch && /[\p{L}\p{N}]/u.test(ch);
+}
+
+function isWordPrefixOf(cur: string, later: string): boolean {
+  if (later === cur) return true;
+  if (!later.startsWith(cur)) return false;
+  // `cur` is a literal prefix of `later` — but only a WORD-BOUNDARY prefix if the two don't
+  // continue the same run of letters/digits (that's a different, longer word, not a phrase
+  // that grew).
+  return !(isWordChar(cur[cur.length - 1]) && isWordChar(later[cur.length]));
+}
+
 function collapseCumulativeFinals(finals: string[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < finals.length; i++) {
     const cur = finals[i];
-    // Is `cur` a prefix of (or equal to) any LATER final? If so, it's a stale cumulative
-    // snapshot of a phrase that keeps growing — skip it, the later one will be kept instead.
-    const supersededLater = finals.slice(i + 1).some(later => later.startsWith(cur));
+    // Is `cur` a word-boundary prefix of (or equal to) any LATER final? If so, it's a stale
+    // cumulative snapshot of a phrase that keeps growing — skip it, the later one will be kept.
+    const supersededLater = finals.slice(i + 1).some(later => isWordPrefixOf(cur, later));
     if (supersededLater) continue;
-    // Is `cur` a prefix of (or equal to) something ALREADY kept? Same idea, other direction —
-    // guards a final that re-announces the head of a chain out of strict order.
-    if (out.some(kept => kept.startsWith(cur))) continue;
+    // Is `cur` a word-boundary prefix of (or equal to) something ALREADY kept? Same idea, other
+    // direction — guards a final that re-announces the head of a chain out of strict order.
+    if (out.some(kept => isWordPrefixOf(cur, kept))) continue;
     // `cur` may itself supersede earlier kept entries (it's a longer continuation of them) —
     // those were already skipped above by the forward check, so nothing to drop here.
     out.push(cur);

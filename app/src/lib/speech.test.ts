@@ -132,6 +132,23 @@ describe('parseRecognitionEvent — full session rebuild, never a delta (round 3
     expect(parseRecognitionEvent(e)).toEqual({ finalText: 'זו בדיקה רגילה', interimText: '' });
   });
 
+  // The collapse must respect WORD boundaries, not raw substring matching — a genuine final
+  // "ok" is a different word from a later "okay", not an earlier snapshot growing into it, so
+  // "okay".startsWith("ok") must NOT cause "ok" to be dropped.
+  it('does not drop a final just because a later final shares its characters as a prefix of a DIFFERENT word', () => {
+    const e = event(0, [result('ok', true), result('okay', true)]);
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: 'ok okay', interimText: '' });
+  });
+
+  it('still collapses a real word-boundary growth even mixed with a false-friend prefix', () => {
+    const e = event(0, [
+      result('ok', true),
+      result('ok cool', true),        // genuine growth of "ok" — dropped
+      result('okay', true),           // different word, not a growth of "ok" — kept
+    ]);
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: 'ok cool okay', interimText: '' });
+  });
+
   it('caller REPLACES its session text with finalText — never appends — so a session-scoped prefix stays intact', () => {
     const prefix = 'טקסט שהוקלד קודם.';
     const apply = (sessionFinal: string) => (prefix + ' ' + sessionFinal).trim();
