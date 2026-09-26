@@ -31,5 +31,5 @@ generator: scripts/docs/gen-map.mjs
 <!-- GENERATED:gaps -->
 - **0** live table(s) with no schema page.
 - **9** edge function(s) with no doc.
-- **381** source file(s) under `app/src`/`supabase/functions`/`js/src`/`db` owned by no module doc.
+- **452** source file(s) under `app/src`/`supabase/functions`/`js/src`/`db` owned by no module doc.
 <!-- /GENERATED:gaps -->
