@@ -53,6 +53,7 @@ import { pickableProducts, productGroups, searchProducts } from '@/lib/productSe
 import { parseDayLog, readCatalog } from '@/lib/daylogChain';
 import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
 import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
+import { speechLadder } from '@/lib/feedback';
 // Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
 import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
 import { visitEditLocked, visitToChapters, type VisitRowLike } from '@/lib/visitEdit';
@@ -920,7 +921,10 @@ function VoiceIntake({ kibbutz, busy, onFill }: {
   const startVoice = async () => {
     const caps = speechCaps();
     setListening(true);
-    if (caps.speechRecognition && !caps.forceOffLive) {
+    // RECORD is the default whenever MediaRecorder exists (round: Android S24 growing-prefix
+    // bug) — `speechLadder` (feedback.ts) is the single source of truth for this choice, so it
+    // is never re-decided ad hoc here. Live only when MediaRecorder is missing, or ?speech=live.
+    if (speechLadder({ phase: 'idle' }, caps) === 'live') {
       sessionPrefix.current = text;
       liveFinal.current = '';
       live.current = startLive({
