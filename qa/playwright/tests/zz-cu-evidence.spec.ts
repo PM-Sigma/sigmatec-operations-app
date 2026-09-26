@@ -94,6 +94,24 @@ test.describe('C-U evidence captures', () => {
       await page.screenshot({ path: path.join(OUT, `visit-sheet__${w}__${theme}.png`) });
     });
 
+    // Designer round 2 decision (26.9): "הוספה ליום" on a block already in today's route was
+    // a contradiction — a placed block now shows only "במסלול" and no add button at all.
+    test(`day sheet — placed block shows במסלול, no add button @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם' });
+      await page.setViewportSize({ width: w, height: h });
+      await openCalendar(page);
+      const day = await page.evaluate(() => (window as any).MOCK_CAL_DAY as string);
+      await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
+      const body = page.locator('[data-testid="cal-day"]:visible');
+      await body.locator('[data-place="גבת"]').click();
+      await expect(body.locator('[data-block="גבת"] [data-block-pick="גבת"]')).toHaveCount(0);
+      if (theme === 'dark') {
+        const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+        expect(luminance(bg)).toBeLessThan(0.3);
+      }
+      await page.screenshot({ path: path.join(OUT, `day-sheet__${w}__${theme}.png`) });
+    });
+
     test(`person picker (as עידן) @ ${w}`, async ({ page }, ti) => {
       const { theme } = await boot(page, ti, { who: 'עידן' });
       await page.setViewportSize({ width: w, height: h });

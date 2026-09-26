@@ -637,7 +637,7 @@ test('calendar r5 · C2: עידן plans אביאם’s day, and it lands on אב
   expectNoConsoleErrors(rec);
 });
 
-test('calendar r5 · C1: a block already on the route with nothing new ticked cannot be picked again', async ({ page }, ti) => {
+test('calendar r5 · C1: a block already on the route with nothing new ticked has no add button', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await openCalendar(page);
   const day = await calDay(page);
@@ -646,7 +646,15 @@ test('calendar r5 · C1: a block already on the route with nothing new ticked ca
   const written = page.waitForResponse(r => r.url().includes('/rest/v1/day_plans') && r.request().method() !== 'GET');
   await dayBody(page).locator('[data-place="גבת"]').click();
   await written;
-  await expect(dayBody(page).locator('[data-block-pick="גבת"]')).toBeDisabled();
+  // Designer round 2 (26.9): "הוספה ליום" on a stop already in today's route was a
+  // contradiction — once placed with nothing new ticked, the block shows "במסלול" and NO
+  // add button at all (not merely disabled).
+  const block = dayBody(page).locator('[data-block="גבת"]');
+  await expect(block.locator('.ucal-badge')).toHaveText('במסלול');
+  await expect(block.locator('[data-block-pick="גבת"]')).toHaveCount(0);
+  // The mock's own task at גבת is already dated onThisDay (disabled, pre-checked) — there is
+  // nothing left to tick here, which is exactly why the button has nothing to do either.
+  await expect(block.locator('[data-block-task="ems:task-cal-1"]')).toBeDisabled();
 
   expectNoConsoleErrors(rec);
 });

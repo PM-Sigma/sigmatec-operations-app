@@ -606,10 +606,15 @@ function Block({
           </span>
         </label>
       )) : <p className="ucal-empty">אין כאן משימות פתוחות</p>}
-      {canPlan ? (
+      {/* Designer round 2 decision (26.9): a stop already IN today's route showing "הוספה
+          ליום" was a straight contradiction — it's already added. Once placed with nothing
+          new ticked there is nothing left to DO here (the "במסלול" badge above already says
+          so); the button only comes back once ticking a fresh task gives it something to
+          do. A stop not yet placed always keeps its button. */}
+      {canPlan && !isNoopPick(preview) ? (
         <button
           type="button" className="ucal-mini" data-block-pick={b.kibbutz}
-          disabled={busy || isNoopPick(preview)} onClick={() => onPick(b, ticked)}
+          disabled={busy} onClick={() => onPick(b, ticked)}
         >
           {/* Designer round · C-U: this button both places the stop AND dates the ticked tasks —
               "הוספה ליום" duplicated the header's own ➕ button, which opens a DIFFERENT sheet
