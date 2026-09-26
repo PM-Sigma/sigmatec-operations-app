@@ -133,9 +133,9 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `feedback-changed` | app/src/islands/Feedback.tsx:57 | app/src/islands/FeedbackInbox.tsx:240 |
 | `holidays-loaded` | js/src/04-attendance-daily.js:67 | app/src/islands/Attendance.tsx:312 |
 | `internal-tasks-changed` | app/src/components/home/InternalTasks.tsx:49 | app/src/components/home/InternalTasks.tsx:38<br>app/src/lib/myTasksBadge.ts:42 |
-| `kibbutzim-published` | app/src/islands/Home.tsx:50 | **—** |
+| `kibbutzim-published` | app/src/islands/Home.tsx:51 | **—** |
 | `notes-changed` | app/src/components/home/MeetingNotes.tsx:90 | app/src/components/home/MeetingNotes.tsx:49 |
-| `onboarding-changed` | app/src/components/home/OnboardingProgress.tsx:44 | app/src/components/home/OnboardingProgress.tsx:33 |
+| `onboarding-changed` | app/src/components/home/OnboardingProgress.tsx:45 | app/src/components/home/OnboardingProgress.tsx:34 |
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:421<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
 | `stock-changed` | js/src/07-orders.js:1244<br>js/src/09-visits.js:1154<br>js/src/09-visits.js:1358<br>app/src/islands/StockChange.tsx:152<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:129<br>app/src/islands/InventoryStrip.tsx:75<br>js/src/08-inventory.js:115 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
@@ -143,7 +143,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `visit-draft-changed` | js/src/09-visits.js:674<br>js/src/09-visits.js:705<br>js/src/09-visits.js:772<br>js/src/09-visits.js:907 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
 | `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:158<br>js/src/00-bridge.js:479<br>app/src/islands/Field.tsx:2119 |
 | `visit-saved` | js/src/09-visits.js:1183<br>js/src/09-visits.js:1376<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:306<br>app/src/islands/Calendar.tsx:1373<br>app/src/islands/Field.tsx:166<br>app/src/islands/Field.tsx:2234<br>app/src/islands/Presenter.tsx:117<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
-| `work-session-saved` | app/src/components/home/WorkTimerStopSheet.tsx:118 | app/src/islands/Home.tsx:108<br>app/src/islands/Hours.tsx:236 |
+| `work-session-saved` | app/src/components/home/WorkTimerStopSheet.tsx:118 | app/src/islands/Home.tsx:109<br>app/src/islands/Hours.tsx:236 |
 
 ## (c) Islands — placeholder in `index.html` ↔ mount in `main.tsx`
 
@@ -164,7 +164,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-gaps` | :1197 | app/src/islands/Gaps.tsx:330<br>app/src/main.tsx:345 |
 | `#sigma-header-actions` | :222 | app/src/islands/HeaderActions.tsx:104<br>app/src/main.tsx:290 |
 | `#sigma-holidays` | :1193 | app/src/islands/Holidays.tsx:154<br>app/src/main.tsx:277 |
-| `#sigma-home` | :298 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:291<br>app/src/main.tsx:140 |
+| `#sigma-home` | :298 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:292<br>app/src/main.tsx:140 |
 | `#sigma-hours` | :588 | app/src/islands/Hours.tsx:398<br>app/src/main.tsx:239 |
 | `#sigma-import` | :1195 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:530 |
 | `#sigma-inventory-strip` | :414 | app/src/islands/InventoryStrip.tsx:211<br>app/src/main.tsx:207 |
@@ -205,8 +205,8 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `meeting_sessions` | db/meeting_sessions.sql | app/src/lib/meetingRun.ts:74<br>app/src/lib/meetingRun.ts:147<br>app/src/lib/meetingSession.ts:282 |
 | `meter_burns` | db/meter_burns.sql | app/src/lib/burnsData.ts:26<br>app/src/lib/burnsData.ts:71<br>app/src/lib/burnsData.ts:172 |
 | `movements` | db/rls_legacy_lockdown.sql | app/src/islands/StockChange.tsx:146<br>app/src/lib/inventoryApi.ts:52<br>app/src/lib/inventoryApi.ts:104<br>…+1 |
-| `onboarding_steps` | db/onboarding_steps.sql | app/src/components/home/OnboardingProgress.tsx:24<br>app/src/components/home/OnboardingProgress.tsx:57<br>app/src/components/home/OnboardingProgress.tsx:73 |
-| `onboarding_templates` | db/onboarding_templates.sql | app/src/components/home/OnboardingProgress.tsx:69<br>app/src/components/home/OnboardingProgress.tsx:81<br>app/src/components/home/OnboardingProgress.tsx:92 |
+| `onboarding_steps` | db/onboarding_steps.sql | app/src/components/home/OnboardingProgress.tsx:25<br>app/src/components/home/OnboardingProgress.tsx:58<br>app/src/components/home/OnboardingProgress.tsx:74 |
+| `onboarding_templates` | db/onboarding_templates.sql | app/src/components/home/OnboardingProgress.tsx:70<br>app/src/components/home/OnboardingProgress.tsx:82<br>app/src/components/home/OnboardingProgress.tsx:93 |
 | `orders` | db/orders_ems_task_id.sql | app/src/islands/Field.tsx:141<br>app/src/lib/inventoryApi.ts:51<br>app/src/lib/inventoryApi.ts:181<br>…+6 |
 | `parse_corrections` | db/parse_corrections.sql | app/src/lib/inventoryApi.ts:188 |
 | `products` | db/inventory_pool.sql | app/src/islands/InventoryStrip.tsx:113<br>app/src/islands/InventoryStrip.tsx:129<br>app/src/lib/inventoryApi.ts:50<br>…+2 |
@@ -275,7 +275,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `holidays` | `CalendarCheck` | app/src/islands/Holidays.tsx:158 |
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:383 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:207 |
-| `new-kibbutz` | `Home` | app/src/islands/Home.tsx:147 |
+| `new-kibbutz` | `Home` | app/src/islands/Home.tsx:148 |
 | `presenter` | `Presentation` | app/src/islands/Presenter.tsx:815 |
 | `presenter` | `Presentation` | app/src/main.tsx:469 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:502 |

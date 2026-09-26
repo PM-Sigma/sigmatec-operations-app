@@ -1,6 +1,6 @@
-import{i as o}from"./sigma.js?v=muiu7ijr";/**
+import{c as o}from"./sigma.js?v=muiv78sa";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.
  * See the LICENSE file in the root directory of this source tree.
- */const t=[["path",{d:"m9 18 6-6-6-6",key:"mthhwq"}]],h=o("ChevronRight",t);export{h as C};
+ */const t=[["path",{d:"m9 18 6-6-6-6",key:"mthhwq"}]],c=o("ChevronRight",t);export{c as C};
