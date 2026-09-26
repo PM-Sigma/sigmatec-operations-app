@@ -63,6 +63,7 @@
   "./ui/sigma-OnboardingProgress.js",
   "./ui/sigma-page-action-row.js",
   "./ui/sigma-pause.js",
+  "./ui/sigma-pencil.js",
   "./ui/sigma-play.js",
   "./ui/sigma-plus.js",
   "./ui/sigma-Presenter.js",

@@ -273,27 +273,20 @@ test('presenter: one-click close offers a 5 s undo toast, and it really cancels 
   await done.scrollIntoViewIfNeeded();
   await done.click();
 
-  // The one live toast's own "ביטול" action — scoped to sonner's own markup (`[data-button]`
-  // inside `[data-sonner-toast]`), since the legacy bundle's hidden modals also carry buttons
-  // labelled "ביטול" elsewhere in the DOM.
-  const undoBtn = page.locator('[data-sonner-toast] [data-button]', { hasText: 'ביטול' });
+  // Round-7/M-U: this toast is no longer Sonner's — it's the presenter's own element (see
+  // Presenter.tsx `undoToast`), so its "ביטול" action has its own testid rather than sonner's
+  // `[data-button]` markup.
+  const undoBtn = page.getByTestId('presenter-undo-toast-action');
 
   // Undo, inside the window: the button disappears immediately, ONE toast only (Opus item 5).
-  // `dispatchEvent` rather than `.click()`: sonner's own toast-stacking transform can place the
-  // toast partly outside Playwright's notion of "in viewport" at some breakpoints even though
-  // it is genuinely visible and clickable on a real device — this test is about the undo
-  // CONTRACT (one toast, cancels for real), not sonner's own positioning math.
   await expect(undoBtn).toBeVisible();
-  // Sonner's own mount transition is ~400 ms; a screenshot taken mid-transition catches a
-  // half-opacity frame with its swipe-track pseudo-element showing (designer round-6 item 5:
-  // "stray bar/green circle") — wait for it to actually settle first.
   await page.waitForTimeout(600);
 
   // Round-6 final ruling item 3, asserted rather than eyeballed: the toast clears BOTH the dock
   // and the prev/next nav row by ≥8px, and — at desktop widths, where the composer is capped
   // and centred rather than edge-to-edge — the toast's own centre lines up with the composer's.
   const toastGeo = await page.evaluate(() => {
-    const toast = document.querySelector('[data-sonner-toast]') as HTMLElement | null;
+    const toast = document.querySelector('[data-testid="presenter-undo-toast"]') as HTMLElement | null;
     const footer = document.querySelector('footer') as HTMLElement | null;
     const navRow = footer?.querySelector('[data-testid="presenter-prev"]')?.parentElement as HTMLElement | null;
     if (!toast || !footer || !navRow) return null;

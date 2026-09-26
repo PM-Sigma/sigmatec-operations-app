@@ -398,7 +398,9 @@ describe('one-click close in the meeting', () => {
       await screen.findByTestId('presenter');
       const done = await screen.findByTestId('presenter-close-done-ems1');
       await act(async () => { fireEvent.click(done); });
-      expect(sonner.success).toHaveBeenCalled();
+      // Round-7/M-U: this toast is no longer sonner's — it's the presenter's own element
+      // (see Presenter.tsx `undoToast`), so the assertion is against ITS markup, not the mock.
+      expect(await screen.findByTestId('presenter-undo-toast')).toBeTruthy();
       expect(emsMock.addComment).not.toHaveBeenCalled();          // not yet — 5 s deferred
       await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
       expect(emsMock.addComment).toHaveBeenCalledWith('ems1', expect.stringContaining('נסגר בישיבת צוות'));
@@ -415,9 +417,8 @@ describe('one-click close in the meeting', () => {
       await screen.findByTestId('presenter');
       const cancelBtn = await screen.findByTestId('presenter-close-cancel-ems1');
       await act(async () => { fireEvent.click(cancelBtn); });
-      const undoCall = sonner.success.mock.calls.find(c => c[1]?.action?.label === 'ביטול');
-      expect(undoCall).toBeTruthy();
-      await act(async () => { undoCall![1].action.onClick(); });
+      const undoBtn = await screen.findByTestId('presenter-undo-toast-action');
+      await act(async () => { fireEvent.click(undoBtn); });
       await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
       expect(emsMock.addComment).not.toHaveBeenCalled();
       expect(emsMock.updateTask).not.toHaveBeenCalled();

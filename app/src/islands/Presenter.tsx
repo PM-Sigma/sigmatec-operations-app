@@ -18,7 +18,11 @@ import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast as sonnerToast } from 'sonner';
 
-// Presenter-scoped toast offset (round-6/7): the `<Toaster>` (main.tsx) is ONE React component
+// Presenter-scoped toast offset (round-6/7). Still used by every OTHER toast this screen shows
+// (success/error messages) — the one exception is the close-undo toast, which round-7 moved off
+// Sonner entirely (see `undoToast` state + its render inside <footer> below) because this exact
+// machinery could not make Sonner's own toast width/centring hold at every breakpoint.
+// the `<Toaster>` (main.tsx) is ONE React component
 // that re-renders its own `[data-sonner-toaster]`/`[data-sonner-toast]` `style` attributes on
 // every toast add/remove — a direct `el.style.setProperty(...)` from outside React (tried in
 // round 7) gets silently wiped by the next of those re-renders, since React owns the whole style
@@ -39,11 +43,13 @@ function applyPresenterToastStyle(): void {
       // The presenter dialog fills the viewport at every width (the composer inside it is capped
       // at 720px and centred only as decoration), so the viewport's own centre and the
       // composer's centre are the same point by construction — no measured centre-x needed.
+      // rtl-ok: viewport-centred (left:50%+translateX(-50%)), not reading-order-relative — the
+      // same numbers centre the box regardless of direction, unlike inset-inline-start/end.
       '[data-sonner-toaster]{left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(calc(100vw - 32px),720px) !important;}',
       // The toaster box is centred and capped; a single RTL toast inside it still carries its
       // own fixed `width` (Sonner's `--width` var) and hugs the box's END edge rather than
       // filling it, so `width:100%` here (not just `left:0;right:0`) is what actually stretches
-      // it to fill the box symmetrically.
+      // it to fill the box symmetrically. rtl-ok: 0/0 is symmetric in either direction.
       '[data-sonner-toast]{left:0 !important;right:0 !important;width:100% !important;}',
     ].join('');
   }
@@ -557,19 +563,24 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
   const canClose = canCloseInMeeting(me, isViewer);
   const [pendingTaskIds, setPendingTaskIds] = React.useState<Record<string, CloseStatus>>({});
   const [queuedTaskIds, setQueuedTaskIds] = React.useState<Set<string>>(new Set());
-  // The one toast per taskId that offers "ביטול" — kept so a settle (timer OR an early flush)
-  // can dismiss it instead of leaving it on screen with a dead undo button (Opus round-5 audit,
-  // item 1: "undo lies after flush"), and so the settle path never shows a SECOND toast for the
-  // same click (item 5: the success toast was showing twice — once on click, once on settle).
-  const closeToastIds = React.useRef<Record<string, string | number>>({});
+  // Round-7/M-U: this ONE toast (the close-undo) is no longer Sonner's — see `UndoToast` below
+  // for why (Sonner's own inline styles kept fighting every gutter/centring fix). It lives as
+  // its OWN state instead of a sonner toast id, so a settle (timer OR an early flush) can clear
+  // it exactly the way the sonner version used to (Opus round-5 audit, item 1: "undo lies after
+  // flush"), and so the settle path never shows a SECOND toast for the same click (item 5).
+  const [undoToast, setUndoToast] = React.useState<{ taskId: string; message: string; onUndo: () => void } | null>(null);
+  const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearUndoToast = React.useCallback((taskId?: string) => {
+    if (undoTimer.current != null) { clearTimeout(undoTimer.current); undoTimer.current = null; }
+    setUndoToast(prev => (taskId == null || prev?.taskId === taskId ? null : prev));
+  }, []);
   const closeQueueRef = React.useRef<ReturnType<typeof createCloseQueue> | null>(null);
   if (!closeQueueRef.current) {
     closeQueueRef.current = createCloseQueue({
       send: sendClose,
       onSettled: (p, r) => {
         setPendingTaskIds(prev => { const n = { ...prev }; delete n[p.taskId]; return n; });
-        const toastId = closeToastIds.current[p.taskId];
-        if (toastId != null) { toast.dismiss(toastId); delete closeToastIds.current[p.taskId]; }
+        clearUndoToast(p.taskId);
         if (r.skipped === 'already-closed') {
           toast.error('המשימה כבר נסגרה', { position: 'bottom-center' });
         } else if (r.error) {
@@ -584,6 +595,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     });
   }
   const closeQueue = closeQueueRef.current;
+  React.useEffect(() => () => { if (undoTimer.current != null) clearTimeout(undoTimer.current); }, []);
 
   const onCloseTask = React.useCallback((taskId: string, status: CloseStatus) => {
     if (!canClose) return;
@@ -591,20 +603,19 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     const undo = closeQueue.schedule(p);
     setPendingTaskIds(prev => ({ ...prev, [taskId]: status }));
     try { navigator.vibrate?.(10); } catch { /* not every browser */ }
-    const toastId = toast.success(status === 'done' ? 'המשימה סומנה כבוצעה' : 'המשימה סומנה כבוטלה', {
-      duration: 5000,
-      position: 'bottom-center',   // designer round-5: a top toast covered the header
-      action: {
-        label: 'ביטול',
-        onClick: () => {
-          // `undo()` reports whether it actually cancelled anything — a click that loses the
-          // race against a flush (screen closing, kibbutz change) must NOT pretend it worked.
-          if (undo()) setPendingTaskIds(prev => { const n = { ...prev }; delete n[taskId]; return n; });
-        },
+    if (undoTimer.current != null) clearTimeout(undoTimer.current);
+    setUndoToast({
+      taskId,
+      message: status === 'done' ? 'המשימה סומנה כבוצעה' : 'המשימה סומנה כבוטלה',
+      onUndo: () => {
+        // `undo()` reports whether it actually cancelled anything — a click that loses the race
+        // against a flush (screen closing, kibbutz change) must NOT pretend it worked.
+        if (undo()) setPendingTaskIds(prev => { const n = { ...prev }; delete n[taskId]; return n; });
+        clearUndoToast(taskId);
       },
     });
-    closeToastIds.current[taskId] = toastId;
-  }, [canClose, closeQueue, me]);
+    undoTimer.current = setTimeout(() => clearUndoToast(taskId), 5000);
+  }, [canClose, closeQueue, me, clearUndoToast]);
 
   // Flush on the app closing during the 5 s undo (review focus #1): pagehide, tab hidden, and —
   // via the effect's own cleanup — on leaving the kibbutz on screen or unmounting on exit.
@@ -709,6 +720,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         if (liveOpen) { setLiveOpen(false); return; }
         if (typing) { el?.blur(); return; }
         toast.dismiss();   // one toast at a time (round-6 item 3): a leftover "נרשם"/close toast
+        clearUndoToast();  // …and the presenter's own undo toast, no longer a sonner one
         setExitOpen(true); // must not sit behind the exit sheet or stack with a second one
         return;
       }
@@ -734,7 +746,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [liveOpen, exitOpen, move, doMark, park, saveNote]);
+  }, [liveOpen, exitOpen, move, doMark, park, saveNote, clearUndoToast]);
 
   const n = rows.length;
 
@@ -758,7 +770,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           data-testid="presenter-exit"
-          onClick={() => { toast.dismiss(); setExitOpen(true); }}
+          onClick={() => { toast.dismiss(); clearUndoToast(); setExitOpen(true); }}
           aria-label="סגירה"
           className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-border text-foreground outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-1)] focus-visible:ring-offset-2"
         >
@@ -899,6 +911,45 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         ref={footerRef}
         className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-border bg-background px-4 pb-4 pt-3 sm:px-8 sm:pb-8 lg:mx-auto lg:w-full lg:max-w-[720px] lg:rounded-t-2xl lg:border-x"
       >
+        {/* Round-7/M-U (עידן): Sonner's own toaster kept re-writing its inline styles out from
+            under every centring fix (see the file-header note above) — 360/390 could be forced
+            to line up, but 412/1440 always came back off by the same ~22px, and nothing short
+            of abandoning Sonner for THIS toast pinned it down. This is now a plain absolutely-
+            positioned child of the footer itself: `inset-x-0 bottom-full` gives it EXACTLY the
+            footer's own left/right edges (the same box the composer/dock already centres and
+            caps at lg:max-w-[720px]) with no measurement, no re-injected stylesheet, and no
+            fight with a re-rendering third-party component — the gutters can't go crooked
+            because they're the footer's own gutters. `mb-2` clears the dock's own top edge by
+            8px, and since the footer starts BELOW the nav row (not at it), sitting above the
+            whole footer clears the nav row by at least as much. DS look kept (bg-foreground /
+            text-background / rounded-xl / shadow-lg / bg-primary action), matching
+            `components/ui/sonner.tsx`'s own toast classNames. */}
+        {undoToast && (
+          <div
+            data-testid="presenter-undo-toast"
+            role="status"
+            aria-live="polite"
+            // `inset-x-4 sm:inset-x-8` — NOT `inset-x-0` — on purpose: the footer's own BOX is
+            // edge-to-edge below `lg` (only its lg:mx-auto/lg:max-w-[720px] caps and centres it
+            // there), so `inset-x-0` measured 0/0 gutters at 360/390/412 (a real regression
+            // caught by the Playwright gutter assertion, not eyeballed). Matching the footer's
+            // own CONTENT inset (`px-4 sm:px-8`, the same padding the nav row sits inside)
+            // instead gives the toast real, symmetric gutters at every width, and stays centred
+            // with the footer's content because both share the same footer box + the same
+            // symmetric inset from it.
+            className="pointer-events-auto absolute inset-x-4 bottom-full z-10 mb-2 flex items-center justify-between gap-3 rounded-xl bg-foreground px-4 py-3 font-semibold text-background shadow-lg sm:inset-x-8"
+          >
+            <span className="text-[14px]"><bdi>{undoToast.message}</bdi></span>
+            <button
+              type="button"
+              data-testid="presenter-undo-toast-action"
+              onClick={undoToast.onUndo}
+              className="min-h-9 flex-none rounded-lg bg-primary px-3 text-[13px] font-extrabold text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-1)] focus-visible:ring-offset-2"
+            >
+              ביטול
+            </button>
+          </div>
+        )}
         <div className="grid w-full grid-cols-2 gap-2">
           <button
             type="button"
