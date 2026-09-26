@@ -307,6 +307,9 @@
     window.MOCK_CAL_DAY = _calDay;
 
     window.MOCK_HOLIDAYS = [
+      // Designer round 2 (25.9): a real ערב חג row — without one in the fixture, no capture
+      // could ever show it next to a real חג, so "both purple fills" couldn't even be checked.
+      { date: mockYmd(new Date(mockFirstDow(1).getTime() - 86400000)), name: 'ערב חג לדוגמה', kind: 'holiday_eve', required: true },
       { date: mockYmd(mockFirstDow(1)), name: 'חג לדוגמה', kind: 'holiday', required: false },
       { date: mockYmd(mockFirstDow(4)), name: 'חול המועד סוכות', kind: 'company_closure', required: false }
     ];

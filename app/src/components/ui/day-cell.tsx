@@ -39,6 +39,7 @@ export function DayCell({
   missing,
   eventCount,
   blocks,
+  compact,
   outside,
   label,
   onClick,
@@ -61,6 +62,10 @@ export function DayCell({
       they could act on before opening the day. Only the first block is named (cell is ~44px);
       the rest fold into "+N". Takes over from `eventCount` when non-empty. */
   blocks?: readonly { kibbutz: string }[];
+  /** Designer round 2 (25.9): at 7 columns (full month) a cell is too narrow to name a
+      kibbutz — "גבת" truncated to "ג…", worse than no name at all. Compact cells fall back
+      to the plain "•N" count; the 5-column חודש עבודה view has room for the real chip. */
+  compact?: boolean;
   outside?: boolean;
   /** Required — a DayCell has no other accessible name (sign-off P1-8), e.g. "יום שלישי,
       1 בספטמבר · לא דווחה נוכחות". */
@@ -105,7 +110,7 @@ export function DayCell({
         {eve && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--holiday-eve-ink)]" />}
         {missing && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--danger-ink)]" />}
       </span>
-      {blocks && blocks.length ? (
+      {blocks && blocks.length && !compact ? (
         <span className="mt-auto flex w-full items-center justify-end gap-0.5 overflow-hidden">
           <span
             className="max-w-full truncate rounded-[var(--r-sm)] bg-[var(--neutral-fill)] px-1 text-[length:var(--fs-caption)] leading-none text-[var(--neutral-ink)]"
@@ -119,9 +124,9 @@ export function DayCell({
             </span>
           )}
         </span>
-      ) : !!eventCount && (
+      ) : !!(eventCount || (blocks && blocks.length)) && (
         <span className="mt-auto self-end text-[length:var(--fs-caption)] tabular-nums text-muted-foreground">
-          •<bdi>{eventCount}</bdi>
+          •<bdi>{eventCount || blocks!.length}</bdi>
         </span>
       )}
     </button>

@@ -67,15 +67,47 @@ test.describe('C-U evidence captures', () => {
         const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
         expect(luminance(bg)).toBeLessThan(0.3);
       }
-      await page.screenshot({ path: path.join(OUT, `filters-sheet__${w}__${theme}.png`), fullPage: true });
+      // NOT fullPage: the Sheet and its scrim are `position:fixed` to the VIEWPORT — a
+      // fullPage capture stitches the whole scrollable document and pins fixed elements to
+      // one spot in that taller composite, so the sheet appears to float mid-page with no
+      // dim above/below it (a screenshot artifact the designer flagged, not a real bug: the
+      // live app renders it correctly bottom-anchored with a full scrim).
+      await page.screenshot({ path: path.join(OUT, `filters-sheet__${w}__${theme}.png`) });
+    });
+
+    // Same fullPage artifact as the filters sheet above — this is what the pre-existing
+    // calendar-visit-sheet__*.png captures in this folder were showing (a stale fullPage
+    // shot). Regenerated the same way: viewport-only, so the fixed sheet + scrim render
+    // exactly as the live app does.
+    test(`visit sheet @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם' });
+      await page.setViewportSize({ width: w, height: h });
+      await openCalendar(page);
+      const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם')?.date || '').slice(0, 10));
+      await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), visitDay);
+      await page.locator('[data-visit-row="vis-אביאם"]:visible').first().click();
+      await expect(page.getByTestId('cal-visit-sheet')).toBeVisible();
+      if (theme === 'dark') {
+        const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+        expect(luminance(bg)).toBeLessThan(0.3);
+      }
+      await page.screenshot({ path: path.join(OUT, `visit-sheet__${w}__${theme}.png`) });
     });
 
     test(`person picker (as עידן) @ ${w}`, async ({ page }, ti) => {
       const { theme } = await boot(page, ti, { who: 'עידן' });
       await page.setViewportSize({ width: w, height: h });
       await openCalendar(page);
-      const picker = page.getByTestId('cal-person-picker').first();
-      if (await picker.count()) await picker.click();
+      // `cal-person` is the group (role=radiogroup); the actual selector used to look for a
+      // "cal-person-picker" testid that doesn't exist, so it silently clicked nothing — the
+      // capture below just showed the default work-week grid, which is what the designer's
+      // round-2 note actually flagged as "looks wrong". חודש מלא, for the same reason every
+      // other full-grid capture switches to it: showing 5 of 7 columns here reads as a bug.
+      const picker = page.getByTestId('cal-person');
+      await picker.waitFor();
+      const workWeekBtn = page.getByRole('button', { name: /^חודש מלא$/ });
+      if (await workWeekBtn.count()) await workWeekBtn.click();
+      await picker.getByRole('radio', { name: 'אביאם' }).click();
       if (theme === 'dark') {
         const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
         expect(luminance(bg)).toBeLessThan(0.3);

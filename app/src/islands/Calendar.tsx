@@ -353,6 +353,7 @@ function Grid({
                     missing={look.state === 'missing'}
                     eventCount={n || undefined}
                     blocks={blocksByDate[c.date]}
+                    compact={cols > 5}
                     outside={!c.inMonth}
                     label={look.label}
                     onClick={() => onOpen(c.date)}
@@ -447,6 +448,10 @@ function RoutePlan({
 
   return (
     <div className="ucal-route" data-testid="cal-route">
+      {/* Designer round 2 (25.9): the placed stops had no section header of their own — a
+          real label, not just visual position, is what tells the day's ROUTE apart from the
+          separate blocks section below it. */}
+      {placed.length ? <div className="ucal-stop-hdr" data-testid="cal-route-title">מסלול היום</div> : null}
       {canReorder ? (
         <Reorder.Group
           axis="y"
