@@ -53,6 +53,13 @@ function SigmaToaster() {
  * 304 kB ceiling; this dedup is what buys the headroom back for everyone, not only G's own
  * new push-log block).
  */
+/** Every failed-chunk warning below shares the '[sigma] ' prefix — one string literal instead
+ *  of one per call site, which is most of what buys back the boot-chunk headroom every lazy
+ *  island mount here (and the ones other packages added the same way) keeps spending. */
+function warn(label: string, e: unknown): void {
+  console.warn('[sigma] ' + label, e);
+}
+
 function loadOnShow(view: HTMLElement, load: () => void): void {
   if (view.style.display !== 'none') { load(); return; }
   const obs = new MutationObserver(() => {
@@ -111,7 +118,7 @@ function boot() {
   if (document.getElementById('sigma-refresh')) {
     const loadPullToRefresh = () => void import('@/components/PullToRefresh')
       .then(m => m.mountPullToRefresh())
-      .catch(e => console.warn('[sigma] pull-to-refresh island failed', e));
+      .catch(e => warn('pull-to-refresh island failed', e));
     document.addEventListener('touchstart', loadPullToRefresh, { once: true, passive: true });
   }
 
@@ -131,7 +138,7 @@ function boot() {
   // 303 KB ceiling, but the same logic one file over, in the already-lazy Home.tsx chunk, costs
   // the boot bundle nothing at all.
   if (document.getElementById('sigma-home')) {
-    import('@/islands/Home').then(m => m.mountScreen()).catch(e => console.warn('[sigma] home', e));
+    import('@/islands/Home').then(m => m.mountScreen()).catch(e => warn('home', e));
   }
 
   // ✅ המשימות שלי (round 4, Package X) — the sheet that replaced the floating 🔒 strip. It
@@ -141,7 +148,7 @@ function boot() {
   if (document.getElementById('sigma-my-tasks')) {
     import('@/islands/MyTasks')
       .then(m => m.mountMyTasks())
-      .catch(e => console.warn('[sigma] my-tasks island failed', e));
+      .catch(e => warn('my-tasks island failed', e));
   }
 
   // 📍 The field day (Task 5): the arrival sheet + briefing (#sigma-field) and the "היום"
@@ -151,7 +158,7 @@ function boot() {
   if (document.getElementById('sigma-field') || document.getElementById('sigma-today')) {
     import('@/islands/Field')
       .then(m => m.mountField())
-      .catch(e => console.warn('[sigma] field island failed', e));
+      .catch(e => warn('field island failed', e));
   }
 
   // 🏘 KibbutzDetail (round 5, package K): the open card. Lazy, so the boot chunk does not
@@ -159,7 +166,7 @@ function boot() {
   if (document.getElementById('sigma-kibbutz-detail')) {
     import('@/islands/KibbutzDetail')
       .then(m => m.mountKibbutzDetail())
-      .catch(e => console.warn('[sigma] kibbutz detail island failed', e));
+      .catch(e => warn('kibbutz detail island failed', e));
   }
   // ModalMeetings / InternalModal / Health islands removed (round 5, K-U5) — their jobs moved
   // to KibbutzDetail's StatusTab (K-U2); the legacy #tab-meetings markup they mounted into is
@@ -171,14 +178,14 @@ function boot() {
   if (document.getElementById('sigma-burns')) {
     import('@/islands/Burns')
       .then(m => m.mountBurns())
-      .catch(e => console.warn('[sigma] burns island failed', e));
+      .catch(e => warn('burns island failed', e));
   }
   // 📣 Feedback box (Task 6): the sheet for everyone, the admin inbox as its own root so a
   // failure in one never takes the other down. Both register their own ⋯ עוד entries.
   if (document.getElementById('sigma-feedback')) {
     import('@/islands/Feedback')
       .then(m => m.mountFeedback())
-      .catch(e => console.warn('[sigma] feedback island failed', e));
+      .catch(e => warn('feedback island failed', e));
   }
   // 🔢 דיווח שינוי במלאי (inventory spec §4b): NOT deferred, like the feedback sheet and for
   // the same reason — the 📦 מלאי page renders a legacy button that dispatches the raw open
@@ -186,26 +193,26 @@ function boot() {
   if (document.getElementById('sigma-stock-change')) {
     import('@/islands/StockChange')
       .then(m => m.mountStockChange())
-      .catch(e => console.warn('[sigma] stock-change island failed', e));
+      .catch(e => warn('stock-change island failed', e));
   }
   // 🔔 התראות מלאי (inventory spec §5.1) — the header bell. Not deferred: it carries the
   // unseen badge, and a badge that appears a second late is a badge nobody trusts.
   if (document.getElementById('sigma-alerts')) {
     import('@/islands/Alerts')
       .then(m => m.mountAlerts())
-      .catch(e => console.warn('[sigma] alerts island failed', e));
+      .catch(e => warn('alerts island failed', e));
   }
   // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5) — lives inside the 📦 מלאי page, so it
   // loads with everything else on that page rather than on its own idle tick.
   if (document.getElementById('sigma-inventory-strip')) {
     import('@/islands/InventoryStrip')
       .then(m => m.mountInventoryStrip())
-      .catch(e => console.warn('[sigma] inventory-strip island failed', e));
+      .catch(e => warn('inventory-strip island failed', e));
   }
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())
-      .catch(e => console.warn('[sigma] feedback inbox island failed', e));
+      .catch(e => warn('feedback inbox island failed', e));
   }
   // 📅 נוכחות (Task 12) + 🕎 חגים. Same lazy-chunk reasoning as the rest: both read data.
   // The attendance island also HIDES the legacy summary/table when it mounts, so a chunk
@@ -221,7 +228,7 @@ function boot() {
   if (attView && document.getElementById('sigma-attendance')) {
     loadOnShow(attView, () => void import('@/islands/Attendance')
       .then(m => m.mountAttendance())
-      .catch(e => console.warn('[sigma] attendance island failed — legacy report stays', e)));
+      .catch(e => warn('attendance island failed — legacy report stays', e)));
   }
   // 🗓️ יומן (Task 13). Same page-open trigger as נוכחות, and for the same reason: the
   // calendar chunk pulls TanStack, supabase-js and Motion's Reorder in, and almost every
@@ -232,7 +239,7 @@ function boot() {
   if (hoursView && document.getElementById('sigma-hours')) {
     loadOnShow(hoursView, () => void import('@/islands/Hours')
       .then(m => m.mountHours())
-      .catch(e => console.warn('[sigma] hours island failed', e)));
+      .catch(e => warn('hours island failed', e)));
   }
   // 🔥 צריבות (round 5 G-U2) — same page-open trigger as ⏱ שעות: the chunk pulls TanStack and
   // supabase-js, and the page is reached only from ⋯ or the home strip, never on first paint.
@@ -240,7 +247,7 @@ function boot() {
   if (burnsView && document.getElementById('sigma-burns-page')) {
     loadOnShow(burnsView, () => void import('@/islands/BurnsPage')
       .then(m => m.mountBurnsPage())
-      .catch(e => console.warn('[sigma] burns page island failed', e)));
+      .catch(e => warn('burns page island failed', e)));
   }
   // 🔔 יומן התראות (round 5 G-U3) — same page-open trigger as ⏱ שעות / 🔥 צריבות: reached only
   // from ⋯, never on first paint, and its chunk pulls TanStack behind it.
@@ -248,13 +255,13 @@ function boot() {
   if (pushlogView && document.getElementById('sigma-pushlog')) {
     loadOnShow(pushlogView, () => void import('@/islands/PushLog')
       .then(m => m.mountPushLog())
-      .catch(e => console.warn('[sigma] push log island failed', e)));
+      .catch(e => warn('push log island failed', e)));
   }
   const calView = document.getElementById('calendar-view');
   if (calView && document.getElementById('sigma-calendar')) {
     loadOnShow(calView, () => void import('@/islands/Calendar')
       .then(m => m.mountCalendar())
-      .catch(e => console.warn('[sigma] calendar island failed — legacy grid stays', e)));
+      .catch(e => warn('calendar island failed — legacy grid stays', e)));
   }
   // 💻 פיתוח (D-U1) — loaded when the page first opens, like נוכחות/יומן/שעות: the chunk pulls
   // TanStack + supabase-js, and almost every session starts on the cards. `#dev-view` inner is
@@ -263,36 +270,27 @@ function boot() {
   // longer ships into this view.
   const devView = document.getElementById('dev-view');
   if (devView && document.getElementById('sigma-dev-board')) {
-    const loadDevBoard = () => import('@/islands/DevBoard')
+    loadOnShow(devView, () => void import('@/islands/DevBoard')
       .then(m => m.mountDevBoard())
-      .catch(e => console.warn('[sigma] dev board island failed', e));
-    if (devView.style.display !== 'none') void loadDevBoard();
-    else {
-      const obs = new MutationObserver(() => {
-        if (devView.style.display === 'none') return;
-        obs.disconnect();
-        void loadDevBoard();
-      });
-      obs.observe(devView, { attributes: true, attributeFilter: ['style'] });
-    }
+      .catch(e => warn('dev board island failed', e)));
   }
   if (document.getElementById('sigma-holidays')) {
     import('@/islands/Holidays')
       .then(m => m.mountHolidays())
-      .catch(e => console.warn('[sigma] holidays island failed', e));
+      .catch(e => warn('holidays island failed', e));
   }
   // 📈 שימוש (Task 17) — עידן only, and a lazy chunk like every data island: it drags in
   // Recharts, which nobody else needs.
   if (document.getElementById('sigma-usage')) {
     whenIdle(() => void import('@/islands/Usage')
       .then(m => m.mountUsage())
-      .catch(e => console.warn('[sigma] usage island failed', e)));
+      .catch(e => warn('usage island failed', e)));
   }
   // The header cluster (§6). Lazy; the legacy header chips stay if the chunk never lands.
   if (document.getElementById('sigma-header-actions')) {
     import('@/islands/HeaderActions')
       .then(m => { if (m.mountHeaderActions()) document.body.classList.add('sigma-header-ready'); })
-      .catch(e => console.warn('[sigma] header', e));
+      .catch(e => warn('header', e));
   }
   // ✉️ הודעה לעובד (X-L7, F1) — the one surface Ctrl+K's removal still owes a home. The row is
   // registered now (cheap); the chunk loads only on the first tap or `sigma-open-message`.
@@ -302,7 +300,7 @@ function boot() {
     const open = (to?: string) => {
       mounted = true;
       (modulePromise ||= import('@/islands/MessageSheet')).then(m => { m.mountMessageSheet(); m.openMessageSheet(to); })
-        .catch(e => { mounted = false; modulePromise = null; console.warn('[sigma] message sheet failed', e); });
+        .catch(e => { mounted = false; modulePromise = null; warn('message sheet failed', e); });
     };
     window.addEventListener('sigma-open-message', e => { if (!mounted) open((e as CustomEvent<{ to?: string }>).detail?.to); });
     registerMoreItem({
@@ -323,7 +321,7 @@ function boot() {
   if (document.getElementById('sigma-settings')) {
     import('@/islands/Settings')
       .then(m => m.mountSettings())
-      .catch(e => console.warn('[sigma] settings island failed', e));
+      .catch(e => warn('settings island failed', e));
   }
   // 📋 הפערים שלי (§7h) — a lazy chunk, and a DEFERRED one: it reads five sources, so it
   // drags TanStack and supabase-js behind it, and it is a panel reached from a menu. Loading
@@ -362,7 +360,7 @@ function boot() {
           mounted = m.mountGaps({ open: wantOpen });
           wantOpen = false;
         })
-        .catch(e => { modulePromise = null; console.warn('[sigma] gaps island failed', e); });
+        .catch(e => { modulePromise = null; warn('gaps island failed', e); });
     };
     const openGaps = () => {
       if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-gaps')); return; }
@@ -414,7 +412,7 @@ function boot() {
           mounted = m.mountDayLog({ open: wantOpen });
           wantOpen = false;
         })
-        .catch(e => { modulePromise = null; console.warn('[sigma] daylog island failed', e); });
+        .catch(e => { modulePromise = null; warn('daylog island failed', e); });
     };
     const openDayLog = () => {
       if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-daylog')); return; }
@@ -460,7 +458,7 @@ function boot() {
           mounted = m.mountPresenter({ open: wantOpen });
           wantOpen = false;
         })
-        .catch(e => { modulePromise = null; console.warn('[sigma] presenter island failed', e); });
+        .catch(e => { modulePromise = null; warn('presenter island failed', e); });
     };
     const openPresenter = () => {
       if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-presenter')); return; }
@@ -504,7 +502,7 @@ function boot() {
           mounted = m.mountDevPresenter({ open: wantOpen });
           wantOpen = false;
         })
-        .catch(e => { modulePromise = null; console.warn('[sigma] dev presenter island failed', e); });
+        .catch(e => { modulePromise = null; warn('dev presenter island failed', e); });
     };
     const openDevPresenter = () => {
       if (mounted) { window.dispatchEvent(new CustomEvent('sigma-open-dev-presenter')); return; }
@@ -532,7 +530,7 @@ function boot() {
   if (document.getElementById('sigma-import')) {
     import('@/islands/ImportNotes')
       .then(m => m.mountImportNotes())
-      .catch(e => console.warn('[sigma] import island failed', e));
+      .catch(e => warn('import island failed', e));
   }
   // First screen per role (§7l). Last in boot, and only ever once per session: the landing
   // reads the page gates, which need the legacy bundle to be fully up.

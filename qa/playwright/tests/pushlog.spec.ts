@@ -37,9 +37,13 @@ test('an unknown event mode shows the neutral Hebrew fallback, never a raw key o
   await page.evaluate(() => (window as any).showPage('pushlog'));
   const view = page.locator('#sigma-pushlog');
   await expect(view.getByText('יומן התראות')).toBeVisible({ timeout: 15_000 });
-  await expect(view.getByText('התראה אחרת')).toBeVisible({ timeout: 15_000 });
+  const fallbackRow = view.getByTestId('pushlog-row').filter({ hasText: 'התראה אחרת' });
+  await expect(fallbackRow).toBeVisible({ timeout: 15_000 });
   await expect(view.getByText('someFutureMode')).toHaveCount(0);
 
+  // Designer round 3: prove the fallback in the captured build, not just in the DOM — scroll
+  // the actual fixture row into view before the shot, so the screenshot itself shows it.
+  await fallbackRow.scrollIntoViewIfNeeded();
   await shot(page, ti, 'unknown-mode-fallback');
   expectNoConsoleErrors(rec);
 });

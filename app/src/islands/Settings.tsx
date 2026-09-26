@@ -280,33 +280,45 @@ function OnboardingTemplateRow({ user }: { user: string }) {
             <div className="mb-2 text-[12px] text-muted-foreground">
               הסדר והתוויות שכל 🆕 לקוח חדש מקבל, לא משפיע על קיבוצים שכבר בקליטה
             </div>
-            <ol className="flex w-full flex-col gap-1.5" data-testid="onboarding-template-editor">
+            <ol className="flex w-full flex-col gap-2" data-testid="onboarding-template-editor">
               {tpl.steps.map((s: TemplateStep, i: number) => (
-                <li key={s.key} className="flex items-center gap-1.5">
-                  <span className="w-5 shrink-0 text-center text-[12px] text-muted-foreground">{i + 1}</span>
-                  <input
-                    value={s.label}
-                    onChange={e => setLabel(i, e.target.value)}
-                    aria-label={'תווית שלב ' + (i + 1)}
-                    className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-2 text-[13px]"
-                    style={{ minHeight: 48 }}
-                  />
-                  <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-                    ממתין למייל
-                    {/* The DS Switch is a fixed 24×44 visual — under the 48×48 tap-target floor
-                        wherever it renders alone rather than inside a full-height ListRow.
-                        data-hit-slop is the documented escape hatch (_overlap.ts) for exactly
-                        this: a visual under the floor, with slop making up the difference. */}
-                    <Switch checked={!!s.waits} onCheckedChange={v => setWaits(i, v)} aria-label={'ממתין למייל: ' + s.label} data-hit-slop="true" />
-                  </span>
-                  {/* Reorder — a BubbleButton pair, not the legacy ▲▼ text steppers the DS
-                      review flagged (G-R7): same up/down move, a real icon button each. */}
-                  <BubbleButton variant="icon" size="sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={'הזז למעלה: ' + s.label} className="shrink-0">
-                    <ChevronUp className="h-4 w-4" />
-                  </BubbleButton>
-                  <BubbleButton variant="icon" size="sm" disabled={i === tpl.steps.length - 1} onClick={() => move(i, 1)} aria-label={'הזז למטה: ' + s.label} className="shrink-0">
-                    <ChevronDown className="h-4 w-4" />
-                  </BubbleButton>
+                // Designer round 5 review, round 3: the label input on one row alongside the
+                // number badge, the "ממתין למייל" switch AND two reorder buttons left it under
+                // ~115px at 360px wide — a step name like "קבלת רשימת לקוחות מהקיבוץ" showed as
+                // a few cut letters. An <input> can't line-clamp/wrap while staying editable, so
+                // the fix is layout, not font size: the input gets its own full-width row, the
+                // switch and reorder controls move to a second row underneath it.
+                <li key={s.key} className="flex flex-col gap-1 rounded-lg border border-border p-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 shrink-0 text-center text-[12px] text-muted-foreground">{i + 1}</span>
+                    <input
+                      value={s.label}
+                      onChange={e => setLabel(i, e.target.value)}
+                      aria-label={'תווית שלב ' + (i + 1)}
+                      className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-2 text-[13px]"
+                      style={{ minHeight: 48 }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-1.5 ps-[26px]">
+                    <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                      ממתין למייל
+                      {/* The DS Switch is a fixed 24×44 visual — under the 48×48 tap-target floor
+                          wherever it renders alone rather than inside a full-height ListRow.
+                          data-hit-slop is the documented escape hatch (_overlap.ts) for exactly
+                          this: a visual under the floor, with slop making up the difference. */}
+                      <Switch checked={!!s.waits} onCheckedChange={v => setWaits(i, v)} aria-label={'ממתין למייל: ' + s.label} data-hit-slop="true" />
+                    </span>
+                    {/* Reorder — a BubbleButton pair, not the legacy ▲▼ text steppers the DS
+                        review flagged (G-R7): same up/down move, a real icon button each. */}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <BubbleButton variant="icon" size="sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={'הזז למעלה: ' + s.label}>
+                        <ChevronUp className="h-4 w-4" />
+                      </BubbleButton>
+                      <BubbleButton variant="icon" size="sm" disabled={i === tpl.steps.length - 1} onClick={() => move(i, 1)} aria-label={'הזז למטה: ' + s.label}>
+                        <ChevronDown className="h-4 w-4" />
+                      </BubbleButton>
+                    </span>
+                  </div>
                 </li>
               ))}
             </ol>
