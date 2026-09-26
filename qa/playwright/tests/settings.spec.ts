@@ -184,6 +184,8 @@ test('settings: full scroll as עידן — includes the onboarding-template sec
   await expect(dlg.getByText('תבנית קליטת לקוח חדש')).toBeVisible();
   await expectRtl(page);
   await fullScrollShot(page, ti, dlg, 'full-scroll-idan');
+  expectNoConsoleErrors(rec);
+});
 
 test('settings r5 · C2: only אביאם sees "לראות גם את המשימות של ניתאי"', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });

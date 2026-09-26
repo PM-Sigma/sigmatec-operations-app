@@ -87,31 +87,34 @@ test('briefing: the pending meters still arrive as "לפני שיוצאים" row
   expectNoConsoleErrors(rec);
 });
 
-test('landing strip: what is left for the field team, and a tap filters the cards', async ({ page }, ti) => {
+// K's round 5/6 redesign (K1; grill round 2 "Burns strip = home") replaced the earlier
+// per-role text + card-filter-toggle strip with ONE row for every role: "פרויקט צריבות מונים
+// · בוצעו X מתוך Y · לפירוט ›", the whole row a single button that opens the table directly
+// (openBurnsTable) — no more card filtering from here. Both tests below assert that instead
+// of the retired filter-toggle behavior G's own tests used to pin.
+test('landing strip: same progress line for every role, opens the table on tap', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   const strip = page.getByTestId('burns-strip');
   await expect(strip).toBeVisible({ timeout: 15_000 });
-  await expect(strip).toContainText('צריבות · נותרו 2 ב-1 קיבוץ');
-
-  await strip.getByTestId('burns-strip-filter').click();
-  await expect(page.locator('#sigma-home .kibbutz[data-name="יגור"]')).toHaveClass(/burn-filtered-out/);
-  await expect(page.locator('#sigma-home .kibbutz[data-name="חוקוק"]')).not.toHaveClass(/burn-filtered-out/);
+  await expect(strip).toContainText('פרויקט צריבות מונים');
+  await expect(strip).toContainText('בוצעו 3 מתוך 5');
+  await expect(strip).toContainText('לפירוט');
 
   await shot(page, ti, 'landing-strip');
 
-  await strip.getByTestId('burns-strip-filter').click();          // a second tap releases it
-  await expect(page.locator('#sigma-home .kibbutz[data-name="יגור"]')).not.toHaveClass(/burn-filtered-out/);
+  await strip.click();
+  await expect(page.locator('#sigma-burns-page').getByText('צריבות: מוני ייצור E360')).toBeVisible({ timeout: 15_000 });
 
   expectNoConsoleErrors(rec);
 });
 
-test('landing strip: עמיחי is shown PROGRESS, not a to-do list (עידן 18.9 21:50)', async ({ page }, ti) => {
+test('landing strip: עמיחי sees the same progress line as אביאם (עידן 18.9 21:50)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'עמיחי' });
 
   const strip = page.getByTestId('burns-strip');
   await expect(strip).toBeVisible({ timeout: 15_000 });
-  await expect(strip).toContainText('צריבות · בוצעו 3 מתוך 5 · 60%');
+  await expect(strip).toContainText('בוצעו 3 מתוך 5');
 
   expectNoConsoleErrors(rec);
 });
