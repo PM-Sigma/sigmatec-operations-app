@@ -1,7 +1,8 @@
 // 📜 יומן התראות — the push-send log, for עידן only (G-L3). Every push-send mode is named in
 // Hebrew here so a phone screen never shows a raw event key; an unrecognised mode (one added to
-// push-send after this file was last touched) falls back to its own raw name rather than an
-// empty cell (review focus #4).
+// push-send after this file was last touched) falls back to the neutral Hebrew label "התראה
+// אחרת" rather than a raw key or an empty cell (review focus #4; designer round 5 review #4 —
+// a raw English key like "someFutureMode" was itself the bug, not a fix for it).
 import { dm, israelParts } from '@/lib/field';
 
 export interface PushLogRow {
@@ -17,7 +18,8 @@ export interface PushLogRow {
 }
 
 /** Every mode push-send emits, in words. An unknown key is simply absent — `pushLogLine` falls
- *  back to the raw event name rather than throwing or showing blank. */
+ *  back to the neutral "התראה אחרת" rather than throwing, showing blank, or leaking a raw
+ *  English key onto the screen. */
 export const PUSH_EVENT_LABEL: Record<string, string> = {
   pending: 'הזמנה ממתינה',
   approved: 'הזמנה אושרה',
@@ -61,7 +63,7 @@ export function pushLogLine(r: PushLogRow): {
   status: { label: string; role: string }; error: string; actor: string;
 } {
   const p = israelParts(r.sent_at);
-  const what = PUSH_EVENT_LABEL[r.event] || r.event;
+  const what = PUSH_EVENT_LABEL[r.event] || 'התראה אחרת';
   const where = [r.where_txt || '', r.qty != null && r.qty > 1 ? String(r.qty) : ''].filter(Boolean).join(' · ');
   const status = PUSH_STATUS[r.status] || { label: r.status, role: 'neutral' as const };
   return {

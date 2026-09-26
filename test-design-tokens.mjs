@@ -77,6 +77,24 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
+// Round 5 · C-U designer fix (25.9): חג vs ערב חג must read as two distinct purples in dark,
+// each a graphical-object dot (WCAG 3:1, not 4.5:1) against both cell backgrounds it can sit on.
+for (const theme of ['light', 'dark']) {
+  const block = theme === 'light' ? sLight : sDark;
+  check(`tokens.css ${theme}: --s-holiday-eve-ink clears 3:1 on --s-bg/--s-surface`, () => {
+    const eve = tokenIn(block, 's-holiday-eve-ink');
+    for (const bgName of ['s-bg', 's-surface']) {
+      const r = ratio(eve, tokenIn(block, bgName));
+      assert.ok(r >= 3, `${eve} on ${bgName} = ${r.toFixed(2)}:1, need 3:1`);
+    }
+  });
+  check(`tokens.css ${theme}: --s-holiday-eve-ink is distinct from --s-holiday-ink`, () => {
+    const eve = tokenIn(block, 's-holiday-eve-ink');
+    const holiday = tokenIn(block, 's-holiday-ink');
+    assert.notStrictEqual(eve.toLowerCase(), holiday.toLowerCase());
+  });
+}
+
 check('tokens.css: --s-on-brand text clears 4.5:1 on both --s-brand-1 and --s-brand-2', () => {
   const onBrand = tokenIn(sLight, 's-on-brand');
   for (const b of ['s-brand-1', 's-brand-2']) {
@@ -223,21 +241,9 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
-{
-  const html = read('index.html');
-  const m = /id="editLastVisitBox"[^>]*style="([^"]+)"/.exec(html);
-  assert.ok(m, '#editLastVisitBox not found in index.html');
-  const style = m[1];
-  for (const theme of ['light', 'dark']) {
-    check(`index.html ${theme}: #editLastVisitBox background/color clears 4.5:1`, () => {
-      const map = legacyVarMap(theme);
-      const bg = resolveColor(declValue(style, 'background'), map);
-      const fg = resolveColor(declValue(style, 'color'), map);
-      const r = ratio(fg, bg);
-      assert.ok(r >= 4.5, `${fg} on ${bg} = ${r.toFixed(2)}:1, need 4.5:1`);
-    });
-  }
-}
+// #editLastVisitBox's inline-style contrast check removed (round 5, K-U5): the element it
+// checked was #tab-meetings markup, retired with the legacy modal's מצב הקיבוץ tab — its
+// content (and its Tailwind classes, not inline styles) lives in StatusTab.tsx now (K-U2).
 
 // ── no white text on the brand gradient, anywhere (designer confirm round, item 1 gate) ──────
 // The brand fill's ink is --s-on-brand (a dark teal, spec §2 audit "white measured 2.2–2.4:1"),

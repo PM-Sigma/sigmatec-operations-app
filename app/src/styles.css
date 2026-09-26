@@ -53,6 +53,7 @@
   --danger-ink: var(--s-danger-ink);   --danger-fill: var(--s-danger-fill);
   --info-ink: var(--s-info-ink);       --info-fill: var(--s-info-fill);
   --holiday-ink: var(--s-holiday-ink); --holiday-fill: var(--s-holiday-fill);
+  --holiday-eve-ink: var(--s-holiday-eve-ink);
   --neutral-ink: var(--s-neutral-ink); --neutral-fill: var(--s-neutral-fill);
 
   /* Type scale — now FLUID for title-sm/title/stat (tools-and-motion.md §2.0), fixed rem for
@@ -400,137 +401,88 @@
   font-weight: 700;
 }
 
-/* ===== 🗓️ יומן — the unified calendar (spec §7f) =====
-   EIGHT columns, not seven: the first one is the ISO week number, and because the island
-   root is `dir="rtl"` the first column is the RIGHTMOST — which is exactly where the spec
-   puts it. It is 26 px wide, muted, and never interactive: the same treatment the day
-   letters on top get. */
-.ucal-grid {
-  /* Round 2 · G2 — the week number is a 14 px MARGIN, not a column of the calendar: the
-     grid gets the whole width, and the number sits at the very edge of it. */
-  --ucal-weekno-w: 14px;
-  display: grid;
-  grid-template-columns: var(--ucal-weekno-w) repeat(7, minmax(0, 1fr));
-  gap: 3px;
-  width: 100%;
+/* Round 4 designer fix (26.9): css/app.css's legacy mobile rule (`body{padding:10px}`, out of
+   this package's scope) left every calendar header control and week-number gutter only 10px
+   from the viewport edge at ≤768px — 6px short of the design-system's 16px page gutter, which
+   read as "חודש עבודה clipped" and week numbers "cut at the right edge".
+   NEITHER a negative margin NOR a flat "add 6px" assumption survives contact with a real
+   Sheet: opening one flips body's OWN horizontal padding from 10px to 0px (some app-level
+   modal-open handling, not Radix's scroll-lock — caught live: `getComputedStyle(body).padding`
+   measured "10px 10px 84px" closed, "0px 0px 84px" open). A margin trick calibrated to cancel
+   10px then overshoots by 10px once body has none (documentElement.scrollWidth really hit 370
+   at a 360 viewport, and real mobile Chrome emulation grew the whole layout viewport to match,
+   shifting the shared bottom nav and every fixed sheet with it). A flat +6px calibrated the
+   same way instead comes up 10px SHORT once body has none. Full-bleed instead: pull #calendar-
+   view out to the true viewport width via `100vw` (never affected by body's own padding,
+   whatever it does) and give IT the one real 16px gutter. `!important` only because
+   `#calendar-view`'s own inline `padding:16px 0` (index.html) otherwise wins on padding-inline
+   over any external rule at equal origin. */
+@media (max-width: 768px) {
+  #calendar-view {
+    position: relative;
+    /* Opus re-audit (26.9): the two physical inset longhands (each 50%) failed test-rtl.mjs's
+       scan regardless of the values being direction-symmetric. `inset-inline: 50%` is the
+       logical equivalent (sets both inline-axis insets to 50%, same effect). */
+    inset-inline: 50%;
+    width: 100vw;
+    margin-inline: -50vw;
+    padding-inline: 16px !important;
+    box-sizing: border-box;
+  }
 }
-.ucal-dow,
-.ucal-weekno {
+
+/* ===== 🗓️ יומן — the unified calendar (spec §7f, round 5 · C-U1 on the design system) =====
+   Week numbers are NO LONGER a column (round 5 ruling): each week is one ROW, and its number
+   is a small caption INSIDE that row — first in the DOM, which in RTL sits on the right —
+   shown only in חודש מלא (`showWeekNumbers`). The day grid itself is `DayCell`
+   (components/ui/day-cell.tsx); `.ucal-cell` is now just the legacy-compatible wrapper the
+   bridge and the older specs still look a day up by (`data-day`/`.ucal-cell`). */
+.ucal-grid { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.ucal-dows { display: grid; grid-template-columns: repeat(var(--ucal-cols, 7), minmax(0, 1fr)); }
+.ucal-dow {
   font-size: 11px;
   font-weight: 700;
   color: hsl(var(--muted-foreground));
   text-align: center;
   padding: 2px 0;
+}
+.ucal-week { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 4px; }
+.ucal-weeklabel {
   align-self: center;
-}
-.ucal-weekno {
   font-variant-numeric: tabular-nums;
-  opacity: .55;
-  font-size: 9px;
-  padding: 0;
-  line-height: 1;
+  font-size: var(--fs-caption, 11px);
+  color: hsl(var(--muted-foreground));
+  padding-inline-end: 2px;
 }
-.ucal-weekno-head { opacity: .35; }
+/* Round 5 · C-U designer fix (25.9): a 2px grid GAP on 7 columns at the 360 floor was eating
+   into the column width the 44px tap-target math assumed (spec: "DayCell at 360 must be ≥44px:
+   full-width 7-col grid, gap 0, spacing via padding inside the cell"). gap:0 gives the grid the
+   full width; `.ucal-cell`'s own padding draws the same visual breathing room WITHOUT shrinking
+   any column's box (a Playwright assertion in calendar.spec.ts measures the DayCell bounding
+   box at 360 and fails under 44×44). */
+.ucal-week-days { display: grid; grid-template-columns: repeat(var(--ucal-cols, 7), minmax(0, 1fr)); gap: 0; }
 
-.ucal-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 62px;
-  padding: 3px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: hsl(var(--muted));
-  /* ≤250 ms and colour only (spec §6) — a day cell never moves. */
-  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
-}
-.ucal-cell:hover { border-color: hsl(var(--border)); }
-.ucal-cell[data-state='weekend'] { background: transparent; opacity: .6; }
-.ucal-cell[data-state='holiday'] { background: var(--att-holiday-bg); color: var(--att-holiday-ink); }
-.ucal-cell[data-state='today']   { box-shadow: inset 0 0 0 2px var(--brand-1); }
-.ucal-out { opacity: .45; }
-.ucal-sel { box-shadow: 0 0 0 2px var(--brand-2); }
+.ucal-cell { display: block; padding: 1px; }
+.ucal-out { opacity: .7; }
 
-.ucal-cell-head { display: flex; align-items: center; justify-content: space-between; gap: 2px; }
-.ucal-daynum {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 26px;
-  min-height: 24px;
-  padding: 0 4px;
-  border-radius: 7px;
-  font-size: 12px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-.ucal-daynum:hover { background: hsl(var(--secondary)); }
-.ucal-daynum:focus-visible { outline: 2px solid var(--brand-1); outline-offset: 1px; }
-/* The violet dot a company_holidays day carries (spec §7e + §7f). */
-.ucal-holidot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--att-holiday-ink);
-}
-/* A past work day with no attendance row (round 2, F-4 · G): a red ring + a red dot, so the
-   day reads as missing without colour alone carrying the message. --priority is the app's
-   one red and clears 3:1 against both themes' cell backgrounds. */
-.ucal-cell[data-missing='1'] {
-  box-shadow: inset 0 0 0 2px var(--priority);
-  background: color-mix(in srgb, var(--priority) 10%, hsl(var(--muted)));
-}
-/* היום keeps its own ring even when it is somehow both — today is never missing, but the
-   selected day may be, and the selection ring must still win. */
-.ucal-cell[data-missing='1'].ucal-sel { box-shadow: inset 0 0 0 2px var(--priority), 0 0 0 2px var(--brand-2); }
-.ucal-missdot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--priority);
-}
-/* A day with a filed attendance report (round 5 · B): a green ring + a green dot, the same
-   "not colour alone" treatment as the red missing marker, reusing the נוכחות screen's own
-   field-day green (--att-field-ink) so the two screens read as one palette. Never painted
-   together with the red ring — `missingDaysFor` already excludes anything reported. */
-.ucal-cell[data-reported='1'] {
-  box-shadow: inset 0 0 0 2px var(--att-field-ink);
-  background: color-mix(in srgb, var(--att-field-ink) 10%, hsl(var(--muted)));
-}
-.ucal-cell[data-reported='1'].ucal-sel { box-shadow: inset 0 0 0 2px var(--att-field-ink), 0 0 0 2px var(--brand-2); }
-.ucal-repdot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--att-field-ink);
-}
 .ucal-legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
   font-size: 11.5px;
   font-weight: 600;
 }
-.ucal-legend > span { display: inline-flex; align-items: center; gap: 6px; }
-.ucal-legend > span:has(.ucal-missdot) { color: var(--priority); }
-.ucal-legend > span:has(.ucal-repdot) { color: var(--att-field-ink); }
-
-.ucal-add {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  border: 1px solid hsl(var(--border));
-  background: hsl(var(--card));
-  opacity: .55;
-  transition: opacity .15s ease, background-color .15s ease;
-}
-.ucal-cell:hover .ucal-add,
-.ucal-add:focus-visible { opacity: 1; }
-.ucal-cell-body { display: flex; flex-direction: column; gap: 2px; text-align: start; }
+.ucal-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.ucal-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 999px; }
+.ucal-swatch-holiday  { background: var(--holiday-ink); }
+.ucal-swatch-eve      { background: var(--holiday-eve-ink); }
+.ucal-swatch-reported { background: var(--ok-ink); }
+.ucal-swatch-missing  { background: var(--danger-ink); }
+.ucal-legend li[data-legend='missing'] { color: var(--danger-ink); }
 
 .ucal-chip {
   display: block;
@@ -548,14 +500,21 @@
 .ucal-chip-visit   { background: var(--att-field-bg);   color: var(--att-field-ink); }
 .ucal-chip-ems     { background: var(--att-away-bg);    color: var(--att-away-ink); }
 .ucal-chip-absence { background: var(--att-holiday-bg); color: var(--att-holiday-ink); }
-/* "רק שלי": what is not yours is still ON the calendar — a day is not free because the
-   work in it is somebody else's — it is just quieter. */
-.ucal-dim { opacity: .42; }
 .ucal-more { font-size: 10px; font-weight: 700; color: hsl(var(--muted-foreground)); padding-inline-start: 4px; }
 
-/* The week view gives each day a full column of rows instead of three chips and a "+N". */
-.ucal-grid-week .ucal-cell { min-height: 190px; }
-.ucal-grid-week .ucal-chip { white-space: normal; }
+/* ── kibbutz blocks (round 5 · C1) ─────────────────────────────────────── */
+.ucal-blocks { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ucal-block {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ucal-block-head { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.ucal-block-task { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; }
+.ucal-block-meta { display: block; color: hsl(var(--muted-foreground)); font-size: 11px; }
 
 /* ── the day panel / sheet ─────────────────────────────────────────────── */
 .ucal-day-title { margin: 0 0 8px; font-size: 15px; font-weight: 800; }
@@ -608,15 +567,44 @@
 .ucal-place { margin-top: 10px; }
 .ucal-place-hits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
+/* Round 5 · C-U3 — the visit summaries, as ListRows, and the visit/event sheets' body text. */
+.ucal-visits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+  overflow: hidden;
+}
+.ucal-visits > *:not(:last-child) { border-bottom: 1px solid hsl(var(--border)); }
+.ucal-visit-text { margin: 8px 0 0; font-size: 13.5px; line-height: 1.55; white-space: pre-line; display: flex; gap: 6px; align-items: flex-start; }
+/* An office-event row opens the generic detail sheet — same tap target floor as every other
+   control here (round 5 · C-U no-overlap sweep), no data-hit-slop: the box itself is ≥44px. */
+.ucal-event-row {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 2px 2px;
+  border-radius: 9px;
+  background: transparent;
+  text-align: start;
+}
+.ucal-event-row:hover { background: hsl(var(--secondary)); }
+
 /* ── controls ──────────────────────────────────────────────────────────── */
-.ucal-switch { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: hsl(var(--muted)); }
+.ucal-switch,
+.ucal-person-switch { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; background: hsl(var(--muted)); flex-wrap: wrap; }
 /* Round 2 · G5 — חודש · שבוע · רשימה read as three separate targets, not one striped bar. */
 .ucal-switch-split { gap: 6px; padding: 3px; }
 .ucal-switch-split .ucal-switch-btn {
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
   min-width: 62px;
-  min-height: 36px;
+  /* 44px, not 36 (round 5 · C-U1 no-overlap sweep): the person picker reuses this class, and a
+     tappable segment is a real hit target on a phone, not just a label. */
+  min-height: 44px;
 }
 .ucal-switch-split .ucal-switch-on { border-color: var(--brand-1); color: hsl(var(--foreground)); box-shadow: inset 0 0 0 1px var(--brand-1); }
 .ucal-switch-btn {
@@ -636,7 +624,6 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 30px;
   min-width: 30px;
   padding: 0 9px;
   border-radius: 9px;
@@ -646,7 +633,19 @@
   font-weight: 700;
   transition: background-color .15s ease;
 }
+.ucal-icon { min-height: 30px; }
+/* Opus audit round 5 · C-U — every .ucal-mini in the day sheet (📍 בריפינג, ➕ צ׳ק-אין,
+   ➕ הוספה למסלול, קביעת המשימות ליום, ➕ הוספה ליום) is C's own control, not shared legacy
+   chrome: a real 44px tap target, not the 30px visual floor. */
+.ucal-mini { min-height: 44px; }
 .ucal-icon { padding: 0; }
+/* 44px real boxes, not the shared 30px .ucal-mini/.ucal-icon floor (round 5 · C-U no-overlap
+   sweep) — scoped to these four testids only, not the class, so the many other .ucal-mini
+   buttons elsewhere on the day sheet keep their compact size. */
+[data-testid='cal-prev'], [data-testid='cal-next'], [data-testid='cal-today'], [data-testid='cal-work-week'] {
+  min-height: 44px;
+  min-width: 44px;
+}
 .ucal-mini:hover, .ucal-icon:hover { background: hsl(var(--secondary)); }
 .ucal-mini-on { background: var(--brand-1); color: #fff; border-color: transparent; }
 .ucal-meet {

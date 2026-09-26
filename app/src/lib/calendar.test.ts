@@ -453,6 +453,15 @@ describe('round 5 · C4 — one detail sheet for a Google event', () => {
     const items = calendarItems({ events: [{ id: 'ev9', title: 'כנס', start: '2026-09-24' }] });
     expect(items[0].eventId).toBe('ev9');
   });
+  it('Opus audit: only a real https://meet.google.com/… link renders — anything else is dropped', () => {
+    const base = { id: 'f', title: 'x', start: '2026-09-24' };
+    expect(eventDetail({ ...base, hangoutLink: 'https://meet.google.com/abc-defg-hij' }).meetLink)
+      .toBe('https://meet.google.com/abc-defg-hij');
+    expect(eventDetail({ ...base, hangoutLink: 'javascript:alert(1)' }).meetLink).toBeNull();
+    expect(eventDetail({ ...base, hangoutLink: 'http://meet.google.com/abc' }).meetLink).toBeNull();
+    expect(eventDetail({ ...base, hangoutLink: 'https://evil.example.com/meet.google.com' }).meetLink).toBeNull();
+    expect(eventDetail({ ...base, hangoutLink: '' }).meetLink).toBeNull();
+  });
 });
 
 describe('round 5 · C3 — a visit opens a compact read view', () => {

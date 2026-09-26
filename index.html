@@ -29,7 +29,7 @@
      simply skips the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="modulepreload" href="ui/sigma.js?v=muikba8c">
+<link rel="modulepreload" href="ui/sigma.js?v=muiig78q">
 <!-- critical:start — generated from css/critical.css by build.mjs; do NOT hand-edit. src-sha256:4da873b1ce4a6e0a -->
 <style>*{box-sizing:border-box;margin:0;padding:0}:root{--primary: #1b2a4a;--primary-hover: #25395f;--accent: #2f6fed;--accent-soft: #eef3fe;--success: #0e9f6e;--success-light: #e7f6f0;--warning: #c87f0a;--warning-light: #fdf4e3;--danger: #7c5cdb;--danger-light: #f2eefb;--priority: #d64545;--priority-light: #fcecec;--gray-light: #f1f4f8;--bg: #f4f6f9;--card: #ffffff;--text: #1f2937;--text-light: #5c6572;--border: #e3e8ef;--radius: 10px;--shadow-sm: 0 1px 2px rgba(16,24,40,.05);--shadow-md: 0 4px 12px rgba(16,24,40,.08);--brand-1: #06C2CB;--brand-2: #1ABE63;--brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));--surface-2: #eef2f7;--radius-lg: 14px;--font: "Assistant", "Segoe UI", system-ui, sans-serif;--on-brand: #ffffff}:root[data-theme=dark]{--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f;--shadow-sm: 0 1px 2px rgba(0,0,0,.5);--shadow-md: 0 4px 12px rgba(0,0,0,.55)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f}}body{font-family:var(--font);font-size:15px;background:var(--bg);color:var(--text);min-height:100vh;padding:12px 16px;line-height:1.5;-webkit-font-smoothing:antialiased}@media(min-width:768px){body{padding:24px}}.container{max-width:none;margin:0 auto}.header{background:var(--bg);color:var(--text);padding:10px 2px 8px;margin-bottom:8px;position:sticky;top:0;z-index:5;min-height:56px}.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:44px}.header h1{font-size:21px;font-weight:800;letter-spacing:-.01em}.header .subtitle{font-size:11px;font-weight:500;color:var(--text-light);margin-top:3px}.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.page-nav{display:flex;gap:8px;margin-bottom:16px;background:var(--card);padding:8px;border-radius:12px;border:1px solid var(--border);box-shadow:0 1px 3px #0000000a;min-height:60px}.page-nav button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--text-light);border:none;padding:10px 16px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;min-height:44px}.page-nav button.active{background:var(--primary);color:#fff}.page-nav .nav-icon{font-size:15px;line-height:1}.section{background:var(--card);border-radius:12px;margin-bottom:16px;border:1px solid var(--border);overflow:hidden}.section-header{padding:16px 24px;background:var(--gray-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3;min-height:60px}.section-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}.section-body{padding:16px 24px 24px}.kibbutz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start;grid-auto-flow:dense}.kibbutz{padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm);position:relative;cursor:pointer;border-right-width:3px;min-height:120px}#sigma-home{min-height:100vh}body.sigma-home-fallback #sigma-home{min-height:0}#sigma-nav:not(:empty){min-height:64px}.company-tasks{min-height:120px}#userBadge,#emsBubble{display:none}#sigma-header-actions{min-height:40px}.filter-bar{padding:0;margin:0;border:0;background:none;min-height:0}.filter-bar>.search-input,.filter-bar>.filter-chip{display:none}#grid-new,#grid-active{display:none}:root[data-gate=pick] #loginModal{display:flex}</style>
 <!-- critical:end -->
@@ -40,11 +40,11 @@
      the inlined critical block above stays because it is what paints if either 404s. -->
 <!-- css/app.min.css is GENERATED from css/app.css by build.mjs (26 kB → 14 kB gzipped on a
      render-blocking request); css/app.css stays the hand-written source of truth. -->
-<link rel="stylesheet" href="css/app.min.css?v=muikba8c">
+<link rel="stylesheet" href="css/app.min.css?v=muiig78q">
 <!-- ui/sigma.css loads at NORMAL priority. It was tried as a `media="print"` swap: 8 kB
      gzipped off the critical path, against the risk of an island painting unstyled if the
      swap lands after it mounts. Not a trade worth making for 8 kB. -->
-<link rel="stylesheet" href="ui/sigma.css?v=muikba8c">
+<link rel="stylesheet" href="ui/sigma.css?v=muiig78q">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -329,7 +329,7 @@
 
   <div class="footer">
     Sigmatec Operations
-    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-26·2.76</bdi></span>
+    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-26·2.70</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -564,15 +564,11 @@
   </div>
 </div>
 
-<!-- 💻 לוח פיתוח (spec §7d) — deliberately LEGACY VANILLA: one self-contained module with working
-     drag-and-drop (js/src/18-dev-tasks.js); Task 11 gave it the new styling tokens, not React. The
-     board (four full columns + the minimized rail), the flow strip and the 🌳 tree are all painted
-     into #devTasksContent — the block below is only what shows before the first paint. -->
-<div id="dev-view" style="display:none;padding:16px 0;">
-  <div class="page-head"><button type="button" class="page-back" onclick="pageBack()"><span aria-hidden="true">→</span> חזרה</button><h2>פיתוח</h2></div>
-  <div id="devTasksContent" aria-live="polite">
-    <div class="dev-wrap"><div class="dev-loading">⏳ טוען משימות מ-GitHub…</div></div>
-  </div>
+<!-- 💻 לוח פיתוח (D-U1, round 5 package D) — React island (app/src/islands/DevBoard.tsx), mounted
+     when the page first opens. The page owns its own PageActionRow (title + back + סינון/⋯), so
+     there is no legacy page-head here — see app/src/main.tsx's dev-view observer block. -->
+<div id="dev-view" style="display:none;">
+  <div id="sigma-dev-board"></div>
 </div>
 
 <!-- 🔔 התראות (עידן only). The 2.00 index.html rewrite dropped this block while the ⋯ row, the
@@ -581,8 +577,9 @@
      nothing took their place. Restored by the Task 18 integration sweep; test-integration.mjs
      now asserts a view element for every page the UI can navigate to. -->
 <div id="pushlog-view" style="display:none;padding:16px 0;">
-  <div class="page-head"><button type="button" class="page-back" onclick="pageBack()"><span aria-hidden="true">→</span> חזרה</button><h2>התראות</h2></div>
-  <div id="pushLogContent" aria-live="polite">טוען...</div>
+  <!-- React island (app/src/islands/PushLog.tsx, round 5 G-U3) — PageActionRow is the page
+       head now, mounted when the page first opens like ⏱ שעות / 🔥 צריבות. -->
+  <div id="sigma-pushlog"></div>
 </div>
 
 <div id="hours-view" style="display:none;padding:16px 0;">
@@ -591,14 +588,9 @@
   <div id="sigma-hours"></div>
 </div>
 <div id="burns-view" style="display:none;padding:16px 0;">
-  <div class="page-head"><button type="button" class="page-back" onclick="pageBack()"><span aria-hidden="true">→</span> חזרה</button><h2>צריבות</h2></div>
-  <div id="burnsContent">טוען...</div>
-</div>
-<div class="modal-backdrop" id="burnCardModal" style="z-index:1150;">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:520px;"><div id="burnCardContent"></div></div>
-</div>
-<div class="modal-backdrop" id="burnAssignModal" style="z-index:1160;">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px;"><div id="burnAssignContent"></div></div>
+  <!-- React island (app/src/islands/BurnsPage.tsx, round 5 G-U2) — PageActionRow is the page
+       head now, mounted when the page first opens like ⏱ שעות. -->
+  <div id="sigma-burns-page"></div>
 </div>
 
 <!-- EMS Task Detail Modal (status change, comments, calendar) -->
@@ -615,68 +607,12 @@
     <h3 id="modalTitle">📝 ניהול קיבוץ</h3>
     <div class="modal-sub" id="modalSub">קיבוץ:</div>
 
-    <div class="modal-tabs">
-      <button class="modal-tab active" data-tab="meetings" onclick="switchTab('meetings')">מצב הקיבוץ</button>
-      <button class="modal-tab" data-tab="visit" onclick="switchTab('visit')">ביקורים</button>
-    </div>
+    <!-- The מצב הקיבוץ tab (modal-tabs bar + #tab-meetings) is retired (round 5, K-U5): its
+         content — last-visit report, EMS tasks, meetings, internal tasks, health — now lives
+         in KibbutzDetail's StatusTab (K-U2). #tab-visit below and #modalBackdrop itself stay:
+         they are package V's, deleted last in V-U3. -->
 
-    <div class="tab-content active" id="tab-meetings">
-      <!-- Read-only last visit report — shown above the status so the visit is NOT typed into status -->
-      <!-- Round 4 · Package Z: the card opens on THIS tab, so this is where עידן looks for the
-           last summary. It used to be a read-only block, and the ✏️ / 🚚 actions sat one tab away in
-           ביקורים — which is why he reported them as gone. Same two buttons, same handlers, here. -->
-      <div id="editLastVisitBox" style="background:var(--success-light);border-inline-start:3px solid var(--success);padding:10px 12px;border-radius:6px;margin-bottom:14px;font-size:12px;color:var(--success);display:none;line-height:1.5;">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
-          <div style="font-weight:700;">📍 דוח ביקור אחרון</div>
-          <div style="display:flex;gap:6px;">
-            <button type="button" id="editLastVisitCertBtn" class="sig-btn s" onclick="certFromVisit(this.dataset.visitId)" style="min-height:32px;padding:0 10px;font-size:12px;display:none;">🚚 תעודה</button>
-            <button type="button" id="editLastVisitEditBtn" class="sig-btn s" onclick="editLastVisitFromStatus()" style="min-height:32px;padding:0 10px;font-size:12px;display:none;">✏️ ערוך</button>
-          </div>
-        </div>
-        <div id="editLastVisitContent" style="white-space:pre-line;"></div>
-      </div>
-      <div id="modalEmsSection" style="display:none;margin:0 0 14px;"></div>
-      <!-- ponytail: "סוג לקוח" kept as a hidden input so existing type data survives a save. -->
-      <input type="hidden" id="editEngagement">
-
-      <!-- 🗓 meeting bullets — React island (app/src/islands/ModalMeetings.tsx). openEditModal
-           stamps data-kibbutz on it; the island observes that attribute, so ONE root serves
-           every card instead of a mount per modal open. -->
-      <div id="sigma-modal-meetings"></div>
-      <!-- 🔥 צריבות (Task 23) — the temporary meter-burn project's section, React island
-           (app/src/islands/Burns.tsx). Same contract as the meetings slot above: openEditModal
-           stamps data-kibbutz on it and ONE root serves every card. Renders nothing for a
-           kibbutz with no meters, for anyone outside the project audience, or when the project
-           flag is off — which is how the whole feature is removed at the end. -->
-      <div id="sigma-burns-modal"></div>
-      <!-- 🔒 משימות פנימיות (22.9) — the rows with their actions + ➕, React island
-           (app/src/islands/InternalModal.tsx). Same data-kibbutz contract as the slots above. -->
-      <div id="sigma-internal-modal"></div>
-      <!-- מצב הקיבוץ (Task 28) — the DRAFT health strip, React island
-           (app/src/islands/Health.tsx). Same contract as the two slots above: openEditModal
-           stamps data-kibbutz on it and ONE root serves every card. Renders nothing for
-           anyone outside the overview's audience. -->
-      <div id="sigma-health-modal"></div>
-      <div id="editorNameWrap">
-        <label for="editorName">👤 מי מעדכן:</label>
-        <select id="editorName">
-          <option value="">-- בחר שם --</option>
-          <option value="עידן">עידן</option>
-          <option value="עמיחי">עמיחי</option>
-          <option value="אביאם">אביאם</option>
-          <option value="ניתאי">ניתאי</option>
-          <option value="אבצן">אבצן</option>
-          <option value="מתניה">מתניה</option>
-          <option value="אליה">אליה</option>
-        </select>
-      </div>
-      <div id="editorNameDisplay" style="display:none;padding:8px 10px;background:#f0f9ff;border-right:3px solid #2563eb;border-radius:6px;font-size:13px;font-weight:600;color:#1e40af;margin-bottom:12px;"></div>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="modalDismiss('modalBackdrop')">סגור</button>
-      </div>
-    </div>
-
-    <div class="tab-content" id="tab-visit">
+    <div class="tab-content active" id="tab-visit">
       <!-- === סיכום ביקור, re-skinned to the approved mockup (spec §6 / §5.1b / §5.1c).
            LOGIC UNTOUCHED: every id the legacy module reads is still here with the same
            meaning, which is what keeps test-visit-cert-gate.mjs green unchanged. New: the
@@ -1247,6 +1183,9 @@
   </div>
 </div>
 <!-- ===== React islands (ui/sigma.js) ===== -->
+<!-- 🏘 KibbutzDetail (round 5, package K): its presence in the page is what lets the door
+     (sigma.openKibbutzModal) queue an early tap instead of falling back to the legacy modal. -->
+<div id="sigma-kibbutz-detail"></div>
 <div id="sigma-field"></div>
 <div id="sigma-feedback"></div>
 <div id="sigma-feedback-inbox"></div>
@@ -1286,7 +1225,7 @@
      the nav so it reads next to it in source even though both are position:fixed. -->
 <div id="sigma-my-tasks"></div>
 <div id="sigma-nav"></div>
-<script defer src="js/app.js?v=muikba8c"></script>
+<script defer src="js/app.js?v=muiig78q"></script>
 <script>
 // The islands are FETCHED early (rel=modulepreload in <head>) but EXECUTED after the first
 // paint (task 22b). As a plain deferred module they ran in the same turn as the legacy bundle,
@@ -1298,7 +1237,7 @@
   function go() {
     var s = document.createElement('script');
     s.type = 'module';
-    s.src = 'ui/sigma.js?v=muikba8c';
+    s.src = 'ui/sigma.js?v=muiig78q';
     document.body.appendChild(s);
   }
   function afterPaint() {

@@ -176,7 +176,7 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 
 ### `19-version-check.js` — 📦 new-deploy watcher (other lane): polls the live `app.js?v=` stamp → refresh banner / auto-reload
 
-### `24-meter-burns.js` — 🔥 צריבות (TEMPORARY project, Task 23 — no nav tab; reached from the landing strip, the card-modal section and ⋯ עוד). Owns `window.BURNS_PROJECT_ACTIVE` (the one removal flag) and the audience lists mirrored in `app/src/lib/burns.ts`. Full screen: `renderBurns`, pure logic `window._burnLogic` (PURE block, tested by `test-meter-burns.mjs`), one-tap burn/issue, multi-select → burn / assign to generator, meter card, generators helper table, Excel export. No EMS writes.
+### 🔥 צריבות — round 5 G-U4 retired `24-meter-burns.js`. The full table is `app/src/islands/BurnsPage.tsx` (React), the data layer `app/src/lib/burnsData.ts`, pure logic `app/src/lib/burns.ts`. `window.BURNS_PROJECT_ACTIVE` (the one removal flag) now lives in `js/src/00-consts.js`. The card chip / modal section / briefing rows stay in `app/src/components/home/Burns.tsx` (K-owned, unchanged by this retirement).
 
 ---
 
@@ -191,10 +191,7 @@ New `js/src/*.js` modules since the last update of this doc:
   logic unchanged, byte-identical per `test-visit-cert-gate.mjs`).
 - **`24-kibbutzim.js`** — `kibbutzim` table read/render (region grouping, alpha order, energy-gate
   warnings via `applyCardSiteWarnings`), replaces the static card grid.
-- **`24-meter-burns.js`** — 🔥 צריבות temporary project (Task 23, merged from `feat/meter-burns-rel`);
-  `window.BURNS_PROJECT_ACTIVE` flag hides all 4 surfaces (card chip, modal section, briefing rows,
-  landing strip). Filename-prefix `24-` collides with `24-kibbutzim.js`; build order is deterministic
-  so this is a note, not a bug.
+- **`24-meter-burns.js`** — retired in round 5 G-U4; see "🔥 צריבות" above.
 
 **`app/src/` — React islands** (Vite+TS+Tailwind+shadcn, built to `ui/sigma.js|css`, mounted lazily
 from legacy via `window.sigma`, spec §7c): `Home` (card grid), `Field` (arrival/briefing/visit

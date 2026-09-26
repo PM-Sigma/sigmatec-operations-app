@@ -178,7 +178,8 @@ remaining pending-states click-map coverage, once עידן rules on the open dec
 brought **main 1.67** (site consolidation + attendance hub + login self-heal) onto the 2.00 branch for the first time.
 The project has no nav tab: a card chip `🔥 נותרו X/Y` (hidden at 0), a 🔥 צריבות section in the card modal, `burn` rows
 in the briefing (ticking one = ✅ נצרב), and a progress strip above the cards — work for אביאם/ניתאי, **progress** for
-עמיחי/עידן. One flag removes all of it: `window.BURNS_PROJECT_ACTIVE = false` in `js/src/24-meter-burns.js`.
+עמיחי/עידן. One flag removes all of it: `window.BURNS_PROJECT_ACTIVE = false`, set in `js/src/00-consts.js`
+(round 5 G-U4: `js/src/24-meter-burns.js` is retired — the full table is `app/src/islands/BurnsPage.tsx`).
 Two test files are worth knowing about after that merge: `test-mytasks-filter.mjs` was deleted (the משימות page it
 guarded was retired in Task 14) and `test-site-consolidation.mjs` is SKIPped in `scripts/test-all.mjs` with a reason — it
 asserts against the 1.x static card DOM that 2.00 replaced with the `kibbutzim` table.

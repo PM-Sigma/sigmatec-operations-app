@@ -1,11 +1,18 @@
-// ⚙️ הגדרות — #sigma-settings (spec §7h; Task 4 ships the four settings the redesign needs,
-// Task 15 extends both this island and the table).
+// ⚙️ הגדרות — #sigma-settings (spec §7h; round 5 G-U1 moves every row onto the design system:
+// no native `<select>`, no steppers, every control a SegmentedControl / Switch / ListRow →
+// sub-sheet). The gear SHEET entry point itself (the header bubble, the open event's origin)
+// belongs to package S (`r9/S-U`, not merged yet) — this file owns the sheet BODY only.
 //
-// Copy rule (§ before 7i): nothing here explains the app's own mechanics. Each row says what
-// the person gets, not where it is stored or how it is applied.
+// Copy rule: nothing here explains the app's own mechanics. Each row says what the person
+// gets, not where it is stored or how it is applied.
 import * as React from 'react';
-import { Bell, ClipboardList, Monitor, Moon, Settings as Cog, Smartphone, Sun } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, ChevronUp, ClipboardList, Lightbulb, Settings as Cog, Smartphone } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SectionBlock } from '@/components/ui/section-block';
+import { ListRow } from '@/components/ui/list-row';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Switch } from '@/components/ui/switch';
+import { BubbleButton } from '@/components/ui/bubble-button';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { mount } from '@/islands';
 import { registerMoreItem } from '@/lib/registry';
@@ -15,7 +22,7 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { canShowPage } from '@/lib/canShowPage';
 import {
-  loadSettings, openSettings, saveSettings, SETTINGS_OPEN_EVENT, useSettings,
+  landingChoices, loadSettings, openSettings, saveSettings, SETTINGS_OPEN_EVENT, useSettings,
   type CardDesc, type Landing, type UserSettings,
 } from '@/lib/settings';
 import type { ThemeChoice } from '@/lib/theme';
@@ -23,61 +30,24 @@ import { EmsGate } from '@/components/EmsGate';
 import { canEditTemplate, type OnboardingTemplate, type TemplateStep } from '@/lib/onboarding';
 import { fetchOnboardingTemplate, saveOnboardingTemplate } from '@/components/home/OnboardingProgress';
 
-/** The landing options a person may pick, in the order they read. */
-const LANDING_OPTIONS: Array<{ value: Landing; label: string }> = [
-  { value: 'auto', label: 'לפי התפקיד שלי' },
-  { value: 'kibbutz', label: '🏘 קיבוצים' },
-  { value: 'calendar', label: '🗓 יומן' },
-  { value: 'attendance', label: '📅 נוכחות' },
-  { value: 'inventory', label: '📦 מלאי' },
-  { value: 'dev', label: '💻 פיתוח' },
-  { value: 'reports', label: '📊 דוחות' },
-];
-
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/** A label + a control that is not a chevron row (a SegmentedControl or a Switch body) —
+ *  matches ListRow's own horizontal padding so both kinds sit flush inside the same
+ *  SectionBlock divide-y list (SectionBlock cancels its own px-4 and expects every child to
+ *  supply its own). */
+function ControlRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5 border-b border-border py-3 last:border-b-0">
-      <div>
-        <div className="text-[14px] font-semibold text-foreground">{label}</div>
-        {hint && <div className="text-[12px] text-muted-foreground">{hint}</div>}
-      </div>
+    <div className="flex flex-col gap-2 px-4 py-3">
+      <span className="text-[length:var(--fs-body)] font-semibold leading-[var(--lh-body)]">{label}</span>
       {children}
     </div>
   );
 }
 
-/** A segmented row of choices — 44 px targets, the active one on the brand gradient. */
-function Choice<T extends string>({
-  value, options, onChange, ariaLabel,
-}: {
-  value: T;
-  options: Array<{ value: T; label: string; icon?: React.ReactNode }>;
-  onChange: (v: T) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex flex-wrap gap-1.5">
-      {options.map(o => {
-        const on = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(o.value)}
-            className={
-              'inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-[13px] font-semibold transition-colors ' +
-              (on ? 's-brand' : 'border border-border bg-card text-foreground hover:bg-muted')
-            }
-          >
-            {o.icon}
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+/** G-R10: the calendar peer-tasks setting is אביאם's alone — the one person round 5's grill
+ *  round 2 named. An unknown name never sees it, the same closed-set rule `burns.ts` uses for
+ *  BURN_WRITERS. */
+export function canSetPartnerTasks(user: string): boolean {
+  return String(user ?? '').trim() === 'אביאם';
 }
 
 /**
@@ -89,8 +59,54 @@ function openGaps(): void {
   try { window.dispatchEvent(new CustomEvent('sigma-open-gaps')); } catch { /* no DOM */ }
 }
 
+/** R own Feedback.tsx listens for this (`Feedback.tsx:205`) — G only dispatches it. */
+function openFeedback(): void {
+  try { window.dispatchEvent(new CustomEvent('sigma-open-feedback')); } catch { /* no DOM */ }
+}
+
 /** ⏰ שעת תזכורת סוף יום — a short list beats a time picker for four realistic answers. */
 const EOD_HOURS = [17, 18, 19, 20];
+const EOD_OPTIONS = EOD_HOURS.map(h => ({ value: String(h), label: String(h).padStart(2, '0') + ':00' }));
+
+/**
+ * 🖥 מסך פתיחה — a pushed sub-PANE with a radio ListRow per choice, replacing the native
+ * `<select>` (G-R7). Persists the moment a row is tapped, same as every other control here.
+ *
+ * An inline pane swap inside the SAME dialog, not a nested `Sheet`: the settings panel is
+ * still a radix `Dialog` (the GearSheet rewrite is package S, not merged) and radix marks
+ * every OTHER open portal `inert` while one is open — nesting a second radix `Dialog` (which
+ * `Sheet` is built on) inside the first made its own content un-clickable. A back row plus a
+ * conditional render avoids stacking two dialogs at all.
+ */
+function LandingPane({
+  value, options, onPick, onBack,
+}: {
+  value: Landing;
+  options: Array<{ value: Landing; label: string }>;
+  onPick: (v: Landing) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div>
+      <ListRow
+        onClick={onBack}
+        title="חזרה להגדרות"
+        leading={<span aria-hidden className="text-[15px]">→</span>}
+        trailing={null}
+      />
+      <div className="-mx-4 mt-1 divide-y divide-border" data-testid="landing-options">
+        {options.map(o => (
+          <ListRow
+            key={o.value}
+            onClick={() => onPick(o.value)}
+            title={o.label}
+            trailing={o.value === value ? <span aria-hidden className="h-2.5 w-2.5 rounded-full s-brand" /> : null}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
  * 📲 התקן כאפליקציה. Three states and three different sentences: an install the browser can
@@ -101,18 +117,22 @@ function InstallRow() {
   const installed = (() => { try { return !!sigma.isInstalled?.(); } catch { return false; } })();
   const can = (() => { try { return !!sigma.canInstall?.(); } catch { return false; } })();
   return (
-    <Row label="התקנה על המכשיר" hint={installed ? 'האפליקציה מותקנת' : 'פתיחה מהמסך הראשי, בלי דפדפן'}>
-      <button
-        type="button"
-        data-testid="settings-install"
-        disabled={installed}
-        onClick={() => { track('settings-install'); void sigma.appInstall?.(); }}
-        className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-xl s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
-      >
-        <Smartphone className="h-4 w-4" />
-        {installed ? 'מותקנת' : can ? 'התקן כאפליקציה' : 'איך מתקינים'}
-      </button>
-    </Row>
+    <ListRow
+      leading={<Smartphone className="h-5 w-5 text-muted-foreground" aria-hidden />}
+      title="התקנה על המכשיר"
+      meta={installed ? 'האפליקציה מותקנת' : 'פתיחה מהמסך הראשי, בלי דפדפן'}
+      trailing={
+        <BubbleButton
+          variant="tonal"
+          size="sm"
+          data-testid="settings-install"
+          disabled={installed}
+          onClick={() => { track('settings-install'); void sigma.appInstall?.(); }}
+        >
+          {installed ? 'מותקנת' : can ? 'התקן' : 'איך מתקינים'}
+        </BubbleButton>
+      }
+    />
   );
 }
 
@@ -140,36 +160,38 @@ function NotificationsRow() {
   };
 
   return (
-    <Row label="התראות" hint={TEXT[state] || TEXT.unsupported}>
-      <div className="flex flex-wrap gap-1.5">
-        {state !== 'granted' && (
-          <button
-            type="button"
+    <ListRow
+      leading={<Bell className="h-5 w-5 text-muted-foreground" aria-hidden />}
+      title="התראות"
+      meta={TEXT[state] || TEXT.unsupported}
+      trailing={
+        state === 'granted' ? (
+          <BubbleButton
+            variant="neutral"
+            size="sm"
+            data-testid="settings-push-test"
+            onClick={() => { track('settings-push-test'); void sigma.pushTest?.().then(ok => { if (!ok) toast.error('לא הצלחתי לשלוח'); }); }}
+          >
+            שלח בדיקה
+          </BubbleButton>
+        ) : (
+          <BubbleButton
+            variant="tonal"
+            size="sm"
             data-testid="settings-push-enable"
             disabled={state === 'unsupported' || state === 'ios-needs-install'}
             onClick={() => void enable()}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
           >
-            <Bell className="h-4 w-4" /> הפעל התראות
-          </button>
-        )}
-        {state === 'granted' && (
-          <button
-            type="button"
-            data-testid="settings-push-test"
-            onClick={() => { track('settings-push-test'); void sigma.pushTest?.().then(ok => { if (!ok) toast.error('לא הצלחתי לשלוח'); }); }}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-[13px] font-semibold text-foreground"
-          >
-            <Bell className="h-4 w-4" /> שלח התראת בדיקה
-          </button>
-        )}
-      </div>
-    </Row>
+            הפעלה
+          </BubbleButton>
+        )
+      }
+    />
   );
 }
 
-/** 👤 האזור האישי — who he is, what is still open on him, and how to get to it. */
-function PersonalArea({ user, role, onClose }: { user: string; role: string; onClose: () => void }) {
+/** 👤 זהות — who he is, his role, his device count, and what is still open on him. */
+function IdentityBlock({ user, role, onClose }: { user: string; role: string; onClose: () => void }) {
   const [devices, setDevices] = React.useState<number | null>(null);
   React.useEffect(() => {
     let live = true;
@@ -180,23 +202,22 @@ function PersonalArea({ user, role, onClose }: { user: string; role: string; onC
   const ROLE_HE: Record<string, string> = {
     field: 'שטח', pm: 'ניהול מוצר', dev: 'פיתוח', ceo: 'הנהלה', viewer: 'צפייה',
   };
+  const deviceLine = devices === null ? undefined
+    : devices ? devices + ' מכשירים מקבלים התראות' : 'אין מכשיר שמקבל התראות';
 
   return (
-    <div className="mt-2 rounded-xl border border-border bg-muted/40 p-3" data-testid="settings-personal">
-      <div className="text-[14px] font-extrabold text-foreground">{user || 'לא מחובר'}</div>
-      <div className="mt-0.5 text-[12px] text-muted-foreground">
-        {ROLE_HE[role] || role}
-        {devices !== null && ' · ' + (devices ? devices + ' מכשירים מקבלים התראות' : 'אין מכשיר שמקבל התראות')}
+    <SectionBlock title="זהות">
+      <div data-testid="settings-personal">
+        <ListRow title={user || 'לא מחובר'} meta={[ROLE_HE[role] || role, deviceLine].filter(Boolean).join(' · ')} trailing={null} />
       </div>
-      <button
-        type="button"
-        data-testid="settings-open-gaps"
-        onClick={() => { track('settings-gaps'); onClose(); openGaps(); }}
-        className="mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-border bg-card px-4 text-[13px] font-extrabold text-foreground"
-      >
-        <ClipboardList className="h-4 w-4" /> מה נשאר לי לסגור
-      </button>
-    </div>
+      <div data-testid="settings-open-gaps">
+        <ListRow
+          leading={<ClipboardList className="h-5 w-5 text-muted-foreground" aria-hidden />}
+          title="מה נשאר לי לסגור"
+          onClick={() => { track('settings-gaps'); onClose(); openGaps(); }}
+        />
+      </div>
+    </SectionBlock>
   );
 }
 
@@ -219,9 +240,9 @@ function OnboardingTemplateRow({ user }: { user: string }) {
 
   if (!canEditTemplate(user)) return null;
   if (loading) return null;
-  if (!tpl) return <Row label="תבנית קליטת לקוח חדש" hint="לא נמצאה תבנית"><span /></Row>;
 
   const move = (i: number, dir: -1 | 1) => {
+    if (!tpl) return;
     const steps = tpl.steps.slice();
     const j = i + dir;
     if (j < 0 || j >= steps.length) return;
@@ -229,16 +250,19 @@ function OnboardingTemplateRow({ user }: { user: string }) {
     setTpl({ ...tpl, steps });
   };
   const setLabel = (i: number, label: string) => {
+    if (!tpl) return;
     const steps = tpl.steps.slice();
     steps[i] = { ...steps[i], label };
     setTpl({ ...tpl, steps });
   };
   const setWaits = (i: number, waits: boolean) => {
+    if (!tpl) return;
     const steps = tpl.steps.slice();
     steps[i] = { ...steps[i], waits };
     setTpl({ ...tpl, steps });
   };
   const save = async () => {
+    if (!tpl) return;
     setSaving(true);
     try { await saveOnboardingTemplate(tpl, user); toast.success('התבנית נשמרה'); }
     catch (e: any) { toast.error(e?.message || 'השמירה נכשלה'); }
@@ -246,39 +270,71 @@ function OnboardingTemplateRow({ user }: { user: string }) {
   };
 
   return (
-    <Row label="תבנית קליטת לקוח חדש" hint="הסדר והתוויות שכל 🆕 לקוח חדש מקבל, לא משפיע על קיבוצים שכבר בקליטה">
-      <ol className="flex w-full flex-col gap-1.5" data-testid="onboarding-template-editor">
-        {tpl.steps.map((s: TemplateStep, i: number) => (
-          <li key={s.key} className="flex items-center gap-1.5">
-            <span className="w-5 shrink-0 text-center text-[12px] text-muted-foreground">{i + 1}</span>
-            <input
-              value={s.label}
-              onChange={e => setLabel(i, e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-[13px]"
-            />
-            <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-              <input type="checkbox" checked={!!s.waits} onChange={e => setWaits(i, e.target.checked)} />
-              ממתין למייל
-            </label>
-            <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="shrink-0 px-1 text-muted-foreground disabled:opacity-30">▲</button>
-            <button type="button" disabled={i === tpl.steps.length - 1} onClick={() => move(i, 1)} className="shrink-0 px-1 text-muted-foreground disabled:opacity-30">▼</button>
-          </li>
-        ))}
-      </ol>
-      <button
-        type="button"
-        disabled={saving}
-        onClick={() => void save()}
-        className="mt-2 inline-flex min-h-[40px] w-fit items-center gap-1.5 rounded-xl s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
-      >
-        שמור תבנית
-      </button>
-    </Row>
+    <SectionBlock title="ניהול" flush>
+      <div className="px-4">
+        <div className="mb-2 text-[13px] font-semibold text-foreground">תבנית קליטת לקוח חדש</div>
+        {!tpl ? (
+          <div className="text-[12px] text-muted-foreground">לא נמצאה תבנית</div>
+        ) : (
+          <>
+            <div className="mb-2 text-[12px] text-muted-foreground">
+              הסדר והתוויות שכל 🆕 לקוח חדש מקבל, לא משפיע על קיבוצים שכבר בקליטה
+            </div>
+            <ol className="flex w-full flex-col gap-2" data-testid="onboarding-template-editor">
+              {tpl.steps.map((s: TemplateStep, i: number) => (
+                // Designer round 5 review, round 3: the label input on one row alongside the
+                // number badge, the "ממתין למייל" switch AND two reorder buttons left it under
+                // ~115px at 360px wide — a step name like "קבלת רשימת לקוחות מהקיבוץ" showed as
+                // a few cut letters. An <input> can't line-clamp/wrap while staying editable, so
+                // the fix is layout, not font size: the input gets its own full-width row, the
+                // switch and reorder controls move to a second row underneath it.
+                <li key={s.key} className="flex flex-col gap-1 rounded-lg border border-border p-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 shrink-0 text-center text-[12px] text-muted-foreground">{i + 1}</span>
+                    <input
+                      value={s.label}
+                      onChange={e => setLabel(i, e.target.value)}
+                      aria-label={'תווית שלב ' + (i + 1)}
+                      className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-2 text-[13px]"
+                      style={{ minHeight: 48 }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-1.5 ps-[26px]">
+                    <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                      ממתין למייל
+                      {/* The DS Switch is a fixed 24×44 visual — under the 48×48 tap-target floor
+                          wherever it renders alone rather than inside a full-height ListRow.
+                          data-hit-slop is the documented escape hatch (_overlap.ts) for exactly
+                          this: a visual under the floor, with slop making up the difference. */}
+                      <Switch checked={!!s.waits} onCheckedChange={v => setWaits(i, v)} aria-label={'ממתין למייל: ' + s.label} data-hit-slop="true" />
+                    </span>
+                    {/* Reorder — a BubbleButton pair, not the legacy ▲▼ text steppers the DS
+                        review flagged (G-R7): same up/down move, a real icon button each. */}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <BubbleButton variant="icon" size="sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={'הזז למעלה: ' + s.label}>
+                        <ChevronUp className="h-4 w-4" />
+                      </BubbleButton>
+                      <BubbleButton variant="icon" size="sm" disabled={i === tpl.steps.length - 1} onClick={() => move(i, 1)} aria-label={'הזז למטה: ' + s.label}>
+                        <ChevronDown className="h-4 w-4" />
+                      </BubbleButton>
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <BubbleButton variant="primary" size="sm" className="mt-2" disabled={saving} onClick={() => void save()}>
+              שמור תבנית
+            </BubbleButton>
+          </>
+        )}
+      </div>
+    </SectionBlock>
   );
 }
 
 function SettingsPanel() {
   const [open, setOpen] = React.useState(false);
+  const [landingOpen, setLandingOpen] = React.useState(false);
   const { name: user, role, isViewer } = useCurrentUser();
   const settings = useSettings();
 
@@ -300,90 +356,139 @@ function SettingsPanel() {
   const personRole = roleOf(user, role);
   // The end-of-day reminder exists for the field team only (§7h).
   const isField = (() => { try { return (sigma.ATT_PEOPLE || []).includes(user); } catch { return personRole === 'field'; } })();
-  const landingHint = settings.landing === 'auto'
-    ? 'המסך שנפתח כשאתה נכנס'
-    : 'המסך שבחרת נפתח תמיד';
+  const isIdan = String(user ?? '').trim() === 'עידן';
+
+  const options = landingChoices(isViewer, o => canShowPage(o as any));
+  const landingLabel = options.find(o => o.value === settings.landing)?.label
+    || (settings.landing === 'auto' ? 'לפי התפקיד שלי' : settings.landing);
 
   // §7p, wired for completeness: every control writes the moment it is touched (`set()`
   // above), so there is never a draft to lose and the predicate is honestly false.
   const guard = useUnsavedGuard({ dirty: () => false, onClose: () => setOpen(false) });
 
   return (
-    <Dialog open={open} onOpenChange={guard.onOpenChange(setOpen)}>
-      {/* The panel grew past a phone screen once the install / notifications / personal rows
-          joined it (Task 15) — on a 390×844 device the last button sat outside the dialog and
-          could not be tapped at all. It scrolls now, and stops short of the screen edge. */}
+    <Dialog open={open} onOpenChange={v => { if (!v) setLandingOpen(false); guard.onOpenChange(setOpen)(v); }}>
       <DialogContent className="max-h-[88svh] max-w-[460px] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Cog className="h-5 w-5" /> הגדרות
+            <Cog className="h-5 w-5" /> {landingOpen ? 'מסך פתיחה' : 'הגדרות'}
           </DialogTitle>
           <DialogDescription>{user || 'לא מחובר'}</DialogDescription>
         </DialogHeader>
         <EmsGate>
-
-        <div className="flex flex-col">
-          <Row label="מסך פתיחה" hint={landingHint}>
-            {/* A native select: seven options do not fit as chips on a 390 px phone. */}
-            <select
+          {landingOpen ? (
+            <LandingPane
               value={settings.landing}
-              onChange={e => set({ landing: e.target.value as Landing }, e.target.value)}
-              aria-label="מסך פתיחה"
-              className="min-h-[44px] rounded-xl border border-border bg-card px-3 text-[14px] text-foreground"
-            >
-              {LANDING_OPTIONS
-                // Offer only what this person can actually open.
-                // 📊 דוחות only for the viewer: #viewerReportsHub is display:none unless
-                // body.user-viewer, so for anyone else the choice lands nowhere (audit A · A8).
-                .filter(o => o.value === 'auto'
-                  || (o.value === 'reports' ? isViewer : canShowPage(o.value as any)))
-                .map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </Row>
-
-          <Row label="תיאור משימות בכרטיס" hint="בטלפון: שורתיים או הטקסט המלא">
-            <Choice<CardDesc>
-              ariaLabel="תיאור משימות בכרטיס"
-              value={settings.card_desc}
-              onChange={v => set({ card_desc: v }, v)}
-              options={[{ value: 'short', label: 'מקוצר' }, { value: 'full', label: 'מלא' }]}
+              options={options}
+              onPick={v => { set({ landing: v }, v); setLandingOpen(false); }}
+              onBack={() => setLandingOpen(false)}
             />
-          </Row>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <IdentityBlock user={user} role={personRole} onClose={() => setOpen(false)} />
 
-          <Row label="מצב תצוגה">
-            <Choice<ThemeChoice>
-              ariaLabel="מצב תצוגה"
-              value={settings.theme}
-              onChange={v => set({ theme: v }, v)}
-              options={[
-                { value: 'light', label: 'בהיר', icon: <Sun className="h-4 w-4" /> },
-                { value: 'dark', label: 'כהה', icon: <Moon className="h-4 w-4" /> },
-                { value: 'system', label: 'לפי המכשיר', icon: <Monitor className="h-4 w-4" /> },
-              ]}
-            />
-          </Row>
+              <SectionBlock title="תצוגה">
+                <ControlRow label="מצב תצוגה">
+                  <SegmentedControl<ThemeChoice>
+                    ariaLabel="מצב תצוגה"
+                    value={settings.theme}
+                    onChange={v => set({ theme: v }, v)}
+                    options={[
+                      { value: 'light', label: 'בהיר' },
+                      { value: 'dark', label: 'כהה' },
+                      { value: 'system', label: 'מכשיר' },
+                    ]}
+                  />
+                </ControlRow>
+                <ControlRow label="תיאור משימות בכרטיס">
+                  <SegmentedControl<CardDesc>
+                    ariaLabel="תיאור משימות בכרטיס"
+                    value={settings.card_desc}
+                    onChange={v => set({ card_desc: v }, v)}
+                    options={[{ value: 'short', label: 'מקוצר' }, { value: 'full', label: 'מלא' }]}
+                  />
+                </ControlRow>
+              </SectionBlock>
 
-          {/* ⏰ Only the two people the evening nudge is for. Nobody else has one to move. */}
-          {isField && (
-            <Row label="תזכורת סוף יום" hint="השעה שבה מגיעה התזכורת לעדכן את היום">
-              <Choice<string>
-                ariaLabel="תזכורת סוף יום"
-                value={String(settings.eod_hour ?? 19)}
-                onChange={v => set({ eod_hour: Number(v) }, v)}
-                options={EOD_HOURS.map(h => ({ value: String(h), label: String(h).padStart(2, '0') + ':00' }))}
-              />
-            </Row>
+              <SectionBlock title="מסך פתיחה">
+                <ListRow
+                  title="מסך פתיחה"
+                  // Designer round 5 review, round 2: "המסך שנפתח כשאתה נכנס" wrapped at 360px
+                  // ("נכנס" alone on its own line) — shortened to fit on one line.
+                  meta={settings.landing === 'auto' ? 'נפתח אוטומטית' : 'המסך שבחרת נפתח תמיד'}
+                  onClick={() => setLandingOpen(true)}
+                  // Designer round 5 review #6: value + chevron, like every other row that opens
+                  // a sub-sheet — an explicit `trailing` replaces ListRow's own default chevron
+                  // entirely, so a value-only span (the earlier version) silently dropped it.
+                  trailing={
+                    <span className="flex items-center gap-1">
+                      <span className="text-[13px] font-semibold text-foreground">{landingLabel}</span>
+                      <ChevronLeft aria-hidden className="h-5 w-5" />
+                    </span>
+                  }
+                />
+              </SectionBlock>
+
+              {/* ⏰ Only the two people the evening nudge is for. Nobody else has one to move. */}
+              {isField && (
+                <SectionBlock title="תזכורת סוף יום">
+                  <ControlRow label="השעה שבה מגיעה התזכורת לעדכן את היום">
+                    <SegmentedControl<string>
+                      ariaLabel="תזכורת סוף יום"
+                      value={String(settings.eod_hour ?? 19)}
+                      onChange={v => set({ eod_hour: Number(v) }, v)}
+                      options={EOD_OPTIONS}
+                    />
+                  </ControlRow>
+                </SectionBlock>
+              )}
+
+              {/* G-R10: אביאם only — round 5 grill round 2. */}
+              {canSetPartnerTasks(user) && (
+                <SectionBlock title="המשימות שלי">
+                  <ListRow
+                    title="לראות גם את המשימות של ניתאי"
+                    trailing={
+                      <Switch
+                        checked={!!settings.cal_peer_tasks}
+                        onCheckedChange={v => set({ cal_peer_tasks: v }, 'cal_peer_tasks')}
+                        aria-label="לראות גם את המשימות של ניתאי"
+                        data-testid="set-cal-peer"
+                      />
+                    }
+                  />
+                </SectionBlock>
+              )}
+
+              <SectionBlock title="התראות">
+                <NotificationsRow />
+              </SectionBlock>
+
+              <SectionBlock title="אפליקציה">
+                <InstallRow />
+                <ListRow
+                  leading={<Lightbulb className="h-5 w-5 text-muted-foreground" aria-hidden />}
+                  title="רעיון או באג"
+                  onClick={() => {
+                    track('settings-feedback');
+                    // Open the feedback sheet FIRST, close this dialog after: radix's own
+                    // "mark every other open portal inert" pass runs off the dialog that is
+                    // MOST RECENTLY opened, so opening feedback while this one is still open
+                    // (and closing it right after) keeps feedback the live, clickable one —
+                    // the reverse order raced the close animation and left feedback inert.
+                    openFeedback();
+                    setOpen(false);
+                  }}
+                />
+              </SectionBlock>
+
+              {/* עידן only. */}
+              {isIdan && <OnboardingTemplateRow user={user} />}
+            </div>
           )}
 
-          <InstallRow />
-          <NotificationsRow />
-          <OnboardingTemplateRow user={user} />
-        </div>
-
-        <PersonalArea user={user} role={personRole} onClose={() => setOpen(false)} />
-
-        {/* read so the panel re-renders after changeUser() — the landing options are gated per person */}
-        <span hidden data-role={personRole} />
+          {/* read so the panel re-renders after changeUser() — the landing options are gated per person */}
+          <span hidden data-role={personRole} />
         </EmsGate>
         {guard.prompt}
       </DialogContent>

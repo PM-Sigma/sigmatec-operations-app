@@ -1547,99 +1547,10 @@ body.sigma-header-fallback #sigma-header-actions { min-height: 0; }
 }
 /* @end */
 /* ===== 🔥 צריבות ===== */
-/* The whole screen was written with literals (#fff cards, #fef3c7 bar, #f0fdf4/#f5f3ff/#fef2f2
-   rows) and no dark handling at all — measured 1.06–1.18:1 in dark, i.e. unusable (audit B
-   F-04). Surfaces now come from the shared --card/--surface-2/--tint-* tokens; the four accent
-   HUES below are the only burns-specific values, and each has a dark twin that keeps ≥4.5:1
-   against --card. */
-:root {
-  --burn-ok-fg: #047857;
-  --burn-warn-fg: #b45309;
-  --burn-ct-fg: #6d28d9;
-  --burn-danger-fg: #b91c1c;
-  --burn-link-fg: #1e40af;
-}
-:root[data-theme="dark"] {
-  --burn-ok-fg: #34d399;
-  --burn-warn-fg: #fbbf24;
-  --burn-ct-fg: #c4b5fd;
-  --burn-danger-fg: #fca5a5;
-  --burn-link-fg: #93c5fd;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --burn-ok-fg: #34d399;
-    --burn-warn-fg: #fbbf24;
-    --burn-ct-fg: #c4b5fd;
-    --burn-danger-fg: #fca5a5;
-    --burn-link-fg: #93c5fd;
-  }
-}
-.burn-wrap { max-width: 980px; }
-.burn-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
-.burn-search { flex: 1 1 260px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 15px; }
-.burn-site-sel { min-height: 40px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px; font: inherit; background: var(--card); color: var(--text); }
-.burn-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.burn-seg button { min-height: 40px; padding: 0 12px; border: 0; background: var(--card); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
-.burn-seg button + button { border-inline-start: 1px solid var(--border); }
-.burn-seg button.on { background: var(--primary); color: #fff; }
-.burn-selbar { position: sticky; top: 0; z-index: 5; background: var(--tint-warn); color: var(--text); border: 1px solid var(--tint-warn-border); border-radius: 10px; padding: 8px 12px; margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.burn-site { border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text); margin: 10px 0; overflow: hidden; }
-.burn-site-head { display: grid; grid-template-columns: auto 1fr auto auto; grid-template-areas: "c t l m" "b b b b"; gap: 4px 10px; align-items: center; padding: 10px 12px; cursor: pointer; min-height: 48px; }
-.burn-site-head h3 { grid-area: t; margin: 0; font-size: 16px; }
-.burn-caret { grid-area: c; color: var(--text-light); font-size: 12px; }
-.burn-left { grid-area: l; font-weight: 700; color: var(--burn-warn-fg); white-space: nowrap; }
-.burn-left.done { color: var(--burn-ok-fg); }
-.burn-mini { grid-area: m; font-size: 12px; color: var(--text-light); white-space: nowrap; }
-.burn-bar { grid-area: b; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
-.burn-bar i { display: block; height: 100%; background: var(--burn-ok-fg); }
-.burn-site-body { border-top: 1px solid var(--border); }
-.burn-gen { padding: 6px 12px; background: var(--surface-2); font-size: 13px; font-weight: 600; color: var(--text); border-bottom: 1px solid var(--border); }
-.burn-row { display: grid; grid-template-columns: auto auto 1fr auto auto; grid-template-areas: "k t m s a"; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); cursor: pointer; border-inline-start: 4px solid transparent; }
-.burn-row .burn-chk { grid-area: k; } .burn-row .burn-tag { grid-area: t; } .burn-row .burn-main { grid-area: m; }
-.burn-row .burn-state { grid-area: s; } .burn-row .burn-actions { grid-area: a; }
-.burn-row:last-child { border-bottom: 0; }
-.burn-row.burn-pending { border-inline-start-color: #f59e0b; }
-.burn-row.burn-burned { border-inline-start-color: var(--burn-ok-fg); background: var(--tint-ok); }
-.burn-row.burn-burned-ct { border-inline-start-color: var(--burn-ct-fg); background: var(--tint-dev); }
-.burn-row.burn-issue { border-inline-start-color: var(--priority); background: var(--tint-danger); }
-.burn-chk { width: 26px; height: 26px; padding: 7px; box-sizing: content-box; margin: 0; cursor: pointer; }  /* 40px tap area */
-.burn-tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
-.burn-tag-ct { background: color-mix(in srgb, var(--burn-ct-fg) 18%, var(--card)); color: var(--burn-ct-fg); }
-.burn-tag-pp { background: color-mix(in srgb, var(--burn-link-fg) 18%, var(--card)); color: var(--burn-link-fg); }
-.burn-main { min-width: 0; }
-.burn-serial { font-weight: 700; font-size: 15px; }
-.burn-addr { font-weight: 400; color: var(--text-light); font-size: 13px; }
-.burn-sub { font-size: 12px; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.burn-muted { color: var(--text-light); }
-.burn-warn { font-size: 12px; color: var(--burn-danger-fg); margin-top: 2px; }
-.burn-state { font-size: 12px; white-space: nowrap; }
-.burn-burned-ct .burn-state { color: var(--burn-ct-fg); font-weight: 700; }
-.burn-actions { display: flex; gap: 6px; }
-.burn-actions:empty { display: none; }
-.burn-btn-on { background: #64748b; }
-.burn-btn-issue { background: #b45309; }
-.burn-card { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-.burn-card th { text-align: right; color: var(--text-light); font-weight: 600; padding: 6px 8px; width: 32%; vertical-align: top; }
-.burn-card td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
-.burn-link { color: var(--burn-link-fg); text-decoration: none; font-weight: 600; }
-@media (max-width: 768px) {
-  .burn-row { grid-template-columns: auto auto 1fr; grid-template-areas: "k t m" "s s a"; }
-  .burn-row .burn-chk { grid-area: k; } .burn-row .burn-tag { grid-area: t; } .burn-row .burn-main { grid-area: m; }
-  .burn-row .burn-state { grid-area: s; } .burn-row .burn-actions { grid-area: a; justify-content: flex-end; }
-  .burn-site-head { grid-template-columns: auto 1fr auto; grid-template-areas: "c t l" "m m m" "b b b"; }
-  .burn-wrap .inv-btn.small { min-height: 40px; padding: 8px 12px; font-size: 13px; }
-}
-
-/* 🔥 צריבות — the pieces Task 23 added around the legacy table:
-   · the "פרויקט זמני" tag on the page title, so nobody mistakes it for a permanent screen;
-   · the card filter the landing strip toggles (a tapped strip shows only the kibbutzim that
-     still have pending burns — the cards themselves are React, this only hides them). */
-.burn-temp {
-  display: inline-block; margin-inline-start: 8px; padding: 2px 8px; border-radius: 999px;
-  background: var(--gray-light); color: var(--text-light);
-  font-size: 11px; font-weight: 700; vertical-align: middle;
-}
+/* Round 5 G-U4: the legacy table's own literal-color markup (.burn-wrap/.burn-row/.burn-card/…
+   and the --burn-*-fg tokens that fed it) is retired along with js/src/24-meter-burns.js — the
+   table is BurnsPage.tsx on the design system now. What survives is the ONE rule the home card
+   (K-owned Burns.tsx, not retired) still toggles from its landing-strip filter. */
 .kibbutz.burn-filtered-out { display: none !important; }
 
   /* ── every dialog has a way out (22.9, A1) ── */

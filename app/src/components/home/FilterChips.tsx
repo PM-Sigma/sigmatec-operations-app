@@ -19,7 +19,8 @@ export function FilterChips({
   onFilter: (f: CardFilter) => void;
   query: string;
   onQuery: (q: string) => void;
-  counts: Counts;
+  /** `null` before the first kibbutzim fetch lands — no count shows rather than a false "0". */
+  counts: Counts | null;
 }) {
   // No `-mx-1` here: a negative margin on a full-width block adds 8 px to the DOCUMENT width,
   // and at 390 px that is a sideways scroll the moment any Radix sheet locks the body and the
@@ -37,6 +38,15 @@ export function FilterChips({
           className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-muted-foreground"
         />
       </label>
+      {/* overflow-x-auto + an edge mask (designer round 7, nice-to-have): a longer count/label
+          combo that ever pushes the row past the viewport scrolls instead of squeezing every
+          chip unreadable, and the mask fades the row at both edges so a partly-hidden chip
+          reads as "more this way" rather than a hard clip. Inert today (the four chips fit at
+          every width with flex-1), so it costs nothing when there is nothing to scroll. */}
+      <div
+        className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ WebkitMaskImage: 'linear-gradient(to left, transparent, black 12px, black calc(100% - 12px), transparent)', maskImage: 'linear-gradient(to left, transparent, black 12px, black calc(100% - 12px), transparent)' }}
+      >
       <ToggleGroup
         type="single"
         value={filter}
@@ -50,14 +60,25 @@ export function FilterChips({
             // The accessible name must CONTAIN the visible text (a11y gate
             // label-content-name-mismatch): the chip SHOWS "הכל 12", so a bare label that omits
             // the count made voice control ask for a name nobody can see.
-            aria-label={c.label + ' ' + counts[c.key]}
-            className="h-auto min-w-0 flex-1 justify-center whitespace-nowrap rounded-full border border-border bg-card px-1.5 py-1 text-[12px] font-semibold text-muted-foreground data-[state=on]:border-transparent data-[state=on]:bg-foreground data-[state=on]:text-background"
+            aria-label={counts ? c.label + ' ' + counts[c.key] : c.label}
+            // dark:bg-s-surface-2 — one step up from bg-card in dark mode (designer round 5):
+            // the unselected chips sat on the same surface as the page card behind them and
+            // read as flat/invisible against a dark background.
+            // data-[state=on]:!bg-foreground / !text-background — `!` forced (designer round 6):
+            // the base shadcn Toggle already sets data-[state=on]:bg-accent/text-accent-foreground,
+            // and --accent in dark mode is a mid grey close to --accent-foreground, so the
+            // selected "הכל" chip read as grey-on-grey. `!` guarantees this pair wins regardless
+            // of Tailwind's generated rule order.
+            className="h-auto min-w-0 flex-1 justify-center whitespace-nowrap rounded-full border border-border bg-card px-1.5 py-1 text-[12px] font-semibold text-muted-foreground dark:bg-s-surface-2 data-[state=on]:border-transparent data-[state=on]:!bg-foreground data-[state=on]:!text-background"
           >
-            {/* no `opacity-70`: it composited --muted-foreground down to 3.07:1 (a11y gate). */}
-            {c.label} <bdi>{counts[c.key]}</bdi>
+            {/* no `opacity-70`: it composited --muted-foreground down to 3.07:1 (a11y gate).
+                No count at all until the fetch lands — a "0" while data is still loading reads
+                as "there is nothing here", not as "loading". */}
+            {c.label}{counts && <> <bdi>{counts[c.key]}</bdi></>}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
+      </div>
     </div>
   );
 }

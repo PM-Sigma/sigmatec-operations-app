@@ -98,11 +98,107 @@ test('settings: install, notifications and the personal area all say where they 
   expectNoConsoleErrors(rec);
 });
 
+// ───────────────────────── round 5 G-U1: onto the design system ─────────────────────────
+
+test('settings: no native <select> anywhere in the sheet (G-R7)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.locator('select')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: the landing sub-sheet replaces the select and persists across reload', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  let dlg = await openSettings(page);
+  await dlg.getByRole('button', { name: /^מסך פתיחה/ }).click();
+  await page.getByTestId('landing-options').getByText('🗓 יומן').click();
+  await expect(dlg.getByText('🗓 יומן')).toBeVisible();
+
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  dlg = await openSettings(page);
+  await expect(dlg.getByText('🗓 יומן')).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: the partner-tasks switch is offered to אביאם alone (G-R10)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('לראות גם את המשימות של ניתאי')).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: nobody but אביאם is offered the partner-tasks switch', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('לראות גם את המשימות של ניתאי')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: "רעיון או באג" opens the feedback sheet', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await dlg.getByText('רעיון או באג').click();
+  // "רעיונות" (plural) does not literally contain "רעיון" — a final-nun (ן) vs. a medial
+  // one (נ) are different characters — so the dialog is matched by "תיבת" instead.
+  await expect(page.getByRole('dialog', { name: /תיבת/ })).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
 test('settings: no sentence explains the app to the user, or who else sees him (§7h)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   const dlg = await openSettings(page);
   const text = (await dlg.innerText()).replace(/\s+/g, ' ');
   expect(text).not.toMatch(/Supabase|RLS|בדיקה אוטומטית|מחושב|מקושר ל-/);
   expect(text).not.toMatch(/(עמיחי|עידן)[^.]{0,12}(ראה|רואה|יראה)/);
+  expectNoConsoleErrors(rec);
+});
+
+// Designer round 5 review #7: a full-scroll capture of every section, not just the ones the
+// other tests happen to touch — אביאם sees the field-only rows (תזכורת סוף יום, המשימות שלי
+// partner-tasks switch) that עידן doesn't, so this is the fuller of the two role views.
+// A tall viewport, not a style override: the dialog is max-h-[88svh] overflow-y-auto and
+// fixed+centered — mutating its own position/height fought the centering transform and (once)
+// caught an unrelated dialog in the same crop region. A 360×3200 viewport instead gives 88svh
+// (~2800px) more room than the sheet needs, so every section renders in normal flow with no
+// internal scroll and no style hacks; an element screenshot of the dialog alone then excludes
+// the home page AND any toast (both live outside the dialog's own box) by construction.
+async function fullScrollShot(page: any, ti: any, dlg: any, suffix: string) {
+  await page.evaluate(() => document.querySelectorAll('[data-sonner-toast]').forEach((el: Element) => el.remove()));
+  await dlg.screenshot({ path: `../../qa/playwright/shots/settings/${(ti.project.metadata as any).viewport}-${(ti.project.metadata as any).theme}-${suffix}.png` });
+}
+
+test('settings: full scroll — every section, one capture', async ({ page }, ti) => {
+  await page.setViewportSize({ width: (page.viewportSize()?.width) || 360, height: 3200 });
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('תזכורת סוף יום')).toBeVisible();
+  await expectRtl(page);
+  await fullScrollShot(page, ti, dlg, 'full-scroll');
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: full scroll as עידן — includes the onboarding-template section אביאם never sees', async ({ page }, ti) => {
+  await page.setViewportSize({ width: (page.viewportSize()?.width) || 360, height: 3200 });
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('תבנית קליטת לקוח חדש')).toBeVisible();
+  await expectRtl(page);
+  await fullScrollShot(page, ti, dlg, 'full-scroll-idan');
+  expectNoConsoleErrors(rec);
+});
+
+test('settings r5 · C2: only אביאם sees "לראות גם את המשימות של ניתאי"', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByTestId('set-cal-peer')).toBeVisible();
+  await dlg.getByTestId('set-cal-peer').click();
+  await expect.poll(async () => (await mirror(page)).cal_peer_tasks).toBe(true);
+  expectNoConsoleErrors(rec);
+});
+
+test('settings r5 · C2: ניתאי has no such row', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByTestId('set-cal-peer')).toHaveCount(0);
   expectNoConsoleErrors(rec);
 });

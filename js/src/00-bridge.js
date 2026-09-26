@@ -345,19 +345,8 @@
         if (call('isViewer', [], false)) return Promise.resolve();
         return Promise.resolve(call('createEmsTaskForKibbutz', [kibbutz])).catch(function (e) { console.warn('[sigma] ems create', e); });
       },
-      // Re-run every legacy pass that decorates a card, after React replaced the card DOM.
-      // All of them are idempotent (each clears its own nodes first) and all are optional —
-      // a module that is not in the bundle simply skips.
-      decorateCards: function () {
-        var data = window.SHEET_DATA;
-        if (data && typeof enrichCardsWithSheet === 'function') enrichCardsWithSheet(data);
-        if (typeof injectCustomerCodes === 'function') injectCustomerCodes();
-        // The on-card EMS-tasks widget is React now (components/home/EmsTasks.tsx,
-        // task-3-brief) — applyCardEmsWidgets/renderCardEmsTasks are gone from js/src/13-ems.js.
-        if (typeof applyCardSiteWarnings === 'function') applyCardSiteWarnings();
-        if (typeof applyCardLastVisit === 'function') applyCardLastVisit();
-        if (typeof renderCardNotes === 'function') renderCardNotes();
-      },
+      // decorateCards removed (round 5, K-U5): KibbutzCard.tsx owns its own decoration now
+      // (site warnings, last-visit line, order — K-U3), so nothing calls this any more.
       createTask: function (item) { return call('emsWriteOrQueue', [Object.assign({ kind: 'createTask' }, item || {})]); },
       // The queue-aware write primitive behind EmsGateway's createTask/updateTask/addComment
       // (spec §7o: "the offline queue becomes a gateway concern — queued OPERATIONS replay

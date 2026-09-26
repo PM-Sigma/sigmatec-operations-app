@@ -5,15 +5,44 @@
 // (01-data.js / 10-activity.js query exactly that and insert after the name row; the on-card
 // EMS-tasks widget itself moved to React in task-3-brief — see EmsTasks.tsx).
 // No status/flow badges — spec §2: "A card shows only: name · energy badge · 🤝 tag".
+import { Clock, MapPin } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
+import { sigma } from '@/bridge';
 import { useVisitDraft } from '@/lib/visitDrafts';
 import { CardActions } from '@/components/home/CardActions';
 import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { InternalTasksSection, TaskAdders } from '@/components/home/InternalTasks';
-import { OnboardingProgress } from '@/components/home/OnboardingProgress';
 import { WorkTimer } from '@/components/home/WorkTimer';
-import { energyText, labelOf, sectionOf, isSubsite, NO_REGION_LABEL, type KibbutzRow } from '@/lib/kibbutzim';
+import { energyText, isUnlinked, labelOf, sectionOf, isSubsite, NO_REGION_LABEL, type KibbutzRow } from '@/lib/kibbutzim';
+import { lastVisitLine, latestVisitFor } from '@/lib/kibbutzDetail';
+import { useKibbutzVisits } from '@/lib/kibbutzVisits';
+
+/** ביקור אחרון (round 5, K4/K9): danger ink + Clock when late, else text-2 + MapPin — the React
+ *  port of the legacy applyCardLastVisit line (10-activity.js, deleted in K-U5). */
+function LastVisitRow({ name }: { name: string }) {
+  const visits = useKibbutzVisits(name);
+  const visit = latestVisitFor(visits, name);
+  let tasks: Array<{ status?: string; expectedCompletionDate?: string }> = [];
+  try { tasks = (sigma?.emsCacheTasksForKibbutz?.(name) as any) || []; } catch { tasks = []; }
+  const line = lastVisitLine(visit, tasks, new Date());
+  if (!line) return null;
+  return (
+    <div
+      data-card-section="lastVisit"
+      className={
+        'mt-2 flex items-center gap-1.5 text-[12.5px] font-semibold ' +
+        (line.late ? 'text-destructive' : 'text-muted-foreground')
+      }
+    >
+      {line.late ? <Clock className="h-3.5 w-3.5 shrink-0" /> : <MapPin className="h-3.5 w-3.5 shrink-0" />}
+      <span>
+        {line.label} · <bdi>{line.date}</bdi>
+        {line.note ? ' · ' + line.note : ''}
+      </span>
+    </div>
+  );
+}
 
 export function KibbutzCard({
   row, role, highlight, onEdit, canEdit, index = 0,
@@ -50,6 +79,10 @@ export function KibbutzCard({
         (section === 'new' ? 'border-s-[3px] border-s-[color:var(--sigma-warn)] ' : 'border-s-[3px] border-s-[color:var(--brand-2)] ') +
         (highlight ? 'sigma-beam ' : '')
       }
+      // The card body opens KibbutzDetail through the legacy DELEGATED listener
+      // (js/src/10-activity.js), rewired in round 5 K-U3 to call sigma.openKibbutzModal
+      // instead of the retired openEditModal; a quick action (CardActions/TaskAdders/
+      // WorkTimer) stopPropagation()s to keep from also opening it.
       // ---- legacy decorator contract ----
       data-name={row.name}
       data-section={section}
@@ -59,6 +92,11 @@ export function KibbutzCard({
     >
       <div className="kibbutz-name-row flex flex-wrap items-center gap-2">
         <h4 className="kibbutz-name flex-1 text-[17px] font-bold leading-tight">{labelOf(row)}</h4>
+        {/* ▶/■ שעות pinned right after the name, shrink-0 (designer round 8): with the tag
+            row's own flex-wrap, a card with enough tags (כפר עזה: region+energy+draft+
+            marketing) pushed the timer button onto its own line at 360px. It stays in the
+            card's own action row now, never wrapped away from the name. */}
+        <WorkTimer kibbutz={row.name} />
         {/* Where this kibbutz is (עידן 20.9 #1). It used to be a label row between the
             cards, which read as clutter once there were three of them on one screen. Muted
             and unadorned, beside the energy badge: the two are the card's metadata row, and
@@ -81,28 +119,29 @@ export function KibbutzCard({
         )}
         {/* 🔥 צריבות left the home card (עידן 22.9, D1): the summary lives inside the kibbutz
             modal, collapsed until tapped. */}
-        {/* ▶/■ שעות (Task 29, spec §8b) — עידן and מתניה only; for everyone else the
-            component renders nothing at all, so the row is unchanged. */}
-        <WorkTimer kibbutz={row.name} />
         {row.marketing && (
           <span className="tag-marketing rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-foreground">
             🤝 בתהליך שיווקי
           </span>
         )}
+        {/* לא מקושר ל-EMS (round 5, K9/K-U5) — the React port of the legacy
+            applyCardSiteWarnings chip (js/src/13-ems.js, deleted with this task). */}
+        {isUnlinked(row) && (
+          <span className="card-no-site rounded-full bg-[color:var(--sigma-warn)]/15 px-2 py-0.5 text-[11px] font-semibold text-[color:var(--sigma-warn-ink)]">
+            לא מקושר ל-EMS
+          </span>
+        )}
         {/* ✏️ פרטי קיבוץ moved inside the modal, עידן only (22.9, D2/D10) — js/src/10-activity.js
             renders it next to the name and opens the same sheet through window.sigmaHome. */}
       </div>
-      {/* name → EMS TASKS → NOTES (§7k #7, עידן 18.9): the tasks are the ACTION and go first;
-          the bullets are history and are collapsed to the latest lines below them. No legacy
-          decorator anchors on `.card-notes` any more (the EMS widget became React in Task 3),
-          so the swap is free of the old DOM contract. */}
-      <EmsTasks kibbutz={row.name} variant="card" />
-      <MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} />
-      <InternalTasksSection kibbutz={row.name} />
+      {/* Closed-card order (round 5, K4/K9, QA קיבוצים 3): EMS tasks → internal tasks →
+          last-visit line → meeting notes. Onboarding moved OUT of the closed card entirely
+          (K11) — it lives only in the open card, under מצב הקיבוץ. */}
+      <div data-card-section="ems"><EmsTasks kibbutz={row.name} variant="card" /></div>
+      <div data-card-section="internal"><InternalTasksSection kibbutz={row.name} /></div>
+      <LastVisitRow name={row.name} />
+      <div data-card-section="meetings"><MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} /></div>
       {role !== 'viewer' && <TaskAdders kibbutz={row.name} />}
-      {/* 🆕 onboarding checklist (Task 27, spec §4) — a 🆕 לקוח חדש card only; a ✅ active
-          card never had rows spawned for it, so OnboardingProgress renders nothing there. */}
-      {section === 'new' && <OnboardingProgress kibbutz={row.name} canAct={role !== 'viewer'} />}
       <CardActions name={row.name} role={role} />
     </motion.div>
   );
