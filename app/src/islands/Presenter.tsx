@@ -16,7 +16,38 @@
 import * as React from 'react';
 import { useMeetingRun } from '@/lib/meetingRun';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast as sonnerToast } from 'sonner';
+
+// Every toast this screen shows lands at bottom-center (round-5/6: the app's default top toast
+// covered the compact header, and top-center collided with the sticky header regardless of
+// which action fired it — the close/undo toast wasn't the only offender). This is the ONE place
+// that decides that, so a future toast call here can't reintroduce a top one by omission.
+const toast = {
+  success: (msg: string, opts?: Parameters<typeof sonnerToast.success>[1]) =>
+    sonnerToast.success(msg, { position: 'bottom-center', ...opts }),
+  error: (msg: string, opts?: Parameters<typeof sonnerToast.error>[1]) =>
+    sonnerToast.error(msg, { position: 'bottom-center', ...opts }),
+  dismiss: (...args: Parameters<typeof sonnerToast.dismiss>) => sonnerToast.dismiss?.(...args),
+};
+
+// Presenter-scoped toast offset (round-6 item 1, fix-up): the `<Toaster>` (main.tsx) is ONE
+// React component that re-renders its own `[data-sonner-toaster]` `style` attribute (including
+// `--offset-bottom`/`--mobile-offset-bottom`) on every toast add/remove — a plain
+// `el.style.setProperty(...)` from outside React gets silently wiped the very next time it
+// re-renders, which is why the toast kept landing at Sonner's stock 24px/16px offset no matter
+// how often this file reapplied it. A `bottom: … !important` rule in an actual stylesheet beats
+// an element's own inline style, and reads a var on `<html>` that only THIS code ever touches —
+// so it survives every Toaster re-render, no fight with React needed. There can be more than
+// one `[data-sonner-toaster]` (Sonner keeps a separate one per active position); the ones NOT
+// using `bottom` positioning simply ignore this rule, so applying it to all of them is safe.
+const PRESENTER_TOAST_STYLE_ID = 'presenter-toast-offset-style';
+function ensurePresenterToastStyle(): void {
+  if (document.getElementById(PRESENTER_TOAST_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = PRESENTER_TOAST_STYLE_ID;
+  style.textContent = '[data-sonner-toaster]{bottom:var(--presenter-dock-offset,24px) !important;}';
+  document.head.appendChild(style);
+}
 import { Bookmark, ChevronLeft, ChevronRight, MoreHorizontal, Pause, Pencil, Play, Video, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -418,6 +449,19 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Presenter-scoped toast offset (round-6 item 1): the ONE global `<Toaster>` (main.tsx) is
+  // shared app-wide, so this reads a var on `<html>` + an injected stylesheet rule rather than
+  // touching that shared component — package S is free to change the app's normal offset
+  // without a merge fight here, and this rule only ever WINS while a bottom toast exists,
+  // never while there is none. Bottom-center toasts must clear the dock (12px breathing room
+  // above it) instead of landing under the composer at 1440 or below the fold on a short phone.
+  React.useEffect(() => {
+    ensurePresenterToastStyle();
+    document.documentElement.style.setProperty('--presenter-dock-offset', (dockH + 12) + 'px');
+    return () => { document.documentElement.style.removeProperty('--presenter-dock-offset'); };
+  }, [dockH]);
+
   const noteRef = React.useRef<HTMLInputElement | null>(null);
   const logged = React.useRef<string>('');
 
@@ -601,7 +645,8 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         // navigation. …from navigation → the one confirm before the meeting screen closes.
         if (liveOpen) { setLiveOpen(false); return; }
         if (typing) { el?.blur(); return; }
-        setExitOpen(true);
+        toast.dismiss();   // one toast at a time (round-6 item 3): a leftover "נרשם"/close toast
+        setExitOpen(true); // must not sit behind the exit sheet or stack with a second one
         return;
       }
       if (liveOpen || exitOpen) return;
@@ -650,7 +695,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           data-testid="presenter-exit"
-          onClick={() => setExitOpen(true)}
+          onClick={() => { toast.dismiss(); setExitOpen(true); }}
           aria-label="סגירה"
           className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-border text-foreground outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-1)] focus-visible:ring-offset-2"
         >

@@ -16,7 +16,7 @@ const { state, inserted, updated, sonner, created, tracked, emsMock } = vi.hoist
   updated: [] as Array<{ table: string; row: any }>,
   created: [] as any[],
   tracked: [] as string[],
-  sonner: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+  sonner: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
   emsMock: {
     listOpenTasks: vi.fn(async () => [{
       id: 'ems1', title: 'להחליף מונה', status: 'open',
