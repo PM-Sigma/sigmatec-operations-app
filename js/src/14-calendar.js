@@ -238,54 +238,9 @@
     return s;
   }
 
-  // ---- Phase 2: EMS update folded INTO the visit form (replaces the post-save popup) ----
-  window._visitEmsTasks = [];
-  // Populate the in-form EMS block when the visit form opens for a kibbutz.
-  function prepVisitEmsBlock(kibbutz) {
-    const block = document.getElementById('visitEmsBlock');
-    const newBlock = document.getElementById('visitEmsNewBlock');
-    if (!block) return;
-    block.style.display = 'none'; if (newBlock) newBlock.style.display = 'none';
-    window._visitEmsTasks = (typeof emsCacheTasksForKibbutz === 'function') ? emsCacheTasksForKibbutz(kibbutz) : [];
-    const tasks = window._visitEmsTasks;
-    if (tasks.length) {
-      document.getElementById('visitEmsTaskPick').innerHTML = tasks.length > 1
-        ? tasks.map((t, i) => '<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin:3px 0;cursor:pointer;"><input type="radio" name="visitEmsTask" value="' + t.id + '" ' + (i === 0 ? 'checked' : '') + ' onchange="onVisitEmsTaskChange()"><span style="flex:1;">' + emsEsc(t.title) + '</span><span class="ems-badge status-' + t.status + '">' + (EMS_STATUS[t.status] || t.status) + '</span></label>').join('')
-        : '<div style="font-weight:700;font-size:13px;">' + emsEsc(tasks[0].title) + '</div><input type="radio" name="visitEmsTask" value="' + tasks[0].id + '" checked style="display:none;">';
-      const sel = document.getElementById('visitEmsStatus');
-      sel.innerHTML = Object.keys(EMS_STATUS).map(s => '<option value="' + s + '">' + EMS_STATUS[s] + '</option>').join('');
-      sel.value = tasks[0].status;   // default = current status
-      const head = document.getElementById('visitEmsHead');   // clear message about which task is being updated
-      if (head) head.textContent = tasks.length > 1 ? '🔗 בחר את משימת ה-EMS לעדכון מהביקור:' : '🔗 הביקור יעדכן את משימת ה-EMS: «' + tasks[0].title + '»';
-      const note = document.getElementById('visitEmsConnNote');
-      if (note) note.textContent = isEmsConnected() ? '' : ' (יישלח בעוד רגע)';
-      block.style.display = '';
-    } else if (newBlock && typeof canUseEms === 'function' && canUseEms()) {
-      newBlock.style.display = '';   // no open task → offer to create one
-    }
-  }
-  function onVisitEmsTaskChange() {
-    const picked = document.querySelector('input[name="visitEmsTask"]:checked');
-    const t = (window._visitEmsTasks || []).find(x => x.id === (picked && picked.value));
-    if (t) document.getElementById('visitEmsStatus').value = t.status;
-  }
-  function createEmsTaskFromVisit() {
-    if (typeof createEmsTaskForKibbutz === 'function') createEmsTaskForKibbutz();
-  }
-  // Read the in-form EMS intent at save time. null = no block; false = validation failed
-  // (status is MANDATORY when a task exists); object = {taskId,status,curStatus}.
-  function readVisitEmsIntent() {
-    const block = document.getElementById('visitEmsBlock');
-    if (!block || block.style.display === 'none') return null;
-    const tasks = window._visitEmsTasks || [];
-    const picked = document.querySelector('input[name="visitEmsTask"]:checked');
-    const taskId = picked ? picked.value : (tasks.length === 1 ? tasks[0].id : null);
-    if (!taskId) { alert('נא לבחור משימת EMS לעדכון'); return false; }
-    const status = (document.getElementById('visitEmsStatus') || {}).value;
-    if (!status) { alert('נא לבחור סטטוס למשימת EMS (חובה)'); return false; }
-    const cur = tasks.find(t => t.id === taskId);
-    return { taskId: taskId, status: status, curStatus: cur ? cur.status : null };
-  }
+  // prepVisitEmsBlock/onVisitEmsTaskChange/createEmsTaskFromVisit/readVisitEmsIntent removed
+  // (round 5, V-U3) — they only ever populated the legacy form's in-form EMS block, which is
+  // gone with the form. The chapters sheet has its own EMS task chapter.
   // Push the visit summary as a comment (+ status if changed) to the chosen EMS task.
   async function pushVisitToEms(kibbutz, visit, intent) {
     if (!intent) return;
