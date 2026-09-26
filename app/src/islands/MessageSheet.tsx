@@ -96,6 +96,16 @@ function formatMsgTime(iso: string): string {
   return `${d.getDate()}.${d.getMonth() + 1} · ${hh}:${mm}`;
 }
 
+/** Radix autofocuses the Close button on open by default (the first focusable descendant) —
+    with a keyboard-modality flag already set (an Escape/Tab earlier in the session), the
+    browser's own `:focus-visible` heuristic then draws a ring on a purely programmatic focus
+    nobody asked for (designer round 2, item 1: seen on the inbox's ✕). `preventDefault` +
+    focusing the content div itself (already `tabIndex={-1}` on a Radix `Dialog.Content`) puts
+    focus somewhere with no visible affordance to begin with, so no heuristic can light it up. */
+function focusContentNotClose(contentRef: React.RefObject<HTMLDivElement>) {
+  return (e: Event) => { e.preventDefault(); contentRef.current?.focus(); };
+}
+
 export function MessageSheetPanel() {
   // Drained ONCE, atomically, by the first initializer that runs — every later one reads the
   // captured snapshot, never the mutable module flag (which the drain has already cleared).
@@ -106,6 +116,7 @@ export function MessageSheetPanel() {
   const [text, setText] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const contentRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const onEvent = (e: Event) => {
@@ -138,7 +149,17 @@ export function MessageSheetPanel() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="bottom" dir="rtl" className="max-h-[85svh] overflow-y-auto" data-testid="cmd-message">
+      <SheetContent
+        ref={contentRef}
+        side="bottom" dir="rtl"
+        // before:bg-foreground/25, not the sheet's own default before:bg-border (designer round
+        // 2, item 2): --border is 89% lightness in light mode — nearly invisible against the
+        // sheet's own near-white background. /25 on the always-opposite `foreground` token reads
+        // the same, visibly, in both themes instead of relying on --border's own contrast.
+        className="max-h-[85svh] overflow-y-auto outline-none before:bg-foreground/25"
+        onOpenAutoFocus={focusContentNotClose(contentRef)}
+        data-testid="cmd-message"
+      >
         <SheetHeader>
           <SheetTitle>הודעה לעובד</SheetTitle>
           <SheetDescription>הוא יראה אותה בכניסה הבאה שלו.</SheetDescription>
@@ -190,7 +211,11 @@ export function MessageSheetPanel() {
             </div>
           )}
           <BubbleButton
-            variant="primary" size="lg" className="mt-4 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+            variant="primary" size="lg"
+            // disabled:bg-none (designer round 2, item 3): `.s-brand`'s backgroundImage gradient
+            // paints OVER background-color, so disabled:bg-muted alone still showed the (washed
+            // out) gradient — a flat neutral fill needs the gradient itself turned off first.
+            className="mt-4 disabled:bg-none disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
             data-testid="cmd-message-send"
             disabled={busy || !to || !text.trim()} loading={busy} onClick={() => void send()}
           >
@@ -209,6 +234,7 @@ export function MessageInboxPanel() {
   const [initial] = React.useState(() => { const m = pendingInbox; pendingInbox = null; return m; });
   const [messages, setMessages] = React.useState<StaffMsg[]>(() => initial || []);
   const [open, setOpen] = React.useState(() => !!initial?.length);
+  const contentRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const onEvent = (e: Event) => {
@@ -229,7 +255,13 @@ export function MessageInboxPanel() {
 
   return (
     <Sheet open={open} onOpenChange={o => { if (!o) close(); }}>
-      <SheetContent side="bottom" dir="rtl" className="max-h-[85svh] overflow-y-auto" data-testid="cmd-inbox">
+      <SheetContent
+        ref={contentRef}
+        side="bottom" dir="rtl"
+        className="max-h-[85svh] overflow-y-auto outline-none before:bg-foreground/25"
+        onOpenAutoFocus={focusContentNotClose(contentRef)}
+        data-testid="cmd-inbox"
+      >
         <SheetHeader>
           <SheetTitle>✉️ {unreadTitle(messages.length)}</SheetTitle>
         </SheetHeader>

@@ -10,6 +10,15 @@
 // Sheet as compose (`cmd-inbox`, MessageSheet.tsx `MessageInboxPanel`) instead of the legacy
 // centered `#msgPopup`; the send error renders inline above "שליחה", never a toast; the
 // empty-compose capture blurs focus first so no ring shows in the still.
+//
+// Designer round 3 fixes (round 2: 6/7 — three small items): (1) the inbox's ✕ no longer gets
+// Radix's default autofocus (it focuses the sheet content div instead) — this file's own
+// `Escape` press right before the unread check is what reproduced the ring in the first place
+// (it sets the browser's keyboard-modality flag, which is what turned a purely programmatic
+// focus into a visible `:focus-visible` ring), so the assertion below reruns exactly that;
+// (2) the grab handle is `before:bg-foreground/25` on both sheets now, not the low-contrast
+// `before:bg-border` default; (3) disabled "שליחה" turns the `.s-brand` gradient OFF
+// (`disabled:bg-none`) before applying the muted fill, so no washed-out gradient remains.
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
@@ -55,6 +64,11 @@ test.describe('X-U evidence captures', () => {
       // leaves nothing focused by default, but `boot()`'s own setup can leave a stray focus on
       // the page body's last-tapped control; blur it explicitly before the still.
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
+      // Designer round 3, item 3: disabled "שליחה" must be a flat muted fill, never the
+      // `.s-brand` gradient washed out by opacity — assert the gradient is actually OFF
+      // (backgroundImage: none), not just faded.
+      const bgImage = await page.getByTestId('cmd-message-send').evaluate(el => getComputedStyle(el).backgroundImage);
+      expect(bgImage).toBe('none');
       await assertThemePixels(page, theme);
       await page.screenshot({ path: path.join(OUT, `compose-empty__${w}__${theme}.png`) });
     });
@@ -124,6 +138,11 @@ test.describe('X-U evidence captures', () => {
       await expect(page.locator('#msgPopup')).toHaveCount(0);   // never the legacy centered modal (item 1)
       await expect(inbox).toContainText('הודעה חדשה אחת');       // item 2: singular wording
       await expect(inbox).toContainText('26.9 · 22:48');          // item 3: no seconds
+      // Designer round 3, item 1: the Escape press above set the browser's keyboard-modality
+      // flag — exactly the precondition that turned Radix's default close-button autofocus into
+      // a visible `:focus-visible` ring. The close button must not be the focused element at all.
+      const closeFocused = await inbox.evaluate(el => el.querySelector('.s-close-btn') === document.activeElement);
+      expect(closeFocused).toBe(false);
       await assertThemePixels(page, theme);
       await page.screenshot({ path: path.join(OUT, `inbox-unread__${w}__${theme}.png`) });
     });
