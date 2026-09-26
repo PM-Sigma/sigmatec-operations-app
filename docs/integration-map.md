@@ -174,7 +174,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-my-tasks` | :1230 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:149 |
 | `#sigma-nav` | :1231 | app/src/main.tsx:103 |
 | `#sigma-offline` | :227 | app/src/main.tsx:301<br>app/src/shell/OfflineBanner.tsx:36 |
-| `#sigma-page-bar` | :233 | app/src/main.tsx:298<br>app/src/shell/PageBar.tsx:94 |
+| `#sigma-page-bar` | :233 | app/src/main.tsx:298<br>app/src/shell/PageBar.tsx:99 |
 | `#sigma-presenter` | :1206 | app/src/islands/Presenter.tsx:812<br>app/src/main.tsx:454 |
 | `#sigma-pushlog` | :586 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:251 |
 | `#sigma-refresh` | :1225 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:119 |

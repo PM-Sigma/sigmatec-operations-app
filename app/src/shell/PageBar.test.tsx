@@ -30,11 +30,19 @@ describe('PageBar', () => {
     expect(screen.queryByLabelText('חזרה')).toBeNull();
   });
 
-  it('a level-2 page (burns) gets the back chevron', () => {
-    st.page = 'burns';
+  it('a level-2 page (hours) gets the back chevron', () => {
+    st.page = 'hours';
     render(<PageBar />);
     const back = screen.getByLabelText('חזרה');
     fireEvent.click(back);
     expect(goBack).toHaveBeenCalledOnce();
+  });
+
+  // S-U merge fallout (26.9): burns/pushlog/dev (and attendance) draw their own PageActionRow —
+  // a second one here duplicated the page's <h1> (attendance.spec.ts strict-mode violation).
+  it('an ownHeader page (burns) renders nothing — the island draws its own row', () => {
+    st.page = 'burns';
+    const { container } = render(<PageBar />);
+    expect(container.innerHTML).toBe('');
   });
 });

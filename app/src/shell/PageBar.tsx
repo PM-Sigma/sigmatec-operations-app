@@ -63,6 +63,11 @@ export function PageBar() {
     canManageKibbutzim: canManageKibbutzim(user, isViewer),
   });
 
+  // Attendance / BurnsPage / PushLog / DevBoard draw their own PageActionRow (richer title or
+  // actions this shared row has no slot for) — a second title here would be a duplicate <h1>
+  // (see the `ownHeader` doc in lib/shell.ts).
+  if (meta.ownHeader) return null;
+
   return (
     <div className="sigma-page-bar" dir="rtl">
       <PageActionRow
