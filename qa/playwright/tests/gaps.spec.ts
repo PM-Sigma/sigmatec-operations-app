@@ -148,7 +148,7 @@ test('gaps: the row opens the sheet on a COLD tap, before the deferred chunk has
 
   const sheet = page.getByTestId('gaps-sheet');
   await expect(sheet).toBeVisible();
-  await expect(sheet.getByRole('heading', { name: 'הפערים שלי' })).toBeVisible();
+  await expect(sheet.getByRole('heading', { name: 'פערים' })).toBeVisible();
   await expect(page.getByTestId('gaps-list')).toBeVisible();
   expectNoConsoleErrors(rec);
 });

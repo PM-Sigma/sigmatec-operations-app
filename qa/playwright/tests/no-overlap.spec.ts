@@ -96,6 +96,21 @@ const SCREENS: Screen[] = [
     label: 'more-sheet', onlyViewport: 'mobile',
     open: async p => openMoreSheet(p),
   },
+  // Round 5, package R (R-1/R-2/R-3): Hours, Gaps and Usage rebuilt on the design system.
+  // None gets an allow-list line (R-24 — every R screen must pass the sweep on its own merits).
+  { label: 'hours', who: 'עידן', open: p => openPage(p, 'hours', 'hours-view') },
+  {
+    label: 'gaps', who: 'אביאם',
+    open: async p => {
+      await p.waitForSelector('#sigma-gaps[data-sigma-mounted="1"]', { state: 'attached', timeout: 30_000 });
+      await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-gaps')));
+      await p.getByTestId('gaps-sheet').waitFor();
+    },
+  },
+  {
+    label: 'usage', who: 'עידן', query: 'x=1#usage',
+    open: async p => { await p.getByRole('dialog').filter({ hasText: 'שימוש' }).waitFor(); },
+  },
   {
     label: 'settings-sheet',
     open: async p => {

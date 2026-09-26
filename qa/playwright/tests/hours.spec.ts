@@ -4,8 +4,10 @@
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test, SB_ORIGIN } from './_helpers';
 
 const openHours = async (page: any) => {
-  await page.waitForSelector('#sigma-hours[data-sigma-mounted="1"]', { state: 'attached' });
+  // `loadOnShow` (main.tsx) mounts the island only once `#hours-view` becomes visible — the
+  // `showPage` call must run FIRST, or the mounted marker never appears (round 5 R-U1 fix).
   await page.evaluate(() => (window as any).showPage?.('hours'));
+  await page.waitForSelector('#sigma-hours[data-sigma-mounted="1"]', { state: 'attached' });
   await expect(page.getByTestId('hours-page')).toBeVisible();
 };
 
