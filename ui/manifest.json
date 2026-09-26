@@ -47,7 +47,6 @@
   "./ui/sigma-InventoryProducts.js",
   "./ui/sigma-InventoryReturns.js",
   "./ui/sigma-InventoryStock.js",
-  "./ui/sigma-InventoryStrip.js",
   "./ui/sigma-kibbutzim.js",
   "./ui/sigma-kibbutzRows.js",
   "./ui/sigma-list-row.js",
