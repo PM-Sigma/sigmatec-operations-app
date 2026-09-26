@@ -6,7 +6,7 @@
 // nothing at all for anyone `canSeeBurns` refuses (מתניה/אליה, or the flag off).
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Check, CheckSquare, Cpu, FileSpreadsheet, Flame, Repeat, Search, Zap } from 'lucide-react';
+import { Check, Cpu, FileSpreadsheet, Flame, Repeat, Search, Zap } from 'lucide-react';
 import { PageActionRow } from '@/components/ui/page-action-row';
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { SectionBlock } from '@/components/ui/section-block';
@@ -173,20 +173,6 @@ function BurnsPageInner() {
                 <Cpu className="h-4 w-4" />
               </BubbleButton>
             )}
-            {canWrite && (
-              // Designer round 5 review #2: "בחירה" used to be a FilterChip in the filter row,
-              // where it wrapped alone onto its own line at 360px (5 chips, 4 fit). Moved into
-              // the action row next to Excel/גנרטורים — one more icon toggle, not a stray chip.
-              <BubbleButton
-                variant={selectMode ? 'primary' : 'icon'}
-                size="sm"
-                aria-label="בחירה"
-                aria-pressed={selectMode}
-                onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-              >
-                <CheckSquare className="h-4 w-4" />
-              </BubbleButton>
-            )}
           </>
         }
       />
@@ -210,11 +196,21 @@ function BurnsPageInner() {
         />
       </label>
 
-      <div className="flex flex-wrap gap-1.5">
+      {/* Designer round 5 review — round 1 said "בחירה wraps alone, move it into the action row
+          OR make one horizontal-scroll chip row"; the action-row move broke PageActionRow's own
+          "at most 2 bubbles" contract for עידן/עמיחי (Excel + גנרטורים + בחירה = 3), which is
+          what pushed the two-line title into truncating mid-word. Horizontal scroll instead:
+          flex-nowrap + overflow-x-auto, never a second row, at any chip count. */}
+      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
         <FilterChip selected={!filter.kind || filter.kind === 'all'} onClick={() => setFilter(f => ({ ...f, kind: 'all' }))}>הכול</FilterChip>
         <FilterChip selected={filter.kind === 'CT'} onClick={() => toggleKind('CT')}>משנה זרם</FilterChip>
         <FilterChip selected={filter.kind === 'PP'} onClick={() => toggleKind('PP')}>תלת-פאזי</FilterChip>
         <FilterChip selected={!!filter.site} onClick={() => setSiteSheetOpen(true)}>{filter.site || 'קיבוץ'}</FilterChip>
+        {canWrite && (
+          <FilterChip selected={selectMode} onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}>
+            בחירה
+          </FilterChip>
+        )}
       </div>
 
       {bySite.length === 0 ? (

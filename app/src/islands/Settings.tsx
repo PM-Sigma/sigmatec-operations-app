@@ -401,7 +401,9 @@ function SettingsPanel() {
               <SectionBlock title="מסך פתיחה">
                 <ListRow
                   title="מסך פתיחה"
-                  meta={settings.landing === 'auto' ? 'המסך שנפתח כשאתה נכנס' : 'המסך שבחרת נפתח תמיד'}
+                  // Designer round 5 review, round 2: "המסך שנפתח כשאתה נכנס" wrapped at 360px
+                  // ("נכנס" alone on its own line) — shortened to fit on one line.
+                  meta={settings.landing === 'auto' ? 'נפתח אוטומטית' : 'המסך שבחרת נפתח תמיד'}
                   onClick={() => setLandingOpen(true)}
                   // Designer round 5 review #6: value + chevron, like every other row that opens
                   // a sub-sheet — an explicit `trailing` replaces ListRow's own default chevron

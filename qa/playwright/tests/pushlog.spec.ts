@@ -40,6 +40,7 @@ test('an unknown event mode shows the neutral Hebrew fallback, never a raw key o
   await expect(view.getByText('התראה אחרת')).toBeVisible({ timeout: 15_000 });
   await expect(view.getByText('someFutureMode')).toHaveCount(0);
 
+  await shot(page, ti, 'unknown-mode-fallback');
   expectNoConsoleErrors(rec);
 });
 

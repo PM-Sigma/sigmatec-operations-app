@@ -156,11 +156,33 @@ test('settings: no sentence explains the app to the user, or who else sees him (
 // Designer round 5 review #7: a full-scroll capture of every section, not just the ones the
 // other tests happen to touch — אביאם sees the field-only rows (תזכורת סוף יום, המשימות שלי
 // partner-tasks switch) that עידן doesn't, so this is the fuller of the two role views.
+// A tall viewport, not a style override: the dialog is max-h-[88svh] overflow-y-auto and
+// fixed+centered — mutating its own position/height fought the centering transform and (once)
+// caught an unrelated dialog in the same crop region. A 360×3200 viewport instead gives 88svh
+// (~2800px) more room than the sheet needs, so every section renders in normal flow with no
+// internal scroll and no style hacks; an element screenshot of the dialog alone then excludes
+// the home page AND any toast (both live outside the dialog's own box) by construction.
+async function fullScrollShot(page: any, ti: any, dlg: any, suffix: string) {
+  await page.evaluate(() => document.querySelectorAll('[data-sonner-toast]').forEach((el: Element) => el.remove()));
+  await dlg.screenshot({ path: `../../qa/playwright/shots/settings/${(ti.project.metadata as any).viewport}-${(ti.project.metadata as any).theme}-${suffix}.png` });
+}
+
 test('settings: full scroll — every section, one capture', async ({ page }, ti) => {
+  await page.setViewportSize({ width: (page.viewportSize()?.width) || 360, height: 3200 });
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   const dlg = await openSettings(page);
   await expect(dlg.getByText('תזכורת סוף יום')).toBeVisible();
   await expectRtl(page);
-  await shot(page, ti, 'full-scroll', { fullPage: true });
+  await fullScrollShot(page, ti, dlg, 'full-scroll');
+  expectNoConsoleErrors(rec);
+});
+
+test('settings: full scroll as עידן — includes the onboarding-template section אביאם never sees', async ({ page }, ti) => {
+  await page.setViewportSize({ width: (page.viewportSize()?.width) || 360, height: 3200 });
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByText('תבנית קליטת לקוח חדש')).toBeVisible();
+  await expectRtl(page);
+  await fullScrollShot(page, ti, dlg, 'full-scroll-idan');
   expectNoConsoleErrors(rec);
 });
