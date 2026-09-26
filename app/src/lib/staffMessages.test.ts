@@ -16,7 +16,7 @@ describe('staff messages (round 5, L4)', () => {
   });
 
   it('title', () => {
-    expect(unreadTitle(1)).toBe('הודעה חדשה');
+    expect(unreadTitle(1)).toBe('הודעה חדשה אחת');
     expect(unreadTitle(2)).toBe('2 הודעות חדשות');
   });
 });

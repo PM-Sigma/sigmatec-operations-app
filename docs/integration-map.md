@@ -62,7 +62,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsWrite` | js/src/00-bridge.js:356 | `emsWriteOrQueue` → js/src/13-ems.js:304 | app/src/lib/inventoryApi.test.ts:192<br>app/src/lib/inventoryApi.test.ts:285<br>app/src/lib/inventoryApi.ts:229<br>app/src/lib/inventoryApi.ts:407 |
 | `sigma.ensurePass` | js/src/00-bridge.js:537 | *(own logic)* | **—** |
 | `sigma.gapNag` | js/src/00-bridge.js:586 | `gapNag` → js/src/22-push.js:337 | app/src/islands/Gaps.tsx:205 |
-| `sigma.getCurrentUser` | js/src/00-bridge.js:259 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:406<br>app/src/islands/Burns.tsx:49<br>app/src/islands/DayLog.tsx:487<br>app/src/islands/DevPresenter.tsx:730<br>…+11 |
+| `sigma.getCurrentUser` | js/src/00-bridge.js:259 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:406<br>app/src/islands/Burns.tsx:49<br>app/src/islands/DayLog.tsx:487<br>app/src/islands/DevPresenter.tsx:730<br>…+12 |
 | `sigma.getEmsSites` | js/src/00-bridge.js:315 | `getEmsSites` → js/src/14-calendar.js:364 | app/src/components/home/HealthStrip.tsx:29<br>app/src/lib/ems/adapters/rest.ts:148 |
 | `sigma.getLastVisit` | js/src/00-bridge.js:419 | *(own logic)* | app/src/islands/Field.tsx:2074 |
 | `sigma.getRole` | js/src/00-bridge.js:260 | *(own logic)* | app/src/bridge.ts:407<br>app/src/islands/Feedback.tsx:183<br>app/src/islands/Feedback.tsx:671<br>app/src/lib/landing.ts:111<br>…+1 |
@@ -103,9 +103,9 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.sessionExpired` | js/src/00-bridge.js:533 | *(own logic)* | **—** |
 | `sigma.setAttPerson` | js/src/00-bridge.js:565 | `setAttPerson` → js/src/11-search-login.js:171 | app/src/islands/Attendance.tsx:343 |
 | `sigma.showPage` | js/src/00-bridge.js:271 | `showPage` → js/src/00-bridge.js:203 | app/src/components/alerts/AlertsPanel.tsx:14<br>app/src/components/alerts/AlertsPanel.tsx:18<br>app/src/components/home/Burns.tsx:334<br>app/src/components/MoreSheet.tsx:154<br>…+23 |
-| `sigma.STAFF_PEOPLE` | js/src/00-bridge.js:645 | *(own logic)* | app/src/islands/MessageSheet.tsx:39 |
-| `sigma.staffSendMessage` | js/src/00-bridge.js:640 | *(own logic)* | app/src/islands/MessageSheet.tsx:60 |
-| `sigma.toast` | js/src/00-bridge.js:650 | *(own logic)* | app/src/components/UserChip.tsx:83<br>app/src/islands/MessageSheet.tsx:62<br>app/src/islands/MessageSheet.tsx:65<br>app/src/islands/Usage.tsx:58<br>…+4 |
+| `sigma.STAFF_PEOPLE` | js/src/00-bridge.js:645 | *(own logic)* | app/src/islands/MessageSheet.tsx:71 |
+| `sigma.staffSendMessage` | js/src/00-bridge.js:640 | *(own logic)* | app/src/islands/MessageSheet.tsx:139 |
+| `sigma.toast` | js/src/00-bridge.js:650 | *(own logic)* | app/src/components/UserChip.tsx:83<br>app/src/islands/Usage.tsx:58<br>app/src/islands/Usage.tsx:59<br>app/src/lib/runAdd.test.ts:30<br>…+2 |
 | `sigma.track` | js/src/00-bridge.js:276 | *(own logic)* | app/src/islands/Hours.tsx:248<br>app/src/lib/inventoryApi.test.ts:205 |
 | `sigma.visitDraftDiscard` | js/src/00-bridge.js:495 | `visitDraftDiscard` → js/src/09-visits.js:743 | app/src/islands/Field.tsx:1354 |
 | `sigma.visitDraftFor` | js/src/00-bridge.js:494 | `visitDraftFor` → js/src/09-visits.js:727 | app/src/islands/Field.tsx:1248<br>app/src/islands/Field.tsx:2238<br>app/src/lib/visitDrafts.ts:70<br>app/src/lib/visitDrafts.ts:88 |
@@ -171,7 +171,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-inventory-strip` | :414 | app/src/islands/InventoryStrip.tsx:211<br>app/src/main.tsx:207 |
 | `#sigma-kibbutz-detail` | :1188 | app/src/main.tsx:166 |
 | `#sigma-meeting-review` | :1208 | app/src/islands/MeetingReview.tsx:646 |
-| `#sigma-message` | :1212 | app/src/islands/MessageSheet.tsx:113<br>app/src/main.tsx:297 |
+| `#sigma-message` | :1212 | app/src/islands/MessageSheet.tsx:315<br>app/src/main.tsx:297 |
 | `#sigma-my-tasks` | :1226 | app/src/islands/MyTasks.tsx:204<br>app/src/main.tsx:148 |
 | `#sigma-nav` | :1227 | app/src/main.tsx:102 |
 | `#sigma-presenter` | :1202 | app/src/islands/Presenter.tsx:1097<br>app/src/main.tsx:445 |
@@ -280,7 +280,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `presenter` | `Presentation` | app/src/islands/Presenter.tsx:1100 |
 | `presenter` | `Presentation` | app/src/main.tsx:469 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:502 |
-| `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:103 |
+| `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:305 |
 | `staff-message` | `Mail` | app/src/main.tsx:306 |
 | `stock-change` | `Package` | app/src/islands/StockChange.tsx:320 |
 | `usage` | `TrendingUp` | app/src/islands/Usage.tsx:332 |

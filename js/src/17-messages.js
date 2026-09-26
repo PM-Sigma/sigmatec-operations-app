@@ -26,7 +26,16 @@
       method: 'POST', headers: Object.assign(_staffHeaders(true), { Prefer: 'return=minimal' }),
       body: JSON.stringify({ to_person: toPerson, from_person: from, text: text })
     });
-    if (!r.ok) throw new Error('שמירה נכשלה (' + r.status + ')');
+    if (!r.ok) {
+      // X-U1: the postgrest error code rides on the thrown Error so a caller (MessageSheet)
+      // can tell "the RLS write policy said no" (42501, person-scoped messages, round 5 X-L2)
+      // apart from any other failure, without re-parsing the response itself.
+      var code = '';
+      try { var body = await r.json(); code = (body && body.code) || ''; } catch (e) { /* no body */ }
+      var err = new Error('שמירה נכשלה (' + r.status + ')');
+      err.code = code; err.status = r.status;
+      throw err;
+    }
   }
   async function staffFetchMessages(toPerson, unreadOnly) {
     let q = 'messages?select=*&to_person=eq.' + encodeURIComponent(toPerson) + '&order=created_at.desc';
