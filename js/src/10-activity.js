@@ -500,17 +500,17 @@
     }
   }
 
-  // ✏️ פרטי קיבוץ (card title). `window.sigmaHome` is published by the Home island; if the
-  // island has not mounted yet the button used to be omitted entirely and the ✏️ looked dead.
-  function openKibbutzDetails(ev) {
-    if (ev && ev.stopPropagation) ev.stopPropagation();
-    var api = window.sigmaHome;
-    if (api && typeof api.openSheet === 'function') { api.openSheet(window.currentKibbutz); return; }
-    var msg = 'פרטי הקיבוץ עוד נטענים. נסה שוב בעוד רגע';
-    if (typeof window.emsToast === 'function') window.emsToast(msg); else alert(msg);
-  }
-  window.openKibbutzDetails = openKibbutzDetails;
+  // openKibbutzDetails removed (round 5, K-U5): the title ✏️ it served was the modal's own,
+  // retired with #tab-meetings. KibbutzDetail's header ✏️ (K-U1) calls window.sigmaHome
+  // directly.
 
+  // Round 5, K-U5: reduced to the visit-form reset. The status-tab plumbing (island
+  // data-kibbutz stamps, the customer-code title, editorName/editEngagement, the read-only
+  // last-visit box, modalEmsSection) moved to KibbutzDetail/StatusTab (K-U1/K-U2) and is gone
+  // from here. V's own callers (openVisitQuick, visitQuickGo, openVisitFromAttendance) already
+  // moved OFF this and onto sigma.openVisitEditor (V-L4b, merged before this package started) —
+  // this function's only remaining caller is the delegated card-click handler below, and only
+  // in the pre-K-U1 era (before window.sigma.openKibbutzModal exists). V-U3 deletes it.
   function openEditModal(card) {
     const name = card.dataset.name;
     currentKibbutz = name;
@@ -519,41 +519,9 @@
     // `window.currentKibbutz`. Mirror it, or a certificate opened from the visit form comes
     // up with an empty kibbutz.
     window.currentKibbutz = name;
-    // → app/src/islands/ModalMeetings.tsx (🗓 ישיבות tab): the React root lives for the whole
-    // session and reads the kibbutz off this attribute.
-    var mtgSlot = document.getElementById('sigma-modal-meetings');
-    if (mtgSlot) mtgSlot.setAttribute('data-kibbutz', name);
-    // → app/src/islands/Burns.tsx (🔥 צריבות section, Task 23) — same one-root-per-session contract.
-    var burnSlot = document.getElementById('sigma-burns-modal');
-    if (burnSlot) burnSlot.setAttribute('data-kibbutz', name);
-    // → app/src/islands/Health.tsx (מצב הקיבוץ, Task 28) — same one-root-per-session contract.
-    var healthSlot = document.getElementById('sigma-health-modal');
-    if (healthSlot) healthSlot.setAttribute('data-kibbutz', name);
-    // → app/src/islands/InternalModal.tsx (🔒 משימות פנימיות, 22.9) — same contract.
-    var internalSlot = document.getElementById('sigma-internal-modal');
-    if (internalSlot) internalSlot.setAttribute('data-kibbutz', name);
     const task = (window.SHEET_DATA && window.SHEET_DATA.tasks || []).find(t => t.name === name);
-
-    // The customer code lives HERE and nowhere else (עידן, spec §2): muted, isolated in a
-    // <bdi> so a Hebrew name can never flip the digits, and off the home cards entirely.
-    const codeFor = (task && task.code) || (typeof customerCodeFor === 'function' ? customerCodeFor(name) : '');
-    // ✏️ פרטי קיבוץ — inside the card, next to the name, עידן only (22.9, D2/D10). It opens
-    // the same sheet the home page used to (app/src/islands/Home.tsx → window.sigmaHome).
-    // The ✏️ is rendered for עידן REGARDLESS of whether the Home island has published
-    // `window.sigmaHome` yet (22.9 N1: "it does nothing"). The click resolves the api at
-    // click time and says so out loud when it truly is not there, instead of no-op'ing.
-    var editBtn = (typeof isIdan === 'function' && isIdan())
-      ? ' <button type="button" class="modal-edit-kibbutz" title="פרטי קיבוץ" aria-label="פרטי קיבוץ" onclick="openKibbutzDetails(event)">✏️</button>'
-      : '';
-    // §N2: the kibbutz NAME is the modal's big title, with the ✏️ beside it. The sub-line
-    // keeps only the customer code (and the "קיבוץ:" prefix is gone — the title says it).
-    document.getElementById('modalTitle').innerHTML =
-      String(name).replace(/</g, '&lt;') + editBtn;
-    document.getElementById('modalSub').innerHTML =
-      (codeFor ? '<span style="opacity:.6;font-variant-numeric:tabular-nums;"><bdi>#' + String(codeFor).replace(/</g, '') + '</bdi></span>' : '');
-    document.getElementById('editorName').value = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
-    const parsedT = task ? parseTaskField(task.task) : { type: null };
-    document.getElementById('editEngagement').value = parsedT.type || '';
+    document.getElementById('modalTitle').innerHTML = String(name).replace(/</g, '&lt;');
+    document.getElementById('modalSub').innerHTML = '';
     window.currentEditTask = task || null;
     // Reset visit form
     window.editingVisitId = null;
@@ -567,7 +535,6 @@
     if (typeof prepVisitEmsBlock === 'function') prepVisitEmsBlock(name);   // Phase 2: in-form EMS update
     if (typeof visitContactsRender === 'function') visitContactsRender(name);   // 22.9 J5: the kibbutz's contacts as chips
     if (typeof visitOtherProductChanged === 'function') visitOtherProductChanged('');   // 22.9 J4: the catalog as suggestions
-    if (typeof prepModalEmsSection === 'function') prepModalEmsSection(name);   // update tab: open task / create-new below status
     // Date starts EMPTY on purpose — a pre-filled "today" was silently accepted when the visit was
     // actually on another day, which is the main source of mis-dated visits. saveVisit now refuses to
     // save without an explicit pick, so the user must choose the real date.
@@ -579,37 +546,24 @@
     applyUserRestrictions();
     renderProductsForVisitor();
     renderLastVisit(name);
-    // Read-only last-visit report above the status (renderLastVisit populated currentKibbutzVisits)
-    const elvBox = document.getElementById('editLastVisitBox');
-    const elvContent = document.getElementById('editLastVisitContent');
-    const lastV = (window.currentKibbutzVisits && window.currentKibbutzVisits[0]) || null;
-    const elvEdit = document.getElementById('editLastVisitEditBtn');
-    const elvCert = document.getElementById('editLastVisitCertBtn');
-    if (elvBox && elvContent) {
-      if (lastV) { elvContent.textContent = lastVisitText(lastV); elvBox.style.display = 'block'; }
-      else { elvBox.style.display = 'none'; }
-    }
-    // Round 4 · Package Z: the same two actions the ביקורים tab offers, on the tab the card
-    // actually opens on. תעודה only when that visit has equipment to put on one.
-    if (elvEdit) {
-      elvEdit.style.display = (lastV && lastV.id) ? 'inline-block' : 'none';
-      elvEdit.dataset.visitId = (lastV && lastV.id) || '';
-    }
-    if (elvCert) {
-      elvCert.style.display = (lastV && lastV.id && (lastV.products || []).length) ? 'inline-block' : 'none';
-      elvCert.dataset.visitId = (lastV && lastV.id) || '';
-    }
-    switchTab('meetings');
+    switchTab('visit');
     document.getElementById('modalBackdrop').classList.add('open');
   }
 
   // Cards are re-rendered from the `kibbutzim` table on every refresh, so the click
   // handler is DELEGATED instead of bound per card (a bound handler would die on re-render).
+  // Round 5, K-U3: routed through the ONE door (sigma.openKibbutzModal) instead of the legacy
+  // opener — KibbutzCard.tsx's own onClick already does this for a React card, so this listener
+  // now only matters for a card painted by the legacy fallback (React chunk failed to load).
   document.addEventListener('click', (e) => {
     const card = e.target && e.target.closest && e.target.closest('.kibbutz[data-name]');
     if (!card) return;
     e.stopPropagation();
-    openEditModal(card);
+    if (window.sigma && typeof window.sigma.openKibbutzModal === 'function') {
+      window.sigma.openKibbutzModal(card.dataset.name);
+    } else {
+      openEditModal(card);
+    }
   });
 
   // "ביקור אחרון" line on each card (latest visit from VISITS). Always rendered; prominent in meeting mode.
@@ -727,8 +681,8 @@
       enrichCardsWithSheet(snap);
       renderPotentials(snap);
       injectCustomerCodes();
-      applyCardLastVisit();
-      reorderCards();
+      // applyCardLastVisit / reorderCards dropped (round 5, K-U3) — see 24-kibbutzim.js's
+      // kibbutzimDecorate for why: the React card owns its own last-visit line and order now.
     }
 
     if (data) {

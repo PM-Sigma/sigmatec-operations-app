@@ -384,21 +384,8 @@
   // ⚠️ indicator (DATA, not a connection): mark every kibbutz card whose `kibbutzim` row has an
   // empty `ems_site_ids` — the same rule as the bell group (app/src/lib/alerts.ts
   // `emsUnlinkedGroup` over lib/kibbutzim.ts `isUnlinked`).
-  function applyCardSiteWarnings() {
-    document.querySelectorAll('.kibbutz[data-name]').forEach(card => {
-      card.querySelectorAll('.card-no-site').forEach(e => e.remove());   // clear stale
-      const nm = card.dataset.name;
-      if (!(typeof kibbutzIsUnlinked === 'function' && kibbutzIsUnlinked(nm))) return;
-      const chip = document.createElement('div');
-      chip.className = 'card-no-site';
-      chip.innerHTML = '⚠️ לא מקושר ל-EMS';
-      const anchor = card.querySelector(':scope > .excel-status')
-                  || card.querySelector(':scope > .kibbutz-name-row')
-                  || card.querySelector(':scope > .kibbutz-name');
-      if (anchor) anchor.insertAdjacentElement('afterend', chip); else card.appendChild(chip);
-    });
-  }
-  window.applyCardSiteWarnings = applyCardSiteWarnings;
+  // applyCardSiteWarnings removed (round 5, K-U5): KibbutzCard.tsx renders its own
+  // "לא מקושר ל-EMS" tag from isUnlinked(row) now (K9).
   // Click a task on a card: connected → full live detail (+comments); offline → cached read-only view.
   function openKibbutzEmsTask(id) {
     if (isEmsConnected()) { openEmsTask(id); return; }

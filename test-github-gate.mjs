@@ -70,23 +70,14 @@ const CALLERS = fs.readdirSync('app/src', { recursive: true })
   .filter((f) => f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.js'))
   .filter((f) => fs.statSync(f).isFile() && fs.readFileSync(f, 'utf8').includes('/functions/v1/github'));
 assert.deepStrictEqual(CALLERS.sort(), [
-  'app/src/islands/FeedbackInbox.tsx', 'app/src/lib/devBoard.ts', 'js/src/18-dev-tasks.js',
+  'app/src/islands/FeedbackInbox.tsx', 'app/src/lib/devBoard.ts',
 ], 'the set of github-function callers changed — check each new one sends a pass on its write calls');
 
 const feedbackInbox = fs.readFileSync('app/src/islands/FeedbackInbox.tsx', 'utf8');
 assert.match(feedbackInbox, /sigma\?\.sbPass\?\.\(\)\?\.token/, 'FeedbackInbox.tsx (createIssue) must send the pass too');
 assert.match(feedbackInbox, /Authorization:\s*'Bearer '\s*\+\s*\(pass \|\| SB_ANON\)/, 'FeedbackInbox.tsx: the pass travels in the Authorization header');
 
-const devTasks = fs.readFileSync('js/src/18-dev-tasks.js', 'utf8');
-assert.match(devTasks, /window\.sigma\.sbPass\(\)/, 'devWriteField (setStatus/setPriority) must send the pass too');
-assert.match(devTasks, /Authorization:\s*'Bearer '\s*\+\s*\(\(pass && pass\.token\) \|\| SB_ANON\)/,
-  'devWriteField: the pass travels in the Authorization header');
-// The READ call (devFetchTasks) is deliberately anon-key-only — reads stay open to any EMS login.
-{
-  const at = devTasks.indexOf('async function devFetchTasks');
-  const next = devTasks.indexOf('async function devWriteField');
-  const readBlock = devTasks.slice(at, next);
-  assert.match(readBlock, /Authorization: 'Bearer ' \+ SB_ANON/, 'the read call stays anon-key-only, unchanged');
-}
+// js/src/18-dev-tasks.js — retired D-U3 (round 5 package D). devBoard.ts (above) is now the
+// ONLY dev-board caller, on the React side; its own pass/Authorization checks already cover it.
 
-console.log('github gate OK — canWrite pinned to WRITERS, index.ts + every write caller (devBoard.ts, FeedbackInbox.tsx, 18-dev-tasks.js) verified (not deployed)');
+console.log('github gate OK — canWrite pinned to WRITERS, index.ts + every write caller (devBoard.ts, FeedbackInbox.tsx) verified (not deployed)');
