@@ -7,19 +7,24 @@
 // Everything else about a holiday is a fact, not a preference, so there is nothing to edit.
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SectionBlock } from '@/components/ui/section-block';
+import { SectionError } from '@/components/ui/section-error';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ListRow } from '@/components/ui/list-row';
+import { BubbleButton } from '@/components/ui/bubble-button';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma } from '@/bridge';
-import { dayChip, holidayShort, ymd, type Holiday } from '@/lib/attendance';
+import { dayChip, HE_MONTHS, holidayShort, isHolidayEve, ymd, type Holiday } from '@/lib/attendance';
 
 const OPEN_EVENT = 'sigma-holidays-open';
 
@@ -76,6 +81,19 @@ function HolidaysIsland() {
 
   const rows = q.data || [];
 
+  // One SectionBlock per month, oldest-first inside a month (already sorted by the query).
+  const byMonth = React.useMemo(() => {
+    const groups: { key: string; title: string; rows: Holiday[] }[] = [];
+    for (const h of rows) {
+      const [y, m] = h.date.split('-').map(Number);
+      const key = h.date.slice(0, 7);
+      let g = groups.find(x => x.key === key);
+      if (!g) { g = { key, title: HE_MONTHS[m - 1] + ' ' + y, rows: [] }; groups.push(g); }
+      g.rows.push(h);
+    }
+    return groups;
+  }, [rows]);
+
   // §7p: a half-entered closure (date + name) is not thrown away by a stray tap.
   const guard = useUnsavedGuard({
     dirty: () => date !== '' || name.trim() !== '',
@@ -87,58 +105,63 @@ function HolidaysIsland() {
     <Sheet open={open} onOpenChange={guard.onOpenChange(setOpen)}>
       <SheetContent side="bottom" data-testid="holidays-sheet" className="max-h-[88svh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader className="text-start">
-          <SheetTitle>🕎 חגים וסגירות</SheetTitle>
+          <SheetTitle>חגים וסגירות</SheetTitle>
           <SheetDescription>בימים האלה לא נדרשת נוכחות. אפשר להזין נוכחות בכל זאת, היא נספרת כיום עבודה.</SheetDescription>
         </SheetHeader>
 
-        <div className="mt-3 space-y-1.5">
+        <div className="mt-3 flex flex-col gap-3">
           {q.isLoading && <Skeleton className="h-40 w-full rounded-[12px]" />}
-          {!q.isLoading && !rows.length && <p className="text-[13px] text-muted-foreground">אין חגים קרובים בלוח.</p>}
-          {rows.map(h => (
-            <div key={h.date} data-holiday={h.date} className="flex items-center gap-2 rounded-[10px] border border-border bg-card px-2.5 py-2">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13.5px] font-bold"><bdi>{h.name}</bdi></div>
-                <div className="text-[11.5px] text-muted-foreground">
-                  <bdi>{dayChip(h.date)}</bdi> · {holidayShort(h)}
-                </div>
-              </div>
-              <label className="flex flex-none items-center gap-1.5 text-[11.5px] font-semibold text-muted-foreground">
-                נדרשת נוכחות
-                <Switch
-                  checked={!!h.required}
-                  aria-label={'נדרשת נוכחות ב' + h.name}
-                  disabled={toggle.isPending}
-                  onCheckedChange={v => toggle.mutate({ date: h.date, required: v })}
-                />
-              </label>
-            </div>
+          {q.isError && (
+            <SectionError text="לא הצלחנו לטעון את החגים." onRetry={() => void qc.invalidateQueries({ queryKey: ['companyHolidays'] })} />
+          )}
+          {!q.isLoading && !q.isError && !rows.length && (
+            <EmptyState icon={<CalendarDays />} title="אין חגים ברשימה." />
+          )}
+          {byMonth.map(g => (
+            <SectionBlock key={g.key} title={g.title} titleRole="holiday">
+              {g.rows.map(h => {
+                const eve = isHolidayEve(h);
+                return (
+                  <ListRow
+                    key={h.date}
+                    data-holiday={h.date}
+                    leading={<span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[var(--holiday-ink)]" />}
+                    title={h.name}
+                    meta={<><bdi>{dayChip(h.date)}</bdi>{eve ? ' · ערב חג' : h.kind !== 'holiday' ? ' · ' + holidayShort(h) : ''}</>}
+                    trailing={
+                      <Switch
+                        checked={!h.required}
+                        aria-label={'המשרד סגור ב' + h.name}
+                        disabled={toggle.isPending}
+                        onCheckedChange={v => toggle.mutate({ date: h.date, required: !v })}
+                      />
+                    }
+                  />
+                );
+              })}
+            </SectionBlock>
           ))}
         </div>
 
         <form
-          className="mt-4 rounded-[12px] border border-border bg-muted p-3"
+          className="mt-4 flex flex-wrap gap-2 rounded-[var(--r-lg)] bg-muted p-3"
           onSubmit={e => { e.preventDefault(); if (date && name.trim()) add.mutate(); }}
         >
-          <div className="mb-2 text-[13px] font-bold">הוספת סגירת חברה</div>
-          <div className="flex flex-wrap gap-2">
-            <input
-              type="date" value={date} onChange={e => setDate(e.target.value)} required aria-label="תאריך"
-              className="h-10 flex-none rounded-[10px] border border-border bg-background px-2.5 text-[13px]"
-            />
-            <input
-              value={name} onChange={e => setName(e.target.value)} required aria-label="שם הסגירה"
-              placeholder="יום גיבוש, סגירת משרד…"
-              className="h-10 min-w-0 flex-1 rounded-[10px] border border-border bg-background px-3 text-[13px]"
-            />
-            <button
-              type="submit" data-testid="holiday-add" disabled={add.isPending || !date || !name.trim()}
-              aria-busy={add.isPending || undefined}
-              className="inline-flex min-h-10 flex-none items-center justify-center gap-1.5 rounded-[10px] s-brand px-4 text-[13px] font-extrabold disabled:opacity-50"
-            >
-              {add.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-              הוספה
-            </button>
-          </div>
+          <input
+            type="date" value={date} onChange={e => setDate(e.target.value)} required aria-label="תאריך"
+            className="h-12 flex-none rounded-[10px] border border-border bg-background px-2.5 text-[13px]"
+          />
+          <input
+            value={name} onChange={e => setName(e.target.value)} required aria-label="שם הסגירה"
+            placeholder="יום גיבוש, סגירת משרד…"
+            className="h-12 min-w-0 flex-1 rounded-[10px] border border-border bg-background px-3 text-[13px]"
+          />
+          <BubbleButton
+            type="submit" variant="tonal" data-testid="holiday-add"
+            disabled={add.isPending || !date || !name.trim()} aria-busy={add.isPending || undefined}
+          >
+            הוספה
+          </BubbleButton>
         </form>
         {guard.prompt}
       </SheetContent>

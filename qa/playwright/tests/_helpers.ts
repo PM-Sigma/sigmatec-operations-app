@@ -883,5 +883,15 @@ export function skipKnownMobile360(testInfo: TestInfo): void {
   if (entry) test.skip(true, `mobile-360-known.json (package ${entry.package}): ${entry.reason}`);
 }
 
+/** Pick an option from a `components/ui/select.tsx` (Radix) trigger — round 5 R replaced several
+    native `<select>`s with it, so a plain `.selectOption()` no longer applies. Opens the
+    trigger, clicks the option by its visible text (a substring is enough — several options
+    carry a live count/qty suffix), and waits for the trigger to reflect the new value. */
+export async function selectRadix(scope: Locator, triggerTestId: string, optionText: string): Promise<void> {
+  const trigger = scope.getByTestId(triggerTestId);
+  await trigger.click();
+  await scope.page().getByRole('option', { name: new RegExp(optionText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).click();
+}
+
 export const test = base;
 export { expect };

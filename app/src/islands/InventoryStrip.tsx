@@ -15,18 +15,29 @@
 // the shell.
 import * as React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, SlidersHorizontal } from 'lucide-react';
+import {
+  CircleCheck, Hourglass, Link as LinkIcon, Loader2, Minus, PackageCheck, Plus,
+  SlidersHorizontal, Truck, TriangleAlert,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
+import { SectionBlock } from '@/components/ui/section-block';
+import { ListRow } from '@/components/ui/list-row';
+import { Tag } from '@/components/ui/chip';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { fmtUnit } from '@/lib/format';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { canSetMinQty, orderStripRows, STRIP_STAGES, type OrderLike, type StripRow } from '@/lib/orderStrip';
+
+/** note.icon (round 5 L1, lucide names) → the actual component the row's Tag draws. */
+const NOTE_ICON = { TriangleAlert, CircleCheck, PackageCheck, Truck, Link: LinkIcon, Hourglass } as const;
 
 export const MINQTY_OPEN_EVENT = 'sigma-open-min-qty';
 
@@ -45,30 +56,43 @@ function catalogNow(): string[] {
 
 // ───────────────────────────── the strip ─────────────────────────────
 
-function Stages({ row }: { row: StripRow }) {
-  if (row.dropShip) {
-    return <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-bold text-muted-foreground">ספק ישיר</span>;
-  }
+/** The 4-stage progress bar (dataviz mark spec: 2px surface gaps, current stage labelled). Plain
+    SVG/CSS, not a chart lib — this is a status mark, not data to explore. */
+function StageBar({ row }: { row: StripRow }) {
+  if (row.dropShip) return <Tag role="neutral">ספק ישיר</Tag>;
+  const n = STRIP_STAGES.length;
   return (
-    <span className="flex flex-none items-center gap-1" aria-label={STRIP_STAGES[row.stage]}>
-      {STRIP_STAGES.map((s, i) => (
-        <span
-          key={s}
-          title={s}
-          className={`size-2 rounded-full ${i <= row.stage ? 'bg-[var(--brand-2)]' : 'bg-[var(--border)]'}`}
-        />
-      ))}
-    </span>
+    <div className="mt-1.5 flex items-center gap-2">
+      <div className="flex flex-1 gap-0.5" role="img" aria-label={`שלב ${row.stage + 1} מתוך ${n}`}>
+        {STRIP_STAGES.map((s, i) => (
+          <span
+            key={s}
+            className="h-1.5 flex-1 rounded-full"
+            style={{ background: i <= row.stage ? 'var(--brand-2)' : 'var(--border)' }}
+          />
+        ))}
+      </div>
+      <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">{STRIP_STAGES[row.stage]}</span>
+    </div>
   );
 }
 
-const LEVEL_CLASS: Record<string, string> = {
-  late: 'text-[var(--priority)]',
-  action: 'text-[var(--warning)]',
-  waiting: 'text-muted-foreground',
-  transit: 'text-muted-foreground',
-  done: 'text-muted-foreground',
-};
+function OrderRow({ row }: { row: StripRow }) {
+  const Icon = NOTE_ICON[row.note.icon];
+  return (
+    <ListRow
+      data-order-row={row.id}
+      onClick={() => { track('order-strip-open', row.id); try { sigma.openOrder?.(row.id); } catch { /* legacy not up */ } }}
+      title={<>{row.title} <span className="font-normal text-muted-foreground">{fmtUnit(row.qty, 'פריטים')}</span></>}
+      meta={
+        <>
+          <Tag role={row.note.role} className="gap-1"><Icon className="h-3 w-3" aria-hidden />{row.note.text}</Tag>
+          <StageBar row={row} />
+        </>
+      }
+    />
+  );
+}
 
 function OrdersStrip() {
   const [tick, setTick] = React.useState(0);
@@ -76,30 +100,10 @@ function OrdersStrip() {
   const rows = React.useMemo(() => orderStripRows(ordersNow(), today(), catalogNow()), [tick]);
   if (!rows.length) return null;
   return (
-    <div className="mb-3" data-testid="order-strip">
-      <h4 className="mb-1.5 text-[13px] font-extrabold text-foreground">🧾 הזמנות פתוחות</h4>
-      <ul className="rounded-[12px] border border-border bg-card">
-        {rows.map(row => (
-          <li key={row.id} className="border-b border-border last:border-b-0">
-            <button
-              type="button"
-              data-order-row={row.id}
-              onClick={() => { track('order-strip-open', row.id); try { sigma.openOrder?.(row.id); } catch { /* legacy not up */ } }}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-start"
-            >
-              <Stages row={row} />
-              <span className="flex-1 text-[13px] font-bold text-foreground">
-                {row.title} <span className="text-[12px] font-normal text-muted-foreground"><bdi>{row.qty}</bdi> פריטים</span>
-              </span>
-              <span className={`text-[12px] ${LEVEL_CLASS[row.note.level] ?? ''}`}>
-                {/* row.note.icon is now a lucide icon NAME (round 5, L1), not a glyph to print;
-                    the icon itself is rendered in U9, once InventoryStrip is on the design system. */}
-                {row.note.text}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div data-testid="order-strip">
+      <SectionBlock title="הזמנות פתוחות" count={rows.length} className="mb-3">
+        {rows.map(row => <OrderRow key={row.id} row={row} />)}
+      </SectionBlock>
     </div>
   );
 }
@@ -114,7 +118,53 @@ async function fetchProducts(): Promise<ProductRow[]> {
   return ((data ?? []) as ProductRow[]).filter(p => p.active !== false);
 }
 
-function MinQtySheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+function MinQtyRow({ p, mayEdit, saving, onSave }: {
+  p: ProductRow; mayEdit: boolean; saving: boolean; onSave: (raw: string) => void;
+}) {
+  const [val, setVal] = React.useState(String(p.min_qty ?? ''));
+  React.useEffect(() => { setVal(String(p.min_qty ?? '')); }, [p.min_qty]);
+  const step = (delta: number) => {
+    const next = Math.max(0, (Number(val) || 0) + delta);
+    setVal(String(next));
+    onSave(String(next));
+  };
+  return (
+    <ListRow
+      title={<span className="break-all">{p.name}</span>}
+      trailing={
+        mayEdit ? (
+          <span className="flex shrink-0 items-center gap-0.5">
+            {saving && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}
+            <BubbleButton
+              variant="icon" size="sm" aria-label={`הפחתת מינימום ${p.name}`}
+              onClick={() => step(-1)}
+            >
+              <Minus className="size-3.5" aria-hidden />
+            </BubbleButton>
+            <input
+              type="number" min={0} inputMode="numeric" data-minqty={p.name} aria-label={`מינימום מלאי ${p.name}`} data-hit-slop
+              value={val}
+              onChange={e => setVal(e.target.value)}
+              onBlur={e => onSave(e.currentTarget.value)}
+              className="h-12 w-10 rounded-[10px] border border-border bg-card px-0.5 text-center text-[13px] tabular-nums text-foreground"
+              dir="ltr"
+            />
+            <BubbleButton
+              variant="icon" size="sm" aria-label={`הוספת מינימום ${p.name}`}
+              onClick={() => step(1)}
+            >
+              <Plus className="size-3.5" aria-hidden />
+            </BubbleButton>
+          </span>
+        ) : (
+          <span className="tabular-nums text-muted-foreground">{p.min_qty ?? '—'}</span>
+        )
+      }
+    />
+  );
+}
+
+function MinQtySheet({ open, onOpenChange, mayEdit }: { open: boolean; onOpenChange: (v: boolean) => void; mayEdit: boolean }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['productMinQty'], queryFn: fetchProducts, enabled: open });
   const [saving, setSaving] = React.useState('');
@@ -135,42 +185,36 @@ function MinQtySheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: 
     } finally { setSaving(''); }
   };
 
-  // §7p, wired for completeness: each minimum saves on blur (`save` above), so this sheet
+  // §7p, wired for completeness: each minimum saves on blur/step (`save` above), so this sheet
   // never holds a draft and the predicate is honestly false.
   const guard = useUnsavedGuard({ dirty: () => false, onClose: () => onOpenChange(false) });
 
+  // modal={false} below: Radix's scroll-lock (padding-right compensation for the removed
+  // scrollbar) reflows the legacy `.inv-tabs`/`.side-panel` markup underneath just enough to
+  // expose their own pre-existing ~8px horizontal overflow (not this sheet's own content —
+  // package I owns that legacy inventory page). A non-modal sheet skips the lock; the
+  // backdrop still closes it on an outside tap.
   return (
-    <Sheet open={open} onOpenChange={guard.onOpenChange(onOpenChange)}>
+    <Sheet open={open} onOpenChange={guard.onOpenChange(onOpenChange)} modal={false}>
       <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader>
-          <SheetTitle>🎚 מינימום מלאי</SheetTitle>
+          <SheetTitle>מינימום מלאי</SheetTitle>
           <SheetDescription>כמה יחידות במלאי החברה מצדיקות התראה</SheetDescription>
         </SheetHeader>
-        <ul className="mt-1" data-testid="minqty-list">
+        <div className="-mx-4 mt-1 divide-y divide-border" data-testid="minqty-list">
           {(q.data ?? []).map(p => (
-            <li key={p.name} className="flex items-center gap-2 border-b border-border py-2 last:border-b-0">
-              <span className="flex-1 text-[13px] text-foreground">{p.name}</span>
-              {saving === p.name && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                data-minqty={p.name}
-                defaultValue={p.min_qty ?? ''}
-                onBlur={e => save(p, e.currentTarget.value)}
-                className="h-9 w-20 rounded-[10px] border border-border bg-card px-2 text-center text-[13px] text-foreground"
-                dir="ltr"
-              />
-            </li>
+            <MinQtyRow key={p.name} p={p} mayEdit={mayEdit} saving={saving === p.name} onSave={raw => void save(p, raw)} />
           ))}
-        </ul>
+        </div>
         {guard.prompt}
       </SheetContent>
     </Sheet>
   );
 }
 
-function InventoryStripIsland() {
+/** The strip's own markup, no mount/provider wrapping — package I's React inventory page
+    renders this wherever it wants once it retires the legacy מלאי page (round 5 U9). */
+export function InventoryStripPanel() {
   const { name: user, isViewer } = useCurrentUser();
   const [minOpen, setMinOpen] = React.useState(false);
   const mayEdit = canSetMinQty(user, isViewer);
@@ -185,16 +229,15 @@ function InventoryStripIsland() {
     <div>
       <OrdersStrip />
       {mayEdit && (
-        <button
-          type="button"
-          data-testid="minqty-open"
+        <BubbleButton
+          variant="tonal" size="sm" className="mb-2" data-testid="minqty-open"
+          icon={<SlidersHorizontal className="size-4" aria-hidden />}
           onClick={() => { track('minqty-open'); setMinOpen(true); }}
-          className="mb-2 inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-border bg-card px-3 text-[12px] font-bold text-foreground"
         >
-          <SlidersHorizontal className="size-4" /> מינימום מלאי
-        </button>
+          מינימום מלאי
+        </BubbleButton>
       )}
-      {mayEdit && <MinQtySheet open={minOpen} onOpenChange={setMinOpen} />}
+      <MinQtySheet open={minOpen} onOpenChange={setMinOpen} mayEdit={mayEdit} />
     </div>
   );
 }
@@ -202,7 +245,7 @@ function InventoryStripIsland() {
 export function InventoryStrip() {
   return (
     <SigmaProviders>
-      <InventoryStripIsland />
+      <InventoryStripPanel />
     </SigmaProviders>
   );
 }

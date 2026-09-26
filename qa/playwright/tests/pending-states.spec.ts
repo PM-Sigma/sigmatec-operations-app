@@ -25,7 +25,7 @@
 // state within 100 ms, and a Hebrew failure with a retry — and the numbers in the sketch would
 // have put this one spec at roughly forty minutes across four projects for no extra coverage.
 // The 100 ms rule is what the delay exists to test, and 1.2 s tests it twelve times over.
-import { boot, expect, expectNoConsoleErrors, shot, skipKnownMobile360, test, SB_ORIGIN } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, selectRadix, shot, skipKnownMobile360, test, SB_ORIGIN } from './_helpers';
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
 test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
@@ -386,9 +386,9 @@ async function openRecountSheet(page: any) {
   await page.locator('#invReportChange').click();
   const sheet = page.getByTestId('stock-change-sheet');
   await expect(sheet).toBeVisible({ timeout: 15_000 });
-  await sheet.getByTestId('sc-product').selectOption('סים 1NCE');
-  await sheet.getByTestId('sc-dir-decrease').click();
-  await sheet.getByTestId('sc-src-recount').click();
+  await selectRadix(sheet, 'sc-product', 'סים 1NCE');
+  await sheet.getByRole('radio', { name: 'ירד' }).click();
+  await sheet.getByRole('radio', { name: 'ספירה מחדש' }).click();
   await sheet.getByTestId('sc-counted').fill('1');
   await sheet.getByTestId('sc-note').fill('נספר במחסן — בדיקת עומס');
   return sheet;

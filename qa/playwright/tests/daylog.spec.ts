@@ -10,7 +10,7 @@
 //     they do — the delivery-cert gate, the stock movement, the queue-when-offline comment —
 //     is pinned by test-daylog.mjs against the real source. Here we assert the island calls
 //     them, once per card, with the right payload: the seam between the two halves.
-import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test, SB_ORIGIN } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, selectRadix, shot, test, SB_ORIGIN } from './_helpers';
 
 const DAY_TEXT =
   'היום הייתי בדפנה והחלפתי מונה ראשי בלול, נשאר לחבר בקר. ' +
@@ -95,7 +95,7 @@ test('day log: three kibbutzim → three cards → fix one → שמור הכל s
   // Card 3 did not resolve — it opens a picker rather than a guessed name.
   const picker = page.getByTestId('daylog-kibbutz-pick');
   await expect(picker).toHaveCount(1);
-  await picker.selectOption('כפר עזה');
+  await selectRadix(page.locator('body'), 'daylog-kibbutz-pick', 'כפר עזה');
 
   // And the person edits what the AI wrote for card 2.
   await cards.nth(1).getByTestId('daylog-summary').fill('בדקתי תקשורת — תקין');

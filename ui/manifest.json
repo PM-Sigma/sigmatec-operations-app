@@ -52,6 +52,7 @@
   "./ui/sigma-kibbutzRows.js",
   "./ui/sigma-kibbutzVisits.js",
   "./ui/sigma-lightbulb.js",
+  "./ui/sigma-link.js",
   "./ui/sigma-list-row.js",
   "./ui/sigma-list-todo.js",
   "./ui/sigma-lock.js",

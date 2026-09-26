@@ -147,6 +147,37 @@ const SCREENS: Screen[] = [
       await expect(p.getByRole('dialog').filter({ hasText: 'הגדרות' })).toBeVisible();
     },
   },
+  // Round 5, package R (R-8/R-9/R-10/R-11 — U7/U8/U9): holidays, day log and the inventory
+  // strip's two sheets, rebuilt on the design system. No allow-list line (R-24).
+  {
+    label: 'holidays-sheet',
+    open: async p => {
+      await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-holidays-open')));
+      await p.getByTestId('holidays-sheet').waitFor();
+    },
+  },
+  {
+    label: 'daylog-sheet',
+    open: async p => {
+      await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-daylog')));
+      await p.getByTestId('daylog-sheet').waitFor();
+    },
+  },
+  {
+    label: 'stock-change-sheet',
+    open: async p => {
+      await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-stock-change', { detail: { product: '' } })));
+      await p.getByTestId('stock-change-sheet').waitFor();
+    },
+  },
+  {
+    label: 'min-qty-sheet',
+    open: async p => {
+      await openPage(p, 'inventory', 'inventory-view');
+      await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-min-qty')));
+      await p.getByTestId('minqty-list').waitFor();
+    },
+  },
 ];
 
 test.describe('no-overlap sweep', () => {

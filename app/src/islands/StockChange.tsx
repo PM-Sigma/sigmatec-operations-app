@@ -10,12 +10,15 @@
 //
 // Copy rules (master spec §6): nothing here explains the app's mechanics. It asks what happened.
 import * as React from 'react';
-import { ArrowDownLeft, ArrowUpRight, Loader2, Package } from 'lucide-react';
+import { ChevronDown, Loader2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Textarea } from '@/components/ui/textarea';
+import { BubbleButton } from '@/components/ui/bubble-button';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
@@ -67,6 +70,57 @@ function productNames(): string[] {
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 // ───────────────────────────── the sheet ─────────────────────────────
+
+/**
+ * A minimal listbox picker, not `components/ui/select.tsx` (round 5, N4): that component's
+ * `SelectContent` portals to `document.body` with no `.sigma-root` wrapper (unlike
+ * `sheet.tsx`'s own `SheetPortal`, which explicitly re-adds one — see its comment), and
+ * Tailwind's `important: '.sigma-root'` means a portalled node outside that ancestor gets NONE
+ * of its utility classes applied. Nested one level inside this sheet, the options render
+ * unstyled and unpositioned, sitting under the sheet's own overlay. Flagged to the
+ * designer/DS owner; until it's fixed, this sheet renders its own tiny listbox INLINE (no
+ * portal, so it inherits the sheet's `.sigma-root` scope for free) with the same
+ * button+listbox+option ARIA shape a real `ui/select` would have.
+ */
+function InlinePicker<T extends string>({ value, placeholder, options, onChange, testId }: {
+  value?: T; placeholder: string; options: Array<{ value: T; label: string }>;
+  onChange: (v: T) => void; testId?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+  const current = options.find(o => o.value === value);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button" data-testid={testId} aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        className="mt-1 flex h-12 w-full items-center justify-between gap-1 rounded-xl border border-border bg-card px-3 text-[15px]"
+      >
+        <span className={'min-w-0 truncate ' + (current ? '' : 'text-muted-foreground')}>{current ? current.label : placeholder}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+      </button>
+      {open && (
+        <ul role="listbox" className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-border bg-card p-1 text-[14px] shadow-md">
+          {options.map(o => (
+            <li
+              key={o.value} role="option" aria-selected={o.value === value}
+              className="cursor-default rounded-lg px-2.5 py-1.5 hover:bg-secondary"
+              onClick={() => { onChange(o.value); setOpen(false); }}
+            >
+              {o.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function StockChangeSheet() {
   const first = React.useRef(pendingOpen);
@@ -167,41 +221,29 @@ function StockChangeSheet() {
     onClose: close,
   });
 
-  const Choice = ({ on, onClick, testId, children }: { on: boolean; onClick: () => void; testId: string; children: React.ReactNode }) => (
-    <button
-      type="button"
-      data-testid={testId}
-      onClick={onClick}
-      className={'min-h-[48px] flex-1 rounded-xl border px-3 text-[14px] font-bold '
-        + (on ? 'border-transparent s-brand' : 'border-border bg-card text-foreground')}
-    >
-      {children}
-    </button>
-  );
+  const decreaseSources = [{ value: 'visit' as const, label: 'סיכום ביקור' }, { value: 'recount' as const, label: 'ספירה מחדש' }];
+  const increaseSources = [{ value: 'order' as const, label: 'הזמנת ספק' }, { value: 'recount' as const, label: 'ספירה מחדש' }];
 
   return (
     <Sheet open={open} onOpenChange={o => (o ? setOpen(true) : close())}>
       <SheetContent side="bottom" dir="rtl" data-testid="stock-change-sheet" className="max-h-[92vh] overflow-y-auto" {...guard.contentProps}>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2 text-[17px]">
-            <Package className="h-5 w-5" /> דיווח שינוי במלאי
+            <Package className="h-5 w-5" aria-hidden /> דיווח שינוי במלאי
           </SheetTitle>
           <SheetDescription className="text-[13px]">מה קרה למלאי של {POOL}?</SheetDescription>
         </SheetHeader>
 
         <div className="mt-2 space-y-4">
           <div>
-            <label className="text-[13px] font-bold" htmlFor="scProduct">פריט</label>
-            <select
-              id="scProduct"
-              data-testid="sc-product"
-              value={product}
-              onChange={e => setProduct(e.target.value)}
-              className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-card px-2 text-[15px]"
-            >
-              <option value="">— בחר —</option>
-              {names.map(n => <option key={n} value={n}>{n}{pool[n] != null ? ` (${pool[n]})` : ''}</option>)}
-            </select>
+            <label className="text-[13px] font-bold">פריט</label>
+            <InlinePicker
+              testId="sc-product"
+              placeholder="בחירת פריט"
+              value={product || undefined}
+              options={names.map(n => ({ value: n, label: n + (pool[n] != null ? ` (${pool[n]})` : '') }))}
+              onChange={setProduct}
+            />
             {!!product && (
               <div className="mt-1 text-[13px] font-semibold text-muted-foreground">
                 במאגר עכשיו: <bdi>{current}</bdi>
@@ -209,48 +251,36 @@ function StockChangeSheet() {
             )}
           </div>
 
-          <div className="flex gap-2">
-            <Choice testId="sc-dir-decrease" on={direction === 'decrease'} onClick={() => { setDirection('decrease'); setSource(''); }}>
-              <ArrowDownLeft className="me-1 inline h-4 w-4" /> ירד
-            </Choice>
-            <Choice testId="sc-dir-increase" on={direction === 'increase'} onClick={() => { setDirection('increase'); setSource(''); }}>
-              <ArrowUpRight className="me-1 inline h-4 w-4" /> עלה
-            </Choice>
-          </div>
+          <SegmentedControl
+            ariaLabel="כיוון השינוי"
+            options={[{ value: 'decrease', label: 'ירד' }, { value: 'increase', label: 'עלה' }] as const}
+            value={direction || 'decrease'}
+            onChange={v => { setDirection(v as StockDirection); setSource(''); }}
+          />
 
           {direction === 'decrease' && (
-            <div className="flex gap-2">
-              <Choice testId="sc-src-visit" on={source === 'visit'} onClick={() => setSource('visit')}>📍 יצא בביקור</Choice>
-              <Choice testId="sc-src-recount" on={source === 'recount'} onClick={() => setSource('recount')}>🔢 ספירה מחדש</Choice>
-            </div>
+            <SegmentedControl ariaLabel="מקור השינוי" options={decreaseSources} value={(source || 'visit') as 'visit' | 'recount'} onChange={v => setSource(v as StockSource)} />
           )}
           {direction === 'increase' && (
-            <div className="flex gap-2">
-              <Choice testId="sc-src-order" on={source === 'order'} onClick={() => setSource('order')}>🧾 הזמנה</Choice>
-              <Choice testId="sc-src-recount" on={source === 'recount'} onClick={() => setSource('recount')}>🔢 ספירה מחדש</Choice>
-            </div>
+            <SegmentedControl ariaLabel="מקור השינוי" options={increaseSources} value={(source || 'order') as 'order' | 'recount'} onChange={v => setSource(v as StockSource)} />
           )}
 
           {source === 'order' && (
             <div>
-              <label className="text-[13px] font-bold" htmlFor="scOrder">איזו הזמנה הגיעה?</label>
-              <select
-                id="scOrder"
-                data-testid="sc-order"
-                value={orderId}
-                onChange={e => setOrderId(e.target.value)}
-                className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-card px-2 text-[15px]"
-              >
-                <option value="">— בחר —</option>
-                {orders.map(o => (
-                  <option key={String(o.id)} value={String(o.id)}>
-                    {(o.supplier || 'ספק') + ' · ' + (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 60)}
-                  </option>
-                ))}
-              </select>
+              <label className="text-[13px] font-bold">איזו הזמנה הגיעה</label>
+              <InlinePicker
+                testId="sc-order"
+                placeholder="בחירת הזמנה"
+                value={orderId || undefined}
+                options={orders.map(o => ({
+                  value: String(o.id),
+                  label: (o.supplier || 'ספק') + ' · ' + (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ').slice(0, 60),
+                }))}
+                onChange={setOrderId}
+              />
               {orders.length === 0 && (
                 <div className="mt-1 text-[13px] text-muted-foreground">
-                  אין הזמנת ספק פתוחה. פתח הזמנה חדשה, או דווח ספירה מחדש.
+                  אין הזמנת ספק פתוחה. אפשר לפתוח הזמנה חדשה, או לדווח ספירה מחדש.
                 </div>
               )}
             </div>
@@ -259,7 +289,7 @@ function StockChangeSheet() {
           {source === 'recount' && (
             <>
               <div>
-                <label className="text-[13px] font-bold" htmlFor="scCounted">כמה נספרו בפועל?</label>
+                <label className="text-[13px] font-bold" htmlFor="scCounted">כמה נספרו בפועל</label>
                 <input
                   id="scCounted"
                   data-testid="sc-counted"
@@ -273,31 +303,30 @@ function StockChangeSheet() {
               </div>
               <div>
                 <label className="text-[13px] font-bold" htmlFor="scNote">הערה</label>
-                <textarea
+                <Textarea
                   id="scNote"
                   data-testid="sc-note"
                   rows={2}
                   value={note}
                   onChange={e => setNote(e.target.value)}
-                  placeholder="מה הסביר את ההפרש?"
-                  className="mt-1 w-full rounded-xl border border-border bg-card p-2 text-[15px]"
+                  placeholder="מה הסביר את ההפרש"
                 />
               </div>
             </>
           )}
 
-          <button
-            type="button"
+          <BubbleButton
+            type="button" variant="primary" size="lg"
             onClick={() => void submit()}
             data-testid="sc-submit"
             disabled={saving}
-            className="min-h-[48px] w-full rounded-xl s-brand text-[15px] font-bold disabled:opacity-40"
+            aria-busy={saving || undefined}
           >
-            {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-              : source === 'visit' ? 'פתח סיכום ביקור'
-              : source === 'order' ? 'פתח את ההזמנה'
-              : 'שמור'}
-          </button>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              : source === 'visit' ? 'פתיחת סיכום ביקור'
+              : source === 'order' ? 'פתיחת ההזמנה'
+              : 'שמירה'}
+          </BubbleButton>
         </div>
         {guard.prompt}
       </SheetContent>
@@ -319,7 +348,7 @@ export function mountStockChange(): boolean {
   if (!ok) return false;
   registerMoreItem({
     id: 'stock-change',
-    label: '🔢 דיווח שינוי במלאי',
+    label: 'דיווח שינוי במלאי',
     icon: 'Package',
     visible: () => canReportStock(sigma?.getCurrentUser?.() || '', !!sigma?.isViewer?.()),
     onSelect: () => openStockChange(''),
