@@ -5,10 +5,14 @@ const ROLE_DOT = {
   ok: 'bg-[var(--ok-ink)]', warn: 'bg-[var(--warn-ink)]', danger: 'bg-[var(--danger-ink)]',
   info: 'bg-[var(--info-ink)]', holiday: 'bg-[var(--holiday-ink)]', neutral: 'bg-[var(--neutral-ink)]',
 } as const;
-const ROLE_RING = {
-  ok: 'ring-[var(--ok-ink)] bg-[var(--ok-fill)]', warn: 'ring-[var(--warn-ink)] bg-[var(--warn-fill)]',
-  danger: 'ring-[var(--danger-ink)] bg-[var(--danger-fill)]', info: 'ring-[var(--info-ink)] bg-[var(--info-fill)]',
-  holiday: 'ring-[var(--holiday-ink)] bg-[var(--holiday-fill)]', neutral: 'ring-[var(--neutral-ink)] bg-[var(--neutral-fill)]',
+const ROLE_TINT = {
+  ok: 'bg-[var(--ok-fill)]', warn: 'bg-[var(--warn-fill)]', danger: 'bg-[var(--danger-fill)]',
+  info: 'bg-[var(--info-fill)]', holiday: 'bg-[var(--holiday-fill)]', neutral: 'bg-[var(--neutral-fill)]',
+} as const;
+/** The ring's own color, inline (not the `ring-2` utility — see the `style` comment below). */
+const ROLE_RING_COLOR = {
+  ok: 'var(--ok-ink)', warn: 'var(--warn-ink)', danger: 'var(--danger-ink)',
+  info: 'var(--info-ink)', holiday: 'var(--holiday-ink)', neutral: 'var(--neutral-ink)',
 } as const;
 
 /**
@@ -47,11 +51,26 @@ export function StatTile({
       className={cn(
         'flex min-w-0 flex-col items-center gap-1 rounded-[var(--r-lg)] bg-card px-3 py-4',
         filterable && 'cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--sigma-ink)] focus-visible:ring-offset-2',
-        filterable && selected && role && ['ring-2', ROLE_RING[role]],
+        filterable && selected && role && ROLE_TINT[role],
         !filterable && 'cursor-default',
         className,
       )}
-      style={{ boxShadow: 'var(--e1)', transitionDuration: 'var(--s-motion-fast)' }}
+      // The card elevation is ALREADY an inline `boxShadow` (`var(--e1)`), so the `ring-2`
+      // utility's own box-shadow can never win — a class-based box-shadow has lower priority
+      // than any inline style. Composing the ring INTO that same box-shadow (`var(--e1), inset
+      // 0 0 0 2px ...`) looked right but broke in dark mode specifically: `--s-e1: none` there
+      // (design-review: no card elevation in dark), and `none` is not a valid term inside a
+      // comma-separated <shadow> list — the WHOLE box-shadow declaration goes invalid, so it
+      // computed to nothing at all, in BOTH themes' selected state (the tint was all that ever
+      // showed). `outline` is its own property, so it can never collide with box-shadow's
+      // validity either way; inset via a negative offset keeps it inside the tile's own edge
+      // (no risk of a parent's overflow:hidden clipping it, review round's other suggestion).
+      style={{
+        boxShadow: 'var(--e1)',
+        outline: filterable && selected && role ? `2px solid ${ROLE_RING_COLOR[role]}` : undefined,
+        outlineOffset: filterable && selected && role ? -2 : undefined,
+        transitionDuration: 'var(--s-motion-fast)',
+      }}
     >
       <span className="flex items-center gap-1.5 tabular-nums text-[length:var(--fs-stat)] font-extrabold leading-[var(--lh-stat)]">
         {role && <span aria-hidden className={cn('h-2 w-2 rounded-full', ROLE_DOT[role])} />}

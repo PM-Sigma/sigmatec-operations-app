@@ -12,7 +12,6 @@ import * as React from 'react';
 import { fetchKibbutzRows } from '@/lib/kibbutzRows';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FilterChips } from '@/components/home/FilterChips';
 import { Section } from '@/components/home/Section';
@@ -125,15 +124,8 @@ function HomeIsland() {
 
   const canManage = canManageKibbutzim(user, role === 'viewer');
 
-  // ---- legacy decorators -------------------------------------------------
-  // Every re-render replaces cards, so the legacy passes have to re-attach. Debounced to
-  // one run per animation frame batch — the passes are idempotent but not free.
-  const decorate = React.useCallback(() => {
-    const t = setTimeout(() => { try { sigma.decorateCards?.(); } catch (e) { console.warn('[home] decorateCards', e); } }, 60);
-    return () => clearTimeout(t);
-  }, []);
-  React.useEffect(decorate, [visible, decorate]);
-  useSigmaEvent('ems-cache-synced', () => { decorate(); });
+  // sigma.decorateCards() removed (round 5, K-U5): every pass it ran (site warnings, last
+  // visit, card order) is now owned by KibbutzCard.tsx itself (K-U3).
 
   // The legacy renderer must not fight us for the grids.
   React.useEffect(() => {
@@ -223,20 +215,10 @@ function HomeIsland() {
 
   return (
     <div className="pb-2">
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <FilterChips filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} counts={counts} />
-        </div>
-        {canManage && (
-          <button
-            type="button"
-            onClick={openCreate}
-            className="hidden min-h-[44px] shrink-0 items-center gap-1.5 self-start rounded-xl s-brand px-3 text-sm font-bold sm:flex"
-          >
-            <Plus className="h-4 w-4" /> קיבוץ חדש
-          </button>
-        )}
-      </div>
+      {/* קיבוץ חדש removed from here (designer round 8): the shell's own PageBar already
+          carries this action on desktop, so this button doubled it on 1440. `canManage` /
+          `openCreate` still gate ⋯ עוד's own row (registerMoreItem above) for the phone. */}
+      <FilterChips filter={filter} onFilter={setFilter} query={query} onQuery={setQuery} counts={data ? counts : null} />
 
       {isError && !rows.length && (
         <p className="rounded-xl border border-border bg-muted p-3 text-sm text-muted-foreground">

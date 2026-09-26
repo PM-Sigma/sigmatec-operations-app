@@ -82,6 +82,9 @@ const sheetVariants = cva(
  */
 const SheetHideCloseContext = React.createContext(false)
 
+const isToastTarget = (e: Event) =>
+  e.target instanceof Element && !!e.target.closest("[data-sonner-toaster]")
+
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
@@ -91,12 +94,15 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, hideClose = false, ...props }, ref) => (
+>(({ side = "right", className, children, hideClose = false, onPointerDownOutside, onInteractOutside, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
       className={cn(sheetVariants({ side }), hideClose && "before:hidden", className)}
+      // A tap on a toast (e.g. its undo action) is "outside" to Radix — don't let it dismiss the sheet.
+      onPointerDownOutside={e => { if (isToastTarget(e)) e.preventDefault(); else onPointerDownOutside?.(e) }}
+      onInteractOutside={e => { if (isToastTarget(e)) e.preventDefault(); else onInteractOutside?.(e) }}
       {...props}
     >
       <SheetHideCloseContext.Provider value={hideClose}>{children}</SheetHideCloseContext.Provider>

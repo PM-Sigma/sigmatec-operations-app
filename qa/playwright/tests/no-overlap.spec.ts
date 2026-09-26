@@ -65,6 +65,29 @@ const SCREENS: Screen[] = [
   // prove the NEW primitives are clean, not to make this package fix all of that chrome too.
   { label: 'gallery', query: 'gallery=1', ready: '[data-testid="gallery-root"]', root: '[data-testid="gallery-root"]', open: async () => {} },
   { label: 'calendar', open: p => openPage(p, 'calendar', 'calendar-view') },
+  // Designer round 2 (25.9): a REGRESSION was spotted in the person-picker and visit-sheet
+  // captures at 360 (the month grid only fit 5 of 7 columns, "חודש מלא" clipped) — the sweep
+  // never actually opened these two states before, so `scanOverlap`'s own sideways-scroll rule
+  // (rule1) never caught it. Both states now get their own SCREEN entry.
+  {
+    label: 'calendar-person-picker',
+    open: async p => {
+      await openPage(p, 'calendar', 'calendar-view');
+      await p.getByTestId('cal-person').getByRole('radio').first().waitFor();
+    },
+  },
+  {
+    label: 'calendar-visit-sheet',
+    who: 'אביאם',
+    open: async p => {
+      await openPage(p, 'calendar', 'calendar-view');
+      await p.locator('[data-testid="cal-grid"][data-loaded="1"]').waitFor({ timeout: 20_000 });
+      const visitDay = await p.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם')?.date || '').slice(0, 10));
+      await p.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), visitDay);
+      await p.locator('[data-visit-row="vis-אביאם"]:visible').first().click();
+      await p.getByTestId('cal-visit-sheet').waitFor();
+    },
+  },
   { label: 'inventory', open: p => openPage(p, 'inventory', 'inventory-view') },
   { label: 'attendance', who: 'אביאם', open: p => openPage(p, 'attendance', 'attendance-view') },
   { label: 'burns', open: p => openPage(p, 'burns', 'burns-view') },

@@ -744,12 +744,16 @@ export function restockPlan(r: ReturnLike, ctx: { me: string; movements: Readonl
 // returns/visit+requirement+AI-example lines; an emptied order is deleted too) — EXCEPT issued
 // delivery certificates, which stay exactly as they are, lines included. `certs_referencing` is
 // informational only: nothing is ever deleted or trimmed there.
+// RULING UPDATE (עידן, 24.9): a full delete now overrides visit_edit_lock for the item's own
+// line, even in a locked visit — only `products` changes, summary/open_items/etc. never do. So
+// `visits_trimmed` counts every visit trimmed (locked or not) and there is no separate
+// "kept (locked)" bucket any more.
 
 export interface DeletePreview {
   product: string; exists: number; movements: number;
   orders_deleted: string[]; orders_trimmed: string[];
   certs_referencing: number[]; certs_referencing_active: number[];
-  visits_trimmed: number; visits_kept_locked?: string[];
+  visits_trimmed: number;
   requirements_deleted: number; requirements_trimmed: number;
   returns: number; recounts: number; alerts: number; parse_examples: number;
   fingerprint: string;
@@ -773,7 +777,6 @@ export function deleteSummaryLines(p: DeletePreview): DeleteSummaryLine[] {
     });
   }
   if (p.visits_trimmed) lines.push({ text: plural(p.visits_trimmed, 'שורה בביקור אחד (הסיכום נשאר)', n => `שורות ב-${n} ביקורים (הסיכומים נשארים)`), danger: false });
-  if (p.visits_kept_locked?.length) lines.push({ text: plural(p.visits_kept_locked.length, 'ביקור אחד נעול לעריכה — נשאר כמו שהוא', n => `${n} ביקורים נעולים לעריכה — נשארים כמו שהם`), danger: false });
   if (p.requirements_trimmed) lines.push({ text: plural(p.requirements_trimmed, 'שורה בדרישה אחת', n => `שורות ב-${n} דרישות`), danger: false });
   if (p.requirements_deleted) lines.push({ text: plural(p.requirements_deleted, 'דרישה אחת נמחקת כולה', n => `${n} דרישות נמחקות כולן`), danger: true });
   if (p.returns) lines.push({ text: plural(p.returns, 'החזרה אחת', n => `${n} החזרות`), danger: false });

@@ -93,16 +93,25 @@
     var _pl = document.getElementById('pushlog-view'); if (_pl) _pl.style.display = page === 'pushlog' ? '' : 'none';
     var _bv = document.getElementById('burns-view'); if (_bv) _bv.style.display = page === 'burns' ? '' : 'none';
     var _hv = document.getElementById('hours-view'); if (_hv) _hv.style.display = page === 'hours' ? '' : 'none';
+    document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
     if (page === 'calendar')   renderCompanyCalendar();
-    if (page === 'dev' && typeof renderDevTasks === 'function') renderDevTasks();
     if (page === 'pushlog' && typeof renderPushLog === 'function') renderPushLog();
     if (page === 'burns' && typeof renderBurns === 'function') renderBurns();
     // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
     var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view' }[page];
     var _pe = _pv && document.getElementById(_pv);
     if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
+    const fab = document.getElementById('visitFab');
+    if (fab) {
+      const meF = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+      const canFab = ['עמיחי', 'אביאם', 'ניתאי'].indexOf(meF) !== -1;   // quick-visit FAB: only these three (hidden from עידן/others)
+      const isAttF = (typeof ATT_PEOPLE !== 'undefined' && ATT_PEOPLE.indexOf(meF) !== -1);
+      fab.style.display = (page === 'kibbutz' && canFab) ? '' : 'none';
+      var _fabTxt = isAttF ? '📋 תיעוד נוכחות' : '📍 תיעוד ביקור';   // אביאם/ניתאי = attendance flow; עמיחי = plain visit
+      var _lbl = fab.querySelector('.vfab-label'); if (_lbl) _lbl.textContent = _fabTxt; else fab.textContent = _fabTxt;   // set the label span, not textContent (would wipe the drag-hint arrows)
+    }
   }
 
   // ← חזרה on an inner page: the page before it, or the cards. (Declared AFTER showPage on
@@ -190,9 +199,62 @@
     vqSetType('field');
     document.getElementById('visitQuickModal').classList.add('open');
   }
-  // U6: the legacy #visitFab (free-draggable quick-visit button) and its drag/position logic
-  // are gone — the raised 📍 ביקור button in #sigma-nav (phone) / #sigma-desktop-nav (desktop)
-  // is the only entry point now.
+  // Make the "תיעוד ביקור" FAB free-draggable; position persisted per device. A small move threshold keeps
+  // a tap = open the form, a drag = reposition. ponytail: native pointer events, no library.
+  function initVisitFabDrag() {
+    var fab = document.getElementById('visitFab');
+    if (!fab || fab._dragInit) return; fab._dragInit = true;
+    // initial-load visibility: same rule as showPage() — without this the FAB shows for every
+    // role (incl. viewer) until the first page switch re-runs the gate
+    var meF0 = (typeof getCurrentUser === 'function' && getCurrentUser()) || '';
+    if (['עמיחי', 'אביאם', 'ניתאי'].indexOf(meF0) === -1) fab.style.display = 'none';
+    fab.style.touchAction = 'none';                          // don't scroll the page while dragging on touch
+    var KEY = 'visit_fab_pos_v1';
+    function place(x, y) {
+      var r = fab.getBoundingClientRect(), w = r.width || 150, h = r.height || 50, m = 6;
+      x = Math.max(m, Math.min(x, window.innerWidth - w - m));
+      y = Math.max(m, Math.min(y, window.innerHeight - h - m));
+      fab.style.setProperty('left', x + 'px', 'important');  // beat the mobile `#visitFab{left:16px!important}`
+      fab.style.setProperty('top', y + 'px', 'important');
+      fab.style.setProperty('bottom', 'auto', 'important');
+    }
+    try { var p = JSON.parse(localStorage.getItem(KEY) || 'null'); if (p && isFinite(p.x) && isFinite(p.y)) { place(p.x, p.y); fab.classList.add('vfab-placed'); } } catch (e) {}   // already moved before → hide the hint arrows
+    var down = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    fab.addEventListener('pointerdown', function (e) {
+      down = true; moved = false; sx = e.clientX; sy = e.clientY;
+      var r = fab.getBoundingClientRect(); ox = r.left; oy = r.top;
+      try { fab.setPointerCapture(e.pointerId); } catch (e2) {}
+    });
+    fab.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return; // below threshold → still a tap
+      moved = true; place(ox + dx, oy + dy);
+    });
+    function end(e) {
+      if (!down) return; down = false;
+      if (moved) { var r = fab.getBoundingClientRect(); try { localStorage.setItem(KEY, JSON.stringify({ x: r.left, y: r.top })); } catch (e2) {} fab.classList.add('vfab-placed'); }   // moved once → fade the hint arrows
+      try { fab.releasePointerCapture(e.pointerId); } catch (e2) {}
+    }
+    fab.addEventListener('pointerup', end);
+    fab.addEventListener('pointercancel', end);
+    // open on a real tap only; a drag sets moved=true → suppress (covers mouse click + keyboard Enter)
+    fab.removeAttribute('onclick');
+    // Round 5 V-L4b: the FAB's new home is the arrival picker (sigmaField.openManual), never the
+    // legacy #visitQuickModal (the modal itself is package S's; V-U3 deletes it once nothing calls it).
+    fab.addEventListener('click', function () {
+      if (moved) { moved = false; return; }
+      if (window.sigmaField && typeof window.sigmaField.openManual === 'function') window.sigmaField.openManual();
+      else openVisitQuick();
+    });
+    window.addEventListener('resize', function () { var r = fab.getBoundingClientRect(); place(r.left, r.top); });   // keep on-screen after rotate/resize
+  }
+  // js/app.js is loaded with `defer` (task 22b), so readyState is already 'interactive' when
+  // this line runs: calling it inline would run it DURING the bundle's evaluation, before the
+  // later modules' top-level consts exist (it really did throw on getCurrentUser). A macrotask
+  // runs after the whole bundle AND after DOMContentLoaded, which is what this always meant.
+  if (document.readyState !== 'loading') setTimeout(initVisitFabDrag, 0);
+  else document.addEventListener('DOMContentLoaded', initVisitFabDrag);
   // Resume where the person was (A7): a PWA the phone discarded in the background reloads to
   // the cards; the page it was on is in sessionStorage.
   //

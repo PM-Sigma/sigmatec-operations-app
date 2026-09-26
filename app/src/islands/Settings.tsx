@@ -20,6 +20,7 @@ import {
 } from '@/lib/settings';
 import type { ThemeChoice } from '@/lib/theme';
 import { EmsGate } from '@/components/EmsGate';
+import { CalPeerRow } from '@/components/CalPeerRow';
 import { canEditTemplate, type OnboardingTemplate, type TemplateStep } from '@/lib/onboarding';
 import { fetchOnboardingTemplate, saveOnboardingTemplate } from '@/components/home/OnboardingProgress';
 
@@ -196,6 +197,7 @@ function PersonalArea({ user, role, onClose }: { user: string; role: string; onC
       >
         <ClipboardList className="h-4 w-4" /> מה נשאר לי לסגור
       </button>
+      <CalPeerRow user={user} />
     </div>
   );
 }

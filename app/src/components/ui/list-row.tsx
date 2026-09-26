@@ -16,7 +16,8 @@ export function ListRow({
   trailing,
   onClick,
   className,
-}: {
+  ...rest
+}: Omit<React.HTMLAttributes<HTMLElement>, 'title' | 'onClick'> & {
   leading?: React.ReactNode;
   title: React.ReactNode;
   meta?: React.ReactNode;
@@ -28,6 +29,7 @@ export function ListRow({
   const Comp = onClick ? 'button' : 'div';
   return (
     <Comp
+      {...rest}
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(

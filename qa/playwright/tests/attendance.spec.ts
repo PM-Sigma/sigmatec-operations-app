@@ -164,17 +164,19 @@ test('attendance: a missing day is a real tap target, and the reports carry a la
 
   const pdf = page.getByTestId('att-pdf');
   const excel = page.getByTestId('att-excel');
-  await expect(pdf).toContainText('PDF');
-  await expect(excel).toContainText('Excel');
-  // icon AND label — a bare glyph is what the phone QA could not read
+  // A-U1: the report buttons are IconBubbles (icon + Hebrew aria-label, no visible text).
+  await expect(pdf.getByRole('button')).toHaveAttribute('aria-label', 'הורדת דוח נוכחות PDF');
+  await expect(excel.getByRole('button')).toHaveAttribute('aria-label', 'הורדת דוח נוכחות Excel');
   await expect(pdf.locator('svg')).toBeVisible();
   await expect(excel.locator('svg')).toBeVisible();
 
-  const chip = page.getByTestId('att-missing').locator('[data-missing]').first();
-  if (await chip.count()) {
-    const box = await chip.boundingBox();
-    expect(box!.height, 'a missing-day chip must be a thumb-sized button').toBeGreaterThanOrEqual(36);
-    await expect(chip).toContainText('＋');
+  // A-U2: a missing day is now a design-system ListRow (min-h-14), with a trailing chevron
+  // rather than a bare "＋" glyph.
+  const row = page.getByTestId('att-missing').locator('[data-missing]').first();
+  if (await row.count()) {
+    const box = await row.boundingBox();
+    expect(box!.height, 'a missing-day row must be a thumb-sized tap target').toBeGreaterThanOrEqual(36);
+    await expect(row.locator('svg')).toBeVisible();
   }
 
   expectNoConsoleErrors(rec);
@@ -249,12 +251,15 @@ test('attendance: חסר לך comes before the calendar, and a chip opens the da
   );
   expect(before, 'the חסר לך strip must render BEFORE the month grid').toBe(true);
 
-  // ── the count, and a chip that opens that day's sheet
+  // ── the count, and a chip that opens that day's sheet. Review round: the block shows only
+  // the latest 4 days (an "עוד N ימים" row expands the rest), so att-missing-count — the
+  // TOTAL — may exceed the number of [data-missing] rows actually on screen.
   const chips = strip.locator('[data-missing]');
   const n = await chips.count();
   if (n > 0) {
     await expect(strip).toContainText('חסר לך');
-    await expect(page.getByTestId('att-missing-count')).toHaveText(String(n));
+    const total = Number(await page.getByTestId('att-missing-count').innerText());
+    expect(total, 'att-missing-count must be at least the rows on screen').toBeGreaterThanOrEqual(n);
     const date = await chips.first().getAttribute('data-missing');
     await chips.first().click();
     // The phone opens a sheet; the desktop moves its side panel. Both land on that date.
@@ -292,5 +297,56 @@ test('attendance: עידן gets the whole team\'s gaps, and a tap switches to th
   await expect(team.locator('[data-person-missing="' + who + '"]')).toHaveAttribute('aria-pressed', 'true');
 
   await shot(page, ti, 'missing-team');
+  expectNoConsoleErrors(rec);
+});
+
+test('attendance r5 · A-L5: a saved visit shows as an automatic field day from the row V wrote', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openAttendance(page);
+
+  const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם').date).slice(0, 10));
+  const row = await page.evaluate(d => ((window as any).SHEET_DATA.attendance || []).find((a: any) => a.person === 'אביאם' && String(a.date).slice(0, 10) === d), visitDay);
+  expect(row && row.source).toBe('visit_auto');
+  // A-U3: the cell carries data-att-state (monthGrid's semantic state) alongside data-state.
+  await expect(page.locator(`[data-date="${visitDay}"]`)).toHaveAttribute('data-att-state', 'field');
+  await expect(page.locator(`[data-date="${visitDay}"]`)).toHaveAttribute('data-state', 'field');
+
+  expectNoConsoleErrors(rec);
+});
+
+// ── review round: a selected StatTile must be visibly ringed, not just tinted ───────────
+//
+// Two real bugs hid behind a passing eyeball check on this: (1) the ring lived in a `ring-2`
+// CLASS while the same element also carried an inline `style={{ boxShadow: 'var(--e1)' }}` —
+// an inline style always wins over any class, so the ring's box-shadow never had a chance;
+// (2) composing the ring INTO that inline box-shadow (`var(--e1), inset 0 0 0 2px ...`) still
+// broke in dark mode, because `--e1` is literally `none` there and `none` inside a comma
+// shadow LIST invalidates the whole declaration. Fixed with a separate `outline` (own-tools/ui/
+// stat-tile.tsx) — this test pins both the computed style and the "מסונן" filter chip so a
+// future refactor can't quietly reintroduce either failure mode.
+test('attendance r5: a selected tile is visibly ringed (not just tinted), and says it is filtering', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openAttendance(page);
+
+  const tile = page.getByTestId('att-kpi-office');
+  const btn = tile.locator('button');
+  await btn.click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'true');
+
+  const style = await btn.evaluate(el => {
+    const cs = getComputedStyle(el);
+    return { boxShadow: cs.boxShadow, outline: cs.outline };
+  });
+  const visible = (v: string) => !!v && v !== 'none' && !/^rgba?\([^)]*,\s*0\)\s*(none)?$/.test(v);
+  expect(visible(style.boxShadow) || visible(style.outline), 'a selected tile must render a real box-shadow or outline, not just its tint: ' + JSON.stringify(style)).toBe(true);
+
+  // …and the active filter says so in words, with a way out.
+  const filterChip = page.getByTestId('att-tile-filter');
+  await expect(filterChip).toContainText('מסונן');
+  await expect(filterChip).toContainText('משרד ובית');
+  await filterChip.locator('button').click();
+  await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  await expect(filterChip).toHaveCount(0);
+
   expectNoConsoleErrors(rec);
 });

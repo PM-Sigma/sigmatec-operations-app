@@ -106,3 +106,19 @@ test('settings: no sentence explains the app to the user, or who else sees him (
   expect(text).not.toMatch(/(עמיחי|עידן)[^.]{0,12}(ראה|רואה|יראה)/);
   expectNoConsoleErrors(rec);
 });
+
+test('settings r5 · C2: only אביאם sees "לראות גם את המשימות של ניתאי"', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByTestId('set-cal-peer')).toBeVisible();
+  await dlg.getByTestId('set-cal-peer').click();
+  await expect.poll(async () => (await mirror(page)).cal_peer_tasks).toBe(true);
+  expectNoConsoleErrors(rec);
+});
+
+test('settings r5 · C2: ניתאי has no such row', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'ניתאי' });
+  const dlg = await openSettings(page);
+  await expect(dlg.getByTestId('set-cal-peer')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});

@@ -77,6 +77,24 @@ for (const theme of ['light', 'dark']) {
   });
 }
 
+// Round 5 · C-U designer fix (25.9): חג vs ערב חג must read as two distinct purples in dark,
+// each a graphical-object dot (WCAG 3:1, not 4.5:1) against both cell backgrounds it can sit on.
+for (const theme of ['light', 'dark']) {
+  const block = theme === 'light' ? sLight : sDark;
+  check(`tokens.css ${theme}: --s-holiday-eve-ink clears 3:1 on --s-bg/--s-surface`, () => {
+    const eve = tokenIn(block, 's-holiday-eve-ink');
+    for (const bgName of ['s-bg', 's-surface']) {
+      const r = ratio(eve, tokenIn(block, bgName));
+      assert.ok(r >= 3, `${eve} on ${bgName} = ${r.toFixed(2)}:1, need 3:1`);
+    }
+  });
+  check(`tokens.css ${theme}: --s-holiday-eve-ink is distinct from --s-holiday-ink`, () => {
+    const eve = tokenIn(block, 's-holiday-eve-ink');
+    const holiday = tokenIn(block, 's-holiday-ink');
+    assert.notStrictEqual(eve.toLowerCase(), holiday.toLowerCase());
+  });
+}
+
 check('tokens.css: --s-on-brand text clears 4.5:1 on both --s-brand-1 and --s-brand-2', () => {
   const onBrand = tokenIn(sLight, 's-on-brand');
   for (const b of ['s-brand-1', 's-brand-2']) {
@@ -149,7 +167,7 @@ function assertAliased(label, css, name) {
 // TEXT on a dark surface) used as a solid FILL under white text (.toast, .urgent-flag,
 // .inv-btn.success/.danger, .sigma-crash button.p — dark mode flips --success/--danger brighter
 // and white-on-bright fails), or a hardcoded LIGHT-only text color paired with a fill that now
-// correctly flips per theme (.dev-error, .current-step-label(.complete), .ready-live-flag,
+// correctly flips per theme (.current-step-label(.complete), .ready-live-flag,
 // index.html's #editLastVisitBox). Read the actual rule text and resolve its var() chain to a
 // real hex per theme, so a future edit that points one of these selectors back at the wrong
 // token — even though both tokens individually still clear 4.5:1 in isolation — fails HERE.
@@ -205,7 +223,6 @@ const CSS_CONSUMERS = [
   { label: '.inv-btn.success', re: /\.inv-btn\.success\s*\{([^}]*)\}/ },
   { label: '.inv-btn.danger', re: /\.inv-btn\.danger\s*\{([^}]*)\}/ },
   { label: '.sigma-crash button.p', re: /\.sigma-crash button\.p\s*\{([^}]*)\}/ },
-  { label: '.dev-error', re: /\.dev-error\s*\{([^}]*)\}/ },
   { label: '.current-step-label', re: /\.current-step-label\s*\{([^}]*)\}/ },
   { label: '.current-step-label.complete', re: /\.current-step-label\.complete\s*\{([^}]*)\}/ },
   { label: '.ready-live-flag', re: /\.ready-live-flag\s*\{([^}]*)\}/ },
@@ -224,21 +241,9 @@ for (const theme of ['light', 'dark']) {
   }
 }
 
-{
-  const html = read('index.html');
-  const m = /id="editLastVisitBox"[^>]*style="([^"]+)"/.exec(html);
-  assert.ok(m, '#editLastVisitBox not found in index.html');
-  const style = m[1];
-  for (const theme of ['light', 'dark']) {
-    check(`index.html ${theme}: #editLastVisitBox background/color clears 4.5:1`, () => {
-      const map = legacyVarMap(theme);
-      const bg = resolveColor(declValue(style, 'background'), map);
-      const fg = resolveColor(declValue(style, 'color'), map);
-      const r = ratio(fg, bg);
-      assert.ok(r >= 4.5, `${fg} on ${bg} = ${r.toFixed(2)}:1, need 4.5:1`);
-    });
-  }
-}
+// #editLastVisitBox's inline-style contrast check removed (round 5, K-U5): the element it
+// checked was #tab-meetings markup, retired with the legacy modal's מצב הקיבוץ tab — its
+// content (and its Tailwind classes, not inline styles) lives in StatusTab.tsx now (K-U2).
 
 // ── no white text on the brand gradient, anywhere (designer confirm round, item 1 gate) ──────
 // The brand fill's ink is --s-on-brand (a dark teal, spec §2 audit "white measured 2.2–2.4:1"),

@@ -21,6 +21,14 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText, UserCheck } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PageActionRow } from '@/components/ui/page-action-row';
+import { IconBubble } from '@/components/ui/icon-bubble';
+import { SectionBlock } from '@/components/ui/section-block';
+import { ListRow } from '@/components/ui/list-row';
+import { FilterChip, Tag } from '@/components/ui/chip';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
+import { DayCell as DayCellUI, type DayCellFill } from '@/components/ui/day-cell';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isGateOpen, useEmsGate } from '@/lib/session';
@@ -28,12 +36,12 @@ import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
-import { visitorsOf } from '@/lib/field';
 import {
-  canEditAttendance, canSwitchPerson, cellsOf, dayChip, dayLabel, DAY_ORDER,
+  attCellLook, attLegend, attTiles, canEditAttendance, canOverride, canSwitchPerson, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
-  holidayShort, kpis as computeKpis, missingByPerson, missingDays, monthGrid, savedToast,
-  withVisitDays, ymd, type AttRow, type DayCell, type DayType, type Holiday, type VisitLike,
+  kpis as computeKpis, mergeByDay, missingBlock, missingByPerson, missingDays, monthGrid, originLine, rowOrigin, savedToast,
+  toggleTile, ymd,
+  type AttRow, type AttCellState, type DayCell, type DayType, type Holiday, type TileKey,
 } from '@/lib/attendance';
 
 // ───────────────────────────── data ─────────────────────────────
@@ -51,27 +59,6 @@ function readRows(person: string, year: number, month: number): AttRow[] | null 
   } catch { return null; }
 }
 
-/**
- * The visit summaries of the month, straight off the same snapshot. The legacy merge already
- * folds them into `attRows`; reading them HERE as well is what lets `withVisitDays` re-derive
- * the field days from the visits themselves, so an edited visit date moves the day instead
- * of leaving the old one behind (round 2, F-2). The merge is idempotent — no duplicate rows.
- */
-function readVisits(person: string, year: number, month: number): VisitLike[] | null {
-  if (!person) return null;
-  try {
-    const data = (window as any).SHEET_DATA;
-    if (!data) return null;
-    const prefix = year + '-' + String(month).padStart(2, '0');
-    return ((data.visits || []) as any[])
-      .filter(v => v && visitorsOf(v).includes(person) && String(v.date || '').slice(0, 7) === prefix
-        || (v && visitorsOf(v).includes(person) && new Date(v.date).getFullYear() === year
-            && new Date(v.date).getMonth() + 1 === month))
-      .map(v => ({ id: v.id, visitor: v.visitor, date: v.date, kibbutz: v.kibbutz,
-        duration: v.duration, workday: !!v.workday })) as VisitLike[];
-  } catch { return null; }
-}
-
 async function readHolidays(): Promise<Holiday[]> {
   try {
     await sigma.attHolidaysLoad?.();
@@ -81,92 +68,86 @@ async function readHolidays(): Promise<Holiday[]> {
 
 // ───────────────────────────── small pieces ─────────────────────────────
 
-/** The cell's colour, as a class pair. The STATE is decided in lib/attendance.ts. */
-const CELL_CLASS: Record<string, string> = {
-  field: 'att-cell-field',
-  office: 'att-cell-office',
-  away: 'att-cell-away',
-  missing: 'att-cell-missing',
-  weekend: 'att-cell-weekend',
-  holiday: 'att-cell-holiday',
-  today: 'att-cell-today',
-  future: 'att-cell-future',
+/** attCellLook's AttCellState → the DayCell props it actually is (A-U3). `selected` and
+    `today` are independent flags on DayCell; `holiday`/`eve`/`missing` collapse from the one
+    look state attCellLook already resolved (tile filter, filer gate, holiday/eve purple —
+    all decided in lib/attendance.ts, never here). */
+const CELL_FILL: Partial<Record<AttCellState, DayCellFill>> = {
+  holiday: 'holiday', field: 'field', office: 'office', away: 'away',
 };
 
-function Kpi({ label, value, tone }: { label: string; value: number; tone: 'field' | 'office' | 'missing' }) {
-  return (
-    <div className={'att-kpi att-kpi-' + tone} data-testid={'att-kpi-' + tone}>
-      <div className="text-[19px] font-extrabold leading-none tabular-nums">{value}</div>
-      <div className="mt-1 text-[11.5px] font-semibold opacity-80">{label}</div>
-    </div>
-  );
-}
+/** attLegend's keys → the same swatch colors the grid itself draws (A-U3). */
+const LEGEND_DOT: Record<string, string> = {
+  holiday: 'bg-[var(--holiday-ink)]', eve: 'bg-[var(--holiday-ink)]', field: 'bg-[var(--ok-ink)]',
+  office: 'bg-[var(--info-ink)]', away: 'bg-[var(--neutral-ink)]', missing: 'bg-[var(--danger-ink)]',
+};
 
 function DayTypeRow({ value, onPick, busy }: { value: DayType | null; onPick: (t: DayType) => void; busy: boolean }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="סוג היום">
+      {/* FilterChip has neither a `disabled` prop nor its own prop pass-through — a wrapper
+          span carries both the data-daytype test hook and the busy state (visibly dimmed +
+          aria-disabled, review round item 4), and the guard against a stray click stays on
+          onClick since the chip itself can't be disabled. */}
       {DAY_ORDER.map(t => (
-        <button
-          key={t}
-          type="button"
-          disabled={busy}
-          data-daytype={t}
-          aria-pressed={value === t}
-          onClick={() => onPick(t)}
-          className={'min-h-9 rounded-full border px-3 text-[12.5px] font-semibold transition-colors duration-150 disabled:opacity-60 '
-            + (value === t
-              ? 'border-transparent s-brand'
-              : 'border-border bg-muted text-foreground hover:bg-secondary')}
-        >
-          {dayLabel(t)}
-        </button>
+        <span key={t} data-daytype={t} aria-disabled={busy || undefined} className={busy ? 'pointer-events-none opacity-50' : undefined}>
+          <FilterChip selected={value === t} onClick={() => !busy && onPick(t)}>
+            {dayLabel(t)}
+          </FilterChip>
+        </span>
       ))}
     </div>
   );
 }
 
+/** A-U3: the design-system DayCell grid, its look decided by attCellLook (A-L3) — a tile
+    colors only its own category; holiday/eve purple is context and always stays; missing is
+    red only for a filer (mustFile). `data-state` keeps monthGrid's own semantic state too
+    (holiday/eve/weekend/…) — DayCell's `data-fill` only covers the fills it draws, and
+    Holidays.tsx / other readers still key off the state monthGrid computed. */
 function MonthGridView({
-  grid, onPick, selected,
-}: { grid: ReturnType<typeof monthGrid>; onPick: (c: DayCell) => void; selected: string }) {
+  grid, onPick, selected, person, tile,
+}: { grid: ReturnType<typeof monthGrid>; onPick: (c: DayCell) => void; selected: string; person: string; tile: TileKey | null }) {
+  // role="group", not "grid": a CSS grid of DayCell buttons isn't organized into ARIA "row"
+  // ancestors, and role="grid" without them is an axe aria-required-children/parent critical
+  // (review round item 3). Each cell already carries its own aria-label.
   return (
-    <div data-testid="att-grid" className="att-grid" role="grid" aria-label={'לוח ' + grid.label}>
+    <div data-testid="att-grid" className="att-grid" role="group" aria-label={'לוח ' + grid.label}>
       {HE_DAY_LETTERS.map((l, i) => (
         <div key={'h' + i} aria-hidden className="pb-1 text-center text-[11px] font-bold text-muted-foreground">{l}</div>
       ))}
-      {grid.weeks.flat().map((c, i) =>
-        c === null ? (
-          <div key={'b' + i} aria-hidden />
-        ) : (
-          <button
+      {grid.weeks.flat().map((c, i) => {
+        if (c === null) return <div key={'b' + i} aria-hidden />;
+        const isSelected = selected === c.date;
+        const look = attCellLook(c, { person, tile, selected: isSelected });
+        return (
+          <DayCellUI
             key={c.date}
-            type="button"
-            role="gridcell"
+            day={c.day}
             data-date={c.date}
             data-state={c.state}
+            data-att-state={c.state}
             data-eve={c.eve ? '1' : undefined}
-            aria-current={c.today ? 'date' : undefined}
-            aria-selected={selected === c.date}
-            aria-label={dayChip(c.date) + (c.holiday ? ' · ' + c.holiday.name : '')}
+            fill={CELL_FILL[look.state] || 'none'}
+            eve={look.state === 'eve'}
+            missing={look.state === 'missing'}
+            selected={look.state === 'selected'}
+            today={look.today}
+            label={look.label}
             onClick={() => onPick(c)}
-            className={'att-cell ' + (CELL_CLASS[c.state] || '') + (selected === c.date ? ' att-cell-sel' : '')}
-          >
-            <span className="text-[13px] font-bold tabular-nums">{c.day}</span>
-            {c.holiday && (!c.holiday.required || c.eve) && (
-              <span className="att-cell-tag">{c.onHoliday ? '🕎' : holidayShort(c.holiday)}</span>
-            )}
-            {!c.holiday && c.row?.kibbutz && <span className="att-cell-tag">{c.row.kibbutz}</span>}
-          </button>
-        ),
-      )}
+          />
+        );
+      })}
     </div>
   );
 }
 
-/** The editor for one day — the body of the phone sheet AND of the desktop panel. */
+/** The editor for one day — the body of the phone sheet AND of the desktop panel.
+    `showHeader` is false on the phone: the Sheet's own visible SheetTitle (A-U4) already
+    carries the date, and this header would just repeat it right underneath. */
 function DayEditor({
-  cell, busy, canEdit = true, onSave,
-}: { cell: DayCell; busy: boolean; canEdit?: boolean; onSave: (type: DayType, note: string) => void }) {
-  const fromVisit = cell.row?.source === 'visit';
+  cell, busy, canEdit = true, showHeader = true, onSave,
+}: { cell: DayCell; busy: boolean; canEdit?: boolean; showHeader?: boolean; onSave: (type: DayType, note: string) => void }) {
   const [note, setNote] = React.useState(cell.row?.note || '');
   const [pending, setPending] = React.useState<DayType | null>(null);
   React.useEffect(() => { setNote(cell.row?.note || ''); setPending(null); }, [cell.date, cell.row?.note]);
@@ -175,7 +156,7 @@ function DayEditor({
   // A day people mostly spend at home should not cost a tap. Opening an empty ערב חג starts
   // a four-second countdown that saves 🏠 מהבית; touching ANYTHING — another type, the
   // ביטול button — cancels it, and שמירה just files it sooner.
-  const eveCandidate = cell.eve && !cell.row && canEdit && !fromVisit;
+  const eveCandidate = cell.eve && !cell.row && canEdit;
   const [evePaused, setEvePaused] = React.useState(false);
   // `window.__sigmaEveCountdownMs` lets the QA harness stretch the 4 s (a loaded desktop run
   // took longer than that to reach the ביטול button); production never sets it.
@@ -198,11 +179,19 @@ function DayEditor({
   const needsNote = current === 'other';
   const invite = holidayNote(cell.holiday);
 
+  // A-U4 (A4): an automatic/calendar day says where it came from instead of opening straight
+  // to the chips — "שינוי" reveals them. A manual day (or once revealed) shows the chips as
+  // before. `revealed` resets whenever the sheet moves to a different day.
+  const origin = rowOrigin(cell.row || null);
+  const showOrigin = canEdit && origin !== 'manual' && origin !== 'none' && canOverride(cell.row || null);
+  const [revealed, setRevealed] = React.useState(false);
+  React.useEffect(() => { setRevealed(false); }, [cell.date]);
+
   return (
     <div className="space-y-3">
       <div className="flex items-baseline gap-2">
-        <span className="text-[15px] font-extrabold"><bdi>{dayChip(cell.date)}</bdi></span>
-        {cell.holiday && <span className="att-badge-holiday">🕎 {cell.holiday.name}</span>}
+        {showHeader && <span className="text-[15px] font-extrabold"><bdi>{dayChip(cell.date)}</bdi></span>}
+        {cell.holiday && <Tag role="holiday">{cell.holiday.name}</Tag>}
       </div>
 
       {/* A חג is an invitation, never a demand (spec §6: positive, no system-talk). */}
@@ -212,33 +201,27 @@ function DayEditor({
       {eveCandidate && !evePaused && !pending && (
         <div data-testid="att-eve-countdown" className="flex items-center gap-2 rounded-[12px] border border-border bg-muted px-3 py-2">
           <span className="text-[13px] font-bold tabular-nums">{eveCountdownText(secs)}</span>
-          <button
-            type="button"
-            data-testid="att-eve-cancel"
-            onClick={() => setEvePaused(true)}
-            className="ms-auto min-h-8 rounded-full border border-border bg-background px-3 text-[12.5px] font-bold"
-          >
+          <BubbleButton variant="neutral" size="sm" className="ms-auto" data-testid="att-eve-cancel" onClick={() => setEvePaused(true)}>
             ביטול
-          </button>
+          </BubbleButton>
         </div>
       )}
 
-      {fromVisit ? (
-        <div className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
-          <div className="font-bold">{dayLabel('field')}</div>
-          <div className="mt-0.5 text-muted-foreground">
-            נרשם מסיכום הביקור{cell.row?.kibbutz ? ' · ' + cell.row.kibbutz : ''}
-            {cell.row?.hours ? " · " + cell.row.hours + "ש'" : ''}
-          </div>
-        </div>
-      ) : !canEdit ? (
+      {!canEdit ? (
         <div data-testid="att-readonly" className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
           <div className="font-bold">{cell.row ? dayLabel(cell.row.type) : 'אין דיווח ליום הזה'}</div>
-          <div className="mt-0.5 text-muted-foreground">צפייה בלבד. אפשר להזכיר לו למלא.</div>
+          <div className="mt-0.5 text-muted-foreground">צפייה בלבד.</div>
+        </div>
+      ) : showOrigin && !revealed ? (
+        <div className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
+          <div className="text-muted-foreground">{originLine(cell.row || null)}</div>
+          <BubbleButton variant="tonal" size="sm" className="mt-2" onClick={() => setRevealed(true)}>
+            שינוי
+          </BubbleButton>
         </div>
       ) : (
         <>
-          <DayTypeRow value={current} onPick={t => { setEvePaused(true); setPending(t); }} busy={busy} />
+          <DayTypeRow value={current} onPick={t => { setEvePaused(true); setPending(t); setRevealed(true); }} busy={busy} />
           {needsNote && (
             <input
               value={note}
@@ -248,15 +231,15 @@ function DayEditor({
               className="h-10 w-full rounded-[10px] border border-border bg-background px-3 text-[13.5px] outline-none focus:border-[color:var(--brand-1)]"
             />
           )}
-          <button
-            type="button"
+          <BubbleButton
+            variant="primary"
+            size="lg"
             data-testid="att-save"
             disabled={busy || !current || (needsNote && !note.trim())}
             onClick={() => current && onSave(current, note)}
-            className="min-h-11 w-full rounded-[12px] s-brand text-[14px] font-extrabold disabled:opacity-50"
           >
-            {busy ? 'שומר…' : cell.row ? 'עדכון היום' : 'שמירה'}
-          </button>
+            {busy ? 'שומר…' : cell.row ? 'עדכון' : 'שמירה'}
+          </BubbleButton>
         </>
       )}
     </div>
@@ -279,6 +262,13 @@ function AttendanceIsland() {
   const [ym, setYm] = React.useState(() => ({ y: today.getFullYear(), m: today.getMonth() + 1 }));
   const [open, setOpen] = React.useState('');            // the date the phone sheet is on
   const [selected, setSelected] = React.useState(todayKey);   // the date the desktop panel shows
+  // A-U3 (A3): the selected StatTile filter. Survives a month change, resets on person change
+  // (Review Focus #3 — the count updates, the filter keeps working).
+  const [tile, setTile] = React.useState<TileKey | null>(null);
+  React.useEffect(() => { setTile(null); }, [person]);
+  // Review round (designer 2): "חסר לך" shows the latest few days and expands on request.
+  const [showAllMissing, setShowAllMissing] = React.useState(false);
+  React.useEffect(() => { setShowAllMissing(false); }, [person, ym.y, ym.m]);
   const attGuard = useUnsavedGuard({ dirty: () => false, onClose: () => setOpen('') });
 
   // עידן, עמיחי (CEO) and the viewer may look at someone else's month; a field worker sees
@@ -307,19 +297,10 @@ function AttendanceIsland() {
     // SHEET_DATA lands a moment after boot and announces nothing. Poll ONLY until it does.
     refetchInterval: q => (q.state.data ? false : 1500),
   });
-  const visitsQ = useQuery({
-    queryKey: ['attVisits', person, ym.y, ym.m],
-    queryFn: () => readVisits(person, ym.y, ym.m)
-      ?? ((qc.getQueryData(['attVisits', person, ym.y, ym.m]) as VisitLike[] | null | undefined) ?? null),
-    enabled: !!person,
-    refetchInterval: q => (q.state.data ? false : 1500),
-  });
   const holidaysQ = useQuery({ queryKey: ['holidays'], queryFn: readHolidays, staleTime: 6 * 3600_000 });
 
   const refresh = React.useCallback(() => {
     void qc.invalidateQueries({ queryKey: ['attRows'] });
-    // …and the visits with them: a summary saved (or its date corrected) is an attendance day.
-    void qc.invalidateQueries({ queryKey: ['attVisits'] });
   }, [qc]);
   useSigmaEvent('attendance-saved', refresh);
   useSigmaEvent('visit-saved', refresh);
@@ -331,17 +312,15 @@ function AttendanceIsland() {
   useSigmaEvent('holidays-loaded', () => { void qc.invalidateQueries({ queryKey: ['holidays'] }); });
   useSigmaEvent('user-changed', () => { try { setPerson(sigma.attPerson?.() || ''); } catch { /* legacy gone */ } });
 
-  // F-2: the month, with every saved summary folded in as an automatic יום שטח. The legacy
-  // merge already does this; re-deriving it from the visits is what makes an EDITED visit
-  // date move the day (the old date goes back to missing) instead of leaving a ghost row.
-  const rows = React.useMemo(
-    () => withVisitDays((rowsQ.data || []) as AttRow[], (visitsQ.data || []) as VisitLike[], person),
-    [rowsQ.data, visitsQ.data, person]);
+  // round 5 · V8: the rows ARE the answer — package V writes every visit day as a visit_auto
+  // row, so nothing is derived from the visits any more.
+  const rows = React.useMemo(() => mergeByDay((rowsQ.data || []) as AttRow[]), [rowsQ.data]);
   const canEdit = canEditAttendance(me, person, flags);
   const holidays = (holidaysQ.data || []) as Holiday[];
   const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today), [ym, rows, holidays, today]);
   const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m), [rows, holidays, today, ym]);
   const kpis = React.useMemo(() => computeKpis(rows, missing, holidays), [rows, missing, holidays]);
+  const mb = React.useMemo(() => missingBlock(person, me, missing, kpis.onHoliday), [person, me, missing, kpis.onHoliday]);
   // עידן 20.9 #2 — whoever can switch person is here to CHASE the gaps, not to browse a
   // calendar, so they get the same question answered for the whole team at once. Read
   // straight off the legacy snapshot (the same source `readRows` uses for the open person),
@@ -409,173 +388,190 @@ function AttendanceIsland() {
 
   return (
     <div className="att-root">
-      {/* ── header: who, which month, and the two reports ───────────────────── */}
-      <header className="mb-2.5 flex flex-wrap items-center gap-2">
-        <h2 className="flex items-center gap-1.5 text-[17px] font-extrabold">
-          <UserCheck className="h-[18px] w-[18px] text-[color:var(--brand-1)]" />
-          נוכחות: <bdi>{person || me}</bdi>
-        </h2>
+      {/* ── header: who, which month, and the two reports (A-U1, design-system PageActionRow) */}
+      <div className="mb-2.5">
+        <PageActionRow
+          title={<><UserCheck aria-hidden className="me-1.5 inline h-[18px] w-[18px] text-[color:var(--brand-1)]" />נוכחות · <bdi>{person || me}</bdi></>}
+          actions={<>
+            <span data-testid="att-pdf">
+              <IconBubble icon={<FileText aria-hidden className="h-4 w-4" />} label="הורדת דוח נוכחות PDF" size={40}
+                onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }} />
+            </span>
+            <span data-testid="att-excel">
+              <IconBubble icon={<FileSpreadsheet aria-hidden className="h-4 w-4" />} label="הורדת דוח נוכחות Excel" size={40}
+                onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }} />
+            </span>
+          </>}
+        />
 
-        {canSwitch && people.length > 1 && (
-          <div className="flex gap-1" role="group" aria-label="בחירת עובד">
-            {people.map(p => (
-              <button
-                key={p}
-                type="button"
-                data-person={p}
-                aria-pressed={p === person}
-                onClick={() => { setPerson(p); track('attendance-person'); }}
-                className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
-                  + (p === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
-              >
-                <bdi>{p}</bdi>
-              </button>
-            ))}
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          {/* The person switch (F-6), on FilterChip (A-U review round): FilterChip's 32px
+              visual carries `.s-hit`'s invisible ::before, growing the REAL tap target to 48
+              (data-hit-slop tells the sweep so) — the plain radio buttons this replaced were
+              a genuine 57×32/50×32 undersized target. FilterChip still forwards none of its
+              own props to the DOM, so data-person/aria-pressed stay on a wrapper span. */}
+          {canSwitch && people.length > 1 && (
+            <div data-testid="att-person" className="flex gap-1" role="group" aria-label="בחירת עובד">
+              {people.map(p => (
+                <span key={p} data-person={p}>
+                  <FilterChip selected={p === person} onClick={() => { setPerson(p); track('attendance-person'); }}>
+                    <bdi>{p}</bdi>
+                  </FilterChip>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="ms-auto flex items-center gap-1">
+            {/* RTL: the "previous month" control sits on the right, so it points right. */}
+            <IconBubble icon={<ChevronRight aria-hidden className="h-4 w-4" />} label="חודש קודם" size={32} onClick={() => shiftMonth(-1)} />
+            <span data-testid="att-month" className="min-w-[104px] text-center text-[13.5px] font-bold">{grid.label}</span>
+            <IconBubble icon={<ChevronLeft aria-hidden className="h-4 w-4" />} label="חודש הבא" size={32} onClick={() => shiftMonth(1)} />
           </div>
-        )}
-
-        <div className="ms-auto flex items-center gap-1">
-          {/* RTL: the "previous month" control sits on the right, so it points right. */}
-          <button type="button" aria-label="חודש קודם" onClick={() => shiftMonth(-1)} className="att-icon-btn">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <span data-testid="att-month" className="min-w-[104px] text-center text-[13.5px] font-bold">{grid.label}</span>
-          <button type="button" aria-label="חודש הבא" onClick={() => shiftMonth(1)} className="att-icon-btn">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          {/* F-3: two bare icons said nothing. Icon AND label, both tappable at 360 px. */}
-          <button
-            type="button"
-            data-testid="att-pdf"
-            onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }}
-            className="att-report-btn"
-            aria-label="הורדת דוח נוכחות PDF"
-          >
-            <FileText className="h-4 w-4" />
-            <span>PDF</span>
-          </button>
-          <button
-            type="button"
-            data-testid="att-excel"
-            onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }}
-            className="att-report-btn"
-            aria-label="הורדת דוח נוכחות Excel"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            <span>Excel</span>
-          </button>
         </div>
-      </header>
+      </div>
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div className="space-y-3">
-          {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2) ──────────────
-              The screen used to open on the calendar and keep the gaps in a box underneath
-              it, so the one question a person comes here with — "what do I still owe?" —
-              was the last thing answered. It is now the first, and every chip is one tap
-              into that day's sheet. */}
-          <section data-testid="att-missing" className="rounded-[14px] border border-border bg-card p-3">
-            <div className="mb-1.5 flex items-baseline gap-2">
-              <span className="text-[13px] font-bold">{missing.length ? 'חסר לך' : 'החודש מלא, יפה!'}</span>
-              {missing.length > 0 && (
-                <span
-                  data-testid="att-missing-count"
-                  className="rounded-full bg-[color:var(--sigma-warn)]/15 px-2 py-0.5 text-[12px] font-extrabold"
-                >
-                  <bdi>{missing.length}</bdi>
-                </span>
-              )}
-            </div>
-            {missing.length ? (<>
-              <p className="mb-1.5 text-[12px] text-muted-foreground">אפשר ללחוץ על יום ולתעד אותו.</p>
-              <div className="flex flex-wrap gap-1.5">
-                {cellsOf(grid, 'missing').filter(c => c.date < todayKey).map(c => (
-                  <button
-                    key={c.date}
-                    type="button"
-                    data-missing={c.date}
-                    onClick={() => openDay(c)}
-                    aria-label={'תיעוד ' + dayChip(c.date)}
-                    className="att-chip-missing"
-                  >
-                    <span aria-hidden className="att-chip-plus">＋</span>
-                    <bdi>{dayChip(c.date)}</bdi>
-                  </button>
+          {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2; A-U2, design-system
+              SectionBlock/ListRow). The screen used to open on the calendar and keep the
+              gaps in a box underneath it, so the one question a person comes here with —
+              "what do I still owe?" — was the last thing answered. It is now the first,
+              and every row is one tap into that day's sheet. */}
+          {mb.show && (
+          <div data-testid="att-missing">
+            <SectionBlock
+              title={<>
+                {mb.title}
+                {/* SectionBlock's own count Tag isn't wired to a stable test id — a visible
+                    span alongside the title carries att-missing-count (§9 ask); the review
+                    round asked for the count IN the title, not hidden. */}
+                {mb.count > 0 && (
+                  <span data-testid="att-missing-count" className="ms-1.5 inline-flex">
+                    <Tag role="danger"><bdi>{mb.count}</bdi></Tag>
+                  </span>
+                )}
+              </>}
+              titleRole={mb.count ? 'danger' : 'default'}
+            >
+              {mb.count ? (<>
+                {/* Review round: the block ran too tall with a full month of gaps — show the
+                    latest few and let "עוד N ימים" expand the rest, same pattern a long list
+                    anywhere else in the app uses. */}
+                {(showAllMissing ? mb.days : mb.days.slice(-4)).map(d => (
+                  <ListRow
+                    key={d.date}
+                    data-missing={d.date}
+                    aria-label={d.aria}
+                    title={<bdi>{d.label}</bdi>}
+                    onClick={() => openDay(grid.cells.find(c => c.date === d.date)!)}
+                  />
                 ))}
-              </div>
-            </>) : (
-              <p className="text-[12.5px] text-muted-foreground">
-                כל ימי העבודה בחודש מתועדים{kpis.onHoliday ? ` · 🕎 ${kpis.onHoliday} ימי עבודה בחג` : ''}
-              </p>
-            )}
-          </section>
+                {!showAllMissing && mb.days.length > 4 && (
+                  <ListRow
+                    title={'עוד ' + (mb.days.length - 4) + ' ימים'}
+                    onClick={() => setShowAllMissing(true)}
+                  />
+                )}
+              </>) : (
+                <p className="px-4 py-1 text-[12.5px] text-muted-foreground">{mb.empty}</p>
+              )}
+            </SectionBlock>
+          </div>
+          )}
 
           {/* ── …and for עידן / עמיחי / צפייה, the same question for everyone ──── */}
           {canSwitch && teamMissing.length > 1 && (
-            <section data-testid="att-missing-team" className="rounded-[14px] border border-border bg-card p-3">
-              <div className="mb-1.5 text-[13px] font-bold">חסר לצוות</div>
-              <div className="flex flex-wrap gap-1.5">
+            <div data-testid="att-missing-team">
+              <SectionBlock title="חסר לצוות">
                 {teamMissing.map(t => (
-                  <button
+                  <ListRow
                     key={t.person}
-                    type="button"
                     data-person-missing={t.person}
                     data-count={t.known ? String(t.count) : ''}
                     aria-pressed={t.person === person}
+                    title={<bdi>{t.person}</bdi>}
+                    meta={<bdi>{t.known ? t.count : '—'}</bdi>}
                     onClick={() => { setPerson(t.person); track('attendance-person'); }}
-                    className={'min-h-8 rounded-full border px-2.5 text-[12px] font-bold '
-                      + (t.person === person ? 'border-transparent s-brand' : 'border-border bg-muted')}
-                  >
-                    <bdi>{t.person}</bdi>
-                    {' · '}
-                    <bdi>{t.known ? t.count : '—'}</bdi>
-                  </button>
+                  />
                 ))}
-              </div>
-            </section>
+              </SectionBlock>
+            </div>
           )}
 
           {/* ── היום: the one thing this screen is for ───────────────────────── */}
           {todayCell && (
-            <section data-testid="att-today" className="rounded-[14px] border border-border bg-card p-3">
-              <div className="mb-2 flex items-baseline gap-2">
-                <span className="text-[14px] font-extrabold">היום</span>
-                <span className="text-[12.5px] text-muted-foreground"><bdi>{dayChip(todayKey)}</bdi></span>
-                {todayCell.row && <span className="ms-auto text-[12px] font-bold text-[color:var(--sigma-ink)]">✓ {dayLabel(todayCell.row.type)}</span>}
-              </div>
-              {todayCell.holiday && !todayCell.holiday.required && (
-                <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
-              )}
-              {!canEdit ? (
-                <p className="text-[13px] text-muted-foreground">
-                  {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
-                </p>
-              ) : todayCell.row?.source === 'visit' ? (
-                <p className="text-[13px] text-muted-foreground">
-                  נרשם מסיכום הביקור{todayCell.row.kibbutz ? ' · ' + todayCell.row.kibbutz : ''}
-                </p>
-              ) : (
-                <DayTypeRow
-                  value={(todayCell.row?.type as DayType) || null}
-                  busy={save.isPending}
-                  onPick={t => (t === 'other' ? openDay(todayCell) : save.mutate({ date: todayKey, type: t, note: '' }))}
-                />
-              )}
-            </section>
+            <div data-testid="att-today">
+              <SectionBlock title="היום" flush>
+                <div className="px-4 py-1">
+                  <div className="mb-2 flex items-baseline gap-2">
+                    <span className="text-[12.5px] text-muted-foreground"><bdi>{dayChip(todayKey)}</bdi></span>
+                    {todayCell.row && <Tag role="ok" className="ms-auto">{dayLabel(todayCell.row.type)}</Tag>}
+                  </div>
+                  {todayCell.holiday && !todayCell.holiday.required && (
+                    <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
+                  )}
+                  {!canEdit ? (
+                    <p className="text-[13px] text-muted-foreground">
+                      {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
+                    </p>
+                  ) : (
+                    <DayTypeRow
+                      value={(todayCell.row?.type as DayType) || null}
+                      busy={save.isPending}
+                      onPick={t => (t === 'other' ? openDay(todayCell) : save.mutate({ date: todayKey, type: t, note: '' }))}
+                    />
+                  )}
+                </div>
+              </SectionBlock>
+            </div>
           )}
 
-          {/* ── three numbers, no scrolling ───────────────────────────────────── */}
-          <section className="grid grid-cols-3 gap-2">
-            <Kpi label="ימי שטח" value={kpis.field} tone="field" />
-            <Kpi label="משרד ובית" value={kpis.office} tone="office" />
-            <Kpi label="ימים חסרים" value={kpis.missing} tone="missing" />
-          </section>
+          {/* ── the tiles: tap one to color only its category on the month (A-L3, A3) ── */}
+          <StatTileGrid>
+            {/* StatTile doesn't forward its own props to the DOM yet — a wrapper span carries
+                the att-kpi-<key> test hook (§9-style gap, same as ListRow before its own
+                pass-through landed). attTiles()'s own order stays field/office/missing (its
+                golden pins that) — only the RENDER order changes: missing leads and spans the
+                full row, so a filer's three tiles don't leave a lopsided lone third tile
+                (review round item 4). */}
+            {[...attTiles(kpis, person)].sort((a, b) => (a.key === 'missing' ? -1 : b.key === 'missing' ? 1 : 0)).map(t => (
+              <span key={t.key} data-testid={'att-kpi-' + t.key} className="contents">
+                <StatTile
+                  value={t.value}
+                  label={t.label}
+                  role={t.role}
+                  selected={tile === t.key}
+                  className={t.key === 'missing' ? 'col-span-full' : undefined}
+                  onClick={() => { setTile(cur => toggleTile(cur, t.key)); track('attendance-tile', t.key); }}
+                />
+              </span>
+            ))}
+          </StatTileGrid>
+
+          {/* Designer review round: a selected tile must SAY it's filtering, not just tint —
+              the tile's own ring can be missed, especially once a person scrolls past it. */}
+          {tile && (
+            <div data-testid="att-tile-filter">
+              <FilterChip selected onClick={() => setTile(null)}>
+                {'מסונן: ' + (attTiles(kpis, person).find(t => t.key === tile)?.label || '') + ' ✕'}
+              </FilterChip>
+            </div>
+          )}
 
           {/* ── the month ─────────────────────────────────────────────────────── */}
           <section className="rounded-[14px] border border-border bg-card p-2.5">
             {rowsQ.data === null || rowsQ.isLoading
               ? <Skeleton className="h-[236px] w-full rounded-[10px]" />
-              : <MonthGridView grid={grid} onPick={openDay} selected={selected} />}
+              : <MonthGridView grid={grid} onPick={openDay} selected={selected} person={person} tile={tile} />}
+            <ul data-testid="att-legend" className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+              {attLegend(person).map(item => (
+                <li key={item.key} data-legend={item.key} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + LEGEND_DOT[item.key]} />
+                  {item.label}
+                </li>
+              ))}
+            </ul>
           </section>
 
         </div>
@@ -602,8 +598,10 @@ function AttendanceIsland() {
           there is no draft to lose and the predicate is honestly false. */}
       <Sheet open={!!open} onOpenChange={o => { if (!o) attGuard.ask(); }}>
         <SheetContent side="bottom" data-testid="att-sheet" className="max-h-[80svh] overflow-y-auto lg:hidden" {...attGuard.contentProps}>
+          {/* A-U4: a visible title (dayChip), not sr-only — the design-system Sheet header
+              already renders the ✕ "סגירה" close button as a grid cell beside it. */}
           <SheetHeader className="mb-2">
-            <SheetTitle className="sr-only">{openCell ? dayChip(openCell.date) : 'יום'}</SheetTitle>
+            <SheetTitle><bdi>{openCell ? dayChip(openCell.date) : 'יום'}</bdi></SheetTitle>
             <SheetDescription className="sr-only">עריכת סוג היום.</SheetDescription>
           </SheetHeader>
           <AnimatePresence mode="wait" initial={false}>
@@ -619,6 +617,7 @@ function AttendanceIsland() {
                   cell={openCell}
                   busy={save.isPending}
                   canEdit={canEdit}
+                  showHeader={false}
                   onSave={(t, note) => save.mutate({ date: openCell.date, type: t, note })}
                 />
               </motion.div>

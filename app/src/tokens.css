@@ -31,6 +31,11 @@
   --s-danger-ink: #B91C1C;  --s-danger-fill: #FEE2E2;
   --s-info-ink: #1E40AF;    --s-info-fill: #DBEAFE;
   --s-holiday-ink: #5B21B6; --s-holiday-fill: #EDE9FE;
+  /* Round 5 · C-U designer fix (25.9): חג (holiday) and ערב חג (eve) read as the same purple in
+     dark — a distinct second token, a brighter magenta-purple, ≥3:1 against --s-bg/--s-surface
+     in BOTH themes (test-design-tokens.mjs). Only used as a DOT, never a fill, so 3:1 (graphical
+     object) is the right bar, not 4.5:1 (text). */
+  --s-holiday-eve-ink: #9333EA;
   --s-neutral-ink: #475569; --s-neutral-fill: #E2E8F0;
 
   /* ---- space / radius / elevation / z — design-review.md §2 "Space, radius, elevation, z" ---- */
@@ -118,6 +123,7 @@
   --s-danger-ink: #F87171;  --s-danger-fill: #3A1618;
   --s-info-ink: #8FB4FF;    --s-info-fill: #172440;
   --s-holiday-ink: #C4B5FD; --s-holiday-fill: #2A1F47;
+  --s-holiday-eve-ink: #D946EF;
   --s-neutral-ink: #A3B1BD; --s-neutral-fill: #1C2429;
   /* dark: the border carries elevation, not a shadow (design-review.md §2 "Elevation"). */
   --s-e1: none;

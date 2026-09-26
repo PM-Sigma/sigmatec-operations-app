@@ -7,11 +7,14 @@
 // emitting `notes-changed` on sigmaBus, which is what makes the card, the modal tab and the
 // import preview agree without any of them knowing the others exist (docs/integration-map.md).
 import * as React from 'react';
+import { CalendarDays, Link2, Loader2, MoreHorizontal, Plus } from 'lucide-react';
 import { useClickAway } from '@/lib/useClickAway';
 import { useQuery } from '@tanstack/react-query';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { IconBubble } from '@/components/ui/icon-bubble';
+import { ListRow } from '@/components/ui/list-row';
 import { sigma, sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
@@ -135,7 +138,9 @@ function OwnerChip({ name }: { name: string }) {
   );
 }
 
-function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; index: number }) {
+function NoteBullet({
+  row, canAct, index, dateBadge,
+}: { row: NoteRow; canAct: boolean; index: number; /** rendered inline in this bullet's meta line, only for the group's first bullet (designer round 8). */ dateBadge?: React.ReactNode }) {
   const reduce = useReducedMotion();
   const [menu, setMenu] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -166,6 +171,16 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
     sigma.openKibbutzEmsTask(String(row.ems_task_id));
   };
 
+  // DS IconBubble, default 40px visual size — but the RENDERED box must clear 44×44 on its
+  // own (designer round 9: not via the .s-hit overlay), so min-w/min-h-[44px] floor it; a
+  // tinted fill (not the ghost ready-on-hover default) so it reads in both light and dark
+  // without a hover to reveal it.
+  // dark:bg-white/10, not dark:bg-s-surface-2 (designer round 10 — "raise the tint one
+  // surface step"): s-surface-2 sat too close to the card's own dark background to read as a
+  // filled bubble; a light overlay lifts it one visible step above the card regardless of
+  // which dark surface it sits on.
+  const ACTION_CLS = 'min-w-[44px] min-h-[44px] bg-secondary dark:bg-white/10';
+
   return (
     <motion.li
       data-id={row.id}
@@ -174,103 +189,95 @@ function NoteBullet({ row, canAct, index }: { row: NoteRow; canAct: boolean; ind
       initial={reduce ? false : { opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, delay: reduce ? 0 : Math.min(index, 8) * 0.03 }}
-      className={
-        'note-bullet flex items-start gap-2 py-[5px] text-[14.5px] leading-[1.55] ' +
-        (done ? 'done opacity-50 line-through decoration-1 ' : '')
-      }
+      className={'note-bullet ' + (done ? 'done opacity-50 line-through decoration-1' : '')}
     >
-      <span aria-hidden className="mt-[3px] text-[10px] text-muted-foreground">•</span>
-      <span className="min-w-0 flex-1">
-        {/* `quiet` is derived, not stored: "ללא פערים" is still a row (the kibbutz WAS
-            reviewed) but it is not news, so it renders muted. */}
-        <span className={isQuiet(row.text) ? 'text-muted-foreground' : ''}>{row.text}</span>
-        {(row.owners || []).length > 0 && (
-          <span className="ms-1.5 inline-flex flex-wrap gap-1 align-middle">
+      {/* One real ListRow (designer round 9): title = the note text (clamp 2), meta = the
+          date chip (first bullet only) + owner chips, trailing = the actions — vertically
+          centred on the WHOLE row by ListRow itself, not squeezed into the meta line.
+          px-4 is ListRow's OWN default — kept, not overridden (designer round 10): the
+          section's SectionBlock wraps every row in `-mx-4 divide-y`, which relies on each
+          row restoring that 16px with its own inline padding. Dropping it to px-0 last round
+          is what let the row (and the ⋯ bubble) spill past the card's real edge. */}
+      <ListRow
+        className="min-h-0 py-[5px]"
+        leading={<span aria-hidden className="text-[10px] text-muted-foreground">•</span>}
+        title={<span className={isQuiet(row.text) ? 'text-muted-foreground' : ''}>{row.text}</span>}
+        // No meta line at all when there's no date and no owner (designer round 12): an empty
+        // reserved line left an uneven gap before the next row.
+        meta={dateBadge || row.owners?.length ? (
+          <span className="inline-flex flex-wrap items-center gap-1">
+            {dateBadge}
             {(row.owners || []).map(o => <OwnerChip key={o} name={o} />)}
           </span>
-        )}
-      </span>
-
-      {/* ➕ ⇄ 🔗 are ONE element as far as Motion is concerned (shared layoutId), so linking a
-          bullet morphs the button in place instead of swapping two icons (spec §7c). */}
-      <AnimatePresence initial={false} mode="popLayout">
-        {linked ? (
-          <motion.button
-            key="linked"
-            layoutId={reduce ? undefined : 'note-act-' + row.id}
-            type="button"
-            onClick={e => { e.stopPropagation(); openTask(); }}
-            title={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
-            className={'note-act linked shrink-0 rounded-md px-1 text-[13px] leading-5 hover:bg-muted '
-              + (pending ? 'note-act-pending opacity-60 ' : '')
-              + (stale ? 'note-act-stale text-[color:var(--sigma-warn)] ' : '')}
-          >
-            {pending ? '⏳' : '🔗'}
-          </motion.button>
-        ) : canAct && !done ? (
-          <motion.button
-            key="add"
-            layoutId={reduce ? undefined : 'note-act-' + row.id}
-            type="button"
-            disabled={busy}
-            onClick={e => { e.stopPropagation(); void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}
-            title="פתח משימה ב-EMS"
-            className="note-act shrink-0 rounded-md px-1 text-[13px] leading-5 text-muted-foreground hover:bg-muted"
-          >
-            ＋
-          </motion.button>
-        ) : null}
-      </AnimatePresence>
-
-      {canAct && (
-        <span ref={menuRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); setMenu(v => !v); }}
-            aria-expanded={menu}
-            aria-label="עוד פעולות לבולט"
-            className="rounded-md px-1 text-[13px] leading-5 text-muted-foreground hover:bg-muted"
-          >
-            ⋯
-          </button>
-          {menu && (
-            <span className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={e => { e.stopPropagation(); void act(() => setNoteDone(row.id!, !done), done ? 'הסימון בוטל' : 'סומן כטופל'); }}
-                className="px-3 py-2 text-start hover:bg-muted"
-              >
-                {done ? '↩︎ בטל' : '✓ סמן כטופל'}
-              </button>
-            </span>
-          )}
-        </span>
-      )}
+        ) : undefined}
+        trailing={
+          <span className="flex items-center gap-1">
+            {linked ? (
+              <IconBubble
+                icon={pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                label={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
+                onClick={() => openTask()}
+                className={ACTION_CLS + (pending ? ' opacity-60' : '') + (stale ? ' text-[color:var(--sigma-warn)]' : '')}
+              />
+            ) : canAct && !done ? (
+              <IconBubble
+                icon={<Plus className="h-4 w-4" />}
+                label="פתח משימה ב-EMS"
+                onClick={() => { if (!busy) void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}
+                className={ACTION_CLS}
+              />
+            ) : null}
+            {canAct && (
+              <span ref={menuRef} className="relative">
+                <IconBubble
+                  icon={<MoreHorizontal className="h-4 w-4" />}
+                  label="עוד פעולות לבולט"
+                  active={menu}
+                  onClick={() => setMenu(v => !v)}
+                  className={ACTION_CLS}
+                />
+                {menu && (
+                  <span className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={e => { e.stopPropagation(); void act(() => setNoteDone(row.id!, !done), done ? 'הסימון בוטל' : 'סומן כטופל'); }}
+                      className="px-3 py-2 text-start hover:bg-muted"
+                    >
+                      {done ? '↩︎ בטל' : '✓ סמן כטופל'}
+                    </button>
+                  </span>
+                )}
+              </span>
+            )}
+          </span>
+        }
+      />
     </motion.li>
   );
 }
 
 function MeetingBlock({ group, canAct }: { group: MeetingGroup; canAct: boolean }) {
   const kindLabel = KIND_LABEL[group.meeting_kind as MeetingKind] || KIND_LABEL.company;
+  // The date badge rides in the FIRST bullet's own meta line now (designer round 8), not a
+  // standalone header above the list — py-1 + leading-none (not py-px) so the calendar icon
+  // has room and never clips at the chip's edge.
+  const dateBadge = (
+    <span
+      className="inline-flex items-center rounded-full bg-muted px-1.5 py-1 text-[10px] font-bold leading-none text-muted-foreground"
+      title={kindLabel}
+    >
+      <CalendarDays aria-hidden className="me-1 h-2.5 w-2.5 shrink-0" /><bdi>{chipDate(group.meeting_date)}</bdi>
+      {group.meeting_kind !== 'company' && <span className="ms-1">· {kindLabel}</span>}
+    </span>
+  );
   return (
     <div className="card-notes-meeting">
-      <div className="mb-0.5 flex items-center gap-1.5">
-        <span
-          className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground"
-          title={kindLabel}
-        >
-          🗓 <bdi>{chipDate(group.meeting_date)}</bdi>
-        </span>
-        {group.meeting_kind !== 'company' && (
-          <span className="text-[10px] font-semibold text-muted-foreground">{kindLabel}</span>
-        )}
-      </div>
       {/* Motion stagger instead of Magic UI's AnimatedList: that component cycles a feed of
           notifications, which is not what a fixed bullet list is (spec §6 motion budget). */}
       <ul>
         {group.bullets.map((b, i) => (
-          <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} />
+          <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} dateBadge={i === 0 ? dateBadge : undefined} />
         ))}
       </ul>
     </div>
@@ -314,13 +321,17 @@ export function MeetingTimeline({
           meeting for context, and one tap to the whole history. */}
       {collapsed && latest && (
         <>
-          <div className="mb-0.5 flex items-center gap-1.5">
-            <span className="rounded-full bg-muted px-1.5 py-px text-[10px] font-bold text-muted-foreground">
-              🗓 <bdi>{chipDate(latest.meeting_date)}</bdi>
-            </span>
-          </div>
           <ul>
-            {brief.shown.map((b, i) => <NoteBullet key={b.id || b.seq} row={b} canAct={canAct} index={i} />)}
+            {brief.shown.map((b, i) => (
+              <NoteBullet
+                key={b.id || b.seq} row={b} canAct={canAct} index={i}
+                dateBadge={i === 0 ? (
+                  <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-1 text-[10px] font-bold leading-none text-muted-foreground">
+                    <CalendarDays aria-hidden className="me-1 h-2.5 w-2.5 shrink-0" /><bdi>{chipDate(latest.meeting_date)}</bdi>
+                  </span>
+                ) : undefined}
+              />
+            ))}
           </ul>
           <button
             type="button"
