@@ -246,20 +246,40 @@ function CertIsland() {
           </SheetHeader>
           {draft && (
             <div className="mt-3 flex flex-col gap-3">
-              <input data-testid="cert-cust-name" placeholder="שם לקוח" value={draft.customer.name}
-                onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, name: e.target.value } })}
-                className="min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
-              <input placeholder="ח.פ." value={draft.customer.company_id || ''}
-                onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, company_id: e.target.value } })}
-                className="min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
-              <input placeholder="כתובת" value={draft.customer.address || ''}
-                onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, address: e.target.value } })}
-                className="min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
-              <input placeholder="איש קשר" value={draft.customer.contact || ''}
-                onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, contact: e.target.value } })}
-                className="min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
-              <input type="date" value={draft.date} onChange={e => setDraft(d => d && { ...d, date: e.target.value })}
-                className="min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
+              {/* Designer C-round I fix: the customer-name and contact-person fields both default
+                  from the kibbutz name (e.g. two identical "דגניה" inputs with only a placeholder
+                  each — a placeholder that VANISHES the moment the field has a value, which it
+                  always does here). Labelled exactly like InventoryOrderSheet.tsx's own fields
+                  so the two never look interchangeable. */}
+              <div>
+                <label className="text-[13px] font-bold" htmlFor="certCustName">שם לקוח</label>
+                <input id="certCustName" data-testid="cert-cust-name" value={draft.customer.name}
+                  onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, name: e.target.value } })}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
+              </div>
+              <div>
+                <label className="text-[13px] font-bold" htmlFor="certCustCompanyId">ח.פ.</label>
+                <input id="certCustCompanyId" value={draft.customer.company_id || ''}
+                  onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, company_id: e.target.value } })}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
+              </div>
+              <div>
+                <label className="text-[13px] font-bold" htmlFor="certCustAddress">כתובת</label>
+                <input id="certCustAddress" value={draft.customer.address || ''}
+                  onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, address: e.target.value } })}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
+              </div>
+              <div>
+                <label className="text-[13px] font-bold" htmlFor="certCustContact">איש קשר</label>
+                <input id="certCustContact" value={draft.customer.contact || ''}
+                  onChange={e => setDraft(d => d && { ...d, customer: { ...d.customer, contact: e.target.value } })}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
+              </div>
+              <div>
+                <label className="text-[13px] font-bold" htmlFor="certDate">תאריך</label>
+                <input id="certDate" type="date" value={draft.date} onChange={e => setDraft(d => d && { ...d, date: e.target.value })}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
+              </div>
 
               <div className="flex flex-col gap-2">
                 {draft.items.map((it, i) => (

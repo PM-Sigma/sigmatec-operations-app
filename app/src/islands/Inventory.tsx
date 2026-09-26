@@ -119,7 +119,7 @@ function InventoryPage() {
     <div dir="rtl" className="flex min-w-0 flex-col gap-2">
       <PageActionRow title="מלאי" />
       <Tabs value={tab} onValueChange={v => setTab(normalizeTab(v))}>
-        <div ref={tabsListRef} className="-mx-1 overflow-x-auto px-1">
+        <div ref={tabsListRef} className="s-scroll-fade -mx-1 overflow-x-auto px-1">
           <TabsList
             data-hit-slop
             className="inline-flex h-auto w-max gap-1 bg-transparent p-0"

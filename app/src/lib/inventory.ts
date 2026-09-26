@@ -760,14 +760,20 @@ export interface DeletePreview {
 }
 export interface DeleteSummaryLine { text: string; danger: boolean }
 
-const plural = (n: number, one: string, many: (n: number) => string) => (n === 1 ? one : many(n));
+// Designer C-round I "nice": Hebrew reads "שתי X" for exactly two, not "2 X" — a bare digit next
+// to every OTHER count here spelled out in words ("אחת") looked like an inconsistency, not a
+// number. `two` is optional so a caller with no natural "שתי ..." phrasing (dates, IDs) can skip it.
+const plural = (n: number, one: string, many: (n: number) => string, two?: (n: number) => string) =>
+  (n === 1 ? one : n === 2 && two ? two(n) : many(n));
 
 /** deleteSummaryLines: what the ConfirmSheet lists before the toast/undo. Zero counts are
- * omitted; Hebrew singular is used for exactly 1. */
+ * omitted; Hebrew singular is used for exactly 1, "שתי ..." for exactly 2. */
 export function deleteSummaryLines(p: DeletePreview): DeleteSummaryLine[] {
   const lines: DeleteSummaryLine[] = [];
-  if (p.movements) lines.push({ text: plural(p.movements, 'תנועת מלאי אחת', n => `${n} תנועות מלאי`), danger: false });
-  if (p.orders_trimmed.length) lines.push({ text: plural(p.orders_trimmed.length, 'שורה בהזמנה אחת', n => `שורות ב-${n} הזמנות`), danger: false });
+  if (p.movements) lines.push({ text: plural(p.movements, 'תנועת מלאי אחת', n => `${n} תנועות מלאי`, () => 'שתי תנועות מלאי'), danger: false });
+  // Word order fixed (was "שורה בהזמנה אחת" — "a line in-order one", which reads like the ORDER
+  // is singular-marked oddly rather than the LINE): "שורה אחת בהזמנה" puts אחת back on שורה.
+  if (p.orders_trimmed.length) lines.push({ text: plural(p.orders_trimmed.length, 'שורה אחת בהזמנה', n => `שורות ב-${n} הזמנות`), danger: false });
   for (const id of p.orders_deleted) lines.push({ text: `הזמנה ${id} נמחקת כולה`, danger: true });
   if (p.certs_referencing.length) {
     lines.push({

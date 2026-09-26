@@ -466,13 +466,22 @@ describe('deleteSummaryLines (D1-D5, binding update: issued certs stay exactly a
       returns: 1, recounts: 0, alerts: 4, parse_examples: 0, fingerprint: 'x',
     })).toEqual([
       { text: '3 תנועות מלאי', danger: false },
-      { text: 'שורה בהזמנה אחת', danger: false },
+      { text: 'שורה אחת בהזמנה', danger: false },
       { text: 'הזמנה ord-9 נמחקת כולה', danger: true },
       { text: 'תעודה אחת מזכירה פריט זה — לא תשתנה (תעודה שהופקה היא רשומה סופית)', danger: false },
       { text: 'שורות ב-2 ביקורים (הסיכומים נשארים)', danger: false },
       { text: 'החזרה אחת', danger: false },
       { text: '4 התראות', danger: false },
     ]);
+  });
+  it('exactly two movements reads "שתי תנועות מלאי", not a bare "2" (designer C-round I nice)', () => {
+    const lines = deleteSummaryLines({
+      product: 'x', exists: 1, movements: 2, orders_deleted: [], orders_trimmed: [],
+      certs_referencing: [], certs_referencing_active: [],
+      visits_trimmed: 0, requirements_trimmed: 0, requirements_deleted: 0,
+      returns: 0, recounts: 0, alerts: 0, parse_examples: 0, fingerprint: 'x',
+    });
+    expect(lines).toEqual([{ text: 'שתי תנועות מלאי', danger: false }]);
   });
   it('a cert that references the item is listed but never marked dangerous — it is never touched', () => {
     const lines = deleteSummaryLines({

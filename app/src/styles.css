@@ -837,6 +837,17 @@
   .ucal-ltask-actions .ucal-mini { flex: 1; justify-content: center; }
 }
 
+/* Designer C-round I "nice": a horizontally-scrollable strip (the מלאי page's tab row is the
+   first user, but any `overflow-x-auto` row can reach for this) with no visual hint that it
+   scrolls — the last label just gets cut mid-word ("תעודות משל"). A CSS mask fades both
+   inline edges to transparent; `overflow: auto` still works exactly the same underneath, this
+   only changes what paints. Both edges fade (not just the trailing one) since the strip starts
+   scrolled to the RTL-leading tab, not necessarily to either physical edge. */
+.sigma-root .s-scroll-fade {
+  mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+}
+
 /* ═════════════════════════════════════════════════════════════════════════════
    round 5 phase 2 — container-query grids (tools-and-motion.md §2.0). Native CSS
    `@container`, no plugin, no JS: each grid reacts to ITS OWN width, not the viewport, so it

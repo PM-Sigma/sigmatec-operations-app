@@ -156,7 +156,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-burns-page` | :451 | app/src/islands/BurnsPage.tsx:374<br>app/src/main.tsx:249 |
 | `#sigma-calendar` | :408 | app/src/islands/Calendar.tsx:1928<br>app/src/main.tsx:263 |
 | `#sigma-ceo` | :926 | **—** |
-| `#sigma-cert` | :906 | app/src/islands/InventoryCert.tsx:399 |
+| `#sigma-cert` | :906 | app/src/islands/InventoryCert.tsx:419 |
 | `#sigma-daylog` | :901 | app/src/islands/DayLog.tsx:478<br>app/src/main.tsx:401 |
 | `#sigma-dev-board` | :429 | app/src/islands/DevBoard.tsx:318<br>app/src/main.tsx:274 |
 | `#sigma-dev-presenter` | :915 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:491 |

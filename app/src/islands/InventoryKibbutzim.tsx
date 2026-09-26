@@ -89,7 +89,10 @@ export function InventoryKibbutzimTab() {
                   title={c.kibbutz}
                   count={c.items.length}
                   collapsible
-                  defaultOpen={false}
+                  // Designer C-round I fix: a single kibbutz collapsed by default showed an
+                  // empty-looking screen with no hint anything was inside — with only one card
+                  // there is no "scan the list" reason to start collapsed, so it opens.
+                  defaultOpen={cards.length === 1}
                 >
                   {c.items.map(([name, q]) => (
                     <div key={name} data-testid={`inv-kib-cell-${c.kibbutz}-${name}`} className="flex items-center justify-between px-4 py-3">

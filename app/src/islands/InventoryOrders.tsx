@@ -166,11 +166,22 @@ export function InventoryOrdersTab() {
             <div key={String(o.id)} data-testid={`inv-order-row-${o.id}`}>
             <ListRow
               onClick={() => openOrder(o)}
-              leading={<Tag role="info">{orderType(o as any) === 'customer' ? 'לקוח' : 'ספק'}</Tag>}
-              title={orderType(o as any) === 'customer' ? orderKibbutz(o as any, data?.requirements || []) : (o.supplier || 'ספק')}
+              // Designer C-round I fix: the ספק/לקוח tag used to sit in `leading` — a fixed
+              // slot BEFORE the title that ate into the row's width at 360, crowding the title
+              // against the ⋯ trailing button. It reads fine inline, next to the title itself.
+              title={
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <Tag role="info">{orderType(o as any) === 'customer' ? 'לקוח' : 'ספק'}</Tag>
+                  <span>{orderType(o as any) === 'customer' ? orderKibbutz(o as any, data?.requirements || []) : (o.supplier || 'ספק')}</span>
+                </span>
+              }
               meta={
                 <span className="flex flex-col gap-1">
-                  <span>{data ? orderMeta(o, data) : ''} · <bdi>{orderTotalQty(o as any)}</bdi> פריטים</span>
+                  <span>{data ? orderMeta(o, data) : ''}</span>
+                  {/* Its own line (was crammed onto the date/creator line above with a bare
+                      " · N פריטים" suffix): the count reads as a fact about the order, not a
+                      trailing afterthought squeezed against everything else. */}
+                  <span><bdi>{orderTotalQty(o as any)}</bdi> פריטים</span>
                   <span className="flex flex-wrap gap-1">
                     {canApprove ? (
                       <button

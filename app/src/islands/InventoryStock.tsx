@@ -85,13 +85,21 @@ export function InventoryStockTab() {
         }
       />
 
-      <StatTileGrid>
+      {/* Designer C-round I fix: exactly three tiles here, always — the generic 2-at-<480px /
+          3-at-480px+ container query (styles.css .s-stat-grid) left the third tile wrapping
+          onto its own row at 360/412, an uneven 2+1. `grid-cols-3` pins this one instance to
+          three equal columns at every width it actually appears at. */}
+      <StatTileGrid className="!grid-cols-3">
         <span data-testid="inv-kpi-items">
           <StatTile
             value={view.productCount}
             label="פריטים במאגר"
             role="info"
-            selected={filter === ''}
+            // Designer C-round I fix: filter==='' is both "no filter active" AND "this tile's
+            // own filter value" — showing the selected ring here made every visit to the stock
+            // tab look like a filter was already on. Only מלאי נמוך below ever earns the ring;
+            // this tile stays clickable (resets a low-stock filter back to all) but plain.
+            selected={false}
             onClick={() => setFilter('')}
           />
         </span>
