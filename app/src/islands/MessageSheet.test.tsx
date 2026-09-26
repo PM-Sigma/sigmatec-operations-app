@@ -86,7 +86,7 @@ describe('MessageSheet', () => {
     await waitFor(() => expect(screen.queryByTestId('cmd-message')).toBeNull());   // closed after send
   });
 
-  it('a 42501 from the server gets its own clear toast, and the sheet stays open', async () => {
+  it('a 42501 from the server shows an inline error above "שליחה" (not a toast), and the sheet stays open', async () => {
     mockSigma.staffSendMessage.mockRejectedValueOnce(Object.assign(new Error('שמירה נכשלה (401)'), { code: '42501' }));
     render(<MessageSheetPanel />);
     openMessageSheet('אביאם');
@@ -95,11 +95,12 @@ describe('MessageSheet', () => {
     fireEvent.change(screen.getByTestId('cmd-message-text'), { target: { value: 'שלום' } });
     fireEvent.click(screen.getByTestId('cmd-message-send'));
 
-    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('אין הרשאה לשלוח כרגע. כדאי להתחבר מחדש ולנסות שוב.'));
+    await waitFor(() => expect(screen.getByTestId('cmd-message-error').textContent).toContain('אין הרשאה לשלוח כרגע. כדאי להתחבר מחדש ולנסות שוב.'));
+    expect(toastMock.error).not.toHaveBeenCalled();
     expect(screen.getByTestId('cmd-message')).toBeTruthy();   // never silently closes on a real failure
   });
 
-  it('any other failure gets a plain retry toast, not the 42501 wording', async () => {
+  it('any other failure gets a plain inline retry message, not the 42501 wording', async () => {
     mockSigma.staffSendMessage.mockRejectedValueOnce(new Error('שמירה נכשלה (500)'));
     render(<MessageSheetPanel />);
     openMessageSheet('אביאם');
@@ -108,6 +109,23 @@ describe('MessageSheet', () => {
     fireEvent.change(screen.getByTestId('cmd-message-text'), { target: { value: 'שלום' } });
     fireEvent.click(screen.getByTestId('cmd-message-send'));
 
-    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('ההודעה לא נשלחה: שמירה נכשלה (500)'));
+    await waitFor(() => expect(screen.getByTestId('cmd-message-error').textContent).toContain('ההודעה לא נשלחה: שמירה נכשלה (500)'));
+  });
+
+  it('a recipient chip is a toggle button, not a native radio (Opus review round 5)', async () => {
+    render(<MessageSheetPanel />);
+    openMessageSheet('אביאם');
+    await waitFor(() => expect(screen.getByTestId('cmd-message')).toBeTruthy());
+    const to = screen.getByTestId('cmd-message-to');
+    expect(to.getAttribute('role')).toBe('group');
+    expect(to.querySelector('[role="radio"]')).toBeNull();
+  });
+
+  it('ignores a preselected recipient that is myself', async () => {
+    render(<MessageSheetPanel />);
+    openMessageSheet('עידן');   // getCurrentUser() in this test — never a valid recipient
+    await waitFor(() => expect(screen.getByTestId('cmd-message')).toBeTruthy());
+    const to = screen.getByTestId('cmd-message-to');
+    expect(to.querySelector('[aria-pressed="true"]')?.textContent).not.toBe('עידן');
   });
 });
