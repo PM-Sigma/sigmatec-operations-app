@@ -19,18 +19,23 @@ test('F23 viewer: all 6 tabs, no new-order / new-product write controls', async 
   expect(await page.locator('button:has-text("+ פריט חדש"):visible').count()).toBe(0);
 });
 
-// F23b as a live sb=1 boot hits Phase 0's UPGRADE_FREEZE (js/src/00-consts.js: true today) —
-// upgradeFreezeDecision(name, isViewer, isCertView, isMock, allowList) returns `isMock` false
-// under sb=1, and `isViewer` freezes unconditionally (00-consts.js:68-72) — the viewer never
-// reaches the certs tab on the real path at all right now, so there is nothing to click.
-// The rule itself is asserted directly against the source instead (same style test-inventory-
-// pool.mjs already uses for source-level contracts).
-test('F23b viewer: invRenderCerts hides new/send/reissue/cancel behind isViewer()', () => {
-  const src = read('js/src/20-delivery-cert.js');
-  expect(src).toMatch(/const vw = typeof isViewer === 'function' && isViewer\(\);/);
-  expect(src).toMatch(/nb\.style\.display = vw \? 'none' : '';/);
-  expect(src).toMatch(/\$\{vw \? '' : `<button class="inv-btn small" style="background:#16a34a;" onclick="certSendOpen/);
-  expect(src).toMatch(/\$\{\(cancelled \|\| vw\) \? '' : `<button class="inv-btn small" style="background:#0e7490;" onclick="certReissue/);
+// F23b legacy characterized invRenderCerts's source directly (js/src/20-delivery-cert.js), which
+// U10/U4 trimmed down to the data pipeline — the certs UI it used to render is
+// app/src/islands/InventoryCerts.tsx now, gated the same way (`!user.isViewer`) but as JSX.
+// Tried as a real browser flow first (bootInvCerts('צפייה') → open the certs tab): it hangs, same
+// as legacy — UPGRADE_FREEZE (js/src/00-consts.js:68-72) bounces a viewer unconditionally on the
+// real sb=1 boot path certs needs (`_sbCertGet` is undefined under sb=0), so there is genuinely
+// nothing to click, exactly the situation the ORIGINAL F23b comment already documented. Kept as
+// a source-level contract for that reason, updated to the file the rule actually lives in now.
+test('F23b viewer: the certs tab hides new/send/reissue/cancel behind isViewer() (view stays)', () => {
+  const src = read('app/src/islands/InventoryCerts.tsx');
+  // the new-cert button (page header) is gated
+  expect(src).toMatch(/!user\.isViewer && \(\s*<button[\s\S]{0,80}data-testid="inv-new-cert"/);
+  // the per-row "עוד" menu: הצגה is unconditional, שליחה/הפקה מתוקנת/ביטול are behind !isViewer
+  expect(src).toMatch(/data-testid=\{`inv-cert-view-\$\{anyc\.cert_number\}`\}/);
+  expect(src).toMatch(/\{!user\.isViewer && \(\s*<>\s*<button[\s\S]{0,80}data-testid=\{`inv-cert-send-/);
+  expect(src).toMatch(/data-testid=\{`inv-cert-reissue-\$\{anyc\.cert_number\}`\}/);
+  expect(src).toMatch(/data-testid=\{`inv-cert-cancel-\$\{anyc\.cert_number\}`\}/);
 });
 
 // F23c: booting מתניה all the way to #sigma-home hits an unrelated block (a "ההתחברות פגה"

@@ -61,29 +61,14 @@ test('F03 customer order + offline parse ("2 סאטק"): ambiguous-Satec questio
   expect(items.some(i => i.name === 'ספק כוח שקע')).toBe(true);
 });
 
-test('F04 a non-catalog line offers add-to-catalog / remove; removing it leaves the catalog line and saves', async ({ page }, ti) => {
-  await bootInv(page, ti, 'עמיחי', d);
-  await d.openTab(page, 'orders');
-  await page.evaluate(() => (window as any).invNewOrder());
-  await page.locator('#invOrderModal.open').waitFor({ state: 'visible' });
-  await page.locator('.inv-ordtype-btn[data-t="supplier"]').click();
-  // A mix: if the ONLY line were non-catalog, removing it empties the order and invSaveOrder
-  // aborts with "לא נותרו פריטים בהזמנה" instead of saving — that is its own (correct) behaviour,
-  // not this one's. invOrderItems is a bare top-level `let` in the bundle, not a window property
-  // — see the note in _inv-legacy.ts's setItems().
-  await page.evaluate('invOrderItems = [{ name: "בקר 504", qty: 2 }, { name: "פריט לא בקטלוג", qty: 1 }]; renderOrderItems();');
-  await page.locator('#invOrderCreatedBy').selectOption('עמיחי');
-  const clickWhenAsked = (async () => {
-    await page.locator('#orderQModal.open').waitFor({ state: 'visible', timeout: 10_000 });
-    const optTexts = await page.locator('#orderQOptions button').allInnerTexts();
-    expect(optTexts.join(' ')).toContain('הוסף לקטלוג');   // DELTAS.O27: this path is removed in react
-    await page.locator('#orderQOptions button', { hasText: 'הסר מההזמנה' }).click();
-  })();
-  await Promise.all([clickWhenAsked, page.locator('#invOrderModal button[onclick="invSaveOrder(this)"]').click()]);
-  await page.locator('#invOrderModal.open').waitFor({ state: 'hidden', timeout: 15_000 });
-  const l = await ledger(page);
-  expect(l).toContainEqual(expect.objectContaining({ table: 'orders', op: 'insert', row: expect.objectContaining({ items: [{ name: 'בקר 504', qty: 2 }] }) }));
-});
+// F04 (legacy: a non-catalog line offered "הוסף לקטלוג" / "הסר", both live options) is DELETED,
+// not ported, for the react driver: the round-5 spec (O27) deliberately removes the
+// add-to-catalog path, and the react OrderSheet's item picker (InventoryOrderSheet.tsx) is a
+// <select> of the catalog only — there is no UI action left that puts a non-catalog line into an
+// order in the first place, so the browser scenario this test characterized cannot occur any
+// more. The O27 rule itself (an existing non-catalog line — e.g. from data — blocks save, and
+// "הסרת השורות" is the only recovery) is a golden: app/src/lib/inventory.test.ts
+// "orderSavePlan (O27, O28, O18a, O18b)" › "blocks non-catalog lines (no add-to-catalog path)".
 
 test('F05 approval rights: אביאם approves ≤10, not >10; ניתאי only customer; עמיחי approves anything', async ({ page }, ti) => {
   await bootInv(page, ti, 'אביאם', d);
@@ -178,11 +163,16 @@ test('F09c ' + DELTAS.O18b + ' — legacy: no matching <option>, status is writt
   expect(patch?.row.status).toBe(d.name === 'react' ? 'pending_approval' : '');
 });
 
-test('F21 a push deep link (?pushact=approve&oid=…) reaches and runs approveOrder', async ({ page }, ti) => {
-  // ready: '' — this deep link never opens the inventory page (act==='approve' calls approveOrder
-  // directly, no showPage), so there's no reason to wait on the home cards specifically.
+test('F21 a push deep link (?pushact=approve&oid=…) reaches the approve-confirm step and running it approves', async ({ page }, ti) => {
+  // react (U7/O34-O38): the legacy approveOrder()/invEditOrder() globals this deep link and
+  // sigma.openOrder() called are gone since U10 — both now route through invOpen() into the
+  // React inventory island, which shows the page and opens the sheet (unlike legacy, which wrote
+  // straight to the ledger with no UI). ready: '' — showPage('inventory') fires before home ever
+  // renders, so there's nothing to wait for there.
   await bootInv(page, ti, 'אביאם', d, { query: 'pushact=approve&oid=ord-s-small', ready: '' });
-  await expect.poll(async () => (await ledger(page)).some(r => r.table === 'orders' && r.match === 'ord-s-small'), { timeout: 10_000 }).toBe(true);
+  await expect(page.getByTestId('approve-confirm-sheet')).toBeVisible({ timeout: 10_000 });
+  await page.locator('[data-testid="confirm-yes"]').click();
+  await page.locator('[data-testid="order-sheet"]').waitFor({ state: 'hidden', timeout: 15_000 });
   const l = await ledger(page);
   expect(l).toContainEqual(expect.objectContaining({ table: 'orders', match: 'ord-s-small', row: { status: 'pending' } }));
 });
@@ -190,8 +180,8 @@ test('F21 a push deep link (?pushact=approve&oid=…) reaches and runs approveOr
 test('F22 sigma.openOrder opens the edit sheet for that order', async ({ page }, ti) => {
   await bootInv(page, ti, 'עמיחי', d);
   await page.evaluate(() => (window as any).sigma.openOrder('ord-3'));
-  await page.locator('#invOrderModal.open').waitFor({ state: 'visible' });
-  await expect(page.locator('#invOrderSupplier')).toHaveValue('לנדיס');
+  await page.locator('[data-testid="order-sheet"]').waitFor({ state: 'visible' });
+  await expect(page.locator('[data-testid="os-supplier"]')).toHaveValue('לנדיס');
 });
 
 test('S19 tab order is the round-5 ruling order', async ({ page }, ti) => {

@@ -23,6 +23,10 @@ export interface OrderSheetProps {
   order: OrderLike | null;        // null = new
   defaultType?: 'supplier' | 'customer';
   onSaved: () => void;
+  /** O34-O38: the `{kind:'approve'}` push/bell/strip deep link opens straight to the confirm step
+   * instead of the plain edit form — the caller only sets this when the order is actually
+   * approvable (canApproveThisOrder), so it's never offered to someone who couldn't confirm it. */
+  initialStep?: 'form' | 'approve-confirm';
 }
 
 type Step = 'form' | 'questions' | 'approve-confirm';
@@ -43,7 +47,7 @@ function draftFromOrder(o: OrderLike | null, defaultType: 'supplier' | 'customer
   };
 }
 
-export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier', onSaved }: OrderSheetProps) {
+export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier', onSaved, initialStep }: OrderSheetProps) {
   const user = useCurrentUser();
   const invQ = useInventory();
   const data = invQ.data;
@@ -55,7 +59,8 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
   const [questions, setQuestions] = React.useState<Question[]>([]);
 
   React.useEffect(() => {
-    if (open) { setDraft(draftFromOrder(order, defaultType)); setStep('form'); }
+    if (open) { setDraft(draftFromOrder(order, defaultType)); setStep(initialStep || 'form'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, order, defaultType]);
 
   const catalog = React.useMemo(

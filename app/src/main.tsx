@@ -176,22 +176,17 @@ function boot() {
       .then(m => m.mountFeedback())
       .catch(e => console.warn('[sigma] feedback island failed', e));
   }
-  // 🔢 דיווח שינוי במלאי (inventory spec §4b): NOT deferred, like the feedback sheet and for
-  // the same reason — the 📦 מלאי page renders a legacy button that dispatches the raw open
-  // event, so the island has to be listening before the first tap. Its chunk is a few kB.
-  if (document.getElementById('sigma-stock-change')) {
-    import('@/islands/StockChange')
-      .then(m => m.mountStockChange())
-      .catch(e => console.warn('[sigma] stock-change island failed', e));
-  }
-  // 🚚 תעודת משלוח (inventory spec, package I, task U4) — always listening, like StockChange:
-  // a visit's "הפקת תעודה" and the legacy compat shims in 20-delivery-cert.js dispatch the raw
-  // open event before this chunk is guaranteed loaded.
-  if (document.getElementById('sigma-cert')) {
-    import('@/islands/InventoryCert')
-      .then(m => m.mountInventoryCert())
-      .catch(e => console.warn('[sigma] cert island failed', e));
-  }
+  // 🔢 דיווח שינוי במלאי (§4b) + 🚚 תעודת משלוח (package I, task U4): NOT deferred behind
+  // inventoryBoot.ts's own dynamic import, unlike Inventory/InventoryNudges below — the visit
+  // form's "הפקת תעודה" and the מלאי page's "דיווח שינוי" button dispatch a raw open event with
+  // no retry if nobody's listening yet, so both need their listener attached from THIS tick, not
+  // one more network hop later. `mountEager` is the one shared helper their two near-identical
+  // blocks used to duplicate as boot-chunk-eager glue.
+  const mountEager = (id: string, imp: () => Promise<{ [k: string]: () => void }>, fn: string) => {
+    if (document.getElementById(id)) imp().then(m => m[fn]()).catch(e => console.warn('[sigma] ' + fn, e));
+  };
+  mountEager('sigma-stock-change', () => import('@/islands/StockChange'), 'mountStockChange');
+  mountEager('sigma-cert', () => import('@/islands/InventoryCert'), 'mountInventoryCert');
   // 🔔 התראות מלאי (inventory spec §5.1) — the header bell. Not deferred: it carries the
   // unseen badge, and a badge that appears a second late is a badge nobody trusts.
   if (document.getElementById('sigma-alerts')) {
@@ -202,21 +197,9 @@ function boot() {
   // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5): embedded directly inside
   // app/src/islands/InventoryStock.tsx's Stock tab now — the standalone #sigma-inventory-strip
   // mount point was only ever a fallback for the (now-deleted, U10) legacy stock page.
-  // 📦 מלאי (inventory spec, package I): the page island. Lazy, next to StockChange
-  // — it renders nothing (and stays out of the boot chunk) until #sigma-inventory exists.
-  if (document.getElementById('sigma-inventory')) {
-    import('@/islands/Inventory')
-      .then(m => m.mountInventory())
-      .catch(e => console.warn('[sigma] inventory island failed', e));
-  }
-  // 🔔 Inventory nudges (spec task U7): the עמיחי approval reminder + the approved-orders
-  // notice. Always-listening, next to the page island itself — a nudge can fire even when the
-  // מלאי page isn't open (the legacy functions call invOpen({kind:'nudges'}) from anywhere).
-  if (document.getElementById('sigma-inventory-nudges')) {
-    import('@/islands/InventoryNudges')
-      .then(m => m.mountInventoryNudges())
-      .catch(e => console.warn('[sigma] inventory-nudges island failed', e));
-  }
+  import('@/islands/inventoryBoot')
+    .then(m => m.mountInventoryBoot())
+    .catch(e => console.warn('[sigma] inventory boot glue failed', e));
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())

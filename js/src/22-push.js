@@ -373,7 +373,15 @@
   function ready() { return !!(window.SHEET_DATA && typeof getCurrentUser === 'function' && getCurrentUser()); }
   function run() {
     try {
-      if (act === 'approve' && oid && typeof approveOrder === 'function') { approveOrder(oid); }
+      // U10 deleted the legacy approveOrder()/invEditOrder() the two order deep links used to
+      // call directly — both now go through invOpen() (00-consts.js), the one door into the
+      // React inventory island (same as sigma.openOrder). 'approve' lands on the confirm step
+      // when this user can actually approve the order (InventoryOrders.tsx); otherwise the same
+      // plain edit sheet 'order' opens.
+      if (act === 'approve' && oid) {
+        if (typeof showPage === 'function') showPage('inventory');
+        if (typeof window.invOpen === 'function') window.invOpen({ kind: 'approve', id: oid });
+      }
       else if (act === 'order' && typeof showPage === 'function') { showPage('inventory'); }
       // Round 5 (V4: the attendance picker is gone from the visit flow) — a non-field day is filed
       // on the attendance page itself now, so fillToday only gets him there; it no longer opens a

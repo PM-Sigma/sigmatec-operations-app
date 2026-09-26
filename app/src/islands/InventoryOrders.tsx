@@ -42,14 +42,17 @@ export function InventoryOrdersTab() {
   const [filter, setFilter] = React.useState('');
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<OrderLike | null>(null);
+  const [sheetInitialStep, setSheetInitialStep] = React.useState<'form' | 'approve-confirm'>('form');
   const [newType, setNewType] = React.useState<'supplier' | 'customer'>('supplier');
   const [moreOpenId, setMoreOpenId] = React.useState<string | null>(null);
 
   const orders = data?.orders || [];
   const filtered = React.useMemo(() => filterOrders(orders as any, filter), [orders, filter]);
 
-  const openNew = () => { setEditing(null); setNewType('supplier'); setSheetOpen(true); };
-  const openOrder = (o: OrderLike) => { setEditing(o); setSheetOpen(true); };
+  const openNew = () => { setEditing(null); setNewType('supplier'); setSheetInitialStep('form'); setSheetOpen(true); };
+  const openOrder = (o: OrderLike, initialStep: 'form' | 'approve-confirm' = 'form') => {
+    setEditing(o); setSheetInitialStep(initialStep); setSheetOpen(true);
+  };
 
   async function doQuick(o: OrderLike) {
     if (!data) return;
@@ -74,26 +77,44 @@ export function InventoryOrdersTab() {
 
   // O34-O38 (task U7): the bell/strip/nudge deep links land here — 'order'/'approve' open the
   // sheet on that order (its own approve-confirm step handles 'approve'), 'status' runs the
-  // write directly, exactly like the legacy quickOrderStatus().
-  React.useEffect(() => {
-    const onOpen = (e: Event) => {
-      const detail = (e as CustomEvent)?.detail || ({} as any);
-      if (!['order', 'approve', 'status'].includes(detail.kind)) return;
-      const o = orders.find(x => String(x.id) === String(detail.id));
-      if (!o) return;
-      if (detail.kind === 'status') {
-        if (!data) return;
-        setOrderStatus(String(o.id), detail.status, data, user.name)
-          .then(() => toast.success('הסטטוס עודכן'))
-          .catch((e: any) => toast.error((e?.message || 'הפעולה נכשלה') + ' — נסה שוב'));
-        return;
-      }
-      openOrder(o);
-    };
-    window.addEventListener(INV_OPEN_EVENT, onOpen);
-    return () => window.removeEventListener(INV_OPEN_EVENT, onOpen);
+  // write directly, exactly like the legacy quickOrderStatus(). `pendingDetail` covers a real
+  // race: the push deep link's own readiness check (js/src/22-push.js `ready()`) only waits for
+  // the legacy SHEET_DATA + a logged-in user, not this island's own React Query fetch — a detail
+  // that arrives before `orders` has loaded would otherwise find no matching order and be
+  // dropped silently. Held and retried once `orders` actually has something in it, instead.
+  const pendingDetail = React.useRef<any>(null);
+  const handleOpenDetail = React.useCallback((detail: any) => {
+    if (!['order', 'approve', 'status'].includes(detail?.kind)) return;
+    const o = orders.find(x => String(x.id) === String(detail.id));
+    if (!o) { if (orders.length === 0) pendingDetail.current = detail; return; }
+    pendingDetail.current = null;
+    if (detail.kind === 'status') {
+      if (!data) return;
+      setOrderStatus(String(o.id), detail.status, data, user.name)
+        .then(() => toast.success('הסטטוס עודכן'))
+        .catch((e: any) => toast.error((e?.message || 'הפעולה נכשלה') + ' — נסה שוב'));
+      return;
+    }
+    // O34-O38: {kind:'approve'} opens straight to the confirm step — but only when this user
+    // can actually approve it (canApproveThisOrder); otherwise it's the same plain edit sheet
+    // 'order' gets, so a stale/misdirected deep link never dead-ends on a step with no button.
+    const step: 'form' | 'approve-confirm' =
+      detail.kind === 'approve' && canApproveThisOrder(o as any, user.name) ? 'approve-confirm' : 'form';
+    openOrder(o, step);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, data, user.name]);
+
+  React.useEffect(() => {
+    const onOpen = (e: Event) => handleOpenDetail((e as CustomEvent)?.detail || {});
+    window.addEventListener(INV_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(INV_OPEN_EVENT, onOpen);
+  }, [handleOpenDetail]);
+
+  // Retry the held detail once orders finishes loading (or changes) — covers both "arrived
+  // before the fetch resolved" and "arrived for an order that only shows up after a refetch".
+  React.useEffect(() => {
+    if (pendingDetail.current && orders.length > 0) handleOpenDetail(pendingDetail.current);
+  }, [orders, handleOpenDetail]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -207,6 +228,7 @@ export function InventoryOrdersTab() {
         onOpenChange={setSheetOpen}
         order={editing}
         defaultType={newType}
+        initialStep={sheetInitialStep}
         onSaved={() => { /* useInventory() is invalidated inside saveOrder/approveOrder (afterWrite) */ }}
       />
     </div>

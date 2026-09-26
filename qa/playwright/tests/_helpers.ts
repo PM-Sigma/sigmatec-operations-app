@@ -410,13 +410,16 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       if (tableOf(url) === 'products' && method === 'PATCH') {
         const q = new URL(url).searchParams;
         const store = products;
-        const key = 'name';
+        // Two callers filter on two different columns: the min_qty editor (InventoryStrip.tsx)
+        // by `name`, setProductActive (P13 fix, inventoryApi.ts) by `id` — key on whichever the
+        // query string actually carries instead of assuming one.
+        const key: 'id' | 'name' = q.has('id') ? 'id' : 'name';
         const want = decodeURIComponent((q.get(key) || '').replace(/^eq\./, ''));
         let body: any = {};
         try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const hit = store.find(r => String(r[key]) === want);
         if (hit) Object.assign(hit, body);
-        await recordInvWrite('products', 'patch', body, want);
+        await recordInvWrite('products', 'patch', body, hit ? String(hit.id) : want);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
       // 📦 package I — W.product (js/src/01-data.js) always upserts by id, even for a toggle:
@@ -528,7 +531,8 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         const rows = (Array.isArray(body) ? body : [body])
           .map((r, i) => ({ id: tableOf(url) + '-' + (store.length + i + 1), created_at: new Date().toISOString(), ...r }));
         store.push(...rows);
-        if (tableOf(url) === 'movements') for (const r of rows) await recordInvWrite('movements', 'insert', r);
+        const tbl = tableOf(url) as 'movements' | 'stock_recounts';
+        for (const r of rows) await recordInvWrite(tbl, 'insert', r);
         return route.fulfill(json(shape(rows, accept), 201));
       }
       // work_sessions / site_contacts (Task 29) accept their inserts and remember them.

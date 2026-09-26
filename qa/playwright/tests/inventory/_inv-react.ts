@@ -35,6 +35,11 @@ export const reactDriver: InvDriver = {
 
   async poolQty(page, product) {
     const row = page.locator(`[data-testid="inv-pool-row-${product}"]`);
+    // The pool list renders from an async query (useInventory) — openTab only waits for the tab
+    // PANEL to appear, not for its data, so a read right after opening can race the first paint
+    // (seen under load on mobile projects: count()===0 read synchronously before the render
+    // commits). Give it a real chance to show up before concluding the product isn't there.
+    await row.first().waitFor({ state: 'attached', timeout: 5_000 }).catch(() => {});
     if (await row.count() === 0) return null;
     const txt = await row.first().innerText();
     const m = txt.match(/-?\d+(\.\d+)?\s*$/);
@@ -180,7 +185,10 @@ export const reactDriver: InvDriver = {
       visible = page.locator(visibleSel);
     }
     if (await visible.count() === 0) return null;
-    const txt = await visible.first().innerText();
+    // The mobile card's cell holds the product NAME too (e.g. "מונה ... E360PP"), whose digits
+    // would corrupt a whole-cell text scrape ("360" + "3" → "3603") — read the <bdi> quantity
+    // node alone, which is the only thing either layout (card or matrix) puts there.
+    const txt = await visible.first().locator('bdi').first().innerText();
     return parseFloat(txt.replace(/[^\d.-]/g, ''));
   },
   async download(page, which) {
@@ -212,10 +220,48 @@ export const reactDriver: InvDriver = {
     await page.locator('[data-testid="return-confirm-sheet"]').waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
   },
 
-  saveProduct: notBuilt('saveProduct (U6)'),
-  toggleProduct: notBuilt('toggleProduct (U6)'),
-  displayNameEditable: notBuilt('displayNameEditable (U6)'),
-  wiringOk: notBuilt('wiringOk (U6)'),
+  async saveProduct(page, p) {
+    if (p.id) {
+      await page.locator(`[data-testid="inv-product-row-${p.id}"]`).click();
+    } else {
+      await page.locator('[data-testid="inv-new-product"]').click();
+    }
+    await page.locator('[data-testid="product-sheet"]').waitFor({ state: 'visible' });
+    await page.locator('[data-testid="ps-name"]').fill(p.name);
+    if (p.category) await page.locator('[data-testid="ps-category"]').selectOption({ label: p.category });
+    if (p.active != null) {
+      const cb = page.locator('[data-testid="ps-active"]');
+      if ((await cb.isChecked()) !== p.active) await cb.click();
+    }
+    if (p.display_name != null) await page.locator('[data-testid="ps-display"]').fill(p.display_name);
+    await page.locator('[data-testid="ps-save"]').click();
+    await page.locator('[data-testid="product-sheet"]').waitFor({ state: 'hidden', timeout: 10_000 });
+  },
+
+  async toggleProduct(page, id) {
+    await page.locator(`[data-testid="inv-product-row-${id}"]`).click();
+    await page.locator('[data-testid="product-sheet"]').waitFor({ state: 'visible' });
+    await page.locator('[data-testid="ps-more"]').click();
+    await page.locator('[data-testid="ps-toggle"]').click();
+    // toggleActive() doesn't close the sheet — wait for its own success toast so the caller's
+    // ledger read never races the write.
+    await page.getByText(/הפריט הופעל|הפריט הושבת/).first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+  },
+
+  async displayNameEditable(page, id) {
+    await page.locator(`[data-testid="inv-product-row-${id}"]`).click();
+    await page.locator('[data-testid="product-sheet"]').waitFor({ state: 'visible' });
+    const editable = await page.locator('[data-testid="ps-display"]').isEnabled();
+    // Close without saving (this is a read-only probe) — Escape triggers the sheet's own close
+    // path (useUnsavedGuard), and nothing here dirtied the draft anyway.
+    await page.keyboard.press('Escape');
+    await page.locator('[data-testid="product-sheet"]').waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+    return editable;
+  },
+
+  async wiringOk(page) {
+    return (await page.getByText('מחובר למחולל הדוחות').count()) > 0;
+  },
 
   async certRange(page, r) {
     await page.locator(`[data-testid="inv-certs-range-${r}"] button`).click();

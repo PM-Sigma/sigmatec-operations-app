@@ -101,13 +101,11 @@ console.log('\n[4] build output is wired into the page');
   // registerMoreItem glue (F1: the message sheet is the one live feature Ctrl+K hid, and it
   // needs a boot-time row so a tap in the first second still works, same shape as the gaps/
   // יומן panels). Net +523 bytes measured over G's 303 kB.
-  // 305 kB (26.9, round 5 packages D+I merge): merging round 5 package D (main.tsx's
-  // #dev-view observer that lazy-loads app/src/islands/DevBoard.tsx, mirroring the existing
-  // gaps/יומן boot-time glue) onto package I's React inventory (which replaced the legacy
-  // vanilla #inventory-view markup outright, not adding boot weight of its own) grew the shared
-  // boot chunk by ~580 bytes over X-L7's 304 kB — both features' mount-observer glue is
-  // boot-eager by the same pattern used everywhere else in main.tsx.
-  check('bundle under the 305 kB ceiling', size < 305 * 1024, Math.round(size / 1024) + ' kB');
+  // Reverted (26.9): a prior merge bumped this to 305 kB to paper over the round 5 packages
+  // D+I merge instead of trimming the actual growth. The ceiling stays 304 kB (311,296 B) —
+  // any package that grows the boot chunk pays for it with a real reduction elsewhere (lazy
+  // import, dropped boot-eager glue), same as every entry above.
+  check('bundle under the 304 kB ceiling', size < 304 * 1024, Math.round(size / 1024) + ' kB');
 }
 
 console.log(failures ? `\nFAIL — ${failures} check(s)` : '\nPASS — sigma shell contracts hold');
