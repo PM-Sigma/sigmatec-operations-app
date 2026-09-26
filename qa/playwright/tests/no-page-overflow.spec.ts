@@ -58,8 +58,14 @@ async function openAttendance(page: import('@playwright/test').Page) {
 
 async function openInventory(page: import('@playwright/test').Page) {
   await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="stock"]').click();
-  await page.waitForSelector('[data-testid="inv-pool"]', { state: 'visible', timeout: 20_000 });
+  // React inventory (round 5 package I): the legacy `[data-inv-tab]` markup is gone — the tab
+  // strip and its panels now carry `data-testid="inv-tab-<name>"` / `inv-panel-<name>"` (see
+  // qa/playwright/tests/inventory/_inv-react.ts's openTab, the same contract every inventory
+  // spec drives through).
+  await page.locator('[data-testid="inv-tab-stock"]').click();
+  // No plain `inv-pool` container exists — InventoryStock.tsx testids each row individually
+  // (inv-pool-row-<name>); the panel wrapper is what _inv-react.ts's own openTab waits for.
+  await page.waitForSelector('[data-testid="inv-panel-stock"]', { state: 'visible', timeout: 20_000 });
 }
 
 for (const width of WIDTHS) {
