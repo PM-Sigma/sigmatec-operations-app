@@ -90,11 +90,15 @@ test.describe('PageBar (U3)', () => {
     await expect(bar.getByRole('button', { name: 'חזרה' })).toHaveCount(0);
   });
 
-  test('burns (level 2): back chevron present', async ({ page }, ti) => {
-    await boot(page, ti, { ready: '#sigma-page-bar h1' });
+  // burns/pushlog/dev (and attendance) draw their OWN PageActionRow — richer content the
+  // shared row has no slot for (S-U merge fallout, 26.9: `ownHeader` in lib/shell.ts). The
+  // shell's #sigma-page-bar renders NOTHING for them; the back chevron lives in the island's
+  // own row instead.
+  test('burns (level 2, ownHeader): back chevron is the ISLAND\'s own, not the shared page-bar', async ({ page }, ti) => {
+    await boot(page, ti);
     await gotoPage(page, 'burns');
-    const bar = page.locator('#sigma-page-bar');
-    await expect(bar.getByRole('button', { name: 'חזרה' })).toBeVisible();
+    await expect(page.locator('#sigma-page-bar')).toBeEmpty();
+    await expect(page.locator('#sigma-burns-page').getByRole('button', { name: 'חזרה' })).toBeVisible();
   });
 });
 
