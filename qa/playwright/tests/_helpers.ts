@@ -591,6 +591,12 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       // a ✅ נצרב is a PATCH, which the write branch above 401s like every other write.
       case 'meter_burns': return route.fulfill(json(shape(FIXTURES.burns, accept)));
       case 'generators': return route.fulfill(json(shape(FIXTURES.generators, accept)));
+      // 🔔 יומן התראות (G-U3) — 250 fixture rows, `limit` honoured like real PostgREST so the
+      // 200-row cap the page relies on has something real to prove against.
+      case 'push_log': {
+        const lim = Number(new URL(url).searchParams.get('limit') || '0') || FIXTURES.pushLog.length;
+        return route.fulfill(json(shape(FIXTURES.pushLog.slice(0, lim), accept)));
+      }
       // The saved route comes back for exactly the (person, date) the island asked for —
       // PostgREST filters look like `person=eq.<name>&date=eq.<day>`.
       case 'day_plans': {
@@ -825,7 +831,7 @@ export function expectNoConsoleErrors(rec: Recorder): void {
  * `suffix` adds a second shot of the same screen (e.g. a sheet open) as
  * `<viewport>-<theme>-<suffix>.png`.
  */
-export async function shot(page: Page, testInfo: TestInfo, suffix = ''): Promise<void> {
+export async function shot(page: Page, testInfo: TestInfo, suffix = '', opts: { fullPage?: boolean } = {}): Promise<void> {
   const spec = testInfo.file.replace(/\\/g, '/').split('/').pop()!.replace(/\.spec\.ts$/, '');
   const theme = (testInfo.project.metadata as any).theme as string;
   const viewport = (testInfo.project.metadata as any).viewport as string;
@@ -834,7 +840,7 @@ export async function shot(page: Page, testInfo: TestInfo, suffix = ''): Promise
     viewport + '-' + theme + (suffix ? '-' + suffix : '') + '.png',
   );
   await mkdir(dirname(file), { recursive: true });
-  await page.screenshot({ path: file, fullPage: false });
+  await page.screenshot({ path: file, fullPage: !!opts.fullPage });
 }
 
 /**

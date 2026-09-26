@@ -16,11 +16,16 @@ export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
+  ariaLabel,
   className,
 }: {
   options: Array<{ value: T; label: string }>;
   value: T;
   onChange: (v: T) => void;
+  /** Names the radiogroup for a caller whose visible label sits outside this control (e.g. a
+   *  `ControlRow`'s own heading) — optional, since a self-describing control (its options
+   *  already say what they are) needs none. */
+  ariaLabel?: string;
   className?: string;
 }) {
   const refs = React.useRef<Array<HTMLButtonElement | null>>([]);
@@ -62,6 +67,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       role="radiogroup"
+      aria-label={ariaLabel}
       // `flex w-full`, not `inline-flex` (designer confirm round, N3): shrink-to-fit sized the
       // whole control to its OWN content, so "רשימה" (the longest label) truncated even in a
       // section with plenty of spare width — the container itself never used that width. `w-full`

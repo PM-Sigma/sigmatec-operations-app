@@ -97,8 +97,9 @@
     if (page === 'inventory')  renderInventory();
     if (page === 'attendance') renderAttendanceReport();
     if (page === 'calendar')   renderCompanyCalendar();
-    if (page === 'pushlog' && typeof renderPushLog === 'function') renderPushLog();
-    if (page === 'burns' && typeof renderBurns === 'function') renderBurns();
+    // dev / pushlog / burns are all React islands now (DevPresenter.tsx / PushLog.tsx /
+    // BurnsPage.tsx), mounted by app/src/main.tsx's MutationObserver on the view's display
+    // toggle above — no legacy render call left to make for any of the three.
     // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
     var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view' }[page];
     var _pe = _pv && document.getElementById(_pv);

@@ -1,6 +1,6 @@
 # Package G: Settings + burns + push log — spec and implementation plan
 
-STATUS: 🟡 OPEN — planned 23.9, NOT built. Resume: run the L tasks now (they need no designer input). The U tasks start only after the designer's PASS on the G mock screens and after packages DS (`r9/DS`, c6eed19) and S are on `origin/main`.
+STATUS: ✅ SHIPPED — all 10 tasks (6 L + 4 U) built on `r9/G-U`. G-U1 settings, G-U2 burns, G-U3 push log (יומן התראות), G-U4 retired `24-meter-burns.js`/`23-push-log.js`. Not yet merged to `origin/main` (worktree only).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
