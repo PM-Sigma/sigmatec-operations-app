@@ -1,8 +1,15 @@
 // The bell sheet's list body — cut out of islands/Alerts.tsx (round 5, L7) so the frame (the
 // bell trigger, the badge, the sheet header — Alerts.tsx) stays with package S while the list
-// itself (this file) moves to package R. No visual change from the split itself.
+// itself (this file) moves to package R. Redesigned onto the design system (round 5, Task U5):
+// ListRow per group, a lucide Check IconBubble instead of a bare button, and a neutral bubble
+// for the "seen" toggle instead of a border-only pill.
 import * as React from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Bell, Check, ChevronDown } from 'lucide-react';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { IconBubble } from '@/components/ui/icon-bubble';
+import { ListRow } from '@/components/ui/list-row';
+import { fmtDay, fmtTime } from '@/lib/format';
 import { track } from '@/lib/track';
 import { sigma } from '@/bridge';
 import { alertTarget, alertText, type AlertGroup, type AlertRow } from '@/lib/alerts';
@@ -19,45 +26,62 @@ function openSource(row: AlertRow): void {
   } catch { /* legacy not up */ }
 }
 
-function GroupRow({ g, user, onSeen }: { g: AlertGroup; user: string; onSeen: (g: AlertGroup) => void }) {
+/** `היום 14:02 · אביאם` — the meta line, separate from the title's own text. */
+function groupMeta(g: AlertGroup): string {
+  const head = g.rows[0];
+  const parts: string[] = [];
+  if (g.at) { const d = new Date(g.at); parts.push(fmtDay(d) + ' ' + fmtTime(d)); }
+  if (head?.actor) parts.push(String(head.actor));
+  return parts.join(' · ');
+}
+
+function GroupRow({ g, onSeen }: { g: AlertGroup; onSeen: (g: AlertGroup) => void }) {
   const [open, setOpen] = React.useState(false);
   const many = g.rows.length > 1;
+  const canMarkSeen = !g.seen && g.kind !== 'ems_unlinked';
   return (
-    <li data-testid="alert-group" data-count={g.rows.length} className="border-b border-border py-2.5 last:border-b-0">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => { track('alert-open', String(g.kind)); onSeen(g); openSource(g.rows[0]); }}
-          className={`flex-1 text-start text-[13px] leading-snug ${g.seen ? 'text-muted-foreground' : 'font-bold text-foreground'}`}
-        >
-          <bdi>{g.title}</bdi>
-        </button>
-        {many && (
+    <li data-testid="alert-group" data-count={g.rows.length} className="border-b border-border last:border-b-0">
+      <ListRow
+        leading={!g.seen ? <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[var(--info-ink)]" /> : undefined}
+        title={(
           <button
             type="button"
-            aria-label={open ? 'סגור פירוט' : 'פירוט'}
-            aria-expanded={open}
-            onClick={() => setOpen(o => !o)}
-            className="min-h-8 flex-none rounded-[10px] border border-border px-2 text-[12px] text-muted-foreground"
+            // data-hit-slop: a single-line title row is under 48px tall on its own — `.s-hit`
+            // grows the real hit area (see chip.tsx's FilterChip for why the sweep needs the
+            // attribute too).
+            data-hit-slop
+            className="s-hit text-start"
+            onClick={() => { track('alert-open', String(g.kind)); onSeen(g); openSource(g.rows[0]); }}
           >
-            <ChevronDown className={'size-4 transition-transform ' + (open ? 'rotate-180' : '')} />
+            <span className={g.seen ? '' : 'font-bold'}><bdi>{g.title}</bdi></span>
           </button>
         )}
-        {/* אתר לא מקושר ל-EMS is a standing state, not an event — it has nothing to "mark
-            read"; it clears itself the moment the site is actually linked. */}
-        {!g.seen && g.kind !== 'ems_unlinked' && (
-          <button
-            type="button"
-            aria-label="סמן כנקרא"
-            onClick={() => onSeen(g)}
-            className="min-h-8 flex-none rounded-[10px] border border-border px-2 text-[12px] text-muted-foreground"
-          >
-            <Check className="size-4" />
-          </button>
-        )}
-      </div>
+        meta={groupMeta(g) ? <bdi>{groupMeta(g)}</bdi> : undefined}
+        trailing={
+          <span className="flex items-center gap-1">
+            {many && (
+              <BubbleButton
+                variant="icon"
+                aria-label={open ? 'סגירת הפירוט' : 'פירוט'}
+                aria-expanded={open}
+                onClick={() => setOpen(o => !o)}
+              >
+                <ChevronDown aria-hidden className={'h-4 w-4 transition-transform duration-[var(--s-motion-fast)] ' + (open ? 'rotate-180' : '')} />
+              </BubbleButton>
+            )}
+            {canMarkSeen ? (
+              <IconBubble
+                size={32}
+                label="סימון כנקרא"
+                icon={<Check aria-hidden className="h-4 w-4" />}
+                onClick={() => onSeen(g)}
+              />
+            ) : null}
+          </span>
+        }
+      />
       {many && open && (
-        <ul className="mt-1.5 flex flex-col gap-1 ps-3 text-[12px] text-muted-foreground">
+        <ul className="mt-0.5 flex flex-col gap-1 px-4 pb-2 ps-9 text-[12px] text-muted-foreground">
           {g.rows.map(r => <li key={String(r.id)}><bdi>{alertText(r)}</bdi></li>)}
         </ul>
       )}
@@ -65,7 +89,7 @@ function GroupRow({ g, user, onSeen }: { g: AlertGroup; user: string; onSeen: (g
   );
 }
 
-export function AlertsList({ groups, user, onSeen }: { groups: AlertGroup[]; user: string; onSeen: (g: AlertGroup) => void }) {
+export function AlertsList({ groups, onSeen }: { groups: AlertGroup[]; user: string; onSeen: (g: AlertGroup) => void }) {
   const [showSeen, setShowSeen] = React.useState(false);
   const unread = groups.filter(g => !g.seen);
   const read = groups.filter(g => g.seen);
@@ -73,20 +97,21 @@ export function AlertsList({ groups, user, onSeen }: { groups: AlertGroup[]; use
   return (
     <div data-testid="alerts-list">
       {!shown.length && (
-        <p className="py-6 text-center text-[13px] text-muted-foreground">
-          {groups.length ? 'הכול נקרא' : 'אין תנועות מלאי'}
-        </p>
+        groups.length
+          ? <EmptyState icon={<Check />} title="הכול נקרא." />
+          : <EmptyState icon={<Bell />} title="עוד לא נשלחו התראות." />
       )}
-      {!!shown.length && <ul className="mt-1">{shown.map(g => <GroupRow key={g.key} g={g} user={user} onSeen={onSeen} />)}</ul>}
+      {!!shown.length && <ul className="-mx-4">{shown.map(g => <GroupRow key={g.key} g={g} onSeen={onSeen} />)}</ul>}
       {!!read.length && (
-        <button
-          type="button"
-          onClick={() => setShowSeen(s => !s)}
+        <BubbleButton
+          variant="tonal"
+          size="sm"
+          className="mt-3 w-full"
           data-testid="alerts-toggle-seen"
-          className="mt-3 w-full rounded-xl border border-border py-2 text-[12.5px] font-semibold text-muted-foreground"
+          onClick={() => setShowSeen(s => !s)}
         >
-          {showSeen ? 'הסתר מה שנקרא' : `הצג מה שנקרא (${read.length})`}
-        </button>
+          {showSeen ? 'הסתרת מה שנקרא' : <>הצגת מה שנקרא (<bdi>{read.length}</bdi>)</>}
+        </BubbleButton>
       )}
     </div>
   );

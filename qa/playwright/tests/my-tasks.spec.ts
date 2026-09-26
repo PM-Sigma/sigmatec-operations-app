@@ -57,12 +57,41 @@ test('my tasks: the header button opens one sheet with the EMS work and the 🔒
   const groups = sheet.locator('.my-task-group');
   expect(await groups.count()).toBeGreaterThan(0);
 
-  // ── ✓ closes a 🔒 row and it leaves the list
+  // ── ✓ closes a 🔒 row; the row stays through the undo window, then leaves
   await hukok.locator('.internal-task-row', { hasText: 'לבדוק את הגנרטור' })
-    .getByRole('button', { name: 'סמן כטופל' }).click();
+    .getByRole('button', { name: 'סימון כטופל' }).click();
+  await expect(sheet.getByText('לבדוק את הגנרטור')).toBeVisible();
+  await page.waitForTimeout(5500);
   await expect(sheet.getByText('לבדוק את הגנרטור')).toHaveCount(0);
 
   await expectRtl(page);
+  await expectNoConsoleErrors(rec);
+});
+
+test('closing a task can be undone and writes nothing', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await addInternal(page, 'חוקוק', 'לבדוק משאבה');
+
+  const writes: string[] = [];
+  page.on('request', r => { if (r.method() !== 'GET' && r.url().includes('internal_tasks')) writes.push(r.url()); });
+
+  await page.getByTestId('header-my-tasks').click();
+  const sheet = page.getByTestId('my-tasks');
+  const btn = sheet.getByRole('button', { name: 'סימון כטופל' }).first();
+  await btn.click();
+  await page.locator('[data-sonner-toast]').getByRole('button', { name: 'ביטול' }).click();
+  await page.waitForTimeout(5500);
+  expect(writes).toEqual([]);
+  await expect(sheet.getByRole('button', { name: 'סימון כטופל' }).first()).toBeVisible();
+
+  await expectNoConsoleErrors(rec);
+});
+
+test('the viewer sees no close bubble', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'צפייה' });
+  await page.getByTestId('header-my-tasks').click();
+  await expect(page.getByTestId('my-tasks')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'סימון כטופל' })).toHaveCount(0);
   await expectNoConsoleErrors(rec);
 });
 

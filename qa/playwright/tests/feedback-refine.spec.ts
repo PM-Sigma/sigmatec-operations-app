@@ -72,14 +72,14 @@ async function mockTranscribeChain(page: any) {
 const openSheetAndRecord = async (page: any) => {
   await page.evaluate(() => { (window as any).sigma.emsToken = () => 'qa-fake-ems-token'; });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'הקלט' }).click();
+  await page.getByRole('button', { name: 'הקלטה' }).click();
   await expect(page.getByText('מקליט…')).toBeVisible();
   // The 600ms-minimum-length guard (feedback.ts) — recording shorter than this is dropped
   // silently ("ההקלטה קצרה מדי"), so the test must record a bit longer than that.
   await page.waitForTimeout(750);
-  await page.getByRole('button', { name: 'עצור הקלטה' }).click();
+  await page.getByRole('button', { name: 'עצירת ההקלטה' }).click();
 };
 
 test('feedback voice refine: the fast transcript is replaced with the "עודכן" chip, and undo restores it', async ({ page }, ti) => {
@@ -166,16 +166,16 @@ test('feedback voice: a 502 from transcribe keeps the recording, says so, and �
 
   await page.evaluate(() => { (window as any).sigma.emsToken = () => 'qa-fake-ems-token'; });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toBeVisible();
 
   // Something typed BEFORE the recording — the failure must not touch it.
   const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
   await box.fill('כתבתי את זה ביד');
 
-  await page.getByRole('button', { name: 'הקלט' }).click();
+  await page.getByRole('button', { name: 'הקלטה' }).click();
   await expect(page.getByText('מקליט…')).toBeVisible();
   await page.waitForTimeout(750);
-  await page.getByRole('button', { name: 'עצור הקלטה' }).click();
+  await page.getByRole('button', { name: 'עצירת ההקלטה' }).click();
 
   // ── the line, and the recording still held
   const strip = page.getByTestId('transcribe-retry');

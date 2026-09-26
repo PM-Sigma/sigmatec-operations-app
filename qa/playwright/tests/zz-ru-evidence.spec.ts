@@ -28,6 +28,24 @@ async function openGaps(page: Page): Promise<void> {
   await expect(page.getByTestId('gaps-sheet')).toBeVisible();
 }
 
+async function openMyTasks(page: Page): Promise<void> {
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+  await page.getByTestId('header-my-tasks').click();
+  await expect(page.getByTestId('my-tasks')).toBeVisible();
+}
+
+async function openAlerts(page: Page): Promise<void> {
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+  await page.getByTestId('alerts-bell').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+}
+
+async function openFeedback(page: Page): Promise<void> {
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
+  await expect(page.getByRole('dialog').filter({ hasText: 'רעיון או באג' })).toBeVisible();
+}
+
 test.describe('R-U evidence captures', () => {
   test.beforeEach(({}, ti) => {
     test.skip(!['mobile-390-light', 'mobile-390-dark'].includes(ti.project.name), 'one run per theme is enough');
@@ -54,6 +72,34 @@ test.describe('R-U evidence captures', () => {
       const dlg = page.getByRole('dialog').filter({ hasText: 'שימוש' });
       await expect(dlg).toBeVisible();
       await page.screenshot({ path: path.join(OUT, `usage__${w}__${theme}.png`) });
+    });
+
+    test(`my-tasks @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openMyTasks(page);
+      await page.screenshot({ path: path.join(OUT, `my-tasks__${w}__${theme}.png`) });
+    });
+
+    test(`alerts @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openAlerts(page);
+      await page.screenshot({ path: path.join(OUT, `alerts__${w}__${theme}.png`) });
+    });
+
+    test(`feedback @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openFeedback(page);
+      await page.screenshot({ path: path.join(OUT, `feedback__${w}__${theme}.png`) });
+    });
+
+    test(`feedback-inbox @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן', query: 'x=1#feedback-inbox' });
+      await page.setViewportSize({ width: w, height: h });
+      await expect(page.getByTestId('feedback-inbox')).toBeVisible();
+      await page.screenshot({ path: path.join(OUT, `feedback-inbox__${w}__${theme}.png`) });
     });
   }
 });

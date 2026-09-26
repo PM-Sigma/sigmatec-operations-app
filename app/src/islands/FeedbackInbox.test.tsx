@@ -117,32 +117,43 @@ describe('inbox gate', () => {
 });
 
 describe('inbox rows', () => {
-  it('shows the author, the kind and the text — and אנונימי when there is no author', async () => {
+  it('shows the author, the kind and the text — and בלי שם when there is no author', async () => {
     rows.push(row({ id: 'a', author: null, kind: 'idea', text: 'רעיון נחמד' }));
     render(<FeedbackInbox />);
     act(() => openFeedbackInbox());
-    expect(await screen.findByText('אנונימי')).toBeTruthy();
+    expect(await screen.findByText('בלי שם')).toBeTruthy();
     expect(screen.getByText('רעיון נחמד')).toBeTruthy();
     expect(screen.getByText('רעיון', { selector: 'span' })).toBeTruthy();
   });
 
-  it('flips a status', async () => {
+  it('flips a status from the pushed detail', async () => {
     rows.push(row());
     render(<FeedbackInbox />);
     act(() => openFeedbackInbox());
-    fireEvent.click(await screen.findByText('טופל'));
+    fireEvent.click(await screen.findByText('הכפתור לא מגיב בסיכום ביקור'));
+    fireEvent.click(await screen.findByRole('radio', { name: 'טופל' }));
     await waitFor(() => expect(updates).toEqual([
       { fn: 'feedback_admin_update', p_id: 'f1', p_actor: 'עידן', p_status: 'done', p_github_issue: null },
     ]));
   });
 
-  it('offers 🐙 only for a bug, and only while it has no card yet', async () => {
-    rows.push(row({ id: 'b1', kind: 'bug' }), row({ id: 'i1', kind: 'idea' }),
-      row({ id: 'b2', kind: 'bug', github_issue: 7 }));
+  it('offers the dev-board card only for a bug, and only while it has no card yet', async () => {
+    rows.push(row({ id: 'b1', kind: 'bug', text: 'באג פתוח' }), row({ id: 'i1', kind: 'idea', text: 'רעיון פתוח' }),
+      row({ id: 'b2', kind: 'bug', text: 'באג עם כרטיס', github_issue: 7 }));
     render(<FeedbackInbox />);
     act(() => openFeedbackInbox());
-    await screen.findByText('#7');                       // waits for the rows, not just the dialog
-    expect(screen.getAllByText('🐙 פתח כרטיס בלוח הפיתוח')).toHaveLength(1);
+
+    fireEvent.click(await screen.findByText('באג פתוח'));
+    expect(await screen.findByText('פתיחת כרטיס בלוח הפיתוח')).toBeTruthy();
+    fireEvent.click(screen.getByText('חזרה לרשימה'));
+
+    fireEvent.click(await screen.findByText('רעיון פתוח'));
+    expect(screen.queryByText('פתיחת כרטיס בלוח הפיתוח')).toBeNull();
+    fireEvent.click(screen.getByText('חזרה לרשימה'));
+
+    fireEvent.click(await screen.findByText('באג עם כרטיס'));
+    expect(await screen.findByText('#7')).toBeTruthy();
+    expect(screen.queryByText('פתיחת כרטיס בלוח הפיתוח')).toBeNull();
   });
 });
 
@@ -151,12 +162,13 @@ describe('bug → dev-board card', () => {
     rows.push(row({ text: 'ההתראות לא נשלחות בשבת' }));
     render(<FeedbackInbox />);
     act(() => openFeedbackInbox());
-    fireEvent.click(await screen.findByText('🐙 פתח כרטיס בלוח הפיתוח'));
+    fireEvent.click(await screen.findByText('ההתראות לא נשלחות בשבת'));
+    fireEvent.click(await screen.findByText('פתיחת כרטיס בלוח הפיתוח'));
 
     // the parents come from the github function's listParents mode
     await waitFor(() => expect(gh.calls.some(c => c.mode === 'listParents')).toBe(true));
 
-    fireEvent.click(await screen.findByText('צור כרטיס ב-Backlog'));
+    fireEvent.click(await screen.findByText('יצירת כרטיס ב-Backlog'));
     await waitFor(() => expect(gh.calls.some(c => c.mode === 'createIssue')).toBe(true));
 
     const call = gh.calls.find(c => c.mode === 'createIssue');
@@ -177,9 +189,10 @@ describe('bug → dev-board card', () => {
     rows.push(row({ text: 'משהו כללי נשבר' }));            // no alert keywords → nothing pre-selected
     render(<FeedbackInbox />);
     act(() => openFeedbackInbox());
-    fireEvent.click(await screen.findByText('🐙 פתח כרטיס בלוח הפיתוח'));
-    await screen.findByText('צור כרטיס ב-Backlog');
-    expect((screen.getByText('צור כרטיס ב-Backlog').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(await screen.findByText('משהו כללי נשבר'));
+    fireEvent.click(await screen.findByText('פתיחת כרטיס בלוח הפיתוח'));
+    await screen.findByText('יצירת כרטיס ב-Backlog');
+    expect((screen.getByText('יצירת כרטיס ב-Backlog').closest('button') as HTMLButtonElement).disabled).toBe(true);
     expect(gh.calls.some(c => c.mode === 'createIssue')).toBe(false);
   });
 
@@ -188,8 +201,9 @@ describe('bug → dev-board card', () => {
     gh.createResult = { number: 55, url: 'u', warnings: ['parent: not found'] };
     render(<FeedbackInbox />);
     act(() => openFeedbackInbox());
-    fireEvent.click(await screen.findByText('🐙 פתח כרטיס בלוח הפיתוח'));
-    fireEvent.click(await screen.findByText('צור כרטיס ב-Backlog'));
+    fireEvent.click(await screen.findByText('ההתראה נכשלה'));
+    fireEvent.click(await screen.findByText('פתיחת כרטיס בלוח הפיתוח'));
+    fireEvent.click(await screen.findByText('יצירת כרטיס ב-Backlog'));
     await waitFor(() => expect(sonner.warning).toHaveBeenCalled());
   });
 });

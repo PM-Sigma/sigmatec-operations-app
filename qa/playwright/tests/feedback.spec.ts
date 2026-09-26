@@ -8,7 +8,7 @@ import { boot, expect, expectNoConsoleErrors, shot, test } from './_helpers';
 
 const openSheet = async (page: any) => {
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toBeVisible();
 };
 
 test('feedback: the sheet, its two kinds and the anonymous switch', async ({ page }, ti) => {
@@ -23,13 +23,13 @@ test('feedback: the sheet, its two kinds and the anonymous switch', async ({ pag
     await expect(page.getByRole('radio', { name: label })).toBeVisible();
   }
   await page.getByRole('radio', { name: 'באג או שיפור' }).click();
-  await expect(page.getByRole('radio', { name: 'באג או שיפור' })).toHaveAttribute('data-state', 'on');
+  await expect(page.getByRole('radio', { name: 'באג או שיפור' })).toHaveAttribute('aria-checked', 'true');
 
   const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
   await expect(box).toBeVisible();
   await box.fill('הכרטיסים נטענים לאט ברשת חלשה');
 
-  const anon = page.getByRole('switch', { name: 'שלח אנונימי' });
+  const anon = page.getByRole('switch', { name: 'שליחה בלי שם' });
   await expect(anon).toBeVisible();
   await anon.click();
   await expect(anon).toBeChecked();
@@ -38,7 +38,7 @@ test('feedback: the sheet, its two kinds and the anonymous switch', async ({ pag
 
   // The write is refused in mock mode (no EMS pass → RLS), and it says so instead of
   // pretending it was sent.
-  await page.getByRole('button', { name: 'שלח', exact: true }).click();
+  await page.getByRole('button', { name: 'שליחה', exact: true }).click();
   await expect(page.getByText(/ההתחברות פגה|נכשלה/)).toBeVisible();
 
   expectNoConsoleErrors(rec);
@@ -52,7 +52,7 @@ test('feedback: a microphone that cannot record ends in the failed state, still 
 
   // No permissions are granted anywhere in this suite (playwright.config.ts `permissions: []`)
   // and the headless browser has no audio device, so the voice leg cannot start.
-  await page.getByRole('button', { name: 'הקלט' }).click();
+  await page.getByRole('button', { name: 'הקלטה' }).click();
 
   // The inline state says so, with a retry — never a dead button and never a hot recorder.
   await expect(page.getByText('ההקלטה נכשלה', { exact: true })).toBeVisible();
@@ -61,7 +61,7 @@ test('feedback: a microphone that cannot record ends in the failed state, still 
   // …and the box is still the way in: typing works and the send button is live
   await expect(box).toBeEditable();
   await box.fill('אין לי מיקרופון, כותב ידנית');
-  await expect(page.getByRole('button', { name: 'שלח', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'שליחה', exact: true })).toBeEnabled();
   await shot(page, ti, 'mic-failed');
 
   expectNoConsoleErrors(rec);
@@ -88,7 +88,7 @@ test('feedback: a REFUSED microphone gets the permission wording', async ({ page
   await page.waitForSelector('#sigma-home .kibbutz');
 
   await openSheet(page);
-  await page.getByRole('button', { name: 'הקלט' }).click();
+  await page.getByRole('button', { name: 'הקלטה' }).click();
 
   await expect(page.getByText('אין הרשאה למיקרופון. אפשר להקליד')).toBeVisible();
   await expect(page.getByPlaceholder('מה קרה / מה היה עוזר לך?')).toBeEditable();
@@ -113,7 +113,7 @@ test('feedback: closing the sheet does not lose the text — a draft survives a 
   // modals elsewhere on the page (hidden, but still in the DOM) use the same Hebrew label on
   // their own close buttons.
   await page.getByRole('dialog').getByRole('button', { name: 'סגירה' }).click();
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toBeHidden();
   await expect(page.getByTestId('crash-card')).toHaveCount(0);
 
   // Give the debounced draft-save time to land, then reload — a fresh page load is the

@@ -43,7 +43,7 @@ test('the bell lists what moved — low stock included — and marking one seen 
   await expectRtl(page);
   await shot(page, ti, 'bell');
 
-  await list.getByLabel('סמן כנקרא').first().click();
+  await list.getByLabel('סימון כנקרא').first().click();
   await expect(page.getByTestId('alerts-badge')).toHaveText(/2/, { timeout: 15_000 });
   const alerts = await rows(page, 'inventory_alerts');
   expect(alerts.find(a => a.id === 'ia-1').seen_by).toContain('עידן');
@@ -64,7 +64,7 @@ test('what was marked read is still read after a reload', async ({ page }, ti) =
 
   // Mark every group read, one at a time (each click removes the group it marked).
   for (let i = 0; i < 3; i++) {
-    await list.getByLabel('סמן כנקרא').first().click();
+    await list.getByLabel('סימון כנקרא').first().click();
     await expect(list.getByTestId('alert-group')).toHaveCount(2 - i, { timeout: 15_000 });
   }
   await expect(page.getByTestId('alerts-badge')).toHaveCount(0);
@@ -98,7 +98,7 @@ test('a failed mark-seen does not leave a row looking read', async ({ page }, ti
   await expect(list).toBeVisible({ timeout: 15_000 });
   await expect(list.getByTestId('alert-group')).toHaveCount(3);
 
-  await list.getByLabel('סמן כנקרא').first().click();
+  await list.getByLabel('סימון כנקרא').first().click();
   // It stays in the unread list, and the badge does not drop.
   await expect(list.getByTestId('alert-group')).toHaveCount(3, { timeout: 15_000 });
   await expect(page.getByTestId('alerts-badge')).toHaveText(/3/);
@@ -175,9 +175,9 @@ test('a kibbutz with no ems_site_ids raises a group at the top of the bell (עי
   const list = page.getByTestId('alerts-list');
   await expect(list).toBeVisible({ timeout: 15_000 });
   await expect(list).toContainText('שדה אליהו לא מקושר ל-EMS');
-  // it has no "סמן כנקרא" — a standing fact, not an event to dismiss.
+  // it has no "סימון כנקרא" — a standing fact, not an event to dismiss.
   const group = list.getByTestId('alert-group').filter({ hasText: 'שדה אליהו' });
-  await expect(group.getByLabel('סמן כנקרא')).toHaveCount(0);
+  await expect(group.getByLabel('סימון כנקרא')).toHaveCount(0);
 
   await shot(page, ti, 'ems-unlinked');
   await expectNoConsoleErrors(rec);

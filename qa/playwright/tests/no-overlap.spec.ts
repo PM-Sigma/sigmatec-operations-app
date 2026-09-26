@@ -112,6 +112,31 @@ const SCREENS: Screen[] = [
     open: async p => { await p.getByRole('dialog').filter({ hasText: 'שימוש' }).waitFor(); },
   },
   {
+    label: 'alerts-sheet',
+    open: async p => {
+      await p.getByTestId('alerts-bell').click();
+      await expect(p.getByRole('dialog')).toBeVisible();
+    },
+  },
+  {
+    label: 'my-tasks-sheet',
+    open: async p => {
+      await p.getByTestId('header-my-tasks').click();
+      await p.getByTestId('my-tasks').waitFor();
+    },
+  },
+  {
+    label: 'feedback-sheet',
+    open: async p => {
+      await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
+      await p.getByRole('dialog').filter({ hasText: 'רעיון או באג' }).waitFor();
+    },
+  },
+  {
+    label: 'feedback-inbox', who: 'עידן', query: 'x=1#feedback-inbox',
+    open: async p => { await p.getByTestId('feedback-inbox').waitFor(); },
+  },
+  {
     label: 'settings-sheet',
     open: async p => {
       const viewport = (p as any)._sigmaViewport as string;

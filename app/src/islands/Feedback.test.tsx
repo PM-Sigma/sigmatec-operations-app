@@ -98,10 +98,10 @@ describe('Feedback sheet — the role matrix', () => {
   it('opens for a viewer and sends (the viewer\'s one write surface)', async () => {
     render(<Feedback />);
     act(() => openFeedback());
-    expect(await screen.findByText('📣 תיבת רעיונות ובאגים')).toBeTruthy();
+    expect(await screen.findByText('רעיון או באג')).toBeTruthy();
 
     type('הרשימה לא זוכרת מה סימנתי בביקור הקודם');
-    fireEvent.click(screen.getByText('שלח'));
+    fireEvent.click(screen.getByText('שליחה'));
 
     await waitFor(() => expect(inserted).toHaveLength(1));
     expect(inserted[0]).toMatchObject({ kind: 'idea', author: 'ניתאי', status: 'new' });
@@ -112,7 +112,7 @@ describe('Feedback sheet — the role matrix', () => {
     mockSigma.role = '';
     render(<Feedback />);
     act(() => openFeedback());
-    expect(screen.queryByText('📣 תיבת רעיונות ובאגים')).toBeNull();
+    expect(screen.queryByText('רעיון או באג')).toBeNull();
     expect(sonner.error).toHaveBeenCalledWith('יש להתחבר כדי לשלוח');
   });
 });
@@ -122,16 +122,19 @@ describe('Feedback sheet — the form', () => {
     render(<Feedback />);
     act(() => openFeedback('bug'));
     type('הכפתור לא מגיב');
-    fireEvent.click(screen.getByText('שלח'));
+    fireEvent.click(screen.getByText('שליחה'));
     await waitFor(() => expect(inserted[0]).toMatchObject({ kind: 'bug' }));
+    // Round 5 U6: exactly "תודה, נשלח." — no "!", and no "נשלח לעידן ולעמיחי" (who reads the
+    // box is nobody's business but theirs, and stating it broke the who-sees copy rule).
+    expect(sonner.success).toHaveBeenCalledWith('תודה, נשלח.');
   });
 
   it('drops the author when the anonymous switch is on', async () => {
     render(<Feedback />);
     act(() => openFeedback());
     type('לא נוח לי לעבוד עם זה');
-    fireEvent.click(screen.getByLabelText('שלח אנונימי'));
-    fireEvent.click(screen.getByText('שלח'));
+    fireEvent.click(screen.getByLabelText('שליחה בלי שם'));
+    fireEvent.click(screen.getByText('שליחה'));
     await waitFor(() => expect(inserted).toHaveLength(1));
     expect(inserted[0].author).toBe(null);
   });
@@ -139,7 +142,7 @@ describe('Feedback sheet — the form', () => {
   it('refuses an empty box with the validator\'s own message and writes nothing', async () => {
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByText('שלח'));
+    fireEvent.click(screen.getByText('שליחה'));
     await waitFor(() => expect(sonner.error).toHaveBeenCalledWith('יש לכתוב או להקליט משהו'));
     expect(inserted).toHaveLength(0);
   });
@@ -148,8 +151,8 @@ describe('Feedback sheet — the form', () => {
     render(<Feedback />);
     act(() => openFeedback('bug'));
     type('האפליקציה איטית בשטח');
-    fireEvent.click(screen.getByLabelText('שלח אנונימי'));
-    fireEvent.click(screen.getByText('שלח'));
+    fireEvent.click(screen.getByLabelText('שליחה בלי שם'));
+    fireEvent.click(screen.getByText('שליחה'));
     await waitFor(() => expect((globalThis as any).fetch).toHaveBeenCalled());
     const [url, init] = (globalThis as any).fetch.mock.calls[0];
     expect(url).toContain('/functions/v1/push-send');
@@ -168,13 +171,13 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
 
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
     expect(speech.startLive).not.toHaveBeenCalled();
     expect(await screen.findByText('מקליט…')).toBeTruthy();
 
-    fireEvent.click(screen.getByLabelText('עצור הקלטה'));
+    fireEvent.click(screen.getByLabelText('עצירת ההקלטה'));
     await waitFor(() => expect(speech.uploadAndTranscribe).toHaveBeenCalled());
     await waitFor(() =>
       expect((screen.getByPlaceholderText('מה קרה / מה היה עוזר לך?') as HTMLTextAreaElement).value)
@@ -189,12 +192,12 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback('bug'));
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
-    fireEvent.click(screen.getByLabelText('עצור הקלטה'));
+    fireEvent.click(screen.getByLabelText('עצירת ההקלטה'));
     await waitFor(() => expect(speech.uploadAndTranscribe).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByText('שלח'));
+    fireEvent.click(screen.getByText('שליחה'));
     await waitFor(() => expect(inserted).toHaveLength(1));
     expect(inserted[0].audio_path).toBe('u1.webm');
   });
@@ -206,11 +209,11 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await waitFor(() => expect(speech.startLive).toHaveBeenCalled());
     expect(await screen.findByText('מקליט ומתמלל…')).toBeTruthy();
 
-    fireEvent.click(screen.getByLabelText('עצור הקלטה'));
+    fireEvent.click(screen.getByLabelText('עצירת ההקלטה'));
     expect(stop).toHaveBeenCalled();
   });
 
@@ -221,7 +224,7 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
     expect(speech.startLive).not.toHaveBeenCalled();
   });
@@ -236,7 +239,7 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
   });
 
@@ -252,9 +255,9 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
-    fireEvent.click(screen.getByLabelText('עצור הקלטה'));
+    fireEvent.click(screen.getByLabelText('עצירת ההקלטה'));
 
     expect(await screen.findByTestId('transcribe-retry')).toBeTruthy();
     expect(screen.getByText('התמלול לא זמין כרגע. נסה שוב מאוחר יותר')).toBeTruthy();
@@ -275,7 +278,7 @@ describe('Feedback sheet — the voice ladder', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     expect(sonner.error).toHaveBeenCalledWith('הדפדפן הזה לא תומך בהקלטה. אפשר להקליד');
     expect(speech.startRecording).not.toHaveBeenCalled();
   });
@@ -294,7 +297,7 @@ describe('Feedback sheet — one microphone, always', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
 
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });   // past LIVE_NO_RESULT_MS
     vi.useRealTimers();
@@ -312,8 +315,8 @@ describe('Feedback sheet — one microphone, always', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));          // the start is now pending
-    fireEvent.click(screen.getByLabelText('עצור הקלטה'));    // stopped before it resolved
+    fireEvent.click(screen.getByLabelText('הקלטה'));          // the start is now pending
+    fireEvent.click(screen.getByLabelText('עצירת ההקלטה'));    // stopped before it resolved
 
     await act(async () => { resolveStart({ stop: async () => null, cancel }); });
 
@@ -328,7 +331,7 @@ describe('Feedback sheet — one microphone, always', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
 
     fireEvent.keyDown(document, { key: 'Escape' });           // Radix closes the sheet
@@ -344,7 +347,7 @@ describe('Feedback sheet — one microphone, always', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
 
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });   // MIC_START_TIMEOUT_MS
 
@@ -365,7 +368,7 @@ describe('Feedback sheet — one microphone, always', () => {
 
     render(<Feedback />);
     act(() => openFeedback());
-    fireEvent.click(screen.getByLabelText('הקלט'));
+    fireEvent.click(screen.getByLabelText('הקלטה'));
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     vi.useRealTimers();
 
@@ -392,7 +395,7 @@ describe('the draft (round 2, Package D item 1)', () => {
     expect(() => fireEvent.click(closeBtn)).not.toThrow();
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     vi.useRealTimers();
-    expect(screen.queryByText('📣 תיבת רעיונות ובאגים')).toBeNull();
+    expect(screen.queryByText('רעיון או באג')).toBeNull();
 
     // A brand-new sheet instance (simulating a reload) reads the same localStorage draft back.
     cleanup();
@@ -411,7 +414,7 @@ describe('the draft (round 2, Package D item 1)', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(600); });
     expect(window.localStorage.getItem('sigma-feedback-draft')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('שלח'));
+    fireEvent.click(screen.getByText('שליחה'));
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     vi.useRealTimers();
     await waitFor(() => expect(inserted).toHaveLength(1));
@@ -440,11 +443,11 @@ describe('the draft (round 2, Package D item 1)', () => {
   });
 });
 
-describe('the voice UI (round 2, Package D item 2)', () => {
-  it('shows ONE mic button labelled 🎤 דיבור לטקסט — no separate record affordance', () => {
+describe('the voice UI (round 2, Package D item 2; icon bubble round 5 U6)', () => {
+  it('shows ONE mic bubble labelled הקלטה — no separate record affordance', () => {
     render(<Feedback />);
     act(() => openFeedback());
-    expect(screen.getByText('🎤 דיבור לטקסט')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'הקלטה' })).toBeTruthy();
     // The old always-on waveform is gone entirely.
     expect(document.querySelector('[aria-hidden] > i')).toBeNull();
   });
@@ -454,7 +457,7 @@ describe('the anonymous switch RTL thumb (round 2, Package D item 3)', () => {
   it('moves the thumb toward the START (left) when checked — not the LTR default direction', () => {
     render(<Feedback />);
     act(() => openFeedback());
-    const sw = screen.getByRole('switch', { name: 'שלח אנונימי' });
+    const sw = screen.getByRole('switch', { name: 'שליחה בלי שם' });
     const thumb = sw.querySelector('span') as HTMLElement;
     expect(thumb.className).not.toMatch(/data-\[state=checked\]:translate-x-5(?!\])/);
     fireEvent.click(sw);

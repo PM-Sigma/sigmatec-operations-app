@@ -2,24 +2,34 @@
 // (canManageStaff = עידן + עמיחי), checked with a LIVE predicate so a changeUser() can never
 // leave an admin surface open for a non-admin.
 //
-// Newest first, status buttons (חדש → נראה → טופל), and for a `bug` row the 🐙 button that
-// turns it into a card on the dev board through the `github` function's createIssue mode —
-// always a CHILD of a Main Fields parent עידן picks here, titled `[מודול] | [תת-תחום] |
-// [תיאור]`, into Backlog (the Git Ticket System rules). The issue number is stored on the row,
-// which then links to the card.
+// Redesigned onto the design system (round 5, Task U6): a `Sheet`, one `FilterChip` per status
+// with its own count, `ListRow`s for the list, and a pushed detail (close-then-open) that
+// carries the full text, the status `SegmentedControl` and the GitHub card creation — instead
+// of every row carrying all three inline.
+//
+// Newest first, status buttons (חדש → נראה → טופל), and for a `bug` row a card on the dev
+// board through the `github` function's createIssue mode — always a CHILD of a Main Fields
+// parent עידן picks here, titled `[מודול] | [תת-תחום] | [תיאור]`, into Backlog (the Git Ticket
+// System rules). The issue number is stored on the row, which then links to the card.
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { ExternalLink, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronLeft, ExternalLink, Github, Inbox, Loader2 } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { FilterChip, Tag } from '@/components/ui/chip';
+import { ListRow } from '@/components/ui/list-row';
+import { EmptyState } from '@/components/ui/empty-state';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  KIND_LABEL, STATUS_LABEL, canSeeFeedbackInbox, issueBody, issueTitle,
+  KIND_LABEL, STATUS_LABEL, canSeeFeedbackInbox, feedbackPreview, issueBody, issueTitle,
   type FeedbackKind, type FeedbackStatus,
 } from '@/lib/feedback';
 import { FEEDBACK_QUERY_KEY } from '@/islands/Feedback';
@@ -40,6 +50,7 @@ export interface FeedbackItem {
 export interface Parent { number: number; title: string; url?: string }
 
 const GH_REPO_URL = 'https://github.com/Sigmatec-Energy/tasks/issues/';
+const STATUSES: FeedbackStatus[] = ['new', 'seen', 'done'];
 
 // ───────────────────────── the opener ─────────────────────────
 
@@ -105,94 +116,119 @@ function ParentPicker({
   value, onChange, parents, loading,
 }: { value: number | ''; onChange: (n: number | '') => void; parents: Parent[]; loading: boolean }) {
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value ? Number(e.target.value) : '')}
-      className="min-h-[38px] w-full rounded-xl border border-border bg-muted px-2 text-[13px]"
-    >
-      <option value="">{loading ? 'טוען תחומים…' : 'בחר תחום אב (חובה)'}</option>
-      {parents.map(p => (
-        <option key={p.number} value={p.number}>#{p.number} {p.title}</option>
-      ))}
-    </select>
+    <Select value={value ? String(value) : undefined} onValueChange={v => onChange(v ? Number(v) : '')}>
+      <SelectTrigger aria-label="תחום אב">
+        <SelectValue placeholder={loading ? 'טוען תחומים…' : 'בחירת תחום אב (חובה)'} />
+      </SelectTrigger>
+      <SelectContent>
+        {parents.map(p => (
+          <SelectItem key={p.number} value={String(p.number)}>#{p.number} {p.title}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
-// ───────────────────────── one row ─────────────────────────
+// ───────────────────────── the list row ─────────────────────────
 
-function Row({
-  item, parents, parentsLoading, onStatus, onIssue,
+function FeedbackRow({ item, onOpen }: { item: FeedbackItem; onOpen: (item: FeedbackItem) => void }) {
+  return (
+    <ListRow
+      title={<bdi>{feedbackPreview(item.text)}</bdi>}
+      meta={(
+        <span className="flex flex-wrap items-center gap-1.5">
+          <Tag role="neutral">{KIND_LABEL[item.kind]}</Tag>
+          <bdi>{dmy(item.created_at)}</bdi>
+          <span>· <span>{item.author || 'בלי שם'}</span></span>
+        </span>
+      )}
+      onClick={() => onOpen(item)}
+    />
+  );
+}
+
+// ───────────────────────── the pushed detail ─────────────────────────
+
+function DetailView({
+  item, parents, parentsLoading, onStatus, onIssue, onBack,
 }: {
   item: FeedbackItem;
   parents: Parent[];
   parentsLoading: boolean;
   onStatus: (id: string, status: FeedbackStatus) => void;
   onIssue: (item: FeedbackItem, parent: number) => Promise<void>;
+  onBack: () => void;
 }) {
-  const [openCard, setOpenCard] = React.useState(false);
   const [parent, setParent] = React.useState<number | ''>(ALERTS_RE.test(item.text) ? ALERTS_PARENT : '');
   const [busy, setBusy] = React.useState(false);
+  const [showCreate, setShowCreate] = React.useState(false);
+  const canCreateCard = item.kind === 'bug' && !item.github_issue;
 
   const create = async () => {
-    if (!parent) { toast.error('בחר תחום אב, כרטיס תמיד נתלה תחת תחום קיים'); return; }
+    if (!parent) { toast.error('יש לבחור תחום אב, כרטיס תמיד נתלה תחת תחום קיים'); return; }
     setBusy(true);
-    try { await onIssue(item, parent); setOpenCard(false); }
+    try { await onIssue(item, parent); setShowCreate(false); }
     finally { setBusy(false); }
   };
 
   return (
-    <div className={'rounded-xl border border-border p-2.5 ' + (item.status === 'done' ? 'opacity-50' : '')}>
-      <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[12px]">
-        <span className="rounded-full bg-primary/10 px-2 py-px font-bold">{KIND_LABEL[item.kind]}</span>
-        <span className="font-semibold text-muted-foreground">{item.author || 'אנונימי'}</span>
-        <span className="text-muted-foreground">· <bdi>{dmy(item.created_at)}</bdi></span>
-        {item.status !== 'new' && (
-          <span className="rounded-full bg-muted px-2 py-px font-semibold">{STATUS_LABEL[item.status]}</span>
-        )}
+    <div className="flex flex-col gap-3" data-testid="feedback-inbox-detail">
+      <button
+        type="button"
+        onClick={onBack}
+        className="s-hit flex w-fit items-center gap-1 text-sm font-semibold text-muted-foreground"
+        data-hit-slop
+      >
+        <ChevronLeft aria-hidden className="h-4 w-4 rotate-180" /> חזרה לרשימה
+      </button>
+
+      <div className="flex flex-wrap items-center gap-1.5 text-[13px]">
+        <Tag role="neutral">{KIND_LABEL[item.kind]}</Tag>
+        <span className="text-muted-foreground"><bdi>{dmy(item.created_at)}</bdi> · {item.author || 'בלי שם'}</span>
         {item.github_issue && (
           <a href={GH_REPO_URL + item.github_issue} target="_blank" rel="noreferrer"
              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-px font-bold text-primary">
-            🐙 <bdi>#{item.github_issue}</bdi> <ExternalLink className="h-3 w-3" />
+            <Github aria-hidden className="h-3.5 w-3.5" /> <bdi>#{item.github_issue}</bdi> <ExternalLink className="h-3 w-3" aria-hidden />
           </a>
         )}
       </div>
 
-      <p className="whitespace-pre-wrap text-[13px] leading-snug">{item.text}</p>
+      <p className="whitespace-pre-wrap text-[15px] leading-snug"><bdi>{item.text}</bdi></p>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {(['new', 'seen', 'done'] as FeedbackStatus[]).map(s => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => onStatus(item.id, s)}
-            disabled={item.status === s}
-            className={'min-h-[32px] rounded-lg border px-2 text-[12px] font-bold '
-              + (item.status === s ? 'border-transparent s-brand' : 'border-border hover:bg-muted')}
-          >
-            {STATUS_LABEL[s]}
-          </button>
-        ))}
-        {item.kind === 'bug' && !item.github_issue && (
-          <button type="button" onClick={() => setOpenCard(v => !v)}
-                  className="min-h-[32px] rounded-lg border border-border px-2 text-[12px] font-bold hover:bg-muted">
-            🐙 פתח כרטיס בלוח הפיתוח
-          </button>
-        )}
-      </div>
+      <SegmentedControl
+        ariaLabel="סטטוס"
+        options={STATUSES.map(s => ({ value: s, label: STATUS_LABEL[s] }))}
+        value={item.status}
+        onChange={s => onStatus(item.id, s)}
+      />
 
-      {openCard && (
-        <div className="mt-2 flex flex-col gap-1.5 rounded-xl bg-muted/60 p-2">
+      {canCreateCard && !showCreate && (
+        <BubbleButton
+          variant="tonal"
+          onClick={() => setShowCreate(true)}
+          icon={<Github aria-hidden className="h-4 w-4" />}
+        >
+          פתיחת כרטיס בלוח הפיתוח
+        </BubbleButton>
+      )}
+
+      {canCreateCard && showCreate && (
+        <div className="flex flex-col gap-2 rounded-[var(--r-lg)] bg-secondary/60 p-3">
           <ParentPicker value={parent} onChange={setParent} parents={parents} loading={parentsLoading} />
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[12px] text-muted-foreground">
             כותרת: <bdi>{issueTitle(item.kind, item.text, parents.find(p => p.number === parent)?.title)}</bdi>
           </p>
-          <div className="flex gap-1.5">
-            <button type="button" onClick={() => void create()} disabled={busy || !parent}
-                    className="min-h-[36px] flex-1 rounded-xl s-brand text-[13px] font-bold disabled:opacity-40">
-              {busy ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'צור כרטיס ב-Backlog'}
-            </button>
-            <button type="button" onClick={() => setOpenCard(false)}
-                    className="min-h-[36px] rounded-xl border border-border px-3 text-[13px] font-bold">ביטול</button>
+          <div className="flex gap-2">
+            <BubbleButton
+              variant="primary"
+              className="flex-1"
+              onClick={() => void create()}
+              disabled={busy || !parent}
+              icon={<Github aria-hidden className="h-4 w-4" />}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : 'יצירת כרטיס ב-Backlog'}
+            </BubbleButton>
+            <BubbleButton variant="neutral" onClick={() => setShowCreate(false)}>ביטול</BubbleButton>
           </div>
         </div>
       )}
@@ -200,13 +236,15 @@ function Row({
   );
 }
 
-// ───────────────────────── the dialog ─────────────────────────
+// ───────────────────────── the sheet ─────────────────────────
 
-function InboxDialog() {
+function InboxSheet() {
   const qc = useQueryClient();
   const { name: actor, isViewer } = useCurrentUser();
   const admin = canSeeFeedbackInbox(!!sigma?.isAdmin?.(), isViewer);
   const [open, setOpen] = React.useState(false);
+  const [statusFilter, setStatusFilter] = React.useState<FeedbackStatus | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     opener = () => setOpen(true);
@@ -285,49 +323,73 @@ function InboxDialog() {
   };
 
   const items = data || [];
-  const fresh = items.filter(i => i.status === 'new').length;
+  const counts: Record<FeedbackStatus, number> = { new: 0, seen: 0, done: 0 };
+  for (const i of items) counts[i.status] = (counts[i.status] || 0) + 1;
+  const shown = statusFilter ? items.filter(i => i.status === statusFilter) : items;
+  const selected = selectedId ? items.find(i => i.id === selectedId) || null : null;
+
+  // A row's own status flip (from the pushed detail) invalidates the query, which can drop the
+  // selected id out of `items` for a beat — closing the detail rather than rendering a ghost.
+  React.useEffect(() => { if (selectedId && !selected) setSelectedId(null); }, [selectedId, selected]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto" dir="rtl">
-        <DialogHeader>
-          <DialogTitle>📥 תיבה נכנסת: רעיונות, באגים ותלונות</DialogTitle>
-          <DialogDescription>
-            {fresh ? <><bdi>{fresh}</bdi> חדשים · </> : null}סה״כ <bdi>{items.length}</bdi>. באג אפשר להפוך לכרטיס בלוח הפיתוח.
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={o => { setOpen(o); if (!o) setSelectedId(null); }}>
+      <SheetContent side="bottom" className="max-h-[88svh] overflow-y-auto" data-testid="feedback-inbox">
+        <SheetHeader className="text-start">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <Inbox aria-hidden className="h-5 w-5" /> תיבה נכנסת
+          </SheetTitle>
+          <SheetDescription>רעיונות, באגים ותלונות</SheetDescription>
+        </SheetHeader>
       <EmsGate>
 
-        {isLoading && (
-          <div className="flex flex-col gap-2" aria-busy="true">
-            {[0, 1, 2].map(i => <Skeleton key={i} className="h-[74px] rounded-xl" />)}
-          </div>
-        )}
-        {error && <p className="text-[13px] text-destructive">{(error as any)?.message || 'הטעינה נכשלה'}</p>}
-        {!isLoading && !items.length && <p className="py-4 text-center text-[13px] text-muted-foreground">אין עדיין פניות</p>}
+        {selected ? (
+          <DetailView
+            item={selected}
+            parents={parents || []}
+            parentsLoading={parentsLoading}
+            onStatus={(id, s) => status.mutate({ id, status: s })}
+            onIssue={makeIssue}
+            onBack={() => setSelectedId(null)}
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-1.5 pb-2">
+              {STATUSES.map(s => (
+                <FilterChip
+                  key={s}
+                  selected={statusFilter === s}
+                  count={counts[s]}
+                  onClick={() => setStatusFilter(f => (f === s ? null : s))}
+                >
+                  {STATUS_LABEL[s]}
+                </FilterChip>
+              ))}
+            </div>
 
-        <div className="flex flex-col gap-2">
-          {items.map(i => (
-            <Row
-              key={i.id}
-              item={i}
-              parents={parents || []}
-              parentsLoading={parentsLoading}
-              onStatus={(id, s) => status.mutate({ id, status: s })}
-              onIssue={makeIssue}
-            />
-          ))}
-        </div>
+            {isLoading && (
+              <div className="flex flex-col gap-2" aria-busy="true">
+                {[0, 1, 2].map(i => <Skeleton key={i} className="h-14 w-full" />)}
+              </div>
+            )}
+            {error && <p className="text-[13px] text-destructive">{(error as any)?.message || 'הטעינה נכשלה'}</p>}
+            {!isLoading && !shown.length && <EmptyState icon={<Inbox />} title="אין עדיין פניות." />}
+
+            <ul className="-mx-4 divide-y divide-border">
+              {shown.map(i => <FeedbackRow key={i.id} item={i} onOpen={item => setSelectedId(item.id)} />)}
+            </ul>
+          </>
+        )}
       </EmsGate>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
 export function FeedbackInbox() {
   return (
     <SigmaProviders>
-      <InboxDialog />
+      <InboxSheet />
     </SigmaProviders>
   );
 }
@@ -338,7 +400,7 @@ export function mountFeedbackInbox(): boolean {
   registerMoreItem({
     id: 'feedback-inbox',
     group: 'admin',
-    label: '📥 תיבה נכנסת (רעיונות ובאגים)',
+    label: 'תיבה נכנסת (רעיונות ובאגים)',
     icon: 'Inbox',
     roles: ['idan', 'team'],
     visible: () => canSeeFeedbackInbox(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.()),

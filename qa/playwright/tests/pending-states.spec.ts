@@ -62,7 +62,7 @@ async function expectPending(btn: any, label: RegExp) {
 
 const openFeedback = async (page: any) => {
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toBeVisible();
 };
 
 const backdrop = (page: any) => page.locator('[data-sigma-portal] [data-state="open"]').first();
@@ -97,7 +97,7 @@ test('§7p: the feedback sheet keeps a typed idea through a backdrop tap and thr
   await expect(box).toHaveValue('הכרטיסים נטענים לאט ברשת חלשה');
 
   // ── and the sheet is still open, still usable ──
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toBeVisible();
   expectNoConsoleErrors(rec);
 });
 
@@ -110,7 +110,7 @@ test('§7p: לבטל throws the draft away on purpose, and only then', async ({ 
   await page.keyboard.press('Escape');
   await page.getByTestId('unsaved-discard').click();
 
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toHaveCount(0);
   await openFeedback(page);
   await expect(page.getByPlaceholder('מה קרה / מה היה עוזר לך?')).toHaveValue('');
   expectNoConsoleErrors(rec);
@@ -122,12 +122,12 @@ test('§7p: a CLEAN popup still dismisses on Esc and on a backdrop tap', async (
   await openFeedback(page);
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toHaveCount(0);
 
   await openFeedback(page);
   await tapOutside(page);
   await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toHaveCount(0);
 
   expectNoConsoleErrors(rec);
 });
@@ -219,14 +219,14 @@ test('pattern 4: a slow send keeps the button disabled, spinning AND labelled', 
 
   await page.getByPlaceholder('מה קרה / מה היה עוזר לך?').fill('משהו איטי');
   const send = page.getByTestId('feedback-send');
-  await expect(send).toHaveText(/שלח/);
+  await expect(send).toHaveText(/שליחה/);
 
   await send.click();
-  await expectPending(send, /שלח/);              // F11 — the label is still its accessible name
+  await expectPending(send, /שליחה/);              // F11 — the label is still its accessible name
 
   // …and it comes back to its idle state when the answer lands.
   await expect(send).toBeEnabled({ timeout: 15_000 });
-  await expect(send).toHaveText(/שלח/);
+  await expect(send).toHaveText(/שליחה/);
   expectNoConsoleErrors(rec);
 });
 
@@ -243,7 +243,7 @@ test('rule 3: a failed write says so in Hebrew and the button returns to idle', 
   // rule 3: and a way to try again, not just a sentence.
   await expect(page.getByRole('button', { name: 'נסה שוב' })).toBeVisible();
   await expect(send).toBeEnabled();
-  await expect(send).toHaveText(/שלח/);
+  await expect(send).toHaveText(/שליחה/);
   // Nothing was double-submitted, and — the §7p half — the text is still there to retry with.
   await expect(page.getByPlaceholder('מה קרה / מה היה עוזר לך?')).toHaveValue('זה ייכשל');
   expectNoConsoleErrors(rec);
@@ -322,7 +322,7 @@ test('F5: a Supabase write is not open-ended — a hung PostgREST ends in a Hebr
   await page.getByPlaceholder('מה קרה / מה היה עוזר לך?').fill('לעולם לא ייענה');
   const send = page.getByTestId('feedback-send');
   await send.click();
-  await expectPending(send, /שלח/);
+  await expectPending(send, /שליחה/);
 
   // sbWrite gives up at 15 s and the screen says so, in Hebrew, with the draft intact.
   await expect(page.getByText(/תם הזמן/).first()).toBeVisible({ timeout: 40_000 });
@@ -546,7 +546,7 @@ test('a tap outside a sheet closes it and stays on the same screen', async ({ pa
   // Item 3: a clean sheet, dismissed by a thumb landing outside it.
   await openFeedback(page);
   await tapOutside(page);
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toHaveCount(0);
   await atHome(page);
   expect(page.url()).toBe(url);
   await expect(page.getByTestId('exit-confirm')).toHaveCount(0);   // it did NOT pop history

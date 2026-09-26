@@ -15,12 +15,14 @@ import { toastFailure } from '@/lib/pending';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { BubbleButton } from '@/components/ui/bubble-button';
+import { IconBubble } from '@/components/ui/icon-bubble';
+import { useOnline } from '@/lib/online';
 import { mount } from '@/islands';
 import { track } from '@/lib/track';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
-import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser } from '@/bridge';
 import {
   FEEDBACK_DRAFT_KEY,
@@ -30,6 +32,10 @@ import {
   voiceIdle, voiceNext,
   type FeedbackKind, type FeedbackRow, type RefineFieldState, type VoiceEvent, type VoicePhase,
 } from '@/lib/feedback';
+
+/** Round 5, Task U6: the box's own text when there is no connection — the send bubble turns off
+    and this line says why, instead of a silent failed request the person can't explain. */
+const FEEDBACK_OFFLINE_TEXT = 'אין חיבור. הטקסט נשמר כאן.';
 import {
   buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, pollRefineStatus,
   type RecordSession,
@@ -481,7 +487,9 @@ function FeedbackSheet() {
       await sendFeedback(feedbackRow({ kind, text, anon, user, audioPath }));
       // The KIND only — never the text, and never who sent it when it was anonymous.
       track('feedback-sent', kind);   // 📈 שימוש (spec §7j)
-      toast.success(anon ? 'נשלח אנונימית. תודה!' : 'נשלח לעידן ולעמיחי. תודה!');
+      // Exactly "תודה, נשלח." — no "!", and no "נשלח לעידן ולעמיחי" (round 5 U6: who reads
+      // the box is nobody's business but theirs, and stating it broke the who-sees copy rule).
+      toast.success('תודה, נשלח.');
       setOpen(false); reset();
     } catch (e: any) {
       // Rule 3 (F5/F10): Hebrew, with נסה שוב — and the text stays in the box to retry with.
@@ -491,6 +499,7 @@ function FeedbackSheet() {
 
   const voiceActive = phase === 'listening' || phase === 'recording';
   const busy = phase === 'transcribing';
+  const online = useOnline();
 
   // §7p / F2. This sheet used to `reset()` on EVERY dismiss, so a backdrop tap or a stray Esc
   // wiped a dictated idea with no way back — the probe found the field empty on reopen. Now a
@@ -505,34 +514,23 @@ function FeedbackSheet() {
 
   return (
     <Sheet open={open} onOpenChange={guard.onOpenChange(setOpen)}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto" {...guard.contentProps}>
+      <SheetContent side="bottom" className="flex max-h-[92vh] flex-col" {...guard.contentProps}>
         <SheetHeader>
-          <SheetTitle>📣 תיבת רעיונות ובאגים</SheetTitle>
+          <SheetTitle>רעיון או באג</SheetTitle>
           <SheetDescription>
             אפשר להקליד או לדבר.
             {isViewer ? ' גם בצפייה אפשר לשלוח.' : ''}
           </SheetDescription>
         </SheetHeader>
         <EmsGate>
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto pb-2">
 
-        <ToggleGroup
-          type="single"
+        <SegmentedControl
+          ariaLabel="סוג הפנייה"
+          options={KINDS.map(k => ({ value: k, label: KIND_LABEL[k] }))}
           value={kind}
-          onValueChange={v => { if (v) setKind(v as FeedbackKind); }}
-          className="mt-3 grid grid-cols-3 gap-2"
-        >
-          {KINDS.map(k => (
-            <ToggleGroupItem
-              key={k}
-              value={k}
-              aria-label={KIND_LABEL[k]}
-              className="min-h-[56px] rounded-xl border border-border bg-muted text-[15px] font-bold
-                         data-[state=on]:border-transparent data-[state=on]:s-brand"
-            >
-              {KIND_LABEL[k]}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+          onChange={setKind}
+        />
 
         {/* When a recording is HELD (the transcription could not be reached, עידן 20.9), the
             strip below owns the retry and says the true thing: the recording is fine, the
@@ -563,7 +561,7 @@ function FeedbackSheet() {
           dir="rtl"
           rows={6}
           placeholder="מה קרה / מה היה עוזר לך?"
-          className="mt-2 min-h-[130px] text-[15px]"
+          className="w-full min-h-[130px] text-[16px]"
         />
 
         {pendingAudio && (
@@ -596,53 +594,72 @@ function FeedbackSheet() {
           </div>
         )}
 
-        {/* ONE voice button, not a record-vs-live pair — the ladder (speechLadder in feedback.ts)
-            picks Web Speech whenever it exists and drops to record→upload→transcribe only as
-            the fallback, so the person never chooses between them (round 2, Package D item 2). */}
-        <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-muted/50 p-2">
-          <button
-            type="button"
+        {/* ONE voice control, not a record-vs-live pair — the ladder (speechLadder in
+            feedback.ts) picks Web Speech whenever it exists and drops to record→upload→transcribe
+            only as the fallback, so the person never chooses between them (round 2, Package D
+            item 2). Round 5 U6: an IconBubble, not a full-width labeled button. */}
+        <div className="flex items-center gap-3">
+          <IconBubble
+            size={40}
+            label={voiceActive ? 'עצירת ההקלטה' : 'הקלטה'}
             onClick={micTap}
-            disabled={busy}
-            aria-label={voiceActive ? 'עצור הקלטה' : 'הקלט'}
-            // The base string can't carry a flat `text-white` (designer confirm round, item 1):
-            // built via string concat rather than one static className, the original brand-grad
-            // codemod (round 2) never matched this dynamic pattern. destructive's own foreground
-            // is white-safe; the brand fill needs --s-on-brand, same as everywhere else — s-brand
-            // carries both the fill and that ink together.
-            className={'flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg text-[14px] font-bold disabled:opacity-50 '
-              + (voiceActive ? 'bg-destructive text-destructive-foreground' : 's-brand')}
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            active={voiceActive}
+            className={busy ? 'pointer-events-none opacity-50' : undefined}
+            icon={busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               : voiceActive ? <Square className="h-4 w-4" aria-hidden /> : <Mic className="h-4 w-4" aria-hidden />}
-            <span>{voiceActive ? 'עצור' : '🎤 דיבור לטקסט'}</span>
-          </button>
+          />
           {phase === 'recording' && (
-            <span className="w-[42px] text-end text-[13px] font-bold tabular-nums text-muted-foreground">
+            <span className="text-[13px] font-bold tabular-nums text-muted-foreground">
               <bdi>{mmss(elapsed)}</bdi>
             </span>
           )}
         </div>
 
-        <label className="mt-3 flex items-center gap-2 text-[14px] font-semibold">
-          <Switch checked={anon} onCheckedChange={setAnon} aria-label="שלח אנונימי" />
-          שלח אנונימי
+        <label className="flex items-center gap-2 text-[14px] font-semibold">
+          <Switch
+            checked={anon}
+            onCheckedChange={setAnon}
+            aria-label="שליחה בלי שם"
+            // data-hit-slop: the switch's own visual is 44×24 (Radix's fixed track size) —
+            // `.s-hit` grows the real hit area to 48×48 without growing the box (same escape
+            // hatch chip.tsx's FilterChip documents for the overlap sweep).
+            data-hit-slop
+            className="s-hit"
+          />
+          שליחה בלי שם
         </label>
 
-        {/* F11 / pattern rule 4: the label STAYS while sending. It used to be replaced by a
-            bare Loader2, which dropped the button's accessible name and made the pending state
-            impossible to assert — the delayed-mock probe could not see it at all. */}
-        <button
-          type="button"
-          data-testid="feedback-send"
-          onClick={() => void send()}
-          disabled={sending || busy}
-          aria-busy={sending || undefined}
-          className="mt-3 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl s-brand text-[15px] font-bold disabled:opacity-40"
-        >
-          {sending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
-          שלח
-        </button>
+        </div>
+
+        {!online && (
+          <p className="mt-1 text-[12px] font-semibold text-muted-foreground">{FEEDBACK_OFFLINE_TEXT}</p>
+        )}
+
+        {/* Sticky footer (round 5 U6): "שליחה" stays the label while sending (F11 / pattern
+            rule 4) — a bare spinner would drop the button's accessible name and make the
+            pending state impossible to assert. */}
+        <div className="mt-2 flex gap-2 border-t border-border pt-2">
+          <BubbleButton
+            variant="neutral"
+            size="lg"
+            className="flex-1"
+            onClick={() => guard.onOpenChange(setOpen)(false)}
+          >
+            ביטול
+          </BubbleButton>
+          <BubbleButton
+            variant="primary"
+            size="lg"
+            className="flex-1"
+            data-testid="feedback-send"
+            onClick={() => void send()}
+            disabled={sending || busy || !online}
+            aria-busy={sending || undefined}
+            icon={sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : undefined}
+          >
+            שליחה
+          </BubbleButton>
+        </div>
         </EmsGate>
         {guard.prompt}
       </SheetContent>
@@ -658,18 +675,11 @@ export function Feedback() {
   );
 }
 
-/** Mounted from main.tsx. Registers its own ⋯ עוד entry — for every role, viewer included. */
+/**
+ * Mounted from main.tsx. Round 5 U6: the box's own ⋯ עוד row is gone — the gear sheet
+ * (Settings.tsx "רעיון או באג") and the viewer's page-action row are the two openers now, and
+ * a third registration here would just be a second way to the same sheet.
+ */
 export function mountFeedback(): boolean {
-  const ok = mount('sigma-feedback', Feedback);
-  if (!ok) return false;
-  registerMoreItem({
-    id: 'feedback',
-    label: '📣 רעיון / באג',
-    icon: 'MessageSquarePlus',
-    // No `roles` on purpose: all three roles may submit (spec §7). The live predicate only
-    // keeps it hidden before anyone has picked who they are.
-    visible: () => canSubmitFeedback(sigma?.getRole?.() || ''),
-    onSelect: () => openFeedback(),
-  });
-  return ok;
+  return mount('sigma-feedback', Feedback);
 }
