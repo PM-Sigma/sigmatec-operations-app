@@ -233,6 +233,17 @@
   // POST fails — park the item in localStorage instead of losing it, and drain on the next flush.
   function _emsLocalQ() { try { return JSON.parse(localStorage.getItem('ems_local_queue_v1') || '[]'); } catch (e) { return []; } }
   function _emsLocalQSave(q) { try { localStorage.setItem('ems_local_queue_v1', JSON.stringify(q.slice(-100))); } catch (e) {} }
+  // Synchronous local-queue push (Opus round-6 audit, M-U data-loss fix): `emsQueueAdd` below
+  // is async (it tries a network POST first) — no good inside a `pagehide` handler, where the
+  // tab can die before that promise ever settles. This does the ONE thing guaranteed to finish
+  // before the page unloads: push straight into the SAME localStorage-backed local queue
+  // `emsQueueFlush` already drains on the next connect (below) — no network, no await, ever.
+  // Reached only through the typed gateway's `queueOffline` (app/src/lib/ems/adapters/rest.ts),
+  // from `meetingClose.ts`'s `flush()`.
+  function emsQueueLocalPush(item) {
+    const q = _emsLocalQ(); q.push(item); _emsLocalQSave(q);
+    try { emsQueueChipRender(); } catch (e) {}
+  }
   // Enqueue a write to perform on the next connect. item = {kind:'comment'|'status', taskId, message?, status?, meta?}
   async function emsQueueAdd(item) {
     try {

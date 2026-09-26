@@ -92,6 +92,12 @@ export interface Sigma {
   /** Queue-aware EMS write (`emsWriteOrQueue`). Also adapter-only — see `emsApi`. */
   emsWrite?(item: Record<string, unknown>): Promise<{ sent: boolean; id?: string | null; queued?: boolean; queueId?: string; error?: string }>;
   /**
+   * Synchronous local-offline-queue push (`emsQueueLocalPush`, js/src/13-ems.js) — no network,
+   * no Promise. Adapter-only (`lib/ems/adapters/rest.ts` `queueOffline`), reached ONLY from a
+   * caller that cannot await (`meetingClose.ts` `flush()` — pagehide/unload).
+   */
+  emsQueueLocalPush?(item: Record<string, unknown>): void;
+  /**
    * The typed EMS gateway, installed on boot by the React bundle (lib/ems/gateway.ts
    * `installEmsBridge`). Legacy reaches EMS through this; undefined until ui/sigma.js runs.
    */

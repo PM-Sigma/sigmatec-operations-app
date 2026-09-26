@@ -82,6 +82,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 360, height: 780 }, colorScheme: 'light', deviceScaleFactor: 3, hasTouch: true, isMobile: true },
       metadata: { viewport: 'mobile-360', theme: 'light' },
     },
+    // 412×915 (Pixel-class phone — round-7 M-U coordinator finding): the width the presenter's
+    // close-undo toast gutter mismatch was actually caught at (38px left vs 16px right), so it
+    // needs its own project rather than being covered only by 390/360.
+    {
+      name: 'mobile-412-light',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 412, height: 915 }, colorScheme: 'light', deviceScaleFactor: 3.5, hasTouch: true, isMobile: true },
+      metadata: { viewport: 'mobile-412', theme: 'light' },
+    },
   ],
 
   webServer: {

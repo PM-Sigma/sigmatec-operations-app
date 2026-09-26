@@ -29,6 +29,7 @@
   "./ui/sigma-field2.js",
   "./ui/sigma-file-spreadsheet.js",
   "./ui/sigma-FiltersSheet.js",
+  "./ui/sigma-format.js",
   "./ui/sigma-Gallery.js",
   "./ui/sigma-Gaps.js",
   "./ui/sigma-HeaderActions.js",

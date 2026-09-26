@@ -18,7 +18,7 @@ const { mockSigma, inserted, sonner, speech, caps } = vi.hoisted(() => ({
     uploadAndTranscribe: vi.fn(),
     pollRefineStatus: vi.fn(),
   },
-  caps: { speechRecognition: false, mediaRecorder: true, forceOffLive: false },
+  caps: { speechRecognition: false, mediaRecorder: true, forceOffLive: false, forceLive: false },
 }));
 
 vi.mock('@/bridge', () => ({
@@ -83,6 +83,7 @@ beforeEach(() => {
   caps.speechRecognition = false;
   caps.mediaRecorder = true;
   caps.forceOffLive = false;
+  caps.forceLive = false;
   // The localStorage draft (round 2, Package D item 1) must never leak between tests — a
   // draft left over from one test would auto-load into the NEXT test's empty sheet and quietly
   // change its dirty-state / starting text.
@@ -199,8 +200,20 @@ describe('Feedback sheet — the voice ladder', () => {
     expect(inserted[0].audio_path).toBe('u1.webm');
   });
 
-  it('uses the live path when Web Speech is there, and stops it on a second tap', async () => {
+  it('RECORD is the default even when Web Speech is also there (round: Android S24 growing-prefix bug) — no longer live-first', async () => {
     caps.speechRecognition = true;
+    speech.startRecording.mockResolvedValue({ stop: async () => null, cancel: vi.fn() });
+
+    render(<Feedback />);
+    act(() => openFeedback());
+    fireEvent.click(screen.getByLabelText('הקלט'));
+    await waitFor(() => expect(speech.startRecording).toHaveBeenCalled());
+    expect(speech.startLive).not.toHaveBeenCalled();
+  });
+
+  it('uses the live path when forced via ?speech=live (testing override), and stops it on a second tap', async () => {
+    caps.speechRecognition = true;
+    caps.forceLive = true;
     const stop = vi.fn();
     speech.startLive.mockImplementation(() => ({ stop }));
 
@@ -226,8 +239,9 @@ describe('Feedback sheet — the voice ladder', () => {
     expect(speech.startLive).not.toHaveBeenCalled();
   });
 
-  it('falls back to the recorder when live recognition errors (denied mic)', async () => {
+  it('falls back to the recorder when live recognition errors (denied mic) — live forced on for the test', async () => {
     caps.speechRecognition = true;
+    caps.forceLive = true;
     speech.startRecording.mockResolvedValue({ stop: async () => null, cancel: vi.fn() });
     speech.startLive.mockImplementation((h: any) => {
       setTimeout(() => h.onError('denied', 'not-allowed'), 0);

@@ -8,5 +8,6 @@
   "more-sheet": "MoreSheet.tsx predates BubbleButton — package S (shell) rewrites the row/chip controls",
   "burns": "round 5 G-U2/G-U4 fixed the table's own findings (nested-interactive row); what's left is the shared inner-page header (brand text overflow + nav bubble sizes) every 'openPage' screen shows once nothing else masks it — package S owns the header/nav chrome",
   "pushlog": "new round 5 G-U3 page — same shared inner-page header/nav findings as 'burns' above (package S), nothing of pushlog's own content in the list",
-  "settings-sheet": "round 5 G-U1/G-U4 fixed the sheet's own findings (native <select>/steppers, tap targets, missing labels); what's left is the home card underneath the sheet (badge-orphans contrast, a .text-destructive bdi) — package K owns EmsTasks.tsx"
+  "settings-sheet": "round 5 G-U1/G-U4 fixed the sheet's own findings (native <select>/steppers, tap targets, missing labels); what's left is the home card underneath the sheet (badge-orphans contrast, a .text-destructive bdi) — package K owns EmsTasks.tsx",
+  "message-sheet": "rebuilt on Sheet/FilterChip/Textarea/BubbleButton (X-U1); two pre-existing/shared findings remain — the home card underneath it (badge-orphans contrast in light, .text-destructive bdi in dark, same as settings-sheet, package K owns EmsTasks.tsx), and the Sheet primitive's own textarea sitting inside the fixed-nav safe-area box at full scroll (shared by every Sheet-based screen, not X-U1's own bug — package S owns the Sheet primitive)"
 }
