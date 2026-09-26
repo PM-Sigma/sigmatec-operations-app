@@ -255,9 +255,10 @@ test('calendar: tapping a day opens it grouped by kibbutz, with the route header
   await expect(body.locator('[data-stop="גבת"]')).toBeVisible();
   await expect(body.locator('[data-stop="דגניה"]')).toBeVisible();
   await expect(body.locator('[data-brief="גבת"]')).toBeVisible();
-  // …and the headers are derived, never typed.
-  const headers = await body.getByTestId('cal-route-header').allInnerTexts();
-  expect(headers.join(' ')).toMatch(/לא משובץ|תחילת יום/);
+  // …and the headers are derived, never typed. Both stops start unplaced, under the ONE
+  // "לא משובץ" section header (round 3, 26.9: no longer repeated on every card under it too).
+  await expect(body.getByTestId('cal-place')).toContainText('לא משובץ');
+  await expect(body.getByTestId('cal-route-header')).toHaveCount(0);
 
   await shot(page, ti, 'day');
   expectNoConsoleErrors(rec);

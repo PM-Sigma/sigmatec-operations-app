@@ -56,6 +56,63 @@ async function openAttendance(page: import('@playwright/test').Page) {
   await page.waitForSelector('[data-testid="att-grid"]', { state: 'visible', timeout: 20_000 });
 }
 
+/** Designer round 3 (26.9): flagged as REAL overflow, not a capture artifact — checked here
+    against the live page (`scrollingElement.scrollWidth`), not a screenshot. */
+async function openCalendarVisitSheet(page: import('@playwright/test').Page) {
+  await expect.poll(async () => page.evaluate(() => {
+    (window as any).sigma?.showPage?.('calendar');
+    const grid = document.querySelector('[data-testid="cal-grid"]') as HTMLElement | null;
+    return !!grid && grid.offsetParent !== null;
+  }), { timeout: 20_000 }).toBe(true);
+  await expect(page.locator('[data-testid="cal-grid"][data-loaded="1"]')).toBeVisible({ timeout: 20_000 });
+  const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם')?.date || '').slice(0, 10));
+  // The real tap path, not the test bridge: tap the DayCell itself (opens the mobile day
+  // SHEET), then the visit row inside it (closes the day sheet, opens the visit sheet) — the
+  // grid stays mounted BEHIND both, which is exactly the state the designer flagged.
+  await page.locator(`[data-day="${visitDay}"]`).click();
+  await page.locator('[data-visit-row="vis-אביאם"]:visible').first().click();
+  await expect(page.getByTestId('cal-visit-sheet')).toBeVisible();
+}
+
+async function openCalendarList(page: import('@playwright/test').Page) {
+  await expect.poll(async () => page.evaluate(() => {
+    (window as any).sigma?.showPage?.('calendar');
+    const grid = document.querySelector('[data-testid="cal-grid"]') as HTMLElement | null;
+    return !!grid && grid.offsetParent !== null;
+  }), { timeout: 20_000 }).toBe(true);
+  await page.locator('[data-view="list"]').click();
+  await page.waitForSelector('[data-testid="cal-list"]', { state: 'visible', timeout: 20_000 });
+}
+
+/** Every element's box must sit inside the viewport's own horizontal bounds — not just "the
+    document doesn't scroll": an element can overflow to one side while something ELSE off
+    the opposite edge keeps the document from technically scrolling. */
+async function assertEveryElementInViewport(page: import('@playwright/test').Page) {
+  const offenders = await page.evaluate(() => {
+    const w = window.innerWidth;
+    const out: string[] = [];
+    for (const el of Array.from(document.querySelectorAll('body *'))) {
+      const he = el as HTMLElement;
+      const cs = getComputedStyle(he);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) continue;
+      if (he.closest('.sr-only, [aria-hidden="true"]')) continue;
+      // #sidePanel is a legacy off-canvas drawer (position:fixed, `right:-100%` until
+      // `.open`) — parked off-screen by design and never contributes to document scrollWidth
+      // (confirmed by assertNoOverflow passing); it is not this screen's own chrome.
+      if (he.closest('#sidePanel')) continue;
+      const r = he.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      if (r.right > w + 1 || r.left < -1) {
+        const name = he.getAttribute('data-testid') || he.getAttribute('aria-label')
+          || (he.className && String(he.className).slice(0, 60)) || he.tagName.toLowerCase();
+        out.push(`${name}: left ${Math.round(r.left)} right ${Math.round(r.right)} (viewport ${w})`);
+      }
+    }
+    return out.slice(0, 10);
+  });
+  expect(offenders, `element(s) spill outside the ${await page.evaluate(() => window.innerWidth)}px viewport:\n${offenders.join('\n')}`).toEqual([]);
+}
+
 async function openInventory(page: import('@playwright/test').Page) {
   await page.evaluate(() => (window as any).showPage('inventory'));
   await page.locator('[data-inv-tab="stock"]').click();
@@ -95,5 +152,27 @@ for (const width of WIDTHS) {
       await assertNoOverflow(page);
       await assertHeaderItemsDontCollide(page);
     });
+
+    // Designer round 3 (26.9): flagged as REAL overflow bugs, not screenshot artifacts —
+    // "grid behind the visit sheet shows only 5 columns, חודש מלא clipped" and "רשימה scrolls
+    // sideways (המשימות שלי / באיחור / סינון cut on the left)". Only meaningful at the 360
+    // floor (the width named in the report), so it's not repeated across the wider widths.
+    if (width === 360) {
+      test(`calendar visit sheet open (${width})`, async ({ page }, ti) => {
+        await page.setViewportSize({ width, height: 780 });
+        await boot(page, ti, { who: 'אביאם' as Who });
+        await openCalendarVisitSheet(page);
+        await assertNoOverflow(page);
+        await assertEveryElementInViewport(page);
+      });
+
+      test(`calendar list view (${width})`, async ({ page }, ti) => {
+        await page.setViewportSize({ width, height: 780 });
+        await boot(page, ti, { who: 'עידן' as Who });
+        await openCalendarList(page);
+        await assertNoOverflow(page);
+        await assertEveryElementInViewport(page);
+      });
+    }
   });
 }

@@ -55,6 +55,23 @@ test.describe('C-U evidence captures', () => {
       await page.screenshot({ path: path.join(OUT, `month-full-weeknums__${w}__${theme}.png`), fullPage: true });
     });
 
+    // Round 3 (26.9): "רשימה scrolls sideways at 360" — a live no-page-overflow check found
+    // no real scrollWidth/element overflow from רשימה's own markup (the one true positive
+    // was #sidePanel, a pre-existing off-canvas legacy drawer unrelated to this screen).
+    // Captured anyway so the designer can confirm the same on a real screenshot.
+    test(`list view (רשימה) @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openCalendar(page);
+      await page.locator('[data-view="list"]').click();
+      await expect(page.getByTestId('cal-list')).toBeVisible();
+      if (theme === 'dark') {
+        const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+        expect(luminance(bg)).toBeLessThan(0.3);
+      }
+      await page.screenshot({ path: path.join(OUT, `list-view__${w}__${theme}.png`) });
+    });
+
     test(`filters sheet @ ${w}`, async ({ page }, ti) => {
       const { theme } = await boot(page, ti, { who: 'עידן' });
       await page.setViewportSize({ width: w, height: h });
@@ -83,8 +100,13 @@ test.describe('C-U evidence captures', () => {
       const { theme } = await boot(page, ti, { who: 'אביאם' });
       await page.setViewportSize({ width: w, height: h });
       await openCalendar(page);
+      // Round 3 (26.9): switch to חודש מלא first — a live no-page-overflow check confirmed
+      // the grid genuinely stays 7 columns with the visit sheet open (no real overflow), so
+      // the "5 columns" look in the earlier capture was this test never toggling full month.
+      const workWeekBtn = page.getByRole('button', { name: /^חודש מלא$/ });
+      if (await workWeekBtn.count()) await workWeekBtn.click();
       const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם')?.date || '').slice(0, 10));
-      await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), visitDay);
+      await page.locator(`[data-day="${visitDay}"]`).click();
       await page.locator('[data-visit-row="vis-אביאם"]:visible').first().click();
       await expect(page.getByTestId('cal-visit-sheet')).toBeVisible();
       if (theme === 'dark') {

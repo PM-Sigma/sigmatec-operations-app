@@ -399,7 +399,13 @@ function RoutePlan({
   const Stop = (r: RouteRow, i: number, total: number, draggable: boolean) => (
     <div className="ucal-stop" data-stop={r.kibbutz} data-header={r.header}>
       <div className="ucal-stop-head">
-        <span className="ucal-stop-hdr" data-testid="cal-route-header">{r.headerLabel}</span>
+        {/* Designer round 3 (26.9), minor: "לא משובץ" repeated on every unplaced CARD, under
+            the section already titled "לא משובץ" a few pixels above it — drop the per-card
+            label for that one case; first/middle/last stay (they're per-stop information the
+            section header above them doesn't carry — the route has only one). */}
+        {r.header !== 'unplaced' ? (
+          <span className="ucal-stop-hdr" data-testid="cal-route-header">{r.headerLabel}</span>
+        ) : null}
         <strong className="ucal-stop-name"><bdi>{r.kibbutz}</bdi></strong>
         {canReorder && draggable ? (
           /* `onPointerDown` is stopped on every control inside a draggable stop: Motion's
