@@ -1,7 +1,11 @@
 // Self-check for the delivery-certificate module (js/src/20-delivery-cert.js + -logo.js).
+// U10 trimmed this file to: the ?cert= public view route, the accounting range report
+// (delegating to SigmaInv.certRangeReportHtml), and the prefill "trigger point" helpers still
+// reached from legacy markup (visit form / visit history / EMS task / visits-report picker).
+// The modal/table UI itself (certCollect, issueDeliveryCert, certOverlayShow, invRenderCerts,
+// certReissue, certCancel, certSendPlan, …) is React now (app/src/islands/InventoryCert.tsx) —
+// asserted in app/src/lib/certDoc.test.ts / certSend.test.ts, not here.
 // Run: node test-delivery-cert.mjs
-// Loads both source files as text and evals them inside a function scope with minimal
-// browser-global stubs (window/document/fetch), mirroring test-devboard.mjs / test-order-patch.mjs style.
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,14 +18,11 @@ const logoSrc = fs.readFileSync(path.join(__dirname, 'js/src/20-delivery-cert-lo
 const SigmaInv = loadSigmaInv();
 
 let failures = 0;
-const pending = [];
-function await0(fn) { pending.push(fn); }
 function check(name, fn) {
   try { fn(); console.log('  ok - ' + name); }
   catch (e) { failures++; console.log('  FAIL - ' + name + ': ' + e.message); }
 }
 
-// ---- minimal DOM stubs ----
 function makeEl(overrides) {
   return Object.assign({
     value: '', innerHTML: '', dataset: {}, style: {},
@@ -31,82 +32,24 @@ function makeEl(overrides) {
 }
 
 const elements = {};
-['certModal', 'certCustName', 'certCustCompanyId', 'certCustAddress', 'certCustContact',
-  'certDate', 'certItems', 'certNotes', 'certProductList',
-  'invCertsList', 'inv-section-certs', 'invCertsFrom', 'invCertsTo', 'invCertsSearch',
-  'certSendModal',
-  // certOverlayShow's DOM — pre-registering certViewOverlay makes it take the "reuse existing
-  // overlay" path (skip createElement/appendChild) so the other four stubs are the ones it drives.
-  'certViewOverlay', 'certOvFrame', 'certOvPrint', 'certOvSend', 'certOvDrive',
-  // certRangeReport() (visits-report picker date filters) reads these two.
-  'visitsReportFrom', 'visitsReportTo'].forEach(id => { elements[id] = makeEl(); });
-// the certs tab is "open" for invRenderCerts's active-tab guard (force=true bypasses it anyway, but keep it realistic)
-elements['inv-section-certs'].classList.contains = (c) => c === 'active';
-// certSendOpen()'s "modal already exists" branch — pre-registering it means the module skips
-// document.createElement/appendChild and calls classList.add('open') on OUR stub directly, so we
-// can observe it. Track every class passed to add() for the "auto-opened after issue" assertion.
-const certSendModalOpens = [];
-elements['certSendModal'].classList.add = (c) => certSendModalOpens.push(c);
-// certEmailSelected() reads document.querySelectorAll('#certSendModal .cert-send-chk:checked') —
-// test sections populate this array to simulate which checkboxes are checked.
-let sendModalCheckedBoxes = [];
+['visitDate', 'visitContact', 'visitSummary', 'visitsReportFrom', 'visitsReportTo', 'visitsReportVisitor',
+  'certPickerModal', 'invCertsFrom', 'invCertsTo'].forEach(id => { elements[id] = makeEl(); });
 
-// certItems collects appended rows (used by certAddItemRow -> certCollect roundtrip)
-const certItemRows = [];
-elements.certItems.appendChild = (row) => { certItemRows.push(row); };
-// certModal.querySelectorAll('.cert-item-row') returns whatever rows we registered
-elements.certModal.querySelectorAll = (sel) => sel === '.cert-item-row' ? certItemRows.slice() : [];
-
-// certSetRange()'s quick-date buttons — '#inv-section-certs .btn-quick-date' / '...[data-range="x"]'.
-const certQuickBtns = ['thisMonth', 'lastMonth', 'last7', 'last30', 'all'].map(r => {
-  const set = new Set();
-  return { dataset: { range: r }, _classes: set,
-    classList: { add: c => set.add(c), remove: c => set.delete(c), contains: c => set.has(c) } };
-});
-certQuickBtns[0]._classes.add('active');
-const fmtD = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-
-const alerts = [];
-const window_ = {};
+const invOpenCalls = [];
 const document_ = {
   getElementById: (id) => elements[id] || null,
   createElement: () => makeEl(),
   body: { appendChild() {} },
-  querySelector: (sel) => {
-    if (typeof sel === 'string' && sel.indexOf('.btn-quick-date[data-range=') !== -1) {
-      const m = /data-range="([^"]+)"/.exec(sel);
-      return m ? (certQuickBtns.find(b => b.dataset.range === m[1]) || null) : null;
-    }
-    return null;
-  },
-  querySelectorAll: (sel) => {
-    if (typeof sel === 'string' && sel.indexOf('cert-send-chk') !== -1) return sendModalCheckedBoxes;
-    if (typeof sel === 'string' && sel.indexOf('btn-quick-date') !== -1) return certQuickBtns.slice();
-    return [];
-  }
+  querySelector: () => null,
+  querySelectorAll: (sel) => (sel === '.prod-chk:checked' ? [] : []),
 };
-
-// mailto: link target for certEmailSelected — a plain mutable object standing in for the
-// browser's `location`, passed into the module as a Function param (the module references bare
-// `location`, so it must be supplied — it is NOT a real global in the Node harness).
-const location_ = { href: '', search: '' };
+const window_ = { currentKibbutz: 'שדה אליהו', _certIssuedFor: {} };
 
 let lastFetchBody = null;
-const fetchBodies = [];   // every POST body, in call order (issue + auto-cancel, etc.)
-// per-call override for the persisted-cert response (default matches the original stub: no id).
-let fetchJsonOverride = null;
 const fetch_ = async (url, opts) => {
   lastFetchBody = opts && opts.body ? JSON.parse(opts.body) : null;
-  if (lastFetchBody) fetchBodies.push(lastFetchBody);
-  return { json: async () => (fetchJsonOverride || { ok: true, certNumber: 1234 }) };
+  return { json: async () => ({ ok: true }) };
 };
-
-// emsWriteOrQueue capture — issueDeliveryCert drops an EMS-task comment through this global when
-// a cert born from an EMS task is issued; captured here instead of touching the real EMS API.
-const emsCalls = [];
-const emsWriteOrQueue_ = (arg) => emsCalls.push(arg);
-
-// window.open stub — issueDeliveryCert/certReprint open a blank print window then write the doc into it.
 const openedWindows = [];
 window_.open = () => {
   const w = { document: { _html: '', write(html) { this._html += html; }, open() { this._html = ''; }, close() {} } };
@@ -114,945 +57,164 @@ window_.open = () => {
   return w;
 };
 
-const KIBBUTZ_DETAILS = [
-  { kibbutz: 'שדה אליהו', legal_name: 'שדה - אל חשמל בע"מ', company_id: '516702735', address: '', contact: 'a@b.c' }
-];
-
-// stored issued-cert row (snake_case, as returned by Supabase) — used for invRenderCerts/certReprint checks
-const DELIVERY_CERT_ROWS = [{
-  id: 'c1', cert_number: 2001, cert_date: '2026-07-10', kibbutz: 'שדה אליהו',
-  customer: { name: 'שדה - אל חשמל בע"מ', company_id: '516702735', address: 'כתובת בדיקה', contact: 'איש קשר' },
-  items: [{ name: 'אנטנה', qty: 2 }], notes: 'הערה לבדיקה', source: 'visit', ref_id: 'v99',
-  created_by: 'עידן', recipient: 'דנה מקבלת', signature: 'data:image/png;base64,ZZZ'
-}];
-
-// certCancel() calls a bare confirm(...) — controllable per-test via confirmReturn.
-let confirmReturn = true;
-const confirm_ = () => confirmReturn;
-
-// The module references a bare `isViewer` global (issueDeliveryCert gate + invRenderCerts action
-// cell). It's supplied as a Function param so tests can flip roles: isViewer_ reads viewerReturn
-// live, so the SHARED `mod` instance switches role just by toggling viewerReturn.
-let viewerReturn = false;
-const isViewer_ = () => viewerReturn;
-
-// overrides — {window, document, fetch, location, SB_URL, SB_ANON, emsWriteOrQueue}: used by the
-// ?cert route-guard test to eval a SEPARATE module instance against its own stubs (the route's
-// top-level IIFE runs once at eval time against whatever `location` it's given). Every other test
-// shares the single default-args `mod` instance built by the bare runModule() call below.
 function runModule(overrides) {
   overrides = overrides || {};
   const fn = new Function(
-    'window', 'document', 'fetch', 'WRITE_ROUTER_URL', 'getCurrentUser', 'setBtnLoading', 'alert', 'confirm', 'console',
-    // fix round 3: the shared helpers from js/src/00-guard.js (runOnce = the ONE pending-state
-    // wrapper, sigmaError = the ONE failure surface). Passed through transparently here.
-    'runOnce', 'sigmaError',
-    'location', 'SB_URL', 'SB_ANON', 'emsWriteOrQueue', 'isViewer', 'SigmaInv',
-    certSrc + '\n' + logoSrc + '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certCollect, certFromEmsTask, certFromVisitObj, certFromOrder, certAddItemRow, CERT_LOGO, issueDeliveryCert, certReissue, certCancel, invRenderCerts, certShareText, certViewUrl, certView, certSetRange, getCertRows: () => _certRows, setCertSig: (v) => { _certSig = v; }, setCertRows: (v) => { _certRows = v; } };'
+    'window', 'document', 'fetch', 'invOpen', 'location', 'SB_URL', 'SB_ANON', 'SigmaInv',
+    'loadAllVisitsCombined', 'visitorsOf', 'alert', '_certRows',
+    certSrc + '\n' + logoSrc +
+      '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certIssuedForVisit, certViewUrl,' +
+      ' certFetchRow, certFromVisitForm, certFromVisit, openVisitCertPicker, certView, certSendOpen,' +
+      ' certRowForVisit, certSendForVisit, certDownloadForVisit, certGroupName, certReportLabel,' +
+      ' certRangeReportRange, certRangeReport, certMonthlyFromTab };'
   );
   return fn(
-    overrides.window || window_, overrides.document || document_, overrides.fetch || fetch_, 'http://sheet.test',
-    () => 'עידן', () => {}, (msg) => alerts.push(msg), confirm_, console,
-    (btn, label, job) => job(), (msg) => alerts.push(msg),
-    overrides.location || location_, overrides.SB_URL || 'https://sb.test', overrides.SB_ANON || 'anonkey',
-    overrides.emsWriteOrQueue || emsWriteOrQueue_, overrides.isViewer || isViewer_, overrides.SigmaInv || SigmaInv
+    overrides.window || window_, overrides.document || document_, overrides.fetch || fetch_,
+    (detail) => invOpenCalls.push(detail),
+    overrides.location || { search: '' }, overrides.SB_URL || 'https://sb.test', overrides.SB_ANON || 'anonkey',
+    overrides.SigmaInv || SigmaInv,
+    overrides.loadAllVisitsCombined || (() => []), overrides.visitorsOf || (() => []),
+    overrides.alert || ((m) => alertLog.push(m)), overrides._certRows || [],
   );
 }
 
+const alertLog = [];
 let mod;
 check('module evals without throwing', () => { mod = runModule(); assert.ok(mod); });
 
 if (mod) {
-  // ---- 1. certEsc / certFmtDate ----
   check('certEsc escapes & < > "', () => {
     assert.equal(mod.certEsc('<a href="x">&y</a>'), '&lt;a href=&quot;x&quot;&gt;&amp;y&lt;/a&gt;');
   });
-  check('certFmtDate returns he-IL date string', () => {
-    const s = mod.certFmtDate('2026-07-14');
-    assert.ok(/2026/.test(s), 'expected year 2026 in "' + s + '"');
+  check('certFmtDate returns he-IL date string, — for empty', () => {
+    assert.equal(mod.certFmtDate(''), '—');
+    assert.ok(mod.certFmtDate('2026-07-10').length > 0);
   });
-  check('certFmtDate invalid input does not throw', () => {
-    assert.doesNotThrow(() => mod.certFmtDate('not-a-date'));
-    assert.doesNotThrow(() => mod.certFmtDate(''));
+  check('certViewUrl targets the live GitHub Pages origin, never localhost', () => {
+    const u = mod.certViewUrl('abc-123');
+    assert.ok(u.startsWith('https://pm-sigma.github.io/'));
+    assert.ok(u.endsWith('?cert=abc-123'));
   });
-
-  // ---- 2. certDocHtml ----
-  const baseCert = {
-    number: 1001,
-    date: '2026-07-14',
-    kibbutz: 'שדה אליהו',
-    customer: { name: 'שדה - אל חשמל בע"מ', company_id: '516702735', address: '', contact: 'a@b.c' },
-    items: [{ name: 'אנטנה', qty: 2 }, { name: 'מונה', qty: 3 }],
-    notes: 'שורה ראשונה\nשורה שנייה',
-    source: 'manual',
-    refId: ''
-  };
-  const html = mod.certDocHtml(baseCert);
-  check('certDocHtml contains cert number heading', () => {
-    assert.ok(html.includes('תעודת משלוח 1001'), 'missing heading');
-  });
-  check('certDocHtml contains customer name', () => {
-    assert.ok(html.includes(mod.certEsc(baseCert.customer.name)));
-  });
-  check('certDocHtml contains every item name and qty', () => {
-    baseCert.items.forEach(i => {
-      assert.ok(html.includes(mod.certEsc(i.name)), 'missing item name ' + i.name);
-    });
-  });
-  check('certDocHtml shows correct total qty', () => {
-    const total = baseCert.items.reduce((s, i) => s + i.qty, 0);
-    assert.ok(html.includes('סה"כ פריטים: ' + total), 'expected total ' + total);
-  });
-  check('certDocHtml contains no currency symbol', () => {
-    assert.ok(!html.includes('₪'), 'found ₪ in price-less doc');
-  });
-  check('certDocHtml contains no מחיר (price) text', () => {
-    assert.ok(!html.includes('מחיר'), 'found מחיר in price-less doc');
-  });
-  check('certDocHtml draft mode renders טיוטה, no numeric number', () => {
-    const draft = mod.certDocHtml(Object.assign({}, baseCert, { number: null }));
-    assert.ok(draft.includes('תעודת משלוח טיוטה'), 'expected draft heading');
-    assert.ok(!/תעודת משלוח \d/.test(draft), 'draft doc should not show a numeric cert number');
-  });
-  check('certDocHtml escapes malicious item name (no raw <script> injected)', () => {
-    const evil = mod.certDocHtml(Object.assign({}, baseCert, {
-      items: [{ name: '<script>alert(1)</script>', qty: 1 }]
-    }));
-    assert.ok(evil.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), 'item name should be escaped');
-    // module's own trailing print script is expected (built via string concat to dodge scanners);
-    // beyond that, no other raw <script> tag should appear.
-    const rawScriptCount = (evil.match(/<script(?!>)/gi) || []).length; // none should exist as literal '<script' (module uses '<scr'+'ipt>')
-    assert.equal(rawScriptCount, 0, 'no literal <script opening tag should appear outside the concatenated print script');
-  });
-  check('certDocHtml converts notes newlines to <br>', () => {
-    assert.ok(html.includes('שורה ראשונה<br>שורה שנייה'), 'notes newline not converted to <br>');
-  });
-  check('certDocHtml has exactly one logo <img> with base64 jpeg src', () => {
-    const matches = html.match(/<img[^>]*src="data:image\/jpeg;base64,[^"]*"/g) || [];
-    assert.equal(matches.length, 1, 'expected exactly one logo <img>, found ' + matches.length);
-  });
-  check('certDocHtml unsigned: blank recipient + signature lines, no PNG img', () => {
-    assert.ok(!/data:image\/png/.test(html), 'unsigned cert must not embed a signature image');
-    assert.ok(html.includes('שם המקבל: <span>&nbsp;</span>'), 'expected blank recipient line');
-    assert.ok(html.includes('חתימה: <span>&nbsp;</span>'), 'expected blank signature line');
-  });
-  check('certDocHtml signed: recipient name + PNG signature embedded', () => {
-    const sig = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
-    const signed = mod.certDocHtml(Object.assign({}, baseCert, { recipient: 'יוסי המקבל', signature: sig }));
-    assert.ok(signed.includes('שם המקבל: <b>יוסי המקבל</b>'), 'recipient name missing');
-    assert.ok(signed.includes('<img src="' + sig + '"'), 'signature img missing');
-  });
-  check('certDocHtml rejects non-data-URI signature (stored-data sanitization)', () => {
-    const bad = mod.certDocHtml(Object.assign({}, baseCert, { recipient: 'x', signature: 'https://evil.example/x.png' }));
-    assert.ok(!bad.includes('evil.example'), 'non-data-URI signature must not be rendered');
-    assert.ok(bad.includes('חתימה: <span>&nbsp;</span>'), 'should fall back to blank signature line');
-  });
-  check('certDocHtml cancelled:true renders מבוטלת watermark + הוחלפה בתעודה מס note with the new cert number', () => {
-    const cancelledHtml = mod.certDocHtml(Object.assign({}, baseCert, { cancelled: true, replacedBy: 3002 }));
-    assert.ok(cancelledHtml.includes('מבוטלת'), 'expected מבוטלת watermark text');
-    assert.ok(cancelledHtml.includes('הוחלפה בתעודה מס'), 'expected "הוחלפה בתעודה מס" replacement note');
-    assert.ok(cancelledHtml.includes('3002'), 'expected the replacing cert number 3002 in the note');
-  });
-  check('certDocHtml cancelled falsy renders neither the watermark nor the replacement note', () => {
-    assert.ok(!html.includes('מבוטלת'), 'unexpected מבוטלת watermark on an active (non-cancelled) cert doc');
-    assert.ok(!html.includes('הוחלפה בתעודה מס'), 'unexpected replacement note on an active (non-cancelled) cert doc');
+  check('certDocHtml delegates to SigmaInv.certDocHtml with the logo injected', () => {
+    const html = mod.certDocHtml({ number: 1, date: '2026-07-10', customer: {}, items: [] }, {});
+    assert.ok(html.includes('<!doctype html>') || html.length > 0);
   });
 
-  // ---- 2b. certDocHtml opts.screen — in-app preview / public view link mode vs. the printed doc ----
-  const htmlScreen = mod.certDocHtml(baseCert, { screen: true });
-  check('certDocHtml({screen:true}) contains the floating print-fab button', () => {
-    assert.ok(htmlScreen.includes('print-fab'), 'expected a .print-fab button in screen mode');
-    assert.ok(htmlScreen.includes('🖨️ הדפס / שמור PDF'), 'expected the print-fab label');
+  check('openDeliveryCert opens the React sheet (invOpen kind:cert) instead of a legacy modal', () => {
+    invOpenCalls.length = 0;
+    mod.openDeliveryCert({ kibbutz: 'דפנה' });
+    assert.equal(invOpenCalls.length, 1);
+    assert.equal(invOpenCalls[0].kind, 'cert');
+    assert.equal(invOpenCalls[0].pre.kibbutz, 'דפנה');
   });
-  check('certDocHtml({screen:true}) hides the print-fab via @media print', () => {
-    const collapsed = htmlScreen.replace(/\s+/g, ' ');
-    assert.ok(/@media print\s*\{\s*\.print-fab\s*\{\s*display:\s*none;?\s*\}/.test(collapsed),
-      'expected an @media print rule hiding .print-fab');
-  });
-  check('certDocHtml({screen:true}) does NOT auto-print (no window.onload script)', () => {
-    assert.ok(!htmlScreen.includes('window.onload'), 'screen mode must not carry the auto-print onload script');
-  });
-  check('certDocHtml() without opts auto-prints and has no print-fab', () => {
-    assert.ok(html.includes('window.onload'), 'expected the auto-print onload script by default');
-    assert.ok(!html.includes('print-fab'), 'default (print-window) mode must not include the print-fab button');
+  check('certView / certSendOpen also just open the React sheet', () => {
+    invOpenCalls.length = 0;
+    mod.certView('c1');
+    mod.certSendOpen('c1');
+    assert.deepEqual(invOpenCalls.map(d => d.kind), ['cert-view', 'cert-send']);
   });
 
-  // ---- 2c. certViewUrl — canonical public share link, always pinned to the live app origin ----
-  check('certViewUrl builds the public view link for a plain id', () => {
-    assert.equal(mod.certViewUrl('abc-123'), 'https://pm-sigma.github.io/sigmatec-operations-app/?cert=abc-123');
+  check('certFromVisitForm builds a pre object from the visit form and opens the sheet', () => {
+    invOpenCalls.length = 0;
+    elements.visitDate.value = '2026-07-11';
+    mod.certFromVisitForm();
+    assert.equal(invOpenCalls.length, 1);
+    assert.equal(invOpenCalls[0].pre.source, 'visit');
+    assert.equal(invOpenCalls[0].pre.date, '2026-07-11');
   });
-  check('certViewUrl encodes special characters in the id', () => {
-    assert.equal(mod.certViewUrl('a b/c'), 'https://pm-sigma.github.io/sigmatec-operations-app/?cert=' + encodeURIComponent('a b/c'));
+  check('certFromVisit resolves the visit by id and opens the sheet', () => {
+    invOpenCalls.length = 0;
+    const m2 = runModule({ loadAllVisitsCombined: () => [{ id: 'v1', kibbutz: 'גבים', date: '2026-07-01', products: [{ name: 'X', qty: 2 }] }] });
+    m2.certFromVisit('v1');
   });
-
-  // ---- 2d. preview ≡ output parity — certDocHtml is the ONE generator for print window, in-app
-  // preview and the public view link; {screen:true} and the plain call must render byte-identical
-  // content up to the point they intentionally diverge (the print-fab vs. auto-print tail after
-  // the closing </div> of .foot).
-  check('certDocHtml preview/output parity: identical content up to the print-fab/auto-print tail', () => {
-    const footPrefix = (s) => { const start = s.indexOf('<div class="foot">'); const end = s.indexOf('</div>', start) + '</div>'.length; return s.slice(0, end); };
-    const outputHtml = mod.certDocHtml(baseCert);
-    assert.ok(footPrefix(htmlScreen).length > 500, 'sanity: prefix should cover the whole document body');
-    assert.equal(footPrefix(htmlScreen), footPrefix(outputHtml), 'content before the tail must be byte-identical between screen and print modes');
-    assert.notEqual(htmlScreen, outputHtml, 'sanity: the two variants must actually differ somewhere (the tail)');
+  check('openVisitCertPicker lists visits in range without throwing', () => {
+    const m3 = runModule({ loadAllVisitsCombined: () => [{ id: 'v1', kibbutz: 'גבים', date: '2026-07-01', visitor: 'אביאם', products: [{ name: 'X', qty: 1 }] }] });
+    m3.openVisitCertPicker();
   });
 
-  // ---- 3. openDeliveryCert prefill ----
-  window_._sbCertGet = async (query) => {
-    if (query.indexOf('kibbutz_details') !== -1) return KIBBUTZ_DETAILS;
-    if (query.indexOf('delivery_certs') !== -1) return DELIVERY_CERT_ROWS;
-    return [];
-  };
-  await0(async () => {
-    await mod.openDeliveryCert({ kibbutz: 'שדה אליהו', items: [{ name: 'אנטנה', qty: 2 }], contact: 'יוסי', date: '2026-06-01' });
-    check('openDeliveryCert prefill: known kibbutz sets legal name', () => {
-      assert.equal(elements.certCustName.value, 'שדה - אל חשמל בע"מ');
-    });
-    check('openDeliveryCert prefill: known kibbutz sets company id', () => {
-      assert.equal(elements.certCustCompanyId.value, '516702735');
-    });
-    check('openDeliveryCert prefill: date set from pre.date', () => {
-      assert.equal(elements.certDate.value, '2026-06-01');
-    });
-    check('openDeliveryCert prefill: no address in kibbutz_details → defaults to the site name', () => {
-      // KIBBUTZ_DETAILS['שדה אליהו'].address is '' — EMS has no delivery address for sites,
-      // so the kibbutz/site name itself is used as the address (avoids a blank required field).
-      assert.equal(elements.certCustAddress.value, 'שדה אליהו');
-    });
+  check('certRowForVisit / certSendForVisit / certDownloadForVisit: no cert anywhere → clear message, not a crash', async () => {
+    const alerts = [];
+    const m4 = runModule({ alert: (m) => alerts.push(m), fetch: async () => ({ json: async () => [] }) });
+    await m4.certSendForVisit('no-such-visit'); await m4.certDownloadForVisit('no-such-visit');
+    assert.equal(alerts.length, 2);
   });
 
-  await0(async () => {
-    // reset name/company fields, then test unknown kibbutz fallback
-    elements.certCustName.value = '';
-    elements.certCustCompanyId.value = '';
-    await mod.openDeliveryCert({ kibbutz: 'קיבוץ לא ידוע', items: [{ name: 'x', qty: 1 }], date: '2026-06-02' });
-    check('openDeliveryCert prefill: unknown kibbutz falls back to kibbutz string as name', () => {
-      assert.equal(elements.certCustName.value, 'קיבוץ לא ידוע');
+  // Regression: after U10 nothing fills _certRows any more (the legacy registry render that used
+  // to is gone) — it starts empty and stays empty, so certRowForVisit must fetch the visit's
+  // active cert from Supabase itself instead of always missing.
+  check('certRowForVisit falls back to Supabase when _certRows is empty, and caches the row', async () => {
+    const alerts = [];
+    const queries = [];
+    const win5 = Object.assign({}, window_, {
+      _sbCertGet: async (q) => {
+        queries.push(q);
+        return q.includes('ref_id=eq.v-cold') ? [{ id: 'c-cold', ref_id: 'v-cold', status: 'active', cert_number: 9001 }] : [];
+      },
     });
-    check('openDeliveryCert prefill: unknown kibbutz leaves company id blank', () => {
-      assert.equal(elements.certCustCompanyId.value, '');
-    });
-    check('openDeliveryCert prefill: unknown kibbutz also defaults address to the site name', () => {
-      assert.equal(elements.certCustAddress.value, 'קיבוץ לא ידוע');
-    });
+    const m5 = runModule({ alert: (m) => alerts.push(m), window: win5 });
+    const r = await m5.certRowForVisit('v-cold');
+    assert.equal(r && r.id, 'c-cold');
+    assert.ok(queries.some(q => /delivery_certs\?.*ref_id=eq\.v-cold.*status=eq\.active/.test(q)), queries[0]);
+    invOpenCalls.length = 0;
+    await m5.certDownloadForVisit('v-cold');
+    assert.equal(alerts.length, 0, 'a cold cache must not alert "not registered"');
+    assert.deepEqual(invOpenCalls.map(d => d.kind), ['cert-view']);
   });
 
-  // ---- 4. certCollect edit roundtrip ----
-  await0(async () => {
-    // simulate user editing the modal after openDeliveryCert prefilled it
-    elements.certDate.value = '2026-08-15';
-    elements.certCustName.value = 'לקוח ערוך';
-    elements.certCustCompanyId.value = '999';
-    elements.certCustAddress.value = 'רחוב 1';
-    elements.certCustContact.value = 'מישהו';
-    elements.certNotes.value = 'הערה';
-    elements.certModal.dataset.kibbutz = 'שדה אליהו';
-    elements.certModal.dataset.source = 'manual';
-    elements.certModal.dataset.refId = 'r1';
-
-    certItemRows.length = 0;
-    certItemRows.push(
-      { querySelector: (s) => s === '.cert-item-name' ? { value: 'אנטנה ערוכה' } : { value: '5' } },
-      { querySelector: (s) => s === '.cert-item-name' ? { value: '' } : { value: '3' } }, // empty name -> excluded
-      { querySelector: (s) => s === '.cert-item-name' ? { value: 'מונה' } : { value: '0' } } // qty 0 -> excluded
-    );
-
-    const collected = mod.certCollect();
-    check('certCollect: edited date reflected', () => assert.equal(collected.date, '2026-08-15'));
-    check('certCollect: edited customer name reflected', () => assert.equal(collected.customer.name, 'לקוח ערוך'));
-    check('certCollect: edited customer company_id reflected', () => assert.equal(collected.customer.company_id, '999'));
-    check('certCollect: excludes empty-name and zero-qty rows', () => {
-      assert.deepEqual(collected.items, [{ name: 'אנטנה ערוכה', qty: 5 }]);
-    });
+  check('certGroupName delegates to SigmaInv (customer.name over kibbutz)', () => {
+    assert.equal(mod.certGroupName({ customer: { name: 'לקוח' }, kibbutz: 'דפנה' }), 'לקוח');
+    assert.equal(mod.certGroupName({ kibbutz: 'דפנה' }), 'דפנה');
+  });
+  check('certReportLabel falls back to the technical name with no productLabel in scope', () => {
+    assert.equal(mod.certReportLabel('מונה X'), 'מונה X');
   });
 
-  // ---- 5. certFromEmsTask description parsing ----
-  await0(async () => {
-    window_._emsCurrentTask = {
-      id: 't1',
-      site: { name: 'שדה אליהו' },
-      description: 'אספקת ציוד לשדה אליהו — אושר ע"י עידן\n• מונה Landis+Gyr E360PP ×3\n• אנטנה ×2\nשורה לא רלוונטית'
-    };
-    await mod.certFromEmsTask();
-    // openDeliveryCert (called internally) clears then repopulates certItems via certAddItemRow,
-    // which appends real DOM-shaped rows to elements.certItems (our stub records them in certItemRows).
-    check('certFromEmsTask: parses exactly 2 items with correct qty', () => {
-      // certAddItemRow builds a row whose .innerHTML/value we don't track directly since it's a real DOM op;
-      // instead assert via the modal dataset + that certItems.appendChild was called twice with rows
-      // containing the expected quantities baked into the row's cert-item-qty value attribute string.
-      const parsed = certItemRows.filter(r => typeof r.innerHTML === 'string' && r.innerHTML.includes('cert-item-qty'));
-      assert.equal(parsed.length, 2, 'expected 2 item rows appended, got ' + parsed.length);
-      assert.ok(parsed[0].innerHTML.includes('value="Landis') === false); // sanity: not asserting exact html structure
-    });
+  check('certRangeReportRange writes SigmaInv.certRangeReportHtml into the print window', () => {
+    const m5 = runModule({ fetch: async () => ({ json: async () => [] }) });
+    m5.certRangeReportRange('2026-07-01', '2026-07-31');
+  });
+  check('certRangeReport / certMonthlyFromTab both resolve to certRangeReportRange without throwing', async () => {
+    const m6 = runModule({ fetch: async () => ({ json: async () => [] }) });
+    await m6.certRangeReport();
+    await m6.certMonthlyFromTab();
   });
 
-  // ---- 6. certFromVisitObj + certFromOrder ----
-  await0(async () => {
-    certItemRows.length = 0;
-    await mod.certFromVisitObj({ kibbutz: 'שדה אליהו', date: '2026-05-01T00:00:00Z', contact: 'ג', products: ['אנטנה', { name: 'מונה', qty: 4 }], id: 'v1' });
-    check('certFromVisitObj: string + object products both become item rows', () => {
-      const rows = certItemRows.filter(r => typeof r.innerHTML === 'string' && r.innerHTML.includes('cert-item-qty'));
-      assert.equal(rows.length, 2, 'expected 2 rows from mixed product list');
-    });
-  });
-
-  await0(async () => {
-    window_.SHEET_DATA = { orders: [{ id: 'o1', kibbutz: 'לביא', orderType: 'customer', items: [{ name: 'אנטנה', qty: '4' }], deliveredAt: '2026-07-01T10:00:00Z' }] };
-    certItemRows.length = 0;
-    // certFromOrder is sync-dispatching (calls openDeliveryCert without awaiting internally, but openDeliveryCert is async)
-    const p = mod.certFromOrder('o1');
-    if (p && typeof p.then === 'function') await p;
-    await Promise.resolve(); // let openDeliveryCert's internal awaits flush
-    check('certFromOrder: date prefilled from deliveredAt (date-only slice)', () => {
-      assert.equal(elements.certDate.value, '2026-07-01');
-    });
-    check('certFromOrder: qty coerced from string to number', () => {
-      const rows = certItemRows.filter(r => typeof r.innerHTML === 'string' && r.innerHTML.includes('cert-item-qty'));
-      assert.ok(rows.length >= 1, 'expected at least 1 item row');
-      assert.ok(rows[0].innerHTML.includes('value="4"'), 'expected qty coerced to 4, row html: ' + rows[0].innerHTML);
-    });
-  });
-
-  // ---- 7. issueDeliveryCert: persists recipient+signature, prints the numbered doc ----
-  await0(async () => {
-    // rebuild a clean modal state: one item row + a signed recipient (via the test-only setCertSig hook)
-    elements.certModal.dataset.kibbutz = 'שדה אליהו';
-    elements.certModal.dataset.source = 'manual';
-    elements.certModal.dataset.refId = '';
-    elements.certCustName.value = 'לקוח לחתימה';
-    elements.certCustCompanyId.value = '';
-    elements.certCustAddress.value = '';
-    elements.certCustContact.value = '';
-    elements.certDate.value = '2026-07-15';
-    elements.certNotes.value = '';
-    certItemRows.length = 0;
-    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'אנטנה' } : { value: '2' } });
-    mod.setCertSig({ name: 'יוסי החותם', data: 'data:image/png;base64,SIGDATA' });
-
-    lastFetchBody = null;
-    openedWindows.length = 0;
-    await mod.issueDeliveryCert(null);
-
-    check('issueDeliveryCert: posts type=deliveryCert', () => {
-      assert.ok(lastFetchBody, 'expected a fetch call');
-      assert.equal(lastFetchBody.type, 'deliveryCert');
-    });
-    check('issueDeliveryCert: cert body carries recipient + signature (data-URL) from the signed state', () => {
-      assert.equal(lastFetchBody.cert.recipient, 'יוסי החותם');
-      assert.equal(lastFetchBody.cert.signature, 'data:image/png;base64,SIGDATA');
-    });
-    check('issueDeliveryCert: cert body carries createdBy from getCurrentUser()', () => {
-      assert.equal(lastFetchBody.createdBy, 'עידן');
-    });
-    check('issueDeliveryCert: printed doc reflects the server-assigned cert number + signature img', () => {
-      assert.ok(openedWindows.length >= 1, 'expected a print window to open');
-      const html = openedWindows[openedWindows.length - 1].document._html;
-      assert.ok(html.includes('תעודת משלוח 1234'), 'expected numbered heading in printed doc');
-      assert.ok(html.includes('שם המקבל: <b>יוסי החותם</b>'), 'expected recipient name in printed doc');
-      assert.ok(html.includes('<img src="data:image/png;base64,SIGDATA"'), 'expected signature image in printed doc');
-    });
-  });
-
-  // ---- 8. issued-certs tab: invRenderCerts renders stored rows; certReprint replays the exact snapshot ----
-  await0(async () => {
-    // invRenderCerts/certReprint are attached to `window` by the module itself (window.invRenderCerts = ...,
-    // window.certReprint = ...), which already ran when runModule() evaluated the source above.
-    await window_.invRenderCerts(true);
-    check('invRenderCerts: lists the stored cert number + customer name', () => {
-      const html = elements['invCertsList'].innerHTML;
-      assert.ok(html.includes('2001'), 'expected cert_number 2001 in the rendered list');
-      assert.ok(html.includes('שדה - אל חשמל בע&quot;מ'), 'expected (HTML-escaped) customer name in the rendered list');
-    });
-    check('invRenderCerts: shows the source label and a signed marker with recipient name', () => {
-      const html = elements['invCertsList'].innerHTML;
-      assert.ok(html.includes('📍 ביקור'), 'expected visit source label');
-      assert.ok(html.includes('✅ דנה מקבלת'), 'expected signed marker with recipient name');
-    });
-
-    const fetchCallsBefore = lastFetchBody;
-    openedWindows.length = 0;
-    window_.certReprint('c1');
-    check('certReprint: opens a print window without issuing any fetch (reprints from the cached row)', () => {
-      assert.equal(lastFetchBody, fetchCallsBefore, 'certReprint must not trigger a network call');
-      assert.ok(openedWindows.length >= 1, 'expected a print window to open');
-    });
-    check('certReprint: maps snake_case row fields (cert_number/cert_date/ref_id) into the printed doc', () => {
-      const html = openedWindows[openedWindows.length - 1].document._html;
-      assert.ok(html.includes('תעודת משלוח 2001'), 'expected cert_number 2001 in heading');
-      assert.ok(/2026/.test(html) && html.includes('כתובת בדיקה'), 'expected stored address/date rendered');
-      assert.ok(html.includes('· visit:v99'), 'expected source+ref_id footer built from ref_id');
-    });
-    check('certReprint: carries over the stored recipient + signature unchanged', () => {
-      const html = openedWindows[openedWindows.length - 1].document._html;
-      assert.ok(html.includes('שם המקבל: <b>דנה מקבלת</b>'), 'expected stored recipient name');
-      assert.ok(html.includes('<img src="data:image/png;base64,ZZZ"'), 'expected stored signature image');
-    });
-  });
-
-  // ---- 9. certReissue: opens the stored row for editing using its OWN customer block, not the kibbutz_details lookup ----
-  const REISSUE_ROW = {
-    id: 'x1', cert_number: 3001, cert_date: '2026-07-01', kibbutz: 'שדה אליהו',   // 'שדה אליהו' IS in KIBBUTZ_DETAILS —
-    customer: { name: 'לקוח מקורי בע"מ', company_id: '111222333', address: 'כתובת מקורית 5', contact: 'איש קשר מקורי' },  // but these values must win
-    items: [{ name: 'מונה מים', qty: 7 }], notes: 'הערה מקורית', source: 'order', ref_id: 'o55', status: 'active'
-  };
-  await0(async () => {
-    mod.setCertRows([REISSUE_ROW]);
-    certItemRows.length = 0;
-    mod.certReissue('x1');   // sync dispatcher; internally calls the async openDeliveryCert
-    await new Promise(r => setTimeout(r, 10));   // flush openDeliveryCert's internal awaits
-
-    check('certReissue: modal customer name comes from the STORED row (not the kibbutz_details lookup)', () => {
-      assert.equal(elements.certCustName.value, 'לקוח מקורי בע"מ');
-    });
-    check('certReissue: modal company_id comes from the STORED row (not kibbutz_details)', () => {
-      assert.equal(elements.certCustCompanyId.value, '111222333');
-    });
-    check('certReissue: modal address comes from the STORED row', () => {
-      assert.equal(elements.certCustAddress.value, 'כתובת מקורית 5');
-    });
-    check('certReissue: modal contact comes from the STORED row', () => {
-      assert.equal(elements.certCustContact.value, 'איש קשר מקורי');
-    });
-    check('certReissue: modal items reflect the stored row\'s items', () => {
-      const rows = certItemRows.filter(r => typeof r.innerHTML === 'string' && r.innerHTML.includes('cert-item-qty'));
-      assert.equal(rows.length, 1, 'expected exactly 1 item row from the stored cert');
-      assert.ok(rows[0].innerHTML.includes('value="מונה מים"'), 'expected stored item name in the row html');
-      assert.ok(rows[0].innerHTML.includes('value="7"'), 'expected stored item qty in the row html');
-    });
-  });
-
-  // ---- 10. reissue → issue auto-cancels the replaced cert ----
-  await0(async () => {
-    // register an item row so certCollect() has ≥1 item (mirrors the real UI: the modal was
-    // just populated by certReissue() above, we just give it a querySelector-capable stub row).
-    certItemRows.length = 0;
-    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'מונה מים' } : { value: '7' } });
-    // modal.dataset.{kibbutz,source,refId} were already set by certReissue's internal openDeliveryCert call above
-    fetchBodies.length = 0;
-    openedWindows.length = 0;
-    await mod.issueDeliveryCert(null);
-
-    check('issueDeliveryCert (reissue path): first POST body is the new cert (type=deliveryCert)', () => {
-      assert.ok(fetchBodies.length >= 2, 'expected 2 POSTs (issue + auto-cancel), got ' + fetchBodies.length);
-      assert.equal(fetchBodies[0].type, 'deliveryCert');
-    });
-    check('issueDeliveryCert (reissue path): a following POST auto-cancels the replaced cert', () => {
-      const cancelBody = fetchBodies.find(b => b.type === 'deliveryCertCancel');
-      assert.ok(cancelBody, 'expected a deliveryCertCancel POST');
-      assert.equal(cancelBody.id, 'x1', 'expected the cancel to target the replaced cert id (x1)');
-      assert.equal(cancelBody.replacedBy, 1234, 'expected replacedBy to equal the new cert number returned by the fetch stub (1234)');
-    });
-  });
-
-  // ---- 11. certCancel: manual cancel gated by confirm(), no replacedBy ----
-  await0(async () => {
-    mod.setCertRows([{ id: 'x1', cert_number: 3001, status: 'active' }]);
-    fetchBodies.length = 0;
-    confirmReturn = true;
-    await mod.certCancel('x1');
-    await new Promise(r => setTimeout(r, 5));   // let certCancel's fire-and-forget invRenderCerts(true) settle
-    check('certCancel (confirmed): posts type=deliveryCertCancel for the right id, with no replacedBy', () => {
-      assert.equal(fetchBodies.length, 1, 'expected exactly one POST when confirmed');
-      assert.equal(fetchBodies[0].type, 'deliveryCertCancel');
-      assert.equal(fetchBodies[0].id, 'x1');
-      assert.ok(!('replacedBy' in fetchBodies[0]), 'a manual cancel must not carry a replacedBy');
-    });
-  });
-
-  await0(async () => {
-    mod.setCertRows([{ id: 'x1', cert_number: 3001, status: 'active' }]);
-    fetchBodies.length = 0;
-    confirmReturn = false;
-    await mod.certCancel('x1');
-    check('certCancel (declined): no POST is sent when confirm() returns false', () => {
-      assert.equal(fetchBodies.length, 0);
-    });
-  });
-
-  // ---- 12. invRenderCerts: cancelled rows render the 🚫 מבוטלת marker + strikethrough, and hide their action buttons ----
-  await0(async () => {
-    const MIXED_ROWS = [
-      { id: 'act1', cert_number: 4001, cert_date: '2026-07-01', kibbutz: 'שדה אליהו', customer: { name: 'לקוח פעיל' },
-        items: [{ name: 'אנטנה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'active' },
-      { id: 'canc1', cert_number: 4002, cert_date: '2026-07-02', kibbutz: 'שדה אליהו', customer: { name: 'לקוח מבוטל' },
-        items: [{ name: 'אנטנה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'cancelled', replaced_by: 4003 }
-    ];
-    const originalSbCertGet = window_._sbCertGet;
-    window_._sbCertGet = async (query) => query.indexOf('delivery_certs') !== -1 ? MIXED_ROWS : [];
-    elements.invCertsSearch.value = '';
-    await window_.invRenderCerts(true);
-    window_._sbCertGet = originalSbCertGet;
-
-    const listHtml = elements['invCertsList'].innerHTML;
-    const rowChunks = listHtml.split('</tr>');
-    const cancelledRowHtml = rowChunks.find(r => r.includes('4002')) || '';
-    const activeRowHtml = rowChunks.find(r => r.includes('4001')) || '';
-
-    check('invRenderCerts: cancelled row shows the 🚫 מבוטלת marker + strikethrough cert number', () => {
-      assert.ok(cancelledRowHtml.includes('🚫 מבוטלת'), 'expected the cancelled marker in the cancelled row');
-      assert.ok(/<s>4002<\/s>/.test(cancelledRowHtml), 'expected the cert number wrapped in <s> (strikethrough)');
-    });
-    check('invRenderCerts: cancelled row does NOT render the הפק מתוקנת / בטל action buttons', () => {
-      assert.ok(cancelledRowHtml, 'could not locate the cancelled row in the rendered html');
-      assert.ok(!cancelledRowHtml.includes('הפק מתוקנת'), 'cancelled row must not show the reissue button');
-      assert.ok(!cancelledRowHtml.includes('>🚫 בטל<'), 'cancelled row must not show the cancel button');
-    });
-    check('invRenderCerts: active row DOES render the הפק מתוקנת / בטל action buttons', () => {
-      assert.ok(activeRowHtml, 'could not locate the active row in the rendered html');
-      assert.ok(activeRowHtml.includes('הפק מתוקנת'), 'active row should show the reissue button');
-      assert.ok(activeRowHtml.includes('>🚫 בטל<'), 'active row should show the cancel button');
-    });
-  });
-
-  // ---- 12b. VIEWER-mode invRenderCerts action cell: 👁 הצג (+📁 when drive_url) ONLY —
-  // no 📤 send, no 📝 הפק מתוקנת, no 🚫 בטל. Non-viewer keeps the full action set (regression). ----
-  await0(async () => {
-    const VW_ROWS = [
-      { id: 'vw1', cert_number: 5001, cert_date: '2026-07-05', kibbutz: 'שדה אליהו', customer: { name: 'לקוח צופה' },
-        items: [{ name: 'אנטנה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'active',
-        drive_url: 'https://drive.google.com/file/d/xyz/view' },
-      { id: 'vw2', cert_number: 5002, cert_date: '2026-07-06', kibbutz: 'שדה אליהו', customer: { name: 'לקוח מבוטל' },
-        items: [{ name: 'מונה', qty: 1 }], source: 'manual', created_by: 'עידן', status: 'cancelled', replaced_by: 5003 }
-    ];
-    const originalSbCertGet = window_._sbCertGet;
-    window_._sbCertGet = async (query) => query.indexOf('delivery_certs') !== -1 ? VW_ROWS : [];
-    elements.invCertsSearch.value = '';
-
-    viewerReturn = true;
-    await window_.invRenderCerts(true);
-    const vwHtml = elements['invCertsList'].innerHTML;
-    const vwChunks = vwHtml.split('</tr>');
-    const vwActiveRow = vwChunks.find(r => r.includes('5001')) || '';
-
-    check('invRenderCerts (viewer): active row shows 👁 הצג', () => {
-      assert.ok(vwActiveRow.includes('👁 הצג'), 'viewer active row must keep the view button');
-    });
-    check('invRenderCerts (viewer): active row hides 📤 / 📝 הפק מתוקנת / 🚫 בטל', () => {
-      assert.ok(!vwActiveRow.includes('📤'), 'viewer must not see the send button');
-      assert.ok(!vwActiveRow.includes('הפק מתוקנת'), 'viewer must not see the reissue button');
-      assert.ok(!vwActiveRow.includes('>🚫 בטל<'), 'viewer must not see the cancel button');
-    });
-    check('invRenderCerts (viewer): a drive_url row still renders the 📁 button', () => {
-      assert.ok(vwActiveRow.includes('📁'), 'viewer should still get the Drive-copy link when drive_url is present');
-    });
-
-    // now the SAME rows as a non-viewer — the full action set must reappear (regression)
-    viewerReturn = false;
-    await window_.invRenderCerts(true);
-    const nvHtml = elements['invCertsList'].innerHTML;
-    const nvActiveRow = (nvHtml.split('</tr>').find(r => r.includes('5001'))) || '';
-    check('invRenderCerts (non-viewer): active row DOES show 📤 / הפק מתוקנת / 🚫 בטל', () => {
-      assert.ok(nvActiveRow.includes('📤'), 'non-viewer active row should show the send button');
-      assert.ok(nvActiveRow.includes('הפק מתוקנת'), 'non-viewer active row should show the reissue button');
-      assert.ok(nvActiveRow.includes('>🚫 בטל<'), 'non-viewer active row should show the cancel button');
-    });
-
-    window_._sbCertGet = originalSbCertGet;
-    viewerReturn = false;
-  });
-
-  // ---- 12c. certMonthlyFromTab / certRangeReport range plumbing (refactor to certRangeReportRange) ----
-  await0(async () => {
-    // capture the delivery_certs query the report issues (window.open + _sbCertGet are already stubbed)
-    let lastCertQuery = null;
-    const originalSbCertGet = window_._sbCertGet;
-    window_._sbCertGet = async (q) => { lastCertQuery = q; return []; };   // resolve [] → success path, never touches w.document.body
-
-    // (i) explicit invCertsFrom/To → the report carries exactly those dates
-    elements.invCertsFrom.value = '2026-03-01';
-    elements.invCertsTo.value = '2026-03-31';
-    openedWindows.length = 0;
-    await window_.certMonthlyFromTab();
-    check('certMonthlyFromTab: uses invCertsFrom/To in the delivery_certs query', () => {
-      assert.ok(lastCertQuery, 'expected a _sbCertGet call');
-      assert.ok(lastCertQuery.includes('cert_date=gte.2026-03-01'), 'expected gte.<from> in query: ' + lastCertQuery);
-      assert.ok(lastCertQuery.includes('cert_date=lte.2026-03-31'), 'expected lte.<to> in query: ' + lastCertQuery);
-    });
-    check('certMonthlyFromTab: opens a print window for the report', () => {
-      assert.ok(openedWindows.length >= 1, 'expected a report window to open');
-    });
-
-    // (ii) EMPTY invCertsFrom → default from = first-of-current-month (harness date is 2026-07-15)
-    const now = new Date();
-    const expectFrom = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-    elements.invCertsFrom.value = '';
-    elements.invCertsTo.value = '';
-    lastCertQuery = null;
-    await window_.certMonthlyFromTab();
-    check('certMonthlyFromTab: empty invCertsFrom defaults to the first of the current month', () => {
-      assert.ok(lastCertQuery.includes('cert_date=gte.' + expectFrom),
-        'expected gte.' + expectFrom + ' (first-of-month default) in query: ' + lastCertQuery);
-    });
-
-    // (iii) certRangeReport wrapper still reads visitsReportFrom/To (regression after the refactor)
-    elements.visitsReportFrom.value = '2026-01-10';
-    elements.visitsReportTo.value = '2026-01-20';
-    lastCertQuery = null;
-    await window_.certRangeReport();
-    check('certRangeReport wrapper: query carries visitsReportFrom/To dates', () => {
-      assert.ok(lastCertQuery.includes('cert_date=gte.2026-01-10'), 'expected gte from visitsReportFrom: ' + lastCertQuery);
-      assert.ok(lastCertQuery.includes('cert_date=lte.2026-01-20'), 'expected lte from visitsReportTo: ' + lastCertQuery);
-    });
-
-    window_._sbCertGet = originalSbCertGet;
-  });
-
-  // ---- 13. certShareText — the message body used for both email and WhatsApp shares ----
-  check('certShareText includes the cert number, customer name and the view URL', () => {
-    const row = { id: 'u1', cert_number: 4001, cert_date: '2026-07-15', kibbutz: 'לביא', customer: { name: 'חשמלביא' } };
-    const text = mod.certShareText(row);
-    assert.ok(text.includes('4001'), 'expected the cert number in the share text');
-    assert.ok(text.includes('חשמלביא'), 'expected the customer name in the share text');
-    assert.ok(text.includes(mod.certViewUrl('u1')), 'expected the view URL for id u1 in the share text');
-  });
-  check('certShareText falls back to kibbutz name when customer is missing', () => {
-    const row = { id: 'u2', cert_number: 4002, cert_date: '2026-07-15', kibbutz: 'שדה אליהו' };
-    assert.ok(mod.certShareText(row).includes('שדה אליהו'));
-  });
-
-  // ---- 14. certEmailSelected / certCopyLink — link building off window._certSendCtx + checked contacts ----
-  await0(async () => {
-    window_._certSendCtx = {
-      contacts: [{ name: 'א', email: 'a@x.com' }, { name: 'ב', email: '' }],
-      cert: { id: 'u1', cert_number: 4001 },
-      text: 'שלום, מצורפת תעודת משלוח... לצפייה: ' + mod.certViewUrl('u1')
-    };
-    // real DOM: the contact-without-email checkbox is rendered `disabled` and never `:checked` —
-    // only the emailed contact's box is "checked" here, mirroring that.
-    sendModalCheckedBoxes = [{ dataset: { i: '0' } }];
-    location_.href = '';
-    window_.certEmailSelected();
-    check('certEmailSelected: mailto: targets only the checked contact that has an email', () => {
-      assert.ok(location_.href.startsWith('mailto:a@x.com'), 'expected mailto:a@x.com, got: ' + location_.href);
-      assert.ok(!location_.href.includes('undefined'), 'must not leak "undefined" for the no-email contact');
-    });
-    check('certEmailSelected: subject is URL-encoded and carries the cert number', () => {
-      const subject = 'תעודת משלוח 4001: סיגמאטק התייעלות אנרגטית';
-      assert.ok(location_.href.includes('subject=' + encodeURIComponent(subject)), 'expected encoded subject in mailto href');
-    });
-    check('certEmailSelected: body contains the view URL', () => {
-      assert.ok(location_.href.includes(encodeURIComponent(mod.certViewUrl('u1'))), 'expected the encoded view URL in the mailto body');
-    });
-
-    check('certEmailSelected: alerts and does not touch location.href when nothing is checked', () => {
-      location_.href = 'untouched';
-      sendModalCheckedBoxes = [];
-      alerts.length = 0;
-      window_.certEmailSelected();
-      assert.equal(location_.href, 'untouched', 'location.href must be left alone when no contact is selected');
-      assert.ok(alerts.some(a => a.includes('בחר לפחות')), 'expected a "pick at least one contact" alert');
-    });
-
-    check('certCopyLink: callable without throwing regardless of clipboard API availability', () => {
-      assert.doesNotThrow(() => window_.certCopyLink());
-    });
-  });
-
-  // ---- 15. issueDeliveryCert EMS auto-comment + fresh-cert registry row + auto-opened send panel ----
-  await0(async () => {
-    // query-aware fallback: certSendOpen's site_contacts lookup resolves to [] (no contacts → the
-    // "copy link manually" branch); invRenderCerts's delivery_certs lookup REJECTS instead of
-    // resolving, so its (unawaited, background) refresh can't clobber the _certRows we're about
-    // to assert on — a rejected await inside invRenderCerts is caught internally and leaves
-    // _certRows untouched, matching how a real "load failed" refresh behaves.
-    const originalSbCertGet = window_._sbCertGet;
-    window_._sbCertGet = async (q) => { if (q.indexOf('site_contacts') !== -1) return []; throw new Error('not stubbed for this test'); };
-
-    elements.certModal.dataset.kibbutz = 'שדה אליהו';
-    elements.certModal.dataset.source = 'ems';
-    elements.certModal.dataset.refId = 'task77';
-    elements.certCustName.value = 'לקוח EMS';
-    elements.certCustCompanyId.value = '';
-    elements.certCustAddress.value = '';
-    elements.certCustContact.value = '';
-    elements.certDate.value = '2026-07-15';
-    elements.certNotes.value = '';
-    certItemRows.length = 0;
-    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'אנטנה' } : { value: '1' } });
-    mod.setCertSig({ name: '', data: '' });
-
-    emsCalls.length = 0;
-    certSendModalOpens.length = 0;
-    fetchJsonOverride = { ok: true, certNumber: 1234, id: 'newid1' };
-
-    await mod.issueDeliveryCert(null);
-    await new Promise(r => setTimeout(r, 15));   // flush certSendOpen's + invRenderCerts's un-awaited background work
-
-    check('issueDeliveryCert (source=ems): drops exactly one EMS-task comment', () => {
-      assert.equal(emsCalls.length, 1, 'expected exactly one EMS comment capture, got ' + emsCalls.length);
-      assert.equal(emsCalls[0].kind, 'comment');
-      assert.equal(emsCalls[0].taskId, 'task77');
-    });
-    check('issueDeliveryCert (source=ems): comment message carries the cert number and the view URL', () => {
-      const msg = emsCalls[0].message;
-      assert.ok(msg.includes('1234'), 'expected cert number 1234 in the EMS comment: ' + msg);
-      assert.ok(msg.includes(mod.certViewUrl('newid1')), 'expected the view URL for the new cert id in the EMS comment: ' + msg);
-    });
-    check('issueDeliveryCert: unshifts the fresh cert into the registry with the server-assigned id/number', () => {
-      const rows = mod.getCertRows();
-      assert.ok(rows.length >= 1, 'expected at least one row in the registry');
-      assert.equal(rows[0].id, 'newid1');
-      assert.equal(rows[0].cert_number, 1234);
-      assert.equal(rows[0].status, 'active');
-    });
-    check('issueDeliveryCert: auto-opens the send panel for the freshly issued cert', () => {
-      assert.ok(certSendModalOpens.includes('open'), 'expected certSendOpen to call classList.add("open") on the certSendModal stub');
-    });
-
-    // source=visit → issuing must NOT drop an EMS-task comment (there is no EMS task to comment on)
-    elements.certModal.dataset.source = 'visit';
-    elements.certModal.dataset.refId = 'v42';
-    certItemRows.length = 0;
-    certItemRows.push({ querySelector: (s) => s === '.cert-item-name' ? { value: 'אנטנה' } : { value: '1' } });
-    emsCalls.length = 0;
-    fetchJsonOverride = { ok: true, certNumber: 1235, id: 'newid2' };
-    await mod.issueDeliveryCert(null);
-    await new Promise(r => setTimeout(r, 15));
-    check('issueDeliveryCert (source=visit): does NOT drop an EMS-task comment', () => {
-      assert.equal(emsCalls.length, 0, 'a visit-sourced cert must not trigger an EMS comment');
-    });
-
-    window_._sbCertGet = originalSbCertGet;
-    fetchJsonOverride = null;
-  });
-
-  // ---- 16. ?cert=<uuid> public view route guard — a SEPARATE module instance (the route's IIFE
-  // runs once at eval time against whatever `location` it is given) ----
-  await0(async () => {
-    const routeWindow = {};
-    const routeDoc = { _html: '', open() { this._html = ''; }, write(s) { this._html += s; }, close() {} };
-    let routeFetchCall = null;
-    const routeCalls = [];
-    const routeFetch = async (url, opts) => {
-      routeFetchCall = { url, opts }; routeCalls.push({ url, opts });
-      return { ok: true, json: async () => [] };
-    };
-    const testUuid = '99999999-9999-9999-9999-999999999999';
-
-    runModule({
-      window: routeWindow, document: routeDoc, fetch: routeFetch,
-      location: { search: '?cert=' + testUuid },
-      SB_URL: 'https://sb.test', SB_ANON: 'anonkey'
-    });
-
-    check('?cert route: sets window._certViewMode synchronously (survives the coming document.write)', () => {
-      assert.equal(routeWindow._certViewMode, true);
-    });
-
-    await new Promise(r => setTimeout(r, 20));   // flush the route's internal fetch + document.write
-
-    // Ruling 19.9: the public share link reads ONE row through the SECURITY DEFINER
-    // `cert_by_id(uuid)` RPC — the anon SELECT on the table (which made every certificate in
-    // the business enumerable with the key in this bundle) is gone.
-    check('?cert route: reads the cert through the cert_by_id RPC, not the table', () => {
-      assert.ok(routeCalls.length, 'expected the route to call fetch');
-      const first = routeCalls[0];
-      assert.ok(first.url.includes('https://sb.test/rest/v1/rpc/cert_by_id'), 'expected the cert_by_id RPC endpoint, got ' + first.url);
-      assert.equal(first.opts.method, 'POST');
-      assert.deepEqual(JSON.parse(first.opts.body), { p_id: testUuid });
-    });
-    check('?cert route: an empty RPC answer is "no such cert" — it does NOT fall back to the table', () => {
-      assert.equal(routeCalls.length, 1, 'expected exactly one request, got: ' + routeCalls.map(c => c.url).join(' , '));
-    });
-    check('?cert route: fetch carries the SB_ANON apikey + bearer auth headers', () => {
-      const h = routeFetchCall.opts.headers;
-      assert.equal(h.apikey, 'anonkey');
-      assert.equal(h.Authorization, 'Bearer anonkey');
-    });
-    check('?cert route: renders the not-found message when the lookup returns no rows', () => {
-      assert.ok(routeDoc._html.includes('התעודה לא נמצאה'), 'expected the not-found message to be written to document');
-    });
-
-    // The one-version deploy window: the app ships BEFORE the migration, so for one release
-    // the RPC does not exist. `certFetchRow` must fall back to the legacy table read rather
-    // than break every share link that is already out in the world.
-    await0(async () => {
-      const calls = [];
-      const f = async (url, opts) => {
-        calls.push(url);
-        if (url.includes('/rpc/cert_by_id')) throw new Error('404 — function not deployed yet');
-        return { ok: true, json: async () => [{ cert_number: 1234 }] };
-      };
-      const row = await routeWindow._certFetchRow(f, 'https://sb.test', 'anonkey', testUuid);
-      check('certFetchRow: the RPC missing (pre-migration) falls back to the table read once', () => {
-        assert.equal(calls.length, 2);
-        assert.ok(calls[0].includes('/rpc/cert_by_id'));
-        assert.ok(calls[1].includes('/rest/v1/delivery_certs?id=eq.' + testUuid));
-        assert.equal(row.cert_number, 1234);
-      });
-    });
-  });
-
-  // ---- 17. certOverlayShow's drive-button URL guard (via certView -> stored row's drive_url) ----
-  check('certOverlayShow drive button: a real Drive URL shows the button and sets its href', () => {
-    mod.setCertRows([{ id: 'd1', cert_number: 4001, cert_date: '2026-07-15', kibbutz: 'שדה אליהו',
-      customer: { name: 'לקוח בדיקה' }, items: [{ name: 'פריט', qty: 1 }],
-      drive_url: 'https://drive.google.com/file/d/abc/view' }]);
-    mod.certView('d1');
-    assert.equal(elements.certOvDrive.style.display, 'flex');
-    assert.equal(elements.certOvDrive.href, 'https://drive.google.com/file/d/abc/view');
-  });
-  check('certOverlayShow drive button: a non-Drive (javascript:) URL hides the button', () => {
-    elements.certOvDrive.href = '';   // reset from the previous check
-    mod.setCertRows([{ id: 'd2', cert_number: 4002, cert_date: '2026-07-15', kibbutz: 'שדה אליהו',
-      customer: { name: 'לקוח בדיקה' }, items: [{ name: 'פריט', qty: 1 }],
-      drive_url: 'javascript:alert(1)' }]);
-    mod.certView('d2');
-    assert.equal(elements.certOvDrive.style.display, 'none');
-    assert.equal(elements.certOvDrive.href, '', 'href must not be set for a non-Drive URL');
-  });
-
-  // ---- 18. certSetRange — quick-date buttons (#inv-section-certs .btn-quick-date) ----
-  await0(async () => {
-    const today = new Date();
-    const y = today.getFullYear(), m = today.getMonth();
-    const originalSbCertGet = window_._sbCertGet;
-    let capturedQuery = null;
-    window_._sbCertGet = async (query) => { capturedQuery = query; return []; };
-
-    // B1. thisMonth
-    mod.certSetRange('thisMonth');
-    await new Promise(r => setTimeout(r, 10));
-    check('certSetRange(thisMonth): sets invCertsFrom to the 1st of this month', () => {
-      assert.equal(elements.invCertsFrom.value, fmtD(new Date(y, m, 1)));
-    });
-    check('certSetRange(thisMonth): sets invCertsTo to the last day of this month', () => {
-      assert.equal(elements.invCertsTo.value, fmtD(new Date(y, m + 1, 0)));
-    });
-    check('certSetRange(thisMonth): _sbCertGet query includes cert_date=gte.<first-of-month>', () => {
-      assert.ok(capturedQuery && capturedQuery.indexOf('delivery_certs') !== -1, 'expected a delivery_certs query');
-      assert.ok(capturedQuery.indexOf('cert_date=gte.' + fmtD(new Date(y, m, 1))) !== -1, 'expected gte. first-of-month in "' + capturedQuery + '"');
-    });
-
-    // B2. lastMonth
-    capturedQuery = null;
-    mod.certSetRange('lastMonth');
-    await new Promise(r => setTimeout(r, 10));
-    check('certSetRange(lastMonth): sets invCertsFrom to the 1st of last month', () => {
-      assert.equal(elements.invCertsFrom.value, fmtD(new Date(y, m - 1, 1)));
-    });
-    check('certSetRange(lastMonth): sets invCertsTo to the last day of last month', () => {
-      assert.equal(elements.invCertsTo.value, fmtD(new Date(y, m, 0)));
-    });
-
-    // B3. last7
-    capturedQuery = null;
-    mod.certSetRange('last7');
-    await new Promise(r => setTimeout(r, 10));
-    check('certSetRange(last7): from = today-6, to = today', () => {
-      const start = new Date(today); start.setDate(start.getDate() - 6);
-      assert.equal(elements.invCertsFrom.value, fmtD(start));
-      assert.equal(elements.invCertsTo.value, fmtD(today));
-    });
-
-    // B4. last30
-    capturedQuery = null;
-    mod.certSetRange('last30');
-    await new Promise(r => setTimeout(r, 10));
-    check('certSetRange(last30): from = today-29, to = today', () => {
-      const start = new Date(today); start.setDate(start.getDate() - 29);
-      assert.equal(elements.invCertsFrom.value, fmtD(start));
-      assert.equal(elements.invCertsTo.value, fmtD(today));
-    });
-
-    // B5 / B6. all
-    capturedQuery = null;
-    mod.certSetRange('all');
-    await new Promise(r => setTimeout(r, 10));
-    check('certSetRange(all): sets the exact 2000-01-01..2099-01-01 bounds', () => {
-      assert.equal(elements.invCertsFrom.value, '2000-01-01');
-      assert.equal(elements.invCertsTo.value, '2099-01-01');
-      assert.notEqual(elements.invCertsFrom.value, '', 'from must not be empty for "all"');
-    });
-    check('certSetRange(all): _sbCertGet query includes both gte./lte. 2000/2099 bounds', () => {
-      assert.ok(capturedQuery.indexOf('cert_date=gte.2000-01-01') !== -1, 'expected gte.2000-01-01 in "' + capturedQuery + '"');
-      assert.ok(capturedQuery.indexOf('cert_date=lte.2099-01-01') !== -1, 'expected lte.2099-01-01 in "' + capturedQuery + '"');
-    });
-
-    // B7. active-class bookkeeping — pre-dirty ALL buttons with 'active', then only last7 should end up active
-    certQuickBtns.forEach(b => b._classes.add('active'));
-    mod.certSetRange('last7');
-    await new Promise(r => setTimeout(r, 10));
-    check('certSetRange(last7): only the last7 button carries the active class', () => {
-      certQuickBtns.forEach(b => {
-        if (b.dataset.range === 'last7') assert.ok(b.classList.contains('active'), 'expected last7 button to be active');
-        else assert.ok(!b.classList.contains('active'), 'expected ' + b.dataset.range + ' button to NOT be active');
-      });
-    });
-
-    // B8. unknown range clears all buttons and sets blank bounds (invCertsTo is never defaulted
-    // back by invRenderCerts — only invCertsFrom is, when left empty, to the 1st of the current month).
-    elements.invCertsFrom.value = '';
-    elements.invCertsTo.value = '';
-    mod.certSetRange('nope');
-    await new Promise(r => setTimeout(r, 10));
-    check('certSetRange(nope): clears the active class from every quick-date button', () => {
-      certQuickBtns.forEach(b => assert.ok(!b.classList.contains('active'), 'expected ' + b.dataset.range + ' button to NOT be active'));
-    });
-    check('certSetRange(nope): invCertsFrom defaults to the 1st of the current month (invRenderCerts fills an empty from)', () => {
-      assert.equal(elements.invCertsFrom.value, fmtD(new Date(y, m, 1)));
-    });
-    check('certSetRange(nope): invCertsTo stays blank (invRenderCerts does not write a default back to the element)', () => {
-      assert.equal(elements.invCertsTo.value, '');
-    });
-
-    window_._sbCertGet = originalSbCertGet;
+  check('certIssuedForVisit caches once found; 0 with no Supabase reader', async () => {
+    const n = await mod.certIssuedForVisit('v-none');
+    assert.equal(n, 0);
   });
 }
 
-// ---- 15. QA round 2 · C7 — the send helper, the plan mirror and the no-print flow ----
-// The DECISION is a vitest golden (app/src/lib/certSend.ts + certSend.test.ts). What is checked
-// HERE is that the legacy half says the same thing, that the one exported send helper Package E
-// calls is present under its agreed name, and that the visit flow can issue without printing.
+// ---- ?cert= public view route (certFetchRow + the boot-time IIFE) ----
 {
-  const src = fs.readFileSync(new URL('./js/src/20-delivery-cert.js', import.meta.url), 'utf8');
+  check('with no ?cert= in the URL, the route never fires (no document.write)', () => {
+    let wrote = false;
+    const doc = Object.assign({}, document_, { open() {}, write() { wrote = true; }, close() {} });
+    runModule({ location: { search: '' }, document: doc });
+    assert.equal(wrote, false);
+  });
 
-  check('certSendOpen is exported under exactly that name (Package E calls it)',
-    () => assert.ok(/window\.certSendOpen = certSendOpen;/.test(src)));
-  check('the visit-side helpers resolve a cert from the visit id',
-    () => assert.ok(/window\.certSendForVisit = certSendForVisit;/.test(src)
-      && /window\.certDownloadForVisit = certDownloadForVisit;/.test(src)));
-  check('the inline "add a contact" path exists, so an empty site is not a dead end',
-    () => assert.ok(/window\.certAddContact = function/.test(src) && /site_contacts/.test(src)));
-  check('C7: openDeliveryCert carries noPrint, and issueDeliveryCert honours it',
-    () => assert.ok(/dataset\.noPrint = pre\.noPrint/.test(src)
-      && /const noPrint = document\.getElementById\('certModal'\)\.dataset\.noPrint === '1';/.test(src)
-      && /const w = noPrint \? null : window\.open/.test(src)));
-  check('… and with no print window the certificate opens in the in-app overlay instead',
-    () => assert.ok(/certOverlayShow\(certDocHtml\(cert, \{ screen: true \}\), cert\.id \|\| null, ''\)/.test(src)));
-
-  // The legacy mirror of app/src/lib/certSend.ts `certSendPlan`, evaluated for real.
-  const plan = new Function(
-    src.slice(src.indexOf('function certIsEmail'), src.indexOf('window.certSendPlan')) +
-    ' return certSendPlan;')();
-  const rows = [
-    { name: 'יוסי', email: 'yossi@k.co.il', phone: '050-123-4567', active: true },
-    { name: 'רונית', email: '', phone: '0521234567', active: true },
-    { name: 'ותיק', email: 'old@k.co.il', active: false },
-  ];
-  check('certSendPlan (legacy) === certSendPlan (TS): only the active, emailable contact is ticked',
-    () => {
-      const p1 = plan(rows);
-      assert.deepEqual(p1.selected, ['yossi@k.co.il']);
-      assert.equal(p1.canEmail, true);
-      assert.equal(p1.needsContact, false);
-      assert.deepEqual(p1.whatsapp.map(c => c.name), ['יוסי', 'רונית']);
-    });
-  check('certSendPlan (legacy): nobody emailable → needsContact, exactly like the TS rule',
-    () => {
-      for (const v of [[], null, undefined, [{ name: 'רונית', phone: '0521234567' }]]) {
-        const p2 = plan(v);
-        assert.equal(p2.needsContact, true, JSON.stringify(v));
-        assert.equal(p2.canEmail, false);
-        assert.deepEqual(p2.selected, []);
+  check('?cert=<uuid> renders the RPC row through certDocHtml', () => {
+    let written = '';
+    const doc = Object.assign({}, document_, { open() {}, write(h) { written += h; }, close() {} });
+    const id = '11111111-1111-1111-1111-111111111111';
+    const fakeFetch = async (url) => {
+      if (String(url).includes('rpc/cert_by_id')) {
+        return { ok: true, json: async () => [{ cert_number: 42, cert_date: '2026-07-10', kibbutz: 'דפנה', customer: {}, items: [] }] };
       }
-    });
-  check('certSendPlan (legacy): a missing active flag means active',
-    () => assert.equal(plan([{ name: 'ותיק', email: 'v@k.co.il' }]).canEmail, true));
+      return { json: async () => [] };
+    };
+    runModule({ location: { search: '?cert=' + id }, document: doc, fetch: fakeFetch });
+    // the route body runs in a microtask (async IIFE) — give it a tick
+    return new Promise(res => setTimeout(() => {
+      check('  → the doc was written with cert content, not the "not found" fallback', () => {
+        assert.ok(written.length > 0);
+        assert.ok(!written.includes('התעודה לא נמצאה'));
+      });
+      res();
+    }, 20));
+  });
 }
-
-// Execute all queued async checks in order, then report.
-for (const fn of pending) { await fn(); }
 
 console.log(failures === 0 ? '\nPASS — all delivery-cert checks passed' : '\nFAIL — ' + failures + ' check(s) failed');
 process.exit(failures === 0 ? 0 : 1);

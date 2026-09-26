@@ -5,7 +5,6 @@ import type { Page, TestInfo } from '@playwright/test';
 import { boot, installRoutes, watchConsole, type Who } from '../_helpers';
 import { INVENTORY, toSheet } from './_inv-fixtures';
 import { recordLegacyWrites } from './_inv-ledger';
-import { legacyDriver } from './_inv-legacy';
 import { reactDriver } from './_inv-react';
 
 export type InvTab = 'orders' | 'stock' | 'certs' | 'kibbutz' | 'returns' | 'products';
@@ -58,11 +57,10 @@ export interface InvDriver {
   certSendRows(page: Page, n: number): Promise<string[]>;
 }
 
-/** Which driver a spec runs against: `INV_DRIVER=react npx playwright test …` (default: legacy).
- * The react driver lands in task U1 (behind INV_REACT, gated — not built by package L). */
+/** Which driver a spec runs against. U10 deleted the legacy inventory UI and its driver
+ * (_inv-legacy.ts) — react is the only one left. */
 export function driverFor(): InvDriver {
-  if (process.env.INV_DRIVER === 'react') return reactDriver;
-  return legacyDriver;
+  return reactDriver;
 }
 
 /** Deliberate legacy↔react differences (the fixes/rulings named DELTAS in §7/§9). Both drivers'
