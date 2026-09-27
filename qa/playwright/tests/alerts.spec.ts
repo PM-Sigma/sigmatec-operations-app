@@ -8,6 +8,12 @@
 // The words and the sorting are goldens (app/src/lib/alerts.test.ts, orderStrip.test.ts).
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test, SB_ORIGIN } from './_helpers';
 import { FIXTURES } from './_fixtures';
+import { driverFor } from './inventory/_inv-driver';
+
+// U10 retired the legacy #inventoryLegacy tabbed screen (window.showPage/invShowTab as this
+// file used to drive it directly, [data-inv-tab], #inv-pool) for the React inventory island —
+// same fix as inventory-pool.spec.ts: go through the data-testid driver contract instead.
+const invDriver = driverFor();
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
 test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
@@ -20,9 +26,8 @@ async function rows(page: any, table: string): Promise<any[]> {
 }
 
 async function openInventory(page: any) {
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="stock"]').click();
-  await expect(page.getByTestId('inv-pool')).toBeVisible({ timeout: 15_000 });
+  await invDriver.openTab(page, 'stock');
+  await expect(page.getByTestId('inv-panel-stock')).toBeVisible({ timeout: 15_000 });
 }
 
 test('the bell lists what moved — low stock included — and marking one seen sticks', async ({ page }, ti) => {

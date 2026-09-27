@@ -202,7 +202,13 @@ const SCREENS: Screen[] = [
   {
     label: 'min-qty-sheet',
     open: async p => {
+      // U10 (package I): InventoryStrip.tsx — the component that owns this listener — only
+      // mounts once the "stock" tab is actually open (InventoryStock.tsx embeds it), not just
+      // from the inventory page being visible; dispatching the event before the tab is open
+      // fired it into a void with nobody listening yet.
       await openPage(p, 'inventory', 'inventory-view');
+      await p.locator('[data-testid="inv-tab-stock"]').click();
+      await p.locator('[data-testid="inv-panel-stock"]').waitFor({ state: 'visible' });
       await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-min-qty')));
       await p.getByTestId('minqty-list').waitFor();
     },
