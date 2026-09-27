@@ -375,6 +375,12 @@ export const EMS_LEGACY_ALLOWLIST = {
   'supabase/functions/parse-order/index.ts': 'Deno emsValid() login probe',
   'supabase/functions/transcribe/index.ts': 'Deno emsValid() login probe',
   'supabase/functions/push-send/index.ts': 'Deno — the digest crawl runs on a cron with no browser bridge',
+  // פעולות שטח (r9, spec 2026-09-23-field-ops-modbus-design.md): a Modbus read takes up to 2 min,
+  // past the Apps-Script proxy's 20 s abort — the browser side still goes through emsGateway()
+  // (adapters/fieldOps.ts); this function IS that op's server half.
+  'supabase/functions/field-ops/handler.ts': 'Deno — the modbus_read/ping proxy behind emsGateway().modbusRead (the 20 s proxy is too short)',
+  'supabase/functions/field-ops/handler.test.ts': 'Deno unit test of handler.ts — fake EMS URLs, no network',
+  'supabase/functions/field-ops/index.ts': 'Deno — wires EMS_API_BASE into handler.ts',
 };
 
 export function emsCallSites() {
