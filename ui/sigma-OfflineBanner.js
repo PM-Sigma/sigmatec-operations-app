@@ -1,4 +1,4 @@
-import{c as n,j as e,m as t}from"./sigma.js?v=mujpd1cv";import{u as a,O as i}from"./sigma-online.js?v=mujpd1cv";/**
+import{c as n,j as e,m as t}from"./sigma.js?v=mujpkrks";import{u as a,O as i}from"./sigma-online.js?v=mujpkrks";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

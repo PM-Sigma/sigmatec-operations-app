@@ -205,6 +205,38 @@ test.describe('ביקורים', () => {
     await expect(page.getByTestId('visit-chapters')).toBeVisible();
   });
 
+  // round 9 "card visit button" pass — עידן: "a card that already has previous visit summaries
+  // has no dedicated button to edit, or to create a new visit". חוקוק has a filed visit in the
+  // mock fixtures (js/src/01-data.js mockVisits) — the POPULATED state, not the empty one above.
+  test('populated: the ➕ בubble AND a row ✏️ both show, and both open the editor', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'אביאם' });
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק', 'visits'));
+
+    const newBtn = detail(page).getByRole('button', { name: 'סיכום ביקור' });
+    await expect(newBtn).toBeVisible();
+    const row = detail(page).getByTestId('visit-row').first();
+    await expect(row).toBeVisible();
+    const editBtn = row.getByRole('button', { name: 'עריכת הסיכום' });
+    await expect(editBtn).toBeVisible();
+    const box = (await editBtn.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+
+    await editBtn.click();
+    await expect(page.getByTestId('visit-chapters')).toBeVisible();
+  });
+
+  // Same populated kibbutz, a fresh page: the primary ➕ bubble opens the (new-visit) editor
+  // too — it never disappears once history exists, it just stops being the ONLY door.
+  test('populated: the ➕ bubble still opens the new-visit editor', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'אביאם' });
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק', 'visits'));
+    const newBtn = detail(page).getByRole('button', { name: 'סיכום ביקור' });
+    await expect(newBtn).toBeVisible();
+    await newBtn.click();
+    await expect(page.getByTestId('visit-chapters')).toBeVisible();
+  });
+
   test('viewer never sees the ➕ סיכום ביקור bubble, with or without history', async ({ page }, ti) => {
     await boot(page, ti, { who: 'צפייה' });
     for (const name of ['חוקוק', 'שדה אליהו']) {
