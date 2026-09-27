@@ -161,15 +161,12 @@ export function InventoryCertsTab() {
                       {anyc.signature && <Tag role="ok">נחתם</Tag>}
                       {cancelled && <Tag role="danger">בוטלה</Tag>}
                     </span>
-                    {/* Designer round-2 fix: the replacement number used to sit glued to
-                        the previous word with no space at all, so it rendered reordered in
-                        front of the whole line. A literal U+00A0 (nbsp) keeps it visually
-                        isolated as its own word (see the span below); a bare inline JSX
-                        comment is only valid where JSX CHILDREN are expected, never bare
-                        inside a `&&` expression, which is why this failed to build the
-                        first time round when the comment sat where this one used to be. */}
+                    {/* Designer round-3 fix: this must read as ONE inline run in RTL — no
+                        nbsp, no flex/gap sibling splitting the number into its own box;
+                        <bdi> alone isolates the number's own digit order without touching
+                        the run's direction. textContent === "הוחלפה ב־1043", asserted in roles.spec.ts. */}
                     {cancelled && anyc.replaced_by && (
-                      <span>{'הוחלפה ב־ '}<bdi>{anyc.replaced_by}</bdi></span>
+                      <span>{'הוחלפה ב־'}<bdi>{anyc.replaced_by}</bdi></span>
                     )}
                   </span>
                 }

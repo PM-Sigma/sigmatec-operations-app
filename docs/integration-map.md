@@ -169,7 +169,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-home` | :275 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:291<br>app/src/main.tsx:140 |
 | `#sigma-hours` | :446 | app/src/islands/Hours.tsx:263<br>app/src/main.tsx:241 |
 | `#sigma-import` | :897 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:532 |
-| `#sigma-inventory` | :316 | app/src/islands/Inventory.tsx:165 |
+| `#sigma-inventory` | :316 | app/src/islands/Inventory.tsx:179 |
 | `#sigma-inventory-nudges` | :910 | app/src/islands/InventoryNudges.tsx:174 |
 | `#sigma-kibbutz-detail` | :890 | app/src/main.tsx:166 |
 | `#sigma-meeting-review` | :918 | app/src/islands/MeetingReview.tsx:646 |

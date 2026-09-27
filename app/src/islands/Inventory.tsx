@@ -119,27 +119,41 @@ function InventoryPage() {
     <div dir="rtl" className="flex min-w-0 flex-col gap-2">
       <PageActionRow title="מלאי" />
       <Tabs value={tab} onValueChange={v => setTab(normalizeTab(v))}>
-        <div ref={tabsListRef} className="s-scroll-fade -mx-1 overflow-x-auto px-1">
-          <TabsList
-            data-hit-slop
-            className="inline-flex h-auto w-max gap-1 bg-transparent p-0"
-          >
-            {INV_TABS.map(t => (
-              <TabsTrigger
-                key={t.id}
-                value={t.id}
-                data-testid={`inv-tab-${t.id}`}
-                // data-hit-slop + s-hit: the 36px visual pill is deliberate (a scrollable tab
-                // strip that fit six labels at 32px≈16px labels), `.s-hit` grows the real hit
-                // area to 48 (see chip.tsx's FilterChip for why the overlap sweep needs the
-                // attribute too).
-                data-hit-slop
-                className="s-hit whitespace-nowrap rounded-full border border-transparent px-3 py-2 text-[13px] font-bold data-[state=active]:border-[var(--border)] data-[state=active]:bg-[var(--surface-2)]"
-              >
-                {t.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        {/* Designer round-3 fix: a `mask-image` on the scroll container (round 2) never showed
+            up in a real capture — replaced with an actual gradient overlay div instead, the
+            same "fade" pattern a plain background-image can't get wrong. `pointer-events-none`
+            so it never eats a tap meant for the tab underneath it; `end-0` is the inline-end
+            edge (physical LEFT in this RTL page), where "מלאי בקיבוצים" was getting cut with no
+            hint at all. `var(--bg)` tracks the page background in both themes, not a fixed color. */}
+        <div className="relative">
+          <div ref={tabsListRef} className="-mx-1 overflow-x-auto px-1">
+            <TabsList
+              data-hit-slop
+              className="inline-flex h-auto w-max gap-1 bg-transparent p-0"
+            >
+              {INV_TABS.map(t => (
+                <TabsTrigger
+                  key={t.id}
+                  value={t.id}
+                  data-testid={`inv-tab-${t.id}`}
+                  // data-hit-slop + s-hit: the 36px visual pill is deliberate (a scrollable tab
+                  // strip that fit six labels at 32px≈16px labels), `.s-hit` grows the real hit
+                  // area to 48 (see chip.tsx's FilterChip for why the overlap sweep needs the
+                  // attribute too).
+                  data-hit-slop
+                  className="s-hit whitespace-nowrap rounded-full border border-transparent px-3 py-2 text-[13px] font-bold data-[state=active]:border-[var(--border)] data-[state=active]:bg-[var(--surface-2)]"
+                >
+                  {t.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <div
+            aria-hidden
+            data-testid="inv-tabstrip-fade"
+            className="pointer-events-none absolute inset-y-0 end-0 w-9"
+            style={{ backgroundImage: 'linear-gradient(to right, var(--bg), transparent)' }}
+          />
         </div>
         {INV_TABS.map(t => (
           <TabsContent key={t.id} value={t.id} data-testid={`inv-panel-${t.id}`}>

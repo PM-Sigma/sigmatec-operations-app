@@ -78,6 +78,16 @@ test.describe('I-U evidence captures', () => {
         await page.setViewportSize({ width: w, height: h });
         await d.openTab(page, tab);
         await assertThemePixels(page, theme);
+        // Designer round-3, item 1: cert 1042 (cancelled, replaced_by 1043) must read as ONE
+        // inline run — no nbsp, no flex/gap sibling splitting the number into its own box.
+        if (tab === 'certs') {
+          const text = await page.locator('[data-testid="inv-cert-row-1042"] :text("הוחלפה")').innerText();
+          expect(text).toBe('הוחלפה ב־1043');
+        }
+        // Designer round-3, item 2: the scroll-fade is a real gradient overlay div now (not a
+        // mask-image on the scroll container, which never showed up in a real capture) —
+        // assert it exists in the DOM at every width this tab strip renders at.
+        await expect(page.getByTestId('inv-tabstrip-fade')).toBeAttached();
         await page.screenshot({ path: path.join(OUT, `${w}-${theme}-tab-${name}.png`) });
       });
     }
