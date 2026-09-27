@@ -161,8 +161,14 @@ function AlertsBell() {
    * that did not reach the database now undoes its own optimistic row and says so, so the bell
    * never again shows a "read" that is not stored.
    */
-  const markSeen = React.useCallback(async (g: AlertGroup) => {
-    const todo = g.rows.filter(r => r.id && !isSeen(r, user));
+  /**
+   * Marks a set of rows seen — optimistically, then the RPC per row, undoing the optimistic
+   * rows and toasting a retry if any RPC failed. `markSeen` (one group) and `markAllSeen` (the
+   * bell's "סימון הכל כנקרא", round 6 QA 1.1) share this so a bulk mark-all fails and retries
+   * exactly like a single group does.
+   */
+  const markRows = React.useCallback(async (rows: AlertRow[], onRetry: () => void, failMsg: string) => {
+    const todo = rows.filter(r => r.id && !isSeen(r, user));
     if (!todo.length) return;
     const ids = todo.map(r => String(r.id));
     qc.setQueryData(['inventoryAlerts'], (old: AlertRow[] | undefined) => markRowsSeen(old ?? [], ids, user));
@@ -183,15 +189,27 @@ function AlertsBell() {
     }
     if (failed.length) {
       qc.setQueryData(['inventoryAlerts'], (old: AlertRow[] | undefined) => unmarkRowsSeen(old ?? [], failed, user));
-      toastFailure(lastErr, () => { void markSeenRef.current?.(g); }, 'סימון ההתראה כנקראה לא נשמר. נסה שוב');
+      toastFailure(lastErr, onRetry, failMsg, 'סימון התראות כנקראות');
       return;
     }
     // Only now, when the server really holds it: re-read, so what the list shows is what the
     // database says and a reload agrees with the screen.
     qc.invalidateQueries({ queryKey: ['inventoryAlerts'] });
   }, [qc, user]);
+
+  const markSeen = React.useCallback((g: AlertGroup) => (
+    markRows(g.rows, () => { void markSeenRef.current?.(g); }, 'סימון ההתראה כנקראה לא נשמר. נסה שוב')
+  ), [markRows]);
   const markSeenRef = React.useRef(markSeen);
   markSeenRef.current = markSeen;
+
+  /** "סימון הכל כנקרא" — every currently-unread row across every group, one write batch. */
+  const markAllSeen = React.useCallback(() => {
+    const rows = groups.filter(g => !g.seen).flatMap(g => g.rows);
+    return markRows(rows, () => { void markAllSeenRef.current?.(); }, 'סימון ההתראות כנקראות לא נשמר. נסה שוב');
+  }, [groups, markRows]);
+  const markAllSeenRef = React.useRef(markAllSeen);
+  markAllSeenRef.current = markAllSeen;
 
   const unseen = allowed ? groups.filter(g => !g.seen).length : 0;
   const freshness = useFreshness();
@@ -232,7 +250,7 @@ function AlertsBell() {
             ? <EmptyState icon={<Bell />} title="עוד לא נשלחו התראות." />
             : q.isLoading
               ? <div className="space-y-2 py-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-8 w-full" />)}</div>
-              : <AlertsList groups={groups} user={user} onSeen={markSeen} />}
+              : <AlertsList groups={groups} user={user} onSeen={markSeen} onSeenAll={markAllSeen} />}
         </SheetContent>
       </Sheet>
     </>
