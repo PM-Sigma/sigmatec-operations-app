@@ -232,6 +232,9 @@
         case 'pushlog':    return !!call('isIdan', [], false);
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';
         case 'kibbutz': case 'calendar': return true;
+        // פעולות שטח → קריאת מודבוס (r9, spec 2026-09-23-field-ops-modbus-design.md): all staff,
+        // never the viewer PIN. The field-ops function enforces the same rule on the name claim.
+        case 'fieldops':   return !call('isViewer', [], false) && !!call('getCurrentUser', [], '');
         // 🔥 צריבות (Task 23; gate moved off 24-meter-burns.js in round 5 G-L4) — a temporary
         // project page: the same audience app/src/lib/burns.ts BURN_WRITERS/BURN_HIDDEN use,
         // and false for everyone once BURNS_PROJECT_ACTIVE (js/src/00-consts.js) goes false.

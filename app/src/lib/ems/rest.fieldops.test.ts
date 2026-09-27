@@ -1,7 +1,8 @@
 // F2 goldens — the פעולות שטח gateway ops (spec 2026-09-23-field-ops-modbus-design.md §10):
 // the exact payload each op hands the field-ops transport, and raw EMS JSON → app types.
 import { describe, expect, it, vi } from 'vitest';
-import { cleanTarget, mapModbusMeter, mapOpLog, mapOpResult, numOrNull, restAdapter, type RestTransport } from './adapters/rest';
+import { restAdapter, type RestTransport } from './adapters/rest';
+import { cleanTarget, mapModbusMeter, mapOpLog, mapOpResult, numOrNull } from './adapters/fieldOpsOps';
 import meterJson from '../fieldops/__fixtures__/emsModbusMeter.json';
 
 function fake(reply: any = {}) {

@@ -10,11 +10,10 @@
 // builders are exported so `rest.test.ts` can pin them as goldens.
 import { sigma } from '@/bridge';
 import type {
-  CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsModbusMeter, EmsSite, EmsTask, EmsUser,
-  ListTasksQuery, ModbusOpLog, ModbusOpResult, OfflineQueueItem, TaskPatch, WriteResult,
+  CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsSite, EmsTask, EmsUser,
+  ListTasksQuery, OfflineQueueItem, TaskPatch, WriteResult,
 } from '../types';
 import type { EmsGateway } from '../gateway';
-import { fieldOpsCall } from './fieldOps';
 
 // ───────────────────────────── response unwrapping ─────────────────────────────
 
@@ -79,55 +78,6 @@ export function mapComment(r: any): EmsComment {
 export function mapUser(r: any): EmsUser {
   const first = str(r?.firstName), last = str(r?.lastName);
   return { id: str(r?.id), firstName: first, lastName: last, name: [first, last].filter(Boolean).join(' ') };
-}
-
-// ── פעולות שטח (field-ops function) ──
-
-/** EMS decimals arrive as strings ("1.0000"); anything unparseable is null, never NaN. */
-export function numOrNull(v: unknown): number | null {
-  if (v == null || v === '') return null;
-  const n = typeof v === 'number' ? v : Number(String(v).trim());
-  return Number.isFinite(n) ? n : null;
-}
-
-export function mapModbusMeter(r: any): EmsModbusMeter {
-  return {
-    id: str(r?.id),
-    serial: str(r?.serialNumber),
-    address: str(r?.address),
-    siteId: str(r?.site?.id),
-    siteName: str(r?.site?.name),
-    ip: str(r?.ipAddress).trim(),
-    unit: parseInt(str(r?.deviceNumber), 10) || 1,
-    typeCode: numOrNull(r?.type?.code),
-    typeName: str(r?.type?.name),
-    cm: numOrNull(r?.currentMultiplier),
-    vm: numOrNull(r?.voltageMultiplier),
-    pm: numOrNull(r?.powerMultiplier),
-    typePm: numOrNull(r?.type?.powerMultiplier),
-    lastCallDate: r?.lastTransmission?.callDate ? str(r.lastTransmission.callDate) : null,
-  };
-}
-
-export function mapOpLog(r: any): ModbusOpLog {
-  return {
-    id: str(r?.id),
-    operationCode: str(r?.operationCode),
-    status: str(r?.status),
-    responseData: r?.responseData ?? null,
-    errorMessage: str(r?.errorMessage),
-    createdAt: str(r?.createdAt),
-    completedAt: str(r?.completedAt),
-    executedBy: str(r?.executedBy),
-  };
-}
-
-export function mapOpResult(d: any): ModbusOpResult {
-  return {
-    meter: d?.meter ? mapModbusMeter(d.meter) : null,
-    override: Array.isArray(d?.override) ? d.override.map(String) : [],
-    log: d?.log ? mapOpLog(d.log) : null,
-  };
 }
 
 // ───────────────────────────── URL builders (the goldens) ─────────────────────────────
@@ -198,26 +148,13 @@ function bridgeTransport(): RestTransport {
     // `getEmsSites` is the legacy cached site list — the same one emsChain used, so the
     // gateway does not double the /sites traffic.
     getSites: () => sigma.getEmsSites(),
-    fieldOps: fieldOpsCall,
+    // Lazy: the gateway is in the boot bundle, the Modbus transport (supabase URL, the session
+    // funnel) only loads when פעולות שטח actually calls it — boot stays under its ceiling.
+    fieldOps: (p, ms) => import('./fieldOps').then(m => m.fieldOpsCall(p, ms)),
   };
 }
 
-function fo(t: RestTransport) {
-  return (p: Record<string, unknown>, ms: number) => {
-    if (!t.fieldOps) throw new Error('field-ops transport missing');
-    return t.fieldOps(p, ms);
-  };
-}
-
-/** Only the keys the function accepts; undefined ones are dropped (the function 400s on extras). */
-export function cleanTarget(x: { meterId?: string; ip?: string; unit?: number; typeCode?: number }, read: boolean) {
-  const o: Record<string, unknown> = {};
-  if (x.meterId) o.meterId = x.meterId;
-  if (x.ip) o.ip = x.ip;
-  if (read && x.ip && x.unit != null) o.unit = x.unit;
-  if (read && x.ip && x.typeCode != null) o.typeCode = x.typeCode;
-  return o;
-}
+const fo = (t: RestTransport) => import('./fieldOpsOps').then(m => m.fieldOpsOps(t));
 
 export function restAdapter(t: RestTransport = bridgeTransport()): EmsGateway {
   const caps = { ...REST_CAPABILITIES };
@@ -261,26 +198,13 @@ export function restAdapter(t: RestTransport = bridgeTransport()): EmsGateway {
 
     async listUsers() { return unwrapList(await t.emsApi(URLS.users())).map(mapUser); },
 
-    // פעולות שטח → קריאת מודבוס. Timeouts mirror spec §8.2: the browser gives up after the
-    // function (125 s read / 65 s ping) would have.
-    async modbusMeters(siteId) {
-      const d = await fo(t)({ mode: 'meters', siteId }, 60_000);
-      return (Array.isArray(d?.meters) ? d.meters : []).map(mapModbusMeter);
-    },
-    async modbusLookup(ip) {
-      const d = await fo(t)({ mode: 'lookup', ip }, 90_000);
-      return (Array.isArray(d?.meters) ? d.meters : []).map(mapModbusMeter);
-    },
-    async modbusRead(target) {
-      return mapOpResult(await fo(t)({ mode: 'read', ...cleanTarget(target, true) }, 140_000));
-    },
-    async modbusPing(target) {
-      return mapOpResult(await fo(t)({ mode: 'ping', ...cleanTarget(target, false) }, 80_000));
-    },
-    async meterOpsHistory(meterId) {
-      const d = await fo(t)({ mode: 'history', meterId }, 30_000);
-      return (Array.isArray(d?.logs) ? d.logs : []).map(mapOpLog);
-    },
+    // פעולות שטח → קריאת מודבוס — lazy (adapters/fieldOpsOps.ts), so the boot bundle only
+    // carries these five one-liners.
+    modbusMeters: (x) => fo(t).then(o => o.modbusMeters(x)),
+    modbusLookup: (x) => fo(t).then(o => o.modbusLookup(x)),
+    modbusRead: (x) => fo(t).then(o => o.modbusRead(x)),
+    modbusPing: (x) => fo(t).then(o => o.modbusPing(x)),
+    meterOpsHistory: (x) => fo(t).then(o => o.meterOpsHistory(x)),
 
     // Unsupported by REST. They resolve `null` (= "no answer"), never throw: the callers are
     // overview surfaces, and `capabilities()` is what a BUTTON is supposed to consult.

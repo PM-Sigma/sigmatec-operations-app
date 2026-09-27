@@ -88,7 +88,7 @@ const idOf = n => (/\bid\s*=\s*["']([^"']+)["']/.exec(n?.attrs || '') || [])[1];
 const where = n => n ? `<${n.tag}${idOf(n) ? '#' + idOf(n) : ''}> (index.html:${n.line})` : 'nothing';
 
 // ── (2) every page view is a sibling under one parent ─────────────────────────
-const PAGES = ['kibbutz', 'inventory', 'attendance', 'calendar', 'dev', 'pushlog', 'burns'];
+const PAGES = ['kibbutz', 'inventory', 'attendance', 'calendar', 'dev', 'pushlog', 'burns', 'fieldops'];
 const views = PAGES.map(p => `${p}-view`);
 for (const v of views) ok(byId.has(v), `index.html is missing #${v} — showPage('${v.replace('-view', '')}') would throw`);
 

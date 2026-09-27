@@ -28,6 +28,7 @@ export const PAGE_META: Record<SigmaPage, PageMeta> = {
   hours: { title: 'שעות מול לקוחות', level: 2, titleLines: 1 },
   dev: { title: 'פיתוח', level: 2, titleLines: 1, ownHeader: true },
   pushlog: { title: 'התראות שנשלחו', level: 2, titleLines: 1, ownHeader: true },
+  fieldops: { title: 'פעולות שטח', level: 2, titleLines: 1, ownHeader: true },
   burns: { title: 'צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק', level: 2, titleLines: 2, ownHeader: true },
 };
 

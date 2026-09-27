@@ -49,6 +49,9 @@ const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; grou
   // מלאי is a tab on the bar for most roles (F4, עידן 22.9) — but for אביאם/ניתאי, whose bar
   // swaps מלאי for נוכחות, it moves here instead and leads the list (Package A §3).
   { page: 'inventory', label: 'מלאי', icon: Package },
+  // פעולות שטח (r9): every staff member, never the viewer — canShowPage('fieldops') decides.
+  // MapPin (already in the boot bundle) instead of a new icon: the boot ceiling is tight.
+  { page: 'fieldops', label: 'פעולות שטח', icon: MapPin },
   { page: 'pushlog', label: 'התראות', icon: Bell, group: 'admin' },
   { page: 'dev', label: 'פיתוח', icon: Code2, group: 'admin' },
 ];

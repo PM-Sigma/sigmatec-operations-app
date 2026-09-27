@@ -255,6 +255,13 @@ function boot() {
       .then(m => m.mountPushLog())
       .catch(e => warn('push log island failed', e)));
   }
+  // פעולות שטח (r9) — same page-open trigger: reached only from ⋯, never on first paint.
+  const fieldopsView = document.getElementById('fieldops-view');
+  if (fieldopsView && document.getElementById('sigma-fieldops')) {
+    loadOnShow(fieldopsView, () => void import('@/islands/FieldOps')
+      .then(m => m.mountFieldOps())
+      .catch(e => warn('field ops island failed', e)));
+  }
   const calView = document.getElementById('calendar-view');
   if (calView && document.getElementById('sigma-calendar')) {
     loadOnShow(calView, () => void import('@/islands/Calendar')
