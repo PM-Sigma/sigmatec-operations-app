@@ -35,16 +35,15 @@ test('the bell lists what moved — low stock included — and marking one seen 
 
   const bell = page.getByTestId('alerts-bell');
   await expect(bell).toBeVisible({ timeout: 15_000 });
-  // round 5 X-L4: a `visit_supply` row goes only to that visit's own visitors — ia-2 (visitor
-  // אביאם, ref vis-אביאם) is hidden from עידן, who never visited it. So of the three fixture
-  // rows only ia-1 (low stock, unseen) and ia-3 (order delivery, seen by עמיחי only → unseen
-  // for עידן) reach him → 2.
-  await expect(page.getByTestId('alerts-badge')).toHaveText(/2/);
+  // Two of the three fixture rows are unseen for עידן (the third was seen by עמיחי only → 3).
+  await expect(page.getByTestId('alerts-badge')).toHaveText(/3/);
 
   await bell.click();
   const list = page.getByTestId('alerts-list');
   await expect(list).toBeVisible({ timeout: 15_000 });
   await expect(list).toContainText('מלאי נמוך: סים 1NCE');
+  await expect(list).toContainText('חברה → חוקוק');
+  await expect(list).toContainText('סיכום ביקור');
 
   await expectRtl(page);
   await shot(page, ti, 'bell');
@@ -66,8 +65,7 @@ test('what was marked read is still read after a reload', async ({ page }, ti) =
   await page.getByTestId('alerts-bell').click();
   const list = page.getByTestId('alerts-list');
   await expect(list).toBeVisible({ timeout: 15_000 });
-  // round 5 X-L4: ia-2 (visit_supply) never reaches עידן — see the previous test. 2 groups.
-  await expect(list.getByTestId('alert-group')).toHaveCount(2);
+  await expect(list.getByTestId('alert-group')).toHaveCount(3);
 
   // Mark every group read, one at a time (each click removes the group it marked).
   for (let i = 0; i < 3; i++) {
@@ -86,7 +84,7 @@ test('what was marked read is still read after a reload', async ({ page }, ti) =
 
   // …and what was read is still reachable behind the toggle.
   await page.getByTestId('alerts-toggle-seen').click();
-  await expect(page.getByTestId('alerts-list').getByTestId('alert-group')).toHaveCount(2);
+  await expect(page.getByTestId('alerts-list').getByTestId('alert-group')).toHaveCount(3);
 
   await expectNoConsoleErrors(rec);
 });
@@ -103,13 +101,12 @@ test('a failed mark-seen does not leave a row looking read', async ({ page }, ti
   await page.getByTestId('alerts-bell').click();
   const list = page.getByTestId('alerts-list');
   await expect(list).toBeVisible({ timeout: 15_000 });
-  // round 5 X-L4: ia-2 (visit_supply) never reaches עידן — see the first test. 2 groups.
-  await expect(list.getByTestId('alert-group')).toHaveCount(2);
+  await expect(list.getByTestId('alert-group')).toHaveCount(3);
 
   await list.getByLabel('סימון כנקרא').first().click();
   // It stays in the unread list, and the badge does not drop.
-  await expect(list.getByTestId('alert-group')).toHaveCount(2, { timeout: 15_000 });
-  await expect(page.getByTestId('alerts-badge')).toHaveText(/2/);
+  await expect(list.getByTestId('alert-group')).toHaveCount(3, { timeout: 15_000 });
+  await expect(page.getByTestId('alerts-badge')).toHaveText(/3/);
 });
 
 test('the viewer has a bell with an empty state, not the inventory list', async ({ page }, ti) => {
