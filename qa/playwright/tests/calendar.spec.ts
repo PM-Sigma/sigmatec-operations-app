@@ -207,7 +207,7 @@ test('calendar: a past day shows what was filed, and offers nothing to plan (G3)
   const body = dayBody(page);
   await expect(body).toBeVisible();
   await expect(body).toHaveAttribute('data-when', 'past');
-  // Read-only: no route, no ➕, no בריפינג, nothing to drag.
+  // Read-only: no route, no ➕, no דוח מצב, nothing to drag.
   await expect(body.locator('[data-place]')).toHaveCount(0);
   await expect(body.getByTestId('cal-place-search')).toHaveCount(0);
   await expect(body.getByTestId('cal-day-add')).toHaveCount(0);
@@ -251,7 +251,7 @@ test('calendar: tapping a day opens it grouped by kibbutz, with the route header
 
   const body = dayBody(page);
   await expect(body).toBeVisible();
-  // Two kibbutzim, each its own stop, each with 📍 בריפינג.
+  // Two kibbutzim, each its own stop, each with 📍 דוח מצב.
   await expect(body.locator('[data-stop="גבת"]')).toBeVisible();
   await expect(body.locator('[data-stop="דגניה"]')).toBeVisible();
   await expect(body.locator('[data-brief="גבת"]')).toBeVisible();

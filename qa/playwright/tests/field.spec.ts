@@ -38,6 +38,7 @@ test('arrival → briefing: the same sheet morphs, and 📍 opens the summary pr
   await expect(page.locator('[data-mode="arrival"]')).toHaveCount(0);
   await expect(page.getByText('הגעת ל־')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'חוקוק', exact: true })).toBeVisible();
+  await expect(brief.getByTestId('briefing-heading')).toHaveText('דוח מצב של הקיבוץ');
   await shot(page, ti, 'briefing');
 
   // 📍 סיכום ביקור → the §7p chapters sheet, on חוקוק, scrolling, with מה עשיתי at the top.
@@ -153,7 +154,7 @@ test('היום: the day’s briefing is a row of its own, above the stops (G6)',
 
   const row = page.getByTestId('today-brief-row');
   await expect(row).toBeVisible({ timeout: 15_000 });
-  await expect(row).toContainText('הבריפינג של היום');
+  await expect(row).toContainText('דוח המצב של היום');
 
   await row.click();
   await expect(page.locator('[data-mode="briefing"]')).toBeVisible();

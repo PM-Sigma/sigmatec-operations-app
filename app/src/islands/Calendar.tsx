@@ -3,7 +3,7 @@
 // ONE calendar, three layers, one toggle. What the redesign is FOR: a field day is a route
 // between kibbutzim, not a list of tickets — so tapping a day does not open "the day's
 // events", it opens the day GROUPED BY KIBBUTZ, in the order the person will actually drive
-// it, with 📍 בריפינג and ➕ צ׳ק-אין on each stop. That is the link between the calendar and
+// it, with 📍 דוח מצב and ➕ צ׳ק-אין on each stop. That is the link between the calendar and
 // the arrival flow (§5.1): the order saved here is the order the arrival sheet offers.
 //
 // WEEK NUMBERS SIT ON THE RIGHT. In RTL the first grid column is the rightmost one, so the
@@ -434,7 +434,7 @@ function RoutePlan({
       </div>
       <div className="ucal-stop-actions" onPointerDown={e => e.stopPropagation()}>
         <button type="button" className="ucal-mini" data-brief={r.kibbutz} onClick={() => onBriefing(r.kibbutz)}>
-          📍 בריפינג
+          📍 דוח מצב
         </button>
         {isToday ? (
           <button type="button" className="ucal-mini" data-checkin={r.kibbutz} onClick={() => onCheckin(r.kibbutz)}>
@@ -673,7 +673,7 @@ function DayBody({
           data-testid="cal-day-brief"
           onClick={() => onBriefing(rows.filter(r => r.index >= 0)[0].kibbutz)}
         >
-          📍 בריפינג
+          📍 דוח מצב
         </button>
       ) : null}
       {canAdd ? (
@@ -1147,7 +1147,7 @@ function TaskListView({
             )}
             {g.overdue ? <span className="ucal-late" data-testid="cal-list-late">⏰ {g.overdue} באיחור</span> : null}
             {g.real ? (
-              <button type="button" className="ucal-mini" data-brief={g.kibbutz} onClick={() => onBriefing(g.kibbutz)}>📍 בריפינג</button>
+              <button type="button" className="ucal-mini" data-brief={g.kibbutz} onClick={() => onBriefing(g.kibbutz)}>📍 דוח מצב</button>
             ) : null}
           </div>
           {g.items.map(t => {
@@ -1641,7 +1641,7 @@ function CalendarIsland() {
     });
   }
 
-  /** 📍 בריפינג — the field island owns that surface (§5.1); the card modal is the fallback. */
+  /** 📍 דוח מצב — the field island owns that surface (§5.1); the card modal is the fallback. */
   function openBriefing(kibbutz: string) {
     try {
       const field = (window as any).sigmaField;
