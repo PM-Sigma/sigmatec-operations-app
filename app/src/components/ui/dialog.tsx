@@ -47,7 +47,7 @@ const DialogHideCloseContext = React.createContext(false)
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideClose?: boolean }
->(({ className, children, hideClose = false, ...props }, ref) => (
+>(({ className, children, hideClose = false, onOpenAutoFocus, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -61,6 +61,12 @@ const DialogContent = React.forwardRef<
         "s-anim-dialog fixed left-[50%] top-[50%] z-[var(--s-z-dialog)] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
         className
       )}
+      // Designer (round-5 R-U Opus audit): Radix's default open-focus target is the first
+      // TABBABLE descendant, which in every DialogHeader is the ✕ — so it landed a focus ring
+      // on the close button on EVERY open, mouse or keyboard, the instant it painted (seen as a
+      // heavy ring in feedback/gaps/usage/alerts). Focusing the content element itself instead
+      // (same fix as SheetContent) keeps real Tab-to-✕ working without a ring nobody asked for.
+      onOpenAutoFocus={onOpenAutoFocus ?? (e => { e.preventDefault(); (e.currentTarget as HTMLElement)?.focus() })}
       {...props}
     >
       <DialogHideCloseContext.Provider value={hideClose}>{children}</DialogHideCloseContext.Provider>

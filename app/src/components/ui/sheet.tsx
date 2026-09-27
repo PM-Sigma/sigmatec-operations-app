@@ -94,7 +94,7 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, hideClose = false, onPointerDownOutside, onInteractOutside, ...props }, ref) => (
+>(({ side = "right", className, children, hideClose = false, onPointerDownOutside, onInteractOutside, onOpenAutoFocus, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
@@ -103,6 +103,13 @@ const SheetContent = React.forwardRef<
       // A tap on a toast (e.g. its undo action) is "outside" to Radix — don't let it dismiss the sheet.
       onPointerDownOutside={e => { if (isToastTarget(e)) e.preventDefault(); else onPointerDownOutside?.(e) }}
       onInteractOutside={e => { if (isToastTarget(e)) e.preventDefault(); else onInteractOutside?.(e) }}
+      // Designer (round-5 R-U Opus audit): Radix's default open-focus target is the first
+      // TABBABLE descendant — the ✕ in every SheetHeader — so it drew a heavy focus ring on the
+      // close button on EVERY open, mouse or keyboard (seen in feedback/gaps/usage/alerts). A
+      // couple of callers (KibbutzDetail, MessageSheet) had already hand-rolled this same fix
+      // per-screen; it now applies to every Sheet by default, and a caller's own
+      // `onOpenAutoFocus` (if it passes one) still wins.
+      onOpenAutoFocus={onOpenAutoFocus ?? (e => { e.preventDefault(); (e.currentTarget as HTMLElement)?.focus() })}
       {...props}
     >
       <SheetHideCloseContext.Provider value={hideClose}>{children}</SheetHideCloseContext.Provider>
