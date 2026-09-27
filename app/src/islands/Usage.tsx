@@ -332,7 +332,7 @@ export function mountUsage(): boolean {
   registerMoreItem({
     id: 'usage',
     group: 'admin',
-    label: '📈 שימוש',
+    label: 'שימוש',
     icon: 'TrendingUp',
     roles: ['idan'],
     visible: canSeeUsage,

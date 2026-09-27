@@ -157,6 +157,15 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
     { id: 'ia-3', kind: 'movement', product: 'בקר 504', qty: 12, from_location: 'ספק', to_location: 'חברה',
       reason: 'order_delivery', ref_id: 'ord-1', actor: 'עמיחי', created_at: '2026-09-19T09:00:00Z', seen_by: ['עמיחי'] },
   ];
+  /**
+   * X-L4 (ff6e1ad7): the bell hides a `visit_supply` row from anyone but that visit's own
+   * visitors, read from `visits.visitor` (Alerts.tsx `fetchVisitVisitors`). ia-2 above points
+   * at `vis-אביאם` — עידן is a co-visitor here so the fixture keeps showing him the row the
+   * alerts tests were written against, instead of the query silently 404-ing into `default: []`.
+   */
+  const visits: Array<Record<string, any>> = [
+    { id: 'vis-אביאם', visitor: 'עידן, אביאם' },
+  ];
   const products: Array<Record<string, any>> = opts.inventory ? INVENTORY.products.map(p => ({ ...p })) : [
     { id: 'p-1', name: 'מונה Landis+Gyr E360PP', min_qty: 15, active: true },
     { id: 'p-2', name: 'בקר 504', min_qty: null, active: true },
@@ -669,6 +678,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       }
       case 'stock_recounts': return route.fulfill(json(shape(stockRecounts, accept)));
       case 'inventory_alerts': return route.fulfill(json(shape(inventoryAlerts, accept)));
+      case 'visits': return route.fulfill(json(shape(visits, accept)));
       case 'products': return route.fulfill(json(shape(products, accept)));
       case 'site_contacts': {
         const q = new URL(url).searchParams;

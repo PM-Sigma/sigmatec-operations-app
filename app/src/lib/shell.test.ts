@@ -12,8 +12,15 @@ describe('page meta', () => {
   });
   it('burns carries the full sentence on two lines (עידן, 23.9)', () => {
     expect(pageMeta('burns')).toEqual({
-      title: 'צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק', level: 2, titleLines: 2,
+      title: 'צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק', level: 2, titleLines: 2, ownHeader: true,
     });
+  });
+  // S-U merge fallout (26.9): these four pages draw their own PageActionRow (a richer title or
+  // actions the shared row has no slot for), so PageBar must not draw a second one on top of it
+  // — see the `ownHeader` doc on PageMeta.
+  it('ownHeader pages match the islands that draw their own PageActionRow', () => {
+    for (const p of ['attendance', 'burns', 'pushlog', 'dev'] as const) expect(pageMeta(p).ownHeader).toBe(true);
+    for (const p of ['kibbutz', 'calendar', 'inventory', 'hours'] as const) expect(pageMeta(p).ownHeader).toBeUndefined();
   });
   it('titles have no emoji', () => {
     for (const m of Object.values(PAGE_META)) expect(m.title).not.toMatch(/\p{Extended_Pictographic}/u);

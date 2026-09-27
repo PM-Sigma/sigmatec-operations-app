@@ -95,13 +95,16 @@ console.log('\n[6] the islands are wired');
 {
   const html = read('./index.html');
   const main = read('./app/src/main.tsx');
-  check('#sigma-alerts is in the header', /id="sigma-alerts"/.test(html));
-  // U10: InventoryStrip is embedded directly inside InventoryStock.tsx's Stock tab now — the
-  // standalone #sigma-inventory-strip mount (a fallback for the deleted legacy stock page) and
-  // mountInventoryStrip() are gone; the component itself must still be reached from there.
+  // package S, U4: the bell moved inside #sigma-header-actions (AlertsBellSlot) — no own
+  // #sigma-alerts placeholder, no separate mountAlerts() call; mountHeaderActions() covers it.
+  check('#sigma-header-actions is in the header (mounts the bell)', /id="sigma-header-actions"/.test(html));
+  check('main.tsx mounts the bell', /mountHeaderActions\(\)/.test(main));
+  // package I, U10: InventoryStrip is embedded directly inside InventoryStock.tsx's Stock tab
+  // now — the standalone #sigma-inventory-strip mount (a fallback for the deleted legacy stock
+  // page) and mountInventoryStrip() are gone; the component itself must still be reached from
+  // there.
   const stockIsland = read('./app/src/islands/InventoryStock.tsx');
   check('InventoryStrip is embedded in the Stock tab', /<InventoryStrip\s*\/>/.test(stockIsland));
-  check('main.tsx mounts the bell', /mountAlerts\(\)/.test(main));
 
   const island = read('./app/src/islands/Alerts.tsx') + read('./app/src/islands/InventoryStrip.tsx');
   check('the bell is gated by the pure rule, not by a literal role list',

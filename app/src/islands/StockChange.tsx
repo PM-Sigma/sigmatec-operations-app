@@ -319,7 +319,7 @@ export function mountStockChange(): boolean {
   if (!ok) return false;
   registerMoreItem({
     id: 'stock-change',
-    label: '🔢 דיווח שינוי במלאי',
+    label: 'דיווח שינוי במלאי',
     icon: 'Package',
     visible: () => canReportStock(sigma?.getCurrentUser?.() || '', !!sigma?.isViewer?.()),
     onSelect: () => openStockChange(''),

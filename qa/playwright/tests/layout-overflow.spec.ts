@@ -39,8 +39,12 @@ test('A6 — no horizontal scroll at 390, with every sheet open', async ({ page 
   await openMore();
   await measure('⋯ עוד');
 
+  // "יומן היום" carries a "ניסיוני" Tag chip inside the SAME button (MoreSheet.tsx SheetRow,
+  // designer re-review) — its accessible name is "יומן היום ניסיוני", so an exact match on the
+  // label alone no longer resolves it; every other row here has no tag, so a start-anchored
+  // regex still hits the right one without loosening the others.
   for (const row of ['הגדרות', 'יומן היום']) {
-    await page.getByRole('dialog').getByRole('button', { name: row, exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: new RegExp('^' + row) }).click();
     await expect(page.getByRole('dialog').first()).toBeVisible();
     await measure(row);
     await page.keyboard.press('Escape');

@@ -487,6 +487,7 @@ export function mountDayLog(opts?: { open?: boolean }): boolean {
     label: 'יומן היום',
     icon: 'Notebook',
     group: 'app',
+    tag: 'ניסיוני',
     visible: () => {
       try { return canUseDayLog(sigma.getCurrentUser?.() || ''); } catch { return false; }
     },

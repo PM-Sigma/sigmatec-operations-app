@@ -912,10 +912,13 @@
    here (free — this file isn't shipped in ui/sigma.js) instead of paying for it twice. Already
    48x48 (h-12 w-12), so it doesn't need the .s-hit hit-slop trick on top. */
 [data-sigma-portal] .s-close-btn {
-  margin: -0.25rem;
+  /* Nice-to-have (designer round 3): 40px bubble, not 48 — still ≥ the 44px tap-target floor
+     (data-hit-slop's own min-width/min-height:44 rule below still applies if this shrinks
+     under 44, so it never gets a real tap target smaller than the floor). */
+  margin: -0.125rem;
   display: flex;
-  height: 3rem;
-  width: 3rem;
+  height: 2.5rem;
+  width: 2.5rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -930,3 +933,61 @@
    ring for real keyboard focus and skips it for the programmatic one. */
 [data-sigma-portal] .s-close-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring)); }
 [data-sigma-portal] .s-close-btn:disabled { pointer-events: none; }
+
+/* Designer fix (round-5 S-U pass, "'הכל ‹' link ≥44px tap target"): the `.s-hit` /
+   `[data-hit-slop]` pair is referenced all over (SectionBlock's trailing action, chip.tsx's
+   FilterChip, PageActionRow's back chevron…) as "grows the real hit area", but the rule that
+   actually does it was never written — those content-sized links/chevrons were tapping at their
+   visual (sub-44px) box the whole time.
+   Cross-package bug report (calendar, round-5 S-U): the first version of this rule grew an
+   invisible `::before` OVERLAY up to 44px with no knowledge of a neighbour's box — two
+   `[data-hit-slop]` controls placed closer together than their combined overhang (PlaceSearch,
+   block-pick, mobile-360) each intercepted the OTHER's pointer events. A real min box respects
+   normal layout instead: flex `gap` (the header cluster's 8px, a ListRow's own spacing) always
+   keeps siblings apart by at least the declared gap, so growing the box itself — not painting
+   an overlay past it — can never reach past a neighbour by more than the CSS the two rows
+   already agreed on. `min()` still caps the growth at exactly 44px (never smaller, never more,
+   same contract as the old `max(100%, 44px)` on width/height), just via the box model instead
+   of an absolutely positioned pseudo-element. */
+[data-hit-slop] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* U6 residual: react-remove-scroll (every Radix Sheet/Dialog) locks BODY's overflow while
+   one is open (its own injected `body[data-scroll-locked]{overflow:hidden!important}`), but
+   this app's real scrolling element is <html> (no height cap on body) — so body's lock never
+   stops a scroll of the DOCUMENT, and the more-sheet screen's own background (the kibbutz
+   cards, still mounted behind the overlay) could be scrolled under the fixed phone nav even
+   though nothing visible moves the sheet itself. :has() closes that one gap. */
+html:has(body[data-scroll-locked]) { overflow: hidden !important; }
+
+/* Designer (26.9, desktop 1440): opening ⋯ עוד shifted the WHOLE page ~24px up-right (header,
+   bell badge, "קיבוצים" clipped). react-remove-scroll-bar (every Radix Sheet/Dialog)'s default
+   gapMode ('margin') reads BODY's margin-left/top/right (0, this app resets margin on
+   everything) and writes THOSE straight through as `padding-left`/`padding-top`/`padding-right`
+   on `body[data-scroll-locked]` — an ATTRIBUTE selector, which beats our plain `body{padding:…}`
+   on specificity alone, REGARDLESS of source order or `!important` on our side, so it always
+   won and zeroed the real padding, and body's real padding is what visibly moved the header.
+   Restated at the same specificity+!important below, mirroring body's own two breakpoints
+   exactly — `scrollbar-gutter: stable` was tried first but shifts ⋯ עוד/GearSheet's OWN fixed,
+   centred dialogs off-centre by the reserved gutter width instead (position:fixed's containing
+   block is the real viewport, unaffected by html's reserved gutter track), trading one 15px
+   shift for another; this fixes the actual zeroed-padding cause without it. */
+body[data-scroll-locked] { padding: 12px 16px !important; margin: 0 !important; }
+@media (min-width: 768px) {
+  body[data-scroll-locked] { padding: 24px !important; }
+}
+
+/* U6 residual: a full-screen Sheet (⋯ עוד, ⚙️ הגדרות, …) covers the fixed phone nav visually
+   (its z-index is far above it) but the nav bar stays mounted underneath — its own last rows
+   can then sit inside the SAME pixel band the sheet's bottom rows occupy, which the nav
+   safe-area sweep reads as "content under the fixed nav" even though nothing is actually
+   hidden (the sheet is on top). Hiding the nav for the same `data-scroll-locked` window a
+   Sheet/Dialog owns removes the false collision and matches what the eye already sees. */
+@media (max-width: 767px) {
+  /* the CONTAINER div (index.html's `#sigma-nav:not(:empty){min-height:64px}` CLS guard), not
+     just the <nav> inside it — the guard keeps the div's own box at 64px even once its child
+     is display:none, which is exactly the rect the safe-area sweep measures. */
+  body[data-scroll-locked] #sigma-nav { display: none; }
+}

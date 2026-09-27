@@ -40,12 +40,20 @@
       reloadNow();
     }
 
+    // Round 5, S-23: this used to be its OWN fixed bar (z-index 100000, raw hex, an emoji) —
+    // now a Toast like everything else, action "רענון" (DS Toast, §2/§3 rule 3). Falls back to
+    // the old fixed bar only if the toast bridge never mounted (no React, no window.sigma).
     function showBanner(ver) {
+      var msg = 'עלתה גרסה חדשה' + (ver ? ' (' + ver + ')' : '') + '. רעננו כדי לעדכן.';
+      if (window.sigma && typeof window.sigma.toast === 'function') {
+        window.sigma.toast(msg, { duration: Infinity, action: { label: 'רענון', onClick: reloadNow } });
+        return;
+      }
       if (document.getElementById('newVerBanner') || !document.body) return;
       var b = document.createElement('div');
       b.id = 'newVerBanner';
       b.innerHTML =
-        '<span>🔄 עלתה גרסה חדשה' + (ver ? ' (' + ver + ')' : '') + '. רעננו כדי לעדכן.</span>' +
+        '<span>' + msg + '</span>' +
         '<button id="newVerReloadBtn" type="button">רענן עכשיו</button>';
       b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100000;background:#1e293b;color:#fff;' +
         'display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;' +

@@ -55,8 +55,11 @@ export function UserChip({ className }: { className?: string }) {
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
+        // s-hit: the 40px chip's visual box stays 40, but its real tap target grows to 48×48
+        // (round 5, U9 gate — this was the ⋯ עוד sweep's one non-waivable tap-target finding).
+        data-hit-slop
         className={cn(
-          'inline-flex min-h-[40px] items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted',
+          's-hit inline-flex min-h-[40px] items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted',
           className,
         )}
       >
