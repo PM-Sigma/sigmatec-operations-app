@@ -3,7 +3,7 @@
 // ONE calendar, three layers, one toggle. What the redesign is FOR: a field day is a route
 // between kibbutzim, not a list of tickets — so tapping a day does not open "the day's
 // events", it opens the day GROUPED BY KIBBUTZ, in the order the person will actually drive
-// it, with 📍 בריפינג and ➕ צ׳ק-אין on each stop. That is the link between the calendar and
+// it, with 📍 דוח מצב and ➕ צ׳ק-אין on each stop. That is the link between the calendar and
 // the arrival flow (§5.1): the order saved here is the order the arrival sheet offers.
 //
 // WEEK NUMBERS SIT ON THE RIGHT. In RTL the first grid column is the rightmost one, so the
@@ -46,7 +46,7 @@ import {
   canPlanDay, canPlanFor, dayLetters, dayListing, dayWhen, dueByKibbutz, EMPTY_DAY, eventDetail,
   gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, isNoopPick, legendItems, monthView,
   pickBlock, planBlocks, reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, showWeekNumbers,
-  stopsPayload, taskOwners, toKey, missingInView, reportedInView, visibleDows, visitRead,
+  stopsPayload, taskOwners, toKey, missingInView, visibleDows, visitRead, visitsOn,
   weekAria, weekDays, weekView, workWeekLabel, ymd,
   type AbsenceKind, type AbsenceRow, type BlockPick, type CalEmsTask, type CalItem,
   type CalWeek, type CalInternalTask, type KibbutzBlock, type OfficeEvent, type RouteRow, type VisitRow,
@@ -288,15 +288,13 @@ function EventSheet({ event, onClose }: { event: OfficeEvent | null; onClose: ()
  * `weekAria` gives it a real screen-reader name ("שבוע 38"), never a bare digit.
  */
 function Grid({
-  weeks, index, selected, onOpen, mode, workWeek, missing, reported, blocksByDate,
+  weeks, index, selected, onOpen, mode, workWeek, missing, blocksByDate,
 }: {
   weeks: CalWeek[]; index: Record<string, CalItem[]>; selected: string;
   onOpen: (d: string) => void;
   mode: 'week' | 'month'; workWeek: boolean;
   /** The calendar person's unreported past days — painted red, filers only (round 5 · C5). */
   missing: Set<string>;
-  /** The calendar person's already-filed days — painted green (round 5 · B). */
-  reported: Set<string>;
   /** Round 5 · C-U designer fix (25.9): future-day kibbutz blocks (`planBlocks`), by date —
       the FUTURE-day cell shows the block itself, not just a count (spec §2 DayCell). */
   blocksByDate: Record<string, KibbutzBlock[]>;
@@ -329,7 +327,7 @@ function Grid({
               const look = calCellLook(c, {
                 selected: c.date === selected,
                 missing: missing.has(c.date),
-                reported: reported.has(c.date),
+                reported: false,
               });
               const n = (index[c.date] || []).length;
               const fill: DayCellFill = look.state === 'field' ? 'field' : look.state === 'holiday' ? 'holiday' : 'none';
@@ -342,7 +340,6 @@ function Grid({
                   data-state={look.state}
                   data-today={look.today ? '1' : undefined}
                   data-missing={look.state === 'missing' ? '1' : undefined}
-                  data-reported={look.state === 'field' ? '1' : undefined}
                 >
                   <DayCell
                     day={c.day}
@@ -434,7 +431,7 @@ function RoutePlan({
       </div>
       <div className="ucal-stop-actions" onPointerDown={e => e.stopPropagation()}>
         <button type="button" className="ucal-mini" data-brief={r.kibbutz} onClick={() => onBriefing(r.kibbutz)}>
-          📍 בריפינג
+          📍 דוח מצב
         </button>
         {isToday ? (
           <button type="button" className="ucal-mini" data-checkin={r.kibbutz} onClick={() => onCheckin(r.kibbutz)}>
@@ -673,7 +670,7 @@ function DayBody({
           data-testid="cal-day-brief"
           onClick={() => onBriefing(rows.filter(r => r.index >= 0)[0].kibbutz)}
         >
-          📍 בריפינג
+          📍 דוח מצב
         </button>
       ) : null}
       {canAdd ? (
@@ -1147,7 +1144,7 @@ function TaskListView({
             )}
             {g.overdue ? <span className="ucal-late" data-testid="cal-list-late">⏰ {g.overdue} באיחור</span> : null}
             {g.real ? (
-              <button type="button" className="ucal-mini" data-brief={g.kibbutz} onClick={() => onBriefing(g.kibbutz)}>📍 בריפינג</button>
+              <button type="button" className="ucal-mini" data-brief={g.kibbutz} onClick={() => onBriefing(g.kibbutz)}>📍 דוח מצב</button>
             ) : null}
           </div>
           {g.items.map(t => {
@@ -1466,18 +1463,9 @@ function CalendarIsland() {
     [person, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
   );
 
-  // ── the days that calendar person already reported, in green (round 5 · B) ────────────
-  // Same scope as `missing`: the same calendar person, read off the same נוכחות snapshot so
-  // filing a day repaints both colours at once and they can never disagree.
-  const reported = React.useMemo(
-    () => reportedInView(
-      person,
-      weeks,
-      (_p, ry, rm) => attByMonth.get(ry + '-' + String(rm).padStart(2, '0')) ?? null,
-      holidays.data || [],
-    ),
-    [person, attByMonth, holidays.data, weeks.map(w => w.days[0].date).join('|')],
-  );
+  // Round 5 · B's green "דווחה נוכחות" fill was dropped from the calendar (עידן's phone QA
+  // 4.1, 27.9) — not needed here. `reportedInView`/the 'field' state stay in calendar.ts as
+  // tested pure functions; the calendar simply never wires them up any more.
 
   // ── the day's route ────────────────────────────────────────────────────
   const openDate = sheetDay || selected;
@@ -1567,6 +1555,31 @@ function CalendarIsland() {
     return out;
   }, [weeks.map(w => w.days.map(c => c.date).join(',')).join('|'), today, owners.join('|'), internalTasks.data, tick]);
 
+  // ── past-day visit-report chips in the grid (עידן's phone QA 4.2, 27.9) ────────────────────
+  // `blocksByDate` above is future-only (planning); a past/today day that WAS visited gets no
+  // chip at all otherwise — the month's "which kibbutz was visited on which day" never showed
+  // in חודש עבודה. Same `KibbutzBlock`-shaped cell, built from the filed visit rows instead of
+  // an open task list (no tasks to preview, so `placed`/`tasks` are just filler for the type).
+  const visitsByDate = React.useMemo(() => {
+    const out: Record<string, KibbutzBlock[]> = {};
+    for (const w of weeks) for (const c of w.days) {
+      if (c.date > today) continue;
+      const seen = new Set<string>();
+      const list: KibbutzBlock[] = [];
+      for (const v of visitsOn(visits, c.date)) {
+        const k = String(v.kibbutz || '').trim();
+        if (k && !seen.has(k)) { seen.add(k); list.push({ kibbutz: k, placed: true, tasks: [] }); }
+      }
+      if (list.length) out[c.date] = list;
+    }
+    return out;
+  }, [weeks.map(w => w.days.map(c => c.date).join(',')).join('|'), today, visits]);
+
+  const gridBlocksByDate = React.useMemo(
+    () => ({ ...visitsByDate, ...blocksByDate }),
+    [visitsByDate, blocksByDate],
+  );
+
   const pick = useMutation({
     mutationFn: async (p: BlockPick) => ({ p, res: await applyBlockPick(p, person, openDate, due, planGuard) }),
     onSuccess: ({ p, res }) => {
@@ -1641,7 +1654,7 @@ function CalendarIsland() {
     });
   }
 
-  /** 📍 בריפינג — the field island owns that surface (§5.1); the card modal is the fallback. */
+  /** 📍 דוח מצב — the field island owns that surface (§5.1); the card modal is the fallback. */
   function openBriefing(kibbutz: string) {
     try {
       const field = (window as any).sigmaField;
@@ -1776,8 +1789,7 @@ function CalendarIsland() {
               mode={view === 'week' ? 'week' : 'month'}
               workWeek={workWeek}
               missing={missing}
-              reported={reported}
-              blocksByDate={blocksByDate}
+              blocksByDate={gridBlocksByDate}
             />
           )}
           {/* Round 5 · C5 — the legend always shows (design-system DayCell rulings), red joins

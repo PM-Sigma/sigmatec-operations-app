@@ -2,7 +2,7 @@
 // both open the ONE visit sheet), a draft row when one is open, "סיכום ביקור" to start a new one,
 // and an EmptyState when there is nothing at all yet (spec V5, QA קיבוצים 7/9).
 import * as React from 'react';
-import { MapPin, Trash2 } from 'lucide-react';
+import { MapPin, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionBlock } from '@/components/ui/section-block';
@@ -64,6 +64,25 @@ function HistoryRow({ visit, now, canAct }: { visit: ReturnType<typeof visitsFor
   );
 }
 
+// QA round 6, item 2.2 (severe): the only way to start a new visit was a small text link in the
+// section header — easy to miss, and gone entirely once the tab had no section (empty state).
+// One big, always-in-the-same-place primary bubble at the top of the tab fixes both: it is the
+// SAME button whether the kibbutz has history yet or not, so it never disappears once visits
+// start piling up. Hidden for the viewer (canAct false) — she has no visit-editor access.
+function NewVisitButton({ kibbutz }: { kibbutz: string }) {
+  return (
+    <BubbleButton
+      variant="primary"
+      size="lg"
+      icon={<Plus className="h-5 w-5" />}
+      onClick={() => openNew(kibbutz)}
+      className="mb-3"
+    >
+      סיכום ביקור
+    </BubbleButton>
+  );
+}
+
 export function VisitsTab({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
   const visits = useKibbutzVisits(kibbutz);
   const rows = React.useMemo(() => visitsForKibbutz(visits, kibbutz), [visits, kibbutz]);
@@ -72,23 +91,20 @@ export function VisitsTab({ kibbutz, canAct }: { kibbutz: string; canAct: boolea
   if (!rows.length) {
     return (
       <>
+        {canAct && <NewVisitButton kibbutz={kibbutz} />}
         <DraftRow kibbutz={kibbutz} />
-        <EmptyState
-          icon={<MapPin />}
-          title="עוד אין סיכומי ביקור לקיבוץ הזה."
-          action={canAct ? { label: 'סיכום ביקור', onClick: () => openNew(kibbutz) } : undefined}
-        />
+        <EmptyState icon={<MapPin />} title="עוד אין סיכומי ביקור לקיבוץ הזה." />
       </>
     );
   }
 
   return (
-    <SectionBlock
-      title="ביקורים"
-      action={canAct ? { label: 'סיכום ביקור', onClick: () => openNew(kibbutz) } : undefined}
-    >
-      <DraftRow kibbutz={kibbutz} />
-      {rows.map(v => <HistoryRow key={v.id} visit={v} now={now} canAct={canAct} />)}
-    </SectionBlock>
+    <>
+      {canAct && <NewVisitButton kibbutz={kibbutz} />}
+      <SectionBlock title="ביקורים">
+        <DraftRow kibbutz={kibbutz} />
+        {rows.map(v => <HistoryRow key={v.id} visit={v} now={now} canAct={canAct} />)}
+      </SectionBlock>
+    </>
   );
 }

@@ -46,7 +46,7 @@ function Header({
   return (
     <div
       data-testid="kibbutz-detail-header"
-      className="grid grid-cols-[1fr_auto_auto] items-start gap-2 px-4 pb-2"
+      className="grid grid-cols-[1fr_auto] items-start gap-2 px-4 pb-2"
     >
       <div className="min-w-0">
         <h2 className="line-clamp-2 text-[20px] font-extrabold tracking-[-.01em] text-foreground">{name}</h2>
@@ -55,12 +55,12 @@ function Header({
             <bdi>#{code}</bdi>
           </p>
         )}
+        {row?.marketing && (
+          <Tag role="info" dot={false} className="mt-1.5 inline-flex w-fit">
+            <Handshake className="me-1 inline h-3 w-3" /> בתהליך שיווקי
+          </Tag>
+        )}
       </div>
-      {row?.marketing ? (
-        <Tag role="info" dot={false} className="mt-1">
-          <Handshake className="me-1 inline h-3 w-3" /> בתהליך שיווקי
-        </Tag>
-      ) : <span />}
       <div className="flex shrink-0 items-center gap-1">
         {canEdit && (
           <IconBubble icon={<Pencil className="h-[18px] w-[18px]" />} label="פרטי קיבוץ" size={40} onClick={openEdit} />

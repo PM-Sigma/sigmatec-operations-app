@@ -1265,15 +1265,15 @@ export function taskOwners(person: string, me: string, peerOn: boolean): string[
   return person === me && peerOn && peer ? [person, peer] : [person];
 }
 
-export type LegendKey = 'holiday' | 'eve' | 'reported' | 'missing';
+export type LegendKey = 'holiday' | 'eve' | 'missing';
 export interface LegendItem { key: LegendKey; label: string }
 
-/** The legend always shows (design system, DayCell); red joins it only for a filer. */
+/** The legend always shows (design system, DayCell); red joins it only for a filer.
+    "דווחה נוכחות" was dropped (עידן's phone QA 4.1, 27.9) — not needed on the calendar. */
 export function legendItems(person: string): LegendItem[] {
   const out: LegendItem[] = [
     { key: 'holiday', label: 'חג' },
     { key: 'eve', label: 'ערב חג' },
-    { key: 'reported', label: 'דווחה נוכחות' },
   ];
   if (mustFile(person)) out.push({ key: 'missing', label: 'לא דווחה נוכחות' });
   return out;

@@ -446,7 +446,11 @@
   text-align: center;
   padding: 2px 0;
 }
-.ucal-week { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 4px; }
+/* חודש עבודה (5-col work-month) has no `.ucal-weeklabel` child — without `:has()` the row still
+   reserved an `auto` label column with nothing in it, squeezing `.ucal-week-days` into whatever
+   was left instead of the full row width (עידן's phone QA 4.2: work-month days "stuck/narrow"). */
+.ucal-week { display: grid; grid-template-columns: 1fr; align-items: start; gap: 4px; }
+.ucal-week:has(> .ucal-weeklabel) { grid-template-columns: auto 1fr; }
 .ucal-weeklabel {
   align-self: center;
   font-variant-numeric: tabular-nums;
@@ -480,7 +484,6 @@
 .ucal-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 999px; }
 .ucal-swatch-holiday  { background: var(--holiday-ink); }
 .ucal-swatch-eve      { background: var(--holiday-eve-ink); }
-.ucal-swatch-reported { background: var(--ok-ink); }
 .ucal-swatch-missing  { background: var(--danger-ink); }
 .ucal-legend li[data-legend='missing'] { color: var(--danger-ink); }
 

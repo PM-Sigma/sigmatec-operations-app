@@ -444,6 +444,7 @@ function Briefing({
         <div className="rounded-b-[28px] s-brand px-4 pb-[18px] pt-3">
           <div className="text-[12px] font-semibold opacity-85">📍 הגעת ל־</div>
           <h2 className="text-[26px] font-extrabold tracking-[-.01em]">{kibbutz}</h2>
+          <div data-testid="briefing-heading" className="text-[12.5px] font-bold opacity-90">דוח מצב של הקיבוץ</div>
           <div className="mt-2.5 flex flex-wrap gap-2">
             {checkinAt && (
               <span className="rounded-full bg-white/20 px-2.5 py-[5px] text-[12px] font-semibold">
@@ -2301,7 +2302,7 @@ function FieldIsland() {
               transition={{ duration: dur, ease: 'easeOut' }}
               className="relative max-h-[92svh]"
             >
-              <SheetTitle className="sr-only">{'בריפינג: ' + picked}</SheetTitle>
+              <SheetTitle className="sr-only">{'דוח מצב של הקיבוץ: ' + picked}</SheetTitle>
               <SheetDescription className="sr-only">כל מה שפתוח בקיבוץ הזה, ושני כפתורי הפעולה.</SheetDescription>
               <Briefing
                 kibbutz={picked}
@@ -2399,7 +2400,7 @@ function TodayIsland() {
               className="mt-2 flex w-full items-center gap-2 rounded-[10px] border border-border bg-muted px-2.5 py-2 text-[13px] font-semibold"
             >
               <MapPin className="h-4 w-4 shrink-0 text-[color:var(--brand-1)]" />
-              <span className="min-w-0 flex-1 text-start">הבריפינג של היום · <bdi>{stops[0].name}</bdi></span>
+              <span className="min-w-0 flex-1 text-start">דוח המצב של היום · <bdi>{stops[0].name}</bdi></span>
               <span className="text-[11px] font-bold text-muted-foreground">פתח</span>
             </button>
           )}
