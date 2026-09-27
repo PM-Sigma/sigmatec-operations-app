@@ -39,6 +39,14 @@ export function isIPv4(s: unknown): s is string {
   return p.length === 4 && p.every((o) => /^(0|[1-9]\d{0,2})$/.test(o) && Number(o) <= 255);
 }
 
+/** SSRF guard: IPs that are never a meter — loopback, "this network", link-local (incl. the cloud
+ *  metadata 169.254.169.254), multicast, reserved and broadcast. Private LAN/APN ranges and public
+ *  addresses stay allowed (עידן: manual entry reads any device IP). */
+export function isForbiddenIp(ip: string): boolean {
+  const [a, b] = ip.split(".").map(Number);
+  return a === 127 || a === 0 || (a === 169 && b === 254) || a >= 224;
+}
+
 /** Modbus unit id: an integer 1–247 (0 is broadcast, 248+ reserved). */
 export function isUnit(n: unknown): n is number {
   return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= 247;
@@ -72,6 +80,7 @@ export function validate(body: any): { ok: true; req: Req } | { ok: false; error
   if (has("meterId") && !(typeof body.meterId === "string" && UUID.test(body.meterId))) return { ok: false, error: "meterId must be a UUID" };
   if (has("siteId") && !(typeof body.siteId === "string" && UUID.test(body.siteId))) return { ok: false, error: "siteId must be a UUID" };
   if (has("ip") && !isIPv4(body.ip)) return { ok: false, error: "ip must be an IPv4 address" };
+  if (has("ip") && isForbiddenIp(body.ip)) return { ok: false, error: "ip not allowed" };
   if (has("unit") && !isUnit(body.unit)) return { ok: false, error: "unit must be an integer 1-247" };
   if (has("typeCode") && !(typeof body.typeCode === "number" && LEGACY_MODBUS_TYPE[body.typeCode] !== undefined)) {
     return { ok: false, error: "typeCode is not a Modbus meter type" };
@@ -167,6 +176,10 @@ export interface Deps {
   verifyPass: (pass: string) => Promise<Record<string, unknown> | null>;
   emsBase: string;
   appOrigin: string;
+  /** Optional DEV_ORIGIN secret — a second exact-match origin (local testing). */
+  devOrigin?: string;
+  /** Server-side log sink for error detail (never sent to the browser). */
+  log?: (msg: string, detail: string) => void;
   now?: () => number;
 }
 
@@ -174,9 +187,31 @@ export const TIMEOUT = { meta: 20_000, read: 125_000, ping: 65_000 };
 
 class EmsError extends Error { constructor(public status: number, public detail: string) { super(detail); } }
 
-function originFor(req: Request, app: string): string {
+function originFor(req: Request, app: string, dev?: string): string {
   const o = req.headers.get("origin") || "";
-  return (o === app || /^https:\/\/([a-z0-9-]+\.)?githack\.com$/.test(o) || /^http:\/\/localhost(:\d+)?$/.test(o)) ? o : app;
+  return o === app || (!!dev && o === dev) ? o : app;
+}
+
+/** Fixed error codes → the Hebrew sentence the browser gets. EMS/exception text never leaves the function. */
+export const ERROR_TEXT: Record<string, string> = {
+  "ems-session": "החיבור ל-EMS פג — צריך להתחבר מחדש",
+  "ems-forbidden": "אין לך הרשאה לפעולות מונה ב-EMS",
+  "timeout": "המונה לא ענה בזמן",
+  "not-found": "המונה לא נמצא ב-EMS",
+  "ems-bad-request": "EMS דחה את הבקשה",
+  "no-ip": "למונה אין כתובת IP ב-EMS",
+  "no-type-map": "סוג המונה ב-EMS לא ממופה ל-ModbusClient",
+  "not-available": "הפעולה לא זמינה למונה הזה ב-EMS",
+  "no-carrier": "לא נמצא ב-EMS מונה מודבוס שדרכו אפשר לקרוא",
+  "ems-error": "שגיאה בתקשורת עם EMS",
+};
+
+/** A 400 from EMS → a fixed sub-code (matched on EMS's known messages; the text itself is dropped). */
+export function badRequestCode(detail: string): string {
+  if (/IP address/i.test(detail)) return "no-ip";
+  if (/type mapping/i.test(detail)) return "no-type-map";
+  if (/not available/i.test(detail)) return "not-available";
+  return "ems-bad-request";
 }
 
 // Per-isolate cache of the all-Modbus-meters index (lookup mode), keyed by the EMS token —
@@ -185,7 +220,7 @@ const indexCache = new Map<string, { at: number; rows: any[] }>();
 export function clearIndexCache() { indexCache.clear(); }
 
 export async function handle(req: Request, deps: Deps): Promise<Response> {
-  const ORIGIN = originFor(req, deps.appOrigin);
+  const ORIGIN = originFor(req, deps.appOrigin, deps.devOrigin);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(ORIGIN) });
   if (req.method !== "POST") return json({ error: "POST only" }, 405, ORIGIN);
 
@@ -247,7 +282,7 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
     // meter row for the role check and the audit log — the recorded gap).
     const d = await get(`/v1/meters?typeCodes=${TYPES}&take=20&page=1`);
     const c = unwrapList(d).map(pickMeter).find((m) => m && isIPv4(m.ipAddress));
-    if (!c) throw new EmsError(409, "no carrier meter");
+    if (!c) throw new EmsError(409, "no-carrier");
     return c;
   }
 
@@ -288,12 +323,15 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       log: pickLog(log),
     }, 200, ORIGIN);
   } catch (e) {
+    const logErr = deps.log ?? ((m: string, d: string) => console.error("[field-ops] " + m, d));
     if (e instanceof EmsError) {
       const code = e.status === 401 ? "ems-session" : e.status === 403 ? "ems-forbidden" : e.status === 504 ? "timeout"
-        : e.status === 404 ? "not-found" : e.status === 400 ? "ems-bad-request" : "ems-error";
+        : e.status === 404 ? "not-found" : e.status === 400 ? badRequestCode(e.detail) : e.status === 409 ? "no-carrier" : "ems-error";
       const status = [400, 401, 403, 404, 409, 504].includes(e.status) ? e.status : 502;
-      return json({ error: code, detail: e.detail.slice(0, 300) }, status, ORIGIN);
+      logErr(code + " " + e.status, e.detail.slice(0, 300));
+      return json({ error: code, message: ERROR_TEXT[code] }, status, ORIGIN);
     }
-    return json({ error: "ems-error", detail: String((e as Error)?.message || e).slice(0, 300) }, 502, ORIGIN);
+    logErr("ems-error", String((e as Error)?.message || e).slice(0, 300));
+    return json({ error: "ems-error", message: ERROR_TEXT["ems-error"] }, 502, ORIGIN);
   }
 }

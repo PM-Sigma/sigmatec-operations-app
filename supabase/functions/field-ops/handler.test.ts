@@ -1,7 +1,7 @@
 // Deno unit tests for field-ops (offline: fetch + pass verifier are fakes).
 //   deno test supabase/functions/field-ops/handler.test.ts
 // IPs are documentation-range (RFC 5737) only — the repo is public.
-import { clearIndexCache, handle, isIPv4, overrideParams, staffGate, validate, type Deps } from "./handler.ts";
+import { clearIndexCache, handle, isForbiddenIp, isIPv4, overrideParams, staffGate, validate, type Deps } from "./handler.ts";
 
 function eq(a: unknown, b: unknown, msg = "") {
   const x = JSON.stringify(a), y = JSON.stringify(b);
@@ -28,6 +28,7 @@ function fakeDeps(routes: (url: string, init: RequestInit) => Response | Promise
     emsBase: "https://ems.example",
     appOrigin: "https://app.example",
     verifyPass: () => Promise.resolve(pass),
+    log: () => {},
     fetch: async (url, init, ms) => {
       calls.push({ url, init, ms });
       const r = await routes(url, init);
@@ -43,8 +44,21 @@ const post = (body: unknown, headers: Record<string, string> = { Authorization: 
 const LOG = { id: "L1", status: "completed", responseData: [{ FT: 1 }], createdAt: "2026-09-27T10:00:00Z", completedAt: "2026-09-27T10:00:04Z", executedBy: { firstName: "עידן", lastName: "" } };
 
 Deno.test("isIPv4 is strict", () => {
-  for (const s of ["192.0.2.1", "198.51.100.254", "0.0.0.0", "255.255.255.255"]) ok(isIPv4(s), s);
+  for (const s of ["192.0.2.1", "198.51.100.254", "203.0.113.9"]) ok(isIPv4(s), s);
   for (const s of ["192.0.2", "192.0.2.1.5", "192.0.2.01", "256.1.1.1", "1451510", "::1", "192.0.2.1 ", "a.b.c.d", "", 7]) ok(!isIPv4(s), String(s));
+});
+
+Deno.test("SSRF: loopback, 0/8, link-local/metadata, multicast, reserved, broadcast rejected; device ranges allowed", () => {
+  for (const ip of ["127.0.0.1", "127.255.0.9", "0.0.0.0", "0.1.2.3", "169.254.169.254", "169.254.0.1", "224.0.0.1", "239.1.1.1", "240.0.0.1", "250.1.1.1", "255.255.255.255"]) {
+    ok(isForbiddenIp(ip), ip);
+    eq(validate({ mode: "read", ip, unit: 1, typeCode: 12 }), { ok: false, error: "ip not allowed" }, ip);
+    eq(validate({ mode: "ping", ip }).ok, false, ip);
+    eq(validate({ mode: "lookup", ip }).ok, false, ip);
+  }
+  for (const ip of ["10.185.1.2", "192.168.1.100", "172.16.0.5", "192.0.2.10", "198.51.100.7", "203.0.113.9", "8.8.8.8"]) {
+    ok(!isForbiddenIp(ip), ip);
+    ok(validate({ mode: "read", ip, unit: 1, typeCode: 12 }).ok, ip);
+  }
 });
 
 Deno.test("validate: modes, UUIDs, ranges, no extra fields", () => {
@@ -61,7 +75,7 @@ Deno.test("validate: modes, UUIDs, ranges, no extra fields", () => {
   eq(validate({ mode: "read", ip: "192.0.2.10" }), { ok: false, error: "typeCode required for an unregistered ip" });
   eq(validate({ mode: "read", meterId: M1, unit: 2 }), { ok: false, error: "unit needs ip" });
   eq(validate({ mode: "ping", ip: "192.0.2.10", unit: 2 }), { ok: false, error: "unexpected field: unit" });
-  eq(validate({ mode: "lookup", ip: "10.0.0.x" }).ok, false);
+  eq(validate({ mode: "lookup", ip: "192.0.2.x" }).ok, false);
   eq(validate({ mode: "meters", siteId: "x" }).ok, false);
   eq(validate([]).ok, false);
 });
@@ -168,7 +182,10 @@ Deno.test("errors: EMS 401/403/400, timeout, gate, bad input, CORS", async () =>
   eq((await (await at(401)).json()).error, "ems-session");
   eq((await at(403)).status, 403);
   const b = await (await at(400)).json();
-  eq([b.error, b.detail], ["ems-bad-request", "Operation is not available for this meter"]);
+  eq(b, { error: "not-available", message: "הפעולה לא זמינה למונה הזה ב-EMS" });
+  const { deps: leaky } = fakeDeps(() => J({ message: "internal db host 203.0.113.250 password=x" }, 500));
+  const leak = await (await handle(post({ token: "t", mode: "read", meterId: M1 }), leaky)).text();
+  ok(!leak.includes("203.0.113.250") && !leak.includes("password"), "EMS text never reaches the browser");
   eq((await at(500)).status, 502);
 
   const { deps: slow } = fakeDeps(() => "abort");
@@ -184,8 +201,14 @@ Deno.test("errors: EMS 401/403/400, timeout, gate, bad input, CORS", async () =>
   eq((await handle(post({ mode: "read", meterId: M1 }), d0)).status, 401, "no EMS token");
   eq((await handle(post({ token: "t", mode: "read", meterId: M1, params: {} }), d0)).status, 400);
   eq((await handle(new Request("https://fn.example", { method: "GET" }), d0)).status, 405);
-  const pre = await handle(new Request("https://fn.example", { method: "OPTIONS", headers: { origin: "http://localhost:8430" } }), d0);
-  eq(pre.headers.get("Access-Control-Allow-Origin"), "http://localhost:8430");
+  const app = await handle(new Request("https://fn.example", { method: "OPTIONS", headers: { origin: "https://app.example" } }), d0);
+  eq(app.headers.get("Access-Control-Allow-Origin"), "https://app.example");
+  for (const o of ["http://localhost:8430", "https://raw.githack.com", "https://app.example.evil.com"]) {
+    const r = await handle(new Request("https://fn.example", { method: "OPTIONS", headers: { origin: o } }), d0);
+    eq(r.headers.get("Access-Control-Allow-Origin"), "https://app.example", o);
+  }
+  const dev = await handle(new Request("https://fn.example", { method: "OPTIONS", headers: { origin: "http://localhost:8430" } }), { ...d0, devOrigin: "http://localhost:8430" });
+  eq(dev.headers.get("Access-Control-Allow-Origin"), "http://localhost:8430", "DEV_ORIGIN exact match");
   const evil = await handle(new Request("https://fn.example", { method: "OPTIONS", headers: { origin: "https://evil.example" } }), d0);
   eq(evil.headers.get("Access-Control-Allow-Origin"), "https://app.example");
 });

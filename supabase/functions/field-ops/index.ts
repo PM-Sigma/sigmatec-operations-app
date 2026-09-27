@@ -2,7 +2,7 @@
 // All logic lives in handler.ts (pure, injected deps, tested by handler.test.ts); this file only
 // wires the real fetch, the bridge-pass verifier and the env.
 //
-// Secrets: EMS_API_BASE (already set), APP_ORIGIN, JWT_SECRET / EMS_BRIDGE_SECRET (the secret
+// Secrets: EMS_API_BASE (already set), APP_ORIGIN (the ONLY allowed origin; optional DEV_ORIGIN, exact match), JWT_SECRET / EMS_BRIDGE_SECRET (the secret
 // ems-auth signs the bridge pass with — the `name` claim is the staff gate).
 import { verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 import { appOrigin, fetchT } from "../_shared/http.ts";
@@ -22,4 +22,5 @@ Deno.serve((req) => handle(req, {
   verifyPass,
   emsBase: Deno.env.get("EMS_API_BASE") || "https://api.sigmatec-ems.com",
   appOrigin: appOrigin(),
+  devOrigin: Deno.env.get("DEV_ORIGIN") || undefined,
 }));
