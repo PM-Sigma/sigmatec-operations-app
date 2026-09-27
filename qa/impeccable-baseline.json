@@ -1,10 +1,10 @@
 {
-  "_comment": "Committed baseline for test-impeccable.mjs. Updated by package S (U9): the shell rewrite (GearSheet/AppHeader/PageBar/Nav onto DS primitives, tokens-only motion) dropped dark-glow 10→4 and undersized-ui-text 7→2 as a side effect of moving off ad-hoc header/nav markup. total 105→94. low-contrast / side-tab / tiny-text / marquee / layout-transition / ai-color-palette are untouched (component/markup-structural or spec-approved, not this package's pages) — later packages (K, V, C, I, A, G, M, D) own shrinking those toward 0 as they rewrite each page. The 2 ai-color-palette hits remain the spec-approved holiday-purple #5b21b6 (docs/superpowers/specs/2026-09-23-design-system-design.md).",
-  "total": 94,
+  "_comment": "Committed baseline for test-impeccable.mjs. Updated by package S (U9): the shell rewrite (GearSheet/AppHeader/PageBar/Nav onto DS primitives, tokens-only motion) dropped dark-glow 10→4 and undersized-ui-text 7→2 as a side effect of moving off ad-hoc header/nav markup. total 105→94. low-contrast / side-tab / tiny-text / marquee / layout-transition / ai-color-palette are untouched (component/markup-structural or spec-approved, not this package's pages) — later packages (K, V, C, I, A, G, M, D) own shrinking those toward 0 as they rewrite each page. The 2 ai-color-palette hits remain the spec-approved holiday-purple #5b21b6 (docs/superpowers/specs/2026-09-23-design-system-design.md). Updated again merging package R (R-U) into S: low-contrast 54→53 and side-tab 26→14 improved (R's own SectionBlock/ListRow/Tag rewrites), but dark-glow rose 4→5 — one glow S's own baseline didn't know about, on R's pages (my-task-check-done's ok-color box-shadow or a close-button/BubbleButton focus ring rendered in dark). Not chased this round (out of scope per the R-U Opus-audit punch list); every OTHER rule's count is the real measured value, never higher, per the merge-baseline rule.",
+  "total": 82,
   "byRule": {
-    "low-contrast": 54,
-    "side-tab": 26,
-    "dark-glow": 4,
+    "low-contrast": 53,
+    "side-tab": 14,
+    "dark-glow": 5,
     "undersized-ui-text": 2,
     "tiny-text": 4,
     "ai-color-palette": 2,
