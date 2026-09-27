@@ -59,7 +59,8 @@ check('an empty allow-list freezes everyone who is not exempt', () => {
 });
 
 check('the one switch is here, on, and the allow-list is the two named people (file 00 — readable before file 15 runs)', () => {
-  assert.match(src, /const UPGRADE_FREEZE = true;/);
+  // עידן 27.9: freeze lifted for all staff after the round-5 phone QA.
+  assert.match(src, /const UPGRADE_FREEZE = false;/);
   assert.match(src, /const UPGRADE_ALLOW = \['עידן', 'עמיחי'\];/);
 });
 

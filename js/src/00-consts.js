@@ -73,7 +73,7 @@
 
   // ── Upgrade freeze (round 5, Phase 0) — closes the app to everyone but the allow-list while
   // the rewrite runs. Lifting the freeze is one commit: flip UPGRADE_FREEZE to false.
-  const UPGRADE_FREEZE = true;
+  const UPGRADE_FREEZE = false;
   const UPGRADE_ALLOW = ['עידן', 'עמיחי'];
   // Pure decision, no DOM/localStorage (golden: test-upgrade-freeze.mjs). The exemptions
   // (cert link, mock mode) win over everything, then the viewer PIN is always frozen, then
