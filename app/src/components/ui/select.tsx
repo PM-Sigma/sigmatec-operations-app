@@ -67,11 +67,23 @@ const SelectScrollDownButton = React.forwardRef<
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName
 
+// Portalled layers render at <body>, outside every island root — but Tailwind's
+// `important: '.sigma-root'` only emits utilities under that selector. Wrap the portal
+// content so tokens, RTL direction and the Assistant face still apply (same fix as
+// sheet.tsx's own SheetPortal). Without this, a <Select> nested one level inside a Sheet
+// had its options render unstyled/unpositioned under the sheet's own overlay (U8 finding,
+// round 5 R-U9 "stock-change-sheet" — see qa/playwright/no-overlap-allow.json).
+const SelectPortal = ({ children, ...props }: React.ComponentProps<typeof SelectPrimitive.Portal>) => (
+  <SelectPrimitive.Portal {...props}>
+    <div className="sigma-root" data-sigma-portal>{children}</div>
+  </SelectPrimitive.Portal>
+)
+
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
 >(({ className, children, position = "popper", ...props }, ref) => (
-  <SelectPrimitive.Portal>
+  <SelectPortal>
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
@@ -95,7 +107,7 @@ const SelectContent = React.forwardRef<
       </SelectPrimitive.Viewport>
       <SelectScrollDownButton />
     </SelectPrimitive.Content>
-  </SelectPrimitive.Portal>
+  </SelectPortal>
 ))
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
@@ -151,6 +163,7 @@ export {
   SelectGroup,
   SelectValue,
   SelectTrigger,
+  SelectPortal,
   SelectContent,
   SelectLabel,
   SelectItem,
