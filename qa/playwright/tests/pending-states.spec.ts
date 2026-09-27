@@ -26,6 +26,12 @@
 // have put this one spec at roughly forty minutes across four projects for no extra coverage.
 // The 100 ms rule is what the delay exists to test, and 1.2 s tests it twelve times over.
 import { boot, expect, expectNoConsoleErrors, selectRadix, shot, skipKnownMobile360, test, SB_ORIGIN } from './_helpers';
+import { driverFor } from './inventory/_inv-driver';
+
+// U10 (package I) retired the legacy #inventoryLegacy tabbed screen this file used to drive
+// directly ([data-inv-tab], #invReportChange, inv-pool) — same fix as alerts.spec.ts/
+// inventory-pool.spec.ts: go through the data-testid driver contract instead.
+const invDriver = driverFor();
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
 test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
@@ -381,10 +387,9 @@ test('click-map: קיבוץ שמור aborted mid-flight says so in Hebrew, with 
 });
 
 async function openRecountSheet(page: any) {
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="stock"]').click();
-  await expect(page.getByTestId('inv-pool')).toBeVisible({ timeout: 15_000 });
-  await page.locator('#invReportChange').click();
+  await invDriver.openTab(page, 'stock');
+  await expect(page.getByTestId('inv-panel-stock')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('inv-report-change').click();
   const sheet = page.getByTestId('stock-change-sheet');
   await expect(sheet).toBeVisible({ timeout: 15_000 });
   await selectRadix(sheet, 'sc-product', 'סים 1NCE');

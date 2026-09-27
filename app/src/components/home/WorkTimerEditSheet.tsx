@@ -4,7 +4,7 @@
 // ways to end it: ■ close the hours (the stop sheet), or 🗑 stop and drop the session.
 // A LAZY chunk like the stop sheet: a card that never taps a running timer never loads it.
 import * as React from 'react';
-import { Pause, Play, Plus, Square, Trash2, X } from 'lucide-react';
+import { Loader2, Pause, Play, Plus, Square, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
@@ -35,6 +35,10 @@ export default function WorkTimerEditSheet({
   const [picked, setPicked] = React.useState<string[]>(running.tags || []);
   const [note, setNote] = React.useState(running.note || '');
   const [newContact, setNewContact] = React.useState('');
+  // click-map.mjs §2 (docs/ux-loading-patterns.md pattern 4): a click that reaches
+  // site_contacts with no pending state at all — the button (and the Enter-key path from the
+  // input) is now ITS OWN pending indicator while the insert is in flight.
+  const [savingContact, setSavingContact] = React.useState(false);
   const [tagQuery, setTagQuery] = React.useState('');
   const [start, setStart] = React.useState(() => toLocalInput(running.started_at));
   const [confirmDrop, setConfirmDrop] = React.useState(false);
@@ -64,9 +68,11 @@ export default function WorkTimerEditSheet({
     setNewContact('');
     if (!contacts.some(c => c.name === name)) setContacts(prev => [...prev, { name }]);
     if (!people.includes(name)) setPeople(prev => [...prev, name]);
+    setSavingContact(true);
     try {
       await sbWrite(async sb => await sb.from('site_contacts').insert({ kibbutz: running.kibbutz, name, active: true }).select().single());
     } catch { /* the session still records him */ }
+    finally { setSavingContact(false); }
   };
 
   // The tag search: a typed word narrows the list; when ONE tag is left it is picked for you
@@ -147,10 +153,13 @@ export default function WorkTimerEditSheet({
             ))}
           </div>
           <div className="mt-2 flex gap-1.5">
-            <input value={newContact} onChange={e => setNewContact(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void addContact(); } }}
-                   placeholder="הוספת איש קשר" className="min-h-[36px] flex-1 rounded-lg border border-border bg-background px-2 text-[13px]" />
-            <button type="button" onClick={() => void addContact()} className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-muted px-2.5 text-[13px] font-semibold">
-              <Plus className="h-4 w-4" /> הוסף
+            <input value={newContact} onChange={e => setNewContact(e.target.value)}
+                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void addContact(); } }}
+                   disabled={savingContact}
+                   placeholder="הוספת איש קשר" className="min-h-[36px] flex-1 rounded-lg border border-border bg-background px-2 text-[13px] disabled:opacity-60" />
+            <button type="button" onClick={() => void addContact()} disabled={savingContact} data-testid="wt-add-contact"
+                    className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-muted px-2.5 text-[13px] font-semibold disabled:opacity-60">
+              {savingContact ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} הוסף
             </button>
           </div>
         </section>
