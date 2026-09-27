@@ -29,7 +29,7 @@
      simply skips the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="modulepreload" href="ui/sigma.js?v=muj4tq7l">
+<link rel="modulepreload" href="ui/sigma.js?v=mujfxi76">
 <!-- critical:start — generated from css/critical.css by build.mjs; do NOT hand-edit. src-sha256:07e70501fb61c37d -->
 <style>*{box-sizing:border-box;margin:0;padding:0}:root{--primary: #1b2a4a;--primary-hover: #25395f;--accent: #2f6fed;--accent-soft: #eef3fe;--success: #0e9f6e;--success-light: #e7f6f0;--warning: #c87f0a;--warning-light: #fdf4e3;--danger: #7c5cdb;--danger-light: #f2eefb;--priority: #d64545;--priority-light: #fcecec;--gray-light: #f1f4f8;--bg: #f4f6f9;--card: #ffffff;--text: #1f2937;--text-light: #5c6572;--border: #e3e8ef;--radius: 10px;--shadow-sm: 0 1px 2px rgba(16,24,40,.05);--shadow-md: 0 4px 12px rgba(16,24,40,.08);--brand-1: #06C2CB;--brand-2: #1ABE63;--brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));--surface-2: #eef2f7;--radius-lg: 14px;--font: "Assistant", "Segoe UI", system-ui, sans-serif;--on-brand: #ffffff}:root[data-theme=dark]{--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f;--shadow-sm: 0 1px 2px rgba(0,0,0,.5);--shadow-md: 0 4px 12px rgba(0,0,0,.55)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f}}body{font-family:var(--font);font-size:15px;background:var(--bg);color:var(--text);min-height:100vh;padding:12px 16px;line-height:1.5;-webkit-font-smoothing:antialiased}@media(min-width:768px){body{padding:24px}}.container{max-width:none;margin:0 auto}.header{background:var(--bg);color:var(--text);padding:10px 2px 8px;margin-bottom:8px;position:sticky;top:0;z-index:5;min-height:56px}.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:44px}.header h1{font-size:21px;font-weight:800;letter-spacing:-.01em}.header .subtitle{font-size:11px;font-weight:500;color:var(--text-light);margin-top:3px}.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.section{background:var(--card);border-radius:12px;margin-bottom:16px;border:1px solid var(--border);overflow:hidden}.section-header{padding:16px 24px;background:var(--gray-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3;min-height:60px}.section-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}.section-body{padding:16px 24px 24px}.kibbutz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start;grid-auto-flow:dense}.kibbutz{padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm);position:relative;cursor:pointer;border-right-width:3px;min-height:120px}#sigma-home{min-height:100vh}body.sigma-home-fallback #sigma-home{min-height:0}#sigma-nav:not(:empty){min-height:64px}.company-tasks{min-height:120px}#userBadge,#emsBubble{display:none}#sigma-header-actions{min-height:40px}.filter-bar{padding:0;margin:0;border:0;background:none;min-height:0}.filter-bar>.search-input,.filter-bar>.filter-chip{display:none}#grid-new,#grid-active{display:none}:root[data-gate=pick] #loginModal{display:flex}</style>
 <!-- critical:end -->
@@ -40,11 +40,11 @@
      the inlined critical block above stays because it is what paints if either 404s. -->
 <!-- css/app.min.css is GENERATED from css/app.css by build.mjs (26 kB → 14 kB gzipped on a
      render-blocking request); css/app.css stays the hand-written source of truth. -->
-<link rel="stylesheet" href="css/app.min.css?v=muj4tq7l">
+<link rel="stylesheet" href="css/app.min.css?v=mujfxi76">
 <!-- ui/sigma.css loads at NORMAL priority. It was tried as a `media="print"` swap: 8 kB
      gzipped off the critical path, against the risk of an island painting unstyled if the
      swap lands after it mounts. Not a trade worth making for 8 kB. -->
-<link rel="stylesheet" href="ui/sigma.css?v=muj4tq7l">
+<link rel="stylesheet" href="ui/sigma.css?v=mujfxi76">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -93,29 +93,6 @@
     </div>
   </div>
 
-  <!-- עמיחי: supplier orders >10 items awaiting approval (animated nudge, mirrors the attendance one) -->
-  <div class="modal-backdrop" id="amichaiApprovalModal" style="z-index:1300;">
-    <div class="modal nudge-card" onclick="event.stopPropagation()" style="max-width:380px;text-align:center;">
-      <div class="nudge-bell">🔔</div>
-      <h3 style="margin:10px 0 4px;color:#5b21b6;">עמיחי, הזמנות לאישורך</h3>
-      <div class="modal-sub" style="margin-bottom:10px;">הזמנות ספק מעל 10 פריטים ממתינות לאישור שלך:</div>
-      <div id="amichaiApprovalList" style="background:#f3e8ff;border:1px solid #c4b5fd;border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;color:#5b21b6;line-height:1.9;text-align:right;"></div>
-      <div class="modal-actions" style="flex-direction:column;gap:8px;">
-        <button class="btn btn-primary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open'); showPage('inventory');">✅ לאישור עכשיו</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open')">אחר כך</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Conversational order questions (controller / power-supply / non-catalog) — "the app asks, you tap" -->
-  <div class="modal-backdrop" id="orderQModal" style="z-index:1400;">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:400px;">
-      <div id="orderQProgress" style="font-size:11px;font-weight:700;color:#6366f1;letter-spacing:.03em;"></div>
-      <h3 id="orderQTitle" style="margin:6px 0 6px;"></h3>
-      <div id="orderQText" style="font-size:14px;color:#334155;line-height:1.6;margin-bottom:14px;"></div>
-      <div id="orderQOptions" style="display:flex;flex-direction:column;gap:10px;"></div>
-    </div>
-  </div>
 
   <!-- Quick-visit kibbutz picker -->
   <div class="modal-backdrop" id="visitQuickModal" style="z-index:1100;">
@@ -333,7 +310,7 @@
 
   <div class="footer">
     Sigmatec Operations
-    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-27·2.79</bdi></span>
+    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-27·2.80</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -711,6 +688,69 @@
   </div>
 </div>
 
+
+<div id="authGate" style="position:fixed;inset:0;z-index:2000;background:linear-gradient(160deg,#16223c 0%,#1b2a4a 55%,#233a66 100%);display:none;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--card);color:var(--text);border-radius:16px;padding:36px 32px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+    <div style="font-size:40px;margin-bottom:8px;">🔒</div>
+    <h2 style="font-size:20px;color:#1b2a4a;margin-bottom:4px;" id="authGateTitle">הזן קוד גישה</h2>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:24px;" id="authGateSub">הזן את קוד הגישה כדי להמשיך</div>
+    <input type="password" id="authCode" inputmode="numeric" maxlength="4" placeholder="• • • •"
+      style="width:100%;padding:14px;font-size:24px;text-align:center;letter-spacing:12px;border:2px solid #e3e8ef;border-radius:10px;font-family:inherit;direction:ltr;"
+      onkeydown="if(event.key==='Enter')checkAuthCode()" oninput="if(this.value.length===4)checkAuthCode()">
+    <div id="authError" style="color:#d64545;font-size:12px;margin-top:10px;height:16px;"></div>
+    <button onclick="checkAuthCode()" style="width:100%;margin-top:8px;padding:13px;background:#1b2a4a;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;">כניסה</button>
+    <button onclick="backToNamePicker()" style="width:100%;margin-top:8px;padding:8px;background:transparent;color:#6b7280;border:none;font-size:13px;font-family:inherit;cursor:pointer;">← חזרה לבחירת שם</button>
+  </div>
+</div>
+
+<!-- Soft Login Modal -->
+<div class="modal-backdrop" id="loginModal" style="z-index:1000;">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:420px;">
+    <h3>👋 מי אתה?</h3>
+    <div class="modal-sub">בחר את שמך, ולאחר מכן הזן קוד גישה.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;">
+      <button class="btn btn-primary login-btn" id="loginBtnIdan" onclick="setLoggedInUser('עידן')">עידן</button>
+      <button class="btn btn-primary login-btn" onclick="setLoggedInUser('עמיחי')">עמיחי</button>
+      <button class="btn btn-primary login-btn" onclick="setLoggedInUser('אביאם')">אביאם</button>
+      <button class="btn btn-primary login-btn" onclick="setLoggedInUser('ניתאי')">ניתאי</button>
+      <button class="btn btn-primary login-btn" onclick="setLoggedInUser('אבצן')">אבצן</button>
+      <button class="btn btn-primary login-btn" onclick="setLoggedInUser('מתניה')">מתניה</button>
+      <button class="btn btn-primary login-btn login-btn-wide" onclick="setLoggedInUser('אליה')">אליה</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✅ נפתח וואטסאפ! לחץ שלח</div>
+
+<!-- Activity Today Modal -->
+<div class="modal-backdrop" id="activityModal">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:650px;max-height:85vh;overflow-y:auto;">
+    <h3>📊 פעילות במערכת</h3>
+    <div class="modal-sub" id="activityModalSub">פעולות שאינן קשורות לקטגוריות הקמת המערכת</div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin:14px 0;">
+      <label style="margin:0;">תקופה:</label>
+      <select id="activityRange" onchange="renderActivity()">
+        <option value="today">היום</option>
+        <option value="yesterday">אתמול</option>
+        <option value="week">7 ימים אחרונים</option>
+        <option value="all">הכל</option>
+      </select>
+      <span id="activityCount" style="background:var(--gray-light);padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;">—</span>
+    </div>
+
+    <div id="activityContent" style="font-size:13px;line-height:1.7;"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="document.getElementById('activityModal').classList.remove('open')">סגור</button>
+      <button class="btn btn-primary" onclick="copyActivityReport()">📋 העתק דוח</button>
+    </div>
+  </div>
+</div>
+
+<!-- Inventory: New/Edit Order Modal -->
+
+<!-- Inventory: New/Edit Product Modal -->
 <!-- Customer Requirement Modal -->
 <div class="modal-backdrop" id="invRequirementModal">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:600px;">
@@ -747,15 +787,6 @@
     </div>
   </div>
 </div>
-
-<!-- 🚚 תעודת משלוח (inventory spec, package I, task U4) — the always-listening cert island: the
-     sheet/signature/viewer/send can be opened from any page (a visit's "הפקת תעודה", the legacy
-     compat shims in 20-delivery-cert.js), so it loads at boot like #sigma-stock-change. -->
-<div id="sigma-cert"></div>
-<!-- 🔔 Inventory nudges (inventory spec, package I, task U7) — עמיחי approval reminder + the
-     approved-orders notice; always-listening like #sigma-cert, since a nudge can fire from any
-     page once the data loads. -->
-<div id="sigma-inventory-nudges"></div>
 
 <!-- Delivery-cert + export tools, opened from the נוכחות page.
      The דוח ביקורי שטח that used to live here is GONE — visits are contained in the נוכחות report
@@ -873,6 +904,14 @@
 <!-- 📝 יומן היום (Task 16, spec §7i) — the day-log sheet, opened from ⋯ עוד -->
 <div id="sigma-daylog"></div>
 <div id="sigma-stock-change"></div>
+<!-- 🚚 תעודת משלוח (inventory spec, package I, task U4) — the always-listening cert island: the
+     sheet/signature/viewer/send can be opened from any page (a visit's "הפקת תעודה", the legacy
+     compat shims in 20-delivery-cert.js), so it loads at boot like #sigma-stock-change. -->
+<div id="sigma-cert"></div>
+<!-- 🔔 Inventory nudges (inventory spec, package I, task U7) — עמיחי approval reminder + the
+     approved-orders notice; always-listening like #sigma-cert, since a nudge can fire from any
+     page once the data loads. -->
+<div id="sigma-inventory-nudges"></div>
 <!-- ▶ מצב ישיבה (Task 24) — a full-screen overlay; the island renders nothing until it is opened. -->
 <div id="sigma-presenter"></div>
 <!-- ▶ ישיבת פיתוח (Task 30) — the dev board's own meeting screen and its 📋 prep card. Same
@@ -900,7 +939,7 @@
      the nav so it reads next to it in source even though both are position:fixed. -->
 <div id="sigma-my-tasks"></div>
 <div id="sigma-nav"></div>
-<script defer src="js/app.js?v=muj4tq7l"></script>
+<script defer src="js/app.js?v=mujfxi76"></script>
 <script>
 // The islands are FETCHED early (rel=modulepreload in <head>) but EXECUTED after the first
 // paint (task 22b). As a plain deferred module they ran in the same turn as the legacy bundle,
@@ -912,7 +951,7 @@
   function go() {
     var s = document.createElement('script');
     s.type = 'module';
-    s.src = 'ui/sigma.js?v=muj4tq7l';
+    s.src = 'ui/sigma.js?v=mujfxi76';
     document.body.appendChild(s);
   }
   function afterPaint() {
