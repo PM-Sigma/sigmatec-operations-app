@@ -6,10 +6,26 @@
 // by kibbutz, a reorder survives a reload (the harness keeps a real day_plans store), ➕
 // searches a kibbutz and offers its tasks with a counted שבץ, and 🌴 opens a range.
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test } from './_helpers';
-import type { Page } from '@playwright/test';
+import type { Page, TestInfo } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
 test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
+
+/**
+ * QA gate 6 evidence — round 9's own `qa/evidence/qa6-cal/<viewport>-<theme>-<suffix>.png`,
+ * separate from the shared `shot()` (`qa/playwright/shots/…`) so this round's phone-QA fixes
+ * (4.1/4.2/4.3) leave their own paper trail without touching the shared spec's screenshots.
+ */
+async function qa6Shot(page: Page, testInfo: TestInfo, suffix: string): Promise<void> {
+  const theme = (testInfo.project.metadata as any).theme as string;
+  const viewport = (testInfo.project.metadata as any).viewport as string;
+  const dir = resolve(testInfo.config.rootDir, '..', '..', 'evidence', 'qa6-cal');
+  const file = resolve(dir, `${viewport}-${theme}-${suffix}.png`);
+  await mkdir(dir, { recursive: true });
+  await page.screenshot({ path: file });
+}
 
 /**
  * Open the calendar the way every nav entry does, and wait for the island. `showPage` is
@@ -162,6 +178,46 @@ test('calendar: א–ה is the default month, and one button gives the full one 
   await expect(page.locator('.ucal-add')).toHaveCount(0);
 
   await shot(page, ti, 'work-week');
+  expectNoConsoleErrors(rec);
+});
+
+// עידן's phone QA 4.2 (27.9): `.ucal-week` always reserved an `auto` label column even with
+// no `.ucal-weeklabel` child (חודש עבודה has none) — the 5-day row got squeezed into whatever
+// was left instead of the full grid width. Fixed with a `:has()` gate in styles.css.
+test('calendar QA 4.2: חודש עבודה is a full-width 5-column grid, not squeezed', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+
+  const grid = page.getByTestId('cal-grid');
+  await expect(grid).toHaveAttribute('data-cols', '5'); // work-month is the default (G1)
+  await expect(page.locator('.ucal-week-days').first().locator('.ucal-cell')).toHaveCount(5);
+
+  const gridBox = (await grid.boundingBox())!;
+  const rowBox = (await page.locator('.ucal-week-days').first().boundingBox())!;
+  expect(Math.abs(rowBox.width - gridBox.width), 'the 5-day row spans the grid\'s own width').toBeLessThanOrEqual(2);
+
+  await qa6Shot(page, ti, 'work-month-full-width');
+  expectNoConsoleErrors(rec);
+});
+
+// The month's visit reports (which kibbutz was visited on which day) must show as a chip in
+// חודש עבודה too, not just future planning blocks — and tapping the chip opens the read view.
+test('calendar QA 4.2: a fixture visit renders its kibbutz chip, and tapping it opens the visit', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+
+  const visitDay = await page.evaluate(() => String(((window as any).SHEET_DATA.visits || []).find((v: any) => v.visitor === 'אביאם').date).slice(0, 10));
+  const cell = page.locator(`[data-date="${visitDay}"]`);
+  await expect(cell.getByText('חוקוק')).toBeVisible();
+  await qa6Shot(page, ti, 'work-month-visit-chip');
+
+  await cell.click();
+  if (await dayBody(page).locator('[data-visit-row="vis-אביאם"]').count()) {
+    await dayBody(page).locator('[data-visit-row="vis-אביאם"]').click();
+  }
+  await expect(page.getByTestId('cal-visit-sheet')).toContainText('חוקוק');
+  await qa6Shot(page, ti, 'work-month-visit-read-view');
+
   expectNoConsoleErrors(rec);
 });
 
