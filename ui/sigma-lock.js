@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import{i as e}from"./sigma.js?v=muj43oi4";/**
-=======
-import{k as e}from"./sigma.js?v=muj41end";/**
->>>>>>> origin/main
+import{k as e}from"./sigma.js?v=muj4tq7l";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.

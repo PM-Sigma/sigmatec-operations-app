@@ -12,7 +12,6 @@
   "./ui/sigma-chevron-left.js",
   "./ui/sigma-chevron-right.js",
   "./ui/sigma-chevron-up.js",
-  "./ui/sigma-chip.js",
   "./ui/sigma-day-cell.js",
   "./ui/sigma-DayLog.js",
   "./ui/sigma-DesktopNav.js",
