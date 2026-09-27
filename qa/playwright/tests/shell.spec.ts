@@ -2,7 +2,7 @@
 // brand-mark), PageBar, GearSheet, the desktop ⋯ עוד, the offline banner. U1 step 1 pins the
 // badge-collision regression (round-5 grill "General 1"); every other test here is the one the
 // U-task table calls for its own island.
-import { boot, expect, expectNoConsoleErrors, expectRtl, SB_ORIGIN, test } from './_helpers';
+import { boot, expect, expectNoConsoleErrors, expectRtl, SB_ORIGIN, shot, test } from './_helpers';
 
 test.describe('AppHeader cluster', () => {
   test('bell + my-tasks + gear are on screen, and the two badges never touch (S-1)', async ({ page }, ti) => {
@@ -54,6 +54,27 @@ test.describe('GearSheet (U2)', () => {
       await expect(sheet.getByRole('button', { name: row })).toBeVisible();
     }
     expectNoConsoleErrors(rec);
+  });
+
+  // Designer round 3/4: on desktop the sheet is a centred dialog, narrower than ⋯ עוד's 560
+  // (it is identity + a handful of rows, not a list) — `.s-gear-desktop` in shell.css, width
+  // min(480px, 100vw-32px). Evidence recaptured here (round 5 resume item) instead of only in
+  // the designer's own screenshot pass.
+  test('desktop: centred dialog, narrower than ⋯ עוד (≤480px)', async ({ page }, ti) => {
+    test.skip(String(ti.project.metadata && (ti.project.metadata as any).viewport).indexOf('mobile') === 0, 'desktop only');
+    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
+    await page.locator('#sigma-header-actions').getByRole('button', { name: 'הגדרות' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    const box = await sheet.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeLessThanOrEqual(480);
+    // centred: equal gutters left/right (within a px of rounding)
+    const viewportWidth = page.viewportSize()!.width;
+    const leftGutter = box!.x;
+    const rightGutter = viewportWidth - (box!.x + box!.width);
+    expect(Math.abs(leftGutter - rightGutter)).toBeLessThanOrEqual(2);
+    await shot(page, ti, 'gear-desktop');
   });
 });
 
@@ -111,6 +132,26 @@ test.describe('Desktop ⋯ עוד (S-9/S-10)', () => {
     await trigger.click();
     await expect(page.getByRole('dialog')).toBeVisible();
   });
+
+  // Designer round 4: max-height min(60vh, 480px), not "fit the whole list" — a long list (עידן,
+  // who sees both the app AND admin blocks) is deliberately cut mid-row instead of scrolling
+  // invisibly or fading, so the cut itself is the "more below" cue. Evidence recaptured here
+  // (round 5 resume item) instead of only in the designer's own screenshot pass.
+  test('a long list (עידן) is capped at 480px and visibly cut mid-row, not scrolled to fit', async ({ page }, ti) => {
+    test.skip(String(ti.project.metadata && (ti.project.metadata as any).viewport).indexOf('mobile') === 0, 'desktop only');
+    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
+    await page.locator('#sigma-header-actions').getByRole('button', { name: 'עוד' }).click();
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    const box = await sheet.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeLessThanOrEqual(480);
+    // the cut is real, not merely capped with nothing to cut: scrollHeight exceeds the box, so
+    // the last visible row is genuinely half off-screen rather than the list just fitting.
+    const overflow = await sheet.evaluate(el => el.scrollHeight > el.clientHeight);
+    expect(overflow).toBe(true);
+    await shot(page, ti, 'more-desktop-half-peek');
+  });
 });
 
 test.describe('desktop nav (U6)', () => {
@@ -129,6 +170,18 @@ test.describe('desktop nav (U6)', () => {
       await expect(nav.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
     await expect(page.locator('#sigma-desktop-nav').getByRole('button', { name: 'תיעוד ביקור' })).toBeVisible();
+    // Designer round 4: ביקור moved FROM a `justify-between` sibling of <nav> (thrown to the
+    // far end of the whole bar, reading as loose/misplaced) INTO <nav> itself, last item, same
+    // h-11 as the tabs — asserted here as "same nav, last child" instead of only visible
+    // anywhere on the page.
+    const visitBtn = nav.getByRole('button', { name: 'תיעוד ביקור' });
+    await expect(visitBtn).toBeVisible();
+    const isLastChildOfNav = await visitBtn.evaluate((el, navSelector) => {
+      const navEl = el.closest(navSelector);
+      return !!navEl && navEl.lastElementChild === el;
+    }, 'nav[aria-label="ניווט ראשי"]');
+    expect(isLastChildOfNav).toBe(true);
+    await shot(page, ti, 'desktop-nav');
   });
 });
 
