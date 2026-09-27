@@ -116,3 +116,57 @@ export class EmsUnsupported extends Error {
     this.name = 'EmsUnsupported';
   }
 }
+
+// ───────────── פעולות שטח → קריאת מודבוס (spec 2026-09-23-field-ops-modbus-design.md) ─────────────
+
+/** One EMS Modbus meter, with exactly what the read needs: where it is and how EMS scales it.
+ *  Multipliers are the raw EMS numbers (null when missing/unparseable); `lib/fieldops/modbusScale.ts`
+ *  is the one place that turns null/0 into 1. */
+export interface EmsModbusMeter {
+  id: string;
+  serial: string;
+  address: string;
+  siteId: string;
+  siteName: string;
+  ip: string;
+  /** Modbus unit id (EMS `device_number`, parseInt || 1 — the same rule EMS uses). */
+  unit: number;
+  typeCode: number | null;
+  typeName: string;
+  cm: number | null;
+  vm: number | null;
+  pm: number | null;
+  typePm: number | null;
+  /** EMS last transmission time (ISO) or null. */
+  lastCallDate: string | null;
+}
+
+/** One EMS meter_operation_logs row as the field-ops function returns it. */
+export interface ModbusOpLog {
+  id: string;
+  operationCode: string;
+  status: string;
+  /** The ModbusClient reply, untouched. */
+  responseData: unknown;
+  errorMessage: string;
+  createdAt: string;
+  completedAt: string;
+  executedBy: string;
+}
+
+/** What to read: an EMS meter (list mode) or a typed target (manual mode). */
+export interface ModbusTarget {
+  meterId?: string;
+  ip?: string;
+  unit?: number;
+  /** EMS meter_types.code — required for an IP no EMS meter has. */
+  typeCode?: number;
+}
+
+export interface ModbusOpResult {
+  /** The EMS meter whose multipliers apply, or null when the device is not that meter. */
+  meter: EmsModbusMeter | null;
+  /** Which EMS params were overridden (manual mode). */
+  override: string[];
+  log: ModbusOpLog | null;
+}

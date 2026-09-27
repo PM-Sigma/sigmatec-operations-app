@@ -6,8 +6,8 @@
 // except `lib/ems/adapters/*` (plus a shrinking legacy allowlist).
 import { sigma } from '@/bridge';
 import type {
-  CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsSite, EmsTask, EmsUser,
-  ListTasksQuery, OfflineQueueItem, TaskPatch, WriteResult,
+  CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsModbusMeter, EmsSite, EmsTask, EmsUser,
+  ListTasksQuery, ModbusOpLog, ModbusOpResult, ModbusTarget, OfflineQueueItem, TaskPatch, WriteResult,
 } from './types';
 import { restAdapter } from './adapters/rest';
 
@@ -52,6 +52,16 @@ export interface EmsGateway {
   queueOffline(item: OfflineQueueItem): void;
 
   listUsers(): Promise<EmsUser[]>;
+
+  // פעולות שטח → קריאת מודבוס — through the `field-ops` Edge Function (EMS meter-operations).
+  /** The site's Modbus meters. */
+  modbusMeters(siteId: string): Promise<EmsModbusMeter[]>;
+  /** Every EMS Modbus meter on this IP (manual mode's "who is on this IP" table). */
+  modbusLookup(ip: string): Promise<EmsModbusMeter[]>;
+  modbusRead(target: ModbusTarget): Promise<ModbusOpResult>;
+  modbusPing(target: ModbusTarget): Promise<ModbusOpResult>;
+  /** The last 5 EMS operations on the meter. */
+  meterOpsHistory(meterId: string): Promise<ModbusOpLog[]>;
 
   /** Not in REST — present so the MCP adapter can light them up without an interface change. */
   listAlerts(siteId?: string): Promise<null>;

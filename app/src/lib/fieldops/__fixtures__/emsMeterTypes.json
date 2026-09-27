@@ -1,0 +1,140 @@
+{
+ "data": [
+  {
+   "code": 10,
+   "name": "Satec EM133",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 11,
+   "name": "Satec 133-LR",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 12,
+   "name": "Satec PM135",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 13,
+   "name": "Satec 175/135 HV",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 14,
+   "name": "Satec L123",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 15,
+   "name": "Satec BFM 2",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "0.1000"
+  },
+  {
+   "code": 20,
+   "name": "QNG1",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 21,
+   "name": "QNG3",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 22,
+   "name": "QNG4",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 23,
+   "name": "Carlo Gavazzi EM300",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 24,
+   "name": "Carlo Gavazzi EM341",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 25,
+   "name": "ABB B23/B24",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 40,
+   "name": "Fineco EM418",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 41,
+   "name": "Fineco EM437-X",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 42,
+   "name": "Fineco EM737",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 43,
+   "name": "Fineco EM737 Direct",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  },
+  {
+   "code": 126,
+   "name": "Carlo Gavazzi EM331",
+   "currentMultiplier": "1.0000",
+   "voltageMultiplier": "1.0000",
+   "powerFactorMultiplier": "1.0000",
+   "powerMultiplier": "1.0000"
+  }
+ ]
+}

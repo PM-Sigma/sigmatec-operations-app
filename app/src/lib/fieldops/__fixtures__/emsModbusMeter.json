@@ -1,0 +1,14 @@
+{
+  "id": "0b8f6c1e-3c7a-4e1d-9d52-6a1f2b3c4d5e",
+  "serialNumber": "1557654",
+  "address": "לול צפוני",
+  "ipAddress": " 192.0.2.44 ",
+  "deviceNumber": "3",
+  "currentMultiplier": "200.0000",
+  "voltageMultiplier": "1.0000",
+  "powerMultiplier": null,
+  "site": { "id": "7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f", "name": "קיבוץ דוגמה" },
+  "type": { "code": 25, "key": "abb_b23", "name": "ABB B23/B24", "powerMultiplier": "1.0000" },
+  "role": { "code": 1 },
+  "lastTransmission": { "callDate": "2026-09-27T09:30:00.000Z", "goodRow": true }
+}
