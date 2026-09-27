@@ -4,7 +4,7 @@
 // (Supabase / Apps Script) is never touched → data is always live. build.mjs restamps CACHE
 // on every build so phones fetch fresh bytes each deploy.
 <<<<<<< HEAD
-const CACHE = 'sigmatec-ops-mujpkrks';
+const CACHE = 'sigmatec-ops-mujq15uc';
 =======
 const CACHE = 'sigmatec-ops-mujpbfu9';
 >>>>>>> origin/main
