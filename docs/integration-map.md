@@ -140,7 +140,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:427<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
 | `stock-changed` | js/src/07-orders.js:1244<br>js/src/09-visits.js:1154<br>js/src/09-visits.js:1358<br>app/src/islands/StockChange.tsx:206<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:132<br>app/src/islands/InventoryStrip.tsx:99<br>js/src/08-inventory.js:115 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
-| `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:426<br>app/src/islands/Attendance.tsx:313<br>app/src/islands/FeedbackInbox.tsx:271<br>app/src/islands/Field.tsx:168<br>app/src/islands/Usage.tsx:215<br>app/src/lib/currentPage.ts:27<br>…+2 |
+| `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:426<br>app/src/islands/Attendance.tsx:313<br>app/src/islands/FeedbackInbox.tsx:271<br>app/src/islands/Field.tsx:168<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:674<br>js/src/09-visits.js:705<br>js/src/09-visits.js:772<br>js/src/09-visits.js:907 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
 | `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:158<br>js/src/00-bridge.js:485<br>app/src/islands/Field.tsx:2123 |
 | `visit-saved` | js/src/09-visits.js:1183<br>js/src/09-visits.js:1376<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:306<br>app/src/islands/Calendar.tsx:1373<br>app/src/islands/Field.tsx:167<br>app/src/islands/Field.tsx:2238<br>app/src/islands/Presenter.tsx:224<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
@@ -182,7 +182,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-stock-change` | :1200 | app/src/islands/StockChange.tsx:347<br>app/src/main.tsx:194 |
 | `#sigma-toaster` | :1222 | app/src/main.tsx:102 |
 | `#sigma-today` | :292 | app/src/islands/Field.tsx:2351<br>app/src/main.tsx:159 |
-| `#sigma-usage` | :1194 | app/src/islands/Usage.tsx:322<br>app/src/main.tsx:280 |
+| `#sigma-usage` | :1194 | app/src/islands/Usage.tsx:332<br>app/src/main.tsx:280 |
 
 ## (d) Supabase tables the client reads or writes
 
@@ -282,7 +282,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:305 |
 | `staff-message` | `Mail` | app/src/main.tsx:315 |
 | `stock-change` | `Package` | app/src/islands/StockChange.tsx:349 |
-| `usage` | `TrendingUp` | app/src/islands/Usage.tsx:324 |
+| `usage` | `TrendingUp` | app/src/islands/Usage.tsx:334 |
 
 ## (h) EMS access — the gateway (spec §7o)
 

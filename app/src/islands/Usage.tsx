@@ -100,7 +100,16 @@ const HEAT_BG = ['bg-muted/40', 'bg-primary/15', 'bg-primary/35', 'bg-primary/60
 
 function HeatTable({ report }: { report: UsageReport }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <div className="relative rounded-xl border border-border">
+      {/* Designer (round-5 R-U Opus audit, 412 width): the heat table's own columns run past
+          the card edge with nothing telling the reader more sits off-screen — the last column
+          just gets cut. A fade on the scroll container's inline-end edge (physically the LEFT
+          in this RTL app — the sticky "שם" column pins the start/right edge, so the table can
+          only ever overflow further left) reads as "there's more here" without JS or a scroll
+          listener. `to-l`/`to-card` are physical on purpose: they track the visual left edge
+          regardless of writing direction, which is what a person actually sees cut off. */}
+      <div aria-hidden className="pointer-events-none absolute inset-y-0 end-0 z-10 w-8 rounded-e-xl bg-gradient-to-l from-transparent to-card" />
+      <div className="overflow-x-auto rounded-xl">
       <table className="w-full border-collapse text-center text-[12px] tabular-nums">
         <thead>
           <tr className="bg-muted/60">
@@ -126,6 +135,7 @@ function HeatTable({ report }: { report: UsageReport }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
