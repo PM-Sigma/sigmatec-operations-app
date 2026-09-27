@@ -2301,7 +2301,7 @@ function FieldIsland() {
               transition={{ duration: dur, ease: 'easeOut' }}
               className="relative max-h-[92svh]"
             >
-              <SheetTitle className="sr-only">{'בריפינג: ' + picked}</SheetTitle>
+              <SheetTitle className="sr-only">{'דוח מצב של הקיבוץ: ' + picked}</SheetTitle>
               <SheetDescription className="sr-only">כל מה שפתוח בקיבוץ הזה, ושני כפתורי הפעולה.</SheetDescription>
               <Briefing
                 kibbutz={picked}
