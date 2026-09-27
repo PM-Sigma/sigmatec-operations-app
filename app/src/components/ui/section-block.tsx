@@ -111,26 +111,17 @@ export function SectionBlock({
       {/* grid-template-rows 0fr→1fr at `base` (sign-off P1-11) — the standard CSS-only
           collapse animation: the row track itself grows/shrinks, so content never needs a
           measured pixel height, and `overflow:hidden` clips the collapsed state. Non-collapsible
-          sections render the same grid at a fixed 1fr, so this is the only body markup either way.
-          The full-bleed escape (non-flush) is applied HERE, on this outer wrapper, not on an
-          inner div nested inside the `overflow-hidden` box below: a negative-margin child placed
-          INSIDE `overflow-hidden` gets its own bleed clipped right back to the padded box by that
-          very `overflow-hidden` (it clips at ITS OWN edges, not the child's), which is what
-          silently cut ~30px off every non-flush row's inline-start/right side. Widening this
-          wrapper first means `overflow-hidden`'s own box already spans the full bled width, so it
-          has nothing left to clip horizontally. `-ms-4 -me-4` (logical, not `-mx-4`) so the bleed
-          reads as "this many pixels past each EDGE" rather than "past left/right", which is what
-          RTL needs it to mean. */}
+          sections render the same grid at a fixed 1fr, so this is the only body markup either way. */}
       <div
-        className={cn('grid transition-[grid-template-rows]', !flush && '-ms-4 -me-4 w-[calc(100%+2rem)]')}
+        className="grid transition-[grid-template-rows]"
         style={{
           gridTemplateRows: !collapsible || open ? '1fr' : '0fr',
           transitionDuration: 'var(--s-motion-base)',
           transitionTimingFunction: 'var(--s-ease-standard)',
         }}
       >
-        <div className={cn('overflow-hidden', !flush && 'divide-y divide-border')}>
-          {children}
+        <div className="overflow-hidden">
+          {flush ? children : <div className="-mx-4 divide-y divide-border">{children}</div>}
         </div>
       </div>
     </section>
