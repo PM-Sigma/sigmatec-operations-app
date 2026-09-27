@@ -939,6 +939,23 @@
    though nothing visible moves the sheet itself. :has() closes that one gap. */
 html:has(body[data-scroll-locked]) { overflow: hidden !important; }
 
+/* Designer (26.9, desktop 1440): opening ⋯ עוד shifted the WHOLE page ~24px up-right (header,
+   bell badge, "קיבוצים" clipped). react-remove-scroll-bar (every Radix Sheet/Dialog)'s default
+   gapMode ('margin') reads BODY's margin-left/top/right (0, this app resets margin on
+   everything) and writes THOSE straight through as `padding-left`/`padding-top`/`padding-right`
+   on `body[data-scroll-locked]` — an ATTRIBUTE selector, which beats our plain `body{padding:…}`
+   on specificity alone, REGARDLESS of source order or `!important` on our side, so it always
+   won and zeroed the real padding, and body's real padding is what visibly moved the header.
+   Restated at the same specificity+!important below, mirroring body's own two breakpoints
+   exactly — `scrollbar-gutter: stable` was tried first but shifts ⋯ עוד/GearSheet's OWN fixed,
+   centred dialogs off-centre by the reserved gutter width instead (position:fixed's containing
+   block is the real viewport, unaffected by html's reserved gutter track), trading one 15px
+   shift for another; this fixes the actual zeroed-padding cause without it. */
+body[data-scroll-locked] { padding: 12px 16px !important; margin: 0 !important; }
+@media (min-width: 768px) {
+  body[data-scroll-locked] { padding: 24px !important; }
+}
+
 /* U6 residual: a full-screen Sheet (⋯ עוד, ⚙️ הגדרות, …) covers the fixed phone nav visually
    (its z-index is far above it) but the nav bar stays mounted underneath — its own last rows
    can then sit inside the SAME pixel band the sheet's bottom rows occupy, which the nav

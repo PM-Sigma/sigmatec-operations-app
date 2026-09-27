@@ -129,8 +129,15 @@ test.describe('Desktop ⋯ עוד (S-9/S-10)', () => {
     await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
     const trigger = page.locator('#sigma-header-actions').getByRole('button', { name: 'עוד' });
     await expect(trigger).toBeVisible();
+    const headerBefore = await page.locator('.header').boundingBox();
     await trigger.click();
     await expect(page.getByRole('dialog')).toBeVisible();
+    // Designer (26.9, 1440): opening the sheet shifted the WHOLE page ~24px up-right — Radix's
+    // scroll-lock hid <html>'s scrollbar (the real scroller here, not body) and reflowed the
+    // viewport width. `scrollbar-gutter: stable` on html (styles.css) reserves that space
+    // permanently, so the header must not move a pixel when the dialog opens.
+    const headerAfter = await page.locator('.header').boundingBox();
+    expect(headerAfter).toEqual(headerBefore);
   });
 
   // Designer round 4: max-height min(60vh, 480px), not "fit the whole list" — a long list (עידן,
