@@ -204,6 +204,42 @@ export function issueBody(i: {
   ].join('\n');
 }
 
+// ───────────────────────────── error → bug report (round 6, QA 2.3) ─────────────────────────────
+// The window event the command bar / `runAdd('feedback')` / an error toast's "דווח כבאג"
+// action dispatch to open this sheet — lives here (not in islands/Feedback.tsx) so a low-level
+// module like lib/pending.ts can dispatch it without importing the whole React island (that
+// would be a circular import: pending.ts → Feedback.tsx → lib/supabase.ts → pending.ts).
+export const FEEDBACK_OPEN_EVENT = 'sigma-open-feedback';
+
+/**
+ * The prefilled text for a "דווח כבאג" report opened from an error toast. Hebrew message +
+ * raw code/message + page + action + timestamp + app version — no tokens, no secrets, no row
+ * data (spec 2.3: "no tokens/secrets/row data"). Pure so the exact payload shape is golden-
+ * tested without a browser.
+ */
+export function errorBugReportText(i: {
+  hebrew: string; code?: string | null; raw?: string | null;
+  page?: string; action?: string; at: string; appVersion?: string;
+}): string {
+  const lines = [
+    i.hebrew,
+    '',
+    `קוד/פרטים: ${i.code ? i.code + ' — ' : ''}${(i.raw || '').slice(0, 500) || 'לא ידוע'}`,
+    `עמוד: ${i.page || 'לא ידוע'}`,
+    `פעולה: ${i.action || 'לא ידוע'}`,
+    `זמן: ${dmyTime(i.at)}`,
+    `גרסה: ${i.appVersion || 'לא ידוע'}`,
+  ];
+  return lines.join('\n');
+}
+
+function dmyTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso || '');
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  return `${dmy(d.toISOString())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
 // ───────────────────────────── the voice ladder ─────────────────────────────
 
 export type VoicePhase = 'idle' | 'listening' | 'recording' | 'transcribing' | 'failed';

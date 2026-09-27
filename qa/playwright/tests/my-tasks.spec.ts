@@ -87,6 +87,39 @@ test('closing a task can be undone and writes nothing', async ({ page }, ti) => 
   await expectNoConsoleErrors(rec);
 });
 
+test('my tasks: tapping anywhere on a 🔒 row opens its kibbutz, not only the ✓ bubble', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await addInternal(page, 'חוקוק', 'לבדוק מד לחץ');
+
+  await page.getByTestId('header-my-tasks').click();
+  const sheet = page.getByTestId('my-tasks');
+  const hukok = sheet.locator('.my-task-group[data-group="חוקוק"]');
+  const row = hukok.locator('.internal-task-row', { hasText: 'לבדוק מד לחץ' });
+
+  // tapping the row's own title/meta area — not the ✓ bubble — opens the kibbutz sheet.
+  await row.locator('bdi', { hasText: 'לבדוק מד לחץ' }).click();
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
+  await expect(sheet).toHaveCount(0); // my-tasks sheet closed itself on navigate, like EmsRow does
+
+  await expectNoConsoleErrors(rec);
+});
+
+test('my tasks: the ✓ bubble on a 🔒 row still just closes the task, it does not also open the kibbutz', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await addInternal(page, 'חוקוק', 'לבדוק שסתום');
+
+  await page.getByTestId('header-my-tasks').click();
+  const sheet = page.getByTestId('my-tasks');
+  const hukok = sheet.locator('.my-task-group[data-group="חוקוק"]');
+  await hukok.locator('.internal-task-row', { hasText: 'לבדוק שסתום' })
+    .getByRole('button', { name: 'סימון כטופל' }).click();
+
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toHaveCount(0);
+  await expect(sheet).toBeVisible(); // my-tasks stayed open — only the row's own undo toast fired
+
+  await expectNoConsoleErrors(rec);
+});
+
 test('the viewer sees no close bubble', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
   await page.getByTestId('header-my-tasks').click();

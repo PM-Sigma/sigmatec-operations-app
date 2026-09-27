@@ -6,6 +6,8 @@
 // so the timeout, the message and the retry action are written once instead of per screen.
 // ═══════════════════════════════════════════════════════════════════════════
 import { toast } from 'sonner';
+import { classifyError } from './errorMessages';
+import { FEEDBACK_OPEN_EVENT, errorBugReportText } from './feedback';
 
 /** Supabase writes (`sbWrite`). A PostgREST round trip that has not answered in 15 s is hung. */
 export const SB_TIMEOUT_MS = 15_000;
@@ -50,21 +52,67 @@ export interface MutationToast {
   error?: string;
   /** Offered as "נסה שוב" on failure. Usually the same call again. */
   retry?: () => void;
+  /** What the caller was trying to do, for the bug report ("סימון כטופל", "שמירת הזמנה", …). */
+  action?: string;
+}
+
+export const REPORT_BUG_LABEL = 'דווח כבאג';
+
+/** The visible "גרסת בנייה" line index.html stamps on every build (build.mjs) — the one place
+ *  the deployed version already lives; no separate constant to keep in sync by hand. */
+function currentAppVersion(): string {
+  try {
+    const el = document.querySelector('[title="גרסת בנייה"]');
+    const m = String(el?.textContent || '').match(/([\d.]+)\s*$/);
+    return m ? m[1] : '';
+  } catch { return ''; }
+}
+
+/** Dispatches the SAME event Feedback.tsx listens for (lib/feedback.ts FEEDBACK_OPEN_EVENT),
+ *  pre-filled as a bug report with the mapped message, the raw code/detail, page, action and
+ *  timestamp — never a token, a secret or row data (round 6, QA 2.3). */
+function reportBugAction(e: unknown, action?: string): { label: string; onClick: () => void } {
+  return {
+    label: REPORT_BUG_LABEL,
+    onClick: () => {
+      const info = classifyError(e);
+      const text = errorBugReportText({
+        hebrew: info.hebrew,
+        code: info.code,
+        raw: info.raw,
+        page: location.pathname + location.hash,
+        action,
+        at: new Date().toISOString(),
+        appVersion: currentAppVersion(),
+      });
+      try {
+        window.dispatchEvent(new CustomEvent(FEEDBACK_OPEN_EVENT, { detail: { kind: 'bug', text } }));
+      } catch { /* no DOM */ }
+    },
+  };
 }
 
 /**
  * Pattern 4's outcome half: ONE `toast.promise` for every mutation. Returns the same promise,
  * so the caller still awaits it and still owns its own button `loading` flag.
+ *
+ * Round 6, QA 2.3: the failure message is now ALWAYS the mapped Hebrew sentence (never a raw
+ * "VALIDATION ERROR" / PostgREST code on screen), and the toast always carries "דווח כבאג" —
+ * as `action`, since `toast.promise`'s own error slot only forwards `action`/`cancel`, and a
+ * retry (when one exists) rides `cancel` instead so both buttons are always available together.
  */
 export function runMutation<T>(p: Promise<T>, t: MutationToast): Promise<T> {
   toast.promise(p, {
     loading: t.loading,
     success: v => (typeof t.success === 'function' ? t.success(v) : t.success),
     error: (e: any) => {
-      const msg = isTimeout(e) ? TIMEOUT_MSG : (e?.message || t.error || 'הפעולה נכשלה');
+      const info = classifyError(e);
+      const msg = t.error && !info.code ? t.error + ': ' + info.hebrew : info.hebrew;
+      if (info.raw && !/[֐-׿]/.test(info.raw)) console.warn('[sigma]', info.raw);
       return {
         message: msg,
-        ...(t.retry ? { action: { label: RETRY_LABEL, onClick: t.retry } } : {}),
+        action: reportBugAction(e, t.action),
+        ...(t.retry ? { cancel: { label: RETRY_LABEL, onClick: t.retry } } : {}),
       } as any;
     },
   });
@@ -72,19 +120,17 @@ export function runMutation<T>(p: Promise<T>, t: MutationToast): Promise<T> {
 }
 
 /**
- * Rule 3, in one place: a failure the person sees is in Hebrew and offers a way to try again.
- *
- * The `hasHebrew` test is the part that matters. A dropped connection surfaces as
- * "Failed to fetch" and a PostgREST fault as an English sentence with a code in it — neither
- * is a message, and putting one on screen is the anti-pattern this rule exists for. Anything
- * without a Hebrew letter in it is replaced by the caller's own Hebrew fallback; the original
- * goes to the console, where it belongs.
+ * Rule 3, in one place: a failure the person sees is in Hebrew, in PLAIN language (never a raw
+ * "VALIDATION ERROR" / PostgREST code — round 6, QA 2.3), offers a way to try again, and always
+ * offers "דווח כבאג" so a recurring error can be reported with its technical detail attached
+ * instead of retyped from memory.
  */
-const hasHebrew = (s: string) => /[\u0590-\u05FF]/.test(s);
-
-export function toastFailure(e: unknown, retry?: () => void, fallback = 'הפעולה נכשלה'): void {
-  const raw = String((e as any)?.message || e || '');
-  const msg = isTimeout(e) ? TIMEOUT_MSG : (hasHebrew(raw) ? raw : fallback);
-  if (raw && !hasHebrew(raw)) console.warn('[sigma] ' + raw);
-  toast.error(msg, retry ? { action: { label: RETRY_LABEL, onClick: retry } } : undefined);
+export function toastFailure(e: unknown, retry?: () => void, fallback = 'הפעולה נכשלה', action?: string): void {
+  const info = classifyError(e);
+  const msg = info.code ? info.hebrew : (info.raw && /[֐-׿]/.test(info.raw) ? info.raw : fallback);
+  if (info.raw && !/[֐-׿]/.test(info.raw)) console.warn('[sigma] ' + info.raw);
+  toast.error(msg, {
+    action: reportBugAction(e, action),
+    ...(retry ? { cancel: { label: RETRY_LABEL, onClick: retry } } : {}),
+  } as any);
 }

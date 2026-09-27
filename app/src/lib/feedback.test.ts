@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   FEEDBACK_MIN, KIND_ICON, KIND_LABEL, KIND_PUSH_TITLE, LIVE_NO_RESULT_MS, RECORD_CAP_MS,
-  canSeeFeedbackInbox, canSubmitFeedback, feedbackDraftPayload, feedbackDraftWorthSaving,
+  canSeeFeedbackInbox, canSubmitFeedback, errorBugReportText, feedbackDraftPayload, feedbackDraftWorthSaving,
   feedbackPreview, feedbackRow, feedbackValidate,
   issueBody, issueTitle, parseFeedbackDraft, speechLadder, type FeedbackKind,
 } from './feedback';
@@ -171,6 +171,39 @@ describe('issueBody', () => {
   it('says אנונימי when there is no author', () => {
     expect(issueBody({ kind: 'idea', text: 'רעיון', author: null, createdAt: '2026-09-18T07:05:00Z' }))
       .toContain('אנונימי');
+  });
+});
+
+describe('errorBugReportText — round 6 QA 2.3, the "דווח כבאג" prefill', () => {
+  it('carries the Hebrew message, the raw code/detail, page, action, timestamp and version', () => {
+    const t = errorBugReportText({
+      hebrew: 'הרשומה הזו כבר קיימת. בדוק אם היא כבר נשמרה קודם',
+      code: '23505',
+      raw: 'duplicate key value violates unique constraint "feedback_pkey"',
+      page: '/#kibbutz=חוקוק',
+      action: 'שמירת ביקור',
+      at: '2026-09-18T07:05:00Z',
+      appVersion: '2.84',
+    });
+    expect(t).toContain('הרשומה הזו כבר קיימת');
+    expect(t).toContain('23505');
+    expect(t).toContain('duplicate key value violates unique constraint');
+    expect(t).toContain('/#kibbutz=חוקוק');
+    expect(t).toContain('שמירת ביקור');
+    expect(t).toContain('18.9.26');
+    expect(t).toContain('2.84');
+  });
+
+  it('never needs a page/action/version to still build a valid, safe report', () => {
+    const t = errorBugReportText({ hebrew: 'הפעולה נכשלה', raw: '', at: '2026-09-18T07:05:00Z' });
+    expect(t).toContain('לא ידוע');
+    expect(t).not.toContain('undefined');
+    expect(t).not.toContain('null');
+  });
+
+  it('is exactly the five documented fields — nothing else gets added to the payload', () => {
+    const t = errorBugReportText({ hebrew: 'x', code: '401', raw: 'y', at: '2026-09-18T07:05:00Z' });
+    expect(t.split('\n').filter(Boolean).length).toBe(6); // hebrew, code/detail, page, action, timestamp, version
   });
 });
 
