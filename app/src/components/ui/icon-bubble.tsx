@@ -18,6 +18,7 @@ export function IconBubble({
   className,
   onClick,
   active = false,
+  badgeTestId,
 }: {
   icon: React.ReactNode;
   /** A count (capped at "9+") or a plain dot when `true`. Omit for no badge. */
@@ -28,6 +29,14 @@ export function IconBubble({
   className?: string;
   onClick?: () => void;
   active?: boolean;
+  /**
+   * `data-testid` on the badge pill only (the button itself keeps none — callers already wrap
+   * IconBubble in their own `data-testid` span, per HeaderActions.tsx). Requested but never
+   * landed as a general passthrough (spec §7 "IconBubble should forward data-testid"); this is
+   * the narrow slice a caller actually needs (my-tasks.spec.ts asserts the badge visible on its
+   * own, separately from the button).
+   */
+  badgeTestId?: string;
 }) {
   const badgeText = typeof badge === 'number' ? (badge > 9 ? '9+' : String(badge)) : null;
   const showDot = badge === true;
@@ -55,6 +64,7 @@ export function IconBubble({
       {(badgeText || showDot) && (
         <span
           aria-hidden="true"
+          data-testid={badgeTestId}
           // Fixed #B91C1C in BOTH themes, not var(--danger-ink) (sign-off P1-4): the dark-mode
           // ink (#F87171) is tuned as TEXT on a dark surface, and white-on-it is only 2.77:1 —
           // the same "ink vs fill" mistake styles.css's own --primary/--accent comment documents.

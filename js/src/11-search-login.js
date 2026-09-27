@@ -170,19 +170,12 @@
   function attPerson() { const u = getCurrentUser(); return ATT_PEOPLE.indexOf(u) !== -1 ? u : (window._attPerson || 'אביאם'); }
   function setAttPerson(p) { window._attPerson = p; renderAttendanceReport(); }
   function applyNavVisibility() {
-    const att = document.getElementById('navAttendance');
-    if (att) att.style.display = canSeeAttendance() ? '' : 'none';
-    // 📋 EMS · ✅ משימות · 👥 עובדים retired in Task 14 (spec §7m R1/R2/R5) — their nav buttons
-    // are gone from index.html, so there is nothing left to show or hide here.
-    const inv = document.getElementById('navInventory');   // מתניה (dev, office) doesn't handle inventory; viewer gets read-only inventory (certs registry + stock views; writes stay blocked at the router)
-    if (inv) inv.style.display = (getCurrentUser() !== 'מתניה') ? '' : 'none';
+    // U6: the legacy .page-nav is gone (navAttendance/navInventory/navDev/navPushLog toggles
+    // deleted with it) — the React nav (Nav.tsx / DesktopNav.tsx) asks canShowPage /
+    // canSeeAttendance itself, exactly as this function used to gate those buttons.
     // 🏘️ לקוחות פוטנציאליים — the card home only, עידן + עמיחי (22.9)
     const pb = document.getElementById('potentialsBtn');
     if (pb) pb.style.display = (isIdan() || getCurrentUser() === 'עמיחי') ? '' : 'none';
-    const dev = document.getElementById('navDev');         // פיתוח — עידן + עמיחי (admin) + מתניה + אליה
-    if (dev) dev.style.display = (window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('dev')) ? '' : 'none';   // D-L5: gate moved into canShowPage('dev'), 00-bridge.js
-    const plog = document.getElementById('navPushLog');    // התראות (push log) — עידן only
-    if (plog) plog.style.display = isIdan() ? '' : 'none';
     // 📗 Excel export buttons — עידן + viewer only (canExportExcel in 21-excel-export.js)
     const xlOn = typeof canExportExcel === 'function' && canExportExcel();
     document.querySelectorAll('.xl-export-btn').forEach(b => { b.style.display = xlOn ? '' : 'none'; });

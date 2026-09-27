@@ -40,38 +40,11 @@ const CASES: Array<{ id: string; what: string; html: string }> = [
     what: 'js/src/07-orders.js:635 — order summary chip',
     html: `<div data-probe style="padding:6px 9px;background:var(--surface-2);color:var(--text);border-radius:8px;">🏭 ספק · מספק לנדיס · 3 פריטים</div>`,
   },
-  {
-    id: 'F-04a',
-    what: 'css/app.css .burn-site + .burn-serial (🔥 צריבות card)',
-    html: `<div class="burn-wrap"><div class="burn-site"><div class="burn-site-head">
-             <h3 data-probe>קיבוץ חוקוק</h3>
-             <span class="burn-left" data-probe>נותרו 4</span>
-             <span class="burn-mini" data-probe>12 מתוך 16</span>
-           </div><div class="burn-site-body">
-             <div class="burn-gen" data-probe>גנרטור 1</div>
-             <div class="burn-row burn-pending"><div class="burn-main">
-               <span class="burn-serial" data-probe>E360-12345</span>
-               <span class="burn-addr" data-probe>רח׳ הבנים 4</span>
-               <div class="burn-sub" data-probe>הערה</div></div></div>
-           </div></div></div>`,
-  },
-  {
-    id: 'F-04b',
-    what: 'css/app.css .burn-selbar + the three row-state fills',
-    html: `<div class="burn-wrap">
-             <div class="burn-selbar" data-probe>3 נבחרו</div>
-             <div class="burn-site"><div class="burn-site-body">
-               <div class="burn-row burn-burned"><span class="burn-serial" data-probe>נצרב</span></div>
-               <div class="burn-row burn-burned-ct"><span class="burn-serial" data-probe>נצרב CT</span>
-                 <span class="burn-state" data-probe>CT</span></div>
-               <div class="burn-row burn-issue"><span class="burn-serial" data-probe>בעיה</span>
-                 <div class="burn-warn" data-probe>לא אותר</div></div>
-             </div></div>
-             <span class="burn-tag burn-tag-ct" data-probe>CT</span>
-             <span class="burn-tag burn-tag-pp" data-probe>PP</span>
-             <a class="burn-link" href="#" data-probe>פתח ב-EMS</a>
-           </div>`,
-  },
+  // F-04a/F-04b (js/src/24-meter-burns.js's .burn-* legacy table) retired round 5 G-U4: the
+  // page is a React island now (BurnsPage.tsx / burnsData.ts), css/app.css's `.burn-*` rules
+  // are gone with it, and these two probes started failing on browser-default black text /
+  // link-blue instead of the fixed tokens — a stale regression guard for source that no longer
+  // exists, not a real contrast bug. Removed with the retirement (see 84385856).
   {
     id: 'F-05',
     what: 'css/app.css legacy .kibbutz state tints',

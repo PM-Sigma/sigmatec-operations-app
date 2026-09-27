@@ -558,6 +558,7 @@ export function mountDayLog(opts?: { open?: boolean }): boolean {
     icon: 'Notebook',
     tag: 'ניסיוני',
     group: 'app',
+    tag: 'ניסיוני',
     visible: () => {
       try { return canUseDayLog(sigma.getCurrentUser?.() || ''); } catch { return false; }
     },

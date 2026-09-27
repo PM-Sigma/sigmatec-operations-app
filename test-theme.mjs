@@ -145,7 +145,9 @@ check('the critical CSS is inlined in <head> and generated from css/critical.css
   assert.match(block, /src-sha256:[0-9a-f]{16}/, 'the critical marker is not stamped — run node build.mjs');
   const style = /<style>([\s\S]*?)<\/style>/.exec(block);
   assert.ok(style && style[1].length > 1000, 'the critical block is empty — run node build.mjs');
-  for (const sel of ['--bg:', 'body{', '.page-nav', '.section-header', '.kibbutz-grid']) {
+  // U6 retired .page-nav (the legacy nav is gone, React's #sigma-nav owns it) — .header is the
+  // still-present above-the-fold selector in its place.
+  for (const sel of ['--bg:', 'body{', '.header', '.section-header', '.kibbutz-grid']) {
     assert.ok(style[1].includes(sel), 'the critical CSS is missing ' + sel);
   }
   // The two sheets themselves stay render-blocking (task 22b measured the async swap as a 0.62
@@ -214,7 +216,10 @@ check('body.user-viewer shows the reports hub and hides the write surfaces', () 
 });
 
 check('the viewer reports hub has 44 px controls (it is the only screen he uses)', () => {
-  const hub = css.slice(css.indexOf('.xl-hub-rows'), css.indexOf('body.user-viewer.sigma-nav-ready'));
+  // The end marker used to be `body.user-viewer.sigma-nav-ready .page-nav {…}` — gone with
+  // the legacy nav itself (U6). The `/* @end */` right after the hub block's own rules is the
+  // same boundary, just spelled the way U6 left it.
+  const hub = css.slice(css.indexOf('.xl-hub-rows'), css.indexOf('/* @end */', css.indexOf('.xl-hub-rows')));
   const minHeights = hub.match(/min-height: (\d+)px/g) || [];
   assert.ok(minHeights.length >= 2, 'no min-height on the hub controls');
   minHeights.forEach(m => assert.ok(parseInt(m.match(/\d+/)[0], 10) >= 44, 'a hub control under 44 px: ' + m));

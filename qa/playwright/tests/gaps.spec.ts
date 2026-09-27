@@ -125,8 +125,11 @@ test('gaps: the row opens the sheet on a COLD tap, before the deferred chunk has
   // the tap. The fix reads a pending-open flag synchronously during the island's first
   // render instead, so this must work on the very first tap, cold, every time.
   //
-  // The registry's "⋯ עוד" row (`MoreSheet.tsx`) only renders on the phone-width nav
-  // (`Nav.tsx`: `md:hidden`) — desktop has no bottom bar in this build. Both entry points
+  // The registry's "⋯ עוד" row (`MoreSheet.tsx`) has a phone-nav trigger (`Nav.tsx`, inside
+  // `#sigma-nav`, `md:hidden`) AND — round 5 U6 — a desktop top-tab-row trigger (`DesktopNav.tsx`,
+  // inside `#sigma-desktop-nav`, `hidden md:inline-flex`). Both mount unconditionally (CSS decides
+  // which one is visible), so `getByLabel('עוד')` alone now resolves to both regardless of
+  // viewport — scoped to `#sigma-nav` below to keep hitting the phone one. Both entry points
   // dispatch/consume the SAME `sigma-open-gaps` event through the SAME `main.tsx` listener
   // (`Settings.tsx` line ~85 dispatches it raw, exactly like the row's `onSelect`), so the
   // desktop branch below exercises the identical race via the personal area instead.
@@ -134,8 +137,8 @@ test('gaps: the row opens the sheet on a COLD tap, before the deferred chunk has
   if (isMobileNav) {
     // `getByRole('button', { name: 'עוד' })` also matches the legacy per-card "עוד" (t-more)
     // buttons scattered on the home cards; the bottom-nav trigger is the one with this exact
-    // aria-label (`MoreSheet.tsx`), so `getByLabel` is what actually disambiguates it.
-    await page.getByLabel('עוד', { exact: true }).click();
+    // aria-label (`MoreSheet.tsx`), so `getByLabel` scoped to `#sigma-nav` is what disambiguates it.
+    await page.locator('#sigma-nav').getByLabel('עוד', { exact: true }).click();
     await page.getByRole('button', { name: 'פערים' }).click();
   } else {
     await page.waitForSelector('#sigma-settings[data-sigma-mounted="1"]', { state: 'attached' });

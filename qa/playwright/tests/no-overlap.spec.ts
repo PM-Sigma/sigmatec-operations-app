@@ -147,11 +147,11 @@ const SCREENS: Screen[] = [
   {
     label: 'settings-sheet',
     open: async p => {
-      const viewport = (p as any)._sigmaViewport as string;
-      if (viewport.startsWith('mobile')) await openMoreSheet(p);
-      const chip = p.getByRole('button', { name: /עידן/ }).first();
-      await chip.click();
-      await p.getByRole('menu').getByRole('menuitem', { name: 'הגדרות' }).click();
+      // GearSheet (U2): the ⚙️ header bubble opens a real Sheet, not a dropdown menu — click
+      // the gear bubble directly, then the "הגדרות" row inside the sheet.
+      await p.locator('[data-testid="header-gear"]').getByRole('button', { name: 'הגדרות' }).click();
+      await expect(p.getByRole('dialog')).toBeVisible();
+      await p.getByRole('dialog').getByRole('button', { name: 'הגדרות', exact: true }).click();
       await expect(p.getByRole('dialog').filter({ hasText: 'הגדרות' })).toBeVisible();
     },
   },

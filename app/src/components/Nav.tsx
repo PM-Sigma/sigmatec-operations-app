@@ -37,7 +37,8 @@ function TabButton({
 export const LONG_PRESS_MS = 450;
 
 /**
- * Bottom tab bar — phones only (`md:hidden`; the legacy `.page-nav` keeps the desktop).
+ * Bottom tab bar — phones only (`md:hidden`; DesktopNav.tsx, U6, is desktop's own top-tab row —
+ * the legacy `.page-nav` it replaced is deleted from index.html, not just hidden).
  * Field roles: קיבוצים · רעיון/באג · [ביקור] · מלאי · עוד. Viewer: קיבוצים · דוחות · עוד.
  * 22.9 (עידן): 🚚 תעודה left the bar — a certificate is made from inside a visit summary;
  * its slot went to 📣 רעיון / באג. A long press anywhere on the bar opens the ⋯ sheet.

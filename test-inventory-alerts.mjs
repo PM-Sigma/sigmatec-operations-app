@@ -95,9 +95,12 @@ console.log('\n[6] the islands are wired');
 {
   const html = read('./index.html');
   const main = read('./app/src/main.tsx');
-  check('#sigma-alerts is in the header', /id="sigma-alerts"/.test(html));
+  // U4: the bell moved inside #sigma-header-actions (AlertsBellSlot) — no own placeholder.
+  check('#sigma-header-actions is in the header (mounts the bell)', /id="sigma-header-actions"/.test(html));
   check('#sigma-inventory-strip is on the מלאי page', /id="sigma-inventory-strip"/.test(html));
-  check('main.tsx mounts both', /mountAlerts\(\)/.test(main) && /mountInventoryStrip\(\)/.test(main));
+  // U4: the bell is no longer its own mount — it renders inside HeaderActionsPanel
+  // (AlertsBellSlot), which mountHeaderActions() already mounts.
+  check('main.tsx mounts both', /mountHeaderActions\(\)/.test(main) && /mountInventoryStrip\(\)/.test(main));
 
   const island = read('./app/src/islands/Alerts.tsx') + read('./app/src/islands/InventoryStrip.tsx');
   check('the bell is gated by the pure rule, not by a literal role list',

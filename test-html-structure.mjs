@@ -117,7 +117,8 @@ for (const v of views) {
 // The 🔔 inventory bell, the Ctrl+K/➕/🌙 island, the user badge and the EMS bubble are shell
 // chrome. Inside #kibbutz-view they measure 0×0 on every other page — the low-stock bell was
 // unreachable on the מלאי page it belongs to.
-const CHROME = ['sigma-alerts', 'sigma-header-actions', 'userBadge', 'emsBubble'];
+// U4: the bell no longer has its own placeholder — it mounts inside #sigma-header-actions.
+const CHROME = ['sigma-header-actions', 'userBadge', 'emsBubble'];
 const kib = byId.get('kibbutz-view');
 const inside = new Set();
 (function walk(n) { const i = idOf(n); if (i) inside.add(i); n.children.forEach(walk); })(kib);

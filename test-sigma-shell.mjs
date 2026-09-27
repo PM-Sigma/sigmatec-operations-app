@@ -1,7 +1,9 @@
 // Contract sweep for the React-islands shell (Task 0, fix round 1).
 // These are the rules a later task can silently break from the outside, so they are checked
 // against the real files rather than mocked:
-//   1. the phone bottom-nav CSS only applies once the island actually mounted
+//   1. the phone bottom-nav's own padding is gated on the island actually mounting, and reads
+//      the nav's published height instead of a hardcoded number (U5/U6: the legacy
+//      .page-nav / #visitFab this used to also gate are deleted from index.html entirely)
 //   2. every write/clear of USER_KEY announces 'user-changed' on the bus
 //   3. the boot bundle stays free of the data stack (TanStack / supabase-js)
 //   4. ui/ holds a built bundle that index.html references with a ?v= stamp
@@ -14,18 +16,15 @@ const read = (p) => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 
 console.log('\n[1] phone nav takeover is gated on body.sigma-nav-ready');
 {
-  const css = read('./css/app.css');
-  // the ≤767px block that owns the bottom-nav takeover (app.css has other 767px blocks)
-  const at = css.indexOf('.page-nav', css.indexOf('@media (max-width: 767px)'));
-  const rules = at === -1 ? '' : css.slice(css.lastIndexOf('@media', at), css.indexOf('\n}', at) + 2);
-  check('the ≤767px block exists', rules.includes('@media') && rules.includes('.page-nav'), 'no bottom-nav media block found');
-  for (const sel of ['.page-nav', 'padding-bottom: 84px', '#visitFab']) {
-    const line = rules.split('\n').find(l => l.includes(sel));
-    check(`"${sel}" is gated`, !!line && line.includes('body.sigma-nav-ready'), line && line.trim());
-  }
-  // #visitFab gets an inline style from showPage() — only !important can win
-  const fab = rules.split('\n').find(l => l.includes('#visitFab'));
-  check('#visitFab rule beats the inline style', !!fab && fab.includes('!important'));
+  const html = read('./index.html');
+  check('the legacy .page-nav markup is gone', !html.includes('class="page-nav"'));
+  check('the legacy #visitFab markup is gone', !html.includes('id="visitFab"'));
+
+  const shellCss = read('./app/src/shell/shell.css');
+  const at = shellCss.indexOf('sigma-nav-ready');
+  const rule = at === -1 ? '' : shellCss.slice(shellCss.lastIndexOf('@media', at), shellCss.indexOf('\n}', at) + 2);
+  check('the ≤767px block exists', rule.includes('@media (max-width: 767px)'), 'no bottom-nav padding block found in shell.css');
+  check('body.sigma-nav-ready padding reads --nav-h (not a hardcoded number)', /padding-block-end:\s*calc\(var\(--nav-h\)/.test(rule), rule);
 
   const nav = read('./app/src/components/Nav.tsx');
   check('Nav adds the class on mount', nav.includes("classList.add('sigma-nav-ready')"));

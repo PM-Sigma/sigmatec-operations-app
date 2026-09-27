@@ -7,12 +7,14 @@
 // inbox island's own registration.
 import * as React from 'react';
 import {
-  CalendarDays, CheckSquare, ClipboardList, Code2, Download, FileDown, FileText, Home, Inbox,
-  Clock, MapPin, MessageSquarePlus, MoreHorizontal, Notebook, Package, Settings, TrendingUp, Truck,
-  UserCheck, Users, Bell, Mail, type LucideIcon,
+  CalendarDays, ClipboardList, Code2, FileDown, Flame,
+  Home, Inbox, Clock, ListTodo, MapPin, MessageSquarePlus, MoreHorizontal, Notebook,
+  Package, Settings, TrendingUp, UserCheck, Bell, Mail, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { UserChip } from '@/components/UserChip';
+import { Tag } from '@/components/ui/chip';
+import { IdentityRow } from '@/shell/IdentityRow';
+import { useCurrentUser } from '@/bridge';
 import {
   itemBadge, listMoreItems, onMoreItemsChanged, type MoreItem, type SigmaRole as RegistryRole,
 } from '@/lib/registry';
@@ -22,9 +24,9 @@ import { canShowPage } from '@/lib/canShowPage';
 import { moreLeadsWithInventory } from '@/lib/landing';
 
 export const MORE_ICONS: Record<string, LucideIcon> = {
-  Home, MapPin, Truck, Package, CalendarDays, CheckSquare, ClipboardList, Code2, Users, Bell, Clock,
-  Settings, MessageSquarePlus, Download, FileDown, Inbox, TrendingUp, Notebook, FileText,
-  MoreHorizontal, Mail,
+  Home, MapPin, Package, CalendarDays, ClipboardList, Code2,
+  Bell, Clock, Settings, MessageSquarePlus, FileDown, Inbox, TrendingUp, Notebook,
+  Flame, ListTodo, MoreHorizontal, Mail,
 };
 
 /**
@@ -61,9 +63,9 @@ function Badge({ n }: { n: number }) {
 }
 
 function SheetRow({
-  icon: Icon, label, badge = 0, muted = false, onClick,
+  icon: Icon, label, badge = 0, tag, muted = false, onClick,
 }: {
-  icon: LucideIcon; label: string; badge?: number; muted?: boolean; onClick: () => void;
+  icon: LucideIcon; label: string; badge?: number; tag?: string; muted?: boolean; onClick: () => void;
 }) {
   return (
     <button
@@ -77,13 +79,20 @@ function SheetRow({
     >
       <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
       <span>{label}</span>
+      {/* Designer re-review: `tag` (e.g. "ניסיוני" on יומן היום) sits right next to the row's
+          own label as an ordinary Tag chip — `ms-auto` pinned it to the far end of the row,
+          reading as an unrelated floating label instead of a qualifier on this row's name. */}
+      {tag && <Tag role="neutral">{tag}</Tag>}
       <Badge n={badge} />
     </button>
   );
 }
 
-export function MoreSheet({ role, openSignal = 0, user = '' }: { role: RegistryRole; openSignal?: number; user?: string }) {
+export function MoreSheet({
+  role, openSignal = 0, user = '', variant = 'bar',
+}: { role: RegistryRole; openSignal?: number; user?: string; variant?: 'bar' | 'desktop' }) {
   const [open, setOpen] = React.useState(false);
+  const { name: currentUser, role: currentRole, isViewer: currentIsViewer } = useCurrentUser();
   // A long press on the bar (Nav.tsx) bumps `openSignal`; every bump opens the sheet.
   React.useEffect(() => { if (openSignal > 0) setOpen(true); }, [openSignal]);
   const [, bump] = React.useReducer((n: number) => n + 1, 0);
@@ -126,27 +135,51 @@ export function MoreSheet({ role, openSignal = 0, user = '' }: { role: RegistryR
       onOpenChange={o => { setOpen(o); if (o) track('more-sheet-open'); }}
     >
       <SheetTrigger asChild>
-        <button
-          type="button"
-          aria-label="עוד"
-          className="relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors active:scale-[.97] active:bg-muted"
-        >
-          <MoreHorizontal className="h-[22px] w-[22px]" />
-          <span>עוד</span>
-          {attention > 0 && (
-            <span aria-hidden className="absolute end-3 top-1 h-2 w-2 rounded-full bg-destructive" />
-          )}
-        </button>
+        {variant === 'desktop' ? (
+          // ⋯ עוד on desktop too (S-9/S-10): the DEV tab and meeting modes only live here now,
+          // so a mouse-and-keyboard session needs the same door a phone's long press opens.
+          <button
+            type="button"
+            aria-label="עוד"
+            className="relative hidden h-11 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted md:inline-flex"
+          >
+            <MoreHorizontal className="h-[18px] w-[18px]" aria-hidden />
+            <span>עוד</span>
+            {attention > 0 && (
+              <span aria-hidden className="absolute -top-0.5 h-2 w-2 rounded-full bg-destructive" style={{ insetInlineEnd: -2 }} />
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="עוד"
+            className="relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors active:scale-[.97] active:bg-muted"
+          >
+            <MoreHorizontal className="h-[22px] w-[22px]" />
+            <span>עוד</span>
+            {attention > 0 && (
+              <span aria-hidden className="absolute end-3 top-1 h-2 w-2 rounded-full bg-destructive" />
+            )}
+          </button>
+        )}
       </SheetTrigger>
       {/* No `rounded-t-*` here: the `side="bottom"` variant already carries the mockup's 26 px
             radius and the grab handle, and a class passed in WINS over the variant (caught in
             the browser smoke — the sheet was rendering at 16 px). */}
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto border-border bg-card pb-8">
+        {/* U6 residual fix: the sheet sits ABOVE the phone bar (z-index), but its own last rows
+            used to end inside the bar's pixel band — the same unsafe strip a phone's home
+            gesture indicator claims. pb reserves the nav's published height (0 on desktop,
+            where #sigma-nav is display:none and --nav-h is unset) instead of a flat 32px. */}
+        {/* Designer re-review: on desktop (≥768) this is a centred dialog, max-width 560 — a
+            full-width bottom sheet reads as a mobile leftover on a mouse-and-keyboard session.
+            `.s-more-desktop` (shell.css) overrides the bottom-sheet position/transform with
+            plain CSS (not Tailwind's md: utilities) so it wins outright over the animate-in
+            library's own inline transform, instead of trying to compose with it. */}
+        <SheetContent side="bottom" className="s-more-desktop max-h-[85vh] overflow-y-auto border-border bg-card pb-[calc(var(--nav-h,0px)+16px)]">
         <SheetHeader className="mb-2 text-start">
           <SheetTitle className="text-base">עוד</SheetTitle>
         </SheetHeader>
-
-        <div className="mb-3"><UserChip /></div>
+        <IdentityRow name={currentUser} role={currentRole} isViewer={currentIsViewer} />
 
         <ul className="flex flex-col gap-0.5">
           {app.pages.map(({ page, label, icon }) => (
@@ -160,6 +193,7 @@ export function MoreSheet({ role, openSignal = 0, user = '' }: { role: RegistryR
                 icon={MORE_ICONS[item.icon] ?? MoreHorizontal}
                 label={item.label}
                 badge={itemBadge(item)}
+                tag={item.tag}
                 onClick={() => go(item.onSelect)}
               />
             </li>
