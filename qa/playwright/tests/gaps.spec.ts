@@ -69,12 +69,12 @@ test('gaps: עמיחי sees the list per person, with the 🔔', async ({ page }
 
   const everyone = page.getByTestId('gaps-everyone');
   await expect(everyone).toBeVisible();
-  // round 5 U2: a per-person picker (SegmentedControl), not both lists at once.
+  // Design-only pass (עידן 27.9): every field person is listed at once, not behind a picker.
   for (const person of ['אביאם', 'ניתאי']) {
-    await expect(everyone.getByRole('radio', { name: person })).toBeVisible();
+    await expect(everyone.locator('[data-person="' + person + '"]')).toBeVisible();
   }
   // The nudge is offered only for someone who actually has something sitting open — אביאם is
-  // the picker's default (first field person) and the one with the seeded gap.
+  // the one with the seeded gap.
   const bell = page.getByTestId('gap-nudge-אביאם');
   await expect(bell).toBeVisible();
 

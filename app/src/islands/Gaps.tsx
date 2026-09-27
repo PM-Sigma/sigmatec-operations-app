@@ -20,7 +20,6 @@ import { SectionError } from '@/components/ui/section-error';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ListRow } from '@/components/ui/list-row';
 import { BubbleButton } from '@/components/ui/bubble-button';
-import { SegmentedControl } from '@/components/ui/segmented-control';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
@@ -216,26 +215,21 @@ export function GapsList({ person, onClose, nudge }: {
   );
 }
 
-/** עמיחי / עידן / הצפייה: a per-person picker (≤4 field people, so SegmentedControl fits),
-    then the same GapsList kind-blocks for whoever is selected — with an admin-only nudge
-    IconBubble on the block header (round 5 U2). The viewer never nudges (§7h: he only reads). */
+/** עמיחי / עידן: ALL field people at once, one row per person with their own open-gap count
+    and (if worth nudging) their own nudge button — design-only pass, restored to origin/main's
+    behavior (עידן 27.9: Hours/Gaps/Usage were DS-look-only, not a behavior change). A
+    SegmentedControl single-person picker briefly replaced this; reverted. The viewer never
+    nudges (§7h: he only reads). */
 function EveryoneList({ isViewer }: { isViewer: boolean }) {
   const today = ymd(new Date());
   const range = React.useMemo(() => defaultRange(today), [today]);
   const people = React.useMemo(fieldPeople, []);
-  const [person, setPerson] = React.useState(() => people[0] || '');
   const [sent, setSent] = React.useState<Record<string, boolean>>({});
 
   const q = useQuery({
     queryKey: ['gaps', 'all', range.from, range.today],
     queryFn: () => fetchSources(people, range.from, range.today),
   });
-
-  const gapsByPerson = React.useMemo(() => {
-    const out: Record<string, Gap[]> = {};
-    for (const p of people) out[p] = q.data ? gapsFor(p, q.data[p] || {}, range) : [];
-    return out;
-  }, [q.data, people, range]);
 
   const nag = async (p: string, count: number) => {
     track('gap-nudge', p);
@@ -246,32 +240,34 @@ function EveryoneList({ isViewer }: { isViewer: boolean }) {
 
   if (q.isLoading) return <div className="flex flex-col gap-2 py-3">{people.map(p => <Skeleton key={p} className="h-12 w-full" />)}</div>;
 
-  const worth = nudgeable(gapsByPerson[person] || [], range.today).length;
-
   return (
-    <div data-testid="gaps-everyone" className="flex flex-col gap-3">
-      {people.length > 1 && (
-        <SegmentedControl
-          ariaLabel="בחירת עובד"
-          options={people.map(p => ({ value: p, label: p }))}
-          value={person}
-          onChange={setPerson}
-        />
-      )}
-      <GapsList
-        person={person}
-        nudge={!isViewer && worth > 0 ? (
-          <BubbleButton
-            data-testid={'gap-nudge-' + person}
-            variant="icon"
-            aria-label={'שליחת תזכורת ל' + person}
-            disabled={!!sent[person]}
-            onClick={() => void nag(person, gapsByPerson[person].length)}
-          >
-            <Bell aria-hidden className="h-4 w-4" />
-          </BubbleButton>
-        ) : undefined}
-      />
+    <div data-testid="gaps-everyone" className="flex flex-col">
+      {people.map(person => {
+        const gaps = q.data ? gapsFor(person, q.data[person] || {}, range) : [];
+        const worth = nudgeable(gaps, range.today).length;
+        return (
+          <ListRow
+            key={person}
+            data-person={person}
+            className="border-b border-border last:border-b-0"
+            title={person}
+            meta={gaps.length ? <><bdi>{gaps.length}</bdi> פריטים פתוחים</> : 'אין פערים פתוחים'}
+            trailing={!isViewer && worth > 0 ? (
+              <BubbleButton
+                data-testid={'gap-nudge-' + person}
+                variant="tonal"
+                size="sm"
+                aria-label={'שליחת תזכורת ל' + person}
+                disabled={!!sent[person]}
+                onClick={() => void nag(person, gaps.length)}
+                icon={<Bell aria-hidden className="h-4 w-4" />}
+              >
+                תזכורת
+              </BubbleButton>
+            ) : null}
+          />
+        );
+      })}
     </div>
   );
 }
