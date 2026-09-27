@@ -80,16 +80,16 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.openDeliveryCert` | js/src/00-bridge.js:513 | `openDeliveryCert` → js/src/20-delivery-cert.js:20 | app/src/islands/Field.tsx:1509<br>app/src/islands/Field.tsx:1609 |
 | `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:319 | `openKibbutzEmsTask` → js/src/13-ems.js:401 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:66<br>app/src/components/home/EmsTasks.tsx:67<br>app/src/components/home/MeetingNotes.tsx:171<br>…+5 |
 | `sigma.openKibbutzModal` | js/src/00-bridge.js:329 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:121<br>app/src/islands/Calendar.tsx:1649<br>app/src/islands/Calendar.tsx:1761<br>app/src/islands/MyTasks.tsx:184 |
-| `sigma.openOrder` | js/src/00-bridge.js:437 | *(own logic)* | app/src/components/alerts/AlertsPanel.tsx:24<br>app/src/islands/InventoryStrip.tsx:85<br>app/src/islands/StockChange.tsx:187 |
+| `sigma.openOrder` | js/src/00-bridge.js:437 | *(own logic)* | app/src/components/alerts/AlertsPanel.tsx:24<br>app/src/islands/InventoryStrip.tsx:84<br>app/src/islands/StockChange.tsx:187 |
 | `sigma.openVisitEditor` | js/src/00-bridge.js:397 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:69<br>app/src/components/kibbutz/StatusTab.tsx:70 |
 | `sigma.openVisitQuick` | js/src/00-bridge.js:412 | *(own logic)* | app/src/components/home/CardActions.tsx:27<br>app/src/components/Nav.tsx:84<br>app/src/islands/Calendar.tsx:1810<br>app/src/islands/Calendar.tsx:1855<br>…+9 |
 | `sigma.openVisitsReport` | js/src/00-bridge.js:634 | `openVisitsToolsModal` → js/src/09-visits.js:1410 | app/src/islands/Calendar.tsx:1049 |
-| `sigma.orders` | js/src/00-bridge.js:434 | *(own logic)* | app/src/islands/InventoryStrip.tsx:51<br>app/src/islands/StockChange.tsx:145 |
+| `sigma.orders` | js/src/00-bridge.js:434 | *(own logic)* | app/src/islands/InventoryStrip.tsx:50<br>app/src/islands/StockChange.tsx:145 |
 | `sigma.passPending` | js/src/00-bridge.js:548 | *(own logic)* | **—** |
 | `sigma.poolStock` | js/src/00-bridge.js:429 | `poolStockMap` → js/src/06-inventory.js:12 | app/src/islands/Field.tsx:1421<br>app/src/islands/StockChange.tsx:61 |
 | `sigma.prefillOpenItems` | js/src/00-bridge.js:475 | *(own logic)* | app/src/islands/Field.tsx:2106 |
 | `sigma.productNames` | js/src/00-bridge.js:289 | *(own logic)* | app/src/islands/Field.tsx:1431<br>app/src/lib/daylogChain.ts:24 |
-| `sigma.products` | js/src/00-bridge.js:431 | `getActiveProducts` → js/src/06-inventory.js:10 | app/src/islands/Field.tsx:1439<br>app/src/islands/InventoryStrip.tsx:54<br>app/src/islands/StockChange.tsx:65 |
+| `sigma.products` | js/src/00-bridge.js:431 | `getActiveProducts` → js/src/06-inventory.js:10 | app/src/islands/Field.tsx:1439<br>app/src/islands/InventoryStrip.tsx:53<br>app/src/islands/StockChange.tsx:65 |
 | `sigma.pushDeviceCount` | js/src/00-bridge.js:589 | `pushDeviceCount` → js/src/22-push.js:158 | app/src/islands/Settings.tsx:198 |
 | `sigma.pushEnable` | js/src/00-bridge.js:587 | `pushEnable` → js/src/22-push.js:133 | app/src/islands/Settings.tsx:157 |
 | `sigma.pushNotify` | js/src/00-bridge.js:446 | `pushNotify` → js/src/22-push.js:171 | app/src/lib/inventoryApi.test.ts:192<br>app/src/lib/inventoryApi.ts:182<br>app/src/lib/inventoryApi.ts:238 |
@@ -138,7 +138,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `notes-changed` | app/src/components/home/MeetingNotes.tsx:90 | app/src/components/home/MeetingNotes.tsx:49 |
 | `onboarding-changed` | app/src/components/home/OnboardingProgress.tsx:45 | app/src/components/home/OnboardingProgress.tsx:34 |
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:427<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
-| `stock-changed` | js/src/09-visits.js:1146<br>js/src/09-visits.js:1350<br>app/src/islands/StockChange.tsx:206<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:132<br>app/src/islands/InventoryStrip.tsx:99<br>js/src/06-inventory.js:119 |
+| `stock-changed` | js/src/09-visits.js:1146<br>js/src/09-visits.js:1350<br>app/src/islands/StockChange.tsx:206<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:132<br>app/src/islands/InventoryStrip.tsx:98<br>js/src/06-inventory.js:119 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
 | `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:426<br>app/src/islands/Attendance.tsx:313<br>app/src/islands/FeedbackInbox.tsx:271<br>app/src/islands/Field.tsx:168<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:666<br>js/src/09-visits.js:697<br>js/src/09-visits.js:764<br>js/src/09-visits.js:899 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
@@ -214,7 +214,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `onboarding_templates` | db/onboarding_templates.sql | app/src/components/home/OnboardingProgress.tsx:70<br>app/src/components/home/OnboardingProgress.tsx:82<br>app/src/components/home/OnboardingProgress.tsx:93 |
 | `orders` | db/orders_ems_task_id.sql | app/src/islands/Field.tsx:142<br>app/src/lib/inventoryApi.ts:51<br>app/src/lib/inventoryApi.ts:181<br>…+6 |
 | `parse_corrections` | db/parse_corrections.sql | app/src/lib/inventoryApi.ts:188 |
-| `products` | db/inventory_pool.sql | app/src/islands/InventoryStrip.tsx:117<br>app/src/islands/InventoryStrip.tsx:179<br>app/src/lib/inventoryApi.ts:50<br>…+2 |
+| `products` | db/inventory_pool.sql | app/src/islands/InventoryStrip.tsx:116<br>app/src/islands/InventoryStrip.tsx:178<br>app/src/lib/inventoryApi.ts:50<br>…+2 |
 | `push_log` | db/push_log.sql | app/src/lib/pushLog.ts:82<br>supabase/functions/push-send/index.ts:216<br>supabase/functions/push-send/index.ts:271<br>…+4 |
 | `push_subscriptions` | db/push_subscriptions.sql | supabase/functions/push-send/index.ts:253<br>supabase/functions/push-send/index.ts:264 |
 | `requirements` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:53<br>app/src/lib/inventoryApi.ts:163<br>app/src/lib/inventoryApi.ts:202 |

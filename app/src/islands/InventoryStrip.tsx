@@ -29,7 +29,6 @@ import { ListRow } from '@/components/ui/list-row';
 import { Tag } from '@/components/ui/chip';
 import { BubbleButton } from '@/components/ui/bubble-button';
 import { fmtUnit } from '@/lib/format';
-import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
@@ -248,8 +247,4 @@ export function InventoryStrip() {
       <InventoryStripPanel />
     </SigmaProviders>
   );
-}
-
-export function mountInventoryStrip(): boolean {
-  return mount('sigma-inventory-strip', InventoryStrip);
 }
