@@ -161,10 +161,12 @@ test('shell: the ⚙️ gear bubble opens GearSheet (identity/role, settings, fe
   // ⚙️ הגדרות — the island, with the four settings Task 4 ships
   await sheet.getByRole('button', { name: 'הגדרות' }).click();
   const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
-  // round 5 G-L5: מסך פתיחה is no longer a native <select> — it is a ListRow that pushes a
-  // sub-pane of radio-styled rows (Settings.tsx LandingPane), like every other "opens a
-  // sub-sheet" row in this dialog.
-  await expect(dlg.getByRole('button', { name: /מסך פתיחה/ })).toBeVisible();
+  // round 5 G-L5/G-U (Settings rewrite): מסך פתיחה is no longer a native <select> — it is a
+  // ListRow that pushes a sub-pane of radio-styled rows (Settings.tsx LandingPane), like every
+  // other "opens a sub-sheet" row in this dialog.
+  await dlg.getByRole('button', { name: 'מסך פתיחה' }).click();
+  await expect(dlg.getByTestId('landing-options').getByRole('button')).not.toHaveCount(0);
+  await dlg.getByRole('button', { name: 'חזרה להגדרות' }).click();
   await expect(dlg.getByRole('radiogroup', { name: 'תיאור משימות בכרטיס' })).toBeVisible();
   // round 5 G-L5: the font picker is gone
   await expect(dlg.getByRole('radiogroup', { name: 'פונט' })).toHaveCount(0);

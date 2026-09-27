@@ -164,6 +164,13 @@ console.log('\n[2] 09-visits.js: saveVisitFromData supplies from חברה');
   check('no personal bag is named anywhere in the visit save path', () => {
     assert.ok(!/STOCK_HOLDERS\.indexOf\(visitor\)/.test(src), 'the personal-bag default is still there');
   });
+  // "the visit form defaults to the pool as its source" (the legacy #visitSource picker's
+  // onVisitorChange default) retired round 5 V-U3 with the legacy visit form, and onVisitorChange
+  // itself (07-orders.js) was deleted with the rest of the legacy order/inventory UI (package I,
+  // U10) — the source is hardcoded server-side here now.
+  check('the visit save hardcodes the pool as its source (no client picker any more)', () => {
+    assert.ok(src.includes('const source = POOL_LOCATION;'));
+  });
 }
 
 // ───────────────────────── 3. SigmaInv — the order paths (07-orders.js deleted, U10) ────────

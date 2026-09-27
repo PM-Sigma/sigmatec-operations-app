@@ -5,14 +5,14 @@ import { boot, expect, expectNoConsoleErrors, test } from './_helpers';
 const detail = (page: any) => page.locator('[data-testid="kibbutz-detail"]');
 
 test('kibbutz detail: the door opens the React sheet on מצב הקיבוץ, not the legacy modal', async ({ page }, ti) => {
-  // The card's own onClick still calls the legacy opener until the closed card is rewired
-  // (K-U3/K-U5); this test exercises the door itself, which is K-U1's scope.
+  // Round 5, V-U3: the legacy modal (#modalBackdrop) is gone entirely — this test exercises
+  // the door itself, which is K-U1's scope.
   const { rec } = await boot(page, ti);
   await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
   await expect(detail(page)).toBeVisible();
   await expect(detail(page).getByRole('heading', { name: 'חוקוק' })).toBeVisible();
   await expect(detail(page).getByRole('radio', { name: 'מצב הקיבוץ' })).toBeChecked();
-  await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
+  await expect(page.locator('#modalBackdrop')).toHaveCount(0);
   await expectNoConsoleErrors(rec);
 });
 
@@ -90,10 +90,38 @@ test('status tab: last visit ✏️ and 🚚 open the new visit sheet', async ({
   if (await editBtn.count()) {
     await editBtn.click();
     await expect(page.locator('[data-testid="visit-chapters"]')).toBeVisible();
-    await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
   } else {
     await expect(section.getByText('עוד אין סיכום ביקור לקיבוץ הזה.')).toBeVisible();
   }
+});
+
+// Round 4 · Package Z, item 1 (ported from the retired visit-form.spec.ts, V-U3): the legacy
+// renderLastVisit kept only visits from the last 31 days, so a kibbutz last visited two months
+// ago showed NO ✏️/🚚/history at all, while the card itself went on advertising "📍 ביקור אחרון".
+// latestVisitFor (K-L1) is unbounded by date, so that regression cannot reappear here.
+test('status tab: a visit older than a month still offers ✏️/🚚 and its own history', async ({ page }, ti) => {
+  await boot(page, ti, { who: 'עידן' });
+  await page.waitForSelector('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await page.evaluate(() => {
+    const iso = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
+    (window as any).SHEET_DATA.visits = [
+      { id: 'z-old-1', kibbutz: 'חוקוק', visitor: 'אביאם', duration: 3, contact: 'יוסי',
+        summary: 'הוחלף המונה הראשי', products: [{ name: 'מונה Landis+Gyr E360PP', qty: 1 }], date: iso(62) },
+      { id: 'z-old-2', kibbutz: 'חוקוק', visitor: 'ניתאי', duration: 2, summary: 'בדיקת תקשורת',
+        products: [], date: iso(95) },
+    ];
+  });
+
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+  const section = detail(page).locator('[data-section="lastVisitReport"]');
+  await expect(section).toContainText('הוחלף המונה הראשי');
+  const editBtn = section.getByRole('button', { name: 'עריכת הסיכום' });
+  const certBtn = section.getByRole('button', { name: 'תעודת משלוח' });
+  await expect(editBtn).toBeVisible();
+  await expect(certBtn).toBeVisible();
+
+  await editBtn.click();
+  await expect(page.locator('[data-testid="visit-chapters"]')).toBeVisible();
 });
 
 test('status tab: role matrix for adders', async ({ page }, ti) => {
@@ -105,4 +133,56 @@ test('status tab: role matrix for adders', async ({ page }, ti) => {
     if (canAct) await expect(adders.first()).toBeVisible();
     else await expect(adders).toHaveCount(0);
   }
+});
+
+// ─────────────────── ביקורים tab (V-U2, replaces K-U1's stub) ───────────────────
+
+test.describe('ביקורים', () => {
+  test('history rows with ✏️/🚚, both open the new sheet', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'אביאם' });
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק', 'visits'));
+    const row = detail(page).getByTestId('visit-row').first();
+    await row.getByRole('button', { name: 'עריכת הסיכום' }).click();
+    await expect(page.getByTestId('visit-chapters')).toBeVisible();
+  });
+
+  test('a draft row for a long kibbutz name is not cut off', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'אביאם' });
+    await page.evaluate(() => (window as any).sigma.visitDraftPut({
+      id: 'v_t', person: 'אביאם', kibbutz: 'כפר גלעדי',
+      date: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(), payload: { summary: 'x' },
+    }));
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('כפר גלעדי', 'visits'));
+    const row = detail(page).getByTestId('visit-draft-row');
+    await expect(row).toBeVisible();
+    expect(await row.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  });
+
+  test('מחיקת טיוטה removes it, with undo', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'אביאם' });
+    await page.evaluate(() => (window as any).sigma.visitDraftPut({
+      id: 'v_t', person: 'אביאם', kibbutz: 'חוקוק',
+      date: new Date().toISOString().slice(0, 10), updated_at: new Date().toISOString(), payload: { summary: 'x' },
+    }));
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק', 'visits'));
+    await detail(page).getByTestId('visit-draft-row').getByRole('button', { name: 'מחיקת טיוטה' }).click();
+    await expect(page.getByText('הטיוטה נמחקה')).toBeVisible();
+    await expect(detail(page).getByTestId('visit-draft-row')).toHaveCount(0);
+    await page.locator('[data-sonner-toast]').getByRole('button', { name: 'ביטול' }).click();
+    await expect(detail(page).getByTestId('visit-draft-row')).toBeVisible();
+  });
+
+  test('viewer: history only, no action buttons', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'צפייה' });
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק', 'visits'));
+    await expect(detail(page).getByRole('button', { name: 'סיכום ביקור' })).toHaveCount(0);
+    await expect(detail(page).getByRole('button', { name: 'עריכת הסיכום' })).toHaveCount(0);
+  });
+
+  test('empty: EmptyState + the primary bubble', async ({ page }, ti) => {
+    await boot(page, ti, { who: 'אביאם' });
+    await page.evaluate(() => (window as any).sigma.openKibbutzModal('שדה אליהו', 'visits'));
+    await expect(detail(page).getByText('עוד אין סיכומי ביקור לקיבוץ הזה.')).toBeVisible();
+    await expect(detail(page).getByRole('button', { name: 'סיכום ביקור' })).toBeVisible();
+  });
 });

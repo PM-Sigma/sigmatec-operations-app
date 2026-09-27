@@ -36,37 +36,28 @@ function lift(src, name) {
 }
 
 console.log('\n— visit date: no default, no silent fallback —');
-check('openEditModal clears the visit date instead of stamping today', () => {
-  const f = lift(activity, 'openEditModal');
-  assert.ok(/getElementById\('visitDate'\)\.value = ''/.test(f), 'visitDate must open empty');
-  assert.ok(!/visitDate'\)\.value =\s*\n?\s*today\.getFullYear/.test(f), 'the today-default must be gone');
-});
-check('saveVisit REFUSES an empty date (no silent "today" fallback)', () => {
-  // 22.9 (J6): the refusal is IN PLACE — the field is marked and scrolled to — not an alert().
-  assert.ok(/if \(!document\.getElementById\('visitDate'\)\.value\) missing\.push\('visitDate'\);/.test(visits)
-    && /if \(missing\.length\) \{ visitRequireMiss\(missing\); sigmaError\([^)]*\); return; \}/.test(visits),
-    'an empty date must be rejected up front');
-  assert.ok(!/dateInput \? new Date\(dateInput \+ 'T12:00:00'\)\.toISOString\(\) : new Date\(\)\.toISOString\(\)/.test(visits),
-    'the silent today-fallback must be gone — it is what mis-dated visits in the first place');
-  assert.ok(/const visitDate = new Date\(dateInput \+ 'T12:00:00'\)\.toISOString\(\)/.test(visits), 'date still noon-anchored');
+// Round 5, V-U3: the legacy form (openEditModal, saveVisit, #visitDate) is retired. The ONE
+// writer left is saveVisitFromData, which the chapters sheet and the day log both call — its
+// own date validation (round 5, still no silent "today" fallback) is what these check now.
+check('saveVisitFromData REFUSES an empty/malformed date (no silent "today" fallback)', () => {
+  const f = lift(visits, 'saveVisitFromData');
+  assert.ok(/if \(!\/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\/\.test\(dateStr\)\) return \{ ok: false, error: 'חסר תאריך הביקור' \}/.test(f),
+    'an empty or malformed date must be rejected up front, with no fallback to today');
+  assert.ok(/const visitDate = new Date\(dateStr \+ 'T12:00:00'\)\.toISOString\(\)/.test(f)
+    || /date: new Date\(dateStr \+ 'T12:00:00'\)\.toISOString\(\)/.test(f), 'date still noon-anchored');
 });
 check('the date validation runs BEFORE any save work begins', () => {
-  const f = lift(visits, 'saveVisit');
-  assert.ok(f.indexOf("alert('נא לבחור את תאריך הביקור')") < f.indexOf('setBtnLoading'),
-    'validate before showing the saving state / collecting products');
+  const f = lift(visits, 'saveVisitFromData');
+  assert.ok(f.indexOf("error: 'חסר תאריך הביקור'") < f.indexOf('WRITE_ROUTER_URL'),
+    'validate before the network call / local backup');
 });
-check('the label tells the user to pick a date (date inputs have no placeholder)', () => {
-  // 22.9 (J1): one heading "משך ותאריך הביקור" over both inputs; the date input names itself.
-  assert.ok(/<label class="sig-fl">משך ותאריך הביקור/.test(html), 'the one heading over duration + date');
-  assert.ok(/<input type="date" id="visitDate"[^>]*aria-label="תאריך הביקור"/.test(html), 'the date input carries its own name');
-});
-check('the FAB path hands its explicitly chosen date to the ONE door (round 5 V-L4b)', () => {
-  // The legacy openEditModal(card) + manual visitDate patch is gone: visitQuickGo's field branch
-  // now forwards straight to sigma.openVisitEditor, date included in the opts object.
+check('the FAB has no legacy picker to fall back to any more (round 5 V-U3)', () => {
+  // #visitQuickModal + visitQuickGo/vqSetType/openVisitQuick are gone — the FAB's only path is
+  // sigmaField.openManual() (the React arrival picker); qa/playwright covers that behaviour.
   const init = R('js/src/02-init-attendance.js');
-  const f = lift(init, 'visitQuickGo');
-  assert.ok(/sigma\.openVisitEditor\(\{ kibbutz: name, date: dateVal \}\)/.test(f),
-    'the quick-FAB field branch must forward kibbutz + date to sigma.openVisitEditor');
+  assert.ok(!/function visitQuickGo/.test(init) && !/function vqSetType/.test(init),
+    'the legacy quick-visit picker functions must be gone');
+  assert.ok(!/visitQuickModal/.test(html), 'the legacy #visitQuickModal markup must be gone');
 });
 
 console.log('\n— visit ↔ EMS link is persisted —');
@@ -80,8 +71,9 @@ check('writeVisit only writes ems_task_id when one was actually sent (partial-sa
   assert.ok(!/ems_task_id: b\.emsTaskId \|\| ''\s*[,}]/.test(f.split('if (b.emsTaskId')[0]),
     'ems_task_id must not be unconditionally part of the row literal');
 });
-check('saveVisit persists the chosen task id when an EMS intent exists', () => {
-  assert.ok(/if \(emsIntent && emsIntent\.taskId\) reqBody\.emsTaskId = emsIntent\.taskId/.test(visits));
+check('saveVisitFromData persists the chosen task id(s)', () => {
+  const f = lift(visits, 'saveVisitFromData');
+  assert.ok(/if \(emsIds\.length\) reqBody\.emsTaskId = emsIds\[0\]/.test(f));
 });
 check('the migration file exists and is additive + re-runnable', () => {
   const sql = R('db/visits_ems_task_id.sql');
@@ -125,14 +117,18 @@ check('pushVisitEditToEms sends a COMMENT and never PATCHes the task', () => {
     'must NOT change task status or due date — that would move EMS planning');
   assert.ok(/if \(!taskId \|\| !msg\) return/.test(f), 'no task or no change → no push');
 });
-check('the edit push fires only for a linked EDIT with no in-form intent (no double comment)', () => {
-  assert.ok(/if \(isEditing && linkedEmsTaskId && !emsIntent && prevVisit/.test(visits),
-    'guard must require: editing + a stored link + no emsIntent');
+check('the edit push fires only for a linked EDIT, and never twice for the same task', () => {
+  const f = lift(visits, 'saveVisitFromData');
+  assert.ok(/if \(isEdit && linked && typeof pushVisitEditToEms === 'function'\) pushVisitEditToEms\(linked, priorSnap, visit\)/.test(f),
+    'guard must require: editing + a stored link');
+  assert.ok(/emsIds\.filter\(t => !\(isEdit && t === linked\)\)/.test(f),
+    'the linked task must not ALSO get the plain comment (no double comment)');
 });
 check('the pre-edit snapshot is captured before the new visit object is built', () => {
-  assert.ok(visits.indexOf('const prevVisit = window.editingVisitId') < visits.indexOf('const visit = {'),
-    'prevVisit must be read before `visit` is constructed');
-  assert.ok(/const linkedEmsTaskId = \(prevVisit && prevVisit\.emsTaskId\) \|\| ''/.test(visits));
+  const f = lift(visits, 'saveVisitFromData');
+  assert.ok(f.indexOf('const prior = ') < f.indexOf('const visit = {'),
+    'prior must be read before `visit` is constructed');
+  assert.ok(/const priorSnap = prior \? JSON\.parse\(JSON\.stringify\(prior\)\) : null/.test(f));
 });
 
 console.log('\n— field days are editable from נוכחות —');
@@ -171,8 +167,10 @@ check('openVisitFromAttendance fails safely on a missing visit or an unavailable
     'a missing bridge must alert, not throw');
 });
 check('saving a visit patches the snapshot so נוכחות shows the new date immediately', () => {
-  assert.ok(/SHEET_DATA\.visits\.find\(x => String\(x\.id\) === String\(savedId\)\)/.test(visits));
-  assert.ok(/renderAttendanceReport\(\)/.test(visits), 'attendance must re-render after a visit save');
+  const f = lift(visits, 'saveVisitFromData');
+  assert.ok(/if \(prior\) \{ Object\.assign\(prior, patch\)/.test(f), 'an edit patches SHEET_DATA in place');
+  assert.ok(/sigmaEmit\('visit-saved', \{ kibbutz: visit\.kibbutz \}\)/.test(f),
+    'attendance (React, event-driven) must be told a visit was saved');
 });
 
 console.log('\n— the standalone visits report is gone, its tools survive —');

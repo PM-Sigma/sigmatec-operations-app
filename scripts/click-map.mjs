@@ -145,13 +145,15 @@ for (const f of legacyFiles) {
       .map(x => x[1])
       .filter(n => n !== name && defs.has(n) && name && n.startsWith(name))
       .slice(0, 2);
-    const c = classify(body + NL_ + callees.map(n => defs.get(n).body).join(NL_));
+    const classifyText = body + NL_ + callees.map(n => defs.get(n).body).join(NL_);
+    const c = classify(classifyText);
     rows.push({
       surface: 'legacy',
       where: `${rel(f)}:${lineOf(src, m.index)}`,
       trigger: `on${m[1]}`,
       handler: name || `(inline) ${expr.slice(0, 40)}`,
       impl: d ? `${d.file}:${d.line}` : '—',
+      _src: classifyText,
       ...c,
     });
   }
@@ -188,7 +190,10 @@ for (const f of walk(path.join(ROOT, 'app', 'src'), ['.tsx'])) {
     // characters away it is somebody else's, so take a bounded slice instead.
     const brace = src.indexOf('{', dm.index);
     const own = brace >= 0 && brace - dm.index < 200;
-    named.set(dm[1], own ? block(src, dm.index) : src.slice(dm.index, dm.index + 600));
+    // `raw600` is a fixed window from the declaration regardless of `own` — used ONLY to sniff
+    // for a call name text (e.g. `openVisitEditor`) that a brace-matched object-literal ARGUMENT
+    // (not a block body) would otherwise hide from `body` (see opensVisitEditorOnly below).
+    named.set(dm[1], { body: own ? block(src, dm.index) : src.slice(dm.index, dm.index + 600), raw600: src.slice(dm.index, dm.index + 600) });
   }
 
   const re = /on(Click|Submit)=\{/g;
@@ -197,7 +202,8 @@ for (const f of walk(path.join(ROOT, 'app', 'src'), ['.tsx'])) {
     const tail = src.slice(m.index + m[0].length - 1);
     const body = block(src, m.index + m[0].length - 1) || tail.slice(0, 200);
     const idOnly = /^\{\s*(\w+)\s*\}/.exec(body);
-    const inner = idOnly && named.get(idOnly[1]) ? named.get(idOnly[1]) : body;
+    const namedDef = idOnly ? named.get(idOnly[1]) : null;
+    const inner = namedDef ? namedDef.body : body;
     // an inline arrow that just calls a local fn — pull that fn's body in too
     const calls = [...inner.matchAll(/\b(\w+)\s*\(/g)].map(x => x[1]).filter(n => named.has(n));
     // sibling JSX attributes of the SAME element (`disabled={saving}`, the spinner child) live
@@ -205,18 +211,21 @@ for (const f of walk(path.join(ROOT, 'app', 'src'), ['.tsx'])) {
     // The window is generous (+900) because a form's `onSubmit` sits well above the submit
     // button that carries its pending state.
     const siblings = src.slice(Math.max(0, m.index - 250), m.index + body.length + 900);
-    const handler = inner + calls.slice(0, 4).map(n => named.get(n)).join('\n');
+    const calleeDefs = calls.slice(0, 4).map(n => named.get(n));
+    const handler = inner + calleeDefs.map(d => d.body).join('\n');
     // Siblings inform the PENDING column only. Letting them inform the BACKEND column is how
     // three pure-local toggles in WorkTimerStopSheet came to be reported as `site_contacts`
     // writes: the window had swallowed a neighbouring handler's body (fix round 3).
     const c = { ...classify(handler), pending: classify(handler + '\n' + siblings).pending };
     if (!c.backend.length && !c.pending.length) continue;   // pure-UI toggles: not in the map
+    const rawSrc = handler + (namedDef ? '\n' + namedDef.raw600 : '') + calleeDefs.map(d => '\n' + d.raw600).join('');
     rows.push({
       surface: 'react',
       where: `${rel(f)}:${lineOf(src, m.index)}`,
       trigger: `on${m[1]}`,
       handler: idOnly ? idOnly[1] : '(inline)',
       impl: rel(f),
+      _src: rawSrc,
       ...c,
     });
   }
@@ -228,7 +237,14 @@ const withBackend = rows.filter(r => r.backend.length);
 // `changeUser` dispatch and return. The audit listed them for completeness and said plainly
 // they are not findings; the gate below would otherwise be permanently red on them.
 const busOnly = r => r.backend.every(b => b.startsWith('bus '));
-const gaps = withBackend.filter(r => !r.pending.length && !busOnly(r));
+// round 5 V-U4: `sigma.openVisitEditor(...)` / `openVisitChapters(...)` take a `mode: 'edit'|'cert'|'new'`
+// option, which the generic `mode:` detector (added for github-mode calls) also matches — but the click
+// itself only OPENS the visit sheet; the real backend write happens later, on Save, inside a screen that
+// has its own pending state. Same shape as `busOnly` above: a detector false positive, not a real gap.
+const opensVisitEditorOnly = r => r.backend.length > 0
+  && r.backend.every(b => b.startsWith('github mode:'))
+  && /\b(openVisitEditor|openVisitChapters)\??\.?\s*\(/.test(r._src || '');
+const gaps = withBackend.filter(r => !r.pending.length && !busOnly(r) && !opensVisitEditorOnly(r));
 const esc = s => String(s).replace(/\|/g, '\\|');
 const table = list => [
   '| # | surface | clickable (file:line) | handler | backend call | pending state |',

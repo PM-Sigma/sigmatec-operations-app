@@ -145,12 +145,12 @@ test('kibbutz sheet: ✏️ opens ABOVE the kibbutz modal (22.9 N1 — the accid
   await page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]').click();
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
-  // The sheet is the element the finger actually reaches: the legacy .modal-backdrop is
-  // z-index 1000, so anything below it was invisible AND untappable — the 22.9 root cause.
-  const modalZ = await page.locator('#modalBackdrop').evaluate(el => +getComputedStyle(el).zIndex || 0);
+  // The 22.9 root cause was the legacy .modal-backdrop (z-index 1000) sitting ABOVE the sheet,
+  // making the real edit sheet invisible and untappable underneath it. Round 5, V-U3: that
+  // legacy modal is gone entirely, so there is nothing left for the sheet to lose a z-fight to.
+  await expect(page.locator('#modalBackdrop')).toHaveCount(0);
   const sheet = page.getByRole('heading', { name: '✏️ פרטי קיבוץ' }).locator('xpath=ancestor::*[contains(@class,"fixed")][1]');
-  const sheetZ = await sheet.evaluate(el => +getComputedStyle(el).zIndex || 0);
-  expect(sheetZ).toBeGreaterThan(modalZ);
+  await expect(sheet).toBeVisible();
 
   // and the archive button really is under the finger, so it must be name-gated
   await page.getByRole('button', { name: '🗄 ארכב קיבוץ' }).click();

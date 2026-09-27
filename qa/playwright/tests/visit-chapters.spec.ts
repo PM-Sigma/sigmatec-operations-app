@@ -251,17 +251,21 @@ test('chapters: a backdrop tap on a half-typed summary asks instead of losing it
   await page.mouse.click(5, 5);
   await expect(page.getByTestId('unsaved-guard')).toBeVisible();
   await expect(page.getByTestId('visit-chapters')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'לבטל ולחזור אחר כך' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'להמשיך לסיים' })).toBeVisible();
+  // Designer round 5 V-U4 review: the title states the choice, the buttons say their result.
+  await expect(page.getByText('לצאת בלי לשמור?')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'למחוק את הטיוטה' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'להמשיך לערוך' })).toBeVisible();
 
-  // "להמשיך לסיים" leaves him exactly where he was, with his words.
-  await page.getByRole('button', { name: 'להמשיך לסיים' }).click();
+  // "להמשיך לערוך" leaves him exactly where he was, with his words.
+  await page.getByRole('button', { name: 'להמשיך לערוך' }).click();
   await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
   await expect(page.getByTestId('vc-summary')).toHaveValue('התחלתי לכתוב ואז קראו לי');
 
-  // "לבטל ולחזור אחר כך" closes — the draft stays (autosave already wrote it; nothing is deleted).
+  // "למחוק את הטיוטה" closes — the draft mirror actually stays (autosave already wrote it, and
+  // this still persists it on the way out so the last keystroke isn't lost either); the copy
+  // describes the FILED visit never happening, not the local draft mechanics.
   await page.mouse.click(5, 5);
-  await page.getByRole('button', { name: 'לבטל ולחזור אחר כך' }).click();
+  await page.getByRole('button', { name: 'למחוק את הטיוטה' }).click();
   await expect(page.getByTestId('visit-chapters')).toBeHidden();
   await expect.poll(() => draftRows(page), { timeout: 10_000 }).toHaveLength(1);
   expect(await localVisits(page)).toHaveLength(0);
@@ -331,6 +335,35 @@ test('C5: ציוד שהוחזר מהקיבוץ starts collapsed, a ➕ adds one 
   expect(box!.height).toBeLessThan(64);
 
   await shot(page, ti, 'returned-items');
+  expectNoConsoleErrors(rec);
+});
+
+test('C1: a custom duration and a duration chip are mutually exclusive', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+
+  const chip2 = page.getByTestId('vc-hours-2');
+  const manual = page.getByTestId('vc-hours-manual');
+
+  // a chip picked → the manual box clears (it would otherwise repeat "2").
+  await chip2.click();
+  await expect(chip2).toHaveClass(/s-brand/);
+  await expect(manual).toHaveValue('');
+
+  // typing a custom value → the chip that was on lets go, with nothing to compare it against.
+  await manual.fill('1.5');
+  await expect(chip2).not.toHaveClass(/s-brand/);
+  await expect(manual).toHaveValue('1.5');
+
+  // picking a chip again after typing clears the manual box right back.
+  await chip2.click();
+  await expect(chip2).toHaveClass(/s-brand/);
+  await expect(manual).toHaveValue('');
+
   expectNoConsoleErrors(rec);
 });
 
@@ -408,9 +441,9 @@ test('C8 (round 3 · S): עידן (not FIELD_PEOPLE) reaches the 🎙 panel from
 
   await page.getByRole('button', { name: 'תיעוד ביקור' }).click();
 
-  // He must land in the arrival picker (chapters route), never the legacy #modalBackdrop.
+  // He must land in the arrival picker (chapters route) — the legacy #modalBackdrop is gone.
   await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('#modalBackdrop')).not.toHaveClass(/open/);
+  await expect(page.locator('#modalBackdrop')).toHaveCount(0);
 
   await page.locator('[data-kibbutz="חוקוק"]').click();
   await page.getByTestId('brief-visit').click();
@@ -494,5 +527,52 @@ test('chain: a picked EMS task gets the summary as a comment, exactly once', asy
   expect(q.item.message).toContain('הוחלף מונה');
   expect(q.item.message).toContain('יוסי מהמחלבה');
 
+  expectNoConsoleErrors(rec);
+});
+
+test('sheet: מי ביקר is multi-select and saves both names', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+
+  const who = page.getByTestId('visit-visitors');
+  await expect(who.getByTestId('vc-visitor-אביאם')).toHaveAttribute('aria-pressed', 'true');
+  await who.getByTestId('vc-visitor-ניתאי').click();
+
+  await page.getByTestId('vc-summary').fill('הוחלף מונה');
+  await page.getByTestId('vc-hours-2').click();
+  await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
+  await page.getByTestId('vc-reason-fault').click();
+  await page.getByTestId('vc-send').click();
+  await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+
+  const visits = await posted(page, 'visit');
+  expect(visits[0]?.visitor).toBe('אביאם, ניתאי');
+  expectNoConsoleErrors(rec);
+});
+
+test('sheet: the kibbutz contacts are chips; a new name shows the "added to contacts" hint', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId('vc-summary').fill('בדיקה');
+  await page.getByTestId('vc-hours-2').click();
+  await page.getByTestId('vc-contact').fill('איש קשר חדש לגמרי');
+  await expect(page.getByText('יתווסף לאנשי הקשר של הקיבוץ')).toBeVisible();
+  await page.getByTestId('vc-reason-fault').click();
+  await page.getByTestId('vc-send').click();
+  await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+
+  const visits = await posted(page, 'visit');
+  expect(visits[0]?.contact).toBe('איש קשר חדש לגמרי');
   expectNoConsoleErrors(rec);
 });

@@ -225,28 +225,10 @@ check('the viewer reports hub has 44 px controls (it is the only screen he uses)
   minHeights.forEach(m => assert.ok(parseInt(m.match(/\d+/)[0], 10) >= 44, 'a hub control under 44 px: ' + m));
 });
 
-// ── the re-skinned visit form keeps every affordance it replaced ─────────────
-// Review fix (minor): the re-skin showed the 🚚 button only while the cert gate was
-// UNSATISFIED, which quietly removed the reprint / corrected-certificate path the old
-// always-present button gave (spec §5 rule 4 keeps reissue).
-check('the cert chip offers 🚚 in BOTH states — issued and not yet issued', () => {
-  const visits = fs.readFileSync(path.join(__dirname, 'js/src/09-visits.js'), 'utf8');
-  const paint = visits.slice(visits.indexOf('async function paintVisitCertStatus'));
-  const body = paint.slice(0, paint.indexOf('window.paintVisitCertStatus'));
-  const buttons = body.match(/certFromVisitForm\(\)/g) || [];
-  assert.ok(buttons.length >= 2,
-    'expected a 🚚 button in both chip states, found ' + buttons.length);
-  const oneLine = body.split(/\r?\n/).join(' ');
-  assert.ok(/sig-certchip ok[\s\S]{0,200}?certFromVisitForm/.test(oneLine),
-    'the ISSUED chip has no way back to a certificate');
-});
-
-check('the save button relabels only while a certificate is actually owed', () => {
-  const visits = fs.readFileSync(path.join(__dirname, 'js/src/09-visits.js'), 'utf8');
-  assert.ok(visits.includes("'🚚 הפק תעודה ← שמור'"), 'the relabel is gone (§7k #5)');
-  assert.ok(/save.innerHTML = n \? '💾 שמור ביקור'/.test(visits),
-    'an issued cert must put the plain save label back');
-});
+// The re-skinned legacy visit form's cert chip (paintVisitCertStatus) is retired, round 5
+// V-U3, along with the whole form — the chapters sheet's own certificate screen (Field.tsx
+// chapter 4, "הפק תעודה" / "תעודה נוספת") is the one surviving surface, covered by
+// qa/playwright/tests/visit-chapters.spec.ts, not this file.
 
 console.log(failures === 0 ? '\nPASS — all theme/visual contract checks passed' : '\nFAIL — ' + failures + ' check(s) failed');
 process.exit(failures === 0 ? 0 : 1);

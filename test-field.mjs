@@ -115,7 +115,9 @@ console.log('\n[5] the island, its placeholders and the bridge');
   check('the sheet morphs in place (one briefing Sheet + the §7p chapters Sheet)',
     (island.match(/<Sheet\b/g) || []).length === 2 && /AnimatePresence/.test(island));
   check('the sheet’s motion stays inside the 320 ms budget', /const dur = reduce \? 0 : 0\.28;/.test(island));
-  check('🚚 waits for the form before asking for the certificate', /addEventListener\('visit-form-open', once\)/.test(island));
+  // Round 5, V-U3: the legacy-form fallback (waiting on 'visit-form-open') is gone — both 📍
+  // and 🚚 go straight to openVisitChapters, the only door there is now.
+  check('🚚 goes straight to chapter 4 of the ONE sheet', /openVisitChapters\(picked, \{ chapter: 4, date: arrivalDateRef\.current \}\)/.test(island));
   check('🚚 is only offered when there is something to deliver', /canDeliver && \(/.test(island));
   check('the day plan is feature-detected, never assumed', /day_plans/.test(island) && /if \(error\) return \[\];/.test(island));
   check('open orders are filtered server-side and paged, never truncated',
@@ -124,8 +126,9 @@ console.log('\n[5] the island, its placeholders and the bridge');
     /arrival_dismissed_/.test(island) && /readStr\(arrivalPromptKey\(today\)\) === '1'/.test(island));
 
   const bridge = read('./js/src/00-bridge.js');
-  check('the bridge carries the checklist prefill', /prefillOpenItems: function \(kibbutz, text\)/.test(bridge));
-  check('the prefill never overwrites what he typed', /if \(!el \|\| String\(el\.value \|\| ''\)\.trim\(\)\) return;/.test(bridge));
+  // Round 5, V-U3: prefillOpenItems (the legacy form's own field) is gone — the checklist
+  // leftovers now travel straight into the sheet's own state via openVisitChapters' `openItems`.
+  check('prefillOpenItems is gone (the legacy form it filled is retired)', !/prefillOpenItems/.test(bridge));
 
   const nav = read('./app/src/components/Nav.tsx');
   check('the raised 📍 offers the arrival sheet when there is no check-in', /field\?\.maybeOpen\?\.\(\)/.test(nav));

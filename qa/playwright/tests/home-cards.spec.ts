@@ -18,7 +18,7 @@ test('home cards: sections, region chips, filters, quick actions', async ({ page
   await expect(home.getByRole('heading', { name: 'לקוחות פעילים' })).toBeVisible();
 
   // ── every fixture kibbutz has a card, and the sub-site carries its parent chip
-  await expect(home.locator('.kibbutz')).toHaveCount(7);
+  await expect(home.locator('.kibbutz')).toHaveCount(8);
   await expect(home.locator('.kibbutz[data-name="חוקוק"]')).toBeVisible();
   await expect(home.locator('.kibbutz[data-name="יגור — רפת"] .tag-subsite')).toContainText('יגור');
   await expect(home.locator('.kibbutz[data-name="כפר עזה"] .tag-marketing')).toBeVisible();
@@ -55,13 +55,13 @@ test('home cards: sections, region chips, filters, quick actions', async ({ page
   await expect(home.getByRole('heading', { name: 'לקוחות פעילים' })).toHaveCount(0);
 
   await home.getByRole('radio', { name: 'הכל' }).click();
-  await expect(home.locator('.kibbutz')).toHaveCount(7);
+  await expect(home.locator('.kibbutz')).toHaveCount(8);
 
   // ── search narrows the same list
   await home.getByRole('searchbox', { name: 'חיפוש קיבוץ' }).fill('חוקוק');
   await expect(home.locator('.kibbutz')).toHaveCount(1);
   await home.getByRole('searchbox', { name: 'חיפוש קיבוץ' }).fill('');
-  await expect(home.locator('.kibbutz')).toHaveCount(7);
+  await expect(home.locator('.kibbutz')).toHaveCount(8);
 
   // ── quick actions, עידן (22.9): 📍 סיכום ביקור + the two task adders; 🚚 and 🗓 are gone
   const card = home.locator('.kibbutz[data-name="חוקוק"]');

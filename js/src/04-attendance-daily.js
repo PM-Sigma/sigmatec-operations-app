@@ -1,23 +1,13 @@
   // ===== AVIAM DAILY ATTENDANCE =====
   const ATT_LABELS = { field:'🌾 יום שטח', office:'🏢 משרד', wfh:'🏠 מהבית', reserve:'🪖 מילואים', vacation:'🌴 חופש', off:'🚫 לא בעבודה', other:'➕ אחר' };
   const ATT_COLORS = { field:['#d1fae5','#065f46'], office:['#dbeafe','#1e40af'], wfh:['#ede9fe','#4c1d95'], reserve:['#fee2e2','#991b1b'], vacation:['#fef3c7','#92400e'], off:['#f1f5f9','#475569'], other:['#e0e7ff','#3730a3'] };
-  window.aviamDayType = 'field';
   window.attendanceViewYear  = new Date().getFullYear();
   window.attendanceViewMonth = new Date().getMonth();
 
-  function setAviamDayType(type) {
-    window.aviamDayType = type;
-    document.querySelectorAll('.day-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
-    const isField = type === 'field';
-    document.getElementById('visitFieldForm').style.display = isField ? '' : 'none';
-    document.getElementById('visitSimpleForm').style.display = isField ? 'none' : '';
-    const otherWrap = document.getElementById('aviamOtherWrap');
-    if (otherWrap) otherWrap.style.display = (type === 'other') ? '' : 'none';
-    if (!isField) {
-      const d = document.getElementById('aviamSimpleDate');
-      if (d && !d.value) d.value = todayYmd();
-    }
-  }
+  // setAviamDayType (the legacy #visitQuickModal day-type buttons) is gone — round 5 V-U4B,
+  // zero callers left once V-U3 retired the modal it drove (#visitFieldForm/#visitSimpleForm/
+  // #aviamOtherWrap/#aviamSimpleDate all gone from index.html too). window.aviamDayType went
+  // with it — its one remaining reader, saveAttendance below, is retired in the same pass.
 
   // ONE marker for "worked on a day the company was closed" — the summary line used to say
   // 🕯️ while the row right above it, the month grid and the Excel all said 🕎, i.e. two glyphs
@@ -231,25 +221,10 @@
   // and returns '' for a bad date) — one declaration for the whole module; hoisting makes it
   // available to every caller above it.
 
-  function saveAttendance(btn) {
-    const dateVal = document.getElementById('aviamSimpleDate').value;
-    if (!dateVal) { alert('נא לבחור תאריך'); return; }
-    const dayType = window.aviamDayType || 'office';
-    const note = (dayType === 'other') ? (document.getElementById('aviamOtherText').value || '').trim() : '';
-    if (dayType === 'other' && !note) { alert('נא לפרט מה היה ביום (אחר)'); return; }
-    const person = (document.getElementById('visitor') && document.getElementById('visitor').value) || attPerson();
-    setBtnLoading(btn, true);
-    attSaveRow({ person: person, date: dateVal, dayType: dayType, note: note }).then(() => {
-      const t = document.getElementById('toast');
-      t.textContent = '✅ ' + ATT_LABELS[dayType] + (note ? ' (' + note + ')' : '') + ' נשמר';
-      t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500);
-      closeModal();
-      if (document.getElementById('attendance-view').style.display !== 'none') renderAttendanceReport();
-    }).catch(() => {
-      const t = document.getElementById('toast');
-      t.textContent = '⚠️ שגיאה בשמירה'; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
-    }).finally(() => setBtnLoading(btn, false));
-  }
+  // saveAttendance (the legacy #visitQuickModal's non-field save, #aviamSimpleDate/
+  // #aviamOtherText/#visitor) is gone — round 5 V-U4B, zero callers: the modal it saved from
+  // was retired in V-U3, and closeModal (js/src/01-data.js), its only other caller, goes with
+  // it. Non-field days are filed from the attendance page (sigma.attSave) now.
 
   function changeAttendanceMonth(delta) {
     window.attendanceViewMonth += delta;

@@ -1,0 +1,188 @@
+// Round 5 · V-U4 designer evidence (spec docs/superpowers/specs/2026-09-23-r5-V-visit.md) —
+// the visit summary sheet, the ביקורים tab and their toasts/prompts. Not part of the
+// correctness gate (visit-chapters.spec.ts / kibbutz-detail.spec.ts own that) — this file only
+// produces qa/evidence/V-U/*.png for the designer, at the two phone widths the handoff asked
+// for, light + dark. Run under mobile-390-light / mobile-390-dark (the only two projects with
+// both a real storage `theme` and enough headroom to resize into); each test resizes into 360
+// and 412 after boot so the SAME theme/localStorage setup produces both sizes. Every capture
+// also asserts no horizontal page overflow at that width, as the release note asked.
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import type { Page } from '@playwright/test';
+import { boot, expect, test } from './_helpers';
+
+const OUT = path.resolve(__dirname, '..', '..', 'evidence', 'V-U');
+mkdirSync(OUT, { recursive: true });
+
+const WIDTHS: Array<{ w: number; h: number }> = [{ w: 360, h: 780 }, { w: 412, h: 915 }];
+
+/** No element's right/left edge sits outside the viewport, and the document itself never scrolls sideways. */
+async function expectNoPageOverflow(page: Page, w: number): Promise<void> {
+  const overflowing = await page.evaluate((width: number) => {
+    const doc = document.scrollingElement as HTMLElement;
+    const bad: string[] = [];
+    if (doc && doc.scrollWidth > width + 1) bad.push('document');
+    // #sidePanel is a pre-existing off-canvas legacy drawer, unrelated to this screen (see
+    // zz-cu-evidence.spec.ts's own note on the same false positive) — excluded here too.
+    // The sonner `.toaster` region is a fixed-position container the library sizes to its
+    // widest POSSIBLE toast, including ones sliding off-screen mid-animation — not a page
+    // layout bug, so it is excluded the same way.
+    document.querySelectorAll<HTMLElement>('body *').forEach(el => {
+      if (el.closest('#sidePanel') || el.closest('.toaster') || el.classList.contains('toaster')) return;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && (r.right > width + 1 || r.left < -1)) {
+        const id = el.id || el.className || el.tagName;
+        if (bad.length < 5) bad.push(String(id).slice(0, 60));
+      }
+    });
+    return bad;
+  }, w);
+  expect(overflowing, 'elements overflowing the ' + w + 'px viewport: ' + overflowing.join(', ')).toEqual([]);
+}
+
+async function openArrivalVisit(page: Page): Promise<void> {
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+}
+
+test.describe('V-U evidence captures', () => {
+  test.beforeEach(({}, ti) => {
+    test.skip(!['mobile-390-light', 'mobile-390-dark'].includes(ti.project.name), 'one run per theme is enough');
+  });
+
+  for (const { w, h } of WIDTHS) {
+    test(`visit sheet: new, multi-visitor + contact chips @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+      await page.setViewportSize({ width: w, height: h });
+      await openArrivalVisit(page);
+
+      const who = page.getByTestId('visit-visitors');
+      await who.getByTestId('vc-visitor-ניתאי').click();
+      await page.getByTestId('vc-summary').fill('הוחלף מונה, סוכם המשך מול גפן');
+      await page.getByTestId('vc-hours-2').click();
+      await page.getByTestId('vc-contact').fill('גפן');
+      await expect(page.getByTestId('visit-chapters')).toBeVisible();
+
+      await expectNoPageOverflow(page, w);
+      await page.screenshot({ path: path.join(OUT, `visit-sheet-new__${w}__${theme}.png`) });
+    });
+
+    test(`visit sheet: products header + product search focus ring @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+      await page.setViewportSize({ width: w, height: h });
+      await openArrivalVisit(page);
+
+      await page.locator('[data-testid="vc-chapter-3"]').scrollIntoViewIfNeeded();
+      const search = page.getByTestId('vc-product-search');
+      await search.click();
+      await expect(search).toBeFocused();
+
+      await expectNoPageOverflow(page, w);
+      await page.screenshot({ path: path.join(OUT, `visit-sheet-products-focus-ring__${w}__${theme}.png`) });
+    });
+
+    test(`visit sheet: draft + cancel prompt @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+      await page.setViewportSize({ width: w, height: h });
+      await openArrivalVisit(page);
+
+      await page.getByTestId('vc-summary').fill('התחלתי לכתוב ואז קראו לי');
+      // round 5 V-L7 (grill round 2 "Drafts rule 2"): a scrim tap on real input asks the
+      // ruling's own two-button question.
+      await page.mouse.click(5, 5);
+      await expect(page.getByTestId('unsaved-guard')).toBeVisible();
+
+      await expectNoPageOverflow(page, w);
+      await page.screenshot({ path: path.join(OUT, `visit-sheet-cancel-prompt__${w}__${theme}.png`) });
+    });
+
+    test(`ביקורים tab: history + draft row @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם' });
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForSelector('#sigma-home .kibbutz[data-name="חוקוק"]');
+      await page.evaluate(() => {
+        // useVisitDraft's todayISO() is the LOCAL date (getFullYear/getMonth/getDate), not the
+        // UTC one toISOString() gives — the two disagree near local midnight, which is why the
+        // draft the component looked for was never "today"'s.
+        const now = new Date();
+        const p = (n: number) => String(n).padStart(2, '0');
+        const local = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+        (window as any).sigma.visitDraftPut({
+          id: 'v_ev', person: 'אביאם', kibbutz: 'חוקוק',
+          date: local, updated_at: now.toISOString(), payload: { summary: 'x' },
+        });
+      });
+      await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק', 'visits'));
+      const detail = page.locator('[data-testid="kibbutz-detail"]');
+      await expect(detail).toBeVisible({ timeout: 15_000 });
+      await expect(detail.getByTestId('visit-draft-row')).toBeVisible();
+
+      await expectNoPageOverflow(page, w);
+      await page.screenshot({ path: path.join(OUT, `visits-tab-history-draft__${w}__${theme}.png`) });
+    });
+
+    test(`visit save: the toast @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+      await page.setViewportSize({ width: w, height: h });
+      await openArrivalVisit(page);
+
+      await page.getByTestId('vc-summary').fill('נבדק מונה, הכול תקין');
+      await page.getByTestId('vc-hours-2').click();
+      await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
+      await page.getByTestId('vc-reason-fault').click();
+      await page.getByTestId('vc-send').click();
+      await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+      const shownToast = page.locator('[data-sonner-toast]').first();
+      await expect(shownToast).toBeVisible({ timeout: 15_000 });
+      // sonner's mount transition (transform .4s) settles a moment after "visible" already passes.
+      await page.waitForTimeout(500);
+      // KNOWN GAP (not resolved this pass): this toast's rendered box lands well below its own
+      // CSS-computed bottom offset would suggest — sometimes ~30-70px past the viewport edge —
+      // in THIS headless/resized-viewport harness. `toBeVisible()` above only proves it is
+      // attached and non-zero-size, not that it is inside the frame the screenshot below
+      // captures; the PNG this test writes may still not show it. Confirmed as real in the DOM
+      // (position: bottom-center, never top) but the exact on-screen placement needs a follow-up
+      // once the underlying sonner/viewport-resize interaction is understood.
+      await page.screenshot({ path: path.join(OUT, `visit-save-toast__${w}__${theme}.png`) });
+      await expect(shownToast).toBeVisible();
+      await expectNoPageOverflow(page, w);
+    });
+
+    test(`visit save: the attendance conflict question @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+      await page.setViewportSize({ width: w, height: h });
+      // an existing MANUAL office row for today, for אביאם — a field-day save that day must
+      // ask before overwriting it (rule 2), never overwrite silently. LOCAL date, like
+      // Field.tsx's own todayISO() the visit's default date comes from (not toISOString()'s
+      // UTC one — see the draft-row test above for why that distinction matters here).
+      await page.evaluate(() => {
+        const now = new Date();
+        const p = (n: number) => String(n).padStart(2, '0');
+        const local = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+        const w = window as any;
+        w.SHEET_DATA = w.SHEET_DATA || {};
+        w.SHEET_DATA.attendance = [
+          ...(w.SHEET_DATA.attendance || []),
+          { id: 'att-conflict-ev', person: 'אביאם', date: local + 'T09:00:00.000Z', dayType: 'office', source: 'manual' },
+        ];
+      });
+      await openArrivalVisit(page);
+
+      await page.getByTestId('vc-summary').fill('נבדק מונה, הכול תקין');
+      await page.getByTestId('vc-hours-2').click();
+      await page.getByTestId('vc-contact').fill('יוסי מהמחלבה');
+      await page.getByTestId('vc-reason-fault').click();
+      await page.getByTestId('vc-send').click();
+      await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+      await expect(page.getByText('לשנות לשטח?')).toBeVisible({ timeout: 15_000 });
+      // The Dialog's zoom-in mount animation (s-anim-dialog) can leave a stale bounding box for
+      // a frame — settle before measuring.
+      await page.waitForTimeout(350);
+
+      await expectNoPageOverflow(page, w);
+      await page.screenshot({ path: path.join(OUT, `visit-save-attendance-conflict__${w}__${theme}.png`) });
+    });
+  }
+});

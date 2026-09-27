@@ -64,7 +64,7 @@ function runModule(overrides) {
     'loadAllVisitsCombined', 'visitorsOf', 'alert', '_certRows',
     certSrc + '\n' + logoSrc +
       '\nreturn { certEsc, certFmtDate, certDocHtml, openDeliveryCert, certIssuedForVisit, certViewUrl,' +
-      ' certFetchRow, certFromVisitForm, certFromVisit, openVisitCertPicker, certView, certSendOpen,' +
+      ' certFetchRow, certFromVisit, openVisitCertPicker, certView, certSendOpen,' +
       ' certRowForVisit, certSendForVisit, certDownloadForVisit, certGroupName, certReportLabel,' +
       ' certRangeReportRange, certRangeReport, certMonthlyFromTab };'
   );
@@ -114,14 +114,9 @@ if (mod) {
     assert.deepEqual(invOpenCalls.map(d => d.kind), ['cert-view', 'cert-send']);
   });
 
-  check('certFromVisitForm builds a pre object from the visit form and opens the sheet', () => {
-    invOpenCalls.length = 0;
-    elements.visitDate.value = '2026-07-11';
-    mod.certFromVisitForm();
-    assert.equal(invOpenCalls.length, 1);
-    assert.equal(invOpenCalls[0].pre.source, 'visit');
-    assert.equal(invOpenCalls[0].pre.date, '2026-07-11');
-  });
+  // "certFromVisitForm builds a pre object from the visit form and opens the sheet" retired
+  // round 5 V-U3 with the legacy visit form itself (#visitDate, .prod-chk) — certFromVisit
+  // (below) and sigma.openVisitEditor({mode:'cert'}) are the only paths into the cert sheet now.
   check('certFromVisit resolves the visit by id and opens the sheet', () => {
     invOpenCalls.length = 0;
     const m2 = runModule({ loadAllVisitsCombined: () => [{ id: 'v1', kibbutz: 'גבים', date: '2026-07-01', products: [{ name: 'X', qty: 2 }] }] });

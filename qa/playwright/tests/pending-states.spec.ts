@@ -149,30 +149,30 @@ test('§7p: the import sheet keeps pasted meeting markdown through a dismiss', a
 test('§7p: the legacy modals ask before they drop what was typed', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'עידן' });
 
-  // The quick-visit modal is the representative legacy case: markup in index.html, opened by
-  // legacy code, dismissed by the ONE dispatcher in js/src/00-guard.js.
+  // The attendance-edit modal is the representative legacy case: markup in index.html, opened
+  // by legacy code, dismissed by the ONE dispatcher in js/src/00-guard.js.
   const opened = await page.evaluate(() => {
-    const el = document.getElementById('visitQuickModal');
+    const el = document.getElementById('attEditModal');
     if (!el) return false;
     el.classList.add('open');
-    const d = document.getElementById('vqDate') as HTMLInputElement | null;
+    const d = document.getElementById('attEditDate') as HTMLInputElement | null;
     if (d) { d.value = '2026-09-20'; d.dispatchEvent(new Event('input', { bubbles: true })); }
     return true;
   });
-  expect(opened, '#visitQuickModal is in index.html').toBe(true);
+  expect(opened, '#attEditModal is in index.html').toBe(true);
 
   // Esc → the prompt, not a dismiss.
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('unsaved-guard')).toBeVisible();
   await page.getByTestId('unsaved-keep').click();
-  await expect(page.locator('#visitQuickModal')).toHaveClass(/open/);
-  await expect(page.locator('#vqDate')).toHaveValue('2026-09-20');
+  await expect(page.locator('#attEditModal')).toHaveClass(/open/);
+  await expect(page.locator('#attEditDate')).toHaveValue('2026-09-20');
 
   // A backdrop tap → the same question.
-  await page.locator('#visitQuickModal').click({ position: { x: 4, y: 4 } });
+  await page.locator('#attEditModal').click({ position: { x: 4, y: 4 } });
   await expect(page.getByTestId('unsaved-guard')).toBeVisible();
   await page.getByTestId('unsaved-discard').click();
-  await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
+  await expect(page.locator('#attEditModal')).not.toHaveClass(/open/);
 
   expectNoConsoleErrors(rec);
 });
@@ -197,15 +197,16 @@ test('§7p / F4: one Esc closes ONE layer, never two', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'עידן' });
 
   await page.evaluate(() => {
-    document.getElementById('modalBackdrop')?.classList.add('open');
+    document.getElementById('attEditModal')?.classList.add('open');
     document.getElementById('emsTaskModal')?.classList.add('open');
   });
   await page.keyboard.press('Escape');
-  // The TOPMOST one went (#emsTaskModal, z-index 1160) and the one under it stayed. Two
-  // competing listeners used to take both, and document order used to pick the wrong one.
+  // The TOPMOST one went (#emsTaskModal, z-index 1160) and the one under it (#attEditModal,
+  // z-index 1100) stayed. Two competing listeners used to take both, and document order used
+  // to pick the wrong one.
   await expect(page.locator('#emsTaskModal')).not.toHaveClass(/open/);
-  await expect(page.locator('#modalBackdrop')).toHaveClass(/open/);
-  await page.evaluate(() => { document.getElementById('modalBackdrop')?.classList.remove('open'); });
+  await expect(page.locator('#attEditModal')).toHaveClass(/open/);
+  await page.evaluate(() => { document.getElementById('attEditModal')?.classList.remove('open'); });
 
   expectNoConsoleErrors(rec);
 });
@@ -493,14 +494,14 @@ test('Back on a dirty dialog asks שמור טיוטה / לצאת בלי לשמו
 
   // The same representative legacy modal the §7p cases use, with something typed in it.
   const opened = await page.evaluate(() => {
-    const el = document.getElementById('visitQuickModal');
+    const el = document.getElementById('attEditModal');
     if (!el) return false;
     el.classList.add('open');
-    const d = document.getElementById('vqDate') as HTMLInputElement | null;
+    const d = document.getElementById('attEditDate') as HTMLInputElement | null;
     if (d) { d.value = '2026-09-20'; d.dispatchEvent(new Event('input', { bubbles: true })); }
     return true;
   });
-  expect(opened, '#visitQuickModal is in index.html').toBe(true);
+  expect(opened, '#attEditModal is in index.html').toBe(true);
 
   await page.goBack();
 
@@ -511,28 +512,28 @@ test('Back on a dirty dialog asks שמור טיוטה / לצאת בלי לשמו
 
   // "להמשיך" → the dialog is still open, the typing is still there, the page did not move.
   await page.getByTestId('unsaved-keep').click();
-  await expect(page.locator('#visitQuickModal')).toHaveClass(/open/);
-  await expect(page.locator('#vqDate')).toHaveValue('2026-09-20');
+  await expect(page.locator('#attEditModal')).toHaveClass(/open/);
+  await expect(page.locator('#attEditDate')).toHaveValue('2026-09-20');
   await atHome(page);
 
   // Back again → "לצאת בלי לשמור" closes the dialog and leaves the page where it was.
   await page.goBack();
   await expect(page.getByTestId('unsaved-guard')).toBeVisible();
   await page.getByTestId('unsaved-discard').click();
-  await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
+  await expect(page.locator('#attEditModal')).not.toHaveClass(/open/);
   await atHome(page);
 
   // An UNTOUCHED dialog just closes on Back — round-1 behaviour, unchanged. "לצאת בלי לשמור"
   // closes the modal without clearing its fields (§7p: discarding is a decision, not a wipe),
   // so the date is emptied here to make this reopen genuinely clean.
   await page.evaluate(() => {
-    const d = document.getElementById('vqDate') as HTMLInputElement | null;
+    const d = document.getElementById('attEditDate') as HTMLInputElement | null;
     if (d) { d.value = ''; d.dispatchEvent(new Event('input', { bubbles: true })); }
-    document.getElementById('visitQuickModal')?.classList.add('open');
+    document.getElementById('attEditModal')?.classList.add('open');
   });
   await page.goBack();
   await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
-  await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
+  await expect(page.locator('#attEditModal')).not.toHaveClass(/open/);
   await atHome(page);
 
   expectNoConsoleErrors(rec);
@@ -552,9 +553,9 @@ test('a tap outside a sheet closes it and stays on the same screen', async ({ pa
   await expect(page.getByTestId('exit-confirm')).toHaveCount(0);   // it did NOT pop history
 
   // The legacy half: a backdrop tap on a clean modal, same expectation.
-  await page.evaluate(() => { document.getElementById('visitQuickModal')?.classList.add('open'); });
-  await page.locator('#visitQuickModal').click({ position: { x: 4, y: 4 } });
-  await expect(page.locator('#visitQuickModal')).not.toHaveClass(/open/);
+  await page.evaluate(() => { document.getElementById('attEditModal')?.classList.add('open'); });
+  await page.locator('#attEditModal').click({ position: { x: 4, y: 4 } });
+  await expect(page.locator('#attEditModal')).not.toHaveClass(/open/);
   await atHome(page);
   expect(page.url()).toBe(url);
   await expect(page.getByTestId('exit-confirm')).toHaveCount(0);

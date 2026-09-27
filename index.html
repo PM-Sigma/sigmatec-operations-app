@@ -29,7 +29,7 @@
      simply skips the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="modulepreload" href="ui/sigma.js?v=mujhh3y6">
+<link rel="modulepreload" href="ui/sigma.js?v=mujhjvmb">
 <!-- critical:start — generated from css/critical.css by build.mjs; do NOT hand-edit. src-sha256:07e70501fb61c37d -->
 <style>*{box-sizing:border-box;margin:0;padding:0}:root{--primary: #1b2a4a;--primary-hover: #25395f;--accent: #2f6fed;--accent-soft: #eef3fe;--success: #0e9f6e;--success-light: #e7f6f0;--warning: #c87f0a;--warning-light: #fdf4e3;--danger: #7c5cdb;--danger-light: #f2eefb;--priority: #d64545;--priority-light: #fcecec;--gray-light: #f1f4f8;--bg: #f4f6f9;--card: #ffffff;--text: #1f2937;--text-light: #5c6572;--border: #e3e8ef;--radius: 10px;--shadow-sm: 0 1px 2px rgba(16,24,40,.05);--shadow-md: 0 4px 12px rgba(16,24,40,.08);--brand-1: #06C2CB;--brand-2: #1ABE63;--brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));--surface-2: #eef2f7;--radius-lg: 14px;--font: "Assistant", "Segoe UI", system-ui, sans-serif;--on-brand: #ffffff}:root[data-theme=dark]{--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f;--shadow-sm: 0 1px 2px rgba(0,0,0,.5);--shadow-md: 0 4px 12px rgba(0,0,0,.55)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f}}body{font-family:var(--font);font-size:15px;background:var(--bg);color:var(--text);min-height:100vh;padding:12px 16px;line-height:1.5;-webkit-font-smoothing:antialiased}@media(min-width:768px){body{padding:24px}}.container{max-width:none;margin:0 auto}.header{background:var(--bg);color:var(--text);padding:10px 2px 8px;margin-bottom:8px;position:sticky;top:0;z-index:5;min-height:56px}.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:44px}.header h1{font-size:21px;font-weight:800;letter-spacing:-.01em}.header .subtitle{font-size:11px;font-weight:500;color:var(--text-light);margin-top:3px}.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.section{background:var(--card);border-radius:12px;margin-bottom:16px;border:1px solid var(--border);overflow:hidden}.section-header{padding:16px 24px;background:var(--gray-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3;min-height:60px}.section-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}.section-body{padding:16px 24px 24px}.kibbutz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start;grid-auto-flow:dense}.kibbutz{padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm);position:relative;cursor:pointer;border-right-width:3px;min-height:120px}#sigma-home{min-height:100vh}body.sigma-home-fallback #sigma-home{min-height:0}#sigma-nav:not(:empty){min-height:64px}.company-tasks{min-height:120px}#userBadge,#emsBubble{display:none}#sigma-header-actions{min-height:40px}.filter-bar{padding:0;margin:0;border:0;background:none;min-height:0}.filter-bar>.search-input,.filter-bar>.filter-chip{display:none}#grid-new,#grid-active{display:none}:root[data-gate=pick] #loginModal{display:flex}</style>
 <!-- critical:end -->
@@ -40,11 +40,11 @@
      the inlined critical block above stays because it is what paints if either 404s. -->
 <!-- css/app.min.css is GENERATED from css/app.css by build.mjs (26 kB → 14 kB gzipped on a
      render-blocking request); css/app.css stays the hand-written source of truth. -->
-<link rel="stylesheet" href="css/app.min.css?v=mujhh3y6">
+<link rel="stylesheet" href="css/app.min.css?v=mujhjvmb">
 <!-- ui/sigma.css loads at NORMAL priority. It was tried as a `media="print"` swap: 8 kB
      gzipped off the critical path, against the risk of an island painting unstyled if the
      swap lands after it mounts. Not a trade worth making for 8 kB. -->
-<link rel="stylesheet" href="ui/sigma.css?v=mujhh3y6">
+<link rel="stylesheet" href="ui/sigma.css?v=mujhjvmb">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -87,48 +87,8 @@
       <div class="modal-sub" style="margin-bottom:10px;">יש ימים ללא סיכום ביקור או נוכחות. נא להשלים כדי שלא יישכח:</div>
       <div id="aviamReminderList" style="background:var(--tint-warn);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;color:var(--text);line-height:1.8;"></div>
       <div class="modal-actions" style="flex-direction:column;gap:8px;">
-        <button class="btn btn-primary" onclick="document.getElementById('aviamReminderModal').classList.remove('open'); openVisitQuick();">📍 תעד עכשיו</button>
+        <button class="btn btn-primary" onclick="document.getElementById('aviamReminderModal').classList.remove('open'); window.sigma.openVisitQuick();">📍 תעד עכשיו</button>
         <button class="btn btn-secondary" onclick="document.getElementById('aviamReminderModal').classList.remove('open')">אטפל בזה אחר כך</button>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- Quick-visit kibbutz picker -->
-  <div class="modal-backdrop" id="visitQuickModal" style="z-index:1100;">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:430px;">
-      <h3 id="vqTitle">📍 תיעוד ביקור מהיר</h3>
-      <div class="modal-sub" id="vqSub">בחר קיבוץ ונפתח לך ישר את טופס הביקור.</div>
-
-      <label for="vqDate" style="margin-top:12px;">📅 תאריך:</label>
-      <input type="date" id="vqDate" style="font-size:16px;">
-
-      <!-- day-type chooser — shown only for אביאם / ניתאי (attendance flow) -->
-      <div id="vqDayTypes" style="display:none;margin:12px 0 4px;">
-        <label class="sig-fl" style="margin-bottom:8px;">סוג יום</label>
-        <div class="sig-seg">
-          <button class="day-type-btn vq-dt active" data-type="field"    onclick="vqSetType('field')">🌾 יום שטח</button>
-          <button class="day-type-btn vq-dt"        data-type="office"   onclick="vqSetType('office')">🏢 משרד</button>
-          <button class="day-type-btn vq-dt"        data-type="wfh"      onclick="vqSetType('wfh')">🏠 מהבית</button>
-          <button class="day-type-btn vq-dt"        data-type="reserve"  onclick="vqSetType('reserve')">🪖 מילואים</button>
-          <button class="day-type-btn vq-dt"        data-type="vacation" onclick="vqSetType('vacation')">🌴 חופש</button>
-          <button class="day-type-btn vq-dt"        data-type="off"      onclick="vqSetType('off')">🚫 לא בעבודה</button>
-          <button class="day-type-btn vq-dt"        data-type="other"    onclick="vqSetType('other')">➕ אחר</button>
-        </div>
-      </div>
-      <div id="vqOtherWrap" style="display:none;margin-top:8px;">
-        <label for="vqOther">➕ פירוט (אחר):</label>
-        <input type="text" id="vqOther" placeholder="למשל: יום עיון, כנס, חופשת מחלה...">
-      </div>
-
-      <div id="vqKibbutzWrap">
-        <label for="visitQuickKibbutz" style="margin-top:12px;">🏘️ קיבוץ:</label>
-        <select id="visitQuickKibbutz" style="font-size:16px;"></select>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="modalDismiss('visitQuickModal')">ביטול</button>
-        <button class="btn btn-primary" onclick="visitQuickGo(this)">המשך →</button>
       </div>
     </div>
   </div>
@@ -300,7 +260,7 @@
 
   <div class="footer">
     Sigmatec Operations
-    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-27·2.86</bdi></span>
+    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-27·2.82</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
@@ -451,194 +411,6 @@
     <div id="emsDetailContent">⏳ טוען...</div>
   </div>
 </div>
-
-<!-- After a visit summary is saved: if the kibbutz has open EMS task(s), offer to push
-     the full summary as a comment + update the task status. Queues if not connected. -->
-<div class="modal-backdrop" id="modalBackdrop">
-  <div class="modal" onclick="event.stopPropagation()">
-    <h3 id="modalTitle">📝 ניהול קיבוץ</h3>
-    <div class="modal-sub" id="modalSub">קיבוץ:</div>
-
-    <!-- The מצב הקיבוץ tab (modal-tabs bar + #tab-meetings) is retired (round 5, K-U5): its
-         content — last-visit report, EMS tasks, meetings, internal tasks, health — now lives
-         in KibbutzDetail's StatusTab (K-U2). #tab-visit below and #modalBackdrop itself stay:
-         they are package V's, deleted last in V-U3. -->
-
-    <div class="tab-content active" id="tab-visit">
-      <!-- === סיכום ביקור, re-skinned to the approved mockup (spec §6 / §5.1b / §5.1c).
-           LOGIC UNTOUCHED: every id the legacy module reads is still here with the same
-           meaning, which is what keeps test-visit-cert-gate.mjs green unchanged. New: the
-           duration chips + the יום שלם chip (they write the SAME visitDuration /
-           visitWorkday fields), the cert chip under the products list, and the summary
-           split into "מה עשיתי" + "מה נשאר לי פתוח" (visits.open_items). === -->
-
-      <!-- §5.1c: one line, one tap. It says what the person gets, not how it was stored. -->
-      <div id="visitDraftPrompt" class="sig-draft" style="display:none;margin-bottom:12px;">
-        <span id="visitDraftPromptText">יש טיוטה פתוחה</span>
-        <span class="sp"></span>
-        <button type="button" id="visitDraftContinue" onclick="visitDraftRestore()">המשך</button>
-        <button type="button" id="visitDraftRestart" onclick="visitDraftDiscard(null, true, this)">התחל מחדש</button>
-        <!-- One button per OTHER open draft of his (review fix 1: several are now possible).
-             Filled by visitDraftPromptShow(); empty and invisible when there is only one. -->
-        <span id="visitDraftPromptMore" class="sig-draft-more"></span>
-      </div>
-
-      <div id="lastVisitBox" class="sig-frm" style="background:var(--surface-2);border:1px solid var(--border);border-inline-start:3px solid var(--brand-2);padding:10px 12px;border-radius:12px;margin-bottom:14px;font-size:12.5px;display:none;gap:6px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-weight:700;">📍 ביקור אחרון</div>
-          <div style="display:flex;gap:6px;">
-            <button id="certLastVisitBtn" class="sig-btn s" onclick="certFromVisit(document.getElementById('editLastVisitBtn').dataset.visitId)" style="min-height:32px;padding:0 10px;font-size:12px;display:none;">🚚 תעודה</button>
-            <button id="editLastVisitBtn" class="sig-btn s" onclick="editLastVisit()" style="min-height:32px;padding:0 10px;font-size:12px;">✏️ ערוך</button>
-          </div>
-        </div>
-        <div id="lastVisitContent" style="white-space:pre-line;line-height:1.55;"></div>
-        <div id="visitsHistoryWrap"></div>
-      </div>
-
-      <!-- Round 3 · Package S: the same entry point the React chapters sheet offers (🎙 הקלט
-           סיכום ביקור), for whoever lands on this legacy fallback (no React island mounted).
-           Hands off to the chapters sheet the instant it IS available; otherwise a plain note —
-           never a dead button. Position: under 📍 ביקור אחרון, before מי ביקר (spec S). -->
-      <div id="legacyVoiceHandoff" class="sig-frm" style="margin-bottom:12px;">
-        <button type="button" id="legacyVoiceBtn" class="sig-btn s" style="width:100%;min-height:44px;justify-content:center;gap:6px;" onclick="legacyVoiceIntakeHandoff()">
-          🎙 הקלט סיכום ביקור <span style="opacity:.65;font-weight:600;">(ניסיוני)</span>
-        </button>
-      </div>
-
-      <div id="visitorFieldWrap" class="sig-frm">
-        <label class="sig-fl" for="visitor">מי ביקר <span style="color:var(--priority);">*</span></label>
-        <select id="visitor" onchange="onVisitorChange(this.value)">
-          <option value="">-- בחר שם --</option>
-          <option value="אביאם">אביאם</option>
-          <option value="ניתאי">ניתאי</option>
-          <option value="עידן">עידן</option>
-          <option value="עמיחי">עמיחי</option>
-          <option value="אבצן">אבצן</option>
-          <option value="מתניה">מתניה</option>
-          <option value="אליה">אליה</option>
-        </select>
-      </div>
-      <div id="visitorFieldDisplay" style="display:none;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-inline-start:3px solid var(--brand-1);border-radius:12px;font-size:14px;font-weight:700;margin-bottom:12px;"></div>
-
-      <!-- Aviam-only: day type. A ToggleGroup-styled row (mockup `.seg`). -->
-      <div id="aviamDayTypeSelector" style="display:none;margin:12px 0 4px;">
-        <label class="sig-fl" style="margin-bottom:8px;">סוג יום</label>
-        <div class="sig-seg">
-          <button type="button" class="day-type-btn on" data-type="field"    onclick="setAviamDayType('field')">🌾 שטח</button>
-          <button type="button" class="day-type-btn"    data-type="office"   onclick="setAviamDayType('office')">🏢 משרד</button>
-          <button type="button" class="day-type-btn"    data-type="wfh"      onclick="setAviamDayType('wfh')">🏠 מהבית</button>
-          <button type="button" class="day-type-btn"    data-type="reserve"  onclick="setAviamDayType('reserve')">🪖 מילואים</button>
-          <button type="button" class="day-type-btn"    data-type="vacation" onclick="setAviamDayType('vacation')">🌴 חופש</button>
-          <button type="button" class="day-type-btn"    data-type="off"      onclick="setAviamDayType('off')">🚫 לא בעבודה</button>
-          <button type="button" class="day-type-btn"    data-type="other"    onclick="setAviamDayType('other')">➕ אחר</button>
-        </div>
-      </div>
-
-      <!-- Full field-day form (default for everyone; hidden for Aviam on non-field days) -->
-      <div id="visitFieldForm" class="sig-frm">
-        <!-- QA round 2 · C2: "מלאי מקור" is not a question any more — there is ONE pool
-             (inventory spec §1) and the answer is always חברה. The select stays hidden rather
-             than deleted because renderProductsForVisitor() and saveVisit() read its value. -->
-        <select id="visitSource" hidden aria-hidden="true" tabindex="-1" style="display:none;">
-          <option value="חברה" selected>חברה</option>
-        </select>
-
-        <label class="sig-fl">משך ותאריך הביקור <span style="color:var(--priority);">*</span></label>
-        <div class="sig-seg" id="visitDurationChips">
-          <button type="button" data-hours="1" onclick="setVisitHours(1)">1</button>
-          <button type="button" data-hours="2" onclick="setVisitHours(2)">2</button>
-          <button type="button" data-hours="3" onclick="setVisitHours(3)">3</button>
-          <button type="button" data-hours="4" onclick="setVisitHours(4)">4</button>
-          <button type="button" data-hours="6" onclick="setVisitHours(6)">6</button>
-          <button type="button" id="visitWorkdayChip" style="flex:2 1 auto;" onclick="setVisitWorkday()">☀️ יום שלם</button>
-        </div>
-        <!-- The exact-hours input stays (0.25 steps) and `visitWorkday` stays a checkbox:
-             both are what saveVisit() reads, and the chips above only write into them. -->
-        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
-          <input type="number" id="visitDuration" class="sig-fi" style="flex:1;" min="0.25" step="0.25" placeholder="1.5" aria-label="שעות, הזנה ידנית" oninput="syncVisitDurationChips()">
-          <input type="date" id="visitDate" class="sig-fi" style="flex:1;" aria-label="תאריך הביקור">
-        </div>
-        <label style="display:none;"><input type="checkbox" id="visitWorkday" onchange="toggleVisitWorkday()"></label>
-
-        <label class="sig-fl">ציוד שסופק</label>
-        <div class="sig-pl" id="visitProducts">
-          <!-- Populated dynamically by renderProductsForVisitor() -->
-        </div>
-        <!-- §7k #5: the gate chip lives UNDER the products list, and the save button relabels
-             to "🚚 הפק תעודה ← שמור" the moment a product is checked. -->
-        <div id="visitCertStatus"></div>
-
-        <label class="sig-fl" for="visitProductsOther">מוצרים נוספים</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="visitProductsOther" class="sig-fi" style="flex:1;" list="visitCatalogList" placeholder="חפש בקטלוג או כתוב מוצר" oninput="visitOtherProductChanged(this.value)">
-          <datalist id="visitCatalogList"></datalist>
-          <button type="button" id="visitAddToCatalog" class="sig-btn s" style="display:none;flex:none;min-height:40px;" onclick="visitAddOtherToCatalog()">➕ לקטלוג</button>
-        </div>
-
-        <details style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;">
-          <summary style="cursor:pointer;padding:10px 12px;font-weight:700;font-size:13.5px;">🔧 ציוד שהוחזר מהקיבוץ</summary>
-          <div style="padding:8px 12px 12px;">
-            <div style="font-size:12px;color:var(--text-light);margin-bottom:6px;">
-              פריטים שלקחת בחזרה. בניהול המלאי תחליט מה תקין ומה תקול.
-            </div>
-            <div id="visitReturnedList"></div>
-            <button type="button" class="sig-btn s" onclick="addReturnedItemRow()" style="margin-top:6px;min-height:40px;">+ הוסף פריט</button>
-          </div>
-        </details>
-
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <label class="sig-fl" for="visitSummary" style="margin:0;">מה עשיתי בביקור</label>
-          <button type="button" onclick="openVoice('visit')" class="sig-btn s" style="display:none;flex:none;min-height:36px;padding:0 14px;font-size:13px;">🎤 הקלט</button>
-        </div>
-        <textarea id="visitSummary" class="sig-fb" placeholder="מה נעשה בפועל..."></textarea>
-
-        <!-- §5.1b: what he leaves open is its own field. The briefing shows it under
-             "נשאר פתוח" on the next visit, and the reports carry it as a column. -->
-        <label class="sig-fl" for="visitOpenItems">מה נשאר לי פתוח</label>
-        <textarea id="visitOpenItems" class="sig-fb" style="min-height:72px;" placeholder="מה לא נסגר, ומה צריך בביקור הבא..."></textarea>
-
-        <!-- EMS update — shown only when the kibbutz has an open EMS task (Phase 2) -->
-        <div id="visitEmsBlock" style="display:none;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;">
-          <div id="visitEmsHead" style="font-weight:700;font-size:13.5px;margin-bottom:6px;">🔗 מעדכן משימה גם ב-EMS</div>
-          <div id="visitEmsTaskPick"></div>
-          <label class="sig-fl" for="visitEmsStatus" style="margin-top:8px;">סטטוס משימת EMS <span style="color:var(--priority);">*</span></label>
-          <select id="visitEmsStatus" style="width:100%;"></select>
-          <span id="visitEmsConnNote" style="display:none;"></span>
-        </div>
-        <div id="visitEmsNewBlock" style="display:none;">
-          <button type="button" class="sig-btn s" style="width:100%;" onclick="createEmsTaskFromVisit()">➕ פתח משימה חדשה ב-EMS</button>
-        </div>
-
-        <label class="sig-fl" for="visitContact">איש קשר מלווה <span style="color:var(--priority);">*</span></label>
-        <div id="visitContactChips" class="sig-chips"></div>
-        <input type="text" id="visitContact" class="sig-fi" placeholder="מי ליווה אותך" autocomplete="off" oninput="visitContactTyped(this.value)">
-
-        <button type="button" class="sig-btn s" id="visitCertBtn" onclick="certFromVisitForm()" style="width:100%;margin-top:4px;">🚚 הפק תעודת משלוח</button>
-
-        <div class="sig-actions" style="margin-top:4px;">
-          <button class="sig-btn s" onclick="modalDismiss('modalBackdrop')" style="flex:0 0 auto;padding:0 16px;">ביטול</button>
-          <button class="sig-btn p lg" id="visitSaveBtn" onclick="saveVisit(this)">💾 שמור ביקור</button>
-        </div>
-      </div><!-- /visitFieldForm -->
-
-      <!-- Simple date-only form for Aviam's non-field days -->
-      <div id="visitSimpleForm" style="display:none;padding-top:8px;">
-        <label for="aviamSimpleDate">📅 תאריך:</label>
-        <input type="date" id="aviamSimpleDate" style="font-size:16px;">
-        <div id="aviamOtherWrap" style="display:none;margin-top:10px;">
-          <label for="aviamOtherText">➕ פירוט (אחר):</label>
-          <input type="text" id="aviamOtherText" placeholder="למשל: יום עיון, כנס, חופשת מחלה...">
-        </div>
-        <div class="modal-actions" style="margin-top:16px;">
-          <button class="btn btn-secondary" onclick="modalDismiss('modalBackdrop')">ביטול</button>
-          <button class="btn btn-primary" onclick="saveAttendance(this)">💾 שמור</button>
-        </div>
-      </div><!-- /visitSimpleForm -->
-    </div>
-
-  </div>
-</div>
-
 <!-- Password Gate -->
 <!-- Voice recording → transcription (Gemini) → editable summary + detected items -->
 <div class="modal-backdrop" id="voiceModal" style="z-index:1250;">
@@ -929,7 +701,7 @@
      the nav so it reads next to it in source even though both are position:fixed. -->
 <div id="sigma-my-tasks"></div>
 <div id="sigma-nav"></div>
-<script defer src="js/app.js?v=mujhh3y6"></script>
+<script defer src="js/app.js?v=mujhjvmb"></script>
 <script>
 // The islands are FETCHED early (rel=modulepreload in <head>) but EXECUTED after the first
 // paint (task 22b). As a plain deferred module they ran in the same turn as the legacy bundle,
@@ -941,7 +713,7 @@
   function go() {
     var s = document.createElement('script');
     s.type = 'module';
-    s.src = 'ui/sigma.js?v=mujhh3y6';
+    s.src = 'ui/sigma.js?v=mujhjvmb';
     document.body.appendChild(s);
   }
   function afterPaint() {
