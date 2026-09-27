@@ -291,7 +291,7 @@ function HoursPage() {
         <PickerChip label="כל הקיבוצים" value={kib} options={kibbutzim} onChange={setKib} />
       </div>
 
-      <StatTileGrid>
+      <StatTileGrid count={tiles.length}>
         {tiles.map(t => <StatTile key={t.id} value={<bdi>{t.value}</bdi>} label={t.label} role={t.role} />)}
       </StatTileGrid>
 

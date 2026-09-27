@@ -46,6 +46,41 @@ async function openFeedback(page: Page): Promise<void> {
   await expect(page.getByRole('dialog').filter({ hasText: 'רעיון או באג' })).toBeVisible();
 }
 
+async function openHolidays(page: Page): Promise<void> {
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-holidays-open')));
+  await expect(page.getByTestId('holidays-sheet')).toBeVisible();
+}
+
+async function openDayLog(page: Page): Promise<void> {
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-daylog')));
+  await expect(page.getByTestId('daylog-sheet')).toBeVisible();
+}
+
+async function openInventoryStrip(page: Page): Promise<void> {
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+  await page.evaluate(() => (window as any).showPage('inventory'));
+  await page.locator('[data-inv-tab="stock"]').click();
+  await expect(page.getByTestId('inv-pool')).toBeVisible({ timeout: 15_000 });
+}
+
+async function openStockChange(page: Page): Promise<void> {
+  await openInventoryStrip(page);
+  await page.locator('#invReportChange').click();
+  await expect(page.getByTestId('stock-change-sheet')).toBeVisible();
+}
+
+async function openWorkTimerStop(page: Page): Promise<void> {
+  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+  const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
+  await card.getByTestId('work-timer-start').click();
+  await expect(card.getByTestId('work-timer-stop')).toBeVisible();
+  await card.getByTestId('work-timer-stop').click();
+  await page.getByTestId('work-timer-edit').getByTestId('work-timer-finish').click();
+  await expect(page.getByTestId('work-timer-sheet')).toBeVisible();
+}
+
 test.describe('R-U evidence captures', () => {
   test.beforeEach(({}, ti) => {
     test.skip(!['mobile-390-light', 'mobile-390-dark'].includes(ti.project.name), 'one run per theme is enough');
@@ -100,6 +135,57 @@ test.describe('R-U evidence captures', () => {
       await page.setViewportSize({ width: w, height: h });
       await expect(page.getByTestId('feedback-inbox')).toBeVisible();
       await page.screenshot({ path: path.join(OUT, `feedback-inbox__${w}__${theme}.png`) });
+    });
+
+    test(`holidays @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openHolidays(page);
+      await page.screenshot({ path: path.join(OUT, `holidays__${w}__${theme}.png`) });
+    });
+
+    test(`daylog @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם' });
+      await page.setViewportSize({ width: w, height: h });
+      await openDayLog(page);
+      await page.screenshot({ path: path.join(OUT, `daylog__${w}__${theme}.png`) });
+    });
+
+    test(`inventory-strip @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openInventoryStrip(page);
+      await page.screenshot({ path: path.join(OUT, `inventory-strip__${w}__${theme}.png`) });
+    });
+
+    test(`stock-change @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openStockChange(page);
+      await page.screenshot({ path: path.join(OUT, `stock-change__${w}__${theme}.png`) });
+    });
+
+    test(`home @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
+      await page.screenshot({ path: path.join(OUT, `home__${w}__${theme}.png`) });
+    });
+
+    test(`onboarding @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForSelector('.kibbutz[data-name="גבת"]', { state: 'attached', timeout: 30_000 });
+      await page.evaluate(() => (window as any).sigma.openKibbutzModal('גבת'));
+      await expect(page.locator('[data-testid="kibbutz-detail"] [data-testid="onboarding-strip"]')).toBeVisible();
+      await page.screenshot({ path: path.join(OUT, `onboarding__${w}__${theme}.png`) });
+    });
+
+    test(`work-timer @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'עידן' });
+      await page.setViewportSize({ width: w, height: h });
+      await openWorkTimerStop(page);
+      await page.screenshot({ path: path.join(OUT, `work-timer__${w}__${theme}.png`) });
     });
   }
 });

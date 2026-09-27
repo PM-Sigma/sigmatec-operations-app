@@ -88,6 +88,10 @@ export function StatTile({
  * (`.s-stat-grid` in styles.css) — no plugin, no JS — not the viewport, so it holds inside a
  * narrower desktop panel too.
  */
-export function StatTileGrid({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn('s-stat-grid', className)}>{children}</div>;
+export function StatTileGrid({ children, className, count }: { children: React.ReactNode; className?: string; count?: number }) {
+  // Designer (round-5 R-U Opus audit, Hours): exactly 3 tiles under the 2-per-row breakpoint
+  // orphans the 3rd tile alone on its own row. `count={3}` switches to 3 columns from the
+  // start instead of stepping at the container-query breakpoints above — any OTHER tile count
+  // is unaffected, so a 2- or 4-tile screen elsewhere keeps its own layout.
+  return <div className={cn('s-stat-grid', count === 3 && 's-stat-grid-3', className)}>{children}</div>;
 }

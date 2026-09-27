@@ -70,8 +70,11 @@ function GroupRow({ g, onSeen }: { g: AlertGroup; onSeen: (g: AlertGroup) => voi
               </BubbleButton>
             )}
             {canMarkSeen ? (
+              // Designer (round-5 R-U Opus audit): "✓ button ≥44px next to its row" — 32px
+              // relied on the invisible `.s-hit` hit-slop growth alone; 40 is the real,
+              // VISIBLE tap target the audit expects to see, not just measure.
               <IconBubble
-                size={32}
+                size={40}
                 label="סימון כנקרא"
                 icon={<Check aria-hidden className="h-4 w-4" />}
                 onClick={() => onSeen(g)}

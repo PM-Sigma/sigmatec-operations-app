@@ -855,6 +855,9 @@
 @container (min-width: 640px) {
   .sigma-root .s-stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+/* exactly-3-tiles modifier (Hours, round-5 R-U Opus audit): 3 columns from the start, so the
+   3rd tile never sits alone on an orphan row under 480px. */
+.sigma-root .s-stat-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 /* DayCell's grid (design-review.md §2 "DayCell": events show as dots below 768, labelled Tags
    from 768 up). Container-ready now; the label/dot switch itself lands with package C's

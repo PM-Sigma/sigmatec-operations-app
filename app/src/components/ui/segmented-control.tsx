@@ -46,7 +46,16 @@ export function SegmentedControl<T extends string>({
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    // Designer (round-5 R-U Opus audit, FeedbackInbox's status control): a control that first
+    // mounts INSIDE a sheet's own open transition (or any container whose real width isn't
+    // final yet on this layout pass) measured a 0-width thumb once and never re-measured — a
+    // window `resize` never fires just because the SHEET finished animating in. A
+    // ResizeObserver on the track itself re-measures whenever its own box actually changes,
+    // which is what a Sheet/Dialog open transition is.
+    const track = refs.current[selectedIndex]?.parentElement;
+    const ro = track && 'ResizeObserver' in window ? new ResizeObserver(measure) : null;
+    if (ro && track) ro.observe(track);
+    return () => { window.removeEventListener('resize', measure); ro?.disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIndex, options.length]);
 
