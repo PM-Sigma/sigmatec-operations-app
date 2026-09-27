@@ -282,12 +282,22 @@ function CertIsland() {
               </div>
 
               <div className="flex flex-col gap-2">
+                {/* Designer round-2 fix: the item rows were a naked pair of inputs — no visible
+                    label for either column, only a datalist and a placeholder-free number field.
+                    One column-header row (not one label pair per repeated row, which would be
+                    noise) plus a per-row aria-label so a screen reader still names each field. */}
+                <div className="flex gap-2 px-0.5">
+                  <span className="flex-1 text-[13px] font-bold">פריט</span>
+                  <span className="w-20 text-[13px] font-bold">כמות</span>
+                </div>
                 {draft.items.map((it, i) => (
                   <div key={i} className="flex gap-2">
                     <input data-testid={`cert-item-${i}-name`} list="cert-catalog" value={it.name}
+                      aria-label={`פריט ${i + 1}`}
                       onChange={e => updateItem(i, { name: e.target.value })}
                       className="min-h-[44px] flex-1 rounded-xl border border-border bg-card px-2 text-[15px]" />
                     <input data-testid={`cert-item-${i}-qty`} type="number" min={1} value={it.qty}
+                      aria-label={`כמות לפריט ${i + 1}`}
                       onChange={e => updateItem(i, { qty: Number(e.target.value) || 0 })}
                       className="min-h-[44px] w-20 rounded-xl border border-border bg-card px-2 text-[15px]" />
                   </div>
@@ -299,9 +309,12 @@ function CertIsland() {
                 <span className="text-[12px] text-muted-foreground">{draft.items.length} שורות · <bdi>{draft.items.reduce((s, it) => s + (it.qty || 0), 0)}</bdi> יח׳</span>
               </div>
 
-              <textarea placeholder="למשל: לא לחיוב" rows={2} value={draft.notes}
-                onChange={e => setDraft(d => d && { ...d, notes: e.target.value })}
-                className="w-full rounded-xl border border-border bg-card p-2 text-[15px]" />
+              <div>
+                <label className="text-[13px] font-bold" htmlFor="certNotes">הערות</label>
+                <textarea id="certNotes" placeholder="למשל: לא לחיוב" rows={2} value={draft.notes}
+                  onChange={e => setDraft(d => d && { ...d, notes: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-border bg-card p-2 text-[15px]" />
+              </div>
 
               <button type="button" data-testid="cert-sign-open" onClick={() => setScreen('signature')}
                 className="min-h-[44px] rounded-xl border border-border text-[15px] font-bold">

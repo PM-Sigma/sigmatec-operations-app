@@ -844,8 +844,12 @@
    only changes what paints. Both edges fade (not just the trailing one) since the strip starts
    scrolled to the RTL-leading tab, not necessarily to either physical edge. */
 .sigma-root .s-scroll-fade {
-  mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+  /* Designer round-2 fix: 20px read as an almost-invisible fade at a 360px width — one glyph's
+     worth of ghosting on a cut Hebrew letter looks like a rendering glitch, not an intentional
+     "this scrolls" hint. 36px is wide enough to actually read as a fade at every width this
+     strip appears at. */
+  mask-image: linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent);
 }
 
 /* ═════════════════════════════════════════════════════════════════════════════

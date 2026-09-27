@@ -87,10 +87,17 @@ function OrdersStrip() {
               className="flex w-full items-center gap-2 px-3 py-2.5 text-start"
             >
               <Stages row={row} />
-              <span className="flex-1 text-[13px] font-bold text-foreground">
-                {row.title} <span className="text-[12px] font-normal text-muted-foreground"><bdi>{row.qty}</bdi> פריטים</span>
+              {/* Designer round-2 fix: title + " · N פריטים" shared one un-clamped flex-1 span
+                  with no min-w-0 — a long supplier name ("לנדיס") plus the count wrapped onto a
+                  second line at 360, pushing the status note down and crowding the row. Two
+                  lines on purpose now: the name truncates on its own (min-w-0 + truncate is what
+                  actually lets a flex child shrink below its content width), the count is a
+                  separate line that never competes with it for space. */}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-bold text-foreground"><bdi>{row.title}</bdi></span>
+                <span className="block text-[12px] font-normal text-muted-foreground"><bdi>{row.qty}</bdi> פריטים</span>
               </span>
-              <span className={`text-[12px] ${LEVEL_CLASS[row.note.level] ?? ''}`}>
+              <span className={`shrink-0 text-[12px] ${LEVEL_CLASS[row.note.level] ?? ''}`}>
                 {/* row.note.icon is now a lucide icon NAME (round 5, L1), not a glyph to print;
                     the icon itself is rendered in U9, once InventoryStrip is on the design system. */}
                 {row.note.text}

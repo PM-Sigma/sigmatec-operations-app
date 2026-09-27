@@ -192,7 +192,7 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
               </button>
               {!isNew && (
                 <div className="relative">
-                  <button type="button" data-testid="ps-more" aria-label="עוד" onClick={() => setMoreOpen(v => !v)}
+                  <button type="button" data-testid="ps-more" aria-label="פעולות נוספות" onClick={() => setMoreOpen(v => !v)}
                           className="s-hit min-h-[48px] min-w-[48px] rounded-xl border border-border bg-card">
                     <MoreHorizontal className="mx-auto h-5 w-5" />
                   </button>

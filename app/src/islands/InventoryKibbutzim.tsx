@@ -46,7 +46,7 @@ export function InventoryKibbutzimTab() {
               type="button"
               data-hit-slop
               onClick={() => setMoreOpen(o => !o)}
-              aria-label="עוד"
+              aria-label="פעולות נוספות"
               className="s-hit flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full"
             >
               <MoreHorizontal className="h-5 w-5" aria-hidden />

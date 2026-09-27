@@ -90,7 +90,7 @@ export function InventoryCertsTab() {
               </button>
             )}
             <span className="relative">
-              <button type="button" data-hit-slop onClick={() => setPageMoreOpen(o => !o)} aria-label="עוד"
+              <button type="button" data-hit-slop onClick={() => setPageMoreOpen(o => !o)} aria-label="פעולות נוספות"
                 className="s-hit flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full">
                 <MoreHorizontal className="h-5 w-5" aria-hidden />
               </button>
@@ -161,8 +161,15 @@ export function InventoryCertsTab() {
                       {anyc.signature && <Tag role="ok">נחתם</Tag>}
                       {cancelled && <Tag role="danger">בוטלה</Tag>}
                     </span>
+                    {/* Designer round-2 fix: the replacement number used to sit glued to
+                        the previous word with no space at all, so it rendered reordered in
+                        front of the whole line. A literal U+00A0 (nbsp) keeps it visually
+                        isolated as its own word (see the span below); a bare inline JSX
+                        comment is only valid where JSX CHILDREN are expected, never bare
+                        inside a `&&` expression, which is why this failed to build the
+                        first time round when the comment sat where this one used to be. */}
                     {cancelled && anyc.replaced_by && (
-                      <span>הוחלפה ב־<bdi>{anyc.replaced_by}</bdi></span>
+                      <span>{'הוחלפה ב־ '}<bdi>{anyc.replaced_by}</bdi></span>
                     )}
                   </span>
                 }
@@ -170,7 +177,7 @@ export function InventoryCertsTab() {
                   <span className="relative">
                     <button type="button" data-testid={`inv-cert-more-${anyc.cert_number}`}
                       onClick={e => { e.stopPropagation(); setMoreOpenId(id => (id === c.id ? null : c.id)); }}
-                      aria-label="עוד" className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full">
+                      aria-label="פעולות נוספות" className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full">
                       <MoreHorizontal className="h-5 w-5" aria-hidden />
                     </button>
                     {moreOpenId === c.id && (

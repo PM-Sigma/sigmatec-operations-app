@@ -156,7 +156,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-burns-page` | :451 | app/src/islands/BurnsPage.tsx:374<br>app/src/main.tsx:249 |
 | `#sigma-calendar` | :408 | app/src/islands/Calendar.tsx:1928<br>app/src/main.tsx:263 |
 | `#sigma-ceo` | :926 | **—** |
-| `#sigma-cert` | :906 | app/src/islands/InventoryCert.tsx:419 |
+| `#sigma-cert` | :906 | app/src/islands/InventoryCert.tsx:432 |
 | `#sigma-daylog` | :901 | app/src/islands/DayLog.tsx:478<br>app/src/main.tsx:401 |
 | `#sigma-dev-board` | :429 | app/src/islands/DevBoard.tsx:318<br>app/src/main.tsx:274 |
 | `#sigma-dev-presenter` | :915 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:491 |
@@ -212,7 +212,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `onboarding_templates` | db/onboarding_templates.sql | app/src/components/home/OnboardingProgress.tsx:69<br>app/src/components/home/OnboardingProgress.tsx:81<br>app/src/components/home/OnboardingProgress.tsx:92 |
 | `orders` | db/orders_ems_task_id.sql | app/src/islands/Field.tsx:141<br>app/src/lib/inventoryApi.ts:51<br>app/src/lib/inventoryApi.ts:181<br>…+6 |
 | `parse_corrections` | db/parse_corrections.sql | app/src/lib/inventoryApi.ts:188 |
-| `products` | db/inventory_pool.sql | app/src/islands/InventoryStrip.tsx:112<br>app/src/islands/InventoryStrip.tsx:128<br>app/src/lib/inventoryApi.ts:50<br>…+2 |
+| `products` | db/inventory_pool.sql | app/src/islands/InventoryStrip.tsx:119<br>app/src/islands/InventoryStrip.tsx:135<br>app/src/lib/inventoryApi.ts:50<br>…+2 |
 | `push_log` | db/push_log.sql | app/src/lib/pushLog.ts:82<br>supabase/functions/push-send/index.ts:216<br>supabase/functions/push-send/index.ts:271<br>…+4 |
 | `push_subscriptions` | db/push_subscriptions.sql | supabase/functions/push-send/index.ts:253<br>supabase/functions/push-send/index.ts:264 |
 | `requirements` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:53<br>app/src/lib/inventoryApi.ts:163<br>app/src/lib/inventoryApi.ts:202 |

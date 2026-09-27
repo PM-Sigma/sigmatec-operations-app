@@ -38,6 +38,24 @@ test('F23b viewer: the certs tab hides new/send/reissue/cancel behind isViewer()
   expect(src).toMatch(/data-testid=\{`inv-cert-cancel-\$\{anyc\.cert_number\}`\}/);
 });
 
+// F23e (Opus deep-check gap, round 2): F23b only proves the GATE EXISTS in source — it never
+// proves a real viewer session actually can't see the buttons at runtime. The earlier "hangs"
+// note above is about `bootInvCerts` specifically (the sb=1-real-backend certs boot, which
+// UPGRADE_FREEZE bounces for a viewer — js/src/00-consts.js `isMock` only exempts sb=0). Plain
+// `bootInv` stays on sb=0 the rest of this suite already uses, which IS exempt, so the ⋯ menu
+// on a real cert row is reachable after all — no source-regex needed for this one.
+test('F23e viewer: the ⋯ menu on a cert row offers הצגה but never שליחה/הפקה מתוקנת/ביטול', async ({ page }, ti) => {
+  await bootInv(page, ti, 'צפייה', d);
+  await d.openTab(page, 'certs');
+  // cert 1041 — an ACTIVE cert (not cancelled), so a writer would see all four rows; the ⋯
+  // trigger itself has no isViewer gate (view-only recipients see the same button).
+  await page.locator('[data-testid="inv-cert-more-1041"]').click();
+  await expect(page.locator('[data-testid="inv-cert-view-1041"]')).toBeVisible();
+  expect(await page.locator('[data-testid="inv-cert-send-1041"]').count()).toBe(0);
+  expect(await page.locator('[data-testid="inv-cert-reissue-1041"]').count()).toBe(0);
+  expect(await page.locator('[data-testid="inv-cert-cancel-1041"]').count()).toBe(0);
+});
+
 // F23c: booting מתניה all the way to #sigma-home hits an unrelated block (a "ההתחברות פגה"
 // banner appears even under sb=0/mock, seemingly tied to the round-5 "hours are per person"
 // change — outside package I). The bounce rule itself is exact and unambiguous in source,

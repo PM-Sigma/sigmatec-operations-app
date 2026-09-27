@@ -214,7 +214,7 @@ export function InventoryOrdersTab() {
                     type="button"
                     data-testid={`inv-order-more-${o.id}`}
                     onClick={e => { e.stopPropagation(); setMoreOpenId(id => (id === String(o.id) ? null : String(o.id))); }}
-                    aria-label="עוד"
+                    aria-label="פעולות נוספות"
                     className="min-h-[40px] min-w-[40px] rounded-full text-[18px]"
                   >
                     ⋯

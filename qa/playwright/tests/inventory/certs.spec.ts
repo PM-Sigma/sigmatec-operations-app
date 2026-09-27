@@ -111,7 +111,9 @@ test('F19 the periodic report groups by kibbutz with totals', async ({ page }, t
     // certRangeReportRange(from,to) with its OWN state instead (task U4) — no shared DOM ids to
     // read off, so the react path is driven through the bubble the tab actually renders.
     d.name === 'react'
-      ? page.getByRole('button', { name: 'עוד', exact: true }).first().click()
+      // "עוד" → "פעולות נוספות" (designer round 2, consistent aria-label across every ⋯ in
+      // package I's inventory screens).
+      ? page.getByRole('button', { name: 'פעולות נוספות', exact: true }).first().click()
         .then(() => page.getByRole('button', { name: 'סיכום תקופתי', exact: true }).click())
       : page.evaluate(() => (window as any).certMonthlyFromTab()),
   ]);
