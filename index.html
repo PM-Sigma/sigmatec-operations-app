@@ -29,7 +29,7 @@
      simply skips the reflow on a cold one. -->
 <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap" rel="stylesheet"></noscript>
-<link rel="modulepreload" href="ui/sigma.js?v=mujg5uoe">
+<link rel="modulepreload" href="ui/sigma.js?v=mujfxi76">
 <!-- critical:start — generated from css/critical.css by build.mjs; do NOT hand-edit. src-sha256:07e70501fb61c37d -->
 <style>*{box-sizing:border-box;margin:0;padding:0}:root{--primary: #1b2a4a;--primary-hover: #25395f;--accent: #2f6fed;--accent-soft: #eef3fe;--success: #0e9f6e;--success-light: #e7f6f0;--warning: #c87f0a;--warning-light: #fdf4e3;--danger: #7c5cdb;--danger-light: #f2eefb;--priority: #d64545;--priority-light: #fcecec;--gray-light: #f1f4f8;--bg: #f4f6f9;--card: #ffffff;--text: #1f2937;--text-light: #5c6572;--border: #e3e8ef;--radius: 10px;--shadow-sm: 0 1px 2px rgba(16,24,40,.05);--shadow-md: 0 4px 12px rgba(16,24,40,.08);--brand-1: #06C2CB;--brand-2: #1ABE63;--brand-grad: linear-gradient(135deg, var(--brand-1), var(--brand-2));--surface-2: #eef2f7;--radius-lg: 14px;--font: "Assistant", "Segoe UI", system-ui, sans-serif;--on-brand: #ffffff}:root[data-theme=dark]{--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f;--shadow-sm: 0 1px 2px rgba(0,0,0,.5);--shadow-md: 0 4px 12px rgba(0,0,0,.55)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg: #0f1417;--card: #161c21;--surface-2: #1d252b;--text: #e6edf3;--text-light: #a7b4c0;--border: #263038;--gray-light: #1d252b;--accent-soft: #14262f}}body{font-family:var(--font);font-size:15px;background:var(--bg);color:var(--text);min-height:100vh;padding:12px 16px;line-height:1.5;-webkit-font-smoothing:antialiased}@media(min-width:768px){body{padding:24px}}.container{max-width:none;margin:0 auto}.header{background:var(--bg);color:var(--text);padding:10px 2px 8px;margin-bottom:8px;position:sticky;top:0;z-index:5;min-height:56px}.header-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;min-height:44px}.header h1{font-size:21px;font-weight:800;letter-spacing:-.01em}.header .subtitle{font-size:11px;font-weight:500;color:var(--text-light);margin-top:3px}.header-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.section{background:var(--card);border-radius:12px;margin-bottom:16px;border:1px solid var(--border);overflow:hidden}.section-header{padding:16px 24px;background:var(--gray-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;position:sticky;top:0;z-index:3;min-height:60px}.section-title{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px}.section-body{padding:16px 24px 24px}.kibbutz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start;grid-auto-flow:dense}.kibbutz{padding:12px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow-sm);position:relative;cursor:pointer;border-right-width:3px;min-height:120px}#sigma-home{min-height:100vh}body.sigma-home-fallback #sigma-home{min-height:0}#sigma-nav:not(:empty){min-height:64px}.company-tasks{min-height:120px}#userBadge,#emsBubble{display:none}#sigma-header-actions{min-height:40px}.filter-bar{padding:0;margin:0;border:0;background:none;min-height:0}.filter-bar>.search-input,.filter-bar>.filter-chip{display:none}#grid-new,#grid-active{display:none}:root[data-gate=pick] #loginModal{display:flex}</style>
 <!-- critical:end -->
@@ -40,11 +40,11 @@
      the inlined critical block above stays because it is what paints if either 404s. -->
 <!-- css/app.min.css is GENERATED from css/app.css by build.mjs (26 kB → 14 kB gzipped on a
      render-blocking request); css/app.css stays the hand-written source of truth. -->
-<link rel="stylesheet" href="css/app.min.css?v=mujg5uoe">
+<link rel="stylesheet" href="css/app.min.css?v=mujfxi76">
 <!-- ui/sigma.css loads at NORMAL priority. It was tried as a `media="print"` swap: 8 kB
      gzipped off the critical path, against the risk of an island painting unstyled if the
      swap lands after it mounts. Not a trade worth making for 8 kB. -->
-<link rel="stylesheet" href="ui/sigma.css?v=mujg5uoe">
+<link rel="stylesheet" href="ui/sigma.css?v=mujfxi76">
 <script>
 // Theme before first paint (spec §6): same three-way resolve as app/src/lib/theme.ts —
 // an explicit stored choice wins, anything else follows prefers-color-scheme.
@@ -107,29 +107,6 @@
     </div>
   </div>
 
-  <!-- עמיחי: supplier orders >10 items awaiting approval (animated nudge, mirrors the attendance one) -->
-  <div class="modal-backdrop" id="amichaiApprovalModal" style="z-index:1300;">
-    <div class="modal nudge-card" onclick="event.stopPropagation()" style="max-width:380px;text-align:center;">
-      <div class="nudge-bell">🔔</div>
-      <h3 style="margin:10px 0 4px;color:#5b21b6;">עמיחי, הזמנות לאישורך</h3>
-      <div class="modal-sub" style="margin-bottom:10px;">הזמנות ספק מעל 10 פריטים ממתינות לאישור שלך:</div>
-      <div id="amichaiApprovalList" style="background:#f3e8ff;border:1px solid #c4b5fd;border-radius:8px;padding:10px 12px;font-size:14px;font-weight:600;color:#5b21b6;line-height:1.9;text-align:right;"></div>
-      <div class="modal-actions" style="flex-direction:column;gap:8px;">
-        <button class="btn btn-primary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open'); showPage('inventory');">✅ לאישור עכשיו</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('amichaiApprovalModal').classList.remove('open')">אחר כך</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Conversational order questions (controller / power-supply / non-catalog) — "the app asks, you tap" -->
-  <div class="modal-backdrop" id="orderQModal" style="z-index:1400;">
-    <div class="modal" onclick="event.stopPropagation()" style="max-width:400px;">
-      <div id="orderQProgress" style="font-size:11px;font-weight:700;color:#6366f1;letter-spacing:.03em;"></div>
-      <h3 id="orderQTitle" style="margin:6px 0 6px;"></h3>
-      <div id="orderQText" style="font-size:14px;color:#334155;line-height:1.6;margin-bottom:14px;"></div>
-      <div id="orderQOptions" style="display:flex;flex-direction:column;gap:10px;"></div>
-    </div>
-  </div>
 
   <!-- Quick-visit kibbutz picker -->
   <div class="modal-backdrop" id="visitQuickModal" style="z-index:1100;">
@@ -227,6 +204,17 @@
       </div>
     </div>
   </div>
+
+  <!-- Designer round 3: the offline banner sits directly under the HEADER, before the desktop
+       nav / page-title row — it used to render after #sigma-page-bar, i.e. under the page
+       title. Its own CSS (styles.css) breaks out of body's padding for an edge-to-edge strip. -->
+  <div id="sigma-offline"></div>
+
+  <!-- React islands: the desktop top-tab row (U6, ≥768px only) and the page-action row (S-5).
+       Empty divs, so a chunk that never lands leaves no gap — the phone gets its bottom bar
+       (#sigma-nav) either way. -->
+  <div id="sigma-desktop-nav"></div>
+  <div id="sigma-page-bar"></div>
 
   <div id="kibbutz-view">
 
@@ -329,133 +317,14 @@
 
   <div class="footer">
     Sigmatec Operations
-    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-27·2.81</bdi></span>
+    <span title="גרסת בנייה" style="display:block;margin-top:6px;font-size:11px;color:var(--text-light);line-height:1.7;"><bdi>גרסה 2026-09-27·2.80</bdi></span>
   </div>
 
   </div><!-- /kibbutz-view -->
 
   <div id="inventory-view" style="display:none;">
-    <div class="inv-tabs">
-      <button class="inv-tab-btn active" data-inv-tab="orders" onclick="invShowTab('orders')">🧾 הזמנות</button>
-      <button class="inv-tab-btn" data-inv-tab="kibbutz" onclick="invShowTab('kibbutz')">🏘 מלאי בקיבוצים</button>
-      <button class="inv-tab-btn" data-inv-tab="certs" onclick="invShowTab('certs')">🚚 תעודות משלוח</button>
-      <button class="inv-tab-btn" data-inv-tab="stock" onclick="invShowTab('stock')">🏢 מלאי החברה</button>
-      <button class="inv-tab-btn" data-inv-tab="returns" onclick="invShowTab('returns')">🔧 החזרות</button>
-      <button class="inv-tab-btn" data-inv-tab="products" onclick="invShowTab('products')">📋 פריטים</button>
-    </div>
-
-    <div class="inv-section" id="inv-section-certs">
-      <div class="inv-card">
-        <h3>🚚 תעודות משלוח שהופקו</h3>
-        <div class="sig-grid cert-range-grid" style="grid-template-columns:repeat(5, minmax(0, 1fr));margin-bottom:10px;">
-          <div class="sig-tile btn-quick-date active" data-range="all" onclick="certRangeTap('all')"><div class="nm">∞ הכל</div></div>
-          <div class="sig-tile btn-quick-date" data-range="thisMonth" onclick="certRangeTap('thisMonth')"><div class="nm">📅 חודש נוכחי</div></div>
-          <div class="sig-tile btn-quick-date" data-range="lastMonth" onclick="certRangeTap('lastMonth')"><div class="nm">⏪ חודש שעבר</div></div>
-          <div class="sig-tile btn-quick-date" data-range="last7" onclick="certRangeTap('last7')"><div class="nm">📍 7 ימים</div></div>
-          <div class="sig-tile btn-quick-date" data-range="last30" onclick="certRangeTap('last30')"><div class="nm">📍 30 ימים</div></div>
-        </div>
-        <div class="cert-date-range">
-          <label>מתאריך<input type="date" id="invCertsFrom" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
-          <label>עד<input type="date" id="invCertsTo" onchange="document.querySelectorAll('#inv-section-certs .btn-quick-date.active').forEach(b => b.classList.remove('active')); invRenderCerts(true)"></label>
-        </div>
-        <div class="inv-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button id="invCertsNew" class="inv-btn success" onclick="openDeliveryCert({source:'manual'})">+ תעודה חדשה</button>
-          <input type="text" id="invCertsSearch" placeholder="🔍 קיבוץ / לקוח / מס' תעודה" style="flex:1;min-width:160px;" oninput="invRenderCerts(true)">
-          <button class="inv-btn small" onclick="invRenderCerts(true)">🔄 רענן</button>
-          <button class="inv-btn small" style="background:#0e7490;" onclick="certMonthlyFromTab()" title="דוח לפי קיבוץ בטווח שסונן כרגע: מה נופק וכמה מכל פריט">📄 סיכום תקופתי</button>
-          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportCertsFromTab()" title="כל התעודות בטווח, שורה לכל פריט">📗 Excel</button>
-        </div>
-        <div id="invCertsList"></div>
-      </div>
-    </div>
-
-    <div class="inv-section active" id="inv-section-orders">
-      <div class="inv-card">
-        <h3>🧾 הזמנות
-          <button class="inv-btn success" onclick="invNewOrder()">+ הזמנה חדשה</button>
-        </h3>
-        <div class="inv-toolbar">
-          סינון:
-          <select id="invOrdersFilter" onchange="invRenderOrders()">
-            <option value="">פתוחות</option>
-            <option value="all">הכל, כולל שסופקו ובוטלו</option>
-            <option value="pending">🔴 ממתין להזמנה</option>
-            <option value="in_transit">🔵 בדרך</option>
-            <option value="stuck">🟠 תקוע</option>
-            <option value="at_port">🟡 בנמל</option>
-            <option value="arrived">🌸 הגיעה (טרם חולקה)</option>
-            <option value="delivered">🟢 סופקה וחולקה</option>
-          </select>
-        </div>
-        <div id="invOrdersList"></div>
-      </div>
-
-      <div class="inv-card" style="margin-top:16px;background:#f8fafc;">
-        <h3 style="font-size:14px;">📐 זרימת הזמנה, מהיצירה עד הסיום</h3>
-        <div class="order-flow">
-          <div class="order-flow-step"><span class="of-num">1</span><div><strong>יצירה</strong><br><span style="color:#dc2626;">🔴 ממתין להזמנה</span><br><small>פותחים הזמנה + פריטים</small></div></div>
-          <div class="order-flow-arrow">←</div>
-          <div class="order-flow-step"><span class="of-num">2</span><div><strong>הוזמן מהספק</strong><br><span style="color:#2563eb;">🔵 בדרך</span><br><small>הזמנה אושרה אצל ספק</small></div></div>
-          <div class="order-flow-arrow">←</div>
-          <div class="order-flow-step"><span class="of-num">3</span><div><strong>הגיע נמל</strong><br><span style="color:#eab308;">🟡 בנמל</span><br><small>(לא חובה)</small></div></div>
-          <div class="order-flow-arrow">←</div>
-          <div class="order-flow-step"><span class="of-num">4</span><div><strong>סופק למשרד</strong><br><span style="color:#db2777;">🌸 הגיעה (טרם חולקה)</span><br><small>סטטוס = "סופקה" + לא הוקצה</small></div></div>
-          <div class="order-flow-arrow">←</div>
-          <div class="order-flow-step"><span class="of-num">5</span><div><strong>חולק למיקומים</strong><br><span style="color:#10b981;">🟢 סופקה וחולקה</span><br><small>נוצרות תנועות מלאי</small></div></div>
-        </div>
-        <div style="margin-top:10px;padding:8px 10px;background:var(--tint-warn);border-inline-start:3px solid var(--warning);border-radius:4px;font-size:12px;">
-          🟠 <strong>תקוע</strong> = מצב חריג בכל שלב (משלוח עוכב, ספק לא עונה). מסמנים ידנית
-        </div>
-      </div>
-    </div>
-
-    <div class="inv-section" id="inv-section-stock">
-      <!-- React island: 🧾 the open-orders strip (§4a) + 🎚 מינימום מלאי (§5, עידן/עמיחי). -->
-      <div id="sigma-inventory-strip"></div>
-      <!-- 🔄 העברת מלאי + 🛠️ הוספה/הפחתה were REMOVED here (inventory spec §1, §4b):
-           there are no person-locations left to transfer between, and a stock change must be
-           linked to a visit, an order or an auditable recount. Both are replaced by the
-           🔢 דווח שינוי button the pool view renders, which opens #sigma-stock-change. -->
-      <div class="inv-card">
-        <h3>🏢 מלאי החברה
-          <button class="inv-btn small" onclick="invExportStock()">📊 ייצוא</button>
-          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportStockXlsx()">📗 Excel</button>
-        </h3>
-        <div id="invStockMatrix"></div>
-      </div>
-    </div>
-
-    <div class="inv-section" id="inv-section-kibbutz">
-      <div class="inv-card">
-        <h3>🏘 מלאי בקיבוצים (מה סופק לכל קיבוץ)
-          <button class="inv-btn small" onclick="invExportKibbutzInventory()">📊 ייצוא</button>
-          <button class="inv-btn small xl-export-btn" style="display:none;background:#16a34a;color:#fff;" onclick="xlExportKibbutzXlsx()">📗 Excel</button>
-        </h3>
-        <div id="invKibbutzMatrix"></div>
-      </div>
-    </div>
-
-    <!-- ponytail: "דרישות לקוחות" tab removed — its flow is embedded in "הזמנה חדשה"
-         (raw-requirement box → parse → order, hardcoded "ממתינה לאישור"). -->
-
-    <div class="inv-section" id="inv-section-returns">
-      <div class="inv-card">
-        <h3>🔧 ציוד שהוחזר מהקיבוצים</h3>
-        <div style="font-size:12px;color:#64748b;margin-bottom:10px;">
-          פריטים שהוחזרו מקיבוצים במהלך ביקור. <strong>לא נכנסים למלאי הזמין</strong>, רק מעקב.
-        </div>
-        <div id="invReturnsList"></div>
-      </div>
-    </div>
-
-    <div class="inv-section" id="inv-section-products">
-      <div class="inv-card">
-        <h3>📋 פריטים
-          <button class="inv-btn success" onclick="invNewProduct()">+ פריט חדש</button>
-        </h3>
-        <div id="invProductsList"></div>
-      </div>
-    </div>
+    <!-- React island: package I (inventory spec). The legacy tabbed UI was deleted in U10. -->
+    <div id="sigma-inventory"></div>
   </div><!-- /inventory-view -->
 
   <div id="attendance-view" style="display:none;padding:16px 0;">
@@ -826,39 +695,6 @@
   </div>
 </div>
 
-<!-- Customer-request intake (paste → parse → confirm → pending-approval order) -->
-<div class="modal-backdrop" id="intakeModal" style="z-index:1200;">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">
-    <h3>📥 קליטת בקשת לקוח</h3>
-
-    <!-- Step 1: paste -->
-    <div id="intakeStep1">
-      <div class="modal-sub">הדבק כאן מייל / הודעת וואטסאפ מהלקוח. נזהה את הפריטים מול הקטלוג.</div>
-      <label for="intakeKibbutz" style="margin-top:10px;">🏘️ קיבוץ: <span style="color:#dc2626;">*</span></label>
-      <select id="intakeKibbutz"></select>
-      <label for="intakeContact">👤 איש קשר (אופציונלי):</label>
-      <input type="text" id="intakeContact" placeholder="שם הלקוח שביקש">
-      <label for="intakeRaw">📝 טקסט הבקשה:</label>
-      <textarea id="intakeRaw" placeholder="לדוגמה: היי, אנחנו צריכים עוד 3 מונים מסוג E360 ושני בקרים..." style="min-height:120px;"></textarea>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="modalDismiss('intakeModal')">ביטול</button>
-        <button class="btn btn-primary" id="intakeParseBtn" onclick="intakeParse()">🔍 נתח</button>
-      </div>
-    </div>
-
-    <!-- Step 2: confirm -->
-    <div id="intakeStep2" style="display:none;">
-      <div class="modal-sub">בדוק שהכמויות נכונות. בשורות המודגשות הכמות לא זוהתה, מלא אותה ידנית.</div>
-      <div id="intakeGrid" style="margin:10px 0;"></div>
-      <div id="intakeUnmatched"></div>
-      <button class="inv-btn small" onclick="intakeAddRow()" style="margin-top:6px;">+ הוסף פריט</button>
-      <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="intakeBackToStep1()">→ חזרה</button>
-        <button class="btn btn-primary" onclick="intakeSave(this)">💾 צור הזמנה לאישור</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div id="authGate" style="position:fixed;inset:0;z-index:2000;background:linear-gradient(160deg,#16223c 0%,#1b2a4a 55%,#233a66 100%);display:none;align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--card);color:var(--text);border-radius:16px;padding:36px 32px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.35);">
@@ -920,94 +756,6 @@
 </div>
 
 <!-- Inventory: New/Edit Order Modal -->
-<div class="modal-backdrop" id="invOrderModal">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:700px;">
-    <h3 id="invOrderTitle">🧾 הזמנה חדשה</h3>
-
-    <div class="inv-ordtype-row" style="display:none;">
-      <button type="button" class="inv-ordtype-btn" data-t="supplier" onclick="invSetOrderType('supplier')">🏭 הזמנת ספק<span style="display:block;font-size:10px;font-weight:400;">מעלה מלאי</span></button>
-      <button type="button" class="inv-ordtype-btn" data-t="customer" onclick="invSetOrderType('customer')">🧑‍🌾 הזמנת לקוח<span style="display:block;font-size:10px;font-weight:400;">יורד מהמלאי + משימת EMS</span></button>
-    </div>
-
-    <div id="invOrderSupplierWrap">
-      <label for="invOrderSupplier">🏪 ספק:</label>
-      <input type="text" id="invOrderSupplier" list="supplierList" placeholder="שם הספק: בחר מהרשימה או הקלד חדש">
-      <datalist id="supplierList"></datalist>
-    </div>
-
-    <div id="invOrderKibbutzWrap" style="display:none;">
-      <label for="invOrderKibbutz">🏘️ קיבוץ (לקוח):</label>
-      <select id="invOrderKibbutz"><option value="">-- בחר קיבוץ --</option></select>
-    </div>
-
-    <!-- עידן/עמיחי only: hand the supply responsibility to someone else — the EMS task opens assigned to them
-         and the stock deducts from THEIR bag on approval (default: the approver). -->
-    <div id="invOrderAssigneeWrap" style="display:none;">
-      <label for="invOrderAssignee">👤 מי יאשר ויספק את ההזמנה:</label>
-      <select id="invOrderAssignee" onchange="invAssigneeChanged()">
-        <option value="">— המאשר (ברירת מחדל) —</option>
-        <option value="אביאם">אביאם</option>
-        <option value="ניתאי">ניתאי</option>
-        <option value="עמיחי">עמיחי</option>
-        <option value="ספק ישיר">🏭 ספק ישיר (לא מהמלאי)</option>
-      </select>
-    </div>
-
-    <label for="invOrderDate">📅 תאריך הזמנה:</label>
-    <input type="date" id="invOrderDate">
-
-    <!-- Raw customer requirement → parsed into items (AI when available, local fallback otherwise) -->
-    <div id="invOrderRawWrap" style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
-      <label for="invOrderRaw" style="margin-top:0;">📥 הדבק מייל או וואטסאפ ונבנה מהם רשימת פריטים:</label>
-      <textarea id="invOrderRaw" placeholder="הדבק כאן את הטקסט כפי שהתקבל (מייל / וואטסאפ)... ואז לחץ 'נתח לפריטים'" style="min-height:64px;"></textarea>
-      <button class="inv-btn" style="width:100%;background:#7c3aed;color:#fff;border:1px solid #7c3aed;margin-top:6px;font-weight:700;" onclick="orderParseRaw(this)">🪄 נתח לפריטים (AI)</button>
-      <div style="font-size:11px;color:#7c3aed;margin-top:4px;">אפשר לערוך ולהוסיף שורות ידנית למטה.</div>
-    </div>
-
-    <label style="display:flex;align-items:center;">📦 פריטים בהזמנה:&nbsp;&nbsp;&nbsp;<span id="invParseSource"></span></label>
-    <div id="invOrderItems" style="background:#f9fafb;padding:10px;border-radius:8px;margin-bottom:10px;">
-      <div style="text-align:center;color:#94a3b8;padding:8px;font-style:italic;">אין פריטים. לחץ "➕ הוסף שורה" או הדבק טקסט למעלה</div>
-    </div>
-    <button class="inv-btn" style="width:100%;background:#eef3fe;color:#1d4ed8;border:1px dashed #93c5fd;font-weight:700;padding:11px;font-size:15px;margin-bottom:4px;" onclick="invAddItemRow()">➕ הוסף שורה</button>
-
-    <label for="invOrderNotes">📝 הערות:</label>
-    <textarea id="invOrderNotes" placeholder="הערות חופשיות..." style="min-height:60px;"></textarea>
-
-    <div id="invOrderStatusWrap">
-      <label for="invOrderStatus">📊 סטטוס:</label>
-      <select id="invOrderStatus" onchange="invToggleDistribution()">
-        <option value="pending">🔴 ממתין להזמנה</option>
-        <option value="in_transit">🔵 בדרך</option>
-        <option value="stuck">🟠 תקוע</option>
-        <option value="at_port">🟡 בנמל</option>
-        <option value="delivered">🟢 סופקה</option>
-        <option value="supplied">🟢 סופק ללקוח</option>
-      </select>
-    </div>
-    <div id="invOrderNewStatusNote" style="display:none;background:#f3e8ff;border-right:3px solid #7c3aed;border-radius:6px;padding:8px 10px;font-size:12px;color:#5b21b6;font-weight:600;">הזמנה חדשה נפתחת כ"🟣 ממתינה לאישור". אחרי האישור מעדכנים סטטוס בעריכה או בכפתורי הפעולה.</div>
-
-    <!-- 🎯 חלוקת המלאי removed (inventory spec §4): a supplier delivery is one line and it
-         lands in the company pool. `orders.distribution` is kept as a column for old rows. -->
-
-    <label for="invOrderCreatedBy">👤 נוצר ע"י:</label>
-    <select id="invOrderCreatedBy">
-      <option value="">-- בחר --</option>
-      <option value="עידן">עידן</option>
-      <option value="עמיחי">עמיחי</option>
-      <option value="אביאם">אביאם</option>
-      <option value="ניתאי">ניתאי</option>
-      <option value="אבצן">אבצן</option>
-      <option value="מתניה">מתניה</option>
-      <option value="אליה">אליה</option>
-    </select>
-
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="modalDismiss('invOrderModal')">ביטול</button>
-      <button id="invOrderApproveBtn" class="btn" style="display:none;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;" onclick="invApproveFromEdit(this)">✅ אשר ואספק</button>
-      <button class="btn btn-primary" onclick="invSaveOrder(this)">💾 שמור הזמנה</button>
-    </div>
-  </div>
-</div>
 
 <!-- Inventory: New/Edit Product Modal -->
 <!-- Customer Requirement Modal -->
@@ -1043,41 +791,6 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="modalDismiss('invRequirementModal')">ביטול</button>
       <button class="btn btn-primary" onclick="invSaveRequirement(this)">💾 שמור דרישה</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal-backdrop" id="invProductModal">
-  <div class="modal" onclick="event.stopPropagation()" style="max-width:450px;">
-    <h3 id="invProductTitle">📋 פריט חדש</h3>
-
-    <label for="invProductName">שם הפריט:</label>
-    <input type="text" id="invProductName" placeholder="לדוגמה: מונה 360PP">
-
-    <label for="invProductCategory">קטגוריה:</label>
-    <select id="invProductCategory">
-      <option value="">-- ללא --</option>
-      <option value="מונה">מונה</option>
-      <option value="בקר">בקר</option>
-      <option value="סים">סים</option>
-      <option value="כרטיס תקשורת">כרטיס תקשורת</option>
-      <option value="משנ״ז">משנ"ז</option>
-      <option value="אחר">אחר</option>
-    </select>
-
-    <label style="display:flex;align-items:center;gap:8px;">
-      <input type="checkbox" id="invProductActive" checked>
-      פעיל (יופיע כצ'קבוקס בסיכום ביקור)
-    </label>
-
-    <div id="invProductDisplayNameRow" style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;">
-      <label for="invProductDisplayName" style="color:#94a3b8;font-weight:500;">ניהולי · חד-פעמי · שם לדוחות (עידן בלבד)</label>
-      <input type="text" id="invProductDisplayName" placeholder="ריק = השם הטכני">
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="modalDismiss('invProductModal')">ביטול</button>
-      <button class="btn btn-primary" onclick="invSaveProduct(this)">💾 שמור</button>
     </div>
   </div>
 </div>
@@ -1198,6 +911,14 @@
 <!-- 📝 יומן היום (Task 16, spec §7i) — the day-log sheet, opened from ⋯ עוד -->
 <div id="sigma-daylog"></div>
 <div id="sigma-stock-change"></div>
+<!-- 🚚 תעודת משלוח (inventory spec, package I, task U4) — the always-listening cert island: the
+     sheet/signature/viewer/send can be opened from any page (a visit's "הפקת תעודה", the legacy
+     compat shims in 20-delivery-cert.js), so it loads at boot like #sigma-stock-change. -->
+<div id="sigma-cert"></div>
+<!-- 🔔 Inventory nudges (inventory spec, package I, task U7) — עמיחי approval reminder + the
+     approved-orders notice; always-listening like #sigma-cert, since a nudge can fire from any
+     page once the data loads. -->
+<div id="sigma-inventory-nudges"></div>
 <!-- ▶ מצב ישיבה (Task 24) — a full-screen overlay; the island renders nothing until it is opened. -->
 <div id="sigma-presenter"></div>
 <!-- ▶ ישיבת פיתוח (Task 30) — the dev board's own meeting screen and its 📋 prep card. Same
@@ -1225,7 +946,7 @@
      the nav so it reads next to it in source even though both are position:fixed. -->
 <div id="sigma-my-tasks"></div>
 <div id="sigma-nav"></div>
-<script defer src="js/app.js?v=mujg5uoe"></script>
+<script defer src="js/app.js?v=mujfxi76"></script>
 <script>
 // The islands are FETCHED early (rel=modulepreload in <head>) but EXECUTED after the first
 // paint (task 22b). As a plain deferred module they ran in the same turn as the legacy bundle,
@@ -1237,7 +958,7 @@
   function go() {
     var s = document.createElement('script');
     s.type = 'module';
-    s.src = 'ui/sigma.js?v=mujg5uoe';
+    s.src = 'ui/sigma.js?v=mujfxi76';
     document.body.appendChild(s);
   }
   function afterPaint() {

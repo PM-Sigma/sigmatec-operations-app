@@ -100,6 +100,10 @@ console.log('\n[4] build output is wired into the page');
   // registerMoreItem glue (F1: the message sheet is the one live feature Ctrl+K hid, and it
   // needs a boot-time row so a tap in the first second still works, same shape as the gaps/
   // יומן panels). Net +523 bytes measured over G's 303 kB.
+  // Reverted (26.9): a prior merge bumped this to 305 kB to paper over the round 5 packages
+  // D+I merge instead of trimming the actual growth. The ceiling stays 304 kB (311,296 B) —
+  // any package that grows the boot chunk pays for it with a real reduction elsewhere (lazy
+  // import, dropped boot-eager glue), same as every entry above.
   check('bundle under the 304 kB ceiling', size < 304 * 1024, Math.round(size / 1024) + ' kB');
 }
 

@@ -67,12 +67,15 @@ describe('📈 שימוש island', () => {
     vi.resetModules();
   });
 
-  // Explicit timeout, not the 15s default: this is the file's heaviest render (KPI strip + heat
-  // table + top actions + narrative, four `findByText` waits chained), and it was seen timing
-  // out under a fully-loaded test-all run (many vitest workers + a concurrent build sharing the
-  // same CPU) while passing in isolation in ~3.5s — a real load-sensitivity, not a logic bug. A
-  // generous fixed ceiling keeps the test deterministic under contention without hiding an
-  // actual regression (a hung render still fails, just not on a hair-trigger).
+  // 30s, not the file's default 15s (round 5 packages D+I, union of two independent fixes for
+  // the same flake): this test was already brushing the 15s ceiling on main alone (~14.9s
+  // measured) before the D+I merge added the DevBoard and React-inventory islands to the same
+  // collect/transform pass — over the ceiling every run since, not a one-off flake. It's the
+  // file's heaviest render (KPI strip + heat table + top actions + narrative, four `findByText`
+  // waits chained) and was separately seen timing out under a fully-loaded test-all run (many
+  // vitest workers + a concurrent build sharing the same CPU) while passing in isolation in
+  // ~3.5s — a real load-sensitivity, not a logic bug, so the fix is headroom, not a smaller
+  // assertion. 30s (main's number) wins over 20s (this branch's) as the more generous ceiling.
   it('opens on the #usage deep link (the weekly push action) and renders the report', async () => {
     asUser('עידן', { idan: true });
     location.hash = '#usage';

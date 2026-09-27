@@ -188,23 +188,25 @@ function boot() {
       .then(m => m.mountFeedback())
       .catch(e => warn('feedback island failed', e));
   }
-  // 🔢 דיווח שינוי במלאי (inventory spec §4b): NOT deferred, like the feedback sheet and for
-  // the same reason — the 📦 מלאי page renders a legacy button that dispatches the raw open
-  // event, so the island has to be listening before the first tap. Its chunk is a few kB.
-  if (document.getElementById('sigma-stock-change')) {
-    import('@/islands/StockChange')
-      .then(m => m.mountStockChange())
-      .catch(e => warn('stock-change island failed', e));
-  }
-  // 🔔 התראות (U4): the bell now mounts INSIDE the header-actions cluster (AlertsBellSlot),
-  // not its own `#sigma-alerts` island — one lazy chunk instead of two racing to paint.
-  // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5) — lives inside the 📦 מלאי page, so it
-  // loads with everything else on that page rather than on its own idle tick.
-  if (document.getElementById('sigma-inventory-strip')) {
-    import('@/islands/InventoryStrip')
-      .then(m => m.mountInventoryStrip())
-      .catch(e => warn('inventory-strip island failed', e));
-  }
+  // 🔢 דיווח שינוי במלאי (§4b) + 🚚 תעודת משלוח (package I, task U4): NOT deferred behind
+  // inventoryBoot.ts's own dynamic import, unlike Inventory/InventoryNudges below — the visit
+  // form's "הפקת תעודה" and the מלאי page's "דיווח שינוי" button dispatch a raw open event with
+  // no retry if nobody's listening yet, so both need their listener attached from THIS tick, not
+  // one more network hop later. `mountEager` is the one shared helper their two near-identical
+  // blocks used to duplicate as boot-chunk-eager glue.
+  const mountEager = (id: string, imp: () => Promise<{ [k: string]: () => void }>, fn: string) => {
+    if (document.getElementById(id)) imp().then(m => m[fn]()).catch(e => warn(fn, e));
+  };
+  mountEager('sigma-stock-change', () => import('@/islands/StockChange'), 'mountStockChange');
+  mountEager('sigma-cert', () => import('@/islands/InventoryCert'), 'mountInventoryCert');
+  // 🔔 התראות (U4): the bell mounts INSIDE the header-actions cluster (AlertsBellSlot, package
+  // S), not its own `#sigma-alerts` island — one lazy chunk instead of two racing to paint.
+  // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5): embedded directly inside
+  // app/src/islands/InventoryStock.tsx's Stock tab now — the standalone #sigma-inventory-strip
+  // mount point was only ever a fallback for the (now-deleted, U10) legacy stock page.
+  import('@/islands/inventoryBoot')
+    .then(m => m.mountInventoryBoot())
+    .catch(e => warn('inventory boot glue failed', e));
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())

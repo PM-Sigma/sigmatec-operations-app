@@ -18,10 +18,11 @@
 -- client delete policy on purpose, and this is the one audited path.
 --
 -- Client gate (D5): עידן only, checked here too — inventory_delete_guard() refuses the viewer
--- claim outright, and refuses everyone but עידן once package X adds a per-person `name` claim
--- to the JWT (today's tokens carry no such claim, so the check is a no-op until then — the
--- CLIENT'S own עידן-only gate is what actually holds the line meanwhile; see risk §10 #6 in the
--- round-5 inventory spec).
+-- claim outright, and (applied in production 26.9, once package X's per-person `name` claim
+-- landed on the JWT) refuses everyone but עידן, including a pass with no `name` claim at all.
+-- The CLIENT'S own עידן-only gate is the first line of defense, same as before; this is the
+-- server-side one that actually holds regardless of what the client sends (see risk §10 #6 in
+-- the round-5 inventory spec).
 --
 -- PRODUCTION APPLY WAITS FOR עידן's EXPLICIT "כן" (this file is written, never run against the
 -- live database from this worktree). The real-world rollout target right now is narrower than
@@ -66,15 +67,14 @@ language sql immutable as $$
 $$;
 
 create or replace function public.inventory_delete_guard() returns void
-language plpgsql stable as $$
+language plpgsql stable set search_path = public as $$
 begin
   if coalesce(auth.jwt() ->> 'viewer', 'false') = 'true' then
     raise exception 'viewer' using errcode = '42501';
   end if;
-  -- package X adds a per-person `name` claim; from that day only עידן passes. Until then no
-  -- token carries the claim at all, so this half is a no-op (the client's עידן-only gate is
-  -- what holds the line meanwhile — risk §10 #6 in the round-5 inventory spec).
-  if (auth.jwt() ? 'name') and (auth.jwt() ->> 'name') is distinct from 'עידן' then
+  -- The per-person `name` claim is live (package X, applied 24.9), so it is REQUIRED: a pass
+  -- with no name is refused too (applied in production 26.9).
+  if (auth.jwt() ->> 'name') is distinct from 'עידן' then
     raise exception 'not allowed' using errcode = '42501';
   end if;
 end $$;
@@ -193,10 +193,10 @@ end $$;
 revoke all on function public.inventory_delete_preview(text) from public, anon;
 revoke all on function public.inventory_delete_product(text, text) from public, anon;
 grant execute on function public.inventory_delete_preview(text) to authenticated;
--- AUDIT FIX: the delete itself is service-role only — NOT granted to `authenticated`. Today's one
--- real use (removing the empty P13 item) is run directly over SQL/service role; no client session
--- can trigger the full cascade.
-revoke execute on function public.inventory_delete_product(text, text) from authenticated;
+-- Granted to signed-in users (26.9): inventory_delete_guard() now requires the name claim to be
+-- עידן, so no other session — viewer, other staff, or a pass with no name — gets past it.
+-- ROLLBACK of this line: revoke execute on function public.inventory_delete_product(text, text) from authenticated;
+grant execute on function public.inventory_delete_product(text, text) to authenticated;
 
 -- ROLLBACK (run to remove everything this file creates; never run against production without
 -- a fresh backup.take_snapshot() first):

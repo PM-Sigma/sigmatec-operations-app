@@ -67,6 +67,23 @@ function tableOf(url: string): string {
  */
 export async function installRoutes(page: Page, opts: { checkins?: boolean; inventory?: boolean } = {}): Promise<void> {
   /**
+   * 📦 package I — the REST-level write recorder a React driver reads through (_inv-ledger.ts
+   * `ledger()`'s `window.__invRouteWrites`). The legacy bundle's writes all funnel through the
+   * `sigma:write-router` fetch intercept instead (recordLegacyWrites), so this stays empty on
+   * that driver; a direct supabase-js write (app/src/lib/inventoryApi.ts) never touches that
+   * router, so without this the react driver's writes would be invisible to every flow spec's
+   * ledger assertion — not 401, just unrecorded.
+   */
+  const recordInvWrite = async (table: string, op: 'insert' | 'patch' | 'upsert', row: Record<string, unknown>, match?: string) => {
+    try {
+      await page.evaluate(({ r }) => {
+        const w = window as any;
+        w.__invRouteWrites = w.__invRouteWrites || [];
+        w.__invRouteWrites.push(r);
+      }, { r: { table, op, match, row } });
+    } catch { /* page may be mid-navigation — best-effort, like every other qa recorder */ }
+  };
+  /**
    * 🗺️ day_plans — the ONE table in this harness that is a real store rather than a fixture.
    * The calendar's route (spec §7f) is only meaningful if a reorder STICKS: the spec drags a
    * stop, reloads the panel and asserts the new order came back. Keyed (person, date), the
@@ -401,12 +418,16 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       if (tableOf(url) === 'products' && method === 'PATCH') {
         const q = new URL(url).searchParams;
         const store = products;
-        const key = 'name';
+        // Two callers filter on two different columns: the min_qty editor (InventoryStrip.tsx)
+        // by `name`, setProductActive (P13 fix, inventoryApi.ts) by `id` — key on whichever the
+        // query string actually carries instead of assuming one.
+        const key: 'id' | 'name' = q.has('id') ? 'id' : 'name';
         const want = decodeURIComponent((q.get(key) || '').replace(/^eq\./, ''));
         let body: any = {};
         try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const hit = store.find(r => String(r[key]) === want);
         if (hit) Object.assign(hit, body);
+        await recordInvWrite('products', 'patch', body, hit ? String(hit.id) : want);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
       // 📦 package I — W.product (js/src/01-data.js) always upserts by id, even for a toggle:
@@ -419,6 +440,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         for (const r of rows) {
           const hit = products.find(p => String(p.id) === String(r.id));
           if (hit) Object.assign(hit, r); else products.push({ ...r });
+          await recordInvWrite('products', 'upsert', r, r.id ? String(r.id) : undefined);
         }
         return route.fulfill(json(shape(rows, accept), 201));
       }
@@ -430,6 +452,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         for (const r of rows) {
           const hit = invOrders.find(o => String(o.id) === String(r.id));
           if (hit) Object.assign(hit, r); else invOrders.push({ ...r });
+          await recordInvWrite('orders', 'insert', r);
         }
         return route.fulfill(json(shape(rows, accept), 201));
       }
@@ -438,6 +461,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const hit = invOrders.find(o => String(o.id) === id);
         if (hit) Object.assign(hit, body);
+        await recordInvWrite('orders', 'patch', body, id);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
       // requirements — same insert/edit shape as orders.
@@ -447,6 +471,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         for (const r of rows) {
           const hit = invRequirements.find(x => String(x.id) === String(r.id));
           if (hit) Object.assign(hit, r); else invRequirements.push({ ...r });
+          await recordInvWrite('requirements', 'insert', r);
         }
         return route.fulfill(json(shape(rows, accept), 201));
       }
@@ -455,6 +480,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const hit = invRequirements.find(x => String(x.id) === id);
         if (hit) Object.assign(hit, body);
+        await recordInvWrite('requirements', 'patch', body, id);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
       // returns — always an upsert-by-id (returnToStock / markReturnDefective send {id,status}).
@@ -464,8 +490,21 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         for (const r of rows) {
           const hit = invReturns.find(x => String(x.id) === String(r.id));
           if (hit) Object.assign(hit, r); else invReturns.push({ ...r });
+          await recordInvWrite('returns', 'upsert', r, r.id ? String(r.id) : undefined);
         }
         return route.fulfill(json(shape(rows, accept), 201));
+      }
+      // returns — the React driver (inventoryApi.ts restockReturn/markDefective) writes a
+      // targeted `.update({status}).eq('id', id)`, a PATCH by id — the legacy bundle's own
+      // returnToStock/markReturnDefective never do this (they always POST the whole row above),
+      // so this branch only fires under the react driver (task U5).
+      if (tableOf(url) === 'returns' && method === 'PATCH') {
+        const id = eqParam(url, 'id');
+        let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
+        const hit = invReturns.find(x => String(x.id) === id);
+        if (hit) Object.assign(hit, body);
+        await recordInvWrite('returns', 'patch', body, id);
+        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
       // delivery_certs — POST (no on_conflict) is a plain insert; the server assigns cert_number.
       // PATCH by id is the cancel / doc_html-snapshot write.
@@ -474,6 +513,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         const next = 1 + invCerts.reduce((m, c) => Math.max(m, Number(c.cert_number) || 0), 1000);
         const row = { id: 'cert-' + (invCerts.length + 1) + '-' + Date.now(), cert_number: next, status: 'active', replaced_by: 0, ...body };
         invCerts.push(row);
+        await recordInvWrite('delivery_certs', 'insert', body);
         return route.fulfill(json(shape([row], accept), 201));
       }
       if (tableOf(url) === 'delivery_certs' && method === 'PATCH') {
@@ -481,12 +521,14 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const hit = invCerts.find(x => String(x.id) === id);
         if (hit) Object.assign(hit, body);
+        await recordInvWrite('delivery_certs', 'patch', body, id);
         return route.fulfill(json(shape(hit ? [hit] : [], accept)));
       }
       if (tableOf(url) === 'parse_corrections' && method === 'POST') {
         let body: any = {}; try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'pc-' + (invParseCorrections.length + i + 1), ...r }));
         invParseCorrections.push(...rows);
+        await recordInvWrite('parse_corrections', 'insert', body);
         return route.fulfill(json(shape(rows, accept), 201));
       }
       // 📦 movements / stock_recounts (Task 8) — the 🔢 recount writes both, in that order.
@@ -497,6 +539,8 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         const rows = (Array.isArray(body) ? body : [body])
           .map((r, i) => ({ id: tableOf(url) + '-' + (store.length + i + 1), created_at: new Date().toISOString(), ...r }));
         store.push(...rows);
+        const tbl = tableOf(url) as 'movements' | 'stock_recounts';
+        for (const r of rows) await recordInvWrite(tbl, 'insert', r);
         return route.fulfill(json(shape(rows, accept), 201));
       }
       // work_sessions / site_contacts (Task 29) accept their inserts and remember them.
@@ -618,7 +662,19 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       // one — what the spec asserts there is the sheet, not a round trip.
       case 'calendar_absences': return route.fulfill(json(shape([], accept)));
       case 'work_sessions': return route.fulfill(json(shape(workSessions, accept)));
-      case 'movements': return route.fulfill(json(shape(movements, accept)));
+      // package I: honour ref_id/reason eq filters — postedOnServer() (inventoryApi.ts) selects
+      // by exactly this combo before every movement-posting write to guard against a double
+      // post; an unfiltered "all movements" response makes that guard see a false positive on
+      // the very first approve/deliver (the fixture already seeds 5 unrelated rows) and skip
+      // the write it was supposed to allow.
+      case 'movements': {
+        const refId = eqParam(url, 'ref_id');
+        const reason = eqParam(url, 'reason');
+        let rows = movements;
+        if (refId) rows = rows.filter(r => String(r.ref_id) === refId);
+        if (reason) rows = rows.filter(r => String(r.reason) === reason);
+        return route.fulfill(json(shape(rows, accept)));
+      }
       case 'stock_recounts': return route.fulfill(json(shape(stockRecounts, accept)));
       case 'inventory_alerts': return route.fulfill(json(shape(inventoryAlerts, accept)));
       case 'visits': {

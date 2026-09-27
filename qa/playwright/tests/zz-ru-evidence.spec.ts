@@ -8,6 +8,9 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { boot, expect, test } from './_helpers';
+import { bootInv, driverFor } from './inventory/_inv-driver';
+
+const invDriver = driverFor();
 
 const OUT = path.resolve(__dirname, '..', '..', 'evidence', 'R-U');
 mkdirSync(OUT, { recursive: true });
@@ -58,16 +61,17 @@ async function openDayLog(page: Page): Promise<void> {
   await expect(page.getByTestId('daylog-sheet')).toBeVisible();
 }
 
+// U10 retired the legacy #inventoryLegacy tabbed screen (window.showPage/invShowTab,
+// #invReportChange, [data-inv-tab]) for the React inventory island — driven the same way
+// inventory-pool.spec.ts is, through the data-testid driver contract (_inv-driver.ts), not boot().
 async function openInventoryStrip(page: Page): Promise<void> {
-  await page.waitForSelector('#sigma-home .kibbutz', { state: 'attached', timeout: 30_000 });
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="stock"]').click();
-  await expect(page.getByTestId('inv-pool')).toBeVisible({ timeout: 15_000 });
+  await invDriver.openTab(page, 'stock');
+  await expect(page.getByTestId('inv-panel-stock')).toBeVisible({ timeout: 15_000 });
 }
 
 async function openStockChange(page: Page): Promise<void> {
   await openInventoryStrip(page);
-  await page.locator('#invReportChange').click();
+  await page.getByTestId('inv-report-change').click();
   await expect(page.getByTestId('stock-change-sheet')).toBeVisible();
 }
 
@@ -152,14 +156,14 @@ test.describe('R-U evidence captures', () => {
     });
 
     test(`inventory-strip @ ${w}`, async ({ page }, ti) => {
-      const { theme } = await boot(page, ti, { who: 'עידן' });
+      const { theme } = await bootInv(page, ti, 'עידן', invDriver);
       await page.setViewportSize({ width: w, height: h });
       await openInventoryStrip(page);
       await page.screenshot({ path: path.join(OUT, `inventory-strip__${w}__${theme}.png`) });
     });
 
     test(`stock-change @ ${w}`, async ({ page }, ti) => {
-      const { theme } = await boot(page, ti, { who: 'עידן' });
+      const { theme } = await bootInv(page, ti, 'עידן', invDriver);
       await page.setViewportSize({ width: w, height: h });
       await openStockChange(page);
       await page.screenshot({ path: path.join(OUT, `stock-change__${w}__${theme}.png`) });

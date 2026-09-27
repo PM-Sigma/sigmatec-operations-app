@@ -141,11 +141,13 @@ for (const id of ['sigma-home', 'sigma-today', 'sigma-burns', 'viewerReportsHub'
   ok(inside.has(id), `#${id} belongs to the card home and must live inside #kibbutz-view`);
 }
 
-// the inventory tabs keep the order עידן asked for (phone QA round 2, E1):
-// הזמנות · מלאי בקיבוצים · תעודות משלוח · then the rest
-const invTabs = [...html.matchAll(/data-inv-tab="(\w+)"/g)].map(m => m[1]);
-ok(invTabs.slice(0, 3).join(',') === 'orders,kibbutz,certs',
-  `inventory tab order must start הזמנות · מלאי בקיבוצים · תעודות משלוח, got ${invTabs.join(', ')}`);
+// the inventory tabs keep the ruled order (round 5 package I spec §1): הזמנות · מלאי חברה ·
+// תעודות משלוח · מלאי בקיבוצים · החזרות · פריטים. The legacy `data-inv-tab` markup is gone
+// (U10) — the order now lives in app/src/islands/Inventory.tsx's INV_TABS array.
+const invTsx = readFileSync(new URL('./app/src/islands/Inventory.tsx', import.meta.url), 'utf8');
+const invTabs = [...invTsx.matchAll(/\{ id: '(\w+)', label:/g)].map(m => m[1]);
+ok(invTabs.join(',') === 'orders,stock,certs,kibbutz,returns,products',
+  `inventory tab order must be orders,stock,certs,kibbutz,returns,products, got ${invTabs.join(', ')}`);
 
 console.log(`test-html-structure: ${checks} checks passed (${views.length} page views, `
   + `${CHROME.length} chrome nodes, ${byId.size} ids).`);

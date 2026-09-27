@@ -837,6 +837,21 @@
   .ucal-ltask-actions .ucal-mini { flex: 1; justify-content: center; }
 }
 
+/* Designer C-round I "nice": a horizontally-scrollable strip (the מלאי page's tab row is the
+   first user, but any `overflow-x-auto` row can reach for this) with no visual hint that it
+   scrolls — the last label just gets cut mid-word ("תעודות משל"). A CSS mask fades both
+   inline edges to transparent; `overflow: auto` still works exactly the same underneath, this
+   only changes what paints. Both edges fade (not just the trailing one) since the strip starts
+   scrolled to the RTL-leading tab, not necessarily to either physical edge. */
+.sigma-root .s-scroll-fade {
+  /* Designer round-2 fix: 20px read as an almost-invisible fade at a 360px width — one glyph's
+     worth of ghosting on a cut Hebrew letter looks like a rendering glitch, not an intentional
+     "this scrolls" hint. 36px is wide enough to actually read as a fade at every width this
+     strip appears at. */
+  mask-image: linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent);
+}
+
 /* ═════════════════════════════════════════════════════════════════════════════
    round 5 phase 2 — container-query grids (tools-and-motion.md §2.0). Native CSS
    `@container`, no plugin, no JS: each grid reacts to ITS OWN width, not the viewport, so it
@@ -875,6 +890,14 @@
      (44.0px) while the grid still stays fully INSIDE its card — the containment rule the sweep
      now also enforces (N4c) would fail on anything that bled out to make more room for a gap. */
   gap: 0;
+}
+
+/* InventoryKibbutzim (task U3, S13): phone accordion under 560px, desktop matrix from 560 up —
+   reacts to the tab panel's own width via `.s-kib-view`'s own container-type, not the viewport. */
+.sigma-root .s-kib-matrix { display: none; }
+@container (min-width: 560px) {
+  .sigma-root .s-kib-cards { display: none; }
+  .sigma-root .s-kib-matrix { display: block; }
 }
 
 /* Sheet/Dialog enter/exit animation timing (sign-off P1-6) — plain CSS instead of Tailwind

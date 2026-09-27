@@ -543,10 +543,7 @@
     'attEditModal',         // עדכון נוכחות
     'emsTaskModal',         // משימה חדשה ב-EMS
     'visitQuickModal',      // ביקור מהיר
-    'intakeModal',          // קליטת הזמנה
-    'invOrderModal',        // הזמנה
-    'invRequirementModal',  // דרישה
-    'invProductModal'       // מוצר
+    'invRequirementModal'   // דרישה
   ];
   for (var gi = 0; gi < GUARDED_INPUT_MODALS.length; gi++) {
     (function (id) { modalGuard(id, function () { return modalDirtyByFields(id); }); })(GUARDED_INPUT_MODALS[gi]);
