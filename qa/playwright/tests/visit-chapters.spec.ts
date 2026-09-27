@@ -338,6 +338,35 @@ test('C5: ציוד שהוחזר מהקיבוץ starts collapsed, a ➕ adds one 
   expectNoConsoleErrors(rec);
 });
 
+test('C1: a custom duration and a duration chip are mutually exclusive', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+  await expect(page.locator('[data-mode="arrival"]')).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-kibbutz="חוקוק"]').click();
+  await page.getByTestId('brief-visit').click();
+  await expect(page.getByTestId('visit-chapters')).toBeVisible({ timeout: 10_000 });
+
+  const chip2 = page.getByTestId('vc-hours-2');
+  const manual = page.getByTestId('vc-hours-manual');
+
+  // a chip picked → the manual box clears (it would otherwise repeat "2").
+  await chip2.click();
+  await expect(chip2).toHaveClass(/s-brand/);
+  await expect(manual).toHaveValue('');
+
+  // typing a custom value → the chip that was on lets go, with nothing to compare it against.
+  await manual.fill('1.5');
+  await expect(chip2).not.toHaveClass(/s-brand/);
+  await expect(manual).toHaveValue('1.5');
+
+  // picking a chip again after typing clears the manual box right back.
+  await chip2.click();
+  await expect(chip2).toHaveClass(/s-brand/);
+  await expect(manual).toHaveValue('');
+
+  expectNoConsoleErrors(rec);
+});
+
 test('C6: the EMS link is never preselected, and picking one retires the reason chips', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
 

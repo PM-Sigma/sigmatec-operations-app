@@ -69,6 +69,20 @@ test.describe('V-U evidence captures', () => {
       await page.screenshot({ path: path.join(OUT, `visit-sheet-new__${w}__${theme}.png`) });
     });
 
+    test(`visit sheet: products header + product search focus ring @ ${w}`, async ({ page }, ti) => {
+      const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+      await page.setViewportSize({ width: w, height: h });
+      await openArrivalVisit(page);
+
+      await page.locator('[data-testid="vc-chapter-3"]').scrollIntoViewIfNeeded();
+      const search = page.getByTestId('vc-product-search');
+      await search.click();
+      await expect(search).toBeFocused();
+
+      await expectNoPageOverflow(page, w);
+      await page.screenshot({ path: path.join(OUT, `visit-sheet-products-focus-ring__${w}__${theme}.png`) });
+    });
+
     test(`visit sheet: draft + cancel prompt @ ${w}`, async ({ page }, ti) => {
       const { theme } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
       await page.setViewportSize({ width: w, height: h });
@@ -120,10 +134,20 @@ test.describe('V-U evidence captures', () => {
       await page.getByTestId('vc-reason-fault').click();
       await page.getByTestId('vc-send').click();
       await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
-      await expect(page.locator('[data-sonner-toast]').first()).toBeVisible({ timeout: 15_000 });
-
-      await expectNoPageOverflow(page, w);
+      const shownToast = page.locator('[data-sonner-toast]').first();
+      await expect(shownToast).toBeVisible({ timeout: 15_000 });
+      // sonner's mount transition (transform .4s) settles a moment after "visible" already passes.
+      await page.waitForTimeout(500);
+      // KNOWN GAP (not resolved this pass): this toast's rendered box lands well below its own
+      // CSS-computed bottom offset would suggest — sometimes ~30-70px past the viewport edge —
+      // in THIS headless/resized-viewport harness. `toBeVisible()` above only proves it is
+      // attached and non-zero-size, not that it is inside the frame the screenshot below
+      // captures; the PNG this test writes may still not show it. Confirmed as real in the DOM
+      // (position: bottom-center, never top) but the exact on-screen placement needs a follow-up
+      // once the underlying sonner/viewport-resize interaction is understood.
       await page.screenshot({ path: path.join(OUT, `visit-save-toast__${w}__${theme}.png`) });
+      await expect(shownToast).toBeVisible();
+      await expectNoPageOverflow(page, w);
     });
 
     test(`visit save: the attendance conflict question @ ${w}`, async ({ page }, ti) => {
@@ -153,6 +177,9 @@ test.describe('V-U evidence captures', () => {
       await page.getByTestId('vc-send').click();
       await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
       await expect(page.getByText('לשנות לשטח?')).toBeVisible({ timeout: 15_000 });
+      // The Dialog's zoom-in mount animation (s-anim-dialog) can leave a stale bounding box for
+      // a frame — settle before measuring.
+      await page.waitForTimeout(350);
 
       await expectNoPageOverflow(page, w);
       await page.screenshot({ path: path.join(OUT, `visit-save-attendance-conflict__${w}__${theme}.png`) });
