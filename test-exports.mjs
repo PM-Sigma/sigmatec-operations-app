@@ -6,10 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// 06-products.js supplies the `productLabel` legacy mirror (Task 9, spec §3) that
-// xlLabel()/xlProductMapFromSheet() in 21-excel-export.js call.
-const src = fs.readFileSync(path.join(__dirname, 'js/src/06-products.js'), 'utf8') + '\n' +
+// js/src/06-inventory.js supplies the `productLabel` compat shim (delegates to SigmaInv) that
+// xlLabel()/xlProductMapFromSheet() in 21-excel-export.js call — U10 deleted 06-products.js.
+import { loadSigmaInv } from './scripts/sigma-inv.mjs';
+const src = fs.readFileSync(path.join(__dirname, 'js/src/06-inventory.js'), 'utf8') + '\n' +
   fs.readFileSync(path.join(__dirname, 'js/src/21-excel-export.js'), 'utf8');
+const SigmaInv = loadSigmaInv();
 
 let failures = 0, passes = 0;
 function check(name, fn) {
@@ -19,11 +21,11 @@ function check(name, fn) {
 
 // ---- load the module with stubbed globals; capture window exposure ----
 function loadModule(role) {
-  const window_ = {};
-  const fn = new Function('window', 'document', 'alert', 'isIdan', 'isViewer',
+  const window_ = { SigmaInv };
+  const fn = new Function('window', 'document', 'alert', 'isIdan', 'isViewer', 'SigmaInv',
     src + '\nreturn { canExportExcel, xlStr, xlNum, xlDate, xlBuildVisits, xlBuildAttendance, xlBuildCerts, xlBuildCertSummary, xlBuildStockByLocation, xlBuildStockByKibbutz, xlSpecToWorkbook, xlMonthRange, xlLabel, xlProductMapFromSheet, productLabel };');
   return fn(window_, { createElement: () => ({}), head: { appendChild() {} }, getElementById: () => ({ value: '', textContent: '' }) },
-    () => {}, () => role === 'idan', () => role === 'viewer');
+    () => {}, () => role === 'idan', () => role === 'viewer', SigmaInv);
 }
 const M = loadModule('viewer');
 
@@ -338,23 +340,24 @@ function liftFrom(src, name) {
   }
   throw new Error('unbalanced braces reading ' + name);
 }
-const certHelpers = new Function('window', 'productLabel',
+// U10: certGroupName/certReportLabel in js/src/20-delivery-cert.js are now one-line shims —
+// certGroupName delegates straight to SigmaInv.certGroupName, and the range-report HTML itself
+// (grouping + display-name substitution) is SigmaInv.certRangeReportHtml (app/src/lib/certDoc.ts),
+// asserted byte-for-byte in certDoc.test.ts. This just checks the shims still resolve correctly.
+const certHelpers = new Function('window', 'productLabel', 'SigmaInv',
   liftFrom(certSrc, 'certGroupName') + '\n' + liftFrom(certSrc, 'certReportLabel')
   + '\nreturn { certGroupName, certReportLabel };')(
-  { SHEET_DATA: { products: [{ name: METER, display_name: METER_DISPLAY }] } }, M.productLabel);
+  { SHEET_DATA: { products: [{ name: METER, display_name: METER_DISPLAY }] } }, M.productLabel, SigmaInv);
 
 check('F-08 — the PDF groups by the SAME key as the Excel', () => {
   assert.strictEqual(certHelpers.certGroupName(CERT_LEAK[0]), 'קיבוץ חוקוק');
   assert.strictEqual(certHelpers.certGroupName({ kibbutz: 'חוקוק', customer: null }), 'חוקוק');
-  assert.match(certSrc, /certs\.forEach\(cr => \{ const k = certGroupName\(cr\) \|\| '—';/);
 });
 check('F-07 — the printed cert REPORT prints display names (the field cert does not)', () => {
   assert.strictEqual(certHelpers.certReportLabel(METER), METER_DISPLAY);
   assert.strictEqual(certHelpers.certReportLabel(PLAIN), PLAIN);
-  assert.match(certSrc, /certEsc\(certReportLabel\(i\.name\)\) \+ ' ×'/);
-  assert.match(certSrc, /certEsc\(certReportLabel\(n\)\)/);
-  assert.ok(certSrc.includes("certEsc(i.name)"),
-    'the field certificate must keep the technical name');
+  // the field certificate itself (SigmaInv.certDocHtml) keeps the technical name — asserted in
+  // app/src/lib/certDoc.test.ts's own goldens, not re-checked here against a deleted inline body.
 });
 
 // ---- the attendance PDF (js/src/04-attendance-daily.js) ----

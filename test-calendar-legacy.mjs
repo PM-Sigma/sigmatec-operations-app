@@ -123,8 +123,12 @@ assert.ok(!SW.includes('stats.html'), "sw.js's SHELL must not precache the retir
   // the 26 files, and a `showPage('mytasks')` dropped into 18-dev-tasks.js was shown (Task 14
   // review, empirically) to sail straight through it. A sweep that only looks where someone
   // remembered to look is not a sweep. Task 18.
+  //
+  // The floor dropped 26 → 24 (round 5, package I, task U10): the legacy inventory UI's three
+  // files (06-products.js/07-orders.js/08-inventory.js) were deleted outright, not merged into
+  // one — 06-inventory.js is a NEW file (React glue only), replacing all three at once.
   const LEGACY = readdirSync(new URL('./js/src/', import.meta.url)).filter(f => f.endsWith('.js')).sort();
-  assert.ok(LEGACY.length >= 26, 'the retired-page sweep must see every js/src module (saw ' + LEGACY.length + ')');
+  assert.ok(LEGACY.length >= 24, 'the retired-page sweep must see every js/src module (saw ' + LEGACY.length + ')');
   for (const f of LEGACY) {
     const src = stripComments(readFileSync(new URL('./js/src/' + f, import.meta.url), 'utf8'));
     for (const page of ['ems', 'mytasks', 'staff']) {

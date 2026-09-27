@@ -1,21 +1,28 @@
 // The header's right-hand cluster (spec §6 header, §7k.2 the one page action; round 5 L1 moved
 // `runAdd` out of the command bar and dropped the Ctrl+K button — S-11).
-//   the context page action · ● user chip (🌙 moved into ⚙️ הגדרות, 22.9)
+//   ✅ המשימות שלי · ⋯ עוד (desktop) · ⚙️ (opens GearSheet, U2)
+//
+// Round 5 U1 (designer review): Σ is NOT a chip here any more — the brand-mark in index.html
+// IS the home button ("one Σ only"), wired via window.sigmaGoHome (main.tsx). The three chips
+// left (🔔 lives in its own island, ✅, ⚙️) are all the SAME IconBubble — identical 48px
+// circle, identical radius, 8px gap — instead of three different hand-rolled buttons.
 //
 // It replaces the legacy strip of six grey chips (👤 …, 🟢 EMS, 🔓 ישיבה, 🏘️ פוטנציאליים, …)
 // as the place identity and settings live; the legacy chips that still have no React home
 // (ישיבה, פוטנציאליים, סטטיסטיקה) stay where they are and are untouched.
 import * as React from 'react';
-import { ArrowLeft, ListTodo, Plus } from 'lucide-react';
-import { UserChip } from '@/components/UserChip';
+import '@/shell/shell.css';
+import { ListTodo, Settings } from 'lucide-react';
+import { IconBubble } from '@/components/ui/icon-bubble';
+import { MoreSheet } from '@/components/MoreSheet';
+import { GearSheet, openGearSheet } from '@/shell/GearSheet';
+import { AlertsBellSlot } from '@/islands/Alerts';
+import { type SigmaRole as RegistryRole } from '@/lib/registry';
 import { mount } from '@/islands';
 import { useCurrentUser } from '@/bridge';
-import { useCurrentPage } from '@/lib/currentPage';
-import { roleOf } from '@/lib/landing';
-import { canManageKibbutzim } from '@/lib/kibbutzim';
-import { primaryAdd, primaryAddLabel, primaryAddOpensForm } from '@/lib/primaryAdd';
-import { runAdd } from '@/lib/runAdd';
 import { track } from '@/lib/track';
+import { goHome } from '@/lib/navigate';
+import { HEADER_LABELS } from '@/lib/shell';
 import { MY_TASKS_TITLE, myTasksLabel } from '@/lib/myTasks';
 import { useMyTasksCount } from '@/lib/myTasksBadge';
 
@@ -29,77 +36,66 @@ function MyTasksButton({ me }: { me: string }) {
   const count = useMyTasksCount(me);
   if (!me) return null;
   return (
-    <button
-      type="button"
-      data-testid="header-my-tasks"
-      aria-label={myTasksLabel(count)}
-      title={MY_TASKS_TITLE}
-      onClick={() => {
-        track('my-tasks-open', 'header');
-        try { window.dispatchEvent(new CustomEvent(MY_TASKS_OPEN_EVENT)); } catch { /* no DOM */ }
-      }}
-      className="relative inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
-    >
-      <ListTodo className="h-[18px] w-[18px]" aria-hidden />
-      {count > 0 ? (
-        <span
-          data-testid="header-my-tasks-badge"
-          // text-[var(--s-on-brand)], not text-white (designer confirm round, item 1): white on
-          // --brand-2 measured 2.4:1. --s-on-brand is verified (test-design-tokens.mjs) to clear
-          // 4.5:1 on both brand-1 and brand-2.
-          className="absolute -top-1 min-w-[18px] rounded-full bg-[color:var(--brand-2)] px-1 text-center text-[10px] font-bold leading-[18px] text-[var(--s-on-brand)]"
-          style={{ insetInlineStart: '-4px' }}
-        >
-          <bdi>{count}</bdi>
-        </span>
-      ) : null}
-    </button>
+    // IconBubble does not forward data-testid (DS-owned, not S's to edit) — wrapped in a span
+    // instead, same fallback the U1 spec names.
+    <span data-testid="header-my-tasks" title={MY_TASKS_TITLE}>
+      <IconBubble
+        size={48}
+        icon={<ListTodo className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
+        badge={count || undefined}
+        badgeTestId="header-my-tasks-badge"
+        label={myTasksLabel(count)}
+        className="text-muted-foreground"
+        onClick={() => {
+          track('my-tasks-open', 'header');
+          try { window.dispatchEvent(new CustomEvent(MY_TASKS_OPEN_EVENT)); } catch { /* no DOM */ }
+        }}
+      />
+    </span>
   );
 }
 
 export function HeaderActionsPanel() {
   const { name: user, role, isViewer } = useCurrentUser();
-  const page = useCurrentPage();
-  const personRole = roleOf(user, role);
-  const add = primaryAdd(page, personRole, { canManageKibbutzim: canManageKibbutzim(user, isViewer) });
-  const addLabel = primaryAddLabel(add);
-  // A ➕ is a promise that something is created right here; a navigation action gets an arrow
-  // and its own wording instead (review fix 5).
-  const addCreates = primaryAddOpensForm(add);
+  const registryRole: RegistryRole = isViewer ? 'viewer' : role === 'idan' ? 'idan' : 'team';
 
+  // Round 5 (S-5): the page action ("קיבוץ חדש", "דיווח מלאי", …) moved out of the header and
+  // into its own compact row below it (PageBar, U3) — this cluster is 🔔 · ✅ · ⋯ · ⚙️ only
+  // (Σ lives in the static brand-mark), so nothing here ever collides with a page title at
+  // 360px (S-8).
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* 🔔 התראות — U4: on DS parts, in this cluster now (no separate #sigma-alerts mount). */}
+      <AlertsBellSlot />
+
       {/* ✅ המשימות שלי — right next to the bell, on every screen size. */}
       <MyTasksButton me={user} />
 
-      {/* §7k.2 / S-11: the 🔍 חיפוש · Ctrl+K button is gone (round 5, package X removes the
-          command bar itself). rendered ONLY when the page has something to add, and the label
-          always says what it does — never a bare plus. "קיבוץ חדש" (add === 'kibbutz') is
-          desktop-only: the phone header has no room for it and the row is already in ⋯ עוד
-          (Home.tsx registers it there for canManage) — Package A §2. Every other add action
-          keeps showing on the phone too. */}
-      {addLabel && (
-        <button
-          type="button"
-          onClick={() => { track('primary-add', add); runAdd(add); }}
-          className={
-            'items-center gap-1.5 rounded-xl s-brand px-3 text-[13px] font-bold transition-transform active:scale-[.97] min-h-[40px] '
-            + (add === 'kibbutz' ? 'hidden md:inline-flex' : 'inline-flex')
-          }
-        >
-          {addCreates
-            ? <Plus className="h-4 w-4" />
-            /* ArrowLeft points to the INLINE START inside this RTL container, i.e. forward */
-            : <ArrowLeft className="h-4 w-4" />}
-          <span>{addLabel}</span>
-        </button>
-      )}
+      {/* S-9/S-10: ⋯ עוד on desktop too — the same sheet the phone's long press opens, so DEV
+          and the meeting modes are reachable without a touch screen. */}
+      <MoreSheet role={registryRole} user={user} variant="desktop" />
 
-      <UserChip />
+      {/* S-3/S-4: the name chip becomes a gear bubble opening a real Sheet (GearSheet, U2) —
+          identity/role, settings, install, feedback, האזור האישי and the user switcher. No
+          absolute status dot on the chip: the EMS connection state moved into the sheet's
+          identity row as an ordinary Tag. */}
+      <span data-testid="header-gear">
+        <IconBubble
+          size={48}
+          icon={<Settings className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
+          label={HEADER_LABELS.settings}
+          onClick={() => { track('gear-open', 'header'); openGearSheet(); }}
+        />
+      </span>
+      <GearSheet />
     </div>
   );
 }
 
 export function mountHeaderActions(): boolean {
+  // Σ (index.html's brand-mark) calls this — kept out of the BOOT-eager main.tsx so a home
+  // button nobody has tapped yet costs nothing against the 304 kB ceiling; the static markup's
+  // own fallback (`window.showPage('kibbutz')`) covers the gap before this chunk lands.
+  (window as any).sigmaGoHome = goHome;
   return mount('sigma-header-actions', HeaderActionsPanel);
 }

@@ -4,44 +4,44 @@
 // the transfer / free-adjust forms are gone from the DOM; the visit form's מלאי מקור offers the
 // pool and nothing else; and the 🔢 sheet's recount round trip WRITES BOTH ROWS — the auditable
 // `stock_recounts` row and its `חברה → ספירה` movement — with the counted quantity and the note
-// on them. The rules themselves are goldens (app/src/lib/inventory.test.ts + stockChange.test.ts)
-// and the legacy half is test-inventory-pool.mjs.
-import { boot, expect, expectNoConsoleErrors, expectRtl, installRoutes, shot, skipKnownMobile360, test, watchConsole, SB_ORIGIN } from './_helpers';
+// on them. The rules themselves are goldens (app/src/lib/inventory.test.ts + stockChange.test.ts).
+//
+// U10 deleted the legacy #inventoryLegacy tabbed screen this file used to drive directly
+// (window.showPage/invShowTab, #transferFrom, #adjustLocation, #invReportChange, [data-inv-tab],
+// [data-kpi]) — ported to the React inventory island (app/src/islands/Inventory.tsx and friends),
+// driven the same way every other qa/playwright/tests/inventory/*.spec.ts spec is: the
+// data-testid contract via _inv-driver.ts's reactDriver.
+import { expect, expectNoConsoleErrors, expectRtl, installRoutes, shot, skipKnownMobile360, test, watchConsole } from './_helpers';
+import { bootInv, driverFor } from './inventory/_inv-driver';
+import { ledger } from './inventory/_inv-ledger';
+
+const d = driverFor();
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
 test.beforeEach(({}, testInfo) => skipKnownMobile360(testInfo));
 
-/** The rows the harness stored, read back through the page (the routes are page-scoped). */
-async function rows(page: any, table: string): Promise<any[]> {
-  return await page.evaluate(async ([origin, t]: string[]) => {
-    const r = await fetch(origin + '/rest/v1/' + t + '?select=*', { headers: { apikey: 'anon' } });
-    return await r.json();
-  }, [SB_ORIGIN, table]);
-}
-
-async function openStockTab(page: any) {
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="stock"]').click();
-  await expect(page.getByTestId('inv-pool')).toBeVisible({ timeout: 15_000 });
-}
-
 test('the מלאי page is ONE pool — and the retired forms are not in the DOM', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti);
-  await openStockTab(page);
+  const { rec } = await bootInv(page, ti, 'עידן', d);
+  await d.openTab(page, 'stock');
 
-  const pool = page.getByTestId('inv-pool');
-  await expect(pool).toContainText('חברה');
-  // 40 delivered − 3 supplied on a visit = 37 (js/src/01-data.js mock ledger).
-  await expect(pool).toContainText('מונה Landis+Gyr E360PP');
-  await expect(pool).toContainText('37');
-  // Nobody's name is a location any more.
+  const panel = page.getByTestId('inv-panel-stock');
+  await expect(panel).toContainText('חברה');
+  // 40 delivered − 3 supplied on a visit = 37 (qa/playwright/tests/inventory/_inv-fixtures.ts).
+  await expect(panel).toContainText('מונה Landis+Gyr E360PP');
+  expect(await d.poolQty(page, 'מונה Landis+Gyr E360PP')).toBe(37);
+  // Nobody's name is a location any more — scoped to the pool ROWS themselves, not the whole
+  // stock panel: it also embeds the 🧾 open-orders strip (InventoryStrip), whose rows legitimately
+  // say "ממתין לאישור עמיחי" (a created-by name, not a stock location).
+  const poolText = (await page.locator('[data-testid^="inv-pool-row-"]').allInnerTexts()).join('\n');
   for (const person of ['אביאם', 'ניתאי', 'משרד', 'עמיחי']) {
-    await expect(pool).not.toContainText(person);
+    expect(poolText).not.toContain(person);
   }
-  // The transfer form and the free הוספה/הפחתה card are gone (§1, §4b).
+  // The transfer form and the free הוספה/הפחתה card are gone (§1, §4b) — never existed in the
+  // React rewrite in the first place, but assert their legacy ids anyway so a regression back to
+  // reintroducing them (even accidentally, e.g. a stray legacy mount) would be caught.
   await expect(page.locator('#transferFrom')).toHaveCount(0);
   await expect(page.locator('#adjustLocation')).toHaveCount(0);
-  await expect(page.locator('#invReportChange')).toBeVisible();
+  await expect(page.getByTestId('inv-report-change')).toBeVisible();
 
   await expectRtl(page);
   await shot(page, ti, 'pool');
@@ -49,25 +49,24 @@ test('the מלאי page is ONE pool — and the retired forms are not in the DOM
 });
 
 test('מלאי נמוך is a tappable filter', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti);
-  await openStockTab(page);
+  const { rec } = await bootInv(page, ti, 'עידן', d);
+  await d.openTab(page, 'stock');
 
-  await expect(page.getByTestId('inv-pool')).toContainText('בקר 504');
-  await page.locator('[data-kpi="low"]').click();
+  await expect(page.getByTestId('inv-panel-stock')).toContainText('בקר 504');
+  await d.tapKpi(page, 'low');
   // מונה PM135 is 2 in the pool, under its red line (min 5); the בקר is not a red-line item at
   // all, and SIM has no red line any more (round 5 Phase 1, עידן 23.9).
-  await expect(page.getByTestId('inv-pool')).toContainText('מונה PM135');
-  await expect(page.getByTestId('inv-pool')).not.toContainText('בקר 504');
-  await expect(page.getByTestId('inv-pool')).not.toContainText('סים 1NCE');
+  const names = await d.poolNames(page);
+  expect(names).toEqual(['מונה PM135']);
   await shot(page, ti, 'low-filter');
   await expectNoConsoleErrors(rec);
 });
 
 test('🔢 a recount writes the stock_recounts row AND its חברה → ספירה movement', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti);
-  await openStockTab(page);
+  const { rec } = await bootInv(page, ti, 'עידן', d);
+  await d.openTab(page, 'stock');
 
-  await page.locator('#invReportChange').click();
+  await page.getByTestId('inv-report-change').click();
   const sheet = page.getByTestId('stock-change-sheet');
   await expect(sheet).toBeVisible({ timeout: 15_000 });
 
@@ -81,30 +80,23 @@ test('🔢 a recount writes the stock_recounts row AND its חברה → ספיר
   await sheet.getByTestId('sc-submit').click();
   await expect(sheet).toBeHidden({ timeout: 15_000 });
 
-  const recounts = await rows(page, 'stock_recounts');
-  expect(recounts).toHaveLength(1);
-  expect(recounts[0].product).toBe('סים 1NCE');
-  expect(recounts[0].counted).toBe(1);
-  expect(recounts[0].before).toBe(4);
-  expect(recounts[0].delta).toBe(-3);
-  expect(recounts[0].note).toBe('נספר במחסן');
-
-  const moves = await rows(page, 'movements');
-  expect(moves).toHaveLength(1);
-  expect(moves[0].from_location).toBe('חברה');
-  expect(moves[0].to_location).toBe('ספירה');
-  expect(moves[0].quantity).toBe(3);
-  expect(moves[0].reason).toBe('recount');
-  expect(String(moves[0].ref_id)).toMatch(/^rc-/);
+  const l = await ledger(page);
+  expect(l).toContainEqual(expect.objectContaining({
+    table: 'stock_recounts',
+    row: expect.objectContaining({ product: 'סים 1NCE', counted: 1, before: 4, delta: -3, note: 'נספר במחסן' }),
+  }));
+  const mov = l.find(r => r.table === 'movements');
+  expect(mov?.row).toMatchObject({ from_location: 'חברה', to_location: 'ספירה', quantity: 3, reason: 'recount' });
+  expect(String((mov?.row as any)?.ref_id)).toMatch(/^rc-/);
 
   await expectNoConsoleErrors(rec);
 });
 
 test('🔢 a decrease that went out on a visit ROUTES to the visit form — it writes nothing', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti);
-  await openStockTab(page);
+  const { rec } = await bootInv(page, ti, 'עידן', d);
+  await d.openTab(page, 'stock');
 
-  await page.locator('#invReportChange').click();
+  await page.getByTestId('inv-report-change').click();
   const sheet = page.getByTestId('stock-change-sheet');
   await expect(sheet).toBeVisible({ timeout: 15_000 });
   await sheet.getByTestId('sc-product').selectOption('בקר 504');
@@ -113,8 +105,8 @@ test('🔢 a decrease that went out on a visit ROUTES to the visit form — it w
   await sheet.getByTestId('sc-submit').click();
   await expect(sheet).toBeHidden({ timeout: 15_000 });
 
-  expect(await rows(page, 'movements')).toHaveLength(0);
-  expect(await rows(page, 'stock_recounts')).toHaveLength(0);
+  const l = await ledger(page);
+  expect(l.filter(r => r.table === 'movements' || r.table === 'stock_recounts')).toEqual([]);
   await expectNoConsoleErrors(rec);
 });
 
@@ -124,66 +116,13 @@ test('🔢 a decrease that went out on a visit ROUTES to the visit form — it w
 // server-side (`const source = POOL_LOCATION` in 09-visits.js's saveVisitFromData), asserted
 // by test-attendance-hub.mjs's "visit ↔ EMS link is persisted" / stock-pool coverage.
 
-// P1: the certificates tab used to repaint on every renderInventory() call — including the 15s
-// home-data poll and the resize-breakpoint re-render — even when the fetched rows were byte-identical
-// to what was already on screen ("רענונים כל הזמן"). invRenderCerts() now skips the DOM rebuild when
-// an unforced call's fetch comes back unchanged for the same from/to/search. Proven here by counting
-// actual repaints (a MutationObserver on #invCertsList, since a `<tbody>` and a placeholder div both
-// count as one "childList" mutation each time innerHTML is reassigned) across several renderInventory()
-// calls that mimic the poll while nothing in the data changed.
-test('🚚 the certificates tab does not repaint on repeated renderInventory() calls with unchanged data', async ({ page }, ti) => {
-  // window._sbCertGet only exists on the REAL Supabase boot path (js/src/01-data.js) — every
-  // other spec in this file boots with the legacy `sb=0` mock, where invRenderCerts always
-  // shows the static "לא זמין במצב הדגמה" placeholder and the caching logic under test never
-  // runs. Boot the same way boot-console.spec.ts's `supabase` mode does: `sb=1` + a stubbed
-  // EMS pass, so the certs tab actually fetches from the (route-stubbed) Supabase REST API.
-  const rec = watchConsole(page);
-  await installRoutes(page);
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem('dashboard_user_v1', 'עידן');
-      localStorage.setItem('dashboard_role_v1', 'idan');
-      localStorage.setItem('dashboard_auth_v4', 'ok');
-      localStorage.setItem('ems_token_v1', 'stub-token');
-      localStorage.setItem('ems_token_at_v1', String(Date.now()));
-    } catch { /* private mode */ }
-    (window as any)._pushPromptShown = true;
-    (window as any)._attReminderShown = true;
-    (window as any)._fieldPromptShown = true;
-  });
-  await page.goto('/index.html?login=0&sb=1', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#sigma-nav')).toBeAttached();
-  await page.waitForSelector('#sigma-home .kibbutz', { timeout: 30_000 });
-
-  // a stray Radix overlay (ReLoginSheet or similar, outside boot()'s usual once-per-session
-  // latches) can be mounted-but-hidden on this manual sb=1 boot path and still swallow the
-  // click; this spec is about the certs-tab repaint count, not that overlay, so drive the tab
-  // switch through the same global the onclick handler calls instead of a real click.
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.evaluate(() => (window as any).invShowTab('certs'));
-  await expect(page.locator('#inv-section-certs')).toHaveClass(/active/);
-  // first paint (the "⏳ טוען" placeholder → the real table/empty-state) has already happened via
-  // invShowTab's renderInventory() call above — wait for the loading placeholder to clear and
-  // confirm the demo-mode message is NOT what we're looking at (i.e. the real fetch path ran).
-  await expect(page.locator('#invCertsList')).not.toContainText('טוען תעודות', { timeout: 15_000 });
-  await expect(page.locator('#invCertsList')).not.toContainText('לא זמין במצב הדגמה');
-
-  const repaints = await page.evaluate(async () => {
-    const root = document.getElementById('invCertsList')!;
-    let count = 0;
-    const obs = new MutationObserver(() => { count++; });
-    obs.observe(root, { childList: true, subtree: false });
-    // simulate the 15s home-data poll firing five times in a row with nothing changed.
-    // renderInventory() itself fires invRenderCerts() WITHOUT awaiting it (fire-and-forget,
-    // same as production) — call the exact same function it calls, but awaited, so five
-    // simulated poll ticks run one after another instead of racing each other.
-    for (let i = 0; i < 5; i++) {
-      await (window as any).invRenderCerts();
-    }
-    obs.disconnect();
-    return count;
-  });
-
-  expect(repaints).toBe(0);
-  await expectNoConsoleErrors(rec);
-});
+// The legacy characterization here ("🚚 the certificates tab does not repaint on repeated
+// renderInventory() calls with unchanged data") called window.invRenderCerts() directly and
+// counted DOM mutations via a MutationObserver, to prove a hand-rolled diff-before-innerHTML-
+// rebuild guard actually skipped the repaint. U10/U4 deleted that imperative renderer along with
+// the rest of the legacy certs UI (js/src/20-delivery-cert.js is trimmed to the data pipeline
+// now) — app/src/islands/InventoryCerts.tsx is a normal React component instead, so the
+// no-needless-repaint guarantee it characterized is provided by React's own reconciliation
+// (unchanged data → unchanged JSX output → no DOM mutation), not by app code this package owns.
+// There is no `invRenderCerts()` left to call and no equivalent hand-written guard to
+// characterize, so this one is deleted rather than ported.

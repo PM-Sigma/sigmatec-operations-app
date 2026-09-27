@@ -42,7 +42,11 @@ export function ListRow({
       {leading && <span className="flex shrink-0 items-center">{leading}</span>}
       <span className="min-w-0 flex-1">
         <span className="line-clamp-2 block text-[length:var(--fs-body)] font-semibold leading-[var(--lh-body)]">
-          {title}
+          {/* Designer C-round I fix: a mixed Hebrew/Latin/digit product name (e.g. "סים 1NCE",
+              "מונה Satec EM133") reorders visibly wrong sitting bare inside this dir="rtl" row —
+              `<bdi>` isolates it from the surrounding paragraph direction with zero visual cost
+              when the title is a single-script string (every other caller). */}
+          <bdi>{title}</bdi>
         </span>
         {meta && (
           <span className="line-clamp-2 mt-0.5 block text-[length:var(--fs-body-sm)] leading-[var(--lh-body-sm)] text-muted-foreground">

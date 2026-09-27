@@ -1,6 +1,6 @@
 // L1c (part 2): products flow characterized on the OLD screen — F14.
 import { test, expect } from '../_helpers';
-import { bootInv, driverFor } from './_inv-driver';
+import { bootInv, driverFor, DELTAS } from './_inv-driver';
 import { ledger } from './_inv-ledger';
 
 const d = driverFor();
@@ -28,11 +28,14 @@ test('F14c the wiring line is red — no active product carries a display_name i
   expect(await d.wiringOk(page)).toBe(false);
 });
 
-test('F14d P13: toggling active blanks name/category — the toggle sends {id,active} only, ' +
-  'and W.product\'s full-row upsert (js/src/01-data.js) writes the blanks down', async ({ page }, ti) => {
+test('F14d ' + DELTAS.P13 + ' (legacy blanks name/category; react patches {active} only)', async ({ page }, ti) => {
   await bootInv(page, ti, 'עידן', d);
   await d.openTab(page, 'products');
   await d.toggleProduct(page, 'p-2');   // בקר 504, currently active → will be set inactive
   const l = await ledger(page);
-  expect(l).toContainEqual({ table: 'products', op: 'upsert', match: 'p-2', row: { name: '', category: '', active: false } });
+  expect(l).toContainEqual(
+    d.name === 'react'
+      ? { table: 'products', op: 'patch', match: 'p-2', row: { active: false } }
+      : { table: 'products', op: 'upsert', match: 'p-2', row: { name: '', category: '', active: false } },
+  );
 });

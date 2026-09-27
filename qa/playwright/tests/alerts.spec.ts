@@ -107,9 +107,12 @@ test('a failed mark-seen does not leave a row looking read', async ({ page }, ti
   await expect(page.getByTestId('alerts-badge')).toHaveText(/2/);
 });
 
-test('the viewer has no bell', async ({ page }, ti) => {
+test('the viewer has a bell with an empty state, not the inventory list', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
-  await expect(page.getByTestId('alerts-bell')).toHaveCount(0);
+  await expect(page.getByTestId('alerts-bell')).toBeVisible();
+  await page.getByTestId('alerts-bell').click();
+  await expect(page.getByRole('dialog')).toContainText('עוד לא נשלחו התראות.');
+  await expect(page.getByTestId('alerts-list')).toHaveCount(0);
   await expectNoConsoleErrors(rec);
 });
 

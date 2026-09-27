@@ -6,9 +6,8 @@
 --   2. psql/SQL editor on that branch: apply the files above in order, then this file
 --   3. supabase branches delete afterwards
 --
--- Fable: since the delete RPC is now service-role only (audit fix), this test calls
--- `public.inventory_delete_product` directly as the branch's owning role (equivalent to service
--- role for a SQL-editor session) — no `set role authenticated` here on purpose.
+-- The guard requires the name claim (26.9), so the test sets request.jwt.claims itself: it first
+-- proves a no-name and a non-עידן pass are refused, then runs the delete as עידן.
 begin;
 
 insert into products(id, name, category, active) values ('t-p1', '__DEL__', 'מונה', true), ('t-p2', '__KEEP__', 'מונה', true);
@@ -46,6 +45,15 @@ begin
   select cert_number, items into cert_only_del_items from delivery_certs where kibbutz = 't' and items = '[{"name":"__DEL__","qty":1}]'::jsonb;
   select min(cert_number) into cert_only_del from delivery_certs where kibbutz = 't' and items @> '[{"name":"__DEL__","qty":1}]'::jsonb and jsonb_array_length(items) = 1;
   select min(cert_number) into cert_mixed from delivery_certs where kibbutz = 't' and jsonb_array_length(items) = 2;
+
+  -- The guard requires the name claim: no name and a non-עידן name are both refused.
+  perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+  begin perform public.inventory_delete_preview('__DEL__'); assert false, 'a pass with no name must be refused';
+  exception when sqlstate '42501' then null; end;
+  perform set_config('request.jwt.claims', '{"role":"authenticated","name":"אביאם"}', true);
+  begin perform public.inventory_delete_preview('__DEL__'); assert false, 'a non-עידן name must be refused';
+  exception when sqlstate '42501' then null; end;
+  perform set_config('request.jwt.claims', '{"role":"authenticated","name":"עידן"}', true);
 
   v := public.inventory_delete_preview('__DEL__');
   assert (v ->> 'movements')::int = 1, 'movements count: ' || (v ->> 'movements');

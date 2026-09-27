@@ -338,7 +338,7 @@ export function mountFeedbackInbox(): boolean {
   registerMoreItem({
     id: 'feedback-inbox',
     group: 'admin',
-    label: '📥 תיבה נכנסת (רעיונות ובאגים)',
+    label: 'תיבה נכנסת (רעיונות ובאגים)',
     icon: 'Inbox',
     roles: ['idan', 'team'],
     visible: () => canSeeFeedbackInbox(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.()),

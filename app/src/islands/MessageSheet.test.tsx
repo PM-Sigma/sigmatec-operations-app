@@ -45,7 +45,7 @@ describe('MessageSheet', () => {
     mountMessageSheet();
     expect(registered).toHaveLength(1);
     expect(registered[0].id).toBe('staff-message');
-    expect(registered[0].label).toBe('✉️ הודעה לעובד');
+    expect(registered[0].label).toBe('הודעה לעובד');
   });
 
   it('openMessageSheet(to) opens the sheet with that recipient preset, and never a native select', async () => {

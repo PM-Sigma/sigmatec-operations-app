@@ -74,13 +74,13 @@ describe('certRangeReportHtml = today (recorded live from js/src/20-delivery-cer
     const src = read('js/src/20-delivery-cert.js') + '\nreturn certRangeReportRange;';
     let written = '';
     const fakeWin = { document: { write: (h: string) => { written = h; }, open() {}, close() {} } };
-    const fn = new Function('CERT_LOGO', 'window', src);
+    const fn = new Function('CERT_LOGO', 'window', 'SigmaInv', src);
     class FixedDate extends Date { toLocaleString() { return now; } }
     const legacyFn = fn(LOGO, {
       open: () => fakeWin as any,
       _sbCertGet: async () => certs.map(c => ({ ...c, cert_number: c.cert_number, cert_date: c.cert_date, replaced_by: (c as any).replaced_by, created_by: c.created_by })),
       SHEET_DATA: { products: [] },
-    });
+    }, loadSigmaInv());
     const RealDate = globalThis.Date;
     // @ts-expect-error test-only Date override, matching the spec's "freeze Date.toLocaleString" approach
     globalThis.Date = FixedDate;

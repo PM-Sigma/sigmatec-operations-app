@@ -1,0 +1,114 @@
+/* Shell chrome heights (round 5, U5, S-8). Fixed chrome PUBLISHES its own height as a token —
+   the numbers mirror the hardcoded ones this replaces (css/app.css `body.sigma-header-ready`
+   84px nav pad, `.header{min-height:56px}`, the raised visit FAB's 46px circle) so nothing
+   visually shifts; later work can read these instead of re-guessing the numbers. */
+:root {
+  --header-h: calc(56px + env(safe-area-inset-top, 0px));
+  --nav-h: calc(84px + env(safe-area-inset-bottom, 0px));
+  --fab-h: 46px;
+}
+
+/* U8 (S-17): page-change motion, DS tokens only — navigate.ts sets `data-nav` on <html> right
+   before calling `startViewTransition`; this is the ONLY place that decides what the transition
+   looks like. Fade-through between nav peers (opacity only, no slide — motion §2.2 #1), drill-in
+   for a 2nd-level page (a small inline shift plus fade — motion §2.2 #2), the reverse shift on
+   "back". `navigate.ts` already skips `startViewTransition` entirely under
+   prefers-reduced-motion, so no `@media` guard is needed here — if this CSS runs, motion is
+   wanted. The header and the nav bar are never part of the transition (motion §2.3): they live
+   outside #sigma-home in the DOM, so the browser's default root snapshot would still fade them
+   too — pin them out of the transition explicitly. */
+::view-transition-group(root) { animation-duration: var(--s-motion-base); animation-timing-function: var(--s-ease-standard); }
+#sigma-header-actions, #sigma-nav, .header { view-transition-name: none; }
+
+html[data-nav='peer'] ::view-transition-old(root),
+html[data-nav='peer'] ::view-transition-new(root) {
+  animation-duration: var(--s-motion-base);
+  animation-timing-function: var(--s-ease-standard);
+}
+
+html[data-nav='drill'] ::view-transition-old(root) {
+  animation: s-drill-out var(--s-motion-exit) var(--s-ease-in) both;
+}
+html[data-nav='drill'] ::view-transition-new(root) {
+  animation: s-drill-in var(--s-motion-enter) var(--s-ease-out) both;
+}
+html[data-nav='back'] ::view-transition-old(root) {
+  animation: s-drill-in var(--s-motion-exit) var(--s-ease-in) reverse both;
+}
+html[data-nav='back'] ::view-transition-new(root) {
+  animation: s-drill-out var(--s-motion-enter) var(--s-ease-out) reverse both;
+}
+
+@keyframes s-drill-in {
+  from { opacity: 0; transform: translateX(var(--s-shift-md)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes s-drill-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(calc(-1 * var(--s-shift-md))); }
+}
+
+/* U8 (S-18): device edges — the header pads for a notch/status-bar instead of drawing under it
+   (viewport-fit=cover in index.html makes env() resolve to something other than 0), and the
+   fixed nav pads the sides for a landscape notch. Logical properties only. */
+#sigma-header-actions,
+.header { padding-block-start: env(safe-area-inset-top, 0px); }
+#sigma-nav { padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px); }
+
+/* S-13: toast bottom-center, above the nav — moved to CSS (not a JS `offset` prop) so it costs
+   nothing against the boot chunk's byte ceiling. Desktop has no fixed nav, so it only applies
+   under the phone breakpoint. */
+@media (max-width: 767px) {
+  [data-sonner-toaster] { bottom: calc(var(--nav-h) + 12px) !important; }
+  /* U5/S-8: the scroll container pads by the fixed nav's PUBLISHED height, not a guessed
+     number — a device with a tall safe-area inset (the old fixed 84px never had) no longer
+     buries the last row of content under the bar. Moved out of css/app.css, which still
+     had the pre-token literal. */
+  body.sigma-nav-ready { padding-block-end: calc(var(--nav-h) + 16px); }
+}
+
+/* Designer re-review (S-U): the desktop ⋯ עוד opens the same `side="bottom"` Sheet the phone
+   uses — full-width, pinned to the viewport's bottom edge — which reads as a mobile sheet left
+   on screen by mistake on a mouse-and-keyboard session. ≥768 it becomes a centred dialog,
+   max-width 560. `!important` beats the animate-in library's own inline transform on the
+   Radix content node (composing with `md:-translate-x-1/2` would fight that transform instead
+   of replacing it); the slide-in/out keyframes still run (still `bottom`-sourced), they just
+   start and end at the centred position instead of off-screen. */
+@media (min-width: 768px) {
+  .s-more-desktop {
+    inset-inline: 0 !important;
+    inset-block-end: auto !important;
+    inset-block-start: 50% !important;
+    width: min(560px, calc(100vw - 32px)) !important;
+    margin-inline: auto !important;
+    border-radius: var(--s-radius-sheet) !important;
+    border: 1px solid hsl(var(--border));
+    transform: translateY(-50%) !important;
+    /* Designer round 4: 85vh still fit the WHOLE list on a 1440 screen often enough that the
+       list ended exactly at the "ניהול" section header with nothing visibly cut — the
+       thin-scrollbar cue from round 3 wasn't enough on its own (subtle, easy to miss in a
+       screenshot). A SHORTER, fixed cap makes the cut itself the cue: long enough for the
+       everyday rows to read as a normal list, short enough that a longer list (the admin block)
+       is deliberately clipped mid-row — a half-visible row is an unmistakable "more below"
+       signal no fade or scrollbar has to work to earn. Short lists just render smaller (no
+       scrolling needed, nothing to signal). */
+    max-height: min(60vh, 480px) !important;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .s-more-desktop::-webkit-scrollbar { width: 8px; }
+  .s-more-desktop::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
+
+  /* Nice-to-have (designer round 3/4): GearSheet centred too, narrower (~480) than ⋯ עוד's 560
+     — it is identity + a handful of rows, not a list. */
+  .s-gear-desktop {
+    inset-inline: 0 !important;
+    inset-block-end: auto !important;
+    inset-block-start: 50% !important;
+    width: min(480px, calc(100vw - 32px)) !important;
+    margin-inline: auto !important;
+    border-radius: var(--s-radius-sheet) !important;
+    border: 1px solid hsl(var(--border));
+    transform: translateY(-50%) !important;
+  }
+}

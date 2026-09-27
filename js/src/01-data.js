@@ -238,6 +238,7 @@
       cacheStore: null // shared snapshot (EMS_CACHE) — seeded below
     };
     window.__MOCK = M;   // exposed for console inspection
+    window.__SIGMA_MOCK = true;   // read by GearSheet's "סביבת בדיקה" Tag (U2)
 
     const CLOSED = ['done', 'rejected', 'not_relevant', 'cancelled'];
     // Mirrors the real emsSlimTask (js/src/13-ems.js) — including `description` (task-3-brief,
@@ -490,17 +491,12 @@
       return realFetch(url, opts);
     };
 
-    // small left-edge "notch" so it's obvious it's a sandbox, without covering the bottom nav.
-    window.addEventListener('DOMContentLoaded', function () {
-      const b = document.createElement('div');
-      b.textContent = '🧪 DEV';
-      b.title = 'סביבת בדיקה (MOCK) — אין חיבור לגיליון/EMS אמיתי';
-      b.style.cssText = 'position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:99999;' +
-        'background:#7c2d12;color:#fff;font:700 11px Heebo,sans-serif;padding:10px 4px;' +
-        'border-radius:0 7px 7px 0;writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:1px;' +
-        'box-shadow:1px 0 5px rgba(0,0,0,.3);pointer-events:none;opacity:.9;';
-      document.body.appendChild(b);
-    });
+    // Designer re-review (S-U): the floating left-edge "DEV" notch (z 99999) sat above every
+    // sheet, including the ⋯ עוד sheet itself, on every screen and every width — the DS rule is
+    // that nothing floats outside the sheet system. GearSheet (U2) already surfaces "סביבת
+    // בדיקה" as an ordinary Tag in the identity header whenever `window.__SIGMA_MOCK`/`__MOCK`
+    // is set, so the sandbox is still obvious — from inside ⋯ עוד → ⚙️, not floating over
+    // content. No DOM notch to add here any more.
     console.log('%c🧪 MOCK MODE active', 'color:#f97316;font-weight:700', '— fixtures in window.__MOCK');
   })();
 

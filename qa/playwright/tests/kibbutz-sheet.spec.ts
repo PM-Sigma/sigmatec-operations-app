@@ -39,6 +39,12 @@ test('kibbutz sheet: create mode, both kinds, איזור required', async ({ pag
   await expect(page.getByText('חובה לבחור איזור')).toBeVisible();
   // the sheet stays open — the person keeps what he typed
   await expect(page.locator('#kibName')).toHaveValue('בית זרע');
+  // S-13 moved the toast to bottom-center, above the nav — inside an open Sheet that now sits
+  // right over a full-width save button (round 5 grill: "toast over Sheet" made the toast
+  // pointer-events:auto so its own actions stay clickable). A person reads the toast and fixes
+  // the field before tapping שמור again; Playwright does not, so it waits here for the toast's
+  // own timeout instead of racing it and hitting "subtree intercepts pointer events".
+  await expect(page.getByText('חובה לבחור איזור')).toHaveCount(0, { timeout: 6_000 });
 
   // with a region the save is attempted; the harness answers the write 401 (no EMS pass in
   // mock mode), which is the "יש להתחבר" path — never a silent success.
@@ -91,6 +97,12 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
   // 22.9: the ✏️ inside the card is עידן's alone; עמיחי still reaches the sheet through the one api
   await page.evaluate((n) => (window as any).sigma.openKibbutzModal(n), 'חוקוק');
   await expect(page.locator('[data-testid="kibbutz-detail-header"] button[aria-label="פרטי קיבוץ"]')).toHaveCount(0);
+  // `window.sigmaHome` is published as soon as canManage is known — BEFORE the ['kibbutzim']
+  // query resolves — so `openSheet(name)` can race Home's own data fetch and find no existing
+  // row yet, opening create mode with the name prefilled instead of edit mode. Waiting for the
+  // card grid (which needs the same query resolved) keeps this test about the role gate, not
+  // that race.
+  await page.waitForSelector('#sigma-home .kibbutz[data-name="חוקוק"]');
   await page.evaluate(() => (window as any).sigmaHome.openSheet('חוקוק'));
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 

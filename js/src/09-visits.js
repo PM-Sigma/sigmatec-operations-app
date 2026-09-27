@@ -1,16 +1,8 @@
   // ===== Visit Summary (Google Sheet, fallback to localStorage) =====
   const VISITS_KEY = 'kibbutzVisits_v1';
 
-  // Mirrors the live Sheet catalog names (confirmed 2026-06-24) so offline/mock mode matches production.
-  const PRODUCT_LIST = [
-    'Satec EM133','Satec PM135','מונה Landis+Gyr E360PP','מונה Landis+Gyr E360SP','Landis+Gyr E360CT','Landis+Gyr E570',
-    'Robustel Controller','PUSR Controller',
-    'Partner Sim','Cellcom Sim',
-    'כרטיס תקשורת צרוב(E350)',
-    'אנטנה',
-    'ספק כוח פס-דין','ספק כוח שקע',
-    'משנ"ז 250','משנ"ז 400'
-  ];
+  // PRODUCT_LIST moved to js/src/00-consts.js (U10): js/src/06-inventory.js's getActiveProducts
+  // reaches it, and it must not sit in the TDZ of a later file at boot (test-concat-order.mjs).
 
   // 1 full work day ≈ this many hours (for the hours statistic). ponytail: single tunable knob.
   const WORKDAY_HOURS = 8;

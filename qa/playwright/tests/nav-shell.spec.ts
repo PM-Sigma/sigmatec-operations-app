@@ -1,7 +1,7 @@
 // The app shell (spec §6 header, §7k #3 the ⋯ sheet, §7h הגדרות).
-// Covers: the bottom tab bar (phone only — `md:hidden`, the legacy .page-nav keeps the
-// desktop), the labelled ⋯ עוד sheet and its ניהול block, the ● user chip menu, and the
-// ⚙️ הגדרות island the menu opens.
+// Covers: the bottom tab bar (phone only — `md:hidden`; desktop gets #sigma-desktop-nav's
+// sticky top-tab row, U6), the labelled ⋯ עוד sheet and its ניהול block, the ● user chip
+// menu, and the ⚙️ הגדרות island the menu opens.
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, skipKnownMobile360, test } from './_helpers';
 
 // mobile-360-known.json ratchet (Opus audit round 4 item 3) — see _helpers.ts.
@@ -17,7 +17,10 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
   // nav's phone-only hiding off (so a bundle that never loads keeps the old nav).
   await expect(page.locator('body')).toHaveClass(/sigma-nav-ready/);
 
-  if (viewport === 'mobile-390') {
+  // Every mobile project (390/360/412) is a phone concern — only desktop-1440 gets the
+  // top-tab row (U6: mobile-360/412 used to fall into the "else" desktop branch below, which
+  // asserted a desktop nav that never renders under 768px).
+  if (viewport.startsWith('mobile')) {
     await expect(nav).toBeVisible();
     // other roles (עידן here): קיבוצים · יומן · [ביקור] · מלאי · עוד — 22.9 QA round 2 Package A
     // §3: 🗓 יומן took the "רעיון / באג" slot, feedback moved into ⋯ עוד only.
@@ -28,11 +31,14 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
     await expect(nav.getByRole('button', { name: 'תיעוד ביקור' })).toBeVisible();
     // the tab you are on is announced, not only coloured
     await expect(nav.getByRole('button', { name: 'קיבוצים', exact: true })).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('.page-nav')).toBeHidden();
+    await expect(page.locator('.page-nav')).toHaveCount(0);
   } else {
     await expect(nav).toBeHidden();
-    await expect(page.locator('.page-nav')).toBeVisible();
-    await expect(page.locator('#navKibbutz')).toHaveClass(/active/);
+    await expect(page.locator('.page-nav')).toHaveCount(0);
+    await expect(page.locator('#visitFab')).toHaveCount(0);
+    const desktopNav = page.locator('#sigma-desktop-nav nav[aria-label="ניווט ראשי"]');
+    await expect(desktopNav).toBeVisible();
+    await expect(desktopNav.getByRole('button', { name: 'קיבוצים', exact: true })).toHaveAttribute('aria-current', 'page');
   }
 
   await shot(page, ti);
@@ -78,9 +84,14 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   // משימות · משימות EMS · עובדים retired in Task 14 (§7m R1/R2/R5): the first two are 🗓️ יומן's
   // רשימה view and the third is gone, so the sheet no longer offers a row that opens nothing.
   // 22.9 (F4): מלאי is a tab on the bar, so the sheet does not list it again.
-  for (const label of ['יומן', 'הגדרות', 'יומן היום']) {
+  for (const label of ['יומן', 'הגדרות']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
+  // U6: both field-journal registrations (main.tsx AND DayLog.tsx, packages G and R) now carry
+  // `tag: 'ניסיוני'` — a re-registration replaces the row, so the tag shows either way, and
+  // the row's accessible name is "יומן היום ניסיוני" now, not an exact "יומן היום".
+  await expect(sheet.getByRole('button', { name: /^יומן היום/ })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: /^יומן היום/ })).toContainText('ניסיוני');
   for (const label of ['מלאי']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toHaveCount(0);
   }
@@ -92,11 +103,14 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   }
   // …and the management block is behind its own rule, for עידן
   await expect(sheet.getByText('ניהול', { exact: true })).toBeVisible();
-  for (const label of ['התראות', 'פיתוח', '📈 שימוש']) {
+  // S-U round 1: registerMoreItem labels dropped their baked-in emoji (the row already carries
+  // a lucide icon) — "📈 שימוש" → "שימוש".
+  for (const label of ['התראות', 'פיתוח', 'שימוש']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
-  // the identity chip is in the sheet on the phone (the header has no room for it)
-  await expect(sheet.getByRole('button', { name: /עידן/ })).toBeVisible();
+  // the identity chip is in the sheet on the phone (the header has no room for it) — S-U round 2:
+  // a static IdentityRow (avatar/name/role), not a button with its own dropdown menu.
+  await expect(sheet.getByText('עידן', { exact: true })).toBeVisible();
 
   await shot(page, ti, 'more-sheet');
 
@@ -123,32 +137,33 @@ test('shell: a team member gets no ניהול block', async ({ page }, ti) => {
   expectNoConsoleErrors(rec);
 });
 
-test('shell: the user-chip menu and the ⚙️ הגדרות island', async ({ page }, ti) => {
-  const { rec, viewport } = await boot(page, ti);
+test('shell: the ⚙️ gear bubble opens GearSheet (identity/role, settings, feedback, האזור האישי, user switch)', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
 
-  // The chip is in the header on the desktop and inside the ⋯ sheet on the phone.
-  if (viewport === 'mobile-390') {
-    await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click();
-  }
-  const chip = page.getByRole('button', { name: /עידן/ }).first();
-  await expect(chip).toBeVisible();
-  await expect(chip).toHaveAttribute('aria-haspopup', 'menu');
+  // Round 5, U1–U2 (designer must-fix "no absolute positioning in the header"): the name chip
+  // is gone from the header cluster — ⚙️ is an icon-only bubble that opens a real Sheet, not a
+  // position:absolute dropdown.
+  const gear = page.locator('#sigma-header-actions').getByRole('button', { name: 'הגדרות' });
+  await expect(gear).toBeVisible();
 
-  await chip.click();
-  const menu = page.getByRole('menu');
-  await expect(menu.getByRole('menuitem', { name: 'הגדרות' })).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: 'האזור האישי' })).toBeVisible();
-  // spec 2026-09-23 ems-session: staff are signed in WITH EMS, so the menu never offers a
+  await gear.click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet).toContainText('עידן');
+  await expect(sheet.getByRole('button', { name: 'הגדרות' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'האזור האישי' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'רעיון או באג' })).toBeVisible();
+  // spec 2026-09-23 ems-session: staff are signed in WITH EMS, so the sheet never offers a
   // connect / disconnect row (not even in mock mode, where there is no EMS token)
-  await expect(menu.getByRole('menuitem', { name: /EMS/ })).toHaveCount(0);
-  await expect(menu.getByRole('menuitem', { name: 'החלפת משתמש' })).toBeVisible();
-  await shot(page, ti, 'user-menu');
+  await expect(sheet.getByRole('button', { name: /EMS/ })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'החלפת משתמש' })).toBeVisible();
+  await shot(page, ti, 'gear-sheet');
 
   // ⚙️ הגדרות — the island, with the four settings Task 4 ships
-  await menu.getByRole('menuitem', { name: 'הגדרות' }).click();
+  await sheet.getByRole('button', { name: 'הגדרות' }).click();
   const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
-  // round 5 G-U (Settings rewrite): "מסך פתיחה" is a ListRow that pushes a sub-pane with a
-  // ListRow-button per choice — not a native <select> combobox any more.
+  // round 5 G-L5/G-U (Settings rewrite): מסך פתיחה is no longer a native <select> — it is a
+  // ListRow that pushes a sub-pane of radio-styled rows (Settings.tsx LandingPane), like every
+  // other "opens a sub-sheet" row in this dialog.
   await dlg.getByRole('button', { name: 'מסך פתיחה' }).click();
   await expect(dlg.getByTestId('landing-options').getByRole('button')).not.toHaveCount(0);
   await dlg.getByRole('button', { name: 'חזרה להגדרות' }).click();
@@ -165,12 +180,13 @@ test('shell: the user-chip menu and the ⚙️ הגדרות island', async ({ pa
   expectNoConsoleErrors(rec);
 });
 
-test('shell: the user chip shows the first name on the phone, not just the initial', async ({ page }, ti) => {
+test('shell: the identity row shows the first name on the phone, not just the initial', async ({ page }, ti) => {
   const { rec, viewport } = await boot(page, ti);
   test.skip(viewport !== 'mobile-390', 'Package O §1 — the phone used to shrink to "ע"');
 
   await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click();
-  const chip = page.getByRole('button', { name: /עידן/ }).first();
+  // S-U round 2: IdentityRow is a static row (avatar/name/role), not a button.
+  const chip = page.getByRole('dialog').getByText('עידן', { exact: true }).first();
   await expect(chip).toBeVisible();
   // The whole first name, not the single-letter initial the phone chip used to fall back to.
   await expect(chip).toHaveText(/עידן/);

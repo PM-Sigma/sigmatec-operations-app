@@ -3,16 +3,14 @@
 // app/src/lib/inventory.ts has the rules and its vitest goldens. The vanilla modules hold the
 // same rules in their own code, and this runner holds THEM to the same numbers:
 //
-//   · js/src/08-inventory.js  — `computeStock` / `poolStockMap` / `lowStockReport`, evaluated
+//   · js/src/06-inventory.js  — `computeStock` / `poolStockMap` / `lowStockReport`, evaluated
 //     for real out of the source with a DOM double, against the vitest `poolStock` golden;
 //   · js/src/09-visits.js     — `saveVisitFromData`, evaluated for real: the movement it posts
 //     must leave `חברה` and carry the visitor as `created_by`;
-//   · js/src/07-orders.js     — a source contract. `approveCustomerOrder` / `invSaveOrder` sit
-//     inside a module with ~80 free identifiers (modals, EMS, requirements, the parser), so
-//     lifting them would test the stubs rather than the rules. What IS asserted is exactly the
-//     part this task changed: which locations the two movement bodies name, which reasons they
-//     carry, that the idempotency guard is still there, and that the per-person distribution
-//     write is gone while the column stays.
+//   · js/src/07-orders.js and js/src/05-meeting-returns.js's legacy returnToStock() were deleted
+//     in U10 (React owns orders/returns now) — the order-path and return-credit guarantees they
+//     used to assert here are asserted directly against SigmaInv (app/src/lib/inventory.ts:
+//     `orderApprovalRows`/`orderDeliveryRows`/`restockPlan`), which is what the React islands run.
 //
 // Run: node test-inventory-pool.mjs   (also in `npm test`)
 import assert from 'node:assert';
@@ -31,11 +29,11 @@ function check(name, fn) {
 const POOL = 'חברה';
 const SUPPLIER = 'ספק';
 
-// ───────────────────────── 1. js/src/08-inventory.js — the pool ─────────────────────────
+// ───────────────────────── 1. js/src/06-inventory.js — the pool ─────────────────────────
 
-console.log('\n[1] 08-inventory.js: computeStock / poolStockMap / lowStockReport');
+console.log('\n[1] 06-inventory.js: computeStock / poolStockMap / lowStockReport');
 {
-  const src = read('./js/src/08-inventory.js');
+  const src = read('./js/src/06-inventory.js');
   const doc = {
     getElementById: () => null,
     querySelector: () => null,
@@ -56,7 +54,7 @@ console.log('\n[1] 08-inventory.js: computeStock / poolStockMap / lowStockReport
       'window', 'document', 'POOL_LOCATION', 'INV_LOCATIONS', 'NON_KIBBUTZ_LOCATIONS',
       'getCurrentUser', 'isViewer', 'checkEditPermission', 'invLoadingPlaceholder',
       'getActiveProducts', 'alert', 'setTimeout', 'SigmaInv',
-      src + '\nreturn { computeStock, poolStockMap, lowStockReport, invRenderStock, openStockChangeSheet };',
+      src + '\nreturn { computeStock, poolStockMap, lowStockReport, openStockChangeSheet };',
     );
     return fn(
       win, doc, POOL, [POOL], [POOL, 'ספירה', SUPPLIER, 'תקול', 'אביאם', 'ניתאי', 'משרד', 'עמיחי'],
@@ -166,58 +164,36 @@ console.log('\n[2] 09-visits.js: saveVisitFromData supplies from חברה');
   check('no personal bag is named anywhere in the visit save path', () => {
     assert.ok(!/STOCK_HOLDERS\.indexOf\(visitor\)/.test(src), 'the personal-bag default is still there');
   });
+  // "the visit form defaults to the pool as its source" (the legacy #visitSource picker's
+  // onVisitorChange default) retired round 5 V-U3 with the legacy visit form, and onVisitorChange
+  // itself (07-orders.js) was deleted with the rest of the legacy order/inventory UI (package I,
+  // U10) — the source is hardcoded server-side here now.
+  check('the visit save hardcodes the pool as its source (no client picker any more)', () => {
+    assert.ok(src.includes('const source = POOL_LOCATION;'));
+  });
 }
 
-// ───────────────────────── 3. js/src/07-orders.js — the order paths ─────────────────────────
+// ───────────────────────── 3. SigmaInv — the order paths (07-orders.js deleted, U10) ────────
+// React (InventoryOrders/InventoryOrderSheet) runs these same rules now; asserted directly
+// against the rule module instead of lifting them out of a deleted vanilla file.
 
-console.log('\n[3] 07-orders.js: approval leaves the pool, delivery lands in it');
+console.log('\n[3] SigmaInv: approval leaves the pool, delivery lands in it');
 {
-  const src = read('./js/src/07-orders.js');
-
   check('customer approval posts חברה → kibbutz with reason customer_supply', () => {
-    const line = src.split('\n').find(l => l.includes("reason: 'customer_supply'"));
-    assert.ok(line, 'the approval movement is gone');
-    assert.ok(line.includes('fromLocation: POOL_LOCATION'), 'the approval no longer leaves the pool');
-    assert.ok(line.includes('toLocation: kibbutz'));
-    assert.ok(!line.includes('responsible'), 'it still deducts from a person');
+    const rows = SigmaInv.orderApprovalRows({ orderType: 'customer', kibbutz: 'דפנה', items: [{ name: 'X', qty: 2 }] }, 'עמיחי');
+    assert.ok(rows.length, 'the approval movement is gone');
+    assert.ok(rows.every(r => r.fromLocation === POOL && r.reason === 'customer_supply'), 'the approval no longer leaves the pool');
+    assert.ok(!rows.some(r => 'responsible' in r), 'it still deducts from a person');
   });
 
-  check('the re-approve guard (refId + reason) is untouched', () => {
-    assert.ok(src.includes("m.refId === o.id && m.reason === 'customer_supply'"));
+  check('supplier delivery posts ספק → חברה with reason order_delivery', () => {
+    const rows = SigmaInv.orderDeliveryRows({ orderType: 'supplier', items: [{ name: 'X', qty: 5 }] }, 'עמיחי');
+    assert.ok(rows.length, 'the delivery movement is gone');
+    assert.ok(rows.every(r => r.fromLocation === SUPPLIER && r.toLocation === POOL && r.reason === 'order_delivery'));
   });
 
-  check('supplier delivery posts ספק → חברה with reason order_delivery, once', () => {
-    assert.ok(src.includes("reason: 'order_delivery'"), 'the delivery movement is gone');
-    assert.ok(src.includes('fromLocation: SUPPLIER_LOCATION, toLocation: POOL_LOCATION'));
-    assert.ok(src.includes("m.refId === _refId && m.reason === 'order_delivery'"), 'no idempotency guard');
-  });
-
-  check('the per-person distribution write is gone, the column is kept', () => {
-    assert.ok(!src.includes('body.distribution ='), 'a distribution is still written');
-    assert.ok(!src.includes('function ensureDistributionDefaults'), 'the defaults builder survived');
-    assert.ok(!src.includes('function invDistChange'), 'the per-location editor survived');
-    assert.ok(!src.includes("reason: 'order_correction'"), 'the per-location correction delta survived');
-    assert.ok(src.includes('`orders.distribution` is kept as a COLUMN'), 'the reason is not written down');
-  });
-
-  check('drop-ship still moves nothing', () => {
-    assert.ok(src.includes('isDirectSupply'), 'the drop-ship check is gone');
-    const i = src.indexOf('if (isDirectSupply(o)) {');
-    const block = src.slice(i, i + 1200);
-    assert.ok(!block.includes("type: 'movement'"), 'a drop-ship now writes a movement');
-  });
-
-  // "the visit form defaults to the pool as its source" (the legacy #visitSource picker's
-  // onVisitorChange default) retired round 5 V-U3 with the legacy visit form and its dead
-  // onVisitorChange (07-orders.js) — the source is hardcoded server-side now, asserted below.
-  check('the visit save hardcodes the pool as its source (no client picker any more)', () => {
-    const visitsSrc = read('./js/src/09-visits.js');
-    assert.ok(visitsSrc.includes('const source = POOL_LOCATION;'));
-    assert.ok(!/function onVisitorChange/.test(src), 'the legacy visit-form visitor handler is gone');
-  });
-
-  check('the stock hint on an order item reads the pool', () => {
-    assert.ok(src.includes('poolStockMap()'), 'the hint still reads a personal bag');
+  check('drop-ship still moves nothing (no rows to write)', () => {
+    assert.equal(SigmaInv.isDropShip({ orderType: 'customer', assignee: 'ספק ישיר' }), true);
   });
 }
 
@@ -281,47 +257,26 @@ console.log('\n[5] the golden ledger: returns and the day-log source');
     assert.equal(bal('גבים', 'E360CT'), 4);
   });
 
-  // step 2 — גבים returns one, and the returns table's ✅ החזר למלאי is what posts it.
-  // returnToStock() is lifted out of the source and RUN, so this is the real body, not a copy.
-  const src5 = read('./js/src/05-meeting-returns.js');
-  const posts5 = [];
-  const alerts = [];
-  const win5 = { SHEET_DATA: { returns: [], movements: ledger } };
-  const doc5 = {
-    getElementById: () => ({ textContent: '', classList: { add() {}, remove() {} } }),
-    querySelector: () => null, querySelectorAll: () => [], body: { classList: { toggle() {} } },
-  };
-  const fetch5 = (u, o) => {
-    if (o && o.body) { try { posts5.push(JSON.parse(o.body)); } catch (e) { /* not json */ } }
-    return Promise.resolve({ json: async () => ({ ok: true }) });
-  };
-  const mod5 = new Function(
-    'window', 'document', 'localStorage', 'fetch', 'alert', 'confirm', 'setTimeout',
-    'WRITE_ROUTER_URL', 'POOL_LOCATION', 'checkEditPermission', 'getCurrentUser', 'refreshData',
-    'updateMeetingBadge', 'renderKibbutzCards', 'applyFilters',
-    src5 + '\nreturn { returnToStock };',
-  )(
-    win5, doc5, { getItem: () => null, setItem() {} }, fetch5,
-    m => alerts.push(String(m)), () => true, () => 0,
-    'http://sheet.test', POOL, () => true, () => 'עידן', () => {},
-    () => {}, () => {}, () => {},
+  // step 2 — גבים returns one. The legacy returnToStock() (05-meeting-returns.js) is gone
+  // (U10) — app/src/islands/InventoryReturns.tsx now runs SigmaInv.restockPlan directly, so
+  // that is what this asserts against.
+  const plan1 = SigmaInv.restockPlan(
+    { id: 'r-1', kibbutz: 'גבים', product: 'E360CT', qty: 1 },
+    { me: 'אביאם', movements: ledger },
   );
 
-  win5.SHEET_DATA.returns = [{ id: 'r-1', kibbutz: 'גבים', product: 'E360CT', qty: 1, status: 'open', visitor: 'אביאם' }];
-  await mod5.returnToStock('r-1');
-  const mv5 = posts5.filter(x => x.type === 'movement');
-
   check('#12 — the return names BOTH ends: גבים → חברה (it used to credit from nowhere)', () => {
-    assert.equal(mv5.length, 1, 'expected exactly one movement, got ' + mv5.length);
+    assert.ok(!plan1.error, plan1.error);
+    assert.equal(plan1.movements.length, 1);
     assert.deepEqual(
-      { from: mv5[0].fromLocation, to: mv5[0].toLocation, qty: mv5[0].quantity, reason: mv5[0].reason },
+      { from: plan1.movements[0].fromLocation, to: plan1.movements[0].toLocation, qty: plan1.movements[0].quantity, reason: plan1.movements[0].reason },
       { from: 'גבים', to: POOL, qty: 1, reason: 'return_restock' },
     );
-    assert.notEqual(mv5[0].fromLocation, '',
+    assert.notEqual(plan1.movements[0].fromLocation, '',
       'fromLocation:"" is the bug — the pool gained a unit and no kibbutz gave one up');
   });
 
-  mv5.forEach(m => ledger.push(m));
+  plan1.movements.forEach(m => ledger.push({ ...m, refId: 'r-1' }));
   check('the ledger balances: pool 37, גבים 3 — the kibbutz really gave the unit up', () => {
     assert.equal(bal(POOL, 'E360CT'), 37);
     assert.equal(bal('גבים', 'E360CT'), 3);
@@ -329,12 +284,10 @@ console.log('\n[5] the golden ledger: returns and the day-log source');
 
   // step 3 — the SAME physical return, already restocked once (the visit save posts the very
   // same refId + reason). Pressing the button must not credit the pool a second time.
-  posts5.length = 0;
-  await mod5.returnToStock('r-1');
-  check('#12 — a second press posts nothing: the refId guard sees the existing movement', () => {
-    assert.equal(posts5.filter(x => x.type === 'movement').length, 0,
-      'the same return was credited twice — this is the double-credit half of #12');
-    assert.ok(alerts.some(a => a.indexOf('כבר הוחזר') !== -1), 'and it says why, instead of failing silently');
+  const plan2 = SigmaInv.restockPlan({ id: 'r-1', kibbutz: 'גבים', product: 'E360CT', qty: 1 }, { me: 'אביאם', movements: ledger });
+  check('#12 — a second attempt plans nothing: the refId guard sees the existing movement', () => {
+    assert.equal(plan2.movements.length, 0, 'the same return was credited twice — this is the double-credit half of #12');
+    assert.ok(plan2.error && plan2.error.indexOf('כבר הוחזר') !== -1, 'and it says why, instead of failing silently');
   });
   check('the balances did not move', () => {
     assert.equal(bal(POOL, 'E360CT'), 37);
@@ -343,12 +296,10 @@ console.log('\n[5] the golden ledger: returns and the day-log source');
 
   // step 4 — a return row with no kibbutz cannot be restocked: a credit with no debit IS the
   // bug, so the path refuses rather than inventing stock.
-  posts5.length = 0; alerts.length = 0;
-  win5.SHEET_DATA.returns.push({ id: 'r-2', kibbutz: '', product: 'E360CT', qty: 1, status: 'open' });
-  await mod5.returnToStock('r-2');
+  const plan3 = SigmaInv.restockPlan({ id: 'r-2', kibbutz: '', product: 'E360CT', qty: 1 }, { me: 'אביאם', movements: ledger });
   check('a return with no kibbutz is refused, not credited from nowhere', () => {
-    assert.equal(posts5.filter(x => x.type === 'movement').length, 0);
-    assert.ok(alerts.length > 0, 'and the person is told why');
+    assert.equal(plan3.movements.length, 0);
+    assert.ok(plan3.error, 'and the person is told why');
   });
 
   // step 5 — #13: the day-log's `source` is model output about what someone dictated. The

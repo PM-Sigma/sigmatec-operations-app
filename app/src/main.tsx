@@ -42,8 +42,9 @@ function whenIdle(fn: () => void): void {
   else setTimeout(fn, 200);
 }
 
+// S-13: bottom center, above the nav — not top-center, which sat over the header.
 function SigmaToaster() {
-  return <Toaster richColors position="top-center" dir="rtl" closeButton />;
+  return <Toaster richColors position="bottom-center" dir="rtl" closeButton />;
 }
 
 /**
@@ -187,28 +188,25 @@ function boot() {
       .then(m => m.mountFeedback())
       .catch(e => warn('feedback island failed', e));
   }
-  // 🔢 דיווח שינוי במלאי (inventory spec §4b): NOT deferred, like the feedback sheet and for
-  // the same reason — the 📦 מלאי page renders a legacy button that dispatches the raw open
-  // event, so the island has to be listening before the first tap. Its chunk is a few kB.
-  if (document.getElementById('sigma-stock-change')) {
-    import('@/islands/StockChange')
-      .then(m => m.mountStockChange())
-      .catch(e => warn('stock-change island failed', e));
-  }
-  // 🔔 התראות מלאי (inventory spec §5.1) — the header bell. Not deferred: it carries the
-  // unseen badge, and a badge that appears a second late is a badge nobody trusts.
-  if (document.getElementById('sigma-alerts')) {
-    import('@/islands/Alerts')
-      .then(m => m.mountAlerts())
-      .catch(e => warn('alerts island failed', e));
-  }
-  // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5) — lives inside the 📦 מלאי page, so it
-  // loads with everything else on that page rather than on its own idle tick.
-  if (document.getElementById('sigma-inventory-strip')) {
-    import('@/islands/InventoryStrip')
-      .then(m => m.mountInventoryStrip())
-      .catch(e => warn('inventory-strip island failed', e));
-  }
+  // 🔢 דיווח שינוי במלאי (§4b) + 🚚 תעודת משלוח (package I, task U4): NOT deferred behind
+  // inventoryBoot.ts's own dynamic import, unlike Inventory/InventoryNudges below — the visit
+  // form's "הפקת תעודה" and the מלאי page's "דיווח שינוי" button dispatch a raw open event with
+  // no retry if nobody's listening yet, so both need their listener attached from THIS tick, not
+  // one more network hop later. `mountEager` is the one shared helper their two near-identical
+  // blocks used to duplicate as boot-chunk-eager glue.
+  const mountEager = (id: string, imp: () => Promise<{ [k: string]: () => void }>, fn: string) => {
+    if (document.getElementById(id)) imp().then(m => m[fn]()).catch(e => warn(fn, e));
+  };
+  mountEager('sigma-stock-change', () => import('@/islands/StockChange'), 'mountStockChange');
+  mountEager('sigma-cert', () => import('@/islands/InventoryCert'), 'mountInventoryCert');
+  // 🔔 התראות (U4): the bell mounts INSIDE the header-actions cluster (AlertsBellSlot, package
+  // S), not its own `#sigma-alerts` island — one lazy chunk instead of two racing to paint.
+  // 🧾 הזמנות פתוחות + 🎚 מינימום מלאי (§4a, §5): embedded directly inside
+  // app/src/islands/InventoryStock.tsx's Stock tab now — the standalone #sigma-inventory-strip
+  // mount point was only ever a fallback for the (now-deleted, U10) legacy stock page.
+  import('@/islands/inventoryBoot')
+    .then(m => m.mountInventoryBoot())
+    .catch(e => warn('inventory boot glue failed', e));
   if (document.getElementById('sigma-feedback-inbox')) {
     import('@/islands/FeedbackInbox')
       .then(m => m.mountFeedbackInbox())
@@ -286,11 +284,24 @@ function boot() {
       .then(m => m.mountUsage())
       .catch(e => warn('usage island failed', e)));
   }
-  // The header cluster (§6). Lazy; the legacy header chips stay if the chunk never lands.
+  // The header cluster (§6), the desktop nav (U6), the page-action row (S-5) and the offline
+  // banner (S-14). Each is a placeholder div; a chunk that never lands leaves an empty gap
+  // instead of a broken page (the legacy .page-nav/#visitFab these replace are gone, U6).
   if (document.getElementById('sigma-header-actions')) {
     import('@/islands/HeaderActions')
       .then(m => { if (m.mountHeaderActions()) document.body.classList.add('sigma-header-ready'); })
       .catch(e => warn('header', e));
+  }
+  // U6: the desktop top-tab row (≥768px) — lazy, mirrors the boot Nav's phone bar without
+  // costing the boot bundle anything.
+  if (document.getElementById('sigma-desktop-nav')) {
+    import('@/islands/DesktopNav').then(m => m.mountDesktopNav()).catch(e => warn('desktop-nav', e));
+  }
+  if (document.getElementById('sigma-page-bar')) {
+    import('@/shell/PageBar').then(m => m.mountPageBar()).catch(e => warn('page-bar', e));
+  }
+  if (document.getElementById('sigma-offline')) {
+    import('@/shell/OfflineBanner').then(m => m.mountOfflineBanner()).catch(e => warn('offline', e));
   }
   // ✉️ הודעה לעובד (X-L7, F1) — the one surface Ctrl+K's removal still owes a home. The row is
   // registered now (cheap); the chunk loads only on the first tap or `sigma-open-message`.
@@ -305,7 +316,7 @@ function boot() {
     window.addEventListener('sigma-open-message', e => { if (!mounted) open((e as CustomEvent<{ to?: string }>).detail?.to); });
     registerMoreItem({
       id: 'staff-message',
-      label: '✉️ הודעה לעובד',
+      label: 'הודעה לעובד',
       icon: 'Mail',
       group: 'app',
       visible: () => {

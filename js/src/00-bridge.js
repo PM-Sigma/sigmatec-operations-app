@@ -425,7 +425,12 @@
       // The supplier orders a 🧾 עלייה can be booked against, and the two flows the sheet
       // routes INTO instead of writing itself (§4b): the order modal and the delivery status.
       orders: function () { try { return (window.SHEET_DATA && window.SHEET_DATA.orders) || []; } catch (e) { return []; } },
-      openOrder: function (id) { return call('invEditOrder', [id]); },
+      // U10 deleted invEditOrder with the rest of the legacy inventory UI — this is React-only
+      // now, via the same invOpen() door 22-push.js's own order/approve deep links use.
+      openOrder: function (id) {
+        if (typeof showPage === 'function') showPage('inventory');
+        if (typeof window.invOpen === 'function') window.invOpen({ kind: 'order', id: id });
+      },
       markOrderDelivered: function (id) { return call('quickOrderStatus', [id, 'delivered', null]); },
       // Re-read the shared snapshot after a write, so the pool number is right immediately.
       refreshData: function () { return call('refreshData'); },

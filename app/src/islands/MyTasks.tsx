@@ -66,7 +66,7 @@ function EmsRow({ task, now, onClose }: { task: ListTask; now: Date; onClose: ()
         <span className="flex flex-wrap items-center gap-1.5">
           <span className="rounded-md border border-border bg-card px-1.5 py-px text-[11px] text-muted-foreground">{statusLabel(task.status)}</span>
           {due ? (
-            <span className={'rounded-md border border-border bg-card px-1.5 py-px text-[11px] ' + (late ? 'font-semibold text-destructive' : 'text-muted-foreground')}>
+            <span className={'rounded-md border border-border bg-card px-1.5 py-px text-[11px] ' + (late ? 'font-semibold text-[color:var(--danger-ink)]' : 'text-muted-foreground')}>
               {late ? '⏰' : '📅'} <bdi>{due}</bdi>
             </span>
           ) : null}
@@ -105,7 +105,7 @@ function InternalRow({ row, canAct }: { row: InternalTaskRow; canAct: boolean })
       <span className="min-w-0 flex-1">
         <span className="text-[14px] font-semibold leading-snug text-foreground"><bdi>{row.title}</bdi></span>
         {due ? (
-          <span className={'ms-1.5 rounded-md border border-border bg-card px-1.5 py-px text-[11px] ' + (late ? 'font-semibold text-destructive' : 'text-muted-foreground')}>
+          <span className={'ms-1.5 rounded-md border border-border bg-card px-1.5 py-px text-[11px] ' + (late ? 'font-semibold text-[color:var(--danger-ink)]' : 'text-muted-foreground')}>
             {late ? '⏰' : '📅'} <bdi>{due}</bdi>
           </span>
         ) : null}

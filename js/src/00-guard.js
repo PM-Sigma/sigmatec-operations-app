@@ -543,10 +543,9 @@
     // (app/src/islands/Field.tsx VisitChapters) guards itself (useUnsavedGuard).
     'attEditModal',         // עדכון נוכחות
     'emsTaskModal',         // משימה חדשה ב-EMS
-    'intakeModal',          // קליטת הזמנה
-    'invOrderModal',        // הזמנה
-    'invRequirementModal',  // דרישה
-    'invProductModal'       // מוצר
+    // round 5, package I: intakeModal/invOrderModal/invProductModal retired with the legacy
+    // inventory UI (js/src/07-orders.js is gone). visitQuickModal stays gone too (V-U3, above).
+    'invRequirementModal'   // דרישה
   ];
   for (var gi = 0; gi < GUARDED_INPUT_MODALS.length; gi++) {
     (function (id) { modalGuard(id, function () { return modalDirtyByFields(id); }); })(GUARDED_INPUT_MODALS[gi]);
