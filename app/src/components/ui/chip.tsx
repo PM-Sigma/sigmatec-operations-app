@@ -32,7 +32,10 @@ export function Tag({ role, dot, children, className }: {
       )}
     >
       {dot && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />}
-      <span className="min-w-0 truncate">{children}</span>
+      {/* data-truncate: the same declared ellipsis escape hatch SegmentedControl's own label
+          carries (_overlap.ts rule 2 / qa's fieldops sweep) — CSS `truncate` clips visually on
+          purpose; scrollWidth still correctly reports the untruncated text. */}
+      <span className="min-w-0 truncate" data-truncate>{children}</span>
     </span>
   );
 }

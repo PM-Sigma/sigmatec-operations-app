@@ -27,7 +27,11 @@ import {
 } from '@/lib/fieldops/fieldOpsView';
 
 const TITLE = 'פעולות שטח';
-const box = 'w-full min-h-[44px] rounded-xl border border-border bg-muted px-3 text-base outline-none focus:border-[color:var(--brand-1)] disabled:opacity-70';
+// 48px floor (design-review.md's 360–430 update — the same floor scanOverlap's rule 3 checks),
+// not the DS default 44: עידן's real-phone report (27.9) named this page's own controls, so it
+// gets its own floor rather than a `data-min-tap="44"` exception carved out for it.
+const box = 'w-full min-h-[48px] rounded-xl border border-border bg-muted px-3 text-base outline-none focus:border-[color:var(--brand-1)] disabled:opacity-70';
+const btn48 = 'min-h-[48px]';
 const typeName = (c: number | null) => MODBUS_TYPES.find(t => t.code === c)?.name || (c == null ? '—' : 'סוג ' + c);
 
 type Mode = 'list' | 'manual';
@@ -70,8 +74,8 @@ function PingCard({ res, ip }: { res: ModbusOpResult; ip: string }) {
   const log = res.log;
   const p = log?.status === 'completed' ? parsePing(log.responseData) : null;
   return (
-    <SectionBlock title="תוצאות PING">
-      <div data-testid="fieldops-ping">
+    <SectionBlock title="תוצאות PING" flush>
+      <div data-testid="fieldops-ping" className="px-4">
         {!p ? (
           <ErrorBox text={log?.errorMessage || 'לא התקבלה תשובת PING'} />
         ) : (
@@ -124,8 +128,8 @@ function ReadCards({ r }: { r: Extract<Result, { op: 'read' }> }) {
   if (o.kind === 'fail') {
     const m = circuits[0];
     return (
-      <SectionBlock title="תוצאות קריאה">
-        <div data-testid="fieldops-read" className="flex flex-col gap-2">
+      <SectionBlock title="תוצאות קריאה" flush>
+        <div data-testid="fieldops-read" className="flex flex-col gap-2 px-4">
           <KV k="כתובת IP" v={<bdi>{r.ip}</bdi>} />
           <KV k="מספר ID" v={<bdi>{r.unit}</bdi>} />
           <KV k="סוג מונה" v={typeName(m?.typeCode ?? r.typeCode)} />
@@ -149,13 +153,18 @@ function ReadCards({ r }: { r: Extract<Result, { op: 'read' }> }) {
           b.mult.energy !== 1 && `כופל אנרגיה ×${Number(b.mult.energy.toPrecision(6))}`,
         ].filter(Boolean) as string[] : [];
         return (
-          <SectionBlock key={meter?.id || i} title={pairs.length > 1 ? `תוצאות קריאה · ${meter?.serial || 'מעגל ' + (i + 1)}` : 'תוצאות קריאה'}>
-            <div data-testid="fieldops-read" className="flex flex-col gap-2">
+          <SectionBlock key={meter?.id || i} title={pairs.length > 1 ? `תוצאות קריאה · ${meter?.serial || 'מעגל ' + (i + 1)}` : 'תוצאות קריאה'} flush>
+            <div data-testid="fieldops-read" className="flex flex-col gap-2 px-4">
               <div>
                 <KV k="כתובת IP" v={<bdi>{r.ip}</bdi>} />
                 <KV k="מספר מונה (CounterNumber)" v={<bdi>{entry.counterNumber || 'לא זמין'}</bdi>} />
                 {meter && <KV k="מונה ב-EMS" v={
-                  <span className="inline-flex items-center gap-1">
+                  // `flex flex-wrap` (not `inline-flex`, no wrap): a real serial+long-address+
+                  // mismatch-tag combination (עידן, real-phone report 27.9: "long meter names…
+                  // wrap or stack instead of overflow") doesn't fit one line at 360px — forcing
+                  // it onto one squeezed it until the warn tag was unreadably narrow. Wrapping
+                  // the tag onto its own line keeps every word fully visible instead.
+                  <span className="flex flex-wrap items-center justify-end gap-1">
                     <bdi>{meter.serial}</bdi>{meter.address ? ' · ' + meter.address : ''}
                     {sc === 'match' && <Tag role="ok">✓</Tag>}
                     {sc === 'mismatch' && <Tag role="warn">המונה שענה אינו המונה ב-EMS</Tag>}
@@ -171,7 +180,11 @@ function ReadCards({ r }: { r: Extract<Result, { op: 'read' }> }) {
               {b.rows.length === 0 ? (
                 <div className="text-muted-foreground">לא נמצאו נתוני קריאה</div>
               ) : (
-                <table className="w-full text-[length:var(--fs-body)]" data-testid="fieldops-rows">
+                // A declared horizontal-scroll container (`data-scroll-x`), not a wrapper that
+                // silently clips — 3 short columns fit every phone width in practice, but a long
+                // serial/address (or a translated unit label) now scrolls instead of being cut.
+                <div className="overflow-x-auto" data-scroll-x>
+                <table className="w-full min-w-[280px] text-[length:var(--fs-body)]" data-testid="fieldops-rows">
                   <thead>
                     <tr className="text-start text-[13px] text-muted-foreground">
                       <th className="py-1 text-start font-semibold">נתון</th>
@@ -193,6 +206,7 @@ function ReadCards({ r }: { r: Extract<Result, { op: 'read' }> }) {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
               {meter?.lastCallDate && <div className="text-[13px] text-muted-foreground">שידור אחרון ל-EMS: <bdi>{israelTime(meter.lastCallDate)}</bdi></div>}
               {comms}
@@ -218,8 +232,8 @@ function History({ meterId, refreshKey }: { meterId: string; refreshKey: number 
     return { op, ok };
   };
   return (
-    <SectionBlock title="היסטוריה" count={logs.length || undefined}>
-      <div data-testid="fieldops-history" className="flex flex-col">
+    <SectionBlock title="היסטוריה" count={logs.length || undefined} flush>
+      <div data-testid="fieldops-history" className="flex flex-col px-4">
         {q.isLoading ? <div className="text-muted-foreground">טוען…</div>
           : q.isError ? <div className="text-muted-foreground">לא הצלחנו לטעון את ההיסטוריה</div>
           : logs.length === 0 ? <div className="text-muted-foreground">אין עדיין פעולות על המונה הזה</div>
@@ -344,8 +358,15 @@ function ModbusReader() {
 
   return (
     <div className="flex flex-col gap-3">
-      <SectionBlock title="קריאת מודבוס">
-        <div className="flex flex-col gap-3" data-testid="fieldops-modbus">
+      {/* `flush` (own px-4, no SectionBlock body padding) — the plain non-flush body wraps its
+          children in a `-mx-4` (negative margin) div to cancel the section's own padding; under
+          this page's own RTL grid layout that div's negative margins expand its computed width
+          correctly but anchor the box at the padded content edge instead of the section's outer
+          edge (עידן, real-phone report 27.9: "cut off... in the selection/navigation part"), so
+          every row's right ~32px silently fell outside the section's own clip and was invisible.
+          `flush` sidesteps the whole mechanism instead of fighting it. */}
+      <SectionBlock title="קריאת מודבוס" flush>
+        <div className="flex flex-col gap-3 px-4" data-testid="fieldops-modbus">
           <SegmentedControl<Mode>
             ariaLabel="מקור המונה"
             options={[{ value: 'list', label: 'בחר מונה מהרשימה' }, { value: 'manual', label: 'הזנה ידנית' }]}
@@ -408,7 +429,8 @@ function ModbusReader() {
                 </div>
               )}
               {status && lookup.data && lookup.data.length > 0 && (
-                <table className="w-full text-[length:var(--fs-body)]" data-testid="fieldops-ip-table">
+                <div className="overflow-x-auto" data-scroll-x>
+                <table className="w-full min-w-[280px] text-[length:var(--fs-body)]" data-testid="fieldops-ip-table">
                   <thead>
                     <tr className="text-[13px] text-muted-foreground">
                       <th className="py-1 text-start font-semibold">קיבוץ</th>
@@ -428,18 +450,19 @@ function ModbusReader() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </>
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void run('read')} loading={busy?.op === 'read'} disabled={!!busy}>
+            <Button className={btn48} onClick={() => void run('read')} loading={busy?.op === 'read'} disabled={!!busy}>
               {busy?.op === 'read' ? `קורא... ${elapsed} ש׳` : 'בדוק חיבור וקרא נתונים'}
             </Button>
-            <Button variant="outline" onClick={() => void run('ping')} loading={busy?.op === 'ping'} disabled={!!busy}>
+            <Button className={btn48} variant="outline" onClick={() => void run('ping')} loading={busy?.op === 'ping'} disabled={!!busy}>
               {busy?.op === 'ping' ? 'בודק...' : 'PING'}
             </Button>
-            <Button variant="ghost" onClick={clear}>נקה</Button>
+            <Button className={btn48} variant="ghost" onClick={clear}>נקה</Button>
           </div>
           {busy && (
             <div className="text-[13px] text-muted-foreground">
