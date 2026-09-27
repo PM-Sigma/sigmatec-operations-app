@@ -176,32 +176,55 @@ describe('issueBody', () => {
 
 describe('speechLadder', () => {
   const full = { speechRecognition: true, mediaRecorder: true };
+  // No MediaRecorder (iOS Safari PWA-ish) is the ONLY shape where live is reachable without
+  // forcing it — everything below that uses `full` is now record-first by default.
+  const noRecorder = { speechRecognition: true, mediaRecorder: false };
 
-  it('uses the live Web Speech path when it is supported', () => {
-    expect(speechLadder({ phase: 'idle' }, full)).toBe('live');
+  it('RECORD is the default whenever MediaRecorder exists (round: Android S24 growing-prefix bug) — never live-first anymore', () => {
+    expect(speechLadder({ phase: 'idle' }, full)).toBe('record');
   });
 
   it('records + transcribes when Web Speech is unsupported (iOS Safari PWA)', () => {
     expect(speechLadder({ phase: 'idle' }, { speechRecognition: false, mediaRecorder: true })).toBe('record');
   });
 
-  it('records when the live recognition was denied or failed — not platform detection', () => {
+  it('uses live only when MediaRecorder is missing', () => {
+    expect(speechLadder({ phase: 'idle' }, noRecorder)).toBe('live');
+  });
+
+  it('a denied/failed live leg has no fallback once MediaRecorder is also missing', () => {
+    expect(speechLadder({ phase: 'idle', deniedLive: true }, noRecorder)).toBe('none');
+    expect(speechLadder({ phase: 'idle', liveFailed: true }, noRecorder)).toBe('none');
+  });
+
+  it('MediaRecorder is always the fallback record picks regardless of a remembered live failure — moot now that record is the default anyway', () => {
     expect(speechLadder({ phase: 'idle', deniedLive: true }, full)).toBe('record');
     expect(speechLadder({ phase: 'idle', liveFailed: true }, full)).toBe('record');
   });
 
-  it('falls back after 3 s of listening with no result (Android weak signal)', () => {
-    expect(speechLadder({ phase: 'listening', liveResults: 0, msSinceStart: 2999 }, full)).toBe('live');
-    expect(speechLadder({ phase: 'listening', liveResults: 0, msSinceStart: 3000 }, full)).toBe('record');
+  it('falls back after 3 s of listening with no result (Android weak signal, no recorder available)', () => {
+    expect(speechLadder({ phase: 'listening', liveResults: 0, msSinceStart: 2999 }, noRecorder)).toBe('live');
+    expect(speechLadder({ phase: 'listening', liveResults: 0, msSinceStart: 3000 }, noRecorder)).toBe('live');
     expect(LIVE_NO_RESULT_MS).toBe(3000);
   });
 
-  it('stays live once a result arrived, however long it listens', () => {
-    expect(speechLadder({ phase: 'listening', liveResults: 1, msSinceStart: 60_000 }, full)).toBe('live');
+  it('stays live once a result arrived, however long it listens (no recorder available)', () => {
+    expect(speechLadder({ phase: 'listening', liveResults: 1, msSinceStart: 60_000 }, noRecorder)).toBe('live');
   });
 
-  it('honours the ?speech=0 override and goes straight to recording', () => {
+  it('honours the ?speech=0 override and goes straight to recording (when a recorder exists)', () => {
     expect(speechLadder({ phase: 'idle' }, { ...full, forceOffLive: true })).toBe('record');
+    // No MediaRecorder either → still nothing to force onto.
+    expect(speechLadder({ phase: 'idle' }, { ...noRecorder, forceOffLive: true })).toBe('none');
+  });
+
+  it('honours the ?speech=live override and forces live even though MediaRecorder exists (testing)', () => {
+    expect(speechLadder({ phase: 'idle' }, { ...full, forceLive: true })).toBe('live');
+  });
+
+  it('?speech=live falls back to record when the browser has no Web Speech at all', () => {
+    expect(speechLadder({ phase: 'idle' }, { speechRecognition: false, mediaRecorder: true, forceLive: true }))
+      .toBe('record');
   });
 
   it('has no voice path at all when neither API exists', () => {

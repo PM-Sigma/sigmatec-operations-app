@@ -1,0 +1,1 @@
+left=16 right=374 bottom=700 vw=390 leftGutter=16 rightGutter=16

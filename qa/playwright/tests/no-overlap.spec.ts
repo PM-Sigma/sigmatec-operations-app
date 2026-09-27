@@ -97,6 +97,14 @@ const SCREENS: Screen[] = [
     open: async p => openMoreSheet(p),
   },
   {
+    label: 'message-sheet',
+    who: 'עידן',
+    open: async p => {
+      await p.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-message')));
+      await p.getByTestId('cmd-message').waitFor();
+    },
+  },
+  {
     label: 'settings-sheet',
     open: async p => {
       // GearSheet (U2): the ⚙️ header bubble opens a real Sheet, not a dropdown menu — click

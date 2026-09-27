@@ -20,7 +20,7 @@
 // Secrets: SELF_WHISPER_URL, SELF_WHISPER_TOKEN, GROQ_API_KEY, GROQ_FALLBACK (optional),
 // EMS_API_BASE (already set).
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { transcribeChain, validAudioPath, pollRefine, checkHealth, type ChainEnv } from "./chain.ts";
+import { transcribeChain, validAudioPath, pollRefine, checkHealth, enginePlan, type ChainEnv } from "./chain.ts";
 
 /** The office server's default base (spec §7i "Whisper server — live"); SELF_WHISPER_URL
  * overrides it, so a moved/renamed server never needs a code change. */
@@ -116,9 +116,18 @@ Deno.serve(async (req: Request) => {
     return json({ error: "ההקלטה גדולה מדי (מעל 25MB)" }, 413);
   }
 
+  // Diagnostic only — no secrets, just which engines are IN the plan and in what order, so a
+  // "why did Whisper get zero requests" question is answerable from the function logs alone
+  // instead of re-deriving it from the (unset) secrets. `self` is dropped from the plan whenever
+  // SELF_WHISPER_TOKEN is empty — SELF_WHISPER_URL alone (it has a baked-in default above) is
+  // not enough to enter the plan.
+  const plan = enginePlan(env);
+  console.log("transcribe engine plan:", plan.length ? plan.join(" → ") : "NONE (no engine configured)");
+
   const t0 = Date.now();
   try {
     const r = await transcribeChain(blob, path, env, { fetch }, prompt);
+    console.log("transcribe answered by:", r.engine, "ms:", Math.round(r.ms), "(plan was", plan.join(" → ") + ")");
     await log(r.engine, r.ms, true);
     // Retention (spec §7i): the recording is deleted the moment we have the text; a FAILED
     // one stays for the 7-day retry window that db/feedback.sql documents.

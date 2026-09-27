@@ -10,14 +10,32 @@
 import { describe, it, expect } from 'vitest';
 import { LIVE_NO_RESULT_MS, MIC_START_TIMEOUT_MS, RECORD_CAP_MS, voiceIdle, voiceNext } from './feedback';
 
+// `caps` is a real modern device (both APIs) — RECORD is the default there now (round: the
+// Android S24 growing-prefix bug; see `speechLadder` in feedback.ts). `liveCaps` forces live
+// anyway (the `?speech=live` testing override) so the live-specific transitions below still
+// have goldens even though live is no longer what a real device with both APIs reaches by
+// itself.
 const caps = { speechRecognition: true, mediaRecorder: true };
+const liveCaps = { speechRecognition: true, mediaRecorder: true, forceLive: true };
 const noLive = { speechRecognition: false, mediaRecorder: true };
 const noRecorder = { speechRecognition: true, mediaRecorder: false };
 const noVoice = { speechRecognition: false, mediaRecorder: false };
 
 describe('voiceNext — starting', () => {
-  it('starts live on the first tap', () => {
+  it('starts RECORD on the first tap — the default whenever MediaRecorder exists', () => {
     const r = voiceNext(voiceIdle(), 'mic-tap', caps, 1000);
+    expect(r.action).toBe('start-record');
+    expect(r.machine).toMatchObject({ phase: 'recording', pending: true, startedAt: 1000 });
+  });
+
+  it('starts live when forced (?speech=live) even though MediaRecorder exists', () => {
+    const r = voiceNext(voiceIdle(), 'mic-tap', liveCaps, 1000);
+    expect(r.action).toBe('start-live');
+    expect(r.machine).toMatchObject({ phase: 'listening', pending: false, startedAt: 1000 });
+  });
+
+  it('starts live where Web Speech is the only option (no MediaRecorder)', () => {
+    const r = voiceNext(voiceIdle(), 'mic-tap', noRecorder, 1000);
     expect(r.action).toBe('start-live');
     expect(r.machine).toMatchObject({ phase: 'listening', pending: false, startedAt: 1000 });
   });
@@ -35,9 +53,17 @@ describe('voiceNext — starting', () => {
     expect(r.machine.phase).toBe('idle');
   });
 
-  it('stops live on a second tap', () => {
-    const listening = voiceNext(voiceIdle(), 'mic-tap', caps, 0).machine;
-    const r = voiceNext(listening, 'mic-tap', caps, 500);
+  it('stops recording on a second tap (record-first default)', () => {
+    let m = voiceNext(voiceIdle(), 'mic-tap', caps, 0).machine;
+    m = voiceNext(m, 'record-ready', caps, 20).machine;     // getUserMedia settled
+    const r = voiceNext(m, 'mic-tap', caps, 500);
+    expect(r.action).toBe('finish-record');
+    expect(r.machine.phase).toBe('transcribing');
+  });
+
+  it('stops live on a second tap (forced-live testing path)', () => {
+    const listening = voiceNext(voiceIdle(), 'mic-tap', liveCaps, 0).machine;
+    const r = voiceNext(listening, 'mic-tap', liveCaps, 500);
     expect(r.action).toBe('stop-all');
     expect(r.machine.phase).toBe('idle');
   });
@@ -45,20 +71,20 @@ describe('voiceNext — starting', () => {
 
 describe('voiceNext — the double-start regression', () => {
   it('ignores the no-result timeout once a live error already moved us to recording', () => {
-    const listening = voiceNext(voiceIdle(), 'mic-tap', caps, 0).machine;
-    const afterError = voiceNext(listening, 'live-denied', caps, 100);
+    const listening = voiceNext(voiceIdle(), 'mic-tap', liveCaps, 0).machine;
+    const afterError = voiceNext(listening, 'live-denied', liveCaps, 100);
     expect(afterError.action).toBe('start-record');
     expect(afterError.machine).toMatchObject({ phase: 'recording', pending: true, deniedLive: true });
 
-    const late = voiceNext(afterError.machine, 'no-result-timeout', caps, 3000);
+    const late = voiceNext(afterError.machine, 'no-result-timeout', liveCaps, 3000);
     expect(late.action).toBe('none');                      // NOT a second start-record
     expect(late.machine.phase).toBe('recording');
   });
 
   it('ignores a live error that arrives after we already left listening', () => {
-    let m = voiceNext(voiceIdle(), 'mic-tap', caps, 0).machine;
-    m = voiceNext(m, 'no-result-timeout', caps, LIVE_NO_RESULT_MS).machine;   // now recording
-    const late = voiceNext(m, 'live-failed', caps, 3200);
+    let m = voiceNext(voiceIdle(), 'mic-tap', liveCaps, 0).machine;
+    m = voiceNext(m, 'no-result-timeout', liveCaps, LIVE_NO_RESULT_MS).machine;   // now recording
+    const late = voiceNext(m, 'live-failed', liveCaps, 3200);
     expect(late.action).toBe('none');
     expect(late.machine.phase).toBe('recording');
   });
@@ -135,17 +161,17 @@ describe('voiceNext — finishing', () => {
 
 describe('voiceNext — the ladder inside the machine', () => {
   it('switches to the recorder after 3 silent seconds, stopping live first', () => {
-    const listening = voiceNext(voiceIdle(), 'mic-tap', caps, 0).machine;
-    const r = voiceNext(listening, 'no-result-timeout', caps, LIVE_NO_RESULT_MS);
+    const listening = voiceNext(voiceIdle(), 'mic-tap', liveCaps, 0).machine;
+    const r = voiceNext(listening, 'no-result-timeout', liveCaps, LIVE_NO_RESULT_MS);
     expect(r.action).toBe('switch-to-record');
     expect(r.machine).toMatchObject({ phase: 'recording', pending: true });
   });
 
   it('does not switch once live produced a result', () => {
-    let m = voiceNext(voiceIdle(), 'mic-tap', caps, 0).machine;
-    m = voiceNext(m, 'live-result', caps, 800).machine;
+    let m = voiceNext(voiceIdle(), 'mic-tap', liveCaps, 0).machine;
+    m = voiceNext(m, 'live-result', liveCaps, 800).machine;
     expect(m.liveResults).toBe(1);
-    const r = voiceNext(m, 'no-result-timeout', caps, LIVE_NO_RESULT_MS);
+    const r = voiceNext(m, 'no-result-timeout', liveCaps, LIVE_NO_RESULT_MS);
     expect(r.action).toBe('none');
     expect(r.machine.phase).toBe('listening');
   });
@@ -166,8 +192,8 @@ describe('voiceNext — the ladder inside the machine', () => {
   });
 
   it('goes idle when live ends by itself', () => {
-    const listening = voiceNext(voiceIdle(), 'mic-tap', caps, 0).machine;
-    expect(voiceNext(listening, 'live-end', caps, 900).machine.phase).toBe('idle');
+    const listening = voiceNext(voiceIdle(), 'mic-tap', liveCaps, 0).machine;
+    expect(voiceNext(listening, 'live-end', liveCaps, 900).machine.phase).toBe('idle');
   });
 
   it('closing always stops everything, from every phase', () => {

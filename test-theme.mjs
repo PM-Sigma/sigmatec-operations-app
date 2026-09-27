@@ -145,7 +145,9 @@ check('the critical CSS is inlined in <head> and generated from css/critical.css
   assert.match(block, /src-sha256:[0-9a-f]{16}/, 'the critical marker is not stamped — run node build.mjs');
   const style = /<style>([\s\S]*?)<\/style>/.exec(block);
   assert.ok(style && style[1].length > 1000, 'the critical block is empty — run node build.mjs');
-  for (const sel of ['--bg:', 'body{', '.page-nav', '.section-header', '.kibbutz-grid']) {
+  // U6 retired .page-nav (the legacy nav is gone, React's #sigma-nav owns it) — .header is the
+  // still-present above-the-fold selector in its place.
+  for (const sel of ['--bg:', 'body{', '.header', '.section-header', '.kibbutz-grid']) {
     assert.ok(style[1].includes(sel), 'the critical CSS is missing ' + sel);
   }
   // The two sheets themselves stay render-blocking (task 22b measured the async swap as a 0.62

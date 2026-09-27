@@ -152,48 +152,6 @@ export function useMeetingRun(kind: string, host: string | null, today: string):
   return { session, seconds, running, start, pause, log, mark, noteMark, endSession };
 }
 
-// ───────────────────────── since the previous meeting ─────────────────────────
-
-/** A task shape common to EMS and internal tasks, reduced to what "since last meeting" needs. */
-export interface SinceLastTask {
-  id: string;
-  title: string;
-  /** ISO timestamp the task was opened/created. */
-  openedAt: string;
-  /** ISO timestamp the task was closed, or null/undefined while still open. */
-  closedAt?: string | null;
-}
-
-export interface SinceLastMeeting {
-  /** Opened after the previous meeting and still open. */
-  openedSince: SinceLastTask[];
-  /** Opened after the previous meeting and since closed. */
-  closedSince: SinceLastTask[];
-}
-
-const EMPTY_SINCE_LAST: SinceLastMeeting = { openedSince: [], closedSince: [] };
-
-/**
- * Pure split of "what happened since the previous meeting" for one kibbutz's tasks:
- * everything opened strictly after `previousMeetingDate` (an ISO date/timestamp), split into
- * still-open vs. since-closed. `null` `previousMeetingDate` (no prior session) returns nothing,
- * since there is no boundary to compare against.
- */
-export function sinceLastMeeting(
-  tasks: SinceLastTask[] | null | undefined,
-  previousMeetingDate: string | null | undefined,
-): SinceLastMeeting {
-  if (!previousMeetingDate) return EMPTY_SINCE_LAST;
-  const boundary = new Date(previousMeetingDate).getTime();
-  if (Number.isNaN(boundary)) return EMPTY_SINCE_LAST;
-  const openedSince: SinceLastTask[] = [];
-  const closedSince: SinceLastTask[] = [];
-  for (const t of tasks || []) {
-    if (!t?.openedAt) continue;
-    const opened = new Date(t.openedAt).getTime();
-    if (Number.isNaN(opened) || opened <= boundary) continue;
-    if (t.closedAt) closedSince.push(t);
-    else openedSince.push(t);
-  }
-  return { openedSince, closedSince };
-}
+// sinceLastMeeting/SinceLastTask/SinceLastMeeting (Package H item 5) retired in M-U1: the
+// per-kibbutz timeline (meetingTimeline.ts) replaced the "מאז הישיבה הקודמת" block that was
+// their only caller (M-R6).

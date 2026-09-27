@@ -107,6 +107,48 @@ describe('parseRecognitionEvent — full session rebuild, never a delta (round 3
     expect(parseRecognitionEvent(finalEvent).finalText).toBe('הייתי היום בגבת וסיפקתי שלושה מוני לנדיס');
   });
 
+  // The real Android bug (עידן's device, 26.9, live test): "אני רוצה לבדוק, אני הייתי היום
+  // בדפנה…" came out as a pile of growing prefixes ("אני", "אני אני רוצה", …). Unlike the
+  // S24 report above (each result entry is a NEW word, growing the array), here Android
+  // delivered SEVERAL `isFinal:true` results in one event where each one IS the cumulative
+  // phrase so far at increasing indices — joining them verbatim glues every prefix onto the
+  // final sentence. The fix: drop any final that is a prefix of (or equal to) a later one.
+  it('collapses cumulative-phrase finals (the exact Android sequence from the growing-prefix bug) into the full sentence once', () => {
+    const e = event(0, [
+      result('אני', true),
+      result('אני רוצה', true),
+      result('אני רוצה לבדוק', true),
+      result('אני רוצה לבדוק, אני הייתי היום', true),
+      result('אני רוצה לבדוק, אני הייתי היום בדפנה', true),
+    ]);
+    expect(parseRecognitionEvent(e)).toEqual({
+      finalText: 'אני רוצה לבדוק, אני הייתי היום בדפנה',
+      interimText: '',
+    });
+  });
+
+  it('still joins a normal desktop sequence of distinct, unrelated finals (none is a prefix of another)', () => {
+    const e = event(0, [result('זו', true), result('בדיקה', true), result('רגילה', true)]);
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: 'זו בדיקה רגילה', interimText: '' });
+  });
+
+  // The collapse must respect WORD boundaries, not raw substring matching — a genuine final
+  // "ok" is a different word from a later "okay", not an earlier snapshot growing into it, so
+  // "okay".startsWith("ok") must NOT cause "ok" to be dropped.
+  it('does not drop a final just because a later final shares its characters as a prefix of a DIFFERENT word', () => {
+    const e = event(0, [result('ok', true), result('okay', true)]);
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: 'ok okay', interimText: '' });
+  });
+
+  it('still collapses a real word-boundary growth even mixed with a false-friend prefix', () => {
+    const e = event(0, [
+      result('ok', true),
+      result('ok cool', true),        // genuine growth of "ok" — dropped
+      result('okay', true),           // different word, not a growth of "ok" — kept
+    ]);
+    expect(parseRecognitionEvent(e)).toEqual({ finalText: 'ok cool okay', interimText: '' });
+  });
+
   it('caller REPLACES its session text with finalText — never appends — so a session-scoped prefix stays intact', () => {
     const prefix = 'טקסט שהוקלד קודם.';
     const apply = (sessionFinal: string) => (prefix + ' ' + sessionFinal).trim();
@@ -165,8 +207,16 @@ describe('speechCaps', () => {
     expect(speechCaps(win({ webkitSpeechRecognition: function () {} }), '?speech=0').forceOffLive).toBe(true);
   });
 
+  it('reports forceLive from ?speech=live (testing override for the record-first default)', () => {
+    expect(speechCaps(win({ webkitSpeechRecognition: function () {} }), '?speech=live').forceLive).toBe(true);
+    expect(speechCaps(win({ webkitSpeechRecognition: function () {} }), '?speech=0').forceLive).toBe(false);
+    expect(speechCaps(win({ webkitSpeechRecognition: function () {} }), '').forceLive).toBe(false);
+  });
+
   it('is all-false in a non-browser (tests, SSR)', () => {
-    expect(speechCaps(undefined, '')).toEqual({ speechRecognition: false, mediaRecorder: false, forceOffLive: false });
+    expect(speechCaps(undefined, '')).toEqual({
+      speechRecognition: false, mediaRecorder: false, forceOffLive: false, forceLive: false,
+    });
   });
 
   // Microphone PERMISSION is deliberately not a capability: it can only be learned by asking,
