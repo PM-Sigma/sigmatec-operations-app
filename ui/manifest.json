@@ -44,6 +44,7 @@
   "./ui/sigma-index.js",
   "./ui/sigma-index2.js",
   "./ui/sigma-index3.js",
+  "./ui/sigma-index4.js",
   "./ui/sigma-InternalTasks.js",
   "./ui/sigma-internalTasks2.js",
   "./ui/sigma-InternalTaskSheet.js",
