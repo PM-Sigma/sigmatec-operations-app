@@ -103,8 +103,9 @@ function EmsRow({ task, now, onClose }: { task: ListTask; now: Date; onClose: ()
  * `onCommitted` drops it from the parent's own render so a stale item can't reappear before the
  * next refetch lands.
  */
-function InternalRow({ row, canAct, onCommitted }: {
+function InternalRow({ row, canAct, onCommitted, groupKibbutz, groupReal, onClose }: {
   row: InternalTaskRow; canAct: boolean; onCommitted: (id: string) => void;
+  groupKibbutz: string; groupReal: boolean; onClose: () => void;
 }) {
   const [closing, setClosing] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);
@@ -139,6 +140,14 @@ function InternalRow({ row, canAct, onCommitted }: {
       });
   };
 
+  // Round 6, 1.2 (עידן's phone QA): the whole row opens the kibbutz the task belongs to —
+  // before this only the group's own "site name" ("פתיחה" on SectionBlock) was tappable, and
+  // an internal task row itself did nothing except its own ✓ button. `openRow` is a no-op for
+  // the company-wide group (there is no kibbutz to open), matching GroupBlock's own `real` gate.
+  const openRow = groupReal
+    ? () => { track('my-tasks-open', 'internal'); onClose(); try { sigma.openKibbutzModal?.(groupKibbutz); } catch { /* legacy not up */ } }
+    : undefined;
+
   return (
     <div
       className="grid transition-[grid-template-rows]"
@@ -149,21 +158,44 @@ function InternalRow({ row, canAct, onCommitted }: {
       }}
     >
       <div className="overflow-hidden">
-        <ListRow
-          className="internal-task-row"
-          data-id={row.id}
-          title={<bdi>{row.title}</bdi>}
-          meta={<TagsRow tags={tags} />}
-          trailing={canAct ? (
-            <IconBubble
-              size={40}
-              label="סימון כטופל"
-              onClick={close}
-              className={closing ? 'my-task-check-done' : undefined}
-              icon={<Check aria-hidden className="h-5 w-5" />}
-            />
-          ) : null}
-        />
+        {/* A plain div, not ListRow's own onClick (that renders a <button> — nesting the ✓
+            IconBubble's <button> inside it would be invalid markup). The stopPropagation span
+            around the ✓ keeps it working on its own without also opening the kibbutz. */}
+        <div
+          data-testid={openRow ? 'internal-row-open' : undefined}
+          role={openRow ? 'button' : undefined}
+          // An EXPLICIT aria-label, not left to content-based computation: without it this
+          // wrapper's accessible name is built from every descendant's own name, so it would
+          // ALSO match "סימון כטופל" (the nested ✓ button's aria-label) — and since it is the
+          // OUTER element, `getByRole('button', { name: 'סימון כטופל' }).first()` picked THIS
+          // wrapper instead of the real button, opening the kibbutz instead of closing the
+          // task (round 6 QA 1.2 fix-forward — caught by my-tasks.spec.ts's own undo test).
+          aria-label={openRow ? row.title : undefined}
+          tabIndex={openRow ? 0 : undefined}
+          onClick={openRow}
+          onKeyDown={openRow ? (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(); }
+          } : undefined}
+          className={openRow ? 'cursor-pointer' : undefined}
+        >
+          <ListRow
+            className="internal-task-row"
+            data-id={row.id}
+            title={<bdi>{row.title}</bdi>}
+            meta={<TagsRow tags={tags} />}
+            trailing={canAct ? (
+              <span onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                <IconBubble
+                  size={48}
+                  label="סימון כטופל"
+                  onClick={close}
+                  className={closing ? 'my-task-check-done' : undefined}
+                  icon={<Check aria-hidden className="h-5 w-5" />}
+                />
+              </span>
+            ) : null}
+          />
+        </div>
       </div>
     </div>
   );
@@ -185,7 +217,17 @@ function GroupBlock({ group, now, canAct, onClose, onCommitted }: {
         } : undefined}
       >
         {group.ems.map(t => <EmsRow key={'e:' + t.id} task={t} now={now} onClose={onClose} />)}
-        {group.internal.map(r => <InternalRow key={'i:' + r.id} row={r} canAct={canAct} onCommitted={onCommitted} />)}
+        {group.internal.map(r => (
+          <InternalRow
+            key={'i:' + r.id}
+            row={r}
+            canAct={canAct}
+            onCommitted={onCommitted}
+            groupKibbutz={group.kibbutz}
+            groupReal={group.real}
+            onClose={onClose}
+          />
+        ))}
       </SectionBlock>
     </div>
   );

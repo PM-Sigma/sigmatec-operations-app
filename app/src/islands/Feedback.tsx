@@ -27,7 +27,7 @@ import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { sigma, useCurrentUser } from '@/bridge';
 import {
-  FEEDBACK_DRAFT_KEY,
+  FEEDBACK_DRAFT_KEY, FEEDBACK_OPEN_EVENT,
   KINDS, KIND_LABEL, LIVE_NO_RESULT_MS, MIC_START_TIMEOUT_MS, RECORD_CAP_MS,
   canSubmitFeedback, feedbackDraftPayload, feedbackDraftWorthSaving, feedbackPreview,
   feedbackRow, feedbackValidate, parseFeedbackDraft, refineMerge, refinePollDelayMs, refinePollDeadlineMs,
@@ -68,9 +68,6 @@ export function emitFeedbackChanged(detail?: Record<string, unknown>): void {
 // ───────────────────────── the opener (no shared global) ─────────────────────────
 
 let opener: ((kind?: FeedbackKind, prefill?: string) => void) | null = null;
-
-/** The window event the command bar / `runAdd('feedback')` dispatch to open this sheet. */
-export const FEEDBACK_OPEN_EVENT = 'sigma-open-feedback';
 
 /** Open the feedback sheet from anywhere in the React bundle. */
 export function openFeedback(kind?: FeedbackKind, prefill?: string): void {

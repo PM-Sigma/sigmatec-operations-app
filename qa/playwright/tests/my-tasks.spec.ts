@@ -77,12 +77,46 @@ test('closing a task can be undone and writes nothing', async ({ page }, ti) => 
 
   await page.getByTestId('header-my-tasks').click();
   const sheet = page.getByTestId('my-tasks');
+  await expect(sheet).toBeVisible();
   const btn = sheet.getByRole('button', { name: 'סימון כטופל' }).first();
   await btn.click();
   await page.locator('[data-sonner-toast]').getByRole('button', { name: 'ביטול' }).click();
   await page.waitForTimeout(5500);
   expect(writes).toEqual([]);
   await expect(sheet.getByRole('button', { name: 'סימון כטופל' }).first()).toBeVisible();
+
+  await expectNoConsoleErrors(rec);
+});
+
+test('my tasks: tapping anywhere on a 🔒 row opens its kibbutz, not only the ✓ bubble', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await addInternal(page, 'חוקוק', 'לבדוק מד לחץ');
+
+  await page.getByTestId('header-my-tasks').click();
+  const sheet = page.getByTestId('my-tasks');
+  const hukok = sheet.locator('.my-task-group[data-group="חוקוק"]');
+
+  // tapping the row's own clickable wrapper (the ANCESTOR of .internal-task-row) — not the ✓
+  // bubble — opens the kibbutz sheet.
+  await hukok.getByTestId('internal-row-open').filter({ hasText: 'לבדוק מד לחץ' }).click();
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible({ timeout: 15_000 });
+  await expect(sheet).toHaveCount(0); // my-tasks sheet closed itself on navigate, like EmsRow does
+
+  await expectNoConsoleErrors(rec);
+});
+
+test('my tasks: the ✓ bubble on a 🔒 row still just closes the task, it does not also open the kibbutz', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+  await addInternal(page, 'חוקוק', 'לבדוק שסתום');
+
+  await page.getByTestId('header-my-tasks').click();
+  const sheet = page.getByTestId('my-tasks');
+  const hukok = sheet.locator('.my-task-group[data-group="חוקוק"]');
+  await hukok.locator('.internal-task-row', { hasText: 'לבדוק שסתום' })
+    .getByRole('button', { name: 'סימון כטופל' }).click();
+
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toHaveCount(0);
+  await expect(sheet).toBeVisible(); // my-tasks stayed open — only the row's own undo toast fired
 
   await expectNoConsoleErrors(rec);
 });

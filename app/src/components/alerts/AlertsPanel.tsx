@@ -92,17 +92,35 @@ function GroupRow({ g, onSeen }: { g: AlertGroup; onSeen: (g: AlertGroup) => voi
   );
 }
 
-export function AlertsList({ groups, onSeen }: { groups: AlertGroup[]; user: string; onSeen: (g: AlertGroup) => void }) {
+export function AlertsList({ groups, onSeen, onSeenAll }: {
+  groups: AlertGroup[]; user: string; onSeen: (g: AlertGroup) => void; onSeenAll?: () => void;
+}) {
   const [showSeen, setShowSeen] = React.useState(false);
   const unread = groups.filter(g => !g.seen);
   const read = groups.filter(g => g.seen);
   const shown = showSeen ? groups : unread;
+  // "מסומן" (ems_unlinked) has no seen state of its own (canMarkSeen excludes it in GroupRow) —
+  // it must not block "הכל" from disappearing once every REAL alert is read.
+  const markable = unread.filter(g => g.kind !== 'ems_unlinked');
   return (
     <div data-testid="alerts-list">
       {!shown.length && (
         groups.length
           ? <EmptyState icon={<Check />} title="הכול נקרא." />
           : <EmptyState icon={<Bell />} title="עוד לא נשלחו התראות." />
+      )}
+      {markable.length > 1 && onSeenAll && (
+        // Round 6, QA 1.1 (עידן's phone QA: "alerts keep popping up") — a bulk action so the
+        // badge can actually drop to zero instead of tapping ✓ once per group.
+        <BubbleButton
+          variant="tonal"
+          size="sm"
+          className="mb-2 w-full"
+          data-testid="alerts-mark-all-seen"
+          onClick={onSeenAll}
+        >
+          סימון הכל כנקרא
+        </BubbleButton>
       )}
       {!!shown.length && <ul className="-mx-4">{shown.map(g => <GroupRow key={g.key} g={g} onSeen={onSeen} />)}</ul>}
       {!!read.length && (

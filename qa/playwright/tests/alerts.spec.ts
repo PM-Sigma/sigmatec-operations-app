@@ -89,6 +89,30 @@ test('what was marked read is still read after a reload', async ({ page }, ti) =
   await expectNoConsoleErrors(rec);
 });
 
+// Round 6, QA 1.1 — עידן: "alerts keep popping up". One tap clears every unread group instead
+// of tapping ✓ per row, and it really persists (the same RPC per row, then a reload agrees).
+test('סימון הכל כנקרא clears every unread group in one tap and it sticks after reload', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti);
+
+  await page.getByTestId('alerts-bell').click();
+  const list = page.getByTestId('alerts-list');
+  await expect(list).toBeVisible({ timeout: 15_000 });
+  await expect(list.getByTestId('alert-group')).toHaveCount(3);
+
+  await list.getByTestId('alerts-mark-all-seen').click();
+  await expect(list.getByTestId('alert-group')).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId('alerts-badge')).toHaveCount(0);
+  await expect(page.getByTestId('alerts-mark-all-seen')).toHaveCount(0); // nothing left to bulk-mark
+
+  const alerts = await rows(page, 'inventory_alerts');
+  expect(alerts.find(a => a.id === 'ia-1').seen_by).toContain('עידן');
+
+  await page.reload();
+  await expect(page.getByTestId('alerts-badge')).toHaveCount(0);
+
+  await expectNoConsoleErrors(rec);
+});
+
 // The other half of the same rule: a write that did NOT reach the database must not look like
 // one. The row comes back unread and the person is told, instead of a silent lie that a refetch
 // undoes minutes later.
