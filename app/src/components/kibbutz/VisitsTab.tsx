@@ -25,6 +25,11 @@ function DraftRow({ kibbutz }: { kibbutz: string }) {
   const draft = useVisitDraft(kibbutz);
   if (!draft) return null;
   const time = draftTimeLabel(draft.updated_at);
+  // Designer round 5 V-U4 review: the row said only a time, never which day the draft's OWN
+  // date field is for — the draft's date is always "today" here (useVisitDraft filters to it),
+  // but the label should still name it explicitly rather than leave the day implicit.
+  const dateBits = draft.date ? new Date(draft.date + 'T00:00:00') : null;
+  const date = dateBits && !isNaN(dateBits.getTime()) ? fmtDay(dateBits, new Date()) : '';
   const discard = () => {
     void sigma?.visitDraftDiscard?.(draft.id);
     toast('הטיוטה נמחקה', {
@@ -35,7 +40,7 @@ function DraftRow({ kibbutz }: { kibbutz: string }) {
   return (
     <ListRow
       data-testid="visit-draft-row"
-      title={<span className="line-clamp-2">{'טיוטה פתוחה' + (time ? ' · ' + time : '')}</span>}
+      title={<span className="line-clamp-2">{'טיוטה פתוחה' + (date ? ' · ' + date : '') + (time ? ' · ' + time : '')}</span>}
       onClick={() => openNew(kibbutz)}
       trailing={<IconBubble icon={<Trash2 className="h-4 w-4" />} label="מחיקת טיוטה" size={32} onClick={discard} />}
     />

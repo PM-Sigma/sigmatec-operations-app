@@ -251,17 +251,21 @@ test('chapters: a backdrop tap on a half-typed summary asks instead of losing it
   await page.mouse.click(5, 5);
   await expect(page.getByTestId('unsaved-guard')).toBeVisible();
   await expect(page.getByTestId('visit-chapters')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'לבטל ולחזור אחר כך' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'להמשיך לסיים' })).toBeVisible();
+  // Designer round 5 V-U4 review: the title states the choice, the buttons say their result.
+  await expect(page.getByText('לצאת בלי לשמור?')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'למחוק את הטיוטה' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'להמשיך לערוך' })).toBeVisible();
 
-  // "להמשיך לסיים" leaves him exactly where he was, with his words.
-  await page.getByRole('button', { name: 'להמשיך לסיים' }).click();
+  // "להמשיך לערוך" leaves him exactly where he was, with his words.
+  await page.getByRole('button', { name: 'להמשיך לערוך' }).click();
   await expect(page.getByTestId('unsaved-guard')).toHaveCount(0);
   await expect(page.getByTestId('vc-summary')).toHaveValue('התחלתי לכתוב ואז קראו לי');
 
-  // "לבטל ולחזור אחר כך" closes — the draft stays (autosave already wrote it; nothing is deleted).
+  // "למחוק את הטיוטה" closes — the draft mirror actually stays (autosave already wrote it, and
+  // this still persists it on the way out so the last keystroke isn't lost either); the copy
+  // describes the FILED visit never happening, not the local draft mechanics.
   await page.mouse.click(5, 5);
-  await page.getByRole('button', { name: 'לבטל ולחזור אחר כך' }).click();
+  await page.getByRole('button', { name: 'למחוק את הטיוטה' }).click();
   await expect(page.getByTestId('visit-chapters')).toBeHidden();
   await expect.poll(() => draftRows(page), { timeout: 10_000 }).toHaveLength(1);
   expect(await localVisits(page)).toHaveLength(0);

@@ -21,6 +21,7 @@ import {
   Plus, Save, Search, Send, Square, Sun, Trash2, Truck, X,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ShimmerButton } from '@/components/ui/shimmer-button';
@@ -56,6 +57,7 @@ import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTra
 import { speechLadder } from '@/lib/feedback';
 // Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
 import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
+import { type AttAsk } from '@/lib/visitAttendance';
 import { visitEditLocked, visitToChapters, type VisitRowLike } from '@/lib/visitEdit';
 import { APP_PEOPLE } from '@/lib/people';
 import { contactChoices, useKibbutzContacts } from '@/lib/visitContacts';
@@ -614,7 +616,10 @@ const Chapter = ({ id, name, required, miss, children }: {
   <section
     id={name ? 'vc-field-' + name : undefined}
     data-testid={'vc-chapter-' + id}
-    className="scroll-mt-4"
+    // Designer round 5 V-U4 review: "מוצרים/מלאי" landed with its own heading flush against
+    // the scroll container's top edge (the 🚚 jump / a failed שלח's scroll-to-chapter) —
+    // clipped-looking even though nothing was actually cut off. More top clearance.
+    className="scroll-mt-6"
   >
     <h3 className="mb-1.5 text-[15px] font-extrabold">
       {CHAPTERS.find(c => c.id === id)?.title}
@@ -742,7 +747,11 @@ function ProductSearch({ catalog, onPick, freeText, onFreeText }: {
   return (
     <div className="flex flex-col gap-2">
       <Field2 label="מוצרים נוספים">
-        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2">
+        {/* Designer round 5 V-U4 review: the input's own `outline-none` left nothing in its
+            place — some browsers then fall back to a hard black default ring. The DS focus
+            treatment (border + ring) lives on the WRAPPER via focus-within, same brand color
+            every other text field in this sheet uses on focus. */}
+        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 focus-within:border-[color:var(--brand-1)] focus-within:ring-2 focus-within:ring-[color:var(--brand-1)]/20">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             data-testid="vc-product-search"
@@ -1105,6 +1114,13 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const [sentVisitId, setSentVisitId] = React.useState('');
   /** The id this sheet already filed. A second שלח on it does nothing at all. */
   const sentRef = React.useRef('');
+  // Designer round 5 V-U4 review: rule 2's conflict question ("הוזן X, לשנות לשטח?") is a real
+  // decision, not a heads-up — a DS Dialog over the sheet, not a toast that can sit under the
+  // header. A queue (not a single ask) because a visit can name two filers (אביאם + ניתאי) who
+  // each get their own conflict independently.
+  const [conflictAsks, setConflictAsks] = React.useState<AttAsk[]>([]);
+  /** "שם אחר" under the contact chips — see the contact Field2 below. */
+  const [showOtherContact, setShowOtherContact] = React.useState(false);
   // Round 5 V-L4b: `sigma.openVisitEditor({..., mode:'edit'|'cert'})` loaded a FILED visit rather
   // than a resumed draft. `editing` turns persist() into a no-op (legacy behaviour: an edit writes
   // no draft, 09-visits.js:705-706) and is what V-U1 reads to render the sheet's edit-mode chrome.
@@ -1365,16 +1381,16 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         track('visit-chapters-send', cur.kibbutz);
         // Opus audit: honour the attendance write's own result — it is a SEPARATE call from the
         // visit save, and it can fail on its own (the visit is still filed either way).
-        if (res.attendanceOk) toast.success(res.toast);
-        else toast.error('הסיכום נשמר, אך עדכון הנוכחות נכשל');
-        // Rule 2 conflict ("הוזן X, לשנות לשטח?") and rule 3 "needs entry" popups — the plain
-        // toast wiring V-L5 owns; V-U1 restyles both onto the design-system Sheet/ConfirmSheet.
-        for (const ask of res.asks) {
-          toast(conflictQuestion(ask), {
-            action: { label: 'שינוי לשטח', onClick: () => { void sigma.attApply?.(resolveConflict(ask, true)); } },
-          });
-        }
-        for (const popup of res.popups) toast(popup);
+        // Designer round 5 V-U4 review: bottom placement, never over the header (S-U owns the
+        // toaster's own global repositioning — this only keeps OUR calls off the top).
+        const toastOpts = { position: 'bottom-center' as const };
+        if (res.attendanceOk) toast.success(res.toast, toastOpts);
+        else toast.error('הסיכום נשמר, אך עדכון הנוכחות נכשל', toastOpts);
+        // Rule 2 conflict ("הוזן X, לשנות לשטח?") is a real decision — a DS Dialog (below),
+        // queued one at a time, not a toast. Rule 3 "needs entry" stays a toast (a heads-up,
+        // nothing to decide).
+        if (res.asks.length) setConflictAsks(prev => [...prev, ...res.asks]);
+        for (const popup of res.popups) toast(popup, toastOpts);
 
         // The EMS comments went out inside saveVisitFromData (`emsComment` above). Every selected
         // internal task is marked done here.
@@ -1675,7 +1691,11 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
               <Chapter id={5}>
                 <div className="flex flex-col gap-3">
                   <Field2 label="כמה זמן היית שם" name="hours" required miss={has('hours')}>
-                    <div className="flex flex-wrap gap-1.5">
+                    {/* Designer round 5 V-U4 review: at 360px flex-wrap left "יום שלם" alone on
+                        its own line with the manual box stranded beside it. A fixed 3-column
+                        grid keeps the 6 chips in two full, even rows; the manual box gets its
+                        own full-width row below instead of trailing off the last one. */}
+                    <div className="grid grid-cols-3 gap-1.5">
                       {HOUR_CHIPS.map(h => {
                         const on = !d.workday && parseFloat(String(d.duration || '')) === h;
                         return (
@@ -1684,7 +1704,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                             type="button"
                             data-testid={'vc-hours-' + h}
                             onClick={() => set({ workday: false, duration: on ? '' : String(h) })}
-                            className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' + (on ? CHIP_ON : CHIP_OFF)}
+                            className={'min-h-[40px] w-full rounded-xl border px-3 text-[14px] font-bold ' + (on ? CHIP_ON : CHIP_OFF)}
                           >
                             <bdi>{h}</bdi> ש׳
                           </button>
@@ -1694,25 +1714,25 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                         type="button"
                         data-testid="vc-workday"
                         onClick={() => set({ workday: !d.workday, duration: '' })}
-                        className={'min-h-[40px] flex-none rounded-xl border px-3 text-[14px] font-bold ' + (d.workday ? CHIP_ON : CHIP_OFF)}
+                        className={'min-h-[40px] w-full rounded-xl border px-3 text-[14px] font-bold ' + (d.workday ? CHIP_ON : CHIP_OFF)}
                       >
                         יום שלם
                       </button>
-                      {/* C1: the manual box shows an EXAMPLE, not a label. */}
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0.25}
-                        step={0.25}
-                        data-testid="vc-hours-manual"
-                        disabled={!!d.workday}
-                        value={d.workday ? '' : (HOUR_CHIPS.includes(parseFloat(String(d.duration || ''))) ? '' : (d.duration || ''))}
-                        onChange={e => set({ workday: false, duration: e.target.value })}
-                        placeholder="1.5"
-                        aria-label="שעות, הזנה ידנית"
-                        className="h-[40px] w-[74px] flex-none rounded-xl border border-border bg-muted text-center text-[14px] outline-none disabled:opacity-45"
-                      />
                     </div>
+                    {/* C1: the manual box shows an EXAMPLE, not a label. */}
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0.25}
+                      step={0.25}
+                      data-testid="vc-hours-manual"
+                      disabled={!!d.workday}
+                      value={d.workday ? '' : (HOUR_CHIPS.includes(parseFloat(String(d.duration || ''))) ? '' : (d.duration || ''))}
+                      onChange={e => set({ workday: false, duration: e.target.value })}
+                      placeholder="1.5"
+                      aria-label="שעות, הזנה ידנית"
+                      className="mt-1.5 h-[40px] w-full rounded-xl border border-border bg-muted text-center text-[14px] outline-none disabled:opacity-45"
+                    />
                   </Field2>
 
                   <Field2 label="תאריך הביקור" name="date" required miss={has('date')}>
@@ -1729,6 +1749,14 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     <div className="flex flex-col gap-1.5">
                       {(() => {
                         const { chips, isNew } = contactChoices(contactsQ.names, d.contact || '');
+                        // Designer round 5 V-U4 review: once a chip is picked it already shows
+                        // the name — the free-text box under it repeating the same word read as
+                        // redundant. Hidden once a chip matches; "שם אחר" brings it back for a
+                        // name not in the list.
+                        const chipMatches = chips.includes((d.contact || '').trim());
+                        const showOther = showOtherContact;
+                        const setShowOther = setShowOtherContact;
+                        const boxVisible = !chipMatches || showOther;
                         return (
                           <>
                             {!!chips.length && (
@@ -1737,22 +1765,33 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                                   <button
                                     key={c}
                                     type="button"
-                                    onClick={() => set({ contact: c })}
+                                    onClick={() => { setShowOther(false); set({ contact: c }); }}
                                     className={'min-h-[38px] flex-none rounded-xl border px-3 text-[13px] font-bold ' +
                                       ((d.contact || '').trim() === c ? CHIP_ON : CHIP_OFF)}
                                   >
                                     {c}
                                   </button>
                                 ))}
+                                {chipMatches && !showOther && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowOther(true)}
+                                    className="min-h-[38px] flex-none rounded-xl border border-dashed border-border px-3 text-[13px] font-bold text-muted-foreground"
+                                  >
+                                    שם אחר
+                                  </button>
+                                )}
                               </div>
                             )}
-                            <input
-                              data-testid="vc-contact"
-                              value={d.contact || ''}
-                              onChange={e => set({ contact: e.target.value })}
-                              placeholder="מי ליווה אותך בקיבוץ"
-                              className={LINE}
-                            />
+                            {boxVisible && (
+                              <input
+                                data-testid="vc-contact"
+                                value={d.contact || ''}
+                                onChange={e => set({ contact: e.target.value })}
+                                placeholder="מי ליווה אותך בקיבוץ"
+                                className={LINE}
+                              />
+                            )}
                             {isNew && (
                               <span className="text-[12px] text-muted-foreground">יתווסף לאנשי הקשר של הקיבוץ</span>
                             )}
@@ -1865,9 +1904,12 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                 onClick={() => void send()}
                 data-testid="vc-send"
                 disabled={sending}
-                background="var(--brand-grad)"
-                // text-[var(--s-on-brand)], not text-white — see the "סיכום ביקור" CTA above.
-                className="min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold text-[var(--s-on-brand)] disabled:opacity-50"
+                // Designer round 5 V-U4 review: a dimmed GRADIENT read as broken/half-loaded in
+                // dark mode ("שולח…" showing muddy brand colors) — disabled gets the plain muted
+                // surface every other disabled control in this sheet uses, not the brand gradient.
+                background={sending ? 'hsl(var(--muted))' : 'var(--brand-grad)'}
+                className={'min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold ' +
+                  (sending ? 'text-muted-foreground' : 'text-[var(--s-on-brand)]')}
               >
                 <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
               </ShimmerButton>
@@ -1876,6 +1918,34 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         </div>
         {guard.prompt}
       </SheetContent>
+      {conflictAsks[0] && (
+        <Dialog open onOpenChange={v => { if (!v) setConflictAsks(prev => prev.slice(1)); }}>
+          <DialogContent dir="rtl" className="max-w-sm" data-testid="vc-attendance-conflict">
+            <DialogHeader>
+              <DialogTitle className="text-[15px] font-extrabold">
+                {conflictQuestion(conflictAsks[0])}
+              </DialogTitle>
+              <DialogDescription>{conflictAsks[0].person} · {conflictAsks[0].ymd}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex-col gap-2 sm:flex-col">
+              <ShimmerButton
+                onClick={() => { void sigma.attApply?.(resolveConflict(conflictAsks[0], true)); setConflictAsks(prev => prev.slice(1)); }}
+                background="var(--brand-grad)"
+                className="min-h-[44px] w-full rounded-xl text-[15px] font-extrabold text-[var(--s-on-brand)]"
+              >
+                שינוי לשטח
+              </ShimmerButton>
+              <button
+                type="button"
+                onClick={() => setConflictAsks(prev => prev.slice(1))}
+                className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted"
+              >
+                השארה כפי שהיה
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Sheet>
   );
 }

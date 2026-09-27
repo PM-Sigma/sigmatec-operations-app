@@ -40,8 +40,11 @@ export const UNSAVED_KEEP = 'להמשיך';
 // to these two. 'visit' (a new/resumed draft, autosaved already — leaving never loses it): "לבטל ולחזור
 // אחר כך" (leave, the draft stays) / "להמשיך לסיים" (stay). 'visitEdit' (editing a filed visit — there is
 // no draft to keep, per V-L4b): "לצאת בלי לשמור" (leave, the edit is dropped) / "להמשיך לערוך" (stay).
-export const VISIT_PROMPT_LEAVE_NEW = 'לבטל ולחזור אחר כך';
-export const VISIT_PROMPT_STAY_NEW = 'להמשיך לסיים';
+// Designer round 5 V-U4 review: the title states the choice, and each button says its own
+// result — "לבטל ולחזור אחר כך" / "להמשיך לסיים" read as unclear from the screenshots.
+export const VISIT_PROMPT_TITLE_NEW = 'לצאת בלי לשמור?';
+export const VISIT_PROMPT_LEAVE_NEW = 'למחוק את הטיוטה';
+export const VISIT_PROMPT_STAY_NEW = 'להמשיך לערוך';
 export const VISIT_PROMPT_LEAVE_EDIT = 'לצאת בלי לשמור';
 export const VISIT_PROMPT_STAY_EDIT = 'להמשיך לערוך';
 
@@ -137,12 +140,14 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
       className="absolute inset-0 z-[70] grid place-items-center rounded-[inherit] bg-black/60 p-4"
       role="alertdialog"
       aria-modal="true"
-      aria-label={UNSAVED_TITLE}
+      aria-label={variant === 'visit' ? VISIT_PROMPT_TITLE_NEW : UNSAVED_TITLE}
       data-testid="unsaved-guard"
       dir="rtl"
     >
       <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 shadow-lg">
-        <div className="text-[15px] font-extrabold text-foreground">{UNSAVED_TITLE}</div>
+        <div className="text-[15px] font-extrabold text-foreground">
+          {variant === 'visit' ? VISIT_PROMPT_TITLE_NEW : UNSAVED_TITLE}
+        </div>
         {!variant && <p className="mt-1 text-[13px] text-muted-foreground">{UNSAVED_BODY}</p>}
         <div className="mt-4 flex flex-col gap-2">
           {variant ? (
@@ -158,9 +163,10 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
               <button
                 type="button"
                 data-testid="unsaved-discard"
-                // 'visit' (a new/resumed draft): "לבטל ולחזור אחר כך" means the draft survives, so
-                // this persists (onSave, e.g. saveAndClose) before closing — closing alone could
-                // race the 800 ms autosave debounce and lose the last few keystrokes. 'visitEdit'
+                // 'visit' (a new/resumed draft): the draft ALREADY autosaved as he typed, so
+                // "למחוק את הטיוטה" here means the FILED visit never happens — this still calls
+                // onSave (saveAndClose) first so the last few keystrokes (inside the 800 ms
+                // autosave debounce) aren't lost from the surviving draft either. 'visitEdit'
                 // has no draft to persist: leaving just closes, per the ruling ("לצאת בלי לשמור").
                 onClick={variant === 'visitEdit' ? close : () => void doSave()}
                 className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted"

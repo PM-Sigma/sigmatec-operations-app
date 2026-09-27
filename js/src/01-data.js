@@ -104,13 +104,10 @@
   // sigma.openKibbutzModal (js/src/00-bridge.js, K-L3), wired to the delegated click in
   // js/src/10-activity.js.
 
-  // Kept for the callers that close the visit modal AFTER a successful save (09-visits.js,
-  // 04-attendance-daily.js): those must not be asked whether to keep a draft they just wrote.
-  // Every ACCIDENTAL dismiss goes through `modalDismiss('modalBackdrop')` instead (§7p, F1/F4).
-  function closeModal(e) {
-    if (e && e.target && e.target.id !== 'modalBackdrop') return;
-    modalForceClose('modalBackdrop');
-  }
+  // closeModal (closed #modalBackdrop after a successful legacy-form save, 09-visits.js /
+  // 04-attendance-daily.js saveAttendance) is gone — round 5 V-U4B. Both callers and the
+  // element itself were retired in V-U3/here; `modalDismiss('modalBackdrop')` was always the
+  // ACCIDENTAL-dismiss path and needed no replacement.
 
   // ponytail: "💬 הערה" tab removed per request — sendComment/toggleCustomName deleted with it.
 
