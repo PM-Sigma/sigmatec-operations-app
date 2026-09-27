@@ -361,3 +361,26 @@ are **control** actions. They stay out of this page unless עידן rules otherw
   - **Open technical point:** ModbusClient is only reachable from EMS's network. With no change allowed to EMS, a read of an arbitrary IP is possible only through the EMS endpoint's existing parameter override. That is the behaviour flagged above as a security issue. Decide with עידן before building.
 - **Access:** all staff.
 - **Multi-circuit meters:** one card per circuit on the device.
+
+### Decision 27.9 (עידן, explicit): manual entry reads ANY IP through the EMS override
+- **Decided:** a manual read/ping goes through EMS's existing `...dto.params` override (finding F1). No change to EMS
+  or ModbusClient. The `field-ops` function builds the override itself and sends **only** the keys that differ from
+  the carrier meter's PG row, and only `meterIpAddress` / `meterDeviceId` / `meterModbusType` (ping: IP only). Input is
+  strict: IPv4 dotted-quad only, unit an integer 1–247, type a known Modbus EMS type code, no other field accepted.
+- **Carrier meter:** when the typed IP+unit matches an EMS meter, that meter is used and its multipliers apply. When
+  nothing matches, any Modbus meter with an IP carries the request, and the reading is shown **without** EMS
+  multipliers, marked "לא רשום ב-EMS".
+- **Status line (עידן, 27.9):** after an IP is typed the page says how many EMS meters it leads to ("ה-IP הזה מוביל
+  ל-2 מונים ב-EMS" + a table kibbutz · meter · address), or "ה-IP הזה לא מוקם ב-EMS — המונה לא רשום". With a unit
+  typed, it also says whether THAT meter (IP + unit) is registered.
+- **Known security gap (accepted, documented):** any staff EMS admin/site/ops manager can aim a Modbus read or ping at
+  any IP on the APN, and EMS logs it under the carrier meter, not the real target (the audit trail names the wrong
+  meter). The function limits the blast radius (staff pass + EMS role, Modbus ops only, no DLMS/Chint, no free
+  params), but the root fix (F1: EMS stops letting params override PG values, plus an ad-hoc read E3 with its own
+  log) belongs to the EMS owners.
+
+### Build (27.9, branch r9/field-ops)
+F1 `supabase/functions/field-ops` (not deployed) · F2 gateway ops · F3 `lib/fieldops/modbusScale.ts` with the
+per-model correction table (applied only while the reply has no `Units: "eng-v2"` marker) · F4 the FieldOps island.
+The EMS meter list has no last-reading value (only `lastTransmission.callDate`), so the FT cross-check of §5 shows
+the last transmission time only; the correction table + the ⚠ "לא מאומת" tags carry the safety net.
