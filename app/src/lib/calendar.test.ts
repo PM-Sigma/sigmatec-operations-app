@@ -341,6 +341,12 @@ describe('round 5 · C1 — kibbutz blocks on a future day', () => {
     expect(yagur.tasks[0]).toMatchObject({ overdue: true, due: '2026-09-20', onThisDay: false });
     expect(blocks.find(b => b.kibbutz === 'חוקוק')!.tasks[0]).toMatchObject({ key: 'ems:e3', onThisDay: true });
   });
+  it('a kibbutz block lists ALL of the open tasks, not just the first one (QA 4.3, 27.9)', () => {
+    const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם'], emsTasks: ems, internalTasks: internal });
+    const yagur = blocks.find(b => b.kibbutz === 'יגור')!;
+    expect(yagur.tasks).toHaveLength(3);
+    expect(yagur.tasks.map(t => t.key)).toEqual(['ems:e2', 'ems:e1', 'internal:i1']);
+  });
   it('the peer’s tasks join only when asked for, with their owner on them', () => {
     const blocks = planBlocks({ date: DAY, today: TODAY, owners: ['אביאם', 'ניתאי'], emsTasks: ems });
     expect(blocks.find(b => b.kibbutz === 'דגניה')!.tasks[0]).toMatchObject({ key: 'ems:e4', owner: 'ניתאי' });
@@ -666,10 +672,10 @@ describe('round 5 · C5 — red only for the people who file', () => {
     expect(missingInView('עידן', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
     expect(missingInView('אביאם', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBeGreaterThan(0);
   });
-  it('the legend always shows purple and green, and red only for a filer', () => {
-    expect(legendItems('עידן').map(i => i.key)).toEqual(['holiday', 'eve', 'reported']);
-    expect(legendItems('ניתאי').map(i => i.key)).toEqual(['holiday', 'eve', 'reported', 'missing']);
-    expect(legendItems('ניתאי').map(i => i.label)).toEqual(['חג', 'ערב חג', 'דווחה נוכחות', 'לא דווחה נוכחות']);
+  it('the legend always shows purple, and red only for a filer (no attendance dot — QA 4.1)', () => {
+    expect(legendItems('עידן').map(i => i.key)).toEqual(['holiday', 'eve']);
+    expect(legendItems('ניתאי').map(i => i.key)).toEqual(['holiday', 'eve', 'missing']);
+    expect(legendItems('ניתאי').map(i => i.label)).toEqual(['חג', 'ערב חג', 'לא דווחה נוכחות']);
   });
 });
 

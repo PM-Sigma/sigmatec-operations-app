@@ -562,11 +562,11 @@ test('calendar: a day he never reported is RED on the grid, with a legend (F-4 �
 
 // ───────────────────────────── round 5 · C-U1: whose calendar, the legend ─────────────────
 
-test('calendar r5: no red for עידן; the legend always shows purple and green', async ({ page }, ti) => {
+test('calendar r5: no red for עידן; the legend always shows purple, no attendance dot (QA 4.1)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'עידן' });
   await openCalendar(page);
   await expect(page.locator('[data-testid="cal-grid"] [data-state="missing"]')).toHaveCount(0);
-  await expect(page.getByTestId('cal-legend').locator('[data-legend]')).toHaveText(['חג', 'ערב חג', 'דווחה נוכחות']);
+  await expect(page.getByTestId('cal-legend').locator('[data-legend]')).toHaveText(['חג', 'ערב חג']);
   expectNoConsoleErrors(rec);
 });
 
