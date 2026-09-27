@@ -162,7 +162,15 @@ function InternalRow({ row, canAct, onCommitted, groupKibbutz, groupReal, onClos
             IconBubble's <button> inside it would be invalid markup). The stopPropagation span
             around the ✓ keeps it working on its own without also opening the kibbutz. */}
         <div
+          data-testid={openRow ? 'internal-row-open' : undefined}
           role={openRow ? 'button' : undefined}
+          // An EXPLICIT aria-label, not left to content-based computation: without it this
+          // wrapper's accessible name is built from every descendant's own name, so it would
+          // ALSO match "סימון כטופל" (the nested ✓ button's aria-label) — and since it is the
+          // OUTER element, `getByRole('button', { name: 'סימון כטופל' }).first()` picked THIS
+          // wrapper instead of the real button, opening the kibbutz instead of closing the
+          // task (round 6 QA 1.2 fix-forward — caught by my-tasks.spec.ts's own undo test).
+          aria-label={openRow ? row.title : undefined}
           tabIndex={openRow ? 0 : undefined}
           onClick={openRow}
           onKeyDown={openRow ? (e: React.KeyboardEvent) => {

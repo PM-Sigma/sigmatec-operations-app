@@ -77,6 +77,7 @@ test('closing a task can be undone and writes nothing', async ({ page }, ti) => 
 
   await page.getByTestId('header-my-tasks').click();
   const sheet = page.getByTestId('my-tasks');
+  await expect(sheet).toBeVisible();
   const btn = sheet.getByRole('button', { name: 'סימון כטופל' }).first();
   await btn.click();
   await page.locator('[data-sonner-toast]').getByRole('button', { name: 'ביטול' }).click();
@@ -94,11 +95,11 @@ test('my tasks: tapping anywhere on a 🔒 row opens its kibbutz, not only the �
   await page.getByTestId('header-my-tasks').click();
   const sheet = page.getByTestId('my-tasks');
   const hukok = sheet.locator('.my-task-group[data-group="חוקוק"]');
-  const row = hukok.locator('.internal-task-row', { hasText: 'לבדוק מד לחץ' });
 
-  // tapping the row's own title/meta area — not the ✓ bubble — opens the kibbutz sheet.
-  await row.locator('bdi', { hasText: 'לבדוק מד לחץ' }).click();
-  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
+  // tapping the row's own clickable wrapper (the ANCESTOR of .internal-task-row) — not the ✓
+  // bubble — opens the kibbutz sheet.
+  await hukok.getByTestId('internal-row-open').filter({ hasText: 'לבדוק מד לחץ' }).click();
+  await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible({ timeout: 15_000 });
   await expect(sheet).toHaveCount(0); // my-tasks sheet closed itself on navigate, like EmsRow does
 
   await expectNoConsoleErrors(rec);
