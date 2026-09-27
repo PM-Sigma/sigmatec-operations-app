@@ -120,13 +120,14 @@ export function errorText(e: unknown): string {
     case 'network': return 'אין חיבור לאינטרנט — בדוק את הרשת ונסה שוב';
     case 'ems-forbidden': return 'אין לך הרשאה לפעולות מונה ב-EMS';
     case 'not-found': return 'המונה לא נמצא ב-EMS';
-    case 'ems-bad-request':
-      if (/IP address/i.test(d)) return 'למונה אין כתובת IP ב-EMS';
-      if (/type mapping/i.test(d)) return 'סוג המונה ב-EMS לא ממופה ל-ModbusClient';
-      if (/not available/i.test(d)) return 'הפעולה לא זמינה למונה הזה ב-EMS';
-      return 'EMS דחה את הבקשה' + (d ? ': ' + d : '');
+    case 'no-ip': return 'למונה אין כתובת IP ב-EMS';
+    case 'no-type-map': return 'סוג המונה ב-EMS לא ממופה ל-ModbusClient';
+    case 'not-available': return 'הפעולה לא זמינה למונה הזה ב-EMS';
+    case 'no-carrier': return 'לא נמצא ב-EMS מונה מודבוס שדרכו אפשר לקרוא';
+    case 'ems-bad-request': return 'EMS דחה את הבקשה';
     default:
       if (/forbidden/i.test(String(any?.code || any?.message || ''))) return 'הדף פתוח לצוות בלבד';
-      return 'שגיאה בתקשורת' + (d || any?.message ? ': ' + (d || any?.message) : '');
+      // `detail` is the function's own fixed Hebrew text, never EMS's.
+      return d || 'שגיאה בתקשורת';
   }
 }

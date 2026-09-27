@@ -40,7 +40,8 @@ export async function fieldOpsCall(payload: Record<string, unknown>, timeoutMs: 
   if (!r.ok) {
     const code = typeof d?.error === 'string' ? d.error : 'http-' + r.status;
     if (code === 'ems-session') throw sessionLost('field-ops-401');
-    throw new FieldOpsError(code, r.status, typeof d?.detail === 'string' ? d.detail : '');
+    // `message` is the function's own fixed Hebrew sentence — EMS text never reaches the browser.
+    throw new FieldOpsError(code, r.status, typeof d?.message === 'string' ? d.message : '');
   }
   return d;
 }

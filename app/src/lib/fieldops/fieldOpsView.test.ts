@@ -89,8 +89,10 @@ describe('errorText', () => {
   it('maps every function error code', () => {
     expect(errorText({ code: 'timeout' })).toContain('לא ענה בזמן');
     expect(errorText({ code: 'ems-forbidden' })).toBe('אין לך הרשאה לפעולות מונה ב-EMS');
-    expect(errorText({ code: 'ems-bad-request', detail: 'Meter does not have an IP address configured' })).toBe('למונה אין כתובת IP ב-EMS');
-    expect(errorText({ code: 'ems-bad-request', detail: 'No MODBUS meter type mapping for meter type 99' })).toBe('סוג המונה ב-EMS לא ממופה ל-ModbusClient');
+    expect(errorText({ code: 'no-ip' })).toBe('למונה אין כתובת IP ב-EMS');
+    expect(errorText({ code: 'no-type-map' })).toBe('סוג המונה ב-EMS לא ממופה ל-ModbusClient');
+    expect(errorText({ code: 'ems-bad-request', detail: 'raw EMS text' })).toBe('EMS דחה את הבקשה');
+    expect(errorText({ code: 'ems-error', detail: 'שגיאה בתקשורת עם EMS' })).toBe('שגיאה בתקשורת עם EMS');
     expect(errorText({ code: 'forbidden: staff only' })).toBe('הדף פתוח לצוות בלבד');
     expect(errorText({ sessionLost: true })).toBe('החיבור ל-EMS פג — צריך להתחבר מחדש');
     expect(errorText({ code: 'network' })).toContain('אין חיבור');
