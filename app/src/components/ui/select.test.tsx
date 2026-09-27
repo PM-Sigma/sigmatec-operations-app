@@ -3,29 +3,24 @@
 // with no `.sigma-root` wrapper — unlike sheet.tsx's own SheetPortal — so nested one level
 // inside a Sheet its options rendered unstyled/unpositioned under the sheet's own overlay
 // (Tailwind's `important: '.sigma-root'` only emits utilities under that selector). This
-// guards the fix: SelectContent must portal inside a `.sigma-root` wrapper, same as Sheet.
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+// guards the fix directly on SelectPortal — not through the full interactive <Select> open
+// flow, which drives Radix's real popper/ResizeObserver machinery that jsdom has nothing to
+// back, and hangs the test worker instead of ever failing cleanly.
+import { describe, expect, it, afterEach } from 'vitest';
+import { cleanup, render } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
+import { SelectPortal } from './select';
 
-// jsdom has no layout engine, so Radix's own scrollIntoView-on-open effect has nothing real
-// to call — stub it the same way the DS's other Radix-heavy suites do.
-if (!Element.prototype.scrollIntoView) {
-  Element.prototype.scrollIntoView = () => {};
-}
+afterEach(cleanup);
 
-describe('Select — portal wrapper', () => {
-  it('portals SelectContent inside a .sigma-root wrapper (same contract as SheetPortal)', () => {
+describe('SelectPortal', () => {
+  it('wraps its children in a .sigma-root/[data-sigma-portal] element, same contract as SheetPortal', () => {
     render(
-      <Select open value="a" onValueChange={() => {}}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="a">אפשרות א׳</SelectItem>
-        </SelectContent>
-      </Select>,
+      <SelectPortal>
+        <div data-testid="option">אפשרות א׳</div>
+      </SelectPortal>,
     );
-    const option = screen.getByRole('option', { name: 'אפשרות א׳' });
+    const option = document.querySelector('[data-testid="option"]')!;
     const sigmaRoot = option.closest('[data-sigma-portal]');
     expect(sigmaRoot).not.toBeNull();
     expect(sigmaRoot).toHaveClass('sigma-root');
