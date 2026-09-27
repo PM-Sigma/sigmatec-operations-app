@@ -1,6 +1,7 @@
 # פעולות שטח — page 1: קריאת מודבוס (23.9.2026)
 
-STATUS: 🟡 OPEN — NOT built. Research + design only. Base `origin/main` b9ab18a (2.28).
+STATUS: 🟡 BUILT on branch r9/field-ops (27.9, F1–F4), NOT deployed / NOT merged. Resume: deploy `field-ops`
+(secrets EMS_API_BASE, JWT_SECRET, APP_ORIGIN), live smoke with a real meter, then merge. Original base `origin/main` b9ab18a (2.28).
 Resume: (1) get עידן's answers to §11; (2) land the ModbusClient + EMS prerequisites in §9 (other repos, other
 owners); (3) verify the golden table in §6 on real hardware, one row per model; (4) only then build the app
 packages in §10 on the round-5 design system, after round 5 closes (§12).
