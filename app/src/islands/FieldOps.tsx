@@ -388,7 +388,7 @@ function ModbusReader() {
           ) : (
             <>
               <Field label="כתובת IP *" htmlFor="foIp">
-                <input id="foIp" className={box} dir="ltr" inputMode="decimal" value={ip} onChange={e => setIp(e.target.value)} placeholder="192.168.1.100" autoComplete="off" />
+                <input id="foIp" className={box} dir="ltr" inputMode="decimal" value={ip} onChange={e => setIp(e.target.value)} placeholder="192.0.2.10" autoComplete="off" />
               </Field>
               <Field label="מספר ID" htmlFor="foUnit">
                 <input id="foUnit" className={box} dir="ltr" inputMode="numeric" value={unit} onChange={e => setUnit(e.target.value)} placeholder="1" autoComplete="off" />

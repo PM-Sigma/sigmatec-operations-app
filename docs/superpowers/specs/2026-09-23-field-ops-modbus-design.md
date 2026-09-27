@@ -40,12 +40,12 @@ Every logged-in user sees it. A non-999 customer only gets their own kibbutz's m
 - List mode: `בחר קיבוץ *` (legacy MSSQL `T_customers`), then `בחר מונה`. The meter list is `T_Counters` where
   active, `counterType != 99`, **and the IP starts with `10.18`**. Each option reads
   `counterNumber - counterAddress (IP)`. Picking one fills the three fields below, **and they stay editable**.
-- Fields: `כתובת IP *` (placeholder 192.168.1.100) · `מספר ID` (placeholder 1) · `סוג מונה *` (legacy
+- Fields: `כתובת IP *` (placeholder: an example IP) · `מספר ID` (placeholder 1) · `סוג מונה *` (legacy
   `T_meterTypes` list).
 - Buttons: `בדוק חיבור וקרא נתונים` (loading label `קורא...`) · `PING` (`בודק...`) · `נקה`.
 - Validation: `נא למלא כתובת IP וסוג מונה`, `נא למלא כתובת IP`.
 
-**Call path** browser → SigmatecOps Node `/api/modbus/read` (JWT) → ModbusClient `POST http://172.31.6.67:5000/read-meter`
+**Call path** browser → SigmatecOps Node `/api/modbus/read` (JWT) → ModbusClient `POST http://<ModbusClient host (see EMS config)>/read-meter`
 `{IP, DeviceId (default 1), MeterType}` with a 60 s timeout. Ping goes to `/ping` with `{IP}`.
 
 **Ping card "תוצאות PING"**: סיכום (כתובת IP, הצלחות `n / 4`, זמן תגובה ממוצע `Nms` or `לא זמין`), then
@@ -76,8 +76,8 @@ list and never uses them.
   port 502. The committed `App.config` says `mode=energy` and `testDeviceId=1`. Under that config the listener would
   not start and every unit ID other than 1 would be skipped, so the deployed config differs from the repo (prod logs
   show successful reads of DeviceId 3, 4 and 6).
-- **Where**: the old app points at `172.31.6.67:5000` (a private AWS VPC address; `env.example` shows a public
-  `63.33.240.6:5000`). EMS points at `MODBUS_API_URL` (empty in `.env.example`, set in prod). The DLMS relay wrapper
+- **Where**: the old app points at `<ModbusClient host (see EMS config)>` (a private AWS VPC address; `env.example` shows a public
+  `<ModbusClient public host (see EMS config)>`). EMS points at `MODBUS_API_URL` (empty in `.env.example`, set in prod). The DLMS relay wrapper
   runs on the same host, port 52002. The meters sit on the cellular APN (`10.185/10.186/10.219.x.x`), which is
   reachable only from inside that VPC.
 - **Auth**: none. Nothing but network placement protects it.
@@ -374,6 +374,14 @@ are **control** actions. They stay out of this page unless עידן rules otherw
 - **Status line (עידן, 27.9):** after an IP is typed the page says how many EMS meters it leads to ("ה-IP הזה מוביל
   ל-2 מונים ב-EMS" + a table kibbutz · meter · address), or "ה-IP הזה לא מוקם ב-EMS — המונה לא רשום". With a unit
   typed, it also says whether THAT meter (IP + unit) is registered.
+- **Carrier for an unregistered IP (confirmed, accepted gap):** a read/ping of an IP no EMS meter has goes out
+  under the **first Modbus-capable EMS meter with an IPv4** that EMS returns (`GET /v1/meters?typeCodes=…&take=20`),
+  with the override params. The EMS `meter_operation_logs` row therefore shows **the carrier meter**, not the device
+  actually read. This is the accepted gap of the 27.9 decision.
+- **Hardening (security audit 27.9):** the function rejects loopback 127/8, 0/8, link-local 169.254/16 (incl. the
+  metadata address), multicast 224/4, reserved 240/4 and broadcast; private LAN/APN and public ranges stay allowed.
+  CORS is the exact `APP_ORIGIN` (plus an optional exact `DEV_ORIGIN`). Errors reach the browser as fixed codes +
+  Hebrew only; EMS text is logged server-side.
 - **Known security gap (accepted, documented):** any staff EMS admin/site/ops manager can aim a Modbus read or ping at
   any IP on the APN, and EMS logs it under the carrier meter, not the real target (the audit trail names the wrong
   meter). The function limits the blast radius (staff pass + EMS role, Modbus ops only, no DLMS/Chint, no free
