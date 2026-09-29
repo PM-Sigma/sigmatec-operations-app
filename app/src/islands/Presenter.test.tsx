@@ -10,7 +10,8 @@ import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-libra
 
 afterEach(cleanup);
 
-const { state, inserted, updated, sonner, created, tracked, emsMock } = vi.hoisted(() => ({
+const { state, inserted, updated, sonner, created, tracked, emsMock, rpcMock } = vi.hoisted(() => ({
+  rpcMock: vi.fn(async (_fn: string, _args: any) => ({ data: {}, error: null as any })),
   state: { user: 'עידן', viewer: false, admin: true },
   inserted: [] as Array<{ table: string; row: any }>,
   updated: [] as Array<{ table: string; row: any }>,
@@ -88,7 +89,7 @@ vi.mock('@/lib/supabase', () => {
   });
   return {
     SB_URL: 'https://sb.test', SB_ANON: 'anon',
-    getSupabase: async () => ({ from: table }),
+    getSupabase: async () => ({ from: table, rpc: rpcMock }),
     sbWrite: async (run: any) => {
       const res = await run({ from: table });
       if (res?.error) throw res.error;
@@ -486,5 +487,46 @@ describe('who may present, and what the screen says', () => {
   it('is Hebrew and right-to-left', async () => {
     await openScreen();
     expect(screen.getByTestId('presenter').getAttribute('dir')).toBe('rtl');
+  });
+});
+
+// ───────────────────────────── H3: region/section chips ─────────────────────────────
+
+describe('region/section chips (H3)', () => {
+  it.each(['עידן', 'עמיחי'])('%s: chips are buttons, save calls the RPC and shows the undo toast', async (u) => {
+    state.user = u;
+    rpcMock.mockClear();
+    await openScreen();
+    fireEvent.click(await screen.findByTestId('presenter-region-chip'));
+    const opts = await screen.findAllByTestId('presenter-region-option');
+    await act(async () => { fireEvent.click(opts.find(o => o.textContent === 'גליל וגולן')!); });
+    await act(async () => { fireEvent.click(screen.getByTestId('presenter-region-save')); });
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('set_kibbutz_region_section',
+      { p_kibbutz: 'דפנה', p_region: 'גליל וגולן', p_section: 'new' }));
+    expect(kibbutzShown()).toBe('דפנה');                        // optimistic, screen did not jump
+    expect(screen.getByTestId('presenter-region-chips').textContent).toContain('גליל וגולן');
+    await act(async () => { fireEvent.click(await screen.findByTestId('presenter-undo-toast-action')); });
+    await waitFor(() => expect(rpcMock).toHaveBeenLastCalledWith('set_kibbutz_region_section',
+      { p_kibbutz: 'דפנה', p_region: 'העמקים', p_section: 'new' }));
+    expect(screen.getByTestId('presenter-region-chips').textContent).toContain('העמקים');
+  });
+
+  it('a failing RPC reverts and shows a Hebrew error toast (not the undo toast)', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
+    await openScreen();
+    fireEvent.click(await screen.findByTestId('presenter-region-chip'));
+    const opts = await screen.findAllByTestId('presenter-region-option');
+    await act(async () => { fireEvent.click(opts.find(o => o.textContent === 'גליל וגולן')!); });
+    await act(async () => { fireEvent.click(screen.getByTestId('presenter-region-save')); });
+    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringContaining('עדיין לא זמין'), expect.anything()));
+    expect(screen.getByTestId('presenter-region-chips').textContent).toContain('העמקים');
+    expect(screen.queryByTestId('presenter-undo-toast')).toBeNull();
+  });
+
+  it('everyone else sees read-only chips', async () => {
+    state.user = 'אביאם';        // admin-fallback lets him present, but he is not an editor
+    await openScreen();
+    expect(screen.queryByTestId('presenter-region-chip')).toBeNull();
+    expect(screen.getByTestId('presenter-region-chips').textContent).toContain('העמקים');
   });
 });
