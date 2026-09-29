@@ -294,7 +294,7 @@ test('badge: an unopened failed cron run marks ⋯ עוד; opening the page mark
   // the watcher asks after the first paint; ask again now that the mocks are in place
   await page.evaluate(() => window.dispatchEvent(new Event('readings-badge-refresh')));
   await expect.poll(() => page.evaluate(() => (window as any).__readingsBadge | 0), { timeout: 20_000 }).toBe(1);
-  await page.getByRole('button', { name: 'עוד' }).last().click();
+  await page.getByRole('button', { name: 'עוד', exact: true }).last().click();
   const row = page.getByRole('button', { name: /משיכת קריאות מתוכנות חיצונית/ });
   await expect(row).toBeVisible();
   await expect(row).toContainText('1');
@@ -306,15 +306,25 @@ test('badge: an unopened failed cron run marks ⋯ עוד; opening the page mark
   expectNoConsoleErrors(rec);
 });
 
-test('access: אביאם is refused — no ⋯ row, and the page bounces to the cards', async ({ page }, ti) => {
+test('access: any signed-in staff (אביאם) opens it; the view-only role is refused — no ⋯ row, bounced to the cards', async ({ page }, ti) => {
   const S: Mock = { runs: history(), calls: [] };
   const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await installReadings(page, S);
+  expect(await page.evaluate(() => (window as any).sigma.canShowPage('readings'))).toBe(true);
+  await page.getByRole('button', { name: 'עוד', exact: true }).last().click();
+  await expect(page.getByRole('button', { name: /משיכת קריאות מתוכנות חיצונית/ })).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('access: the viewer is refused — no ⋯ row, and the page bounces to the cards', async ({ page }, ti) => {
+  const S: Mock = { runs: history(), calls: [] };
+  const { rec } = await boot(page, ti, { who: 'צפייה' });
   await installReadings(page, S);
   expect(await page.evaluate(() => (window as any).sigma.canShowPage('readings'))).toBe(false);
   await page.evaluate(() => (window as any).showPage('readings'));
   await expect(page.getByTestId('readings-page')).toHaveCount(0);
   expect(await page.evaluate(() => (window as any)._currentPage)).toBe('kibbutz');
-  await page.getByRole('button', { name: 'עוד' }).last().click();
+  await page.getByRole('button', { name: 'עוד', exact: true }).last().click();
   await expect(page.getByRole('button', { name: /משיכת קריאות מתוכנות חיצונית/ })).toHaveCount(0);
   expect(S.calls).toEqual([]);
   expectNoConsoleErrors(rec);
