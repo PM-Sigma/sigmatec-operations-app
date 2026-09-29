@@ -371,6 +371,7 @@ export const EMS_LEGACY_ALLOWLIST = {
   'supabase/functions/clockify/index.ts': 'Deno emsValid() login probe',
   'supabase/functions/ems-auth/index.ts': 'Deno — mints the bridge JWT; IS the login operation',
   'supabase/functions/github/index.ts': 'Deno emsValid() login probe',
+  'supabase/functions/readings-fetch/index.ts': 'Deno — the emsCheck/emsSync modes call POST /v1/upload-readings/validate and the readings queries with the caller EMS token (server-side, like the login probe above)',
   'supabase/functions/parse-daylog/index.ts': 'Deno emsValid() login probe',
   'supabase/functions/parse-order/index.ts': 'Deno emsValid() login probe',
   'supabase/functions/transcribe/index.ts': 'Deno emsValid() login probe',

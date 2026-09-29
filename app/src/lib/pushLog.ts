@@ -32,6 +32,7 @@ export const PUSH_EVENT_LABEL: Record<string, string> = {
   inventoryAlert: 'מלאי נמוך',
   inventoryDigest: 'תנועות מלאי',
   feedbackNew: 'רעיון או באג',
+  readingsDone: 'משיכת קריאות',
 };
 
 export const PUSH_STATUS: Record<string, { label: string; role: 'ok' | 'danger' | 'neutral' }> = {
