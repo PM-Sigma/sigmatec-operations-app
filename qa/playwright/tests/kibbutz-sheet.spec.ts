@@ -67,7 +67,9 @@ test('kibbutz sheet: edit mode opens from inside the card (עידן only, 22.9) 
   await expect(page.getByRole('heading', { name: '✏️ פרטי קיבוץ' })).toBeVisible();
 
   await expect(page.locator('#kibName')).toHaveValue('כפר עזה');
-  await expect(page.locator('#kibRegion')).toHaveValue('דרום, עוטף עזה והנגב');
+  // region is FIXED (עידן 29.9): shown read-only, no input
+  await expect(page.locator('#kibRegion')).toHaveCount(0);
+  await expect(page.getByTestId('kib-region-readonly')).toContainText('דרום, עוטף עזה והנגב');
   await expect(page.getByRole('radio', { name: '✅ פעיל' })).toHaveAttribute('data-state', 'on');
   // editing never offers the kind toggle — a kibbutz does not become a sub-site here
   await expect(page.getByRole('radio', { name: '↳ תת-אתר של קיבוץ קיים' })).toHaveCount(0);
@@ -112,7 +114,8 @@ test('kibbutz sheet: סוגי אנרגיה is disabled for an admin who is not �
   }
   // the rest of the sheet is still his to edit
   await expect(page.locator('#kibName')).toBeEditable();
-  await expect(page.locator('#kibRegion')).toBeEditable();
+  await expect(page.locator('#kibRegion')).toHaveCount(0);   // region fixed in edit mode
+  await expect(page.getByRole('radio', { name: '✅ פעיל' })).toBeVisible();   // עמיחי edits the section
 
   await shot(page, ti, 'energy-locked');
   expectNoConsoleErrors(rec);

@@ -492,41 +492,40 @@ describe('who may present, and what the screen says', () => {
 
 // ───────────────────────────── H3: region/section chips ─────────────────────────────
 
-describe('region/section chips (H3)', () => {
-  it.each(['עידן', 'עמיחי'])('%s: chips are buttons, save calls the RPC and shows the undo toast', async (u) => {
+describe('section edit (H3, region fixed)', () => {
+  it.each(['עידן', 'עמיחי'])('%s: pencil opens the section picker, save calls the RPC (no region), undo works', async (u) => {
     state.user = u;
     rpcMock.mockClear();
     await openScreen();
-    fireEvent.click(await screen.findByTestId('presenter-region-chip'));
-    const opts = await screen.findAllByTestId('presenter-region-option');
-    await act(async () => { fireEvent.click(opts.find(o => o.textContent === 'גליל וגולן')!); });
-    await act(async () => { fireEvent.click(screen.getByTestId('presenter-region-save')); });
-    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('set_kibbutz_region_section',
-      { p_kibbutz: 'דפנה', p_region: 'גליל וגולן', p_section: 'new' }));
+    expect(screen.queryByTestId('presenter-region-chip')).toBeNull();   // chips are read-only
+    fireEvent.click(await screen.findByTestId('presenter-section-edit'));
+    expect(screen.queryByTestId('presenter-region-option')).toBeNull(); // no region picker
+    await act(async () => { fireEvent.click(await screen.findByTestId('presenter-section-option-active')); });
+    await act(async () => { fireEvent.click(screen.getByTestId('presenter-section-save')); });
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('set_kibbutz_section',
+      { p_kibbutz: 'דפנה', p_section: 'active' }));
     expect(kibbutzShown()).toBe('דפנה');                        // optimistic, screen did not jump
-    expect(screen.getByTestId('presenter-region-chips').textContent).toContain('גליל וגולן');
-    await act(async () => { fireEvent.click(await screen.findByTestId('presenter-undo-toast-action')); });
-    await waitFor(() => expect(rpcMock).toHaveBeenLastCalledWith('set_kibbutz_region_section',
-      { p_kibbutz: 'דפנה', p_region: 'העמקים', p_section: 'new' }));
     expect(screen.getByTestId('presenter-region-chips').textContent).toContain('העמקים');
+    await act(async () => { fireEvent.click(await screen.findByTestId('presenter-undo-toast-action')); });
+    await waitFor(() => expect(rpcMock).toHaveBeenLastCalledWith('set_kibbutz_section',
+      { p_kibbutz: 'דפנה', p_section: 'new' }));
   });
 
-  it('a failing RPC reverts and shows a Hebrew error toast (not the undo toast)', async () => {
+  it('a missing RPC reverts and shows a Hebrew error toast (not the undo toast)', async () => {
+    state.user = 'עידן';
     rpcMock.mockResolvedValueOnce({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } });
     await openScreen();
-    fireEvent.click(await screen.findByTestId('presenter-region-chip'));
-    const opts = await screen.findAllByTestId('presenter-region-option');
-    await act(async () => { fireEvent.click(opts.find(o => o.textContent === 'גליל וגולן')!); });
-    await act(async () => { fireEvent.click(screen.getByTestId('presenter-region-save')); });
+    fireEvent.click(await screen.findByTestId('presenter-section-edit'));
+    await act(async () => { fireEvent.click(await screen.findByTestId('presenter-section-option-active')); });
+    await act(async () => { fireEvent.click(screen.getByTestId('presenter-section-save')); });
     await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringContaining('עדיין לא זמין'), expect.anything()));
-    expect(screen.getByTestId('presenter-region-chips').textContent).toContain('העמקים');
     expect(screen.queryByTestId('presenter-undo-toast')).toBeNull();
   });
 
-  it('everyone else sees read-only chips', async () => {
+  it('everyone else sees read-only chips and no section pencil', async () => {
     state.user = 'אביאם';        // admin-fallback lets him present, but he is not an editor
     await openScreen();
-    expect(screen.queryByTestId('presenter-region-chip')).toBeNull();
+    expect(screen.queryByTestId('presenter-section-edit')).toBeNull();
     expect(screen.getByTestId('presenter-region-chips').textContent).toContain('העמקים');
   });
 });

@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { spawnOnboardingForNewKibbutz } from '@/components/home/OnboardingProgress';
 import { sbWrite } from '@/lib/supabase';
+import { canEditSection, saveSection } from '@/lib/kibbutzSection';
 import {
   ENERGY_LABEL, ENERGY_LOCK_TITLE, canEditEnergy, customerCodeOf, emsLinkedLabel,
   energyOf, isMissingCustomerCodeColumn, isUnlinked, kibbutzimSaveBody, labelOf, regionOrder,
@@ -57,6 +58,9 @@ export function KibbutzSheet({
 }) {
   const editing = !!row;
   const mayEditEnergy = canEditEnergy(user);
+  // Region is fixed once a kibbutz exists (עידן 29.9): typed only at creation, read-only in edit.
+  // Section (קטגוריה) is עידן/עמיחי only, saved through the set_kibbutz_section RPC on edit.
+  const maySection = !editing || canEditSection(user, false);
 
   const [kind, setKind] = React.useState<'kibbutz' | 'subsite'>('kibbutz');
   const [name, setName] = React.useState('');
@@ -122,8 +126,8 @@ export function KibbutzSheet({
       id: row?.id,
       name,
       display_name: row?.display_name ?? null,
-      section,
-      region,
+      section: editing && !maySection ? sectionOf(row!) : section,
+      region: editing ? (row?.region || '') : region,
       energy: mayEditEnergy ? energy : (row?.energy || energy),
       marketing,
       kind,
@@ -136,10 +140,14 @@ export function KibbutzSheet({
       created_by: row?.created_by || user,
     };
     const v = validateKibbutz(draft, allRows);
-    if (!v.ok) { toast.error(v.errors[0]); return; }
+    // An existing row with no region on file may still be edited: region is not ours to fill in.
+    const errs = editing ? v.errors.filter(e => e !== 'חובה לבחור איזור') : v.errors;
+    if (errs.length) { toast.error(errs[0]); return; }
     setSaving(true);
     try {
       const body = kibbutzimSaveBody(v.row, user);
+      // DB trigger refuses region/section changes on UPDATE outside the RPC, so an edit never sends them.
+      if (row?.id) { delete body.region; delete body.section; }
       // Editing is an UPDATE BY ID, never an upsert on `name`: renaming a kibbutz through an
       // on_conflict=name upsert would insert a second row (new name) or trip the primary key.
       const isCreate = !row?.id;
@@ -155,6 +163,10 @@ export function KibbutzSheet({
         if (!isMissingCustomerCodeColumn(e)) throw e;
         data = await write(withoutCustomerCode(body));
         toast.warning('קוד הלקוח לא נשמר. חסרה העמודה customer_code בבסיס הנתונים');
+      }
+      if (row?.id && maySection && section !== sectionOf(row)) {
+        await saveSection({ name: row.name, section });
+        data = { ...(data || v.row), section };
       }
       // 🆕 לקוח חדש — spawn the onboarding checklist (Task 27, spec §4). Best-effort: a
       // template hiccup must never block the kibbutz itself from being created.
@@ -261,10 +273,18 @@ export function KibbutzSheet({
           autoComplete="off"
         />
 
-        {!isSub && (
+        {!isSub && editing && (
           <>
-            {/* An איזור is required (spec §2) — the cards are GROUPED by it, so skipping the
-                field puts a customer in a bucket that exists only because of the skip. */}
+            {/* Region is FIXED (עידן 29.9): shown, never editable. Only Claude changes it. */}
+            <label className={fieldLabel}>איזור</label>
+            <div data-testid="kib-region-readonly" className={fieldBox + ' flex items-center text-muted-foreground'}>
+              <bdi>{row?.region || '—'}</bdi>
+            </div>
+          </>
+        )}
+        {!isSub && !editing && (
+          <>
+            {/* An איזור is required at creation (spec §2) — the cards are GROUPED by it. */}
             <label className={fieldLabel} htmlFor="kibRegion">
               איזור <span className="text-destructive">*</span>
             </label>
@@ -311,7 +331,7 @@ export function KibbutzSheet({
             so they sit under one heading instead of two unrelated controls. */}
         <label className={fieldLabel}>קטגוריה</label>
         <div id="kibCategory" className="rounded-xl border border-border bg-muted/50 p-2.5">
-          {!isSub && (
+          {!isSub && maySection && (
             <ToggleGroup type="single" value={section} onValueChange={v => v && setSection(v as Section)}
                          className="grid grid-cols-2 gap-2">
               <ToggleGroupItem value="new" className="h-auto min-h-[48px] rounded-xl border border-border bg-muted font-bold data-[state=on]:border-[color:var(--brand-1)] data-[state=on]:bg-primary/10">🆕 לקוח חדש</ToggleGroupItem>

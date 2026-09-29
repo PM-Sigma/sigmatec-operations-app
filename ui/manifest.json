@@ -67,6 +67,7 @@
   "./ui/sigma-KibbutzDetail.js",
   "./ui/sigma-kibbutzim.js",
   "./ui/sigma-kibbutzRows.js",
+  "./ui/sigma-kibbutzSection.js",
   "./ui/sigma-kibbutzVisits.js",
   "./ui/sigma-lightbulb.js",
   "./ui/sigma-link.js",

@@ -177,7 +177,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-nav` | :710 | app/src/main.tsx:103 |
 | `#sigma-offline` | :155 | app/src/main.tsx:310<br>app/src/shell/OfflineBanner.tsx:36 |
 | `#sigma-page-bar` | :161 | app/src/main.tsx:307<br>app/src/shell/PageBar.tsx:99 |
-| `#sigma-presenter` | :685 | app/src/islands/Presenter.tsx:1180<br>app/src/main.tsx:463 |
+| `#sigma-presenter` | :685 | app/src/islands/Presenter.tsx:1171<br>app/src/main.tsx:463 |
 | `#sigma-pushlog` | :396 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:253 |
 | `#sigma-refresh` | :704 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:119 |
 | `#sigma-relogin` | :701 | app/src/components/ReLoginSheet.tsx:143 |
@@ -204,7 +204,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `inventory_alerts` | db/alert_mark_seen_fix.sql | app/src/islands/Alerts.tsx:63<br>supabase/functions/push-send/index.ts:666 |
 | `kibbutz_details` | db/delivery_certs.sql | app/src/lib/inventoryApi.ts:451 |
 | `kibbutz_meeting_notes` | db/kibbutz_meeting_notes.sql | app/src/components/home/MeetingNotes.tsx:38<br>app/src/components/home/MeetingNotes.tsx:77<br>app/src/components/home/MeetingNotes.tsx:104<br>…+7 |
-| `kibbutzim` | db/kibbutzim.sql | app/src/components/home/KibbutzSheet.tsx:147<br>app/src/components/home/KibbutzSheet.tsx:148<br>app/src/components/home/KibbutzSheet.tsx:181<br>…+3 |
+| `kibbutzim` | db/kibbutzim.sql | app/src/components/home/KibbutzSheet.tsx:155<br>app/src/components/home/KibbutzSheet.tsx:156<br>app/src/components/home/KibbutzSheet.tsx:193<br>…+3 |
 | `meeting_events` | db/meeting_events.sql | app/src/lib/meetingRun.ts:118<br>app/src/lib/meetingRun.ts:127<br>app/src/lib/meetingRun.ts:139<br>…+1 |
 | `meeting_sessions` | db/meeting_sessions.sql | app/src/lib/meetingRun.ts:74<br>app/src/lib/meetingRun.ts:147<br>app/src/lib/meetingSession.ts:282 |
 | `meter_burns` | db/meter_burns.sql | app/src/lib/burnsData.ts:26<br>app/src/lib/burnsData.ts:71<br>app/src/lib/burnsData.ts:172 |
@@ -280,7 +280,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:383 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:304 |
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:150 |
-| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:1183 |
+| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:1174 |
 | `presenter` | `Presentation` | app/src/main.tsx:487 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:502 |
 | `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:305 |

@@ -442,25 +442,28 @@ test('presenter: a viewer is never offered the screen', async ({ page }, ti) => 
   await expectNoConsoleErrors(rec);
 });
 
-test('presenter: region/section chips are editable for עידן — picker, save, undo toast', async ({ page }, ti) => {
+test('presenter: section is editable via the pencil next to the name for עידן — picker, save, undo toast; region stays read-only', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
   const calls: any[] = [];
-  await page.route('**/rest/v1/rpc/set_kibbutz_region_section', async route => {
+  await page.route('**/rest/v1/rpc/set_kibbutz_section', async route => {
     calls.push(JSON.parse(route.request().postData() || '{}'));
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
   await openPresenter(page);
 
-  await page.getByTestId('presenter-region-chip').click();
-  const picker = page.getByTestId('presenter-region-picker');
+  await expect(page.getByTestId('presenter-region-chip')).toHaveCount(0);   // chips are read-only
+  await page.getByTestId('presenter-section-edit').click();
+  const picker = page.getByTestId('presenter-section-picker');
   await expect(picker).toBeVisible();
+  await expect(picker.getByTestId('presenter-region-option')).toHaveCount(0);
   await shot(page, ti, 'region-picker');
-  await picker.getByTestId('presenter-region-option').last().click();
-  await picker.getByTestId('presenter-region-save').click();
+  await picker.locator('[data-testid^="presenter-section-option-"][aria-pressed="false"]').click();
+  await picker.getByTestId('presenter-section-save').click();
 
   await expect(page.getByTestId('presenter-undo-toast')).toBeVisible();
   await expect.poll(() => calls.length).toBe(1);
   expect(calls[0].p_kibbutz).toBe(FIRST);
+  expect(calls[0]).not.toHaveProperty('p_region');
   await expect(page.getByTestId('presenter-kibbutz')).toHaveText(FIRST);   // the screen did not jump
   await shot(page, ti, 'region-saved');
 
@@ -469,13 +472,13 @@ test('presenter: region/section chips are editable for עידן — picker, save
   await expectNoConsoleErrors(rec);
 });
 
-test('presenter: another admin sees read-only region chips', async ({ page }, ti) => {
+test('presenter: another admin sees no section pencil', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await page.waitForSelector('#sigma-presenter', { state: 'attached' });
   await page.evaluate(() => (window as any).sigmaOpenPresenter?.());
   await page.waitForTimeout(500);
   if (await page.getByTestId('presenter').count()) {
-    await expect(page.getByTestId('presenter-region-chip')).toHaveCount(0);
+    await expect(page.getByTestId('presenter-section-edit')).toHaveCount(0);
   }
   await expectNoConsoleErrors(rec);
 });
