@@ -50,3 +50,4 @@
 - 96de68ee w1-vacations: calendar absences for all staff (add/edit/delete, types חופשה/מחלה/אחר/מילואים/אירוע); only אביאם/ניתאי reach attendance.
   PROD 29.9: `db/calendar_absences_sick_other.sql` applied via `supabase db query --linked` (MCP down). Backup `calendar_absences_bak_r9` (table had 0 rows). Constraint verified. Rollback in the file.
 - Open: build warning duplicate `tag` key in app/src/islands/DayLog.tsx:559/561; one flaky kibbutz-detail Playwright test (passes alone); untested missing-enum error path (moot — enum applied).
+- 48ab796f w2-voice-ltr: recorder mono 24 kbps + echo/noise suppression (upload ~5.4x smaller; end-to-end not measured); inventory certs values wrapped in <bdi>, qty inputs dir=ltr (no visual check at 360).

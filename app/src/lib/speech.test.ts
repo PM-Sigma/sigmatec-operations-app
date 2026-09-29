@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   audioExt, audioObjectPath, buildWhisperPrompt, forceOffLive, parseRecognitionEvent,
-  pickAudioMime, speechCaps, WHISPER_DOMAIN_WORDS,
+  pickAudioMime, recorderOptions, SPEECH_BITRATE, speechCaps, WHISPER_DOMAIN_WORDS,
   type RecognitionEventLike,
 } from './speech';
 
@@ -224,5 +224,15 @@ describe('speechCaps', () => {
   it('reports the recorder path from MediaRecorder alone', () => {
     expect(speechCaps(win({ MediaRecorder: function () {} }), '').mediaRecorder).toBe(true);
     expect(speechCaps(win({}), '').mediaRecorder).toBe(false);
+  });
+});
+
+describe('recorderOptions', () => {
+  it('caps the bitrate for speech and keeps the picked mime', () => {
+    expect(recorderOptions('audio/webm;codecs=opus')).toEqual({ mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: SPEECH_BITRATE });
+    expect(SPEECH_BITRATE).toBeLessThanOrEqual(32_000);
+  });
+  it('omits mimeType when the browser must decide', () => {
+    expect(recorderOptions('')).toEqual({ audioBitsPerSecond: SPEECH_BITRATE });
   });
 });
