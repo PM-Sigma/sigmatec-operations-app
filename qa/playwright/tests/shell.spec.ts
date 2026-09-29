@@ -119,7 +119,10 @@ test.describe('PageBar (U3)', () => {
     await boot(page, ti);
     await gotoPage(page, 'burns');
     await expect(page.locator('#sigma-page-bar')).toBeEmpty();
-    await expect(page.locator('#sigma-burns-page').getByRole('button', { name: 'חזרה' })).toBeVisible();
+    // Field hub (29.9): burns is a SECTION of פעולות שטח now — the back chevron is the hub's own
+    // row (#sigma-fieldhub), and the embedded burns island draws none.
+    await expect(page.locator('#sigma-fieldhub').getByRole('button', { name: 'חזרה' })).toBeVisible();
+    await expect(page.locator('#sigma-burns-page').getByRole('button', { name: 'חזרה' })).toHaveCount(0);
   });
 });
 

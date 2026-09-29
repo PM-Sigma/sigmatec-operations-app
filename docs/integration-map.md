@@ -162,7 +162,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-feedback` | :683 | app/src/islands/Feedback.tsx:683<br>app/src/main.tsx:186 |
 | `#sigma-feedback-inbox` | :684 | app/src/islands/FeedbackInbox.tsx:399<br>app/src/main.tsx:210 |
 | `#sigma-field` | :682 | app/src/islands/Field.tsx:2462<br>app/src/main.tsx:159 |
-| `#sigma-fieldhub` | :382 | app/src/islands/FieldHub.tsx:69 |
+| `#sigma-fieldhub` | :382 | app/src/islands/FieldHub.tsx:74 |
 | `#sigma-fieldhub-today` | :383 | **—** |
 | `#sigma-fieldops` | :414 | app/src/islands/FieldOps.tsx:512 |
 | `#sigma-gaps` | :690 | app/src/islands/Gaps.tsx:326<br>app/src/main.tsx:363 |

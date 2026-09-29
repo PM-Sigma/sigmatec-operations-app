@@ -110,6 +110,8 @@ const SCREENS: Screen[] = [
       await p.waitForTimeout(200);
     },
   })),
+  // the field hub itself (29.9): all four sections on one page — NOT allow-listed, it must pass on its own merits.
+  { label: 'fieldops-hub', who: 'אביאם', open: p => openPage(p, 'fieldops', 'fieldops-view') },
   { label: 'attendance', who: 'אביאם', open: p => openPage(p, 'attendance', 'attendance-view') },
   { label: 'burns', open: p => openPage(p, 'burns', 'burns-view') },
   { label: 'pushlog', open: p => openPage(p, 'pushlog', 'pushlog-view') },

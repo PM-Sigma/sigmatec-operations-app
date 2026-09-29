@@ -20,23 +20,28 @@ function FieldHub() {
   );
   const [active, setActive] = React.useState<HubSection>('attendance');
 
-  // The active item follows scroll: the section whose top is the last one above the sticky nav.
+  // The active item follows scroll: the last section whose top has passed under the sticky nav
+  // (the bottom of the page counts as the last section, so a short final section can be active).
   React.useEffect(() => {
-    const els = sections.map(s => [s, document.getElementById(HUB_SECTION_ID[s])] as const)
-      .filter((p): p is readonly [HubSection, HTMLElement] => !!p[1]);
-    if (!els.length || !('IntersectionObserver' in window)) return;
-    const seen = new Map<HubSection, boolean>();
-    const io = new IntersectionObserver(entries => {
-      for (const e of entries) {
-        const s = els.find(p => p[1] === e.target)?.[0];
-        if (s) seen.set(s, e.isIntersecting);
+    if (page !== 'fieldops') return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const line = (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'), 10) || 56) + 90;
+      const doc = document.scrollingElement || document.documentElement;
+      const atEnd = doc.scrollTop + window.innerHeight >= doc.scrollHeight - 4 && doc.scrollTop > 0;
+      let cur: HubSection | null = sections[0] ?? null;
+      for (const s of sections) {
+        const el = document.getElementById(HUB_SECTION_ID[s]);
+        if (el && el.offsetParent !== null && el.getBoundingClientRect().top <= line) cur = s;
       }
-      const first = sections.find(s => seen.get(s));
-      if (first) setActive(first);
-    }, { rootMargin: '-120px 0px -55% 0px' });
-    els.forEach(p => io.observe(p[1]));
-    return () => io.disconnect();
-  }, [sections]);
+      if (atEnd) cur = sections[sections.length - 1];
+      if (cur) setActive(cur);
+    };
+    const on = () => { if (!raf) raf = requestAnimationFrame(update); };
+    window.addEventListener('scroll', on, { passive: true });
+    return () => { window.removeEventListener('scroll', on); if (raf) cancelAnimationFrame(raf); };
+  }, [sections, page]);
 
   if (page !== 'fieldops' || !sections.length) return null;
   const value = sections.includes(active) ? active : sections[0];

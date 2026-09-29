@@ -125,7 +125,7 @@ function BurnsRow({ kibbutz }: { kibbutz: string }) {
       title="צריבות"
       meta={mine.length ? `${c.pending + c.issue} נותרו מתוך ${c.total}` : 'אין מונים'}
       leading={<Flame aria-hidden className="h-5 w-5" />}
-      onClick={() => { setBurnSiteFilter(kibbutz); sigma?.showPage?.('burns'); }}
+      onClick={() => { setBurnSiteFilter(kibbutz); (window as any).sigmaKibbutzDetail?.close?.(); sigma?.showPage?.('burns'); }}
     />
   );
 }

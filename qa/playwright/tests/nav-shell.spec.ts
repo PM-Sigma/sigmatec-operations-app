@@ -45,7 +45,7 @@ test('shell: the bottom nav is the phone\'s, the legacy nav is the desktop\'s', 
   expectNoConsoleErrors(rec);
 });
 
-test('shell: אביאם/ניתאי get נוכחות · יומן · [ביקור] · קיבוצים · עוד, מלאי moves into ⋯', async ({ page }, ti) => {
+test('shell: אביאם/ניתאי get שטח · יומן · [ביקור] · קיבוצים · עוד, מלאי moves into ⋯', async ({ page }, ti) => {
   const { rec, viewport } = await boot(page, ti, { who: 'אביאם' });
   test.skip(viewport !== 'mobile-390', 'the bar order is a phone concern');
 
@@ -53,7 +53,7 @@ test('shell: אביאם/ניתאי get נוכחות · יומן · [ביקור] 
   await expect(nav).toBeVisible();
   // The raised 📍 button carries its label via `aria-label`, not visible text (an icon-only
   // button), so its accessible NAME is asserted instead of allInnerTexts() for that one slot.
-  const order = ['נוכחות', 'יומן', 'תיעוד ביקור', 'קיבוצים', 'עוד'];
+  const order = ['שטח', 'יומן', 'תיעוד ביקור', 'קיבוצים', 'עוד'];
   const names = await nav.getByRole('button').evaluateAll(
     els => els.map(el => el.getAttribute('aria-label') || el.textContent || ''),
   );
@@ -128,8 +128,9 @@ test('shell: a team member gets no ניהול block', async ({ page }, ti) => {
 
   await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click();
   const sheet = page.getByRole('dialog');
-  // אביאם IS in ATT_PEOPLE → his own נוכחות report, with a label
-  await expect(sheet.getByRole('button', { name: 'נוכחות', exact: true })).toBeVisible();
+  // Field hub (29.9): נוכחות left ⋯ (it is the "שטח" tab + a section of פעולות שטח, which stays here)
+  await expect(sheet.getByRole('button', { name: 'נוכחות', exact: true })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'פעולות שטח', exact: true })).toBeVisible();
   // התראות / 📈 שימוש are עידן's (pushlog gate + roles:['idan'])
   await expect(sheet.getByRole('button', { name: 'התראות', exact: true })).toHaveCount(0);
   await expect(sheet.getByRole('button', { name: '📈 שימוש', exact: true })).toHaveCount(0);

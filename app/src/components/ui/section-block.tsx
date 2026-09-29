@@ -75,7 +75,7 @@ export function SectionBlock({
             data-hit-slop
             className="s-hit flex min-w-0 flex-1 items-center gap-2 text-start"
           >
-            <span className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-body)] font-bold', TITLE_INK[titleRole])}>
+            <span data-truncate className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-body)] font-bold', TITLE_INK[titleRole])}>
               {title}
             </span>
             {count != null && <Tag role="neutral"><bdi>{count}</bdi></Tag>}
@@ -87,7 +87,7 @@ export function SectionBlock({
           </button>
         ) : (
           <>
-            <h2 className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-body)] font-bold', TITLE_INK[titleRole])}>
+            <h2 data-truncate className={cn('min-w-0 flex-1 truncate text-[length:var(--fs-body)] font-bold', TITLE_INK[titleRole])}>
               {title}
             </h2>
             {count != null && <Tag role="neutral"><bdi>{count}</bdi></Tag>}

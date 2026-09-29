@@ -333,6 +333,21 @@ test('field-ops', async ({ page }, ti) => {
   await audit(page, ti, 'field-ops');
 });
 
+test('field hub (היום שלי · נוכחות · קריאות IP · צריבות)', async ({ page }, ti) => {
+  await boot(page, ti, { who: 'אביאם' });
+  await expect.poll(() => page.evaluate(() => {
+    const w = window as any;
+    if (w._currentPage !== 'fieldops') { w.sigma?.showPage?.('fieldops'); return false; }
+    document.body.click();
+    return true;
+  }), { timeout: 30_000 }).toBe(true);
+  for (const sel of ['[data-testid="fieldhub-today-visit"]', '[data-testid="att-grid"]', '[data-testid="fieldops-page"]', '[data-testid="burns-page"]']) {
+    await page.waitForSelector(sel, { state: 'visible', timeout: 25_000 });
+  }
+  await audit(page, ti, 'field-hub');
+  await keyShot(page, ti, 'field-hub');
+});
+
 test('feedback sheet (+ disabled submit, input + placeholder)', async ({ page }, ti) => {
   await boot(page, ti);
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));

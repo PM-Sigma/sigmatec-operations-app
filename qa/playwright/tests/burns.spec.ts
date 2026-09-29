@@ -32,7 +32,7 @@ test('burns strip: same text for עמיחי — no per-role variant any more (ע
   expectNoConsoleErrors(rec);
 });
 
-test('burns: nothing about burns inside a kibbutz card or its open detail (K2)', async ({ page }, ti) => {
+test('burns: no burn chip on a kibbutz card, no burns panel in its detail (K2; one row only since the field hub)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
@@ -42,7 +42,9 @@ test('burns: nothing about burns inside a kibbutz card or its open detail (K2)',
 
   await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
   await expect(page.locator('[data-testid="kibbutz-detail"]')).toBeVisible();
-  await expect(page.locator('[data-testid="kibbutz-detail"]').getByText(/צריבות|לצרוב/)).toHaveCount(0);
+  // Field hub (29.9): the detail's status tab now carries ONE burns row (kibbutz-burns-row) that
+  // jumps to the filtered burns section — but never the old burns panel / per-meter chips.
+  await expect(page.locator('[data-testid="kibbutz-detail"]').getByTestId('burn-chip')).toHaveCount(0);
   // #sigma-burns-modal is still a DOM node until K-U5 deletes the legacy modal markup, but
   // K-U4 stops mounting a React root into it (islands/Burns.tsx no longer has a BurnsModal).
   await expect(page.locator('#sigma-burns-modal[data-sigma-mounted="1"]')).toHaveCount(0);

@@ -121,8 +121,23 @@
     // person may not see falls back to the top of the page. FieldHub.tsx listens for the event.
     if (_onHub) {
       var _t = _sec === 'burns' ? document.getElementById('burns-view') : _sec === 'attendance' ? document.getElementById('attendance-view') : null;
-      if (_t && _t.style.display !== 'none') setTimeout(function () { _t.scrollIntoView({ block: 'start' }); }, 60);
-      else window.scrollTo(0, 0);
+      if (_t && _t.style.display !== 'none') {
+        var _go = function () { _t.scrollIntoView({ block: 'start' }); };
+        setTimeout(_go, 60);
+        // The three islands lazy-load and push the sections down while they paint — keep the target
+        // aligned until the person touches the page (or 3 s pass), so a redirect never lands short.
+        if (window._hubRO) { window._hubRO.disconnect(); window._hubRO = null; }
+        var _fv = document.getElementById('fieldops-view');
+        if (_fv && window.ResizeObserver) {
+          var _ro = window._hubRO = new ResizeObserver(_go), _end = function () {
+            _ro.disconnect(); if (window._hubRO === _ro) window._hubRO = null;
+            ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function (e) { window.removeEventListener(e, _end, true); });
+          };
+          _ro.observe(_fv);
+          ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function (e) { window.addEventListener(e, _end, true); });
+          setTimeout(_end, 3000);
+        }
+      } else window.scrollTo(0, 0);
     }
   }
 

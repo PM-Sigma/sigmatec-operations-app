@@ -193,7 +193,7 @@ function BurnsPageInner() {
           onKeyDown={e => { if (e.key === 'Enter') onSearchEnter(); }}
           placeholder="חיפוש לפי מספר מונה, כתובת או גנרטור"
           aria-label="חיפוש"
-          className="min-h-[44px] w-full rounded-xl border border-border bg-card py-2 ps-9 pe-3 text-[14px] text-foreground"
+          className="min-h-[48px] w-full rounded-xl border border-border bg-card py-2 ps-9 pe-3 text-[14px] text-foreground"
         />
       </label>
 
@@ -268,7 +268,7 @@ function BurnsPageInner() {
                             : isCT(r) ? <Repeat className="h-5 w-5 text-muted-foreground" aria-hidden /> : <Zap className="h-5 w-5 text-muted-foreground" aria-hidden />
                         }
                         title={
-                          <button type="button" onClick={rowTap} className="block w-full text-start">
+                          <button type="button" onClick={rowTap} data-hit-slop="true" className="s-hit block w-full text-start">
                             <bdi>{r.serial}</bdi>
                           </button>
                         }
