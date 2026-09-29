@@ -61,8 +61,7 @@ Sources: `docs/superpowers/r5-MEMORY.md`, `docs/superpowers/r5-RESUME-27-9.md` (
 
 1. **H3 - presenter edits.** May the meeting presenter edit a kibbutz's region/section? If yes, which roles? This is a new write
    path and needs an RLS decision. Not built.
-2. **H5 - opened-at stamp.** Add an "opened at" stamp to the EMS cache now, or defer? Without it the "gap vs EMS" figure in field-ops has
-   no last-read reference. Not built.
+2. **H5 - EMS task lifecycle.** ✅ עידן 29.9: yes — track opened / assigned (with due date) / updated / closed for stats (time-to-assign, on-time close %, opened per kibbutz). Also feeds the presenter's "since the last meeting" opened/closed split. Spec: `specs/2026-09-29-ems-task-lifecycle-design.md` — waiting on 4 answers (meaning of שובצה, closed statuses, who sees stats, who feeds tracking).
 3. **SectionBlock fix.** Branch `r9/w2-sectionblock` (`733f15dd`, pushed as a branch, not on main) moves the `-mx-4` classes onto the
    overflow div so non-flush SectionBlocks stop clipping about 16px. It touches about 30 screens and the previous attempt broke home
    on real data. Waiting for a phone check (githack preview) before it can merge.
