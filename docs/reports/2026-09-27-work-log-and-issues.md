@@ -42,3 +42,11 @@
 - שורות בכרטיס קיבוץ (סיכומי ישיבות / מתמלול): **מחיקת שורה**; **העברת שורה לקיבוץ אחר** (כשהתמלול שייך לא נכון); **פתיחת משימה מהשורה והסבה למשימת EMS**.
 - 27.9 (4): **הקפאה הוסרה** — UPGRADE_FREEZE=false, האפליקציה פתוחה לכל העובדים (עידן אישר). 385a6d8b. בוחר הפונטים הוסר בסבב 5 (פונט אחד קבוע, Assistant) — לא מופיע בהודעה לצוות.
 - 27.9 (5): **נמצא בבדיקת הפריסה:** VERSION ו-sw.js עלו לחיים עם סימני קונפליקט (<<<<<<<) מאחד המיזוגים — sw.js היה שגיאת תחביר, כלומר טלפונים לא יכלו לעדכן את ה-service worker (ייתכן שזה גם הסביר חלק מ"זה לא מתעדכן"). תוקן, `node --check sw.js` עובר. לקח: אחרי כל מיזוג להריץ `git grep "^<<<<<<< "` ו-`node --check sw.js` לפני push → להוסיף כבדיקה ב-test-all.
+
+## 29.9 — wave 1 merged (MAIN, Opus integration / Sonnet execution)
+- 73fd68fa w1-docs: WORKING-METHOD, checkpoint docs, release guards (conflict markers + `node --check sw.js`) in test-all, dead #visitFab removed.
+- 717e530c w1-cardbtn: home-card visit buttons back via ONE lookup built in Home (no per-card query) + real-size fixture (60 kibbutzim/480 visits). Render ~1.75s→~2.4s (rough, worker counts differed) — watch.
+- 42329a26 w1-noterows: meeting-note row ⋯ menu — delete (undo 5s), move to another kibbutz (undo), open internal task, convert to EMS task. Internal link stored as `internal:<id>` in ems_task_id. No SQL.
+- 96de68ee w1-vacations: calendar absences for all staff (add/edit/delete, types חופשה/מחלה/אחר/מילואים/אירוע); only אביאם/ניתאי reach attendance.
+  PROD 29.9: `db/calendar_absences_sick_other.sql` applied via `supabase db query --linked` (MCP down). Backup `calendar_absences_bak_r9` (table had 0 rows). Constraint verified. Rollback in the file.
+- Open: build warning duplicate `tag` key in app/src/islands/DayLog.tsx:559/561; one flaky kibbutz-detail Playwright test (passes alone); untested missing-enum error path (moot — enum applied).

@@ -7,6 +7,8 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2.104–2.106 — 29.9 wave 1: home-card visit buttons (single lookup), meeting-note row actions (delete/move/task/EMS task), calendar absences for all staff (sick/other added in prod; attendance only for אביאם/ניתאי).
+
 ## [docs] 2026-09-29 — checkpoint for everything since 24.9 (rounds 5 + QA6, live for all staff)
 Public repo: no secrets, no real IPs, no row data. Detail per item: `docs/superpowers/r5-MEMORY.md` and
 `docs/reports/2026-09-27-work-log-and-issues.md`.
