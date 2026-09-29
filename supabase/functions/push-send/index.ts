@@ -61,6 +61,9 @@ const CORS = {
 };
 
 import { emsValid as emsValidAt, timingSafeEqual } from "../_shared/http.ts";
+// readingsDone: who may hear about a finished readings pull + the sentences (pure, tested in test-readings-fetch-modes.mjs)
+import { READINGS_USERS } from "../_shared/readingsRoster.js";
+import { readingsPush } from "../readings-fetch/helpers.js";
 
 // The EMS-login gate, the same check `github`/`calendar`/`transcribe` apply. Used by the modes
 // a BROWSER calls directly with a user's own token (feedbackNew); the order/attendance modes keep
@@ -685,6 +688,33 @@ Deno.serve(async (req: Request) => {
     };
     const r = await sendTo(INV_DIGEST_TO, payload, meta);
     return json({ ok: true, tag: win.tag, sent: r.delivered, lines: alerts.length });
+  }
+
+  // ---- 📥 readingsDone: a readings pull (readings-fetch) has finished ----------------------
+  // AUTH: X-Cron-Key only (readings-fetch calls it with the shared secret). Manual run -> the person who
+  // started it, always. Cron run -> the three READINGS_USERS, and ONLY when partial/failed (no push on success).
+  if (body.mode === "readingsDone") {
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    if (!secret || !cronKey || !timingSafeEqual(cronKey, secret)) return json({ error: "unauthorized: cron key required" }, 401);
+    const runId = String(body.run_id || "");
+    const { data: run } = await sb.from("reading_runs")
+      .select("id,site_id,reading_date,trigger,started_by,status,progress,n_ok").eq("id", runId).maybeSingle();
+    if (!run || run.status === "running") return json({ ok: true, skipped: "no finished run" });
+    const { data: site } = await sb.from("reading_sites").select("kibbutz").eq("id", run.site_id).maybeSingle();
+    const msg = readingsPush({ ...run, kibbutz: site?.kibbutz || "" });
+    if (!msg) return json({ ok: true, skipped: "cron run succeeded - no push" });
+    const to = msg.to === "all" ? READINGS_USERS : (run.started_by ? [String(run.started_by)] : []);
+    if (!to.length) return json({ ok: true, skipped: "no recipient" });
+    const openUrl = APP + "#readings";
+    const payload = JSON.stringify({
+      title: msg.title, body: msg.body, tag: "readings-" + run.id, url: openUrl,
+      actions: [{ action: "readings", title: "לקבצים" }],
+      data: { actUrls: { readings: openUrl } },
+    });
+    const meta = { event: "readingsDone", order_id: null, where_txt: "readings-" + run.id, qty: run.n_ok ?? 0, actor: null, title: msg.title, body: msg.body };
+    const r = await sendTo(to, payload, meta);
+    return json({ ok: true, sent: r.delivered });
   }
 
   // ---- one-tap approve (supplier orders only; customer approval must run in-app) ----
