@@ -41,9 +41,8 @@ const BAR: Record<Who, string[]> = {
   'צפייה': ['קיבוצים', 'דוחות', 'עוד'],
 };
 
-// ⋯ sheet rows by label → who sees them. The ניהול block (התראות · פיתוח · סטטיסטיקה) is עידן's alone
-// in MoreSheet.tsx (`currentUser === 'עידן'`), even where canShowPage lets others open the page: see the
-// test.fail finding below.
+// ⋯ sheet rows by label → who sees them. The ניהול block's pages follow canShowPage exactly (F9): התראות עידן,
+// פיתוח עידן/עמיחי/מתניה/אליה, סטטיסטיקה עידן/עמיחי.
 const SHEET: Record<string, Who[]> = {
   'יומן': STAFF,
   'נוכחות': ['עידן', 'עמיחי', 'אביאם', 'ניתאי'],
@@ -54,8 +53,8 @@ const SHEET: Record<string, Who[]> = {
   'הודעה לעובד': STAFF,
   'העדפות משתמש': ALL,
   'התראות': ['עידן'],
-  'פיתוח': ['עידן'],
-  'סטטיסטיקה': ['עידן'],
+  'פיתוח': ['עידן', 'עמיחי', 'מתניה', 'אליה'],
+  'סטטיסטיקה': ['עידן', 'עמיחי'],
 };
 
 /** Open the phone ⋯ sheet and read its row labels once the lazily registered rows stop arriving. */
@@ -208,19 +207,17 @@ test('role matrix צפייה: the inventory tabs offer no create button', async 
   }
 });
 
-// ── FINDINGS (kept as expected-failures: they go green-to-red the day the app is fixed, which is the
-//    signal to delete the marker). See docs/reports/2026-09-29-role-audit.md, F8 and F9. ───────────────
-test('FINDING F8: the viewer opens the product sheet with Save and ⋯ still offered (DB refuses the write)', async ({ page }, ti) => {
-  test.fail(true, 'F8: InventoryProductSheet is not viewer-gated; the write is refused by RLS, the UI still offers it');
+// ── F8 / F9 (fixed, formerly expected-failures). See docs/reports/2026-09-29-role-audit.md. ──────────
+test('role matrix צפייה: the product sheet is read-only (no Save, no ⋯) (F8)', async ({ page }, ti) => {
   await bootInv(page, ti, 'צפייה', d);
   await d.openTab(page, 'products');
   await page.locator('[data-testid^="inv-product-row-"]').first().click();
   await expect(page.getByTestId('ps-save')).toHaveCount(0);
 });
 
-test('FINDING F9: עמיחי may open פיתוח and סטטיסטיקה (canShowPage) but ⋯ never lists them (same for מתניה/אליה on פיתוח)', async ({ page }, ti) => {
-  test.fail(true, 'F9: MoreSheet shows the ניהול block only when the user is עידן, so these roles can open the pages by URL/history but the menu never offers them');
-  await boot(page, ti, { who: 'עמיחי', ready: '' });
+test('role matrix עמיחי: ⋯ lists פיתוח and סטטיסטיקה exactly as canShowPage allows (F9)', async ({ page }, ti) => {
+  const { viewport } = await boot(page, ti, { who: 'עמיחי', ready: '' });
+  test.skip(!viewport.startsWith('mobile'), 'opened from the phone ⋯ sheet');
   const rows = await sheetRows(page);
   expect(rows).toContain('פיתוח');
   expect(rows).toContain('סטטיסטיקה');

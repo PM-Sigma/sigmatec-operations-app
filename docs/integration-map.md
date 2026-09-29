@@ -100,7 +100,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.sbPass` | js/src/00-bridge.js:378 | *(own logic)* | app/src/islands/FeedbackInbox.tsx:89<br>app/src/lib/daylogChain.ts:73<br>app/src/lib/devBoard.ts:30<br>app/src/lib/ems/adapters/fieldOps.ts:22<br>…+1 |
 | `sigma.sessionExpired` | js/src/00-bridge.js:513 | *(own logic)* | **—** |
 | `sigma.setAttPerson` | js/src/00-bridge.js:545 | `setAttPerson` → js/src/11-search-login.js:171 | app/src/islands/Attendance.tsx:344 |
-| `sigma.showPage` | js/src/00-bridge.js:280 | `showPage` → js/src/00-bridge.js:203 | app/src/components/alerts/AlertsPanel.tsx:21<br>app/src/components/alerts/AlertsPanel.tsx:25<br>app/src/components/home/Burns.tsx:334<br>app/src/components/MoreSheet.tsx:190<br>…+23 |
+| `sigma.showPage` | js/src/00-bridge.js:280 | `showPage` → js/src/00-bridge.js:203 | app/src/components/alerts/AlertsPanel.tsx:21<br>app/src/components/alerts/AlertsPanel.tsx:25<br>app/src/components/home/Burns.tsx:334<br>app/src/components/MoreSheet.tsx:192<br>…+23 |
 | `sigma.STAFF_PEOPLE` | js/src/00-bridge.js:625 | *(own logic)* | app/src/islands/MessageSheet.tsx:71 |
 | `sigma.staffSendMessage` | js/src/00-bridge.js:620 | *(own logic)* | app/src/islands/MessageSheet.tsx:139 |
 | `sigma.toast` | js/src/00-bridge.js:630 | *(own logic)* | app/src/components/UserChip.tsx:86<br>app/src/islands/Usage.tsx:62<br>app/src/islands/Usage.tsx:63<br>app/src/lib/runAdd.test.ts:30<br>…+3 |

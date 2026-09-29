@@ -126,8 +126,10 @@ export function MoreSheet({
       .sort((a, b) => (g === 'app' ? rank(a.id) - rank(b.id) : 0)),
   });
   const app = block('app');
-  // Q7-C 7.6: the ניהול block is עידן's alone ('' matches no group, so it is empty for anyone else).
-  const admin = block(currentUser === 'עידן' ? 'admin' : '');
+  // The ניהול block: its PAGES follow canShowPage exactly (already applied in `pages` — one source of
+  // truth, no name list here); its registered ITEMS stay עידן-only.
+  const adminAll = block('admin');
+  const admin = { pages: adminAll.pages, items: currentUser === 'עידן' ? adminAll.items : [] };
 
   // The sheet's own attention total — shown on the ⋯ tab so the person knows to open it.
   const attention = extras.reduce((n, i) => n + itemBadge(i), 0);

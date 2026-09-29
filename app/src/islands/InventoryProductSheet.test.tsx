@@ -8,8 +8,9 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 afterEach(cleanup);
 
 let currentRole = 'idan';
+let currentViewer = false;
 vi.mock('@/bridge', () => ({
-  useCurrentUser: () => ({ name: currentRole === 'idan' ? 'עידן' : 'עמיחי', role: currentRole, isViewer: false }),
+  useCurrentUser: () => ({ name: currentRole === 'idan' ? 'עידן' : 'עמיחי', role: currentRole, isViewer: currentViewer }),
 }));
 
 const api = vi.hoisted(() => ({
@@ -41,7 +42,7 @@ import { ProductSheet } from '@/islands/InventoryProductSheet';
 const PRODUCT = { id: 'p2', name: 'בקר 504', category: 'בקר', active: true, display_name: 'בקר' };
 
 beforeEach(() => {
-  currentRole = 'idan';
+  currentRole = 'idan'; currentViewer = false;
   saveProduct.mockClear(); setProductActive.mockClear(); deletePreview.mockClear(); deleteProduct.mockClear();
   toastFn.mockClear(); hoisted.reset();
 });
@@ -114,5 +115,21 @@ describe('ProductSheet — undo within 5s cancels the delete', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('ProductSheet — read-only for the viewer (F8)', () => {
+  it('offers neither ps-save nor the ⋯ menu to צפייה', () => {
+    currentRole = 'viewer'; currentViewer = true;
+    render(<ProductSheet open onOpenChange={() => {}} product={PRODUCT as any} hasMovements={false}
+                         onSaved={() => {}} onDeleted={() => {}} />);
+    expect(screen.queryByTestId('ps-save')).toBeNull();
+    expect(screen.queryByTestId('ps-more')).toBeNull();
+  });
+  it('still offers both to staff', () => {
+    render(<ProductSheet open onOpenChange={() => {}} product={PRODUCT as any} hasMovements={false}
+                         onSaved={() => {}} onDeleted={() => {}} />);
+    expect(screen.getByTestId('ps-save')).toBeTruthy();
+    expect(screen.getByTestId('ps-more')).toBeTruthy();
   });
 });
