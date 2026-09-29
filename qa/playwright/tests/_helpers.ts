@@ -99,6 +99,9 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
   const meetingSessions: Array<Record<string, unknown>> = [];
   const meetingEvents: Array<Record<string, unknown>> = [];
   const liveNotes: Array<Record<string, unknown>> = [];
+  /** Row actions on fixture notes: patches (move/link) and deletions, applied on every read. */
+  const noteOverrides = new Map<string, Record<string, unknown>>();
+  const deletedNotes = new Set<string>();
   /**
    * 🔒 internal_tasks (Task 26) — a real store for the same reason: the spec adds a row on a
    * card, expects it in "היום שלי", toggles it done and promotes it to EMS, and every step
@@ -383,13 +386,23 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const hit = liveNotes.find(n => n.id === id);
         if (hit) Object.assign(hit, body);
-        return route.fulfill(json(shape(hit ? [hit] : [], accept)));
+        else noteOverrides.set(id, { ...(noteOverrides.get(id) || {}), ...body });
+        return route.fulfill(json(shape([hit || { id, ...body }], accept)));
+      }
+      if (tableOf(url) === 'kibbutz_meeting_notes' && method === 'DELETE') {
+        const id = decodeURIComponent((new URL(url).searchParams.get('id') || '').replace(/^eq\./, ''));
+        deletedNotes.add(id);
+        const li = liveNotes.findIndex(n => n.id === id);
+        if (li >= 0) liveNotes.splice(li, 1);
+        return route.fulfill(json(shape([{ id }], accept)));
       }
       if (tableOf(url) === 'kibbutz_meeting_notes' && method === 'POST') {
         let body: any = {};
         try { body = JSON.parse(req.postData() || '{}'); } catch { /* not json */ }
         const rows = (Array.isArray(body) ? body : [body]).map((r, i) => ({ id: 'kmn-live-' + (liveNotes.length + i + 1), ...r }));
-        liveNotes.push(...rows);
+        rows.forEach(r => deletedNotes.delete(String(r.id)));
+        // an undo re-inserts a FIXTURE row by its own id: un-deleting it is enough.
+        liveNotes.push(...rows.filter(r => !FIXTURES.notes.some(n => n.id === r.id)));
         return route.fulfill(json(shape(rows, accept), 201));
       }
       // internal_tasks (Task 26) — insert, and the ✓ / ⬆ PATCH that flips `done`.
@@ -624,7 +637,9 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
         };
         const date = eq('meeting_date');
         const kind = eq('meeting_kind');
-        let rows = [...FIXTURES.notes, ...liveNotes];
+        let rows = [...FIXTURES.notes, ...liveNotes]
+          .filter(r => !deletedNotes.has(String(r.id)))
+          .map(r => (noteOverrides.has(String(r.id)) ? { ...r, ...noteOverrides.get(String(r.id)) } : r));
         if (date) rows = rows.filter(r => String(r.meeting_date) === date);
         if (kind) rows = rows.filter(r => String(r.meeting_kind) === kind);
         return route.fulfill(json(shape(rows, accept)));
