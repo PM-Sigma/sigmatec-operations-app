@@ -1,3 +1,5 @@
+🟡 OPEN (2026-09-29) — **H5 EMS task lifecycle stats**: spec only, NOT built — `docs/superpowers/specs/2026-09-29-ems-task-lifecycle-design.md` + migration draft `db/ems_task_lifecycle.sql` (not applied). Resume: get עידן answers to spec section 10, run the raw-task key probe, then apply the migration (after backup) and build the differ + tests.
+
 ↪ RESUMED and shipped (see the 29.9 block below). Was: PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).
 
 ✅ DONE (2026-09-29, wave 3) — ops graph rebuilt + audited (649 files), `modules.md` corrected, `DECISIONS-round5.md`; 15 Playwright failures triaged/fixed + Σ home button restored + index.html shell-anchor guard (a84b6e1b, faa4092c).
