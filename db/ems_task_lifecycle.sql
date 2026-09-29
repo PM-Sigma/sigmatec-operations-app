@@ -240,6 +240,12 @@ begin
   if coalesce(p_full,false) and jsonb_array_length(p_tasks) = 0 then
     raise exception 'a full snapshot cannot be empty' using errcode = '22023';
   end if;
+  -- ponytail: a truncated crawl sent as "full" would falsely close most tasks; refuse one that
+  -- shrinks the open set by more than half. Ceiling: a real mass-close in EMS (>half at once) is refused — Claude runs the core fn by hand then.
+  if coalesce(p_full,false) and jsonb_array_length(p_tasks) * 2 <
+       (select count(*) from public.ems_task_state where gone_at is null and status <> all(array['done','rejected','not_relevant','cancelled'])) then
+    raise exception 'full snapshot much smaller than the open set' using errcode = '22023';
+  end if;
   return public.ems_apply_snapshot_core(p_tasks, now(), coalesce(p_full,false), 'derived');
 end $$;
 revoke all on function public.ems_apply_snapshot(jsonb, boolean) from public, anon;
