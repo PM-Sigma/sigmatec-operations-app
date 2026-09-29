@@ -6,6 +6,27 @@
 Today an employee manually pulls readings from SpeedNet and DataSense for חולדה and prepares a manual upload file for EMS. `miltel_daily.py` already does this and has been checked end to end (31.8, 20.9, 27.9, 28.9). We are moving it into the app: every morning at 07:00, plus a manual run, producing 2 files (readings to upload + exceptions). Access: **all signed-in staff, never the view-only role** (ruling עידן 29.9, replacing "עידן/עמיחי/מתניה only"): a bridge JWT with a non-empty `name` claim (ems-auth mints it only for rostered staff) and no `viewer` claim; the same in `canUseReadings()`, `is_readings_user()` and `canShowPage('readings')`. Cron-failure alerts still go to a named list (עידן, עמיחי, מתניה: `READINGS_ALERT_USERS` in push-send), which is not access. Source of truth: `C:\Users\idann\Projects\Kibbutzim\חולדה\תוצרים\2026-09-29 — אפיון שאיבת קריאות יומית ל-Sigmatec Ops\אפיון — שאיבת קריאות יומית.md`.
 What changed from v1: a run is a **server-side job that does not depend on the screen**. The user can move to other screens or close the app, and they get told when it finishes and where to go.
 
+## v1.3 rules (עידן, 29.9.26 — FINAL; replaces the rules table, review item A "expected list" and the "minimal checks / no drop rule" answers below)
+Source: `Kibbutzim/חולדה/תוצרים/2026-09-29 — אפיון שאיבת קריאות יומית ל-Sigmatec Ops/עדכונים למפתח — גרסה 1.3.md` and the reference `miltel_daily.py` (`check()`, `run()`). `logic.js` is a line-by-line port. Terminology: פסגה/גבע/שפל are **"משב"ים"**, never "תעריפים".
+
+| | Rule | Text in the exceptions file |
+|---|---|---|
+| BLOCK | no total (T); what did arrive is listed | `אין קריאת סה"כ (T)` + ` — הגיעו רק: שפל 18204.582` |
+| BLOCK | not set up in EMS (EMS `GET meters` list, or validate `METER_NOT_FOUND`/`METER_NOT_IN_SITE`); a cron run without a token stays "לא נבדק מול EMS" | `המונה לא מוקם ב-EMS תחת <kibbutz>` |
+| BLOCK | negative value | `ערך שלילי` |
+| BLOCK | drop of ft/f1/f2/f3 vs the LAST saved reading (`reading_values`, dates < D, up to 40 days back) | `ירידה ב<שם>: <last> (<DD/MM>) → <now>` |
+| BLOCK | daily consumption > `max_daily_kwh` (500) = (ft − last.ft) / days since the last reading | `צריכה חריגה: X קוט"ש ביום (מעל 500)` |
+| BLOCK | spike: only when (last date − first date in the history) >= `spike_min_history_days` (30); avg = (last.ft − first.ft)/span; per_day > `spike_min_kwh` (50) and > `spike_factor` (5) × max(avg, 0.1) | `קפיצה חריגה: X קוט"ש ביום, פי N מהממוצע (A)` |
+| WARN (uploaded) | Σ משב"ים ≠ ft (tolerance max(0.1% ft, 1)); DataSense day-split gap (tolerance max(1% of day consumption, 0.05)) — ONE summary reason (the summary key is the text before ` (` / `:` / `—`) | `סכום המשב"ים ≠ סה"כ` / `... (בצריכה היומית, פער G)` |
+| WARN | timestamp outside [D 00:00, D+1 03:00) | `משדר לא שידר — הקריאה מ-<when> ולא מ-<DD/MM>` |
+| WARN | frozen: same reading `frozen_days` (3) days in a row after it had consumption | `מונה תקוע — אותה קריאה 3 ימים ברצף` |
+| — | a meter missing any expected משב"ים uploads ft only (no exception) | |
+| REMOVED | per-meter "המונה לא הופיע באתר היום" / "האתר לא זמין" (a source failure is a run error: status failed/partial + a message on screen), duplicate-serial rule, EMS-only meters info rows (45 meters of other systems) | |
+
+EMS `validate` still runs (button / manual run): `FT_DECREASED`/`RT_DECREASED` → block `ירידה מול הקריאה האחרונה ב-EMS`; `PARTIAL_TARIFF_UPDATE` → warn `עדכון משב"ים חלקי`; `TARIFF_SUM_MISMATCH` → warn `סכום המשב"ים ≠ סה"כ (EMS)`. `rules` default: `{"max_daily_kwh":500,"spike_factor":5,"spike_min_history_days":30,"spike_min_kwh":50,"frozen_days":3}` (`db/readings_rules_v13.sql`, NOT APPLIED; also the default in `db/readings_pull.sql`).
+QA (golden, local fixtures): 31.8 → 251/253 (blocked 15024949, 1502859; warning 18000000046); 28.9 after 31.8 → 250/253 (+ 1715447: drop in סה"כ and שפל).
+Note: the reference Python blanks the partial registers before `check()`, so it never prints the "הגיעו רק" suffix (its xlsx has the plain text); the app prints it as v1.3 specifies (it blanks only when T exists).
+
 ## Architecture
 - The client only **starts** a run (`POST readings-fetch {mode:"run"}`) and gets back a `run_id`. From there the server carries it: the function saves the run and fires one call per source (`mode:"source"`, a non-awaited self-call with a service key). The last source to finish runs `mode:"build"`, which builds the xlsx files → Storage → `status=ok|partial|failed`.
 - **SpeedNet:** direct HTTP from Deno. This is a port of `speednet()`: POST, a `FromDate` that changes every attempt, a check that most rows are dated D/D+1, and up to 6 attempts.

@@ -50,7 +50,7 @@ create table if not exists public.reading_sites (
   kibbutz        text unique not null,
   ems_site_id    uuid,
   active         boolean default true,
-  rules          jsonb default '{"spike_factor":5,"spike_min_kwh":50,"frozen_days":3}'::jsonb,
+  rules          jsonb default '{"max_daily_kwh":500,"spike_factor":5,"spike_min_history_days":30,"spike_min_kwh":50,"frozen_days":3}'::jsonb,
   retention_days int default 35,          -- runs + files only; reading_values are kept longer
   created_at     timestamptz default now()
 );

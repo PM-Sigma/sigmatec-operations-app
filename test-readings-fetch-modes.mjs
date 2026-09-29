@@ -5,7 +5,7 @@ import {
   israelNow, israelYesterday, addDaysIso, badRunDate, cronWindowOpen, retentionCutoff, valuesCutoff, dedupeDecision,
   fileNames, storagePaths, emsSyncDecision, errText, ERR_TEXT, allSourcesDone, runStatus, cronDecision, readingsPush,
 } from './supabase/functions/readings-fetch/helpers.js';
-import { buildRun, applyEmsValidation, expectedFrom } from './supabase/functions/readings-fetch/logic.js';
+import { buildRun, applyEmsValidation } from './supabase/functions/readings-fetch/logic.js';
 import { canUseReadings } from './supabase/functions/_shared/readingsRoster.js';
 
 let n = 0;
@@ -131,21 +131,19 @@ t('readingsPush: manual to starter, cron to all only on partial/failed', () => {
   assert.ok(failManual.title.includes('נכשלה'));
   assert.strictEqual(canUseReadings({ name: 'עידן' }), true);
 });
-t('logic glue: failed source blocks expected meters; expectedFrom unions; EMS validation drops a rejected row', () => {
+t('logic glue: a failed source adds no per-meter rows; EMS validation drops a rejected row', () => {
   const mk = (m, ft) => ({ meter: m, when: '28-09-26 00:30', expect: ['f1', 'f2', 'f3'], ft, f1: 1, f2: 1, f3: ft - 2 });
-  const expected = expectedFrom([{ SpeedNet: ['1', '2'] }, { SpeedNet: ['2', '3'] }]);
-  assert.deepStrictEqual(expected.SpeedNet.sort(), ['1', '2', '3']);
   const run = buildRun({
-    day: '2026-09-28', expected,
+    day: '2026-09-28',
     sources: [{ name: 'SpeedNet', ok: true, rows: [mk('1', 10), mk('2', 20)] }, { name: 'DataSense', ok: false, error: { message: 'האתר לא זמין' }, rows: [] }],
   });
   assert.strictEqual(run.upload.length, 2);
-  assert.ok(run.exceptions.some((r) => r[1] === '3' && /לא הופיע/.test(r[6])));
+  assert.strictEqual(run.exceptions.length, 0);
   const res = applyEmsValidation(run, [
     { rowIndex: 0, valid: true, errors: [], warnings: [] },
     { rowIndex: 1, valid: false, errors: ['UPLOAD_READINGS.ERRORS.FT_DECREASED'], warnings: [] },
   ]);
   assert.strictEqual(res.upload.length, 1);
-  assert.ok(res.exceptions.some((r) => r[2] === '2' && /EMS: ירידה/.test(r[6])));
+  assert.ok(res.exceptions.some((r) => r[2] === '2' && /ירידה מול הקריאה האחרונה ב-EMS/.test(r[6])));
 });
 console.log(`OK test-readings-fetch-modes.mjs - ${n} groups`);
