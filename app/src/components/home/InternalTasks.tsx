@@ -64,13 +64,15 @@ export async function createInternalTask(
   const sb = await getSupabase();
   const base = { title: t, kibbutz, owner: owner || null, created_by: createdBy };
   const full = extra ? { ...base, ...extra } : base;
+  let res: any;
   try {
-    await sbWrite(() => sb.from('internal_tasks').insert(full).select('id').single());
+    res = await sbWrite(() => sb.from('internal_tasks').insert(full).select('id').single());
   } catch (e: any) {
     if (!extra || !/column|schema/i.test(String(e?.message || ''))) throw e;
-    await sbWrite(() => sb.from('internal_tasks').insert(base).select('id').single());
+    res = await sbWrite(() => sb.from('internal_tasks').insert(base).select('id').single());
   }
   emitInternalTasksChanged({ created: true });
+  return res?.id ? String(res.id) : null;
 }
 
 export async function writeToggleDone(row: InternalTaskRow): Promise<void> {

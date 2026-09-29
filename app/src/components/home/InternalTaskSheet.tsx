@@ -16,8 +16,14 @@ const chip = (on: boolean) =>
   (on ? 'border-transparent bg-foreground text-background' : 'border-border bg-card text-muted-foreground');
 
 export default function InternalTaskSheet({
-  kibbutz, open, onOpenChange,
-}: { kibbutz: string | null; open: boolean; onOpenChange: (v: boolean) => void }) {
+  kibbutz, open, onOpenChange, initialTitle = '', onCreated,
+}: {
+  kibbutz: string | null; open: boolean; onOpenChange: (v: boolean) => void;
+  /** Prefill (a meeting bullet turned into a task). */
+  initialTitle?: string;
+  /** Called with the new row's id after a successful save. */
+  onCreated?: (id: string | null) => void | Promise<void>;
+}) {
   const { name: me } = useCurrentUser();
   const [title, setTitle] = React.useState('');
   const [owner, setOwner] = React.useState<string>(me);
@@ -28,8 +34,8 @@ export default function InternalTaskSheet({
 
   React.useEffect(() => {
     if (!open) return;
-    setTitle(''); setOwner(me); setDue(''); setPriority('normal'); setKind(''); setSaving(false);
-  }, [open, me]);
+    setTitle(initialTitle); setOwner(me); setDue(''); setPriority('normal'); setKind(''); setSaving(false);
+  }, [open, me, initialTitle]);
 
   const save = async () => {
     const t = title.trim();
@@ -37,7 +43,8 @@ export default function InternalTaskSheet({
     if (!owner) { toast.error('בחר אחראי'); return; }
     setSaving(true);
     try {
-      await createInternalTask(t, kibbutz, owner, me, { due_date: due || null, priority, kind: kind || null });
+      const id = await createInternalTask(t, kibbutz, owner, me, { due_date: due || null, priority, kind: kind || null });
+      await onCreated?.(id);
       toast.success('נוספה משימה פנימית' + (owner !== me ? ' ל' + owner : ''));
       onOpenChange(false);
     } catch (e: any) {
@@ -48,7 +55,7 @@ export default function InternalTaskSheet({
   };
 
   const guard = useUnsavedGuard({
-    dirty: () => title.trim() !== '' || due !== '' || kind !== '',
+    dirty: () => title.trim() !== initialTitle.trim() || due !== '' || kind !== '',
     onSave: () => save(),
     onDiscard: () => onOpenChange(false),
     onClose: () => onOpenChange(false),
