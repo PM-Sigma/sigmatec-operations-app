@@ -71,3 +71,4 @@
 - Q7-D: dark palette teal-tinted + more saturated accents, grey 1px border on dialogs/menus/popovers/toasts, destructive + field borders fixed; dark-contrast.spec (axe + custom): 56 → 0 violations at 360/412; light unchanged (41 pre-existing, recorded) (v2.123)
 - guard: test-html-guard.mjs — every page view + island mount, inline handler, window.sigma* hook and looked-up id is derived from source and must exist in index.html (proven red on 4 mutations); no real losses on main (v2.125)
 - H5 office job feeds lifecycle via ems_apply_snapshot_cron (service_role only; PROD applied 29.9). עידן: add SUPABASE_SERVICE_ROLE_KEY to the office .env (v2.127)
+- Q7-A: 422 root cause = priority 'medium' (EMS accepts low|normal|high|urgent) → 'normal' + coercion; app-wide error mapper (retry/fix/report + code, detail for עידן) wired into 42 toasts; last-row ⋯ menu via portal + flip; home card visit buttons + per-row ➕ removed (v2.129)
