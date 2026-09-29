@@ -147,12 +147,12 @@ export function InventoryCertsTab() {
                 onClick={() => openView(c)}
                 title={
                   <span className={cancelled ? 'line-through text-muted-foreground' : ''}>
-                    {anyc.cert_number}
+                    <bdi>{anyc.cert_number}</bdi>
                   </span>
                 }
                 meta={
                   <span className="flex flex-col gap-1">
-                    <span>{(anyc.cert_date || '').slice(0, 10)} · {anyc.customer?.name || anyc.kibbutz} · {(anyc.items || []).length} פריטים · {anyc.created_by}</span>
+                    <span><bdi>{(anyc.cert_date || '').slice(0, 10)}</bdi> · {anyc.customer?.name || anyc.kibbutz} · <bdi>{(anyc.items || []).length}</bdi> פריטים · {anyc.created_by}</span>
                     {/* Designer C-round I fix: "1042 1043 → בוטלה" read as a garbled arrow chain,
                         not a status. A cancelled cert is a Tag like every other status; the
                         replacement number (if any) is its own plain-language line. */}

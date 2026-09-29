@@ -259,7 +259,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `push-send` | `attendanceReminder` | ✓ | js/src/22-push.js:313 |
 | `push-send` | `feedbackNew` | ✓ | app/src/islands/Feedback.test.tsx:159<br>app/src/islands/Feedback.tsx:92 |
 | `push-send` | `gapReminder` | ✓ | js/src/22-push.js:341 |
-| `transcribe` | `(default)` | *(no mode field)* | app/src/lib/speech.ts:403<br>app/src/lib/speech.ts:437 |
+| `transcribe` | `(default)` | *(no mode field)* | app/src/lib/speech.ts:410<br>app/src/lib/speech.ts:444 |
 
 `push-send` modes with no client caller (cron / server-triggered by design): `approveOrder`, `attendanceCron`, `inventoryAlert`, `inventoryDigest`, `timerStale`, `usageDigest`, `visitCron`.
 

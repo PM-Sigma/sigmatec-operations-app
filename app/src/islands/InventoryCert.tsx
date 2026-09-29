@@ -296,7 +296,7 @@ function CertIsland() {
                       aria-label={`פריט ${i + 1}`}
                       onChange={e => updateItem(i, { name: e.target.value })}
                       className="min-h-[44px] flex-1 rounded-xl border border-border bg-card px-2 text-[15px]" />
-                    <input data-testid={`cert-item-${i}-qty`} type="number" min={1} value={it.qty}
+                    <input data-testid={`cert-item-${i}-qty`} type="number" dir="ltr" min={1} value={it.qty}
                       aria-label={`כמות לפריט ${i + 1}`}
                       onChange={e => updateItem(i, { qty: Number(e.target.value) || 0 })}
                       className="min-h-[44px] w-20 rounded-xl border border-border bg-card px-2 text-[15px]" />
@@ -306,7 +306,7 @@ function CertIsland() {
                 <button type="button" data-testid="cert-add-row" onClick={addRow} className="self-start text-[13px] font-bold text-[var(--sigma-ink)]">
                   הוספת פריט
                 </button>
-                <span className="text-[12px] text-muted-foreground">{draft.items.length} שורות · <bdi>{draft.items.reduce((s, it) => s + (it.qty || 0), 0)}</bdi> יח׳</span>
+                <span className="text-[12px] text-muted-foreground"><bdi>{draft.items.length}</bdi> שורות · <bdi>{draft.items.reduce((s, it) => s + (it.qty || 0), 0)}</bdi> יח׳</span>
               </div>
 
               <div>

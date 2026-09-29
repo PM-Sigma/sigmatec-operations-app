@@ -47,6 +47,13 @@ export function pickAudioMime(isTypeSupported: (t: string) => boolean): string {
   return '';
 }
 
+/** Speech only needs ~16 kHz mono; Chrome's default (~128 kbps stereo Opus) makes the upload ~5x
+ *  bigger than Whisper can use. 24 kbps mono keeps transcription quality and cuts upload time. */
+export const SPEECH_BITRATE = 24_000;
+export function recorderOptions(mime: string): { mimeType?: string; audioBitsPerSecond: number } {
+  return { ...(mime ? { mimeType: mime } : {}), audioBitsPerSecond: SPEECH_BITRATE };
+}
+
 export function audioExt(mime: string): string {
   const m = String(mime || '').toLowerCase();
   if (m.includes('mp4') || m.includes('aac') || m.includes('m4a')) return 'm4a';
@@ -248,7 +255,7 @@ export async function startRecording(h: RecordHandlers): Promise<RecordSession |
   }
   let stream: MediaStream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
   } catch (e: any) {
     h.onError(/NotAllowed|Permission|SecurityError/i.test(String(e?.name || e)) ? 'denied' : 'failed',
       String(e?.name || e?.message || e));
@@ -256,7 +263,7 @@ export async function startRecording(h: RecordHandlers): Promise<RecordSession |
   }
 
   const mime = pickAudioMime(t => w.MediaRecorder.isTypeSupported(t));
-  const rec: MediaRecorder = new w.MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  const rec: MediaRecorder = new w.MediaRecorder(stream, recorderOptions(mime));
   const chunks: Blob[] = [];
   const started = Date.now();
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
