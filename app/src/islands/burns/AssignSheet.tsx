@@ -9,6 +9,7 @@ import { ListRow } from '@/components/ui/list-row';
 import { BubbleButton } from '@/components/ui/bubble-button';
 import { generatorsForSite, type GeneratorRow } from '@/lib/burns';
 import { assignGenerator, ensureGenerator, searchEmsMeters } from '@/lib/burnsData';
+import { toastFailure } from '@/lib/pending';
 
 export function AssignSheet({
   site, meterIds, gens, user, open, onOpenChange, onSaved,
@@ -40,7 +41,7 @@ export function AssignSheet({
   const pick = async (id: string | null) => {
     setSaving(true);
     try { await assignGenerator(meterIds, id); toast.success('השיבוץ נשמר'); onSaved(); onOpenChange(false); }
-    catch (e: any) { toast.error(e?.message || 'השמירה נכשלה'); }
+    catch (e: any) { toastFailure(e, undefined, 'השמירה נכשלה'); }
     finally { setSaving(false); }
   };
 
@@ -54,7 +55,7 @@ export function AssignSheet({
       onSaved();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message || 'השמירה נכשלה');
+      toastFailure(e, undefined, 'השמירה נכשלה');
     } finally {
       setSaving(false);
     }

@@ -142,5 +142,19 @@ check('client: the slim task carries createdAt/updatedAt and the cache version m
   assert.match(read('js/src/00-consts.js'), /const EMS_CACHE_VER = 3;/);
 });
 
+const cron = read('db/ems_task_lifecycle_cron.sql');
+const cronCode = cron.split('\n').filter(l => !l.trim().startsWith('--')).join('\n');
+check('cron fn: service_role only (revoked from public/anon/authenticated), definer, pinned path, rollback noted', () => {
+  assert.match(cronCode, /revoke all on function public\.ems_apply_snapshot_cron\(jsonb, boolean\) from public, anon, authenticated;/);
+  assert.match(cronCode, /grant execute on function public\.ems_apply_snapshot_cron\(jsonb, boolean\) to service_role;/);
+  assert.doesNotMatch(cronCode, /grant [^;]*to (anon|authenticated|public)/i);
+  assert.match(cronCode, /security definer set search_path = public, pg_temp/);
+  assert.match(cron, /ROLLBACK:\n--   drop function if exists public\.ems_apply_snapshot_cron/);
+});
+check('cron fn: same validation + half-open-set guard as the staff wrapper, then the core fn', () => {
+  for (const re of [/jsonb_typeof\(p_tasks\) <> 'array'/, /> 5000/, /a full snapshot cannot be empty/, /jsonb_array_length\(p_tasks\) \* 2 </, /ems_apply_snapshot_core\(p_tasks, now\(\)/])
+    assert.match(cronCode, re);
+});
+
 if (failed) { console.log('\nFAIL - ' + failed + ' check(s) failed'); process.exit(1); }
 console.log('\nPASS - ems lifecycle migration structure + client hook');

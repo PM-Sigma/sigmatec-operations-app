@@ -358,7 +358,7 @@ function FeedbackSheet() {
     } catch (e: any) {
       // A precondition (no EMS session) is not a service outage: the retry would fail the same
       // way forever, so it keeps the toast and the recording is not held.
-      if (!heldForRetry(e)) { toast.error(e?.message || 'התמלול נכשל'); return false; }
+      if (!heldForRetry(e)) { toastFailure(e, undefined, 'התמלול נכשל'); return false; }
       // Otherwise: no toast. A toast disappears, and with it the only sign that the speech
       // still exists; the strip stays on screen with the ↻ until the person decides.
       setPendingAudio(audio);

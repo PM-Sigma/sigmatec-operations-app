@@ -9,6 +9,7 @@ import { BubbleButton } from '@/components/ui/bubble-button';
 import { sigma } from '@/bridge';
 import { burnIssueTask, type BurnRow, type GeneratorRow } from '@/lib/burns';
 import { markIssue } from '@/lib/burnsData';
+import { toastFailure } from '@/lib/pending';
 
 export function IssueSheet({
   row, gen, open, onOpenChange, onSaved,
@@ -43,7 +44,7 @@ export function IssueSheet({
       onSaved();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message || 'השמירה נכשלה');
+      toastFailure(e, undefined, 'השמירה נכשלה');
     } finally {
       setSaving(false);
     }

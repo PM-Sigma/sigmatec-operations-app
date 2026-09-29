@@ -35,6 +35,7 @@ import type { ListTask } from '@/lib/taskList';
 import { dueLabel, isOverdueInternal, type InternalTaskRow } from '@/lib/internalTasks';
 import { myTaskGroups, MY_TASKS_TITLE, taskTags, undoable, UNDO_MS, type MyTaskGroup, type TaskTag } from '@/lib/myTasks';
 import { useInternalTasks, writeToggleDone } from '@/components/home/InternalTasks';
+import { toastFailure } from '@/lib/pending';
 
 export const MY_TASKS_OPEN_EVENT = 'sigma-open-my-tasks';
 
@@ -135,7 +136,7 @@ function InternalRow({ row, canAct, onCommitted, groupKibbutz, groupReal, onClos
       })
       .catch((e: any) => {
         toast.dismiss(t);
-        toast.error(e?.message || 'הפעולה נכשלה');
+        toastFailure(e, undefined, 'הפעולה נכשלה');
         setClosing(false);
       });
   };

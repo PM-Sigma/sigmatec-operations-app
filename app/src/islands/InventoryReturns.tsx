@@ -10,6 +10,7 @@ import { SectionBlock } from '@/components/ui/section-block';
 import { Tag } from '@/components/ui/chip';
 import { useCurrentUser } from '@/bridge';
 import { useInventory, restockReturn, markDefective, type ReturnRow } from '@/lib/inventoryApi';
+import { toastFailure } from '@/lib/pending';
 
 const STATUS_TAG: Record<string, { label: string; role: 'neutral' | 'ok' | 'danger' }> = {
   open: { label: 'ממתין', role: 'neutral' },
@@ -46,7 +47,7 @@ export function InventoryReturnsTab() {
       await restockReturn(r.id, data, user.name);
       toast.success('הפריט הוחזר למלאי');
     } catch (e: any) {
-      toast.error(e?.message || 'הפעולה נכשלה');
+      toastFailure(e, undefined, 'הפעולה נכשלה');
     } finally {
       setBusy(false);
       setConfirm(null);
@@ -58,7 +59,7 @@ export function InventoryReturnsTab() {
       await markDefective(r.id);
       toast.success('הפריט סומן כתקול');
     } catch (e: any) {
-      toast.error(e?.message || 'הפעולה נכשלה');
+      toastFailure(e, undefined, 'הפעולה נכשלה');
     } finally {
       setBusy(false);
       setConfirm(null);

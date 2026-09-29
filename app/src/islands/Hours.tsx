@@ -37,6 +37,7 @@ import {
   hoursXlsxSpec, monthsOf, peopleOf, toLocalInput, validateHours,
   type HoursDraft, type WorkSessionRow,
 } from '@/lib/hours';
+import { toastFailure } from '@/lib/pending';
 
 const KEY = ['workSessions'] as const;
 
@@ -119,7 +120,7 @@ function HoursSheet({ row, kibbutzim, onClose, onSaved }: {
       toast.success(row ? 'השורה עודכנה' : 'השעות נוספו');
       onSaved(); onClose();
     } catch (e: any) {
-      toast.error(e?.message || 'השמירה נכשלה');
+      toastFailure(e, undefined, 'השמירה נכשלה');
     } finally { setSaving(false); }
   };
   const del = async () => {
@@ -129,7 +130,7 @@ function HoursSheet({ row, kibbutzim, onClose, onSaved }: {
       await sbWrite(sb => sb.from('work_sessions').delete().eq('id', row.id).select('id') as any);
       track('hours-delete', row.kibbutz || null);
       toast.success('השורה נמחקה'); onSaved(); onClose();
-    } catch (e: any) { toast.error(e?.message || 'המחיקה נכשלה'); }
+    } catch (e: any) { toastFailure(e, undefined, 'המחיקה נכשלה'); }
     finally { setSaving(false); }
   };
 

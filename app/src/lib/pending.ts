@@ -6,8 +6,10 @@
 // so the timeout, the message and the retry action are written once instead of per screen.
 // ═══════════════════════════════════════════════════════════════════════════
 import { toast } from 'sonner';
-import { classifyError } from './errorMessages';
+import { classifyError, userMessage } from './errorMessages';
 import { FEEDBACK_OPEN_EVENT, errorBugReportText } from './feedback';
+
+const viewerIsIdan = (): boolean => { try { return !!(window as any).sigma?.isIdan?.(); } catch { return false; } };
 
 /** Supabase writes (`sbWrite`). A PostgREST round trip that has not answered in 15 s is hung. */
 export const SB_TIMEOUT_MS = 15_000;
@@ -107,7 +109,7 @@ export function runMutation<T>(p: Promise<T>, t: MutationToast): Promise<T> {
     success: v => (typeof t.success === 'function' ? t.success(v) : t.success),
     error: (e: any) => {
       const info = classifyError(e);
-      const msg = t.error && !info.code ? t.error + ': ' + info.hebrew : info.hebrew;
+      const msg = t.error && !info.code ? t.error + ': ' + userMessage(info, viewerIsIdan()) : userMessage(info, viewerIsIdan());
       if (info.raw && !/[֐-׿]/.test(info.raw)) console.warn('[sigma]', info.raw);
       return {
         message: msg,
@@ -127,7 +129,7 @@ export function runMutation<T>(p: Promise<T>, t: MutationToast): Promise<T> {
  */
 export function toastFailure(e: unknown, retry?: () => void, fallback = 'הפעולה נכשלה', action?: string): void {
   const info = classifyError(e);
-  const msg = info.code ? info.hebrew : (info.raw && /[֐-׿]/.test(info.raw) ? info.raw : fallback);
+  const msg = info.code ? userMessage(info, viewerIsIdan()) : (info.raw && /[֐-׿]/.test(info.raw) ? info.raw : fallback);
   if (info.raw && !/[֐-׿]/.test(info.raw)) console.warn('[sigma] ' + info.raw);
   toast.error(msg, {
     action: reportBugAction(e, action),

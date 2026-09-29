@@ -13,6 +13,7 @@ import { useUnsavedGuard } from '@/lib/useUnsavedGuard';
 import { saveProduct, setProductActive, deletePreview, deleteProduct, type ProductDraft } from '@/lib/inventoryApi';
 import { canEditDisplayName } from '@/lib/productLabel';
 import { deleteSummaryLines, STOCK_CATEGORY_ORDER, type ProductRow, type DeletePreview } from '@/lib/inventory';
+import { toastFailure } from '@/lib/pending';
 
 // The category <option> spelling (P15 fix): gershayim (״), the one spelling this picker offers —
 // see STOCK_CATEGORY_ORDER's comment for why the legacy ASCII-quote spelling is a bug, not a choice.
@@ -76,7 +77,7 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
       onSaved();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message || 'השמירה נכשלה');
+      toastFailure(e, undefined, 'השמירה נכשלה');
     } finally {
       setSaving(false);
     }
@@ -92,7 +93,7 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
       toast.success(next ? 'הפריט הופעל' : 'הפריט הושבת');
       onSaved();
     } catch (e: any) {
-      toast.error(e?.message || 'הפעולה נכשלה');
+      toastFailure(e, undefined, 'הפעולה נכשלה');
     }
   }
 
@@ -105,7 +106,7 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
       setPreview(p);
       setStep('delete-confirm');
     } catch (e: any) {
-      toast.error(e?.message || 'טעינת התצוגה המקדימה נכשלה');
+      toastFailure(e, undefined, 'טעינת התצוגה המקדימה נכשלה');
     } finally {
       setPreviewLoading(false);
     }

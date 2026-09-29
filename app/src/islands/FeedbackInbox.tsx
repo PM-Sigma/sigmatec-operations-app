@@ -35,6 +35,7 @@ import {
 import { FEEDBACK_QUERY_KEY } from '@/islands/Feedback';
 import { EmsGate } from '@/components/EmsGate';
 import { sessionLost } from '@/lib/session';
+import { toastFailure } from '@/lib/pending';
 
 export interface FeedbackItem {
   id: string;
@@ -297,7 +298,7 @@ function InboxSheet() {
       }) as any);
     },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: FEEDBACK_QUERY_KEY }); },
-    onError: (e: any) => toast.error(e?.message || 'העדכון נכשל'),
+    onError: (e: any) => toastFailure(e, undefined, 'העדכון נכשל'),
   });
 
   const makeIssue = async (item: FeedbackItem, parent: number) => {
@@ -318,7 +319,7 @@ function InboxSheet() {
       if (res.warnings?.length) toast.warning('נוצר כרטיס #' + res.number + ' עם אזהרות: ' + res.warnings.join(' · '));
       else toast.success('נוצר כרטיס #' + res.number + ' ב-Backlog');
     } catch (e: any) {
-      toast.error(e?.message || 'יצירת הכרטיס נכשלה');
+      toastFailure(e, undefined, 'יצירת הכרטיס נכשלה');
     }
   };
 

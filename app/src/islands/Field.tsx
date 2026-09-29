@@ -61,6 +61,7 @@ import { type AttAsk } from '@/lib/visitAttendance';
 import { visitEditLocked, visitToChapters, type VisitRowLike } from '@/lib/visitEdit';
 import { APP_PEOPLE } from '@/lib/people';
 import { contactChoices, useKibbutzContacts } from '@/lib/visitContacts';
+import { toastFailure } from '@/lib/pending';
 
 // ───────────────────────────── keys & storage ─────────────────────────────
 
@@ -2187,7 +2188,7 @@ function FieldIsland() {
       .then(() => toast.success('✅ נצרב'))
       .catch((e: Error) => {
         setChecked(st => ({ ...st, [id]: false }));
-        toast.error(e?.message || 'לא נשמר. נסה שוב');
+        toastFailure(e, undefined, 'לא נשמר. נסה שוב');
       });
   }, [picked, me]);
 

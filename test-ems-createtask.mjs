@@ -152,13 +152,24 @@ check('createTask body carries priority + siteId when the caller sets them', asy
     api: async (p, opts) => { sent = { path: p, body: JSON.parse(opts.body) }; return { id: 'x' }; },
   });
   await win.emsWriteOrQueue({
-    kind: 'createTask', title: 'מאזן אנרגיה', description: 'd', siteId: 'site-9', priority: 'medium',
+    kind: 'createTask', title: 'מאזן אנרגיה', description: 'd', siteId: 'site-9', priority: 'high',
   });
   assert.strictEqual(sent.path, '/employee-tasks');
-  assert.strictEqual(sent.body.priority, 'medium');
+  assert.strictEqual(sent.body.priority, 'high');
   assert.strictEqual(sent.body.siteId, 'site-9');
   assert.strictEqual(sent.body.title, 'מאזן אנרגיה');
   assert.strictEqual(sent.body.description, 'd');
+});
+
+// Q7-A 3: EMS accepts only low|normal|high|urgent. A 'medium' (what the meeting-note ➕ used to
+// send) is the "VALIDATION ERROR 422" עידן hit — it must be coerced to 'normal' at send time.
+check('a priority outside the EMS enum (medium) is sent as normal, never as a 422', async () => {
+  let sent = null;
+  const { win } = loadModule({
+    api: async (p, opts) => { sent = JSON.parse(opts.body); return { id: 'x' }; },
+  });
+  await win.emsWriteOrQueue({ kind: 'createTask', title: 't', priority: 'medium' });
+  assert.strictEqual(sent.priority, 'normal');
 });
 
 check('priority defaults to normal when the caller sets none', async () => {

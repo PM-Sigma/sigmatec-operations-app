@@ -3,11 +3,8 @@
 // standalone label rows between the cards are gone),
 // the filter chips actually filter (and the card list crossfades rather than jumping), and
 // the card quick-action row is role-gated (viewer = ישיבות only).
-import path from 'node:path';
-import { mkdir } from 'node:fs/promises';
 import { boot, expect, expectNoConsoleErrors, expectRtl, expectTheme, shot, test } from './_helpers';
 
-const EVIDENCE_DIR = path.resolve(__dirname, '..', '..', 'evidence', 'w1-cardbtn');
 
 test('home cards: sections, region chips, filters, quick actions', async ({ page }, ti) => {
   const { rec, theme } = await boot(page, ti);
@@ -71,11 +68,9 @@ test('home cards: sections, region chips, filters, quick actions', async ({ page
   // ✏️ עריכת הסיכום האחרון (חוקוק has a filed visit in the fixtures) + the two task adders;
   // 🚚 and 🗓 are gone
   const card = home.locator('.kibbutz[data-name="חוקוק"]');
-  const newVisitBtn = card.getByRole('button', { name: '➕ סיכום ביקור חדש' });
-  await expect(newVisitBtn).toBeVisible();
-  const newVisitBox = (await newVisitBtn.boundingBox())!;
-  expect(newVisitBox.height).toBeGreaterThanOrEqual(48);
-  await expect(card.getByRole('button', { name: '✏️ עריכת הסיכום האחרון' })).toBeVisible();
+  // Q7-A 1: no per-card visit buttons — a new summary lives inside the card → ביקורים
+  await expect(card.getByRole('button', { name: '➕ סיכום ביקור חדש' })).toHaveCount(0);
+  await expect(card.getByRole('button', { name: '✏️ עריכת הסיכום האחרון' })).toHaveCount(0);
   await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toHaveCount(0);
   await expect(card.getByRole('button', { name: 'ישיבות' })).toHaveCount(0);
   await expect(card.getByTestId('add-ems-task')).toBeVisible();
@@ -126,7 +121,7 @@ test('home cards: a team member sees the actions but not the admin affordances',
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 
   const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
-  await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toBeVisible();
+  await expect(card.getByRole('button', { name: 'סיכום ביקור' })).toHaveCount(0);   // Q7-A 1: no per-card visit buttons
   await expect(card.getByRole('button', { name: 'תעודת משלוח' })).toHaveCount(0);   // 22.9: inside the visit only
   await expect(card.getByTestId('add-internal-task')).toBeVisible();
   // אביאם is not in KIBBUTZ_ADMINS (עידן · עמיחי) — and since 22.9 nobody has a ✏️ on the home card
@@ -165,37 +160,3 @@ test('home cards: the floating "המשימות הפנימיות שלי" strip is
   expectNoConsoleErrors(rec);
 });
 
-// round 9 "card visit button" pass — עידן: a card with previous visit summaries had no
-// dedicated button to edit or to create a new one. Both bubbles are full-width and stacked
-// (flex-col), so they can never overlap each other or the card content above/below them —
-// this is the no-overlap evidence at the two mobile widths the gate calls for, both themes.
-test('home cards: ➕/✏️ visit bubbles are full-width, ≥48px, no overlap at 360/412', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti);
-  const card = page.locator('#sigma-home .kibbutz[data-name="חוקוק"]');
-  const newBtn = card.getByRole('button', { name: '➕ סיכום ביקור חדש' });
-  const editBtn = card.getByRole('button', { name: '✏️ עריכת הסיכום האחרון' });
-  await expect(newBtn).toBeVisible();
-  await expect(editBtn).toBeVisible();
-
-  const newBox = (await newBtn.boundingBox())!;
-  const editBox = (await editBtn.boundingBox())!;
-  expect(newBox.height).toBeGreaterThanOrEqual(48);
-  expect(editBox.height).toBeGreaterThanOrEqual(48);
-  const cardBox = (await card.boundingBox())!;
-  expect(newBox.width).toBeGreaterThan(cardBox.width * 0.8);
-  expect(editBox.width).toBeGreaterThan(cardBox.width * 0.8);
-
-  // stacked, not overlapping: the edit bubble starts at or after the new-visit bubble ends
-  // (1px sub-pixel layout tolerance — the same slack the header-overlap evidence test uses)
-  expect(editBox.y).toBeGreaterThanOrEqual(newBox.y + newBox.height - 1.5);
-
-  await mkdir(EVIDENCE_DIR, { recursive: true });
-  const theme = (ti.project.metadata as any).theme as string;
-  const viewport = (ti.project.metadata as any).viewport as string;
-  if (viewport === 'mobile-360' || viewport === 'mobile-412') {
-    await card.scrollIntoViewIfNeeded();
-    await card.screenshot({ path: path.join(EVIDENCE_DIR, `${viewport}-${theme}-card-visit-buttons.png`) });
-  }
-
-  expectNoConsoleErrors(rec);
-});
