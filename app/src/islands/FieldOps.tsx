@@ -491,7 +491,7 @@ function FieldOpsInner() {
   }, []);
   if (!allowed) return null;
   return (
-    <div className="flex flex-col gap-3 p-2 pb-24" data-testid="fieldops-page">
+    <div className="flex flex-col gap-3 p-2 pb-2" data-testid="fieldops-page">
       <PageActionRow title={TITLE} />
       <ModbusReader />
     </div>

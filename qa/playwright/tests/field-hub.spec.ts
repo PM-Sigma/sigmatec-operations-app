@@ -273,6 +273,8 @@ test('hub: the kibbutz card burns row → burns section, filtered to that kibbut
     await expect(row).toBeVisible({ timeout: 15_000 });
     await expect(row).toContainText('צריבות');
     await expect(row).toContainText(`${left} נותרו מתוך ${mine.length}`);
+    await row.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(250);
     await shotEv(page, ti, name === LONG[0] ? 'card-burns-row-long' : 'card-burns-row');
 
     await row.click();

@@ -1,0 +1,25 @@
+{
+ "axe": 1,
+ "custom": 1,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".bg-\\[var\\(--btn-tonal\\)\\] > .truncate.min-w-0",
+    "ratio": "4.37",
+    "fg": "#076e70",
+    "bg": "#ccdfe1"
+   }
+  ],
+  "custom": [
+   {
+    "kind": "text",
+    "sel": "span.min-w-0.truncate",
+    "text": "סימון הכל כנקרא",
+    "ratio": 4.4,
+    "need": 4.5,
+    "fg": "#076e70",
+    "bg": "#cce0e1"
+   }
+  ]
+ }
+}

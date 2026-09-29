@@ -60,6 +60,7 @@ function FieldHub() {
         >
           <SegmentedControl
             ariaLabel="מעבר בין חלקי פעולות שטח"
+            className="[&_button]:px-1 [&_button]:text-[13px]"
             options={sections.map(s => ({ value: s, label: HUB_SECTION_LABEL[s] }))}
             value={value}
             onChange={go}
