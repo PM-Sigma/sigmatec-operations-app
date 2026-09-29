@@ -54,3 +54,7 @@
 - d3ff6ab8 w2-h3h5: DayLog duplicate `tag` removed; kibbutz-detail ✕/Esc test waits for sheet (flake not reproduced — guess). H3/H5 SKIPPED — need עידן: H3 = presenter may edit kibbutz region/section? which roles (new write path + RLS). H5 = add opened-at stamp to EMS cache now, or defer?
 - r9/w2-sectionblock (733f15dd, pushed as branch, NOT on main): non-flush SectionBlock clipped ~16px (-mx-4 inside overflow-hidden) → classes moved onto the overflow div. Touches ~30 screens. Waiting עידן's phone check via githack preview.
 - Observed: 15 Playwright failures in full 360-light run (calendar, feedback-refine, product-names, settings, shell, transcribe-unavailable, upgrade-freeze, voice-ladder) — no baseline yet; next QA pass.
+
+## 29.9 - wave 3 docs (r9/w3-docs)
+- Ops graph rebuilt; audit found `.graphify_detect.json` stale (388 files, 23 deleted, ~100 live files missing). List refreshed, graph now 6,747 nodes; every screen/module/edge function present.
+- `docs/modules.md` islands/retired modules corrected; `docs/superpowers/DECISIONS-round5.md` written (open questions: H3, H5, SectionBlock); INDEX + backlog current state refreshed.

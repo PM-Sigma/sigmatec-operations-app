@@ -25,11 +25,16 @@ python ops_graph.py stats
 
 Paths above are relative to this folder; from the repo root prefix them with `docs/ops-graph/`.
 
+## Keeping the file list current
+`rebuild.py` parses only the files listed in `.graphify_detect.json` (`files.code`). It is NOT re-scanned automatically: after adding
+or deleting an `app/src`, `js/src`, `supabase/functions` or test file, edit that list (29.9 audit: it had drifted by ~100 files).
+Quick check: every tracked `.ts/.tsx/.js/.mjs/.sql` outside `ui/`, `docs/`, `node_modules` should be in it.
+
 ## Files
 
 | File | What it is |
 |---|---|
-| `graphify-out/graph.json` | the graph — 4,714 nodes, 12,523 edges, 157 communities |
+| `graphify-out/graph.json` | the graph — 6,747 nodes, 17,724 edges (rebuilt 29.9) |
 | `graphify-out/graph.html` | interactive view, no server needed |
 | `graphify-out/GRAPH_REPORT.md` | god nodes, communities, cohesion, suggested questions |
 | *(local)* `GRAPH_AUDIT.md` | adversarial audit + re-audit of the graph's honesty |

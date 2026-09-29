@@ -1,5 +1,13 @@
 ↪ RESUMED and shipped (see the 29.9 block below). Was: PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).
 
+🟡 IN PROGRESS (2026-09-29, wave 3 docs, branch `r9/w3-docs`, not pushed) — ops graph rebuilt (detect list refreshed to 649 files, 6,747 nodes), `modules.md` corrected, `docs/superpowers/DECISIONS-round5.md` written. Merge via MAIN.
+
+🟡 WAITING (2026-09-29) — עידן: **H3** (may the presenter edit a kibbutz's region/section, which roles), **H5** (add an opened-at stamp to the EMS cache now or defer), **SectionBlock fix** (branch `r9/w2-sectionblock`, phone check via githack), and review of the "Claude (pending עידן review)" rows in `DECISIONS-round5.md`.
+
+✅ DONE (2026-09-29, waves 1-2) — home-card visit buttons (single lookup), meeting-note row actions, calendar absences for all staff, voice recorder mono 24 kbps, inventory cert LTR, DayLog duplicate key, test tasks for לביא/אפיק deleted, release guards, dead `#visitFab` removed.
+
+🟡 LATER (open): field-ops on a real meter; 15 Playwright failures in the full 360-light run (calendar, feedback-refine, product-names, settings, shell, transcribe-unavailable, upgrade-freeze, voice-ladder — no baseline yet); pending-states §2 residue; Hulda external meter-readings fetch (parallel session); the CLAUDE.md module-doc rule (his file, deferred); a doc gap list in `docs/system/README.md` (9 edge functions, ~450 source files owned by no module doc; DOC-1).
+
 🔝 PRIORITY (עידן 23.9): usage goes to **round 5 development + documentation until the system is live**. Everything else waits, and after go-live עידן picks the next item from the weekly usage check. That covers: the field-ops Modbus page, foldables, the Whisper meeting scribe, the Apps Script proxy migration.
 
 🚫 RULE (עידן 23.9): never modify another repo (ModbusClient, sigmatec-ems, …) unless עידן explicitly asks. Use only.
