@@ -38,7 +38,7 @@ function groupMeta(g: AlertGroup): string {
 function GroupRow({ g, onSeen }: { g: AlertGroup; onSeen: (g: AlertGroup) => void }) {
   const [open, setOpen] = React.useState(false);
   const many = g.rows.length > 1;
-  const canMarkSeen = !g.seen && g.kind !== 'ems_unlinked';
+  const canMarkSeen = !g.seen;
   return (
     <li data-testid="alert-group" data-count={g.rows.length} className="border-b border-border last:border-b-0">
       <ListRow
@@ -99,9 +99,7 @@ export function AlertsList({ groups, onSeen, onSeenAll }: {
   const unread = groups.filter(g => !g.seen);
   const read = groups.filter(g => g.seen);
   const shown = showSeen ? groups : unread;
-  // "מסומן" (ems_unlinked) has no seen state of its own (canMarkSeen excludes it in GroupRow) —
-  // it must not block "הכל" from disappearing once every REAL alert is read.
-  const markable = unread.filter(g => g.kind !== 'ems_unlinked');
+  const markable = unread;
   return (
     <div data-testid="alerts-list">
       {!shown.length && (

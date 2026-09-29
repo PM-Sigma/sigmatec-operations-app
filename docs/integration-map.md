@@ -136,7 +136,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `notes-changed` | app/src/components/home/MeetingNotes.tsx:95<br>app/src/lib/meetingNotesOps.ts:9 | app/src/components/home/MeetingNotes.tsx:54 |
 | `onboarding-changed` | app/src/components/home/OnboardingProgress.tsx:45 | app/src/components/home/OnboardingProgress.tsx:34 |
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:420<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
-| `stock-changed` | js/src/09-visits.js:458<br>app/src/islands/StockChange.tsx:206<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:132<br>app/src/islands/InventoryStrip.tsx:98<br>js/src/06-inventory.js:119 |
+| `stock-changed` | js/src/09-visits.js:458<br>app/src/islands/StockChange.tsx:206<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:136<br>app/src/islands/InventoryStrip.tsx:98<br>js/src/06-inventory.js:119 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
 | `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:419<br>app/src/islands/Attendance.tsx:313<br>app/src/islands/FeedbackInbox.tsx:271<br>app/src/islands/Field.tsx:172<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:205<br>js/src/09-visits.js:249<br>js/src/09-visits.js:282 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
@@ -178,7 +178,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-nav` | :715 | app/src/main.tsx:103 |
 | `#sigma-offline` | :155 | app/src/main.tsx:317<br>app/src/shell/OfflineBanner.tsx:36 |
 | `#sigma-page-bar` | :161 | app/src/main.tsx:314<br>app/src/shell/PageBar.tsx:99 |
-| `#sigma-presenter` | :690 | app/src/islands/Presenter.tsx:1171<br>app/src/main.tsx:470 |
+| `#sigma-presenter` | :690 | app/src/islands/Presenter.tsx:1173<br>app/src/main.tsx:470 |
 | `#sigma-pushlog` | :396 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:253 |
 | `#sigma-refresh` | :709 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:119 |
 | `#sigma-relogin` | :706 | app/src/components/ReLoginSheet.tsx:143 |
@@ -282,7 +282,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:383 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:304 |
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:150 |
-| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:1174 |
+| `presenter` | `Presentation` | app/src/islands/Presenter.tsx:1176 |
 | `presenter` | `Presentation` | app/src/main.tsx:494 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:502 |
 | `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:305 |
