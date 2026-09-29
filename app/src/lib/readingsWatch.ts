@@ -1,5 +1,5 @@
 // 📥 The global readings watcher — mounted ONCE (HeaderActions loads this lazy chunk), for the
-// three roster users only, and free when idle: no timer, no request, no DOM until there is a
+// signed-in non-viewer staff only, and free when idle: no timer, no request, no DOM until there is a
 // run to watch. It is what makes a pull a server-side job the person can walk away from:
 //   · active run ids live in localStorage, polled every 5 s from ANY screen;
 //   · a floating chip "⏳ משיכת חולדה…" (tap → the page) while a run is going;
@@ -28,7 +28,7 @@ const lsGet = (k: string): string | null => { try { return localStorage.getItem(
 const lsSet = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
 const isRoster = (): boolean => {
-  try { return canUseReadings(w.sigma?.getCurrentUser?.()) && !w.sigma?.isViewer?.(); } catch { return false; }
+  try { return canUseReadings(w.sigma?.getCurrentUser?.(), !!w.sigma?.isViewer?.()); } catch { return false; }
 };
 
 let timer: ReturnType<typeof setInterval> | null = null;

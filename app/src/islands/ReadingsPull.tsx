@@ -1,4 +1,4 @@
-// 📥 משיכת קריאות מתוכנות חיצונית — the readings-pull page (עידן · עמיחי · מתניה).
+// 📥 משיכת קריאות מתוכנות חיצונית — the readings-pull page (all signed-in staff).
 // Spec: docs/superpowers/specs/2026-09-29-readings-pull-design.md. The page only STARTS a run and
 // reads the result: the server carries the run (readings-fetch), so nothing here has to stay on
 // screen — app/src/lib/readingsWatch.ts polls from any screen and toasts when the files are ready.
@@ -332,7 +332,7 @@ function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling }: {
 // ── the page ─────────────────────────────────────────────────────────────────
 function ReadingsInner() {
   const { name: user, isViewer } = useCurrentUser();
-  const allowed = canUseReadings(user) && !isViewer;
+  const allowed = canUseReadings(user, isViewer);
   const qc = useQueryClient();
   const sitesQ = useQuery({ queryKey: ['readings', 'sites'], queryFn: fetchSites, enabled: allowed });
   const sites = sitesQ.data || [];

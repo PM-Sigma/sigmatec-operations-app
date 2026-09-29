@@ -62,7 +62,6 @@ const CORS = {
 
 import { emsValid as emsValidAt, timingSafeEqual } from "../_shared/http.ts";
 // readingsDone: who may hear about a finished readings pull + the sentences (pure, tested in test-readings-fetch-modes.mjs)
-import { READINGS_USERS } from "../_shared/readingsRoster.js";
 import { readingsPush } from "../readings-fetch/helpers.js";
 
 // The EMS-login gate, the same check `github`/`calendar`/`transcribe` apply. Used by the modes
@@ -96,6 +95,8 @@ const USAGE_DIGEST_TO = ["עידן"];
 // whose phone buzzes. I2: the digest is Amichai's alone until Idan says otherwise.
 const INV_LOW_TO = ["עידן", "עמיחי"];
 const INV_DIGEST_TO = ["עמיחי"];
+// Who is told when the 07:00 cron pull fails (partial/failed). Page access is separate (canUseReadings).
+const READINGS_ALERT_USERS = ["עידן", "עמיחי", "מתניה"];
 const USAGE_ROSTER = ["עידן", "אביאם", "ניתאי", "עמיחי", "מתניה"];
 const qty = (o: any) => (o.items || []).reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0);
 const otype = (o: any) => o.order_type || o.orderType || (/בקשת לקוח/.test(o.notes || "") ? "customer" : "supplier");
@@ -692,7 +693,7 @@ Deno.serve(async (req: Request) => {
 
   // ---- 📥 readingsDone: a readings pull (readings-fetch) has finished ----------------------
   // AUTH: X-Cron-Key only (readings-fetch calls it with the shared secret). Manual run -> the person who
-  // started it, always. Cron run -> the three READINGS_USERS, and ONLY when partial/failed (no push on success).
+  // started it, always. Cron run -> the READINGS_ALERT_USERS (a named alert list, NOT access: every signed-in staff member may use the page), and ONLY when partial/failed (no push on success).
   if (body.mode === "readingsDone") {
     const cronKey = req.headers.get("x-cron-key");
     const secret = Deno.env.get("CRON_SECRET");
@@ -704,7 +705,7 @@ Deno.serve(async (req: Request) => {
     const { data: site } = await sb.from("reading_sites").select("kibbutz").eq("id", run.site_id).maybeSingle();
     const msg = readingsPush({ ...run, kibbutz: site?.kibbutz || "" });
     if (!msg) return json({ ok: true, skipped: "cron run succeeded - no push" });
-    const to = msg.to === "all" ? READINGS_USERS : (run.started_by ? [String(run.started_by)] : []);
+    const to = msg.to === "all" ? READINGS_ALERT_USERS : (run.started_by ? [String(run.started_by)] : []);
     if (!to.length) return json({ ok: true, skipped: "no recipient" });
     const openUrl = APP + "?pushact=readings";
     const payload = JSON.stringify({

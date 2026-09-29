@@ -13,8 +13,9 @@
 --
 -- BACKUP: NEW tables only, nothing existing is altered → no backup needed.
 --
--- ACCESS: עידן / עמיחי / מתניה only. The roster below MUST equal READINGS_USERS in
--- supabase/functions/_shared/readingsRoster.js (test-readings-roster.mjs parses this file and checks it).
+-- ACCESS (עידן 29.9): every signed-in staff member (bridge JWT with a non-empty `name` claim), never the
+-- view-only role (`viewer` claim). Must agree with canUseReadings() in
+-- supabase/functions/_shared/readingsRoster.js (test-readings-roster.mjs checks both).
 --   · RLS on all four tables, SELECT only, `to authenticated using (public.is_readings_user())`.
 --   · NO insert/update/delete policies and no such grants: every write is the service role, from the
 --     Edge Function (which verifies the roster itself).
@@ -39,7 +40,8 @@
 -- ── who may read ─────────────────────────────────────────────────────────────
 create or replace function public.is_readings_user() returns boolean
 language sql stable as $$
-  select coalesce((auth.jwt() ->> 'name') in ('עידן', 'עמיחי', 'מתניה'), false)
+  select coalesce(nullif(btrim(auth.jwt() ->> 'name'), '') is not null, false)
+     and coalesce((auth.jwt() ->> 'viewer')::boolean, false) = false
 $$;
 
 -- ── tables ───────────────────────────────────────────────────────────────────

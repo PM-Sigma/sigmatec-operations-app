@@ -6,7 +6,7 @@ import {
   fileNames, storagePaths, emsSyncDecision, errText, ERR_TEXT, allSourcesDone, runStatus, cronDecision, readingsPush,
 } from './supabase/functions/readings-fetch/helpers.js';
 import { buildRun, applyEmsValidation, expectedFrom } from './supabase/functions/readings-fetch/logic.js';
-import { READINGS_USERS } from './supabase/functions/_shared/readingsRoster.js';
+import { canUseReadings } from './supabase/functions/_shared/readingsRoster.js';
 
 let n = 0;
 const t = (name, f) => { f(); n++; };
@@ -129,7 +129,7 @@ t('readingsPush: manual to starter, cron to all only on partial/failed', () => {
   const failManual = readingsPush({ ...base, trigger: 'manual', status: 'failed', progress: failProg });
   assert.strictEqual(failManual.to, 'starter');
   assert.ok(failManual.title.includes('נכשלה'));
-  assert.deepStrictEqual(READINGS_USERS, ['עידן', 'עמיחי', 'מתניה']);
+  assert.strictEqual(canUseReadings({ name: 'עידן' }), true);
 });
 t('logic glue: failed source blocks expected meters; expectedFrom unions; EMS validation drops a rejected row', () => {
   const mk = (m, ft) => ({ meter: m, when: '28-09-26 00:30', expect: ['f1', 'f2', 'f3'], ft, f1: 1, f2: 1, f3: ft - 2 });

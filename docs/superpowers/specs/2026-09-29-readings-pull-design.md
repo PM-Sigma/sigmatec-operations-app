@@ -3,7 +3,7 @@
 # Plan: "משיכת קריאות מתוכנות חיצונית" (חולדה, stage 1), v2
 
 ## Context
-Today an employee manually pulls readings from SpeedNet and DataSense for חולדה and prepares a manual upload file for EMS. `miltel_daily.py` already does this and has been checked end to end (31.8, 20.9, 27.9, 28.9). We are moving it into the app: every morning at 07:00, plus a manual run, producing 2 files (readings to upload + exceptions). Access for עידן, עמיחי and מתניה only. Source of truth: `C:\Users\idann\Projects\Kibbutzim\חולדה\תוצרים\2026-09-29 — אפיון שאיבת קריאות יומית ל-Sigmatec Ops\אפיון — שאיבת קריאות יומית.md`.
+Today an employee manually pulls readings from SpeedNet and DataSense for חולדה and prepares a manual upload file for EMS. `miltel_daily.py` already does this and has been checked end to end (31.8, 20.9, 27.9, 28.9). We are moving it into the app: every morning at 07:00, plus a manual run, producing 2 files (readings to upload + exceptions). Access: **all signed-in staff, never the view-only role** (ruling עידן 29.9, replacing "עידן/עמיחי/מתניה only"): a bridge JWT with a non-empty `name` claim (ems-auth mints it only for rostered staff) and no `viewer` claim; the same in `canUseReadings()`, `is_readings_user()` and `canShowPage('readings')`. Cron-failure alerts still go to a named list (עידן, עמיחי, מתניה: `READINGS_ALERT_USERS` in push-send), which is not access. Source of truth: `C:\Users\idann\Projects\Kibbutzim\חולדה\תוצרים\2026-09-29 — אפיון שאיבת קריאות יומית ל-Sigmatec Ops\אפיון — שאיבת קריאות יומית.md`.
 What changed from v1: a run is a **server-side job that does not depend on the screen**. The user can move to other screens or close the app, and they get told when it finishes and where to go.
 
 ## Architecture

@@ -18,7 +18,7 @@
 //   seen         {run_id}                             user
 //   cron         {}                                   cron key only  (pg_cron, db/cron_readings_7am.sql)
 //   probe        {date?, raw?}                        user or cron   (Phase 0 feasibility check)
-// AUTH: X-Cron-Key == CRON_SECRET, or a bridge JWT (iss 'ems-bridge') whose `name` is in READINGS_USERS.
+// AUTH: X-Cron-Key == CRON_SECRET, or a bridge JWT (iss 'ems-bridge') carrying a staff `name` claim and not a viewer pass (canUseReadings).
 // Secrets: <secret_prefix>_USER/_PASS per source, BROWSERLESS_TOKEN, CRON_SECRET, JWT_SECRET/EMS_BRIDGE_SECRET,
 // SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, EMS_API_BASE. NEVER log or store credentials or the ems_token.
 import { verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
@@ -462,7 +462,7 @@ Deno.serve(async (req) => {
       const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(jwtSecret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
       const p = await verify(bearer, key) as Record<string, unknown>;
       if (p.iss !== "ems-bridge") return J({ error: "unauthorized" }, 401);
-      if (!canUseReadings(p.name)) return J({ error: "forbidden" }, 403);
+      if (!canUseReadings(p)) return J({ error: "forbidden" }, 403);
       name = String(p.name).trim();
     } catch { return J({ error: "unauthorized" }, 401); }
   }
