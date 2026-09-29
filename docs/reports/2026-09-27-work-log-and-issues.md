@@ -61,3 +61,5 @@
 - 29.9 prod: 3 test internal_tasks (לביא ×2, אפיק ×1, titles "בדיקה…") deleted; backup table internal_tasks_bak_test_29_9.
 - a84b6e1b w3-e2e: 15 Playwright failures triaged — stale locators (feedback/DayLog redesign), legacy inventory specs removed (covered by React specs), upgrade-freeze specs skipped (freeze lifted), calendar "next Tuesday" month-rollover helper. REAL BUG fixed: Σ home button dropped by the I-U index.html merge (2nd time).
 - Guard added: test-release-guards.mjs asserts index.html keeps loginModal/authGate/toast/sigmaGoHome (proven red→green).
+- 29.9 ISSUE: a Python edit opened DECISIONS-round5.md for write before building the content, hit a TypeError, and the emptied file was committed+pushed. Restored in the next commit. Lesson: build the full content first, write once, check the diff before commit.
+- 15916c15 H3: presenter region/section chips editable by עידן/עמיחי via RPC set_kibbutz_region_section (PROD 29.9 applied; backup kibbutzim_region_section_bak_29_9, 58 rows; anon no exec). Open: kibbutzim_write still lets any non-viewer write directly (separate decision).

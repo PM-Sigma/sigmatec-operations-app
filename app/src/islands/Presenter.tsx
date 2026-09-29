@@ -127,7 +127,11 @@ import { useBurnAccess, useBurns } from '@/components/home/Burns';
 import { stepsForKibbutz as onboardingStepsForKibbutz, useOnboardingSteps } from '@/components/home/OnboardingProgress';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { emitNotesChanged, NOTES_QUERY_KEY } from '@/components/home/MeetingNotes';
-import { energyText, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
+import { energyText, labelOf, sectionOf, type KibbutzRow, type Section } from '@/lib/kibbutzim';
+import {
+  applyEdit, buildRegionSectionEdit, buildUndoEdit, canEditRegionSection, regionChoices,
+  saveRegionSection, SECTION_LABEL, type RegionSectionEdit,
+} from '@/lib/kibbutzRegionSection';
 import type { EmsTask } from '@/bridge';
 import {
   chipDate, MEETING_PEOPLE, notesForKibbutz, taskFromBullet,
@@ -305,27 +309,74 @@ function Strip({ title, items, testid }: { title: string; items: StripItem[]; te
 }
 
 /**
- * "ניהולי"/region as small chip-style tags rather than a titled headline box (item 3). No new
- * backend logic: this reads the same `row.region`/`row.name` the card already shows, and no
- * update path for region data is wired anywhere client-side today, so the chip is read-only for
- * now — the edit affordance the spec allows for (§Package H item 3) is left to a follow-up once
- * an existing kibbutz-update function surfaces one (checked `app/src/lib/kibbutzim.ts` /
- * `kibbutzRows.ts`: no client-side region-update function exists there to reuse without adding
- * new backend logic, which the ground rules forbid).
+ * Region + section as small chip-style tags. Read-only for everyone except עידן/עמיחי (H3): for
+ * them each chip is a button that opens a picker (existing regions, 🆕/✅), and Save calls the
+ * narrow `set_kibbutz_region_section` RPC via `onSave` (optimistic + presenter undo toast are the
+ * overlay's job). `canEdit` is the client gate; the RPC re-checks the caller server-side.
  */
-function RegionChips({ row }: { row: KibbutzRow | null }) {
+function RegionChips({ row, canEdit, onSave }: {
+  row: KibbutzRow | null; canEdit: boolean;
+  onSave: (row: KibbutzRow, edit: RegionSectionEdit) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [region, setRegion] = React.useState('');
+  const [section, setSection] = React.useState<Section>('active');
   if (!row) return null;
-  const chips = [String(row.region || '—'), sectionOf(row) === 'new' ? '🆕 לקוח חדש' : '✅ פעיל'];
+  const chips = [String(row.region || '—'), SECTION_LABEL[sectionOf(row)]];
+  const chipCls = 'inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-2.5 text-[12px] font-bold text-foreground';
+  const openPicker = () => { setRegion(String(row.region || '')); setSection(sectionOf(row)); setOpen(true); };
+  const edit = buildRegionSectionEdit(row, region, section);
   return (
     <div data-testid="presenter-region-chips" className="flex flex-wrap gap-1.5">
-      {chips.map((c, i) => (
-        <span
-          key={i}
-          className="inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-2.5 text-[12px] font-bold text-foreground"
+      {chips.map((c, i) => canEdit ? (
+        <button
+          key={i} type="button" data-testid={i === 0 ? 'presenter-region-chip' : 'presenter-section-chip'}
+          onClick={openPicker} className={chipCls + ' min-h-9 outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-1)]'}
         >
-          <bdi>{c}</bdi>
-        </span>
+          <bdi>{c}</bdi><Pencil size={11} aria-hidden className="ms-1.5 opacity-60" />
+        </button>
+      ) : (
+        <span key={i} className={chipCls}><bdi>{c}</bdi></span>
       ))}
+      {canEdit && (
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent side="bottom" data-testid="presenter-region-picker" className="max-h-[88svh] overflow-y-auto">
+            <SheetHeader className="text-start">
+              <SheetTitle className="text-base"><bdi>{labelOf(row)}</bdi> · איזור ומדור</SheetTitle>
+              <SheetDescription className="sr-only">בחירת איזור ומדור לקיבוץ</SheetDescription>
+            </SheetHeader>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {regionChoices(row).map(r => (
+                <button
+                  key={r} type="button" data-testid="presenter-region-option" aria-pressed={r === region}
+                  onClick={() => setRegion(r)}
+                  className={'min-h-11 rounded-xl border px-3 text-[14px] font-bold ' + (r === region ? 's-brand border-transparent' : 'border-border bg-muted text-foreground')}
+                >
+                  <bdi>{r}</bdi>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2">
+              {(['new', 'active'] as Section[]).map(sec => (
+                <button
+                  key={sec} type="button" data-testid={'presenter-section-option-' + sec} aria-pressed={sec === section}
+                  onClick={() => setSection(sec)}
+                  className={'min-h-11 flex-1 rounded-xl border px-3 text-[14px] font-bold ' + (sec === section ? 's-brand border-transparent' : 'border-border bg-muted text-foreground')}
+                >
+                  {SECTION_LABEL[sec]}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button" data-testid="presenter-region-save" disabled={!edit}
+              onClick={() => { if (edit) { onSave(row, edit); setOpen(false); } }}
+              className="mt-4 min-h-11 w-full rounded-xl s-brand px-5 text-[15px] font-extrabold disabled:opacity-50"
+            >
+              שמירה
+            </button>
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -621,6 +672,38 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     undoTimer.current = setTimeout(() => clearUndoToast(taskId), 5000);
   }, [canClose, closeQueue, me, clearUndoToast]);
 
+  // ── H3: region/section edit (עידן + עמיחי). Optimistic cache patch, the RPC in the background,
+  // and the presenter's OWN undo toast (not Sonner). The ordering is section-first, so a patch
+  // can move the row — the index follows the kibbutz by name so the screen does not jump.
+  const canEditRegion = canEditRegionSection(me, isViewer);
+  const patchRows = React.useCallback((e: RegionSectionEdit) => {
+    const next = applyEdit((qc.getQueryData<KibbutzRow[]>(['kibbutzim']) || []), e);
+    qc.setQueryData(['kibbutzim'], next);
+    const at = presenterOrder(next).findIndex(r => r.name === e.name);
+    if (at >= 0) setIdx(at);
+  }, [qc]);
+  const saveRegion = React.useCallback((row: KibbutzRow, edit: RegionSectionEdit) => {
+    const back = buildUndoEdit(row);
+    patchRows(edit);
+    saveRegionSection(edit).then(() => {
+      if (undoTimer.current != null) clearTimeout(undoTimer.current);
+      const key = 'region:' + edit.name;
+      setUndoToast({
+        taskId: key,
+        message: 'האיזור/המדור עודכנו',
+        onUndo: () => {
+          clearUndoToast(key);
+          patchRows(back);
+          saveRegionSection(back).catch(e => toast.error((e as Error).message));
+        },
+      });
+      undoTimer.current = setTimeout(() => clearUndoToast(key), 5000);
+    }).catch(e => {
+      patchRows(back);
+      toast.error((e as Error)?.message || 'לא הצלחתי לשמור, נסה שוב');
+    });
+  }, [patchRows, clearUndoToast]);
+
   // Flush on the app closing during the 5 s undo (review focus #1): pagehide, tab hidden, and —
   // via the effect's own cleanup — on leaving the kibbutz on screen or unmounting on exit.
   React.useEffect(() => {
@@ -854,7 +937,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
               </button>
             </div>
 
-            <RegionChips row={current} />
+            <RegionChips row={current} canEdit={canEditRegion} onSave={saveRegion} />
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Strip title="ניהולי" items={strips.admin} testid="presenter-strip-admin" />
