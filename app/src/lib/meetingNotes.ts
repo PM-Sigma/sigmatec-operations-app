@@ -529,3 +529,22 @@ export function collapseBullets(
   const limit = Math.max(0, max);
   return { shown: all.slice(0, limit), hidden: Math.max(0, all.length - limit), total: all.length };
 }
+
+// ───────────────────────── row actions (delete / move / link) ─────────────────────────
+
+/** An internal task is linked from a note as `internal:<uuid>` in `ems_task_id` — no schema change. */
+export const INTERNAL_LINK_PREFIX = 'internal:';
+export const internalLinkValue = (taskId: string): string => INTERNAL_LINK_PREFIX + taskId;
+export const isInternalLink = (v?: string | null): boolean => !!v && v.startsWith(INTERNAL_LINK_PREFIX);
+
+/** The seq a row takes when it lands in another kibbutz: after the last one of that meeting, so the unique key never collides. */
+export const nextSeq = (seqs: Array<number | null | undefined>): number =>
+  seqs.reduce<number>((m, s) => Math.max(m, Number(s) || 0), 0) + 1;
+
+/** Kibbutz names a row can move to: everything but its own. */
+export function moveTargets(names: string[], current: string): string[] {
+  return names.filter(n => n && n !== current);
+}
+
+/** Title prefill for the internal task opened from a bullet. */
+export const internalTitleFromBullet = (text: string): string => titleFromBullet(text);

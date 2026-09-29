@@ -14,12 +14,17 @@ import { motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { IconBubble } from '@/components/ui/icon-bubble';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { deleteNote, linkNoteToInternalTask, moveNote } from '@/lib/meetingNotesOps';
+import { fetchKibbutzRows } from '@/lib/kibbutzRows';
+import { labelOf, type KibbutzRow } from '@/lib/kibbutzim';
 import { ListRow } from '@/components/ui/list-row';
 import { sigma, sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
 import {
-  chipDate, collapseBullets, isQuiet, KIND_LABEL, notesForKibbutz, taskFromBullet,
+  chipDate, collapseBullets, internalTitleFromBullet, isInternalLink, isQuiet, KIND_LABEL, moveTargets, notesForKibbutz, taskFromBullet,
   type MeetingGroup, type MeetingKind, type NoteRow,
 } from '@/lib/meetingNotes';
 
@@ -138,12 +143,64 @@ function OwnerChip({ name }: { name: string }) {
   );
 }
 
+const InternalTaskSheet = React.lazy(() => import('@/components/home/InternalTaskSheet'));
+
+/** "העברה לקיבוץ אחר" — a searchable list of every other kibbutz. */
+function KibbutzPicker({ open, current, onOpenChange, onPick }: {
+  open: boolean; current: string; onOpenChange: (v: boolean) => void; onPick: (name: string) => void;
+}) {
+  const [q, setQ] = React.useState('');
+  const { data } = useQuery({ queryKey: ['kibbutzim'], queryFn: () => fetchKibbutzRows<KibbutzRow>(), enabled: open });
+  React.useEffect(() => { if (open) setQ(''); }, [open]);
+  const rows = React.useMemo(() => {
+    const byName = new Map((data || []).map(r => [r.name, r]));
+    const names = moveTargets(Array.from(byName.keys()), current).sort((a, b) => a.localeCompare(b, 'he'));
+    const needle = q.trim();
+    return names.map(n => ({ name: n, label: labelOf(byName.get(n)!) })).filter(r => !needle || r.label.includes(needle) || r.name.includes(needle));
+  }, [data, current, q]);
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="z-[var(--s-z-confirm)] flex max-h-[85svh] flex-col gap-3 p-4 pb-6" data-testid="note-move-sheet">
+        <SheetHeader className="text-start">
+          <SheetTitle className="text-[20px] font-extrabold">העברה לקיבוץ אחר</SheetTitle>
+          <SheetDescription>לאיזה קיבוץ השורה שייכת?</SheetDescription>
+        </SheetHeader>
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="חיפוש קיבוץ"
+          aria-label="חיפוש קיבוץ"
+          autoComplete="off"
+          className="w-full min-h-[48px] rounded-xl border border-border bg-muted px-3 py-2.5 text-base outline-none focus:border-[color:var(--brand-1)]"
+        />
+        <ul className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto">
+          {rows.map(r => (
+            <li key={r.name}>
+              <button
+                type="button"
+                onClick={() => onPick(r.name)}
+                className="flex min-h-[48px] w-full items-center rounded-lg px-3 text-start text-[15px] hover:bg-muted"
+              >
+                {r.label}
+              </button>
+            </li>
+          ))}
+          {data && !rows.length && <li className="px-3 py-3 text-[13px] text-muted-foreground">לא נמצא קיבוץ</li>}
+        </ul>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function NoteBullet({
   row, canAct, index, dateBadge,
 }: { row: NoteRow; canAct: boolean; index: number; /** rendered inline in this bullet's meta line, only for the group's first bullet (designer round 8). */ dateBadge?: React.ReactNode }) {
   const reduce = useReducedMotion();
   const [menu, setMenu] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [confirmDel, setConfirmDel] = React.useState(false);
+  const [picking, setPicking] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLSpanElement>(null);
 
   // A tap anywhere else, or Escape, closes it. `mousedown`/`touchstart` rather than `click`
@@ -152,6 +209,7 @@ function NoteBullet({
   useClickAway(menu, menuRef, () => setMenu(false));   // F14 ⑩ — the ONE copy
   const done = !!row.done_at;
   const linked = !!row.ems_task_id;
+  const internal = isInternalLink(row.ems_task_id);
 
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true); setMenu(false);
@@ -166,7 +224,30 @@ function NoteBullet({
   // row says so, so nobody assumes the EMS task still matches this sentence.
   const stale = !!row.text_changed_at && !!row.ems_task_id;
 
+  const undoToast = (label: string, undo: () => Promise<void>) =>
+    toast(label, {
+      duration: 5000,
+      action: { label: 'ביטול', onClick: () => { void undo().catch(e => toast.error(e?.message || 'הביטול נכשל')); } },
+    });
+
+  const doDelete = async () => {
+    try {
+      const { undo } = await deleteNote(row);
+      setConfirmDel(false);
+      undoToast('השורה נמחקה', undo);
+    } catch (e: any) { toast.error(e?.message || 'המחיקה נכשלה'); }
+  };
+
+  const doMove = async (target: string) => {
+    setPicking(false);
+    try {
+      const { undo } = await moveNote(row, target);
+      undoToast('השורה הועברה ל' + target, undo);
+    } catch (e: any) { toast.error(e?.message || 'ההעברה נכשלה'); }
+  };
+
   const openTask = () => {
+    if (internal) { toast.info('נפתחה מכאן משימה פנימית'); return; }
     if (pending) { toast.info('המשימה ממתינה לסנכרון עם EMS'); return; }
     sigma.openKibbutzEmsTask(String(row.ems_task_id));
   };
@@ -215,7 +296,7 @@ function NoteBullet({
             {linked ? (
               <IconBubble
                 icon={pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                label={pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
+                label={internal ? 'משימה פנימית מקושרת' : pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
                 onClick={() => openTask()}
                 className={ACTION_CLS + (pending ? ' opacity-60' : '') + (stale ? ' text-[color:var(--sigma-warn)]' : '')}
               />
@@ -246,6 +327,26 @@ function NoteBullet({
                     >
                       {done ? '↩︎ בטל' : '✓ סמן כטופל'}
                     </button>
+                    {!linked && !done && (
+                      <>
+                        <button type="button" disabled={busy} className="px-3 py-2 text-start hover:bg-muted"
+                          onClick={e => { e.stopPropagation(); setMenu(false); setInternalOpen(true); }}>
+                          פתיחת משימה
+                        </button>
+                        <button type="button" disabled={busy} className="px-3 py-2 text-start hover:bg-muted"
+                          onClick={e => { e.stopPropagation(); void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}>
+                          הסבה למשימת EMS
+                        </button>
+                      </>
+                    )}
+                    <button type="button" disabled={busy} className="px-3 py-2 text-start hover:bg-muted"
+                      onClick={e => { e.stopPropagation(); setMenu(false); setPicking(true); }}>
+                      העברה לקיבוץ אחר
+                    </button>
+                    <button type="button" disabled={busy} className="px-3 py-2 text-start text-destructive hover:bg-muted"
+                      onClick={e => { e.stopPropagation(); setMenu(false); setConfirmDel(true); }}>
+                      מחיקת שורה
+                    </button>
                   </span>
                 )}
               </span>
@@ -253,6 +354,27 @@ function NoteBullet({
           </span>
         }
       />
+      <ConfirmSheet
+        open={confirmDel}
+        title="למחוק את השורה?"
+        lines={[row.text]}
+        confirmLabel="מחיקת שורה"
+        danger
+        onConfirm={doDelete}
+        onOpenChange={setConfirmDel}
+      />
+      <KibbutzPicker open={picking} current={row.kibbutz} onOpenChange={setPicking} onPick={n => void doMove(n)} />
+      {internalOpen && (
+        <React.Suspense fallback={null}>
+          <InternalTaskSheet
+            kibbutz={row.kibbutz}
+            open={internalOpen}
+            onOpenChange={setInternalOpen}
+            initialTitle={internalTitleFromBullet(row.text)}
+            onCreated={async id => { if (id) await linkNoteToInternalTask(row, id); }}
+          />
+        </React.Suspense>
+      )}
     </motion.li>
   );
 }

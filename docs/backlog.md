@@ -1,4 +1,4 @@
-⏸ PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).
+↪ RESUMED and shipped (see the 29.9 block below). Was: PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).
 
 🔝 PRIORITY (עידן 23.9): usage goes to **round 5 development + documentation until the system is live**. Everything else waits, and after go-live עידן picks the next item from the weekly usage check. That covers: the field-ops Modbus page, foldables, the Whisper meeting scribe, the Apps Script proxy migration.
 
@@ -69,6 +69,30 @@ extended, `VERSION` → 2.01, docs checkpointed). Full detail: `docs/CHANGELOG.m
 ✅ DONE (2026-09-19, Task 7) — **סיגמה 2.00 redesign** built through Task 30 + 18a/18b/19, version bumped (`node build.mjs major` → **2.00**), full suite green, pushed to `dev`. Spec `docs/superpowers/specs/2026-09-17-kibbutz-cards-redesign-design.md`, plan `docs/superpowers/plans/2026-09-17-kibbutz-cards-redesign.md`, branch `feat/kibbutz-cards-redesign` (worktree `SigmatecOps-wt-cards`). **`main` NOT updated** — stays on maintenance mode (`e398947`) until עידן completes the 20 parked production steps (10 migrations, 6 edge-fn deploys, 3 cron jobs, 1 re-run) and secrets in `docs/HANDOFF-עידן.md`, after which the controller fast-forwards `dev`→`main` and removes maintenance mode. Open decisions waiting on עידן: health v1 thresholds (Tue 22.9), day-log per-task status ownership, Clockify attendees-as-tags, dev-board 🚀 source column, Gmail intake (still optional/unapproved). Companion specs: unified inventory (Tasks 8–10, ships 2.01, depends on this release), company process (P4, planned).
 
 # Backlog & status
+
+✅ DONE (29.9 checkpoint) — round 5 screens A D K C G X M S I V R + voice-fix, security X, inventory delete/lock override,
+field-ops Modbus page (deployed), QA6 fixes, unfreeze (27.9), conflict-marker fix + `test-release-guards.mjs`, dead
+`#visitFab` code removed. Detail: `docs/CHANGELOG.md` (29.9 entry), `docs/reports/2026-09-27-work-log-and-issues.md`.
+
+🟡 OPEN (as of 29.9) — the working method is `docs/superpowers/WORKING-METHOD.md`; work list, in order:
+- **Home-card visit buttons, rebuilt** (reverted 27.9): take the last visit from data the card already loaded — no query per
+  card. Test with a real-size fixture (all kibbutzim, hundreds of visits). Ties to: the ➕ / ✏️ buttons in visits.
+- **SectionBlock bleed clip fix, rebuilt separately** (reverted 27.9): own branch, every screen, real-size fixtures,
+  עידן confirms on the phone before continuing.
+- **Meeting-note rows (kibbutz card):** delete a row; move a row to another kibbutz (transcript filed wrongly); open a task
+  from a row and convert it to an EMS task.
+- **QA6 "later" list (עידן):** 1.3 delete the test tasks for לביא/אפיק (needs Supabase), 3.2 faster recording, 4.1 attendance
+  dot in the full-month view, 4.4 vacations for all staff in the calendar (feature), 5.1 inventory RTL alignment.
+  Also QA6 4.3: confirm אביאם/ניתאי see all tasks under each kibbutz.
+- **H3 + H5** small follow-up. **pending-states §2:** 12 "waiting state" tests (attendance / visit / home), known, for the QA pass.
+- **DOC-1 -> DOC-2** module docs, then full QA, then the decisions table (decisions taken without עידן since the last table:
+  dev-board priority + stage move = עידן/עמיחי/מתניה; inventory delete guard name=עידן; voice record->Whisper default;
+  M undo toast own element, no toast ✕; in-route stop shows "במסלול"; I "הוחלפה ב־1043" RTL accepted; R Gaps reverted;
+  empty chips hidden in meeting rows).
+- **Field-ops:** test on a real meter; "gap vs EMS" not built (no last reading in EMS).
+- **P2 (decision):** an internal ModbusClient address is in the public repo's git history (removed from files) — rewrite history or accept.
+- **Hulda external meter-readings fetch:** a parallel session; its branch is merged through MAIN when it reports done.
+- **Still waiting on עידן:** apply `db/rls_viewer_readonly.sql`; restore source for `tasks.status`.
 
 ✅ DONE (22.9 evening) — **phone QA round 2** (2.12): nine packages built by Opus/Sonnet agents, merged, all five
 migrations applied. Test plan per item: `docs/reports/2026-09-22-round-2-test-plan.md`. Follow-ups shipped the same night (2.17): red missing days on the calendar, 2 h timer server push (cron +
