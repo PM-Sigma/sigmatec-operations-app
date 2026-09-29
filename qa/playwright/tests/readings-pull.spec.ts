@@ -1,4 +1,4 @@
-// 📥 משיכת קריאות מתוכנות חיצונית (readings-pull) — the page, the background flow and the gate.
+// 📥 משיכת קריאות משירותי מנייה חיצוניים (readings-pull) — the page, the background flow and the gate.
 // Everything is mocked: the four reading_* tables and the `readings-fetch` Edge Function are
 // answered by this file (real-size shape: 253 meters = 249 ok + 3 blocked + 1 warning, four
 // exceptions). Every serial below is SYNTHETIC — no real customer data.
@@ -295,7 +295,7 @@ test('badge: an unopened failed cron run marks ⋯ עוד; opening the page mark
   await page.evaluate(() => window.dispatchEvent(new Event('readings-badge-refresh')));
   await expect.poll(() => page.evaluate(() => (window as any).__readingsBadge | 0), { timeout: 20_000 }).toBe(1);
   await page.getByRole('button', { name: 'עוד', exact: true }).last().click();
-  const row = page.getByRole('button', { name: /משיכת קריאות מתוכנות חיצונית/ });
+  const row = page.getByRole('button', { name: /משיכת קריאות משירותי מנייה חיצוניים/ });
   await expect(row).toBeVisible();
   await expect(row).toContainText('1');
   await shot(page, ti, 'badge-more-sheet');
@@ -312,7 +312,7 @@ test('access: any signed-in staff (אביאם) opens it; the view-only role is r
   await installReadings(page, S);
   expect(await page.evaluate(() => (window as any).sigma.canShowPage('readings'))).toBe(true);
   await page.getByRole('button', { name: 'עוד', exact: true }).last().click();
-  await expect(page.getByRole('button', { name: /משיכת קריאות מתוכנות חיצונית/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /משיכת קריאות משירותי מנייה חיצוניים/ })).toBeVisible();
   expectNoConsoleErrors(rec);
 });
 
@@ -325,7 +325,7 @@ test('access: the viewer is refused — no ⋯ row, and the page bounces to the 
   await expect(page.getByTestId('readings-page')).toHaveCount(0);
   expect(await page.evaluate(() => (window as any)._currentPage)).toBe('kibbutz');
   await page.getByRole('button', { name: 'עוד', exact: true }).last().click();
-  await expect(page.getByRole('button', { name: /משיכת קריאות מתוכנות חיצונית/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /משיכת קריאות משירותי מנייה חיצוניים/ })).toHaveCount(0);
   expect(S.calls).toEqual([]);
   expectNoConsoleErrors(rec);
 });

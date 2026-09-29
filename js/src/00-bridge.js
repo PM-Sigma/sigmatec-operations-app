@@ -230,7 +230,7 @@
         // עמיחי (admin, via canManageStaff) + מתניה + אליה (the two developers).
         case 'dev': { var _d = call('getCurrentUser', [], ''); return _d === 'מתניה' || _d === 'אליה' || !!call('canManageStaff', [], false); }
         case 'pushlog':    return !!call('isIdan', [], false);
-        // 📥 משיכת קריאות מתוכנות חיצונית (readings-pull, עידן 29.9): all staff, never the viewer —
+        // 📥 משיכת קריאות משירותי מנייה חיצוניים (readings-pull, עידן 29.9): all staff, never the viewer —
         // same rule as fieldops and as canUseReadings() in supabase/functions/_shared/readingsRoster.js.
         case 'readings':   return !call('isViewer', [], false) && !!call('getCurrentUser', [], '');
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';

@@ -75,7 +75,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 
 ## 🚦 Current state — 2026-09-29 (feat/readings-pull, not merged)
 
-**משיכת קריאות מתוכנות חיצונית** — Phase 0 ✅, Phase 1 ✅ built + green on `feat/readings-pull`. Next: MAIN applies `db/readings_pull.sql`, redeploys `readings-fetch`/`push-send`, adds `db/cron_readings_7am.sql`, merges; then an end-to-end manual pull from the app. Access: all staff, not the viewer. Spec: `docs/superpowers/specs/2026-09-29-readings-pull-design.md`.
+**משיכת קריאות משירותי מנייה חיצוניים** — Phase 0 ✅, Phase 1 ✅ built + green on `feat/readings-pull`. Next: MAIN applies `db/readings_pull.sql`, redeploys `readings-fetch`/`push-send`, adds `db/cron_readings_7am.sql`, merges; then an end-to-end manual pull from the app. Access: all staff, not the viewer. Spec: `docs/superpowers/specs/2026-09-29-readings-pull-design.md`.
 
 ## 🚦 Current state — last: 2026-09-29 (**round 5 + QA6 LIVE for all staff; wave 1 + wave 2 merged; VERSION 2.109; wave 3 = docs (branch `r9/w3-docs`, not pushed)**).
 

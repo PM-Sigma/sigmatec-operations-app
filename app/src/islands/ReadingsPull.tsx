@@ -1,4 +1,4 @@
-// 📥 משיכת קריאות מתוכנות חיצונית — the readings-pull page (all signed-in staff).
+// 📥 משיכת קריאות משירותי מנייה חיצוניים — the readings-pull page (all signed-in staff).
 // Spec: docs/superpowers/specs/2026-09-29-readings-pull-design.md. The page only STARTS a run and
 // reads the result: the server carries the run (readings-fetch), so nothing here has to stay on
 // screen — app/src/lib/readingsWatch.ts polls from any screen and toasts when the files are ready.
@@ -33,7 +33,7 @@ import {
 } from '@/lib/readingsApi';
 import { FOCUS_KEY, trackRun } from '@/lib/readingsWatch';
 
-const TITLE = 'משיכת קריאות מתוכנות חיצונית';
+const TITLE = 'משיכת קריאות משירותי מנייה חיצוניים';
 const runsKey = (siteId: string) => ['readings', 'runs', siteId] as const;
 
 const errText = (e: unknown): string => (e as any)?.message || 'הפעולה נכשלה. נסה שוב';

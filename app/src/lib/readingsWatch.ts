@@ -50,7 +50,7 @@ export function setBadge(n: number): void {
 /** The ⋯ row lives here (this lazy chunk), not in the boot file's MORE_PAGES: label, gate and badge. */
 function registerReadingsRow(): void {
   registerMoreItem({
-    id: 'readings', label: 'משיכת קריאות מתוכנות חיצונית', icon: 'FileDown', group: 'admin',
+    id: 'readings', label: 'משיכת קריאות משירותי מנייה חיצוניים', icon: 'FileDown', group: 'admin',
     onSelect: () => gotoReadings(), visible: () => isRoster(), badge: () => w.__readingsBadge | 0,
   });
 }

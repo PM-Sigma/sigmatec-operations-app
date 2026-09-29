@@ -1,4 +1,4 @@
-// 📥 משיכת קריאות מתוכנות חיצונית — the pure half (no DOM, no network). Everything the page,
+// 📥 משיכת קריאות משירותי מנייה חיצוניים — the pure half (no DOM, no network). Everything the page,
 // the global watcher and the badge decide lives here so it can be unit-tested without a browser.
 // All dates are calendar days in Asia/Jerusalem: the browser's own zone is never trusted.
 
