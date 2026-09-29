@@ -511,7 +511,7 @@ export function taskFromBullet(
     title: titleFromBullet(row.text),
     description: descriptionFromBullet(row.text, row.meeting_date, kind),
     ...(owner ? { assigneeName: owner } : {}),
-    priority: 'medium',
+    priority: 'normal',   // EMS enum is low|normal|high|urgent — 'medium' was the 422
   };
 }
 

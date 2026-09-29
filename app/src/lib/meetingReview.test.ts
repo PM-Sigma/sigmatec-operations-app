@@ -296,7 +296,7 @@ describe('applyReview', () => {
     expect(emsTasks).toHaveLength(1);
     expect(emsTasks[0]).toMatchObject({ key: 'דפנה#1', kibbutz: 'דפנה', seq: 1 });
     expect(emsTasks[0].task).toMatchObject({
-      kibbutz: 'דפנה', title: 'להחליף את המונה הראשי מול הגזבר', assigneeName: 'אביאם', priority: 'medium',
+      kibbutz: 'דפנה', title: 'להחליף את המונה הראשי מול הגזבר', assigneeName: 'אביאם', priority: 'normal',
     });
     expect(emsTasks[0].task.description).toContain('מקור: ישיבת חברה 17.9.26');
     // …and the title follows the EDITED sentence, not the transcript's.

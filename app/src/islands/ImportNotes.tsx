@@ -28,6 +28,7 @@ import {
   canImportNotes, countRowsToSave, dmy, importPayload, KIND_LABEL, parseMeetingSummary,
   type MeetingKind, type ParsedMeeting,
 } from '@/lib/meetingNotes';
+import { toastFailure } from '@/lib/pending';
 
 export { canImportNotes };
 
@@ -229,7 +230,7 @@ function ImportSheet() {
       toast.success(`ישיבת ${dmy(effective.meeting_date)}: ${parts.join(' · ')}`);
       setOpen(false); reset();
     } catch (e: any) {
-      toast.error(e?.message || 'השמירה נכשלה');
+      toastFailure(e, undefined, 'השמירה נכשלה');
     } finally { setSaving(false); }
   };
 

@@ -95,6 +95,7 @@ export function loadConfig(root = ROOT, env = process.env) {
     token: pick('EMS_TOKEN'),
     syncedBy: pick('EMS_SYNCED_BY') || 'משרד',
     logPath: pick('EMS_REFRESH_LOG'),
+    serviceKey: pick('SUPABASE_SERVICE_ROLE_KEY'),   // optional: feeds the task lifecycle (H5)
   };
 }
 
@@ -277,6 +278,35 @@ export async function writeSharedCache(sbUrl, sbAnon, pass, tasks, syncedBy) {
   return tasks.length;
 }
 
+/**
+ * Pure: should the lifecycle be fed, and is the snapshot "full"? Full only when the crawl ran to
+ * its end (short page / reached total) — a page-cap stop is truncated and must never close tasks.
+ */
+export function lifecyclePlan(crawl, count, hasKey) {
+  if (!hasKey) return { call: false, why: 'no service key' };
+  if (!count) return { call: false, why: 'empty snapshot' };
+  const full = !!crawl && (crawl.stoppedBecause === 'short-page' || crawl.stoppedBecause === 'reached-total');
+  return { call: true, full };
+}
+
+/**
+ * Feed ems_apply_snapshot_cron. NEVER throws and never logs keys or task data: returns a short
+ * status string ('ok:<n>', 'rpc-missing', 'error:<http status>'). The cache refresh must not fail for it.
+ */
+export async function applyLifecycle(sbUrl, serviceKey, tasks, full, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(sbUrl + '/rest/v1/rpc/ems_apply_snapshot_cron', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: serviceKey, Authorization: 'Bearer ' + serviceKey },
+      body: JSON.stringify({ p_tasks: tasks, p_full: !!full }),
+    });
+    if (res.status === 404) return 'rpc-missing';
+    if (!res.ok) return 'error:' + res.status;
+    const n = await res.json().catch(() => null);
+    return 'ok:' + (typeof n === 'number' ? n : '?');
+  } catch { return 'error:network'; }
+}
+
 // ───────────────────────────── logging ─────────────────────────────
 
 /**
@@ -378,6 +408,11 @@ export async function main(argv = process.argv.slice(2), root = ROOT) {
 
     const pass = await mintSupabasePass(sbUrl, sbAnon, emsToken);
     await writeSharedCache(sbUrl, sbAnon, pass, slim, cfg.syncedBy);
+    // the lifecycle is best-effort and isolated: whatever happens, the refresh already succeeded
+    const plan = lifecyclePlan(crawl, slim.length, !!cfg.serviceKey);
+    report.lifecycle = plan.call
+      ? (plan.full ? 'full ' : 'partial ') + await applyLifecycle(sbUrl, cfg.serviceKey, slim, plan.full)
+      : 'skipped (' + plan.why + ')';
     return finish(EXIT.OK, { wrote: slim.length });
   } catch (e) {
     const code = e instanceof StepError ? e.code : EXIT.UNEXPECTED;

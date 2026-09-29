@@ -31,6 +31,7 @@ import { GroupedList } from '@/islands/dev/GroupedList';
 import { StageList } from '@/islands/dev/StageList';
 import { FiltersSheet, activeFilterCount } from '@/islands/dev/FiltersSheet';
 import { CardSheet } from '@/islands/dev/CardSheet';
+import { toastFailure } from '@/lib/pending';
 
 const VIEW_KEY = 'dev_view_v2';
 type ViewMode = 'domains' | 'stages';
@@ -167,7 +168,7 @@ function DevBoardPage() {
       setSelected(new Set());
       setSelectMode(false);
       void board.refetch();
-    } catch (e: any) { toast.error(e?.message || 'לא הצלחתי להעביר'); }
+    } catch (e: any) { toastFailure(e, undefined, 'לא הצלחתי להעביר'); }
   };
 
   const doRelease = async () => {
@@ -177,7 +178,7 @@ function DevBoardPage() {
       if (updated.length) toast.success(updated.length + ' כרטיסים עלו לאוויר');
       else toast.info('אין כרטיסים בשלבי בדיקות');
       void board.refetch();
-    } catch (e: any) { toast.error(e?.message || 'לא הצלחתי לעדכן'); }
+    } catch (e: any) { toastFailure(e, undefined, 'לא הצלחתי לעדכן'); }
     finally { setReleasing(false); }
   };
 

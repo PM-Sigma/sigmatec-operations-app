@@ -34,6 +34,7 @@ import {
   reviewChips, reviewPayload, reviewSummary, setChip, setOwner, setTask, summaryLabel,
   type Chip, type ReviewBundle, type ReviewDraft, type ReviewLine,
 } from '@/lib/meetingReview';
+import { toastFailure } from '@/lib/pending';
 
 // ───────────────────────── the opener (no shared global) ─────────────────────────
 
@@ -216,7 +217,7 @@ function TaskModal({
   const [title, setTitle] = React.useState(prefill.title);
   const [description, setDescription] = React.useState(prefill.description);
   const [assignee, setAssignee] = React.useState(prefill.assigneeName || '');
-  const [priority, setPriority] = React.useState(prefill.priority || 'medium');
+  const [priority, setPriority] = React.useState(prefill.priority || 'normal');
   const [site, setSite] = React.useState<'…' | 'yes' | 'no'>('…');
 
   React.useEffect(() => {
@@ -267,7 +268,7 @@ function TaskModal({
             <select data-testid="review-task-priority" value={priority} onChange={e => setPriority(e.target.value)}
                     className={field + ' mt-1 w-[130px]'}>
               <option value="low">נמוכה</option>
-              <option value="medium">רגילה</option>
+              <option value="normal">רגילה</option>
               <option value="high">גבוהה</option>
             </select>
           </label>
@@ -496,7 +497,7 @@ function ReviewSheet() {
       toast.success(`ישיבת ${dmy(draft.meeting_date)}: ${parts.join(' · ')}`);
       cancel();
     } catch (e: any) {
-      toast.error(e?.message || 'לא הצלחתי, נסה שוב');
+      toastFailure(e, undefined, 'לא הצלחתי, נסה שוב');
     } finally { setBusy(false); }
   };
 

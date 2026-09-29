@@ -9,7 +9,6 @@ import { Clock, MapPin } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { sigma } from '@/bridge';
 import { useVisitDraft } from '@/lib/visitDrafts';
-import { CardActions } from '@/components/home/CardActions';
 import { EmsTasks } from '@/components/home/EmsTasks';
 import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { InternalTasksSection, TaskAdders } from '@/components/home/InternalTasks';
@@ -142,7 +141,6 @@ export function KibbutzCard({
       <LastVisitRow name={row.name} />
       <div data-card-section="meetings"><MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} /></div>
       {role !== 'viewer' && <TaskAdders kibbutz={row.name} />}
-      <CardActions name={row.name} role={role} />
     </motion.div>
   );
 }

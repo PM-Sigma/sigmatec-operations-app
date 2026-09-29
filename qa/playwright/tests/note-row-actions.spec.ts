@@ -15,7 +15,10 @@ async function openMenu(page: Page, text: string) {
   const row = rowOf(page, text);
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'עוד פעולות לבולט' }).click();
-  return row;
+  // the menu is portalled to <body> (Q7-A 2), so it is no longer inside the row
+  const menu = page.getByTestId('note-row-menu');
+  await expect(menu).toBeVisible();
+  return menu;
 }
 
 test('note row: delete asks first, persists, and undo brings it back', async ({ page }, ti) => {
@@ -106,4 +109,54 @@ test('note row: a viewer gets no row actions', async ({ page }, ti) => {
   await openModal(page, 'חוקוק');
   await expect(rowOf(page, 'לבדוק זרימת נתונים מהבקר החדש')).toBeVisible();
   await expect(section(page).getByRole('button', { name: 'עוד פעולות לבולט' })).toHaveCount(0);
+});
+
+// Q7-A 2: the LAST row's ⋯ menu did not open (clipped / off the bottom edge). Real-size check:
+// the card's last bullet is scrolled to the very bottom of the viewport, the menu must open
+// and every item must be fully inside the viewport and actually hittable (not clipped by an
+// ancestor's overflow) — on the home card AND in the modal tab, at 360/412 both themes.
+test('note row: the LAST row ⋯ menu opens at the bottom edge and stays hittable', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  const check = async (scope: ReturnType<Page['locator']>, tag: string) => {
+    const last = scope.locator('.note-bullet').last();
+    await last.scrollIntoViewIfNeeded();
+    await last.evaluate(el => {
+      // push the row to the bottom edge of the viewport (scroll ancestors + window)
+      const r = el.getBoundingClientRect();
+      let p: HTMLElement | null = el.parentElement;
+      const delta = r.bottom - (window.innerHeight - 4);
+      while (p) { if (p.scrollHeight > p.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(p).overflowY)) { p.scrollTop += delta; break; } p = p.parentElement; }
+      window.scrollBy(0, delta);
+    });
+    await last.getByRole('button', { name: 'עוד פעולות לבולט' }).click();
+    const menu = page.getByTestId('note-row-menu');
+    await expect(menu).toBeVisible();
+    const bad = await menu.evaluate(m => {
+      const vw = window.innerWidth, vh = window.innerHeight, out: string[] = [];
+      const mr = m.getBoundingClientRect();
+      if (mr.top < 0 || mr.bottom > vh || mr.left < 0 || mr.right > vw) out.push('menu outside viewport ' + JSON.stringify(mr));
+      for (const b of Array.from(m.querySelectorAll('button'))) {
+        const r = b.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        if (!hit || !b.contains(hit)) out.push('not hittable: ' + b.textContent + ' ← ' + (hit ? hit.tagName + '.' + String(hit.className).slice(0, 60) : 'null') + ' @' + Math.round(r.left) + ',' + Math.round(r.top));
+      }
+      return out;
+    });
+    expect(bad, tag + ': ' + bad.join('; ')).toEqual([]);
+    await shot(page, ti, tag);
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+  };
+  await check(page.locator('#sigma-home .kibbutz[data-name="חוקוק"] .card-notes'), 'last-row-card');
+  await openModal(page, 'חוקוק');
+  await check(section(page), 'last-row-modal');
+  expectNoConsoleErrors(rec);
+});
+
+test('note row: no per-row ➕ — every action lives in the ⋯ menu (Q7-A 4)', async ({ page }, ti) => {
+  await boot(page, ti, { who: 'עידן' });
+  await openModal(page, 'חוקוק');
+  await expect(section(page).getByRole('button', { name: 'פתח משימה ב-EMS' })).toHaveCount(0);
+  const row = await openMenu(page, 'להשלים החלפת מונה ראשי במחלבה');
+  await expect(row.getByRole('button', { name: 'הסבה למשימת EMS' })).toBeVisible();
 });

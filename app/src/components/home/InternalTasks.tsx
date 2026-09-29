@@ -20,6 +20,7 @@ import {
   canWriteInternal, countBadge, dueLabel, isOverdueInternal, openFor, priorityLabelOf,
   promoteToEms, toggleDone, type InternalTaskExtra, type InternalTaskRow,
 } from '@/lib/internalTasks';
+import { toastFailure } from '@/lib/pending';
 
 export const INTERNAL_QUERY_KEY = ['internalTasks'] as const;
 export const INTERNAL_TASKS_CHANGED = 'internal-tasks-changed' as const;
@@ -121,7 +122,7 @@ function InternalRow({ row, kibbutz, canAct, readOnly = false }: {
   const act = async (fn: () => Promise<void>, ok: string) => {
     setBusy(true);
     try { await fn(); toast.success(ok); }
-    catch (e: any) { toast.error(e?.message || 'הפעולה נכשלה'); }
+    catch (e: any) { toastFailure(e, undefined, 'הפעולה נכשלה'); }
     finally { setBusy(false); }
   };
   const actions = canAct && !readOnly;

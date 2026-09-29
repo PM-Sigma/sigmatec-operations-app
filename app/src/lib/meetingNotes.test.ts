@@ -377,7 +377,7 @@ describe('EMS task prefill', () => {
       title: 'מאזן אנרגיה',
       description: 'מאזן אנרגיה: אובדן קבוע בראשי.\n\nמקור: ישיבת חברה 17.9.26',
       assigneeName: 'אביאם',
-      priority: 'medium',
+      priority: 'normal',
     });
   });
 

@@ -18,6 +18,7 @@ import { mount } from '@/islands';
 import { registerMoreItem } from '@/lib/registry';
 import { track } from '@/lib/track';
 import { toast } from 'sonner';
+import { toastFailure } from '@/lib/pending';
 import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { canShowPage } from '@/lib/canShowPage';
@@ -234,7 +235,7 @@ function OnboardingTemplateRow({ user }: { user: string }) {
     if (!tpl) return;
     setSaving(true);
     try { await saveOnboardingTemplate(tpl, user); toast.success('התבנית נשמרה'); }
-    catch (e: any) { toast.error(e?.message || 'השמירה נכשלה'); }
+    catch (e: any) { toastFailure(e, undefined, 'השמירה נכשלה'); }
     finally { setSaving(false); }
   };
 

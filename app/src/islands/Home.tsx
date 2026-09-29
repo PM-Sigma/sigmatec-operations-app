@@ -16,7 +16,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PenLine } from 'lucide-react';
 import { FilterChips } from '@/components/home/FilterChips';
 import { Section } from '@/components/home/Section';
-import { LastVisitsProvider, useLatestVisits } from '@/components/home/LastVisits';
 import { KibbutzSheet } from '@/components/home/KibbutzSheet';
 import { mount } from '@/islands';
 import { searchMissTarget, track } from '@/lib/track';
@@ -84,7 +83,6 @@ function HomeIsland() {
   );
   React.useEffect(() => { if (data) publishToLegacy(data as KibbutzRow[]); }, [data]);
 
-  const latestVisits = useLatestVisits(data);
   const counts = React.useMemo(() => countRows(rows), [rows]);
   const visible = React.useMemo(() => filterRows(rows, filter, query), [rows, filter, query]);
 
@@ -217,7 +215,6 @@ function HomeIsland() {
   }
 
   return (
-    <LastVisitsProvider value={latestVisits}>
     <div className="pb-2">
       {/* קיבוץ חדש removed from here (designer round 8): the shell's own PageBar already
           carries this action on desktop, so this button doubled it on 1440. `canManage` /
@@ -266,7 +263,6 @@ function HomeIsland() {
         />
       )}
     </div>
-    </LastVisitsProvider>
   );
 }
 

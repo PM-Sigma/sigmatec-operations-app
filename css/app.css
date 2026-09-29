@@ -88,14 +88,14 @@
      localStorage('theme'); the inline snippet in index.html <head> sets data-theme before the
      first paint, and app/src/lib/theme.ts keeps it in sync with the islands' `.dark` class. */
   :root[data-theme="dark"] {
-    --bg: #0f1417;
-    --card: #161c21;
-    --surface-2: #1d252b;
-    --text: #e6edf3;
-    --text-light: #a7b4c0;
-    --border: #263038;
-    --gray-light: #1d252b;
-    --accent-soft: #14262f;
+    --bg: #0B1519;
+    --card: #121E24;
+    --surface-2: #192830;
+    --text: #E8F1F5;
+    --text-light: #AFC1CC;
+    --border: #2A3D47;
+    --gray-light: #192830;
+    --accent-soft: #12303A;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
     /* Design system dark inks (spec §2) — none of these six existed before this pass, so the
@@ -197,9 +197,11 @@
   .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,111,237,0.12); }
   .filter-chip {
     padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border);
-    background: var(--card); font-size: 13px; cursor: pointer; font-family: inherit;
+    background: var(--card); color: var(--text); font-size: 13px; cursor: pointer; font-family: inherit;
     transition: all 0.2s; user-select: none;
   }
+  /* Q7-D 8.2: index.html paints the count at inline opacity .6, which put white-on-primary at 2.9:1. */
+  .filter-chip .chip-count { opacity: 1 !important; }
   .filter-chip:hover { border-color: var(--primary); }
   .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
@@ -241,7 +243,7 @@
     background: var(--card); padding: 3px 12px; border-radius: 20px;
     font-size: 13px; font-weight: 600; border: 1px solid var(--border);
   }
-  .section-toggle { font-size: 14px; opacity: 0.5; transition: transform 0.2s; }
+  .section-toggle { font-size: 14px; opacity: 0.75; transition: transform 0.2s; }
   .section-body { padding: 16px 24px 24px; }
   .section.collapsed .section-body { display: none; }
   .section.collapsed .section-toggle { transform: rotate(-90deg); }
@@ -1210,14 +1212,14 @@ body.sigma-home-fallback .section:has(#grid-active) { display: block; }
    dark-mode OS. Values mirror the `:root[data-theme="dark"]` block at the top of this file. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0f1417;
-    --card: #161c21;
-    --surface-2: #1d252b;
-    --text: #e6edf3;
-    --text-light: #a7b4c0;
-    --border: #263038;
-    --gray-light: #1d252b;
-    --accent-soft: #14262f;
+    --bg: #0B1519;
+    --card: #121E24;
+    --surface-2: #192830;
+    --text: #E8F1F5;
+    --text-light: #AFC1CC;
+    --border: #2A3D47;
+    --gray-light: #192830;
+    --accent-soft: #12303A;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.55);
     /* Not aliased to var(--s-ink) — see the explicit dark block above ("regression impeccable
@@ -1239,15 +1241,15 @@ body.sigma-home-fallback .section:has(#grid-active) { display: block; }
    the one thing עידן asked never to happen ("שלא יישאר לבן"). Re-tinting them from the dark
    surface tokens is a theme block, so the hex values live here and nowhere else. */
 :root[data-theme="dark"] {
-  --tint-warn: #2a2214;
-  --tint-info: #10242f;
-  --tint-ok: #12241c;
-  --tint-danger: #2a1618;
-  --tint-dev: #1e1830;
-  --tint-warn-border: #4a3a18;
-  --tint-danger-border: #4a2326;
-  --accent-fg: #93c5fd;
-  --danger-fg: #fca5a5;
+  --tint-warn: #2E2411;
+  --tint-info: #0F2A38;
+  --tint-ok: #10281D;
+  --tint-danger: #2E171A;
+  --tint-dev: #211A38;
+  --tint-warn-border: #52401A;
+  --tint-danger-border: #52262A;
+  --accent-fg: #9CC7FF;
+  --danger-fg: #FFA3A3;
 }
 :root {
   --tint-warn: #fdf4e3;
@@ -1262,15 +1264,15 @@ body.sigma-home-fallback .section:has(#grid-active) { display: block; }
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --tint-warn: #2a2214;
-    --tint-info: #10242f;
-    --tint-ok: #12241c;
-    --tint-danger: #2a1618;
-    --tint-dev: #1e1830;
-    --tint-warn-border: #4a3a18;
-    --tint-danger-border: #4a2326;
-    --accent-fg: #93c5fd;
-    --danger-fg: #fca5a5;
+    --tint-warn: #2E2411;
+    --tint-info: #0F2A38;
+    --tint-ok: #10281D;
+    --tint-danger: #2E171A;
+    --tint-dev: #211A38;
+    --tint-warn-border: #52401A;
+    --tint-danger-border: #52262A;
+    --accent-fg: #9CC7FF;
+    --danger-fg: #FFA3A3;
   }
 }
 
@@ -1279,6 +1281,9 @@ body.sigma-home-fallback .section:has(#grid-active) { display: block; }
 /* (.kibbutz.track / .priority used to be forced back to var(--card) here; the state fills are
    themed --tint-* tokens now, so the tint survives dark mode instead of being dropped.) */
 :root[data-theme="dark"] .section-note { background: var(--surface-2); }
+/* Q7-D 8.2: the "not linked to EMS" pill is painted with light literals (#fef2f2 / #b91c1c); in dark the
+   amber ink landed on a pink fill at 1.7:1. Same danger tint tokens the other legacy warnings use. */
+:root[data-theme="dark"] .card-no-site { background: var(--tint-danger); color: var(--danger-fg); border-color: var(--tint-danger-border); }
 
 /* The legacy inline `style="background:<tint>"` sits on the elements themselves, so the
    only way to reach them is by id/class. These are the legacy blocks that must flip:
@@ -1296,6 +1301,7 @@ input, select, textarea {
   color: var(--text);
   border-color: var(--border);
 }
+:root[data-theme="dark"] input, :root[data-theme="dark"] select, :root[data-theme="dark"] textarea { border-color: var(--s-field-border); }
 :root[data-theme="dark"] input::placeholder,
 :root[data-theme="dark"] textarea::placeholder { color: var(--text-light); }
 /* Native date/month/number pickers render their glyphs black-on-dark otherwise. */

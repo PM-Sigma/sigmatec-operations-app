@@ -1,0 +1,21 @@
+{
+ "axe": 2,
+ "custom": 0,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".text-destructive > span",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   },
+   {
+    "sel": ".text-destructive > span > bdi",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   }
+  ],
+  "custom": []
+ }
+}

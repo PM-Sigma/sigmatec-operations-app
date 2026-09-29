@@ -8,7 +8,6 @@
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Hourglass } from 'lucide-react';
-import { toast } from 'sonner';
 import { sigmaBus } from '@/bridge';
 import { getSupabase, sbWrite } from '@/lib/supabase';
 import { queryClient } from '@/lib/query';
@@ -16,6 +15,7 @@ import {
   daysInOnboarding, isComplete, nextState, nextStep, progressOf, stepsFromTemplate, waitAge,
   type OnboardingStepRow, type OnboardingTemplate,
 } from '@/lib/onboarding';
+import { toastFailure } from '@/lib/pending';
 
 export const ONBOARDING_QUERY_KEY = ['onboardingSteps'] as const;
 export const ONBOARDING_CHANGED = 'onboarding-changed' as const;
@@ -114,7 +114,7 @@ export function OnboardingProgress({ kibbutz, canAct }: { kibbutz: string; canAc
     if (!canAct || busy) return;
     setBusy(step.id || step.step_key);
     try { await tapStep(step, !!step.waits); }
-    catch (e: any) { toast.error(e?.message || 'העדכון נכשל'); }
+    catch (e: any) { toastFailure(e, undefined, 'העדכון נכשל'); }
     finally { setBusy(null); }
   };
 

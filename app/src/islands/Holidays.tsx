@@ -25,6 +25,7 @@ import { getSupabase, sbWrite } from '@/lib/supabase';
 import { track } from '@/lib/track';
 import { sigma } from '@/bridge';
 import { dayChip, HE_MONTHS, holidayShort, isHolidayEve, ymd, type Holiday } from '@/lib/attendance';
+import { toastFailure } from '@/lib/pending';
 
 const OPEN_EVENT = 'sigma-holidays-open';
 
@@ -67,7 +68,7 @@ function HolidaysIsland() {
     mutationFn: async (v: { date: string; required: boolean }) =>
       sbWrite(sb => sb.from('company_holidays').update({ required: v.required }).eq('date', v.date).select()),
     onSuccess: (_d, v) => { track('holiday-required', String(v.required)); done(v.required ? 'סומן כיום עבודה' : 'סומן כיום חופשי'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFailure(e),
   });
 
   const add = useMutation({
@@ -76,7 +77,7 @@ function HolidaysIsland() {
       created_by: sigma.getCurrentUser?.() || '',
     }).select()),
     onSuccess: () => { track('holiday-add'); setDate(''); setName(''); done('הסגירה נוספה ללוח'); },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toastFailure(e),
   });
 
   const rows = q.data || [];
