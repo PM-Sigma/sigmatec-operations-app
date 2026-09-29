@@ -366,11 +366,11 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
               </div>
 
               <div className="flex gap-2">
-                <button type="button" data-testid="os-save" onClick={() => void submit()} disabled={saving}
+                {!user.isViewer && (<button type="button" data-testid="os-save" onClick={() => void submit()} disabled={saving}
                         className="min-h-[48px] flex-1 rounded-xl s-brand text-[15px] font-bold disabled:opacity-40">
                   {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'שמירה'}
-                </button>
-                {canApprove && plan && !plan.error && (
+                </button>)}
+                {canApprove && !user.isViewer && plan && !plan.error && (
                   <button type="button" data-testid="os-approve" onClick={() => setStep('approve-confirm')} disabled={saving}
                           className="min-h-[48px] flex-1 rounded-xl border border-border bg-card text-[15px] font-bold disabled:opacity-40">
                     {plan.kind === 'dropship' ? 'אישור ואספקה' : 'אישור'}

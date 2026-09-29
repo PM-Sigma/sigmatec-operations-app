@@ -28,7 +28,7 @@ import { INVENTORY } from './inventory/_inv-fixtures';
 
 export const SB_ORIGIN = 'https://wwqfcajnxinaxmobrgol.supabase.co';
 
-export type Who = 'עידן' | 'עמיחי' | 'אביאם' | 'ניתאי' | 'מתניה' | 'צפייה';
+export type Who = 'עידן' | 'עמיחי' | 'אביאם' | 'ניתאי' | 'מתניה' | 'אבצן' | 'אליה' | 'צפייה';
 
 /** The three roles js/src/11-search-login.js stores: 'idan' | 'team' | 'viewer'. */
 function roleFor(who: Who): 'idan' | 'team' | 'viewer' {

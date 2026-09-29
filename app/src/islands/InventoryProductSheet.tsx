@@ -42,6 +42,7 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
   const user = useCurrentUser();
   const isIdan = user.role === 'idan';
   const isNew = !product;
+  const readOnly = user.isViewer; // צפייה: a read-only sheet — no Save, no ⋯ (the DB refuses the write anyway)
   const [draft, setDraft] = React.useState<ProductDraft>(() => draftFromProduct(product));
   const [saving, setSaving] = React.useState(false);
   const [moreOpen, setMoreOpen] = React.useState(false);
@@ -187,11 +188,11 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
             </div>
 
             <div className="flex items-center gap-2">
-              <button type="button" data-testid="ps-save" onClick={() => void submit()} disabled={saving}
+              {!readOnly && (<button type="button" data-testid="ps-save" onClick={() => void submit()} disabled={saving}
                       className="min-h-[48px] flex-1 rounded-xl s-brand text-[15px] font-bold disabled:opacity-40">
                 {saving ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'שמירה'}
-              </button>
-              {!isNew && (
+              </button>)}
+              {!isNew && !readOnly && (
                 <div className="relative">
                   <button type="button" data-testid="ps-more" aria-label="פעולות נוספות" onClick={() => setMoreOpen(v => !v)}
                           className="s-hit min-h-[48px] min-w-[48px] rounded-xl border border-border bg-card">
