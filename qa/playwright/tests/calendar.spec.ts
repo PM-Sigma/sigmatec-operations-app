@@ -402,7 +402,8 @@ test('calendar: 🌴 a range is entered from the same ➕', async ({ page }, ti)
   await openCalendar(page);
   const day = await calDay(page);
 
-  await page.locator(`[data-day="${day}"]`).click();
+  // Open by date (the fixture day can sit in next month, off the visible grid).
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
   await dayBody(page).getByTestId('cal-day-add').click();
   await page.getByTestId('cal-add-absence').click();
   await expect(page.getByTestId('cal-absence')).toBeVisible();

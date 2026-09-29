@@ -1214,6 +1214,15 @@ function TaskListView({
 
 // ───────────────────────────── 🌴 absences ─────────────────────────────
 
+/** A DB that has not had db/calendar_absences_sick_other.sql applied rejects מחלה/אחר: say so plainly. */
+function absenceError(e: any, kind?: AbsenceKind): string {
+  const m = String(e?.message || '');
+  if (/kind_check|check constraint/i.test(m) || (kind && (kind === 'sick' || kind === 'other') && /23514/.test(m))) {
+    return 'סוג ההיעדרות הזה עוד לא פעיל במערכת. בחרו חופשה או מילואים, או פנו לעידן.';
+  }
+  return m || 'השמירה לא עברה';
+}
+
 type AbsenceInput = { person: string | null; kind: AbsenceKind; start_date: string; end_date: string; note: string };
 
 function AbsenceSheet({
@@ -1689,7 +1698,7 @@ function CalendarIsland() {
       toast.success('נרשם ביומן');
       track('calendar-absence-added');
     },
-    onError: (e: any) => toast.error(String(e?.message || 'השמירה לא עברה')),
+    onError: (e: any) => toast.error(absenceError(e)),
   });
 
   const updateAbsence = useMutation({
@@ -1702,7 +1711,7 @@ function CalendarIsland() {
       qc.invalidateQueries({ queryKey: ['cal', 'absences'] });
       toast.success('ההיעדרות עודכנה');
     },
-    onError: (e: any) => toast.error(String(e?.message || 'השמירה לא עברה')),
+    onError: (e: any) => toast.error(absenceError(e)),
   });
   const deleteAbsence = useMutation({
     mutationFn: async (id: string) => sbWrite(async sb => sb.from('calendar_absences').delete().eq('id', id)),
