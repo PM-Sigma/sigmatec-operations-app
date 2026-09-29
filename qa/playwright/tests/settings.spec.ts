@@ -14,7 +14,7 @@ const openSettings = async (page: any) => {
   // failure reads as "the dialog does not exist" rather than as a race.
   await page.waitForSelector('#sigma-settings[data-sigma-mounted="1"]', { state: 'attached' });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-settings')));
-  const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
+  const dlg = page.getByRole('dialog').filter({ hasText: 'העדפות משתמש' });
   await expect(dlg).toBeVisible();
   return dlg;
 };
@@ -74,11 +74,9 @@ test('settings: install, notifications and the personal area all say where they 
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   const dlg = await openSettings(page);
 
-  // 📲 התקנה — headless Chromium fires no `beforeinstallprompt`, so the honest button is the
-  // one that explains where the browser menu is. It must still be there and still be usable.
-  const install = dlg.getByTestId('settings-install');
-  await expect(install).toBeVisible();
-  await expect(install).toBeEnabled();
+  // Q7-C 7.4: install and "רעיון או באג" left the preferences (they are in the main menu).
+  await expect(dlg.getByTestId('settings-install')).toHaveCount(0);
+  await expect(dlg.getByText('רעיון או באג')).toHaveCount(0);
 
   // 🔔 התראות — permission is 'default' in this harness, so the row offers to turn them on
   // and says, in one short state line, that they are not on yet.
@@ -131,16 +129,6 @@ test('settings: nobody but אביאם is offered the partner-tasks switch', asyn
   const { rec } = await boot(page, ti, { who: 'ניתאי' });
   const dlg = await openSettings(page);
   await expect(dlg.getByText('לראות גם את המשימות של ניתאי')).toHaveCount(0);
-  expectNoConsoleErrors(rec);
-});
-
-test('settings: "רעיון או באג" opens the feedback sheet', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'אביאם' });
-  const dlg = await openSettings(page);
-  await dlg.getByText('רעיון או באג').click();
-  // "רעיונות" (plural) does not literally contain "רעיון" — a final-nun (ן) vs. a medial
-  // one (נ) are different characters — so the dialog is matched by "תיבת" instead.
-  await expect(page.getByRole('dialog', { name: 'רעיון או באג' })).toBeVisible();
   expectNoConsoleErrors(rec);
 });
 

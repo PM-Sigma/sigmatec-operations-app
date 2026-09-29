@@ -169,11 +169,11 @@ const SCREENS: Screen[] = [
     label: 'settings-sheet',
     open: async p => {
       // GearSheet (U2): the ⚙️ header bubble opens a real Sheet, not a dropdown menu — click
-      // the gear bubble directly, then the "הגדרות" row inside the sheet.
-      await p.locator('[data-testid="header-gear"]').getByRole('button', { name: 'הגדרות' }).click();
+      // the gear bubble directly, then the "העדפות משתמש" row inside the sheet.
+      await p.locator('[data-testid="header-gear"]').getByRole('button', { name: 'העדפות משתמש' }).click();
       await expect(p.getByRole('dialog')).toBeVisible();
-      await p.getByRole('dialog').getByRole('button', { name: 'הגדרות', exact: true }).click();
-      await expect(p.getByRole('dialog').filter({ hasText: 'הגדרות' })).toBeVisible();
+      await p.getByRole('dialog').getByRole('button', { name: 'העדפות משתמש', exact: true }).click();
+      await expect(p.getByRole('dialog').filter({ hasText: 'העדפות משתמש' })).toBeVisible();
     },
   },
   // Round 5, package R (R-8/R-9/R-10/R-11 — U7/U8/U9): holidays, day log and the inventory

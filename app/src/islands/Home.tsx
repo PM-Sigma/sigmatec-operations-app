@@ -287,7 +287,14 @@ export function Home() {
     dynamically import Gallery.tsx instead" costs the boot bundle nothing either way. */
 export function mountScreen(): boolean | Promise<boolean> {
   if (location.search.includes('gallery=1')) {
-    return import('@/islands/Gallery').then(m => m.mountScreen());
+    // Q7-C item 10: the gallery is עידן's internal screen; anyone else gets the normal home.
+    return import('@/lib/galleryGate').then(g => {
+      let who = ''; let mock = false;
+      try { who = String(sigma?.getCurrentUser?.() ?? ''); mock = !!(window as any).__SIGMA_MOCK; } catch { /* no bridge */ }
+      return g.canOpenGallery(who, mock)
+        ? import('@/islands/Gallery').then(m => m.mountScreen())
+        : mount('sigma-home', Home);
+    });
   }
   return mount('sigma-home', Home);
 }

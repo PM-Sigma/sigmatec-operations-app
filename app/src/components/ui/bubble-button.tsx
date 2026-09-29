@@ -20,10 +20,12 @@ import { cn } from '@/lib/utils';
  * "sticky hover after a tap" is the separate half of that fix — `future.hoverOnlyWhenSupported`
  * in tailwind.config.ts scopes every `hover:` utility app-wide to `@media (hover: hover)`.
  */
+// Q7-C 7.6 (עידן 29.9): slimmer — the VISUAL heights are 32 / 36 / 44, and the 48px real hit
+// area comes from an invisible ::after (styles.css `[data-hit-after]`), not from a fatter box.
 const SIZE_CLS = {
   sm: 'h-8 px-3 text-sm s-hit',
-  md: 'h-10 px-4 text-sm s-hit',
-  lg: 'h-12 w-full px-5 text-base',
+  md: 'h-9 px-4 text-sm s-hit',
+  lg: 'h-11 w-full px-5 text-base',
 } as const;
 
 const VARIANT_CLS = {
@@ -31,10 +33,10 @@ const VARIANT_CLS = {
   // bg-[var(--ink-tint)], not bg-[var(--sigma-ink)]/10 (designer confirm round, N1): Tailwind v3
   // can't apply an opacity MODIFIER to a bare var() — that class compiled to nothing, so tonal
   // rendered with no fill at all. --ink-tint/--ink-tint-hover (styles.css) pre-mix the tint.
-  tonal: 'bg-[var(--ink-tint)] text-[var(--sigma-ink)] hover:bg-[var(--ink-tint-hover)] hover:text-[var(--sigma-ink)]',
-  neutral: 'bg-secondary text-foreground hover:bg-secondary/80 hover:text-foreground',
+  tonal: 'bg-[var(--btn-tonal)] text-[var(--sigma-ink)] hover:bg-[var(--btn-tonal-hover)] hover:text-[var(--sigma-ink)]',
+  neutral: 'bg-[var(--btn-neutral)] text-foreground hover:bg-[var(--btn-neutral-hover)] hover:text-foreground',
   danger: 'bg-[var(--danger-fill)] text-[var(--danger-ink)] hover:brightness-95 hover:text-[var(--danger-ink)]',
-  icon: 'bg-secondary text-foreground rounded-full aspect-square px-0 hover:bg-secondary/80 hover:text-foreground',
+  icon: 'bg-[var(--btn-neutral)] text-foreground rounded-full aspect-square px-0 hover:bg-[var(--btn-neutral-hover)] hover:text-foreground',
 } as const;
 
 export interface BubbleButtonProps extends Omit<ButtonProps, 'variant' | 'size'> {
@@ -50,9 +52,12 @@ export const BubbleButton = React.forwardRef<HTMLButtonElement, BubbleButtonProp
       variant="ghost"
       // data-hit-slop: sm/md carry `.s-hit` (32/40px visual, 48px real hit area via an invisible
       // ::before) — see chip.tsx's FilterChip for why the sweep needs the attribute too.
-      data-hit-slop={size !== 'lg' || undefined}
+      data-hit-slop
+      // Icon bubbles are square and sit in tight clusters, so they keep the old "grow the box to
+      // 44" rule; every labelled bubble grows only its invisible ::after, vertically.
+      data-hit-after={variant !== 'icon' || undefined}
       className={cn(
-        'relative rounded-[var(--r-pill)] font-bold transition-[transform,filter] active:scale-[.97]',
+        'relative rounded-[var(--r-pill)] font-semibold transition-[transform,filter] active:scale-[.97]',
         'focus-visible:ring-[var(--sigma-ink)]',
         SIZE_CLS[size],
         VARIANT_CLS[variant],

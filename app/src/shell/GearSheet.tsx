@@ -18,6 +18,9 @@ import { openSettings } from '@/lib/settings';
 import { track } from '@/lib/track';
 import { ROLE_LABEL } from '@/shell/IdentityRow';
 
+// ONE lazy boundary for both extras (a second React.lazy costs boot bytes we do not have).
+const Extra = React.lazy(() => import('@/shell/GearExtras'));
+
 export const GEAR_OPEN_EVENT = 'sigma-open-gear';
 
 let pendingOpen = false;
@@ -35,8 +38,9 @@ export function GearSheet() {
   const [open, setOpen] = React.useState(() => { const o = pendingOpen; pendingOpen = false; return o; });
   const personRole = roleOf(user, role);
 
-  const installed = (() => { try { return !!sigma.isInstalled?.(); } catch { return false; } })();
-  const canInstall = (() => { try { return !!sigma.canInstall?.(); } catch { return false; } })();
+  // Q7-C 7.7: the install row opens a small sheet (install + notifications, each with its
+  // state). Both it and the identity block are a lazy chunk — this file is in the boot bundle.
+  const [installOpen, setInstallOpen] = React.useState(false);
   const mock = (() => { try { return !!(window as any).__SIGMA_MOCK; } catch { return false; } })();
 
   React.useEffect(() => {
@@ -48,6 +52,7 @@ export function GearSheet() {
   const pick = (fn: () => void, what: string) => { setOpen(false); track('gear-sheet', what); fn(); };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent side="bottom" className="s-gear-desktop max-h-[85vh] overflow-y-auto border-border bg-card pb-8">
         {/* Designer round 3: SheetHeader wraps its children in its OWN hard-coded flex-col div
@@ -69,34 +74,43 @@ export function GearSheet() {
           </div>
         </SheetHeader>
 
+        {open && (
+          <React.Suspense fallback={null}>
+            <Extra user={user} onClose={() => setOpen(false)} />
+          </React.Suspense>
+        )}
+
         <SectionBlock title="">
-          <ListRow leading={<Settings className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} aria-hidden />} title="הגדרות" onClick={() => pick(openSettings, 'settings')} />
-          {!installed && (
-            <ListRow
-              leading={<Download className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} aria-hidden />}
-              title="התקנת האפליקציה"
-              meta={canInstall ? undefined : 'איך מתקינים'}
-              onClick={() => pick(() => { void sigma.appInstall?.(); }, 'install')}
-            />
-          )}
+          <ListRow leading={<Settings className="h-5 w-5 text-muted-foreground" aria-hidden />} title="העדפות משתמש" onClick={() => pick(openSettings, 'settings')} />
           <ListRow
-            leading={<Lightbulb className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} aria-hidden />}
+            leading={<Download className="h-5 w-5 text-muted-foreground" aria-hidden />}
+            title="התקנת אפליקציה"
+            onClick={() => pick(() => setInstallOpen(true), 'install')}
+          />
+          <ListRow
+            leading={<Lightbulb className="h-5 w-5 text-muted-foreground" aria-hidden />}
             title="רעיון או באג"
             onClick={() => pick(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')), 'feedback')}
           />
           <ListRow
-            leading={<User className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} aria-hidden />}
+            leading={<User className="h-5 w-5 text-muted-foreground" aria-hidden />}
             title="האזור האישי"
             meta="בקרוב"
             onClick={() => pick(() => sigma.toast('האזור האישי, בקרוב'), 'personal')}
           />
           <ListRow
-            leading={<UserCog className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} aria-hidden />}
+            leading={<UserCog className="h-5 w-5 text-muted-foreground" aria-hidden />}
             title="החלפת משתמש"
             onClick={() => pick(() => sigma.changeUser(), 'change-user')}
           />
         </SectionBlock>
       </SheetContent>
     </Sheet>
+      {installOpen && (
+        <React.Suspense fallback={null}>
+          <Extra install onClose={() => setInstallOpen(false)} />
+        </React.Suspense>
+      )}
+    </>
   );
 }

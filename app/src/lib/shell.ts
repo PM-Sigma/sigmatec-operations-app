@@ -36,7 +36,7 @@ export const PAGE_META: Record<SigmaPage, PageMeta> = {
 
 export const pageMeta = (page: SigmaPage): PageMeta => PAGE_META[page] ?? PAGE_META.kibbutz;
 
-export const HEADER_LABELS = { home: 'מסך הבית', settings: 'הגדרות' } as const;
+export const HEADER_LABELS = { home: 'מסך הבית', settings: 'העדפות משתמש' } as const;
 
 export function bellLabel(unseen: number): string {
   if (!unseen) return 'התראות';

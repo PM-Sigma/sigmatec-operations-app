@@ -43,7 +43,7 @@ test('A6 — no horizontal scroll at 390, with every sheet open', async ({ page 
   // designer re-review) — its accessible name is "יומן היום ניסיוני", so an exact match on the
   // label alone no longer resolves it; every other row here has no tag, so a start-anchored
   // regex still hits the right one without loosening the others.
-  for (const row of ['הגדרות', 'יומן היום']) {
+  for (const row of ['העדפות משתמש', 'יומן היום']) {
     await page.getByRole('dialog').getByRole('button', { name: new RegExp('^' + row) }).click();
     await expect(page.getByRole('dialog').first()).toBeVisible();
     await measure(row);

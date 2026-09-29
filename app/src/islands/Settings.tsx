@@ -6,7 +6,7 @@
 // Copy rule: nothing here explains the app's own mechanics. Each row says what the person
 // gets, not where it is stored or how it is applied.
 import * as React from 'react';
-import { Bell, ChevronDown, ChevronLeft, ChevronUp, ClipboardList, Lightbulb, Settings as Cog, Smartphone } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, ChevronUp, ClipboardList, Settings as Cog } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SectionBlock } from '@/components/ui/section-block';
 import { ListRow } from '@/components/ui/list-row';
@@ -18,6 +18,7 @@ import { mount } from '@/islands';
 import { registerMoreItem } from '@/lib/registry';
 import { track } from '@/lib/track';
 import { toast } from 'sonner';
+import { toastFailure } from '@/lib/pending';
 import { sigma, useCurrentUser } from '@/bridge';
 import { roleOf } from '@/lib/landing';
 import { canShowPage } from '@/lib/canShowPage';
@@ -27,9 +28,10 @@ import {
 } from '@/lib/settings';
 import type { ThemeChoice } from '@/lib/theme';
 import { EmsGate } from '@/components/EmsGate';
+import { TeamStatus } from '@/components/TeamStatus';
+import { startDevicePresence } from '@/lib/devicePresence';
 import { canEditTemplate, type OnboardingTemplate, type TemplateStep } from '@/lib/onboarding';
 import { fetchOnboardingTemplate, saveOnboardingTemplate } from '@/components/home/OnboardingProgress';
-import { toastFailure } from '@/lib/pending';
 
 /** A label + a control that is not a chevron row (a SegmentedControl or a Switch body) —
  *  matches ListRow's own horizontal padding so both kinds sit flush inside the same
@@ -60,11 +62,6 @@ function openGaps(): void {
   try { window.dispatchEvent(new CustomEvent('sigma-open-gaps')); } catch { /* no DOM */ }
 }
 
-/** R own Feedback.tsx listens for this (`Feedback.tsx:205`) — G only dispatches it. */
-function openFeedback(): void {
-  try { window.dispatchEvent(new CustomEvent('sigma-open-feedback')); } catch { /* no DOM */ }
-}
-
 /** ⏰ שעת תזכורת סוף יום — a short list beats a time picker for four realistic answers. */
 const EOD_HOURS = [17, 18, 19, 20];
 const EOD_OPTIONS = EOD_HOURS.map(h => ({ value: String(h), label: String(h).padStart(2, '0') + ':00' }));
@@ -91,7 +88,7 @@ function LandingPane({
     <div>
       <ListRow
         onClick={onBack}
-        title="חזרה להגדרות"
+        title="חזרה להעדפות משתמש"
         leading={<span aria-hidden className="text-[15px]">→</span>}
         trailing={null}
       />
@@ -106,34 +103,6 @@ function LandingPane({
         ))}
       </div>
     </div>
-  );
-}
-
-/**
- * 📲 התקן כאפליקציה. Three states and three different sentences: an install the browser can
- * actually perform, the iOS steps, and "it is already installed" — which is a fact, not a
- * button.
- */
-function InstallRow() {
-  const installed = (() => { try { return !!sigma.isInstalled?.(); } catch { return false; } })();
-  const can = (() => { try { return !!sigma.canInstall?.(); } catch { return false; } })();
-  return (
-    <ListRow
-      leading={<Smartphone className="h-5 w-5 text-muted-foreground" aria-hidden />}
-      title="התקנה על המכשיר"
-      meta={installed ? 'האפליקציה מותקנת' : 'פתיחה מהמסך הראשי, בלי דפדפן'}
-      trailing={
-        <BubbleButton
-          variant="tonal"
-          size="sm"
-          data-testid="settings-install"
-          disabled={installed}
-          onClick={() => { track('settings-install'); void sigma.appInstall?.(); }}
-        >
-          {installed ? 'מותקנת' : can ? 'התקן' : 'איך מתקינים'}
-        </BubbleButton>
-      }
-    />
   );
 }
 
@@ -372,7 +341,7 @@ function SettingsPanel() {
       <DialogContent className="max-h-[88svh] max-w-[460px] overflow-y-auto" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Cog className="h-5 w-5" /> {landingOpen ? 'מסך פתיחה' : 'הגדרות'}
+            <Cog className="h-5 w-5" /> {landingOpen ? 'מסך פתיחה' : 'העדפות משתמש'}
           </DialogTitle>
           <DialogDescription>{user || 'לא מחובר'}</DialogDescription>
         </DialogHeader>
@@ -387,6 +356,7 @@ function SettingsPanel() {
           ) : (
             <div className="flex flex-col gap-3">
               <IdentityBlock user={user} role={personRole} onClose={() => setOpen(false)} />
+              {isIdan && <TeamStatus user={user} />}
 
               <SectionBlock title="תצוגה">
                 <ControlRow label="מצב תצוגה">
@@ -465,24 +435,6 @@ function SettingsPanel() {
                 <NotificationsRow />
               </SectionBlock>
 
-              <SectionBlock title="אפליקציה">
-                <InstallRow />
-                <ListRow
-                  leading={<Lightbulb className="h-5 w-5 text-muted-foreground" aria-hidden />}
-                  title="רעיון או באג"
-                  onClick={() => {
-                    track('settings-feedback');
-                    // Open the feedback sheet FIRST, close this dialog after: radix's own
-                    // "mark every other open portal inert" pass runs off the dialog that is
-                    // MOST RECENTLY opened, so opening feedback while this one is still open
-                    // (and closing it right after) keeps feedback the live, clickable one —
-                    // the reverse order raced the close animation and left feedback inert.
-                    openFeedback();
-                    setOpen(false);
-                  }}
-                />
-              </SectionBlock>
-
               {/* עידן only. */}
               {isIdan && <OnboardingTemplateRow user={user} />}
             </div>
@@ -500,8 +452,11 @@ function SettingsPanel() {
 export function mountSettings(): boolean {
   const ok = mount('sigma-settings', SettingsPanel);
   if (ok) {
+    // Q7-C 7.1: this lazy chunk runs on every boot, so it is where a device reports itself
+    // (installed? notifications?) without growing the boot bundle.
+    startDevicePresence();
     registerMoreItem({
-      id: 'settings', label: 'הגדרות', icon: 'Settings', group: 'app', onSelect: openSettings,
+      id: 'settings', label: 'העדפות משתמש', icon: 'Settings', group: 'app', onSelect: openSettings,
     });
   }
   return ok;

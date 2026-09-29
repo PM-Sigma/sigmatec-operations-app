@@ -115,20 +115,19 @@ export function MoreSheet({
     const i = APP_ORDER.indexOf(id);
     return i === -1 ? APP_ORDER.length : i;
   };
-  const block = (g: 'app' | 'admin') => ({
+  const block = (g: 'app' | 'admin' | '') => ({
     pages: role === 'viewer' ? [] : pages
       .filter(p => (p.group || 'app') === g)
-      .slice()
       .sort((a, b) => (g === 'app' && leadsWithInventory)
         ? (a.page === 'inventory' ? -1 : b.page === 'inventory' ? 1 : 0)
         : 0),
     items: extras
       .filter((i: MoreItem) => (i.group || 'app') === g)
-      .slice()
       .sort((a, b) => (g === 'app' ? rank(a.id) - rank(b.id) : 0)),
   });
   const app = block('app');
-  const admin = block('admin');
+  // Q7-C 7.6: the ניהול block is עידן's alone ('' matches no group, so it is empty for anyone else).
+  const admin = block(currentUser === 'עידן' ? 'admin' : '');
 
   // The sheet's own attention total — shown on the ⋯ tab so the person knows to open it.
   const attention = extras.reduce((n, i) => n + itemBadge(i), 0);
