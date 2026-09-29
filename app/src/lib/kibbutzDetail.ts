@@ -49,6 +49,19 @@ export function latestVisitFor(visits: VisitRow[], kibbutz: string): VisitRow | 
   return visitsForKibbutz(visits, kibbutz)[0] ?? null;
 }
 
+/** One pass over ALL visits → newest visit per kibbutz. Home builds this ONCE and hands it to the
+ * cards; a card must never scan the visit list (or subscribe to it) on its own — 60 cards x a few
+ * hundred visits is what broke the home page (36fac282, reverted 2a9c7849). */
+export function latestVisitByKibbutz(visits: VisitRow[]): Map<string, VisitRow> {
+  const out = new Map<string, VisitRow>();
+  for (const v of visits || []) {
+    if (!v || !v.kibbutz || !v.date) continue;
+    const cur = out.get(v.kibbutz);
+    if (!cur || String(v.date).localeCompare(String(cur.date)) > 0) out.set(v.kibbutz, v);
+  }
+  return out;
+}
+
 export interface LastVisitLine { label: 'ביקור אחרון'; date: string; late: boolean; note?: 'ללא סיכום ביקור' }
 
 export function lastVisitLine(

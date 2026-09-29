@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 24 legacy modules, 222 island sources and 11 edge functions.
+Generated from 24 legacy modules, 223 island sources and 11 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
@@ -80,8 +80,8 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:322 | `openKibbutzEmsTask` → js/src/13-ems.js:401 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:66<br>app/src/components/home/EmsTasks.tsx:67<br>app/src/components/home/MeetingNotes.tsx:252<br>…+5 |
 | `sigma.openKibbutzModal` | js/src/00-bridge.js:332 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:121<br>app/src/islands/Calendar.tsx:1662<br>app/src/islands/Calendar.tsx:1774<br>app/src/islands/MyTasks.tsx:148<br>…+1 |
 | `sigma.openOrder` | js/src/00-bridge.js:433 | *(own logic)* | app/src/components/alerts/AlertsPanel.tsx:24<br>app/src/islands/InventoryStrip.tsx:84<br>app/src/islands/StockChange.tsx:187 |
-| `sigma.openVisitEditor` | js/src/00-bridge.js:393 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:69<br>app/src/components/kibbutz/StatusTab.tsx:70<br>app/src/components/kibbutz/VisitRowActions.tsx:18<br>app/src/components/kibbutz/VisitRowActions.tsx:25 |
-| `sigma.openVisitQuick` | js/src/00-bridge.js:408 | *(own logic)* | app/src/components/home/CardActions.tsx:27<br>app/src/components/Nav.tsx:84<br>app/src/islands/Calendar.tsx:1822<br>app/src/islands/Calendar.tsx:1867<br>…+7 |
+| `sigma.openVisitEditor` | js/src/00-bridge.js:393 | *(own logic)* | app/src/components/home/CardActions.tsx:31<br>app/src/components/kibbutz/StatusTab.tsx:69<br>app/src/components/kibbutz/StatusTab.tsx:70<br>app/src/components/kibbutz/VisitRowActions.tsx:18<br>…+1 |
+| `sigma.openVisitQuick` | js/src/00-bridge.js:408 | *(own logic)* | app/src/components/home/CardActions.tsx:28<br>app/src/components/Nav.tsx:84<br>app/src/islands/Calendar.tsx:1822<br>app/src/islands/Calendar.tsx:1867<br>…+7 |
 | `sigma.openVisitsReport` | js/src/00-bridge.js:603 | `openVisitsToolsModal` → js/src/09-visits.js:518 | app/src/islands/Calendar.tsx:1046 |
 | `sigma.orders` | js/src/00-bridge.js:430 | *(own logic)* | app/src/islands/InventoryStrip.tsx:50<br>app/src/islands/StockChange.tsx:145 |
 | `sigma.passPending` | js/src/00-bridge.js:517 | *(own logic)* | **—** |
@@ -132,7 +132,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `feedback-changed` | app/src/islands/Feedback.tsx:65 | app/src/islands/FeedbackInbox.tsx:278 |
 | `holidays-loaded` | js/src/04-attendance-daily.js:57 | app/src/islands/Attendance.tsx:312 |
 | `internal-tasks-changed` | app/src/components/home/InternalTasks.tsx:49 | app/src/components/home/InternalTasks.tsx:38<br>app/src/lib/myTasksBadge.ts:42 |
-| `kibbutzim-published` | app/src/islands/Home.tsx:51 | **—** |
+| `kibbutzim-published` | app/src/islands/Home.tsx:52 | **—** |
 | `notes-changed` | app/src/components/home/MeetingNotes.tsx:95<br>app/src/lib/meetingNotesOps.ts:9 | app/src/components/home/MeetingNotes.tsx:54 |
 | `onboarding-changed` | app/src/components/home/OnboardingProgress.tsx:45 | app/src/components/home/OnboardingProgress.tsx:34 |
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:420<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
@@ -141,8 +141,8 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:419<br>app/src/islands/Attendance.tsx:313<br>app/src/islands/FeedbackInbox.tsx:271<br>app/src/islands/Field.tsx:172<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:205<br>js/src/09-visits.js:249<br>js/src/09-visits.js:282 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
 | `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:158 |
-| `visit-saved` | js/src/09-visits.js:476<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:306<br>app/src/islands/Calendar.tsx:1370<br>app/src/islands/Field.tsx:171<br>app/src/islands/Field.tsx:2349<br>app/src/islands/Presenter.tsx:224<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
-| `work-session-saved` | app/src/components/home/WorkTimerStopSheet.tsx:118 | app/src/islands/Home.tsx:109<br>app/src/islands/Hours.tsx:236 |
+| `visit-saved` | js/src/09-visits.js:476<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/components/home/LastVisits.tsx:18<br>app/src/islands/Attendance.tsx:306<br>app/src/islands/Calendar.tsx:1370<br>app/src/islands/Field.tsx:171<br>app/src/islands/Field.tsx:2349<br>app/src/islands/Presenter.tsx:224<br>…+5 |
+| `work-session-saved` | app/src/components/home/WorkTimerStopSheet.tsx:118 | app/src/islands/Home.tsx:111<br>app/src/islands/Hours.tsx:236 |
 
 ## (c) Islands — placeholder in `index.html` ↔ mount in `main.tsx`
 
@@ -165,7 +165,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-gaps` | :671 | app/src/islands/Gaps.tsx:326<br>app/src/main.tsx:363 |
 | `#sigma-header-actions` | :142 | app/src/islands/HeaderActions.tsx:100<br>app/src/main.tsx:297 |
 | `#sigma-holidays` | :667 | app/src/islands/Holidays.tsx:177<br>app/src/main.tsx:282 |
-| `#sigma-home` | :229 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:292<br>app/src/main.tsx:141 |
+| `#sigma-home` | :229 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:296<br>app/src/main.tsx:141 |
 | `#sigma-hours` | :401 | app/src/islands/Hours.tsx:398<br>app/src/main.tsx:237 |
 | `#sigma-import` | :669 | app/src/islands/ImportNotes.tsx:377<br>app/src/main.tsx:548 |
 | `#sigma-inventory` | :271 | app/src/islands/Inventory.tsx:179 |
@@ -279,7 +279,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `holidays` | `CalendarCheck` | app/src/islands/Holidays.tsx:181 |
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:383 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:304 |
-| `new-kibbutz` | `Home` | app/src/islands/Home.tsx:148 |
+| `new-kibbutz` | `Home` | app/src/islands/Home.tsx:150 |
 | `presenter` | `Presentation` | app/src/islands/Presenter.tsx:1100 |
 | `presenter` | `Presentation` | app/src/main.tsx:487 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:502 |

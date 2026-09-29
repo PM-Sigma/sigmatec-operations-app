@@ -70,6 +70,21 @@ Before every push to `main`, run this loop:
 Production side-effects (edge-fn deploy, DB migration) follow the same rule: deploy from the
 rebased-on-`origin/main` worktree so you ship on top of the other session's code, not over it.
 
+## Working method (binding, עידן 29.9)
+Full text: **`docs/superpowers/WORKING-METHOD.md`** — read it at session start. Key rules:
+- **The MAIN session integrates.** Every other session reports its branch to MAIN; MAIN merges to `main`.
+- **Opus** plans, integrates, and does final checks (audits, merge gates, production steps). **Sonnet** executes
+  (build, fix, test, evidence, reviews). **No Fable.**
+- **Stop at 85% weekly usage**, commit `wip(...)` + NEXT, update the resume file and work log, and ask עידן.
+- One worktree per change off `origin/main`, one small task per agent, commit after each step.
+- **Pre-push guards:** no conflict-marker lines and `node --check sw.js` (both enforced by `test-release-guards.mjs`
+  in `npm test`); `node scripts/test-all.mjs` green.
+- **Real-size fixtures:** any change to home / cards / lists is tested with realistic data volume (all kibbutzim,
+  hundreds of visits); small mocks missed a real-data break on 27.9.
+- **Work log:** every merge, fix and issue goes into `docs/reports/2026-09-27-work-log-and-issues.md`.
+- **Every feature updates its module doc** (deferred rule, effective with DOC-1/DOC-2): the feature's change is not done
+  until the module doc for the area it touched is updated in the same branch.
+
 ## Testing — MANDATORY for every feature
 Follow **`docs/testing-methodology.md`**: pure builders + golden fixtures + contract sweeps +
 file round-trip + role-gating matrix; one full-suite runner per feature, **loop until green**;

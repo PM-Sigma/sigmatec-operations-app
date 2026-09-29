@@ -68,10 +68,20 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-24 (**round 5 PAUSED at ~52% — resume from `docs/superpowers/r5-PAUSE-STATE.md`**).
+## 🚦 Current state — last: 2026-09-29 (**round 5 + QA6 LIVE for all staff; main = `acf9d00d` plus the r9 checkpoint/guard branch**).
 
-Freeze is on (only עידן/עמיחי). Logic of 9 packages merged + V/C/D production steps applied; design system, X, I, R open on their branches with exact next steps in the pause file.
-
+- **Live:** the app is open to every employee (freeze lifted 27.9, `385a6d8b`). Round-5 screens A D K C G X M S I V R,
+  the voice fix (record -> Whisper), security X and the field-ops Modbus page are all on `main` and in production.
+  27.9: home cards broke on real data -> two changes reverted (`36fac282`, `2c09a0da`); `VERSION`/`sw.js` conflict
+  markers fixed (`acf9d00d`). New guard `test-release-guards.mjs` runs in `npm test`.
+- **Open work:** see [backlog.md](backlog.md) top block — rebuild home-card visit buttons (no per-card query, real-size
+  fixture), rebuild the SectionBlock clip fix separately, meeting-note row actions, QA6 later list, H3/H5, DOC-1/DOC-2,
+  the decisions table, field-ops on a real meter. A parallel session builds the Hulda external meter-readings fetch;
+  MAIN merges it.
+- **Working method (binding, עידן 29.9):** `docs/superpowers/WORKING-METHOD.md` — MAIN session integrates; Opus plans,
+  integrates and final-checks; Sonnet executes; no Fable; stop at 85% weekly and ask. Memory of round 5:
+  `docs/superpowers/r5-MEMORY.md`; work log: `docs/reports/2026-09-27-work-log-and-issues.md`.
+- Older status blocks below are history (the 24.9 pause is over).
 
 **Waiting on עידן:** apply `db/rls_viewer_readonly.sql`; restore source for `tasks.status` (wiped 23.8 + 17.9): Supabase backup before 17.9 14:00 or the 22.6 Sheet; `kibbutz_meeting_notes` has 0 rows.
 
