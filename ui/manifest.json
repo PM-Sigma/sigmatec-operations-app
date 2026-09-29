@@ -29,6 +29,7 @@
   "./ui/sigma-FeedbackInbox.js",
   "./ui/sigma-Field.js",
   "./ui/sigma-field2.js",
+  "./ui/sigma-FieldHub.js",
   "./ui/sigma-fieldOps.js",
   "./ui/sigma-FieldOps2.js",
   "./ui/sigma-fieldOpsOps.js",
