@@ -285,6 +285,11 @@ test('hub: the kibbutz card burns row → burns section, filtered to that kibbut
     await expect(chip).toContainText('סינון:');
     await expect(chip).toContainText(name);
     await expect(chip).toContainText('✕');
+    // one chip, no ✓ inside it; "הכול" must not look selected while a kibbutz filter is on
+    await expect(chip.locator('xpath=ancestor::button[1]').locator('svg')).toHaveCount(0);
+    const all$ = page.locator('#sigma-burns-page').getByRole('button', { name: 'הכול', exact: true });
+    await expect(all$).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('#sigma-burns-page').getByRole('button', { name: 'קיבוץ', exact: true })).toHaveCount(0);
 
     // the list is filtered: one site block, exactly this kibbutz's meters
     const page$ = page.locator('#sigma-burns-page');
@@ -300,6 +305,7 @@ test('hub: the kibbutz card burns row → burns section, filtered to that kibbut
     // ✕ clears it: the chip goes, the other kibbutzim come back
     await chip.click();
     await expect(page.getByTestId('burn-site-chip')).toHaveCount(0);
+    await expect(all$).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => page$.locator('section').count()).toBeGreaterThan(5);
 
     await page.evaluate(() => (window as any).sigma.showPage('kibbutz'));

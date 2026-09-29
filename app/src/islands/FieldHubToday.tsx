@@ -82,8 +82,8 @@ function TodayInner() {
           <ListRow leading={<CalendarDays aria-hidden className="h-5 w-5" />} title="אין ביקורים היום" data-testid="fieldhub-today-none" />
         )}
         <div className="px-4 py-1">
-          <BubbleButton variant="tonal" size="sm" data-testid="fieldhub-today-visit" onClick={() => openVisit(nextStop(stops))}>
-            <NotebookPen aria-hidden /> סיכום ביקור
+          <BubbleButton variant="tonal" size="sm" icon={<NotebookPen aria-hidden className="h-4 w-4" />} data-testid="fieldhub-today-visit" onClick={() => openVisit(nextStop(stops))}>
+            סיכום ביקור
           </BubbleButton>
         </div>
         {due.rows.length ? (

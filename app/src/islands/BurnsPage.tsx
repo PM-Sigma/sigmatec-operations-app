@@ -204,14 +204,14 @@ function BurnsPageInner() {
           flex-nowrap + overflow-x-auto, never a second row, at any chip count. */}
       <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
         {filter.site && (
-          <FilterChip selected onClick={() => setFilter(f => ({ ...f, site: undefined }))} className="max-w-[70%]">
+          <FilterChip selected noCheck onClick={() => setFilter(f => ({ ...f, site: undefined }))} className="max-w-[70%]">
             <span data-testid="burn-site-chip" className="truncate">סינון: <bdi>{filter.site}</bdi> ✕</span>
           </FilterChip>
         )}
-        <FilterChip selected={!filter.kind || filter.kind === 'all'} onClick={() => setFilter(f => ({ ...f, kind: 'all' }))}>הכול</FilterChip>
+        <FilterChip selected={(!filter.kind || filter.kind === 'all') && !filter.site} onClick={() => setFilter(f => ({ ...f, kind: 'all' }))}>הכול</FilterChip>
         <FilterChip selected={filter.kind === 'CT'} onClick={() => toggleKind('CT')}>משנה זרם</FilterChip>
         <FilterChip selected={filter.kind === 'PP'} onClick={() => toggleKind('PP')}>תלת-פאזי</FilterChip>
-        <FilterChip selected={!!filter.site} onClick={() => setSiteSheetOpen(true)}>{filter.site || 'קיבוץ'}</FilterChip>
+        {!filter.site && <FilterChip onClick={() => setSiteSheetOpen(true)}>קיבוץ</FilterChip>}
         {canWrite && (
           <FilterChip selected={selectMode} onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}>
             בחירה
