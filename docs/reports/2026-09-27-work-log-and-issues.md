@@ -78,3 +78,4 @@
 - 29.9 PROD deploy: push-send (readingsDone) + readings-fetch. readings-fetch failed to bundle (import from cdn.sheetjs.com refused by the Supabase bundler) → switched to npm:xlsx@0.18.5 and redeployed OK. Cron (db/cron_readings_7am.sql) NOT applied: needs the real CRON_SECRET + anon values, which Claude can't read (digests only) — עידן runs it in the SQL editor.
 - rename readings page → 'משיכת קריאות משירותי מנייה חיצוניים' (עידן) (v2.135)
 - Hulda: optimistic start (progress at step 0 on tap), exceptions download icon FileWarning (warn ink), readings ⋯ entry moved out of the עידן-only ניהול block (was hidden from staff since Q7-C) (v2.137)
+- Hulda rules v1.3 (block: no T / not in EMS / negative / drop ≤40d / >500 kWh/day / spike ×5 after 30d; warn: sum ≠ total, transmitter silent, frozen; per-meter 'didn't show up' removed). PROD: readings_rules_v13.sql applied (previous rules logged here as backup) (v2.139)
