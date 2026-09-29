@@ -7,6 +7,16 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [readings-pull v1.3] 2026-09-29 — final rules from עידן (branch feat/readings-pull, not on main)
+- `readings-fetch/logic.js` is now a line-by-line port of the updated `miltel_daily.py`: blocks = no total (with "הגיעו רק" list), not set up in EMS,
+  negative, drop vs the last saved reading (<= 40 days, ft/f1/f2/f3), > 500 kWh/day, spike (only after 30 days of history); warnings = משב"ים sum
+  (both variants collapse into ONE summary reason), stale timestamp (was a blocker), frozen. Removed: per-meter "didn't show up" / "site down"
+  exceptions (a source failure is a run error only), duplicate-serial rule, EMS-only info rows.
+- EMS check: meters absent from `GET /meters` (or validate METER_NOT_FOUND/NOT_IN_SITE) -> block "המונה לא מוקם ב-EMS תחת <kibbutz>".
+- "תעריפים" -> "משב"ים" in all texts. New `db/readings_rules_v13.sql` (NOT APPLIED, with backup + rollback); fresh-apply default in `db/readings_pull.sql` matches.
+- Tests: logic (16), fetch-modes, golden (35 checks vs the regenerated reference xlsx: 31.8 251/253, 28.9 250/253).
+- Production steps for MAIN: apply `db/readings_rules_v13.sql`; redeploy `readings-fetch` (logic.js + index.ts changed).
+
 ## [Q7-C] 2026-09-29 — QA round 7: user preferences, install sheet, team status, pill buttons
 - "הגדרות" -> "העדפות משתמש" everywhere (header aria, gear sheet, user chip, dialog, registry). Preferences lose the
   install row and "רעיון או באג" (both live in the gear menu). The ניהול block of ⋯ עוד is עידן's alone.
