@@ -7,6 +7,38 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [docs] 2026-09-29 — checkpoint for everything since 24.9 (rounds 5 + QA6, live for all staff)
+Public repo: no secrets, no real IPs, no row data. Detail per item: `docs/superpowers/r5-MEMORY.md` and
+`docs/reports/2026-09-27-work-log-and-issues.md`.
+
+- **Round 5 screens merged to `main`:** A, D, K, C, G, X, M, S, I, V, R (design system + rewrite of the legacy pages).
+  I (inventory) was hand-merged on 27.9 as a proper 3-way (CR-normalised `git merge-file`) after an agent's hand-merge
+  dropped `loginModal`/`authGate`/`toast` from `index.html`. V retired the legacy visit form; R kept the Gaps
+  behaviour as before (design-only, per עידן).
+- **Voice fix (record -> Whisper):** on every device with MediaRecorder the default path records and posts to Whisper;
+  live Web Speech is only the fallback. Cause: the Android ladder chose live recognition and joined cumulative finals
+  (prefix pile), so the record path never ran.
+- **Security X, production changes (audited, backed up, rollback ready):** `staff_identities`, `ems-auth`, viewer
+  read-only RLS + person-scoped policies, `push-send` and `github` gates. Attendance backfill re-run 26.9.
+- **Inventory:** delete functions re-granted to signed-in users; the server guard requires `name = עידן` (no name is
+  blocked); lock override.
+- **Field-ops Modbus page (`fieldops`):** built, security-audited (SSRF denylist, CORS pinned to the app origin, error
+  mapping, doc-range fixtures) and deployed 27.9; unauthenticated calls return 401. Manual entry may read any IP through
+  the EMS parameter override (עידן's knowing decision). Not yet tested on a real meter.
+- **QA6 fixes (עידן 27.9):** work-month calendar layout + visit reports on the calendar, attendance dot removed from the
+  full month; marketing tag no longer covers the close button, big visit button in the visits tab, "דוח מצב" title;
+  readable Hebrew error messages with "report as bug", mark-all-read for alerts, whole task card clickable.
+- **Two reverts on 27.9:** the home cards broke on real data. `36fac282` (visit buttons in every home card, one query per
+  card) and `2c09a0da` (SectionBlock bleed) were both reverted (`2a9c7849`, `21fe1734`); עידן confirmed it works.
+  Lesson: mock fixtures of a few rows did not catch it, so home/cards/list changes now need a real-size fixture.
+- **Unfreeze 27.9:** `UPGRADE_FREEZE=false` (`385a6d8b`) — the app is open to all staff.
+- **Conflict-marker fix 27.9:** `VERSION` and `sw.js` reached production with `<<<<<<<` markers; `sw.js` was a syntax
+  error, so phones could not update the service worker (`acf9d00d`).
+- **New guard:** `test-release-guards.mjs` (in `npm test`) fails on conflict-marker lines in tracked non-.md files, on
+  `node --check sw.js` failure, or a malformed `VERSION`.
+- **Cleanup:** the dead null-guarded `#visitFab` code in `js/src/02-init-attendance.js` is removed.
+- **Process:** `docs/superpowers/WORKING-METHOD.md` (binding from 29.9) and a "Working method" section in `CLAUDE.md`.
+
 ## [docs] 2026-09-23 — 🗺️ OPS GRAPH: queryable knowledge graph of the whole app (`docs/ops-graph/`)
 Docs/tooling only — no app code, no version bump. A graphify knowledge graph over 446 files at 2.23
 (`js/src`, `app/src`, `supabase/functions`, `db/`, tests, specs, docs): **4,714 nodes / 12,523 edges /
