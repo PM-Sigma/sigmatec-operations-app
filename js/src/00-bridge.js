@@ -230,6 +230,9 @@
         // עמיחי (admin, via canManageStaff) + מתניה + אליה (the two developers).
         case 'dev': { var _d = call('getCurrentUser', [], ''); return _d === 'מתניה' || _d === 'אליה' || !!call('canManageStaff', [], false); }
         case 'pushlog':    return !!call('isIdan', [], false);
+        // 📥 משיכת קריאות מתוכנות חיצונית (readings-pull): עידן · עמיחי · מתניה, never the viewer.
+        // Same roster as supabase/functions/_shared/readingsRoster.js (test-readings-roster.mjs).
+        case 'readings': return !call('isViewer', [], false) && ['עידן', 'עמיחי', 'מתניה'].indexOf(call('getCurrentUser', [], '')) !== -1;
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';
         case 'kibbutz': case 'calendar': return true;
         // פעולות שטח → קריאת מודבוס (r9, spec 2026-09-23-field-ops-modbus-design.md): all staff,

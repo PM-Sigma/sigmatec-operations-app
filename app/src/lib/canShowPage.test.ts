@@ -18,6 +18,10 @@ describe('canShowPage (React wrapper)', () => {
     expect(canShowPage('calendar' as any)).toBe(true);
     expect(canShowPage('inventory' as any)).toBe(false);
     expect(canShowPage('pushlog' as any)).toBe(false);
+    // 📥 readings: roster-only — the bridge's answer (עידן · עמיחי · מתניה) is forwarded as is.
+    expect(canShowPage('readings')).toBe(false);
+    open.add('readings');
+    expect(canShowPage('readings')).toBe(true);
   });
 
   it('coerces truthy/falsy bridge answers to a boolean', () => {
