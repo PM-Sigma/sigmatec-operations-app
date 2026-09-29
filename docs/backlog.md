@@ -1,12 +1,12 @@
 ↪ RESUMED and shipped (see the 29.9 block below). Was: PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).
 
-🟡 IN PROGRESS (2026-09-29, wave 3 docs, branch `r9/w3-docs`, not pushed) — ops graph rebuilt (detect list refreshed to 649 files, 6,747 nodes), `modules.md` corrected, `docs/superpowers/DECISIONS-round5.md` written. Merge via MAIN.
+✅ DONE (2026-09-29, wave 3) — ops graph rebuilt + audited (649 files), `modules.md` corrected, `DECISIONS-round5.md`; 15 Playwright failures triaged/fixed + Σ home button restored + index.html shell-anchor guard (a84b6e1b, faa4092c).
 
 🟡 WAITING (2026-09-29) — עידן: **H3** (may the presenter edit a kibbutz's region/section, which roles), **H5** (add an opened-at stamp to the EMS cache now or defer), **SectionBlock fix** (branch `r9/w2-sectionblock`, phone check via githack), and review of the "Claude (pending עידן review)" rows in `DECISIONS-round5.md`.
 
 ✅ DONE (2026-09-29, waves 1-2) — home-card visit buttons (single lookup), meeting-note row actions, calendar absences for all staff, voice recorder mono 24 kbps, inventory cert LTR, DayLog duplicate key, test tasks for לביא/אפיק deleted, release guards, dead `#visitFab` removed.
 
-🟡 LATER (open): field-ops on a real meter; 15 Playwright failures in the full 360-light run (calendar, feedback-refine, product-names, settings, shell, transcribe-unavailable, upgrade-freeze, voice-ladder — no baseline yet); pending-states §2 residue; Hulda external meter-readings fetch (parallel session); the CLAUDE.md module-doc rule (his file, deferred); a doc gap list in `docs/system/README.md` (9 edge functions, ~450 source files owned by no module doc; DOC-1).
+🟡 LATER (open): field-ops on a real meter; ~~15 Playwright failures~~ (fixed 29.9) in the full 360-light run (calendar, feedback-refine, product-names, settings, shell, transcribe-unavailable, upgrade-freeze, voice-ladder — no baseline yet); pending-states §2 residue; Hulda external meter-readings fetch (parallel session); the CLAUDE.md module-doc rule (his file, deferred); a doc gap list in `docs/system/README.md` (9 edge functions, ~450 source files owned by no module doc; DOC-1).
 
 🔝 PRIORITY (עידן 23.9): usage goes to **round 5 development + documentation until the system is live**. Everything else waits, and after go-live עידן picks the next item from the weekly usage check. That covers: the field-ops Modbus page, foldables, the Whisper meeting scribe, the Apps Script proxy migration.
 
@@ -14,7 +14,7 @@
 
 🟡 IN PROGRESS (2026-09-23) — סבב 5: freeze + cleanup + design system + full rewrite of legacy pages + עידן's phone QA list. Spec `docs/superpowers/specs/2026-09-23-round-5-design.md`.
 
-🟡 WAITING (2026-09-23) — עידן: apply `db/rls_viewer_readonly.sql`; choose restore source for `tasks.status` (Supabase backup before 17.9 14:00, or the 22.6 Sheet); `kibbutz_meeting_notes` has 0 rows.
+🟡 WAITING (2026-09-23) — ~~apply `db/rls_viewer_readonly.sql`~~ (live: 106 restrictive policies, checked 29.9); choose restore source for `tasks.status` (Supabase backup before 17.9 14:00, or the 22.6 Sheet); `kibbutz_meeting_notes` has 0 rows.
 
 🔴 OPENED BY THE OPS GRAPH (2026-09-23) — verified against the repo + live DB, needs עידן's decision.
 Detail + evidence: `<project>/תוצרים/2026-09-23 — ממצאי OPS GRAPH/BROKEN.md` (local only — kept out of this public repo).
@@ -25,7 +25,7 @@ Detail + evidence: `<project>/תוצרים/2026-09-23 — ממצאי OPS GRAPH/B
 5. 🟡 **Modules with no test** — permission logic now covered (`test-can-show-page.mjs` role matrix,
    `canShowPage.test.ts`, `caps.test.ts`) plus `myTasksBadge`, `KibbutzSheet`, `HeaderActions` (23.9). The rest open.
 6. ✅ **Stale docs** — fixed 23.9 (lockdown note, `17-staff.js`, `test-mytasks-filter.mjs`, `stats.html`, planned files).
-7. `maintenance.html` — leftover of the 2.00 upgrade window ("closed until 21.9"); nothing links to it. Delete (HANDOFF-עידן §A says so).
+7. ✅ (gone from repo, checked 29.9) `maintenance.html` — leftover of the 2.00 upgrade window ("closed until 21.9"); nothing links to it. Delete (HANDOFF-עידן §A says so).
 QA coverage of every 22.9 note: `docs/reports/2026-09-23-qa-coverage-audit.md` (0 ❌, 4 🟡 listed there).
 
 ✅ DONE (2026-09-20, Task 34) — **סיגמה 2.02**, the post-go-live fix round. The boot TDZ that was
