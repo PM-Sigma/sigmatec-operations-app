@@ -176,7 +176,13 @@ export function applyEmsValidation(run, results, opts = {}) {
   run.upload.forEach((row, i) => {
     const res = byIdx.get(i);
     const m = meta[i] || ['', row[0], '', row[4]];
-    const add = (type, key) => exc.push([m[0], m[1], row[0], m[2], m[3], type, emsText(key)]);
+    const seenTxt = new Set();
+    const add = (type, key) => {
+      const txt = emsText(key);
+      if (seenTxt.has(type + txt)) return;
+      seenTxt.add(type + txt);
+      exc.push([m[0], m[1], row[0], m[2], m[3], type, txt]);
+    };
     if (res && res.valid === false) {
       const errs = [...new Set(res.errors || [])];
       for (const e of errs.length ? errs : ['invalid']) add('חוסם', e);
