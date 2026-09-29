@@ -65,7 +65,7 @@ function tableOf(url: string): string {
  * which is the real state of a mock-mode session (no EMS pass → RLS would refuse it) and is
  * what makes the islands show their login hint instead of pretending a save happened.
  */
-export async function installRoutes(page: Page, opts: { checkins?: boolean; inventory?: boolean } = {}): Promise<void> {
+export async function installRoutes(page: Page, opts: { checkins?: boolean; inventory?: boolean; kibbutzim?: Array<Record<string, unknown>> } = {}): Promise<void> {
   /**
    * 📦 package I — the REST-level write recorder a React driver reads through (_inv-ledger.ts
    * `ledger()`'s `window.__invRouteWrites`). The legacy bundle's writes all funnel through the
@@ -611,7 +611,7 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
     }
 
     switch (tableOf(url)) {
-      case 'kibbutzim': return route.fulfill(json(shape(FIXTURES.kibbutzim, accept)));
+      case 'kibbutzim': return route.fulfill(json(shape(opts.kibbutzim ?? FIXTURES.kibbutzim, accept)));
       case 'internal_tasks': return route.fulfill(json(shape(internalTasks, accept)));
       // The review reads back the rows of ONE (date, kind) to link its tasks, so the
       // PostgREST filters have to be honoured here — without them it would link a task onto
@@ -801,6 +801,8 @@ export interface BootOptions {
   checkins?: boolean;
   /** 📦 package I — seed the inventory stores (see installRoutes). */
   inventory?: boolean;
+  /** Replace the kibbutzim fixture (real-size home tests). */
+  kibbutzim?: Array<Record<string, unknown>>;
   /**
    * Let the arrival sheet open by itself. It is latched off for every other spec the way the
    * push and attendance prompts are — a full-screen sheet on an unrelated screen is harness
@@ -817,7 +819,7 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
   const viewport = (testInfo.project.metadata as any).viewport as string;
 
   const rec = watchConsole(page);
-  await installRoutes(page, { checkins: opts.checkins, inventory: opts.inventory });
+  await installRoutes(page, { checkins: opts.checkins, inventory: opts.inventory, kibbutzim: opts.kibbutzim });
 
   const seed: Record<string, string> = {
     dashboard_user_v1: who,
