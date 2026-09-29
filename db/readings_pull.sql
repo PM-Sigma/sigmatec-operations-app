@@ -164,3 +164,32 @@ select s.id, 'DataSense', 'datasense',
        'HULDA_DATASENSE', 2
   from public.reading_sites s where s.kibbutz = 'חולדה'
 on conflict (site_id, name) do nothing;
+
+-- ── atomic per-source progress + "who builds" claim (readings-fetch mode `source`) ────────────
+-- Two sources finish at (almost) the same time; a read-modify-write from the function would lose one.
+-- This runs under the row lock: it sets progress[source] (+ raw[source] when rows are given), and when
+-- EVERY source in p_names is ok/failed it stamps raw._claim once and returns true -> exactly ONE caller builds.
+-- Service role only.
+create or replace function public.readings_source_done(p_run uuid, p_source text, p_progress jsonb, p_rows jsonb, p_names text[])
+returns boolean
+language plpgsql security definer set search_path = public as $$
+declare r public.reading_runs%rowtype; n text; done boolean := true;
+begin
+  select * into r from public.reading_runs where id = p_run and status = 'running' for update;
+  if not found then return false; end if;
+  r.progress := jsonb_set(coalesce(r.progress, '{}'::jsonb), array[p_source], p_progress, true);
+  if p_rows is not null then r.raw := jsonb_set(coalesce(r.raw, '{}'::jsonb), array[p_source], p_rows, true); end if;
+  foreach n in array p_names loop
+    if coalesce(r.progress -> n ->> 'state', '') not in ('ok', 'failed') then done := false; end if;
+  end loop;
+  if done and not (coalesce(r.raw, '{}'::jsonb) ? '_claim') then
+    r.raw := jsonb_set(coalesce(r.raw, '{}'::jsonb), array['_claim'], to_jsonb(now()::text), true);
+    update public.reading_runs set progress = r.progress, raw = r.raw where id = p_run;
+    return true;
+  end if;
+  update public.reading_runs set progress = r.progress, raw = r.raw where id = p_run;
+  return false;
+end $$;
+revoke all on function public.readings_source_done(uuid, text, jsonb, jsonb, text[]) from public, anon, authenticated;
+grant execute on function public.readings_source_done(uuid, text, jsonb, jsonb, text[]) to service_role;
+-- ROLLBACK addition: drop function if exists public.readings_source_done(uuid, text, jsonb, jsonb, text[]);
