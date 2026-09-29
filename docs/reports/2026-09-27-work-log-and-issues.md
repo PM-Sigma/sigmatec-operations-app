@@ -58,3 +58,6 @@
 ## 29.9 - wave 3 docs (r9/w3-docs)
 - Ops graph rebuilt; audit found `.graphify_detect.json` stale (388 files, 23 deleted, ~100 live files missing). List refreshed, graph now 6,747 nodes; every screen/module/edge function present.
 - `docs/modules.md` islands/retired modules corrected; `docs/superpowers/DECISIONS-round5.md` written (open questions: H3, H5, SectionBlock); INDEX + backlog current state refreshed.
+- 29.9 prod: 3 test internal_tasks (לביא ×2, אפיק ×1, titles "בדיקה…") deleted; backup table internal_tasks_bak_test_29_9.
+- a84b6e1b w3-e2e: 15 Playwright failures triaged — stale locators (feedback/DayLog redesign), legacy inventory specs removed (covered by React specs), upgrade-freeze specs skipped (freeze lifted), calendar "next Tuesday" month-rollover helper. REAL BUG fixed: Σ home button dropped by the I-U index.html merge (2nd time).
+- Guard added: test-release-guards.mjs asserts index.html keeps loginModal/authGate/toast/sigmaGoHome (proven red→green).

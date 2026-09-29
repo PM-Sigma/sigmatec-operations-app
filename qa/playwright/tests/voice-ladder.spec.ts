@@ -84,7 +84,7 @@ async function mockUploadAndTranscribe(page: any) {
 const openSheet = async (page: any) => {
   await page.evaluate(() => { (window as any).sigma.emsToken = () => 'qa-fake-ems-token'; });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-feedback')));
-  await expect(page.getByRole('heading', { name: '📣 תיבת רעיונות ובאגים' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'רעיון או באג' })).toBeVisible();
 };
 
 test('voice ladder: RECORD is the default even though Web Speech also exists — a recording timer, never live text', async ({ page }, ti) => {
@@ -95,7 +95,7 @@ test('voice ladder: RECORD is the default even though Web Speech also exists —
   await mockUploadAndTranscribe(page);
 
   await openSheet(page);
-  await page.getByRole('button', { name: 'הקלט' }).click();
+  await page.getByRole('button', { name: 'הקלטה' }).click();
 
   // The recorder leg's own tell: the mm:ss timer, only ever rendered for phase 'recording'
   // (Feedback.tsx) — 'listening' (the live phase) never shows it.
@@ -109,7 +109,7 @@ test('voice ladder: RECORD is the default even though Web Speech also exists —
 
   // 600ms-minimum-length guard (feedback.ts) before stopping — same margin feedback-refine.spec.ts uses.
   await page.waitForTimeout(750);
-  await page.getByRole('button', { name: 'עצור הקלטה' }).click();
+  await page.getByRole('button', { name: 'עצירת ההקלטה' }).click();
 
   const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
   await expect(box).toHaveValue(FAST_TEXT, { timeout: 10_000 });
@@ -129,7 +129,7 @@ test('voice ladder: ?speech=live switches to the live path — live text, never 
   await page.route(SB_ORIGIN + '/storage/v1/object/**', route => { uploadCalled = true; return route.abort(); });
 
   await openSheet(page);
-  await page.getByRole('button', { name: 'הקלט' }).click();
+  await page.getByRole('button', { name: 'הקלטה' }).click();
 
   await expect(page.getByText('מקליט ומתמלל…', { exact: true })).toBeVisible();
   // The recording timer is 'recording'-phase-only — the live phase never shows it.
@@ -141,7 +141,7 @@ test('voice ladder: ?speech=live switches to the live path — live text, never 
   const box = page.getByPlaceholder('מה קרה / מה היה עוזר לך?');
   await expect(box).toHaveValue(LIVE_TEXT, { timeout: 10_000 });
 
-  await page.getByRole('button', { name: 'עצור הקלטה' }).click();
+  await page.getByRole('button', { name: 'עצירת ההקלטה' }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__liveStopped)).toBe(true);
   await shot(page, ti, 'speech-live-override');
 

@@ -8,49 +8,10 @@
 // this file is the live proof those wires are actually connected in the running app.
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
 
-async function openProducts(page: any) {
-  await page.evaluate(() => (window as any).showPage('inventory'));
-  await page.locator('[data-inv-tab="products"]').click();
-  await expect(page.locator('#invProductsList table')).toBeVisible({ timeout: 15_000 });
-}
-
-test('עידן can edit the display name', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'עידן' });
-  await openProducts(page);
-
-  // 🔗 wiring status is visible on the page (spec §3 "make the wiring visible").
-  await expect(page.locator('#invProductsList')).toContainText('מחובר למחולל הדוחות');
-
-  await page.locator('#invProductsList .inv-btn.small').first().click();   // ✏️ ערוך on the first row
-  await expect(page.locator('#invProductModal')).toHaveClass(/open/);
-
-  const dn = page.locator('#invProductDisplayName');
-  await expect(dn).toBeEnabled();
-  await dn.fill('מונה חשמל תלת-פאזי');
-  await expect(dn).toHaveValue('מונה חשמל תלת-פאזי');
-
-  await expectRtl(page);
-  await shot(page, ti, 'idan-editable');
-  await expectNoConsoleErrors(rec);
-});
-
-test('אביאם cannot edit the display name', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'אביאם' });
-  await openProducts(page);
-
-  await page.locator('#invProductsList .inv-btn.small').first().click();   // ✏️ ערוך
-  await expect(page.locator('#invProductModal')).toHaveClass(/open/);
-
-  const dn = page.locator('#invProductDisplayName');
-  await expect(dn).toBeDisabled();
-
-  // The technical-name field stays open to staff, unlike display_name (spec §3).
-  await expect(page.locator('#invProductName')).toBeEnabled();
-
-  await expectRtl(page);
-  await shot(page, ti, 'aviam-locked');
-  await expectNoConsoleErrors(rec);
-});
+// The two "עידן can edit / אביאם cannot edit the display name" UI tests drove the LEGACY
+// inventory DOM (#invProductsList, [data-inv-tab]) that U10 deleted. Both are covered on the
+// React screen by inventory/products.spec.ts F14 (עידן saves a display name) and F14b (אביאם's
+// field is disabled), so only the export-substitution wire is kept here.
 
 test('an export substitutes the display name for the technical name once one is set', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);

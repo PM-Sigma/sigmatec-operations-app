@@ -37,6 +37,12 @@ async function expectFrozen(page: import('@playwright/test').Page) {
   expect(hit, 'the center of the screen must hit the freeze overlay, not the app under it').toBe(true);
 }
 
+// UPGRADE_FREEZE is false since 385a6d8b (freeze lifted 27.9), so upgradeFrozen() short-circuits
+// and the gate never renders. The three "blocked" tests below assert the frozen state and are
+// skipped until the flag is flipped back on (js/src/00-consts.js) — the pure decision stays
+// covered by test-upgrade-freeze.mjs. The two allow-listed tests still pass (no gate either way).
+const FREEZE_LIFTED = 'UPGRADE_FREEZE is false (lifted 385a6d8b) — the freeze gate is dormant';
+
 test('עידן — allow-listed, passes straight through', async ({ page }, testInfo) => {
   const { rec } = await boot(page, testInfo, { who: 'עידן', query: 'freeze=1' });
   await expectRtl(page);
@@ -54,6 +60,7 @@ test('עמיחי — allow-listed, passes straight through', async ({ page }, te
 });
 
 test('אביאם — not on the allow-list, blocked and cannot interact', async ({ page }, testInfo) => {
+  test.skip(true, FREEZE_LIFTED);
   // ready: '' — the card home never appears while frozen, so boot() must not wait for it.
   await boot(page, testInfo, { who: 'אביאם', query: 'freeze=1', ready: '' });
   await expectFrozen(page);
@@ -61,11 +68,13 @@ test('אביאם — not on the allow-list, blocked and cannot interact', async 
 });
 
 test('the view-only PIN — always blocked, allow-list or not', async ({ page }, testInfo) => {
+  test.skip(true, FREEZE_LIFTED);
   await boot(page, testInfo, { who: 'צפייה', query: 'freeze=1', ready: '' });
   await expectFrozen(page);
 });
 
 test('the "התנתק" link clears identity and returns to the login gate', async ({ page }, testInfo) => {
+  test.skip(true, FREEZE_LIFTED);
   await boot(page, testInfo, { who: 'אביאם', query: 'freeze=1', ready: '' });
   await expectFrozen(page);
   // boot()'s addInitScript re-seeds the persona on every real navigation (by design, so a spec
