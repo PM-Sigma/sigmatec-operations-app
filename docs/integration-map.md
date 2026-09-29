@@ -136,7 +136,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `notes-changed` | app/src/components/home/MeetingNotes.tsx:95<br>app/src/lib/meetingNotesOps.ts:9 | app/src/components/home/MeetingNotes.tsx:54 |
 | `onboarding-changed` | app/src/components/home/OnboardingProgress.tsx:45 | app/src/components/home/OnboardingProgress.tsx:34 |
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:420<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
-| `stock-changed` | js/src/09-visits.js:458<br>app/src/islands/StockChange.tsx:206<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:132<br>app/src/islands/InventoryStrip.tsx:98<br>js/src/06-inventory.js:119 |
+| `stock-changed` | js/src/09-visits.js:458<br>app/src/islands/StockChange.tsx:206<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:136<br>app/src/islands/InventoryStrip.tsx:98<br>js/src/06-inventory.js:119 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
 | `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:419<br>app/src/islands/Attendance.tsx:313<br>app/src/islands/FeedbackInbox.tsx:271<br>app/src/islands/Field.tsx:172<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:205<br>js/src/09-visits.js:249<br>js/src/09-visits.js:282 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
