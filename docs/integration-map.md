@@ -220,9 +220,9 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `push_log` | db/push_log.sql | app/src/lib/pushLog.ts:83<br>supabase/functions/push-send/index.ts:220<br>supabase/functions/push-send/index.ts:275<br>…+4 |
 | `push_subscriptions` | db/push_subscriptions.sql | app/src/lib/teamStatus.ts:43<br>supabase/functions/push-send/index.ts:257<br>supabase/functions/push-send/index.ts:268 |
 | `reading_runs` | db/readings_pull.sql | app/src/lib/readingsApi.ts:73<br>app/src/lib/readingsApi.ts:81<br>app/src/lib/readingsApi.ts:89<br>…+21 |
-| `reading_sites` | db/readings_pull.sql | app/src/lib/readingsApi.ts:57<br>supabase/functions/push-send/index.ts:705<br>supabase/functions/readings-fetch/index.ts:79<br>…+6 |
-| `reading_sources` | db/readings_pull.sql | app/src/lib/readingsApi.ts:65<br>supabase/functions/readings-fetch/index.ts:88 |
-| `reading_values` | db/readings_pull.sql | supabase/functions/readings-fetch/index.ts:206<br>supabase/functions/readings-fetch/index.ts:274<br>supabase/functions/readings-fetch/index.ts:280<br>…+1 |
+| `reading_sites` | db/readings_pull.sql | app/src/lib/readingsApi.ts:57<br>supabase/functions/push-send/index.ts:705<br>supabase/functions/readings-fetch/index.ts:80<br>…+6 |
+| `reading_sources` | db/readings_pull.sql | app/src/lib/readingsApi.ts:65<br>supabase/functions/readings-fetch/index.ts:89 |
+| `reading_values` | db/readings_pull.sql | supabase/functions/readings-fetch/index.ts:207<br>supabase/functions/readings-fetch/index.ts:275<br>supabase/functions/readings-fetch/index.ts:281<br>…+1 |
 | `requirements` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:53<br>app/src/lib/inventoryApi.ts:163<br>app/src/lib/inventoryApi.ts:202 |
 | `returns` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:54<br>app/src/lib/inventoryApi.ts:278<br>app/src/lib/inventoryApi.ts:284 |
 | `site_contacts` | db/site_contacts.sql | app/src/components/home/workTimerApi.ts:39<br>app/src/components/home/WorkTimerEditSheet.tsx:73<br>app/src/components/home/WorkTimerStopSheet.tsx:62<br>…+3 |
