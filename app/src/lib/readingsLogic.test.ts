@@ -115,18 +115,18 @@ describe('historyRows — 35 days ending yesterday, gaps included', () => {
 
 describe('reasons summary', () => {
   const exceptions = [
-    ['SpeedNet', '1502949', '1502949', '28.09 23:00', 1234.5, 'חוסם', 'אין סה״כ'],
-    ['SpeedNet', '7010384', '7010384', '28.09 23:00', 88, 'חוסם', 'אין סה״כ'],
-    ['DataSense', '108324', '108324', '27.09 23:00', 5, 'אזהרה', 'קריאה ישנה'],
+    ['SpeedNet', '1502949', '1502949', '28.09 23:00', 1234.5, 'חוסם', 'אין קריאת סה"כ'],
+    ['SpeedNet', '7010384', '7010384', '28.09 23:00', 88, 'חוסם', 'אין קריאת סה"כ'],
+    ['DataSense', '108324', '108324', '27.09 23:00', 5, 'אזהרה', 'משדר לא שידר'],
   ];
   it('groups come straight from summary', () => {
-    expect(reasonGroups({ summary: [['חוסם', 'אין סה״כ', 2], ['אזהרה', 'קריאה ישנה', 1]] }))
-      .toEqual([{ kind: 'חוסם', reason: 'אין סה״כ', count: 2 }, { kind: 'אזהרה', reason: 'קריאה ישנה', count: 1 }]);
+    expect(reasonGroups({ summary: [['חוסם', 'אין קריאת סה"כ', 2], ['אזהרה', 'משדר לא שידר', 1]] }))
+      .toEqual([{ kind: 'חוסם', reason: 'אין קריאת סה"כ', count: 2 }, { kind: 'אזהרה', reason: 'משדר לא שידר', count: 1 }]);
     expect(reasonGroups({ summary: null })).toEqual([]);
   });
   it('tapping a reason lists exactly its meters', () => {
-    expect(metersForReason(exceptions, { kind: 'חוסם', reason: 'אין סה״כ' })).toHaveLength(2);
-    expect(metersForReason(exceptions, { kind: 'אזהרה', reason: 'קריאה ישנה' })[0][1]).toBe('108324');
+    expect(metersForReason(exceptions, { kind: 'חוסם', reason: 'אין קריאת סה"כ' })).toHaveLength(2);
+    expect(metersForReason(exceptions, { kind: 'אזהרה', reason: 'משדר לא שידר' })[0][1]).toBe('108324');
     expect(metersForReason(null, { kind: 'x', reason: 'y' })).toEqual([]);
   });
   it('failedSources names the source and its Hebrew message', () => {
