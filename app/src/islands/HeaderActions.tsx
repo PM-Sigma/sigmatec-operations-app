@@ -97,5 +97,7 @@ export function mountHeaderActions(): boolean {
   // button nobody has tapped yet costs nothing against the 304 kB ceiling; the static markup's
   // own fallback (`window.showPage('kibbutz')`) covers the gap before this chunk lands.
   (window as any).sigmaGoHome = goHome;
+  // 📥 readings watcher (roster users only, idle-free) — loaded from this lazy chunk, not the boot file.
+  void import('@/lib/readingsWatch').then(m => m.startReadingsWatch()).catch(() => {});
   return mount('sigma-header-actions', HeaderActionsPanel);
 }
