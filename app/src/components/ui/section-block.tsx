@@ -120,8 +120,11 @@ export function SectionBlock({
           transitionTimingFunction: 'var(--s-ease-standard)',
         }}
       >
-        <div className="overflow-hidden">
-          {flush ? children : <div className="-mx-4 divide-y divide-border">{children}</div>}
+        {/* The non-flush full-bleed (-mx-4) lives ON the overflow-hidden box itself, so that box
+            already spans the bled width and clips nothing horizontally. As a child INSIDE it, the
+            bleed was clipped right back to the padded edge (~16px off every row). */}
+        <div className={cn('overflow-hidden', !flush && '-mx-4 divide-y divide-border')}>
+          {children}
         </div>
       </div>
     </section>
