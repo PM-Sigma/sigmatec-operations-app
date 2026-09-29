@@ -54,7 +54,8 @@ test('viewer shell: the ⋯ sheet offers no pages and no ניהול', async ({ p
   await expect(sheet.getByText('ניהול', { exact: true })).toHaveCount(0);
   // …but the everyday rows every role has are there, labelled
   await expect(sheet.getByRole('button', { name: 'העדפות משתמש', exact: true })).toBeVisible();
-  await expect(sheet.getByRole('button', { name: 'רעיון / באג', exact: true })).toBeVisible();
+  // Q7-C (29.9): 'רעיון או באג' moved from ⋯ to the gear sheet (GearSheet.tsx)
+  await expect(sheet.getByRole('button', { name: /רעיון/ })).toHaveCount(0);
   // and the identity row says who he is — a static read-only row (IdentityRow.tsx, S-U
   // designer re-review), not a button: the gear/settings/switch-user actions moved to
   // GearSheet's own rows so this sheet never nested a menu inside a menu.
