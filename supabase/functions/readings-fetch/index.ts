@@ -23,7 +23,8 @@
 // SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, EMS_API_BASE. NEVER log or store credentials or the ems_token.
 import { verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
+// ponytail: npm build (0.18.5) — the Supabase bundler refuses cdn.sheetjs.com; bump if a newer npm release ships
+import * as XLSX from "npm:xlsx@0.18.5";
 import { appOrigin, cors, fetchT, json, timingSafeEqual } from "../_shared/http.ts";
 import { canUseReadings } from "../_shared/readingsRoster.js";
 import { datasense, type DsQuery, type Reading, ReadingsError, speednet, speednetViaBrowser } from "./adapters.ts";
