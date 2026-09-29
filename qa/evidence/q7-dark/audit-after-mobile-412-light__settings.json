@@ -1,0 +1,90 @@
+{
+ "axe": 0,
+ "custom": 9,
+ "detail": {
+  "axe": [],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 1",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 2",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 3",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 4",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 5",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 6",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 7",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 8",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 9",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   }
+  ]
+ }
+}

@@ -3,7 +3,13 @@ import * as TabsPrimitive from "@radix-ui/react-tabs"
 
 import { cn } from "@/lib/utils"
 
-const Tabs = TabsPrimitive.Root
+// Radix Tabs stamps dir="ltr" on its root unless told otherwise, which flipped every tab body
+// (titles, rows, KPIs, chip strips) to left-aligned inside the RTL app (Q7-E 12). Default rtl.
+const Tabs = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>
+>(({ dir = "rtl", ...props }, ref) => <TabsPrimitive.Root ref={ref} dir={dir} {...props} />)
+Tabs.displayName = TabsPrimitive.Root.displayName
 
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
