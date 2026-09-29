@@ -706,7 +706,7 @@ Deno.serve(async (req: Request) => {
     if (!msg) return json({ ok: true, skipped: "cron run succeeded - no push" });
     const to = msg.to === "all" ? READINGS_USERS : (run.started_by ? [String(run.started_by)] : []);
     if (!to.length) return json({ ok: true, skipped: "no recipient" });
-    const openUrl = APP + "#readings";
+    const openUrl = APP + "?pushact=readings";
     const payload = JSON.stringify({
       title: msg.title, body: msg.body, tag: "readings-" + run.id, url: openUrl,
       actions: [{ action: "readings", title: "לקבצים" }],

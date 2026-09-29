@@ -388,6 +388,8 @@
       // visit picker.
       else if (act === 'fillToday') { if (typeof showPage === 'function') showPage('attendance'); }
       else if (act === 'fillMissing') { if (typeof showPage === 'function') showPage('attendance'); }
+      // 📥 the readings-pull push (readings-fetch → push-send readingsDone) lands on its page.
+      else if (act === 'readings') { if (typeof showPage === 'function') showPage('readings'); }
       // 📋 פתח את הרשימה — the gaps nudge (spec §7h). The panel is the settings island's,
       // and it opens over whatever page the app landed on.
       else if (act === 'gaps') {

@@ -170,7 +170,7 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
             {groups.map(g => (
               <button key={g.kind + g.reason} type="button" data-testid="readings-reason" onClick={() => setReason(g)}
                 className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-start active:bg-secondary">
-                <Tag role={g.kind === 'חסימה' ? 'danger' : 'warn'}>{g.kind}</Tag>
+                <Tag role={g.kind === 'חוסם' ? 'danger' : 'warn'}>{g.kind}</Tag>
                 <span className="min-w-0 flex-1 text-[length:var(--fs-body-sm)]">{g.reason}</span>
                 <b><bdi>{g.count}</bdi></b>
               </button>

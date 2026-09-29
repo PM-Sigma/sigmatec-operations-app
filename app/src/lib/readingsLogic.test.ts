@@ -115,17 +115,17 @@ describe('historyRows — 35 days ending yesterday, gaps included', () => {
 
 describe('reasons summary', () => {
   const exceptions = [
-    ['SpeedNet', '1502949', '1502949', '28.09 23:00', 1234.5, 'חסימה', 'אין סה״כ'],
-    ['SpeedNet', '7010384', '7010384', '28.09 23:00', 88, 'חסימה', 'אין סה״כ'],
+    ['SpeedNet', '1502949', '1502949', '28.09 23:00', 1234.5, 'חוסם', 'אין סה״כ'],
+    ['SpeedNet', '7010384', '7010384', '28.09 23:00', 88, 'חוסם', 'אין סה״כ'],
     ['DataSense', '108324', '108324', '27.09 23:00', 5, 'אזהרה', 'קריאה ישנה'],
   ];
   it('groups come straight from summary', () => {
-    expect(reasonGroups({ summary: [['חסימה', 'אין סה״כ', 2], ['אזהרה', 'קריאה ישנה', 1]] }))
-      .toEqual([{ kind: 'חסימה', reason: 'אין סה״כ', count: 2 }, { kind: 'אזהרה', reason: 'קריאה ישנה', count: 1 }]);
+    expect(reasonGroups({ summary: [['חוסם', 'אין סה״כ', 2], ['אזהרה', 'קריאה ישנה', 1]] }))
+      .toEqual([{ kind: 'חוסם', reason: 'אין סה״כ', count: 2 }, { kind: 'אזהרה', reason: 'קריאה ישנה', count: 1 }]);
     expect(reasonGroups({ summary: null })).toEqual([]);
   });
   it('tapping a reason lists exactly its meters', () => {
-    expect(metersForReason(exceptions, { kind: 'חסימה', reason: 'אין סה״כ' })).toHaveLength(2);
+    expect(metersForReason(exceptions, { kind: 'חוסם', reason: 'אין סה״כ' })).toHaveLength(2);
     expect(metersForReason(exceptions, { kind: 'אזהרה', reason: 'קריאה ישנה' })[0][1]).toBe('108324');
     expect(metersForReason(null, { kind: 'x', reason: 'y' })).toEqual([]);
   });
