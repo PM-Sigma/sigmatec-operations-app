@@ -1,4 +1,4 @@
-🟡 IN PROGRESS (2026-09-29) — **משיכת קריאות מתוכנות חיצונית** (חולדה, SpeedNet + DataSense via Browserless). Spec `docs/superpowers/specs/2026-09-29-readings-pull-design.md`, branch `feat/readings-pull`. Phase 0 ✅ passed 29.9 (197+51+5; SpeedNet via Browserless with an Israeli residential proxy, Sucuri blocks datacenter IPs). Phase 1 next.
+🟡 IN PROGRESS (2026-09-29) — **משיכת קריאות מתוכנות חיצונית** (חולדה, SpeedNet + DataSense via Browserless). Spec `docs/superpowers/specs/2026-09-29-readings-pull-design.md`, branch `feat/readings-pull`. Phase 0 ✅; Phase 1 ✅ built + green (29.9). Waiting on MAIN: audit + apply `db/readings_pull.sql`, redeploy `readings-fetch` + `push-send`, apply `db/cron_readings_7am.sql`, merge. Then: end-to-end manual pull for 28.9 from the app.
 
 ↪ RESUMED and shipped (see the 29.9 block below). Was: PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).
 

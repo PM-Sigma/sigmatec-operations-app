@@ -23,8 +23,9 @@
 import assert from 'node:assert';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('.', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const root = fileURLToPath(new URL('.', import.meta.url)); // decodes %20 (a space in the checkout path)
 const read = p => readFileSync(join(root, p), 'utf8').split('\r\n').join('\n');
 const html = read('index.html');
 const problems = [];
