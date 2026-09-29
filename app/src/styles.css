@@ -445,9 +445,11 @@
   font-size: 11px;
   font-weight: 700;
   color: hsl(var(--muted-foreground));
-  text-align: center;
-  padding: 2px 0;
+  /* Q7-E 11.2: right-aligned (start in RTL), exactly over its column, same inset as the number. */
+  text-align: start;
+  padding: 2px 4px;
 }
+.ucal-grid-labeled .ucal-dows { padding-inline-start: 24px; }
 /* חודש עבודה (5-col work-month) has no `.ucal-weeklabel` child — without `:has()` the row still
    reserved an `auto` label column with nothing in it, squeezing `.ucal-week-days` into whatever
    was left instead of the full row width (עידן's phone QA 4.2: work-month days "stuck/narrow"). */
@@ -459,6 +461,7 @@
   font-size: var(--fs-caption, 11px);
   color: hsl(var(--muted-foreground));
   padding-inline-end: 2px;
+  width: 20px;
 }
 /* Round 5 · C-U designer fix (25.9): a 2px grid GAP on 7 columns at the 360 floor was eating
    into the column width the 44px tap-target math assumed (spec: "DayCell at 360 must be ≥44px:
