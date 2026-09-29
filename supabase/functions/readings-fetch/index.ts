@@ -28,7 +28,7 @@ import * as XLSX from "npm:xlsx@0.18.5";
 import { appOrigin, cors, fetchT, json, timingSafeEqual } from "../_shared/http.ts";
 import { canUseReadings } from "../_shared/readingsRoster.js";
 import { datasense, type DsQuery, type Reading, ReadingsError, speednet, speednetViaBrowser } from "./adapters.ts";
-import { applyEmsValidation, buildRun, expectedFrom } from "./logic.js";
+import { applyEmsValidation, buildRun } from "./logic.js";
 import {
   addDaysIso, badRunDate, cronDecision, cronWindowOpen, dedupeDecision, emsSyncDecision,
   errText, fileNames, israelNow, israelYesterday, retentionCutoff, runStatus, STUCK_MS, storagePaths, valuesCutoff,
@@ -217,17 +217,6 @@ async function loadHistory(siteId: string, date: string) {
   return [...byDate].map(([d, values]) => ({ date: d, values }));
 }
 
-async function loadExpected(siteId: string, date: string) {
-  const { data } = await sb.from("reading_runs").select("raw").eq("site_id", siteId).in("status", ["ok", "partial"])
-    .lt("reading_date", date).order("reading_date", { ascending: false }).order("started_at", { ascending: false }).limit(7);
-  const perRun = (data || []).map((r: any) => {
-    const o: Record<string, string[]> = {};
-    for (const [k, v] of Object.entries(r.raw || {})) if (!k.startsWith("_") && Array.isArray(v)) o[k] = (v as any[]).map((x) => String(x.meter));
-    return o;
-  });
-  return expectedFrom(perRun);
-}
-
 const UPLOAD_HEAD = ["serialNumber", "energyTypeCode", "entryMode", "readingDate", "ft", "f1", "f2", "f3", "rt", "r1", "r2", "r3"];
 const ALL_HEAD = ["מקור", "מונה באתר", "AMR", "מספר סידורי", "זמן קריאה", 'סה"כ (ft)', "פסגה (f1)", "גבע (f2)", "שפל (f3)", "סטטוס"];
 const EXC_HEAD = ["מקור", "מונה באתר", "מספר סידורי", "זמן קריאה", 'סה"כ (ft)', "סוג", "סיבה"];
@@ -294,7 +283,7 @@ async function buildFor(run_id: string) {
     }));
     const built = buildRun({
       day: run.reading_date, sources: input, rules: site.rules || {},
-      history: (await loadHistory(site.id, run.reading_date)) as any, expected: await loadExpected(site.id, run.reading_date),
+      history: (await loadHistory(site.id, run.reading_date)) as any,
     });
     await publishFiles(run, site, built, {
       status: runStatus(progress, names), finished_at: new Date().toISOString(), error: null,
@@ -347,9 +336,9 @@ async function emsCheck(run_id: string, token: string, who: string) {
         if (Array.isArray(arr)) emsMeters = arr.map((x: any) => String(x.serialNumber));
       } else await m.body?.cancel();
     }
-  } catch { /* the informational 'in EMS, not from the site' rows are optional */ }
+  } catch { /* without the meters list the validate results (METER_NOT_FOUND) still block unknown meters */ }
   const built = applyEmsValidation(
-    { upload: base.upload, uploadMeta: base.uploadMeta, all: base.all, exceptions: base.exceptions }, results, emsMeters ? { emsMeters } : {},
+    { upload: base.upload, uploadMeta: base.uploadMeta, all: base.all, exceptions: base.exceptions }, results, { ...(emsMeters ? { emsMeters } : {}), kibbutz: site.kibbutz },
   );
   await publishFiles(run, site, built, { ems_checked: true, ems_checked_by: who, ems_checked_at: new Date().toISOString() });
   await saveValues(site, run, built);
