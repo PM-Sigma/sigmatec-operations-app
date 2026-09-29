@@ -100,7 +100,13 @@ const container = byId.get('kibbutz-view').parent;
 ok(/\bclass\s*=\s*["'][^"']*\bcontainer\b/.test(container.attrs),
   `#kibbutz-view hangs off ${where(container)}, expected the top-level .container`);
 const allowed = new Set([container, container.parent]);
-const strays = views.filter(v => !allowed.has(byId.get(v).parent));
+// The field hub (29.9): #attendance-view and #burns-view are SECTIONS of #fieldops-view — their
+// display is driven by showPage()'s section gates, and they must sit directly inside the hub.
+const HUB_SECTIONS = ['attendance-view', 'burns-view'];
+for (const v of HUB_SECTIONS) {
+  ok(byId.get(v).parent === byId.get('fieldops-view'), `#${v} must be a direct child of #fieldops-view (the field hub)`);
+}
+const strays = views.filter(v => !HUB_SECTIONS.includes(v) && !allowed.has(byId.get(v).parent));
 ok(strays.length === 0,
   'these page views are not top-level blocks — nested inside other markup, showPage() cannot '
   + 'hide them independently:\n    '
@@ -110,6 +116,7 @@ ok(strays.length === 0,
 for (const v of views) {
   const inner = [];
   (function walk(n) { const i = idOf(n); if (i && views.includes(i)) inner.push(i); n.children.forEach(walk); })({ children: byId.get(v).children });
+  if (v === 'fieldops-view') inner.splice(0, inner.length, ...inner.filter(i => !HUB_SECTIONS.includes(i)));
   ok(inner.length === 0, `#${v} contains another page view (${inner.join(', ')}) — it can never be hidden on its own`);
 }
 

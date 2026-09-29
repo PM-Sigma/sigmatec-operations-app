@@ -347,6 +347,8 @@
   /* modest page-switch entrance (showPage adds .page-enter to the incoming view) */
   @keyframes pageEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .page-enter { animation: pageEnter .18s ease-out; }
+  /* field hub sections (fieldops-view): a jump lands BELOW the sticky header + jump nav */
+  .fieldhub-sec, #sigma-fieldhub-today { scroll-margin-top: calc(var(--header-h, 56px) + 64px); }
   .modal {
     background: var(--card); border-radius: 16px; padding: 22px 24px; width: 90%;
     max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);

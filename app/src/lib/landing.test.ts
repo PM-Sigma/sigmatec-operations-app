@@ -56,7 +56,8 @@ describe('landingFromSetting', () => {
   });
   it('every other value is the page itself', () => {
     expect(landingFromSetting('dev')).toEqual({ page: 'dev' });
-    expect(landingFromSetting('attendance')).toEqual({ page: 'attendance' });
+    expect(landingFromSetting('attendance')).toEqual({ page: 'fieldops' });
+    expect(landingFromSetting('fieldops')).toEqual({ page: 'fieldops' });
     expect(landingFromSetting('inventory')).toEqual({ page: 'inventory' });
     expect(landingFromSetting('calendar')).toEqual({ page: 'calendar' });
   });
@@ -71,7 +72,7 @@ describe('landingFor', () => {
   });
 
   it('a personal choice overrides the role default', () => {
-    expect(landingFor('field', 'אביאם', { landing: 'attendance' }, all)).toEqual({ page: 'attendance' });
+    expect(landingFor('field', 'אביאם', { landing: 'attendance' }, all)).toEqual({ page: 'fieldops' });
     expect(landingFor('pm', 'עידן', { landing: 'dev' }, all)).toEqual({ page: 'dev' });
   });
 
@@ -96,8 +97,8 @@ describe('landingFor', () => {
 
 describe('navTabsFor — bottom bar order (phone QA round 2, package A §3)', () => {
   it('אביאם and ניתאי get נוכחות · יומן · ביקור · קיבוצים · עוד', () => {
-    expect(navTabsFor('field', 'אביאם')).toEqual(['attendance', 'calendar', 'visit', 'kibbutz', 'more']);
-    expect(navTabsFor('field', 'ניתאי')).toEqual(['attendance', 'calendar', 'visit', 'kibbutz', 'more']);
+    expect(navTabsFor('field', 'אביאם')).toEqual(['fieldops', 'calendar', 'visit', 'kibbutz', 'more']);
+    expect(navTabsFor('field', 'ניתאי')).toEqual(['fieldops', 'calendar', 'visit', 'kibbutz', 'more']);
   });
 
   it('every other role gets קיבוצים · יומן · ביקור · מלאי · עוד', () => {

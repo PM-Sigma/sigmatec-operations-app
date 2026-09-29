@@ -67,15 +67,18 @@
 
   // The bottom bar's own pages; everything else is an inner page that gets a ← חזרה row and
   // an Android Back that returns here (עידן 22.9, A3/A7).
-  var NAV_PAGES = { kibbutz: 1, inventory: 1, attendance: 1, calendar: 1 };
+  var NAV_PAGES = { kibbutz: 1, inventory: 1, fieldops: 1, calendar: 1 };
   function showPage(page, opts) {
+    // The field hub (29.9): נוכחות and צריבות are SECTIONS of פעולות שטח now — the one redirect
+    // point every caller (push, gaps, home strip, restored page, landing) goes through.
+    var _sec = null;
+    if (page === 'attendance' || page === 'burns') { _sec = page; page = 'fieldops'; }
     if (RETIRED_PAGES[page]) page = 'kibbutz';
-    if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
     if (page === 'inventory' && getCurrentUser() === 'מתניה') page = 'kibbutz'; // מתניה doesn't handle inventory
     if (page === 'dev' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('dev'))) page = 'kibbutz'; // עידן + עמיחי (admin) + מתניה + אליה — D-L5: gate moved into canShowPage('dev'), 00-bridge.js
     // pushlog (התראות — עידן only) and burns (round 5 G-L4: gate moved to 00-bridge.js
     // canShowPage, off the retiring 24-meter-burns.js) both read the ONE bridge gate now.
-    if ((page === 'pushlog' || page === 'burns') && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage(page))) page = 'kibbutz';
+    if (page === 'pushlog' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage(page))) page = 'kibbutz';
     if (page === 'fieldops' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('fieldops'))) page = 'kibbutz'; // פעולות שטח — staff, not the viewer
     if (page === 'emsstats' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('emsstats'))) page = 'kibbutz'; // סטטיסטיקת EMS — עידן + עמיחי
     if (page === 'readings' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('readings'))) page = 'kibbutz'; // 📥 משיכת קריאות — עידן/עמיחי/מתניה
@@ -90,18 +93,22 @@
     document.body.classList.toggle('inner-page', !NAV_PAGES[page]);
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
-    document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
+    // The three field-hub sections follow the SECTION gate (00-bridge.js canShowPage), not the page.
+    var _cs = function (k) { return !!(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage(k)); };
+    var _onHub = page === 'fieldops', _seeAtt = _onHub && _cs('attendance');
+    document.getElementById('attendance-view').style.display = _seeAtt ? '' : 'none';
+    var _ip = document.getElementById('fieldops-ip'); if (_ip) _ip.style.display = _onHub && _cs('modbus') ? '' : 'none';
     document.getElementById('calendar-view').style.display   = page === 'calendar'   ? '' : 'none';
     var _dv = document.getElementById('dev-view'); if (_dv) _dv.style.display = page === 'dev' ? '' : 'none';
     var _pl = document.getElementById('pushlog-view'); if (_pl) _pl.style.display = page === 'pushlog' ? '' : 'none';
-    var _bv = document.getElementById('burns-view'); if (_bv) _bv.style.display = page === 'burns' ? '' : 'none';
+    var _bv = document.getElementById('burns-view'); if (_bv) _bv.style.display = _onHub && _cs('burns') ? '' : 'none';
     var _hv = document.getElementById('hours-view'); if (_hv) _hv.style.display = page === 'hours' ? '' : 'none';
     var _es = document.getElementById('emsstats-view'); if (_es) _es.style.display = page === 'emsstats' ? '' : 'none';
     var _rd = document.getElementById('readings-view'); if (_rd) _rd.style.display = page === 'readings' ? '' : 'none';
     var _fo = document.getElementById('fieldops-view'); if (_fo) _fo.style.display = page === 'fieldops' ? '' : 'none';
     document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     if (page === 'inventory')  renderInventory();
-    if (page === 'attendance') renderAttendanceReport();
+    if (_seeAtt) renderAttendanceReport();
     if (page === 'calendar')   renderCompanyCalendar();
     // dev / pushlog / burns are all React islands now (DevPresenter.tsx / PushLog.tsx /
     // BurnsPage.tsx), mounted by app/src/main.tsx's MutationObserver on the view's display
@@ -110,6 +117,13 @@
     var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view', fieldops: 'fieldops-view', emsstats: 'emsstats-view', readings: 'readings-view' }[page];
     var _pe = _pv && document.getElementById(_pv);
     if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
+    // Jump to the requested hub section (CSS scroll-margin clears the sticky nav); a section the
+    // person may not see falls back to the top of the page. FieldHub.tsx listens for the event.
+    if (_onHub) {
+      var _t = _sec === 'burns' ? document.getElementById('burns-view') : _sec === 'attendance' ? document.getElementById('attendance-view') : null;
+      if (_t && _t.style.display !== 'none') setTimeout(function () { _t.scrollIntoView({ block: 'start' }); }, 60);
+      else window.scrollTo(0, 0);
+    }
   }
 
   // ← חזרה on an inner page: the page before it, or the cards. (Declared AFTER showPage on

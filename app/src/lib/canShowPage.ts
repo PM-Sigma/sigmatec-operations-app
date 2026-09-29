@@ -10,6 +10,6 @@
 // A throwing/absent bridge means "no", never a silently-open page.
 import { sigma, type SigmaPage } from '@/bridge';
 
-export function canShowPage(page: SigmaPage): boolean {
+export function canShowPage(page: SigmaPage | 'modbus'): boolean {
   try { return !!sigma.canShowPage(page); } catch { return false; }
 }

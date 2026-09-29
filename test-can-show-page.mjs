@@ -61,20 +61,20 @@ function gateFor(user, role, { burnsActive = true } = {}) {
   return gate;
 }
 
-const PAGES = ['kibbutz', 'calendar', 'inventory', 'attendance', 'dev', 'pushlog', 'burns', 'hours', 'ems', 'mytasks', 'staff', 'fieldops', 'emsstats', 'readings'];
+const PAGES = ['kibbutz', 'calendar', 'inventory', 'attendance', 'dev', 'pushlog', 'burns', 'hours', 'ems', 'mytasks', 'staff', 'fieldops', 'emsstats', 'readings', 'modbus'];
 // 1 = may open, 0 = refused. Retired pages (ems / mytasks / staff) are refused for everyone.
 const MATRIX = {
-  //                 kib cal inv att dev push burn hrs ems my staff fops emsstats readings
-  'עידן|idan':      [1,  1,  1,  1,  1,  1,   1,   1,  0,  0, 0, 1, 1, 1],
-  'עידן|team':      [1,  1,  1,  0,  0,  0,   1,   1,  0,  0, 0, 1, 0, 1], // the name without the PIN is not the admin
-  'עמיחי|team':     [1,  1,  1,  1,  1,  0,   1,   1,  0,  0, 0, 1, 1, 1],
-  'אביאם|team':     [1,  1,  1,  1,  0,  0,   1,   0,  0,  0, 0, 1, 0, 1],
-  'ניתאי|team':     [1,  1,  1,  1,  0,  0,   1,   0,  0,  0, 0, 1, 0, 1],
-  'מתניה|team':     [1,  1,  0,  0,  1,  0,   0,   1,  0,  0, 0, 1, 0, 1],
-  'אליה|team':      [1,  1,  1,  0,  1,  0,   0,   0,  0,  0, 0, 1, 0, 1],
-  'אבצן|team':      [1,  1,  1,  0,  0,  0,   0,   0,  0,  0, 0, 1, 0, 1],
-  'צופה|viewer':    [1,  1,  1,  1,  0,  0,   1,   1,  0,  0, 0, 0, 0, 0], // reads reports; writes are refused elsewhere
-  '|':              [1,  1,  1,  0,  0,  0,   0,   0,  0,  0, 0, 0, 0, 0], // signed out
+  //                 kib cal inv att dev push burn hrs ems my staff fops emsstats readings modbus (= the IP section; fops = any hub section)
+  'עידן|idan':      [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1],
+  'עידן|team':      [1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1], // the name without the PIN is not the admin
+  'עמיחי|team':     [1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1],
+  'אביאם|team':     [1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1],
+  'ניתאי|team':     [1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1],
+  'מתניה|team':     [1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1],
+  'אליה|team':      [1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1],
+  'אבצן|team':      [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1],
+  'צופה|viewer':    [1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0], // reads reports; writes are refused elsewhere
+  '|':              [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // signed out
 };
 
 let failures = 0;

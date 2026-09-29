@@ -74,7 +74,7 @@ describe('landingChoices — extracted from Settings.tsx (round 5 G-L5)', () => 
 
   it('follows the page gates; reports is the viewer\'s alone', () => {
     expect(landingChoices(false, all).map(c => c.value))
-      .toEqual(['auto', 'kibbutz', 'calendar', 'attendance', 'inventory', 'dev']);
+      .toEqual(['auto', 'kibbutz', 'calendar', 'fieldops', 'inventory', 'dev']);
     expect(landingChoices(true, all).map(c => c.value)).toContain('reports');
     expect(landingChoices(false, all).map(c => c.value)).not.toContain('reports');
   });

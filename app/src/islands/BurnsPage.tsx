@@ -137,7 +137,7 @@ function BurnsPageInner() {
   if (isLoading && showSkeleton(rows.length > 0, hasPersistedData(['meterBurns']))) {
     return (
       <div className="flex flex-col gap-3 p-2">
-        <PageActionRow title={TITLE} titleLines={2} onBack={() => (window as any).pageBack?.()} />
+        <PageActionRow title={TITLE} titleLines={2} />
         {[0, 1, 2].map(i => <Skeleton key={i} className="h-24 w-full" />)}
       </div>
     );
@@ -146,7 +146,7 @@ function BurnsPageInner() {
   if (burnsQ.isError) {
     return (
       <div className="p-2">
-        <PageActionRow title={TITLE} titleLines={2} onBack={() => (window as any).pageBack?.()} />
+        <PageActionRow title={TITLE} titleLines={2} />
         <EmptyState
           icon={<Flame />}
           title="לא הצלחנו לטעון את הצריבות."
@@ -161,7 +161,6 @@ function BurnsPageInner() {
       <PageActionRow
         title={TITLE}
         titleLines={2}
-        onBack={() => (window as any).pageBack?.()}
         actions={
           <>
             {canExport && (

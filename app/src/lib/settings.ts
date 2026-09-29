@@ -13,7 +13,7 @@ import { useSyncExternalStore } from 'react';
 import { applyTheme, storedTheme, type ThemeChoice } from '@/lib/theme';
 
 /** Landing views a person can be sent to. `auto` = whatever the role default says (§7l). */
-export type Landing = 'auto' | 'kibbutz' | 'dev' | 'reports' | 'attendance' | 'calendar' | 'inventory';
+export type Landing = 'auto' | 'kibbutz' | 'dev' | 'reports' | 'attendance' | 'fieldops' | 'calendar' | 'inventory';
 export type CardDesc = 'short' | 'full';
 
 export interface UserSettings {
@@ -56,7 +56,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   updated_at: '',
 };
 
-const LANDINGS: Landing[] = ['auto', 'kibbutz', 'dev', 'reports', 'attendance', 'calendar', 'inventory'];
+const LANDINGS: Landing[] = ['auto', 'kibbutz', 'dev', 'reports', 'attendance', 'fieldops', 'calendar', 'inventory'];
 
 /**
  * Pure: an unknown / partial / hostile row merged onto the defaults. Every field is validated
@@ -68,7 +68,8 @@ export function mergeSettings(patch: Partial<UserSettings> | Record<string, unkn
   const p = (patch || {}) as Record<string, unknown>;
   const eod = Number(p.eod_hour);
   return {
-    landing: LANDINGS.includes(p.landing as Landing) ? (p.landing as Landing) : base.landing,
+    // an older save of 'attendance' is the field hub now (נוכחות became a section of פעולות שטח)
+    landing: p.landing === 'attendance' ? 'fieldops' : LANDINGS.includes(p.landing as Landing) ? (p.landing as Landing) : base.landing,
     card_desc: p.card_desc === 'full' || p.card_desc === 'short' ? p.card_desc : base.card_desc,
     theme: p.theme === 'light' || p.theme === 'dark' || p.theme === 'system' ? p.theme : base.theme,
     eod_hour: p.eod_hour === null ? null : Number.isInteger(eod) && eod >= 0 && eod <= 23 ? eod : base.eod_hour,
@@ -83,7 +84,7 @@ const LANDING_OPTIONS: Array<{ value: Landing; label: string }> = [
   { value: 'auto', label: 'לפי התפקיד שלי' },
   { value: 'kibbutz', label: '🏘 קיבוצים' },
   { value: 'calendar', label: '🗓 יומן' },
-  { value: 'attendance', label: '📅 נוכחות' },
+  { value: 'fieldops', label: '📍 פעולות שטח' },
   { value: 'inventory', label: '📦 מלאי' },
   { value: 'dev', label: '💻 פיתוח' },
   { value: 'reports', label: '📊 דוחות' },

@@ -26,7 +26,7 @@ import {
   circuitsOf, errorText, isIPv4, listEligible, manualStatus, matchSearch, meterLabel, pairEntries, parseUnit, planManualRead,
 } from '@/lib/fieldops/fieldOpsView';
 
-const TITLE = 'פעולות שטח';
+const TITLE = 'קריאות IP';
 // 48px floor (design-review.md's 360–430 update — the same floor scanOverlap's rule 3 checks),
 // not the DS default 44: עידן's real-phone report (27.9) named this page's own controls, so it
 // gets its own floor rather than a `data-min-tap="44"` exception carved out for it.
@@ -483,16 +483,16 @@ function ModbusReader() {
 }
 
 function FieldOpsInner() {
-  const [allowed, setAllowed] = React.useState(() => canShowPage('fieldops'));
+  const [allowed, setAllowed] = React.useState(() => canShowPage('modbus'));
   React.useEffect(() => {
-    const on = () => setAllowed(canShowPage('fieldops'));
+    const on = () => setAllowed(canShowPage('modbus'));
     window.addEventListener('user-changed' as any, on);
     return () => window.removeEventListener('user-changed' as any, on);
   }, []);
   if (!allowed) return null;
   return (
     <div className="flex flex-col gap-3 p-2 pb-24" data-testid="fieldops-page">
-      <PageActionRow title={TITLE} onBack={() => (window as any).pageBack?.()} />
+      <PageActionRow title={TITLE} />
       <ModbusReader />
     </div>
   );

@@ -9,7 +9,7 @@ import * as React from 'react';
 import {
   CalendarDays, ClipboardList, Code2, FileDown, Flame,
   Home, Inbox, Clock, ListTodo, MapPin, MessageSquarePlus, MoreHorizontal, Notebook,
-  Package, Settings, TrendingUp, UserCheck, Bell, Mail, type LucideIcon,
+  Package, Settings, TrendingUp, Bell, Mail, type LucideIcon,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tag } from '@/components/ui/chip';
@@ -43,8 +43,6 @@ const APP_ORDER = ['settings', 'field-journal', 'staff-message', 'feedback'];
  */
 const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; group?: 'admin' }> = [
   { page: 'calendar', label: 'יומן', icon: CalendarDays },
-  // נוכחות must not look like יומן (A5 / Package A §5): a distinct icon.
-  { page: 'attendance', label: 'נוכחות', icon: UserCheck },
   { page: 'hours', label: 'שעות מול לקוחות', icon: Clock },
   // מלאי is a tab on the bar for most roles (F4, עידן 22.9) — but for אביאם/ניתאי, whose bar
   // swaps מלאי for נוכחות, it moves here instead and leads the list (Package A §3).

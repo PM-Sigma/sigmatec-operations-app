@@ -1,6 +1,6 @@
 import * as React from 'react';
 import {
-  BarChart3, CalendarDays, Home, MapPin, Package, UserCheck, type LucideIcon,
+  BarChart3, CalendarDays, Home, MapPin, Package, type LucideIcon,
 } from 'lucide-react';
 import { MoreSheet } from '@/components/MoreSheet';
 import { type SigmaRole as RegistryRole } from '@/lib/registry';
@@ -120,9 +120,9 @@ export function Nav() {
             switch (id) {
               case 'kibbutz':
                 return <TabButton key={id} icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />;
-              case 'attendance':
-                // §3, A5: נוכחות must not read as יומן — a distinct icon, not CalendarDays twice.
-                return <TabButton key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance'} onClick={() => sigma.showPage('attendance')} />;
+              case 'fieldops':
+                // "שטח" (29.9): the field hub — נוכחות · קריאות IP · צריבות. MapPin is already in the bundle.
+                return <TabButton key={id} icon={MapPin} label="שטח" active={page === 'fieldops'} onClick={() => sigma.showPage('fieldops')} />;
               case 'calendar':
                 // 22.9: 🗓 יומן took the "רעיון / באג" slot — feedback now lives in ⋯ עוד only.
                 return <TabButton key={id} icon={CalendarDays} label="יומן" active={page === 'calendar'} onClick={() => sigma.showPage('calendar')} />;

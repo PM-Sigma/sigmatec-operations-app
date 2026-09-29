@@ -240,7 +240,10 @@
         // סטטיסטיקת משימות EMS (H5, עידן 29.9): עידן + עמיחי (canManageStaff), never the viewer.
         // The same audience as the RLS policy on ems_task_state / ems_task_events.
         case 'emsstats':   return !call('isViewer', [], false) && !!call('canManageStaff', [], false);
-        case 'fieldops':   return !call('isViewer', [], false) && !!call('getCurrentUser', [], '');
+        // 'modbus' = the IP-reading section of the field hub (the old 'fieldops' rule);
+        // 'fieldops' = the hub page: any of its sections (נוכחות · קריאות IP · צריבות).
+        case 'modbus':     return !call('isViewer', [], false) && !!call('getCurrentUser', [], '');
+        case 'fieldops':   return canShowPage('attendance') || canShowPage('modbus') || canShowPage('burns');
         // 🔥 צריבות (Task 23; gate moved off 24-meter-burns.js in round 5 G-L4) — a temporary
         // project page: the same audience app/src/lib/burns.ts BURN_WRITERS/BURN_HIDDEN use,
         // and false for everyone once BURNS_PROJECT_ACTIVE (js/src/00-consts.js) goes false.

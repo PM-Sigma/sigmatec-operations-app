@@ -69,7 +69,8 @@ export interface Sigma {
   readonly ATT_PEOPLE: string[];
 
   showPage(page: SigmaPage): void;
-  canShowPage(page: SigmaPage): boolean;
+  /** `modbus` is a gate key, not a page: the IP section of the field hub (fieldops-view). */
+  canShowPage(page: SigmaPage | 'modbus'): boolean;
 
   /**
    * Usage analytics (spec §7j). Stamps person + current page and parks the event in the

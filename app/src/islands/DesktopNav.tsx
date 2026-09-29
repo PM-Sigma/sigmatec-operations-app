@@ -8,7 +8,7 @@
 // `#sigma-desktop-nav` exists, same pattern as Home/Field/MyTasks. Nav.tsx (the phone bar) IS
 // boot, and stays untouched — its own byte budget has no room for a second nav's markup.
 import * as React from 'react';
-import { CalendarDays, Home, MapPin, Package, UserCheck, type LucideIcon } from 'lucide-react';
+import { CalendarDays, Home, MapPin, Package, type LucideIcon } from 'lucide-react';
 import { BubbleButton } from '@/components/ui/bubble-button';
 import { sigma, useCurrentUser } from '@/bridge';
 import { useCurrentPage } from '@/lib/currentPage';
@@ -63,8 +63,8 @@ function DesktopNavBar() {
             switch (id) {
               case 'kibbutz':
                 return <Tab key={id} icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => go('kibbutz', 'peer')} />;
-              case 'attendance':
-                return <Tab key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance'} onClick={() => go('attendance', 'peer')} />;
+              case 'fieldops':
+                return <Tab key={id} icon={MapPin} label="שטח" active={page === 'fieldops'} onClick={() => go('fieldops', 'peer')} />;
               case 'calendar':
                 return <Tab key={id} icon={CalendarDays} label="יומן" active={page === 'calendar'} onClick={() => go('calendar', 'peer')} />;
               case 'inventory':

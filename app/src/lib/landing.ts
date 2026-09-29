@@ -61,8 +61,10 @@ export function landingFromSetting(landing: Landing): LandingTarget | null {
   switch (landing) {
     case 'auto': return null;
     case 'reports': return { page: 'kibbutz', scrollTo: 'viewerReportsHub' };
-    case 'kibbutz': case 'dev': case 'attendance': case 'calendar': case 'inventory':
+    case 'kibbutz': case 'dev': case 'calendar': case 'inventory':
       return { page: landing as SigmaPage };
+    // "attendance" stays a valid stored value (older saves); it now means the field hub.
+    case 'attendance': case 'fieldops': return { page: 'fieldops' };
     default: return null;
   }
 }
@@ -131,7 +133,7 @@ export function applyLanding(settings?: Pick<UserSettings, 'landing'> | null): L
  * everyone else gets the default. Pure function of (role, user) so it is one golden test —
  * Nav.tsx just renders whatever comes back, in order.
  */
-export type NavTabId = 'attendance' | 'kibbutz' | 'calendar' | 'visit' | 'inventory' | 'more';
+export type NavTabId = 'fieldops' | 'kibbutz' | 'calendar' | 'visit' | 'inventory' | 'more';
 
 const FIELD_LEAD_NAMES = ['אביאם', 'ניתאי'];
 
@@ -147,7 +149,7 @@ export function isFieldLead(user: string): boolean {
  */
 export function navTabsFor(role: PersonRole, user: string): NavTabId[] {
   void role;
-  if (isFieldLead(user)) return ['attendance', 'calendar', 'visit', 'kibbutz', 'more'];
+  if (isFieldLead(user)) return ['fieldops', 'calendar', 'visit', 'kibbutz', 'more'];
   return ['kibbutz', 'calendar', 'visit', 'inventory', 'more'];
 }
 

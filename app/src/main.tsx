@@ -222,11 +222,18 @@ function boot() {
   // beat late. `showPage` toggles the view's inline `display`, so watching that attribute is
   // the whole trigger; a deep link that lands on the page already open is handled by the
   // immediate check.
-  const attView = document.getElementById('attendance-view');
-  if (attView && document.getElementById('sigma-attendance')) {
-    loadOnShow(attView, () => void import('@/islands/Attendance')
-      .then(m => m.mountAttendance())
-      .catch(e => warn('attendance island failed — legacy report stays', e)));
+  // The field hub (29.9): נוכחות, קריאות IP, צריבות and the hub shell are sections of ONE page,
+  // #fieldops-view — its first show loads all of them (each section's own container is gated
+  // by showPage, so an island for a section the person may not see just mounts into a hidden div).
+  const fieldopsView = document.getElementById('fieldops-view');
+  if (fieldopsView) {
+    loadOnShow(fieldopsView, () => {
+      void import('@/islands/FieldHub').then(m => m.mountFieldHub()).catch(e => warn('field hub island failed', e));
+      void import('@/islands/Attendance').then(m => m.mountAttendance())
+        .catch(e => warn('attendance island failed — legacy report stays', e));
+      void import('@/islands/FieldOps').then(m => m.mountFieldOps()).catch(e => warn('field ops island failed', e));
+      void import('@/islands/BurnsPage').then(m => m.mountBurnsPage()).catch(e => warn('burns page island failed', e));
+    });
   }
   // 🗓️ יומן (Task 13). Same page-open trigger as נוכחות, and for the same reason: the
   // calendar chunk pulls TanStack, supabase-js and Motion's Reorder in, and almost every
@@ -239,14 +246,6 @@ function boot() {
       .then(m => m.mountHours())
       .catch(e => warn('hours island failed', e)));
   }
-  // 🔥 צריבות (round 5 G-U2) — same page-open trigger as ⏱ שעות: the chunk pulls TanStack and
-  // supabase-js, and the page is reached only from ⋯ or the home strip, never on first paint.
-  const burnsView = document.getElementById('burns-view');
-  if (burnsView && document.getElementById('sigma-burns-page')) {
-    loadOnShow(burnsView, () => void import('@/islands/BurnsPage')
-      .then(m => m.mountBurnsPage())
-      .catch(e => warn('burns page island failed', e)));
-  }
   // 🔔 יומן התראות (round 5 G-U3) — same page-open trigger as ⏱ שעות / 🔥 צריבות: reached only
   // from ⋯, never on first paint, and its chunk pulls TanStack behind it.
   const pushlogView = document.getElementById('pushlog-view');
@@ -254,13 +253,6 @@ function boot() {
     loadOnShow(pushlogView, () => void import('@/islands/PushLog')
       .then(m => m.mountPushLog())
       .catch(e => warn('push log island failed', e)));
-  }
-  // פעולות שטח (r9) — same page-open trigger: reached only from ⋯, never on first paint.
-  const fieldopsView = document.getElementById('fieldops-view');
-  if (fieldopsView && document.getElementById('sigma-fieldops')) {
-    loadOnShow(fieldopsView, () => void import('@/islands/FieldOps')
-      .then(m => m.mountFieldOps())
-      .catch(e => warn('field ops island failed', e)));
   }
   // סטטיסטיקת משימות EMS (H5) — same page-open trigger; עידן + עמיחי only (canShowPage('emsstats')).
   const emsstatsView = document.getElementById('emsstats-view');
