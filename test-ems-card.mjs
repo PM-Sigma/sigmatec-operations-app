@@ -75,7 +75,7 @@ function loadModule({ connected = true, api = async () => ({ data: [] }), sheet,
     EMS_CLOSED: ['done'],
     // Hoisted to js/src/00-consts.js by the task-33 TDZ fix — 13-ems.js reads them but no
     // longer declares them, so the sandbox has to supply them like any other sibling symbol.
-    EMS_CACHE_VER: 2,
+    EMS_CACHE_VER: 3,
     _emsStaleCacheChecked: false,
     EMS_BG_MIN_MS: 5 * 60 * 1000,
     EMS_BG_KEY: 'ems_bg_sync_at_v1',
@@ -119,7 +119,7 @@ check('the rest of the slim shape is unchanged (id/title/status/priority/site/as
     site: { id: 's1', name: 'דפנה' },
     expectedCompletionDate: '2026-10-01',
     assignee: { id: 'u1', firstName: 'ניתאי', lastName: 'לוי' },
-    description: '', linkType: 'requirement', linkCount: 2,
+    description: '', linkType: 'requirement', linkCount: 2, createdAt: '', updatedAt: '',
   });
 });
 
@@ -131,7 +131,7 @@ check('no site / no assignee → both null, never throw', () => {
 
 // ── emsResyncIfStaleCache: the migration guard (real `ver`, not a description sniff) ─────────
 check('EMS_CACHE_VER is exposed and is the real, read version marker', () => {
-  assert.strictEqual(boot.win.EMS_CACHE_VER, 2);
+  assert.strictEqual(boot.win.EMS_CACHE_VER, 3);
 });
 
 check('cache with NO ver (pre-migration snapshot) + connected → resyncs once', async () => {
@@ -187,7 +187,7 @@ check('cache already at the CURRENT ver → no resync, even when connected', asy
   const { win } = loadModule({
     connected: true,
     api: async () => { calls++; return { data: [] }; },
-    emsCache: { tasks: [{ id: '1', title: 't' }], syncedAt: '2026-01-01', syncedBy: '', ver: 2 },
+    emsCache: { tasks: [{ id: '1', title: 't' }], syncedAt: '2026-01-01', syncedBy: '', ver: 3 },
   });
   await win.emsResyncIfStaleCache();
   await new Promise(r => setTimeout(r, 20));

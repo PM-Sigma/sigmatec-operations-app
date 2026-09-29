@@ -127,7 +127,11 @@ import { useBurnAccess, useBurns } from '@/components/home/Burns';
 import { stepsForKibbutz as onboardingStepsForKibbutz, useOnboardingSteps } from '@/components/home/OnboardingProgress';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { emitNotesChanged, NOTES_QUERY_KEY } from '@/components/home/MeetingNotes';
-import { energyText, labelOf, sectionOf, type KibbutzRow } from '@/lib/kibbutzim';
+import { energyText, labelOf, sectionOf, type KibbutzRow, type Section } from '@/lib/kibbutzim';
+import {
+  applyEdit, buildSectionEdit, buildUndoEdit, canEditSection,
+  saveSection, SECTION_LABEL, type SectionEdit,
+} from '@/lib/kibbutzSection';
 import type { EmsTask } from '@/bridge';
 import {
   chipDate, MEETING_PEOPLE, notesForKibbutz, taskFromBullet,
@@ -304,29 +308,69 @@ function Strip({ title, items, testid }: { title: string; items: StripItem[]; te
   );
 }
 
-/**
- * "ניהולי"/region as small chip-style tags rather than a titled headline box (item 3). No new
- * backend logic: this reads the same `row.region`/`row.name` the card already shows, and no
- * update path for region data is wired anywhere client-side today, so the chip is read-only for
- * now — the edit affordance the spec allows for (§Package H item 3) is left to a follow-up once
- * an existing kibbutz-update function surfaces one (checked `app/src/lib/kibbutzim.ts` /
- * `kibbutzRows.ts`: no client-side region-update function exists there to reuse without adding
- * new backend logic, which the ground rules forbid).
- */
-function RegionChips({ row }: { row: KibbutzRow | null }) {
+/** Region + section as read-only chip tags, for everyone. Region is fixed app-wide (עידן 29.9). */
+function RegionChips({ row, canEdit, onSave }: {
+  row: KibbutzRow | null; canEdit: boolean; onSave: (row: KibbutzRow, edit: SectionEdit) => void;
+}) {
   if (!row) return null;
-  const chips = [String(row.region || '—'), sectionOf(row) === 'new' ? '🆕 לקוח חדש' : '✅ פעיל'];
+  const chipCls = 'inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-2.5 text-[12px] font-bold text-foreground';
   return (
     <div data-testid="presenter-region-chips" className="flex flex-wrap gap-1.5">
-      {chips.map((c, i) => (
-        <span
-          key={i}
-          className="inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-2.5 text-[12px] font-bold text-foreground"
-        >
-          <bdi>{c}</bdi>
-        </span>
-      ))}
+      <span className={chipCls}><bdi>{String(row.region || '—')}</bdi></span>
+      {canEdit
+        ? <SectionEditButton row={row} chipCls={chipCls} onSave={onSave} />
+        : <span className={chipCls}><bdi>{SECTION_LABEL[sectionOf(row)]}</bdi></span>}
     </div>
+  );
+}
+
+/**
+ * The ONE entry point for editing a kibbutz's category (עידן 29.9): the 🆕/✅ chip, a button for
+ * עידן/עמיחי only (read-only span for everyone else). Opens a sheet with 🆕/✅; Save calls the narrow `set_kibbutz_section` RPC via
+ * `onSave` (optimistic + presenter undo toast are the overlay's job). The RPC re-checks the caller.
+ */
+function SectionEditButton({ row, chipCls, onSave }: {
+  row: KibbutzRow; chipCls: string; onSave: (row: KibbutzRow, edit: SectionEdit) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [section, setSection] = React.useState<Section>('active');
+  const edit = buildSectionEdit(row, section);
+  return (
+    <>
+      <button
+        type="button" data-testid="presenter-section-edit" aria-label="שינוי קטגוריה"
+        onClick={() => { setSection(sectionOf(row)); setOpen(true); }}
+        className={chipCls.replace('min-h-7', 'min-h-11 min-w-11 justify-center')}
+      >
+        <bdi>{SECTION_LABEL[sectionOf(row)]}</bdi>
+      </button>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="bottom" data-testid="presenter-section-picker" className="max-h-[88svh] overflow-y-auto">
+          <SheetHeader className="text-start">
+            <SheetTitle className="text-base"><bdi>{labelOf(row)}</bdi> · קטגוריה</SheetTitle>
+            <SheetDescription className="sr-only">בחירת קטגוריה לקיבוץ</SheetDescription>
+          </SheetHeader>
+          <div className="mt-3 flex gap-2">
+            {(['new', 'active'] as Section[]).map(sec => (
+              <button
+                key={sec} type="button" data-testid={'presenter-section-option-' + sec} aria-pressed={sec === section}
+                onClick={() => setSection(sec)}
+                className={'min-h-11 flex-1 rounded-xl border px-3 text-[14px] font-bold ' + (sec === section ? 's-brand border-transparent' : 'border-border bg-muted text-foreground')}
+              >
+                {SECTION_LABEL[sec]}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button" data-testid="presenter-section-save" disabled={!edit}
+            onClick={() => { if (edit) { onSave(row, edit); setOpen(false); } }}
+            className="mt-4 min-h-11 w-full rounded-xl s-brand px-5 text-[15px] font-extrabold disabled:opacity-50"
+          >
+            שמירה
+          </button>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
@@ -621,6 +665,38 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
     undoTimer.current = setTimeout(() => clearUndoToast(taskId), 5000);
   }, [canClose, closeQueue, me, clearUndoToast]);
 
+  // ── H3: section edit (עידן + עמיחי). Optimistic cache patch, the RPC in the background,
+  // and the presenter's OWN undo toast (not Sonner). The ordering is section-first, so a patch
+  // can move the row — the index follows the kibbutz by name so the screen does not jump.
+  const canEditRegion = canEditSection(me, isViewer);
+  const patchRows = React.useCallback((e: SectionEdit) => {
+    const next = applyEdit((qc.getQueryData<KibbutzRow[]>(['kibbutzim']) || []), e);
+    qc.setQueryData(['kibbutzim'], next);
+    const at = presenterOrder(next).findIndex(r => r.name === e.name);
+    if (at >= 0) setIdx(at);
+  }, [qc]);
+  const saveRegion = React.useCallback((row: KibbutzRow, edit: SectionEdit) => {
+    const back = buildUndoEdit(row);
+    patchRows(edit);
+    saveSection(edit).then(() => {
+      if (undoTimer.current != null) clearTimeout(undoTimer.current);
+      const key = 'section:' + edit.name;
+      setUndoToast({
+        taskId: key,
+        message: 'הקטגוריה עודכנה',
+        onUndo: () => {
+          clearUndoToast(key);
+          patchRows(back);
+          saveSection(back).catch(e => toast.error((e as Error).message));
+        },
+      });
+      undoTimer.current = setTimeout(() => clearUndoToast(key), 5000);
+    }).catch(e => {
+      patchRows(back);
+      toast.error((e as Error)?.message || 'לא הצלחתי לשמור, נסה שוב');
+    });
+  }, [patchRows, clearUndoToast]);
+
   // Flush on the app closing during the 5 s undo (review focus #1): pagehide, tab hidden, and —
   // via the effect's own cleanup — on leaving the kibbutz on screen or unmounting on exit.
   React.useEffect(() => {
@@ -854,7 +930,7 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
               </button>
             </div>
 
-            <RegionChips row={current} />
+            <RegionChips row={current} canEdit={canEditRegion} onSave={saveRegion} />
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Strip title="ניהולי" items={strips.admin} testid="presenter-strip-admin" />

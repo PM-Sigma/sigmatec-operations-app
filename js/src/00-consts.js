@@ -61,7 +61,7 @@
   // from 11-search-login.js
   const USER_KEY = 'dashboard_user_v1';
   // from 13-ems.js
-  const EMS_CACHE_VER = 2;
+  const EMS_CACHE_VER = 3;
   let _emsStaleCacheChecked = false;
   const EMS_BG_MIN_MS = 15 * 60 * 1000;         // one background sync per 15 minutes (עידן 22.9) — the only refresh there is
   const EMS_BG_KEY = 'ems_bg_sync_at_v1';

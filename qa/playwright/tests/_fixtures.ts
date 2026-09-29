@@ -33,6 +33,9 @@ export interface Fixtures {
    *  row with a readable error, and one unknown event key so the raw-name fallback has a
    *  fixture to catch it. */
   pushLog: Array<Record<string, unknown>>;
+  /** EMS task lifecycle (H5): ems_task_state rows for the stats page. Relative dates would make the
+   *  month buckets drift, so these are pinned to Aug-Sept 2026 and the spec asserts shapes, not months. */
+  emsTaskState: Array<Record<string, unknown>>;
 }
 
 const daysAgo = (n: number) => {
@@ -174,9 +177,29 @@ export const PUSH_LOG: Array<Record<string, unknown>> = Array.from({ length: 250
     where_txt: 'גבים', qty: 1, recipient: ['עידן', 'עמיחי', 'אביאם', 'ניתאי'][i % 4], error: null, actor: null, title: null };
 });
 
+// EMS task lifecycle (H5): a real-size-ish spread (120 rows, 4 kibbutzim, open + done + cancelled +
+// one disappeared) so the page's lists carry realistic content, not two tidy rows.
+const EMS_SITES = ['דפנה', 'חוקוק', 'כפר עזה', 'אור הנר'];
+const EMS_TASK_STATE: Array<Record<string, unknown>> = Array.from({ length: 120 }, (_, i) => {
+  const opened = new Date(Date.UTC(2026, 7, 1) + i * 16 * 3_600_000);            // every 16h from 1 Aug
+  const closed = i % 3 === 0;
+  const status = closed ? (i % 2 ? 'done' : 'cancelled') : 'new';
+  const derived = i % 4 === 0;
+  return {
+    task_id: 't' + i, site_name: EMS_SITES[i % 4], status,
+    due_date: i % 2 === 0 ? new Date(Date.UTC(2026, 7, 10) + i * 24 * 3_600_000).toISOString().slice(0, 10) : null,
+    opened_at: opened.toISOString(),
+    closed_at: closed ? new Date(opened.getTime() + (1 + (i % 9)) * 86_400_000).toISOString() : null,
+    closed_src: closed ? 'ems' : (i === 7 ? 'disappeared' : null),
+    assigned_at: derived ? new Date(opened.getTime() + (1 + (i % 6)) * 3_600_000).toISOString() : null,
+    assigned_src: derived ? 'derived' : (i % 5 === 0 ? 'unknown' : 'pending'),
+    gone_at: i === 7 ? new Date(Date.UTC(2026, 8, 5)).toISOString() : null,
+  };
+});
+
 export const FIXTURES: Fixtures = {
   kibbutzim: KIBBUTZIM, notes: NOTES, usage: USAGE_EVENTS, checkins: CHECKINS,
-  burns: METER_BURNS, generators: GENERATORS, pushLog: PUSH_LOG,
+  burns: METER_BURNS, generators: GENERATORS, pushLog: PUSH_LOG, emsTaskState: EMS_TASK_STATE,
 };
 
 // 📦 package I (inventory rewrite): the one inventory fixture set, re-exported here so a spec

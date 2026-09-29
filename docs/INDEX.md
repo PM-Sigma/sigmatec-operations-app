@@ -46,6 +46,11 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 | [architecture.md](architecture.md) | How it fits together: PWA ↔ Supabase ↔ EMS API (Apps Script retired). Start here. |
 | [modules.md](modules.md) | What every `js/src/*.js` module does + its functions. |
 | [data-and-security.md](data-and-security.md) | Supabase tables, data layer, RLS, the auth bridge, key rotation. |
+| **[ops-graph/](ops-graph/README.md)** | **OPS GRAPH — queryable map of the whole app (6,747 nodes / 17,724 edges, rebuilt 29.9 at 2.109).** Ask it "what touches what" before grepping: `python docs/ops-graph/ops_graph.py explain <thing>`. Verified defects: local BROKEN.md (not in the public repo). |
+| [architecture.md](architecture.md) | How it fits together: PWA ↔ Supabase ↔ Apps Script ↔ EMS. Start here. |
+| [modules.md](modules.md) | What every `js/src/*.js` module does + its functions, the React islands map (corrected 29.9) and the edge-function list. |
+| [superpowers/DECISIONS-round5.md](superpowers/DECISIONS-round5.md) | **Round 5 decisions table** (who decided, why, where in code) + open questions for עידן. |
+| [data-and-security.md](data-and-security.md) | Supabase tables, data layer, RLS, the auth bridge, key rotation, Apps Script security. |
 | [operations.md](operations.md) | Build/deploy/test, edge-function deploy, env values, test flags. |
 | [calendar-setup.md](calendar-setup.md) | **Connecting the office calendar (יומן)** — Google service-account sharing, Supabase secrets, client-wiring step, troubleshooting. |
 | [team.md](team.md) | Employee roles, field/office, what to measure per person. |
@@ -68,20 +73,26 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
-## 🚦 Current state — last: 2026-09-29 (**round 5 + QA6 LIVE for all staff; main = `acf9d00d` plus the r9 checkpoint/guard branch**).
+## 🚦 Current state — last: 2026-09-29 (**round 5 + QA6 LIVE for all staff; wave 1 + wave 2 merged; VERSION 2.109; wave 3 = docs (branch `r9/w3-docs`, not pushed)**).
 
-- **Live:** the app is open to every employee (freeze lifted 27.9, `385a6d8b`). Round-5 screens A D K C G X M S I V R,
-  the voice fix (record -> Whisper), security X and the field-ops Modbus page are all on `main` and in production.
-  27.9: home cards broke on real data -> two changes reverted (`36fac282`, `2c09a0da`); `VERSION`/`sw.js` conflict
-  markers fixed (`acf9d00d`). New guard `test-release-guards.mjs` runs in `npm test`.
-- **Open work:** see [backlog.md](backlog.md) top block — rebuild home-card visit buttons (no per-card query, real-size
-  fixture), rebuild the SectionBlock clip fix separately, meeting-note row actions, QA6 later list, H3/H5, DOC-1/DOC-2,
-  the decisions table, field-ops on a real meter. A parallel session builds the Hulda external meter-readings fetch;
-  MAIN merges it.
-- **Working method (binding, עידן 29.9):** `docs/superpowers/WORKING-METHOD.md` — MAIN session integrates; Opus plans,
-  integrates and final-checks; Sonnet executes; no Fable; stop at 85% weekly and ask. Memory of round 5:
-  `docs/superpowers/r5-MEMORY.md`; work log: `docs/reports/2026-09-27-work-log-and-issues.md`.
-- Older status blocks below are history (the 24.9 pause is over).
+- **Live:** the app is open to every employee (freeze lifted 27.9). Round-5 screens A D K C G X M S I V R, the voice fix
+  (record -> Whisper, now mono 24 kbps), security X and the field-ops Modbus page are on `main` and in production. New guard
+  `test-release-guards.mjs` (conflict markers, `node --check sw.js`, `VERSION`, `index.html` shell anchors) runs in `npm test`.
+- **29.9 waves on `main`:** home-card visit buttons (ONE lookup built in Home, real-size fixture), meeting-note row menu
+  (delete / move / internal task / EMS task; link stored as `internal:<id>`), calendar absences for all staff (sick/other feed
+  attendance only for אביאם/ניתאי; prod SQL applied with backup), voice recorder mono 24 kbps, inventory cert LTR, DayLog
+  duplicate-key fix, test tasks for לביא/אפיק deleted (backup table). Detail: work log + CHANGELOG.
+- **Docs (this branch):** ops graph rebuilt on current main (detect list refreshed: it had frozen at 388 files; now 649 code
+  files, 6,747 nodes / 17,724 edges, every `app/src`, `js/src` and edge-function file is a node); `modules.md` islands and
+  retired-module entries corrected; decisions table `docs/superpowers/DECISIONS-round5.md` (with the open questions).
+- **Open (needs עידן):** H3 (presenter edits kibbutz region/section? which roles), H5 (opened-at stamp on the EMS cache now or
+  defer), SectionBlock fix on branch `r9/w2-sectionblock` (phone check first), review of the "Claude (pending עידן review)" rows.
+  Also: field-ops on a real meter, 15 Playwright failures in the full 360-light run (no baseline yet), a Hulda external
+  meter-readings fetch (parallel session, MAIN merges).
+- **Working method (binding, עידן 29.9):** `docs/superpowers/WORKING-METHOD.md` — MAIN integrates; Opus plans/integrates/final-checks;
+  Sonnet executes; no Fable; stop at 85% weekly and ask. Memory of round 5: `docs/superpowers/r5-MEMORY.md`; decisions:
+  `docs/superpowers/DECISIONS-round5.md`; work log: `docs/reports/2026-09-27-work-log-and-issues.md`.
+- Older status blocks below are history.
 
 **Waiting on עידן:** apply `db/rls_viewer_readonly.sql`; restore source for `tasks.status` (wiped 23.8 + 17.9): Supabase backup before 17.9 14:00 or the 22.6 Sheet; `kibbutz_meeting_notes` has 0 rows.
 

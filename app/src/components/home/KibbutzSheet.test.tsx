@@ -8,7 +8,8 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 
 afterEach(cleanup);
 
-const { writes, sonner } = vi.hoisted(() => ({
+const { writes, sonner, rpcMock } = vi.hoisted(() => ({
+  rpcMock: vi.fn(async () => ({ error: null })),
   writes: [] as Array<{ op: string; body: any; key: string; val: any }>,
   sonner: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
@@ -16,6 +17,7 @@ const { writes, sonner } = vi.hoisted(() => ({
 vi.mock('sonner', () => ({ toast: sonner }));
 vi.mock('@/components/home/OnboardingProgress', () => ({ spawnOnboardingForNewKibbutz: async () => {} }));
 vi.mock('@/lib/supabase', () => ({
+  getSupabase: async () => ({ rpc: rpcMock }),
   sbWrite: async (fn: (sb: any) => any) => {
     const chain = (op: string, body: any) => ({
       eq: (key: string, val: any) => { writes.push({ op, body, key, val }); return { select: () => ({ single: async () => body }) }; },
@@ -28,9 +30,9 @@ import { KibbutzSheet } from '@/components/home/KibbutzSheet';
 
 const ROW = { id: 7, name: 'גבת', section: 'active', region: 'צפון', energy: ['electric'], kind: 'kibbutz', ems_site_ids: [] } as any;
 
-function renderSheet(row = ROW, onArchived = vi.fn()) {
+function renderSheet(row = ROW, onArchived = vi.fn(), user = 'עידן') {
   render(
-    <KibbutzSheet open onOpenChange={() => {}} row={row} allRows={[row]} user="עידן"
+    <KibbutzSheet open onOpenChange={() => {}} row={row} allRows={[row]} user={user}
                   onSaved={() => {}} onArchived={onArchived} />,
   );
   return onArchived;
@@ -74,5 +76,37 @@ describe('KibbutzSheet — EMS link is read-only', () => {
   it('a linked kibbutz says ✓', () => {
     renderSheet({ ...ROW, ems_site_ids: ['s1'] });
     expect(screen.getByTestId('kib-ems-link').textContent).toContain('✓ מקושר');
+  });
+});
+
+describe('KibbutzSheet — region fixed, section locked (עידן 29.9)', () => {
+  beforeEach(() => rpcMock.mockClear());
+  it('edit: region is read-only text, no region input', () => {
+    renderSheet();
+    expect(screen.getByTestId('kib-region-readonly').textContent).toContain('צפון');
+    expect(document.getElementById('kibRegion')).toBeNull();
+  });
+  it.each(['עידן', 'עמיחי'])('%s: changing section goes through the RPC, the UPDATE never carries region/section', async (u) => {
+    renderSheet(ROW, vi.fn(), u);
+    fireEvent.click(screen.getByText('🆕 לקוח חדש'));
+    fireEvent.click(screen.getByText('שמור קיבוץ'));
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('set_kibbutz_section', { p_kibbutz: 'גבת', p_section: 'new' }));
+    expect(writes.length).toBe(1);
+    expect(writes[0].body).not.toHaveProperty('region');
+    expect(writes[0].body).not.toHaveProperty('section');
+  });
+  it('a non-editor sees no section control and never calls the RPC', async () => {
+    renderSheet(ROW, vi.fn(), 'אביאם');
+    expect(screen.queryByText('🆕 לקוח חדש')).toBeNull();
+    fireEvent.click(screen.getByText('שמור קיבוץ'));
+    await waitFor(() => expect(writes.length).toBe(1));
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+  it('a missing RPC shows the Hebrew toast', async () => {
+    rpcMock.mockResolvedValueOnce({ error: { code: 'PGRST202', message: 'Could not find the function' } } as any);
+    renderSheet();
+    fireEvent.click(screen.getByText('🆕 לקוח חדש'));
+    fireEvent.click(screen.getByText('שמור קיבוץ'));
+    await waitFor(() => expect(sonner.error).toHaveBeenCalledWith(expect.stringContaining('עדיין לא זמין')));
   });
 });

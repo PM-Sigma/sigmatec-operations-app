@@ -23,3 +23,6 @@
 
 ## Standing rules (unchanged)
 Never change another repo · repo PUBLIC (no secrets/real IPs/row data) · never enter passwords · prod changes only after audit + backup + rollback + CHANGELOG · respond in English, Hebrew UI terms.
+
+## Merge rule (29.9, after #emsstats-view was dropped)
+- `index.html` is NEVER resolved with `--theirs`. Before merging, run `git diff $(git merge-base HEAD origin/main) HEAD -- index.html | grep -v "v="`: if the branch has real changes, 3-way it (`git merge-file`), keep both, and take only the version stamps from main. `test-html-structure.mjs` + the release guards catch a missing view container.

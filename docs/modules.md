@@ -60,29 +60,18 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 - `addReturnedItemRow()` / `renderReturnedItems()` / `invRenderReturns()` — returns
 - `setBtnLoading(btn, loading)` — button spinner
 
-### `06-products.js` — Product catalog CRUD
-- `getActiveProducts()` — active products
-- `invRenderProducts()` / `invNewProduct()` / `invEditProduct(id)` — list + modal
-- `invToggleProductActive(id, makeActive)` / `invSaveProduct(btn)` — toggle/save
+### ~~`06-products.js` / `07-orders.js` / `08-inventory.js`~~ - RETIRED (round 5 package I, U10). The files no longer exist.
+- Rules: `app/src/lib/inventory.ts` (published as `window.SigmaInv`); API: `app/src/lib/inventoryApi.ts`; order parsing: `app/src/lib/orderParse.ts`
+  (+ `supabase/functions/parse-order/`); screens: `app/src/islands/Inventory*.tsx` (Stock, Orders, Products, Kibbutzim, Certs, Nudges, Returns, sheets);
+  boot: `app/src/islands/inventoryBoot.ts`.
+- What legacy callers still reach lives in **`06-inventory.js`** (compat names only: `getActiveProducts`, `computeStock`, `approveOrder`, ...;
+  each line is deleted when its last caller is rewritten).
 
-### `07-orders.js` — Orders + voice/text intake parsing + distribution
-- `intakeNormalize(s)` / `intakeQtyNear(norm, idx)` — text intake helpers
-- `openIntake()` / `intakeBackToStep1()` / `renderIntakeGrid()` / `intakeAddRow()` — intake wizard
-- `parseLocalToItems(raw)` / `intakeParseLocal(raw)` — local NLP parse
-- `pickRecorderMime()` / `openVoice(target)` / `closeVoice()` / `renderVoiceReview(res)` / `voiceRetry()` / `applyVoiceResult()` — voice order (sends `type:'transcribe'`)
-- `getOrderQuickAction(status)` / `canApproveOrders()` (Aviam/Amichai) — workflow
-- `invRenderOrders()` / `invNewOrder()` / `invEditOrder(id)` / `renderOrderItems()` / `invAddItemRow()` — orders CRUD
-- `importOpenRequirements()` — pull open requirements into an order
-- `ensureDistributionDefaults()` / `invDistChange(...)` / `invToggleDistribution()` — per-location distribution
-- **Consts:** `INTAKE_ALIASES`, `HE_NUMWORDS`
+### `00-guard.js` - the ONE pending-state helper + the ONE modal-dismiss owner (concatenated right after `00-bridge.js`; no screens). See `ux-loading-patterns.md`.
 
-### `08-inventory.js` — Stock computation, low-stock alerts, matrices, CSV export
-- `computeStock()` — derive stock from movement ledger
-- `lowStockReport()` / `renderLowStockAlert()` — low-stock + SIM-holder rules
-- `populateTransferDropdowns()` / `renderTransferProducts()` / `renderTransferMax()` — transfer form
-- `invRenderStock()` / `invRenderKibbutzInventory()` — stock tables/matrix
-- `invExportStock()` / `invExportKibbutzInventory()` / `invDownloadCSV(rows, filename)` — CSV
-- **Consts:** `METER_RULES`, `SIM_HOLDERS`
+### `21-excel-export.js` - aggregate Excel exports (pure builders + one SheetJS writer; buttons visible to עידן + viewer only).
+
+### `22-push.js` - Web Push subscription client (Android/desktop OS push; server side is `supabase/functions/push-send/`). The push log screen is `app/src/islands/PushLog.tsx` + `app/src/lib/pushLog.ts` (`23-push-log.js` is retired).
 
 ### `09-visits.js` — Visit logging, products-per-visit, visit report
 - `toggleVisitWorkday()` — mark visit a full workday
@@ -193,21 +182,33 @@ New `js/src/*.js` modules since the last update of this doc:
   warnings via `applyCardSiteWarnings`), replaces the static card grid.
 - **`24-meter-burns.js`** — retired in round 5 G-U4; see "🔥 צריבות" above.
 
-**`app/src/` — React islands** (Vite+TS+Tailwind+shadcn, built to `ui/sigma.js|css`, mounted lazily
-from legacy via `window.sigma`, spec §7c): `Home` (card grid), `Field` (arrival/briefing/visit
-summary), `Calendar` (month/week/list + route order + absences), `Presenter` (live-meeting overlay),
-`MeetingReview` (post-meeting import), `DayLog` (📝 יומן היום), `Feedback`/`FeedbackInbox` (📣 + voice),
-`Attendance`, `Health` (v1 draft scorers), `OnboardingProgress`, `Usage` (📈 weekly digest), `Gaps`
-(📋 הפערים שלי), `Settings` (⚙️ incl. EOD hour, push, personal area), `DevPresenter` (▶ ישיבת פיתוח +
-sprint prep), `Holidays`, `CommandBar` (Ctrl+K), `HeaderActions`, `ImportNotes`, `ModalMeetings`,
-`PmToday`, `Burns` (🔥 full table), `StockChange` (📦 §4b — the ONE pool's 🔢 דיווח שינוי, Task 8; a
-stock change ROUTES to the visit form / order modal and only writes directly for a recount; note
-the `sc-submit` button shows only a spinner while saving, no label, unlike every other pending
-button — filed to backlog, not fixed in 2.01). Pure logic lives in `app/src/lib/*.ts` (vitest,
-incl. `inventory.ts`/`stockChange.ts` for the pool and `visitDraft.ts` for the §7p chapters); the
-EMS door is `app/src/lib/ems/{types,gateway,adapters/rest}.ts` — `app/src` has zero direct EMS
-calls left, all 13 typed operations go through `EmsGateway`, published to legacy as
-`sigma.ems`/`sigma.emsWrite`.
+**`app/src/` - React islands** (Vite+TS+Tailwind+shadcn, built to `ui/sigma.js|css`, mounted lazily from legacy via `window.sigma`, spec 7c).
+Corrected 29.9 against the code. Round-5 screen packages (letters as in `superpowers/r5-MEMORY.md`): **A** attendance, **D** dev page,
+**K** kibbutz card, **C** calendar, **G** burns/push-log/generators, **X** security + gates, **M** meeting presenter, **S** shell,
+**I** inventory, **V** visit summary, **R** remaining pages, plus the voice fix and the field-ops page.
+
+| Area | Islands (`app/src/islands/`) | Pure logic / data (`app/src/lib/`) |
+|---|---|---|
+| Home / cards / alerts | `Home`, `Alerts`, `MessageSheet`, `DesktopNav`, `HeaderActions` (+ `components/home/*`, `components/alerts/*`) | `freshness`, `format`, `navigate`, `staffMessages` |
+| Kibbutz card | `KibbutzDetail` (+ `components/kibbutz/`: `StatusTab`, `VisitsTab`, `VisitRowActions`) | `kibbutzDetail`, `kibbutzVisits`, `meetingNotesOps` (row actions: delete / move / internal task / EMS task), `meetingStatus` |
+| Field / visit | `Field` (arrival, briefing, visit summary sheet), `DayLog` | `visitSave`, `visitEdit`, `visitContacts`, `visitAttendance`, `editLock`, `runAdd` |
+| Calendar | `Calendar` (month / work week / list, route, absences, peer row) | `calendar`, `calendarData` |
+| Attendance / hours | `Attendance`, `Hours`, `Holidays`, `Gaps` | `visitAttendance`, `hours` |
+| Meetings | `Presenter` (+ `presenter/*`), `MeetingReview`, `ImportNotes`, `DevPresenter` | `meetingTimeline`, `meetingClose`, `devMeeting` |
+| Dev page | `DevBoard` (+ `dev/*`) | `devBoard`, `devFlow`, `devMarks`, `devStatusLog`, `sprintPrep` |
+| Tasks | `MyTasks` | `emsTasks`, `internalTasks` |
+| Inventory | `Inventory`, `InventoryStock/Orders/Products/Kibbutzim/Certs/Cert/Nudges/Returns`, `InventoryOrderSheet`, `InventoryProductSheet`, `StockChange` | `inventory`, `inventoryApi`, `orderParse`, `certDoc`, `certLogo` |
+| Burns | `BurnsPage` (+ `burns/*`), `Burns` | `burns`, `burnsData` |
+| Field-ops (Modbus) | `FieldOps` | `fieldops/{fieldOpsView,modbusScale}`, `ems/adapters/{fieldOps,fieldOpsOps}` -> edge fn `field-ops` |
+| Feedback / usage / settings | `Feedback`, `FeedbackInbox`, `Usage`, `PushLog`, `Settings`, `Gallery` | `pushLog`, `pushPrompt`, `errorMessages`, `online`, `pageActions`, `shell` |
+
+Retired islands (no longer in the tree): `CommandBar`, `ModalMeetings`, `InternalModal`, `Health`, `PmToday`, `ViewSwitcher`.
+Shell chrome: `app/src/shell/` (`PageBar`, `GearSheet`, `IdentityRow`, `OfflineBanner`). Design system: `app/src/components/ui/`
+(`section-block`, `list-row`, `segmented-control`, `stat-tile`, `chip`, ...) + `app/src/tokens.css`. The EMS door is
+`app/src/lib/ems/{types,gateway,adapters/rest,adapters/fieldOps,adapters/fieldOpsOps}.ts`, published to legacy as `sigma.ems`/`sigma.emsWrite`.
+
+**Edge functions** (`supabase/functions/`): `ems-auth`, `calendar`, `clockify`, `github`, `parse-daylog`, `parse-order`, `push-send`,
+`transcribe`, `backup-export` (key-guarded nightly export, called by the backup job, not the client), `field-ops` (Modbus read, round 5).
 
 `Field.tsx` also exports `VisitChapters` (the §7p visit-summary sheet, Task 32) and
 `openVisitChapters(kibbutz, opts)`, reachable from anywhere via the `window.sigmaVisitChapters`

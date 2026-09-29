@@ -96,7 +96,7 @@ test('transcribe unavailable (day log): the recording is held until it lands or 
   const box = page.getByTestId('daylog-text');
   await box.fill(TYPED);
 
-  await record(page, 'דבר', 'עצור הקלטה');
+  await record(page, 'דיבור', 'עצירה');
 
   const strip = page.getByTestId('transcribe-retry');
   await expect(strip).toBeVisible({ timeout: 10_000 });

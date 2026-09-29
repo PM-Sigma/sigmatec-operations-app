@@ -40,7 +40,9 @@
       // Full description in the field, per spec §4 ("no line-clamp") — the card widget
       // (app/src/components/home/EmsTasks.tsx) needs the whole text, not just the title.
       description: t.description || '',
-      linkType: (t.linkType || t.link_type || ''), linkCount: emsLinkIds(t).length
+      linkType: (t.linkType || t.link_type || ''), linkCount: emsLinkIds(t).length,
+      // Lifecycle stamps (H5, EMS_CACHE_VER 3): only the differ behind ems_apply_snapshot reads them.
+      createdAt: t.createdAt || t.created_at || '', updatedAt: t.updatedAt || t.updated_at || ''
     };
   }
   // A cached snapshot written by an older EMS_CACHE_VER is missing whatever shape change came
@@ -64,6 +66,7 @@
     const TAKE = 200;
     const open = [];
     let page = 1;
+    let complete = false;   // true only when the crawl reached its end (never on the page-cap stop)
     for (;;) {
       const params = new URLSearchParams({ page: page, take: TAKE });
       emsOpenStatuses().forEach(s => params.append('status', s));
@@ -73,7 +76,7 @@
       const total = (res.meta && (res.meta.total != null ? res.meta.total : res.meta.count));
       // stop on: empty page, short page (last page), reached total, or page cap. The short-page
       // check also guards APIs that omit meta.total and clamp page → repeating full pages.
-      if (batch.length < TAKE || (total != null && open.length >= total)) break;
+      if (batch.length < TAKE || (total != null && open.length >= total)) { complete = true; break; }
       if (page >= 20) { console.warn('[EMS] cache sync hit page cap (20) — snapshot may be truncated at', open.length, 'of', total); break; }
       page++;
     }
@@ -84,7 +87,7 @@
     // ponytail: last-writer-wins snapshot — a slow sync could overwrite a fresher one.
     // Self-heals on the next connect/sync. Upgrade path: send fetch-start ts, server keeps newer.
     await fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, ver: EMS_CACHE_VER, tasks: slim }) });
+      body: JSON.stringify({ type: 'emsCacheWrite', syncedBy: syncedBy, ver: EMS_CACHE_VER, tasks: slim, full: complete }) });
     if (window.SHEET_DATA) window.SHEET_DATA.emsCache = { tasks: slim, syncedAt: new Date().toISOString(), syncedBy: syncedBy, ver: EMS_CACHE_VER };
     emsBgStamp(Date.now());            // a sync from ANY path resets the background throttle
     if (typeof sigmaEmit === 'function') sigmaEmit('ems-cache-synced', { cached: slim.length });   // → React islands (bridge)

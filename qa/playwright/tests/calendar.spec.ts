@@ -57,6 +57,19 @@ async function openCalendar(page: Page): Promise<void> {
 }
 
 /**
+ * Tap a day cell, stepping to the next month first when the cell is not in the visible one.
+ * The mock fixture day is "the next Tuesday" (js/src/01-data.js), which on the last days of a
+ * month lies in the FOLLOWING month — a calendar-dependent flake, not a product bug.
+ */
+async function openDay(page: Page, day: string): Promise<void> {
+  const cell = page.locator(`[data-day="${day}"]`);
+  for (let i = 0; i < 2 && (await cell.count()) === 0; i++) {
+    await page.getByTestId('cal-next').click();
+  }
+  await cell.click();
+}
+
+/**
  * The day body that is actually ON SCREEN. Desktop renders it in the panel beside the grid
  * and the phone in the bottom sheet; BOTH roots exist in the DOM at 1440 px and at 390 px,
  * and only one of them is visible. Scoping every day assertion to the visible one is what
@@ -80,7 +93,7 @@ test('calendar: the island owns the screen and the legacy grid steps aside', asy
   await expect(page.locator('#calendarLegacy')).toBeHidden();
   await expect(page.locator('#calGrid')).toBeAttached();
 
-  await expect(page.getByRole('heading', { name: /יומן/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '🗓️ יומן' })).toBeVisible();
   await expect(page.getByTestId('cal-label')).toBeVisible();
   // שבוע / חודש / רשימה — all three live since Task 14.
   await expect(page.locator('[data-view="week"]')).toBeVisible();
@@ -277,7 +290,7 @@ test('calendar: a future day takes a kibbutz by SEARCH into its route (G4)', asy
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await openCalendar(page);
   const day = await calDay(page);
-  await page.locator(`[data-day="${day}"]`).click();
+  await openDay(page, day);
   const body = dayBody(page);
   await expect(body).toBeVisible();
   await expect(body).toHaveAttribute('data-when', 'future');
@@ -303,7 +316,7 @@ test('calendar: tapping a day opens it grouped by kibbutz, with the route header
   await openCalendar(page);
   const day = await calDay(page);
 
-  await page.locator(`[data-day="${day}"]`).click();
+  await openDay(page, day);
 
   const body = dayBody(page);
   await expect(body).toBeVisible();
@@ -324,7 +337,7 @@ test('calendar: a reorder is saved and comes back after a reload', async ({ page
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await openCalendar(page);
   const day = await calDay(page);
-  await page.locator(`[data-day="${day}"]`).click();
+  await openDay(page, day);
   await expect(dayBody(page)).toBeVisible();
 
   // Every change is optimistic on screen and written behind it; the write is what a reload
@@ -355,7 +368,7 @@ test('calendar: a reorder is saved and comes back after a reload', async ({ page
   // …and it STICKS: the harness keeps a real day_plans store, so a reload re-reads the row.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await openCalendar(page);
-  await page.locator(`[data-day="${day}"]`).click();
+  await openDay(page, day);
   await expect(dayBody(page).locator('[data-stop="דגניה"][data-header="first"]')).toBeVisible();
   await expect(dayBody(page).locator('[data-stop="גבת"][data-header="last"]')).toBeVisible();
 
@@ -374,7 +387,7 @@ test('calendar: ➕ → search a kibbutz → select tasks → the שבץ counts 
   }, day);
 
   // Round 2 · G1: the ➕ left the grid — a day is opened, and added to from inside.
-  await page.locator(`[data-day="${target}"]`).click();
+  await openDay(page, target);
   await dayBody(page).getByTestId('cal-day-add').click();
   await page.getByTestId('cal-add-schedule').click();
   await expect(page.getByTestId('cal-schedule')).toBeVisible();
@@ -504,7 +517,7 @@ test('calendar: the viewer reads it and cannot change it', async ({ page }, ti) 
   await expect(page.getByTestId('cal-grid')).toBeVisible();
   // No ➕ anywhere, and no reorder controls once a day is open.
   await expect(page.locator('.ucal-add')).toHaveCount(0);
-  await page.locator(`[data-day="${day}"]`).click();
+  await openDay(page, day);
   await expect(dayBody(page)).toBeVisible();
   await expect(page.locator('.ucal-arrow')).toHaveCount(0);
   await expect(page.locator('[data-place]')).toHaveCount(0);

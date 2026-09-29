@@ -54,7 +54,7 @@ export const EXIT = {
 };
 
 /** Must equal EMS_CACHE_VER in js/src/13-ems.js — pinned by test-ems-refresh.mjs. */
-export const EMS_CACHE_VER = 2;
+export const EMS_CACHE_VER = 3;
 /** The open statuses, i.e. EMS_STATUS minus EMS_CLOSED (js/src/14-calendar.js). Pinned too. */
 export const OPEN_STATUSES = ['new', 'in_progress', 'waiting_for_client', 'on_hold'];
 export const PAGE_SIZE = 200;
@@ -158,6 +158,7 @@ export function slimTask(t) {
     assignee: t.assignee ? { id: t.assignee.id, firstName: t.assignee.firstName, lastName: t.assignee.lastName } : null,
     description: t.description || '',
     linkType: (t.linkType || t.link_type || ''), linkCount: emsLinkIds(t).length,
+    createdAt: t.createdAt || t.created_at || '', updatedAt: t.updatedAt || t.updated_at || '',
   };
 }
 

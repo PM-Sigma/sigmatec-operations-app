@@ -262,6 +262,13 @@ function boot() {
       .then(m => m.mountFieldOps())
       .catch(e => warn('field ops island failed', e)));
   }
+  // סטטיסטיקת משימות EMS (H5) — same page-open trigger; עידן + עמיחי only (canShowPage('emsstats')).
+  const emsstatsView = document.getElementById('emsstats-view');
+  if (emsstatsView && document.getElementById('sigma-emsstats')) {
+    loadOnShow(emsstatsView, () => void import('@/islands/EmsStats')
+      .then(m => m.mountEmsStats())
+      .catch(e => warn('emsstats', e)));
+  }
   const calView = document.getElementById('calendar-view');
   if (calView && document.getElementById('sigma-calendar')) {
     loadOnShow(calView, () => void import('@/islands/Calendar')

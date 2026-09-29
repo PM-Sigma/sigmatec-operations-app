@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [docs] 2026-09-29 — wave 3: ops graph audit, modules map, round-5 decisions table
+Docs only. `docs/ops-graph/.graphify_detect.json` (the file list `rebuild.py` parses) had frozen at 388 code files and
+still named 23 deleted ones, so ~100 live files (Inventory*, FieldOps, DevBoard sheets, presenter/*, `field-ops`, `backup-export`,
+`github/gate.js`, ...) were not nodes. Refreshed to the tracked code (649 files; `ui/` build output excluded): 6,747 nodes / 17,724 edges.
+Nodes of deleted files stay tagged `planned`/`not_on_disk` by design (~250, e.g. `07-orders.js`). `docs/modules.md`: retired
+`06-products`/`07-orders`/`08-inventory`/`23-push-log`, added `00-guard`/`06-inventory`/`21-excel-export`/`22-push`, islands table and
+edge-function list rewritten. New `docs/superpowers/DECISIONS-round5.md`. INDEX Current state + backlog refreshed.
+Remember to add new files to the detect list (README) when a screen or function is added.
+
 ## 2.104–2.106 — 29.9 wave 1: home-card visit buttons (single lookup), meeting-note row actions (delete/move/task/EMS task), calendar absences for all staff (sick/other added in prod; attendance only for אביאם/ניתאי).
 
 ## [docs] 2026-09-29 — checkpoint for everything since 24.9 (rounds 5 + QA6, live for all staff)
