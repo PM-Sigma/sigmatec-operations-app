@@ -417,6 +417,11 @@
        page first opens. עידן + עמיחי only (canShowPage('emsstats')). -->
   <div id="sigma-emsstats"></div>
 </div>
+<!-- 📥 משיכת קריאות מתוכנות חיצונית — React island (app/src/islands/ReadingsPull.tsx), mounted by
+     app/src/lib/readingsWatch.ts when the page first opens (all staff, not the viewer). -->
+<div id="readings-view" style="display:none;padding:16px 0;">
+  <div id="sigma-readings"></div>
+</div>
 <!-- EMS Task Detail Modal (status change, comments, calendar) -->
 <div class="modal-backdrop" id="emsDetailModal" style="z-index:1150;">
   <div class="modal" onclick="event.stopPropagation()" style="max-width:560px;">
