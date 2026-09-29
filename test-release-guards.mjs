@@ -34,3 +34,11 @@ console.log('ok - sw.js parses');
 const ver = readFileSync(resolve(root, 'VERSION'), 'utf8').replace(/\r?\n$/, '');
 assert.ok(/^\d+\.\d+(\.\d+)?([-+][\w.]+)?$/.test(ver), `VERSION is not a single semver-ish line: ${JSON.stringify(ver.slice(0, 60))}`);
 console.log(`ok - VERSION = ${ver}`);
+
+// index.html hand-merges have silently dropped shell markup twice (loginModal/authGate/toast, then the Σ button).
+// ponytail: fixed list — add an entry whenever a merge loses a new piece of the shell.
+const html = readFileSync(resolve(root, 'index.html'), 'utf8');
+const must = ['id="loginModal"', 'id="authGate"', 'id="toast"', 'sigmaGoHome'];
+const lost = must.filter(s => !html.includes(s));
+assert.equal(lost.length, 0, 'index.html lost shell markup: ' + lost.join(', '));
+console.log(`ok - index.html keeps ${must.length} shell anchors`);

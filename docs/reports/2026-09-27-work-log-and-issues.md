@@ -54,3 +54,6 @@
 - d3ff6ab8 w2-h3h5: DayLog duplicate `tag` removed; kibbutz-detail ✕/Esc test waits for sheet (flake not reproduced — guess). H3/H5 SKIPPED — need עידן: H3 = presenter may edit kibbutz region/section? which roles (new write path + RLS). H5 = add opened-at stamp to EMS cache now, or defer?
 - r9/w2-sectionblock (733f15dd, pushed as branch, NOT on main): non-flush SectionBlock clipped ~16px (-mx-4 inside overflow-hidden) → classes moved onto the overflow div. Touches ~30 screens. Waiting עידן's phone check via githack preview.
 - Observed: 15 Playwright failures in full 360-light run (calendar, feedback-refine, product-names, settings, shell, transcribe-unavailable, upgrade-freeze, voice-ladder) — no baseline yet; next QA pass.
+- 29.9 prod: 3 test internal_tasks (לביא ×2, אפיק ×1, titles "בדיקה…") deleted; backup table internal_tasks_bak_test_29_9.
+- a84b6e1b w3-e2e: 15 Playwright failures triaged — stale locators (feedback/DayLog redesign), legacy inventory specs removed (covered by React specs), upgrade-freeze specs skipped (freeze lifted), calendar "next Tuesday" month-rollover helper. REAL BUG fixed: Σ home button dropped by the I-U index.html merge (2nd time).
+- Guard added: test-release-guards.mjs asserts index.html keeps loginModal/authGate/toast/sigmaGoHome (proven red→green).
