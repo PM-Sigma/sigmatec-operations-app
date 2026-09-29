@@ -863,3 +863,44 @@ test('calendar r5 · C4: an office event opens one detail sheet', async ({ page 
 
   expectNoConsoleErrors(rec);
 });
+
+test('calendar Q7-E: grid borders, weekday heads over their columns, nothing suggested on future days', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await openCalendar(page);
+  const r = await page.evaluate(() => {
+    const dows = Array.from(document.querySelectorAll('.ucal-dow')).map(e => e.getBoundingClientRect());
+    const week = document.querySelector('[data-week-row]')!;
+    const cells = Array.from(week.querySelectorAll('.ucal-cell')).map(e => e.getBoundingClientRect());
+    const btn = document.querySelector('.ucal-cell button') as HTMLElement;
+    const today = new Date().toISOString().slice(0, 10);
+    const futureBlocks = Array.from(document.querySelectorAll('.ucal-cell')).filter(c => (c as HTMLElement).dataset.day! > today && c.querySelector('button span.truncate:not([data-strip-kind])'));
+    return {
+      dows: dows.map(d => Math.round(d.left)), cells: cells.map(c => Math.round(c.left)),
+      border: getComputedStyle(btn).borderTopWidth, futureBlocks: futureBlocks.length,
+      align: getComputedStyle(document.querySelector('.ucal-dow')!).textAlign,
+    };
+  });
+  expect(r.border).toBe('1px');
+  expect(r.futureBlocks).toBe(0);
+  expect(['start', 'right']).toContain(r.align);
+  // each weekday head starts within 2px of its column (RTL: א is the right-most).
+  expect(r.dows.length).toBeGreaterThan(0);
+  const n = Math.min(r.dows.length, r.cells.length);
+  for (let i = 0; i < n; i++) expect(Math.abs(r.dows[i] - r.cells[i])).toBeLessThanOrEqual(2);
+  await qa6Shot(page, ti, 'q7e-grid');
+  expectNoConsoleErrors(rec);
+});
+
+test('calendar Q7-E: absence picker is locked to self for a non-admin', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  await openCalendar(page);
+  const day = await calDay(page);
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
+  await dayBody(page).getByTestId('cal-day-add').click();
+  await page.getByTestId('cal-add-absence').click();
+  await expect(page.getByTestId('cal-absence')).toBeVisible();
+  // everyone else: the picker is locked to themselves
+  await expect(page.getByTestId('cal-abs-person')).toBeDisabled();
+  await expect(page.getByTestId('cal-abs-person').locator('option')).toHaveCount(1);
+  expectNoConsoleErrors(rec);
+});

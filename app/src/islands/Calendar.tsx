@@ -301,6 +301,18 @@ function EventSheet({ event, onClose }: { event: OfficeEvent | null; onClose: ()
   );
 }
 
+/** Round 7 · Q7-E 11.4: one strip per absence kind on a day: "עידן - חופש" / "עידן, עמיחי - חופש". */
+function absenceStrips(items: CalItem[]): { kind: string; text: string }[] {
+  const by = new Map<string, string[]>();
+  for (const i of items) {
+    if (i.layer !== 'absence' || !i.kind) continue;
+    const names = by.get(i.kind) || [];
+    names.push(i.person || 'כל החברה');
+    by.set(i.kind, names);
+  }
+  return Array.from(by, ([kind, names]) => ({ kind, text: names.join(', ') + ' - ' + (kind === 'vacation' ? 'חופש' : (ABSENCE_LABELS as any)[kind]) }));
+}
+
 /**
  * Round 5 · C6/C7 — the grid on the design system: one `DayCell` per day, wrapped in a legacy-
  * compatible box (`data-date`/`data-day`/`.ucal-cell`) so the arrival/briefing bridges and the
@@ -324,7 +336,7 @@ function Grid({
   const labels = showWeekNumbers(mode, workWeek);
   return (
     <div
-      className={'ucal-grid' + (mode === 'week' ? ' ucal-grid-week' : '')}
+      className={'ucal-grid' + (mode === 'week' ? ' ucal-grid-week' : '') + (labels ? ' ucal-grid-labeled' : '')}
       data-testid="cal-grid"
       data-cols={cols}
       // Round 5 · C-U1: the DayCell grid shows a bare "•N" dot, not the old inline chip list —
@@ -350,7 +362,9 @@ function Grid({
                 missing: missing.has(c.date),
                 reported: false,
               });
-              const n = (index[c.date] || []).length;
+              const dayItems = index[c.date] || [];
+              const strips = absenceStrips(dayItems);
+              const n = dayItems.length - dayItems.filter(i => i.layer === 'absence').length;
               const fill: DayCellFill = look.state === 'field' ? 'field' : look.state === 'holiday' ? 'holiday' : 'none';
               return (
                 <div
@@ -371,6 +385,7 @@ function Grid({
                     missing={look.state === 'missing'}
                     eventCount={n || undefined}
                     blocks={blocksByDate[c.date]}
+                    strips={strips}
                     compact={cols > 5}
                     outside={!c.inMonth}
                     label={look.label}
@@ -772,8 +787,9 @@ function DayBody({
  * preselected").
  */
 function ScheduleSheet({
-  date, open, onClose, onScheduled, preTask,
+  date, open, onClose, onScheduled, preTask, onAbsence,
 }: {
+  onAbsence?: (d: string) => void;
   date: string; open: boolean; onClose: () => void;
   onScheduled: (plan: ReturnType<typeof scheduleTasksPlan>) => void;
   preTask?: CalEmsTask | null;
@@ -823,6 +839,11 @@ function ScheduleSheet({
               : 'בוחרים יום למשימה, והתאריך ב-EMS מתעדכן.'}
           </SheetDescription>
         </SheetHeader>
+        {onAbsence ? (
+          <button type="button" className="ucal-mini mt-2" data-testid="cal-schedule-absence" onClick={() => onAbsence(date || when)}>
+            🌴 הוספת היעדרות
+          </button>
+        ) : null}
         {/* Opened from a רשימה row there is no day yet, so the day is the first thing asked. */}
         {!date ? (
           <label className="mt-3 block text-[12.5px] font-semibold">
@@ -1347,8 +1368,9 @@ function AbsenceSheet({
 
 /** The ➕ menu on a day: three doors, no page jump. */
 function AddSheet({
-  date, open, onClose, onSchedule, onAbsence, onNewTask,
+  date, open, onClose, onSchedule, onAbsence, onNewTask, canPlan,
 }: {
+  canPlan: boolean;
   date: string; open: boolean; onClose: () => void;
   onSchedule: () => void; onAbsence: () => void; onNewTask: () => void;
 }) {
@@ -1360,12 +1382,16 @@ function AddSheet({
           <SheetDescription className="text-[12.5px]">מה מוסיפים ליום הזה?</SheetDescription>
         </SheetHeader>
         <div className="mt-3 grid gap-2">
-          <button type="button" className="ucal-row" data-testid="cal-add-schedule" onClick={onSchedule}>
-            📋 שיבוץ משימות EMS
-          </button>
-          <button type="button" className="ucal-row" data-testid="cal-add-task" onClick={onNewTask}>
-            ➕ משימה חדשה
-          </button>
+          {canPlan ? (
+            <>
+              <button type="button" className="ucal-row" data-testid="cal-add-schedule" onClick={onSchedule}>
+                📋 שיבוץ משימות EMS
+              </button>
+              <button type="button" className="ucal-row" data-testid="cal-add-task" onClick={onNewTask}>
+                ➕ משימה חדשה
+              </button>
+            </>
+          ) : null}
           <button type="button" className="ucal-row" data-testid="cal-add-absence" onClick={onAbsence}>
             🌴 הוספת היעדרות
           </button>
@@ -1593,27 +1619,12 @@ function CalendarIsland() {
     stops: order,
   }), [openDate, today, owners.join('|'), internalTasks.data, order.join('|'), tick]);
 
-  // ── future-day kibbutz blocks in the grid (round 5 · C-U designer fix, 25.9) ────────────
-  // Same `owners`/`planBlocks` as the day panel above (C1/C2) — every FUTURE day in view gets
-  // its own block set so the cell can name the kibbutz instead of a bare "•N" dot. No plan is
-  // fetched per grid day (that query only runs for the OPEN day), so `stops` is `[]` here: a
-  // future day with nothing placed yet still shows every open task's kibbutz, unplaced.
-  const blocksByDate = React.useMemo(() => {
-    const emsTasks = (() => { try { return (sigma.emsCacheData?.()?.tasks || []) as CalEmsTask[]; } catch { return []; } })();
-    const out: Record<string, KibbutzBlock[]> = {};
-    for (const w of weeks) for (const c of w.days) {
-      if (c.date <= today) continue;                                  // future days only
-      const bs = planBlocks({
-        date: c.date, today, owners, emsTasks,
-        internalTasks: (internalTasks.data || []) as CalInternalTask[], stops: [],
-      });
-      if (bs.length) out[c.date] = bs;
-    }
-    return out;
-  }, [weeks.map(w => w.days.map(c => c.date).join(',')).join('|'), today, owners.join('|'), internalTasks.data, tick]);
+  // Round 7 · Q7-E 11.1: future days in the grid show NOTHING suggested (no per-kibbutz task
+  // blocks); only what is actually scheduled (the `index` count) appears. Suggestions live in
+  // the day sheet only.
 
   // ── past-day visit-report chips in the grid (עידן's phone QA 4.2, 27.9) ────────────────────
-  // `blocksByDate` above is future-only (planning); a past/today day that WAS visited gets no
+  // Past/today only (nothing is suggested on the future grid); a past/today day that WAS visited gets no
   // chip at all otherwise — the month's "which kibbutz was visited on which day" never showed
   // in חודש עבודה. Same `KibbutzBlock`-shaped cell, built from the filed visit rows instead of
   // an open task list (no tasks to preview, so `placed`/`tasks` are just filler for the type).
@@ -1632,10 +1643,7 @@ function CalendarIsland() {
     return out;
   }, [weeks.map(w => w.days.map(c => c.date).join(',')).join('|'), today, visits]);
 
-  const gridBlocksByDate = React.useMemo(
-    () => ({ ...visitsByDate, ...blocksByDate }),
-    [visitsByDate, blocksByDate],
-  );
+  const gridBlocksByDate = visitsByDate;
 
   const pick = useMutation({
     mutationFn: async (p: BlockPick) => ({ p, res: await applyBlockPick(p, person, openDate, due, planGuard) }),
@@ -1906,7 +1914,7 @@ function CalendarIsland() {
                 onBriefing={openBriefing}
                 onCheckin={k => { if (!openVisitChapters(k)) sigma.openVisitQuick?.(k); }}
                 onAdd={d => setAddDay(d)}
-                canAdd={canPlan}
+                canAdd={can.canAdd}
                 visits={visits}
                 kibbutzim={kibbutzNames}
                 blocks={blocks}
@@ -1974,6 +1982,7 @@ function CalendarIsland() {
       />
 
       <AddSheet
+        canPlan={canPlan}
         date={addDay}
         open={!!addDay}
         onClose={() => setAddDay('')}
@@ -1998,6 +2007,7 @@ function CalendarIsland() {
         preTask={scheduleTask}
         onClose={() => { setScheduleDay(''); setScheduleTask(null); }}
         onScheduled={p => schedule.mutate(p)}
+        onAbsence={d => { setScheduleDay(''); setScheduleTask(null); setAbsenceDay(d || today); }}
       />
       <AbsenceSheet
         date={absenceDay}
