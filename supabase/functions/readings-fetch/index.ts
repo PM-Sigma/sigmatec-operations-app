@@ -7,7 +7,7 @@
 import { verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 import { appOrigin, cors, json, timingSafeEqual } from "../_shared/http.ts";
 import { canUseReadings } from "../_shared/readingsRoster.js";
-import { datasense, type DsQuery, type Reading, ReadingsError, speednet } from "./adapters.ts";
+import { datasense, type DsQuery, type Reading, ReadingsError, speednet, speednetViaBrowser } from "./adapters.ts";
 
 const SPEEDNET_SITE_ID = "28";
 const DS_QUERIES: DsQuery[] = [
@@ -38,7 +38,9 @@ Deno.serve(async (req) => {
   // ---- auth ----
   const secret = Deno.env.get("CRON_SECRET");
   const cronKey = req.headers.get("x-cron-key");
-  const byCron = !!secret && !!cronKey && timingSafeEqual(cronKey, secret);
+  // ponytail: READINGS_PROBE_KEY = a one-time key for the Phase 0 probe; unset it after the check.
+  const probeKey = Deno.env.get("READINGS_PROBE_KEY");
+  const byCron = !!cronKey && ((!!secret && timingSafeEqual(cronKey, secret)) || (!!probeKey && timingSafeEqual(cronKey, probeKey)));
   if (!byCron) {
     const jwtSecret = Deno.env.get("JWT_SECRET") || Deno.env.get("EMS_BRIDGE_SECRET") || "";
     const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
@@ -61,11 +63,12 @@ Deno.serve(async (req) => {
   const env = (n: string) => Deno.env.get(n) || "";
   const need = ["HULDA_SPEEDNET_USER", "HULDA_SPEEDNET_PASS", "HULDA_DATASENSE_USER", "HULDA_DATASENSE_PASS", "BROWSERLESS_TOKEN"];
   const missing = need.filter((n) => !env(n));
-  const noSn = missing.some((m) => m.startsWith("HULDA_SPEEDNET"));
+  const noSn = missing.some((m) => m.startsWith("HULDA_SPEEDNET") || m === "BROWSERLESS_TOKEN");
   const noDs = missing.some((m) => m.startsWith("HULDA_DATASENSE") || m === "BROWSERLESS_TOKEN");
 
   const [sn, ds] = await Promise.allSettled([
-    noSn ? Promise.resolve(null) : timed(() => speednet(env("HULDA_SPEEDNET_USER"), env("HULDA_SPEEDNET_PASS"), SPEEDNET_SITE_ID, date)),
+    noSn ? Promise.resolve(null) : timed(() => (body.snDirect ? speednet(env("HULDA_SPEEDNET_USER"), env("HULDA_SPEEDNET_PASS"), SPEEDNET_SITE_ID, date)
+      : speednetViaBrowser(env("HULDA_SPEEDNET_USER"), env("HULDA_SPEEDNET_PASS"), SPEEDNET_SITE_ID, date, env("BROWSERLESS_TOKEN")))),
     noDs ? Promise.resolve(null) : timed(() => datasense(env("HULDA_DATASENSE_USER"), env("HULDA_DATASENSE_PASS"), DS_QUERIES, date, env("BROWSERLESS_TOKEN"))),
   ]);
   const fail: { v?: undefined; err?: Err; ms: number } = { err: { code: "DOWN", message: "unexpected error" }, ms: 0 };

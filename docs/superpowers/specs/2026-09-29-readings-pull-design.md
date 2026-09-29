@@ -1,4 +1,4 @@
-**STATUS: 🟡 OPEN — NOT built.** Phase 0 (feasibility probe) in progress. Resume: this file + the source spec in `Kibbutzim/חולדה/תוצרים/2026-09-29 — אפיון שאיבת קריאות יומית ל-Sigmatec Ops/`. Branch `feat/readings-pull`; merges are done by the "Sigmatec Ops — MAIN" session only.
+**STATUS: 🟡 OPEN — NOT built.** **Phase 0 ✅ PASSED 29.9** (197 + 51 + 5 for 28.9; also 31.8, 27.9 — raw fixtures in `supabase/functions/readings-fetch/fixtures/`). ⚠ Sucuri 403s Supabase AND Browserless datacenter IPs → SpeedNet runs inside Browserless with `&proxy=residential&proxyCountry=il` (~17 s). Next: Phase 1. Resume: this file + the source spec in `Kibbutzim/חולדה/תוצרים/2026-09-29 — אפיון שאיבת קריאות יומית ל-Sigmatec Ops/`. Branch `feat/readings-pull`; merges are done by the "Sigmatec Ops — MAIN" session only.
 
 # Plan: "משיכת קריאות מתוכנות חיצונית" (חולדה, stage 1), v2
 

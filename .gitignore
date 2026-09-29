@@ -48,3 +48,4 @@ js/app.js.map
 
 # graphify AST cache — must never be committed (holds absolute local paths)
 /graphify-out/
+supabase/functions/readings-fetch/fixtures/

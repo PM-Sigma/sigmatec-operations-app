@@ -76,7 +76,7 @@ async function snLogin(user: string, pass: string): Promise<Jar> {
   const t = decode(await r.arrayBuffer());
   if (!/name="MG_UserID"\s*>\s*(\d+)/.test(t)) {
     if (t.includes("Invalid User ID")) throw new ReadingsError("AUTH", "SpeedNet: bad user/password");
-    throw new ReadingsError("CHANGED", "SpeedNet: sites page not returned");
+    throw new ReadingsError("CHANGED", "SpeedNet: sites page not returned (HTTP " + r.status + ": " + t.replace(/\s+/g, " ").slice(0, 160) + ")");
   }
   return jar;
 }
@@ -229,9 +229,11 @@ export async function datasense(
   if (!res.ok) { await res.body?.cancel(); throw new ReadingsError("DOWN", "Browserless HTTP " + res.status); }
   // deno-lint-ignore no-explicit-any
   let j: any;
-  try { j = await res.json(); } catch { throw new ReadingsError("CHANGED", "Browserless returned non-JSON"); }
+  const txt = await res.text();
+  try { j = JSON.parse(txt); } catch { throw new ReadingsError("CHANGED", "Browserless returned non-JSON: " + txt.slice(0, 200)); }
+  if (j && j.data && typeof j.data === "object") j = j.data; // Browserless wraps the returned {data}
   if (j?.error === "login") throw new ReadingsError("AUTH", "DataSense: login failed 3 times (bad user/password or site down)");
-  if (!Array.isArray(j?.results)) throw new ReadingsError("CHANGED", "Browserless: unexpected response shape");
+  if (!Array.isArray(j?.results)) throw new ReadingsError("CHANGED", "Browserless: unexpected response shape: " + txt.replace(/"(user|pass)":"[^"]*"/g, "").slice(0, 300));
   return queries.map((q, i) => {
     const r = j.results[i];
     if (!r || r.status !== 200) throw new ReadingsError(r?.status === "parse" ? "CHANGED" : "DOWN", `DataSense query "${q.name}" failed (${r?.status})`);
@@ -249,4 +251,75 @@ export async function datasense(
       return rec;
     });
   });
+}
+
+// ---------- SpeedNet through Browserless ----------
+// Sucuri answers 403 to Supabase's egress IPs (Phase 0, 29.9), so the same HTTP flow runs from
+// inside a Browserless page on myspeednet.net. Returns the fresh CSV text (or an error tag).
+const SN_BROWSER_CODE = `export default async function ({ page, context }) {
+  const { user, pass, siteId, want, days } = context;
+  await page.goto('https://www.myspeednet.net/', { waitUntil: 'networkidle2', timeout: 60000 });
+  await new Promise(r => setTimeout(r, 4000)); // Sucuri JS challenge reloads the page once
+  try { await page.waitForNetworkIdle({ idleTime: 1000, timeout: 15000 }); } catch (e) {}
+  const out = await page.evaluate(async ({ user, pass, siteId, want, days }) => {
+    const SN = '/Scripts9/mgrqispi94.dll';
+    const post = async (o) => { const r = await fetch(SN, { method: 'POST', body: new URLSearchParams(o) }); return [r.status, await r.text()]; };
+    const [ls, lt] = await post({ AppName: 'MySpeedNet', PrgName: 'login', Arguments: 'ID,pws,type,ipaddress', ID: user, pws: pass, type: 'W', ipaddress: '' });
+    if (!lt.includes('MG_UserID')) return { error: lt.includes('Invalid User ID') ? 'auth' : 'changed:' + ls };
+    let text = '';
+    for (let a = 0; a < 6; a++) {
+      const [es, et] = await post({ APPNAME: 'MySpeedNet', PrgName: 'meterReading', Arguments: 'SiteID,FromDate,ToDate,ExportDate,Button',
+        SiteID: siteId, FromDate: days.from[a], ToDate: days.to, ExportDate: days.to, Button: 'E' });
+      const ui = et.toLowerCase().indexOf('url=');
+      if (ui < 0) return { error: 'changed:export ' + es };
+      let href = ''; for (const ch of et.slice(ui + 4)) { if (ch === '"' || ch === "'" || ch === '>' || ch.trim() === '') break; href += ch; }
+      await new Promise(r => setTimeout(r, 2000 + 3000 * a));
+      const u = new URL(href, location.origin + SN); u.searchParams.set('nocache', String(Date.now()));
+      text = await (await fetch(u, { headers: { 'Cache-Control': 'no-cache' } })).text();
+      const dates = text.split(String.fromCharCode(10)).map(l => l.split(',')).filter(c => c.length > 4).map(c => c[2].trim());
+      if (dates.length && dates.filter(x => want.includes(x)).length > dates.length / 2) return { csv: text };
+    }
+    return { error: 'stale' };
+  }, { user, pass, siteId, want, days });
+  return { data: out, type: 'application/json' };
+}`;
+
+export async function speednetViaBrowser(user: string, pass: string, siteId: string, day: string, browserlessToken: string): Promise<Reading[]> {
+  const base = Deno.env.get("BROWSERLESS_URL") || "https://production-sfo.browserless.io";
+  const d = ymd(day), nxt = addDays(d, 1);
+  const salt = Math.floor(Date.now() / 1000) % 7;
+  const days = { to: us(nxt), from: [0, 1, 2, 3, 4, 5].map((a) => us(addDays(nxt, -(31 + a + salt)))) };
+  const ac = new AbortController();
+  const id = setTimeout(() => ac.abort(), 130000);
+  let res: Response;
+  try {
+    res = await fetch(`${base}/function?token=${encodeURIComponent(browserlessToken)}${Deno.env.get("SN_PROXY") ?? "&proxy=residential&proxyCountry=il"}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: ac.signal,
+      body: JSON.stringify({ code: SN_BROWSER_CODE, context: { user, pass, siteId, want: [dmy(d), dmy(nxt)], days } }),
+    });
+  } catch { throw new ReadingsError("DOWN", "Browserless unreachable (SpeedNet)"); }
+  finally { clearTimeout(id); }
+  if ([401, 402, 403, 429].includes(res.status)) throw new ReadingsError("QUOTA", "Browserless rejected the request (HTTP " + res.status + ")");
+  const txt = await res.text();
+  // deno-lint-ignore no-explicit-any
+  let j: any;
+  try { j = JSON.parse(txt); } catch { throw new ReadingsError("CHANGED", "Browserless (SpeedNet) non-JSON: " + txt.slice(0, 200)); }
+  if (j?.data && typeof j.data === "object") j = j.data;
+  if (j?.error === "auth") throw new ReadingsError("AUTH", "SpeedNet: bad user/password");
+  if (j?.error === "stale") throw new ReadingsError("STALE", "SpeedNet export never became fresh for " + day);
+  if (typeof j?.csv !== "string") throw new ReadingsError("CHANGED", "SpeedNet via browser: " + String(j?.error || txt.slice(0, 200)));
+  return parseSpeednetCsv(j.csv);
+}
+
+export function parseSpeednetCsv(text: string): Reading[] {
+  const band: Record<string, "ft" | "f1" | "f2" | "f3"> = { T: "ft", T1: "f3", T2: "f2", T3: "f1" };
+  const out = new Map<string, Reading>();
+  for (const raw of parseCsv(text)) {
+    const row = raw.map((c) => c.trim());
+    if (row.length < 5 || !(row[4] in band)) continue;
+    let rec = out.get(row[0]);
+    if (!rec) { rec = { meter: row[0], when: row[2] + " " + row[3], expect: ["f1", "f2", "f3"] }; out.set(row[0], rec); }
+    rec[band[row[4]]] = num(row[1]);
+  }
+  return [...out.values()];
 }

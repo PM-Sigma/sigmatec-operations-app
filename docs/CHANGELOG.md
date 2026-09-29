@@ -41,6 +41,9 @@ Public repo: no secrets, no real IPs, no row data. Detail per item: `docs/superp
 - **Cleanup:** the dead null-guarded `#visitFab` code in `js/src/02-init-attendance.js` is removed.
 - **Process:** `docs/superpowers/WORKING-METHOD.md` (binding from 29.9) and a "Working method" section in `CLAUDE.md`.
 
+## [feat/readings-pull] 2026-09-29 — Phase 0: `readings-fetch` probe (not merged)
+Edge Function `readings-fetch` (mode `probe`, roster עידן/עמיחי/מתניה or cron key) deployed to Supabase and verified: 28.9 → SpeedNet 197, DataSense 51 + 5 (also 31.8, 27.9). Why: feasibility gate for the external-readings feature (spec `docs/superpowers/specs/2026-09-29-readings-pull-design.md`). Finding: Sucuri blocks Supabase and Browserless datacenter IPs, so SpeedNet also runs through Browserless with an Israeli residential proxy. Samples match the reference script exactly (1503007, 7010384).
+
 ## [docs] 2026-09-23 — 🗺️ OPS GRAPH: queryable knowledge graph of the whole app (`docs/ops-graph/`)
 Docs/tooling only — no app code, no version bump. A graphify knowledge graph over 446 files at 2.23
 (`js/src`, `app/src`, `supabase/functions`, `db/`, tests, specs, docs): **4,714 nodes / 12,523 edges /
