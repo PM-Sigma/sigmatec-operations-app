@@ -119,28 +119,30 @@
 .dark .sigma-root,
 .dark [data-sigma-portal] {
   /* bg/text exactly to spec §2 (#0E1316 / #E6EDF2 / text-2 #A3B1BD — 7.9:1 on bg). */
-  --background: 203 22% 7%;
-  --foreground: 205 32% 93%;
-  --card: 207 20% 11%;
-  --card-foreground: 205 32% 93%;
-  --popover: 207 20% 11%;
-  --popover-foreground: 205 32% 93%;
+  --background: 197 39% 7%;
+  --foreground: 198 39% 94%;
+  --card: 200 33% 11%;
+  --card-foreground: 198 39% 94%;
+  --popover: 200 33% 11%;
+  --popover-foreground: 198 39% 94%;
   --primary: 178 94% 41%;
   /* Same on-brand ink as light — the brand fill itself doesn't flip between themes (spec §2),
      so the text on it doesn't either. */
   --primary-foreground: 182 76% 10%;
-  --secondary: 206 19% 14%;
-  --secondary-foreground: 205 32% 93%;
-  --muted: 206 19% 14%;
-  --muted-foreground: 208 16% 69%;
+  --secondary: 201 32% 14%;
+  --secondary-foreground: 198 39% 94%;
+  --muted: 201 32% 14%;
+  --muted-foreground: 203 22% 74%;
   --accent: 178 94% 41%;
   --accent-foreground: 182 76% 10%;
-  /* Kept at the original (not the spec's #F87171 text-ink) — #F87171 is tuned as TEXT on a
-     dark surface (5.8:1), not as a solid fill under WHITE button text, which only clears 2.77:1. */
-  --destructive: 0 62% 47%;
-  --destructive-foreground: 208 35% 93%;
-  --border: 207 19% 18%;
-  --input: 207 19% 18%;
+  /* Q7-D 8.2: ONE role, two jobs (text-destructive on the dark card AND bg-destructive under
+     text-destructive-foreground). The old mid red (#c22e2e) gave 3.0:1 as text on the card — the
+     "ביקור אחרון" date and every error hint failed AA. A light red fill with a DARK foreground
+     clears both jobs: 5.8:1 as text, ~6:1 as a fill under #2B0A0A. */
+  --destructive: 0 84% 69%;
+  --destructive-foreground: 0 62% 10%;
+  --border: 201 26% 22%;
+  --input: 202 15% 43%;
   --ring: 178 94% 41%;
   --sigma-warn: #f0b24a;
   --sigma-warn-ink: #f0b24a;
