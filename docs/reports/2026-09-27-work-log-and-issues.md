@@ -51,3 +51,6 @@
   PROD 29.9: `db/calendar_absences_sick_other.sql` applied via `supabase db query --linked` (MCP down). Backup `calendar_absences_bak_r9` (table had 0 rows). Constraint verified. Rollback in the file.
 - Open: build warning duplicate `tag` key in app/src/islands/DayLog.tsx:559/561; one flaky kibbutz-detail Playwright test (passes alone); untested missing-enum error path (moot — enum applied).
 - 48ab796f w2-voice-ltr: recorder mono 24 kbps + echo/noise suppression (upload ~5.4x smaller; end-to-end not measured); inventory certs values wrapped in <bdi>, qty inputs dir=ltr (no visual check at 360).
+- d3ff6ab8 w2-h3h5: DayLog duplicate `tag` removed; kibbutz-detail ✕/Esc test waits for sheet (flake not reproduced — guess). H3/H5 SKIPPED — need עידן: H3 = presenter may edit kibbutz region/section? which roles (new write path + RLS). H5 = add opened-at stamp to EMS cache now, or defer?
+- r9/w2-sectionblock (733f15dd, pushed as branch, NOT on main): non-flush SectionBlock clipped ~16px (-mx-4 inside overflow-hidden) → classes moved onto the overflow div. Touches ~30 screens. Waiting עידן's phone check via githack preview.
+- Observed: 15 Playwright failures in full 360-light run (calendar, feedback-refine, product-names, settings, shell, transcribe-unavailable, upgrade-freeze, voice-ladder) — no baseline yet; next QA pass.
