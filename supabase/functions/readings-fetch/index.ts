@@ -5,7 +5,7 @@
 //   claim is in READINGS_USERS. Secrets: HULDA_SPEEDNET_USER/PASS, HULDA_DATASENSE_USER/PASS,
 //   BROWSERLESS_TOKEN (+ optional BROWSERLESS_URL), JWT_SECRET / EMS_BRIDGE_SECRET.
 import { verify } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
-import { appOrigin, cors, json } from "../_shared/http.ts";
+import { appOrigin, cors, json, timingSafeEqual } from "../_shared/http.ts";
 import { canUseReadings } from "../_shared/readingsRoster.js";
 import { datasense, type DsQuery, type Reading, ReadingsError, speednet } from "./adapters.ts";
 
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   // ---- auth ----
   const secret = Deno.env.get("CRON_SECRET");
   const cronKey = req.headers.get("x-cron-key");
-  const byCron = !!secret && !!cronKey && cronKey === secret;
+  const byCron = !!secret && !!cronKey && timingSafeEqual(cronKey, secret);
   if (!byCron) {
     const jwtSecret = Deno.env.get("JWT_SECRET") || Deno.env.get("EMS_BRIDGE_SECRET") || "";
     const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
