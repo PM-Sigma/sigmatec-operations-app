@@ -13,8 +13,8 @@ Live DB, 9 roles (anon, viewer, אביאם, ניתאי, מתניה, אבצן, א
 | F5 | Medium | `usage_report` / `feedback_admin_update` trusted the client's actor name | ✅ identity from JWT claim |
 | F6 | Low | `apply_absence` callable by anon/viewer | ✅ revoked (trigger is DEFINER) |
 | F7 | Medium | direct delete on `products` / `kibbutzim` by any staff | ✅ revoked (DEFINER RPC keeps working) |
-| F8 | Low | viewer sees Save/⋯ in the inventory product sheet (DB refuses) | 🟡 app fix in progress |
-| F9 | Low | פיתוח/סטטיסטיקה reachable for עמיחי/מתניה/אליה by canShowPage but missing from ⋯ | 🟡 app fix in progress |
+| F8 | Low | viewer sees Save/⋯ in the inventory product sheet (DB refuses) | ✅ fixed 29.9 (150927aa) |
+| F9 | Low | פיתוח/סטטיסטיקה reachable for עמיחי/מתניה/אליה by canShowPage but missing from ⋯ | ✅ fixed 29.9 (150927aa) |
 
 Fix: `db/fix_role_audit_29_9.sql` (ROLLBACK inside). Post-apply check: anon backup read denied, anon push denied,
 staff absence insert OK, staff usage_report spoof denied.
