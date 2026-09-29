@@ -1,0 +1,31 @@
+{
+ "axe": 2,
+ "custom": 1,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".text-destructive > span",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   },
+   {
+    "sel": ".text-destructive > span > bdi",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   }
+  ],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "textarea.flex.resize-none",
+    "text": "מה קרה / מה היה עוזר לך?",
+    "ratio": 1.37,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#0e1316"
+   }
+  ]
+ }
+}
