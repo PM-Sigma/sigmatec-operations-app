@@ -54,6 +54,7 @@ const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; grou
   { page: 'fieldops', label: 'פעולות שטח', icon: MapPin },
   { page: 'pushlog', label: 'התראות', icon: Bell, group: 'admin' },
   { page: 'dev', label: 'פיתוח', icon: Code2, group: 'admin' },
+  { page: 'emsstats', label: 'סטטיסטיקה', icon: TrendingUp, group: 'admin' },
 ];
 
 function Badge({ n }: { n: number }) {

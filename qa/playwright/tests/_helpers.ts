@@ -658,6 +658,13 @@ export async function installRoutes(page: Page, opts: { checkins?: boolean; inve
       // a ✅ נצרב is a PATCH, which the write branch above 401s like every other write.
       case 'meter_burns': return route.fulfill(json(shape(FIXTURES.burns, accept)));
       case 'generators': return route.fulfill(json(shape(FIXTURES.generators, accept)));
+      // EMS task lifecycle (H5). Honour offset/limit like PostgREST: 1000 rows max.
+      case 'ems_task_state': {
+        const sp = new URL(url).searchParams;   // supabase-js .range() sends offset+limit
+        const off = Number(sp.get('offset') || '0') || 0, lim = Number(sp.get('limit') || '1000') || 1000;
+        const rows = FIXTURES.emsTaskState.slice(off, off + Math.min(lim, 1000));
+        return route.fulfill(json(shape(rows, accept)));
+      }
       // 🔔 יומן התראות (G-U3) — 250 fixture rows, `limit` honoured like real PostgREST so the
       // 200-row cap the page relies on has something real to prove against.
       case 'push_log': {
