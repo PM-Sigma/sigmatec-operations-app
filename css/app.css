@@ -1321,6 +1321,8 @@ input, select, textarea {
   background: var(--brand-grad); color: var(--on-brand);
   font-size: 20px; font-weight: 800; line-height: 1;
   box-shadow: 0 4px 12px rgba(6, 194, 203, .35);
+  /* Σ is a <button> (the home button) — reset the native chrome so it looks like the old span. */
+  border: 0; padding: 0; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent;
 }
 .brand-name { letter-spacing: -0.2px; display: block; }
 

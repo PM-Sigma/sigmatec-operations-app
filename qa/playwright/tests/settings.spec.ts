@@ -140,7 +140,7 @@ test('settings: "רעיון או באג" opens the feedback sheet', async ({ pag
   await dlg.getByText('רעיון או באג').click();
   // "רעיונות" (plural) does not literally contain "רעיון" — a final-nun (ן) vs. a medial
   // one (נ) are different characters — so the dialog is matched by "תיבת" instead.
-  await expect(page.getByRole('dialog', { name: /תיבת/ })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'רעיון או באג' })).toBeVisible();
   expectNoConsoleErrors(rec);
 });
 
