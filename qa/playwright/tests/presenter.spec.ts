@@ -442,7 +442,7 @@ test('presenter: a viewer is never offered the screen', async ({ page }, ti) => 
   await expectNoConsoleErrors(rec);
 });
 
-test('presenter: section is editable via the pencil next to the name for עידן — picker, save, undo toast; region stays read-only', async ({ page }, ti) => {
+test('presenter: section is editable via the category chip for עידן — picker, save, undo toast; region stays read-only', async ({ page }, ti) => {
   const { rec } = await boot(page, ti);
   const calls: any[] = [];
   await page.route('**/rest/v1/rpc/set_kibbutz_section', async route => {
@@ -452,7 +452,10 @@ test('presenter: section is editable via the pencil next to the name for עיד�
   await openPresenter(page);
 
   await expect(page.getByTestId('presenter-region-chip')).toHaveCount(0);   // chips are read-only
-  await page.getByTestId('presenter-section-edit').click();
+  const chipBtn = page.getByTestId('presenter-section-edit');
+  await expect(chipBtn).toHaveAttribute('aria-label', 'שינוי קטגוריה');
+  expect((await chipBtn.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await chipBtn.click();
   const picker = page.getByTestId('presenter-section-picker');
   await expect(picker).toBeVisible();
   await expect(picker.getByTestId('presenter-region-option')).toHaveCount(0);
@@ -472,7 +475,7 @@ test('presenter: section is editable via the pencil next to the name for עיד�
   await expectNoConsoleErrors(rec);
 });
 
-test('presenter: another admin sees no section pencil', async ({ page }, ti) => {
+test('presenter: another admin sees no category button', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await page.waitForSelector('#sigma-presenter', { state: 'attached' });
   await page.evaluate(() => (window as any).sigmaOpenPresenter?.());
