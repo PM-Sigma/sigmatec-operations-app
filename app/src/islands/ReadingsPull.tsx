@@ -112,13 +112,17 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
     catch (e) { toast.error(errText(e)); }
     finally { setRetrying(null); onChanged(); }
   };
+  // optimistic: the box flips at once, the server's answer (refetch) is the truth afterwards
+  const [opt, setOpt] = React.useState<boolean | null>(null);
+  React.useEffect(() => { setOpt(null); }, [run.id, run.uploaded]);
   const setUploaded = async (v: boolean) => {
-    try { await markUploaded(run.id, v); } catch (e) { toast.error(errText(e)); }
+    setOpt(v);
+    try { await markUploaded(run.id, v); } catch (e) { setOpt(null); toast.error(errText(e)); }
     onChanged();
   };
 
   return (
-    <div className="flex flex-col gap-3" data-testid="readings-latest">
+    <div className="flex flex-col gap-3 px-4" data-testid="readings-latest">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <span className="text-[length:var(--fs-body)] font-bold"><bdi>{dmIL(run.reading_date)}</bdi></span>
         <Tag role="neutral">{run.trigger === 'cron' ? 'אוטומטית' : 'ידנית'}</Tag>
@@ -189,7 +193,7 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
 
       <label className="flex min-h-11 items-center gap-3 text-[length:var(--fs-body)]">
         <input type="checkbox" data-testid="readings-uploaded" className="h-5 w-5 accent-[var(--sigma-ink)]"
-          checked={!!run.uploaded} onChange={e => void setUploaded(e.target.checked)} />
+          checked={opt ?? !!run.uploaded} onChange={e => void setUploaded(e.target.checked)} />
         <span className="min-w-0">
           <span className="font-semibold">הועלה ל-EMS ✓</span>
           {run.uploaded && (
@@ -246,7 +250,7 @@ function ManualRun({ site, runs, onStarted }: { site: ReadingSite; runs: Reading
   };
 
   return (
-    <div className="flex flex-col gap-3" data-testid="readings-manual">
+    <div className="flex flex-col gap-3 px-4" data-testid="readings-manual">
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-[length:var(--fs-body-sm)] font-semibold">
           תאריך הקריאות
@@ -410,7 +414,7 @@ function ReadingsInner() {
 
   return (
     <div className="flex flex-col gap-3 p-2 pb-24" data-testid="readings-page">
-      <PageActionRow title={TITLE} onBack={back}
+      <PageActionRow title={TITLE} titleLines={2} onBack={back}
         actions={
           <BubbleButton variant="icon" size="sm" aria-label="רענון" onClick={refresh} disabled={runsQ.isFetching}>
             <RefreshCw className={runsQ.isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
@@ -438,7 +442,7 @@ function ReadingsInner() {
       </SectionBlock>
 
       <SectionBlock title="היסטוריית משיכות" count={rows.filter(r => r.kind === 'run').length}>
-        <div className="-mx-4 divide-y divide-border" data-testid="readings-history">
+        <div className="divide-y divide-border" data-testid="readings-history">
           {rows.map(r => (
             <HistoryItem key={r.date} row={r} pulling={pulling}
               onOpen={id => { setFocusId(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
