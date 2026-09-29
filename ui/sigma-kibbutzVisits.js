@@ -1,4 +1,4 @@
-import{c as N,g as D,r as d,z as E,A as S,s as m,j as o,f as h}from"./sigma.js?v=mumwgw0d";import{a as v,u as C,t as M,b as T,c as F,s as z}from"./sigma-emsTasks.js?v=mumwgw0d";/**
+import{c as N,g as D,r as d,z as E,A as S,s as m,j as o,f as h}from"./sigma.js?v=mumwkktz";import{a as v,u as C,t as M,b as T,c as F,s as z}from"./sigma-emsTasks.js?v=mumwkktz";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.
