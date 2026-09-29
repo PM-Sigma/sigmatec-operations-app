@@ -53,7 +53,7 @@ test('viewer shell: the ⋯ sheet offers no pages and no ניהול', async ({ p
   }
   await expect(sheet.getByText('ניהול', { exact: true })).toHaveCount(0);
   // …but the everyday rows every role has are there, labelled
-  await expect(sheet.getByRole('button', { name: 'הגדרות', exact: true })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'העדפות משתמש', exact: true })).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'רעיון / באג', exact: true })).toBeVisible();
   // and the identity row says who he is — a static read-only row (IdentityRow.tsx, S-U
   // designer re-review), not a button: the gear/settings/switch-user actions moved to

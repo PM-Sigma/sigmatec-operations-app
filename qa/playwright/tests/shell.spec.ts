@@ -6,11 +6,11 @@ import { boot, expect, expectNoConsoleErrors, expectRtl, SB_ORIGIN, shot, test }
 
 test.describe('AppHeader cluster', () => {
   test('bell + my-tasks + gear are on screen, and the two badges never touch (S-1)', async ({ page }, ti) => {
-    const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
+    const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
     const cluster = page.locator('#sigma-header-actions');
     const bell = page.getByTestId('alerts-bell');
     const tasks = page.getByTestId('header-my-tasks');
-    const gear = cluster.getByRole('button', { name: 'הגדרות' });
+    const gear = cluster.getByRole('button', { name: 'העדפות משתמש' });
     await expect(bell).toBeVisible();
     await expect(tasks).toBeVisible();
     await expect(gear).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('AppHeader cluster', () => {
   });
 
   test('Σ (the brand-mark) goes to the role landing', async ({ page }, ti) => {
-    await boot(page, ti, { who: 'מתניה', ready: '#sigma-header-actions [aria-label="הגדרות"]' });
+    await boot(page, ti, { who: 'מתניה', ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
     await page.evaluate(() => (window as any).showPage('calendar'));
     await page.locator('.brand-mark').click();
     await expect(page.locator('#dev-view')).toBeVisible();
@@ -44,13 +44,13 @@ test.describe('AppHeader cluster', () => {
 
 test.describe('GearSheet (U2)', () => {
   test('identity, role and rows — no absolute status dot on the chip itself', async ({ page }, ti) => {
-    const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
-    const gear = page.locator('#sigma-header-actions').getByRole('button', { name: 'הגדרות' });
+    const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
+    const gear = page.locator('#sigma-header-actions').getByRole('button', { name: 'העדפות משתמש' });
     await gear.click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toContainText('עידן');
     await expect(sheet).toContainText('ניהול מוצר');
-    for (const row of ['הגדרות', 'רעיון או באג', 'האזור האישי', 'החלפת משתמש']) {
+    for (const row of ['העדפות משתמש', 'רעיון או באג', 'האזור האישי', 'החלפת משתמש']) {
       await expect(sheet.getByRole('button', { name: row })).toBeVisible();
     }
     expectNoConsoleErrors(rec);
@@ -62,8 +62,8 @@ test.describe('GearSheet (U2)', () => {
   // the designer's own screenshot pass.
   test('desktop: centred dialog, narrower than ⋯ עוד (≤480px)', async ({ page }, ti) => {
     test.skip(String(ti.project.metadata && (ti.project.metadata as any).viewport).indexOf('mobile') === 0, 'desktop only');
-    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
-    await page.locator('#sigma-header-actions').getByRole('button', { name: 'הגדרות' }).click();
+    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
+    await page.locator('#sigma-header-actions').getByRole('button', { name: 'העדפות משתמש' }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
     const box = await sheet.boundingBox();
@@ -126,7 +126,7 @@ test.describe('PageBar (U3)', () => {
 test.describe('Desktop ⋯ עוד (S-9/S-10)', () => {
   test('opens on desktop, next to the gear bubble', async ({ page }, ti) => {
     test.skip(String(ti.project.metadata && (ti.project.metadata as any).viewport).indexOf('mobile') === 0, 'desktop only');
-    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
+    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
     const trigger = page.locator('#sigma-header-actions').getByRole('button', { name: 'עוד' });
     await expect(trigger).toBeVisible();
     const headerBefore = await page.locator('.header').boundingBox();
@@ -146,7 +146,7 @@ test.describe('Desktop ⋯ עוד (S-9/S-10)', () => {
   // (round 5 resume item) instead of only in the designer's own screenshot pass.
   test('a long list (עידן) is capped at 480px and visibly cut mid-row, not scrolled to fit', async ({ page }, ti) => {
     test.skip(String(ti.project.metadata && (ti.project.metadata as any).viewport).indexOf('mobile') === 0, 'desktop only');
-    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
+    await boot(page, ti, { ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
     await page.locator('#sigma-header-actions').getByRole('button', { name: 'עוד' }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();

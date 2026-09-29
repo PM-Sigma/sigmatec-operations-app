@@ -105,7 +105,7 @@ test('gaps: the panel is reachable from the personal area', async ({ page }, ti)
 
   await page.waitForSelector('#sigma-settings[data-sigma-mounted="1"]', { state: 'attached' });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-settings')));
-  const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
+  const dlg = page.getByRole('dialog').filter({ hasText: 'העדפות משתמש' });
   await expect(dlg).toBeVisible();
   await dlg.getByTestId('settings-open-gaps').click();
 
@@ -143,7 +143,7 @@ test('gaps: the row opens the sheet on a COLD tap, before the deferred chunk has
   } else {
     await page.waitForSelector('#sigma-settings[data-sigma-mounted="1"]', { state: 'attached' });
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-settings')));
-    const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
+    const dlg = page.getByRole('dialog').filter({ hasText: 'העדפות משתמש' });
     await expect(dlg).toBeVisible();
     // No wait for `#sigma-gaps` here either — this click is the cold tap under test.
     await dlg.getByTestId('settings-open-gaps').click();

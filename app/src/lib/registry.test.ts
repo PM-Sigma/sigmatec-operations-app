@@ -95,7 +95,7 @@ describe('⋯ sheet grouping and attention badges (§7k #3)', () => {
 
   it('the group travels with the item so the sheet can split app rows from ניהול rows', () => {
     registerMoreItem({ id: 'imp', label: 'ייבוא', icon: 'Download', group: 'admin', onSelect: () => {} });
-    registerMoreItem({ id: 'set', label: 'הגדרות', icon: 'Settings', group: 'app', onSelect: () => {} });
+    registerMoreItem({ id: 'set', label: 'העדפות משתמש', icon: 'Settings', group: 'app', onSelect: () => {} });
     const items = listMoreItems('idan');
     expect(items.find(i => i.id === 'imp')?.group).toBe('admin');
     expect(items.find(i => i.id === 'set')?.group).toBe('app');

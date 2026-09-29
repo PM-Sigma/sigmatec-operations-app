@@ -7,6 +7,19 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [Q7-C] 2026-09-29 — QA round 7: user preferences, install sheet, team status, pill buttons
+- "הגדרות" -> "העדפות משתמש" everywhere (header aria, gear sheet, user chip, dialog, registry). Preferences lose the
+  install row and "רעיון או באג" (both live in the gear menu). The ניהול block of ⋯ עוד is עידן's alone.
+- Gear sheet first screen: "מה נשאר לי לסגור" for everyone; עידן also gets "מצב הצוות" (per staff: app installed? notifications on?).
+  Notifications come from `push_subscriptions`; "installed" needs `db/staff_devices.sql` (WRITTEN, NOT APPLIED) — until applied the
+  list says "לא פעיל עדיין". Devices report themselves from the lazy Settings island (`lib/devicePresence.ts`), silently.
+- "התקנת אפליקציה" in the gear sheet opens a small sheet: install + allow notifications on this device, each with a done state.
+- Gallery (`/?gallery=1`) opens for עידן only (`lib/galleryGate.ts`; mock mode stays open for the Playwright sign-off).
+- BubbleButton: slimmer (visual 32/36/44), 48px hit area from an invisible ::after, calmer weight, deeper tonal/neutral fills via
+  `--btn-*` tokens. The shadcn Button base is pill too.
+- 7.5 finding: "תיאור משימות בכרטיס" (`card_desc`) IS read — by EmsTasks in the kibbutz Status tab, phone width only (clamps to 2 lines
+  + "עוד"). The home card is compact and shows no description. Kept.
+
 ## [docs] 2026-09-29 — wave 3: ops graph audit, modules map, round-5 decisions table
 Docs only. `docs/ops-graph/.graphify_detect.json` (the file list `rebuild.py` parses) had frozen at 388 code files and
 still named 23 deleted ones, so ~100 live files (Inventory*, FieldOps, DevBoard sheets, presenter/*, `field-ops`, `backup-export`,

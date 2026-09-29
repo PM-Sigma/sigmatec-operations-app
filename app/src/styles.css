@@ -38,6 +38,12 @@
      arbitrary-value background with no modifier attached to it. */
   --ink-tint: color-mix(in srgb, var(--sigma-ink) 10%, transparent);
   --ink-tint-hover: color-mix(in srgb, var(--sigma-ink) 15%, transparent);
+  /* Q7-C 7.6: calmer, more SOLID BubbleButton fills — deeper than the 10% tint so a button
+     reads as a button on a card, yet still a quiet surface (no gradient, no shadow). */
+  --btn-tonal: color-mix(in srgb, var(--sigma-ink) 16%, transparent);
+  --btn-tonal-hover: color-mix(in srgb, var(--sigma-ink) 24%, transparent);
+  --btn-neutral: color-mix(in srgb, hsl(var(--foreground)) 9%, hsl(var(--secondary)));
+  --btn-neutral-hover: color-mix(in srgb, hsl(var(--foreground)) 14%, hsl(var(--secondary)));
 
   /* ===== Design system roles (round 5 phase 2) — ALIASES onto tokens.css's --s- names.
      docs/superpowers/specs/2026-09-23-design-system-design.md §2 + the delivered
@@ -975,6 +981,19 @@
   min-width: 44px;
   min-height: 44px;
 }
+/* Q7-C 7.6: a slim labelled BubbleButton (visual 32/36) keeps its ≥44px hit area WITHOUT a fat
+   box — an invisible ::after grows the target vertically only (buttons sit side by side, so
+   a horizontal overlay could steal a neighbour's taps). It opts out of the min-box rule above. */
+[data-hit-slop][data-hit-after] {
+  min-width: 0;
+  min-height: 0;
+}
+[data-hit-after]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block: -6px;
+}
 
 /* U6 residual: react-remove-scroll (every Radix Sheet/Dialog) locks BODY's overflow while
    one is open (its own injected `body[data-scroll-locked]{overflow:hidden!important}`), but
@@ -1013,3 +1032,6 @@ body[data-scroll-locked] { padding: 12px 16px !important; margin: 0 !important; 
      is display:none, which is exactly the rect the safe-area sweep measures. */
   body[data-scroll-locked] #sigma-nav { display: none; }
 }
+
+/* Q7-C: the gear sheet icons were 1.75 via a strokeWidth prop on every row; it lives here now so the boot chunk does not pay for the prop five times. */
+.s-gear-desktop svg:not(.lucide-x) { stroke-width: 1.75; }

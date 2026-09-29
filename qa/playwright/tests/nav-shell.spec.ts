@@ -84,7 +84,7 @@ test('shell: the ⋯ עוד sheet is labelled and role-blocked', async ({ page }
   // משימות · משימות EMS · עובדים retired in Task 14 (§7m R1/R2/R5): the first two are 🗓️ יומן's
   // רשימה view and the third is gone, so the sheet no longer offers a row that opens nothing.
   // 22.9 (F4): מלאי is a tab on the bar, so the sheet does not list it again.
-  for (const label of ['יומן', 'הגדרות']) {
+  for (const label of ['יומן', 'העדפות משתמש']) {
     await expect(sheet.getByRole('button', { name: label, exact: true })).toBeVisible();
   }
   // U6: both field-journal registrations (main.tsx AND DayLog.tsx, packages G and R) now carry
@@ -138,18 +138,18 @@ test('shell: a team member gets no ניהול block', async ({ page }, ti) => {
 });
 
 test('shell: the ⚙️ gear bubble opens GearSheet (identity/role, settings, feedback, האזור האישי, user switch)', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="הגדרות"]' });
+  const { rec } = await boot(page, ti, { ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
 
   // Round 5, U1–U2 (designer must-fix "no absolute positioning in the header"): the name chip
   // is gone from the header cluster — ⚙️ is an icon-only bubble that opens a real Sheet, not a
   // position:absolute dropdown.
-  const gear = page.locator('#sigma-header-actions').getByRole('button', { name: 'הגדרות' });
+  const gear = page.locator('#sigma-header-actions').getByRole('button', { name: 'העדפות משתמש' });
   await expect(gear).toBeVisible();
 
   await gear.click();
   const sheet = page.getByRole('dialog');
   await expect(sheet).toContainText('עידן');
-  await expect(sheet.getByRole('button', { name: 'הגדרות' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'העדפות משתמש' })).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'האזור האישי' })).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'רעיון או באג' })).toBeVisible();
   // spec 2026-09-23 ems-session: staff are signed in WITH EMS, so the sheet never offers a
@@ -159,14 +159,14 @@ test('shell: the ⚙️ gear bubble opens GearSheet (identity/role, settings, fe
   await shot(page, ti, 'gear-sheet');
 
   // ⚙️ הגדרות — the island, with the four settings Task 4 ships
-  await sheet.getByRole('button', { name: 'הגדרות' }).click();
-  const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
+  await sheet.getByRole('button', { name: 'העדפות משתמש' }).click();
+  const dlg = page.getByRole('dialog').filter({ hasText: 'העדפות משתמש' });
   // round 5 G-L5/G-U (Settings rewrite): מסך פתיחה is no longer a native <select> — it is a
   // ListRow that pushes a sub-pane of radio-styled rows (Settings.tsx LandingPane), like every
   // other "opens a sub-sheet" row in this dialog.
   await dlg.getByRole('button', { name: 'מסך פתיחה' }).click();
   await expect(dlg.getByTestId('landing-options').getByRole('button')).not.toHaveCount(0);
-  await dlg.getByRole('button', { name: 'חזרה להגדרות' }).click();
+  await dlg.getByRole('button', { name: 'חזרה להעדפות' }).click();
   await expect(dlg.getByRole('radiogroup', { name: 'תיאור משימות בכרטיס' })).toBeVisible();
   // round 5 G-L5: the font picker is gone
   await expect(dlg.getByRole('radiogroup', { name: 'פונט' })).toHaveCount(0);

@@ -78,7 +78,7 @@ export function UserChip({ className }: { className?: string }) {
           role="menu"
           className="absolute top-full z-50 mt-1.5 flex w-[220px] flex-col overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-lg [inset-inline-end:0]"
         >
-          <MenuRow icon={Settings} label="הגדרות" onClick={() => pick(openSettings, 'settings')} />
+          <MenuRow icon={Settings} label="העדפות משתמש" onClick={() => pick(openSettings, 'settings')} />
           <MenuRow
             icon={User}
             label="האזור האישי"

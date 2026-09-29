@@ -220,6 +220,7 @@ const VIEWER_WRITE_OK = new Map([
   ['feedback', 'the viewer is allowed exactly this one write (spec §7 Part F)'],
   ['storage.objects', 'only the feedback-audio bucket insert — the voice half of the same feedback write'],
   ['usage_events','usage tracking every session sends; no business data'],
+  ['staff_devices','a device reports itself (installed? notifications?) — one row per device, no business data; db/staff_devices.sql, not applied yet'],
 ]);
 const WRITE_CMDS = ['insert', 'update', 'delete'];
 const viewerHoles = [];

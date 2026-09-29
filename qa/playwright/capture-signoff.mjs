@@ -175,7 +175,7 @@ async function main() {
         if (await chip.count()) {
           await chip.click().catch(() => {});
           await page.waitForTimeout(300);
-          const settingsItem = page.getByRole('menuitem', { name: 'הגדרות' });
+          const settingsItem = page.getByRole('menuitem', { name: 'העדפות משתמש' });
           if (await settingsItem.count()) {
             await settingsItem.click().catch(() => {});
             await page.waitForTimeout(500);

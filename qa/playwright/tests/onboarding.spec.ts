@@ -7,7 +7,7 @@ import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_h
 const openSettings = async (page: any) => {
   await page.waitForSelector('#sigma-settings[data-sigma-mounted="1"]', { state: 'attached' });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('sigma-open-settings')));
-  const dlg = page.getByRole('dialog').filter({ hasText: 'הגדרות' });
+  const dlg = page.getByRole('dialog').filter({ hasText: 'העדפות משתמש' });
   await expect(dlg).toBeVisible();
   return dlg;
 };
