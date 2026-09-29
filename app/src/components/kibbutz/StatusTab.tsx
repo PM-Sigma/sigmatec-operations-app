@@ -1,14 +1,19 @@
 // StatusTab — the מצב הקיבוץ tab of KibbutzDetail (round 5, package K-U2). The five sections
 // of OPEN_CARD_SECTIONS, in order (QA קיבוצים 4), each a SectionBlock with a generic title and
-// its own EmptyState. Burns are never rendered here (ruling "Burns").
+// its own EmptyState. Burns have no section of their own (ruling "Burns"): one ListRow inside
+// מצב הקיבוץ (field hub, 29.9) shows how many are left and jumps to the burns page filtered to this kibbutz.
 import * as React from 'react';
-import { ClipboardList, MapPin, CalendarDays, Pencil, Truck } from 'lucide-react';
+import { ClipboardList, MapPin, CalendarDays, Flame, Pencil, Truck } from 'lucide-react';
 import { SectionBlock } from '@/components/ui/section-block';
 import { EmptyState } from '@/components/ui/empty-state';
 import { IconBubble } from '@/components/ui/icon-bubble';
 import { BubbleButton } from '@/components/ui/bubble-button';
 import { ListRow } from '@/components/ui/list-row';
-import { sigma } from '@/bridge';
+import { sigma, useCurrentUser } from '@/bridge';
+import { canShowPage } from '@/lib/canShowPage';
+import { burnCounts, burnsForSite, canWriteBurns } from '@/lib/burns';
+import { useBurns } from '@/lib/burnsData';
+import { setBurnSiteFilter } from '@/lib/burnFilter';
 import { OPEN_CARD_SECTIONS, latestVisitFor, lastVisitReport } from '@/lib/kibbutzDetail';
 import { useKibbutzVisits } from '@/lib/kibbutzVisits';
 import { isUnlinked, type KibbutzRow } from '@/lib/kibbutzim';
@@ -105,9 +110,30 @@ function MeetingsSection({ kibbutz, canAct }: { kibbutz: string; canAct: boolean
   );
 }
 
+/** "צריבות · N נותרו מתוך M" — only if this kibbutz has burn rows or the user can write burns; never without the burns gate. */
+function BurnsRow({ kibbutz }: { kibbutz: string }) {
+  const { name, isViewer } = useCurrentUser();
+  const allowed = canShowPage('burns');
+  const { data } = useBurns(allowed);
+  if (!allowed) return null;
+  const mine = burnsForSite(data, kibbutz);
+  if (!mine.length && !canWriteBurns(name, isViewer)) return null;
+  const c = burnCounts(mine);
+  return (
+    <ListRow
+      data-testid="kibbutz-burns-row"
+      title="צריבות"
+      meta={mine.length ? `${c.pending + c.issue} נותרו מתוך ${c.total}` : 'אין מונים'}
+      leading={<Flame aria-hidden className="h-5 w-5" />}
+      onClick={() => { setBurnSiteFilter(kibbutz); sigma?.showPage?.('burns'); }}
+    />
+  );
+}
+
 function StatusSection({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
   return (
     <SectionBlock title="מצב הקיבוץ">
+      <BurnsRow kibbutz={kibbutz} />
       <div className="flex flex-col gap-2 px-4">
         <HealthStrip kibbutz={kibbutz} />
         <OnboardingProgress kibbutz={kibbutz} canAct={canAct} />

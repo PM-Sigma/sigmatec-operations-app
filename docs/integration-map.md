@@ -5,7 +5,7 @@
 > (part of `npm test`) asserts every contract in it. The prose a grep cannot produce lives in
 > `docs/integration-map.annotations.md` and is appended verbatim at the end.
 
-Generated from 24 legacy modules, 238 island sources and 12 edge functions.
+Generated from 24 legacy modules, 241 island sources and 12 edge functions.
 
 ## (a) Bridge — `window.sigma.<fn>`
 
@@ -30,7 +30,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.calAddEvent` | js/src/00-bridge.js:576 | `calAddEvent` → js/src/14-calendar.js:177 | **—** |
 | `sigma.calFetchEvents` | js/src/00-bridge.js:575 | `calFetchEvents` → js/src/14-calendar.js:150 | app/src/islands/Calendar.tsx:113<br>app/src/islands/Presenter.tsx:195 |
 | `sigma.calIslandMounted` | js/src/00-bridge.js:590 | *(own logic)* | app/src/islands/Calendar.tsx:2047 |
-| `sigma.canExportExcel` | js/src/00-bridge.js:453 | `canExportExcel` → js/src/21-excel-export.js:7 | app/src/islands/BurnsPage.tsx:132<br>app/src/islands/InventoryCerts.tsx:79<br>app/src/islands/InventoryKibbutzim.tsx:36<br>app/src/islands/InventoryStock.tsx:45 |
+| `sigma.canExportExcel` | js/src/00-bridge.js:453 | `canExportExcel` → js/src/21-excel-export.js:7 | app/src/islands/BurnsPage.tsx:133<br>app/src/islands/InventoryCerts.tsx:79<br>app/src/islands/InventoryKibbutzim.tsx:36<br>app/src/islands/InventoryStock.tsx:45 |
 | `sigma.canInstall` | js/src/00-bridge.js:560 | `canInstall` → js/src/16-install.js:32 | app/src/shell/GearExtras.tsx:56 |
 | `sigma.canSeeAttendance` | js/src/00-bridge.js:549 | `canSeeAttendance` → js/src/11-search-login.js:168 | **—** |
 | `sigma.canShowPage` | js/src/00-bridge.js:284 | *(own logic)* | app/src/lib/canShowPage.ts:14 |
@@ -40,14 +40,14 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.changeUser` | js/src/00-bridge.js:277 | `changeUser` → js/src/11-search-login.js:215 | app/src/components/UserChip.tsx:91<br>app/src/shell/GearSheet.tsx:104 |
 | `sigma.companyTasks` | js/src/00-bridge.js:617 | *(own logic)* | app/src/islands/Calendar.tsx:996 |
 | `sigma.contactPhone` | js/src/00-bridge.js:614 | `contactPhone` → js/src/12-reports.js:18 | app/src/islands/Calendar.tsx:1043 |
-| `sigma.createEmsTaskFor` | js/src/00-bridge.js:349 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:120<br>app/src/components/home/InternalTasks.tsx:200<br>app/src/components/kibbutz/StatusTab.tsx:36 |
+| `sigma.createEmsTaskFor` | js/src/00-bridge.js:349 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:120<br>app/src/components/home/InternalTasks.tsx:200<br>app/src/components/kibbutz/StatusTab.tsx:41 |
 | `sigma.createTask` | js/src/00-bridge.js:355 | `emsWriteOrQueue` → js/src/13-ems.js:310 | app/src/components/home/Burns.tsx:273<br>app/src/components/home/InternalTasks.tsx:89<br>app/src/components/home/MeetingNotes.tsx:122<br>app/src/islands/burns/IssueSheet.tsx:38<br>…+3 |
 | `sigma.ems` | app/src/lib/ems/gateway.ts:100 *(island)* | *(island-provided)* | **—** |
 | `sigma.emsAddComment` | js/src/00-bridge.js:470 | *(own logic)* | app/src/islands/DayLog.tsx:400 |
 | `sigma.emsAfterWrite` | js/src/00-bridge.js:452 | `emsAfterWrite` → js/src/14-calendar.js:512 | app/src/lib/inventoryApi.ts:231<br>app/src/lib/inventoryApi.ts:420 |
 | `sigma.emsApi` | js/src/00-bridge.js:306 | `emsApi` → js/src/12-reports.js:124 | app/src/lib/ems/adapters/rest.ts:139 |
-| `sigma.emsCacheData` | js/src/00-bridge.js:308 | `emsCacheData` → js/src/13-ems.js:19 | app/src/islands/Calendar.tsx:807<br>app/src/islands/Calendar.tsx:986<br>app/src/islands/Calendar.tsx:1481<br>app/src/islands/Calendar.tsx:1490<br>…+5 |
-| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:321 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/components/home/KibbutzCard.tsx:26<br>app/src/components/kibbutz/StatusTab.tsx:22<br>app/src/islands/Field.tsx:183<br>…+4 |
+| `sigma.emsCacheData` | js/src/00-bridge.js:308 | `emsCacheData` → js/src/13-ems.js:19 | app/src/islands/Calendar.tsx:807<br>app/src/islands/Calendar.tsx:986<br>app/src/islands/Calendar.tsx:1481<br>app/src/islands/Calendar.tsx:1490<br>…+6 |
+| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:321 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/components/home/KibbutzCard.tsx:26<br>app/src/components/kibbutz/StatusTab.tsx:27<br>app/src/islands/Field.tsx:183<br>…+4 |
 | `sigma.emsCreateTask` | js/src/00-bridge.js:610 | `emsCreateTaskModal` → js/src/14-calendar.js:412 | **—** |
 | `sigma.emsDisconnect` | js/src/00-bridge.js:611 | `emsDisconnect` → js/src/12-reports.js:95 | **—** |
 | `sigma.emsLabels` | js/src/00-bridge.js:325 | `emsLabels` → js/src/14-calendar.js:390 | app/src/lib/emsTasks.ts:24 |
@@ -72,16 +72,16 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.isViewer` | js/src/00-bridge.js:273 | `isViewer` → js/src/11-search-login.js:128 | app/src/islands/Attendance.tsx:281<br>app/src/islands/Burns.tsx:49<br>app/src/islands/DevPresenter.tsx:731<br>app/src/islands/FeedbackInbox.tsx:61<br>…+10 |
 | `sigma.kibbutzHasSite` | js/src/00-bridge.js:328 | *(own logic)* | **—** |
 | `sigma.kibbutzNames` | js/src/00-bridge.js:295 | *(own logic)* | app/src/islands/Feedback.tsx:348<br>app/src/islands/Field.tsx:970<br>app/src/lib/daylogChain.ts:23 |
-| `sigma.loadAllVisitsCombined` | js/src/00-bridge.js:491 | `loadAllVisitsCombined` → js/src/09-visits.js:18 | app/src/islands/Calendar.tsx:1470<br>app/src/islands/Field.tsx:169<br>app/src/islands/Field.tsx:1251<br>app/src/islands/Gaps.tsx:102<br>…+4 |
+| `sigma.loadAllVisitsCombined` | js/src/00-bridge.js:491 | `loadAllVisitsCombined` → js/src/09-visits.js:18 | app/src/islands/Calendar.tsx:1470<br>app/src/islands/Field.tsx:169<br>app/src/islands/Field.tsx:1251<br>app/src/islands/FieldHubToday.tsx:59<br>…+5 |
 | `sigma.markOrderDelivered` | js/src/00-bridge.js:446 | `quickOrderStatus` → js/src/06-inventory.js:22 | **—** |
 | `sigma.onLanding` | app/src/islands/Field.tsx:2129 *(island)* | *(island-provided)* | **—** |
 | `sigma.openActivity` | js/src/00-bridge.js:613 | `openActivityModal` → js/src/10-activity.js:6 | app/src/islands/Calendar.tsx:1089 |
 | `sigma.openDeliveryCert` | js/src/00-bridge.js:492 | `openDeliveryCert` → js/src/20-delivery-cert.js:20 | app/src/islands/Field.tsx:1532<br>app/src/islands/Field.tsx:1656 |
-| `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:331 | `openKibbutzEmsTask` → js/src/13-ems.js:407 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:66<br>app/src/components/home/EmsTasks.tsx:67<br>app/src/components/home/MeetingNotes.tsx:281<br>…+5 |
-| `sigma.openKibbutzModal` | js/src/00-bridge.js:341 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:121<br>app/src/islands/Calendar.tsx:1754<br>app/src/islands/Calendar.tsx:1867<br>app/src/islands/MyTasks.tsx:149<br>…+1 |
+| `sigma.openKibbutzEmsTask` | js/src/00-bridge.js:331 | `openKibbutzEmsTask` → js/src/13-ems.js:407 | app/src/components/home/EmsTasks.test.tsx:107<br>app/src/components/home/EmsTasks.tsx:66<br>app/src/components/home/EmsTasks.tsx:67<br>app/src/components/home/MeetingNotes.tsx:281<br>…+6 |
+| `sigma.openKibbutzModal` | js/src/00-bridge.js:341 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:121<br>app/src/islands/Calendar.tsx:1754<br>app/src/islands/Calendar.tsx:1867<br>app/src/islands/FieldHubToday.tsx:43<br>…+2 |
 | `sigma.openOrder` | js/src/00-bridge.js:442 | *(own logic)* | app/src/components/alerts/AlertsPanel.tsx:24<br>app/src/islands/InventoryStrip.tsx:84<br>app/src/islands/StockChange.tsx:188 |
-| `sigma.openVisitEditor` | js/src/00-bridge.js:402 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:69<br>app/src/components/kibbutz/StatusTab.tsx:70<br>app/src/components/kibbutz/VisitRowActions.tsx:18<br>app/src/components/kibbutz/VisitRowActions.tsx:25 |
-| `sigma.openVisitQuick` | js/src/00-bridge.js:417 | *(own logic)* | app/src/components/Nav.tsx:84<br>app/src/islands/Calendar.tsx:1915<br>app/src/islands/Calendar.tsx:1960<br>app/src/islands/Field.tsx:2294<br>…+6 |
+| `sigma.openVisitEditor` | js/src/00-bridge.js:402 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:74<br>app/src/components/kibbutz/StatusTab.tsx:75<br>app/src/components/kibbutz/VisitRowActions.tsx:18<br>app/src/components/kibbutz/VisitRowActions.tsx:25 |
+| `sigma.openVisitQuick` | js/src/00-bridge.js:417 | *(own logic)* | app/src/components/Nav.tsx:84<br>app/src/islands/Calendar.tsx:1915<br>app/src/islands/Calendar.tsx:1960<br>app/src/islands/Field.tsx:2294<br>…+7 |
 | `sigma.openVisitsReport` | js/src/00-bridge.js:612 | `openVisitsToolsModal` → js/src/09-visits.js:518 | app/src/islands/Calendar.tsx:1088 |
 | `sigma.orders` | js/src/00-bridge.js:439 | *(own logic)* | app/src/islands/InventoryStrip.tsx:50<br>app/src/islands/StockChange.tsx:146 |
 | `sigma.passPending` | js/src/00-bridge.js:526 | *(own logic)* | **—** |
@@ -100,7 +100,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.sbPass` | js/src/00-bridge.js:381 | *(own logic)* | app/src/islands/FeedbackInbox.tsx:89<br>app/src/lib/daylogChain.ts:73<br>app/src/lib/devBoard.ts:30<br>app/src/lib/ems/adapters/fieldOps.ts:22<br>…+1 |
 | `sigma.sessionExpired` | js/src/00-bridge.js:516 | *(own logic)* | **—** |
 | `sigma.setAttPerson` | js/src/00-bridge.js:548 | `setAttPerson` → js/src/11-search-login.js:171 | app/src/islands/Attendance.tsx:344 |
-| `sigma.showPage` | js/src/00-bridge.js:283 | `showPage` → js/src/00-bridge.js:203 | app/src/components/alerts/AlertsPanel.tsx:21<br>app/src/components/alerts/AlertsPanel.tsx:25<br>app/src/components/home/Burns.tsx:334<br>app/src/components/MoreSheet.tsx:188<br>…+24 |
+| `sigma.showPage` | js/src/00-bridge.js:283 | `showPage` → js/src/00-bridge.js:203 | app/src/components/alerts/AlertsPanel.tsx:21<br>app/src/components/alerts/AlertsPanel.tsx:25<br>app/src/components/home/Burns.tsx:334<br>app/src/components/kibbutz/StatusTab.tsx:128<br>…+26 |
 | `sigma.STAFF_PEOPLE` | js/src/00-bridge.js:628 | *(own logic)* | app/src/islands/MessageSheet.tsx:71 |
 | `sigma.staffSendMessage` | js/src/00-bridge.js:623 | *(own logic)* | app/src/islands/MessageSheet.tsx:139 |
 | `sigma.toast` | js/src/00-bridge.js:633 | *(own logic)* | app/src/components/UserChip.tsx:86<br>app/src/islands/Usage.tsx:62<br>app/src/islands/Usage.tsx:63<br>app/src/lib/runAdd.test.ts:30<br>…+3 |
@@ -126,8 +126,8 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `attendance-saved` | js/src/04-attendance-daily.js:97<br>js/src/04-attendance-daily.js:131 | app/src/islands/Attendance.tsx:306 |
 | `burns-changed` | app/src/lib/burnsData.ts:50 | app/src/lib/burnsData.ts:43 |
 | `checkin-created` | app/src/islands/Field.tsx:2033 | **—** |
-| `dayplan-changed` | app/src/islands/Calendar.tsx:1583<br>app/src/lib/calendarData.ts:47 | app/src/islands/Field.tsx:1999<br>app/src/islands/Field.tsx:2343 |
-| `ems-cache-synced` | js/src/13-ems.js:93<br>js/src/14-calendar.js:519 | app/src/bridge.ts:419<br>app/src/components/home/EmsTasks.tsx:36<br>app/src/islands/Calendar.tsx:1452<br>app/src/islands/Field.tsx:194<br>app/src/islands/MyTasks.tsx:247<br>app/src/islands/Presenter.tsx:227<br>…+1 |
+| `dayplan-changed` | app/src/islands/Calendar.tsx:1583<br>app/src/lib/calendarData.ts:47 | app/src/islands/Field.tsx:1999<br>app/src/islands/Field.tsx:2343<br>app/src/islands/FieldHubToday.tsx:51 |
+| `ems-cache-synced` | js/src/13-ems.js:93<br>js/src/14-calendar.js:519 | app/src/bridge.ts:419<br>app/src/components/home/EmsTasks.tsx:36<br>app/src/islands/Calendar.tsx:1452<br>app/src/islands/Field.tsx:194<br>app/src/islands/FieldHubToday.tsx:50<br>app/src/islands/MyTasks.tsx:247<br>…+2 |
 | `ems-queue-flushed` | js/src/13-ems.js:375 | app/src/components/home/MeetingNotes.tsx:62 |
 | `feedback-changed` | app/src/islands/Feedback.tsx:65 | app/src/islands/FeedbackInbox.tsx:279 |
 | `holidays-loaded` | js/src/04-attendance-daily.js:57 | app/src/islands/Attendance.tsx:313 |
@@ -150,46 +150,46 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 |---|---|---|
 | `#sigma-attendance` | :388 | app/src/islands/Attendance.tsx:645 |
 | `#sigma-burns` | :227 | app/src/islands/Burns.tsx:65<br>app/src/main.tsx:179 |
-| `#sigma-burns-page` | :419 | app/src/islands/BurnsPage.tsx:374 |
-| `#sigma-calendar` | :337 | app/src/islands/Calendar.tsx:2046<br>app/src/main.tsx:265 |
+| `#sigma-burns-page` | :419 | app/src/islands/BurnsPage.tsx:380 |
+| `#sigma-calendar` | :337 | app/src/islands/Calendar.tsx:2046<br>app/src/main.tsx:266 |
 | `#sigma-ceo` | :717 | **—** |
 | `#sigma-cert` | :697 | app/src/islands/InventoryCert.tsx:433 |
-| `#sigma-daylog` | :692 | app/src/islands/DayLog.tsx:552<br>app/src/main.tsx:416 |
-| `#sigma-desktop-nav` | :160 | app/src/islands/DesktopNav.tsx:97<br>app/src/main.tsx:303 |
-| `#sigma-dev-board` | :358 | app/src/islands/DevBoard.tsx:319<br>app/src/main.tsx:276 |
-| `#sigma-dev-presenter` | :706 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:506 |
-| `#sigma-emsstats` | :426 | app/src/islands/EmsStats.tsx:154<br>app/src/main.tsx:259 |
+| `#sigma-daylog` | :692 | app/src/islands/DayLog.tsx:552<br>app/src/main.tsx:417 |
+| `#sigma-desktop-nav` | :160 | app/src/islands/DesktopNav.tsx:97<br>app/src/main.tsx:304 |
+| `#sigma-dev-board` | :358 | app/src/islands/DevBoard.tsx:319<br>app/src/main.tsx:277 |
+| `#sigma-dev-presenter` | :706 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:507 |
+| `#sigma-emsstats` | :426 | app/src/islands/EmsStats.tsx:154<br>app/src/main.tsx:260 |
 | `#sigma-feedback` | :683 | app/src/islands/Feedback.tsx:683<br>app/src/main.tsx:186 |
 | `#sigma-feedback-inbox` | :684 | app/src/islands/FeedbackInbox.tsx:399<br>app/src/main.tsx:210 |
 | `#sigma-field` | :682 | app/src/islands/Field.tsx:2462<br>app/src/main.tsx:159 |
 | `#sigma-fieldhub` | :382 | app/src/islands/FieldHub.tsx:69 |
 | `#sigma-fieldhub-today` | :383 | **—** |
 | `#sigma-fieldops` | :414 | app/src/islands/FieldOps.tsx:512 |
-| `#sigma-gaps` | :690 | app/src/islands/Gaps.tsx:326<br>app/src/main.tsx:362 |
-| `#sigma-header-actions` | :143 | app/src/islands/HeaderActions.tsx:102<br>app/src/main.tsx:296 |
-| `#sigma-holidays` | :686 | app/src/islands/Holidays.tsx:178<br>app/src/main.tsx:281 |
+| `#sigma-gaps` | :690 | app/src/islands/Gaps.tsx:326<br>app/src/main.tsx:363 |
+| `#sigma-header-actions` | :143 | app/src/islands/HeaderActions.tsx:102<br>app/src/main.tsx:297 |
+| `#sigma-holidays` | :686 | app/src/islands/Holidays.tsx:178<br>app/src/main.tsx:282 |
 | `#sigma-home` | :230 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:296<br>app/src/islands/Home.tsx:299<br>…+1 |
-| `#sigma-hours` | :375 | app/src/islands/Hours.tsx:399<br>app/src/main.tsx:244 |
-| `#sigma-import` | :688 | app/src/islands/ImportNotes.tsx:378<br>app/src/main.tsx:547 |
+| `#sigma-hours` | :375 | app/src/islands/Hours.tsx:399<br>app/src/main.tsx:245 |
+| `#sigma-import` | :688 | app/src/islands/ImportNotes.tsx:378<br>app/src/main.tsx:548 |
 | `#sigma-inventory` | :272 | app/src/islands/Inventory.tsx:179 |
 | `#sigma-inventory-nudges` | :701 | app/src/islands/InventoryNudges.tsx:174 |
 | `#sigma-kibbutz-detail` | :681 | app/src/main.tsx:167 |
 | `#sigma-meeting-review` | :709 | app/src/islands/MeetingReview.tsx:647 |
-| `#sigma-message` | :713 | app/src/islands/MessageSheet.tsx:315<br>app/src/main.tsx:314 |
+| `#sigma-message` | :713 | app/src/islands/MessageSheet.tsx:315<br>app/src/main.tsx:315 |
 | `#sigma-my-tasks` | :727 | app/src/islands/MyTasks.tsx:302<br>app/src/main.tsx:149 |
 | `#sigma-nav` | :728 | app/src/main.tsx:103 |
-| `#sigma-offline` | :155 | app/src/main.tsx:309<br>app/src/shell/OfflineBanner.tsx:36 |
-| `#sigma-page-bar` | :161 | app/src/main.tsx:306<br>app/src/shell/PageBar.tsx:99 |
-| `#sigma-presenter` | :703 | app/src/islands/Presenter.tsx:1173<br>app/src/main.tsx:462 |
-| `#sigma-pushlog` | :369 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:252 |
+| `#sigma-offline` | :155 | app/src/main.tsx:310<br>app/src/shell/OfflineBanner.tsx:36 |
+| `#sigma-page-bar` | :161 | app/src/main.tsx:307<br>app/src/shell/PageBar.tsx:99 |
+| `#sigma-presenter` | :703 | app/src/islands/Presenter.tsx:1173<br>app/src/main.tsx:463 |
+| `#sigma-pushlog` | :369 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:253 |
 | `#sigma-readings` | :431 | app/src/islands/ReadingsPull.tsx:483<br>app/src/lib/readingsWatch.ts:163 |
 | `#sigma-refresh` | :722 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:119 |
 | `#sigma-relogin` | :719 | app/src/components/ReLoginSheet.tsx:143 |
-| `#sigma-settings` | :689 | app/src/islands/Settings.tsx:453<br>app/src/main.tsx:338 |
+| `#sigma-settings` | :689 | app/src/islands/Settings.tsx:453<br>app/src/main.tsx:339 |
 | `#sigma-stock-change` | :693 | app/src/islands/StockChange.tsx:348 |
 | `#sigma-toaster` | :723 | app/src/main.tsx:102 |
 | `#sigma-today` | :224 | app/src/islands/Field.tsx:2463<br>app/src/main.tsx:159 |
-| `#sigma-usage` | :687 | app/src/islands/Usage.tsx:332<br>app/src/main.tsx:288 |
+| `#sigma-usage` | :687 | app/src/islands/Usage.tsx:332<br>app/src/main.tsx:289 |
 
 ## (d) Supabase tables the client reads or writes
 
@@ -246,7 +246,7 @@ must contain all 41: `attendance`, `calendar_absences`, `company_holidays`, `day
 |---|---|---|---|
 | `attendance` | `#attendance-view` (index.html:384) | ✓ | js/src/22-push.js:389<br>js/src/22-push.js:390 |
 | `burns` | `#burns-view` (index.html:416) | ✓ | app/src/components/home/Burns.tsx:334 |
-| `calendar` | `#calendar-view` (index.html:333) | ✓ | app/src/components/Nav.tsx:128<br>app/src/lib/runAdd.ts:24 |
+| `calendar` | `#calendar-view` (index.html:333) | ✓ | app/src/components/Nav.tsx:128<br>app/src/islands/FieldHubToday.tsx:28<br>app/src/lib/runAdd.ts:24 |
 | `fieldops` | `#fieldops-view` (index.html:377) | ✓ | app/src/components/Nav.tsx:125 |
 | `inventory` | `#inventory-view` (index.html:270) | ✓ | js/src/00-bridge.js:443<br>js/src/11-search-login.js:116<br>js/src/22-push.js:382<br>js/src/22-push.js:385<br>…+2 |
 | `kibbutz` | `#kibbutz-view` (index.html:163) | ✓ | js/src/00-guard.js:359<br>js/src/11-search-login.js:97<br>js/src/22-push.js:404<br>js/src/22-push.js:412<br>…+4 |
@@ -284,22 +284,22 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `(dynamic)` | `—` | app/src/lib/registry.ts:43 |
 | `burns-table` | `Flame` | app/src/islands/Burns.tsx:43 |
 | `dev-presenter` | `GitPullRequest` | app/src/islands/DevPresenter.tsx:723 |
-| `dev-presenter` | `GitPullRequest` | app/src/main.tsx:530 |
+| `dev-presenter` | `GitPullRequest` | app/src/main.tsx:531 |
 | `feedback-inbox` | `Inbox` | app/src/islands/FeedbackInbox.tsx:401 |
 | `field-journal` | `Notebook` | app/src/islands/DayLog.tsx:555 |
-| `field-journal` | `Notebook` | app/src/main.tsx:440 |
+| `field-journal` | `Notebook` | app/src/main.tsx:441 |
 | `gaps` | `ClipboardList` | app/src/islands/Gaps.tsx:330 |
-| `gaps` | `ClipboardList` | app/src/main.tsx:390 |
+| `gaps` | `ClipboardList` | app/src/main.tsx:391 |
 | `holidays` | `CalendarCheck` | app/src/islands/Holidays.tsx:182 |
 | `import-meeting` | `FileDown` | app/src/islands/ImportNotes.tsx:384 |
 | `my-tasks` | `ListTodo` | app/src/islands/MyTasks.tsx:305 |
 | `new-kibbutz` | `Home` | app/src/islands/Home.tsx:148 |
 | `presenter` | `Presentation` | app/src/islands/Presenter.tsx:1176 |
-| `presenter` | `Presentation` | app/src/main.tsx:486 |
+| `presenter` | `Presentation` | app/src/main.tsx:487 |
 | `readings` | `FileDown` | app/src/lib/readingsWatch.ts:52 |
 | `settings` | `Settings` | app/src/islands/Settings.tsx:458 |
 | `staff-message` | `Mail` | app/src/islands/MessageSheet.tsx:305 |
-| `staff-message` | `Mail` | app/src/main.tsx:323 |
+| `staff-message` | `Mail` | app/src/main.tsx:324 |
 | `stock-change` | `Package` | app/src/islands/StockChange.tsx:350 |
 | `usage` | `TrendingUp` | app/src/islands/Usage.tsx:334 |
 

@@ -229,6 +229,7 @@ function boot() {
   if (fieldopsView) {
     loadOnShow(fieldopsView, () => {
       void import('@/islands/FieldHub').then(m => m.mountFieldHub()).catch(e => warn('field hub island failed', e));
+      void import('@/islands/FieldHubToday').then(m => m.mountFieldHubToday()).catch(e => warn('field hub today island failed', e));
       void import('@/islands/Attendance').then(m => m.mountAttendance())
         .catch(e => warn('attendance island failed — legacy report stays', e));
       void import('@/islands/FieldOps').then(m => m.mountFieldOps()).catch(e => warn('field ops island failed', e));

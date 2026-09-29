@@ -32,17 +32,11 @@ import { IssueSheet } from '@/islands/burns/IssueSheet';
 import { AssignSheet } from '@/islands/burns/AssignSheet';
 import { GeneratorsSheet } from '@/islands/burns/GeneratorsSheet';
 import { toastFailure } from '@/lib/pending';
+import { BURN_FILTER_EVENT, readBurnFilter as readFilter, writeBurnFilter as writeFilter } from '@/lib/burnFilter';
 
 const TITLE = 'צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק';
-const FILTER_KEY = 'burn_filter_v1';
 const GEN_MANAGERS = ['עידן', 'עמיחי'];
 
-function readFilter(): BurnFilter {
-  try { return JSON.parse(localStorage.getItem(FILTER_KEY) || '{}') || {}; } catch { return {}; }
-}
-function writeFilter(f: BurnFilter): void {
-  try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch { /* private mode */ }
-}
 
 function BurnsPageInner() {
   const { name: user, isViewer } = useCurrentUser();
@@ -66,6 +60,13 @@ function BurnsPageInner() {
   const [siteSheetOpen, setSiteSheetOpen] = React.useState(false);
 
   React.useEffect(() => { writeFilter({ ...filter, q }); }, [filter, q]);
+
+  // The kibbutz card sets the site filter from outside (lib/burnFilter.ts) — pick it up if we are already mounted.
+  React.useEffect(() => {
+    const on = () => { const f = readFilter(); setFilter(f); setQ(f.q || ''); };
+    window.addEventListener(BURN_FILTER_EVENT, on);
+    return () => window.removeEventListener(BURN_FILTER_EVENT, on);
+  }, []);
 
   // Background EMS refresh on mount — a writer only, never awaited by the render (review focus #2).
   React.useEffect(() => { if (canWrite) void refreshBurnsFromEms().catch(() => { /* silent: throttled or offline */ }); }, [canWrite]);
@@ -202,6 +203,11 @@ function BurnsPageInner() {
           what pushed the two-line title into truncating mid-word. Horizontal scroll instead:
           flex-nowrap + overflow-x-auto, never a second row, at any chip count. */}
       <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
+        {filter.site && (
+          <FilterChip selected onClick={() => setFilter(f => ({ ...f, site: undefined }))} className="max-w-[70%]">
+            <span data-testid="burn-site-chip" className="truncate">סינון: <bdi>{filter.site}</bdi> ✕</span>
+          </FilterChip>
+        )}
         <FilterChip selected={!filter.kind || filter.kind === 'all'} onClick={() => setFilter(f => ({ ...f, kind: 'all' }))}>הכול</FilterChip>
         <FilterChip selected={filter.kind === 'CT'} onClick={() => toggleKind('CT')}>משנה זרם</FilterChip>
         <FilterChip selected={filter.kind === 'PP'} onClick={() => toggleKind('PP')}>תלת-פאזי</FilterChip>
