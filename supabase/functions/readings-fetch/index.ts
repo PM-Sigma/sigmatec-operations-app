@@ -242,7 +242,7 @@ function mkSheet(head: string[], rows: unknown[][]) {
 // RTL is a workbook-level view in SheetJS CE (applies to every sheet): on for the all-Hebrew exceptions file, off for
 // the upload file (whose first sheet is machine-read by EMS).
 function toBytes(sheets: [string, any][], rtl: boolean): Uint8Array {
-  const wb = XLSX.utils.book_new();
+  const wb: any = XLSX.utils.book_new();
   if (rtl) wb.Workbook = { Views: sheets.map(() => ({ RTL: true })) };
   for (const [name, ws] of sheets) XLSX.utils.book_append_sheet(wb, ws, name);
   return new Uint8Array(XLSX.write(wb, { type: "array", bookType: "xlsx" }));
