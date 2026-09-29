@@ -77,6 +77,7 @@
     // canShowPage, off the retiring 24-meter-burns.js) both read the ONE bridge gate now.
     if ((page === 'pushlog' || page === 'burns') && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage(page))) page = 'kibbutz';
     if (page === 'fieldops' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('fieldops'))) page = 'kibbutz'; // פעולות שטח — staff, not the viewer
+    if (page === 'emsstats' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('emsstats'))) page = 'kibbutz'; // סטטיסטיקת EMS — עידן + עמיחי
     if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer
     if (window._currentPage && window._currentPage !== page) window._prevPage = window._currentPage;
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
@@ -94,6 +95,7 @@
     var _pl = document.getElementById('pushlog-view'); if (_pl) _pl.style.display = page === 'pushlog' ? '' : 'none';
     var _bv = document.getElementById('burns-view'); if (_bv) _bv.style.display = page === 'burns' ? '' : 'none';
     var _hv = document.getElementById('hours-view'); if (_hv) _hv.style.display = page === 'hours' ? '' : 'none';
+    var _es = document.getElementById('emsstats-view'); if (_es) _es.style.display = page === 'emsstats' ? '' : 'none';
     var _fo = document.getElementById('fieldops-view'); if (_fo) _fo.style.display = page === 'fieldops' ? '' : 'none';
     document.querySelectorAll('.page-nav button').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     if (page === 'inventory')  renderInventory();
@@ -103,7 +105,7 @@
     // BurnsPage.tsx), mounted by app/src/main.tsx's MutationObserver on the view's display
     // toggle above — no legacy render call left to make for any of the three.
     // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
-    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view', fieldops: 'fieldops-view' }[page];
+    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view', fieldops: 'fieldops-view', emsstats: 'emsstats-view' }[page];
     var _pe = _pv && document.getElementById(_pv);
     if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
   }

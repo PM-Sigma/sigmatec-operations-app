@@ -90,7 +90,7 @@ function loadLegacyEms() {
     EMS_CLOSED: LEGACY_CLOSED,
     // Hoisted to js/src/00-consts.js by the task-33 TDZ fix — 13-ems.js reads them but no
     // longer declares them, so the sandbox has to supply them like any other sibling symbol.
-    EMS_CACHE_VER: 2,
+    EMS_CACHE_VER: 3,
     _emsStaleCacheChecked: false,
     EMS_BG_MIN_MS: 5 * 60 * 1000,
     EMS_BG_KEY: 'ems_bg_sync_at_v1',

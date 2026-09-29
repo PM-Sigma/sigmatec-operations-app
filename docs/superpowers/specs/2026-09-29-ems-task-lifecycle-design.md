@@ -1,6 +1,6 @@
 # EMS task lifecycle tracking (H5) — design
 
-**STATUS: 🟡 OPEN — spec only, NOT built.** Migration draft `db/ems_task_lifecycle.sql` is written, NOT applied.
+**STATUS: 🟡 BUILT on branch r9/h5-ems-lifecycle — migration NOT applied (MAIN applies after backup + audit).** Probe not yet run live (needs the office-PC .env).
 
 Resume steps:
 1. Get עידן's answers to the open questions (section 10).
@@ -96,3 +96,13 @@ Both tables have RLS on. `select` for `authenticated` only when the trusted `nam
 5. May any signed-in staff browser feed snapshots to the differ, or only the office job (safer, but stats gap when the PC is off)?
 6. Stats page audience: עידן and עמיחי only, as assumed?
 7. Keep events forever, or prune after N months (proposal: keep, it is tiny)?
+
+## 11. Decisions (עידן 29.9)
+
+1. **שובצה** = the task has BOTH an assignee AND a due date (expectedCompletionDate). `assigned_at` = the first sync where both are set. A task already assigned the first time we see it (and not brand new) is `assigned_src='unknown'` and excluded from time-to-assign.
+2. On-time close % counts closed statuses `done` AND `cancelled` (the EMS string is `cancelled`, see EMS_CLOSED). `rejected`/`not_relevant` still get `closed_at` but are not in that percentage.
+3. The stats page is visible to עידן and עמיחי only: `canShowPage('emsstats')` (not viewer + canManageStaff), `canSeeEmsStats` in the island, and the RLS policy on both tables.
+4. Any staff browser feeds tracking: the client calls the SECURITY DEFINER `ems_apply_snapshot(p_tasks, p_full)` after each cache write. Idempotent, validates input shape, server clock, authenticated staff only (never anon, never viewer). Silent no-op while the function does not exist.
+5. 30-minute precision is OK; approximate backfill close time is OK; events are kept forever.
+
+Built: db/ems_task_lifecycle.sql (+ BACKUP/ROLLBACK, backfill from the current ems_cache), pure model app/src/lib/emsLifecycleDiff.ts, stats builders emsLifecycle.ts, page islands/EmsStats.tsx (lazy), client hook in js/src/01-data.js, EMS_CACHE_VER 3 (slim tasks carry createdAt/updatedAt). Still open: closed-history backfill script (needs probe), office job calling the RPC.

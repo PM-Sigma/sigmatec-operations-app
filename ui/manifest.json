@@ -22,6 +22,7 @@
   "./ui/sigma-download.js",
   "./ui/sigma-empty-state.js",
   "./ui/sigma-EmsGate.js",
+  "./ui/sigma-EmsStats.js",
   "./ui/sigma-emsTasks.js",
   "./ui/sigma-external-link.js",
   "./ui/sigma-Feedback.js",

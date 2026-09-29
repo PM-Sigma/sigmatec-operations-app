@@ -248,9 +248,9 @@
       assignee: t.assignee ? { id:t.assignee.id, firstName:t.assignee.firstName, lastName:t.assignee.lastName } : null,
       description: t.description || '' });
     // Seed the shared cache as if עידן had already synced — so field users see tasks offline.
-    // `ver: 2` matches EMS_CACHE_VER in js/src/13-ems.js — hardcoded (not referenced) because
+    // `ver: 3` matches EMS_CACHE_VER in js/src/13-ems.js — hardcoded (not referenced) because
     // this IIFE runs at load time, before that later-concatenated module's `const` exists.
-    M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', ver: 2, tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
+    M.cacheStore = { syncedAt: nowISO(), syncedBy: 'עידן (mock)', ver: 3, tasks: M.tasks.filter(t => CLOSED.indexOf(t.status) === -1).map(slimTask) };
 
     // ---- 📅 mock attendance month (Task 12) ----
     // The attendance island needs a month with something in it, and the QA suite runs in this
@@ -586,6 +586,17 @@
     // PATCH = partial update: writes ONLY the columns in `row`, leaving the rest of the existing record untouched.
     const sbPatch = async (table, filter, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table + '?' + filter, { method: 'PATCH', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase patch ' + table + ' ' + r.status + ' ' + await r.text()); };
     const sbInsert = async (table, rows) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(),{ Prefer: 'return=minimal' }), body: JSON.stringify(rows) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); };
+    // EMS task lifecycle (H5): after each cache write, feed the same snapshot to the SECURITY DEFINER
+    // differ. Fire-and-forget and SILENT by design: until db/ems_task_lifecycle.sql is applied the
+    // function does not exist (404) and this is a no-op; after the first 404/401/403 it stops trying
+    // for the session. Never throws, never toasts, never delays the cache write's answer.
+    let _lifecycleOff = false;
+    const emsLifecycleApply = (tasks, full) => {
+      if (_lifecycleOff || !Array.isArray(tasks) || !tasks.length) return;
+      realFetch(SB_URL + '/rest/v1/rpc/ems_apply_snapshot', { method: 'POST', headers: baseH(), body: JSON.stringify({ p_tasks: tasks, p_full: !!full }) })
+        .then(r => { if (r.status === 404 || r.status === 401 || r.status === 403) _lifecycleOff = true; })
+        .catch(() => { _lifecycleOff = true; });
+    };
     const sbDelete = async (path) => { const r = await realFetch(SB_URL + '/rest/v1/' + path, { method: 'DELETE', headers: baseH() }); if (!r.ok) throw new Error('supabase delete ' + path + ' ' + r.status); };
     // insert that RETURNS the row (delivery_certs needs the server-assigned cert_number back)
     const sbInsertRet = async (table, row) => { const r = await realFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: Object.assign({}, baseH(), { Prefer: 'return=representation' }), body: JSON.stringify(row) }); if (!r.ok) throw new Error('supabase insert ' + table + ' ' + r.status + ' ' + await r.text()); return (await r.json())[0]; };
@@ -772,7 +783,7 @@
           // Round 5 V15-V16: a visit_auto attendance row's date moved off (attApplyOps, visitAttendance.ts rule 3b).
           if (b.type === 'attendanceDelete') { await sbDelete('attendance?id=eq.' + encodeURIComponent(b.id || '')); return respond({ ok: true }); }
           if (b.type === 'return') { await sbUpsert('returns', 'id', { id: b.id, status: b.status || 'open' }); return respond({ ok: true, id: b.id }); }
-          if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '', ver: b.ver || 1 }); return respond({ ok: true, cached: (b.tasks || []).length }); }
+          if (b.type === 'emsCacheWrite') { await sbUpsert('ems_cache', 'id', { id: 1, tasks: b.tasks || [], synced_at: nowISO(), synced_by: b.syncedBy || '', ver: b.ver || 1 }); emsLifecycleApply(b.tasks, b.full); return respond({ ok: true, cached: (b.tasks || []).length }); }
           if (b.type === 'emsQueueAdd') { const qid = genId('q'); await sbInsert('ems_queue', [{ payload: Object.assign({ id: qid, at: nowISO() }, b.item || {}) }]); return respond({ ok: true, id: qid }); }
           if (b.type === 'emsQueueClear') { const ids = (b.ids || []).map(x => '"' + String(x).replace(/"/g, '') + '"'); if (ids.length) await sbDelete('ems_queue?payload->>id=in.(' + ids.join(',') + ')'); return respond({ ok: true }); }
           if (b.type === 'parseCorrection') { await sbInsert('parse_corrections', [{ raw_text: b.rawText || '', items: b.items || [], created_by: b.createdBy || '' }]); return respond({ ok: true }); }
