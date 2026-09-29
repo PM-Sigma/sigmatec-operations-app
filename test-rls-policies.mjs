@@ -23,8 +23,9 @@
 import assert from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DB = new URL('./db/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const DB = fileURLToPath(new URL('./db/', import.meta.url));
 let checks = 0;
 const ok = (cond, msg) => { checks++; assert.ok(cond, msg); };
 
@@ -198,7 +199,7 @@ ok(/create\s+or\s+replace\s+function\s+public\.alert_mark_seen/i.test(rpc),
 ok(/security\s+definer/i.test(rpc), 'alert_mark_seen must be SECURITY DEFINER');
 
 const alertsIsland = readFileSync(
-  new URL('./app/src/islands/Alerts.tsx', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'), 'utf8');
+  fileURLToPath(new URL('./app/src/islands/Alerts.tsx', import.meta.url)), 'utf8');
 ok(/rpc\('alert_mark_seen'/.test(alertsIsland),
   'app/src/islands/Alerts.tsx must mark an alert seen through the alert_mark_seen RPC — a '
   + 'direct .from(\'inventory_alerts\').update() has no policy to run under any more');
