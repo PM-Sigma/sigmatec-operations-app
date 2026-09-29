@@ -309,37 +309,40 @@ function Strip({ title, items, testid }: { title: string; items: StripItem[]; te
 }
 
 /** Region + section as read-only chip tags, for everyone. Region is fixed app-wide (עידן 29.9). */
-function RegionChips({ row }: { row: KibbutzRow | null }) {
+function RegionChips({ row, canEdit, onSave }: {
+  row: KibbutzRow | null; canEdit: boolean; onSave: (row: KibbutzRow, edit: SectionEdit) => void;
+}) {
   if (!row) return null;
-  const chips = [String(row.region || '—'), SECTION_LABEL[sectionOf(row)]];
   const chipCls = 'inline-flex min-h-7 items-center rounded-full border border-border bg-muted px-2.5 text-[12px] font-bold text-foreground';
   return (
     <div data-testid="presenter-region-chips" className="flex flex-wrap gap-1.5">
-      {chips.map((c, i) => <span key={i} className={chipCls}><bdi>{c}</bdi></span>)}
+      <span className={chipCls}><bdi>{String(row.region || '—')}</bdi></span>
+      {canEdit
+        ? <SectionEditButton row={row} chipCls={chipCls} onSave={onSave} />
+        : <span className={chipCls}><bdi>{SECTION_LABEL[sectionOf(row)]}</bdi></span>}
     </div>
   );
 }
 
 /**
- * The ONE entry point for editing a kibbutz's category (עידן 29.9): a ✏️ next to the name, for
- * עידן/עמיחי only. Opens a sheet with 🆕/✅; Save calls the narrow `set_kibbutz_section` RPC via
+ * The ONE entry point for editing a kibbutz's category (עידן 29.9): the 🆕/✅ chip, a button for
+ * עידן/עמיחי only (read-only span for everyone else). Opens a sheet with 🆕/✅; Save calls the narrow `set_kibbutz_section` RPC via
  * `onSave` (optimistic + presenter undo toast are the overlay's job). The RPC re-checks the caller.
  */
-function SectionEditButton({ row, canEdit, onSave }: {
-  row: KibbutzRow | null; canEdit: boolean; onSave: (row: KibbutzRow, edit: SectionEdit) => void;
+function SectionEditButton({ row, chipCls, onSave }: {
+  row: KibbutzRow; chipCls: string; onSave: (row: KibbutzRow, edit: SectionEdit) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [section, setSection] = React.useState<Section>('active');
-  if (!row || !canEdit) return null;
   const edit = buildSectionEdit(row, section);
   return (
     <>
       <button
-        type="button" data-testid="presenter-section-edit" aria-label="עריכת קטגוריה"
+        type="button" data-testid="presenter-section-edit" aria-label="שינוי קטגוריה"
         onClick={() => { setSection(sectionOf(row)); setOpen(true); }}
-        className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-border text-foreground"
+        className={chipCls.replace('min-h-7', 'min-h-11 min-w-11 justify-center')}
       >
-        <Pencil size={18} aria-hidden />
+        <bdi>{SECTION_LABEL[sectionOf(row)]}</bdi>
       </button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" data-testid="presenter-section-picker" className="max-h-[88svh] overflow-y-auto">
@@ -925,10 +928,9 @@ function PresenterOverlay({ onClose }: { onClose: () => void }) {
               >
                 <Pencil size={18} aria-hidden />
               </button>
-              <SectionEditButton row={current} canEdit={canEditRegion} onSave={saveRegion} />
             </div>
 
-            <RegionChips row={current} />
+            <RegionChips row={current} canEdit={canEditRegion} onSave={saveRegion} />
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <Strip title="ניהולי" items={strips.admin} testid="presenter-strip-admin" />

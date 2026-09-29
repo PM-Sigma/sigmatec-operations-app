@@ -1,0 +1,27 @@
+{
+ "axe": 0,
+ "custom": 2,
+ "detail": {
+  "axe": [],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "select.w-full.min-h-[48px]",
+    "text": "",
+    "ratio": 1.28,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.potential-search",
+    "text": "🔍 חיפוש קיבוץ...",
+    "ratio": 1.23,
+    "need": 3,
+    "fg": "#e3e8ef",
+    "bg": "#ffffff"
+   }
+  ]
+ }
+}

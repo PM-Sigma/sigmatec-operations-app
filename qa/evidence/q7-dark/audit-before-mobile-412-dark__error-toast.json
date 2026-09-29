@@ -1,0 +1,40 @@
+{
+ "axe": 2,
+ "custom": 2,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".text-destructive > span",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   },
+   {
+    "sel": ".text-destructive > span > bdi",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   }
+  ],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "input.w-full.min-h-[48px]",
+    "text": "",
+    "ratio": 1.37,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#0e1316"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.w-full.min-h-[48px]",
+    "text": "",
+    "ratio": 1.37,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#0e1316"
+   }
+  ]
+ }
+}

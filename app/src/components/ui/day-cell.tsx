@@ -39,6 +39,7 @@ export function DayCell({
   missing,
   eventCount,
   blocks,
+  strips,
   compact,
   outside,
   label,
@@ -66,6 +67,8 @@ export function DayCell({
       kibbutz — "גבת" truncated to "ג…", worse than no name at all. Compact cells fall back
       to the plain "•N" count; the 5-column חודש עבודה view has room for the real chip. */
   compact?: boolean;
+  /** Round 7 · Q7-E 11.4: thin absence strips (one per kind), full cell width. */
+  strips?: readonly { kind: string; text: string }[];
   outside?: boolean;
   /** Required — a DayCell has no other accessible name (sign-off P1-8), e.g. "יום שלישי,
       1 בספטמבר · לא דווחה נוכחות". */
@@ -86,7 +89,7 @@ export function DayCell({
       // columns only fit 45px cells at the 360 width floor.
       data-min-tap="44"
       className={cn(
-        'relative flex aspect-square min-h-11 w-full flex-col items-start justify-start rounded-[var(--r-sm)] p-1',
+        'relative flex aspect-square border border-solid border-[hsl(var(--border))] min-h-11 w-full flex-col items-start justify-start rounded-[var(--r-sm)] p-1',
         selected ? 'bg-[var(--sigma-ink)] text-[hsl(var(--card))]' : FILL_CLS[fill],
         // A plain opacity reduction (the previous approach) dims the day NUMBER along with the
         // cell, and CSS opacity multiplies straight through whatever contrast the text color
@@ -110,6 +113,20 @@ export function DayCell({
         {eve && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--holiday-eve-ink)]" />}
         {missing && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--danger-ink)]" />}
       </span>
+      {strips && strips.length ? (
+        <span className="mt-auto flex w-full flex-col gap-px" data-testid="day-strips">
+          {strips.map(t => (
+            <span
+              key={t.kind}
+              data-strip-kind={t.kind}
+              title={t.text}
+              className="block w-full truncate rounded-[3px] bg-[var(--holiday-fill)] px-0.5 text-start text-[9px] font-semibold leading-[1.3] text-[var(--holiday-ink)]"
+            >
+              <bdi>{t.text}</bdi>
+            </span>
+          ))}
+        </span>
+      ) : null}
       {blocks && blocks.length && !compact ? (
         <span className="mt-auto flex w-full items-center justify-end gap-0.5 overflow-hidden">
           <span

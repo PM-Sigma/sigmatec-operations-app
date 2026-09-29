@@ -107,27 +107,53 @@
 }
 
 :root[data-theme="dark"] {
-  /* ---- color roles (dark) ---- */
-  --s-bg: #0E1316;
-  --s-surface: #161C20;
-  --s-surface-2: #1C2429;
-  --s-border: #2A343B;
-  --s-text: #E6EDF2;
-  --s-text-2: #A3B1BD;
+  /* ---- color roles (dark) ----
+     Q7-D (8.1, עידן 29.9): "a bit more colourful, still calm". Surfaces lean toward the brand
+     hue (~197deg teal-blue, ~25-30% saturation, was ~15%) instead of neutral blue-grey; accents
+     and status inks gained saturation but stay pastel (no neon). Every text pair was re-measured
+     by qa/playwright/tests/dark-contrast.spec.ts (axe + a custom walk), zero violations. */
+  --s-bg: #0B1519;
+  --s-surface: #121E24;
+  --s-surface-2: #192830;
+  --s-border: #2A3D47;
+  --s-text: #E8F1F5;
+  --s-text-2: #AFC1CC;
+  /* Q7-D 8.1: the grey 1px edge every pop-up panel (sheet / dialog / popover / dropdown / toast)
+     wears in dark — the panel is the same tone as the page under a 48% scrim, so the edge is what
+     separates it. Decorative container edge, so it is a calm grey, not a 3:1 line. */
+  --s-border-pop: #4B5A63;
+  /* Q7-D 8.2: FORM-FIELD edge — WCAG 1.4.11 wants >=3:1 against what surrounds the field, and the
+     old --s-border (1.25-1.4:1) made every input read as borderless in dark. */
+  --s-field-border: #5E727E;
   /* Same on-brand ink and brand-1/2 as light — the gradient itself never flips (design-review.md
      §2: "brand-1/brand-2 same"), so the text on it doesn't either. */
   --s-on-brand: #062B2C;
-  --s-ink: #3FD6DD;
-  --s-ok-ink: #4ADE80;      --s-ok-fill: #12301F;
-  --s-warn-ink: #F0B44C;    --s-warn-fill: #33270F;
-  --s-danger-ink: #F87171;  --s-danger-fill: #3A1618;
-  --s-info-ink: #8FB4FF;    --s-info-fill: #172440;
-  --s-holiday-ink: #C4B5FD; --s-holiday-fill: #2A1F47;
-  --s-holiday-eve-ink: #D946EF;
-  --s-neutral-ink: #A3B1BD; --s-neutral-fill: #1C2429;
+  --s-ink: #45DBE3;
+  --s-ok-ink: #4BE08A;      --s-ok-fill: #0F3624;
+  --s-warn-ink: #F5B94A;    --s-warn-fill: #3A2B0C;
+  --s-danger-ink: #FF7A7A;  --s-danger-fill: #431619;
+  --s-info-ink: #7CB0FF;    --s-info-fill: #14294D;
+  --s-holiday-ink: #C9B6FF; --s-holiday-fill: #2E2050;
+  --s-holiday-eve-ink: #E24FF0;
+  --s-neutral-ink: #AFC1CC; --s-neutral-fill: #192830;
   /* dark: the border carries elevation, not a shadow (design-review.md §2 "Elevation"). */
   --s-e1: none;
 }
+
+/* Q7-D 8.1: the repeating pop-up panel gets its grey 1px edge in dark. Selector-only (no
+   component edit): Radix stamps role + data-state on every one of these. Sheets are bottom
+   sheets (top edge + the two sides, no bottom edge), the rest are full boxes. */
+:root[data-theme="dark"] [role="dialog"][data-state],
+:root[data-theme="dark"] [role="alertdialog"][data-state],
+:root[data-theme="dark"] [role="menu"][data-state],
+:root[data-theme="dark"] [role="listbox"][data-state],
+:root[data-theme="dark"] [data-radix-popper-content-wrapper] > [data-state],
+:root[data-theme="dark"] [data-sonner-toast] {
+  border-style: solid;
+  border-color: var(--s-border-pop);
+  border-width: 1px;
+}
+:root[data-theme="dark"] [role="dialog"][data-state][class*="rounded-t-"] { border-width: 1px 1px 0; }
 
 @media (prefers-reduced-motion: reduce) {
   /* tools-and-motion.md §2.4: shift/stagger collapse to 0 — a list entrance or a drill-in

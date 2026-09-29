@@ -493,12 +493,17 @@ describe('who may present, and what the screen says', () => {
 // ───────────────────────────── H3: region/section chips ─────────────────────────────
 
 describe('section edit (H3, region fixed)', () => {
-  it.each(['עידן', 'עמיחי'])('%s: pencil opens the section picker, save calls the RPC (no region), undo works', async (u) => {
+  it.each(['עידן', 'עמיחי'])('%s: the category chip (a button) opens the section picker, save calls the RPC (no region), undo works', async (u) => {
     state.user = u;
     rpcMock.mockClear();
     await openScreen();
-    expect(screen.queryByTestId('presenter-region-chip')).toBeNull();   // chips are read-only
-    fireEvent.click(await screen.findByTestId('presenter-section-edit'));
+    expect(screen.queryByTestId('presenter-region-chip')).toBeNull();   // region chip is read-only
+    const chipBtn = await screen.findByTestId('presenter-section-edit');
+    expect(chipBtn.tagName).toBe('BUTTON');
+    expect(chipBtn.getAttribute('aria-label')).toBe('שינוי קטגוריה');
+    expect(chipBtn.className).toContain('min-h-11');
+    expect(screen.getAllByTestId('presenter-edit')).toHaveLength(1);    // the name pencil stays
+    fireEvent.click(chipBtn);
     expect(screen.queryByTestId('presenter-region-option')).toBeNull(); // no region picker
     await act(async () => { fireEvent.click(await screen.findByTestId('presenter-section-option-active')); });
     await act(async () => { fireEvent.click(screen.getByTestId('presenter-section-save')); });
@@ -522,10 +527,11 @@ describe('section edit (H3, region fixed)', () => {
     expect(screen.queryByTestId('presenter-undo-toast')).toBeNull();
   });
 
-  it('everyone else sees read-only chips and no section pencil', async () => {
+  it('everyone else sees a read-only category chip (a span, not a button)', async () => {
     state.user = 'אביאם';        // admin-fallback lets him present, but he is not an editor
     await openScreen();
     expect(screen.queryByTestId('presenter-section-edit')).toBeNull();
+    expect(screen.getByTestId('presenter-region-chips').querySelectorAll('button')).toHaveLength(0);
     expect(screen.getByTestId('presenter-region-chips').textContent).toContain('העמקים');
   });
 });

@@ -2,7 +2,7 @@
 // the hour gate and the idempotency tag"). Israel is UTC+3 in September, UTC+2 in January —
 // both are exercised, because the digest windows are the one thing DST can silently break.
 import { describe, expect, it } from 'vitest';
-import { alertArrow, alertText, alertTarget, canSeeAlerts, canSeeEmsUnlinkedAlert, digestBody, digestTag, digestTitle, digestWindow, emsUnlinkedGroup, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, markRowsSeen, unmarkRowsSeen, POOL, visitSupplyVisibleTo } from './alerts';
+import { alertArrow, alertText, alertTarget, canSeeAlerts, canSeeEmsUnlinkedAlert, digestBody, digestTag, digestTitle, digestWindow, emsUnlinkedGroup, emsUnlinkedSig, loadEmsUnlinkedRead, saveEmsUnlinkedRead, israelClock, isSeen, lowStockRows, lowStockTag, unseenCount, type AlertRow, groupAlerts, markRowsSeen, unmarkRowsSeen, POOL, visitSupplyVisibleTo } from './alerts';
 
 const mov = (o: Partial<AlertRow> = {}): AlertRow => ({
   id: 'a1', kind: 'movement', product: 'מונה E360CT', qty: 3,
@@ -260,5 +260,32 @@ describe('emsUnlinkedGroup', () => {
 
   it('alertText reads a single ems_unlinked row the same way the group title does', () => {
     expect(alertText({ kind: 'ems_unlinked', product: 'גבים' })).toBe('⚠️ גבים לא מקושר ל-EMS');
+  });
+});
+
+describe('ems-unlinked read state (Q7-B #5)', () => {
+  const mem = () => { const m = new Map<string, string>(); return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } }; };
+  const three = ['גבים', 'יגור', 'חוקוק'];
+
+  it('sig is order-independent and content-sensitive', () => {
+    expect(emsUnlinkedSig(three)).toBe(emsUnlinkedSig([...three].reverse()));
+    expect(emsUnlinkedSig(three)).not.toBe(emsUnlinkedSig([...three, 'דפנה']));
+  });
+  it('unread until marked; marked -> seen; per user', () => {
+    const st = mem();
+    expect(emsUnlinkedGroup(three, undefined, loadEmsUnlinkedRead('עידן', st))!.seen).toBe(false);
+    saveEmsUnlinkedRead('עידן', three, st);
+    expect(emsUnlinkedGroup(three, undefined, loadEmsUnlinkedRead('עידן', st))!.seen).toBe(true);
+    expect(emsUnlinkedGroup(three, undefined, loadEmsUnlinkedRead('עמיחי', st))!.seen).toBe(false);
+  });
+  it('condition changes (4 sites) -> unread again', () => {
+    const st = mem();
+    saveEmsUnlinkedRead('עידן', three, st);
+    expect(emsUnlinkedGroup([...three, 'דפנה'], undefined, loadEmsUnlinkedRead('עידן', st))!.seen).toBe(false);
+  });
+  it('broken storage never throws', () => {
+    const bad = { getItem: () => { throw new Error('x'); }, setItem: () => { throw new Error('x'); } };
+    expect(loadEmsUnlinkedRead('עידן', bad)).toBe(null);
+    expect(() => saveEmsUnlinkedRead('עידן', three, bad)).not.toThrow();
   });
 });

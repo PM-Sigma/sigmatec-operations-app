@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 import {
   EMS_CACHE_VER, EXIT, OPEN_STATUSES, PAGE_SIZE,
   crawlDone, dedupeById, defaultLogPath, emsLinkIds, hasCredentials,
-  loadConfig, main, parseArgs, parseEnv, readClientConstants, slimTask, tasksPath,
+  loadConfig, main, lifecyclePlan, applyLifecycle, parseArgs, parseEnv, readClientConstants, slimTask, tasksPath,
 } from './scripts/ems-cache-refresh.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -420,6 +420,31 @@ check('the runbook documents the schedule and the rotation, and carries NO secre
   // the runbook may NAME the keys; it may never carry a value for one
   const leak = /(EMS_PASSWORD|EMS_TOKEN)\s*=\s*\S+/.exec(doc.replace(/EMS_(PASSWORD|TOKEN)\s*=\s*(<[^>]*>|\.{3}|…)/g, ''));
   assert.strictEqual(leak, null, 'the runbook contains a credential VALUE: ' + (leak && leak[0]));
+});
+
+check('lifecycle plan: full only for a completed crawl, never for a page-cap stop, skipped without a key', () => {
+  assert.deepStrictEqual(lifecyclePlan({ stoppedBecause: 'short-page' }, 5, true), { call: true, full: true });
+  assert.deepStrictEqual(lifecyclePlan({ stoppedBecause: 'reached-total' }, 5, true), { call: true, full: true });
+  assert.deepStrictEqual(lifecyclePlan({ stoppedBecause: 'page-cap' }, 5, true), { call: true, full: false });
+  assert.strictEqual(lifecyclePlan({ stoppedBecause: 'short-page' }, 5, false).call, false);
+  assert.strictEqual(lifecyclePlan({ stoppedBecause: 'short-page' }, 0, true).call, false);
+});
+check('lifecycle call: ok / missing RPC / http error / network error never throw and leak nothing', async () => {
+  const mk = r => async () => r;
+  const KEY = 'SECRET-KEY-123';
+  assert.strictEqual(await applyLifecycle('http://x', KEY, [], true, mk({ status: 200, ok: true, json: async () => 7 })), 'ok:7');
+  assert.strictEqual(await applyLifecycle('http://x', KEY, [], true, mk({ status: 404, ok: false })), 'rpc-missing');
+  assert.strictEqual(await applyLifecycle('http://x', KEY, [], false, mk({ status: 500, ok: false })), 'error:500');
+  const out = await applyLifecycle('http://x', KEY, [], false, async () => { throw new Error('boom ' + KEY); });
+  assert.strictEqual(out, 'error:network');
+  let sent; await applyLifecycle('http://x', KEY, [{ id: 'a' }], true, async (u, o) => { sent = { u, o }; return { status: 200, ok: true, json: async () => 0 }; });
+  assert.match(sent.u, /rpc\/ems_apply_snapshot_cron$/);
+  assert.deepStrictEqual(JSON.parse(sent.o.body), { p_tasks: [{ id: 'a' }], p_full: true });
+});
+check('the job source has no hardcoded key and reports only a status for the lifecycle call', () => {
+  const src = read('scripts/ems-cache-refresh.mjs');
+  assert.doesNotMatch(src, /eyJ[A-Za-z0-9_-]{20,}/);
+  assert.match(src, /report\.lifecycle = /);
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
