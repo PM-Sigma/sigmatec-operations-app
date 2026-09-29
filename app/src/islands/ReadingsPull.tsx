@@ -7,7 +7,7 @@
 //   2. הרצה ידנית     — a date (max = yesterday, no min) and a progress line while it runs.
 //   3. היסטוריית משיכות — 35 days, one row per day; a day nobody pulled says so, with [משוך].
 import * as React from 'react';
-import { ArrowDownToLine, FileDown, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowDownToLine, FileDown, FileWarning, Loader2, RefreshCw } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { PageActionRow } from '@/components/ui/page-action-row';
@@ -25,13 +25,14 @@ import { useCurrentUser } from '@/bridge';
 import { canUseReadings } from '@/lib/readingsRoster';
 import {
   HISTORY_DAYS, addDays, dmHmIL, dmIL, failedSources, historyRows, latestCronPerSite, latestRun, metersForReason,
-  progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
+  manualView, progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
 } from '@/lib/readingsLogic';
 import {
   emsCheck, emsToken, fetchRuns, fetchSites, fetchSources, markSeen, markUploaded, openDownload, retrySource,
   signFile, startRun, type ReadingSite,
 } from '@/lib/readingsApi';
 import { FOCUS_KEY, trackRun } from '@/lib/readingsWatch';
+import { toastFailure } from '@/lib/pending';
 
 const TITLE = 'משיכת קריאות משירותי מנייה חיצוניים';
 const runsKey = (siteId: string) => ['readings', 'runs', siteId] as const;
@@ -186,7 +187,8 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
           קובץ קריאות ל-EMS
         </BubbleButton>
         <BubbleButton variant="tonal" data-testid="readings-download-exceptions" disabled={!run.exceptions_file || dl.busy === run.id + 'exceptions'}
-          icon={<FileDown className="h-4 w-4" aria-hidden />} onClick={() => void dl.go(run, 'exceptions')}>
+          aria-label="הורדת קובץ חריגות"
+          icon={<FileWarning className="h-4 w-4 text-[var(--warn-ink)]" aria-hidden />} onClick={() => void dl.go(run, 'exceptions')}>
           קובץ חריגות
         </BubbleButton>
       </div>
@@ -228,7 +230,7 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
 }
 
 // ── 2. manual run ────────────────────────────────────────────────────────────
-function ManualRun({ site, runs, onStarted }: { site: ReadingSite; runs: ReadingRun[]; onStarted: () => void }) {
+function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; runs: ReadingRun[]; sourceNames: string[]; onStarted: () => Promise<unknown> }) {
   const max = yesterdayIL();
   const [date, setDate] = React.useState(max);
   const [starting, setStarting] = React.useState(false);
@@ -244,10 +246,11 @@ function ManualRun({ site, runs, onStarted }: { site: ReadingSite; runs: Reading
     try {
       const { run_id } = await startRun(site.kibbutz, date);
       trackRun({ id: run_id, kibbutz: site.kibbutz, manual: true });
-      onStarted();
-    } catch (e) { toast.error(errText(e)); }
+      await onStarted();          // stay optimistic until the polled row shows the run
+    } catch (e) { toastFailure(e, undefined, 'התחלת המשיכה נכשלה'); }
     finally { setStarting(false); }
   };
+  const view = manualView({ starting, running: !!running, sourceNames, dateOk: !!date && date <= max });
 
   return (
     <div className="flex flex-col gap-3 px-4" data-testid="readings-manual">
@@ -258,12 +261,23 @@ function ManualRun({ site, runs, onStarted }: { site: ReadingSite; runs: Reading
             onChange={e => setDate(e.target.value)}
             className="h-11 w-full min-w-0 rounded-[var(--r-md)] border border-input bg-background px-3 text-[length:var(--fs-body)]" />
         </label>
-        <BubbleButton variant="primary" data-testid="readings-run" disabled={starting || !!running || !date || date > max}
+        <BubbleButton variant="primary" data-testid="readings-run" disabled={view.disabled}
           icon={starting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ArrowDownToLine className="h-4 w-4" aria-hidden />}
           onClick={() => void go()}>
-          משוך עכשיו
+          {view.label}
         </BubbleButton>
       </div>
+      {view.phase === 'optimistic' && (
+        <div className="flex flex-col gap-2" data-testid="readings-progress" data-optimistic role="status">
+          <div className="h-2 overflow-hidden rounded-full bg-secondary" aria-hidden>
+            <div className="h-full rounded-full bg-[var(--sigma-ink)]" style={{ width: '5%' }} />
+          </div>
+          <span className="text-[length:var(--fs-body-sm)] font-semibold">
+            משיכת <bdi>{dmIL(date)}</bdi>: {view.optimisticText || 'מתחיל…'}
+          </span>
+          <span className="text-[length:var(--fs-body-sm)] text-muted-foreground">אפשר לעבור למסכים אחרים — נודיע לך כשהקבצים מוכנים.</span>
+        </div>
+      )}
       {running && (
         <div className="flex flex-col gap-2" data-testid="readings-progress" role="status">
           <div className="h-2 overflow-hidden rounded-full bg-secondary" aria-hidden>
@@ -311,8 +325,8 @@ function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling }: {
           <span className="flex shrink-0 gap-1.5">
             <BubbleButton variant="icon" size="sm" aria-label="הורד קובץ קריאות" disabled={!run.readings_file || busy === run.id + 'readings'}
               onClick={() => onDownload(run, 'readings')}><ArrowDownToLine className="h-4 w-4" /></BubbleButton>
-            <BubbleButton variant="icon" size="sm" aria-label="הורד קובץ חריגות" disabled={!run.exceptions_file || busy === run.id + 'exceptions'}
-              onClick={() => onDownload(run, 'exceptions')}><FileDown className="h-4 w-4" /></BubbleButton>
+            <BubbleButton variant="icon" size="sm" aria-label="הורדת קובץ חריגות" disabled={!run.exceptions_file || busy === run.id + 'exceptions'}
+              onClick={() => onDownload(run, 'exceptions')}><FileWarning className="h-4 w-4 text-[var(--warn-ink)]" /></BubbleButton>
           </span>
         )}
       </div>
@@ -438,7 +452,8 @@ function ReadingsInner() {
       </SectionBlock>
 
       <SectionBlock title="הרצה ידנית">
-        <ManualRun site={site} runs={runs} onStarted={refresh} />
+        <ManualRun site={site} runs={runs} sourceNames={(srcQ.data || []).map(s => s.name)}
+          onStarted={() => qc.refetchQueries({ queryKey: ['readings', 'runs'] })} />
       </SectionBlock>
 
       <SectionBlock title="היסטוריית משיכות" count={rows.filter(r => r.kind === 'run').length}>

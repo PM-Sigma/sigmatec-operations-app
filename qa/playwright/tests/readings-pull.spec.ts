@@ -42,7 +42,7 @@ function history(): Row[] {
   ];
 }
 
-interface Mock { runs: Row[]; calls: Row[]; }
+interface Mock { runs: Row[]; calls: Row[]; runDelayMs?: number; runFail?: boolean; }
 
 async function installReadings(page: any, S: Mock) {
   const json = (body: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -64,12 +64,14 @@ async function installReadings(page: any, S: Mock) {
     status: 200, body: 'PK-synthetic',
     headers: { 'content-type': 'application/octet-stream', 'content-disposition': 'attachment; filename="readings.xlsx"' },
   }));
-  await page.route(SB_ORIGIN + '/functions/v1/readings-fetch', (r: any) => {
+  await page.route(SB_ORIGIN + '/functions/v1/readings-fetch', async (r: any) => {
     const b = JSON.parse(r.request().postData() || '{}');
     S.calls.push(b);
+    if (b.mode === 'run' && S.runDelayMs) await new Promise(res => setTimeout(res, S.runDelayMs));
     const run = S.runs.find(x => x.id === b.run_id);
     switch (b.mode) {
       case 'run':
+        if (S.runFail) return r.fulfill(json({ error: 'blocked', message: 'SpeedNet חסם את הבקשה. נסה שוב בעוד כמה דקות' }, 500));
         S.runs.push(base({
           id: 'run-new', reading_date: b.date, trigger: 'manual', started_by: 'עידן', status: 'running',
           started_at: new Date().toISOString(), n_ok: null, n_blocked: null, n_warn: null, summary: null, exceptions: null,
@@ -176,6 +178,7 @@ test('downloads: sign, then a plain <a download> click yields a file; the "הו�
   const { rec } = await boot(page, ti, { who: 'עידן' });
   await installReadings(page, S);
   await openPage(page);
+  await expect(page.getByRole('button', { name: 'הורדת קובץ חריגות' }).first()).toBeVisible();   // distinct amber FileWarning icon
   const [dlEvent] = await Promise.all([
     page.waitForEvent('download', { timeout: 15_000 }),
     page.getByTestId('readings-download-readings').click(),
@@ -328,4 +331,45 @@ test('access: the viewer is refused — no ⋯ row, and the page bounces to the 
   await expect(page.getByRole('button', { name: /משיכת קריאות משירותי מנייה חיצוניים/ })).toHaveCount(0);
   expect(S.calls).toEqual([]);
   expectNoConsoleErrors(rec);
+});
+
+test('optimistic start: progress shows within 100 ms of the tap (slow run), then the real progress replaces it', async ({ page }, ti) => {
+  test.setTimeout(60_000);
+  const S: Mock = { runs: history().slice(1), calls: [], runDelayMs: 3000 };
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await installReadings(page, S);
+  await openPage(page);
+
+  const btn = page.getByTestId('readings-run');
+  const prog = page.getByTestId('readings-progress');
+  await expect(prog).toHaveCount(0);
+  await btn.click();
+  await expect(prog).toBeVisible({ timeout: 100 });
+  await expect(btn).toBeDisabled({ timeout: 100 });
+  await expect(btn).toContainText('מתחיל…', { timeout: 100 });
+  await expect(prog).toContainText('SpeedNet: ממתין');
+  await expect(prog).toContainText('DataSense: ממתין');
+  await expect(prog).toContainText('אפשר לעבור למסכים אחרים');
+  expect(S.runs.some(r => r.id === 'run-new')).toBe(false);          // the server has not answered yet
+  await shot(page, ti, 'optimistic-progress');
+
+  await expect(prog).toContainText('✓ SpeedNet 197', { timeout: 15_000 });
+  await expect(prog).toContainText('⏳ DataSense…');
+  await expect(prog).not.toContainText('ממתין');
+  expectNoConsoleErrors(rec);
+});
+
+test('optimistic start: a failing start reverts the UI and shows the error', async ({ page }, ti) => {
+  test.setTimeout(60_000);
+  const S: Mock = { runs: history().slice(1), calls: [], runFail: true };
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await installReadings(page, S);
+  await openPage(page);
+  const btn = page.getByTestId('readings-run');
+  await btn.click();
+  await expect(page.locator('[data-sonner-toast]').filter({ hasText: 'SpeedNet חסם את הבקשה' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('readings-progress')).toHaveCount(0);
+  await expect(btn).toBeEnabled();
+  await expect(btn).toContainText('משוך עכשיו');
+  void rec;
 });

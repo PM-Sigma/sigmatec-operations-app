@@ -108,6 +108,25 @@ export function progressText(progress: Progress | null | undefined): string {
   return parts.join(' · ');
 }
 
+// ── optimistic start (tap on "משוך עכשיו" shows progress at once) ─────────────
+export interface ManualView {
+  label: string; disabled: boolean;
+  phase: 'idle' | 'optimistic' | 'real';
+  /** optimistic phase only: one "name: ממתין" per source, step 0 */
+  optimisticText: string;
+  optimisticNames: string[];
+}
+export function manualView(o: { starting: boolean; running: boolean; sourceNames: string[]; dateOk: boolean }): ManualView {
+  const phase = o.running ? 'real' : o.starting ? 'optimistic' : 'idle';
+  return {
+    label: o.starting ? 'מתחיל…' : 'משוך עכשיו',
+    disabled: o.starting || o.running || !o.dateOk,
+    phase,
+    optimisticNames: phase === 'optimistic' ? o.sourceNames : [],
+    optimisticText: phase === 'optimistic' ? o.sourceNames.map(n => `${n}: ממתין`).join(' · ') : '',
+  };
+}
+
 // ── runs ─────────────────────────────────────────────────────────────────────
 const newer = (a: ReadingRun, b: ReadingRun) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0);
 export const isDone = (r: ReadingRun) => r.status === 'ok' || r.status === 'partial';

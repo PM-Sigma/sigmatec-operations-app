@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addActive, badgeCount, failedSources, finishToast, historyRows, isoWeekKey, israelWeekday, latestCronPerSite,
-  latestRun, metersForReason, parseActive, progressText, reasonGroups, removeActive, shouldSundayCheck,
+  latestRun, manualView, metersForReason, parseActive, progressText, reasonGroups, removeActive, shouldSundayCheck,
   watchVerdict, yesterdayIL, type ReadingRun,
 } from './readingsLogic';
 
@@ -183,5 +183,26 @@ describe('watcher state', () => {
     expect(p.text).toContain('SpeedNet');
     expect(p.text).toContain('האתר חסם');
     expect(finishToast('failed', 'חולדה', { error: 'הריצה נתקעה', progress: {} }).text).toContain('הריצה נתקעה');
+  });
+});
+
+describe('manualView (optimistic start)', () => {
+  const names = ['SpeedNet', 'DataSense'];
+  it('idle: normal button, no progress', () => {
+    const v = manualView({ starting: false, running: false, sourceNames: names, dateOk: true });
+    expect(v).toMatchObject({ label: 'משוך עכשיו', disabled: false, phase: 'idle', optimisticText: '' });
+  });
+  it('starting: disabled "מתחיל…", every source waiting', () => {
+    const v = manualView({ starting: true, running: false, sourceNames: names, dateOk: true });
+    expect(v).toMatchObject({ label: 'מתחיל…', disabled: true, phase: 'optimistic', optimisticNames: names });
+    expect(v.optimisticText).toBe('SpeedNet: ממתין · DataSense: ממתין');
+  });
+  it('the real row wins over the optimistic state', () => {
+    const v = manualView({ starting: true, running: true, sourceNames: names, dateOk: true });
+    expect(v.phase).toBe('real');
+    expect(v.optimisticNames).toEqual([]);
+  });
+  it('a bad date disables the idle button', () => {
+    expect(manualView({ starting: false, running: false, sourceNames: [], dateOk: false }).disabled).toBe(true);
   });
 });
