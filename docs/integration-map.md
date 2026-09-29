@@ -61,7 +61,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsWrite` | js/src/00-bridge.js:352 | `emsWriteOrQueue` → js/src/13-ems.js:304 | app/src/lib/inventoryApi.test.ts:192<br>app/src/lib/inventoryApi.test.ts:285<br>app/src/lib/inventoryApi.ts:229<br>app/src/lib/inventoryApi.ts:416 |
 | `sigma.ensurePass` | js/src/00-bridge.js:511 | *(own logic)* | **—** |
 | `sigma.gapNag` | js/src/00-bridge.js:560 | `gapNag` → js/src/22-push.js:337 | app/src/islands/Gaps.tsx:236 |
-| `sigma.getCurrentUser` | js/src/00-bridge.js:262 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:399<br>app/src/islands/Burns.tsx:49<br>app/src/islands/DayLog.tsx:563<br>app/src/islands/DevPresenter.tsx:730<br>…+12 |
+| `sigma.getCurrentUser` | js/src/00-bridge.js:262 | `getCurrentUser` → js/src/11-search-login.js:123 | app/src/bridge.ts:399<br>app/src/islands/Burns.tsx:49<br>app/src/islands/DayLog.tsx:562<br>app/src/islands/DevPresenter.tsx:730<br>…+12 |
 | `sigma.getEmsSites` | js/src/00-bridge.js:318 | `getEmsSites` → js/src/14-calendar.js:319 | app/src/components/home/HealthStrip.tsx:29<br>app/src/lib/ems/adapters/rest.ts:150 |
 | `sigma.getLastVisit` | js/src/00-bridge.js:415 | *(own logic)* | app/src/islands/Field.tsx:2205 |
 | `sigma.getRole` | js/src/00-bridge.js:263 | *(own logic)* | app/src/bridge.ts:400<br>app/src/islands/Feedback.tsx:188<br>app/src/lib/landing.ts:111<br>app/src/lib/navigate.ts:25 |
@@ -259,7 +259,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `push-send` | `attendanceReminder` | ✓ | js/src/22-push.js:313 |
 | `push-send` | `feedbackNew` | ✓ | app/src/islands/Feedback.test.tsx:159<br>app/src/islands/Feedback.tsx:92 |
 | `push-send` | `gapReminder` | ✓ | js/src/22-push.js:341 |
-| `transcribe` | `(default)` | *(no mode field)* | app/src/lib/speech.ts:403<br>app/src/lib/speech.ts:437 |
+| `transcribe` | `(default)` | *(no mode field)* | app/src/lib/speech.ts:410<br>app/src/lib/speech.ts:444 |
 
 `push-send` modes with no client caller (cron / server-triggered by design): `approveOrder`, `attendanceCron`, `inventoryAlert`, `inventoryDigest`, `timerStale`, `usageDigest`, `visitCron`.
 

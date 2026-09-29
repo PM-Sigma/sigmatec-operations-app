@@ -53,6 +53,9 @@ test('kibbutz detail: marketing tag beside ✕, ✏️ for עידן only, closes
   await header.getByRole('button', { name: 'סגירה' }).click();
   await expect(detail(page)).toBeHidden();
   await page.evaluate(() => (window as any).sigma.openKibbutzModal('כפר עזה'));
+  // Wait for the sheet AND its focus to land: Escape sent while the dialog is still mounting is
+  // swallowed under a loaded full run (the flake), so assert the header is up before pressing.
+  await expect(header.getByRole('button', { name: 'סגירה' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(detail(page)).toBeHidden();
 });
