@@ -284,7 +284,9 @@ const SN_BROWSER_CODE = `export default async function ({ page, context }) {
   return { data: out, type: 'application/json' };
 }`;
 
-export async function speednetViaBrowser(user: string, pass: string, siteId: string, day: string, browserlessToken: string): Promise<Reading[]> {
+export const DEFAULT_SN_PROXY = "&proxy=residential&proxyCountry=il";
+/** `proxy` = the Browserless query-string suffix (reading_sources.params.proxy). */
+export async function speednetViaBrowser(user: string, pass: string, siteId: string, day: string, browserlessToken: string, proxy: string = DEFAULT_SN_PROXY): Promise<Reading[]> {
   const base = Deno.env.get("BROWSERLESS_URL") || "https://production-sfo.browserless.io";
   const d = ymd(day), nxt = addDays(d, 1);
   const salt = Math.floor(Date.now() / 1000) % 7;
@@ -293,7 +295,7 @@ export async function speednetViaBrowser(user: string, pass: string, siteId: str
   const id = setTimeout(() => ac.abort(), 130000);
   let res: Response;
   try {
-    res = await fetch(`${base}/function?token=${encodeURIComponent(browserlessToken)}${Deno.env.get("SN_PROXY") ?? "&proxy=residential&proxyCountry=il"}`, {
+    res = await fetch(`${base}/function?token=${encodeURIComponent(browserlessToken)}${proxy}`, {
       method: "POST", headers: { "Content-Type": "application/json" }, signal: ac.signal,
       body: JSON.stringify({ code: SN_BROWSER_CODE, context: { user, pass, siteId, want: [dmy(d), dmy(nxt)], days } }),
     });
