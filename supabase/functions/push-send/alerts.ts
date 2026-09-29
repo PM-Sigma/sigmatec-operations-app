@@ -259,7 +259,7 @@ export function canSeeEmsUnlinkedAlert(user: string): boolean {
  * older rows arrive; `seen` is always `false` — it never actually clears until the site really
  * gets linked, unlike an inventory movement nobody can "read again" once acted on.
  */
-export function emsUnlinkedGroup(names: string[], now = new Date().toISOString()): AlertGroup | null {
+export function emsUnlinkedGroup(names: string[], now = new Date().toISOString(), readSig: string | null = null): AlertGroup | null {
   const list = (names ?? []).filter(Boolean);
   if (!list.length) return null;
   const title = list.length === 1
@@ -271,8 +271,32 @@ export function emsUnlinkedGroup(names: string[], now = new Date().toISOString()
     rows: list.map(name => ({ kind: 'ems_unlinked' as const, product: name })),
     title,
     at: now,
-    seen: false,
+    seen: readSig !== null && readSig === emsUnlinkedSig(list),
   };
+}
+
+/**
+ * Round 7 (Q7-B #5): a derived alert has no DB row to mark, so its "read" is a content hash of
+ * the names it was read for. Same sites → still read; a site added/removed → different hash →
+ * the alert comes back unread.
+ */
+export function emsUnlinkedSig(names: string[]): string {
+  const s = Array.from(new Set((names ?? []).filter(Boolean).map(String))).sort().join('|');
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+const readKey = (user: string) => `alertsRead:emsUnlinked:${String(user ?? '').trim()}`;
+
+/** Per-user (per-device) read state of the derived alert. Never throws (private mode etc.). */
+export function loadEmsUnlinkedRead(user: string, storage: Pick<Storage, 'getItem'> | null = (typeof localStorage !== 'undefined' ? localStorage : null)): string | null {
+  try { return storage?.getItem(readKey(user)) || null; } catch { return null; }
+}
+export function saveEmsUnlinkedRead(user: string, names: string[], storage: Pick<Storage, 'setItem'> | null = (typeof localStorage !== 'undefined' ? localStorage : null)): string {
+  const sig = emsUnlinkedSig(names);
+  try { storage?.setItem(readKey(user), sig); } catch { /* not persisted */ }
+  return sig;
 }
 
 // ───────────────────────────── the digest (§5.2) ─────────────────────────────

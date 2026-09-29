@@ -1,0 +1,18 @@
+{
+ "axe": 0,
+ "custom": 1,
+ "detail": {
+  "axe": [],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "input[cal-place-input].ucal-input",
+    "text": "🔍 חיפוש קיבוץ להוספה למסלול",
+    "ratio": 1.37,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#0e1316"
+   }
+  ]
+ }
+}

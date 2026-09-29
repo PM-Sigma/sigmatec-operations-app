@@ -270,14 +270,14 @@ function MyTasksIsland() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent side="bottom" data-testid="my-tasks" className="max-h-[88svh] overflow-y-auto">
-        <SheetHeader className="text-start">
+        <SheetHeader className="gap-x-4 pb-3 text-start">
           <SheetTitle className="flex items-center gap-2 text-base">
             <ListTodo className="h-5 w-5" aria-hidden /> {MY_TASKS_TITLE}
             {total > 0 ? (
-              <span data-testid="my-tasks-total" className="rounded-full bg-muted px-2 py-px text-[12px] font-bold text-muted-foreground"><bdi>{total}</bdi></span>
+              <span data-testid="my-tasks-total" className="ms-1 rounded-full bg-muted px-2 py-px text-[12px] font-bold text-muted-foreground"><bdi>{total}</bdi></span>
             ) : null}
           </SheetTitle>
-          <SheetDescription>המשימות והמעקבים שפתוחים עליך, לפי קיבוץ</SheetDescription>
+          <SheetDescription className="pb-1">המשימות והמעקבים שפתוחים עליך, לפי קיבוץ</SheetDescription>
         </SheetHeader>
         {internal.isLoading && !internal.data ? (
           <div className="flex flex-col gap-2 py-3">{[0, 1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>

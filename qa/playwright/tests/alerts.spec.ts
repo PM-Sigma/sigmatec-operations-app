@@ -207,11 +207,20 @@ test('a kibbutz with no ems_site_ids raises a group at the top of the bell (עי
   const list = page.getByTestId('alerts-list');
   await expect(list).toBeVisible({ timeout: 15_000 });
   await expect(list).toContainText('שדה אליהו לא מקושר ל-EMS');
-  // it has no "סימון כנקרא" — a standing fact, not an event to dismiss.
+  // Q7-B #5: a derived alert can be marked read too (per-user, keyed by content).
   const group = list.getByTestId('alert-group').filter({ hasText: 'שדה אליהו' });
-  await expect(group.getByLabel('סימון כנקרא')).toHaveCount(0);
-
   await shot(page, ti, 'ems-unlinked');
+  const before = Number(((await page.getByTestId('alerts-badge').textContent()) || '0').replace(/\D/g, ''));
+  await group.getByLabel('סימון כנקרא').click();
+  await expect(list).not.toContainText('שדה אליהו לא מקושר ל-EMS');
+  if (before > 1) await expect(page.getByTestId('alerts-badge')).toHaveText(String(before - 1));
+  else await expect(page.getByTestId('alerts-badge')).toHaveCount(0);
+  // survives a reload
+  await page.reload();
+  await expect(page.getByTestId('alerts-bell')).toBeVisible({ timeout: 15_000 });
+  await page.getByTestId('alerts-bell').click();
+  await expect(page.getByTestId('alerts-list')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('alerts-list')).not.toContainText('שדה אליהו לא מקושר ל-EMS');
   await expectNoConsoleErrors(rec);
 });
 

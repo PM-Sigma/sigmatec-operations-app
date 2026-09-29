@@ -31,7 +31,7 @@ import { useCurrentUser, useSigmaEvent } from '@/bridge';
 import { bellLabel } from '@/lib/shell';
 import { useFreshness } from '@/lib/freshness';
 import {
-  canSeeAlerts, canSeeEmsUnlinkedAlert, emsUnlinkedGroup, groupAlerts,
+  canSeeAlerts, canSeeEmsUnlinkedAlert, emsUnlinkedGroup, groupAlerts, loadEmsUnlinkedRead, saveEmsUnlinkedRead,
   isSeen, markRowsSeen, unmarkRowsSeen, visitSupplyVisibleTo,
   type AlertGroup, type AlertRow,
 } from '@/lib/alerts';
@@ -114,12 +114,16 @@ function AlertsBell() {
   });
   const visitorsByVisit = React.useMemo(() => visitorsQ.data ?? {}, [visitorsQ.data]);
 
+  // Derived alert → no row to mark: its read state is the hash of the names it was read for.
+  const [unlinkedRead, setUnlinkedRead] = React.useState<string | null>(() => loadEmsUnlinkedRead(user));
+  React.useEffect(() => { setUnlinkedRead(loadEmsUnlinkedRead(user)); }, [user]);
+
   const groups = React.useMemo(() => {
     const visible = rows.filter(r => visitSupplyVisibleTo(r, user, visitorsByVisit));
     const inv = groupAlerts(visible, user);
-    const unlinked = seeUnlinked ? emsUnlinkedGroup(unlinkedNames) : null;
+    const unlinked = seeUnlinked ? emsUnlinkedGroup(unlinkedNames, undefined, unlinkedRead) : null;
     return unlinked ? [unlinked, ...inv] : inv;
-  }, [rows, user, seeUnlinked, unlinkedNames, visitorsByVisit]);
+  }, [rows, user, seeUnlinked, unlinkedNames, unlinkedRead, visitorsByVisit]);
 
   React.useEffect(() => {
     const onOpen = () => { pendingOpen = false; setOpen(true); };
@@ -197,17 +201,23 @@ function AlertsBell() {
     qc.invalidateQueries({ queryKey: ['inventoryAlerts'] });
   }, [qc, user]);
 
-  const markSeen = React.useCallback((g: AlertGroup) => (
-    markRows(g.rows, () => { void markSeenRef.current?.(g); }, 'סימון ההתראה כנקראה לא נשמר. נסה שוב')
-  ), [markRows]);
+  const markSeen = React.useCallback((g: AlertGroup) => {
+    if (g.kind === 'ems_unlinked') {
+      setUnlinkedRead(saveEmsUnlinkedRead(user, g.rows.map(r => String(r.product ?? ''))));
+      return;
+    }
+    return markRows(g.rows, () => { void markSeenRef.current?.(g); }, 'סימון ההתראה כנקראה לא נשמר. נסה שוב');
+  }, [markRows, user]);
   const markSeenRef = React.useRef(markSeen);
   markSeenRef.current = markSeen;
 
   /** "סימון הכל כנקרא" — every currently-unread row across every group, one write batch. */
   const markAllSeen = React.useCallback(() => {
-    const rows = groups.filter(g => !g.seen).flatMap(g => g.rows);
+    const unl = groups.find(g => !g.seen && g.kind === 'ems_unlinked');
+    if (unl) setUnlinkedRead(saveEmsUnlinkedRead(user, unl.rows.map(r => String(r.product ?? ''))));
+    const rows = groups.filter(g => !g.seen && g.kind !== 'ems_unlinked').flatMap(g => g.rows);
     return markRows(rows, () => { void markAllSeenRef.current?.(); }, 'סימון ההתראות כנקראות לא נשמר. נסה שוב');
-  }, [groups, markRows]);
+  }, [groups, markRows, user]);
   const markAllSeenRef = React.useRef(markAllSeen);
   markAllSeenRef.current = markAllSeen;
 

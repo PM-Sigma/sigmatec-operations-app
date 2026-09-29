@@ -162,3 +162,21 @@ test('my tasks: a dated 🔒 row shows in the calendar, in the list and on its d
 
   await expectNoConsoleErrors(rec);
 });
+
+// Q7-B #6: the count pill must not touch the ✕, and the subtitle must clear the first block.
+test('my tasks sheet: count and subtitle breathe (no touching the close handle / blocks)', async ({ page }, ti) => {
+  await boot(page, ti);
+  await addInternal(page, 'חוקוק', 'לבדוק את הגנרטור');
+  await page.getByTestId('header-my-tasks').click();
+  const sheet = page.getByTestId('my-tasks');
+  await expect(sheet).toBeVisible();
+  const box = async (l: any) => (await l.first().boundingBox())!;
+  const total = await box(sheet.getByTestId('my-tasks-total'));
+  const close = await box(sheet.locator('.s-close-btn'));
+  const gapX = Math.max(close.x - (total.x + total.width), total.x - (close.x + close.width));
+  expect(gapX).toBeGreaterThanOrEqual(12);
+  const sub = await box(sheet.locator('[id^="radix"]').filter({ hasText: 'המשימות והמעקבים' }));
+  const grp = await box(sheet.locator('.my-task-group'));
+  expect(grp.y - (sub.y + sub.height)).toBeGreaterThanOrEqual(12);
+  await shot(page, ti, 'spacing');
+});

@@ -1,0 +1,103 @@
+{
+ "axe": 2,
+ "custom": 9,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".text-destructive > span",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   },
+   {
+    "sel": ".text-destructive > span > bdi",
+    "ratio": "3.02",
+    "fg": "#c22e2e",
+    "bg": "#161d22"
+   }
+  ],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 1",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 2",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 3",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 4",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 5",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 6",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 7",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 8",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.min-w-0.flex-1",
+    "text": "תווית שלב 9",
+    "ratio": 1.25,
+    "need": 3,
+    "fg": "#252f37",
+    "bg": "#161d22"
+   }
+  ]
+ }
+}
