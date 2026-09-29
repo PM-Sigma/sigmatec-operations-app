@@ -29,6 +29,7 @@ import type { ThemeChoice } from '@/lib/theme';
 import { EmsGate } from '@/components/EmsGate';
 import { canEditTemplate, type OnboardingTemplate, type TemplateStep } from '@/lib/onboarding';
 import { fetchOnboardingTemplate, saveOnboardingTemplate } from '@/components/home/OnboardingProgress';
+import { toastFailure } from '@/lib/pending';
 
 /** A label + a control that is not a chevron row (a SegmentedControl or a Switch body) —
  *  matches ListRow's own horizontal padding so both kinds sit flush inside the same
@@ -265,7 +266,7 @@ function OnboardingTemplateRow({ user }: { user: string }) {
     if (!tpl) return;
     setSaving(true);
     try { await saveOnboardingTemplate(tpl, user); toast.success('התבנית נשמרה'); }
-    catch (e: any) { toast.error(e?.message || 'השמירה נכשלה'); }
+    catch (e: any) { toastFailure(e, undefined, 'השמירה נכשלה'); }
     finally { setSaving(false); }
   };
 

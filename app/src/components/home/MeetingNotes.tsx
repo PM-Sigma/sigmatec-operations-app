@@ -7,7 +7,8 @@
 // emitting `notes-changed` on sigmaBus, which is what makes the card, the modal tab and the
 // import preview agree without any of them knowing the others exist (docs/integration-map.md).
 import * as React from 'react';
-import { CalendarDays, Link2, Loader2, MoreHorizontal, Plus } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { CalendarDays, Link2, Loader2, MoreHorizontal } from 'lucide-react';
 import { useClickAway } from '@/lib/useClickAway';
 import { useQuery } from '@tanstack/react-query';
 import { motion, useReducedMotion } from 'motion/react';
@@ -27,6 +28,7 @@ import {
   chipDate, collapseBullets, internalTitleFromBullet, isInternalLink, isQuiet, KIND_LABEL, moveTargets, notesForKibbutz, taskFromBullet,
   type MeetingGroup, type MeetingKind, type NoteRow,
 } from '@/lib/meetingNotes';
+import { toastFailure } from '@/lib/pending';
 
 export const NOTES_QUERY_KEY = ['meetingNotes'] as const;
 /** The bus event every notes write emits. Consumers: this component, ModalMeetings, ImportNotes. */
@@ -202,11 +204,38 @@ function NoteBullet({
   const [picking, setPicking] = React.useState(false);
   const [internalOpen, setInternalOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLSpanElement>(null);
+  const popRef = React.useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = React.useState<{ y: number; start: number } | null>(null);
+  // The ⋯ menu is portalled to <body> (an ancestor stacking context, e.g. the motion.li transform, otherwise paints later siblings OVER it) and `position: fixed`, placed from the trigger's rect: an absolutely-positioned
+  // menu under the LAST row was clipped by the card / sheet (overflow) or fell off the bottom of
+  // the screen (Q7-A 2). Below the trigger when it fits, otherwise flipped above; always
+  // clamped inside the viewport.
+  const place = React.useCallback(() => {
+    const trig = menuRef.current?.getBoundingClientRect();
+    const pop = popRef.current?.getBoundingClientRect();
+    if (!trig || !pop) return;
+    const vw = window.innerWidth, vh = window.innerHeight, gap = 4, edge = 8;
+    const below = vh - trig.bottom - gap - edge, above = trig.top - gap - edge;
+    const top = pop.height <= below || below >= above ? trig.bottom + gap : trig.top - gap - pop.height;
+    const rtl = getComputedStyle(document.documentElement).direction === 'rtl';
+    // x = the menu's visual x-origin; stored as an offset from the inline-START edge so the
+    // style below stays logical (test-rtl forbids physical direction properties).
+    const x = Math.min(Math.max(edge, rtl ? trig.x : trig.x + trig.width - pop.width), vw - pop.width - edge);
+    setPos({ y: Math.max(edge, top), start: rtl ? vw - x - pop.width : x });
+  }, []);
+  React.useLayoutEffect(() => { if (menu) place(); else setPos(null); }, [menu, place]);
+  // fixed → follow the trigger while the page scrolls / resizes
+  React.useEffect(() => {
+    if (!menu) return;
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place); };
+  }, [menu, place]);
 
   // A tap anywhere else, or Escape, closes it. `mousedown`/`touchstart` rather than `click`
   // so the menu is gone before the thing underneath reacts, and the listener only exists
   // while the menu is open.
-  useClickAway(menu, menuRef, () => setMenu(false));   // F14 ⑩ — the ONE copy
+  useClickAway(menu, [menuRef, popRef], () => setMenu(false));   // F14 ⑩ — the ONE copy
   const done = !!row.done_at;
   const linked = !!row.ems_task_id;
   const internal = isInternalLink(row.ems_task_id);
@@ -214,7 +243,7 @@ function NoteBullet({
   const act = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true); setMenu(false);
     try { await fn(); toast.success(ok); }
-    catch (e: any) { toast.error(e?.message || 'הפעולה נכשלה'); }
+    catch (e: any) { toastFailure(e, undefined, 'הפעולה נכשלה'); }
     finally { setBusy(false); }
   };
 
@@ -227,7 +256,7 @@ function NoteBullet({
   const undoToast = (label: string, undo: () => Promise<void>) =>
     toast(label, {
       duration: 5000,
-      action: { label: 'ביטול', onClick: () => { void undo().catch(e => toast.error(e?.message || 'הביטול נכשל')); } },
+      action: { label: 'ביטול', onClick: () => { void undo().catch(e => toastFailure(e, undefined, 'הביטול נכשל')); } },
     });
 
   const doDelete = async () => {
@@ -235,7 +264,7 @@ function NoteBullet({
       const { undo } = await deleteNote(row);
       setConfirmDel(false);
       undoToast('השורה נמחקה', undo);
-    } catch (e: any) { toast.error(e?.message || 'המחיקה נכשלה'); }
+    } catch (e: any) { toastFailure(e, undefined, 'המחיקה נכשלה'); }
   };
 
   const doMove = async (target: string) => {
@@ -243,7 +272,7 @@ function NoteBullet({
     try {
       const { undo } = await moveNote(row, target);
       undoToast('השורה הועברה ל' + target, undo);
-    } catch (e: any) { toast.error(e?.message || 'ההעברה נכשלה'); }
+    } catch (e: any) { toastFailure(e, undefined, 'ההעברה נכשלה'); }
   };
 
   const openTask = () => {
@@ -292,20 +321,15 @@ function NoteBullet({
           </span>
         ) : undefined}
         trailing={
-          <span className="flex items-center gap-1">
+          // stopPropagation: on the home card a tap here otherwise bubbled to the legacy delegated
+          // card-click (js/src/10-activity.js) and opened the kibbutz modal over the menu.
+          <span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
             {linked ? (
               <IconBubble
                 icon={pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
                 label={internal ? 'משימה פנימית מקושרת' : pending ? 'ממתין לסנכרון עם EMS' : stale ? 'המשימה נפתחה מנוסח קודם של הבולט' : 'פתח את המשימה ב-EMS'}
                 onClick={() => openTask()}
                 className={ACTION_CLS + (pending ? ' opacity-60' : '') + (stale ? ' text-[color:var(--sigma-warn)]' : '')}
-              />
-            ) : canAct && !done ? (
-              <IconBubble
-                icon={<Plus className="h-4 w-4" />}
-                label="פתח משימה ב-EMS"
-                onClick={() => { if (!busy) void act(() => linkNoteToTask(row).then(r => { if (r === 'queued') toast.info('המשימה נשמרה ותיפתח ב-EMS בעוד רגע'); }), 'נפתחה משימה ב-EMS'); }}
-                className={ACTION_CLS}
               />
             ) : null}
             {canAct && (
@@ -317,8 +341,17 @@ function NoteBullet({
                   onClick={() => setMenu(v => !v)}
                   className={ACTION_CLS}
                 />
-                {menu && (
-                  <span className="absolute top-full z-20 mt-1 flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg [inset-inline-end:0]">
+                {menu && createPortal(
+                  // Inside an open Radix sheet (the kibbutz modal) <body> is pointer-events:none and a
+                  // pointerdown outside the sheet dismisses it — so re-enable pointers here and keep the
+                  // pointerdown from reaching Radix's document listener.
+                  <div className="sigma-root" data-sigma-portal style={{ pointerEvents: 'auto' }} onPointerDown={e => e.stopPropagation()}>
+                  <span
+                    ref={popRef}
+                    role="menu"
+                    data-testid="note-row-menu"
+                    style={{ position: 'fixed', insetBlockStart: pos?.y ?? 0, insetInlineStart: pos?.start ?? 0, visibility: pos ? 'visible' : 'hidden' }}
+                    className="z-[var(--s-z-select)] flex w-max flex-col overflow-hidden rounded-lg border border-border bg-popover text-[12px] shadow-lg">
                     <button
                       type="button"
                       disabled={busy}
@@ -348,6 +381,8 @@ function NoteBullet({
                       מחיקת שורה
                     </button>
                   </span>
+                  </div>,
+                  document.body,
                 )}
               </span>
             )}

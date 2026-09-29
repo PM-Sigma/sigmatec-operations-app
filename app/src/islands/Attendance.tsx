@@ -43,6 +43,7 @@ import {
   toggleTile, ymd,
   type AttRow, type AttCellState, type DayCell, type DayType, type Holiday, type TileKey,
 } from '@/lib/attendance';
+import { toastFailure } from '@/lib/pending';
 
 // ───────────────────────────── data ─────────────────────────────
 
@@ -355,7 +356,7 @@ function AttendanceIsland() {
       setOpen('');
       refresh();
     },
-    onError: (e: Error) => toast.error(e.message || 'השמירה לא עברה. אפשר לנסות שוב'),
+    onError: (e: Error) => toastFailure(e, undefined, 'השמירה לא עברה. אפשר לנסות שוב'),
   });
 
   const openDay = (c: DayCell) => {

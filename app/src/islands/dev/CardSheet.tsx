@@ -15,6 +15,7 @@ import { PRIO_LABEL, priorityTier, type PrioTier } from '@/lib/devMeeting';
 import { STAGE_LABEL, stageOf, type DevCard, type DevStage } from '@/lib/sprintPrep';
 import type { StatusLog } from '@/lib/devStatusLog';
 import { stampsFor } from '@/lib/devStatusLog';
+import { toastFailure } from '@/lib/pending';
 
 const TIER_OPTIONS: Array<{ value: PrioTier; label: string }> =
   (['crit', 'high', 'med', 'low', 'none'] as PrioTier[]).map(t => ({ value: t, label: PRIO_LABEL[t] }));
@@ -50,7 +51,7 @@ export function CardSheet({ card, statusLog, canMove, onOpenChange, onChanged }:
       onChanged();
     } catch (e: any) {
       setTier(prev);   // revert
-      toast.error(e?.message || 'לא הצלחתי לעדכן עדיפות');
+      toastFailure(e, undefined, 'לא הצלחתי לעדכן עדיפות');
     } finally { setBusy(false); }
   };
 
@@ -62,7 +63,7 @@ export function CardSheet({ card, statusLog, canMove, onOpenChange, onChanged }:
       onChanged();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message || 'לא הצלחתי להעביר שלב');
+      toastFailure(e, undefined, 'לא הצלחתי להעביר שלב');
     } finally { setBusy(false); }
   };
 

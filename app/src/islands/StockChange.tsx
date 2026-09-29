@@ -27,6 +27,7 @@ import { track } from '@/lib/track';
 import { sigma, useCurrentUser } from '@/bridge';
 import { POOL, receivableOrders, type OrderLike } from '@/lib/inventory';
 import { stockChangePlan, type StockDirection, type StockSource } from '@/lib/stockChange';
+import { toastFailure } from '@/lib/pending';
 
 export const STOCK_CHANGE_OPEN_EVENT = 'sigma-open-stock-change';
 
@@ -208,7 +209,7 @@ function StockChangeSheet() {
       toast.success(`נרשמה ספירה: ${product}: ${rc.counted}`);
       close();
     } catch (e: any) {
-      toast.error(e?.message || 'השמירה נכשלה');
+      toastFailure(e, undefined, 'השמירה נכשלה');
     } finally {
       setSaving(false);
     }

@@ -10,6 +10,7 @@ import { APP_PEOPLE } from '@/lib/people';
 import { useCurrentUser } from '@/bridge';
 import { createInternalTask } from '@/components/home/InternalTasks';
 import { INTERNAL_KINDS, INTERNAL_PRIORITIES } from '@/lib/internalTasks';
+import { toastFailure } from '@/lib/pending';
 
 const chip = (on: boolean) =>
   'min-h-[36px] rounded-full border px-3 text-[13px] font-semibold ' +
@@ -48,7 +49,7 @@ export default function InternalTaskSheet({
       toast.success('נוספה משימה פנימית' + (owner !== me ? ' ל' + owner : ''));
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e?.message || 'ההוספה נכשלה');
+      toastFailure(e, undefined, 'ההוספה נכשלה');
     } finally {
       setSaving(false);
     }

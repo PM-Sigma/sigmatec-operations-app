@@ -77,7 +77,7 @@ describe('promoteToEms', () => {
       title: 'להחליף מונה 12',
       description: 'להחליף מונה 12\n\nמקור: ישיבת חברה 17.9.26',
       assigneeName: 'ניתאי',
-      priority: 'medium',
+      priority: 'normal',
     });
   });
 

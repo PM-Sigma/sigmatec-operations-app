@@ -1682,7 +1682,7 @@
         "kibbutz": "עין דור",
         "title": "לקוחות חדשים בקיבוץ",
         "description": "לקוחות חדשים בקיבוץ.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1693,7 +1693,7 @@
         "kibbutz": "עין דור",
         "title": "לא נתפס באודיו מעבר לזה",
         "description": "לא נתפס באודיו מעבר לזה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1705,7 +1705,7 @@
         "title": "נפתחה משימה",
         "description": "נפתחה משימה: התקנת מונה E360CT בגנרטור הראשי.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1717,7 +1717,7 @@
         "title": "בוצעה הדרכה למני",
         "description": "בוצעה הדרכה למני.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1729,7 +1729,7 @@
         "title": "עמיחי בקשר גם עם גיגי",
         "description": "עמיחי בקשר גם עם גיגי.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1741,7 +1741,7 @@
         "title": "מוני 350 מפסיקים לעבוד באופן חוזר",
         "description": "מוני 350 מפסיקים לעבוד באופן חוזר; ניתאי ואביאם מספקים מונים לפי דרישה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1753,7 +1753,7 @@
         "title": "השאלה אם כרטיסי SIM חדשים יפתרו את הבעיה",
         "description": "השאלה אם כרטיסי SIM חדשים יפתרו את הבעיה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1764,7 +1764,7 @@
         "kibbutz": "כפר גלעדי",
         "title": "52 מוני לנדיס",
         "description": "52 מוני לנדיס — סופקו.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1776,7 +1776,7 @@
         "title": "ניתאי בשטח היום",
         "description": "ניתאי בשטח היום.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1788,7 +1788,7 @@
         "title": "ביקור אחרון מתועד לפני חודש",
         "description": "ביקור אחרון מתועד לפני חודש — נדרש לתעד את הביקור.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1800,7 +1800,7 @@
         "title": "ממתינים ל-50 בקרים",
         "description": "ממתינים ל-50 בקרים.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1812,7 +1812,7 @@
         "title": "הסבה עברה ל-in_progress",
         "description": "הסבה עברה ל-in_progress.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1824,7 +1824,7 @@
         "title": "מאזן אנרגיה",
         "description": "מאזן אנרגיה: אובדן קבוע בראשי, יותר יציאה מכניסה — \"לא הגיוני\".\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1836,7 +1836,7 @@
         "title": "מונה 133 מציג מספרים לא הגיוניים",
         "description": "מונה 133 מציג מספרים לא הגיוניים; ככל הנראה לא מוזנים כופלים.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1848,7 +1848,7 @@
         "title": "ניתן לעדכן כופלים במערכת ולבצע רטרו",
         "description": "ניתן לעדכן כופלים במערכת ולבצע רטרו.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1860,7 +1860,7 @@
         "title": "אובדן של 15–20% ומאזן T2 לא מיושר",
         "description": "אובדן של 15–20% ומאזן T2 לא מיושר: הראשי מייצר 339 אלף והבנים אינם מתקרבים.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1872,7 +1872,7 @@
         "title": "נפתחה משימת מאזן אנרגיה",
         "description": "נפתחה משימת מאזן אנרגיה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1884,7 +1884,7 @@
         "title": "משימת אספקה והתקנת מונים לשכונה החדשה",
         "description": "משימת אספקה והתקנת מונים לשכונה החדשה — פרויקט לא מוכן, לתעד המשך, בטיפול.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1896,7 +1896,7 @@
         "title": "בעיית חיובי חשמל בית ומערכת סולארית",
         "description": "בעיית חיובי חשמל בית ומערכת סולארית — טופלה, נסגרה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1908,7 +1908,7 @@
         "title": "בדיקת מונה 81507193",
         "description": "בדיקת מונה 81507193 — סומנה לא רלוונטי.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1920,7 +1920,7 @@
         "title": "הזמנת מונים",
         "description": "הזמנת מונים — נדרש שאביאם יסגור כדי שייכנס לחיוב.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1932,7 +1932,7 @@
         "title": "היה סיור לפני שבוע ללא סיכום ביקור",
         "description": "היה סיור לפני שבוע ללא סיכום ביקור.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1944,7 +1944,7 @@
         "title": "עמיחי הכין ושלח סיכום למייל",
         "description": "עמיחי הכין ושלח סיכום למייל.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1956,7 +1956,7 @@
         "title": "קבלת נתוני מים מארד",
         "description": "קבלת נתוני מים מארד: עידן דיבר עם ויקטוריה, ממתין למשתמש, יבנה אוטומציה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1968,7 +1968,7 @@
         "title": "מונה לנדיס שהפסיק לשדר",
         "description": "מונה לנדיס שהפסיק לשדר — חזר לשדר; המשימה נותרת פתוחה עד סיכום ביקור.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1980,7 +1980,7 @@
         "title": "פיילוט המים יתבצע כאן לפני אור הנר",
         "description": "פיילוט המים יתבצע כאן לפני אור הנר.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -1992,7 +1992,7 @@
         "title": "נפתחה משימה",
         "description": "נפתחה משימה: תחילת הסבה ממשדרי ארד.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2004,7 +2004,7 @@
         "title": "התקבלו חשבונות הגז",
         "description": "התקבלו חשבונות הגז.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2016,7 +2016,7 @@
         "title": "ניתוח הקריאות מול השידור מראה פערים גדולים (דוגמה",
         "description": "ניתוח הקריאות מול השידור מראה פערים גדולים (דוגמה: קריאה 179→180, שידור 270).\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2028,7 +2028,7 @@
         "title": "עידן מכין נוהל",
         "description": "עידן מכין נוהל: תמונות (כ-200 מאלעד) → סקיל קיים → טבלת קריאות → סקריפט מחיקה → העלאה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2040,7 +2040,7 @@
         "title": "עד אז לא ניתן להפיק להם חשבונות גז מהמערכת",
         "description": "עד אז לא ניתן להפיק להם חשבונות גז מהמערכת.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2052,7 +2052,7 @@
         "title": "מים",
         "description": "מים: יהיו במערכת; יטופל אחרי הפיילוט בעין המפרץ.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2064,7 +2064,7 @@
         "title": "התקבלו חשבונות הגז",
         "description": "התקבלו חשבונות הגז.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2076,7 +2076,7 @@
         "title": "ניתוח הקריאות מול השידור מראה פערים גדולים (דוגמה",
         "description": "ניתוח הקריאות מול השידור מראה פערים גדולים (דוגמה: קריאה 179→180, שידור 270).\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2088,7 +2088,7 @@
         "title": "עידן מכין נוהל",
         "description": "עידן מכין נוהל: תמונות (כ-200 מאלעד) → סקיל קיים → טבלת קריאות → סקריפט מחיקה → העלאה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2100,7 +2100,7 @@
         "title": "עד אז לא ניתן להפיק להם חשבונות גז מהמערכת",
         "description": "עד אז לא ניתן להפיק להם חשבונות גז מהמערכת.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2112,7 +2112,7 @@
         "title": "מים",
         "description": "מים: יהיו במערכת; יטופל אחרי הפיילוט בעין המפרץ.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2124,7 +2124,7 @@
         "title": "מאזן אנרגיה בדגש על מכללת ספיר",
         "description": "מאזן אנרגיה בדגש על מכללת ספיר — עודכן, ממתין לביצוע.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2136,7 +2136,7 @@
         "title": "נשלח מייל",
         "description": "נשלח מייל; לא התקבלה תשובה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2148,7 +2148,7 @@
         "title": "הכדור אצלם",
         "description": "הכדור אצלם.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2160,7 +2160,7 @@
         "title": "עם קבלת רשימת המונים",
         "description": "עם קבלת רשימת המונים — הקמת לקוחות ומונים, לפי התהליך של עין המפרץ.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2172,7 +2172,7 @@
         "title": "משימת חיבור מונים והתקנת תקשורת מ-24.8",
         "description": "משימת חיבור מונים והתקנת תקשורת מ-24.8 — ניתאי היה שם.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2183,7 +2183,7 @@
         "kibbutz": "גבעת חיים מאוחד",
         "title": "להוסיף לרשימת קיבוצים חדשים",
         "description": "להוסיף לרשימת קיבוצים חדשים.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2195,7 +2195,7 @@
         "title": "מאזן אנרגיה",
         "description": "מאזן אנרגיה — ממתין לתקינה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2207,7 +2207,7 @@
         "title": "הלקוח ורבקה מגזימים בדרישות",
         "description": "הלקוח ורבקה מגזימים בדרישות; נדרש להתחיל לקבוץ (לצמצם).\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2219,7 +2219,7 @@
         "title": "עידן הקים API לשירות ספירת הזמנים",
         "description": "עידן הקים API לשירות ספירת הזמנים — זמין לפתיחה מול קיבוץ בישיבה משותפת, טרם בוצע.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2231,7 +2231,7 @@
         "title": "עידן התפנה",
         "description": "עידן התפנה; יטופל בשלושת הימים הקרובים.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2243,7 +2243,7 @@
         "title": "שינויים ב-DB לקריאות המונים ותיקון סריאל",
         "description": "שינויים ב-DB לקריאות המונים ותיקון סריאל.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2255,7 +2255,7 @@
         "title": "אינו מפריע להפקת חשבונות, מפריע למאזן אנרגיה",
         "description": "אינו מפריע להפקת חשבונות, מפריע למאזן אנרגיה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2267,7 +2267,7 @@
         "title": "יעד",
         "description": "יעד: אמצע השבוע הבא.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2279,7 +2279,7 @@
         "title": "נקבעה פגישה עם פז ביום ראשון של חול המועד סוכות",
         "description": "נקבעה פגישה עם פז ביום ראשון של חול המועד סוכות.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2291,7 +2291,7 @@
         "title": "החלפת מוני 350/550 עם החזרה",
         "description": "החלפת מוני 350/550 עם החזרה — בוצע, עבר ל-in_progress.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2303,7 +2303,7 @@
         "title": "אין לקוח כרגע על שני המונים",
         "description": "אין לקוח כרגע על שני המונים; להקים לקוחות ולעדכן.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עמיחי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2315,7 +2315,7 @@
         "title": "בוצע תיקון גורף היום",
         "description": "בוצע תיקון גורף היום: כל מוני הנצר הוגדרו נצר סרבר.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2327,7 +2327,7 @@
         "title": "הכל משדר",
         "description": "הכל משדר.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2339,7 +2339,7 @@
         "title": "העצירה ב-2.9 נבעה מהגדרה זו",
         "description": "העצירה ב-2.9 נבעה מהגדרה זו.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2351,7 +2351,7 @@
         "title": "הוסף סיכום ביקור",
         "description": "הוסף סיכום ביקור.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "עידן",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2363,7 +2363,7 @@
         "title": "אביאם",
         "description": "אביאם — נדרשים לפחות 5 מוני משנ\"ז; לא רשום ממתי.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2375,7 +2375,7 @@
         "title": "משימה urgent פתוחה",
         "description": "משימה urgent פתוחה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2386,7 +2386,7 @@
         "kibbutz": "כפר עזה",
         "title": "לא נתפסו באודיו מעבר לאזכור",
         "description": "לא נתפסו באודיו מעבר לאזכור.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2397,7 +2397,7 @@
         "kibbutz": "יסעור",
         "title": "לא נתפסו באודיו מעבר לאזכור",
         "description": "לא נתפסו באודיו מעבר לאזכור.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2408,7 +2408,7 @@
         "kibbutz": "כפר מנחם",
         "title": "לא נתפסו באודיו מעבר לאזכור",
         "description": "לא נתפסו באודיו מעבר לאזכור.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2419,7 +2419,7 @@
         "kibbutz": "משואות יצחק",
         "title": "לא נתפסו באודיו מעבר לאזכור",
         "description": "לא נתפסו באודיו מעבר לאזכור.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2431,7 +2431,7 @@
         "title": "ניתאי",
         "description": "ניתאי: \"יש מצב שכל הסיפור ייסגר מאוד מהר\".\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2443,7 +2443,7 @@
         "title": "מחוץ להקלטה",
         "description": "מחוץ להקלטה: נדרש להבין את ההתקדמות בחיבור Robustel למוני QLC.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2455,7 +2455,7 @@
         "title": "אין בעיה",
         "description": "אין בעיה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אליה",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2467,7 +2467,7 @@
         "title": "אליה קיבל משימות פרטניות של הרשאות",
         "description": "אליה קיבל משימות פרטניות של הרשאות; אחת מהן — ביטול חשבון שמור על ידי מנהל אתר (#190) — תחסוך לאריה את שיחות הטלפון.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אליה",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2479,7 +2479,7 @@
         "title": "הדוח מול אורלי",
         "description": "הדוח מול אורלי — נסגר.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2491,7 +2491,7 @@
         "title": "נפתחה משימה",
         "description": "נפתחה משימה: החלפת מונים גדולים לסאטק.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2503,7 +2503,7 @@
         "title": "מאזן אנרגיה קוטשי",
         "description": "מאזן אנרגיה קוטשי — תקין, נסגר.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2515,7 +2515,7 @@
         "title": "נפתחה משימה",
         "description": "נפתחה משימה: טיפול בשנאי הודים (מחוץ למחלק).\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "אביאם",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2527,7 +2527,7 @@
         "title": "מונה חד-פאזי חדש",
         "description": "מונה חד-פאזי חדש: לא שידר, נצרב, הוחלף לסלקום, עדיין לא משדר.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2539,7 +2539,7 @@
         "title": "יוחלף שנית ויוצרב",
         "description": "יוחלף שנית ויוצרב.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2551,7 +2551,7 @@
         "title": "מונה 360",
         "description": "מונה 360 — לא משדר.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2563,7 +2563,7 @@
         "title": "המשימה הוקצתה",
         "description": "המשימה הוקצתה.\n\nמקור: ישיבת חברה 17.9.26",
         "assigneeName": "ניתאי",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2574,7 +2574,7 @@
         "kibbutz": "בית אריזה גלבוע",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2585,7 +2585,7 @@
         "kibbutz": "בית אריזה גלבוע",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2596,7 +2596,7 @@
         "kibbutz": "דביר",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2607,7 +2607,7 @@
         "kibbutz": "דביר",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2618,7 +2618,7 @@
         "kibbutz": "לביא",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2629,7 +2629,7 @@
         "kibbutz": "לביא",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2640,7 +2640,7 @@
         "kibbutz": "מגן",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2651,7 +2651,7 @@
         "kibbutz": "מגן",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2662,7 +2662,7 @@
         "kibbutz": "פרחי אביב",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2673,7 +2673,7 @@
         "kibbutz": "פרחי אביב",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2684,7 +2684,7 @@
         "kibbutz": "קיבוץ ניצנים",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2695,7 +2695,7 @@
         "kibbutz": "קיבוץ ניצנים",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2706,7 +2706,7 @@
         "kibbutz": "כפר דניאל",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2717,7 +2717,7 @@
         "kibbutz": "כפר דניאל",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2728,7 +2728,7 @@
         "kibbutz": "רמות מנשה",
         "title": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס",
         "description": "נסקרו ברצף בסוף הישיבה ללא פירוט שנתפס.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     },
     {
@@ -2739,7 +2739,7 @@
         "kibbutz": "רמות מנשה",
         "title": "מגן",
         "description": "מגן: מנסה הסבת מוני ארד לתקשורת ישירה.\n\nמקור: ישיבת חברה 17.9.26",
-        "priority": "medium"
+        "priority": "normal"
       }
     }
   ],

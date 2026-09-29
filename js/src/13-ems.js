@@ -283,7 +283,10 @@
     // createTask — used by customer-order approval ("אספקת ציוד"). The site + assignee are resolved
     // at SEND time (works whether sent live or flushed later by another connected user).
     if (item.kind === 'createTask') {
-      var body = { title: item.title, type: item.taskType || 'supplying_meters', priority: item.priority || 'normal' };
+      // EMS accepts only low|normal|high|urgent (a 'medium' from a form was the 422 עידן hit on the
+      // meeting-note ➕) — anything else is coerced to 'normal' rather than rejected at send time.
+      var prio = ['low', 'normal', 'high', 'urgent'].indexOf(item.priority) !== -1 ? item.priority : 'normal';
+      var body = { title: item.title, type: item.taskType || 'supplying_meters', priority: prio };
       if (item.siteId) body.siteId = item.siteId;
       // Resolve the site at SEND time. A lookup ERROR (network) must NOT be swallowed — otherwise we'd
       // create a site-less task and dead-letter it forever. Let it throw so the item stays queued and

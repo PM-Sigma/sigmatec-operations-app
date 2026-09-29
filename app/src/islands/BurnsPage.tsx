@@ -31,6 +31,7 @@ import { MeterSheet } from '@/islands/burns/MeterSheet';
 import { IssueSheet } from '@/islands/burns/IssueSheet';
 import { AssignSheet } from '@/islands/burns/AssignSheet';
 import { GeneratorsSheet } from '@/islands/burns/GeneratorsSheet';
+import { toastFailure } from '@/lib/pending';
 
 const TITLE = 'צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק';
 const FILTER_KEY = 'burn_filter_v1';
@@ -110,7 +111,7 @@ function BurnsPageInner() {
 
   const bulkBurn = async () => {
     try { await markBurned(selectedRows.map(r => r.meter_id), user); toast.success('סומן כנצרב'); exitSelect(); }
-    catch (e: any) { toast.error(e?.message || 'השמירה נכשלה'); }
+    catch (e: any) { toastFailure(e, undefined, 'השמירה נכשלה'); }
   };
 
   const doUnburn = async (targets: BurnRow[]) => {
@@ -277,7 +278,7 @@ function BurnsPageInner() {
                                 className="s-hit flex h-8 w-8 items-center justify-center rounded-full border border-border"
                                 onClick={() => {
                                   if (r.status === 'burned') void doUnburn([r]);
-                                  else void markBurned([r.meter_id], user).catch((e: any) => toast.error(e?.message || 'השמירה נכשלה'));
+                                  else void markBurned([r.meter_id], user).catch((e: any) => toastFailure(e, undefined, 'השמירה נכשלה'));
                                 }}
                               >
                                 <Flame className={'h-4 w-4 ' + (r.status === 'burned' ? 'text-[var(--ok-ink)]' : 'text-muted-foreground')} aria-hidden />
@@ -312,14 +313,14 @@ function BurnsPageInner() {
         canWrite={canWrite}
         open={!!meterSheetId}
         onOpenChange={v => { if (!v) setMeterSheetId(null); }}
-        onBurn={() => { if (meterRow) void markBurned([meterRow.meter_id], user).then(() => setMeterSheetId(null)).catch((e: any) => toast.error(e?.message || 'השמירה נכשלה')); }}
+        onBurn={() => { if (meterRow) void markBurned([meterRow.meter_id], user).then(() => setMeterSheetId(null)).catch((e: any) => toastFailure(e, undefined, 'השמירה נכשלה')); }}
         onUnburn={() => { if (meterRow) { void doUnburn([meterRow]); setMeterSheetId(null); } }}
         onReportIssue={() => { if (meterRow) { setIssueId(meterRow.meter_id); setMeterSheetId(null); } }}
         onResolveIssue={() => { if (meterRow) void (async () => {
           const { markIssue } = await import('@/lib/burnsData');
           await markIssue(meterRow.meter_id, '');
           setMeterSheetId(null);
-        })().catch((e: any) => toast.error(e?.message || 'השמירה נכשלה')); }}
+        })().catch((e: any) => toastFailure(e, undefined, 'השמירה נכשלה')); }}
         onAssign={() => { if (meterRow) { setSelected(new Set([meterRow.meter_id])); setMeterSheetId(null); setAssignOpen(true); } }}
       />
 

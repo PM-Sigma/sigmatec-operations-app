@@ -16,6 +16,7 @@ import {
   ORDER_STATUS_LABEL, type DraftItem, type OrderDraft, type OrderLike, type Ctx,
 } from '@/lib/inventory';
 import { accessoryQuestions, accessoryPlan, ambiguousSatecQuestion, type Question } from '@/lib/orderParse';
+import { toastFailure } from '@/lib/pending';
 
 export interface OrderSheetProps {
   open: boolean;
@@ -130,7 +131,7 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
         finishAccessoryPhase(newItems);
       }
     } catch (e: any) {
-      toast.error(e?.message || 'הניתוח נכשל');
+      toastFailure(e, undefined, 'הניתוח נכשל');
     } finally {
       setParsing(false);
     }

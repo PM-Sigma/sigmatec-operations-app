@@ -338,7 +338,7 @@ describe('✏️ live quick-note', () => {
       kibbutz: 'דפנה',
       title: 'להזמין מונה חלופי מהמחסן',
       assigneeName: 'ניתאי',
-      priority: 'medium',
+      priority: 'normal',
     });
     expect(created[0].description).toContain('מקור: ישיבת חברה');
     // …and nothing was written to the bullets table for a 📋

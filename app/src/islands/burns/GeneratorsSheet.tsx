@@ -2,10 +2,10 @@
 // many meters point at it, and its own controller serial saved on blur — no native input
 // stepper, just a plain text field.
 import * as React from 'react';
-import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { burnGenSummary, type BurnRow, type GeneratorRow } from '@/lib/burns';
 import { saveGeneratorSerial } from '@/lib/burnsData';
+import { toastFailure } from '@/lib/pending';
 
 export function GeneratorsSheet({
   gens, rows, open, onOpenChange,
@@ -20,7 +20,7 @@ export function GeneratorsSheet({
 
   const save = async (id: string, value: string) => {
     try { await saveGeneratorSerial(id, value); }
-    catch (e: any) { toast.error(e?.message || 'השמירה נכשלה'); }
+    catch (e: any) { toastFailure(e, undefined, 'השמירה נכשלה'); }
   };
 
   return (

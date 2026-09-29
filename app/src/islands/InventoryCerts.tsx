@@ -14,6 +14,7 @@ import { sigma, useCurrentUser } from '@/bridge';
 import { certRange, certSearch, CERT_SOURCE_LABEL, type CertRow as CertRowType } from '@/lib/inventory';
 import { fetchCerts, cancelCert, INV_KEYS, type CertRow } from '@/lib/inventoryApi';
 import { openCertEvent } from './InventoryCert';
+import { toastFailure } from '@/lib/pending';
 
 type RangeKey = 'all' | 'thisMonth' | 'lastMonth' | 'last7' | 'last30';
 const RANGES: Array<{ key: RangeKey; label: string }> = [
@@ -71,7 +72,7 @@ export function InventoryCertsTab() {
       toast.success('התעודה בוטלה');
       void qc.invalidateQueries({ queryKey: INV_KEYS.all });
     } catch (e: any) {
-      toast.error(e?.message || 'הביטול נכשל');
+      toastFailure(e, undefined, 'הביטול נכשל');
     }
   }
 

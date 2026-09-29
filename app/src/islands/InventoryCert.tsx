@@ -23,6 +23,7 @@ import {
   useInventory, issueCert, cancelCert, fetchContacts, addContact, kibbutzDetails, fetchCertById,
   type CertRow,
 } from '@/lib/inventoryApi';
+import { toastFailure } from '@/lib/pending';
 
 export const CERT_OPEN_EVENT = 'sigma-inv-open';
 
@@ -201,7 +202,7 @@ function CertIsland() {
       setDraft(null); setReissueOf(undefined);
       setViewHtml(html); setViewId(res.id); setViewDrive(''); setScreen('viewer');
     } catch (e: any) {
-      toast.error(e?.message || 'הפקת התעודה נכשלה');
+      toastFailure(e, undefined, 'הפקת התעודה נכשלה');
     } finally { setBusy(false); }
   }
 

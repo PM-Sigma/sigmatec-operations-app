@@ -67,3 +67,42 @@ describe('classifyError', () => {
     expect(classifyError('').hebrew).toMatch(/הפעולה נכשלה/);
   });
 });
+
+import { userMessage, errorRef } from './errorMessages';
+
+describe('classifyError — HTTP/EMS codes (Q7-A 3)', () => {
+  it('maps the EMS "(422) …" throw to a report-to-Idan message, never raw', () => {
+    const info = classifyError(new Error('(422) The selected priority is invalid'));
+    expect(info.code).toBe('422');
+    expect(info.action).toBe('report');
+    const msg = userMessage(info);
+    expect(msg).toMatch(/אל תחזרו על הפעולה, דווחו לעידן/);
+    expect(msg).toContain('E422');
+    expect(msg).not.toMatch(/priority is invalid/);
+  });
+  it.each(['400', '422', 'P0002', '42501', '403'])('%s = report (do not repeat)', c => {
+    expect(classifyError({ code: c }).action).toBe('report');
+  });
+  it.each([['429'], ['500'], ['503'], ['504'], ['599']])('%s = retry', c => {
+    const info = classifyError({ status: Number(c) });
+    expect(info.action).toBe('retry');
+    expect(userMessage(info)).not.toMatch(/דווחו לעידן/);
+  });
+  it.each(['401', '404', '409', '23505', '23503'])('%s = fix (refresh / change, then retry)', c => {
+    expect(classifyError({ code: c }).action).toBe('fix');
+  });
+  it('network and timeout are retry', () => {
+    expect(classifyError(new TypeError('Failed to fetch')).action).toBe('retry');
+    const e = new Error('x'); e.name = 'TimeoutError';
+    expect(classifyError(e).action).toBe('retry');
+  });
+  it('technical detail is appended for עידן only', () => {
+    const info = classifyError(new Error('(422) priority invalid'));
+    expect(userMessage(info, false)).not.toMatch(/priority invalid/);
+    expect(userMessage(info, true)).toMatch(/priority invalid/);
+  });
+  it('errorRef is a short E-code', () => {
+    expect(errorRef(classifyError({ code: '23505' }))).toBe('E23505');
+    expect(errorRef(classifyError(new TypeError('Failed to fetch')))).toBe('Enetwork');
+  });
+});
