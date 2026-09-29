@@ -56,7 +56,7 @@ function visitsInit(names: string[]) {
   };
 }
 
-test('home real-size: 60 cards render fully, tap opens detail, no clipping, render budget', async ({ page }, ti) => {
+test('home real-size: 60 cards render fully, tap opens detail, no clipping, render budget, visit buttons', async ({ page }, ti) => {
   const rows = bigKibbutzim();
   const names = rows.map(r => r.name as string);
   await page.addInitScript(n => { (window as any).__bigNames = n; }, names);
@@ -103,6 +103,30 @@ test('home real-size: 60 cards render fully, tap opens detail, no clipping, rend
     return bad;
   }, vw);
   expect(problems, problems.join('\n')).toEqual([]);
+
+
+  // ── round-9 card buttons: every card has ➕ (full-width, ≥48px); the ✏️ / locked row appears
+  // exactly for kibbutzim that have a visit; nothing about them clips or steals the card tap.
+  const btn = await page.evaluate(() => {
+    const out = { cards: 0, noNew: [] as string[], small: [] as string[], narrow: [] as string[], withVisit: 0, editOrLocked: 0, locked: 0 };
+    for (const c of Array.from(document.querySelectorAll<HTMLElement>('#sigma-home .kibbutz'))) {
+      out.cards++;
+      const cr = c.getBoundingClientRect();
+      const b = Array.from(c.querySelectorAll('button')).filter(x => (x.textContent || '').includes('סיכום ביקור חדש'))[0];
+      if (!b) { out.noNew.push(c.dataset.name!); continue; }
+      const r = b.getBoundingClientRect();
+      if (r.height < 47.5) out.small.push(c.dataset.name!);
+      if (r.width < cr.width * 0.8) out.narrow.push(c.dataset.name!);
+      const e = Array.from(c.querySelectorAll('button')).filter(x => /עריכת הסיכום האחרון|הסיכום נעול לעריכה/.test(x.textContent || ''))[0];
+      if (e) { out.editOrLocked++; if ((e.textContent || '').includes('נעול')) out.locked++; }
+    }
+    return out;
+  });
+  expect(btn.noNew, 'cards without ➕').toEqual([]);
+  expect(btn.small, 'buttons under 48px').toEqual([]);
+  expect(btn.narrow, 'buttons not full-width').toEqual([]);
+  expect(btn.editOrLocked, 'every kibbutz has a visit in the fixture').toBe(N);
+  console.log(`[home-realsize ${viewport}-${theme}] edit buttons: ${btn.editOrLocked}, locked: ${btn.locked}`);
 
   // a card tap opens KibbutzDetail — first, a long-name one, a middle one, the last one
   for (const name of [names[0], names[1], names[30], names[N - 1]]) {
