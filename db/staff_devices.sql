@@ -34,12 +34,18 @@ alter table public.staff_devices enable row level security;
 
 drop policy if exists staff_devices_insert on public.staff_devices;
 create policy staff_devices_insert on public.staff_devices
-  for insert to authenticated with check (true);
+  for insert to authenticated with check ((auth.jwt() ->> 'name') = person and coalesce(auth.jwt() ->> 'viewer','false') <> 'true');
 drop policy if exists staff_devices_update on public.staff_devices;
 create policy staff_devices_update on public.staff_devices
-  for update to authenticated using (true) with check (true);
+  for update to authenticated using ((auth.jwt() ->> 'name') = person and coalesce(auth.jwt() ->> 'viewer','false') <> 'true') with check ((auth.jwt() ->> 'name') = person and coalesce(auth.jwt() ->> 'viewer','false') <> 'true');
 
-revoke select, delete on public.staff_devices from anon, authenticated;
+-- upsert's ON CONFLICT path needs SELECT on the own row (RLS): own rows only; the report fn reads all.
+revoke all on public.staff_devices from anon;
+revoke delete on public.staff_devices from authenticated;
+grant select, insert, update on public.staff_devices to authenticated;
+drop policy if exists staff_devices_select_own on public.staff_devices;
+create policy staff_devices_select_own on public.staff_devices
+  for select to authenticated using ((auth.jwt() ->> 'name') = person and coalesce(auth.jwt() ->> 'viewer','false') <> 'true');
 
 -- The ONE way to read: SECURITY DEFINER, refuses everyone but עידן (and requires him to be in
 -- app_admins, the same double gate usage_report() uses).
@@ -51,8 +57,9 @@ set search_path = public
 stable
 as $$
 begin
-  if p_actor is distinct from 'עידן'
-     or not exists (select 1 from app_admins where name = p_actor) then
+  -- identity from the trusted JWT claim (minted by ems-auth), never from the client argument
+  if (auth.jwt() ->> 'name') is distinct from 'עידן'
+     or coalesce(auth.jwt() ->> 'viewer','false') = 'true' then
     raise exception 'staff_devices_report: % may not read device status', coalesce(p_actor, '(null)')
       using errcode = '42501';
   end if;
