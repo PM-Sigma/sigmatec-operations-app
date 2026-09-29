@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Holiday } from './attendance';
 import {
-  abilities, absenceAttendance, absenceDays, byDate, calendarItems, dueAt, dueByKibbutz,
+  abilities, absenceAttendance, routesToAttendance, canEditAbsence, attendanceDayType, absenceDays, byDate, calendarItems, dueAt, dueByKibbutz,
   groupByKibbutz, heShort, isWeekend, itemsOn, monthView, NO_KIBBUTZ, reorder, ROUTE_HEADERS,
   routeWithHeaders, scheduleTasksPlan, stopsOrder, stopsPayload, toKey, weekDays, weekNumber,
   weekView, ymd,
@@ -853,5 +853,45 @@ describe('reported attendance days on the grid (round 5 · B)', () => {
     const weeks = monthView(2026, 9, HOLIDAYS as unknown as Holiday[], '2026-09-22').weeks;
     expect(reportedInView('', weeks, rowsFor, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
     expect(reportedInView('אביאם', weeks, () => null, HOLIDAYS as unknown as Holiday[], TODAY).size).toBe(0);
+  });
+});
+
+// ───────────────────────────── routing rule: attendance vs calendar-only ─────────────────────────────
+
+describe('absence routing (QA 4.4)', () => {
+  const base: AbsenceRow = { id: 'r', person: 'ניתאי', kind: 'vacation', start_date: '2026-09-14', end_date: '2026-09-15' };
+
+  it('only אביאם and ניתאי reach attendance', () => {
+    expect(routesToAttendance('אביאם', 'vacation')).toBe(true);
+    expect(routesToAttendance('ניתאי', 'sick')).toBe(true);
+    for (const p of ['עידן', 'עמיחי', 'אבצן', 'מתניה', 'אליה']) expect(routesToAttendance(p, 'vacation')).toBe(false);
+  });
+
+  it('an event never files attendance; a company-wide range fans out to the two filers', () => {
+    expect(routesToAttendance(null, 'event')).toBe(false);
+    expect(routesToAttendance(null, 'vacation')).toBe(true);
+  });
+
+  it('everyone else is calendar-only: a chip on the day, no attendance row', () => {
+    const row = { ...base, person: 'אבצן' };
+    expect(absenceAttendance(row)).toEqual([]);
+    const chip = calendarItems({ absences: [row] }, { me: 'עידן' }).filter(i => i.layer === 'absence');
+    expect(chip.map(i => i.date)).toEqual(['2026-09-14', '2026-09-15']);
+    expect(chip[0]).toMatchObject({ person: 'אבצן', kind: 'vacation', absenceId: 'r' });
+  });
+
+  it('sick and other file for a filer as a non-vacation day', () => {
+    expect(attendanceDayType('sick')).toBe('other');
+    expect(absenceAttendance({ ...base, kind: 'sick' }).map(r => r.dayType)).toEqual(['other', 'other']);
+    expect(attendanceDayType('vacation')).toBe('vacation');
+  });
+
+  it('edit/delete: עידן/עמיחי any; a person only their own', () => {
+    const admin = { canAbsentOthers: true };
+    const own = { canAbsentOthers: false };
+    expect(canEditAbsence({ person: 'אבצן' }, 'עידן', admin)).toBe(true);
+    expect(canEditAbsence({ person: 'אבצן' }, 'אבצן', own)).toBe(true);
+    expect(canEditAbsence({ person: 'ניתאי' }, 'אבצן', own)).toBe(false);
+    expect(canEditAbsence({ person: 'ניתאי', createdBy: 'אבצן' }, 'אבצן', own)).toBe(true);
   });
 });

@@ -20,7 +20,7 @@ import {
 /** The three real layers + the soft absence band. */
 export type Layer = 'event' | 'visit' | 'ems' | 'internal' | 'absence';
 
-export type AbsenceKind = 'vacation' | 'reserve' | 'event';
+export type AbsenceKind = 'vacation' | 'sick' | 'other' | 'reserve' | 'event';
 
 /** Round 5 · C4 — one attendee of a Google event, as the sheet's "who" reads them. */
 export interface EventAttendee { name?: string; email?: string; self?: boolean; declined?: boolean }
@@ -90,6 +90,7 @@ export interface AbsenceRow {
   note?: string | null;
   /** A company-wide 🎉 event only excuses attendance when nobody ticked "נדרשת נוכחות". */
   required?: boolean;
+  created_by?: string | null;
 }
 
 /** What the grid, the day panel and the week rows all render. */
@@ -114,6 +115,10 @@ export interface CalItem {
   eventId?: string;
   /** Present on an absence item. */
   kind?: AbsenceKind;
+  /** Present on an absence item — the calendar_absences row an edit/delete acts on. */
+  absenceId?: string;
+  /** Present on an absence item — who filed it (an own-entry may be edited by its author). */
+  createdBy?: string | null;
 }
 
 export interface CalendarSources {
@@ -144,13 +149,17 @@ export const LAYER_LABELS: Record<Layer, string> = {
 };
 
 export const ABSENCE_LABELS: Record<AbsenceKind, string> = {
-  vacation: 'חופש',
+  vacation: 'חופשה',
+  sick: 'מחלה',
+  other: 'אחר',
   reserve: 'מילואים',
   event: 'אירוע',
 };
 
 export const ABSENCE_ICON: Record<AbsenceKind, CalIcon> = {
   vacation: 'palm',
+  sick: 'clipboard',
+  other: 'calendar',
   reserve: 'shield',
   event: 'party',
 };
@@ -610,6 +619,8 @@ export function calendarItems(src: CalendarSources, opts: CalendarOptions = {}):
         person: a.person,
         mine: a.person ? isMine(a.person, me) : true,
         kind: a.kind,
+        absenceId: a.id,
+        createdBy: a.created_by ?? null,
       });
     }
   }
@@ -1163,13 +1174,34 @@ export function absenceDays(a: AbsenceRow, holidays?: Holiday[]): string[] {
   return out;
 }
 
+/**
+ * THE ROUTING RULE (עידן, QA 4.4): only אביאם and ניתאי file attendance, so only their
+ * absences reach the attendance table and the Excel report. Everyone else's is calendar-only.
+ * `null` person = the whole company, which fans out to the two filers.
+ */
+export function routesToAttendance(person: string | null | undefined, kind: AbsenceKind = 'vacation'): boolean {
+  if (kind === 'event') return false;
+  return !person || ATT_FILERS.indexOf(person) !== -1;
+}
+
+/** The attendance day type a calendar kind files as. */
+export function attendanceDayType(kind: AbsenceKind): 'vacation' | 'reserve' | 'other' {
+  return kind === 'reserve' ? 'reserve' : kind === 'vacation' ? 'vacation' : 'other';
+}
+
+/** Who may edit or delete an absence: עידן/עמיחי any, everyone else only their own. */
+export function canEditAbsence(a: { person: string | null; createdBy?: string | null }, me: string, can: { canAbsentOthers: boolean }): boolean {
+  if (can.canAbsentOthers) return true;
+  return !!me && (a.person === me || a.createdBy === me);
+}
+
 /** Only these two have attendance rows to generate (spec §7f). One list, owned by attendance.ts. */
 export const ATTENDANCE_PEOPLE: readonly string[] = ATT_FILERS;
 
 export interface GeneratedAttRow {
   person: string;
   date: string;
-  dayType: 'vacation' | 'reserve';
+  dayType: 'vacation' | 'reserve' | 'other';
   source: 'calendar';
   note: string;
 }
@@ -1191,7 +1223,7 @@ export function absenceAttendance(
   const manual = new Set(
     existing.filter(r => r.source !== 'calendar').map(r => (r.person || '') + '|' + toKey(r.date)),
   );
-  const dayType = a.kind === 'reserve' ? 'reserve' : 'vacation';
+  const dayType = attendanceDayType(a.kind);
   const out: GeneratedAttRow[] = [];
   for (const person of people) {
     if (ATT_FILERS.indexOf(person) === -1) continue;   // nobody else files attendance

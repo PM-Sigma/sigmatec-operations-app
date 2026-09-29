@@ -424,6 +424,77 @@ test('calendar: 🌴 a range is entered from the same ➕', async ({ page }, ti)
   expectNoConsoleErrors(rec);
 });
 
+test('calendar: היעדרות for someone outside attendance is added, shown to all, edited and deleted', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  // A stateful calendar_absences store, registered AFTER boot so it wins over the harness stub.
+  const store: any[] = [];
+  const writes: any[] = [];
+  await page.route('**/rest/v1/calendar_absences*', async route => {
+    const req = route.request();
+    const accept = req.headers()['accept'] || '';
+    const one = accept.includes('vnd.pgrst.object');
+    const send = (rows: any[], status = 200) => route.fulfill({
+      status, contentType: 'application/json', body: JSON.stringify(one ? (rows[0] ?? null) : rows),
+    });
+    if (req.method() === 'POST') {
+      const row = { id: 'abs-' + (store.length + 1), ...JSON.parse(req.postData() || '{}') };
+      store.push(row); writes.push(row);
+      return send([row], 201);
+    }
+    if (req.method() === 'PATCH') {
+      const id = new URL(req.url()).searchParams.get('id')?.replace('eq.', '');
+      const row = store.find(r => r.id === id);
+      if (row) Object.assign(row, JSON.parse(req.postData() || '{}'));
+      return route.fulfill({ status: 204, body: '' });
+    }
+    if (req.method() === 'DELETE') {
+      const id = new URL(req.url()).searchParams.get('id')?.replace('eq.', '');
+      const i = store.findIndex(r => r.id === id);
+      if (i >= 0) store.splice(i, 1);
+      return route.fulfill({ status: 204, body: '' });
+    }
+    return send(store);
+  });
+  await openCalendar(page);
+  const day = await calDay(page);
+
+  await page.evaluate(d => (window as any).sigmaCalendarOpenDay?.(d), day);
+  await dayBody(page).getByTestId('cal-day-add').click();
+  await page.getByTestId('cal-add-absence').click();
+  await expect(page.getByTestId('cal-absence')).toBeVisible();
+
+  // Anyone on staff, not only the two filers; a non-filer is calendar-only and says so.
+  await page.getByTestId('cal-abs-person').selectOption('אבצן');
+  await page.locator('[data-kind="sick"]').click();
+  await expect(page.getByTestId('cal-abs-route')).toContainText('רק ביומן');
+  await page.getByTestId('cal-abs-person').selectOption('ניתאי');
+  await expect(page.getByTestId('cal-abs-route')).toContainText('גם בנוכחות');
+  await page.getByTestId('cal-abs-person').selectOption('אבצן');
+  await page.getByTestId('cal-abs-save').click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({ person: 'אבצן', kind: 'sick', start_date: day, end_date: day });
+
+  // It shows as a chip on the day for everyone looking at the calendar.
+  const chip = dayBody(page).locator('[data-layer="absence"]');
+  await expect(chip).toContainText('מחלה');
+  await expect(chip).toContainText('אבצן');
+  await shot(page, ti, 'absence-added');
+
+  // Edit → type changes; delete asks first.
+  await dayBody(page).locator('[data-absence-row]').click();
+  await expect(page.getByTestId('cal-absence')).toBeVisible();
+  await page.locator('[data-kind="vacation"]').click();
+  await page.getByTestId('cal-abs-save').click();
+  await expect(dayBody(page).locator('[data-layer="absence"]')).toContainText('חופשה');
+
+  await dayBody(page).locator('[data-absence-row]').click();
+  await page.getByTestId('cal-abs-delete').click();
+  await page.getByRole('button', { name: 'כן, למחוק' }).click();
+  await expect(dayBody(page).locator('[data-layer="absence"]')).toHaveCount(0);
+  expect(store).toHaveLength(0);
+  expectNoConsoleErrors(rec);
+});
+
 test('calendar: the viewer reads it and cannot change it', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
   await openCalendar(page);

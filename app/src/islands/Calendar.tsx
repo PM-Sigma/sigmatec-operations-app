@@ -43,7 +43,7 @@ import { openVisitChapters } from '@/islands/Field';
 import type { Holiday } from '@/lib/attendance';
 import {
   abilities, ABSENCE_LABELS, addDays, byDate, calCellLook, calendarItems, calendarPeople,
-  canPlanDay, canPlanFor, dayLetters, dayListing, dayWhen, dueByKibbutz, EMPTY_DAY, eventDetail,
+  canEditAbsence, routesToAttendance, canPlanDay, canPlanFor, dayLetters, dayListing, dayWhen, dueByKibbutz, EMPTY_DAY, eventDetail,
   gridDays, groupByKibbutz, HE_MONTHS, heDate, heShort, isNoopPick, legendItems, monthView,
   pickBlock, planBlocks, reorder, ROUTE_HEADERS, routeWithHeaders, scheduleTasksPlan, showWeekNumbers,
   stopsPayload, taskOwners, toKey, missingInView, visibleDows, visitRead, visitsOn,
@@ -53,6 +53,8 @@ import {
 } from '@/lib/calendar';
 import { applyBlockPick, readPlan, undoBlockPick, type PlanGuard } from '@/lib/calendarData';
 import { useSettings } from '@/lib/settings';
+import { APP_PEOPLE } from '@/lib/people';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { DayCell, type DayCellFill } from '@/components/ui/day-cell';
 import type { AttRow } from '@/lib/attendance';
 import { dueText, isOverdue, priorityLabel, statusLabel } from '@/lib/emsTasks';
@@ -116,7 +118,7 @@ async function readAbsences(from: string, to: string): Promise<AbsenceRow[]> {
   try {
     const sb = await getSupabase();
     const { data, error } = await sb.from('calendar_absences')
-      .select('id,person,kind,start_date,end_date,note,required')
+      .select('id,person,kind,start_date,end_date,note,required,created_by')
       .lte('start_date', to).gte('end_date', from);
     if (error) throw error;
     return (data || []) as AbsenceRow[];
@@ -155,17 +157,36 @@ const ICON = {
   palm: TreePalm, shield: Shield, party: PartyPopper,
 } as const;
 
+/** Who may open an absence chip to edit it; a chip that is not yours stays read-only. */
+const AbsenceEditCtx = React.createContext<{ canEdit: (i: CalItem) => boolean; open: (id: string) => void } | null>(null);
+
 function Chip({ item, dim }: { item: CalItem; dim: boolean }) {
   const Icon = ICON[item.icon];
-  return (
+  const edit = React.useContext(AbsenceEditCtx);
+  const chip = (
     <span
       className={'ucal-chip ' + (LAYER_CLASS[item.layer] || '') + (dim ? ' ucal-dim' : '')}
       data-layer={item.layer}
+      data-absence-kind={item.kind}
       title={item.title}
     >
       <bdi>{Icon ? <Icon size={13} aria-hidden /> : null} {item.title}</bdi>
     </span>
   );
+  if (item.layer === 'absence' && item.absenceId && edit && edit.canEdit(item)) {
+    return (
+      <button
+        type="button"
+        className="ucal-event-row"
+        data-absence-row={item.absenceId}
+        aria-label={'עריכת ' + item.title}
+        onClick={() => edit.open(item.absenceId!)}
+      >
+        {chip}
+      </button>
+    );
+  }
+  return chip;
 }
 
 /**
@@ -1193,28 +1214,35 @@ function TaskListView({
 
 // ───────────────────────────── 🌴 absences ─────────────────────────────
 
+type AbsenceInput = { person: string | null; kind: AbsenceKind; start_date: string; end_date: string; note: string };
+
 function AbsenceSheet({
-  date, open, onClose, me, canOthers, onSaved,
+  date, open, onClose, me, canOthers, onSaved, editing, onDelete,
 }: {
   date: string; open: boolean; onClose: () => void; me: string; canOthers: boolean;
-  onSaved: (a: { person: string | null; kind: AbsenceKind; start_date: string; end_date: string; note: string }) => void;
+  onSaved: (a: AbsenceInput) => void;
+  editing?: AbsenceRow | null; onDelete?: () => void;
 }) {
+  const [confirmDel, setConfirmDel] = React.useState(false);
   const [kind, setKind] = React.useState<AbsenceKind>('vacation');
   const [person, setPerson] = React.useState(me);
   const [from, setFrom] = React.useState(date);
   const [to, setTo] = React.useState(date);
   const [note, setNote] = React.useState('');
   React.useEffect(() => {
-    if (open) { setKind('vacation'); setPerson(me); setFrom(date); setTo(date); setNote(''); }
-  }, [open, date, me]);
+    if (!open) return;
+    if (editing) {
+      setKind(editing.kind); setPerson(editing.person || me); setFrom(editing.start_date);
+      setTo(editing.end_date); setNote(editing.note || '');
+    } else { setKind('vacation'); setPerson(me); setFrom(date); setTo(date); setNote(''); }
+  }, [open, date, me, editing]);
 
-  const people = React.useMemo(() => {
-    try { return (sigma.ATT_PEOPLE || []) as string[]; } catch { return ['אביאם', 'ניתאי']; }
-  }, []);
+  // Everyone on staff can be marked away in the calendar; only אביאם/ניתאי also reach attendance.
+  const people = APP_PEOPLE as readonly string[];
 
   // §7p: a typed note (and a range widened past the day it opened on) is unsaved input.
   const absGuard = useUnsavedGuard({
-    dirty: () => note.trim() !== '' || from !== date || to !== date,
+    dirty: () => !editing && (note.trim() !== '' || from !== date || to !== date),
     onDiscard: onClose,
     onClose,
   });
@@ -1223,11 +1251,11 @@ function AbsenceSheet({
     <Sheet open={open} onOpenChange={o => { if (!o) absGuard.ask(); }}>
       <SheetContent side="bottom" data-testid="cal-absence" className="max-h-[86svh] overflow-y-auto" {...absGuard.contentProps}>
         <SheetHeader className="mb-2">
-          <SheetTitle>יום לא רגיל</SheetTitle>
-          <SheetDescription className="text-[12.5px]">חופש, מילואים או אירוע, וכולם יראו את זה ביומן.</SheetDescription>
+          <SheetTitle>{editing ? 'עריכת היעדרות' : 'הוספת היעדרות'}</SheetTitle>
+          <SheetDescription className="text-[12.5px]">חופשה, מחלה או אירוע. כולם יראו את זה ביומן.</SheetDescription>
         </SheetHeader>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {(['vacation', 'reserve', 'event'] as AbsenceKind[]).map(k => (
+          {(['vacation', 'sick', 'other', 'reserve', 'event'] as AbsenceKind[]).map(k => (
             <button
               key={k}
               type="button"
@@ -1264,6 +1292,11 @@ function AbsenceSheet({
             </select>
           </label>
         ) : null}
+        <p className="mt-2 text-[12.5px] text-muted-foreground" data-testid="cal-abs-route">
+          {kind !== 'event' && routesToAttendance(person, kind)
+            ? 'יירשם גם בנוכחות ובדוח.'
+            : 'רק ביומן, לא נכנס לנוכחות ולדוח.'}
+        </p>
         <label className="mt-2 block text-[12.5px] font-semibold">
           הערה
           <input className="ucal-input" value={note} onChange={e => setNote(e.target.value)} placeholder="אופציונלי" />
@@ -1283,6 +1316,20 @@ function AbsenceSheet({
         >
           שמור
         </button>
+        {editing && onDelete ? (
+          <button type="button" className="ucal-mini mt-2" data-testid="cal-abs-delete" onClick={() => setConfirmDel(true)}>
+            מחיקת ההיעדרות
+          </button>
+        ) : null}
+        <ConfirmSheet
+          open={confirmDel}
+          onOpenChange={setConfirmDel}
+          title="למחוק את ההיעדרות?"
+          lines={editing ? [ABSENCE_LABELS[editing.kind] + (editing.person ? ' · ' + editing.person : '')] : []}
+          confirmLabel="כן, למחוק"
+          danger
+          onConfirm={() => { setConfirmDel(false); onDelete?.(); }}
+        />
         {absGuard.prompt}
       </SheetContent>
     </Sheet>
@@ -1311,7 +1358,7 @@ function AddSheet({
             ➕ משימה חדשה
           </button>
           <button type="button" className="ucal-row" data-testid="cal-add-absence" onClick={onAbsence}>
-            🌴 חופש / 🪖 מילואים / 🎉 אירוע
+            🌴 הוספת היעדרות
           </button>
         </div>
       </SheetContent>
@@ -1358,6 +1405,7 @@ function CalendarIsland() {
   const openEventOne = React.useCallback((id: string) => { setSheetDay(''); setOpenEventId(id); }, []);
   const [scheduleDay, setScheduleDay] = React.useState('');
   const [absenceDay, setAbsenceDay] = React.useState('');
+  const [editAbsenceId, setEditAbsenceId] = React.useState('');
   // 📅 שבץ from a רשימה row: the TASK is known and the day is not — the opposite of the day
   // cell's ➕, and the same sheet either way.
   const [scheduleTask, setScheduleTask] = React.useState<CalEmsTask | null>(null);
@@ -1644,6 +1692,33 @@ function CalendarIsland() {
     onError: (e: any) => toast.error(String(e?.message || 'השמירה לא עברה')),
   });
 
+  const updateAbsence = useMutation({
+    mutationFn: async (a: AbsenceInput & { id: string }) => {
+      const { id, ...patch } = a;
+      return sbWrite(async sb => sb.from('calendar_absences').update(patch).eq('id', id));
+    },
+    onSuccess: () => {
+      setEditAbsenceId('');
+      qc.invalidateQueries({ queryKey: ['cal', 'absences'] });
+      toast.success('ההיעדרות עודכנה');
+    },
+    onError: (e: any) => toast.error(String(e?.message || 'השמירה לא עברה')),
+  });
+  const deleteAbsence = useMutation({
+    mutationFn: async (id: string) => sbWrite(async sb => sb.from('calendar_absences').delete().eq('id', id)),
+    onSuccess: () => {
+      setEditAbsenceId('');
+      qc.invalidateQueries({ queryKey: ['cal', 'absences'] });
+      toast.success('ההיעדרות נמחקה');
+    },
+    onError: (e: any) => toast.error(String(e?.message || 'המחיקה לא עברה')),
+  });
+  const editingAbsence = (absences.data || []).find(a => a.id === editAbsenceId) || null;
+  const absenceCtx = React.useMemo(() => ({
+    canEdit: (i: CalItem) => canEditAbsence({ person: i.person, createdBy: i.createdBy }, me, can),
+    open: (id: string) => setEditAbsenceId(id),
+  }), [me, can.canAbsentOthers]);
+
   // ── navigation ─────────────────────────────────────────────────────────
   function step(delta: number) {
     if (view === 'week') { setAnchor(a => addDays(a, delta * 7)); return; }
@@ -1680,6 +1755,7 @@ function CalendarIsland() {
   const loading = holidays.isLoading && events.isLoading;
 
   return (
+    <AbsenceEditCtx.Provider value={absenceCtx}>
     <div className="pb-4" data-testid="cal-island">
       {/* ── header ─────────────────────────────────────────────────────── */}
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -1922,8 +1998,19 @@ function CalendarIsland() {
         canOthers={can.canAbsentOthers}
         onSaved={a => saveAbsence.mutate(a)}
       />
+      <AbsenceSheet
+        date=""
+        open={!!editingAbsence}
+        onClose={() => setEditAbsenceId('')}
+        me={me}
+        canOthers={can.canAbsentOthers}
+        editing={editingAbsence}
+        onSaved={a => updateAbsence.mutate({ ...a, id: editAbsenceId })}
+        onDelete={() => deleteAbsence.mutate(editAbsenceId)}
+      />
 
     </div>
+    </AbsenceEditCtx.Provider>
   );
 }
 
