@@ -1,6 +1,6 @@
 # פעולות שטח — the field hub (29.9)
 
-STATUS: 🟡 OPEN — NOT built. Branch `feat/field-ops-hub` (worktree `C:\Users\idann\Projects\SigmatecOps-fieldhub`).
+STATUS: 🟢 BUILT — awaiting עידן phone check + MAIN merge. Branch `feat/field-ops-hub` (worktree `C:\Users\idann\Projects\SigmatecOps-fieldhub`).
 Resume: build per §4 in order (A → B → C), each step committed; gates in §6.
 
 ## 1. Goal (עידן 29.9 + MAIN decisions)
@@ -57,4 +57,10 @@ See the handoff report in §7.
 test-html-guard green, Playwright on port 8471 (config reverted), no conflict markers, `node --check sw.js`.
 
 ## 7. Handoff
-(filled at the end)
+- Branch `feat/field-ops-hub`; preview https://raw.githack.com/PM-Sigma/sigmatec-operations-app/feat/field-ops-hub/index.html
+- test-all green; field-hub.spec 12 tests × 4 phone projects green; dark-contrast 0 on the hub; ui/sigma.js 310,864 B.
+- Known unrelated fail: viewer-shell.spec.ts:42 (expects "רעיון / באג" in ⋯).
+- VERSION bumped locally by build.mjs (2.14x) — MAIN re-stamps on merge.
+- Evidence: qa/evidence/field-hub/ (64 PNGs).
+- Suggestions (not built): התיק שלי (personal stock); ⏱ quick "סיום יום" (attendance + last visit in one tap);
+  offline queue badge for IP reads; burns "next meter" shortcut on the kibbutz row; today's route map link (Waze).
