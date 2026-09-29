@@ -43,9 +43,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 | File | When to read it |
 |------|-----------------|
 | **[ops-graph/](ops-graph/README.md)** | **OPS GRAPH — queryable map of the whole app (4,714 nodes / 12,523 edges, 2.23).** Ask it "what touches what" before grepping: `python docs/ops-graph/ops_graph.py explain <thing>`. Verified defects: local BROKEN.md (not in the public repo). |
-| [architecture.md](architecture.md) | How it fits together: PWA ↔ Supabase ↔ Apps Script ↔ EMS. Start here. |
+| [architecture.md](architecture.md) | How it fits together: PWA ↔ Supabase ↔ EMS API (Apps Script retired). Start here. |
 | [modules.md](modules.md) | What every `js/src/*.js` module does + its functions. |
-| [data-and-security.md](data-and-security.md) | Supabase tables, data layer, RLS, the auth bridge, key rotation, Apps Script security. |
+| [data-and-security.md](data-and-security.md) | Supabase tables, data layer, RLS, the auth bridge, key rotation. |
 | [operations.md](operations.md) | Build/deploy/test, edge-function deploy, env values, test flags. |
 | [calendar-setup.md](calendar-setup.md) | **Connecting the office calendar (יומן)** — Google service-account sharing, Supabase secrets, client-wiring step, troubleshooting. |
 | [team.md](team.md) | Employee roles, field/office, what to measure per person. |
@@ -62,7 +62,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Source-of-truth:** Supabase (round 5 Phase 1, 23.9: the Google Sheet data source is retired —
   `WRITE_ROUTER_URL` in `js/src/01-data.js` is an internal dispatch key now, not a live endpoint).
 - **Live:** https://pm-sigma.github.io/sigmatec-operations-app/ (installable PWA). **Repo:** `PM-Sigma/sigmatec-operations-app` (public).
-- **Backend:** Supabase (data + REST + RLS + Edge Functions `ems-auth`/`calendar`/`github`) + Apps Script (EMS proxy). EMS API for tasks/meters.
+- **Backend:** Supabase (data + REST + RLS + Edge Functions `ems-auth`/`calendar`/`github`) — **no Apps Script any more** (retired; everything goes through Supabase). The app calls the EMS API `api.sigmatec-ems.com/v1` **directly** with the signed-in user's EMS token (tasks/meters/readings).
 - **Build:** edit `js/src/*.js` → `node build.mjs` → commit → push (main = live). `dev` = WIP; preview via raw.githack.com/.../dev/…
 - **Versioning:** `·N` counter up to **·100**, then rolls to **`1.01`** and the minor auto-increments per build; a **big/sweeping update** → `node build.mjs major` (→ `2.00`). Details: [operations.md](operations.md) → Versioning.
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.

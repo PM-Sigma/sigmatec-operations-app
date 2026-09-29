@@ -1,5 +1,8 @@
 # Architecture
 
+> ⚠ **29.9.26:** Apps Script is no longer used. Everything goes through Supabase (tables, RLS, Edge Functions),
+> and the app calls `api.sigmatec-ems.com/v1` directly with the user's EMS token. The diagram below is historical.
+
 A no-framework, installable **PWA** (classic scripts in one shared global scope) with a
 **hybrid backend**: application data in **Supabase**, EMS/voice/calendar bridged through
 **Google Apps Script**, live operational data from the **EMS API**.
