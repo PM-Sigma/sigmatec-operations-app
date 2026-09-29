@@ -43,8 +43,16 @@ const save = (l: ActiveRun[]) => lsSet(ACTIVE_KEY, JSON.stringify(l));
 export function setBadge(n: number): void {
   const changed = (w.__readingsBadge | 0) !== n;
   w.__readingsBadge = n;
-  // The ⋯ sheet re-renders on registry changes: re-registering the (never listed) row nudges it.
-  if (changed) registerMoreItem({ id: 'readings-badge', label: '', icon: 'FileDown', onSelect: () => {}, visible: () => false });
+  // The ⋯ sheet re-renders on registry changes: re-registering the row nudges it (its badge() reads the global).
+  if (changed) registerReadingsRow();
+}
+
+/** The ⋯ row lives here (this lazy chunk), not in the boot file's MORE_PAGES: label, gate and badge. */
+function registerReadingsRow(): void {
+  registerMoreItem({
+    id: 'readings', label: 'משיכת קריאות מתוכנות חיצונית', icon: 'FileDown', group: 'admin',
+    onSelect: () => gotoReadings(), visible: () => isRoster(), badge: () => w.__readingsBadge | 0,
+  });
 }
 
 export async function refreshBadge(): Promise<void> {
@@ -148,6 +156,7 @@ async function sundayCheck(): Promise<void> {
 export function startReadingsWatch(): void {
   if (w.__readingsWatch) return;
   w.__readingsWatch = true;
+  registerReadingsRow();
 
   // Page island: mounted the first time the view is shown (a deep link to it included).
   const view = document.getElementById('readings-view');

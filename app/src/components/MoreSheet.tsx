@@ -55,7 +55,6 @@ const MORE_PAGES: Array<{ page: SigmaPage; label: string; icon: LucideIcon; grou
   { page: 'pushlog', label: 'התראות', icon: Bell, group: 'admin' },
   { page: 'dev', label: 'פיתוח', icon: Code2, group: 'admin' },
   { page: 'emsstats', label: 'סטטיסטיקה', icon: TrendingUp, group: 'admin' },
-  { page: 'readings', label: 'משיכת קריאות מתוכנות חיצונית', icon: FileDown, group: 'admin' },
 ];
 
 function Badge({ n }: { n: number }) {
@@ -132,9 +131,7 @@ export function MoreSheet({
   const admin = block('admin');
 
   // The sheet's own attention total — shown on the ⋯ tab so the person knows to open it.
-  // rb: readingsWatch.ts publishes the 📥 badge here (a lazy chunk — the boot file only reads it).
-  const rb = (window as any).__readingsBadge | 0;
-  const attention = extras.reduce((n, i) => n + itemBadge(i), 0) + rb;
+  const attention = extras.reduce((n, i) => n + itemBadge(i), 0);
 
   return (
     <Sheet
@@ -213,7 +210,7 @@ export function MoreSheet({
             <ul className="flex flex-col gap-0.5">
               {admin.pages.map(({ page, label, icon }) => (
                 <li key={page}>
-                  <SheetRow icon={icon} label={label} badge={page === 'readings' ? rb : 0} onClick={() => go(() => sigma.showPage(page))} />
+                  <SheetRow icon={icon} label={label} onClick={() => go(() => sigma.showPage(page))} />
                 </li>
               ))}
               {admin.items.map(item => (
