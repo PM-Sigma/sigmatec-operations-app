@@ -187,7 +187,9 @@ export function applyEmsValidation(run, results, opts = {}) {
   if (results && !Array.isArray(results)) { opts = { ...results, ...opts }; results = results.results; }
   const meta = run.uploadMeta || [];
   const byIdx = new Map((results || []).map((r) => [r.rowIndex, r]));
-  const known = opts.emsMeters ? new Set(opts.emsMeters.map(String)) : null;
+  // ponytail: the GET-meters list blocked every meter on 1.10 (it matched none of the serials), and it only duplicated
+  // validate's METER_NOT_FOUND / METER_NOT_IN_SITE, which already blocks a meter that isn't set up. Validate is the one source.
+  const known = null;
   const upload = [], uploadMeta = [];
   const exc = run.exceptions.map((r) => r.slice());
   const dropped = new Set();

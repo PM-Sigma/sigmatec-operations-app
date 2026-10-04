@@ -195,17 +195,16 @@ t('applyEmsValidation: invalid moved to exceptions as חוסם, warnings kept, k
   assert.ok(!JSON.stringify(out.exceptions).includes('תעריפ'));
 });
 
-t('applyEmsValidation: a meter missing from the EMS meters list is blocked "not set up in EMS"; EMS-only meters are NOT listed', () => {
+t('applyEmsValidation: the EMS meters list never blocks (1.10 regression: it blocked all 250); only validate METER_NOT_FOUND does', () => {
   const base = run([rd('M1'), rd('M2')]);
   const okRes = [{ rowIndex: 0, valid: true, errors: [], warnings: [] }, { rowIndex: 1, valid: true, errors: [], warnings: [] }];
-  const out = applyEmsValidation(base, okRes, { emsMeters: ['M1', 'E9', '100huldaN'], kibbutz: 'חולדה' });
-  assert.deepStrictEqual(out.upload.map((u) => u[0]), ['M1']);
-  assert.deepStrictEqual(out.exceptions.map((e) => [e[1], e[2], e[5], e[6]]), [['M2', 'M2', 'חוסם', 'המונה לא מוקם ב-EMS תחת חולדה']]);
-  assert.strictEqual(out.all.find((a) => a[1] === 'M2')[9], 'לא הועלה');
-  assert.deepStrictEqual(out.counts, { ok: 1, blocked: 1, warn: 0 });
-  const both = applyEmsValidation(base, [okRes[0], { rowIndex: 1, valid: false, errors: ['METER_NOT_FOUND'], warnings: [] }], { emsMeters: ['M1'], kibbutz: 'חולדה' });
-  assert.strictEqual(both.exceptions.length, 1, 'list + validate signals -> one row');
-  assert.strictEqual(applyEmsValidation(base, [], {}).exceptions.length, 0, 'without the list nothing extra happens');
+  // a list that matches nothing (what EMS returned on 1.10) must not drop valid meters
+  const out = applyEmsValidation(base, okRes, { emsMeters: ['X1', 'X2'], kibbutz: 'חולדה' });
+  assert.deepStrictEqual(out.upload.map((u) => u[0]), ['M1', 'M2']);
+  assert.deepStrictEqual(out.counts, { ok: 2, blocked: 0, warn: 0 });
+  const nf = applyEmsValidation(base, [okRes[0], { rowIndex: 1, valid: false, errors: ['METER_NOT_FOUND'], warnings: [] }], { kibbutz: 'חולדה' });
+  assert.deepStrictEqual(nf.upload.map((u) => u[0]), ['M1']);
+  assert.deepStrictEqual(nf.exceptions.map((e) => [e[1], e[5], e[6]]), [['M2', 'חוסם', 'המונה לא מוקם ב-EMS תחת חולדה']]);
 });
 
 console.log('readings logic OK (' + n + ' tests)');
