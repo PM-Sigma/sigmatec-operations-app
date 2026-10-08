@@ -58,6 +58,16 @@ Tiles: **החלפת מונה** · **הוספת מונה** · **עריכת מונ
 1. **Collapsed by default** — every kibbutz group closed; the user opens the one they work on (remember the last open).
 2. **Reports by kibbutz:** tapping PDF/Excel opens a picker — the open kibbutz (default) / one kibbutz / several
    (checkboxes) / all — then exports only those.
+3. **Excel structure (עידן 8.10):**
+   - **One kibbutz:** file named `צריבות — <kibbutz> — <date>.xlsx`; **one sheet per generator** (sheet name = generator,
+     ≤31 chars, Excel-safe), plus a first sheet **"סיכום"** (per generator: total / burned / remaining / problems).
+   - **Several kibbutzim:** file `צריבות — <n> קיבוצים — <date>.xlsx`; **one sheet per kibbutz**, every sheet has a
+     **"גנרטור" column with an Excel AutoFilter** on the header row (dropdown to pick a generator), frozen header, RTL
+     sheets. Plus a first sheet **"סיכום"** = a pivot-style table (rows: kibbutz → generator; columns: total / burned /
+     remaining / problems) with AutoFilter. (A native Excel PivotTable isn't writable with the bundled xlsx library; the
+     summary sheet + AutoFilter gives the same "pick a generator" convenience. Note it as the upgrade path if עידן wants a
+     real PivotTable.)
+   - PDF follows the same grouping (a section per kibbutz → generator).
 
 ## EMS research (8.10, read-only, sigmatec-ems repo)
 - **Search:** `GET /v1/meters?search=…&take=20` — ILIKE over serial, address, type, role, site name, **client name**,
