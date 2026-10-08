@@ -5,6 +5,7 @@ import fs from 'fs';
 import { execSync } from 'node:child_process';
 import esbuild from 'esbuild';
 import { buildAppMin, buildCritical, checkGeneratedCss, inlineCritical } from './scripts/css-build.mjs';
+import { isValidVersion, stampVersion } from './scripts/version-stamp.mjs';
 
 // `node build.mjs --check` — verify, never write. The pre-commit hook and `npm run qa` use it so
 // a hand-edited or stale generated file cannot be committed. See scripts/css-build.mjs.
@@ -144,10 +145,12 @@ function nextVersion(cur, major) {
   return mj + '.' + pad2((parseInt(mn, 10) || 0) + 1);
 }
 const verFile = new URL('./VERSION', import.meta.url);
-const verStr = nextVersion(fs.readFileSync(verFile, 'utf8').trim(), process.argv.includes('major'));
+const curVer = fs.readFileSync(verFile, 'utf8').trim();
+if (!isValidVersion(curVer)) throw new Error('VERSION is malformed (merge-conflict marker?): ' + JSON.stringify(curVer));
+const verStr = nextVersion(curVer, process.argv.includes('major'));
 fs.writeFileSync(verFile, verStr + '\n');
 const today = new Date().toISOString().slice(0, 10);
-idx = idx.replace(/גרסה \d{4}-\d{2}-\d{2}·[\d.]+/, 'גרסה ' + today + '·' + verStr);
+idx = stampVersion(idx, today, verStr);
 fs.writeFileSync(idxUrl, idx);
 // docs/integration-map.md is GENERATED from the same sources this build just concatenated, and
 // its rows carry file:line — so almost any edit makes it stale. Regenerating it here means the

@@ -432,8 +432,26 @@
   // The report carries the error, the page and the last actions (window.__sigmaTrail, kept by
   // the bridge) into 📣 רעיון / באג as a prefilled bug. Throttled: one card a minute.
   var _crashAt = 0;
+  // 8.10: a deploy that lands mid-session makes the NEXT lazy chunk (e.g. the gear sheet's extras)
+  // come from the new build and import `sigma.js?v=<new>` — a second copy of React next to the
+  // running one, so its first hook throws "Invalid hook call" (#321) / "reading 'useState'". That
+  // is not a bug to report, it is a stale page: reload once (flagged, so it can never loop) and
+  // only fall through to the card if the reload did not cure it.
+  function isVersionSkew(err) {
+    var m = String((err && (err.message || err.stack)) || err || '');
+    return /Minified React error #(321|31)|Invalid hook call|reading '(useState|useRef|useContext|useEffect|useMemo|useCallback|useSyncExternalStore|useReducer)'/.test(m);
+  }
   function sigmaCrash(err, where) {
     try {
+      if (isVersionSkew(err)) {
+        var k = 'sigma_skew_reload', last = 0;
+        try { last = parseInt(sessionStorage.getItem(k) || '0', 10) || 0; } catch (e) { last = Date.now(); }
+        if (Date.now() - last > 120000) {
+          try { sessionStorage.setItem(k, String(Date.now())); } catch (e) { return; }
+          location.reload();
+          return;
+        }
+      }
       var now = Date.now(); if (now - _crashAt < 60000) return; _crashAt = now;
       var msg = String((err && (err.stack || err.message)) || err || 'שגיאה לא ידועה').split('\n').slice(0, 3).join('\n').slice(0, 400);
       var old = document.getElementById('sigmaCrash'); if (old) old.remove();
