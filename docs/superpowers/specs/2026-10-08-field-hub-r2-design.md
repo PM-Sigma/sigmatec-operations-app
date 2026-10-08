@@ -68,8 +68,11 @@ Tiles: **החלפת מונה** · **הוספת מונה** · **עריכת מונ
 - **No delete** (EMS has DELETE; we don't build it).
 - Each action writes an app audit row (who / what / when / meter) — new table, service-role insert via an edge fn or
   RLS insert-own.
-- ⚠️ Production impact on customer billing data: built behind a flag, tested against a test site first, עידן approves
-  before it's switched on.
+- ⚠️ Production impact on customer billing data. **עידן 8.10: open to all staff (not the viewer) as soon as it ships,
+  no flag gate.** The safeguards above (full GET→PUT, replace confirm, production-meter block, archive only without an
+  active customer, no delete, audit row) are therefore mandatory, not optional, and must be covered by tests against a
+  mocked EMS before merge.
+- **Add meter → site:** a site picker defaulting to the kibbutz in context (field page / kibbutz card).
 
 ### E. Burns (צריבות)
 1. **Collapsed by default** — every kibbutz group closed; the user opens the one they work on (remember the last open).
