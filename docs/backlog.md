@@ -1,3 +1,5 @@
+🟡 IN PROGRESS: bug bot - built on `feat/bugbot`, awaiting MAIN (apply db/feedback_bot.sql, deploy push-send, merge) + עידן home-server install. Spec: docs/superpowers/specs/2026-10-08-bugbot-design.md
+
 🟡 IN PROGRESS (2026-09-29) — **משיכת קריאות משירותי מנייה חיצוניים** (חולדה, SpeedNet + DataSense via Browserless). Spec `docs/superpowers/specs/2026-09-29-readings-pull-design.md`, branch `feat/readings-pull`. Phase 0 ✅; Phase 1 ✅ built + green (29.9). Waiting on MAIN: audit + apply `db/readings_pull.sql`, redeploy `readings-fetch` + `push-send`, apply `db/cron_readings_7am.sql`, merge. Then: end-to-end manual pull for 28.9 from the app.
 
 ↪ RESUMED and shipped (see the 29.9 block below). Was: PAUSED (24.9.2026) — round 5 at ~52%. Resume: read `docs/superpowers/r5-PAUSE-STATE.md` first (every open branch, its exact next step, the production steps still ahead).

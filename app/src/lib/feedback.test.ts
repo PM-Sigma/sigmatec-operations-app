@@ -3,6 +3,7 @@ import {
   FEEDBACK_MIN, KIND_ICON, KIND_LABEL, KIND_PUSH_TITLE, LIVE_NO_RESULT_MS, RECORD_CAP_MS,
   canSeeFeedbackInbox, canSubmitFeedback, errorBugReportText, feedbackDraftPayload, feedbackDraftWorthSaving,
   feedbackPreview, feedbackRow, feedbackValidate,
+  BOT_BRANCH_RE, BOT_LABEL, parseInboxHash,
   issueBody, issueTitle, parseFeedbackDraft, speechLadder, type FeedbackKind,
 } from './feedback';
 
@@ -312,5 +313,20 @@ describe('kinds are exhaustive', () => {
       expect(KIND_PUSH_TITLE[k]).toBeTruthy();
       expect(issueTitle(k, 'טקסט')).toContain('|');
     }
+  });
+});
+
+describe('bug bot helpers', () => {
+  it('parseInboxHash reads the plain and the id deep link, and nothing else', () => {
+    expect(parseInboxHash('#feedback-inbox')).toEqual({ id: null });
+    expect(parseInboxHash('#feedback-inbox?id=3f2b6c1e-9d4a-4e8b-8a57-0c1d2e3f4a5b')).toEqual({ id: '3f2b6c1e-9d4a-4e8b-8a57-0c1d2e3f4a5b' });
+    expect(parseInboxHash('#feedback-inbox?id=<script>')).toBeNull();
+    expect(parseInboxHash('#other')).toBeNull();
+    expect(parseInboxHash('')).toBeNull();
+  });
+  it('only a bugbot-<8 hex> branch is linkable; every state has a label', () => {
+    expect(BOT_BRANCH_RE.test('bugbot-3f2b6c1e')).toBe(true);
+    for (const b of ['main', 'bugbot-xyz', 'bugbot-3f2b6c1e/../x', 'https://evil']) expect(BOT_BRANCH_RE.test(b)).toBe(false);
+    expect(Object.keys(BOT_LABEL).sort()).toEqual(['failed', 'merged', 'needs_approval', 'not_reproduced', 'working']);
   });
 });

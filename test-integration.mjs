@@ -192,7 +192,9 @@ ok(a.fns.unknownMode.length === 0,
     'timerStale',
     // 📥 readings-pull: the `readings-fetch` Edge Function calls `readingsDone` server-side with the
     // cron key when a run finishes — no browser may make phones buzz (X-Cron-Key only).
-    'readingsDone']);
+    'readingsDone',
+    // 🤖 bug bot: the home-server bot calls `bugbot` with the cron key (X-Cron-Key only).
+    'bugbot']);
   const stranded = a.fns.pushServerOnly.filter(m => !CRON_ONLY.has(m));
   ok(stranded.length === 0,
     'push-send implements modes nothing sends and that are not cron-only: ' + stranded.join(', '));

@@ -29,8 +29,8 @@ import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
 import { registerMoreItem } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  KIND_LABEL, STATUS_LABEL, canSeeFeedbackInbox, feedbackPreview, issueBody, issueTitle,
-  type FeedbackKind, type FeedbackStatus,
+  KIND_LABEL, STATUS_LABEL, BOT_LABEL, BOT_TAG, BOT_BRANCH_RE, BOT_BRANCH_URL, parseInboxHash, canSeeFeedbackInbox, feedbackPreview, issueBody, issueTitle,
+  type FeedbackKind, type FeedbackStatus, type BotState,
 } from '@/lib/feedback';
 import { FEEDBACK_QUERY_KEY } from '@/islands/Feedback';
 import { EmsGate } from '@/components/EmsGate';
@@ -46,6 +46,10 @@ export interface FeedbackItem {
   status: FeedbackStatus;
   github_issue: number | null;
   created_at: string;
+  bot_state?: BotState | null;
+  bot_note?: string | null;
+  bot_branch?: string | null;
+  bot_at?: string | null;
 }
 
 export interface Parent { number: number; title: string; url?: string }
@@ -139,6 +143,9 @@ function FeedbackRow({ item, onOpen }: { item: FeedbackItem; onOpen: (item: Feed
       meta={(
         <span className="flex flex-wrap items-center gap-1.5">
           <Tag role="neutral">{KIND_LABEL[item.kind]}</Tag>
+          {item.bot_state && BOT_LABEL[item.bot_state] && (
+            <Tag role={BOT_TAG[item.bot_state]}>{BOT_LABEL[item.bot_state]}</Tag>
+          )}
           <bdi>{dmy(item.created_at)}</bdi>
           <span>· <span>{item.author || 'בלי שם'}</span></span>
         </span>
@@ -195,6 +202,22 @@ function DetailView({
       </div>
 
       <p className="whitespace-pre-wrap break-words text-[15px] leading-snug" data-testid="feedback-inbox-text"><bdi>{item.text || (item.audio_path ? '🎙 הקלטה בלי תמלול' : 'בלי טקסט')}</bdi></p>
+
+      {item.bot_state && BOT_LABEL[item.bot_state] && (
+        <div className="flex flex-col gap-1.5 rounded-[var(--r-lg)] bg-secondary/60 p-3" data-testid="feedback-inbox-bot">
+          <div className="flex flex-wrap items-center gap-1.5 text-[13px]">
+            <Tag role={BOT_TAG[item.bot_state]}>{BOT_LABEL[item.bot_state]}</Tag>
+            {item.bot_at && <span className="text-muted-foreground"><bdi>{dmy(item.bot_at)}</bdi></span>}
+          </div>
+          {item.bot_note && <p className="whitespace-pre-wrap break-words text-[14px] leading-snug"><bdi>{item.bot_note}</bdi></p>}
+          {item.bot_branch && BOT_BRANCH_RE.test(item.bot_branch) && (
+            <a href={BOT_BRANCH_URL + item.bot_branch} target="_blank" rel="noreferrer"
+               className="inline-flex w-fit items-center gap-1 text-[13px] font-bold text-primary">
+              <Github aria-hidden className="h-3.5 w-3.5" /> <bdi>{item.bot_branch}</bdi> <ExternalLink className="h-3 w-3" aria-hidden />
+            </a>
+          )}
+        </div>
+      )}
 
       <SegmentedControl
         ariaLabel="סטטוס"
@@ -259,9 +282,11 @@ function InboxSheet() {
   // picked who they are, so the check runs again on every user-changed — otherwise the deep
   // link would be swallowed by the admin gate it is supposed to pass.
   const checkHash = React.useCallback(() => {
-    if (location.hash !== '#feedback-inbox') return;
+    const target = parseInboxHash(location.hash);
+    if (!target) return;
     if (!canSeeFeedbackInbox(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.())) return;
     setOpen(true);
+    if (target.id) setSelectedId(target.id);
     try { history.replaceState(null, '', location.pathname + location.search); } catch { /* private mode */ }
   }, []);
   React.useEffect(() => {
@@ -331,7 +356,7 @@ function InboxSheet() {
 
   // A row's own status flip (from the pushed detail) invalidates the query, which can drop the
   // selected id out of `items` for a beat — closing the detail rather than rendering a ghost.
-  React.useEffect(() => { if (selectedId && !selected) setSelectedId(null); }, [selectedId, selected]);
+  React.useEffect(() => { if (selectedId && data && !selected) setSelectedId(null); }, [selectedId, selected, data]);
 
   return (
     <Sheet open={open} onOpenChange={o => { setOpen(o); if (!o) setSelectedId(null); }}>

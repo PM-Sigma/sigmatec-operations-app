@@ -49,3 +49,7 @@ js/app.js.map
 # graphify AST cache — must never be committed (holds absolute local paths)
 /graphify-out/
 supabase/functions/readings-fetch/fixtures/
+
+# bug bot runtime state + the verdict file the model writes
+scripts/bugbot/.state/
+bugbot-result.json

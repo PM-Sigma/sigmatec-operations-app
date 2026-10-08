@@ -43,6 +43,24 @@ export const STATUS_LABEL: Record<FeedbackStatus, string> = {
   new: 'חדש', seen: 'נראה', done: 'טופל',
 };
 
+// 🤖 bug bot (spec 2026-10-08-bugbot-design.md). Written only by service_role; the inbox reads it.
+export type BotState = 'working' | 'merged' | 'needs_approval' | 'not_reproduced' | 'failed';
+export const BOT_LABEL: Record<BotState, string> = {
+  working: '🤖 בטיפול', merged: '✅ תוקן ועלה', needs_approval: '🟡 דורש אישור',
+  not_reproduced: '❓ לא שוחזר', failed: '⚠️ נכשל',
+};
+export const BOT_TAG: Record<BotState, 'info' | 'ok' | 'warn' | 'neutral' | 'danger'> = {
+  working: 'info', merged: 'ok', needs_approval: 'warn', not_reproduced: 'neutral', failed: 'danger',
+};
+/** Only a bot-pushed branch name is ever turned into a link (never an arbitrary string). */
+export const BOT_BRANCH_RE = /^bugbot-[0-9a-f]{8}$/;
+export const BOT_BRANCH_URL = 'https://github.com/PM-Sigma/sigmatec-operations-app/tree/';
+/** `#feedback-inbox` or `#feedback-inbox?id=<uuid>` (the bot push deep link) -> null | { id }. */
+export function parseInboxHash(hash: string): { id: string | null } | null {
+  const m = /^#feedback-inbox(?:\?id=([0-9a-f-]{8,40}))?$/i.exec(hash || '');
+  return m ? { id: m[1] || null } : null;
+}
+
 /** Shortest text we accept — below it the box is empty in practice ("ok", a stray space). */
 export const FEEDBACK_MIN = 3;
 /** The push body / inbox teaser length (spec: 80-char preview). */

@@ -207,3 +207,46 @@ describe('bug → dev-board card', () => {
     await waitFor(() => expect(sonner.warning).toHaveBeenCalled());
   });
 });
+
+describe('🤖 bug bot status', () => {
+  const botRow = (over: Partial<any> = {}) => row({
+    id: '3f2b6c1e-9d4a-4e8b-8a57-0c1d2e3f4a5b', text: 'קריסה בסיכום ביקור',
+    bot_state: 'needs_approval', bot_note: 'סיבה: null ברשימה. תיקון: בדיקת null.', bot_branch: 'bugbot-3f2b6c1e',
+    bot_at: '2026-10-08T09:00:00Z', ...over,
+  });
+
+  it('shows the status chip on the row and the note + branch link in the detail', async () => {
+    rows.push(botRow());
+    render(<FeedbackInbox />);
+    act(() => openFeedbackInbox());
+    expect(await screen.findByText('🟡 דורש אישור')).toBeTruthy();
+    fireEvent.click(screen.getByText('קריסה בסיכום ביקור'));
+    const box = await screen.findByTestId('feedback-inbox-bot');
+    expect(box.textContent).toContain('בדיקת null');
+    const a = box.querySelector('a') as HTMLAnchorElement;
+    expect(a.href).toContain('/tree/bugbot-3f2b6c1e');
+  });
+
+  it('never links a branch name that is not a bot branch', async () => {
+    rows.push(botRow({ bot_branch: 'main' }));
+    render(<FeedbackInbox />);
+    act(() => openFeedbackInbox());
+    fireEvent.click(await screen.findByText('קריסה בסיכום ביקור'));
+    expect((await screen.findByTestId('feedback-inbox-bot')).querySelector('a')).toBeNull();
+  });
+
+  it('a row with no bot state shows no bot box', async () => {
+    rows.push(row({ id: 'z', text: 'בלי בוט' }));
+    render(<FeedbackInbox />);
+    act(() => openFeedbackInbox());
+    fireEvent.click(await screen.findByText('בלי בוט'));
+    expect(screen.queryByTestId('feedback-inbox-bot')).toBeNull();
+  });
+
+  it('the push deep link #feedback-inbox?id=… opens that bug directly', async () => {
+    rows.push(botRow());
+    location.hash = '#feedback-inbox?id=3f2b6c1e-9d4a-4e8b-8a57-0c1d2e3f4a5b';
+    render(<FeedbackInbox />);
+    expect(await screen.findByTestId('feedback-inbox-detail')).toBeTruthy();
+  });
+});

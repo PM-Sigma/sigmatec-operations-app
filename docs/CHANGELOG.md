@@ -7,6 +7,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [bugbot] 2026-10-08 - 🤖 bug bot (branch feat/bugbot, not on main)
+- Home-server bot (`scripts/bugbot/`): takes new bugs from `feedback`, investigates + fixes with Claude Code headless, merges SMALL code-only fixes itself (our gates + diff rules), otherwise pushes a branch and asks; pushes status to עידן only. Inbox shows status chip, note, branch link; push opens `#feedback-inbox?id=`. Pending MAIN: apply `db/feedback_bot.sql` (backup+rollback inside), deploy `push-send` (new `bugbot` mode). Spec: `docs/superpowers/specs/2026-10-08-bugbot-design.md`. Install: `scripts/bugbot/INSTALL.md`. Tests: test-bugbot.mjs, vitest, Playwright 360 light+dark, test-all green.
+
 ## [readings-pull v1.3] 2026-09-29 — final rules from עידן (branch feat/readings-pull, not on main)
 - `readings-fetch/logic.js` is now a line-by-line port of the updated `miltel_daily.py`: blocks = no total (with "הגיעו רק" list), not set up in EMS,
   negative, drop vs the last saved reading (<= 40 days, ft/f1/f2/f3), > 500 kWh/day, spike (only after 30 days of history); warnings = משב"ים sum

@@ -3,6 +3,8 @@
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
 //   attendanceCron          : { mode:'attendanceCron' }  → hourly; 09:00 missing-days, each
 //                             person's own `user_settings.eod_hour` (default 19:00) → today
+//   bugbot                  : { mode:'bugbot', id, state, note } -> the bug bot's status push, עידן ONLY
+//                             AUTH: X-Cron-Key (the home-server bot); tap opens #feedback-inbox?id=<id>
 //   gapReminder             : { mode:'gapReminder', person, count, token } → 📋 הפערים שלי (§7h)
 //                             AUTH: X-Cron-Key OR a valid EMS login; one per person per day
 //                             🕎 skips `company_holidays` rows with required=false (spec §7e)
@@ -63,6 +65,8 @@ const CORS = {
 import { emsValid as emsValidAt, timingSafeEqual } from "../_shared/http.ts";
 // readingsDone: who may hear about a finished readings pull + the sentences (pure, tested in test-readings-fetch-modes.mjs)
 import { readingsPush } from "../readings-fetch/helpers.js";
+// bugbot: the 🤖 bug-bot push (עידן only; pure, tested in test-bugbot.mjs)
+import { bugbotPush, BUGBOT_RECIPIENTS } from "./bugbot.js";
 
 // The EMS-login gate, the same check `github`/`calendar`/`transcribe` apply. Used by the modes
 // a BROWSER calls directly with a user's own token (feedbackNew); the order/attendance modes keep
@@ -715,6 +719,26 @@ Deno.serve(async (req: Request) => {
     });
     const meta = { event: "readingsDone", order_id: null, where_txt: "readings-" + run.id, qty: run.n_ok ?? 0, actor: null, title: msg.title, body: msg.body };
     const r = await sendTo(to, payload, meta);
+    return json({ ok: true, sent: r.delivered });
+  }
+
+  // ---- 🤖 bug bot status push (spec 2026-10-08-bugbot-design.md) ----
+  // AUTH: X-Cron-Key only (the home-server bot holds the shared secret). Recipient FIXED = עידן;
+  // the caller picks the bug id + state + a short note, never who hears about it.
+  if (body.mode === "bugbot") {
+    const cronKey = req.headers.get("x-cron-key");
+    const secret = Deno.env.get("CRON_SECRET");
+    if (!secret || !cronKey || !timingSafeEqual(cronKey, secret)) return json({ error: "unauthorized: cron key required" }, 401);
+    const m = bugbotPush({ id: body.id, state: body.state, note: body.note });
+    if (!m) return json({ error: "bad bugbot request" }, 400);
+    const openUrl = APP + m.path;
+    const payload = JSON.stringify({
+      title: m.title, body: m.body, tag: m.tag, url: openUrl,
+      actions: [{ action: "feedback", title: "פתיחת התיבה" }],
+      data: { actUrls: { feedback: openUrl } },
+    });
+    const meta = { event: "bugbot", order_id: null, where_txt: String(body.state), qty: 1, actor: null, title: m.title, body: m.body };
+    const r = await sendTo(BUGBOT_RECIPIENTS, payload, meta);
     return json({ ok: true, sent: r.delivered });
   }
 
