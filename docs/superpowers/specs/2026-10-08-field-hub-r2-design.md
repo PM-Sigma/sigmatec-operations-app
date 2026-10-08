@@ -40,14 +40,26 @@ Resume: read this spec + `2026-09-29-field-ops-hub-design.md` + `docs/superpower
 
 ### D. EMS actions (new) — tiles under the communication check, titled **"פעולות מערכת EMS"**
 Tiles: **החלפת מונה** · **הוספת מונה** · **עריכת מונה**. Feasible (research below), with guardrails:
-- Shown only to users whose EMS role is ADMIN / SITE_MANAGER / OPERATIONS_MANAGER (check `/auth/me` once per session);
-  others don't see the tiles (EMS would 403 anyway).
+- **Visibility (עידן 8.10):** every app user except the viewer is an EMS admin → the tiles show to all staff, never to
+  the viewer. Keep a safety net: if EMS answers 403, show a clear Hebrew message (via the error mapper), no crash.
 - **Edit** = GET the meter → edit form → full PUT (EMS's PUT is full-body: omitted fields are nulled). Never partial.
 - **Replace** = `POST /v1/meters` with `replacementOfMeterId` + optional `dismantlingReading`. It is effectively
   irreversible (ends client associations, moves children/solar, tags the old meter) → a two-step confirmation screen
   with a summary of what will change, and the installation date shown prominently.
 - **Add** = `POST /v1/meters`; required fields: serialNumber, address, installationDate, roleCode, typeCode,
   energyTypeCode, communicationTypeCode (+ site). Reference lists fetched from EMS.
+- **Replace = the same form as EMS (עידן 8.10):** mirror the EMS web UI's replace-meter dialog exactly: the same fields,
+  labels, order, defaults and validation. Read the EMS frontend (sigmatec-ems repo, the meters replace dialog/component)
+  and copy its field list; reference lists (roles/types/sub-types/communication/kVA/voltage) fetched from EMS.
+- **Associate a customer after create (add or replace):** after the meter is created, offer "שיוך לקוח" — search
+  the customer (EMS clients search), start date (default = installation date), percentage if EMS asks for it — using
+  the EMS endpoint that the EMS UI uses for client↔meter association (find it in the EMS code; don't send
+  clientAssociations on the create call itself for a replace, to avoid double associations).
+- **Edit → quick "העברה לארכיון" (עידן 8.10, frequent action):** a one-tap action inside edit that sets the meter's
+  role to the EMS archive role (find its roleCode in the EMS reference data). **Only allowed when the meter has no
+  active customer association** (no association with endDate null or ≥ today); otherwise the button is disabled
+  with the reason ("למונה יש לקוח פעיל — יש לסיים את השיוך קודם"). It still goes GET → full PUT with only the role
+  changed, + a confirm step, + the audit row.
 - **No delete** (EMS has DELETE; we don't build it).
 - Each action writes an app audit row (who / what / when / meter) — new table, service-role insert via an edge fn or
   RLS insert-own.
