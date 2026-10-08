@@ -51,10 +51,15 @@ Tiles: **החלפת מונה** · **הוספת מונה** · **עריכת מונ
 - **Replace = the same form as EMS (עידן 8.10):** mirror the EMS web UI's replace-meter dialog exactly: the same fields,
   labels, order, defaults and validation. Read the EMS frontend (sigmatec-ems repo, the meters replace dialog/component)
   and copy its field list; reference lists (roles/types/sub-types/communication/kVA/voltage) fetched from EMS.
-- **Associate a customer after create (add or replace):** after the meter is created, offer "שיוך לקוח" — search
+- **Replace: no customer step (עידן 8.10):** the customer moves to the new meter automatically in the EMS replace
+  transaction, so NO "שיוך לקוח" after a replace.
+- **Replace is blocked for production meters (מונה ייצור):** if the meter being replaced is a production (solar/
+  generation) meter (identify it by its EMS roleCode/typeCode; find the production role code in EMS reference data),
+  don't open the form; show a clear flag: "החלפת מונה ייצור אינה נתמכת כעת". Enforce it in the app's action layer too,
+  not only the UI. Unit-test it.
+- **Associate a customer after ADD only:** after a new meter is created, offer "שיוך לקוח" — search
   the customer (EMS clients search), start date (default = installation date), percentage if EMS asks for it — using
-  the EMS endpoint that the EMS UI uses for client↔meter association (find it in the EMS code; don't send
-  clientAssociations on the create call itself for a replace, to avoid double associations).
+  the EMS endpoint that the EMS UI uses for client↔meter association (find it in the EMS code).
 - **Edit → quick "העברה לארכיון" (עידן 8.10, frequent action):** a one-tap action inside edit that sets the meter's
   role to the EMS archive role (find its roleCode in the EMS reference data). **Only allowed when the meter has no
   active customer association** (no association with endDate null or ≥ today); otherwise the button is disabled
