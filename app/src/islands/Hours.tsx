@@ -214,8 +214,8 @@ function ExportSheet({ open, onOpenChange, onPdf, onXlsx }: {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom">
         <SheetHeader className="text-start"><SheetTitle>ייצוא</SheetTitle></SheetHeader>
-        <ListRow leading={<FileText aria-hidden className="h-5 w-5" />} title="PDF" onClick={() => { onPdf(); onOpenChange(false); }} />
-        <ListRow leading={<FileSpreadsheet aria-hidden className="h-5 w-5" />} title="Excel" onClick={() => { onXlsx(); onOpenChange(false); }} />
+        <ListRow leading={<FileText aria-hidden className="h-5 w-5 text-[color:var(--s-danger-ink)]" />} title="PDF (ייצוא ל-PDF)" aria-label="ייצוא ל-PDF" onClick={() => { onPdf(); onOpenChange(false); }} />
+        <ListRow leading={<FileSpreadsheet aria-hidden className="h-5 w-5 text-[color:var(--s-ok-ink)]" />} title="Excel (ייצוא ל-Excel)" aria-label="ייצוא ל-Excel" onClick={() => { onXlsx(); onOpenChange(false); }} />
       </SheetContent>
     </Sheet>
   );

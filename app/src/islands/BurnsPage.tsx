@@ -6,7 +6,8 @@
 // nothing at all for anyone `canSeeBurns` refuses (מתניה/אליה, or the flag off).
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Check, Cpu, FileSpreadsheet, Flame, Repeat, Search, Zap } from 'lucide-react';
+import { ExportButton } from '@/components/ExportButton';
+import { Check, Cpu, Flame, Repeat, Search, Zap } from 'lucide-react';
 import { PageActionRow } from '@/components/ui/page-action-row';
 import { StatTile, StatTileGrid } from '@/components/ui/stat-tile';
 import { SectionBlock } from '@/components/ui/section-block';
@@ -165,9 +166,7 @@ function BurnsPageInner() {
         actions={
           <>
             {canExport && (
-              <BubbleButton variant="icon" size="sm" aria-label="ייצוא לאקסל" onClick={exportXlsx}>
-                <FileSpreadsheet className="h-4 w-4" />
-              </BubbleButton>
+              <ExportButton kind="excel" onClick={exportXlsx} />
             )}
             {canManageGens && (
               <BubbleButton variant="icon" size="sm" aria-label="גנרטורים" onClick={() => setGensOpen(true)}>

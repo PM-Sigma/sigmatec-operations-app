@@ -19,7 +19,8 @@ import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, FileSpreadsheet, FileText, UserCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, UserCheck } from 'lucide-react';
+import { ExportButton } from '@/components/ExportButton';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { PageActionRow } from '@/components/ui/page-action-row';
 import { IconBubble } from '@/components/ui/icon-bubble';
@@ -395,12 +396,10 @@ function AttendanceIsland() {
           title={<><UserCheck aria-hidden className="me-1.5 inline h-[18px] w-[18px] text-[color:var(--brand-1)]" />נוכחות · <bdi>{person || me}</bdi></>}
           actions={<>
             <span data-testid="att-pdf">
-              <IconBubble icon={<FileText aria-hidden className="h-4 w-4" />} label="הורדת דוח נוכחות PDF" size={40}
-                onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }} />
+              <ExportButton kind="pdf" onClick={() => { track('attendance-pdf'); sigma.attExportPdf?.(); }} />
             </span>
             <span data-testid="att-excel">
-              <IconBubble icon={<FileSpreadsheet aria-hidden className="h-4 w-4" />} label="הורדת דוח נוכחות Excel" size={40}
-                onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }} />
+              <ExportButton kind="excel" onClick={() => { track('attendance-xlsx'); sigma.attExportExcel?.(); }} />
             </span>
           </>}
         />

@@ -165,10 +165,21 @@ test('attendance: a missing day is a real tap target, and the reports carry a la
   const pdf = page.getByTestId('att-pdf');
   const excel = page.getByTestId('att-excel');
   // A-U1: the report buttons are IconBubbles (icon + Hebrew aria-label, no visible text).
-  await expect(pdf.getByRole('button')).toHaveAttribute('aria-label', 'הורדת דוח נוכחות PDF');
-  await expect(excel.getByRole('button')).toHaveAttribute('aria-label', 'הורדת דוח נוכחות Excel');
+  await expect(pdf.getByRole('button')).toHaveAttribute('aria-label', 'ייצוא ל-PDF');
+  await expect(excel.getByRole('button')).toHaveAttribute('aria-label', 'ייצוא ל-Excel');
   await expect(pdf.locator('svg')).toBeVisible();
   await expect(excel.locator('svg')).toBeVisible();
+  // 8.10: unmistakable — visible "PDF" / "Excel" labels, red vs green, ≥44px targets
+  await expect(pdf).toContainText('PDF');
+  await expect(excel).toContainText('Excel');
+  const col = (loc: any) => loc.getByRole('button').evaluate((e: Element) => getComputedStyle(e).color);
+  const [cp, ce] = [await col(pdf), await col(excel)];
+  expect(cp).not.toBe(ce);
+  for (const l of [pdf, excel]) {
+    const b = await l.getByRole('button').boundingBox();
+    expect(b!.width).toBeGreaterThanOrEqual(44); expect(b!.height).toBeGreaterThanOrEqual(44);
+  }
+  await shot(page, ti, 'export-icons');
 
   // A-U2: a missing day is now a design-system ListRow (min-h-14), with a trailing chevron
   // rather than a bare "＋" glyph.

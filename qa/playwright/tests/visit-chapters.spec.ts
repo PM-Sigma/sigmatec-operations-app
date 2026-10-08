@@ -212,7 +212,7 @@ test('chapters: C7 — supplied equipment no longer blocks שלח; the save LAND
   await expect(page.getByTestId('vc-chapter-4')).toHaveCount(0);   // nothing to deliver yet
 
   // J2: the chapter is a tile grid now — one tap on the tile is the quantity 1.
-  await page.getByTestId('vc-tiles').locator('button[data-product="מונה Landis+Gyr E360PP"]').click();
+  await page.getByTestId('vc-tiles').locator('[data-product="מונה Landis+Gyr E360PP"]').click();
 
   // 🚚 appears in the form, in its place between מוצרים and שליחה …
   await expect(page.getByTestId('vc-chapter-4')).toBeVisible();
@@ -297,7 +297,7 @@ test('C4: מוצרים נוספים is a keyword search — "לנדיס" offers 
   await expect(hits.locator('[data-product-hit]')).toHaveCount(2);
 
   await hits.locator('[data-product-hit="מונה Landis+Gyr E360SP"]').click();
-  await expect(page.getByTestId('vc-tiles').locator('button[data-product="מונה Landis+Gyr E360SP"]'))
+  await expect(page.getByTestId('vc-tiles').locator('[data-product="מונה Landis+Gyr E360SP"]'))
     .toHaveAttribute('data-qty', '1');
   // The search box empties itself, ready for the next product.
   await expect(page.getByTestId('vc-product-search')).toHaveValue('');
@@ -474,7 +474,7 @@ test('visit chapters: ציוד שסופק is the 3-column tile grid, same as the
   const grid = page.getByTestId('vc-tiles');
   await expect(grid).toBeVisible();
   await expect(grid.locator('[data-tile-head]').first()).toBeVisible();
-  const tiles = grid.locator('button[data-product]');
+  const tiles = grid.locator('[data-product]');
   await expect(tiles.first()).toBeVisible();
 
   // one tap = qty 1, with −/+/🗑 opening ON the tile
@@ -484,6 +484,14 @@ test('visit chapters: ציוד שסופק is the 3-column tile grid, same as the
   await expect(tile).toHaveAttribute('data-editing', '1');
   await tile.locator('[data-step="+"]').click();
   await expect(tile).toHaveAttribute('data-qty', '2');
+  // the number is a native picker (עידן 8.10): choosing 7 sets the quantity
+  await tile.getByRole('combobox', { name: 'בחירת כמות' }).selectOption('7');
+  await expect(tile).toHaveAttribute('data-qty', '7');
+  // the trash sits ≥8px from ➕, targets ≥44px
+  const plus = await tile.locator('[data-step="+"]').boundingBox();
+  const del = await tile.locator('[data-step="del"]').boundingBox();
+  expect(Math.abs(del!.x - plus!.x) - plus!.width).toBeGreaterThanOrEqual(8);
+  expect(del!.width).toBeGreaterThanOrEqual(44); expect(del!.height).toBeGreaterThanOrEqual(44);
   // 🗑 takes it off entirely
   await tile.locator('[data-step="del"]').click();
   await expect(tile).not.toHaveAttribute('data-qty', /\d/);

@@ -61,7 +61,7 @@ describe('BurnsPage', () => {
     Object.assign(st, { name: 'צופה', isViewer: true });
     render(<BurnsPage />);
     expect(refreshMock).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText('ייצוא לאקסל')).toBeNull();
+    expect(screen.queryByLabelText('ייצוא ל-Excel')).toBeNull();
     expect(screen.queryByLabelText('גנרטורים')).toBeNull();
   });
 

@@ -645,6 +645,31 @@ const Chapter = ({ id, name, required, miss, children }: {
 
 const TILE_EDIT_MS = 3000;
 
+
+// The quantity number IS a native <select> (עידן 8.10): iOS opens its wheel, Android its list
+// picker, no library. Quantities are whole numbers here, so 0..N with N = max(50, current + 20).
+export function qtyOptionsMax(current: number): number { return Math.max(50, (Number(current) || 0) + 20); }
+
+function QtySelect({ name, value, onPick, onFocus, onBlur }: {
+  name: string; value: number; onPick: (n: number) => void; onFocus?: () => void; onBlur?: () => void;
+}) {
+  const max = qtyOptionsMax(value);
+  return (
+    <select
+      aria-label="בחירת כמות"
+      data-testid="qty-select"
+      data-for={name}
+      value={value}
+      onChange={e => onPick(Number(e.target.value))}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      className="h-11 min-w-[64px] flex-1 appearance-none rounded-xl border border-border bg-background px-2 text-center text-[16px] font-extrabold"
+    >
+      {Array.from({ length: max + 1 }, (_, i) => <option key={i} value={i}>{i}</option>)}
+    </select>
+  );
+}
+
 function ProductTiles({ groups, stock, qtyOf, setQty }: {
   groups: Array<{ category: string; names: string[] }>;
   stock: Record<string, number>;
@@ -688,39 +713,55 @@ function ProductTiles({ groups, stock, qtyOf, setQty }: {
               const out = (stock[name] || 0) === 0 && q === 0;
               const open = editing === name;
               return (
-                <button
+                <div
                   key={name}
-                  type="button"
                   data-product={name}
                   data-qty={q || undefined}
                   data-editing={open ? '1' : undefined}
-                  onClick={() => tap(name)}
                   className={
-                    'relative flex min-h-[64px] flex-col justify-center gap-0.5 rounded-xl border px-1.5 py-2 text-center '
+                    'relative flex flex-col justify-center rounded-xl border text-center '
+                    + (open ? 'col-span-3 ' : '')
                     + (q > 0 ? 'border-[color:var(--brand-1)] bg-primary/10 ' : 'border-border bg-card ')
                     + (out ? 'opacity-55 ' : '')
                   }
                 >
-                  <span className="line-clamp-2 text-[12.5px] font-bold leading-[1.25]"><bdi>{name}</bdi></span>
-                  {open ? (
-                    <span className="mt-0.5 flex items-center justify-center gap-1" onClick={e => e.stopPropagation()}>
-                      <span role="button" aria-label={'פחות: ' + name} data-step="-"
-                            onClick={() => step(name, -1)}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-border bg-muted text-[15px] font-bold">−</span>
-                      <bdi className="min-w-[16px] text-[13px] font-extrabold">{q}</bdi>
-                      <span role="button" aria-label={'עוד: ' + name} data-step="+"
-                            onClick={() => step(name, 1)}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-border bg-muted text-[15px] font-bold">+</span>
-                      <span role="button" aria-label={'הסר: ' + name} data-step="del"
-                            onClick={() => { setQty(name, 0); hold(null); }}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-lg border border-border bg-muted text-[13px]">🗑</span>
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-muted-foreground">
-                      {q > 0 ? <b className="text-[12.5px] text-foreground"><bdi>{q}</bdi></b> : <>במלאי <bdi>{stock[name] || 0}</bdi></>}
-                    </span>
+                  <button
+                    type="button"
+                    onClick={() => tap(name)}
+                    className="flex min-h-[64px] w-full flex-col justify-center gap-0.5 px-1.5 py-2 text-center"
+                  >
+                    <span className="line-clamp-2 text-[12.5px] font-bold leading-[1.25]"><bdi>{name}</bdi></span>
+                    {!open && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {q > 0 ? <b className="text-[12.5px] text-foreground"><bdi>{q}</bdi></b> : <>במלאי <bdi>{stock[name] || 0}</bdi></>}
+                      </span>
+                    )}
+                  </button>
+                  {open && (
+                    <div className="flex items-center gap-2 px-2 pb-2">
+                      <button type="button" aria-label={'פחות: ' + name} data-step="-"
+                              onClick={() => step(name, -1)}
+                              className="flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-border bg-muted text-[20px] font-bold">−</button>
+                      <QtySelect name={name} value={q}
+                                 onPick={n => { setQty(name, n); hold(n > 0 ? name : null); }}
+                                 onFocus={() => { if (timer.current) clearTimeout(timer.current); }}
+                                 onBlur={() => hold(name)} />
+                      <button type="button" aria-label={'עוד: ' + name} data-step="+"
+                              onClick={() => step(name, 1)}
+                              className="flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-border bg-muted text-[20px] font-bold">+</button>
+                      {/* far end of the row, a gap and a divider away from ➕ — a mis-tap can't delete,
+                          and the delete is undoable from the toast */}
+                      <span aria-hidden className="mx-1 h-6 w-px flex-none bg-border" />
+                      <button type="button" aria-label={'הסר: ' + name} data-step="del"
+                              onClick={() => {
+                                const prev = q;
+                                setQty(name, 0); hold(null);
+                                toast('הוסר: ' + name, { action: { label: 'ביטול', onClick: () => setQty(name, prev) } });
+                              }}
+                              className="ms-auto flex h-11 w-11 flex-none items-center justify-center rounded-xl border border-border bg-muted text-[16px]">🗑</button>
+                    </div>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>

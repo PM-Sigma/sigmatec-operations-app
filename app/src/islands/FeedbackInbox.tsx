@@ -135,7 +135,7 @@ function ParentPicker({
 function FeedbackRow({ item, onOpen }: { item: FeedbackItem; onOpen: (item: FeedbackItem) => void }) {
   return (
     <ListRow
-      title={<bdi>{feedbackPreview(item.text)}</bdi>}
+      title={<bdi>{feedbackPreview(item.text, 160) || (item.audio_path ? '🎙 הקלטה בלי תמלול' : 'בלי טקסט')}</bdi>}
       meta={(
         <span className="flex flex-wrap items-center gap-1.5">
           <Tag role="neutral">{KIND_LABEL[item.kind]}</Tag>
@@ -194,7 +194,7 @@ function DetailView({
         )}
       </div>
 
-      <p className="whitespace-pre-wrap text-[15px] leading-snug"><bdi>{item.text}</bdi></p>
+      <p className="whitespace-pre-wrap break-words text-[15px] leading-snug" data-testid="feedback-inbox-text"><bdi>{item.text || (item.audio_path ? '🎙 הקלטה בלי תמלול' : 'בלי טקסט')}</bdi></p>
 
       <SegmentedControl
         ariaLabel="סטטוס"

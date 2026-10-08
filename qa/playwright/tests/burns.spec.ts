@@ -142,7 +142,7 @@ test('table: Excel export and גנרטורים sit in one action row (G-R2)', as
   const view = page.locator('#sigma-burns-page');
   await expect(view.getByText('צריבות: מוני ייצור E360')).toBeVisible({ timeout: 15_000 });
 
-  const exportBtn = view.getByLabel('ייצוא לאקסל');
+  const exportBtn = view.getByLabel('ייצוא ל-Excel');
   const gensBtn = view.getByLabel('גנרטורים');
   await expect(exportBtn).toBeVisible();
   await expect(gensBtn).toBeVisible();
