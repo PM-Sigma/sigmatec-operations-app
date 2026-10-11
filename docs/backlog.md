@@ -5,7 +5,7 @@
   כפר גלעדי, שלוחות, גניגר), אביאם (גבעת חיים מאוחד, חולדה 22.9 — September is locked, needs an unlock). Visit 17.9 תל קציר still under technician@.
 ✅ SHIPPED 11.10 (merge 276a1549, live 2.155): desktop attendance + report pages · viewer nav to attendance/certs + cert PDF + page titles · visit summary <-> EMS task (save guard + status picker) · attendance from visits only (אביאם/ניתאי, non-field past days) · attendance day details text · meeting-timeline test fix. See CHANGELOG [2.155].
 🟡 PLANNED (2026-10-08) — field-ops hub round 2 (תכנון היום שלי + שיבוץ sheet, attendance shortages/stats/calendar, MODBUS rename + live EMS meter search, EMS meter actions, burns collapsed + export by kibbutz). Spec: docs/superpowers/specs/2026-10-08-field-hub-r2-design.md. Builds on feat/field-ops-hub (awaiting עידן approval). Execution: home-server sessions.
-🟡 IN PROGRESS: bug bot - built on `feat/bugbot`, awaiting MAIN (apply db/feedback_bot.sql, deploy push-send, merge) + עידן home-server install. Spec: docs/superpowers/specs/2026-10-08-bugbot-design.md
+🟡 bug bot: code merged to main (20aa469e; db/feedback_bot.sql applied, push-send bugbot mode deployed 8.10). Only the home-server install remains (scripts/bugbot/INSTALL.md; needs supabase login + .env on the server).
 
 🟡 IN PROGRESS (2026-09-29) — **משיכת קריאות משירותי מנייה חיצוניים** (חולדה, SpeedNet + DataSense via Browserless). Spec `docs/superpowers/specs/2026-09-29-readings-pull-design.md`, branch `feat/readings-pull`. Phase 0 ✅; Phase 1 ✅ built + green (29.9). Waiting on MAIN: audit + apply `db/readings_pull.sql`, redeploy `readings-fetch` + `push-send`, apply `db/cron_readings_7am.sql`, merge. Then: end-to-end manual pull for 28.9 from the app.
 
