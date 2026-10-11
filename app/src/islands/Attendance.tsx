@@ -45,6 +45,8 @@ import {
   type AttRow, type AttCellState, type DayCell, type DayType, type Holiday, type TileKey,
 } from '@/lib/attendance';
 import { toastFailure } from '@/lib/pending';
+import { dayDetails, type DayTask, type DayVisit } from '@/lib/attDayDetails';
+import { statusLabel } from '@/lib/emsTasks';
 
 // ───────────────────────────── data ─────────────────────────────
 
@@ -248,6 +250,46 @@ function DayEditor({
           </BubbleButton>
         </>
       )}
+    </div>
+  );
+}
+
+/** "What happened that day" (עידן 11.10) — read-only text above any edit controls. Decisions: lib/attDayDetails. */
+function DayDetailsBlock({ cell, person }: { cell: DayCell; person: string }) {
+  const d = (() => {
+    let visits: DayVisit[] = [], tasks: DayTask[] = [], hasDraft = false;
+    try { visits = (sigma.loadAllVisitsCombined?.() || []) as DayVisit[]; } catch { /* legacy not up */ }
+    try { tasks = (sigma.emsCacheData?.()?.tasks || []) as DayTask[]; } catch { /* no EMS cache */ }
+    try { hasDraft = !!sigma.visitDraftFor?.(null, person, cell.date); } catch { /* no drafts */ }
+    return dayDetails({ date: cell.date, person, row: (cell.row as AttRow) || null, visits, tasks, statusLabel, hasDraft });
+  })();
+  const line = 'text-[12.5px] text-muted-foreground';
+  return (
+    <div data-testid="att-day-details" className="max-h-[45svh] space-y-2 overflow-y-auto rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px] lg:max-h-[50vh]">
+      {d.kind === 'field' && (<>
+        <div className={line}>{d.source}</div>
+        <ol className="space-y-2">
+          {d.visits.map((v, i) => (
+            <li key={i} data-testid="att-day-visit" className="space-y-0.5">
+              <div className="font-bold"><bdi>{v.kibbutz || 'ביקור'}</bdi>{v.when && <span className={'ms-1.5 font-normal ' + line}>{v.when}</span>}</div>
+              {v.reason && <div className={line}>סיבה: {v.reason}</div>}
+              {v.task && <div className={line}>משימת EMS: <bdi>{v.task}</bdi></div>}
+              {v.summary && <p className="whitespace-pre-line">{v.summary}</p>}
+              {v.open && <div className={line}>פתוח: {v.open}</div>}
+              {v.products && <div className={line}>מוצרים: {v.products}</div>}
+            </li>
+          ))}
+        </ol>
+      </>)}
+      {d.kind === 'day' && (<>
+        <div className="font-bold">{d.type}</div>
+        {d.note && <p className="whitespace-pre-line">{d.note}</p>}
+        <div className={line}>{d.source}</div>
+      </>)}
+      {d.kind === 'none' && (<>
+        <div className="font-bold">{d.text}</div>
+        {d.draft && <div className={line}>{d.draft}</div>}
+      </>)}
     </div>
   );
 }
@@ -540,14 +582,17 @@ function AttendanceIsland() {
         {/* ── desktop: the day panel stays open while browsing the grid ───────── */}
         <aside className="hidden lg:block" data-testid="att-panel">
           <div className="rounded-[14px] border border-border bg-card p-3.5">
-            {selectedCell ? (
+            {selectedCell ? (<div className="space-y-3">
+              <div className="text-[15px] font-extrabold"><bdi>{dayChip(selectedCell.date)}</bdi></div>
+              <DayDetailsBlock cell={selectedCell} person={person} />
               <DayEditor
                 cell={selectedCell}
+                showHeader={false}
                 busy={save.isPending}
                 policy={policyFor(selectedCell)}
                 onSave={(t, note) => save.mutate({ date: selectedCell.date, type: t, note })}
               />
-            ) : (
+            </div>) : (
               <p className="text-[13px] text-muted-foreground">בוחרים יום בלוח כדי לערוך אותו.</p>
             )}
           </div>
@@ -646,7 +691,9 @@ function AttendanceIsland() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: dur, ease: 'easeOut' }}
+                className="space-y-3"
               >
+                <DayDetailsBlock cell={openCell} person={person} />
                 <DayEditor
                   cell={openCell}
                   busy={save.isPending}
