@@ -44,11 +44,19 @@ for (const p of PAGES) {
         return !!n && n.getBoundingClientRect().height > 0 && getComputedStyle(n).display !== 'none';
       });
       expect(navVisible).toBe(false);
+      await page.evaluate(() => {
+        const hit = Array.from(document.querySelectorAll('body *')).filter(e => /וואטסאפ/.test(e.textContent || '') && !Array.from(e.children).some(c => /וואטסאפ/.test(c.textContent || '')));
+        hit.forEach(e => (e.closest('[data-sonner-toast],li,[role="status"],[role="alert"]') || e).remove());
+        document.querySelectorAll('[data-sonner-toaster]').forEach(e => e.remove());
+      }); // no transient toast in evidence
       await mkdir(OUT, { recursive: true });
       await page.screenshot({ path: resolve(OUT, `${p.key}-${w}-${theme}.png`), fullPage: true });
       if (p.key.startsWith('attendance')) {
         const grid = await page.getByTestId('att-grid').boundingBox();
         const panel = await page.getByTestId('att-panel').boundingBox();
+        await expect(page.getByTestId('att-today')).toHaveCount(0); // one day editor on desktop
+        const miss = await page.getByTestId('att-missing').boundingBox();
+        if (miss) expect(miss.y).toBeGreaterThan(grid!.y + grid!.height - 5); // shortages sit under the calendar
         expect(grid!.y).toBeLessThan(400); // two columns: the month sits beside the panel, not below it
         expect(panel!.x + panel!.width).toBeLessThanOrEqual(grid!.x + 1);
         expect(grid!.x).toBeGreaterThan(panel!.x); // RTL: main column on the right of the panel

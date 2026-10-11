@@ -381,10 +381,188 @@ function AttendanceIsland() {
     return { y: s.y, m };
   });
 
+  const [wide, setWide] = React.useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(min-width: 1024px)').matches);
+  React.useEffect(() => {
+    const mq = window.matchMedia?.('(min-width: 1024px)');
+    if (!mq) return;
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+
   const todayCell = grid.cells.find(c => c.date === todayKey) || null;
   const selectedCell = grid.cells.find(c => c.date === selected) || todayCell;
   const openCell = grid.cells.find(c => c.date === open) || null;
   const dur = reduce ? 0 : 0.2;
+
+  const missingEl = (<>
+          {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2; A-U2, design-system
+              SectionBlock/ListRow). The screen used to open on the calendar and keep the
+              gaps in a box underneath it, so the one question a person comes here with —
+              "what do I still owe?" — was the last thing answered. It is now the first,
+              and every row is one tap into that day's sheet. */}
+          {mb.show && (
+          <div data-testid="att-missing">
+            <SectionBlock
+              title={<>
+                {mb.title}
+                {/* SectionBlock's own count Tag isn't wired to a stable test id — a visible
+                    span alongside the title carries att-missing-count (§9 ask); the review
+                    round asked for the count IN the title, not hidden. */}
+                {mb.count > 0 && (
+                  <span data-testid="att-missing-count" className="ms-1.5 inline-flex">
+                    <Tag role="danger"><bdi>{mb.count}</bdi></Tag>
+                  </span>
+                )}
+              </>}
+              titleRole={mb.count ? 'danger' : 'default'}
+            >
+              {mb.count ? (<>
+                {/* Review round: the block ran too tall with a full month of gaps — show the
+                    latest few and let "עוד N ימים" expand the rest, same pattern a long list
+                    anywhere else in the app uses. */}
+                {(showAllMissing ? mb.days : mb.days.slice(-4)).map(d => (
+                  <ListRow
+                    key={d.date}
+                    data-missing={d.date}
+                    aria-label={d.aria}
+                    title={<bdi>{d.label}</bdi>}
+                    onClick={() => openDay(grid.cells.find(c => c.date === d.date)!)}
+                  />
+                ))}
+                {!showAllMissing && mb.days.length > 4 && (
+                  <ListRow
+                    title={'עוד ' + (mb.days.length - 4) + ' ימים'}
+                    onClick={() => setShowAllMissing(true)}
+                  />
+                )}
+              </>) : (
+                <p className="px-4 py-1 text-[12.5px] text-muted-foreground">{mb.empty}</p>
+              )}
+            </SectionBlock>
+          </div>
+          )}
+
+  </>);
+  const teamEl = (<>
+          {/* ── …and for עידן / עמיחי / צפייה, the same question for everyone ──── */}
+          {canSwitch && teamMissing.length > 1 && (
+            <div data-testid="att-missing-team">
+              <SectionBlock title="חסר לצוות">
+                {teamMissing.map(t => (
+                  <ListRow
+                    key={t.person}
+                    data-person-missing={t.person}
+                    data-count={t.known ? String(t.count) : ''}
+                    aria-pressed={t.person === person}
+                    title={<bdi>{t.person}</bdi>}
+                    meta={<bdi>{t.known ? t.count : '—'}</bdi>}
+                    onClick={() => { setPerson(t.person); track('attendance-person'); }}
+                  />
+                ))}
+              </SectionBlock>
+            </div>
+          )}
+
+  </>);
+  const todayEl = (<>
+          {/* ── היום: the one thing this screen is for ───────────────────────── */}
+          {todayCell && (
+            <div data-testid="att-today">
+              <SectionBlock title="היום" flush>
+                <div className="px-4 py-1">
+                  <div className="mb-2 flex items-baseline gap-2">
+                    <span className="text-[12.5px] text-muted-foreground"><bdi>{dayChip(todayKey)}</bdi></span>
+                    {todayCell.row && <Tag role="ok" className="ms-auto">{dayLabel(todayCell.row.type)}</Tag>}
+                  </div>
+                  {todayCell.holiday && !todayCell.holiday.required && (
+                    <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
+                  )}
+                  {!canEdit ? (
+                    <p className="text-[13px] text-muted-foreground">
+                      {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
+                    </p>
+                  ) : (
+                    <DayTypeRow
+                      value={(todayCell.row?.type as DayType) || null}
+                      busy={save.isPending}
+                      onPick={t => (t === 'other' ? openDay(todayCell) : save.mutate({ date: todayKey, type: t, note: '' }))}
+                    />
+                  )}
+                </div>
+              </SectionBlock>
+            </div>
+          )}
+
+  </>);
+  const tilesEl = (<>
+          {/* ── the tiles: tap one to color only its category on the month (A-L3, A3) ── */}
+          <StatTileGrid>
+            {/* StatTile doesn't forward its own props to the DOM yet — a wrapper span carries
+                the att-kpi-<key> test hook (§9-style gap, same as ListRow before its own
+                pass-through landed). attTiles()'s own order stays field/office/missing (its
+                golden pins that) — only the RENDER order changes: missing leads and spans the
+                full row, so a filer's three tiles don't leave a lopsided lone third tile
+                (review round item 4). */}
+            {[...attTiles(kpis, person)].sort((a, b) => (a.key === 'missing' ? -1 : b.key === 'missing' ? 1 : 0)).map(t => (
+              <span key={t.key} data-testid={'att-kpi-' + t.key} className="contents">
+                <StatTile
+                  value={t.value}
+                  label={t.label}
+                  role={t.role}
+                  selected={tile === t.key}
+                  className={t.key === 'missing' ? 'col-span-full' : undefined}
+                  onClick={() => { setTile(cur => toggleTile(cur, t.key)); track('attendance-tile', t.key); }}
+                />
+              </span>
+            ))}
+          </StatTileGrid>
+
+  </>);
+  const filterEl = (<>
+          {/* Designer review round: a selected tile must SAY it's filtering, not just tint —
+              the tile's own ring can be missed, especially once a person scrolls past it. */}
+          {tile && (
+            <div data-testid="att-tile-filter">
+              <FilterChip selected onClick={() => setTile(null)}>
+                {'מסונן: ' + (attTiles(kpis, person).find(t => t.key === tile)?.label || '') + ' ✕'}
+              </FilterChip>
+            </div>
+          )}
+  </>);
+  const panelEl = (<>
+        {/* ── desktop: the day panel stays open while browsing the grid ───────── */}
+        <aside className="hidden lg:block" data-testid="att-panel">
+          <div className="rounded-[14px] border border-border bg-card p-3.5">
+            {selectedCell ? (
+              <DayEditor
+                cell={selectedCell}
+                busy={save.isPending}
+                canEdit={canEdit}
+                onSave={(t, note) => save.mutate({ date: selectedCell.date, type: t, note })}
+              />
+            ) : (
+              <p className="text-[13px] text-muted-foreground">בוחרים יום בלוח כדי לערוך אותו.</p>
+            )}
+          </div>
+        </aside>
+  </>);
+  const monthEl = (<>
+        {/* ── the month ─────────────────────────────────────────────────────── */}
+        <section className="att-month rounded-[14px] border border-border bg-card p-2.5 lg:p-4">
+          {rowsQ.data === null || rowsQ.isLoading
+            ? <Skeleton className="h-[236px] w-full rounded-[10px]" />
+            : <MonthGridView grid={grid} onPick={openDay} selected={selected} person={person} tile={tile} />}
+          <ul data-testid="att-legend" className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            {attLegend(person).map(item => (
+              <li key={item.key} data-legend={item.key} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + LEGEND_DOT[item.key]} />
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </section>
+  </>);
 
   if (!isGateOpen(gate)) return null;          // §7n — nothing without a live sign-in
 
@@ -431,166 +609,17 @@ function AttendanceIsland() {
         </div>
       </div>
 
-      <div className="att-layout grid gap-3 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
-        <div className="att-side flex flex-col gap-3 lg:order-2">
-          {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2; A-U2, design-system
-              SectionBlock/ListRow). The screen used to open on the calendar and keep the
-              gaps in a box underneath it, so the one question a person comes here with —
-              "what do I still owe?" — was the last thing answered. It is now the first,
-              and every row is one tap into that day's sheet. */}
-          {mb.show && (
-          <div data-testid="att-missing" className="lg:order-3">
-            <SectionBlock
-              title={<>
-                {mb.title}
-                {/* SectionBlock's own count Tag isn't wired to a stable test id — a visible
-                    span alongside the title carries att-missing-count (§9 ask); the review
-                    round asked for the count IN the title, not hidden. */}
-                {mb.count > 0 && (
-                  <span data-testid="att-missing-count" className="ms-1.5 inline-flex">
-                    <Tag role="danger"><bdi>{mb.count}</bdi></Tag>
-                  </span>
-                )}
-              </>}
-              titleRole={mb.count ? 'danger' : 'default'}
-            >
-              {mb.count ? (<>
-                {/* Review round: the block ran too tall with a full month of gaps — show the
-                    latest few and let "עוד N ימים" expand the rest, same pattern a long list
-                    anywhere else in the app uses. */}
-                {(showAllMissing ? mb.days : mb.days.slice(-4)).map(d => (
-                  <ListRow
-                    key={d.date}
-                    data-missing={d.date}
-                    aria-label={d.aria}
-                    title={<bdi>{d.label}</bdi>}
-                    onClick={() => openDay(grid.cells.find(c => c.date === d.date)!)}
-                  />
-                ))}
-                {!showAllMissing && mb.days.length > 4 && (
-                  <ListRow
-                    title={'עוד ' + (mb.days.length - 4) + ' ימים'}
-                    onClick={() => setShowAllMissing(true)}
-                  />
-                )}
-              </>) : (
-                <p className="px-4 py-1 text-[12.5px] text-muted-foreground">{mb.empty}</p>
-              )}
-            </SectionBlock>
-          </div>
-          )}
-
-          {/* ── …and for עידן / עמיחי / צפייה, the same question for everyone ──── */}
-          {canSwitch && teamMissing.length > 1 && (
-            <div data-testid="att-missing-team" className="lg:order-4">
-              <SectionBlock title="חסר לצוות">
-                {teamMissing.map(t => (
-                  <ListRow
-                    key={t.person}
-                    data-person-missing={t.person}
-                    data-count={t.known ? String(t.count) : ''}
-                    aria-pressed={t.person === person}
-                    title={<bdi>{t.person}</bdi>}
-                    meta={<bdi>{t.known ? t.count : '—'}</bdi>}
-                    onClick={() => { setPerson(t.person); track('attendance-person'); }}
-                  />
-                ))}
-              </SectionBlock>
-            </div>
-          )}
-
-          {/* ── היום: the one thing this screen is for ───────────────────────── */}
-          {todayCell && (
-            <div data-testid="att-today" className="lg:order-6">
-              <SectionBlock title="היום" flush>
-                <div className="px-4 py-1">
-                  <div className="mb-2 flex items-baseline gap-2">
-                    <span className="text-[12.5px] text-muted-foreground"><bdi>{dayChip(todayKey)}</bdi></span>
-                    {todayCell.row && <Tag role="ok" className="ms-auto">{dayLabel(todayCell.row.type)}</Tag>}
-                  </div>
-                  {todayCell.holiday && !todayCell.holiday.required && (
-                    <p className="mb-2 text-[12.5px] text-muted-foreground">{holidayNote(todayCell.holiday)}</p>
-                  )}
-                  {!canEdit ? (
-                    <p className="text-[13px] text-muted-foreground">
-                      {todayCell.row ? 'דיווח: ' + dayLabel(todayCell.row.type) : 'עוד אין דיווח להיום.'} צפייה בלבד.
-                    </p>
-                  ) : (
-                    <DayTypeRow
-                      value={(todayCell.row?.type as DayType) || null}
-                      busy={save.isPending}
-                      onPick={t => (t === 'other' ? openDay(todayCell) : save.mutate({ date: todayKey, type: t, note: '' }))}
-                    />
-                  )}
-                </div>
-              </SectionBlock>
-            </div>
-          )}
-
-          {/* ── the tiles: tap one to color only its category on the month (A-L3, A3) ── */}
-          <StatTileGrid className="lg:order-1">
-            {/* StatTile doesn't forward its own props to the DOM yet — a wrapper span carries
-                the att-kpi-<key> test hook (§9-style gap, same as ListRow before its own
-                pass-through landed). attTiles()'s own order stays field/office/missing (its
-                golden pins that) — only the RENDER order changes: missing leads and spans the
-                full row, so a filer's three tiles don't leave a lopsided lone third tile
-                (review round item 4). */}
-            {[...attTiles(kpis, person)].sort((a, b) => (a.key === 'missing' ? -1 : b.key === 'missing' ? 1 : 0)).map(t => (
-              <span key={t.key} data-testid={'att-kpi-' + t.key} className="contents">
-                <StatTile
-                  value={t.value}
-                  label={t.label}
-                  role={t.role}
-                  selected={tile === t.key}
-                  className={t.key === 'missing' ? 'col-span-full' : undefined}
-                  onClick={() => { setTile(cur => toggleTile(cur, t.key)); track('attendance-tile', t.key); }}
-                />
-              </span>
-            ))}
-          </StatTileGrid>
-
-          {/* Designer review round: a selected tile must SAY it's filtering, not just tint —
-              the tile's own ring can be missed, especially once a person scrolls past it. */}
-          {tile && (
-            <div data-testid="att-tile-filter" className="lg:order-2">
-              <FilterChip selected onClick={() => setTile(null)}>
-                {'מסונן: ' + (attTiles(kpis, person).find(t => t.key === tile)?.label || '') + ' ✕'}
-              </FilterChip>
-            </div>
-          )}
-
-        {/* ── desktop: the day panel stays open while browsing the grid ───────── */}
-        <aside className="hidden lg:order-5 lg:block" data-testid="att-panel">
-          <div className="rounded-[14px] border border-border bg-card p-3.5">
-            {selectedCell ? (
-              <DayEditor
-                cell={selectedCell}
-                busy={save.isPending}
-                canEdit={canEdit}
-                onSave={(t, note) => save.mutate({ date: selectedCell.date, type: t, note })}
-              />
-            ) : (
-              <p className="text-[13px] text-muted-foreground">בוחרים יום בלוח כדי לערוך אותו.</p>
-            )}
-          </div>
-        </aside>
+      {wide ? (
+        <div className="att-layout grid grid-cols-[minmax(0,1fr)_400px] items-start gap-3">
+          <div className="flex flex-col gap-3">{monthEl}{missingEl}{teamEl}</div>
+          <div className="sticky flex flex-col gap-3" style={{ top: 'calc(var(--header-h) + 64px)' }}>{tilesEl}{filterEl}{panelEl}</div>
         </div>
-
-        {/* ── the month ─────────────────────────────────────────────────────── */}
-        <section className="att-month rounded-[14px] border border-border bg-card p-2.5 lg:order-1 lg:p-4">
-          {rowsQ.data === null || rowsQ.isLoading
-            ? <Skeleton className="h-[236px] w-full rounded-[10px]" />
-            : <MonthGridView grid={grid} onPick={openDay} selected={selected} person={person} tile={tile} />}
-          <ul data-testid="att-legend" className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-            {attLegend(person).map(item => (
-              <li key={item.key} data-legend={item.key} className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + LEGEND_DOT[item.key]} />
-                {item.label}
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+      ) : (
+        <div className="att-layout grid gap-3">
+          <div className="att-side flex flex-col gap-3">{missingEl}{teamEl}{todayEl}{tilesEl}{filterEl}</div>
+          {monthEl}
+        </div>
+      )}
 
       {/* ── phone: the same editor as a bottom sheet ─────────────────────────── */}
       {/* §7p, wired for completeness: the day editor writes each choice as it is made, so

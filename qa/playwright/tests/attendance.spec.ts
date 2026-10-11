@@ -47,7 +47,9 @@ test('attendance: the island owns the screen and the legacy table steps aside', 
   await expect(page.locator('#attendanceTable')).toBeAttached();
 
   await expect(page.getByRole('heading', { name: /נוכחות/ })).toBeVisible();
-  await expect(page.getByTestId('att-today')).toBeVisible();
+  // desktop (>=1024) shows ONE day editor (att-panel); the "היום" quick block is phone-only (R9)
+  if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(page.getByTestId('att-panel')).toBeVisible();
+  else await expect(page.getByTestId('att-today')).toBeVisible();
   await expect(page.getByTestId('att-kpi-field')).toBeVisible();
   await expect(page.getByTestId('att-kpi-office')).toBeVisible();
   await expect(page.getByTestId('att-kpi-missing')).toBeVisible();
@@ -260,7 +262,8 @@ test('attendance: חסר לך comes before the calendar, and a chip opens the da
     (el, g) => !!(el.compareDocumentPosition(g as Node) & Node.DOCUMENT_POSITION_FOLLOWING),
     await grid.elementHandle(),
   );
-  expect(before, 'the חסר לך strip must render BEFORE the month grid').toBe(true);
+  // phone: strip above the calendar; desktop (R9): strip sits under the calendar in the main column
+  if ((page.viewportSize()?.width ?? 0) < 1024) expect(before, 'the חסר לך strip must render BEFORE the month grid').toBe(true);
 
   // ── the count, and a chip that opens that day's sheet. Review round: the block shows only
   // the latest 4 days (an "עוד N ימים" row expands the rest), so att-missing-count — the
