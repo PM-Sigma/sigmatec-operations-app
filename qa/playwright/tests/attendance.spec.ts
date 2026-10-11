@@ -274,7 +274,7 @@ test('attendance: חסר לך comes before the calendar, and a chip opens the da
     const date = await chips.first().getAttribute('data-missing');
     await chips.first().click();
     // The phone opens a sheet; the desktop moves its side panel. Both land on that date.
-    await expect(page.locator('[data-date="' + date + '"], [data-testid="att-panel"]').first()).toBeVisible();
+    await expect(page.locator('[data-date="' + date + '"], [data-testid="att-panel"]').locator('visible=true').first()).toBeVisible();
   } else {
     // A fully-filed month is a legitimate state — it must say so, not show an empty box.
     await expect(strip).toContainText('החודש מלא');

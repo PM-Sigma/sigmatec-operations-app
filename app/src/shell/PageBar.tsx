@@ -67,9 +67,10 @@ export function PageBar() {
   // actions this shared row has no slot for) — a second title here would be a duplicate <h1>
   // (see the `ownHeader` doc in lib/shell.ts).
   if (meta.ownHeader) return null;
+  // R9: on desktop the hours island draws its own title + add/export row — this bar would be a second header.
 
   return (
-    <div className="sigma-page-bar" dir="rtl">
+    <div className={'sigma-page-bar' + (page === 'hours' ? ' lg:hidden' : '')} dir="rtl">
       <PageActionRow
         title={meta.title}
         onBack={meta.level === 2 ? () => { track('back', page); goBack(); } : undefined}

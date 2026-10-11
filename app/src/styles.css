@@ -1040,3 +1040,27 @@ body[data-scroll-locked] { padding: 12px 16px !important; margin: 0 !important; 
 
 /* Q7-C: the gear sheet icons were 1.75 via a strokeWidth prop on every row; it lives here now so the boot chunk does not pay for the prop five times. */
 .s-gear-desktop svg:not(.lucide-x) { stroke-width: 1.75; }
+
+/* R9 (עידן 11.10): desktop-fitted attendance + report pages. ≥1024 only — phone and tablet-
+   portrait layouts are untouched. A centred ~1200px column instead of a stretched phone column;
+   the page's own two-column grids live in the islands. */
+@media (min-width: 1024px) {
+  #attendance-view, #hours-view, #burns-view, #emsstats-view {
+    max-width: 1200px;
+    margin-inline: auto;
+  }
+  .att-month .att-grid { gap: 6px; }
+  .att-month .att-grid > button { aspect-ratio: 1.2 / 1; padding: 8px 10px; }
+  .att-month .att-grid > button:hover { border-color: hsl(var(--muted-foreground)); }
+  .att-month .att-grid > button:focus-visible { outline: 2px solid var(--brand-1); outline-offset: 2px; }
+  .att-month .att-grid > div[aria-hidden] { font-size: 12px; padding-bottom: 4px; }
+  .att-month { position: sticky; top: calc(var(--header-h) + 64px); }
+}
+@media (min-width: 1024px) {
+  .r9-cols { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .r9-cols > .s-stat-grid { grid-column: 1 / -1; }
+}
+@media (min-width: 1024px) {
+  /* hours island draws its own title row; the legacy back/title strip is a second header here */
+  #hours-view > .page-head { display: none; }
+}

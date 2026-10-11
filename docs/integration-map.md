@@ -148,9 +148,9 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 
 | placeholder | index.html | mounted at |
 |---|---|---|
-| `#sigma-attendance` | :278 | app/src/islands/Attendance.tsx:644<br>app/src/main.tsx:226 |
+| `#sigma-attendance` | :278 | app/src/islands/Attendance.tsx:643<br>app/src/main.tsx:226 |
 | `#sigma-burns` | :227 | app/src/islands/Burns.tsx:65<br>app/src/main.tsx:179 |
-| `#sigma-burns-page` | :406 | app/src/islands/BurnsPage.tsx:374<br>app/src/main.tsx:245 |
+| `#sigma-burns-page` | :406 | app/src/islands/BurnsPage.tsx:377<br>app/src/main.tsx:245 |
 | `#sigma-calendar` | :363 | app/src/islands/Calendar.tsx:2046<br>app/src/main.tsx:273 |
 | `#sigma-ceo` | :708 | **—** |
 | `#sigma-cert` | :688 | app/src/islands/InventoryCert.tsx:433 |
@@ -177,7 +177,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-my-tasks` | :718 | app/src/islands/MyTasks.tsx:302<br>app/src/main.tsx:149 |
 | `#sigma-nav` | :719 | app/src/main.tsx:103 |
 | `#sigma-offline` | :155 | app/src/main.tsx:317<br>app/src/shell/OfflineBanner.tsx:36 |
-| `#sigma-page-bar` | :161 | app/src/main.tsx:314<br>app/src/shell/PageBar.tsx:99 |
+| `#sigma-page-bar` | :161 | app/src/main.tsx:314<br>app/src/shell/PageBar.tsx:100 |
 | `#sigma-presenter` | :694 | app/src/islands/Presenter.tsx:1173<br>app/src/main.tsx:470 |
 | `#sigma-pushlog` | :395 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:253 |
 | `#sigma-readings` | :422 | app/src/islands/ReadingsPull.tsx:483<br>app/src/lib/readingsWatch.ts:163 |

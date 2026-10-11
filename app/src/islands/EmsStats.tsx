@@ -43,7 +43,7 @@ function Body({ s }: { s: LifecycleStats }) {
   const t = s.timeToAssign;
   const o = s.onTime;
   return (
-    <>
+    <div className="r9-cols flex flex-col gap-3">
       <StatTileGrid>
         <StatTile value={formatDuration(t.medianHours)} label="חציון עד שיבוץ" role="info" />
         <StatTile value={o.pct == null ? '—' : <bdi>{o.pct}%</bdi>} label="נסגרו בזמן" role={o.pct == null ? 'neutral' : o.pct >= 80 ? 'ok' : o.pct >= 50 ? 'warn' : 'danger'} />
@@ -87,7 +87,7 @@ function Body({ s }: { s: LifecycleStats }) {
             <ListRow key={c.month} title={monthLabel(c.month)} trailing={<span className="font-semibold text-foreground">{num(c.count)}</span>} />
           ))}
       </SectionBlock>
-    </>
+    </div>
   );
 }
 

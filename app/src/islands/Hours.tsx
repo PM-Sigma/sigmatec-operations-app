@@ -271,7 +271,7 @@ function HoursPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3 pb-4" data-testid="hours-page">
+    <div className="flex flex-col gap-3 pb-4 lg:gap-4" data-testid="hours-page">
       <PageActionRow
         title={<><Clock aria-hidden className="me-1.5 inline h-[18px] w-[18px] text-[color:var(--brand-1)]" />שעות</>}
         actions={<>
@@ -326,8 +326,8 @@ function HoursPage() {
           <div className="hidden flex-col gap-3 md:flex">
             {days.map(day => (
               <SectionBlock key={day.date} title={day.label} count={day.rows.length} flush>
-                <table className="w-full text-[13px] tabular-nums" data-testid="hours-table">
-                  <thead className="text-[12px] text-muted-foreground">
+                <table className="w-full text-[13px] tabular-nums lg:text-[14px]" data-testid="hours-table">
+                  <thead className="sticky top-[var(--header-h)] z-[1] bg-card text-[12px] text-muted-foreground lg:top-[calc(var(--header-h)+52px)]" data-testid="hours-thead">
                     <tr className="[&>th]:px-4 [&>th]:py-2 [&>th]:text-start [&>th]:font-bold">
                       <th>עובד</th><th>קיבוץ</th><th>שעות</th><th>משך</th><th>תגיות</th><th>לחיוב</th><th>Clockify</th>{editor && <th />}
                     </tr>
@@ -336,7 +336,7 @@ function HoursPage() {
                     {day.rows.map(r => {
                       const clock = (iso?: string | null) => iso ? new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : '—';
                       return (
-                        <tr key={r.id} data-testid="hours-row" className="border-t border-border [&>td]:px-4 [&>td]:py-2">
+                        <tr key={r.id} data-testid="hours-row" className="border-t border-border transition-colors hover:bg-muted/60 [&>td]:px-4 [&>td]:py-2 lg:[&>td]:py-3">
                           <td>{r.person}</td>
                           <td>{r.kibbutz || '—'}</td>
                           <td className="whitespace-nowrap"><bdi>{clock(r.started_at)}–{clock(r.ended_at)}</bdi></td>

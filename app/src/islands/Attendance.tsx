@@ -431,15 +431,15 @@ function AttendanceIsland() {
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-        <div className="space-y-3">
+      <div className="att-layout grid gap-3 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+        <div className="att-side flex flex-col gap-3 lg:order-2">
           {/* ── חסר לך — FIRST, before anything else (עידן 20.9 #2; A-U2, design-system
               SectionBlock/ListRow). The screen used to open on the calendar and keep the
               gaps in a box underneath it, so the one question a person comes here with —
               "what do I still owe?" — was the last thing answered. It is now the first,
               and every row is one tap into that day's sheet. */}
           {mb.show && (
-          <div data-testid="att-missing">
+          <div data-testid="att-missing" className="lg:order-3">
             <SectionBlock
               title={<>
                 {mb.title}
@@ -482,7 +482,7 @@ function AttendanceIsland() {
 
           {/* ── …and for עידן / עמיחי / צפייה, the same question for everyone ──── */}
           {canSwitch && teamMissing.length > 1 && (
-            <div data-testid="att-missing-team">
+            <div data-testid="att-missing-team" className="lg:order-4">
               <SectionBlock title="חסר לצוות">
                 {teamMissing.map(t => (
                   <ListRow
@@ -501,7 +501,7 @@ function AttendanceIsland() {
 
           {/* ── היום: the one thing this screen is for ───────────────────────── */}
           {todayCell && (
-            <div data-testid="att-today">
+            <div data-testid="att-today" className="lg:order-6">
               <SectionBlock title="היום" flush>
                 <div className="px-4 py-1">
                   <div className="mb-2 flex items-baseline gap-2">
@@ -528,7 +528,7 @@ function AttendanceIsland() {
           )}
 
           {/* ── the tiles: tap one to color only its category on the month (A-L3, A3) ── */}
-          <StatTileGrid>
+          <StatTileGrid className="lg:order-1">
             {/* StatTile doesn't forward its own props to the DOM yet — a wrapper span carries
                 the att-kpi-<key> test hook (§9-style gap, same as ListRow before its own
                 pass-through landed). attTiles()'s own order stays field/office/missing (its
@@ -552,33 +552,16 @@ function AttendanceIsland() {
           {/* Designer review round: a selected tile must SAY it's filtering, not just tint —
               the tile's own ring can be missed, especially once a person scrolls past it. */}
           {tile && (
-            <div data-testid="att-tile-filter">
+            <div data-testid="att-tile-filter" className="lg:order-2">
               <FilterChip selected onClick={() => setTile(null)}>
                 {'מסונן: ' + (attTiles(kpis, person).find(t => t.key === tile)?.label || '') + ' ✕'}
               </FilterChip>
             </div>
           )}
 
-          {/* ── the month ─────────────────────────────────────────────────────── */}
-          <section className="rounded-[14px] border border-border bg-card p-2.5">
-            {rowsQ.data === null || rowsQ.isLoading
-              ? <Skeleton className="h-[236px] w-full rounded-[10px]" />
-              : <MonthGridView grid={grid} onPick={openDay} selected={selected} person={person} tile={tile} />}
-            <ul data-testid="att-legend" className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-              {attLegend(person).map(item => (
-                <li key={item.key} data-legend={item.key} className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + LEGEND_DOT[item.key]} />
-                  {item.label}
-                </li>
-              ))}
-            </ul>
-          </section>
-
-        </div>
-
         {/* ── desktop: the day panel stays open while browsing the grid ───────── */}
-        <aside className="hidden lg:block" data-testid="att-panel">
-          <div className="sticky top-3 rounded-[14px] border border-border bg-card p-3.5">
+        <aside className="hidden lg:order-5 lg:block" data-testid="att-panel">
+          <div className="rounded-[14px] border border-border bg-card p-3.5">
             {selectedCell ? (
               <DayEditor
                 cell={selectedCell}
@@ -591,6 +574,22 @@ function AttendanceIsland() {
             )}
           </div>
         </aside>
+        </div>
+
+        {/* ── the month ─────────────────────────────────────────────────────── */}
+        <section className="att-month rounded-[14px] border border-border bg-card p-2.5 lg:order-1 lg:p-4">
+          {rowsQ.data === null || rowsQ.isLoading
+            ? <Skeleton className="h-[236px] w-full rounded-[10px]" />
+            : <MonthGridView grid={grid} onPick={openDay} selected={selected} person={person} tile={tile} />}
+          <ul data-testid="att-legend" className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            {attLegend(person).map(item => (
+              <li key={item.key} data-legend={item.key} className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span aria-hidden className={'h-1.5 w-1.5 rounded-full ' + LEGEND_DOT[item.key]} />
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
 
       {/* ── phone: the same editor as a bottom sheet ─────────────────────────── */}

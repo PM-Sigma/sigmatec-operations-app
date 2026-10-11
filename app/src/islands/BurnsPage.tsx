@@ -184,7 +184,8 @@ function BurnsPageInner() {
         <StatTile value={counts.issue} label="בעיות" role="danger" selected={filter.status === 'issue'} onClick={() => toggleStatus('issue')} />
       </StatTileGrid>
 
-      <label className="relative block">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+      <label className="relative block lg:w-[420px] lg:shrink-0">
         <Search className="pointer-events-none absolute inset-y-0 right-3 my-auto h-4 w-4 text-muted-foreground" aria-hidden />
         <input
           value={q}
@@ -201,7 +202,7 @@ function BurnsPageInner() {
           "at most 2 bubbles" contract for עידן/עמיחי (Excel + גנרטורים + בחירה = 3), which is
           what pushed the two-line title into truncating mid-word. Horizontal scroll instead:
           flex-nowrap + overflow-x-auto, never a second row, at any chip count. */}
-      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5">
+      <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5 lg:flex-wrap">
         <FilterChip selected={!filter.kind || filter.kind === 'all'} onClick={() => setFilter(f => ({ ...f, kind: 'all' }))}>הכול</FilterChip>
         <FilterChip selected={filter.kind === 'CT'} onClick={() => toggleKind('CT')}>משנה זרם</FilterChip>
         <FilterChip selected={filter.kind === 'PP'} onClick={() => toggleKind('PP')}>תלת-פאזי</FilterChip>
@@ -213,10 +214,12 @@ function BurnsPageInner() {
         )}
       </div>
 
+      </div>
+
       {bySite.length === 0 ? (
         <EmptyState icon={<Flame />} title="אין מונים שתואמים לסינון." action={{ label: 'ניקוי סינון', onClick: clearFilters }} />
       ) : (
-        bySite.map(site => {
+        <div className="r9-cols flex flex-col gap-3">{bySite.map(site => {
           const pct = site.total ? Math.round((100 * site.burned) / site.total) : 0;
           const groups = groupBurnsByGenerator(site.rows, gens);
           return (
@@ -292,7 +295,7 @@ function BurnsPageInner() {
               ))}
             </SectionBlock>
           );
-        })
+        })}</div>
       )}
 
       {selectMode && selected.size > 0 && (
