@@ -17,8 +17,8 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.appInstall` | js/src/00-bridge.js:558 | `appInstall` → js/src/16-install.js:34 | app/src/shell/GearExtras.tsx:60 |
 | `sigma.ATT_PEOPLE` | js/src/00-bridge.js:275 | *(own logic)* | app/src/islands/Attendance.tsx:285<br>app/src/islands/DayLog.tsx:80<br>app/src/islands/Gaps.tsx:75<br>app/src/islands/Settings.tsx:328 |
 | `sigma.attApply` | js/src/00-bridge.js:501 | *(own logic)* | app/src/islands/Field.tsx:1976<br>app/src/lib/visitSave.ts:28<br>app/src/lib/visitSave.ts:28 |
-| `sigma.attExportExcel` | js/src/00-bridge.js:549 | `xlExportAttendanceCurrent` → js/src/21-excel-export.js:295 | app/src/islands/Attendance.tsx:402 |
-| `sigma.attExportPdf` | js/src/00-bridge.js:548 | `downloadAttendancePDF` → js/src/04-attendance-daily.js:577 | app/src/islands/Attendance.tsx:399 |
+| `sigma.attExportExcel` | js/src/00-bridge.js:549 | `xlExportAttendanceCurrent` → js/src/21-excel-export.js:295 | app/src/islands/Attendance.tsx:580 |
+| `sigma.attExportPdf` | js/src/00-bridge.js:548 | `downloadAttendancePDF` → js/src/04-attendance-daily.js:577 | app/src/islands/Attendance.tsx:577 |
 | `sigma.attHolidays` | js/src/00-bridge.js:541 | `attHolidays` → js/src/04-attendance-daily.js:25 | app/src/islands/Attendance.tsx:67<br>app/src/islands/Calendar.tsx:108<br>app/src/islands/Gaps.tsx:108 |
 | `sigma.attHolidaysLoad` | js/src/00-bridge.js:542 | `attLoadHolidays` → js/src/04-attendance-daily.js:28 | app/src/islands/Attendance.tsx:66<br>app/src/islands/Calendar.tsx:108<br>app/src/islands/Holidays.tsx:63 |
 | `sigma.attPerson` | js/src/00-bridge.js:544 | `attPerson` → js/src/11-search-login.js:170 | app/src/islands/Attendance.tsx:262<br>app/src/islands/Attendance.tsx:315 |
@@ -148,9 +148,9 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 
 | placeholder | index.html | mounted at |
 |---|---|---|
-| `#sigma-attendance` | :278 | app/src/islands/Attendance.tsx:644<br>app/src/main.tsx:226 |
+| `#sigma-attendance` | :278 | app/src/islands/Attendance.tsx:672<br>app/src/main.tsx:226 |
 | `#sigma-burns` | :227 | app/src/islands/Burns.tsx:65<br>app/src/main.tsx:179 |
-| `#sigma-burns-page` | :406 | app/src/islands/BurnsPage.tsx:374<br>app/src/main.tsx:245 |
+| `#sigma-burns-page` | :406 | app/src/islands/BurnsPage.tsx:377<br>app/src/main.tsx:245 |
 | `#sigma-calendar` | :363 | app/src/islands/Calendar.tsx:2046<br>app/src/main.tsx:273 |
 | `#sigma-ceo` | :708 | **—** |
 | `#sigma-cert` | :688 | app/src/islands/InventoryCert.tsx:433 |
@@ -177,7 +177,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-my-tasks` | :718 | app/src/islands/MyTasks.tsx:302<br>app/src/main.tsx:149 |
 | `#sigma-nav` | :719 | app/src/main.tsx:103 |
 | `#sigma-offline` | :155 | app/src/main.tsx:317<br>app/src/shell/OfflineBanner.tsx:36 |
-| `#sigma-page-bar` | :161 | app/src/main.tsx:314<br>app/src/shell/PageBar.tsx:99 |
+| `#sigma-page-bar` | :161 | app/src/main.tsx:314<br>app/src/shell/PageBar.tsx:100 |
 | `#sigma-presenter` | :694 | app/src/islands/Presenter.tsx:1173<br>app/src/main.tsx:470 |
 | `#sigma-pushlog` | :395 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:253 |
 | `#sigma-readings` | :422 | app/src/islands/ReadingsPull.tsx:483<br>app/src/lib/readingsWatch.ts:163 |
