@@ -3,6 +3,7 @@
 - 🔴 **Stock correction from the 7.10/4.10 visit-overwrite bug (2.153)** — reverse the wrong "returns": חברה→כפר גלעדי 3 Robustel + 3 ספק כוח שקע;
   →שלוחות 50 E360SP; →גניגר 1 E360PP; →מעוז חיים 17 PUSR + 17 ספק כוח פס-דין; →גבים 1 E360CT. Lost reports to rewrite: ניתאי (דפנה 23.9,
   כפר גלעדי, שלוחות, גניגר), אביאם (גבעת חיים מאוחד, חולדה 22.9 — September is locked, needs an unlock). Visit 17.9 תל קציר still under technician@.
+✅ SHIPPED 11.10 (merge 276a1549, live 2.155): desktop attendance + report pages · viewer nav to attendance/certs + cert PDF + page titles · visit summary <-> EMS task (save guard + status picker) · attendance from visits only (אביאם/ניתאי, non-field past days) · attendance day details text · meeting-timeline test fix. See CHANGELOG [2.155].
 🟡 PLANNED (2026-10-08) — field-ops hub round 2 (תכנון היום שלי + שיבוץ sheet, attendance shortages/stats/calendar, MODBUS rename + live EMS meter search, EMS meter actions, burns collapsed + export by kibbutz). Spec: docs/superpowers/specs/2026-10-08-field-hub-r2-design.md. Builds on feat/field-ops-hub (awaiting עידן approval). Execution: home-server sessions.
 🟡 IN PROGRESS: bug bot - built on `feat/bugbot`, awaiting MAIN (apply db/feedback_bot.sql, deploy push-send, merge) + עידן home-server install. Spec: docs/superpowers/specs/2026-10-08-bugbot-design.md
 

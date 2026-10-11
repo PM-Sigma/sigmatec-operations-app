@@ -73,6 +73,11 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — 2026-10-11 (**11.10 ship merged to main as 276a1549; live 2.155**)
+
+Live on `main`: desktop attendance + report pages, viewer nav (attendance/certs) + cert PDF + page titles, visit summary <-> EMS task link, attendance from visits only for אביאם/ניתאי, and the attendance **day details** text (tap a date → what happened). Details: CHANGELOG [2.155].
+Open: 🔴 stock correction from the 7.10/4.10 visit-overwrite bug (backlog top) · 🟡 field-ops hub r1/r2 waiting עידן · 🟡 bug bot install · 🟡 readings-pull merge. Next session: pick from backlog top.
+
 ## 🚦 Current state — 2026-09-29 (feat/readings-pull, not merged)
 
 **משיכת קריאות משירותי מנייה חיצוניים** — Phase 0 ✅, Phase 1 ✅ built + green on `feat/readings-pull`. Next: MAIN applies `db/readings_pull.sql`, redeploys `readings-fetch`/`push-send`, adds `db/cron_readings_7am.sql`, merges; then an end-to-end manual pull from the app. Access: all staff, not the viewer. Spec: `docs/superpowers/specs/2026-09-29-readings-pull-design.md`.

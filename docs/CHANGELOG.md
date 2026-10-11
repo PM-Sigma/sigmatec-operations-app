@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.155] 2026-10-11 - 11.10 ship (merge 276a1549): desktop attendance, viewer nav, visit <-> EMS task, day details
+Why: עידן approved the 11.10 batch; field staff and the reports viewer needed the attendance page to work on desktop and to explain itself.
+- **Desktop attendance + report pages** (>=1024 only): two-column attendance (one day editor in a sticky side panel, shortages under the calendar); hours / burns / EMS stats fitted to desktop.
+- **Viewer (reports user):** attendance + certificates reachable again from the tabs / phone bar / more sheet; cert PDF print for the viewer; page title + active tab follow the page after a nav tap; cert preview scales to phone width. No permission change.
+- **Visit summary <-> EMS task:** EMS link block in the visit sheet, a pre-save warning when the kibbutz has open tasks and none is linked, and a status picker applied after save (never blocks the visit).
+- **Attendance from visits:** אביאם/ניתאי get field days only from a saved visit summary; they report non-field days for past days only. Visit-sheet buttons: "סגירה ללא שמירה" (draft) vs "שמור דוח ביקור" (real save).
+- **Attendance day details:** tapping a date shows what happened, as text - each visit (kibbutz, duration, reason, linked EMS task + status, summary, open items/products), or the day type + note + source, or "אין דיווח ליום זה" (+ unsaved draft notice). Phone: in the day sheet above edit controls; desktop: side panel. Pure builder `app/src/lib/attDayDetails.ts` + goldens; Playwright 360/412 light+dark + 1440. Viewer reads it read-only (RLS already allows SELECT on visits / visit_drafts). Clock time not shown (visit dates are noon-anchored).
+- **Tests:** `useMeetingTimeline` fixtures dated relative to now (they had aged out of the 30-day window).
+
 (2.159: the page title / active tab now follow the page after a tap - showPage dispatches `hashchange` since the view-transition delayed the click re-read; the cert preview is scaled to the sheet width on phones, print untouched.)
 
 ## [2.158] 2026-10-11 - viewer (reports user) can reach attendance + certificates again
