@@ -130,12 +130,23 @@
     var ny = m >= 12 ? y + 1 : y, nm = m >= 12 ? 1 : m + 1;
     return ny + '-' + String(nm).padStart(2, '0') + '-10';
   }
-  function visitEditLocked(dateStr, todayInput) {
+  // Per-person month unlock (db/visit_edit_unlocks.sql; mirrors app/src/lib/visitEdit.ts visitUnlocked and the
+  // SQL public.visit_edit_unlocked). window._visitUnlocks holds only the signed-in user's rows (RLS), loaded by
+  // visitUnlocksSync (09-visits.js).
+  function visitUnlockActive(visitor, dateStr) {
+    var month = String(dateStr || '').slice(0, 7) + '-01';
+    var people = String(visitor || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    return (window._visitUnlocks || []).some(function (u) {
+      return u && people.indexOf(u.person) !== -1 && String(u.month || '').slice(0, 10) === month && new Date(u.until).getTime() > Date.now();
+    });
+  }
+  function visitEditLocked(dateStr, todayInput, visitor) {
     var d = String(dateStr || '').slice(0, 10);
     var today = todayInput ? toIsraelDay(todayInput) : israelYmd(new Date());
-    if (d < ROUND5_LOCK_FLOOR) return true;
-    return today > visitEditableUntil(d);
+    var locked = d < ROUND5_LOCK_FLOOR || today > visitEditableUntil(d);
+    return locked && !(visitor && visitUnlockActive(visitor, d));
   }
+  window.visitUnlockActive = visitUnlockActive;
   window.visitEditableUntil = visitEditableUntil;
   window.visitEditLocked = visitEditLocked;
 

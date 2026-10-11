@@ -31,7 +31,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { ListRow } from '@/components/ui/list-row';
 import { SectionBlock } from '@/components/ui/section-block';
 import { BubbleButton } from '@/components/ui/bubble-button';
-import { isLocked } from '@/lib/editLock';
+import { visitEditLocked } from '@/lib/visitEdit';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite } from '@/lib/supabase';
@@ -224,7 +224,7 @@ function VisitRows({ visits, onOpen }: { visits: VisitRow[]; onOpen: (v: VisitRo
  */
 function VisitSheet({ visit, onClose }: { visit: VisitRow | null; onClose: () => void }) {
   const r = visit ? visitRead(visit) : null;
-  const canEdit = !!visit && !isLocked(visit.date);
+  const canEdit = !!visit && !visitEditLocked(visit);
   return (
     <Sheet open={!!visit} onOpenChange={o => { if (!o) onClose(); }}>
       <SheetContent side="bottom" data-testid="cal-visit-sheet" className="max-h-[84svh] overflow-y-auto">

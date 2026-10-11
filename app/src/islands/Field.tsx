@@ -1317,7 +1317,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       setResumedAt('');
       setEditing(true);
       setEmsPicks({});
-      setEditLocked(visitEditLocked({ date: (v as { date?: string }).date || '' }));
+      setEditLocked(visitEditLocked({ date: (v as { date?: string }).date || '', visitor: (v as { visitor?: string }).visitor || '' }));
       setOpen(true);
       track('visit-chapters-open', k);
       return;

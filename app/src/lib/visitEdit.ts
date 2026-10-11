@@ -29,8 +29,25 @@ export const INVENTORY_BREAKPOINT_AT = '2026-09-23T14:05:47.625Z';
 const ymd = (iso: string | undefined): string => String(iso || '').slice(0, 10);
 
 /** Whether the whole visit may be edited at all (round 5 general edit lock, app/src/lib/editLock.ts). */
-export function visitEditLocked(visit: { date?: string }, today: string | Date = new Date()): boolean {
-  return isLocked(visit?.date || '', today);
+/** A per-person month unlock (db/visit_edit_unlocks.sql). The client only ever holds the signed-in user's own rows (RLS). */
+export type VisitUnlock = { person: string; month: string; until: string };
+
+/** Loaded by js/src/09-visits.js visitUnlocksSync(); empty when not loaded. */
+const loadedUnlocks = (): VisitUnlock[] => {
+  try { return ((globalThis as any)._visitUnlocks || []) as VisitUnlock[]; } catch { return []; }
+};
+
+/** Same rule as public.visit_edit_unlocked(): one of the visitors holds an unexpired unlock for the visit's month. */
+export function visitUnlocked(visitor: string | undefined, date: string, unlocks: ReadonlyArray<VisitUnlock>, now: Date = new Date()): boolean {
+  const month = ymd(date).slice(0, 7) + '-01';
+  const people = visitorsOf({ visitor: visitor || '' });
+  return (unlocks || []).some(u => u && people.includes(u.person) && ymd(u.month) === month && new Date(u.until).getTime() > now.getTime());
+}
+
+/** Whether the whole visit may be edited at all (round 5 general edit lock), unless its visitor holds a month unlock. */
+export function visitEditLocked(visit: { date?: string; visitor?: string }, today: string | Date = new Date(), unlocks: ReadonlyArray<VisitUnlock> = loadedUnlocks()): boolean {
+  if (!isLocked(visit?.date || '', today)) return false;
+  return !visitUnlocked(visit?.visitor, visit?.date || '', unlocks, today instanceof Date ? today : new Date(String(today).slice(0, 10) + 'T12:00:00'));
 }
 
 export type ProductQty = { name: string; qty: number };

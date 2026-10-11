@@ -113,6 +113,8 @@
               window._sbPassMintedAt = Date.now();
               // proactive re-mint before expiry → writes never silently fail post-lockdown (while the EMS session lives)
               scheduleRemint();
+              // month unlocks of the visit edit lock (db/visit_edit_unlocks.sql) need the pass — RLS returns his own rows.
+              if (typeof window.visitUnlocksSync === 'function') window.visitUnlocksSync();
             }
           } catch (e) { window._sbToken = null; window._sbTokenExp = 0; }
           return !!window._sbToken;

@@ -71,3 +71,19 @@ describe('visitToChapters', () => {
     expect(d.reasonOther).toBe('משהו');
   });
 });
+
+describe('visitEditLocked + month unlocks (db/visit_edit_unlocks.sql)', () => {
+  const unlocks = [{ person: 'אביאם', month: '2026-09-01', until: '2026-10-25T20:59:00Z' }];
+  it('U1 a locked September visit of אביאם is editable while his unlock lasts', () =>
+    expect(visitEditLocked({ date: '2026-09-22', visitor: 'אביאם' }, '2026-10-12', unlocks)).toBe(false));
+  it('U2 …and locked again once it expires', () =>
+    expect(visitEditLocked({ date: '2026-09-22', visitor: 'אביאם' }, new Date('2026-10-26T08:00:00Z'), unlocks)).toBe(true));
+  it('U3 not for someone else', () =>
+    expect(visitEditLocked({ date: '2026-09-22', visitor: 'ניתאי' }, '2026-10-12', unlocks)).toBe(true));
+  it('U4 a joint visit counts', () =>
+    expect(visitEditLocked({ date: '2026-09-22', visitor: 'ניתאי, אביאם' }, '2026-10-12', unlocks)).toBe(false));
+  it('U5 not another month', () =>
+    expect(visitEditLocked({ date: '2026-08-20', visitor: 'אביאם' }, '2026-10-12', unlocks)).toBe(true));
+  it('U6 no unlocks = the plain lock', () =>
+    expect(visitEditLocked({ date: '2026-09-22', visitor: 'אביאם' }, '2026-10-12', [])).toBe(true));
+});

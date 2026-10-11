@@ -208,6 +208,22 @@
   }
   window.visitDraftsSync = visitDraftsSync;
 
+  /** The signed-in user's own month unlocks (db/visit_edit_unlocks.sql; RLS returns only his rows). Silent on failure:
+   *  no unlocks = the ordinary lock, which is the safe side. */
+  async function visitUnlocksSync() {
+    if (typeof SB_URL !== 'string' || typeof SB_ANON !== 'string' || typeof fetch !== 'function') return null;
+    const tok = (window._sbToken && window._sbTokenExp > Date.now()) ? window._sbToken : null;
+    if (!tok) return null;
+    try {
+      const r = await fetch(SB_URL + '/rest/v1/visit_edit_unlocks?select=person,month,until', { headers: { apikey: SB_ANON, Authorization: 'Bearer ' + tok } });
+      if (!r.ok) return null;
+      const rows = await r.json();
+      window._visitUnlocks = Array.isArray(rows) ? rows : [];
+      return window._visitUnlocks.length;
+    } catch (e) { return null; }
+  }
+  window.visitUnlocksSync = visitUnlocksSync;
+
   /**
    * Is there a draft for this kibbutz / person / day? Any argument may be omitted to widen
    * the match (the bottom-nav 🚚 asks "any draft of mine today?"), and a widened match that
@@ -339,7 +355,7 @@
     // 00-consts.js; enforced again by db/visit_edit_lock_trigger.sql). Blocked before any network call — an
     // edit AND a new entry backdated into a locked month are both refused, exactly like the DB trigger's
     // coalesce(new.date, old.date) check.
-    if (typeof visitEditLocked === 'function' && (visitEditLocked(dateStr) || (isEdit && visitEditLocked(String((prior && prior.date) || ''))))) {
+    if (typeof visitEditLocked === 'function' && (visitEditLocked(dateStr, null, visitor) || (isEdit && visitEditLocked(String((prior && prior.date) || ''), null, prior.visitor)))) {
       return { ok: false, error: 'הביקור נעול לעריכה — התאריך כבר לא ניתן לשינוי', locked: true };
     }
 
