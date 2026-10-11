@@ -111,3 +111,42 @@ test('viewer: delivery certificates — one tap to the registry, filter, open, p
   await shot(page, ti, 'cert-open');
   expectNoConsoleErrors(rec);
 });
+
+test('viewer: the page title and the active tab follow every page he can open', async ({ page }, ti) => {
+  const { rec, viewport } = await boot(page, ti, { who: 'צפייה' });
+  const phone = isPhone(viewport);
+  const bar = page.locator('#sigma-page-bar');
+  const nav = phone ? page.locator('#sigma-nav nav[aria-label="ניווט ראשי"]') : page.locator('#sigma-desktop-nav nav[aria-label="ניווט ראשי"]');
+  const steps: Array<[string, string | null]> = [['נוכחות', null], ['מלאי', 'מלאי'], ...(phone ? [] : [['יומן', 'יומן'] as [string, string]]), ['קיבוצים', 'קיבוצים']];
+  for (const [tab, title] of steps) {
+    await tapNav(page, viewport, tab);
+    await expect(nav.locator('[aria-current="page"]')).toHaveText(tab);          // the tab follows the page
+    if (title) await expect(bar).toContainText(title);                           // the title follows the page
+    else await expect(bar).not.toContainText('קיבוצים');                         // נוכחות draws its own header
+  }
+  // שעות מול לקוחות — opened from the hub row
+  await page.evaluate(() => (window as any).sigma.showPage('hours'));
+  await expect(page.getByRole('heading', { name: /^שעות/ }).first()).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('viewer: the certificate preview fits the screen width (no sideways scroll), print untouched', async ({ page }, ti) => {
+  const viewport = (ti.project.metadata as any).viewport as string;
+  await bootInvCerts(page, ti, 'צפייה');
+  await tapNav(page, viewport, 'מלאי');
+  await page.locator('[data-testid="inv-tab-certs"]').click();
+  await driverFor().certRange(page, 'all');
+  await page.locator('[data-testid="inv-cert-row-1041"] button').first().click();
+  const frame = page.locator('[data-testid="cert-viewer"] iframe');
+  await expect(frame).toBeVisible();
+  await page.waitForTimeout(600);
+  const r = await page.evaluate(() => {
+    const f = document.querySelector('[data-testid="cert-viewer"] iframe') as HTMLIFrameElement;
+    const box = f.getBoundingClientRect(); const d = f.contentDocument!.documentElement;
+    return { right: box.right, left: box.left, vw: innerWidth, innerScroll: d.scrollWidth, boxW: (f.parentElement as HTMLElement).clientWidth, zoom: getComputedStyle(d).zoom };
+  });
+  expect(r.left).toBeGreaterThanOrEqual(-1);
+  expect(r.right).toBeLessThanOrEqual(r.vw + 1);
+  expect(r.zoom).toBe('1');                                   // the document itself is never zoomed (print = as issued)
+  await shot(page, ti, 'cert-fit');
+});

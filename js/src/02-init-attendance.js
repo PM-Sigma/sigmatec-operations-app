@@ -82,6 +82,7 @@
     if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer
     if (window._currentPage && window._currentPage !== page) window._prevPage = window._currentPage;
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
+    try { window.dispatchEvent(new Event('hashchange')); } catch (e) { /* old webview */ }   // the React nav/title re-read the page (a view-transition delays the click's own re-read)
     // One history entry per page switch, so the phone's Back returns to the previous page
     // instead of leaving the app; and the page survives the app being resumed from the
     // background (sessionStorage, read by the boot below).

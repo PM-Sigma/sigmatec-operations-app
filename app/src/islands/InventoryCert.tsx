@@ -139,6 +139,18 @@ function CertIsland() {
     try { const f = document.querySelector<HTMLIFrameElement>('[data-testid="cert-viewer"] iframe'); f?.contentWindow?.focus(); f?.contentWindow?.print(); } catch { window.print(); }
   }
 
+  const fitBox = React.useRef<HTMLDivElement>(null);
+  const [fit, setFit] = React.useState<{ w: string | number; h: string | number; s: number }>({ w: '100%', h: '100%', s: 1 });
+  function fitCert(e: React.SyntheticEvent<HTMLIFrameElement>) {
+    try {
+      const box = fitBox.current; const doc = e.currentTarget.contentDocument;
+      if (!box || !doc) return;
+      const docW = doc.documentElement.scrollWidth; const boxW = box.clientWidth;
+      if (docW > boxW + 2) setFit({ w: docW, h: box.clientHeight / (boxW / docW), s: boxW / docW });
+      else setFit({ w: '100%', h: '100%', s: 1 });
+    } catch { /* cross-origin never happens for srcdoc */ }
+  }
+
   function close() {
     setScreen(null); setDraft(null); setReissueOf(undefined); setSendCert(null); setViewId(null);
   }
@@ -362,7 +374,12 @@ function CertIsland() {
       <Sheet open={screen === 'viewer'} onOpenChange={o => !o && close()}>
         <SheetContent side="bottom" className="h-[92vh]" data-testid="cert-viewer">
           <SheetHeader><SheetTitle>תעודת משלוח</SheetTitle></SheetHeader>
-          <iframe title="תעודת משלוח" srcDoc={viewHtml} className="mt-2 h-[calc(92vh-170px)] w-full rounded-xl border border-border bg-white" />
+          <div ref={fitBox} className="mt-2 h-[calc(92vh-170px)] w-full overflow-hidden rounded-xl border border-border bg-white">
+            {/* The certificate is a fixed-width A4-ish document: on a phone it is scaled down to the
+                sheet's width (transform on THIS frame only — the printed/PDF output is the untouched document). */}
+            <iframe title="תעודת משלוח" srcDoc={viewHtml} onLoad={fitCert}
+              style={{ width: fit.w, height: fit.h, transform: fit.s < 1 ? `scale(${fit.s})` : undefined, transformOrigin: 'top right', border: 0 }} />
+          </div>
           {/* The viewer reads + prints/saves a PDF of a cert (reports user); sending stays staff-only. */}
           {(
             <SheetFooter>
