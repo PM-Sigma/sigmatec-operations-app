@@ -1,3 +1,4 @@
+-- APPLIED in prod 11.10 by MAIN: 7 compensating movements mov_fix_202610_*; backup public.movements_bak_bugfix_202610; verified all 7 kibbutz balances back to 0 (גניגר E360PP 2). Pool Robustel = -6 → needs a physical count.
 -- DRAFT. NOT APPLIED. Do not run until MAIN has run the PREVIEW and the ids below are filled in.
 -- Stock reversal for the 4.10-7.10 visit-overwrite bug (fixed in 2.153).
 --

@@ -1,3 +1,4 @@
+-- APPLIED in prod 11.10 by MAIN (with the caller-binding line), seed אביאם/Sept until 25.10. Backup of the old trigger fn: public.visit_lock_fn_bak_20261011.
 -- NOT APPLIED. עידן applies it in the Supabase SQL editor, AFTER db/visit_edit_lock_trigger.sql.
 -- Per-person, per-month unlock of the round-5 visit edit lock (עידן 11.10): the 4.10-7.10 visit-overwrite bug
 -- (fixed in 2.153) erased reports dated September, which locked on 10.10; the people who wrote them need to
@@ -41,6 +42,7 @@ returns boolean language sql stable security definer set search_path = public, p
     select 1 from public.visit_edit_unlocks u
     where u.month = date_trunc('month', d)::date
       and u.until > at
+      and u.person = (auth.jwt() ->> 'name')   -- MAIN 11.10: only the unlocked person themself, not anyone editing their visits
       and u.person = any (select btrim(x) from unnest(string_to_array(coalesce(visitor, ''), ',')) x)
   );
 $$;
