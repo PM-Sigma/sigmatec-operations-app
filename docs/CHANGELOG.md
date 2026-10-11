@@ -7,6 +7,18 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.153] 2026-10-11 — visit reports overwriting each other + staff landing as their email
+- **Bug 1 (data loss):** after a chapters-sheet save the pre-minted visit id (`window._visitDraftId`) was never released, so the
+  NEXT new visit reused it and `saveVisitFromData` filed it as an *edit* of the previous one. ניתאי 7.10: 5 reports in a row
+  (דפנה 23.9, כפר גלעדי, שלוחות, גניגר, מעוז חיים) collapsed into ONE row (`v_1791390220215_yhblgo`, last = מעוז חיים); the
+  4 summaries are gone, attendance for their dates was never written, and stock moved by wrong "deltas" between kibbutzim.
+  Fix: `saveVisitFromData` drops the draft id once it is filed. Test: test-visit-summary-chain.mjs (+1 check; "today" frozen
+  there — its 21–22.9 fixtures locked for real on 10.10 and failed 23 checks).
+- **Bug 2:** staff without the EMS admin role can't read `/users`, so the client login fell back to the raw email
+  (ניתאי saved visits as `technician@sigmatec-energy.com`). `EMS_EMAIL_ALIASES` now maps every staff email (mirrors `staff_identities`).
+- Data (prod, by hand): ניתאי attendance 6.9 + 23.9 (field, דפנה — his word, the reports never saved); visit 8.10 גניגר
+  re-attributed to ניתאי; אביאם's duplicate 20.9 row removed. Visit 17.9 תל קציר stays under the email (September is locked).
+
 ## [bugbot] 2026-10-08 - 🤖 bug bot (branch feat/bugbot, not on main)
 - Home-server bot (`scripts/bugbot/`): takes new bugs from `feedback`, investigates + fixes with Claude Code headless, merges SMALL code-only fixes itself (our gates + diff rules), otherwise pushes a branch and asks; pushes status to עידן only. Inbox shows status chip, note, branch link; push opens `#feedback-inbox?id=`. Pending MAIN: apply `db/feedback_bot.sql` (backup+rollback inside), deploy `push-send` (new `bugbot` mode). Spec: `docs/superpowers/specs/2026-10-08-bugbot-design.md`. Install: `scripts/bugbot/INSTALL.md`. Tests: test-bugbot.mjs, vitest, Playwright 360 light+dark, test-all green.
 

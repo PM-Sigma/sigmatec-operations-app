@@ -82,7 +82,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.openOrder` | js/src/00-bridge.js:439 | *(own logic)* | app/src/components/alerts/AlertsPanel.tsx:24<br>app/src/islands/InventoryStrip.tsx:84<br>app/src/islands/StockChange.tsx:188 |
 | `sigma.openVisitEditor` | js/src/00-bridge.js:399 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:69<br>app/src/components/kibbutz/StatusTab.tsx:70<br>app/src/components/kibbutz/VisitRowActions.tsx:18<br>app/src/components/kibbutz/VisitRowActions.tsx:25 |
 | `sigma.openVisitQuick` | js/src/00-bridge.js:414 | *(own logic)* | app/src/components/Nav.tsx:84<br>app/src/islands/Calendar.tsx:1915<br>app/src/islands/Calendar.tsx:1960<br>app/src/islands/Field.tsx:2335<br>…+6 |
-| `sigma.openVisitsReport` | js/src/00-bridge.js:609 | `openVisitsToolsModal` → js/src/09-visits.js:518 | app/src/islands/Calendar.tsx:1088 |
+| `sigma.openVisitsReport` | js/src/00-bridge.js:609 | `openVisitsToolsModal` → js/src/09-visits.js:521 | app/src/islands/Calendar.tsx:1088 |
 | `sigma.orders` | js/src/00-bridge.js:436 | *(own logic)* | app/src/islands/InventoryStrip.tsx:50<br>app/src/islands/StockChange.tsx:146 |
 | `sigma.passPending` | js/src/00-bridge.js:523 | *(own logic)* | **—** |
 | `sigma.poolStock` | js/src/00-bridge.js:431 | `poolStockMap` → js/src/06-inventory.js:12 | app/src/islands/Field.tsx:1485<br>app/src/islands/StockChange.tsx:62 |
@@ -138,10 +138,10 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:420<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
 | `stock-changed` | js/src/09-visits.js:458<br>app/src/islands/StockChange.tsx:207<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:136<br>app/src/islands/InventoryStrip.tsx:98<br>js/src/06-inventory.js:119 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
-| `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:270<br>js/src/15-login-gate.js:294<br>…+2 | app/src/bridge.ts:419<br>app/src/islands/Attendance.tsx:315<br>app/src/islands/FeedbackInbox.tsx:297<br>app/src/islands/Field.tsx:173<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
+| `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:175<br>js/src/15-login-gate.js:281<br>js/src/15-login-gate.js:305<br>…+2 | app/src/bridge.ts:419<br>app/src/islands/Attendance.tsx:315<br>app/src/islands/FeedbackInbox.tsx:297<br>app/src/islands/Field.tsx:173<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:205<br>js/src/09-visits.js:249<br>js/src/09-visits.js:282 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
 | `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:158 |
-| `visit-saved` | js/src/09-visits.js:476<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:308<br>app/src/islands/Calendar.tsx:1453<br>app/src/islands/Field.tsx:172<br>app/src/islands/Field.tsx:2391<br>app/src/islands/Presenter.tsx:228<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
+| `visit-saved` | js/src/09-visits.js:479<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:308<br>app/src/islands/Calendar.tsx:1453<br>app/src/islands/Field.tsx:172<br>app/src/islands/Field.tsx:2391<br>app/src/islands/Presenter.tsx:228<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
 | `work-session-saved` | app/src/components/home/WorkTimerStopSheet.tsx:118 | app/src/islands/Home.tsx:109<br>app/src/islands/Hours.tsx:237 |
 
 ## (c) Islands — placeholder in `index.html` ↔ mount in `main.tsx`
@@ -258,7 +258,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `calendar` | `(default)` | *(no mode field)* | js/src/14-calendar.js:161<br>js/src/14-calendar.js:182 |
 | `clockify` | `(default)` | *(no mode field)* | app/src/components/home/workTimerApi.ts:13 |
 | `ems-auth` | `(default)` | *(no mode field)* | js/src/15-login-gate.js:90 |
-| `ems-auth` | `viewer` | ✓ | js/src/15-login-gate.js:406 |
+| `ems-auth` | `viewer` | ✓ | js/src/15-login-gate.js:417 |
 | `field-ops` | `(default)` | *(no mode field)* | app/src/lib/ems/adapters/fieldOps.ts:27 |
 | `github` | `(default)` | *(no mode field)* | app/src/islands/FeedbackInbox.tsx:94<br>app/src/lib/devBoard.ts:31 |
 | `parse-daylog` | `(default)` | *(no mode field)* | app/src/lib/daylogChain.ts:46 |

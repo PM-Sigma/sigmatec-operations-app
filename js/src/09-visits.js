@@ -473,6 +473,9 @@
       } catch (e) { console.warn('EMS visit push failed', e); }
     }
 
+    // The pre-minted id is now a filed visit — drop it, or the NEXT new visit reuses it and is saved
+    // as an "edit" OVER this one (ניתאי 7.10: 5 chapters reports in a row collapsed into one row).
+    if (window._visitDraftId === id) window._visitDraftId = null;
     if (typeof sigmaEmit === 'function') sigmaEmit('visit-saved', { kibbutz: visit.kibbutz });
     // V23 (visit-summary chain audit fix): the chapters sheet sends `via: 'chapters'`; every other caller
     // (📝 יומן היום, a future caller) keeps today's 'daylog' label by omitting it.
