@@ -83,10 +83,12 @@ function fakeGateway(overrides: Partial<Record<string, any>> = {}) {
   } as any;
 }
 
+// Relative to now: the hook runs a real '30d' window, so a fixed date ages out of it (it did on 2026-10-10).
+const RECENT = new Date(Date.now() - 2 * 86_400_000).toISOString();
 const T = (id: string, o: Partial<any> = {}) => ({
   id, title: `task ${id}`, description: '', status: 'open', priority: '', type: '',
   site: { id: 's', name: 'גבים' }, assignee: null, expectedCompletionDate: '',
-  createdAt: '2026-09-10T08:00:00Z', updatedAt: '2026-09-10T08:00:00Z', ...o,
+  createdAt: RECENT, updatedAt: RECENT, ...o,
 });
 
 beforeEach(() => {
