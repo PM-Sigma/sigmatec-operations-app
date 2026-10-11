@@ -96,7 +96,7 @@ export function InventoryCertsTab() {
                 <MoreHorizontal className="h-5 w-5" aria-hidden />
               </button>
               {pageMoreOpen && (
-                <div className="absolute inset-inline-end-0 top-full z-10 min-w-[160px] rounded-xl border border-border bg-card p-1 shadow-lg">
+                <div className="absolute end-0 top-full z-10 min-w-[160px] rounded-xl border border-border bg-card p-1 shadow-lg">
                   <button type="button" onClick={() => { setPageMoreOpen(false); try { (window as any).certRangeReportRange?.(from, to); } catch { /* legacy not up */ } }}
                     className="block w-full rounded-lg px-2 py-2 text-start text-[13px] font-semibold">
                     סיכום תקופתי
@@ -179,7 +179,7 @@ export function InventoryCertsTab() {
                       <MoreHorizontal className="h-5 w-5" aria-hidden />
                     </button>
                     {moreOpenId === c.id && (
-                      <div onClick={e => e.stopPropagation()} className="absolute inset-inline-end-0 top-full z-10 min-w-[140px] rounded-xl border border-border bg-card p-1 shadow-lg">
+                      <div onClick={e => e.stopPropagation()} className="absolute end-0 top-full z-10 min-w-[140px] rounded-xl border border-border bg-card p-1 shadow-lg">
                         <button type="button" data-testid={`inv-cert-view-${anyc.cert_number}`} onClick={() => openView(c)}
                           className="block w-full rounded-lg px-2 py-2 text-start text-[13px] font-semibold">הצגה</button>
                         {!user.isViewer && (

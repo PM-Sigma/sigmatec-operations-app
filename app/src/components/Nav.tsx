@@ -48,7 +48,8 @@ export function Nav() {
   const page = useCurrentPage();
   const [moreSignal, setMoreSignal] = React.useState(0);
   const personRole = roleOf(user, role);
-  const tabs = navTabsFor(personRole, user);
+  // The viewer (reports-only user) reaches נוכחות + מלאי (תעודות) in ONE tap — all read-only pages.
+  const tabs: NavTabId[] = isViewer ? ['kibbutz', 'attendance', 'inventory'] : navTabsFor(personRole, user);
 
   // css/app.css hides the legacy `.page-nav` and `#visitFab` on phones only while this class is
   // present. If ui/sigma.js never loads, the class never lands and the phone keeps the old nav.
@@ -110,16 +111,16 @@ export function Nav() {
       className="sigma-root fixed inset-x-0 bottom-0 z-40 select-none border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,.06)] md:hidden"
     >
       <div className="mx-auto flex max-w-lg items-stretch gap-1 px-1.5">
-        {isViewer ? (
-          <>
-            <TabButton icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />
-            <TabButton icon={BarChart3} label="דוחות" onClick={scrollToReports} />
-          </>
-        ) : (
+        {(
           tabs.map((id: NavTabId) => {
             switch (id) {
               case 'kibbutz':
-                return <TabButton key={id} icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />;
+                return (
+                  <React.Fragment key={id}>
+                    <TabButton icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />
+                    {isViewer && <TabButton icon={BarChart3} label="דוחות" onClick={scrollToReports} />}
+                  </React.Fragment>
+                );
               case 'attendance':
                 // §3, A5: נוכחות must not read as יומן — a distinct icon, not CalendarDays twice.
                 return <TabButton key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance'} onClick={() => sigma.showPage('attendance')} />;

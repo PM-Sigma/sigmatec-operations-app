@@ -81,7 +81,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.openKibbutzModal` | js/src/00-bridge.js:338 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:121<br>app/src/islands/Calendar.tsx:1754<br>app/src/islands/Calendar.tsx:1867<br>app/src/islands/MyTasks.tsx:149<br>…+1 |
 | `sigma.openOrder` | js/src/00-bridge.js:439 | *(own logic)* | app/src/components/alerts/AlertsPanel.tsx:24<br>app/src/islands/InventoryStrip.tsx:84<br>app/src/islands/StockChange.tsx:188 |
 | `sigma.openVisitEditor` | js/src/00-bridge.js:399 | *(own logic)* | app/src/components/kibbutz/StatusTab.tsx:69<br>app/src/components/kibbutz/StatusTab.tsx:70<br>app/src/components/kibbutz/VisitRowActions.tsx:18<br>app/src/components/kibbutz/VisitRowActions.tsx:25 |
-| `sigma.openVisitQuick` | js/src/00-bridge.js:414 | *(own logic)* | app/src/components/Nav.tsx:84<br>app/src/islands/Calendar.tsx:1915<br>app/src/islands/Calendar.tsx:1960<br>app/src/islands/Field.tsx:2438<br>…+6 |
+| `sigma.openVisitQuick` | js/src/00-bridge.js:414 | *(own logic)* | app/src/components/Nav.tsx:85<br>app/src/islands/Calendar.tsx:1915<br>app/src/islands/Calendar.tsx:1960<br>app/src/islands/Field.tsx:2438<br>…+6 |
 | `sigma.openVisitsReport` | js/src/00-bridge.js:609 | `openVisitsToolsModal` → js/src/09-visits.js:521 | app/src/islands/Calendar.tsx:1088 |
 | `sigma.orders` | js/src/00-bridge.js:436 | *(own logic)* | app/src/islands/InventoryStrip.tsx:50<br>app/src/islands/StockChange.tsx:146 |
 | `sigma.passPending` | js/src/00-bridge.js:523 | *(own logic)* | **—** |
@@ -100,7 +100,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.sbPass` | js/src/00-bridge.js:378 | *(own logic)* | app/src/islands/FeedbackInbox.tsx:93<br>app/src/lib/daylogChain.ts:73<br>app/src/lib/devBoard.ts:30<br>app/src/lib/ems/adapters/fieldOps.ts:22<br>…+1 |
 | `sigma.sessionExpired` | js/src/00-bridge.js:513 | *(own logic)* | **—** |
 | `sigma.setAttPerson` | js/src/00-bridge.js:545 | `setAttPerson` → js/src/11-search-login.js:171 | app/src/islands/Attendance.tsx:351 |
-| `sigma.showPage` | js/src/00-bridge.js:280 | `showPage` → js/src/00-bridge.js:203 | app/src/components/alerts/AlertsPanel.tsx:21<br>app/src/components/alerts/AlertsPanel.tsx:25<br>app/src/components/home/Burns.tsx:334<br>app/src/components/MoreSheet.tsx:192<br>…+23 |
+| `sigma.showPage` | js/src/00-bridge.js:280 | `showPage` → js/src/00-bridge.js:203 | app/src/components/alerts/AlertsPanel.tsx:21<br>app/src/components/alerts/AlertsPanel.tsx:25<br>app/src/components/home/Burns.tsx:334<br>app/src/components/MoreSheet.tsx:192<br>…+22 |
 | `sigma.STAFF_PEOPLE` | js/src/00-bridge.js:625 | *(own logic)* | app/src/islands/MessageSheet.tsx:71 |
 | `sigma.staffSendMessage` | js/src/00-bridge.js:620 | *(own logic)* | app/src/islands/MessageSheet.tsx:139 |
 | `sigma.toast` | js/src/00-bridge.js:630 | *(own logic)* | app/src/components/UserChip.tsx:86<br>app/src/islands/Usage.tsx:62<br>app/src/islands/Usage.tsx:63<br>app/src/lib/runAdd.test.ts:30<br>…+3 |
@@ -153,9 +153,9 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-burns-page` | :406 | app/src/islands/BurnsPage.tsx:377<br>app/src/main.tsx:245 |
 | `#sigma-calendar` | :363 | app/src/islands/Calendar.tsx:2046<br>app/src/main.tsx:273 |
 | `#sigma-ceo` | :708 | **—** |
-| `#sigma-cert` | :688 | app/src/islands/InventoryCert.tsx:433 |
+| `#sigma-cert` | :688 | app/src/islands/InventoryCert.tsx:439 |
 | `#sigma-daylog` | :683 | app/src/islands/DayLog.tsx:552<br>app/src/main.tsx:424 |
-| `#sigma-desktop-nav` | :160 | app/src/islands/DesktopNav.tsx:97<br>app/src/main.tsx:311 |
+| `#sigma-desktop-nav` | :160 | app/src/islands/DesktopNav.tsx:95<br>app/src/main.tsx:311 |
 | `#sigma-dev-board` | :384 | app/src/islands/DevBoard.tsx:319<br>app/src/main.tsx:284 |
 | `#sigma-dev-presenter` | :697 | app/src/islands/DevPresenter.tsx:720<br>app/src/main.tsx:514 |
 | `#sigma-emsstats` | :417 | app/src/islands/EmsStats.tsx:154<br>app/src/main.tsx:267 |
@@ -242,11 +242,11 @@ must contain all 41: `attendance`, `calendar_absences`, `company_holidays`, `day
 
 | page | view element | `canShowPage` | called from |
 |---|---|---|---|
-| `attendance` | `#attendance-view` (index.html:274) | ✓ | js/src/22-push.js:389<br>js/src/22-push.js:390<br>app/src/components/Nav.tsx:125 |
+| `attendance` | `#attendance-view` (index.html:274) | ✓ | js/src/22-push.js:389<br>js/src/22-push.js:390<br>app/src/components/Nav.tsx:126 |
 | `burns` | `#burns-view` (index.html:403) | ✓ | app/src/components/home/Burns.tsx:334 |
-| `calendar` | `#calendar-view` (index.html:359) | ✓ | app/src/components/Nav.tsx:128<br>app/src/lib/runAdd.ts:24 |
+| `calendar` | `#calendar-view` (index.html:359) | ✓ | app/src/components/Nav.tsx:129<br>app/src/lib/runAdd.ts:24 |
 | `inventory` | `#inventory-view` (index.html:269) | ✓ | js/src/00-bridge.js:440<br>js/src/11-search-login.js:116<br>js/src/22-push.js:382<br>js/src/22-push.js:385<br>…+2 |
-| `kibbutz` | `#kibbutz-view` (index.html:163) | ✓ | js/src/00-guard.js:359<br>js/src/11-search-login.js:97<br>js/src/22-push.js:404<br>js/src/22-push.js:412<br>…+3 |
+| `kibbutz` | `#kibbutz-view` (index.html:163) | ✓ | js/src/00-guard.js:359<br>js/src/11-search-login.js:97<br>js/src/22-push.js:404<br>js/src/22-push.js:412<br>…+2 |
 | `readings` | `#readings-view` (index.html:421) | ✓ | js/src/22-push.js:392 |
 
 Gated in `canShowPage` with no `showPage()` caller in the source (reached by a remembered landing or a ⋯ row that passes the name through a variable): `dev`, `emsstats`, `fieldops`, `hours`, `pushlog`.

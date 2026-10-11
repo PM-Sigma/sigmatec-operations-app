@@ -134,6 +134,11 @@ function CertIsland() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.isViewer]);
 
+  // Print the certificate itself (the iframe), not the whole page behind the sheet — "Save as PDF" in the dialog.
+  function printCert() {
+    try { const f = document.querySelector<HTMLIFrameElement>('[data-testid="cert-viewer"] iframe'); f?.contentWindow?.focus(); f?.contentWindow?.print(); } catch { window.print(); }
+  }
+
   function close() {
     setScreen(null); setDraft(null); setReissueOf(undefined); setSendCert(null); setViewId(null);
   }
@@ -357,11 +362,12 @@ function CertIsland() {
       <Sheet open={screen === 'viewer'} onOpenChange={o => !o && close()}>
         <SheetContent side="bottom" className="h-[92vh]" data-testid="cert-viewer">
           <SheetHeader><SheetTitle>תעודת משלוח</SheetTitle></SheetHeader>
-          <iframe title="תעודת משלוח" srcDoc={viewHtml} className="mt-2 h-[calc(92vh-96px)] w-full rounded-xl border border-border bg-white" />
-          {!user.isViewer && (
+          <iframe title="תעודת משלוח" srcDoc={viewHtml} className="mt-2 h-[calc(92vh-170px)] w-full rounded-xl border border-border bg-white" />
+          {/* The viewer reads + prints/saves a PDF of a cert (reports user); sending stays staff-only. */}
+          {(
             <SheetFooter>
-              <button type="button" onClick={() => window.print()} className="min-h-[44px] flex-1 rounded-xl border border-border font-bold">הדפסה</button>
-              {viewId && (
+              <button type="button" data-testid="cert-viewer-print" onClick={printCert} className="min-h-[44px] flex-1 rounded-xl border border-border font-bold">הדפסה / PDF</button>
+              {!user.isViewer && viewId && (
                 <button type="button" onClick={() => { const row = { id: viewId } as CertRow; void openCertSend(row); }}
                   className="min-h-[44px] flex-1 rounded-xl border border-border font-bold">
                   שליחה

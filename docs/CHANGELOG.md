@@ -7,6 +7,9 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [2.158] 2026-10-11 - viewer (reports user) can reach attendance + certificates again
+The redesign left the viewer with only a קיבוצים tab: his read-only נוכחות and מלאי/תעודות pages (still allowed by canShowPage) had no entry point. Now: desktop tabs קיבוצים · נוכחות · מלאי · יומן; phone bar קיבוצים · דוחות · נוכחות · מלאי · עוד; the ⋯ sheet lists the pages canShowPage allows (יומן, נוכחות, שעות). Cert viewer sheet: הדפסה / PDF for the viewer too (prints the certificate itself, not the page behind it); row menu positioned (`end-0`). No permission change. Tests: `viewer-reports.spec.ts` (attendance person/month/PDF/Excel, hub exports, cert registry filter/open/print; desktop + phone), viewer-shell + role-matrix updated.
+
 ## [2.153] 2026-10-11 — visit reports overwriting each other + staff landing as their email
 - **Bug 1 (data loss):** after a chapters-sheet save the pre-minted visit id (`window._visitDraftId`) was never released, so the
   NEXT new visit reused it and `saveVisitFromData` filed it as an *edit* of the previous one. ניתאי 7.10: 5 reports in a row

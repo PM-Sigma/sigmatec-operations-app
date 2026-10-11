@@ -116,7 +116,7 @@ export function MoreSheet({
     return i === -1 ? APP_ORDER.length : i;
   };
   const block = (g: 'app' | 'admin' | '') => ({
-    pages: role === 'viewer' ? [] : pages
+    pages: pages
       .filter(p => (p.group || 'app') === g)
       .sort((a, b) => (g === 'app' && leadsWithInventory)
         ? (a.page === 'inventory' ? -1 : b.page === 'inventory' ? 1 : 0)

@@ -41,7 +41,7 @@ function DesktopNavBar() {
   const { name: user, role, isViewer } = useCurrentUser();
   const page = useCurrentPage();
   const personRole = roleOf(user, role);
-  const tabs = navTabsFor(personRole, user);
+  const tabs: NavTabId[] = isViewer ? ['kibbutz', 'attendance', 'inventory', 'calendar'] : navTabsFor(personRole, user);
 
   const openVisit = () => { void import('@/lib/runAdd').then(m => m.openVisit()); };
 
@@ -56,9 +56,7 @@ function DesktopNavBar() {
           reading as loose/misplaced chrome. It is a nav item too (the primary action, same
           bar), so it now lives INSIDE <nav>, last in reading order, at the tabs' own height. */}
       <nav aria-label="ניווט ראשי" className="flex items-center gap-1">
-        {isViewer ? (
-          <Tab icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => go('kibbutz', 'peer')} />
-        ) : (
+        {(
           tabs.map((id: NavTabId) => {
             switch (id) {
               case 'kibbutz':

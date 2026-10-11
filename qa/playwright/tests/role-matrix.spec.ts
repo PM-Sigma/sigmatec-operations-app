@@ -38,15 +38,15 @@ const BAR: Record<Who, string[]> = {
   'מתניה': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'עוד'],   // מתניה does not handle inventory
   'אליה': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
   'אבצן': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
-  'צפייה': ['קיבוצים', 'דוחות', 'עוד'],
+  'צפייה': ['קיבוצים', 'דוחות', 'נוכחות', 'מלאי', 'עוד'],
 };
 
 // ⋯ sheet rows by label → who sees them. The ניהול block's pages follow canShowPage exactly (F9): התראות עידן,
 // פיתוח עידן/עמיחי/מתניה/אליה, סטטיסטיקה עידן/עמיחי.
 const SHEET: Record<string, Who[]> = {
-  'יומן': STAFF,
-  'נוכחות': ['עידן', 'עמיחי', 'אביאם', 'ניתאי'],
-  'שעות מול לקוחות': ['עידן', 'עמיחי', 'מתניה'],
+  'יומן': [...STAFF, 'צפייה'],
+  'נוכחות': ['עידן', 'עמיחי', 'אביאם', 'ניתאי', 'צפייה'],
+  'שעות מול לקוחות': ['עידן', 'עמיחי', 'מתניה', 'צפייה'],
   'מלאי': ['אביאם', 'ניתאי'],                     // everyone else has it on the bar (or, מתניה, not at all)
   'פעולות שטח': STAFF,
   'משיכת קריאות משירותי מנייה חיצוניים': STAFF,   // readings page: all staff, never the viewer
@@ -116,8 +116,8 @@ for (const who of ALL) {
       expect(has, `${who}: "${label}" ${whom.includes(who) ? 'must be' : 'must NOT be'} in ⋯ (rows: ${rows.join(' | ')})`).toBe(whom.includes(who));
     }
     if (who === 'צפייה') {
-      // a read-only role is offered no page rows and no write shortcuts at all
-      for (const bad of ['יומן', 'מלאי', 'נוכחות', 'הודעה לעובד', 'קיבוץ חדש', 'ייבוא סיכום ישיבה']) expect(rows).not.toContain(bad);
+      // a read-only role reads יומן / נוכחות / שעות from the sheet, but gets no write shortcuts at all
+      for (const bad of ['מלאי', 'הודעה לעובד', 'קיבוץ חדש', 'ייבוא סיכום ישיבה']) expect(rows).not.toContain(bad);
     }
     expect(rec.errors.filter(e => !/favicon/.test(e))).toEqual([]);
   });
