@@ -16,6 +16,10 @@ All notable changes to the **Sigmatec Operations App**. Format follows
   there — its 21–22.9 fixtures locked for real on 10.10 and failed 23 checks).
 - **Bug 2:** staff without the EMS admin role can't read `/users`, so the client login fell back to the raw email
   (ניתאי saved visits as `technician@sigmatec-energy.com`). `EMS_EMAIL_ALIASES` now maps every staff email (mirrors `staff_identities`).
+- **UI (עידן):** the visit sheet's draft button said "שמור וסגור" + toast "נשמר", so staff believed the report was filed.
+  Now **"סגירה ללא שמירה"** (toast: "הדוח לא נשמר — נשאר כטיוטה") and the real save is **"שמור דוח ביקור"** (wider, primary).
+- Same overwrite also hit אביאם 4.10: גבעת חיים מאוחד → חולדה 22.9 (cert 1034 survives) → גבים (kept). 23.9 set to field
+  (גבעת חיים מאוחד), his wfh mis-tap removed. Stock corrections for both chains still pending עידן's OK (see backlog).
 - Data (prod, by hand): ניתאי attendance 6.9 + 23.9 (field, דפנה — his word, the reports never saved); visit 8.10 גניגר
   re-attributed to ניתאי; אביאם's duplicate 20.9 row removed. Visit 17.9 תל קציר stays under the email (September is locked).
 
