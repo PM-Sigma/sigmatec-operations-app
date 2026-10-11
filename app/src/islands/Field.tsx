@@ -18,7 +18,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import {
   AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, Download, Loader2, MapPin, Mic,
-  Plus, Save, Search, Send, Square, Sun, Trash2, Truck, X,
+  Plus, Search, Send, Square, Sun, Trash2, Truck, X,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -1349,7 +1349,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const saveAndClose = React.useCallback(() => {
     persist();
     setOpen(false);
-    toast.success('נשמר. תמשיך מתי שנוח לך.');
+    // עידן 11.10: "נשמר" made people think the report was filed — it is only a draft.
+    toast('הדוח לא נשמר — נשאר כטיוטה. לשמירה: "שמור דוח ביקור"');
     track('visit-chapters-save', ref.current.kibbutz);
   }, [persist]);
 
@@ -1941,7 +1942,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                 onClick={saveAndClose}
                 className="flex min-h-[52px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-muted text-[15px] font-extrabold"
               >
-                <Save className="h-[18px] w-[18px]" /> שמור וסגור
+                <X className="h-[18px] w-[18px]" /> סגירה ללא שמירה
               </button>
               <ShimmerButton
                 onClick={() => void send()}
@@ -1951,10 +1952,10 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                 // dark mode ("שולח…" showing muddy brand colors) — disabled gets the plain muted
                 // surface every other disabled control in this sheet uses, not the brand gradient.
                 background={sending ? 'hsl(var(--muted))' : 'var(--brand-grad)'}
-                className={'min-h-[52px] flex-1 rounded-xl text-[15px] font-extrabold ' +
+                className={'min-h-[52px] flex-[2] rounded-xl text-[15px] font-extrabold ' +
                   (sending ? 'text-muted-foreground' : 'text-[var(--s-on-brand)]')}
               >
-                <Send className="h-[18px] w-[18px]" /> {sending ? 'שולח…' : 'שלח'}
+                <Send className="h-[18px] w-[18px]" /> {sending ? 'שומר…' : 'שמור דוח ביקור'}
               </ShimmerButton>
             </>
           )}

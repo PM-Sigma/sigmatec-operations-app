@@ -67,7 +67,8 @@ function toIsraelDay(input) {
 }
 function visitEditLocked(dateStr, todayInput) {
   const d = String(dateStr || '').slice(0, 10);
-  const today = todayInput ? toIsraelDay(todayInput) : israelYmd(new Date());
+  // ponytail: frozen 'today' — the fixtures are dated 21–22.9, which lock for real on 10.10.
+  const today = todayInput ? toIsraelDay(todayInput) : '2026-09-25';
   if (d < ROUND5_LOCK_FLOOR) return true;
   return today > visitEditableUntil(d);
 }
@@ -103,7 +104,7 @@ const chapters = {
 };
 
 console.log('\n[1] a new summary from the chapters sheet');
-reset();
+reset(); window_._visitDraftId = chapters.id;   // as Field.tsx gets it from sigma.visitDraftId()
 const r1 = await mod.saveVisitFromData(chapters);
 await tick();
 check('it is filed once, as new', () => {
@@ -136,6 +137,9 @@ check('EMS: the summary is a comment on EVERY selected task, the first is the li
 check('a contact new to the kibbutz joins site_contacts', () => {
   assert.equal(sbPosts.length, 1);
   assert.deepEqual(sbPosts[0].body, { kibbutz: 'חוקוק', name: 'יוסי מהמחלבה', active: true });
+});
+check('the pre-minted draft id is released, so the next new visit gets a fresh one', () => {
+  assert.equal(window_._visitDraftId, null);
 });
 check('the rest of the app hears visit-saved (attendance, drafts, calendar refresh)', () => {
   assert.ok(emitted.some(e => e.name === 'visit-saved'));

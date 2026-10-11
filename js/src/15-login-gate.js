@@ -244,7 +244,18 @@
     // Known EMS-email → app-person overrides: an EMS account whose profile firstName isn't the app
     // name we use. עידן's real EMS account is pm@sigmatec-energy.com (cf. 12-reports.js), but its EMS
     // firstName resolves to "PM" → he'd land as team role and lose his admin powers. Map it explicitly.
-    const EMS_EMAIL_ALIASES = { 'pm@sigmatec-energy.com': 'עידן' };
+    const EMS_EMAIL_ALIASES = {
+      'pm@sigmatec-energy.com': 'עידן',
+      // Staff without the EMS admin role can't read /users, so the lookup below fails and they used
+      // to land as their raw email (ניתאי as technician@…, Sept–Oct 2026). Mirrors staff_identities.
+      'technician@sigmatec-energy.com': 'ניתאי',
+      'engsupport@sigmatec-energy.com': 'אביאם',
+      'ankor@sigmatec-energy.com': 'עמיחי',
+      'microgrid@sigmatec-energy.com': 'אבצן',
+      'rnddev@sigmatec-energy.com': 'אליה',
+      'kedematanya@gmail.com': 'מתניה',
+      'mkedem2006@gmail.com': 'מתניה',
+    };
     const EMS_EMAIL_KEY = 'ems_login_email_v1';   // persisted at login so a plain refresh can re-resolve identity
     async function resolveIdentity(email) {
       const alias = EMS_EMAIL_ALIASES[(email || '').toLowerCase().trim()];
