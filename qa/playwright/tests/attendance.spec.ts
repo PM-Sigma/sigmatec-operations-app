@@ -47,9 +47,10 @@ test('attendance: the island owns the screen and the legacy table steps aside', 
   await expect(page.locator('#attendanceTable')).toBeAttached();
 
   await expect(page.getByRole('heading', { name: /נוכחות/ })).toBeVisible();
-  // desktop (>=1024) shows ONE day editor (att-panel); the "היום" quick block is phone-only (R9)
+  // desktop (>=1024) shows ONE day editor (att-panel). The manual "היום" quick block is gone for
+  // the field workers (עידן 11.10): their field days come only from a saved visit summary.
   if ((page.viewportSize()?.width ?? 0) >= 1024) await expect(page.getByTestId('att-panel')).toBeVisible();
-  else await expect(page.getByTestId('att-today')).toBeVisible();
+  await expect(page.getByTestId('att-today')).toHaveCount(0);
   await expect(page.getByTestId('att-kpi-field')).toBeVisible();
   await expect(page.getByTestId('att-kpi-office')).toBeVisible();
   await expect(page.getByTestId('att-kpi-missing')).toBeVisible();
@@ -111,7 +112,8 @@ test('attendance: a day sheet opens from the grid with the day types one tap awa
 
   // A day with nothing on it — the first Wednesday holds the mock visit, so take the grid's
   // first cell that is still empty.
-  const empty = page.locator('[data-date][data-state="missing"], [data-date][data-state="future"]').first();
+  // (R9 11.10: a field worker reports PAST days only, and never "יום שטח" by hand.)
+  const empty = page.locator('[data-date][data-state="missing"], [data-date][data-state="today"]').first();
   await empty.click();
 
   // Phone → the bottom sheet; wide → the side panel. Only one of the two is ever on screen
@@ -119,7 +121,7 @@ test('attendance: a day sheet opens from the grid with the day types one tap awa
   // first in DOM order.
   const editor = page.locator('[data-testid="att-sheet"]:visible, [data-testid="att-panel"]:visible').first();
   await expect(editor).toBeVisible();
-  await expect(editor.locator('[data-daytype="field"]').first()).toBeVisible();
+  await expect(editor.locator('[data-daytype="field"]')).toHaveCount(0);
   await expect(editor.locator('[data-daytype="office"]').first()).toBeVisible();
 
   await shot(page, ti, 'day');
@@ -148,7 +150,8 @@ test('attendance: אביאם sees the month of ניתאי, and may only look at 
   await page.locator('[data-person="ניתאי"]').click();
   await expect(page.getByRole('heading', { name: /נוכחות/ })).toContainText('ניתאי');
 
-  const empty = page.locator('[data-date][data-state="missing"], [data-date][data-state="future"]').first();
+  // (R9 11.10: a field worker reports PAST days only, and never "יום שטח" by hand.)
+  const empty = page.locator('[data-date][data-state="missing"], [data-date][data-state="today"]').first();
   await empty.click();
   const editor = page.locator('[data-testid="att-sheet"]:visible, [data-testid="att-panel"]:visible').first();
   await expect(editor.getByTestId('att-readonly')).toBeVisible();
@@ -198,7 +201,7 @@ test('attendance: a missing day is a real tap target, and the reports carry a la
 // ── round 2 · F-5: ערב חג — required, and מהבית unless the person says otherwise ────────
 
 test('attendance: an ערב חג offers מהבית on a countdown that can be stopped', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'אביאם' });
+  const { rec } = await boot(page, ti, { who: 'עמיחי' });
   await openAttendance(page);
 
   // A weekday in the SECOND week — the fixture's holiday, closure, visit and two manual days

@@ -18,7 +18,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 import {
   AlarmClock, CalendarDays, Check, ChevronDown, ClipboardList, Download, Loader2, MapPin, Mic,
-  Plus, Search, Send, Square, Sun, Trash2, Truck, X,
+  Link2, Plus, Search, Send, Square, Sun, Trash2, Truck, X,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -56,6 +56,8 @@ import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
 import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { speechLadder } from '@/lib/feedback';
 // Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
+import { applyStatusChanges, KEEP_STATUS, needsEmsLinkWarning, plannedStatusChanges, statusChoices } from '@/lib/visitEmsLink';
+import { classifyError, userMessage } from '@/lib/errorMessages';
 import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
 import { type AttAsk } from '@/lib/visitAttendance';
 import { visitEditLocked, visitToChapters, type VisitRowLike } from '@/lib/visitEdit';
@@ -1170,6 +1172,11 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const [editing, setEditing] = React.useState(false);
   /** Round 5 V20: the whole visit is past the edit-lock (app/src/lib/editLock.ts) — read-only. */
   const [editLocked, setEditLocked] = React.useState(false);
+  /** EMS status picked per linked task (taskId -> status | 'keep'). Applied AFTER the visit is saved. */
+  const [emsPicks, setEmsPicks] = React.useState<Record<string, string>>({});
+  /** The "no EMS task linked" dialog (open + the radio choice). */
+  const [linkAsk, setLinkAsk] = React.useState(false);
+  const [linkPick, setLinkPick] = React.useState('');
 
   // The same query key the briefing uses, so this costs no extra request.
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: open });
@@ -1192,6 +1199,9 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     try { raw = (sigma?.emsCacheTasksForKibbutz?.(kibbutz) as CardEmsTask[]) || []; } catch { raw = []; }
     return raw.filter(t => !OPEN_EMS.includes(String(t.status || '').toLowerCase()));
   }, [open, kibbutz]);
+
+  const emsTasksRef = React.useRef(emsTasks);
+  emsTasksRef.current = emsTasks;
 
   const internalTasks = React.useMemo<InternalRow[]>(
     () => ((internalQ.data || []) as InternalRow[]).filter(r => !r.kibbutz || r.kibbutz === kibbutz),
@@ -1220,6 +1230,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   // Refs, so the autosave and the openers never read a stale render.
   const ref = React.useRef({ model, draftId, kibbutz, editing });
   ref.current = { model, draftId, kibbutz, editing };
+  const emsPicksRef = React.useRef(emsPicks);
+  emsPicksRef.current = emsPicks;
 
   /** Write the draft NOW. The one persistence path — autosave and שמור וסגור share it. Editing a
    *  filed visit (V-L4b) writes NO draft — legacy behaviour, 09-visits.js:705-706. */
@@ -1304,6 +1316,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       setJump(opts.mode === 'cert' ? 4 : (opts.chapter ?? 0));
       setResumedAt('');
       setEditing(true);
+      setEmsPicks({});
       setEditLocked(visitEditLocked({ date: (v as { date?: string }).date || '' }));
       setOpen(true);
       track('visit-chapters-open', k);
@@ -1312,6 +1325,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
     setEditing(false);
     setEditLocked(false);
+    setEmsPicks({});
+    setLinkAsk(false);
     let row: { id?: string; updated_at?: string; payload?: Record<string, unknown> } | null = null;
     try { row = (sigma.visitDraftFor?.(k, me, today) as any) || null; } catch { row = null; }
     const stored = (row?.payload || {}) as ChapterDraft;
@@ -1371,8 +1386,9 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   }, [set, today]);
 
   /** שלח — chapter 5 only, and the only thing here that creates anything. */
-  const send = React.useCallback(async () => {
+  const send = React.useCallback(async (opts: { emsIds?: string[]; skipLink?: boolean } = {}) => {
     const cur = ref.current;
+    if (opts.emsIds) cur.model = { ...cur.model, emsTaskIds: opts.emsIds };
     if (sentRef.current && sentRef.current === cur.draftId) return;     // idempotent by id
     const gaps = missingFields(cur.model);
     if (gaps.length) {
@@ -1383,6 +1399,12 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     }
     const v = canSubmit(cur.model);
     if (!v.ok) { toast.error(v.reason || 'לא ניתן לשלוח'); return; }
+    // עידן 11.10: no EMS task linked while the kibbutz has open ones -> ask BEFORE saving.
+    if (needsEmsLinkWarning({ emsTaskIds: cur.model.emsTaskIds, openTaskCount: emsTasksRef.current.length, skipped: opts.skipLink })) {
+      setLinkPick('');
+      setLinkAsk(true);
+      return;
+    }
     // Claimed BEFORE the round trip: a double-tap on a phone arrives long before the answer.
     sentRef.current = cur.draftId;
     setSending(true);
@@ -1438,6 +1460,16 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
         // The EMS comments went out inside saveVisitFromData (`emsComment` above). Every selected
         // internal task is marked done here.
+        // עידן 11.10: the EMS status change runs only now, after the visit is safely filed. An EMS
+        // failure never undoes the visit: it gets the error mapper's toast and the visit stays.
+        const changes = plannedStatusChanges(emsPicksRef.current,
+          Object.fromEntries(emsTasksRef.current.map(t => [String(t.id), String(t.status)])));
+        if (changes.length) {
+          const r = await applyStatusChanges(changes, (id, st) => sigma.emsSetStatus?.(id, st));
+          if (r.failed.length) toast.error('הביקור נשמר, אך עדכון סטטוס המשימה נכשל · ' + userMessage(classifyError(r.failed[0].error)), toastOpts);
+          else toast.success(r.done > 1 ? 'סטטוס המשימות עודכן' : 'סטטוס המשימה עודכן', toastOpts);
+        }
+
         if (internalIds.length) {
           try {
             const sb = await getSupabase();
@@ -1734,6 +1766,58 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
               <Chapter id={5}>
                 <div className="flex flex-col gap-3">
+                  {/* C6 — never preselected. עידן 11.10: the EMS link is the first thing in this chapter. */}
+                  <div
+                    className="flex flex-col gap-1.5 rounded-2xl border-2 border-[color:var(--brand-1)] bg-[color:var(--brand-1)]/5 p-2.5"
+                    data-testid="vc-tasks"
+                  >
+                    <span className="flex items-center gap-1.5 text-[14px] font-extrabold" data-testid="vc-ems-link-title">
+                      <Link2 className="h-4 w-4" /> שיוך למשימת EMS
+                    </span>
+                    <span className="text-[12px] text-muted-foreground">לאיזו משימה הביקור הזה שייך? הסיכום ייכתב עליה כתגובה.</span>
+                    {!emsTasks.length && !internalTasks.length && (
+                      <p className="rounded-xl border border-border bg-muted px-3 py-2 text-[12.5px] text-muted-foreground">
+                        אין כאן משימות פתוחות. תגיד למה הגעת.
+                      </p>
+                    )}
+                    {emsTasks.map(t => (
+                      <React.Fragment key={String(t.id)}>
+                        <PickRow
+                          testid={'vc-ems-' + t.id}
+                          on={(d.emsTaskIds || []).includes(String(t.id))}
+                          title={String(t.title)}
+                          sub={'EMS · ' + statusLabel(t.status)}
+                          onToggle={() => toggleId('emsTaskIds', String(t.id))}
+                        />
+                        {(d.emsTaskIds || []).includes(String(t.id)) && (
+                          <label className="flex items-center gap-2 ps-2 text-[12.5px] font-bold text-muted-foreground">
+                            סטטוס המשימה
+                            <select
+                              data-testid={'vc-ems-status-' + t.id}
+                              value={emsPicks[String(t.id)] || KEEP_STATUS}
+                              onChange={e => setEmsPicks(p => ({ ...p, [String(t.id)]: e.target.value }))}
+                              className="min-h-[40px] min-w-0 flex-1 rounded-xl border border-border bg-card px-2 text-[13.5px] font-semibold text-foreground"
+                            >
+                              {statusChoices(statusLabel).map(o => (
+                                <option key={o.value} value={o.value}>{o.value === KEEP_STATUS ? `להשאיר (${statusLabel(t.status)})` : o.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </React.Fragment>
+                    ))}
+                    {internalTasks.map(t => (
+                      <PickRow
+                        key={t.id}
+                        testid={'vc-internal-' + t.id}
+                        on={(d.internalTaskIds || []).includes(t.id)}
+                        title={t.title}
+                        sub={'🔒 פנימי' + (t.owner && t.owner !== me ? ' · ' + t.owner : '')}
+                        onToggle={() => toggleId('internalTaskIds', t.id)}
+                      />
+                    ))}
+                  </div>
+
                   <Field2 label="כמה זמן היית שם" name="hours" required miss={has('hours')}>
                     {/* Designer round 5 V-U4 review: at 360px flex-wrap left "יום שלם" alone on
                         its own line with the manual box stranded beside it. A fixed 3-column
@@ -1845,39 +1929,6 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                     </div>
                   </Field2>
 
-                  {/* C6 — never preselected. */}
-                  <div className="flex flex-col gap-1.5" data-testid="vc-tasks">
-                    <span className="text-[12.5px] font-bold text-muted-foreground">לאיזו משימה זה שייך</span>
-                    {!emsTasks.length && !internalTasks.length && (
-                      <p className="rounded-xl border border-border bg-muted px-3 py-2 text-[12.5px] text-muted-foreground">
-                        אין כאן משימות פתוחות. תגיד למה הגעת.
-                      </p>
-                    )}
-                    {emsTasks.map(t => (
-                      <PickRow
-                        key={String(t.id)}
-                        testid={'vc-ems-' + t.id}
-                        on={(d.emsTaskIds || []).includes(String(t.id))}
-                        title={String(t.title)}
-                        sub={'EMS · ' + statusLabel(t.status)}
-                        onToggle={() => toggleId('emsTaskIds', String(t.id))}
-                      />
-                    ))}
-                    {internalTasks.map(t => (
-                      <PickRow
-                        key={t.id}
-                        testid={'vc-internal-' + t.id}
-                        on={(d.internalTaskIds || []).includes(t.id)}
-                        title={t.title}
-                        sub={'🔒 פנימי' + (t.owner && t.owner !== me ? ' · ' + t.owner : '')}
-                        onToggle={() => toggleId('internalTaskIds', t.id)}
-                      />
-                    ))}
-                    {!!(d.emsTaskIds || []).length && (
-                      <p className="text-[11.5px] text-muted-foreground">הסיכום ייכתב כתגובה לכל משימה שסימנת.</p>
-                    )}
-                  </div>
-
                   {/* … and when nothing was linked, the reason is required instead. */}
                   {needReason && (
                     <Field2 label="סיבת הביקור" name="reason" required miss={has('reason')}>
@@ -1962,6 +2013,57 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         </div>
         {guard.prompt}
       </SheetContent>
+      <Dialog open={linkAsk} onOpenChange={v => { if (!v) setLinkAsk(false); }}>
+        <DialogContent dir="rtl" className="max-w-sm" data-testid="vc-link-warning">
+          <DialogHeader>
+            <DialogTitle className="text-[16px] font-extrabold">לא שויכה משימת EMS לסיכום הביקור</DialogTitle>
+            <DialogDescription>לאיזו משימה פתוחה של {kibbutz} הביקור שייך?</DialogDescription>
+          </DialogHeader>
+          <div role="radiogroup" className="flex max-h-[40svh] flex-col gap-1.5 overflow-y-auto">
+            {emsTasks.map(t => {
+              const on = linkPick === String(t.id);
+              return (
+                <button
+                  key={String(t.id)}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  data-testid={'vc-link-radio-' + t.id}
+                  onClick={() => setLinkPick(String(t.id))}
+                  className={'flex min-h-[48px] items-center gap-2.5 rounded-xl border px-3 py-2 text-start ' + (on ? 'border-[color:var(--brand-1)] bg-[color:var(--brand-1)]/10' : 'border-border bg-card')}
+                >
+                  <span aria-hidden className={'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2 ' + (on ? 'border-[color:var(--brand-1)]' : 'border-border')}>
+                    {on && <span className="h-2 w-2 rounded-full bg-[color:var(--brand-1)]" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-semibold">{String(t.title)}</span>
+                    <span className="block truncate text-[11.5px] text-muted-foreground">{statusLabel(t.status)}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <ShimmerButton
+              disabled={!linkPick}
+              data-testid="vc-link-confirm"
+              onClick={() => { const id = linkPick; setLinkAsk(false); set({ emsTaskIds: [id] }); void send({ emsIds: [id] }); }}
+              background={linkPick ? 'var(--brand-grad)' : 'hsl(var(--muted))'}
+              className={'min-h-[44px] w-full rounded-xl text-[15px] font-extrabold ' + (linkPick ? 'text-[var(--s-on-brand)]' : 'text-muted-foreground')}
+            >
+              שייך ושמור
+            </ShimmerButton>
+            <button
+              type="button"
+              data-testid="vc-link-skip"
+              onClick={() => { setLinkAsk(false); void send({ skipLink: true }); }}
+              className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted"
+            >
+              שמור בלי שיוך
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {conflictAsks[0] && (
         <Dialog open onOpenChange={v => { if (!v) setConflictAsks(prev => prev.slice(1)); }}>
           <DialogContent dir="rtl" className="max-w-sm" data-testid="vc-attendance-conflict">

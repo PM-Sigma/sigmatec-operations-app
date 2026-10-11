@@ -38,7 +38,7 @@ import { SigmaProviders } from '@/lib/query';
 import { track } from '@/lib/track';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
-  attCellLook, attLegend, attTiles, canEditAttendance, canOverride, canSwitchPerson, dayChip, dayLabel, DAY_ORDER,
+  attCellLook, attDayPolicy, attLegend, attTiles, canEditAttendance, DAY_POLICY_TEXT, isFieldStaffSelf, type AttDayPolicy, canOverride, canSwitchPerson, dayChip, dayLabel, DAY_ORDER,
   EVE_COUNTDOWN_MS, EVE_DEFAULT_TYPE, eveCountdownText, HE_DAY_LETTERS, holidayNote,
   kpis as computeKpis, mergeByDay, missingBlock, missingByPerson, missingDays, monthGrid, originLine, rowOrigin, savedToast,
   toggleTile, ymd,
@@ -84,14 +84,14 @@ const LEGEND_DOT: Record<string, string> = {
   office: 'bg-[var(--info-ink)]', away: 'bg-[var(--neutral-ink)]', missing: 'bg-[var(--danger-ink)]',
 };
 
-function DayTypeRow({ value, onPick, busy }: { value: DayType | null; onPick: (t: DayType) => void; busy: boolean }) {
+function DayTypeRow({ value, onPick, busy, types = DAY_ORDER }: { value: DayType | null; onPick: (t: DayType) => void; busy: boolean; types?: DayType[] }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="סוג היום">
       {/* FilterChip has neither a `disabled` prop nor its own prop pass-through — a wrapper
           span carries both the data-daytype test hook and the busy state (visibly dimmed +
           aria-disabled, review round item 4), and the guard against a stray click stays on
           onClick since the chip itself can't be disabled. */}
-      {DAY_ORDER.map(t => (
+      {types.map(t => (
         <span key={t} data-daytype={t} aria-disabled={busy || undefined} className={busy ? 'pointer-events-none opacity-50' : undefined}>
           <FilterChip selected={value === t} onClick={() => !busy && onPick(t)}>
             {dayLabel(t)}
@@ -148,8 +148,9 @@ function MonthGridView({
     `showHeader` is false on the phone: the Sheet's own visible SheetTitle (A-U4) already
     carries the date, and this header would just repeat it right underneath. */
 function DayEditor({
-  cell, busy, canEdit = true, showHeader = true, onSave,
-}: { cell: DayCell; busy: boolean; canEdit?: boolean; showHeader?: boolean; onSave: (type: DayType, note: string) => void }) {
+  cell, busy, policy, showHeader = true, onSave,
+}: { cell: DayCell; busy: boolean; policy: AttDayPolicy; showHeader?: boolean; onSave: (type: DayType, note: string) => void }) {
+  const canEdit = policy.canEdit;
   const [note, setNote] = React.useState(cell.row?.note || '');
   const [pending, setPending] = React.useState<DayType | null>(null);
   React.useEffect(() => { setNote(cell.row?.note || ''); setPending(null); }, [cell.date, cell.row?.note]);
@@ -212,7 +213,7 @@ function DayEditor({
       {!canEdit ? (
         <div data-testid="att-readonly" className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
           <div className="font-bold">{cell.row ? dayLabel(cell.row.type) : 'אין דיווח ליום הזה'}</div>
-          <div className="mt-0.5 text-muted-foreground">צפייה בלבד.</div>
+          <div className="mt-0.5 text-muted-foreground">{DAY_POLICY_TEXT[policy.note || 'readonly']}</div>
         </div>
       ) : showOrigin && !revealed ? (
         <div className="rounded-[12px] border border-border bg-muted px-3 py-2.5 text-[13px]">
@@ -223,7 +224,10 @@ function DayEditor({
         </div>
       ) : (
         <>
-          <DayTypeRow value={current} onPick={t => { setEvePaused(true); setPending(t); setRevealed(true); }} busy={busy} />
+          {policy.note === 'no-field-manual' && (
+            <p data-testid="att-nofield-note" className="text-[12.5px] text-muted-foreground">{DAY_POLICY_TEXT['no-field-manual']}</p>
+          )}
+          <DayTypeRow value={current} types={policy.types} onPick={t => { setEvePaused(true); setPending(t); setRevealed(true); }} busy={busy} />
           {needsNote && (
             <input
               value={note}
@@ -318,6 +322,8 @@ function AttendanceIsland() {
   // row, so nothing is derived from the visits any more.
   const rows = React.useMemo(() => mergeByDay((rowsQ.data || []) as AttRow[]), [rowsQ.data]);
   const canEdit = canEditAttendance(me, person, flags);
+  const fieldStaff = isFieldStaffSelf(me, person, flags);
+  const policyFor = (c: DayCell): AttDayPolicy => attDayPolicy({ user: me, person, date: c.date, today: todayKey, row: c.row }, flags);
   const holidays = (holidaysQ.data || []) as Holiday[];
   const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today), [ym, rows, holidays, today]);
   const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m), [rows, holidays, today, ym]);
@@ -467,7 +473,7 @@ function AttendanceIsland() {
   </>);
   const todayEl = (<>
           {/* ── היום: the one thing this screen is for ───────────────────────── */}
-          {todayCell && (
+          {todayCell && !fieldStaff && (
             <div data-testid="att-today">
               <SectionBlock title="היום" flush>
                 <div className="px-4 py-1">
@@ -538,7 +544,7 @@ function AttendanceIsland() {
               <DayEditor
                 cell={selectedCell}
                 busy={save.isPending}
-                canEdit={canEdit}
+                policy={policyFor(selectedCell)}
                 onSave={(t, note) => save.mutate({ date: selectedCell.date, type: t, note })}
               />
             ) : (
@@ -644,7 +650,7 @@ function AttendanceIsland() {
                 <DayEditor
                   cell={openCell}
                   busy={save.isPending}
-                  canEdit={canEdit}
+                  policy={policyFor(openCell)}
                   showHeader={false}
                   onSave={(t, note) => save.mutate({ date: openCell.date, type: t, note })}
                 />

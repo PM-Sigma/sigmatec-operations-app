@@ -613,3 +613,43 @@ export function canEditAttendance(user: string, person: string, flags: AttViewer
   if (!person || person === user) return !flags.isViewer;
   return !!flags.isIdan || user === 'עמיחי';
 }
+
+// ───────────── field staff: no manual field report (עידן 11.10) ─────────────
+//
+// אביאם and ניתאי's FIELD days come only from saving a visit summary (the `visit_auto` rows).
+// What they report by hand are the non-field days — office / home / vacation / sick(other) /
+// reserve — and only for days that already happened (today counts). Absences in advance stay in
+// the calendar's absence flow. עידן / עמיחי keep every ability they had; a viewer reads only.
+
+/** True when `user` is a field worker looking at his OWN month — the restricted case. */
+export function isFieldStaffSelf(user: string, person: string, flags: AttViewerFlags = {}): boolean {
+  return mustFile(user) && (!person || person === user) && !flags.isIdan && !flags.isViewer;
+}
+
+export type DayPolicyNote = 'readonly' | 'future' | 'field-from-visit' | 'no-field-manual' | '';
+
+export interface AttDayPolicy {
+  /** May this day be written from here at all. */
+  canEdit: boolean;
+  /** The types the picker offers (never 'field' for field staff). */
+  types: DayType[];
+  note: DayPolicyNote;
+}
+
+export const DAY_POLICY_TEXT: Record<Exclude<DayPolicyNote, ''>, string> = {
+  readonly: 'צפייה בלבד.',
+  future: 'אי אפשר לדווח מראש מכאן. היעדרות מראש נרשמת ביומן.',
+  'field-from-visit': 'יום שטח נרשם אוטומטית משמירת סיכום ביקור.',
+  'no-field-manual': 'יום שטח נרשם אוטומטית משמירת סיכום ביקור. כאן מדווחים משרד, בית, חופש, מילואים או אחר.',
+};
+
+export function attDayPolicy(
+  a: { user: string; person: string; date: string; today: string; row: AttRow | null },
+  flags: AttViewerFlags = {},
+): AttDayPolicy {
+  if (!canEditAttendance(a.user, a.person, flags)) return { canEdit: false, types: [], note: 'readonly' };
+  if (!isFieldStaffSelf(a.user, a.person, flags)) return { canEdit: true, types: DAY_ORDER, note: '' };
+  if (a.date > a.today) return { canEdit: false, types: [], note: 'future' };
+  if (a.row?.type === 'field') return { canEdit: false, types: [], note: 'field-from-visit' };
+  return { canEdit: true, types: DAY_ORDER.filter(t => t !== 'field'), note: 'no-field-manual' };
+}

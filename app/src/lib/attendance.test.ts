@@ -6,7 +6,7 @@
 // grid's cells, which days are "missing", and the three KPIs.
 import { describe, expect, it } from 'vitest';
 import {
-  attCellLook, attLegend, ATT_FILERS, attTiles, canEditAttendance, canOverride, canSwitchPerson,
+  attCellLook, attDayPolicy, isFieldStaffSelf, attLegend, ATT_FILERS, attTiles, canEditAttendance, canOverride, canSwitchPerson,
   cellsOf, DAY_LABELS, dayChip, dayLabel, EVE_DEFAULT_TYPE, eveCountdownText, holidayNote,
   isRequiredDay, kpis, mergeByDay, missingBlock, missingByPerson, missingDays, missingDaysFor,
   monthGrid, mustFile, originLine, reportedDaysFor, rowOrigin, savedToast, toggleTile,
@@ -526,5 +526,48 @@ describe('round 5 · A4 — where a day came from', () => {
     expect(canOverride({ date: 'x', type: 'vacation', source: 'calendar' })).toBe(true);
     expect(canOverride({ date: 'x', type: 'office', source: 'manual' })).toBe(true);
     expect(canOverride(null)).toBe(true);
+  });
+});
+
+describe('attDayPolicy — field staff have no manual field report (עידן 11.10)', () => {
+  const base = { today: '2026-10-11', row: null as AttRow | null };
+  const past = '2026-10-08', todayD = '2026-10-11', future = '2026-10-14';
+  it.each(['אביאם', 'ניתאי'])('%s: past day -> non-field types only', u => {
+    const p = attDayPolicy({ ...base, user: u, person: u, date: past });
+    expect(p.canEdit).toBe(true);
+    expect(p.types).not.toContain('field');
+    expect(p.types).toEqual(expect.arrayContaining(['office', 'wfh', 'vacation', 'reserve', 'off', 'other']));
+  });
+  it('today counts as present: allowed', () => {
+    expect(attDayPolicy({ ...base, user: 'אביאם', person: 'אביאם', date: todayD }).canEdit).toBe(true);
+  });
+  it('future day is blocked', () => {
+    const p = attDayPolicy({ ...base, user: 'ניתאי', person: 'ניתאי', date: future });
+    expect(p.canEdit).toBe(false);
+    expect(p.note).toBe('future');
+  });
+  it('a visit-made field day cannot be changed by hand', () => {
+    const p = attDayPolicy({ ...base, user: 'אביאם', person: 'אביאם', date: past, row: { date: past, type: 'field', source: 'visit_auto' } });
+    expect(p.canEdit).toBe(false);
+    expect(p.note).toBe('field-from-visit');
+  });
+  it('the other field worker cannot write my month (read only)', () => {
+    expect(attDayPolicy({ ...base, user: 'אביאם', person: 'ניתאי', date: past }).canEdit).toBe(false);
+  });
+  it('עידן / עמיחי unchanged: every type, future too', () => {
+    for (const [u, flags] of [['עידן', { isIdan: true }], ['עמיחי', {}]] as const) {
+      const p = attDayPolicy({ ...base, user: u, person: 'אביאם', date: future }, flags);
+      expect(p.canEdit).toBe(true);
+      expect(p.types).toContain('field');
+    }
+  });
+  it('viewer is read-only', () => {
+    const p = attDayPolicy({ ...base, user: 'צופה', person: 'אביאם', date: past }, { isViewer: true });
+    expect(p.canEdit).toBe(false);
+  });
+  it('isFieldStaffSelf: only a filer on his own month', () => {
+    expect(isFieldStaffSelf('אביאם', 'אביאם')).toBe(true);
+    expect(isFieldStaffSelf('עידן', 'אביאם', { isIdan: true })).toBe(false);
+    expect(isFieldStaffSelf('עמיחי', 'עמיחי')).toBe(false);
   });
 });
