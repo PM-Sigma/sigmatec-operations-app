@@ -76,7 +76,7 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 ## 🚦 Current state — 2026-10-11 (**11.10 ship merged to main as 276a1549; live 2.155**)
 
 Live on `main`: desktop attendance + report pages, viewer nav (attendance/certs) + cert PDF + page titles, visit summary <-> EMS task link, attendance from visits only for אביאם/ניתאי, and the attendance **day details** text (tap a date → what happened). Details: CHANGELOG [2.155].
-Open: 🔴 stock correction from the 7.10/4.10 visit-overwrite bug (backlog top) · 🟡 field-ops hub r1/r2 waiting עידן · 🟡 bug bot install · 🟡 readings-pull merge. Next session: pick from backlog top.
+Open: 🔴 stock correction from the 7.10/4.10 visit-overwrite bug (backlog top) · 🟡 field-ops hub r1/r2 waiting עידן · 🟡 bug bot install. Next session: pick from backlog top.
 
 ## 🚦 Current state — 2026-09-29 (feat/readings-pull, not merged)
 
