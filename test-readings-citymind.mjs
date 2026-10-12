@@ -1,12 +1,12 @@
-// test-readings-citymind.mjs — readings-fetch/citymind.js (עין המפרץ, CityMind water). FAKE data only (public repo):
+// test-readings-citymind.mjs — readings-fetch/citymind.mjs (עין המפרץ, CityMind water). FAKE data only (public repo):
 // fake serials (T100000x), fake ids (900x), fake readings. The CSV fixture is real windows-1255 bytes.
 // Run: node test-readings-citymind.mjs
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import {
   buildWater, checkWater, continuity, idMap, INGEST_MAX_BYTES, INGEST_MAX_ROWS, keyMatches, missingInfo, parseCityMind,
-  parseCsv, resolveReplacements, validateIngest, CityMindError,
-} from './supabase/functions/readings-fetch/citymind.js';
+  parseCsv, resolveReplacements, validateIngest, CityMindError, normHeader, detectFileType, safeErrorLine,
+} from './supabase/functions/readings-fetch/citymind.mjs';
 import { cronFirstRunDue, cronStartOffset, CRON_SPREAD_MIN } from './supabase/functions/readings-fetch/helpers.js';
 
 let n = 0;
@@ -43,6 +43,50 @@ t('a missing header = CHANGED; no row for the day = STALE', () => {
 
 t('csv: quotes, "" escapes, CRLF', () => {
   assert.deepStrictEqual(parseCsv('a,"b,c","d""e"\r\nx,y,z\n'), [['a', 'b,c', 'd"e'], ['x', 'y', 'z']]);
+});
+
+// ── header variants (fake fixtures; the 12.10 dry-run said CHANGED) ─────────────
+const body = '9001,T1000001,09/10/2026 23:00,1234.5';
+const variant = (head, sep = ',', rows = body) => head.join(sep) + '\r\n' + rows.split(',').join(sep) + '\r\n';
+const H = ["מס' זיהוי", "מס' משדר", 'תאריך וזמן', 'קריאה'];
+const want = [{ id: '9001', serial: 'T1000001', when: '09/10/2026 23:00', ft: 1234.5 }];
+for (const [name, head, sep] of [
+  ['geresh ׳ (U+05F3) instead of an apostrophe', ['מס\u05F3 זיהוי', 'מס\u05F3 משדר', 'תאריך וזמן', 'קריאה']],
+  ['right single quote ’ (U+2019)', ['מס\u2019 זיהוי', 'מס\u2019 משדר', 'תאריך וזמן', 'קריאה']],
+  ['NBSP between the words', ["מס'\u00A0זיהוי", "מס'\u00A0משדר", 'תאריך\u00A0וזמן', 'קריאה']],
+  ['RTL/LTR marks around the text', ['\u200F' + H[0] + '\u200F', '\u202B' + H[1] + '\u202C', '\u200E' + H[2], H[3] + '\u200F']],
+  ['double spaces and padding', ["  מס'  זיהוי ", " מס'   משדר", 'תאריך  וזמן  ', ' קריאה ']],
+  ['a BOM before the first header', ['\uFEFF' + H[0], H[1], H[2], H[3]]],
+  ['semicolon-delimited', H, ';'],
+  ['TAB-delimited', H, '\t'],
+]) {
+  t('header variant: ' + name, () => assert.deepStrictEqual(parseCityMind(variant(head, sep), DAY), want));
+}
+t('header variant fixture in real windows-1255 bytes (geresh + NBSP)', () => {
+  const s = variant(['מס\u05F3 זיהוי', "מס'\u00A0משדר", 'תאריך וזמן', 'קריאה']);
+  const bytes = Uint8Array.from([...s].map((c) => { const k = c.charCodeAt(0); return k >= 0x5D0 && k <= 0x5EA ? k - 0x5D0 + 0xE0 : k === 0x5F3 ? 0xD7 : k === 0xA0 ? 0xA0 : k; }));
+  assert.deepStrictEqual(parseCityMind(new TextDecoder('windows-1255').decode(bytes), DAY), want);
+});
+t('normHeader: marks, quotes, spaces', () => {
+  assert.strictEqual(normHeader('\u200F מס\u05F3\u00A0 משדר \u200E'), "מס' משדר");
+  assert.strictEqual(normHeader('מס\u05F4ד'), 'מס"ד');
+});
+t('CHANGED says WHICH expected headers are missing, counts and the type — never data', () => {
+  let err;
+  try { parseCityMind(variant(["מס' זיהוי", 'מספר', 'תאריך וזמן', 'ערך']), DAY); } catch (e) { err = e; }
+  assert.strictEqual(err.code, 'CHANGED');
+  assert.deepStrictEqual(err.detail.missing, ["מס' משדר", 'קריאה']);
+  const line = safeErrorLine(err);
+  assert.strictEqual(line, "CHANGED: headers missing [מס' משדר, קריאה] (found 4 columns, 1 data lines, file type csv)");
+  assert.ok(!line.includes('T1000001') && !line.includes('1234.5') && !line.includes('9001'), 'no data values in the log line');
+});
+t('not a CSV (an HTML page / xlsx / empty) → CHANGED with the detected type', () => {
+  for (const [txt, type] of [['<!DOCTYPE html><html><body>x</body></html>', 'html'], ['<table><tr><td>a</td></tr></table>', 'html'], ['PK\u0003\u0004…', 'xlsx'], ['', 'empty']]) {
+    assert.strictEqual(detectFileType(txt), type);
+    let err; try { parseCityMind(txt, DAY); } catch (e) { err = e; }
+    assert.strictEqual(err.code, 'CHANGED');
+    assert.strictEqual(safeErrorLine(err), 'CHANGED: file (found 0 columns, file type ' + type + ')');
+  }
 });
 
 // ── the checks (golden per rule) ──────────────────────────────────────────────

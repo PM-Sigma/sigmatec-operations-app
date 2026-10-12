@@ -22,7 +22,7 @@ Source spec (עידן, 12.10.26): `Kibbutzim/עין המפרץ/תוצרים/2026
 5. `emsCheck` for this site: replacement continuity first (EMS `GET /v1/meters?search=` → clientMeters), then the usual
    EMS `validate` (blocks "not set up under the site"), then info rows for the site's water meters missing from the report.
 
-## Rules (citymind.js, goldens in test-readings-citymind.mjs)
+## Rules (citymind.mjs, goldens in test-readings-citymind.mjs)
 | | Rule |
 |---|---|
 | BLOCK | negative · empty reading · skip-list (`rules.skip`) · drop vs the last SAVED reading (a drop to < 5 m³ is labelled "probably a meter replacement") · not set up in EMS (validate) · replacement whose continuity is not proven |

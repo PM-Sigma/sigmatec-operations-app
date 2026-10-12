@@ -1,4 +1,4 @@
-// readings-fetch/citymind.js — PURE, dependency-free (Node tests + Deno import the same file).
+// readings-fetch/citymind.mjs — PURE, dependency-free (Node tests + Deno import the same file).
 // עין המפרץ: daily water readings from CityMind (Arad). The fetch itself runs on a GitHub Actions runner
 // (scripts/citymind/citymind-daily.mjs — CityMind sits behind Cloudflare, which refuses Supabase and headless
 // Chromium); the runner parses the export with parseCityMind() and POSTs the rows to readings-fetch `ingest`.
@@ -34,7 +34,7 @@ const DAY_MS = 86400000;
 const HEAD = { id: "מס' זיהוי", serial: "מס' משדר", when: ['תאריך וזמן', 'זמן קריאה'], value: 'קריאה' };
 
 /** Minimal RFC-4180 CSV: quoted fields, "" escapes, CRLF/LF. */
-export function parseCsv(text) {
+export function parseCsv(text, delim = ',') {
   const out = []; let row = [], cell = '', q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
@@ -42,7 +42,7 @@ export function parseCsv(text) {
       if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
       else cell += c;
     } else if (c === '"') q = true;
-    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === delim) { row.push(cell); cell = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && text[i + 1] === '\n') i++;
       row.push(cell); out.push(row); row = []; cell = '';
@@ -53,35 +53,95 @@ export function parseCsv(text) {
 }
 
 export class CityMindError extends Error {
-  constructor(code, message) { super(message); this.code = code; }
+  /** detail: PUBLIC-SAFE diagnostics only (stage, expected header names that are missing, counts, file type). */
+  constructor(code, message, detail = {}) { super(message); this.code = code; this.detail = detail; }
+}
+
+/**
+ * Header text → a comparable key: bidi/invisible marks and BOM removed, NBSP → space, every apostrophe-like mark
+ * (׳ geresh U+05F3, ’ ‘ ` ´ ʼ) → ', every quote-like mark (״ gershayim U+05F4, “ ”) → ", whitespace collapsed.
+ */
+export function normHeader(h) {
+  return String(h ?? '')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF\u00AD]/g, '')
+    .replace(/[\u00A0\u2007\u202F]/g, ' ')
+    .replace(/[\u05F3\u2019\u2018`\u00B4\u02BC]/g, "'")
+    .replace(/[\u05F4\u201C\u201D]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** What the export actually is, from its first bytes/characters. Only a TYPE word — never content. */
+export function detectFileType(text) {
+  const t = String(text || '').replace(/^[\uFEFF\s]+/, '');
+  if (!t) return 'empty';
+  if (/^<(!doctype|html|table|\?xml)/i.test(t) || /^</.test(t)) return 'html';
+  if (t.startsWith('PK')) return 'xlsx';
+  if (t.charCodeAt(0) === 0xD0 && t.charCodeAt(1) === 0xCF) return 'xls';
+  if (t.startsWith('{') || t.startsWith('[')) return 'json';
+  return 'csv';
+}
+
+/** The CSV delimiter of the header line: , ; or TAB, whichever splits it most (quotes respected). */
+export function detectDelimiter(text) {
+  const first = String(text || '').split(/\r?\n/, 1)[0] || '';
+  let best = ',', bestN = -1;
+  for (const d of [',', ';', '\t']) {
+    let n = 0, q = false;
+    for (const c of first) { if (c === '"') q = !q; else if (!q && c === d) n++; }
+    if (n > bestN) { best = d; bestN = n; }
+  }
+  return best;
 }
 
 const ddmmyyyy = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);
 
 /**
  * The export (already decoded from windows-1255) → [{id, serial, when, ft}] for `day` only.
- * Columns are found by HEADER NAME (the report's column order changes — עידן 12.10).
- * Throws CityMindError CHANGED (a header is missing) / STALE (no rows for the day).
+ * Columns are found by HEADER NAME (the report's column order changes — עידן 12.10), compared through normHeader().
+ * Throws CityMindError CHANGED (not a CSV, or an expected header is missing — detail says which, safely) /
+ * STALE (no rows for the day).
  */
 export function parseCityMind(text, day) {
-  const lines = parseCsv(String(text || '').replace(/^﻿/, ''));
-  if (!lines.length) throw new CityMindError('CHANGED', 'empty export');
-  const head = lines[0].map((h) => h.trim());
-  const col = (names) => { for (const n of [].concat(names)) { const i = head.indexOf(n); if (i >= 0) return i; } return -1; };
+  const raw = String(text || '');
+  const type = detectFileType(raw);
+  if (type !== 'csv') throw new CityMindError('CHANGED', 'not a csv export', { stage: 'file', type, columns: 0, missing: [] });
+  const lines = parseCsv(raw.replace(/^\uFEFF/, ''), detectDelimiter(raw.replace(/^\uFEFF/, '')));
+  const head = (lines[0] || []).map(normHeader);
+  const col = (names) => { for (const n of [].concat(names)) { const i = head.indexOf(normHeader(n)); if (i >= 0) return i; } return -1; };
   const iId = col(HEAD.id), iTx = col(HEAD.serial), iWhen = col(HEAD.when), iVal = col(HEAD.value);
-  if (iTx < 0 || iWhen < 0 || iVal < 0) throw new CityMindError('CHANGED', 'missing columns');
+  const missing = [];
+  if (iTx < 0) missing.push(HEAD.serial);
+  if (iWhen < 0) missing.push(HEAD.when[0]);
+  if (iVal < 0) missing.push(HEAD.value);
+  if (missing.length) throw new CityMindError('CHANGED', 'missing columns', { stage: 'headers', type, columns: head.length, rows: Math.max(lines.length - 1, 0), missing });
   const want = ddmmyyyy(day);
   const rows = [];
   for (const r of lines.slice(1)) {
-    const when = (r[iWhen] || '').trim();
+    const when = normHeader(r[iWhen]);
     if (!when.startsWith(want)) continue;
-    const serial = (r[iTx] || '').trim();
+    const serial = normHeader(r[iTx]);
     if (!serial) continue;
-    const v = Number(String(r[iVal] ?? '').replace(/,/g, '').trim());
-    rows.push({ id: iId >= 0 ? (r[iId] || '').trim() : '', serial, when, ft: String(r[iVal] ?? '').trim() !== '' && Number.isFinite(v) ? v : null });
+    const cell = normHeader(r[iVal]);
+    const v = Number(cell.replace(/,/g, ''));
+    rows.push({ id: iId >= 0 ? normHeader(r[iId]) : '', serial, when, ft: cell !== '' && Number.isFinite(v) ? v : null });
   }
-  if (!rows.length) throw new CityMindError('STALE', 'no rows for the day');
+  if (!rows.length) throw new CityMindError('STALE', 'no rows for the day', { stage: 'rows', type, columns: head.length, rows: Math.max(lines.length - 1, 0) });
   return rows;
+}
+
+/** One public-safe log line for a CityMindError: the code, the stage, EXPECTED header names that are missing, counts, the type. */
+export function safeErrorLine(e) {
+  const code = e && e.code ? e.code : 'DOWN';
+  const d = (e && e.detail) || {};
+  const miss = d.missing && d.missing.length ? 'headers missing [' + d.missing.join(', ') + ']' : '';
+  const parts = [code + (miss ? ': ' + miss : d.stage ? ': ' + d.stage : '')];
+  const nums = [];
+  if (typeof d.columns === 'number') nums.push('found ' + d.columns + ' columns');
+  if (typeof d.rows === 'number') nums.push(d.rows + ' data lines');
+  if (d.type) nums.push('file type ' + d.type);
+  if (nums.length) parts.push('(' + nums.join(', ') + ')');
+  return parts.join(' ');
 }
 
 const dayMs = (iso) => Date.parse(iso + 'T00:00:00Z');

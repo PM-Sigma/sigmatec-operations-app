@@ -10,7 +10,7 @@
 // env: CITYMIND_USER, CITYMIND_PASS, READINGS_INGEST_KEY (required) · DRY_RUN=true (parse + checks + counts, no write)
 //      CITYMIND_DATE=YYYY-MM-DD (default: yesterday, Israel) · PLAYWRIGHT_MODULE (path of an installed playwright)
 import { readFileSync } from 'node:fs';
-import { parseCityMind, CityMindError } from '../../supabase/functions/readings-fetch/citymind.js';
+import { parseCityMind, CityMindError, safeErrorLine } from '../../supabase/functions/readings-fetch/citymind.mjs';
 import { badRunDate, israelYesterday } from '../../supabase/functions/readings-fetch/helpers.js';
 
 const CM = 'https://www.city-mind.com';
@@ -42,31 +42,32 @@ async function exportCsv(user, pass, iso) {
     const pg = await b.newPage();
     // never `networkidle`: the site polls in the background forever — wait for the fields themselves
     const first = await pg.goto(CM + '/default.aspx', { waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => null);
-    if (!first) throw new CityMindError('DOWN', 'login page did not load');
-    if (first.status() === 403 || first.status() === 503) throw new CityMindError('BLOCKED', 'status ' + first.status());
+    if (!first) throw new CityMindError('DOWN', 'login page did not load', { stage: 'login-page' });
+    if (first.status() === 403 || first.status() === 503) throw new CityMindError('BLOCKED', 'blocked', { stage: 'login-page status ' + first.status() });
     const field = await pg.waitForSelector('input[name="AtusLogin$UserName"]', { timeout: 60000 }).catch(() => null);
     if (!field) {
       const t = (await pg.title().catch(() => '')) || '';
-      throw new CityMindError(/just a moment|attention required|cloudflare/i.test(t) ? 'BLOCKED' : 'CHANGED', 'no login form');
+      const cf = /just a moment|attention required|cloudflare/i.test(t);
+      throw new CityMindError(cf ? 'BLOCKED' : 'CHANGED', 'no login form', { stage: 'login-form not found (page: ' + (cf ? 'cloudflare challenge' : 'other') + ')' });
     }
     await pg.fill('input[name="AtusLogin$UserName"]', user);
     await pg.fill('input[name="AtusLogin$Password"]', pass);
     await pg.click('input[name="AtusLogin$LoginButton"]');
     const left = await pg.waitForURL((u) => !String(u).toLowerCase().includes('default.aspx'), { timeout: 90000 }).then(() => true, () => false);
-    if (!left) throw new CityMindError('AUTH', 'login refused');
+    if (!left) throw new CityMindError('AUTH', 'login refused', { stage: 'login' });
     const rep = await pg.goto(reportUrl(iso), { waitUntil: 'load', timeout: 300000 }).catch(() => null);
-    if (!rep) throw new CityMindError('DOWN', 'report did not load');
-    if (rep.status() === 403) throw new CityMindError('BLOCKED', 'status 403');
+    if (!rep) throw new CityMindError('DOWN', 'report did not load', { stage: 'report-page' });
+    if (rep.status() === 403) throw new CityMindError('BLOCKED', 'blocked', { stage: 'report-page status 403' });
     const ready = await pg.waitForFunction('typeof ExecuteAJAXExportCall === "function"', null, { timeout: 120000 }).then(() => true, () => false);
-    if (!ready) throw new CityMindError('CHANGED', 'no export on the report page');
+    if (!ready) throw new CityMindError('CHANGED', 'no export on the report page', { stage: 'report-page export function missing' });
     // the export URL is one-shot; the CSV is windows-1255 — decoded in the page, so only text crosses back
     const res = await pg.evaluate(async () => {
       const j = await (await fetch('/Pages/AplicateToEXLFile.aspx?rid=13')).json();
-      if (!j || !j.success || !j.url) return [false, ''];
+      if (!j || !j.success || !j.url) return [false, !j ? 'no-json' : !j.success ? 'success-false' : 'no-url'];
       const buf = await (await fetch('/Pages/' + j.url)).arrayBuffer();
       return [true, new TextDecoder('windows-1255').decode(buf)];
-    });
-    if (!res[0]) throw new CityMindError('CHANGED', 'export refused');
+    }).catch(() => [false, 'download-failed']);
+    if (!res[0]) throw new CityMindError('CHANGED', 'export refused', { stage: 'export refused (' + res[1] + ')' });
     return res[1];
   } finally {
     await b.close();
@@ -100,7 +101,7 @@ async function main() {
     rows = parseCityMind(await exportCsv(user, pass, day), day);
   } catch (e) {
     const code = e instanceof CityMindError ? e.code : 'DOWN';
-    log('fetch failed:', code);
+    log('fetch failed:', e instanceof CityMindError ? safeErrorLine(e) : code);
     const r = await post({ failed: true, error_code: code }).catch(() => null);
     log('reported failure, function status', r ? r.status : 'unreachable');
     process.exit(1);

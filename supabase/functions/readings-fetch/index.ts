@@ -19,7 +19,7 @@
 //   cron         {}                                   cron key only  (pg_cron, db/cron_readings_7am.sql)
 //   probe        {date?, raw?}                        user or cron   (Phase 0 feasibility check)
 //   ingest       {kibbutz, date, rows | failed+error_code, dry_run?}  X-Ingest-Key ONLY (READINGS_INGEST_KEY) — the
-//                GitHub Actions CityMind runner (עין המפרץ). Accepts INGEST_SITES only; size/shape-limited (citymind.js).
+//                GitHub Actions CityMind runner (עין המפרץ). Accepts INGEST_SITES only; size/shape-limited (citymind.mjs).
 // AUTH: X-Cron-Key == CRON_SECRET, or a bridge JWT (iss 'ems-bridge') carrying a staff `name` claim and not a viewer pass (canUseReadings).
 // Secrets: <secret_prefix>_USER/_PASS per source, BROWSERLESS_TOKEN, CRON_SECRET, JWT_SECRET/EMS_BRIDGE_SECRET,
 // SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, EMS_API_BASE. NEVER log or store credentials or the ems_token.
@@ -34,7 +34,7 @@ import { applyEmsValidation, buildRun } from "./logic.js";
 import {
   buildWater, continuity, finishWater, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, keyMatches, missingInfo,
   resolveReplacements, SOURCE as CITYMIND, validateIngest,
-} from "./citymind.js";
+} from "./citymind.mjs";
 import {
   addDaysIso, badRunDate, cronDecision, cronFirstRunDue, cronWindowOpen, dedupeDecision, emsSyncDecision,
   errText, fileNames, israelNow, israelYesterday, retentionCutoff, runStatus, STUCK_MS, storagePaths, valuesCutoff,
