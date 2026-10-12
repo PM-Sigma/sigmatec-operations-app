@@ -15,11 +15,54 @@ import { applyEmsValidation } from './logic.js';
 
 export const SOURCE = 'CityMind';
 export const WATER = 2;
-/** Sites the ingest mode accepts. Anything else is refused even with a valid key. */
-export const INGEST_SITES = ['עין המפרץ'];
-export const INGEST_MAX_BYTES = 1_000_000;
-export const INGEST_MAX_ROWS = 5000;
+// Which sites the ingest mode accepts is the DB: an ACTIVE reading_sites row with rules.source = 'citymind' (index.ts).
+// The raw export travels base64 (exact bytes, windows-1255) — 5 readings a day × ~500 meters ≈ 250 KB.
+export const INGEST_MAX_BYTES = 4_000_000;
+export const INGEST_MAX_ROWS = 20000;
 export const INGEST_ERRORS = ['AUTH', 'BLOCKED', 'DOWN', 'CHANGED', 'STALE'];
+export const CM_BASE = 'https://www.city-mind.com';
+
+// ───────────────────────── multi-kibbutz config (the reading_sites row IS the config) ─────────────────────────
+// rules.source = 'citymind' · rules.secrets = {user, pass} = the NAMES of the two GitHub secrets ·
+// rules.daily_readings = the report's "קריאות יומיות" value (CF4FVAL); absent/invalid = '1' (one a day, proved 12.10).
+const SECRET_NAME = /^[A-Z][A-Z0-9_]{2,60}$/;
+const DAILY_VALUE = /^-?[0-9]{1,3}$/;
+export const dailyValue = (rules) => (DAILY_VALUE.test(String(rules?.daily_readings ?? '')) ? String(rules.daily_readings) : '1');
+
+/** reading_sites rows → the GitHub matrix: active CityMind sites whose two secret names are set and well-formed. */
+export function ingestMatrix(sites) {
+  const out = [];
+  for (const s of sites || []) {
+    const r = (s && s.rules) || {};
+    if (!s || s.active === false || r.source !== 'citymind') continue;
+    const sec = r.secrets || {};
+    if (!SECRET_NAME.test(String(sec.user || '')) || !SECRET_NAME.test(String(sec.pass || ''))) continue;
+    out.push({ kibbutz: String(s.kibbutz), user_secret: sec.user, pass_secret: sec.pass, daily: dailyValue(r) });
+  }
+  return out.sort((a, b) => (a.kibbutz < b.kibbutz ? -1 : a.kibbutz > b.kibbutz ? 1 : 0));
+}
+
+/** CityMind report rid=13: reading time FROM D, "קריאות יומיות" = daily (CF4). */
+export function reportUrl(iso, daily = '1') {
+  const d = iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) + ' 00:00';
+  const q = new URLSearchParams({
+    rid: '13', CF1FID: '-1', CF1OP: '0', CF1FVAL: '', LOP: '0',
+    CF3FID: '232', CF3FVAL: d, CF3OP: '111',
+    CF4FID: '223', CF4FVAL: String(daily), CF4OP: '0',
+    TOSHOW: 'true', from: 'm',
+  });
+  return CM_BASE + '/Pages/ReadReport.aspx?' + q.toString();
+}
+
+/** Stage A storage path: the raw export, byte for byte as CityMind returned it (private bucket `readings`). */
+export const rawPath = (siteId, date) => `${siteId}/${date}/raw-citymind.csv`;
+/** base64 → {bytes, text} (the export is windows-1255). */
+export function decodeRaw(b64) {
+  const bin = atob(String(b64 || ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes, text: new TextDecoder('windows-1255').decode(bytes) };
+}
 
 export const WATER_RULES = {
   max_daily_m3: 100,          // warn: consumption per day above this
@@ -234,16 +277,24 @@ export function finishWater(upload, uploadMeta, all, exceptions) {
  * day per serial is kept, exactly like the daily report (CF4 = 1) returns it.
  */
 export function buildWater({ day, rows, history = [], rules = {}, prevIds = {} }) {
-  const last = new Map();
+  const last = new Map(), bySerial = new Map();
   (rows || []).forEach((r, i) => {
     const k = r.serial || '\u0000' + (r.id || '') + '\u0000' + i;   // a row with no transmitter stays its own row
     const p = last.get(k);
-    if (!p || String(r.when) >= String(p.when)) last.set(k, r);
+    if (!p || whenKey(r.when) >= whenKey(p.when)) last.set(k, r);
+    if (!bySerial.has(k)) bySerial.set(k, []);
+    bySerial.get(k).push(r);
   });
+  // every reading of the day (several when rules.daily_readings > 1), time order → sheet "כל הקריאות ביום"
+  const seq = [];
   const upload = [], uploadMeta = [], all = [], exc = [], replacements = [];
-  for (const rec of last.values()) {
+  for (const [k, rec] of last) {
+    const ofDay = bySerial.get(k).slice().sort((a, b) => cmp(whenKey(a.when), whenKey(b.when)));
+    for (const r of ofDay) seq.push([SOURCE, r.id, r.serial, r.when, r.ft]);
     const prev = rec.id ? prevIds[rec.id] : undefined;
     const { block, warn } = checkWater(rec, day, history, rules, prev);
+    const drop = intradayDrop(ofDay);
+    if (drop) block.push(`ירידה בתוך היום: ${drop[0].ft} (${hm(drop[0].when)}) → ${drop[1].ft} (${hm(drop[1].when)})`);
     all.push([SOURCE, rec.id, '', rec.serial, rec.when, rec.ft, null, null, null,
       block.length ? 'לא הועלה' : warn.length ? 'הועלה עם אזהרה' : 'תקין']);
     for (const b of block) exc.push([SOURCE, rec.id, rec.serial, rec.when, rec.ft, 'חוסם', b]);
@@ -253,7 +304,20 @@ export function buildWater({ day, rows, history = [], rules = {}, prevIds = {} }
     upload.push([rec.serial, WATER, 'reading', day, rec.ft, null, null, null, null, null, null, null]);
     uploadMeta.push([SOURCE, rec.id, rec.when, rec.ft]);
   }
-  return { ...finishWater(upload, uploadMeta, all, exc), replacements };
+  return { ...finishWater(upload, uploadMeta, all, exc), replacements, seq };
+}
+
+/** "d/m/yyyy h:mm[:ss]" → a sortable key. */
+const whenKey = (w) => {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(\d{1,2})?(:\d{2}(?::\d{2})?)?/.exec(String(w || ''));
+  return m ? m[3] + m[2].padStart(2, '0') + m[1].padStart(2, '0') + ' ' + (m[4] || '0').padStart(2, '0') + (m[5] || '') : String(w || '');
+};
+const hm = (w) => (/(\d{1,2}:\d{2})/.exec(String(w || '')) || ['', ''])[1];
+/** The first consecutive pair (time order) whose value goes DOWN, or null. */
+export function intradayDrop(sorted) {
+  const v = sorted.filter((r) => typeof r.ft === 'number');
+  for (let i = 1; i < v.length; i++) if (v[i].ft < v[i - 1].ft) return [v[i - 1], v[i]];
+  return null;
 }
 
 /** {id: serial} of a saved run's CityMind rows — the "previous day" for the replacement rule. */
@@ -318,7 +382,7 @@ export function resolveReplacements(run, evidence, day) {
 // METER_NOT_FOUND is a GLOBAL lookup (upload-readings.service.ts:233-236) — the only trustworthy "not set up".
 export const ARAD_COMM_CODE = 1;     // communication_types 'Arad FTP' (EMS DB lookup; en.json COMMUNICATION_TYPES.arad_ftp)
 export const ARCHIVE_ROLE = 999;
-export const SCOPE_NOTE = 'לא נבדקו מונים חסרים — אתר ה-EMS שלך אינו עין המפרץ';
+export const SCOPE_NOTE = 'לא נבדקו מונים חסרים — אתר ה-EMS שלך אינו האתר של הריצה';
 const UNCHECKED_WHY = 'אתר ה-EMS שלך אינו האתר של הריצה';
 
 /** Is the caller's EMS view trustworthy for this site? currentSite empty (all sites) or == the site. */
@@ -430,13 +494,19 @@ function rowProblem(r) {
 export function validateIngest(body, bytes) {
   if (!(bytes > 0) || bytes > INGEST_MAX_BYTES) return { ok: false, status: 413, error: 'payload too large' };
   if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, status: 400, error: 'bad body' };
-  const allowed = new Set(['mode', 'kibbutz', 'date', 'rows', 'dry_run', 'failed', 'error_code']);
+  const allowed = new Set(['mode', 'kibbutz', 'date', 'rows', 'csv_b64', 'dry_run', 'failed', 'error_code']);
   for (const k of Object.keys(body)) if (!allowed.has(k)) return { ok: false, status: 400, error: 'unexpected field' };
-  if (!INGEST_SITES.includes(body.kibbutz)) return { ok: false, status: 403, error: 'site not allowed' };
+  // the site itself is checked against the DB (an active citymind reading_sites row) by ingest()
+  if (typeof body.kibbutz !== 'string' || !body.kibbutz.trim() || body.kibbutz.length > MAX_TEXT || CTRL.test(body.kibbutz)) return { ok: false, status: 400, error: 'bad kibbutz' };
   if (body.dry_run !== undefined && typeof body.dry_run !== 'boolean') return { ok: false, status: 400, error: 'bad dry_run' };
   if (body.failed === true) {
     if (!INGEST_ERRORS.includes(body.error_code)) return { ok: false, status: 400, error: 'bad error_code' };
     return { ok: true, req: { kibbutz: body.kibbutz, date: body.date, failed: true, error_code: body.error_code, dry_run: !!body.dry_run } };
+  }
+  if (body.csv_b64 !== undefined) {
+    // stage A: the raw export (exact bytes, base64) — stored first, then parsed by the function
+    if (typeof body.csv_b64 !== 'string' || !body.csv_b64 || !/^[A-Za-z0-9+/]+=*$/.test(body.csv_b64) || body.rows !== undefined) return { ok: false, status: 400, error: 'bad csv' };
+    return { ok: true, req: { kibbutz: body.kibbutz, date: body.date, csv_b64: body.csv_b64, dry_run: !!body.dry_run } };
   }
   const rows = body.rows;
   if (!Array.isArray(rows) || !rows.length || rows.length > INGEST_MAX_ROWS) return { ok: false, status: 400, error: 'bad rows' };

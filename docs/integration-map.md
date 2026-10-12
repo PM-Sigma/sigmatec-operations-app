@@ -180,7 +180,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-page-bar` | :161 | app/src/main.tsx:314<br>app/src/shell/PageBar.tsx:100 |
 | `#sigma-presenter` | :694 | app/src/islands/Presenter.tsx:1173<br>app/src/main.tsx:470 |
 | `#sigma-pushlog` | :395 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:253 |
-| `#sigma-readings` | :422 | app/src/islands/ReadingsPull.tsx:503<br>app/src/lib/readingsWatch.ts:163 |
+| `#sigma-readings` | :422 | app/src/islands/ReadingsPull.tsx:529<br>app/src/lib/readingsWatch.ts:163 |
 | `#sigma-refresh` | :713 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:119 |
 | `#sigma-relogin` | :710 | app/src/components/ReLoginSheet.tsx:143 |
 | `#sigma-settings` | :680 | app/src/islands/Settings.tsx:453<br>app/src/main.tsx:346 |
@@ -219,10 +219,10 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `products` | db/inventory_pool.sql | app/src/islands/InventoryStrip.tsx:116<br>app/src/islands/InventoryStrip.tsx:178<br>app/src/lib/inventoryApi.ts:50<br>…+2 |
 | `push_log` | db/push_log.sql | app/src/lib/pushLog.ts:84<br>supabase/functions/push-send/index.ts:224<br>supabase/functions/push-send/index.ts:279<br>…+4 |
 | `push_subscriptions` | db/push_subscriptions.sql | app/src/lib/teamStatus.ts:43<br>supabase/functions/push-send/index.ts:261<br>supabase/functions/push-send/index.ts:272 |
-| `reading_runs` | db/readings_pull.sql | app/src/lib/readingsApi.ts:73<br>app/src/lib/readingsApi.ts:81<br>app/src/lib/readingsApi.ts:89<br>…+25 |
-| `reading_sites` | db/readings_pull.sql | app/src/lib/readingsApi.ts:57<br>supabase/functions/push-send/index.ts:709<br>supabase/functions/readings-fetch/index.ts:90<br>…+6 |
-| `reading_sources` | db/readings_pull.sql | app/src/lib/readingsApi.ts:65<br>supabase/functions/readings-fetch/index.ts:99 |
-| `reading_values` | db/readings_pull.sql | supabase/functions/readings-fetch/index.ts:217<br>supabase/functions/readings-fetch/index.ts:274<br>supabase/functions/readings-fetch/index.ts:280<br>…+1 |
+| `reading_runs` | db/citymind_arad_multi.sql | app/src/lib/readingsApi.ts:75<br>app/src/lib/readingsApi.ts:83<br>app/src/lib/readingsApi.ts:91<br>…+28 |
+| `reading_sites` | db/readings_pull.sql | app/src/lib/readingsApi.ts:59<br>supabase/functions/push-send/index.ts:709<br>supabase/functions/readings-fetch/index.ts:90<br>…+9 |
+| `reading_sources` | db/readings_pull.sql | app/src/lib/readingsApi.ts:67<br>supabase/functions/readings-fetch/index.ts:99 |
+| `reading_values` | db/readings_pull.sql | supabase/functions/readings-fetch/index.ts:217<br>supabase/functions/readings-fetch/index.ts:277<br>supabase/functions/readings-fetch/index.ts:283<br>…+1 |
 | `requirements` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:53<br>app/src/lib/inventoryApi.ts:163<br>app/src/lib/inventoryApi.ts:202 |
 | `returns` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:54<br>app/src/lib/inventoryApi.ts:278<br>app/src/lib/inventoryApi.ts:284 |
 | `site_contacts` | db/site_contacts.sql | app/src/components/home/workTimerApi.ts:39<br>app/src/components/home/WorkTimerEditSheet.tsx:73<br>app/src/components/home/WorkTimerStopSheet.tsx:62<br>…+3 |

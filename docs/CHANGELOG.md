@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [unreleased] 2026-10-12 - feat/arad-multi-kibbutz (branch, not live): CityMind for every Arad kibbutz
+Why: עידן — the עין המפרץ automation must serve אור הנר, עין השופט and the next ones without new code, keep the raw export apart from the conversion, and take 5 readings a day.
+- A kibbutz = one `reading_sites` row (`rules.source='citymind'`, `rules.secrets` = secret NAMES, `rules.daily_readings`) + two GitHub secrets. `INGEST_SITES` removed; readings-fetch `ingestSites` gives the workflow its matrix.
+- `.github/workflows/citymind-arad.yml` (was citymind-ein-hamifratz.yml): one job per kibbutz, fail-fast off, own random minute, `secrets[matrix.*]`; dispatch `kibbutz` / `probe`.
+- Stage A: the runner sends the export's exact bytes; stored at `<site>/<date>/raw-citymind.csv` → `reading_runs.raw_file`. Stage B: parse + checks in the function; `rebuild` mode re-runs it from the raw file.
+- Several readings a day: last one uploaded; all kept (sheet "כל הקריאות ביום"); intraday drop blocks.
+- App: "קובץ גולמי" + "בנה מחדש מהגולמי" per CityMind history row. Tests: test-citymind-arad.mjs (13, incl. golden 11.10 496→495/1 local-only, failure isolation, log scan). Spec `docs/superpowers/specs/2026-10-12-arad-multi-kibbutz-design.md`.
+
 ## [2.155] 2026-10-11 - 11.10 ship (merge 276a1549): desktop attendance, viewer nav, visit <-> EMS task, day details
 Why: עידן approved the 11.10 batch; field staff and the reports viewer needed the attendance page to work on desktop and to explain itself.
 - **Desktop attendance + report pages** (>=1024 only): two-column attendance (one day editor in a sticky side panel, shortages under the calendar); hours / burns / EMS stats fitted to desktop.

@@ -30,7 +30,7 @@ import {
 } from '@/lib/readingsLogic';
 import {
   emsCheck, emsToken, fetchRuns, fetchSites, fetchSources, markSeen, markUploaded, openDownload, retrySource,
-  signFile, startRun, type ReadingSite,
+  rebuildRun, signFile, startRun, type ReadingSite,
 } from '@/lib/readingsApi';
 import { FOCUS_KEY, trackRun } from '@/lib/readingsWatch';
 import { toastFailure } from '@/lib/pending';
@@ -301,6 +301,31 @@ function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; 
   );
 }
 
+// ── CityMind stage A: the raw export, on its own + "build again from it" ──────
+function RawActions({ run }: { run: ReadingRun }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = React.useState<'raw' | 'rebuild' | null>(null);
+  const raw = async () => {
+    setBusy('raw');
+    try { const { url } = await signFile(run.id, 'raw'); openDownload(url); } catch (e) { toast.error(errText(e)); } finally { setBusy(null); }
+  };
+  const again = async () => {
+    setBusy('rebuild');
+    try { await rebuildRun(run.id); toast.success('הקבצים נבנו מחדש מהקובץ הגולמי — צריך לבדוק שוב מול EMS'); }
+    catch (e) { toast.error(errText(e)); }
+    finally { setBusy(null); void qc.refetchQueries({ queryKey: ['readings', 'runs'] }); }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" data-testid="readings-raw">
+      <BubbleButton variant="tonal" size="sm" disabled={!!busy} onClick={() => void raw()} data-testid="readings-download-raw"
+        icon={<FileDown className="h-4 w-4" aria-hidden />}>קובץ גולמי</BubbleButton>
+      <BubbleButton variant="tonal" size="sm" disabled={!!busy || run.status === 'running'} onClick={() => void again()} data-testid="readings-rebuild">
+        {busy === 'rebuild' ? 'בונה…' : 'בנה מחדש מהגולמי'}
+      </BubbleButton>
+    </div>
+  );
+}
+
 // ── 3. history ───────────────────────────────────────────────────────────────
 function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = true, requireCheck = false }: {
   row: HistoryRow; onOpen: (id: string) => void; onPull: (date: string) => void;
@@ -348,6 +373,7 @@ function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = 
       {run.status === 'failed' && run.error && (
         <span className="text-[length:var(--fs-body-sm)] text-[var(--danger-ink)]">{run.error}</span>
       )}
+      {!manual && run.raw_file && <RawActions run={run} />}
     </div>
   );
 }
