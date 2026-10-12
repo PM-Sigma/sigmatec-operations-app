@@ -205,6 +205,8 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
   return (
     <Sheet open={open} onOpenChange={o => (o ? onOpenChange(true) : onOpenChange(false))}>
       <SheetContent side="bottom" dir="rtl" data-testid="order-sheet" className="max-h-[92vh] overflow-y-auto" {...guard.contentProps}>
+        {/* צפייה: the sheet is read-only — a disabled fieldset turns off every field and button inside (UI only; RLS refuses the write anyway) */}
+        <fieldset disabled={user.isViewer} data-readonly={user.isViewer || undefined} className="m-0 min-w-0 border-0 p-0">
         {step === 'questions' ? (
           <>
             <SheetHeader>
@@ -380,6 +382,7 @@ export function OrderSheet({ open, onOpenChange, order, defaultType = 'supplier'
             </div>
           </>
         )}
+        </fieldset>
         {guard.prompt}
         {step === 'approve-confirm' && plan && (
           <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/40" data-testid="approve-confirm-sheet">

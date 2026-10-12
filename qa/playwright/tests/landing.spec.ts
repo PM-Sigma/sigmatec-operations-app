@@ -16,12 +16,12 @@ test('landing: a dev lands on 💻 פיתוח', async ({ page }, ti) => {
   expectNoConsoleErrors(rec);
 });
 
-test('landing: the viewer lands on the cards with the reports hub', async ({ page }, ti) => {
+test('landing: the viewer lands on his reports page — no cards, no קיבוצים (עידן 12.10)', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
 
-  // `{ page: 'kibbutz', scrollTo: 'viewerReportsHub' }` — the one landing that is not a page
-  await expect(page.locator('#kibbutz-view')).toBeVisible();
+  await expect(page.locator('#reports-view')).toBeVisible();
   await expect(page.locator('#viewerReportsHub')).toBeVisible();
+  await expect(page.locator('#kibbutz-view')).toBeHidden();
 
   await shot(page, ti, 'viewer');
   expectNoConsoleErrors(rec);

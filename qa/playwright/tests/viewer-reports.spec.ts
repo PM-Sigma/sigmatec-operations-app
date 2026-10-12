@@ -117,12 +117,13 @@ test('viewer: the page title and the active tab follow every page he can open', 
   const phone = isPhone(viewport);
   const bar = page.locator('#sigma-page-bar');
   const nav = phone ? page.locator('#sigma-nav nav[aria-label="ניווט ראשי"]') : page.locator('#sigma-desktop-nav nav[aria-label="ניווט ראשי"]');
-  const steps: Array<[string, string | null]> = [['נוכחות', null], ['מלאי', 'מלאי'], ...(phone ? [] : [['יומן', 'יומן'] as [string, string]]), ['קיבוצים', 'קיבוצים']];
+  const steps: Array<[string, string | null]> = [['נוכחות', null], ['מלאי', 'מלאי'], ...(phone ? [] : [['יומן', 'יומן'] as [string, string]]), ['דוחות', 'דוחות']];
   for (const [tab, title] of steps) {
     await tapNav(page, viewport, tab);
     await expect(nav.locator('[aria-current="page"]')).toHaveText(tab);          // the tab follows the page
     if (title) await expect(bar).toContainText(title);                           // the title follows the page
     else await expect(bar).not.toContainText('קיבוצים');                         // נוכחות draws its own header
+    await expect(bar).not.toContainText('קיבוצים');                              // never the kibbutz page title
   }
   // שעות מול לקוחות — opened from the hub row
   await page.evaluate(() => (window as any).sigma.showPage('hours'));
@@ -149,4 +150,81 @@ test('viewer: the certificate preview fits the screen width (no sideways scroll)
   expect(r.right).toBeLessThanOrEqual(r.vw + 1);
   expect(r.zoom).toBe('1');                                   // the document itself is never zoomed (print = as issued)
   await shot(page, ti, 'cert-fit');
+});
+
+// ── עידן 12.10: the viewer has NO קיבוצים, and מלאי is strictly read-only ──────────────────────
+
+test('viewer: no קיבוצים anywhere — tabs, deep link, Σ home, back, the gate', async ({ page }, ti) => {
+  const { rec, viewport } = await boot(page, ti, { who: 'צפייה' });
+  const navSel = isPhone(viewport) ? '#sigma-nav nav[aria-label="ניווט ראשי"]' : '#sigma-desktop-nav nav[aria-label="ניווט ראשי"]';
+  await expect(page.locator(navSel).getByRole('button', { name: 'קיבוצים', exact: true })).toHaveCount(0);
+  await expect(page.locator(navSel).getByRole('button', { name: 'דוחות', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).sigma.canShowPage('kibbutz'))).toBe(false);
+  expect(await page.evaluate(() => (window as any)._currentPage)).toBe('reports');             // the default landing
+  for (const how of ['showPage', 'home', 'back']) {
+    await page.evaluate(() => (window as any).sigma.showPage('attendance'));
+    if (how === 'showPage') await page.evaluate(() => (window as any).sigma.showPage('kibbutz'));   // a deep link / any caller
+    if (how === 'home') await page.evaluate(() => (window as any).showPage('kibbutz'));             // the Σ / legacy home path
+    if (how === 'back') await page.evaluate(() => (window as any).pageBack?.());
+    await expect.poll(() => page.evaluate(() => (window as any)._currentPage), { message: how }).toBe('reports');
+    await expect(page.locator('#viewerReportsHub')).toBeVisible();
+    await expect(page.locator('#sigma-home')).toBeHidden();
+  }
+  await expect(page.locator('#sigma-page-bar')).not.toContainText('קיבוצים');
+  // the card modal is a kibbutz door too: it does not open for the viewer
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});
+
+/** Visible, ENABLED controls in the inventory page (+ an open sheet) whose label/test-id is a write. */
+const WRITE = /שמירה|אישור|נכנס למלאי|סימון|מחיקה|השבתה|הפעלה|חדשה?|הוספ|העבר|דיווח|שליחה|הפקה מתוקנת|פענוח|ניתוח/;   // "סימון סופק" is caught by סימון; a "סופקה" status chip is a filter
+const WRITE_ID = /^(inv-order-(quick|more|approve|stuck)-|os-(save|approve|parse)|ps-(save|more|toggle|delete)|inv-new-|inv-cert-(send|cancel|reissue)-|inv-transfer|inv-adjust)/;
+async function writeControls(page: Page) {
+  return page.evaluate(([w, wid]) => {
+    const W = new RegExp(w), WID = new RegExp(wid);
+    const vis = (e: Element) => { const r = (e as HTMLElement).getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
+    const roots = [document.getElementById('inventory-view'), ...document.querySelectorAll('[role="dialog"]')].filter(Boolean) as Element[];
+    const out: string[] = [];
+    for (const root of roots) for (const e of root.querySelectorAll('button, input, select, textarea')) {
+      if (!vis(e) || (e as HTMLButtonElement).disabled || e.closest('fieldset[disabled]')) continue;
+      // an open-orders strip row is a STATUS line ("ממתין לאישור …") that opens the read-only order sheet — not a control
+      if (e.closest('[data-order-row]')) continue;
+      const id = e.getAttribute('data-testid') || '';
+      const label = (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').trim();
+      const inSheet = !!e.closest('[role="dialog"]');
+      if (WID.test(id) || (W.test(label) && !/^inv-tab-/.test(id)) || (inSheet && /^(INPUT|SELECT|TEXTAREA)$/.test(e.tagName))) out.push(id + ':' + label.slice(0, 30));
+    }
+    return out;
+  }, [WRITE.source, WRITE_ID.source]);
+}
+
+test('viewer: every מלאי tab and sheet opens with ZERO write controls (UI only — RLS refuses writes anyway)', async ({ page }, ti) => {
+  const viewport = (ti.project.metadata as any).viewport as string;
+  const { rec } = await bootInvCerts(page, ti, 'צפייה');
+  await tapNav(page, viewport, 'מלאי');
+  await page.locator('[data-testid="inv-tab-orders"]').waitFor({ state: 'visible' });
+  for (const tab of ['orders', 'stock', 'certs', 'kibbutz', 'returns', 'products']) {
+    await page.locator(`[data-testid="inv-tab-${tab}"]`).click();
+    await page.waitForTimeout(500);
+    expect(await writeControls(page), `tab ${tab}`).toEqual([]);
+  }
+  // the sheets open read-only: an order, a product
+  await page.locator('[data-testid="inv-tab-orders"]').click();
+  await page.locator('[data-testid^="inv-order-row-"]').first().locator('button').first().click();
+  await expect(page.locator('[data-testid="order-sheet"] fieldset[data-readonly]')).toBeVisible();
+  expect(await writeControls(page), 'order sheet').toEqual([]);
+  await page.keyboard.press('Escape');
+  await page.locator('[data-testid="inv-tab-products"]').click();
+  const prod = page.locator('[data-testid^="inv-product-row-"]').first();
+  if (await prod.count()) {
+    await prod.click();
+    await expect(page.locator('[data-testid="product-sheet"] fieldset[data-readonly]')).toBeVisible();
+    expect(await writeControls(page), 'product sheet').toEqual([]);
+    await page.keyboard.press('Escape');
+  }
+  // no stock-change shortcut and no inventory nudge
+  await expect(page.locator('#sigma-inventory-nudges')).toBeEmpty();
+  await shot(page, ti, 'inventory-readonly');
+  expectNoConsoleErrors(rec);
 });

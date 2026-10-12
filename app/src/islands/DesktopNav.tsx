@@ -8,7 +8,7 @@
 // `#sigma-desktop-nav` exists, same pattern as Home/Field/MyTasks. Nav.tsx (the phone bar) IS
 // boot, and stays untouched — its own byte budget has no room for a second nav's markup.
 import * as React from 'react';
-import { CalendarDays, Home, MapPin, Package, UserCheck, type LucideIcon } from 'lucide-react';
+import { BarChart3, CalendarDays, Home, MapPin, Package, UserCheck, type LucideIcon } from 'lucide-react';
 import { BubbleButton } from '@/components/ui/bubble-button';
 import { sigma, useCurrentUser } from '@/bridge';
 import { useCurrentPage } from '@/lib/currentPage';
@@ -41,7 +41,7 @@ function DesktopNavBar() {
   const { name: user, role, isViewer } = useCurrentUser();
   const page = useCurrentPage();
   const personRole = roleOf(user, role);
-  const tabs: NavTabId[] = isViewer ? ['kibbutz', 'attendance', 'inventory', 'calendar'] : navTabsFor(personRole, user);
+  const tabs: NavTabId[] = isViewer ? ['reports', 'attendance', 'inventory', 'calendar'] : navTabsFor(personRole, user);
 
   const openVisit = () => { void import('@/lib/runAdd').then(m => m.openVisit()); };
 
@@ -61,6 +61,8 @@ function DesktopNavBar() {
             switch (id) {
               case 'kibbutz':
                 return <Tab key={id} icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => go('kibbutz', 'peer')} />;
+              case 'reports':
+                return <Tab key={id} icon={BarChart3} label="דוחות" active={page === 'reports'} onClick={() => go('reports', 'peer')} />;
               case 'attendance':
                 return <Tab key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance'} onClick={() => go('attendance', 'peer')} />;
               case 'calendar':

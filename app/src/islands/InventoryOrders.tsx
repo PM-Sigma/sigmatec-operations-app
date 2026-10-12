@@ -183,7 +183,7 @@ export function InventoryOrdersTab() {
                       trailing afterthought squeezed against everything else. */}
                   <span><bdi>{orderTotalQty(o as any)}</bdi> פריטים</span>
                   <span className="flex flex-wrap gap-1">
-                    {canApprove ? (
+                    {user.isViewer ? null : canApprove ? (
                       <button
                         type="button"
                         data-testid={`inv-order-approve-${o.id}`}
@@ -195,7 +195,7 @@ export function InventoryOrdersTab() {
                     ) : (
                       <Tag role="neutral">{approvalWaitingMsg(o as any)}</Tag>
                     )}
-                    {qa && (
+                    {qa && !user.isViewer && (
                       <button
                         type="button"
                         data-testid={`inv-order-quick-${o.id}`}
@@ -208,7 +208,7 @@ export function InventoryOrdersTab() {
                   </span>
                 </span>
               }
-              trailing={
+              trailing={user.isViewer ? undefined :
                 <span className="relative">
                   <button
                     type="button"

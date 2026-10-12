@@ -62,7 +62,8 @@ test('kibbutz detail: marketing tag beside ✕, ✏️ for עידן only, closes
 
 test('kibbutz detail: a team member and the viewer get no ✏️', async ({ page }, ti) => {
   for (const who of ['אביאם', 'צפייה'] as const) {
-    await boot(page, ti, { who });
+    // the second boot reuses the page; wait on the nav, not on a home that differs by role
+    await boot(page, ti, { who, ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
     await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
     await expect(detail(page).getByRole('button', { name: 'פרטי קיבוץ' })).toHaveCount(0);
   }

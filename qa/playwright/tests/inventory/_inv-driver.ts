@@ -128,7 +128,8 @@ export async function bootInvCerts(page: Page, ti: TestInfo, who: Who) {
   }, { dashboard_user_v1: who, dashboard_role_v1: role, dashboard_auth_v4: 'ok', theme: 'light' });
   await page.goto('/index.html?login=0&sb=1', { waitUntil: 'domcontentloaded' });
   await page.locator('#sigma-nav').waitFor({ state: 'attached' });
-  await page.waitForSelector('#sigma-home .kibbutz', { timeout: 30_000 });
+  // the viewer has no kibbutz cards (עידן 12.10) — his home is the reports hub
+  await page.waitForSelector(who === 'צפייה' ? '#sigma-page-bar:has-text("דוחות")' : '#sigma-home .kibbutz', { timeout: 30_000 });
   await recordLegacyWrites(page);
   return { rec };
 }

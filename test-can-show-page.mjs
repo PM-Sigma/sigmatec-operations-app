@@ -73,7 +73,7 @@ const MATRIX = {
   'מתניה|team':     [1,  1,  0,  0,  1,  0,   0,   1,  0,  0, 0, 1, 0, 1],
   'אליה|team':      [1,  1,  1,  0,  1,  0,   0,   0,  0,  0, 0, 1, 0, 1],
   'אבצן|team':      [1,  1,  1,  0,  0,  0,   0,   0,  0,  0, 0, 1, 0, 1],
-  'צופה|viewer':    [1,  1,  1,  1,  0,  0,   1,   1,  0,  0, 0, 0, 0, 0], // reads reports; writes are refused elsewhere
+  'צופה|viewer':    [0,  1,  1,  1,  0,  0,   1,   1,  0,  0, 0, 0, 0, 0], // reads reports; NO קיבוצים (עידן 12.10); writes are refused elsewhere
   '|':              [1,  1,  1,  0,  0,  0,   0,   0,  0,  0, 0, 0, 0, 0], // signed out
 };
 
@@ -87,6 +87,13 @@ for (const [who, row] of Object.entries(MATRIX)) {
   });
 }
 console.log(`  ok - role matrix: ${Object.keys(MATRIX).length} identities × ${PAGES.length} pages`);
+// 'reports' (the hub) is the viewer's home and nobody else's
+for (const [who, want] of [['צופה|viewer', 1], ['עידן|idan', 0], ['אביאם|team', 0], ['|', 0]]) {
+  const [user, role] = who.split('|');
+  const got = gateFor(user, role)('reports') ? 1 : 0;
+  if (got !== want) { failures++; console.log(`  FAIL - ${who} × reports: expected ${want}, got ${got}`); }
+}
+console.log('  ok - reports = the viewer only');
 
 // The burns page closes for EVERYONE once the temporary project ends.
 for (const who of Object.keys(MATRIX)) {

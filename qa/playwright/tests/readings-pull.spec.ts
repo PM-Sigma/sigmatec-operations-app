@@ -326,7 +326,7 @@ test('access: the viewer is refused — no ⋯ row, and the page bounces to the 
   expect(await page.evaluate(() => (window as any).sigma.canShowPage('readings'))).toBe(false);
   await page.evaluate(() => (window as any).showPage('readings'));
   await expect(page.getByTestId('readings-page')).toHaveCount(0);
-  expect(await page.evaluate(() => (window as any)._currentPage)).toBe('kibbutz');
+  expect(await page.evaluate(() => (window as any)._currentPage)).toBe('reports');   // the viewer's home (no קיבוצים, 12.10)
   await page.getByRole('button', { name: 'עוד', exact: true }).last().click();
   await expect(page.getByRole('button', { name: /משיכת קריאות משירותי מנייה חיצוניים/ })).toHaveCount(0);
   expect(S.calls).toEqual([]);

@@ -882,7 +882,7 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
   // The islands are lazy chunks; waiting on the nav root means "ui/sigma.js booted".
   await expect(page.locator('#sigma-nav')).toBeAttached();
   if (opts.ready !== '') {
-    const sel = opts.ready || '#sigma-home .kibbutz';
+    const sel = opts.ready || (who === 'צפייה' ? '#sigma-page-bar:has-text("דוחות")' : '#sigma-home .kibbutz');   // the viewer has no cards: his home's title
     try {
       await page.waitForSelector(sel, { timeout: 30_000 });
     } catch (e) {

@@ -148,8 +148,10 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
       <Sheet open={open && step === 'form'} onOpenChange={o => (o ? onOpenChange(true) : onOpenChange(false))}>
         <SheetContent side="bottom" dir="rtl" data-testid="product-sheet" className="max-h-[92vh] overflow-y-auto" {...guard.contentProps}>
           <SheetHeader>
-            <SheetTitle className="text-[17px]">{isNew ? 'פריט חדש' : 'עריכת פריט'}</SheetTitle>
+            <SheetTitle className="text-[17px]">{isNew ? 'פריט חדש' : readOnly ? 'פריט' : 'עריכת פריט'}</SheetTitle>
           </SheetHeader>
+          {/* צפייה: read-only — every field is disabled, not just the save button hidden */}
+          <fieldset disabled={readOnly} data-readonly={readOnly || undefined} className="m-0 min-w-0 border-0 p-0">
           <div className="mt-2 space-y-4">
             <div>
               <label className="text-[13px] font-bold" htmlFor="psName">שם הפריט</label>
@@ -216,6 +218,7 @@ export function ProductSheet({ open, onOpenChange, product, hasMovements, onSave
               )}
             </div>
           </div>
+          </fieldset>
           {guard.prompt}
         </SheetContent>
       </Sheet>

@@ -72,6 +72,6 @@ describe('the viewer matrix', () => {
 
   it('he is recognised as a viewer from the PIN role alone, and lands on the reports hub', () => {
     expect(roleOf('צופה', 'viewer')).toBe('viewer');
-    expect(landingFor('viewer', 'צופה')).toEqual({ page: 'kibbutz', scrollTo: 'viewerReportsHub' });
+    expect(landingFor('viewer', 'צופה')).toEqual({ page: 'reports' });
   });
 });

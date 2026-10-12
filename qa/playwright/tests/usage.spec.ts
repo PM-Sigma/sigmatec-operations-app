@@ -29,7 +29,7 @@ test('usage: a team member gets nothing from the same deep link', async ({ page 
 });
 
 test('usage: the viewer gets nothing from the same deep link', async ({ page }, ti) => {
-  const { rec } = await boot(page, ti, { who: 'צפייה', query: 'x=1#usage' });
+  const { rec } = await boot(page, ti, { who: 'צפייה', query: 'x=1#usage', ready: '#sigma-header-actions [aria-label="העדפות משתמש"]' });
 
   await expect(page.getByRole('dialog').filter({ hasText: 'שימוש' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'שימוש', exact: true })).toHaveCount(0);

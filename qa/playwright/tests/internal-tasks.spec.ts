@@ -85,13 +85,10 @@ test('internal tasks: ➕ on the card → form → read-only row on the card →
   await expectNoConsoleErrors(rec);
 });
 
-test('internal tasks: a viewer sees the list but cannot add or act', async ({ page }, ti) => {
+test('internal tasks: the viewer has no kibbutz cards at all (עידן 12.10), so no internal-task controls', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'צפייה' });
-  const card = page.locator('.kibbutz[data-name="חוקוק"]');
-  await expect(card).toBeVisible();
-  await expect(card.getByTestId('add-internal-task')).toHaveCount(0);
-  await expect(card.getByTestId('add-ems-task')).toHaveCount(0);
-  await expect(card.locator('.internal-task-input')).toHaveCount(0);
-  await expect(card.locator('.internal-task-promote')).toHaveCount(0);
+  await expect(page.locator('.kibbutz[data-name="חוקוק"]')).toBeHidden();
+  await expect(page.getByTestId('add-internal-task')).toHaveCount(0);
+  await expect(page.locator('.internal-task-input:visible')).toHaveCount(0);
   await expectNoConsoleErrors(rec);
 });

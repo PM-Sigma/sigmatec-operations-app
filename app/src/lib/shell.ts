@@ -22,6 +22,7 @@ export interface PageMeta {
 
 export const PAGE_META: Record<SigmaPage, PageMeta> = {
   kibbutz: { title: 'קיבוצים', level: 1, titleLines: 1 },
+  reports: { title: 'דוחות', level: 1, titleLines: 1 },
   calendar: { title: 'יומן', level: 1, titleLines: 1 },
   attendance: { title: 'נוכחות', level: 1, titleLines: 1, ownHeader: true },
   inventory: { title: 'מלאי', level: 1, titleLines: 1 },

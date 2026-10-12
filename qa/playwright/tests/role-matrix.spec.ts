@@ -25,7 +25,7 @@ const CAN: Record<Who, number[]> = {
   'מתניה': [1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1],
   'אליה':  [1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1],
   'אבצן':  [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
-  'צפייה': [1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0], // the viewer reads reports; nothing else
+  'צפייה': [0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0], // the viewer reads reports; NO קיבוצים (עידן 12.10)
 };
 const can = (who: Who, p: PageId) => CAN[who][PAGES.indexOf(p)] === 1;
 
@@ -38,7 +38,7 @@ const BAR: Record<Who, string[]> = {
   'מתניה': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'עוד'],   // מתניה does not handle inventory
   'אליה': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
   'אבצן': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
-  'צפייה': ['קיבוצים', 'דוחות', 'נוכחות', 'מלאי', 'עוד'],
+  'צפייה': ['דוחות', 'נוכחות', 'מלאי', 'עוד'],   // no קיבוצים
 };
 
 // ⋯ sheet rows by label → who sees them. The ניהול block's pages follow canShowPage exactly (F9): התראות עידן,
@@ -92,7 +92,8 @@ for (const who of ALL) {
     //    and the matching view container is the only one displayed (no page opens "half").
     for (const p of PAGES) {
       const now = await openedPage(page, p);
-      expect(now, `${who} → showPage('${p}')`).toBe(can(who, p) ? p : 'kibbutz');
+      // a refused page falls back to the role's home: קיבוצים, or the reports hub for the viewer
+      expect(now, `${who} → showPage('${p}')`).toBe(can(who, p) ? p : who === 'צפייה' ? 'reports' : 'kibbutz');
       if (p !== 'kibbutz' && p !== 'calendar') {
         const shown = await page.evaluate(x => { const el = document.getElementById(x + '-view'); return !!el && el.style.display !== 'none'; }, p);
         expect(shown, `${who} #${p}-view displayed`).toBe(can(who, p));

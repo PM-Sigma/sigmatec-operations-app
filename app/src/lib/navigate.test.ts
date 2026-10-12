@@ -40,7 +40,7 @@ describe('goHome (Σ)', () => {
   const cases: Array<[string, string, string]> = [
     ['עידן', 'idan', 'kibbutz'], ['עמיחי', 'team', 'kibbutz'], ['אביאם', 'team', 'kibbutz'],
     ['ניתאי', 'team', 'kibbutz'], ['מתניה', 'team', 'dev'], ['אליה', 'team', 'dev'],
-    ['אבצן', 'team', 'kibbutz'], ['צפייה', 'viewer', 'kibbutz'],
+    ['אבצן', 'team', 'kibbutz'], ['צפייה', 'viewer', 'reports'],   // the viewer has no קיבוצים (עידן 12.10)
   ];
   for (const [user, role, page] of cases) {
     it(`${user} → ${page}`, () => {
@@ -53,9 +53,9 @@ describe('goHome (Σ)', () => {
     state.landing = 'calendar';
     expect(goHome().page).toBe('calendar');
   });
-  it('the viewer default lands on the reports hub scroll target', () => {
+  it('the viewer default lands on his reports page (no scroll target — it is its own page)', () => {
     state.user = 'צפייה'; state.role = 'viewer';
-    expect(goHome().scrollTo).toBe('viewerReportsHub');
+    expect(goHome()).toEqual({ page: 'reports' });
   });
   it('a gated stored landing falls back to the role default, then קיבוצים', () => {
     state.user = 'מתניה'; state.landing = 'inventory'; state.gated = new Set(['inventory', 'dev']);

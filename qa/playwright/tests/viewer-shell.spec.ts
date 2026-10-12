@@ -1,6 +1,6 @@
 // The viewer's shell (spec §7l + §7k #3 + viewerGate).
-// Covers: the three-tab bottom nav 🏘 קיבוצים · 📊 דוחות · ⋯ עוד, that 📊 scrolls to the
-// reports hub on the cards page, and that the viewer's ⋯ sheet carries no page rows and no
+// Covers: the bottom nav 📊 דוחות · נוכחות · מלאי · ⋯ עוד (NO קיבוצים — עידן 12.10), that 📊 opens the
+// reports hub page, and that the viewer's ⋯ sheet carries no page rows and no
 // ניהול block — a read-only role must not be offered a write it would be refused.
 import { boot, expect, expectNoConsoleErrors, expectRtl, expectTheme, shot, test } from './_helpers';
 
@@ -19,21 +19,22 @@ test('viewer shell: 🏘 · 📊 · נוכחות · מלאי · ⋯ and nothing 
 
   // Exactly five tabs, in this order (Nav.tsx: viewer = קיבוצים · דוחות · נוכחות · מלאי · עוד —
   // נוכחות and מלאי (the תעודות registry) are read-only pages, one tap away).
+  // עידן 12.10: the viewer has NO קיבוצים — דוחות (his home) · נוכחות · מלאי · עוד
   const tabs = nav.getByRole('button');
-  await expect(tabs).toHaveCount(5);
-  await expect(tabs.nth(0)).toHaveText('קיבוצים');
-  await expect(tabs.nth(1)).toHaveText('דוחות');
-  await expect(tabs.nth(2)).toHaveText('נוכחות');
-  await expect(tabs.nth(3)).toHaveText('מלאי');
-  await expect(tabs.nth(4)).toHaveText('עוד');
+  await expect(tabs).toHaveCount(4);
+  await expect(tabs.nth(0)).toHaveText('דוחות');
+  await expect(tabs.nth(1)).toHaveText('נוכחות');
+  await expect(tabs.nth(2)).toHaveText('מלאי');
+  await expect(tabs.nth(3)).toHaveText('עוד');
+  await expect(nav.getByRole('button', { name: 'קיבוצים', exact: true })).toHaveCount(0);
   // the field actions are gone — no 🚚 תעודה, no raised 📍 ביקור, no 📦 מלאי
   await expect(nav.getByRole('button', { name: 'תעודה', exact: true })).toHaveCount(0);
   await expect(nav.getByRole('button', { name: 'תיעוד ביקור' })).toHaveCount(0);
 
   // 📊 דוחות → the cards page, scrolled to the hub (the one landing that is not a page)
-  await page.getByRole('button', { name: 'קיבוצים', exact: true }).click();
-  await expect(page.locator('#kibbutz-view')).toBeVisible();
+  await page.getByRole('button', { name: 'נוכחות', exact: true }).click();
   await page.getByRole('button', { name: 'דוחות', exact: true }).click();
+  await expect(page.locator('#sigma-home')).toBeHidden();             // no kibbutz cards on his page
   await expect(page.locator('#viewerReportsHub')).toBeVisible();
   await expect(page.locator('#viewerReportsHub')).toBeInViewport();
   await shot(page, ti, 'reports-hub');

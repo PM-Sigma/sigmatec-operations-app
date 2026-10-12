@@ -4,10 +4,10 @@ import { PAGE_META, bellLabel, pageMeta } from '@/lib/shell';
 describe('page meta', () => {
   it('covers every SigmaPage', () => {
     expect(Object.keys(PAGE_META).sort()).toEqual(
-      ['attendance', 'burns', 'calendar', 'dev', 'emsstats', 'fieldops', 'hours', 'inventory', 'kibbutz', 'pushlog', 'readings']);
+      ['attendance', 'burns', 'calendar', 'dev', 'emsstats', 'fieldops', 'hours', 'inventory', 'kibbutz', 'pushlog', 'readings', 'reports']);
   });
   it('nav peers are level 1, reached-from-a-menu pages are level 2', () => {
-    for (const p of ['kibbutz', 'calendar', 'attendance', 'inventory'] as const) expect(pageMeta(p).level).toBe(1);
+    for (const p of ['kibbutz', 'reports', 'calendar', 'attendance', 'inventory'] as const) expect(pageMeta(p).level).toBe(1);
     for (const p of ['burns', 'pushlog', 'dev', 'hours', 'fieldops', 'emsstats', 'readings'] as const) expect(pageMeta(p).level).toBe(2);
   });
   it('burns carries the full sentence on two lines (עידן, 23.9)', () => {

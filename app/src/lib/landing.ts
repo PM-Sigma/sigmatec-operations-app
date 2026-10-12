@@ -49,7 +49,7 @@ export function roleOf(user: string, sigmaRole: SigmaRole | string | null | unde
 export function defaultLanding(role: PersonRole): LandingTarget {
   switch (role) {
     case 'dev': return { page: 'dev' };
-    case 'viewer': return { page: 'kibbutz', scrollTo: 'viewerReportsHub' };
+    case 'viewer': return { page: 'reports' };
     // field (arrival sheet — Task 5), pm (היום שלי — Task 15/16) and ceo (סקירה — later) all
     // start on the cards for now; §7l keeps 🏘 קיבוצים one tap away for every role anyway.
     case 'pm': case 'ceo': case 'field': default: return { page: 'kibbutz' };
@@ -131,7 +131,7 @@ export function applyLanding(settings?: Pick<UserSettings, 'landing'> | null): L
  * everyone else gets the default. Pure function of (role, user) so it is one golden test —
  * Nav.tsx just renders whatever comes back, in order.
  */
-export type NavTabId = 'attendance' | 'kibbutz' | 'calendar' | 'visit' | 'inventory' | 'more';
+export type NavTabId = 'attendance' | 'kibbutz' | 'reports' | 'calendar' | 'visit' | 'inventory' | 'more';
 
 const FIELD_LEAD_NAMES = ['אביאם', 'ניתאי'];
 

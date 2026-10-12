@@ -37,8 +37,8 @@ describe('defaultLanding — §7l role defaults as Task 4 ships them', () => {
   it('devs land on the board', () => {
     expect(defaultLanding('dev')).toEqual({ page: 'dev' });
   });
-  it('the viewer lands on the reports hub, which lives on the kibbutz page', () => {
-    expect(defaultLanding('viewer')).toEqual({ page: 'kibbutz', scrollTo: 'viewerReportsHub' });
+  it('the viewer lands on his own reports page — he has no קיבוצים (עידן 12.10)', () => {
+    expect(defaultLanding('viewer')).toEqual({ page: 'reports' });
   });
   it('field, pm and ceo land on the cards for now (היום שלי / סקירה are later tasks)', () => {
     for (const r of ['field', 'pm', 'ceo'] as const) {

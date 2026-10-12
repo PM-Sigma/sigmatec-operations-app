@@ -234,7 +234,10 @@
         // same rule as fieldops and as canUseReadings() in supabase/functions/_shared/readingsRoster.js.
         case 'readings':   return !call('isViewer', [], false) && !!call('getCurrentUser', [], '');
         case 'inventory':  return call('getCurrentUser', [], '') !== 'מתניה';
-        case 'kibbutz': case 'calendar': return true;
+        // the viewer never sees the kibbutz cards; 'reports' (the hub) is his home instead (עידן 12.10)
+        case 'kibbutz':    return !call('isViewer', [], false);
+        case 'reports':    return !!call('isViewer', [], false);
+        case 'calendar':   return true;
         // פעולות שטח → קריאת מודבוס (r9, spec 2026-09-23-field-ops-modbus-design.md): all staff,
         // never the viewer PIN. The field-ops function enforces the same rule on the name claim.
         // סטטיסטיקת משימות EMS (H5, עידן 29.9): עידן + עמיחי (canManageStaff), never the viewer.
@@ -336,6 +339,7 @@
       // queued open while its lazy chunk is still landing — the pre-K-U1 legacy-modal fallback
       // is gone (round 5, V-U3): #sigma-kibbutz-detail is always in the DOM now.
       openKibbutzModal: function (name, tab) {
+        if (call('isViewer', [], false)) return;   // the viewer has no קיבוצים at all (עידן 12.10) — not even the card modal
         var key = (tab === 'visit' || tab === 'visits') ? 'visits' : 'status';
         var api = window.sigmaKibbutzDetail;
         if (api && typeof api.open === 'function') { api.open(name, key); return; }

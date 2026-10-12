@@ -67,7 +67,7 @@
 
   // The bottom bar's own pages; everything else is an inner page that gets a ← חזרה row and
   // an Android Back that returns here (עידן 22.9, A3/A7).
-  var NAV_PAGES = { kibbutz: 1, inventory: 1, attendance: 1, calendar: 1 };
+  var NAV_PAGES = { kibbutz: 1, reports: 1, inventory: 1, attendance: 1, calendar: 1 };
   function showPage(page, opts) {
     if (RETIRED_PAGES[page]) page = 'kibbutz';
     if (page === 'attendance' && !canSeeAttendance()) page = 'kibbutz'; // private to Aviam/Idan
@@ -80,6 +80,11 @@
     if (page === 'emsstats' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('emsstats'))) page = 'kibbutz'; // סטטיסטיקת EMS — עידן + עמיחי
     if (page === 'readings' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('readings'))) page = 'kibbutz'; // 📥 משיכת קריאות — עידן/עמיחי/מתניה
     if (page === 'hours' && !(window.sigma && window.sigma.canShowPage && window.sigma.canShowPage('hours'))) page = 'kibbutz'; // ⏱ שעות — עידן/עמיחי/מתניה + viewer
+    // The viewer (reports user) has NO קיבוצים page (עידן 12.10): every route to it — a deep link, the Σ home, ← חזרה,
+    // or any gate's fallback above — lands on his reports hub. Staff never see 'reports' (it is the viewer's home).
+    var _viewer = typeof isViewer === 'function' && isViewer();
+    if (_viewer && page === 'kibbutz') page = 'reports';
+    if (!_viewer && page === 'reports') page = 'kibbutz';
     if (window._currentPage && window._currentPage !== page) window._prevPage = window._currentPage;
     window._currentPage = page;   // remembered so a forced EMS re-login can return here afterwards
     try { window.dispatchEvent(new Event('hashchange')); } catch (e) { /* old webview */ }   // the React nav/title re-read the page (a view-transition delays the click's own re-read)
@@ -90,6 +95,7 @@
     try { sessionStorage.setItem('sigma_page_v1', page); } catch (e) { /* private mode */ }
     document.body.classList.toggle('inner-page', !NAV_PAGES[page]);
     document.getElementById('kibbutz-view').style.display    = page === 'kibbutz'    ? '' : 'none';
+    var _rv = document.getElementById('reports-view'); if (_rv) _rv.style.display = page === 'reports' ? '' : 'none';
     document.getElementById('inventory-view').style.display  = page === 'inventory'  ? '' : 'none';
     document.getElementById('attendance-view').style.display = page === 'attendance' ? '' : 'none';
     document.getElementById('calendar-view').style.display   = page === 'calendar'   ? '' : 'none';
@@ -108,7 +114,7 @@
     // BurnsPage.tsx), mounted by app/src/main.tsx's MutationObserver on the view's display
     // toggle above — no legacy render call left to make for any of the three.
     // modest entrance animation on the incoming view (CSS honors prefers-reduced-motion)
-    var _pv = { kibbutz: 'kibbutz-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view', fieldops: 'fieldops-view', emsstats: 'emsstats-view', readings: 'readings-view' }[page];
+    var _pv = { kibbutz: 'kibbutz-view', reports: 'reports-view', inventory: 'inventory-view', attendance: 'attendance-view', calendar: 'calendar-view', dev: 'dev-view', pushlog: 'pushlog-view', burns: 'burns-view', hours: 'hours-view', fieldops: 'fieldops-view', emsstats: 'emsstats-view', readings: 'readings-view' }[page];
     var _pe = _pv && document.getElementById(_pv);
     if (_pe) { _pe.classList.remove('page-enter'); void _pe.offsetWidth; _pe.classList.add('page-enter'); }
   }

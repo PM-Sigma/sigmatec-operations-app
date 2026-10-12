@@ -39,7 +39,7 @@ export const LONG_PRESS_MS = 450;
 /**
  * Bottom tab bar — phones only (`md:hidden`; DesktopNav.tsx, U6, is desktop's own top-tab row —
  * the legacy `.page-nav` it replaced is deleted from index.html, not just hidden).
- * Field roles: קיבוצים · רעיון/באג · [ביקור] · מלאי · עוד. Viewer: קיבוצים · דוחות · עוד.
+ * Field roles: קיבוצים · רעיון/באג · [ביקור] · מלאי · עוד. Viewer: דוחות · נוכחות · מלאי · עוד (no קיבוצים).
  * 22.9 (עידן): 🚚 תעודה left the bar — a certificate is made from inside a visit summary;
  * its slot went to 📣 רעיון / באג. A long press anywhere on the bar opens the ⋯ sheet.
  */
@@ -49,7 +49,7 @@ export function Nav() {
   const [moreSignal, setMoreSignal] = React.useState(0);
   const personRole = roleOf(user, role);
   // The viewer (reports-only user) reaches נוכחות + מלאי (תעודות) in ONE tap — all read-only pages.
-  const tabs: NavTabId[] = isViewer ? ['kibbutz', 'attendance', 'inventory'] : navTabsFor(personRole, user);
+  const tabs: NavTabId[] = isViewer ? ['reports', 'attendance', 'inventory'] : navTabsFor(personRole, user);
 
   // css/app.css hides the legacy `.page-nav` and `#visitFab` on phones only while this class is
   // present. If ui/sigma.js never loads, the class never lands and the phone keeps the old nav.
@@ -85,10 +85,6 @@ export function Nav() {
     sigma.openVisitQuick();
   };
 
-  const scrollToReports = () => {
-    sigma.showPage('kibbutz');
-    document.getElementById('viewerReportsHub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   // Long press → the ⋯ sheet, the way a phone's quick-settings drawer opens on a pull (A6).
   const pressTimer = React.useRef<number | null>(null);
@@ -115,12 +111,9 @@ export function Nav() {
           tabs.map((id: NavTabId) => {
             switch (id) {
               case 'kibbutz':
-                return (
-                  <React.Fragment key={id}>
-                    <TabButton icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />
-                    {isViewer && <TabButton icon={BarChart3} label="דוחות" onClick={scrollToReports} />}
-                  </React.Fragment>
-                );
+                return <TabButton key={id} icon={Home} label="קיבוצים" active={page === 'kibbutz'} onClick={() => sigma.showPage('kibbutz')} />;
+              case 'reports':   // the viewer's home: no קיבוצים for him (עידן 12.10)
+                return <TabButton key={id} icon={BarChart3} label="דוחות" active={page === 'reports'} onClick={() => sigma.showPage('reports')} />;
               case 'attendance':
                 // §3, A5: נוכחות must not read as יומן — a distinct icon, not CalendarDays twice.
                 return <TabButton key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance'} onClick={() => sigma.showPage('attendance')} />;

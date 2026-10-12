@@ -137,9 +137,12 @@ for (const c of CHROME) {
 }
 
 // the card home itself stays inside #kibbutz-view and hides with it
-for (const id of ['sigma-home', 'sigma-today', 'sigma-burns', 'viewerReportsHub']) {
+for (const id of ['sigma-home', 'sigma-today', 'sigma-burns']) {
   ok(inside.has(id), `#${id} belongs to the card home and must live inside #kibbutz-view`);
 }
+// עידן 12.10: the viewer has no קיבוצים — his reports hub is its own page ('reports'), never inside the card home
+ok(!inside.has('viewerReportsHub'), '#viewerReportsHub must NOT live inside #kibbutz-view (the viewer page is #reports-view)');
+ok(/<div id="reports-view"[^>]*>[\s\S]*?id="viewerReportsHub"/.test(html), '#viewerReportsHub lives inside #reports-view');
 
 // the inventory tabs keep the ruled order (round 5 package I spec §1): הזמנות · מלאי חברה ·
 // תעודות משלוח · מלאי בקיבוצים · החזרות · פריטים. The legacy `data-inv-tab` markup is gone

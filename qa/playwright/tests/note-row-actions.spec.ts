@@ -104,11 +104,11 @@ test('note row: convert to an EMS task prefilled, and the row links to it', asyn
   expectNoConsoleErrors(rec);
 });
 
-test('note row: a viewer gets no row actions', async ({ page }, ti) => {
+test('note row: a viewer gets no row actions — he never reaches a kibbutz card (עידן 12.10)', async ({ page }, ti) => {
   await boot(page, ti, { who: 'צפייה' });
-  await openModal(page, 'חוקוק');
-  await expect(rowOf(page, 'לבדוק זרימת נתונים מהבקר החדש')).toBeVisible();
-  await expect(section(page).getByRole('button', { name: 'עוד פעולות לבולט' })).toHaveCount(0);
+  await page.evaluate(() => (window as any).sigma.openKibbutzModal('חוקוק'));
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'עוד פעולות לבולט' })).toHaveCount(0);
 });
 
 // Q7-A 2: the LAST row's ⋯ menu did not open (clipped / off the bottom edge). Real-size check:

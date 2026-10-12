@@ -29,7 +29,13 @@ function invOpen(detail: Record<string, unknown>) {
   try { window.dispatchEvent(new CustomEvent(INV_OPEN_EVENT, { detail })); } catch { /* no-op */ }
 }
 
+/** צפייה: no approval nudges at all — read-only. A wrapper, so the hooks below always run in the same order. */
 export function InventoryNudges() {
+  const { isViewer } = useCurrentUser();
+  return isViewer ? null : <InventoryNudgesFor />;
+}
+
+function InventoryNudgesFor() {
   const user = useCurrentUser();
   const invQ = useInventory();
   const orders = (invQ.data?.orders || []) as OrderLike[];
