@@ -32,7 +32,7 @@ import { canUseReadings } from "../_shared/readingsRoster.js";
 import { datasense, type DsQuery, type Reading, ReadingsError, speednet, speednetViaBrowser } from "./adapters.ts";
 import { applyEmsValidation, buildRun } from "./logic.js";
 import {
-  buildWater, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, keyMatches,
+  buildWater, decodeRaw, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, ingestMatrix, keyMatches, parseCityMind, rawPath, CityMindError,
   SOURCE as CITYMIND, validateIngest, waterEmsCheck, WATER as WATER_CODE,
 } from "./citymind.mjs";
 import {
@@ -228,6 +228,7 @@ async function loadHistory(siteId: string, date: string) {
 }
 
 const UPLOAD_HEAD = ["serialNumber", "energyTypeCode", "entryMode", "readingDate", "ft", "f1", "f2", "f3", "rt", "r1", "r2", "r3"];
+const SEQ_HEAD = ["מקור", "מס' זיהוי", "מס' משדר", "תאריך וזמן", "קריאה"];
 const ALL_HEAD = ["מקור", "מונה באתר", "AMR", "מספר סידורי", "זמן קריאה", 'סה"כ (ft)', "פסגה (f1)", "גבע (f2)", "שפל (f3)", "סטטוס"];
 const EXC_HEAD = ["מקור", "מונה באתר", "מספר סידורי", "זמן קריאה", 'סה"כ (ft)', "סוג", "סיבה"];
 const SUM_HEAD = ["סוג", "סיבה", "כמות"];
@@ -253,14 +254,16 @@ const uploadRows = (upload: any[][]) => upload.map((r) => r.map((v, i) => (i ===
 /** Build both xlsx from a buildRun/applyEmsValidation result, store them, and update the run row's result columns. */
 async function publishFiles(run: any, site: any, built: any, extra: Record<string, unknown>, builtPatch: Record<string, unknown> = {}) {
   const paths = storagePaths(site.id, run.reading_date, run.id);
-  const f1 = toBytes([["Upload Readings", mkSheet(UPLOAD_HEAD, uploadRows(built.upload))], ["קריאות", mkSheet(ALL_HEAD, built.all)]], false);
+  // `raw` (with _built = what emsCheck / emsSync need later) is not readable by clients
+  const { data: cur } = await sb.from("reading_runs").select("raw").eq("id", run.id).single();
+  const seq = built.seq || (builtPatch as any).seq || cur?.raw?._built?.seq;   // CityMind: every reading of the day
+  const f1 = toBytes([["Upload Readings", mkSheet(UPLOAD_HEAD, uploadRows(built.upload))], ["קריאות", mkSheet(ALL_HEAD, built.all)],
+    ...(seq ? [["כל הקריאות ביום", mkSheet(SEQ_HEAD, seq)]] as [string, any][] : [])], false);
   const f2 = toBytes([["חריגות", mkSheet(EXC_HEAD, built.exceptions)], ["סיכום", mkSheet(SUM_HEAD, built.summary)]], true);
   for (const [p, b] of [[paths.readings, f1], [paths.exceptions, f2]] as [string, Uint8Array][]) {
     const { error } = await sb.storage.from("readings").upload(p, b, { contentType: XLSX_MIME, upsert: true });
     if (error) throw new Error("storage upload failed");
   }
-  // `raw` (with _built = what emsCheck / emsSync need later) is not readable by clients
-  const { data: cur } = await sb.from("reading_runs").select("raw").eq("id", run.id).single();
   const raw = { ...(cur?.raw || {}) } as Record<string, any>;
   raw._built = { ...(raw._built || {}), ...builtPatch, finalSerials: built.upload.map((r: any[]) => String(r[0])) };
   await sb.from("reading_runs").update({
@@ -429,48 +432,101 @@ async function hasEmsReadings(site: any, serial: string, auth: Record<string, st
 }
 
 // ───────────────────────── CityMind ingest (GitHub runner → here) ─────────────────────────
+// Stage A = the raw export, stored byte for byte (rawPath) BEFORE anything is parsed. Stage B = parse + checks + files
+// (stageB), re-runnable from the stored raw (`rebuild`) without logging in to CityMind again.
+const failText = (code: string) => ({ code, message: INGEST_ERROR_TEXT[code as keyof typeof INGEST_ERROR_TEXT] || INGEST_ERROR_TEXT.CHANGED });
+
 async function ingest(q: any) {
   const site = await getSite({ kibbutz: q.kibbutz });
   if (!isCityMind(site) || site.active === false) throw new Fail(403, { error: "site not configured for ingest" });
   // once per day: a day that already has an ok (or running) run is not overwritten by a second schedule fire
   const { data: have } = await sb.from("reading_runs").select("id,status").eq("site_id", site.id).eq("reading_date", q.date).in("status", ["ok", "running"]);
   if (have?.length && !q.dry_run) return { existing: true, run_id: have[0].id };
-  if (q.failed) {
-    if (q.dry_run) return { dry_run: true, failed: true };
-    const error = { code: q.error_code, message: INGEST_ERROR_TEXT[q.error_code as keyof typeof INGEST_ERROR_TEXT] };
+  let rows = q.rows, raw: { bytes: Uint8Array; text: string } | null = null, parseFail: string | null = null;
+  if (q.csv_b64) {
+    try { raw = decodeRaw(q.csv_b64); } catch { throw new Fail(400, { error: "bad csv" }); }
+    try { rows = parseCityMind(raw.text, q.date); } catch (e) { parseFail = e instanceof CityMindError ? e.code : "CHANGED"; }
+  }
+  const failCode = q.failed ? q.error_code : parseFail;
+  if (failCode) {
+    if (q.dry_run) return { dry_run: true, failed: true, error: failCode };
+    const error = failText(failCode);
     const ins = await sb.from("reading_runs").insert({
       site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub", status: "failed",
       progress: { [CITYMIND]: { state: "failed", error } }, error: error.message, finished_at: new Date().toISOString(),
     }).select("id").single();
     if (ins.error) throw new Fail(500, { error: "could not save run" });
+    if (raw) await storeRaw(site, ins.data, q.date, raw.bytes);   // a CHANGED export is kept: it is what to look at
     await notifyDone(ins.data.id);
-    return { run_id: ins.data.id, status: "failed" };
+    return { run_id: ins.data.id, status: "failed", error: failCode };
   }
-  const history = await loadHistory(site.id, q.date);
-  const prev = await sb.from("reading_runs").select("rows:raw->" + CITYMIND).eq("site_id", site.id).lt("reading_date", q.date)
-    .eq("status", "ok").order("reading_date", { ascending: false }).limit(1).maybeSingle();
-  const built = buildWater({ day: q.date, rows: q.rows, history: history as any, rules: site.rules || {}, prevIds: idMap((prev.data as any)?.rows) });
-  if (q.dry_run) return { dry_run: true, rows: q.rows.length, ...built.counts, replacements: built.replacements.length };
+  if (q.dry_run) {
+    const built = await cmBuild(site, q.date, rows);
+    return { dry_run: true, rows: rows.length, ...built.counts, replacements: built.replacements.length };
+  }
   const ins = await sb.from("reading_runs").insert({
     site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub",
-    progress: { [CITYMIND]: { state: "ok", count: q.rows.length } }, raw: { [CITYMIND]: q.rows },
+    progress: { [CITYMIND]: { state: "ok", count: rows.length } }, raw: { [CITYMIND]: rows },
   }).select("id,site_id,reading_date").single();
   if (ins.error) {
     if (ins.error.code === "23505") return { existing: true };
     throw new Fail(500, { error: "could not save run" });
   }
   const run = ins.data as any;
+  if (raw) await storeRaw(site, run, q.date, raw.bytes);
+  const built = await stageB(site, run, rows);
+  await notifyDone(run.id);
+  return { run_id: run.id, rows: rows.length, ...(built ? built.counts : { failed: true }) };
+}
+
+async function storeRaw(site: any, run: any, date: string, bytes: Uint8Array) {
+  const path = rawPath(site.id, date);
+  const { error } = await sb.storage.from("readings").upload(path, bytes, { contentType: "text/csv; charset=windows-1255", upsert: true });
+  if (error) { console.error("raw store failed"); return; }
+  await sb.from("reading_runs").update({ raw_file: path }).eq("id", run.id);
+}
+
+async function cmBuild(site: any, date: string, rows: any[]) {
+  const history = await loadHistory(site.id, date);
+  const prev = await sb.from("reading_runs").select("rows:raw->" + CITYMIND).eq("site_id", site.id).lt("reading_date", date)
+    .eq("status", "ok").order("reading_date", { ascending: false }).limit(1).maybeSingle();
+  return buildWater({ day: date, rows, history: history as any, rules: site.rules || {}, prevIds: idMap((prev.data as any)?.rows) });
+}
+
+/** Stage B: rows → checks → files + reading_values. Resets the EMS check (a rebuild must be checked again). */
+async function stageB(site: any, run: any, rows: any[]) {
   try {
+    const built = await cmBuild(site, run.reading_date, rows);
     await publishFiles(run, site, built, {
       status: "ok", finished_at: new Date().toISOString(), error: null, ems_checked: false, ems_checked_by: null, ems_checked_at: null,
-    }, { upload: built.upload, uploadMeta: built.uploadMeta, all: built.all, exceptions: built.exceptions, replacements: built.replacements });
+    }, { upload: built.upload, uploadMeta: built.uploadMeta, all: built.all, exceptions: built.exceptions, replacements: built.replacements, seq: built.seq });
     await saveValues(site, run, built);
+    return built;
   } catch (e) {
     console.error("ingest build failed", (e as Error)?.message);
     await sb.from("reading_runs").update({ status: "failed", error: "שגיאה בבניית הקבצים", finished_at: new Date().toISOString() }).eq("id", run.id);
+    return null;
   }
-  await notifyDone(run.id);
-  return { run_id: run.id, ...built.counts };
+}
+
+/** `rebuild`: stage B again from the stored raw export — no CityMind login. */
+async function rebuild(run_id: string) {
+  const run = await getRun(run_id, "id,site_id,reading_date,raw_file,status");
+  if (run.status === "running") throw new Fail(409, { error: "RUNNING", message: "הריצה עדיין פעילה" });
+  const site = (await sb.from("reading_sites").select("*").eq("id", run.site_id).single()).data as any;
+  if (!isCityMind(site) || !run.raw_file) throw new Fail(409, { error: "NO_RAW", message: "אין קובץ גולמי לריצה הזו" });
+  const { data, error } = await sb.storage.from("readings").download(run.raw_file);
+  if (error || !data) throw new Fail(500, { error: "NO_RAW", message: "הקובץ הגולמי לא נמצא" });
+  let rows: any[];
+  try { rows = parseCityMind(new TextDecoder("windows-1255").decode(new Uint8Array(await data.arrayBuffer())), run.reading_date); }
+  catch (e) {
+    const err = failText(e instanceof CityMindError ? e.code : "CHANGED");
+    await sb.from("reading_runs").update({ status: "failed", error: err.message, progress: { [CITYMIND]: { state: "failed", error: err } } }).eq("id", run.id);
+    return { status: "failed", error: err.code };
+  }
+  await sb.from("reading_runs").update({ raw: { [CITYMIND]: rows }, progress: { [CITYMIND]: { state: "ok", count: rows.length } } }).eq("id", run.id);
+  const built = await stageB(site, run, rows);
+  return built ? { rows: rows.length, ...built.counts } : { status: "failed" };
 }
 
 // ───────────────────────── cron maintenance ─────────────────────────
@@ -484,10 +540,10 @@ async function maintenance(now: Date) {
   const { data: sites } = await sb.from("reading_sites").select("id,retention_days");
   let deleted = 0;
   for (const s of sites || []) {
-    const { data: old } = await sb.from("reading_runs").select("id,readings_file,exceptions_file")
+    const { data: old } = await sb.from("reading_runs").select("id,readings_file,exceptions_file,raw_file")
       .eq("site_id", s.id).lt("reading_date", retentionCutoff(now, s.retention_days || 35));
     if (!old?.length) continue;
-    const files = old.flatMap((r: any) => [r.readings_file, r.exceptions_file]).filter(Boolean);
+    const files = old.flatMap((r: any) => [r.readings_file, r.exceptions_file, r.raw_file]).filter(Boolean);
     if (files.length) await sb.storage.from("readings").remove(files);
     await sb.from("reading_runs").delete().in("id", old.map((r: any) => r.id));
     deleted += old.length;
@@ -556,6 +612,11 @@ Deno.serve(async (req) => {
     const bytes = new TextEncoder().encode(text).length;
     let raw: any = null;
     try { raw = JSON.parse(text); } catch { /* */ }
+    if (raw?.mode === "ingestSites") {
+      // the GitHub matrix: which kibbutzim to pull and the NAMES of their secrets (never a value)
+      const { data } = await sb.from("reading_sites").select("kibbutz,active,rules").eq("active", true);
+      return J({ sites: ingestMatrix(data || []) });
+    }
     if (raw?.mode !== "ingest") return J({ error: "forbidden" }, 403);
     const v: any = validateIngest(raw, bytes);
     if (!v.ok) return J({ error: v.error, ...(v.index !== undefined ? { index: v.index, field: v.field, reason: v.reason } : {}) }, v.status);
@@ -618,10 +679,22 @@ Deno.serve(async (req) => {
         userOnly();
         return J(await emsCheck(body.run_id, String(body.ems_token || ""), name!));
       }
+      case "rebuild": {
+        userOnly();
+        return J(await rebuild(body.run_id));
+      }
       case "sign": {
-        const run = await getRun(body.run_id, "id,site_id,reading_date,readings_file,exceptions_file,ems_checked");
-        const kind = body.kind === "exceptions" ? "exceptions" : body.kind === "readings" ? "readings" : null;
+        const run = await getRun(body.run_id, "id,site_id,reading_date,readings_file,exceptions_file,raw_file,ems_checked");
+        const kind = (["exceptions", "readings", "raw"].includes(body.kind) ? body.kind : null) as "exceptions" | "readings" | "raw" | null;
         if (!kind) return J({ error: "bad kind" }, 400);
+        if (kind === "raw") {
+          // stage A, as downloaded from CityMind — viewable on its own (no EMS check: it is the input, not the upload file)
+          if (!run.raw_file) return J({ error: "NO_FILE", message: "אין קובץ גולמי לריצה הזו" }, 404);
+          const site = (await sb.from("reading_sites").select("kibbutz").eq("id", run.site_id).single()).data as any;
+          const { data, error } = await sb.storage.from("readings").createSignedUrl(run.raw_file, 3600, { download: `${run.reading_date} — ${site.kibbutz} CityMind גולמי.csv` });
+          if (error || !data) return J({ error: "SIGN_FAILED", message: "לא ניתן להוריד את הקובץ" }, 500);
+          return J({ url: data.signedUrl });
+        }
         const path = kind === "readings" ? run.readings_file : run.exceptions_file;
         if (!path) return J({ error: "NO_FILE", message: "אין קובץ לריצה הזו" }, 404);
         const site = (await sb.from("reading_sites").select("kibbutz,rules").eq("id", run.site_id).single()).data as any;

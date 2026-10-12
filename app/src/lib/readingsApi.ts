@@ -13,7 +13,7 @@ export interface ReadingSite { id: string; kibbutz: string; ems_site_id: string 
 export const RUN_COLS =
   'id,site_id,reading_date,trigger,started_by,started_at,finished_at,status,progress,n_ok,n_blocked,n_warn,' +
   'summary,exceptions,error,readings_file,exceptions_file,ems_checked,ems_checked_by,ems_checked_at,' +
-  'uploaded,uploaded_by,uploaded_at,uploaded_source,seen_by';
+  'uploaded,uploaded_by,uploaded_at,uploaded_source,seen_by,raw_file';
 
 export const emsToken = (): string => { try { return sigma?.emsToken?.() || ''; } catch { return ''; } };
 export const currentUser = (): string => { try { return sigma?.getCurrentUser?.() || ''; } catch { return ''; } };
@@ -45,11 +45,13 @@ export async function callReadings<T = any>(payload: Record<string, unknown>): P
 export const startRun = (kibbutz: string, date: string) =>
   callReadings<{ run_id: string }>({ mode: 'run', kibbutz, date, trigger: 'manual' });
 export const emsCheck = (run_id: string) => callReadings({ mode: 'emsCheck', run_id, ems_token: emsToken() });
-export const signFile = (run_id: string, kind: 'readings' | 'exceptions') =>
+export const signFile = (run_id: string, kind: 'readings' | 'exceptions' | 'raw') =>
   callReadings<{ url: string }>({ mode: 'sign', run_id, kind });
 export const retrySource = (run_id: string, source_id: string) => callReadings({ mode: 'retrySource', run_id, source_id });
 export const markUploaded = (run_id: string, uploaded: boolean) => callReadings({ mode: 'markUploaded', run_id, uploaded });
 export const emsSync = (kibbutz: string) => callReadings({ mode: 'emsSync', kibbutz, ems_token: emsToken() });
+/** CityMind: stage B again from the stored raw export (no CityMind login); resets the EMS check. */
+export const rebuildRun = (run_id: string) => callReadings<{ rows?: number; ok?: number; blocked?: number; status?: string }>({ mode: 'rebuild', run_id });
 export const markSeen = (run_id: string) => callReadings({ mode: 'seen', run_id });
 
 export async function fetchSites(): Promise<ReadingSite[]> {

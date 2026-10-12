@@ -1,5 +1,7 @@
 **STATUS: 🟡 BUILT, not live** — branch `feat/citymind-ein-hamifratz`; waiting on MAIN: SQL, secrets, function deploy, dry-run, then enable.
 
+> ↪ Generalised to every Arad kibbutz: `docs/superpowers/specs/2026-10-12-arad-multi-kibbutz-design.md` (workflow renamed to `citymind-arad.yml`).
+
 # עין המפרץ — daily CityMind water readings (readings-pull, second site)
 
 Source spec (עידן, 12.10.26): `Kibbutzim/עין המפרץ/תוצרים/2026-10-12 — אפיון שאיבה יומית ל-Sigmatec Ops/` + the reference

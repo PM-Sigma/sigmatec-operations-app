@@ -73,6 +73,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — 2026-10-12 (feat/arad-multi-kibbutz, not merged)
+CityMind (Arad) generalised to N kibbutzim by config — BUILT + green on `feat/arad-multi-kibbutz`; MAIN: SQL → deploy → merge → dry run + PROBE. Spec `docs/superpowers/specs/2026-10-12-arad-multi-kibbutz-design.md` (has "how to add an Arad kibbutz").
+
 ## 🚦 Current state — 2026-10-11 (**11.10 ship merged to main as 276a1549; live 2.155**)
 
 Live on `main`: desktop attendance + report pages, viewer nav (attendance/certs) + cert PDF + page titles, visit summary <-> EMS task link, attendance from visits only for אביאם/ניתאי, and the attendance **day details** text (tap a date → what happened). Details: CHANGELOG [2.155].

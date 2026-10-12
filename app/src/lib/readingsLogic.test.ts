@@ -224,3 +224,13 @@ describe('siteMode — עין המפרץ (CityMind) vs חולדה', () => {
     }
   });
 });
+
+describe('siteMode — any Arad kibbutz added by config only', () => {
+  it('a new citymind row (no code) gets the automatic mode and the check-before-download lock', () => {
+    for (const kibbutz of ['אור הנר', 'עין השופט', 'קיבוץ דמה']) {
+      const m = siteMode({ rules: { source: 'citymind', secrets: { user: 'X_CITYMIND_USER', pass: 'X_CITYMIND_PASS' }, daily_readings: 5 }, kibbutz } as any);
+      expect([m.manual, m.requireCheck]).toEqual([false, true]);
+      expect(canDownload(m, { ems_checked: false })).toBe(false);
+    }
+  });
+});

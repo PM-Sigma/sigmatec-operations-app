@@ -1,0 +1,132 @@
+# CityMind (Arad) daily water readings → readings-fetch `ingest` — EVERY Arad kibbutz (Sigmatec Ops, "משיכת קריאות").
+# Design: docs/superpowers/specs/2026-10-12-arad-multi-kibbutz-design.md (was citymind-ein-hamifratz.yml).
+#
+# The kibbutz list is NOT in this file: job `sites` asks the function for the active reading_sites rows with
+# rules.source='citymind' (+ the NAMES of each kibbutz's two secrets). A new kibbutz = a reading_sites row + two
+# secrets; this workflow does not change. One matrix job per kibbutz = its own runner and Firefox; fail-fast is off,
+# so one kibbutz failing (wrong password, CityMind down) never stops the others.
+#
+# ⚠ PUBLIC REPO: this job's log is world-readable. The scripts print counts and error codes only; no artifacts.
+# Secrets: <KIBBUTZ>_CITYMIND_USER / _PASS per kibbutz (names come from the config), READINGS_INGEST_KEY (the
+# function's ingest key — the ONLY Supabase credential here; no service-role key ever lives in GitHub).
+#
+# Timing: GitHub cron is UTC and ignores DST, so there are two fires (05:40 Israel in summer AND in winter); each
+# kibbutz's job keeps only the fire that lands 05:30–06:39 Israel and then sleeps its OWN random part of the time left
+# until 06:20, so every kibbutz logs in at a different minute every day. The function refuses a second run for a day.
+name: CityMind daily — Arad kibbutzim
+
+on:
+  schedule:
+    - cron: '40 2 * * *'   # 05:40 Israel during summer time (UTC+3)
+    - cron: '40 3 * * *'   # 05:40 Israel during winter time (UTC+2)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: parse + checks + counts, write nothing'
+        type: boolean
+        default: true
+      date:
+        description: 'Reading date YYYY-MM-DD (empty = yesterday, Israel)'
+        type: string
+        default: ''
+      kibbutz:
+        description: 'Only this kibbutz (exact name as in reading_sites; empty = all active)'
+        type: string
+        default: ''
+      probe:
+        description: 'PROBE: print the "קריאות יומיות" options + readings per meter per value (counts only, sends nothing)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: citymind-arad
+  cancel-in-progress: false
+
+jobs:
+  sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+      count: ${{ steps.list.outputs.count }}
+    steps:
+      - name: Schedule gate
+        if: github.event_name == 'schedule'
+        env:
+          ENABLED: ${{ vars.CITYMIND_ENABLED }}
+        run: |
+          # The schedule stays OFF until the repo variable CITYMIND_ENABLED=true (set after the dry-run passes).
+          if [ "$ENABLED" != "true" ]; then echo "Schedule disabled (CITYMIND_ENABLED != true)."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0; fi
+          hm=$(TZ=Asia/Jerusalem date +%H%M); hm=$((10#$hm))
+          if [ "$hm" -lt 530 ] || [ "$hm" -gt 639 ]; then echo "Not this fire (the other DST side)."; echo "SKIP=1" >> "$GITHUB_ENV"; fi
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        if: env.SKIP != '1'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: env.SKIP != '1'
+        with:
+          node-version: '22'
+
+      - name: Active Arad kibbutzim (from reading_sites)
+        id: list
+        if: env.SKIP != '1'
+        env:
+          READINGS_INGEST_KEY: ${{ secrets.READINGS_INGEST_KEY }}
+          ONLY_KIBBUTZ: ${{ github.event_name == 'workflow_dispatch' && inputs.kibbutz || '' }}
+        run: node scripts/citymind/sites.mjs
+
+  pull:
+    needs: sites
+    if: needs.sites.outputs.count != '' && needs.sites.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false            # one kibbutz failing never cancels the others
+      matrix: ${{ fromJSON(needs.sites.outputs.matrix) }}
+    name: pull (${{ matrix.kibbutz }})
+    steps:
+      - name: A random start minute (this kibbutz)
+        if: github.event_name == 'schedule'
+        run: |
+          hm=$(TZ=Asia/Jerusalem date +%H%M); hm=$((10#$hm))
+          left=$(( 6*60 + 20 - (hm/100)*60 - hm%100 ))
+          [ "$left" -lt 1 ] && left=1
+          s=$(( RANDOM % (left*60) ))
+          echo "Starting in $((s/60)) min."
+          sleep "$s"
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+
+      # Only Playwright + Firefox, in a scratch dir (the repo's own devDependencies are not needed here).
+      - name: Install Playwright Firefox
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm i --no-audit --no-fund playwright@1.63.0 >/dev/null
+          npx playwright install --with-deps firefox >/dev/null
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/pw/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+
+      - name: Pull CityMind (raw) → ingest
+        env:
+          CITYMIND_KIBBUTZ: ${{ matrix.kibbutz }}
+          CITYMIND_DAILY: ${{ matrix.daily }}
+          # the secret NAMES come from the kibbutz's config row — adding a kibbutz never edits this file
+          CITYMIND_USER: ${{ secrets[matrix.user_secret] }}
+          CITYMIND_PASS: ${{ secrets[matrix.pass_secret] }}
+          READINGS_INGEST_KEY: ${{ secrets.READINGS_INGEST_KEY }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          PROBE: ${{ github.event_name == 'workflow_dispatch' && inputs.probe || 'false' }}
+          CITYMIND_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.date || '' }}
+        run: node scripts/citymind/citymind-daily.mjs

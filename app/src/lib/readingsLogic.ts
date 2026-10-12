@@ -26,6 +26,8 @@ export interface ReadingRun {
   error: string | null;
   readings_file: string | null;
   exceptions_file: string | null;
+  /** CityMind stage A: the raw export as downloaded (null for other sources / older runs) */
+  raw_file?: string | null;
   ems_checked: boolean | null;
   ems_checked_by: string | null;
   ems_checked_at: string | null;

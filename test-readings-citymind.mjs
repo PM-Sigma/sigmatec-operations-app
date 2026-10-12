@@ -222,10 +222,12 @@ t('key: wrong / empty / missing secret → refused; exact → accepted', () => {
   assert.strictEqual(keyMatches('anything', ''), false, 'an unset secret never matches');
   assert.strictEqual(keyMatches(undefined, 'k'), false);
 });
-t('payload: oversized → 413; too many rows → 400; other site → 403; extra field → 400', () => {
+t('payload: oversized → 413; too many rows → 400; bad site name → 400 (the DB decides which sites); extra field → 400', () => {
   assert.strictEqual(validateIngest(ok, INGEST_MAX_BYTES + 1).status, 413);
   assert.strictEqual(validateIngest({ ...ok, rows: Array.from({ length: INGEST_MAX_ROWS + 1 }, () => ok.rows[0]) }, 1000).status, 400);
-  assert.strictEqual(validateIngest({ ...ok, kibbutz: 'חולדה' }, 100).status, 403);
+  assert.strictEqual(validateIngest({ ...ok, kibbutz: 'אור הנר' }, 100).ok, true, 'any well-formed name passes the shape gate');
+  assert.strictEqual(validateIngest({ ...ok, kibbutz: 'x\u0000' }, 100).status, 400);
+  assert.strictEqual(validateIngest({ ...ok, kibbutz: 5 }, 100).status, 400);
   assert.strictEqual(validateIngest({ ...ok, site_id: 'x' }, 100).status, 400);
   assert.strictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], serial: 'T1 x' }] }, 100).status, 400);
   assert.strictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], serial: 'T'.repeat(65) }] }, 100).status, 400);
