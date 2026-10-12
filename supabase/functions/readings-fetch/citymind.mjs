@@ -41,7 +41,7 @@ export function parseCsv(text, delim = ',') {
     if (q) {
       if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
       else cell += c;
-    } else if (c === '"') q = true;
+    } else if (c === '"' && cell === '') q = true;   // a quote opens a field only at its start; mid-field " is literal (מס"ד) — Python csv
     else if (c === delim) { row.push(cell); cell = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && text[i + 1] === '\n') i++;
@@ -88,7 +88,13 @@ export function detectDelimiter(text) {
   let best = ',', bestN = -1;
   for (const d of [',', ';', '\t']) {
     let n = 0, q = false;
-    for (const c of first) { if (c === '"') q = !q; else if (!q && c === d) n++; }
+    let cell = '';
+    for (const c of first) {
+      if (q) { if (c === '"') q = false; else cell += c; }
+      else if (c === '"' && cell === '') q = true;
+      else if (c === d) { n++; cell = ''; }
+      else cell += c;
+    }
     if (n > bestN) { best = d; bestN = n; }
   }
   return best;

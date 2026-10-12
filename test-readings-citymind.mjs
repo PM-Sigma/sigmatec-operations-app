@@ -22,7 +22,7 @@ const bytes = readFileSync(new URL('./qa/fixtures/citymind-ein-hamifratz-fake.cs
 const text = new TextDecoder('windows-1255').decode(bytes);
 
 t('windows-1255 fixture decodes to Hebrew headers', () => {
-  assert.ok(text.startsWith('"מס""ד",'), 'Hebrew header survives the decode');
+  assert.ok(text.startsWith("מס\"ד,מס' זיהוי,"),'Hebrew header survives the decode (the real shape: unquoted, a literal " mid-field)');
   assert.ok(text.includes("מס' משדר"));
 });
 
@@ -39,6 +39,14 @@ t('columns are found by HEADER NAME (fixture column order differs from the refer
 t('a missing header = CHANGED; no row for the day = STALE', () => {
   assert.throws(() => parseCityMind('a,b,c\r\n1,2,3', DAY), (e) => e instanceof CityMindError && e.code === 'CHANGED');
   assert.throws(() => parseCityMind(text, '2026-10-01'), (e) => e instanceof CityMindError && e.code === 'STALE');
+});
+
+t('the REAL CityMind shape: unquoted header with מס"ד (literal mid-field quote) + trailing comma; quoted rows + trailing comma', () => {
+  const real = "מס\"ד,מס' זיהוי,מס' משדר,תאריך וזמן,קריאה,\r\n" + '"1","001","T9999001","10/10/2026 23:18","699.932",\r\n';
+  assert.deepStrictEqual(parseCsv(real), [['מס"ד', "מס' זיהוי", "מס' משדר", 'תאריך וזמן', 'קריאה', ''], ['1', '001', 'T9999001', '10/10/2026 23:18', '699.932', '']]);
+  assert.deepStrictEqual(parseCityMind(real, '2026-10-10'), [{ id: '001', serial: 'T9999001', when: '10/10/2026 23:18', ft: 699.932 }]);
+  const bytes = Uint8Array.from([...real].map((c) => { const k = c.charCodeAt(0); return k >= 0x5D0 && k <= 0x5EA ? k - 0x5D0 + 0xE0 : k; }));
+  assert.deepStrictEqual(parseCityMind(new TextDecoder('windows-1255').decode(bytes), '2026-10-10').length, 1, 'same in windows-1255 bytes');
 });
 
 t('csv: quotes, "" escapes, CRLF', () => {
