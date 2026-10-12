@@ -650,6 +650,10 @@ const TILE_EDIT_MS = 3000;
 
 // The quantity number IS a native <select> (עידן 8.10): iOS opens its wheel, Android its list
 // picker, no library. Quantities are whole numbers here, so 0..N with N = max(50, current + 20).
+// ponytail: stock caps OFF (עידן 12.10) until the September reset + physical count. Flip to true to restore
+// the ➕ cap, the out-of-stock tile state and the in-stock-only picker.
+export const STOCK_LIMITS = false;
+
 export function qtyOptionsMax(current: number): number { return Math.max(50, (Number(current) || 0) + 20); }
 
 function QtySelect({ name, value, onPick, onFocus, onBlur }: {
@@ -696,7 +700,7 @@ function ProductTiles({ groups, stock, qtyOf, setQty }: {
     hold(editing === name ? null : name);
   };
   const step = (name: string, d: number) => {
-    const max = stock[name] ?? Infinity;
+    const max = STOCK_LIMITS ? (stock[name] ?? Infinity) : Infinity;
     const next = Math.max(0, Math.min(qtyOf(name) + d, max));
     setQty(name, next);
     hold(next > 0 ? name : null);
@@ -712,7 +716,7 @@ function ProductTiles({ groups, stock, qtyOf, setQty }: {
           <div className="grid grid-cols-3 gap-1.5">
             {g.names.map(name => {
               const q = qtyOf(name);
-              const out = (stock[name] || 0) === 0 && q === 0;
+              const out = STOCK_LIMITS && (stock[name] || 0) === 0 && q === 0;
               const open = editing === name;
               return (
                 <div
@@ -1519,7 +1523,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   }, [open]);
   const stockNames = React.useMemo(
     // C4: SIM rows are hidden from the pickable list (hidden, never deleted).
-    () => pickableProducts(Object.keys(stock).filter(n => (stock[n] || 0) > 0)).sort((a, b) => a.localeCompare(b, 'he')),
+    () => pickableProducts(Object.keys(stock).filter(n => !STOCK_LIMITS || (stock[n] || 0) > 0)).sort((a, b) => a.localeCompare(b, 'he')),
     [stock],
   );
   /** The whole catalog the keyword search runs over — the pool first, the catalog behind it. */
