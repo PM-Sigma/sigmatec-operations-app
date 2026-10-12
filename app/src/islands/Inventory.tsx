@@ -117,7 +117,8 @@ function InventoryPage() {
 
   return (
     <div dir="rtl" className="flex min-w-0 flex-col gap-2">
-      <PageActionRow title="מלאי" />
+      {/* desktop: the shell PageBar is the page title — this one would repeat it (viewer-desktop 12.10) */}
+      <div className="lg:hidden"><PageActionRow title="מלאי" /></div>
       <Tabs value={tab} onValueChange={v => setTab(normalizeTab(v))}>
         {/* Designer round-3 fix: a `mask-image` on the scroll container (round 2) never showed
             up in a real capture — replaced with an actual gradient overlay div instead, the

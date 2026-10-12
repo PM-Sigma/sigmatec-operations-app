@@ -118,7 +118,8 @@ export function InventoryCertsTab() {
         }
       />
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:gap-2" data-testid="inv-certs-toolbar">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:px-0 lg:pb-0">
         {RANGES.map(r => (
           <span key={r.key} data-testid={`inv-certs-range-${r.key}`}>
             <FilterChip selected={range === r.key} onClick={() => setRangeChip(r.key)}>{r.label}</FilterChip>
@@ -127,13 +128,14 @@ export function InventoryCertsTab() {
       </div>
       <div className="flex gap-2">
         <input data-testid="inv-certs-from" aria-label="מתאריך" type="date" value={from} onChange={e => setManualFrom(e.target.value)}
-          className="min-h-[48px] flex-1 rounded-xl border border-border bg-card px-2 text-[13px]" />
+          className="min-h-[48px] flex-1 rounded-xl border border-border bg-card px-2 text-[13px] lg:min-h-[40px] lg:w-[160px] lg:flex-none" />
         <input data-testid="inv-certs-to" aria-label="עד תאריך" type="date" value={to} onChange={e => setManualTo(e.target.value)}
-          className="min-h-[48px] flex-1 rounded-xl border border-border bg-card px-2 text-[13px]" />
+          className="min-h-[48px] flex-1 rounded-xl border border-border bg-card px-2 text-[13px] lg:min-h-[40px] lg:w-[160px] lg:flex-none" />
       </div>
       <input data-testid="inv-certs-search" placeholder="חיפוש לפי קיבוץ / לקוח / מספר" value={search}
         onChange={e => setSearch(e.target.value)}
-        className="min-h-[48px] w-full rounded-xl border border-border bg-card px-3 text-[15px]" />
+        className="min-h-[48px] w-full rounded-xl border border-border bg-card px-3 text-[15px] lg:min-h-[40px] lg:w-auto lg:min-w-[260px] lg:flex-1" />
+      </div>
 
       <SectionBlock title="תעודות" count={filtered.length}>
         {filtered.length === 0 && (

@@ -1776,7 +1776,7 @@ function CalendarIsland() {
     <div className="pb-4" data-testid="cal-island">
       {/* ── header ─────────────────────────────────────────────────────── */}
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 text-[19px] font-extrabold text-primary">🗓️ יומן</h2>
+        <h2 className="m-0 text-[19px] font-extrabold text-primary lg:invisible">🗓️ יומן</h2>
         <div className="flex items-center gap-1.5">
           {/* רשימה is not a period — there is nothing to step through, so the arrows go away
               rather than sit there doing nothing. */}

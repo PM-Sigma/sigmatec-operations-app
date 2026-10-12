@@ -372,7 +372,8 @@ function CertIsland() {
       </Sheet>
 
       <Sheet open={screen === 'viewer'} onOpenChange={o => !o && close()}>
-        <SheetContent side="bottom" className="h-[92vh]" data-testid="cert-viewer">
+        <SheetContent side="bottom" data-testid="cert-viewer"
+          className="h-[92vh] lg:bottom-[3vh] lg:mx-auto lg:h-[90vh] lg:max-w-[960px] lg:rounded-[var(--s-radius-sheet)] lg:border lg:before:hidden">
           <SheetHeader><SheetTitle>תעודת משלוח</SheetTitle></SheetHeader>
           <div ref={fitBox} className="mt-2 h-[calc(92vh-170px)] w-full overflow-hidden rounded-xl border border-border bg-white">
             {/* The certificate is a fixed-width A4-ish document: on a phone it is scaled down to the

@@ -153,7 +153,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-burns-page` | :408 | app/src/islands/BurnsPage.tsx:377<br>app/src/main.tsx:245 |
 | `#sigma-calendar` | :365 | app/src/islands/Calendar.tsx:2046<br>app/src/main.tsx:273 |
 | `#sigma-ceo` | :710 | **—** |
-| `#sigma-cert` | :690 | app/src/islands/InventoryCert.tsx:456 |
+| `#sigma-cert` | :690 | app/src/islands/InventoryCert.tsx:457 |
 | `#sigma-daylog` | :685 | app/src/islands/DayLog.tsx:552<br>app/src/main.tsx:424 |
 | `#sigma-desktop-nav` | :160 | app/src/islands/DesktopNav.tsx:97<br>app/src/main.tsx:311 |
 | `#sigma-dev-board` | :386 | app/src/islands/DevBoard.tsx:319<br>app/src/main.tsx:284 |
@@ -169,7 +169,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-home` | :232 | app/src/islands/Gallery.tsx:168<br>app/src/islands/Home.tsx:296<br>app/src/islands/Home.tsx:299<br>…+1 |
 | `#sigma-hours` | :403 | app/src/islands/Hours.tsx:399<br>app/src/main.tsx:237 |
 | `#sigma-import` | :681 | app/src/islands/ImportNotes.tsx:378<br>app/src/main.tsx:555 |
-| `#sigma-inventory` | :273 | app/src/islands/Inventory.tsx:179 |
+| `#sigma-inventory` | :273 | app/src/islands/Inventory.tsx:180 |
 | `#sigma-inventory-nudges` | :694 | app/src/islands/InventoryNudges.tsx:180 |
 | `#sigma-kibbutz-detail` | :674 | app/src/main.tsx:167 |
 | `#sigma-meeting-review` | :702 | app/src/islands/MeetingReview.tsx:647 |

@@ -1154,6 +1154,21 @@ body.user-viewer #invProductsList button { display: none !important; }
 /* Excel gets the brand green, PDF stays the quiet surface — the two are told apart by weight,
    not by two loud fills. */
 .xl-hub-row .inv-btn.small.xl-green { background: var(--brand-2); color: var(--on-brand); border-color: transparent; }
+/* Desktop (≥1024, viewer-desktop 12.10): the hub is a dashboard — a grid of report CARDS, each with its name on
+   top, its inputs in the middle and its PDF / Excel actions on one line at the bottom. The phone keeps the rows. */
+@media (min-width: 1024px) {
+  #viewerReportsHub .xl-hub-rows {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 16px;
+  }
+  #viewerReportsHub .xl-hub-row {
+    align-items: flex-end; align-content: space-between; min-height: 156px; padding: 16px 18px; gap: 12px;
+    box-shadow: var(--shadow-sm, none);
+  }
+  #viewerReportsHub .xl-hub-row .xl-hub-name { flex: 1 1 100%; font-size: 16px; margin: 0 !important; }
+  #viewerReportsHub .xl-hub-row label { flex: 1 1 140px; flex-direction: column; align-items: stretch; gap: 4px; }
+  #viewerReportsHub .xl-hub-row input, #viewerReportsHub .xl-hub-row select { width: 100%; }
+  #viewerReportsHub .xl-hub-row .inv-btn { flex: 0 0 auto; min-width: 104px; }
+}
 
 /* @end */
 
