@@ -212,3 +212,79 @@ Deno.test("errors: EMS 401/403/400, timeout, gate, bad input, CORS", async () =>
   const evil = await handle(new Request("https://fn.example", { method: "OPTIONS", headers: { origin: "https://evil.example" } }), d0);
   eq(evil.headers.get("Access-Control-Allow-Origin"), "https://app.example");
 });
+
+// ── field bug 12.10: EMS scopes /v1/meters by the caller's saved currentSite ──────────────────
+const OTHER_SITE = "44444444-4444-4444-8444-444444444444";
+/** A fake EMS that honours currentSite like meter-scope.helper.ts: one site's meters, or all when cleared. */
+function scopedEms(state: { currentSite: string | null; meters: any[] }) {
+  return (url: string, init: RequestInit) => {
+    const u = new URL(url);
+    if (u.pathname === "/v1/users/me") return J({ id: "u1", currentSite: state.currentSite });
+    if (u.pathname === "/v1/sites/" + OTHER_SITE) return J({ id: OTHER_SITE, name: "דגניה א" });
+    if (u.pathname === "/v1/sites/switch" && init.method === "POST") { state.currentSite = u.searchParams.get("siteId"); return J({}); }
+    if (u.pathname === "/v1/meters") {
+      const rows = state.meters.filter((m) => !state.currentSite || m.site.id === state.currentSite);
+      return J({ data: rows, meta: { itemCount: rows.length } });
+    }
+    return J({ message: "no route" }, 404);
+  };
+}
+const yagur = Array.from({ length: 12 }, (_, i) => ({ ...meter(M1, "10.0.0.1", String(i + 1), 15), id: "m" + i }));
+
+Deno.test("lookup scoped to another site: empty + the site it was limited to; nothing switched behind the user's back", async () => {
+  clearIndexCache();
+  const state = { currentSite: OTHER_SITE as string | null, meters: yagur };
+  const { deps, calls } = fakeDeps(scopedEms(state));
+  const d = await (await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1" }), deps)).json();
+  eq(d.meters, []);
+  eq(d.scope, { siteId: OTHER_SITE, siteName: "דגניה א" });
+  eq(d.switched, false);
+  eq(state.currentSite, OTHER_SITE, "the user's EMS site is untouched without allSites");
+  ok(!calls.some((c) => c.url.includes("/sites/switch")), "no switch call");
+});
+
+Deno.test("lookup allSites: clears the EMS site (POST /v1/sites/switch, no siteId), searches fresh, finds the 12 meters", async () => {
+  clearIndexCache();
+  const state = { currentSite: OTHER_SITE as string | null, meters: yagur };
+  const { deps, calls } = fakeDeps(scopedEms(state));
+  await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1" }), deps);            // primes the (scoped) cache
+  const d = await (await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1", allSites: true }), deps)).json();
+  eq(d.meters.length, 12);
+  eq(state.currentSite, null);
+  const sw = calls.find((c) => c.url.includes("/sites/switch"))!;
+  eq(new URL(sw.url).search, "", "switch with no siteId = all sites");
+  eq(sw.init.method, "POST");
+});
+
+Deno.test("lookup cache: a cached miss gets one fresh fetch (a meter created a minute ago)", async () => {
+  clearIndexCache();
+  const state = { currentSite: null as string | null, meters: [] as any[] };
+  const { deps, calls } = fakeDeps(scopedEms(state));
+  await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1" }), deps);            // caches an empty index
+  state.meters = yagur;                                                               // meters created after
+  const d = await (await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1" }), deps)).json();
+  eq(d.meters.length, 12, "the cached miss re-fetched once");
+  const lists = calls.filter((c) => new URL(c.url).pathname === "/v1/meters").length;
+  eq(lists, 2);
+  await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1" }), deps);
+  eq(calls.filter((c) => new URL(c.url).pathname === "/v1/meters").length, 2, "a hit is still served from cache");
+  await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1", fresh: true }), deps);
+  eq(calls.filter((c) => new URL(c.url).pathname === "/v1/meters").length, 3, "רענון (fresh) bypasses the cache");
+});
+
+Deno.test("lookup with no currentSite: unchanged — found meters carry no scope; an empty one says all sites", async () => {
+  clearIndexCache();
+  const state = { currentSite: null as string | null, meters: yagur };
+  const { deps } = fakeDeps(scopedEms(state));
+  const d = await (await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.1" }), deps)).json();
+  eq(d.meters.length, 12);
+  eq(d.scope, undefined);
+  const e = await (await handle(post({ token: "t", mode: "lookup", ip: "10.0.0.2" }), deps)).json();
+  eq(e.meters, []);
+  eq(e.scope, null);
+});
+
+Deno.test("lookup validate: fresh/allSites must be booleans", () => {
+  eq(validate({ mode: "lookup", ip: "10.0.0.1", fresh: "yes" }), { ok: false, error: "fresh must be a boolean" });
+  eq(validate({ mode: "lookup", ip: "10.0.0.1", allSites: 1 }), { ok: false, error: "allSites must be a boolean" });
+});

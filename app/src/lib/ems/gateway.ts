@@ -6,7 +6,7 @@
 // except `lib/ems/adapters/*` (plus a shrinking legacy allowlist).
 import { sigma } from '@/bridge';
 import type {
-  CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsModbusMeter, EmsSite, EmsTask, EmsUser,
+  CreateTaskInput, EmsCapabilities, EmsComment, EmsMeter, EmsModbusMeter, EmsSite, EmsTask, EmsUser, LookupScope,
   ListTasksQuery, ModbusOpLog, ModbusOpResult, ModbusTarget, OfflineQueueItem, TaskPatch, WriteResult,
 } from './types';
 import { restAdapter } from './adapters/rest';
@@ -57,7 +57,9 @@ export interface EmsGateway {
   /** The site's Modbus meters. */
   modbusMeters(siteId: string): Promise<EmsModbusMeter[]>;
   /** Every EMS Modbus meter on this IP (manual mode's "who is on this IP" table). */
-  modbusLookup(ip: string): Promise<EmsModbusMeter[]>;
+  /** `fresh` skips the 5-min index; `allSites` clears the user's EMS site (his explicit choice) and searches again.
+   *  An empty result carries `scope`: the EMS site it was limited to (see lib/fieldops/fieldOpsView lookupScopeText). */
+  modbusLookup(ip: string, opts?: { fresh?: boolean; allSites?: boolean }): Promise<EmsModbusMeter[] & { scope?: LookupScope | null }>;
   modbusRead(target: ModbusTarget): Promise<ModbusOpResult>;
   modbusPing(target: ModbusTarget): Promise<ModbusOpResult>;
   /** The last 5 EMS operations on the meter. */

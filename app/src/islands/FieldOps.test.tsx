@@ -135,6 +135,21 @@ describe('FieldOps — manual mode status (0 / 1 / several)', () => {
     expect(t.querySelectorAll('tbody tr').length).toBe(1);
     expect(t.textContent).toContain('קיבוץ דוגמה');
   });
+  it('0 matches limited to the user\'s EMS site: names the site; "חיפוש בכל האתרים" asks with allSites and shows the meters', async () => {
+    gw.modbusLookup.mockResolvedValueOnce(Object.assign([], { scope: { limited: true, siteName: 'דגניה א', switched: false } }));
+    await typeIp('10.0.0.1', '1');
+    const box = await screen.findByTestId('fieldops-ip-scope');
+    expect(box.textContent).toContain('EMS מציג רק את האתר הנוכחי שלך (דגניה א). לחפש בכל האתרים?');
+    gw.modbusLookup.mockResolvedValueOnce([meter('m1', '10.0.0.1', 1, { siteName: 'יגור' })]);
+    fireEvent.click(screen.getByTestId('fieldops-search-all'));
+    await waitFor(() => expect(gw.modbusLookup).toHaveBeenLastCalledWith('10.0.0.1', { allSites: true }));
+    expect((await screen.findByTestId('fieldops-ip-table')).textContent).toContain('יגור');
+  });
+  it('"רענון" re-asks with fresh', async () => {
+    await typeIp('10.0.0.3');
+    fireEvent.click(await screen.findByTestId('fieldops-lookup-refresh'));
+    await waitFor(() => expect(gw.modbusLookup).toHaveBeenLastCalledWith('10.0.0.3', { fresh: true }));
+  });
   it('several matches: count + table rows', async () => {
     // A fresh IP: the island's query cache is per page, not per test.
     gw.modbusLookup.mockResolvedValue([meter('m1', '192.0.2.20', 1), meter('m2', '192.0.2.20', 2, { serial: '1672006' })]);

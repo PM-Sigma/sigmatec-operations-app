@@ -42,7 +42,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.contactPhone` | js/src/00-bridge.js:611 | `contactPhone` → js/src/12-reports.js:18 | app/src/islands/Calendar.tsx:1043 |
 | `sigma.createEmsTaskFor` | js/src/00-bridge.js:346 | *(own logic)* | app/src/components/home/InternalTasks.test.tsx:120<br>app/src/components/home/InternalTasks.tsx:200<br>app/src/components/kibbutz/StatusTab.tsx:36 |
 | `sigma.createTask` | js/src/00-bridge.js:352 | `emsWriteOrQueue` → js/src/13-ems.js:310 | app/src/components/home/Burns.tsx:273<br>app/src/components/home/InternalTasks.tsx:89<br>app/src/components/home/MeetingNotes.tsx:122<br>app/src/islands/burns/IssueSheet.tsx:38<br>…+3 |
-| `sigma.ems` | app/src/lib/ems/gateway.ts:100 *(island)* | *(island-provided)* | **—** |
+| `sigma.ems` | app/src/lib/ems/gateway.ts:102 *(island)* | *(island-provided)* | **—** |
 | `sigma.emsAddComment` | js/src/00-bridge.js:467 | *(own logic)* | app/src/islands/DayLog.tsx:400 |
 | `sigma.emsAfterWrite` | js/src/00-bridge.js:449 | `emsAfterWrite` → js/src/14-calendar.js:512 | app/src/lib/inventoryApi.ts:231<br>app/src/lib/inventoryApi.ts:420 |
 | `sigma.emsApi` | js/src/00-bridge.js:303 | `emsApi` → js/src/12-reports.js:124 | app/src/lib/ems/adapters/rest.ts:139 |
@@ -162,7 +162,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-feedback` | :674 | app/src/islands/Feedback.tsx:683<br>app/src/main.tsx:186 |
 | `#sigma-feedback-inbox` | :675 | app/src/islands/FeedbackInbox.tsx:424<br>app/src/main.tsx:210 |
 | `#sigma-field` | :673 | app/src/islands/Field.tsx:2625<br>app/src/main.tsx:159 |
-| `#sigma-fieldops` | :411 | app/src/islands/FieldOps.tsx:512<br>app/src/main.tsx:260 |
+| `#sigma-fieldops` | :411 | app/src/islands/FieldOps.tsx:533<br>app/src/main.tsx:260 |
 | `#sigma-gaps` | :681 | app/src/islands/Gaps.tsx:326<br>app/src/main.tsx:370 |
 | `#sigma-header-actions` | :143 | app/src/islands/HeaderActions.tsx:102<br>app/src/main.tsx:304 |
 | `#sigma-holidays` | :677 | app/src/islands/Holidays.tsx:178<br>app/src/main.tsx:289 |
@@ -307,7 +307,7 @@ today by `ems-rest` (`app/src/lib/ems/adapters/rest.ts`) and published to legacy
 `sigma.ems` by `main.tsx`. The adapter is the ONLY place allowed to build an EMS URL or
 read raw EMS JSON; `test-integration.mjs` fails on a direct EMS call anywhere else.
 
-Direct EMS call sites: **6** in the adapter, **55** in files still awaiting migration, **0** stray.
+Direct EMS call sites: **6** in the adapter, **66** in files still awaiting migration, **0** stray.
 
 | file | direct EMS calls | why it is not behind the gateway yet |
 |---|---|---|
@@ -320,8 +320,8 @@ Direct EMS call sites: **6** in the adapter, **55** in files still awaiting migr
 | `supabase/functions/calendar/index.ts` | 3 | Deno emsValid() login probe — needs the Deno build of the adapter (spec §7o "server side too") |
 | `supabase/functions/clockify/index.ts` | 2 | Deno emsValid() login probe |
 | `supabase/functions/ems-auth/index.ts` | 3 | Deno — mints the bridge JWT; IS the login operation |
-| `supabase/functions/field-ops/handler.test.ts` | 7 | Deno unit test of handler.ts — fake EMS URLs, no network |
-| `supabase/functions/field-ops/handler.ts` | 7 | Deno — the modbus_read/ping proxy behind emsGateway().modbusRead (the 20 s proxy is too short) |
+| `supabase/functions/field-ops/handler.test.ts` | 15 | Deno unit test of handler.ts — fake EMS URLs, no network |
+| `supabase/functions/field-ops/handler.ts` | 10 | Deno — the modbus_read/ping proxy behind emsGateway().modbusRead (the 20 s proxy is too short) |
 | `supabase/functions/field-ops/index.ts` | 1 | Deno — wires EMS_API_BASE into handler.ts |
 | `supabase/functions/github/index.ts` | 2 | Deno emsValid() login probe |
 | `supabase/functions/parse-daylog/index.ts` | 2 | Deno emsValid() login probe |

@@ -201,7 +201,7 @@ export function restAdapter(t: RestTransport = bridgeTransport()): EmsGateway {
     // פעולות שטח → קריאת מודבוס — lazy (adapters/fieldOpsOps.ts), so the boot bundle only
     // carries these five one-liners.
     modbusMeters: (x) => fo(t).then(o => o.modbusMeters(x)),
-    modbusLookup: (x) => fo(t).then(o => o.modbusLookup(x)),
+    modbusLookup: (x, y) => fo(t).then(o => o.modbusLookup(x, y)),
     modbusRead: (x) => fo(t).then(o => o.modbusRead(x)),
     modbusPing: (x) => fo(t).then(o => o.modbusPing(x)),
     meterOpsHistory: (x) => fo(t).then(o => o.meterOpsHistory(x)),

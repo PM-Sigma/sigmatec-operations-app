@@ -7,7 +7,11 @@
 //
 // Modes (all POST {token, mode, …}):
 //   meters  {siteId}                      the site's Modbus meters (raw EMS rows, trimmed)
-//   lookup  {ip}                          every EMS Modbus meter on that IP (manual mode's table)
+//   lookup  {ip[, fresh][, allSites]}     every EMS Modbus meter on that IP (manual mode's table)
+//                                         + `scope` (the EMS site the search was limited to) when 0
+//   (EMS scopes GET /v1/meters by the caller's saved currentSite — sigmatec-ems meter-scope.helper.ts:129-133 —
+//   and has NO per-request override; the only way out is POST /v1/sites/switch, sites.controller.ts:92. So
+//   `allSites` is an explicit user choice in the app: it clears the caller's EMS site, then searches fresh.)
 //   read    {meterId} | {ip, unit, typeCode[, meterId]}   modbus_read through EMS
 //   ping    {meterId} | {ip[, meterId]}   modbus_ping through EMS
 //   history {meterId}                     the last 5 EMS operations on that meter
@@ -55,7 +59,7 @@ export function isUnit(n: unknown): n is number {
 export type Mode = "meters" | "lookup" | "read" | "ping" | "history";
 const ALLOWED: Record<Mode, string[]> = {
   meters: ["siteId"],
-  lookup: ["ip"],
+  lookup: ["ip", "fresh", "allSites"],
   read: ["meterId", "ip", "unit", "typeCode"],
   ping: ["meterId", "ip"],
   history: ["meterId"],
@@ -63,7 +67,7 @@ const ALLOWED: Record<Mode, string[]> = {
 
 export type Req =
   | { mode: "meters"; siteId: string }
-  | { mode: "lookup"; ip: string }
+  | { mode: "lookup"; ip: string; fresh?: boolean; allSites?: boolean }
   | { mode: "history"; meterId: string }
   | { mode: "read"; meterId?: string; ip?: string; unit?: number; typeCode?: number }
   | { mode: "ping"; meterId?: string; ip?: string };
@@ -81,13 +85,15 @@ export function validate(body: any): { ok: true; req: Req } | { ok: false; error
   if (has("siteId") && !(typeof body.siteId === "string" && UUID.test(body.siteId))) return { ok: false, error: "siteId must be a UUID" };
   if (has("ip") && !isIPv4(body.ip)) return { ok: false, error: "ip must be an IPv4 address" };
   if (has("ip") && isForbiddenIp(body.ip)) return { ok: false, error: "ip not allowed" };
+  if (has("fresh") && typeof body.fresh !== "boolean") return { ok: false, error: "fresh must be a boolean" };
+  if (has("allSites") && typeof body.allSites !== "boolean") return { ok: false, error: "allSites must be a boolean" };
   if (has("unit") && !isUnit(body.unit)) return { ok: false, error: "unit must be an integer 1-247" };
   if (has("typeCode") && !(typeof body.typeCode === "number" && LEGACY_MODBUS_TYPE[body.typeCode] !== undefined)) {
     return { ok: false, error: "typeCode is not a Modbus meter type" };
   }
   switch (mode) {
     case "meters": return has("siteId") ? { ok: true, req: { mode, siteId: body.siteId } } : { ok: false, error: "siteId required" };
-    case "lookup": return has("ip") ? { ok: true, req: { mode, ip: body.ip } } : { ok: false, error: "ip required" };
+    case "lookup": return has("ip") ? { ok: true, req: { mode, ip: body.ip, fresh: body.fresh === true, allSites: body.allSites === true } } : { ok: false, error: "ip required" };
     case "history": return has("meterId") ? { ok: true, req: { mode, meterId: body.meterId } } : { ok: false, error: "meterId required" };
     case "ping":
       if (!has("meterId") && !has("ip")) return { ok: false, error: "meterId or ip required" };
@@ -257,9 +263,10 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
   const get = (path: string) => ems(path, { method: "GET" }, TIMEOUT.meta);
   const TYPES = MODBUS_TYPE_CODES.join(",");
 
-  async function allModbusMeters(): Promise<any[]> {
+  /** `fresh` skips the 5-minute index cache (a meter created a minute ago is not in it). */
+  async function allModbusMeters(fresh = false): Promise<{ rows: any[]; cached: boolean }> {
     const hit = indexCache.get(token);
-    if (hit && now() - hit.at < 5 * 60_000) return hit.rows;
+    if (!fresh && hit && now() - hit.at < 5 * 60_000) return { rows: hit.rows, cached: true };
     const TAKE = 200;
     const first = await get(`/v1/meters?typeCodes=${TYPES}&take=${TAKE}&page=1`);
     const rows = unwrapList(first).map(pickMeter);
@@ -273,7 +280,22 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       if (!Number.isFinite(total) && got.some((g) => g.length < TAKE)) break;
     }
     indexCache.set(token, { at: now(), rows });
-    return rows;
+    return { rows, cached: false };
+  }
+
+  /** The EMS site this caller's meter list is limited to (null = all sites). Never fails the lookup. */
+  async function currentScope(): Promise<{ siteId: string; siteName: string | null } | null> {
+    try {
+      const me = unwrapOne(await get("/v1/users/me"));
+      const cs = me?.currentSite;
+      const id = typeof cs === "string" ? cs : (cs && typeof cs.id === "string" ? cs.id : "");
+      if (!id) return null;
+      let name: string | null = cs && typeof cs.name === "string" ? cs.name : null;
+      if (!name && UUID.test(id)) {
+        try { name = unwrapOne(await get(`/v1/sites/${id}`))?.name ?? null; } catch { name = null; }
+      }
+      return { siteId: id, siteName: name };
+    } catch { return null; }
   }
 
   async function carrierFor(req: { meterId?: string; ip?: string }): Promise<any> {
@@ -298,8 +320,17 @@ export async function handle(req: Request, deps: Deps): Promise<Response> {
       return json({ meters: out }, 200, ORIGIN);
     }
     if (r.mode === "lookup") {
-      const rows = (await allModbusMeters()).filter((m) => m && m.ipAddress === r.ip);
-      return json({ meters: rows }, 200, ORIGIN);
+      // The user's explicit "search all sites": clear his EMS site (the only EMS mechanism), then search fresh.
+      if (r.allSites) {
+        await ems("/v1/sites/switch", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }, TIMEOUT.meta);
+        indexCache.delete(token);
+      }
+      const onIp = (rows: any[]) => rows.filter((m) => m && m.ipAddress === r.ip);
+      const first = await allModbusMeters(!!r.fresh || !!r.allSites);
+      let rows = onIp(first.rows);
+      if (!rows.length && first.cached) rows = onIp((await allModbusMeters(true)).rows);   // one fresh fetch on a cached miss
+      if (rows.length) return json({ meters: rows }, 200, ORIGIN);
+      return json({ meters: [], scope: await currentScope(), switched: !!r.allSites }, 200, ORIGIN);
     }
     if (r.mode === "history") {
       const d = await get(`/v1/meters/${r.meterId}/operations/history?take=5`);

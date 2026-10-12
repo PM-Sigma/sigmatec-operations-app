@@ -23,7 +23,7 @@ import {
   LEGACY_MODBUS_TYPE, MODBUS_TYPES, buildRows, israelTime, outcome, parsePing, responseMs, serialCheck,
 } from '@/lib/fieldops/modbusScale';
 import {
-  circuitsOf, errorText, isIPv4, listEligible, manualStatus, matchSearch, meterLabel, pairEntries, parseUnit, planManualRead,
+  circuitsOf, errorText, isIPv4, listEligible, lookupScopeText, manualStatus, matchSearch, meterLabel, pairEntries, parseUnit, planManualRead,
 } from '@/lib/fieldops/fieldOpsView';
 
 const TITLE = 'פעולות שטח';
@@ -287,14 +287,18 @@ function ModbusReader() {
     const t = setTimeout(() => setLookupIp(isIPv4(ip) ? ip.trim() : ''), 400);
     return () => clearTimeout(t);
   }, [ip]);
+  // "רענון" / "חיפוש בכל האתרים" set this for the NEXT fetch only.
+  const lookupNext = React.useRef<{ fresh?: boolean; allSites?: boolean }>({});
   const lookup = useQuery({
     queryKey: ['fieldops', 'lookup', lookupIp],
-    queryFn: () => gw.modbusLookup(lookupIp),
+    queryFn: () => { const o = lookupNext.current; lookupNext.current = {}; return gw.modbusLookup(lookupIp, o); },
     enabled: mode === 'manual' && !!lookupIp,
     staleTime: 5 * 60_000,
   });
   const unitParsed = parseUnit(unit);
   const status = lookup.data && lookupIp === ip.trim() ? manualStatus(lookup.data, Number.isNaN(unitParsed) ? null : unitParsed) : null;
+  const scope = status && lookup.data && !lookup.data.length ? lookupScopeText(lookup.data.scope) : null;
+  const relookup = (o: { fresh?: boolean; allSites?: boolean }) => { lookupNext.current = o; void lookup.refetch(); };
 
   const clear = () => {
     reqId.current++;
@@ -427,6 +431,23 @@ function ModbusReader() {
                   <div className="font-semibold">{status.ipLine}</div>
                   {status.unitLine && <div data-testid="fieldops-unit-status">{status.unitLine}</div>}
                 </div>
+              )}
+              {scope && (
+                <div data-testid="fieldops-ip-scope" className="flex flex-col gap-2 rounded-xl bg-muted p-3 text-[13px]">
+                  <div>{scope.line}</div>
+                  {scope.askAll && <div className="font-semibold">{scope.askAll}</div>}
+                  {scope.askAll && (
+                    <Button className={btn48} variant="outline" data-testid="fieldops-search-all" disabled={lookup.isFetching}
+                      onClick={() => relookup({ allSites: true })}>
+                      חיפוש בכל האתרים (משנה את האתר שלך ב-EMS)
+                    </Button>
+                  )}
+                </div>
+              )}
+              {status && !lookup.isFetching && (
+                <Button className={btn48 + ' self-start'} variant="ghost" data-testid="fieldops-lookup-refresh" onClick={() => relookup({ fresh: true })}>
+                  רענון
+                </Button>
               )}
               {status && lookup.data && lookup.data.length > 0 && (
                 <div className="overflow-x-auto" data-scroll-x>

@@ -56,6 +56,16 @@ describe('payload goldens — what reaches field-ops', () => {
       [{ mode: 'history', meterId: 'm1' }, 30000],
     ]);
   });
+  it('lookup options and the empty-result scope', async () => {
+    const f = fake({ meters: [], scope: { siteId: 's', siteName: 'דגניה א' }, switched: false });
+    const r = await f.gw.modbusLookup('192.0.2.44', { fresh: true });
+    expect(r.scope).toEqual({ limited: true, siteName: 'דגניה א', switched: false });
+    await f.gw.modbusLookup('192.0.2.44', { allSites: true });
+    expect(f.calls()).toEqual([
+      [{ mode: 'lookup', ip: '192.0.2.44', fresh: true }, 90000],
+      [{ mode: 'lookup', ip: '192.0.2.44', allSites: true }, 90000],
+    ]);
+  });
   it('list read sends only the meterId; manual read sends ip/unit/type; ping never sends unit/type', async () => {
     const f = fake({ meter: meterJson, override: [], log: { status: 'completed' } });
     const r = await f.gw.modbusRead({ meterId: 'm1' });

@@ -3,8 +3,24 @@
 import { describe, expect, it } from 'vitest';
 import type { EmsModbusMeter } from '@/lib/ems/types';
 import {
-  circuitsOf, errorText, isIPv4, listEligible, manualStatus, meterLabel, pairEntries, parseUnit, planManualRead,
+  circuitsOf, errorText, isIPv4, listEligible, lookupScopeText, manualStatus, meterLabel, pairEntries, parseUnit, planManualRead,
 } from './fieldOpsView';
+
+describe('lookupScopeText — an empty lookup always says where EMS looked (field bug 12.10)', () => {
+  it('limited to the user\'s EMS site: names it and offers all sites', () => {
+    expect(lookupScopeText({ limited: true, siteName: 'דגניה א', switched: false })).toEqual({
+      line: 'החיפוש ב-EMS הוגבל לאתר הנוכחי שלך (דגניה א)',
+      askAll: 'EMS מציג רק את האתר הנוכחי שלך (דגניה א). לחפש בכל האתרים?',
+    });
+  });
+  it('site name unknown still says it was limited', () =>
+    expect(lookupScopeText({ limited: true, siteName: null, switched: false })?.line).toBe('החיפוש ב-EMS הוגבל לאתר הנוכחי שלך (האתר שנבחר ב-EMS)'));
+  it('all sites: says so, no offer', () =>
+    expect(lookupScopeText({ limited: false, siteName: null, switched: false })).toEqual({ line: 'החיפוש כלל את כל האתרים ב-EMS', askAll: null }));
+  it('after the switch: tells the user his EMS site changed', () =>
+    expect(lookupScopeText({ limited: false, siteName: null, switched: true })?.line).toContain('אתר ה-EMS שלך שונה'));
+  it('found meters → no scope line', () => expect(lookupScopeText(null)).toBeNull());
+});
 
 const m = (id: string, ip: string, unit: number, o: Partial<EmsModbusMeter> = {}): EmsModbusMeter => ({
   id, serial: 'S' + id, address: 'כתובת ' + id, siteId: 'site', siteName: 'קיבוץ דוגמה', ip, unit, typeCode: 12,

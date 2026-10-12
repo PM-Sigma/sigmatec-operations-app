@@ -1,6 +1,6 @@
 // פעולות שטח → קריאת מודבוס: the five gateway ops + their mappers, split out of rest.ts so the
 // boot bundle does not carry them (rest.ts lazy-imports this file on first use).
-import type { EmsModbusMeter, ModbusOpLog, ModbusOpResult, ModbusTarget } from '../types';
+import type { EmsModbusMeter, LookupScope, ModbusOpLog, ModbusOpResult, ModbusTarget } from '../types';
 import type { RestTransport } from './rest';
 
 const str = (v: unknown) => (v == null ? '' : String(v));
@@ -31,6 +31,12 @@ export function mapModbusMeter(r: any): EmsModbusMeter {
     typePm: numOrNull(r?.type?.powerMultiplier),
     lastCallDate: r?.lastTransmission?.callDate ? str(r.lastTransmission.callDate) : null,
   };
+}
+
+/** The EMS site an empty lookup was limited to (`limited: false` = EMS searched every site). null = found meters. */
+export function lookupScopeOf(d: any): LookupScope | null {
+  if (!d || !Array.isArray(d.meters) || d.meters.length) return null;
+  return { limited: !!d.scope, siteName: d.scope && typeof d.scope.siteName === 'string' ? d.scope.siteName : null, switched: !!d.switched };
 }
 
 export function mapOpLog(r: any): ModbusOpLog {
@@ -81,9 +87,15 @@ export function fieldOpsOps(t: RestTransport) {
     const d = await fo(t)({ mode: 'meters', siteId }, 60_000);
     return (Array.isArray(d?.meters) ? d.meters : []).map(mapModbusMeter);
   },
-  async modbusLookup(ip: string) {
-    const d = await fo(t)({ mode: 'lookup', ip }, 90_000);
-    return (Array.isArray(d?.meters) ? d.meters : []).map(mapModbusMeter);
+  /** `fresh` skips the function's 5-min index; `allSites` clears the user's EMS site first (his explicit choice). */
+  async modbusLookup(ip: string, opts: { fresh?: boolean; allSites?: boolean } = {}) {
+    const p: Record<string, unknown> = { mode: 'lookup', ip };
+    if (opts.fresh) p.fresh = true;
+    if (opts.allSites) p.allSites = true;
+    const d = await fo(t)(p, 90_000);
+    const rows: EmsModbusMeter[] = (Array.isArray(d?.meters) ? d.meters : []).map(mapModbusMeter);
+    // ponytail: the scope rides on the array, so every existing caller of modbusLookup keeps its type.
+    return Object.assign(rows, { scope: lookupScopeOf(d) });
   },
   async modbusRead(target: ModbusTarget) {
     return mapOpResult(await fo(t)({ mode: 'read', ...cleanTarget(target, true) }, 140_000));

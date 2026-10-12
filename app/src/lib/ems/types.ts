@@ -122,6 +122,10 @@ export class EmsUnsupported extends Error {
 /** One EMS Modbus meter, with exactly what the read needs: where it is and how EMS scales it.
  *  Multipliers are the raw EMS numbers (null when missing/unparseable); `lib/fieldops/modbusScale.ts`
  *  is the one place that turns null/0 into 1. */
+/** An empty IP lookup: which EMS site it was limited to. `limited: false` = EMS searched every site.
+ *  `switched` = this lookup cleared the user's EMS site first (his "search all sites" choice). */
+export interface LookupScope { limited: boolean; siteName: string | null; switched: boolean }
+
 export interface EmsModbusMeter {
   id: string;
   serial: string;

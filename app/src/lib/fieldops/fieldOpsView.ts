@@ -1,6 +1,6 @@
 // פעולות שטח → קריאת מודבוס: the page's decisions, pure (the island only renders them).
 // Spec: docs/superpowers/specs/2026-09-23-field-ops-modbus-design.md §7, §8.3 + עידן's rulings 27.9.
-import type { EmsModbusMeter, ModbusTarget } from '@/lib/ems/types';
+import type { EmsModbusMeter, LookupScope, ModbusTarget } from '@/lib/ems/types';
 import { LEGACY_MODBUS_TYPE, type QueryMessage } from './modbusScale';
 
 /** Strict dotted-quad IPv4 — the same rule the field-ops function enforces. */
@@ -59,6 +59,22 @@ export function manualStatus(matches: EmsModbusMeter[], unit: number | null): Ma
   }
   const tone = n === 0 || (unit != null && sameDevice.length === 0) ? 'warn' : 'ok';
   return { tone, ipLine, unitLine, sameDevice };
+}
+
+/**
+ * An empty IP lookup never stays silent about WHERE EMS looked (field bug 12.10: 12 meters at יגור were invisible
+ * because the user's EMS site was דגניה א). `askAll` is the offer to search every site — it changes the user's
+ * EMS site, so it is his choice, never automatic.
+ */
+export function lookupScopeText(s: LookupScope | null | undefined): { line: string; askAll: string | null } | null {
+  if (!s) return null;
+  if (s.switched) return { line: 'אתר ה-EMS שלך שונה ל"כל האתרים" — החיפוש כלל את כל האתרים ב-EMS', askAll: null };
+  if (!s.limited) return { line: 'החיפוש כלל את כל האתרים ב-EMS', askAll: null };
+  const site = s.siteName || 'האתר שנבחר ב-EMS';
+  return {
+    line: `החיפוש ב-EMS הוגבל לאתר הנוכחי שלך (${site})`,
+    askAll: `EMS מציג רק את האתר הנוכחי שלך (${site}). לחפש בכל האתרים?`,
+  };
 }
 
 export interface ManualPlan {
