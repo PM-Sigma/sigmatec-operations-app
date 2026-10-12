@@ -186,7 +186,7 @@ test('visit multi-EMS: 2 of 3 tasks linked, "בוצעה" on one → both linked,
   expect(v[0].emsTaskIds).toEqual(['T-77', 'T-79']);
   expect(v[0].emsTaskId).toBe('T-77');
   await expect.poll(() => page.evaluate(() => (window as any).__emsStatusCalls)).toEqual([['T-79', 'done']]);
-  await expect(page.getByText('עודכנו 1 משימות').first()).toBeVisible();
+  await expect(page.getByText('עודכנה משימה אחת').first()).toBeVisible();
   expectNoConsoleErrors(rec);
 });
 
