@@ -1,5 +1,6 @@
 // Q7-C (עידן 29.9): the gear sheet's first screen (identity + "מה נשאר לי לסגור", עידן's
-// "מצב הצוות"), the install sheet, and the ניהול block being עידן's alone.
+// "מצב הצוות"), the install sheet, and the ⋯ ניהול block. Since F9 (418e49b9) the block's PAGES follow
+// canShowPage (js/src/00-bridge.js) and only its registered ITEMS stay עידן's alone (MoreSheet.tsx).
 import { boot, expect, expectNoConsoleErrors, shot, test } from './_helpers';
 
 const READY = '#sigma-header-actions [aria-label="העדפות משתמש"]';
@@ -62,16 +63,41 @@ test('preferences: no install row, no "רעיון או באג", named "העדפ�
   expectNoConsoleErrors(rec);
 });
 
-for (const who of ['עמיחי', 'אביאם', 'ניתאי'] as const) {
-  test(`⋯ עוד: the ניהול block is not offered to ${who}`, async ({ page }, ti) => {
-    const { rec } = await boot(page, ti, { who });
-    await page.locator('#sigma-nav, #sigma-desktop-nav').getByRole('button', { name: 'עוד', exact: true }).first().click();
+// F9 (418e49b9): the ניהול PAGES follow canShowPage — התראות (pushlog) עידן; פיתוח (dev) עידן/עמיחי/מתניה/אליה;
+// סטטיסטיקה (emsstats) עידן/עמיחי. The registered ניהול ITEMS (שימוש, חגים וסגירות, ייבוא סיכום ישיבה, …) stay עידן-only.
+const ADMIN_PAGES: Record<string, string[]> = {
+  'התראות': ['עידן'],
+  'פיתוח': ['עידן', 'עמיחי', 'מתניה', 'אליה'],
+  'סטטיסטיקה': ['עידן', 'עמיחי'],
+};
+const IDAN_ONLY_ITEMS = ['שימוש', 'חגים וסגירות', 'ייבוא סיכום ישיבה'];
+
+for (const who of ['עמיחי', 'מתניה', 'אביאם', 'ניתאי'] as const) {
+  test(`⋯ עוד: ניהול for ${who} = only the pages canShowPage allows, no עידן items`, async ({ page }, ti) => {
+    // `ready: ''`: מתניה has no kibbutz cards to wait for (same as role-matrix.spec.ts).
+    const { rec, viewport } = await boot(page, ti, { who, ready: '' });
+    test.skip(!viewport.startsWith('mobile'), 'opened from the phone ⋯ sheet (role-matrix.spec.ts covers the same rows)');
+    await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).first().click();
     const sheet = page.getByRole('dialog');
     await expect(sheet.getByText('עוד', { exact: true })).toBeVisible();
-    await expect(sheet.getByText('ניהול', { exact: true })).toHaveCount(0);
-    for (const label of ['פיתוח', 'שימוש']) {
-      await expect(sheet.getByRole('button', { name: label, exact: true })).toHaveCount(0);
+    const pages = Object.keys(ADMIN_PAGES).filter(l => ADMIN_PAGES[l].includes(who));
+    for (const label of Object.keys(ADMIN_PAGES)) {
+      await expect(sheet.getByRole('button', { name: label, exact: true }), `${label} for ${who}`).toHaveCount(pages.includes(label) ? 1 : 0);
+    }
+    await expect(sheet.getByText('ניהול', { exact: true })).toHaveCount(pages.length ? 1 : 0);
+    for (const label of IDAN_ONLY_ITEMS) {
+      await expect(sheet.getByRole('button', { name: label, exact: true }), `${label} is עידן's`).toHaveCount(0);
     }
     expectNoConsoleErrors(rec);
   });
 }
+
+test('⋯ עוד: עידן gets the ניהול block with all three pages', async ({ page }, ti) => {
+  const { rec, viewport } = await boot(page, ti, { who: 'עידן', ready: '' });
+  test.skip(!viewport.startsWith('mobile'), 'opened from the phone ⋯ sheet');
+  await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).first().click();
+  const sheet = page.getByRole('dialog');
+  await expect(sheet.getByText('ניהול', { exact: true })).toBeVisible();
+  for (const label of Object.keys(ADMIN_PAGES)) await expect(sheet.getByRole('button', { name: label, exact: true })).toHaveCount(1);
+  expectNoConsoleErrors(rec);
+});
