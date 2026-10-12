@@ -95,3 +95,4 @@
 - 12.10 CityMind CHANGED fix: mid-field quote in the header (מס"ד) collapsed parseCsv; quote opens only at cell start; safer diagnostics; citymind.mjs; readings-fetch redeployed (v2.166)
 - 12.10 CityMind ingest rows: lenient validator (hard reject only bad types/length/control chars), safe error {index,field,reason}, empty transmitter/reading → per-meter block; readings-fetch redeployed (v2.168)
 - 12.10 staff emails: dev@→מתניה alias, ems-auth identity map all 7 (deployed), CONTACTS emails; staff_identities already correct in prod (no SQL needed) (v2.170)
+- 12.10 CityMind EMS check: EMS validate returns METER_NOT_IN_SITE when the meter's site ≠ the user's currentSite → ignored unless the view is trusted; NOT_FOUND always blocks; 'missing' info = water+ARAD+non-archived only when trusted; continuity unchecked → warning. readings-fetch redeployed (v2.172)
