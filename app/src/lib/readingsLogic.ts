@@ -127,6 +127,22 @@ export function manualView(o: { starting: boolean; running: boolean; sourceNames
   };
 }
 
+// ── per-site mode ────────────────────────────────────────────────────────────
+/**
+ * עין המפרץ (CityMind, rules.source = 'citymind'): fetched by a scheduled GitHub run every morning ~06:00 — no
+ * on-demand pull, and the files open for download only after the run was checked against EMS. Every other site
+ * (חולדה) keeps the manual pull and free downloads.
+ */
+export interface SiteMode { manual: boolean; requireCheck: boolean; note: string | null }
+export function siteMode(site: { rules?: Record<string, unknown> | null } | null | undefined): SiteMode {
+  if ((site?.rules || {}).source === 'citymind') {
+    return { manual: false, requireCheck: true, note: 'נמשך אוטומטית כל בוקר בסביבות 06:00. הקבצים נפתחים להורדה אחרי בדיקה מול EMS.' };
+  }
+  return { manual: true, requireCheck: false, note: null };
+}
+/** May this run's files be downloaded now? */
+export const canDownload = (mode: SiteMode, run: { ems_checked?: boolean | null }) => !mode.requireCheck || !!run.ems_checked;
+
 // ── runs ─────────────────────────────────────────────────────────────────────
 const newer = (a: ReadingRun, b: ReadingRun) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0);
 export const isDone = (r: ReadingRun) => r.status === 'ok' || r.status === 'partial';

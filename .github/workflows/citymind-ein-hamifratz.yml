@@ -1,0 +1,86 @@
+# עין המפרץ — daily CityMind (Arad) water readings → readings-fetch `ingest` (Sigmatec Ops, "משיכת קריאות").
+# Design: docs/superpowers/specs/2026-10-12-citymind-ein-hamifratz-design.md
+#
+# ⚠ PUBLIC REPO: this job's log is world-readable. The script prints counts and error codes only; no artifacts.
+# Secrets: EINHAMIFRATZ_CITYMIND_USER / _PASS (CityMind), READINGS_INGEST_KEY (the function's ingest key — the
+# ONLY Supabase credential here; no service-role key ever lives in GitHub).
+#
+# Timing: GitHub cron is UTC and ignores DST, so there are two fires (05:40 Israel in summer AND in winter); the
+# first step keeps only the fire that lands 05:30–06:39 Israel and then sleeps a random part of the time left until
+# 06:20, so the CityMind login happens at a different minute every day (~05:40–06:20; GitHub may start a scheduled
+# job late on a busy day). The function itself refuses a second run for a day that already has one.
+name: CityMind daily — עין המפרץ
+
+on:
+  schedule:
+    - cron: '40 2 * * *'   # 05:40 Israel during summer time (UTC+3)
+    - cron: '40 3 * * *'   # 05:40 Israel during winter time (UTC+2)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: parse + checks + counts, write nothing'
+        type: boolean
+        default: true
+      date:
+        description: 'Reading date YYYY-MM-DD (empty = yesterday, Israel)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: citymind-ein-hamifratz
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Israel-time window and a random start minute
+        if: github.event_name == 'schedule'
+        env:
+          ENABLED: ${{ vars.CITYMIND_ENABLED }}
+        run: |
+          # The schedule stays OFF until the repo variable CITYMIND_ENABLED=true (set after the dry-run passes).
+          if [ "$ENABLED" != "true" ]; then echo "Schedule disabled (CITYMIND_ENABLED != true)."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0; fi
+          hm=$(TZ=Asia/Jerusalem date +%H%M); hm=$((10#$hm))
+          if [ "$hm" -lt 530 ] || [ "$hm" -gt 639 ]; then
+            echo "Not this fire (the other DST side) — nothing to do."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0
+          fi
+          left=$(( 6*60 + 20 - (hm/100)*60 - hm%100 ))
+          [ "$left" -lt 1 ] && left=1
+          s=$(( RANDOM % (left*60) ))
+          echo "Starting in $((s/60)) min."
+          sleep "$s"
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        if: env.SKIP != '1'
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: env.SKIP != '1'
+        with:
+          node-version: '22'
+
+      # Only Playwright + Firefox, in a scratch dir (the repo's own devDependencies are not needed here).
+      - name: Install Playwright Firefox
+        if: env.SKIP != '1'
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm i --no-audit --no-fund playwright@1.63.0 >/dev/null
+          npx playwright install --with-deps firefox >/dev/null
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/pw/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+
+      - name: Pull CityMind → ingest
+        if: env.SKIP != '1'
+        env:
+          CITYMIND_USER: ${{ secrets.EINHAMIFRATZ_CITYMIND_USER }}
+          CITYMIND_PASS: ${{ secrets.EINHAMIFRATZ_CITYMIND_PASS }}
+          READINGS_INGEST_KEY: ${{ secrets.READINGS_INGEST_KEY }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+          CITYMIND_DATE: ${{ github.event_name == 'workflow_dispatch' && inputs.date || '' }}
+        run: node scripts/citymind/citymind-daily.mjs

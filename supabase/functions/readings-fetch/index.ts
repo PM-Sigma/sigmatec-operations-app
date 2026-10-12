@@ -18,6 +18,8 @@
 //   seen         {run_id}                             user
 //   cron         {}                                   cron key only  (pg_cron, db/cron_readings_7am.sql)
 //   probe        {date?, raw?}                        user or cron   (Phase 0 feasibility check)
+//   ingest       {kibbutz, date, rows | failed+error_code, dry_run?}  X-Ingest-Key ONLY (READINGS_INGEST_KEY) — the
+//                GitHub Actions CityMind runner (עין המפרץ). Accepts INGEST_SITES only; size/shape-limited (citymind.js).
 // AUTH: X-Cron-Key == CRON_SECRET, or a bridge JWT (iss 'ems-bridge') carrying a staff `name` claim and not a viewer pass (canUseReadings).
 // Secrets: <secret_prefix>_USER/_PASS per source, BROWSERLESS_TOKEN, CRON_SECRET, JWT_SECRET/EMS_BRIDGE_SECRET,
 // SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, EMS_API_BASE. NEVER log or store credentials or the ems_token.
@@ -30,7 +32,11 @@ import { canUseReadings } from "../_shared/readingsRoster.js";
 import { datasense, type DsQuery, type Reading, ReadingsError, speednet, speednetViaBrowser } from "./adapters.ts";
 import { applyEmsValidation, buildRun } from "./logic.js";
 import {
-  addDaysIso, badRunDate, cronDecision, cronWindowOpen, dedupeDecision, emsSyncDecision,
+  buildWater, continuity, finishWater, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, keyMatches, missingInfo,
+  resolveReplacements, SOURCE as CITYMIND, validateIngest,
+} from "./citymind.js";
+import {
+  addDaysIso, badRunDate, cronDecision, cronFirstRunDue, cronWindowOpen, dedupeDecision, emsSyncDecision,
   errText, fileNames, israelNow, israelYesterday, retentionCutoff, runStatus, STUCK_MS, storagePaths, valuesCutoff,
 } from "./helpers.js";
 
@@ -44,6 +50,10 @@ const env = (n: string) => Deno.env.get(n) || "";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A site fed by the GitHub CityMind runner (עין המפרץ): no on-demand pull, no pg_cron run, files only after the EMS check. */
+const isCityMind = (site: any) => (site?.rules || {}).source === "citymind";
+const energyCode = (site: any) => Number((site?.rules || {}).energy_type_code) || 1;
+const listOf = (j: any): any[] => Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : Array.isArray(j?.items) ? j.items : [];
 
 type Err = { code: string; message: string };
 const errOf = (e: unknown): Err => {
@@ -317,10 +327,15 @@ async function emsCheck(run_id: string, token: string, who: string) {
   if (!base?.upload) throw new Fail(409, { error: "NOT_BUILT", message: "אין קבצים לבדיקה" });
   const site = (await sb.from("reading_sites").select("*").eq("id", run.site_id).single()).data as any;
   const auth = { Authorization: "Bearer " + token };
+  const water = isCityMind(site);
+  // עין המפרץ: a meter replacement is decided by the client-association continuity in the system BEFORE validate.
+  const pre = water
+    ? resolveReplacements(base, await replacementEvidence(site, base.replacements || [], auth), run.reading_date)
+    : { upload: base.upload, uploadMeta: base.uploadMeta, all: base.all, exceptions: base.exceptions };
   let results: any;
   try {
     const r = await fetchT(EMS_BASE() + "/v1/upload-readings/validate", {
-      method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ rows: base.upload.map(emsRow) }),
+      method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ rows: pre.upload.map(emsRow) }),
     }, 60000);
     if (r.status === 401 || r.status === 403) { await r.body?.cancel(); return EMS_AUTH; }
     if (!r.ok) { await r.body?.cancel(); return EMS_DOWN; }
@@ -330,16 +345,18 @@ async function emsCheck(run_id: string, token: string, who: string) {
   let emsMeters: string[] | undefined;
   try {
     if (site.ems_site_id) {
-      const m = await fetchT(`${EMS_BASE()}/v1/upload-readings/meters?siteId=${encodeURIComponent(site.ems_site_id)}&energyTypeCode=1`, { headers: auth }, 30000);
+      const m = await fetchT(`${EMS_BASE()}/v1/upload-readings/meters?siteId=${encodeURIComponent(site.ems_site_id)}&energyTypeCode=${energyCode(site)}`, { headers: auth }, 30000);
       if (m.ok) {
         const arr = unwrap(await m.json());
         if (Array.isArray(arr)) emsMeters = arr.map((x: any) => String(x.serialNumber));
       } else await m.body?.cancel();
     }
   } catch { /* without the meters list the validate results (METER_NOT_FOUND) still block unknown meters */ }
-  const built = applyEmsValidation(
-    { upload: base.upload, uploadMeta: base.uploadMeta, all: base.all, exceptions: base.exceptions }, results, { ...(emsMeters ? { emsMeters } : {}), kibbutz: site.kibbutz },
-  );
+  let built = applyEmsValidation(pre, results, { ...(emsMeters ? { emsMeters } : {}), kibbutz: site.kibbutz });
+  if (water && emsMeters) {   // spec "מידע": water meters of the site that the CityMind report did not include
+    const info = missingInfo(emsMeters, (base.all || []).map((r: any[]) => String(r[3])));
+    built = finishWater(built.upload, built.uploadMeta, built.all, [...built.exceptions, ...info]);
+  }
   await publishFiles(run, site, built, { ems_checked: true, ems_checked_by: who, ems_checked_at: new Date().toISOString() });
   await saveValues(site, run, built);
   return { ok: true, n_ok: built.counts.ok, n_blocked: built.counts.blocked, n_warn: built.counts.warn };
@@ -348,7 +365,7 @@ async function emsCheck(run_id: string, token: string, who: string) {
 async function emsSync(site: any, token: string) {
   if (!token) return EMS_AUTH;
   if (!site.ems_site_id) return { marked: [] };
-  const m = await fetchT(`${EMS_BASE()}/v1/upload-readings/meters?siteId=${encodeURIComponent(site.ems_site_id)}&energyTypeCode=1`,
+  const m = await fetchT(`${EMS_BASE()}/v1/upload-readings/meters?siteId=${encodeURIComponent(site.ems_site_id)}&energyTypeCode=${energyCode(site)}`,
     { headers: { Authorization: "Bearer " + token } }, 30000).catch(() => null);
   if (!m) return EMS_DOWN;
   if (m.status === 401 || m.status === 403) { await m.body?.cancel(); return EMS_AUTH; }
@@ -367,6 +384,79 @@ async function emsSync(site: any, token: string) {
     marked.push(r.reading_date);
   }
   return { marked };
+}
+
+/** EMS client associations of a meter: GET /v1/meters?search=<serial>&siteId=… (rows carry clientMeters). */
+async function meterClients(site: any, serial: string, auth: Record<string, string>) {
+  const q = `search=${encodeURIComponent(serial)}&take=10&page=1` + (site.ems_site_id ? `&siteId=${encodeURIComponent(site.ems_site_id)}` : "");
+  const r = await fetchT(`${EMS_BASE()}/v1/meters?${q}`, { headers: auth }, 30000);
+  if (!r.ok) { await r.body?.cancel(); throw new Error("EMS " + r.status); }
+  const m = listOf(await r.json()).find((x: any) => String(x?.serialNumber) === serial);
+  if (!m) return null;
+  return (m.clientMeters || []).map((c: any) => ({ clientId: c?.client?.id ?? c?.clientId ?? null, start: c?.startDate ?? null, end: c?.endDate ?? null }));
+}
+
+/** {serial: {ok, why}} for every replacement of the run. Never throws: an EMS miss is a "not checked" block. */
+async function replacementEvidence(site: any, reps: any[], auth: Record<string, string>) {
+  const out: Record<string, { ok: boolean; why?: string }> = {};
+  for (const rep of reps) {
+    try {
+      const [old, next] = [await meterClients(site, rep.old, auth), await meterClients(site, rep.serial, auth)];
+      if (!old) { out[rep.serial] = { ok: false, why: "המונה הישן לא נמצא במערכת" }; continue; }
+      if (!next) { out[rep.serial] = { ok: false, why: "המונה החדש לא מוקם במערכת" }; continue; }
+      const lr = await fetchT(`${EMS_BASE()}/v1/upload-readings/meters?search=${encodeURIComponent(rep.serial)}&energyTypeCode=${energyCode(site)}` +
+        (site.ems_site_id ? `&siteId=${encodeURIComponent(site.ems_site_id)}` : ""), { headers: auth }, 30000);
+      const list = lr.ok ? listOf(await lr.json()) : (await lr.body?.cancel(), []);
+      const has = list.some((x: any) => String(x?.serialNumber) === rep.serial && !!x?.lastReadingDate);
+      out[rep.serial] = continuity(old, next, has);
+    } catch { out[rep.serial] = { ok: false, why: "לא נבדק — המערכת לא החזירה את פרטי המונה" }; }
+  }
+  return out;
+}
+
+// ───────────────────────── CityMind ingest (GitHub runner → here) ─────────────────────────
+async function ingest(q: any) {
+  const site = await getSite({ kibbutz: q.kibbutz });
+  if (!isCityMind(site) || site.active === false) throw new Fail(403, { error: "site not configured for ingest" });
+  // once per day: a day that already has an ok (or running) run is not overwritten by a second schedule fire
+  const { data: have } = await sb.from("reading_runs").select("id,status").eq("site_id", site.id).eq("reading_date", q.date).in("status", ["ok", "running"]);
+  if (have?.length && !q.dry_run) return { existing: true, run_id: have[0].id };
+  if (q.failed) {
+    if (q.dry_run) return { dry_run: true, failed: true };
+    const error = { code: q.error_code, message: INGEST_ERROR_TEXT[q.error_code as keyof typeof INGEST_ERROR_TEXT] };
+    const ins = await sb.from("reading_runs").insert({
+      site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub", status: "failed",
+      progress: { [CITYMIND]: { state: "failed", error } }, error: error.message, finished_at: new Date().toISOString(),
+    }).select("id").single();
+    if (ins.error) throw new Fail(500, { error: "could not save run" });
+    await notifyDone(ins.data.id);
+    return { run_id: ins.data.id, status: "failed" };
+  }
+  const history = await loadHistory(site.id, q.date);
+  const prev = await sb.from("reading_runs").select("rows:raw->" + CITYMIND).eq("site_id", site.id).lt("reading_date", q.date)
+    .eq("status", "ok").order("reading_date", { ascending: false }).limit(1).maybeSingle();
+  const built = buildWater({ day: q.date, rows: q.rows, history: history as any, rules: site.rules || {}, prevIds: idMap((prev.data as any)?.rows) });
+  if (q.dry_run) return { dry_run: true, rows: q.rows.length, ...built.counts, replacements: built.replacements.length };
+  const ins = await sb.from("reading_runs").insert({
+    site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub",
+    progress: { [CITYMIND]: { state: "ok", count: q.rows.length } }, raw: { [CITYMIND]: q.rows },
+  }).select("id,site_id,reading_date").single();
+  if (ins.error) {
+    if (ins.error.code === "23505") return { existing: true };
+    throw new Fail(500, { error: "could not save run" });
+  }
+  const run = ins.data as any;
+  try {
+    await publishFiles(run, site, built, {
+      status: "ok", finished_at: new Date().toISOString(), error: null, ems_checked: false, ems_checked_by: null, ems_checked_at: null,
+    }, { upload: built.upload, uploadMeta: built.uploadMeta, all: built.all, exceptions: built.exceptions, replacements: built.replacements });
+    await saveValues(site, run, built);
+  } catch (e) {
+    console.error("ingest build failed", (e as Error)?.message);
+    await sb.from("reading_runs").update({ status: "failed", error: "שגיאה בבניית הקבצים", finished_at: new Date().toISOString() }).eq("id", run.id);
+  }
+  await notifyDone(run.id);
+  return { run_id: run.id, ...built.counts };
 }
 
 // ───────────────────────── cron maintenance ─────────────────────────
@@ -400,8 +490,11 @@ async function cron() {
   const { data: sites } = await sb.from("reading_sites").select("*").eq("active", true);
   const acted: Record<string, string> = {};
   for (const site of sites || []) {
+    if (isCityMind(site)) continue;   // fed by the GitHub runner (ingest), never pulled from here
     const { data: runs } = await sb.from("reading_runs").select("id,trigger,status,attempt,started_at").eq("site_id", site.id).eq("reading_date", y);
-    const d = cronDecision(runs || []);
+    let d = cronDecision(runs || []);
+    // the first run of the day starts at a different minute every day (07:00 + 0–25 min, fixed per site+date)
+    if (d.action === "run" && !cronFirstRunDue(now, y, site.id)) d = { action: "none" } as any;
     try {
       if (d.action === "run") await startRun(site, y, "cron", null);
       else if (d.action === "retry") await restart(d.run.id, null, true);
@@ -439,6 +532,28 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405, ORIGIN);
   const J = (b: unknown, s = 200) => json(b, s, ORIGIN);
 
+  // ---- ingest: its own key, nothing else ----
+  const ingestKey = req.headers.get("x-ingest-key");
+  if (ingestKey !== null) {
+    const ingestSecret = Deno.env.get("READINGS_INGEST_KEY") || "";
+    if (!keyMatches(ingestKey, ingestSecret)) return J({ error: "unauthorized" }, 401);
+    if (Number(req.headers.get("content-length") || 0) > INGEST_MAX_BYTES) return J({ error: "payload too large" }, 413);
+    const text = await req.text();
+    const bytes = new TextEncoder().encode(text).length;
+    let raw: any = null;
+    try { raw = JSON.parse(text); } catch { /* */ }
+    if (raw?.mode !== "ingest") return J({ error: "forbidden" }, 403);
+    const v: any = validateIngest(raw, bytes);
+    if (!v.ok) return J({ error: v.error }, v.status);
+    const bad = badRunDate(v.req.date);
+    if (bad) return J({ error: "BAD_DATE" }, 400);
+    try { return J(await ingest(v.req)); } catch (e) {
+      if (e instanceof Fail) return J(e.payload, e.status);
+      console.error("ingest", (e as Error)?.message);
+      return J({ error: "SERVER" }, 500);
+    }
+  }
+
   // ---- auth ----
   const secret = Deno.env.get("CRON_SECRET");
   const cronKey = req.headers.get("x-cron-key");
@@ -469,6 +584,7 @@ Deno.serve(async (req) => {
         const bad = badRunDate(body.date);
         if (bad) return J({ error: "BAD_DATE", message: bad }, 400);
         const site = await getSite(body);
+        if (isCityMind(site)) return J({ error: "NO_MANUAL", message: "האתר הזה נמשך אוטומטית כל בוקר — אין משיכה ידנית" }, 400);
         const r = await startRun(site, body.date, byCron ? "cron" : "manual", name);
         return J({ run_id: r.run_id, existing: r.existing });
       }
@@ -489,12 +605,14 @@ Deno.serve(async (req) => {
         return J(await emsCheck(body.run_id, String(body.ems_token || ""), name!));
       }
       case "sign": {
-        const run = await getRun(body.run_id, "id,site_id,reading_date,readings_file,exceptions_file");
+        const run = await getRun(body.run_id, "id,site_id,reading_date,readings_file,exceptions_file,ems_checked");
         const kind = body.kind === "exceptions" ? "exceptions" : body.kind === "readings" ? "readings" : null;
         if (!kind) return J({ error: "bad kind" }, 400);
         const path = kind === "readings" ? run.readings_file : run.exceptions_file;
         if (!path) return J({ error: "NO_FILE", message: "אין קובץ לריצה הזו" }, 404);
-        const site = (await sb.from("reading_sites").select("kibbutz").eq("id", run.site_id).single()).data as any;
+        const site = (await sb.from("reading_sites").select("kibbutz,rules").eq("id", run.site_id).single()).data as any;
+        // עין המפרץ: the files are downloadable only after the run was checked against the system
+        if (isCityMind(site) && !run.ems_checked) return J({ error: "NOT_CHECKED", message: "הקבצים זמינים להורדה רק אחרי בדיקה מול EMS" }, 409);
         const { data, error } = await sb.storage.from("readings").createSignedUrl(path, 3600, { download: fileNames(run.reading_date, site.kibbutz)[kind] });
         if (error || !data) return J({ error: "SIGN_FAILED", message: "לא ניתן להוריד את הקובץ" }, 500);
         return J({ url: data.signedUrl });

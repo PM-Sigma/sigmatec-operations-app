@@ -31,6 +31,19 @@ export function badRunDate(date, now = new Date()) {
   return null;
 }
 
+/** How far past 07:00 Israel a site's first daily run starts: 0–25 min, fixed per (site, date), different every day
+ *  (עידן 12.10: "not the same minute every day"). pg_cron pings every 5 min, so the run starts within 5 min of it. */
+export const CRON_SPREAD_MIN = 25;
+export function cronStartOffset(date, siteId) {
+  let h = 2166136261;                         // FNV-1a over "<siteId>|<date>"
+  for (const c of String(siteId) + '|' + String(date)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  return h % (CRON_SPREAD_MIN + 1);
+}
+/** A site's FIRST run of the day is due once Israel time passes 07:00 + its offset (retries keep their 30-min gap). */
+export function cronFirstRunDue(now, date, siteId) {
+  return israelNow(now).minutes >= CRON_FROM_MIN + cronStartOffset(date, siteId);
+}
+
 /** The cron acts only 07:00 <= Israel time < 08:45. */
 export function cronWindowOpen(now = new Date()) {
   const m = israelNow(now).minutes;

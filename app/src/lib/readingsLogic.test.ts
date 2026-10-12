@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addActive, badgeCount, failedSources, finishToast, historyRows, isoWeekKey, israelWeekday, latestCronPerSite,
   latestRun, manualView, metersForReason, parseActive, progressText, reasonGroups, removeActive, shouldSundayCheck,
-  watchVerdict, yesterdayIL, type ReadingRun,
+  watchVerdict, yesterdayIL, siteMode, canDownload, type ReadingRun,
 } from './readingsLogic';
 
 const run = (o: Partial<ReadingRun> = {}): ReadingRun => ({
@@ -204,5 +204,23 @@ describe('manualView (optimistic start)', () => {
   });
   it('a bad date disables the idle button', () => {
     expect(manualView({ starting: false, running: false, sourceNames: [], dateOk: false }).disabled).toBe(true);
+  });
+});
+
+describe('siteMode — עין המפרץ (CityMind) vs חולדה', () => {
+  it('a citymind site: no manual pull, downloads only after the EMS check', () => {
+    const m = siteMode({ rules: { source: 'citymind' } });
+    expect(m.manual).toBe(false);
+    expect(m.requireCheck).toBe(true);
+    expect(m.note).toContain('06:00');
+    expect(canDownload(m, { ems_checked: false })).toBe(false);
+    expect(canDownload(m, { ems_checked: true })).toBe(true);
+  });
+  it('any other site keeps the manual pull and free downloads', () => {
+    for (const s of [{ rules: {} }, { rules: null }, null]) {
+      const m = siteMode(s);
+      expect(m).toEqual({ manual: true, requireCheck: false, note: null });
+      expect(canDownload(m, { ems_checked: false })).toBe(true);
+    }
   });
 });

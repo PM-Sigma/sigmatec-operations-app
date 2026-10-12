@@ -7,7 +7,7 @@ import { SB_ANON, SB_URL, getSupabase } from './supabase';
 import { sigma } from '@/bridge';
 import type { ReadingRun } from './readingsLogic';
 
-export interface ReadingSite { id: string; kibbutz: string; ems_site_id: string | null; active: boolean | null }
+export interface ReadingSite { id: string; kibbutz: string; ems_site_id: string | null; active: boolean | null; rules?: Record<string, unknown> | null }
 
 /** Explicit column list — must stay inside the column grant in db/readings_pull.sql. */
 export const RUN_COLS =
@@ -54,7 +54,7 @@ export const markSeen = (run_id: string) => callReadings({ mode: 'seen', run_id 
 
 export async function fetchSites(): Promise<ReadingSite[]> {
   const sb = await getSupabase();
-  const { data, error } = await sb.from('reading_sites').select('id,kibbutz,ems_site_id,active').eq('active', true).order('kibbutz');
+  const { data, error } = await sb.from('reading_sites').select('id,kibbutz,ems_site_id,active,rules').eq('active', true).order('kibbutz');
   if (error) throw error;
   return (data || []) as ReadingSite[];
 }

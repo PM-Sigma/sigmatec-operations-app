@@ -18,13 +18,14 @@ import { BubbleButton } from '@/components/ui/bubble-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { EmsGate } from '@/components/EmsGate';
 import { useCurrentUser } from '@/bridge';
 import { canUseReadings } from '@/lib/readingsRoster';
 import {
-  HISTORY_DAYS, addDays, dmHmIL, dmIL, failedSources, historyRows, latestCronPerSite, latestRun, metersForReason,
+  HISTORY_DAYS, addDays, canDownload, dmHmIL, dmIL, failedSources, historyRows, siteMode, latestCronPerSite, latestRun, metersForReason,
   manualView, progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
 } from '@/lib/readingsLogic';
 import {
@@ -98,6 +99,8 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
   const failed = failedSources(run);
   const groups = reasonGroups(run);
   const token = emsToken();
+  const mode = siteMode(site);
+  const open = canDownload(mode, run);
 
   const check = async () => {
     setChecking(true);
@@ -181,12 +184,17 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
         <span className="text-[length:var(--fs-body-sm)] text-muted-foreground">מספרי המונים לפי האתר.</span>
       </div>
 
+      {!open && (
+        <span data-testid="readings-locked" className="text-[length:var(--fs-body-sm)] text-muted-foreground">
+          הקבצים נפתחים להורדה אחרי הבדיקה מול EMS.
+        </span>
+      )}
       <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2">
-        <BubbleButton variant="tonal" data-testid="readings-download-readings" disabled={!run.readings_file || dl.busy === run.id + 'readings'}
+        <BubbleButton variant="tonal" data-testid="readings-download-readings" disabled={!open || !run.readings_file || dl.busy === run.id + 'readings'}
           icon={<FileDown className="h-4 w-4" aria-hidden />} onClick={() => void dl.go(run, 'readings')}>
           קובץ קריאות ל-EMS
         </BubbleButton>
-        <BubbleButton variant="tonal" data-testid="readings-download-exceptions" disabled={!run.exceptions_file || dl.busy === run.id + 'exceptions'}
+        <BubbleButton variant="tonal" data-testid="readings-download-exceptions" disabled={!open || !run.exceptions_file || dl.busy === run.id + 'exceptions'}
           aria-label="הורדת קובץ חריגות"
           icon={<FileWarning className="h-4 w-4 text-[var(--warn-ink)]" aria-hidden />} onClick={() => void dl.go(run, 'exceptions')}>
           קובץ חריגות
@@ -294,21 +302,22 @@ function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; 
 }
 
 // ── 3. history ───────────────────────────────────────────────────────────────
-function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling }: {
+function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = true, requireCheck = false }: {
   row: HistoryRow; onOpen: (id: string) => void; onPull: (date: string) => void;
   onDownload: (run: ReadingRun, kind: 'readings' | 'exceptions') => void; busy: string | null; pulling: boolean;
+  manual?: boolean; requireCheck?: boolean;
 }) {
   if (row.kind === 'gap') {
     return (
       <div data-testid="readings-history-row" data-gap className="flex min-h-14 items-center gap-2 px-4 py-2">
         <span className="font-semibold text-muted-foreground"><bdi>{dmIL(row.date)}</bdi></span>
         <span className="min-w-0 flex-1 text-[length:var(--fs-body-sm)] text-muted-foreground">לא נמשך</span>
-        <BubbleButton variant="tonal" size="sm" disabled={pulling} onClick={() => onPull(row.date)}>משוך</BubbleButton>
+        {manual && <BubbleButton variant="tonal" size="sm" disabled={pulling} onClick={() => onPull(row.date)}>משוך</BubbleButton>}
       </div>
     );
   }
   const { run } = row;
-  const done = run.status === 'ok' || run.status === 'partial';
+  const done = (run.status === 'ok' || run.status === 'partial') && (!requireCheck || !!run.ems_checked);
   return (
     <div data-testid="readings-history-row" data-needs-upload={row.needsUpload || undefined}
       className={'flex flex-col gap-1.5 px-4 py-2.5 ' + (row.needsUpload ? 'border-s-4 border-[var(--warn-ink)]' : '')}>
@@ -425,6 +434,7 @@ function ReadingsInner() {
 
   const rows = historyRows(runs);
   const pulling = runs.some(r => r.status === 'running');
+  const mode = siteMode(site);
 
   return (
     <div className="flex flex-col gap-3 p-2 pb-24" data-testid="readings-page">
@@ -436,30 +446,40 @@ function ReadingsInner() {
         } />
 
       <div className="px-1">
-        <Select value={site.id} onValueChange={setSiteId}>
-          <SelectTrigger aria-label="קיבוץ" data-testid="readings-site"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {sites.map(s => <SelectItem key={s.id} value={s.id}>{s.kibbutz}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {sites.length >= 2 && sites.length <= 4 ? (
+          <div data-testid="readings-site-tabs">
+            <SegmentedControl ariaLabel="קיבוץ" value={site.id} onChange={setSiteId}
+              options={sites.map(s => ({ value: s.id, label: s.kibbutz }))} />
+          </div>
+        ) : (
+          <Select value={site.id} onValueChange={setSiteId}>
+            <SelectTrigger aria-label="קיבוץ" data-testid="readings-site"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {sites.map(s => <SelectItem key={s.id} value={s.id}>{s.kibbutz}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {mode.note && <p data-testid="readings-site-note" className="mt-2 px-1 text-[length:var(--fs-body-sm)] text-muted-foreground">{mode.note}</p>}
       </div>
 
       <SectionBlock title={focusId && shown && shown.id === focusId ? 'ריצה שנבחרה' : 'הריצה האחרונה'}>
         {shown
           ? <RunPanel run={shown} site={site} sourceIds={sourceIds} onChanged={refresh}
               isFocus={!!focusId && shown.id === focusId} onLatest={() => setFocusId(null)} />
-          : <EmptyState icon={<FileDown />} title="עוד אין משיכה מוצלחת." hint="אפשר למשוך יום ידנית למטה." />}
+          : <EmptyState icon={<FileDown />} title="עוד אין משיכה מוצלחת." hint={mode.manual ? 'אפשר למשוך יום ידנית למטה.' : 'המשיכה הבאה תרוץ מחר בבוקר.'} />}
       </SectionBlock>
 
-      <SectionBlock title="הרצה ידנית">
-        <ManualRun site={site} runs={runs} sourceNames={(srcQ.data || []).map(s => s.name)}
-          onStarted={() => qc.refetchQueries({ queryKey: ['readings', 'runs'] })} />
-      </SectionBlock>
+      {mode.manual && (
+        <SectionBlock title="הרצה ידנית">
+          <ManualRun site={site} runs={runs} sourceNames={(srcQ.data || []).map(s => s.name)}
+            onStarted={() => qc.refetchQueries({ queryKey: ['readings', 'runs'] })} />
+        </SectionBlock>
+      )}
 
       <SectionBlock title="היסטוריית משיכות" count={rows.filter(r => r.kind === 'run').length}>
         <div className="divide-y divide-border" data-testid="readings-history">
           {rows.map(r => (
-            <HistoryItem key={r.date} row={r} pulling={pulling}
+            <HistoryItem key={r.date} row={r} pulling={pulling} manual={mode.manual} requireCheck={mode.requireCheck}
               onOpen={id => { setFocusId(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
               onPull={d => void pull(d)} onDownload={(run, k) => void dl.go(run, k)} busy={dl.busy} />
           ))}
