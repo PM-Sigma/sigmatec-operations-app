@@ -255,6 +255,7 @@
       'ankor@sigmatec-energy.com': 'עמיחי',
       'microgrid@sigmatec-energy.com': 'אבצן',
       'rnddev@sigmatec-energy.com': 'אליה',
+      'dev@sigmatec-energy.com': 'מתניה',
       'kedematanya@gmail.com': 'מתניה',
       'mkedem2006@gmail.com': 'מתניה',
     };

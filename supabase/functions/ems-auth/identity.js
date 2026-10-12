@@ -10,8 +10,17 @@
 /** The roster spelling (mirrors app/src/lib/people.ts APP_PEOPLE — test-ems-auth-claims.mjs pins it). */
 export const ROSTER = ['עידן', 'עמיחי', 'אביאם', 'ניתאי', 'אבצן', 'מתניה', 'אליה'];
 
-/** Known EMS-email → app-person overrides (ported from js/src/15-login-gate.js:247). */
-const EMS_EMAIL_ALIASES = { 'pm@sigmatec-energy.com': 'עידן' };
+/** Known EMS-email → app-person map (עידן 12.10: every staff account). The client copy is
+ *  js/src/15-login-gate.js EMS_EMAIL_ALIASES — test-staff-emails.mjs pins the two to agree. */
+export const EMS_EMAIL_ALIASES = {
+  'pm@sigmatec-energy.com': 'עידן',
+  'ankor@sigmatec-energy.com': 'עמיחי',
+  'engsupport@sigmatec-energy.com': 'אביאם',
+  'technician@sigmatec-energy.com': 'ניתאי',
+  'microgrid@sigmatec-energy.com': 'אבצן',
+  'dev@sigmatec-energy.com': 'מתניה',
+  'rnddev@sigmatec-energy.com': 'אליה',
+};
 
 /**
  * The table wins when it names a roster person. Otherwise the email alias. Otherwise no claim
