@@ -58,7 +58,7 @@ export function statusUpdateToasts(
   message: (error: unknown) => string,
 ): { ok: string; errors: string[] } {
   return {
-    ok: r.done ? 'עודכנו ' + r.done + ' משימות' : '',
+    ok: r.done === 1 ? 'עודכנה משימה אחת' : r.done ? 'עודכנו ' + r.done + ' משימות' : '',
     errors: r.failed.map(f => 'הביקור נשמר, אך עדכון "' + titleOf(f.id) + '" נכשל · ' + message(f.error)),
   };
 }
