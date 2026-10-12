@@ -227,9 +227,46 @@ t('payload: oversized → 413; too many rows → 400; other site → 403; extra 
   assert.strictEqual(validateIngest({ ...ok, rows: Array.from({ length: INGEST_MAX_ROWS + 1 }, () => ok.rows[0]) }, 1000).status, 400);
   assert.strictEqual(validateIngest({ ...ok, kibbutz: 'חולדה' }, 100).status, 403);
   assert.strictEqual(validateIngest({ ...ok, site_id: 'x' }, 100).status, 400);
-  assert.strictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], serial: 'a b;drop' }] }, 100).status, 400);
+  assert.strictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], serial: 'T1 x' }] }, 100).status, 400);
+  assert.strictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], serial: 'T'.repeat(65) }] }, 100).status, 400);
   assert.strictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], ft: 'NaN' }] }, 100).status, 400);
   assert.deepStrictEqual(validateIngest(ok, 100), { ok: true, req: { kibbutz: 'עין המפרץ', date: DAY, rows: ok.rows, dry_run: false } });
+});
+t('row error shape: index + field + reason, never the value', () => {
+  const rows = [ok.rows[0], ok.rows[0], { ...ok.rows[0], ft: '1,234' }];
+  const v = validateIngest({ ...ok, rows }, 100);
+  assert.deepStrictEqual(v, { ok: false, status: 400, error: 'bad row', index: 2, field: 'reading', reason: 'not a number' });
+  assert.deepStrictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], when: 5 }] }, 100),
+    { ok: false, status: 400, error: 'bad row', index: 0, field: 'when', reason: 'not a string' });
+  assert.deepStrictEqual(validateIngest({ ...ok, rows: [{ ...ok.rows[0], secret: 'x' }] }, 100),
+    { ok: false, status: 400, error: 'bad row', index: 0, field: 'secret', reason: 'unexpected field' });
+});
+t('real row shapes pass the gate: leading-zero id, dd/mm/yyyy HH:MM, empty transmitter, empty reading', () => {
+  const rows = [
+    { id: '001', serial: '00149001', when: '10/10/2026 23:18', ft: 699.932 },
+    { id: '002', serial: '', when: '10/10/2026 23:18', ft: 12 },
+    { id: '003', serial: 'T1000003', when: '10/10/2026 23:18', ft: null },
+    { id: 'מבנה 4', serial: '70B3D5-AB', when: '10/10/2026 23:18', ft: 1050.25 },
+  ];
+  const v = validateIngest({ ...ok, rows }, 100);
+  assert.strictEqual(v.ok, true);
+  assert.deepStrictEqual(v.req.rows[0], { id: '001', serial: '00149001', when: '10/10/2026 23:18', ft: 699.932 });
+});
+t('parser keeps an empty transmitter and parses a thousands separator; checks turn them into per-meter blocks', () => {
+  const csv = "מס\"ד,מס' זיהוי,מס' משדר,תאריך וזמן,קריאה,\r\n" +
+    '"1","001","","09/10/2026 23:18","5",\r\n"2","002","T1000002","09/10/2026 23:18","",\r\n"3","003","T1000003","09/10/2026 23:18","1,234.5",\r\n';
+  const rows = parseCityMind(csv, DAY);
+  assert.deepStrictEqual(rows, [
+    { id: '001', serial: '', when: '09/10/2026 23:18', ft: 5 },
+    { id: '002', serial: 'T1000002', when: '09/10/2026 23:18', ft: null },
+    { id: '003', serial: 'T1000003', when: '09/10/2026 23:18', ft: 1234.5 },
+  ]);
+  const r = buildWater({ day: DAY, rows });
+  assert.deepStrictEqual(r.exceptions.map((e) => e[1] + '|' + e[5] + '|' + e[6]).sort(), [
+    "001|חוסם|אין מס' משדר בדוח — אי אפשר לשייך למונה במערכת",
+    '002|חוסם|אין קריאה',
+  ]);
+  assert.deepStrictEqual(r.upload.map((u) => u[0]), ['T1000003']);
 });
 t('payload: a failure report carries only a known error code', () => {
   assert.strictEqual(validateIngest({ mode: 'ingest', kibbutz: 'עין המפרץ', date: DAY, failed: true, error_code: 'BLOCKED' }, 100).ok, true);

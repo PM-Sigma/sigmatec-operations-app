@@ -88,7 +88,7 @@ async function post(payload) {
 
 /** Only numbers and fixed words from the function's answer reach the log. */
 const counts = (d) => Object.fromEntries(Object.entries(d || {}).filter(([k, v]) =>
-  ['ok', 'blocked', 'warn', 'rows', 'replacements', 'existing', 'dry_run', 'status', 'error'].includes(k) &&
+  ['ok', 'blocked', 'warn', 'rows', 'replacements', 'existing', 'dry_run', 'status', 'error', 'index', 'field', 'reason'].includes(k) &&
   (typeof v === 'number' || typeof v === 'boolean' || /^[A-Za-z_ -]{0,40}$/.test(String(v)))));
 
 async function main() {

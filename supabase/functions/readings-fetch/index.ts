@@ -544,7 +544,7 @@ Deno.serve(async (req) => {
     try { raw = JSON.parse(text); } catch { /* */ }
     if (raw?.mode !== "ingest") return J({ error: "forbidden" }, 403);
     const v: any = validateIngest(raw, bytes);
-    if (!v.ok) return J({ error: v.error }, v.status);
+    if (!v.ok) return J({ error: v.error, ...(v.index !== undefined ? { index: v.index, field: v.field, reason: v.reason } : {}) }, v.status);
     const bad = badRunDate(v.req.date);
     if (bad) return J({ error: "BAD_DATE" }, 400);
     try { return J(await ingest(v.req)); } catch (e) {

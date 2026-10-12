@@ -126,8 +126,7 @@ export function parseCityMind(text, day) {
   for (const r of lines.slice(1)) {
     const when = normHeader(r[iWhen]);
     if (!when.startsWith(want)) continue;
-    const serial = normHeader(r[iTx]);
-    if (!serial) continue;
+    const serial = normHeader(r[iTx]);   // may be empty: kept, blocked later ("אין מס' משדר")
     const cell = normHeader(r[iVal]);
     const v = Number(cell.replace(/,/g, ''));
     rows.push({ id: iId >= 0 ? normHeader(r[iId]) : '', serial, when, ft: cell !== '' && Number.isFinite(v) ? v : null });
@@ -171,7 +170,9 @@ export function checkWater(rec, day, history, rules, prevSerial) {
   const R = { ...WATER_RULES, ...(rules || {}) };
   const block = [], warn = [];
   const ft = rec.ft;
-  if (ft === null || ft === undefined) { block.push('אין קריאה'); return { block, warn }; }
+  if (!rec.serial) block.push("אין מס' משדר בדוח — אי אפשר לשייך למונה במערכת");
+  if (ft === null || ft === undefined) block.push('אין קריאה');
+  if (block.length) return { block, warn };
   if (ft < 0) block.push('ערך שלילי');
   if (R.skip && Object.prototype.hasOwnProperty.call(R.skip, rec.serial)) block.push(String(R.skip[rec.serial]));
   if (prevSerial && prevSerial !== rec.serial)
@@ -232,10 +233,11 @@ export function finishWater(upload, uploadMeta, all, exceptions) {
  */
 export function buildWater({ day, rows, history = [], rules = {}, prevIds = {} }) {
   const last = new Map();
-  for (const r of rows || []) {
-    const p = last.get(r.serial);
-    if (!p || String(r.when) >= String(p.when)) last.set(r.serial, r);
-  }
+  (rows || []).forEach((r, i) => {
+    const k = r.serial || '\u0000' + (r.id || '') + '\u0000' + i;   // a row with no transmitter stays its own row
+    const p = last.get(k);
+    if (!p || String(r.when) >= String(p.when)) last.set(k, r);
+  });
   const upload = [], uploadMeta = [], all = [], exc = [], replacements = [];
   for (const rec of last.values()) {
     const prev = rec.id ? prevIds[rec.id] : undefined;
@@ -323,12 +325,30 @@ export function keyMatches(given, secret) {
   return diff === 0;
 }
 
-const ID = /^[0-9A-Za-z._\- ]{0,32}$/;
-const SERIAL = /^[0-9A-Za-z._\-]{1,32}$/;
+// Hard rejects are for garbage/abuse only: wrong types, control characters, absurd lengths or numbers. An EMPTY
+// transmitter or reading is real data (a meter that did not report) — it passes here and becomes a per-meter block.
+const CTRL = /[\u0000-\u001F\u007F]/;
+const MAX_TEXT = 64;
+
+/** Why one row is unacceptable, or null. Never echoes a value. */
+function rowProblem(r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r)) return { field: 'row', reason: 'not an object' };
+  for (const f of ['id', 'serial', 'when']) {
+    const v = r[f] ?? '';
+    if (typeof v !== 'string') return { field: f, reason: 'not a string' };
+    if (v.length > MAX_TEXT) return { field: f, reason: 'too long' };
+    if (CTRL.test(v)) return { field: f, reason: 'control characters' };
+  }
+  const ft = r.ft;
+  if (!(ft === null || ft === undefined || typeof ft === 'number')) return { field: 'reading', reason: 'not a number' };
+  if (typeof ft === 'number' && !(Number.isFinite(ft) && Math.abs(ft) < 1e9)) return { field: 'reading', reason: 'out of range' };
+  for (const k of Object.keys(r)) if (!['id', 'serial', 'when', 'ft'].includes(k)) return { field: k.slice(0, 20).replace(/[^A-Za-z_]/g, '?'), reason: 'unexpected field' };
+  return null;
+}
 
 /**
  * Shape + size gate for `ingest`. bytes = the raw body length. date validity is checked by the caller (badRunDate).
- * → {ok:true, req} | {ok:false, status, error}
+ * → {ok:true, req} | {ok:false, status, error[, index, field, reason]} — the row detail names the field, never a value.
  */
 export function validateIngest(body, bytes) {
   if (!(bytes > 0) || bytes > INGEST_MAX_BYTES) return { ok: false, status: 413, error: 'payload too large' };
@@ -344,13 +364,11 @@ export function validateIngest(body, bytes) {
   const rows = body.rows;
   if (!Array.isArray(rows) || !rows.length || rows.length > INGEST_MAX_ROWS) return { ok: false, status: 400, error: 'bad rows' };
   const clean = [];
-  for (const r of rows) {
-    if (!r || typeof r !== 'object' || Array.isArray(r)) return { ok: false, status: 400, error: 'bad row' };
-    const id = r.id ?? '', serial = r.serial, when = r.when, ft = r.ft;
-    if (typeof id !== 'string' || !ID.test(id) || typeof serial !== 'string' || !SERIAL.test(serial) ||
-        typeof when !== 'string' || when.length > 32 ||
-        !(ft === null || (typeof ft === 'number' && Number.isFinite(ft) && Math.abs(ft) < 1e9))) return { ok: false, status: 400, error: 'bad row' };
-    clean.push({ id: id.trim(), serial, when, ft });
+  for (let i = 0; i < rows.length; i++) {
+    const bad = rowProblem(rows[i]);
+    if (bad) return { ok: false, status: 400, error: 'bad row', index: i, ...bad };
+    const r = rows[i];
+    clean.push({ id: String(r.id ?? '').trim(), serial: String(r.serial ?? '').trim(), when: String(r.when ?? '').trim(), ft: typeof r.ft === 'number' ? r.ft : null });
   }
   return { ok: true, req: { kibbutz: body.kibbutz, date: body.date, rows: clean, dry_run: !!body.dry_run } };
 }
