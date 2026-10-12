@@ -32,8 +32,8 @@ import { canUseReadings } from "../_shared/readingsRoster.js";
 import { datasense, type DsQuery, type Reading, ReadingsError, speednet, speednetViaBrowser } from "./adapters.ts";
 import { applyEmsValidation, buildRun } from "./logic.js";
 import {
-  buildWater, continuity, finishWater, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, keyMatches, missingInfo,
-  resolveReplacements, SOURCE as CITYMIND, validateIngest,
+  buildWater, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, keyMatches,
+  SOURCE as CITYMIND, validateIngest, waterEmsCheck, WATER as WATER_CODE,
 } from "./citymind.mjs";
 import {
   addDaysIso, badRunDate, cronDecision, cronFirstRunDue, cronWindowOpen, dedupeDecision, emsSyncDecision,
@@ -327,11 +327,33 @@ async function emsCheck(run_id: string, token: string, who: string) {
   if (!base?.upload) throw new Fail(409, { error: "NOT_BUILT", message: "אין קבצים לבדיקה" });
   const site = (await sb.from("reading_sites").select("*").eq("id", run.site_id).single()).data as any;
   const auth = { Authorization: "Bearer " + token };
-  const water = isCityMind(site);
-  // עין המפרץ: a meter replacement is decided by the client-association continuity in the system BEFORE validate.
-  const pre = water
-    ? resolveReplacements(base, await replacementEvidence(site, base.replacements || [], auth), run.reading_date)
-    : { upload: base.upload, uploadMeta: base.uploadMeta, all: base.all, exceptions: base.exceptions };
+  if (isCityMind(site)) {
+    // עין המפרץ: scope-aware (12.10 — the caller's EMS currentSite decides what validate and the meters list see)
+    let down: any = null;
+    const ems = {
+      me: async () => unwrapOne(await getJson(`${EMS_BASE()}/v1/users/me`, auth)),
+      validate: async (rows: any[]) => {
+        const r = await fetchT(EMS_BASE() + "/v1/upload-readings/validate", {
+          method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ rows }),
+        }, 60000);
+        if (r.status === 401 || r.status === 403) { await r.body?.cancel(); down = EMS_AUTH; throw new Error("auth"); }
+        if (!r.ok) { await r.body?.cancel(); down = EMS_DOWN; throw new Error("down"); }
+        const res = unwrap(await r.json());
+        if (!Array.isArray(res)) { down = EMS_DOWN; throw new Error("shape"); }
+        return res;
+      },
+      siteMeters: () => siteWaterMeters(site, auth),
+      meterClients: (serial: string) => meterClients(site, serial, auth),
+      hasReadings: (serial: string) => hasEmsReadings(site, serial, auth),
+    };
+    let built: any;
+    try { built = await waterEmsCheck({ base, site, day: run.reading_date, emsRow }, ems); }
+    catch { return down || EMS_DOWN; }
+    await publishFiles(run, site, built, { ems_checked: true, ems_checked_by: who, ems_checked_at: new Date().toISOString() });
+    await saveValues(site, run, built);
+    return { ok: true, n_ok: built.counts.ok, n_blocked: built.counts.blocked, n_warn: built.counts.warn, scope_ok: built.scope.trusted };
+  }
+  const pre = { upload: base.upload, uploadMeta: base.uploadMeta, all: base.all, exceptions: base.exceptions };
   let results: any;
   try {
     const r = await fetchT(EMS_BASE() + "/v1/upload-readings/validate", {
@@ -342,21 +364,7 @@ async function emsCheck(run_id: string, token: string, who: string) {
     results = unwrap(await r.json());
   } catch { return EMS_DOWN; }
   if (!Array.isArray(results)) return EMS_DOWN;
-  let emsMeters: string[] | undefined;
-  try {
-    if (site.ems_site_id) {
-      const m = await fetchT(`${EMS_BASE()}/v1/upload-readings/meters?siteId=${encodeURIComponent(site.ems_site_id)}&energyTypeCode=${energyCode(site)}`, { headers: auth }, 30000);
-      if (m.ok) {
-        const arr = unwrap(await m.json());
-        if (Array.isArray(arr)) emsMeters = arr.map((x: any) => String(x.serialNumber));
-      } else await m.body?.cancel();
-    }
-  } catch { /* without the meters list the validate results (METER_NOT_FOUND) still block unknown meters */ }
-  let built = applyEmsValidation(pre, results, { ...(emsMeters ? { emsMeters } : {}), kibbutz: site.kibbutz });
-  if (water && emsMeters) {   // spec "מידע": water meters of the site that the CityMind report did not include
-    const info = missingInfo(emsMeters, (base.all || []).map((r: any[]) => String(r[3])));
-    built = finishWater(built.upload, built.uploadMeta, built.all, [...built.exceptions, ...info]);
-  }
+  const built = applyEmsValidation(pre, results, { kibbutz: site.kibbutz });
   await publishFiles(run, site, built, { ems_checked: true, ems_checked_by: who, ems_checked_at: new Date().toISOString() });
   await saveValues(site, run, built);
   return { ok: true, n_ok: built.counts.ok, n_blocked: built.counts.blocked, n_warn: built.counts.warn };
@@ -396,22 +404,28 @@ async function meterClients(site: any, serial: string, auth: Record<string, stri
   return (m.clientMeters || []).map((c: any) => ({ clientId: c?.client?.id ?? c?.clientId ?? null, start: c?.startDate ?? null, end: c?.endDate ?? null }));
 }
 
-/** {serial: {ok, why}} for every replacement of the run. Never throws: an EMS miss is a "not checked" block. */
-async function replacementEvidence(site: any, reps: any[], auth: Record<string, string>) {
-  const out: Record<string, { ok: boolean; why?: string }> = {};
-  for (const rep of reps) {
-    try {
-      const [old, next] = [await meterClients(site, rep.old, auth), await meterClients(site, rep.serial, auth)];
-      if (!old) { out[rep.serial] = { ok: false, why: "המונה הישן לא נמצא במערכת" }; continue; }
-      if (!next) { out[rep.serial] = { ok: false, why: "המונה החדש לא מוקם במערכת" }; continue; }
-      const lr = await fetchT(`${EMS_BASE()}/v1/upload-readings/meters?search=${encodeURIComponent(rep.serial)}&energyTypeCode=${energyCode(site)}` +
-        (site.ems_site_id ? `&siteId=${encodeURIComponent(site.ems_site_id)}` : ""), { headers: auth }, 30000);
-      const list = lr.ok ? listOf(await lr.json()) : (await lr.body?.cancel(), []);
-      const has = list.some((x: any) => String(x?.serialNumber) === rep.serial && !!x?.lastReadingDate);
-      out[rep.serial] = continuity(old, next, has);
-    } catch { out[rep.serial] = { ok: false, why: "לא נבדק — המערכת לא החזירה את פרטי המונה" }; }
+async function getJson(url: string, auth: Record<string, string>) {
+  const r = await fetchT(url, { headers: auth }, 30000);
+  if (!r.ok) { await r.body?.cancel(); throw new Error("EMS " + r.status); }
+  return await r.json();
+}
+const unwrapOne = (j: any) => (j && j.data && !Array.isArray(j.data) ? j.data : j);
+
+/** The site's WATER meters with communicationType + role (GET /v1/meters, explicit siteId, paged). */
+async function siteWaterMeters(site: any, auth: Record<string, string>) {
+  const out: any[] = [];
+  for (let p = 1; p <= 20; p++) {
+    const rows = listOf(await getJson(`${EMS_BASE()}/v1/meters?siteId=${encodeURIComponent(site.ems_site_id)}&energyTypeCodes=${WATER_CODE}&take=200&page=${p}`, auth));
+    out.push(...rows);
+    if (rows.length < 200) break;
   }
   return out;
+}
+
+async function hasEmsReadings(site: any, serial: string, auth: Record<string, string>) {
+  const list = listOf(await getJson(`${EMS_BASE()}/v1/upload-readings/meters?search=${encodeURIComponent(serial)}&energyTypeCode=${energyCode(site)}` +
+    (site.ems_site_id ? `&siteId=${encodeURIComponent(site.ems_site_id)}` : ""), auth));
+  return list.some((x: any) => String(x?.serialNumber) === serial && !!x?.lastReadingDate);
 }
 
 // ───────────────────────── CityMind ingest (GitHub runner → here) ─────────────────────────

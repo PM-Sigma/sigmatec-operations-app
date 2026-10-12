@@ -287,3 +287,69 @@ t('cron spread: 0–25 min, fixed per (site, date), not the same every day', () 
 });
 
 console.log(`test-readings-citymind: ${n} passed`);
+
+// ── 12.10 regression: the EMS check of a CityMind run is scope-aware (mocked EMS) ──
+import { waterEmsCheck, aradWaterMissing, scopeOf, SCOPE_NOTE } from './supabase/functions/readings-fetch/citymind.mjs';
+const SITE_EIN = { kibbutz: 'עין המפרץ', ems_site_id: 'site-ein' };
+const emsRowOf = (r) => ({ serialNumber: String(r[0]), energyTypeCode: r[1], readingDate: r[3], ft: r[4] });
+const mkBase = () => buildWater({ day: DAY, rows: [rec('T1000001', 10), rec('T1000002', 20), rec('T2000003', 3, { id: '9003' })], prevIds: { 9003: 'T1000003' } });
+const mockEms = (o = {}) => ({
+  me: async () => ({ currentSite: o.currentSite ?? null }),
+  validate: async (rows) => rows.map((r, i) => (o.validate ? o.validate(r, i) : { rowIndex: i, valid: true, errors: [], warnings: [] })),
+  siteMeters: async () => { if (o.listCalled) o.listCalled.n++; return o.meters || []; },
+  meterClients: async () => { throw new Error('must not be called when scoped wrong'); },
+  hasReadings: async () => true,
+});
+const runCheck = (ems) => waterEmsCheck({ base: mkBase(), site: SITE_EIN, day: DAY, emsRow: emsRowOf }, ems);
+const asyncT = [];
+const at = (name, fn) => asyncT.push([name, fn]);
+
+at('(a) caller scoped to another site, empty list, validate all-valid → all ok, no "not set up", replacement not blocked', async () => {
+  const listCalled = { n: 0 };
+  const r = await runCheck(mockEms({ currentSite: 'site-other', meters: [], listCalled }));
+  assert.deepStrictEqual(r.upload.map((u) => u[0]).sort(), ['T1000001', 'T1000002', 'T2000003']);
+  assert.strictEqual(r.counts.blocked, 0);
+  assert.ok(!r.exceptions.some((e) => /לא מוקם/.test(e[6])));
+  assert.strictEqual(listCalled.n, 0, 'an untrustworthy list is not even fetched');
+});
+at('(a2) METER_NOT_IN_SITE with a wrong scope is dropped (says nothing about the meter)', async () => {
+  const r = await runCheck(mockEms({ currentSite: 'site-other', validate: (row, i) => ({ rowIndex: i, valid: false, errors: ['UPLOAD_READINGS.ERRORS.METER_NOT_IN_SITE'], warnings: [] }) }));
+  assert.strictEqual(r.counts.blocked, 0);
+  assert.strictEqual(r.counts.ok, 3);
+});
+at('(b) validate METER_NOT_FOUND → blocked "not set up", whatever the scope', async () => {
+  for (const cs of ['site-other', 'site-ein', null]) {
+    const r = await runCheck(mockEms({ currentSite: cs, validate: (row, i) => row.serialNumber === 'T1000002'
+      ? { rowIndex: i, valid: false, errors: ['UPLOAD_READINGS.ERRORS.METER_NOT_FOUND'], warnings: [] }
+      : { rowIndex: i, valid: true, errors: [], warnings: [] }, meters: [] }));
+    assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'חוסם').map((e) => e[2] + '|' + e[6]), ['T1000002|המונה לא מוקם ב-EMS תחת עין המפרץ'], String(cs));
+  }
+});
+at('(b2) METER_NOT_IN_SITE with the RIGHT scope still blocks', async () => {
+  const r = await runCheck(mockEms({ currentSite: 'site-ein', validate: (row, i) => row.serialNumber === 'T1000001'
+    ? { rowIndex: i, valid: false, errors: ['UPLOAD_READINGS.ERRORS.METER_NOT_IN_SITE'], warnings: [] } : { rowIndex: i, valid: true, errors: [], warnings: [] },
+  meters: [] }));
+  // T2000003 = replacement: right scope → continuity evaluated; the mock's meterClients throws → "not checked", not blocked
+  assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'חוסם').map((e) => e[2]), ['T1000001']);
+});
+at('(c) the info line lists only WATER + ARAD (comm 1) + not archived, missing from the report', async () => {
+  const m = (serial, energy, comm, role = 220) => ({ serialNumber: serial, energyType: { code: energy }, communicationType: { code: comm }, role: { code: role } });
+  const meters = [m('T1000001', 2, 1), m('W-ARAD-MISSING', 2, 1), m('W-OTHER-COMM', 2, 7), m('E-ARAD', 1, 1), m('W-ARCHIVED', 2, 1, 999)];
+  assert.deepStrictEqual(aradWaterMissing(meters, ['T1000001']).map((r) => r[2]), ['W-ARAD-MISSING']);
+  const r = await runCheck(mockEms({ currentSite: null, meters }));
+  assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'מידע').map((e) => e[2] + '|' + e[6]), ['W-ARAD-MISSING|קיים במערכת ולא הופיע בדוח CityMind']);
+});
+at('(d) wrong scope → ONE note instead of the missing-meters lines', async () => {
+  const r = await runCheck(mockEms({ currentSite: 'site-other', meters: [{ serialNumber: 'X', energyType: { code: 2 }, communicationType: { code: 1 } }] }));
+  assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'מידע').map((e) => e[6]), [SCOPE_NOTE]);
+  assert.deepStrictEqual(scopeOf({ currentSite: { id: 'site-ein' } }, 'site-ein'), { currentSite: 'site-ein', trusted: true });
+  assert.deepStrictEqual(scopeOf({ currentSite: null }, 'site-ein'), { currentSite: null, trusted: true });
+});
+at('(e) continuity not checkable (wrong scope) → the replacement uploads with a "not checked" warning, never blocked', async () => {
+  const r = await runCheck(mockEms({ currentSite: 'site-other' }));
+  assert.ok(r.upload.some((u) => u[0] === 'T2000003'));
+  assert.deepStrictEqual(r.exceptions.filter((e) => e[2] === 'T2000003').map((e) => e[5] + '|' + e[6]),
+    ['אזהרה|החלפת מונה בזיהוי 9003: T1000003 → T2000003 — רצף השיוך לא נבדק (אתר ה-EMS שלך אינו האתר של הריצה)']);
+});
+for (const [name, fn] of asyncT) { await fn(); n++; console.log('  ok', name); }
+console.log(`test-readings-citymind (with EMS-check regressions): ${n} passed`);

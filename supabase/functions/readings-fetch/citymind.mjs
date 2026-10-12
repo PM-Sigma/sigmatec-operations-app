@@ -11,6 +11,8 @@
 //   all          ['CityMind', id, '', serial, when, ft, null, null, null, status]
 //   exceptions   ['CityMind', id, serial, when, ft, 'חוסם'|'אזהרה'|'מידע', reason]
 
+import { applyEmsValidation } from './logic.js';
+
 export const SOURCE = 'CityMind';
 export const WATER = 2;
 /** Sites the ingest mode accepts. Anything else is refused even with a valid key. */
@@ -294,9 +296,10 @@ export function resolveReplacements(run, evidence, day) {
     const ev = evidence[rep.serial];
     if (!ev) continue;
     const isRep = (e) => e[2] === rep.serial && e[5] === 'חוסם' && String(e[6]).startsWith('החלפת משדר/מונה');
-    if (ev.ok && rep.onlyBlock) {
+    if ((ev.ok || ev.unchecked) && rep.onlyBlock) {
       exceptions = exceptions.filter((e) => !isRep(e));
-      exceptions.push([SOURCE, rep.id, rep.serial, rep.when, rep.ft, 'אזהרה', `החלפת מונה בזיהוי ${rep.id}: ${rep.old} → ${rep.serial} — רצף שיוך תקין`]);
+      exceptions.push([SOURCE, rep.id, rep.serial, rep.when, rep.ft, 'אזהרה', `החלפת מונה בזיהוי ${rep.id}: ${rep.old} → ${rep.serial} — ` +
+        (ev.ok ? 'רצף שיוך תקין' : 'רצף השיוך לא נבדק' + (ev.why ? ' (' + ev.why + ')' : ''))]);
       upload.push([rep.serial, WATER, 'reading', day, rep.ft, null, null, null, null, null, null, null]);
       uploadMeta.push([SOURCE, rep.id, rep.when, rep.ft]);
       for (const a of all) if (a[3] === rep.serial) a[9] = 'הועלה עם אזהרה';
@@ -307,7 +310,74 @@ export function resolveReplacements(run, evidence, day) {
   return { upload, uploadMeta, all, exceptions };
 }
 
-/** Info rows: water meters of the site in the system that the CityMind report did not include (spec "מידע"). */
+// ───────────────────────── the EMS check for a CityMind run (pure; EMS calls are injected) ─────────────────────────
+// 12.10 incident: "אימות מול EMS" on 11.10 → 0 ok / 496 blocked. EMS scopes by the caller's saved currentSite:
+//   · validate's METER_NOT_IN_SITE compares the meter's site with the CALLER's currentSite
+//     (sigmatec-ems upload-readings.controller.ts:46-55 _getUserSiteIds; upload-readings.service.ts:240-247),
+//   · GET /v1/meters lists only the currentSite's meters (meters/helpers/meter-scope.helper.ts:129-133).
+// METER_NOT_FOUND is a GLOBAL lookup (upload-readings.service.ts:233-236) — the only trustworthy "not set up".
+export const ARAD_COMM_CODE = 1;     // communication_types 'Arad FTP' (EMS DB lookup; en.json COMMUNICATION_TYPES.arad_ftp)
+export const ARCHIVE_ROLE = 999;
+export const SCOPE_NOTE = 'לא נבדקו מונים חסרים — אתר ה-EMS שלך אינו עין המפרץ';
+const UNCHECKED_WHY = 'אתר ה-EMS שלך אינו האתר של הריצה';
+
+/** Is the caller's EMS view trustworthy for this site? currentSite empty (all sites) or == the site. */
+export function scopeOf(me, emsSiteId) {
+  const cs = me && me.currentSite;
+  const id = typeof cs === 'string' ? cs : (cs && typeof cs.id === 'string' ? cs.id : '');
+  return { currentSite: id || null, trusted: !id || (!!emsSiteId && id === emsSiteId) };
+}
+
+/** With a wrong scope, METER_NOT_IN_SITE says nothing about the meter — drop it (a row left with no error is valid). */
+export function dropScopedErrors(results, trusted) {
+  if (trusted) return results;
+  return (results || []).map((r) => {
+    const errors = (r.errors || []).filter((e) => !/METER_NOT_IN_SITE$/.test(String(e)));
+    return { ...r, errors, valid: r.valid === false && errors.length ? false : r.valid === false ? true : r.valid };
+  });
+}
+
+/** Info rows: WATER meters of the site with ARAD communication, not archived, absent from the report. */
+export function aradWaterMissing(meters, reportSerials) {
+  const water = (meters || []).filter((m) => m &&
+    Number(m.energyType?.code ?? m.energyTypeCode) === WATER &&
+    Number(m.communicationType?.code ?? m.communicationTypeCode) === ARAD_COMM_CODE &&
+    Number(m.role?.code ?? m.roleCode) !== ARCHIVE_ROLE)
+    .map((m) => String(m.serialNumber));
+  return missingInfo(water, reportSerials);
+}
+
+/**
+ * The whole EMS check of a CityMind run. ems = { me(), validate(rows), siteMeters(), meterClients(serial), hasReadings(serial) }
+ * (all async; index.ts wires them to the EMS API with the caller's token). Returns the finishWater shape + {scope}.
+ */
+export async function waterEmsCheck({ base, site, day, emsRow }, ems) {
+  let me = null;
+  try { me = await ems.me(); } catch { me = null; }
+  const scope = me ? scopeOf(me, site.ems_site_id) : { currentSite: null, trusted: false };
+  const evidence = {};
+  for (const rep of base.replacements || []) {
+    if (!scope.trusted) { evidence[rep.serial] = { ok: false, unchecked: true, why: UNCHECKED_WHY }; continue; }
+    try {
+      const [old, next] = [await ems.meterClients(rep.old), await ems.meterClients(rep.serial)];
+      if (!old) evidence[rep.serial] = { ok: false, why: 'המונה הישן לא נמצא במערכת' };
+      else if (!next) evidence[rep.serial] = { ok: false, why: 'המונה החדש לא מוקם במערכת' };
+      else evidence[rep.serial] = continuity(old, next, await ems.hasReadings(rep.serial));
+    } catch { evidence[rep.serial] = { ok: false, unchecked: true, why: 'המערכת לא החזירה את פרטי המונה' }; }
+  }
+  const pre = resolveReplacements(base, evidence, day);
+  const results = dropScopedErrors(await ems.validate(pre.upload.map(emsRow)), scope.trusted);
+  // "not set up" comes ONLY from validate (METER_NOT_FOUND, + METER_NOT_IN_SITE when the scope is right) — never a list
+  const built = applyEmsValidation(pre, results, { kibbutz: site.kibbutz });
+  let info = [];
+  if (scope.trusted && site.ems_site_id) {
+    try { info = aradWaterMissing(await ems.siteMeters(), (base.all || []).map((r) => String(r[3]))); }
+    catch { info = [[SOURCE, '', '', '', null, 'מידע', 'לא נבדקו מונים חסרים — המערכת לא החזירה את רשימת המונים']]; }
+  } else info = [[SOURCE, '', '', '', null, 'מידע', SCOPE_NOTE]];
+  return { ...finishWater(built.upload, built.uploadMeta, built.all, [...built.exceptions, ...info]), scope };
+}
+
+/** Info rows: these serials are in the system and not in the CityMind report (spec "מידע"). */
 export function missingInfo(emsSerials, reportSerials) {
   const got = new Set(reportSerials);
   return [...new Set(emsSerials)].filter((s) => s && !got.has(s)).sort()

@@ -307,7 +307,7 @@ today by `ems-rest` (`app/src/lib/ems/adapters/rest.ts`) and published to legacy
 `sigma.ems` by `main.tsx`. The adapter is the ONLY place allowed to build an EMS URL or
 read raw EMS JSON; `test-integration.mjs` fails on a direct EMS call anywhere else.
 
-Direct EMS call sites: **6** in the adapter, **67** in files still awaiting migration, **0** stray.
+Direct EMS call sites: **6** in the adapter, **69** in files still awaiting migration, **0** stray.
 
 | file | direct EMS calls | why it is not behind the gateway yet |
 |---|---|---|
@@ -327,7 +327,7 @@ Direct EMS call sites: **6** in the adapter, **67** in files still awaiting migr
 | `supabase/functions/parse-daylog/index.ts` | 2 | Deno emsValid() login probe |
 | `supabase/functions/parse-order/index.ts` | 2 | Deno emsValid() login probe |
 | `supabase/functions/push-send/index.ts` | 1 | Deno — the digest crawl runs on a cron with no browser bridge |
-| `supabase/functions/readings-fetch/index.ts` | 2 | Deno — the emsCheck/emsSync modes call POST /v1/upload-readings/validate and the readings queries with the caller EMS token (server-side, like the login probe above) |
+| `supabase/functions/readings-fetch/index.ts` | 4 | Deno — the emsCheck/emsSync modes call POST /v1/upload-readings/validate and the readings queries with the caller EMS token (server-side, like the login probe above) |
 | `supabase/functions/transcribe/index.ts` | 2 | Deno emsValid() login probe |
 
 ---
