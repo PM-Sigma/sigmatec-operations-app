@@ -6,12 +6,12 @@
   // list view reaches them through `sigma.contactPhone()`. One map, two readers, no copy.
   const CONTACTS = {
     'עידן':    { email: 'pm@sigmatec-energy.com', phone: '972544649833' },
-    'עמיחי':   { email: '',                       phone: '972524234370' },
-    'אביאם':   { email: '',                       phone: '972505599535' },
-    'ניתאי':   { email: '',                       phone: '972528119081' },
-    'אבצן':    { email: '',                       phone: '972547854565' },
-    'מתניה':   { email: '',                       phone: '972526928649' },
-    'אליה':    { email: '',                       phone: '' }
+    'עמיחי':   { email: 'ankor@sigmatec-energy.com',      phone: '972524234370' },
+    'אביאם':   { email: 'engsupport@sigmatec-energy.com', phone: '972505599535' },
+    'ניתאי':   { email: 'technician@sigmatec-energy.com', phone: '972528119081' },
+    'אבצן':    { email: 'microgrid@sigmatec-energy.com',  phone: '972547854565' },
+    'מתניה':   { email: 'dev@sigmatec-energy.com',        phone: '972526928649' },
+    'אליה':    { email: 'rnddev@sigmatec-energy.com',     phone: '' }
   };
 
   /** One person's WhatsApp number, or '' — what the שתף action on the list view sends to. */

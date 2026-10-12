@@ -138,7 +138,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `session-expired` | js/src/00-bridge.js:117<br>app/src/lib/session.ts:126 | app/src/bridge.ts:420<br>app/src/components/ReLoginSheet.tsx:76<br>app/src/lib/session.test.ts:96 |
 | `stock-changed` | js/src/09-visits.js:474<br>app/src/islands/StockChange.tsx:207<br>app/src/lib/inventoryApi.ts:95 | app/src/islands/Alerts.tsx:136<br>app/src/islands/InventoryStrip.tsx:98<br>js/src/06-inventory.js:119 |
 | `theme-changed` | app/src/lib/theme.ts:52 | app/src/components/ThemeToggle.tsx:12<br>app/src/components/ui/sonner.tsx:18 |
-| `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:177<br>js/src/15-login-gate.js:283<br>js/src/15-login-gate.js:307<br>…+2 | app/src/bridge.ts:419<br>app/src/islands/Attendance.tsx:361<br>app/src/islands/FeedbackInbox.tsx:297<br>app/src/islands/Field.tsx:175<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
+| `user-changed` | js/src/11-search-login.js:222<br>js/src/11-search-login.js:243<br>js/src/15-login-gate.js:177<br>js/src/15-login-gate.js:284<br>js/src/15-login-gate.js:308<br>…+2 | app/src/bridge.ts:419<br>app/src/islands/Attendance.tsx:361<br>app/src/islands/FeedbackInbox.tsx:297<br>app/src/islands/Field.tsx:175<br>app/src/islands/Usage.tsx:225<br>app/src/lib/currentPage.ts:27<br>…+2 |
 | `visit-draft-changed` | js/src/09-visits.js:205<br>js/src/09-visits.js:265<br>js/src/09-visits.js:298 | app/src/lib/visitDrafts.ts:78<br>app/src/lib/visitDrafts.ts:93 |
 | `visit-form-open` | js/src/02-init-attendance.js:13 | js/src/00-bridge.js:158 |
 | `visit-saved` | js/src/09-visits.js:495<br>app/src/lib/kibbutzVisits.test.tsx:48 | app/src/islands/Attendance.tsx:354<br>app/src/islands/Calendar.tsx:1453<br>app/src/islands/Field.tsx:174<br>app/src/islands/Field.tsx:2513<br>app/src/islands/Presenter.tsx:228<br>app/src/lib/kibbutzVisits.ts:14<br>…+4 |
@@ -258,7 +258,7 @@ Gated in `canShowPage` with no `showPage()` caller in the source (reached by a r
 | `calendar` | `(default)` | *(no mode field)* | js/src/14-calendar.js:161<br>js/src/14-calendar.js:182 |
 | `clockify` | `(default)` | *(no mode field)* | app/src/components/home/workTimerApi.ts:13 |
 | `ems-auth` | `(default)` | *(no mode field)* | js/src/15-login-gate.js:90 |
-| `ems-auth` | `viewer` | ✓ | js/src/15-login-gate.js:419 |
+| `ems-auth` | `viewer` | ✓ | js/src/15-login-gate.js:420 |
 | `field-ops` | `(default)` | *(no mode field)* | app/src/lib/ems/adapters/fieldOps.ts:27 |
 | `github` | `(default)` | *(no mode field)* | app/src/islands/FeedbackInbox.tsx:94<br>app/src/lib/devBoard.ts:31 |
 | `parse-daylog` | `(default)` | *(no mode field)* | app/src/lib/daylogChain.ts:46 |

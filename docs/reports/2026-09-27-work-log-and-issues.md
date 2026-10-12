@@ -94,3 +94,4 @@
 - 12.10 CityMind עין המפרץ daily pull (server-built): GitHub Actions headless Firefox → readings-fetch ingest (dedicated READINGS_INGEST_KEY, no service key in GitHub; logs counts only); new עין המפרץ tab; PROD: reading_sites row applied, secrets set; schedule OFF until dry run (vars.CITYMIND_ENABLED) (v2.164)
 - 12.10 CityMind CHANGED fix: mid-field quote in the header (מס"ד) collapsed parseCsv; quote opens only at cell start; safer diagnostics; citymind.mjs; readings-fetch redeployed (v2.166)
 - 12.10 CityMind ingest rows: lenient validator (hard reject only bad types/length/control chars), safe error {index,field,reason}, empty transmitter/reading → per-meter block; readings-fetch redeployed (v2.168)
+- 12.10 staff emails: dev@→מתניה alias, ems-auth identity map all 7 (deployed), CONTACTS emails; staff_identities already correct in prod (no SQL needed) (v2.170)
