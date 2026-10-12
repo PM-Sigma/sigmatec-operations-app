@@ -366,7 +366,10 @@ export async function waterEmsCheck({ base, site, day, emsRow }, ems) {
     } catch { evidence[rep.serial] = { ok: false, unchecked: true, why: 'המערכת לא החזירה את פרטי המונה' }; }
   }
   const pre = resolveReplacements(base, evidence, day);
-  const results = dropScopedErrors(await ems.validate(pre.upload.map(emsRow)), scope.trusted);
+  const raw = await ems.validate(pre.upload.map(emsRow));
+  // untrusted view: METER_NOT_IN_SITE is not dropped silently — it is COUNTED into one run-level line (EMS re-checks on upload)
+  const notInSite = scope.trusted ? 0 : (raw || []).filter((r) => (r.errors || []).some((e) => /METER_NOT_IN_SITE$/.test(String(e)))).length;
+  const results = dropScopedErrors(raw, scope.trusted);
   // "not set up" comes ONLY from validate (METER_NOT_FOUND, + METER_NOT_IN_SITE when the scope is right) — never a list
   const built = applyEmsValidation(pre, results, { kibbutz: site.kibbutz });
   let info = [];
@@ -374,6 +377,10 @@ export async function waterEmsCheck({ base, site, day, emsRow }, ems) {
     try { info = aradWaterMissing(await ems.siteMeters(), (base.all || []).map((r) => String(r[3]))); }
     catch { info = [[SOURCE, '', '', '', null, 'מידע', 'לא נבדקו מונים חסרים — המערכת לא החזירה את רשימת המונים']]; }
   } else info = [[SOURCE, '', '', '', null, 'מידע', SCOPE_NOTE]];
+  // run-level lines (never per meter): unverified site membership, unchecked replacement continuity
+  if (notInSite) info.push([SOURCE, '', '', '', null, 'מידע', `שיוך לאתר לא אומת עבור ${notInSite} מונים — אתר ה-EMS שלך אינו ${site.kibbutz} (EMS יאמת שוב בהעלאה)`]);
+  const unchecked = Object.values(evidence).filter((e) => e && e.unchecked).length;
+  if (unchecked) info.push([SOURCE, '', '', '', null, 'מידע', `רצף שיוך לא נבדק עבור ${unchecked} מונים — ${scope.trusted ? 'המערכת לא החזירה את פרטי המונה' : 'אתר ה-EMS שלך אינו ' + site.kibbutz}`]);
   return { ...finishWater(built.upload, built.uploadMeta, built.all, [...built.exceptions, ...info]), scope };
 }
 

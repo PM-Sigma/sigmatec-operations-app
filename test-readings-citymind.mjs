@@ -337,11 +337,11 @@ at('(c) the info line lists only WATER + ARAD (comm 1) + not archived, missing f
   const meters = [m('T1000001', 2, 1), m('W-ARAD-MISSING', 2, 1), m('W-OTHER-COMM', 2, 7), m('E-ARAD', 1, 1), m('W-ARCHIVED', 2, 1, 999)];
   assert.deepStrictEqual(aradWaterMissing(meters, ['T1000001']).map((r) => r[2]), ['W-ARAD-MISSING']);
   const r = await runCheck(mockEms({ currentSite: null, meters }));
-  assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'מידע').map((e) => e[2] + '|' + e[6]), ['W-ARAD-MISSING|קיים במערכת ולא הופיע בדוח CityMind']);
+  assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'מידע' && e[2]).map((e) => e[2] + '|' + e[6]), ['W-ARAD-MISSING|קיים במערכת ולא הופיע בדוח CityMind']);
 });
 at('(d) wrong scope → ONE note instead of the missing-meters lines', async () => {
   const r = await runCheck(mockEms({ currentSite: 'site-other', meters: [{ serialNumber: 'X', energyType: { code: 2 }, communicationType: { code: 1 } }] }));
-  assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'מידע').map((e) => e[6]), [SCOPE_NOTE]);
+  assert.deepStrictEqual(r.exceptions.filter((e) => e[5] === 'מידע' && !/^רצף שיוך/.test(e[6])).map((e) => e[6]), [SCOPE_NOTE]);
   assert.deepStrictEqual(scopeOf({ currentSite: { id: 'site-ein' } }, 'site-ein'), { currentSite: 'site-ein', trusted: true });
   assert.deepStrictEqual(scopeOf({ currentSite: null }, 'site-ein'), { currentSite: null, trusted: true });
 });
@@ -353,3 +353,34 @@ at('(e) continuity not checkable (wrong scope) → the replacement uploads with 
 });
 for (const [name, fn] of asyncT) { await fn(); n++; console.log('  ok', name); }
 console.log(`test-readings-citymind (with EMS-check regressions): ${n} passed`);
+
+// ── run-level scope summary (security review of 317b6372) ──
+const asyncT2 = [];
+const at2 = (name, fn) => asyncT2.push([name, fn]);
+const NIS = (row, i) => ({ rowIndex: i, valid: false, errors: ['UPLOAD_READINGS.ERRORS.METER_NOT_IN_SITE'], warnings: [] });
+const plainBase = () => buildWater({ day: DAY, rows: [rec('T1000001', 10), rec('T1000002', 20), rec('T1000004', 30)] });
+const check2 = (base, ems) => waterEmsCheck({ base, site: SITE_EIN, day: DAY, emsRow: emsRowOf }, ems);
+at2('wrong site + all NOT_IN_SITE → exactly ONE run-level line with N, no per-row warns, nothing blocked', async () => {
+  const r = await check2(plainBase(), mockEms({ currentSite: 'site-other', validate: NIS }));
+  assert.strictEqual(r.counts.blocked, 0);
+  assert.strictEqual(r.counts.ok, 3);
+  assert.strictEqual(r.exceptions.filter((e) => e[5] === 'אזהרה').length, 0, 'no per-row warns');
+  const lines = r.exceptions.filter((e) => /שיוך לאתר לא אומת/.test(e[6]));
+  assert.deepStrictEqual(lines.map((e) => [e[2], e[5], e[6]]),
+    [['', 'מידע', 'שיוך לאתר לא אומת עבור 3 מונים — אתר ה-EMS שלך אינו עין המפרץ (EMS יאמת שוב בהעלאה)']]);
+  assert.ok(r.summary.some((s) => s[0] === 'מידע' && /^שיוך לאתר לא אומת עבור 3 מונים/.test(s[1]) && s[2] === 1), 'shows in the summary the page renders');
+});
+at2('right site + NOT_IN_SITE → blocked as before, no summary line', async () => {
+  const r = await check2(plainBase(), mockEms({ currentSite: 'site-ein', validate: NIS }));
+  assert.strictEqual(r.counts.blocked, 3);
+  assert.ok(!r.exceptions.some((e) => /שיוך לאתר לא אומת/.test(e[6])));
+});
+at2('continuity unchecked with 1 suspected replacement → 1 per-row warn + 1 summary line', async () => {
+  const r = await check2(mkBase(), mockEms({ currentSite: 'site-other' }));
+  assert.strictEqual(r.exceptions.filter((e) => e[5] === 'אזהרה').length, 1, 'one per-row warn, on the replaced meter only');
+  assert.strictEqual(r.exceptions.find((e) => e[5] === 'אזהרה')[2], 'T2000003');
+  assert.deepStrictEqual(r.exceptions.filter((e) => /^רצף שיוך לא נבדק/.test(e[6])).map((e) => e[6]),
+    ['רצף שיוך לא נבדק עבור 1 מונים — אתר ה-EMS שלך אינו עין המפרץ']);
+});
+for (const [name, fn] of asyncT2) { await fn(); n++; console.log('  ok', name); }
+console.log(`test-readings-citymind (with scope summary): ${n} passed`);
