@@ -56,7 +56,7 @@ import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
 import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { speechLadder } from '@/lib/feedback';
 // Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
-import { applyStatusChanges, KEEP_STATUS, needsEmsLinkWarning, plannedStatusChanges, statusChoices } from '@/lib/visitEmsLink';
+import { allTaskIds, applyStatusChanges, canLinkAndSave, KEEP_STATUS, needsEmsLinkWarning, plannedStatusChanges, statusChoices, statusUpdateToasts, toggleTaskId } from '@/lib/visitEmsLink';
 import { classifyError, userMessage } from '@/lib/errorMessages';
 import { conflictQuestion, resolveConflict, saveVisit } from '@/lib/visitSave';
 import { type AttAsk } from '@/lib/visitAttendance';
@@ -1180,7 +1180,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const [emsPicks, setEmsPicks] = React.useState<Record<string, string>>({});
   /** The "no EMS task linked" dialog (open + the radio choice). */
   const [linkAsk, setLinkAsk] = React.useState(false);
-  const [linkPick, setLinkPick] = React.useState('');
+  const [linkPick, setLinkPick] = React.useState<string[]>([]);
 
   // The same query key the briefing uses, so this costs no extra request.
   const ordersQ = useQuery({ queryKey: ['openOrders'], queryFn: fetchOpenOrders, enabled: open });
@@ -1405,7 +1405,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     if (!v.ok) { toast.error(v.reason || 'לא ניתן לשלוח'); return; }
     // עידן 11.10: no EMS task linked while the kibbutz has open ones -> ask BEFORE saving.
     if (needsEmsLinkWarning({ emsTaskIds: cur.model.emsTaskIds, openTaskCount: emsTasksRef.current.length, skipped: opts.skipLink })) {
-      setLinkPick('');
+      setLinkPick([]);
       setLinkAsk(true);
       return;
     }
@@ -1466,12 +1466,16 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         // internal task is marked done here.
         // עידן 11.10: the EMS status change runs only now, after the visit is safely filed. An EMS
         // failure never undoes the visit: it gets the error mapper's toast and the visit stays.
-        const changes = plannedStatusChanges(emsPicksRef.current,
+        // Multi-EMS (12.10): only the LINKED tasks, one at a time, one summary toast + one line per failure.
+        const picks = Object.fromEntries(Object.entries(emsPicksRef.current).filter(([id]) => emsIds.includes(id)));
+        const changes = plannedStatusChanges(picks,
           Object.fromEntries(emsTasksRef.current.map(t => [String(t.id), String(t.status)])));
         if (changes.length) {
           const r = await applyStatusChanges(changes, (id, st) => sigma.emsSetStatus?.(id, st));
-          if (r.failed.length) toast.error('הביקור נשמר, אך עדכון סטטוס המשימה נכשל · ' + userMessage(classifyError(r.failed[0].error)), toastOpts);
-          else toast.success(r.done > 1 ? 'סטטוס המשימות עודכן' : 'סטטוס המשימה עודכן', toastOpts);
+          const titleOf = (id: string) => String(emsTasksRef.current.find(t => String(t.id) === id)?.title || id);
+          const msgs = statusUpdateToasts(r, titleOf, e => userMessage(classifyError(e)));
+          if (msgs.ok) toast.success(msgs.ok, toastOpts);
+          for (const m of msgs.errors) toast.error(m, toastOpts);
         }
 
         if (internalIds.length) {
@@ -1554,8 +1558,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     set({ products: qty > 0 ? [...rest, { name, qty }] : rest });
   };
   const toggleId = (key: 'emsTaskIds' | 'internalTaskIds', id: string) => {
-    const cur = d[key] || [];
-    set({ [key]: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] } as Partial<ChapterDraft>);
+    set({ [key]: toggleTaskId(d[key] || [], id) } as Partial<ChapterDraft>);
   };
 
   const age = draftAge({ ...d, updated_at: resumedAt });
@@ -1783,6 +1786,14 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
                       <p className="rounded-xl border border-border bg-muted px-3 py-2 text-[12.5px] text-muted-foreground">
                         אין כאן משימות פתוחות. תגיד למה הגעת.
                       </p>
+                    )}
+                    {emsTasks.length > 1 && (
+                      <div className="flex gap-1.5">
+                        <button type="button" data-testid="vc-ems-all" onClick={() => set({ emsTaskIds: allTaskIds(emsTasks) })}
+                          className="min-h-[36px] rounded-xl border border-border bg-card px-3 text-[12.5px] font-bold">בחר הכול</button>
+                        <button type="button" data-testid="vc-ems-none" onClick={() => set({ emsTaskIds: [] })}
+                          className="min-h-[36px] rounded-xl border border-border bg-card px-3 text-[12.5px] font-bold">נקה</button>
+                      </div>
                     )}
                     {emsTasks.map(t => (
                       <React.Fragment key={String(t.id)}>
@@ -2023,21 +2034,25 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
             <DialogTitle className="text-[16px] font-extrabold">לא שויכה משימת EMS לסיכום הביקור</DialogTitle>
             <DialogDescription>לאיזו משימה פתוחה של {kibbutz} הביקור שייך?</DialogDescription>
           </DialogHeader>
-          <div role="radiogroup" className="flex max-h-[40svh] flex-col gap-1.5 overflow-y-auto">
+          {emsTasks.length > 1 && (
+            <button type="button" data-testid="vc-link-all" onClick={() => setLinkPick(allTaskIds(emsTasks))}
+              className="min-h-[36px] self-start rounded-xl border border-border bg-card px-3 text-[12.5px] font-bold">בחר הכול</button>
+          )}
+          <div role="group" aria-label="משימות פתוחות" className="flex max-h-[40svh] flex-col gap-1.5 overflow-y-auto">
             {emsTasks.map(t => {
-              const on = linkPick === String(t.id);
+              const on = linkPick.includes(String(t.id));
               return (
                 <button
                   key={String(t.id)}
                   type="button"
-                  role="radio"
+                  role="checkbox"
                   aria-checked={on}
-                  data-testid={'vc-link-radio-' + t.id}
-                  onClick={() => setLinkPick(String(t.id))}
+                  data-testid={'vc-link-check-' + t.id}
+                  onClick={() => setLinkPick(p => toggleTaskId(p, String(t.id)))}
                   className={'flex min-h-[48px] items-center gap-2.5 rounded-xl border px-3 py-2 text-start ' + (on ? 'border-[color:var(--brand-1)] bg-[color:var(--brand-1)]/10' : 'border-border bg-card')}
                 >
-                  <span aria-hidden className={'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-2 ' + (on ? 'border-[color:var(--brand-1)]' : 'border-border')}>
-                    {on && <span className="h-2 w-2 rounded-full bg-[color:var(--brand-1)]" />}
+                  <span aria-hidden className={'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border-2 ' + (on ? 'border-[color:var(--brand-1)] bg-[color:var(--brand-1)]' : 'border-border')}>
+                    {on && <Check className="h-3 w-3 text-[var(--s-on-brand)]" />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-semibold">{String(t.title)}</span>
@@ -2049,11 +2064,11 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
             <ShimmerButton
-              disabled={!linkPick}
+              disabled={!canLinkAndSave(linkPick)}
               data-testid="vc-link-confirm"
-              onClick={() => { const id = linkPick; setLinkAsk(false); set({ emsTaskIds: [id] }); void send({ emsIds: [id] }); }}
-              background={linkPick ? 'var(--brand-grad)' : 'hsl(var(--muted))'}
-              className={'min-h-[44px] w-full rounded-xl text-[15px] font-extrabold ' + (linkPick ? 'text-[var(--s-on-brand)]' : 'text-muted-foreground')}
+              onClick={() => { const ids = linkPick; setLinkAsk(false); set({ emsTaskIds: ids }); void send({ emsIds: ids }); }}
+              background={canLinkAndSave(linkPick) ? 'var(--brand-grad)' : 'hsl(var(--muted))'}
+              className={'min-h-[44px] w-full rounded-xl text-[15px] font-extrabold ' + (canLinkAndSave(linkPick) ? 'text-[var(--s-on-brand)]' : 'text-muted-foreground')}
             >
               שייך ושמור
             </ShimmerButton>

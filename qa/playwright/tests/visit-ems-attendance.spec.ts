@@ -80,8 +80,8 @@ test('visit: saving with no EMS task asks first; "שמור בלי שיוך" save
   const dlg = page.getByTestId('vc-link-warning');
   await expect(dlg).toBeVisible();
   await expect(dlg).toContainText('לא שויכה משימת EMS לסיכום הביקור');
-  await expect(page.getByTestId('vc-link-radio-T-77')).toBeVisible();
-  await expect(page.getByTestId('vc-link-radio-T-78')).toBeVisible();
+  await expect(page.getByTestId('vc-link-check-T-77')).toBeVisible();
+  await expect(page.getByTestId('vc-link-check-T-78')).toBeVisible();
   await expect(page.getByTestId('vc-link-confirm')).toBeDisabled();
   expect(await posted(page, 'visit'), 'nothing is saved while the dialog is up').toHaveLength(0);
   await shot(page, ti, 'link-warning');
@@ -94,19 +94,20 @@ test('visit: saving with no EMS task asks first; "שמור בלי שיוך" save
   expectNoConsoleErrors(rec);
 });
 
-test('visit: the dialog radio links the task; default status is "keep" so no EMS call', async ({ page }, ti) => {
+test('visit: the dialog check links the task; default status is "keep" so no EMS call', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
   await recordSheet(page);
   await stubEms(page, TASKS);
   await openVisit(page);
   await page.getByTestId('vc-reason-planned').click();
   await page.getByTestId('vc-send').click();
-  await page.getByTestId('vc-link-radio-T-78').click();
+  await page.getByTestId('vc-link-check-T-78').click();
   await page.getByTestId('vc-link-confirm').click();
   await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
   const v = await posted(page, 'visit');
   expect(v).toHaveLength(1);
   expect(v[0].emsTaskId).toBe('T-78');
+  expect(v[0].emsTaskIds).toEqual(['T-78']);
   expect(await page.evaluate(() => (window as any).__emsStatusCalls)).toEqual([]);
   expectNoConsoleErrors(rec);
 });
@@ -140,7 +141,7 @@ test('visit: an EMS failure keeps the visit and says so', async ({ page }, ti) =
   await page.getByTestId('vc-send').click();
   await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
   expect(await posted(page, 'visit')).toHaveLength(1);
-  await expect(page.getByText(/עדכון סטטוס המשימה נכשל/).first()).toBeVisible();
+  await expect(page.getByText(/עדכון "בדיקת תקשורת" נכשל/).first()).toBeVisible();
 });
 
 test('visit: a kibbutz with no open EMS tasks saves with no dialog', async ({ page }, ti) => {
@@ -153,6 +154,64 @@ test('visit: a kibbutz with no open EMS tasks saves with no dialog', async ({ pa
   await expect(page.getByTestId('vc-link-warning')).toHaveCount(0);
   await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
   expect(await posted(page, 'visit')).toHaveLength(1);
+  expectNoConsoleErrors(rec);
+});
+
+// ───────────────────────── multi-EMS (עידן 12.10) ─────────────────────────
+
+const TASKS3 = [...TASKS, { id: 'T-79', title: 'כיול בקר', status: 'new' }];
+const SHOTS = process.env.MULTI_EMS_SHOTS || '';   // optional reviewer copies, outside the repo
+
+test('visit multi-EMS: 2 of 3 tasks linked, "בוצעה" on one → both linked, one status call', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+  await stubEms(page, TASKS3);
+  await openVisit(page);
+  await page.getByTestId('vc-ems-all').click();
+  for (const id of ['T-77', 'T-78', 'T-79']) await expect(page.getByTestId('vc-ems-status-' + id)).toBeVisible();
+  await page.getByTestId('vc-ems-none').click();
+  await expect(page.getByTestId('vc-ems-status-T-77')).toHaveCount(0);
+  await page.getByTestId('vc-ems-T-77').click();
+  await page.getByTestId('vc-ems-T-79').click();
+  await page.getByTestId('vc-ems-status-T-79').selectOption('done');
+  await expect(page.getByTestId('vc-ems-status-T-77')).toHaveValue('keep');
+  await page.getByTestId('vc-ems-status-T-79').scrollIntoViewIfNeeded();
+  await shot(page, ti, 'multi-ems-block');
+  if (SHOTS && ti.project.name === 'mobile-360-light') await page.screenshot({ path: SHOTS + 'multi-ems-phone-360.png' });
+  if (SHOTS && ti.project.name === 'desktop-1440-light') await page.screenshot({ path: SHOTS + 'multi-ems-desktop-1440.png' });
+  await page.getByTestId('vc-send').click();
+  await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+  const v = await posted(page, 'visit');
+  expect(v).toHaveLength(1);
+  expect(v[0].emsTaskIds).toEqual(['T-77', 'T-79']);
+  expect(v[0].emsTaskId).toBe('T-77');
+  await expect.poll(() => page.evaluate(() => (window as any).__emsStatusCalls)).toEqual([['T-79', 'done']]);
+  await expect(page.getByText('עודכנו 1 משימות').first()).toBeVisible();
+  expectNoConsoleErrors(rec);
+});
+
+test('visit multi-EMS: the pre-save dialog takes several tasks ("בחר הכול")', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'אביאם', fieldPrompt: true });
+  await recordSheet(page);
+  await stubEms(page, TASKS3);
+  await openVisit(page);
+  await page.getByTestId('vc-reason-planned').click();
+  await page.getByTestId('vc-send').click();
+  await expect(page.getByTestId('vc-link-warning')).toBeVisible();
+  await expect(page.getByTestId('vc-link-confirm')).toBeDisabled();
+  await page.getByTestId('vc-link-check-T-78').click();
+  await expect(page.getByTestId('vc-link-check-T-78')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('vc-link-confirm')).toBeEnabled();
+  await page.getByTestId('vc-link-all').click();
+  for (const id of ['T-77', 'T-78', 'T-79']) await expect(page.getByTestId('vc-link-check-' + id)).toHaveAttribute('aria-checked', 'true');
+  await page.getByTestId('vc-link-check-T-77').click();
+  await shot(page, ti, 'multi-ems-dialog');
+  await page.getByTestId('vc-link-confirm').click();
+  await expect(page.getByTestId('visit-chapters')).toBeHidden({ timeout: 15_000 });
+  const v = await posted(page, 'visit');
+  expect(v).toHaveLength(1);
+  expect(v[0].emsTaskIds).toEqual(['T-78', 'T-79']);
+  expect(await page.evaluate(() => (window as any).__emsStatusCalls)).toEqual([]);
   expectNoConsoleErrors(rec);
 });
 

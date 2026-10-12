@@ -91,7 +91,7 @@ const WORKDAY_HOURS = 8;   // mirrors js/src/09-visits.js:16
 export interface VisitRowLike {
   id?: string; kibbutz?: string; date?: string; visitor?: string; duration?: number; workday?: boolean;
   contact?: string; products?: ReadonlyArray<ProductInput> | null; productsOther?: string; summary?: string;
-  openItems?: string; reason?: string; emsTaskId?: string;
+  openItems?: string; reason?: string; emsTaskId?: string; emsTaskIds?: string[];
 }
 export interface ReturnLite { visitId: string; product: string; qty: number }
 
@@ -129,7 +129,7 @@ export function visitToChapters(
     openItems: String(visit.openItems || ''),
     reasonId: known ? known.id : (reasonText ? 'other' : ''),
     reasonOther: known ? '' : reasonText,
-    emsTaskIds: visit.emsTaskId ? [visit.emsTaskId] : [],
+    emsTaskIds: visit.emsTaskIds?.length ? [...visit.emsTaskIds] : visit.emsTaskId ? [visit.emsTaskId] : [],
     returned,
   };
 }

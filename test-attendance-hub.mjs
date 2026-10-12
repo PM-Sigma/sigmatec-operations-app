@@ -73,7 +73,13 @@ check('writeVisit only writes ems_task_id when one was actually sent (partial-sa
 });
 check('saveVisitFromData persists the chosen task id(s)', () => {
   const f = lift(visits, 'saveVisitFromData');
-  assert.ok(/if \(emsIds\.length\) reqBody\.emsTaskId = emsIds\[0\]/.test(f));
+  // multi-EMS (12.10): ems_task_id stays the first pick, ems_task_ids carries all of them.
+  assert.ok(/if \(emsIds\.length\) \{ reqBody\.emsTaskId = emsIds\[0\]; reqBody\.emsTaskIds = emsIds; \}/.test(f));
+});
+check('a missing ems_task_ids column never fails the visit save (retry without it)', () => {
+  assert.ok(/optional = \['ems_task_ids', 'reason'\]/.test(R('js/src/01-data.js')));
+  const sql = R('db/visits_ems_task_ids.sql');
+  assert.ok(/alter table public\.visits add column if not exists ems_task_ids text\[\] default '\{\}'/.test(sql));
 });
 check('the migration file exists and is additive + re-runnable', () => {
   const sql = R('db/visits_ems_task_id.sql');

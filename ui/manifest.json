@@ -131,6 +131,7 @@
   "./ui/sigma-useUnsavedGuard.js",
   "./ui/sigma-video.js",
   "./ui/sigma-visitDrafts.js",
+  "./ui/sigma-visitEmsLink.js",
   "./ui/sigma-visitSave.js",
   "./ui/sigma-WorkTimerEditSheet.js",
   "./ui/sigma-WorkTimerStopSheet.js",

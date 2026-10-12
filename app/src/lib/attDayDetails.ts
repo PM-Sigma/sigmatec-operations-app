@@ -3,10 +3,11 @@
 // The calendar is the schedule; this is the attendance record's account of the day.
 import { dayLabel, rowOrigin, type AttRow } from './attendance';
 import { visitorsOf } from './field';
+import { linkedTaskIds } from './visitEmsLink';
 
 export interface DayVisit {
   id?: string; date: string; visitor: string; kibbutz?: string; duration?: number | string;
-  reason?: string; summary?: string; openItems?: string; createdAt?: string; emsTaskId?: string;
+  reason?: string; summary?: string; openItems?: string; createdAt?: string; emsTaskId?: string; emsTaskIds?: string[];
   products?: Array<string | { name: string; qty?: number }>;
 }
 export interface DayTask { id: string; title?: string; status?: string }
@@ -43,7 +44,6 @@ export function dayDetails(i: {
     return {
       kind: 'field', source: 'מסיכום ביקור',
       visits: mine.map(v => {
-        const t = v.emsTaskId ? (i.tasks || []).find(x => String(x.id) === String(v.emsTaskId)) : undefined;
         const hrs = Number(v.duration) || 0;
         const prods = (v.products || []).map(p => (typeof p === 'string' ? p : (p.qty || 1) > 1 ? p.name + ' ×' + p.qty : p.name));
         return {
@@ -51,7 +51,11 @@ export function dayDetails(i: {
           // ponytail: duration only — the visit's clock time is not recorded reliably (dates are noon-anchored).
           when: hrs ? hrs + ' שעות' : '',
           reason: v.reason || '',
-          task: t ? (t.title || 'משימת EMS') + (t.status ? ' · ' + label(t.status) : '') : v.emsTaskId ? 'משימת EMS מקושרת' : '',
+          // Every linked task (ems_task_ids, or the single ems_task_id before that column exists).
+          task: linkedTaskIds(v).map(id => {
+            const t = (i.tasks || []).find(x => String(x.id) === id);
+            return t ? (t.title || 'משימת EMS') + (t.status ? ' · ' + label(t.status) : '') : 'משימת EMS מקושרת';
+          }).join(' | '),
           summary: String(v.summary || '').trim(),
           open: clip(String(v.openItems || '').trim(), 160),
           products: clip(prods.join(', '), 160),

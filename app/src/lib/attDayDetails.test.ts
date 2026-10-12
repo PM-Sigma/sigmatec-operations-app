@@ -29,6 +29,16 @@ describe('dayDetails', () => {
       .toEqual({ kind: 'day', type: 'חופש', note: '', source: 'יומן-היעדרות' });
   });
 
+  it('a visit linked to several EMS tasks lists each one; the old single column still reads', () => {
+    const vs: DayVisit[] = [
+      { id: 'm1', date: D, visitor: 'ניתאי', kibbutz: 'גבים', emsTaskIds: ['t1', 't2'], emsTaskId: 't1' },
+      { id: 'm2', date: D + 'T15:00:00', visitor: 'ניתאי', kibbutz: 'גבים', emsTaskId: 't2' },
+    ];
+    const r = dayDetails({ date: D, person: 'ניתאי', row: null, visits: vs,
+      tasks: [{ id: 't1', title: 'החלפת מונה', status: 'done' }, { id: 't2', title: 'כיול', status: 'new' }] });
+    expect(r.kind === 'field' && r.visits.map(v => v.task)).toEqual(['החלפת מונה · done | כיול · new', 'כיול · new']);
+  });
+
   it('no report', () => {
     expect(dayDetails({ date: '2026-10-01', person: 'אביאם', row: null, visits })).toEqual({ kind: 'none', text: 'אין דיווח ליום זה', draft: '' });
   });

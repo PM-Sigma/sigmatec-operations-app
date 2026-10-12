@@ -402,7 +402,7 @@
     [].concat(d.emsTaskIds || [], d.emsTaskId ? [d.emsTaskId] : []).forEach(function (t) {
       const s = String(t || '').trim(); if (s && emsIds.indexOf(s) === -1) emsIds.push(s);
     });
-    if (emsIds.length) reqBody.emsTaskId = emsIds[0];
+    if (emsIds.length) { reqBody.emsTaskId = emsIds[0]; reqBody.emsTaskIds = emsIds; }
 
     let res;
     try {
@@ -429,8 +429,8 @@
           contact: visit.contact, products: visit.products, productsOther: visit.productsOther,
           summary: visit.summary, openItems: visit.openItems, reason: visit.reason, workday: visit.workday
         };
-        if (prior) { Object.assign(prior, patch); if (reqBody.emsTaskId) prior.emsTaskId = reqBody.emsTaskId; }
-        else window.SHEET_DATA.visits.push(Object.assign({ id: String(savedId), emsTaskId: reqBody.emsTaskId || '' }, patch));
+        if (prior) { Object.assign(prior, patch); if (reqBody.emsTaskId) { prior.emsTaskId = reqBody.emsTaskId; prior.emsTaskIds = reqBody.emsTaskIds; } }
+        else window.SHEET_DATA.visits.push(Object.assign({ id: String(savedId), emsTaskId: reqBody.emsTaskId || '', emsTaskIds: reqBody.emsTaskIds || [] }, patch));
       }
     } catch (e) {}
 
