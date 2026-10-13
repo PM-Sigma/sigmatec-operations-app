@@ -1,0 +1,34 @@
+{
+ "axe": 1,
+ "custom": 2,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".bg-\\[var\\(--btn-tonal\\)\\] > .truncate.min-w-0",
+    "ratio": "4.43",
+    "fg": "#076e70",
+    "bg": "#cee0e3"
+   }
+  ],
+  "custom": [
+   {
+    "kind": "text",
+    "sel": "span.min-w-0.truncate",
+    "text": "מינימום מלאי",
+    "ratio": 4.44,
+    "need": 4.5,
+    "fg": "#076e70",
+    "bg": "#cee0e3"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.potential-search",
+    "text": "🔍 חיפוש קיבוץ...",
+    "ratio": 1.23,
+    "need": 3,
+    "fg": "#e3e8ef",
+    "bg": "#ffffff"
+   }
+  ]
+ }
+}

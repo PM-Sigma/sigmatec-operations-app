@@ -1,0 +1,94 @@
+{
+ "axe": 5,
+ "custom": 6,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".text-\\[19px\\]",
+    "ratio": "1.87",
+    "fg": "#06cbc4",
+    "bg": "#f4f6f9"
+   },
+   {
+    "sel": "button[aria-label=\"יום א׳ · 27.9\"] > .gap-1.flex.items-center > .text-sm.tabular",
+    "ratio": "3.08",
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "sel": "button[aria-label=\"יום ב׳ · 28.9\"] > .gap-1.flex.items-center > .text-sm.tabular",
+    "ratio": "3.08",
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "sel": "button[aria-label=\"יום ג׳ · 29.9\"] > .gap-1.flex.items-center > .text-sm.tabular",
+    "ratio": "3.08",
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "sel": "button[aria-label=\"יום ד׳ · 30.9\"] > .gap-1.flex.items-center > .text-sm.tabular",
+    "ratio": "3.08",
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   }
+  ],
+  "custom": [
+   {
+    "kind": "text",
+    "sel": "h2.m-0.text-[19px]",
+    "text": "🗓️ יומן",
+    "ratio": 1.87,
+    "need": 3,
+    "fg": "#06cbc4",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "27",
+    "ratio": 3.09,
+    "need": 4.5,
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "28",
+    "ratio": 3.09,
+    "need": 4.5,
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "29",
+    "ratio": 3.09,
+    "need": 4.5,
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "30",
+    "ratio": 3.09,
+    "need": 4.5,
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.potential-search",
+    "text": "🔍 חיפוש קיבוץ...",
+    "ratio": 1.23,
+    "need": 3,
+    "fg": "#e3e8ef",
+    "bg": "#ffffff"
+   }
+  ]
+ }
+}

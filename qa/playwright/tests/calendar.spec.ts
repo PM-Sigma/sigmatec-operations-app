@@ -93,7 +93,14 @@ test('calendar: the island owns the screen and the legacy grid steps aside', asy
   await expect(page.locator('#calendarLegacy')).toBeHidden();
   await expect(page.locator('#calGrid')).toBeAttached();
 
-  await expect(page.getByRole('heading', { name: '🗓️ יומן' })).toBeVisible();
+  // the page title: the island's own heading on a phone; on desktop (≥1024) the shell page bar carries it and the
+  // island's heading is hidden so it is not said twice (viewer-desktop 12.10)
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await expect(page.locator('#sigma-page-bar')).toContainText('יומן');
+    await expect(page.getByRole('heading', { name: '🗓️ יומן' })).toBeHidden();
+  } else {
+    await expect(page.getByRole('heading', { name: '🗓️ יומן' })).toBeVisible();
+  }
   await expect(page.getByTestId('cal-label')).toBeVisible();
   // שבוע / חודש / רשימה — all three live since Task 14.
   await expect(page.locator('[data-view="week"]')).toBeVisible();

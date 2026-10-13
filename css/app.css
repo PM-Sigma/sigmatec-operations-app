@@ -1157,6 +1157,9 @@ body.user-viewer #invProductsList button { display: none !important; }
 /* Desktop (≥1024, viewer-desktop 12.10): the hub is a dashboard — a grid of report CARDS, each with its name on
    top, its inputs in the middle and its PDF / Excel actions on one line at the bottom. The phone keeps the rows. */
 @media (min-width: 1024px) {
+  /* the page bar already says "דוחות": no second header, and no box around the cards (a box in a box) */
+  #viewerReportsHub { background: none; border: 0; box-shadow: none; padding: 0; }
+  #viewerReportsHub .company-tasks-header { display: none; }
   #viewerReportsHub .xl-hub-rows {
     display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 16px;
   }
@@ -1165,7 +1168,9 @@ body.user-viewer #invProductsList button { display: none !important; }
     box-shadow: var(--shadow-sm, none);
   }
   #viewerReportsHub .xl-hub-row .xl-hub-name { flex: 1 1 100%; font-size: 16px; margin: 0 !important; }
-  #viewerReportsHub .xl-hub-row label { flex: 1 1 140px; flex-direction: column; align-items: stretch; gap: 4px; }
+  /* inputs fill their own line(s) — two per line, or one full line — so PDF / Excel always sit together on the last line */
+  #viewerReportsHub .xl-hub-row label { flex: 1 1 calc(50% - 6px); flex-direction: column; align-items: stretch; gap: 4px; }
+  #viewerReportsHub .xl-hub-row label:only-of-type { flex-basis: 100%; }
   #viewerReportsHub .xl-hub-row input, #viewerReportsHub .xl-hub-row select { width: 100%; }
   #viewerReportsHub .xl-hub-row .inv-btn { flex: 0 0 auto; min-width: 104px; }
 }

@@ -1,0 +1,36 @@
+{
+ "axe": 0,
+ "custom": 3,
+ "detail": {
+  "axe": [],
+  "custom": [
+   {
+    "kind": "placeholder",
+    "sel": "input[presenter-quicknote].min-h-11.min-w-0",
+    "text": "שורה אחת, אם בא לך",
+    "ratio": 3.94,
+    "need": 4.5,
+    "fg": "#757575",
+    "bg": "#e9eef1"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.potential-search",
+    "text": "🔍 חיפוש קיבוץ...",
+    "ratio": 1.23,
+    "need": 3,
+    "fg": "#e3e8ef",
+    "bg": "#ffffff"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input[presenter-quicknote].min-h-11.min-w-0",
+    "text": "שורה אחת, אם בא לך",
+    "ratio": 1.17,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#f2f5f7"
+   }
+  ]
+ }
+}

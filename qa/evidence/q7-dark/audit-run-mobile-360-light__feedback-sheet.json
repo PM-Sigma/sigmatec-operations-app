@@ -1,0 +1,18 @@
+{
+ "axe": 0,
+ "custom": 1,
+ "detail": {
+  "axe": [],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "textarea.flex.resize-none",
+    "text": "מה קרה / מה היה עוזר לך?",
+    "ratio": 1.17,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#f2f5f7"
+   }
+  ]
+ }
+}
