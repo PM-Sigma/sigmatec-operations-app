@@ -40,13 +40,15 @@ const KIBBUTZIM = [
   { name: 'דפנה', region: 'העמקים', section: 'new', kind: 'kibbutz', energy: ['electric'], ems_site_ids: ['site1'] },
 ];
 
+// the previous meeting is dated relative to today — a fixed date aged out of the presenter's window (13.10)
+const PREV_MEETING = new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10);
 const NOTES = [
   {
-    id: 'n1', kibbutz: 'דפנה', meeting_date: '2026-09-12', meeting_kind: 'company', seq: 1,
+    id: 'n1', kibbutz: 'דפנה', meeting_date: PREV_MEETING, meeting_kind: 'company', seq: 1,
     text: 'להשלים החלפת מונה ראשי', owners: ['אביאם'], done_at: null,
   },
   {
-    id: 'n2', kibbutz: 'דפנה', meeting_date: '2026-09-12', meeting_kind: 'company', seq: 2,
+    id: 'n2', kibbutz: 'דפנה', meeting_date: PREV_MEETING, meeting_kind: 'company', seq: 2,
     text: 'לתאם חתימה מול הגזבר', owners: [], done_at: null,
   },
 ];
