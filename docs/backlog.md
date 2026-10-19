@@ -1,5 +1,6 @@
 
 
+- 🟡 BUILT 19.10, branch `feat/visit-overwrite-guard` — visit overwrite guard (client + insert-only write) + `db/visits_history.sql` (NOT applied). MAIN: merge, apply SQL after עידן's OK. Stock correction ON HOLD until עידן's stock count (within ~2 months). Lost reports also from 1.10 + 5.10 chains (דגניה 8.9, כנרת, גניגר, דפנה) — forensic report is local in תוצרים/2026-10-19.
 - 🔴 **Stock correction from the 7.10/4.10 visit-overwrite bug (2.153)** — reverse the wrong "returns": חברה→כפר גלעדי 3 Robustel + 3 ספק כוח שקע;
   →שלוחות 50 E360SP; →גניגר 1 E360PP; →מעוז חיים 17 PUSR + 17 ספק כוח פס-דין; →גבים 1 E360CT. Lost reports to rewrite: ניתאי (דפנה 23.9,
   כפר גלעדי, שלוחות, גניגר), אביאם (גבעת חיים מאוחד, חולדה 22.9 — September is locked, needs an unlock). Visit 17.9 תל קציר still under technician@.

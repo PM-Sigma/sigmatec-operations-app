@@ -75,6 +75,7 @@ inline `onclick=`. **Constants/flags are listed by name only** (no secret values
 
 ### `09-visits.js` — Visit logging, products-per-visit, visit report
 - `toggleVisitWorkday()` — mark visit a full workday
+- Overwrite guard (19.10): `saveVisitFromData` files an id that belongs to ANOTHER kibbutz as a new visit; `writeVisit` (01-data.js) INSERTs new visits (a taken id → fresh id, unless it is a retry of the same report). DB net: `db/visits_history.sql`.
 - `loadAllVisitsCombined()` — merge DB + local visits
 - `renderProductsForVisitor()` / `toggleProductQty(chk)` — product checkboxes
 - `loadAllVisits()` / `saveAllVisits(visits)` / `getLastVisit(name)` — localStorage visits

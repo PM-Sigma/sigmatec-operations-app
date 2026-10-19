@@ -641,7 +641,7 @@
 
     // visit: upsert the visit AND append any returned-equipment rows (mirrors appendVisit)
     async function writeVisit(b) {
-      const id = b.id || genId('v');
+      let id = b.id || genId('v');
       const row = { id, kibbutz: b.kibbutz || '', date: b.date || nowISO(), visitor: b.visitor || '', duration: b.duration || 0, contact: b.contact || '', products: b.products || [], products_other: b.productsOther || '', summary: b.summary || '', open_items: b.openItems || '', workday: !!b.workday };
       if (!b.id || b.isNew) row.created_at = b.createdAt || nowISO();   // stamp creation date on INSERT only; an edit omits it → upsert-merge preserves the original (don't reset it to now). New visits now carry a pre-minted id, so isNew distinguishes create from edit.
       // EMS link: only written when the caller actually sends one. An edit that touches no EMS task
@@ -654,9 +654,20 @@
       // missing column (42703 / PGRST204) retries without it — it costs that column, never the visit.
       if (b.reason) row.reason = String(b.reason);
       for (;;) {
-        try { await sbUpsert('visits', 'id', row); break; }
+        // A NEW visit is an INSERT, never an upsert: if the id already exists (a stale pre-minted id),
+        // the old report must survive — file this one under a fresh id (a duplicate beats a lost report).
+        // Same kibbutz + visitor + date on the taken id = a retry of this very save → plain upsert, as before.
+        let insert = !!b.isNew;
+        try { await (insert ? sbInsert('visits', [row]) : sbUpsert('visits', 'id', row)); break; }
         catch (e) {
           const msg = String(e && e.message);
+          if (insert && /23505|duplicate key|409/.test(msg)) {
+            const old = ((await sbGet('visits?select=kibbutz,visitor,date&id=eq.' + encodeURIComponent(id))) || [])[0] || {};
+            if (old.kibbutz === row.kibbutz && old.visitor === row.visitor && String(old.date).slice(0, 10) === String(row.date).slice(0, 10)) { delete row.created_at; b.isNew = false; continue; }   // visitor-ok: exact retry match, not a person compare
+            console.warn('visit id taken by another report — new id', id);
+            id = row.id = genId('v');
+            continue;
+          }
           const optional = ['ems_task_ids', 'reason'].filter(k => k in row);
           if (!optional.length || !/42703|PGRST204|ems_task_ids|reason/.test(msg)) throw e;
           const named = optional.filter(k => msg.indexOf(k) !== -1);

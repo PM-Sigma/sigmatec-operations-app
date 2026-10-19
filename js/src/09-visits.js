@@ -343,11 +343,19 @@
     // sheet — it lands on the certificate screen the moment the visit is filed — so a caller may
     // opt out with `certAfter: true`. Every other caller (📝 יומן היום, the legacy form) keeps the
     // gate exactly as it was: equipment supplied → an issued certificate linked to this visit.
-    const id = String(d.id || '') || ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    let id = String(d.id || '') || ('v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
     // Idempotency (visit-summary chain spec 23.9): an id that is ALREADY a filed visit is an
     // edit or a retry, never a second visit. Stock then moves by the delta only, returns are not
     // re-inserted, and a linked EMS task gets the "what changed" note instead of a second summary.
-    const prior = ((window.SHEET_DATA && window.SHEET_DATA.visits) || []).find(v => v && String(v.id) === id) || null;
+    let prior = ((window.SHEET_DATA && window.SHEET_DATA.visits) || []).find(v => v && String(v.id) === id) || null;
+    // Overwrite guard (19.10, after 3 chains on 1.10 / 5.10 / 7.10): an "edit" for ANOTHER kibbutz is a
+    // stale id, never a real edit — file it as a new visit so the earlier report is never written over.
+    if (prior && String(prior.kibbutz || '').trim() !== kibbutz) {
+      console.warn('visit id reused for another kibbutz — filing as new', id);
+      if (window._visitDraftId === id) window._visitDraftId = null;
+      id = 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      prior = null;
+    }
     const isEdit = !!prior;
 
     // Round 5, grill round 5 answers (binding): everything dated August 2026 or earlier is read-only; a record

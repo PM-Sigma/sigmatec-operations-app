@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [unreleased] 2026-10-19 - feat/visit-overwrite-guard: a visit report can no longer be written over
+Why: the 19.10 forensic check found the 2.153 id-reuse bug hit ניתאי on THREE evenings (1.10, 5.10, 7.10), not one; no DB backup existed, so the overwritten summaries are gone. עידן: make sure it can't happen again.
+- Client: `saveVisitFromData` treats an "edit" whose stored kibbutz differs as a stale id → new visit under a fresh id (js/src/09-visits.js).
+- Write path: `writeVisit` INSERTs a new visit instead of upserting; a taken id → re-checked: same kibbutz+visitor+date = retry (upsert), otherwise a fresh id. A duplicate beats a lost report (js/src/01-data.js).
+- DB (NOT APPLIED, needs עידן's OK): `db/visits_history.sql` — trigger keeps the old row of every UPDATE/DELETE on `visits` in `visits_history` (RLS on, no policies). Rollback inside.
+- Stock: untouched by request (עידן will do a stock count in the next two months).
+- Tests: test-visit-summary-chain.mjs [2b], test-visit-writevisit.mjs C5–C6.
+
 ## [unreleased] 2026-10-12 - feat/arad-multi-kibbutz (branch, not live): CityMind for every Arad kibbutz
 Why: עידן — the עין המפרץ automation must serve אור הנר, עין השופט and the next ones without new code, keep the raw export apart from the conversion, and take 5 readings a day.
 - A kibbutz = one `reading_sites` row (`rules.source='citymind'`, `rules.secrets` = secret NAMES, `rules.daily_readings`) + two GitHub secrets. `INGEST_SITES` removed; readings-fetch `ingestSites` gives the workflow its matrix.

@@ -168,6 +168,18 @@ check('EMS: the linked task gets the change note, not a second summary', () => {
 });
 check('a known contact is not added again', () => assert.equal(sbPosts.length, 0));
 
+console.log('\n[2b] a stale id reused for ANOTHER kibbutz (the 1.10 / 5.10 / 7.10 chains)');
+reset();
+const r2b = await mod.saveVisitFromData({ ...chapters, kibbutz: 'דפנה', products: [], emsTaskIds: [] });
+await tick();
+check('it is filed as a NEW visit under a fresh id — the earlier report is not written over', () => {
+  assert.equal(r2b.ok, true); assert.equal(r2b.edited, false);
+  assert.equal(visitPosts()[0].isNew, true);
+  assert.notEqual(visitPosts()[0].id, 'vd_1');
+  assert.equal(window_.SHEET_DATA.visits.find(x => x.id === 'vd_1').kibbutz, 'חוקוק');
+});
+window_.SHEET_DATA.visits = window_.SHEET_DATA.visits.filter(x => x.kibbutz !== 'דפנה');
+
 console.log('\n[3] a plain retry of the identical save');
 reset();
 await mod.saveVisitFromData({ ...chapters, date: '2026-09-22', products: [{ name: 'E360', qty: 3 }], emsTaskIds: ['T1'] });
