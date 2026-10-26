@@ -1,4 +1,4 @@
-import{c as S}from"./sigma.js?v=mvpfmvtg";import{R,A as v}from"./sigma-pending.js?v=mvpfmvtg";import{getSupabase as T,SB_URL as b,SB_ANON as m}from"./sigma-supabase.js?v=mvpfmvtg";/**
+import{c as S}from"./sigma.js?v=mvpft71f";import{R,A as v}from"./sigma-pending.js?v=mvpft71f";import{getSupabase as T,SB_URL as b,SB_ANON as m}from"./sigma-supabase.js?v=mvpft71f";/**
  * @license lucide-react v0.475.0 - ISC
  *
  * This source code is licensed under the ISC license.
