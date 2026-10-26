@@ -73,6 +73,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — 2026-10-26 (feat/citymind-manual-run, not merged)
+CityMind tabs have the manual run (readings-fetch `dispatch` + GitHub workflow_dispatch; ingest fills the running row). Built + tested, NOT deployed: deploy readings-fetch, verify GH_TOKEN has Actions: write on the ops repo. Spec `docs/superpowers/specs/2026-10-26-citymind-manual-run-design.md`.
+
 ## 🚦 Current state — 2026-10-12 (feat/arad-multi-kibbutz, not merged)
 CityMind (Arad) generalised to N kibbutzim by config — BUILT + green on `feat/arad-multi-kibbutz`; MAIN: SQL → deploy → merge → dry run + PROBE. Spec `docs/superpowers/specs/2026-10-12-arad-multi-kibbutz-design.md` (has "how to add an Arad kibbutz").
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addActive, badgeCount, failedSources, finishToast, historyRows, isoWeekKey, israelWeekday, latestCronPerSite,
   latestRun, manualView, metersForReason, parseActive, progressText, reasonGroups, removeActive, shouldSundayCheck,
-  watchVerdict, yesterdayIL, siteMode, canDownload, type ReadingRun,
+  watchVerdict, yesterdayIL, siteMode, canDownload, canPull, cityMindSteps, type ReadingRun,
 } from './readingsLogic';
 
 const run = (o: Partial<ReadingRun> = {}): ReadingRun => ({
@@ -211,6 +211,8 @@ describe('siteMode — עין המפרץ (CityMind) vs חולדה', () => {
   it('a citymind site: no manual pull, downloads only after the EMS check', () => {
     const m = siteMode({ rules: { source: 'citymind' } });
     expect(m.manual).toBe(false);
+    expect(m.dispatch).toBe(true);
+    expect(canPull(m)).toBe(true);
     expect(m.requireCheck).toBe(true);
     expect(m.note).toContain('06:00');
     expect(canDownload(m, { ems_checked: false })).toBe(false);
@@ -219,7 +221,7 @@ describe('siteMode — עין המפרץ (CityMind) vs חולדה', () => {
   it('any other site keeps the manual pull and free downloads', () => {
     for (const s of [{ rules: {} }, { rules: null }, null]) {
       const m = siteMode(s);
-      expect(m).toEqual({ manual: true, requireCheck: false, note: null });
+      expect(m).toEqual({ manual: true, dispatch: false, requireCheck: false, note: null });
       expect(canDownload(m, { ems_checked: false })).toBe(true);
     }
   });
@@ -232,5 +234,25 @@ describe('siteMode — any Arad kibbutz added by config only', () => {
       expect([m.manual, m.requireCheck]).toEqual([false, true]);
       expect(canDownload(m, { ems_checked: false })).toBe(false);
     }
+  });
+});
+
+describe('CityMind manual run — the 4 steps', () => {
+  it('step 0 (tap in flight): נשלח is the active step, the rest wait', () => {
+    expect(cityMindSteps('optimistic')).toEqual({ text: '⏳ נשלח… · מושך מ-CityMind · בודק · מוכן', active: 0, pct: 5 });
+  });
+  it('the row exists, the runner has not ingested: נשלח done, מושך is active', () => {
+    expect(cityMindSteps('running').text).toBe('✓ נשלח · ⏳ מושך מ-CityMind… · בודק · מוכן');
+  });
+  it('checking → done, progress only grows', () => {
+    expect(cityMindSteps('checking').text).toBe('✓ נשלח · ✓ מושך מ-CityMind · ⏳ בודק… · מוכן');
+    expect(cityMindSteps('done').text).toBe('✓ נשלח · ✓ מושך מ-CityMind · ✓ בודק · ✓ מוכן');
+    const p = (['optimistic', 'running', 'checking', 'done'] as const).map(x => cityMindSteps(x).pct);
+    expect(p).toEqual([...p].sort((a, b) => a - b));
+  });
+  it('both site kinds have a manual block; a site with neither would not', () => {
+    expect(canPull(siteMode({ rules: {} }))).toBe(true);
+    expect(canPull(siteMode({ rules: { source: 'citymind' } }))).toBe(true);
+    expect(canPull({ manual: false, dispatch: false, requireCheck: false, note: null })).toBe(false);
   });
 });

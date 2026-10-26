@@ -18,6 +18,8 @@
 //   seen         {run_id}                             user
 //   cron         {}                                   cron key only  (pg_cron, db/cron_readings_7am.sql)
 //   probe        {date?, raw?}                        user or cron   (Phase 0 feasibility check)
+//   dispatch     {kibbutz, date}                      user (JWT)     -> {run_id, existing} — manual CityMind pull: a 'running' row
+//                + GitHub workflow_dispatch (secret GH_TOKEN needs Actions:write on GH_ACTIONS_REPO); the runner's ingest fills that row
 //   ingest       {kibbutz, date, rows | failed+error_code, dry_run?}  X-Ingest-Key ONLY (READINGS_INGEST_KEY) — the
 //                GitHub Actions CityMind runner (עין המפרץ). Accepts INGEST_SITES only; size/shape-limited (citymind.mjs).
 // AUTH: X-Cron-Key == CRON_SECRET, or a bridge JWT (iss 'ems-bridge') carrying a staff `name` claim and not a viewer pass (canUseReadings).
@@ -35,6 +37,9 @@ import {
   buildWater, decodeRaw, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, ingestMatrix, keyMatches, parseCityMind, rawPath, CityMindError,
   SOURCE as CITYMIND, validateIngest, waterEmsCheck, WATER as WATER_CODE,
 } from "./citymind.mjs";
+import {
+  DEFAULT_ACTIONS_REPO, dispatchRequest, ingestPlan, mapDispatchError, planDispatch, staleText,
+} from "./dispatch.mjs";
 import {
   addDaysIso, badRunDate, cronDecision, cronFirstRunDue, cronWindowOpen, dedupeDecision, emsSyncDecision,
   errText, fileNames, israelNow, israelYesterday, retentionCutoff, runStatus, STUCK_MS, storagePaths, valuesCutoff,
@@ -440,8 +445,10 @@ async function ingest(q: any) {
   const site = await getSite({ kibbutz: q.kibbutz });
   if (!isCityMind(site) || site.active === false) throw new Fail(403, { error: "site not configured for ingest" });
   // once per day: a day that already has an ok (or running) run is not overwritten by a second schedule fire
-  const { data: have } = await sb.from("reading_runs").select("id,status").eq("site_id", site.id).eq("reading_date", q.date).in("status", ["ok", "running"]);
-  if (have?.length && !q.dry_run) return { existing: true, run_id: have[0].id };
+  const { data: have } = await sb.from("reading_runs").select("id,status,trigger,progress").eq("site_id", site.id).eq("reading_date", q.date).in("status", ["ok", "running"]);
+  const plan = ingestPlan(have || [], CITYMIND);
+  if (plan.action === "existing" && !q.dry_run) return { existing: true, run_id: plan.run_id };
+  const fillId: string | null = plan.action === "fill" && !q.dry_run ? plan.run_id : null;   // a manual `dispatch` row: fill it, never a 2nd run
   let rows = q.rows, raw: { bytes: Uint8Array; text: string } | null = null, parseFail: string | null = null;
   if (q.csv_b64) {
     try { raw = decodeRaw(q.csv_b64); } catch { throw new Fail(400, { error: "bad csv" }); }
@@ -451,10 +458,10 @@ async function ingest(q: any) {
   if (failCode) {
     if (q.dry_run) return { dry_run: true, failed: true, error: failCode };
     const error = failText(failCode);
-    const ins = await sb.from("reading_runs").insert({
-      site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub", status: "failed",
-      progress: { [CITYMIND]: { state: "failed", error } }, error: error.message, finished_at: new Date().toISOString(),
-    }).select("id").single();
+    const failRow = { status: "failed", progress: { [CITYMIND]: { state: "failed", error } }, error: error.message, finished_at: new Date().toISOString() };
+    const ins = fillId
+      ? await sb.from("reading_runs").update(failRow).eq("id", fillId).select("id").single()
+      : await sb.from("reading_runs").insert({ site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub", ...failRow }).select("id").single();
     if (ins.error) throw new Fail(500, { error: "could not save run" });
     if (raw) await storeRaw(site, ins.data, q.date, raw.bytes);   // a CHANGED export is kept: it is what to look at
     await notifyDone(ins.data.id);
@@ -464,10 +471,10 @@ async function ingest(q: any) {
     const built = await cmBuild(site, q.date, rows);
     return { dry_run: true, rows: rows.length, ...built.counts, replacements: built.replacements.length };
   }
-  const ins = await sb.from("reading_runs").insert({
-    site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub",
-    progress: { [CITYMIND]: { state: "ok", count: rows.length } }, raw: { [CITYMIND]: rows },
-  }).select("id,site_id,reading_date").single();
+  const okRow = { progress: { [CITYMIND]: { state: "ok", count: rows.length } }, raw: { [CITYMIND]: rows } };
+  const ins = fillId
+    ? await sb.from("reading_runs").update(okRow).eq("id", fillId).select("id,site_id,reading_date").single()
+    : await sb.from("reading_runs").insert({ site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub", ...okRow }).select("id,site_id,reading_date").single();
   if (ins.error) {
     if (ins.error.code === "23505") return { existing: true };
     throw new Fail(500, { error: "could not save run" });
@@ -477,6 +484,63 @@ async function ingest(q: any) {
   const built = await stageB(site, run, rows);
   await notifyDone(run.id);
   return { run_id: run.id, rows: rows.length, ...(built ? built.counts : { failed: true }) };
+}
+
+/** USER mode `dispatch`: a 'running' row now (the UI tracks it at once) + the GitHub workflow_dispatch; ingest fills the row. */
+async function dispatch(body: any, name: string) {
+  const site = await getSite({ kibbutz: body.kibbutz });
+  const date = body.date;
+  const { data: runs } = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? await sb.from("reading_runs").select("id,status,trigger,progress,started_at").eq("site_id", site.id).eq("reading_date", date).in("status", ["ok", "running"])
+    : { data: [] };
+  await sweepStale(runs || []);                                  // a dead manual row must not block a retry
+  const plan = planDispatch({ site, date, runs: runs || [] });
+  if (plan.action === "reject") throw new Fail(plan.status!, { error: plan.error, message: plan.message });
+  if (plan.action === "existing") return { run_id: plan.run_id, existing: true };
+  const token = env("GH_TOKEN");
+  if (!token) throw new Fail(500, { error: "GH_NOT_SET", message: "חיבור GitHub לא מוגדר — לפנות לעידן" });
+  const ins = await sb.from("reading_runs").insert({
+    site_id: site.id, reading_date: date, trigger: "manual", started_by: name, progress: { [CITYMIND]: { state: "pending" } },
+  }).select("id").single();
+  if (ins.error) {
+    if (ins.error.code === "23505") {                            // lost a race with another tap → theirs
+      const { data: again } = await sb.from("reading_runs").select("id").eq("site_id", site.id).eq("reading_date", date).eq("status", "running").maybeSingle();
+      if (again) return { run_id: again.id as string, existing: true };
+    }
+    throw new Fail(500, { error: "could not start run" });
+  }
+  const run_id = ins.data.id as string;
+  let status = 0;
+  try {
+    const req = dispatchRequest(env("GH_ACTIONS_REPO") || DEFAULT_ACTIONS_REPO, site.kibbutz, date);
+    const r = await fetchT(req.url, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "Content-Type": "application/json", "User-Agent": "sigmatec-readings" },
+      body: JSON.stringify(req.body),
+    }, 20000);
+    status = r.status;
+    await r.body?.cancel();
+  } catch { status = 0; }                                         // a network error is never logged (it can echo the URL)
+  if (status !== 204) {
+    const m = mapDispatchError(status);
+    console.error("dispatch github status", status);
+    await sb.from("reading_runs").update({
+      status: "failed", error: m.message, progress: { [CITYMIND]: { state: "failed", error: { code: "DISPATCH", message: m.message } } }, finished_at: new Date().toISOString(),
+    }).eq("id", run_id);
+    throw new Fail(m.status, { error: m.error, message: m.message });
+  }
+  return { run_id, existing: false };
+}
+
+/** Fail the running rows that outlived their window (manual CityMind: 25 min; others: STUCK_MS). */
+async function sweepStale(rows: any[]) {
+  for (const r of rows) {
+    const msg = staleText(r);
+    if (!msg) continue;
+    await sb.from("reading_runs").update({ status: "failed", error: msg, finished_at: new Date().toISOString() }).eq("id", r.id).eq("status", "running");
+    r.status = "failed";
+    await notifyDone(r.id);
+  }
 }
 
 async function storeRaw(site: any, run: any, date: string, bytes: Uint8Array) {
@@ -532,9 +596,13 @@ async function rebuild(run_id: string) {
 // ───────────────────────── cron maintenance ─────────────────────────
 async function maintenance(now: Date) {
   const cut = new Date(now.getTime() - STUCK_MS).toISOString();
-  const { data: stuck } = await sb.from("reading_runs").select("id").eq("status", "running").lt("started_at", cut);
+  const { data: stuck } = await sb.from("reading_runs").select("id,status,started_at,progress").eq("status", "running").lt("started_at", cut);
+  let stuckN = 0;
   for (const r of stuck || []) {
-    await sb.from("reading_runs").update({ status: "failed", error: "הריצה נתקעה", finished_at: now.toISOString() }).eq("id", r.id).eq("status", "running");
+    const msg = staleText(r, now.getTime());            // a manual CityMind row waits for a GitHub runner: 25 min, not 10
+    if (!msg) continue;
+    stuckN++;
+    await sb.from("reading_runs").update({ status: "failed", error: msg, finished_at: now.toISOString() }).eq("id", r.id).eq("status", "running");
     await notifyDone(r.id);
   }
   const { data: sites } = await sb.from("reading_sites").select("id,retention_days");
@@ -549,7 +617,7 @@ async function maintenance(now: Date) {
     deleted += old.length;
   }
   await sb.from("reading_values").delete().lt("reading_date", valuesCutoff(now));
-  return { stuck: (stuck || []).length, deleted };
+  return { stuck: stuckN, deleted };
 }
 
 async function cron() {
@@ -662,6 +730,10 @@ Deno.serve(async (req) => {
         if (isCityMind(site)) return J({ error: "NO_MANUAL", message: "האתר הזה נמשך אוטומטית כל בוקר — אין משיכה ידנית" }, 400);
         const r = await startRun(site, body.date, byCron ? "cron" : "manual", name);
         return J({ run_id: r.run_id, existing: r.existing });
+      }
+      case "dispatch": {
+        userOnly();
+        return J(await dispatch(body, name!));
       }
       case "source": {
         cronOnly();

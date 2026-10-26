@@ -135,15 +135,31 @@ export function manualView(o: { starting: boolean; running: boolean; sourceNames
  * on-demand pull, and the files open for download only after the run was checked against EMS. Every other site
  * (חולדה) keeps the manual pull and free downloads.
  */
-export interface SiteMode { manual: boolean; requireCheck: boolean; note: string | null }
+export interface SiteMode { manual: boolean; requireCheck: boolean; note: string | null; dispatch: boolean }
 export function siteMode(site: { rules?: Record<string, unknown> | null } | null | undefined): SiteMode {
   if ((site?.rules || {}).source === 'citymind') {
-    return { manual: false, requireCheck: true, note: 'נמשך אוטומטית כל בוקר בסביבות 06:00. הקבצים נפתחים להורדה אחרי בדיקה מול EMS.' };
+    return { manual: false, dispatch: true, requireCheck: true, note: 'נמשך אוטומטית כל בוקר בסביבות 06:00. הקבצים נפתחים להורדה אחרי בדיקה מול EMS.' };
   }
-  return { manual: true, requireCheck: false, note: null };
+  return { manual: true, dispatch: false, requireCheck: false, note: null };
 }
 /** May this run's files be downloaded now? */
 export const canDownload = (mode: SiteMode, run: { ems_checked?: boolean | null }) => !mode.requireCheck || !!run.ems_checked;
+
+/** Does this site have a manual-run block? (SpeedNet-style `run`, or CityMind via a GitHub `dispatch`.) */
+export const canPull = (mode: SiteMode) => mode.manual || mode.dispatch;
+
+/**
+ * CityMind has no per-source progress (one GitHub runner, then one ingest), so the manual run shows 4 fixed steps:
+ * נשלח · מושך מ-CityMind · בודק · מוכן. 'optimistic' = the tap is in flight (step 0); 'running' = the row exists and
+ * the runner has not ingested yet; 'checking' = ingested, waiting for the EMS check; 'done' = checked.
+ */
+export type CityMindPhase = 'optimistic' | 'running' | 'checking' | 'done';
+export const CITYMIND_STEPS = ['נשלח', 'מושך מ-CityMind', 'בודק', 'מוכן'] as const;
+export function cityMindSteps(phase: CityMindPhase): { text: string; active: number; pct: number } {
+  const active = { optimistic: 0, running: 1, checking: 2, done: 3 }[phase];
+  const text = CITYMIND_STEPS.map((s, i) => (i < active ? `✓ ${s}` : i === active ? (phase === 'done' ? `✓ ${s}` : `⏳ ${s}…`) : s)).join(' · ');
+  return { text, active, pct: [5, 40, 80, 100][active] };
+}
 
 // ── runs ─────────────────────────────────────────────────────────────────────
 const newer = (a: ReadingRun, b: ReadingRun) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0);

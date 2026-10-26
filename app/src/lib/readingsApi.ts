@@ -44,6 +44,9 @@ export async function callReadings<T = any>(payload: Record<string, unknown>): P
 
 export const startRun = (kibbutz: string, date: string) =>
   callReadings<{ run_id: string }>({ mode: 'run', kibbutz, date, trigger: 'manual' });
+/** CityMind (Arad): a 'running' row now + a GitHub workflow run that fills it. Same {run_id} shape as `startRun`. */
+export const dispatchRun = (kibbutz: string, date: string) =>
+  callReadings<{ run_id: string; existing?: boolean }>({ mode: 'dispatch', kibbutz, date });
 export const emsCheck = (run_id: string) => callReadings({ mode: 'emsCheck', run_id, ems_token: emsToken() });
 export const signFile = (run_id: string, kind: 'readings' | 'exceptions' | 'raw') =>
   callReadings<{ url: string }>({ mode: 'sign', run_id, kind });

@@ -47,8 +47,11 @@ on:
 permissions:
   contents: read
 
+# Scheduled fires share one queue. A manual pull from the app (workflow_dispatch) gets its OWN group per kibbutz+date:
+# GitHub keeps only ONE pending run per group and cancels the older pending one, so two people pulling two kibbutzim
+# at once would otherwise lose one of them (its 'running' row would then wait for the 25-min timeout).
 concurrency:
-  group: citymind-arad
+  group: ${{ github.event_name == 'workflow_dispatch' && format('citymind-arad-{0}-{1}', inputs.kibbutz, inputs.date) || 'citymind-arad' }}
   cancel-in-progress: false
 
 jobs:

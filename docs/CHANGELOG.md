@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## [unreleased] 2026-10-26 - feat/citymind-manual-run (branch, not live): manual CityMind pull
+Why: עידן — the CityMind (Arad) tabs on the readings page get the same manual run as חולדה (date → משוך → progress → files).
+- readings-fetch: new user mode `dispatch` {kibbutz, date} (validate, existing run -> returned, else a `running` manual row + GitHub `workflow_dispatch` of citymind-arad.yml with GH_TOKEN; 401/403/404/422 -> Hebrew errors, no token in logs). Pure decisions in `dispatch.mjs`.
+- `ingest` fills that running row instead of creating a second run; a dispatch row times out after 25 min ("המשיכה לא הסתיימה — נסה שוב"); the 10-min stuck sweep spares it.
+- Workflow: manual dispatches get their own concurrency group (kibbutz+date).
+- App: `ManualRun` for CityMind tabs (steps נשלח · מושך מ-CityMind · בודק · מוכן), history "משוך" on gap days. Tests: test-readings-citymind-dispatch.mjs, readingsLogic.test.ts, Playwright readings-citymind.
+- Deploy needed: readings-fetch; `GH_TOKEN` needs Actions: write on the ops repo. Spec `docs/superpowers/specs/2026-10-26-citymind-manual-run-design.md`.
+
 ## [unreleased] 2026-10-12 - feat/arad-multi-kibbutz (branch, not live): CityMind for every Arad kibbutz
 Why: עידן — the עין המפרץ automation must serve אור הנר, עין השופט and the next ones without new code, keep the raw export apart from the conversion, and take 5 readings a day.
 - A kibbutz = one `reading_sites` row (`rules.source='citymind'`, `rules.secrets` = secret NAMES, `rules.daily_readings`) + two GitHub secrets. `INGEST_SITES` removed; readings-fetch `ingestSites` gives the workflow its matrix.

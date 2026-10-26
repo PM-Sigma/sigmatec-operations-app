@@ -26,11 +26,11 @@ import { useCurrentUser } from '@/bridge';
 import { canUseReadings } from '@/lib/readingsRoster';
 import {
   HISTORY_DAYS, addDays, canDownload, dmHmIL, dmIL, failedSources, historyRows, siteMode, latestCronPerSite, latestRun, metersForReason,
-  manualView, progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
+  cityMindSteps, canPull, manualView, progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
 } from '@/lib/readingsLogic';
 import {
   emsCheck, emsToken, fetchRuns, fetchSites, fetchSources, markSeen, markUploaded, openDownload, retrySource,
-  rebuildRun, signFile, startRun, type ReadingSite,
+  rebuildRun, signFile, startRun, dispatchRun, type ReadingSite,
 } from '@/lib/readingsApi';
 import { FOCUS_KEY, trackRun } from '@/lib/readingsWatch';
 import { toastFailure } from '@/lib/pending';
@@ -238,7 +238,11 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
 }
 
 // ── 2. manual run ────────────────────────────────────────────────────────────
+/** חולדה: `run` (server fans out to the sources). CityMind: `dispatch` (a GitHub runner fills the row). */
+const pullDay = (site: ReadingSite, date: string) => (siteMode(site).dispatch ? dispatchRun : startRun)(site.kibbutz, date);
+
 function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; runs: ReadingRun[]; sourceNames: string[]; onStarted: () => Promise<unknown> }) {
+  const cm = siteMode(site).dispatch;
   const max = yesterdayIL();
   const [date, setDate] = React.useState(max);
   const [starting, setStarting] = React.useState(false);
@@ -246,19 +250,19 @@ function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; 
   const src = running?.progress || {};
   const names = Object.keys(src);
   const done = names.filter(n => src[n].state === 'ok' || src[n].state === 'failed').length;
-  const pct = names.length ? Math.round((done / names.length) * 90) + 5 : 5;
+  const pct = cm ? cityMindSteps('running').pct : names.length ? Math.round((done / names.length) * 90) + 5 : 5;
 
   const go = async () => {
     if (!date || date > max) return;
     setStarting(true);
     try {
-      const { run_id } = await startRun(site.kibbutz, date);
+      const { run_id } = await pullDay(site, date);
       trackRun({ id: run_id, kibbutz: site.kibbutz, manual: true });
       await onStarted();          // stay optimistic until the polled row shows the run
     } catch (e) { toastFailure(e, undefined, 'התחלת המשיכה נכשלה'); }
     finally { setStarting(false); }
   };
-  const view = manualView({ starting, running: !!running, sourceNames, dateOk: !!date && date <= max });
+  const view = manualView({ starting, running: !!running, sourceNames: cm ? [] : sourceNames, dateOk: !!date && date <= max });
 
   return (
     <div className="flex flex-col gap-3 px-4" data-testid="readings-manual">
@@ -281,7 +285,7 @@ function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; 
             <div className="h-full rounded-full bg-[var(--sigma-ink)]" style={{ width: '5%' }} />
           </div>
           <span className="text-[length:var(--fs-body-sm)] font-semibold">
-            משיכת <bdi>{dmIL(date)}</bdi>: {view.optimisticText || 'מתחיל…'}
+            משיכת <bdi>{dmIL(date)}</bdi>: {cm ? cityMindSteps('optimistic').text : view.optimisticText || 'מתחיל…'}
           </span>
           <span className="text-[length:var(--fs-body-sm)] text-muted-foreground">אפשר לעבור למסכים אחרים — נודיע לך כשהקבצים מוכנים.</span>
         </div>
@@ -292,7 +296,7 @@ function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; 
             <div className="h-full rounded-full bg-[var(--sigma-ink)] transition-[width] duration-500" style={{ width: pct + '%' }} />
           </div>
           <span className="text-[length:var(--fs-body-sm)] font-semibold">
-            משיכת <bdi>{dmIL(running.reading_date)}</bdi>: {progressText(running.progress)}
+            משיכת <bdi>{dmIL(running.reading_date)}</bdi>: {cm ? cityMindSteps('running').text : progressText(running.progress)}
           </span>
           <span className="text-[length:var(--fs-body-sm)] text-muted-foreground">אפשר לעבור למסכים אחרים — נודיע לך כשהקבצים מוכנים.</span>
         </div>
@@ -327,10 +331,10 @@ function RawActions({ run }: { run: ReadingRun }) {
 }
 
 // ── 3. history ───────────────────────────────────────────────────────────────
-function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = true, requireCheck = false }: {
+function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = true, raw = false, requireCheck = false }: {
   row: HistoryRow; onOpen: (id: string) => void; onPull: (date: string) => void;
   onDownload: (run: ReadingRun, kind: 'readings' | 'exceptions') => void; busy: string | null; pulling: boolean;
-  manual?: boolean; requireCheck?: boolean;
+  manual?: boolean; raw?: boolean; requireCheck?: boolean;
 }) {
   if (row.kind === 'gap') {
     return (
@@ -373,7 +377,7 @@ function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = 
       {run.status === 'failed' && run.error && (
         <span className="text-[length:var(--fs-body-sm)] text-[var(--danger-ink)]">{run.error}</span>
       )}
-      {!manual && run.raw_file && <RawActions run={run} />}
+      {raw && run.raw_file && <RawActions run={run} />}
     </div>
   );
 }
@@ -423,7 +427,7 @@ function ReadingsInner() {
   const pull = async (date: string) => {
     if (!site) return;
     try {
-      const { run_id } = await startRun(site.kibbutz, date);
+      const { run_id } = await pullDay(site, date);
       trackRun({ id: run_id, kibbutz: site.kibbutz, manual: true });
       refresh();
     } catch (e) { toast.error(errText(e)); }
@@ -492,10 +496,10 @@ function ReadingsInner() {
         {shown
           ? <RunPanel run={shown} site={site} sourceIds={sourceIds} onChanged={refresh}
               isFocus={!!focusId && shown.id === focusId} onLatest={() => setFocusId(null)} />
-          : <EmptyState icon={<FileDown />} title="עוד אין משיכה מוצלחת." hint={mode.manual ? 'אפשר למשוך יום ידנית למטה.' : 'המשיכה הבאה תרוץ מחר בבוקר.'} />}
+          : <EmptyState icon={<FileDown />} title="עוד אין משיכה מוצלחת." hint={canPull(mode) ? 'אפשר למשוך יום ידנית למטה.' : 'המשיכה הבאה תרוץ מחר בבוקר.'} />}
       </SectionBlock>
 
-      {mode.manual && (
+      {canPull(mode) && (
         <SectionBlock title="הרצה ידנית">
           <ManualRun site={site} runs={runs} sourceNames={(srcQ.data || []).map(s => s.name)}
             onStarted={() => qc.refetchQueries({ queryKey: ['readings', 'runs'] })} />
@@ -505,7 +509,7 @@ function ReadingsInner() {
       <SectionBlock title="היסטוריית משיכות" count={rows.filter(r => r.kind === 'run').length}>
         <div className="divide-y divide-border" data-testid="readings-history">
           {rows.map(r => (
-            <HistoryItem key={r.date} row={r} pulling={pulling} manual={mode.manual} requireCheck={mode.requireCheck}
+            <HistoryItem key={r.date} row={r} pulling={pulling} manual={canPull(mode)} raw={!mode.manual} requireCheck={mode.requireCheck}
               onOpen={id => { setFocusId(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
               onPull={d => void pull(d)} onDownload={(run, k) => void dl.go(run, k)} busy={dl.busy} />
           ))}
