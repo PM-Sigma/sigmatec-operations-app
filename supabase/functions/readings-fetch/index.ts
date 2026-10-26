@@ -497,7 +497,7 @@ async function dispatch(body: any, name: string) {
   const plan = planDispatch({ site, date, runs: runs || [] });
   if (plan.action === "reject") throw new Fail(plan.status!, { error: plan.error, message: plan.message });
   if (plan.action === "existing") return { run_id: plan.run_id, existing: true };
-  const token = env("GH_TOKEN");
+  const token = env("GH_ACTIONS_TOKEN") || env("GH_TOKEN");   // a dedicated Actions:write token on the ops repo wins; GH_TOKEN serves the tasks repo
   if (!token) throw new Fail(500, { error: "GH_NOT_SET", message: "חיבור GitHub לא מוגדר — לפנות לעידן" });
   const ins = await sb.from("reading_runs").insert({
     site_id: site.id, reading_date: date, trigger: "manual", started_by: name, progress: { [CITYMIND]: { state: "pending" } },
