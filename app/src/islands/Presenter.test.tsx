@@ -7,6 +7,8 @@
 // about itself.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
+// Relative to today: the presenter shows only recent meetings, so a fixed date ages out (it did by 26.10.26).
+const PREV_MEETING = new Date(Date.now() - 10 * 86_400_000).toISOString().slice(0, 10);
 
 afterEach(cleanup);
 
@@ -42,11 +44,11 @@ const KIBBUTZIM = [
 
 const NOTES = [
   {
-    id: 'n1', kibbutz: 'דפנה', meeting_date: '2026-09-12', meeting_kind: 'company', seq: 1,
+    id: 'n1', kibbutz: 'דפנה', meeting_date: PREV_MEETING, meeting_kind: 'company', seq: 1,
     text: 'להשלים החלפת מונה ראשי', owners: ['אביאם'], done_at: null,
   },
   {
-    id: 'n2', kibbutz: 'דפנה', meeting_date: '2026-09-12', meeting_kind: 'company', seq: 2,
+    id: 'n2', kibbutz: 'דפנה', meeting_date: PREV_MEETING, meeting_kind: 'company', seq: 2,
     text: 'לתאם חתימה מול הגזבר', owners: [], done_at: null,
   },
 ];

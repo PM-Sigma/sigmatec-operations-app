@@ -340,7 +340,7 @@
 
     window.gateLogin = async function () {
       const url = (typeof getEmsUrl === 'function') ? getEmsUrl() : 'https://api.sigmatec-ems.com';
-      const email = (document.getElementById('gateEmail').value || '').trim();
+      const email = (document.getElementById('gateEmail').value || '').trim().toLowerCase();
       const pass = document.getElementById('gatePass').value;
       const err = document.getElementById('gateError');
       if (!email || !pass) { err.textContent = 'נא למלא אימייל וסיסמה'; return; }
