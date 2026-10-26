@@ -17,8 +17,14 @@ name: CityMind daily — Arad kibbutzim
 
 on:
   schedule:
-    - cron: '40 2 * * *'   # 05:40 Israel during summer time (UTC+3)
-    - cron: '40 3 * * *'   # 05:40 Israel during winter time (UTC+2)
+    # GitHub starts scheduled jobs 1–4 h late (12–25.10 every fire landed 10:30–12:30 Israel and was skipped by the old
+    # 05:30–06:39 window, so nothing was pulled). Several fires + a wide window; the function's once-per-day guard
+    # (ingest: an ok/running run for that date → existing) keeps it to one run per kibbutz per day.
+    - cron: '40 2 * * *'
+    - cron: '40 3 * * *'
+    - cron: '40 6 * * *'
+    - cron: '40 10 * * *'
+    - cron: '40 14 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -61,7 +67,7 @@ jobs:
           # The schedule stays OFF until the repo variable CITYMIND_ENABLED=true (set after the dry-run passes).
           if [ "$ENABLED" != "true" ]; then echo "Schedule disabled (CITYMIND_ENABLED != true)."; echo "SKIP=1" >> "$GITHUB_ENV"; exit 0; fi
           hm=$(TZ=Asia/Jerusalem date +%H%M); hm=$((10#$hm))
-          if [ "$hm" -lt 530 ] || [ "$hm" -gt 639 ]; then echo "Not this fire (the other DST side)."; echo "SKIP=1" >> "$GITHUB_ENV"; fi
+          if [ "$hm" -lt 530 ]; then echo "Too early (before 05:30 Israel)."; echo "SKIP=1" >> "$GITHUB_ENV"; fi
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         if: env.SKIP != '1'
@@ -96,7 +102,7 @@ jobs:
         run: |
           hm=$(TZ=Asia/Jerusalem date +%H%M); hm=$((10#$hm))
           left=$(( 6*60 + 20 - (hm/100)*60 - hm%100 ))
-          [ "$left" -lt 1 ] && left=1
+          [ "$left" -lt 1 ] && left=1   # a late fire (after 06:20) starts within a minute
           s=$(( RANDOM % (left*60) ))
           echo "Starting in $((s/60)) min."
           sleep "$s"
