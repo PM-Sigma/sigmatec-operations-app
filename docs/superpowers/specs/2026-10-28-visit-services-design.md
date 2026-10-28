@@ -10,15 +10,16 @@ During a visit summary the field technician ticks the services he actually perfo
 - One row per active catalog service: checkbox + name; when ticked, a quantity control appears (the native `<select>` wheel used for products, 1..max(20, current+10), default 1) with ➖/➕.
 - Search/filter box when the catalog has > 12 items. "+ שירות אחר" free-text line (name + qty) for a one-off service not in the catalog.
 - Optional (decision pending): a gentle reminder on save when nothing is ticked; never blocks the save.
-- Read side: the attendance day-details block, the kibbutz card's last visit, the visits Excel/PDF exports list "שירותים: התקנת מונה ×3, בדיקת תקשורת ×1".
+- Read side: the attendance day-details block, the kibbutz card's last visit.
+- **Visit reports (עידן 28.10: "in the visit reports, orderly and clear")**: the visits Excel gets a dedicated "שירותים" column ("התקנת מונה ×3 · בדיקת תקשורת ×1") AND a second sheet "שירותים" with one row per service per visit (date · kibbutz · technician · service · qty) so it can be pivoted/filtered; the visits PDF shows a "שירותים שניתנו" block per visit. A per-month summary table (service × kibbutz → total qty) at the end of the export.
 
 ## Catalog management
-- Screen under ⋯ → ניהול → "קטלוג שירותים" (עידן, עמיחי; decision pending). Add, rename, reorder (drag or ↑↓), delete.
+- **Who (עידן 28.10): everyone who fills a visit summary** (all field/staff roles; never the viewer). Managed from the services chapter itself ("עריכת הרשימה") and from ⋯ → "קטלוג שירותים". Add, rename, reorder (drag or ↑↓), delete.
 - Delete = soft (`active=false`): hidden from new visits, still shown by name on old visits.
 - Seed (editable): התקנת מונה · החלפת מונה · התקנת בקר תקשורת · צריבת בקר / כרטיס · בדיקת תקשורת · טיפול בתקלת תקשורת · חיווט / תיקון חיווט · ריסט לבקר · הקמת מונה ב-EMS · שיוך מונה ללקוח · קריאת מונים ידנית · בדיקת מאזן · אספקת ציוד · הדרכת לקוח.
 
 ## Data
-- `public.service_catalog (id uuid pk, name text not null unique, sort int, active bool default true, created_by text, created_at timestamptz)`. RLS: select = authenticated non-viewer… (viewer may read for reports); insert/update = עידן/עמיחי by JWT name claim; no delete (soft only).
+- `public.service_catalog (id uuid pk, name text not null unique, sort int, active bool default true, created_by text, created_at timestamptz)`. RLS: select = authenticated non-viewer… (viewer may read for reports); insert/update = any staff JWT (not the viewer); no delete (soft only). Log who changed what (created_by/updated_by).
 - `public.visits.services jsonb default '[]'` = `[{ "id": uuid|null, "name": text, "qty": int>0 }]` — name snapshotted so renames/deletes never rewrite history. Respect the visit edit lock trigger (no change needed: it's a visits column).
 - SQL file `db/visit_services.sql` with BACKUP / ROLLBACK; applied by MAIN.
 - Client tolerates a missing column/table (fallback: chapter hidden) so the client can ship before the SQL.
