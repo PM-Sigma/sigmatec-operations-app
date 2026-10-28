@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2.184 — Wave 0 critical fixes (branch fix/wave0-critical, from the Fable audit 28.10)
+
+- **0.1 Feedback inbox:** ideas and bugs from every user were already listed (no filter hid them), but nothing in-app said something was unread and both kinds wore the same grey chip, so אביאם's 18.10 idea was only ever a push. Now: kind chips are tinted (רעיון info / באג warn), an unread row carries a חדש tag, and the ⋯ row shows an attention badge with the count of `new` rows (head-count query, works with the sheet closed). The push for ideas WAS sent (push_log: 5 devices עידן, 2 עמיחי) — no deploy needed.
+- **0.2 B1 certs:** the registry's default was `הכל` with from/to preset to the current month; default is now no range (empty = unbounded), chips set dates.
+- **0.3 F2:** after a visit with supplied products is saved, the certificate step's exit guard no longer says draft/"לצאת בלי לשמור"; it asks `לצאת בלי להפיק תעודה?` (the visit is saved; leaving only postpones the cert), and asks nothing once the cert is issued.
+- **0.4 F1 presenter:** product is correct — Playwright fixture notes were pinned to 16.9.26 and aged out of the timeline's 30-day window on 16.10. Fixture notes are now relative to today.
+- Tests: vitest FeedbackInbox (+1), Playwright feedback-inbox-open (+1), visit-chapters F2 assertions; certs ×3 + presenter ×2 green. Desktop specs for the inbox now click the visible ⋯ (aria-label עוד) instead of `#sigma-nav`.
+
+
 ## [unreleased] 2026-10-26 - feat/citymind-manual-run (branch, not live): manual CityMind pull
 Why: עידן — the CityMind (Arad) tabs on the readings page get the same manual run as חולדה (date → משוך → progress → files).
 - readings-fetch: new user mode `dispatch` {kibbutz, date} (validate, existing run -> returned, else a `running` manual row + GitHub `workflow_dispatch` of citymind-arad.yml with GH_TOKEN; 401/403/404/422 -> Hebrew errors, no token in logs). Pure decisions in `dispatch.mjs`.

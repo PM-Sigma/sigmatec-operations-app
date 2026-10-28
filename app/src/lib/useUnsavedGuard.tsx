@@ -47,6 +47,12 @@ export const VISIT_PROMPT_LEAVE_NEW = 'למחוק את הטיוטה';
 export const VISIT_PROMPT_STAY_NEW = 'להמשיך לערוך';
 export const VISIT_PROMPT_LEAVE_EDIT = 'לצאת בלי לשמור';
 export const VISIT_PROMPT_STAY_EDIT = 'להמשיך לערוך';
+// F2 (Fable audit 28.10): once the visit is FILED the sheet is the certificate step, and there is
+// no draft any more — so no word about a draft or about saving. Leaving only postpones the cert.
+export const VISIT_PROMPT_TITLE_CERT = 'לצאת בלי להפיק תעודה?';
+export const VISIT_PROMPT_BODY_CERT = 'הביקור כבר נשמר. אפשר להפיק את התעודה אחר כך.';
+export const VISIT_PROMPT_LEAVE_CERT = 'לצאת, אפיק אחר כך';
+export const VISIT_PROMPT_STAY_CERT = 'להמשיך להפקה';
 
 export interface UnsavedGuardOptions {
   /** Is there anything worth keeping right now? Called on every dismiss attempt. */
@@ -63,7 +69,7 @@ export interface UnsavedGuardOptions {
    */
   blocking?: boolean;
   /** The visit sheet's own two-button prompt (see the constants above). Every other caller omits this. */
-  variant?: 'visit' | 'visitEdit';
+  variant?: 'visit' | 'visitEdit' | 'visitCert';
 }
 
 export interface UnsavedGuard {
@@ -140,15 +146,16 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
       className="absolute inset-0 z-[70] grid place-items-center rounded-[inherit] bg-black/60 p-4"
       role="alertdialog"
       aria-modal="true"
-      aria-label={variant === 'visit' ? VISIT_PROMPT_TITLE_NEW : UNSAVED_TITLE}
+      aria-label={variant === 'visitCert' ? VISIT_PROMPT_TITLE_CERT : variant === 'visit' ? VISIT_PROMPT_TITLE_NEW : UNSAVED_TITLE}
       data-testid="unsaved-guard"
       dir="rtl"
     >
       <div className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 shadow-lg">
         <div className="text-[15px] font-extrabold text-foreground">
-          {variant === 'visit' ? VISIT_PROMPT_TITLE_NEW : UNSAVED_TITLE}
+          {variant === 'visitCert' ? VISIT_PROMPT_TITLE_CERT : variant === 'visit' ? VISIT_PROMPT_TITLE_NEW : UNSAVED_TITLE}
         </div>
         {!variant && <p className="mt-1 text-[13px] text-muted-foreground">{UNSAVED_BODY}</p>}
+        {variant === 'visitCert' && <p className="mt-1 text-[13px] text-muted-foreground">{VISIT_PROMPT_BODY_CERT}</p>}
         <div className="mt-4 flex flex-col gap-2">
           {variant ? (
             <>
@@ -158,7 +165,7 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
                 onClick={() => setAsking(false)}
                 className="min-h-[44px] w-full rounded-xl s-brand text-[15px] font-bold"
               >
-                {variant === 'visitEdit' ? VISIT_PROMPT_STAY_EDIT : VISIT_PROMPT_STAY_NEW}
+                {variant === 'visitCert' ? VISIT_PROMPT_STAY_CERT : variant === 'visitEdit' ? VISIT_PROMPT_STAY_EDIT : VISIT_PROMPT_STAY_NEW}
               </button>
               <button
                 type="button"
@@ -168,10 +175,10 @@ export function useUnsavedGuard(opts: UnsavedGuardOptions): UnsavedGuard {
                 // onSave (saveAndClose) first so the last few keystrokes (inside the 800 ms
                 // autosave debounce) aren't lost from the surviving draft either. 'visitEdit'
                 // has no draft to persist: leaving just closes, per the ruling ("לצאת בלי לשמור").
-                onClick={variant === 'visitEdit' ? close : () => void doSave()}
+                onClick={variant === 'visitEdit' || variant === 'visitCert' ? close : () => void doSave()}
                 className="min-h-[40px] w-full rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-muted"
               >
-                {variant === 'visitEdit' ? VISIT_PROMPT_LEAVE_EDIT : VISIT_PROMPT_LEAVE_NEW}
+                {variant === 'visitCert' ? VISIT_PROMPT_LEAVE_CERT : variant === 'visitEdit' ? VISIT_PROMPT_LEAVE_EDIT : VISIT_PROMPT_LEAVE_NEW}
               </button>
             </>
           ) : (

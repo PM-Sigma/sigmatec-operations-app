@@ -46,6 +46,9 @@ export function registerMoreItem(item: MoreItem): void {
   listeners.forEach(fn => fn());
 }
 
+/** Re-read the rows (a badge count changed) without re-registering anything. */
+export function notifyMoreItemsChanged(): void { listeners.forEach(fn => fn()); }
+
 export function listMoreItems(role: SigmaRole): MoreItem[] {
   // A throwing predicate hides the item rather than taking the whole sheet down with it.
   const allowed = (i: MoreItem) => {

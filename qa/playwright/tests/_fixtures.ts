@@ -38,6 +38,15 @@ export interface Fixtures {
   emsTaskState: Array<Record<string, unknown>>;
 }
 
+/** Relative to the REAL today (Israel date). The meeting notes feed the presenter's "מה קרה"
+ *  timeline, whose window is the last 30 days: pinned dates aged out of it on 16.10.26 and turned
+ *  presenter.spec :49 / :343 red on every profile (F1, Fable audit 28.10). */
+const recentDaysAgo = (n: number) => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+  const d = new Date(Date.parse(today + 'T12:00:00Z') - n * 86_400_000);
+  return d.toISOString().slice(0, 10);
+};
+
 const daysAgo = (n: number) => {
   const d = new Date(Date.UTC(2026, 8, 18) - n * 86_400_000);
   return d.toISOString().slice(0, 10);
@@ -81,19 +90,19 @@ export const KIBBUTZIM = [
 
 /** Four meetings on חוקוק → a latest block plus a "היסטוריה (3)" disclosure on that card. */
 export const NOTES = [
-  { id: 'n1', kibbutz: 'חוקוק', meeting_date: daysAgo(2), meeting_kind: 'company', seq: 1,
+  { id: 'n1', kibbutz: 'חוקוק', meeting_date: recentDaysAgo(2), meeting_kind: 'company', seq: 1,
     text: 'להשלים החלפת מונה ראשי במחלבה', owners: ['אביאם'], ems_task_id: null, done_at: null },
-  { id: 'n2', kibbutz: 'חוקוק', meeting_date: daysAgo(2), meeting_kind: 'company', seq: 2,
+  { id: 'n2', kibbutz: 'חוקוק', meeting_date: recentDaysAgo(2), meeting_kind: 'company', seq: 2,
     text: 'לתאם מול הגזבר את החתימה על ההסכם', owners: ['עידן'], ems_task_id: null, done_at: null },
-  { id: 'n3', kibbutz: 'חוקוק', meeting_date: daysAgo(2), meeting_kind: 'company', seq: 3,
+  { id: 'n3', kibbutz: 'חוקוק', meeting_date: recentDaysAgo(2), meeting_kind: 'company', seq: 3,
     text: 'לבדוק זרימת נתונים מהבקר החדש', owners: [], ems_task_id: null, done_at: null },
-  { id: 'n4', kibbutz: 'חוקוק', meeting_date: daysAgo(9), meeting_kind: 'company', seq: 1,
+  { id: 'n4', kibbutz: 'חוקוק', meeting_date: recentDaysAgo(9), meeting_kind: 'company', seq: 1,
     text: 'הוזמנו 12 מונים מהמחסן', owners: ['ניתאי'], ems_task_id: null, done_at: null },
-  { id: 'n5', kibbutz: 'חוקוק', meeting_date: daysAgo(16), meeting_kind: 'company', seq: 1,
+  { id: 'n5', kibbutz: 'חוקוק', meeting_date: recentDaysAgo(16), meeting_kind: 'company', seq: 1,
     text: 'סוכם על סקר ראשוני', owners: ['עידן'], ems_task_id: null, done_at: null },
-  { id: 'n6', kibbutz: 'חוקוק', meeting_date: daysAgo(23), meeting_kind: 'company', seq: 1,
+  { id: 'n6', kibbutz: 'חוקוק', meeting_date: recentDaysAgo(23), meeting_kind: 'company', seq: 1,
     text: 'פגישת היכרות עם מנהל המשק', owners: ['עמיחי'], ems_task_id: null, done_at: null },
-  { id: 'n7', kibbutz: 'גבת', meeting_date: daysAgo(4), meeting_kind: 'company', seq: 1,
+  { id: 'n7', kibbutz: 'גבת', meeting_date: recentDaysAgo(4), meeting_kind: 'company', seq: 1,
     text: 'להוציא הצעת מחיר', owners: ['עידן'], ems_task_id: null, done_at: null },
 ];
 

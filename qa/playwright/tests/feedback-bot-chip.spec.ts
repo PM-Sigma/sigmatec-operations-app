@@ -21,7 +21,7 @@ test('feedback inbox: bot chip on the row, note + branch link in the detail, dee
   await page.route(/\/rest\/v1\/feedback(\?|$)/, route => route.fulfill({
     status: 200, contentType: 'application/json', body: JSON.stringify(ROWS),
   }));
-  await page.locator('#sigma-nav').getByRole('button', { name: 'עוד', exact: true }).click();
+  await page.locator('button[aria-label="עוד"]:visible').first().click();
   await page.getByRole('button', { name: /תיבה נכנסת/ }).click();
   const inbox = page.getByTestId('feedback-inbox');
   await expect(inbox.getByText('🟡 דורש אישור')).toBeVisible();

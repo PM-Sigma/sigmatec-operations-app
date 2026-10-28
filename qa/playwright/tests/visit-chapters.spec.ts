@@ -231,6 +231,17 @@ test('chapters: C7 — supplied equipment no longer blocks שלח; the save LAND
   await expect.poll(() => posted(page, 'visit').then(v => v.length), { timeout: 10_000 }).toBe(1);
   await shot(page, ti, 'cert-after-save');
 
+  // F2 (Fable 28.10): the visit is FILED, so leaving the certificate step must not talk about a
+  // draft or about saving — only about postponing the certificate.
+  await page.mouse.click(5, 5);
+  const guard = page.getByTestId('unsaved-guard');
+  await expect(guard).toBeVisible();
+  await expect(guard).toContainText('הביקור כבר נשמר');
+  await expect(guard).not.toContainText('טיוטה');
+  await expect(guard).not.toContainText('בלי לשמור');
+  await page.getByRole('button', { name: 'להמשיך להפקה' }).click();
+  await expect(guard).toHaveCount(0);
+
   await page.getByTestId('vc-done').click();
   await expect(sheet).toBeHidden();
 

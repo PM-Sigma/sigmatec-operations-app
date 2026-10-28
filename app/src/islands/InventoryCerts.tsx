@@ -27,10 +27,12 @@ function todayYmd(): string { return new Date().toISOString().slice(0, 10); }
 export function InventoryCertsTab() {
   const user = useCurrentUser();
   const qc = useQueryClient();
-  const [range, setRange] = React.useState<RangeKey>('all');
-  const monthDefault = React.useMemo(() => certRange('thisMonth', todayYmd()), []);
-  const [from, setFrom] = React.useState(monthDefault.from);
-  const [to, setTo] = React.useState(monthDefault.to);
+  const [range, setRange] = React.useState<RangeKey | 'custom'>('all');
+  // B1 (Fable audit 28.10): "הכל" is the selected chip, so the default is NO date range — the
+  // old init preset the current month and hid every older cert behind "הכל". Empty = unbounded
+  // (fetchCerts falls back to 2000..2099); a range chip or a typed date sets real dates.
+  const [from, setFrom] = React.useState('');
+  const [to, setTo] = React.useState('');
   const [search, setSearch] = React.useState('');
   const [moreOpenId, setMoreOpenId] = React.useState<string | null>(null);
   const [pageMoreOpen, setPageMoreOpen] = React.useState(false);
@@ -42,11 +44,12 @@ export function InventoryCertsTab() {
 
   function setRangeChip(r: RangeKey) {
     setRange(r);
+    if (r === 'all') { setFrom(''); setTo(''); return; }
     const { from: f, to: t } = certRange(r, todayYmd());
     setFrom(f); setTo(t);
   }
-  function setManualFrom(v: string) { setFrom(v); setRange('all' as any); }
-  function setManualTo(v: string) { setTo(v); setRange('all' as any); }
+  function setManualFrom(v: string) { setFrom(v); setRange('custom'); }
+  function setManualTo(v: string) { setTo(v); setRange('custom'); }
 
   function openNew() {
     openCertEvent({ kind: 'cert', pre: {} });
@@ -97,12 +100,12 @@ export function InventoryCertsTab() {
               </button>
               {pageMoreOpen && (
                 <div className="absolute end-0 top-full z-10 min-w-[160px] rounded-xl border border-border bg-card p-1 shadow-lg">
-                  <button type="button" onClick={() => { setPageMoreOpen(false); try { (window as any).certRangeReportRange?.(from, to); } catch { /* legacy not up */ } }}
+                  <button type="button" onClick={() => { setPageMoreOpen(false); try { (window as any).certRangeReportRange?.(from || '2000-01-01', to || '2099-12-31'); } catch { /* legacy not up */ } }}
                     className="block w-full rounded-lg px-2 py-2 text-start text-[13px] font-semibold">
                     סיכום תקופתי
                   </button>
                   {canExport && (
-                    <button type="button" onClick={() => { setPageMoreOpen(false); try { sigma.xlExportCerts?.(from, to); } catch { /* legacy not up */ } }}
+                    <button type="button" onClick={() => { setPageMoreOpen(false); try { sigma.xlExportCerts?.(from || '2000-01-01', to || '2099-12-31'); } catch { /* legacy not up */ } }}
                       className="block w-full rounded-lg px-2 py-2 text-start text-[13px] font-semibold">
                       Excel
                     </button>

@@ -1232,8 +1232,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const needReason = visitReasonRequired({ emsTaskIds: d.emsTaskIds, internalTaskIds: d.internalTaskIds });
 
   // Refs, so the autosave and the openers never read a stale render.
-  const ref = React.useRef({ model, draftId, kibbutz, editing });
-  ref.current = { model, draftId, kibbutz, editing };
+  const ref = React.useRef({ model, draftId, kibbutz, editing, certStage: !!sentVisitId && !certNum });
+  ref.current = { model, draftId, kibbutz, editing, certStage: !!sentVisitId && !certNum };
   const emsPicksRef = React.useRef(emsPicks);
   emsPicksRef.current = emsPicks;
 
@@ -1514,11 +1514,13 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   // button and the ביטול-always-discards wiring (rule 3) are V-U1's — this pass only upgrades
   // the existing scrim/Escape interaction onto the new rule and copy.
   const guard = useUnsavedGuard({
-    dirty: () => !sentRef.current && draftHasInput(ref.current.model),
+    // F2: the filed visit's certificate step (certStage) asks its own question — the visit is
+    // saved, there is no draft, leaving only postpones the cert. After the cert is issued: no ask.
+    dirty: () => ref.current.certStage || (!sentRef.current && draftHasInput(ref.current.model)),
     onSave: saveAndClose,
     onDiscard: close,
     onClose: close,
-    variant: editing ? 'visitEdit' : 'visit',
+    variant: sentVisitId ? 'visitCert' : editing ? 'visitEdit' : 'visit',
   });
 
   const stock = React.useMemo<Record<string, number>>(() => {

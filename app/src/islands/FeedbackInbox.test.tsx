@@ -250,3 +250,25 @@ describe('🤖 bug bot status', () => {
     expect(await screen.findByTestId('feedback-inbox-detail')).toBeTruthy();
   });
 });
+
+describe('wave 0.1 — an idea from another user is never lost', () => {
+  it('lists an idea beside bugs with its own kind chip, and the ⋯ row carries the unread count', async () => {
+    const { mountFeedbackInbox } = await import('./FeedbackInbox');
+    const { listMoreItems, itemBadge } = await import('@/lib/registry');
+    mountFeedbackInbox();
+    rows.push(
+      row({ id: 'i', author: 'אביאם', kind: 'idea', text: 'להכניס ליומן משימות עתידיות', status: 'new' }),
+      row({ id: 'b', author: 'ניתאי', kind: 'bug', text: 'באג ישן', status: 'done' }),
+    );
+    render(<FeedbackInbox />);
+    act(() => openFeedbackInbox());
+    expect(await screen.findByText('להכניס ליומן משימות עתידיות')).toBeTruthy();
+    expect(screen.getByText('באג ישן')).toBeTruthy();
+    expect(screen.getByText('רעיון', { selector: 'span' })).toBeTruthy();
+    expect(screen.getByText('באג או שיפור', { selector: 'span' })).toBeTruthy();
+    await waitFor(() => {
+      const item = listMoreItems('idan').find(i => i.id === 'feedback-inbox')!;
+      expect(itemBadge(item)).toBe(1);
+    });
+  });
+});

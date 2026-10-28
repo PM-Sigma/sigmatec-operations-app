@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { getSupabase, sbWrite, SB_ANON, SB_URL } from '@/lib/supabase';
-import { registerMoreItem } from '@/lib/registry';
+import { registerMoreItem, notifyMoreItemsChanged } from '@/lib/registry';
 import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import {
   KIND_LABEL, STATUS_LABEL, BOT_LABEL, BOT_TAG, BOT_BRANCH_RE, BOT_BRANCH_URL, parseInboxHash, canSeeFeedbackInbox, feedbackPreview, issueBody, issueTitle,
@@ -56,6 +56,9 @@ export interface Parent { number: number; title: string; url?: string }
 
 const GH_REPO_URL = 'https://github.com/Sigmatec-Energy/tasks/issues/';
 const STATUSES: FeedbackStatus[] = ['new', 'seen', 'done'];
+// Wave 0.1: the two kinds read differently at a glance (a grey chip for both let an idea hide
+// among bugs), and an unread row says so itself.
+const KIND_TAG: Record<FeedbackKind, 'info' | 'warn'> = { idea: 'info', bug: 'warn' };
 
 // ───────────────────────── the opener ─────────────────────────
 
@@ -70,7 +73,24 @@ export function openFeedbackInbox(): void {
   else toast.error('התיבה עוד לא נטענה. רענן את העמוד');
 }
 
+// ───────────────────────── the unread badge ─────────────────────────
+// A push can be missed or swallowed by the phone (it was, for אביאם's 18.10 idea), so the ⋯ row
+// itself carries the count of 'new' rows — an attention badge, the kind §7k #3 allows.
+let newCount = 0;
+function setNewCount(n: number): void {
+  if (n === newCount) return;
+  newCount = n;
+  notifyMoreItemsChanged();   // the ⋯ sheet re-reads its badges
+}
+
 // ───────────────────────── data ─────────────────────────
+
+async function fetchNewCount(): Promise<number> {
+  const sb = await getSupabase();
+  const { count, error } = await sb.from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new');
+  if (error) throw error;
+  return count || 0;
+}
 
 async function fetchFeedback(): Promise<FeedbackItem[]> {
   const sb = await getSupabase();
@@ -142,7 +162,8 @@ function FeedbackRow({ item, onOpen }: { item: FeedbackItem; onOpen: (item: Feed
       title={<bdi>{feedbackPreview(item.text, 160) || (item.audio_path ? '🎙 הקלטה בלי תמלול' : 'בלי טקסט')}</bdi>}
       meta={(
         <span className="flex flex-wrap items-center gap-1.5">
-          <Tag role="neutral">{KIND_LABEL[item.kind]}</Tag>
+          <Tag role={KIND_TAG[item.kind] || 'neutral'}>{KIND_LABEL[item.kind] || item.kind}</Tag>
+          {item.status === 'new' && <Tag role="ok" dot>{STATUS_LABEL.new}</Tag>}
           {item.bot_state && BOT_LABEL[item.bot_state] && (
             <Tag role={BOT_TAG[item.bot_state]}>{BOT_LABEL[item.bot_state]}</Tag>
           )}
@@ -191,7 +212,7 @@ function DetailView({
       </button>
 
       <div className="flex flex-wrap items-center gap-1.5 text-[13px]">
-        <Tag role="neutral">{KIND_LABEL[item.kind]}</Tag>
+        <Tag role={KIND_TAG[item.kind] || 'neutral'}>{KIND_LABEL[item.kind] || item.kind}</Tag>
         <span className="text-muted-foreground"><bdi>{dmy(item.created_at)}</bdi> · {item.author || 'בלי שם'}</span>
         {item.github_issue && (
           <a href={GH_REPO_URL + item.github_issue} target="_blank" rel="noreferrer"
@@ -348,7 +369,16 @@ function InboxSheet() {
     }
   };
 
+  // The badge works with the sheet CLOSED: one cheap head-count for admins, and whenever the
+  // full list is on screen its own 'new' tally wins (it is fresher).
+  const { data: newRemote } = useQuery({
+    queryKey: ['feedback-new-count'], queryFn: fetchNewCount, enabled: admin, retry: 0,
+  });
   const items = data || [];
+  React.useEffect(() => {
+    if (!admin) { setNewCount(0); return; }
+    setNewCount(data ? data.filter(i => i.status === 'new').length : (newRemote || 0));
+  }, [admin, data, newRemote]);
   const counts: Record<FeedbackStatus, number> = { new: 0, seen: 0, done: 0 };
   for (const i of items) counts[i.status] = (counts[i.status] || 0) + 1;
   const shown = statusFilter ? items.filter(i => i.status === statusFilter) : items;
@@ -431,6 +461,7 @@ export function mountFeedbackInbox(): boolean {
     roles: ['idan', 'team'],
     visible: () => canSeeFeedbackInbox(!!sigma?.isAdmin?.(), !!sigma?.isViewer?.()),
     onSelect: () => openFeedbackInbox(),
+    badge: () => newCount,
   });
   return ok;
 }
