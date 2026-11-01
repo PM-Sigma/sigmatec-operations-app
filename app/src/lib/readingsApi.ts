@@ -81,6 +81,15 @@ export async function fetchRuns(siteId: string, sinceDate: string): Promise<Read
   return (data || []) as unknown as ReadingRun[];
 }
 
+/** Manual pulls of a site for days BEFORE `beforeDate` (older than the history window), newest started first. */
+export async function fetchOldManualRuns(siteId: string, beforeDate: string): Promise<ReadingRun[]> {
+  const sb = await getSupabase();
+  const { data, error } = await sb.from('reading_runs').select(RUN_COLS).eq('site_id', siteId).eq('trigger', 'manual')
+    .lt('reading_date', beforeDate).order('started_at', { ascending: false }).limit(200);
+  if (error) throw error;
+  return (data || []) as unknown as ReadingRun[];
+}
+
 export async function fetchRun(id: string): Promise<ReadingRun | null> {
   const sb = await getSupabase();
   const { data, error } = await sb.from('reading_runs').select(RUN_COLS).eq('id', id).maybeSingle();

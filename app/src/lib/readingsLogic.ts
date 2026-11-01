@@ -199,6 +199,31 @@ export function historyRows(runs: ReadingRun[], now: Date = new Date(), days = H
   return rows;
 }
 
+/** First day of the regular history window (the oldest of the HISTORY_DAYS days ending yesterday). */
+export const historySince = (now: Date = new Date(), days = HISTORY_DAYS): string => addDays(yesterdayIL(now), -(days - 1));
+
+/** One day pulled by hand OLDER than the history window: its latest run + the earlier pulls of the same day. */
+export interface OldManualGroup { date: string; run: ReadingRun; older: ReadingRun[]; count: number; needsUpload: boolean }
+
+/**
+ * The manual pulls the 35-day history cannot show: trigger 'manual' and reading_date before `since`.
+ * One group per date (latest run by start time + `older` for the rest), groups newest-pulled first.
+ */
+export function oldManualGroups(runs: ReadingRun[], since: string): OldManualGroup[] {
+  const byDate = new Map<string, ReadingRun[]>();
+  for (const r of runs) {
+    if (r.trigger !== 'manual' || r.reading_date >= since) continue;
+    const l = byDate.get(r.reading_date) ?? [];
+    l.push(r);
+    byDate.set(r.reading_date, l);
+  }
+  return [...byDate.entries()].map(([date, l]) => {
+    const sorted = l.slice().sort(newer);
+    const run = sorted[0];
+    return { date, run, older: sorted.slice(1), count: sorted.length, needsUpload: isDone(run) && !run.uploaded };
+  }).sort((a, b) => newer(a.run, b.run));
+}
+
 // ── reasons summary ──────────────────────────────────────────────────────────
 export interface ReasonGroup { kind: string; reason: string; count: number }
 

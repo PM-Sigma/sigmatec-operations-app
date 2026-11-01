@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addActive, badgeCount, failedSources, finishToast, historyRows, isoWeekKey, israelWeekday, latestCronPerSite,
   latestRun, manualView, metersForReason, parseActive, progressText, reasonGroups, removeActive, shouldSundayCheck,
-  watchVerdict, yesterdayIL, siteMode, canDownload, canPull, cityMindSteps, type ReadingRun,
+  watchVerdict, yesterdayIL, historySince, oldManualGroups, HISTORY_DAYS, siteMode, canDownload, canPull, cityMindSteps, type ReadingRun,
 } from './readingsLogic';
 
 const run = (o: Partial<ReadingRun> = {}): ReadingRun => ({
@@ -254,5 +254,46 @@ describe('CityMind manual run — the 4 steps', () => {
     expect(canPull(siteMode({ rules: {} }))).toBe(true);
     expect(canPull(siteMode({ rules: { source: 'citymind' } }))).toBe(true);
     expect(canPull({ manual: false, dispatch: false, requireCheck: false, note: null })).toBe(false);
+  });
+});
+
+describe('oldManualGroups — manual pulls older than the history window', () => {
+  const NOW = new Date('2026-11-01T09:00:00Z');
+  const since = historySince(NOW);
+  it('window starts HISTORY_DAYS-1 days before yesterday', () => {
+    expect(yesterdayIL(NOW)).toBe('2026-10-31');
+    expect(since).toBe('2026-09-27');
+    expect(HISTORY_DAYS).toBe(35);
+  });
+  it('keeps only manual runs strictly before the window; cron and in-window runs are left to the history', () => {
+    const g = oldManualGroups([
+      run({ id: 'a', trigger: 'manual', reading_date: '2026-09-24' }),
+      run({ id: 'b', trigger: 'cron', reading_date: '2026-09-24' }),
+      run({ id: 'c', trigger: 'manual', reading_date: since }),
+      run({ id: 'd', trigger: 'manual', reading_date: '2026-09-26' }),
+    ], since);
+    expect(g.map(x => x.run.id).sort()).toEqual(['a', 'd']);
+  });
+  it('dedupes a date: latest run shown, count and the older ones kept', () => {
+    const g = oldManualGroups([
+      run({ id: 'x1', trigger: 'manual', reading_date: '2026-09-24', started_at: '2026-10-01T08:00:00Z', status: 'failed' }),
+      run({ id: 'x3', trigger: 'manual', reading_date: '2026-09-24', started_at: '2026-11-01T08:11:00Z' }),
+      run({ id: 'x2', trigger: 'manual', reading_date: '2026-09-24', started_at: '2026-10-15T08:00:00Z' }),
+    ], since);
+    expect(g).toHaveLength(1);
+    expect(g[0].run.id).toBe('x3');
+    expect(g[0].count).toBe(3);
+    expect(g[0].older.map(r => r.id)).toEqual(['x2', 'x1']);
+    expect(g[0].needsUpload).toBe(true);
+  });
+  it('groups are newest-pulled first; empty / no old manual → empty list', () => {
+    const g = oldManualGroups([
+      run({ id: 'p', trigger: 'manual', reading_date: '2026-08-01', started_at: '2026-10-20T08:00:00Z' }),
+      run({ id: 'q', trigger: 'manual', reading_date: '2026-09-24', started_at: '2026-11-01T08:00:00Z', uploaded: true }),
+    ], since);
+    expect(g.map(x => x.date)).toEqual(['2026-09-24', '2026-08-01']);
+    expect(g[0].needsUpload).toBe(false);
+    expect(oldManualGroups([], since)).toEqual([]);
+    expect(oldManualGroups([run({ trigger: 'cron', reading_date: '2026-01-01' })], since)).toEqual([]);
   });
 });

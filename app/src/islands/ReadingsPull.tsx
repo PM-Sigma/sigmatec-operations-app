@@ -25,11 +25,11 @@ import { EmsGate } from '@/components/EmsGate';
 import { useCurrentUser } from '@/bridge';
 import { canUseReadings } from '@/lib/readingsRoster';
 import {
-  HISTORY_DAYS, addDays, canDownload, dmHmIL, dmIL, failedSources, historyRows, siteMode, latestCronPerSite, latestRun, metersForReason,
+  canDownload, historySince, oldManualGroups, type OldManualGroup, dmHmIL, dmIL, failedSources, historyRows, siteMode, latestCronPerSite, latestRun, metersForReason,
   cityMindSteps, canPull, manualView, progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
 } from '@/lib/readingsLogic';
 import {
-  emsCheck, emsToken, fetchRuns, fetchSites, fetchSources, markSeen, markUploaded, openDownload, retrySource,
+  emsCheck, emsToken, fetchOldManualRuns, fetchRuns, fetchSites, fetchSources, markSeen, markUploaded, openDownload, retrySource,
   rebuildRun, signFile, startRun, dispatchRun, type ReadingSite,
 } from '@/lib/readingsApi';
 import { FOCUS_KEY, trackRun } from '@/lib/readingsWatch';
@@ -37,6 +37,7 @@ import { toastFailure } from '@/lib/pending';
 
 const TITLE = 'משיכת קריאות משירותי מנייה חיצוניים';
 const runsKey = (siteId: string) => ['readings', 'runs', siteId] as const;
+const oldRunsKey = (siteId: string) => ['readings', 'runs', 'old', siteId] as const;
 
 const errText = (e: unknown): string => (e as any)?.message || 'הפעולה נכשלה. נסה שוב';
 const who = (name: string | null | undefined) => name || '—';
@@ -241,7 +242,7 @@ function RunPanel({ run, site, sourceIds, onChanged, onLatest, isFocus }: {
 /** חולדה: `run` (server fans out to the sources). CityMind: `dispatch` (a GitHub runner fills the row). */
 const pullDay = (site: ReadingSite, date: string) => (siteMode(site).dispatch ? dispatchRun : startRun)(site.kibbutz, date);
 
-function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; runs: ReadingRun[]; sourceNames: string[]; onStarted: () => Promise<unknown> }) {
+function ManualRun({ site, runs, since, sourceNames, onStarted }: { site: ReadingSite; runs: ReadingRun[]; since: string; sourceNames: string[]; onStarted: () => Promise<unknown> }) {
   const cm = siteMode(site).dispatch;
   const max = yesterdayIL();
   const [date, setDate] = React.useState(max);
@@ -279,6 +280,11 @@ function ManualRun({ site, runs, sourceNames, onStarted }: { site: ReadingSite; 
           {view.label}
         </BubbleButton>
       </div>
+      {!!date && date < since && (
+        <span data-testid="readings-old-hint" className="text-[length:var(--fs-body-sm)] text-muted-foreground">
+          תאריך ישן מחלון ההיסטוריה — המשיכה תופיע למטה תחת ״משיכות ידניות לתאריכים קודמים״.
+        </span>
+      )}
       {view.phase === 'optimistic' && (
         <div className="flex flex-col gap-2" data-testid="readings-progress" data-optimistic role="status">
           <div className="h-2 overflow-hidden rounded-full bg-secondary" aria-hidden>
@@ -331,8 +337,8 @@ function RawActions({ run }: { run: ReadingRun }) {
 }
 
 // ── 3. history ───────────────────────────────────────────────────────────────
-function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = true, raw = false, requireCheck = false }: {
-  row: HistoryRow; onOpen: (id: string) => void; onPull: (date: string) => void;
+function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = true, raw = false, requireCheck = false, flash = false }: {
+  row: HistoryRow; flash?: boolean; onOpen: (id: string) => void; onPull: (date: string) => void;
   onDownload: (run: ReadingRun, kind: 'readings' | 'exceptions') => void; busy: string | null; pulling: boolean;
   manual?: boolean; raw?: boolean; requireCheck?: boolean;
 }) {
@@ -348,8 +354,8 @@ function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = 
   const { run } = row;
   const done = (run.status === 'ok' || run.status === 'partial') && (!requireCheck || !!run.ems_checked);
   return (
-    <div data-testid="readings-history-row" data-needs-upload={row.needsUpload || undefined}
-      className={'flex flex-col gap-1.5 px-4 py-2.5 ' + (row.needsUpload ? 'border-s-4 border-[var(--warn-ink)]' : '')}>
+    <div data-testid="readings-history-row" data-needs-upload={row.needsUpload || undefined} data-run-id={run.id} data-flash={flash || undefined}
+      className={'flex flex-col gap-1.5 px-4 py-2.5 transition-colors ' + (row.needsUpload ? 'border-s-4 border-[var(--warn-ink)] ' : '') + (flash ? 'bg-secondary' : '')}>
       <div className="flex items-center gap-2">
         <button type="button" onClick={() => onOpen(run.id)} className="flex min-w-0 flex-1 flex-col text-start">
           <span className="text-[length:var(--fs-body)] font-semibold">
@@ -382,6 +388,32 @@ function HistoryItem({ row, onOpen, onPull, onDownload, busy, pulling, manual = 
   );
 }
 
+/** One older-day manual pull: its latest run, "(N משיכות)" + an expander for the earlier pulls of the same day. */
+function OldManualItem({ g, flashId, ...rest }: { g: OldManualGroup; flashId: string | null } & Omit<React.ComponentProps<typeof HistoryItem>, 'row' | 'flash'>) {
+  const [open, setOpen] = React.useState(false);
+  const rowOf = (run: ReadingRun): HistoryRow => ({ kind: 'run', date: g.date, run, needsUpload: (run.status === 'ok' || run.status === 'partial') && !run.uploaded });
+  const inOlder = !!flashId && g.older.some(r => r.id === flashId);
+  React.useEffect(() => { if (inOlder) setOpen(true); }, [inOlder]);
+  return (
+    <div data-testid="readings-old-manual-item" data-date={g.date}>
+      <HistoryItem {...rest} row={rowOf(g.run)} flash={flashId === g.run.id} />
+      {g.count > 1 && (
+        <div className="flex flex-col px-4 pb-2">
+          <button type="button" data-testid="readings-old-manual-more" aria-expanded={open} onClick={() => setOpen(o => !o)}
+            className="min-h-11 self-start text-[length:var(--fs-body-sm)] font-semibold text-[var(--sigma-ink)]">
+            <bdi>({g.count} משיכות)</bdi> {open ? 'הסתר קודמות' : 'הצג קודמות'}
+          </button>
+          {open && (
+            <div className="divide-y divide-border rounded-[var(--r-md)] border border-border" data-testid="readings-old-manual-older">
+              {g.older.map(r => <HistoryItem key={r.id} {...rest} row={rowOf(r)} flash={flashId === r.id} />)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── the page ─────────────────────────────────────────────────────────────────
 function ReadingsInner() {
   const { name: user, isViewer } = useCurrentUser();
@@ -392,7 +424,7 @@ function ReadingsInner() {
   const [siteId, setSiteId] = React.useState('');
   const site = sites.find(s => s.id === siteId) ?? sites[0];
   const sid = site?.id || '';
-  const since = addDays(yesterdayIL(), -(HISTORY_DAYS - 1));
+  const since = historySince();
 
   const runsQ = useQuery({
     queryKey: runsKey(sid),
@@ -401,13 +433,43 @@ function ReadingsInner() {
     refetchInterval: q => ((q.state.data as ReadingRun[] | undefined) || []).some(r => r.status === 'running') ? 5000 : false,
   });
   const runs = runsQ.data || [];
+  // manual pulls of days OLDER than the 35-day window (own query, so the window itself stays untouched)
+  const oldQ = useQuery({
+    queryKey: oldRunsKey(sid),
+    queryFn: () => fetchOldManualRuns(sid, since),
+    enabled: allowed && !!sid,
+    refetchInterval: q => ((q.state.data as ReadingRun[] | undefined) || []).some(r => r.status === 'running') ? 5000 : false,
+  });
+  const oldRuns = oldQ.data || [];
+  const oldGroups = React.useMemo(() => oldManualGroups(oldRuns, since), [oldRuns, since]);
+  const everyRun = React.useMemo(() => [...runs, ...oldRuns], [runs, oldRuns]);
   const srcQ = useQuery({ queryKey: ['readings', 'sources', sid], queryFn: () => fetchSources(sid), enabled: allowed && !!sid });
   const sourceIds = React.useMemo(() => Object.fromEntries((srcQ.data || []).map(s => [s.name, s.id])), [srcQ.data]);
 
   const [focusId, setFocusId] = useFocusRun(sid);
-  const shown = (focusId && runs.find(r => r.id === focusId)) || latestRun(runs);
+  const shown = (focusId && everyRun.find(r => r.id === focusId)) || latestRun(runs);
   const refresh = React.useCallback(() => { void qc.invalidateQueries({ queryKey: ['readings', 'runs'] }); }, [qc]);
   const dl = useDownload();
+
+  // a manual pull for an old day finished (or was opened from the toast): scroll to its row and highlight it
+  const [flashId, setFlashId] = React.useState<string | null>(null);
+  const wantFlash = React.useRef<string | null>(null);
+  const [flashTick, setFlashTick] = React.useState(0);
+  React.useEffect(() => {
+    const on = (e: Event) => { wantFlash.current = (e as CustomEvent<string>).detail || null; setFlashTick(t => t + 1); };
+    window.addEventListener('readings-run-finished', on);
+    return () => window.removeEventListener('readings-run-finished', on);
+  }, []);
+  React.useEffect(() => { if (focusId) wantFlash.current = focusId; }, [focusId]);
+  React.useEffect(() => {
+    const id = wantFlash.current;
+    if (!id || !oldRuns.some(r => r.id === id && r.status !== 'running')) return;
+    wantFlash.current = null;
+    setFlashId(id);
+    const t0 = setTimeout(() => document.querySelector(`[data-run-id="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+    const t1 = setTimeout(() => setFlashId(c => (c === id ? null : c)), 5000);
+    return () => { clearTimeout(t0); clearTimeout(t1); };
+  }, [oldRuns, flashTick]);
 
   // a run finished elsewhere (the watcher) → this page shows it without a manual refresh
   React.useEffect(() => {
@@ -463,7 +525,7 @@ function ReadingsInner() {
   }
 
   const rows = historyRows(runs);
-  const pulling = runs.some(r => r.status === 'running');
+  const pulling = everyRun.some(r => r.status === 'running');
   const mode = siteMode(site);
 
   return (
@@ -501,7 +563,7 @@ function ReadingsInner() {
 
       {canPull(mode) && (
         <SectionBlock title="הרצה ידנית">
-          <ManualRun site={site} runs={runs} sourceNames={(srcQ.data || []).map(s => s.name)}
+          <ManualRun site={site} runs={everyRun} since={since} sourceNames={(srcQ.data || []).map(s => s.name)}
             onStarted={() => qc.refetchQueries({ queryKey: ['readings', 'runs'] })} />
         </SectionBlock>
       )}
@@ -515,6 +577,18 @@ function ReadingsInner() {
           ))}
         </div>
       </SectionBlock>
+
+      {oldGroups.length > 0 && (
+        <SectionBlock title="משיכות ידניות לתאריכים קודמים" count={oldGroups.length}>
+          <div className="divide-y divide-border" data-testid="readings-old-manual">
+            {oldGroups.map(g => (
+              <OldManualItem key={g.date} g={g} flashId={flashId} pulling={pulling} manual={canPull(mode)} raw={!mode.manual} requireCheck={mode.requireCheck}
+                onOpen={id => { setFocusId(id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                onPull={d => void pull(d)} onDownload={(run, k) => void dl.go(run, k)} busy={dl.busy} />
+            ))}
+          </div>
+        </SectionBlock>
+      )}
     </div>
   );
 }

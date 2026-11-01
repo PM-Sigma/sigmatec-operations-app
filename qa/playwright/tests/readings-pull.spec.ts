@@ -55,6 +55,9 @@ async function installReadings(page: any, S: Mock) {
     const id = (q.get('id') || '').replace(/^eq\./, '');
     if (id) rows = rows.filter(x => x.id === id);
     if ((q.get('trigger') || '') === 'eq.cron') rows = rows.filter(x => x.trigger === 'cron');
+    if ((q.get('trigger') || '') === 'eq.manual') rows = rows.filter(x => x.trigger === 'manual');
+    const lt = (q.get('reading_date') || '');
+    if (lt.startsWith('lt.')) rows = rows.filter(x => x.reading_date < lt.slice(3));
     const gte = (q.get('reading_date') || '').replace(/^gte\./, '');
     if (gte && q.get('reading_date')!.startsWith('gte.')) rows = rows.filter(x => x.reading_date >= gte);
     rows.sort((a, b) => (a.reading_date < b.reading_date ? 1 : a.reading_date > b.reading_date ? -1 : (a.started_at < b.started_at ? 1 : -1)));
@@ -372,4 +375,86 @@ test('optimistic start: a failing start reverts the UI and shows the error', asy
   await expect(btn).toBeEnabled();
   await expect(btn).toContainText('משוך עכשיו');
   void rec;
+});
+
+// ── manual pulls for days OLDER than the 35-day window (עידן 1.11: חולדה 24.09 was invisible) ──
+const oldRuns = (): Row[] => [
+  base({ id: 'old-1', reading_date: day(60), trigger: 'manual', started_by: 'עידן', started_at: '2026-10-01T08:00:00Z', status: 'failed', error: 'SpeedNet חסם את הבקשה', readings_file: null, exceptions_file: null, n_ok: null, n_blocked: null, n_warn: null, summary: null, exceptions: null }),
+  base({ id: 'old-2', reading_date: day(60), trigger: 'manual', started_by: 'עידן', started_at: '2026-10-15T08:00:00Z' }),
+  base({ id: 'old-3', reading_date: day(60), trigger: 'manual', started_by: 'עידן', started_at: '2026-11-01T08:11:00Z' }),
+  base({ id: 'old-other', reading_date: day(100), trigger: 'manual', started_by: 'מתניה', started_at: '2026-10-20T08:00:00Z', uploaded: true, uploaded_by: 'מתניה' }),
+  base({ id: 'old-cron', reading_date: day(70), trigger: 'cron', started_at: '2026-09-01T04:00:00Z' }),   // cron: never in this section
+];
+
+test('old manual pulls: a section lists them (deduped per date, latest first, N משיכות + expander) with the same actions', async ({ page }, ti) => {
+  const S: Mock = { runs: [...history(), ...oldRuns()], calls: [] };
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await installReadings(page, S);
+  await openPage(page);
+
+  await expect(page.getByText('משיכות ידניות לתאריכים קודמים')).toBeVisible();
+  const items = page.getByTestId('readings-old-manual-item');
+  await expect(items).toHaveCount(2);                                   // 2 dates; the cron run is excluded
+  await expect(items.first().locator('[data-run-id]').first()).toHaveAttribute('data-run-id', 'old-3');   // newest started first
+  await expect(items.first().getByText('(3 משיכות)')).toBeVisible();
+  await expect(items.nth(1).getByTestId('readings-old-manual-more')).toHaveCount(0);
+  await expect(page.getByTestId('readings-history').getByTestId('readings-history-row')).toHaveCount(35);   // the regular history is untouched
+
+  // same actions as a normal row: a download signs the right run
+  const dl = items.first().getByRole('button', { name: 'הורד קובץ קריאות' });
+  await expect(dl).toBeVisible();
+  await dl.click();
+  await expect.poll(() => S.calls.find(c => c.mode === 'sign')).toMatchObject({ run_id: 'old-3', kind: 'readings' });
+
+  // the earlier pulls hide behind the expander
+  await expect(page.getByTestId('readings-old-manual-older')).toHaveCount(0);
+  await items.first().getByTestId('readings-old-manual-more').click();
+  const older = page.getByTestId('readings-old-manual-older');
+  await expect(older.locator('[data-run-id]')).toHaveCount(2);
+  await expect(older.getByText('SpeedNet חסם את הבקשה')).toBeVisible();
+
+  // a row opens in "ריצה שנבחרה" (EMS check / reasons / rebuild live there)
+  await items.first().locator('[data-run-id="old-3"] button').first().click();
+  await expect(page.getByText('ריצה שנבחרה')).toBeVisible();
+
+  await noHScroll(page);
+  await expectRtl(page);
+  await page.getByTestId('readings-old-manual').scrollIntoViewIfNeeded();
+  await shot(page, ti, 'old-manual-section', { fullPage: true });
+  expectNoConsoleErrors(rec);
+});
+
+test('old manual pulls: no section when there are none', async ({ page }, ti) => {
+  const S: Mock = { runs: [...history(), oldRuns()[4]], calls: [] };
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await installReadings(page, S);
+  await openPage(page);
+  await expect(page.getByTestId('readings-history-row').first()).toBeVisible();
+  await expect(page.getByTestId('readings-old-manual')).toHaveCount(0);
+  await expect(page.getByText('משיכות ידניות לתאריכים קודמים')).toHaveCount(0);
+  expectNoConsoleErrors(rec);
+});
+
+test('old manual pull right now: pick an old date → hint → run → finishes → the row appears in the section and is highlighted', async ({ page }, ti) => {
+  test.setTimeout(90_000);
+  const S: Mock = { runs: history(), calls: [] };
+  const { rec } = await boot(page, ti, { who: 'עידן' });
+  await installReadings(page, S);
+  await openPage(page);
+  await expect(page.getByTestId('readings-old-manual')).toHaveCount(0);
+
+  await page.getByTestId('readings-date').fill(day(60));
+  await expect(page.getByTestId('readings-old-hint')).toBeVisible();
+  await page.getByTestId('readings-run').click();
+  await expect(page.getByTestId('readings-progress')).toBeVisible();
+  expect(S.calls.find(c => c.mode === 'run')).toMatchObject({ date: day(60), trigger: 'manual' });
+
+  const run = S.runs.find(r => r.id === 'run-new')!;
+  Object.assign(run, base({ id: 'run-new', reading_date: day(60), trigger: 'manual', started_by: 'עידן', started_at: run.started_at, status: 'ok', seen_by: [] }));
+  const row = page.locator('[data-testid="readings-old-manual"] [data-run-id="run-new"]');
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await expect(row).toHaveAttribute('data-flash', 'true', { timeout: 15_000 });
+  await expect.poll(() => row.evaluate(el => { const r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; }), { timeout: 4000 }).toBe(true);   // scrolled into view
+  await shot(page, ti, 'old-manual-just-pulled');
+  expectNoConsoleErrors(rec);
 });
