@@ -23,7 +23,7 @@ import {
   LEGACY_MODBUS_TYPE, MODBUS_TYPES, buildRows, israelTime, outcome, parsePing, responseMs, serialCheck,
 } from '@/lib/fieldops/modbusScale';
 import {
-  circuitsOf, errorText, isIPv4, listEligible, lookupScopeText, manualStatus, matchSearch, meterLabel, pairEntries, parseUnit, planManualRead,
+  circuitsOf, errorText, isIPv4, listEligible, lookupScopeText, manualStatus, matchSearch, meterLabel, pairEntries, parseUnit, planFreeRead, planManualRead,
 } from '@/lib/fieldops/fieldOpsView';
 
 const TITLE = 'פעולות שטח';
@@ -35,9 +35,9 @@ const btn48 = 'min-h-[48px]';
 const typeName = (c: number | null) => MODBUS_TYPES.find(t => t.code === c)?.name || (c == null ? '—' : 'סוג ' + c);
 
 type Mode = 'list' | 'manual';
-type Busy = null | { op: 'read' | 'ping'; started: number };
+type Busy = null | { op: 'read' | 'ping' | 'free'; started: number };
 type Result =
-  | { op: 'read'; res: ModbusOpResult; circuits: Array<EmsModbusMeter | null>; ip: string; unit: number; typeCode: number | null }
+  | { op: 'read'; res: ModbusOpResult; circuits: Array<EmsModbusMeter | null>; ip: string; unit: number; typeCode: number | null; free?: boolean }
   | { op: 'ping'; res: ModbusOpResult; ip: string };
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
@@ -174,7 +174,7 @@ function ReadCards({ r }: { r: Extract<Result, { op: 'read' }> }) {
                 <KV k="סוג מונה" v={typeName(meter?.typeCode ?? r.typeCode)} />
                 <KV k="סטטוס חיבור" v={<Tag role="ok">הצלחה</Tag>} />
               </div>
-              {!meter && <Tag role="warn" className="self-start">לא רשום ב-EMS — מוצג בלי כופלי EMS</Tag>}
+              {!meter && <Tag role="warn" className="self-start">{r.free ? 'קריאה חופשית — בלי קישור למונה ב-EMS ובלי כופלים' : 'לא רשום ב-EMS — מוצג בלי כופלי EMS'}</Tag>}
               {chips.length > 0 && <div className="flex flex-wrap gap-1">{chips.map(c => <Tag key={c} role="info">{c}</Tag>)}</div>}
               {b.notes.map(n => <div key={n} className="text-[13px] text-[var(--warn-ink)]">⚠ {n}</div>)}
               {b.rows.length === 0 ? (
@@ -287,8 +287,9 @@ function ModbusReader() {
     const t = setTimeout(() => setLookupIp(isIPv4(ip) ? ip.trim() : ''), 400);
     return () => clearTimeout(t);
   }, [ip]);
-  // "רענון" / "חיפוש בכל האתרים" set this for the NEXT fetch only.
-  const lookupNext = React.useRef<{ fresh?: boolean; allSites?: boolean }>({});
+  // "רענון" / "חיפוש בכל האתרים" set this for the NEXT fetch only. The first lookup already searches every
+  // site — manual entry is not tied to a kibbutz (עידן 1.11: "הגבלה לעין המפרץ" — the EMS current-site scope).
+  const lookupNext = React.useRef<{ fresh?: boolean; allSites?: boolean }>({ allSites: true });
   const lookup = useQuery({
     queryKey: ['fieldops', 'lookup', lookupIp],
     queryFn: () => { const o = lookupNext.current; lookupNext.current = {}; return gw.modbusLookup(lookupIp, o); },
@@ -306,7 +307,7 @@ function ModbusReader() {
     setMeterId(''); setSearch(''); setIp(''); setUnit(''); setTypeCode(null);
   };
 
-  async function run(op: 'read' | 'ping') {
+  async function run(op: 'read' | 'ping' | 'free') {
     if (busy) return;
     setError(''); setResult(null);
     let target: ModbusTarget;
@@ -317,6 +318,11 @@ function ModbusReader() {
       target = { meterId: picked.id };
       circuits = circuitsOf(picked, eligible);
       shownIp = picked.ip; shownUnit = picked.unit; shownType = picked.typeCode;
+    } else if (op === 'free') {
+      const plan = planFreeRead(ip, unit, typeCode);
+      if (plan.error) { setError(plan.error); return; }
+      target = plan.target;
+      shownIp = ip.trim(); shownUnit = plan.target.unit ?? 1; shownType = typeCode;
     } else {
       let matches: EmsModbusMeter[] = [];
       if (isIPv4(ip)) {
@@ -342,10 +348,11 @@ function ModbusReader() {
     const id = ++reqId.current;
     setBusy({ op, started: Date.now() });
     try {
-      const res = op === 'read' ? await gw.modbusRead(target) : await gw.modbusPing(target);
+      const res = op === 'ping' ? await gw.modbusPing(target) : await gw.modbusRead(target);
       if (id !== reqId.current) return;
       // The function returns the EMS meter only when the device read IS that meter.
-      if (op === 'read') {
+      if (op === 'free') setResult({ op: 'read', res, circuits: [], ip: shownIp, unit: shownUnit, typeCode: shownType, free: true });
+      else if (op === 'read') {
         const cs = circuits.length ? circuits : (res.meter ? [res.meter] : []);
         setResult({ op, res, circuits: cs, ip: shownIp, unit: shownUnit, typeCode: shownType });
       } else setResult({ op, res, ip: shownIp });
@@ -483,6 +490,11 @@ function ModbusReader() {
             <Button className={btn48} variant="outline" onClick={() => void run('ping')} loading={busy?.op === 'ping'} disabled={!!busy}>
               {busy?.op === 'ping' ? 'בודק...' : 'PING'}
             </Button>
+            {mode === 'manual' && (
+              <Button className={btn48} variant="outline" data-testid="fieldops-free-read" onClick={() => void run('free')} loading={busy?.op === 'free'} disabled={!!busy}>
+                {busy?.op === 'free' ? `קורא... ${elapsed} ש׳` : 'קריאה חופשית (בלי EMS)'}
+              </Button>
+            )}
             <Button className={btn48} variant="ghost" onClick={clear}>נקה</Button>
           </div>
           {busy && (

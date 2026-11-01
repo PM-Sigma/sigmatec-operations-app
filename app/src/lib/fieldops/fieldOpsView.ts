@@ -106,6 +106,19 @@ export function planManualRead(ipRaw: string, unitRaw: string, typeCode: number 
   return { target: { ip, unit, typeCode, ...(matches[0] ? { meterId: matches[0].id } : {}) }, circuits: [], typeNote: null, error: null };
 }
 
+/** "קריאה חופשית" (עידן 1.11): the typed IP / ID / type as-is — no EMS meter match, no multipliers.
+ *  The read still travels through EMS (the only route to ModbusClient); the function picks the carrier. */
+export function planFreeRead(ipRaw: string, unitRaw: string, typeCode: number | null): { target: ModbusTarget; error: string | null } {
+  const ip = ipRaw.trim();
+  const none = (error: string) => ({ target: {}, error });
+  if (!ip) return none('נא למלא כתובת IP');
+  if (!isIPv4(ip)) return none('כתובת IP לא תקינה (למשל 192.0.2.10)');
+  const u = parseUnit(unitRaw);
+  if (Number.isNaN(u)) return none('מספר ID הוא מספר שלם בין 1 ל-247');
+  if (typeCode == null) return none('נא לבחור סוג מונה לקריאה חופשית');
+  return { target: { ip, unit: u ?? 1, typeCode }, error: null };
+}
+
 // ───────────── circuits ─────────────
 
 /** Every EMS meter on the same device (IP + unit) — one card each (עידן 23.9). */

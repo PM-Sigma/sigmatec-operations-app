@@ -3,8 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EmsModbusMeter } from '@/lib/ems/types';
 import {
-  circuitsOf, errorText, isIPv4, listEligible, lookupScopeText, manualStatus, meterLabel, pairEntries, parseUnit, planManualRead,
-} from './fieldOpsView';
+  circuitsOf, errorText, isIPv4, listEligible, lookupScopeText, manualStatus, meterLabel, pairEntries, parseUnit, planManualRead, planFreeRead } from './fieldOpsView';
 
 describe('lookupScopeText — an empty lookup always says where EMS looked (field bug 12.10)', () => {
   it('limited to the user\'s EMS site: names it and offers all sites', () => {
@@ -112,5 +111,15 @@ describe('errorText', () => {
     expect(errorText({ code: 'forbidden: staff only' })).toBe('הדף פתוח לצוות בלבד');
     expect(errorText({ sessionLost: true })).toBe('החיבור ל-EMS פג — צריך להתחבר מחדש');
     expect(errorText({ code: 'network' })).toContain('אין חיבור');
+  });
+});
+
+describe('planFreeRead', () => {
+  it('validates IP / ID / type and sends them as-is (no meterId)', () => {
+    expect(planFreeRead('', '', 25).error).toBe('נא למלא כתובת IP');
+    expect(planFreeRead('1.2.3', '', 25).error).toContain('לא תקינה');
+    expect(planFreeRead('10.0.0.1', '300', 25).error).toContain('1 ל-247');
+    expect(planFreeRead('10.0.0.1', '2', null).error).toContain('סוג מונה');
+    expect(planFreeRead(' 10.0.0.1 ', '', 25)).toEqual({ target: { ip: '10.0.0.1', unit: 1, typeCode: 25 }, error: null });
   });
 });

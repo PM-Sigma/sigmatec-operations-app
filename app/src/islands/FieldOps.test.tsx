@@ -145,6 +145,24 @@ describe('FieldOps — manual mode status (0 / 1 / several)', () => {
     await waitFor(() => expect(gw.modbusLookup).toHaveBeenLastCalledWith('10.0.0.1', { allSites: true }));
     expect((await screen.findByTestId('fieldops-ip-table')).textContent).toContain('יגור');
   });
+  it('the first lookup already searches every site (no kibbutz limit in manual entry)', async () => {
+    await typeIp('10.0.0.7');
+    expect(gw.modbusLookup).toHaveBeenNthCalledWith(1, '10.0.0.7', { allSites: true });
+  });
+  it('"קריאה חופשית": reads the typed IP/ID/type with no EMS meter — raw values, needs a type', async () => {
+    gw.modbusLookup.mockResolvedValue([meter('m1', '192.0.2.10', 1)]);
+    await typeIp('192.0.2.10', '1');
+    fireEvent.click(screen.getByTestId('fieldops-free-read'));
+    expect((await screen.findByTestId('fieldops-message')).textContent).toContain('נא לבחור סוג מונה לקריאה חופשית');
+    expect(gw.modbusRead).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('סוג מונה'), { target: { value: '25' } });
+    gw.modbusRead.mockResolvedValue({ meter: meter('m1', '192.0.2.10', 1), override: [], log: log([{ FT: 100, I1: 0.5 }]) });
+    fireEvent.click(screen.getByTestId('fieldops-free-read'));
+    const card = await screen.findByTestId('fieldops-read');
+    expect(gw.modbusRead).toHaveBeenCalledWith({ ip: '192.0.2.10', unit: 1, typeCode: 25 });
+    expect(card.textContent).toContain('קריאה חופשית');
+    expect(card.textContent).not.toContain('אחרי כופל EMS');
+  });
   it('"רענון" re-asks with fresh', async () => {
     await typeIp('10.0.0.3');
     fireEvent.click(await screen.findByTestId('fieldops-lookup-refresh'));
