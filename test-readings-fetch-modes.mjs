@@ -2,7 +2,7 @@
 //   node test-readings-fetch-modes.mjs
 import assert from 'node:assert';
 import {
-  israelNow, israelYesterday, addDaysIso, badRunDate, cronWindowOpen, retentionCutoff, valuesCutoff, dedupeDecision,
+  israelNow, israelYesterday, addDaysIso, cronAlertDue, badRunDate, cronWindowOpen, retentionCutoff, valuesCutoff, dedupeDecision,
   fileNames, storagePaths, emsSyncDecision, errText, ERR_TEXT, allSourcesDone, runStatus, cronDecision, readingsPush,
 } from './supabase/functions/readings-fetch/helpers.js';
 import { buildRun, applyEmsValidation } from './supabase/functions/readings-fetch/logic.js';
@@ -145,5 +145,10 @@ t('logic glue: a failed source adds no per-meter rows; EMS validation drops a re
   ]);
   assert.strictEqual(res.upload.length, 1);
   assert.ok(res.exceptions.some((r) => r[2] === '2' && /ירידה מול הקריאה האחרונה ב-EMS/.test(r[6])));
+});
+t('cronAlertDue: a scheduled failure alerts only from D+2 (a whole day of retries)', () => {
+  const now = at('2026-11-02T08:00:00Z');                      // Israel 2.11
+  assert.strictEqual(cronAlertDue('2026-11-01', now), false);  // yesterday: still being retried
+  assert.strictEqual(cronAlertDue('2026-10-31', now), true);   // D+2: alert
 });
 console.log(`OK test-readings-fetch-modes.mjs - ${n} groups`);

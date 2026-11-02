@@ -7,6 +7,18 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-02 - CityMind: retry for a day, alert only after (live)
+Why: עידן — a CityMind password change (אור הנר + עין המפרץ, AUTH since 1.11) flooded him with a push per failed attempt + a GitHub mail per failed job.
+- Workflow: 2 more varied crons (18:10, 20:25 UTC → 7 fires/day); a scheduled fire pulls yesterday AND the day before.
+- readings-fetch ingest: a scheduled failure pushes only once the date is ≥ 2 days old (a whole day of retries) and once per date (`progress.alerted`). Manual pulls still always report back.
+- Runner exits 0 when the failure was recorded (no GitHub mail per retry); 1 only if the function could not be told.
+- Rollback: `git revert` + `npx supabase functions deploy readings-fetch` from the previous commit.
+
+## 2026-11-01 - Modbus: free read + manual entry over all sites (live, 2.186)
+Why: עידן — read any IP/ID/type without linking to an EMS meter; manual entry was limited to his EMS site (עין המפרץ).
+- "קריאה חופשית (בלי EMS)" button (planFreeRead) — raw values, no multipliers; still routed via EMS (only path to ModbusClient).
+- The first manual lookup searches all EMS sites (switches the user's EMS site to all).
+
 ## [unreleased] 2026-10-26 - feat/citymind-manual-run (branch, not live): manual CityMind pull
 Why: עידן — the CityMind (Arad) tabs on the readings page get the same manual run as חולדה (date → משוך → progress → files).
 - readings-fetch: new user mode `dispatch` {kibbutz, date} (validate, existing run -> returned, else a `running` manual row + GitHub `workflow_dispatch` of citymind-arad.yml with GH_TOKEN; 401/403/404/422 -> Hebrew errors, no token in logs). Pure decisions in `dispatch.mjs`.

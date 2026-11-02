@@ -121,10 +121,10 @@ const runKibbutz = (kibbutz, pass) => new Promise((resolve) => {
 });
 const [good, bad, good2] = await Promise.all([runKibbutz('קיבוץ א', 'good-pass'), runKibbutz('קיבוץ ב', 'WRONG-pass-123'), runKibbutz('קיבוץ ג', 'good-pass')]);
 srv.close();
-await t('one kibbutz with a wrong password fails (AUTH, exit 1); the others post their raw export (exit 0)', () => {
+await t('one kibbutz with a wrong password reports AUTH (exit 0 — the failure lives in reading_runs, no GitHub mail); the others post their raw export', () => {
   assert.strictEqual(good.code, 0, good.out);
   assert.strictEqual(good2.code, 0, good2.out);
-  assert.strictEqual(bad.code, 1, bad.out);
+  assert.strictEqual(bad.code, 0, bad.out);
   const by = Object.fromEntries(posts.map((p) => [p.kibbutz, p]));
   assert.deepStrictEqual([by['קיבוץ ב'].failed, by['קיבוץ ב'].error_code], [true, 'AUTH']);
   for (const k of ['קיבוץ א', 'קיבוץ ג']) {

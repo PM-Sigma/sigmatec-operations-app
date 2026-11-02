@@ -41,7 +41,7 @@ import {
   DEFAULT_ACTIONS_REPO, dispatchRequest, ingestPlan, mapDispatchError, planDispatch, staleText,
 } from "./dispatch.mjs";
 import {
-  addDaysIso, badRunDate, cronDecision, cronFirstRunDue, cronWindowOpen, dedupeDecision, emsSyncDecision,
+  addDaysIso, badRunDate, cronAlertDue, cronDecision, cronFirstRunDue, cronWindowOpen, dedupeDecision, emsSyncDecision,
   errText, fileNames, israelNow, israelYesterday, retentionCutoff, runStatus, STUCK_MS, storagePaths, valuesCutoff,
 } from "./helpers.js";
 
@@ -458,13 +458,19 @@ async function ingest(q: any) {
   if (failCode) {
     if (q.dry_run) return { dry_run: true, failed: true, error: failCode };
     const error = failText(failCode);
-    const failRow = { status: "failed", progress: { [CITYMIND]: { state: "failed", error } }, error: error.message, finished_at: new Date().toISOString() };
+    // a manual pull always reports back; a scheduled one only once the date failed for a whole day (once per date)
+    let alert = !!fillId;
+    if (!alert && cronAlertDue(q.date)) {
+      const { data: sent } = await sb.from("reading_runs").select("id").eq("site_id", site.id).eq("reading_date", q.date).eq("progress->>alerted", "true").limit(1);
+      alert = !sent?.length;
+    }
+    const failRow = { status: "failed", progress: { [CITYMIND]: { state: "failed", error }, ...(alert && !fillId ? { alerted: true } : {}) }, error: error.message, finished_at: new Date().toISOString() };
     const ins = fillId
       ? await sb.from("reading_runs").update(failRow).eq("id", fillId).select("id").single()
       : await sb.from("reading_runs").insert({ site_id: site.id, reading_date: q.date, trigger: "cron", started_by: "GitHub", ...failRow }).select("id").single();
     if (ins.error) throw new Fail(500, { error: "could not save run" });
     if (raw) await storeRaw(site, ins.data, q.date, raw.bytes);   // a CHANGED export is kept: it is what to look at
-    await notifyDone(ins.data.id);
+    if (alert) await notifyDone(ins.data.id);
     return { run_id: ins.data.id, status: "failed", error: failCode };
   }
   if (q.dry_run) {

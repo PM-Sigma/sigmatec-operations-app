@@ -18,7 +18,7 @@
 //      PLAYWRIGHT_MODULE (path of an installed playwright)
 import { readFileSync } from 'node:fs';
 import { parseCityMind, reportUrl, CityMindError, safeErrorLine, CM_BASE as CM } from '../../supabase/functions/readings-fetch/citymind.mjs';
-import { badRunDate, israelYesterday } from '../../supabase/functions/readings-fetch/helpers.js';
+import { addDaysIso, badRunDate, israelYesterday } from '../../supabase/functions/readings-fetch/helpers.js';
 
 const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
 const FN_URL = process.env.READINGS_FN_URL || SB_URL + '/functions/v1/readings-fetch';   // override: tests only
@@ -29,7 +29,9 @@ const log = (...a) => console.log('[citymind]', ...a);
 const env = (k) => process.env[k] || '';
 const dry = env('DRY_RUN').toLowerCase() === 'true';
 const probe = env('PROBE').toLowerCase() === 'true';
-const day = env('CITYMIND_DATE') || israelYesterday();
+// a scheduled fire also retries the day before (a whole day of attempts before anyone is alerted — עידן 2.11)
+const days = env('CITYMIND_DATE') ? [env('CITYMIND_DATE')] : env('CITYMIND_CATCHUP') === 'true'
+  ? [israelYesterday(), addDaysIso(israelYesterday(), -1)] : [israelYesterday()];
 const kibbutz = env('CITYMIND_KIBBUTZ');
 const daily = /^-?\d{1,3}$/.test(env('CITYMIND_DAILY')) ? env('CITYMIND_DAILY') : '1';
 
@@ -76,7 +78,7 @@ async function exportRaw(pg, iso, value) {
 }
 const b64text = (b64) => new TextDecoder('windows-1255').decode(Buffer.from(b64, 'base64'));
 
-async function post(payload) {
+async function post(day, payload) {
   const key = env('READINGS_INGEST_KEY');
   if (!key) throw new Error('READINGS_INGEST_KEY missing');
   const r = await fetch(FN_URL, {
@@ -95,6 +97,7 @@ const counts = (d) => Object.fromEntries(Object.entries(d || {}).filter(([k, v])
 
 /** PROBE: which "קריאות יומיות" values exist, and how many readings per meter per day each returns. Counts only. */
 async function runProbe(pg) {
+  const day = days[0];
   await pg.goto(reportUrl(day, '1'), { waitUntil: 'load', timeout: 300000 }).catch(() => null);
   // option labels of the report's small dropdowns (a filter UI word or a number — never data); ≤ 12 options, short text
   const opts = await pg.evaluate(() => [...document.querySelectorAll('select')].filter((s) => s.options.length <= 12)
@@ -113,31 +116,41 @@ async function runProbe(pg) {
 }
 
 async function main() {
-  if (badRunDate(day)) { log('bad date'); process.exit(2); }
+  if (days.some((d) => badRunDate(d))) { log('bad date'); process.exit(2); }
   if (!kibbutz) { log('CITYMIND_KIBBUTZ is not set'); process.exit(2); }
   const user = env('CITYMIND_USER'), pass = env('CITYMIND_PASS');
   if (!user || !pass) { log('CityMind credentials are not configured for this kibbutz'); process.exit(2); }
   log('mode', probe ? 'PROBE (nothing is sent)' : dry ? 'DRY-RUN (nothing is written)' : 'live', '· daily readings value', daily);
-  let session = null, b64;
-  try {
-    session = await login(user, pass);
-    if (probe) { await runProbe(session.pg); return; }
-    b64 = await exportRaw(session.pg, day, daily);
-  } catch (e) {
+  let session = null, lost = false;
+  // A failure is recorded in reading_runs (the app shows it, the function decides on an alert) — the job itself exits 0,
+  // so GitHub does not e-mail every retry. Exit 1 only when the function could not be told.
+  const fail = async (day, e) => {
     const code = e instanceof CityMindError ? e.code : 'DOWN';
-    log('fetch failed:', e instanceof CityMindError ? safeErrorLine(e) : code);
-    if (probe) process.exit(1);
-    const r = await post({ failed: true, error_code: code }).catch(() => null);
-    log('reported failure, function status', r ? r.status : 'unreachable');
-    process.exit(1);
+    log(day, 'fetch failed:', e instanceof CityMindError ? safeErrorLine(e) : code);
+    const r = await post(day, { failed: true, error_code: code }).catch(() => null);
+    log(day, 'reported failure, function status', r ? r.status : 'unreachable');
+    if (r?.status !== 200) lost = true;
+  };
+  try {
+    try { session = await login(user, pass); } catch (e) {
+      if (probe) { log('login failed'); process.exit(1); }
+      for (const d of days) await fail(d, e);
+      process.exit(lost ? 1 : 0);
+    }
+    if (probe) { await runProbe(session.pg); return; }
+    for (const day of days) {
+      let b64;
+      try { b64 = await exportRaw(session.pg, day, daily); } catch (e) { await fail(day, e); continue; }
+      // a local parse only for the log line; the function parses the stored raw itself
+      try { log(day, 'rows for the day:', parseCityMind(b64text(b64), day).length); } catch (e) { log('local parse:', e instanceof CityMindError ? safeErrorLine(e) : 'failed'); }
+      const r = await post(day, { csv_b64: b64 }).catch(() => ({ status: 0, d: null }));
+      log(day, 'function status', r.status, JSON.stringify(counts(r.d)));
+      if (r.status !== 200) lost = true;
+    }
   } finally {
     await session?.b.close().catch(() => {});
   }
-  // a local parse only for the log line; the function parses the stored raw itself
-  try { log('rows for the day:', parseCityMind(b64text(b64), day).length); } catch (e) { log('local parse:', e instanceof CityMindError ? safeErrorLine(e) : 'failed'); }
-  const r = await post({ csv_b64: b64 });
-  log('function status', r.status, JSON.stringify(counts(r.d)));
-  if (r.status !== 200 || r.d?.status === 'failed') process.exit(1);
+  if (lost) process.exit(1);
 }
 
 main().catch((e) => { log('unexpected error:', e?.name || 'Error'); process.exit(1); });

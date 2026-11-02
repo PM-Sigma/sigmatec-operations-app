@@ -24,6 +24,10 @@ export function addDaysIso(iso, n) {
 }
 export const israelYesterday = (now = new Date()) => addDaysIso(israelNow(now).date, -1);
 
+/** A failed SCHEDULED CityMind pull alerts only after the date was retried for a whole day (עידן 2.11): the day is
+ *  pulled on D+1 and again on D+2 — only a failure on D+2 or later (still no ok run) may alert, once per date. */
+export const cronAlertDue = (date, now = new Date()) => date <= addDaysIso(israelNow(now).date, -2);
+
 /** A run date must be a real YYYY-MM-DD strictly before today (Israel). Returns null if fine, else a Hebrew error. */
 export function badRunDate(date, now = new Date()) {
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || addDaysIso(date, 0) !== date) return 'תאריך לא תקין';
