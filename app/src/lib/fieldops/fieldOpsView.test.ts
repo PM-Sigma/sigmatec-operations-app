@@ -14,10 +14,10 @@ describe('lookupScopeText — an empty lookup always says where EMS looked (fiel
   });
   it('site name unknown still says it was limited', () =>
     expect(lookupScopeText({ limited: true, siteName: null, switched: false })?.line).toBe('החיפוש ב-EMS הוגבל לאתר הנוכחי שלך (האתר שנבחר ב-EMS)'));
-  it('all sites: says so, no offer', () =>
-    expect(lookupScopeText({ limited: false, siteName: null, switched: false })).toEqual({ line: 'החיפוש כלל את כל האתרים ב-EMS', askAll: null }));
-  it('after the switch: tells the user his EMS site changed', () =>
-    expect(lookupScopeText({ limited: false, siteName: null, switched: true })?.line).toContain('אתר ה-EMS שלך שונה'));
+  it('all sites: no line (manual entry is always all sites)', () =>
+    expect(lookupScopeText({ limited: false, siteName: null, switched: false })).toBeNull());
+  it('after the switch: no line', () =>
+    expect(lookupScopeText({ limited: false, siteName: null, switched: true })).toBeNull());
   it('found meters → no scope line', () => expect(lookupScopeText(null)).toBeNull());
 });
 

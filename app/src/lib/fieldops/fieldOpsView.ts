@@ -67,9 +67,8 @@ export function manualStatus(matches: EmsModbusMeter[], unit: number | null): Ma
  * EMS site, so it is his choice, never automatic.
  */
 export function lookupScopeText(s: LookupScope | null | undefined): { line: string; askAll: string | null } | null {
-  if (!s) return null;
-  if (s.switched) return { line: 'אתר ה-EMS שלך שונה ל"כל האתרים" — החיפוש כלל את כל האתרים ב-EMS', askAll: null };
-  if (!s.limited) return { line: 'החיפוש כלל את כל האתרים ב-EMS', askAll: null };
+  // manual entry always searches every site (1.11), so all-sites needs no line (עידן 3.11) — only a still-limited search speaks
+  if (!s || !s.limited) return null;
   const site = s.siteName || 'האתר שנבחר ב-EMS';
   return {
     line: `החיפוש ב-EMS הוגבל לאתר הנוכחי שלך (${site})`,
