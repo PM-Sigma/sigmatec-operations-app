@@ -7,7 +7,7 @@
 //   2. הרצה ידנית     — a date (max = yesterday, no min) and a progress line while it runs.
 //   3. היסטוריית משיכות — 35 days, one row per day; a day nobody pulled says so, with [משוך].
 import * as React from 'react';
-import { ArrowDownToLine, FileDown, FileWarning, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowDownToLine, Check, FileDown, FileWarning, Loader2, RefreshCw } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { PageActionRow } from '@/components/ui/page-action-row';
@@ -16,9 +16,7 @@ import { Tag } from '@/components/ui/chip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BubbleButton } from '@/components/ui/bubble-button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { SegmentedControl } from '@/components/ui/segmented-control';
 import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { EmsGate } from '@/components/EmsGate';
@@ -538,18 +536,25 @@ function ReadingsInner() {
         } />
 
       <div className="px-1">
-        {sites.length >= 2 && sites.length <= 4 ? (
-          <div data-testid="readings-site-tabs">
-            <SegmentedControl ariaLabel="קיבוץ" value={site.id} onChange={setSiteId}
-              options={sites.map(s => ({ value: s.id, label: s.kibbutz }))} />
+        {/* A tap-only card grid (עידן 4.11: the sliding segmented control ran edge to edge — a swipe on it was
+            taken as the phone's back gesture and left the page). Any number of kibbutzim, no dropdown. */}
+        {sites.length >= 2 && (
+          <div className="rounded-[var(--r-lg)] bg-card p-3 shadow-[var(--e1)]">
+            <div className="mb-2 text-[length:var(--fs-body-sm)] font-semibold text-muted-foreground">בחר קיבוץ</div>
+            <div role="radiogroup" aria-label="קיבוץ" data-testid="readings-site-tabs" className="grid grid-cols-2 gap-2">
+              {sites.map(s => {
+                const on = s.id === site.id;
+                return (
+                  <button key={s.id} type="button" role="radio" aria-checked={on} onClick={() => setSiteId(s.id)}
+                    className={'flex min-h-12 items-center justify-between gap-2 rounded-[var(--r-md)] border px-3 py-2 text-start text-[length:var(--fs-body)] transition-colors '
+                      + (on ? 'border-primary bg-primary font-semibold text-primary-foreground' : 'border-border bg-background hover:bg-muted')}>
+                    <span className="truncate">{s.kibbutz}</span>
+                    {on && <Check className="h-4 w-4 shrink-0" aria-hidden />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        ) : (
-          <Select value={site.id} onValueChange={setSiteId}>
-            <SelectTrigger aria-label="קיבוץ" data-testid="readings-site"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {sites.map(s => <SelectItem key={s.id} value={s.id}>{s.kibbutz}</SelectItem>)}
-            </SelectContent>
-          </Select>
         )}
         {mode.note && <p data-testid="readings-site-note" className="mt-2 px-1 text-[length:var(--fs-body-sm)] text-muted-foreground">{mode.note}</p>}
       </div>

@@ -180,7 +180,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `#sigma-page-bar` | :161 | app/src/main.tsx:314<br>app/src/shell/PageBar.tsx:100 |
 | `#sigma-presenter` | :702 | app/src/islands/Presenter.tsx:1173<br>app/src/main.tsx:470 |
 | `#sigma-pushlog` | :397 | app/src/islands/PushLog.tsx:183<br>app/src/main.tsx:253 |
-| `#sigma-readings` | :424 | app/src/islands/ReadingsPull.tsx:607<br>app/src/lib/readingsWatch.ts:163 |
+| `#sigma-readings` | :424 | app/src/islands/ReadingsPull.tsx:612<br>app/src/lib/readingsWatch.ts:163 |
 | `#sigma-refresh` | :721 | app/src/components/PullToRefresh.tsx:192<br>app/src/main.tsx:119 |
 | `#sigma-relogin` | :718 | app/src/components/ReLoginSheet.tsx:143 |
 | `#sigma-settings` | :688 | app/src/islands/Settings.tsx:453<br>app/src/main.tsx:346 |
