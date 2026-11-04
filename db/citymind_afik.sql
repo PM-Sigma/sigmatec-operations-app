@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════════════════
--- 📥 CityMind (Arad) — add kibbutz אפיק (same rules as כנרת / אור הנר). NOT APPLIED until עידן approves.
+-- 📥 CityMind (Arad) — add kibbutz אפיק (same rules as כנרת / אור הנר). APPLIED 4.11.26 (עידן approved); probe: 254 meters, daily 1.
 -- How-to: docs/superpowers/specs/2026-10-12-arad-multi-kibbutz-design.md ("how to add an Arad kibbutz").
 -- Needs the GitHub secrets AFIK_CITYMIND_USER / AFIK_CITYMIND_PASS (names only here, never values).
 -- The readings page tab + manual-run block come from this row (active + rules.source='citymind') — no code change.

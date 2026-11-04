@@ -1,5 +1,6 @@
 
 
+✅ LIVE 4.11 — **CityMind אפיק** (row + secrets, live pull 3.11 ok). 🟡 Open: אפיק water meters not in EMS → rows blocked at the EMS check until set up.
 - 🔴 **Stock correction from the 7.10/4.10 visit-overwrite bug (2.153)** — reverse the wrong "returns": חברה→כפר גלעדי 3 Robustel + 3 ספק כוח שקע;
   →שלוחות 50 E360SP; →גניגר 1 E360PP; →מעוז חיים 17 PUSR + 17 ספק כוח פס-דין; →גבים 1 E360CT. Lost reports to rewrite: ניתאי (דפנה 23.9,
   כפר גלעדי, שלוחות, גניגר), אביאם (גבעת חיים מאוחד, חולדה 22.9 — September is locked, needs an unlock). Visit 17.9 תל קציר still under technician@.

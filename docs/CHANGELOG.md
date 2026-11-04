@@ -7,6 +7,14 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-04 - CityMind: אפיק added (live)
+Why: עידן — אפיק (Arad municipality) water readings, same pipeline as כנרת.
+- `db/citymind_afik.sql` applied on prod (backup `reading_sites_bak_2026_11_04`): reading_sites row, EMS site bf8fcda4…, secrets AFIK_CITYMIND_USER/PASS, daily_readings 1.
+- PROBE: 254 meters; "קריאות יומיות" 1 and 5 both = 1 reading/meter/day (0 = all, 13–28). Dry run + live run 3.11: 254 rows, 0 blocked/warn.
+- First pulls failed AUTH; re-setting the secrets with `gh secret set --body` (instead of piping Read-Host) fixed it — the pipe most likely added a stray newline.
+- EMS: אפיק has no water meters yet → the in-app EMS check will mark the rows "not set up" until meters are added.
+- No code change: the readings tab + manual-run block come from the row. Rollback: `update reading_sites set active=false where kibbutz='אפיק'`.
+
 ## 2026-11-02 - CityMind: retry for a day, alert only after (live)
 Why: עידן — a CityMind password change (אור הנר + עין המפרץ, AUTH since 1.11) flooded him with a push per failed attempt + a GitHub mail per failed job.
 - Workflow: 2 more varied crons (18:10, 20:25 UTC → 7 fires/day); a scheduled fire pulls yesterday AND the day before.

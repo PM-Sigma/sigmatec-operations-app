@@ -73,6 +73,9 @@ VERSION wins on merge. **Function deploys** (handoff convention, עידן): give
 - **Edge Function secrets:** changing a secret needs a **redeploy** to take effect.
 - **Owners:** עידן(PM/ops, office, owns go-live) · עמיחי(CEO, sees all) · אביאם(field lead) · ניתאי(field) · מתניה(dev, office). Field-report = אביאם/ניתאי only.
 
+## 🚦 Current state — 2026-11-04 (CityMind אפיק live)
+אפיק added to the CityMind (Arad) pull by config (`db/citymind_afik.sql`, applied). Probe/dry/live 3.11 green, 254 meters. Open: אפיק water meters must be set up in EMS. Secrets must be set with `gh secret set --body` (the pipe most likely added a stray newline → AUTH).
+
 ## 🚦 Current state — 2026-10-26 (feat/citymind-manual-run, not merged)
 CityMind tabs have the manual run (readings-fetch `dispatch` + GitHub workflow_dispatch; ingest fills the running row). Built + tested, NOT deployed: deploy readings-fetch, verify GH_TOKEN has Actions: write on the ops repo. Spec `docs/superpowers/specs/2026-10-26-citymind-manual-run-design.md`.
 
