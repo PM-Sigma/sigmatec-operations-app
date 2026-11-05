@@ -35,7 +35,7 @@ import { datasense, type DsQuery, type Reading, ReadingsError, speednet, speedne
 import { applyEmsValidation, buildRun } from "./logic.js";
 import {
   buildWater, decodeRaw, idMap, INGEST_ERROR_TEXT, INGEST_MAX_BYTES, ingestMatrix, keyMatches, parseCityMind, rawPath, CityMindError,
-  SOURCE as CITYMIND, validateIngest, waterEmsCheck, WATER as WATER_CODE,
+  SOURCE as CITYMIND, validateIngest, waterEmsCheck, withMeterInfo, WATER as WATER_CODE,
 } from "./citymind.mjs";
 import {
   DEFAULT_ACTIONS_REPO, dispatchRequest, ingestPlan, mapDispatchError, planDispatch, staleText,
@@ -236,6 +236,7 @@ const UPLOAD_HEAD = ["serialNumber", "energyTypeCode", "entryMode", "readingDate
 const SEQ_HEAD = ["מקור", "מס' זיהוי", "מס' משדר", "תאריך וזמן", "קריאה"];
 const ALL_HEAD = ["מקור", "מונה באתר", "AMR", "מספר סידורי", "זמן קריאה", 'סה"כ (ft)', "פסגה (f1)", "גבע (f2)", "שפל (f3)", "סטטוס"];
 const EXC_HEAD = ["מקור", "מונה באתר", "מספר סידורי", "זמן קריאה", 'סה"כ (ft)', "סוג", "סיבה"];
+const EXC_HEAD_INFO = [...EXC_HEAD.slice(0, 3), "כתובת", "לקוח משויך", ...EXC_HEAD.slice(3)];
 const SUM_HEAD = ["סוג", "סיבה", "כמות"];
 
 function mkSheet(head: string[], rows: unknown[][]) {
@@ -264,7 +265,9 @@ async function publishFiles(run: any, site: any, built: any, extra: Record<strin
   const seq = built.seq || (builtPatch as any).seq || cur?.raw?._built?.seq;   // CityMind: every reading of the day
   const f1 = toBytes([["Upload Readings", mkSheet(UPLOAD_HEAD, uploadRows(built.upload))], ["קריאות", mkSheet(ALL_HEAD, built.all)],
     ...(seq ? [["כל הקריאות ביום", mkSheet(SEQ_HEAD, seq)]] as [string, any][] : [])], false);
-  const f2 = toBytes([["חריגות", mkSheet(EXC_HEAD, built.exceptions)], ["סיכום", mkSheet(SUM_HEAD, built.summary)]], true);
+  // CityMind after the EMS check: + כתובת / לקוח משויך (xlsx only — the stored exceptions keep their shape)
+  const exc = built.meterInfo ? mkSheet(EXC_HEAD_INFO, withMeterInfo(built.exceptions, built.meterInfo)) : mkSheet(EXC_HEAD, built.exceptions);
+  const f2 = toBytes([["חריגות", exc], ["סיכום", mkSheet(SUM_HEAD, built.summary)]], true);
   for (const [p, b] of [[paths.readings, f1], [paths.exceptions, f2]] as [string, Uint8Array][]) {
     const { error } = await sb.storage.from("readings").upload(p, b, { contentType: XLSX_MIME, upsert: true });
     if (error) throw new Error("storage upload failed");

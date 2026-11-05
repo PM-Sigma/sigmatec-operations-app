@@ -291,7 +291,7 @@ t('cron spread: 0–25 min, fixed per (site, date), not the same every day', () 
 console.log(`test-readings-citymind: ${n} passed`);
 
 // ── 12.10 regression: the EMS check of a CityMind run is scope-aware (mocked EMS) ──
-import { waterEmsCheck, aradWaterMissing, scopeOf, SCOPE_NOTE } from './supabase/functions/readings-fetch/citymind.mjs';
+import { waterEmsCheck, aradWaterMissing, scopeOf, SCOPE_NOTE, meterInfoOf, withMeterInfo } from './supabase/functions/readings-fetch/citymind.mjs';
 const SITE_EIN = { kibbutz: 'עין המפרץ', ems_site_id: 'site-ein' };
 const emsRowOf = (r) => ({ serialNumber: String(r[0]), energyTypeCode: r[1], readingDate: r[3], ft: r[4] });
 const mkBase = () => buildWater({ day: DAY, rows: [rec('T1000001', 10), rec('T1000002', 20), rec('T2000003', 3, { id: '9003' })], prevIds: { 9003: 'T1000003' } });
@@ -383,6 +383,22 @@ at2('continuity unchecked with 1 suspected replacement → 1 per-row warn + 1 su
   assert.strictEqual(r.exceptions.find((e) => e[5] === 'אזהרה')[2], 'T2000003');
   assert.deepStrictEqual(r.exceptions.filter((e) => /^רצף שיוך לא נבדק/.test(e[6])).map((e) => e[6]),
     ['רצף שיוך לא נבדק עבור 1 מונים — אתר ה-EMS שלך אינו עין המפרץ']);
+});
+at2('exceptions xlsx: כתובת + לקוח משויך after מספר סידורי; not set up / off-scope → empty', async () => {
+  const meters = [{ serialNumber: 'T1000002', address: 'בית 12', clientMeters: [{ client: { name: 'כהן' } }, { client: { name: 'לוי' } }] }];
+  const nf = (row, i) => row.serialNumber === 'T1000001'
+    ? { rowIndex: i, valid: false, errors: ['UPLOAD_READINGS.ERRORS.METER_NOT_FOUND'], warnings: [] }
+    : { rowIndex: i, valid: true, errors: [], warnings: ['x'] };
+  const r = await check2(plainBase(), mockEms({ currentSite: 'site-ein', meters, validate: nf }));
+  assert.deepStrictEqual(r.meterInfo, { T1000002: ['בית 12', 'כהן / לוי'] });
+  const rows = withMeterInfo(r.exceptions, r.meterInfo);
+  for (const x of rows) assert.strictEqual(x.length, 9);
+  const of = (s) => rows.find((x) => x[2] === s);
+  assert.deepStrictEqual(of('T1000001').slice(3, 5), ['', ''], 'not set up in EMS → empty');
+  if (of('T1000002')) assert.deepStrictEqual(of('T1000002').slice(3, 5), ['בית 12', 'כהן / לוי']);
+  assert.deepStrictEqual(meterInfoOf([{ serialNumber: 5, address: null, clientMeters: [] }]), { 5: ['', ''] });
+  const off = await check2(plainBase(), mockEms({ currentSite: 'site-other', meters }));
+  assert.deepStrictEqual(off.meterInfo, {}, 'off-scope: list not fetched, columns empty');
 });
 for (const [name, fn] of asyncT2) { await fn(); n++; console.log('  ok', name); }
 console.log(`test-readings-citymind (with scope summary): ${n} passed`);

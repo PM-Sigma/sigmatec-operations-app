@@ -222,7 +222,7 @@ vocabulary is the `SigmaEvent` union in `app/src/bridge.ts` — a name outside i
 | `reading_runs` | db/citymind_arad_multi.sql | app/src/lib/readingsApi.ts:78<br>app/src/lib/readingsApi.ts:87<br>app/src/lib/readingsApi.ts:95<br>…+37 |
 | `reading_sites` | db/readings_pull.sql | app/src/lib/readingsApi.ts:62<br>supabase/functions/push-send/index.ts:709<br>supabase/functions/readings-fetch/index.ts:95<br>…+9 |
 | `reading_sources` | db/readings_pull.sql | app/src/lib/readingsApi.ts:70<br>supabase/functions/readings-fetch/index.ts:104 |
-| `reading_values` | db/readings_pull.sql | supabase/functions/readings-fetch/index.ts:222<br>supabase/functions/readings-fetch/index.ts:282<br>supabase/functions/readings-fetch/index.ts:288<br>…+1 |
+| `reading_values` | db/readings_pull.sql | supabase/functions/readings-fetch/index.ts:222<br>supabase/functions/readings-fetch/index.ts:285<br>supabase/functions/readings-fetch/index.ts:291<br>…+1 |
 | `requirements` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:53<br>app/src/lib/inventoryApi.ts:163<br>app/src/lib/inventoryApi.ts:202 |
 | `returns` | db/rls_legacy_lockdown.sql | app/src/lib/inventoryApi.ts:54<br>app/src/lib/inventoryApi.ts:278<br>app/src/lib/inventoryApi.ts:284 |
 | `site_contacts` | db/site_contacts.sql | app/src/components/home/workTimerApi.ts:39<br>app/src/components/home/WorkTimerEditSheet.tsx:73<br>app/src/components/home/WorkTimerStopSheet.tsx:62<br>…+3 |

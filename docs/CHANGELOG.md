@@ -7,6 +7,13 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-05 - CityMind exceptions file: כתובת + לקוח משויך (edge fn readings-fetch)
+- The "חריגות" sheet (CityMind sites only, after the EMS check) gets two columns after מספר סידורי: the EMS meter address and the
+  linked clients (" / "). Source: the same GET /v1/meters list the check already reads (one fetch). EMS returns only CURRENT links,
+  so a client whose link already ended is not shown. Not set up in EMS / off-scope check → empty.
+- Upload file, "סיכום" sheet and the stored `exceptions` rows unchanged (columns added only when writing the xlsx).
+- Why: עידן built this by hand for עין המפרץ October (to Viki Filman). Rollback: redeploy readings-fetch from the previous commit.
+
 ## 2026-11-04 - CityMind: אפיק added (live)
 Why: עידן — אפיק (Arad municipality) water readings, same pipeline as כנרת.
 - `db/citymind_afik.sql` applied on prod (backup `reading_sites_bak_2026_11_04`): reading_sites row, EMS site bf8fcda4…, secrets AFIK_CITYMIND_USER/PASS, daily_readings 1.

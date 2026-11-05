@@ -436,16 +436,35 @@ export async function waterEmsCheck({ base, site, day, emsRow }, ems) {
   const results = dropScopedErrors(raw, scope.trusted);
   // "not set up" comes ONLY from validate (METER_NOT_FOUND, + METER_NOT_IN_SITE when the scope is right) — never a list
   const built = applyEmsValidation(pre, results, { kibbutz: site.kibbutz });
+  // one meters fetch serves both the missing-meter rows and the address/client columns (עידן 5.11); never fetched off-scope
+  let meters = null;
+  if (scope.trusted && site.ems_site_id) { try { meters = await ems.siteMeters(); } catch { meters = null; } }
   let info = [];
   if (scope.trusted && site.ems_site_id) {
-    try { info = aradWaterMissing(await ems.siteMeters(), (base.all || []).map((r) => String(r[3]))); }
-    catch { info = [[SOURCE, '', '', '', null, 'מידע', 'לא נבדקו מונים חסרים — המערכת לא החזירה את רשימת המונים']]; }
+    info = meters ? aradWaterMissing(meters, (base.all || []).map((r) => String(r[3])))
+      : [[SOURCE, '', '', '', null, 'מידע', 'לא נבדקו מונים חסרים — המערכת לא החזירה את רשימת המונים']];
   } else info = [[SOURCE, '', '', '', null, 'מידע', SCOPE_NOTE]];
   // run-level lines (never per meter): unverified site membership, unchecked replacement continuity
   if (notInSite) info.push([SOURCE, '', '', '', null, 'מידע', `שיוך לאתר לא אומת עבור ${notInSite} מונים — אתר ה-EMS שלך אינו ${site.kibbutz} (EMS יאמת שוב בהעלאה)`]);
   const unchecked = Object.values(evidence).filter((e) => e && e.unchecked).length;
   if (unchecked) info.push([SOURCE, '', '', '', null, 'מידע', `רצף שיוך לא נבדק עבור ${unchecked} מונים — ${scope.trusted ? 'המערכת לא החזירה את פרטי המונה' : 'אתר ה-EMS שלך אינו ' + site.kibbutz}`]);
-  return { ...finishWater(built.upload, built.uploadMeta, built.all, [...built.exceptions, ...info]), scope };
+  return { ...finishWater(built.upload, built.uploadMeta, built.all, [...built.exceptions, ...info]), scope, meterInfo: meterInfoOf(meters) };
+}
+
+/** serial → [address, active linked clients joined " / "] from GET /v1/meters rows (EMS returns only active clientMeters). */
+export function meterInfoOf(meters) {
+  const out = {};
+  for (const m of meters || []) {
+    if (!m || m.serialNumber == null) continue;
+    const names = [...new Set((m.clientMeters || []).map((c) => c?.client?.name).filter(Boolean))];
+    out[String(m.serialNumber)] = [m.address || '', names.join(' / ')];
+  }
+  return out;
+}
+
+/** Exceptions xlsx rows: כתובת + לקוח משויך inserted after מספר סידורי; unknown serial (not set up / info) → empty. */
+export function withMeterInfo(exceptions, info) {
+  return exceptions.map((r) => { const [a, c] = (info && info[String(r[2])]) || ['', '']; return [...r.slice(0, 3), a, c, ...r.slice(3)]; });
 }
 
 /** Info rows: these serials are in the system and not in the CityMind report (spec "מידע"). */
