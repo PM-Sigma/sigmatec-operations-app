@@ -210,6 +210,16 @@ function pastOf(history, serial, day) {
   return past.sort((a, b) => cmp(a[0], b[0]));
 }
 
+/**
+ * Arad replaces the METER and keeps the transmitter (same serial) → the reading restarts low (עידן 11.11, 70B3D5A9F1325A74:
+ * 2136.464 → 128.148). A reset = below half of the last reading and at least near_zero_m3 lower (0.283 → 0.282 is drift).
+ * Still blocked: EMS refuses a decrease and rejects the WHOLE upload file for one bad row (HAS_INVALID_ROWS).
+ */
+export const isReset = (last, ft, rules) => ft < last / 2 && last - ft >= ({ ...WATER_RULES, ...(rules || {}) }).near_zero_m3;
+export const resetText = (last, at, ft) =>
+  `איפוס מונה — הוחלף מונה והמשדר נשאר (ארד): ${last} (${at}) → ${ft}. לרשום החלפת מונה ב-EMS ואז הקריאה תעלה`;
+const EMS_DROP = 'ירידה מול הקריאה האחרונה ב-EMS';
+
 /** (blocks, warns) for one water reading. */
 export function checkWater(rec, day, history, rules, prevSerial) {
   const R = { ...WATER_RULES, ...(rules || {}) };
@@ -227,9 +237,7 @@ export function checkWater(rec, day, history, rules, prevSerial) {
   const [lastD, last] = past[past.length - 1];
   const days = Math.max(Math.round((dayMs(day) - dayMs(lastD)) / DAY_MS), 1);
   if (ft < last) {
-    block.push(ft < R.near_zero_m3
-      ? `ירידה לסביבת 0 — כנראה החלפת מונה: ${last} (${dm(lastD)}) → ${ft}`
-      : `ירידה: ${last} (${dm(lastD)}) → ${ft}`);
+    block.push(isReset(last, ft, R) ? resetText(last, dm(lastD), ft) : `ירידה: ${last} (${dm(lastD)}) → ${ft}`);
     return { block, warn };
   }
   const perDay = (ft - last) / days;
@@ -436,6 +444,14 @@ export async function waterEmsCheck({ base, site, day, emsRow }, ems) {
   const results = dropScopedErrors(raw, scope.trusted);
   // "not set up" comes ONLY from validate (METER_NOT_FOUND, + METER_NOT_IN_SITE when the scope is right) — never a list
   const built = applyEmsValidation(pre, results, { kibbutz: site.kibbutz });
+  // an EMS drop that is a reset gets the reset text (EMS's last reading fetched only for those rows — usually none)
+  for (const e of built.exceptions) {
+    if (e[6] !== EMS_DROP || typeof e[4] !== 'number' || !ems.lastReading) continue;
+    try {
+      const lr = await ems.lastReading(String(e[2]));
+      if (lr && typeof lr.ft === 'number' && isReset(lr.ft, e[4], site.rules)) e[6] = resetText(lr.ft, 'EMS ' + dm(String(lr.date || '').slice(0, 10)), e[4]);
+    } catch { /* keep the EMS text */ }
+  }
   // one meters fetch serves both the missing-meter rows and the address/client columns (עידן 5.11); never fetched off-scope
   let meters = null;
   if (scope.trusted && site.ems_site_id) { try { meters = await ems.siteMeters(); } catch { meters = null; } }

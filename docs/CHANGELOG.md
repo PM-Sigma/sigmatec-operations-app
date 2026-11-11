@@ -7,6 +7,18 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-11 - CityMind: meter reset detection (meter replaced, transmitter kept) (edge fn readings-fetch)
+Why: עידן — in Arad they replace the meter and keep the transmitter, so the reading restarts low (עין המפרץ 70B3D5A9F1325A74:
+EMS 2136.464 on 31.08 → 128.148).
+- A drop below half of the last reading AND ≥ near_zero_m3 (5) lower = "איפוס מונה — הוחלף מונה והמשדר נשאר (ארד)", vs our history
+  and vs EMS (the EMS check now fetches EMS's last reading only for FT_DECREASED rows). Tiny drifts (0.283→0.282, 586.495→586.494)
+  stay a plain "ירידה". The old "ירידה לסביבת 0" label is gone.
+- Still BLOCKED (not uploaded): EMS refuses a decrease and rejects the WHOLE upload file if one row is invalid (HAS_INVALID_ROWS).
+  The reading goes in once the replacement is recorded in EMS.
+- Scan 11.11 (all 2,785 Arad meters, latest CityMind vs EMS last reading): one live reset — 70B3D5A9F1325A74. Earlier in our own
+  history: אור הנר 641001 (1964.8 → 5.9, 26.10; now "not set up" in EMS).
+- Rollback: redeploy readings-fetch from the previous commit.
+
 ## 2026-11-11 - CityMind: עין השופט added (live)
 - Existing inactive reading_sites row (from 12.10) switched on (`db/citymind_ein_hashofet.sql`, backup `reading_sites_bak_2026_11_11`).
 - Secrets EINHASHOFET_CITYMIND_USER/PASS set by עידן. PROBE: 619 meters, daily 1. Dry + live run 10.11: 619 rows, 0 blocked/warn.

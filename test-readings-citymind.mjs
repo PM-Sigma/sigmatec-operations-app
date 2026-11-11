@@ -5,7 +5,7 @@ import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import {
   buildWater, checkWater, continuity, idMap, INGEST_MAX_BYTES, INGEST_MAX_ROWS, keyMatches, missingInfo, parseCityMind,
-  parseCsv, resolveReplacements, validateIngest, CityMindError, normHeader, detectFileType, safeErrorLine,
+  parseCsv, resolveReplacements, validateIngest, CityMindError, normHeader, detectFileType, safeErrorLine, isReset, resetText,
 } from './supabase/functions/readings-fetch/citymind.mjs';
 import { cronFirstRunDue, cronStartOffset, CRON_SPREAD_MIN } from './supabase/functions/readings-fetch/helpers.js';
 
@@ -126,9 +126,13 @@ t('BLOCK drop vs the last SAVED reading (dates < D only)', () => {
   assert.deepStrictEqual(reasons(r, 'חוסם'), ['T1000001|ירידה: 95 (07/10) → 90']);
 });
 
-t('BLOCK drop to ~0 is labelled a probable meter replacement', () => {
-  const r = buildWater({ day: DAY, rows: [rec('T1000001', 0.4)], history: [hist('2026-10-08', { T1000001: 812 })] });
-  assert.deepStrictEqual(reasons(r, 'חוסם'), ['T1000001|ירידה לסביבת 0 — כנראה החלפת מונה: 812 (08/10) → 0.4']);
+t('BLOCK reset (meter replaced, transmitter kept — Arad): labelled, kept out of the upload (EMS rejects the whole file)', () => {
+  const r = buildWater({ day: DAY, rows: [rec('T1000001', 128.148)], history: [hist('2026-10-08', { T1000001: 2136.464 })] });
+  assert.deepStrictEqual(reasons(r, 'חוסם'), ['T1000001|' + resetText(2136.464, '08/10', 128.148)]);
+  assert.ok(!inUpload(r, 'T1000001'));
+  const drift = buildWater({ day: DAY, rows: [rec('T1000001', 0.282)], history: [hist('2026-10-08', { T1000001: 0.283 })] });
+  assert.deepStrictEqual(reasons(drift, 'חוסם'), ['T1000001|ירידה: 0.283 (08/10) → 0.282'], 'tiny drift near 0 is not a reset');
+  assert.ok(isReset(1964.8, 5.865) && !isReset(586.495, 586.494) && !isReset(9995052.8, 9995031.5));
 });
 
 t('WARN > 100 m³ a day (still uploaded)', () => {
@@ -291,7 +295,7 @@ t('cron spread: 0–25 min, fixed per (site, date), not the same every day', () 
 console.log(`test-readings-citymind: ${n} passed`);
 
 // ── 12.10 regression: the EMS check of a CityMind run is scope-aware (mocked EMS) ──
-import { waterEmsCheck, aradWaterMissing, scopeOf, SCOPE_NOTE, meterInfoOf, withMeterInfo } from './supabase/functions/readings-fetch/citymind.mjs';
+import { waterEmsCheck, aradWaterMissing, scopeOf, SCOPE_NOTE, meterInfoOf, withMeterInfo, resetText as resetText2 } from './supabase/functions/readings-fetch/citymind.mjs';
 const SITE_EIN = { kibbutz: 'עין המפרץ', ems_site_id: 'site-ein' };
 const emsRowOf = (r) => ({ serialNumber: String(r[0]), energyTypeCode: r[1], readingDate: r[3], ft: r[4] });
 const mkBase = () => buildWater({ day: DAY, rows: [rec('T1000001', 10), rec('T1000002', 20), rec('T2000003', 3, { id: '9003' })], prevIds: { 9003: 'T1000003' } });
@@ -399,6 +403,19 @@ at2('exceptions xlsx: כתובת + לקוח משויך after מספר סידור
   assert.deepStrictEqual(meterInfoOf([{ serialNumber: 5, address: null, clientMeters: [] }]), { 5: ['', ''] });
   const off = await check2(plainBase(), mockEms({ currentSite: 'site-other', meters }));
   assert.deepStrictEqual(off.meterInfo, {}, 'off-scope: list not fetched, columns empty');
+});
+at2('EMS FT_DECREASED that is a reset → reset text (EMS last reading); a small EMS drop keeps the EMS text', async () => {
+  const ft = { T1000001: 10, T1000002: 20 };
+  const dec = (row, i) => row.serialNumber in ft
+    ? { rowIndex: i, valid: false, errors: ['UPLOAD_READINGS.ERRORS.FT_DECREASED'], warnings: [] }
+    : { rowIndex: i, valid: true, errors: [], warnings: [] };
+  const ems = { ...mockEms({ currentSite: 'site-ein', validate: dec }),
+    lastReading: async (s) => (s === 'T1000001' ? { ft: 2136.464, date: '2026-08-31T00:00:00Z' } : { ft: 20.001, date: '2026-09-30' }) };
+  const r = await check2(plainBase(), ems);
+  const why = (s) => r.exceptions.filter((e) => e[2] === s && e[5] === 'חוסם').map((e) => e[6]);
+  assert.deepStrictEqual(why('T1000001'), [resetText2(2136.464, 'EMS 31/08', 10)]);
+  assert.deepStrictEqual(why('T1000002'), ['ירידה מול הקריאה האחרונה ב-EMS']);
+  assert.ok(r.summary.some((x) => x[1] === 'איפוס מונה' && x[2] === 1));
 });
 for (const [name, fn] of asyncT2) { await fn(); n++; console.log('  ok', name); }
 console.log(`test-readings-citymind (with scope summary): ${n} passed`);

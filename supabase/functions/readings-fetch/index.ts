@@ -356,6 +356,7 @@ async function emsCheck(run_id: string, token: string, who: string) {
       siteMeters: () => siteWaterMeters(site, auth),
       meterClients: (serial: string) => meterClients(site, serial, auth),
       hasReadings: (serial: string) => hasEmsReadings(site, serial, auth),
+      lastReading: (serial: string) => emsLastReading(site, serial, auth),
     };
     let built: any;
     try { built = await waterEmsCheck({ base, site, day: run.reading_date, emsRow }, ems); }
@@ -431,6 +432,14 @@ async function siteWaterMeters(site: any, auth: Record<string, string>) {
     if (rows.length < 200) break;
   }
   return out;
+}
+
+/** {ft, date} of the meter's last EMS reading (GET /v1/upload-readings/meters → lastFt / lastReadingDate), or null. */
+async function emsLastReading(site: any, serial: string, auth: Record<string, string>) {
+  const list = listOf(await getJson(`${EMS_BASE()}/v1/upload-readings/meters?search=${encodeURIComponent(serial)}&energyTypeCode=${energyCode(site)}` +
+    (site.ems_site_id ? `&siteId=${encodeURIComponent(site.ems_site_id)}` : ""), auth));
+  const m = list.find((x: any) => String(x?.serialNumber) === serial);
+  return m && typeof m.lastFt === "number" ? { ft: m.lastFt, date: m.lastReadingDate } : null;
 }
 
 async function hasEmsReadings(site: any, serial: string, auth: Record<string, string>) {
