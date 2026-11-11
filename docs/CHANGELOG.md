@@ -7,6 +7,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-11 - CityMind: עין השופט added (live)
+- Existing inactive reading_sites row (from 12.10) switched on (`db/citymind_ein_hashofet.sql`, backup `reading_sites_bak_2026_11_11`).
+- Secrets EINHASHOFET_CITYMIND_USER/PASS set by עידן. PROBE: 619 meters, daily 1. Dry + live run 10.11: 619 rows, 0 blocked/warn.
+- EMS: עין השופט has no water meters yet → the EMS check marks rows "not set up" until they are added.
+- No code change. Rollback: `update reading_sites set active=false where kibbutz='עין השופט'`.
+
 ## 2026-11-05 - CityMind exceptions file: כתובת + לקוח משויך (edge fn readings-fetch)
 - The "חריגות" sheet (CityMind sites only, after the EMS check) gets two columns after מספר סידורי: the EMS meter address and the
   linked clients (" / "). Source: the same GET /v1/meters list the check already reads (one fetch). EMS returns only CURRENT links,
