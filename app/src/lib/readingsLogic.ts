@@ -55,6 +55,14 @@ export function addDays(ymd: string, delta: number): string {
 /** Yesterday in Israel — the default AND the max of the manual-run date picker (no min). */
 export const yesterdayIL = (now: Date = new Date()): string => addDays(israelYmd(now), -1);
 
+/** The last day of the last `n` closed months, newest first — the manual-run quick picks (עידן 19.11: month-end pulls). */
+export function monthEnds(n = 3, now: Date = new Date()): string[] {
+  const first = israelYmd(now).slice(0, 8) + '01';
+  const out: string[] = [];
+  for (let d = addDays(first, -1); out.length < n; d = addDays(d.slice(0, 8) + '01', -1)) out.push(d);
+  return out;
+}
+
 /** 0 = Sunday … 6 = Saturday, in Israel. */
 export function israelWeekday(now: Date = new Date()): number {
   const [y, m, d] = israelYmd(now).split('-').map(Number);

@@ -54,6 +54,19 @@ export function reportUrl(iso, daily = '1') {
   return CM_BASE + '/Pages/ReadReport.aspx?' + q.toString();
 }
 
+/**
+ * The report is "FROM day" → an old day's export holds every reading since (5–6 MB for 2 months) and the function times
+ * out (503, עידן 19.11). Keep the header + the lines carrying the day's date, byte for byte; returned only if it parses
+ * to the same n rows (else the full export goes, as before).
+ */
+export function keepDay(b64, iso, n) {
+  const bin = atob(b64);
+  const needle = iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4);   // ASCII: same in bytes and text
+  const lines = bin.split(/(?<=\x0a)/);
+  const out = btoa(lines.filter((l, i) => i === 0 || l.includes(needle)).join(''));
+  try { return parseCityMind(decodeRaw(out).text, iso).length === n ? out : b64; } catch { return b64; }
+}
+
 /** Stage A storage path: the raw export, byte for byte as CityMind returned it (private bucket `readings`). */
 export const rawPath = (siteId, date) => `${siteId}/${date}/raw-citymind.csv`;
 /** base64 → {bytes, text} (the export is windows-1255). */

@@ -5,6 +5,7 @@
 import { badRunDate, retentionCutoff, STUCK_MS } from './helpers.js';
 
 export const WORKFLOW_FILE = 'citymind-arad.yml';
+export const MAX_BACK_DAYS = 365;
 /** A manual CityMind run waits for a GitHub runner (queue + Firefox + login + report): allow far longer than STUCK_MS. */
 export const DISPATCH_STALE_MS = 25 * 60 * 1000;
 export const DISPATCH_STALE_TEXT = 'המשיכה לא הסתיימה — נסה שוב';
@@ -32,8 +33,9 @@ export function planDispatch({ site, date, runs, now = new Date() }) {
   if (site.active === false) return { action: 'reject', status: 400, error: 'INACTIVE', message: 'האתר לא פעיל' };
   const bad = badRunDate(date, now);
   if (bad) return { action: 'reject', status: 400, error: 'BAD_DATE', message: bad };
-  const days = site.retention_days || 35;
-  if (date < retentionCutoff(now, days)) return { action: 'reject', status: 400, error: 'TOO_OLD', message: `אפשר למשוך עד ${days} ימים אחורה` };
+  // a pull back in time is kept retention_days from when it was PULLED (maintenance counts started_at), so the reach is
+  // CityMind's, not the retention window (עידן 19.11: month-end pulls)
+  if (date < retentionCutoff(now, MAX_BACK_DAYS)) return { action: 'reject', status: 400, error: 'TOO_OLD', message: `אפשר למשוך עד ${MAX_BACK_DAYS} ימים אחורה` };
   const nowMs = now.getTime();
   const live = (runs || []).filter((r) => r.status === 'ok' || (r.status === 'running' && !staleText(r, nowMs)));
   live.sort((a, b) => (a.status === 'ok' ? 0 : 1) - (b.status === 'ok' ? 0 : 1));

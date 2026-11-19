@@ -28,11 +28,11 @@ t('future date and today → BAD_DATE; malformed → BAD_DATE', () => {
     assert.deepStrictEqual([p.action, p.status, p.error], ['reject', 400, 'BAD_DATE'], String(d));
   }
 });
-t('older than the site retention_days → TOO_OLD (35 default, per-site value honoured); the last allowed day passes', () => {
-  assert.strictEqual(plan({ date: '2026-09-20' }).error, 'TOO_OLD');          // 36 days back
-  assert.strictEqual(plan({ date: '2026-09-21' }).action, 'start');           // 35 days back = cutoff
-  assert.strictEqual(plan({ site: site({ retention_days: 10 }), date: '2026-10-10' }).error, 'TOO_OLD');
-  assert.strictEqual(plan({ site: site({ retention_days: null }), date: '2026-09-21' }).action, 'start');
+t('back in time up to 365 days (retention no longer limits it — month-end pulls); older → TOO_OLD', () => {
+  assert.strictEqual(plan({ date: '2026-09-20' }).action, 'start');           // 36 days back: was TOO_OLD
+  assert.strictEqual(plan({ site: site({ retention_days: 10 }), date: '2026-08-31' }).action, 'start');
+  assert.strictEqual(plan({ date: '2025-10-26' }).action, 'start');           // 365 days back = cutoff
+  assert.strictEqual(plan({ date: '2025-10-25' }).error, 'TOO_OLD');
 });
 t('an existing ok / running run → returned, no dispatch (ok wins over running)', () => {
   assert.deepStrictEqual(plan({ runs: [run({ id: 'a', status: 'ok' })] }), { action: 'existing', run_id: 'a', status: 'ok' });

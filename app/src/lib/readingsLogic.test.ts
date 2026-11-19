@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addActive, badgeCount, failedSources, finishToast, historyRows, isoWeekKey, israelWeekday, latestCronPerSite,
   latestRun, manualView, metersForReason, parseActive, progressText, reasonGroups, removeActive, shouldSundayCheck,
-  watchVerdict, yesterdayIL, historySince, oldManualGroups, HISTORY_DAYS, siteMode, canDownload, canPull, cityMindSteps, type ReadingRun,
+  watchVerdict, yesterdayIL, monthEnds, historySince, oldManualGroups, HISTORY_DAYS, siteMode, canDownload, canPull, cityMindSteps, type ReadingRun,
 } from './readingsLogic';
 
 const run = (o: Partial<ReadingRun> = {}): ReadingRun => ({
@@ -17,6 +17,12 @@ const run = (o: Partial<ReadingRun> = {}): ReadingRun => ({
 const TUE = new Date('2026-09-29T10:00:00Z');
 
 describe('dates (Asia/Jerusalem, never the browser zone)', () => {
+  it('month-end quick picks: the last 3 closed months, newest first (Feb, year boundary, Israeli midnight)', () => {
+    expect(monthEnds(3, new Date('2026-11-19T09:00:00Z'))).toEqual(['2026-10-31', '2026-09-30', '2026-08-31']);
+    expect(monthEnds(3, new Date('2027-01-01T09:00:00Z'))).toEqual(['2026-12-31', '2026-11-30', '2026-10-31']);
+    expect(monthEnds(2, new Date('2028-03-05T09:00:00Z'))).toEqual(['2028-02-29', '2028-01-31']);
+    expect(monthEnds(1, new Date('2026-11-30T22:30:00Z'))).toEqual(['2026-11-30']);   // 00:30 on 1.12 in Israel
+  });
   it('yesterday is the picker default and max', () => {
     expect(yesterdayIL(TUE)).toBe('2026-09-28');
   });

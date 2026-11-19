@@ -24,7 +24,7 @@ import { useCurrentUser } from '@/bridge';
 import { canUseReadings } from '@/lib/readingsRoster';
 import {
   canDownload, historySince, oldManualGroups, type OldManualGroup, dmHmIL, dmIL, failedSources, historyRows, siteMode, latestCronPerSite, latestRun, metersForReason,
-  cityMindSteps, canPull, manualView, progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
+  addDays, cityMindSteps, canPull, manualView, monthEnds, progressText, reasonGroups, yesterdayIL, type HistoryRow, type ReadingRun, type ReasonGroup,
 } from '@/lib/readingsLogic';
 import {
   emsCheck, emsToken, fetchOldManualRuns, fetchRuns, fetchSites, fetchSources, markSeen, markUploaded, openDownload, retrySource,
@@ -268,7 +268,7 @@ function ManualRun({ site, runs, since, sourceNames, onStarted }: { site: Readin
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex min-w-0 flex-1 flex-col gap-1 text-[length:var(--fs-body-sm)] font-semibold">
           תאריך הקריאות
-          <input type="date" data-testid="readings-date" value={date} max={max}
+          <input type="date" data-testid="readings-date" value={date} max={max} min={addDays(max, -364)}
             onChange={e => setDate(e.target.value)}
             className="h-11 w-full min-w-0 rounded-[var(--r-md)] border border-input bg-background px-3 text-[length:var(--fs-body)]" />
         </label>
@@ -277,6 +277,16 @@ function ManualRun({ site, runs, since, sourceNames, onStarted }: { site: Readin
           onClick={() => void go()}>
           {view.label}
         </BubbleButton>
+      </div>
+      {/* quick picks: yesterday + the last 3 month-ends (עידן 19.11) */}
+      <div className="flex flex-wrap gap-2" data-testid="readings-quick-dates">
+        {[[max, 'אתמול'] as const, ...monthEnds(3).filter(d => d !== max).map(d => [d, 'סוף ' + dmIL(d)] as const)].map(([d, label]) => (
+          <button key={d} type="button" aria-pressed={date === d} onClick={() => setDate(d)}
+            className={'min-h-10 rounded-full border px-3 text-[length:var(--fs-body-sm)] transition-colors '
+              + (date === d ? 'border-primary bg-primary font-semibold text-primary-foreground' : 'border-border bg-background hover:bg-muted')}>
+            {label}
+          </button>
+        ))}
       </div>
       {!!date && date < since && (
         <span data-testid="readings-old-hint" className="text-[length:var(--fs-body-sm)] text-muted-foreground">

@@ -626,8 +626,10 @@ async function maintenance(now: Date) {
   const { data: sites } = await sb.from("reading_sites").select("id,retention_days");
   let deleted = 0;
   for (const s of sites || []) {
+    // by when the run was PULLED (started_at), so a manual pull of an old date is kept like any other (עידן 19.11)
+    const keepFrom = new Date(now.getTime() - (s.retention_days || 35) * 86400000).toISOString();
     const { data: old } = await sb.from("reading_runs").select("id,readings_file,exceptions_file,raw_file")
-      .eq("site_id", s.id).lt("reading_date", retentionCutoff(now, s.retention_days || 35));
+      .eq("site_id", s.id).lt("started_at", keepFrom);
     if (!old?.length) continue;
     const files = old.flatMap((r: any) => [r.readings_file, r.exceptions_file, r.raw_file]).filter(Boolean);
     if (files.length) await sb.storage.from("readings").remove(files);

@@ -5,7 +5,7 @@ import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import {
   buildWater, checkWater, continuity, idMap, INGEST_MAX_BYTES, INGEST_MAX_ROWS, keyMatches, missingInfo, parseCityMind,
-  parseCsv, resolveReplacements, validateIngest, CityMindError, normHeader, detectFileType, safeErrorLine, isReset, resetText,
+  parseCsv, resolveReplacements, validateIngest, CityMindError, normHeader, detectFileType, safeErrorLine, isReset, resetText, keepDay,
 } from './supabase/functions/readings-fetch/citymind.mjs';
 import { cronFirstRunDue, cronStartOffset, CRON_SPREAD_MIN } from './supabase/functions/readings-fetch/helpers.js';
 
@@ -20,6 +20,18 @@ const rec = (serial, ft, o = {}) => ({ id: '9' + serial.slice(-3), serial, when:
 // ── the parser ────────────────────────────────────────────────────────────────
 const bytes = readFileSync(new URL('./qa/fixtures/citymind-ein-hamifratz-fake.csv', import.meta.url));
 const text = new TextDecoder('windows-1255').decode(bytes);
+
+t('keepDay: an old day export ("FROM day") is cut to that day, byte for byte (5–6 MB → 503 on 19.11)', () => {
+  const day = '2026-10-09', n = parseCityMind(text, day).length;
+  const later = Buffer.from('"99","9099","T9999999","10/10/2026 23:00","5",\x0d\x0a', 'latin1');
+  const full = Buffer.concat([bytes, later, later]).toString('base64');
+  const cut = keepDay(full, day, n);
+  assert.ok(cut.length < full.length);
+  const kept = Buffer.from(cut, 'base64');
+  assert.ok(!kept.includes('T9999999') && kept.subarray(0, 40).equals(bytes.subarray(0, 40)), 'header kept, later days dropped');
+  assert.deepStrictEqual(parseCityMind(new TextDecoder('windows-1255').decode(kept), day), parseCityMind(text, day), 'same rows, same bytes');
+  assert.strictEqual(keepDay(full, day, n + 1), full, 'a different row count → the full export, as before');
+});
 
 t('windows-1255 fixture decodes to Hebrew headers', () => {
   assert.ok(text.startsWith("מס\"ד,מס' זיהוי,"),'Hebrew header survives the decode (the real shape: unquoted, a literal " mid-field)');

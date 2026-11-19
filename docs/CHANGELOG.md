@@ -7,6 +7,16 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-19 - Readings: pull back up to a year + month-end quick picks (2.191, edge fn readings-fetch)
+Why: עידן's bug (feedback 11.11 + 19.11) "TOO_OLD — אפשר למשוך עד 35 ימים אחורה"; month closing needs month-end days.
+- Manual CityMind pull reaches 365 days back (`dispatch.mjs` MAX_BACK_DAYS); the date input has min = a year back.
+- Quick picks under the date: אתמול + the last 3 month-ends ("סוף 31/10" …).
+- Maintenance now deletes runs by `started_at` (when pulled), not `reading_date` — an old pull is kept 35 days like any other.
+- Root cause of the 503 on old days: the report is "FROM day", so an old day's export holds every reading since (5–6 MB) and
+  the function hit its 160 s limit. The runner now cuts an export over ~1 MB to the header + that day's lines (`keepDay`,
+  used only if it parses to the same rows); normal daily exports still go byte for byte. Dry runs: 1.10 / 30.09 ok, 31.08 / 15.09 503 before.
+- Rollback: redeploy readings-fetch from the previous commit + revert this commit (runner + app).
+
 ## 2026-11-11 - CityMind: meter reset detection (meter replaced, transmitter kept) (edge fn readings-fetch)
 Why: עידן — in Arad they replace the meter and keep the transmitter, so the reading restarts low (עין המפרץ 70B3D5A9F1325A74:
 EMS 2136.464 on 31.08 → 128.148).

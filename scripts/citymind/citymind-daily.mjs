@@ -17,7 +17,7 @@
 //      how many readings per meter per day it returns — counts only; nothing is sent to the function.
 //      PLAYWRIGHT_MODULE (path of an installed playwright)
 import { readFileSync } from 'node:fs';
-import { parseCityMind, reportUrl, CityMindError, safeErrorLine, CM_BASE as CM } from '../../supabase/functions/readings-fetch/citymind.mjs';
+import { keepDay, parseCityMind, reportUrl, CityMindError, safeErrorLine, CM_BASE as CM } from '../../supabase/functions/readings-fetch/citymind.mjs';
 import { addDaysIso, badRunDate, israelYesterday } from '../../supabase/functions/readings-fetch/helpers.js';
 
 const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';
@@ -77,6 +77,7 @@ async function exportRaw(pg, iso, value) {
   return res[1];
 }
 const b64text = (b64) => new TextDecoder('windows-1255').decode(Buffer.from(b64, 'base64'));
+
 
 async function post(day, payload) {
   const key = env('READINGS_INGEST_KEY');
@@ -142,7 +143,11 @@ async function main() {
       let b64;
       try { b64 = await exportRaw(session.pg, day, daily); } catch (e) { await fail(day, e); continue; }
       // a local parse only for the log line; the function parses the stored raw itself
-      try { log(day, 'rows for the day:', parseCityMind(b64text(b64), day).length); } catch (e) { log('local parse:', e instanceof CityMindError ? safeErrorLine(e) : 'failed'); }
+      try {
+        const n = parseCityMind(b64text(b64), day).length;
+        log(day, 'rows for the day:', n);
+        if (b64.length > 1_400_000) b64 = keepDay(b64, day, n);   // ~1 MB+: an old day (a normal day is far smaller and goes untouched)
+      } catch (e) { log('local parse:', e instanceof CityMindError ? safeErrorLine(e) : 'failed'); }
       const r = await post(day, { csv_b64: b64 }).catch(() => ({ status: 0, d: null }));
       log(day, 'function status', r.status, JSON.stringify(counts(r.d)));
       if (r.status !== 200) lost = true;

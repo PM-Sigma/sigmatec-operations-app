@@ -229,7 +229,7 @@ test('a gap day: "לא נמשך" + [משוך] starts a run for exactly that date
   expectNoConsoleErrors(rec);
 });
 
-test('manual run: date defaults to yesterday (max = yesterday, no min); run → progress; leave the page → chip; done → toast with the way back', async ({ page }, ti) => {
+test('manual run: date defaults to yesterday (max = yesterday, min = a year back, month-end quick picks); run → progress; leave the page → chip; done → toast with the way back', async ({ page }, ti) => {
   test.setTimeout(90_000);
   const S: Mock = { runs: history().slice(1), calls: [] };          // nothing pulled for yesterday yet
   const { rec } = await boot(page, ti, { who: 'עידן' });
@@ -240,7 +240,17 @@ test('manual run: date defaults to yesterday (max = yesterday, no min); run → 
   const date = page.getByTestId('readings-date');
   await expect(date).toHaveValue(yesterdayIL());
   await expect(date).toHaveAttribute('max', yesterdayIL());
-  await expect(date).not.toHaveAttribute('min', /.+/);
+  const back = new Date(yesterdayIL() + 'T12:00:00Z'); back.setUTCDate(back.getUTCDate() - 364);
+  await expect(date).toHaveAttribute('min', back.toISOString().slice(0, 10));
+  const quick = page.getByTestId('readings-quick-dates').getByRole('button');
+  const firstOfMonth = new Date(yesterdayIL().slice(0, 8) + '01T12:00:00Z');
+  const lastMonthEnd = new Date(firstOfMonth.getTime() - 86400000).toISOString().slice(0, 10);
+  const onFirst = new Date(Date.parse(yesterdayIL() + 'T12:00:00Z') + 86400000).getUTCDate() === 1;   // yesterday IS a month-end: no duplicate
+  await expect(quick).toHaveCount(onFirst ? 3 : 4);
+  await quick.nth(1).click();                                        // סוף <a previous month>
+  if (!onFirst) await expect(date).toHaveValue(lastMonthEnd);
+  await quick.nth(0).click();                                        // אתמול
+  await expect(date).toHaveValue(yesterdayIL());
 
   await page.getByTestId('readings-run').click();
   const prog = page.getByTestId('readings-progress');
