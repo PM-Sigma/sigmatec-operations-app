@@ -4,6 +4,15 @@
 // The rules themselves are goldens (app/src/lib/burns.test.ts + components/home/Burns.test.tsx).
 import { boot, expect, expectNoConsoleErrors, expectRtl, shot, test } from './_helpers';
 
+test('צריבות OFF as shipped (עידן 19.11.26): no strip on the landing, the burns page refuses even עידן', async ({ page }, ti) => {
+  const { rec } = await boot(page, ti, { who: 'עידן', burnsOff: true });
+  await expect(page.locator('#sigma-burns')).toBeAttached();
+  await page.waitForTimeout(1500);                                   // the strip would mount right after the cards
+  await expect(page.getByTestId('burns-strip')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).sigma.canShowPage('burns'))).toBeFalsy();
+  expectNoConsoleErrors(rec);
+});
+
 test('burns strip: one row, "בוצעו X מתוך Y", a tap opens the burns page and filters nothing', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
 

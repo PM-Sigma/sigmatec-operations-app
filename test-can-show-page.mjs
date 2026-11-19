@@ -57,7 +57,7 @@ function gateFor(user, role, { burnsActive = true } = {}) {
   const window = {};
   const make = new Function('localStorage', 'window', program);
   const gate = make(localStorage, window);
-  if (!burnsActive) window.BURNS_PROJECT_ACTIVE = false;
+  window.BURNS_PROJECT_ACTIVE = burnsActive;   // the shipped value is checked below; the matrix runs with the project ON
   return gate;
 }
 
@@ -102,6 +102,8 @@ for (const who of Object.keys(MATRIX)) {
   catch { failures++; console.log(`  FAIL - burns must close for ${who} when the project ends`); }
 }
 console.log('  ok - burns closed for all when BURNS_PROJECT_ACTIVE = false');
+assert.match(lineMatching(consts, /window\.BURNS_PROJECT_ACTIVE\s*=/), /=\s*false/, 'צריבות is OFF in production (עידן 19.11.26)');
+console.log('  ok - the shipped flag is false (צריבות off since 19.11.26)');
 
 // G-L4: the flag now lives in 00-consts.js, and the gate is read from 00-bridge.js alone — no
 // separate burns file loaded by this runner or referenced by canShowPage any more.

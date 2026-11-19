@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-19 - צריבות switched OFF (2.192)
+Why: עידן — "not needed at all for now".
+- `window.BURNS_PROJECT_ACTIVE = false` (js/src/00-consts.js) — the project's own kill switch: no landing strip, no burns page
+  (canShowPage refuses everyone), no briefing rows / leave-checklist items / meeting status tile. Code + `meter_burns` data kept.
+- Specs keep testing the dormant project with the flag pinned ON (`boot` in qa/playwright/tests/_helpers.ts); `burnsOff: true`
+  runs the shipped value (new burns.spec test); test-can-show-page asserts the shipped value is false.
+- Browser suite on the touched specs: same 20 pre-existing failures as main (kibbutz / kibbutz-detail / fieldops-site), no new ones.
+- Bring it back: set the flag to true and rebuild.
+
 ## 2026-11-19 - Readings: pull back up to a year + month-end quick picks (2.191, edge fn readings-fetch)
 Why: עידן's bug (feedback 11.11 + 19.11) "TOO_OLD — אפשר למשוך עד 35 ימים אחורה"; month closing needs month-end days.
 - Manual CityMind pull reaches 365 days back (`dispatch.mjs` MAX_BACK_DAYS); the date input has min = a year back.

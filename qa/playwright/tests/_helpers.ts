@@ -831,6 +831,11 @@ export interface BootOptions {
    * noise, not the app misbehaving.
    */
   fieldPrompt?: boolean;
+  /**
+   * 🔥 צריבות is OFF in production since 19.11.26 (js/src/00-consts.js). The specs keep testing the dormant
+   * project with it ON, so turning it back on is one flag; `burnsOff: true` runs the real shipped value.
+   */
+  burnsOff?: boolean;
 }
 
 export interface Booted { rec: Recorder; theme: 'light' | 'dark'; viewport: string }
@@ -853,6 +858,7 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
     ...(opts.storage || {}),
   };
   if (opts.fieldPrompt) (seed as any).__fieldPrompt = true;
+  if (!opts.burnsOff) (seed as any).__burnsOn = true;
   await page.addInitScript(entries => {
     try {
       // `__`-prefixed entries are harness FLAGS (see `__fieldPrompt`), not storage keys.
@@ -867,6 +873,8 @@ export async function boot(page: Page, testInfo: TestInfo, opts: BootOptions = {
     // granting a permission the specs are not about (push has its own legacy runner,
     // test-push.mjs).
     (window as any)._pushPromptShown = true;
+    // the shipped 00-consts.js writes false; a harness-pinned `true` ignores that write (see BootOptions.burnsOff)
+    if ((entries as any).__burnsOn) Object.defineProperty(window, 'BURNS_PROJECT_ACTIVE', { get: () => true, set: () => {}, configurable: true });
     // Same story for js/src/02-init-attendance.js: אביאם / ניתאי get a full-screen
     // "חסר תיעוד!" reminder once per session, which also covers the page. Its own latch.
     (window as any)._attReminderShown = true;

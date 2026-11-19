@@ -91,7 +91,7 @@
   // `meter_burns` for the report. app/src/lib/burns.ts `burnsProjectActive()` reads the same
   // global. Read here, early (file 00), so canShowPage('burns') in 00-bridge.js sees it
   // regardless of load order.
-  window.BURNS_PROJECT_ACTIVE = true;
+  window.BURNS_PROJECT_ACTIVE = false;   // OFF since 19.11.26 (עידן: "not needed at all for now") — flip to true to bring it back
 
   // ── Round 5 package V: the inventory breakpoint + the edit lock ─────────────────────────
   // 2.29 Phase 1: 159 movements archived to archive.movements_pre_breakpoint, replaced by 81
