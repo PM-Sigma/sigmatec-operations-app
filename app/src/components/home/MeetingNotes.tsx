@@ -526,19 +526,3 @@ export function MeetingTimeline({
     </div>
   );
 }
-
-/**
- * The card entry point. Reads the shared query itself (one fetch for the whole page — every
- * card hits the same TanStack entry) and hides itself entirely while it is still loading, so
- * a card never jumps by a line.
- */
-export function MeetingNotes({ kibbutz, canAct }: { kibbutz: string; canAct: boolean }) {
-  const { data, isLoading } = useMeetingNotes();
-  if (isLoading && !data) return null;
-  // §7k #7: two lines on the card. The full history is one tap away, and the kibbutz modal's
-  // summaries tab (expandAll) still opens everything at once.
-  return <MeetingTimeline rows={data} kibbutz={kibbutz} canAct={canAct} collapse={CARD_BULLETS} />;
-}
-
-/** The latest N bullets a card shows before "עוד N" (§7k #7: "the latest 1–2 lines"). */
-export const CARD_BULLETS = 2;

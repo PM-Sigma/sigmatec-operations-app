@@ -10,7 +10,6 @@ import { motion, useReducedMotion } from 'motion/react';
 import { sigma } from '@/bridge';
 import { useVisitDraft } from '@/lib/visitDrafts';
 import { EmsTasks } from '@/components/home/EmsTasks';
-import { MeetingNotes } from '@/components/home/MeetingNotes';
 import { InternalTasksSection, TaskAdders } from '@/components/home/InternalTasks';
 import { WorkTimer } from '@/components/home/WorkTimer';
 import { energyText, isUnlinked, labelOf, sectionOf, isSubsite, NO_REGION_LABEL, type KibbutzRow } from '@/lib/kibbutzim';
@@ -134,12 +133,12 @@ export function KibbutzCard({
             renders it next to the name and opens the same sheet through window.sigmaHome. */}
       </div>
       {/* Closed-card order (round 5, K4/K9, QA קיבוצים 3): EMS tasks → internal tasks →
-          last-visit line → meeting notes. Onboarding moved OUT of the closed card entirely
+          last-visit line. Onboarding moved OUT of the closed card entirely
           (K11) — it lives only in the open card, under מצב הקיבוץ. */}
       <div data-card-section="ems"><EmsTasks kibbutz={row.name} variant="card" /></div>
       <div data-card-section="internal"><InternalTasksSection kibbutz={row.name} /></div>
       <LastVisitRow name={row.name} />
-      <div data-card-section="meetings"><MeetingNotes kibbutz={row.name} canAct={role !== 'viewer'} /></div>
+      {/* meeting notes left the home card (עידן 19.11) — the history lives in the kibbutz page (StatusTab) */}
       {role !== 'viewer' && <TaskAdders kibbutz={row.name} />}
     </motion.div>
   );

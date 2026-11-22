@@ -263,15 +263,6 @@ test('kibbutz card — visits tab + meeting notes', async ({ page }, ti) => {
   await audit(page, ti, 'card-visits');
 });
 
-test('kibbutz card — meeting notes on the home card (history open)', async ({ page }, ti) => {
-  await boot(page, ti);
-  const section = page.locator('[data-section="meetings"]').first();
-  await section.scrollIntoViewIfNeeded().catch(() => {});
-  const hist = page.getByRole('button', { name: /היסטוריה/ }).first();
-  if (await hist.count()) await hist.click().catch(() => {});
-  await audit(page, ti, 'meeting-notes');
-});
-
 test('calendar + day sheet', async ({ page }, ti) => {
   await boot(page, ti);
   await openCalendar(page);
