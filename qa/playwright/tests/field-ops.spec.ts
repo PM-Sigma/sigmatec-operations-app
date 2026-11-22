@@ -159,6 +159,7 @@ test('timeout and [null]: each reads as one clear sentence', async ({ page }, ti
 test('the viewer never gets the page', async ({ page }, ti) => {
   await boot(page, ti, { who: 'צפייה' as any, storage: EMS });
   await page.evaluate(() => (window as any).showPage('fieldops'));
-  await expect(page.locator('#fieldops-view')).toBeHidden();
+  // field hub (29.9): the viewer reaches the hub for נוכחות, but never the IP section
+  await expect(page.locator('#fieldops-ip')).toBeHidden();
   await expect(page.getByTestId('fieldops-page')).toHaveCount(0);
 });

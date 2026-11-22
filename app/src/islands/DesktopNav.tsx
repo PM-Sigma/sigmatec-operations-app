@@ -64,7 +64,9 @@ function DesktopNavBar() {
               case 'reports':
                 return <Tab key={id} icon={BarChart3} label="דוחות" active={page === 'reports'} onClick={() => go('reports', 'peer')} />;
               case 'attendance':
-                return <Tab key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance'} onClick={() => go('attendance', 'peer')} />;
+                return <Tab key={id} icon={UserCheck} label="נוכחות" active={page === 'attendance' || page === 'fieldops'} onClick={() => go('attendance', 'peer')} />;
+              case 'fieldops':
+                return <Tab key={id} icon={MapPin} label="שטח" active={page === 'fieldops'} onClick={() => go('fieldops', 'peer')} />;
               case 'calendar':
                 return <Tab key={id} icon={CalendarDays} label="יומן" active={page === 'calendar'} onClick={() => go('calendar', 'peer')} />;
               case 'inventory':

@@ -172,6 +172,20 @@ for (const width of WIDTHS) {
       await assertHeaderItemsDontCollide(page);
     });
 
+    test(`field hub (${width})`, async ({ page }, ti) => {
+      await page.setViewportSize({ width, height: 780 });
+      await boot(page, ti, { who: 'אביאם' as Who });
+      await expect.poll(async () => page.evaluate(() => {
+        (window as any).sigma?.showPage?.('fieldops');
+        const el = document.getElementById('attendance-view');
+        return !!el && el.style.display !== 'none';
+      }), { timeout: 20_000 }).toBe(true);
+      await page.waitForSelector('[data-testid="att-grid"]', { state: 'visible', timeout: 20_000 });
+      await page.waitForSelector('[data-testid="burns-page"]', { state: 'visible', timeout: 20_000 });
+      await assertNoOverflow(page);
+      await assertHeaderItemsDontCollide(page);
+    });
+
     test(`inventory (${width})`, async ({ page }, ti) => {
       await page.setViewportSize({ width, height: 780 });
       await boot(page, ti, { who: 'עידן' as Who });

@@ -1,0 +1,45 @@
+{
+ "axe": 0,
+ "custom": 4,
+ "detail": {
+  "axe": [],
+  "custom": [
+   {
+    "kind": "field-border",
+    "sel": "input[inv-certs-from].min-h-[48px].flex-1",
+    "text": "מתאריך",
+    "ratio": 1.19,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input[inv-certs-to].min-h-[48px].flex-1",
+    "text": "עד תאריך",
+    "ratio": 1.19,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input[inv-certs-search].min-h-[48px].w-full",
+    "text": "חיפוש לפי קיבוץ / לקוח / מספר",
+    "ratio": 1.19,
+    "need": 3,
+    "fg": "#dee4e8",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.potential-search",
+    "text": "🔍 חיפוש קיבוץ...",
+    "ratio": 1.23,
+    "need": 3,
+    "fg": "#e3e8ef",
+    "bg": "#ffffff"
+   }
+  ]
+ }
+}

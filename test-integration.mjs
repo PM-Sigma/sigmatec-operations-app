@@ -110,7 +110,7 @@ for (const name of [
 // A placeholder with no mount is a hole in a page; a mount with no placeholder is dead code.
 
 /** Mounted empty on purpose — §7l landings whose content is a later task (index.html says so). */
-const EMPTY_ON_PURPOSE = new Set(['sigma-ceo']);
+const EMPTY_ON_PURPOSE = new Set(['sigma-ceo', 'sigma-fieldhub-today' /* field hub step B mounts היום שלי here */]);
 
 {
   const unmounted = a.islands.unmounted.filter(n => !EMPTY_ON_PURPOSE.has(n));

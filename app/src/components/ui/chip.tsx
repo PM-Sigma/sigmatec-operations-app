@@ -41,8 +41,10 @@ export function Tag({ role, dot, children, className }: {
 }
 
 /** FilterChip — tappable, carries its own count ("פעילים 5"); selected = ink fill + ✓. */
-export function FilterChip({ selected, count, children, onClick, className }: {
+export function FilterChip({ selected, noCheck, count, children, onClick, className }: {
   selected?: boolean;
+  /** Selected look without the ✓ (a chip that already carries its own ✕). */
+  noCheck?: boolean;
   count?: number;
   children: React.ReactNode;
   onClick?: () => void;
@@ -68,7 +70,7 @@ export function FilterChip({ selected, count, children, onClick, className }: {
       )}
       style={{ transitionTimingFunction: 'var(--s-ease-standard)' }}
     >
-      {selected && <Check aria-hidden className="h-3.5 w-3.5" />}
+      {selected && !noCheck && <Check aria-hidden className="h-3.5 w-3.5" />}
       <span className="min-w-0 truncate">{children}</span>
       {count != null && <span className="tabular-nums opacity-80"><bdi>{count}</bdi></span>}
     </button>

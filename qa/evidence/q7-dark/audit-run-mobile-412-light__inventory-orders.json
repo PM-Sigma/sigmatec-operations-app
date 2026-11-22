@@ -1,0 +1,27 @@
+{
+ "axe": 0,
+ "custom": 2,
+ "detail": {
+  "axe": [],
+  "custom": [
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "5",
+    "ratio": 4.49,
+    "need": 4.5,
+    "fg": "#cde2e2",
+    "bg": "#076e70"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.potential-search",
+    "text": "🔍 חיפוש קיבוץ...",
+    "ratio": 1.23,
+    "need": 3,
+    "fg": "#e3e8ef",
+    "bg": "#ffffff"
+   }
+  ]
+ }
+}

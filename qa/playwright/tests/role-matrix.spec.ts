@@ -25,7 +25,7 @@ const CAN: Record<Who, number[]> = {
   'מתניה': [1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1],
   'אליה':  [1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1],
   'אבצן':  [1, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1],
-  'צפייה': [0, 1, 1, 1, 0, 0, 1, 1, 0, 0, 0], // the viewer reads reports; NO קיבוצים (עידן 12.10)
+  'צפייה': [0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0], // the viewer reads reports; NO קיבוצים (עידן 12.10); the hub shows him נוכחות (read-only)
 };
 const can = (who: Who, p: PageId) => CAN[who][PAGES.indexOf(p)] === 1;
 
@@ -33,8 +33,8 @@ const can = (who: Who, p: PageId) => CAN[who][PAGES.indexOf(p)] === 1;
 const BAR: Record<Who, string[]> = {
   'עידן': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
   'עמיחי': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
-  'אביאם': ['נוכחות', 'יומן', 'תיעוד ביקור', 'קיבוצים', 'עוד'],
-  'ניתאי': ['נוכחות', 'יומן', 'תיעוד ביקור', 'קיבוצים', 'עוד'],
+  'אביאם': ['שטח', 'יומן', 'תיעוד ביקור', 'קיבוצים', 'עוד'],
+  'ניתאי': ['שטח', 'יומן', 'תיעוד ביקור', 'קיבוצים', 'עוד'],
   'מתניה': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'עוד'],   // מתניה does not handle inventory
   'אליה': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
   'אבצן': ['קיבוצים', 'יומן', 'תיעוד ביקור', 'מלאי', 'עוד'],
@@ -45,10 +45,10 @@ const BAR: Record<Who, string[]> = {
 // פיתוח עידן/עמיחי/מתניה/אליה, סטטיסטיקה עידן/עמיחי.
 const SHEET: Record<string, Who[]> = {
   'יומן': [...STAFF, 'צפייה'],
-  'נוכחות': ['עידן', 'עמיחי', 'אביאם', 'ניתאי', 'צפייה'],
+  'נוכחות': [],                                   // a section of פעולות שטח now (field hub 29.9): no ⋯ row; the viewer keeps it on his bar
   'שעות מול לקוחות': ['עידן', 'עמיחי', 'מתניה', 'צפייה'],
   'מלאי': ['אביאם', 'ניתאי'],                     // everyone else has it on the bar (or, מתניה, not at all)
-  'פעולות שטח': STAFF,
+  'פעולות שטח': [...STAFF, 'צפייה'],               // the hub: the viewer reads נוכחות there (field hub 29.9)
   'משיכת קריאות משירותי מנייה חיצוניים': STAFF,   // readings page: all staff, never the viewer
   'הודעה לעובד': STAFF,
   'העדפות משתמש': ALL,
@@ -93,7 +93,10 @@ for (const who of ALL) {
     for (const p of PAGES) {
       const now = await openedPage(page, p);
       // a refused page falls back to the role's home: קיבוצים, or the reports hub for the viewer
-      expect(now, `${who} → showPage('${p}')`).toBe(can(who, p) ? p : who === 'צפייה' ? 'reports' : 'kibbutz');
+      // field hub (29.9): attendance / burns are SECTIONS of the fieldops page — showPage redirects there when any section is visible
+      const target = p === 'attendance' || p === 'burns' ? 'fieldops' : p;
+      const opens = p === 'attendance' || p === 'burns' ? can(who, 'fieldops') : can(who, p);
+      expect(now, `${who} → showPage('${p}')`).toBe(opens ? target : who === 'צפייה' ? 'reports' : 'kibbutz');
       if (p !== 'kibbutz' && p !== 'calendar') {
         const shown = await page.evaluate(x => { const el = document.getElementById(x + '-view'); return !!el && el.style.display !== 'none'; }, p);
         expect(shown, `${who} #${p}-view displayed`).toBe(can(who, p));

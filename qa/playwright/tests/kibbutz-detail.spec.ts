@@ -77,7 +77,7 @@ test('kibbutz detail: presenter strip is still published', async ({ page }, ti) 
 // ─────────────────── status tab (K-U2) ───────────────────
 
 test('status tab: the five sections in order, no burns', async ({ page }, ti) => {
-  await boot(page, ti, { who: 'עידן' });
+  await boot(page, ti, { who: 'עידן', burnsOff: true });
   await page.evaluate(() => (window as any).sigma.openKibbutzModal('יגור'));
   const titles = await detail(page).locator('[data-section]').evaluateAll(
     els => els.map(e => (e as HTMLElement).dataset.section));

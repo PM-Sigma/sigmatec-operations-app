@@ -33,17 +33,11 @@ import { IssueSheet } from '@/islands/burns/IssueSheet';
 import { AssignSheet } from '@/islands/burns/AssignSheet';
 import { GeneratorsSheet } from '@/islands/burns/GeneratorsSheet';
 import { toastFailure } from '@/lib/pending';
+import { BURN_FILTER_EVENT, readBurnFilter as readFilter, writeBurnFilter as writeFilter } from '@/lib/burnFilter';
 
 const TITLE = 'צריבות: מוני ייצור E360 לטובת ניתוק גנרטורים מרחוק';
-const FILTER_KEY = 'burn_filter_v1';
 const GEN_MANAGERS = ['עידן', 'עמיחי'];
 
-function readFilter(): BurnFilter {
-  try { return JSON.parse(localStorage.getItem(FILTER_KEY) || '{}') || {}; } catch { return {}; }
-}
-function writeFilter(f: BurnFilter): void {
-  try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch { /* private mode */ }
-}
 
 function BurnsPageInner() {
   const { name: user, isViewer } = useCurrentUser();
@@ -67,6 +61,13 @@ function BurnsPageInner() {
   const [siteSheetOpen, setSiteSheetOpen] = React.useState(false);
 
   React.useEffect(() => { writeFilter({ ...filter, q }); }, [filter, q]);
+
+  // The kibbutz card sets the site filter from outside (lib/burnFilter.ts) — pick it up if we are already mounted.
+  React.useEffect(() => {
+    const on = () => { const f = readFilter(); setFilter(f); setQ(f.q || ''); };
+    window.addEventListener(BURN_FILTER_EVENT, on);
+    return () => window.removeEventListener(BURN_FILTER_EVENT, on);
+  }, []);
 
   // Background EMS refresh on mount — a writer only, never awaited by the render (review focus #2).
   React.useEffect(() => { if (canWrite) void refreshBurnsFromEms().catch(() => { /* silent: throttled or offline */ }); }, [canWrite]);
@@ -138,7 +139,7 @@ function BurnsPageInner() {
   if (isLoading && showSkeleton(rows.length > 0, hasPersistedData(['meterBurns']))) {
     return (
       <div className="flex flex-col gap-3 p-2">
-        <PageActionRow title={TITLE} titleLines={2} onBack={() => (window as any).pageBack?.()} />
+        <PageActionRow title={TITLE} titleLines={2} />
         {[0, 1, 2].map(i => <Skeleton key={i} className="h-24 w-full" />)}
       </div>
     );
@@ -147,7 +148,7 @@ function BurnsPageInner() {
   if (burnsQ.isError) {
     return (
       <div className="p-2">
-        <PageActionRow title={TITLE} titleLines={2} onBack={() => (window as any).pageBack?.()} />
+        <PageActionRow title={TITLE} titleLines={2} />
         <EmptyState
           icon={<Flame />}
           title="לא הצלחנו לטעון את הצריבות."
@@ -162,7 +163,6 @@ function BurnsPageInner() {
       <PageActionRow
         title={TITLE}
         titleLines={2}
-        onBack={() => (window as any).pageBack?.()}
         actions={
           <>
             {canExport && (
@@ -193,7 +193,7 @@ function BurnsPageInner() {
           onKeyDown={e => { if (e.key === 'Enter') onSearchEnter(); }}
           placeholder="חיפוש לפי מספר מונה, כתובת או גנרטור"
           aria-label="חיפוש"
-          className="min-h-[44px] w-full rounded-xl border border-border bg-card py-2 ps-9 pe-3 text-[14px] text-foreground"
+          className="min-h-[48px] w-full rounded-xl border border-border bg-card py-2 ps-9 pe-3 text-[14px] text-foreground"
         />
       </label>
 
@@ -203,10 +203,15 @@ function BurnsPageInner() {
           what pushed the two-line title into truncating mid-word. Horizontal scroll instead:
           flex-nowrap + overflow-x-auto, never a second row, at any chip count. */}
       <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5 lg:flex-wrap">
-        <FilterChip selected={!filter.kind || filter.kind === 'all'} onClick={() => setFilter(f => ({ ...f, kind: 'all' }))}>הכול</FilterChip>
+        {filter.site && (
+          <FilterChip selected noCheck onClick={() => setFilter(f => ({ ...f, site: undefined }))} className="max-w-[70%]">
+            <span data-testid="burn-site-chip" className="truncate">סינון: <bdi>{filter.site}</bdi> ✕</span>
+          </FilterChip>
+        )}
+        <FilterChip selected={(!filter.kind || filter.kind === 'all') && !filter.site} onClick={() => setFilter(f => ({ ...f, kind: 'all' }))}>הכול</FilterChip>
         <FilterChip selected={filter.kind === 'CT'} onClick={() => toggleKind('CT')}>משנה זרם</FilterChip>
         <FilterChip selected={filter.kind === 'PP'} onClick={() => toggleKind('PP')}>תלת-פאזי</FilterChip>
-        <FilterChip selected={!!filter.site} onClick={() => setSiteSheetOpen(true)}>{filter.site || 'קיבוץ'}</FilterChip>
+        {!filter.site && <FilterChip onClick={() => setSiteSheetOpen(true)}>קיבוץ</FilterChip>}
         {canWrite && (
           <FilterChip selected={selectMode} onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}>
             בחירה
@@ -265,7 +270,7 @@ function BurnsPageInner() {
                             : isCT(r) ? <Repeat className="h-5 w-5 text-muted-foreground" aria-hidden /> : <Zap className="h-5 w-5 text-muted-foreground" aria-hidden />
                         }
                         title={
-                          <button type="button" onClick={rowTap} className="block w-full text-start">
+                          <button type="button" onClick={rowTap} data-hit-slop="true" className="s-hit block w-full text-start">
                             <bdi>{r.serial}</bdi>
                           </button>
                         }

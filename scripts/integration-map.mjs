@@ -273,7 +273,9 @@ export function pageViews() {
 export function gatedPages() {
   const src = code('js/src/00-bridge.js');
   const body = src.slice(src.indexOf('function canShowPage'), src.indexOf('window.sigma = {'));
-  return new Set([...body.matchAll(/case\s+'([\w-]+)'/g)].map(m => m[1]));
+  // 'modbus' is a gate key for a SECTION of the field hub (fieldops-view), not a page with its own view
+  const SECTION_GATES = new Set(['modbus']);
+  return new Set([...body.matchAll(/case\s+'([\w-]+)'/g)].map(m => m[1]).filter(k => !SECTION_GATES.has(k)));
 }
 
 /** Where a page is reachable from in the UI: the React nav / ⋯ sheet / header. */

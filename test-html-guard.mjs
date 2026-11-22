@@ -77,6 +77,8 @@ for (const { f, s } of sources) {
   for (const m of s.matchAll(/\b(?:showPage|goTo|navigate)\(\s*['"]([a-z]+)['"]/g)) addPage(m[1], `showPage('${m[1]}') call in ${f}`);
 }
 for (const p of retired) pages.delete(p);   // redirected to 'kibbutz' on purpose
+// canShowPage gate KEYS that are sections of a page, not pages (the field hub's IP section) — no own view
+for (const p of ['modbus']) pages.delete(p);
 
 // the island mount div main.tsx pairs with each view
 const main = read('app/src/main.tsx');

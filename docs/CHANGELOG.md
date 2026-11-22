@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-22 - פעולות שטח = ONE field hub, ported onto main (branch feat/field-hub-land)
+Why: עידן 29.9 — the field world on one page. 19.11 confirmed the must-haves: Modbus readings (קריאות IP, incl. the free-read button) and the attendance diary (יומן נוכחות).
+- `fieldops` is one page: היום שלי strip (FieldHub/FieldHubToday) + נוכחות (attendance island embedded) + קריאות IP (FieldOps.tsx embedded, main's free-read kept) + צריבות; sticky section jump control.
+- `showPage()` redirects `attendance` -> `fieldops#attendance` and `burns` -> `fieldops#burns`; new section gate `canShowPage('modbus')` (= the old fieldops rule); `canShowPage('fieldops')` = any section visible.
+- Nav: field leads get a "שטח" tab; the viewer keeps his נוכחות tab (now opens the hub). Landing "attendance" maps to fieldops. Kibbutz status tab burns row + burns site-filter chip.
+- צריבות stays OFF (BURNS_PROJECT_ACTIVE=false): the hub's burns section and the kibbutz burns row never show; specs still pin the flag ON.
+- Main wins where both changed: reports tab for the viewer, desktop nav, Excel export label, line endings (CRLF files kept CRLF). Generated files rebuilt, not merged.
+- Rollback: revert the merge commit; no DB / edge-function change.
+
 ## 2026-11-19 - צריבות switched OFF (2.192)
 Why: עידן — "not needed at all for now".
 - `window.BURNS_PROJECT_ACTIVE = false` (js/src/00-consts.js) — the project's own kill switch: no landing strip, no burns page

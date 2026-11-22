@@ -1,0 +1,1 @@
+const r="burn_filter_v1",e="sigma-burn-filter";function a(){try{return JSON.parse(localStorage.getItem(r)||"{}")||{}}catch{return{}}}function n(t){try{localStorage.setItem(r,JSON.stringify(t))}catch{}}function i(t){n({site:t});try{window.dispatchEvent(new CustomEvent(e))}catch{}}export{e as B,a as r,i as s,n as w};

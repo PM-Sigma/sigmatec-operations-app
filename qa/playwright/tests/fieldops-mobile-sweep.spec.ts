@@ -214,7 +214,7 @@ test.describe('fieldops mobile sweep', () => {
   for (const theme of THEMES) {
     for (const state of STATES) {
       test(`fieldops ${state.label} @ every phone width (${theme})`, async ({ page }, ti) => {
-        const { rec } = await boot(page, ti, { who: 'עידן', storage: { ...EMS, theme } });
+        const { rec } = await boot(page, ti, { who: 'עידן', burnsOff: true, storage: { ...EMS, theme } });
         await stubFieldOps(page, b => {
           if (b.mode !== 'read') return { body: {} };
           // `[null]` (not a 504): a 504 surfaces as the top-level `fieldops-message` banner

@@ -1,0 +1,73 @@
+{
+ "axe": 3,
+ "custom": 5,
+ "detail": {
+  "axe": [
+   {
+    "sel": ".text-\\[19px\\]",
+    "ratio": "1.87",
+    "fg": "#06cbc4",
+    "bg": "#f4f6f9"
+   },
+   {
+    "sel": "button[aria-label=\"יום א׳ · 30.8\"] > .gap-1.flex.items-center > .tabular-nums.te",
+    "ratio": "3.08",
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "sel": "button[aria-label=\"יום ב׳ · 31.8\"] > .gap-1.flex.items-center > .tabular-nums.te",
+    "ratio": "3.08",
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   }
+  ],
+  "custom": [
+   {
+    "kind": "text",
+    "sel": "h2.m-0.text-[19px]",
+    "text": "🗓️ יומן",
+    "ratio": 1.87,
+    "need": 3,
+    "fg": "#06cbc4",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "30",
+    "ratio": 3.09,
+    "need": 4.5,
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "31",
+    "ratio": 3.09,
+    "need": 4.5,
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "text",
+    "sel": "bdi",
+    "text": "1",
+    "ratio": 3.09,
+    "need": 4.5,
+    "fg": "#848e97",
+    "bg": "#f4f6f9"
+   },
+   {
+    "kind": "field-border",
+    "sel": "input.potential-search",
+    "text": "🔍 חיפוש קיבוץ...",
+    "ratio": 1.23,
+    "need": 3,
+    "fg": "#e3e8ef",
+    "bg": "#ffffff"
+   }
+  ]
+ }
+}
