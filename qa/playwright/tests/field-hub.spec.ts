@@ -326,10 +326,8 @@ test('hub: no overlap, no sideways scroll — every section, real-size data', as
   const rep = await scanOverlap(page, `field hub @ ${viewport}/${theme}`, { root: '#fieldops-view' });
   const rule1 = rep.violations.filter(v => v.startsWith('[rule1]'));
   expect(rule1, rep.label + '\n' + rule1.join('\n')).toEqual([]);
-  // main's shared ExportButton (attendance PDF/Excel, h-11 = 44px) predates the 48px floor; not the hub's own control
-  // (follow-up for עידן), so the hub scan lets exactly those two through.
-  const rest = rep.violations.filter(v => !/tap target under 48×48: button"ייצוא ל-(PDF|Excel)" is 44×44/.test(v));
-  expect(rest, rep.label + '\n' + rest.join('\n')).toEqual([]);
+  // ExportButton went to 48px (עידן 23.11) — no exceptions left
+  expect(rep.violations, rep.label + '\n' + rep.violations.join('\n')).toEqual([]);
 
   expectNoConsoleErrors(rec);
 });

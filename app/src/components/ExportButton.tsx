@@ -22,7 +22,7 @@ export function ExportButton({ kind, onClick, className, ...rest }: {
       aria-label={aria}
       data-export={kind}
       onClick={onClick}
-      className={cn('flex h-11 min-w-11 flex-col items-center justify-center gap-px rounded-xl border bg-card px-2', tone, className)}
+      className={cn('flex h-12 min-w-12 flex-col items-center justify-center gap-px rounded-xl border bg-card px-2', tone, className)}
       {...rest}
     >
       <Icon aria-hidden className="h-[18px] w-[18px]" />

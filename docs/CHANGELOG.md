@@ -7,6 +7,12 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-23 - Home: meeting notes off the kibbutz card · ExportButton 48px (2.194)
+- עידן 19.11: the meeting history leaves the HOME kibbutz card (it stays in the kibbutz page StatusTab). `MeetingNotes` card
+  component + meeting-notes.spec deleted. Shipped together with the פעולות שטח hub (entry below), approved by עידן 23.11.
+- Shared PDF/Excel `ExportButton` h-11 → h-12 (48px floor); the hub's overlap scan has no exceptions left.
+- Rollback: revert this merge.
+
 ## 2026-11-22 - פעולות שטח = ONE field hub, ported onto main (branch feat/field-hub-land)
 Why: עידן 29.9 — the field world on one page. 19.11 confirmed the must-haves: Modbus readings (קריאות IP, incl. the free-read button) and the attendance diary (יומן נוכחות).
 - `fieldops` is one page: היום שלי strip (FieldHub/FieldHubToday) + נוכחות (attendance island embedded) + קריאות IP (FieldOps.tsx embedded, main's free-read kept) + צריבות; sticky section jump control.

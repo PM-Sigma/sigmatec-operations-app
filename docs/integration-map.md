@@ -47,7 +47,7 @@ surface. Every entry is a lazy thunk, so a legacy function declared later in the
 | `sigma.emsAfterWrite` | js/src/00-bridge.js:456 | `emsAfterWrite` → js/src/14-calendar.js:512 | app/src/lib/inventoryApi.ts:231<br>app/src/lib/inventoryApi.ts:420 |
 | `sigma.emsApi` | js/src/00-bridge.js:309 | `emsApi` → js/src/12-reports.js:124 | app/src/lib/ems/adapters/rest.ts:139 |
 | `sigma.emsCacheData` | js/src/00-bridge.js:311 | `emsCacheData` → js/src/13-ems.js:19 | app/src/islands/Attendance.tsx:262<br>app/src/islands/Calendar.tsx:807<br>app/src/islands/Calendar.tsx:986<br>app/src/islands/Calendar.tsx:1481<br>…+7 |
-| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:324 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/components/home/KibbutzCard.tsx:26<br>app/src/components/kibbutz/StatusTab.tsx:27<br>app/src/islands/Field.tsx:185<br>…+4 |
+| `sigma.emsCacheTasksForKibbutz` | js/src/00-bridge.js:324 | `emsCacheTasksForKibbutz` → js/src/13-ems.js:25 | app/src/components/home/EmsTasks.tsx:31<br>app/src/components/home/KibbutzCard.tsx:25<br>app/src/components/kibbutz/StatusTab.tsx:27<br>app/src/islands/Field.tsx:185<br>…+4 |
 | `sigma.emsCreateTask` | js/src/00-bridge.js:614 | `emsCreateTaskModal` → js/src/14-calendar.js:412 | **—** |
 | `sigma.emsDisconnect` | js/src/00-bridge.js:615 | `emsDisconnect` → js/src/12-reports.js:95 | **—** |
 | `sigma.emsLabels` | js/src/00-bridge.js:328 | `emsLabels` → js/src/14-calendar.js:390 | app/src/lib/emsTasks.ts:24 |
