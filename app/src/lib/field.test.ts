@@ -8,11 +8,13 @@ import {
   leaveChecklist, nudgeFor, openItemsPrefill, openNudges, pushactParse, RECOUNT_NUDGES,
   reminderDueAt, splitOpenItems, todayStops, visitCronSelect, VISIT_NUDGES,
   ATT_MORNING_HH, attendanceCronRuns, EOD_DEFAULT_HH, eodHourFor,
+  checkinDays, morningBody, morningShouldSend, priorMissingDates,
   sharedOwners, VISIT_REASONS, visitReasonRequired, visitReasonText, visitReasonValid,
   joinVisitors, visitorsOf, checkinSettledByVisits, draftReminderTo,
   type CheckinRow, type FieldTask, type VisitRow,
 } from './field';
 import { burnLeaveItems } from './burns';
+import { missingDays } from './attendance';
 
 const task = (id: string, kibbutz: string, title: string, who?: string): FieldTask => ({
   id, kibbutz, title, assignee: who ? { firstName: who } : null,
@@ -512,10 +514,17 @@ describe('attendanceCronRuns', () => {
     expect(attendanceCronRuns(19, [], {})).toEqual([]);
   });
 
-  it('a holiday silences the evening half only', () => {
+  it('a holiday silences BOTH halves (the morning nudge is a work-day nudge)', () => {
     expect(attendanceCronRuns(19, people, {}, true)).toEqual([]);
-    expect(attendanceCronRuns(9, people, {}, true))
-      .toEqual([{ person: 'אביאם', kind: 'morning' }, { person: 'ניתאי', kind: 'morning' }]);
+    expect(attendanceCronRuns(9, people, {}, true)).toEqual([]);
+  });
+
+  it('Friday and Saturday skip the morning run (and the evening one); Sun-Thu run', () => {
+    for (const dow of [5, 6]) {
+      expect(attendanceCronRuns(9, people, {}, false, dow)).toEqual([]);
+      expect(attendanceCronRuns(19, people, {}, false, dow)).toEqual([]);
+    }
+    for (const dow of [0, 1, 2, 3, 4]) expect(attendanceCronRuns(9, people, {}, false, dow)).toHaveLength(2);
   });
 
   it('a stored hour outside the 17–20 picker range falls back to the 19:00 default ' +
@@ -646,4 +655,50 @@ describe('visitorsOf / joinVisitors (round 5 V13: מי ביקר is multi-select)
   it('P4 empty / missing', () => { expect(visitorsOf({})).toEqual([]); expect(visitorsOf(null)).toEqual([]); });
   it('P5 join dedupes and keeps order', () => expect(joinVisitors(['אביאם', 'ניתאי', 'אביאם', ' '])).toBe('אביאם, ניתאי'));
   it('P6 round trip', () => expect(visitorsOf(joinVisitors(['עמיחי', 'אביאם']))).toEqual(['עמיחי', 'אביאם']));
+});
+
+describe('morning push: what is missing, whether to send, what it says', () => {
+  const t = { y: 2026, m: 9, d: 10 };            // Thu 10.9.2026; days 1..9 are prior
+  const none = new Set<string>();
+  const all = ['2026-09-01', '2026-09-02', '2026-09-03', '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09'];
+
+  it('lists prior Sun-Thu days only, minus rows, holidays and field check-ins', () => {
+    expect(priorMissingDates(none, none, t)).toEqual(all);
+    expect(priorMissingDates(new Set(['2026-09-01']), none, t, new Set(['2026-09-02'])).slice(0, 2)).toEqual(['2026-09-03', '2026-09-06']);
+    expect(priorMissingDates(none, new Set(['2026-09-03', '2026-09-06']), t)).not.toContain('2026-09-03');
+  });
+
+  it('a field check-in day is NOT missing, and the screen (missingDays) agrees day for day', () => {
+    const rows = [{ date: '2026-09-01', type: 'office' as const }];
+    const field = new Set(['2026-09-02', '2026-09-07']);
+    const holiday = [{ date: '2026-09-08', name: 'x', kind: 'holiday' as const, required: false }];
+    const push = priorMissingDates(new Set(['2026-09-01']), field, t, new Set(['2026-09-08']));
+    const screen = missingDays(rows, holiday, new Date(2026, 8, 10), 2026, 9, field);
+    expect(push).toEqual(screen);
+    expect(push).not.toContain('2026-09-02');
+  });
+
+  it('change detection: send when the list differs, skip when identical, Sundays always remind', () => {
+    const list = ['2026-09-02', '2026-09-03'];
+    expect(morningShouldSend(list, null, 2)).toBe(true);
+    expect(morningShouldSend(list, '2026-09-02,2026-09-03', 2)).toBe(false);
+    expect(morningShouldSend(list, '2026-09-02', 2)).toBe(true);
+    expect(morningShouldSend(['2026-09-03'], '2026-09-02,2026-09-03', 2)).toBe(true);
+    expect(morningShouldSend(list, '2026-09-02,2026-09-03', 0)).toBe(true);
+    expect(morningShouldSend([], null, 0)).toBe(false);
+  });
+
+  it('body: a count and the first few dates, not the whole month', () => {
+    expect(morningBody(['2026-09-02'])).toBe('יום אחד חסר · 2.9');
+    expect(morningBody(all)).toBe('7 ימים חסרים · 1.9, 2.9, 3.9 …');
+  });
+
+  it('checkinDays: Israel-local day, dismissed ignored', () => {
+    const d = checkinDays([
+      { checked_in_at: '2026-09-02T06:00:00Z', dismissed: false },
+      { checked_in_at: '2026-09-02T22:30:00Z', dismissed: false },
+      { checked_in_at: '2026-09-04T06:00:00Z', dismissed: true },
+    ]);
+    expect([...d].sort()).toEqual(['2026-09-02', '2026-09-03']);
+  });
 });

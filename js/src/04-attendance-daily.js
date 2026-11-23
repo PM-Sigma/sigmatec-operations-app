@@ -73,6 +73,17 @@
   // here — `sigma.attSave` — rather than posting on its own, so the endpoint, the optimistic
   // SHEET_DATA update and the report refresh stay in ONE place and the monthly reports keep
   // seeing exactly the rows they always saw.
+  // One manual row per person+day: a re-pick REPLACES (same id → upsert) instead of adding a second
+  // row. The id is deterministic; older random-id manual rows of that day are deleted after the save.
+  // Only 'manual' rows are ever touched — visit_auto / calendar rows are never replaced here.
+  function attManualPlan(att, person, dateVal) {
+    var id = 'att_m_' + dateVal.replace(/-/g, '') + '_' + person;
+    var stale = (att || []).filter(function (r) {
+      return r.person === person && r.id !== id && (r.source || 'manual') === 'manual' && String(r.date || '').slice(0, 10) === dateVal;
+    }).map(function (r) { return r.id; });
+    return { id: id, staleIds: stale };
+  }
+  window.attManualPlan = attManualPlan;
   function attSaveRow(entry) {
     var e = entry || {};
     var dateVal = String(e.date || '').slice(0, 10);
@@ -83,17 +94,24 @@
     if (!person) return Promise.reject(new Error('חסר עובד'));
     if (dayType === 'other' && !note) return Promise.reject(new Error('נא לפרט מה היה ביום (אחר)'));
     var isoDate = new Date(dateVal + 'T12:00:00').toISOString();
+    var plan = attManualPlan(window.SHEET_DATA && window.SHEET_DATA.attendance, person, dateVal);
     return fetch(WRITE_ROUTER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'attendance', person: person, dayType: dayType, note: note, date: isoDate })
+      body: JSON.stringify({ type: 'attendance', id: plan.id, person: person, dayType: dayType, note: note, date: isoDate })
     }).then(function (r) { return r.json(); }).then(function (res) {
       if (!res || !res.ok) throw new Error((res && res.error) || 'שמירה נכשלה');
-      var row = { id: res.id, person: person, dayType: dayType, note: note, date: isoDate };
+      var row = { id: plan.id, person: person, dayType: dayType, note: note, date: isoDate, source: 'manual' };
       if (window.SHEET_DATA) {
-        window.SHEET_DATA.attendance = window.SHEET_DATA.attendance || [];
-        window.SHEET_DATA.attendance.push(row);
+        var att = window.SHEET_DATA.attendance = window.SHEET_DATA.attendance || [];
+        var drop = plan.staleIds.concat([plan.id]);
+        for (var i = att.length - 1; i >= 0; i--) if (drop.indexOf(att[i].id) !== -1) att.splice(i, 1);
+        att.push(row);
       }
+      // best-effort cleanup of the day's older manual rows (the save itself already succeeded)
+      plan.staleIds.forEach(function (sid) {
+        fetch(WRITE_ROUTER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ type: 'attendanceDelete', id: sid }) }).catch(function () {});
+      });
       try { if (window.sigmaEmit) window.sigmaEmit('attendance-saved', row); } catch (e2) {}
       return row;
     });

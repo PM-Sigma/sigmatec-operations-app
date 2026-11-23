@@ -640,7 +640,6 @@
     }
 
     if (data) {
-      maybeShowAttendanceReminder();
       if (typeof maybeShowAmichaiApprovalReminder === 'function') maybeShowAmichaiApprovalReminder();
       if (typeof maybeShowOrderNotifications === 'function') maybeShowOrderNotifications();
       if (typeof renderLowStockAlert === 'function') renderLowStockAlert();

@@ -47,8 +47,10 @@ export interface AttRow {
  * precedence is decided here once instead of in JSX:
  *   what he DID  →  weekend  →  holiday  →  today / future  →  missing
  * Work always wins: a field day on יום כיפור is green, with `onHoliday` for the 🕎.
+ * 'pending' = no row yet but a field check-in exists (`fieldDays`): "שטח, ממתין לסיכום" — amber,
+ * never missing (the push rule in lib/field.ts priorMissingDates is pinned equal).
  */
-export type CellState = 'field' | 'office' | 'away' | 'weekend' | 'holiday' | 'today' | 'future' | 'missing';
+export type CellState = 'field' | 'office' | 'away' | 'pending' | 'weekend' | 'holiday' | 'today' | 'future' | 'missing';
 
 export interface DayCell {
   date: string;
@@ -254,6 +256,7 @@ export function monthGrid(
   rows: AttRow[] | null | undefined,
   holidays: Holiday[] | null | undefined,
   today: Date = new Date(),
+  fieldDays?: ReadonlySet<string> | null,
 ): MonthGrid {
   const idx = holidayIndex(holidays);
   const byDate = new Map<string, AttRow>();
@@ -278,6 +281,7 @@ export function monthGrid(
 
     let state: CellState;
     if (row) state = row.type === 'field' ? 'field' : (row.type === 'office' || row.type === 'wfh') ? 'office' : 'away';
+    else if (fieldDays && fieldDays.has(date) && date <= todayKey) state = 'pending';
     else if (weekend) state = 'weekend';
     else if (holiday && !holiday.required) state = 'holiday';
     else if (isToday) state = 'today';
@@ -315,10 +319,11 @@ export function missingDays(
   today: Date = new Date(),
   year?: number,
   month?: number,
+  fieldDays?: ReadonlySet<string> | null,
 ): string[] {
   const y = year ?? today.getFullYear();
   const m = month ?? today.getMonth() + 1;
-  const grid = monthGrid(y, m, rows, holidays, today);
+  const grid = monthGrid(y, m, rows, holidays, today, fieldDays);
   const todayKey = ymd(today);
   return grid.cells.filter(c => c.state === 'missing' && c.date < todayKey).map(c => c.date);
 }
@@ -368,13 +373,14 @@ export function missingByPerson(
   today: Date = new Date(),
   year?: number,
   month?: number,
+  fieldDaysFor?: (person: string) => ReadonlySet<string> | null | undefined,
 ): Array<{ person: string; dates: string[]; count: number; known: boolean }> {
   const out: Array<{ person: string; dates: string[]; count: number; known: boolean }> = [];
   for (const person of people || []) {
     if (!person) continue;
     const rows = rowsFor(person);
     if (rows == null) { out.push({ person, dates: [], count: 0, known: false }); continue; }
-    const dates = missingDays(rows, holidays, today, year, month);
+    const dates = missingDays(rows, holidays, today, year, month, fieldDaysFor?.(person));
     out.push({ person, dates, count: dates.length, known: true });
   }
   // Worst first — the point of the strip is who needs chasing. Ties keep the roster order,
@@ -438,7 +444,10 @@ export function toggleTile(cur: TileKey | null, t: TileKey): TileKey | null {
 }
 
 /** The DayCell states the grid uses (components/ui/day-cell.tsx). */
-export type AttCellState = 'default' | 'selected' | 'holiday' | 'eve' | 'field' | 'office' | 'away' | 'missing';
+/** A day with a field check-in and no attendance row yet. */
+export const PENDING_LABEL = 'שטח, ממתין לסיכום';
+
+export type AttCellState = 'default' | 'selected' | 'holiday' | 'eve' | 'field' | 'office' | 'away' | 'pending' | 'missing';
 
 export interface AttCellLook {
   state: AttCellState;
@@ -457,7 +466,7 @@ export interface AttCellLook {
 export function attCellLook(c: DayCell, o: { person: string; tile: TileKey | null; selected: boolean }): AttCellLook {
   const filer = mustFile(o.person);
   let base: AttCellState = 'default';
-  if (c.state === 'field' || c.state === 'office' || c.state === 'away') base = c.state;
+  if (c.state === 'field' || c.state === 'office' || c.state === 'away' || c.state === 'pending') base = c.state;
   else if (c.state === 'missing') base = filer ? 'missing' : c.eve ? 'eve' : c.holiday ? 'holiday' : 'default';
   else if (c.state === 'holiday') base = 'holiday';
   else if (c.state === 'future' && c.holiday) base = c.eve ? 'eve' : 'holiday';
@@ -470,6 +479,7 @@ export function attCellLook(c: DayCell, o: { person: string; tile: TileKey | nul
   const facts = [dayChip(c.date)];
   if (c.holiday) facts.push(c.holiday.name);
   if (c.row) facts.push(dayLabel(c.row.type));
+  else if (base === 'pending') facts.push(PENDING_LABEL);
   else if (base === 'missing') facts.push('לא דווחה נוכחות');
   return { state, today: c.today, label: facts.join(' · ') };
 }

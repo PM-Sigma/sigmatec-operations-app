@@ -7,6 +7,24 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-23 - Attendance alerts: 4 fixes (אביאם/ניתאי "missing day" noise)
+- **Why:** the missing-day alerts felt buggy: a legacy popup with no holiday check, a morning push that stacked a growing list
+  every day incl. Fri/Sat/holidays, field days counted as missing, and every manual save adding a second row for the day.
+- **1. Legacy popup "חסר תיעוד!" deleted** (02-init-attendance.js `personMissingDays`/`maybeShowAttendanceReminder`, the call in
+  10-activity.js, the modal in index.html). The React attendance screen + push are the only alerts now.
+- **2. Morning push** (push-send `attendanceCron`): not on Fri/Sat or a company holiday (`attendanceCronRuns` got `dow`; a holiday now
+  silences the morning half too); stable tag `att-morning-<person>-<YYYY-MM>` (a new one replaces the old); sent only when the
+  missing list changed since the last one sent (last list kept in `push_log.order_id`; Sundays always remind); body is
+  "N ימים חסרים · first 3 dates". Pure rules in `app/src/lib/field.ts` (+ byte-identical Edge copy).
+- **3. Field check-in day = "שטח, ממתין לסיכום"**: a non-dismissed `field_checkins` row means the day is not missing (push morning +
+  evening, and the screen). New amber `pending` cell state; `missingDays/monthGrid/missingByPerson` take the check-in days.
+  `priorMissingDates` (push) is pinned equal to `missingDays` (screen) in field.test.ts.
+- **4. A manual save replaces the day's row**: deterministic id `att_m_<ymd>_<person>` (upsert), older manual rows of that
+  person+day are deleted after the save; visit_auto/calendar rows are never touched (`attManualPlan`, test-att-manual-plan.mjs).
+- **Not applied (needs MAIN):** deploy edge function `push-send` (it carries field.ts); `db/attendance_dedupe_2026_11.sql` removes the
+  old duplicate days (backup table + rollback inside) after עידן approves. No new column/table is needed.
+- **Rollback:** revert the commit + redeploy the previous push-send. Dedupe: restore from `attendance_dedupe_backup_2026_11`.
+
 ## 2026-11-23 - Home: meeting notes off the kibbutz card · ExportButton 48px (2.194)
 - עידן 19.11: the meeting history leaves the HOME kibbutz card (it stays in the kibbutz page StatusTab). `MeetingNotes` card
   component + meeting-notes.spec deleted. Shipped together with the פעולות שטח hub (entry below), approved by עידן 23.11.

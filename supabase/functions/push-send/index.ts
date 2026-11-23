@@ -40,7 +40,7 @@ import { usageDigestAuth } from "./usageDigest.ts";
 // EVERY decision the visitCron mode makes — the 2 h rule, the 20:00 cap, the quiet hours, the
 // daily cap, which words go out — is one of these pure functions, tested in field.test.ts.
 import {
-  attendanceCronRuns, capBlocked, CAP_EXEMPT_EVENTS, gapNudgeFor, inQuietHours, israelAt,
+  attendanceCronRuns, checkinDays, morningBody, morningShouldSend, priorMissingDates, capBlocked, CAP_EXEMPT_EVENTS, gapNudgeFor, inQuietHours, israelAt,
   nudgeFor, visitCronSelect,
   type CheckinRow, type DraftRow, type VisitRow,
 } from "./field.ts";
@@ -153,7 +153,7 @@ async function haveDates(person: string, y: number, m: number): Promise<Set<stri
 // This is the SERVER half of one rule that lives in three places and must not drift:
 //   • app/src/lib/attendance.ts  isRequiredDay / missingDays   (the screen)
 //   • js/src/22-push.js          attMissingDays                (the legacy report)
-//   • here                       priorMissing + the evening gate (the nudges)
+//   • here                       priorMissingDates (field.ts) + the evening gate (the nudges)
 // A phone that buzzes "חסרה נוכחות" on יום כיפור is the failure this prevents.
 async function holidayOff(y: number, m: number): Promise<Set<string>> {
   const lo = `${y}-${String(m).padStart(2, "0")}-01`;
@@ -184,18 +184,17 @@ async function eodHourMap(): Promise<Record<string, number>> {
   return out;
 }
 
-// Prior weekdays (Sun–Thu) this month, from the 1st up to yesterday, with no record and not
-// a holiday. Ascending.
-function priorMissing(have: Set<string>, t: { y: number; m: number; d: number }, off: Set<string> = new Set()): string[] {
-  const out: string[] = [];
-  for (let day = 1; day < t.d; day++) {   // strictly before today
-    const dow = new Date(Date.UTC(t.y, t.m - 1, day)).getUTCDay();
-    if (dow > 4) continue;                // Fri/Sat out
-    const key = `${t.y}-${String(t.m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    if (off.has(key)) continue;           // 🕎 חג / חול המועד / סגירת חברה
-    if (!have.has(key)) out.push(key);
-  }
-  return out;
+// Days the person has a (non-dismissed) field check-in in the month — "שטח, ממתין לסיכום": not
+// missing, the visit summary is still coming. Israel-local dates; same rule as the screen
+// (priorMissingDates in ./field.ts is pinned equal to attendance.ts missingDays).
+async function fieldDates(person: string, y: number, m: number): Promise<Set<string>> {
+  try {
+    const lo = new Date(Date.UTC(y, m - 1, 1) - 86400000).toISOString();
+    const hi = new Date(Date.UTC(y, m, 1) + 86400000).toISOString();
+    const { data } = await sb.from("field_checkins").select("checked_in_at,dismissed").eq("person", person)
+      .eq("dismissed", false).gte("checked_in_at", lo).lt("checked_in_at", hi);
+    return checkinDays(data as any);
+  } catch { return new Set<string>(); /* table missing / read error → "not a field day" */ }
 }
 
 // ── adoption guard ג (as fix round 1 settled it) ───────────────────────────────────────────
@@ -340,7 +339,7 @@ Deno.serve(async (req: Request) => {
     //
     // WHO gets what, at this hour, is the pure `attendanceCronRuns` in ./field.ts
     // (app/src/lib/field.test.ts), so the schedule can be read in one place.
-    const runs = attendanceCronRuns(t.hh, ATT_PEOPLE, eodHours, off.has(t.date));
+    const runs = attendanceCronRuns(t.hh, ATT_PEOPLE, eodHours, off.has(t.date), t.dow);
     if (!runs.length) return json({ ok: true, skipped: "not a scheduled hour", hour: t.hh });
     // NOT capped (fix round 1): attendance is the record of the work day, so a day full of
     // visit nudges must never swallow it. It does not spend the cap either — `sentTodayCounts`
@@ -350,22 +349,30 @@ Deno.serve(async (req: Request) => {
         .eq("event", "attendanceCron").eq("recipient", person).eq("where_txt", kind).gte("sent_at", since).limit(1);
       if (prior && prior.length) { results.push({ person, kind, skipped: "already sent" }); continue; }
       const have = await haveDates(person, t.y, t.m);
+      const field = await fieldDates(person, t.y, t.m);
       let dates: string[] = [];
-      if (kind === "evening") { if (t.dow >= 0 && t.dow <= 4 && !have.has(t.date)) dates = [t.date]; }
-      else dates = priorMissing(have, t, off);
+      if (kind === "evening") { if (t.dow >= 0 && t.dow <= 4 && !have.has(t.date) && !field.has(t.date)) dates = [t.date]; }
+      else dates = priorMissingDates(have, field, t, off);
       if (!dates.length) { results.push({ person, kind, none: true }); continue; }
-      const fmt = dates.map((d) => { const mm = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return mm ? `${+mm[2]}.${+mm[1]}` : ""; }).filter(Boolean);
+      // Morning: only when the list changed since the last one SENT (Sundays always remind).
+      // The last list is kept in push_log.order_id (null for attendanceCron before this).
+      if (kind === "morning") {
+        const { data: last } = await sb.from("push_log").select("order_id").eq("event", "attendanceCron")
+          .eq("recipient", person).eq("where_txt", "morning").eq("status", "sent").not("order_id", "is", null)
+          .order("sent_at", { ascending: false }).limit(1);
+        if (!morningShouldSend(dates, last?.[0]?.order_id, t.dow)) { results.push({ person, kind, skipped: "unchanged" }); continue; }
+      }
       const title = kind === "evening" ? "📅 נוכחות להיום" : "📅 חסרה נוכחות · " + person;
-      const bodyTxt = kind === "evening" ? "עוד לא מילאת נוכחות להיום." : "ימים חסרים: " + fmt.join(", ");
+      const bodyTxt = kind === "evening" ? "עוד לא מילאת נוכחות להיום." : morningBody(dates);
       const act = kind === "evening" ? "fillToday" : "fillMissing";
       const fillUrl = APP + "?pushact=" + act + "#attendance";
       const payload = JSON.stringify({
-        title, body: bodyTxt, tag: "att-" + kind + "-" + person + "-" + t.date,
+        title, body: bodyTxt, tag: kind === "morning" ? "att-morning-" + person + "-" + t.date.slice(0, 7) : "att-" + kind + "-" + person + "-" + t.date,
         requireInteraction: true, url: fillUrl,
         actions: [{ action: act, title: "מילוי נוכחות" }],
         data: { actUrls: { [act]: fillUrl } },
       });
-      const meta = { event: "attendanceCron", order_id: null, where_txt: kind, qty: dates.length, actor: null, title, body: bodyTxt };
+      const meta = { event: "attendanceCron", order_id: kind === "morning" ? dates.join(",") : null, where_txt: kind, qty: dates.length, actor: null, title, body: bodyTxt };
       const r = await sendTo([person], payload, meta);
       results.push({ person, kind, dates: dates.length, delivered: r.delivered });
     }

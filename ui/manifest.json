@@ -97,7 +97,6 @@
   "./ui/sigma-PageBar.js",
   "./ui/sigma-pause.js",
   "./ui/sigma-pencil.js",
-  "./ui/sigma-pending.js",
   "./ui/sigma-play.js",
   "./ui/sigma-plus.js",
   "./ui/sigma-Presenter.js",

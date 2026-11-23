@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 /** The one fill a cell can carry as its own background (design-review.md §2 "DayCell"). Not
     `eve` or `missing` — those are DOT markers on top of whatever fill (or none) applies, and
     not `selected` — that overrides fill entirely (ink fill + surface text) at the call site. */
-export type DayCellFill = 'none' | 'holiday' | 'field' | 'office' | 'away';
+export type DayCellFill = 'none' | 'holiday' | 'field' | 'office' | 'away' | 'pending';
 
 const FILL_CLS: Record<DayCellFill, string> = {
   none: 'bg-transparent',
@@ -12,6 +12,7 @@ const FILL_CLS: Record<DayCellFill, string> = {
   field: 'bg-[var(--ok-fill)] text-[var(--ok-ink)]',
   office: 'bg-[var(--info-fill)] text-[var(--info-ink)]',
   away: 'bg-[var(--neutral-fill)] text-[var(--neutral-ink)]',
+  pending: 'bg-[var(--warn-fill)] text-[var(--warn-ink)]',
 };
 
 /**

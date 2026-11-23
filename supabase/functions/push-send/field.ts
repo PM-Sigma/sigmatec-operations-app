@@ -771,25 +771,71 @@ export function eodHourFor(person: string, eodHours: Record<string, number | nul
  * · morning (09:00, everyone) — the days already missing this month.
  * · evening (his own hour)    — today, which he has not filled in yet.
  *
- * A holiday silences the EVENING half only: nobody is asked to account for a day the company
- * was closed, but the missing days from before it are still missing.
+ * A holiday or a Friday/Saturday silences BOTH halves: the morning nudge is a work-day
+ * nudge ("start of the work day, here is what is open"), and a day off has no work day to
+ * start. `dow` is 0=Sun … 6=Sat; omitted = a work day.
  */
 export function attendanceCronRuns(
   hour: number,
   people: string[],
   eodHours: Record<string, number | null | undefined> | null | undefined,
   todayIsHoliday = false,
+  dow = 0,
 ): Array<{ person: string; kind: 'morning' | 'evening' }> {
   const out: Array<{ person: string; kind: 'morning' | 'evening' }> = [];
+  if (todayIsHoliday || dow > 4) return out;
   for (const person of people || []) {
     if (hour === ATT_MORNING_HH) out.push({ person, kind: 'morning' });
   }
-  if (!todayIsHoliday) {
-    for (const person of people || []) {
-      if (eodHourFor(person, eodHours) === hour) out.push({ person, kind: 'evening' });
-    }
+  for (const person of people || []) {
+    if (eodHourFor(person, eodHours) === hour) out.push({ person, kind: 'evening' });
   }
   return out;
+}
+
+/**
+ * Prior required weekdays (Sun–Thu, not an off-holiday) this month, 1st up to YESTERDAY, that
+ * have neither an attendance row (`have`) nor a field check-in (`fieldDays`: a non-dismissed
+ * `field_checkins` row — "שטח, ממתין לסיכום", the summary is still coming). Ascending.
+ * The SAME rule the screen applies in lib/attendance.ts monthGrid/missingDays (pinned equal in
+ * field.test.ts), so the buzz and the red cell can never disagree.
+ */
+export function priorMissingDates(
+  have: Set<string>,
+  fieldDays: Set<string>,
+  t: { y: number; m: number; d: number },
+  off: Set<string> = new Set(),
+): string[] {
+  const out: string[] = [];
+  for (let day = 1; day < t.d; day++) {
+    const dow = new Date(Date.UTC(t.y, t.m - 1, day)).getUTCDay();
+    if (dow > 4) continue;
+    const key = t.y + '-' + String(t.m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    if (off.has(key) || have.has(key) || fieldDays.has(key)) continue;
+    out.push(key);
+  }
+  return out;
+}
+
+/** Israel-local 'YYYY-MM-DD' days of the non-dismissed check-ins — a field day awaiting its summary. */
+export function checkinDays(rows: Array<{ checked_in_at?: string | null; dismissed?: boolean | null }> | null | undefined): Set<string> {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const out = new Set<string>();
+  for (const r of rows || []) if (r.checked_in_at && !r.dismissed) out.add(fmt.format(new Date(r.checked_in_at)));
+  return out;
+}
+
+/** The morning push goes out only when the list CHANGED since the last one sent (or it is Sunday). */
+export function morningShouldSend(dates: string[], lastSent: string | null | undefined, dow: number): boolean {
+  if (!dates.length) return false;
+  return dow === 0 || lastSent == null || lastSent !== dates.join(',');
+}
+
+/** "3 ימים חסרים · 2.11, 3.11, 4.11 …" — a count and the first few, never the whole month. */
+export function morningBody(dates: string[], show = 3): string {
+  const fmt = dates.slice(0, show).map((d) => { const m = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? +m[2] + '.' + +m[1] : ''; }).filter(Boolean);
+  const n = dates.length;
+  return (n === 1 ? 'יום אחד חסר' : n + ' ימים חסרים') + ' · ' + fmt.join(', ') + (n > show ? ' …' : '');
 }
 
 /** A nudge sent sooner than this after the arrival would reach him while he is still there. */

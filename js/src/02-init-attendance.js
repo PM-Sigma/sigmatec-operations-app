@@ -157,46 +157,6 @@
   // (fix round 3, F4), so the same code answers a backdrop tap and a keypress and both
   // consult the §7p unsaved-changes guard.
 
-  // ===== Attendance missing-days reminder (אביאם / ניתאי) =====
-  // Workdays (Sun–Thu) in the last 31 calendar days, floored at 2026-05-31 (tracking start),
-  // up to yesterday, with NO visit AND NO attendance entry for the person → animated popup
-  // next time THEY open the app. Pops for אביאם and ניתאי, each for their own missing days.
-  const ATT_REMINDER_FLOOR = new Date(2026, 4, 31);   // 31.05.2026 inclusive
-  // Round 5 rule 5 (readers switch to the rows): covered = has an ATTENDANCE row. A visit no
-  // longer counts on its own — the visit save (or the one-time backfill) is what writes the
-  // visit_auto row that covers the day.
-  function personMissingDays(person) {
-    const ymd = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    const logged = new Set();
-    (window.SHEET_DATA?.attendance || []).filter(a => a.person === person)
-      .forEach(a => { if (a.date) logged.add(ymd(new Date(a.date))); });
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const floor = new Date(ATT_REMINDER_FLOOR); floor.setHours(0, 0, 0, 0);
-    const start = new Date(today); start.setDate(start.getDate() - 31);   // last 31 days
-    if (start < floor) start.setTime(floor.getTime());                    // never before tracking start
-    const missing = [];
-    for (const d = new Date(start); d < today; d.setDate(d.getDate() + 1)) {
-      const dow = d.getDay();               // 0=Sun … 5=Fri, 6=Sat
-      if (dow === 5 || dow === 6) continue; // Israeli weekend
-      if (!logged.has(ymd(d))) missing.push(new Date(d));
-    }
-    return missing.sort((a, b) => a - b);
-  }
-  function maybeShowAttendanceReminder() {
-    const me = getCurrentUser();
-    if (ATT_PEOPLE.indexOf(me) === -1) return;   // only אביאם / ניתאי
-    if (window._attReminderShown) return;        // once per session
-    const missing = personMissingDays(me);
-    if (!missing.length) return;
-    const head = document.getElementById('aviamReminderHead');
-    if (head) head.textContent = me + ', חסר תיעוד!';
-    document.getElementById('aviamReminderList').innerHTML = missing
-      .map(d => d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'numeric' }))
-      .join('<br>');
-    document.getElementById('aviamReminderModal').classList.add('open');
-    window._attReminderShown = true;
-  }
-
   // Resume where the person was (A7): a PWA the phone discarded in the background reloads to
   // the cards; the page it was on is in sessionStorage.
   //

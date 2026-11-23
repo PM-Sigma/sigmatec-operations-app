@@ -45,6 +45,8 @@ import {
   type AttRow, type AttCellState, type DayCell, type DayType, type Holiday, type TileKey,
 } from '@/lib/attendance';
 import { toastFailure } from '@/lib/pending';
+import { getSupabase } from '@/lib/supabase';
+import { checkinDays } from '@/lib/field';
 import { dayDetails, type DayTask, type DayVisit } from '@/lib/attDayDetails';
 import { statusLabel } from '@/lib/emsTasks';
 
@@ -77,7 +79,7 @@ async function readHolidays(): Promise<Holiday[]> {
     look state attCellLook already resolved (tile filter, filer gate, holiday/eve purple —
     all decided in lib/attendance.ts, never here). */
 const CELL_FILL: Partial<Record<AttCellState, DayCellFill>> = {
-  holiday: 'holiday', field: 'field', office: 'office', away: 'away',
+  holiday: 'holiday', field: 'field', office: 'office', away: 'away', pending: 'pending',
 };
 
 /** attLegend's keys → the same swatch colors the grid itself draws (A-U3). */
@@ -345,6 +347,24 @@ function AttendanceIsland() {
     // SHEET_DATA lands a moment after boot and announces nothing. Poll ONLY until it does.
     refetchInterval: q => (q.state.data ? false : 1500),
   });
+  // Field check-ins (non-dismissed) of the people on screen, this month: a day with one is
+  // "שטח, ממתין לסיכום", amber, not missing — the same rule the push uses (lib/field.ts).
+  const checkinsQ = useQuery({
+    queryKey: ['attCheckins', people.join('|') || person, ym.y, ym.m],
+    queryFn: async () => {
+      const sb = await getSupabase();
+      const lo = new Date(Date.UTC(ym.y, ym.m - 1, 1) - 86400000).toISOString();
+      const hi = new Date(Date.UTC(ym.y, ym.m, 1) + 86400000).toISOString();
+      const { data } = await sb.from('field_checkins').select('person,checked_in_at,dismissed')
+        .in('person', Array.from(new Set([...people, person].filter(Boolean)))).gte('checked_in_at', lo).lt('checked_in_at', hi).limit(500);
+      return (data || []) as Array<{ person: string; checked_in_at: string; dismissed: boolean }>;
+    },
+    enabled: !!person, staleTime: 60_000,
+  });
+  const fieldDaysFor = React.useCallback(
+    (p: string) => checkinDays((checkinsQ.data || []).filter(r => r.person === p)),
+    [checkinsQ.data],
+  );
   const holidaysQ = useQuery({ queryKey: ['holidays'], queryFn: readHolidays, staleTime: 6 * 3600_000 });
 
   const refresh = React.useCallback(() => {
@@ -367,8 +387,8 @@ function AttendanceIsland() {
   const fieldStaff = isFieldStaffSelf(me, person, flags);
   const policyFor = (c: DayCell): AttDayPolicy => attDayPolicy({ user: me, person, date: c.date, today: todayKey, row: c.row }, flags);
   const holidays = (holidaysQ.data || []) as Holiday[];
-  const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today), [ym, rows, holidays, today]);
-  const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m), [rows, holidays, today, ym]);
+  const grid = React.useMemo(() => monthGrid(ym.y, ym.m, rows, holidays, today, fieldDaysFor(person)), [ym, rows, holidays, today, fieldDaysFor, person]);
+  const missing = React.useMemo(() => missingDays(rows, holidays, today, ym.y, ym.m, fieldDaysFor(person)), [rows, holidays, today, ym, fieldDaysFor, person]);
   const kpis = React.useMemo(() => computeKpis(rows, missing, holidays), [rows, missing, holidays]);
   const mb = React.useMemo(() => missingBlock(person, me, missing, kpis.onHoliday), [person, me, missing, kpis.onHoliday]);
   // עידן 20.9 #2 — whoever can switch person is here to CHASE the gaps, not to browse a
@@ -376,11 +396,11 @@ function AttendanceIsland() {
   // straight off the legacy snapshot (the same source `readRows` uses for the open person),
   // recomputed when the snapshot lands or the month moves.
   const teamMissing = React.useMemo(
-    () => (canSwitch ? missingByPerson(people, p => readRows(p, ym.y, ym.m), holidays, today, ym.y, ym.m) : []),
+    () => (canSwitch ? missingByPerson(people, p => readRows(p, ym.y, ym.m), holidays, today, ym.y, ym.m, fieldDaysFor) : []),
     // `rows` is in the deps on purpose: it is the signal that SHEET_DATA arrived, which is
     // what makes every OTHER person's rows readable too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canSwitch, people.join('|'), ym.y, ym.m, holidays, today, rows],
+    [canSwitch, people.join('|'), ym.y, ym.m, holidays, today, rows, fieldDaysFor],
   );
 
   // Keep the LEGACY report in step: it is what `📄 PDF` and `📗 Excel` read

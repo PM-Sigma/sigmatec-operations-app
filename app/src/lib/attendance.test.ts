@@ -571,3 +571,22 @@ describe('attDayPolicy — field staff have no manual field report (עידן 11.
     expect(isFieldStaffSelf('עמיחי', 'עמיחי')).toBe(false);
   });
 });
+
+describe('field check-in day (שטח, ממתין לסיכום)', () => {
+  const today = new Date(2026, 8, 10);
+  it('is amber "pending", never missing, and carries the label', () => {
+    const field = new Set(['2026-09-02']);
+    const grid = monthGrid(2026, 9, [], HOLIDAYS, today, field);
+    const cell = grid.cells.find(c => c.date === '2026-09-02')!;
+    expect(cell.state).toBe('pending');
+    expect(missingDays([], HOLIDAYS, today, 2026, 9, field)).not.toContain('2026-09-02');
+    expect(missingDays([], HOLIDAYS, today, 2026, 9)).toContain('2026-09-02');
+    const look = attCellLook(cell, { person: 'אביאם', tile: null, selected: false });
+    expect(look.state).toBe('pending');
+    expect(look.label).toContain('שטח, ממתין לסיכום');
+  });
+  it('a real row wins over the check-in', () => {
+    const grid = monthGrid(2026, 9, [{ date: '2026-09-02', type: 'office' }], HOLIDAYS, today, new Set(['2026-09-02']));
+    expect(grid.cells.find(c => c.date === '2026-09-02')!.state).toBe('office');
+  });
+});
