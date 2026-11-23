@@ -320,6 +320,26 @@ export function visitPayload(v: DayLogVisit, visitor: string, today: string, hou
   };
 }
 
+/** True when the card hands equipment over — those go through the ONE visit-summary sheet (certificate
+ *  after the save), never through the headless day-log save. */
+export function hasEquipment(v: DayLogVisit): boolean {
+  return v.items.some(i => i.resolved && i.qty > 0);
+}
+
+/** The chapters-sheet fields a card fills (shared by the sheet's own 🎤 and the day log's hand-over). */
+export function visitDraftFields(v: DayLogVisit, today: string) {
+  return {
+    summary: v.summary || '',
+    openItems: v.open_items || '',
+    date: v.date || today,
+    workday: !!v.workday,
+    duration: v.workday ? '' : (v.duration_hours ? String(v.duration_hours) : ''),
+    products: (v.items || []).filter(i => i.resolved).map(i => ({ name: i.product, qty: Number(i.qty) || 1 })),
+    productsOther: (v.items || []).filter(i => !i.resolved).map(i => i.product).join(', '),
+    emsTaskIds: (v.task_matches || []).map(m => String(m.task_id)),
+  };
+}
+
 /** A card is savable once it names a real kibbutz and actually says something. */
 export function cardReady(v: DayLogVisit): boolean {
   return !!(v.kibbutz && v.kibbutzConfident && (v.summary.trim() || v.open_items.trim() || v.items.length));

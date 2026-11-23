@@ -93,12 +93,12 @@ export interface VisitRowLike {
   contact?: string; products?: ReadonlyArray<ProductInput> | null; productsOther?: string; summary?: string;
   openItems?: string; reason?: string; emsTaskId?: string; emsTaskIds?: string[];
 }
-export interface ReturnLite { visitId: string; product: string; qty: number }
+export interface ReturnLite { visitId: string; product: string; qty: number; reason?: string }
 
 export interface ChapterDraftFromVisit {
   kibbutz: string; date: string; visitor: string; visitors: string[]; duration: string; workday: boolean;
   contact: string; products: ProductQty[]; productsOther: string; summary: string; openItems: string;
-  reasonId: string; reasonOther: string; emsTaskIds: string[]; returned: ProductQty[];
+  reasonId: string; reasonOther: string; emsTaskIds: string[]; returned: Array<ProductQty & { note?: string }>;
 }
 
 /** Maps a filed visit onto the chapters sheet's draft shape (edit / cert mode). */
@@ -114,7 +114,7 @@ export function visitToChapters(
     typeof p === 'string' ? { name: p, qty: 1 } : { name: String(p?.name || ''), qty: Number(p?.qty) || 1 });
   const returned = (returns || [])
     .filter(r => r && r.visitId === visit.id)
-    .map(r => ({ name: r.product, qty: r.qty }));
+    .map(r => ({ name: r.product, qty: r.qty, ...(r.reason ? { note: r.reason } : {}) }));
   return {
     kibbutz: String(visit.kibbutz || ''),
     date: ymd(visit.date),

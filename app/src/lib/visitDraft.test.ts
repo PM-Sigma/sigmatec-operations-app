@@ -3,7 +3,7 @@
 // allowed, and how old the thing he is resuming is.
 import { describe, expect, it } from 'vitest';
 import {
-  CHAPTERS, canSubmit, chapterState, draftAge, draftHasInput, exitDecision, missingFields, openingVisitDate,
+  CHAPTERS, canSubmit, chapterState, draftAge, draftHasInput, draftIdFor, exitDecision, missingFields, openingVisitDate,
   type ChapterDraft,
 } from '@/lib/visitDraft';
 
@@ -200,4 +200,21 @@ describe('exitDecision (grill round 2 rules 2-4)', () => {
     expect(exitDecision('back', false)).toBe('discardAndClose');
   });
   it('after a send there is nothing to keep', () => expect(exitDecision('sent', true)).toBe('close'));
+});
+
+describe('draftIdFor: one id per kibbutz draft (lost-drafts bug)', () => {
+  it('a new draft gets a FRESH id, a resumed one keeps its own', () => {
+    expect(draftIdFor(null)).not.toBe(draftIdFor(null));
+    expect(draftIdFor({ id: 'v_stored' })).toBe('v_stored');
+  });
+
+  it('draft A, then B, then file A: B survives', () => {
+    const store = new Map<string, string>();                        // id -> kibbutz, like the draft mirror
+    const open = (k: string) => { const id = draftIdFor(null); store.set(id, k); return id; };
+    const idA = open('גבים');
+    const idB = open('גבת');
+    store.delete(idA);                                              // filing A discards A's draft id
+    expect([...store.values()]).toEqual(['גבת']);
+    expect(store.has(idB)).toBe(true);
+  });
 });

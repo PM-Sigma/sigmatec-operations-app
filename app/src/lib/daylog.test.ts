@@ -6,7 +6,7 @@
 // summary text is the model's — the app's job is to never let an invented name through.
 import { describe, expect, it } from 'vitest';
 import {
-  cardReady, diceScore, emsCommentText, matchEmsTask, NAME_THRESHOLD, normalizeDayLog, normHe,
+  cardReady, diceScore, emsCommentText, hasEquipment, matchEmsTask, visitDraftFields, NAME_THRESHOLD, normalizeDayLog, normHe,
   resolveName, TASK_THRESHOLD, visitPayload,
   type DayLogCatalog, type GroundingTask,
 } from '@/lib/daylog';
@@ -196,5 +196,20 @@ describe('visitPayload', () => {
     expect(cardReady(base)).toBe(true);
     expect(cardReady({ ...base, kibbutzConfident: false })).toBe(false);
     expect(cardReady({ ...base, summary: '', open_items: '', items: [] })).toBe(false);
+  });
+});
+
+describe('equipment cards go through the visit sheet', () => {
+  const card = (items: Array<{ product: string; qty: number; resolved: boolean }>) => ({
+    kibbutz: 'חוקוק', kibbutzConfident: true, summary: 's', open_items: '', items, task_matches: [],
+  }) as any;
+  it('hasEquipment: only resolved items with a quantity count', () => {
+    expect(hasEquipment(card([{ product: 'E360', qty: 2, resolved: true }]))).toBe(true);
+    expect(hasEquipment(card([{ product: 'משהו', qty: 1, resolved: false }]))).toBe(false);
+    expect(hasEquipment(card([]))).toBe(false);
+  });
+  it('visitDraftFields: the same fields the sheet\'s own voice fill sets', () => {
+    const f = visitDraftFields({ ...card([{ product: 'E360', qty: 2, resolved: true }, { product: 'כבל', qty: 1, resolved: false }]), duration_hours: 3 }, '2026-10-01');
+    expect(f).toMatchObject({ date: '2026-10-01', duration: '3', products: [{ name: 'E360', qty: 2 }], productsOther: 'כבל' });
   });
 });

@@ -24,7 +24,7 @@ import { mount } from '@/islands';
 import { SigmaProviders } from '@/lib/query';
 import { registerMoreItem } from '@/lib/registry';
 import { track } from '@/lib/track';
-import { sigma, useCurrentUser } from '@/bridge';
+import { sigma, useCurrentUser, useSigmaEvent } from '@/bridge';
 import { speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { speechLadder } from '@/lib/feedback';
 import { TranscribeRetry } from '@/components/TranscribeRetry';
@@ -44,7 +44,7 @@ function heldForRetry(e: unknown): boolean {
 }
 
 import {
-  cardReady, emsCommentText, normalizeDayLog, visitPayload,
+  cardReady, emsCommentText, hasEquipment, normalizeDayLog, visitPayload,
   type DayLogCatalog, type DayLogResult, type DayLogVisit,
 } from '@/lib/daylog';
 
@@ -137,12 +137,13 @@ function InlinePicker<T extends string>({ value, placeholder, options, onChange,
   );
 }
 
-function VisitCard({ v, catalog, saved, onChange, onDrop }: {
+function VisitCard({ v, catalog, saved, onChange, onDrop, onHandOver }: {
   v: DayLogVisit;
   catalog: DayLogCatalog;
   saved?: { ok: boolean; note: string };
   onChange: (patch: Partial<DayLogVisit>) => void;
   onDrop: () => void;
+  onHandOver?: () => void;
 }) {
   const needsPick = !v.kibbutzConfident;
   const title = needsPick ? (
@@ -228,6 +229,11 @@ function VisitCard({ v, catalog, saved, onChange, onDrop }: {
           </div>
         )}
 
+        {onHandOver && !saved?.ok && (
+          <BubbleButton type="button" variant="tonal" data-testid="daylog-handover" onClick={onHandOver}>
+            פתח בסיכום ביקור
+          </BubbleButton>
+        )}
         {saved && !saved.ok && <div className="text-xs text-destructive" data-testid="daylog-card-error">{saved.note}</div>}
       </div>
     </SectionBlock>
@@ -252,6 +258,7 @@ function DayLogSheet() {
   const [listening, setListening] = React.useState(false);
   const original = React.useRef<DayLogResult | null>(null);
   const rawLen = React.useRef(0);
+  const handedOver = React.useRef<{ i: number; kibbutz: string } | null>(null);
   const catalog = React.useMemo(() => readCatalog(), [open]);
   const live = React.useRef<{ stop: () => void } | null>(null);
   const rec = React.useRef<RecordSession | null>(null);
@@ -386,6 +393,8 @@ function DayLogSheet() {
       if (marks[i]?.ok) continue;                        // a retry must not save the same day twice
       const v = result.visits[i];
       if (!cardReady(v)) { marks[i] = { ok: false, note: 'בחר קיבוץ כדי לשמור את הכרטיס' }; continue; }
+      // Equipment = the visit sheet's job (one summary flow everywhere; the certificate follows its save).
+      if (hasEquipment(v)) { if (!marks[i]?.ok) marks[i] = { ok: false, note: 'יש ציוד, נשמר דרך סיכום הביקור: לחץ "פתח בסיכום ביקור"' }; continue; }
       const payload = visitPayload(v, me, today());
       // Round 5 V14-V17: the save is followed by the attendance rules for אביאם/ניתאי (rule 1);
       // `asks` (rule 2 conflicts) are ignored here on purpose — a manual row always wins, and a
@@ -418,6 +427,25 @@ function DayLogSheet() {
       setOpen(false);
     }
   };
+
+  /** Hand an equipment card to the ONE visit sheet; the card turns saved when that sheet files it. */
+  const handOver = (i: number) => {
+    const v = result?.visits[i];
+    if (!v) return;
+    // The sheet's own global (Field.tsx VISIT_CHAPTERS_API) — importing the island here would drag it into this lazy chunk.
+    const api = (window as any).sigmaVisitChapters;
+    if (!api?.open) { toast.error('סיכום הביקור לא זמין כרגע'); return; }
+    api.open(v.kibbutz, { voice: v, date: v.date });
+    handedOver.current = { i, kibbutz: v.kibbutz };
+    setOpen(false);
+  };
+  useSigmaEvent('visit-saved', e => {
+    const h = handedOver.current;
+    if (h && e?.detail?.kibbutz === h.kibbutz) {
+      handedOver.current = null;
+      setSaved(s => ({ ...s, [h.i]: { ok: true, note: '' } }));
+    }
+  });
 
   const allSaved = !!result && result.visits.length > 0 && result.visits.every((_, i) => saved[i]?.ok);
 
@@ -504,6 +532,7 @@ function DayLogSheet() {
                   v={v}
                   catalog={catalog}
                   saved={saved[i]}
+                  onHandOver={hasEquipment(v) ? () => handOver(i) : undefined}
                   onChange={p => patch(i, p)}
                   onDrop={() => drop(i)}
                 />

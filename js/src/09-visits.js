@@ -393,9 +393,8 @@
       workday: visit.workday, reason: visit.reason,
       id: id, isNew: !isEdit
     };
-    // Returns are rows of their own (writeVisit inserts them) — sending them again on an edit or a
-    // retry would book the same returned meter twice.
-    if (isEdit) reqBody.returnedItems = [];
+    // Returns are rows of their own (writeVisit upserts them as `<visitId>|<index>`), so an edit sends the
+    // whole list and the writer diffs it; a retry rewrites the same rows instead of booking them twice.
     // Every EMS task this summary reports on. `emsTaskIds` is the chapters sheet's multi-select
     // (round 2 · C6); `emsTaskId` alone is the day log's single match. The first is the visit's link.
     const emsIds = [];
@@ -460,18 +459,32 @@
     ((priorSnap && priorSnap.products) || []).forEach(p => { const n = (p && p.name) || p; oldMap[n] = (oldMap[n] || 0) + (parseInt(p && p.qty, 10) || 0); });
     products.forEach(p => { newMap[p.name] = (newMap[p.name] || 0) + p.qty; });
     const moves = [];
+    // Deterministic id `<visit>|<product>|<n>` (n = movements this visit already has for the product): the
+    // write is an upsert by id, so a retry after a failed save lands on the same row, never a second one.
+    const ledger = (window.SHEET_DATA && window.SHEET_DATA.movements) || [];
     const move = (product, from, to, qty, why) => moves.push(fetch(WRITE_ROUTER_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ type: 'movement', product: product, fromLocation: from, toLocation: to, quantity: qty, reason: why, refId: savedId, createdBy: visitor })
-    }).catch(e => console.warn('Movement failed:', e)));
+      body: JSON.stringify({ type: 'movement', id: savedId + '|' + product + '|' + ledger.filter(m => String(m.refId) === String(savedId) && m.product === product).length,
+        product: product, fromLocation: from, toLocation: to, quantity: qty, reason: why, refId: savedId, createdBy: visitor })
+    }).then(r => r.json()).then(j => !!(j && j.ok)).catch(e => { console.warn('Movement failed:', e); return false; }));
     new Set([...Object.keys(oldMap), ...Object.keys(newMap)]).forEach(name => {
       const delta = (newMap[name] || 0) - (oldMap[name] || 0);
       if (delta > 0) move(name, source, kibbutz, delta, isEdit ? 'visit_supply_edit' : 'visit_supply');
       else if (delta < 0) move(name, kibbutz, source, -delta, 'visit_supply_edit');
     });
     if (moves.length) {
-      try { await Promise.all(moves); } catch (e) {}
+      const landed = await Promise.all(moves);
       if (typeof sigmaEmit === 'function') sigmaEmit('stock-changed', { source: 'visit', kibbutz: kibbutz });
+      if (landed.indexOf(false) !== -1) {
+        // The visit row is filed but its stock is not. Undo the in-memory snapshot so a retry sees the
+        // same delta (and the same movement ids) instead of "nothing changed".
+        try {
+          const vs = window.SHEET_DATA && window.SHEET_DATA.visits;
+          if (prior && priorSnap) Object.assign(prior, priorSnap);
+          else if (Array.isArray(vs)) { const i = vs.findIndex(v => v && String(v.id) === String(savedId)); if (i >= 0) vs.splice(i, 1); }
+        } catch (e) {}
+        return { ok: false, stockFailed: true, id: String(savedId), error: 'המלאי לא עודכן — נסה שוב' };
+      }
     }
     setTimeout(refreshData, 1500);
 

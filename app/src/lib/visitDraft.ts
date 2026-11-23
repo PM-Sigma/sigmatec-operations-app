@@ -210,6 +210,12 @@ export function draftHasInput(d: ChapterDraft | null | undefined): boolean {
   );
 }
 
+/** The id a chapters draft is opened with: the stored row's own, or a FRESH one for a new draft.
+ *  Never shared between drafts — filing one must not be able to discard another kibbutz's. */
+export function draftIdFor(row: { id?: string } | null | undefined): string {
+  return String(row?.id || '') || 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
 export type ExitKind = 'scrim' | 'top' | 'cancel' | 'back' | 'appClose' | 'sent';
 
 /**

@@ -30,6 +30,7 @@ const document_ = { getElementById: () => mkEl(), querySelectorAll: () => [], qu
 const storage = {};
 const localStorage_ = { getItem: k => storage[k] ?? null, setItem(k, v) { storage[k] = v; }, removeItem(k) { delete storage[k]; } };
 
+let failMoves = false;
 let posts = [], sbPosts = [], emsFull = [], emsEdit = [], emitted = [], contactsKnown = [], tracked = [];
 const window_ = {
   SHEET_DATA: { visits: [] }, currentKibbutzVisits: [],
@@ -40,6 +41,7 @@ const fetch_ = (u, o) => {
   if (String(u).indexOf('https://sb.test/') === 0) { sbPosts.push({ url: u, body: JSON.parse(o.body) }); return Promise.resolve({ ok: true, json: async () => ({}) }); }
   if (o && o.body) { try { posts.push(JSON.parse(o.body)); } catch (e) {} }
   const b = o && o.body ? JSON.parse(o.body) : {};
+  if (failMoves && b.type === 'movement') return Promise.resolve({ json: async () => ({ ok: false, error: 'boom' }) });
   return Promise.resolve({ json: async () => ({ ok: true, id: b.id || 'SRV_ID' }) });
 };
 
@@ -161,7 +163,7 @@ check('stock: only the delta (+1) moves', () => {
   assert.deepEqual(moves().map(m => [m.product, m.fromLocation, m.toLocation, m.quantity, m.reason]),
     [['E360', 'חברה', 'חוקוק', 1, 'visit_supply_edit']]);
 });
-check('returns are not inserted twice', () => assert.equal(visitPosts()[0].returnedItems.length, 0));
+check('an edit sends the whole returns list (the writer upserts <visit>|<i> rows and diffs)', () => assert.equal(visitPosts()[0].returnedItems.length, 1));
 check('EMS: the linked task gets the change note, not a second summary', () => {
   assert.equal(emsFull.length, 0);
   assert.deepEqual(emsEdit.map(e => e.taskId), ['T1']);
@@ -277,6 +279,31 @@ check('L13 new visit + products + no certAfter + no issued cert → needsCert, n
   assert.equal(r13.needsCert, true);
   assert.equal(r13.visitId, 'vd_needscert');
   assert.equal(visitPosts().length, 0, 'a blocked save must post nothing');
+});
+
+// Defect 2: stock moves are awaited; a failure is loud, rolls the snapshot back and a retry is idempotent.
+reset(); failMoves = true;
+const f1 = await mod.saveVisitFromData({ ...chapters, id: 'vd_fail', certAfter: true });
+failMoves = false;
+check('S1 a failed stock movement fails the save loudly (not fire-and-forget)', () => {
+  assert.equal(f1.ok, false); assert.equal(f1.stockFailed, true);
+  assert.match(f1.error, /המלאי לא עודכן/);
+  assert.equal(window_.SHEET_DATA.visits.some(x => x.id === 'vd_fail'), false, 'snapshot rolled back so the retry sees the same delta');
+});
+const failedIds = moves().map(m => m.id);
+reset();
+const f2 = await mod.saveVisitFromData({ ...chapters, id: 'vd_fail', certAfter: true });
+check('S2 the retry succeeds and re-posts the SAME movement ids (upsert, never a double booking)', () => {
+  assert.equal(f2.ok, true);
+  assert.deepEqual(moves().map(m => m.id), failedIds);
+  assert.equal(failedIds[0], 'vd_fail|E360|0');
+});
+// Defect 4: the edit path of the returns list.
+reset();
+const f3 = await mod.saveVisitFromData({ ...chapters, id: 'vd_fail', returned: [{ name: 'מונה ישן', qty: 2, note: 'שבור' }], certAfter: true });
+check('S3 an edit that changes the returned items posts the new list (with the note)', () => {
+  assert.equal(f3.edited, true);
+  assert.deepEqual(visitPosts()[0].returnedItems, [{ name: 'מונה ישן', qty: 2, note: 'שבור' }]);
 });
 
 console.log(failures ? `\n${failures} FAILED` : '\nall passed');

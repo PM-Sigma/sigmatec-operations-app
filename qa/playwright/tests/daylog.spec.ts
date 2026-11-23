@@ -47,6 +47,8 @@ async function stubBridge(page: any) {
       (window as any).__daylog.visits.push(v);
       return Promise.resolve({ ok: true, id: 'v_' + (window as any).__daylog.visits.length });
     };
+    (window as any).__daylog.opened = [] as any[];
+    (window as any).sigmaVisitChapters = { open: (k: string, o: any) => (window as any).__daylog.opened.push({ k, o }) };
     s.emsAddComment = (taskId: string, text: string) => {
       (window as any).__daylog.comments.push({ taskId, text });
       return Promise.resolve({ ok: true });
@@ -64,7 +66,7 @@ const openSheet = async (page: any) => {
   await expect(page.getByTestId('daylog-sheet')).toBeVisible();
 };
 
-test('day log: three kibbutzim → three cards → fix one → שמור הכל saves three visits + one EMS comment', async ({ page }, ti) => {
+test('day log: three kibbutzim → three cards → fix one → שמור הכל saves the two plain visits; the equipment card is handed to the visit sheet', async ({ page }, ti) => {
   const { rec } = await boot(page, ti, { who: 'אביאם' });
   await page.waitForSelector('#sigma-home .kibbutz');
   await mockParse(page);
@@ -102,18 +104,20 @@ test('day log: three kibbutzim → three cards → fix one → שמור הכל s
 
   await page.getByTestId('daylog-save-all').click();
 
-  await expect.poll(async () => await page.evaluate(() => (window as any).__daylog.visits.length)).toBe(3);
+  // Equipment is the visit sheet's job (one summary flow, certificate after the save): card 1 is NOT
+  // saved headless, it offers a hand-over; the two plain cards save.
+  await expect.poll(async () => await page.evaluate(() => (window as any).__daylog.visits.length)).toBe(2);
   const saved = await page.evaluate(() => (window as any).__daylog);
-  expect(saved.visits.map((v: any) => v.kibbutz)).toEqual(['דפנה', 'חוקוק', 'כפר עזה']);
-  expect(saved.visits.map((v: any) => v.visitor)).toEqual(['אביאם', 'אביאם', 'אביאם']);
-  expect(saved.visits.map((v: any) => v.date)).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
-  expect(saved.visits[0].products).toEqual([{ name: 'Partner Sim', qty: 2 }]);
-  expect(saved.visits[1].summary).toBe('בדקתי תקשורת — תקין');
+  expect(saved.visits.map((v: any) => v.kibbutz)).toEqual(['חוקוק', 'כפר עזה']);
+  expect(saved.visits.map((v: any) => v.visitor)).toEqual(['אביאם', 'אביאם']);
+  expect(saved.visits[0].summary).toBe('בדקתי תקשורת — תקין');
+  expect(saved.comments).toHaveLength(0);          // the matched task's comment is the sheet's, with the summary
 
-  // One comment, on the one matched task, in עידן's wording.
-  expect(saved.comments).toHaveLength(1);
-  expect(saved.comments[0].taskId).toBe('T1');
-  expect(saved.comments[0].text).toBe('עדכון מאביאם על המשימה: החלפתי מונה ראשי בלול');
+  await cards.nth(0).getByTestId('daylog-handover').click();
+  const opened = await page.evaluate(() => (window as any).__daylog.opened);
+  expect(opened).toHaveLength(1);
+  expect(opened[0].k).toBe('דפנה');
+  expect(opened[0].o.voice.items).toEqual([expect.objectContaining({ product: 'Partner Sim', qty: 2 })]);
 
   expectNoConsoleErrors(rec);
 });
@@ -139,7 +143,7 @@ test('day log: removing a task chip means no comment is posted for it', async ({
   await page.getByTestId('daylog-card').nth(2).getByTestId('daylog-drop').click();
   await page.getByTestId('daylog-save-all').click();
 
-  await expect.poll(async () => await page.evaluate(() => (window as any).__daylog.visits.length)).toBe(2);
+  await expect.poll(async () => await page.evaluate(() => (window as any).__daylog.visits.length)).toBe(1);
   expect(await page.evaluate(() => (window as any).__daylog.comments.length)).toBe(0);
 
   expectNoConsoleErrors(rec);
@@ -158,8 +162,8 @@ test('day log: a card whose kibbutz is still unknown is refused, and says so on 
 
   await page.getByTestId('daylog-save-all').click();
 
-  await expect(page.getByTestId('daylog-card-error')).toContainText('בחר קיבוץ');
-  expect(await page.evaluate(() => (window as any).__daylog.visits.length)).toBe(2);
+  await expect(page.getByTestId('daylog-card-error').filter({ hasText: 'בחר קיבוץ' })).toHaveCount(1);
+  expect(await page.evaluate(() => (window as any).__daylog.visits.length)).toBe(1);
   await shot(page, ti, 'needs-kibbutz');
 
   expectNoConsoleErrors(rec);

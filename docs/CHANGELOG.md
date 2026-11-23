@@ -7,6 +7,17 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-23 - Visit summary: 7 defects from the read-only audit (branch fix/r1-visits)
+- **Why:** an audit found lost drafts, silent stock failures and a day log that could not file equipment.
+- **1 Lost drafts:** every kibbutz draft now gets its own id (`draftIdFor`, Field.tsx openOn) instead of the page-global `visitDraftId()`; filing A can no longer discard B.
+- **2 Stock:** `saveVisitFromData` awaits the movements; on failure it returns `המלאי לא עודכן — נסה שוב` (toast has a retry action), rolls the in-memory snapshot back so the retry sees the same delta. Movement ids are `<visit>|<product>|<n>` (upsert, idempotent).
+- **3 Ghost drafts:** `persist()` bails once the visit is being filed; the draft is discarded after the awaits. Existing ghost rows in the DB are untouched.
+- **4 Returned items:** an edit sends the full returns list; `writeVisit` upserts `<visit>|<i>` rows (note -> `reason`), deletes surplus/legacy still-open rows, never resets or deletes a row already worked on. The edit form now loads each return's note.
+- **5 Day log:** cards with equipment are no longer saved headless (that path could never pass the cert gate); they get `פתח בסיכום ביקור`, which opens the ONE visit sheet pre-filled (`voice` opener option); the card turns saved when the sheet files it.
+- **6 Tiles:** the visit form's tiles come from the active catalog (zero/negative stock included); while `STOCK_LIMITS` is off no stock count and no "אין כרגע מלאי זמין".
+- **7 Toasts:** one save = one summary toast (attendance headline + heads-ups + EMS results as lines).
+- **Rollback:** revert the commit; no DB change. Tests: test-visit-summary-chain (S1-S3), test-visit-writevisit (R1-R2), visitDraft.test.ts (draftIdFor A->B), daylog.test.ts (hasEquipment).
+
 ## 2026-11-23 - Attendance alerts: 4 fixes (אביאם/ניתאי "missing day" noise)
 - **Why:** the missing-day alerts felt buggy: a legacy popup with no holiday check, a morning push that stacked a growing list
   every day incl. Fri/Sat/holidays, field days counted as missing, and every manual save adding a second row for the day.

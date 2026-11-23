@@ -663,9 +663,28 @@
           (named.length ? named : optional).forEach(k => { delete row[k]; });
         }
       }
-      if (Array.isArray(b.returnedItems) && b.returnedItems.length) {
-        const rows = b.returnedItems.filter(it => it && it.name && it.qty > 0).map(it => ({ id: genId('ret'), visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || '', status: it.toStock ? 'restocked' : 'open' }));
-        if (rows.length) await sbInsert('returns', rows);
+      // Returns are rows of their own, keyed `<visitId>|<index>` so a retry or an edit UPSERTS the same rows
+      // (never double-books). An edit sends the full list: surplus indexes and untouched legacy random-id rows
+      // (status still 'open') go; a row already worked on (status moved on) is never deleted — a legacy one absorbs its twin.
+      if (Array.isArray(b.returnedItems)) {
+        const want = b.returnedItems.filter(it => it && it.name && it.qty > 0);
+        let old = [];
+        if (!b.isNew) { try { old = await sbGet('returns?select=id,product,qty,status&visit_id=eq.' + encodeURIComponent(id)) || []; } catch (e) { old = []; } }
+        const prefix = id + '|';
+        const worked = old.filter(r => String(r.id).indexOf(prefix) !== 0 && r.status && r.status !== 'open');
+        const rows = [];
+        want.forEach((it, i) => {
+          const twin = worked.findIndex(r => r.product === it.name && parseInt(r.qty) === it.qty);
+          if (twin >= 0) { worked.splice(twin, 1); return; }
+          const rid = prefix + i, known = old.some(r => r.id === rid);
+          const row = { id: rid, visit_id: id, date: b.date || nowISO(), kibbutz: b.kibbutz || '', visitor: b.visitor || '', product: it.name, qty: it.qty, reason: it.reason || it.note || '' };
+          if (!known) row.status = it.toStock ? 'restocked' : 'open';
+          rows.push(row);
+        });
+        for (const row of rows) await sbUpsert('returns', 'id', row);
+        const keep = new Set(rows.map(r => r.id));
+        const stale = old.filter(r => !keep.has(r.id) && r.status === 'open').map(r => r.id);
+        if (stale.length) await sbDelete('returns?id=in.(' + stale.map(x => '"' + String(x).replace(/"/g, '') + '"').join(',') + ')');
       }
       return { ok: true, id };
     }

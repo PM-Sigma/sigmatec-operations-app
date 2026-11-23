@@ -47,12 +47,12 @@ import {
   type VisitRow,
 } from '@/lib/field';
 import {
-  CHAPTERS, canSubmit, draftAge, draftHasInput, missingFields, openingVisitDate,
+  CHAPTERS, canSubmit, draftAge, draftHasInput, draftIdFor, missingFields, openingVisitDate,
   type ChapterDraft, type ChapterId, type ReturnedItem,
 } from '@/lib/visitDraft';
 import { pickableProducts, productGroups, searchProducts } from '@/lib/productSearch';
 import { parseDayLog, readCatalog } from '@/lib/daylogChain';
-import { normalizeDayLog, type DayLogVisit } from '@/lib/daylog';
+import { normalizeDayLog, visitDraftFields, type DayLogVisit } from '@/lib/daylog';
 import { buildWhisperPrompt, speechCaps, startLive, startRecording, uploadAndTranscribe, type RecordSession } from '@/lib/speech';
 import { speechLadder } from '@/lib/feedback';
 // Round 5, package V: every visit save (new or edit) applies the attendance rules through here.
@@ -568,6 +568,8 @@ export interface VisitChaptersOpen {
   date?: string;
   /** Round 5 V-L4b: load a FILED visit instead of resuming a draft. */
   visitId?: string;
+  /** The 📝 יומן היום hand-over: a parsed card pre-fills the sheet (equipment is only ever filed here). */
+  voice?: DayLogVisit;
   /** 'new' (default) | 'edit' (loads visitId) | 'cert' (loads visitId, jumps to the cert screen). */
   mode?: 'new' | 'edit' | 'cert';
 }
@@ -739,7 +741,7 @@ function ProductTiles({ groups, stock, qtyOf, setQty }: {
                     <span className="line-clamp-2 text-[12.5px] font-bold leading-[1.25]"><bdi>{name}</bdi></span>
                     {!open && (
                       <span className="text-[11px] text-muted-foreground">
-                        {q > 0 ? <b className="text-[12.5px] text-foreground"><bdi>{q}</bdi></b> : <>במלאי <bdi>{stock[name] || 0}</bdi></>}
+                        {q > 0 ? <b className="text-[12.5px] text-foreground"><bdi>{q}</bdi></b> : STOCK_LIMITS ? <>במלאי <bdi>{stock[name] || 0}</bdi></> : null}
                       </span>
                     )}
                   </button>
@@ -1242,6 +1244,8 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
   const persist = React.useCallback((patch: Partial<ChapterDraft> = {}) => {
     const cur = ref.current;
     if (!cur.kibbutz || cur.editing) return;
+    // Filed (or being filed): the draft is gone on purpose — a late autosave must not write it back.
+    if (sentRef.current && sentRef.current === cur.draftId) return;
     const payload = { ...cur.model, ...patch } as Record<string, unknown>;
     // Round 5 V-L7 (grill round 2 "Drafts rule 1"): draftHasInput, not chapterDraftHasContent — a
     // sheet holding only defaults (date, visitor(s), duration chip, workday chip) is not a draft.
@@ -1336,6 +1340,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     const stored = (row?.payload || {}) as ChapterDraft;
     const next: ChapterDraft = {
       ...stored,
+      ...(opts.voice ? visitDraftFields(opts.voice, today) : {}),
       // The briefing's unticked leftovers pre-fill chapter 2 — but never over his own words.
       openItems: String(stored.openItems || '').trim() || opts.openItems || '',
       date: openingVisitDate(stored.date, opts.date, today),
@@ -1346,9 +1351,9 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     setMiss([]);
     setSentVisitId('');
     sentRef.current = '';
-    let id = String(row?.id || '');
-    if (!id) { try { id = String(sigma.visitDraftId?.() || ''); } catch { id = ''; } }
-    setDraftId(id || 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    // One id PER kibbutz draft: the resumed row's own, or a fresh one. (The old page-global
+    // sigma.visitDraftId() was shared by every draft started in this session, so filing A discarded B.)
+    setDraftId(draftIdFor(row));
     setJump(opts.chapter ?? 0);
     setResumedAt(String(row?.updated_at || ''));
     setOpen(true);
@@ -1375,18 +1380,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
   /** C8: what the analysis filled. Every field stays editable; nothing is saved behind him. */
   const fillFromVoice = React.useCallback((v: DayLogVisit) => {
-    const products = (v.items || []).filter(i => i.resolved).map(i => ({ name: i.product, qty: Number(i.qty) || 1 }));
-    const loose = (v.items || []).filter(i => !i.resolved).map(i => i.product).join(', ');
-    set({
-      summary: v.summary || '',
-      openItems: v.open_items || '',
-      date: v.date || today,
-      workday: !!v.workday,
-      duration: v.workday ? '' : (v.duration_hours ? String(v.duration_hours) : ''),
-      products,
-      productsOther: loose,
-      emsTaskIds: (v.task_matches || []).map(m => String(m.task_id)),
-    });
+    set(visitDraftFields(v, today));
   }, [set, today]);
 
   /** שלח — chapter 5 only, and the only thing here that creates anything. */
@@ -1446,27 +1440,17 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
       if (res.ok) {
         const visitId = res.id;
         try { navigator.vibrate?.(10); } catch { /* not every browser has it */ }
-        try { sigma.visitDraftDiscard?.(cur.draftId); } catch { /* it is filed; the draft is noise */ }
         set({ submittedId: visitId });
         track('visit-chapters-send', cur.kibbutz);
-        // Opus audit: honour the attendance write's own result — it is a SEPARATE call from the
-        // visit save, and it can fail on its own (the visit is still filed either way).
-        // Designer round 5 V-U4 review: bottom placement, never over the header (S-U owns the
-        // toaster's own global repositioning — this only keeps OUR calls off the top).
-        const toastOpts = { position: 'bottom-center' as const };
-        if (res.attendanceOk) toast.success(res.toast, toastOpts);
-        else toast.error('הסיכום נשמר, אך עדכון הנוכחות נכשל', toastOpts);
-        // Rule 2 conflict ("הוזן X, לשנות לשטח?") is a real decision — a DS Dialog (below),
-        // queued one at a time, not a toast. Rule 3 "needs entry" stays a toast (a heads-up,
-        // nothing to decide).
-        if (res.asks.length) setConflictAsks(prev => [...prev, ...res.asks]);
-        for (const popup of res.popups) toast(popup, toastOpts);
-
         // The EMS comments went out inside saveVisitFromData (`emsComment` above). Every selected
         // internal task is marked done here.
         // עידן 11.10: the EMS status change runs only now, after the visit is safely filed. An EMS
         // failure never undoes the visit: it gets the error mapper's toast and the visit stays.
         // Multi-EMS (12.10): only the LINKED tasks, one at a time, one summary toast + one line per failure.
+        // One summary toast per save (was 3-6): the headline, then one line per heads-up / EMS result.
+        // Bottom placement, never over the header (S-U owns the toaster's own global repositioning).
+        const lines: string[] = [];
+        let failed = !res.attendanceOk;
         const picks = Object.fromEntries(Object.entries(emsPicksRef.current).filter(([id]) => emsIds.includes(id)));
         const changes = plannedStatusChanges(picks,
           Object.fromEntries(emsTasksRef.current.map(t => [String(t.id), String(t.status)])));
@@ -1474,9 +1458,15 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
           const r = await applyStatusChanges(changes, (id, st) => sigma.emsSetStatus?.(id, st));
           const titleOf = (id: string) => String(emsTasksRef.current.find(t => String(t.id) === id)?.title || id);
           const msgs = statusUpdateToasts(r, titleOf, e => userMessage(classifyError(e)));
-          if (msgs.ok) toast.success(msgs.ok, toastOpts);
-          for (const m of msgs.errors) toast.error(m, toastOpts);
+          if (msgs.ok) lines.push(msgs.ok);
+          if (msgs.errors.length) { failed = true; lines.push(...msgs.errors); }
         }
+        if (res.asks.length) setConflictAsks(prev => [...prev, ...res.asks]);
+        // Rule 3 "needs entry" popups are heads-ups, nothing to decide; rule 2's conflict is a Dialog (below).
+        lines.unshift(...res.popups);
+        const headline = res.attendanceOk ? res.toast : 'הסיכום נשמר, אך עדכון הנוכחות נכשל';
+        const tOpts = { position: 'bottom-center' as const, description: lines.join('\n') || undefined, style: { whiteSpace: 'pre-line' as const } };
+        if (failed) toast.error(headline, tOpts); else toast.success(headline, tOpts);
 
         if (internalIds.length) {
           try {
@@ -1485,6 +1475,10 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
               sbWrite(() => sb.from('internal_tasks').update({ done: true }).eq('id', id).select('id').single() as any)));
           } catch (e) { console.warn('[visit-chapters] internal done', e); }
         }
+
+        // The visit is filed, so the draft goes — AFTER the awaits above, and persist() is shut for this id
+        // (sentRef), so no late autosave can write it back as a ghost.
+        try { sigma.visitDraftDiscard?.(cur.draftId); } catch { /* it is filed; the draft is noise */ }
 
         // C7: equipment was supplied → this sheet becomes the certificate screen instead of
         // closing. Nothing is printed; the certificate opens in the app with שלח / הורד on it.
@@ -1495,7 +1489,9 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
         }
       } else {
         sentRef.current = '';                                   // it did not happen — let him retry
-        toast.error(res.error || 'השליחה נכשלה');
+        // The stock failure is "filed but stock not moved" — the retry is idempotent (same ids), so offer it.
+        toast.error(res.error || 'השליחה נכשלה', (res.locked || res.needsCert) ? undefined
+          : { action: { label: 'נסה שוב', onClick: () => { void send(opts); } } });
       }
     } catch {
       sentRef.current = '';
@@ -1526,8 +1522,14 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
     try { return (sigma.poolStock?.() as Record<string, number>) || {}; } catch { return {}; }
   }, [open]);
   const stockNames = React.useMemo(
-    // C4: SIM rows are hidden from the pickable list (hidden, never deleted).
-    () => pickableProducts(Object.keys(stock).filter(n => !STOCK_LIMITS || (stock[n] || 0) > 0)).sort((a, b) => a.localeCompare(b, 'he')),
+    // C4: SIM rows are hidden from the pickable list (hidden, never deleted). Tiles come from the ACTIVE
+    // CATALOG, so a product at zero (or negative) pool stock is still there; only when stock caps are
+    // switched on does the pool's positive stock narrow the list.
+    () => {
+      let names: string[] = [];
+      try { names = (sigma.productNames?.() as string[]) || []; } catch { names = []; }
+      return pickableProducts(names.filter(n => !STOCK_LIMITS || (stock[n] || 0) > 0)).sort((a, b) => a.localeCompare(b, 'he'));
+    },
     [stock],
   );
   /** The whole catalog the keyword search runs over — the pool first, the catalog behind it. */
@@ -1694,7 +1696,7 @@ function VisitChapters({ me, today }: { me: string; today: string }) {
 
               <Chapter id={3}>
                 <div className="flex flex-col gap-3">
-                  {!stockNames.length && (
+                  {STOCK_LIMITS && !stockNames.length && (
                     <p className="rounded-xl border border-border bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
                       אין כרגע מלאי זמין. אם השארת משהו, תחפש אותו למטה או תכתוב אותו.
                     </p>
