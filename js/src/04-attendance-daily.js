@@ -19,10 +19,10 @@
   // ───────────────────────── 🕎 holidays (spec §7e) ─────────────────────────
   // ONE list per session, shared by everything that has to know whether a day was a work
   // day: this report, the red missing rows (22-push.js), the React island and the calendar.
-  // It lives on SHEET_DATA like every other shared table, and a failure to load it is not an
-  // error — the screen falls back to "weekdays are work days", which is what it did before.
+  // It lives on window._holidays - NOT on SHEET_DATA, which the 15s poll replaces wholesale (that
+  // is why holidays vanished a few seconds after load). A failure to load it is not an error — the screen falls back to "weekdays are work days", which is what it did before.
   window.attHolidaysLoaded = window.attHolidaysLoaded || null;
-  function attHolidays() { return ((window.SHEET_DATA || {}).holidays) || []; }
+  function attHolidays() { return window._holidays || []; }
   window.attHolidays = attHolidays;
 
   function attLoadHolidays() {
@@ -48,8 +48,7 @@
         var list = (rows || []).map(function (h) {
           return { date: String(h.date || '').slice(0, 10), name: h.name || '', kind: h.kind || 'holiday', required: !!h.required };
         }).filter(function (h) { return h.date; });
-        window.SHEET_DATA = window.SHEET_DATA || {};
-        window.SHEET_DATA.holidays = list;
+        window._holidays = list;
         // An empty list while a pass is still pending (or never came) is "try again next
         // time", not "there are no holidays" — drop the memo so the next attLoadHolidays()
         // call (e.g. the calendar opening after נוכחות already warmed the pass) re-fetches.
@@ -58,8 +57,7 @@
         return list;
       })
       .catch(function () {
-        window.SHEET_DATA = window.SHEET_DATA || {};
-        window.SHEET_DATA.holidays = window.SHEET_DATA.holidays || [];
+        window._holidays = window._holidays || [];
         window.attHolidaysLoaded = null;
         return [];
       });

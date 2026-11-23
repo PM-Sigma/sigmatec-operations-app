@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ADD_LABEL, primaryAdd, primaryAddLabel, type AddAction, type AddPage } from '@/lib/primaryAdd';
 import type { PersonRole } from '@/lib/landing';
 
-const PAGES: AddPage[] = ['kibbutz', 'calendar', 'inventory', 'attendance', 'dev', 'pushlog', 'burns', 'hours'];
+const PAGES: AddPage[] = ['kibbutz', 'calendar', 'inventory', 'attendance', 'fieldops', 'dev', 'pushlog', 'burns', 'hours'];
 const ROLES: PersonRole[] = ['field', 'pm', 'dev', 'ceo', 'viewer'];
 
 describe('primaryAdd — the matrix', () => {
@@ -14,6 +14,7 @@ describe('primaryAdd — the matrix', () => {
     calendar: 'none',    // the calendar island owns its own ➕ (22.9, B4)
     inventory: 'stockChange',
     attendance: 'visit',
+    fieldops: 'visit',   // the hub header ➕ opens the visit summary
     dev: 'none',
     pushlog: 'none',
     burns: 'none',      // 🔥 צריבות (Task 23) — a fixed meter list, nothing to add by hand

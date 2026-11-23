@@ -85,7 +85,8 @@ export function primaryAdd(page: AddPage, role: PersonRole, context: AddContext 
       return 'none';
     case 'inventory':
       return 'stockChange';
-    case 'attendance':
+    case 'attendance':   // redirected to fieldops by showPage; kept for the old name
+    case 'fieldops':
       return 'visit';
     // Read-only or externally owned screens: the dev board has its own per-column add,
     // התראות is a list, and 🔥 צריבות is a fixed set of meters nobody adds to by hand

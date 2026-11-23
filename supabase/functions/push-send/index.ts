@@ -2,7 +2,7 @@
 //   (default) order events  : { event: 'pending'|'approved', orderId, actor } → notifies approvers
 //   attendanceReminder      : { mode:'attendanceReminder', person, dates }    → nudges a field worker
 //   attendanceCron          : { mode:'attendanceCron' }  → hourly; 09:00 missing-days, each
-//                             person's own `user_settings.eod_hour` (default 19:00) → today
+//                             person's own `user_settings.eod_hour` (default 20:00) → today
 //   bugbot                  : { mode:'bugbot', id, state, note } -> the bug bot's status push, עידן ONLY
 //                             AUTH: X-Cron-Key (the home-server bot); tap opens #feedback-inbox?id=<id>
 //   gapReminder             : { mode:'gapReminder', person, count, token } → 📋 הפערים שלי (§7h)
@@ -67,6 +67,8 @@ import { emsValid as emsValidAt, timingSafeEqual } from "../_shared/http.ts";
 import { readingsPush } from "../readings-fetch/helpers.js";
 // bugbot: the 🤖 bug-bot push (עידן only; pure, tested in test-bugbot.mjs)
 import { bugbotPush, BUGBOT_RECIPIENTS } from "./bugbot.js";
+// who may approve / trigger an order push (pure, tested in test-push-auth.mjs)
+import { canApproveOrder, eventMatchesStatus, otype, qty } from "./orderAuth.js";
 
 // The EMS-login gate, the same check `github`/`calendar`/`transcribe` apply. Used by the modes
 // a BROWSER calls directly with a user's own token (feedbackNew); the order/attendance modes keep
@@ -88,6 +90,32 @@ async function requireCronOrEms(req: Request, token: string): Promise<{ ok: true
   return { ok: true, byCron };
 }
 
+// The signed-in person, read from the 180-min pass ems-auth mints (HS256 with JWT_SECRET,
+// role=authenticated, `name` claim) - verified HERE, not trusted from the body. The public anon
+// key is also a valid JWT but has no `name`, so it never gets through. null = not a signed-in person.
+async function passName(req: Request): Promise<string | null> {
+  const secret = Deno.env.get("JWT_SECRET") || Deno.env.get("EMS_BRIDGE_SECRET") || "";
+  const [h, p, s] = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").split(".");
+  if (!secret || !h || !p || !s) return null;
+  try {
+    const b64 = (x: string) => Uint8Array.from(atob(x.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(x.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
+    if (!(await crypto.subtle.verify("HMAC", key, b64(s), new TextEncoder().encode(h + "." + p)))) return null;
+    const c = JSON.parse(new TextDecoder().decode(b64(p)));
+    if (c.role !== "authenticated" || !(Number(c.exp) > Date.now() / 1000)) return null;
+    return typeof c.name === "string" && c.name ? c.name : null;
+  } catch { return null; }
+}
+
+// Inventory pushes stay silent while stock is not enforced (the `settings` row `stock_enforced`,
+// added with the certs/inventory switch). Missing row / read error = not enforced.
+async function stockEnforced(): Promise<boolean> {
+  try {
+    const { data } = await sb.from("settings").select("value").eq("key", "stock_enforced").maybeSingle();
+    return data?.value === true || data?.value === "true";
+  } catch { return false; }
+}
+
 const APPROVE_GROUP = ["אביאם", "ניתאי", "עמיחי"];
 // 📣 feedback box (spec §7 Part F) — the inbox owners, fixed server-side like every recipient list.
 const FEEDBACK_INBOX = ["עידן", "עמיחי"];
@@ -102,8 +130,6 @@ const INV_DIGEST_TO = ["עמיחי"];
 // Who is told when the 07:00 cron pull fails (partial/failed). Page access is separate (canUseReadings).
 const READINGS_ALERT_USERS = ["עידן", "עמיחי", "מתניה"];
 const USAGE_ROSTER = ["עידן", "אביאם", "ניתאי", "עמיחי", "מתניה"];
-const qty = (o: any) => (o.items || []).reduce((s: number, i: any) => s + (parseInt(i.qty) || 0), 0);
-const otype = (o: any) => o.order_type || o.orderType || (/בקשת לקוח/.test(o.notes || "") ? "customer" : "supplier");
 const needsAmichai = (o: any) => otype(o) === "supplier" && qty(o) > 10;
 function pendingApprovers(o: any) {
   if (otype(o) === "customer") return ["אביאם", "ניתאי"];
@@ -136,9 +162,9 @@ function israelNow() {
 // production until db/attendance_source.sql AND db/attendance_visit_backfill.sql (V-L1) are applied
 // and this function's deploy ships in the SAME release as the backfill — otherwise every existing
 // visit day of אביאם/ניתאי looks missing to this cron and it nags them for history that was never
-// theirs to log twice. Set of 'YYYY-MM-DD' the person has an ATTENDANCE record for, in the given month.
+// theirs to log twice. Set of 'YYYY-MM-DD' the person has an ATTENDANCE record for, in last month and the given month.
 async function haveDates(person: string, y: number, m: number): Promise<Set<string>> {
-  const lo = `${y}-${String(m).padStart(2, "0")}-01`;
+  const lo = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);   // 1st of LAST month: it keeps reminding
   const hi = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
   const have = new Set<string>();
   const att = await sb.from("attendance").select("date").eq("person", person).gte("date", lo).lt("date", hi);
@@ -156,7 +182,7 @@ async function haveDates(person: string, y: number, m: number): Promise<Set<stri
 //   • here                       priorMissingDates (field.ts) + the evening gate (the nudges)
 // A phone that buzzes "חסרה נוכחות" on יום כיפור is the failure this prevents.
 async function holidayOff(y: number, m: number): Promise<Set<string>> {
-  const lo = `${y}-${String(m).padStart(2, "0")}-01`;
+  const lo = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);   // 1st of LAST month: it keeps reminding
   const hi = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-01`;
   const off = new Set<string>();
   try {
@@ -172,7 +198,7 @@ async function holidayOff(y: number, m: number): Promise<Set<string>> {
 
 // ⏰ Everyone's chosen end-of-day hour (spec §7h), as `person → hour`. Never throws: the table
 // missing, the column missing or a transient read error all degrade to an empty map, which
-// `eodHourFor` reads as "he never chose one" → 19:00, the behaviour this job had for a year.
+// `eodHourFor` reads as "he never chose one" → the 20:00 default.
 async function eodHourMap(): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   try {
@@ -189,7 +215,7 @@ async function eodHourMap(): Promise<Record<string, number>> {
 // (priorMissingDates in ./field.ts is pinned equal to attendance.ts missingDays).
 async function fieldDates(person: string, y: number, m: number): Promise<Set<string>> {
   try {
-    const lo = new Date(Date.UTC(y, m - 1, 1) - 86400000).toISOString();
+    const lo = new Date(Date.UTC(y, m - 2, 1) - 86400000).toISOString();
     const hi = new Date(Date.UTC(y, m, 1) + 86400000).toISOString();
     const { data } = await sb.from("field_checkins").select("checked_in_at,dismissed").eq("person", person)
       .eq("dismissed", false).gte("checked_in_at", lo).lt("checked_in_at", hi);
@@ -299,7 +325,10 @@ function orderPayload(event: string, order: any, actor: string) {
       actions = [{ action: "approveOpen", title: "אישור" }, { action: "view", title: "צפייה" }];
       actUrls.approveOpen = APP + "?pushact=approve&oid=" + id + "#inventory";
     } else {
-      actions = [{ action: "approve", title: "אישור עכשיו" }, { action: "view", title: "צפייה" }];
+      // Supplier approval used to be a one-tap POST from the service worker with only the public
+      // key. It now opens the app (signed in), like the customer flow: the server checks who approves.
+      actions = [{ action: "approve", title: "אישור" }, { action: "view", title: "צפייה" }];
+      actUrls.approve = APP + "?pushact=approve&oid=" + id + "#inventory";
     }
   } else {
     actions = [{ action: "view", title: "צפייה" }];
@@ -323,6 +352,9 @@ Deno.serve(async (req: Request) => {
 
   // ---- scheduled attendance reminders (pg_cron hits this hourly; gate on Israel local hour) ----
   if (body.mode === "attendanceCron") {
+    // pg_cron already sends X-Cron-Key (push-attendance-hourly); the public anon key alone no longer fires it.
+    const auth = await requireCronOrEms(req, String(body.token || ""));
+    if (!auth.ok) return json({ error: auth.error }, auth.status);
     const t = israelNow();
     const since = new Date(Date.now() - 12 * 3600 * 1000).toISOString();   // 12h window → DST-proof idempotency
     const results: any[] = [];
@@ -618,6 +650,7 @@ Deno.serve(async (req: Request) => {
     if (!secret || !cronKey || !timingSafeEqual(cronKey, secret)) {
       return json({ error: "unauthorized: cron key required" }, 401);
     }
+    if (!(await stockEnforced())) return json({ ok: true, skipped: "stock not enforced" });
     const product = String(body.product || "").trim();
     if (!product) return json({ error: "bad request" }, 400);
     const qtyNow = Number(body.qty ?? 0);
@@ -654,6 +687,7 @@ Deno.serve(async (req: Request) => {
   if (body.mode === "inventoryDigest") {
     const auth = await requireCronOrEms(req, String(body.token || ""));
     if (!auth.ok) return json({ error: auth.error }, auth.status);
+    if (!(await stockEnforced())) return json({ ok: true, skipped: "stock not enforced" });
     // Only עידן may force one off-schedule (the release smoke), and only with a live EMS login.
     const forced = !!body.force && !auth.byCron && String(body.actor || "") === "עידן";
     const forceRefused = !!body.force && !forced;
@@ -751,14 +785,18 @@ Deno.serve(async (req: Request) => {
 
   // ---- one-tap approve (supplier orders only; customer approval must run in-app) ----
   if (body.mode === "approveOrder") {
+    // Verified identity only; the actor and the approver check come from it, never from the body.
+    const me = await passName(req);
+    if (!me) return json({ error: "unauthorized: signed-in user required" }, 401);
     const orderId = String(body.orderId || "");
     if (!orderId) return json({ error: "bad request" }, 400);
     const { data: order } = await sb.from("orders").select("*").eq("id", orderId).single();
     if (!order) return json({ ok: false, error: "order not found" }, 404);
     if (order.status !== "pending_approval") return json({ ok: true, status: order.status, noop: true });
     if (otype(order) === "customer") return json({ ok: false, error: "customer order — approve in app" }, 409);
+    if (!canApproveOrder(order, me)) return json({ ok: false, error: "not allowed to approve this order" }, 403);
     await sb.from("orders").update({ status: "pending" }).eq("id", orderId);   // supplier approve = plain status flip
-    const actor = String(body.actor || "עמיחי");
+    const actor = me;
     const recips = computeRecipients("approved", order, actor);
     if (recips.length) { const { payload, meta } = orderPayload("approved", order, actor); await sendTo(recips, payload, meta); }
     return json({ ok: true, status: "pending" });
@@ -817,13 +855,22 @@ Deno.serve(async (req: Request) => {
   }
 
   // ---- order events ----
-  const { event, orderId, actor } = body;
+  // AUTH: a signed-in person (or the cron key). The actor is the verified name, not body.actor.
+  const who = await passName(req);
+  const cronOk = (() => { const k = req.headers.get("x-cron-key"), sec = Deno.env.get("CRON_SECRET"); return !!sec && !!k && timingSafeEqual(k, sec); })();
+  if (!who && !cronOk) return json({ error: "unauthorized: signed-in user required" }, 401);
+  const { event, orderId } = body;
+  const actor = who || String(body.actor || "");
   if (!event || !orderId) return json({ error: "bad request" }, 400);
   const { data: order } = await sb.from("orders").select("*").eq("id", orderId).single();
   if (!order) return json({ ok: true, sent: 0, reason: "order not found" });
-  const recipients = computeRecipients(event, order, actor || "");
+  if (!eventMatchesStatus(event, order)) return json({ ok: true, sent: 0, reason: "event does not match order state" });
+  // One push per `event:orderId` - a replay (or a double tap) fires nothing.
+  const { data: dup } = await sb.from("push_log").select("id").eq("event", event).eq("order_id", String(orderId)).limit(1);
+  if (dup && dup.length) return json({ ok: true, sent: 0, reason: "already sent" });
+  const recipients = computeRecipients(event, order, actor);
   if (!recipients.length) return json({ ok: true, sent: 0 });
-  const { payload, meta } = orderPayload(event, order, actor || "");
+  const { payload, meta } = orderPayload(event, order, actor);
   const r = await sendTo(recipients, payload, meta);
   return json({ ok: true, sent: r.delivered, pruned: r.pruned });
 });

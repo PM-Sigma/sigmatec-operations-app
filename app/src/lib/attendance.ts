@@ -329,6 +329,24 @@ export function missingDays(
 }
 
 /**
+ * What the "חסר לך" list and the morning push both show: last month's open days PLUS this
+ * month's up to yesterday (owner 23.11 - last month keeps reminding until it is filled).
+ * `rowsFor` answers null while the snapshot is not there: that month contributes nothing.
+ * The push twin is lib/field.ts priorMissingDates (pinned equal in field.test.ts).
+ */
+export function missingWithPrior(
+  rowsFor: (year: number, month: number) => AttRow[] | null | undefined,
+  holidays: Holiday[] | null | undefined,
+  today: Date = new Date(),
+  fieldDays?: ReadonlySet<string> | null,
+): string[] {
+  const y = today.getFullYear(), m = today.getMonth() + 1;
+  const [py, pm] = m === 1 ? [y - 1, 12] : [y, m - 1];
+  const one = (yy: number, mm: number) => { const r = rowsFor(yy, mm); return r ? missingDays(r, holidays, today, yy, mm, fieldDays) : []; };
+  return [...one(py, pm), ...one(y, m)];
+}
+
+/**
  * The three chips at the top of the phone screen (שטח · משרד · חסרים) plus what the desktop
  * table's footer adds. `missing` is passed in rather than recomputed so the number on screen
  * can never disagree with the chips under it.
@@ -368,19 +386,23 @@ export function kpis(
  */
 export function missingByPerson(
   people: string[] | null | undefined,
-  rowsFor: (person: string) => AttRow[] | null | undefined,
+  rowsFor: (person: string, year?: number, month?: number) => AttRow[] | null | undefined,
   holidays: Holiday[] | null | undefined,
   today: Date = new Date(),
   year?: number,
   month?: number,
   fieldDaysFor?: (person: string) => ReadonlySet<string> | null | undefined,
+  /** Add last month's open days (the current-month view). */
+  withPrior = false,
 ): Array<{ person: string; dates: string[]; count: number; known: boolean }> {
   const out: Array<{ person: string; dates: string[]; count: number; known: boolean }> = [];
   for (const person of people || []) {
     if (!person) continue;
-    const rows = rowsFor(person);
+    const rows = rowsFor(person, year ?? today.getFullYear(), month ?? today.getMonth() + 1);
     if (rows == null) { out.push({ person, dates: [], count: 0, known: false }); continue; }
-    const dates = missingDays(rows, holidays, today, year, month, fieldDaysFor?.(person));
+    const dates = withPrior
+      ? missingWithPrior((y, m) => rowsFor(person, y, m), holidays, today, fieldDaysFor?.(person))
+      : missingDays(rows, holidays, today, year, month, fieldDaysFor?.(person));
     out.push({ person, dates, count: dates.length, known: true });
   }
   // Worst first — the point of the strip is who needs chasing. Ties keep the roster order,

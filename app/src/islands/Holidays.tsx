@@ -56,7 +56,7 @@ function HolidaysIsland() {
   const done = (msg: string) => {
     toast.success(msg);
     void qc.invalidateQueries({ queryKey: ['companyHolidays'] });
-    // The session's cached list (SHEET_DATA.holidays) has to follow, or the report and the
+    // The session's cached list (window._holidays) has to follow, or the report and the
     // grid keep the old answer until a reload.
     try {
       (window as any).attHolidaysLoaded = null;

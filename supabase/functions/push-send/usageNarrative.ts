@@ -30,13 +30,16 @@ export interface UsageEvent {
 
 /** The app's pages, in the order the heat table and the narrative walk them. */
 export const PAGE_LABEL: Record<string, string> = {
+  // The LIVE pages only (= SigmaPage minus the retired/off ones). A page missing here is never
+  // reported as "unused" - so ems / mytasks / staff / attendance (now inside fieldops) are gone,
+  // and a new page must be added here the day it ships.
   kibbutz: 'קיבוצים',
+  fieldops: 'פעולות שטח',
+  readings: 'קריאות',
+  reports: 'דוחות',
   inventory: 'מלאי',
-  attendance: 'נוכחות',
-  ems: 'משימות EMS',
-  mytasks: 'משימות',
   calendar: 'יומן',
-  staff: 'עובדים',
+  emsstats: 'סטטיסטיקת EMS',
   dev: 'פיתוח',
   pushlog: 'התראות',
   hours: 'שעות',
@@ -70,7 +73,7 @@ export const SEARCH_MISS = 'search-no-results';
 export const SHEET_DISMISSED = 'sheet-dismissed';
 
 /** Pages worth naming when a person never opened one. Kept short so the narrative stays readable. */
-const NOTABLE_PAGES = ['kibbutz', 'mytasks', 'calendar', 'inventory'];
+const NOTABLE_PAGES = ['kibbutz', 'fieldops', 'calendar', 'inventory'];
 
 const TZ = 'Asia/Jerusalem';
 

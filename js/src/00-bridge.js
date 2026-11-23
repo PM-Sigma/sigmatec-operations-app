@@ -257,7 +257,7 @@
           if (['מתניה', 'אליה'].indexOf(_b) !== -1) return false;            // BURN_HIDDEN (burns.ts)
           return ['אביאם', 'ניתאי', 'עידן', 'עמיחי'].indexOf(_b) !== -1;     // BURN_WRITERS (burns.ts)
         }
-        // ⏱ שעות מול לקוחות (22.9, E2): עידן · עמיחי · מתניה, and the viewer reads it.
+        // ⏱ שעות מול לקוחות (22.9, E2): עידן · עמיחי see all rows, מתניה only his own (RLS; page title "השעות שלי"), the viewer reads all.
         case 'hours': {
           if (call('isViewer', [], false)) return true;
           var _u = call('getCurrentUser', [], '');

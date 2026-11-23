@@ -1,9 +1,10 @@
 // Sigmatec Operations App — service worker.
-// NETWORK-FIRST for same-origin (always serves the latest deploy when online; falls back
-// to cache only when offline). This avoids the cache-first "stale deploy" trap. Cross-origin
-// (Supabase / Apps Script) is never touched → data is always live. build.mjs restamps CACHE
-// on every build so phones fetch fresh bytes each deploy.
-const CACHE = 'sigmatec-ops-mwtct3ky';
+// The page itself and the stamped shell files (?v=) paint FROM THE CACHE and refresh behind it
+// (stale-while-revalidate); everything else same-origin is network-first with a cache fallback
+// offline. Cross-origin (Supabase / Apps Script) is never touched, so data is always live.
+// build.mjs restamps CACHE on every build; `activate` drops the old caches and the version
+// watcher offers the reload. Notifications never call the API from here: every action opens the app.
+const CACHE = 'sigmatec-ops-mwtdp1h3';
 const SHELL = ['./', './index.html', './js/app.js', './css/app.min.css', './ui/sigma.js', './ui/sigma.css', './ui/manifest.json', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 // The React islands are code-split, so their file list is not knowable here — build.mjs
@@ -77,8 +78,6 @@ self.addEventListener('fetch', e => {
 
 // ===== Web Push — single handler for all events (order approvals + attendance reminders) =====
 // Payload from push-send: { title, body, tag, url, requireInteraction?, actions?, data:{oid,otype,actUrls} }.
-const SB_URL = 'https://wwqfcajnxinaxmobrgol.supabase.co';   // for the one-tap approve POST (anon key is public)
-const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3cWZjYWpueGluYXhtb2JyZ29sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTM3MTcsImV4cCI6MjA5NzY2OTcxN30.4kaIyZ1WbkHDHCfa-1iXAqDdgJOQqK_cUomvELLT7u4';
 
 self.addEventListener('push', e => {
   let d = {};
@@ -96,24 +95,6 @@ self.addEventListener('push', e => {
   }));
 });
 
-// One-tap supplier approve straight from the notification — no app window (customer orders use 'approveOpen'
-// which just deep-links into the in-app confirm, since they move stock + open an EMS task).
-async function approveFromPush(oid) {
-  try {
-    const r = await fetch(SB_URL + '/functions/v1/push-send', {
-      method: 'POST', headers: { apikey: SB_ANON, Authorization: 'Bearer ' + SB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'approveOrder', orderId: String(oid) })
-    });
-    const j = await r.json().catch(() => ({}));
-    const ok = r.ok && j.ok;
-    await self.registration.showNotification(ok ? '✅ ההזמנה אושרה' : '⚠️ האישור נכשל', {
-      body: ok ? 'ההזמנה עברה ל"ממתין להזמנה".' : (j.error || 'נסה שוב מתוך האפליקציה.'),
-      icon: './icons/icon-192.png', tag: 'approve-result-' + oid, dir: 'rtl', lang: 'he'
-    });
-  } catch (_) {
-    await self.registration.showNotification('⚠️ האישור נכשל', { body: 'אין חיבור — נסה מתוך האפליקציה.', icon: './icons/icon-192.png', dir: 'rtl', lang: 'he' });
-  }
-}
 function openApp(url) {
   return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
     for (const c of cs) { if ('focus' in c) { if ('navigate' in c) c.navigate(url).catch(() => {}); return c.focus(); } }
@@ -123,7 +104,6 @@ function openApp(url) {
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const data = e.notification.data || {};
-  if (e.action === 'approve' && data.oid) { e.waitUntil(approveFromPush(data.oid)); return; }   // supplier one-tap
   const url = (data.actUrls && data.actUrls[e.action]) || data.url || './index.html';           // buttons + body-click
   e.waitUntil(openApp(url));
 });

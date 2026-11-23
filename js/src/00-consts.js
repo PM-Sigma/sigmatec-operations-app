@@ -24,7 +24,7 @@
   // time in js/src/11-search-login.js — file 11, one file too early — and the chain
   // readSnapshot → sbGet → sbEnsure → window.sbEnsurePass → mintBody → getEmsToken →
   // emsSessionExpired threw `Cannot access 'EMS_TOKEN_AT_KEY' before initialization`. The
-  // catch in 01-data.js swallowed it and fell back to Apps Script, so the app showed a
+  // catch in 01-data.js swallowed it and fell back to a stale cached snapshot, so the app showed a
   // three-month-old snapshot with no visible error.
   //
   // The rule this file exists to keep: anything reachable from boot lives in file 00.

@@ -19,13 +19,18 @@ export interface WorkSessionRow {
   created_at?: string | null;
 }
 
-/** The three people the page is for; the viewer reads it too. */
+/** The people the page is for; the viewer reads it too. RLS (db/rls_person_scoped.sql ws_read_scoped):
+ *  עידן + עמיחי + the viewer read EVERY row, מתניה only his own. */
 export const HOURS_PEOPLE = ['עידן', 'עמיחי', 'מתניה'];
 /** Who may edit rows and add manual ones (every change is logged in the database). */
 export const HOURS_EDITORS = ['עידן', 'עמיחי'];
 
 export function canSeeHours(user: string, isViewer: boolean): boolean {
   return isViewer || HOURS_PEOPLE.includes(String(user ?? '').trim());
+}
+/** Sees only his own rows (מתניה): the page must say so instead of looking like the whole team's. */
+export function seesOnlyOwnHours(user: string, isViewer: boolean): boolean {
+  return canSeeHours(user, isViewer) && !isViewer && !HOURS_EDITORS.includes(String(user ?? '').trim());
 }
 export function canEditHours(user: string, isViewer: boolean): boolean {
   return !isViewer && HOURS_EDITORS.includes(String(user ?? '').trim());

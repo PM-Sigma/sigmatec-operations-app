@@ -406,7 +406,7 @@ function SettingsPanel() {
                   <ControlRow label="השעה שבה מגיעה התזכורת לעדכן את היום">
                     <SegmentedControl<string>
                       ariaLabel="תזכורת סוף יום"
-                      value={String(settings.eod_hour ?? 19)}
+                      value={String(settings.eod_hour ?? 20)}
                       onChange={v => set({ eod_hour: Number(v) }, v)}
                       options={EOD_OPTIONS}
                     />
