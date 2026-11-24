@@ -25,7 +25,10 @@ export default defineConfig({
       input: path.resolve(__dirname, 'src/main.tsx'),
       output: {
         entryFileNames: 'sigma.js',
-        chunkFileNames: 'sigma-[name].js',
+        // lowercase on purpose (24.11): `meetingNotes` (lib) and `MeetingNotes` (component) chunks differed only
+        // by case — one file on Windows, two on GitHub Pages — so the committed ui/ held the wrong bytes and the
+        // field island failed to load. Lowercasing makes Rollup dedupe them (…2.js) the same way on every OS.
+        chunkFileNames: (c) => 'sigma-' + c.name.toLowerCase() + '.js',
         assetFileNames: 'sigma.[ext]',
       },
     },

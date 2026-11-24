@@ -7,6 +7,15 @@ All notable changes to the **Sigmatec Operations App**. Format follows
 > doc file + [backlog.md](backlog.md) state. Full session detail is captured automatically by
 > claude-mem (search with the `mem-search` skill).
 
+## 2026-11-24 - HOTFIX: the visit button did nothing (field island failed to load) (2.196)
+- Symptom (עידן + אביאם, phone): tapping ביקור animated but opened nothing. `sigma-field` stopped mounting after 2.195.
+- Cause: two Vite chunks differed only by case (`meetingNotes` lib vs `MeetingNotes` component). On Windows they are one file, so
+  the committed ui/ kept old names/bytes (`sigma-MeetingNotes.js`, `sigma-meetingNotes2.js`) while the build referenced the swapped
+  case; GitHub Pages (case-sensitive) served the wrong module and `sigma-Field.js` failed on missing exports.
+- Fix: `chunkFileNames` lowercases every chunk name (Rollup then dedupes `…2.js` identically on every OS); ui/ re-indexed in git with
+  the real names. New `test-ui-imports.mjs` checks every ui/ import case-sensitively against the tracked files (781 imports).
+- Rollback: revert this commit.
+
 ## 2026-11-23 - Attendance alerts: 4 fixes (אביאם/ניתאי "missing day" noise)
 - **Why:** the missing-day alerts felt buggy: a legacy popup with no holiday check, a morning push that stacked a growing list
   every day incl. Fri/Sat/holidays, field days counted as missing, and every manual save adding a second row for the day.
