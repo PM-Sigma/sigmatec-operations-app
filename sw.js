@@ -4,7 +4,7 @@
 // offline. Cross-origin (Supabase / Apps Script) is never touched, so data is always live.
 // build.mjs restamps CACHE on every build; `activate` drops the old caches and the version
 // watcher offers the reload. Notifications never call the API from here: every action opens the app.
-const CACHE = 'sigmatec-ops-mwuettng';
+const CACHE = 'sigmatec-ops-mwufkk5b';
 const SHELL = ['./', './index.html', './js/app.js', './css/app.min.css', './ui/sigma.js', './ui/sigma.css', './ui/manifest.json', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 // The React islands are code-split, so their file list is not knowable here — build.mjs
